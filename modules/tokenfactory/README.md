@@ -16,10 +16,12 @@ The creator becomes the initial admin. Authority metadata also has an optional
 
 Changing admin preserves `issuer_did` and the original creator namespace. Issuer
 binding does not remove the admin's mint, burn, metadata or allow-list powers;
-it changes who may control pause state. An empty admin is representable in
-stored authority metadata and genesis, but normal `MsgChangeAdmin` validation
-requires a valid, nonempty bech32 `new_admin`. Empty-string renunciation is
-therefore unavailable through a validated transaction.
+it changes who may control pause state. A validated `MsgChangeAdmin` can set
+`new_admin` to an empty string to renounce admin authority. Nonempty replacement
+admins must be valid bech32 addresses. Renunciation preserves the issuer binding
+and pause state, but permanently removes the admin's powers: a former admin
+cannot mint, burn, update metadata or allow lists, change admin, or use the admin
+pause message. A bound issuer retains its independent keeper authority.
 
 The wire definitions are in [tx.proto](../../api/tokenfactory/tx.proto),
 [query.proto](../../api/tokenfactory/query.proto) and
@@ -71,8 +73,9 @@ Both mint and burn refuse a paused denom with `ErrDenomPaused`.
 `MsgChangeAdmin` has `sender`, `denom` and `new_admin`. The current admin can
 transfer authority to another valid native bech32 address. Selecting the
 existing admin returns `ErrAdminAlreadyExists`. The denom name, creator index
-and issuer binding remain unchanged. Passing `new_admin: ""` fails normal
-message validation even though the underlying metadata type permits it.
+and issuer binding remain unchanged. Passing `new_admin: ""` renounces admin
+authority. The sender must still be the current admin and a valid native bech32
+address; an empty sender cannot reclaim a renounced denom.
 
 ### SetDenomMetadata
 
@@ -252,6 +255,12 @@ invalid authority metadata and pause entries outside `factory_denoms` are
 rejected. Unknown paused denoms cause `InitGenesis` to panic with
 `ErrDenomDoesNotExist`.
 
+An empty admin remains empty across export/import; genesis does not reinstate
+the creator's authority. `ExportGenesisStream` captures the same JSON bytes as
+`ExportGenesis` before returning a one-element, closed channel. Mutating or
+closing the producer store before draining the channel does not alter that
+snapshot.
+
 Tokenfactory genesis does not contain bank balances, supply, customized bank
 metadata or allow lists. Preserve the corresponding bank state as part of a
 full application export/import; tokenfactory-only genesis recreates default
@@ -332,6 +341,17 @@ paxd tx tokenfactory set-denom-paused "$DENOM" false --from mylocalwallet
 To change admin, use
 `paxd tx tokenfactory change-admin "$DENOM" <new-native-bech32-address> --from mylocalwallet`.
 Subsequent admin messages must be signed by the new admin.
+
+To permanently renounce admin authority, pass an explicitly quoted empty
+argument while signing as the current admin:
+
+```sh
+paxd tx tokenfactory change-admin "$DENOM" "" --from mylocalwallet
+```
+
+After that transaction succeeds, the former admin cannot restore its authority.
+A bound issuer can still control pause state and use its mint/burn keeper APIs;
+an unbound denom has no remaining admin to change its pause state.
 
 ## Appendix: Expectations from the Chain
 

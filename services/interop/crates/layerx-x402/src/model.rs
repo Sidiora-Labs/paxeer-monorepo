@@ -493,6 +493,9 @@ pub enum X402Error {
     InvalidAmount,
     InvalidRequirements,
     InvalidPayload,
+    PaymentIdentityMissing,
+    PaymentIdentityMalformed,
+    PaymentIdentityMismatch,
     ProfileMissing,
     ProfileMismatch,
     UnsupportedOffer,
@@ -516,6 +519,14 @@ impl Display for X402Error {
             Self::InvalidAmount => formatter.write_str("x402 amount is not a canonical integer"),
             Self::InvalidRequirements => formatter.write_str("x402 requirements are invalid"),
             Self::InvalidPayload => formatter.write_str("x402 payment payload is invalid"),
+            Self::PaymentIdentityMissing => {
+                formatter.write_str("native payment idempotencyKey is missing")
+            }
+            Self::PaymentIdentityMalformed => {
+                formatter.write_str("native payment idempotencyKey is malformed")
+            }
+            Self::PaymentIdentityMismatch => formatter
+                .write_str("native payment idempotencyKey conflicts with the requested key"),
             Self::ProfileMissing => formatter
                 .write_str("layerx offer carries no extra.layerx account and currency terms"),
             Self::ProfileMismatch => {

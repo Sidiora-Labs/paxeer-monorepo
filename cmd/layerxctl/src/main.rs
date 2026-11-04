@@ -400,6 +400,25 @@ fn submit(client: &SequencerEndpoint, raw: &[u8]) -> Result<(String, ExitCode), 
     ))
 }
 
+/// Run the supported node CLI contract (`read-state`, `submit`, and `--help`).
+///
+/// `read-state` uses `eth_call` at `pending` unless `--block-height` selects a
+/// numeric height. `submit` reads binary signed EIP-1559 bytes, checks the
+/// `eth_sendRawTransaction` hash against the local transaction hash, then fetches
+/// `pax_sequencerReceipt` and the `px_getReceiptKeys` key envelope. Receipted and
+/// committed responses both require canonical receipt verification by
+/// `layerx_proof::receipt`, a key authorized at the receipt height, transaction
+/// binding, the sequence root, and agreement with the signed effects and view.
+/// Only then is `state=receipted` printed: exit 0 for result 0, exit 1 for an
+/// executed failure. Unavailable or unverified receipts retain `state=submitted`
+/// with exit 3; malformed input and refused requests return an error (exit 1).
+/// This command does not establish block finality.
+///
+/// CLI transaction files and read data use the local 1,048,576-byte input bound;
+/// pinned DER certificate files use a separate 65,536-byte bound. HTTPS requires
+/// that certificate. Production uses the client, proof, types, crypto, SHA-256
+/// and libc dependencies; layerx-wire is a dev dependency for receipt fixtures.
+/// Domain 5 registry wiring is tracked in `src/repair_22_33_1078.kvx`.
 pub(crate) fn run(arguments: &[String]) -> Result<(String, ExitCode), String> {
     let Some(command) = arguments.first() else {
         return Err(USAGE.to_owned());

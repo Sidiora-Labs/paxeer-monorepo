@@ -8,7 +8,7 @@
 //! consume configuration. Each observation decodes new bytes and builds a new
 //! client; the second producer changes every inventoried field.
 //!
-//! The inventory describes an optional trust anchor, but clients.rs::LayerxConfig
+//! The corrected contract requires a trust anchor; clients.rs::LayerxConfig
 //! requires a PathBuf. Missing and null anchors remain refused: authenticated
 //! RPC configuration must supply its pinned certificate. The test functions
 //! retain the inventory's five type names and exercise their corresponding keys.
@@ -17,7 +17,6 @@ use std::fs;
 use std::io::Write as _;
 use std::os::unix::fs::{OpenOptionsExt as _, PermissionsExt as _};
 use std::path::PathBuf;
-use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
@@ -38,10 +37,10 @@ struct RampConfig {
     layerx: LayerxConfig,
 }
 
-struct ClientFiles(PathBuf);
+pub(crate) struct ClientFiles(pub(crate) PathBuf);
 
 impl ClientFiles {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         let path = std::env::temp_dir().join(format!(
             "proof-ramp-layerx-config-{}-{}",
             std::process::id(),
@@ -51,38 +50,23 @@ impl ClientFiles {
         fs::set_permissions(&path, fs::Permissions::from_mode(0o700))
             .expect("protect credential directory");
         let files = Self(path);
-        files.openssl(&[
-            "req",
-            "-x509",
-            "-newkey",
-            "rsa:2048",
-            "-nodes",
-            "-days",
-            "1",
-            "-subj",
-            "/CN=ramp-config-proof",
-            "-keyout",
-            "key.pem",
-            "-out",
-            "ca.pem",
-        ]);
-        files.openssl(&[
-            "x509", "-in", "ca.pem", "-outform", "DER", "-out", "ca-0.der",
-        ]);
-        fs::copy(files.0.join("ca-0.der"), files.0.join("ca-1.der"))
-            .expect("second configured anchor path");
-        files.openssl(&[
-            "pkcs12",
-            "-export",
-            "-inkey",
-            "key.pem",
-            "-in",
-            "ca.pem",
-            "-out",
-            "identity.p12",
-            "-passout",
-            "pass:ramp-config-proof",
-        ]);
+        // Committed test-only identity; no subprocess or installed TLS tool is needed.
+        fs::write(
+            files.0.join("ca.pem"),
+            include_bytes!("../src/repair_22_33_1486/ca.pem"),
+        )
+        .unwrap();
+        fs::write(
+            files.0.join("ca-0.der"),
+            include_bytes!("../src/repair_22_33_1486/ca.der"),
+        )
+        .unwrap();
+        fs::copy(files.0.join("ca-0.der"), files.0.join("ca-1.der")).unwrap();
+        fs::write(
+            files.0.join("identity.p12"),
+            include_bytes!("../src/repair_22_33_1486/identity.p12"),
+        )
+        .unwrap();
         fs::set_permissions(
             files.0.join("identity.p12"),
             fs::Permissions::from_mode(0o600),
@@ -104,20 +88,7 @@ impl ClientFiles {
         files
     }
 
-    fn openssl(&self, args: &[&str]) {
-        let output = Command::new("openssl")
-            .args(args)
-            .current_dir(&self.0)
-            .output()
-            .expect("generate real TLS credentials");
-        assert!(
-            output.status.success(),
-            "openssl failed: {}",
-            std::string::String::from_utf8_lossy(&output.stderr)
-        );
-    }
-
-    fn http(&self) -> MutualTlsClient {
+    pub(crate) fn http(&self) -> MutualTlsClient {
         MutualTlsClient::new(
             &MutualTlsFiles {
                 ca_pem: self.0.join("ca.pem"),
@@ -131,7 +102,7 @@ impl ClientFiles {
         .expect("real mutual TLS client")
     }
 
-    fn producer(&self, round: u8) -> LayerxConfig {
+    pub(crate) fn producer(&self, round: u8) -> LayerxConfig {
         let signing_key = SigningKey::from_bytes(&[round + 1; 32]);
         LayerxConfig {
             rpc_endpoint: format!("https://sequencer-{round}.example.test/rpc"),

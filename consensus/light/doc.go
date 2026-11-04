@@ -63,31 +63,58 @@ This package provides three major things:
 
 Example usage:
 
-	db, err := dbm.NewGoLevelDB("light-client-db", dbDir)
-	if err != nil {
-		// handle error
-	}
+The primary and independent witnesses must serve Tendermint/CometBFT signed
+headers through the commit RPC and the corresponding validator sets through
+the validators RPC. Each commit must contain signatures from more than two
+thirds of the validator voting power. Obtain the initial header's chain ID,
+height and hash from a trusted source outside these RPC connections, within
+the trusting period; an unverified RPC response is not a trust anchor.
 
-	c, err := NewHTTPClient(
-		chainID,
-		TrustOptions{
-			Period: 504 * time.Hour, // 21 days
-			Height: 100,
-			Hash:   header.Hash(),
-		},
-		"http://localhost:26657",
-		[]string{"http://witness1:26657"},
-		dbs.New(db, ""),
+On the merged network, an Autobahn endpoint does not supply this commitment
+format: its commit RPC returns ErrCommitNotAvailable. Autobahn finalized block
+headers, execution receipts and committee listings alone cannot supply a
+verifiable LightBlock for this client. Use this example only with a source
+that actually produces the signed commits and validator sets described above;
+it does not verify Autobahn finality.
+
+	import (
+		"context"
+		"time"
+
+		"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/light"
+		dbs "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/light/store/db"
+		"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
+		dbm "github.com/tendermint/tm-db"
 	)
-	if err != nil {
-		// handle error
-	}
 
-	h, err := c.TrustedHeader(100)
-	if err != nil {
-		// handle error
+	func trustedLightBlock(ctx context.Context, chainID, dbDir, primary string,
+		witnesses []string, header *types.Header) (*types.LightBlock, error) {
+		db, err := dbm.NewGoLevelDB("light-client-db", dbDir)
+		if err != nil {
+			return nil, err
+		}
+		defer db.Close()
+
+		blacklistTTL := 5 * time.Minute
+		c, err := light.NewHTTPClient(
+			ctx,
+			chainID,
+			light.TrustOptions{
+				Period: 504 * time.Hour, // 21 days
+				Height: header.Height,
+				Hash:   header.Hash(),
+			},
+			primary,
+			witnesses,
+			dbs.New(db),
+			blacklistTTL,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		return c.TrustedLightBlock(header.Height)
 	}
-	fmt.Println("header", h)
 
 Check out other examples in example_test.go
 

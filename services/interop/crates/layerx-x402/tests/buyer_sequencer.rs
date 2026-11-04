@@ -230,10 +230,16 @@ fn capture(
     response: &SettlementResponse,
 ) -> Result<CapturedSettlement, X402Error> {
     let header = STANDARD.encode(serde_json::to_vec(response).map_err(|_| X402Error::Encode)?);
-    Buyer::capture_settlement(
+    let anchors = if response.extensions["layerx"]["verificationLevel"] == "committed" {
+        vec![configured_recorded_anchor().map_err(|_| X402Error::EvidenceMismatch)?]
+    } else {
+        vec![]
+    };
+    Buyer::capture_settlement_with_consensus(
         &header,
         payment,
         buyer.receipt_keys(),
+        &anchors,
         &TraceId::mint([0xab; 16]),
     )
     .map_err(Traced::into_error)
@@ -483,7 +489,7 @@ fn committed_settlement_proof(
     let data_hash = merkle::root(&[&batch_hash, &transaction_hash]);
     let aunt = merkle::root(&[&transaction_hash]);
 
-    let validator = SigningKey::from_bytes(&[0x39; 32]);
+    let validator = SigningKey::from_bytes(&[0x51; 32]);
     let public_key = validator.verifying_key().to_bytes();
     let validators = [Validator {
         pub_key: public_key,
@@ -493,7 +499,7 @@ fn committed_settlement_proof(
     let address = Sha256::digest(public_key)[..20].to_vec();
     let execution = Header {
         version: ConsensusVersion { block: 11, app: 0 },
-        chain_id: "x402-buyer-proof".to_owned(),
+        chain_id: "paxeer-test-consensus".to_owned(),
         height: height.try_into()?,
         time: Timestamp {
             seconds: 1_700_000_000,
@@ -513,6 +519,7 @@ fn committed_settlement_proof(
     let block_hash = execution.hash();
     let mut successor = execution.clone();
     successor.height += 1;
+    successor.time.seconds += 1;
     successor.last_block_id.hash = block_hash.to_vec();
     let header_hash = successor.hash();
     let parts_hash = Sha256::digest(header_hash);
@@ -809,8 +816,14 @@ fn seller_committed_settlement_is_captured_by_the_buyer() -> TestResult {
         response.extensions["layerx"]["proof"],
         expected.extensions["layerx"]["proof"]
     );
-    let captured = Buyer::capture_settlement(&header, &payment, buyer.receipt_keys(), &trace)
-        .map_err(Traced::into_error)?;
+    let captured = Buyer::capture_settlement_with_consensus(
+        &header,
+        &payment,
+        buyer.receipt_keys(),
+        &[configured_recorded_anchor()?],
+        &trace,
+    )
+    .map_err(Traced::into_error)?;
     assert_eq!(captured.rung, "committed");
     assert_eq!(
         captured.transaction_hash,
@@ -913,4 +926,24 @@ fn seller_refuses_committed_evidence_without_a_proof() -> TestResult {
         );
     }
     Ok(())
+}
+
+#[path = "support/repair_22_33_105.rs"]
+mod repair_path;
+
+#[test]
+fn independent_anchor_refuses_foreign_chains_and_selected_validators() {
+    repair_path::consensus_anchor_progression();
+}
+
+fn configured_recorded_anchor() -> TestResult<layerx_x402::buyer::TrustedConsensusAnchor> {
+    // This checkpoint comes from the committed input fixture, never from the
+    // PAYMENT-RESPONSE currently being captured.
+    let (buyer, _, response, case) = recorded("V1-layerxledger-pay-exact")?;
+    let checkpoint = committed_settlement_proof(&buyer, &response, &case)?;
+    Ok(layerx_x402::buyer::TrustedConsensusAnchor::new(
+        "eip155:125".to_owned(),
+        checkpoint.proof.execution_header,
+        checkpoint.validators,
+    )?)
 }

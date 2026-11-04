@@ -1,0 +1,8 @@
+[repair.22.33.1362]
+audit = "22.30.74"
+stream-retained-identities = "tests/agent/sdk/python/test_repair_22_33_1362.py::test_stream_retained_identities_are_bounded_over_real_history_transport; test_stream_rejects_recent_ids_and_old_positions_after_eviction; test_stream_rejects_within_page_duplicates_before_committing_any_event; test_stream_large_page_retains_delivery_order_and_rejects_early_duplicate"
+stream-empty-page-loop = "tests/agent/sdk/python/test_repair_22_33_1362.py::test_stream_empty_page_loop_backs_off_then_delivers_real_history; test_stream_default_polling_waits_after_empty_page; test_stream_empty_page_loop_cancellation_interrupts_idle_wait; test_stream_pre_cancelled_iterator_never_calls_real_client; test_stream_rejects_poll_intervals_that_cannot_bound_idle_requests; test_stream_cursor_validation_is_atomic_including_empty_pages"
+proof = "In-process history store -> loopback HTTP JSON-RPC -> production PxClient.get_history and history decoder -> typed stream source -> production ResumableStream -> delivered HistoryRow values. Additional atomic validation cases use decoded rows."
+baseline = "Not run: the explicit ordered gate instructions prohibit testing before complete implementation or invoking verify_cmd outside hf-done. No pre-change failure claim is made."
+wiring_requests = "None; both proposals and the Python type declarations are within scope."
+qualification = "The bounded hf-build and hf-done ledger supplies the exact candidate revision, command, exit code and private evidence location; this record makes no unexecuted gate claim."

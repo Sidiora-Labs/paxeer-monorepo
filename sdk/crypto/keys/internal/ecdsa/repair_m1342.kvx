@@ -1,0 +1,12 @@
+[repair.22.33.1342]
+audit = "22.30.73"
+baseline = "Not run: the task's ordered qualification instructions prohibit tests before full implementation and prohibit running verify_cmd by hand; no baseline failures are claimed."
+wiring_requests = "None: both proposals are implemented within the allowed directory."
+
+[finding.p256-private-scalar]
+tests = ["TestRepairM_1342_PrivateScalarProtobuf", "TestRepairM_1342_PrivateStatePreserved"]
+repair = "Validate 0 < D < N and the derived public point before replacing private-key state; prove outer secp256r1 protobuf rejection and valid-boundary signing, plus preservation of existing state on rejected imports."
+
+[finding.ecdsa-address-cache]
+tests = ["TestRepairM_1342_AddressCache"]
+repair = "Clear the cached address after installing a validated public point; prove reuse of one helper for two real protobuf-transported keys, with Address calls between imports and preservation after rejected imports."

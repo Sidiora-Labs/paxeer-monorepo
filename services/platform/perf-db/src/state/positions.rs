@@ -1,6 +1,6 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
-use dashmap::DashMap;
+use parking_lot::RwLock;
 
 use crate::core::types::{Position, PositionStatus};
 
@@ -11,93 +11,67 @@ use crate::core::types::{Position, PositionStatus};
 /// - `user:positions:{addr}` → `by_user()`
 /// - `market:positions:{mid}` → `by_market()`
 ///
-/// Concurrency: DashMap provides sharded RwLock — concurrent reads/writes
-/// without external synchronization. Secondary indexes are eventually consistent
-/// (nanosecond delay between primary insert and index update).
+/// Concurrency: primary records and secondary indexes are published under one lock.
 pub struct PositionTable {
-    positions: DashMap<[u8; 32], Position>,
-    by_user: DashMap<[u8; 20], HashSet<[u8; 32]>>,
-    by_market: DashMap<u16, HashSet<[u8; 32]>>,
+    state: RwLock<PositionState>,
+}
+
+#[derive(Default)]
+struct PositionState {
+    positions: HashMap<[u8; 32], Position>,
+    by_user: HashMap<[u8; 20], HashSet<[u8; 32]>>,
+    by_market: HashMap<u16, HashSet<[u8; 32]>>,
 }
 
 impl PositionTable {
     pub fn new() -> Self {
         Self {
-            positions: DashMap::new(),
-            by_user: DashMap::new(),
-            by_market: DashMap::new(),
+            state: RwLock::new(PositionState::default()),
         }
     }
 
-    /// Insert or replace a position. Updates all indexes.
+    /// Insert or replace a position. Updates all indexes atomically.
     pub fn insert(&self, position: Position) {
-        let pid = position.position_id;
-        let user = position.user_address;
-        let market = position.market_id;
-
-        self.positions.insert(pid, position);
-
-        self.by_user
-            .entry(user)
-            .or_insert_with(HashSet::new)
-            .insert(pid);
-
-        self.by_market
-            .entry(market)
-            .or_insert_with(HashSet::new)
-            .insert(pid);
+        self.state.write().insert(position.position_id, position);
     }
 
     /// Get a position by ID. O(1).
     pub fn get(&self, position_id: &[u8; 32]) -> Option<Position> {
-        self.positions.get(position_id).map(|r| r.clone())
+        self.state.read().positions.get(position_id).cloned()
     }
 
     /// Update a position in place. Returns `true` if the position exists.
     ///
-    /// The callback receives a mutable reference under the DashMap shard lock.
-    /// Keep the callback fast to avoid contention.
+    /// The callback runs under the table write lock. Keep it fast and do not
+    /// call back into the table. Coordinate changes update indexes atomically.
     pub fn update(&self, position_id: &[u8; 32], f: impl FnOnce(&mut Position)) -> bool {
-        match self.positions.get_mut(position_id) {
-            Some(mut entry) => {
-                f(entry.value_mut());
-                true
-            }
-            None => false,
-        }
+        let mut state = self.state.write();
+        let Some(mut position) = state.positions.get(position_id).cloned() else {
+            return false;
+        };
+        f(&mut position);
+        state.insert(*position_id, position);
+        true
     }
 
     /// Remove a position and clean up all indexes.
     pub fn remove(&self, position_id: &[u8; 32]) -> Option<Position> {
-        let (_, pos) = self.positions.remove(position_id)?;
-
-        if let Some(mut set) = self.by_user.get_mut(&pos.user_address) {
-            set.remove(position_id);
-            if set.is_empty() {
-                drop(set);
-                self.by_user.remove(&pos.user_address);
-            }
-        }
-
-        if let Some(mut set) = self.by_market.get_mut(&pos.market_id) {
-            set.remove(position_id);
-            if set.is_empty() {
-                drop(set);
-                self.by_market.remove(&pos.market_id);
-            }
-        }
-
-        Some(pos)
+        let mut state = self.state.write();
+        let position = state.positions.remove(position_id)?;
+        state.remove_indexes(position_id, &position);
+        Some(position)
     }
 
     /// All positions for a user (any status).
     pub fn by_user(&self, user_address: &[u8; 20]) -> Vec<Position> {
-        self.collect_from_index(&self.by_user, user_address)
+        let state = self.state.read();
+        state.collect_from_index(&state.by_user, user_address)
     }
 
     /// All positions for a market (any status).
     pub fn by_market(&self, market_id: u16) -> Vec<Position> {
-        self.collect_from_index(&self.by_market, &market_id)
+        let state = self.state.read();
+        state.collect_from_index(&state.by_market, &market_id)
     }
 
     /// Open positions for a user.
@@ -118,36 +92,70 @@ impl PositionTable {
 
     /// Total number of positions (all statuses).
     pub fn count(&self) -> usize {
-        self.positions.len()
+        self.state.read().positions.len()
     }
 
     /// Number of open positions.
     pub fn open_count(&self) -> usize {
-        self.positions
-            .iter()
-            .filter(|r| matches!(r.value().status, PositionStatus::Open))
+        self.state
+            .read()
+            .positions
+            .values()
+            .filter(|position| matches!(position.status, PositionStatus::Open))
             .count()
     }
 
     /// All positions (for iteration, diagnostics, snapshots).
     pub fn all(&self) -> Vec<Position> {
-        self.positions.iter().map(|r| r.value().clone()).collect()
+        self.state.read().positions.values().cloned().collect()
     }
 
     /// Check if a position exists.
     pub fn contains(&self, position_id: &[u8; 32]) -> bool {
-        self.positions.contains_key(position_id)
+        self.state.read().positions.contains_key(position_id)
+    }
+}
+
+impl PositionState {
+    fn insert(&mut self, position_id: [u8; 32], position: Position) {
+        if let Some(previous) = self.positions.remove(&position_id) {
+            self.remove_indexes(&position_id, &previous);
+        }
+        self.by_user
+            .entry(position.user_address)
+            .or_default()
+            .insert(position_id);
+        self.by_market
+            .entry(position.market_id)
+            .or_default()
+            .insert(position_id);
+        self.positions.insert(position_id, position);
+    }
+
+    fn remove_indexes(&mut self, position_id: &[u8; 32], position: &Position) {
+        if let Some(ids) = self.by_user.get_mut(&position.user_address) {
+            ids.remove(position_id);
+            if ids.is_empty() {
+                self.by_user.remove(&position.user_address);
+            }
+        }
+        if let Some(ids) = self.by_market.get_mut(&position.market_id) {
+            ids.remove(position_id);
+            if ids.is_empty() {
+                self.by_market.remove(&position.market_id);
+            }
+        }
     }
 
     fn collect_from_index<K: Eq + std::hash::Hash>(
         &self,
-        index: &DashMap<K, HashSet<[u8; 32]>>,
+        index: &HashMap<K, HashSet<[u8; 32]>>,
         key: &K,
     ) -> Vec<Position> {
         match index.get(key) {
             Some(ids) => ids
                 .iter()
-                .filter_map(|pid| self.positions.get(pid).map(|r| r.clone()))
+                .filter_map(|pid| self.positions.get(pid).cloned())
                 .collect(),
             None => Vec::new(),
         }

@@ -53,6 +53,7 @@ impl Journal {
             .map_err(|error| format!("{LOCK_REFUSAL}: {error}"))?;
         sync_directory(directory)?;
         let mut records = 0_usize;
+        let mut committed_bytes = 0_u64;
         if path.exists() {
             let mut reader = BufReader::new(
                 File::open(&path).map_err(|error| format!("journal open: {error}"))?,
@@ -72,8 +73,23 @@ impl Journal {
                     break;
                 }
                 if bytes.last() != Some(&b'\n') {
-                    return Err("truncated or oversized journal record".to_owned());
+                    // append writes at most MAX_RECORD_BYTES, including its commit
+                    // delimiter. Only a bounded EOF suffix can be an interrupted
+                    // append; complete malformed lines and oversized tails fail.
+                    if count >= MAX_RECORD_BYTES
+                        || !reader
+                            .fill_buf()
+                            .map_err(|error| error.to_string())?
+                            .is_empty()
+                    {
+                        return Err("oversized journal record".to_owned());
+                    }
+                    file.set_len(committed_bytes)
+                        .and_then(|()| file.sync_all())
+                        .map_err(|error| format!("journal tail recovery: {error}"))?;
+                    break;
                 }
+                committed_bytes += count as u64;
                 let line = std::str::from_utf8(&bytes)
                     .map_err(|error| error.to_string())?
                     .trim_end_matches('\n');

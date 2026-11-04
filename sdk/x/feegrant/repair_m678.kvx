@@ -1,0 +1,21 @@
+[repair.22.33.678]
+audit = "22.30.167"
+feegrant-error-assertions = "TestRepairM_678_FeegrantErrorAssertions"
+zero-period = "TestRepairM_678_ZeroPeriod"
+feegrant-types-doc = "TestRepairM_678_FeegrantTypesDoc"
+feegrant-events-doc = "TestRepairM_678_FeegrantEventsDoc"
+wiring_requests = "None: all four proposals are contained in sdk/x/feegrant."
+baseline = "Not run: the explicit implementation-first gate order prohibits a pre-change verify run; no pre-change failing tests are claimed."
+evidence = "The runner's hf-build/hf-done ledger records the exact qualified candidate revision, command, exit and private log location."
+
+[gotcha.task-record]
+observed = "Spec and root-ledger edits are forbidden by this task's scope; this in-scope task record carries the finding-to-test mapping and gotchas."
+
+[gotcha.prior-repair]
+observed = "The starting tree already preserves filtered removal flags and documents all three allowance types; retain those fixes and prove their behavior through the current task's tests."
+
+[gotcha.persisted-period]
+observed = "The low-level keeper can store allowances without ValidateBasic; reject nonpositive periods in Accept as well as message validation so serialized legacy grants cannot reset or spend."
+
+[gotcha.transaction-cache]
+observed = "Removal on rejection describes keeper behavior; transaction cache rollback determines whether the removal and its event commit."

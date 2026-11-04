@@ -749,11 +749,13 @@ func TestAltKeyring_SavePubKey(t *testing.T) {
 	priv := ed25519.GenPrivKey()
 	pub := priv.PubKey()
 
-	info, err := keyring.SavePubKey(key, pub, hd.Secp256k1.Name())
+	_, err = keyring.SavePubKey(key, pub, hd.Secp256k1.Name())
+	require.ErrorIs(t, err, ErrUnsupportedSigningAlgo)
+	info, err := keyring.SavePubKey(key, pub, hd.Ed25519Type)
 	require.Nil(t, err)
 	require.Equal(t, pub, info.GetPubKey())
 	require.Equal(t, key, info.GetName())
-	require.Equal(t, hd.Secp256k1.Name(), info.GetAlgo())
+	require.Equal(t, hd.Ed25519Type, info.GetAlgo())
 
 	list, err = keyring.List()
 	require.NoError(t, err)

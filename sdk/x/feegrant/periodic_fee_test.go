@@ -54,6 +54,23 @@ func TestPeriodicFeeValidAllow(t *testing.T) {
 			},
 			valid: false,
 		},
+		"zero period": {
+			allow: feegrant.PeriodicAllowance{
+				PeriodSpendLimit: smallAtom,
+				PeriodCanSpend:   smallAtom,
+				PeriodReset:      now,
+			},
+			valid: false,
+		},
+		"negative period": {
+			allow: feegrant.PeriodicAllowance{
+				Period:           -time.Nanosecond,
+				PeriodSpendLimit: smallAtom,
+				PeriodCanSpend:   smallAtom,
+				PeriodReset:      now,
+			},
+			valid: false,
+		},
 		"empty basic": {
 			allow: feegrant.PeriodicAllowance{
 				Period:           tenMinutes,

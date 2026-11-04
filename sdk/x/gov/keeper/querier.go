@@ -169,7 +169,7 @@ func queryTally(ctx sdk.Context, path []string, req abci.RequestQuery, keeper Ke
 	case types.StatusDepositPeriod:
 		tallyResult = types.EmptyTallyResult()
 
-	case types.StatusPassed, types.StatusRejected:
+	case types.StatusPassed, types.StatusRejected, types.StatusFailed:
 		tallyResult = proposal.FinalTallyResult
 
 	default:

@@ -1,0 +1,7 @@
+[repair.22.33.1203]
+finding = "ica-host-genesis-validation"
+proof = ["TestRepairM_1203_MalformedHostGenesisRefused", "TestRepairM_1203_ControllerRemoteAddresses", "TestRepairM_1203_PersistedExportImportReopenHandshake"]
+implementation = "Host snapshots require local SDK bech32 addresses, valid connection/channel/port identifiers, unique connection/port mapping keys and the host port; controller remote address validation is preserved."
+baseline = "Not run: the explicit ordered gate instructions prohibit pre-implementation tests and direct verify_cmd execution; no baseline failure is claimed."
+evidence = "The runner hf-build/hf-done ledger records the exact candidate revision, command, exit and private log location."
+wiring_request = "fm-chain-modules (domain 6): interchain/modules/apps/27-interchain-accounts/host/keeper/genesis.go must call state.Validate and check all restored connection/channel/account references and their connection hops, counterparty port, ICA account type/owner and metadata before any binding or store write, after core/auth restoration."

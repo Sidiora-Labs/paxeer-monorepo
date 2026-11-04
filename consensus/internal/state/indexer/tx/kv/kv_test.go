@@ -167,7 +167,16 @@ func TestTxSearchWithCancelation(t *testing.T) {
 }
 
 func TestTxSearchDeprecatedIndexing(t *testing.T) {
-	indexer := NewTxIndex(dbm.NewMemDB())
+	testTxSearchDeprecatedIndexing(t)
+}
+
+func testTxSearchDeprecatedIndexing(t *testing.T) {
+	t.Helper()
+	dir := t.TempDir()
+	store, err := dbm.NewDB("tx_index", dbm.GoLevelDBBackend, dir)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, store.Close()) })
+	indexer := NewTxIndex(store)
 
 	// index tx using events indexing (composite key)
 	txResult1 := txResultWithEvents([]abci.Event{
@@ -175,15 +184,16 @@ func TestTxSearchDeprecatedIndexing(t *testing.T) {
 	})
 	hash1 := types.Tx(txResult1.Tx).Hash()
 
-	err := indexer.Index([]*abci.TxResultV2{txResult1})
+	err = indexer.Index([]*abci.TxResultV2{txResult1})
 	require.NoError(t, err)
 
 	// index tx also using deprecated indexing (event as key)
 	txResult2 := txResultWithEvents(nil)
 	txResult2.Tx = types.Tx("HELLO WORLD 2")
+	txResult2.Index = 1
 
 	hash2 := types.Tx(txResult2.Tx).Hash()
-	b := indexer.store.NewBatch()
+	b := store.NewBatch()
 
 	rawBytes, err := proto.Marshal(&abci.TxResult{Height: txResult2.Height, Index: txResult2.Index, Tx: txResult2.Tx, Result: txResult2.Result})
 	require.NoError(t, err)
@@ -201,8 +211,13 @@ func TestTxSearchDeprecatedIndexing(t *testing.T) {
 	require.NoError(t, err)
 	err = b.Set(hash2.Bytes(), rawBytes)
 	require.NoError(t, err)
-	err = b.Write()
+	err = b.WriteSync()
 	require.NoError(t, err)
+	require.NoError(t, b.Close())
+	require.NoError(t, store.Close())
+	store, err = dbm.NewDB("tx_index", dbm.GoLevelDBBackend, dir)
+	require.NoError(t, err)
+	indexer = NewTxIndex(store)
 
 	testCases := []struct {
 		q       string
@@ -227,6 +242,12 @@ func TestTxSearchDeprecatedIndexing(t *testing.T) {
 		{"account.date >= TIME 2013-05-03T14:45:00Z", []*abci.TxResultV2{}},
 		// search by deprecated key
 		{"sender = 'addr1'", []*abci.TxResultV2{txResult2}},
+		{"sender = 'addr'", []*abci.TxResultV2{}},
+		{"sender = 'addr1' AND tx.height = 1", []*abci.TxResultV2{txResult2}},
+		{"sender = 'addr1' AND tx.height = 2", []*abci.TxResultV2{}},
+		{"tx.height = 1", []*abci.TxResultV2{txResult1, txResult2}},
+		{fmt.Sprintf("tx.hash = '%X' AND sender = 'addr1'", hash2), []*abci.TxResultV2{txResult2}},
+		{fmt.Sprintf("tx.hash = '%X' AND sender = 'other'", hash2), []*abci.TxResultV2{}},
 	}
 
 	ctx := t.Context()
@@ -235,11 +256,8 @@ func TestTxSearchDeprecatedIndexing(t *testing.T) {
 		t.Run(tc.q, func(t *testing.T) {
 			results, err := indexer.Search(ctx, query.MustCompile(tc.q))
 			require.NoError(t, err)
-			for _, txr := range results {
-				for _, tr := range tc.results {
-					assert.Equal(t, tr, txr)
-				}
-			}
+			require.Len(t, results, len(tc.results))
+			assert.ElementsMatch(t, tc.results, results)
 		})
 	}
 }

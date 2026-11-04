@@ -124,7 +124,7 @@ class NodeTopologyTest(unittest.TestCase):
         self.assertTrue(rows)
         self.assertTrue(all(row[0] == 'FAIL' and 'egress NetworkPolicy' in row[2] for row in rows), rows)
 
-    def test_pod_storage_and_independent_daemon_roles(self):
+    def test_pod_storage_and_native_role_isolation(self):
         node = next(document for document in self.documents if document.get('kind') == 'StatefulSet'
                     and document['metadata']['name'] == 'layerx-node')
         self.assertEqual(node['metadata']['namespace'], NAMESPACE)
@@ -139,24 +139,53 @@ class NodeTopologyTest(unittest.TestCase):
         self.assertIn('data', claims)
         self.assertEqual(claims['data']['spec']['accessModes'], ['ReadWriteOnce'])
         containers = {container['name']: container for container in pod['containers']}
-        for name, role in (('layerxd', 'sequencer'), ('layerxd-authority', 'replica')):
-            with self.subTest(container=name):
-                container = containers[name]
-                self.assertEqual(container['command'], ['/opt/layerx/supervisor.sh'])
-                args = container['args']
-                self.assertEqual(args[args.index('--role') + 1], role)
-                self.assertEqual(args[args.index('--data-dir') + 1], '/var/lib/layerx/node')
-                self.assertEqual(args[args.index('--run-dir') + 1], '/run/layerx/node')
-                mounts = {mount['name']: mount['mountPath'] for mount in container['volumeMounts']}
-                self.assertEqual(mounts['data'], '/var/lib/layerx')
-                self.assertEqual(mounts['run'], '/run/layerx')
-                self.assertEqual(module['text'](container['securityContext']['allowPrivilegeEscalation']), 'false')
-        args = containers['layerxd']['args']
-        self.assertEqual(str(args[args.index('--program-port') + 1]), '9401')
-        self.assertEqual(str(args[args.index('--replica-port') + 1]), '9402')
-        self.assertNotEqual(str(args[args.index('--lni-uid') + 1]), '4020')
+        self.assertEqual(module['text'](pod['shareProcessNamespace']), 'false')
+        self.assertEqual(module['text'](pod['automountServiceAccountToken']), 'false')
+        self.assertFalse({'layerxd', 'layerxd-authority', 'paxeer-relay'} & containers.keys())
+        container = containers['paxd']
+        self.assertEqual(container['command'], ['/opt/layerx/supervisor.sh'])
+        args = container['args']
+        self.assertNotIn('--role', args)
+        self.assertNotIn('--lni-uid', args)
+        self.assertNotIn('--program-port', args)
+        self.assertNotIn('--replica-port', args)
+        self.assertEqual(args[args.index('--data-dir') + 1], '/var/lib/layerx/node')
+        self.assertEqual(args[args.index('--run-dir') + 1], '/run/layerx/node')
+        self.assertEqual(args[args.index('--state-dir') + 1], '/var/lib/layerx/supervisor-state')
+        mounts = {mount['name']: mount for mount in container['volumeMounts']}
+        self.assertEqual(mounts['data']['mountPath'], '/var/lib/layerx')
+        self.assertEqual(mounts['run']['mountPath'], '/run/layerx')
+        self.assertEqual(module['text'](mounts['native-private']['readOnly']), 'true')
         self.assertIn('--treasury-signer-socket', args)
         self.assertNotIn('--treasury-key', args)
+        self.assertNotIn('--sequencer-key', args)
+        self.assertEqual(str(containers['core-boundary']['securityContext']['runAsUser']), '4021')
+        for name in ('paxd', 'core-boundary', 'treasury-signer'):
+            security = containers[name]['securityContext']
+            self.assertEqual(module['text'](security['allowPrivilegeEscalation']), 'false')
+            self.assertEqual(module['text'](security['readOnlyRootFilesystem']), 'true')
+            self.assertEqual(security['capabilities']['drop'], ['ALL'])
+        self.assertEqual({port['name']: str(port['containerPort']) for port in container['ports']},
+                         {'chain-p2p': '26656', 'chain-rpc': '8545', 'consensus-rpc': '26657'})
+        native_service = self.topology.services[(NAMESPACE, 'layerx-native-chain')]
+        self.assertEqual(native_service['selector'], {'app': 'layerx-node'})
+        self.assertEqual([(port['port'], port['targetPort']) for port in native_service['ports']],
+                         [('8545', 'chain-rpc'), ('26657', 'consensus-rpc')])
+        for name in ('chain-rpc', 'consensus-rpc'):
+            self.assertIn(name, self.node['ports'])
+        for volume_name, owner in (('native-private', 'paxd'),
+                                   ('treasury-private', 'treasury-signer'),
+                                   ('funding-private', 'core-boundary')):
+            self.assertEqual(volumes[volume_name]['emptyDir']['medium'], 'Memory')
+            users = [name for name, item in containers.items()
+                     if any(mount['name'] == volume_name for mount in item.get('volumeMounts', []))]
+            self.assertEqual(users, [owner])
+        gateway = next(document for document in self.documents
+                       if document.get('kind') == 'Deployment'
+                       and document['metadata']['name'] == 'layerx-gateway')
+        self.assertEqual(gateway['metadata']['namespace'], NAMESPACE)
+        self.assertNotEqual(gateway['spec']['template']['metadata']['labels']['app'], 'layerx-node')
+
 
 
 if __name__ == '__main__':

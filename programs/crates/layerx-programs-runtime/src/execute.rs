@@ -4244,6 +4244,61 @@ impl Executor {
         )
     }
 
+    /// Executes an admitted ABI 2 through 5 activity with its authenticated payer
+    /// bound before any host state or replay boundary is captured.
+    ///
+    /// The caller supplies the independently authenticated receipt payer and
+    /// activity binding in `budgeted`; both must match the consumed admission
+    /// token. The invoking principal remains the authorization's principal.
+    ///
+    /// # Errors
+    ///
+    /// Returns a budget refusal for mismatched admission facts, a context refusal
+    /// for a zero sequence or batch height, or a typed guest execution refusal.
+    pub fn execute_authorized_authenticated(
+        &self,
+        storage: &mut Storage,
+        budgeted: BudgetedAuthorizedExecutionRequest<'_>,
+        activity_sequence: u64,
+        batch_height: u64,
+    ) -> Result<V2AuthorizedExecutionRecord, ExecutionError> {
+        let BudgetedAuthorizedExecutionRequest {
+            mut request,
+            admitted_budget,
+            payer,
+            activity_binding,
+            execution_context: _,
+            access_declaration,
+            committed_oracle,
+            committed_web,
+            transfer_authority_v2: _,
+        } = budgeted;
+        let abi = crate::abi_policy::abi_version(request.module.abi_revision());
+        let executor = self.for_abi(abi);
+        executor.validate_budget_token(&admitted_budget, payer, activity_binding)?;
+        let execution_context = ExecutionContext::authenticated(
+            activity_sequence,
+            batch_height,
+            executor.runtime_version,
+            abi,
+            executor.prices.version(),
+        )
+        .map_err(ExecutionError::Context)?;
+        request.authorization = request.authorization.with_payment_account(payer.bytes());
+        executor.execute_authorized_v2_with_budget(
+            storage,
+            request,
+            admitted_budget.resource_budget(),
+            Some(activity_binding),
+            Some(execution_context),
+            access_declaration,
+            Some(CommittedViews {
+                oracle: committed_oracle,
+                web: committed_web,
+            }),
+        )
+    }
+
     #[cfg(feature = "host-ffi")]
     pub(crate) fn execute_authorized_v2_budgeted(
         &self,

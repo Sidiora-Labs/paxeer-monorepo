@@ -252,7 +252,7 @@ func (t *Tree) Iterator(start, end []byte, ascending bool) dbm.Iterator {
 }
 
 // ScanPostOrder scans the tree in post-order, and call the callback function on each node.
-// If the callback function returns false, the scan will be stopped.
+// If the callback function returns true, the scan will be stopped, as in exportWorker.
 func (t *Tree) ScanPostOrder(callback func(node Node) bool) {
 	t.mtx.RLock()
 	defer t.mtx.RUnlock()
@@ -266,7 +266,9 @@ func (t *Tree) ScanPostOrder(callback func(node Node) bool) {
 		entry := stack[len(stack)-1]
 
 		if entry.node.IsLeaf() || entry.expanded {
-			callback(entry.node)
+			if callback(entry.node) {
+				return
+			}
 			stack = stack[:len(stack)-1]
 			continue
 		}

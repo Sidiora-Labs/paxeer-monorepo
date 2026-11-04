@@ -28,6 +28,14 @@ defmodule Explorer.ThirdPartyIntegrations.Keycloak do
   @otp_length 6
   @otp_ttl_seconds 300
   @max_otp_attempts 3
+  @token_timeout 10_000
+  @consume_otp_script """
+  if redis.call('GET', KEYS[1]) == ARGV[1] then
+    redis.call('DEL', KEYS[1], KEYS[2])
+    return 1
+  end
+  return 0
+  """
 
   @spec enabled?() :: boolean()
   def enabled? do
@@ -264,17 +272,26 @@ defmodule Explorer.ThirdPartyIntegrations.Keycloak do
   defp auth_headers(token), do: [{"authorization", "Bearer #{token}"}]
 
   defp get_admin_token do
-    with {:redix, {:ok, token}} when not is_nil(token) <-
-           {:redix, Redix.command(:redix, ["GET", admin_token_key()])},
-         {:vault, {:ok, decrypted_token}} <- {:vault, Vault.decrypt(token)} do
-      {:ok, decrypted_token}
-    else
-      {:redix, _} ->
+    case Redix.command(:redix, ["GET", admin_token_key()]) do
+      {:ok, nil} ->
         fetch_and_cache_admin_token()
 
-      {:vault, error} ->
-        Logger.error("Failed to decrypt admin token from Redis: #{inspect(error)}")
-        {:error, :decryption_failed}
+      {:ok, encrypted_token} ->
+        case Vault.decrypt(encrypted_token) do
+          {:ok, token} when is_binary(token) and byte_size(token) > 0 ->
+            {:ok, token}
+
+          _ ->
+            Logger.warning("Discarding unreadable Keycloak admin token from Redis")
+
+            case Redix.command(:redix, ["DEL", admin_token_key()]) do
+              {:ok, _} -> fetch_and_cache_admin_token()
+              _ -> {:error, :token_cache_unavailable}
+            end
+        end
+
+      {:error, _} ->
+        {:error, :token_cache_unavailable}
     end
   end
 
@@ -290,20 +307,16 @@ defmodule Explorer.ThirdPartyIntegrations.Keycloak do
 
     headers = [{"content-type", "application/x-www-form-urlencoded"}]
 
-    case HttpClient.post(url, body, headers) do
-      {:ok, %{status_code: 200, body: resp_body}} ->
-        case Jason.decode(resp_body) do
-          {:ok, %{"access_token" => token, "expires_in" => ttl}} ->
-            Redix.command(:redix, ["SET", admin_token_key(), Vault.encrypt!(token), "EX", ttl - 1])
-            {:ok, token}
-
-          _ ->
-            :error
-        end
-
-      other ->
-        Logger.error("Failed to obtain Keycloak admin token: #{inspect(other)}")
-        :error
+    with {:ok, %{status_code: 200, body: resp_body}} <-
+           HttpClient.post(url, body, headers, timeout: @token_timeout, recv_timeout: @token_timeout),
+         {:ok, %{"access_token" => token, "expires_in" => ttl}}
+         when is_binary(token) and byte_size(token) > 0 and is_integer(ttl) and ttl > 1 <- Jason.decode(resp_body),
+         {:ok, "OK"} <- Redix.command(:redix, ["SET", admin_token_key(), Vault.encrypt!(token), "EX", ttl - 1]) do
+      {:ok, token}
+    else
+      _ ->
+        Logger.error("Failed to obtain or cache Keycloak admin token")
+        {:error, :admin_token_unavailable}
     end
   end
 
@@ -365,15 +378,28 @@ defmodule Explorer.ThirdPartyIntegrations.Keycloak do
 
   defp verify_otp(email, otp) do
     case fetch_otp(email) do
-      {:ok, ^otp} ->
-        delete_otp(email)
-        :ok
+      {:ok, ^otp, encrypted_otp} ->
+        consume_otp(email, encrypted_otp)
 
-      {:ok, _} ->
+      {:ok, _, _} ->
         increment_and_check_attempts(email)
 
       other ->
         other
+    end
+  end
+
+  defp consume_otp(email, encrypted_otp) do
+    case Redix.command(:redix, ["EVAL", @consume_otp_script, 2, otp_key(email), otp_attempts_key(email), encrypted_otp]) do
+      {:ok, 1} ->
+        :ok
+
+      {:ok, 0} ->
+        :not_found
+
+      _ ->
+        Logger.error("Failed to consume OTP in Redis")
+        :error
     end
   end
 
@@ -384,11 +410,11 @@ defmodule Explorer.ThirdPartyIntegrations.Keycloak do
 
       {:ok, value} ->
         case Vault.decrypt(value) do
-          {:ok, otp} ->
-            {:ok, otp}
+          {:ok, otp} when is_binary(otp) ->
+            {:ok, otp, value}
 
-          {:error, reason} ->
-            Logger.error("Failed to decrypt OTP from Redis: #{inspect(reason)}")
+          _ ->
+            Logger.error("Failed to decrypt OTP from Redis")
             :error
         end
 

@@ -1,0 +1,32 @@
+[repair.22.33.399]
+audit = "22.30.142"
+status = "implemented; qualification evidence is recorded by hf-done"
+mode = "BUILD"
+scope = "api/v2 controllers and test/repair/repair_22_33_399_test.exs"
+allowed_gates = "hf-build; hf-done"
+stop = "hf-done passes, two repair cycles are spent, or the task deadline expires"
+baseline = "Not run: ordered instructions require complete implementation before gates and prohibit a separate verify_cmd invocation; no baseline test failures are claimed."
+evidence = "The gate ledger records the exact candidate revision, command, exit code and private log path."
+
+[finding.22]
+tests = ["finding 22: authenticated remote rotation replaces the key version and retires the old key", "finding 22: expiry retires an old key even when only old-key traffic arrives", "finding 22: stop and reopen the cache recovers the current remote key without reviving the retired key", "finding 22: a refresh rejects an untrusted TLS authority and never imports or uses a stale key", "finding 22: legacy unbounded entries are reauthenticated and HTTP cannot replace a trust key"]
+repair = "Bound trust-key validity to five monotonic minutes on reads; authenticate retrieval with certificate- and hostname-verified HTTPS; identify versions by SHA-256 key fingerprint; serialize replacement and retry signature verification once after cached-key failure, without stale fallback."
+retirement = "A successful authenticated fetch replaces the previous version; old-key-only traffic can use the old version for at most five minutes after its last authenticated fetch. Expiry, lookup failure and restart never restore a previous key."
+wiring = "Domain 14 explorer application: services/explorer/backend/apps/explorer/lib/explorer/application.ex should enable a bounded TTL sweep on interop_instance_api_url_to_public_key_cache for idle-entry reclamation; controller read-time expiry already enforces trust lifetime with the existing timer disabled."
+transport_wiring = "Domain 14 explorer deployment and tests: configure certificate-valid HTTPS interop instance URLs and migrate HTTP key peers in services/explorer/backend/apps/block_scout_web/test/repair/repair_22_33_398_test.exs; unauthenticated trust-key retrieval is rejected."
+
+[interface.existing]
+observed = "The queue's signing_payload/1 emits signature_version=2 while this controller's existing interop_signing_data/1 accepts protocol_version=1; this independent mismatch is outside finding 22."
+wiring = "Domain 14 explorer interop protocol: align services/explorer/backend/apps/indexer/lib/indexer/fetcher/optimism/interop/message_queue.ex with the controller canonical protocol in a separate interface task; this proof uses the production controller preimage and queue signature serializer."
+
+[gotcha.scope]
+observed = "The default chain profile omits the optional Optimism table and cache; ConCache expiry checks are disabled by Explorer.Application."
+resolution = "Supply the production table schema in a transaction-scoped SQL store and start the real ConCache when absent; test its actual supervisor stop/restart and exercise expired cache entries without a wall-clock sleep."
+
+[qualification.attempt1]
+revision = "db5752cb9b430f352ae3c5d5681d3700be063671"
+command = "cg spec done 22.33.399 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All five tests reached the real TLS transport but OTP test certificates defaulted to SHA-1, which TLS 1.3 rejected before public-key retrieval."
+repair = "Generate the fixture root and peer certificates with SHA-256; retain all assertions and TLS peer/hostname verification."

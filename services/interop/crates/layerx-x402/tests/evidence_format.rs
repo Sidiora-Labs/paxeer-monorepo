@@ -244,40 +244,50 @@ fn built(accepted: PaymentRequirements) -> BuiltPayment {
 
 #[test]
 fn buyer_accepts_the_model_asset_format() {
-    for asset_prefix in ["", "0x"] {
-        for payee_prefix in ["", "0x"] {
-            let mut accepted = offer("exact");
-            accepted.asset.insert_str(0, asset_prefix);
-            accepted.pay_to.insert_str(0, payee_prefix);
-            accepted.validate().unwrap();
-            accepted.layerx_terms().unwrap();
-            let (header, response, _) = settle(&accepted);
-            let payment = built(accepted);
-            let trace = TraceId::mint([0x77; 16]);
-            let captured = Buyer::capture_settlement(&header, &payment, &keys(), &trace).unwrap();
-            assert_eq!(captured.response, response);
-            assert_eq!(captured.transaction_hash, TRANSACTION);
-            for field in ["asset", "payTo"] {
-                let mut changed = payment.clone();
-                if field == "asset" {
-                    changed.payload.accepted.asset = hex(&[0xcd; 32]);
-                } else {
-                    changed.payload.accepted.pay_to = hex(&[0xcd; 32]);
+    for asset_upper in [false, true] {
+        for payee_upper in [false, true] {
+            for asset_prefix in ["", "0x"] {
+                for payee_prefix in ["", "0x"] {
+                    let mut accepted = offer("exact");
+                    if asset_upper {
+                        accepted.asset = accepted.asset.to_ascii_uppercase();
+                    }
+                    if payee_upper {
+                        accepted.pay_to = accepted.pay_to.to_ascii_uppercase();
+                    }
+                    accepted.asset.insert_str(0, asset_prefix);
+                    accepted.pay_to.insert_str(0, payee_prefix);
+                    accepted.validate().unwrap();
+                    accepted.layerx_terms().unwrap();
+                    let (header, response, _) = settle(&accepted);
+                    let payment = built(accepted);
+                    let trace = TraceId::mint([0x77; 16]);
+                    let captured =
+                        Buyer::capture_settlement(&header, &payment, &keys(), &trace).unwrap();
+                    assert_eq!(captured.response, response);
+                    assert_eq!(captured.transaction_hash, TRANSACTION);
+                    for field in ["asset", "payTo"] {
+                        let mut changed = payment.clone();
+                        if field == "asset" {
+                            changed.payload.accepted.asset = hex(&[0xcd; 32]);
+                        } else {
+                            changed.payload.accepted.pay_to = hex(&[0xcd; 32]);
+                        }
+                        assert_eq!(
+                            Buyer::capture_settlement(&header, &changed, &keys(), &trace)
+                                .map_err(Traced::into_error),
+                            Err(if field == "asset" {
+                                X402Error::EvidenceMismatch
+                            } else {
+                                X402Error::ProfileMismatch
+                            })
+                        );
+                    }
                 }
-                assert_eq!(
-                    Buyer::capture_settlement(&header, &changed, &keys(), &trace)
-                        .map_err(Traced::into_error),
-                    Err(if field == "asset" {
-                        X402Error::EvidenceMismatch
-                    } else {
-                        X402Error::ProfileMismatch
-                    })
-                );
             }
         }
     }
 }
-
 #[test]
 fn seller_evidence_carries_settlement_logs() {
     for scheme in ["exact", "metered", "subscription"] {
@@ -336,4 +346,12 @@ fn seller_evidence_carries_settlement_logs() {
             .iter()
             .all(Value::is_object));
     }
+}
+
+#[path = "support/repair_22_33_105.rs"]
+mod repair_path;
+
+#[test]
+fn buyer_identifier_matrix_refuses_width_digit_and_identity_mismatches() {
+    repair_path::identifier_matrix();
 }

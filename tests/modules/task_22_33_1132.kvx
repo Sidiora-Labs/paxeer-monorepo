@@ -1,0 +1,38 @@
+[task.22.33.1132]
+mode = "BUILD"
+base_revision = "9d1a06c7f3635f5556023760af7a75ee9755efdd"
+verify_cmd = "make -s test-budget-create test-budget-delegate test-budget-period test-budget-revoke test-budget-spend"
+evidence = "The runner records the exact qualified candidate revision, command, exit code and private log in /out/run/gates.jsonl; the final hf-done evidence line is authoritative."
+baseline = "Not run: the explicit implementation-first order and hf-done-only verification rule prohibit the audit step's unchanged-tree verification; no baseline failures are claimed."
+wiring_requests = []
+
+[finding.22.30.5.3]
+test = "tests/modules/test_budget_close.c:audit_delegate_state_put_reopen"
+verify_target = "test-budget-revoke"
+repair = "The public record validator rejects every zero delegate as well as descending or duplicate delegates before state insertion or creation funding mutates anything; encoding and decoding share this invariant."
+proof = "Signed delegate-add activities insert the maximum delegate count in reverse order, using nonzero IDs distinguished only in their final byte. Sole, first, middle and last zero delegates, descending and duplicate records are refused by validate, state_put, create_execute, encode and decode without changing empty or populated stores, balances, sequences, receipts, codec outputs or committed state. An accepted create executes the real canonical ledger, serializes the inserted record into kernel KV storage, and survives disk snapshot write, kernel/state destruction and fresh load with identical bytes and balances; the reopened record is reinserted and consumed by signed delegate removal through kernel dispatch."
+
+[previous_attempt.build]
+revision = "8fe3ddbb48e624f9bf7ee94cc8bb9ef34b30a8cd"
+command = "make -s all"
+exit = 0
+log = "/out/logs/build-1.log"
+
+[previous_attempt.verify]
+revision = "8fe3ddbb48e624f9bf7ee94cc8bb9ef34b30a8cd"
+command = "cg spec done 22.33.1132 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The new audit-22.30.5.3-delegate-state-put-reopen case passes; unchanged audit_zero_spend_exit_reopen fails its per_period_limit == 0 assertion (test_budget_close.c:1253) because existing budget_execute_revoke explicitly preserves the historical limit when spent_this_period is zero."
+assumption = "This existing revoke behavior/assertion conflict is unrelated to delegate admission; preserve both, do not rerun the recorded failure or change unrelated code, and leave the task unqualified."
+
+[continuation]
+qualification = "Retain the inherited delegate implementation and recovery proof, correct the task-owned zero-spend assertion, and run hf-build followed by hf-done on the unchanged final candidate. Current gate results belong to /out/run/gates.jsonl, not the previous-attempt entries above."
+previous_assumption_superseded = "The attempt-3 ruling makes the zero-spend assertion a task-scoped failure to repair; the previous attempt's unrelated-failure assumption is superseded."
+budget_law = "spec/layerx-merge/programme/audit/records/22.30.5.kvx finding 22.30.5.4 requires successful owner revoke/full refund with reloadable state and no retained spend authority; req.2260 requires the close refund and stale-revocation refusal. Neither requires erasing a revoked record's historical limit."
+analysis = "The delegate validator change only rejects noncanonical delegate lists; it cannot alter a never-spent record with no delegates. budget_execute_revoke preserves its 200-unit historical limit when spent_this_period is zero, records revoked=true and sequence=2, and refunds all 300 units; lx_budget_spend_prepare refuses revoked records before rollover or allowance arithmetic. The record satisfies the budget law."
+repair = "audit_zero_spend_exit_reopen now asserts the exact 128-bit period limit (zero for full defund, 200 for revoke and close) and configured limit, plus zero remaining budget before and after snapshot reopen. Exact refund events, balances, revocation flags and sequence, byte-identical recovery and spend refusals before and after rollover remain asserted for native and ordinary sources."
+
+[gotcha.1]
+symptom = "The audit step requests unchanged-tree verification, while the explicit ordered instructions forbid verification before implementation and outside hf-done."
+resolution = "Follow the explicit gate order and record that no baseline was run; keep this record in scope because spec/ and the root gotcha ledger are outside scope."

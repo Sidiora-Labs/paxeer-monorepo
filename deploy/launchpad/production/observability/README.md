@@ -17,7 +17,9 @@ Install the Python dependencies from the repository root with `python3 -m pip in
 
 ## Run the primitive checks
 
-From the repository root, with a reviewed native binary and private evidence directory:
+From the monorepo root (the directory containing `deploy/launchpad/production`
+and `tools/launchpad/production`), with a reviewed native binary and private
+evidence directory:
 
 ```sh
 python3 deploy/launchpad/production/observability/check.py \
@@ -36,23 +38,28 @@ storage, synthetic journeys and telemetry.
 
 ## Adversarial evidence and activation
 
-`phase2/qualify.py --phase 3` evaluates adversarial evidence version 3.0 without accepting version 2.0 as recovery proof. It retains the twelve scenario checks and requires an isolated provider inventory, timestamped metric samples, independently captured authoritative state, denied control actions, zone-loss fencing and interrupted activation reconciliation. Missing captures yield failed requirement results. Source implementation does not establish a completed rehearsal.
+`deploy/launchpad/production/observability/phase2/qualify.py --phase 3` evaluates adversarial evidence version 3.0 without accepting version 2.0 as recovery proof. It retains the twelve scenario checks and requires an isolated provider inventory, timestamped metric samples, independently captured authoritative state, denied control actions, zone-loss fencing and interrupted activation reconciliation. Missing captures yield failed requirement results. Source implementation does not establish a completed rehearsal.
 
-`phase2/control.py --phase 3 --operator-authority-file /private/operator-authority.json` requires an OS-owned private authority mount. Authority binds the runtime binding digest, an expiry within 24 hours, and unique OS UID/actor/action assignments. An actor argument alone cannot authorize phase 3 or production changes. A secured journal cannot be reopened with a lower control phase or without its authority mount. Activation atomically publishes an immutable bundle and commits its digest in the journal; an orphan bundle is verified before retry and never implies activation.
+`deploy/launchpad/production/observability/phase2/control.py --phase 3 --operator-authority-file /private/operator-authority.json` requires an OS-owned private authority mount. Authority binds the runtime binding digest, an expiry within 24 hours, and unique OS UID/actor/action assignments. An actor argument alone cannot authorize phase 3 or production changes. A secured journal cannot be reopened with a lower control phase or without its authority mount. Activation atomically publishes an immutable bundle and commits its digest in the journal; an orphan bundle is verified before retry and never implies activation.
 
 Phase 3 tests consume `OBSERVABILITY_PHASE3_SCENARIO_MANIFEST` alongside the existing runtime binding, phase 2 manifest and verifier-key mounts. They exercise the real SQLite journal, process interruption, competing writes, private authority mounts and immutable bundle recovery; native evidence tests reject tampered copies of independently captured artifacts. No external failure-injection API is inferred from an endpoint. Read the [activation runbook](phase2/runbooks/activation.md) for the authority
 and capture contract; the phase options above are not complete invocations.
 
 ## Measurement and shared capture
 
-`phase2/phase4.py collect` runs actual bounded service-metric scrapes and all five route probes on a 30-second cadence. It writes private raw metric files, probe responses reduced to safe outcome metadata, a durable progress manifest and a final measurement manifest. The approved raw-capture byte budget is enforced before each capture write; progress and final metadata each have a 64 MiB bound reserved from actual disk allocations. A missing provider, failed probe, counter reset, schedule gap or exhausted capture budget remains a failed observation. Native telemetry is never synthesized from workload targets.
+`deploy/launchpad/production/observability/phase2/phase4.py collect` runs actual bounded service-metric scrapes and all five route probes on a 30-second cadence. It writes private raw metric files, probe responses reduced to safe outcome metadata, a durable progress manifest and a final measurement manifest. The approved raw-capture byte budget is enforced before each capture write; progress and final metadata each have a 64 MiB bound reserved from actual disk allocations. A missing provider, failed probe, counter reset, schedule gap or exhausted capture budget remains a failed observation. Native telemetry is never synthesized from workload targets.
 
-`phase2/phase4.py evaluate` consumes the collection hash, current attested phase 3 scenarios, an actual D16 `kindle-shared-capture-v1` manifest and source-bound allocation/cost inputs. It reconstructs origin numerators and histogram bounds, checks all twelve requirement scenarios and recovery records, compares measured instance headroom with allocations, and emits twelve requirement files plus a machine-readable result. An isolated component measurement can pass the lane checks; capacity, monthly availability and production qualification remain false. Final shared 24-hour soak and all burst/restore acceptance belong to gate 9.1.
+`deploy/launchpad/production/observability/phase2/phase4.py evaluate` consumes the collection hash, current attested phase 3 scenarios, an actual D16 `kindle-shared-capture-v1` manifest and source-bound allocation/cost inputs. It reconstructs origin numerators and histogram bounds, checks all twelve requirement scenarios and recovery records, compares measured instance headroom with allocations, and emits twelve requirement files plus a machine-readable result. An isolated component measurement can pass the lane checks; capacity, monthly availability and production qualification remain false. Final shared 24-hour soak and all burst/restore acceptance belong to gate 9.1.
 
 Run the collector alongside the same admitted D16 run, with `--plan`, `--binding`, `--config`, `--root` and a fresh private `--output`. After captures close, invoke evaluate with those plan/binding/config inputs and `--measurement`, `--measurement-sha256`, `--shared-capture`, `--shared-capture-sha256`, `--scenario-evidence`, `--scenario-evidence-sha256`, `--attestation-key-file` and a separate output directory. The source does not provision infrastructure or infer provider credentials. See the [capacity runbook](phase2/runbooks/capacity.md) for the plan and
 allocation contracts. Recovery measurements
 for the same shared capture are described in the
 [recovery release runbook](../recovery/phase4/runbook.md).
+
+`--root` is the monorepo root, not `services/launchpad` or this directory.
+The shared-capture reader and workload bindings come from
+`tools/launchpad/production/load/capture.py` and
+`tools/launchpad/production/load/phase2_types.py` under that root.
 
 From the repository root, collection uses:
 

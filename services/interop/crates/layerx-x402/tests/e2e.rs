@@ -1,6 +1,7 @@
-//! End-to-end integration tests for seller and buyer roles working together
-//! against real service types and independent x402 v2 implementations. Tests
-//! complete payment flows, evidence verification, and interoperability.
+//! Local buyer and seller adapter integration with committed plane transcripts.
+//! Pending and validation tests exercise their local boundaries. The native
+//! settlement case reaches buyer capture through the production wire codecs;
+//! it does not claim qualification against an independent x402 implementation.
 
 use std::collections::BTreeMap;
 
@@ -601,4 +602,12 @@ fn resource_info_with_all_fields_is_preserved() {
     assert_eq!(resource.mime_type, required.resource.mime_type);
     assert_eq!(resource.service_name, required.resource.service_name);
     assert_eq!(resource.tags, required.resource.tags);
+}
+
+#[path = "support/repair_22_33_105.rs"]
+mod repair_path;
+
+#[test]
+fn native_receipt_build_submit_settle_transport_and_capture() {
+    repair_path::end_to_end_native_settlement();
 }

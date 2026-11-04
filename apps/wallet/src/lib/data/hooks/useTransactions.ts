@@ -1,6 +1,6 @@
 /** React hook — fetch paginated transactions for an address from Blockscout */
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { getAddressTransactions } from '../api/addresses';
 import type { AddressTxsParams } from '../api/addresses';
 import type { PaginatedResponse } from '../types/common';
@@ -23,49 +23,82 @@ export function useTransactions(): UseTransactionsResult {
   const [error, setError] = useState<Error | null>(null);
   const lastHashRef = useRef<string>('');
   const lastParamsRef = useRef<AddressTxsParams | undefined>(undefined);
+  const requestIdRef = useRef(0);
+  const nextPageRef = useRef<Record<string, unknown> | null>(null);
+  const pendingRef = useRef(false);
 
-  const fetchData = useCallback(async (
-    addressHash: string,
-    params?: AddressTxsParams,
-  ) => {
-    if (!addressHash) return;
+  useEffect(
+    () => () => {
+      requestIdRef.current += 1;
+    },
+    []
+  );
+
+  const fetchData = useCallback(async (addressHash: string, params?: AddressTxsParams) => {
+    const requestId = ++requestIdRef.current;
+    if (lastHashRef.current !== addressHash) {
+      setTransactions([]);
+    }
     lastHashRef.current = addressHash;
     lastParamsRef.current = params;
+    nextPageRef.current = null;
+    setNextPageParams(null);
+    pendingRef.current = Boolean(addressHash);
+    if (!addressHash) {
+      setLoading(false);
+      setError(null);
+      return;
+    }
     setLoading(true);
     setError(null);
 
     try {
       const result: PaginatedResponse<Transaction> = await getAddressTransactions(
         addressHash,
-        params,
+        params
       );
+      if (requestId !== requestIdRef.current) return;
       setTransactions(result.items);
+      nextPageRef.current = result.next_page_params;
       setNextPageParams(result.next_page_params);
     } catch (err) {
+      if (requestId !== requestIdRef.current) return;
       setError(err instanceof Error ? err : new Error(String(err)));
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        pendingRef.current = false;
+        setLoading(false);
+      }
     }
   }, []);
 
   const fetchNextPage = useCallback(async () => {
-    if (!lastHashRef.current || !nextPageParams) return;
+    const pageParams = nextPageRef.current;
+    if (!lastHashRef.current || !pageParams || pendingRef.current) return;
+    const requestId = ++requestIdRef.current;
+    pendingRef.current = true;
     setLoading(true);
     setError(null);
 
     try {
       const result: PaginatedResponse<Transaction> = await getAddressTransactions(
         lastHashRef.current,
-        { ...lastParamsRef.current, ...nextPageParams } as AddressTxsParams,
+        { ...lastParamsRef.current, ...pageParams } as AddressTxsParams
       );
+      if (requestId !== requestIdRef.current) return;
       setTransactions((prev) => [...prev, ...result.items]);
+      nextPageRef.current = result.next_page_params;
       setNextPageParams(result.next_page_params);
     } catch (err) {
+      if (requestId !== requestIdRef.current) return;
       setError(err instanceof Error ? err : new Error(String(err)));
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        pendingRef.current = false;
+        setLoading(false);
+      }
     }
-  }, [nextPageParams]);
+  }, []);
 
   const refresh = useCallback(async () => {
     if (lastHashRef.current) {

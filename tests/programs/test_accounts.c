@@ -528,7 +528,7 @@ static int registration_law(const lxp_module_iface *module,
     lxp_arena snapshot_arena;
     lxp_state_store store;
     lxp_state_journal journal;
-    lxp_kernel kernel;
+    static lxp_kernel kernel;
     lx_account_registry accounts;
     lxp_transfer_asset_state assets[2];
     lx_programs_transfer_runtime runtime;
@@ -565,7 +565,7 @@ static int registration_law(const lxp_module_iface *module,
     lxp_verified_receipt_index receipt_index;
     lxp_state_store restored_store;
     lxp_state_journal restored_journal;
-    lxp_kernel restored_kernel;
+    static lxp_kernel restored_kernel;
     lx_account_registry restored_accounts;
     lx_programs_transfer_runtime restored_runtime;
 
