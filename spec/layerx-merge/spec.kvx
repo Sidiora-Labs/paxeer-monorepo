@@ -130448,7 +130448,7 @@ do_8 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.435]
 title = "Repair audit record 22.30.86 findings in services/platform/middleware/agent/src: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130526,7 +130526,7 @@ do_15 = "The candidate carries only sources under the touches and the test file:
 
 [task.22.31.433]
 title = "Repair audit record 22.30.185 findings in apps/web/src/api: wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -146190,7 +146190,7 @@ do_9 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.354]
 title = "Repair audit record 22.30.83 findings in services/platform/hosted/core/src: interface-mismatch, retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -146446,7 +146446,7 @@ do_9 = "Attempt 2 (continue): the task carried a cargo test command for a Node p
 
 [task.22.31.340]
 title = "Repair audit record 22.30.71 findings in services/platform/hosted/webhooks: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -146740,7 +146740,7 @@ do_10 = "Attempt 3 (continue): the round-trip tests demand SMART_CONTRACT_VERIFI
 
 [task.22.31.274]
 title = "Repair audit record 22.30.146 findings in services/explorer/services/libs/blockscout-client/crate/src/apis: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -160240,7 +160240,7 @@ do_10 = "The candidate carries only sources under the touches and the test file:
 
 [task.22.31.321]
 title = "Repair audit record 22.30.179 findings in tools/loadtest: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -260729,7 +260729,7 @@ do_9 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.317]
 title = "Repair audit record 22.30.176 findings in scripts/ci: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
