@@ -13,6 +13,8 @@ mod test_compilation;
 
 pub mod vyper_compiler_input;
 
+pub(crate) use solc_compiler_cli::validate_source_name;
+
 pub use evm_compilers::EvmCompilersPool;
 pub use solc_compiler::{SolcCompiler, SolcInput};
 pub use verifier::{compile_and_verify, VerificationResult, VerifyingContract};
