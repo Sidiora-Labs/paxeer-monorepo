@@ -532,9 +532,8 @@ func (api *PaxDebugAPI) TraceBlockByNumberExcludeTraceFail(ctx context.Context, 
 	}
 	defer done()
 
-	latest := api.debug.ctxProvider(LatestCtxHeight).BlockHeight()
-	if api.debug.maxBlockLookback >= 0 && number.Int64() < latest-api.debug.maxBlockLookback {
-		return nil, fmt.Errorf("block number %d is beyond max lookback of %d", number.Int64(), api.debug.maxBlockLookback)
+	if err := api.debug.guardHistoricalDebugTraceByNumber(ctx, "pax_traceBlockByNumberExcludeTraceFail", number); err != nil {
+		return nil, err
 	}
 
 	if cached, ok := api.debug.tryExcludeFailBlockTraceCacheByNumber(ctx, number, config); ok {
@@ -567,6 +566,10 @@ func (api *PaxDebugAPI) TraceBlockByHashExcludeTraceFail(ctx context.Context, ha
 		return nil, err
 	}
 	defer done()
+
+	if err := api.debug.guardHistoricalDebugTraceByHash(ctx, "pax_traceBlockByHashExcludeTraceFail", hash); err != nil {
+		return nil, err
+	}
 
 	if cached, ok := api.debug.tryExcludeFailBlockTraceCacheByHash(ctx, hash, config); ok {
 		return cached, nil
