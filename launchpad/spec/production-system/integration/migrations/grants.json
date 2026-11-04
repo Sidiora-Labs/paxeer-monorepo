@@ -3159,33 +3159,11 @@
         },
         {
           "schema": "pnl",
-          "object": "l18_funding_sequence_seq",
-          "object_kind": "sequence",
-          "privileges": [
-            "USAGE"
-          ],
-          "columns": [],
-          "argument_types": [],
-          "grant_option": false
-        },
-        {
-          "schema": "pnl",
           "object": "l18_inbox",
           "object_kind": "table",
           "privileges": [
             "SELECT",
             "INSERT"
-          ],
-          "columns": [],
-          "argument_types": [],
-          "grant_option": false
-        },
-        {
-          "schema": "pnl",
-          "object": "l18_inbox_sequence_seq",
-          "object_kind": "sequence",
-          "privileges": [
-            "USAGE"
           ],
           "columns": [],
           "argument_types": [],
@@ -3215,17 +3193,6 @@
             "hold_reason",
             "appeal_status"
           ],
-          "argument_types": [],
-          "grant_option": false
-        },
-        {
-          "schema": "pnl",
-          "object": "l18_awards_sequence_seq",
-          "object_kind": "sequence",
-          "privileges": [
-            "USAGE"
-          ],
-          "columns": [],
           "argument_types": [],
           "grant_option": false
         },
@@ -3266,17 +3233,6 @@
         },
         {
           "schema": "pnl",
-          "object": "l18_claims_sequence_seq",
-          "object_kind": "sequence",
-          "privileges": [
-            "USAGE"
-          ],
-          "columns": [],
-          "argument_types": [],
-          "grant_option": false
-        },
-        {
-          "schema": "pnl",
           "object": "l18_epochs",
           "object_kind": "table",
           "privileges": [
@@ -3302,33 +3258,11 @@
         },
         {
           "schema": "pnl",
-          "object": "l18_epochs_sequence_seq",
-          "object_kind": "sequence",
-          "privileges": [
-            "USAGE"
-          ],
-          "columns": [],
-          "argument_types": [],
-          "grant_option": false
-        },
-        {
-          "schema": "pnl",
           "object": "l18_epoch_claims",
           "object_kind": "table",
           "privileges": [
             "SELECT",
             "INSERT"
-          ],
-          "columns": [],
-          "argument_types": [],
-          "grant_option": false
-        },
-        {
-          "schema": "pnl",
-          "object": "l18_epoch_claims_sequence_seq",
-          "object_kind": "sequence",
-          "privileges": [
-            "USAGE"
           ],
           "columns": [],
           "argument_types": [],
@@ -4045,6 +3979,7 @@
             "SELECT"
           ],
           "columns": [
+            "nft_id",
             "token",
             "pool",
             "creator",
