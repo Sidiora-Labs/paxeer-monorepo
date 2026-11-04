@@ -2,6 +2,44 @@
 
 set -euo pipefail
 
+# Resolve the workspace before any generation or cleanup, even when invoked by
+# a compatibility script from another directory.
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+cd -- "$repo_root"
+
+case "${1:-}" in
+  --wasm-swagger)
+    if [[ $# -ne 1 ]]; then
+      echo "Usage: bash scripts/protoc.sh [--wasm-swagger]" >&2
+      exit 2
+    fi
+    # JSON is also a Buf YAML template. Keep the Swagger plugin on the same
+    # grpc-gateway release as buf.gen.yaml; Buf resolves imports via buf.yaml.
+    swagger_template='{
+      "version": "v2",
+      "inputs": [{"directory": "wasm/proto"}],
+      "plugins": [{
+        "local": ["go", "run", "github.com/grpc-ecosystem/grpc-gateway/protoc-gen-swagger@v1.16.0"],
+        "out": "./build/swagger/wasm",
+        "opt": ["logtostderr=true", "fqn_for_swagger_name=true", "simple_operation_ids=true"]
+      }]
+    }'
+    exec go run github.com/bufbuild/buf/cmd/buf@v1.58.0 generate \
+      --template "$swagger_template" \
+      --path wasm/proto/cosmwasm/wasm/v1/query.proto
+    ;;
+  "")
+    if [[ $# -ne 0 ]]; then
+      echo "Usage: bash scripts/protoc.sh [--wasm-swagger]" >&2
+      exit 2
+    fi
+    ;;
+  *)
+    echo "Usage: bash scripts/protoc.sh [--wasm-swagger]" >&2
+    exit 2
+    ;;
+esac
+
 echo "Generating protobuf code..."
 
 rm -rf ./build/proto
