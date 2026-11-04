@@ -153574,7 +153574,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.298]
 title = "Repair audit record 22.30.135 medium findings in apps/explorer/ui/marketplace/essentialDapps/revoke/hooks (part 2 of 2): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.267", "22.31.381", "22.31.474"]
@@ -324493,7 +324493,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.865]
 title = "Repair audit record 22.30.182 medium findings in scripts/paxeer-x (part 1 of 1): wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.430", "22.31.431", "22.31.432"]
@@ -324715,7 +324715,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.857]
 title = "Repair audit record 22.30.182 medium findings in docker/platform-registry (part 1 of 1): retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.430", "22.31.431", "22.31.432"]
@@ -325013,7 +325013,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.847]
 title = "Repair audit record 22.30.181 medium findings in tools/paxeer-x/gates (part 1 of 5): runtime-risk, test-gap, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.428", "22.31.429"]
@@ -325054,7 +325054,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.846]
 title = "Repair audit record 22.30.181 medium findings in tools/paxeer-x/sid-snapshot (part 1 of 1): doc-drift, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.428", "22.31.429"]
@@ -325089,7 +325089,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.845]
 title = "Repair audit record 22.30.181 medium findings in tools/paxeer-x/gov/templates (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.428", "22.31.429"]
