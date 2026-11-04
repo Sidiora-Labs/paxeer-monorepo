@@ -36,11 +36,21 @@ Other package commands, from `services/wallet`:
 pnpm --filter @paxeer/demo build
 pnpm --filter @paxeer/demo start      # serves the production build on port 3000
 pnpm --filter @paxeer/demo typecheck
+pnpm --filter @paxeer/demo lint
 ```
 
-The declared `lint` script currently invokes `next lint`, which was removed in Next.js 16 (the package declares `next: ^16.3.0`). It is not a working lint command in this tree.
+The `lint` script runs `eslint .` directly with the demo's `eslint.config.mjs` and
+declared `eslint` and `eslint-config-next` development dependencies. The flat
+configuration applies Next.js Core Web Vitals rules to the demo, including its
+TypeScript and TSX sources. Generated Next.js output, build output, coverage and
+`next-env.d.ts` are excluded; application source and tests remain in scope.
 
-## Wallet flow
+## WalletModal and SupportedWalletPanel flow
+
+`ConnectButton` opens `WalletModal`. The modal handles wallet selection,
+authentication and explicit provisioning before rendering `SupportedWalletPanel`
+for the chosen embedded or injected wallet. The supported send path starts in
+that panel; `SendTxForm` is not mounted by the modal.
 
 1. Open **Connect wallet** and choose an embedded wallet or an announced injected wallet.
 2. For embedded custody, sign in through Supabase. If no standard wallet exists, choose **Create embedded threshold-custody wallet**. The modal calls `provisionStandardWallet()` and refreshes `useStandardAccount()`; sign-in alone does not create the wallet. Injected custody uses the selected wallet's provider.

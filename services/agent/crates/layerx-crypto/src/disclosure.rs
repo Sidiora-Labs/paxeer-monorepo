@@ -1,6 +1,112 @@
 //! Byte-bound EIP-1559 call disclosure and deprecated activity compatibility.
 
-pub mod call;
+#[path = "disclosure/call.rs"]
+mod call_codec;
+
+/// Call disclosure, including the exact-payment ABI produced by the web payer.
+pub mod call {
+    pub use super::call_codec::*;
+    use super::*;
+
+    /// Complete arguments of a ledger `payExact` call. Expiry is in milliseconds.
+    #[derive(Clone, Debug, Eq, PartialEq)]
+    pub struct PayExactCall {
+        pub payer: [u8; 32],
+        pub recipient: [u8; 32],
+        pub asset: [u8; 32],
+        pub amount: u128,
+        pub expires_at_ms: u64,
+        pub idempotency_key: [u8; 32],
+    }
+
+    pub(super) fn is_pay_exact(call: &Eip1559Call) -> bool {
+        call.data.get(..4)
+            == Some(
+                ledger_selector("payExact(bytes32,bytes32,bytes32,uint128,uint64,bytes32)")
+                    .as_slice(),
+            )
+    }
+
+    /// Decode the exact ABI, refusing another target, noncanonical integers or trailing bytes.
+    pub fn decode_pay_exact(call: &Eip1559Call) -> Result<PayExactCall, DisclosureError> {
+        let mut ledger = [0; 20];
+        ledger[18..].copy_from_slice(&[0x10, 0x1a]);
+        if call.to != ledger || !is_pay_exact(call) || call.data.len() != 4 + 6 * 32 {
+            return Err(DisclosureError::MalformedPayload);
+        }
+        let args = &call.data[4..];
+        let word = |index: usize| -> [u8; 32] {
+            args[index * 32..(index + 1) * 32]
+                .try_into()
+                .expect("checked ABI length")
+        };
+        let amount = word(3);
+        let expiry = word(4);
+        if amount[..16] != [0; 16] || expiry[..24] != [0; 24] {
+            return Err(DisclosureError::MalformedPayload);
+        }
+        let payment = PayExactCall {
+            payer: word(0),
+            recipient: word(1),
+            asset: word(2),
+            amount: u128::from_be_bytes(amount[16..].try_into().expect("uint128")),
+            expires_at_ms: u64::from_be_bytes(expiry[24..].try_into().expect("uint64")),
+            idempotency_key: word(5),
+        };
+        if payment.payer == [0; 32]
+            || payment.recipient == [0; 32]
+            || payment.asset == [0; 32]
+            || payment.amount == 0
+            || payment.expires_at_ms == 0
+            || payment.idempotency_key == [0; 32]
+        {
+            return Err(DisclosureError::MalformedPayload);
+        }
+        Ok(payment)
+    }
+
+    /// Bind canonical transaction bytes and sender, including exact web payments.
+    pub fn bind_call(call: &Eip1559Call, from: [u8; 20]) -> Result<Disclosure, DisclosureError> {
+        if !is_pay_exact(call) {
+            return super::call_codec::bind_call(call, from);
+        }
+        let fields = super::pay_exact_fields(call, from)?;
+        Ok(Disclosure {
+            activity_type: fields.activity_type,
+            actor: fields.actor,
+            authority: fields.authority,
+            counterparties: fields.counterparties,
+            amounts: fields.amounts,
+            asset: fields.asset,
+            fee_limit: fields.fee_limit,
+            expiry: fields.expiry,
+            idempotency_key: fields.idempotency_key,
+            evm_payout_binding: fields.evm_payout_binding,
+            withdrawal: fields.withdrawal,
+            payment: fields.payment,
+            authority_grant: fields.authority_grant,
+            session_grant: fields.session_grant,
+            onboarding: fields.onboarding,
+            native_operation: fields.native_operation,
+            source: Source::Call(call.clone()),
+            call_sender: Some(from),
+            signing_digest: call.signing_hash(),
+            budget_context: None,
+        })
+    }
+
+    /// Rebind the consumer's exact transaction and sender before trusting its disclosure.
+    pub fn validate_call(
+        call: &Eip1559Call,
+        disclosure: &Disclosure,
+        from: [u8; 20],
+    ) -> Result<(), DisclosureError> {
+        if &bind_call(call, from)? != disclosure {
+            return Err(DisclosureError::FieldMismatch("call"));
+        }
+        Ok(())
+    }
+}
 
 mod native;
 mod program;
@@ -1031,6 +1137,50 @@ struct DisclosureFields {
     native_operation: Option<DisclosedNativeOperation>,
 }
 
+fn pay_exact_fields(
+    call: &Eip1559Call,
+    from: [u8; 20],
+) -> Result<DisclosureFields, DisclosureError> {
+    let payment = call::decode_pay_exact(call)?;
+    Ok(DisclosureFields {
+        activity_type: ActivityType::new(ModuleId::Asset, ASSET_SEND_ORDINAL)
+            .map_err(|_| DisclosureError::MalformedPayload)?,
+        actor: from.to_vec(),
+        authority: from.to_vec(),
+        counterparties: vec![
+            Counterparty {
+                role: CounterpartyRole::Payer,
+                account: payment.payer,
+            },
+            Counterparty {
+                role: CounterpartyRole::Recipient,
+                account: payment.recipient,
+            },
+        ],
+        amounts: vec![DisclosedAmount {
+            role: AmountRole::Transfer,
+            value: payment.amount,
+        }],
+        asset: payment.asset,
+        fee_limit: u128::from(call.gas_limit)
+            .checked_mul(call.max_fee_per_gas)
+            .ok_or(DisclosureError::MalformedPayload)?,
+        expiry: Expiry {
+            not_before: 0,
+            not_after: u64::MAX,
+            payload_expires_at: payment.expires_at_ms,
+        },
+        idempotency_key: payment.idempotency_key,
+        evm_payout_binding: None,
+        withdrawal: None,
+        payment: None,
+        authority_grant: None,
+        session_grant: None,
+        onboarding: None,
+        native_operation: None,
+    })
+}
+
 impl Disclosure {
     #[must_use]
     pub fn canonical_payload(&self) -> &[u8] {
@@ -1052,7 +1202,11 @@ impl Disclosure {
     /// Returns a payload decoding error for malformed canonical semantics.
     pub fn payload_sequence(&self) -> Result<Option<u64>, DisclosureError> {
         if let Source::Call(call) = &self.source {
-            return call::payload_sequence(call);
+            if call::is_pay_exact(call) {
+                call::decode_pay_exact(call)?;
+                return Ok(None);
+            }
+            return call_codec::payload_sequence(call);
         }
         if let Some(DisclosedNativeOperation::BudgetCreate(budget)) = &self.native_operation {
             return Ok(Some(budget.source_sequence));
@@ -1069,7 +1223,7 @@ impl Disclosure {
         match (self.activity_type.module(), self.activity_type.ordinal()) {
             (ModuleId::Asset, 5 | 6) => match &self.source {
                 Source::Activity(activity) => Ok(Some(semantics(activity)?.sequence)),
-                Source::Call(call) => call::payload_sequence(call),
+                Source::Call(call) => call_codec::payload_sequence(call),
             },
             _ => Ok(None),
         }
@@ -1078,7 +1232,11 @@ impl Disclosure {
     fn validate_fields(&self) -> Result<(), DisclosureError> {
         let expected = match &self.source {
             Source::Activity(activity) => decoded_fields(activity, self.budget_context.as_ref())?,
-            Source::Call(call) => call::fields(
+            Source::Call(call) if call::is_pay_exact(call) => pay_exact_fields(
+                call,
+                self.call_sender.ok_or(DisclosureError::MalformedPayload)?,
+            )?,
+            Source::Call(call) => call_codec::fields(
                 call,
                 self.call_sender.ok_or(DisclosureError::MalformedPayload)?,
             )?,
@@ -1274,7 +1432,7 @@ impl Disclosure {
         self.validate()?;
         match &self.source {
             Source::Activity(_) => Ok(None),
-            Source::Call(call) => call::decode_method(call).map(Some),
+            Source::Call(call) => call_codec::decode_method(call).map(Some),
         }
     }
 

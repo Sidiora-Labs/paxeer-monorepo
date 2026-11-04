@@ -1,0 +1,363 @@
+{
+  "generator": {
+    "source": "https://raw.githubusercontent.com/FiloSottile/mostly-harmless/30a2d7243a94/ed25519vectors/ed25519vectors.json",
+    "sha256": "ed3dd0730ec5ef2dbfd629186fbefeb6299cbbf9a6ed94af0478f07291acacca",
+    "indices": [
+      5,
+      23,
+      40,
+      327,
+      329,
+      339
+    ],
+    "positive": "RFC 8032 section 7.1 TEST 2",
+    "points_source": "https://github.com/jedisct1/libsodium/blob/1.0.20/src/libsodium/crypto_core/ed25519/ref10/ed25519_ref10.c#L1025 ge25519_has_small_order",
+    "malformed_source": "RFC 8032 sections 5.1.3 and 5.1.7: y must be reduced and x must exist; y=2 has nonsquare x^2."
+  },
+  "ed25519": [
+    {
+      "name": "rfc8032-section-7.1-test-2",
+      "valid": true,
+      "public_key": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+      "signature": "92a009a9f0d4cab8720e820b5f642540a2b27b5416503f8fb3762223ebdb69da085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
+      "message": "72",
+      "verdict": "OK"
+    },
+    {
+      "name": "cctv-5",
+      "valid": false,
+      "public_key": "10eb7c3acfb2bed3e0d6ab89bf5a3d6afddd1176ce4812e38d9fd485058fdb1f",
+      "signature": "0000000000000000000000000000000000000000000000000000000000000000bf189c9ab4c04e8cc8d1460102a9aa7d8c4fcd20a8acd085289774c218f93103",
+      "message": "7573652072697374726574746f3235352035",
+      "verdict": "BAD_SIGNATURE"
+    },
+    {
+      "name": "cctv-23",
+      "valid": false,
+      "public_key": "10eb7c3acfb2bed3e0d6ab89bf5a3d6afddd1176ce4812e38d9fd485058fdb1f",
+      "signature": "00000000000000000000000000000000000000000000000000000000000000808e9d7f981c931285458198ece300bf694ea6f7f90713b9488ec4454c787a6309",
+      "message": "7573652072697374726574746f3235352037",
+      "verdict": "BAD_SIGNATURE"
+    },
+    {
+      "name": "cctv-40",
+      "valid": false,
+      "public_key": "10eb7c3acfb2bed3e0d6ab89bf5a3d6afddd1176ce4812e38d9fd485058fdb1f",
+      "signature": "010000000000000000000000000000000000000000000000000000000000000007d6ac846ac7eb9a448d3f10e52fc4e3d2e74f415133c9a2789a6e041d78240b",
+      "message": "7573652072697374726574746f3235352035",
+      "verdict": "BAD_SIGNATURE"
+    },
+    {
+      "name": "cctv-327",
+      "valid": false,
+      "public_key": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc05",
+      "signature": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "message": "7573652072697374726574746f3235352031",
+      "verdict": "BAD_SIGNATURE"
+    },
+    {
+      "name": "cctv-329",
+      "valid": false,
+      "public_key": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc05",
+      "signature": "36684ea91032ba5b1dbab2d02f4debc74c3327f2b3802e2e4d371aa42b12b56b05ba9a796274d80437afa36f1236563f2f3b0aa84cecddc3d20914615ba4fe02",
+      "message": "7573652072697374726574746f323535203130",
+      "verdict": "BAD_SIGNATURE"
+    },
+    {
+      "name": "cctv-339",
+      "valid": false,
+      "public_key": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc05",
+      "signature": "00000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000",
+      "message": "7573652072697374726574746f3235352034",
+      "verdict": "BAD_SIGNATURE"
+    },
+    {
+      "name": "order-4-sign-0-public-key",
+      "valid": false,
+      "public_key": "0000000000000000000000000000000000000000000000000000000000000000",
+      "signature": "92a009a9f0d4cab8720e820b5f642540a2b27b5416503f8fb3762223ebdb69da085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
+      "message": "72",
+      "verdict": "BAD_SIGNATURE"
+    },
+    {
+      "name": "order-4-sign-0-R",
+      "valid": false,
+      "public_key": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+      "signature": "0000000000000000000000000000000000000000000000000000000000000000085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
+      "message": "72",
+      "verdict": "BAD_SIGNATURE"
+    },
+    {
+      "name": "order-4-sign-1-public-key",
+      "valid": false,
+      "public_key": "0000000000000000000000000000000000000000000000000000000000000080",
+      "signature": "92a009a9f0d4cab8720e820b5f642540a2b27b5416503f8fb3762223ebdb69da085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
+      "message": "72",
+      "verdict": "BAD_SIGNATURE"
+    },
+    {
+      "name": "order-4-sign-1-R",
+      "valid": false,
+      "public_key": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+      "signature": "0000000000000000000000000000000000000000000000000000000000000080085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
+      "message": "72",
+      "verdict": "BAD_SIGNATURE"
+    },
+    {
+      "name": "identity-sign-0-public-key",
+      "valid": false,
+      "public_key": "0100000000000000000000000000000000000000000000000000000000000000",
+      "signature": "92a009a9f0d4cab8720e820b5f642540a2b27b5416503f8fb3762223ebdb69da085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
+      "message": "72",
+      "verdict": "BAD_SIGNATURE"
+    },
+    {
+      "name": "identity-sign-0-R",
+      "valid": false,
+      "public_key": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+      "signature": "0100000000000000000000000000000000000000000000000000000000000000085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
+      "message": "72",
+      "verdict": "BAD_SIGNATURE"
+    },
+    {
+      "name": "identity-sign-1-public-key",
+      "valid": false,
+      "public_key": "0100000000000000000000000000000000000000000000000000000000000080",
+      "signature": "92a009a9f0d4cab8720e820b5f642540a2b27b5416503f8fb3762223ebdb69da085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
+      "message": "72",
+      "verdict": "BAD_SIGNATURE"
+    },
+    {
+      "name": "identity-sign-1-R",
+      "valid": false,
+      "public_key": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+      "signature": "0100000000000000000000000000000000000000000000000000000000000080085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
+      "message": "72",
+      "verdict": "BAD_SIGNATURE"
+    },
+    {
+      "name": "order-8-a-sign-0-public-key",
+      "valid": false,
+      "public_key": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc05",
+      "signature": "92a009a9f0d4cab8720e820b5f642540a2b27b5416503f8fb3762223ebdb69da085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
+      "message": "72",
+      "verdict": "BAD_SIGNATURE"
+    },
+    {
+      "name": "order-8-a-sign-0-R",
+      "valid": false,
+      "public_key": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+      "signature": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc05085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
+      "message": "72",
+      "verdict": "BAD_SIGNATURE"
+    },
+    {
+      "name": "order-8-a-sign-1-public-key",
+      "valid": false,
+      "public_key": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc85",
+      "signature": "92a009a9f0d4cab8720e820b5f642540a2b27b5416503f8fb3762223ebdb69da085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
+      "message": "72",
+      "verdict": "BAD_SIGNATURE"
+    },
+    {
+      "name": "order-8-a-sign-1-R",
+      "valid": false,
+      "public_key": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+      "signature": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc85085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
+      "message": "72",
+      "verdict": "BAD_SIGNATURE"
+    },
+    {
+      "name": "order-8-b-sign-0-public-key",
+      "valid": false,
+      "public_key": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a",
+      "signature": "92a009a9f0d4cab8720e820b5f642540a2b27b5416503f8fb3762223ebdb69da085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
+      "message": "72",
+      "verdict": "BAD_SIGNATURE"
+    },
+    {
+      "name": "order-8-b-sign-0-R",
+      "valid": false,
+      "public_key": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+      "signature": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
+      "message": "72",
+      "verdict": "BAD_SIGNATURE"
+    },
+    {
+      "name": "order-8-b-sign-1-public-key",
+      "valid": false,
+      "public_key": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa",
+      "signature": "92a009a9f0d4cab8720e820b5f642540a2b27b5416503f8fb3762223ebdb69da085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
+      "message": "72",
+      "verdict": "BAD_SIGNATURE"
+    },
+    {
+      "name": "order-8-b-sign-1-R",
+      "valid": false,
+      "public_key": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+      "signature": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
+      "message": "72",
+      "verdict": "BAD_SIGNATURE"
+    },
+    {
+      "name": "order-2-sign-0-public-key",
+      "valid": false,
+      "public_key": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "signature": "92a009a9f0d4cab8720e820b5f642540a2b27b5416503f8fb3762223ebdb69da085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
+      "message": "72",
+      "verdict": "BAD_SIGNATURE"
+    },
+    {
+      "name": "order-2-sign-0-R",
+      "valid": false,
+      "public_key": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+      "signature": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
+      "message": "72",
+      "verdict": "BAD_SIGNATURE"
+    },
+    {
+      "name": "order-2-sign-1-public-key",
+      "valid": false,
+      "public_key": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "signature": "92a009a9f0d4cab8720e820b5f642540a2b27b5416503f8fb3762223ebdb69da085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
+      "message": "72",
+      "verdict": "BAD_SIGNATURE"
+    },
+    {
+      "name": "order-2-sign-1-R",
+      "valid": false,
+      "public_key": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+      "signature": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
+      "message": "72",
+      "verdict": "BAD_SIGNATURE"
+    },
+    {
+      "name": "nonreduced-p-sign-0-public-key",
+      "valid": false,
+      "public_key": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "signature": "92a009a9f0d4cab8720e820b5f642540a2b27b5416503f8fb3762223ebdb69da085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
+      "message": "72",
+      "verdict": "BAD_SIGNATURE"
+    },
+    {
+      "name": "nonreduced-p-sign-0-R",
+      "valid": false,
+      "public_key": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+      "signature": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
+      "message": "72",
+      "verdict": "BAD_SIGNATURE"
+    },
+    {
+      "name": "nonreduced-p-sign-1-public-key",
+      "valid": false,
+      "public_key": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "signature": "92a009a9f0d4cab8720e820b5f642540a2b27b5416503f8fb3762223ebdb69da085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
+      "message": "72",
+      "verdict": "BAD_SIGNATURE"
+    },
+    {
+      "name": "nonreduced-p-sign-1-R",
+      "valid": false,
+      "public_key": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+      "signature": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
+      "message": "72",
+      "verdict": "BAD_SIGNATURE"
+    },
+    {
+      "name": "nonreduced-p-plus-one-sign-0-public-key",
+      "valid": false,
+      "public_key": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "signature": "92a009a9f0d4cab8720e820b5f642540a2b27b5416503f8fb3762223ebdb69da085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
+      "message": "72",
+      "verdict": "BAD_SIGNATURE"
+    },
+    {
+      "name": "nonreduced-p-plus-one-sign-0-R",
+      "valid": false,
+      "public_key": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+      "signature": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
+      "message": "72",
+      "verdict": "BAD_SIGNATURE"
+    },
+    {
+      "name": "nonreduced-p-plus-one-sign-1-public-key",
+      "valid": false,
+      "public_key": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "signature": "92a009a9f0d4cab8720e820b5f642540a2b27b5416503f8fb3762223ebdb69da085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
+      "message": "72",
+      "verdict": "BAD_SIGNATURE"
+    },
+    {
+      "name": "nonreduced-p-plus-one-sign-1-R",
+      "valid": false,
+      "public_key": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+      "signature": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
+      "message": "72",
+      "verdict": "BAD_SIGNATURE"
+    },
+    {
+      "name": "nonreduced-max-sign-0-public-key",
+      "valid": false,
+      "public_key": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "signature": "92a009a9f0d4cab8720e820b5f642540a2b27b5416503f8fb3762223ebdb69da085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
+      "message": "72",
+      "verdict": "BAD_SIGNATURE"
+    },
+    {
+      "name": "nonreduced-max-sign-0-R",
+      "valid": false,
+      "public_key": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+      "signature": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
+      "message": "72",
+      "verdict": "BAD_SIGNATURE"
+    },
+    {
+      "name": "nonreduced-max-sign-1-public-key",
+      "valid": false,
+      "public_key": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "signature": "92a009a9f0d4cab8720e820b5f642540a2b27b5416503f8fb3762223ebdb69da085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
+      "message": "72",
+      "verdict": "BAD_SIGNATURE"
+    },
+    {
+      "name": "nonreduced-max-sign-1-R",
+      "valid": false,
+      "public_key": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+      "signature": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
+      "message": "72",
+      "verdict": "BAD_SIGNATURE"
+    },
+    {
+      "name": "off-curve-y-two-sign-0-public-key",
+      "valid": false,
+      "public_key": "0200000000000000000000000000000000000000000000000000000000000000",
+      "signature": "92a009a9f0d4cab8720e820b5f642540a2b27b5416503f8fb3762223ebdb69da085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
+      "message": "72",
+      "verdict": "BAD_SIGNATURE"
+    },
+    {
+      "name": "off-curve-y-two-sign-0-R",
+      "valid": false,
+      "public_key": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+      "signature": "0200000000000000000000000000000000000000000000000000000000000000085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
+      "message": "72",
+      "verdict": "BAD_SIGNATURE"
+    },
+    {
+      "name": "off-curve-y-two-sign-1-public-key",
+      "valid": false,
+      "public_key": "0200000000000000000000000000000000000000000000000000000000000080",
+      "signature": "92a009a9f0d4cab8720e820b5f642540a2b27b5416503f8fb3762223ebdb69da085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
+      "message": "72",
+      "verdict": "BAD_SIGNATURE"
+    },
+    {
+      "name": "off-curve-y-two-sign-1-R",
+      "valid": false,
+      "public_key": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+      "signature": "0200000000000000000000000000000000000000000000000000000000000080085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
+      "message": "72",
+      "verdict": "BAD_SIGNATURE"
+    }
+  ]
+}

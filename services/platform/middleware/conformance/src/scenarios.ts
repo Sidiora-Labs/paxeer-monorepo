@@ -59,6 +59,35 @@ import {
 const isMiddlewareError = (code: string) => (error: unknown): boolean =>
   error instanceof MiddlewareError && error.code === code;
 
+export class CommittedRungRequiresExactPaymentError extends Error {
+  public constructor() {
+    super("the committed rung requires an exact payment");
+    this.name = "CommittedRungRequiresExactPaymentError";
+  }
+}
+
+export function committedRungOffer(
+  offer: OfferFixture,
+  payment: PaymentReceiptVerification["payment"],
+): OfferFixture {
+  if (!("paymentReference" in payment)) {
+    throw new CommittedRungRequiresExactPaymentError();
+  }
+  const requirements: PaymentRequirements = {
+    ...offer.requirements,
+    extra: {
+      layerx: {
+        commitment: "committed",
+        purposeHash: toHex(payment.paymentReference),
+      },
+    },
+  };
+  return {
+    requirements,
+    paymentRequired: { ...offer.paymentRequired, accepts: [requirements] },
+  };
+}
+
 /** A session issuing and retaining signed payments from the conformance producer. */
 export class ConformancePaymentRpcSession {
   readonly #receipts = new Map<string, Readonly<Record<string, unknown>>>();
@@ -439,19 +468,7 @@ export async function runScenarios(): Promise<Suite> {
   await suite.check("x402: a committed requirement refuses receipted-only evidence", async () => {
     const verification = await verifyPaymentReceipt(receipt, offer.requirements, receiptKeys);
     assert(verification.rung === "receipted", "the evidence must first verify at the receipted rung");
-    const requirements = {
-      ...offer.requirements,
-      extra: {
-        layerx: {
-          commitment: "committed",
-          purposeHash: toHex(verification.payment.paymentReference),
-        },
-      },
-    };
-    const committedOffer: OfferFixture = {
-      requirements,
-      paymentRequired: { ...offer.paymentRequired, accepts: [requirements] },
-    };
+    const committedOffer = committedRungOffer(offer, verification.payment);
     await expectThrows(
       () => verifyPaymentReceipt(receipt, committedOffer.requirements, receiptKeys),
       isMiddlewareError("verification-failure"),

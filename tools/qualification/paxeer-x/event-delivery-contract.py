@@ -14,11 +14,11 @@ import subprocess
 import sys
 import tempfile
 import time
-import tomllib
 from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.dont_write_bytecode = True
+sys.path.insert(0, str(ROOT / 'services/agent/sdk/python'))
 sys.path.insert(0, str(ROOT / 'tools/paxeer-x'))
 from candidate import SERVICE_CATALOGUE
 
@@ -1065,6 +1065,224 @@ def principal_delivery_fairness(manifest, results):
             process.stop()
 
 
+def deployment_documents(path):
+    import yaml
+    with Path(path).open() as stream:
+        documents = list(yaml.safe_load_all(stream))
+    if not documents or any(not isinstance(row, dict) for row in documents):
+        raise Missing('current deployment inventory is malformed')
+    return documents
+
+
+def deployment_topology(results, root=ROOT, webhooks=True):
+    internal = deployment_documents(root / 'services/platform/hosted/internal/deployment.yaml')
+    deployments = {row['metadata']['name']: row for row in internal if row['kind'] == 'Deployment'}
+    expected = {'kms', *KINDS}
+    services = {row['metadata']['name']: row for row in internal if row['kind'] == 'Service'}
+    private_listeners = expected | {'redis', 'internal-identity', 'internal-component', 'internal-authority'}
+    aliases = {'identity': 'internal-identity', 'component': 'internal-component', 'authority': 'internal-authority'}
+    provisioning_check(results, 'all five internal groups remain private-only', expected <= deployments.keys()
+                       and services.keys() == private_listeners | aliases.keys()
+                       and all(services[name].get('spec', {}).get('type', 'ClusterIP') == 'ClusterIP'
+                               and not services[name]['spec'].get('externalIPs')
+                               and not services[name]['spec'].get('loadBalancerIP')
+                               and not any(port.get('nodePort') for port in services[name]['spec'].get('ports', []))
+                               for name in private_listeners)
+                       and not any(row['kind'] in ('Ingress', 'Gateway', 'HTTPRoute') for row in internal))
+    for name, target in aliases.items():
+        alias = services[name]
+        provisioning_check(results, name + ' alias resolves only to its private in-cluster service',
+                           alias['metadata'].get('namespace') == 'layerx-internal'
+                           and alias['spec'].get('type') == 'ExternalName'
+                           and alias['spec'].get('externalName') == target + '.layerx-testnet.svc.cluster.local'
+                           and not alias['spec'].get('externalIPs')
+                           and not alias['spec'].get('loadBalancerIP')
+                           and services[target]['metadata'].get('namespace') == 'layerx-testnet')
+    claims = set()
+    declared = {row['metadata']['name'] for row in internal if row['kind'] == 'PersistentVolumeClaim'}
+    for name in sorted(expected):
+        spec = deployments[name]['spec']
+        pod = spec['template']['spec']
+        container, = pod['containers']
+        env = {row['name']: row.get('value') for row in container['env']}
+        prefix = 'LAYERX_KMS_' if name == 'kms' else 'LAYERX_EVENTS_'
+        volumes = {row['name']: row for row in pod['volumes']}
+        mounts = {row['name']: row for row in container['volumeMounts']}
+        claim = volumes['state']['persistentVolumeClaim']['claimName']
+        provisioning_check(results, name + ' keeps its private TLS listener and protected credential mount',
+                           env.get(prefix + 'LISTEN') == '0.0.0.0:9443'
+                           and not pod.get('hostNetwork') and not any(row.get('hostPort') for row in container['ports'])
+                           and all(env.get(prefix + key, '').startswith('/run/layerx/')
+                                   for key in ('TLS_CERT_DER', 'TLS_KEY_DER', 'CLIENT_CA_DER', 'TOKEN_FILE'))
+                           and mounts['runtime'].get('readOnly') is True
+                           and 'secret' in volumes['runtime']
+                           and volumes['runtime']['secret']['defaultMode'] & 0o007 == 0)
+        provisioning_check(results, name + ' retains its independent durable volume',
+                           claim in declared and claim not in claims
+                           and mounts['state']['mountPath'] == '/var/lib/layerx'
+                           and env[prefix + 'STATE_DIR'] == '/var/lib/layerx/state'
+                           and spec.get('replicas') == 1 and spec.get('strategy', {}).get('type') == 'Recreate')
+        claims.add(claim)
+    provisioning_check(results, 'all five deployment groups retain independent persistent volumes', len(claims) == 5)
+    if not webhooks:
+        return
+    documents = deployment_documents(root / 'services/platform/hosted/webhooks/deployment.yaml')
+    roles = {}
+    shared = {}
+    for row in documents:
+        if row['kind'] == 'ConfigMap':
+            shared[row['metadata']['name']] = row.get('data', {})
+        if row['kind'] == 'Deployment':
+            role = row['spec']['template']['metadata'].get('labels', {}).get('role')
+            if role in ('public', 'ingress'):
+                if role in roles:
+                    provisioning_check(results, 'unique webhook deployment role', False)
+                roles[role] = row
+    provisioning_check(results, 'webhook public and ingress deployments stay separate', set(roles) == {'public', 'ingress'})
+    for role, deployment in roles.items():
+        pod = deployment['spec']['template']['spec']
+        container, = pod['containers']
+        env = {}
+        for row in container.get('envFrom', []):
+            env.update(shared[row['configMapRef']['name']])
+        env.update({row['name']: row.get('value') for row in container['env']})
+        volumes = {row['name']: row for row in pod['volumes']}
+        mounted = {}
+        protected_mounts = True
+        for mount in container['volumeMounts']:
+            volume = volumes[mount['name']]
+            if 'projected' not in volume:
+                continue
+            protected_mounts = protected_mounts and mount.get('readOnly') is True
+            for source in volume['projected']['sources']:
+                if 'secret' in source:
+                    for item in source['secret']['items']:
+                        mounted[mount['mountPath'].rstrip('/') + '/' + item['path']] = item['key']
+        required = {'LAYERX_WEBHOOKS_TLS_CERT_DER', 'LAYERX_WEBHOOKS_TLS_KEY_DER'}
+        required |= ({'LAYERX_WEBHOOKS_IDENTITY_TOKEN_FILE'} if role == 'public' else
+                     {'LAYERX_WEBHOOKS_SOURCE_TRIGGER_TOKEN_FILE', 'LAYERX_WEBHOOKS_OPERATOR_TOKEN_FILE',
+                      'LAYERX_WEBHOOKS_INGRESS_CLIENT_CA_DER'})
+        foreign = {'tokens/identity'} if role == 'ingress' else {'tokens/source-trigger', 'tokens/operator'}
+        provisioning_check(results, role + ' keeps private TLS and role-only protected mounts',
+                           env.get('LAYERX_WEBHOOKS_ROLE') == role and env.get('LAYERX_WEBHOOKS_LISTENER') == 'tls'
+                           and protected_mounts and required <= env.keys()
+                           and all(env[key] in mounted for key in required)
+                           and not any(path.endswith('/' + suffix) for path in mounted for suffix in foreign)
+                           and not pod.get('hostNetwork') and not any(port.get('hostPort') for port in container['ports'])
+                           and container['securityContext'].get('runAsNonRoot') is True)
+    for row in documents:
+        if row['kind'] == 'Service' and row.get('spec', {}).get('selector', {}).get('app') == 'layerx-webhooks':
+            provisioning_check(results, 'webhook service remains cluster-private',
+                               row['spec'].get('type', 'ClusterIP') == 'ClusterIP' and not row['spec'].get('externalIPs'))
+    init = (root / 'services/platform/hosted/webhooks/env-init.sh').read_text()
+    public, separator, ingress = init.partition('\ningress)\n')
+    provisioning_check(results, 'env init keeps role credential separation', bool(separator)
+                       and 'LAYERX_WEBHOOKS_ROLE=public' in public and 'IDENTITY_TOKEN_FILE' in public
+                       and 'LAYERX_WEBHOOKS_SOURCE_TRIGGER_TOKEN_FILE' not in public
+                       and 'LAYERX_WEBHOOKS_OPERATOR_TOKEN_FILE' not in public
+                       and 'LAYERX_WEBHOOKS_ROLE=ingress' in ingress and 'LAYERX_WEBHOOKS_LISTENER=tls' in ingress
+                       and 'LAYERX_WEBHOOKS_INGRESS_CLIENT_CA_DER=/run/layerx/ca/internal.der' in ingress
+                       and 'LAYERX_WEBHOOKS_IDENTITY_TOKEN_FILE' not in ingress)
+    routed = [row for row in documents if row['kind'] == 'Ingress'
+              for rule in row['spec'].get('rules', []) for row in rule.get('http', {}).get('paths', [])
+              if row.get('path') == '/v1/webhooks']
+    provisioning_check(results, 'edge routes webhooks only to the public service',
+                       len(routed) == 1 and routed[0]['backend']['service']['name'] == roles['public']['metadata']['name'])
+
+
+PROVISIONING_EXECUTABLES = frozenset({
+    'paxd', 'layerx-kms', 'layerx-event-source', 'layerx-identity', 'layerx-human-components',
+    'layerx-human-service', 'layerx-webhooks', 'layerx-gateway', 'layerx-program-registry',
+    'redis-server', 'layerx-agentd', 'layerx-identity-binding', 'layerx-remote-signer',
+})
+
+
+def provisioning_executables(artifacts):
+    if not {'paxd', 'layerx-runtime-clock', 'node'} <= artifacts.keys():
+        raise Missing('merged paxd, runtime clock and Node artifacts are required')
+    if not artifacts.keys() <= PROVISIONING_EXECUTABLES | {'layerx-runtime-clock', 'node'}:
+        raise Missing('undeclared or retired executable in principal provisioning fixture')
+
+
+def receipt_environment(configuration):
+    if set(configuration) != {'node_url', 'comet_url', 'node_token_file', 'chain_policy_file', 'receipt_keys', 'client_cert_pem', 'client_key_pem'}:
+        raise Missing('current paxd receipt producer configuration required')
+    for key in ('node_url', 'comet_url'):
+        url = urlsplit(configuration[key])
+        if url.scheme != 'https' or url.hostname not in ('localhost', '127.0.0.1') or not url.port \
+                or url.path not in ('', '/') or url.username or url.password or url.query or url.fragment:
+            raise Missing('private TLS root paxd RPC listener required')
+    for key in ('client_cert_pem', 'client_key_pem'):
+        protected_input(configuration[key], 'paxd mTLS client identity')
+    token = protected_input(configuration['node_token_file'], 'paxd receipt RPC token')
+    policy_file = protected_input(configuration['chain_policy_file'], 'paxd chain policy')
+    policy = json.loads(policy_file.read_bytes())
+    if set(policy) != {'chain_id', 'validators'} or not isinstance(policy['chain_id'], str) \
+            or not 0 < len(policy['chain_id']) <= 50 or not isinstance(policy['validators'], list) \
+            or not 0 < len(policy['validators']) <= 256:
+        raise Missing('paxd committed chain policy required')
+    keys, power = set(), 0
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+    for row in policy['validators']:
+        key = row.get('public_key')
+        if set(row) != {'public_key', 'voting_power'} or not isinstance(key, list) or len(key) != 32 \
+                or any(type(v) is not int or not 0 <= v <= 255 for v in key) \
+                or bytes(key) in keys or type(row['voting_power']) is not int or row['voting_power'] <= 0:
+            raise Missing('invalid paxd validator policy')
+        Ed25519PublicKey.from_public_bytes(bytes(key))
+        keys.add(bytes(key))
+        power += row['voting_power']
+    if power > (2 ** 63 - 1) // 8:
+        raise Missing('paxd validator voting power overflow')
+    from layerx_sdk.verifier import ReceiptKey
+    pins = configuration['receipt_keys']
+    if not isinstance(pins, list) or not pins:
+        raise Missing('paxd governed receipt key pins required')
+    seen = set()
+    for pin in pins:
+        if set(pin) != {'key_id', 'public_key', 'first_height', 'last_height'} \
+                or any(not isinstance(pin[k], str) or not re.fullmatch('[0-9a-f]{64}', pin[k]) for k in ('key_id', 'public_key')) \
+                or type(pin['first_height']) is not int or type(pin['last_height']) is not int \
+                or not 0 < pin['first_height'] <= pin['last_height'] < 2 ** 64 or pin['key_id'] in seen:
+            raise Missing('invalid paxd governed receipt key pin')
+        ReceiptKey(bytes.fromhex(pin['key_id']), bytes.fromhex(pin['public_key']), pin['first_height'], pin['last_height'])
+        seen.add(pin['key_id'])
+    return {'LAYERX_WEBHOOKS_NODE_URL': configuration['node_url'],
+            'LAYERX_WEBHOOKS_COMET_URL': configuration['comet_url'],
+            'LAYERX_WEBHOOKS_NODE_TOKEN_FILE': str(token),
+            'LAYERX_WEBHOOKS_CHAIN_POLICY_FILE': str(policy_file)}
+
+
+class PaxdReceiptProducer:
+    def __init__(self, configuration, ca_pem):
+        import importlib.util
+        environment = receipt_environment(configuration)
+        spec = importlib.util.spec_from_file_location('event_merged_chain', Path(__file__).with_name('fixtures') / 'merged_chain.py')
+        chain = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(chain)
+        self.chain = chain
+        self.node = chain.Node(environment['LAYERX_WEBHOOKS_NODE_URL'], configuration['receipt_keys'],
+                               {'Authorization': 'Bearer ' + protected_input(environment['LAYERX_WEBHOOKS_NODE_TOKEN_FILE'],
+                                                                            'paxd token').read_text().strip()},
+                               ssl.create_default_context(cafile=str(protected_input(ca_pem, 'paxd TLS root'))))
+        self.node.context.load_cert_chain(configuration['client_cert_pem'], configuration['client_key_pem'])
+
+    def receipt(self, transaction_hash):
+        if self.node.call('eth_chainId', []) != '0x7d':
+            raise Missing('paxd receipt producer must be chain 125')
+        row = self.node.call('pax_sequencerReceipt', [transaction_hash])
+        raw = self.node.call('eth_getRawTransactionByHash', [transaction_hash])
+        if not isinstance(raw, str) or not re.fullmatch('0x(?:[0-9a-f]{2})+', raw):
+            raise Missing('paxd receipt lacks its original signed transaction')
+        if '0x' + self.chain.keccak256(bytes.fromhex(raw[2:])).hex() != transaction_hash:
+            raise Missing('paxd substituted the event transaction')
+        try:
+            return self.chain._EXECUTION.verified_execution(row, bytes.fromhex(raw[2:]),
+                                                           {'receipt_keys': self.node.receipt_keys})[0]
+        except self.chain._EXECUTION.Refusal as error:
+            raise Missing('paxd event receipt refused: ' + str(error)) from error
+
+
 def roles_webhook_ingress_roles(manifest, results):
     CA_SH = ROOT / 'tools' / 'bringup' / 'ca.sh'
     SCHEMA = 'paxeer-x.candidate.v1'
@@ -1074,8 +1292,7 @@ def roles_webhook_ingress_roles(manifest, results):
     INGRESS_SECRETS = (
         'WEBHOOKS_COMPONENT_TOKEN', 'WEBHOOKS_AUTHORITY_TOKEN', 'WEBHOOKS_JOURNEY_SOURCE_TOKEN',
         'WEBHOOKS_PAYMENT_SOURCE_TOKEN', 'WEBHOOKS_APPROVAL_SOURCE_TOKEN', 'WEBHOOKS_PROGRAM_SOURCE_TOKEN',
-        'WEBHOOKS_SOURCE_TRIGGER_TOKEN', 'WEBHOOKS_OPERATOR_TOKEN', 'WEBHOOKS_SEQUENCER_PUBLIC_KEY',
-        'WEBHOOKS_SEQUENCER_ID', 'WEBHOOKS_SEQUENCER_FIRST_BATCH', 'WEBHOOKS_SEQUENCER_LAST_BATCH',
+        'WEBHOOKS_SOURCE_TRIGGER_TOKEN', 'WEBHOOKS_OPERATOR_TOKEN', 'WEBHOOKS_NODE_TOKEN',
     )
     PUBLIC_SECRETS = ('WEBHOOKS_IDENTITY_TOKEN',)
     SOURCE_EVENT = '7' * 64
@@ -1182,8 +1399,6 @@ def roles_webhook_ingress_roles(manifest, results):
             'LAYERX_WEBHOOKS_LXP_WIRE_VERSION': '3',
             'LAYERX_WEBHOOKS_NETWORK_ID': 'paxeer-webhook-ingress-roles',
             'LAYERX_WEBHOOKS_IDENTITY_URL': f'https://localhost:{closed}',
-            'LAYERX_WEBHOOKS_COMPONENT_URL': f'https://localhost:{closed}',
-            'LAYERX_WEBHOOKS_AUTHORITY_URL': f'https://localhost:{closed}',
         }
         for stem in ('JOURNEY', 'PAYMENT', 'APPROVAL', 'PROGRAM'):
             environment[f'LAYERX_WEBHOOKS_{stem}_SOURCE_URL'] = f'https://localhost:{closed}'
@@ -1211,13 +1426,8 @@ def roles_webhook_ingress_roles(manifest, results):
             'LAYERX_WEBHOOKS_INGRESS_CLIENT_CA_DER': str(client_ca),
             'LAYERX_WEBHOOKS_SOURCE_TRIGGER_TOKEN_FILE': tokens['source'],
             'LAYERX_WEBHOOKS_OPERATOR_TOKEN_FILE': tokens['operator'],
-            'LAYERX_WEBHOOKS_COMPONENT_TOKEN_FILE': secret(shared, 'component-token', os.urandom(16).hex()),
-            'LAYERX_WEBHOOKS_AUTHORITY_TOKEN_FILE': secret(shared, 'authority-token', os.urandom(16).hex()),
-            'LAYERX_WEBHOOKS_SEQUENCER_PUBLIC_KEY_FILE': secret(shared, 'sequencer-public-key', '58' + '66' * 31),
-            'LAYERX_WEBHOOKS_SEQUENCER_ID_FILE': secret(shared, 'sequencer-id', '22' * 32),
-            'LAYERX_WEBHOOKS_SEQUENCER_FIRST_BATCH_FILE': secret(shared, 'sequencer-first-batch', '1'),
-            'LAYERX_WEBHOOKS_SEQUENCER_LAST_BATCH_FILE': secret(shared, 'sequencer-last-batch', str(2 ** 64 - 1)),
         })
+        environment.update(receipt_environment(roles_artifacts(manifest)['receipt_producer']))
         for stem in ('JOURNEY', 'PAYMENT', 'APPROVAL', 'PROGRAM'):
             environment[f'LAYERX_WEBHOOKS_{stem}_SOURCE_TOKEN_FILE'] = secret(
                 shared, f'{stem.lower()}-source-token', os.urandom(16).hex())
@@ -1293,50 +1503,9 @@ def roles_webhook_ingress_roles(manifest, results):
     
     
     def wiring(results):
-        fly = tomllib.loads((ROOT / 'services/platform/hosted/webhooks/fly.toml').read_text())
-        files = {entry['secret_name']: entry.get('processes') for entry in fly.get('files', [])}
-        for name in INGRESS_SECRETS:
-            results.check(f'fly mounts {name} only into ingress', files.get(name) == ['ingress'], files.get(name))
-        for name in PUBLIC_SECRETS:
-            results.check(f'fly mounts {name} only into public', files.get(name) == ['public'], files.get(name))
-        results.check('fly public API stays on private TLS behind the unified endpoint',
-                      not fly.get('http_service') and fly.get('processes', {}).get('public') == 'public', fly.get('http_service'))
-        for name in ('WEBHOOKS_INGRESS_TLS_CERT', 'WEBHOOKS_INGRESS_TLS_CERT_DER', 'WEBHOOKS_INGRESS_TLS_KEY_DER'):
-            results.check('both TLS roles mount their server identity', files.get(name) == ['public', 'ingress'])
-        results.check('fly exposes no service for the ingress group', not fly.get('services'), fly.get('services'))
-        role_variables = [name for name in fly.get('env', {}) if name.endswith(
-            ('SOURCE_TRIGGER_TOKEN_FILE', 'OPERATOR_TOKEN_FILE', 'IDENTITY_TOKEN_FILE', 'INGRESS_CLIENT_CA_DER'))]
-        results.check('fly shared env carries no role credential path', not role_variables, role_variables)
-        init = (ROOT / 'services/platform/hosted/webhooks/env-init.sh').read_text()
-        public, _, ingress = init.partition('\ningress)\n')
-        results.check('env init public role is public and reads only the identity token',
-                      'LAYERX_WEBHOOKS_ROLE=public' in public and 'IDENTITY_TOKEN_FILE' in public
-                      and 'SOURCE_TRIGGER' not in public and 'OPERATOR_TOKEN' not in public, 'public branch')
-        results.check('env init ingress role is TLS with the internal client CA',
-                      'LAYERX_WEBHOOKS_ROLE=ingress' in ingress and 'LAYERX_WEBHOOKS_LISTENER=tls' in ingress
-                      and 'LAYERX_WEBHOOKS_INGRESS_CLIENT_CA_DER=/run/layerx/ca/internal.der' in ingress
-                      and 'IDENTITY_TOKEN_FILE' not in ingress, 'ingress branch')
-        documents = (ROOT / 'services/platform/hosted/webhooks/deployment.yaml').read_text().split('\n---\n')
-        deployments = {}
-        for document in documents:
-            if 'kind: Deployment' in document and 'role: public' in document:
-                deployments['public'] = document
-            elif 'kind: Deployment' in document and 'role: ingress' in document:
-                deployments['ingress'] = document
-        public_doc, ingress_doc = deployments.get('public', ''), deployments.get('ingress', '')
-        results.check('kubernetes public deployment is role public without trigger credentials',
-                      'LAYERX_WEBHOOKS_ROLE, value: public' in public_doc and 'source-trigger' not in public_doc
-                      and 'operator' not in public_doc, 'public deployment')
-        results.check('kubernetes ingress deployment requires the client CA and lacks the identity token',
-                      'LAYERX_WEBHOOKS_ROLE, value: ingress' in ingress_doc
-                      and 'LAYERX_WEBHOOKS_INGRESS_CLIENT_CA_DER' in ingress_doc
-                      and 'tokens/identity' not in ingress_doc, 'ingress deployment')
-        routed = [document for document in documents if 'kind: Ingress' in document and '/v1/webhooks' in document]
-        results.check('kubernetes edge routes /v1/webhooks only to the public service',
-                      len(routed) == 1 and 'name: layerx-webhooks-public,' in routed[0]
-                      and '/internal' not in routed[0], routed)
-    
-    
+        deployment_topology(results)
+
+
     def issue_local_cases(results, work, ca_dir):
         table = ca_sh(['services'], ca_dir).stdout
         local = ca_sh(['local-services'], ca_dir).stdout
@@ -1519,7 +1688,7 @@ def roles_webhook_ingress_roles(manifest, results):
             foreign_ca = ca_init(work / 'foreign-ca')
             table = ca_sh(['services'], ca).stdout
             developer = row(table, 'developer')
-            app = tomllib.loads((ROOT / developer[1]).read_text())['app']
+            app = 'localhost'
             server = leaf(work / 'server', ca, developer[4], developer[5], developer[6].replace('<app>', app))
             der(server)
             client = leaf(work / 'client', ca, row(table, 'developer-client')[4], 'clientAuth', '')
@@ -1664,7 +1833,7 @@ def roles_artifacts(manifest):
             or value.get('source_revision') != manifest['source']['revision']:
         raise Missing('webhook process artifacts do not bind this candidate')
     required = {'layerx-webhooks', 'layerx-identity', 'layerx-kms', 'layerx-gateway',
-                'layerx-event-source', 'layerx-agent-boundary', 'layerx-program-registry',
+                'layerx-event-source', 'paxd', 'layerx-program-registry',
                 'builder-isolation', 'builder-supervisor'}
     if set(value.get('artifacts', {})) != required:
         raise Missing('webhook runtime artifact set is incomplete')
@@ -1677,6 +1846,7 @@ def roles_artifacts(manifest):
             digest = hashlib.file_digest(stream, 'sha256').hexdigest()
         if digest != artifact['sha256'] or artifact['source_revision'] != value['source_revision']:
             raise Missing('webhook runtime artifact changed')
+    receipt_environment(value['receipt_producer'])
     configuration = json.loads(protected_input(os.environ['PAXEER_X_REGISTRY_CONFIGURATION'], 'registry configuration').read_bytes())
     for name, key in (('builder-isolation', 'ISOLATION_RUNTIME'), ('builder-supervisor', 'JOB_SUPERVISOR')):
         row = value['artifacts'][name]
@@ -1705,7 +1875,7 @@ def provisioning_inputs(manifest):
     if not location:
         raise Missing('PAXEER_X_EVENT_PROVISIONING is required: genuine Human onboarding dependencies and candidate-bound prebuilt services')
     document = json.loads(protected_input(location, 'principal provisioning fixture').read_bytes())
-    if document.get('schema') != 'paxeer-x.event-principal-provisioning.v1' \
+    if document.get('schema') != 'paxeer-x.event-principal-provisioning.v2' \
             or document.get('candidate_manifest_sha256') != MANIFEST_DIGEST \
             or document.get('source_revision') != manifest['source']['revision'] \
             or document.get('scope') != 'isolated-real-process':
@@ -1713,18 +1883,14 @@ def provisioning_inputs(manifest):
     root = private_directory(Path(document['isolation_root']).resolve(strict=True))
     if root == Path('/'):
         raise Missing('isolated writable root required')
-    required = {'kms', 'journeys', 'approvals', 'payments', 'programs', 'identity',
+    required = {'paxd', 'kms', 'journeys', 'approvals', 'payments', 'programs', 'identity',
                 'human-components', 'human-service', 'webhook-public', 'webhook-ingress'}
     services = document['services']
     if not required <= set(services) or len(services) > 40:
         raise Missing('all five internal groups, real Human issuer, identity and webhook roles are required')
-    allowed = {'layerx-kms', 'layerx-event-source', 'layerx-identity', 'layerx-human-components',
-               'layerx-human-service', 'layerx-webhooks', 'layerx-gateway', 'layerx-program-registry',
-               'layerx-agent-boundary', 'layerxd', 'paxd', 'redis-server',
-               'layerx-guarantor', 'layerx-human-kms', 'layerx-human-security-provider',
-               'layerx-human-movement-provider', 'layerx-human-identity-provider', 'layerx-human-onboarding',
-               'layerx-agentd', 'layerx-identity-binding', 'layerx-remote-signer'}
+    allowed = PROVISIONING_EXECUTABLES
     artifacts = document['artifacts']
+    provisioning_executables(artifacts)
     for name, artifact in artifacts.items():
         if name not in allowed | {'layerx-runtime-clock', 'node'}:
             raise Missing('undeclared executable in principal provisioning fixture')
@@ -1738,7 +1904,7 @@ def provisioning_inputs(manifest):
     if not {'layerx-runtime-clock', 'node'} <= set(artifacts):
         raise Missing('prebuilt runtime clock and Node with native TypeScript support are required')
     states = {}
-    expected_phases = {'kms': 'internal', 'journeys': 'internal', 'approvals': 'internal',
+    expected_phases = {'paxd': 'dependency', 'kms': 'internal', 'journeys': 'internal', 'approvals': 'internal',
                        'payments': 'internal', 'programs': 'internal', 'identity': 'dependency',
                        'human-components': 'human', 'human-service': 'human',
                        'webhook-public': 'webhook', 'webhook-ingress': 'webhook'}
@@ -1813,14 +1979,19 @@ def provisioning_inputs(manifest):
                     'CLIENT_IDENTITY_PASSWORD_FILE', 'CURSOR_KEY_FILE'):
             protected_input(env['LAYERX_WEBHOOKS_' + key], 'webhook mandatory dependency')
     ingress = services['webhook-ingress']['environment']
-    for key in ('INGRESS_CLIENT_CA_DER', 'COMPONENT_TOKEN_FILE', 'AUTHORITY_TOKEN_FILE',
-                'SOURCE_TRIGGER_TOKEN_FILE', 'OPERATOR_TOKEN_FILE', 'SEQUENCER_PUBLIC_KEY_FILE',
-                'SEQUENCER_ID_FILE', 'SEQUENCER_FIRST_BATCH_FILE', 'SEQUENCER_LAST_BATCH_FILE',
+    for key in ('INGRESS_CLIENT_CA_DER',
+                'SOURCE_TRIGGER_TOKEN_FILE', 'OPERATOR_TOKEN_FILE',
                 'JOURNEY_SOURCE_TOKEN_FILE', 'APPROVAL_SOURCE_TOKEN_FILE',
                 'PAYMENT_SOURCE_TOKEN_FILE', 'PROGRAM_SOURCE_TOKEN_FILE'):
         protected_input(ingress['LAYERX_WEBHOOKS_' + key], 'webhook protected trust material')
-    if not ingress.get('LAYERX_WEBHOOKS_NETWORK_ID') or ingress.get('LAYERX_WEBHOOKS_LXP_WIRE_VERSION') != '3':
-        raise Missing('webhook exact network/protocol pins required')
+    current_receipts = receipt_environment(document['receipt_producer'])
+    if any('SEQUENCER_' in key or key in ('LAYERX_WEBHOOKS_AUTHORITY_URL', 'LAYERX_WEBHOOKS_COMPONENT_URL') for key in ingress):
+        raise Missing('separate sequencer authority configuration is retired')
+    if any(ingress.get(key) != value for key, value in current_receipts.items()):
+        raise Missing('webhook receipt producer does not bind paxd')
+    paxd = services['paxd']
+    if paxd['binary'] != 'paxd' or not paxd['state_directories']:
+        raise Missing('merged paxd event producer with owned durable home required')
     protected_input(services['webhook-public']['environment']['LAYERX_WEBHOOKS_IDENTITY_TOKEN_FILE'],
                     'webhook authenticated identity reference')
     if document['human']['url'] != 'https://localhost':
@@ -2124,6 +2295,8 @@ def provisioning_worker(manifest, results, attachment, readiness=False):
             for name, service in fixture['services'].items():
                 if service['phase'] == phase:
                     processes.start(name)
+        receipts = PaxdReceiptProducer(fixture['receipt_producer'], fixture['ca']['certificate'])
+        processes.wait(lambda: receipts.node.call('eth_chainId', []) == '0x7d', 'merged paxd chain-125 receipt producer')
         for kind, client in source_clients.items():
             state = processes.wait(lambda: (v if (v := client.request('GET', '/readyz'))[0] == 503 else None),
                                    kind + ' waiting before Human')
@@ -2324,14 +2497,7 @@ def event_principal_provisioning(manifest, results):
     work = Path(tempfile.mkdtemp(prefix='event-principal-provisioning-', dir=private_directory(Path(evidence))))
     work.chmod(0o700)
     print('evidence=' + str(work))
-    fly = tomllib.loads((ROOT / 'services/platform/hosted/internal/fly.toml').read_text())
-    expected = {'kms', *KINDS}
-    provisioning_check(results, 'all five internal groups remain private-only', set(fly['processes']) == expected
-                       and not fly.get('services') and not fly.get('http_service'))
-    mounts = fly.get('mounts', [])
-    provisioning_check(results, 'all five deployment groups retain independent persistent volumes', len(mounts) == 5
-                       and {tuple(row['processes']) for row in mounts} == {(name,) for name in expected}
-                       and len({row['source'] for row in mounts}) == 5)
+    deployment_topology(results)
     ca = CaMaterial.__new__(CaMaterial)
     ca.directory = Path(fixture['ca']['directory'])
     ca.ca_pem = protected_input(fixture['ca']['certificate'], 'genuine fixture CA certificate')
@@ -2402,14 +2568,14 @@ def producer_readiness_inputs(fixture):
         raise Missing('Human readiness must use the genuine Human service listener')
     dependencies = configuration['dependencies']
     binaries = {'redis': {'redis-server'}, 'kms': {'layerx-kms'},
-                'component': {'layerx-agent-boundary'},
+                'node': {'paxd'},
                 'source-principal': {'layerx-human-service', 'layerx-human-components'}}
     if not isinstance(dependencies, dict) or set(dependencies) != set(binaries):
         raise Missing('readiness requires every owned real dependency for deadline refusal and restoration')
     ingress_env = fixture['services']['webhook-ingress']['environment']
     origins = {'redis': ingress_env['LAYERX_WEBHOOKS_REDIS_URL'],
                'kms': ingress_env['LAYERX_WEBHOOKS_KMS_URL'],
-               'component': ingress_env['LAYERX_WEBHOOKS_COMPONENT_URL'],
+               'node': ingress_env['LAYERX_WEBHOOKS_NODE_URL'],
                'source-principal': fixture['services']['journeys']['environment']['LAYERX_EVENTS_UPSTREAM_URL']}
     for name, service_name in dependencies.items():
         service = fixture['services'].get(service_name)
@@ -2422,6 +2588,9 @@ def producer_readiness_inputs(fixture):
         if name == 'redis':
             if '--tls-port' not in service['arguments'] or service['arguments'][service['arguments'].index('--tls-port') + 1] != str(port):
                 raise Missing('Redis deadline process must own the configured real TLS port')
+        elif name == 'node':
+            if '--evm.http_port' not in service['arguments'] or service['arguments'][service['arguments'].index('--evm.http_port') + 1] != str(port):
+                raise Missing('paxd deadline process must own the configured root RPC port')
         elif not any(value in (f'127.0.0.1:{port}', f'localhost:{port}', f'0.0.0.0:{port}')
                      for key, value in service['environment'].items() if key.endswith(('_LISTEN', '_BIND'))):
             raise Missing('deadline process must own the configured dependency listener: ' + name)
@@ -2663,14 +2832,7 @@ def producer_readiness(manifest, results):
     work = Path(tempfile.mkdtemp(prefix='producer-readiness-', dir=private_directory(Path(evidence))))
     work.chmod(0o700)
     print('evidence=' + str(work))
-    fly = tomllib.loads((ROOT / 'services/platform/hosted/internal/fly.toml').read_text())
-    expected = {'kms', *KINDS}
-    provisioning_check(results, 'all five internal groups remain private-only', set(fly['processes']) == expected
-                       and not fly.get('services') and not fly.get('http_service'))
-    mounts = fly.get('mounts', [])
-    provisioning_check(results, 'all five deployment groups retain independent persistent volumes', len(mounts) == 5
-                       and {tuple(row['processes']) for row in mounts} == {(name,) for name in expected}
-                       and len({row['source'] for row in mounts}) == 5)
+    deployment_topology(results)
     ca = CaMaterial.__new__(CaMaterial)
     ca.directory = Path(fixture['ca']['directory'])
     ca.ca_pem = protected_input(fixture['ca']['certificate'], 'genuine fixture CA certificate')
