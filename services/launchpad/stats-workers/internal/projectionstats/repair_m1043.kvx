@@ -1,0 +1,26 @@
+[repair.22.33.1043]
+audit = "22.30.40"
+base_revision = "caa8b41ee668274ee1e5c1df6691288455c46278"
+verification_revision = "The candidate revision and private evidence are emitted by hf-done and copied verbatim into the final task receipt; no gate has been claimed in advance."
+baseline = "Not executed: the unchanged-tree verification step conflicts with the explicit implementation-first, hf-build-then-hf-done gate order; no pre-change test failure is claimed."
+
+[finding.stream_schema_split]
+repair = "Freeze api_stream, reject overrides in NewPublicStatsProjector at application startup, and share the same sink constant with RecordMarketPublicationTx."
+proving_test = "TestRepairM_1043_StreamSchemaSplit"
+path = "Recorded chain-125 Swap receipt -> accounting canonical publication codec/decoder -> Repository.RecordMarketPublicationTx -> pgx loopback SQL transport -> StreamWriter -> committed trade/stats/price frames -> ParseCommittedStreamFrame and public frame validators."
+wiring_request = "Owner domain 4: services/launchpad/stats-workers/internal/config/config.go should also reject STATS_PUBLIC_STREAM_SCHEMA values other than api_stream during configuration validation; the in-scope projector constructor already rejects these overrides before the public-stats job starts."
+
+[finding.sync_lifetime_cap]
+repair = "Checkpoint the verified latest reserve reset and each price-window predecessor in public_stats_sync_baselines; select at most one canonical-position-bounded raw reset per cutoff. Keep the 256-event and ABI/uint256 safety bounds. Per-pool savepoints commit healthy pools while failed pool identities and the returned error leave public-market-stats readiness unhealthy."
+proving_tests = ["TestRepairM_1043_SyncLifetimeCapRestart", "TestRepairM_1043_FailedPoolReadinessAndLaterPage", "TestRepairM_1043_SyncSafetyBounds"]
+restart = "Close the projector's pgx pool and SQL peer, reopen the peer from its committed snapshot and construct a fresh repository/read service/projector; assert persisted baselines recover without rescanning 400 resets or duplicating frames."
+wiring_request = "Owner domain 4 database migration coordinator: launchpad/spec/production-system/integration/migrations must register PublicStatsDDL from services/launchpad/stats-workers/internal/projectionstats/public_stats.go and grant the stats runtime SELECT/INSERT/UPDATE on stats.public_stats_sync_baselines before rollout."
+
+[qualification]
+build = "hf-build"
+verify = "hf-done (runs the declared TestRepairM_1043_* gate and graph checks)"
+evidence = "The runner-owned gate ledger records the exact candidate revision, command, exit code and private log; the final task receipt copies its last evidence line."
+
+[gotcha.scope]
+observed = "The task requests record/config/migration/gotcha updates outside its writable paths."
+resolution = "Keep this task record and wiring requests inside projectionstats; leave spec files, root GOTCHA.kvx, config and registered migrations unchanged."
