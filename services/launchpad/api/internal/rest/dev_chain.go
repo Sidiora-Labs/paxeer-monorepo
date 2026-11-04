@@ -3,6 +3,7 @@ package rest
 import (
 	"context"
 	"errors"
+	"math/big"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -77,7 +78,31 @@ func newDevelopmentChain(ctx context.Context, rawURL string) (*developmentChain,
 	if err != nil {
 		return nil, err
 	}
+	if err := c.checkChain(ctx); err != nil {
+		c.client.Close()
+		return nil, err
+	}
 	return c, nil
+}
+
+// checkChain refreshes the RPC binding instead of trusting an earlier dial or
+// a cached block. Every source position in this adapter belongs to chain 125.
+func (c *developmentChain) checkChain(ctx context.Context) error {
+	if c == nil || c.client == nil {
+		return ErrDependencyNotConfigured
+	}
+	bounded, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	var chainID hexutil.Big
+	err := c.client.CallContext(bounded, &chainID, "eth_chainId")
+	if err != nil || chainID.ToInt().Cmp(big.NewInt(125)) != 0 {
+		c.mu.Lock()
+		c.positions = map[string]accounting.SourcePosition{}
+		c.headHeight, c.headHash, c.served, c.failed = 0, "", nil, true
+		c.mu.Unlock()
+		return errChainReferenceUnavailable
+	}
+	return nil
 }
 
 // rpcContext detaches chain lookups from the 400ms public read budget so a
@@ -133,6 +158,9 @@ func (c *developmentChain) resolve(p *headResolution) {
 func (c *developmentChain) headWatermark(ctx context.Context, head store.DevelopmentHead) (store.ChainWatermark, error) {
 	if c == nil || c.client == nil {
 		return store.ChainWatermark{}, ErrDependencyNotConfigured
+	}
+	if err := c.checkChain(ctx); err != nil {
+		return store.ChainWatermark{}, err
 	}
 	if head.Height <= 0 {
 		return store.ChainWatermark{}, errChainReferenceUnavailable
@@ -257,6 +285,9 @@ func position(height uint64, txIndex, logIndex uint64, txHash, blockHash string)
 // in its creation block. Pools whose log cannot be resolved are omitted.
 func (c *developmentChain) creationPositions(ctx context.Context, pools []store.DevelopmentPool) map[string]accounting.SourcePosition {
 	out := map[string]accounting.SourcePosition{}
+	if c.checkChain(ctx) != nil {
+		return out
+	}
 	var pending []store.DevelopmentPool
 	for _, p := range pools {
 		if cached, ok := c.cached("creation:" + p.Pool); ok {
@@ -315,6 +346,9 @@ func eventKey(ref store.DevelopmentEventRef) string {
 // index and block hash from their receipts. Unresolvable events are omitted.
 func (c *developmentChain) eventPositions(ctx context.Context, refs []store.DevelopmentEventRef) map[string]accounting.SourcePosition {
 	out := map[string]accounting.SourcePosition{}
+	if c.checkChain(ctx) != nil {
+		return out
+	}
 	var pending []store.DevelopmentEventRef
 	for _, ref := range refs {
 		if cached, ok := c.cached(eventKey(ref)); ok {
