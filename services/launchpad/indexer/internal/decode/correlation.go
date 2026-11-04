@@ -326,7 +326,7 @@ func (r *Registry) DecodeTransactionReceipt(tx *ethtypes.Transaction, receipt *e
 		return out, nil
 	}
 	for _, e := range out {
-		if e.Actors == nil || e.Event == nil || e.EmitterRole != "EventEmitter" || e.EventName != "Swap" {
+		if e.Actors == nil || e.Status != "decoded" || e.Event == nil || e.Family == nil || !e.Family.EconomicFill || e.Family.Authority != "primary" || e.EventName != "Swap" {
 			continue
 		}
 		poolID, ok := e.Event.Args["poolId"].(string)

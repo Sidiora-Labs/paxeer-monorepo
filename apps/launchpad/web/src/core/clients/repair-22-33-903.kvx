@@ -1,0 +1,29 @@
+[repair.22.33.903]
+audit = "spec/layerx-merge/programme/audit/records/22.30.19.kvx"
+proof = "apps/launchpad/web/src/core/clients/repair-22-33-903.test.ts"
+qualification = "Bounded hf-build and hf-done receipts identify the exact verified revision, command, exit and private evidence log."
+baseline = "Not executed: the explicit task order prohibits testing before complete implementation and restricts verification to hf-done; no pre-change failures are claimed."
+formatter = "No TypeScript formatter is configured for this application; touched code follows the surrounding TypeScript style."
+
+[finding.candle_unavailable_zero]
+tests = ["candle_unavailable_zero_preserves_production_retry_metadata", "candle_unavailable_zero_reads_real_price_history", "candle_unavailable_zero_distinguishes_empty_flat_and_zero_markets", "candle_unavailable_zero_preserves_errors_transport_and_abort"]
+repair = "Typed history outcomes preserve HTTP status, producer error code, request ID, retryability, retry delay and abort reason; statistics use null for unknown values, and the compatibility history reader throws typed failures instead of returning null."
+wiring = "apps/launchpad/web/src/widgets/trading/chart-udf-wire.test.ts — domain 4 / fm-launchpad: replace the production-503 zero-statistic assertion with null statistics and the retryable unavailable history outcomes; retain the existing recorded-request and HTTP-status coverage."
+presentation = "apps/launchpad/web/src/widgets — domain 4 / fm-launchpad: any statistic presentation consuming CandleStats must display null changes/extremes as unknown until history is available and retain the per-window failure metadata for retry handling."
+
+[finding.candle_window_labels]
+tests = ["candle_window_labels_selects_exact_timestamp_baselines", "candle_window_labels_covers_boundary_and_history_older_than_one_year"]
+repair = "Select the close at exactly the latest bar timestamp minus the named interval; missing or stale baselines and zero denominators remain unknown. Replace ath/atl with rollingYearHigh/rollingYearLow and expose the half-open 365-day extremesWindow; no lifetime aggregate is claimed."
+wiring = "apps/launchpad/web/src/widgets — domain 4 / fm-launchpad: any future CandleStats extreme presentation must use rolling-year labels and extremesWindow; a lifetime label requires an authoritative full-history aggregate from core/trading-charts."
+
+[finding.metadata_shared_abort]
+tests = ["metadata_shared_abort_keeps_each_consumer_independent", "metadata_shared_abort_detaches_last_consumer_and_allows_a_fresh_read", "metadata_shared_abort_rejects_preaborted_subscribers_and_preserves_live_reads"]
+repair = "The shared request owns its AbortController; each subscriber detaches and rejects independently, the final detach cancels and evicts the request, and late cleanup cannot evict a replacement request."
+
+[qualification.registration_repair]
+revision = "869c703791f1e826c5fcb1def3c0f8d0316f5afc"
+command = "cg spec done 22.33.903 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 0
+log = "/out/logs/verify-1.log"
+observed = "Vitest treated function-only test registrations as nine todo tests and executed none; the wrapper exit is not behavioral qualification."
+repair = "Register every declared test function with its function name and callback so all assertions execute; rerun hf-build and hf-done on the repaired revision."

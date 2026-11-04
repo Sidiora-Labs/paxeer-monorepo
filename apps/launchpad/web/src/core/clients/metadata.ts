@@ -36,7 +36,14 @@ async function boundedJSON(res:Response):Promise<unknown>{if(!res.body)throw new
 
 // ── Internal: inflight de-duplication ─────────────────────────────
 
-const inflight = new Map<string, Promise<MaybeMeta>>();
+interface MetadataRead {
+  controller: AbortController;
+  promise: Promise<MaybeMeta>;
+  subscribers: number;
+  settled: boolean;
+}
+
+const inflight = new Map<string, MetadataRead>();
 
 /**
  * Normalize, dedup, lowercase. Drops anything that doesn't look like an
@@ -71,30 +78,72 @@ export async function fetchTokenMetadata(
   tokenAddress: string,
   signal?: AbortSignal,
 ): Promise<MaybeMeta> {
+  signal?.throwIfAborted();
   const addr = tokenAddress.toLowerCase();
   if (!/^0x[a-f0-9]{40}$/.test(addr)) return null;
 
-  const existing = inflight.get(addr);
-  if (existing) return existing;
+  let read = inflight.get(addr);
+  if (!read) {
+    const controller = new AbortController();
+    const entry: MetadataRead = {
+      controller,
+      subscribers: 0,
+      settled: false,
+      promise: Promise.resolve().then(async () => {
+        try {
+          const res = await fetch(metadataApiUrl(`/metadata/${addr}`), { signal: controller.signal });
+          if (res.status === 404) return null;
+          if (!res.ok) throw new MetadataUnavailable();
+          const value = await boundedJSON(res);
+          controller.signal.throwIfAborted();
+          if (!validMeta(value, addr)) throw new MetadataUnavailable();
+          return value;
+        } catch (err) {
+          if (!controller.signal.aborted && (err as { name?: string })?.name !== 'AbortError') {
+            reportError(err, { area: 'metadata-client', addr });
+          }
+          throw err;
+        } finally {
+          entry.settled = true;
+          if (inflight.get(addr) === entry) inflight.delete(addr);
+        }
+      }),
+    };
+    inflight.set(addr, entry);
+    read = entry;
+  }
 
-  const promise = (async () => {
-    try {
-      const res = await fetch(metadataApiUrl(`/metadata/${addr}`), { signal });
-      if (res.status===404) return null;
-      if (!res.ok) throw new MetadataUnavailable();
-      const value=await boundedJSON(res);if(!validMeta(value,addr))throw new MetadataUnavailable();return value;
-    } catch (err) {
-      if ((err as { name?: string })?.name !== 'AbortError') {
-        reportError(err, { area: 'metadata-client', addr });
+  const shared = read;
+  shared.subscribers++;
+  return new Promise<MaybeMeta>((resolve, reject) => {
+    let detached = false;
+    const detach = () => {
+      if (detached) return false;
+      detached = true;
+      signal?.removeEventListener('abort', abort);
+      shared.subscribers--;
+      if (shared.subscribers === 0 && !shared.settled) {
+        if (inflight.get(addr) === shared) inflight.delete(addr);
+        shared.controller.abort();
       }
-      throw err;
-    } finally {
-      inflight.delete(addr);
-    }
-  })();
-
-  inflight.set(addr, promise);
-  return promise;
+      return true;
+    };
+    const abort = () => {
+      if (detach()) reject(signal?.reason);
+    };
+    signal?.addEventListener('abort', abort, { once: true });
+    shared.promise.then(
+      value => {
+        if (signal?.aborted) { abort(); return; }
+        if (detach()) resolve(value);
+      },
+      error => {
+        if (signal?.aborted) { abort(); return; }
+        if (detach()) reject(error);
+      },
+    );
+    if (signal?.aborted) abort();
+  });
 }
 
 // ── Batch fetch ────────────────────────────────────────────────────

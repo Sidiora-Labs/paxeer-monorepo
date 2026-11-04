@@ -22,6 +22,138 @@ def sha(path):
 
 LAUNCHPAD_HOMES = ('launchpad', 'apps/launchpad', 'services/launchpad', 'sdk/launchpad', 'contracts/launchpad', 'deploy/launchpad', 'tools/launchpad')
 
+# Reviewed production membership in services/launchpad/go.work (181528.1).
+# Fixture and load/recovery tool modules are verified, but are not production members.
+PRODUCTION_GO_MODULES = frozenset({
+    'sdk/launchpad/shared', 'sdk/launchpad/protocol',
+    'services/launchpad/api', 'services/launchpad/discovery',
+    'services/launchpad/notifications', 'services/launchpad/indexer',
+    'services/launchpad/pnl-tracker', 'services/launchpad/ranking-algo',
+    'services/launchpad/stats-workers', 'services/launchpad/trading-charts',
+    'services/launchpad/gateway', 'services/launchpad/livestream',
+    'services/launchpad/metadata', 'services/launchpad/social',
+    'services/launchpad/user', 'services/launchpad/security',
+    'services/launchpad/security/control',
+})
+TOOL_GO_MODULES = frozenset({
+    'deploy/launchpad/production/recovery/phase2/broker',
+    'tools/launchpad/production/load/eventdriver',
+})
+
+
+def go_inventory(root, files, fail):
+    """Reconcile reviewed membership with the canonical workspace and source sweep."""
+    workspace = root / 'services/launchpad/go.work'
+    members = set()
+    in_use = False
+    try:
+        for line in workspace.read_text().splitlines():
+            line = line.split('//', 1)[0].strip()
+            if line == 'use (':
+                if in_use:
+                    raise ValueError('nested use block')
+                in_use = True
+                continue
+            if in_use and line == ')':
+                in_use = False
+                continue
+            if in_use or line.startswith('use '):
+                value = line if in_use else line[4:].strip()
+                if not value:
+                    continue
+                if value.startswith('"'):
+                    value = json.loads(value)
+                target = workspace.parent / value
+                resolved = target.resolve()
+                if Path(value).is_absolute() or not resolved.is_relative_to(root):
+                    raise ValueError('module outside source root: ' + value)
+                relative = resolved.relative_to(root).as_posix()
+                if relative in members:
+                    raise ValueError('duplicate workspace member: ' + relative)
+                members.add(relative)
+        if in_use:
+            raise ValueError('unterminated use block')
+    except (OSError, ValueError) as exc:
+        fail('Required Go workspace unavailable/invalid: ' + str(exc))
+    expected = PRODUCTION_GO_MODULES | TOOL_GO_MODULES
+    if members != expected:
+        fail('Go workspace membership mismatch: missing=' + repr(sorted(expected - members)) + '; unreviewed=' + repr(sorted(members - expected)))
+    discovered = {p.parent.relative_to(root).as_posix(): p for p in files if p.name == 'go.mod' and 'spec' not in p.relative_to(root).parts}
+    for missing in sorted(expected - discovered.keys()):
+        fail('Missing required go.mod: ' + missing)
+    for name in sorted(discovered.keys() - expected):
+        if not {'testdata', 'test-fixtures'}.intersection(Path(name).parts):
+            fail('Unreviewed Go module outside production/tool inventory: ' + name)
+    production = [discovered[name] for name in sorted(PRODUCTION_GO_MODULES & discovered.keys())]
+    auxiliary = [discovered[name] for name in sorted(discovered.keys() - PRODUCTION_GO_MODULES)]
+    for mod in production + auxiliary:
+        if not mod.with_name('go.sum').is_file():
+            fail('Missing go.sum: ' + str(mod.relative_to(root)))
+    return production, auxiliary
+
+
+def npm_workspace_manifests(root, files, fail):
+    """Read the checked-in pnpm package patterns, including SDKs outside apps/."""
+    base = root / 'apps/launchpad'
+    selected = {base / 'package.json'}
+    available = set(files)
+    try:
+        lines = [line.split('#', 1)[0].strip() for line in (base / 'pnpm-workspace.yaml').read_text().splitlines()]
+        lines = [line for line in lines if line]
+        if not lines or lines[0] != 'packages:' or len(lines) == 1:
+            raise ValueError('expected a nonempty packages list')
+        for line in lines[1:]:
+            match = re.fullmatch(r"-\s+(?:'([^']+)'|\"([^\"]+)\"|([^\s'\"]+))", line)
+            if not match:
+                raise ValueError('unsupported workspace declaration: ' + line)
+            pattern = next(value for value in match.groups() if value is not None)
+            if pattern.startswith('!') or Path(pattern).is_absolute():
+                raise ValueError('unsupported workspace pattern: ' + pattern)
+            paths = sorted(base.glob(pattern + '/package.json'))
+            if not paths:
+                fail('Missing npm workspace manifest for ' + pattern)
+            for path in paths:
+                path = Path(os.path.abspath(path))
+                if not path.resolve().is_relative_to(root) or path not in available:
+                    fail('npm workspace manifest outside source inventory: ' + str(path))
+                else:
+                    selected.add(path)
+    except (OSError, ValueError) as exc:
+        fail('Required pnpm workspace unavailable/invalid: ' + str(exc))
+    manifests = []
+    names = set()
+    for path in sorted(selected):
+        try:
+            if path not in available:
+                raise ValueError('manifest absent from source inventory')
+            data = json.loads(path.read_text())
+            name = data.get('name')
+            if not isinstance(name, str) or not name:
+                raise ValueError('workspace package name is required')
+            if name in names:
+                raise ValueError('duplicate workspace package name: ' + name)
+            names.add(name)
+            manifests.append((path, data))
+        except (OSError, ValueError, AttributeError) as exc:
+            fail('Invalid npm workspace manifest ' + str(path) + ': ' + str(exc))
+    for path, data in manifests:
+        for section in ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies']:
+            dependencies = data.get(section, {})
+            if not isinstance(dependencies, dict):
+                fail('Invalid npm dependency section ' + section + ' in ' + str(path))
+                continue
+            for name, version in dependencies.items():
+                if not isinstance(version, str):
+                    fail('Invalid npm dependency version ' + name + ' in ' + str(path))
+                    continue
+                if version.startswith('workspace:') and name not in names:
+                    fail('Unresolved npm workspace package ' + name + ' in ' + str(path))
+                if version.startswith(('file:', 'link:')):
+                    target = (path.parent / version.split(':', 1)[1]).resolve()
+                    if not target.is_relative_to(root) or not target.exists():
+                        fail('Unresolved npm local dependency ' + name + ' in ' + str(path))
+    return manifests
+
 def source_files(root, evidence):
     for home in LAUNCHPAD_HOMES:
         yield from home_files(root / home, evidence)
@@ -119,16 +251,13 @@ def main():
     for path in files:
         if path.name in {'go.mod', 'go.sum', 'package.json', 'pnpm-lock.yaml', 'versions.txt'}:
             report['manifest_files'].append({'path': str(path.relative_to(root)), 'sha256': sha(path)})
-    modules = sorted(p for p in files if p.name == 'go.mod' and 'spec' not in p.relative_to(root).parts)
-    if len(modules) != 13:
-        fail('Expected exactly 13 production Go modules; found ' + str(len(modules)))
+    modules, auxiliary_modules = go_inventory(root, files, fail)
+    report['auxiliary_go_modules'] = []
     cache_code, cache_output = run(['go', 'env', 'GOMODCACHE'], timeout=20)
     cache = Path(cache_output.strip()) if not cache_code else None
-    for mod in modules:
+    for mod in modules + auxiliary_modules:
         row = {'path': str(mod.relative_to(root)), 'dependencies': [], 'replacements': []}
-        report['go_modules'].append(row)
-        if not mod.with_name('go.sum').is_file():
-            fail('Missing go.sum: ' + row['path'])
+        report['go_modules' if mod in modules else 'auxiliary_go_modules'].append(row)
         code, output = run(['go', 'mod', 'edit', '-json'], cwd=mod.parent, timeout=20)
         if not code:
             data = json.loads(output)
@@ -146,20 +275,8 @@ def main():
                 sources = license_files(directory)
                 row['dependencies'].append({**dep, 'license_sources': sources, 'license_status': 'source_present_unclassified' if sources else 'unresolved'})
         run(['go', 'mod', 'verify'], cwd=mod.parent)
-    package_names = {}
-    package_manifests = []
-    for path in files:
-        if path.name == 'package.json' and 'client' in path.relative_to(root).parts:
-            data = json.loads(path.read_text())
-            package_names[data.get('name')] = str(path)
-            package_manifests.append((path, data))
-    for path, data in package_manifests:
-        for section in ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies']:
-            for name, version in data.get(section, {}).items():
-                if version.startswith('workspace:') and name not in package_names:
-                    fail('Unresolved npm workspace package ' + name + ' in ' + str(path))
-                if version.startswith(('file:', 'link:')) and not (path.parent / version.split(':', 1)[1]).exists():
-                    fail('Unresolved npm local dependency ' + name + ' in ' + str(path))
+    package_manifests = npm_workspace_manifests(root, files, fail)
+    report['npm_workspace_manifests'] = [{'path': str(path.relative_to(root)), 'name': data['name'], 'sha256': sha(path)} for path, data in package_manifests]
     packages = root / 'apps/launchpad/node_modules/.pnpm'
     if not packages.is_dir():
         fail('Resolved pnpm store unavailable')
