@@ -21,7 +21,7 @@
     },
     "beta": {
       "publicUrl": "http://127.0.0.1:8082",
-      "settlementUrl": "https://api-mainnet-beta.paxeer.network/v1/settle",
+      "settlementUrlEnvironment": "LAYERX_TESTNET_SETTLEMENT_URL",
       "rpcUrl": "https://api-mainnet-beta.paxeer.network",
       "scheme": "exact",
       "network": "eip155:125",
