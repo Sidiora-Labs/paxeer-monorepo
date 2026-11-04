@@ -1,3 +1,5 @@
+Code.require_file("paxeer_x_capture.exs", __DIR__)
+
 defmodule EthereumJSONRPC.PaxeerXTraceParityTest do
   use ExUnit.Case, async: false
 
@@ -6,6 +8,14 @@ defmodule EthereumJSONRPC.PaxeerXTraceParityTest do
   alias EthereumJSONRPC.Geth
 
   setup :verify_on_exit!
+
+  test "recorded empty block trace crosses HTTP and the production trace importer" do
+    EthereumJSONRPC.PaxeerXCapture.assert_recorded_trace()
+  end
+
+  test "recorded historical block trace refusal survives HTTP and the production trace importer" do
+    EthereumJSONRPC.PaxeerXCapture.assert_recorded_trace_refusal()
+  end
 
   setup do
     initial_env = Application.get_env(:ethereum_jsonrpc, Geth)

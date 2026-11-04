@@ -8361,6 +8361,12 @@ value = "When a service source file is compiled into another crate's test target
 basis = "22.31.208 changed the module's crate-root references and the two daemon test targets stopped compiling (gotcha 3033), stalling every dependent-crate check of the agent domain."
 affects = ["22.31.497"]
 
+[decision.2542]
+title = "Transaction tags for a transaction without a recipient answer the sender side only"
+value = "The account API transaction tag lookup returns the sender address public tags and an empty recipient contribution for a transaction whose to address is absent (contract creation); it never answers 500 for a committed transaction the explorer indexed."
+basis = "The only clause of the public tag lookup requires a non-nil address and the controller passes the recipient unchecked (gotcha 3037)."
+affects = ["22.33.478"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -151042,7 +151048,7 @@ do_5 = "Prove each repair with a test file apps/explorer/types/api/repair-22-33-
 do_6 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command above is the whole gate (gotcha 2962)."
 do_7 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["apps/explorer/package.json", "apps/explorer/types/api/paxeerXArchive.ts", "apps/explorer/types/api/repair-22-33-517.kvx", "apps/explorer/types/api/repair-22-33-517.spec.ts"]
+touches = ["apps/explorer/package.json", "apps/explorer/types/api/paxeerXArchive.ts", "apps/explorer/types/api/repair-22-33-517.kvx", "apps/explorer/types/api/repair-22-33-517.spec.ts", "apps/explorer/lib/api/services/general/paxeerX.spec.ts", "apps/explorer/stubs/paxeerXLists.ts", "apps/explorer/ui/pages/PaxeerXReceipt.spec.tsx", "apps/explorer/ui/pages/PaxeerXReceipts.spec.tsx", "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptDetails.spec.tsx", "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsListItem.spec.tsx", "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsListItem.tsx", "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsTable.spec.tsx", "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsTableItem.spec.tsx", "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsTableItem.tsx"]
 tests = ["apps/explorer/types/api/repair-22-33-517.spec.ts"]
 planned_paths = ["apps/explorer/types/api/repair-22-33-517.spec.ts"]
 build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
@@ -151060,6 +151066,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_8 = "Attempt 2 (continue): the strict EVM/kernel receipt union is an interface change, and an interface change carries its consumers: apps/explorer is now in the paths. Update the fifteen consumers the type-check reports (null guards where a branch cannot carry the field, fixture updates to the real producer shapes, no casts), then run the build and the verify once on the final revision and finish on one commit."
 do_9 = "Decision 2528: before qualifying, run yarn eslint on every spec file this task adds under apps/explorer; every test call has a string title and asserts inside its body (eslint-plugin-vitest valid-title and expect-expect), because the frontend image build lints the whole package and a spec file that only type-checks is not qualified. The tsc build of this task fails until 22.31.474 repairs the 299 spec, which is why this task now requires it."
+do_10 = "Attempt 3 (continue): the explorer type-check fails with fifteen errors in ten consumer files of the archive receipt types this change tightened (payload_hash required, block_number nullable; gotcha 3038). Those files are in the paths now: port the receipt list item, table item and the stubs and specs to the current types (render a null block number as pending, give every stub a payload hash), keep the type change, and run build and verify at the final revision; a type repair carries its consumers."
 
 [task.22.33.516]
 title = "Repair audit record 22.30.152 medium findings in apps/explorer (part 1 of 1): wiring-gap"
@@ -162332,7 +162339,7 @@ do_1 = "services/agent/sdk/typescript/src/ai_market.ts:3273 decodeProgramsReceip
 do_2 = "Share d9-6.kvx with 22.9.11: set follow_up of [disposition.9.97.8.3] to 22.9.10."
 do_3 = "Set follow_up of [disposition.9.97.8.3] in spec/layerx-merge/dispositions/d9-6.kvx to 22.9.10 (status stays open; the closure resolves it when this task is done) and keep the evidence sentence."
 symbols = ["decodeProgramsReceipt"]
-touches = ["services/agent/sdk/typescript/src/ai_market.ts", "services/agent/sdk/typescript/test/ai-market.test.ts", "spec/layerx-merge/dispositions/d9-6.kvx", "services/agent/sdk/typescript/test/program-executed-v3.test.ts", "services/agent/sdk/typescript/package.json", "sdk/platform/conformance/fixtures/intent-plan-v1.json", "services/agent/sdk/typescript/test/intent.test.ts", "sdk/platform/conformance/evm-call-wrapping.test.py", "tests/agent/sdk/python/test_intent.py", "services/agent/sdk/typescript/src/intent.ts", "services/agent/sdk/typescript/test/exchange-v2.test.ts", "services/agent/sdk/typescript/test/precompile-calls.test.ts", "services/agent/sdk/typescript/test/proof_exchange.test.ts", "services/agent/sdk/typescript/src/exchange.ts", "services/agent/sdk/typescript/test/support/exchange_consumers.ts", "services/agent/sdk/typescript/test/xweb-api.test.ts", "services/agent/sdk/typescript/test/gas-station.test.ts", "services/agent/sdk/typescript/test/web-search.test.ts", "services/agent/sdk/typescript/src/web-search.ts", "services/agent/sdk/typescript/test/web-search-sequencer.test.ts", "services/interop/crates/x-websearch/tests/fixtures/gateway/exact.json", "services/agent/sdk/typescript/test/receipt-fixture.test.ts", "services/agent/sdk/python/layerx_sdk/intent.py", "services/agent/sdk/typescript/test/agent-http-major2.test.ts", "services/agent/sdk/typescript/test/agent-http-major2.test.js"]
+touches = ["services/agent/sdk/typescript/src/ai_market.ts", "services/agent/sdk/typescript/test/ai-market.test.ts", "spec/layerx-merge/dispositions/d9-6.kvx", "services/agent/sdk/typescript/test/program-executed-v3.test.ts", "services/agent/sdk/typescript/package.json", "sdk/platform/conformance/fixtures/intent-plan-v1.json", "services/agent/sdk/typescript/test/intent.test.ts", "sdk/platform/conformance/evm-call-wrapping.test.py", "tests/agent/sdk/python/test_intent.py", "services/agent/sdk/typescript/src/intent.ts", "services/agent/sdk/typescript/test/exchange-v2.test.ts", "services/agent/sdk/typescript/test/precompile-calls.test.ts", "services/agent/sdk/typescript/test/proof_exchange.test.ts", "services/agent/sdk/typescript/src/exchange.ts", "services/agent/sdk/typescript/test/support/exchange_consumers.ts", "services/agent/sdk/typescript/test/xweb-api.test.ts", "services/agent/sdk/typescript/test/gas-station.test.ts", "services/agent/sdk/typescript/test/web-search.test.ts", "services/agent/sdk/typescript/src/web-search.ts", "services/agent/sdk/typescript/test/web-search-sequencer.test.ts", "services/interop/crates/x-websearch/tests/fixtures/gateway/exact.json", "services/agent/sdk/typescript/test/receipt-fixture.test.ts", "services/agent/sdk/python/layerx_sdk/intent.py", "services/agent/sdk/typescript/test/agent-http-major2.test.ts", "services/agent/sdk/typescript/test/agent-http-major2.test.js", "services/agent/sdk/typescript/test/intent-legs.test.ts"]
 tests = []
 planned_paths = ["services/agent/sdk/typescript/test/ai-market.test.ts"]
 build_cmd = "cd services/agent/sdk/typescript && npm ci && npm run build"
@@ -162379,6 +162386,7 @@ do_31 = "Attempt 32 (continue): the build fails on six calls in test/repair-22-3
 do_32 = "Attempt 33 (continue): the two-argument journal contract is restored and the build passes; the suite fails in the SDK's program-lifecycle test with the SDK's own refusal that the program registration payload exceeds the network limit. The SDK test directory is this task's through its whole-suite gate: shrink that test's registration fixture to the limit the SDK enforces (or correct the limit if the network's registration bound in the spec is larger), never file it as out of scope, and run the build and the verify once on the final revision with no commit after the pass."
 do_33 = "Attempt 34 (continue): the build passes and the suite runs until agent-http-major2.test.js, where agent_envelope_requests_carry_contract_major_2 and proof_bundle_levels_are_rungs fail and the run then exceeds the time limit. That test file is now in the paths and the time limit is 60 minutes: make the two cases pass against the current producers (the agent envelope carries contract major 2; proof bundle levels are rungs) by fixing the SDK or the cases where they are wrong, run the two cases first, then the full suite once."
 do_34 = "Attempt 36 (continue): the verify now runs only the market-operation suites the task owns (gotcha 3017). Rebase on main, run build and verify at the same revision; a suite in the list that fails on a producer outside the paths is recorded in the finding file with the failing assertion and the task stops there."
+do_35 = "Attempt 37 (continue): fifty of fifty-two cases pass. The two failing cases live in services/agent/sdk/typescript/test/intent-legs.test.ts, which the verify runs and which is in the paths now: they encode a plan leg with a nested call object and a top-level sponsored flag, the shape this change retired for the flat leg (to, value, calldata, nonce, chain_id and fee fields, sponsored derived from absent nonces, tx_hash optional). Port both cases to the current wire shape the conformance fixture sdk/platform/conformance/fixtures/intent-plan-v1.json defines, keep every refusal they assert (field path legs[i].nonce, final, never retried), and run build and verify at the final revision."
 
 [task.22.91.38]
 title = "Inventory the platform examples packages"
@@ -175257,6 +175265,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_12 = "Attempt 2 (requalify after 22.31.483): the previous attempt built and was stopped by the dependent-crate check on services/platform/hosted/gateway/tests/repair_22_31_345.rs line 73, which still calls handle_connection with two arguments while the production function takes the config, the stream, a connection permit and a deadline; 22.31.483 owns that test. Once 22.31.483 is on main, re-run the gates on the previous attempt's tree and fix inside the paths only what still fails."
+do_13 = "Attempt 3 (continue): fourteen of twenty-two cases pass. Three cases of unknown_receipt_lookup.rs panic in the fixture with a malformed answer and one asserts the method pax_sequencerReceipt where the client sent eth_getTransactionReceipt: the client's authenticated lookup is two-step now (gotcha 3039), so the loopback nodes serve pax_sequencerReceipt followed by eth_getTransactionReceipt (a null or the landing receipt) for every lookup. Then missing_or_changed_payment_denomination_never_resolves_unknown in unknown.rs: the resolver returned Executed for a receipt whose paymentDenom is missing or changed; the assertion stands (22.23.11). If, with the fixtures corrected, the resolver still resolves such a receipt, record the resolver function and the path it takes in the task record and stop; that is a producer finding for the owner. Run build and verify at the final revision."
 
 [task.22.33.1537]
 title = "Repair audit record 22.30.95 medium findings in services/agent/crates/layerx-agentd/tests (part 2 of 3): retired-reference, test-gap"
@@ -180596,7 +180605,7 @@ do_9 = "Attempt 2 (requalify): the build passed on the final revision but that r
 
 [task.22.33.238]
 title = "Repair audit record 22.30.128 medium findings in programs (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.262", "22.31.263", "22.31.443"]
@@ -190587,7 +190596,7 @@ title = "Serve px_getReceiptKeys as the keys object in the handshake and human n
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.95.11", "22.99.159", "22.99.158", "22.99.160", "22.31.485"]
+requires = ["22.95.11", "22.99.159", "22.99.158", "22.99.160", "22.31.485", "22.31.497"]
 reqs = ["22105.1"]
 capabilities = ["22.95.1"]
 interfaces = []
@@ -190619,6 +190628,7 @@ do_8 = "Attempt 6 (continue): keep every attempt-6 change; the px_getHistory con
 do_9 = "Attempt 9 ended on the time limit without evidence. Attempt 10: start from the last candidate, run the verify first and report the exact failing assertion before changing anything."
 do_10 = "Attempt 10 (continue from attempt 6): attempts 7 to 9 ended on the time limit without evidence. Attempt 6 passed the handshake_gate binary and one human_node case; human_history_pages_px_get_history_without_frame_transport panicked at human_node.rs line 14 with Sequencer(Unavailable): the fixture node did not answer px_getHistory over JSON-RPC, so the client reported the receipt transport unavailable. Run the verify first, then make the fixture answer px_getHistory (the six required fields of openrpc.json) over the JSON-RPC path the test exercises, without the frame transport, and keep every attempt-6 decoder change."
 do_11 = "Attempt 11 (requalify after 22.31.485): attempt 10 implemented and formatted the four files (human_runtime.rs, handshake_gate.rs, human_node.rs and the client's receipt module) with the six-field JSON-RPC history fixtures and passed the build; the dependent-crate check failed in services/platform/hosted/core/src/public_reads.rs, owned by 22.31.485, before the tests ran. Requalify the attempt-10 tree once 22.31.485 is on main."
+do_12 = "Attempt 12 (after 22.31.497): attempt 11 failed to build because the daemon test targets human_approval_budget_actor and human_projection_facts no longer compile against the authority module they include (gotcha 3033), repaired by 22.31.497; the task's own four files were not at fault. Re-run the gates on the attempt-11 tree once 22.31.497 is on main and fix inside the paths only what still fails."
 
 [task.22.23.14]
 title = "Read paymentDenom in the relayer receipt decoder and classify the Programs call vector case"
@@ -199052,7 +199062,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1402]
 title = "Repair audit record 22.30.78 medium findings in services/platform/hosted/human (part 2 of 2): retired-reference, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.346", "22.31.347", "22.31.348", "22.31.467"]
@@ -199940,7 +199950,7 @@ do_19 = "Attempt 5 (continue): the build fails with six E0061 errors in tests/su
 
 [task.22.33.1321]
 title = "Repair audit record 22.30.70 medium findings in services/platform/hosted/paxeer (part 3 of 3): restart-recovery, retired-reference, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.186", "22.31.187"]
@@ -279392,7 +279402,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1237]
 title = "Repair audit record 22.30.6 medium findings in tests/modules (part 2 of 2): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.127"]
@@ -321263,7 +321273,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1443]
 title = "Repair audit record 22.30.81 medium findings in services/platform/hosted/gateway (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.202"]
@@ -327242,6 +327252,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_15 = "Attempt 2 (continue): the launch step must write its markers after started_ns so fresh_markers (upgrade_runtime.py lines 356-360) sees them as fresh; fix the ordering in the launch step and keep the assertions."
 do_16 = "Attempt 3 (requalify): attempt 2 passed its build and verify and was held only because the narrowed paths omitted files the attempt had changed (gotcha 3011); the paths now carry them. Re-run the gates on the attempt-2 tree."
+do_17 = "Attempt 4 (continue): the verify fails at collection because tests/integration/upgrade_module/scripts/upgrade_runtime.py, which the rewritten shell scripts exec and the test imports, was never written (gotcha 3040). Write that module in the declared path with the actions the scripts delegate (upgrade, downgrade, proposal target height, vote, panic and running checks) driving the real paxd binary and node home the scripts receive, keep the shell scripts as thin wrappers, and run build and verify at the final revision."
 
 [task.22.33.760]
 title = "Repair audit record 22.30.172 medium findings in tests/integration/upgrade_module (part 1 of 1): test-gap"
@@ -338281,7 +338292,7 @@ do_9 = "Attempt 2: the verify command passed but the candidate carried compiled 
 
 [task.22.31.332]
 title = "Repair audit record 22.30.184 findings in tools/qualification/paxeer-x: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.443", "22.31.483"]
@@ -368317,7 +368328,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.560]
 title = "Repair audit record 22.30.158 medium findings in services/explorer/backend/apps/indexer/test/indexer/migrator (part 1 of 1): config-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -369907,7 +369918,7 @@ do_5 = "Prove each repair with an ExUnit module services/explorer/backend/apps/b
 do_6 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command above is the whole gate (gotcha 2962)."
 do_7 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["services/explorer/backend/apps/block_scout_web/API.md", "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_33_478_test.exs", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/specs/public.ex", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/specs/private.ex"]
+touches = ["services/explorer/backend/apps/block_scout_web/API.md", "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_33_478_test.exs", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/specs/public.ex", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/specs/private.ex", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/account/api/v2/tags_controller.ex"]
 tests = ["services/explorer/backend/apps/block_scout_web/test/repair/repair_22_33_478_test.exs"]
 planned_paths = ["services/explorer/backend/apps/block_scout_web/test/repair/repair_22_33_478_test.exs"]
 build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
@@ -369924,6 +369935,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_8 = "Attempt 2 (continue): 5 of 8 cases pass. Pass AccountSchemas.User.schema() (a Schema struct) to assert_raw_schema instead of the module; document the account v2 paths in the spec modules (now in the paths) so the documented set equals the registered set; authenticate the user-info request in the test so it is not refused 403. Run the verify."
+do_9 = "Attempt 3 (continue): seven of eight cases pass; the recorded transaction tag example fails because the tags controller passes a nil recipient to the public tag lookup and the request answers 500 (gotcha 3037). The controller is in the paths now: in tags_transaction answer the sender's public tags and an empty recipient side when to_address_hash is nil (decision 2542), keep the recorded example as the expected body, record the finding in the task record, and run build and verify at the final revision."
 
 [task.22.33.475]
 title = "Repair audit record 22.30.149 medium findings in services/explorer/backend/apps/block_scout_web/test/block_scout_web/features (part 1 of 1): test-gap"
@@ -370778,7 +370790,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.435]
 title = "Repair audit record 22.30.147 medium findings in services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.397", "22.31.460"]
@@ -372076,7 +372088,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.318]
 title = "Repair audit record 22.30.136 medium findings in services/explorer/backend (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.382"]

@@ -117,6 +117,10 @@ func NewAnteHandler(options HandlerOptions) (sdk.AnteHandler, sdk.AnteHandler, e
 	feeDecorator.ChainsFeeReader = anteChainsFeeReader{options.ChainsKeeper, options.EVMKeeper}
 	chainDecorator := appante.EVMChainIDDecorator{EVMKeeper: options.EVMKeeper, ChainsKeeper: options.ChainsKeeper}
 	sigDecorator := appante.EVMDomainSigVerifyDecorator{EVMKeeper: options.EVMKeeper, Root: evmante.NewEVMSigVerifyDecorator(options.EVMKeeper, options.LatestCtxGetter)}
+	// Keep modules/evm/AGENTS.md's Ante Handler Pipeline in sync with this chain.
+	// Preprocessing recovers signatures; fee validation and BuyGas precede the
+	// domain signature decorator. Delivery also checks the nonce inside the fee
+	// decorator's StatelessChecks before BuyGas; CheckTx permits pending nonces.
 	evmAnteDecorators := []sdk.AnteDecorator{
 		// NOTE: NewEVMNoCosmosFieldsDecorator must come first to prevent writing state to chain without being charged.
 		// E.g. EVMPreprocessDecorator may short-circuit all the later ante handlers if AssociateTx and ignore NewEVMNoCosmosFieldsDecorator.

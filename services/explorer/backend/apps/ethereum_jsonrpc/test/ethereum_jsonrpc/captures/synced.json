@@ -1,0 +1,30 @@
+{
+  "source": {
+    "kind": "recorded",
+    "endpoint": "https://api1.mainnet-beta.paxeer.network",
+    "captured_at": "2026-11-04T05:46:47.358908+00:00",
+    "node_revision_before": "2da69275051f6feb074a8b552977d37197735d86",
+    "node_revision_after": "2da69275051f6feb074a8b552977d37197735d86",
+    "application_version": {
+      "name": "paxeer",
+      "app_name": "paxd",
+      "version": "v6.12.0",
+      "git_commit": "2da69275051f6feb074a8b552977d37197735d86",
+      "build_tags": "netgo,ledger",
+      "go_version": "go version go1.25.6 linux/amd64",
+      "cosmos_sdk_version": ""
+    },
+    "environment": "public node; disposable-node provenance not available"
+  },
+  "request": {
+    "jsonrpc": "2.0",
+    "id": 0,
+    "method": "eth_syncing",
+    "params": []
+  },
+  "response": {
+    "jsonrpc": "2.0",
+    "id": 0,
+    "result": false
+  }
+}

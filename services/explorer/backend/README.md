@@ -58,13 +58,13 @@ the current native account, transaction and feed APIs.
 | `/paxeer-x/feed/updates` | Paginated native submissions, optionally filtered by feeder or market |
 | `/paxeer-x/feed/updates/:hash` | One native submission |
 
-Historical archive APIs are separate from current transaction status:
+Historical archive APIs are separate from current transaction status (full paths):
 
 | Path | Purpose |
 | --- | --- |
-| `/paxeer-x/archive/anchors` | Frozen historical anchor checkpoints |
-| `/paxeer-x/archive/receipts` | Frozen historical receipts |
-| `/paxeer-x/archive/receipts/:id` | One frozen receipt by its full hash |
+| `/api/v2/paxeer-x/archive/anchors` | Frozen historical anchor checkpoints |
+| `/api/v2/paxeer-x/archive/receipts` | Frozen historical receipts |
+| `/api/v2/paxeer-x/archive/receipts/:id` | One frozen receipt by its full hash |
 
 ### Frontend integration
 
@@ -144,7 +144,13 @@ retention limit. The Compose environment example sets it to `30`.
 
 The [archive controller](apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/archive_controller.ex)
 serves frozen history, not current finality evidence. Lists return `items` and
-`next_page_params`; each archive item has `frozen: true`. Use the returned
+`next_page_params`; each archive item has `frozen: true`. Receipts expose the
+stored historical `verification_status` (`unverified`, `sequencer_signed`,
+`batch_included`, `state_proven`, `checkpoint_finalised` or
+`settlement_anchored`), with no live `status` field. This frozen value does not
+advance as a current transaction progresses; do not poll it for settlement.
+Use `/api/v2/transactions/:transaction_hash_param/status` for current
+transaction observations. Use the returned
 pagination parameters. An invalid or
 unknown receipt ID returns HTTP `404`. The old unprefixed
 `/api/v2/paxeer-x/anchors` and `/api/v2/paxeer-x/receipts` routes were removed
