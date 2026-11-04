@@ -7,9 +7,12 @@ use sha2::{Digest, Sha256};
 
 use crate::store::TenantId;
 
+use super::records::record_digest;
+
 const LOG_MAGIC: &[u8; 8] = b"LXAUD001";
 const ANCHOR_MAGIC: &[u8; 8] = b"LXANC001";
 const ENTRY_MAGIC: &[u8; 4] = b"LXAE";
+const COMMITTED_ENTRY_MAGIC: &[u8; 4] = b"LXAC";
 const HASH_DOMAIN: &[u8] = b"layerx-agent-audit-v1";
 const LOG_FILE: &str = "audit.chain";
 const ANCHOR_FILE: &str = "audit.anchor";
@@ -108,6 +111,7 @@ pub struct AppendReceipt {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct VerifiedFrame {
+    pub field_commitments: bool,
     pub sequence: u64,
     pub previous_hash: [u8; 32],
     pub payload: Vec<u8>,
@@ -191,11 +195,24 @@ impl Log {
         payload: &[u8],
         operation: impl FnOnce() -> T,
     ) -> Result<(AppendReceipt, T), AuditError> {
-        let receipt = self.append_durable(payload)?;
+        let receipt = self.append_durable(payload, false)?;
         Ok((receipt, operation()))
     }
 
-    fn append_durable(&mut self, payload: &[u8]) -> Result<AppendReceipt, AuditError> {
+    pub(crate) fn before_committed_operation<T>(
+        &mut self,
+        payload: &[u8],
+        operation: impl FnOnce() -> T,
+    ) -> Result<(AppendReceipt, T), AuditError> {
+        let receipt = self.append_durable(payload, true)?;
+        Ok((receipt, operation()))
+    }
+
+    fn append_durable(
+        &mut self,
+        payload: &[u8],
+        field_commitments: bool,
+    ) -> Result<AppendReceipt, AuditError> {
         if payload.len() > MAX_PAYLOAD_BYTES {
             return Err(AuditError::PayloadTooLarge);
         }
@@ -213,15 +230,31 @@ impl Log {
             .ok_or(AuditError::SequenceOverflow)?;
         let payload_length =
             u32::try_from(payload.len()).map_err(|_| AuditError::PayloadTooLarge)?;
-        let entry_hash = entry_hash(
-            self.tenant_hash,
-            sequence,
-            self.tail_hash,
-            payload_length,
-            payload,
-        );
+        let entry_hash = if field_commitments {
+            let root = record_digest(payload)
+                .map_err(|_| invalid(sequence, ChainIssue::EntryHashMismatch))?;
+            committed_entry_hash(
+                self.tenant_hash,
+                sequence,
+                self.tail_hash,
+                payload_length,
+                root,
+            )
+        } else {
+            entry_hash(
+                self.tenant_hash,
+                sequence,
+                self.tail_hash,
+                payload_length,
+                payload,
+            )
+        };
         let mut frame = Vec::with_capacity(80 + payload.len());
-        frame.extend_from_slice(ENTRY_MAGIC);
+        frame.extend_from_slice(if field_commitments {
+            COMMITTED_ENTRY_MAGIC
+        } else {
+            ENTRY_MAGIC
+        });
         frame.extend_from_slice(&sequence.to_be_bytes());
         frame.extend_from_slice(&self.tail_hash);
         frame.extend_from_slice(&payload_length.to_be_bytes());
@@ -276,7 +309,7 @@ pub fn verify_chain(path: impl AsRef<Path>) -> Result<Verification, AuditError> 
         if marker_bytes != marker.len() {
             return Err(invalid(entries, ChainIssue::TruncatedEntry));
         }
-        if &marker != ENTRY_MAGIC {
+        if &marker != ENTRY_MAGIC && &marker != COMMITTED_ENTRY_MAGIC {
             return Err(invalid(entries, ChainIssue::InvalidEntryMarker));
         }
         let sequence = read_u64(&mut reader, entries)?;
@@ -298,13 +331,19 @@ pub fn verify_chain(path: impl AsRef<Path>) -> Result<Verification, AuditError> 
         if previous_hash != tail_hash {
             return Err(invalid(entries, ChainIssue::PreviousHashMismatch));
         }
-        let expected_hash = entry_hash(
-            tenant_hash,
-            sequence,
-            previous_hash,
-            payload_length,
-            &payload,
-        );
+        let expected_hash = if &marker == COMMITTED_ENTRY_MAGIC {
+            let root = record_digest(&payload)
+                .map_err(|_| invalid(entries, ChainIssue::EntryHashMismatch))?;
+            committed_entry_hash(tenant_hash, sequence, previous_hash, payload_length, root)
+        } else {
+            entry_hash(
+                tenant_hash,
+                sequence,
+                previous_hash,
+                payload_length,
+                &payload,
+            )
+        };
         if stored_hash != expected_hash {
             return Err(invalid(entries, ChainIssue::EntryHashMismatch));
         }
@@ -401,6 +440,8 @@ pub(crate) fn read_frames(path: impl AsRef<Path>) -> Result<Vec<VerifiedFrame>, 
             .try_into()
             .map_err(|_| invalid(frames.len() as u64, ChainIssue::TruncatedEntry))?;
         frames.push(VerifiedFrame {
+            field_commitments: bytes.get(offset..sequence_offset)
+                == Some(COMMITTED_ENTRY_MAGIC.as_slice()),
             sequence,
             previous_hash,
             payload: payload.to_vec(),
@@ -454,6 +495,23 @@ pub(crate) fn entry_hash(
     digest.update(previous_hash);
     digest.update(payload_length.to_be_bytes());
     digest.update(payload);
+    digest.finalize().into()
+}
+
+pub(crate) fn committed_entry_hash(
+    tenant_hash: [u8; 32],
+    sequence: u64,
+    previous_hash: [u8; 32],
+    payload_length: u32,
+    root: [u8; 32],
+) -> [u8; 32] {
+    let mut digest = Sha256::new();
+    digest.update(b"layerx-agent-audit-field-commitments-v1");
+    digest.update(tenant_hash);
+    digest.update(sequence.to_be_bytes());
+    digest.update(previous_hash);
+    digest.update(payload_length.to_be_bytes());
+    digest.update(root);
     digest.finalize().into()
 }
 

@@ -1,0 +1,12 @@
+[repair.22.31.174]
+finding = "fixture-v2-source-contract"
+proof = "TestRepair_174_FixtureV2SourceContract; TestRepair_174_HistoricalSourceEquality; TestRepair_174_MergedBootstrap"
+implementation = "Activate the private fixture through the real governance tally and merge upgrade, then record a funded EVM caller's authenticated DID bindings, register an asset, open two unfunded ledger accounts, and submit an oversized payExact; derive the canonical V2 source group and every V2 copy from the same authenticated receipt."
+baseline = "The unchanged attempt passed hf-build at 810cc0761df0040e9ad6058bf6fb3b814af6214b; hf-done (cg spec done 22.31.174 -f layerx-merge --root /work/paxeer-monorepo) exited 1, log /out/logs/verify-1.log: TestRepair_174_FixtureV2SourceContract failed because eth_gasPrice requested height 0 before the embedded consensus producer committed its first block; TestRepair_174_HistoricalSourceEquality and TestRepair_174_MergedBootstrap passed."
+readiness_repair = "The HTTP proof waits at most five seconds for the real consensus producer's block 1 before requesting gas-price history; the producer, transport, canonical consumer, equality assertions and refusal checks remain exercised."
+qualification = "hf-build and hf-done retain the exact verified candidate revision, command, exit and private log in the runner gate ledger."
+wiring_conformance = "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json and sdk/platform/conformance/fixtures/vector-v2-receipted-revert.json — domain 5 (SDK/conformance): integrate the recorder's conformance/ V2 group and its daemon copy together, preserving other vector groups and their chain identity; do not independently re-sign or re-render a V2 case."
+gotcha = "The prepared primary and standby share genesis pins, so the V2 producer must select its own pin by receipt public key rather than requiring genesis to have only one pin."
+codec_gotcha = "The local SDK JSONCodec exposes MarshalAsJSON and UnmarshalAsJSON; MarshalJSON and UnmarshalJSON are not interface methods."
+sequencer_gotcha = "DefaultConfig is disabled and has zero queue and lease bounds; an assembled enabled test sequencer must provide positive explicit bounds."
+readiness_gotcha = "Starting the embedded consensus service does not mean its first block is committed; eth_gasPrice requires canonical history, so the HTTP proof must observe block 1 before invoking the recorder."
