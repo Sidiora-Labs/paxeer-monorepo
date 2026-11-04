@@ -1,521 +1,388 @@
 # Program porting crates
 
-The `programs/` workspace members `porting/solana`, `porting/evm`, and
-`porting/cosmwasm` (plus each crate's `guest`) are the LayerX Network program porting
-kits (`programs/Cargo.toml:11-16`, `programs/README.md:51`,
-`programs/README.md:210-217`). Package names are `layerx-porting-solana`,
-`layerx-porting-evm`, and `layerx-porting-cosmwasm`; lib names are
-`programs_porting_solana`, `programs_porting_evm`, and
-`programs_porting_cosmwasm`
-(`programs/porting/solana/Cargo.toml:2-9`,
-`programs/porting/evm/Cargo.toml:2-9`,
-`programs/porting/cosmwasm/Cargo.toml:2-9`).
+The Solana, EVM, and CosmWasm porting kits translate selected account, storage,
+message, and value-flow patterns to the network's deterministic Programs ABI.
+They target `layerx_v2`, ABI version 2. They are not general compilers for
+arbitrary source-chain programs or a way to deploy source-chain bytecode
+unchanged.
 
-`make programs-build` builds the whole programs workspace
-(`Makefile:2922-2923`). `make programs-test` ends with
-`programs-porting-v2-references` and then `cargo test --locked --workspace`
-inside `programs/` (`Makefile:3088-3089`). `programs-porting-v2-references`
-builds the three `reference-v2` guests for `wasm32-unknown-unknown` release,
-runs `layerx-program-lint --abi-version 2` on each artifact, and passes the
-three `.wasm` paths to `programs_call_activity` (`Makefile:3091-3101`).
+Programs run in the merged Paxeer network: the kernel is part of `paxd`, and
+BFT block commitment supplies transaction finality. A port does not create
+another execution or settlement network. See [Sequencing](Sequencing.md) for
+receipts and commitment, [Data availability](DataAvailability.md) for retained
+execution data, and [Programs](Programs.md) for the program lifecycle.
 
-The EVM and Solana migration guides describe how their account models map to
-registered native Asset accounts and program-derived accounts. See [Assets](Assets.md) and
-[Payments developer path](PaymentsQuickstart.md).
+The members and library names are declared in
+[`programs/Cargo.toml`](../../programs/Cargo.toml) and each kit's manifest:
 
-Sources:
+| Kit package | Workspace member | Rust library | Reference port |
+| --- | --- | --- | --- |
+| `layerx-porting-solana` | `porting/solana` | `programs_porting_solana` | `MintLimitPort`, configured by `GuardTerms` |
+| `layerx-porting-evm` | `porting/evm` | `programs_porting_evm` | `PublicLockPort`, configured by `LockTerms` |
+| `layerx-porting-cosmwasm` | `porting/cosmwasm` | `programs_porting_cosmwasm` | `DonationPort`, configured by `DonationTerms` |
 
-- `programs/porting/solana/` (`src/lib.rs`, `error.rs`, `qualify.rs`,
-  `monetary.rs`, `account.rs`, `anchor.rs`, `pubkey.rs`, `reference.rs`,
-  `shared_pool.rs`, `wasm.rs`, `MIGRATION.md`, `guest/`, `reference-v2/`)
-- `programs/porting/evm/` (`src/lib.rs`, `error.rs`, `qualify.rs`,
-  `monetary.rs`, `layout.rs`, `semantics.rs`, `value.rs`, `reference.rs`,
-  `shared_supply.rs`, `MIGRATION.md`, `guest/`, `reference-v2/`)
-- `programs/porting/cosmwasm/` (`src/lib.rs`, `error.rs`, `qualify.rs`,
-  `monetary.rs`, `storage.rs`, `messages.rs`, `json.rs`, `reference.rs`,
-  `shared_orderbook.rs`, `MIGRATION.md`, `guest/`, `reference-v2/`)
-- `programs/Cargo.toml`
-- `Makefile` (`programs-porting-v2-references`, `programs-test`,
-  `programs-build`)
+Each has a `guest` workspace member for WASM context/syscall helpers and a
+separate `reference-v2` guest. The `programs_porting_*()` identification functions
+return their `programs/porting/<kit>` path and ABI version.
 
----
+## State, authority, and value
+
+Principal-scoped storage uses `(program, principal)`; shared storage uses
+`(program)`. A port must choose the correct namespace and supply the matching
+read/write capabilities. A shared cell is supported; it does not confer
+unrestricted access to another program's state or a native balance.
+
+The kits preserve source storage bytes or key derivations where described
+below. They also collapse caller-indexed state into a principal namespace,
+so an import plan must map source identities to authenticated principals.
+Do not assume that every source key or source address can be used unchanged.
+
+All three kits expose `ValueFlow::translate`,
+`ValueFlow::translate_with_program_account`, `translate_all`, `Transfer402Plan`,
+`ProgramAccountTransferPlan`, and `TranslatedValueFlow` from `monetary.rs`.
+`translate_all` uses the principal-funded `translate` path; use the explicit
+derived-account path for program-funded payouts.
+
+A `Transfer402Plan` names an asset, recipient account, and exact u128 amount;
+its capability bounds the principal-funded transfer. A
+`ProgramAccountTransferPlan` additionally binds owner program, seed, and source
+account. Construction rederives the source and refuses a mismatch or reserved
+monetary fields with `InvalidProgramAccount`. Its `ProgramSpend` capability
+bounds the exact payout. Public derivation seeds alone grant no spending
+authority. Register the program account before funding it; see
+[Assets](Assets.md) and [Payments developer path](PaymentsQuickstart.md).
+
+These are monetary requests to the kernel. Writing a storage cell that resembles
+a balance does not transfer native assets. Stored token allowances also do not
+authorize debits from another principal's kernel account.
 
 ## `layerx-porting-solana`
 
 ### Purpose
 
-Crate documentation (`programs/porting/solana/src/lib.rs:2-18`): the kit
-carries a Solana program onto the LayerX programs ABI. Account data stays
-byte-identical (Anchor discriminator first, `borsh` fields after). Instruction
-and event discriminators stay byte-identical. Constructs the account model
-assumes and LayerX does not provide - a program-held lamport balance, a
-program-derived signing authority over somebody else's funds, an account
-another program may mutate - are refused by name at translation time. The
-[`reference`](../../programs/porting/solana/src/reference.rs) port emits a
-deterministic module, deploys through the real lifecycle, rebuilds from
-published source, and executes under the real metered executor.
-
-`programs_porting_solana()` returns
-`programs/porting/solana targeting layerx_v2 ABI version 2`
-(`programs/porting/solana/src/lib.rs:51-54`).
-
-Guest crate `layerx-porting-solana-guest` maps Anchor context onto ABI v2:
-`AnchorContext::current` reads executing program, invoking principal, and
-batch height; `sha256` calls the SHA-256 syscall
-(`programs/porting/solana/guest/src/lib.rs:2-13`). On `wasm32`,
-`anchor::context` re-exports that guest
-(`programs/porting/solana/src/anchor.rs:17-19`).
+The [Solana kit](../../programs/porting/solana/src/lib.rs) preserves Anchor account
+bytes (eight-byte discriminator followed by `borsh` fields), instruction
+discriminators, and event discriminators. Source account export and import must
+still respect the destination namespace and schema bounds. The
+[migration guide](../../programs/porting/solana/MIGRATION.md) describes the account
+and payment mapping.
 
 ### Public entry points and types
 
-Re-exports (`programs/porting/solana/src/lib.rs:31-49`):
+| API | Use |
+| --- | --- |
+| `AccountSchema`, `Field`, `FieldType`, `FieldValue` | Declare account layout and encode/decode bounded account data |
+| `account_discriminator`, `instruction_discriminator`, `event_discriminator` | Derive the eight-byte Anchor discriminators |
+| `InstructionAbi::new` / `data` | Encode discriminator plus typed instruction fields |
+| `AnchorEvent::new` / `data` | Encode event data; discriminator supplies the topic |
+| `Pubkey`, `SeedPath` | Validate source identity and seed/bump derivation; form or collapse storage keys |
+| `ported_account`, `per_signer_import` | Map account layout and per-holder migration cells |
+| `AccountRole::translate` | Map account roles to storage or capabilities |
+| `cross_program_invocation` | Form a `CpiRequest` with an explicit `Call` capability |
 
-| Entry | Request | Result |
-| --- | --- | --- |
-| `ported_account` | `&AccountSchema`, `&SeedPath`, envelope seed indices | `(Vec<u8>, usize)` key and space (`programs/porting/solana/src/account.rs:307-314`) |
-| `account_discriminator` / `instruction_discriminator` / `event_discriminator` | account, handler, or event name | `[u8; 8]` (`programs/porting/solana/src/anchor.rs:51-68`) |
-| `InstructionAbi::new` / `data` | handler name, `FieldType`s; `FieldValue`s | discriminator-plus-`borsh` instruction bytes (`programs/porting/solana/src/anchor.rs:111-151`) |
-| `AnchorEvent::new` / `data` | event name, field types; values | `borsh` payload; discriminator is the topic (`programs/porting/solana/src/anchor.rs:180-225`) |
-| `cross_program_invocation` | `ProgramId`, `&InstructionAbi`, `&[FieldValue]` | `CpiRequest { callee, input, authority: Capability::Call }` (`programs/porting/solana/src/anchor.rs:229-262`) |
-| `Pubkey::new` | `[u8; 32]` | `Pubkey` (`programs/porting/solana/src/pubkey.rs:37-42`) |
-| `SeedPath::new` / `verify` / `storage_key` / `collapse` | seeds; bump, program, published address; envelope indices | path, `()`, framed key, collapsed path (`programs/porting/solana/src/pubkey.rs:64-161`) |
-| `per_signer_import` | base path, signer index, program, envelope, `&[AccountHolder]` | `Vec<MigrationCell>` (`programs/porting/solana/src/pubkey.rs:218-239`) |
-| `AccountRole::translate` | role | `AccountMapping` (`programs/porting/solana/src/account.rs:273-282`) |
-| `ValueFlow::translate` | asset, principal | `Transfer402Plan` (`programs/porting/solana/src/monetary.rs:267-291`) |
-| `ValueFlow::translate_with_program_account` | asset, principal, owner, seed, source | `TranslatedValueFlow` (`programs/porting/solana/src/monetary.rs:230-254`) |
-| `translate_all` | `&[ValueFlow]`, asset, principal | `Vec<Transfer402Plan>` (`programs/porting/solana/src/monetary.rs:319-329`) |
-| `Transfer402Plan::new` | asset, to, amount | plan (`programs/porting/solana/src/monetary.rs:126-131`) |
-| `ProgramAccountTransferPlan::new` | owner, seed, source, asset, to, amount | plan (`programs/porting/solana/src/monetary.rs:49-74`) |
-| `source_archive` | `&MintLimitPort` | `SourceArchive` (`programs/porting/solana/src/qualify.rs:152-175`) |
-| `published_source` | `&MintLimitPort`, `uri` | `PublishedSource` (`programs/porting/solana/src/qualify.rs:183-188`) |
-| `build_plan` | none | `BuildPlan` (`programs/porting/solana/src/qualify.rs:193-213`) |
-| `validated_module` | `&MintLimitPort` | `ValidatedModule` (`programs/porting/solana/src/qualify.rs:222-225`) |
-| `deploy_and_verify` | port, `Publication`, `&PublishedSource`, `&mut Lifecycle`, `&mut Registry` | `DeployedGuard` (`programs/porting/solana/src/qualify.rs:236-278`) |
-| `execute_mint` | port, `&Invocation`, `&mut Storage`, `amount` | `AuthorizedExecutionRecord` (`programs/porting/solana/src/qualify.rs:290-312`) |
-| `execute_mint_count` / `execute_mint_remaining` | `&Invocation`, `&mut Storage` | `AuthorizedExecutionRecord` (`programs/porting/solana/src/qualify.rs:319-336`) |
-| `settle` | `PreparedAuthorizedActivity`, `&mut Storage`, `&mut impl KernelTransferPrimitive` | `VerifiedStorageAssignment` (`programs/porting/solana/src/qualify.rs:345-353`) |
-| `import_accounts` | `&mut Storage`, `ProgramId`, `&[(MigrationCell, Vec<u8>)]` | `usize` changed cells (`programs/porting/solana/src/qualify.rs:367-380`) |
-| `MintLimitPort::new` | `GuardTerms` | port (`programs/porting/solana/src/reference.rs:328-349`) |
+`AccountRole::ProgramState` maps to `NamespacedCell`, and
+`ProgramOwnedShared` maps to `SharedCell`. A signer is the authenticated invoking
+principal; a program handle becomes a call capability. Native token balances
+remain kernel-owned rather than writable account data.
 
-`Invocation` carries `module`, `program`, `principal`, `receipts`
-(`programs/porting/solana/src/qualify.rs:134-143`). `Publication` carries
-`program`, `sequence`, `observed_at`
-(`programs/porting/solana/src/qualify.rs:109-116`). `AbsentReceipts` returns
-`AbiError::ReceiptMismatch` for every digest
-(`programs/porting/solana/src/qualify.rs:53-57`). `AuthorizedExecutionRequest`
-uses `CALL_ENTRY_EXPORT`, isolated composition, `response_capacity: 0`
-(`programs/porting/solana/src/qualify.rs:299-310`).
+On `wasm32`, `anchor::context` re-exports the guest helpers.
+`AnchorContext::current` obtains the executing program, invoking principal, and
+batch height as `program_id`, `signer`, and `slot`. The guest's `sha256` helper
+uses the ABI crypto syscall. These are authenticated network values, not an
+independent Solana slot clock.
 
 ### Typed refusals
 
-`PortRefusal` (`programs/porting/solana/src/error.rs:16-73`):
+The [error enum](../../programs/porting/solana/src/error.rs) retains specific
+refusals for zero keys, invalid seeds, derivation/discriminator mismatches,
+account bounds, schema mismatches, and instruction/event/module size limits.
+`AccountRole::TokenBalance` and direct `LamportWrite` yield `LamportMutation`.
+Principal-only translation refuses program-funded value flows; the
+`translate_with_program_account` path supports bounded
+`ProgramAuthorityFunded` flows with the matching derived authority. An unbounded
+`RentSweep` still yields `UnboundedRentSweep`. A third-party token spend without
+the required authority yields `DelegatedSpend`.
 
-| Variant | Condition that raises it |
-| --- | --- |
-| `ZeroPubkey` | `Pubkey::new` of the all-zero key (`programs/porting/solana/src/pubkey.rs:37-40`); `MintLimitPort::new` with zero asset or destination (`programs/porting/solana/src/reference.rs:329-331`); `per_signer_import` with zero principal (`programs/porting/solana/src/pubkey.rs:228-230`) |
-| `InvalidSeeds` | empty path, more than `MAX_SEEDS` 16, or a seed longer than `MAX_SEED_BYTES` 32 (`programs/porting/solana/src/pubkey.rs:64-70`); framed key longer than `MAX_STORAGE_KEY_BYTES` (`programs/porting/solana/src/pubkey.rs:133-135`); collapse/with_seed index out of range (`programs/porting/solana/src/pubkey.rs:149-151`, `programs/porting/solana/src/pubkey.rs:170-174`); `MintLimitPort::code` when the storage key length does not fit `i32` (`programs/porting/solana/src/reference.rs:516`) |
-| `DerivationMismatch` | `SeedPath::verify` when bump and program do not derive the published address (`programs/porting/solana/src/pubkey.rs:106-116`) |
-| `DiscriminatorMismatch` | `AccountSchema::decode` when the first eight bytes are not the schema discriminator (`programs/porting/solana/src/account.rs:225-228`) |
-| `AccountBounds` | schema `space()` above `MAX_STORAGE_VALUE_BYTES` (`programs/porting/solana/src/account.rs:147-149`); decode length not equal to declared space (`programs/porting/solana/src/account.rs:229-231`); bool byte other than 0 or 1, or a field slice shorter than its width (`programs/porting/solana/src/account.rs:318-337`) |
-| `SchemaMismatch` | unnamed account, more than `MAX_FIELDS` 64, unnamed or repeated field (`programs/porting/solana/src/account.rs:128-140`); encode value count or type mismatch (`programs/porting/solana/src/account.rs:203-212`); unnamed instruction/event, more than `MAX_ARGUMENTS` 32, or argument list mismatch (`programs/porting/solana/src/anchor.rs:70-90`); `PoolReserve::decode` when the value list is not `(U64, U32, Pubkey)` (`programs/porting/solana/src/shared_pool.rs:100-105`) |
-| `LamportMutation` | `AccountRole::TokenBalance` (`programs/porting/solana/src/account.rs:280`); `ValueFlow::translate` of `LamportWrite`, `ProgramAuthorityFunded`, or `RentSweep` (`programs/porting/solana/src/monetary.rs:276-278`); `ValueFlow::translate_with_program_account` of `LamportWrite` (`programs/porting/solana/src/monetary.rs:248`) |
-| `InvalidProgramAccount` | `ProgramAccountTransferPlan::new` when asset/to/amount is reserved-zero or `derive_program_account` does not equal `source` (`programs/porting/solana/src/monetary.rs:57-65`); `ProgramAuthorityFunded` whose `authority` is not `source` (`programs/porting/solana/src/monetary.rs:239-241`) |
-| `UnboundedRentSweep` | `RentSweep` through `translate_with_program_account` (`programs/porting/solana/src/monetary.rs:249`) |
-| `DelegatedSpend` | `TokenTransfer` whose `authority` is not the invoking principal (`programs/porting/solana/src/monetary.rs:279-288`) |
-| `OutOfRange` | `Transfer402Plan::new` with zero asset, recipient, or amount (`programs/porting/solana/src/monetary.rs:126-129`); `MintLimitPort::new` zero price/limit or limit above `MAX_LIMIT_BOUND` 65535, or `price * limit` outside `i64::MAX` (`programs/porting/solana/src/reference.rs:332-342`); mint amount not in `u16` (`programs/porting/solana/src/qualify.rs:297`); unknown query export (`programs/porting/solana/src/qualify.rs:390`) |
-| `EventDataTooLarge` | `AnchorEvent::data` payload longer than `MAX_EVENT_DATA_BYTES` (`programs/porting/solana/src/anchor.rs:221-223`) |
-| `InstructionDataTooLarge` | `InstructionAbi::data` longer than `MAX_CALL_INPUT_BYTES` (`programs/porting/solana/src/anchor.rs:147-149`) |
-| `ModuleTooLarge` | emitted WASM longer than `DEFAULT_MAX_MODULE_BYTES` (`programs/porting/solana/src/reference.rs:576-580`) |
-| `InvalidDescriptor` | `MintLimitPort::parse` malformed line, repeated key, unknown key, wrong version or program name, missing key, or non-integer number (`programs/porting/solana/src/reference.rs:478-505`, `programs/porting/solana/src/reference.rs:894-911`) |
-| `UnverifiedSource` | `deploy_and_verify` when `registry.verify_source` is not `SourceStatus::Verified` (`programs/porting/solana/src/qualify.rs:268-270`) |
-| `Abi` / `Storage` / `Engine` / `Validation` / `Lifecycle` / `Execution` / `Registry` / `Archive` / `Build` / `TransferLaw` | `From` wrappers (`programs/porting/solana/src/error.rs:128-185`). `settle` maps `strict_settle` failure through `PortRefusal::from` (`programs/porting/solana/src/qualify.rs:349-352`) |
-
-`FailureMapping` is not a `PortRefusal`. `Require`, `ConstraintViolation`,
-`DiscriminatorMismatch`, and `Panic` map to `RuntimeOutcome::Trap`;
-`ComputeBudget` to `ResourceRefusal`; `CpiDepth` to `StackExhausted`
-(`programs/porting/solana/src/anchor.rs:293-305`).
+Runtime failure mapping is separate: Anchor require/constraint/discriminator
+failures and panic map to `Trap`, compute-budget failure to `ResourceRefusal`,
+and CPI-depth failure to `StackExhausted`.
 
 ### Qualification path
 
-`qualify.rs` documentation: the engine, lifecycle, registry, reproducible-build
-pipeline, metered executor, and monetary law are production types; the kernel
-transfer primitive and receipt oracle stay caller-supplied
-(`programs/porting/solana/src/qualify.rs:1-9`).
-
-Checks before a ported program is admitted:
-
-1. `source_archive` packs Anchor source, descriptor, toolchain manifest, and
-   dependency lock (`programs/porting/solana/src/qualify.rs:152-174`).
-2. `build_plan` pins builder identity `LayerX/porting/solana/builder/v1`,
-   toolchain and lock digests, `SOURCE_EPOCH` 1, and `BUILD_COMMAND`
-   (`programs/porting/solana/src/qualify.rs:37-42`,
-   `programs/porting/solana/src/qualify.rs:193-213`).
-3. `validated_module` runs `WasmEngine::declared()?.validate(&port.code()?)`
-   (`programs/porting/solana/src/qualify.rs:222-225`).
-4. `deploy_and_verify` deploys with `ABI_VERSION` and
-   `UpgradePolicy::Immutable`, journals `DeploymentRecord`, replays into the
-   registry, rebuilds with `SourceVerifier::new(PortBuildRunner, REBUILD_ATTEMPTS)`
-   where `REBUILD_ATTEMPTS` is 2, and refuses unless status is `Verified`
-   (`programs/porting/solana/src/qualify.rs:35-37`,
-   `programs/porting/solana/src/qualify.rs:243-270`).
-5. `PortBuildRunner::run` requires the plan command's last word as descriptor
-   path, UTF-8 descriptor text, `SOURCE_PATH` equal to `ANCHOR_SOURCE`, then
-   `MintLimitPort::parse` and `port.code()`
-   (`programs/porting/solana/src/qualify.rs:69-104`).
+[`qualify.rs`](../../programs/porting/solana/src/qualify.rs) exposes
+`source_archive`, `published_source`, `build_plan`, `validated_module`,
+`deploy_and_verify`, and `settle`. `execute_mint` uses a `MintLimitPort` and an
+`Invocation`; `execute_mint_count` and `execute_mint_remaining` query its state.
+`import_accounts` takes `(MigrationCell, Vec<u8>)` cells and writes them into
+the owning principals' namespaces. The shared pool is a separate example in
+[`shared_pool.rs`](../../programs/porting/solana/src/shared_pool.rs).
 
 ### Tests that prove refusals
 
-| Test | File | Asserted outcome |
-| --- | --- | --- |
-| `invoke_signed_uses_derived_account_authority` | `programs/porting/solana/src/monetary.rs:335-354` | `ProgramAuthorityFunded` with matching PDA source is `TranslatedValueFlow::ProgramAccount`; `RentSweep` through `translate_with_program_account` is `Err(PortRefusal::UnboundedRentSweep)` |
-
-`shared_pool` tests assert role mappings and round-trips; they do not assert a
-`PortRefusal` (`programs/porting/solana/src/shared_pool.rs:170-239`). No other
-`#[test]` in this crate asserts a `PortRefusal` variant.
+The existing `invoke_signed_uses_derived_account_authority` test in
+[`monetary.rs`](../../programs/porting/solana/src/monetary.rs) asserts that matching
+PDA-shaped authority produces a `ProgramAccount` plan and that a rent sweep is
+refused. This is a translation assertion; it does not certify live deployment.
 
 ### SPL tokens, LXT-20, and native Assets
 
-The LXT-20 reference is an ABI-v2 WASM program with seven request methods. The
-request codecs are in `programs/sdk/rust/src/lxt20.rs`, and the interface, registry
-inputs, and signed native deploy and call receipts are in
-`programs/fixtures/pay5`. Both paths are in this tree.
-`programs/porting/solana/MIGRATION.md` carries its LXT-20 section at line 365.
-Replay the isolated native token and merchant settlements with:
-
-```sh
-python3 programs/fixtures/pay5/run_native_roundtrip.py
-```
-
-That command compares the committed token and merchant artifacts byte for
-byte; it is not evidence of a live deployment
-(`programs/porting/solana/MIGRATION.md`, LXT-20 section).
-
-| SPL flow | LayerX mapping |
-| --- | --- |
-| Transfer / transfer checked | LXT-20 `Transfer`, or `TransferFrom` for an authenticated allowance spender; exact u128 units and an explicit backing Asset |
-| Approve / revoke delegate | `Approve` with a spender DID; zero revokes the program allowance, not a kernel grant |
-| Read token account balance | `BalanceOf`; native balance evidence is a separate authorized read |
-| Read delegated amount | `Allowance` with owner and spender identities |
-| Read mint supply and metadata | `TotalSupply` and `Metadata`; backing-Asset facts remain in the native Asset registry |
-| PDA custody / CPI payout | Registered program-derived account plus `ProgramSpend`; a public seed is not spending authority |
-
-The four-byte LXT-20 selector is followed by LayerX convention `01`, bounded
-bytes tag `20`, a u32 big-endian payload length, and the declared fields. Borsh
-little-endian integers, Anchor discriminators, Solana pubkeys, and associated
-token-account derivations are not accepted unchanged
-(`programs/porting/solana/MIGRATION.md`, LXT-20 section).
-
-Register the program-derived account under deployment authority before
-funding. `ProgramPaymentCapabilities` combines funding, spending, and ordinary
-grants in canonical key order. The v2 interface's
-`CallerAuthorizedSpend` descriptors bind the backing Asset, ceiling, and
-recipient/amount calldata offsets; admission still requires the caller's
-matching grant on every call. Descriptors and token allowances grant no kernel
-debit authority (`programs/porting/solana/MIGRATION.md`, LXT-20 section).
-
-Native Asset register, account-open, mint, and burn remain separate signed
-Asset activities. Per-Asset accounts use
-`agent:<DID>:asset:<lowercase asset hex>` and `LX:ACCOUNT:v1`; program accounts
-use the program-account derivation. The envelope's signer/identity sequence is
-separate from the payment account and its sequence. Account-bound terminal
-evidence retains signer authorization while committing the resolved account
-endpoints (`programs/porting/solana/MIGRATION.md`, LXT-20 section). LXT-20 does not
-provide SPL account closing/rent recovery, Token-2022 extensions, mint/freeze
-authority migration, multisig signer lists, or an enumerable Anchor account
-context (`programs/porting/solana/MIGRATION.md`, LXT-20 section).
-
----
+An SPL transfer maps to LXT-20 `Transfer` or an authenticated `TransferFrom`;
+approval/revocation maps to `Approve`, with zero revoking the program allowance.
+`BalanceOf`, `Allowance`, `TotalSupply`, and `Metadata` provide token queries.
+PDA custody and CPI payouts require registered program accounts and bounded
+spend authority. The shared LXT-20 encoding below replaces SPL instruction
+encoding; Solana pubkeys and associated-token-account derivations require an
+explicit mapping. SPL account closing/rent recovery, Token-2022 extensions,
+mint/freeze authority migration, and multisig signer lists are not supplied by
+this request interface.
 
 ## `layerx-porting-evm`
 
 ### Purpose
 
-Crate documentation (`programs/porting/evm/src/lib.rs:2-16`): the kit carries
-an EVM contract onto the LayerX programs ABI. Storage slot addresses stay
-byte-identical. Event topics and four-byte selectors stay byte-identical.
-Constructs the EVM model assumes and LayerX does not provide - a
-contract-held balance, a clock, ambient authority over another account's funds
-- are refused by name at translation time. The reference port in `reference`
-emits, deploys, rebuilds, and executes on the real plane.
-
-`programs_porting_evm()` returns
-`programs/porting/evm targeting layerx_v2 ABI version 2`
-(`programs/porting/evm/src/lib.rs:49-52`).
-
-Guest crate `layerx-porting-evm-guest` maps `msg.sender`, `address(this)`,
-`block.number`, `keccak256`, and `ecrecover` onto ABI v2
-(`programs/porting/evm/guest/src/lib.rs:2-21`). On `wasm32`,
-`semantics::context` re-exports that guest
-(`programs/porting/evm/src/semantics.rs:13-15`).
+The [EVM kit](../../programs/porting/evm/src/lib.rs) preserves EVM storage slot
+addresses, event topics, and four-byte selectors in its translation helpers.
+The [migration guide](../../programs/porting/evm/MIGRATION.md) explains where
+caller-indexed state collapses and where monetary semantics require explicit
+authority. This kit ports selected patterns to Programs WASM; it is distinct
+from executing an EVM contract directly on the network's EVM.
 
 ### Public entry points and types
 
-Re-exports (`programs/porting/evm/src/lib.rs:30-47`):
+| API | Use |
+| --- | --- |
+| `value_slot`, `mapping_slot`, `nested_mapping_slot`, `array_slot`, `member_slot` | Compute source EVM storage addresses as `Word` values |
+| `storage_key`, `caller_indexed_key`, `shared_key` | Preserve the slot bytes or select a collapsed caller key |
+| `caller_indexed_import` | Map source holder addresses to destination principal cells |
+| `Address`, `Word` | Validate addresses and perform checked integer narrowing |
+| `MethodAbi::new` / `calldata` | Build selector-plus-word calls |
+| `EventAbi::new` / `envelope_derived` / `data` | Build event topic and payload representations |
+| `external_call` | Form a `CallRequest` with explicit callee authority |
 
-| Entry | Request | Result |
-| --- | --- | --- |
-| `value_slot` / `mapping_slot` / `nested_mapping_slot` / `array_slot` / `member_slot` | slot index and keys | `Word` EVM address (`programs/porting/evm/src/layout.rs:47-91`) |
-| `storage_key` / `caller_indexed_key` / `shared_key` | slot | `[u8; 32]` (`programs/porting/evm/src/layout.rs:99-124`) |
-| `caller_indexed_import` | slot, `&[(Address, [u8; 32])]` | `Vec<MigrationCell>` (`programs/porting/evm/src/layout.rs:145-161`) |
-| `Address::new` / `Word::to_u64` / `Word::to_u128` | 20-byte address; 32-byte word | `Address` or narrowed integer (`programs/porting/evm/src/value.rs:66-87`, `programs/porting/evm/src/value.rs:116-121`) |
-| `EventAbi::new` / `envelope_derived` / `data` | canonical signature; words | topic plus payload (`programs/porting/evm/src/semantics.rs:57-137`) |
-| `MethodAbi::new` / `calldata` | canonical signature; words | selector-plus-words (`programs/porting/evm/src/semantics.rs:154-200`) |
-| `external_call` | `ProgramId`, `&MethodAbi`, `&[Word]` | `CallRequest { callee, input, authority: Capability::Call }` (`programs/porting/evm/src/semantics.rs:223-234`) |
-| `ValueFlow::translate` / `translate_with_program_account` / `translate_all` | asset, principal; plus owner/seed/source | `Transfer402Plan` or `TranslatedValueFlow` (`programs/porting/evm/src/monetary.rs:219-313`) |
-| `source_archive` / `published_source` / `build_plan` / `validated_module` | `&PublicLockPort` (and URI for published source) | archive, `PublishedSource`, `BuildPlan`, `ValidatedModule` (`programs/porting/evm/src/qualify.rs:153-226`) |
-| `deploy_and_verify` | port, `Publication`, source, lifecycle, registry | `DeployedLock` (`programs/porting/evm/src/qualify.rs:237-279`) |
-| `execute_purchase` | port, `&Invocation`, `&mut Storage`, `periods` | `AuthorizedExecutionRecord` (`programs/porting/evm/src/qualify.rs:290-311`) |
-| `execute_has_valid_key` / `execute_remaining_periods` | `&Invocation`, `&mut Storage` | `AuthorizedExecutionRecord` (`programs/porting/evm/src/qualify.rs:318-335`) |
-| `settle` | `PreparedAuthorizedActivity`, storage, kernel | `VerifiedStorageAssignment` (`programs/porting/evm/src/qualify.rs:344-352`) |
-| `import_state` | storage, program, `&[(MigrationCell, [u8; 32])]` | `usize` (`programs/porting/evm/src/qualify.rs:362-375`) |
-| `PublicLockPort::new` | `LockTerms` | port (`programs/porting/evm/src/reference.rs:265-295`) |
+`caller_indexed_key` collapses a mapping used only with `msg.sender` to its
+base slot in principal storage. `shared_key` retains the slot bytes for
+program-shared storage; the key bytes alone do not select a namespace.
+[`shared_supply.rs`](../../programs/porting/evm/src/shared_supply.rs) demonstrates
+a shared total supply alongside principal-scoped balances.
 
-`execute_purchase` builds calldata with `MethodAbi::new(PURCHASE_METHOD)` and
-`Word::from_u64(periods)` (`programs/porting/evm/src/qualify.rs:296-297`).
+On `wasm32`, `semantics::context` re-exports guest helpers. `msg_sender` returns
+the immediate calling program when present, otherwise the root invoking
+principal; the helper takes the final 20 bytes of the authenticated identifier.
+`address_this` likewise maps the executing program, and `block_number` reads
+batch height. `keccak256` and `ecrecover` use the ABI crypto primitives. These
+helpers do not supply ambient Solidity authority or a wall clock.
 
 ### Typed refusals
 
-`PortRefusal` (`programs/porting/evm/src/error.rs:15-66`):
+The [error enum](../../programs/porting/evm/src/error.rs) includes `ZeroAddress`,
+`WordTooWide`, `InvalidSignature`, `ArgumentCountMismatch`, and size refusals.
+`Word::to_u64` and `to_u128` refuse nonzero high bytes rather than truncating.
+Principal-only translation returns `ContractHeldBalance` for contract-funded
+payouts. Supplying valid derived-account context permits bounded
+`ContractFunded` payouts; `SelfDestructSweep` still returns
+`UnboundedBalanceSweep`. An allowance on another principal's funds is refused
+with `DelegatedSpend` on this translator path.
 
-| Variant | Condition that raises it |
-| --- | --- |
-| `ZeroAddress` | `Address::new` of the 20-byte zero address (`programs/porting/evm/src/value.rs:116-119`); `PublicLockPort::new` with zero asset or beneficiary (`programs/porting/evm/src/reference.rs:266-268`) |
-| `WordTooWide` | `Word::to_u64` when bytes `[..24]` are not zero; `Word::to_u128` when bytes `[..16]` are not zero (`programs/porting/evm/src/value.rs:66-83`) |
-| `InvalidSignature` | canonical ABI signature missing `(`, not ending `)`, empty name, longer than 256 bytes, or empty parameter token (`programs/porting/evm/src/semantics.rs:19-32`); topic longer than `MAX_EVENT_TOPIC_BYTES` (`programs/porting/evm/src/semantics.rs:84-86`) |
-| `ArgumentCountMismatch` | empty nested-mapping key path (`programs/porting/evm/src/layout.rs:67-69`); `envelope_derived` with `derived` larger than argument count (`programs/porting/evm/src/semantics.rs:76-78`); `EventAbi::data` / `MethodAbi::calldata` wrong word count (`programs/porting/evm/src/semantics.rs:126-128`, `programs/porting/evm/src/semantics.rs:188-190`); `SharedSupplyPort::new` with zero `price_per_token` (`programs/porting/evm/src/shared_supply.rs:44-47`) |
-| `EventDataTooLarge` | encoded event data longer than `MAX_EVENT_DATA_BYTES` (`programs/porting/evm/src/semantics.rs:133-135`) |
-| `CalldataTooLarge` | encoded calldata longer than `MAX_CALL_INPUT_BYTES` (`programs/porting/evm/src/semantics.rs:196-198`) |
-| `ContractHeldBalance` | `ValueFlow::translate` of `ContractFunded` or `SelfDestructSweep` (`programs/porting/evm/src/monetary.rs:258-260`) |
-| `InvalidProgramAccount` | `ProgramAccountTransferPlan::new` reserved fields or source mismatch (`programs/porting/evm/src/monetary.rs:55-63`) |
-| `UnboundedBalanceSweep` | `SelfDestructSweep` through `translate_with_program_account` (`programs/porting/evm/src/monetary.rs:232`) |
-| `DelegatedSpend` | `AllowanceSpend` whose `owner` is not the invoking principal (`programs/porting/evm/src/monetary.rs:261-270`) |
-| `OutOfRange` | `Transfer402Plan::new` zero asset/to/amount (`programs/porting/evm/src/monetary.rs:125-128`); `caller_indexed_import` zero principal (`programs/porting/evm/src/layout.rs:151-153`); `PublicLockPort::new` zero price/token_id/per-purchase bound, per-purchase above `MAX_PERIODS_BOUND` 4096, key bound below per-purchase or above `MAX_TOTAL_PERIODS_BOUND`, or price product outside `i64::MAX` (`programs/porting/evm/src/reference.rs:269-285`); unknown query export (`programs/porting/evm/src/qualify.rs:385`) |
-| `ModuleTooLarge` | `PublicLockPort::code` or `SharedSupplyPort::code` WASM above `DEFAULT_MAX_MODULE_BYTES` (`programs/porting/evm/src/reference.rs:502-506`, `programs/porting/evm/src/shared_supply.rs:133-137`) |
-| `InvalidDescriptor` | `PublicLockPort::parse` malformed/repeated/unknown/missing keys, wrong version or contract name, non-integer (`programs/porting/evm/src/reference.rs:410-440`, `programs/porting/evm/src/reference.rs:836-853`) |
-| `UnverifiedSource` | `deploy_and_verify` when source status is not `Verified` (`programs/porting/evm/src/qualify.rs:269-271`) |
-| `Abi` / `Storage` / `Engine` / `Validation` / `Lifecycle` / `Execution` / `Registry` / `Archive` / `Build` / `TransferLaw` | `From` wrappers (`programs/porting/evm/src/error.rs:113-170`). `settle` uses `PortRefusal::from(failure.error())` (`programs/porting/evm/src/qualify.rs:349-351`) |
-
-`FailureMapping::Require` / `Revert` / `AssertPanic` map to `Trap`; `OutOfGas`
-to `ResourceRefusal`; `CallDepth` to `StackExhausted`
-(`programs/porting/evm/src/semantics.rs:263-272`).
+`Require`, `Revert`, and `AssertPanic` map to runtime `Trap`; `OutOfGas` maps to
+`ResourceRefusal`, and `CallDepth` to `StackExhausted`.
 
 ### Qualification path
 
-Same pipeline shape as Solana, with EVM names
-(`programs/porting/evm/src/qualify.rs:1-9`):
-
-1. Archive holds `SOLIDITY_SOURCE`, descriptor, toolchain, lock
-   (`programs/porting/evm/src/qualify.rs:153-176`).
-2. Builder domain `LayerX/porting/evm/builder/v1`, `REBUILD_ATTEMPTS` 2,
-   `SOURCE_EPOCH` 1 (`programs/porting/evm/src/qualify.rs:38-44`,
-   `programs/porting/evm/src/qualify.rs:194-214`).
-3. `validated_module` is `WasmEngine::declared()?.validate(&port.code()?)`
-   (`programs/porting/evm/src/qualify.rs:223-226`).
-4. `deploy_and_verify` deploys immutable ABI-versioned WASM, journals, rebuilds
-   via `PortBuildRunner`, refuses non-`Verified` status
-   (`programs/porting/evm/src/qualify.rs:237-271`).
-5. `PortBuildRunner` requires published Solidity equal to `SOLIDITY_SOURCE`,
-   then `PublicLockPort::parse` and `port.code()`
-   (`programs/porting/evm/src/qualify.rs:69-105`).
+[`qualify.rs`](../../programs/porting/evm/src/qualify.rs) exposes the common
+archive/build/deploy pipeline. `execute_purchase` runs `PublicLockPort`;
+`execute_has_valid_key` and `execute_remaining_periods` query it. `import_state`
+accepts `(MigrationCell, [u8; 32])` pairs and writes principal-scoped cells.
+It is not an import routine for arbitrary shared-state contracts.
 
 ### Tests that prove refusals
 
-| Test | File | Asserted outcome |
-| --- | --- | --- |
-| `accumulated_contract_value_uses_derived_account_authority` | `programs/porting/evm/src/monetary.rs:319-334` | `ContractFunded` through `translate_with_program_account` is `TranslatedValueFlow::ProgramAccount`; `SelfDestructSweep` is `Err(PortRefusal::UnboundedBalanceSweep)` |
-
-`shared_supply` tests assert keys and capability sets; they do not assert a
-`PortRefusal` (`programs/porting/evm/src/shared_supply.rs:291-356`).
+`accumulated_contract_value_uses_derived_account_authority` in
+[`monetary.rs`](../../programs/porting/evm/src/monetary.rs) asserts a bounded
+contract-funded `ProgramAccount` plan and refusal of `SelfDestructSweep`.
 
 ### ERC-20, LXT-20, and native Assets
 
-`programs/sdk/rust/src/lxt20.rs` defines seven canonical request encodings, and
-`programs/sdk/rust/examples/token-lxt20` implements them over registered
-program-derived backing accounts. Both paths are in this tree.
-`programs/porting/evm/MIGRATION.md` has its LXT-20 section at line 330.
-Runtime tests cover the methods, allowances, and refusal rollback. The same
-isolated native replay shown in the Solana section checks the committed token
-and merchant artifacts; it does not certify a live deployment
-(`programs/porting/evm/MIGRATION.md`, LXT-20 section).
-
-| ERC-20 flow | LayerX mapping |
-| --- | --- |
-| `transfer(to, amount)` | LXT-20 `Request::Transfer`; destination is a 32-byte account ID and amount is exact u128 units |
-| `approve(spender, amount)` | `Request::Approve`; spender is a DID identity and zero revokes the program allowance |
-| `transferFrom(owner, to, amount)` | `Request::TransferFrom`; allowance decrement and 402 payment stage atomically |
-| `balanceOf`, `allowance`, `totalSupply` | Matching request variants; native balance evidence remains a separate read |
-| `name`, `symbol`, `decimals` | One `Metadata` request; query the native Asset registry separately for backing-Asset metadata |
-| Native value deposit and payout | Register a `PreparedProgramAccount`, then fund and spend it under explicit grants |
-
-Selectors are `4c 58 14 method`, with method numbers 1 through 7 for transfer,
-approve, transfer-from, balance, allowance, supply, and metadata. After the
-selector come LayerX convention `01`, bytes tag `20`, a u32 big-endian payload
-length, and the declared fields. Identifiers are 32 bytes and amounts are
-16-byte big-endian integers. This is not Solidity ABI encoding and does not use
-ERC-20 Keccak selectors
-(`programs/porting/evm/MIGRATION.md`, LXT-20 section).
-
-Recipients must have a registered program-derived backing account. They call
-`approve` at least once, including zero, to create the reference program's
-token storage. The configured issuer calls `initialize` once with a funding
-grant for the fixed supply. Transfers neither mint nor burn native units, and
-every `transfer_from` decrements the allowance, including `u128::MAX`
-(`programs/porting/evm/MIGRATION.md`, LXT-20 section).
-
-Interface encoding v2 carries `CallerAuthorizedSpend` descriptors for the
-backing Asset, ceiling, recipient offset, and amount offset. Native admission
-requires an actual caller-authorized `ProgramSpend` grant; the descriptor and
-an LXT-20 allowance do not confer kernel debit authority over another DID's
-account. Infinite uint256 allowances, permits, rebasing, and transfer-tax
-semantics are not in this interface. Values above u128 must be refused, and
-Ethereum addresses require an explicit identity/account mapping
-(`programs/porting/evm/MIGRATION.md`, LXT-20 section).
-
-Native Asset IDs use SHA-256 of `LX:ASSET:v1 || issuer_id32 || salt32`.
-Per-Asset, native-main, and program-derived accounts retain their distinct
-derivations. Programs envelopes bind the signer DID and identity sequence;
-funding consumes the canonical backing-account sequence, and fees may use a
-different native account. Account-bound settlement evidence retains signer
-authorization and commits the resolved account endpoints
-(`programs/porting/evm/MIGRATION.md`, LXT-20 section).
-
----
+LXT-20 provides the seven request methods listed below. Ethereum addresses need
+an explicit identity/account mapping, and values wider than u128 must be refused.
+Infinite uint256 allowances, permits, rebasing, and transfer-tax behavior are not
+implemented by this interface. Preserving source selectors in `MethodAbi` does
+not make LXT-20 use ERC-20 Keccak selectors.
 
 ## `layerx-porting-cosmwasm`
 
 ### Purpose
 
-Crate documentation (`programs/porting/cosmwasm/src/lib.rs:2-23`): the kit
-carries a CosmWasm contract onto the LayerX programs ABI. Raw storage keys stay
-byte-identical (`cw-storage-plus` `Item` and `Map` prefix framing). JSON
-message and event names stay byte-identical. Constructs the chain model assumes
-and LayerX does not provide - a contract-held bank balance, spending somebody
-else's allowance, a `Deps::querier` round trip, state shared across senders -
-are refused by name at translation time. JSON stops at the edge; the running
-program moves canonically framed bytes. The reference port emits, deploys,
-rebuilds, and executes on the real plane.
+The [CosmWasm kit](../../programs/porting/cosmwasm/src/lib.rs) preserves
+`cw-storage-plus` raw key framing and JSON message/event names. JSON is
+transcoded at the edge; the deterministic guest consumes canonical framed bytes.
+See its [migration guide](../../programs/porting/cosmwasm/MIGRATION.md).
 
-`programs_porting_cosmwasm()` returns
-`programs/porting/cosmwasm targeting layerx_v2 ABI version 2`
-(`programs/porting/cosmwasm/src/lib.rs:56-59`).
-
-Guest crate `layerx-porting-cosmwasm-guest` maps `Env` / `MessageInfo` onto
-executing program, batch height, and invoking principal, and exposes BLAKE3
-(`programs/porting/cosmwasm/guest/src/lib.rs:2-35`). On `wasm32`,
-`messages::context` re-exports that guest
-(`programs/porting/cosmwasm/src/messages.rs:25-27`).
-
-`StateBinding::Shared` is portable and `shared()` is true
-(`programs/porting/cosmwasm/src/storage.rs:122-133`). `PortRefusal::SharedState`
-remains in the enum (`programs/porting/cosmwasm/src/error.rs:24-27`); no path
-in this crate constructs it.
+Shared state is supported. In
+[`storage.rs`](../../programs/porting/cosmwasm/src/storage.rs),
+`StateBinding::Shared.layerx_key` uses `item_key`, `shared()` returns true, and
+`portable()` returns true. `SharedState` remains in `PortRefusal`, but the
+binding implementation does not raise it. The older claim that every cell
+must be sender-scoped is retired.
 
 ### Public entry points and types
 
-Re-exports (`programs/porting/cosmwasm/src/lib.rs:36-54`):
+| API | Use |
+| --- | --- |
+| `item_key`, `map_prefix`, `map_key`, `composite_map_key` | Reproduce bounded raw storage-key framing |
+| `StateBinding` | Choose `Item`, `SenderIndexed`, `SenderSuffixed`, or `Shared` |
+| `sender_indexed_import` | Build principal-scoped migration cells for source holders |
+| `RecordSchema`, `FieldSchema`, `FieldValue`, `ValueType` | Encode/decode canonical records and transcode JSON |
+| `variant_tag`, `MessageVariant` | Encode entry-point variant and message body |
+| `ContractEvent::response` / `custom` / `data` | Encode response or custom-event attributes |
+| `execute_submessage` | Form a bounded cross-program `CallRequest` |
 
-| Entry | Request | Result |
-| --- | --- | --- |
-| `item_key` / `map_prefix` / `map_key` / `composite_map_key` | namespace and key bytes | raw key (`programs/porting/cosmwasm/src/storage.rs:34-88`) |
-| `StateBinding::layerx_key` | namespace, leading key elements | LayerX key (`programs/porting/cosmwasm/src/storage.rs:114-120`) |
-| `sender_indexed_import` | namespace, `&[StateHolder]` | `Vec<MigrationCell>` (`programs/porting/cosmwasm/src/storage.rs:171-191`) |
-| `RecordSchema::new` / `encode` / `decode` / `encode_json` / `decode_json` / `transcode` | name, `FieldSchema`s; values or JSON | framed bytes or JSON (`programs/porting/cosmwasm/src/json.rs:144-169`) |
-| `variant_tag` | `EntryPoint`, variant name | `[u8; 8]` (`programs/porting/cosmwasm/src/messages.rs:74-90`) |
-| `MessageVariant::new` / `json` / `data` / `transcode` | entry, variant, `RecordSchema`; values or JSON | JSON document or tag-plus-body (`programs/porting/cosmwasm/src/messages.rs:108-201`) |
-| `ContractEvent::response` / `custom` / `data` | attributes; event type | topic plus framed attributes (`programs/porting/cosmwasm/src/messages.rs:218-293`) |
-| `execute_submessage` | `ProgramId`, `&MessageVariant`, `&[FieldValue]` | `CallRequest` (`programs/porting/cosmwasm/src/messages.rs:322-333`) |
-| `ValueFlow::translate` / `translate_with_program_account` / `translate_all` | asset, principal; plus owner/seed/source | `Transfer402Plan` or `TranslatedValueFlow` (`programs/porting/cosmwasm/src/monetary.rs:233-330`) |
-| `source_archive` / `published_source` / `build_plan` / `validated_module` | `&DonationPort` | archive, source, plan, module (`programs/porting/cosmwasm/src/qualify.rs:154-227`) |
-| `deploy_and_verify` | port, `Publication`, source, lifecycle, registry | `DeployedContract` (`programs/porting/cosmwasm/src/qualify.rs:238-279`) |
-| `execute_donate` | port, `&Invocation`, storage, `times` | `AuthorizedExecutionRecord` (`programs/porting/cosmwasm/src/qualify.rs:293-314`) |
-| `execute_donations` / `execute_remaining` | `&Invocation`, storage | `AuthorizedExecutionRecord` (`programs/porting/cosmwasm/src/qualify.rs:321-338`) |
-| `settle` | activity, storage, kernel | `VerifiedStorageAssignment` (`programs/porting/cosmwasm/src/qualify.rs:347-355`) |
-| `import_state` | storage, program, `&[(MigrationCell, String)]` | `usize`; JSON transcoded through `donation_record()` (`programs/porting/cosmwasm/src/qualify.rs:371-386`) |
-| `DonationPort::new` | `DonationTerms` | port (`programs/porting/cosmwasm/src/reference.rs:353-374`) |
+`Item` uses a principal-scoped item key. `SenderIndexed` collapses the sender
+into the namespace; `SenderSuffixed` preserves the leading composite elements.
+`Shared` selects the program namespace. The
+[`shared_orderbook.rs`](../../programs/porting/cosmwasm/src/shared_orderbook.rs)
+example maps order count and orders to shared bindings while keeping trader
+positions sender-indexed.
+
+On `wasm32`, `messages::context` exposes guest `current()`: `Env` contains the
+executing program and batch height, and `MessageInfo` contains the invoking
+principal. The guest also exposes BLAKE3. This subset is not a general
+`Deps::querier` interface to other modules or chains.
 
 ### Typed refusals
 
-`PortRefusal` (`programs/porting/cosmwasm/src/error.rs:16-82`):
+The [error enum](../../programs/porting/cosmwasm/src/error.rs) includes
+`EmptyAddress`, `InvalidNamespace`, `KeyTooLong`, `SchemaMismatch`, `InvalidJson`,
+and message/event/topic/module bounds. Principal-only `BankSend`, `BankBurn`,
+and `SubMessageFunds` translation returns `ContractHeldBalance`. With valid
+program-account context, bounded bank sends and funded submessages become
+`ProgramAccount` plans. `BankBurn` still returns `SupplyMutation`.
+`AllowanceSpend` for another principal returns `DelegatedSpend`, and
+`IbcTransfer` returns `ChainQuery`. The enum's existence does not imply a general
+querier implementation.
 
-| Variant | Condition that raises it |
-| --- | --- |
-| `EmptyAddress` | `DonationPort::new` with zero asset or beneficiary (`programs/porting/cosmwasm/src/reference.rs:354-356`); `sender_indexed_import` with empty address bytes or zero principal (`programs/porting/cosmwasm/src/storage.rs:177-183`) |
-| `InvalidNamespace` | empty namespace or length above `MAX_NAMESPACE_BYTES` 65535 (`programs/porting/cosmwasm/src/storage.rs:193-197`); length-prefix element longer than `u16` (`programs/porting/cosmwasm/src/storage.rs:200-201`) |
-| `KeyTooLong` | composed key empty or longer than `MAX_STORAGE_KEY_BYTES` (`programs/porting/cosmwasm/src/storage.rs:207-210`); `DonationPort::code` when the storage key length does not fit `i32` (`programs/porting/cosmwasm/src/reference.rs:538`) |
-| `SharedState` | defined (`programs/porting/cosmwasm/src/error.rs:24-27`). No raise site in this crate |
-| `SchemaMismatch` | unnamed/oversized/duplicate record or field (`programs/porting/cosmwasm/src/json.rs:151-163`); encode/decode width or type mismatch; unnamed `MessageVariant`; unnamed/duplicate/oversized event attribute; `ContractEvent::data` count/type mismatch (`programs/porting/cosmwasm/src/messages.rs:108-111`, `programs/porting/cosmwasm/src/messages.rs:228-249`, `programs/porting/cosmwasm/src/messages.rs:274-285`) |
-| `InvalidJson` | malformed document, unknown/repeated/missing field, or values that do not match the declared JSON types (`programs/porting/cosmwasm/src/error.rs:31-33`, `programs/porting/cosmwasm/src/json.rs:268-305`, `programs/porting/cosmwasm/src/messages.rs:387-388`) |
-| `ContractHeldBalance` | `ValueFlow::translate` of `BankSend`, `BankBurn`, or `SubMessageFunds` (`programs/porting/cosmwasm/src/monetary.rs:277-279`) |
-| `InvalidProgramAccount` | `ProgramAccountTransferPlan::new` reserved fields or source mismatch (`programs/porting/cosmwasm/src/monetary.rs:57-65`) |
-| `SupplyMutation` | `BankBurn` through `translate_with_program_account` (`programs/porting/cosmwasm/src/monetary.rs:248`) |
-| `DelegatedSpend` | `AllowanceSpend` whose `owner` is not the invoking principal (`programs/porting/cosmwasm/src/monetary.rs:280-289`) |
-| `ChainQuery` | `IbcTransfer` through `ValueFlow::translate` (`programs/porting/cosmwasm/src/monetary.rs:291`). No other raise site |
-| `OutOfRange` | `Transfer402Plan::new` zeros (`programs/porting/cosmwasm/src/monetary.rs:126-129`); `DonationPort::new` zero price/cap, cap above `MAX_CAP_BOUND`, or product outside `i64::MAX` (`programs/porting/cosmwasm/src/reference.rs:357-367`); unknown query export (`programs/porting/cosmwasm/src/qualify.rs:396`) |
-| `EventDataTooLarge` | `ContractEvent::data` above `MAX_EVENT_DATA_BYTES` (`programs/porting/cosmwasm/src/messages.rs:289-291`); `DonationPort::code` event template length or count offset not fitting `i32`/`u32` (`programs/porting/cosmwasm/src/reference.rs:542-546`) |
-| `TopicTooLarge` | event topic longer than `MAX_EVENT_TOPIC_BYTES` (`programs/porting/cosmwasm/src/messages.rs:237-240`); `DonationPort::code` topic length not fitting `i32` (`programs/porting/cosmwasm/src/reference.rs:541`) |
-| `MessageTooLarge` | `MessageVariant::data` longer than `MAX_CALL_INPUT_BYTES` (`programs/porting/cosmwasm/src/messages.rs:184-186`) |
-| `ModuleTooLarge` | emitted WASM above `DEFAULT_MAX_MODULE_BYTES` (`programs/porting/cosmwasm/src/reference.rs:601-606`) |
-| `InvalidDescriptor` | `DonationPort::parse` malformed/repeated/unknown/missing keys, wrong version or contract name, non-integer (`programs/porting/cosmwasm/src/reference.rs:500-527`, `programs/porting/cosmwasm/src/reference.rs:962-979`) |
-| `UnverifiedSource` | `deploy_and_verify` when source status is not `Verified` (`programs/porting/cosmwasm/src/qualify.rs:270-272`) |
-| `Abi` / `Storage` / `Engine` / `Validation` / `Lifecycle` / `Execution` / `Registry` / `Archive` / `Build` / `TransferLaw` | `From` wrappers (`programs/porting/cosmwasm/src/error.rs:135-192`). `settle` uses `PortRefusal::from(failure.error())` (`programs/porting/cosmwasm/src/qualify.rs:352-354`) |
-
-`FailureMapping::ContractError` / `StdError` / `Panic` / `SubMessageFailure`
-map to `Trap`; `OutOfGas` to `ResourceRefusal`; `CallDepth` to
-`StackExhausted` (`programs/porting/cosmwasm/src/messages.rs:365-376`).
+`ContractError`, `StdError`, `Panic`, and `SubMessageFailure` map to runtime
+`Trap`; `OutOfGas` maps to `ResourceRefusal`, and `CallDepth` to `StackExhausted`.
 
 ### Qualification path
 
-Same pipeline shape (`programs/porting/cosmwasm/src/qualify.rs:1-9`):
-
-1. Archive holds `COSMWASM_SOURCE`, descriptor, toolchain, lock
-   (`programs/porting/cosmwasm/src/qualify.rs:154-177`).
-2. Builder domain `LayerX/porting/cosmwasm/builder/v1`, `REBUILD_ATTEMPTS` 2,
-   `SOURCE_EPOCH` 1 (`programs/porting/cosmwasm/src/qualify.rs:37-43`,
-   `programs/porting/cosmwasm/src/qualify.rs:195-215`).
-3. `validated_module` is `WasmEngine::declared()?.validate(&port.code()?)`
-   (`programs/porting/cosmwasm/src/qualify.rs:224-227`).
-4. `deploy_and_verify` deploys immutable ABI-versioned WASM, journals, rebuilds
-   via `PortBuildRunner`, refuses non-`Verified` status
-   (`programs/porting/cosmwasm/src/qualify.rs:238-272`).
-5. `PortBuildRunner` requires published source equal to `COSMWASM_SOURCE`, then
-   `DonationPort::parse` and `port.code()`
-   (`programs/porting/cosmwasm/src/qualify.rs:70-106`). Relinking the original
-   `wasmd` artifact is not a port (`programs/porting/cosmwasm/src/qualify.rs:61-66`).
+[`qualify.rs`](../../programs/porting/cosmwasm/src/qualify.rs) exposes the common
+pipeline. `execute_donate` runs `DonationPort`; `execute_donations` and
+`execute_remaining` query it. `import_state` takes `(MigrationCell, String)`
+pairs, transcodes through `donation_record()`, and writes principal-scoped state.
+Use an explicit shared-state migration plan for shared bindings; the
+sender-import helper does not select that namespace automatically.
 
 ### Tests that prove refusals
 
-| Test | File | Asserted outcome |
+`bank_send_uses_derived_account_authority` in
+[`monetary.rs`](../../programs/porting/cosmwasm/src/monetary.rs) asserts a bounded
+bank-send `ProgramAccount` plan and refusal of `BankBurn`. The shared order-book
+tests assert that shared bindings are portable and distinguish them from
+principal-scoped positions.
+
+## Qualification pipeline for the reference ports
+
+The three `qualify.rs` modules use production engine, lifecycle, registry,
+rebuild, execution, and monetary-law types. They still require caller-supplied
+kernel transfer and receipt-oracle boundaries.
+
+1. `source_archive` packs reference source, descriptor, toolchain manifest, and
+   dependency lock. `published_source` binds the archive and source URI.
+2. `build_plan` pins the build inputs and epoch. `REBUILD_ATTEMPTS` is 2 and
+   `SOURCE_EPOCH` is 1 in each kit.
+3. `validated_module` validates emitted WASM through `WasmEngine::declared`.
+4. `deploy_and_verify` deploys with `ABI_VERSION` and `UpgradePolicy::Immutable`,
+   journals a `DeploymentRecord`, replays it into the registry, and reproduces
+   the artifact. A source status other than `Verified` yields `UnverifiedSource`.
+5. Execution entry points return an `AuthorizedExecutionRecord` with explicit
+   capabilities. `settle` accepts a `PreparedAuthorizedActivity`, storage, and
+   a `KernelTransferPrimitive`, then calls `strict_settle` to obtain a
+   `VerifiedStorageAssignment`.
+
+The reference `PortBuildRunner`s parse their own descriptors and require the
+published source to equal their pinned `ANCHOR_SOURCE`, `SOLIDITY_SOURCE`, or
+`COSMWASM_SOURCE`. Their reproducibility pipeline demonstrates these reference
+ports; it is not an arbitrary Anchor, Solidity, or CosmWasm compiler. Relinking
+an original source-chain artifact does not satisfy it. `AbsentReceipts` refuses
+every receipt digest with `AbiError::ReceiptMismatch`.
+
+Here, `settle` names the program runtime's atomic storage/monetary operation.
+It does not mean a second chain settlement step. Network finality remains the
+block commit described in [Sequencing](Sequencing.md).
+
+## LXT-20 request encoding and backing assets
+
+The canonical codec is
+[`programs/sdk/rust/src/lxt20.rs`](../../programs/sdk/rust/src/lxt20.rs).
+The reference guest is
+[`token-lxt20`](../../programs/sdk/rust/examples/token-lxt20).
+
+| Method byte | Request | Source-chain counterpart |
 | --- | --- | --- |
-| `bank_send_uses_derived_account_authority` | `programs/porting/cosmwasm/src/monetary.rs:336-352` | `BankSend` through `translate_with_program_account` is `TranslatedValueFlow::ProgramAccount`; `BankBurn` is `Err(PortRefusal::SupplyMutation)` |
+| 1 | `Transfer` | ERC-20 transfer / SPL transfer |
+| 2 | `Approve` | Approval or delegate revocation; zero revokes |
+| 3 | `TransferFrom` | Allowance-authorized transfer |
+| 4 | `BalanceOf` | Token balance query |
+| 5 | `Allowance` | Owner/spender allowance query |
+| 6 | `TotalSupply` | Funded token supply query |
+| 7 | `Metadata` | Name, symbol, and decimals |
 
-`shared_orderbook` tests assert `StateBinding` classification and keys; they
-do not assert a `PortRefusal`
-(`programs/porting/cosmwasm/src/shared_orderbook.rs:130-194`).
+The four-byte selector is `4c 58 14 <method>`, followed by convention `01`, bytes
+tag `20`, a u32 big-endian payload length, and declared fields. Identifiers are
+32 bytes; amounts are 16-byte big-endian u128 values. The decoder rejects wrong
+selectors, lengths, tags, trailing bytes, reserved identifiers, and zero
+transfers. Approval zero is valid. This encoding is distinct from both Solidity
+ABI and SPL/Borsh instructions.
 
----
+The reference requires registered program-derived backing accounts. Recipients
+call `approve` at least once (zero suffices) to create their token storage; the
+deployment authority registers their native program account. The configured
+issuer calls `initialize` once with a funding grant for the complete supply.
+Transfers do not mint or burn native units. `transfer_from` decrements every
+allowance, including `u128::MAX`.
+
+Interface encoding v2 declares dynamic spend through `CallerAuthorizedSpend`
+descriptors binding backing asset, ceiling, and recipient/amount calldata
+offsets. Actual caller-authorized `ProgramSpend` grants are still required.
+`ProgramPaymentCapabilities` combines funding, spending, and ordinary grants in
+canonical order. A descriptor or token allowance is not kernel debit authority.
+Native Asset registration, account opening, minting, and burning remain separate
+signed Asset activities. Signer identity sequence and backing-account sequence
+must be handled separately.
+
+The [Solana](../../programs/porting/solana/MIGRATION.md) and
+[EVM](../../programs/porting/evm/MIGRATION.md) migration guides retain the complete
+LXT-20/native-asset mapping. Committed token and merchant artifacts and signed
+native receipts are under [`programs/fixtures/pay5`](../../programs/fixtures/pay5).
+Its isolated replay command is:
+
+```sh
+python3 programs/fixtures/pay5/run_native_roundtrip.py
+```
+
+This compares canonical artifacts byte for byte; it does not certify a live
+program deployment.
+
+## Build and reference checks
+
+The repository [Makefile](../../Makefile) defines `make programs-build` for the
+programs workspace (including the sandbox `host-ffi` feature).
+`make programs-porting-v2-references` builds all three `reference-v2` guests as
+release `wasm32-unknown-unknown` modules, lints each with
+`layerx-program-lint --abi-version 2`, and supplies their WASM artifacts to
+`programs_call_activity`. `make programs-test` includes this target and ends in
+workspace Rust tests after its prerequisite checks. These are developer targets;
+this page does not claim they have run or that hosted deployment is qualified.
 
 ## Comparison
 
-| | Solana | EVM | CosmWasm |
+| Concern | Solana | EVM | CosmWasm |
 | --- | --- | --- | --- |
-| Workspace member | `porting/solana` (`programs/Cargo.toml:15`) | `porting/evm` (`programs/Cargo.toml:13`) | `porting/cosmwasm` (`programs/Cargo.toml:11`) |
-| Guest member | `porting/solana/guest` (`programs/Cargo.toml:16`) | `porting/evm/guest` (`programs/Cargo.toml:14`) | `porting/cosmwasm/guest` (`programs/Cargo.toml:12`) |
-| Identifier | `programs/porting/solana targeting layerx_v2 ABI version 2` (`programs/porting/solana/src/lib.rs:53-54`) | `programs/porting/evm targeting layerx_v2 ABI version 2` (`programs/porting/evm/src/lib.rs:51-52`) | `programs/porting/cosmwasm targeting layerx_v2 ABI version 2` (`programs/porting/cosmwasm/src/lib.rs:58-59`) |
-| Byte-identical carry | account / instruction / event discriminators and `borsh` account bytes (`programs/porting/solana/src/lib.rs:4-8`) | storage slots, event topics, four-byte selectors (`programs/porting/evm/src/lib.rs:4-7`) | `cw-storage-plus` raw keys; JSON message and event names (`programs/porting/cosmwasm/src/lib.rs:4-8`) |
-| Reference port | `MintLimitPort` / `GuardTerms` (`programs/porting/solana/src/lib.rs:49`) | `PublicLockPort` / `LockTerms` (`programs/porting/evm/src/lib.rs:43`) | `DonationPort` / `DonationTerms` (`programs/porting/cosmwasm/src/lib.rs:50`) |
-| Deployed type | `DeployedGuard` (`programs/porting/solana/src/qualify.rs:120`) | `DeployedLock` (`programs/porting/evm/src/qualify.rs:121`) | `DeployedContract` (`programs/porting/cosmwasm/src/qualify.rs:122`) |
-| Execute entries | `execute_mint`, `execute_mint_count`, `execute_mint_remaining` (`programs/porting/solana/src/lib.rs:44-46`) | `execute_purchase`, `execute_has_valid_key`, `execute_remaining_periods` (`programs/porting/evm/src/lib.rs:39-40`) | `execute_donate`, `execute_donations`, `execute_remaining` (`programs/porting/cosmwasm/src/lib.rs:46-47`) |
-| Import | `import_accounts` of `(MigrationCell, Vec<u8>)` (`programs/porting/solana/src/qualify.rs:367-371`) | `import_state` of `(MigrationCell, [u8; 32])` (`programs/porting/evm/src/qualify.rs:362-366`) | `import_state` of `(MigrationCell, String)` transcoded from JSON (`programs/porting/cosmwasm/src/qualify.rs:371-380`) |
-| Rebuilds | `REBUILD_ATTEMPTS` 2 (`programs/porting/solana/src/qualify.rs:37`) | 2 (`programs/porting/evm/src/qualify.rs:38`) | 2 (`programs/porting/cosmwasm/src/qualify.rs:37`) |
-| Provenance check | `ANCHOR_SOURCE` (`programs/porting/solana/src/qualify.rs:92-96`) | `SOLIDITY_SOURCE` (`programs/porting/evm/src/qualify.rs:93-97`) | `COSMWASM_SOURCE` (`programs/porting/cosmwasm/src/qualify.rs:94-98`) |
-| Zero-identity refusal | `ZeroPubkey` | `ZeroAddress` | `EmptyAddress` |
-| Direct program-balance write without derived-account context | `LamportMutation` | `ContractHeldBalance` | `ContractHeldBalance` |
-| Unbounded close/sweep | `UnboundedRentSweep` | `UnboundedBalanceSweep` | no sweep variant; `BankBurn` is `SupplyMutation` |
-| Third-party allowance | `DelegatedSpend` | `DelegatedSpend` | `DelegatedSpend` |
-| Inter-chain / querier | no `ChainQuery` variant | no `ChainQuery` variant | `ChainQuery` on `IbcTransfer` only (`programs/porting/cosmwasm/src/monetary.rs:291`) |
-| Emitter size refusal | `ModuleTooLarge` (`programs/porting/solana/src/reference.rs:576-580`) | `ModuleTooLarge` (`programs/porting/evm/src/reference.rs:502-506`) | `ModuleTooLarge` (`programs/porting/cosmwasm/src/reference.rs:601-606`) |
-| Refusal test in crate | `Err(PortRefusal::UnboundedRentSweep)` (`programs/porting/solana/src/monetary.rs:349-353`) | `Err(PortRefusal::UnboundedBalanceSweep)` (`programs/porting/evm/src/monetary.rs:329-333`) | `Err(PortRefusal::SupplyMutation)` (`programs/porting/cosmwasm/src/monetary.rs:346-351`) |
-| ABI v2 reference guest | `programs/porting/solana/reference-v2/src/lib.rs:1-9` | `programs/porting/evm/reference-v2/src/lib.rs:1-15` | `programs/porting/cosmwasm/reference-v2/src/lib.rs:1-9` |
-| Make lint artifact | `layerx_anchor_context_reference.wasm` (`Makefile:3093`, `Makefile:3096`) | `layerx_evm_context_reference.wasm` (`Makefile:3092`, `Makefile:3095`) | `layerx_cosmwasm_context_reference.wasm` (`Makefile:3094`, `Makefile:3097`) |
+| Preserved representation | Anchor discriminators and account bytes | Slot addresses, selectors, event topics | Raw storage framing and JSON names |
+| Principal migration | `per_signer_import` / `import_accounts` | `caller_indexed_import` / `import_state` | `sender_indexed_import` / `import_state` |
+| Shared-state example | `shared_pool` | `shared_supply` | `shared_orderbook` |
+| Context | Program, signer, batch height | Caller, current program, batch height | Contract, sender, batch height |
+| Bounded derived payout | `ProgramAuthorityFunded` | `ContractFunded` | `BankSend` / `SubMessageFunds` |
+| Refused monetary construct | Unbounded rent sweep | Unbounded self-destruct sweep | Supply burn |
 
 [Home](Home.md)

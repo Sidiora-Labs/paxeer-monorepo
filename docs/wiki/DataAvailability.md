@@ -1,29 +1,114 @@
 # Data availability
 
-The canonical availability commitment is `lxp_batch_availability_root(body, arena, root)`. It builds the five-class DA bundle with `LXP_DA_CANONICAL_CHUNK_BYTES` (65,536 bytes) and commits the ordered, metadata-bound chunk hashes. Activity, receipt, event and oracle roots remain independent commitments over their records.
+Data availability in the merged Paxeer network means retaining the transactions,
+receipts, logs, and state needed to inspect and recover chain execution. The
+kernel runs inside `paxd`; sequencing, execution, and BFT block commitment belong
+to the same network. A transaction is final once its block is committed.
+See [Sequencing and block finality](Sequencing.md) for the proposal and receipt
+lifecycle, and [Program porting crates](Porting.md) for program state mappings.
 
-Activities and oracle inputs use the native sequence encoding: a big-endian record count followed by length-prefixed records. The receipt class contains tagged length-prefixed records, all kind-1 receipts followed by kind-2 events. The state diff is an account-ID-sorted sequence of changed account IDs and canonical post-batch leaf values. Replay binds a real kernel, snapshots its account registry before transitions and compares the recomputed diff after replay. Recovery metadata contains the settled kernel's module roots, canonical account frontier and sequence/watermark values.
+A commitment alone does not supply its underlying data. A signed execution
+receipt, durable WAL entry, and committed block establish different facts;
+clients must check the evidence and the serving node's retained history.
 
-Prepared publication carries state diff and recovery metadata in WAL version 4. The existing WAL byte bound remains enforced. Canonical bodies have a separate `da-bodies.log` under `LAYERX_NODE_CHECKPOINT_DIRECTORY`; the batch log remains header-only. Served bundles are stored in the sibling `da` directory before publication completes. Body-log records supply independent commitment reconstruction when a served bundle is unavailable.
+## Durable execution before commitment
 
-`LAYERX_NODE_DA_RETAIN_BATCHES` defaults to 100000 and rejects values below 1024. Retention preserves the newest finalized checkpoint; without a finalized checkpoint, pruning retains all bundles. Startup checks the retained interval against signed retained headers before advertising `availability_fetch`. A missing or corrupt served bundle withholds that capability. Fetch independently verifies the stored bundle again.
+The integrated node implementation is `node/sequencer/`, with its write-ahead
+log in `node/sequencer/wal/wal.go`. The log records:
 
-The tag-18 request has empty proof material and one canonical selector:
+| Entry | Recorded material |
+| --- | --- |
+| `OPEN` | Height, open-block timestamp, and base fee |
+| `ACCEPT` | Sequence, height, transaction bytes, signed receipt, return data, log data, and VM error |
+| `SEAL` | Height, sequence range, and last sequence hash |
+| `COMMITTED` | Height, last sequence, and application hash |
+| `LEASE` | Lease epoch, receipt-key identifier, and expiry |
 
-- `01 || checkpoint_id[32]`: the batch covered by that finalized certificate.
-- `02 || batch:u64be`: one retained batch.
-- `03 || first:u64be || last:u64be`: the inclusive sequence range.
-- `04 || activity_id[32]`: the activity's batch.
-- `05 || batch:u64be`: one durable, sealed, header-signed candidate regardless of finalization.
+Frames carry CRC32C checksums and length bounds. `GroupSync` syncs appended
+frames before releasing their pending handles. `Accepter.Accept` releases the
+signed receipt and records its execution outputs only after the replication
+path acknowledges the accepted entry. When configured, that path includes
+hot standby acknowledgement. Failure halts further sends rather than issuing
+receipts without the required durability.
 
-Resolution permits at most eight batches. Because the shipped client consumes one batch per request, every multi-batch result is refused. A sequence selector must lie entirely inside its resolved batch. Selectors 01–04 refuse batches newer than the latest finalized batch. Selector 05 permits those batches and works with no registered checkpoint. It uses exactly the same authenticated UID/GID principal set as tag 28; other principals receive the existing unauthorized refusal. Unknown, unsealed, incomplete or corrupt candidates fail closed. Candidate fetch never marks a batch finalized.
+This establishes recoverable execution before block commitment. It does not
+make an uncommitted receipt final. The committed `MsgSequenceBatch` binds the
+ordered transactions; see [Sequencing](Sequencing.md#sequencer-and-batches).
 
-Each tag-19 response carries exact chunk bytes as its canonical payload. Proof material is `batch:u64be || index:u32be || class:u8 || class_offset:u64be || chunk_hash[32] || leaf_index:u32be || leaf_count:u32be || depth:u8 || siblings[depth][32]`. Tag 20 ends the stream with empty payload and proof material.
+## Replay and retention
 
-Malformed selectors return `LXP_ERR_MALFORMED_ENVELOPE`; reversed or zero-start ranges return `LXP_ERR_NON_CANONICAL`; unknown selections return `LXP_ERR_UNKNOWN_ACTIVITY`; multi-batch or over-limit resolutions return `LXP_ERR_LENGTH_LIMIT`; ranges extending beyond their resolved batch return `LXP_ERR_BATCH_GAP`; unavailable capability or unfinalized candidates selected by 01–04 return `LXP_ERR_DA_MISSING`. Storage and proof failures retain their typed refusal results.
+`AppReplayer` in `node/sequencer/replay.go` reopens the execution layer and
+re-executes `ACCEPT` records. It checks sequence, height, and exact signed receipt
+bytes; a mismatch returns `wal.ErrReceiptMismatch`. WAL opening rejects corrupt
+sealed segments with `ErrCorruptSegment`. Checksums detect storage corruption;
+they do not authenticate a remote peer's execution on their own.
 
-Checkpoint candidates use the existing tag-12 signed batch header. No tag 32 is introduced. Validity proof bytes remain opaque to verifiers; beta certificates use an empty validity proof.
+Configure the node's WAL with `sequencer.wal-dir` and
+`sequencer.wal-retain-blocks` (`node/sequencer/config.go`). Retention defaults to
+2 committed blocks and must be positive. WAL segments below the retain height
+are pruned by a background worker. This recovery window is not an archive of
+all historical chain data.
 
-This implementation remains unqualified. Real-kernel replay fixture migration, daemon recovery and retention tests, and real-daemon Rust selector/corruption tests must complete before the required build, sanitizer, daemon and Rust gates can establish runtime evidence.
+Committed receipts are stored through `storage/ledger_db/receipt/`. Its
+`ReceiptStore` exposes earliest/latest versions, receipt lookup by transaction
+hash, and log filtering. `storage/config/receipt_config.go` defines:
 
-`layerx_client::availability::fetch_sealed_candidate` uses the same chunk, five-class completeness, ordering, bounds and record-root verification as finalized retrieval. Supply commitments from the verified signed tag-12 header; the canonical chunk size remains 65,536 bytes. A guarantor must verify and replay the candidate before attesting. Retrieval alone is not replay or finality evidence.
+| Configuration key | Meaning |
+| --- | --- |
+| `receipt-store.db-directory` | Receipt database location; empty uses the application home |
+| `receipt-store.rs-backend` | `pebbledb` (default), also accepting `pebble` |
+| `receipt-store.async-write-buffer` | Commit queue length; nonpositive selects synchronous writes |
+| `receipt-store.prune-interval-seconds` | Receipt pruning interval |
+
+Receipt retention is derived at the application layer from `min-retain-blocks`,
+not a `receipt-store.keep-recent` option. A zero `KeepRecent` means no pruning.
+The parser explicitly rejects the misnamed `receipt-store.backend` key. Receipt
+storage, state history, and the sequencing WAL have distinct retention purposes;
+keeping one does not guarantee every historical query can be answered.
+
+## Retrieving and checking data
+
+Use the node's Ethereum JSON-RPC surface for blocks, transaction receipts, and
+logs. `rpc/block.go` implements block and block-receipt retrieval, and
+`rpc/filter.go` implements `eth_getLogs`. Their watermark checks constrain
+queries to data the node can serve. An unknown block or a block above the
+serving watermark can produce JSON `null`; that response alone does not prove
+that the transaction was refused or that committed data was lost.
+
+Public HTTPS JSON-RPC is at the root of the node hosts, for example
+`https://api1.mainnet-beta.paxeer.network`, with EVM chain ID 125 (`0x7d`). The
+public host set includes `api1` through `api14.mainnet-beta.paxeer.network` and
+`api-mainnet-beta.paxeer.network`. Node history and progress can differ, so
+compare the requested height with the serving node and use an appropriately
+retained node for historical data. See [Public RPC](PublicRpc.md).
+
+For signed early execution evidence, the configured node extension
+`pax_sequencerReceipt` returns `submitted`, `receipted`, or `committed` as defined
+in `rpc/sequencer_receipt.go`. Authenticate its receipt key against the governed
+height-range pins and verify the receipt bytes and output digests. The
+`committed` result includes the block number and hash. A successful fetch is
+neither independent replay nor proof of finality by itself.
+
+## Retired availability protocol
+
+The pre-merge five-class bundle, 65,536-byte chunk proofs, tag-18/19/20 fetch
+stream, sealed-candidate selector, and daemon checkpoint storage are retired
+transport instructions. The former `LAYERX_NODE_CHECKPOINT_DIRECTORY` and
+`LAYERX_NODE_DA_RETAIN_BATCHES` settings do not configure the integrated node's
+WAL or receipt store. Do not apply the old retention minimum or checkpoint
+selector rules to current block retrieval.
+
+The guarantor availability-attestation and checkpoint-submission paths are
+retired. In `modules/layerxanchor/keeper/checkpoints.go`,
+`SubmitAvailabilityAttestation` and `SubmitCheckpoint` return `ErrModuleRetired`.
+`modules/layerxanchor/types/errors.go` registers that error in the `layerxanchor`
+codespace with code 19 and message `LXP_MODULE_DISABLED: layerxanchor retired`.
+Historical records are not a new availability or finality authority. The
+network's BFT commit is the finality boundary.
+
+## Related pages
+
+- [Sequencing and block finality](Sequencing.md)
+- [Program porting crates](Porting.md)
+- [Programs](Programs.md)
+- [Home](Home.md)
