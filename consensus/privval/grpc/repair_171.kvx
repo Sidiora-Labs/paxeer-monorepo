@@ -1,0 +1,34 @@
+[repair.22.31.171]
+audit = "22.30.45"
+acceptance = "22998.1"
+findings = ["grpc-concurrent-filepv", "grpc-chain-boundary", "grpc-vote-chain-argument"]
+baseline = "Not run: the explicit ordered gate instructions prohibit verification before implementation and restrict verification to hf-done after hf-build; no baseline failures are claimed."
+evidence = "The runner records the candidate revision, exact commands, exits and private log paths in its gate ledger; final response copies the last gate evidence."
+wiring_requests = []
+
+[finding.grpc-concurrent-filepv]
+repair = "One SignerServer mutex serializes the complete PrivValidator signing call across votes and proposals, including FilePV state comparison and durable save; socket transport is untouched."
+test = "TestRepair_171_ConcurrentFilePV"
+proof = "Thirty-two conflicting real TCP gRPC requests for votes, proposals and mixed methods; verify at most one signature per HRS, stop server, reopen FilePV, match durable canonical bytes and signature, replay accepted history and refuse conflicts."
+
+[finding.grpc-chain-boundary]
+repair = "GetPubKey, SignVote and SignProposal reject a chain different from the configured chain with InvalidArgument before accessing PrivValidator."
+test = "TestRepair_171_ServerChainBoundary"
+proof = "Raw generated RPC client bypasses SignerClient checks; wrong and empty chains cannot advance a seeded disk HRS; stop and reopen recovers the accepted state and signs the next intended-chain height."
+
+[finding.grpc-vote-chain-argument]
+repair = "Both SignerClient signing methods reject an argument that differs from the client configuration with InvalidArgument before issuing the RPC."
+test = "TestRepair_171_ClientChainArgument"
+proof = "Real client/transport/FilePV signatures verify only for the requested chain; mismatches preserve caller messages and disk state even when the remote server accepts the mismatched chain."
+
+[gotcha.gate-order]
+observed = "Task step 7 requests an unchanged-tree verify, contradicting the explicit implementation-first order and hf-done-only verification budget."
+resolution = "Follow the explicit gate order; record baseline as unrun rather than inventing failing evidence."
+
+[qualification.first-attempt]
+revision = "72264c115d8c50f4ae9cec1b58e973bd050901c5"
+command = "cg spec done 22.31.171 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The unsigned proposal fixture retained ToProto's 64-byte zero-value signature, failing the unchanged empty-signature assertions on refused requests."
+repair = "Construct explicitly unsigned proposal requests by clearing the zero-value signature before dispatch; all assertions and production checks remain intact."

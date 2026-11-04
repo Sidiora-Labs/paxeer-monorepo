@@ -91,6 +91,10 @@ const (
 
 	// configFileName is the file name a chain directory holds.
 	configFileName = "config.json"
+
+	// maxCapDecimalDigits bounds conversion work to the decimal length of
+	// 2^256-1, the widest cap any destination can represent.
+	maxCapDecimalDigits = 78
 )
 
 // Chain is one of the nine chains the bridge is deployed to. The registry
@@ -303,6 +307,9 @@ func DecodeBase58(value string) ([]byte, error) { return vectors.DecodeBase58(va
 func parseAmount(value string) (*big.Int, error) {
 	if value == "" {
 		return nil, errors.New("an amount is a decimal integer, not the empty string")
+	}
+	if len(value) > maxCapDecimalDigits {
+		return nil, fmt.Errorf("an amount must have at most %d decimal digits", maxCapDecimalDigits)
 	}
 	for index, character := range value {
 		if character < '0' || character > '9' {

@@ -1,10 +1,11 @@
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { formatUnits } from "viem";
 import { cn } from "@/ui/utils/cn";
 import { Button } from "@/ui/atoms/button";
 import { X, Loader2, AlertTriangle, Check, ArrowDownToLine, ArrowUpFromLine } from "lucide-react";
 import { usePerpsWallet } from "@/hooks/perps/usePerpsWallet";
-import { useAccount } from "@/hooks/perps/useAccount";
+import { useAccount, CollateralSessionChangedError, type CollateralIdentity } from "@/hooks/perps/useAccount";
+import { CollateralOperationIdentity } from "./CollateralOperationIdentity";
 import type { AccountView } from "@/core/perps/accountView";
 import { safeParseUnits } from "@/core/perps/amounts";
 import { toast } from "@/ui/atoms/use-toast";
@@ -28,7 +29,7 @@ interface DepositWithdrawModalProps {
 }
 
 export function DepositWithdrawModal({ isOpen, onClose }: DepositWithdrawModalProps) {
-  const { isConnected, address, connect } = usePerpsWallet();
+  const { isConnected, address, chainId, connect } = usePerpsWallet();
   const { getAccount, getWalletBalance, deposit, withdraw, withdrawAll } = useAccount();
 
   const [action, setAction] = useState<"deposit" | "withdraw">("deposit");
@@ -43,6 +44,10 @@ export function DepositWithdrawModal({ isOpen, onClose }: DepositWithdrawModalPr
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isWithdrawingAll, setIsWithdrawingAll] = useState(false);
+  const operationBusy = useRef(false);
+  const [operationIdentity, setOperationIdentity] = useState<CollateralIdentity | null>(null);
+  const currentIdentity = useRef({ address, chainId });
+  currentIdentity.current = { address, chainId };
 
   const withdrawable = account?.withdrawable ?? 0n;
   const amountUnits = useMemo(() => safeParseUnits(amount, USDL.decimals), [amount]);
@@ -54,18 +59,20 @@ export function DepositWithdrawModal({ isOpen, onClose }: DepositWithdrawModalPr
     setAmount("");
     setError(null);
     setSuccess(null);
-    setTxStep("idle");
-    setIsProcessing(false);
+    if (!operationBusy.current) {
+      setTxStep("idle");
+      setOperationIdentity(null);
+    }
   }, [isOpen]);
 
   // Reads the wallet USDL balance and getAccount(account) at 0x1015.
   const refreshBalances = useCallback(async (isCancelled: () => boolean = () => false) => {
     if (!address) return;
     const [wb, acc] = await Promise.allSettled([getWalletBalance(address), getAccount(address)]);
-    if (isCancelled()) return;
+    if (isCancelled() || currentIdentity.current.address !== address || currentIdentity.current.chainId !== chainId) return;
     setWalletBalance(wb.status === "fulfilled" ? wb.value : 0n);
     setAccount(acc.status === "fulfilled" ? acc.value : null);
-  }, [address, getWalletBalance, getAccount]);
+  }, [address, chainId, getWalletBalance, getAccount]);
 
   useEffect(() => {
     if (!isOpen || !isConnected || !address) return;
@@ -85,16 +92,18 @@ export function DepositWithdrawModal({ isOpen, onClose }: DepositWithdrawModalPr
   }, [account]);
 
   const handleSubmit = useCallback(async () => {
-    if (!address || amountUnits <= 0n) return;
+    if (!address || chainId === null || amountUnits <= 0n || operationBusy.current) return;
+    operationBusy.current = true;
+    setOperationIdentity({ address, chainId });
     const shown = formatUnits(amountUnits, USDL.decimals);
     setIsProcessing(true); setError(null); setSuccess(null);
     try {
       if (action === "deposit") {
-        await deposit(address, amountUnits, setTxStep);
+        await deposit(address, amountUnits, setTxStep, chainId);
         setSuccess(`Deposited ${shown} ${USDL.symbol}`);
       } else {
         setTxStep("executing");
-        await withdraw(amountUnits);
+        await withdraw(amountUnits, address, chainId);
         setSuccess(`Withdrew ${shown} ${USDL.symbol}`);
       }
       setTxStep("confirming");
@@ -102,32 +111,44 @@ export function DepositWithdrawModal({ isOpen, onClose }: DepositWithdrawModalPr
       // Refresh live balances so the "Max" row and Stats update immediately.
       await refreshBalances();
     } catch (err) {
+      if (err instanceof CollateralSessionChangedError) {
+        setError(err.message);
+        return;
+      }
       const ufe = classifyError(err, `account/${action}`);
       // Local inline-error block — classified message + optional fix, never raw err.message.
       setError(ufe.suggestedFix ? `${ufe.message} ${ufe.suggestedFix}` : ufe.message);
       void reportError(ufe);
     } finally {
+      operationBusy.current = false;
       setIsProcessing(false); setTxStep("idle");
       setTimeout(() => setSuccess(null), 4000);
     }
-  }, [address, amountUnits, action, deposit, withdraw, refreshBalances]);
+  }, [address, chainId, amountUnits, action, deposit, withdraw, refreshBalances]);
 
   const handleWithdrawAll = useCallback(async () => {
-    if (!address) return;
+    if (!address || chainId === null || operationBusy.current) return;
+    operationBusy.current = true;
+    setOperationIdentity({ address, chainId });
     setIsWithdrawingAll(true); setError(null);
     try {
-      await withdrawAll(address);
+      await withdrawAll(address, chainId);
       toast({ title: "Withdrew all available collateral" });
       await refreshBalances();
     } catch (err) {
+      if (err instanceof CollateralSessionChangedError) {
+        setError(err.message);
+        return;
+      }
       toastError(err, {
         context: "account/withdraw-all",
         titleOverride: "Withdraw all failed",
       });
     } finally {
+      operationBusy.current = false;
       setIsWithdrawingAll(false);
     }
-  }, [address, withdrawAll, refreshBalances]);
+  }, [address, chainId, withdrawAll, refreshBalances]);
 
   if (!isOpen) return null;
 
@@ -156,6 +177,12 @@ export function DepositWithdrawModal({ isOpen, onClose }: DepositWithdrawModalPr
             <X className="h-4 w-4" />
           </button>
         </div>
+
+        {operationIdentity && (
+          <div className="px-5 pt-3">
+            <CollateralOperationIdentity identity={operationIdentity} />
+          </div>
+        )}
 
         {/* ── Body ─────────────────────────────────────────────────────
            Mirrors the portfolio page's inline deposit/withdraw form:
@@ -285,7 +312,7 @@ export function DepositWithdrawModal({ isOpen, onClose }: DepositWithdrawModalPr
             className={cn("w-full font-semibold", action === "deposit" && isConnected ? "bg-emerald-600 hover:bg-emerald-700" : "")}
             size="lg"
             disabled={
-              isConnected && (isProcessing || amountUnits <= 0n || isLoadingBalances)
+              isConnected && (isProcessing || isWithdrawingAll || amountUnits <= 0n || isLoadingBalances)
             }
             onClick={() => {
               if (!isConnected) { connect(); onClose(); return; }

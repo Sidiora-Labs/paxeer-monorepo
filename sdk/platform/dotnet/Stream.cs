@@ -37,7 +37,18 @@ public sealed class ResumableStream<T>
 
     public StreamCursor Cursor { get { lock (_gate) return _cursor; } }
 
+    // Accept acknowledges a complete batch returned to a batch consumer.
     public IReadOnlyList<StreamEvent<T>> Accept(StreamPage<T> page)
+    {
+        lock (_gate)
+        {
+            var accepted = ValidatePage(page);
+            foreach (var item in accepted) Acknowledge(item);
+            return accepted;
+        }
+    }
+
+    private IReadOnlyList<StreamEvent<T>> ValidatePage(StreamPage<T> page)
     {
         ArgumentNullException.ThrowIfNull(page);
         lock (_gate)
@@ -57,10 +68,16 @@ public sealed class ResumableStream<T>
                 expected = item.Cursor;
             }
             if (page.NextCursor != expected) throw DecodeFailure();
-
-            _seenEventIds.UnionWith(pageEventIds);
-            _cursor = page.NextCursor;
             return accepted.AsReadOnly();
+        }
+    }
+
+    private void Acknowledge(StreamEvent<T> item)
+    {
+        lock (_gate)
+        {
+            if (item.PreviousCursor != _cursor || !_seenEventIds.Add(item.EventId)) throw DecodeFailure();
+            _cursor = item.Cursor;
         }
     }
 
@@ -78,9 +95,18 @@ public sealed class ResumableStream<T>
         Func<StreamCursor, CancellationToken, Task<StreamPage<T>>> source,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(source);
         while (!cancellationToken.IsCancellationRequested)
-            foreach (var item in await NextAsync(source, cancellationToken).ConfigureAwait(false))
+        {
+            var page = await source(Cursor, cancellationToken).ConfigureAwait(false);
+            var accepted = ValidatePage(page);
+            foreach (var item in accepted)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                Acknowledge(item);
                 yield return item;
+            }
+        }
     }
 
     private static PlatformSdkException DecodeFailure() =>

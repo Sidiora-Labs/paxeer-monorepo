@@ -27,7 +27,8 @@ const ROTATE: Contract = Contract::new(1, 3);
 const ROTATE_IF_CURRENT: Contract = Contract::new(2, 3);
 const DESTROY: Contract = Contract::new(1, 4);
 const SIGN: Contract = Contract::new(7, 5);
-const EXPORT: Contract = Contract::new(5, 14);
+const EXPORT: Contract = Contract::new(8, 14);
+const ACKNOWLEDGE_EXPORT: Contract = Contract::new(8, 16);
 const EXECUTOR_PROBE: Contract = Contract::new(6, 15);
 const STATUS_OK: u8 = 0;
 const STATUS_REFUSED: u8 = 1;
@@ -282,6 +283,13 @@ impl ProviderKeyDescription {
     pub const fn rotation(&self) -> RotationState {
         self.rotation
     }
+}
+
+/// Public descriptors keep the native identity and EVM signing identity explicit.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WalletKeyDescriptor {
+    pub native_ed25519: [u8; 32],
+    pub evm_secp256k1: [u8; 20],
 }
 
 /// Exact disclosure-bound EIP-1559 request admitted to a provider signer.
@@ -824,6 +832,119 @@ impl RemoteKmsProvider {
         decode_description(&response, binding)
     }
 
+    pub fn wallet_descriptor(
+        &self,
+        binding: &PrincipalKeyBinding,
+        reference: &ProviderKeyReference,
+    ) -> Result<WalletKeyDescriptor, KmsError> {
+        let description = self.describe_key(binding, reference)?;
+        let address = self.evm_operation(6, binding, reference, &[])?;
+        let address = address
+            .as_slice()
+            .try_into()
+            .map_err(|_| KmsError::InvalidResponse)?;
+        if address == [0; 20] {
+            return Err(KmsError::Integrity);
+        }
+        Ok(WalletKeyDescriptor {
+            native_ed25519: description.public_key(),
+            evm_secp256k1: address,
+        })
+    }
+
+    pub async fn sign_wallet_call(
+        &self,
+        binding: &PrincipalKeyBinding,
+        reference: &ProviderKeyReference,
+        call: &Eip1559Call,
+        disclosure: &Disclosure,
+    ) -> Result<[u8; 65], CustodyError> {
+        let descriptor = self.wallet_descriptor(binding, reference)?;
+        self.sign(
+            binding,
+            reference,
+            ProviderSignRequest::new(
+                call,
+                disclosure,
+                descriptor.evm_secp256k1,
+                descriptor.native_ed25519,
+            ),
+        )
+        .await
+    }
+
+    /// Publish or recover the envelope for this authenticated recipient ceremony.
+    pub fn export_envelope(
+        &self,
+        binding: &PrincipalKeyBinding,
+        reference: &ProviderKeyReference,
+        ceremony: &layerx_human_kms::export::ExportCeremony,
+    ) -> Result<layerx_human_kms::export::ExportEnvelope, KmsError> {
+        ceremony.validate().map_err(|_| KmsError::Refused)?;
+        let frame = self.encode_export_request(binding, reference, ceremony)?;
+        let response = self.call(EXPORT, &frame)?;
+        let envelope: layerx_human_kms::export::ExportEnvelope =
+            serde_json::from_slice(&response).map_err(|_| KmsError::InvalidResponse)?;
+        if &envelope.ceremony != ceremony || envelope.ciphertext.len() != 80 {
+            return Err(KmsError::Integrity);
+        }
+        Ok(envelope)
+    }
+
+    pub fn encode_export_request(
+        &self,
+        binding: &PrincipalKeyBinding,
+        reference: &ProviderKeyReference,
+        ceremony: &layerx_human_kms::export::ExportCeremony,
+    ) -> Result<Vec<u8>, KmsError> {
+        ceremony.validate().map_err(|_| KmsError::Refused)?;
+        self.export_frame(
+            EXPORT,
+            binding,
+            reference,
+            &serde_json::to_vec(ceremony).map_err(|_| KmsError::Refused)?,
+        )
+    }
+
+    /// Send only after the recipient has durably retained the decrypted key.
+    /// Repeating a delivered acknowledgement is safe after an uncertain reply.
+    pub fn acknowledge_export(
+        &self,
+        binding: &PrincipalKeyBinding,
+        reference: &ProviderKeyReference,
+        acknowledgement: &layerx_human_kms::export::ExportAcknowledgement,
+    ) -> Result<(), KmsError> {
+        let frame = self.encode_export_acknowledgement(binding, reference, acknowledgement)?;
+        if !self.call(ACKNOWLEDGE_EXPORT, &frame)?.is_empty() {
+            return Err(KmsError::InvalidResponse);
+        }
+        Ok(())
+    }
+    pub fn encode_export_acknowledgement(
+        &self,
+        binding: &PrincipalKeyBinding,
+        reference: &ProviderKeyReference,
+        acknowledgement: &layerx_human_kms::export::ExportAcknowledgement,
+    ) -> Result<Zeroizing<Vec<u8>>, KmsError> {
+        let payload =
+            Zeroizing::new(serde_json::to_vec(acknowledgement).map_err(|_| KmsError::Refused)?);
+        self.export_frame(ACKNOWLEDGE_EXPORT, binding, reference, &payload)
+            .map(Zeroizing::new)
+    }
+    fn export_frame(
+        &self,
+        contract: Contract,
+        binding: &PrincipalKeyBinding,
+        reference: &ProviderKeyReference,
+        payload: &[u8],
+    ) -> Result<Vec<u8>, KmsError> {
+        let frame =
+            encode_key_request(contract, &self.provider_reference, binding, Some(reference))?;
+        let mut writer = WireWriter::from_bytes(frame);
+        writer.bytes(payload, PROVIDER_FRAME_LIMIT)?;
+        Ok(writer.finish())
+    }
+
     /// Encodes the exact frame sent by `evm_operation`, for durable dispatch.
     ///
     /// # Errors
@@ -972,17 +1093,11 @@ impl KmsProvider for RemoteKmsProvider {
 
     fn export_primary_key(
         &self,
-        binding: &PrincipalKeyBinding,
-        reference: &ProviderKeyReference,
+        _binding: &PrincipalKeyBinding,
+        _reference: &ProviderKeyReference,
     ) -> Result<Zeroizing<[u8; 32]>, KmsError> {
-        let request =
-            encode_key_request(EXPORT, &self.provider_reference, binding, Some(reference))?;
-        let response = Zeroizing::new(self.call(EXPORT, &request)?);
-        let seed: [u8; 32] = response
-            .as_slice()
-            .try_into()
-            .map_err(|_| KmsError::InvalidResponse)?;
-        Ok(Zeroizing::new(seed))
+        // The legacy API cannot identify a recipient or acknowledge delivery.
+        Err(KmsError::Refused)
     }
 
     fn destroy_key(
@@ -1011,8 +1126,10 @@ impl KmsProvider for RemoteKmsProvider {
             if request.call.chain_id != u64::from(binding.network_id) {
                 return Err(CustodyError::Kms(KmsError::Integrity));
             }
-            let description = self.describe_key(binding, reference)?;
-            if description.public_key() != request.expected_public_key {
+            let descriptor = self.wallet_descriptor(binding, reference)?;
+            if descriptor.native_ed25519 != request.expected_public_key
+                || descriptor.evm_secp256k1 != request.from
+            {
                 return Err(CustodyError::Kms(KmsError::Integrity));
             }
             let frame = encode_sign_request(
