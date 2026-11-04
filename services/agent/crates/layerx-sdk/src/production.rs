@@ -1,6 +1,6 @@
 //! Production SDK contracts shared by daemon and human-plane integrations.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, VecDeque};
 use std::fmt;
 
 pub use layerx_mirror::source::{
@@ -533,7 +533,15 @@ pub struct StreamPage<T> {
 pub struct ResumableStream {
     cursor: StreamCursor,
     seen: BTreeSet<String>,
+    recent: VecDeque<String>,
 }
+
+/// Recent identity protection supplements the producer's strictly increasing log cursor.
+/// Older replay is refused by position; identifiers must not be reassigned to new positions
+/// by the producer. Only the cursor needs to be durably saved, after processing a page.
+pub const STREAM_REPLAY_IDENTITIES: usize = 1024;
+pub const STREAM_PAGE_EVENTS: usize = 1024;
+pub const STREAM_EVENT_ID_BYTES: usize = 512;
 
 impl ResumableStream {
     #[must_use]
@@ -541,6 +549,7 @@ impl ResumableStream {
         Self {
             cursor,
             seen: BTreeSet::new(),
+            recent: VecDeque::new(),
         }
     }
 
@@ -549,16 +558,22 @@ impl ResumableStream {
         &self.cursor
     }
 
+    #[must_use]
+    pub fn retained_identities(&self) -> usize {
+        self.seen.len()
+    }
+
     /// Admits one exact cursor chain and advances only after every event passes.
     ///
     /// # Errors
     ///
-    /// Refuses gaps, duplicates, replayed pages, and inconsistent next cursors.
+    /// Refuses gaps, duplicate identities within a page or the recent window, replayed
+    /// positions, oversized pages/identities, and inconsistent next cursors. Refusal is atomic.
     pub fn accept<T>(
         &mut self,
         page: StreamPage<T>,
     ) -> Result<Vec<StreamEvent<T>>, ProductionError> {
-        if page.requested_cursor != self.cursor {
+        if page.requested_cursor != self.cursor || page.events.len() > STREAM_PAGE_EVENTS {
             return Err(ProductionError::new(
                 SdkErrorCode::DecodeFailure,
                 RetryClass::Never,
@@ -574,6 +589,7 @@ impl ResumableStream {
                 ProductionError::new(SdkErrorCode::DecodeFailure, RetryClass::Never)
             })?;
             if event.event_id.is_empty()
+                || event.event_id.len() > STREAM_EVENT_ID_BYTES
                 || event.previous_cursor != expected
                 || self.seen.contains(&event.event_id)
                 || !page_ids.insert(event.event_id.clone())
@@ -593,7 +609,15 @@ impl ResumableStream {
                 RetryClass::Never,
             ));
         }
-        self.seen.extend(page_ids);
+        for event in &page.events {
+            if self.recent.len() == STREAM_REPLAY_IDENTITIES {
+                if let Some(oldest) = self.recent.pop_front() {
+                    self.seen.remove(&oldest);
+                }
+            }
+            self.seen.insert(event.event_id.clone());
+            self.recent.push_back(event.event_id.clone());
+        }
         self.cursor = page.next_cursor;
         Ok(page.events)
     }
