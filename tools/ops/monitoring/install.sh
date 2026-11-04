@@ -20,11 +20,12 @@ server)
 	dest=/opt/paxeer-monitoring
 
 	apt-get update
+	apt-get install -y python3
 	apt-get install -y docker.io docker-compose-plugin || apt-get install -y docker.io docker-compose
 	systemctl enable --now docker
 
 	install -d -m 0755 "$dest"
-	install -m 0644 "$here/docker-compose.yml" "$here/prometheus.yml" "$here/rules.yml" "$here/blackbox.yml" "$dest/"
+	install -m 0644 "$here/docker-compose.yml" "$here/prometheus.yml" "$here/rules.yml" "$here/blackbox.yml" "$here/readiness.py" "$dest/"
 	install -m 0755 "$here/render.sh" "$dest/"
 	rm -rf "$dest/rendered"
 	"$dest/render.sh" "$env_file" "$dest/rendered"
