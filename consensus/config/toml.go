@@ -141,6 +141,10 @@ genesis-file = "{{ js .BaseConfig.Genesis }}"
 # Path to the JSON file containing the private key to use for node authentication in the p2p protocol
 node-key-file = "{{ js .BaseConfig.NodeKey }}"
 
+# Path to a JSON file containing the Autobahn (GigaRouter) configuration.
+# Leave empty to disable Autobahn.
+autobahn-config-file = "{{ .AutobahnConfigFile }}"
+
 #######################################################################
 ###                 Advanced Configuration Options                  ###
 #######################################################################
@@ -648,10 +652,6 @@ blocks-behind-check-interval = {{ .SelfRemediation.BlocksBehindCheckIntervalSeco
 
 # Cooldown between each restart
 restart-cooldown-seconds = {{ .SelfRemediation.RestartCooldownSeconds }}
-
-# Path to a JSON file containing the Autobahn (GigaRouter) configuration.
-# Leave empty to disable Autobahn.
-autobahn-config-file = "{{ .AutobahnConfigFile }}"
 
 `
 
