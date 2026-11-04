@@ -1,4 +1,8 @@
 import React from "react";
+import { useSearchParams } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import { FetchPolicyError } from "@/core/net/fetch";
+import { explorerDetailQuery, selectExplorerDetail, type ExplorerSelection } from "./detail";
 import { Radio, WifiOff, Box, Zap } from "lucide-react";
 import { cn } from "@/ui/utils/cn";
 import { useExplorerStream, type ExplorerBlock, type ExplorerTx } from "@/hooks/chain/useExplorerStream";
@@ -118,9 +122,9 @@ function BlocksPanel({ blocks, seedLoading }: { blocks: ExplorerBlock[]; seedLoa
             key={b.hash || b.block_number}
             className="grid grid-cols-[72px_1fr_52px_1fr_1fr] gap-x-3 px-4 py-2 border-b border-border/40 hover:bg-surface-1/40 transition-colors"
           >
-            <span className="text-xs font-mono font-semibold text-foreground tabular-nums">
+            <a href={`/explorer?block=${b.block_number}`} className="text-xs font-mono font-semibold text-foreground tabular-nums">
               #{b.block_number}
-            </span>
+            </a>
             <span className="text-xs font-mono text-muted-foreground truncate tabular-nums">
               {toRelativeTime(b.time)}
             </span>
@@ -177,9 +181,9 @@ function TxsPanel({ txs, seedLoading }: { txs: ExplorerTx[]; seedLoading: boolea
             key={tx.hash}
             className="grid grid-cols-[1fr_140px_64px_80px_1fr] gap-x-3 px-4 py-2 border-b border-border/40 hover:bg-surface-1/40 transition-colors items-center"
           >
-            <span className="text-xs font-mono text-blue-400 truncate" title={tx.hash}>
+            <a href={`/explorer?tx=${encodeURIComponent(tx.hash)}`} className="text-xs font-mono text-blue-400 truncate" title={tx.hash}>
               {truncateHash(tx.hash, 6, 4)}
-            </span>
+            </a>
             <span
               className={cn(
                 "text-[10px] font-mono font-medium px-2 py-0.5 rounded-full w-fit truncate max-w-full",
@@ -205,6 +209,54 @@ function TxsPanel({ txs, seedLoading }: { txs: ExplorerTx[]; seedLoading: boolea
   );
 }
 
+export function ExplorerSelectedDetail({ selection }: { selection: ExplorerSelection }) {
+  const query = useQuery(explorerDetailQuery(selection));
+  if (selection.kind === "none") return null;
+  let content: React.ReactNode;
+  if (selection.kind === "refused") {
+    content = <p role="alert">{selection.reason}</p>;
+  } else if (query.isPending) {
+    content = <p role="status">Loading {selection.kind === "block" ? "block" : "transaction"} {selection.value}…</p>;
+  } else if (query.isError) {
+    const message = query.error instanceof FetchPolicyError && query.error.status === 404
+      ? "The requested block or transaction was not found."
+      : query.error.message;
+    content = <>
+      <p role="alert">Unable to load requested detail: {message}</p>
+      <button type="button" onClick={() => void query.refetch()} className="text-xs underline">Retry detail</button>
+    </>;
+  } else if (query.data.kind === "block") {
+    const { block } = query.data;
+    content = <>
+      <h2 className="font-semibold">Block #{block.height}</h2>
+      <dl className="grid gap-1 text-xs font-mono break-all">
+        <dt>Hash</dt><dd>{block.hash}</dd>
+        <dt>Time</dt><dd>{block.timestamp}</dd>
+        <dt>Transactions</dt><dd>{block.transactions_count}</dd>
+        <dt>Miner</dt><dd>{block.miner.hash}</dd>
+      </dl>
+    </>;
+  } else {
+    const { transaction: tx } = query.data;
+    content = <>
+      <h2 className="font-semibold">Transaction details</h2>
+      <dl className="grid gap-1 text-xs font-mono break-all">
+        <dt>Hash</dt><dd>{tx.hash}</dd>
+        <dt>Status</dt><dd>{tx.status === "ok" ? "Success" : tx.status === "error" ? "Failed" : "Pending"}</dd>
+        <dt>Block</dt><dd>{tx.block_number === null ? "Pending" : <a href={`/explorer?block=${tx.block_number}`}>#{tx.block_number}</a>}</dd>
+        <dt>Time</dt><dd>{tx.timestamp ?? "Pending"}</dd>
+        <dt>From</dt><dd>{tx.from.hash}</dd>
+        <dt>To</dt><dd>{tx.to?.hash ?? "Contract creation"}</dd>
+        <dt>Value (base units)</dt><dd>{tx.value}</dd>
+      </dl>
+    </>;
+  }
+  return <section aria-label="Selected explorer detail" className="border-b border-border px-4 py-3 max-h-[50%] overflow-y-auto shrink-0">
+    {content}
+    <a href="/explorer" className="text-xs underline">Back to live explorer</a>
+  </section>;
+}
+
 // ── Page ─────────────────────────────────────────────────────────────
 
 /**
@@ -217,6 +269,8 @@ function TxsPanel({ txs, seedLoading }: { txs: ExplorerTx[]; seedLoading: boolea
  *   Topics: chain@blocks, chain@transactions
  */
 export default function ExplorerPage() {
+  const params = useSearchParams();
+  const selection = params ? selectExplorerDetail(params) : { kind: "none" } as const;
   const { blocks, txs, connected, seedLoading } = useExplorerStream();
 
   return (
@@ -231,6 +285,8 @@ export default function ExplorerPage() {
         </div>
         <LiveIndicator connected={connected} />
       </div>
+
+      <ExplorerSelectedDetail selection={selection} />
 
       {/* Two-column layout — side-by-side on lg+, stacked on mobile */}
       <div className="flex flex-1 min-h-0 flex-col lg:flex-row overflow-hidden">
