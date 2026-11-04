@@ -1,0 +1,27 @@
+[repair.22.33.1167]
+audit = "22.30.53"
+requirement = "22998.1"
+baseline_revision = "0d67b10a1307bd87573ba79cf46b7f9c0337f7e3"
+baseline = "Not run: the explicit ordered gate instructions require complete implementation before hf-build and hf-done, prohibit running verify_cmd by hand, and allow only one initial verification; no baseline failures are claimed."
+evidence = "The runner's hf-build and hf-done ledger records the exact candidate revision, command, exit code and private log location; closure requires hf-done to pass on the built revision."
+
+[finding.table-constructor-unwind]
+tests = ["TestRepairM_1167_TableConstructorUnwind", "TestRepairM_1167_KeymapInitializedFailure"]
+change = "Stop the acquired keymap on initialized-marker and table-construction errors, preserve cleanup errors, and cancel a per-construction child context on failure so the existing coordinator exits; retain context ownership through successful table Drop."
+proof = "Real Pebble locks are reacquired after each failed open without deleting the keymap; failed coordinator workers exit, successful retry reads existing data and writes new data, and reopening recovers both."
+wiring_request = "storage/db_engine/litt/disktable/disk_table.go (storage, domain 5): unwind internally acquired segment/file handles on every constructor return and expose coordinator completion for synchronous joining; those resources are private to the out-of-scope constructor."
+
+[finding.global-metrics-provider]
+tests = ["TestRepairM_1167_GlobalMetricsProvider"]
+change = "Initialize one shared process provider and registry once and retain them for the process lifetime; DB shutdown releases only its listener and collection worker."
+proof = "Both real HTTP endpoints expose writes from both independent tables and a node meter; either DB can close while the survivor and node meter continue emitting, and the same provider remains usable after all DBs close and another opens."
+
+[finding.metrics-server-close]
+tests = ["TestRepairM_1167_MetricsServerClose", "TestRepairM_1167_MetricsBindingFailure", "TestRepairM_1167_MetricsParentCancellation", "TestRepairM_1167_MetricsInvalidInterval"]
+change = "Bind the DB-owned listener synchronously, return startup errors and release storage locks, serve using a child context, and cancel and join HTTP serving and collection during Close and Destroy without cancelling the caller context."
+proof = "Real loopback scrapes consume table instrumentation; Close frees the port and joins workers despite an hour-long collection interval, reopening recovers data, occupied-port startup fails before success and retries, and parent cancellation shuts down serving."
+wiring_request = "storage/common/metrics/setup.go (storage metrics, domain 5): extend StartMetricsServer to return synchronous binding errors and an owned shutdown/join handle for other consumers; littbuilder binds and owns its listener locally without changing that out-of-scope API."
+
+[qualification_constraints]
+scope = "Only littbuilder implementation, tests and this task record are edited; runner bookkeeping is preserved."
+internal_segment_cleanup = "Failed opens after internal segment acquisition still require the disktable wiring request; no claim is made to have changed or qualified that out-of-scope cleanup."

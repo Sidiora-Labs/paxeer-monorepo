@@ -75,9 +75,9 @@ func (idx *BlockerIndexer) Index(bh types.EventDataNewBlockHeader) error {
 
 // Search performs a query for block heights that match a given FinalizeBlock
 // The given query can match against zero or more block heights. In the case
-// of height queries, i.e. block.height=H, if the height is indexed, that height
-// alone will be returned. An error and nil slice is returned. Otherwise, a
-// non-nil slice and nil error is returned.
+// of height queries, i.e. block.height=H, the indexed height is returned only
+// if it also matches every other condition. An error and nil slice is returned.
+// Otherwise, a non-nil slice and nil error is returned.
 func (idx *BlockerIndexer) Search(ctx context.Context, q *query.Query) ([]int64, error) {
 	results := make([]int64, 0)
 	select {
@@ -88,9 +88,11 @@ func (idx *BlockerIndexer) Search(ctx context.Context, q *query.Query) ([]int64,
 	}
 
 	conditions := q.Syntax()
+	var heightsInitialized bool
+	filteredHeights := make(map[string][]byte)
 
-	// If there is an exact height query, return the result immediately
-	// (if it exists).
+	// Use an exact height query to narrow the candidates before intersecting
+	// the remaining conditions.
 	height, ok := lookForHeight(conditions)
 	if ok {
 		ok, err := idx.Has(height)
@@ -98,15 +100,14 @@ func (idx *BlockerIndexer) Search(ctx context.Context, q *query.Query) ([]int64,
 			return nil, err
 		}
 
-		if ok {
-			return []int64{height}, nil
+		if !ok {
+			return results, nil
 		}
 
-		return results, nil
+		heightBz := int64ToBytes(height)
+		filteredHeights[string(heightBz)] = heightBz
+		heightsInitialized = true
 	}
-
-	var heightsInitialized bool
-	filteredHeights := make(map[string][]byte)
 
 	// conditions to skip because they're handled before "everything else"
 	skipIndexes := make([]int, 0)
@@ -152,6 +153,9 @@ func (idx *BlockerIndexer) Search(ctx context.Context, q *query.Query) ([]int64,
 		}
 
 		startKey, err := orderedcode.Append(nil, c.Tag, c.Arg.Value())
+		if c.Tag == types.BlockHeightKey && c.Op == syntax.TEq {
+			startKey, err = heightKey(int64(c.Arg.Number()))
+		}
 		if err != nil {
 			return nil, err
 		}

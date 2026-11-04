@@ -1,0 +1,29 @@
+[repair.22.33.1005]
+audit = "22.30.34"
+base = "e3d7e5828b39e4182e9559fb6bc28d74c2f37e0f"
+original_attempt_base = "0d67b10a1307bd87573ba79cf46b7f9c0337f7e3"
+continuation = "The seeded work already corrects the failed CLI assertion to require the runtime reporter property with exactly tap and json; this attempt preserves that correction and qualifies the inherited implementation on the current base."
+evidence = "The runner's private /out/run/gates.jsonl records the exact candidate revision, command, exit and log; hf-done is the completion authority."
+baseline = "No unchanged-tree verification was run: the task's ordered implementation/build/hf-done sequence forbids the earlier baseline requested by do_7; no pre-change failure is claimed."
+
+[finding.014]
+tests = ["fourSlowReceiptReadsTerminateBeforeSlotsAreReused", "closedRecoveryReopensPersistedAttemptsWithoutLeakingReaders", "everyReceiptAndReplacementProvenanceReadCancelsItsTransport", "standaloneProvenanceDeadlineTerminatesAStalledResponseBody"]
+proof = "Real ChainTradeProvider and ReceiptRecoveryScheduler use viem HTTP against a loopback transaction ledger, including ABI events, pins, implementation storage and token metadata; four stalled transports terminate, slots settle once, persisted attempts reopen, and later reads recover."
+
+[finding.017]
+test = "configuredNativeRunnerUsesTheCurrentCheckoutAndChainFixture"
+proof = "Both native launchers consume native-runner.json; the in-process installed Vitest CLI parses its production arguments and the actual phase-two config retains the receipt-chain fixture. Source integration assertions retain the fixture/compiler/source digests and private output arguments."
+
+[finding.018]
+test = "measurementHashesAndExecutesTheSameConfiguredNativeRunner"
+proof = "The phase-four runner resolves the shared checkout and entry once, then uses that entry for digest validation and command with that checkout as cwd; source integration assertions retain all measurement bindings, artifacts and shared production qualification boundaries."
+
+[wiring.native_qualification]
+request = "Domain 4 / fm-launchpad: qualify apps/launchpad/web/src/widgets/trading/transaction-controls/run-phase2.py and run-phase4.py against the private chain/compiler/browser inputs under tools/production; those native lanes require subprocess toolchains and are outside this task's permitted tsc/Vitest gate, so no native lane or shared production qualification is claimed."
+
+[gotcha.scope]
+observed = "Repository workflow asks for GOTCHA/spec edits and publishing, while this task prohibits all out-of-scope edits, commits and pushes; bookkeeping is left to the runner."
+
+[gotcha.vitest_cli_alias]
+observed = "Vitest parseCLI preserves the --reporter alias as reporter at runtime, while CliOptions declares reporters; the binding test asserts the exact runtime property and values without a cast or weakening its expectation."
+prior_evidence = "b52eba0f4e776917d5001424db144021dd2678e6 | cg spec done 22.33.1005 -f layerx-merge --root /work/paxeer-monorepo | exit 1 | /out/logs/verify-1.log: four receipt behavior tests passed; both native binding tests failed at the incorrect reporters property."

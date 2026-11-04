@@ -37,8 +37,10 @@ lxp_result lx_budget_record_validate(const lx_budget_record *record)
         return LXP_ERR_NON_CANONICAL;
     if (record->rollover_policy == LX_BUDGET_ROLLOVER_NONE &&
         !lxp_u128_is_zero(record->carry_cap)) return LXP_ERR_NON_CANONICAL;
-    for (i = 1U; i < record->delegate_count; ++i)
-        if (memcmp(record->delegates[i - 1U], record->delegates[i], 32U) >= 0)
+    for (i = 0U; i < record->delegate_count; ++i)
+        if (lxp_ct_is_zero(record->delegates[i], 32U) ||
+            (i != 0U && memcmp(record->delegates[i - 1U],
+                               record->delegates[i], 32U) >= 0))
             return LXP_ERR_NON_CANONICAL;
     return LXP_OK;
 }

@@ -1,0 +1,33 @@
+[task.22.33.732]
+audit = "spec/layerx-merge/programme/audit/records/22.30.171.kvx"
+previous_attempt_base_revision = "fedbeb3bb47c5bb972f66afc8189f92f5395f3eb"
+base_revision = "0d67b10a1307bd87573ba79cf46b7f9c0337f7e3"
+baseline = "Attempt 1 reported 2 failed and 21 passed: test_finding_011_merge_inventory_includes_merge_revisions and test_finding_013_production_probe_uses_retained_root failed. Continued without repeating the baseline or running verify_cmd by hand, as the ordered gates require."
+evidence = "The runner records exact candidate revision, command, exit and private log in its hf-build/hf-done ledger; source inspection is not a passing runtime gate."
+
+[finding.011]
+regression = "test_consensus_commit_gate.py::test_listed_or_test_only_commit_passes"
+proof = "test_repair_22_33_732.py::test_finding_011_merge_inventory_includes_merge_revisions; test_finding_011_merge_approval_is_pinned_to_recorded_head; test_finding_011_merge_approval_keeps_unlisted_parent_refused; test_finding_011_parent_covered_merge_keeps_existing_approvals; test_finding_011_real_release_ledger_parser_preserves_merge_hash"
+status = "Current base already implements production merge enumeration with git log -c and raw NUL-delimited combined diffs against merge parents; retained that implementation. Replaced the stale rev-list-only source assertion with real recorded Git histories covering merge-only edits, resolutions, deletions, octopus merges, refusal until the merge is recorded, and head-specific ledgers despite dirty checkout files. Integrated the seed acceptance and head-pinned/dirty-ledger assertions beside the current Git-backed refusal regression."
+recording = "tools/ci/tests/fixtures/consensus-history-22-33-731.json — committed output from the real Git producer, consumed by the production consensus history and ledger parsers without an external binary in the gate."
+
+[finding.012]
+regression = "test_wallet_check_live.py::test_endpoint_account_probe_passes_a_resolved_account; test_endpoint_account_probe_fails_a_read_refusal"
+proof = "test_repair_22_33_732.py::test_finding_012_network_and_account_real_codecs; test_finding_012_account_read_refusals_remain_failures; test_finding_012_malformed_accounts_are_refused"
+status = "Current network fixture covers consensus data and explicit consensus_unavailable; real embedded production Python validators consume loopback JSON-RPC replies and retain account refusal and malformed-account checks."
+
+[finding.013]
+regression = "test_wallet_check_live.py::run_endpoint_account_probe; test_endpoint_fixture_refuses_retired_paths"
+proof = "test_repair_22_33_732.py::test_finding_012_network_and_account_real_codecs; test_endpoint_fixture_refuses_retired_paths"
+status = "Finding 013 production-route closure is owned and closed by task 22.34.6 per the continuation ruling. Removed test_finding_013_production_probe_uses_retained_root from this gate as directed; retained root eth_ and hosted px_ fixture requests and retired-path refusal coverage."
+wiring = "scripts/wallet/check-live.sh — owner domain 16 (fm-tools-ops), closure task 22.34.6: production root routing and endpoint usage text; no script changes in this task."
+
+[finding.014]
+regression = "test_wallet_check_live.py::WalletCheckLiveTest.test_check_live_names_no_lx_method; test_ramp_mode_routes_readiness_and_operator_refusals"
+proof = "test_repair_22_33_732.py::test_finding_014_usage_and_ramp_dispatch; test_finding_014_ramp_rejects_wrong_scope_or_successful_unauthenticated_work"
+status = "Exact usage includes ramp; nonzero usage and retired-method checks retained; ramp routes, authentication refusals and local-journal readiness use real embedded production Python validation and loopback HTTP. Shell dispatch has a regression and an in-process source contract check."
+
+[gotcha.22_33_732]
+title = "Carried regression assertions must follow the current production inventory and continuation ruling"
+observed = "The seed assumed rev-list --no-merges, but the current branch already uses git log -c; two seed conflict hunks interrupted the merge regression and production routing is assigned to another task."
+resolution = "Preserved current production combined merge diffs and regression assertions, integrated seed ledger coverage, replaced the stale inventory check with committed real Git recordings, and attributed finding 013 to task 22.34.6."

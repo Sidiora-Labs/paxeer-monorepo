@@ -32,15 +32,23 @@ func execVerbose(args ...string) error {
 
 // execCompose runs a Docker Compose command for a testnet.
 func execCompose(dir string, args ...string) error {
+	project, err := composeProject(dir)
+	if err != nil {
+		return err
+	}
 	return exec(append(
-		[]string{"docker-compose", "--ansi=never", "-f", filepath.Join(dir, "docker-compose.yml")},
+		[]string{"docker-compose", "--ansi=never", "--project-name", project, "-f", filepath.Join(dir, "docker-compose.yml")},
 		args...)...)
 }
 
 // execComposeVerbose runs a Docker Compose command for a testnet and displays its output.
 func execComposeVerbose(dir string, args ...string) error {
+	project, err := composeProject(dir)
+	if err != nil {
+		return err
+	}
 	return execVerbose(append(
-		[]string{"docker-compose", "--ansi=never", "-f", filepath.Join(dir, "docker-compose.yml")},
+		[]string{"docker-compose", "--ansi=never", "--project-name", project, "-f", filepath.Join(dir, "docker-compose.yml")},
 		args...)...)
 }
 

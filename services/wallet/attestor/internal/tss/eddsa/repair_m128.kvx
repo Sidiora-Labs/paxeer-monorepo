@@ -1,0 +1,8 @@
+[repair.22.33.128]
+audit = "22.30.114"
+finding = "32"
+tests = ["TestRepairM_128_MalformedImportedBundle", "TestRepairM_128_ImportedBundleRecovery", "TestRepairM_128_CopyIsolationAndMalformedEncoding"]
+change = "Validate imported material, including every BkParameter, X and public-share point, before copying; return ErrInconsistent for malformed bundles."
+baseline = "Not run: the explicit implementation-first order and bounded hf-build/hf-done gates supersede the conflicting unchanged-tree verification clause; no pre-change test failure is claimed."
+wiring_requests = []
+evidence = "The runner records the candidate revision, command, exit and private log in the hf-build/hf-done gate ledger."

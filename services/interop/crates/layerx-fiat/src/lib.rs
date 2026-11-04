@@ -268,6 +268,30 @@ pub struct FiatIntent {
     pub idempotency_key: [u8; 32],
 }
 
+impl FiatIntent {
+    /// Encodes the ledger payment before the caller signs its transaction.
+    /// `counterparty` is the funding account for a credit and the original
+    /// payer for a reversal or chargeback.
+    #[must_use]
+    pub fn payment_calldata(&self, counterparty: [u8; 32], expires_at: u64) -> [u8; 196] {
+        let (from, to) = match self.kind {
+            FiatIntentKind::Credit => (counterparty, self.destination),
+            FiatIntentKind::Reverse | FiatIntentKind::Chargeback => {
+                (self.destination, counterparty)
+            }
+        };
+        let mut data = [0_u8; 196];
+        data[..4].copy_from_slice(&[0x78, 0xea, 0x11, 0xdb]);
+        data[4..36].copy_from_slice(&from);
+        data[36..68].copy_from_slice(&to);
+        data[68..100].copy_from_slice(&self.asset);
+        data[116..132].copy_from_slice(&self.amount.to_be_bytes());
+        data[156..164].copy_from_slice(&expires_at.to_be_bytes());
+        data[164..196].copy_from_slice(&self.idempotency_key);
+        data
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum PlaneFiatOutcome {
     Pending,

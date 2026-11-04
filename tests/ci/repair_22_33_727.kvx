@@ -1,0 +1,24 @@
+[repair.22.33.727]
+audit = "22.30.171"
+base_revision = "79d99a9cd334a5da02f3a4aac2a324549c9a0d5e"
+baseline = "Not executed: the ordered gate instructions forbid testing before implementation and forbid running verify_cmd by hand; no prior gate ledger existed. No baseline runtime failures are claimed."
+evidence = "The runner's private hf-build/hf-done ledger records the exact candidate revision, command, exit and log; the final response copies the last gate's evidence."
+
+[finding.001]
+test = "tests/ci/test_repair_22_33_727.py::test_finding_001_retained_eip1559_producer_transport_consumer"
+repair = "Replace the retired Activity registry invocation with the SDK Type2Transaction producer, signed EIP-1559 JSON-RPC submission through PaymentRpc to a loopback server, and real decode_signed consumer with signer, calldata, canonical re-encoding and transaction hash checks."
+preservation_test = "tests/ci/test_repair_22_33_727.py::test_finding_001_preserves_corpus_rejections_and_budget_pull_exclusion"
+
+[finding.002]
+test = "tests/ci/test_repair_22_33_727.py::test_finding_002_retained_protocol_and_budget_sources_are_clean"
+repair = "The base already asserts terminal-suite absence and scans retained C sources; retain both checks, include nested C sources and headers, and prove rejected references, dangling retired suites and empty inventories through the real checker."
+regressions = ["test_finding_002_rejects_disposition_in_retained_sources", "test_finding_002_rejects_retired_suite_even_as_dangling_link", "test_finding_002_refuses_empty_protocol_inventory"]
+
+[finding.003]
+test = "tests/ci/test_repair_22_33_727.py::test_finding_003_builds_then_executes_actual_differential_target"
+repair = "The native CI test now builds the real Make target, executes the linked binary, checks both exit statuses, and requires the producer's low-conflict and all-conflicting workload reports with 32 activities and 8 workers."
+limitation = "The Python-only repair gate checks this command/assertion contract against the native producer and Make rule without executing a subprocess toolchain; it does not claim a native link or differential runtime result."
+wiring_request = "Owning domain 16: run tests/ci/test_retired_make_rules.py::test_parallel_differential_links_without_batch_wal in the native CI environment to retain actual link/runtime evidence; the allowed Python gate excludes that toolchain."
+
+[wiring.task_record]
+request = "Owning spec domain: link this finding-to-test record from spec/layerx-merge/spec.kvx task 22.33.727; this task is forbidden to edit spec files."

@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "lxp_test_host_bound_migration.h"
+#include "lxp_test_audit_m966.h"
 
 static size_t begin_calls;
 static size_t end_calls;
@@ -432,5 +433,6 @@ int main(void)
     if (host_bound_migration_admission() != 0) return 1;
     if (host_bound_migration_refusals() != 0) return 1;
     if (host_bound_migration_transport() != 0) return 1;
+    if (audit_m966_tests() != 0) return 1;
     return 0;
 }

@@ -7,9 +7,10 @@ import { useAccount } from 'wagmi';
 import { CircleEllipsis, CirclePlus, X, type LucideIcon } from 'lucide-react';
 import { isRouteActive, routeForPath } from '@/core/app-foundation/navigation';
 import { useDialogFocus } from '@/core/app-foundation/use-dialog-focus';
+import { useAccountSession } from '@/widgets/profile/use-account-session';
 import { IconButton } from '@/ui/primitives';
 import { cn } from '@/lib/utils';
-import { createItem, navItems, type NavItem } from './nav-config';
+import { createItem, isNavItemEligible, navItems, type NavItem } from './nav-config';
 
 /**
  * Phone-only bottom navigation (< md, 768). From md up the icon rail is the
@@ -41,12 +42,11 @@ export interface MoreSheetGroup {
 
 /**
  * Destinations listed in the More sheet: every rail item that is not already a
- * bottom-bar target. Account items appear only with a connected wallet, the
- * same condition the rail uses for wallet-gated items.
+ * bottom-bar target. Wallet and session requirements match the desktop rail.
  */
-export function moreSheetGroups(walletReady: boolean): MoreSheetGroup[] {
+export function moreSheetGroups(walletReady: boolean, sessionReady: boolean): MoreSheetGroup[] {
   const pinned = new Set<string>(BOTTOM_NAV_IDS);
-  const pick = (section: NavItem['section']) => navItems.filter(item => item.section === section && !pinned.has(item.id) && (item.requires === 'public' || walletReady));
+  const pick = (section: NavItem['section']) => navItems.filter(item => item.section === section && !pinned.has(item.id) && isNavItemEligible(item, walletReady, sessionReady));
   const groups: MoreSheetGroup[] = [
     { id: 'browse', label: 'Browse', items: pick('main') },
     { id: 'account', label: 'Your account', items: pick('signed-in') },
@@ -66,6 +66,7 @@ const targetClass = (active: boolean) => cn(
 export default function MobileBottomNav() {
   const pathname = usePathname() ?? '/';
   const { address, isConnected } = useAccount();
+  const { session } = useAccountSession();
   const walletReady = isConnected && !!address;
   // The sheet records the path it was opened on, so any navigation closes it without an effect.
   const [openedOn, setOpenedOn] = useState<string | null>(null);
@@ -83,7 +84,7 @@ export default function MobileBottomNav() {
     return () => wide.removeEventListener('change', closeWhenWide);
   }, [open, close]);
 
-  const groups = moreSheetGroups(walletReady);
+  const groups = moreSheetGroups(walletReady, !!session);
   const moreActive = groups.some(group => group.items.some(item => isRouteActive(pathname, item.href)));
   const targets = BOTTOM_NAV_IDS.map(configured);
 
@@ -119,9 +120,9 @@ export default function MobileBottomNav() {
               aria-haspopup="dialog"
               aria-expanded={open}
               onClick={() => setOpenedOn(open ? null : pathname)}
-              className={targetClass(open || moreActive)}
+              className={targetClass(moreActive)}
             >
-              <CircleEllipsis aria-hidden="true" className="size-6" strokeWidth={open || moreActive ? 2.25 : 2} />
+              <CircleEllipsis aria-hidden="true" className="size-6" strokeWidth={moreActive ? 2.25 : 2} />
             </button>
           </li>
         </ul>

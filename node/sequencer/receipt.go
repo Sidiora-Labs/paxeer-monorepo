@@ -333,32 +333,52 @@ func (r *Receipter) Accept(txBytes []byte) (*Accepted, []byte, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	if _, err := r.key.KeyID(pre.BlockHeight()); err != nil {
-		return nil, nil, err
-	}
-	if len(txBytes) == 0 {
-		return nil, nil, sdkerrors.Wrap(sdkerrors.ErrTxDecode, "empty transaction")
-	}
-	tx, err := r.host.GetTxConfig().TxDecoder()(txBytes)
-	if err != nil {
-		return nil, nil, sdkerrors.Wrap(sdkerrors.ErrTxDecode, err.Error())
-	}
-	var etx *ethtypes.Transaction
-	if msg := r.host.GetEVMMsg(tx); msg != nil {
-		etx, _ = msg.AsTransaction()
-	}
-	in := &ReceiptInput{ModuleID: r.moduleID, PaymentDenom: r.evm.GetBaseDenom(pre)}
-	if etx != nil {
-		err = r.beforeEVM(pre, etx, in)
-	} else {
-		err = beforeCosmos(tx, in)
-	}
-	if err != nil {
+	if _, err := r.input(txBytes, pre); err != nil {
 		return nil, nil, err
 	}
 	acc, err := r.exec.Accept(txBytes)
 	if err != nil {
 		return nil, nil, err
+	}
+	return r.finish(txBytes, acc)
+}
+
+func (r *Receipter) input(txBytes []byte, pre sdk.Context) (*ReceiptInput, error) {
+	if _, err := r.key.KeyID(pre.BlockHeight()); err != nil {
+		return nil, err
+	}
+	if len(txBytes) == 0 {
+		return nil, sdkerrors.Wrap(sdkerrors.ErrTxDecode, "empty transaction")
+	}
+	tx, err := r.host.GetTxConfig().TxDecoder()(txBytes)
+	if err != nil {
+		return nil, sdkerrors.Wrap(sdkerrors.ErrTxDecode, err.Error())
+	}
+	in := &ReceiptInput{ModuleID: r.moduleID, PaymentDenom: r.evm.GetBaseDenom(pre)}
+	if msg := r.host.GetEVMMsg(tx); msg != nil {
+		etx, _ := msg.AsTransaction()
+		if etx == nil {
+			return nil, inputErr("missing EVM transaction")
+		}
+		err = r.beforeEVM(pre, etx, in)
+	} else {
+		err = beforeCosmos(tx, in)
+	}
+	return in, err
+}
+
+func (r *Receipter) finish(txBytes []byte, acc *Accepted) (*Accepted, []byte, error) {
+	in, err := r.input(txBytes, acc.BeforeContext)
+	if err != nil {
+		return acc, nil, fmt.Errorf("%w: %v", ErrReceiptInvariant, err)
+	}
+	tx, err := r.host.GetTxConfig().TxDecoder()(txBytes)
+	if err != nil {
+		return acc, nil, err
+	}
+	var etx *ethtypes.Transaction
+	if msg := r.host.GetEVMMsg(tx); msg != nil {
+		etx, _ = msg.AsTransaction()
 	}
 	in.Accepted = acc
 	if acc.Height != r.height {
@@ -514,4 +534,59 @@ func sponsor(logs []*evmtypes.Log) (common.Address, error) {
 		}
 	}
 	return common.Address{}, nil
+}
+
+type receiptOutcome struct {
+	acc     *Accepted
+	receipt []byte
+	err     error
+}
+
+// acceptGroup owns execution and receipt assembly for the complete ordered group.
+func (r *Receipter) acceptGroup(txs [][]byte) []receiptOutcome {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	out := make([]receiptOutcome, len(txs))
+	floor, ok := r.exec.(*FeeFloor)
+	if !ok {
+		panic("sequencer: receipt groups require the fee-floor pipeline")
+	}
+	mb, ok := floor.Executor.(*microBatch)
+	if !ok {
+		panic("sequencer: receipt groups require the microbatch executor")
+	}
+	runnable := make([][]byte, 0, len(txs))
+	positions := make([]int, 0, len(txs))
+	for i, tx := range txs {
+		pre, err := r.exec.Snapshot()
+		if err == nil {
+			_, err = r.input(tx, pre)
+		}
+		if err == nil {
+			decoded, e := r.host.GetTxConfig().TxDecoder()(tx)
+			err = e
+			if err == nil {
+				err = floor.CheckNodeFloor(pre, decoded)
+			}
+		}
+		if err != nil {
+			out[i].err = err
+			continue
+		}
+		runnable = append(runnable, tx)
+		positions = append(positions, i)
+	}
+	if len(runnable) == 0 {
+		return out
+	}
+	results := mb.execute(runnable)
+	for j, result := range results {
+		i := positions[j]
+		if result.err != nil {
+			out[i].err = result.err
+			continue
+		}
+		out[i].acc, out[i].receipt, out[i].err = r.finish(txs[i], result.acc)
+	}
+	return out
 }

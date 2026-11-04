@@ -1,0 +1,9 @@
+[repair.22.33.1241]
+audit = "22.30.60"
+finding_008 = ["TestRepairM_1241_OptionalIntegersJSON", "TestRepairM_1241_UninitializedIntegers", "TestRepairM_1241_TokenIDsJSON", "TestRepairM_1241_Uint256PayloadBoundaries", "TestRepairM_1241_RoyaltyBoundaries"]
+finding_009 = "TestRepairM_1241_InterfaceIDsJSON"
+path = "Production bindings JSON -> CosmWasm QueryPlugin.HandleEVMQuery -> production EVMQueryHandler -> keeper address store / ABI payload decoder / real EVM static calls -> bindings response JSON"
+baseline = "Not run: the numbered gate order requires complete implementation before testing and prohibits running verify_cmd by hand. No pre-change test failures are claimed. The initial runner ledger had no gate runs."
+qualification = "hf-build and hf-done record the candidate revision, exact command, exit code and private evidence log in the runner gate ledger; the final evidence line identifies the qualified revision."
+wiring_requests = []
+repair_cycle_1 = "At c21a8ccd52aca8adc86228534f90e97e3d8737bc the first hf-done exited 1 (/out/logs/verify-1.log): payload fixtures used a plain big.Int zero whose nil backing slice differs from ABI-decoded zero. Construct expected zeros from their 32-byte ABI word; all exact-value assertions remain intact."

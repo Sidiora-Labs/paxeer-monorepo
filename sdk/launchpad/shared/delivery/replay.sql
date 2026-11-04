@@ -26,13 +26,14 @@ REVOKE ALL ON {{schema}}.delivery_archive_manifests,{{schema}}.delivery_rebuilds
 CREATE TABLE {{schema}}.delivery_shadow_observations (
  range_digest text NOT NULL REFERENCES {{schema}}.delivery_archive_manifests(manifest_digest),
  path text NOT NULL CHECK(path IN ('legacy','durable')), event_id text NOT NULL,
- payload_hash text NOT NULL, source_order jsonb NOT NULL,
+ payload_hash text NOT NULL, source_order jsonb NOT NULL, subject text NOT NULL,
  PRIMARY KEY(range_digest,path,event_id)
 );
 CREATE TABLE {{schema}}.delivery_shadow_comparisons (
- manifest_digest text PRIMARY KEY REFERENCES {{schema}}.delivery_archive_manifests(manifest_digest),
+ manifest_digest text NOT NULL REFERENCES {{schema}}.delivery_archive_manifests(manifest_digest),
  event_digest text NOT NULL, event_count bigint NOT NULL CHECK(event_count>0),
- compared_at timestamptz NOT NULL DEFAULT clock_timestamp()
+ subjects text[] NOT NULL CHECK(cardinality(subjects)>0), consumer_id text NOT NULL, generation text NOT NULL,
+ compared_at timestamptz NOT NULL DEFAULT clock_timestamp(), PRIMARY KEY(manifest_digest,consumer_id,generation,subjects)
 );
 REVOKE ALL ON {{schema}}.delivery_shadow_observations,{{schema}}.delivery_shadow_comparisons FROM PUBLIC;
 CREATE TABLE {{schema}}.delivery_consumer_watermarks (

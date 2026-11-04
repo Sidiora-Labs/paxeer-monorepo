@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
+	"encoding/json"
 	"math/big"
 	"net"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -29,15 +31,15 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/internaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/rest"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/store"
+	"github.com/Sidiora-Technologies/KindleLaunch/protocol/bindings"
 )
 
 // The development market fixture runs the real development schema (the
 // internaltest read subset plus indexer.cursors and indexer.swaps applied from
 // core/indexer's own goose migration), a real Redis, and an in-process geth
 // node (go-ethereum simulated backend) served over HTTP JSON-RPC. Pools are
-// created by real transactions whose logs carry the EventEmitter
-// MarketCreated topic, so every block hash and position the handlers resolve
-// comes from an actual chain.
+// created by the recorded production EventEmitter runtime on chain 125,
+// using its generated transaction and event bindings (all seven inputs).
 
 const (
 	mktPoolA       = "0xa1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"
@@ -61,7 +63,7 @@ type mktChain struct {
 	backend *simulated.Backend
 	url     string
 	key     *ecdsa.PrivateKey
-	nonce   uint64
+	emitter *bindings.EventEmitter
 }
 
 func newMktChain(t *testing.T) *mktChain {
@@ -77,52 +79,160 @@ func newMktChain(t *testing.T) *mktChain {
 	port := listener.Addr().(*net.TCPAddr).Port
 	_ = listener.Close()
 	funds := new(big.Int).Exp(big.NewInt(10), big.NewInt(21), nil)
-	backend := simulated.NewBackend(types.GenesisAlloc{crypto.PubkeyToAddress(key.PublicKey): {Balance: funds}}, func(n *node.Config, _ *ethconfig.Config) {
+	alloc := mktEmitterAllocation(t)
+	alloc[crypto.PubkeyToAddress(key.PublicKey)] = types.Account{Balance: funds}
+	backend := simulated.NewBackend(alloc, func(n *node.Config, eth *ethconfig.Config) {
+		chainConfig := *eth.Genesis.Config
+		chainConfig.ChainID = big.NewInt(125)
+		eth.Genesis.Config = &chainConfig
 		n.HTTPHost = "127.0.0.1"
 		n.HTTPPort = port
 		n.HTTPModules = []string{"eth"}
 	})
 	t.Cleanup(func() { _ = backend.Close() })
 	backend.Commit()
-	return &mktChain{backend: backend, url: "http://127.0.0.1:" + strconv.Itoa(port), key: key}
+	emitter, err := bindings.NewEventEmitter(common.HexToAddress(mktEmitterAddress), backend.Client())
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := &mktChain{backend: backend, url: "http://127.0.0.1:" + strconv.Itoa(port), key: key, emitter: emitter}
+	c.emitterTransaction(t, func(opts *bind.TransactOpts) (*types.Transaction, error) {
+		return emitter.Initialize(opts, crypto.PubkeyToAddress(key.PublicKey))
+	})
+	c.emitterTransaction(t, func(opts *bind.TransactOpts) (*types.Transaction, error) {
+		return emitter.SetAuthorizedEmitter(opts, crypto.PubkeyToAddress(key.PublicKey), true)
+	})
+	// The archived runtime also enforces selector-specific creation authority.
+	// Grant it through the real admin method, as the EventEmitter contract's
+	// own integration fixture does, without changing its bytecode or storage.
+	emitterABI, err := bindings.EventEmitterMetaData.GetAbi()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var selector [4]byte
+	copy(selector[:], emitterABI.Methods["emitMarketCreated"].ID)
+	c.emitterTransaction(t, func(opts *bind.TransactOpts) (*types.Transaction, error) {
+		return emitter.SetTypedEmitter(opts, crypto.PubkeyToAddress(key.PublicKey), selector, true)
+	})
+	return c
 }
 
-// emitMarketCreated sends a contract creation whose init code emits an
-// unrelated LOG1 and then LOG2(MarketCreated, poolId), mined in its own block.
-func (c *mktChain) emitMarketCreated(t *testing.T, poolID common.Hash) *types.Receipt {
+const mktEmitterAddress = "0x622e1bb90e0e2b6e6e5e9e2dbe1555389e8a3ef6"
+
+// mktEmitterAllocation installs the exact archived UUPS proxy and implementation.
+// The implementation slot is copied from the same recorded block; the real
+// initialize method creates the test authority, without hand-writing its roles.
+func mktEmitterAllocation(t *testing.T) types.GenesisAlloc {
 	t.Helper()
-	unrelated := crypto.Keccak256Hash([]byte("Unrelated()"))
-	code := []byte{0x7f}
-	code = append(code, unrelated.Bytes()...)
-	code = append(code, 0x60, 0x00, 0x60, 0x00, 0xa1, 0x7f)
-	code = append(code, poolID.Bytes()...)
-	code = append(code, 0x7f)
-	code = append(code, mktMarketCreatedTopic.Bytes()...)
-	code = append(code, 0x60, 0x00, 0x60, 0x00, 0xa2, 0x00)
-	ctx := context.Background()
-	client := c.backend.Client()
-	tip, err := client.SuggestGasTipCap(ctx)
+	raw, err := os.ReadFile("testdata/repair_m1008_emitter.json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	head, err := client.HeaderByNumber(ctx, nil)
+	var fixture struct {
+		Entries []struct {
+			Key    string `json:"k"`
+			Result string `json:"result"`
+		} `json:"entries"`
+	}
+	if err := json.Unmarshal(raw, &fixture); err != nil {
+		t.Fatal(err)
+	}
+	alloc := types.GenesisAlloc{}
+	for _, entry := range fixture.Entries {
+		method, args, ok := strings.Cut(entry.Key, " ")
+		if !ok {
+			t.Fatal("invalid recorded RPC key")
+		}
+		var params []json.RawMessage
+		if err := json.Unmarshal([]byte(args), &params); err != nil {
+			t.Fatal(err)
+		}
+		if method == "eth_chainId" {
+			if entry.Result != "0x7d" {
+				t.Fatal("runtime capture is not chain 125")
+			}
+			continue
+		}
+		var address string
+		if err := json.Unmarshal(params[0], &address); err != nil {
+			t.Fatal(err)
+		}
+		a := common.HexToAddress(address)
+		account := alloc[a]
+		account.Balance = new(big.Int)
+		switch method {
+		case "eth_getCode":
+			account.Code = common.FromHex(entry.Result)
+		case "eth_getStorageAt":
+			var slot string
+			if err := json.Unmarshal(params[1], &slot); err != nil {
+				t.Fatal(err)
+			}
+			if account.Storage == nil {
+				account.Storage = map[common.Hash]common.Hash{}
+			}
+			account.Storage[common.HexToHash(slot)] = common.HexToHash(entry.Result)
+		default:
+			t.Fatalf("unexpected captured method %s", method)
+		}
+		alloc[a] = account
+	}
+	// These reviewed runtime hashes are in the indexer's deployment_source.json.
+	for address, hash := range map[string]string{
+		mktEmitterAddress: "0xb2f39d5c380b45131e836d4beb5254d4e5c410d35935bf270e8492755f7da6f7",
+		"0x6d48a32e313cc4f08acdee1f39f7e6b56f03a1cb": "0xd0dc6f1aa54811dc2b9ea13e4519b6b6992ba0a082ac55c2d9e312443b289c08",
+	} {
+		if actual := crypto.Keccak256Hash(alloc[common.HexToAddress(address)].Code).Hex(); actual != hash {
+			t.Fatalf("recorded runtime %s: %s", address, actual)
+		}
+	}
+	return alloc
+}
+
+func (c *mktChain) emitterTransaction(t *testing.T, send func(*bind.TransactOpts) (*types.Transaction, error)) *types.Receipt {
+	t.Helper()
+	opts, err := bind.NewKeyedTransactorWithChainID(c.key, big.NewInt(125))
 	if err != nil {
 		t.Fatal(err)
 	}
-	feeCap := new(big.Int).Add(tip, new(big.Int).Mul(head.BaseFee, big.NewInt(2)))
-	tx := types.NewTx(&types.DynamicFeeTx{ChainID: big.NewInt(1337), Nonce: c.nonce, GasTipCap: tip, GasFeeCap: feeCap, Gas: 200000, Data: code})
-	signed, err := types.SignTx(tx, types.LatestSignerForChainID(big.NewInt(1337)), c.key)
+	opts.GasLimit = 3000000
+	tx, err := send(opts)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = client.SendTransaction(ctx, signed); err != nil {
-		t.Fatal(err)
-	}
-	c.nonce++
 	c.backend.Commit()
-	receipt, err := client.TransactionReceipt(ctx, signed.Hash())
-	if err != nil || receipt.Status != types.ReceiptStatusSuccessful || len(receipt.Logs) != 2 {
-		t.Fatalf("market created receipt: %v %+v", err, receipt)
+	receipt, err := c.backend.Client().TransactionReceipt(context.Background(), tx.Hash())
+	if err != nil || receipt == nil || receipt.Status != types.ReceiptStatusSuccessful {
+		t.Fatalf("EventEmitter transaction %s: %v %+v", tx.Hash(), err, receipt)
+	}
+	return receipt
+}
+
+// emitMarketCreated invokes the production EventEmitter, including its access
+// checks, event data encoding and seven-input typed creation log.
+func (c *mktChain) emitMarketCreated(t *testing.T, poolID common.Hash, token, creator, pool, optical string) *types.Receipt {
+	t.Helper()
+	receipt := c.emitterTransaction(t, func(opts *bind.TransactOpts) (*types.Transaction, error) {
+		return c.emitter.EmitMarketCreated(opts, poolID, common.HexToAddress(token), common.HexToAddress(creator), common.HexToAddress(pool), common.HexToAddress(optical))
+	})
+	// emitMarketCreated emits exactly one typed log; generic logs are separate
+	// EventEmitter methods, not an extra log preceding this event.
+	if len(receipt.Logs) != 1 {
+		t.Fatalf("production MarketCreated receipt logs: %d", len(receipt.Logs))
+	}
+	if receipt.Logs[0].Address != common.HexToAddress(mktEmitterAddress) || len(receipt.Logs[0].Topics) != 4 || receipt.Logs[0].Topics[0] != mktMarketCreatedTopic {
+		t.Fatalf("production MarketCreated emitter/topics: %+v", receipt.Logs[0])
+	}
+	event, err := c.emitter.ParseMarketCreated(*receipt.Logs[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	header, err := c.backend.Client().HeaderByHash(context.Background(), receipt.BlockHash)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if event.PoolId != poolID || event.Token != common.HexToAddress(token) || event.Creator != common.HexToAddress(creator) || event.Pool != common.HexToAddress(pool) || event.Optical != common.HexToAddress(optical) || event.BlockNumber.Cmp(receipt.BlockNumber) != 0 || event.Timestamp.Cmp(new(big.Int).SetUint64(header.Time)) != 0 {
+		t.Fatalf("production creation fields: %v %+v", err, event)
 	}
 	return receipt
 }
@@ -205,7 +315,7 @@ func mktPoolID(address string) common.Hash {
 
 func (f mktMarketFixture) createPool(t *testing.T, address, token, optical string, createdAt int64) *types.Receipt {
 	t.Helper()
-	receipt := f.chain.emitMarketCreated(t, mktPoolID(address))
+	receipt := f.chain.emitMarketCreated(t, mktPoolID(address), token, mktCreator, address, optical)
 	mixed := "0x" + strings.ToUpper(address[2:6]) + address[6:]
 	if _, err := f.pool.Exec(context.Background(), `INSERT INTO indexer.pools(pool_address,token_address,creator,optical,pool_id,nft_id,created_at,created_block,tx_hash) VALUES($1,$2,$3,$4,$5,7,$6,$7,$8)`, mixed, token, mktCreator, optical, mktPoolID(address).Hex(), createdAt, receipt.BlockNumber.Int64(), receipt.TxHash.Hex()); err != nil {
 		t.Fatal(err)
@@ -215,7 +325,8 @@ func (f mktMarketFixture) createPool(t *testing.T, address, token, optical strin
 
 func (f mktMarketFixture) insertState(t *testing.T, address string, receipt *types.Receipt, virtual, real, token string) {
 	t.Helper()
-	if _, err := f.pool.Exec(context.Background(), `INSERT INTO indexer.pool_state_snapshots(id,pool_id,virtual_reserve,real_reserve,token_reserve,price,block_number,block_timestamp,tx_hash,log_index) VALUES($1,$2,$3,$4,$5,'1',$6,1760000000,$7,1)`, receipt.TxHash.Hex()+"-1", mktPoolID(address).Hex(), virtual, real, token, receipt.BlockNumber.Int64(), receipt.TxHash.Hex()); err != nil {
+	logIndex := receipt.Logs[0].Index
+	if _, err := f.pool.Exec(context.Background(), `INSERT INTO indexer.pool_state_snapshots(id,pool_id,virtual_reserve,real_reserve,token_reserve,price,block_number,block_timestamp,tx_hash,log_index) VALUES($1,$2,$3,$4,$5,'1',$6,1760000000,$7,$8)`, receipt.TxHash.Hex()+"-"+strconv.FormatUint(uint64(logIndex), 10), mktPoolID(address).Hex(), virtual, real, token, receipt.BlockNumber.Int64(), receipt.TxHash.Hex(), logIndex); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -394,14 +505,14 @@ func TestDevelopmentMarketReadsPools(t *testing.T) {
 	if pool["feeBps"] != float64(100) || pool["effectivePricingUsdlReserveRaw"] != "1250000000" || pool["creator"] != mktCreator || pool["tokenAddress"] != mktTokenA {
 		t.Fatalf("pool document: %v", pool)
 	}
-	if created["height"] != receiptA.BlockNumber.String() || created["blockHash"] != strings.ToLower(receiptA.BlockHash.Hex()) || created["transactionHash"] != strings.ToLower(receiptA.TxHash.Hex()) || created["logIndex"] != strconv.FormatUint(uint64(receiptA.Logs[1].Index), 10) || created["transactionIndex"] != strconv.FormatUint(uint64(receiptA.TransactionIndex), 10) {
-		t.Fatalf("created position %v, receipt %+v", created, receiptA.Logs[1])
+	if created["height"] != receiptA.BlockNumber.String() || created["blockHash"] != strings.ToLower(receiptA.BlockHash.Hex()) || created["transactionHash"] != strings.ToLower(receiptA.TxHash.Hex()) || created["logIndex"] != strconv.FormatUint(uint64(receiptA.Logs[0].Index), 10) || created["transactionIndex"] != strconv.FormatUint(uint64(receiptA.TransactionIndex), 10) {
+		t.Fatalf("created position %v, receipt %+v", created, receiptA.Logs[0])
 	}
 	stats := mktData(detail)["stats"].(map[string]any)
 	if stats["volume24hRaw"] != "3600000" || stats["buys24h"] != "2" || stats["sells24h"] != "1" || stats["holderCount"] != "3" || stats["realUsdlBalanceRaw"] != "250000000" || stats["priceChangeBps24h"] != "250" || stats["changeBaselineQuality"] != "complete" {
 		t.Fatalf("pool stats: %v", stats)
 	}
-	if upper := stats["sourceUpperPosition"].(map[string]any); upper["logIndex"] != "1" || upper["blockHash"] != strings.ToLower(receiptA.BlockHash.Hex()) {
+	if upper := stats["sourceUpperPosition"].(map[string]any); upper["logIndex"] != strconv.FormatUint(uint64(receiptA.Logs[0].Index), 10) || upper["blockHash"] != strings.ToLower(receiptA.BlockHash.Hex()) {
 		t.Fatalf("source upper position: %v", upper)
 	}
 	token := mktData(detail)["token"].(map[string]any)

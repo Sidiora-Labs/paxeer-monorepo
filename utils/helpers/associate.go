@@ -2,6 +2,7 @@ package helpers
 
 import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/utils"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/secp256k1"
 	cryptotypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	authtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/types"
@@ -32,6 +33,15 @@ func NewAssociationHelper(evmKeeper evmKeeper, bankKeeper bankKeeper, accountKee
 }
 
 func (p AssociationHelper) AssociateAddresses(ctx sdk.Context, paxAddr sdk.AccAddress, evmAddr common.Address, pubkey cryptotypes.PubKey, migrateUhpxOnly bool) error {
+	key, ok := pubkey.(*secp256k1.PubKey)
+	// The SDK account codec and Address method require compressed keys. Validate
+	// this public input before mapping or migrating any account state.
+	if !ok || key == nil || len(key.Key) != secp256k1.PubKeySize {
+		return ErrInvalidPubkey
+	}
+	if _, err := PubkeyBytesToPaxPubKey(key.Bytes()); err != nil {
+		return err
+	}
 	castAddr := sdk.AccAddress(evmAddr[:])
 	if !castAddr.Equals(paxAddr) && p.accountKeeper.GetAccount(ctx, paxAddr) == nil {
 		castAcc := p.accountKeeper.GetAccount(ctx, castAddr)

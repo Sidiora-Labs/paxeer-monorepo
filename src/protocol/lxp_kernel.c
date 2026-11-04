@@ -378,6 +378,7 @@ lxp_result lxp_kernel_bind_migration_admission(
     if (status == LXP_OK) status = lxp_activity_verify_payload_hash(activity);
     if (status == LXP_OK &&
         activity->protocol_version == LXP_PROTOCOL_VERSION_STATE_COMMITMENT) {
+        if (execution->identities == NULL) return LXP_ERR_AUTH_SCOPE;
         status = lxp_identity_resolve(execution->identities,
             activity->actor_did.bytes, activity->actor_did.length, &identity);
         if (status == LXP_OK)
@@ -2197,9 +2198,8 @@ lxp_result lxp_kernel_register_module(lxp_kernel *kernel,
             !registration_active(current, kernel->epoch)) continue;
         if (iface->abi_version <= current->abi_version)
             return LXP_ERR_VERSION_UNSUPPORTED;
-        current->disabled_epoch = kernel->epoch;
     }
-    if (kernel->module_count == LXP_KERNEL_MAX_MODULE_REGISTRATIONS)
+    if (kernel->module_count >= LXP_KERNEL_MAX_MODULE_REGISTRATIONS)
         return LXP_ERR_ARENA_EXHAUSTED;
     registration = &kernel->modules[kernel->module_count];
     (void)memset(registration, 0, sizeof(*registration));
@@ -2213,6 +2213,12 @@ lxp_result lxp_kernel_register_module(lxp_kernel *kernel,
     registration->enabled_epoch = kernel->epoch;
     registration->disabled_epoch = UINT64_MAX;
     registration->enabled = true;
+    for (i = 0U; i < kernel->module_count; ++i) {
+        lxp_module_registration *current = &kernel->modules[i];
+        if (current->module_id == iface->module_id &&
+            registration_active(current, kernel->epoch))
+            current->disabled_epoch = kernel->epoch;
+    }
     ++kernel->module_count;
     return LXP_OK;
 }

@@ -1,0 +1,44 @@
+[repair.22.33.1392]
+audit = "22.30.77"
+acceptance = "22998.1"
+test_class = "com.sidiora.layerx.sdk.Repair22331392Test"
+evidence = "The bounded hf-build and hf-done private ledger records the candidate revision, exact command, exit code and log; this source record does not claim an unrun gate or live service qualification."
+baseline = "Not run: explicit ordered gates forbid testing before complete implementation and invoking verify_cmd by hand; the initial gate ledger had no prior runs, so no pre-change test failure is claimed."
+
+[finding.first-payment-retired-origin]
+repair = "Configured root EVM RPC is distinct from authenticated Human and Agent service origins; no retired default origin or router path is used."
+tests = ["firstPaymentUsesRootEvmRpcAndVerifiesTheRecordedProducerReceipt", "configuredOriginsAndRandomKeysSatisfyTheSupportedBoundaries"]
+
+[finding.first-payment-unusable]
+repair = "Typed native PAX preparation checks chain ID and obtains nonce and gas, signs EIP-1559 locally, persists signed bytes under a canonical random recovery key before broadcast and verifies the signed receipt and expected transfer through the production SDK. EVM payments need no Agent session; Kotlin Agent mutations configure one explicitly."
+tests = ["firstPaymentUsesRootEvmRpcAndVerifiesTheRecordedProducerReceipt", "firstPaymentRefusesWrongChainBeforeSigningOrBroadcast", "firstPaymentRefusesTamperingWrongAmountAndRecipient"]
+
+[finding.offline-example-retired-api]
+repair = "Portable v2 verification reads genuine signed evidence, separately retained raw transaction and independently configured receipt and consensus pins; it requires success and reports the actual verified rung."
+tests = ["offlineExampleVerifiesBothUnmodifiedPublishedPortableBundles", "offlineExampleReadsSeparatePinsAndRefusesTamperingAndTransactionSubstitution"]
+
+[finding.kotlin-retired-origin]
+repair = "Configured service origins feed the production transport, which selects the authenticated Agent operation boundary; public root node RPC is documented separately."
+tests = ["kotlinBudgetSendsTypedRequestWithOwnerSessionAndRefusesUnmodifiedDaemonEnvelope", "configuredOriginsAndRandomKeysSatisfyTheSupportedBoundaries"]
+
+[finding.kotlin-example-unusable]
+repair = "The Kotlin sample compiles against the typed Java BUDGET_CREATE overload with the actual six-field DaemonLimit request, a canonical random idempotency key and explicit owner session."
+tests = ["kotlinBudgetSendsTypedRequestWithOwnerSessionAndRefusesUnmodifiedDaemonEnvelope", "configuredOriginsAndRandomKeysSatisfyTheSupportedBoundaries"]
+limit = "A successful current-daemon budget mutation cannot be claimed: its envelope is v1 and the SDK requires v2. The gate proves exact outgoing request, route and session and fails closed on the unmodified committed daemon refusal instead of synthesising a compatible response."
+
+[wiring]
+agent_envelope = "services/agent/crates/layerx-agentd/src/agent_rpc.rs and services/agent/schema/agent-api/golden/agent-http-*.json — owning domain 8 Agent API: align daemon envelope version, response version field and verification-status shape with the JVM major-2 transport, then publish genuine budget-create success and refusal transcripts for replay."
+prepare_schema = "services/agent/schema/agent-api and sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java — owning domain 8 API schema/generator: reconcile generated PrepareRequest timestamp_bound with the daemon's activity_type, not_before and not_after; this example uses supported EVM preparation instead."
+protocol_budget = "services/agent/schema/agent-api and sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java — owning domain 8 API schema/generator: expose signed BudgetAuthorization for ProtocolBudget requests; the scoped Kotlin example explicitly requests DaemonLimit."
+sample_compilation = "sdk/platform/jvm/pom.xml — owning domain 8 JVM packaging: include examples in normal Java/Kotlin sample compilation; the declared repair gate compiles all samples in process with the existing compiler dependencies."
+readme = "sdk/platform/jvm/README.md — owning domain 8 JVM documentation: replace its historical-example warning with a link to examples/README.md and retain the Agent-envelope compatibility caveat until the daemon is aligned."
+task_record = "spec/layerx-merge/spec.kvx — owning domain 8 programme: copy the finding-to-test mappings, gate-order baseline note and wiring requests from this scoped repair record; this task may not edit spec files."
+service_qualification = "tools/qualification/paxeer-x — owning domain 8 service qualification: run payment and Kotlin journeys against configured supported deployments after the envelope fix; this credential-free gate replays committed producer receipts and the genuine daemon refusal, and claims no live-service run."
+
+[gotcha.patch-operation]
+observed = "The patch tool rejects deleting and adding the same file in one patch; that failed patch made no changes."
+action = "Replace existing file contents directly or use one update operation. Root GOTCHA.kvx is outside this task's writable scope."
+
+[gotcha.agent-version]
+observed = "The JVM transport uses envelope major 2, while the committed daemon's ENVELOPE_VERSION is 1 and its golden refusal has no version field."
+action = "Preserve the real refusal unchanged, prove fail-closed decoding, and request owning-domain wiring instead of inventing a successful major-2 transcript."

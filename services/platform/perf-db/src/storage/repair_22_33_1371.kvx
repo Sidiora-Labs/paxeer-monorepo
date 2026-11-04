@@ -1,0 +1,22 @@
+[task]
+id = "22.33.1371"
+audit = "22.30.75"
+base_revision = "9d1a06c7f3635f5556023760af7a75ee9755efdd"
+qualification = "hf-build then hf-done record the exact candidate revision, command, exit and private evidence location in /out/run/gates.jsonl and the final evidence line."
+baseline = "Not run: the explicit implementation-first order and hf-done-only verify instruction prohibit do_6's unchanged-tree verify. No pre-change test failures are claimed."
+
+[finding.mmap-header-validation]
+tests = ["mmap_header_validation_short_existing_files_are_refused_without_mutation", "mmap_header_validation_capacity_and_partial_records_refuse_reopen", "mmap_header_validation_typed_access_and_overflow_are_checked", "mmap_header_validation_candle_store_checks_typed_layout", "mmap_header_validation_engine_reopen_refuses_unverified_reconstruction"]
+repair = "Existing empty/short files and lengths beyond capacity produce Corruption before mapping data is exposed. Typed opens, slices, counts and iterators validate complete records and alignment; checked byte ranges reject overflow. Tick and candle stores validate on open. Corrupt stores are refused unchanged, without automatic reconstruction or unverified WAL fallback. Real engine shutdown/reopen and read-only inspection exercise header refusal."
+
+[finding.tick-chronological-admission]
+tests = ["tick_chronological_admission_precedes_wal_and_survives_reopen", "tick_chronological_admission_reopen_rejects_unsorted_history", "tick_chronological_admission_engine_sorted_path_recovers_duplicates"]
+repair = "TickStore rejects per-market timestamp regression, permits equal timestamps in arrival order, and validates existing market identity and chronological history on open and inspection. append_with_wal validates before the real WAL writer admits the entry. Integration tests reopen both stores, replay production WAL into a real TickStore, reopen the recovered projection, and assert binary-search ranges and unchanged WAL positions after refusal."
+boundary = "The storage admission boundary is implemented and tested. Existing PerfDb::ingest_tick still writes its WAL before calling TickStore::append; a late tick through that out-of-scope engine path can poison recovery until the owning domain wires pre-admission validation. No claim is made that the engine's late-tick path is closed."
+
+[wiring.engine]
+request = "services/platform/perf-db/src/engine.rs — owning domain 8 (fm-platform): call tick_store.lock().validate_tick(tick) under the mutation lock before append_wal and outside the poison-on-error closure, or use TickStore::append_with_wal under the same lock; prove late-tick refusal leaves the WAL, engine writability and reopened state unchanged."
+
+[gotcha.scope]
+symptom = "The proposal requests engine.rs and task/spec ledger updates outside the explicit scope; do_6 asks for baseline verification contrary to the mandatory gate order."
+action = "Keep all implementation and repair records inside storage and the declared integration test; record engine wiring here, run only hf-build and hf-done after implementation, and leave spec/GOTCHA/qualification files, commits and pushes to the runner."

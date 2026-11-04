@@ -1,0 +1,15 @@
+[repair.22.33.1075]
+audit = "22.30.43"
+acceptance = "22998.1"
+baseline = "Not run: the explicit order requires complete implementation before hf-build, then verification only through hf-done; no pre-change failure is claimed."
+evidence = "The runner hf-build/hf-done ledger records the verified candidate revision, exact commands, exit codes and private log locations."
+wiring_task_record = "spec/layerx-merge/spec.kvx — fm-node-runtime domain 5: copy the finding-to-test mappings below into the task record; spec edits are outside this task's scope."
+wiring_commit_errors = "node/abci.go — fm-node-runtime domain 5: call RecordBenchmarkCommitTime only when Commit succeeds, so failed commit attempts cannot emit the existing commit notification."
+
+[finding.f014]
+tests = ["TestRepairM_1075_ScenarioOnlyAccounts", "TestRepairM_1075_SharedAndScenarioPools"]
+proof = "Real scenario-only pools construct without shared settings and produce signed EVM transactions through the manager proposal channel and production SDK codec; shared pool reuse and separate scenario pools remain intact."
+
+[finding.f015]
+tests = ["TestRepairM_1075_CommittedBlockWarmup", "TestRepairM_1075_DeploymentWaitAndResume", "TestRepairM_1075_CancellationWhileWaiting"]
+proof = "Manager commit notifications advance exactly three warmup blocks; repeated Generate calls and empty receipts cannot advance warmup; the production worker parks in select while idle, resumes on a real in-memory EVM deployment result transported by the receipt codec, and stops on cancellation in both waiting phases."

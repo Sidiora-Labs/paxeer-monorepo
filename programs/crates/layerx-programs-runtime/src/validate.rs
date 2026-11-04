@@ -156,6 +156,12 @@ pub struct ValidatedModule {
 }
 
 impl ValidatedModule {
+    /// Whether the complete admitted mutable state fits the continuation contract.
+    #[must_use]
+    pub fn supports_continuation(&self) -> bool {
+        self.resumable_globals.is_some()
+    }
+
     /// Reports whether the module exports an ABI-callable program entry point.
     ///
     /// Interface publication uses this after ordinary deterministic module
@@ -576,6 +582,7 @@ fn validate_original_module(
     let mut exported_functions = BTreeMap::new();
     let mut exported_globals = BTreeMap::<u32, Vec<String>>::new();
     let mut mutable_globals = Vec::new();
+    let mut unsupported_continuation_state = false;
     let mut function_calls: Vec<(Vec<u32>, bool)> = Vec::new();
     let mut start_function = None;
     for payload in Parser::new(0).parse_all(wasm) {
@@ -626,6 +633,27 @@ fn validate_original_module(
                     mutable_globals.push(entry.ty.mutable);
                 }
             }
+            Payload::TableSection(reader) => {
+                unsupported_continuation_state |= reader.count() != 0;
+            }
+            Payload::DataSection(reader) => {
+                for segment in reader {
+                    let segment = segment.map_err(|error| ValidationRefusal::MalformedModule {
+                        reason: error.to_string(),
+                    })?;
+                    unsupported_continuation_state |=
+                        matches!(segment.kind, wasmparser_nostd::DataKind::Passive);
+                }
+            }
+            Payload::ElementSection(reader) => {
+                for segment in reader {
+                    let segment = segment.map_err(|error| ValidationRefusal::MalformedModule {
+                        reason: error.to_string(),
+                    })?;
+                    unsupported_continuation_state |=
+                        matches!(segment.kind, wasmparser_nostd::ElementKind::Passive);
+                }
+            }
             Payload::CodeSectionEntry(body) => {
                 refuse_float_code(&body)?;
                 function_calls.push(interface_calls(&body)?);
@@ -653,7 +681,11 @@ fn validate_original_module(
         &function_calls,
         all_imported_capability_mask,
     );
-    let resumable_globals = resumable_global_names(&mutable_globals, &exported_globals)?;
+    let resumable_globals = if unsupported_continuation_state {
+        None
+    } else {
+        resumable_global_names(&mutable_globals, &exported_globals)?
+    };
     Ok(OriginalValidation {
         module,
         byte_size,

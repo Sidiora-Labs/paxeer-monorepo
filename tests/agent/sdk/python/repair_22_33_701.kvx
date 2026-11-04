@@ -1,0 +1,105 @@
+[repair.22.33.701]
+audit = "22.30.169"
+base_revision = "264615cba89456c37eeb19535cb16b81846f6a68"
+status = "Continuation implements SDK-owned codec, transport and envelope proofs; production restart, activation and missing interface evidence remain explicit owner wiring requests. Exact scoped qualification is recorded by hf-build/hf-done; no external closure is claimed."
+baseline = "Not run: explicit Order 1/4 prohibits tests before complete implementation and prohibits running verify_cmd by hand; initial gate.json reported builds_used=0 and verify_runs_used=0, and test_repair_22_33_701.py did not exist. No baseline failures are claimed."
+qualification = "The runner hf-build/hf-done ledger owns exact candidate revision, command, exit and private evidence location. This record does not claim a gate passed before it ran."
+format = "No Python formatter is configured in the scoped package pyproject.toml or repository task instructions; edits follow the surrounding Python style."
+
+[finding.agent-restart-admission-proof]
+tests = ["test_agent_restart_admission_barrier_refuses_missing_authority"]
+implementation = "The pre-restart probe waits for a private Ed25519-authenticated fsynced-journal acknowledgment bound to the exact credential/request/idempotency bytes before dropping the HTTPS reply. The post-restart probe compares both retries and requires the same admitted operation identity, a nondecreasing journal sequence, and exactly one committed effect."
+evidence_contract = "The owner signs canonical sorted compact ASCII JSON after LayerX/restart-admission/v1 NUL, with state, request_sha256, operation_id, journal_sequence, durable, committed_effects and value; admission/recovery paths and a separately pinned public key are supplied in the private case file."
+remaining = "The existing external producer exports no signed durable barrier or committed stop/reopen recording; actual restart/effect closure is not claimed."
+wiring = "Domain 16 qualification: tools/qualification/paxeer-x/agent_operation_envelope.py must export pinned signed admission_file/recovery_file after journal fsync, stop/reopen the actual owner, count committed effects after two retries, and retain the genuine agent-restart-admission recording in tests/agent/sdk/python/recordings_22_33_701."
+
+[finding.precompile-legacy-write-proof]
+tests = ["test_precompile_legacy_encoding_and_perps_rejections_remain", "test_launchpad_selector_mutabilities_come_from_committed_abi_artifacts"]
+implementation = "Legacy WRITES vectors are explicitly encoding compatibility. All existing perps retired-signature rejection assertions remain; the focused proof exercises the real current 0x1015 encoders and all retained perps refusal assertions. Actual post-activation LXP_MODULE_DISABLED execution is an owner wiring request."
+remaining = "No committed activated-chain exchange recording is available; precompiles/layerxexchange/layerxexchange.go still dispatches requestSettlement to the keeper. No successful retirement execution is claimed."
+wiring = "Domain 3 exchange/node: precompiles/layerxexchange/layerxexchange.go and its real EVM fixture producer must implement the activated requestSettlement refusal and publish unmodified error/current-deposit exchanges in tests/agent/sdk/python/recordings_22_33_701/exchange-post-activation.json."
+
+[finding.program-account-legacy-identity]
+tests = ["test_program_account_legacy_identity", "test_program_account_current_identity_over_recorded_rpc", "test_program_account_current_identity_refuses_rebinding"]
+implementation = "The real node-generated V1-layerxprograms-call raw EIP-1559 transaction and signed receipt travel unchanged through loopback JSON-RPC into PaymentRpc and the shipping Programs verifier. Assertions bind keccak(raw), recovered EVM sender/principal, nonce, destination 0x101d, operation, execution status and receipt. Wrong raw signature, network, program and key pin are refused. Historical authorization-root and Activity tamper coverage remains intact and labeled."
+provenance = "rpc/sequencer_receipt_vectors_test.go -> sdk/platform/conformance/fixtures/sequencer-receipt-v1.json#V1-layerxprograms-call -> HTTP JSON-RPC -> PaymentRpc -> _verify_program_transaction/_submission. Transport/client reopen replays authentic recorded evidence; it does not claim new node execution."
+
+[finding.program-http-missing-ingress]
+tests = ["test_program_http_current_ingress_and_protected_inputs"]
+implementation = "Protected fixture version 2 binds actual gateway and paxd binary digests and existing candidate source files, requires ABI 1 through 5, sends raw transactions and eth_call to the node, retains gateway discovery/interface reads and signature pins, and looks up independently authenticated transaction receipts. Private file ownership/modes, exact keys, duplicate-field rejection and signature/network/program refusals remain required."
+remaining = "The existing protected producer is version 1 and names the absent native_call.rs. The committed node receipt corpus covers guest ABI 1 only, so all-ABI execution, simulation and real unknown-to-committed restart recovery remain unqualified."
+wiring = "Domain 9 qualification with Domain 13 Programs: scripts/qualification/paxeer-x/program-http-producer.py must emit the version-2 node_rpc/node_pid/node_source_manifest/receipt_keys/raw_transaction_file contract, all five actual guest executions and same-store recovery acknowledgment; rpc/sequencer_receipt_vectors_test.go must retain genuine signed ABI 2-5 and recovery receipts."
+
+[finding.program-lifecycle-retired-transport]
+tests = ["test_program_lifecycle_current_transaction_codec", "test_program_lifecycle_historical_internal_coverage"]
+implementation = "All six committed lifecycle ABI vectors pass the SDK native payload decoder and ABI calldata encoder, then the real EIP-1559 signer/decoder with chain 125, destination 0x101d, exact calldata, recovered signer and keccak(raw) identity. Historical native payload/signature/bounds tests remain and pass mandatory raw transaction/key-pin arguments. Lifecycle submission, real per-operation receipts and stop/reopen recovery belong to the owners named below."
+remaining = "The shipping bind_signed_program_lifecycle still requires native Activity version 3 and cannot admit the signed EVM transactions; the existing receipt corpus has no lifecycle transactions. No deploy/upgrade/wind-down execution or recovered commitment is claimed."
+wiring = "Domain 9 SDK: services/agent/sdk/python/layerx_sdk/program_wire.py, program_lifecycle.py, agent_http.py and programs.py must bind and route lifecycle EIP-1559 transactions and authenticate each lifecycle operation's receipt, replacing the retired REST mutation boundary."
+wiring_recordings = "Domain 13 Programs: rpc/sequencer_receipt_vectors_test.go and the real 0x101d lifecycle fixture producer must publish deploy, upgrade, route, deprecate, tombstone and exit receipts with unknown-to-committed stop/reopen observations in tests/agent/sdk/python/recordings_22_33_701/program-lifecycle.json."
+
+[finding.program-trust-envelope-shape]
+tests = ["test_program_trust_envelope_shape_and_freshness", "test_program_trust_real_producer_envelope_over_http"]
+implementation = "Trust HTTP fixtures use lower-case achieved/unverified, achieved.rung and the exact requested/achieved/reason shape from agent_rpc.rs success_body/verification_json. Rollback, expiration and concurrent-head-change refusals remain. The producer's committed agent-http-success.json is replayed through real AgentEnvelopeTransport/ProductionClient with only correlation-id remapping; old capitalization and level are refused."
+provenance = "services/agent/crates/layerx-agentd/tests/rpc_surface_major_two.rs#agent_http_envelope_goldens_round_trip checks the exact committed producer golden; no Rust subprocess or alternate producer implementation is used by this gate."
+
+[finding.typed-program-verification-state]
+tests = ["test_typed_program_verification_state"]
+implementation = "Typed discovery/interface tests consume current lower-case unverified fixtures through real HTTP. A separate current-schema envelope case checks exact preservation of unverified and achieved.rung through the envelope client, then the production typed discovery decoder; neither server assertion promotes the typed evidence to locally verified commitment."
+wiring = "Domain 9 agent RPC: services/agent/crates/layerx-agentd/tests/rpc_surface_major_two.rs should retain genuine unverified and signed Programs discovery/interface goldens alongside the existing producer success golden so the typed case can replay operation-specific producer output unchanged."
+
+[finding.px-network-fixture-shape]
+tests = ["test_px_network_fixture_shape", "test_px_history_chain_pages_and_bounds", "test_px_chain_only_openrpc_contract_and_retired_anchor_refusal", "test_px_recorded_chain_125_root_answers_over_sdk_rpc", "test_px_current_network_numeric_bounds"]
+implementation = "Network fixtures use chain 125 and all current consensus fields; numeric tests enforce committed height <= block height and u64 bounds and reject anchor finality. OpenRPC and the bank ABI define current chain-only balance rows and uint256 amounts; loopback PxClient.call preserves those exact fields without a substitute typed decoder. Captured root answers from two documented numbered chain-125 nodes replay unchanged through PaymentRpc, including genuine method-unavailable errors. Existing null, pagination, row-ID and historical codec assertions remain; current committed history pages contain only Paxeer rows."
+remaining = "Typed bank balances still require joined_limit/custody; the history decoder still accepts retired layerx sides; PaymentRpc still restricts endpoint paths to /rpc. These production changes are outside scope. The inherited 128-bit quantity integration assertion remains unchanged; the focused proof separately exercises the actual bank/OpenRPC uint256 contract, including exact maximum and overflow refusal."
+wiring = "Domain 9 PX SDK: services/agent/sdk/python/layerx_sdk/px.py must decode current gateway/src/paxeer.rs bank-coin balances with height and reject retired kernel history joins while preserving null, canonical uint256 numeric and pagination bounds."
+wiring_endpoint = "Domain 9 transport: services/agent/sdk/python/layerx_sdk/x402_rpc.py must admit documented root node endpoints; current replay uses the existing /rpc SDK transport and never claims that prefix is a public node route."
+
+[gotcha.scope-and-baseline]
+observed = "Do not append GOTCHA.kvx or spec qualification records in this task: the direct user scope forbids both; record constraints and wiring here. The requested unchanged-tree baseline conflicts with the explicit bounded gate order and the repair test was absent at task start."
+assumption = "Follow the explicit Order and record only gates actually executed; do not invent baseline failures or external producer evidence."
+
+[qualification.first]
+revision = "06cbf13129bf4fbd8e1db984fc7c4667c690475f"
+command = "cg spec done 22.33.701 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "35 cases passed and 14 failed: three absent producer recordings, incomplete ABI receipt coverage, six legacy lifecycle binding refusals, two PX interface refusals and the two unrelated contradictions recorded below."
+assumption = "Keep every positive closure assertion and all original checks; missing genuine producer evidence and out-of-scope SDK changes remain wiring requests, not manufactured success."
+
+[qualification.unrelated-launchpad]
+revision = "06cbf13129bf4fbd8e1db984fc7c4667c690475f"
+command = "cg spec done 22.33.701 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The unchanged PrecompileCallsTest.test_every_write_encodes_its_abi_calldata fails equality between LAUNCHPAD_WRITES and the current ABI payable map before its retained perps refusals execute."
+assumption = "Domain 3 launchpad owns the ABI/generated-table contradiction; leave both the table and the equality assertion intact and do not re-investigate it."
+
+[qualification.unrelated-quantity-bound]
+revision = "06cbf13129bf4fbd8e1db984fc7c4667c690475f"
+command = "cg spec done 22.33.701 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The unchanged test_quantities_decode_exactly_and_never_as_floats expects a numeric refusal that the current px_quantity implementation accepts."
+assumption = "Domain 9 owns the consumer numeric-bound contradiction; preserve the original bound/assertion and do not broaden acceptance or re-investigate it."
+
+[gotcha.bytecode-candidate-drift]
+observed = "The explicit py_compile build created six __pycache__ files inside the directory scope; the runner force-included those bytecode files in the next candidate, changing build revision 09065928e93e39463ee3cd3136398567f9918e0b to verification revision 06cbf13129bf4fbd8e1db984fc7c4667c690475f."
+fix = "Remove task-generated bytecode files from the scoped tree and set PYTHONPYCACHEPREFIX to a private temporary directory for both bounded repair gates so build and verification inspect the same candidate; this does not alter or skip any test."
+
+
+[continuation.22.33.701]
+base_revision = "caa8b41ee668274ee1e5c1df6691288455c46278"
+ruling = "Apply the supplied attempt-2 continuation: remove tests whose sole prerequisite is another domain's missing execution recording; record wiring instead and retain SDK encoder/decoder proofs over committed fixtures. No missing recording is synthesized."
+baseline = "The supplied attempt-1 gate already reports 14 failures and 35 passes; this continuation does not repeat an unchanged gate or run pytest manually. Initial continuation ledger reports no gate runs used."
+removed_external_cases = "agent-restart-admission, exchange-post-activation and program-lifecycle recordings, and the all-five-guest execution corpus assertion, are owner wiring requests above. Six EVM lifecycle cases prove real codec agreement instead of demanding out-of-scope legacy binder changes."
+launchpad = "Expected selector booleans are derived independently from the committed direct ABI and its seven owning role artifacts, with exact table equality, SDK selector-set equality and selector collision refusal. The original generated SDK boolean equality remains unchanged in PrecompileCallsTest.test_launchpad_generated_write_mutability_matches_abi; the focused encoding proof still executes every perps retired-signature refusal."
+wiring_launchpad = "Domain 9 SDK generation with Domain 3 launchpad: services/agent/sdk/python/layerx_sdk/generated/precompile_writes.py and its generator must reconcile native-value acceptance with committed ABI mutability, including payable upgradeToAndCall versus precompiles/launchpad/run.go callKindRefusal; the preserved integration assertion is not claimed qualified."
+quantity = "The inherited test_quantities_decode_exactly_and_never_as_floats still asserts historical 128-bit limits unchanged; test_chain_quantities_decode_exactly_and_never_as_floats proves the bank ABI uint256 contract separately without loosening that inherited assertion."
+wiring_quantity = "Domain 9 PX SDK contract owner: reconcile the historical 128-bit assertion in tests/agent/sdk/python/test_px.py with services/agent/sdk/python/layerx_sdk/px.py and the bank/OpenRPC uint256 amount contract before claiming the aggregate historical suite qualified."
+root_recordings = "fixtures_22_33_701/chain-125-root.json contains exact read-only JSON-RPC requests, status, content type and responses from api1/api2 root paths. Both return eth_chainId 0x7d and method-unavailable errors for px_getNetwork/status; no consensus commitment is inferred from those errors. The focused gate requires no live endpoint."
+network_vectors = "NETWORK_UNAVAILABLE and BALANCES are explicitly OpenRPC schema vectors, not purported gateway recordings. Current positive network consensus fields follow the producer contract; unavailable consensus remains unavailable and cannot become an anchor join."
+external_closure = "The scoped tests prove their named codecs, schema and transport behavior only; stop/reopen journal evidence, activated exchange execution, all-five-guest execution, lifecycle submission/recovery and typed PX interface repairs remain unqualified owner work."
+
+[gotcha.root-versus-sdk-route]
+observed = "Documented public nodes answer chain-only eth reads at / and may refuse hosted PX and consensus status methods; the Python PaymentRpc constructor currently accepts only /rpc."
+fix = "Capture genuine root responses once, replay them offline through the existing SDK transport, and record the root endpoint change with Domain 9 instead of mutating an out-of-scope client or fabricating a hosted success."

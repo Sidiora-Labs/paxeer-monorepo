@@ -1,0 +1,36 @@
+[repair.22.33.958]
+audit = "22.30.28"
+base_revision = "0e1d5eb94cabe89e2260279a849b7154911ef8ee"
+qualification = "The runner-owned hf-build/hf-done ledger binds the unchanged candidate revision to command, exit status and private evidence; no gate is claimed before execution."
+baseline = "Not run: the explicit implementation-first order and hf-done-only verification prohibit the conflicting unchanged-tree verification instruction. No pre-change failure is claimed."
+
+[finding.push-origin-slash]
+test = "TestRepairM_958_PushOriginSlash"
+repair = "Retain only the validated scheme and authority before constructing Worker."
+proof = "Both admitted origin spellings drive RecipientConsumer, production SQL inbox/outbox, AccountClient consent and target reads, Worker.Once, APNS payload generation, loopback TLS delivery and committed sent state. All three adapters still reject malformed or insecure notification links."
+
+[finding.runtime-positive-path-proof]
+test = "TestRepairM_958_RuntimePositivePath"
+repair = "Add authenticated runtime route coverage through the shared MTLSIdentityAuthority, real source authorities, SQL inbox producer/store, and frozen Go response consumers."
+proof = "Exercise startup refusal, positive Run/Ready, authenticated list/read, unauthenticated and spoofed refusal, source projection, first-read persistence and producer replay after stopping the runtime and reopening its SQL engine, then database-loss refusal."
+fixtures = "The SQL peer is a pure Go in-process WASI engine shipped by a pinned module and accessed with the production pgx driver. Identity/account peers run as CA-verified loopback TLS servers using the production principal codec and service-assertion verifier. Test-generated secrets and certificates require no supplied environment, credential, native artifact, executable or live service."
+limits = "The bounded Go gate does not launch the deployed API or the identity session issuer; it drives their shared authority protocol and notification consumer in-process."
+
+[wiring.identity-producer]
+request = "services/launchpad/api/internal/app and services/launchpad/gateway — launchpad API and identity owners: retain a deployment integration proof using the real session issuer with the same MTLSIdentityAuthority and persistent PostgreSQL deployment; this notifications-only gate covers the shared client, verified transport, SQL behavior and runtime consumer."
+
+[gotcha.embedded-sql]
+symptom = "A WASI SQL fixture needs a PostgreSQL wire driver and a persistent data directory to preserve types, repeated query parameters and recovery semantics."
+repair = "Use the pinned go-pglite engine with pgx and reopen the same temporary data directory; do not replay database results or imitate store state."
+
+[gotcha.toolchain-scope]
+symptom = "Installing the embedded SQL test dependency upgraded the enclosing workspace's Go directive."
+repair = "Restore that incidental parent-workspace edit and keep the required Go version in the in-scope module and local go.work so gates resolve the same isolated dependency graph."
+
+[qualification.initial]
+revision = "742ec16a35866f612bb698dbd77476fb88d9df2e"
+command = "cg spec done 22.33.958 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The runtime positive/recovery proof passed; both push subcases failed because the loopback provider certificate was checked against the public APNS hostname."
+repair = "Derive the loopback TLS server name from the test server address, retain its trusted certificate roots and full verification, and continue asserting the original APNS request destination in the dialer."

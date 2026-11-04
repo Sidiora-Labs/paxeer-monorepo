@@ -15,9 +15,28 @@ import (
 	"math/big"
 	"net/http"
 	"net/url"
+	"regexp"
 	"sync/atomic"
 	"time"
 )
+
+// Persisted amounts use at most 78 integer and 18 fractional decimal digits.
+// PostgreSQL numeric and the pgx numeric codec accept this exact representation.
+const usageIntegerDigits = 78
+const usageFractionDigits = 18
+
+var usageDecimal = regexp.MustCompile(`^(0|[1-9][0-9]{0,77})(\.[0-9]{1,18})?$`)
+
+func parseUsageDecimal(value string) (*big.Rat, error) {
+	if len(value) > usageIntegerDigits+1+usageFractionDigits || !usageDecimal.MatchString(value) {
+		return nil, ErrInvalid
+	}
+	n, ok := new(big.Rat).SetString(value)
+	if !ok {
+		return nil, ErrInvalid
+	}
+	return n, nil
+}
 
 type UsageRecord struct {
 	ProviderEvent, OperationID                                              string
@@ -39,8 +58,8 @@ func EstimateSpend(s SpendScenario) (SpendEstimate, error) {
 	if s.Viewers == 0 || s.BitrateBitsPerSecond == 0 || s.DurationSeconds == 0 {
 		return SpendEstimate{}, ErrInvalid
 	}
-	price, ok := new(big.Rat).SetString(s.DeliveryPricePerTB)
-	if !ok || price.Sign() < 0 {
+	price, err := parseUsageDecimal(s.DeliveryPricePerTB)
+	if err != nil {
 		return SpendEstimate{}, ErrInvalid
 	}
 	bits := new(big.Int).Mul(new(big.Int).SetUint64(s.Viewers), new(big.Int).SetUint64(s.BitrateBitsPerSecond))
@@ -50,15 +69,21 @@ func EstimateSpend(s SpendScenario) (SpendEstimate, error) {
 	cost := new(big.Rat).Mul(tb, price)
 	return SpendEstimate{DeliveryBytes: bytes.FloatString(0), DeliveryTB: tb.FloatString(6), DeliveryCost: cost.FloatString(6)}, nil
 }
-func (s *LifecycleStore) RecordUsage(ctx context.Context, r UsageRecord) error {
+func (r UsageRecord) Validate() error {
 	if !identityPattern.MatchString(r.ProviderEvent) || !frozenUUID.MatchString(r.OperationID) {
 		return ErrInvalid
 	}
 	for _, value := range []string{r.ViewerMinutes, r.TranscodeMinutes, r.StorageBytes, r.DeliveryBytes, r.CostUnits} {
-		n, ok := new(big.Rat).SetString(value)
-		if !ok || n.Sign() < 0 || len(value) > 100 {
-			return ErrInvalid
+		if _, err := parseUsageDecimal(value); err != nil {
+			return err
 		}
+	}
+	return nil
+}
+
+func (s *LifecycleStore) RecordUsage(ctx context.Context, r UsageRecord) error {
+	if err := r.Validate(); err != nil {
+		return err
 	}
 	bounded, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
@@ -88,12 +113,12 @@ func (s *LifecycleStore) RecordUsage(ctx context.Context, r UsageRecord) error {
 	return nil
 }
 func BudgetThresholds(spent, budget string) ([]int, error) {
-	s, ok := new(big.Rat).SetString(spent)
-	if !ok || s.Sign() < 0 {
+	s, err := parseUsageDecimal(spent)
+	if err != nil {
 		return nil, ErrInvalid
 	}
-	b, ok := new(big.Rat).SetString(budget)
-	if !ok || b.Sign() <= 0 {
+	b, err := parseUsageDecimal(budget)
+	if err != nil || b.Sign() <= 0 {
 		return nil, ErrInvalid
 	}
 	ratio := new(big.Rat).Quo(s, b)
@@ -125,8 +150,8 @@ func (p *BudgetPolicy) Validate() error {
 		return ErrInvalid
 	}
 	for _, value := range []string{p.MonthlyUnits, p.BroadcastReserveUnits, p.DeliveryPricePerTB} {
-		n, ok := new(big.Rat).SetString(value)
-		if !ok || n.Sign() <= 0 || len(value) > 100 {
+		n, err := parseUsageDecimal(value)
+		if err != nil || n.Sign() <= 0 {
 			return ErrInvalid
 		}
 	}
@@ -220,12 +245,33 @@ func (p *BudgetPolicy) ValidateVendor() error {
 		return ErrInvalid
 	}
 	for _, price := range []string{p.DeliveryPricePerMinute, p.TranscodePricePerMinute, p.StoragePricePerMinute} {
-		n, ok := new(big.Rat).SetString(price)
-		if !ok || n.Sign() < 0 || len(price) > 100 {
+		_, err := parseUsageDecimal(price)
+		if err != nil {
 			return ErrInvalid
 		}
 	}
 	return nil
+}
+
+func calculateUsageCost(minutes, prices []string) (string, error) {
+	if len(minutes) != 3 || len(prices) != 3 {
+		return "", ErrInvalid
+	}
+	cost := new(big.Rat)
+	for i, minute := range minutes {
+		unit, unitErr := parseUsageDecimal(minute)
+		price, priceErr := parseUsageDecimal(prices[i])
+		if unitErr != nil || priceErr != nil {
+			return "", ErrInvalid
+		}
+		cost.Add(cost, new(big.Rat).Mul(unit, price))
+	}
+	costUnits := cost.FloatString(usageFractionDigits)
+	exactCost, err := parseUsageDecimal(costUnits)
+	if err != nil || exactCost.Cmp(cost) != 0 {
+		return "", ErrInvalid
+	}
+	return costUnits, nil
 }
 
 type VendorUsageWorker struct {
@@ -249,20 +295,18 @@ func (w *VendorUsageWorker) Step(ctx context.Context) error {
 	if err != nil {
 		return ErrUnavailable
 	}
+	if _, err = parseUsageDecimal(viewerMinutes); err != nil {
+		return ErrUnavailable
+	}
 	prices := []string{w.Store.Budget.DeliveryPricePerMinute, w.Store.Budget.TranscodePricePerMinute, w.Store.Budget.StoragePricePerMinute}
 	minutes := []string{usage.DeliveryMinutes.String(), usage.TranscodeMinutes.String(), usage.StorageMinutes.String()}
-	cost := new(big.Rat)
-	for i, minute := range minutes {
-		unit, ok := new(big.Rat).SetString(minute)
-		price, valid := new(big.Rat).SetString(prices[i])
-		if !ok || !valid || unit.Sign() < 0 || price.Sign() < 0 {
-			return ErrUnavailable
-		}
-		cost.Add(cost, new(big.Rat).Mul(unit, price))
+	costUnits, err := calculateUsageCost(minutes, prices)
+	if err != nil {
+		return err
 	}
 	bounded, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	_, err = w.Store.pool.Exec(bounded, fmt.Sprintf("INSERT INTO %s.stream_vendor_usage(period_start,vendor_user_id,viewer_minutes,delivery_minutes,transcode_minutes,storage_minutes,delivery_bytes,storage_bytes,cost_units,query_from,query_to,source_revision) VALUES($1,$2,$10,$3,$4,$5,NULL,NULL,$6,$9,$7,$8) ON CONFLICT(period_start,vendor_user_id) DO UPDATE SET viewer_minutes=excluded.viewer_minutes,delivery_minutes=excluded.delivery_minutes,transcode_minutes=excluded.transcode_minutes,storage_minutes=excluded.storage_minutes,cost_units=excluded.cost_units,query_to=excluded.query_to,fetched_at=clock_timestamp() WHERE stream_vendor_usage.query_to<=excluded.query_to", w.Store.schema), from.Format("2006-01-02"), usage.UserID, minutes[0], minutes[1], minutes[2], cost.FloatString(18), now, livepeer.UsageSDKSourceRevision, from, viewerMinutes)
+	_, err = w.Store.pool.Exec(bounded, fmt.Sprintf("INSERT INTO %s.stream_vendor_usage(period_start,vendor_user_id,viewer_minutes,delivery_minutes,transcode_minutes,storage_minutes,delivery_bytes,storage_bytes,cost_units,query_from,query_to,source_revision) VALUES($1,$2,$10,$3,$4,$5,NULL,NULL,$6,$9,$7,$8) ON CONFLICT(period_start,vendor_user_id) DO UPDATE SET viewer_minutes=excluded.viewer_minutes,delivery_minutes=excluded.delivery_minutes,transcode_minutes=excluded.transcode_minutes,storage_minutes=excluded.storage_minutes,cost_units=excluded.cost_units,query_to=excluded.query_to,fetched_at=clock_timestamp() WHERE stream_vendor_usage.query_to<=excluded.query_to", w.Store.schema), from.Format("2006-01-02"), usage.UserID, minutes[0], minutes[1], minutes[2], costUnits, now, livepeer.UsageSDKSourceRevision, from, viewerMinutes)
 	if err != nil {
 		return err
 	}

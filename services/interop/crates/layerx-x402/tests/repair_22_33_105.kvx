@@ -1,0 +1,63 @@
+[task.22.33.105]
+status = "awaiting-qualification"
+audit = "22.30.111"
+base = "2b502183a86af3a2498748de6572b1bde20e4768"
+criterion = "22998.1"
+baseline = "Not run: the explicit implementation-first gate order forbids the contradictory do_11 unchanged-tree verify; the declared repair target did not exist on the base. No baseline test failures are claimed."
+evidence = "Exact candidate revision, command, exit and private evidence log are recorded by hf-build/hf-done; no passing gate is claimed by this source record."
+continuation = "Attempt 1's declared verify failed finding_34_buyer_refuses_missing_plane_key and finding_34_buyer_refuses_conflicting_plane_key; its other seven cases passed. Attempt 2 keeps those cases and repairs the now-in-scope producer diagnostics and durable native capture recovery."
+
+[finding.34]
+test = "finding_34_buyer_wire_identity_reaches_native_settlement; finding_34_buyer_refuses_missing_plane_key; finding_34_buyer_refuses_conflicting_plane_key"
+proof = "Buyer output is decoded as PAYMENT-SIGNATURE, delivered to Seller::settle and captured from the unchanged producer response; receipt topic, gateway key and buyer identity must agree."
+implementation = "Buyer::build_payment requires a nonzero native plane idempotencyKey matching the requested identity and names missing, malformed and conflicting key defects; both construction-refusal tests assert the exact traced error."
+
+[finding.35]
+test = "finding_35_independent_consensus_anchor_and_validator_progression"
+proof = "Independently configured network/chain/header fixture authenticates genuine sequencer receipts and signed validator transitions; foreign chains, response-selected validators, skipped successors and corrupt signatures are refused."
+wiring = "services/interop/crates/layerx-interop-service/src/server.rs — domain 11: provision independently authenticated network consensus checkpoints before committed buyer capture."
+
+[finding.37]
+test = "finding_37_build_submit_settle_transport_capture"
+proof = "Buyer build and Seller pending/settled paths cross HTTP, MCP and A2A codecs into buyer capture, checking independent signed receipt digest, native payment reference and debit/credit observations."
+claim = "Committed canonical receipt and payment-plane fixtures are peers; this is adapter integration, not independent x402 implementation qualification or native execution."
+
+[finding.33]
+test = "finding_33_identifier_case_prefix_and_refusals"
+proof = "All 16 independent asset/payTo case/prefix combinations use production Seller evidence through all transports and Buyer; wrong width, malformed digits and different identifiers remain refusals."
+
+[finding.31]
+test = "finding_31_facilitator_transport_buyer_uses_unchanged_extension"
+proof = "Production Facilitator receipted/committed responses pass through every transport into Buyer unchanged; malformed logs and proofs are rejected."
+
+[finding.32]
+test = "finding_32_renderer_vectors_reach_buyer_capture"
+proof = "Deterministic current fixtures are regenerated in memory by the production facilitator renderer and consumed by Buyer for receipted, submitted, committed-without-proof and committed cases; historical wire snapshots retain their original assertions separately."
+wiring = "services/interop/specs/conformance/x402/sequenced-settlement.json — domain 11: replace the historical two-field signedReceipt corpus with the canonical renderer output after consumer migration."
+
+[finding.36]
+test = "finding_36_reopened_transcript_peer_preserves_native_identity"
+proof = "The production SettlementStore stops and reopens after pending and lost acknowledgement, reauthenticates the real facilitator output, and retains one immutable native identity across duplicate HTTP/MCP/A2A delivery, with unchanged receipt digest, transaction, reference, debit sequence and signed balance observations; untrusted and corrupt reopen are refused."
+claim = "Per the continuation ruling, recovery is in-process against the crate's durable capture store; economic observations are authenticated native receipt evidence, not a claim of executing the external native ledger in this gate."
+wiring = "services/interop/crates/layerx-interop-service/src/relay.rs — domain 11: wire durable native capture recovery into the hosted service; modules/layerxledger — domain 2: supply authoritative payExact execution observations for the native execution gate."
+
+[qualification.repair.1]
+revision = "d59d3cceb2660e2b22388049c87cc122655d7ef3"
+command = "cargo build --locked --manifest-path services/interop/crates/layerx-x402/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "Receipt::Protocol owns balance fields; repaired task tests to require that variant before asserting ledger observations."
+
+[qualification.continuation.repair.1]
+revision = "9e5aa6cbb26013d039ae353060e445a2783d2ea1"
+command = "cargo build --locked --manifest-path services/interop/crates/layerx-x402/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The pending-response matches guard consumed a traced error; use the borrowed error accessor without changing the assertion."
+
+[qualification.continuation.repair.2]
+revision = "cac9f30ca8b88fa389e28576b3def857b55a47e4"
+command = "cg spec done 22.33.105 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Eight cases passed; the store forwarded the buyer's generic unsuccessful-response refusal for a validated pending response, so classify settlement_pending as PaymentPending before any persistence."

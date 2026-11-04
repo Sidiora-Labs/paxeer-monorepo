@@ -34,6 +34,9 @@ var _ privvalproto.PrivValidatorAPIServer = (*SignerServer)(nil)
 // returns the pubkey on success and error on failure
 func (ss *SignerServer) GetPubKey(ctx context.Context, req *privvalproto.PubKeyRequest) (
 	*privvalproto.PubKeyResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "missing public key request")
+	}
 	if req.ChainId != ss.chainID {
 		return nil, status.Errorf(codes.InvalidArgument, "chain ID mismatch: got %q, want %q", req.ChainId, ss.chainID)
 	}
@@ -50,6 +53,9 @@ func (ss *SignerServer) GetPubKey(ctx context.Context, req *privvalproto.PubKeyR
 // SignVote receives a vote sign requests, attempts to sign it
 // returns SignedVoteResponse on success and error on failure
 func (ss *SignerServer) SignVote(ctx context.Context, req *privvalproto.SignVoteRequest) (*privvalproto.SignedVoteResponse, error) {
+	if req == nil || req.Vote == nil {
+		return nil, status.Error(codes.InvalidArgument, "missing vote payload")
+	}
 	if req.ChainId != ss.chainID {
 		return nil, status.Errorf(codes.InvalidArgument, "chain ID mismatch: got %q, want %q", req.ChainId, ss.chainID)
 	}
@@ -71,6 +77,9 @@ func (ss *SignerServer) SignVote(ctx context.Context, req *privvalproto.SignVote
 // SignProposal receives a proposal sign requests, attempts to sign it
 // returns SignedProposalResponse on success and error on failure
 func (ss *SignerServer) SignProposal(ctx context.Context, req *privvalproto.SignProposalRequest) (*privvalproto.SignedProposalResponse, error) {
+	if req == nil || req.Proposal == nil {
+		return nil, status.Error(codes.InvalidArgument, "missing proposal payload")
+	}
 	if req.ChainId != ss.chainID {
 		return nil, status.Errorf(codes.InvalidArgument, "chain ID mismatch: got %q, want %q", req.ChainId, ss.chainID)
 	}

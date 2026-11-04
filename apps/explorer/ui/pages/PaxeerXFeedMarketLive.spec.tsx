@@ -202,10 +202,11 @@ describe('PaxeerXFeedMarket live updates', () => {
         fireEvent.mouseLeave(table);
 
         await waitFor(() => {
-          expect(updateHashes(container)).toEqual(retained);
+          expect(updateHashes(container)).toEqual([ ...retained, ...initial ]);
         }, { timeout: 10_000 });
 
-        expect(updateHashes(container)).toHaveLength(FEED_HISTORY_BUFFER_LIMIT);
+        expect(updateHashes(container)).toHaveLength(FEED_HISTORY_BUFFER_LIMIT + initial.length);
+        expect(new Set(updateHashes(container)).size).toBe(FEED_HISTORY_BUFFER_LIMIT + initial.length);
         discarded.forEach((hash) => {
           expect(rendered.has(hash)).toBe(false);
           expect(container.querySelector(`[data-update="${ hash }"]`)).toBeNull();

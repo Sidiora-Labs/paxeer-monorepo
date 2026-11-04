@@ -21,6 +21,15 @@ import (
 
 var _ indexer.TxIndexer = (*TxIndex)(nil)
 
+// UnsupportedHashOperatorError reports a hash predicate that cannot use an exact lookup.
+type UnsupportedHashOperatorError struct {
+	Operator syntax.Token
+}
+
+func (e *UnsupportedHashOperatorError) Error() string {
+	return fmt.Sprintf("unsupported operator %s for %s", e.Operator, types.TxHashKey)
+}
+
 // TxIndex is the simplest possible indexer
 // It is backed by two kv stores:
 // 1. txhash - result  (primary key)
@@ -46,6 +55,13 @@ func (txi *TxIndex) Get(hash []byte) (*abci.TxResultV2, error) {
 	rawBytes, err := txi.store.Get(primaryKey(hash))
 	if err != nil {
 		panic(err)
+	}
+	// Deprecated indexes store the serialized result under the raw hash.
+	if rawBytes == nil {
+		rawBytes, err = txi.store.Get(hash)
+		if err != nil {
+			panic(err)
+		}
 	}
 	if rawBytes == nil {
 		return nil, nil
@@ -131,8 +147,8 @@ func (txi *TxIndex) indexEvents(result *abci.TxResultV2, hash []byte, store dbm.
 // Search performs a search using the given query.
 //
 // It breaks the query into conditions (like "tx.height > 5"). For each
-// condition, it queries the DB index. One special use cases here: (1) if
-// "tx.hash" is found, it returns tx result for it (2) for range queries it is
+// condition, it queries the DB index. Two special cases here: (1) equality on
+// "tx.hash" seeds the intersection with a direct lookup (2) for range queries it is
 // better for the client to provide both lower and upper bounds, so we are not
 // performing a full scan. Results from querying indexes are then intersected
 // and returned to the caller, in no particular order.
@@ -153,24 +169,37 @@ func (txi *TxIndex) Search(ctx context.Context, q *query.Query) ([]*abci.TxResul
 	// get a list of conditions (like "tx.height > 5")
 	conditions := q.Syntax()
 
-	// if there is a hash condition, return the result immediately
-	hash, ok, err := lookForHash(conditions)
-	if err != nil {
-		return nil, fmt.Errorf("error during searching for a hash in the query: %w", err)
-	} else if ok {
-		res, err := txi.Get(hash)
-		switch {
-		case err != nil:
-			return []*abci.TxResultV2{}, fmt.Errorf("error while retrieving the result: %w", err)
-		case res == nil:
-			return []*abci.TxResultV2{}, nil
-		default:
-			return []*abci.TxResultV2{res}, nil
-		}
-	}
-
 	// conditions to skip because they're handled before "everything else"
 	skipIndexes := make([]int, 0)
+	var err error
+	// Validate every hash predicate, even if another condition has no matches.
+	// Hash equality narrows the candidate set; the other predicates still apply.
+	for i, c := range conditions {
+		if c.Tag != types.TxHashKey {
+			continue
+		}
+		if c.Op != syntax.TEq {
+			return nil, &UnsupportedHashOperatorError{Operator: c.Op}
+		}
+		hash, err := hex.DecodeString(c.Arg.Value())
+		if err != nil {
+			return nil, fmt.Errorf("error decoding hash in the query: %w", err)
+		}
+		if len(hash) == 0 {
+			return nil, indexer.ErrorEmptyHash
+		}
+		if !hashesInitialized {
+			filteredHashes[string(hash)] = hash
+			hashesInitialized = true
+		} else {
+			for key := range filteredHashes {
+				if key != string(hash) {
+					delete(filteredHashes, key)
+				}
+			}
+		}
+		skipIndexes = append(skipIndexes, i)
+	}
 
 	// extract ranges
 	// if both upper and lower bounds exist, it's better to get them in order not
@@ -246,16 +275,6 @@ hashes:
 	return results, nil
 }
 
-func lookForHash(conditions []syntax.Condition) (hash []byte, ok bool, err error) {
-	for _, c := range conditions {
-		if c.Tag == types.TxHashKey {
-			decoded, err := hex.DecodeString(c.Arg.Value())
-			return decoded, true, err
-		}
-	}
-	return
-}
-
 // lookForHeight returns a height if there is an "height=X" condition.
 func lookForHeight(conditions []syntax.Condition) (height int64) {
 	for _, c := range conditions {
@@ -306,6 +325,38 @@ func (txi *TxIndex) match(
 			}
 		}
 		if err := it.Error(); err != nil {
+			panic(err)
+		}
+
+		// Deprecated event keys use tag/value/height/index rather than orderedcode.
+		legacyPrefix := fmt.Sprintf("%s/%s/", c.Tag, c.Arg.Value())
+		legacyIt, err := dbm.IteratePrefix(txi.store, []byte(legacyPrefix))
+		if err != nil {
+			panic(err)
+		}
+		defer func() { _ = legacyIt.Close() }()
+	legacyEqual:
+		for ; legacyIt.Valid(); legacyIt.Next() {
+			// A complete key must end with a numeric height and transaction index.
+			suffix := strings.TrimPrefix(string(legacyIt.Key()), fmt.Sprintf("%s/%s/", c.Tag, c.Arg.Value()))
+			parts := strings.Split(suffix, "/")
+			if len(parts) != 2 {
+				continue
+			}
+			if _, err := strconv.ParseInt(parts[0], 10, 64); err != nil {
+				continue
+			}
+			if _, err := strconv.ParseUint(parts[1], 10, 32); err != nil {
+				continue
+			}
+			tmpHashes[string(legacyIt.Value())] = legacyIt.Value()
+			select {
+			case <-ctx.Done():
+				break legacyEqual
+			default:
+			}
+		}
+		if err := legacyIt.Error(); err != nil {
 			panic(err)
 		}
 

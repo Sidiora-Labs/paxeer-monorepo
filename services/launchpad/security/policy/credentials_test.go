@@ -76,3 +76,74 @@ func TestCredentialInventoryRejectsUnboundedAuthority(t *testing.T) {
 		}
 	}
 }
+
+func TestRepairColumnGrantsAndOwnerViews(t *testing.T) {
+	pool, owned := realSecurityDatabase(t)
+	ctx := context.Background()
+	foreign := owned + "_foreign"
+	role, inherited := owned+"_reader", owned+"_writer"
+	f, r, parent := pgx.Identifier{foreign}.Sanitize(), pgx.Identifier{role}.Sanitize(), pgx.Identifier{inherited}.Sanitize()
+	if _, err := pool.Exec(ctx, "CREATE SCHEMA "+f+";CREATE TABLE "+f+".private_records(id integer,secret text);INSERT INTO "+f+".private_records VALUES(1,'private');CREATE VIEW "+f+".owner_read AS SELECT id FROM "+f+".private_records;CREATE ROLE "+r+" NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS INHERIT;CREATE ROLE "+parent+" NOLOGIN;GRANT USAGE ON SCHEMA "+f+" TO "+r+";GRANT SELECT ON "+f+".owner_read TO "+r); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if _, err := pool.Exec(context.Background(), "DROP SCHEMA "+f+" CASCADE;DROP OWNED BY "+r+", "+parent+";DROP ROLE "+r+", "+parent); err != nil {
+			t.Error(err)
+		}
+	})
+	config := pool.Config().Copy()
+	config.AfterConnect = func(ctx context.Context, conn *pgx.Conn) error {
+		_, err := conn.Exec(ctx, "SET ROLE "+r)
+		return err
+	}
+	limited, err := pgxpool.NewWithConfig(ctx, config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer limited.Close()
+	if err := ValidateDatabaseRole(ctx, limited, owned); err != nil {
+		t.Fatal("owner view reader rejected", err)
+	}
+	var id int
+	if err := limited.QueryRow(ctx, "SELECT id FROM "+f+".owner_read").Scan(&id); err != nil || id != 1 {
+		t.Fatal("permitted owner-view read", id, err)
+	}
+	for _, privilege := range []string{"INSERT", "UPDATE"} {
+		for _, indirect := range []bool{false, true} {
+			recipient := r
+			if indirect {
+				recipient = parent
+				if _, err := pool.Exec(ctx, "GRANT "+parent+" TO "+r); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if _, err := pool.Exec(ctx, "GRANT "+privilege+"(secret) ON "+f+".private_records TO "+recipient); err != nil {
+				t.Fatal(err)
+			}
+			var tableRight, columnRight bool
+			if err := limited.QueryRow(ctx, "SELECT has_table_privilege(current_user,$1,$2),has_any_column_privilege(current_user,$1,$2)", f+".private_records", privilege).Scan(&tableRight, &columnRight); err != nil || tableRight || !columnRight {
+				t.Fatal("fixture must exercise effective column-only rights", tableRight, columnRight, err)
+			}
+			if err := ValidateDatabaseRole(ctx, limited, owned); err != ErrDenied {
+				t.Fatal("foreign column authority accepted", privilege, indirect, err)
+			}
+			if _, err := pool.Exec(ctx, "REVOKE "+privilege+"(secret) ON "+f+".private_records FROM "+recipient); err != nil {
+				t.Fatal(err)
+			}
+			if indirect {
+				if _, err := pool.Exec(ctx, "REVOKE "+parent+" FROM "+r); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := ValidateDatabaseRole(ctx, limited, owned); err != nil {
+				t.Fatal("revoked column grant remained effective", err)
+			}
+		}
+	}
+	if _, err := pool.Exec(ctx, "ALTER TABLE "+f+".private_records OWNER TO "+parent+";GRANT "+parent+" TO "+r); err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateDatabaseRole(ctx, limited, owned); err != ErrDenied {
+		t.Fatal("inherited foreign table ownership accepted", err)
+	}
+}

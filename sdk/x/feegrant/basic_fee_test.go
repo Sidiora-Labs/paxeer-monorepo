@@ -122,6 +122,7 @@ func TestBasicFeeValidAllow(t *testing.T) {
 			fee:       bigAtom,
 			blockTime: oneHour,
 			accept:    false,
+			remove:    true,
 		},
 	}
 
@@ -135,13 +136,13 @@ func TestBasicFeeValidAllow(t *testing.T) {
 
 			// now try to deduct
 			removed, err := tc.allowance.Accept(ctx, tc.fee, []sdk.Msg{})
+			require.Equal(t, tc.remove, removed)
 			if !tc.accept {
 				require.Error(t, err)
 				return
 			}
 			require.NoError(t, err)
 
-			require.Equal(t, tc.remove, removed)
 			if !removed {
 				assert.Equal(t, tc.allowance.SpendLimit, tc.remains)
 			}

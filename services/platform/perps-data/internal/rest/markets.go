@@ -125,24 +125,33 @@ func (m *Markets) serveHealth(w http.ResponseWriter, r *http.Request) {
 // marketRecordsSQL builds the records of perps.markets ($3 null) or of the
 // market whose symbol is $3: windows, open interest and the 24 hour change of
 // the last fill price against the first fill of the window from
-// perps.market_stats_rolling, mark, index and basis from the latest
-// MarkPriceUpdated, the settled hourly rate and eight times it of the latest
-// FundingSettled as exact decimal strings, the 24 hour contract and liquidation volumes from the
+// perps.market_stats_rolling, the latest mark and the latest successful index
+// from either price producer (the same selection as records.Symbol), the settled
+// hourly rate and eight times it of the latest FundingSettled as exact decimal
+// strings, the 24 hour contract and liquidation volumes from the
 // fills since $2, and the open interest in contracts from the open positions.
 const marketRecordsSQL = `SELECT m.market_id::text, m.symbol, m.name,
 	(s.last_price - s.open_24h) / NULLIF(s.open_24h, 0),
 	COALESCE(s.volume_24h, 0) / $1::numeric, COALESCE(s.volume_7d, 0) / $1::numeric, COALESCE(s.volume_30d, 0) / $1::numeric,
 	COALESCE(s.trades_count, 0),
 	COALESCE(s.open_interest_long, 0) / $1::numeric, COALESCE(s.open_interest_short, 0) / $1::numeric,
-	mp.mark_price / $1::numeric, mp.index_price / $1::numeric,
-	round((mp.mark_price - mp.index_price) * 10000 / NULLIF(mp.index_price, 0), 3), mp.block_time,
+	mp.mark_price / $1::numeric, ip.index_price / $1::numeric,
+	round((mp.mark_price - ip.index_price) * 10000 / NULLIF(ip.index_price, 0), 3), ip.block_time,
 	fs.hourly, fs.eight,
 	COALESCE(w.volume, 0) / $1::numeric, COALESCE(w.contracts, 0), COALESCE(w.liq_volume, 0) / $1::numeric,
 	` + feeds.OIContractsSQL + `
 FROM perps.markets m
 LEFT JOIN perps.market_stats_rolling s ON s.market_id = m.market_id
-LEFT JOIN LATERAL (SELECT mark_price, index_price, block_time FROM perps.mark_prices WHERE market_id = m.market_id
+LEFT JOIN LATERAL (SELECT mark_price FROM perps.mark_prices WHERE market_id = m.market_id
 	ORDER BY block DESC, tx_index DESC, log_index DESC, sub DESC LIMIT 1) mp ON true
+LEFT JOIN LATERAL (SELECT index_price, block_time FROM (
+	(SELECT block, tx_index, log_index, sub, index_price, block_time FROM perps.mark_prices
+		WHERE market_id = m.market_id ORDER BY block DESC, tx_index DESC, log_index DESC, sub DESC LIMIT 1)
+	UNION ALL
+	(SELECT block, tx_index, log_index, sub, index_price, block_time FROM perps.index_prices
+		WHERE market_id = m.market_id AND kind = 'aggregate' AND index_price IS NOT NULL
+		ORDER BY block DESC, tx_index DESC, log_index DESC, sub DESC LIMIT 1)
+) latest_index ORDER BY block DESC, tx_index DESC, log_index DESC, sub DESC LIMIT 1) ip ON true
 LEFT JOIN LATERAL (SELECT ` + records.LastFundingRateHourlySQL + ` AS hourly, ` + records.Funding8hSQL + ` AS eight
 	FROM perps.funding_settlements WHERE market_id = m.market_id
 	ORDER BY block DESC, tx_index DESC, log_index DESC, sub DESC LIMIT 1) fs ON true

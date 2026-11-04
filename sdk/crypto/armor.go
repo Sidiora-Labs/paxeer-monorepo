@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/crypto"
 	"github.com/tendermint/crypto/bcrypt"
@@ -60,6 +61,16 @@ func DecodeArmor(armorStr string) (blockType string, headers map[string]string, 
 const nonceLen = 24
 const secretLen = 32
 
+// ErrCiphertextDecryptionFailed identifies a failed secretbox authentication.
+var ErrCiphertextDecryptionFailed = errors.New("ciphertext decryption failed")
+
+const (
+	privKeyArmorVersion = "1"
+	legacyArmorCost     = 12
+	// Bound work requested by untrusted imports, well below bcrypt's maximum of 31.
+	maxArmorCost = 16
+)
+
 // secret must be 32 bytes long. Use something like Sha256(Bcrypt(passphrase))
 // The ciphertext is (secretbox.Overhead + 24) bytes longer than the plaintext.
 func EncryptSymmetric(plaintext []byte, secret []byte) (ciphertext []byte) {
@@ -83,7 +94,7 @@ func DecryptSymmetric(ciphertext []byte, secret []byte) (plaintext []byte, err e
 	if len(secret) != secretLen {
 		panic(fmt.Sprintf("Secret must be 32 bytes long, got len %v", len(secret)))
 	}
-	if len(ciphertext) <= secretbox.Overhead+nonceLen {
+	if len(ciphertext) < secretbox.Overhead+nonceLen {
 		return nil, errors.New("ciphertext is too short")
 	}
 	nonce := ciphertext[:nonceLen]
@@ -94,24 +105,16 @@ func DecryptSymmetric(ciphertext []byte, secret []byte) (plaintext []byte, err e
 	plaintext = make([]byte, len(ciphertext)-nonceLen-secretbox.Overhead)
 	_, ok := secretbox.Open(plaintext[:0], ciphertext[nonceLen:], &nonceArr, &secretArr)
 	if !ok {
-		return nil, errors.New("ciphertext decryption failed")
+		return nil, ErrCiphertextDecryptionFailed
 	}
 	return plaintext, nil
 }
 
-// BcryptSecurityParameter is security parameter var, and it can be changed within the lcd test.
-// Making the bcrypt security parameter a var shouldn't be a security issue:
-// One can't verify an invalid key by maliciously changing the bcrypt
-// parameter during a runtime vulnerability. The main security
-// threat this then exposes would be something that changes this during
-// runtime before the user creates their key. This vulnerability must
-// succeed to update this to that same value before every subsequent call
-// to the keys command in future startups / or the attacker must get access
-// to the filesystem. However, with a similar threat model (changing
-// variables in runtime), one can cause the user to sign a different tx
-// than what they see, which is a significantly cheaper attack then breaking
-// a bcrypt hash. (Recall that the nonce still exists to break rainbow tables)
-// For further notes on security parameter choice, see README.md
+// BcryptSecurityParameter is the cost for new armored exports (default 12).
+// Costs below bcrypt.MinCost retain bcrypt's normalization to DefaultCost.
+// Imports use the envelope's cost, or cost 12 for legacy unversioned exports.
+// Configure this before use; concurrent mutation is unsupported.
+// See bcrypt_readme.md for the separate file-keyring verifier threat model.
 var BcryptSecurityParameter = 12
 
 //-----------------------------------------------------------------
@@ -119,10 +122,19 @@ var BcryptSecurityParameter = 12
 
 // Encrypt and armor the private key.
 func EncryptArmorPrivKey(privKeyBytes []byte, passphrase string, algo string) string {
-	saltBytes, encBytes := encryptPrivKey(privKeyBytes, passphrase)
+	cost := BcryptSecurityParameter
+	if cost < bcrypt.MinCost {
+		cost = bcrypt.DefaultCost
+	}
+	if cost > maxArmorCost {
+		panic(fmt.Errorf("armor bcrypt cost must be between %d and %d", bcrypt.MinCost, maxArmorCost))
+	}
+	saltBytes, encBytes := encryptPrivKey(privKeyBytes, passphrase, cost)
 	header := map[string]string{
-		"kdf":  "bcrypt",
-		"salt": fmt.Sprintf("%X", saltBytes),
+		headerVersion: privKeyArmorVersion,
+		"kdf":         "bcrypt",
+		"cost":        strconv.Itoa(cost),
+		"salt":        fmt.Sprintf("%X", saltBytes),
 	}
 
 	if algo != "" {
@@ -137,9 +149,9 @@ func EncryptArmorPrivKey(privKeyBytes []byte, passphrase string, algo string) st
 // encrypt the given privKey with the passphrase using a randomly
 // generated salt and the xsalsa20 cipher. returns the salt and the
 // encrypted priv key.
-func encryptPrivKey(privKeyBytes []byte, passphrase string) (saltBytes []byte, encBytes []byte) {
+func encryptPrivKey(privKeyBytes []byte, passphrase string, cost int) (saltBytes []byte, encBytes []byte) {
 	saltBytes = crypto.CRandBytes(16)
-	key, err := bcrypt.GenerateFromPassword(saltBytes, []byte(passphrase), BcryptSecurityParameter)
+	key, err := bcrypt.GenerateFromPassword(saltBytes, []byte(passphrase), cost)
 
 	if err != nil {
 		panic(sdkerrors.Wrap(err, "error generating bcrypt key from passphrase"))
@@ -174,7 +186,26 @@ func UnarmorDecryptPrivKey(armorStr string, passphrase string) (privKey []byte, 
 		return privKey, "", fmt.Errorf("error decoding salt: %v", err.Error())
 	}
 
-	privKey, err = decryptPrivKey(saltBytes, encBytes, passphrase)
+	if len(saltBytes) != 16 {
+		return nil, "", fmt.Errorf("armor salt must be 16 bytes")
+	}
+
+	cost := legacyArmorCost
+	switch header[headerVersion] {
+	case "":
+		if _, exists := header["cost"]; exists {
+			return nil, "", fmt.Errorf("unversioned armor must not specify a cost")
+		}
+	case privKeyArmorVersion:
+		cost, err = strconv.Atoi(header["cost"])
+		if err != nil || cost < bcrypt.MinCost || cost > maxArmorCost {
+			return nil, "", fmt.Errorf("armor bcrypt cost must be between %d and %d", bcrypt.MinCost, maxArmorCost)
+		}
+	default:
+		return nil, "", fmt.Errorf("unrecognized armor version: %s", header[headerVersion])
+	}
+
+	privKey, err = decryptPrivKey(saltBytes, encBytes, passphrase, cost)
 
 	if header[headerType] == "" {
 		header[headerType] = defaultAlgo
@@ -183,8 +214,8 @@ func UnarmorDecryptPrivKey(armorStr string, passphrase string) (privKey []byte, 
 	return privKey, header[headerType], err
 }
 
-func decryptPrivKey(saltBytes []byte, encBytes []byte, passphrase string) (privKey []byte, err error) {
-	key, err := bcrypt.GenerateFromPassword(saltBytes, []byte(passphrase), BcryptSecurityParameter)
+func decryptPrivKey(saltBytes []byte, encBytes []byte, passphrase string, cost int) (privKey []byte, err error) {
+	key, err := bcrypt.GenerateFromPassword(saltBytes, []byte(passphrase), cost)
 	if err != nil {
 		return privKey, sdkerrors.Wrap(err, "error generating bcrypt key from passphrase")
 	}
@@ -192,12 +223,11 @@ func decryptPrivKey(saltBytes []byte, encBytes []byte, passphrase string) (privK
 	key = cosmoscrypto.Sha256(key) // Get 32 bytes
 
 	privKeyBytes, err := DecryptSymmetric(encBytes, key)
-	if err != nil && err.Error() == "Ciphertext decryption failed" {
-		return privKey, sdkerrors.ErrWrongPassword
+	if errors.Is(err, ErrCiphertextDecryptionFailed) {
+		return privKey, sdkerrors.Wrap(sdkerrors.ErrWrongPassword, "armor authentication failed")
 	} else if err != nil {
 		return privKey, err
 	}
 
-	// return legacy.PrivKeyFromBytes(privKeyBytes)
 	return privKeyBytes, nil
 }

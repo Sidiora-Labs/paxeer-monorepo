@@ -531,7 +531,7 @@ fn proof(config: &Config, kind: &str, id: &str, account: Option<&str>) -> Respon
 }
 
 fn receipt_event(config: &Config, request: &Request, hash: &str) -> Response {
-    use layerx_client::sequencer::SequencerReceipt;
+    use layerx_client::rpc::receipt::Lookup;
     use subtle::ConstantTimeEq;
     let Some(token) = &config.receipt_events_token else {
         return refusal(503, "receipt_events_not_configured", None);
@@ -553,21 +553,25 @@ fn receipt_event(config: &Config, request: &Request, hash: &str) -> Response {
     if request.query.is_some() || !request.body.is_empty() {
         return refusal(400, "invalid_tx_hash", None);
     }
-    match config.sequencer.sequencer_receipt(&hash) {
-        Ok(Some(
-            SequencerReceipt::Receipted(receipt) | SequencerReceipt::Committed { receipt, .. },
-        )) => success(&serde_json::json!({
-            "state": if receipt.success { "completed" } else { "refused" },
-            "activity_id": hex_encode(&hash),
-            "global_sequence": receipt.seq.to_string(),
-            "height": receipt.height.to_string(),
-            "index": receipt.index.to_string(),
-            "result_code": if receipt.success { 0 } else { 1 },
-            "timestamp": receipt.timestamp.to_string()
+    match super::await_authenticated_receipt(config, hash, std::time::Duration::ZERO) {
+        Ok(Lookup::Verified(receipt)) => success(&serde_json::json!({
+            "state": if receipt.execution().success { "completed" } else { "refused" },
+            "rung": receipt.rung().name(),
+            "activity_id": hex_encode(&receipt.activity_id()),
+            "global_sequence": receipt.global_sequence().to_string(),
+            "height": receipt.height().to_string(),
+            "index": receipt.execution().index.to_string(),
+            "result_code": receipt.result_code().raw(),
+            "timestamp": receipt.execution().timestamp.to_string()
         })),
-        Ok(Some(SequencerReceipt::Submitted { .. }) | None) => {
-            super::json_response(202, &serde_json::json!({"result":{"state":"pending"}}))
-        }
+        Ok(Lookup::Submitted { tx_hash, nonce }) => super::json_response(
+            202,
+            &serde_json::json!({"result":{
+                "state":"pending", "rung":"submitted",
+                "activity_id":hex_encode(&tx_hash), "nonce":nonce.to_string()
+            }}),
+        ),
+        Ok(Lookup::Absent) => refusal(404, "not_found", None),
         Err(_) => refusal(503, "receipt_events_unavailable", Some(5)),
     }
 }

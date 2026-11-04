@@ -1,0 +1,62 @@
+[task.22.33.1163]
+audit = "22.30.53"
+acceptance = "22998.1"
+baseline = "Not run: the explicit implementation-first order and hf-done-only verification prohibit the earlier baseline run requested by do_11; no baseline failures are claimed."
+evidence = "The hf-done receipt records the exact candidate revision, command, exit code and private evidence log; qualification is not claimed before that receipt passes."
+wiring_requests = ["storage/db_engine/litt/util/ssh.go, owning domain 5 (storage): provide supported in-process rsync transport access so successful byte-transfer/retry integration proofs can join the dependency-free repair gate; SSHSession.Rsync currently always launches the external rsync and ssh binaries."]
+gate_dependencies = "Only in-process Go components, local files and a loopback SSH server; no external executable, environment variable, credential or live endpoint."
+additional_integration = "Restored TestPush1to1, TestPush1toN, TestPushNto1, TestPushNtoN and TestPushSnapshot use the existing real OpenSSH/rsync fixture without Docker; they compile in the declared gate but are not executed by its filter. Successful rsync byte-transfer and retry coverage therefore remains outside the dependency-free qualification evidence."
+
+[finding.prune-unpublished-orphans]
+test = "TestRepairM_1163_PruneUnpublishedOrphans"
+additional_tests = ["TestRepairM_1163_PruneBeforeFirstPublication"]
+proof = "Production segment writers seal real data; SegmentPath.Snapshot emits each link type and every partial set before publication. Pruning removes only the older published set, retains each partial soft/hard link, honours an undefined upper bound, and reclaims the next set only after publication. The source database reopens twice with all values intact."
+
+[finding.push-connection-close]
+test = "TestRepairM_1163_PushConnectionClose"
+additional_tests = ["TestRepairM_1163_PushDeclaredDestinationFlags", "TestRepairM_1163_PushInterruptedParticipants"]
+proof = "Eight real sync attempts authenticate against loopback SSH and leave zero clients/channels; table-listing and table-policy failures also close the connection. Interrupted transfer participants all finish before push returns, with no reclamation acknowledgement."
+
+[finding.push-tests-disabled]
+test = "TestRepairM_1163_PushDeclaredDestinationFlags"
+additional_tests = ["TestRepairM_1163_PushInterruptedParticipants"]
+proof = "The registered --dst and -d parsers reach both exact destinations through real SSHSession exec operations. The interrupted multi-file path uses real Rsync preflight errors and retains every source snapshot link and the lower bound. Restored full rsync integration cases additionally assert copied data, file-placement retention, corruption repair, GC boundaries and independent recovery; see the explicit transport wiring request and qualification limit above."
+
+[finding.rebase-path-fixture]
+qualification = "Awaiting the final hf-done receipt after repairing offline source-root retirement."
+test = "TestRepairM_1163_RebasePathFixture"
+proof = "The corrected shared fixture derives both canonical sets from the exact DB root lists, asserts their real intersection, rejects active-source movement, rebases shared move roots and reopens all original key/value pairs with directory assertions retained."
+
+[finding.rebase-overlap-fixture]
+qualification = "Awaiting the final hf-done receipt; move and preserve-overlap rejection retain their directory and data assertions."
+test = "TestRepairM_1163_RebaseOverlapFixture"
+proof = "The move fixture shares two of four roots and verifies all values after reopening; preserve mode explicitly rejects a shared root before creating a destination, retains all original bytes and reopens every original value. Disjoint preserve cases retain their data and directory checks and additionally reopen the original database."
+
+[finding.sync-period-bounds]
+test = "TestRepairM_1163_SyncPeriodBounds"
+proof = "The real parser and handler accept default 300, valid 7 and the maximum representable seconds, and reject zero, duration overflow, signed overflow and maximum uint64 before starting a ticker."
+
+[finding.table-info-map-order]
+test = "TestRepairM_1163_TableInfoMapOrder"
+proof = "Four published producer-emitted segments and a fully linked fifth segment above the bound yield the exact published size, key count, range and seal times across repeated real tableInfo calls."
+
+[gotcha.scope]
+observed = "The inherited instruction to append to root GOTCHA.kvx and edit the spec task record conflicts with this task's explicit scope and no-spec-edit rule."
+resolution = "Task findings, qualification limitations and wiring requests are recorded here within storage/db_engine/litt/cli."
+
+[gotcha.preserve-overlap]
+observed = "Copying files into shared roots while preserving the old root set can duplicate segments in the original database; the formerly disjoint overlap fixture did not cover this policy."
+resolution = "Reject preserve-mode overlap before filesystem mutation; test the rejection against a real closed database and verify its bytes and recovered values."
+
+[gotcha.ssh-fixture-contract]
+observed = "The continued base uses single-quoted remote arguments, NUL-delimited discovery, mkdir's option terminator and symlink resolution before transfer; the inherited fixture still expected the prior transport spelling."
+resolution = "Match the actual SSHSession command and response framing in the committed loopback peer; assert every interrupted participant reports source-resolution failure without launching an external transfer."
+
+[qualification.rebase-lock-contract]
+revision = "118f95ba00dc5add29ce9f2b874e1350317f3930"
+command = "cg spec done 22.33.1163 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Both real overlapping move fixtures fail at transferDataInDirectory's source removal with directory not empty; util.NewFileLock creates a permanent .guard inode and Release intentionally retains it."
+assumption = "This inherited cross-domain lock-retirement conflict must be resolved by the storage lock owner; retain the directory/data assertions, do not unlink the permanent guard or rerun the recorded failure."
+resolution = "The continuation ruling authorizes the CLI repair: assert that closing every source store releases its lock before moving, remove the retired offline root's guard after releasing the transfer lock, and keep the moved-store reopening and data checks. The guard is retained for preserved and shared roots."

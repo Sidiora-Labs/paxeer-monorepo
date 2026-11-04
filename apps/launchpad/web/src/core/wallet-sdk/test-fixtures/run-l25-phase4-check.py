@@ -18,6 +18,21 @@ def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def validate_owned_sources(root, owned):
+    if not isinstance(owned, dict) or not owned:
+        raise ValueError('Exact current owned source manifest required')
+    expected_paths = set()
+    for directory in ['apps/launchpad/web/src/core/wallet-sdk', 'apps/launchpad/web/src/widgets/funding', 'apps/launchpad/web/src/widgets/wallet-recovery']:
+        expected_paths.update(str(path.relative_to(root)) for path in (root / directory).rglob('*') if path.is_file() and path.suffix in ['.ts','.tsx','.py','.cjs','.mjs','.toml','.sol'])
+    expected_paths.update(['apps/launchpad/web/src/core/wagmi-config.ts','apps/launchpad/web/src/shell/wallet-button.tsx','apps/launchpad/web/src/shell/sign-in-modal.tsx','apps/launchpad/web/src/shell/wallet-modal.tsx'])
+    if set(owned) != expected_paths:
+        raise ValueError('Owned source binding omits or adds actual lane files')
+    for name, expected_digest in owned.items():
+        if digest(root / name) != expected_digest:
+            raise ValueError('Current source bytes changed: ' + name)
+    return owned
+
+
 def load(path):
     if not path.is_file() or path.is_symlink() or path.stat().st_size > 20_000_000:
         raise ValueError('Bounded actual regular artifact required: ' + str(path))
@@ -195,19 +210,7 @@ def main():
             raise ValueError('Admitted current Phase4 configuration and digest required')
         if config['sourceSha256'] != os.environ.get('L25_ADMITTED_SOURCE_SHA256'):
             raise ValueError('Exact admitted source identity missing or changed')
-        owned = config.get('ownedSourceDigests')
-        if not isinstance(owned, dict) or not owned:
-            raise ValueError('Exact current owned source manifest required')
-        expected_paths = set()
-        for directory in ['client/apps/web/src/core/wallet-sdk', 'client/apps/web/src/widgets/funding', 'client/apps/web/src/widgets/wallet-recovery']:
-            expected_paths.update(str(path.relative_to(root)) for path in (root / directory).rglob('*') if path.is_file() and path.suffix in ['.ts','.tsx','.py','.cjs','.toml','.sol'])
-        expected_paths.update(['client/apps/web/src/core/wagmi-config.ts','client/apps/web/src/shell/wallet-button.tsx','client/apps/web/src/shell/wallet-connect-modal.tsx','client/apps/web/src/shell/wallet-modal.tsx'])
-        if set(owned) != expected_paths:
-            raise ValueError('Owned source binding omits or adds actual lane files')
-        for name, expected_digest in owned.items():
-            if digest(root / name) != expected_digest:
-                raise ValueError('Current source bytes changed: ' + name)
-        report['sourceDigests'] = owned
+        report['sourceDigests'] = validate_owned_sources(root, config.get('ownedSourceDigests'))
         report['configSha256'] = expected
         command = ['node', str(fixtures / 'phase4-browser.mjs'), str(args.config.resolve()), str(output / 'browser')]
         log = output / 'browser.log'

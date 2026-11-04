@@ -1,0 +1,40 @@
+[repair.22.33.829]
+audit = "22.30.18"
+finding = "7"
+base_revision = "fedbeb3bb47c5bb972f66afc8189f92f5395f3eb"
+tests = ["TestRepairM_829_ProducerToGraphQLAndSnapshots", "TestRepairM_829_PriceChangeWindows", "TestRepairM_829_IndexSubscription", "TestRepairM_829_SharePointerTable"]
+semantics = "Latest index is the greatest (block, tx_index, log_index, sub) among MarkPriceUpdated and non-null successful aggregates; skipped aggregates never contribute; observation time is that row's block_time; mark and mark history remain MarkPriceUpdated values; basis is (latest mark - latest index) * 10000 / latest index, rounded to three decimals, null at zero index."
+coverage = "Production ABI/block-event decoding is checked against actual PostgreSQL-stored rows; exact recorded SQL requests and server results drive production GraphQL HTTP, records.Symbol, REST, socket snapshot providers and GraphQL subscription delivery without a database at gate time."
+transcript = "testdata/repair_m829/postgres.json; reproducible fixture authoring is testdata/repair_m829/capture.py; PostgreSQL migrations and recorded producer inputs run inside one rolled-back transaction. Clock parameters are explicitly recorded with offsets and checked against the runtime clock when replayed."
+baseline = "No baseline verify was run: the task's explicit gate order prohibits tests before complete implementation and prohibits running verify_cmd by hand; the new TestRepairM_829_* tests did not exist on the base, so no pre-change failing test run is claimed."
+baseline_observation = "The committed baseline_latest transcript runs the exact base-revision SQL against the same stored producer inputs: index_without_mark returns BTC=100 at block 100 instead of 110 at block 101 and omits the index-only ETH market; TestRepairM_829_ProducerToGraphQLAndSnapshots asserts that recorded defect before proving the repaired path."
+qualification = "The runner's final hf-build/hf-done evidence supplies the exact candidate revision, command, exit and private log; no test, build or completion gate is claimed by this source record."
+
+[wiring.data_services_contract]
+path = "spec/release-v6-12-0/contracts/data-services.md"
+owner = "domain 3: perps data services"
+request = "Update the live contract to the common latest-index ordering, successful-aggregate filter, block-time observation semantics and independently retained mark/basis above, including GraphQL subscriptions and price-change baselines."
+
+[wiring.records_shared_selection]
+path = "services/platform/perps-data/internal/records/records.go"
+owner = "domain 3: perps data services"
+request = "Expose the records reader's common index-source SQL for reuse by GraphQL when that shared path is authorized; this task consolidates GraphQL selectors to indexPriceRowsSQL and matches the existing records semantics without editing the records domain."
+
+[gotcha.fixture_capture]
+area = "tooling"
+observed = "The local Python interpreter is installed under the root user's mise tree and cannot be executed by the postgres OS user; /usr/bin/python3 is absent."
+resolution = "The authoring script loads libpq as the invoking user and temporarily selects the postgres effective uid only while establishing the local peer-authenticated capture connection; tests use only committed transcripts."
+
+[qualification.previous_attempt]
+revision = "0ca15e66c322f909aa8cf82f1eaad87c4aedfa54"
+command = "cg spec done 22.33.829 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; full test output /tmp/repair-m829.log"
+observed = "All three repair tests failed in production decode.NewRegistry before price assertions: share pointers declare 2 events, 3 decoders; internal/decode was outside the previous attempt's scope."
+
+[repair.continuation]
+scope = "The continuation ruling includes internal/decode and authorizes repairing its share-pointer table."
+abi = "precompiles/spot/abi/share.json and spotabi.Share declare only Transfer and Approval; OwnershipTransferred belongs to spotabi.HistoricalSolidityShare, not the deployed pointer."
+change = "Remove the orphan share OwnershipTransferred decoder while retaining the exact event-count and name checks; leave ownership decoders on the spot rails intact."
+proof = "TestRepairM_829_SharePointerTable constructs the real registry, encodes and decodes every deployed share event after ShareTokenCreated, checks typed row values and accounts, and requires a historical ownership event to retain its topics/data as unknown raw output; the existing decoder ownership case asserts the same deployed-ABI behavior."
+qualification = "The final runner hf-build/hf-done ledger records the verified candidate revision and private evidence; the previous-attempt failure above is historical, not a result for this candidate."

@@ -1,0 +1,10 @@
+[repair.22.33.1485]
+finding = "auth-challenge-retention"
+implementation = "Service.CleanupChallenges deletes at most 512 rows ordered by (expires_at, nonce) with FOR UPDATE SKIP LOCKED; RunChallengeCleanup runs immediately and once per second, bounds each DB call to five seconds, honors owner cancellation and returns cleanup/count failures."
+retention = "Unused and consumed challenges remain until expires_at (five minutes after issue), then become eligible on the next bounded pass; backlog drains in batches. Atomic Verify remains unchanged and deleted messages cannot be consumed."
+proof = ["TestRepairM_1485_RestartRetention", "TestRepairM_1485_BoundedCleanupAndAtomicUse", "TestRepairM_1485_CancellationAndFailure"]
+proof_scope = "Production Service, SQL boundary, EIP-191 verification, HTTP transport and JWT middleware with a committed in-memory database peer surviving closed DB/HTTP/worker instances; PostgreSQL query planning and full gateway startup require the out-of-scope wiring."
+baseline = "No baseline verification was run: the explicit gate order forbids tests before complete implementation and permits verification only through hf-done after hf-build; no prior gate ledger exists and no pre-existing failing test is claimed."
+evidence = "The runner's hf-done evidence identifies the exact qualified candidate revision, command, exit code and private log; no gate is claimed before that result."
+wiring_migration = "services/platform/perps-data/migrations/<next>_auth_challenge_expiry.sql — domain 8 (perps-data store): CREATE INDEX auth_challenges_expires_at_nonce_idx ON perps.auth_challenges (expires_at, nonce); deploy this supporting migration before enabling the worker."
+wiring_gateway = "services/platform/perps-data/internal/gateway/server.go — domain 8 (perps-data gateway): retain the auth Service and own/join RunChallengeCleanup in Server.Run with its cancellation context, propagating non-cancellation errors through the gateway worker/logger path; prove the indexed cleanup on PostgreSQL across full gateway restart."

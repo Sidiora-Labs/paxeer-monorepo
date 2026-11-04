@@ -130,8 +130,18 @@ func (p *Policy) CheckCreator(ctx context.Context, tx pgx.Tx, r interactions.Req
 
 // SendChat is the fanout.SendPolicy for the development chat store: the
 // sender must not be banned (globally or from the pool) or erased, a pool
-// conversation needs an indexed pool, and a DM peer must not be erased.
+// conversation needs an indexed pool, and a DM peer must not be erased. The
+// platform profile also applies the authoritative identity and DM privacy checks.
 func (p *Policy) SendChat(ctx context.Context, tx pgx.Tx, in fanout.SendInput) error {
+	if p.Pools == CanonicalPools {
+		principal, err := interactions.Identity(ctx)
+		if err != nil {
+			return err
+		}
+		if principal.Wallet != in.Actor {
+			return interactions.ErrDenied
+		}
+	}
 	pool := ""
 	if in.Kind == "pool" {
 		pool = in.Target
@@ -150,6 +160,9 @@ func (p *Policy) SendChat(ctx context.Context, tx pgx.Tx, in fanout.SendInput) e
 		}
 		return err
 	case "dm":
+		if p.Pools == CanonicalPools {
+			return p.chatAuthority().SendPolicy(ctx, tx, in)
+		}
 		var erased bool
 		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM chat.interaction_erased_wallets WHERE wallet=$1)`, in.Target).Scan(&erased); err != nil {
 			return err
@@ -161,4 +174,35 @@ func (p *Policy) SendChat(ctx context.Context, tx pgx.Tx, in fanout.SendInput) e
 	default:
 		return fanout.ErrInvalid
 	}
+}
+
+// chatAuthority uses the same identity guards as the platform social graph.
+func (p *Policy) chatAuthority() *interactions.PGPolicy {
+	return &interactions.PGPolicy{
+		DB:               p.DB,
+		Accounts:         pgx.Identifier{"users", "account_state_v2"},
+		Sessions:         pgx.Identifier{"users", "identity_sessions_v2"},
+		IdentityAccounts: pgx.Identifier{"users", "identity_accounts_v2"},
+		WalletLinks:      pgx.Identifier{"users", "identity_wallet_links_v2"},
+		SessionGuard:     pgx.Identifier{"chat", "interaction_session_valid"},
+		AccountGuard:     pgx.Identifier{"chat", "interaction_account_active"},
+	}
+}
+
+func (p *Policy) ReadChat(ctx context.Context, tx pgx.Tx, actor, conversation string) error {
+	principal, err := interactions.Identity(ctx)
+	if err != nil {
+		return err
+	}
+	if principal.Wallet != actor || tx == nil {
+		return interactions.ErrDenied
+	}
+	var valid bool
+	if err = tx.QueryRow(ctx, `SELECT chat.interaction_session_valid($1::uuid,$2::text)`, principal.SessionID, actor).Scan(&valid); err != nil {
+		return interactions.ErrDependency
+	}
+	if !valid {
+		return interactions.ErrDenied
+	}
+	return p.chatAuthority().ReadChatPolicy(ctx, tx, actor, conversation)
 }

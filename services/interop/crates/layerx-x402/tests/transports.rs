@@ -827,7 +827,7 @@ fn transport_independent_identity_settles_once_across_http_mcp_and_a2a() {
 }
 
 #[test]
-fn settlement_recovers_after_a_crash_without_a_second_economic_effect() {
+fn settlement_retries_transient_plane_errors_under_one_local_identity() {
     let facilitator = facilitator();
     let mut gateway = GatewayCore::new();
     let trace = trace();
@@ -839,8 +839,8 @@ fn settlement_recovers_after_a_crash_without_a_second_economic_effect() {
     let identity = SettlementIdentity::derive(&principal, &request, stable, step)
         .unwrap_or_else(|error| panic!("identity: {error}"));
 
-    // Attempt 1: delayed confirmation, then attempt 2 crashes, then attempt 3
-    // confirms, then attempt 4 is a post-success duplicate.
+    // Local in-memory plane retry coverage: pending, transient refusal,
+    // confirmation, duplicate. This does not model a durable service restart.
     let mut plane = FaultInjectingPlane::new(vec![
         Planned::Pending,
         Planned::Transient,
@@ -848,7 +848,7 @@ fn settlement_recovers_after_a_crash_without_a_second_economic_effect() {
         Planned::Execute,
     ]);
 
-    // Delayed confirmation: no economic effect yet.
+    // Delayed confirmation leaves the gateway translation pending.
     let pending = facilitator
         .settle(
             &mut gateway,
@@ -873,7 +873,7 @@ fn settlement_recovers_after_a_crash_without_a_second_economic_effect() {
         Some(TranslationStatus::Pending)
     );
 
-    // Crash mid-settlement: still no economic effect, translation stays open.
+    // A transient plane error leaves the in-memory translation open.
     let crashed = facilitator.settle(
         &mut gateway,
         &principal,
@@ -890,7 +890,7 @@ fn settlement_recovers_after_a_crash_without_a_second_economic_effect() {
         Some(TranslationStatus::Pending)
     );
 
-    // Recovery: the retry confirms exactly one receipt-verified effect.
+    // The retry records the verified receipt under the same local identity.
     let confirmed = facilitator
         .settle(
             &mut gateway,
@@ -906,7 +906,7 @@ fn settlement_recovers_after_a_crash_without_a_second_economic_effect() {
     assert!(confirmed.success);
     let digest = settled_digest(&gateway, &principal, identity.idempotency_key);
 
-    // Post-success duplicate: idempotent, no new effect, same digest.
+    // A duplicate retains the same local receipt digest.
     let duplicate = facilitator
         .settle(
             &mut gateway,
@@ -924,7 +924,7 @@ fn settlement_recovers_after_a_crash_without_a_second_economic_effect() {
     assert_eq!(
         settled_digest(&gateway, &principal, identity.idempotency_key),
         digest,
-        "the recorded economic effect is unchanged by the duplicate"
+        "the recorded receipt identity is unchanged by the duplicate"
     );
     assert_eq!(plane.settle_calls, 4);
 }
@@ -991,4 +991,12 @@ fn hex(bytes: &[u8; 32]) -> String {
         output.push(char::from(DIGITS[usize::from(byte & 0x0f)]));
     }
     output
+}
+
+#[path = "support/repair_22_33_105.rs"]
+mod repair_path;
+
+#[test]
+fn reopened_transcript_peer_preserves_settlement_identity() {
+    repair_path::reopened_transport_consumer();
 }

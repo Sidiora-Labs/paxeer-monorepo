@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"reflect"
 	"testing"
-	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/baseapp"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
@@ -85,6 +85,9 @@ type OperationInput struct {
 // GenAndDeliverTxWithRandFees generates a transaction with a random fee and delivers it.
 func GenAndDeliverTxWithRandFees(txCtx OperationInput) (simtypes.OperationMsg, []simtypes.FutureOperation, error) {
 	account := txCtx.AccountKeeper.GetAccount(txCtx.Context, txCtx.SimAccount.Address)
+	if account == nil {
+		return simtypes.NoOpMsg(txCtx.ModuleName, txCtx.MsgType, fmt.Sprintf("simulation account %s does not exist", txCtx.SimAccount.Address)), nil, nil
+	}
 	spendable := txCtx.Bankkeeper.SpendableCoins(txCtx.Context, account.GetAddress())
 
 	var fees sdk.Coins
@@ -105,12 +108,20 @@ func GenAndDeliverTxWithRandFees(txCtx OperationInput) (simtypes.OperationMsg, [
 // GenAndDeliverTx generates a transactions and delivers it.
 func GenAndDeliverTx(txCtx OperationInput, fees sdk.Coins) (simtypes.OperationMsg, []simtypes.FutureOperation, error) {
 	account := txCtx.AccountKeeper.GetAccount(txCtx.Context, txCtx.SimAccount.Address)
-	tx, err := GenTx(
+	if account == nil {
+		return simtypes.NoOpMsg(txCtx.ModuleName, txCtx.MsgType, fmt.Sprintf("simulation account %s does not exist", txCtx.SimAccount.Address)), nil, nil
+	}
+	if txCtx.R == nil {
+		return simtypes.NoOpMsg(txCtx.ModuleName, txCtx.MsgType, "unable to generate tx"), nil, fmt.Errorf("simulation transaction: nil random source")
+	}
+	memo := simtypes.RandStringOfLength(txCtx.R, simtypes.RandIntBetween(txCtx.R, 0, 100))
+	tx, err := GenTxWithMemo(
 		txCtx.TxGen,
 		[]sdk.Msg{txCtx.Msg},
 		fees,
 		DefaultGenTxGas,
 		txCtx.Context.ChainID(),
+		memo,
 		[]uint64{account.GetAccountNumber()},
 		[]uint64{account.GetSequence()},
 		txCtx.SimAccount.PrivKey,
@@ -129,13 +140,23 @@ func GenAndDeliverTx(txCtx OperationInput, fees sdk.Coins) (simtypes.OperationMs
 
 }
 
+// GenTx creates a deterministic transaction with an empty memo. Call GenTxWithMemo
+// to supply a memo derived from the operation's seeded random source.
 func GenTx(gen client.TxConfig, msgs []sdk.Msg, feeAmt sdk.Coins, gas uint64, chainID string, accNums, accSeqs []uint64, priv ...cryptotypes.PrivKey) (sdk.Tx, error) {
+	return GenTxWithMemo(gen, msgs, feeAmt, gas, chainID, "", accNums, accSeqs, priv...)
+}
+
+// GenTxWithMemo creates and signs a transaction with the supplied reproducible memo.
+func GenTxWithMemo(gen client.TxConfig, msgs []sdk.Msg, feeAmt sdk.Coins, gas uint64, chainID, memo string, accNums, accSeqs []uint64, priv ...cryptotypes.PrivKey) (sdk.Tx, error) {
+	if len(priv) == 0 || len(accNums) != len(priv) || len(accSeqs) != len(priv) {
+		return nil, fmt.Errorf("simulation transaction: signer metadata length mismatch: keys=%d account numbers=%d sequences=%d", len(priv), len(accNums), len(accSeqs))
+	}
+	for i, p := range priv {
+		if p == nil || (reflect.ValueOf(p).Kind() == reflect.Ptr && reflect.ValueOf(p).IsNil()) {
+			return nil, fmt.Errorf("simulation transaction: nil private key for signer %d", i)
+		}
+	}
 	sigs := make([]signing.SignatureV2, len(priv))
-
-	// create a random length memo
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-
-	memo := simtypes.RandStringOfLength(r, simtypes.RandIntBetween(r, 0, 100))
 
 	signMode := gen.SignModeHandler().DefaultMode()
 
@@ -173,16 +194,16 @@ func GenTx(gen client.TxConfig, msgs []sdk.Msg, feeAmt sdk.Coins, gas uint64, ch
 		}
 		signBytes, err := gen.SignModeHandler().GetSignBytes(signMode, signerData, tx.GetTx())
 		if err != nil {
-			panic(err)
+			return nil, fmt.Errorf("simulation transaction: sign bytes for signer %d: %w", i, err)
 		}
 		sig, err := p.Sign(signBytes)
 		if err != nil {
-			panic(err)
+			return nil, fmt.Errorf("simulation transaction: signing with signer %d: %w", i, err)
 		}
 		sigs[i].Data.(*signing.SingleSignatureData).Signature = sig
 		err = tx.SetSignatures(sigs...)
 		if err != nil {
-			panic(err)
+			return nil, fmt.Errorf("simulation transaction: set signature for signer %d: %w", i, err)
 		}
 	}
 

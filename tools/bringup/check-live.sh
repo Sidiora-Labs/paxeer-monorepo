@@ -203,18 +203,11 @@ router    requires protected material and registry-bootstrap records under
           missing=program_registry when the hosted gateway's program_registry backend
           is absent or not configured.
 
-relay     reads the public relay archive at CHECK_LIVE_RELAY_ORIGIN
-          (env=absent when unset) and the relay-archive Railway services of
-          deploy/rollout.kvx against its origin in the kernel app of
-          services/wallet/deploy/human.toml and prints one line per check:
-          relay-origin (ready, fresh, genesis equal to the kernel's manifest),
-          relay-public and one relay-replica per Railway service (ready,
-          fresh, pins equal, head within one batch of the origin read before
-          and no further than the one after, exact batch bytes), services
-          (at least two in the ledger, every one answering),
-          relay-origin-recheck, relay-forward (the original signed activity
-          answered with the hosted gateway's verdict) and relay-altered (the flipped
-          bytes refused with a 4xx). Needs no host map.
+relay     submits CHECK_LIVE_RELAY_TRANSACTION to the explicit archive node
+          CHECK_LIVE_RELAY_ORIGIN and reads back its successful EVM receipt,
+          canonical block inclusion and authenticated native committed receipt.
+          CHECK_LIVE_RELAY_CA optionally supplies the archive's PEM trust root.
+          The transaction stays pre-signed under operator custody.
 
 Environment:
   BRINGUP_HOSTS_FILE   private env file assigning EDGE_HOST, ARCHIVE_HOST,
@@ -237,18 +230,23 @@ Environment:
                        the wallet gateway, required by wallet; never printed
   CHECK_LIVE_STAGE_DIR the operator's stage records, <stage>.json each,
                        required by router
-  CHECK_LIVE_KERNEL_ARCHIVE_ORIGIN  configured relay/archive sync origin, required by kernel-node
-  CHECK_LIVE_KERNEL_ARCHIVE_CA  optional CA file for that HTTPS archive origin
-  CHECK_LIVE_KERNEL_LOCAL  1 selects explicitly provisioned local kernel processes
-  CHECK_LIVE_KERNEL_DATA_DIR, CHECK_LIVE_KERNEL_RUN_DIR, CHECK_LIVE_KERNEL_INIT_DIR
-                       explicit local node, sockets and service PID directories
-  CHECK_LIVE_KERNEL_CTL  path of the actual prebuilt layerxctl operator executable
-  CHECK_LIVE_RELAY_ORIGIN  public relay archive route, required by relay;
-                       reports env=absent when unset
-  CHECK_LIVE_RELAY_CA  optional CA file for that route
-  CHECK_LIVE_RELAY_ACTIVITY  file of original signed activity bytes, required by relay
-  CHECK_LIVE_RELAY_ACTIVITY_ID  the activity id the hosted gateway answers for it
-  CHECK_LIVE_RELAY_KEY_FILE  file holding the hosted gateway API key; never printed
+  CHECK_LIVE_PAXD_HOME  actual mounted paxd --home path, required by kernel checks
+  CHECK_LIVE_KERNEL_RPC, CHECK_LIVE_KERNEL_COMET_RPC
+                       explicit node and consensus RPC endpoints for kernel-node
+  CHECK_LIVE_KERNEL_LOCAL  1 inspects local paxd; otherwise uses KERNEL_HOST
+  CHECK_LIVE_RELAY_ORIGIN  explicit archive node JSON-RPC origin, required by relay
+  CHECK_LIVE_RELAY_CA  optional PEM CA file for the archive origin
+  CHECK_LIVE_RELAY_TRANSACTION  file of signed chain bytes (or 0x hex)
+  CHECK_LIVE_INTEROP_RPC, CHECK_LIVE_INTEROP_NODE_RPC
+                       explicit hosted account and node receipt endpoints
+  CHECK_LIVE_INTEROP_TRANSACTION  pre-signed chain-125 payExact transaction file
+  CHECK_LIVE_INTEROP_API_KEY_FILE  facilitator API key file, never printed
+  CHECK_LIVE_INDEXER_RPC, CHECK_LIVE_GATEWAY_RPC  explicit hosted gateway URLs
+  CHECK_LIVE_SEARCH_PAYER_ADDRESS, CHECK_LIVE_SEARCH_GRANT_ID
+                       EVM payer and existing authorized metered ledger grant
+  CHECK_LIVE_DEVELOPERS_SOURCE_URL  authorized Human /v1/intents/submit URL
+  CHECK_LIVE_DEVELOPERS_SOURCE_REQUEST, CHECK_LIVE_DEVELOPERS_SOURCE_TOKEN_FILE
+                       signed current intent request and source session token
   CHECK_LIVE_EDGE_NGINX_DIR  edge nginx root, default /etc/nginx
   CHECK_LIVE_EDGE_BOX_CA     edge box upstream trust, default /etc/layerx/ca.crt
   CHECK_LIVE_EDGE_READINESS_PATH  HTTP readiness path, default /readyz
@@ -276,7 +274,7 @@ Environment:
                        https://chain.paxeer.network
   CHECK_LIVE_ROUTER_URL  operator-deployed hosted gateway origin, required by
                        router, search and registry (except registry-bootstrap);
-                       its /rpc serves lx_* and px_*, not the public nodes
+                       registry uses its explicit origin; hosted JSON-RPC uses CHECK_LIVE_GATEWAY_RPC
   CHECK_LIVE_INDEXER_RPC  hosted gateway JSON-RPC endpoint for px_* history;
                        required by indexer, with no public node default
   CHECK_LIVE_GAS_RPC   node JSON-RPC URL at the root, chain id 125,
@@ -393,10 +391,12 @@ print(service, end="")
 # input in that command, just as the relay probe does.
 railway_ssh() {
 	local input command
+	local -a instance=()
+	[ -z "${3:-}" ] || instance=(--deployment-instance "$3")
 	input="$(base64 -w0)"
 	command="echo $input | base64 -d | $2"
 	command="${command//\'/\'\\\'\'}"
-	timeout "$timeout" "$railway_bin" ssh --service "$1" --environment "$railway_env" -- "sh -c '$command'" 2>/dev/null
+	timeout "$timeout" "$railway_bin" ssh --service "$1" --environment "$railway_env" "${instance[@]}" -- "sh -c '$command'" 2>/dev/null
 }
 
 railway_instance() {
@@ -1534,7 +1534,7 @@ edge_read() {
 }
 
 edge_manifest() {
-	python3 "$repo_root/tools/bringup/edge-contract.py"
+	bringup_inspect edge-contract
 }
 
 # edge_probe <six manifest fields>: verify the actual public and upstream
@@ -1580,7 +1580,7 @@ edge_probe() {
 			echo "fail $name mode=rpc chain-id=invalid"
 			return 1
 		fi
-		members="$(python3 "$repo_root/tools/bringup/edge-contract.py" "$name" "$port" <<<"$edge_reply")" || return 1
+		members="$(bringup_inspect edge-contract "$name" "$port" <<<"$edge_reply")" || return 1
 		while read -r member; do
 			printf -v command 'curl -fsS --max-time %q -H %q --data %q %q' "$timeout" 'Content-Type: application/json' "$payload" "https://$member/"
 			direct="$(ssh_read "$EDGE_HOST" "$command")" || direct=""
@@ -1612,7 +1612,7 @@ check_ramp_edge() {
 	local ramp_name="$1" edge_reply manifest line name mode upstream port kind sni
 	edge_reply="$(edge_read)" || { echo "fail edge $ramp_name manifest=unreadable"; return 1; }
 	manifest="$(edge_manifest <<<"$edge_reply")" || { echo "fail edge $ramp_name manifest=invalid"; return 1; }
-	line="$(awk -v n="$ramp_name" '$1 == n && $2 == "http" && $4 == 443' <<<"$manifest")"
+	line="$(bringup_inspect edge-ramp "$ramp_name" <<<"$edge_reply")" || line=""
 	if [ -z "$line" ] || [ "$(wc -l <<<"$line")" != 1 ]; then
 		echo "fail edge $ramp_name route=absent-or-ambiguous"
 		return 1
@@ -2313,18 +2313,10 @@ sys.exit(0 if status == 1 and paid == amount else 1)
 	finish "$failures"
 }
 
-# check_internal: the internal app of services/platform/hosted/internal/fly.toml and
-# the internal Redis app of services/platform/hosted/internal/redis.toml hold no public
-# IP; the node's served chain at api-mainnet-beta.paxeer.network ends at
-# ISRG Root X1 or ISRG Root X2, reported as root=X1|X2; inside the payments
-# and programs machines the running layerx-event-source of that kind has the
-# node root as LAYERX_EVENTS_UPSTREAM_URL and as LAYERX_EVENTS_UPSTREAM_CA_DER a
-# self-signed root of that same name that verifies the served chain; from the
-# kernel machine of services/wallet/deploy/human.toml the five /readyz routes at
-# their <group>.process.<app>.internal names answer ready over mTLS with the
-# human-event-client identity tools/bringup/ca.sh left on the kernel volume.
-# CHECK_LIVE_ROUTER_CONNECT (host:port, default the node name on 443) is
-# where the served chain is read. One line per check.
+# check_internal resolves the Railway roles and their private domains, verifies
+# the payments/programs node-root pins, then probes every role from KERNEL_HOST
+# with the Human client retained there by ca.sh. Explicit private connect
+# targets preserve each deployed service's TLS name.
 # shellcheck disable=SC2016
 internal_pin_script='pid=
 for d in /proc/[0-9]*; do
@@ -2344,26 +2336,20 @@ fi
 env_of() { tr "\000" "\n" <"$pid/environ" | sed -n "s/^$1=//p" | head -n 1; }
 echo "@@url $(env_of LAYERX_EVENTS_UPSTREAM_URL)"
 echo "@@pin $(base64 <"$(env_of LAYERX_EVENTS_UPSTREAM_CA_DER)" 2>/dev/null | tr -d "\n")"'
-# shellcheck disable=SC2016
-internal_ready_script='for group in "$group"; do
-	status=0
-	answer=$(curl -sS -m "$limit" --cacert "$tls/ca.pem" --cert "$tls/cert.pem" --key "$tls/key.pem" -w "\n%{http_code}" "${url}" ${connect:+--connect-to "$connect"} 2>&1) || status=$?
-	echo "@@$group $status $(printf "%s" "$answer" | tail -n 1) $(printf "%s" "$answer" | head -n 1 | tr -d " " | cut -c1-120)"
-done'
 # The kernel box must have the private route and DNS of the deployed service.
 # An explicit private connect target can override routing while preserving the
 # service URL's TLS identity. Never move the Human key to the target role.
 internal_probe() {
-	local app="$1" group="$2" variable target command
+	local app="$1" group="$2" command reply status=0 variable connect
 	variable="CHECK_LIVE_INTERNAL_CONNECT_${group^^}"
-	target="${!variable:-}"
-	if [ -n "$target" ] && ! [[ "$target" =~ ^[a-zA-Z0-9.:-]+:[0-9]+$ ]]; then
-		echo "check-live: $variable must be a private host:port" >&2
-		return 2
+	connect="${!variable:-}"
+	printf -v command '%q internal-readiness %q %q %q' "${BRINGUP_INSPECT_BIN:-bringup-inspect}" "https://$app.railway.internal:9443/readyz" "$tls_dir/human-event-client" "$connect"
+	reply="$(ssh_read "$KERNEL_HOST" "$command")" || status=$?
+	if [ "$status" -eq 0 ] && [ "$reply" = 'pass readiness http=200 ready=true identity=human-event-client' ]; then
+		echo "@@$group 0 200 {\"ready\":true}"
+	else
+		echo "@@$group $((status == 0 ? 1 : status)) 000 refused"
 	fi
-	[ -z "$target" ] || target="$app.railway.internal:9443:$target"
-	printf -v command 'tls=%q app=%q group=%q limit=%q url=%q connect=%q sh -c %q' "$tls_dir/human-event-client" "$app" "$group" "$timeout" "https://$app.railway.internal:9443/readyz" "$target" "$internal_ready_script"
-	ssh_read "$KERNEL_HOST" "$command"
 }
 
 check_internal() {
@@ -2627,6 +2613,39 @@ check_wallet() {
 	finish "$failures"
 }
 
+# Probe every running replica selected by the deployment record. Identity and
+# region come from that selected process, never from the region loop's label.
+railway_gateway_regions() {
+	local app="$1" work selections deployment instance reply probe failed=0
+	work="$(mktemp -d)" || return 1
+	if ! railway_instance "$app" >"$work/deployment.json" ||
+		! selections="$(bringup_inspect regional-instances <"$work/deployment.json")"; then
+		echo "fail regional-readiness service=$app deployment=unreadable-or-incomplete"
+		rm -rf "$work"
+		return 1
+	fi
+	probe='import json,os,urllib.request
+with urllib.request.urlopen("http://127.0.0.1:8080/readyz",timeout=10) as r:
+    print(json.dumps({"instance":os.environ["RAILWAY_REPLICA_ID"],"deployment":os.environ["RAILWAY_DEPLOYMENT_ID"],"region":os.environ["RAILWAY_REPLICA_REGION"],"body":json.load(r)}))'
+	: >"$work/responses.jsonl"
+	while read -r deployment instance; do
+		if reply="$(printf '%s' "$probe" | railway_ssh "$app" "python3 -" "$instance")"; then
+			printf '%s\n' "$reply" >>"$work/responses.jsonl"
+		else
+			echo "fail readyz service=$app deployment=$deployment instance=$instance response=absent"
+			failed=1
+		fi
+	done <<<"$selections"
+	if [ "$failed" -eq 0 ] && python3 -c 'import json,sys; print(json.dumps([json.loads(line) for line in sys.stdin]))' <"$work/responses.jsonl" >"$work/responses.json" &&
+		bringup_inspect regional-readiness "$work/deployment.json" <"$work/responses.json"; then
+		rm -rf "$work"
+		return 0
+	fi
+	echo "fail regional-readiness service=$app coverage=unproven"
+	rm -rf "$work"
+	return 1
+}
+
 # Node root methods and hosted OpenRPC reads have separate owners and routes.
 check_router() {
 	router_prerequisite
@@ -2643,11 +2662,7 @@ check_router() {
 	fi
 	bringup_inspect route-check "$rpc_inventory" "$gateway" "$account" || failures=$((failures + 1))
 	railway_deployment "$app" || failures=$((failures + 1))
-	if ! body="$(railway_ssh "$app" "curl -fsS -m $timeout http://127.0.0.1:8080/readyz" </dev/null)" ||
-		! bringup_inspect gateway-readiness <<<"$body"; then
-		echo "fail readyz service=hosted-gateway"
-		failures=$((failures + 1))
-	fi
+	railway_gateway_regions "$app" || failures=$((failures + 1))
 	if ! wallet="$(railway_service wallet-gateway)"; then
 		echo "fail wallet-gateway rollout=absent"
 		finish $((failures + 1))
@@ -2728,17 +2743,10 @@ check_human() {
 	local base="${CHECK_LIVE_HUMAN_BASE:-https://api-hull.paxeer.network}"
 	local origin="${CHECK_LIVE_HUMAN_ORIGIN:-https://paxportwallet.com}"
 	local email="${CHECK_LIVE_HUMAN_PROBE_EMAIL:-}" rp="${origin#https://}"
-	local failures=0 line answer code body account key
+	local failures=0 answer code body account key child_output child_status=0
 	base="${base%/}"
-	while IFS= read -r line; do
-		case "$line" in
-		pass\ *) echo "$line" ;;
-		fail\ *)
-			echo "$line"
-			failures=$((failures + 1))
-			;;
-		esac
-	done < <(CHECK_LIVE_HUMAN_BASE="$base" CHECK_LIVE_HUMAN_ORIGIN="$origin" CHECK_LIVE_TIMEOUT="$timeout" "$repo_root/scripts/wallet/check-live.sh" human 2>&1 || true)
+	child_output="$(CHECK_LIVE_HUMAN_BASE="$base" CHECK_LIVE_HUMAN_ORIGIN="$origin" CHECK_LIVE_TIMEOUT="$timeout" "$repo_root/scripts/wallet/check-live.sh" human 2>&1)" || child_status=$?
+	bringup_inspect human-child "$child_status" <<<"$child_output" || failures=$((failures + 1))
 	answer="$(curl -sS --max-time "$timeout" -H "origin: $origin" -w ' %{http_code}' "$base/readyz" 2>/dev/null)" || answer=""
 	code="${answer##* }"
 	body="${answer% *}"
@@ -2786,19 +2794,19 @@ print(json.loads(base64.urlsafe_b64decode(ceremony + "=" * (-len(ceremony) % 4))
 # role's material boundary as comma-separated path=uid:gid[:mode] entries, or
 # "-" for a role that holds no private material.
 kernel_roster() {
+	if ! [[ "${CHECK_LIVE_PAXD_HOME:-}" =~ ^/[a-zA-Z0-9_./-]+$ ]]; then
+		echo "check-live: CHECK_LIVE_PAXD_HOME must name the mounted paxd home" >&2
+		return 1
+	fi
+	printf 'paxd 4020 - %s=4020:4020:700\n' "$CHECK_LIVE_PAXD_HOME"
 	cat <<'ROSTER'
 treasury-signer 4020 genesis /data/layerx/keys/treasury.key=4020:4020:400
-layerxd 4020 genesis /run/layerx/node=4020:4020:2750
-layerxd-authority 4020 genesis /run/layerx/node=4020:4020:2750
-guarantor-1 4021 genesis /data/layerx/guarantor-1/state=4020:4020:2770,/data/tls/guarantor=4021:4020
-guarantor-2 4021 genesis /data/layerx/guarantor-2/state=4020:4020:2770,/data/tls/guarantor=4021:4020
 paxeer-hop-1 4020 - -
 paxeer-boundary-loopback 4020 - /data/tls/paxeer-boundary-loopback=4020:4020
 paxeer-hop-2 4020 - -
 paxeer-boundary-public 4020 - /data/tls/paxeer-boundary-public=4020:4020
 paxeer-relay 4020 - -
 core-boundary 4021 genesis /data/layerx/core=4021:4020:2700,/data/tls/pending-core=4021:4020,/data/tls/pending-core-admin=4021:4020
-receipt-authority 4021 genesis /run/authority-private=4021:4020:700,/data/tls/receipt-authority=4021:4020
 agent-boundary 4021 genesis /data/layerx/agent-boundary=4021:4020:2700,/data/tls/agent-boundary=4021:4020
 human-kms 4026 genesis /run/human-private/kms=4026:4020:700,/data/human-state/kms=4026:4020:700,/run/layerx/human-material/human-kms=4026:4020:2500
 human-components 4020 genesis /run/human-private/components=4020:4020:700,/data/human-state/components=4020:4020:700,/run/layerx/human-material/human-components=4020:4020:2500
@@ -2810,7 +2818,6 @@ human 4020 - /run/human-private/service=4020:4020:700
 human-tls 4020 - /run/human-private/service=4020:4020:700,/data/tls/human=4020:4020
 mirror-signer 4021 genesis /run/mirror-signer=4021:4020:700
 mirror-publisher 4021 genesis /run/mirror-publisher=4021:4020:700
-relay-archive 4020 genesis /data/layerx/relay-archive=4020:4020:2700,/data/tls/relay-archive=4020:4020
 ROSTER
 }
 
@@ -3186,441 +3193,46 @@ else:
 	finish "$failures"
 }
 
-# check_relay: reads the public relay archive URL only from
-# CHECK_LIVE_RELAY_ORIGIN and reports env=absent when unset. Checks that route
-# against its origin, the relay-archive service the kernel app of
-# services/wallet/deploy/human.toml runs beside the sequencer. Reads the origin
-# inside the kernel machine over its internal-CA TLS listener (head, pins,
-# readiness, the genesis.manifest digest and the bytes of the batch one below
-# its head), then the required public route CHECK_LIVE_RELAY_ORIGIN, then
-# every Railway service of image layerx-relay-archive in deploy/rollout.kvx
-# through railway ssh, then the origin again: the ledger names at least two
-# replica services and every one answers, and each
-# replica and the public route answer ready and fresh, carry the origin's
-# network, genesis and sequencer pins with the genesis equal to the kernel's
-# manifest, hold a head no more than one batch behind the first origin read
-# and no further than the second, and serve the origin's exact batch bytes.
-# The original signed activity CHECK_LIVE_RELAY_ACTIVITY is forwarded to the
-# router with the key in CHECK_LIVE_RELAY_KEY_FILE and must be answered with
-# CHECK_LIVE_RELAY_ACTIVITY_ID; the same bytes with the last byte flipped must
-# be refused with a 4xx. One line per check.
-relay_listen=127.0.0.1:8080
-relay_origin_listen=127.0.0.1:9457
-relay_probe='import hashlib, json, ssl, sys, urllib.error, urllib.request
-base, cafile, manifest, target, limit = sys.argv[1:6]
-context = None
-if base.startswith("https:"):
-    context = ssl.create_default_context(cafile=None if cafile == "-" else cafile)
-def get(path):
-    try:
-        with urllib.request.urlopen(base + path, timeout=float(limit), context=context) as answer:
-            return answer.status, answer.read(16777216)
-    except urllib.error.HTTPError as error:
-        return error.code, error.read(1048576)
-out = {}
-try:
-    code, body = get("/readyz")
-    ready = json.loads(body)
-    out.update(readyz=code, ready=ready.get("ready") is True, freshness=ready.get("freshness"))
-    head = json.loads(get("/v1/sync/head")[1])
-    out.update(network=head.get("network_id"), genesis=head.get("genesis_sha256"), head=head.get("head_batch"))
-    out["sequencer"] = json.loads(get("/v1/sync/readiness")[1]).get("sequencer_public_key")
-    if manifest != "-":
-        with open(manifest, "rb") as source:
-            out["manifest"] = hashlib.sha256(source.read()).hexdigest()
-    if target == "-" and out["head"] is not None:
-        target = str(max(int(out["head"]) - 1, 1))
-    if target != "-":
-        code, body = get("/v1/sync/batches/" + target)
-        out.update(target=target, batch=hashlib.sha256(body).hexdigest() if code == 200 else None)
-except (OSError, ValueError, TypeError, AttributeError) as error:
-    out["error"] = type(error).__name__
-print("@@relay " + json.dumps(out, sort_keys=True))'
-
+# The explicit archive node accepts signed chain bytes and serves their
+# successful EVM receipt and native committed receipt from the same block.
 check_relay() {
-	local origin="${CHECK_LIVE_RELAY_ORIGIN:-}"
-	local ca="${CHECK_LIVE_RELAY_CA:--}"
-	local name kernel records services svcs svc answered probe reply target answer code activity refusal failures=0
-	for name in CHECK_LIVE_RELAY_ACTIVITY CHECK_LIVE_RELAY_KEY_FILE; do
-		if [ -z "${!name:-}" ]; then
-			echo "check-live: $name is unset" >&2
-			exit 2
-		elif [ ! -r "${!name}" ] || [ ! -s "${!name}" ]; then
-			echo "check-live: $name does not name a readable file" >&2
-			exit 2
-		fi
-	done
-	if ! [[ "${CHECK_LIVE_RELAY_ACTIVITY_ID:-}" =~ ^[A-Za-z0-9_:-]{1,256}$ ]]; then
-		echo "check-live: CHECK_LIVE_RELAY_ACTIVITY_ID is unset or malformed" >&2
+	local origin="${CHECK_LIVE_RELAY_ORIGIN:-}" transaction="${CHECK_LIVE_RELAY_TRANSACTION:-}"
+	if [ -z "$origin" ] || [ -z "$transaction" ] || [ ! -s "$transaction" ]; then
+		echo "check-live: CHECK_LIVE_RELAY_ORIGIN and readable CHECK_LIVE_RELAY_TRANSACTION are required" >&2
 		exit 2
 	fi
-	if [ -n "$origin" ] && ! [[ "$origin" =~ ^https://[a-z0-9.-]+(:[0-9]+)?$ || "$origin" =~ ^http://(127\.0\.0\.1|\[::1\]):[0-9]+(/[a-z0-9]+)?$ ]]; then
-		echo "check-live: CHECK_LIVE_RELAY_ORIGIN must be an https origin or a loopback http origin" >&2
-		exit 2
+	if timeout "${CHECK_LIVE_RELAY_DELIVERY_TIMEOUT:-180}" "${BRINGUP_INSPECT_BIN:-bringup-inspect}" archive-delivery "$origin" "$transaction" "${CHECK_LIVE_RELAY_CA:--}"; then
+		finish 0
 	fi
-	if [ "$ca" != - ] && [ ! -r "$ca" ]; then
-		echo "check-live: CHECK_LIVE_RELAY_CA does not name a readable file" >&2
-		exit 2
-	fi
-	services="$(python3 -c '
-import sys, tomllib
-with open(sys.argv[1], "rb") as source:
-    rows = tomllib.load(source).get("service", {}).values()
-print(" ".join(r["railway_service"] for r in rows if r.get("image") == "layerx-relay-archive" and r.get("target") == "railway"))
-' "$repo_root/deploy/rollout.kvx" 2>/dev/null)" || services=""
-	if [ -z "$origin" ] || [ -z "$services" ] || ! kernel="$(fly_app services/wallet/deploy/human.toml)"; then
-		echo "fail relay env=$([ -n "$origin" ] && echo present || echo absent) services=$(tr " " , <<<"${services:-absent}")"
-		finish 1
-	fi
-
-	reply="$(printf '%s\n' "$relay_probe" | fly_ssh "$kernel" - "python3 - https://$relay_origin_listen /data/tls/relay-archive/ca.pem /data/layerx/node/genesis/genesis.manifest - $timeout")" || reply=""
-	records="origin1 $(sed -n 's/^@@relay //p' <<<"$reply" | head -n 1)"
-	target="$(python3 -c 'import json, sys; print(json.loads(sys.argv[1] or "{}").get("target") or "-")' "${records#origin1 }" 2>/dev/null)" || target=-
-	reply="$(python3 -c "$relay_probe" "$origin" "$ca" - "$target" "$timeout" 2>/dev/null)" || reply=""
-	records+=$'\n'"public $(sed -n 's/^@@relay //p' <<<"$reply" | head -n 1)"
-
-	# railway ssh runs one command line in the service's active instance; the
-	# probe travels base64 in it, so no stdin has to reach the instance.
-	probe="$(printf '%s\n' "$relay_probe" | base64 -w0)"
-	answered=0
-	for svc in $services; do
-		reply="$(timeout "$timeout" "$railway_bin" ssh --service "$svc" --environment "$railway_env" -- \
-			"sh -c 'echo $probe | base64 -d | python3 - http://$relay_listen - - $target $timeout'" </dev/null 2>/dev/null)" || reply=""
-		reply="$(sed -n 's/^@@relay //p' <<<"$reply" | head -n 1)"
-		[ -z "$reply" ] || answered=$((answered + 1))
-		records+=$'\n'"replica:$svc $reply"
-	done
-	read -ra svcs <<<"$services"
-	if [ "${#svcs[@]}" -ge 2 ] && [ "$answered" -eq "${#svcs[@]}" ]; then
-		echo "pass services answered=$answered services=$(tr ' ' , <<<"$services")"
-	else
-		echo "fail services answered=$answered services=$(tr ' ' , <<<"$services")"
-		failures=$((failures + 1))
-	fi
-
-	reply="$(printf '%s\n' "$relay_probe" | fly_ssh "$kernel" - "python3 - https://$relay_origin_listen /data/tls/relay-archive/ca.pem /data/layerx/node/genesis/genesis.manifest - $timeout")" || reply=""
-	records+=$'\n'"origin2 $(sed -n 's/^@@relay //p' <<<"$reply" | head -n 1)"
-
-	answer="$(python3 -c '
-import json, sys
-origin1, public, origin2, replicas = {}, {}, {}, []
-for line in sys.argv[3].splitlines():
-    tag, _, doc = line.partition(" ")
-    try:
-        value = json.loads(doc)
-    except ValueError:
-        value = {}
-    value = value if isinstance(value, dict) else {}
-    if tag.startswith("replica:"):
-        replicas.append((tag.split(":")[1], value))
-    else:
-        {"origin1": origin1, "public": public, "origin2": origin2}[tag].update(value)
-def number(value):
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return None
-def fresh(row):
-    return row.get("readyz") == 200 and row.get("ready") is True and row.get("freshness") == "fresh"
-failures = 0
-def emit(ok, text):
-    global failures
-    failures += 0 if ok else 1
-    print(("pass " if ok else "fail ") + text)
-first, last, target = number(origin1.get("head")), number(origin2.get("head")), number(origin1.get("target"))
-kernel = origin1.get("manifest")
-genesis = "unreadable" if not kernel or not origin1.get("genesis") else "match" if origin1.get("genesis") == kernel else "mismatch"
-origin_ok = fresh(origin1) and genesis == "match" and first is not None and origin1.get("batch") is not None
-emit(origin_ok, "relay-origin app=%s head=%s ready=%s freshness=%s genesis=%s" % (
-    sys.argv[1], first if first is not None else "none", str(origin1.get("ready") is True).lower(),
-    origin1.get("freshness") or "none", genesis))
-def replica(label, row):
-    head = number(row.get("head"))
-    pins = "match" if (row.get("network") == origin1.get("network") and row.get("genesis") == kernel
-                       and row.get("sequencer") == origin1.get("sequencer") and kernel) else "mismatch"
-    within = head is not None and target is not None and head >= target and (last is None or head <= last)
-    same = row.get("batch") is not None and row.get("target") == origin1.get("target") and row.get("batch") == origin1.get("batch")
-    lag = first - head if first is not None and head is not None else "none"
-    emit(origin_ok and fresh(row) and pins == "match" and within and same,
-         "%s head=%s lag=%s ready=%s freshness=%s pins=%s bytes=%s" % (
-             label, head if head is not None else "none", lag, str(row.get("ready") is True).lower(),
-             row.get("freshness") or "none", pins, "match" if same else "mismatch"))
-replica("relay-public origin=%s" % sys.argv[2], public)
-for service, row in replicas:
-    replica("relay-replica service=%s" % service, row)
-recheck = fresh(origin2) and origin2.get("genesis") == kernel and last is not None and first is not None and last >= first
-emit(recheck, "relay-origin-recheck app=%s head=%s ready=%s freshness=%s" % (
-    sys.argv[1], last if last is not None else "none", str(origin2.get("ready") is True).lower(),
-    origin2.get("freshness") or "none"))
-print("@@failures %d" % failures)
-' "$kernel" "$origin" "$records")" || answer="fail relay-judge error=unreadable"$'\n'"@@failures 1"
-	grep -v '^@@' <<<"$answer"
-	failures=$((failures + $(sed -n 's/^@@failures //p' <<<"$answer")))
-
-	for name in original altered; do
-		reply="$(python3 - "$origin" "$ca" "$CHECK_LIVE_RELAY_ACTIVITY" "$CHECK_LIVE_RELAY_KEY_FILE" "$name" "$timeout" 2>/dev/null <<'PY'
-import json
-import ssl
-import sys
-import urllib.error
-import urllib.request
-
-origin, cafile, path, key_file, mode, limit = sys.argv[1:7]
-with open(path, "rb") as source:
-    body = source.read()
-if mode == "altered":
-    body = body[:-1] + bytes([body[-1] ^ 1])
-with open(key_file, encoding="utf-8") as source:
-    key = source.read().strip()
-context = None
-if origin.startswith("https:"):
-    context = ssl.create_default_context(cafile=None if cafile == "-" else cafile)
-request = urllib.request.Request(
-    origin + "/v1/activities",
-    data=body,
-    method="POST",
-    headers={"Content-Type": "application/octet-stream", "Authorization": "LayerX-Key " + key},
-)
-try:
-    with urllib.request.urlopen(request, timeout=float(limit), context=context) as answer:
-        code, raw = answer.status, answer.read(1048576)
-except urllib.error.HTTPError as error:
-    code, raw = error.code, error.read(1048576)
-except OSError:
-    print("@@submit 000 none none")
-    sys.exit(0)
-try:
-    value = json.loads(raw)
-except ValueError:
-    value = {}
-value = value if isinstance(value, dict) else {}
-result = value["result"] if isinstance(value.get("result"), dict) else value
-error = value["error"] if isinstance(value.get("error"), dict) else {}
-print("@@submit %03d %s %s" % (code, result.get("activity_id") or "none", error.get("code") or "none"))
-PY
-		)" || reply=""
-		read -r code activity refusal <<<"$(sed -n 's/^@@submit //p' <<<"$reply" | head -n 1)"
-		code="${code:-000}"
-		if [ "$name" = original ]; then
-			if { [ "$code" = 200 ] || [ "$code" = 202 ]; } && [ "${activity:-}" = "$CHECK_LIVE_RELAY_ACTIVITY_ID" ]; then
-				echo "pass relay-forward http=$code activity=match"
-			else
-				echo "fail relay-forward http=$code activity=${activity:-none} error=${refusal:-none}"
-				failures=$((failures + 1))
-			fi
-		elif [ "$code" -ge 400 ] && [ "$code" -lt 500 ] && [ "${activity:-}" != "$CHECK_LIVE_RELAY_ACTIVITY_ID" ]; then
-			echo "pass relay-altered http=$code refused=${refusal:-yes}"
-		else
-			echo "fail relay-altered http=$code activity=${activity:-none} refused=no"
-			failures=$((failures + 1))
-		fi
-	done
-	finish "$failures"
+	echo "fail archive-delivery committed-read-back=unproven"
+	finish 1
 }
 
-# check_interop: the interop gateway app of services/platform/hosted/interop/fly.toml
-# runs at least two started machines in at least two regions; /readyz at
-# CHECK_LIVE_INTEROP_ORIGIN (default https://interchain.paxeer.network)
-# answers ready with every component ready; then one x402 exact-scheme round
-# trip over the http transport as the payer: the facilitator's supported
-# network, a seller offer answered with its PAYMENT-REQUIRED header, the
-# payer's transfer to agent:<CHECK_LIVE_INTEROP_PAYEE_DID>:main of
-# CHECK_LIVE_INTEROP_AMOUNT (default 1) base units of the kernel asset of
-# services/platform/hosted/node/bootstrap.sh signed by CHECK_LIVE_INTEROP_ENCODER (the
-# built hosted-send example of tools/platform/cli) from the account state the endpoint
-# at CHECK_LIVE_INTEROP_RPC (default https://api-mainnet-beta.paxeer.network)
-# reports, the buyer's PAYMENT-SIGNATURE and the settlement whose
-# PAYMENT-RESPONSE carries success, the lxp:<activity id> transaction and the
-# receipt. CHECK_LIVE_INTEROP_API_KEY_FILE holds the payer's signer-bound
-# hosted gateway key <id>:<secret> and CHECK_LIVE_INTEROP_PAYER_KEY_FILE its ed25519
-# key (PEM or 32 raw bytes); neither is printed or leaves this host except
-# the key as the Authorization header. One line per check.
+# A pre-signed payExact transaction preserves operator custody. The real
+# account/nonce/balance, seller, buyer, settlement and committed read-back
+# paths all have to agree on its decoded transfer facts.
 check_interop() {
-	local toml=services/platform/hosted/interop/fly.toml name app answer n_started n_regions regions origin rpc_url amount network_id w status verdict failures=0
-	for name in CHECK_LIVE_INTEROP_API_KEY_FILE CHECK_LIVE_INTEROP_PAYER_KEY_FILE CHECK_LIVE_INTEROP_PAYEE_DID CHECK_LIVE_INTEROP_ENCODER; do
-		if [ -z "${!name:-}" ]; then
-			echo "check-live: $name is unset" >&2
-			exit 2
-		fi
-	done
-	amount="${CHECK_LIVE_INTEROP_AMOUNT:-1}"
-	if ! [[ "$amount" =~ ^[1-9][0-9]*$ ]]; then
-		echo "check-live: CHECK_LIVE_INTEROP_AMOUNT is not a positive integer" >&2
+	local origin="${CHECK_LIVE_INTEROP_ORIGIN:-https://interchain.paxeer.network}"
+	local gateway="${CHECK_LIVE_INTEROP_RPC:-}" node="${CHECK_LIVE_INTEROP_NODE_RPC:-}"
+	local transaction="${CHECK_LIVE_INTEROP_TRANSACTION:-}" key="${CHECK_LIVE_INTEROP_API_KEY_FILE:-}"
+	local app answer failures=0
+	if [ -z "$gateway" ] || [ -z "$node" ] || [ ! -s "$transaction" ] || [ ! -s "$key" ]; then
+		echo "check-live: explicit CHECK_LIVE_INTEROP_RPC, CHECK_LIVE_INTEROP_NODE_RPC, signed CHECK_LIVE_INTEROP_TRANSACTION and CHECK_LIVE_INTEROP_API_KEY_FILE are required" >&2
 		exit 2
 	fi
-	origin="${CHECK_LIVE_INTEROP_ORIGIN:-https://interchain.paxeer.network}"
-	rpc_url="${CHECK_LIVE_INTEROP_RPC:-https://api-mainnet-beta.paxeer.network}"
-	if ! app="$(fly_app "$toml")"; then
-		echo "fail interop toml=absent"
+	if ! app="$(railway_service interop)"; then
+		echo "fail interop rollout=absent"
 		finish 1
 	fi
-	answer="$(timeout "$timeout" flyctl machines list --app "$app" --json 2>/dev/null | python3 -c '
-import json, sys
-started = [m for m in json.load(sys.stdin) if m.get("state") == "started"]
-regions = sorted({m.get("region", "") for m in started} - {""})
-print(len(started), len(regions), ",".join(regions) or "none")
-' 2>/dev/null)" || answer=""
-	read -r n_started n_regions regions <<<"${answer:-none none none}"
-	if [[ "$n_started" =~ ^[0-9]+$ ]] && [ "$n_started" -ge 2 ] && [ "$n_regions" -ge 2 ]; then
-		echo "pass machines app=$app started=$n_started regions=$regions"
+	railway_deployment "$app" || failures=$((failures + 1))
+	answer="$(curl -fsS --max-time "$timeout" "$origin/readyz" 2>/dev/null)" || answer=""
+	if python3 -c 'import json,sys; d=json.load(sys.stdin); c=d["components"]; sys.exit(0 if d["status"]=="ready" and c and all(v=="ready" for v in c.values()) else 1)' <<<"$answer" 2>/dev/null; then
+		echo "pass interop readyz=ready"
 	else
-		echo "fail machines app=$app started=$n_started regions=$regions"
+		echo "fail interop readyz=unavailable"
 		failures=$((failures + 1))
 	fi
-
-	w="$(mktemp -d)"
-	# shellcheck disable=SC2064 # the path expands now, the locals are gone at exit
-	trap "rm -rf '$w'" EXIT
-	status="$(curl -sS -m "$timeout" -o "$w/readyz" -w '%{http_code}' "$origin/readyz" 2>/dev/null)" || status=""
-	answer="$(python3 -c '
-import json, sys
-try:
-    doc = json.load(open(sys.argv[1]))
-    components = doc["components"]
-except Exception:
-    print("body=unreadable")
-    sys.exit(1)
-ready = [k for k, v in sorted(components.items()) if v == "ready"]
-waiting = [k for k, v in sorted(components.items()) if v != "ready"]
-print("status=%s components=%d/%d%s" % (doc.get("status"), len(ready), len(components), " not_ready=" + ",".join(waiting) if waiting else ""))
-sys.exit(0 if doc.get("status") == "ready" and components and not waiting else 1)
-' "$w/readyz" 2>/dev/null)" && verdict=pass || verdict=fail
-	[ "$status" = 200 ] || verdict=fail
-	echo "$verdict readyz $origin/readyz http=${status:-none} $answer"
-	[ "$verdict" = pass ] || failures=$((failures + 1))
-
-	network_id="$(fly_ssh "$app" - "printenv LAYERX_INTEROP_PROTOCOL_NETWORK_ID" </dev/null | tr -d '\r\n')" || network_id=""
-	if ! [[ "$network_id" =~ ^[1-9][0-9]*$ ]]; then
-		echo "fail network app=$app protocol_network_id=${network_id:-unreadable}"
-		finish $((failures + 1))
-	fi
-	python3 - "$origin" "$rpc_url" "$CHECK_LIVE_INTEROP_API_KEY_FILE" "$CHECK_LIVE_INTEROP_PAYER_KEY_FILE" \
-		"$CHECK_LIVE_INTEROP_PAYEE_DID" "$CHECK_LIVE_INTEROP_ENCODER" "$amount" "$network_id" "$timeout" \
-		"$repo_root/services/platform/hosted/node/bootstrap.sh" <<'PY' || failures=$((failures + $?))
-import json, os, re, subprocess, sys, time, urllib.error, urllib.request
-
-origin, rpc_url, key_file, payer_file, payee, encoder, amount, network_id, limit, bootstrap = sys.argv[1:]
-limit = int(limit)
-
-
-def stop(line):
-    print("fail " + line)
-    sys.exit(1)
-
-
-try:
-    facts = dict(re.findall(r'^(ASSET_ID|ASSET_CURRENCY)="?([0-9A-Za-z]+)"?$', open(bootstrap).read(), re.M))
-    asset, currency = facts["ASSET_ID"].lower(), facts["ASSET_CURRENCY"]
-except Exception:
-    stop("asset bootstrap=unreadable")
-try:
-    authorization = "LayerX-Key " + open(key_file).read().strip()
-    raw = open(payer_file, "rb").read()
-    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-    from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption, PrivateFormat, load_pem_private_key
-    signer = Ed25519PrivateKey.from_private_bytes(raw) if len(raw) == 32 else load_pem_private_key(raw, password=None)
-    seed = signer.private_bytes(Encoding.Raw, PrivateFormat.Raw, NoEncryption()).hex()
-    payer = "did:layerx:" + signer.public_key().public_bytes_raw().hex()
-except Exception:
-    stop("payer key=unreadable")
-
-
-def call(method, url, body=None, idempotency=None):
-    headers = {"authorization": authorization}
-    data = None
-    if body is not None:
-        data = json.dumps(body).encode()
-        headers["content-type"] = "application/json"
-    if idempotency:
-        headers["idempotency-key"] = idempotency
-    request = urllib.request.Request(url, data=data, headers=headers, method=method)
-    try:
-        with urllib.request.urlopen(request, timeout=limit) as response:
-            return response.status, json.load(response)
-    except urllib.error.HTTPError as error:
-        try:
-            return error.code, json.load(error)
-        except Exception:
-            return error.code, None
-    except Exception:
-        return None, None
-
-
-def rpc(method, params):
-    status, doc = call("POST", rpc_url, {"jsonrpc": "2.0", "id": 1, "method": method, "params": params})
-    if status != 200 or not isinstance(doc, dict) or "result" not in doc:
-        stop("rpc %s http=%s error=%s" % (method, status, (doc or {}).get("error", {}).get("code", "none") if isinstance(doc, dict) else "none"))
-    return doc["result"]
-
-
-def main_account(did):
-    names = ["agent:%s:main" % did]
-    for record in rpc("lx_getBalances", [did]).get("accounts", []):
-        if record.get("asset_id") == asset and record.get("name") in names:
-            return record
-    stop("account did=%s asset=%s main=absent" % (did, asset))
-
-
-status, doc = call("GET", origin + "/v1/http/x402/supported")
-kinds = [k for k in ((doc or {}).get("result") or {}).get("supported", {}).get("kinds", []) if k.get("scheme") == "exact"]
-if status != 200 or not kinds:
-    stop("supported %s/v1/http/x402/supported http=%s exact=absent" % (origin, status))
-network = kinds[0]["network"]
-print("pass supported %s/v1/http/x402/supported http=200 scheme=exact network=%s" % (origin, network))
-
-payee_record = main_account(payee)
-source = main_account(payer)
-requirements = {"scheme": "exact", "network": network, "amount": amount, "asset": asset,
-                "payTo": payee_record["account_id"], "maxTimeoutSeconds": 120,
-                "extra": {"layerx": {"commitment": "executed", "account": payee_record["name"], "currency": currency}}}
-offer = {"x402Version": 2, "resource": {"url": origin + "/readyz"}, "accepts": [requirements]}
-status, doc = call("POST", origin + "/v1/http/x402/seller/offer", offer, os.urandom(16).hex())
-result = (doc or {}).get("result") or {}
-if status != 200 or result.get("status") != 402 or not result.get("payment_required_header"):
-    stop("offer %s/v1/http/x402/seller/offer http=%s status=%s PAYMENT-REQUIRED=%s" % (
-        origin, status, result.get("status", "none"), "present" if result.get("payment_required_header") else "absent"))
-print("pass offer %s/v1/http/x402/seller/offer http=200 status=402 PAYMENT-REQUIRED=present" % origin)
-
-account = rpc("lx_getAccount", [source["account_id"]])
-identity = rpc("lx_getSequence", [payer, "identity"])
-now = time.time_ns() // 1_000_000
-idempotency = os.urandom(32).hex()
-signing = {"seed": seed, "actor": payer, "from": source["account_id"], "to": payee_record["account_id"],
-           "from_name": source["name"], "to_name": payee_record["name"], "asset": asset, "amount": amount,
-           "source_sequence": int(account["next_sequence"]), "identity_sequence": int(identity["next_sequence"]),
-           "network_id": int(network_id), "not_before": now - 1000, "not_after": now + 120000,
-           "idempotency_key": idempotency}
-signed = subprocess.run([encoder], input=json.dumps(signing).encode(), stdout=subprocess.PIPE,
-                        stderr=subprocess.DEVNULL, check=False)
-try:
-    signed = json.loads(signed.stdout)
-    canonical, activity = signed["canonical"], signed["activity_id"]
-except Exception:
-    stop("sign encoder=refused")
-
-build = {"payment_required": result["payment_required"],
-         "scheme_payload": {"layerxActivity": canonical, "layerxIdempotencyKey": idempotency}}
-status, doc = call("POST", origin + "/v1/http/x402/buyer/build", build, os.urandom(16).hex())
-built = (doc or {}).get("result") or {}
-if status != 200 or not built.get("payment_header") or not isinstance(built.get("payment_payload"), dict):
-    stop("build %s/v1/http/x402/buyer/build http=%s error=%s" % (origin, status, ((doc or {}).get("error") or {}).get("code", "none")))
-print("pass build %s/v1/http/x402/buyer/build http=200 PAYMENT-SIGNATURE=present" % origin)
-
-settle = {"x402Version": 2, "paymentPayload": built["payment_payload"], "paymentRequirements": requirements}
-status, doc = call("POST", origin + "/v1/http/x402/settle", settle, os.urandom(16).hex())
-deadline = time.monotonic() + 120
-while status == 202 and (doc or {}).get("operation") and time.monotonic() < deadline:
-    time.sleep(2)
-    status, doc = call("GET", origin + "/v1/operations/" + doc["operation"])
-settled = (doc or {}).get("result") or {}
-receipt = ((settled.get("extensions") or {}).get("layerx") or {}).get("receipt")
-line = "settle %s/v1/http/x402/settle http=%s success=%s transaction=%s receipt=%s" % (
-    origin, status, str(settled.get("success", "none")).lower(), settled.get("transaction", "none"),
-    "present" if receipt else "absent")
-if status != 200 or settled.get("success") is not True or settled.get("transaction") != "lxp:" + activity or not receipt:
-    stop(line + " want=lxp:" + activity)
-print("pass " + line)
-PY
+	timeout "${CHECK_LIVE_INTEROP_DELIVERY_TIMEOUT:-180}" "${BRINGUP_INSPECT_BIN:-bringup-inspect}" interop-payment "$origin" "$gateway" "$node" "$transaction" "$key" || failures=$((failures + 1))
 	finish "$failures"
 }
 
@@ -3673,23 +3285,11 @@ check_ramp() {
 	finish "$failures"
 }
 
-# check_indexer: the rollout's indexer service has no public domain and runs
-# one successful deployment replica with its volume at /data;
-# inside it the layerx-indexer process answers /healthz over TLS at its
-# .internal name to the internal CA tools/bringup/ca.sh left on the volume;
-# its EVM URL is the archive node's public RPC name (the name rpc_unit reads
-# behind ARCHIVE_HOST), its CometBFT URL that name's /comet location and its
-# relay URL https://archive.paxeer.network, each pinned to a self-signed ISRG
-# Root X1 that verifies the chain the name serves (read at
-# CHECK_LIVE_INDEXER_CONNECT, host:port, default the name on 443); the
-# location answers a POSTed status and refuses a GET, and the indexer's start
-# block is the node's first retained block; the Paxeer backfill cursor sits at
-# the cutover the init kept and the live cursor at or past it; and through
-# the configured hosted gateway px_getUnifiedHistory and px_getHistory answer items for
-# CHECK_LIVE_INDEXER_ACCOUNT, a 0x EVM address with indexed history.
-# One line per check.
+# The deployed process supplies EVM/Comet URLs and their pins. Its real SQLite
+# cursor snapshot must agree with the immutable start/cutover files and the
+# completed-backfill marker; both hosted history methods must return items.
 check_indexer() {
-	local gateway_url="${CHECK_LIVE_INDEXER_RPC:-}" relay_url=https://archive.paxeer.network
+	local gateway_url="${CHECK_LIVE_INDEXER_RPC:-}"
 	local account="${CHECK_LIVE_INDEXER_ACCOUNT:-}" app answer unit w reply line side want url pin host
 	local subject status code earliest start cutover backfilled live listen method params failures=0
 	local script
@@ -3718,15 +3318,6 @@ check_indexer() {
 	fi
 	railway_deployment "$app" /data || failures=$((failures + 1))
 
-	read -r unit _ <<<"$(rpc_unit "$ARCHIVE_HOST" || true)"
-	if [[ "${unit:-}" =~ ^api[0-9]+$ ]]; then
-		echo "pass archive-name name=$unit.$rpc_domain"
-	else
-		echo "fail archive-name role=ARCHIVE_HOST name=none"
-		failures=$((failures + 1))
-		unit=""
-	fi
-
 	# shellcheck disable=SC2016 # the script expands on the machine
 	script='pid=
 for d in /proc/[0-9]*; do
@@ -3742,7 +3333,7 @@ if [ -z "$pid" ]; then
 	exit 0
 fi
 env_of() { tr "\000" "\n" <"$pid/environ" | sed -n "s/^$1=//p" | head -n 1; }
-for side in EVM COMET RELAY; do
+for side in EVM COMET; do
 	echo "@@$side $(env_of "LAYERX_INDEXER_${side}_URL") $(base64 <"$(env_of "LAYERX_INDEXER_${side}_CA_DER")" 2>/dev/null | tr -d "\n")"
 done
 db=$(env_of LAYERX_INDEXER_DB)
@@ -3753,7 +3344,14 @@ status=0
 answer=$(curl -sS -m "$limit" --cacert "$tls/ca.pem" -w "\n%{http_code}" "https://$app.railway.internal:${listen##*:}/healthz" 2>&1) || status=$?
 echo "@@health $status $(printf "%s" "$answer" | tail -n 1) $(printf "%s" "$answer" | head -n 1 | tr -d " " | cut -c1-120)"
 echo "@@cutover $(cat "$(dirname "$db")/cutover-height" 2>/dev/null)"
-echo "@@cursors $(sqlite3 -readonly -separator " " "$db" "SELECT (SELECT position FROM backfill_cursors WHERE chain = '\''paxeer'\''), (SELECT position FROM cursors WHERE chain = '\''paxeer'\'');" 2>/dev/null)"'
+echo "@@retained-start $(cat "$(dirname "$db")/start-block" 2>/dev/null)"
+[ "$(cat "$(dirname "$db")/backfill-done" 2>/dev/null)" != "$(cat "$(dirname "$db")/cutover-height" 2>/dev/null)" ] || echo "@@done true"
+snapshot=$(mktemp)
+if cursors=$(sqlite3 -readonly -separator " " "$db" "ATTACH DATABASE '\''$snapshot'\'' AS evidence; BEGIN; CREATE TABLE evidence.cursors AS SELECT chain, position, hash FROM main.cursors WHERE chain = '\''paxeer'\''; CREATE TABLE evidence.backfill_cursors AS SELECT chain, position, hash FROM main.backfill_cursors WHERE chain = '\''paxeer'\''; SELECT (SELECT position FROM main.backfill_cursors WHERE chain = '\''paxeer'\''), (SELECT position FROM main.cursors WHERE chain = '\''paxeer'\''), (SELECT hash FROM main.backfill_cursors WHERE chain = '\''paxeer'\''), (SELECT hash FROM main.cursors WHERE chain = '\''paxeer'\''); COMMIT;" 2>/dev/null); then
+    echo "@@cursors $cursors"
+    echo "@@database $(base64 <"$snapshot" | tr -d "\n")"
+fi
+rm -f "$snapshot"'
 	reply="$(printf '%s\n' "$script" | railway_ssh "$app" "tls=$tls_dir/indexer app=$app limit=$timeout sh -s")" || reply=""
 	if [ -z "$reply" ] || grep -q '^@@process none' <<<"$reply"; then
 		[ -n "$reply" ] && answer=none || answer=unreachable
@@ -3773,12 +3371,7 @@ echo "@@cursors $(sqlite3 -readonly -separator " " "$db" "SELECT (SELECT positio
 	w="$(mktemp -d)"
 	# shellcheck disable=SC2064
 	trap "rm -rf '$w'" EXIT
-	for side in EVM COMET RELAY; do
-		case "$side" in
-		EVM) want="https://$unit.$rpc_domain" ;;
-		COMET) want="https://$unit.$rpc_domain/comet" ;;
-		RELAY) want="$relay_url" ;;
-		esac
+	for side in EVM COMET; do
 		read -r url pin <<<"$(sed -n "s/^@@$side //p" <<<"$reply" | head -n 1)"
 		host="${url#https://}"
 		host="${host%%/*}"
@@ -3791,36 +3384,34 @@ echo "@@cursors $(sqlite3 -readonly -separator " " "$db" "SELECT (SELECT positio
 		status=1
 		if [ -n "$pin" ] && base64 -d <<<"$pin" 2>/dev/null | openssl x509 -inform DER -out "$w/pin-$side.pem" 2>/dev/null; then
 			subject="$(openssl x509 -in "$w/pin-$side.pem" -noout -subject -nameopt sep_multiline,utf8 | sed -n 's/^ *CN=//p')"
-			if [ "$subject" = "ISRG Root X1" ] &&
-				[ "$subject" = "$(openssl x509 -in "$w/pin-$side.pem" -noout -issuer -nameopt sep_multiline,utf8 | sed -n 's/^ *CN=//p')" ] &&
-				[ -s "$w/$host-1.pem" ] &&
+			if [ -s "$w/$host-1.pem" ] &&
 				openssl verify -CAfile "$w/pin-$side.pem" -untrusted "$w/$host-untrusted.pem" -verify_hostname "$host" "$w/$host-1.pem" >/dev/null 2>&1; then
 				status=0
 			fi
 		fi
-		if [ -n "$unit" ] && [ "$url" = "$want" ] && [ "$status" -eq 0 ]; then
-			echo "pass upstream-ca side=${side,,} url=$url root=X1 verifies=yes"
+		if [[ "$url" == https://* ]] && [ "$status" -eq 0 ]; then
+			echo "pass upstream-ca side=${side,,} url=$url root=configured verifies=yes"
 		else
-			echo "fail upstream-ca side=${side,,} url=${url:-none} want=$want pin=${subject// /-} verifies=no"
+			echo "fail upstream-ca side=${side,,} url=${url:-none} pin=${subject// /-} verifies=no"
 			failures=$((failures + 1))
 		fi
 	done
 
 	earliest=""
-	if [ -n "$unit" ]; then
-		code="$(curl -sS -m "$timeout" -o "$w/comet.json" -w '%{http_code}' -H 'content-type: application/json' \
-			--data '{"jsonrpc":"2.0","id":1,"method":"status","params":{}}' "https://$unit.$rpc_domain/comet" 2>/dev/null)" || code=none
+	if [ -s "$w/pin-COMET.pem" ]; then
+		code="$(curl -sS -m "$timeout" --cacert "$w/pin-COMET.pem" -o "$w/comet.json" -w '%{http_code}' -H 'content-type: application/json' \
+			--data '{"jsonrpc":"2.0","id":1,"method":"status","params":{}}' "$(sed -n 's/^@@COMET //p' <<<"$reply" | cut -d' ' -f1)" 2>/dev/null)" || code=none
 		earliest="$(python3 -c '
 import json, sys
 doc = json.load(open(sys.argv[1]))
 value = str(((doc.get("result") or doc).get("sync_info") or {}).get("earliest_block_height", ""))
 print(value if value.isdigit() else "")
 ' "$w/comet.json" 2>/dev/null)" || earliest=""
-		status="$(curl -sS -m "$timeout" -o /dev/null -w '%{http_code}' "https://$unit.$rpc_domain/comet" 2>/dev/null)" || status=none
+		status="$(curl -sS -m "$timeout" --cacert "$w/pin-COMET.pem" -o /dev/null -w '%{http_code}' "$(sed -n 's/^@@COMET //p' <<<"$reply" | cut -d' ' -f1)" 2>/dev/null)" || status=none
 		if [ "$code" = 200 ] && [ -n "$earliest" ] && [ "$status" = 403 ]; then
-			echo "pass comet-location url=https://$unit.$rpc_domain/comet post=200 get=403 earliest=$earliest"
+			echo "pass comet-location upstream=configured post=200 get=403 earliest=$earliest"
 		else
-			echo "fail comet-location url=https://$unit.$rpc_domain/comet post=$code get=$status earliest=${earliest:-none}"
+			echo "fail comet-location upstream=configured post=$code get=$status earliest=${earliest:-none}"
 			failures=$((failures + 1))
 		fi
 	fi
@@ -3832,19 +3423,20 @@ print(value if value.isdigit() else "")
 		failures=$((failures + 1))
 	fi
 
-	cutover="$(sed -n 's/^@@cutover //p' <<<"$reply" | head -n 1)"
-	read -r backfilled live <<<"$(sed -n 's/^@@cursors //p' <<<"$reply" | head -n 1)"
-	if [[ "$cutover" =~ ^[0-9]+$ ]] && [ "${backfilled:-}" = "$cutover" ] && [[ "${live:-}" =~ ^[0-9]+$ ]] && [ "$live" -ge "$cutover" ]; then
-		echo "pass backfill chain=paxeer cutover=$cutover backfill=$backfilled live=$live"
-	else
-		echo "fail backfill chain=paxeer cutover=${cutover:-none} backfill=${backfilled:-none} live=${live:-none}"
+	if ! python3 -c '
+import json,sys
+rows=dict(line[2:].split(" ",1) for line in sys.stdin.read().splitlines() if line.startswith("@@") and " " in line)
+b,l,bh,lh=rows["cursors"].split()
+print(json.dumps(dict(start=int(rows["start"]),retained_start=int(rows["retained-start"]),earliest=int(sys.argv[1]),cutover=int(rows["cutover"]),done=rows.get("done")=="true",backfill=int(b),live=int(l),backfill_hash=bh,live_hash=lh,database=rows["database"])))
+' "$earliest" <<<"$reply" >"$w/state.json" || ! bringup_inspect indexer-state <"$w/state.json"; then
+		echo "fail backfill chain=paxeer database=inconsistent-or-incomplete"
 		failures=$((failures + 1))
 	fi
 
 	for method in px_getUnifiedHistory px_getHistory; do
 		params="[\"$account\"]"
 		code="$(curl -sS -m "$timeout" -o "$w/history.json" -w '%{http_code}' -H 'content-type: application/json' \
-			--data "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$method\",\"params\":$params}" "$gateway_url" 2>/dev/null)" || code=none
+			-H @<(printf 'Authorization: Bearer %s\n' "${CHECK_LIVE_GATEWAY_TOKEN:-}") --data "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$method\",\"params\":$params}" "$gateway_url" 2>/dev/null)" || code=none
 		read -r answer line <<<"$(python3 -c '
 import json, sys
 doc = json.load(open(sys.argv[1]))
@@ -3865,13 +3457,12 @@ print(len(result.get("items") or []))
 	finish "$failures"
 }
 
-# check_developers: the three developer apps each run started machines in ams
-# and fra, per process group for the webhooks app; hooks, api-dev and dev
-# answer ready over the edge; a subscription for CHECK_LIVE_DEVELOPERS_RECEIVER
+# check_developers: current rollout deployments are ready; hooks, api-dev
+# and dev answer ready over the edge; a subscription for CHECK_LIVE_DEVELOPERS_RECEIVER
 # registers under the session of CHECK_LIVE_DEVELOPERS_TOKEN_FILE and lists
 # back; and one producer event is delivered to it within
 # CHECK_LIVE_DEVELOPERS_DELIVERY_ATTEMPTS reads five seconds apart. The token
-# travels only in a curl config file and is never printed. One line per check.
+# is read from its configured file and is never printed. One line per check.
 check_developers() {
 	local hooks=https://hooks.paxeer.network api=https://api-dev.paxeer.network web=https://dev.paxeer.network
 	local token_file="${CHECK_LIVE_DEVELOPERS_TOKEN_FILE:-}" receiver="${CHECK_LIVE_DEVELOPERS_RECEIVER:-}"
@@ -3918,238 +3509,48 @@ check_developers() {
 		fi
 	done
 
-	(
-		umask 077
-		printf 'header = "Authorization: Bearer %s"\n' "$(tr -d '\r\n' <"$token_file")" >"$w/auth"
-	)
-	python3 -c 'import json, sys; print(json.dumps({"url": sys.argv[1], "kinds": ["journey", "payment", "approval", "program"], "minimum_verification": "unverified"}))' "$receiver" >"$w/register"
-	code="$(curl -sS --max-time "$timeout" --config "$w/auth" --header 'Content-Type: application/json' --header 'Idempotency-Key: check-live-developers' \
-		--data-binary "@$w/register" --output "$w/body" --write-out '%{http_code}' "$hooks/v1/webhooks/endpoints" 2>/dev/null)" || code="${code:-none}"
-	[ "$code" != 201 ] || endpoint="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["endpoint"])' "$w/body" 2>/dev/null)" || endpoint=""
-	if [ -z "$endpoint" ]; then
-		echo "fail subscription url=$hooks/v1/webhooks/endpoints http=$code"
-		failures=$((failures + 1))
-		finish "$failures"
+	local source="${CHECK_LIVE_DEVELOPERS_SOURCE_URL:-}" request="${CHECK_LIVE_DEVELOPERS_SOURCE_REQUEST:-}"
+	local source_token="${CHECK_LIVE_DEVELOPERS_SOURCE_TOKEN_FILE:-}"
+	if [[ "$source" != https://*/v1/intents/submit ]] || [ ! -s "$request" ] || [ ! -s "$source_token" ]; then
+		echo "check-live: authorized CHECK_LIVE_DEVELOPERS_SOURCE_URL (/v1/intents/submit), CHECK_LIVE_DEVELOPERS_SOURCE_REQUEST and CHECK_LIVE_DEVELOPERS_SOURCE_TOKEN_FILE are required" >&2
+		exit 2
 	fi
-	code="$(curl -sS --max-time "$timeout" --config "$w/auth" --output "$w/body" --write-out '%{http_code}' "$hooks/v1/webhooks/endpoints" 2>/dev/null)" || code="${code:-none}"
-	if [ "$code" = 200 ] && python3 -c 'import json, sys; sys.exit(0 if any(e.get("endpoint") == sys.argv[2] for e in json.load(open(sys.argv[1]))) else 1)' "$w/body" "$endpoint" 2>/dev/null; then
-		echo "pass subscription endpoint=$endpoint registered=201 listed=yes"
-	else
-		echo "fail subscription endpoint=$endpoint registered=201 listed=no http=$code"
-		failures=$((failures + 1))
-	fi
+	timeout "$((attempts * (timeout * 2 + 5) + timeout * 3))" "${BRINGUP_INSPECT_BIN:-bringup-inspect}" developers-delivery "$hooks" "$receiver" "$source" "$request" "$token_file" "$source_token" "$attempts" || failures=$((failures + 1))
 
-	answer=""
-	for n in $(seq "$attempts"); do
-		[ "$n" -eq 1 ] || sleep 5
-		code="$(curl -sS --max-time "$timeout" --config "$w/auth" --output "$w/body" --write-out '%{http_code}' "$hooks/v1/webhooks/deliveries" 2>/dev/null)" || code="${code:-none}"
-		[ "$code" = 200 ] || continue
-		answer="$(python3 -c '
-import json, sys
-for d in json.load(open(sys.argv[1])):
-    if d.get("endpoint") == sys.argv[2] and (d.get("state") or {}).get("state") == "delivered":
-        print(d.get("kind", "-"), d.get("delivery", "-"))
-        break
-' "$w/body" "$endpoint" 2>/dev/null)" || answer=""
-		[ -z "$answer" ] || break
-	done
-	if [ -n "$answer" ]; then
-		read -r group n <<<"$answer"
-		echo "pass delivery endpoint=$endpoint kind=$group delivery=$n state=delivered"
-	else
-		echo "fail delivery endpoint=$endpoint state=none-delivered attempts=$attempts http=$code"
-		failures=$((failures + 1))
-	fi
 	finish "$failures"
 }
 
-# check_search: the serving x-websearch sidecars behind the serving RPC names
-# that tools/bringup/search-front.sh names lists. /xweb/health answers 200
-# with status ok on every serving RPC name, and an unpaid /search answers 402
-# with a PAYMENT-REQUIRED metered offer in PAX to the payer
-# CHECK_LIVE_SEARCH_PAYER_DID on the first serving RPC name, on the second
-# (the client's redundant path) when there is one and through
-# search.paxeer.network; the offer's amount is the approved price, 0.001 US
-# dollars at 13.44 US dollars per PAX, exactly 1/13440 PAX rounded up to a
-# whole base unit of the decimals the router's lx_getAsset reports for the
-# offer's asset, which must be the registered, unpaused PAX record; the retry
-# carrying a PAYMENT-SIGNATURE with the payer's grant for that offer, signed
-# with the Ed25519 PEM key of CHECK_LIVE_SEARCH_PAYER_KEY_FILE (never
-# printed), answers 200 with a PAYMENT-RESPONSE from the backend whose
-# x-search-node answered the challenge. CHECK_LIVE_ROUTER_URL must name
-# the operator-deployed hosted gateway origin. One line per check.
-search_offer_py='
-import base64
-import json
-import sys
-
-code, header = sys.argv[1], sys.argv[2]
-try:
-    doc = json.loads(base64.b64decode(header, validate=True))
-    offers = [o for o in doc.get("accepts") or [] if ((o.get("extra") or {}).get("layerx") or {}).get("currency") == "PAX"]
-except (ValueError, TypeError, AttributeError):
-    doc, offers = {}, []
-ok = code == "402" and doc.get("x402Version") == 2 and bool(offers)
-schemes = ",".join(sorted({str(o.get("scheme")) for o in offers})) or "none"
-amount = offers[0].get("amount", "none") if offers else "none"
-print(("pass" if ok else "fail") + " http=%s pax=%s amount=%s" % (code or "none", schemes, amount))
-metered = [o for o in offers if o.get("scheme") == "metered"]
-if ok and metered:
-    print(base64.b64encode(json.dumps(metered[0], separators=(",", ":")).encode()).decode())
-'
-# search_price_py <offer b64> <lx_getAsset reply>: checks the offer's amount
-# against the approved 1/13440 PAX, rounded up to a whole base unit of the
-# registered decimals of the offer's asset, and prints one result line.
-search_price_py='
-import base64
-import json
-import re
-import sys
-from fractions import Fraction
-
-APPROVED = Fraction(1, 1000) / Fraction(1344, 100)
-assert APPROVED == Fraction(1, 13440)
-offer = json.loads(base64.b64decode(sys.argv[1]))
-try:
-    asset = json.loads(sys.argv[2])["result"]["asset"]
-    decimals = asset["decimals"]
-    registered = (asset["asset_id"] == offer["asset"] and asset["symbol"] == "PAX" and asset["paused"] is False
-                  and type(decimals) is int and 0 <= decimals <= 38)
-except (ValueError, KeyError, TypeError):
-    registered, decimals = False, None
-if not registered:
-    print("fail asset=%s registered=no" % offer.get("asset", "none"))
-    sys.exit()
-units = APPROVED * 10 ** decimals
-want = max(1, -(-units.numerator // units.denominator))
-amount = str(offer.get("amount", ""))
-ok = re.fullmatch(r"[1-9][0-9]*", amount) is not None and int(amount) == want
-print(("pass" if ok else "fail") + " asset=PAX decimals=%d amount=%s approved=%d" % (decimals, amount or "none", want))
-'
-# search_grant_py <offer b64> <public key hex> <sig hex|->: with - prints the
-# grant id to sign (the digest of the grant fields under the authority-hash
-# and LXP:GRANT:v1 domains, as layerx-crypto verifies it); with a signature
-# prints the PAYMENT-SIGNATURE header value carrying the canonical grant.
-search_grant_py='
-import base64
-import hashlib
-import json
-import os
-import sys
-import time
-
-offer = json.loads(base64.b64decode(sys.argv[1]))
-terms = offer["extra"]["layerx"]
-amount = int(offer["amount"])
-state = os.environ["search_grant_state"]
-if sys.argv[3] == "-":
-    fields = b"".join((
-        bytes.fromhex(terms["payer"]), bytes.fromhex(offer["payTo"]), bytes.fromhex(offer["asset"]),
-        amount.to_bytes(16, "big"), amount.to_bytes(16, "big"), b"\0", (0).to_bytes(8, "big"),
-        (int(time.time()) + 300).to_bytes(8, "big"), bytes.fromhex(terms["purposeHash"]), b"\0", bytes(32),
-        (0).to_bytes(8, "big"), bytes.fromhex(sys.argv[2]),
-    ))
-    grant_id = hashlib.sha256(b"LXP/v1/authority-hash\0" + b"LXP:GRANT:v1" + fields).digest()
-    with open(state, "wb") as handle:
-        handle.write(grant_id + fields)
-    sys.stdout.buffer.write(grant_id)
-    sys.exit(0)
-with open(state, "rb") as handle:
-    grant = handle.read() + bytes.fromhex(sys.argv[3])
-header = {"x402Version": 2, "accepted": offer, "payload": {"grant": grant.hex(), "idempotencyKey": os.urandom(32).hex()}}
-print(base64.b64encode(json.dumps(header, separators=(",", ":")).encode()).decode())
-'
+# Paid search uses the standing ledger grant and EVM payer address accepted
+# by the current sidecar. Metadata is read from the explicit hosted gateway.
 check_search() {
-	local listing name code body headers first="" second="" line reply offer public signature payment work v node asset failures=0
-	local router="${CHECK_LIVE_ROUTER_URL:-}"
+	local gateway="${CHECK_LIVE_GATEWAY_RPC:-}" payer="${CHECK_LIVE_SEARCH_PAYER_ADDRESS:-}"
+	local grant="${CHECK_LIVE_SEARCH_GRANT_ID:-}" listing name first="" second="" body failures=0
 	local -a names=() paths=()
-	for v in CHECK_LIVE_SEARCH_PAYER_KEY_FILE CHECK_LIVE_SEARCH_PAYER_DID; do
-		if [ -z "${!v:-}" ]; then
-			echo "check-live: $v is unset" >&2
-			exit 2
-		fi
-	done
-	if [ -z "$router" ]; then
-		echo "check-live: hosted gateway endpoint is not configured (CHECK_LIVE_ROUTER_URL)" >&2
+	if [ -z "$gateway" ] || [ -z "$payer" ] || [ -z "$grant" ]; then
+		echo "check-live: CHECK_LIVE_GATEWAY_RPC, CHECK_LIVE_SEARCH_PAYER_ADDRESS and CHECK_LIVE_SEARCH_GRANT_ID are required" >&2
 		exit 2
 	fi
 	if ! listing="$("$(dirname "${BASH_SOURCE[0]}")/search-front.sh" names 2>&1)"; then
-		echo "fail names names=unreadable $(printf '%s' "$listing" | tr '\n' ' ' | cut -c1-160)"
+		echo "fail names serving=unreadable"
 		finish 1
 	fi
 	mapfile -t names < <(sed -n 's/^serve //p' <<<"$listing")
-	if [ "${#names[@]}" -eq 0 ]; then
-		echo "fail names serving=0"
-		finish 1
-	fi
+	[ "${#names[@]}" -gt 0 ] || { echo "fail names serving=0"; finish 1; }
 	for name in "${names[@]}"; do
-		if [ -z "$first" ]; then
-			first="$name"
-		elif [ -z "$second" ]; then
-			second="$name"
-		fi
-		body="$(curl -sS --max-time "$timeout" -w '\n%{http_code}' "https://$name/xweb/health" 2>/dev/null)" || body=""
-		code="${body##*$'\n'}"
-		body="${body%$'\n'*}"
-		if [ "$code" = 200 ] && [[ "$body" == *'"status":"ok"'* ]]; then
-			echo "pass health https://$name/xweb/health http=200 status=ok"
+		if [ -z "$first" ]; then first="$name"; elif [ -z "$second" ]; then second="$name"; fi
+		body="$(curl -fsS --max-time "$timeout" "https://$name/xweb/health" 2>/dev/null)" || body=""
+		if python3 -c 'import json,sys; sys.exit(0 if json.load(sys.stdin)["status"]=="ok" else 1)' <<<"$body" 2>/dev/null; then
+			echo "pass health https://$name/xweb/health status=ok"
 		else
-			echo "fail health https://$name/xweb/health http=${code:-none}"
+			echo "fail health https://$name/xweb/health"
 			failures=$((failures + 1))
 		fi
 	done
 	paths=("$first")
 	[ -z "$second" ] || paths+=("$second")
 	paths+=(search.paxeer.network)
-	work="$(mktemp -d)"
-	# shellcheck disable=SC2064
-	trap "rm -rf '$work'" EXIT
-	public="$(openssl pkey -in "$CHECK_LIVE_SEARCH_PAYER_KEY_FILE" -pubout -outform DER 2>/dev/null | tail -c 32 | od -An -tx1 | tr -d ' \n')" || public=""
 	for name in "${paths[@]}"; do
-		headers="$(curl -sS --max-time "$timeout" -H "LAYERX-PAYER-DID: $CHECK_LIVE_SEARCH_PAYER_DID" -D - -o /dev/null "https://$name/search?q=paxeer" 2>/dev/null)" || headers=""
-		code="$(sed -n '1s/^HTTP\/[0-9.]* \([0-9]*\).*/\1/p' <<<"$headers")"
-		node="$(sed -n 's/^x-search-node:[[:space:]]*//Ip' <<<"$headers" | tr -d '\r' | head -n 1)"
-		reply="$(python3 -c "$search_offer_py" "$code" "$(sed -n 's/^payment-required:[[:space:]]*//Ip' <<<"$headers" | tr -d '\r' | head -n 1)")"
-		line="$(head -n 1 <<<"$reply")"
-		offer="$(sed -n 2p <<<"$reply")"
-		echo "${line%% *} offer https://$name/search ${line#* }"
-		if [ "${line%% *}" != pass ] || [ -z "$offer" ]; then
-			[ "${line%% *}" != pass ] || echo "fail paid https://$name/search metered=none"
-			failures=$((failures + 1))
-			continue
-		fi
-		asset="$(python3 -c 'import base64, json, re, sys; a = str(json.loads(base64.b64decode(sys.argv[1])).get("asset", "")); print(a if re.fullmatch(r"[0-9a-f]{64}", a) else "")' "$offer")"
-		reply="$(curl -sS --max-time "$timeout" -H "content-type: application/json" \
-			-d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"lx_getAsset\",\"params\":[\"$asset\"]}" "$router/rpc" 2>/dev/null)" || reply=""
-		line="$(python3 -c "$search_price_py" "$offer" "$reply")"
-		echo "${line%% *} price https://$name/search ${line#* }"
-		if [ "${line%% *}" != pass ]; then
-			failures=$((failures + 1))
-			continue
-		fi
-		signature=""
-		if [ "${#public}" -eq 64 ] && search_grant_state="$work/grant" python3 -c "$search_grant_py" "$offer" "$public" - >"$work/digest" &&
-			openssl pkeyutl -sign -rawin -inkey "$CHECK_LIVE_SEARCH_PAYER_KEY_FILE" -in "$work/digest" -out "$work/signature" 2>/dev/null; then
-			signature="$(od -An -tx1 "$work/signature" | tr -d ' \n')"
-		fi
-		if [ "${#signature}" -ne 128 ]; then
-			echo "fail paid https://$name/search signature=unavailable"
-			failures=$((failures + 1))
-			continue
-		fi
-		payment="$(search_grant_state="$work/grant" python3 -c "$search_grant_py" "$offer" "$public" "$signature")"
-		headers="$(curl -sS --max-time "$timeout" -H "LAYERX-PAYER-DID: $CHECK_LIVE_SEARCH_PAYER_DID" -H "PAYMENT-SIGNATURE: $payment" -D - -o /dev/null "https://$name/search?q=paxeer" 2>/dev/null)" || headers=""
-		code="$(sed -n '1s/^HTTP\/[0-9.]* \([0-9]*\).*/\1/p' <<<"$headers")"
-		v="$(sed -n 's/^x-search-node:[[:space:]]*//Ip' <<<"$headers" | tr -d '\r' | head -n 1)"
-		if [ "$v" != "$node" ]; then
-			echo "fail paid https://$name/search node=${v:-none} challenge-node=${node:-none}"
-			failures=$((failures + 1))
-		elif [ "$code" = 200 ] && grep -qi '^payment-response:' <<<"$headers"; then
-			echo "pass paid https://$name/search http=200 currency=PAX payment-response=present node=${node:-direct}"
-		else
-			echo "fail paid https://$name/search http=${code:-none} payment-response=$(grep -qi '^payment-response:' <<<"$headers" && echo present || echo absent)"
-			failures=$((failures + 1))
-		fi
+		bringup_inspect search-payment "https://$name/search?q=paxeer" "$gateway" "$payer" "$grant" || failures=$((failures + 1))
 	done
 	finish "$failures"
 }
@@ -4165,157 +3566,24 @@ check_search() {
 # program_registry ready. CHECK_LIVE_ROUTER_URL must name the hosted gateway
 # origin for the full check. One line per check.
 check_registry() {
-	local toml=services/platform/hosted/registry/fly.toml url ingress
-	local router="${CHECK_LIVE_ROUTER_URL:-}"
-	local topic=6c782e7265662e657363726f772e637573746f6479 program="${CHECK_LIVE_REGISTRY_PROGRAM_ID:-}"
-	local app kernel answer reply line status code body anonymous from page failures=0
-	# shellcheck disable=SC2016
-	local script='status=0
-answer=$(curl -sS -m "$limit" --cacert "$tls/ca.pem" --cert "$tls/cert.pem" --key "$tls/key.pem" -w "\n%{http_code}" "$url" 2>&1) || status=$?
-echo "@@healthz $status $(printf "%s" "$answer" | tail -n 1) $(printf "%s" "$answer" | head -n 1 | tr -d " " | cut -c1-120)"
-status=0
-curl -sS -m "$limit" --cacert "$tls/ca.pem" -o /dev/null "$url" 2>/dev/null || status=$?
-echo "@@anonymous $status"'
-	if ! command -v flyctl >/dev/null 2>&1; then
-		echo "check-live: flyctl is required" >&2
-		exit 2
+	local row target service host_key unit health host command reply status=0
+	local program="${CHECK_LIVE_REGISTRY_PROGRAM_ID:-}"
+	row="$(bringup_inspect rollout-service "$repo_root/deploy/rollout.kvx" program-registry)" || { echo 'fail registry rollout=absent'; finish 1; }
+	read -r target service host_key unit health <<<"$row"
+	[ "$target" = box ] || { echo 'fail registry rollout=not-box'; finish 1; }
+	host="${!host_key:-}"
+	[ -n "$host" ] || { echo "fail registry host=$host_key absent"; finish 1; }
+	printf -v command 'systemctl is-active --quiet %q && %q registry-health %q' "$unit" "${BRINGUP_INSPECT_BIN:-bringup-inspect}" "$tls_dir/registry-event-client"
+	if [ "${registry_stage:-full}" != bootstrap ]; then
+		[[ "$program" =~ ^[0-9a-f]{64}$ ]] || { echo 'fail program-events program=unset want=CHECK_LIVE_REGISTRY_PROGRAM_ID'; finish 1; }
+		printf -v command 'systemctl is-active --quiet %q && %q registry-observe %q %q %q' "$unit" "${BRINGUP_INSPECT_BIN:-bringup-inspect}" "$tls_dir/registry-event-client" "$program" "${CHECK_LIVE_REGISTRY_CURSOR_DIR:-/var/lib/layerx/bringup}/registry-$program.cursor"
 	fi
-	if ! app="$(fly_app "$toml")" || ! kernel="$(fly_app services/wallet/deploy/human.toml)"; then
-		echo "fail registry toml=absent"
-		finish 1
-	fi
-
-	answer="$(timeout "$timeout" flyctl machines list --app "$app" --json 2>/dev/null | python3 -c '
-import json, sys
-ms = json.load(sys.stdin)
-started = [m for m in ms if m.get("state") == "started"]
-mounts = [x for m in ms for x in (m.get("config") or {}).get("mounts") or [] if x.get("path") == "/data"]
-print(len(ms), len(started), len(mounts))
-' 2>/dev/null)" || answer=""
-	read -r status code body <<<"${answer:-none none none}"
-	if [ "$status" = 1 ] && [ "$code" = 1 ] && [ "$body" = 1 ]; then
-		echo "pass machines app=$app machines=1 started=1 volumes=1"
-	else
-		echo "fail machines app=$app machines=$status started=$code volumes=$body"
-		failures=$((failures + 1))
-	fi
-
-	if ! answer="$(python3 - "$repo_root/$toml" <<'PYCONFIG'
-import sys, tomllib
-with open(sys.argv[1], 'rb') as source:
-    config = tomllib.load(source)
-port = int(config['env']['LAYERX_REGISTRY_LISTEN'].rsplit(':', 1)[1])
-assert 1 <= port <= 65535
-private = not config.get('http_service') and not any(row.get('ports') for row in config.get('services', []))
-print('https://' + config['app'] + '.internal:' + str(port) + '/healthz', 'private' if private else 'public')
-PYCONFIG
-)"; then
-		echo "fail private-ingress app=$app configuration=invalid"
-		finish 1
-	fi
-	read -r url ingress <<<"$answer"
-	if [ "$ingress" = private ]; then
-		echo "pass private-ingress app=$app url=$url"
-	else
-		echo "fail private-ingress app=$app public-service=present"
-		failures=$((failures + 1))
-	fi
-
-	reply="$(printf '%s\n' "$script" | fly_ssh "$kernel" - "tls=$tls_dir/human-event-client url=$url limit=$timeout sh -s")" || reply=""
-	line="$(sed -n 's/^@@healthz //p' <<<"$reply" | head -n 1)"
-	anonymous="$(sed -n 's/^@@anonymous //p' <<<"$reply" | head -n 1)"
-	read -r status code body <<<"${line:-none none}"
-	if [ "$status" = 0 ] && [ "$code" = 200 ] && [[ "$body" == *'"status":"ready"'* ]] && [ -n "$anonymous" ] && [ "$anonymous" != 0 ]; then
-		echo "pass healthz url=$url from=$kernel http=200 status=ready anonymous=refused"
-	else
-		[ "${anonymous:-none}" != 0 ] || anonymous=admitted
-		echo "fail healthz url=$url from=$kernel curl=${status:-none} http=${code:-none} anonymous=${anonymous:-none}"
-		failures=$((failures + 1))
-	fi
-
-	# Serving readiness is the Fly check "serving" of the health listener, which
-	# answers the verdict of the mTLS /healthz route; the service TCP check of
-	# the mTLS port is the separate transport liveness. Both must pass on the
-	# started machine.
-	body="${url%/healthz}"
-	answer="$(timeout "$timeout" flyctl machines list --app "$app" --json 2>/dev/null | python3 -c '
-import json, re, sys
-port = sys.argv[1]
-started = [m for m in json.load(sys.stdin) if m.get("state") == "started"]
-checks = {c.get("name"): c.get("status") for m in started[:1] for c in m.get("checks") or []}
-transport = [s for n, s in checks.items() if re.fullmatch(r"servicecheck-[0-9]+-tcp-" + port, n or "")]
-print(checks.get("serving") or "absent", transport[0] if len(transport) == 1 else "absent")
-' "${body##*:}" 2>/dev/null)" || answer=""
-	read -r status code <<<"${answer:-none none}"
-	if [ "$status" = passing ] && [ "$code" = passing ]; then
-		echo "pass serving app=$app serving=passing transport=passing"
-	else
-		echo "fail serving app=$app serving=$status transport=$code"
-		failures=$((failures + 1))
-	fi
-
-	if [ "${registry_stage:-full}" = bootstrap ]; then
-		finish "$failures"
-	fi
-
-	if [ -z "$router" ]; then
-		echo "check-live: hosted gateway endpoint is not configured (CHECK_LIVE_ROUTER_URL)" >&2
-		exit 2
-	fi
-
-	if [[ ! "$program" =~ ^[0-9a-f]{64}$ ]]; then
-		echo "fail program-events program=unset want=CHECK_LIVE_REGISTRY_PROGRAM_ID"
-		failures=$((failures + 1))
-	else
-		from=0
-		answer=""
-		for page in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16; do
-			answer="$(curl -sS -m "$timeout" -H "content-type: application/json" \
-				-d "{\"jsonrpc\":\"2.0\",\"id\":$page,\"method\":\"lx_getProgramEvents\",\"params\":[{\"topic\":\"$topic\",\"from_sequence\":$from,\"limit\":256}]}" \
-				"$router/rpc" 2>/dev/null | python3 -c '
-import json, sys
-reply = json.load(sys.stdin)
-if "result" not in reply:
-    print("error", (reply.get("error") or {}).get("code", "none"))
-    sys.exit()
-result = reply["result"]
-found = [e["sequence"] for e in result["events"] if e["program_id"] == sys.argv[1]]
-if found:
-    print("found", found[0])
-elif result["events"] and result["next_sequence"] > int(sys.argv[2]):
-    print("next", result["next_sequence"])
-else:
-    print("end", result["next_sequence"])
-' "$program" "$from" 2>/dev/null)" || answer=""
-			[ "${answer%% *}" = next ] || break
-			from="${answer#next }"
-		done
-		case "${answer:-none}" in
-		found\ *) echo "pass program-events program=$program sequence=${answer#found }" ;;
-		end\ *)
-			echo "fail program-events program=$program events=none next_sequence=${answer#end }"
-			failures=$((failures + 1))
-			;;
-		*)
-			echo "fail program-events program=$program answer=${answer:-none}"
-			failures=$((failures + 1))
-			;;
-		esac
-	fi
-
-	answer="$(curl -sS -m "$timeout" -w "\n%{http_code}" "$router/readyz" 2>/dev/null)" || answer=""
-	code="$(tail -n 1 <<<"$answer")"
-	body="$(python3 -c 'import json, sys; print(json.loads(sys.argv[1])["components"]["program_registry"])' "$(head -n 1 <<<"$answer")" 2>/dev/null)" || body=none
-	if [ "$body" = ready ]; then
-		echo "pass router-readyz url=$router/readyz http=$code program_registry=ready"
-	else
-		echo "fail router-readyz url=$router/readyz http=${code:-none} program_registry=${body:-none}"
-		failures=$((failures + 1))
-	fi
-	finish "$failures"
+	reply="$(ssh_read "$host" "$command")" || status=$?
+	[ -z "$reply" ] || printf '%s\n' "$reply"
+	if [ "$status" -ne 0 ] || ! grep -q '^pass registry ' <<<"$reply"; then echo 'fail registry observation=refused'; finish 1; fi
+	finish 0
 }
 
-# check_registry_bootstrap: the registry checks that need no router gate.
 check_registry_bootstrap() {
 	registry_stage=bootstrap
 	check_registry
@@ -4450,224 +3718,53 @@ PY
 }
 
 check_kernel_node() {
-	local app answer key value genesis="" network="" authority="" archive="" public="" core="" status="" lni="" head="" failures=0 probe
-	local data="${CHECK_LIVE_KERNEL_DATA_DIR:-/data/layerx/node}" run="${CHECK_LIVE_KERNEL_RUN_DIR:-/run/layerx/node}"
-	local init="${CHECK_LIVE_KERNEL_INIT_DIR:-/run/layerx/init}" origin="${CHECK_LIVE_KERNEL_ARCHIVE_ORIGIN:-}"
-	local ca="${CHECK_LIVE_KERNEL_ARCHIVE_CA:-}" ctl="${CHECK_LIVE_KERNEL_CTL:-/usr/local/bin/layerxctl}"
-	local -A clocks=()
-	app="${CHECK_LIVE_KERNEL_APP:-}"
-	if [ -z "$app" ]; then app="$(fly_app services/wallet/deploy/human.toml)" || app=""; fi
-	if [ -z "$app" ]; then echo "fail kernel-node toml=absent"; finish 1; fi
-	probe=$(cat <<'PY'
-import hashlib, json, os, re, socket, ssl, subprocess, sys, urllib.request
+	local home="${CHECK_LIVE_PAXD_HOME:-}" node="${CHECK_LIVE_KERNEL_RPC:-}" comet="${CHECK_LIVE_KERNEL_COMET_RPC:-}"
+	local probe answer
+	if ! [[ "$home" =~ ^/[a-zA-Z0-9_./-]+$ ]] || [ -z "$node" ] || [ -z "$comet" ]; then
+		echo "check-live: CHECK_LIVE_PAXD_HOME, CHECK_LIVE_KERNEL_RPC and CHECK_LIVE_KERNEL_COMET_RPC are required" >&2
+		exit 2
+	fi
+	probe=$(cat <<'PYCODE'
+import json,os,stat,sys
 from pathlib import Path
-from urllib.parse import urlsplit
-
-data, run, init = map(Path, sys.argv[1:4])
-origin, ca, ctl = sys.argv[4:7]
-
-def emit(name, value):
-    print(name, json.dumps(value, separators=(',', ':')) if isinstance(value, dict) else value, flush=True)
-
-def environment(path):
-    raw = path.read_bytes()
-    if len(raw) > 1048576:
-        raise ValueError('environment bound')
-    result = {}
-    for line in raw.decode().splitlines():
-        if not line: continue
-        key, value = line.split('=', 1)
-        if not re.fullmatch('LAYERX_[A-Z0-9_]+', key) or key in result or any(ord(c) < 32 for c in value):
-            raise ValueError('environment syntax')
-        result[key] = value
-    return result
-
-def read_json(url, authorization=None):
-    parsed = urlsplit(url)
-    if parsed.username or parsed.password or parsed.fragment or parsed.query:
-        raise ValueError('origin syntax')
-    if parsed.scheme != 'https' and not (parsed.scheme == 'http' and parsed.hostname in ('127.0.0.1', '::1')):
-        raise ValueError('origin requires TLS or loopback')
-    context = ssl.create_default_context(cafile=ca or None) if parsed.scheme == 'https' else None
-    request = urllib.request.Request(url, headers={'Accept': 'application/json'})
-    if authorization is not None: request.add_header('Authorization', 'Bearer ' + authorization)
-    with urllib.request.urlopen(request, timeout=5, context=context) as response:
-        if response.status != 200 or response.headers.get_content_type() != 'application/json':
-            raise ValueError('HTTP contract')
-        raw = response.read(1048577)
-    if len(raw) > 1048576: raise ValueError('response bound')
-    value = json.loads(raw)
-    if not isinstance(value, dict): raise ValueError('response object')
-    return value
-
-node = replica = sequencer = {}
-for name, path in (('node', data / 'node.env'), ('replica', data / 'replica.env'), ('sequencer', data / 'sequencer.env')):
+home=Path(sys.argv[1]).resolve(strict=True)
+found=[]
+for process in Path("/proc").iterdir():
+    if not process.name.isdecimal(): continue
     try:
-        value = environment(path)
-        if name == 'node': node = value
-        elif name == 'replica': replica = value
-        else: sequencer = value
-    except (OSError, ValueError, UnicodeError): pass
-try:
-    manifest = data / 'genesis/genesis.manifest'
-    if manifest.stat().st_size > 16777216: raise ValueError('manifest bound')
-    emit('genesis', hashlib.sha256(manifest.read_bytes()).hexdigest())
-except (OSError, ValueError): pass
-public = node.get('LAYERX_NODE_SEQUENCER_PUBLIC_KEY') or sequencer.get('LAYERX_NODE_SEQUENCER_PUBLIC_KEY')
-if public: emit('public', public)
-try: emit('core', environment(run / 'core.env')['LAYERX_CORE_SEQUENCER_ID'])
-except (OSError, ValueError, KeyError, UnicodeError): pass
-try:
-    port = int(replica['LAYERX_AUTHORITY_PORT'])
-    if not 1 <= port <= 65535 or replica.get('LAYERX_AUTHORITY_ADDRESS') != '127.0.0.1': raise ValueError('authority address')
-    authority_origin = 'http://127.0.0.1:' + str(port)
-    value = read_json(authority_origin + '/v1/receipt-authority/status', replica['LAYERX_AUTHORITY_BEARER_TOKEN'])
-    if value.get('authority_replica_id') != replica['LAYERX_AUTHORITY_REPLICA_ID'] or value.get('network_id') != int(node['LAYERX_NODE_NETWORK_ID']):
-        raise ValueError('configured authority identity')
-    emit('authority', value)
-except (OSError, ValueError, KeyError): authority_origin = None
-try:
-    parsed = urlsplit(origin)
-    if not origin or parsed.path not in ('', '/') or parsed.query or parsed.fragment: raise ValueError('archive origin')
-    if parsed.hostname in ('127.0.0.1', '::1') and parsed.port == int(replica.get('LAYERX_AUTHORITY_PORT', '0')):
-        raise ValueError('archive and authority origins must be distinct')
-    for name, route in (('network', 'network'), ('head', 'head'), ('archive', 'readiness')):
-        emit(name, read_json(origin.rstrip('/') + '/v1/sync/' + route))
-except (OSError, ValueError, KeyError): pass
-try:
-    with socket.socket(socket.AF_UNIX) as connection:
-        connection.settimeout(5)
-        connection.connect(str(run / 'supervisor.sock'))
-        connection.sendall(b'status\n')
-        raw = bytearray()
-        while b'\n' not in raw and len(raw) <= 65536:
-            block = connection.recv(4096)
-            if not block: break
-            raw.extend(block)
-        if len(raw) > 65536: raise ValueError('supervisor response bound')
-        response = json.loads(raw)
-        if not isinstance(response, dict): raise ValueError('supervisor object')
-        emit('status', response)
-except (OSError, ValueError): pass
-try:
-    uid = int(sequencer['LAYERX_NODE_LNI_ALLOWED_UID'])
-    gid = int(sequencer['LAYERX_NODE_LNI_ALLOWED_GID'])
-    command = [ctl, 'read-state', '--socket', str(run / 'layerxd.lni.sock'), '--network-id', node['LAYERX_NODE_NETWORK_ID'],
-               '--actor', node['LAYERX_NODE_TREASURY_DID']]
-    if os.geteuid() != uid:
-        if os.geteuid() != 0: raise ValueError('LNI caller uid')
-        command = ['setpriv', '--reuid=' + str(uid), '--regid=' + str(gid), '--clear-groups', *command]
-    completed = subprocess.run(command, check=True, timeout=12, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-    if len(completed.stdout) > 65536: raise ValueError('LNI response bound')
-    value = json.loads(completed.stdout)
-    if value.get('network_id') != int(node['LAYERX_NODE_NETWORK_ID']): raise ValueError('LNI network')
-    emit('lni', value)
-except (OSError, ValueError, KeyError, subprocess.SubprocessError): pass
-for service in ('treasury-signer', 'layerxd', 'layerxd-authority', 'guarantor-1', 'guarantor-2'):
-    try:
-        uid, state, pid = (init / service).read_text().split()
-        if state != 'running' or not pid.isascii() or not pid.isdecimal(): raise ValueError('service state')
-        process = Path('/proc') / pid
-        executable = Path(os.readlink(process / 'exe')).name
-        argv = (process / 'cmdline').read_bytes().split(b'\0', 1)[0].decode()
-        if executable != 'layerx-runtime-clock':
-            emit('clock', service + ' ' + executable)
-        elif Path(argv).name != 'layerx-runtime-clock':
-            emit('clock', service + ' invalid-clock-argv')
-        else:
-            emit('clock', service + ' ' + argv)
-    except (OSError, ValueError, UnicodeError): emit('clock', service + ' absent')
-PY
+        if Path(os.readlink(process/"exe")).name!="paxd": continue
+        args=(process/"cmdline").read_bytes().decode().split("\0")
+        explicit=args[args.index("--home")+1] if "--home" in args else next((a.split("=",1)[1] for a in args if a.startswith("--home=")),None)
+        if explicit is None or Path(explicit).resolve()!=home: continue
+        fields=dict(line.split(":",1) for line in (process/"status").read_text().splitlines() if ":" in line)
+        if fields["State"].strip().startswith(("Z","X")): continue
+        uid=int(fields["Uid"].split()[1])
+        mounts=[Path(line.split()[4]) for line in Path("/proc/self/mountinfo").read_text().splitlines()]
+        mounted=any(m!=Path("/") and (m==home or m in home.parents) for m in mounts)
+        info=home.stat()
+        private=stat.S_ISDIR(info.st_mode) and info.st_uid==uid and info.st_mode&0o077==0
+        state=home/"data"
+        genesis=home/"config/genesis.json"
+        state_info=state.lstat(); genesis_info=genesis.lstat()
+        found.append(dict(executable="paxd",pid=int(process.name),uid=uid,owner=info.st_uid,home=str(home),mounted=mounted,
+            genesis=stat.S_ISREG(genesis_info.st_mode) and genesis_info.st_uid==uid and genesis_info.st_size>0,
+            state=private and stat.S_ISDIR(state_info.st_mode) and state_info.st_uid==uid,
+            running=True,start_ticks=int((process/"stat").read_text().rsplit(")",1)[1].split()[19]),
+            boot_id=Path("/proc/sys/kernel/random/boot_id").read_text().strip()))
+    except (OSError,ValueError,KeyError,UnicodeError): continue
+if len(found)!=1: raise SystemExit(1)
+print(json.dumps(found[0]))
+PYCODE
 )
 	if [ "${CHECK_LIVE_KERNEL_LOCAL:-0}" = 1 ]; then
-		answer="$(timeout "$timeout" python3 -I - "$data" "$run" "$init" "$origin" "$ca" "$ctl" <<<"$probe" 2>/dev/null)" || answer=""
+		answer="$(python3 -I - "$home" <<<"$probe" 2>/dev/null)" || answer=""
 	else
-		command -v flyctl >/dev/null 2>&1 || { echo "check-live: flyctl is required" >&2; exit 2; }
-		for value in "$data" "$run" "$init" "$origin" "$ca" "$ctl"; do
-			[[ $value != *[!a-zA-Z0-9_./:\[\]-]* ]] || { echo "fail kernel-node unsafe-path-or-origin"; finish 1; }
-		done
-		answer="$(fly_ssh "$app" - "python3 -I - \"$data\" \"$run\" \"$init\" \"$origin\" \"$ca\" \"$ctl\"" <<<"$probe" 2>/dev/null)" || answer=""
+		[ -n "${KERNEL_HOST:-}" ] || { echo "fail kernel-node KERNEL_HOST=unset"; finish 1; }
+		answer="$(ssh_read "$KERNEL_HOST" "echo $(printf '%s' "$probe" | base64 -w0) | base64 -d | python3 -I - '$home'")" || answer=""
 	fi
-	while read -r key value; do
-		case "$key" in
-		genesis) genesis=$value ;; network) network=$value ;; authority) authority=$value ;; archive) archive=$value ;;
-		public) public=$value ;; core) core=$value ;; status) status=$value ;; lni) lni=$value ;; head) head=$value ;;
-		clock) key=${value%% *}; value=${value#"$key"}; clocks[$key]=${value# } ;;
-		esac
-	done <<<"$answer"
-	if python3 -I - "$genesis" "$network" "$authority" "$public" <<'PY'
-import json, re, sys
-try:
-    digest, network, authority, public = sys.argv[1:]
-    network, authority = json.loads(network), json.loads(authority)
-    assert re.fullmatch('[0-9a-f]{64}', digest)
-    assert network['version'] == authority['version'] == 1
-    assert type(network['network_id']) is int and network['network_id'] > 0
-    assert network['network_id'] == authority['network_id']
-    assert network['genesis_sha256'] == authority['genesis_sha256'] == digest
-    assert network['sequencer_public_key'] == authority['sequencer_public_key'] == public
-except (ValueError, KeyError, TypeError, AssertionError): sys.exit(1)
-PY
-	then echo "pass genesis app=$app sha256=$genesis replica=match"; else
-		echo "fail genesis app=$app sha256=${genesis:-absent} replica=none"; failures=$((failures + 1)); fi
-	value="$(printf 'layerx-sequencer:%s' "$public" | sha256sum | cut -d' ' -f1)"
-	if [[ $public =~ ^[0-9a-f]{64}$ ]] && [ "$value" = "$core" ]; then echo "pass sequencer public=$public core=match"; else
-		echo "fail sequencer public=${public:-absent} core=${core:-absent}"; failures=$((failures + 1)); fi
-	if [ "$(python3 -I -c 'import json,sys; print(json.loads(sys.argv[1]).get("state"))' "$status" 2>/dev/null)" = running ]; then
-		echo "pass supervisor state=running"; else echo "fail supervisor status=${status:-absent}"; failures=$((failures + 1)); fi
-	if python3 -I - "$lni" "$authority" <<'PY'
-import json, re, sys
-try:
-    lni, authority = map(json.loads, sys.argv[1:])
-    assert lni['evidence'] == 'authenticated_node_snapshot' and lni['protocol_version'] == 3
-    assert lni['network_id'] == authority['network_id']
-    assert type(lni['global_sequence']) is int and lni['global_sequence'] >= 0
-    assert re.fullmatch('[0-9a-f]{64}', lni['state_root'])
-except (ValueError, KeyError, TypeError, AssertionError): sys.exit(1)
-PY
-	then echo "pass lni socket=present"; else echo "fail lni socket=absent"; failures=$((failures + 1)); fi
-	local head_failed=0
-	if value="$(python3 -I - "$authority" "$lni" "$genesis" "$public" <<'PY'
-import json, re, sys
-try:
-    authority, lni = map(json.loads, sys.argv[1:3])
-    digest, public = sys.argv[3:]
-    assert authority['version'] == 1 and authority['ready'] is True
-    assert authority['genesis_sha256'] == digest and authority['sequencer_public_key'] == public
-    assert authority['network_id'] == lni['network_id']
-    for name in ('authority_replica_id', 'receipt_digest', 'head_batch_id'):
-        assert re.fullmatch('[0-9a-f]{64}', authority[name])
-    for name in ('head_batch', 'last_global_sequence'):
-        assert re.fullmatch('0|[1-9][0-9]*', authority[name]) and int(authority[name]) <= 18446744073709551615
-    assert lni['global_sequence'] == int(authority['last_global_sequence'])
-    print(json.dumps({'head': int(authority['head_batch'])}, separators=(',', ':')))
-except (ValueError, KeyError, TypeError, AssertionError): sys.exit(1)
-PY
-)"; then echo "pass replica head=$value"; else
-		echo "fail replica head=${authority:-absent}"; head_failed=1; fi
-	if python3 -I - "$head" "$archive" "$authority" "$genesis" "$public" <<'PY'
-import json, re, sys
-try:
-    head, archive, authority = map(json.loads, sys.argv[1:4])
-    digest, public = sys.argv[4:]
-    assert archive['ready'] is True and archive['recovered_current_process'] is True and archive['freshness'] == 'fresh'
-    for field in ('version', 'network_id', 'genesis_sha256', 'head_batch', 'head_batch_id'):
-        assert head[field] == archive[field] == authority[field]
-    assert head['genesis_sha256'] == digest and archive['sequencer_public_key'] == authority['sequencer_public_key'] == public
-    assert re.fullmatch('[0-9a-f]{64}', head['head_batch_id'])
-    assert re.fullmatch('[0-9a-f]{64}', head['head_raw_sha256'])
-    assert head['head_raw_sha256'] == archive['head_raw_sha256']
-except (ValueError, KeyError, TypeError, AssertionError): sys.exit(1)
-PY
-	then echo "pass archive head=$head"; else echo "fail archive head=${head:-absent}"; head_failed=1; fi
-	failures=$((failures + head_failed))
-
-	for key in treasury-signer layerxd layerxd-authority guarantor-1 guarantor-2; do
-		value=${clocks[$key]:-absent}
-		if [ "${value##*/}" = layerx-runtime-clock ]; then echo "pass clock $key"; else
-			echo "fail clock $key exec=$value"; failures=$((failures + 1)); fi
-	done
-	finish "$failures"
+	if bringup_inspect kernel-node "$node" "$comet" <<<"$answer"; then finish 0; fi
+	echo "fail kernel-node process-or-committed-state=unproven"
+	finish 1
 }
 
 # check_xweb_attestors: each of the four apps of
@@ -4828,68 +3925,54 @@ check_kernel_value_loop() {
 	finish "$failures"
 }
 
-# check_events_upstream: the kernel app of services/wallet/deploy/human.toml
-# lists the three event-token names its [[files]] entries mount; the journeys
-# and approvals machines of the app of services/platform/hosted/internal/fly.toml each
-# hold a non-empty /data/run/producer-token, read as a byte count; the apps of
-# services/platform/hosted/webhooks/fly.toml and services/platform/hosted/registry/fly.toml
-# exist; and each webhooks trigger consumer lists its trigger name
-# (services/platform/hosted/webhooks/fly.toml, services/wallet/deploy/endpoint.toml,
-# services/wallet/deploy/human.toml, docker/platform-registry/init.sh). Prints
-# secret names and byte counts only, never a value. One line per check.
+# Event source roles and the ingress trigger follow deploy/rollout.kvx.
+# Producer credentials stay on their box or selected running role replica.
+# Select every running replica of a declared role; a missing or stale
+# deployment never turns into an unselected SSH probe.
+role_instances() {
+	railway_instance "$1" | bringup_inspect role-instances
+}
+
 check_events_upstream() {
-	local kernel internal webhooks endpoint registry group bytes apps name app listed row rest failures=0
-	local -a names=()
-	if ! command -v flyctl >/dev/null 2>&1; then
-		echo "check-live: flyctl is required" >&2
-		exit 2
-	fi
-	if ! kernel="$(fly_app services/wallet/deploy/human.toml)" || ! internal="$(fly_app services/platform/hosted/internal/fly.toml)" ||
-		! webhooks="$(fly_app services/platform/hosted/webhooks/fly.toml)" || ! endpoint="$(fly_app services/wallet/deploy/endpoint.toml)" ||
-		! registry="$(fly_app services/platform/hosted/registry/fly.toml)"; then
-		echo "fail events-upstream toml=absent"
-		finish 1
-	fi
-
-	for group in journeys approvals; do
-		bytes="$(fly_ssh "$internal" "$group" 'wc -c </data/run/producer-token 2>/dev/null || echo absent' </dev/null | tail -n 1 | tr -d ' ')" || bytes=""
-		if [[ "$bytes" =~ ^[0-9]+$ ]] && [ "$bytes" -gt 0 ]; then
-			echo "pass producer-token app=$internal group=$group bytes=$bytes"
+	local app instances instance kind executable row target service host_key unit health host command reply status failures=0
+	for row in 'journey KERNEL_HOST layerx-human' 'approval KERNEL_HOST layerx-human' 'program program-registry layerx-program-registry' 'payment router layerx-gateway'; do
+		read -r kind service executable <<<"$row"
+		printf -v command '%q event-handoff %q %q' "${BRINGUP_INSPECT_BIN:-bringup-inspect}" "$kind" "$executable"
+		if [ "$service" = KERNEL_HOST ]; then
+			host="${KERNEL_HOST:-}"
+			[ -n "$host" ] || { echo "fail producer-handoff kind=$kind host=absent"; failures=$((failures + 1)); continue; }
+			status=0
+			reply="$(ssh_read "$host" "$command")" || status=$?
 		else
-			echo "fail producer-token app=$internal group=$group bytes=${bytes:-unreachable}"
-			failures=$((failures + 1))
-		fi
-	done
-
-	apps="$(timeout "$timeout" flyctl apps list --json 2>/dev/null | python3 -c 'import json, sys; print(" ".join(a.get("Name") or a.get("name") or "" for a in json.load(sys.stdin) or []))' 2>/dev/null)" || apps=unreadable
-	for name in "$webhooks" "$registry"; do
-		if [ "$apps" = unreadable ]; then
-			echo "fail app app=$name exists=unreadable"
-			failures=$((failures + 1))
-		elif [[ " $apps " == *" $name "* ]]; then
-			echo "pass app app=$name exists=yes"
-		else
-			echo "fail app app=$name exists=no"
-			failures=$((failures + 1))
-		fi
-	done
-
-	for row in "$kernel HUMAN_EVENTS_JOURNEY_TOKEN HUMAN_EVENTS_APPROVAL_TOKEN HUMAN_EVENTS_WEBHOOKS_TOKEN" \
-		"$webhooks WEBHOOKS_SOURCE_TRIGGER_TOKEN" "$endpoint ENDPOINT_EVENTS_WEBHOOKS_TOKEN" "$registry REGISTRY_WEBHOOKS_EVENTS_TOKEN"; do
-		read -r app rest <<<"$row"
-		read -r -a names <<<"$rest"
-		listed="$(timeout "$timeout" flyctl secrets list --app "$app" --json 2>/dev/null | python3 -c 'import json, sys; print(" ".join(s.get("Name") or s.get("name") or "" for s in json.load(sys.stdin) or []))' 2>/dev/null)" || listed=unreadable
-		for name in "${names[@]}"; do
-			if [ "$listed" = unreadable ]; then
-				echo "fail secret app=$app name=$name listed=unreadable"
-				failures=$((failures + 1))
-			elif [[ " $listed " == *" $name "* ]]; then
-				echo "pass secret app=$app name=$name listed=yes"
+			row="$(bringup_inspect rollout-service "$repo_root/deploy/rollout.kvx" "$service")" || { echo "fail producer-handoff kind=$kind rollout=absent"; failures=$((failures + 1)); continue; }
+			read -r target app host_key unit health <<<"$row"
+			if [ "$target" = box ]; then
+				host="${!host_key:-}"
+				[ -n "$host" ] || { echo "fail producer-handoff kind=$kind host=$host_key absent"; failures=$((failures + 1)); continue; }
+				status=0
+				reply="$(ssh_read "$host" "$command")" || status=$?
 			else
-				echo "fail secret app=$app name=$name listed=no"
-				failures=$((failures + 1))
+				instances="$(role_instances "$app")" || { echo "fail producer-handoff kind=$kind deployment=unreadable"; failures=$((failures + 1)); continue; }
+				while read -r instance; do
+					status=0
+					reply="$(railway_ssh "$app" "$command" "$instance" </dev/null)" || status=$?
+					if [ "$status" -eq 0 ] && grep -q "^pass producer-handoff kind=$kind " <<<"$reply"; then printf '%s instance=%s\n' "$reply" "$instance"; else echo "fail producer-handoff kind=$kind instance=$instance"; failures=$((failures + 1)); fi
+				done <<<"$instances"
+				continue
 			fi
-		done
+		fi
+		if [ "$status" -eq 0 ] && grep -q "^pass producer-handoff kind=$kind " <<<"$reply"; then printf '%s\n' "$reply"; else echo "fail producer-handoff kind=$kind"; failures=$((failures + 1)); fi
+	done
+	for row in 'journey internal-journeys' 'approval internal-approvals' 'payment internal-payments' 'program internal-programs' 'trigger webhooks-ingress'; do
+		read -r kind service <<<"$row"
+		app="$(railway_service "$service")" || { echo "fail event-role service=$service rollout=absent"; failures=$((failures + 1)); continue; }
+		instances="$(role_instances "$app")" || { echo "fail event-role service=$service deployment=unreadable"; failures=$((failures + 1)); continue; }
+		if [ "$kind" = trigger ]; then printf -v command '%q event-trigger' "${BRINGUP_INSPECT_BIN:-bringup-inspect}"; else printf -v command '%q event-role %q' "${BRINGUP_INSPECT_BIN:-bringup-inspect}" "$kind"; fi
+		while read -r instance; do
+			status=0
+			reply="$(railway_ssh "$app" "$command" "$instance" </dev/null)" || status=$?
+			if [ "$status" -eq 0 ] && grep -q '^pass event-' <<<"$reply"; then printf '%s service=%s instance=%s\n' "$reply" "$app" "$instance"; else echo "fail event-role service=$app instance=$instance"; failures=$((failures + 1)); fi
+		done <<<"$instances"
 	done
 	finish "$failures"
 }
@@ -4946,17 +4029,17 @@ fi
 
 tools=(ssh timeout curl python3 openssl sha256sum)
 case "$mode" in
-rpc-nodes | rpc-placement | archive-node | explorer | paxeer-boundary | gas | wallet | router | ca) tools+=("${BRINGUP_INSPECT_BIN:-bringup-inspect}") ;;
+rpc-nodes | rpc-placement | archive-node | explorer | paxeer-boundary | gas | wallet | router | ca | human | kernel-node | relay | interop | indexer | developers | search | edge | ramp | internal | registry | registry-bootstrap | events-upstream) tools+=("${BRINGUP_INSPECT_BIN:-bringup-inspect}") ;;
 esac
 [ "$mode" != explorer ] || tools=(curl python3 psql)
 case "$mode" in
-ca | identity | search-front | internal | wallet | router | ramp | indexer | developers) tools+=("$railway_bin") ;;
+ca | identity | search-front | internal | wallet | router | ramp | indexer | developers | interop | events-upstream) tools+=("$railway_bin") ;;
 esac
 [ "$mode" != gas ] || tools+=("$railway_bin" cast)
-[ "$mode" != relay ] || tools+=(flyctl "$railway_bin")
+[ "$mode" != relay ] || tools=(timeout "${BRINGUP_INSPECT_BIN:-bringup-inspect}")
 [ "$mode" != interop-adapters ] || tools+=(make)
 [ "$mode" != registry-plan ] || tools=(grep)
-if [ "$mode" = kernel-node ] && [ "${CHECK_LIVE_KERNEL_LOCAL:-0}" = 1 ]; then tools=(timeout python3 sha256sum); fi
+if [ "$mode" = kernel-node ] && [ "${CHECK_LIVE_KERNEL_LOCAL:-0}" = 1 ]; then tools=(timeout python3 "${BRINGUP_INSPECT_BIN:-bringup-inspect}"); fi
 for tool in "${tools[@]}"; do
 	if ! command -v "$tool" >/dev/null 2>&1; then
 		echo "check-live: $tool is required" >&2

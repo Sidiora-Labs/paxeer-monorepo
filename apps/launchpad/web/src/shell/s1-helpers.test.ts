@@ -22,6 +22,15 @@ describe('paste-address helpers', () => {
     expect(routeForPath(path)?.id).toBe('coin');
     expect(() => coinPath('0x1234')).toThrow();
   });
+  it('rejects transaction hashes and 41-digit hex tokens without truncating them', () => {
+    for (const digits of [41, 64]) {
+      const token = `0x${'a'.repeat(digits)}`;
+      for (const text of [token, `https://paxscan.paxeer.app/tx/${token}`, `see ${token} now`]) {
+        expect(addressFromText(text)).toBeNull();
+        expect(() => coinPath(text)).toThrow('Invalid address');
+      }
+    }
+  });
 });
 
 describe('platform footer figures (IF_PLATFORM)', () => {

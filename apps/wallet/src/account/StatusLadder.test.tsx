@@ -1,32 +1,20 @@
 // @vitest-environment jsdom
-import { createServer } from 'node:http';
-import type { AddressInfo } from 'node:net';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import {
-  decodeExplorerStatus,
-  decodeSequencerReceipt,
-  statusLadder,
-  type ExplorerTransactionStatus,
-  type SequencerReceiptAnswer,
-} from '@paxeer/wallet';
-import receiptAnswers from '../../../../sdk/wallet/test/fixtures/sequencer-receipt.json';
-import explorerAnswers from '../../../../sdk/wallet/test/fixtures/explorer-status.json';
+import { afterEach, describe, expect, it } from 'vitest';
+import { decodeSequencerReceipt, LADDER_RUNGS, statusLadder } from '@paxeer/wallet';
 import { AccountProvider } from './AccountProvider';
 import { StatusLadder, TransactionLadder } from './StatusLadder';
-import { startAccountEndpoint, type AccountEndpoint } from './test/endpoint';
+import {
+  committedAnswer,
+  receiptedAnswer,
+  submittedAnswer,
+  receiptHash,
+  receiptPins,
+  matchingExplorer,
+  startReceiptEndpoint,
+} from './test/receiptEndpoint';
 import { mount, type Mounted } from './test/render';
 
-let endpoint: AccountEndpoint;
 let view: Mounted | null = null;
-
-beforeAll(async () => {
-  endpoint = await startAccountEndpoint();
-});
-
-afterAll(async () => {
-  await endpoint.close();
-});
-
 afterEach(async () => {
   await view?.unmount();
   view = null;
@@ -44,175 +32,164 @@ function rungs(mounted: Mounted): Array<[string, string, string | null]> {
 
 describe('StatusLadder', () => {
   async function transaction_ladder_reaches_receipted_from_the_sequencer_before_the_explorer() {
-    const receipted = decodeSequencerReceipt({
-      ...receiptAnswers.receipted,
-      blockNumber: receiptAnswers.committed.blockNumber,
-      blockHash: receiptAnswers.committed.blockHash,
-    });
-    const committed = decodeSequencerReceipt(receiptAnswers.committed);
-    const hash = receipted.txHash;
-    let receipt: SequencerReceiptAnswer | null = receipted;
-    let explorer: ExplorerTransactionStatus = decodeExplorerStatus(explorerAnswers.submitted);
-    const pending: { releaseExplorer?: () => void } = {};
-    const requests: Array<{ method: string; params?: unknown[]; path: string }> = [];
-    const server = createServer(async (req, res) => {
-      res.setHeader('content-type', 'application/json');
-      if (req.method === 'POST' && req.url === '/rpc') {
-        let body = '';
-        for await (const chunk of req) body += chunk;
-        const call = JSON.parse(body) as { id: number; method: string; params: unknown[] };
-        requests.push({ method: call.method, params: call.params, path: req.url });
-        if (
-          call.method === 'pax_sequencerReceipt' &&
-          JSON.stringify(call.params) === JSON.stringify([hash])
-        ) {
-          res.end(JSON.stringify({ jsonrpc: '2.0', id: call.id, result: receipt }));
-          return;
-        }
-      } else if (req.method === 'GET' && req.url === `/api/v2/transactions/${hash}/status`) {
-        requests.push({ method: 'GET', path: req.url });
-        pending.releaseExplorer = () => res.end(JSON.stringify(explorer));
-        return;
-      }
-      res.writeHead(404);
-      res.end(JSON.stringify({ message: 'Unrecorded request' }));
-    });
-    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-    const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    const endpoint = await startReceiptEndpoint();
     const cases = [
-      { receipt: receipted, explorer: explorerAnswers.submitted, committed: false },
-      { receipt: receipted, explorer: explorerAnswers.receipted, committed: false },
-      { receipt: receipted, explorer: explorerAnswers.committed, committed: true },
       {
-        receipt: receipted,
-        explorer: { ...explorerAnswers.committed, block_number: 999 },
+        receipt: receiptedAnswer,
+        explorer: { rung: 'submitted', block_number: null, committed_height: null },
         committed: false,
       },
       {
-        receipt: receipted,
-        explorer: { ...explorerAnswers.committed, block_number: null },
+        receipt: receiptedAnswer,
+        explorer: { rung: 'receipted', block_number: null, committed_height: null },
         committed: false,
       },
-      { receipt: committed, explorer: explorerAnswers.submitted, committed: false },
+      { receipt: receiptedAnswer, explorer: matchingExplorer, committed: false },
       {
-        receipt: committed,
-        explorer: { ...explorerAnswers.committed, block_number: 999 },
+        receipt: receiptedAnswer,
+        explorer: { ...matchingExplorer, block_number: 1 },
         committed: false,
       },
-      { receipt: committed, explorer: explorerAnswers.committed, committed: true },
-      { receipt: null, explorer: explorerAnswers.committed, committed: false },
+      {
+        receipt: receiptedAnswer,
+        explorer: { ...matchingExplorer, block_number: null },
+        committed: false,
+      },
+      {
+        receipt: committedAnswer,
+        explorer: { rung: 'submitted', block_number: null, committed_height: null },
+        committed: true,
+      },
+      {
+        receipt: committedAnswer,
+        explorer: { ...matchingExplorer, block_number: 1 },
+        committed: true,
+      },
+      { receipt: committedAnswer, explorer: matchingExplorer, committed: true },
+      { receipt: null, explorer: matchingExplorer, committed: false },
     ];
     try {
       for (const scenario of cases) {
-        receipt = scenario.receipt;
-        explorer = decodeExplorerStatus(scenario.explorer);
-        pending.releaseExplorer = undefined;
-        requests.length = 0;
-        const mounted = await mount(
-          <AccountProvider
-            config={{
-              ...endpoint.config('available'),
-              endpointUrl: `${base}/rpc`,
-              explorerUrl: base,
-            }}
-          >
-            <TransactionLadder hash={hash} />
+        endpoint.state.receipt = scenario.receipt;
+        endpoint.state.explorer = scenario.explorer;
+        endpoint.state.holdExplorer = true;
+        endpoint.state.releaseExplorer = undefined;
+        endpoint.seen.length = 0;
+        view = await mount(
+          <AccountProvider config={endpoint.config}>
+            <TransactionLadder hash={receiptHash} observation={{ attempts: 2, intervalMs: 5000 }} />
           </AccountProvider>
         );
-        view = mounted;
+        const mounted = view;
         await mounted.until(
-          () => mounted.query('[data-rung]') !== null && pending.releaseExplorer !== undefined,
-          'receipt ladder before the explorer response'
+          () => endpoint.state.releaseExplorer !== undefined,
+          'receipt before explorer'
         );
+        const hasReceipt = scenario.receipt !== null;
+        const nodeCommitted = scenario.receipt?.rung === 'committed';
         expect(rungs(mounted)).toEqual([
-          ['submitted', receipt !== null ? 'true' : 'false', receipt !== null ? 'receipt' : null],
-          ['receipted', receipt !== null ? 'true' : 'false', receipt !== null ? 'receipt' : null],
-          ['committed', 'false', null],
+          ['submitted', String(hasReceipt), hasReceipt ? 'receipt' : null],
+          ['receipted', String(hasReceipt), hasReceipt ? 'receipt' : null],
+          ['committed', String(nodeCommitted), nodeCommitted ? 'receipt' : null],
         ]);
         expect(mounted.query('[aria-busy]')?.getAttribute('aria-busy')).toBe('true');
-        expect(requests).toEqual([
-          { method: 'pax_sequencerReceipt', params: [hash], path: '/rpc' },
-          { method: 'GET', path: `/api/v2/transactions/${hash}/status` },
+        expect(endpoint.seen[0]).toEqual({
+          method: 'pax_sequencerReceipt',
+          params: [receiptHash],
+          path: '/',
+        });
+        expect(endpoint.seen.filter((request) => request.method === 'GET')).toEqual([
+          { method: 'GET', path: `/api/v2/transactions/${receiptHash}/status` },
         ]);
-        pending.releaseExplorer!();
-        pending.releaseExplorer = undefined;
-        await mounted.until(
-          () => mounted.query('[aria-busy]')?.getAttribute('aria-busy') === 'false',
-          'explorer evidence merged'
+        expect(
+          endpoint.seen.filter((request) => request.method === 'px_getReceiptKeys')
+        ).toHaveLength(hasReceipt ? 1 : 0);
+        expect(
+          endpoint.seen.filter((request) => request.method === 'eth_getRawTransactionByHash')
+        ).toEqual(
+          hasReceipt
+            ? [{ method: 'eth_getRawTransactionByHash', params: [receiptHash], path: '/' }]
+            : []
         );
+        endpoint.state.releaseExplorer!();
+        await mounted.until(
+          () => mounted.query('[data-explorer="ready"]') !== null,
+          'explorer merged'
+        );
+        const preferred = nodeCommitted && scenario.explorer === matchingExplorer;
         expect(rungs(mounted)).toEqual([
+          ['submitted', String(hasReceipt), hasReceipt ? 'receipt' : null],
+          ['receipted', String(hasReceipt), hasReceipt ? 'receipt' : null],
           [
-            'submitted',
-            receipt !== null || scenario.committed ? 'true' : 'false',
-            receipt !== null ? 'receipt' : scenario.committed ? 'explorer' : null,
+            'committed',
+            String(scenario.committed),
+            scenario.committed ? (preferred ? 'explorer' : 'receipt') : null,
           ],
-          [
-            'receipted',
-            receipt !== null || scenario.committed ? 'true' : 'false',
-            receipt !== null ? 'receipt' : scenario.committed ? 'explorer' : null,
-          ],
-          ['committed', String(scenario.committed), scenario.committed ? 'explorer' : null],
         ]);
         expect(mounted.query('[role="alert"]')).toBeNull();
+        expect(endpoint.unexpected).toEqual([]);
         await mounted.unmount();
         view = null;
       }
     } finally {
-      pending.releaseExplorer?.();
+      endpoint.state.releaseExplorer?.();
       await view?.unmount();
       view = null;
-      await new Promise<void>((resolve, reject) =>
-        server.close((error) => (error ? reject(error) : resolve()))
-      );
+      await endpoint.close();
     }
   }
-
-  it(transaction_ladder_reaches_receipted_from_the_sequencer_before_the_explorer);
+  it(
+    transaction_ladder_reaches_receipted_from_the_sequencer_before_the_explorer.name,
+    transaction_ladder_reaches_receipted_from_the_sequencer_before_the_explorer
+  );
 
   it.each([
-    [
-      'e1',
-      [
-        ['instant', 'false', null],
-        ['sealed', 'false', null],
-        ['final', 'false', null],
-      ],
-    ],
-    [
-      'e2',
-      [
-        ['instant', 'true', 'explorer'],
-        ['sealed', 'false', null],
-        ['final', 'false', null],
-      ],
-    ],
-    [
-      'e3',
-      [
-        ['instant', 'true', 'explorer'],
-        ['sealed', 'true', 'explorer'],
-        ['final', 'false', null],
-      ],
-    ],
-    [
-      'e4',
-      [
-        ['instant', 'true', 'explorer'],
-        ['sealed', 'true', 'explorer'],
-        ['final', 'true', 'explorer'],
-      ],
-    ],
+    ['missing', null],
+    ['submitted', submittedAnswer],
+    ['receipted', receiptedAnswer],
+    ['committed', committedAnswer],
   ] as const)(
-    'climbs the ladder from the recorded explorer status of 0x%s',
-    async (byte, expected) => {
-      const mounted = await mount(
-        <AccountProvider config={endpoint.config('available')}>
-          <TransactionLadder hash={`0x${byte.repeat(32)}`} />
-        </AccountProvider>
-      );
-      view = mounted;
-      await mounted.until(() => mounted.query('[data-rung]') !== null, 'ladder');
-      expect(rungs(mounted)).toEqual(expected);
+    'climbs the current ladder from recorded %s evidence at the RPC root',
+    async (state, receipt) => {
+      const endpoint = await startReceiptEndpoint();
+      try {
+        endpoint.state.receipt = receipt;
+        endpoint.state.explorer = matchingExplorer;
+        if (state === 'missing') endpoint.state.explorerStatus = 503;
+        view = await mount(
+          <AccountProvider config={endpoint.config}>
+            <TransactionLadder hash={receiptHash} observation={{ attempts: 2, intervalMs: 5000 }} />
+          </AccountProvider>
+        );
+        const mounted = view;
+        await mounted.until(
+          () =>
+            mounted.query(`[data-explorer="${state === 'missing' ? 'error' : 'ready'}"]`) !== null,
+          'explorer settled'
+        );
+        // The documented rung order determines exactly which receipt evidence reaches each row.
+        const receiptRank =
+          receipt === null
+            ? -1
+            : LADDER_RUNGS.indexOf(decodeSequencerReceipt(receipt, receiptHash, receiptPins).rung);
+        const expected = LADDER_RUNGS.map((rung, index) => [
+          rung,
+          String(index <= receiptRank),
+          index > receiptRank ? null : rung === 'committed' ? 'explorer' : 'receipt',
+        ]);
+        expect(rungs(mounted)).toEqual(expected);
+        expect(mounted.query('[data-observation="error"]')).toBeNull();
+        expect(
+          endpoint.seen
+            .filter((request) => request.method !== 'GET')
+            .every((request) => request.path === '/')
+        ).toBe(true);
+        expect(endpoint.unexpected).toEqual([]);
+      } finally {
+        await view?.unmount();
+        view = null;
+        await endpoint.close();
+      }
     }
   );
 
@@ -261,7 +238,10 @@ describe('StatusLadder', () => {
     expect(mounted.text('ol')).not.toContain('anchor');
   }
 
-  it(status_ladder_labels_submitted_receipted_and_committed);
+  it(
+    status_ladder_labels_submitted_receipted_and_committed.name,
+    status_ladder_labels_submitted_receipted_and_committed
+  );
 
   async function status_ladder_prefers_explorer_evidence_at_the_committed_rung() {
     const mounted = await mount(
@@ -291,7 +271,10 @@ describe('StatusLadder', () => {
     expect(rungs(receiptOnly)[2]).toEqual(['committed', 'true', 'receipt']);
   }
 
-  it(status_ladder_prefers_explorer_evidence_at_the_committed_rung);
+  it(
+    status_ladder_prefers_explorer_evidence_at_the_committed_rung.name,
+    status_ladder_prefers_explorer_evidence_at_the_committed_rung
+  );
 
   it('reaches nothing for a journey state without a rung', async () => {
     const mounted = await mount(<StatusLadder steps={[statusLadder.fromJourney('refused')]} />);

@@ -203,14 +203,20 @@ fn actual_submission(
             disclosure_digest: disclosed.digest,
         },
     };
-    let native = checked(crate::sign::verify_kernel_before_submit(
-        bytes, &prepared, public, &registry,
+    let signature: &[u8; 64] = checked(activity.signature().expect("fixture signature").try_into());
+    let message = checked(layerx_crypto::SignatureMessage::new(
+        layerx_wire::hash::Domain::SignaturePreimage,
+        activity.protocol_version(),
+        activity.network_id(),
+        &prepared.canonical_bytes,
     ));
+    checked(layerx_crypto::ed25519::verify(public, signature, message));
+    let native_id = checked(layerx_wire::hash::activity_id(&activity));
     (
         crate::human_runtime::activity_submission_index_tests::transaction_submission(
             prepared, &registry,
         ),
-        native.activity_id(),
+        native_id,
     )
 }
 

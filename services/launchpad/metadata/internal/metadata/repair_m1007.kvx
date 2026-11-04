@@ -1,0 +1,31 @@
+[repair.22.33.1007]
+audit = "22.30.35"
+finding_5 = "TestRepairM_1007_CanonicalRetentionRestart"
+finding_14 = "TestRepairM_1007_ModerationPublishedContent"
+finding_11 = "TestRepairM_1007_LegacyAtomicPublicationRecovery; TestRepairM_1007_LegacyMissingTransactionFailsClosed"
+retention = "Canonical persistence has a three-second caller-cancellable deadline, propagates marshal and insert errors, rejects conflicting row bindings and precedes cache admission. The proof fails an insert, reconstructs the reader and store, retries retention, prunes the RPC receipt and reconstructs again before comparing the recovered identity."
+publication = "A durable intent precedes immutable per-operation object keys; metadata and every image pointer commit together with the published marker. Session advisory locks serialize publication with recovery. Abandoned stages and replaced objects are durably queued for cleanup; a failed cleanup preserves its retry across restart. Mutable public aliases and metadata use no-store; single and batch assembly use repeatable-read snapshots."
+moderation = "Real asset creation, transitions, PNG reencoding, promotion and a wallet-signed v2 publication produce visible legacy content. A visibility-authority removal is committed while the reader is idle; after reader and store reconstruction each of single, batch and logo is tested as the first consumer without connected reads or direct local moderation writes."
+baseline = "No pre-change gate ran: the explicit Order requires complete implementation and hf-build before hf-done and forbids manually running verify_cmd. repair_m1007_test.go was absent at the starting revision, so no pre-existing failure of those tests is claimed. This ordering conflict is recorded rather than spending a forbidden baseline gate."
+proof = "The repair gate uses production handlers, pgx/sqlc/ProductionStore queries, canonical decoders, wallet signature validation, raster codec and S3 clients. Database and object fixture state is persisted on disk and reloaded on restart; committed scanner and identity transcripts and the recorded creation receipt are served over local transports. No external process, environment variable, native artifact, service or credential is required."
+wiring_request_1 = "services/launchpad/metadata/internal/app/app.go — launchpad domain: pass the existing legacy database pool as Deps.LegacyDB and run Handlers.RecoverLegacyPublications on startup and periodically; uploads fail closed until transactional wiring is supplied."
+wiring_request_2 = "services/launchpad/metadata/internal/db/migrations — launchpad database domain: apply LegacyPublicationDDL from internal/metadata/legacy_publication.go through the serial migration owner and grant runtime SELECT/INSERT/UPDATE/DELETE on metadata.legacy_publications."
+wiring_request_3 = "services/launchpad/metadata/internal/app/app.go — launchpad domain: retain the connected durable canonical store for DevelopmentV2Reads; callers without it now receive unavailable rather than reusable in-memory success."
+wiring_request_4 = "services/launchpad/gateway — launchpad edge domain: purge cached legacy metadata/logo/banner aliases from the earlier cache policy and honor no-store on new responses."
+qualification = "The runner's hf-build/hf-done ledger binds the exact qualified candidate revision, command, exit code and private log; the final response copies that evidence. No agent commit or push is performed."
+
+[gotcha.implementation_order]
+observed = "The generated baseline instruction conflicts with the task's explicit gate order and single-run budget."
+resolution = "Follow the explicit Order and record that no pre-change gate or failure claim exists; keep this note inside the allowed task record rather than editing GOTCHA.kvx or spec files."
+
+[gotcha.fixture_protocol]
+observed = "The committed pgx transport fixture uses simple-protocol text encoding with typed OIDs and SQL NULLs."
+resolution = "Preserve nullable metadata fields, integer OIDs, transaction snapshots and durable writes in the repair fixture; unknown SQL is an error."
+
+[qualification.repair_1]
+revision = "e323aaeb40a100a3110f3bb9ac0bc93fbe605a5e"
+command = "cg spec done 22.33.1007 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The database fixture panicked when JSON null decoded to a nil document map; nullable raw bytes and SQL null decoding needed the same fixture correction."
+repair = "Preserve absent canonical bytes, initialize decoded empty documents, decode lowercase SQL null and wait for fixture connections to stop before reopening disk state; keep every production assertion unchanged."

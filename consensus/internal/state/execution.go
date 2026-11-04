@@ -110,7 +110,7 @@ type BlockExecutor struct {
 
 // AsyncPruner prunes the block store and the state store below the retain
 // height Commit returns, off the ApplyBlock path. Retain heights are pruned in
-// ascending order: a request at or below the block store base is a no-op. The
+// ascending order: a request at or below the completed retained base is a no-op. The
 // retained base advances only after both stores finish a prune, and a prune
 // failure is reported through Err and never fails block application.
 type AsyncPruner struct {
@@ -128,6 +128,11 @@ func newAsyncPruner(blockStore BlockStore, store Store, metrics *Metrics) *Async
 	p.worker = newPruneWorker(p.prune, func(d time.Duration) {
 		metrics.PruneBlockLatency.Observe(float64(d.Milliseconds()))
 	})
+	// The durable block base may have advanced before state pruning finished.
+	// Replaying that boundary is safe even if both stores had finished.
+	if base := blockStore.Base(); base > 1 {
+		p.Request(base)
+	}
 	return p
 }
 
@@ -156,6 +161,7 @@ func (p *AsyncPruner) stop() {
 }
 
 func (p *AsyncPruner) prune(retainHeight int64) (uint64, error) {
+	retainHeight = max(retainHeight, p.blockStore.Base())
 	pruned, err := p.pruneStores(retainHeight)
 	p.mtx.Lock()
 	defer p.mtx.Unlock()
@@ -171,12 +177,16 @@ func (p *AsyncPruner) prune(retainHeight int64) (uint64, error) {
 }
 
 func (p *AsyncPruner) pruneStores(retainHeight int64) (uint64, error) {
-	if retainHeight <= p.blockStore.Base() {
+	if retainHeight <= p.RetainedBase() {
 		return 0, nil
 	}
-	pruned, err := p.blockStore.PruneBlocks(retainHeight)
-	if err != nil {
-		return 0, fmt.Errorf("failed to prune block store: %w", err)
+	var pruned uint64
+	if retainHeight > p.blockStore.Base() {
+		var err error
+		pruned, err = p.blockStore.PruneBlocks(retainHeight)
+		if err != nil {
+			return 0, fmt.Errorf("failed to prune block store: %w", err)
+		}
 	}
 	if err := p.store.PruneStates(retainHeight); err != nil {
 		return 0, fmt.Errorf("failed to prune state store: %w", err)
@@ -750,14 +760,14 @@ func (state State) Update(
 	nextParams := state.ConsensusParams
 	lastHeightParamsChanged := state.LastHeightConsensusParamsChanged
 	if consensusParamUpdates != nil {
+		// Validate activation against the previous parameters: zero means disabled,
+		// so first enablement can still be scheduled for a future height.
+		if err := state.ConsensusParams.ValidateUpdate(consensusParamUpdates, header.Height); err != nil {
+			return state, fmt.Errorf("updating consensus params: %w", err)
+		}
 		// NOTE: must not mutate state.ConsensusParams
 		nextParams = state.ConsensusParams.UpdateConsensusParams(consensusParamUpdates)
 		err := nextParams.ValidateConsensusParams()
-		if err != nil {
-			return state, fmt.Errorf("updating consensus params: %w", err)
-		}
-
-		err = state.ConsensusParams.ValidateUpdate(consensusParamUpdates, header.Height)
 		if err != nil {
 			return state, fmt.Errorf("updating consensus params: %w", err)
 		}

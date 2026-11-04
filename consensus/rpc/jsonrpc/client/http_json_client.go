@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -128,7 +129,8 @@ type Client struct {
 	username string
 	password string
 
-	client *http.Client
+	client         *http.Client
+	responseLimits ResponseLimits
 
 	mtx       sync.Mutex
 	nextReqID int
@@ -169,13 +171,77 @@ func NewWithHTTPClient(remote string, c *http.Client) (*Client, error) {
 	password, _ := parsedURL.User.Password()
 
 	rpcClient := &Client{
-		address:  address,
-		username: username,
-		password: password,
-		client:   c,
+		address:        address,
+		username:       username,
+		password:       password,
+		client:         c,
+		responseLimits: DefaultResponseLimits(),
 	}
 
 	return rpcClient, nil
+}
+
+// ResponseLimits bounds decoded HTTP response bodies, including complete batches.
+// Genesis permits larger documents than block calls; batches never multiply limits
+// by the number of requests. All limits must be positive and less than MaxInt64.
+type ResponseLimits struct {
+	Default int64
+	Block   int64
+	Genesis int64
+	Batch   int64
+}
+
+// DefaultResponseLimits returns finite limits suitable for block and genesis RPCs.
+func DefaultResponseLimits() ResponseLimits {
+	return ResponseLimits{Default: 8 << 20, Block: 32 << 20, Genesis: 128 << 20, Batch: 128 << 20}
+}
+
+// SetResponseLimits atomically configures response bounds for subsequent requests.
+func (c *Client) SetResponseLimits(limits ResponseLimits) error {
+	for _, limit := range []int64{limits.Default, limits.Block, limits.Genesis, limits.Batch} {
+		if limit <= 0 || limit == math.MaxInt64 {
+			return errors.New("response limits must be positive and less than MaxInt64")
+		}
+	}
+	c.mtx.Lock()
+	c.responseLimits = limits
+	c.mtx.Unlock()
+	return nil
+}
+
+func (c *Client) responseLimit(method string, batch bool) int64 {
+	c.mtx.Lock()
+	limits := c.responseLimits
+	c.mtx.Unlock()
+	if batch {
+		return limits.Batch
+	}
+	switch method {
+	case "block", "block_by_hash", "block_results":
+		return limits.Block
+	case "genesis", "genesis_chunked":
+		return limits.Genesis
+	default:
+		return limits.Default
+	}
+}
+
+// ErrResponseTooLarge identifies an HTTP body that exceeds its configured bound.
+var ErrResponseTooLarge = errors.New("RPC response exceeds size limit")
+
+func readResponseBody(response *http.Response, limit int64) ([]byte, error) {
+	defer response.Body.Close()
+	if response.ContentLength > limit {
+		return nil, fmt.Errorf("%w: limit %d bytes", ErrResponseTooLarge, limit)
+	}
+	body, err := io.ReadAll(io.LimitReader(response.Body, limit+1))
+	if int64(len(body)) > limit {
+		return nil, fmt.Errorf("%w: limit %d bytes", ErrResponseTooLarge, limit)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return body, nil
 }
 
 // Call issues a POST HTTP request. Requests are JSON encoded. Content-Type:
@@ -210,8 +276,7 @@ func (c *Client) Call(ctx context.Context, method string, params, result interfa
 		return err
 	}
 
-	responseBytes, err := io.ReadAll(httpResponse.Body)
-	_ = httpResponse.Body.Close()
+	responseBytes, err := readResponseBody(httpResponse, c.responseLimit(method, false))
 	if err != nil {
 		return fmt.Errorf("reading response body: %w", err)
 	}
@@ -257,8 +322,7 @@ func (c *Client) sendBatch(ctx context.Context, requests []*jsonRPCBufferedReque
 		return nil, fmt.Errorf("post: %w", err)
 	}
 
-	responseBytes, err := io.ReadAll(httpResponse.Body)
-	_ = httpResponse.Body.Close()
+	responseBytes, err := readResponseBody(httpResponse, c.responseLimit("", true))
 	if err != nil {
 		return nil, fmt.Errorf("reading response body: %w", err)
 	}

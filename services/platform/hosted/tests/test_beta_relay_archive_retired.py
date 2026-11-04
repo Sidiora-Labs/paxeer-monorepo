@@ -32,7 +32,10 @@ def test_beta_cluster_deploys_no_relay_archive():
         capture_output=True,
         text=True,
     ).stdout.splitlines()
-    assert "layerx-node" in listed
+    assert "kernel" in listed
+    assert "paxd-node" in listed
+    for retired in ("layerx-node", "layerx-core-boundary", "layerx-receipt-authority"):
+        assert retired not in listed
     assert "layerx-relay-archive" not in listed
 
     cluster = (DIRECTORY / "beta-cluster.sh").read_text()

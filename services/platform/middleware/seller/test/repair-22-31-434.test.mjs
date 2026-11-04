@@ -11,7 +11,7 @@ import { secp256k1 } from "@noble/curves/secp256k1.js";
 import {
   AgentHttpTransport, ProductionClient, decodeRawEip1559, encodeUnsignedEip1559,
   keccak256, recoverEip1559Sender, verifySequencerReceipt, verifyCommittedReceipt,
-  cometHeaderHash, cometValidatorSetHash,
+  cometHeaderHash, cometValidatorSetHash, cometCommitHash,
 } from "@sidiora/layerx-sdk";
 import {
   DurableFulfillmentRepository, ReceiptPayloadAuthority, SellerMiddleware,
@@ -21,6 +21,7 @@ import {
   encodePaymentCommitmentEvidence, decodePaymentCommitmentEvidence,
   verifyPaymentCommitment, verifyPaymentCommitmentEvidence,
 } from "../dist/index.js";
+import { recordedCommittedReceipt } from "./committed-fixture.mjs";
 import { GrantPaymentAuthority } from "../dist/grant.js";
 import { PaymentRpc, HostedGatewayRpc, verifyRpcPayment } from "../dist/rpc.js";
 
@@ -344,19 +345,7 @@ function nodeCommit(value) {
 function validatorSet(value) { return value.map((validator) => { const publicKey = new Uint8Array(validator.PublicKey);
   return { publicKey, address: new Uint8Array(sha(publicKey).subarray(0, 20)), votingPower: BigInt(validator.VotingPower) }; }); }
 async function commitmentFixture() {
-  const verified = await verifySequencerReceipt(bytes(committed.signedReceipt), bytes(committed.rawTransaction), [pinFor(committed)]);
-  const commit = nodeCommit(committed.commit);
-  const evidence = { landingBlockHeight: BigInt(committed.blockHeader.Height), blockHeader: { ...nodeHeader(committed.blockHeader), blockId: commit.blockId },
-    receiptInclusion: { transactionHash: verified.receipt.activityId, receiptDigest: verified.receiptDigest, sequence: verified.receipt.globalSequence,
-      batchTransaction: base64(committed.receiptInclusion.BatchTransaction),
-      batchProof: { total: BigInt(committed.receiptInclusion.BatchProof.Total), index: BigInt(committed.receiptInclusion.BatchProof.Index),
-        aunts: committed.receiptInclusion.BatchProof.Aunts.map((aunt) => new Uint8Array(aunt)) }, activityIds: [verified.receipt.activityId] },
-    commit, validatorSet: validatorSet(committed.validatorSet) };
-  const anchors = new Map([[`eip155:125/${evidence.landingBlockHeight}`, { chainId: evidence.blockHeader.chainId,
-    validatorsHash: evidence.blockHeader.validatorsHash.slice() }]]);
-  const resolver = { async resolve() { return structuredClone(evidence); },
-    async resolveValidators(network, height) { const anchor = anchors.get(`${network}/${height}`); if (!anchor) throw new Error("untrusted-chain-height"); return structuredClone(anchor); } };
-  return { verified, evidence, resolver };
+  return recordedCommittedReceipt();
 }
 
 async function commitmentInclusionUnverified() {
@@ -380,11 +369,11 @@ async function commitmentInclusionUnverified() {
     const invalid = structuredClone(evidence); mutate(invalid);
     await assert.rejects(verifyPaymentCommitmentEvidence(verified, "committed", invalid, "eip155:125", resolver), failure);
   }
-  // The successor has an authentic quorum but covers a different batch/block.
+  // The execution commit has an authentic quorum but cannot authenticate the successor results.
   const unrelated = structuredClone(evidence);
-  unrelated.blockHeader = { ...nodeHeader(committed.receiptInclusion.NextHeader), blockId: blockId(committed.receiptInclusion.NextCommit.BlockID) };
-  unrelated.commit = nodeCommit(committed.receiptInclusion.NextCommit);
-  unrelated.validatorSet = validatorSet(committed.receiptInclusion.NextValidators);
+  unrelated.blockHeader = { ...nodeHeader(committed.blockHeader), blockId: blockId(committed.commit.BlockID) };
+  unrelated.commit = nodeCommit(committed.commit);
+  unrelated.validatorSet = validatorSet(committed.validatorSet);
   unrelated.landingBlockHeight = unrelated.blockHeader.height;
   const nextResolver = { ...resolver, async resolveValidators(network, height) {
     assert.equal(network, "eip155:125"); assert.equal(height, unrelated.landingBlockHeight);
@@ -435,9 +424,20 @@ async function commitmentValidatorTrust() {
   const publicKey = new Uint8Array(pair.publicKey.export({ type: "spki", format: "der" }).subarray(-32));
   const address = new Uint8Array(sha(publicKey).subarray(0, 20));
   selfSigned.validatorSet = [{ publicKey, address, votingPower: 100n }];
+  const inclusion = selfSigned.receiptInclusion;
+  inclusion.executionValidators = structuredClone(selfSigned.validatorSet);
+  inclusion.executionHeader.validatorsHash = await cometValidatorSetHash(selfSigned.validatorSet);
+  inclusion.executionHeader.nextValidatorsHash = inclusion.executionHeader.validatorsHash.slice();
+  inclusion.executionCommit.blockId.hash = await cometHeaderHash(inclusion.executionHeader);
+  const executionTime = { seconds: 1n, nanos: 1 };
+  inclusion.executionCommit.signatures = [{ blockIdFlag: 2, validatorAddress: address, timestamp: executionTime,
+    signature: new Uint8Array(sign(null, commitVote({ commit: inclusion.executionCommit, blockHeader: inclusion.executionHeader }, executionTime), pair.privateKey)) }];
+  selfSigned.blockHeader.lastBlockId = structuredClone(inclusion.executionCommit.blockId);
+  selfSigned.blockHeader.lastCommitHash = cometCommitHash(inclusion.executionCommit);
   selfSigned.blockHeader.validatorsHash = await cometValidatorSetHash(selfSigned.validatorSet);
   selfSigned.commit.blockId.hash = await cometHeaderHash(selfSigned.blockHeader);
   selfSigned.blockHeader.blockId = structuredClone(selfSigned.commit.blockId);
+  inclusion.successorHeader = structuredClone(selfSigned.blockHeader);
   const time = { seconds: 1n, nanos: 1 };
   selfSigned.commit.signatures = [{ blockIdFlag: 2, validatorAddress: address, timestamp: time,
     signature: new Uint8Array(sign(null, commitVote(selfSigned, time), pair.privateKey)) }];

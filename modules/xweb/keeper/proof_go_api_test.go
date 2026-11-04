@@ -184,6 +184,33 @@ func TestProofGoApiProducerTransportConsumer(t *testing.T) {
 		require.Equal(t, sdk.NewInt(share), a.BankKeeper.GetBalance(ctx, keys[i].Payout, types.ProgramFeeDenomUSDL).Amount)
 	}
 	require.True(t, a.BankKeeper.GetBalance(ctx, feeAccount, types.ProgramFeeDenomUSDL).IsZero())
+
+	originFee := genesis.Params.Fee
+	originPayer := a.EvmKeeper.GetPaxAddressOrDefault(ctx, requester)
+	originCoins := sdk.NewCoins(sdk.NewCoin(sdk.MustGetBaseDenom(), originFee.AddRaw(1)))
+	require.NoError(t, a.BankKeeper.MintCoins(ctx, "mint", originCoins))
+	require.NoError(t, a.BankKeeper.SendCoinsFromModuleToAccount(ctx, "mint", originPayer, originCoins))
+	originID, err := a.XWebKeeper.Request(ctx, requester, types.KindFetch, payload, callbackGas, originFee)
+	require.NoError(t, err)
+	originRequest, found := a.XWebKeeper.GetRequest(ctx, originID)
+	require.True(t, found)
+	require.NoError(t, originRequest.Validate())
+	originResponse := []byte{0, 0xff, 0x42, 0, 0xfe}
+	originDigest := types.Keccak(originResponse)
+	originAttestation := types.Attestation{Origin: types.OriginEVM, NetworkID: a.EvmKeeper.ChainID(ctx),
+		Requester: types.EVMRequester(types.Address20(requester)), RequestID: originID,
+		Kind: types.KindFetch, PayloadHash: types.Keccak(payload), ContentDigest: originDigest,
+		ResponseHash: types.Keccak(originResponse), FullLength: 9000}
+	originRequest, originResult, err := a.XWebKeeper.Fulfil(ctx, originID, originResponse, originDigest, 9000,
+		xwebtestutil.Sign(types.Digest(originAttestation), keys[:3]...))
+	require.NoError(t, err)
+	require.NoError(t, a.XWebKeeper.RecordCallback(ctx, originID, types.CallbackDelivered, 21_000))
+	originResult.Callback, originResult.CallbackGasUsed = types.CallbackDelivered, 21_000
+	require.Equal(t, sdk.OneInt(), a.BankKeeper.GetBalance(ctx, originPayer, sdk.MustGetBaseDenom()).Amount)
+	require.True(t, a.BankKeeper.GetBalance(ctx, a.XWebKeeper.ModuleAddress(), sdk.MustGetBaseDenom()).IsZero())
+	for i, share := range []int64{333334, 333333, 333333, 0, 0} {
+		require.Equal(t, sdk.NewInt(share), a.BankKeeper.GetBalance(ctx, keys[i].Payout, sdk.MustGetBaseDenom()).Amount)
+	}
 	exported := a.XWebKeeper.ExportGenesis(ctx)
 	require.NoError(t, exported.Validate())
 	require.Len(t, a.XWebKeeper.ProgramAnswerEntries(ctx), 4)
@@ -216,11 +243,19 @@ func TestProofGoApiProducerTransportConsumer(t *testing.T) {
 	require.Equal(t, exported, a.XWebKeeper.ExportGenesis(ctx))
 	require.True(t, a.XWebKeeper.ProgramOriginActive(ctx))
 	require.ErrorContains(t, a.XWebKeeper.FulfilProgram(ctx, raw), "LXP_SEQUENCE_REUSED")
+	_, _, err = a.XWebKeeper.Fulfil(ctx, originID, originResponse, originDigest, 9000,
+		xwebtestutil.Sign(types.Digest(originAttestation), keys[:3]...))
+	require.ErrorIs(t, err, types.ErrAlreadyFulfilled)
 	repeated := keeper.ProgramCall{ProgramID: program, Principal: principal, Sequence: call.Sequence, Legs: call.Legs}
 	require.ErrorContains(t, a.XWebKeeper.RequestFromProgram(ctx, &repeated, []byte(keeper.ProgramRequestTopic), event), "LXP_SEQUENCE_REUSED")
 	require.Equal(t, exported, a.XWebKeeper.ExportGenesis(ctx))
 	for i, share := range []int64{26, 25, 25, 0, 0} {
 		require.Equal(t, sdk.NewInt(share), a.BankKeeper.GetBalance(ctx, keys[i].Payout, types.ProgramFeeDenomUSDL).Amount)
+	}
+	require.Equal(t, sdk.OneInt(), a.BankKeeper.GetBalance(ctx, originPayer, sdk.MustGetBaseDenom()).Amount)
+	require.True(t, a.BankKeeper.GetBalance(ctx, a.XWebKeeper.ModuleAddress(), sdk.MustGetBaseDenom()).IsZero())
+	for i, share := range []int64{333334, 333333, 333333, 0, 0} {
+		require.Equal(t, sdk.NewInt(share), a.BankKeeper.GetBalance(ctx, keys[i].Payout, sdk.MustGetBaseDenom()).Amount)
 	}
 
 	// Node activation consumes the genesis parameter and its registered store key.
@@ -259,6 +294,17 @@ func TestProofGoApiProducerTransportConsumer(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, genesis.Attestors.Attestors, attestors.Attestors)
 	require.Equal(t, uint32(3), attestors.Threshold)
+	originRequestAnswer, err := client.Request(queryCtx, &types.QueryRequestRequest{RequestId: originID})
+	require.NoError(t, err)
+	require.Equal(t, originRequest, originRequestAnswer.Request)
+	require.NoError(t, originRequestAnswer.Request.Validate())
+	originResultAnswer, err := client.Result(queryCtx, &types.QueryResultRequest{RequestId: originID})
+	require.NoError(t, err)
+	require.Equal(t, originResult, originResultAnswer.Result)
+	require.Equal(t, originResponse, originResultAnswer.Result.Response)
+	require.Equal(t, originDigest, originResultAnswer.Result.ContentDigest)
+	require.Equal(t, types.CallbackDelivered, originResultAnswer.Result.Callback)
+	require.Equal(t, uint64(21_000), originResultAnswer.Result.CallbackGasUsed)
 	_, err = client.ProgramResult(queryCtx, &types.QueryProgramResultRequest{ProgramId: program[:], RequestId: requestID + 1})
 	require.Equal(t, codes.NotFound, status.Code(err))
 	_, err = client.ProgramResult(queryCtx, &types.QueryProgramResultRequest{ProgramId: []byte{1}, RequestId: requestID})

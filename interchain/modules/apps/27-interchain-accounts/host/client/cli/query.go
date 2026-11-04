@@ -23,7 +23,7 @@ func GetCmdParams() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "params",
 		Short:   "Query the current interchain-accounts host submodule parameters",
-		Long:    "Query the current interchain-accounts host submodule parameters",
+		Long:    "Query the current interchain-accounts host submodule parameters\n\n" + icatypes.AvailabilityGuidance,
 		Args:    cobra.NoArgs,
 		Example: fmt.Sprintf("%s query interchain-accounts host params", version.AppName),
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -52,7 +52,7 @@ func GetCmdPacketEvents() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "packet-events [channel-id] [sequence]",
 		Short:   "Query the interchain-accounts host submodule packet events",
-		Long:    "Query the interchain-accounts host submodule packet events for a particular channel and sequence",
+		Long:    "Query the interchain-accounts host submodule packet events for a particular channel and sequence\n\n" + icatypes.AvailabilityGuidance,
 		Args:    cobra.ExactArgs(2),
 		Example: fmt.Sprintf("%s query interchain-accounts host packet-events channel-0 100", version.AppName),
 		RunE: func(cmd *cobra.Command, args []string) error {

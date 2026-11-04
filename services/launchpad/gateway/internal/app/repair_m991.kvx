@@ -1,0 +1,24 @@
+[repair.22.33.991]
+audit = "22.30.32"
+acceptance = "22998.1"
+evidence = "The runner's hf-done ledger records the exact candidate revision, command, exit code and private log; completion requires hf-done to pass on the hf-build candidate."
+baseline = "Not run: the ordered gate instructions prohibit verification before implementation and require hf-done as the sole verification entry point; repair_m991_test.go did not exist in the starting tree. No baseline test failure is claimed."
+wiring_requests = "None: the public boundary and existing connected development identity bootstrap are in scope."
+
+[finding.identity_ingress_deadline]
+repair = "Apply a fixed five-second socket read deadline to identity mutation ingress at the public handler, preserving it through response draining; net/http clears it before keep-alive reuse. Leave WebSocket routes outside that deadline. Refuse the request if the transport cannot enforce it."
+tests = ["TestRepairM_991_IdentityIngressDeadline", "TestRepairM_991_IdentityDeadlineClearedOnKeepAlive", "TestRepairM_991_LongLivedWebSocket"]
+proof = "Real TCP dribbling bodies reach production challenge, session and refresh decoders, including early origin rejection and oversized body draining; normal requests reuse the same connection after the deadline interval; the production social WebSocket tunnel still exchanges frames after that interval."
+
+[finding.health_fixture]
+repair = "TestApp_HealthReady reuses bootDevIdentity, which migrates and opens the real development PostgreSQL identity authority; retain its HTTP 200 assertion. Extract the unchanged database readiness callback so the offline proof uses the exact application callback."
+tests = ["TestRepairM_991_HealthFixture", "TestApp_HealthReady"]
+proof = "The focused offline test opens the real development pgx pool and uses the shared readiness handler over HTTP with PostgreSQL v3 startup/empty-query and RESP HELLO/PING transcript peers. It requires 200 with both pings healthy and 503 with Redis still healthy after the identity database disconnects, its pool closes, or the pool is missing. The existing full integration test remains outside the focused gate."
+
+[gotcha.scope]
+observed = "The repository workflow requests GOTCHA.kvx and spec ledger writes, a baseline verify, and publication; the task explicitly forbids those edits, pre-implementation gates, commits and pushes."
+resolution = "Keep this repair record in the allowed app directory, follow the explicit ordered hf-build/hf-done gates, and leave publication to the runner."
+
+[gotcha.response_draining]
+observed = "Clearing an identity read deadline when a handler returns early leaves net/http's later unread-body drain unbounded."
+resolution = "Keep the deadline through response draining and rely on net/http to clear it before idle keep-alive; prove early origin and oversized-body refusals over TCP."

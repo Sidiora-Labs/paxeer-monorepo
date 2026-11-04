@@ -67,11 +67,15 @@ impl IdentityProjector {
     }
 
     pub fn checked_step_up_challenge(value: &StepUpChallenge) -> Result<Value, ApiFailure> {
+        crate::auth::validate_step_up_challenge_id(&value.challenge_id)
+            .map_err(|_| ApiFailure::upstream_degraded())?;
         super::identity_dispatch::step_up_challenge(value)
             .map_err(|_| ApiFailure::upstream_degraded())
     }
 
     pub fn checked_step_up(value: &StepUpEvidence) -> Result<Value, ApiFailure> {
+        crate::auth::validate_step_up_challenge_id(value.challenge_id())
+            .map_err(|_| ApiFailure::upstream_degraded())?;
         super::identity_dispatch::step_up_evidence(value)
             .map_err(|_| ApiFailure::upstream_degraded())
     }
@@ -254,23 +258,12 @@ impl IdentityProjector {
 
     #[must_use]
     pub fn step_up_challenge(challenge: &StepUpChallenge) -> Value {
-        json!({
-            "challenge_id": challenge.challenge_id,
-            "confirms": challenge.confirms.to_schema(),
-            "ceremony": challenge.ceremony,
-            "expires_at": rfc3339(challenge.expires_at)
-        })
+        challenge.to_schema_json()
     }
 
     #[must_use]
     pub fn step_up(evidence: &StepUpEvidence) -> Value {
-        json!({
-            "challenge_id": evidence.challenge_id(),
-            "confirms": evidence.confirms().to_schema(),
-            "passkey_id": evidence.passkey_id(),
-            "completed_at": rfc3339(evidence.completed_at()),
-            "expires_at": rfc3339(evidence.expires_at())
-        })
+        evidence.to_schema_json()
     }
 
     /// Projects one freshly issued or rotated session and separates its

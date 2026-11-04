@@ -169,10 +169,13 @@ func (l *CList[T]) Front() *CElement[T] {
 func (l *CList[T]) WaitFront(ctx context.Context) (*CElement[T], error) {
 	// Loop until the head is non-nil else wait and try again
 	for {
-		l.mtx.RLock()
+		l.mtx.Lock()
+		if l.waitCh == nil {
+			l.waitCh = make(chan struct{})
+		}
 		head := l.head
 		signal := l.waitCh
-		l.mtx.RUnlock()
+		l.mtx.Unlock()
 
 		if head != nil {
 			return head, nil
@@ -202,7 +205,9 @@ func (l *CList[T]) Clear() {
 		el.setRemoved()
 		el = next
 	}
-	l.waitCh = make(chan struct{})
+	if l.len != 0 || l.waitCh == nil {
+		l.waitCh = make(chan struct{})
+	}
 	l.head = nil
 	l.tail = nil
 	l.len = 0
@@ -223,6 +228,9 @@ func (l *CList[T]) PushBack(v T) *CElement[T] {
 
 	// Release waiters on FrontWait/BackWait maybe
 	if l.len == 0 {
+		if l.waitCh == nil {
+			l.waitCh = make(chan struct{})
+		}
 		close(l.waitCh)
 	}
 	l.len++

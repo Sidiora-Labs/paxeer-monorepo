@@ -12,6 +12,8 @@ import {
   formatNumber,
   formatCurrency,
   formatTokenAmount,
+  formatHumanTokenAmount,
+  formatRawTokenAmount,
   formatCompactNumber,
   formatDate,
   formatPercent,
@@ -20,9 +22,7 @@ import {
 
 describe('locale codes', () => {
   it('exports stable locale codes', () => {
-    expect(SUPPORTED_LOCALES).toEqual([
-      'en', 'es', 'fr', 'de', 'pt', 'ar', 'it', 'hi', 'ja', 'ko',
-    ]);
+    expect(SUPPORTED_LOCALES).toEqual(['en', 'es', 'fr', 'de', 'pt', 'ar', 'it', 'hi', 'ja', 'ko']);
   });
 
   it('defaults to en', () => {
@@ -100,8 +100,12 @@ describe('message catalogs', () => {
     for (const locale of SUPPORTED_LOCALES) {
       expect(Object.keys(MESSAGE_CATALOGS[locale]).sort()).toEqual(enKeys);
       for (const section of enKeys) {
-        const enSection = (MESSAGE_CATALOGS.en as unknown as Record<string, Record<string, string>>)[section];
-        const localeSection = (MESSAGE_CATALOGS[locale] as unknown as Record<string, Record<string, string>>)[section];
+        const enSection = (
+          MESSAGE_CATALOGS.en as unknown as Record<string, Record<string, string>>
+        )[section];
+        const localeSection = (
+          MESSAGE_CATALOGS[locale] as unknown as Record<string, Record<string, string>>
+        )[section];
         expect(Object.keys(localeSection).sort()).toEqual(Object.keys(enSection).sort());
       }
     }
@@ -122,20 +126,34 @@ describe('formatters', () => {
   });
 
   it('formats token amounts with symbol', () => {
-    const amount = formatTokenAmount('1234.567890', 18, 'en', 'PAX');
+    const amount = formatHumanTokenAmount('1234.567890', 18, 'en', 'PAX');
     expect(amount).toContain('PAX');
     expect(amount).toContain('1');
     expect(amount).toContain('234');
+    expect(amount).toBe('1,234.56789\u00A0PAX');
   });
 
   it('formats token amounts without symbol', () => {
-    const amount = formatTokenAmount('0.5', 18, 'en');
+    const amount = formatHumanTokenAmount('0.5', 18, 'en');
     expect(amount).not.toContain('undefined');
+    expect(amount).toBe('0.5');
   });
 
   it('handles zero and NaN in token amounts', () => {
     expect(formatTokenAmount('0', 18, 'en', 'ETH')).toContain('0');
     expect(formatTokenAmount('not-a-number', 18, 'en', 'ETH')).toContain('0');
+  });
+
+  it('formats exact raw and human token boundaries', () => {
+    expect(formatRawTokenAmount('1000000000000000000', 18, 'en')).toBe('1');
+    expect(formatHumanTokenAmount('1', 18, 'en')).toBe('1');
+    expect(formatHumanTokenAmount('1.0', 18, 'en')).toBe('1');
+    expect(formatRawTokenAmount('9007199254740993', 0, 'en')).toBe('9,007,199,254,740,993');
+    expect(formatHumanTokenAmount('9007199254740993.9999995', 18, 'en')).toBe(
+      '9,007,199,254,740,994'
+    );
+    expect(formatRawTokenAmount('999999950000000000', 18, 'ar')).toBe('١');
+    expect(formatHumanTokenAmount('1234.5', 18, 'ar')).toBe('١٬٢٣٤٫٥');
   });
 
   it('formats compact numbers', () => {

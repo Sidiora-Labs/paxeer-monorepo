@@ -38,7 +38,7 @@ def write(path, value):
     os.chmod(path, 0o600)
 
 
-def configure(path, digest, root):
+def configure(path, digest, root, runner):
     require(sha(path) == digest, 'Measurement configuration hash mismatch')
     c = json.loads(Path(path).read_text())
     require(c.get('schema_version') == 1 and c.get('realm') == 'private-anvil125' and c.get('allow_fixture_mutation') is True, 'Explicit isolated measurement authority required')
@@ -66,7 +66,7 @@ def configure(path, digest, root):
     require(sha(c['playwright_entry']) == c['playwright_entry_sha256'] and sha(c['browser_executable']) == c['browser_executable_sha256'], 'Actual browser/tool identity required')
     origin = urlparse(c['browser_origin'])
     require(origin.scheme == 'https' and origin.hostname in ('127.0.0.1', 'localhost', '::1') and not origin.username and not origin.password, 'Actual isolated application origin required')
-    require(sha(root / 'client/apps/web/node_modules/vitest/vitest.mjs') == c['vitest_entry_sha256'], 'Actual native runner identity required')
+    require(sha(runner) == c['vitest_entry_sha256'], 'Actual native runner identity required')
     require(isinstance(c.get('mobile_drawer_selector'), str) and 0 < len(c['mobile_drawer_selector']) <= 512, 'Actual mobile drawer selector required')
     require(isinstance(c.get('browser_steps'), list) and c['browser_steps'], 'Actual current application steps required')
     require(isinstance(c.get('capture_budget_bytes'), int) and 1048576 <= c['capture_budget_bytes'] <= 536870912, 'Explicit bounded raw capture envelope required')
@@ -99,7 +99,10 @@ def main():
     parser.add_argument('--output-dir', required=True)
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[7]
-    c, current, evidence = configure(args.config, args.config_sha256, root)
+    native = json.loads((Path(__file__).parent / 'native-runner.json').read_text())
+    web = root / native['web']
+    runner = web / native['entry']
+    c, current, evidence = configure(args.config, args.config_sha256, root, runner)
     output = Path(args.output_dir).absolute()
     require(not output.exists() and not output.is_symlink(), 'Fresh measurement output namespace required')
     output.mkdir(parents=True, mode=0o700)
@@ -115,9 +118,8 @@ def main():
     token = compiler_output['contracts']['ZeroResetToken.sol']['ZeroResetToken']
     artifact = output / 'ZeroResetToken.json'
     write(artifact, {'abi': token['abi'], 'bytecode': '0x' + token['evm']['bytecode']['object'], 'source_sha256': sha(source)})
-    web = root / 'client/apps/web'
     env = {**os.environ, 'L26_PHASE4': '1', 'L26_MEASUREMENT_CONFIG': str(Path(args.config).resolve()), 'L26_MEASUREMENT_CONFIG_SHA256': args.config_sha256, 'L26_MEASUREMENT_OUTPUT': str(output), 'L26_FIXTURE_JSON': c['fixture_file'], 'L26_FIXTURE_SHA256': c['fixture_sha256'], 'L26_RPC_URL': c['rpc_url'], 'L26_ZERO_RESET_ARTIFACT': str(artifact), 'L26_CACHE_DIR': str(output / 'vite-cache'), 'WALLET_TEST_RPC_URL': c['rpc_url'], 'WALLET_TEST_ALLOW_CHAIN_MUTATION': '1'}
-    command = [c['node'], str(web / 'node_modules/vitest/vitest.mjs'), 'run', '--config', 'src/widgets/trading/transaction-controls/vitest.phase2.config.ts', '--reporter=tap', '--reporter=json', '--outputFile=' + str(output / 'vitest.json')]
+    command = [c['node'], str(runner), *native['arguments'], '--outputFile=' + str(output / 'vitest.json')]
     with (output / 'native.log').open('xb') as log:
         process = subprocess.run(command, cwd=web, env=env, stdout=log, stderr=subprocess.STDOUT, timeout=1200)
     required_artifacts = {'measurement.json', 'rpc.ndjson', 'operations.ndjson', 'recovery.ndjson', 'journey.ndjson', 'browser.ndjson', 'browser-trace.zip', 'trade-desktop.png', 'trade-mobile.png', 'browser-assets.json', 'analytics-binding.json', 'minimum-boundary.json', 'optical-boundary.json', 'lane-peak.json', 'lane-surge.json', 'recovery-summary.json'}

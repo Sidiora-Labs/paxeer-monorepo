@@ -1,0 +1,24 @@
+[repair.22.33.1451]
+audit = "22.30.83"
+acceptance = "22998.1"
+base_revision = "e3d7e5828b39e4182e9559fb6bc28d74c2f37e0f"
+verified_revision = "Recorded by hf-done in its private gate ledger and the final evidence JSON."
+baseline = "Not run: the task's ordered instructions require implementation before gates and prohibit running verify_cmd by hand; no earlier hf-build/hf-done ledger existed. No baseline test failures are claimed."
+verify_cmd = "cargo test --locked --manifest-path services/platform/hosted/core/Cargo.toml --test repair_22_33_1451"
+evidence = "hf-build and hf-done record the exact candidate revision, command, exit code and private log; completion requires both passing on that candidate."
+wiring_requests = []
+
+[finding.funding-wrong-network]
+tests = ["funding_wrong_network_refuses_connection_readiness_and_signing", "funding_wrong_network_durable_intent_is_bound_on_reopen"]
+repair = "Require deployment EVM chain 125 on connection, readiness and immediately before signing; validate the durable signed-transfer chain with the same deployment constant."
+proof = "Loopback RPC exercises refused network IDs, correct-network raw signing and cached-origin drift; real durable storage is closed and reopened before replay and foreign-network refusal."
+
+[finding.absent-receipt-status]
+tests = ["absent_receipt_status_preserves_lookup_and_http_outcomes"]
+repair = "Carry typed absent, submitted and verified results through lookup and route consumption; return 404 for absence, 202 for submission and 503 with Retry-After for dependency failures."
+proof = "Recorded producer receipt and submitted fixtures traverse the real RPC client, receipt authentication and TLS HTTP route, including successful receipt and unavailable receipt/key dependency cases."
+
+[finding.receipt-event-authentication]
+tests = ["receipt_event_authentication_accepts_producer_evidence_without_promoting_rung", "receipt_event_authentication_rejects_unpinned_and_mismatched_evidence", "receipt_event_authentication_keeps_authentication_absence_and_submission_distinct"]
+repair = "Use the authenticated lookup with receipt-key identity and height policy; preserve the authenticated rung and refuse unpinned signatures, invalid logs and mismatched execution fields."
+proof = "Committed Go-producer success/refusal and negative vectors traverse loopback RPC, the real signature/log verifier and TLS event route; mutated execution metadata and unsupported rung promotion are checked separately."

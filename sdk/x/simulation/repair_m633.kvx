@@ -1,0 +1,48 @@
+[repair.22.33.633]
+source_revision = "caa8b41ee668274ee1e5c1df6691288455c46278"
+audit = "22.30.164"
+qualification = "hf-build then hf-done; the private gate ledger records the exact candidate revision, command, exit code and evidence log."
+baseline = "No pre-change gate ran: the ordered implementation-first and hf-done-only rules prohibit the baseline run requested by step 9; no pre-change test failures are claimed."
+scope = "sdk/x/simulation only; pre-existing runner bookkeeping is retained."
+
+[finding.transition-weight-validation]
+test = "TestRepairM_633_TransitionWeightValidation"
+additional_test = "TestRepairM_633_InitialStateValidation"
+repair = "Reject empty, nonsquare, negative, overflowing and zero-total matrices; validate NextState bounds and initial-state weights with descriptive panics where the existing integer-only interface cannot return errors."
+
+[finding.transition-weight-alias]
+test = "TestRepairM_633_TransitionWeightAlias"
+repair = "Copy all admitted rows so caller edits cannot invalidate cached column totals or change transitions."
+
+[finding.missing-simulation-account]
+test = "TestRepairM_633_MissingSimulationAccount"
+repair = "Both public delivery helpers return a descriptive NoOpMsg before reading an absent account or accessing balances, signing or delivery; proof uses the real account keeper and in-memory BaseApp stores."
+
+[finding.unseeded-transaction-memo]
+audit_task_label = "fixture value"
+test = "TestRepairM_633_SeededTransactionReplay"
+repair = "Delivery derives the memo from OperationInput.R and passes it to GenTxWithMemo. The compatible GenTx entry point specifies an empty deterministic memo. Independent seeded replays traverse encoding, decoding, real signature verification, account sequence updates and bank message delivery, comparing encoded transactions and resulting keeper state."
+wiring_request = "Domain 15 (fm-cosmos-fork): sdk/x/{bank,gov,authz,slashing}/simulation/operations.go callers may use GenTxWithMemo with a memo drawn from their operation RNG to retain random-memo coverage; existing GenTx calls remain deterministic and source-compatible with an empty memo."
+
+[finding.transaction-signing-errors]
+test = "TestRepairM_633_TransactionSigningErrors"
+repair = "Reject signer-array misalignment and nil (including typed nil) keys before transaction construction; return sign-byte, key-signing and signature-installation errors through the declared error result. Proof includes the real unsupported signing-mode handler and valid direct/amino codec and verification paths."
+
+[gotcha.baseline-order]
+observed = "Step 9 requests unchanged-tree testing, but the explicit ordered gate rules prohibit tests before full implementation and manual verify runs."
+action = "Follow the ordered bounded gates without claiming measured baseline failures."
+
+[gotcha.account-contract]
+observed = "An AccountKeeper may return nil after a simulation account is removed; the account remains in the operation's seeded account inventory."
+action = "Return an explicit no-operation before querying balance or signer metadata."
+
+[qualification.repair1]
+revision = "c3c4780b4050acef03d9654d6fec056c1f46c4c4"
+command = "cg spec done 22.33.633 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Replay fixture used upstream codec names rather than the fork's MarshalAsJSON and MarshalInterface methods; correct both calls without changing assertions."
+
+[gotcha.fork-codec]
+observed = "ProtoCodec exposes MarshalAsJSON and requires MarshalInterface for AccountI values."
+action = "Use the fork's declared codec APIs for real keeper state serialization."

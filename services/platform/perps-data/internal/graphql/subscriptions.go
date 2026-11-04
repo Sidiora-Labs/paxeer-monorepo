@@ -373,7 +373,7 @@ type subLatestPrice struct {
 
 const latestPricesSQL = `SELECT m.market_id::int4, mp.index_price::text, floor(extract(epoch FROM mp.block_time))::int4, mp.block::int4, mp.block_time
 FROM perps.markets m
-CROSS JOIN LATERAL (SELECT p.index_price, p.block, p.block_time FROM perps.mark_prices p WHERE p.market_id = m.market_id
+CROSS JOIN LATERAL (SELECT p.index_price, p.block, p.block_time FROM (` + indexPriceRowsSQL + `) p WHERE p.market_id = m.market_id
     ORDER BY p.block DESC, p.tx_index DESC, p.log_index DESC, p.sub DESC LIMIT 1) mp
 ORDER BY m.market_id`
 
@@ -387,23 +387,33 @@ func scanLatestPrice(s scanner) (*subLatestPrice, error) {
 	return &p, nil
 }
 
-// LatestPricesUpdated sends the latest price of every market, price the
-// index_price, once per wake that finds new perps.mark_prices rows.
+const latestPriceCursorSQL = `SELECT
+    (SELECT COALESCE(max(row_id), 0) FROM perps.mark_prices),
+    (SELECT COALESCE(max(row_id), 0) FROM perps.index_prices WHERE kind = 'aggregate' AND index_price IS NOT NULL)`
+
+func latestPriceCursor(ctx context.Context, db *sql.DB) ([2]int64, error) {
+	var cursor [2]int64
+	err := db.QueryRowContext(ctx, latestPriceCursorSQL).Scan(&cursor[0], &cursor[1])
+	return cursor, err
+}
+
+// LatestPricesUpdated sends the latest index price of every market once per
+// wake that finds a new mark event or successful aggregate.
 func (r *Resolver) LatestPricesUpdated(ctx context.Context) (<-chan []*subLatestPrice, error) {
 	f, db, err := r.subscriptionFeed(ctx)
 	if err != nil {
 		return nil, err
 	}
-	cursor, err := maxRowID(ctx, db, "mark_prices")
+	cursor, err := latestPriceCursor(ctx, db)
 	if err != nil {
 		return nil, err
 	}
-	return run(ctx, f, []string{f.prefix + "*.mark"}, func(ctx context.Context, rewind bool) ([][]*subLatestPrice, bool, error) {
-		top, err := maxRowID(ctx, db, "mark_prices")
+	return run(ctx, f, []string{f.prefix + "*.mark", f.prefix + "*.index"}, func(ctx context.Context, rewind bool) ([][]*subLatestPrice, bool, error) {
+		top, err := latestPriceCursor(ctx, db)
 		if err != nil {
 			return nil, false, err
 		}
-		if top <= cursor && !rewind {
+		if top[0] <= cursor[0] && top[1] <= cursor[1] && !rewind {
 			return nil, false, nil
 		}
 		prices, err := queryAll(ctx, db, scanLatestPrice, latestPricesSQL)
@@ -453,13 +463,13 @@ const subMarketSQL = `SELECT m.market_id::int4, m.name, m.symbol, m.max_leverage
     mp.index_price::text, floor(extract(epoch FROM mp.block_time))::int4, mp.block::int4, mp.block_time,
     fr.row_id::int4, fr.new_rate_per_second::text, fr.funding_rate24h::text, fr.block::int4, '0x' || encode(fr.tx_hash, 'hex'), fr.block_time
 FROM perps.markets m
-LEFT JOIN LATERAL (SELECT p.index_price, p.block, p.block_time FROM perps.mark_prices p WHERE p.market_id = m.market_id
+LEFT JOIN LATERAL (SELECT p.index_price, p.block, p.block_time FROM (` + indexPriceRowsSQL + `) p WHERE p.market_id = m.market_id
     ORDER BY p.block DESC, p.tx_index DESC, p.log_index DESC, p.sub DESC LIMIT 1) mp ON true
 LEFT JOIN LATERAL (SELECT r.row_id, r.new_rate_per_second, r.funding_rate24h, r.block, r.tx_hash, r.block_time FROM perps.funding_rates r
     WHERE r.market_id = m.market_id ORDER BY r.block DESC, r.tx_index DESC, r.log_index DESC, r.sub DESC LIMIT 1) fr ON true
 WHERE m.market_id = $1`
 
-// loadMarket reads market id with its latest mark price, pool state and
+// loadMarket reads market id with its latest index price, pool state and
 // funding rate; an unknown market is nil.
 func loadMarket(ctx context.Context, db *sql.DB, id int32) (*subMarket, error) {
 	var m subMarket

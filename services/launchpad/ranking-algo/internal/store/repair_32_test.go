@@ -392,6 +392,9 @@ type repair32Intent struct {
 	Key                        string
 	Sequence, CategorySequence int64
 	Published                  bool
+	Attempts                   int
+	BrokerStream               string
+	BrokerSequence             int64
 }
 type repair32State struct {
 	Snapshots      map[string]*repair32Stored
@@ -405,11 +408,12 @@ type repair32Database struct {
 	path  string
 	state repair32State
 	t     *testing.T
+	reads []repair931Read
 }
 
-func repair32OpenPool(t *testing.T, path string) *pgxpool.Pool {
+func repair32OpenPool(t *testing.T, path string, reads ...repair931Read) *pgxpool.Pool {
 	t.Helper()
-	db := &repair32Database{path: path, t: t, state: repair32State{Snapshots: map[string]*repair32Stored{}, Heads: map[string]string{}, Frames: map[string]json.RawMessage{}}}
+	db := &repair32Database{path: path, t: t, reads: reads, state: repair32State{Snapshots: map[string]*repair32Stored{}, Heads: map[string]string{}, Frames: map[string]json.RawMessage{}}}
 	raw, err := os.ReadFile(path)
 	if err == nil {
 		if err = json.Unmarshal(raw, &db.state); err != nil {
@@ -445,6 +449,18 @@ type repair32Result struct {
 
 func repair32Columns(sql string) []uint32 {
 	switch {
+	case strings.HasPrefix(sql, "SELECT category,cutoff_time"):
+		return []uint32{25, 20}
+	case strings.HasPrefix(sql, "SELECT count(*),count(*) FILTER"):
+		return []uint32{20, 20, 20}
+	case strings.HasPrefix(sql, "SELECT w.raw_complete_height"):
+		return []uint32{20, 20, 16}
+	case strings.HasPrefix(sql, "SELECT block_hash,completed_at"):
+		return []uint32{25, 1184, 16}
+	case strings.HasPrefix(sql, "SELECT NOT EXISTS"):
+		return []uint32{16}
+	case strings.HasPrefix(sql, "WITH facts AS"):
+		return []uint32{25, 20, 20, 20, 20, 25, 25, 25, 20, 20, 20, 25, 25, 25, 25, 25, 20, 25, 25, 20, 25, 25, 20}
 	case strings.HasPrefix(sql, "select ") && strings.Contains(sql, "snapshot_entries"):
 		return []uint32{pgtype.TextOID, pgtype.TextOID, pgtype.Int8OID, pgtype.TextOID, pgtype.TextOID}
 	case strings.HasPrefix(sql, "SELECT s.run_id,s.category"):
@@ -705,6 +721,15 @@ func (db *repair32Database) query(sql string, args []string, tx **repair32State)
 		s = &db.state
 	}
 	result := repair32Result{oids: repair32Columns(sql)}
+	for _, read := range db.reads {
+		if sql == read.SQL {
+			if !reflect.DeepEqual(args, read.Args) {
+				return result, fmt.Errorf("recorded query bindings differ: %v want %v", args, read.Args)
+			}
+			result.rows = read.Rows
+			return result, nil
+		}
+	}
 	integer := func(i int) int64 { n, _ := strconv.ParseInt(args[i], 10, 64); return n }
 	key := func() string { return args[0] + "/" + args[1] }
 	switch {
@@ -777,7 +802,7 @@ func (db *repair32Database) query(sql string, args []string, tx **repair32State)
 		}
 	case strings.HasPrefix(sql, "SELECT o.sequence,o.run_id"):
 		for _, intent := range s.Outbox {
-			if !intent.Published {
+			if !intent.Published && intent.Attempts < int(integer(0)) {
 				h := s.Snapshots[intent.Key].Header
 				result.rows = [][]string{{fmt.Sprint(intent.Sequence), h.RunID, h.Category, fmt.Sprint(intent.CategorySequence)}}
 				break
@@ -824,9 +849,41 @@ func (db *repair32Database) query(sql string, args []string, tx **repair32State)
 		for i := range s.Outbox {
 			if s.Outbox[i].Sequence == integer(0) {
 				s.Outbox[i].Published = true
+				s.Outbox[i].Attempts++
+				if len(args) == 3 {
+					s.Outbox[i].BrokerStream = args[1]
+					s.Outbox[i].BrokerSequence = integer(2)
+				}
 			}
 		}
 		result.tag = "UPDATE 1"
+	case strings.HasPrefix(sql, "UPDATE ") && strings.Contains(sql, " SET attempts=attempts+1"):
+		for i := range s.Outbox {
+			if s.Outbox[i].Sequence == integer(0) && !s.Outbox[i].Published && s.Outbox[i].Attempts < int(integer(1)) {
+				s.Outbox[i].Attempts++
+			}
+		}
+		result.tag = "UPDATE 1"
+	case strings.HasPrefix(sql, "SELECT category,cutoff_time"):
+		if len(args) != 2 || args[1] != strconv.Itoa(len(ranker.Categories)) {
+			return result, fmt.Errorf("unbounded category health query: %v", args)
+		}
+		for _, category := range ranker.Categories {
+			if stored := s.Snapshots[s.Heads[category]]; stored != nil {
+				result.rows = append(result.rows, []string{category, fmt.Sprint(stored.Header.CutoffTime)})
+			}
+		}
+	case strings.HasPrefix(sql, "SELECT count(*),count(*) FILTER"):
+		n, exhausted := 0, 0
+		for _, intent := range s.Outbox {
+			if !intent.Published {
+				n++
+				if intent.Attempts >= int(integer(0)) {
+					exhausted++
+				}
+			}
+		}
+		result.rows = [][]string{{fmt.Sprint(n), fmt.Sprint(exhausted), "0"}}
 	case strings.HasPrefix(sql, "SELECT count(*)"):
 		n := 0
 		switch {

@@ -16,7 +16,7 @@ func validEnv(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://u:p@localhost:5432/db?sslmode=disable")
 	t.Setenv("REDIS_URL", "redis://localhost:6379/0")
 	t.Setenv("REDIS_BULL_URL", "redis://localhost:6379/1")
-	t.Setenv("RPC_URL", "https://mainnet-beta.rpc.hyperpaxeer.com/rpc")
+	t.Setenv("RPC_URL", "https://api1.mainnet-beta.paxeer.network")
 	for _, k := range []string{
 		"EVENT_EMITTER_ADDRESS", "POOL_REGISTRY_ADDRESS", "ROUTER_ADDRESS",
 		"FACTORY_ADDRESS", "QUOTER_ADDRESS", "PROTOCOL_CONFIG_ADDRESS",
@@ -59,7 +59,7 @@ func TestLoadCoercesAndOverrides(t *testing.T) {
 	t.Setenv("PORT", "8080")
 	t.Setenv("LOG_LEVEL", "debug")
 	t.Setenv("NODE_ENV", "development")
-	t.Setenv("RPC_URL_FALLBACK", "https://fallback.example.com/rpc")
+	t.Setenv("RPC_URL_FALLBACK", "https://api2.mainnet-beta.paxeer.network")
 	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("Load() error: %v", err)
@@ -70,8 +70,8 @@ func TestLoadCoercesAndOverrides(t *testing.T) {
 	if cfg.LogLevel != "debug" || cfg.NodeEnv != "development" {
 		t.Errorf("override failed: LogLevel=%q NodeEnv=%q", cfg.LogLevel, cfg.NodeEnv)
 	}
-	if cfg.RPCURLFallback == "" {
-		t.Error("RPCURLFallback should be set")
+	if cfg.RPCURLFallback != "https://api2.mainnet-beta.paxeer.network" {
+		t.Errorf("RPCURLFallback = %q, want reviewed fallback origin", cfg.RPCURLFallback)
 	}
 }
 
@@ -139,12 +139,15 @@ func TestRejectsWrongChainStaleAddressesAndBounds(t *testing.T) {
 }
 func TestPrivateEnvironmentRedaction(t *testing.T) {
 	validEnv(t)
-	t.Setenv("RPC_URL", "https://operator:super-secret@rpc.example/private-key")
 	c, err := Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, _ := json.Marshal(c)
+	c.RPCURL = "https://operator:super-secret@rpc.example/private-key"
+	b, err := json.Marshal(c)
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, out := range []string{string(b), fmt.Sprintf("%+v", c), fmt.Sprintf("%#v", c)} {
 		if strings.Contains(out, "super-secret") || strings.Contains(out, "operator") || strings.Contains(out, "private-key") {
 			t.Fatal("secret leaked")
@@ -159,11 +162,11 @@ func TestPrivateEnvironmentRedaction(t *testing.T) {
 
 func TestConflictingPrivateConfigNeverExports(t *testing.T) {
 	validEnv(t)
-	t.Setenv("RPC_URL", "https://operator:super-secret@private.example/rpc")
 	c, e := Load()
 	if e != nil {
 		t.Fatal(e)
 	}
+	c.RPCURL = "https://operator:super-secret@private.example/rpc"
 	c.RouterAddress = "0x6679aF411d534de222C32ed0AF94C3BD67090672"
 	out, e := c.ExportPublic(deployment.Current(), deployment.ActivationAttestation{}, deployment.Policy{}, deployment.PublicEndpoints{})
 	if e == nil || out.ChainID != 0 || !strings.Contains(e.Error(), "Router") || strings.Contains(e.Error(), "super-secret") {

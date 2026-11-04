@@ -1,6 +1,7 @@
 package ethtx
 
 import (
+	"fmt"
 	"math"
 
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
@@ -33,17 +34,34 @@ func NewAuthList(ethAuthList *[]ethtypes.SetCodeAuthorization) AuthList {
 }
 
 func (al AuthList) ToEthAuthList() *[]ethtypes.SetCodeAuthorization {
+	ethAuthList, err := al.ToEthAuthListChecked()
+	if err != nil {
+		panic(err)
+	}
+	return ethAuthList
+}
+
+// ToEthAuthListChecked rejects values that cannot be represented without changing
+// the signed authorization. ToEthAuthList requires a previously validated list.
+func (al AuthList) ToEthAuthListChecked() (*[]ethtypes.SetCodeAuthorization, error) {
+	if len(al) > 0 {
+		if err := validateAuthList(al); err != nil {
+			return nil, err
+		}
+	}
 	ethAuthList := make([]ethtypes.SetCodeAuthorization, len(al))
 
 	for i, auth := range al {
 		chainId := new(uint256.Int)
-		chainId.SetFromBig(auth.ChainID.BigInt())
+		if overflow := chainId.SetFromBig(auth.ChainID.BigInt()); overflow {
+			return nil, fmt.Errorf("auth list chain id exceeds 256 bits")
+		}
 		v := new(uint256.Int)
 		v.SetBytes(auth.V)
 
 		var v8 uint8
 		if v.Uint64() > math.MaxUint8 {
-			panic("v value too large to fit in uint8")
+			return nil, fmt.Errorf("v value too large to fit in uint8")
 		}
 		v8 = uint8(v.Uint64()) //nolint:gosec
 
@@ -61,5 +79,5 @@ func (al AuthList) ToEthAuthList() *[]ethtypes.SetCodeAuthorization {
 		}
 	}
 
-	return &ethAuthList
+	return &ethAuthList, nil
 }

@@ -1,7 +1,6 @@
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
-use dashmap::DashMap;
-use parking_lot::RwLock;
+use parking_lot::{MappedRwLockReadGuard, RwLock, RwLockReadGuard};
 
 use crate::core::market::{MarketId, MARKET_COUNT};
 use crate::core::types::{FixedI128, Order, OrderStatus};
@@ -115,22 +114,25 @@ impl Orderbook {
 /// - `user:orders:{addr}` → `by_user()`
 /// - `orderbook:{mid}:{bids|asks}` → `orderbook(mid)`
 ///
-/// Concurrency:
-/// - DashMap for primary order storage and user index.
-/// - `parking_lot::RwLock<Orderbook>` per market for the sorted sets.
+/// Concurrency: one lock publishes primary records, user indexes and orderbooks together.
 pub struct OrderTable {
-    orders: DashMap<[u8; 32], Order>,
-    by_user: DashMap<[u8; 20], HashSet<[u8; 32]>>,
-    orderbooks: Vec<RwLock<Orderbook>>,
+    state: RwLock<OrderState>,
+}
+
+struct OrderState {
+    orders: HashMap<[u8; 32], Order>,
+    by_user: HashMap<[u8; 20], HashSet<[u8; 32]>>,
+    orderbooks: Vec<Orderbook>,
 }
 
 impl OrderTable {
     pub fn new() -> Self {
-        let orderbooks = (0..MARKET_COUNT).map(|_| RwLock::new(Orderbook::new())).collect();
         Self {
-            orders: DashMap::new(),
-            by_user: DashMap::new(),
-            orderbooks,
+            state: RwLock::new(OrderState {
+                orders: HashMap::new(),
+                by_user: HashMap::new(),
+                orderbooks: (0..MARKET_COUNT).map(|_| Orderbook::new()).collect(),
+            }),
         }
     }
 
@@ -138,53 +140,40 @@ impl OrderTable {
     ///
     /// Orderbook side: `is_long` → bid, `!is_long` → ask.
     pub fn insert(&self, order: Order) {
-        let oid = order.order_id;
-        let user = order.user_address;
-        let market = order.market_id;
-        let is_long = order.is_long;
-        let price = order.trigger_price;
-        let is_active = matches!(order.status, OrderStatus::Active);
-
-        self.orders.insert(oid, order);
-
-        self.by_user
-            .entry(user)
-            .or_insert_with(HashSet::new)
-            .insert(oid);
-
-        if is_active {
-            if let Some(book) = self.orderbooks.get(market as usize) {
-                let mut book = book.write();
-                if is_long {
-                    book.add_bid(price, oid);
+        let mut state = self.state.write();
+        if let Some(previous) = state.orders.remove(&order.order_id) {
+            state.remove_indexes(&previous);
+        }
+        state
+            .by_user
+            .entry(order.user_address)
+            .or_default()
+            .insert(order.order_id);
+        if matches!(order.status, OrderStatus::Active) {
+            if let Some(book) = state.orderbooks.get_mut(order.market_id as usize) {
+                if order.is_long {
+                    book.add_bid(order.trigger_price, order.order_id);
                 } else {
-                    book.add_ask(price, oid);
+                    book.add_ask(order.trigger_price, order.order_id);
                 }
             }
         }
+        state.orders.insert(order.order_id, order);
     }
 
     /// Get an order by ID. O(1).
     pub fn get(&self, order_id: &[u8; 32]) -> Option<Order> {
-        self.orders.get(order_id).map(|r| r.clone())
+        self.state.read().orders.get(order_id).cloned()
     }
 
     /// Cancel an order: set status to Cancelled, remove from orderbook.
     pub fn cancel(&self, order_id: &[u8; 32]) -> Option<Order> {
-        let mut order = self.orders.get_mut(order_id)?;
-        let prev_status = order.status;
+        let mut state = self.state.write();
+        let order = state.orders.get_mut(order_id)?;
+        let previous = order.clone();
         order.status = OrderStatus::Cancelled;
-
-        let market = order.market_id;
-        let is_long = order.is_long;
-        let price = order.trigger_price;
         let result = order.clone();
-        drop(order);
-
-        if matches!(prev_status, OrderStatus::Active) {
-            self.remove_from_orderbook(market, is_long, price, order_id);
-        }
-
+        state.remove_from_orderbook(&previous);
         Some(result)
     }
 
@@ -197,51 +186,33 @@ impl OrderTable {
         position_id: [u8; 32],
         executed_at: u64,
     ) -> Option<Order> {
-        let mut order = self.orders.get_mut(order_id)?;
-        let prev_status = order.status;
+        let mut state = self.state.write();
+        let order = state.orders.get_mut(order_id)?;
+        let previous = order.clone();
         order.status = OrderStatus::Executed;
         order.execution_price = Some(execution_price);
         order.position_id = Some(position_id);
         order.executed_at = Some(executed_at);
-
-        let market = order.market_id;
-        let is_long = order.is_long;
-        let price = order.trigger_price;
         let result = order.clone();
-        drop(order);
-
-        if matches!(prev_status, OrderStatus::Active) {
-            self.remove_from_orderbook(market, is_long, price, order_id);
-        }
-
+        state.remove_from_orderbook(&previous);
         Some(result)
     }
 
     /// Remove an order completely (from storage and all indexes).
     pub fn remove(&self, order_id: &[u8; 32]) -> Option<Order> {
-        let (_, order) = self.orders.remove(order_id)?;
-
-        if let Some(mut set) = self.by_user.get_mut(&order.user_address) {
-            set.remove(order_id);
-            if set.is_empty() {
-                drop(set);
-                self.by_user.remove(&order.user_address);
-            }
-        }
-
-        if matches!(order.status, OrderStatus::Active) {
-            self.remove_from_orderbook(order.market_id, order.is_long, order.trigger_price, order_id);
-        }
-
+        let mut state = self.state.write();
+        let order = state.orders.remove(order_id)?;
+        state.remove_indexes(&order);
         Some(order)
     }
 
     /// All orders for a user (any status).
     pub fn by_user(&self, user_address: &[u8; 20]) -> Vec<Order> {
-        match self.by_user.get(user_address) {
+        let state = self.state.read();
+        match state.by_user.get(user_address) {
             Some(ids) => ids
                 .iter()
-                .filter_map(|oid| self.orders.get(oid).map(|r| r.clone()))
+                .filter_map(|oid| state.orders.get(oid).cloned())
                 .collect(),
             None => Vec::new(),
         }
@@ -256,46 +227,58 @@ impl OrderTable {
     }
 
     /// Read-only access to a market's orderbook.
-    pub fn orderbook(&self, market_id: MarketId) -> Option<parking_lot::RwLockReadGuard<'_, Orderbook>> {
-        self.orderbooks.get(market_id as usize).map(|b| b.read())
+    pub fn orderbook(&self, market_id: MarketId) -> Option<MappedRwLockReadGuard<'_, Orderbook>> {
+        RwLockReadGuard::try_map(self.state.read(), |state| {
+            state.orderbooks.get(market_id as usize)
+        })
+        .ok()
     }
 
     /// Total orders in storage (all statuses).
     pub fn count(&self) -> usize {
-        self.orders.len()
+        self.state.read().orders.len()
     }
 
     /// Number of active orders.
     pub fn active_count(&self) -> usize {
-        self.orders
-            .iter()
-            .filter(|r| matches!(r.value().status, OrderStatus::Active))
+        self.state
+            .read()
+            .orders
+            .values()
+            .filter(|order| matches!(order.status, OrderStatus::Active))
             .count()
     }
 
     /// Check if an order exists.
     pub fn contains(&self, order_id: &[u8; 32]) -> bool {
-        self.orders.contains_key(order_id)
+        self.state.read().orders.contains_key(order_id)
     }
 
     /// All orders (for snapshots, diagnostics).
     pub fn all(&self) -> Vec<Order> {
-        self.orders.iter().map(|r| r.value().clone()).collect()
+        self.state.read().orders.values().cloned().collect()
+    }
+}
+
+impl OrderState {
+    fn remove_indexes(&mut self, order: &Order) {
+        if let Some(ids) = self.by_user.get_mut(&order.user_address) {
+            ids.remove(&order.order_id);
+            if ids.is_empty() {
+                self.by_user.remove(&order.user_address);
+            }
+        }
+        self.remove_from_orderbook(order);
     }
 
-    fn remove_from_orderbook(
-        &self,
-        market_id: u16,
-        is_long: bool,
-        price: FixedI128,
-        order_id: &[u8; 32],
-    ) {
-        if let Some(book) = self.orderbooks.get(market_id as usize) {
-            let mut book = book.write();
-            if is_long {
-                book.remove_bid(price, order_id);
-            } else {
-                book.remove_ask(price, order_id);
+    fn remove_from_orderbook(&mut self, order: &Order) {
+        if matches!(order.status, OrderStatus::Active) {
+            if let Some(book) = self.orderbooks.get_mut(order.market_id as usize) {
+                if order.is_long {
+                    book.remove_bid(order.trigger_price, &order.order_id);
+                } else {
+                    book.remove_ask(order.trigger_price, &order.order_id);
+                }
             }
         }
     }
@@ -388,7 +371,9 @@ mod tests {
         let table = OrderTable::new();
         table.insert(make_order(1, 10, 0, true, 66_000));
 
-        let exec = table.execute(&oid(1), 66_050, [42u8; 32], 1700001000).unwrap();
+        let exec = table
+            .execute(&oid(1), 66_050, [42u8; 32], 1700001000)
+            .unwrap();
         assert!(matches!(exec.status, OrderStatus::Executed));
         assert_eq!(exec.execution_price, Some(66_050));
         assert_eq!(exec.position_id, Some([42u8; 32]));

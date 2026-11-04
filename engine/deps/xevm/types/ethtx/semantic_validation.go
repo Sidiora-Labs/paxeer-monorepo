@@ -52,8 +52,12 @@ func validateAuthList(authList AuthList) error {
 		return fmt.Errorf("auth list cannot be empty")
 	}
 	for _, auth := range authList {
-		if auth.ChainID == nil {
+		if auth.ChainID == nil || auth.ChainID.IsNil() {
 			return fmt.Errorf("auth list chain id cannot be nil")
+		}
+		chainID := auth.ChainID.BigInt()
+		if chainID.Sign() < 0 || !IsValidInt256(chainID) {
+			return fmt.Errorf("auth list chain id must be an unsigned 256-bit integer")
 		}
 		if err := validateHexAddress("auth list address", auth.Address); err != nil {
 			return err

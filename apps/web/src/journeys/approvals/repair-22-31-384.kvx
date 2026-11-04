@@ -1,0 +1,71 @@
+[meta]
+task = "22.31.384"
+audit = "22.30.139"
+status = "implemented-awaiting-bounded-qualification"
+verified_revision = "UNQUALIFIED; use the hf-done receipt for the exact candidate, command, exit and private evidence location."
+baseline = "The supplied attempt 1 receipt at 006901891a0d476ad01c61c4325f54cf24a10d8b failed all four registered tests before any assertions on the repair: PAXEER_X_APPROVAL_REPAIR_FIXTURE was absent. No extra baseline gate was run because the explicit gate order forbids verification before implementation."
+continuation_baseline = "The supplied attempt 2 receipt at 5a4b0a2be9dd665fd6133f0017141467c55b5532 failed approval_operation_digest_real_http at its unchanged digest-retention assertion: undefined instead of the disclosed opd_ digest; the other three registered tests passed."
+attempt_3_baseline = "The supplied attempt 3 revision 6908d9b750b33fc28f95ab1ca16cdf7d0afb15c3 failed the same approval_operation_digest_real_http assertion because encodeApprovalDetail/decodeApprovalDetail dropped operation_digest; the other three tests passed and remain intact."
+attempt_5_baseline = "The supplied attempt 5 build at e5d31de2a238e5d143dbd192bbaffa1d18df0489 failed TypeScript exhaustiveness in the activity, agents, approvals, move and onboarding models after schema regeneration. The resumed attempt starts with no local gate rows and retains all four existing tests."
+
+[finding.approval-operation-digest]
+status = "schema-and-consumer-implemented; producer-wiring-requested"
+test = "approval_operation_digest_real_http"
+repair = "Consume only an explicitly disclosed opd_ plus 64 lowercase hex bytes, matching OperationDigest::parse_schema/to_schema; preserve pending, expiry and approval-hold checks and never derive an operation identity from an evidence name."
+proof = "Drive production ApprovalDetail encoder through loopback HTTP, generated decoder, model and Approvals controller into approve/reject; the unchanged strict digest-retention assertion checks that the schema-generated codec carries the explicit disclosure. Missing digests, missing hold evidence, malformed digests, terminal holds and expired holds remain unapprovable."
+
+[finding.stepup-reference-rewrite]
+status = "consumer-implemented; server-integration-unqualified"
+test = "stepup_reference_real_http_ordinary_and_program"
+repair = "Declare StepUpChallengeId for ordinary and Programs decision requests and transmit the original server chg_ plus 32 lowercase hex identifier unchanged. The checked service identity handlers validate the same minted reference representation through auth::validate_step_up_challenge_id before projecting it."
+proof = "Production step-up response encoders, actual HTTP and generated client feed performStepUp and stepUpEvidenceReference; ordinary request encoding and the Programs controller send the original challenge identity and held digest. The peer emits codec fixtures, not service authorization decisions."
+
+[finding.stepup-webauthn-shape]
+status = "serializer-implemented; pinned-verifier-integration-unqualified"
+test = "stepup_webauthn_shape_real_finish"
+repair = "Approvals uses performAssertionCeremony, sharing the onboarding flat assertion serializer; the serializer preserves raw credential ID, authenticatorData, clientDataJSON, signature and optional userHandle bytes."
+proof = "The production serializer's exact bytes cross the real generated stepupFinish HTTP request codec; genuine Ed25519 signatures prove byte preservation and fail on signature, origin, challenge or RP-hash mutation. This is not execution of passkey-auth::finish_authentication and does not qualify the requested server-verifier integration."
+
+[finding.stepup-timestamp-types]
+status = "production-projection-integrated; server-integration-unqualified"
+test = "stepup_timestamps_real_begin_finish_expiry_decision"
+repair = "Resolve the seed conflict using the landed checked RFC3339 projection with its Result error interface and canonical hex digest, preserving the current onboarding projection; refuse non-increasing evidence completion/expiry and validate browser completion/expiry, challenge and operation identity."
+proof = "Production response encoders cross real HTTP and generated decoders into begin, finish and a bound Programs decision request; expired challenge, expired evidence, invalid completion, invalid ordering and mismatched operation/challenge are refused. Source assertions retain the checked Rust timestamp projection; the Node gate does not execute it."
+
+[wiring.approval-producer]
+request = "Human service domain 10: services/human/crates/layerx-human-service/src/server/production_components.rs and server/projection.rs must disclose the ordinary approval operation_digest for native and managed holds using production_auth::step_up_digest for the authenticated principal, tenant, decision, destination, held operation and idempotency key, retaining all hold/material/budget checks."
+
+[regeneration]
+schema = "services/human/schema/human-api/agents.kvx declares optional operation_digest:OperationDigest on ApprovalDetail so terminal/defective or undisclosed holds remain representable and fail closed. agents.kvx and program-approvals.kvx use StepUpChallengeId for decision evidence; identity.kvx documents the production reference and digest formats."
+command = "cargo run --manifest-path services/human/tools/api-gen/Cargo.toml --locked -- services/human/schema/human-api apps/web/src/api/generated"
+exit = 0
+result = "Generated 2 files covering 84 operations and 231 types, skipping 11 retired operations. index.ts now preserves operation_digest through both encodeApprovalDetail and decodeApprovalDetail and types both decision evidence references as StepUpChallengeId. Generated files were never edited by hand."
+inherited_drift = "The same regeneration synchronizes JourneyState with the already committed journeys.kvx variants closed and awaiting-approval. This task neither added those variants nor removed them to avoid consumer errors."
+
+[repair.journey-status-consumers]
+test = "journey_state_consumers_real_http"
+repair = "All five reported models now handle every generated JourneyState explicitly. awaiting-approval maps to waiting_for_you and the waiting move result; closed maps to the existing terminal refused presentation and a terminal move result without claiming successful completion or money stayed. Move stages and home rows use the exhaustive activity mapping instead of deriving unsupported kit status keys."
+proof = "Round-trip every generated state through the production journey encoder, loopback HTTP, generated decoder and the actual activity, agents, approvals, move, onboarding and home consumers. Assert exact status keys, terminal closed behavior, waiting approval behavior and that absent receipt evidence never produces a successful move or completed agent journey."
+vocabulary = "The committed JourneyState declaration and generated client contain closed and awaiting-approval, but no waiting-for-wallet or paid-out family. The generated file is retained unchanged from the recorded regeneration; no undeclared variant or wider type is added."
+
+[wiring.closed-status-copy]
+request = "Web kit/copy domain 14: apps/web/src/kit/model.ts and apps/web/copy/catalog.ts need a dedicated neutral closed-history status and copy; the scoped journey consumers currently use the existing terminal refused status without inferring any successful movement."
+
+[wiring.server-proof]
+request = "Human authentication domain 10: supply a committed production-emitted assertion/acceptance/rejection transcript or an in-process Node-callable production stepupFinish boundary exercising the pinned passkey-auth verifier, including expired begin/finish/evidence and bound decisions; no environment variable, native artifact, device, live endpoint, subprocess toolchain or substitute verifier is introduced here."
+
+[qualification]
+state = "The final hf-build/hf-done receipts are authoritative; no claim of a verified revision or closed finding is made before them."
+limitation = "The generated ordinary approval codec now retains operation_digest; production_components.rs still needs the ordinary approval disclosure requested above. Node-only fixture transport and signature-preservation proofs cannot certify the actual Rust authorization/verifier lifecycle. The schema reference correction intentionally leaves the frozen additive-only baseline untouched; a contract-release migration is owned by Human API domain 10."
+
+[gotcha.digest-format]
+observed = "The seed expected base64url operation digests, but the current production auth/stepup.rs parser requires opd_ plus exactly 64 lowercase hexadecimal characters."
+
+[gotcha.conflict]
+observed = "The seed duplicated old onboarding and step-up projection functions over a landed Result-returning checked projection; preserving that projection avoids removing later task changes or reverting its canonical hex and RFC3339 checks."
+
+[gotcha.scope]
+observed = "ApprovalDetail's generated encoder and decoder previously omitted operation_digest; repair the authoritative schema and regenerate instead of circumventing the codec with a transport interceptor, evidence-name rewrite or replacement verifier."
+
+[gotcha.continuation-scope]
+observed = "Neither Rust auth/mod.rs nor server/identity.rs declares an ApprovalDetail codec. The expanded schema/generated-client scope repairs the actual failing HTTP round trip; Rust changes align the checked identity projections with authentic challenge references."

@@ -1,0 +1,31 @@
+[repair.22.33.832]
+audit = "22.30.18"
+finding = 19
+proving_tests = ["TestRepairM_832_ProductionProfile", "TestRepairM_832_AtomicBlock"]
+implementation = "Typed OrderPlacedRow and FillRow workloads pass through store.WriteBlock; facts, normal projections, block and cursor commit with the immutable production outbox, which publish.Publisher drains into the real gateway."
+profile = "The shared 2000-socket, 18-market, at-least-60-second profile retains 400 reconnects, 60-second recovery, 250ms p99 latency, sequence and checksum bounds; production wire payloads and headers, live trade frames and exact gateway trade values are additionally asserted."
+fixture = "Committed in-process transactional SQL storage peer with undo, keyed fact tables, order state, rolling aggregates and fenced outbox leases; real broker, writer, publisher, feed providers, gateway handlers and WebSocket clients run without external services or credentials."
+limitations = "The in-memory storage peer supports this fill/order workload only, rejects unsupported SQL and does not qualify PostgreSQL migrations or query planning. TestLoadProfile retains its PostgreSQL setup for that environment."
+baseline = "Not run: the explicit allowed-gate order forbids tests until implementation is complete and forbids a manual verify run; no TestRepairM_832_ tests existed in the unchanged tree. No baseline failure is claimed."
+qualification = "hf-build and hf-done record the exact candidate revision, command, exit code and private evidence log; only a passing hf-done qualifies the repair."
+previous_attempt = "Revision 2004a21b7bf2078f291dcd52809fbc81e4d8e7bb: TestRepairM_832_ProductionProfile failed its sequence_and_latency subtest and report with p99 605ms above 250ms; TestRepairM_832_AtomicBlock passed. This is supplied prior-attempt evidence, not a new baseline run."
+continuation = "The storage fixture indexes fills by market and the unpublished outbox by event id, maintaining both indexes through transaction commit and rollback; publisher polling no longer scans and sorts published history. The profile and atomic-block tests also assert index consistency, with all socket, reconnect, checksum, latency and recovery bounds retained."
+wiring_requests = []
+
+[gotcha.1]
+area = "test"
+symptom = "The old fill fixture assigned a nonzero taker order id without creating its projection."
+cause = "Direct SQL bypassed the normal writer's missing-order refusal."
+do = "Place each taker order with a typed production fact before its fill and prove that a missing maker rolls the entire block back."
+
+[gotcha.2]
+area = "test"
+symptom = "The first repair verification refused an otherwise correct gateway trade because it expected lowercase sides."
+cause = "records.side publishes the declared BUY and SELL enum in both REST and live trade frames."
+do = "Assert uppercase sides; the final trade proof also checks the exact side and trade identity derived from the produced round and market."
+
+[gotcha.3]
+area = "test"
+symptom = "The production profile exceeded its unchanged p99 latency bound as delivery history grew."
+cause = "The in-memory peer scanned and sorted all published outbox rows on every publisher poll while holding the storage mutex."
+do = "Maintain transactionally consistent indexes for unpublished delivery rows and market fills, and prove rollback restores those indexes."

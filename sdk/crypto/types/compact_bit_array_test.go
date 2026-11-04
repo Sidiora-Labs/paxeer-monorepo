@@ -13,19 +13,13 @@ import (
 	tmrand "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/rand"
 )
 
-func randCompactBitArray(bits int) (*CompactBitArray, []byte) {
-	numBytes := (bits + 7) / 8
+func randCompactBitArray(t testing.TB, bits int) (*CompactBitArray, []byte) {
+	t.Helper()
 	src := tmrand.Bytes((bits + 7) / 8)
 	bA := NewCompactBitArray(bits)
 
-	for i := 0; i < numBytes-1; i++ {
-		for j := uint8(0); j < 8; j++ {
-			bA.SetIndex(i*8+int(j), src[i]&(uint8(1)<<(8-j)) > 0)
-		}
-	}
-	// Set remaining bits
-	for i := uint32(0); i < 8-bA.ExtraBitsStored; i++ {
-		bA.SetIndex(numBytes*8+int(i), src[numBytes-1]&(uint8(1)<<(8-i)) > 0)
+	for i := 0; i < bits; i++ {
+		require.True(t, bA.SetIndex(i, src[i/8]&(byte(1)<<uint(7-i%8)) != 0), "bit %d", i)
 	}
 	return bA, src
 }
@@ -40,10 +34,10 @@ func TestNewBitArrayNeverCrashesOnNegatives(t *testing.T) {
 
 func TestBitArrayEqual(t *testing.T) {
 	empty := new(CompactBitArray)
-	big1, _ := randCompactBitArray(1000)
+	big1, _ := randCompactBitArray(t, 1000)
 	big1Cpy := *big1
-	big2, _ := randCompactBitArray(1000)
-	big2.SetIndex(500, !big1.GetIndex(500)) // ensure they are different
+	big2, _ := randCompactBitArray(t, 1000)
+	require.True(t, big2.SetIndex(500, !big1.GetIndex(500))) // ensure they are different
 	cases := []struct {
 		name string
 		b1   *CompactBitArray
@@ -72,22 +66,22 @@ func TestJSONMarshalUnmarshal(t *testing.T) {
 	bA2 := NewCompactBitArray(1)
 
 	bA3 := NewCompactBitArray(1)
-	bA3.SetIndex(0, true)
+	require.True(t, bA3.SetIndex(0, true))
 
 	bA4 := NewCompactBitArray(5)
-	bA4.SetIndex(0, true)
-	bA4.SetIndex(1, true)
+	require.True(t, bA4.SetIndex(0, true))
+	require.True(t, bA4.SetIndex(1, true))
 
 	bA5 := NewCompactBitArray(9)
-	bA5.SetIndex(0, true)
-	bA5.SetIndex(1, true)
-	bA5.SetIndex(8, true)
+	require.True(t, bA5.SetIndex(0, true))
+	require.True(t, bA5.SetIndex(1, true))
+	require.True(t, bA5.SetIndex(8, true))
 
 	bA6 := NewCompactBitArray(16)
-	bA6.SetIndex(0, true)
-	bA6.SetIndex(1, true)
-	bA6.SetIndex(8, false)
-	bA6.SetIndex(15, true)
+	require.True(t, bA6.SetIndex(0, true))
+	require.True(t, bA6.SetIndex(1, true))
+	require.True(t, bA6.SetIndex(8, false))
+	require.True(t, bA6.SetIndex(15, true))
 
 	testCases := []struct {
 		bA           *CompactBitArray
@@ -95,6 +89,7 @@ func TestJSONMarshalUnmarshal(t *testing.T) {
 	}{
 		{nil, `null`},
 		{bA1, `null`},
+		{new(CompactBitArray), `""`},
 		{bA2, `"_"`},
 		{bA3, `"x"`},
 		{bA4, `"xx___"`},
@@ -132,22 +127,22 @@ func TestCompactMarshalUnmarshal(t *testing.T) {
 	bA2 := NewCompactBitArray(1)
 
 	bA3 := NewCompactBitArray(1)
-	bA3.SetIndex(0, true)
+	require.True(t, bA3.SetIndex(0, true))
 
 	bA4 := NewCompactBitArray(5)
-	bA4.SetIndex(0, true)
-	bA4.SetIndex(1, true)
+	require.True(t, bA4.SetIndex(0, true))
+	require.True(t, bA4.SetIndex(1, true))
 
 	bA5 := NewCompactBitArray(9)
-	bA5.SetIndex(0, true)
-	bA5.SetIndex(1, true)
-	bA5.SetIndex(8, true)
+	require.True(t, bA5.SetIndex(0, true))
+	require.True(t, bA5.SetIndex(1, true))
+	require.True(t, bA5.SetIndex(8, true))
 
 	bA6 := NewCompactBitArray(16)
-	bA6.SetIndex(0, true)
-	bA6.SetIndex(1, true)
-	bA6.SetIndex(8, false)
-	bA6.SetIndex(15, true)
+	require.True(t, bA6.SetIndex(0, true))
+	require.True(t, bA6.SetIndex(1, true))
+	require.True(t, bA6.SetIndex(8, false))
+	require.True(t, bA6.SetIndex(15, true))
 
 	testCases := []struct {
 		bA           *CompactBitArray
@@ -201,12 +196,14 @@ func TestCompactBitArrayNumOfTrueBitsBefore(t *testing.T) {
 		bAIndex        []int
 		trueValueIndex []int
 	}{
+		{`null`, []int{0}, []int{0}},
+		{`""`, []int{0}, []int{0}},
 		{`"_____"`, []int{0, 1, 2, 3, 4}, []int{0, 0, 0, 0, 0}},
 		{`"x"`, []int{0}, []int{0}},
 		{`"_x"`, []int{1}, []int{0}},
-		{`"x___xxxx"`, []int{0, 4, 5, 6, 7}, []int{0, 1, 2, 3, 4}},
-		{`"__x_xx_x__x_x___"`, []int{2, 4, 5, 7, 10, 12}, []int{0, 1, 2, 3, 4, 5}},
-		{`"______________xx"`, []int{14, 15}, []int{0, 1}},
+		{`"x___xxxx"`, []int{0, 4, 5, 6, 7, 8}, []int{0, 1, 2, 3, 4, 5}},
+		{`"__x_xx_x__x_x___"`, []int{2, 4, 5, 7, 10, 12, 16}, []int{0, 1, 2, 3, 4, 5, 6}},
+		{`"______________xx"`, []int{14, 15, 16}, []int{0, 1, 2}},
 	}
 	for tcIndex, tc := range testCases {
 		tc := tc
@@ -230,13 +227,13 @@ func TestCompactBitArrayGetSetIndex(t *testing.T) {
 	numBitsPerArr := 100
 	for i := 0; i < numTests; i++ {
 		bits := r.Intn(1000)
-		bA, _ := randCompactBitArray(bits)
+		bA, _ := randCompactBitArray(t, bits)
 
 		for j := 0; j < numBitsPerArr; j++ {
 			copy := bA.Copy()
 			index := r.Intn(bits)
 			val := (r.Int63() % 2) == 0
-			bA.SetIndex(index, val)
+			require.True(t, bA.SetIndex(index, val))
 			require.Equal(t, val, bA.GetIndex(index), "bA.SetIndex(%d, %v) failed on bit array: %s", index, val, copy)
 
 			// Ensure that passing in negative indices to .SetIndex and .GetIndex do not
@@ -252,7 +249,7 @@ func TestCompactBitArrayGetSetIndex(t *testing.T) {
 }
 
 func BenchmarkNumTrueBitsBefore(b *testing.B) {
-	ba, _ := randCompactBitArray(100)
+	ba, _ := randCompactBitArray(b, 100)
 
 	b.Run("new", func(b *testing.B) {
 		b.ReportAllocs()

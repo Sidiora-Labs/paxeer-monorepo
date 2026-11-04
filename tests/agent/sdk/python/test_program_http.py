@@ -6,15 +6,18 @@ import os
 import stat
 import time
 import unittest
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from hashlib import sha256
 from pathlib import Path
 
 from layerx_sdk.agent_http import AgentHttpTransport, LayerXKeyCredential
-from layerx_sdk.native_program_call import decode_native_program_call, encode_native_program_call
-from layerx_sdk.production import IdempotencyKey, PlatformSdkError, ProductionClient, SecretBytes
-from layerx_sdk.program_wire import decode_signed_program_call, verify_native_program_call_signature
-from layerx_sdk.programs import NativeProgramRequest, ProgramOperations, ProgramTrustContext, _discovery
+from layerx_sdk.native_program_call import NativeProgramCall, decode_native_program_call, encode_native_program_call
+from layerx_sdk.production import PlatformSdkError, ProductionClient, SecretBytes
+from layerx_sdk.programs import ProgramOperations, ProgramTrustContext, _discovery, _verify_program_transaction
+from layerx_sdk.evm_transaction import activity_id, decode_signed
+from layerx_sdk.ai_market import _decode_programs_call, _encode_programs_call, decode_programs_call_result
+from layerx_sdk.x402_rpc import PaymentRpc
+from layerx_sdk.verifier import ReceiptKey
 
 ROOT = Path(__file__).resolve().parents[4]
 
@@ -40,6 +43,21 @@ def unique(items: list[tuple[str, object]]) -> dict[str, object]:
     return result
 
 
+@dataclass(frozen=True)
+class ProgramTransaction:
+    raw: bytes
+    native_call: NativeProgramCall
+    fee_limit: int
+
+    @property
+    def program_id(self):
+        return self.native_call.program_id.hex()
+
+    @property
+    def transaction_hash(self):
+        return "0x" + activity_id(self.raw).hex()
+
+
 class ProgramHttp(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -49,20 +67,34 @@ class ProgramHttp(unittest.TestCase):
         cls.fixture = json.loads(protected(path), object_pairs_hook=unique)
         required = {"version", "isolated", "approved_program_calls", "endpoint", "network_id",
                     "sequencer_public_key", "gateway_key_id", "gateway_key_file", "gateway_pid",
-                    "gateway_source_manifest", "programs", "refused_call", "unknown_call"}
-        if (set(cls.fixture) != required or cls.fixture["version"] != 1 or cls.fixture["isolated"] is not True
+                    "gateway_source_manifest", "node_pid", "node_source_manifest", "node_rpc", "receipt_keys", "programs", "refused_call", "unknown_call"}
+        if (set(cls.fixture) != required or cls.fixture["version"] != 2 or cls.fixture["isolated"] is not True
                 or cls.fixture["approved_program_calls"] is not True
                 or type(cls.fixture["network_id"]) is not int or not 0 < cls.fixture["network_id"] < 1 << 32
-                or type(cls.fixture["gateway_pid"]) is not int or cls.fixture["gateway_pid"] <= 0):
+                or type(cls.fixture["gateway_pid"]) is not int or cls.fixture["gateway_pid"] <= 0
+                or type(cls.fixture["node_pid"]) is not int or cls.fixture["node_pid"] <= 0):
             raise ValueError("exact approved disposable real HTTP fixture contract required")
         manifest = json.loads(protected(cls.fixture["gateway_source_manifest"]), object_pairs_hook=unique)
         executable = Path(os.readlink(f'/proc/{cls.fixture["gateway_pid"]}/exe'))
         if (executable.name != "layerx-gateway" or not executable.is_file()
                 or manifest["binary_sha256"] != sha256(executable.read_bytes()).hexdigest()):
             raise ValueError("actual prebuilt production gateway process required")
-        for relative in ("services/platform/hosted/gateway/src/main.rs", "services/platform/hosted/gateway/src/native_call.rs"):
+        for relative in ("services/platform/hosted/gateway/src/main.rs", "services/platform/hosted/gateway/src/routes.rs", "services/platform/hosted/gateway/src/paxeer.rs"):
             if manifest["sources"][relative] != sha256((ROOT / relative).read_bytes()).hexdigest():
                 raise ValueError("gateway process source differs from actual candidate")
+        node_manifest = json.loads(protected(cls.fixture["node_source_manifest"]), object_pairs_hook=unique)
+        node_executable = Path(os.readlink(f'/proc/{cls.fixture["node_pid"]}/exe'))
+        if (node_executable.name != "paxd" or not node_executable.is_file()
+                or node_manifest["binary_sha256"] != sha256(node_executable.read_bytes()).hexdigest()):
+            raise ValueError("actual prebuilt production node process required")
+        for relative in ("node/upgrades.go", "precompiles/layerxprograms/method_call.go",
+                         "precompiles/layerxprograms/method_simulate.go", "precompiles/layerxprograms/principal.go"):
+            if node_manifest["sources"][relative] != sha256((ROOT / relative).read_bytes()).hexdigest():
+                raise ValueError("node process source differs from actual candidate")
+        cls.rpc = PaymentRpc(cls.fixture["node_rpc"])
+        receipt_keys = tuple(ReceiptKey(bytes.fromhex(row["key_id"]), bytes.fromhex(row["public_key"]),
+                                       row["first_height"], row["last_height"])
+                             for row in cls.fixture["receipt_keys"])
         spec = importlib.util.spec_from_file_location("program_http_signatures", ROOT / "sdk/integrations/fastapi/layerx_fastapi/signatures.py")
         if spec is None or spec.loader is None:
             raise ValueError("actual signature verifier unavailable")
@@ -72,28 +104,41 @@ class ProgramHttp(unittest.TestCase):
         cls.key = SecretBytes(protected(cls.fixture["gateway_key_file"], 128))
         cls.transport = AgentHttpTransport(cls.fixture["endpoint"], credential=LayerXKeyCredential(cls.fixture["gateway_key_id"], cls.key), timeout=15)
         cls.client = ProductionClient(cls.transport)
-        cls.trust = ProgramTrustContext(bytes.fromhex(cls.fixture["sequencer_public_key"]), protocol_version=3, network_id=cls.fixture["network_id"])
+        cls.trust = ProgramTrustContext(bytes.fromhex(cls.fixture["sequencer_public_key"]), protocol_version=3, network_id=cls.fixture["network_id"], receipt_keys=receipt_keys)
         cls.operations = ProgramOperations(cls.client, cls.signatures, cls.trust)
-        if not isinstance(cls.fixture["programs"], list) or {row["guest_abi"] for row in cls.fixture["programs"]} != {1, 2, 3, 4} or len(cls.fixture["programs"]) != 4:
-            raise ValueError("all four real registered ABI paths required")
+        if not isinstance(cls.fixture["programs"], list) or {row["guest_abi"] for row in cls.fixture["programs"]} != {1, 2, 3, 4, 5} or len(cls.fixture["programs"]) != 5:
+            raise ValueError("all five real registered ABI paths required")
 
     @classmethod
     def tearDownClass(cls) -> None:
         cls.key.destroy()
 
-    def request(self, row: dict[str, object]) -> NativeProgramRequest:
-        self.assertEqual(set(row), {"guest_abi", "payload_file", "signed_activity_file", "fee_limit", "expected_result_code"})
+    def request(self, row: dict[str, object]) -> ProgramTransaction:
+        self.assertEqual(set(row), {"guest_abi", "payload_file", "raw_transaction_file", "fee_limit", "expected_result_code"})
         payload = protected(row["payload_file"])
-        call = decode_native_program_call(payload)
-        self.assertEqual(encode_native_program_call(call), payload)
-        self.assertEqual(call.guest_abi, row["guest_abi"])
+        native = decode_native_program_call(payload)
+        self.assertEqual(encode_native_program_call(native), payload)
+        self.assertEqual(native.guest_abi, row["guest_abi"])
+        raw = protected(row["raw_transaction_file"])
+        transaction, signature = decode_signed(raw)
+        self.assertEqual(transaction.chain_id, self.trust.network_id)
+        self.assertEqual(transaction.to.hex(), "000000000000000000000000000000000000101d")
         fee = row["fee_limit"]
         self.assertIsInstance(fee, str)
         self.assertEqual(str(int(fee)), fee)
-        request = NativeProgramRequest(call, int(fee), protected(row["signed_activity_file"]))
-        verify_native_program_call_signature(request.signed_activity, self.signatures, self.trust.network_id)
-        decode_signed_program_call(request)
-        return request
+        self.assertEqual(_encode_programs_call(native, int(fee)), transaction.data)
+        self.assertEqual(_decode_programs_call(transaction.data), (native, int(fee)))
+        self.assertTrue(transaction.recover_signer(signature).startswith("0x"))
+        return ProgramTransaction(raw, native, int(fee))
+
+    def verified_receipt(self, request):
+        receipt = self.rpc.receipt(request.transaction_hash)
+        self.assertIsNotNone(receipt)
+        self.assertEqual(receipt["txHash"], request.transaction_hash)
+        verified = _verify_program_transaction(bytes.fromhex(receipt["receipt"][2:]), request.raw,
+                                               self.trust.receipt_keys, self.trust.network_id, request.program_id)
+        self.assertEqual(verified.receipt.activity_id.hex(), request.transaction_hash[2:])
+        return receipt
 
     def test_real_unified_http_discovery_interface_simulation_call_and_recovery(self) -> None:
         for row in self.fixture["programs"]:
@@ -107,19 +152,15 @@ class ProgramHttp(unittest.TestCase):
                 self.assertEqual(interface.code_hash, discovered.code_hash)
                 self.assertEqual(interface.receipt_digest, discovered.deployment_receipt_digest)
                 self.assertEqual(sha256(interface.interface).hexdigest(), interface.interface_digest)
-                simulated = self.operations.simulate(request)
-                self.assertIs(simulated["committed"], False)
-                self.assertEqual(simulated["execution"]["result_code"], row["expected_result_code"])
-                self.assertEqual(simulated["execution"]["authority"]["previous_state_root"], discovered.state_root)
-                bound = decode_signed_program_call(request)
-                result = self.operations.submit(request, IdempotencyKey(bound.idempotency_key))
-                self.assertEqual(result["state"], "executed")
-                self.assertEqual(result["result_code"], row["expected_result_code"])
-                self.assertEqual(result["activity_id"], bound.activity_id)
-                recovered = self.operations.receipt(bound.idempotency_key, bound.activity_id)
-                self.assertEqual(recovered["receipt"], result["receipt"])
-                replay = self.operations.submit(request, IdempotencyKey(bound.idempotency_key))
-                self.assertEqual(replay["receipt"], result["receipt"])
+                transaction, _ = decode_signed(request.raw)
+                output = self.rpc.call("eth_call", [{"to": "0x" + transaction.to.hex(),
+                                                     "data": "0x" + transaction.data.hex()}, "latest"])
+                result_code, _, _ = decode_programs_call_result(bytes.fromhex(output[2:]), request.native_call.response_capacity)
+                self.assertEqual(result_code, row["expected_result_code"])
+                self.assertEqual(self.rpc.send("0x" + request.raw.hex()), request.transaction_hash)
+                receipt = self.verified_receipt(request)
+                self.assertEqual(self.rpc.send("0x" + request.raw.hex()), request.transaction_hash)
+                self.assertEqual(self.verified_receipt(request), receipt)
 
     def test_real_discovery_signature_pin_and_signed_call_refusals(self) -> None:
         row = next(row for row in self.fixture["programs"] if row["guest_abi"] == 3)
@@ -139,51 +180,44 @@ class ProgramHttp(unittest.TestCase):
                 _discovery(changed, request.program_id, self.trust.now_milliseconds(), self.signatures, self.trust)
         with self.assertRaises(ValueError):
             _discovery(document, request.program_id, int(document["valid_through"]) + 1, self.signatures, self.trust)
-        signed = request.signed_activity
-        corrupted = replace(request, signed_activity=signed[:-1] + bytes([signed[-1] ^ 1]))
-        with self.assertRaises(ValueError):
-            self.operations.simulate(corrupted)
-        with self.assertRaises(ValueError):
-            self.operations.simulate(replace(request, fee_limit=request.fee_limit + 1))
-        with self.assertRaises(ValueError):
-            self.operations.simulate(replace(request, native_call=replace(request.native_call, calldata=request.calldata + b"\0")))
+        for changed in (request.raw[:-1], request.raw + b"\0", b"\x03" + request.raw[1:]):
+            with self.assertRaises(ValueError):
+                decode_signed(changed)
         for abi in (0, 6, 65535, True, 3.0):
             with self.subTest(abi=abi), self.assertRaises(ValueError):
                 encode_native_program_call(replace(request.native_call, guest_abi=abi))
-        wrong_network = ProgramOperations(self.client, self.signatures, replace(self.trust, network_id=self.trust.network_id + 1))
-        with self.assertRaises(ValueError):
-            wrong_network.simulate(request)
-        with self.assertRaises(ValueError):
-            self.operations.submit(request, IdempotencyKey("00" * 32))
+        receipt = self.verified_receipt(request)
+        signed = request.raw
+        for raw, network, program in ((signed[:-1] + bytes([signed[-1] ^ 1]), self.trust.network_id, request.program_id),
+                                       (request.raw, self.trust.network_id + 1, request.program_id),
+                                       (request.raw, self.trust.network_id, "00" * 32)):
+            with self.assertRaises(ValueError):
+                _verify_program_transaction(bytes.fromhex(receipt["receipt"][2:]), raw,
+                                            self.trust.receipt_keys, network, program)
         anonymous = ProgramOperations(ProductionClient(AgentHttpTransport(self.fixture["endpoint"], timeout=15)), self.signatures, self.trust)
         with self.assertRaises(PlatformSdkError):
             anonymous.discover(request.program_id)
 
     def test_real_native_refused_and_unknown_calls_keep_exact_binding(self) -> None:
         refused = self.request(self.fixture["refused_call"])
-        self.assertLess(self.fixture["refused_call"]["expected_result_code"], 0)
-        self.operations.discover(refused.program_id)
-        bound = decode_signed_program_call(refused)
-        result = self.operations.submit(refused, IdempotencyKey(bound.idempotency_key))
-        self.assertEqual(result["state"], "refused")
-        self.assertEqual(result["activity_id"], bound.activity_id)
-        self.assertEqual(result["result_code"], self.fixture["refused_call"]["expected_result_code"])
+        self.assertEqual(self.fixture["refused_call"]["expected_result_code"], 1)
+        self.assertEqual(self.rpc.send("0x" + refused.raw.hex()), refused.transaction_hash)
+        result = self.verified_receipt(refused)
+        self.assertEqual(int(result["status"], 16), 0)
         unknown = self.request(self.fixture["unknown_call"])
-        self.operations.discover(unknown.program_id)
-        bound = decode_signed_program_call(unknown)
         control_path = os.environ.get("PAXEER_X_PROGRAM_HTTP_CONTROL")
         if not control_path:
             raise RuntimeError("genuine disposable native disconnect controller required")
         control = json.loads(protected(control_path), object_pairs_hook=unique)
         self.assertEqual(set(control), {"refused_activity_id", "node_pid", "node_disconnect_request_file", "node_disconnected_file"})
-        self.assertEqual(control["refused_activity_id"], result["activity_id"])
+        self.assertEqual(control["refused_activity_id"], refused.transaction_hash[2:])
         requested = Path(control["node_disconnect_request_file"])
         acknowledged = Path(control["node_disconnected_file"])
         self.assertTrue(requested.is_absolute() and requested.resolve() == requested)
         self.assertEqual((requested.parent.stat().st_uid, stat.S_IMODE(requested.parent.stat().st_mode)), (os.geteuid(), 0o700))
         fd = os.open(requested, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
         with os.fdopen(fd, "wb") as stream:
-            stream.write(bytes.fromhex(result["activity_id"]))
+            stream.write(bytes.fromhex(refused.transaction_hash[2:]))
             stream.flush()
             os.fsync(stream.fileno())
         deadline = time.monotonic() + 30
@@ -194,16 +228,29 @@ class ProgramHttp(unittest.TestCase):
         acknowledgment = json.loads(protected(acknowledged), object_pairs_hook=unique)
         self.assertEqual(set(acknowledgment), {"node_pid", "refused_activity_id", "refused_receipt_file", "state"})
         self.assertEqual(acknowledgment["node_pid"], control["node_pid"])
-        self.assertEqual(acknowledgment["refused_activity_id"], result["activity_id"])
+        self.assertEqual(acknowledgment["refused_activity_id"], refused.transaction_hash[2:])
         self.assertEqual(acknowledgment["state"], "native-node-disconnected-after-verified-refusal")
-        self.assertEqual(protected(acknowledgment["refused_receipt_file"]).hex(), result["receipt"])
+        self.assertEqual(protected(acknowledgment["refused_receipt_file"]).hex(), result["receipt"][2:])
         self.assertFalse(Path(f'/proc/{control["node_pid"]}').exists())
-        result = self.operations.submit(unknown, IdempotencyKey(bound.idempotency_key))
-        self.assertEqual(result, {"state": "unknown", "activity_id": bound.activity_id, "idempotency_key": bound.idempotency_key,
-                                  "retained_signed_activity": bound.canonical_bytes.hex()})
-        recovered = self.operations.receipt(bound.idempotency_key, bound.activity_id)
-        self.assertEqual(recovered["state"], "unknown")
-        self.assertEqual(recovered["retained_signed_activity"], bound.canonical_bytes.hex())
+        with self.assertRaises(PlatformSdkError) as caught:
+            self.rpc.send("0x" + unknown.raw.hex())
+        from layerx_sdk.production import SdkErrorCode
+        self.assertEqual(caught.exception.code, SdkErrorCode.UNKNOWN_OUTCOME)
+        self.assertEqual(unknown.transaction_hash, "0x" + activity_id(unknown.raw).hex())
+        # The producer must restart the same node/store and acknowledge readiness.
+        recovered_path = Path(control["node_disconnected_file"] + ".recovered")
+        deadline = time.monotonic() + 30
+        while not recovered_path.exists():
+            if time.monotonic() >= deadline:
+                raise RuntimeError("node recovery was not acknowledged")
+            time.sleep(0.05)
+        recovered = json.loads(protected(recovered_path), object_pairs_hook=unique)
+        self.assertEqual(recovered["transaction_hash"], unknown.transaction_hash)
+        self.assertEqual(recovered["state"], "same-store-reopened")
+        self.assertEqual(self.rpc.send("0x" + unknown.raw.hex()), unknown.transaction_hash)
+        receipt = self.verified_receipt(unknown)
+        self.assertEqual(self.rpc.send("0x" + unknown.raw.hex()), unknown.transaction_hash)
+        self.assertEqual(self.verified_receipt(unknown), receipt)
 
 
 def load_tests(loader, tests, pattern):

@@ -11,7 +11,8 @@ import (
 )
 
 // ServedMethods lists registered namespaces, including the node-root px reads
-// and explicit hosted-service refusals. A refusal remains a dispatched method.
+// (including indexer history and holder records) and explicit hosted-service
+// refusals. A refusal remains a dispatched method on both transports.
 func ServedMethods(apis []rpc.API) []string {
 	errorType := reflect.TypeOf((*error)(nil)).Elem()
 	contextType := reflect.TypeOf((*context.Context)(nil)).Elem()

@@ -1,0 +1,8 @@
+[repair.22.33.1193]
+finding = "benchmark-factory-config"
+base_revision = "0d67b10a1307bd87573ba79cf46b7f9c0337f7e3"
+implementation = "TestScenario.OpenDB supplies concrete local backend defaults and explicit historical-offload configuration; NewDBImpl rejects unsupported configuration shapes before opening a store."
+tests = ["TestRepairM_1193_HelperLocalBackends", "TestRepairM_1193_FactoryRejectsConfigShapes", "TestRepairM_1193_HelperOffloadConfiguration", "TestRepairM_1193_UnknownBackend"]
+baseline = "Not run: the task's ordered gate instructions require complete implementation before building or testing and prohibit a separate manual verify invocation. No baseline failures are claimed."
+evidence = "hf-build and hf-done record the exact candidate revision, command, exit code and private log; completion requires their passing results at the same revision."
+wiring_request = "Domain 5: storage/state_db/bench/bench_ss_test.go must supply TestScenario.HistoricalOffloadConfig with an explicit Kafka destination for BenchmarkSSHistoricalOffloadWrite; the factory cannot invent a broker or topic."

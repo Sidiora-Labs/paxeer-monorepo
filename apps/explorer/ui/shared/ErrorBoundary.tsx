@@ -15,7 +15,7 @@ interface PropsWithRouter extends Props {
 interface State {
   hasError: boolean;
   error?: Error;
-  errorPathname?: string;
+  errorAsPath?: string;
 }
 
 class ErrorBoundary extends React.PureComponent<PropsWithRouter, State> {
@@ -24,9 +24,9 @@ class ErrorBoundary extends React.PureComponent<PropsWithRouter, State> {
   };
 
   static getDerivedStateFromProps(props: PropsWithRouter, state: State) {
-    if (state.hasError && state.errorPathname) {
-      if (props.router.pathname !== state.errorPathname) {
-        return { hasError: false, error: undefined, errorPathname: undefined };
+    if (state.hasError && state.errorAsPath !== undefined) {
+      if (props.router.asPath !== state.errorAsPath) {
+        return { hasError: false, error: undefined, errorAsPath: undefined };
       }
     }
 
@@ -34,7 +34,7 @@ class ErrorBoundary extends React.PureComponent<PropsWithRouter, State> {
   }
 
   componentDidCatch(error: Error) {
-    this.setState({ hasError: true, error, errorPathname: this.props.router.pathname });
+    this.setState({ hasError: true, error, errorAsPath: this.props.router.asPath });
     this.props.onError?.(error);
   }
 

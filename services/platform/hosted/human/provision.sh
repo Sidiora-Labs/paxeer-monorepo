@@ -180,20 +180,12 @@ PYPAIR
 human_native_owner_prepare() (
     set -euo pipefail
     umask 077
-    local input="$WORK_DIR/human-evidence-input"
-    python3 - "$input" "$NODE_NETWORK_ID" "$REPO_ROOT" <<'PYMERGED'
+    python3 - "$WORK_DIR" "$NODE_NETWORK_ID" "$REPO_ROOT" "$PAXEER_CHAIN_ID" <<'PYMERGED'
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(sys.argv[3]) / 'services/platform/hosted/human'))
-from provision import protected_json, require, write_json
-root = Path(sys.argv[1])
-config = protected_json(root / 'owner-evm.json')
-require(config.get('network_id') == int(sys.argv[2]), root, 'merged owner network')
-path = root / 'owner-native.json'
-if path.exists():
-    require(protected_json(path) == config, path, 'identical retained merged owner configuration')
-else:
-    write_json(path, config)
+from native_manifest import configure
+configure(sys.argv[1], int(sys.argv[2]), None, None, None, int(sys.argv[4]))
 PYMERGED
 )
 
@@ -201,42 +193,24 @@ PYMERGED
 registry_kernel_material() (
     set -euo pipefail
     umask 077
-    local helper="$REPO_ROOT/services/platform/hosted/human/material.py"
-    local stage before after selected
-    stage=$(mktemp -d "$WORK_DIR/.registry-kernel-XXXXXXXX")
-    trap 'rm -rf "$stage"' EXIT
-    kube -n "$TESTNET_NAMESPACE" get pod layerx-node-0 -o json > "$stage/before.json"
-    before=$(python3 - "$stage/before.json" <<'PY_KERNEL_POD'
-import json,sys
-p=json.load(open(sys.argv[1]))
-c=next(x for x in p['status']['containerStatuses'] if x['name']=='layerxd')
-if p['status']['phase']!='Running' or not c.get('ready') or not c.get('imageID') or not p['metadata'].get('uid'):
-    raise SystemExit('selected kernel producer pod is not ready')
-print(p['metadata']['uid']+'|'+c['imageID'])
-PY_KERNEL_POD
+    # Registry naming consumers still require their original signed generation.
+    # Consume an explicitly retained/imported generation; never edit node genesis.
+    local selected
+    selected=$(python3 - "$REPO_ROOT" "$SECRETS_DIR/registry-kernel" "$NODE_NETWORK_ID" \
+        "$NODE_SEQUENCER_ID" "$NODE_SEQUENCER_PUBLIC_KEY" <<'PY_REGISTRY'
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(sys.argv[1]) / 'services/platform/hosted/human'))
+from material import verify_registry_material
+from provision import require
+value = verify_registry_material(Path(sys.argv[2]))
+manifest = value['manifest']
+require(manifest['network_id'] == int(sys.argv[3]) and manifest['sequencer_id'] == sys.argv[4]
+        and manifest['sequencer_public_key'] == sys.argv[5], sys.argv[2],
+        'independently pinned retained registry generation; migration required for a new producer')
+print(value['directory'])
+PY_REGISTRY
 )
-    kube -n "$TESTNET_NAMESPACE" exec layerx-node-0 -c layerxd -- \
-        python3 /usr/local/lib/layerx-human/material.py --export-registry-material \
-        /var/lib/layerx/registry-material > "$stage/export.json"
-    kube -n "$TESTNET_NAMESPACE" get pod layerx-node-0 -o json > "$stage/after.json"
-    after=$(python3 - "$stage/after.json" <<'PY_KERNEL_POD'
-import json,sys
-p=json.load(open(sys.argv[1]))
-c=next(x for x in p['status']['containerStatuses'] if x['name']=='layerxd')
-if p['status']['phase']!='Running' or not c.get('ready'):
-    raise SystemExit('selected kernel producer changed during transfer')
-print(p['metadata']['uid']+'|'+c['imageID'])
-PY_KERNEL_POD
-)
-    [ "$before" = "$after" ] || fail 'kernel producer pod or selected image changed during private transfer'
-    python3 "$helper" --import-registry-material "$stage/export.json" "$SECRETS_DIR/registry-kernel" \
-        "$NODE_NETWORK_ID" "$NODE_SEQUENCER_ID" "$NODE_SEQUENCER_PUBLIC_KEY" > "$stage/import.json"
-    selected=$(python3 - "$stage/import.json" <<'PY_KERNEL_SELECTED'
-import json,sys
-print(json.load(open(sys.argv[1]))['directory'])
-PY_KERNEL_SELECTED
-)
-    python3 "$helper" --verify-registry-material "$selected" > /dev/null
     apply_secret "$TESTNET_NAMESPACE" layerx-registry-kernel-generation \
         --from-file=generation.json="$selected/generation.json" \
         --from-file=replica-id="$selected/replica-id" --from-file=trust-history="$selected/trust-history"
@@ -248,8 +222,9 @@ human_evidence_provision() (
     local provision="$REPO_ROOT/services/platform/hosted/human/provision.py"
     human_native_owner_prepare
     human_native_provision
-    python3 "$provision" --movement-source --work-dir "$WORK_DIR" --secrets-dir "$SECRETS_DIR"
+    python3 "$provision" --funding-evidence --work-dir "$WORK_DIR"
     python3 "$provision" --validate-owner-registration --work-dir "$WORK_DIR"
+    human_account_head_observe
     naming_program_deploy
     registry_deployment_produce
     human_journal_deploy
@@ -296,7 +271,6 @@ human_native_provision() (
         --produce-owner-registration --work-dir "$WORK_DIR"
     python3 "$REPO_ROOT/services/platform/hosted/human/provision.py" \
         --validate-owner-registration --work-dir "$WORK_DIR"
-    human_account_head_observe
 )
 
 human_account_head_observe() (
