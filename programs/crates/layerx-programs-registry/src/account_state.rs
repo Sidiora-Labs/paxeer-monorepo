@@ -421,6 +421,49 @@ impl ProgramValueAccountBinding {
         Ok(())
     }
 
+    /// Decodes the production version-two Programs binding record.
+    pub fn decode_primary_value(value: &[u8]) -> Result<Self, AccountStateError> {
+        if value.len() < 139 {
+            return Err(AccountStateError::InvalidBinding);
+        }
+        let seed_length = usize::from(u16::from_be_bytes(
+            value[97..99]
+                .try_into()
+                .map_err(|_| AccountStateError::InvalidBinding)?,
+        ));
+        if value.len() != 139 + seed_length {
+            return Err(AccountStateError::InvalidBinding);
+        }
+        let binding = Self {
+            record_version: value[0],
+            program: ProgramId::new(
+                value[1..33]
+                    .try_into()
+                    .map_err(|_| AccountStateError::InvalidBinding)?,
+            )
+            .map_err(|_| AccountStateError::InvalidBinding)?,
+            account_id: value[33..65]
+                .try_into()
+                .map_err(|_| AccountStateError::InvalidBinding)?,
+            asset_id: value[65..97]
+                .try_into()
+                .map_err(|_| AccountStateError::InvalidBinding)?,
+            registered_sequence: u64::from_be_bytes(
+                value[99..107]
+                    .try_into()
+                    .map_err(|_| AccountStateError::InvalidBinding)?,
+            ),
+            registration_event_digest: value[107..139]
+                .try_into()
+                .map_err(|_| AccountStateError::InvalidBinding)?,
+            seed: value[139..].to_vec(),
+        };
+        if binding.primary_value()? != value {
+            return Err(AccountStateError::InvalidBinding);
+        }
+        Ok(binding)
+    }
+
     /// Returns the exact Programs-module primary-index key.
     #[must_use]
     pub fn primary_key(&self) -> Vec<u8> {
