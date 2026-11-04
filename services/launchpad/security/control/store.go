@@ -51,6 +51,8 @@ type Store struct {
 	schema   string
 	identity Identity
 	verifier EvidenceVerifier
+	local    *LocalObjects
+	replay   *ReplayProvider
 }
 
 var identifier = regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`)
@@ -81,6 +83,9 @@ func New(pool *pgxpool.Pool, schema string, identity Identity, verifier Evidence
 // Install is migration-only. Runtime DB roles must not own this schema, table or
 // trigger function. Production registration is reserved to the serial integrator.
 func (s *Store) Install(ctx context.Context) error {
+	if s.local != nil {
+		return Invalid
+	}
 	q := fmt.Sprintf(`CREATE SCHEMA IF NOT EXISTS %s;
  CREATE TABLE IF NOT EXISTS %s.objects(kind text NOT NULL,id text NOT NULL,body jsonb NOT NULL,PRIMARY KEY(kind,id));
  CREATE TABLE IF NOT EXISTS %s.audit(seq bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,at timestamptz NOT NULL DEFAULT clock_timestamp(),actor text NOT NULL,role text NOT NULL,operation text NOT NULL,resource text NOT NULL,reason text NOT NULL,result text NOT NULL);
@@ -112,9 +117,18 @@ type transaction struct {
 	store *Store
 	now   time.Time
 	actor Principal
+	local map[string]json.RawMessage
+	ctx   context.Context
 }
 
 func (t *transaction) get(kind, k string, v any) error {
+	if t.local != nil {
+		raw, ok := t.local[kind+"/"+k]
+		if !ok {
+			return Missing
+		}
+		return json.Unmarshal(raw, v)
+	}
 	var b []byte
 	e := t.QueryRow(contextFor(t), "SELECT body FROM "+t.store.schema+".objects WHERE kind=$1 AND id=$2", kind, k).Scan(&b)
 	if errors.Is(e, pgx.ErrNoRows) {
@@ -132,7 +146,12 @@ type contextualTx struct {
 	ctx context.Context
 }
 
-func contextFor(t *transaction) context.Context { return t.Tx.(*contextualTx).ctx }
+func contextFor(t *transaction) context.Context {
+	if t.local != nil {
+		return t.ctx
+	}
+	return t.Tx.(*contextualTx).ctx
+}
 func (t *transaction) put(kind, k string, v any) error {
 	b, e := json.Marshal(v)
 	if e != nil {
@@ -140,6 +159,10 @@ func (t *transaction) put(kind, k string, v any) error {
 	}
 	if len(b) > 65536 {
 		return Invalid
+	}
+	if t.local != nil {
+		t.local[kind+"/"+k] = b
+		return nil
 	}
 	_, e = t.Exec(contextFor(t), "INSERT INTO "+t.store.schema+".objects(kind,id,body) VALUES($1,$2,$3) ON CONFLICT(kind,id) DO UPDATE SET body=EXCLUDED.body", kind, k, b)
 	return e
@@ -158,6 +181,9 @@ func (s *Store) run(ctx context.Context, credential, op, scope, reason string, f
 	}
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
+	if s.local != nil {
+		return s.runLocal(ctx, credential, op, scope, reason, fn)
+	}
 	p, e := s.identity.Resolve(ctx, credential)
 	if e != nil {
 		return Denied
@@ -188,32 +214,10 @@ func (s *Store) run(ctx context.Context, credential, op, scope, reason string, f
 		return Denied
 	}
 	t := &transaction{Tx: &contextualTx{Tx: tx, ctx: ctx}, store: s, now: now, actor: p}
-	// Quarantine is checked under the same lock as every privileged mutation.
-	revoked, e := t.quarantined(p.ID)
-	if e != nil {
-		return e
-	}
-	if !permission(p, op, scope) || revoked {
-		if e = t.audit(op, scope, reason, string(Denied)); e != nil {
-			return e
-		}
-		if e = tx.Commit(ctx); e != nil {
-			return e
-		}
-		return Denied
-	}
 	if _, e = tx.Exec(ctx, "SAVEPOINT mutation"); e != nil {
 		return e
 	}
-	e = fn(t)
-	// Read-only verification adapters may block. Recheck current identity after
-	// they return; revoked/changed actors cannot commit the pending mutation.
-	if e == nil {
-		current, authErr := s.identity.Resolve(ctx, credential)
-		if authErr != nil || current.ID != t.actor.ID || !permission(current, op, scope) || !s.identity.Active(ctx, t.actor) {
-			e = Denied
-		}
-	}
+	e = s.mutate(t, credential, op, scope, fn)
 	result := "ok"
 	if e != nil {
 		var fault Fault

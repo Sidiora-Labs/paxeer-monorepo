@@ -1,0 +1,9 @@
+[repair.22.33.1071]
+audit = "22.30.43"
+finding = "f005"
+tests = ["TestRepairM_1071_EqualKeys", "TestRepairM_1071_SortingCallers"]
+path = "TM2PB.ValidatorUpdate -> ResponseFinalizeBlock.Marshal/Unmarshal -> sort.Sort/sort.Stable(ValidatorUpdates) -> PB2TM.ValidatorUpdates"
+repair = "ValidatorUpdates.Less uses a strict public-key comparison; equal keys remain equivalent regardless of voting power."
+baseline = "Not run: the explicit bounded gate order requires complete implementation, hf-build, then hf-done and forbids invoking verify_cmd by hand first; no pre-change test failure is claimed."
+wiring_requests = []
+evidence = "The hf-done gate ledger records the verified candidate revision, exact command, exit code and private log location."

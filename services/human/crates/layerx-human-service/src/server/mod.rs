@@ -12,6 +12,7 @@ mod http;
 pub mod identity;
 mod identity_dispatch;
 mod identity_services;
+pub mod key_export;
 mod limits;
 pub mod native_send;
 mod privileged;

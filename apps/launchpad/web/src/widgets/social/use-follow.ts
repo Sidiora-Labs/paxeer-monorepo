@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useSyncExternalStore } from 'react';
+import { useCallback, useRef, useSyncExternalStore } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { queryKeys } from '@/core/query-keys';
@@ -40,6 +40,7 @@ export function followErrorMessage(error: unknown): string {
   if (error instanceof SocialTransportError) {
     if (error.status === 401 || error.code === 'AUTH_REQUIRED') return 'Sign in to follow';
     if (error.status === 404 || error.status === 501) return 'Following is not available yet';
+    if (error.code === 'REQUEST_TIMEOUT') return 'The request timed out, try again';
     if (error.status === 429) return 'Slow down, try again in a moment';
     if (error.status === 0) return "Can't reach the server, check your connection";
     console.error('[follow] update failed', error.code, error.status);
@@ -71,15 +72,17 @@ export function useFollow(wallet: string | null | undefined): FollowController {
   const address = wallet && walletPattern.test(wallet) ? wallet.toLowerCase() : null;
   const stats = useFollowStats(address);
   const key = followStatsKey(address ?? '', viewer);
+  const retryIntent = useRef<{ address: string; viewer: string; remove: boolean; key: string } | null>(null);
   const mutation = useMutation({
-    mutationFn: (remove: boolean) => setFollowing(address as string, remove),
-    onMutate: async (remove: boolean) => {
+    mutationFn: (intent: { address: string; remove: boolean; key: string }) => setFollowing(intent.address, intent.remove, intent.key),
+    onMutate: async ({ remove }: { address: string; remove: boolean; key: string }) => {
       await client.cancelQueries({ queryKey: key });
       const previous = client.getQueryData<FollowStats>(key);
       if (previous) client.setQueryData<FollowStats>(key, { ...previous, isFollowing: !remove, followers: Math.max(0, previous.followers + (remove ? -1 : 1)) });
       return { previous };
     },
-    onError: (error, _remove, context) => {
+    onSuccess: () => { retryIntent.current = null; },
+    onError: (error, _intent, context) => {
       if (context?.previous) client.setQueryData(key, context.previous);
       toast.error(followErrorMessage(error));
     },
@@ -93,7 +96,11 @@ export function useFollow(wallet: string | null | undefined): FollowController {
     if (!address || self || pending) return;
     if (!viewer) { openAuthModal('Sign in to follow'); return; }
     if (following === null) return;
-    mutate(following);
+    const previous = retryIntent.current;
+    const intent = previous && previous.address === address && previous.viewer === viewer && previous.remove === following
+      ? previous : { address, viewer, remove: following, key: crypto.randomUUID() };
+    retryIntent.current = intent;
+    mutate(intent);
   }, [address, self, pending, viewer, following, mutate]);
   return { stats, following, pending, self, signedIn: viewer !== null, toggle };
 }

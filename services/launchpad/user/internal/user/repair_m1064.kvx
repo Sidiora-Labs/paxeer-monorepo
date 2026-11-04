@@ -1,0 +1,29 @@
+[repair.22.33.1064]
+audit = "22.30.42"
+acceptance = "22998.1"
+baseline = "Not run: the ordered task instructions prohibit a separate verify before implementation and allow only hf-build followed by hf-done; no pre-change failing-test claim is made."
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit code and private log; qualification is claimed only by its passing hf-done record."
+
+[finding.legacy-wallet-replay]
+test = "TestRepairM_1064_LegacyWalletReplay, TestRepairM_1064_ConcurrentNonce, TestRepairM_1064_LegacyImageCacheStale"
+repair = "Shared chain-125 OperationEnvelope and VerifyEOA authenticate bounded headers; exact method/path/action/environment/content and expiry validation precedes atomic wallet-wide nonce consumption in Redis. Missing replay storage fails closed. Nonces survive handler reopening and are never released after a failed mutation."
+transport = "X-Kindle-Operation is raw-base64url JSON; X-Kindle-Operation-Signature signs the shared envelope Statement. Environment is launchpad-user-legacy. JSON bodies use the shared BodyDigest. Multipart bodies sign BodyDigest of JSON fields content_type and sha256, in that order, containing the exact Content-Type and lowercase SHA-256 of the entire wire body."
+
+[finding.legacy-multipart-unbounded]
+test = "TestRepairM_1064_LegacyMultipartUnbounded"
+repair = "MaxBytesReader caps the entire upload at the selected file budget plus 16 KiB before parsing. Signed bounded headers are authenticated before reading; one image/file part, two MIME headers and no transfer encoding are admitted. No temporary file is created. Refusals precede scanner and storage work."
+
+[finding.legacy-image-cache-stale]
+test = "TestRepairM_1064_LegacyImageCacheStale"
+repair = "Stable public image URLs send no-cache, max-age=0, must-revalidate to browsers and CDNs. Public reads after signed replacement return current bytes, even when the caller supplies old conditional cache headers."
+
+[finding.profile-host-cache-poisoning]
+test = "TestRepairM_1064_ProfileHostCachePoisoning"
+repair = "Links use only configured canonical PublicURL or relative paths. Versioned wallet cache keys include canonical configuration and cannot reuse prior request-origin-derived entries. Two hostile/different request hosts hit the same safe cached profile."
+
+[wiring.clients]
+request = "services/launchpad/web (launchpad frontend domain): legacy profile, upload and watchlist callers must send the shared operation headers and upload intent documented above; reusable sign-in form/body credentials are refused."
+
+[gotcha.scope]
+observed = "The embedded audit step asks for a pre-change verify and spec task-record writes, conflicting with the explicit ordered gates and scoped prohibition on spec edits."
+resolution = "Use only the ordered hf-build/hf-done gates and keep this finding/test/wiring record inside the authorized user package."

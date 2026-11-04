@@ -124,10 +124,28 @@ func (b *EventBus) PublishEventStateSyncStatus(data types.EventDataStateSyncStat
 }
 
 // PublishEventTx publishes tx event with events from Result. Note it will add
-// predefined keys (EventTypeKey, TxHashKey). Existing events with the same keys
+// predefined keys (EventTypeKey, TxHashKey, TxHeightKey). Existing events with the same keys
 // will be overwritten.
 func (b *EventBus) PublishEventTx(data types.EventDataTx) error {
-	events := data.Result.Events
+	// Keep application payloads intact; only the routing events are sanitized.
+	events := make([]abci.Event, 0, len(data.Result.Events)+3)
+	for _, event := range data.Result.Events {
+		switch event.Type {
+		case types.EventTypeKey, types.TxHashKey, types.TxHeightKey:
+			// The query matcher also recognizes an event type as a bare key.
+			continue
+		}
+		attributes := make([]abci.EventAttribute, 0, len(event.Attributes))
+		for _, attribute := range event.Attributes {
+			switch event.Type + "." + string(attribute.Key) {
+			case types.EventTypeKey, types.TxHashKey, types.TxHeightKey:
+				continue
+			}
+			attributes = append(attributes, attribute)
+		}
+		event.Attributes = attributes
+		events = append(events, event)
+	}
 
 	// add Tendermint-reserved events
 	events = append(events, types.EventTx)

@@ -54,7 +54,7 @@ func CmdQueryRetired() *cobra.Command {
 func CmdQueryHasRole() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "has-role [contract] [role] [account]",
-		Example: "layerxd query launchpad has-role 0x7b14808b72f61664cDb79D25E6d1587655571a66 0x9f2df0fed2c77648de5860a4cc508cd0818c85b8b8a1ab4ceeef8d981c8956a6 0x0000000000000000000000000000000000000002 --output json",
+		Example: "paxd query launchpad has-role 0x7b14808b72f61664cDb79D25E6d1587655571a66 0x9f2df0fed2c77648de5860a4cc508cd0818c85b8b8a1ab4ceeef8d981c8956a6 0x0000000000000000000000000000000000000002 --output json",
 		Short:   "Query whether an account has a launchpad contract role",
 		Args:    cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {

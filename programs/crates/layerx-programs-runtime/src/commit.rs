@@ -26,7 +26,13 @@ pub const MAX_STEP_STATE_BYTES: usize = 32 * 1_024 * 1_024;
 /// Protocol bound on commitments carried by one execution trace.
 pub const MAX_TRACE_COMMITMENTS: usize = 65_536;
 /// Exact maximum of the version-two canonical trace envelope and both chains.
-pub const MAX_CANONICAL_ARBITRATION_TRACE_BYTES: usize = 60 + MAX_TRACE_COMMITMENTS * 106;
+pub const MAX_CANONICAL_ARBITRATION_TRACE_BYTES: usize = 2
+    + 4
+    + (2 + 12 + 4 + MAX_TRACE_COMMITMENTS * (8 + 32 + 4 + 8) + 8 + 8)
+    + 4
+    + MAX_TRACE_COMMITMENTS * (2 + 8 + 32 + 4 + 8)
+    + 8
+    + 8;
 
 /// Maximum validated source instruction encoding retained in a step witness.
 pub const MAX_STEP_INSTRUCTION_BYTES: usize = 65_536;
