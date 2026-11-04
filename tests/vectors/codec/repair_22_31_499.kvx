@@ -1,0 +1,19 @@
+[task.22.31.499]
+gotcha = 3043
+base_revision = "a5330ed164a250d3d5c58f1ca6bbeda372209eac"
+producer = "scripts/replica/lxp_replay_fixture.py"
+producer_table = "REPLAY_ACTIVITY_TYPES = ACTIVITY_TYPES"
+declarations = "include/layerx/*.h: LX_* hexadecimal activity constants"
+repair = "Accept an empty undeclared set or the singleton retired budget pull 0x0003000B; reject every other undeclared activity and retain the nonempty kernel-table check."
+corpus = "tests/vectors/codec/replay_corpus.lxb is emitted by the real producer and rewritten only when its bytes differ; the generator retains its printed summary."
+build_cmd = "python3 -m py_compile tests/vectors/codec/generate.py"
+verify_cmd = "python3 tests/vectors/codec/generate.py"
+evidence = "The final hf-done JSON and private gate ledger name the verified candidate revision, exact command, exit code and log location; hf-build and hf-done qualify the same candidate. This record is finalized before qualification; the runner commits."
+
+[gotcha.3043]
+observed = "The producer's current REPLAY_ACTIVITY_TYPES excludes the retired budget pull, so the old exact-singleton guard rejects its empty undeclared set."
+resolution = "Permit only subsets of the retired singleton, continuing to reject any other undeclared value."
+
+[gotcha.corpus]
+observed = "The supplied checkout has no codec replay_corpus.lxb; qualification creates a missing corpus, which would otherwise change the candidate after its build."
+resolution = "Generate the fixture from the real producer during implementation before both gates, so verification observes the same candidate without rewriting identical bytes."

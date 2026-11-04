@@ -26,14 +26,16 @@ def main():
         for value in re.findall(r"\bLX_\w+\s*=\s*(0x[0-9a-fA-F]{8})\b", header.read_text())
     }
     removed = set(producer.REPLAY_ACTIVITY_TYPES) - declared
-    if removed != {RETIRED_BUDGET_PULL}:
+    if removed - {RETIRED_BUDGET_PULL}:
         raise ValueError(f"unexpected undeclared replay activities: {sorted(removed)}")
     producer.REPLAY_ACTIVITY_TYPES = tuple(
         value for value in producer.REPLAY_ACTIVITY_TYPES if value in declared
     )
     if not producer.REPLAY_ACTIVITY_TYPES:
         raise ValueError("kernel activity table is empty")
-    OUTPUT.write_bytes(producer.build())
+    payload = producer.build()
+    if not OUTPUT.exists() or OUTPUT.read_bytes() != payload:
+        OUTPUT.write_bytes(payload)
     print(f"{OUTPUT.relative_to(ROOT)}: {len(producer.REPLAY_ACTIVITY_TYPES)} activities; retired budget pull excluded")
 
 
