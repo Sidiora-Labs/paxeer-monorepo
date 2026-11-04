@@ -35,13 +35,26 @@ export function loadTradingView(): Promise<void> {
     let script = document.querySelector<HTMLScriptElement>(
       `script[data-tradingview-loader="1"]`,
     );
+    const cleanup = () => {
+      script?.removeEventListener("load", onLoad);
+      script?.removeEventListener("error", onError);
+    };
+    const fail = (message: string) => {
+      cleanup();
+      script?.remove();
+      inflight = null;
+      reject(new Error(message));
+    };
     const onLoad = () => {
-      if (w.TradingView) resolve();
-      else reject(new Error("TradingView global missing after load"));
+      if (!w.TradingView) {
+        fail("TradingView global missing after load");
+        return;
+      }
+      cleanup();
+      resolve();
     };
     const onError = () => {
-      inflight = null;
-      reject(new Error("Failed to load TradingView charting library"));
+      fail("Failed to load TradingView charting library");
     };
 
     if (!script) {
