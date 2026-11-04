@@ -1,35 +1,31 @@
 'use client';
 
-import { queryOptions, useQueries, useQuery } from '@tanstack/react-query';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useAccount, useChainId, useSwitchChain, useWriteContract } from 'wagmi';
-import { getTransactionReceipt } from 'wagmi/actions';
-
 import { DepositStatus, type TransferStatusItem } from '@/components/trading/deposit-status';
 import { TransferHistory, type TransferRecord } from '@/components/trading/transfer-history';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Spinner } from '@/components/ui/spinner';
 import { toast } from '@/components/ui/sonner';
+import { Spinner } from '@/components/ui/spinner';
 import { formatAmount } from '@/lib/bridge/amount';
 import { attestationPollInterval, fetchDepositAttestation, fetchReleaseAttestation } from '@/lib/bridge/attestation-api';
-import { bridgeConfig } from '@/lib/bridge/config';
 import { bridgeChainByKey, finalityEstimate, paxeer } from '@/lib/bridge/chains';
+import { bridgeConfig } from '@/lib/bridge/config';
 import { enrichRecord } from '@/lib/bridge/enrich';
 import { describeWriteError } from '@/lib/bridge/errors';
 import { foreignTxUrl, paxeerTxUrl } from '@/lib/bridge/explorer';
 import { historyStatusOf, phaseOf, stepOf } from '@/lib/bridge/phase';
 import { settlementBroadcastPatch, settlementPatch } from '@/lib/bridge/settlement';
-import {
-  listTransfers,
-  updateTransfer,
-  type BridgeTransfer,
-} from '@/lib/bridge/transfers';
+import type { BridgeTransfer } from '@/lib/bridge/transfers';
 import {
   attestationApiConfigured,
   useDepositNullified,
 } from '@/lib/bridge/use-bridge-state';
 import { wagmiConfig } from '@/lib/bridge/wagmi';
+import { queryOptions, useQueries, useQuery } from '@tanstack/react-query';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useAccount, useChainId, useSwitchChain, useWriteContract } from 'wagmi';
+import { getTransactionReceipt } from 'wagmi/actions';
+
 import { ImportTransfer } from './import-transfer';
 import {
   buildVerifiedClaim,
@@ -38,7 +34,10 @@ import {
   readTransferLive,
   resolveWithdrawalVault,
   settledRefusal,
+  type TransferLive,
+  type TransferReadSettings,
 } from './transfer-actions';
+import { listBridgeTransfers, updateTransfer } from './transfer-ledger';
 
 function sourceChainIdOf(transfer: BridgeTransfer): number | undefined {
   const chain = bridgeChainByKey(transfer.foreignChainKey);
@@ -46,9 +45,9 @@ function sourceChainIdOf(transfer: BridgeTransfer): number | undefined {
 }
 
 /** Enrich local records with the ids only the receipt knows (log index, nonce). */
-async function enrichTransfers(list: BridgeTransfer[]): Promise<BridgeTransfer[]> {
+async function enrichTransfers(list: Array<BridgeTransfer>): Promise<Array<BridgeTransfer>> {
   let changed = false;
-  const next: BridgeTransfer[] = [];
+  const next: Array<BridgeTransfer> = [];
   for (const stored of list) {
     const transfer = await resolveWithdrawalVault(stored);
     if (transfer !== stored) {
@@ -65,7 +64,10 @@ async function enrichTransfers(list: BridgeTransfer[]): Promise<BridgeTransfer[]
     const receipt = await getTransactionReceipt(wagmiConfig, {
       hash: transfer.sourceTxHash,
       chainId,
-    }).catch(() => null);
+    }).catch((error: unknown) => {
+      if (error instanceof Error && error.name === 'TransactionReceiptNotFoundError') return null;
+      throw error;
+    });
     if (!receipt) {
       next.push(transfer);
       continue;
@@ -88,15 +90,17 @@ async function enrichTransfers(list: BridgeTransfer[]): Promise<BridgeTransfer[]
 export function transferListOptions(address: BridgeTransfer['account'] | undefined, refreshKey: number, version: number) {
   return queryOptions({
     queryKey: [ 'bridge-transfers', address, refreshKey, version ],
-    queryFn: async() => enrichTransfers(listTransfers(address)),
+    placeholderData: (previous, query) => query?.queryKey[1] === address ? previous : undefined,
+    queryFn: async() => enrichTransfers(listBridgeTransfers(address)),
   });
 }
 
-export function transferLiveOptions(transfer: BridgeTransfer) {
+export function transferLiveOptions(transfer: BridgeTransfer, settings: TransferReadSettings = {}) {
   return queryOptions({
     queryKey: [ 'transfer-live', transfer.id, transfer.claimTxHash, transfer.releaseTxHash ],
+    placeholderData: (previous, query) => query?.queryKey[1] === transfer.id ? previous : undefined,
     queryFn: async() => {
-      const live = await readTransferLive(transfer);
+      const live = await readTransferLive(transfer, settings);
       const patch = settlementPatch(transfer, live, Date.now());
       if (patch) updateTransfer(transfer.id, patch);
       return live;
@@ -132,7 +136,7 @@ export function releaseAttestationOptions(transfer: BridgeTransfer, settled: boo
   });
 }
 
-export function transferHistoryRecords(transfers: BridgeTransfer[], live: Array<Parameters<typeof phaseOf>[1]>): TransferRecord[] {
+export function transferHistoryRecords(transfers: Array<BridgeTransfer>, live: Array<Parameters<typeof phaseOf>[1]>): Array<TransferRecord> {
   return transfers.map((transfer, index) => {
     const chain = bridgeChainByKey(transfer.foreignChainKey);
     const state = live[index];
@@ -152,19 +156,56 @@ export function transferHistoryRecords(transfers: BridgeTransfer[], live: Array<
   });
 }
 
-function TransferRow({
+export function transferFinalityEstimate(transfer: BridgeTransfer): string | undefined {
+  if (transfer.direction === 'out') return 'At the committed Paxeer block';
+  const chain = bridgeChainByKey(transfer.foreignChainKey);
+  return chain ? finalityEstimate({ ...chain, finalityDepth: transfer.requiredConfirmations }) : undefined;
+}
+
+/** RPC errors retain query data; Solana recovery re-observes the automatic relay. */
+export function TransferObservation({ transfer, live, error, retry, retrying = false }: {
+  transfer: BridgeTransfer;
+  live?: TransferLive;
+  error?: Error | null;
+  retry: () => void;
+  retrying?: boolean;
+}) {
+  const solana = transfer.direction === 'out' && bridgeChainByKey(transfer.foreignChainKey)?.kind === 'solana';
+  return (
+    <>
+      { error ? (
+        <div role="alert" className="px-1 text-xs text-destructive">
+          RPC unavailable. Last verified progress is retained. { error.message }
+          <Button size="sm" variant="tonal" disabled={ retrying } onClick={ retry }>Retry RPC</Button>
+        </div>
+      ) : null }
+      { solana ? (
+        <div className="flex flex-col items-start gap-2 px-1 text-xs text-muted-foreground">
+          <p>{ live?.released ? 'Solana payout confirmed.' : 'Solana relay pending. The relay submits the payout automatically after the burn is final.' }</p>
+          { live?.solanaRelease ? <a href={ live.solanaRelease.payoutUrl ?? live.solanaRelease.accountUrl } target="_blank" rel="noreferrer">{ live.released ? 'View Solana payout record' : 'View Solana release account' }</a> : null }
+          { !live?.released ? <Button size="sm" variant="tonal" disabled={ retrying } onClick={ retry }>Refresh relay status</Button> : null }
+        </div>
+      ) : null }
+    </>
+  );
+}
+
+export function TransferRow({
   transfer,
   onChanged,
+  readSettings,
 }: {
   transfer: BridgeTransfer;
   onChanged: () => void;
+  readSettings?: TransferReadSettings;
 }) {
   const chain = bridgeChainByKey(transfer.foreignChainKey);
+  const isSolanaWithdrawal = transfer.direction === 'out' && chain?.kind === 'solana';
   const walletChainId = useChainId();
   const { switchChain } = useSwitchChain();
   const settle = useWriteContract();
   const liveQuery = useQuery({
-    ...transferLiveOptions(transfer),
+    ...transferLiveOptions(transfer, readSettings),
     refetchInterval: 15_000,
   });
   const live = liveQuery.data;
@@ -173,7 +214,7 @@ function TransferRow({
   const released = live?.released === true;
 
   const depositAttestation = useQuery(depositAttestationOptions(transfer, credited));
-  const releaseAttestation = useQuery(releaseAttestationOptions(transfer, released));
+  const releaseAttestation = useQuery(releaseAttestationOptions(transfer, released || isSolanaWithdrawal));
   const attestation = transfer.direction === 'in' ? depositAttestation.data : releaseAttestation.data;
   const attestationReady = attestation?.status === 'ready' && attestation.signatures.length > 0;
 
@@ -243,51 +284,52 @@ function TransferRow({
     confirmations: live?.confirmations,
     requiredConfirmations: live?.requiredConfirmations ?? transfer.requiredConfirmations,
     time: new Date(transfer.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    eta: phase === 'confirming' && chain ? finalityEstimate(chain) : undefined,
+    eta: phase === 'confirming' ? transferFinalityEstimate(transfer) : undefined,
     txHash: transfer.sourceTxHash,
   };
 
   return (
     <div className="flex flex-col gap-2">
-      <DepositStatus items={[ statusItem ]} explorerUrl={() => sourceUrl} defaultOpen={phase === 'ready'}/>
-      {phase === 'attesting' && !attestationApiConfigured ? (
+      <DepositStatus items={ [ statusItem ] } explorerUrl={ () => sourceUrl } defaultOpen={ phase === 'ready' }/>
+      <TransferObservation transfer={ transfer } live={ live } error={ liveQuery.error } retrying={ liveQuery.isFetching } retry={ () => void liveQuery.refetch() }/>
+      { !isSolanaWithdrawal && phase === 'attesting' && !attestationApiConfigured ? (
         <p className="px-1 text-[11px] text-muted-foreground">
           Finality reached. The signature bundle comes from the bridge backend, which is not configured in this
-          deployment — the {transfer.direction === 'in' ? 'claim' : 'release'} button appears once it is.
+          deployment — the { transfer.direction === 'in' ? 'claim' : 'release' } button appears once it is.
         </p>
-      ) : null}
-      {phase === 'attesting' && attestationApiConfigured ? (
+      ) : null }
+      { !isSolanaWithdrawal && phase === 'attesting' && attestationApiConfigured ? (
         <p className="flex items-center gap-1.5 px-1 text-[11px] text-muted-foreground">
           <Spinner className="size-3"/> Waiting for the attestor threshold…
         </p>
-      ) : null}
-      {phase === 'settling' ? (
+      ) : null }
+      { phase === 'settling' ? (
         <p className="px-1 text-[11px] text-muted-foreground">Settlement broadcast. Waiting for a committed receipt and the bridge nullifier. You can retry if the transaction was dropped or replaced.</p>
-      ) : null}
-      {live?.settlementStatus === 'reverted' || live?.settlementStatus === 'dropped' ? (
-        <p className="px-1 text-[11px] text-destructive">The settlement attempt {live.settlementStatus}. Retry to submit another attempt.</p>
-      ) : null}
-      {(phase === 'ready' || phase === 'settling') && attestationReady ? (
+      ) : null }
+      { live?.settlementStatus === 'reverted' || live?.settlementStatus === 'dropped' ? (
+        <p className="px-1 text-[11px] text-destructive">The settlement attempt { live.settlementStatus }. Retry to submit another attempt.</p>
+      ) : null }
+      { !isSolanaWithdrawal && (phase === 'ready' || phase === 'settling') && attestationReady ? (
         onSettleChain ? (
-          <Button size="sm" className="self-start" disabled={settle.isPending} onClick={() => void runSettle()}>
-            {settle.isPending ? <Spinner/> : null}
-            {transfer.claimTxHash || transfer.releaseTxHash ? 'Retry settlement' : transfer.direction === 'in' ? 'Claim on Paxeer' : `Release on ${ chain?.label ?? 'destination' }`}
+          <Button size="sm" className="self-start" disabled={ settle.isPending } onClick={ () => void runSettle() }>
+            { settle.isPending ? <Spinner/> : null }
+            { transfer.claimTxHash || transfer.releaseTxHash ? 'Retry settlement' : transfer.direction === 'in' ? 'Claim on Paxeer' : `Release on ${ chain?.label ?? 'destination' }` }
           </Button>
         ) : (
           <Button
             size="sm"
             variant="tonal"
             className="self-start"
-            onClick={() => settleChainId && switchChain({ chainId: settleChainId })}
+            onClick={ () => settleChainId && switchChain({ chainId: settleChainId }) }
           >
-            Switch to {transfer.direction === 'in' ? 'Paxeer' : (chain?.label ?? 'destination')} to{' '}
-            {transfer.direction === 'in' ? 'claim' : 'release'}
+            Switch to { transfer.direction === 'in' ? 'Paxeer' : (chain?.label ?? 'destination') } to{ ' ' }
+            { transfer.direction === 'in' ? 'claim' : 'release' }
           </Button>
         )
-      ) : null}
-      {phase === 'failed' ? (
+      ) : null }
+      { phase === 'failed' ? (
         <p className="px-1 text-[11px] text-destructive">The source transaction reverted. No funds moved.</p>
-      ) : null}
+      ) : null }
     </div>
   );
 }
@@ -312,7 +354,8 @@ export function TransfersPanel({ refreshKey }: { refreshKey: number }) {
 
   const records = transferHistoryRecords(transfers, liveQueries.map((query) => query.data));
 
-  const pending = transfers.filter((transfer, index) => phaseOf(transfer, liveQueries[index]?.data, false) !== 'settled');
+  const pending = transfers.filter((transfer, index) => phaseOf(transfer, liveQueries[index]?.data, false) !== 'settled' ||
+    (transfer.direction === 'out' && bridgeChainByKey(transfer.foreignChainKey)?.kind === 'solana'));
 
   return (
     <section id="transfers" aria-label="Your bridge transfers" className="flex w-full flex-col gap-4">
@@ -321,7 +364,7 @@ export function TransfersPanel({ refreshKey }: { refreshKey: number }) {
         <span className="text-xs text-muted-foreground">This browser's record — chain state is re-read live.</span>
       </div>
 
-      {!isConnected ? (
+      { !isConnected ? (
         <Alert variant="info">
           <AlertTitle>Connect a wallet to see your transfers</AlertTitle>
           <AlertDescription>
@@ -331,20 +374,21 @@ export function TransfersPanel({ refreshKey }: { refreshKey: number }) {
         </Alert>
       ) : (
         <>
-          <ImportTransfer onImported={onChanged}/>
-          {pending.length > 0 ? (
+          <ImportTransfer onImported={ onChanged }/>
+          { transfersQuery.error ? <div role="alert">RPC unavailable. Last verified transfers are retained. <Button size="sm" disabled={ transfersQuery.isFetching } onClick={ () => void transfersQuery.refetch() }>Retry RPC</Button></div> : null }
+          { pending.length > 0 ? (
             <div className="flex flex-col gap-3">
-              {pending.map((transfer) => (
-                <TransferRow key={transfer.id} transfer={transfer} onChanged={onChanged}/>
-              ))}
+              { pending.map((transfer) => (
+                <TransferRow key={ transfer.id } transfer={ transfer } onChanged={ onChanged }/>
+              )) }
             </div>
-          ) : null}
+          ) : null }
           <TransferHistory
-            records={records}
-            filters={[ 'all', 'deposit', 'withdraw' ]}
-            loading={transfersQuery.isLoading}
+            records={ records }
+            filters={ [ 'all', 'deposit', 'withdraw' ] }
+            loading={ transfersQuery.isLoading }
             emptyText="No bridge transfers from this wallet yet. Your first deposit or withdrawal will appear here."
-            explorerUrl={(record) => {
+            explorerUrl={ (record) => {
               const transfer = transfers.find((t) => t.id === record.id);
               if (!transfer) return undefined;
               const chain = bridgeChainByKey(transfer.foreignChainKey);
@@ -353,11 +397,11 @@ export function TransfersPanel({ refreshKey }: { refreshKey: number }) {
                   foreignTxUrl(chain, transfer.sourceTxHash) :
                   undefined :
                 paxeerTxUrl(transfer.sourceTxHash);
-            }}
-            onCopy={() => toast.success('Copied')}
+            } }
+            onCopy={ () => toast.success('Copied') }
           />
         </>
-      )}
+      ) }
     </section>
   );
 }

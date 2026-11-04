@@ -32,6 +32,19 @@ var logger = paxlog.NewLogger("cosmos", "store", "rootmulti")
 // ErrVersionedStateUnsupported indicates that the legacy store cannot supply a committed snapshot.
 var ErrVersionedStateUnsupported = errors.New("legacy rootmulti versioned state is unsupported; use sdk/storev2/rootmulti")
 
+// RollbackUnsupportedError reports a rollback target the legacy store cannot restore.
+type RollbackUnsupportedError struct {
+	Target int64
+}
+
+func (err *RollbackUnsupportedError) Error() string {
+	return fmt.Sprintf("legacy rootmulti rollback to height %d is unsupported; use sdk/storev2/rootmulti for recovery", err.Target)
+}
+
+func (err *RollbackUnsupportedError) Unwrap() error {
+	return ErrVersionedStateUnsupported
+}
+
 const (
 	latestVersionKey = "s/latest"
 	pruneHeightsKey  = "s/pruneheights"
@@ -724,15 +737,14 @@ func (rs *Store) loadCommitStoreFromParams(key types.StoreKey, id types.CommitID
 	}
 }
 
-// RollbackToVersion delete the versions after `target` and update the latest version.
+// RollbackToVersion refuses rollback because legacy DB adapters cannot restore
+// per-version values. It leaves both working state and commit metadata unchanged.
 func (rs *Store) RollbackToVersion(target int64) error {
 	if target <= 0 {
 		return fmt.Errorf("invalid rollback height target: %d", target)
 	}
 
-	rs.SetLastCommitInfo(commitStores(target, rs.stores, false))
-	rs.flushMetadata(rs.db, target, rs.LastCommitInfo())
-	return rs.LoadLatestVersion()
+	return &RollbackUnsupportedError{Target: target}
 }
 
 func (rs *Store) flushMetadata(db dbm.DB, version int64, cInfo *types.CommitInfo) {

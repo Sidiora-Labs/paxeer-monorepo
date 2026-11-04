@@ -63,7 +63,7 @@ export namespace SocketMessage {
   export type BlocksIndexStatus = SocketMessageParamsGeneric<'index_status', { finished: boolean; ratio: string }>;
   export type InternalTxsIndexStatus = SocketMessageParamsGeneric<'index_status', { finished: boolean; ratio: string }>;
   export type TxStatusUpdate = SocketMessageParamsGeneric<'collated', NewBlockSocketResponse>;
-  export type TxRawTrace = SocketMessageParamsGeneric<'raw_trace', RawTracesResponse>;
+  export type TxRawTrace = SocketMessageParamsGeneric<'raw_trace', { raw_trace: RawTracesResponse }>;
   export type NewTx = SocketMessageParamsGeneric<'transaction', { transaction: number }>;
   export type NewInteropMessage = SocketMessageParamsGeneric<'new_messages', Array<multichain.InteropMessage>>;
   export type NewPendingTx = SocketMessageParamsGeneric<'pending_transaction', { pending_transaction: number }>;

@@ -47,8 +47,13 @@ func (a StakeAuthorization) MsgTypeURL() string {
 }
 
 func (a StakeAuthorization) ValidateBasic() error {
-	if a.MaxTokens != nil && a.MaxTokens.IsNegative() {
-		return sdkerrors.Wrapf(sdkerrors.ErrInvalidCoins, "negative coin amount: %v", a.MaxTokens)
+	if a.MaxTokens != nil {
+		if a.MaxTokens.Amount.IsNil() {
+			return sdkerrors.ErrInvalidCoins.Wrap("uninitialized stake allowance")
+		}
+		if err := a.MaxTokens.Validate(); err != nil {
+			return sdkerrors.ErrInvalidCoins.Wrap(err.Error())
+		}
 	}
 	if a.AuthorizationType == AuthorizationType_AUTHORIZATION_TYPE_UNSPECIFIED {
 		return sdkerrors.Wrapf(sdkerrors.ErrInvalidType, "unknown authorization type")
@@ -74,6 +79,12 @@ func (a StakeAuthorization) Accept(ctx sdk.Context, msg sdk.Msg) (authz.AcceptRe
 		amount = msg.Amount
 	default:
 		return authz.AcceptResponse{}, sdkerrors.ErrInvalidRequest.Wrap("unknown msg type")
+	}
+	if amount.Amount.IsNil() {
+		return authz.AcceptResponse{}, sdkerrors.ErrInvalidCoins.Wrap("uninitialized stake amount")
+	}
+	if err := amount.Validate(); err != nil {
+		return authz.AcceptResponse{}, sdkerrors.ErrInvalidCoins.Wrap(err.Error())
 	}
 
 	isValidatorExists := false
@@ -103,6 +114,18 @@ func (a StakeAuthorization) Accept(ctx sdk.Context, msg sdk.Msg) (authz.AcceptRe
 			Updated: &StakeAuthorization{Validators: a.GetValidators(), AuthorizationType: a.GetAuthorizationType()}}, nil
 	}
 
+	if a.MaxTokens.Amount.IsNil() {
+		return authz.AcceptResponse{}, sdkerrors.ErrInvalidCoins.Wrap("uninitialized stake allowance")
+	}
+	if err := a.MaxTokens.Validate(); err != nil {
+		return authz.AcceptResponse{}, sdkerrors.ErrInvalidCoins.Wrap(err.Error())
+	}
+	if amount.Denom != a.MaxTokens.Denom {
+		return authz.AcceptResponse{}, sdkerrors.ErrUnauthorized.Wrapf("stake denomination %s does not match allowance %s", amount.Denom, a.MaxTokens.Denom)
+	}
+	if amount.Amount.GT(a.MaxTokens.Amount) {
+		return authz.AcceptResponse{}, sdkerrors.ErrInsufficientFunds.Wrap("stake amount exceeds allowance")
+	}
 	limitLeft := a.MaxTokens.Sub(amount)
 	if limitLeft.IsZero() {
 		return authz.AcceptResponse{Accept: true, Delete: true}, nil

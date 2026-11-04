@@ -1,6 +1,11 @@
 defmodule Indexer.Utils.EventNotificationsCleaner do
   @moduledoc """
-  Module is responsible for cleaning up event notifications from the database.
+  Expires transport payloads for disposable, best-effort chain notifications.
+
+  `max_age` is a payload retention bound, not a delivery or replay guarantee.
+  API consumers must reconcile authoritative state after startup or reconnect;
+  see `Indexer.Utils.EventNotificationsRecovery`. Deleting a payload never
+  deletes the authoritative chain data in `Explorer.Repo`.
   """
 
   alias Explorer.Repo.EventNotifications, as: EventNotificationsRepo

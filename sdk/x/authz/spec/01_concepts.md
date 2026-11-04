@@ -76,3 +76,21 @@ Ordinary transaction, storage, and executed-message gas charges also apply.
 
 See [Client](05_client.md) for the supported grant, revoke, execution, and query
 commands.
+
+## A persisted deny-only grant
+
+For example, a persisted deny-only delegation policy can deny
+`paxvaloper1qszqgpqyqszqgpqyqszqgpqyqszqgpqy445nau` while accepting delegation to
+`paxvaloper1qvpsxqcrqvpsxqcrqvpsxqcrqvpsxqcr49nk6q`. Construct it with
+`NewStakeAuthorization(nil, deniedValidators, AUTHORIZATION_TYPE_DELEGATE, nil)`:
+the nil allowlist selects the denylist variant, and nil `max_tokens` leaves the
+amount unlimited. `MsgGrant` stores the policy; closing and reopening the store
+preserves its denylist.
+
+When `MsgExec` delegates `10uhpx` to the second validator, acceptance scans the
+single denied validator, charges 10 gas for that entry, and succeeds. The real
+staking handler then records the delegation if its usual funding and validator
+checks pass. The authorization update retains the deny-only policy for subsequent
+executions. Delegation to the denied validator fails with `ErrUnauthorized`.
+`TestRepairM_691_ConceptsDenyOnly` proves this with the real store, codec, router,
+bank and staking keepers after reopening the store.
