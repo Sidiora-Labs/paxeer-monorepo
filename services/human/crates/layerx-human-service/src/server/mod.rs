@@ -2,6 +2,7 @@
 
 pub mod agent_creation;
 pub mod agent_runtime;
+pub mod attestor_send_journal;
 pub mod backend;
 mod balance_material;
 mod component;
