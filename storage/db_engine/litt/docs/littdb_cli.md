@@ -28,6 +28,13 @@ export PATH="$PATH:/path/to/paxeer-monorepo/storage/db_engine/litt/bin"
 ```
 
 Alternatively, copy or symlink that binary into a directory already on your `PATH`. Examples below
+use the same monorepo output; for example, from the repository root:
+
+```bash
+install -m 0755 storage/db_engine/litt/bin/litt /usr/local/bin/litt
+```
+
+The destination must be writable by the installing user. Command examples below
 assume `litt` resolves to this binary. Remote transfers also require SSH access, a trusted host-key
 entry, and `rsync` on the participating machines. The receiver must support `rsync --fsync` and
 GNU `sync -f`, which the transfer uses before acknowledging durable remote files.
@@ -51,6 +58,10 @@ uses the following source selection:
 ```bash
 litt ls --src /data0 --src /data1 --src /data2
 ```
+
+For a node embedding this library, map its configured storage-root list directly to `Config.Paths`
+before `littbuilder.NewDB(config)`. Copy that entire list to repeated `--src` flags for offline
+inspection, as above. Each `/dataN` is a root containing table directories, not a table name.
 
 The CLI reads explicit flags, not node environment variables or a node configuration file. This
 package does not define a node flag-to-`Config.Paths` mapping; obtain the actual roots from the
