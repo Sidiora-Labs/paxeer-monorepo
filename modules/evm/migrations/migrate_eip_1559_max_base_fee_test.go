@@ -3,24 +3,37 @@ package migrations_test
 import (
 	"testing"
 
-	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/migrations"
-	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
-	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	"github.com/stretchr/testify/require"
 )
 
 func TestMigrateEip1559MaxBaseFee(t *testing.T) {
-	k := testkeeper.EVMTestApp.EvmKeeper
-	ctx := testkeeper.EVMTestApp.NewContext(false, tmtypes.Header{})
+	dir := t.TempDir()
+	k, ctx, ms, closeStore := repairM1243OpenStore(t, dir)
+	stored := repairM1243GovernedParams(t)
+	require.NotEqual(t, types.DefaultParams().MaximumFeePerGas, stored.MaximumFeePerGas)
+	k.SetParams(ctx, stored)
+	require.Equal(t, stored, k.GetParams(ctx))
+	before := ms.Commit(true)
+	require.Positive(t, before.Version)
+	closeStore()
 
-	keeperParams := k.GetParams(ctx)
-	keeperParams.MaximumFeePerGas = sdk.NewDec(123)
+	k, ctx, ms, closeStore = repairM1243OpenStore(t, dir)
+	require.Equal(t, before, ms.LastCommitID())
+	require.Equal(t, stored, k.GetParams(ctx))
 
-	// Perform the migration
-	err := migrations.MigrateEip1559MaxFeePerGas(ctx, &k)
-	require.NoError(t, err)
+	require.NoError(t, migrations.MigrateEip1559MaxFeePerGas(ctx, k))
+	expected := stored
+	expected.MaximumFeePerGas = types.DefaultParams().MaximumFeePerGas
+	migrated := k.GetParams(ctx)
+	require.Equal(t, types.DefaultParams().MaximumFeePerGas, migrated.MaximumFeePerGas)
+	require.Equal(t, expected, migrated, "only the maximum fee may change")
 
-	// Ensure that the new EIP-1559 parameters were migrated and the old ones were not changed
-	require.Equal(t, keeperParams.MaximumFeePerGas, sdk.NewDec(123))
+	after := ms.Commit(true)
+	require.Greater(t, after.Version, before.Version)
+	closeStore()
+	k, ctx, ms, _ = repairM1243OpenStore(t, dir)
+	require.Equal(t, after, ms.LastCommitID())
+	require.Equal(t, expected, k.GetParams(ctx), "migrated and preserved parameters must survive reopening")
 }

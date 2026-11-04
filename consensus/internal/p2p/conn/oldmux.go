@@ -436,7 +436,7 @@ func (c *MConnection) maxPacketMsgSize() uint64 {
 	return uint64(len(protoutils.Marshal(&pb.Packet{
 		Sum: &pb.Packet_PacketMsg{
 			PacketMsg: &pb.PacketMsg{
-				ChannelId: 0x01,
+				ChannelId: math.MaxUint16,
 				Eof:       true,
 				Data:      make([]byte, c.config.MaxPacketMsgPayloadSize),
 			},

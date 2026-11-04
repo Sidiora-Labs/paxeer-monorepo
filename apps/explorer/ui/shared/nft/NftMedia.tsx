@@ -13,6 +13,7 @@ import NftHtml from './NftHtml';
 import NftImage from './NftImage';
 import NftMediaFullscreenModal from './NftMediaFullscreenModal';
 import NftVideo from './NftVideo';
+import useNftMediaIdentity from './useNftMediaIdentity';
 import useNftMediaInfo from './useNftMediaInfo';
 import type { MediaType, Size } from './utils';
 import { mediaStyleProps } from './utils';
@@ -27,7 +28,12 @@ interface Props extends Omit<HTMLChakraProps<'div'>, 'size'> {
   fallback?: React.ReactNode;
 }
 
-const NftMedia = ({ data, size = 'original', allowedTypes, isLoading, withFullscreen, autoplayVideo, fallback, ...rest }: Props) => {
+const NftMedia = (props: Props) => {
+  const identity = useNftMediaIdentity(props.data);
+  return <NftMediaViewer key={ JSON.stringify(identity) } { ...props }/>;
+};
+
+const NftMediaViewer = ({ data, size = 'original', allowedTypes, isLoading, withFullscreen, autoplayVideo, fallback, ...rest }: Props) => {
   const [ isMediaLoading, setIsMediaLoading ] = React.useState(true);
   const [ isMediaLoadingError, setIsMediaLoadingError ] = React.useState(false);
   const [ mediaInfoIndex, setMediaInfoIndex ] = React.useState(0);

@@ -124,6 +124,10 @@ func TestNonceQueueDrainsOnGapFill(t *testing.T) {
 	require.Len(t, s.order, 4)
 	require.Equal(t, uint64(11), s.app.EvmNonce(senderA))
 	require.False(t, q.Held(senderA, 11))
+	failures := q.Failures()
+	require.Len(t, failures, 1)
+	require.Equal(t, uint64(11), failures[0].Nonce)
+	require.ErrorIs(t, failures[0].Err, refused)
 	require.True(t, q.Held(senderA, 12))
 	require.Equal(t, 1, q.Len())
 

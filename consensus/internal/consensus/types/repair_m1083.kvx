@@ -1,0 +1,7 @@
+[repair.22.33.1083]
+finding = "catchup-vote-churn"
+proof = ["TestRepairM_1083_InvalidVotesDoNotAllocate", "TestRepairM_1083_PeerChurnBoundAndValidCatchup", "TestRepairM_1083_RoundRetirementAndHeightReset"]
+policy = "Authenticate identity, height, round and signature before catchup allocation; retain at most 64 extra rounds per height across all peers; admit votes into existing rounds at capacity; preserve authenticated votes on disconnect and local round promotion; reset all bookkeeping on height change."
+wiring_request = "Domain 5 (node runtime): consensus/internal/consensus/reactor.go processPeerUpdates PeerStatusDown must call HeightVoteSet.RemovePeer for the current height under the consensus state's synchronization; remove only connection admission bookkeeping, preserve authenticated round vote sets and their global budget until SetRound promotion or Reset."
+baseline = "Not run: the explicit implementation-first order and hf-done-only verification budget prohibit the unchanged-tree verify requested by do_5; no baseline test failures are claimed."
+qualification = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit code and private log; final response copies the terminal gate evidence."

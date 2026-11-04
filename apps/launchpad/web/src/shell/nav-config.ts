@@ -35,6 +35,10 @@ export interface NavItem {
   group?: 'primary' | 'secondary';
 }
 
+export function isNavItemEligible(item: NavItem, walletReady: boolean, sessionReady: boolean): boolean {
+  return item.requires === 'public' || (item.requires === 'wallet' && walletReady) || (item.requires === 'session' && sessionReady);
+}
+
 export const navItems: readonly NavItem[] = [
   { id: 'home', group: 'primary', href: '/', label: 'Home', icon: House, section: 'main', requires: 'public' },
   { id: 'explore', group: 'primary', href: '/explore', label: 'Explore', icon: Compass, section: 'main', requires: 'public' },

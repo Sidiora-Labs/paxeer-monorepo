@@ -1,0 +1,22 @@
+[repair.22.33.1160]
+audit = "22.30.52"
+baseline_revision = "0d67b10a1307bd87573ba79cf46b7f9c0337f7e3"
+baseline_verification = "Not run: the task's explicit implementation-first order and hf-build/hf-done-only gates prohibit the unchanged-tree verification requested in step 7; no pre-change test failures are claimed."
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit code and private log location."
+wiring_requests = []
+
+[finding.blocksim-errors-exit-success]
+tests = ["TestRepairM_1160_WorkloadErrorsReachCLI", "TestRepairM_1160_TeardownAndSuspendErrors", "TestRepairM_1160_CleanupErrorReachesCLI", "TestRepairM_1160_CleanShutdownAndConcurrentWaiters"]
+proof = "The production generator, runner and memory store use real file journals as fixture peers; closed journal handles and an unflushable pipe produce OS errors propagated through BlockUntilHalted, Close and the same CLIExitCode handler that main passes to os.Exit. Filesystem cleanup errors also reach that handler."
+
+[finding.blocksim-prune-height-underflow]
+tests = ["TestRepairM_1160_PruneRetentionAndInterval"]
+proof = "Generated blocks pass through handleNextBlock into the memory store with retention 4 and interval 2; every height through 10 checks retention, the pruning journal proves no prune at or below the window, and off-interval heights preserve history."
+
+[finding.blocksim-launches-after-failed-build]
+tests = ["TestRepairM_1160_FailedBuildNeverLaunchesStaleExecutables"]
+proof = "The unmodified launcher runs against a fixture Makefile whose build recipe fails and preexisting logger and benchmark executables; both config paths assert the build exit status, visible cause and absence of executable launch markers."
+runtime_requirement = "The shell regression needs the system Bash interpreter and make to execute the real shell/build path; this conflicts with the generic no-external-binary clause and has been raised for clarification. No Go subprocess toolchain, service, credential, endpoint or device is used."
+
+[gotcha.task-local]
+observed = "Only the production memory backend is registered, and its methods never return errors; the error-path proof therefore journals real I/O in a fixture peer instead of inventing a backend error or altering another domain's backend."

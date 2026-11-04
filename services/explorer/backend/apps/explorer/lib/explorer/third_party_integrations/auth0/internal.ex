@@ -253,20 +253,48 @@ defmodule Explorer.ThirdPartyIntegrations.Auth0.Internal do
   """
   @spec get_user_from_token(AccessToken.t()) :: {:ok, map()} | :error | {:error, String.t()}
   def get_user_from_token(%AccessToken{other_params: %{"id_token" => token}}) do
-    case Joken.peek_claims(token) do
-      {:ok, %{"sub" => _} = user} ->
-        {:ok, user}
+    client = OAuth.client()
+    issuer = String.trim_trailing(client.site, "/") <> "/"
 
-      error ->
-        Logger.error("Error while peeking claims from token: #{inspect(error)}")
-        :error
+    with client_id when is_binary(client_id) and client_id != "" <- client.client_id,
+         {:ok, %{"alg" => "RS256", "kid" => kid}} when is_binary(kid) <- Joken.peek_header(token),
+         {:ok, %OAuth2.Response{status_code: 200, body: %{"keys" => keys}}} when is_list(keys) <-
+           Client.get(client, "/.well-known/jwks.json"),
+         [key] <- Enum.filter(keys, &signing_key?(&1, kid)),
+         {:ok, claims} <- Joken.verify(token, Joken.Signer.create("RS256", key)),
+         true <- valid_id_claims?(claims, issuer, client_id) do
+      {:ok, claims}
+    else
+      _ -> :error
     end
+  rescue
+    _ -> :error
   end
 
   def get_user_from_token(token) do
     Logger.error("No id_token in token: #{inspect(Map.update(token, :access_token, "xxx", fn _ -> "xxx" end))}")
 
     {:error, @misconfiguration_detected}
+  end
+
+  defp signing_key?(%{"kid" => kid, "kty" => "RSA"} = key, kid) do
+    Map.get(key, "use", "sig") == "sig" and Map.get(key, "alg", "RS256") == "RS256"
+  end
+
+  defp signing_key?(_, _), do: false
+
+  defp valid_id_claims?(claims, issuer, client_id) do
+    now = System.system_time(:second)
+    audience = claims["aud"]
+    audiences = if is_list(audience), do: audience, else: [audience]
+
+    claims["iss"] == issuer and client_id in audiences and
+      (length(audiences) == 1 or claims["azp"] == client_id) and
+      (not Map.has_key?(claims, "azp") or claims["azp"] == client_id) and
+      is_binary(claims["sub"]) and claims["sub"] != "" and
+      is_integer(claims["exp"]) and claims["exp"] > now and
+      is_integer(claims["iat"]) and claims["iat"] <= now and
+      (not Map.has_key?(claims, "nbf") or (is_integer(claims["nbf"]) and claims["nbf"] <= now))
   end
 
   @doc """

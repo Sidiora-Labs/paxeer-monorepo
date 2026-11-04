@@ -1,7 +1,7 @@
 package littbuilder
 
 import (
-	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -35,8 +35,8 @@ type db struct {
 	// Metrics for the database.
 	metrics *metrics.LittDBMetrics
 
-	// Shuts down the OTel MeterProvider configured by buildMetrics. nil if metrics are disabled.
-	metricsShutdown func(context.Context) error
+	metricsServer *metricsServer
+	metricsDone   chan struct{}
 
 	// A function that releases file locks.
 	releaseLocks func()
@@ -115,10 +115,10 @@ func NewDBUnsafe(
 		return nil, fmt.Errorf("error acquiring locks on paths %v: %w", config.Paths, err)
 	}
 
-	var dbMetrics *metrics.LittDBMetrics
-	var metricsShutdown func(context.Context) error
-	if config.MetricsEnabled {
-		dbMetrics, metricsShutdown = buildMetrics(config, runtimeConfig)
+	dbMetrics, serving, err := buildMetrics(config, runtimeConfig)
+	if err != nil {
+		releaseLocks()
+		return nil, fmt.Errorf("error creating metrics: %w", err)
 	}
 
 	if config.SnapshotDirectory != "" {
@@ -127,15 +127,16 @@ func NewDBUnsafe(
 	}
 
 	database := &db{
-		config:          config,
-		runtimeConfig:   runtimeConfig,
-		tables:          make(map[string]litt.ManagedTable),
-		metrics:         dbMetrics,
-		metricsShutdown: metricsShutdown,
-		releaseLocks:    releaseLocks,
+		config:        config,
+		runtimeConfig: runtimeConfig,
+		tables:        make(map[string]litt.ManagedTable),
+		metrics:       dbMetrics,
+		metricsServer: serving,
+		releaseLocks:  releaseLocks,
 	}
 
 	if config.MetricsEnabled {
+		database.metricsDone = make(chan struct{})
 		go database.gatherMetrics(config.MetricsUpdateInterval)
 	}
 
@@ -198,8 +199,18 @@ func (d *db) BuildTable(config litt.TableConfig) (litt.Table, error) {
 
 func (d *db) Close() error {
 	d.lock.Lock()
-	defer d.lock.Unlock()
-	return d.closeUnsafe()
+	err := d.closeUnsafe()
+	d.lock.Unlock()
+	return errors.Join(err, d.closeMetrics())
+}
+
+func (d *db) closeMetrics() error {
+	if d.metricsServer == nil {
+		return nil
+	}
+	err := d.metricsServer.close()
+	<-d.metricsDone
+	return err
 }
 
 func (d *db) closeUnsafe() error {
@@ -212,6 +223,9 @@ func (d *db) closeUnsafe() error {
 
 	d.runtimeConfig.Logger.Info("Stopping LittDB", "size", d.lockFreeSize())
 	d.stopped.Store(true)
+	if d.metricsServer != nil {
+		d.metricsServer.cancel()
+	}
 
 	for name, table := range d.tables {
 		err := table.Close()
@@ -227,11 +241,14 @@ func (d *db) closeUnsafe() error {
 	return nil
 }
 
-func (d *db) Destroy() error {
+func (d *db) Destroy() (err error) {
 	d.lock.Lock()
-	defer d.lock.Unlock()
+	defer func() {
+		d.lock.Unlock()
+		err = errors.Join(err, d.closeMetrics())
+	}()
 
-	err := d.closeUnsafe()
+	err = d.closeUnsafe()
 	if err != nil {
 		return fmt.Errorf("error closing database: %w", err)
 	}
@@ -249,34 +266,22 @@ func (d *db) Destroy() error {
 
 // gatherMetrics is a method that periodically collects metrics.
 func (d *db) gatherMetrics(interval time.Duration) {
-	if d.metricsShutdown != nil {
-		defer func() {
-			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			err := d.metricsShutdown(shutdownCtx)
-			if err != nil {
-				d.runtimeConfig.Logger.Error("error shutting down metrics provider", "error", err)
-			}
-		}()
-	}
+	defer close(d.metricsDone)
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	for !d.stopped.Load() {
 		select {
-		case <-d.runtimeConfig.CTX.Done():
+		case <-d.metricsServer.ctx.Done():
 			return
 		case <-ticker.C:
 			d.lock.Lock()
 			d.pruneDroppedTables()
-			tablesCopy := make(map[string]litt.ManagedTable, len(d.tables))
-			for name, table := range d.tables {
-				tablesCopy[name] = table
+			if !d.stopped.Load() {
+				d.metrics.CollectPeriodicMetrics(d.tables)
 			}
 			d.lock.Unlock()
-
-			d.metrics.CollectPeriodicMetrics(tablesCopy)
 		}
 	}
 }

@@ -5,6 +5,7 @@ use layerx_crypto::evm_transaction::transaction_hash as keccak256;
 use layerx_programs::hex;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use sha2::{Digest as _, Sha256};
 
 const PROGRAMS: &str = "0x000000000000000000000000000000000000101d";
 const MAX_RESPONSE_BYTES: u64 = 2 * 1024 * 1024 + 1024;
@@ -49,6 +50,25 @@ impl ChainDeployment {
         use std::fs::{self, OpenOptions};
         use std::os::unix::fs::{DirBuilderExt as _, OpenOptionsExt as _};
 
+        let loaded = crate::FileDeploymentJournal::open(root.to_path_buf())?.load()?;
+        if !loaded.units.iter().any(|unit| {
+            let record = unit.record();
+            hex::encode(&record.program.bytes()) == self.program_id
+                && hex::encode(&record.new_code_hash) == self.code_hash
+                && record.version == self.version
+                && record.abi_version == self.abi_version
+                && unit.proof().claimed_record().as_ref() == Ok(record)
+                && layerx_programs::DeploymentExecutionProof::decode(
+                    &unit.proof().state.transaction,
+                )
+                .is_ok_and(|proof| {
+                    hex::encode(&Sha256::digest(&proof.transaction)) == self.transaction_hash
+                })
+        }) {
+            return Err(
+                "authenticated deployment admission must be committed before RPC metadata".into(),
+            );
+        }
         let root = root.join("chain-deployments");
         fs::DirBuilder::new()
             .recursive(true)
@@ -354,4 +374,25 @@ fn word(bytes: &[u8], width: usize) -> Result<u64, String> {
     Ok(bytes[32 - width..]
         .iter()
         .fold(0, |value, byte| (value << 8) | u64::from(*byte)))
+}
+
+/// Accepts the canonical admission emitted by the Programs deployment producer.
+/// A transaction identifier alone is a lookup hint, never deployment authority.
+pub(super) fn deployment_admission(
+    body: &[u8],
+) -> Result<layerx_programs::DeploymentProof, String> {
+    #[derive(Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Admission {
+        admission: Vec<u8>,
+    }
+    let bytes = if body.first() == Some(&b'{') {
+        serde_json::from_slice::<Admission>(body)
+            .map_err(|error| format!("canonical deployment admission is required: {error}"))?
+            .admission
+    } else {
+        body.to_vec()
+    };
+    layerx_programs::DeploymentProof::decode(&bytes)
+        .map_err(|error| format!("canonical deployment admission refused: {error}"))
 }

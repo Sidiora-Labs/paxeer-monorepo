@@ -1,0 +1,9 @@
+[repair.22.33.82]
+acceptance = "22998.1"
+shared-channel-leave = "sharedChannelLeavePreservesOtherConsumer"
+channel-join-params = "channelJoinParamsReachTransportAndSeparateIdentities; channelJoinParamsRejectLossyPayloads"
+identity = "Topic plus canonical validated JSON join params; incompatible same-topic joins use independent Phoenix connections."
+transport = "Real Phoenix provider, channels and serializer over loopback WebSockets into production message hooks."
+baseline = "Not run: the explicit implementation-first gate order and hf-build/hf-done budget supersede the contradictory baseline step; no pre-change failure is claimed."
+wiring_requests = "None; all repairs are inside the declared socket paths."
+evidence = "The bounded runner records the candidate revision, command, exit and private log in its gate ledger."

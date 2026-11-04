@@ -1,0 +1,7 @@
+[repair.22.33.1238]
+finding = "issuer-binding-real-state"
+tests = ["TestRepairM_1238_RegisterQueriesAndPause", "TestRepairM_1238_RegisterRefusalRollback", "TestRepairM_1238_PauseRefusalRollback"]
+proof = "App-backed ledger, host, tokenfactory and bank keepers register and query a real issuer denom, enforce pause/unpause in bank sends, and preserve all five stores and events on real duplicate-denom and unchanged-pause refusals."
+baseline = "No earlier gate evidence exists; baseline verification was not run because the task's explicit gate order requires complete implementation before hf-build and hf-done. No pre-change failing test is claimed."
+wiring_requests = []
+evidence = "The runner's hf-build and hf-done ledger records the exact candidate revision, command, exit code and private log location; the final task response reproduces the last gate record."

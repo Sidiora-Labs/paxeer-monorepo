@@ -1,0 +1,8 @@
+[repair.22.33.1290]
+finding = "empty-genesis-stream"
+implementation = "genesis.go: ValidateGenesisStream returns ErrEmpty with missing params context when no chunks supply parameters; existing parameter and chunk checks are retained."
+tests = ["TestRepairM_1290_EmptyGenesisStream", "TestRepairM_1290_InvalidOnlyStreams", "TestRepairM_1290_ValidStreams", "TestRepairM_1290_ChunkChecksPreserved"]
+boundary = "Real ProtoCodec JSON serialization and decoding, channel transport, and the production types.ValidateGenesisStream entry point consumed by AppModuleBasic.ValidateGenesisStream."
+baseline = "Not executed: the task's ordered gate instructions require complete implementation before hf-build and hf-done, and forbid running verify_cmd separately. No baseline failures are claimed."
+wiring = "No out-of-path production changes required."
+evidence = "The runner's private hf-build and hf-done gate ledger and the final revision/command/exit/log record identify the qualified candidate."

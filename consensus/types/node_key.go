@@ -56,14 +56,51 @@ func (nk NodeKey) SaveAs(filePath string) error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(filePath, jsonBytes, 0600); err != nil {
+	if err := saveNodeKeyFile(filePath, jsonBytes); err != nil {
 		return err
 	}
+	return nk.savePublicKey(filePath)
+}
+
+func (nk NodeKey) savePublicKey(filePath string) error {
 	// Write pubkey in autobahn-compatible format alongside the key file.
 	// TODO: use p2p.NodePublicKey.String() directly to avoid duplicating the "node:" prefix.
 	pubKeyStr := fmt.Sprintf("node:%s", nk.PubKey())
 	pubKeyPath := filepath.Join(filepath.Dir(filePath), "node_pubkey.txt")
-	return os.WriteFile(pubKeyPath, []byte(pubKeyStr), 0600)
+	return saveNodeKeyFile(pubKeyPath, []byte(pubKeyStr))
+}
+
+// saveNodeKeyFile publishes only complete, synced files. A crash before rename
+// leaves the previous identity intact; after rename the directory sync makes
+// the replacement durable. Temporary files always start with mode 0600.
+func saveNodeKeyFile(filePath string, data []byte) error {
+	dirPath := filepath.Dir(filePath)
+	dir, err := os.Open(dirPath)
+	if err != nil {
+		return err
+	}
+	defer dir.Close()
+	tmp, err := os.CreateTemp(dirPath, ".node-key-*")
+	if err != nil {
+		return err
+	}
+	tmpPath := tmp.Name()
+	defer os.Remove(tmpPath)
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Sync(); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tmpPath, filePath); err != nil {
+		return err
+	}
+	return dir.Sync()
 }
 
 // LoadOrGenNodeKey attempts to load the NodeKey from the given filePath. If
@@ -72,6 +109,9 @@ func LoadOrGenNodeKey(filePath string) (NodeKey, error) {
 	if tmos.FileExists(filePath) {
 		nodeKey, err := LoadNodeKey(filePath)
 		if err != nil {
+			return NodeKey{}, err
+		}
+		if err := nodeKey.savePublicKey(filePath); err != nil {
 			return NodeKey{}, err
 		}
 		return nodeKey, nil

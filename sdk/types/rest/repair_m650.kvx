@@ -1,0 +1,22 @@
+[repair.22.33.650]
+acceptance = "22998.1"
+path = "Amino SendReq producer -> registered bank transfer REST route -> bounded ReadRESTReq -> BaseReq validation -> real transaction factory -> Amino StdTx consumer."
+baseline = "Not run: the explicit task gate order prohibits verification before full implementation and running verify_cmd by hand; no baseline failure is claimed."
+wiring_requests = []
+evidence = "The bounded hf-build/hf-done ledger records the exact candidate revision, command, exit code and private log location; the runner publishes that qualified revision."
+
+[finding.rest-invalid-fee-validation]
+tests = ["TestRepairM_650_InvalidFees", "TestRepairM_650_FeeRepresentations"]
+repair = "Validate both supplied lists independently, checking nil amounts before numeric operations, including simulation; preserve the existing non-simulation exclusivity rule and empty-list behavior."
+
+[finding.rest-unbounded-body]
+tests = ["TestRepairM_650_StreamedBodyLimit", "TestRepairM_650_BoundedRead"]
+repair = "Enforce the existing server default of 1000000 bytes locally before buffering; return stable HTTP 413 JSON on overflow, including unknown-length chunked bodies, and retain normal transaction decoding at the exact bound."
+
+[qualification.repair_1]
+revision = "5c501c9e26efe816560a3feea32af2fb64f1f1ce"
+command = "cg spec done 22.33.650 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "New test expectations incorrectly treated Amino null amounts as decoder errors and empty decoded fees as a non-nil slice."
+repair = "Keep exact assertions: null amounts must receive validation HTTP 402 and nil decoded fees must equal nil; add invalid amount encoding cases that must receive decoder HTTP 400."

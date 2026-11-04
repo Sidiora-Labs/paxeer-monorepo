@@ -12,34 +12,42 @@ import (
 
 // Config is the application configuration.
 type Config struct {
-	ChainID          string `toml:"chain_id"`
-	Listen           string
-	Protocol         string
-	Dir              string
-	Mode             string                      `toml:"mode"`
-	PersistInterval  uint64                      `toml:"persist_interval"`
-	SnapshotInterval uint64                      `toml:"snapshot_interval"`
-	RetainBlocks     uint64                      `toml:"retain_blocks"`
-	ValidatorUpdates map[string]map[string]int64 `toml:"validator_update"`
-	LeaderPin        []string                    `toml:"leader_pin"`
-	LeaderPinHeight  int64                       `toml:"leader_pin_height"`
-	PrivValServer    string                      `toml:"privval_server"`
-	PrivValKey       string                      `toml:"privval_key"`
-	PrivValState     string                      `toml:"privval_state"`
-	KeyType          string                      `toml:"key_type"`
+	ChainID                string `toml:"chain_id"`
+	Listen                 string
+	Protocol               string
+	Dir                    string
+	Mode                   string                      `toml:"mode"`
+	PersistInterval        uint64                      `toml:"persist_interval"`
+	SnapshotInterval       uint64                      `toml:"snapshot_interval"`
+	RetainBlocks           uint64                      `toml:"retain_blocks"`
+	ValidatorUpdates       map[string]map[string]int64 `toml:"validator_update"`
+	LeaderPin              []string                    `toml:"leader_pin"`
+	LeaderPinHeight        int64                       `toml:"leader_pin_height"`
+	PrivValServer          string                      `toml:"privval_server"`
+	PrivValKey             string                      `toml:"privval_key"`
+	PrivValState           string                      `toml:"privval_state"`
+	KeyType                string                      `toml:"key_type"`
+	PrepareProposalDelayMS uint64                      `toml:"prepare_proposal_delay_ms"`
+	ProcessProposalDelayMS uint64                      `toml:"process_proposal_delay_ms"`
+	CheckTxDelayMS         uint64                      `toml:"check_tx_delay_ms"`
+	FinalizeBlockDelayMS   uint64                      `toml:"finalize_block_delay_ms"`
 }
 
 // App extracts out the application specific configuration parameters
 func (cfg *Config) App() *app.Config {
 	return &app.Config{
-		Dir:              cfg.Dir,
-		SnapshotInterval: cfg.SnapshotInterval,
-		RetainBlocks:     cfg.RetainBlocks,
-		KeyType:          cfg.KeyType,
-		ValidatorUpdates: cfg.ValidatorUpdates,
-		PersistInterval:  cfg.PersistInterval,
-		LeaderPin:        cfg.LeaderPin,
-		LeaderPinHeight:  cfg.LeaderPinHeight,
+		Dir:                    cfg.Dir,
+		SnapshotInterval:       cfg.SnapshotInterval,
+		RetainBlocks:           cfg.RetainBlocks,
+		KeyType:                cfg.KeyType,
+		ValidatorUpdates:       cfg.ValidatorUpdates,
+		PersistInterval:        cfg.PersistInterval,
+		LeaderPin:              cfg.LeaderPin,
+		LeaderPinHeight:        cfg.LeaderPinHeight,
+		PrepareProposalDelayMS: cfg.PrepareProposalDelayMS,
+		ProcessProposalDelayMS: cfg.ProcessProposalDelayMS,
+		CheckTxDelayMS:         cfg.CheckTxDelayMS,
+		FinalizeBlockDelayMS:   cfg.FinalizeBlockDelayMS,
 	}
 }
 

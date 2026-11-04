@@ -407,6 +407,12 @@ pub struct VerifiedDeploymentEvidence {
 }
 
 impl VerifiedDeploymentEvidence {
+    /// Uses the runtime's admission policy for live and durable deployment readers.
+    pub fn admit_abi_version(version: u16) -> Result<(), ProtocolEvidenceError> {
+        layerx_programs_runtime::admit_abi_version(version)
+            .map_err(|_| ProtocolEvidenceError::DeploymentMismatch)
+    }
+
     pub(crate) fn into_record(self) -> DeploymentRecord {
         self.record
     }
@@ -933,6 +939,85 @@ impl ProtocolDeploymentVerifier {
         })
     }
 
+    /// Authenticates deployment state and either interface membership or absence.
+    pub fn verify_current_deployment_head(
+        &self,
+        bundle: &ProgramStateBundle,
+        chain: &VerifiedChainHead,
+        deployment: &VerifiedDeploymentEvidence,
+        now_ms: u64,
+    ) -> Result<VerifiedProgramHead, ProgramBundleError> {
+        if deployment.interface().is_some() {
+            return self
+                .verify_current_program_bundle(bundle, chain, deployment.program(), now_ms)
+                .map(|bundle| bundle.program);
+        }
+        if bundle.program != deployment.program() {
+            return Err(ProgramBundleError::ProgramMismatch);
+        }
+        let (_, _, header) = bundle_helpers::commitment_head(
+            self.require_chain_trust()
+                .map_err(ProgramBundleError::Evidence)?,
+            &bundle.commitment,
+        )
+        .map_err(ProgramBundleError::Evidence)?;
+        if header != chain.protocol.header {
+            return Err(ProgramBundleError::ChainHeadMismatch);
+        }
+        let record = ChainProgramStateProof {
+            program: bundle.program,
+            ops: bundle.program_record_ops.clone(),
+        }
+        .verify(&header)
+        .map_err(ProgramBundleError::Evidence)?;
+        crate::chain_proof::state::verify_absent(
+            &header,
+            crate::chain_evidence::HOST_STORE_NAME,
+            &crate::chain_evidence::programs_state_key(&crate::interface_state_key(bundle.program)),
+            &bundle.interface_ops,
+        )
+        .map_err(|_| ProgramBundleError::Evidence(ProtocolEvidenceError::StateProof))?;
+        let status = bundle
+            .wind_down
+            .as_ref()
+            .ok_or(ProgramBundleError::Evidence(
+                ProtocolEvidenceError::LifecycleProof,
+            ))?;
+        if status.program != bundle.program {
+            return Err(ProgramBundleError::ProgramMismatch);
+        }
+        let lifecycle = match status
+            .verify(&header)
+            .map_err(ProgramBundleError::Evidence)?
+        {
+            None => ProgramLifecycle::Active,
+            Some(value) if value[1] == 2 => ProgramLifecycle::Deprecated,
+            _ => {
+                return Err(ProgramBundleError::Evidence(
+                    ProtocolEvidenceError::LifecycleProof,
+                ))
+            }
+        };
+        let freshness = chain_freshness(&header, now_ms, self.staleness_limit_ms)
+            .map_err(ProgramBundleError::Evidence)?;
+        let valid_until_ms = freshness
+            .observed_at
+            .checked_add(self.staleness_limit_ms)
+            .ok_or(ProgramBundleError::Evidence(ProtocolEvidenceError::Stale))?;
+        Ok(VerifiedProgramHead {
+            program: record.program(),
+            version: record.version(),
+            code_hash: record.code_hash(),
+            abi_version: record.abi_version(),
+            policy: record.upgrade_policy(),
+            lifecycle,
+            header,
+            transaction_hash: chain.receipt_digest(),
+            freshness,
+            valid_until_ms,
+        })
+    }
+
     /// Decodes the node answer before applying the protected bundle verifier.
     pub fn verify_current_program_bundle_bytes(
         &self,
@@ -1017,12 +1102,23 @@ impl DeploymentProof {
             .as_deref()
             .ok_or(ProtocolEvidenceError::ProgramRecord)?;
         let current = decode_program_record_value(&key, value)?;
-        let old_code_hash = execution
+        if execution.previous.key != crate::chain_evidence::programs_state_key(&key) {
+            return Err(ProtocolEvidenceError::DeploymentMismatch);
+        }
+        let previous = execution
             .previous
             .value
             .as_deref()
-            .map(|value| decode_program_record_value(&key, value).map(|record| record.code_hash))
+            .map(|value| decode_program_record_value(&key, value))
             .transpose()?;
+        match previous {
+            None if current.version == 1 => {}
+            Some(previous)
+                if previous.version.checked_add(1) == Some(current.version)
+                    && previous.policy == current.policy => {}
+            _ => return Err(ProtocolEvidenceError::DeploymentMismatch),
+        }
+        let old_code_hash = previous.map(|record| record.code_hash);
         let record = DeploymentRecord {
             program: current.program,
             version: current.version,

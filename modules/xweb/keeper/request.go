@@ -3,6 +3,7 @@ package keeper
 import (
 	"encoding/hex"
 	"fmt"
+	"math"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/xweb/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
@@ -53,6 +54,14 @@ func (k Keeper) Request(ctx sdk.Context, requester common.Address, kind uint8, p
 	if requester == (common.Address{}) {
 		return 0, types.ErrInvalidRequest.Wrap("zero requester")
 	}
+	if params.TimeoutBlocks == 0 || params.TimeoutBlocks > types.TimeoutBlocksLimit {
+		return 0, types.ErrInvalidParams.Wrapf("timeout %d outside 1..%d", params.TimeoutBlocks, types.TimeoutBlocksLimit)
+	}
+	height := ctx.BlockHeight()
+	if height < 0 || height > math.MaxInt64-int64(params.TimeoutBlocks) {
+		return 0, types.ErrInvalidRequest.Wrapf("height %d cannot accommodate timeout %d", height, params.TimeoutBlocks)
+	}
+	timeoutHeight := height + int64(params.TimeoutBlocks)
 
 	cached, write := ctx.CacheContext()
 	payer := k.evmKeeper.GetPaxAddressOrDefault(cached, requester)
@@ -67,8 +76,8 @@ func (k Keeper) Request(ctx sdk.Context, requester common.Address, kind uint8, p
 		PayloadHash:   types.Keccak(payload),
 		CallbackGas:   callbackGas,
 		Fee:           params.Fee,
-		Height:        ctx.BlockHeight(),
-		TimeoutHeight: ctx.BlockHeight() + int64(params.TimeoutBlocks),
+		Height:        height,
+		TimeoutHeight: timeoutHeight,
 		Status:        types.StatusPending,
 		Level:         level,
 		Attestor:      attestor,

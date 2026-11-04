@@ -62,9 +62,15 @@ func (uc uniformChoice) Choose(r *rand.Rand) interface{} {
 type probSetChoice map[string]float64
 
 func (pc probSetChoice) Choose(r *rand.Rand) []string {
+	keys := make([]string, 0, len(pc))
+	for item := range pc {
+		keys = append(keys, item)
+	}
+	sort.Strings(keys)
+
 	choices := []string{}
-	for item, prob := range pc {
-		if r.Float64() <= prob {
+	for _, item := range keys {
+		if r.Float64() <= pc[item] {
 			choices = append(choices, item)
 		}
 	}
@@ -79,7 +85,7 @@ func (usc uniformSetChoice) Choose(r *rand.Rand) []string { return usc.ChooseAtL
 func (usc uniformSetChoice) ChooseAtLeast(r *rand.Rand, num int) []string {
 	indexes := r.Perm(len(usc))
 	if num < len(indexes) {
-		indexes = indexes[:1+randomInRange(r, num, len(indexes)-1)]
+		indexes = indexes[:randomInRange(r, num, len(indexes))]
 	}
 
 	choices := make([]string, 0, len(indexes))
@@ -95,9 +101,15 @@ func randomInRange(r *rand.Rand, min, max int) int { return r.Intn(max-min+1) + 
 type weightedChoice map[string]uint
 
 func (wc weightedChoice) Choose(r *rand.Rand) string {
+	keys := make([]string, 0, len(wc))
+	for item := range wc {
+		keys = append(keys, item)
+	}
+	sort.Strings(keys)
+
 	choices := make([]weightedrand.Choice, 0, len(wc))
-	for k, v := range wc {
-		choices = append(choices, weightedrand.NewChoice(k, v))
+	for _, item := range keys {
+		choices = append(choices, weightedrand.NewChoice(item, wc[item]))
 	}
 
 	chooser, err := weightedrand.NewChooser(choices...)

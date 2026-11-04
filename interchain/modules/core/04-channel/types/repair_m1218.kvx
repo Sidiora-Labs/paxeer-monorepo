@@ -1,0 +1,16 @@
+[repair.22.33.1218]
+findings = ["channel-sequence-zero", "receipt-constructor-test-gap"]
+baseline = "No prior hf-build/hf-done run is recorded. The explicit ordered implementation/build/verify instructions forbid running verify_cmd by hand on the unchanged tree, so no pre-change test failure is claimed. The prerequisite constructor repair already preserves Receipts."
+wiring_requests = []
+evidence = "Exact candidate revision, command, exit code and private log are recorded by the runner in the hf-build/hf-done ledger; qualification is not claimed before those gates."
+
+[finding.channel-sequence-zero]
+tests = ["TestRepairM_1218_ChannelSequenceValidation", "TestRepairM_1218_ChannelSequenceRestartRecovery"]
+repair = "Use imported identifier presence independently of its numeric maximum so a nonempty channel-zero genesis requires a strictly positive next sequence while an empty genesis may start at zero."
+path = "Real channel open-init -> IBC export -> channel validation -> codec JSON -> stop original app -> fresh app import -> real keeper open-init allocation and write; channel-zero and its packet sequences remain unchanged and channel-one is created without a capability collision."
+
+[finding.receipt-constructor-test-gap]
+test = "TestRepairM_1218_ReceiptConstructorRecovery"
+repair = "Assert exact supplied receipt equality in the existing valid genesis fixture and add the real import/replay assertions in genesis_test.go, invoked by the declared repair test. Retain the already-applied constructor repair."
+path = "Real SendPacket and commitment proofs -> unordered RecvPacket -> ExportGenesis -> NewGenesisState -> codec JSON -> stop receiver -> fresh keeper InitGenesis -> exact state equality, replay ErrNoOpMsg and acceptance of an unreceived sequence."
+gotcha = "Populate acknowledgements and commitments through their production paths before full JSON state equality, because protobuf JSON normalizes nil repeated fields to empty slices."

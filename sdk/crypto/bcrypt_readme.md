@@ -4,15 +4,22 @@
 
 The bcrypt cost used for armored private keys defaults to 12. It is the
 `BcryptSecurityParameter` variable in [`armor.go`](armor.go).
-`EncryptArmorPrivKey` calls `encryptPrivKey`, which passes that value and a
-random 16-byte salt to `bcrypt.GenerateFromPassword`. The returned bcrypt hash
+`EncryptArmorPrivKey` records envelope version `1`, the effective bcrypt
+`cost`, the KDF name and a random 16-byte salt. Costs below bcrypt's minimum
+of 4 normalize to its default of 10; costs above 16 are refused before
+performing KDF work. `encryptPrivKey` passes the effective cost and salt to
+`bcrypt.GenerateFromPassword`. The returned bcrypt hash
 is hashed with SHA-256 to obtain the 32-byte key used by NaCl secretbox to
 encrypt and authenticate the exported private key.
 
-`UnarmorDecryptPrivKey` derives the same key using the current value of
-`BcryptSecurityParameter`. The armor records the KDF name and salt, but does
-not record the cost, so changing this variable also changes the cost used to
-decrypt existing exports.
+`UnarmorDecryptPrivKey` uses the recorded cost, independently of the current
+`BcryptSecurityParameter`, so exports survive restarts with a different
+default. Imports accept costs from 4 through 16 and reject missing or invalid
+versioned parameters and unsupported versions before deriving a key.
+Unversioned legacy exports always use the historical production cost of 12.
+An old export made with a custom cost cannot be identified automatically;
+restore it using the original software and configuration, then re-export it
+in the versioned format.
 
 ## File keyring verifier
 
@@ -29,7 +36,10 @@ The creation call passes `2` as its cost argument, but the effective cost is
 [`GenerateFromPassword` implementation][bcrypt-source] replaces any cost
 below `MinCost` with `DefaultCost`. The verifier stores its effective cost
 and salt, which are read during comparison. `BcryptSecurityParameter` does
-not control this verifier.
+not control this verifier. The current verifier format is unversioned;
+increasing the armor export cost does not upgrade it. Migrating the verifier
+in an active directory cannot upgrade an older stolen backup: its verifier
+still permits offline guesses at its original work factor.
 
 ## Offline password guessing
 

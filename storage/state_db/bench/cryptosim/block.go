@@ -16,8 +16,7 @@ type block struct {
 	// If receipt generation is enabled, this will contain the receipts for each transaction in the block.
 	reciepts []*evmtypes.Receipt
 
-	// The block number. This is not currently preserved across benchmark restarts, but otherwise monotonically
-	// increases as you'd expect.
+	// The block sequence, restored from the durable next-unused counter on restart.
 	blockNumber int64
 
 	// The next account ID to be used when creating a new account, as of the end of this block.

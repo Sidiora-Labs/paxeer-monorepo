@@ -1,0 +1,11 @@
+[task.22.33.1173]
+audit = "22.30.53"
+scope = "storage/db_engine/litt/types"
+baseline = "Not run: the explicit gate order forbids testing before complete implementation and permits verification only through hf-done. No prior gate ledger or repair tests existed; no baseline failures are claimed."
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit code and private log location."
+
+[finding.address-prefix-doc]
+tests = ["TestRepairM_1173_AddressRawByteSpan", "TestRepairM_1173_TruncationUsesExactSpan"]
+repair = "Address, offset, valueSize and getter comments describe the first referenced raw byte and its exact span without a length prefix. Real V3 segment writes, persisted key-file decoding, Address serialization and both production readers prove primary, secondary alias, subrange and empty-end extents across two shards after reopen. Truncation fixtures prove that an extent ending exactly at EOF is readable and that a missing referenced byte fails."
+wiring_request = "Domain 5 (Go storage), storage/db_engine/litt/docs/architecture.md: retain the existing V3 raw-offset, no-prefix storage-format prose aligned with Address; inspection found it already correct."
+wiring_request_truncation = "Domain 5 (Go storage), storage/db_engine/litt/disktable/disk_table_test.go: update truncatedValueFileTest requiredLength from offset + valueSize + 4 to the exact raw extent offset + Address.ValueSize(); this fixture is outside this task's scope."

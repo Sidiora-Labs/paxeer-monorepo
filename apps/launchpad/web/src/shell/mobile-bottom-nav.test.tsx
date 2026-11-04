@@ -3,13 +3,12 @@ import React, { act } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createRoot, type Root } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { WagmiProvider, createConfig, http } from 'wagmi';
+import { WagmiProvider } from 'wagmi';
 import { connect } from 'wagmi/actions';
-import { mock } from 'wagmi/connectors';
-import { defineChain } from 'viem';
 import { PathnameContext } from 'next/dist/shared/lib/hooks-client-context.shared-runtime';
 import MobileBottomNav, { BOTTOM_NAV_BREAKPOINT_PX, BOTTOM_NAV_IDS, moreSheetGroups } from './mobile-bottom-nav';
 import { createItem, navItems } from './nav-config';
+import { clearNavigationSession, installNavigationSession, makeNavigationConfig as makeConfig } from './navigation-session.fixture';
 
 vi.mock('next/image', async importOriginal => ({ default: ((await importOriginal()) as { default: unknown }).default }));
 
@@ -18,10 +17,6 @@ beforeAll(() => {
   // jsdom has no matchMedia; a phone-width implementation that never matches min-width queries.
   window.matchMedia = (query: string) => ({ matches: false, media: query, onchange: null, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, dispatchEvent: () => false }) as MediaQueryList;
 });
-
-const ACCOUNT = '0x1111111111111111111111111111111111111111';
-const chain = defineChain({ id: 125, name: 'Closed local boundary', nativeCurrency: { name: 'PAX', symbol: 'PAX', decimals: 18 }, rpcUrls: { default: { http: ['http://127.0.0.1:1'] } } });
-const makeConfig = () => createConfig({ chains: [chain], connectors: [mock({ accounts: [ACCOUNT] })], transports: { 125: http('http://127.0.0.1:1', { retryCount: 0, timeout: 500 }) }, multiInjectedProviderDiscovery: false });
 
 const mounted: Root[] = [];
 
@@ -51,6 +46,7 @@ const moreButton = () => nav().querySelector<HTMLButtonElement>('button[aria-lab
 
 afterEach(() => {
   for (const root of mounted.splice(0)) act(() => root.unmount());
+  clearNavigationSession();
   document.body.innerHTML = '';
 });
 
@@ -144,28 +140,45 @@ describe('More sheet', () => {
     expect(current?.textContent?.trim()).toBe('Holder rewards');
   });
 
-  it('adds the account group once a wallet is connected', async () => {
+  it('adds only wallet destinations once a wallet is connected without an account session', async () => {
     const config = makeConfig();
     await render('/', config);
     expect(sheet()).toBeNull();
     await act(async () => { await connect(config, { connector: config.connectors[0] }); });
     await act(async () => { moreButton().click(); });
     const account = sheet()!.querySelector('section[aria-label="Your account"]');
-    expect(Array.from(account!.querySelectorAll('a')).map(link => link.textContent?.trim())).toEqual(navItems.filter(item => item.section === 'signed-in').map(item => item.label));
+    expect(Array.from(account!.querySelectorAll('a')).map(link => link.textContent?.trim())).toEqual(['Rewards', 'Watchlist', 'Profile']);
     expect(account!.textContent).toContain('Rewards');
+    expect(sheet()!.querySelector('a[href="/chat"]')).toBeNull();
+  });
+
+  it('adds Chat only after the maintained account-session producer authenticates the connected wallet', async () => {
+    const config = makeConfig();
+    await render('/', config);
+    await act(async () => { await connect(config, { connector: config.connectors[0] }); });
+    await act(async () => { installNavigationSession(); });
+    await act(async () => { moreButton().click(); });
+    const account = sheet()!.querySelector('section[aria-label="Your account"]');
+    expect(Array.from(account!.querySelectorAll('a')).map(link => link.textContent?.trim())).toEqual(navItems.filter(item => item.section === 'signed-in').map(item => item.label));
+    expect(sheet()!.querySelector('a[href="/chat"]')?.textContent).toBe('Chat');
   });
 });
 
 describe('moreSheetGroups', () => {
   it('covers every configured destination exactly once across bar and sheet when signed in', () => {
-    const sheetIds = moreSheetGroups(true).flatMap(group => group.items.map(item => item.id));
+    const sheetIds = moreSheetGroups(true, true).flatMap(group => group.items.map(item => item.id));
     const all = [...navItems.map(item => item.id), createItem.id].sort();
     expect([...BOTTOM_NAV_IDS, ...sheetIds].sort()).toEqual(all);
   });
 
   it('hides wallet and session gated items for guests', () => {
-    const groups = moreSheetGroups(false);
+    const groups = moreSheetGroups(false, false);
     expect(groups.map(group => group.id)).toEqual(['browse', 'resources']);
     expect(groups.flatMap(group => group.items).every(item => item.requires === 'public')).toBe(true);
+  });
+
+  it('keeps Chat session-gated when only the wallet is ready, matching the desktop rail', () => {
+    const account = moreSheetGroups(true, false).find(group => group.id === 'account');
+    expect(account!.items.map(item => item.id)).toEqual(['rewards', 'watchlist', 'profile']);
   });
 });

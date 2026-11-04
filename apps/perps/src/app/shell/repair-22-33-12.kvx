@@ -1,0 +1,43 @@
+[repair.22.33.12]
+audit = "22.30.10"
+acceptance = "22998.1"
+qualification = "Exact candidate revision, command, exit and private log are recorded by hf-build/hf-done in the runner ledger. No qualification is claimed before those gates pass."
+baseline = "No earlier gate exists in the runner ledger. The ordered implementation-first gate sequence forbids the contradictory do_10 pre-change verify; no pre-change failure is claimed."
+
+[finding.status-assumes-health]
+test = "statusAssumesHealth"
+change = "Footer renders unknown, requests and validates status data, bounds loading, refreshes and exposes unavailable or stale status while preserving the link."
+
+[finding.withdraw-entry-opens-deposit]
+test = "withdrawEntryRetainsRequestedAction"
+change = "Header keeps open state and initialAction together and delivers the requested action on every opening."
+wiring_request = "Domain 3 / perps modals: apps/perps/src/app/modals/DepositWithdrawModal.tsx must accept initialAction and initialize its action on every opening; until that consumer change lands the existing modal still defaults to deposit and this finding is only partially repaired."
+
+[finding.mobile-navigation-focus]
+test = "mobileNavigationUsesDialogFocusLifecycle"
+change = "Radix modal Dialog provides focus trapping, Escape/outside dismissal and scroll locking; Main navigation and a named close control remain, with explicit opener focus restoration."
+proof_limit = "The node gate checks the production Radix composition and owner callbacks; browser keyboard focus and body scrolling are supplied by the existing dialog primitive, not simulated by this test."
+
+[finding.mobile-disabled-market-selection]
+test = "mobileDisabledMarketSelection"
+change = "Selector offers only enabled catalog entries; emitted selection resolves through the production selected-header consumer."
+wiring_request = "Domain 3 / perps trading route: apps/perps/src/page-modules/perps/index.tsx and apps/perps/src/widgets/mobile/MobileTradingLayout.tsx own mounted selection; prove that route before enabling the currently dormant MobileTradeHeader. This task does not enable it."
+
+[finding.mobile-rwa-category]
+test = "mobileRwaCategoryFromGateway"
+change = "RWA resolves stocks, indices and commodities through the catalog producer's getMarketCategory, including newly listed non-crypto markets; New retains the listing-age category."
+
+[finding.splash-hydration-divergence]
+test = "splashHydrationAndSessionRecovery"
+change = "Server and initial browser markup both omit the splash; the mount effect reads the session marker, starts and cleans up timers, and a reopened session does not replay."
+
+[constraint.scope]
+note = "Spec task records, qualification.kvx and GOTCHA.kvx are outside the user scope and are not edited. This scoped record carries the requested finding-to-test mapping and wiring requests."
+
+[qualification.continuation]
+revision = "3f5a0ca4badf818952db0e18ba15bce1f6cff2d9"
+command = "cg spec done 22.33.12 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Status and splash passed; withdraw asserted HTML from a server-empty portal and three navigation/selector tests provided an uninitialized Next router singleton."
+repair = "Keep every assertion, supply a real Next pages router from an in-memory bootstrap transcript, and inspect the real modal title alongside its unchanged portal tree."
