@@ -515,6 +515,8 @@ struct VerifiedAssertion {
     passkey_id: String,
     expires_at: u64,
     consumed: bool,
+    #[serde(default)]
+    session_id: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -1044,6 +1046,7 @@ impl Passkeys {
                 passkey_id: stored.record.passkey_id.clone(),
                 expires_at,
                 consumed: false,
+                session_id: None,
             },
         )?;
         Ok(AssertionProof {
@@ -1221,18 +1224,31 @@ impl Passkeys {
             .ok_or(AuthError::AssertionNotVerified)?;
         let session_key = row_key(SESSION_ROW_PREFIX, &prepared.record.session_id)?;
         let existing = get_json::<SessionRecord>(scope, Table::Cache, &session_key)?;
-        if now > assertion.expires_at && existing.is_none() {
-            return Err(AuthError::ChallengeExpired);
-        }
-        if let Some(record) = existing {
+        if assertion.consumed {
+            if assertion.session_id.as_deref() != Some(prepared.record.session_id.as_str()) {
+                return Err(AuthError::AssertionSpent);
+            }
+            let record = existing.ok_or(AuthError::AssertionSpent)?;
             if record != prepared.record {
                 return Err(AuthError::ForgeryRefused);
             }
         } else {
+            if assertion.session_id.is_some() {
+                return Err(AuthError::CorruptState);
+            }
+            if now > assertion.expires_at {
+                return Err(AuthError::ChallengeExpired);
+            }
+            if existing.is_some() {
+                return Err(AuthError::ForgeryRefused);
+            }
             assertion.consumed = true;
-            put_json(scope, Table::Cache, key, now, &assertion)?;
-            record_device(scope, &prepared.record.device, now)?;
-            put_json(scope, Table::Cache, session_key, now, &prepared.record)?;
+            assertion.session_id = Some(prepared.record.session_id.clone());
+            scope.transaction(|staged| {
+                put_json(staged, Table::Cache, key, now, &assertion)?;
+                record_device(staged, &prepared.record.device, now)?;
+                put_json(staged, Table::Cache, session_key, now, &prepared.record)
+            })?;
         }
         let _ = prepared.opening_key;
         Ok(prepared.grant)
