@@ -69,17 +69,10 @@ async fn health_cache_number() {
     // deliberately distinct probe an independently recorded backend response.
     let (path, recorded) = recording(include_str!("recorded/eth_blockscout_com/_api_health.json"));
     let mut producer: HealthCheckResponse = serde_json::from_str(&recorded).unwrap();
-    let latest = &mut producer
-        .metadata
-        .as_mut()
-        .unwrap()
-        .blocks
-        .as_mut()
-        .unwrap()
-        .latest_block;
-    latest.db.as_mut().unwrap().number = Some("23116931".into());
-    latest.cache.as_mut().unwrap().number = Some("23116933".into());
-    latest.node.as_mut().unwrap().number = "23116939".into();
+    let latest = &mut producer.metadata.as_mut().unwrap().blocks.latest_block;
+    latest.db.number = "23116931".into();
+    latest.cache.number = "23116933".into();
+    latest.node.number = "23116939".into();
     let distinct = serde_json::to_string(&producer).unwrap();
 
     for (body, heights) in [
@@ -94,23 +87,10 @@ async fn health_cache_number() {
         let cached = response.try_as_success().expect("typed health response");
         let parsed = response.try_parse_as_success_model().unwrap();
         assert_eq!(cached, &parsed);
-        let latest = &parsed
-            .metadata
-            .as_ref()
-            .unwrap()
-            .blocks
-            .as_ref()
-            .unwrap()
-            .latest_block;
-        assert_eq!(
-            latest.db.as_ref().unwrap().number.as_deref(),
-            Some(heights[0])
-        );
-        assert_eq!(
-            latest.cache.as_ref().unwrap().number.as_deref(),
-            Some(heights[1])
-        );
-        assert_eq!(latest.node.as_ref().unwrap().number, heights[2]);
+        let latest = &parsed.metadata.as_ref().unwrap().blocks.latest_block;
+        assert_eq!(latest.db.number, heights[0]);
+        assert_eq!(latest.cache.number, heights[1]);
+        assert_eq!(latest.node.number, heights[2]);
         let encoded = serde_json::to_value(latest).unwrap();
         assert_eq!(encoded, wire["metadata"]["blocks"]["latest_block"]);
         assert!(encoded["cache"].get("mber").is_none());

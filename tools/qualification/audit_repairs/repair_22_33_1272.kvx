@@ -1,0 +1,27 @@
+[repair]
+task = "22.33.1272"
+base_revision = "0ba7cfa54c7f07b37201b1f12fcc2f1dd7ed0ed7"
+input_makefile_sha256 = "fec59f07e2726d1983317259d0ef47278d67bf56a70aab2a4feae196da5a5be0"
+resolution = "Use the proposal's explicit retirement option: replace the obsolete standalone wasm/Makefile with a help-only entrypoint. Reject every explicit goal other than help at Make parse time, before any recipe runs, including mixed help/build goals. Default help points developers to repository-root make paxd-build, make paxd-native-libs, and CGO_ENABLED=1 go test -mod=readonly ./wasm/x/wasm/... after native setup. Remove standalone manifest, upstream SDK linker, wasmd daemon, tool install, simulation and generation recipes from this retired entrypoint; production Go tests and other files remain unchanged."
+source_proof = "Parse the actual Makefile's assignments, rules, retirement conditional and shell printf argv; assert no stale standalone build or generation commands survive. Parse the documented root commands and follow the real root paxd-build prerequisites and chain.mk build recipe to daemon/paxd, the root Go manifest, root native-library target, module package/tests and node's real WASM keeper/module registrations. No subprocess or external toolchain is needed."
+review_only = "Native GNU Make parsing/execution, Go/C/Rust compilation, native linking, module test execution and paxd runtime behavior are review-only for this Python source gate. Assertions prove source connections and command guidance, not a successful native build or deployment. This config-drift finding changes no runtime interface or persistent state and requires no restart-recovery or interface-mismatch scenario. No shell script, unit file or manifest is repaired."
+baseline = "Initial git status/diff showed only pre-existing runner .cgignore and spec task-status changes, preserved unchanged. Neither scoped repair file existed; gate.json reported zero builds, zero verifies, zero prior repairs and two available repair cycles; gates.jsonl was absent. No pre-change verify was run and no baseline test failure is claimed: the explicit implementation-first order and exclusive hf-done verification override the older step requesting an unchanged-tree verify. The audit's missing standalone manifest/daemon and upstream linker facts were confirmed by read-only inspection."
+wiring_requests = []
+
+[finding.005]
+audit = "spec/layerx-merge/programme/audit/records/22.30.63.kvx"
+file = "wasm/Makefile"
+line = 81
+class = "config-drift"
+severity = "medium"
+owner_domain = 6
+resolution = "Retire the standalone entrypoint explicitly and point developers to the maintained root module and paxd commands; help is the only supported goal and unsupported goals fail visibly rather than silently succeeding. No out-of-path implementation step is needed for this proposal option."
+tests = ["test_wasm_makefile_retires_operational_goals_before_recipes", "test_wasm_help_points_to_real_root_paxd_build_and_native_prerequisites", "test_wasm_module_test_guidance_uses_the_root_manifest_and_real_packages", "test_paxd_consumer_embeds_the_same_wasm_module", "test_repair_record_maps_finding_005_to_all_source_proofs"]
+
+[qualification]
+acceptance = "22998.1"
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1272.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private evidence ledger record the exact content-derived verified candidate revision, command, exit and log. This record is finalized before gates because embedding its own candidate hash would change that hash. Build and verification must qualify the same revision. No gate is claimed before it runs; the runner records qualification and commits."
+gotcha = "The runner's restricted Codify graph does not index production source files; direct read-only inspection supplies those facts. Task instructions prohibit edits to GOTCHA.kvx or spec files, so this note records the limitation here. The generated task lists the acceptance as 22998.1 under section req.22998, not req.22998.1."

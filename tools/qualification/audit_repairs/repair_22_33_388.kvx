@@ -1,0 +1,35 @@
+[task.22.33.388]
+audit = "22.30.141"
+source_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+repair = "Parse the current affected argument, retain first-flag precedence, and preserve caller arguments and newline-delimited affected filenames in Bash arrays through the exact Playwright command passed to dotenv. Only exact --affected and --affected=... options are consumed. An enabled, empty selection returns a distinct status that main converts to the existing successful no-tests exit; false and absent flags run the requested normal selection."
+source_proof = "The pytest module sources the production script without startup side effects and runs its actual selection function in Bash. NUL-delimited command-array output proves absent, bare, true and false flags against populated, empty and missing selection files, spaces, empty arguments, wildcard and shell metacharacters, backslashes, final lines without newline, blank lines and first-flag precedence. bash -n parses the full script; guarded consumer assertions prove main passes the complete quoted array through dotenv after handling the empty-selection status."
+review_only = "Playwright/browser execution, dotenv environment loading, sprite generation and the JavaScript affected-test producer are not executed. The existing producer at apps/explorer/deploy/tools/affected-tests/index.js:193 writes testFileNamesToRun.join('\\n'); review confirms the repaired consumer reads that newline protocol. Runtime qualification exercises only Bash builtins against temporary selection files; it does not substitute external commands or claim a browser run. No restart-recovery or cross-domain interface change is involved."
+baseline = "Initial git status/diff showed only pre-existing .cgignore and spec bookkeeping; the two repair files were absent and /out/run/gates.jsonl did not exist. Gate configuration reported zero builds and zero verifications. No pre-change verification was run and no pre-change test failure is claimed: the explicit implementation-first, hf-done-only gate order supersedes step 5's conflicting baseline instruction. Source inspection confirmed the unset is_affected_arg extraction and unquoted argument expansion."
+build_cmd = "bash -n apps/explorer/tools/scripts/pw.sh"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_388.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision = "The final hf-done JSON and private evidence_ledger identify the exact content-derived verified candidate revision, command, exit code and log path; build and verification must use that same revision. Embedding this record's candidate hash in itself would change the revision. The runner retains the evidence and commits the result."
+wiring_requests = []
+
+[finding.playwright-affected-false]
+file = "apps/explorer/tools/scripts/pw.sh"
+class = "test-gap"
+severity = "medium"
+owner_domain = 14
+tests = ["test_playwright_affected_flags_select_exact_invocation", "test_playwright_selection_reads_complete_lines", "test_playwright_first_flag_retains_precedence", "test_playwright_shell_syntax_and_guarded_consumer"]
+resolution = "Explicit --affected=false selects the normal requested invocation even when the affected file is empty; affected filenames and forwarded arguments retain their individual boundaries. The bounded gates determine qualification."
+
+[format]
+policy = "No Python, shell or KVX formatter is configured for these paths. After the entire implementation is complete, maintain four-space indentation in edited functions, UTF-8, LF, final newline and no trailing whitespace."
+
+[gotcha.1]
+observed = "The historical baseline-test instruction conflicts with the explicit implementation-first and hf-done-only gate order."
+resolution = "Follow the explicit order and claim no baseline test execution. Keep task notes here because GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.2]
+observed = "Broad initial source reads and cg survey exceeded display limits; cg brief also reports an unrelated next task and cached changes."
+resolution = "Use the exact task block, targeted source reads, Git diff and the private gate ledger. Preserve runner bookkeeping and do not infer task ownership from cached survey output."
+
+[gotcha.3]
+observed = "apply_patch rejects deleting and adding the same path within a single patch; the rejected patch made no changes."
+resolution = "Rewrite the in-scope script directly, then add the two new task files."

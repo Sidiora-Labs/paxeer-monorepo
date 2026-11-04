@@ -54,7 +54,7 @@ impl Drop for KeyReference {
 }
 
 fn configuration(endpoint: &str) -> Value {
-    json!({"endpoint": endpoint, "protocol_version": "3", "network_id": "125",
+    json!({"endpoint": endpoint, "rpc_route": "node", "protocol_version": "3", "network_id": "125",
         "native_asset": "03".repeat(32), "sequencer_id": "01".repeat(32),
         "sequencer_key": "02".repeat(32), "first_batch": "1", "last_batch": "100"})
 }
@@ -93,7 +93,7 @@ fn request(value: &Value) -> (Output, Value) {
 
 fn listener(steps: Vec<(&'static str, Value)>) -> (String, JoinHandle<Vec<Value>>) {
     let listener = TcpListener::bind("127.0.0.1:0").expect("loopback listener");
-    let endpoint = format!("http://{}/rpc", listener.local_addr().expect("address"));
+    let endpoint = format!("http://{}", listener.local_addr().expect("address"));
     listener
         .set_nonblocking(true)
         .expect("nonblocking listener");
@@ -124,6 +124,9 @@ fn listener(steps: Vec<(&'static str, Value)>) -> (String, JoinHandle<Vec<Value>
                 socket.read_exact(&mut byte).expect("HTTP header");
                 header.push(byte[0]);
             }
+            assert!(std::str::from_utf8(&header)
+                .expect("HTTP text")
+                .starts_with("POST / HTTP/1.1\r\n"));
             let length = std::str::from_utf8(&header)
                 .expect("HTTP text")
                 .lines()
@@ -219,7 +222,7 @@ fn signed_receipt() -> (Vec<u8>, Value, String) {
     let decoded = decode(&canonical).expect("decoded fixture");
     let protocol = decoded.protocol().expect("protocol receipt");
     let key = &case["pinnedKey"];
-    let mut config = configuration("http://127.0.0.1:1/rpc");
+    let mut config = configuration("http://127.0.0.1:1");
     config["protocol_version"] = json!(protocol.protocol_version().to_string());
     config["sequencer_id"] = json!(hex(&unhex(key["keyId"].as_str().expect("receipt key ID"))));
     config["sequencer_key"] = json!(hex(&unhex(
@@ -311,7 +314,7 @@ fn wait_accepts_rung_names_and_refuses_kernel_commitments() {
         .expect("nonblocking stalled listener");
     let mut bounded = base.clone();
     bounded["configuration"]["endpoint"] = json!(format!(
-        "http://{}/rpc",
+        "http://{}",
         stalled_listener.local_addr().expect("stalled address")
     ));
     bounded["timeout_ms"] = json!("50");
@@ -339,7 +342,7 @@ fn wait_accepts_rung_names_and_refuses_kernel_commitments() {
         for field in ["rung", "commitment"] {
             let mut invalid = base.clone();
             invalid["configuration"]["endpoint"] = json!(format!(
-                "http://{}/rpc",
+                "http://{}",
                 refused_listener.local_addr().expect("refusal address")
             ));
             invalid[field] = json!(old);
@@ -358,4 +361,13 @@ fn wait_accepts_rung_names_and_refuses_kernel_commitments() {
             );
         }
     }
+}
+
+#[allow(dead_code)]
+#[path = "support/audit_22_30_99.rs"]
+mod audit;
+
+#[test]
+fn binary_root_route_returns_the_served_balance() {
+    audit::root_binary_request_and_method_response();
 }

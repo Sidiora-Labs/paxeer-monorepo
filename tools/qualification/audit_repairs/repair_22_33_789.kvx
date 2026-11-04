@@ -1,0 +1,67 @@
+[repair]
+task = "22.33.789"
+audit = "22.30.176"
+mode = "BUILD"
+source_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+qualified_revision = "The content-bound candidate revision is recorded by hf-build and hf-done in the private runner ledger /out/run/gates.jsonl and copied verbatim in the final evidence line; source_revision is the inspected base, not a claim that the base passed."
+build = "hf-build: bash -n scripts/ci/no-float-scan.sh scripts/ci/public-repo-audit.sh scripts/ci/release-gate.sh scripts/ci/secret-scan.sh scripts/ci/solidity-state-surface.sh scripts/ci/symbol-allowlist.sh"
+verify = "hf-done: cg spec done 22.33.789 -f layerx-merge --root /work/paxeer-monorepo; python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_789.py"
+baseline = "not run: the test module did not exist on the unchanged tree and the explicit implementation-first, hf-done-only gate order forbids the contradictory baseline test request; no baseline test failure or passing command is claimed."
+proof = "The pytest gate parses every repaired shell script individually with bash -n, parses production Python, drives production inventory/status/source-binding/identity consumers in-process with filesystem fixtures and rejected evidence, and checks actual guarded producer commands, Foundry configuration and workflow keys. No compiled toolchain, credential, endpoint, native artifact, test double or environment setup is required."
+review = "Actual objdump/nm extraction, rg searching, Forge compilation and EVM execution, remote dependency fetching and a full workflow run are review-only in this focused gate: lexical fixtures and rejected evidence are never claimed as completed binary inspections or executed Foundry tests; no successful Foundry transcript is manufactured. Production invokes those real tools, checks their status and refuses missing inputs."
+recovery = "No finding requires runtime restart recovery; the private-evidence test additionally closes and reopens real persisted evidence through a newly loaded production recorder and checks unchanged digests."
+scope = "Only scripts/ci and the two task-specific audit repair files change; runner task-start bookkeeping is retained; no spec edit, commit or push is performed by this task."
+
+[finding.8]
+file = "scripts/ci/no-float-scan.sh"
+test = "test_finding_8_missing_empty_and_partial_object_inventories_refuse"
+additional_tests = ["test_finding_8_failed_inspection_is_never_no_match", "test_finding_8_source_only_and_binary_claims_are_separate"]
+closure = "Derive the exact current object set from the Makefile source membership and exclusions; refuse missing, extra, empty, unreadable or unenumerable objects; check each objdump/nm exit before consuming its output and distinguish source-only inspection from binary qualification."
+
+[finding.9]
+file = "scripts/ci/symbol-allowlist.sh"
+test = "test_finding_9_empty_inventory_and_nm_failure_refuse"
+additional_tests = ["test_finding_9_all_operating_system_symbols_remain_forbidden", "test_finding_9_sqlite_and_balance_writers_remain_forbidden"]
+closure = "Use the same mandatory current object inventory and successful per-object nm extraction, preserving all operating-system, SQLite, module balance-writer, crypto memcmp and module ABI prohibitions, including ledger execution objects."
+
+[finding.10]
+file = "scripts/ci/solidity-state-surface.sh"
+test = "test_finding_10_full_abi_signatures_bind_executed_tests_with_state_assertions"
+additional_tests = ["test_finding_10_name_only_overloads_and_unexecuted_tests_are_refused", "test_finding_10_only_complete_successful_execution_can_supply_coverage"]
+closure = "Inspect the exact governance timelock contract under the governance profile, run its real Foundry suite freshly, require successful executed tests for each full ABI signature, and validate bound calls and ready-time/nonce/completion/proxy-migration assertions in the existing production Solidity tests; comments, strings, missing results, failures, skips and different overloads cannot satisfy coverage."
+
+[finding.11]
+file = "scripts/ci/xweb-forge-libs.sh"
+test = "test_finding_11_reviewed_digests_and_existing_repository_revision_guards"
+additional_tests = ["test_finding_11_tracked_byte_checks_detect_edits_hidden_from_git_status", "test_finding_11_uninitialized_upstream_gitlinks_cannot_hide_source"]
+closure = "Bind the kept bootstrap and workflow path to reviewed immutable commits; require exact origin, HEAD and tag commit; refuse tracked, untracked and ignored changes; compare each tracked blob and executable mode directly so status flags cannot hide changed bytes; require the reviewed upstream test-only gitlinks to stay empty and uninitialized; print the verified commit identity before Forge."
+reviewed_forge_std = "v1.9.6 = 3b20d60d14b343ee4f908cb8079495c07f5e8981"
+reviewed_openzeppelin = "v5.3.0 = e4f70216d759d8e6a64144a9e1f7bbeed78e7079"
+provenance = "Read-only git ls-remote of the bootstrap's exact upstream tag refs established these commit pins; no network call is made by the pytest gate."
+
+[finding.12]
+file = "scripts/ci/secret-scan.sh"
+test = "test_finding_12_selected_inaccessible_input_refuses_publication"
+additional_tests = ["test_findings_12_and_13_search_errors_are_distinct_from_no_match"]
+closure = "Classify rg no-match separately, preflight all selected files, and propagate inaccessible-input or tool errors through every secret and PEM pipeline with pipefail and explicit returns; hold reports until all scans finish and retain redacted diagnostics."
+
+[finding.13]
+file = "scripts/ci/public-repo-audit.sh"
+test = "test_finding_13_public_audit_handles_every_search_status"
+additional_tests = ["test_findings_12_and_13_search_errors_are_distinct_from_no_match"]
+closure = "Preserve the producer's NUL-separated publication inventory, excluding only declared gitlinks and explicit reviewed allowlists; replace xargs error masking with checked bounded rg batches and classify match/no-match/error explicitly; select the secret scan inventory without a pipeline that could hide selection failure."
+
+[finding.14]
+file = "scripts/ci/release-gate.sh"
+test = "test_finding_14_private_unique_runs_refuse_collisions_and_reopen_unchanged"
+additional_tests = ["test_finding_14_source_binding_and_only_private_references_are_emitted"]
+closure = "Retain the existing source-bound private recorder and layerx-merge task/spec interface; default to directory evidence, place both file and directory logs and sidecars inside exclusive owner-only UUID run directories outside source, refuse run/log collisions, and emit references rather than raw command output; retain earlier evidence unchanged."
+
+[finding.15]
+file = "scripts/ci/xweb-workflow-check.sh"
+test = "test_finding_15_kept_inventory_uses_current_authority_and_actual_inputs"
+additional_tests = ["test_finding_15_workflow_owner_wiring_is_recorded_without_blessing_absent_filters"]
+closure = "Remove the retired declaration and make-target authorities, daemon/custody/kernel harness entries and absent web paths; validate the current layerx-merge task authority and kept path inventory while requiring actual files, directories, Cargo packages and Make targets for every build input. Preserve the negative mutation checks using current inputs."
+
+[wiring.workflow]
+request = ".github/workflows/xweb-test.yml: owning domain fm-tools-ops, task 22.33.700, reconcile trigger filters with scripts/ci/xweb-workflow-check.sh FILTERS by removing include/layerx/lx_web.h, include/layerx/lx_batch.h, src/modules/web/**, tests/test_programs_web_read.c and tests/test_web_program_path.c; these out-of-scope workflow filters are recorded, not changed or investigated by an extra gate."

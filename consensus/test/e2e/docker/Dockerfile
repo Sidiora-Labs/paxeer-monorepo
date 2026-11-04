@@ -1,30 +1,31 @@
 # We need to build in a Linux environment to support C libraries, e.g. RocksDB.
 # We use Debian instead of Alpine, so that we can use binary database packages
 # instead of spending time compiling them.
-FROM golang:1.17
+FROM golang:1.25.8-bookworm
 
-RUN apt-get -qq update -y && apt-get -qq upgrade -y >/dev/null
-RUN apt-get -qq install -y libleveldb-dev librocksdb-dev >/dev/null
+RUN apt-get -qq update \
+    && apt-get -qq install -y --no-install-recommends libleveldb-dev librocksdb-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-# Set up build directory /src/tendermint
-ENV TENDERMINT_BUILD_OPTIONS badgerdb,boltdb,cleveldb,rocksdb
-WORKDIR /src/tendermint
+# Build with the repository root as the Docker context and Go module root.
+WORKDIR /src/paxeer
 
 # Fetch dependencies separately (for layer caching)
 COPY go.mod go.sum ./
+COPY core/deps/geth/go.mod core/deps/geth/go.sum ./core/deps/geth/
 RUN go mod download
 
-# Build Tendermint and install into /usr/bin/tendermint
+# The maintained e2e command embeds both the consensus node and application.
 COPY . .
-RUN make build && cp build/tendermint /usr/bin/tendermint
-COPY test/e2e/docker/entrypoint* /usr/bin/
-
-RUN cd test/e2e && make node && cp build/node /usr/bin/app
+RUN CGO_ENABLED=1 go build -mod=readonly -tags badgerdb,boltdb,cleveldb,rocksdb \
+    -o /usr/bin/app ./consensus/test/e2e/node
+COPY --chmod=0755 consensus/test/e2e/docker/entrypoint /usr/bin/entrypoint
+COPY --chmod=0755 consensus/test/e2e/docker/entrypoint-builtin /usr/bin/entrypoint-builtin
 
 # Set up runtime directory. We don't use a separate runtime image since we need
 # e.g. leveldb and rocksdb which are already installed in the build image.
 WORKDIR /tendermint
-VOLUME /tendermint
+VOLUME ["/tendermint"]
 ENV TMHOME=/tendermint
 
 EXPOSE 26656 26657 26660 6060

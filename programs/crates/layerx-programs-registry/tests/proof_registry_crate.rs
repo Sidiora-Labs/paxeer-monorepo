@@ -318,3 +318,11 @@ fn journal_commit_point_preserves_an_existing_envelope() {
         "refused staging remains available for diagnosis"
     );
 }
+
+#[path = "support/repair_22_33_221.rs"]
+mod repair_22_33_221;
+
+#[test]
+fn node_deployment_upgrade_replay_preserves_identity() {
+    repair_22_33_221::restart_recovery(false);
+}

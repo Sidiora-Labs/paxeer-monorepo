@@ -5,14 +5,10 @@
 //! we need convert functions for CompilerInput and CompilerOutput.
 
 use super::solc_compiler::SolcInput;
-use foundry_compilers::{
-    artifacts::solc,
-    error::{SolcError, SolcIoError},
-};
+use foundry_compilers::{artifacts::solc, error::SolcError};
 use std::{
     collections::BTreeMap,
     path::{Component, Path},
-    process::Stdio,
 };
 use tokio::process::Command;
 
@@ -49,14 +45,11 @@ pub async fn compile_using_cli(
     let input = &input.0;
     let input_args = types::InputArgs::from(input);
     let input_files = types::InputFiles::try_from_compiler_input(input).await?;
-    let output = Command::new(compiler_path)
-        .args(input_args.build())
-        .args(input_files.build()?)
-        .stderr(Stdio::piped())
-        .stdout(Stdio::piped())
-        .output()
+    let mut command = Command::new(compiler_path);
+    command.args(input_args.build()).args(input_files.build()?);
+    let output = super::compiler_process::run_command(command, None)
         .await
-        .map_err(|err| SolcError::Io(SolcIoError::new(err, compiler_path)))?;
+        .map_err(|error| SolcError::Message(error.to_string()))?;
 
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
     let compiler_output = if output.status.success() && !output.stdout.is_empty() {

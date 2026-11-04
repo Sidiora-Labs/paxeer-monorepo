@@ -103,6 +103,8 @@ global-labels = []
 
 [api]
 
+# Production policy: auxiliary APIs stay on loopback. Remote access requires
+# an authenticated reverse proxy; never publish these listeners directly.
 # Enable defines if the API server should be enabled.
 enable = true
 
@@ -110,7 +112,7 @@ enable = true
 swagger = false
 
 # Address defines the API server to listen on.
-address = "tcp://0.0.0.0:1317"
+address = "tcp://127.0.0.1:1317"
 
 # MaxOpenConnections defines the number of maximum open connections.
 max-open-connections = 1000
@@ -125,7 +127,7 @@ rpc-write-timeout = 0
 rpc-max-body-bytes = 1000000
 
 # EnableUnsafeCORS defines if CORS should be enabled (unsafe - use it at your own risk).
-enabled-unsafe-cors = true
+enabled-unsafe-cors = false
 
 ###############################################################################
 ###                           Rosetta Configuration                         ###
@@ -161,7 +163,7 @@ offline = false
 enable = true
 
 # Address defines the gRPC server address to bind to.
-address = "0.0.0.0:9090"
+address = "127.0.0.1:9090"
 
 ###############################################################################
 ###                        gRPC Web Configuration                           ###
@@ -174,10 +176,10 @@ address = "0.0.0.0:9090"
 enable = true
 
 # Address defines the gRPC-web server address to bind to.
-address = "0.0.0.0:9091"
+address = "127.0.0.1:9091"
 
 # EnableUnsafeCORS defines if CORS should be enabled (unsafe - use it at your own risk).
-enable-unsafe-cors = true
+enable-unsafe-cors = false
 
 ###############################################################################
 ###                        State Sync Configuration                         ###
@@ -260,11 +262,23 @@ evm-ss-separate-dbs = false
 
 [evm]
 
-# EnableTestAPI enables the EVM test API
-enable_test_api = true
+# Production EVM JSON-RPC serves normal methods; test-only overrides are off.
+enable_test_api = false
 
-# Set to 0 to disable request limiter, otherwise this limits the number of concurrent simulation calls.
-max_concurrent_simulation_calls = 0
+# Bound concurrent eth_call and gas estimation requests per transport to four.
+# Zero disables the limiter and is forbidden in this production profile.
+max_concurrent_simulation_calls = 4
+
+# Diagnostics override: use a separate private, non-live-chain node only.
+# In that node's app.toml [evm] section, explicitly replace these settings:
+# http_address = "127.0.0.1"
+# ws_enabled = false
+# enable_test_api = true
+# max_concurrent_simulation_calls = 4
+# Reach it through a private tunnel or an authenticated reverse proxy.
+# Keep auxiliary APIs on loopback and unsafe CORS off. Never apply this
+# override to a public node; test APIs are also rejected on live chain IDs.
+# Restore the production settings and restart the diagnostic node afterwards.
 
 # Legacy pax_* / pax2_* JSON-RPC (EVM HTTP only).
 # DEPRECATION: All pax_* and pax2_* methods are deprecated and scheduled for removal - no new integrations.

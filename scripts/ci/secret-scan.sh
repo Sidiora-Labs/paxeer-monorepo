@@ -1,9 +1,12 @@
-#!/bin/sh
-set -eu
+#!/usr/bin/env bash
+set -euo pipefail
 
-scan() {
+script_dir=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+
+scan() (
     scan_list=$(mktemp)
     scan_hits=$(mktemp)
+    trap 'rm -f "$scan_list" "$scan_hits"' EXIT
     cat > "$scan_list"
     report() {
         while IFS= read -r scan_hit; do
@@ -15,19 +18,21 @@ scan() {
         done
     }
     run_rg() {
-        xargs -0 -r -n 200 rg --hidden --no-heading --with-filename -n -o "$@" -- < "$scan_list" || true
+        python3 "$script_dir/checked_rg.py" --no-match-ok -- \
+            --hidden --no-heading --with-filename -n -o "$@" < "$scan_list"
     }
     run_rg '(^|[^A-Za-z0-9+/])AKIA[0-9A-Z]{16}($|[^A-Za-z0-9+/])' \
-        | sed 's/^\([^:]*:[0-9]*:\).\{0,1\}AKIA/\1AKIA/' | report aws-access-key >> "$scan_hits"
-    run_rg 'gh[pousr]_[A-Za-z0-9]{36,}' | report github-token >> "$scan_hits"
-    run_rg 'xox[baprs]-[A-Za-z0-9-]{20,}' | report slack-token >> "$scan_hits"
-    run_rg 'sk_live_[A-Za-z0-9]{20,}' | report stripe-live-key >> "$scan_hits"
-    xargs -0 -r -n 200 rg --hidden -U -l -- \
+        | sed 's/^\([^:]*:[0-9]*:\).\{0,1\}AKIA/\1AKIA/' | report aws-access-key >> "$scan_hits" || return $?
+    run_rg 'gh[pousr]_[A-Za-z0-9]{36,}' | report github-token >> "$scan_hits" || return $?
+    run_rg 'xox[baprs]-[A-Za-z0-9-]{20,}' | report slack-token >> "$scan_hits" || return $?
+    run_rg 'sk_live_[A-Za-z0-9]{20,}' | report stripe-live-key >> "$scan_hits" || return $?
+    python3 "$script_dir/checked_rg.py" --no-match-ok -- --hidden -U -l \
         '-----BEGIN ([A-Z0-9]+ )*PRIVATE KEY-----(\\[nr]|[\r\n \t"'"'"'+`]|(Proc-Type|DEK-Info|Comment): [^\r\n\\]*)+[A-Za-z0-9+/]{40,}' \
-        < "$scan_list" 2>/dev/null \
+        < "$scan_list" \
         | while IFS= read -r pem_file; do
-            rg --no-heading --with-filename -n -o -m 1 -- '-----BEGIN ([A-Z0-9]+ )*PRIVATE KEY-----' "$pem_file"
-        done | report pem-private-key >> "$scan_hits" || true
+            printf '%s\0' "$pem_file" | python3 "$script_dir/checked_rg.py" --no-match-ok -- \
+                --no-heading --with-filename -n -o -m 1 '-----BEGIN ([A-Z0-9]+ )*PRIVATE KEY-----' || return $?
+        done | report pem-private-key >> "$scan_hits" || return $?
     run_rg '(^|[^A-Za-z0-9_-])eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}' \
         | while IFS= read -r jwt_hit; do
             jwt_token=${jwt_hit#*:}
@@ -41,14 +46,14 @@ scan() {
             case "$jwt_json" in
                 '{'*'}') printf '%s:%s\n' "${jwt_hit%%:*}" "$(printf '%s' "${jwt_hit#*:}" | cut -d: -f1):$jwt_token" ;;
             esac
-        done | report jwt >> "$scan_hits"
+        done | report jwt >> "$scan_hits" || return $?
     if [ -s "$scan_hits" ]; then
         cat "$scan_hits"
         rm -f "$scan_list" "$scan_hits"
         return 1
     fi
     rm -f "$scan_list" "$scan_hits"
-}
+)
 
 self_test() {
     fixture=$(mktemp -d)

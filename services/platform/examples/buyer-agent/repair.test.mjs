@@ -23,6 +23,12 @@ async function buyerHumanEndpointConfiguration() {
   assert.equal(config.humanUrl, "https://layerx-human.layerx-testnet.svc:9443");
   assert.equal(config.humanUrlEnvironment, "LAYERX_TESTNET_HUMAN_URL");
   assert.equal(config.rpcUrl, "https://api-mainnet-beta.paxeer.network");
+  assert.equal(new URL(config.rpcUrl).pathname, "/");
+  const emulator = document.environments.emulator;
+  assert.equal(emulator.rpcUrl, "http://127.0.0.1:9402/rpc");
+  assert.equal(new URL(emulator.rpcUrl).pathname, "/rpc");
+  assert.equal(new URL(emulator.rpcUrl).origin, new URL(emulator.humanUrl).origin);
+  assert.notEqual(new URL(emulator.rpcUrl).origin, new URL(config.rpcUrl).origin);
   const saved = Object.fromEntries([config.humanUrlEnvironment, "LAYERX_EXAMPLE_ENDPOINT"]
     .map((name) => [name, process.env[name]]));
   const refused = (error) => error instanceof LayerXApplicationStateError && error.state === "refused";

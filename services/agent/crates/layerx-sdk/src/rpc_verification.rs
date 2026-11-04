@@ -1,3 +1,6 @@
+#[path = "rpc_commit.rs"]
+pub mod node_commit;
+
 use layerx_types::clock::Deadline;
 use std::time::Duration;
 
@@ -24,6 +27,7 @@ pub struct VerifiedRpcReceipt {
     canonical: Vec<u8>,
     batch_evidence: Option<VerifiedBatchEvidence>,
     canonical_activity: Option<Vec<u8>>,
+    committed_block: Option<(u64, [u8; 32])>,
 }
 
 /// Exact inclusion material retained after SDK verification for daemon evidence ingress.
@@ -45,6 +49,20 @@ impl VerifiedRpcReceipt {
     #[must_use]
     pub fn canonical_bytes(&self) -> &[u8] {
         &self.canonical
+    }
+
+    #[must_use]
+    pub const fn rung(&self) -> layerx_types::rung::Rung {
+        if self.committed_block.is_some() {
+            layerx_types::rung::Rung::Committed
+        } else {
+            layerx_types::rung::Rung::Receipted
+        }
+    }
+
+    #[must_use]
+    pub const fn committed_block(&self) -> Option<(u64, [u8; 32])> {
+        self.committed_block
     }
 
     #[must_use]
@@ -91,7 +109,24 @@ impl RpcClient {
         policy: &ReceiptPolicy,
         timeout: Duration,
     ) -> Result<VerifiedRpcReceipt, RpcError> {
-        self.wait_for_authority(activity, commitment, policy, timeout)
+        self.wait_for_authority(activity, commitment, policy, timeout, None)
+    }
+
+    /// Verifies the covering Comet commit and signed sequence batch using caller-pinned trust.
+    pub fn wait_for_with_commit(
+        &self,
+        activity: [u8; 32],
+        policy: &ReceiptPolicy,
+        timeout: Duration,
+        evidence: &layerx_client::rpc::receipt_commit::ReceiptCommitEvidence<'_>,
+    ) -> Result<VerifiedRpcReceipt, RpcError> {
+        self.wait_for_authority(
+            activity,
+            Commitment::Finalised,
+            policy,
+            timeout,
+            Some(evidence),
+        )
     }
 
     fn wait_for_authority(
@@ -100,14 +135,12 @@ impl RpcClient {
         commitment: Commitment,
         policy: &ReceiptPolicy,
         timeout: Duration,
+        commit: Option<&layerx_client::rpc::receipt_commit::ReceiptCommitEvidence<'_>>,
     ) -> Result<VerifiedRpcReceipt, RpcError> {
-        if commitment == Commitment::Finalised {
-            return Err(RpcError::MissingFinalityTrust);
-        }
         if activity == [0; 32] || timeout > Duration::from_secs(300) {
             return Err(RpcError::InvalidRequest);
         }
-        let id = super::rpc::encode_hex(&activity);
+        let id = format!("0x{}", super::rpc::encode_hex(&activity));
         if timeout.is_zero() {
             return Err(RpcError::Pending {
                 activity_id: activity,
@@ -115,6 +148,18 @@ impl RpcClient {
         }
         let clock = self.clock()?;
         let mut deadline = Deadline::start(clock.as_ref(), timeout).map_err(RpcError::Clock)?;
+        let Some(chain) =
+            self.read_before_deadline("eth_chainId", &serde_json::json!([]), &mut deadline)?
+        else {
+            return Err(RpcError::Pending {
+                activity_id: activity,
+            });
+        };
+        if node_quantity(&serde_json::json!({"chain": chain}), "chain")?
+            != u64::from(policy.network_id)
+        {
+            return Err(RpcError::Verification);
+        }
         loop {
             if deadline
                 .remaining(clock.as_ref())
@@ -125,7 +170,14 @@ impl RpcClient {
                     activity_id: activity,
                 });
             }
-            match self.receipt_at_commitment(&id, activity, commitment, policy, &mut deadline) {
+            match self.receipt_at_commitment(
+                &id,
+                activity,
+                commitment,
+                policy,
+                &mut deadline,
+                commit,
+            ) {
                 Ok(Some(receipt)) => return Ok(receipt),
                 Ok(None)
                 | Err(RpcError::Remote {
@@ -184,68 +236,113 @@ impl RpcClient {
         commitment: Commitment,
         policy: &ReceiptPolicy,
         deadline: &mut Deadline,
+        commit: Option<&layerx_client::rpc::receipt_commit::ReceiptCommitEvidence<'_>>,
     ) -> Result<Option<VerifiedRpcReceipt>, RpcError> {
-        let clock = self.clock()?;
         let Some(result) =
-            self.read_before_deadline("lx_getReceipt", &serde_json::json!([id]), deadline)?
+            self.read_before_deadline("pax_sequencerReceipt", &serde_json::json!([id]), deadline)?
         else {
             return Ok(None);
         };
-        if matches!(
-            result.get("state").and_then(Value::as_str),
-            Some("pending" | "unknown")
-        ) {
+        if result.is_null() {
             return Ok(None);
         }
-        if result.get("activity_id").and_then(Value::as_str) != Some(id) {
+        if result.get("txHash").and_then(Value::as_str) != Some(id) {
             return Err(RpcError::InvalidResponse);
         }
-        let canonical = hex_field(&result, "receipt", 1_048_576)?;
-        let receipt = layerx_proof::receipt::verify_sequencer_signature(
-            &canonical,
-            policy.sequencer.public_key(),
-        )
-        .map_err(|_| RpcError::Verification)?;
-        let protocol = receipt.protocol().ok_or(RpcError::Verification)?;
-        if protocol.activity_id() != activity
-            || protocol.protocol_version() != policy.protocol_version
-        {
-            return Err(RpcError::Verification);
-        }
-        let batch_evidence = if commitment == Commitment::Executed {
-            None
-        } else {
-            if deadline
-                .remaining(clock.as_ref())
-                .map_err(RpcError::Clock)?
-                .is_zero()
-            {
+        match result.get("rung").and_then(Value::as_str) {
+            Some("submitted") => {
+                let fields = result.as_object().ok_or(RpcError::InvalidResponse)?;
+                if fields.len() != 3 || !fields.contains_key("nonce") {
+                    return Err(RpcError::InvalidResponse);
+                }
+                node_quantity(&result, "nonce")?;
                 return Ok(None);
             }
-            let Some(proof) = self.read_before_deadline(
-                "lx_getProof",
-                &serde_json::json!(["receipt", id]),
+            Some("receipted" | "committed") => {}
+            _ => return Err(RpcError::InvalidResponse),
+        }
+        let (receipt, canonical) = verify_node_receipt(&result, activity, policy)?;
+        let committed_block = if commitment == Commitment::Executed {
+            None
+        } else {
+            if result["rung"] != "committed" {
+                return Ok(None);
+            }
+            let height = node_quantity(&result, "blockNumber")?;
+            let hash = node_fixed::<32>(&result, "blockHash")?;
+            let Some(material) = self.read_before_deadline(
+                "px_getCommit",
+                &serde_json::json!([height.to_string()]),
                 deadline,
             )?
             else {
                 return Ok(None);
             };
-            let evidence = verify_rpc_inclusion(&proof, id, &canonical, policy)?;
-            Some(evidence)
+            let Some(block) = self.read_before_deadline(
+                "eth_getBlockByNumber",
+                &serde_json::json!([format!("0x{height:x}"), false]),
+                deadline,
+            )?
+            else {
+                return Ok(None);
+            };
+            if node_quantity(&block, "number")? != height
+                || node_fixed::<32>(&block, "hash")? != hash
+            {
+                return Err(RpcError::Verification);
+            }
+            if let Some(evidence) = commit {
+                if height != evidence.covering_height || height < node_quantity(&result, "height")?
+                {
+                    return Err(RpcError::Verification);
+                }
+                let head = layerx_client::rpc::commit::verify_commit_material(
+                    &material["signedHeader"],
+                    evidence.verifier,
+                )
+                .map_err(|_| RpcError::Verification)?;
+                if u64::try_from(head.height()).ok() != Some(height) || head.header_hash() != hash {
+                    return Err(RpcError::Verification);
+                }
+                let pin = layerx_client::sequencer::ReceiptKeyEntry {
+                    key_id: policy.sequencer.sequencer_id(),
+                    public_key: policy.sequencer.public_key(),
+                    first_height: policy.sequencer.first_batch_number(),
+                    last_height: policy.sequencer.last_batch_number(),
+                };
+                layerx_client::rpc::receipt_commit::verify_receipt_coverage(
+                    receipt.protocol().ok_or(RpcError::Verification)?,
+                    node_quantity(&result, "height")?,
+                    &head,
+                    evidence,
+                    &[pin],
+                )
+                .map_err(|_| RpcError::Verification)?;
+            } else {
+                let (authority, coverage) = self
+                    .node_commit
+                    .as_ref()
+                    .ok_or(RpcError::MissingFinalityTrust)?;
+                node_commit::verify_committed(
+                    &material["signedHeader"],
+                    receipt.protocol().ok_or(RpcError::Verification)?,
+                    node_quantity(&result, "height")?,
+                    height,
+                    hash,
+                    authority,
+                    coverage,
+                    &policy.sequencer,
+                )?;
+            }
+            Some((height, hash))
         };
-        if deadline
-            .remaining(clock.as_ref())
-            .map_err(RpcError::Clock)?
-            .is_zero()
-        {
-            return Ok(None);
-        }
         Ok(Some(VerifiedRpcReceipt {
             receipt,
             commitment,
             canonical,
-            batch_evidence,
+            batch_evidence: None,
             canonical_activity: None,
+            committed_block,
         }))
     }
 }
@@ -347,4 +444,189 @@ mod tests {
         };
         assert!(verify_rpc_inclusion(&json!({"state":"accepted"}), "01", &[1], &policy).is_err());
     }
+}
+
+fn node_quantity(value: &Value, name: &str) -> Result<u64, RpcError> {
+    let text = value
+        .get(name)
+        .and_then(Value::as_str)
+        .and_then(|s| s.strip_prefix("0x"))
+        .ok_or(RpcError::InvalidResponse)?;
+    if text.is_empty()
+        || (text.len() > 1 && text.starts_with('0'))
+        || !text.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+    {
+        return Err(RpcError::InvalidResponse);
+    }
+    u64::from_str_radix(text, 16).map_err(|_| RpcError::InvalidResponse)
+}
+fn node_bytes(value: &Value, name: &str, maximum: usize) -> Result<Vec<u8>, RpcError> {
+    let text = value
+        .get(name)
+        .and_then(Value::as_str)
+        .and_then(|s| s.strip_prefix("0x"))
+        .ok_or(RpcError::InvalidResponse)?;
+    if text.len() % 2 != 0 || text.len() / 2 > maximum {
+        return Err(RpcError::InvalidResponse);
+    }
+    text.as_bytes()
+        .chunks_exact(2)
+        .map(|pair| {
+            u8::from_str_radix(
+                std::str::from_utf8(pair).map_err(|_| RpcError::InvalidResponse)?,
+                16,
+            )
+            .map_err(|_| RpcError::InvalidResponse)
+        })
+        .collect()
+}
+fn node_fixed<const N: usize>(value: &Value, name: &str) -> Result<[u8; N], RpcError> {
+    node_bytes(value, name, N)?
+        .try_into()
+        .map_err(|_| RpcError::InvalidResponse)
+}
+
+/// Authenticates the node summary and every served execution field under height-ranged pins.
+/// The payment asset is bound to its denomination independently of the fee denomination.
+pub fn verify_node_receipt(
+    value: &Value,
+    activity: [u8; 32],
+    policy: &ReceiptPolicy,
+) -> Result<(Receipt, Vec<u8>), RpcError> {
+    use layerx_proof::sequencer_logs::{verify_logs, SequencerLog};
+    use sha2::{Digest as _, Sha256};
+    let fields = value.as_object().ok_or(RpcError::InvalidResponse)?;
+    const EXECUTION_FIELDS: &[&str] = &[
+        "rung",
+        "txHash",
+        "nonce",
+        "seq",
+        "height",
+        "index",
+        "timestamp",
+        "status",
+        "returnData",
+        "logs",
+        "gasUsed",
+        "cumulativeGasUsed",
+        "effectiveGasPrice",
+        "paymentDenom",
+        "feeDenom",
+        "feeAmount",
+        "sponsor",
+        "from",
+        "to",
+        "contractAddress",
+        "vmError",
+        "keyId",
+        "signingKey",
+        "receipt",
+    ];
+    let committed = match value["rung"].as_str() {
+        Some("receipted") => false,
+        Some("committed") => true,
+        _ => return Err(RpcError::InvalidResponse),
+    };
+    if fields.len() != EXECUTION_FIELDS.len() + if committed { 2 } else { 0 }
+        || EXECUTION_FIELDS
+            .iter()
+            .any(|field| !fields.contains_key(*field))
+    {
+        return Err(RpcError::InvalidResponse);
+    }
+    if committed
+        && (node_quantity(value, "blockNumber")? < node_quantity(value, "height")?
+            || node_fixed::<32>(value, "blockHash")? == [0; 32])
+    {
+        return Err(RpcError::Verification);
+    }
+    let canonical = node_bytes(value, "receipt", 1_048_576)?;
+    let receipt = layerx_proof::receipt::verify_sequencer_signature(
+        &canonical,
+        layerx_proof::receipt::ReceiptKeys::HeightRanges(std::slice::from_ref(&policy.sequencer)),
+    )
+    .map_err(|_| RpcError::Verification)?;
+    let protocol = receipt.protocol().ok_or(RpcError::Verification)?;
+    let logs = value["logs"].as_array().ok_or(RpcError::InvalidResponse)?;
+    let logs = logs
+        .iter()
+        .map(|log| {
+            let fields = log.as_object().ok_or(RpcError::InvalidResponse)?;
+            if fields.len() != 4
+                || ["address", "topics", "data", "logIndex"]
+                    .iter()
+                    .any(|f| !fields.contains_key(*f))
+            {
+                return Err(RpcError::InvalidResponse);
+            }
+            let topics = log["topics"]
+                .as_array()
+                .filter(|v| v.len() <= 4)
+                .ok_or(RpcError::InvalidResponse)?;
+            let topics = topics
+                .iter()
+                .map(|topic| node_fixed::<32>(&serde_json::json!({"topic":topic}), "topic"))
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(SequencerLog::new(
+                node_fixed(log, "address")?,
+                topics,
+                node_bytes(log, "data", 1_048_576)?,
+                node_quantity(log, "logIndex")?,
+            ))
+        })
+        .collect::<Result<Vec<_>, RpcError>>()?;
+    let verified = verify_logs(&receipt, logs).map_err(|_| RpcError::Verification)?;
+    let summary = verified.summary();
+    let returned = node_bytes(value, "returnData", 1_048_576)?;
+    let vm_error = value["vmError"].as_str().ok_or(RpcError::InvalidResponse)?;
+    let payment = value["paymentDenom"]
+        .as_str()
+        .filter(|s| !s.is_empty() && s.len() <= 64)
+        .ok_or(RpcError::InvalidResponse)?;
+    let mut height = [0; 32];
+    height[24..].copy_from_slice(&node_quantity(value, "height")?.to_be_bytes());
+    let mut from = [0; 32];
+    from[12..].copy_from_slice(&node_fixed::<20>(value, "from")?);
+    let mut to = [0; 32];
+    to[12..].copy_from_slice(&node_fixed::<20>(value, "to")?);
+    let fee = value["feeAmount"]
+        .as_str()
+        .and_then(|s| s.strip_prefix("0x"))
+        .ok_or(RpcError::InvalidResponse)?;
+    if fee.is_empty() || (fee.len() > 1 && fee.starts_with('0')) {
+        return Err(RpcError::InvalidResponse);
+    }
+    let fee = u128::from_str_radix(fee, 16).map_err(|_| RpcError::InvalidResponse)?;
+    if policy.network_id == 0
+        || protocol.protocol_version() != policy.protocol_version
+        || protocol.protocol_version() != 2
+        || protocol.parameter_version() != 0
+        || protocol.activity_id() != activity
+        || node_fixed::<32>(value, "txHash")? != activity
+        || protocol.batch_id() != height
+        || protocol.debit_sequence() != node_quantity(value, "nonce")?
+        || protocol.global_sequence() != node_quantity(value, "seq")?
+        || protocol.timestamp() != node_quantity(value, "timestamp")?
+        || protocol.context_hash() != node_fixed::<32>(value, "keyId")?
+        || node_fixed::<32>(value, "signingKey")? != policy.sequencer.public_key()
+        || protocol.asset() != <[u8; 32]>::from(Sha256::digest(payment.as_bytes()))
+        || protocol.from() != from
+        || protocol.to() != to
+        || protocol.fee_charged() != fee
+        || protocol.result_code() != i32::from(node_quantity(value, "status")? == 0)
+        || node_quantity(value, "status")? > 1
+        || summary.gas_used() != node_quantity(value, "gasUsed")?
+        || summary.cumulative_gas_used() != node_quantity(value, "cumulativeGasUsed")?
+        || summary.effective_gas_price() != node_quantity(value, "effectiveGasPrice")?
+        || u64::from(summary.tx_index()) != node_quantity(value, "index")?
+        || summary.contract_address() != node_fixed::<20>(value, "contractAddress")?
+        || summary.sponsor() != node_fixed::<20>(value, "sponsor")?
+        || Some(summary.fee_denom()) != value["feeDenom"].as_str()
+        || usize::try_from(summary.return_data_len()).ok() != Some(returned.len())
+        || protocol.activity_root() != <[u8; 32]>::from(Sha256::digest(&returned))
+        || summary.vm_error_hash() != <[u8; 32]>::from(Sha256::digest(vm_error.as_bytes()))
+    {
+        return Err(RpcError::Verification);
+    }
+    Ok((receipt, canonical))
 }

@@ -14805,3 +14805,28 @@ fix = "The touches of every pending task of that shape are narrowed to its own t
 title = "The root README rewrite and an earlier README repair conflicted at publication"
 symptom = "22.33.33 (doc-drift of audit record 22.30.102) changed README.md and reached the human domain integration first; 22.31.470 then rewrote the root README on main and, as its do_3 required, reconciled the 22.33.33 changes into the rewrite; the later merge of the human domain into main conflicted on README.md and stalled every human-domain publication for ninety minutes."
 fix = "The merge keeps the 22.31.470 README (33e39ac9e2), which already carries the 22.33.33 facts; tasks whose README changes later conflict re-apply them on top of the rewrite."
+
+[gotcha.2997]
+title = "Installed binaries under apps/perps/node_modules are tracked"
+symptom = "Nine executable files under apps/perps/node_modules/.bin (autoprefixer, esbuild, next, webpack and five more) are committed although apps/perps/.gitignore lists /node_modules. A dependency install anywhere in the repository rewrites them, and the qualification gate then counts the rewritten file as a change outside the task's declared paths: 22.31.447 attempt 3 passed every gate and was rejected for apps/perps/node_modules/.bin/webpack."
+fix = "22.31.480 removes the nine files from the index so the ignore rule takes effect. Until it lands, a task whose gates run a dependency install restores the directory with git checkout -- apps/perps/node_modules before finishing."
+
+[gotcha.2998]
+title = "Two parallel hosted-platform repairs crossed on the maintained node manifest"
+symptom = "22.33.1319 (relay retirement, committed 08:38Z, merged 10:23Z) wrote four Go tests that encode the native deployment as the manifest services/platform/hosted/node/deployment.yaml stood in its own tree: image ghcr.io/sidiora-labs/layerx-kernel:0.1.0, service targets chain-rpc and consensus-rpc, a --receipt-key-file argument and a shell provisioning loop. One minute later 22.33.1319's neighbour 22.30.76 part 1 (5b49dd0528, hosted/tests config-drift) rewrote that manifest into one kernel container ghcr.io/sidiora-labs/kernel:0.1.0 with targets rpc, consensus and health and a Python provisioning map. Both passed their gates in their own trees; on main the four 1319 tests fail, and 22.31.465, whose verify runs them, cannot qualify."
+fix = "Decision 2532 names the manifest the producer; 22.31.481 reconciles the four tests with it; 22.31.465's verify no longer runs the 1319 tests. A test that asserts a deployment fact reads it from the maintained document rather than repeating the literal."
+
+[gotcha.2999]
+title = "A repair planted a second install root under apps/wallet/src/lib/swap"
+symptom = "22.33.121 (published 2026-11-04 14:15Z) added apps/wallet/src/lib/swap/package.json and npm-shrinkwrap.json declaring @ethereumjs/block, common, tx, util and vm 10.1.3, solc 0.8.27 and prettier for its fixture evm-22-33-121.fixture.ts, installed into an ignored node_modules beside them. apps/wallet/package.json declares none of these, so the app type-check (tsc --noEmit -p apps/wallet/tsconfig.json) fails with TS2307 on the five imports for every later wallet task; 22.33.123 attempt 2 (14:40Z) was the first."
+fix = "22.31.482 moves the five @ethereumjs packages and solc into the devDependencies of apps/wallet/package.json with the pnpm lock, removes the nested manifests and fixes the fixture's implicit any; 22.33.123, 22.33.133 and 22.33.186 require it. One install root per application: a fixture never carries its own manifest."
+
+[gotcha.3000]
+title = "The embedded precompile ABI inventory of sig-provider drifted from its generator"
+symptom = "services/explorer/services/sig-provider/sig-provider/src/sources/precompiles.json no longer equals the inventory the production ABI generator emits when it is executed in-process: the abi section differs (the BackstopLiquidation event among others). 22.33.312 attempt 1 (2026-11-04 14:49Z) asserted the equality and failed; its other five documentation checks passed."
+fix = "22.33.312 regenerates the embedded inventory from the real generator in the same change and keeps the equality assertion; the inventory file is in its paths and the Rust integration cases join its verify."
+
+[gotcha.3001]
+title = "Un-ignoring a package directory in .cgignore drags its install root into the recorded change set"
+symptom = "22.33.246 attempt 1 (2026-11-04 14:59Z) edited .cgignore outside its paths and installed programs/sdk/assemblyscript; the recorded change set then listed 122 files under programs/sdk/assemblyscript/node_modules although the directory's own .gitignore excludes node_modules, and the build ran at an earlier revision than the verify (build_on_verified unmet), so the passing tests did not qualify."
+fix = "The attempt continues: .cgignore reverts, the install root leaves the change, and build and verify run at the same revision. An install root is never part of a change (gotchas 2997, 2999); a repair that needs a package installed installs it in its build command."

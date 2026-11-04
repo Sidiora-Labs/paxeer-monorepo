@@ -12,7 +12,7 @@ from .evm_transaction import decode_signed_transaction
 from .production import PlatformSdkError, SdkErrorCode
 from .revert import decode_revert_reason, raise_for_receipt_status
 from .verifier import ReceiptKey, SequencerReceiptVerificationError
-from .x402 import payment_commitment, verify_payment_receipt
+from .x402 import payment_commitment, refuse_payer_grant, verify_payment_receipt
 
 
 def rpc_hex(value: object, size: int | None = None) -> bytes:
@@ -32,7 +32,7 @@ def decode_receipt_keys(result: object) -> tuple[ReceiptKey, ...]:
     if not isinstance(result, dict) or set(result) != {"keys"}:
         raise ValueError("invalid-receipt-keys")
     entries = result["keys"]
-    if not isinstance(entries, list) or not entries:
+    if not isinstance(entries, list):
         raise ValueError("invalid-receipt-keys")
     keys = []
     seen = set()
@@ -254,12 +254,17 @@ def verify_rpc_payment(
     asset,
     pay_to,
     commitment="receipted",
+    finality=None,
+    scheme="exact",
+    grant_binding=None,
 ):
     """Verify an EVM payment and return txHash, rung, height and keyId.
 
     A submitted transaction renders as pending with no height or keyId.
     Receipted and committed results carry the signed receipt's height and keyId.
     """
+    if grant_binding is not None or scheme in ("metered", "subscription"):
+        refuse_payer_grant()
     expected_hash = _transaction_bytes(expected_tx_hash, 32)
     payer = _transaction_bytes(expected_payer, 32)
     payment_commitment({"layerx": {"commitment": commitment}})
@@ -293,6 +298,10 @@ def verify_rpc_payment(
             asset=asset,
             pay_to=pay_to,
             payer=payer.hex(),
+            commitment=commitment,
+            finality=finality,
+            scheme=scheme,
+            grant_binding=grant_binding,
             return_data=(
                 _return_data(result["returnData"]) if "returnData" in result else None
             ),
@@ -303,11 +312,14 @@ def verify_rpc_payment(
         raise ValueError("payment-binding-mismatch") from error
     if (
         verified.receipt.activity_id != expected_hash
-        or verified.receipt.from_account != payer
         or verified.height != int(height, 16)
         or verified.receipt.context_hash != _transaction_bytes(result["keyId"], 32)
     ):
         raise ValueError("payment-binding-mismatch")
+    if commitment == "committed":
+        landing = finality[0].verify(raw_transaction, verified.height, finality[1])
+        if _transaction_bytes(result["blockHash"], 32) != landing.block_hash:
+            raise ValueError("committed-landing-mismatch")
     return {
         "txHash": "0x" + expected_hash.hex(),
         "rung": result["rung"],

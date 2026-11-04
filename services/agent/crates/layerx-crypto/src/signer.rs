@@ -10,12 +10,12 @@ use std::time::Duration;
 use ed25519_dalek::VerifyingKey;
 use k256::ecdsa::Signature;
 
+pub use crate::binding::BindMessage;
 use crate::disclosure::call::validate_call;
 use crate::disclosure::{Disclosure, DisclosureError};
 use crate::evm_transaction::Eip1559Call;
-use crate::{binding::BindMessage, ct, ed25519, SignatureMessage, VerifyError};
+use crate::{ct, ed25519, SignatureMessage, VerifyError};
 use layerx_types::payload::ModuleRegistry;
-use layerx_wire::hash::Domain;
 
 pub use crate::local::LocalSigner;
 
@@ -36,7 +36,7 @@ pub struct SigningRequest<'a> {
 #[derive(Clone, Copy, Debug)]
 pub enum SigningDisclosure<'a> {
     #[deprecated(
-        note = "Retained for local legacy consumers; external key boundaries refuse activity signing"
+        note = "Retained for audit compatibility; all key boundaries refuse activity signing"
     )]
     Activity(&'a Disclosure),
     Bind(&'a BindMessage),
@@ -53,7 +53,7 @@ impl<'a> SigningRequest<'a> {
         }
     }
 
-    fn activity(
+    pub fn new(
         message: SignatureMessage<'a>,
         disclosure: &'a Disclosure,
     ) -> Result<Self, SignError> {
@@ -61,10 +61,8 @@ impl<'a> SigningRequest<'a> {
         if !ct::eq_fixed(&digest, &message.digest()) {
             return Err(SignError::DisclosureMismatch("canonical_bytes"));
         }
-        Ok(Self {
-            message: Some(message),
-            disclosure: SigningDisclosure::Activity(disclosure),
-        })
+        // A matching legacy disclosure is evidence for audit, never signing authority.
+        Err(SignError::InvalidDisclosure)
     }
 
     pub(crate) const fn send_debit(
@@ -92,14 +90,7 @@ impl<'a> SigningRequest<'a> {
     /// Refuses a payer authorization that differs from its canonical message.
     pub fn signing_bytes(self) -> Result<Vec<u8>, SignError> {
         match self.disclosure {
-            SigningDisclosure::Activity(disclosure) => {
-                let message = self.message.ok_or(SignError::InvalidDisclosure)?;
-                let digest = disclosure.validated_digest().map_err(SignError::from)?;
-                if !ct::eq_fixed(&digest, &message.digest()) {
-                    return Err(SignError::DisclosureMismatch("canonical_bytes"));
-                }
-                Ok(digest.to_vec())
-            }
+            SigningDisclosure::Activity(_) => Err(SignError::InvalidDisclosure),
             SigningDisclosure::Bind(binding) => {
                 BindMessage::decode(binding.as_bytes())?;
                 Ok(binding.as_bytes().to_vec())
@@ -315,7 +306,7 @@ pub trait Signer: fmt::Debug + Send + Sync {
     /// Returns the public verification key without exposing private material.
     fn public_key(&self) -> [u8; 32];
 
-    /// Signs one disclosure-bound canonical request or refuses it.
+    /// Signs one disclosure-bound payer authorization or refuses it.
     fn sign<'a>(&'a self, request: SigningRequest<'a>) -> SignFuture<'a>;
 
     /// Returns the EVM account whose key signs transactions, if any.
@@ -323,6 +314,14 @@ pub trait Signer: fmt::Debug + Send + Sync {
 
     /// Signs the EIP-1559 preimage of one call or refuses it.
     fn sign_transaction<'a>(&'a self, call: &'a Eip1559Call) -> TransactionSignFuture<'a>;
+}
+
+/// A key custodian capable of the chain's raw Ed25519 binding consent.
+/// Transaction-only signers do not implement this interface.
+pub trait BindSigner: Signer {
+    fn sign_bind<'a>(&'a self, message: &'a BindMessage) -> SignFuture<'a> {
+        self.sign(SigningRequest::bind(message))
+    }
 }
 
 #[must_use]
@@ -349,15 +348,13 @@ pub fn sign_disclosed_call<'a>(
     })
 }
 
-/// Validates, re-encodes, and signs one canonical disclosed activity.
-///
-/// Compatibility for existing local consumers; external signers refuse this purpose.
+/// Validates legacy evidence and refuses retired activity signing before key or transport access.
 #[deprecated(
     note = "Use sign_disclosed_call for transactions or SigningRequest::bind for DID consent"
 )]
 #[must_use]
 pub fn sign_disclosed<'a>(
-    signer: &'a dyn Signer,
+    _signer: &'a dyn Signer,
     canonical: &'a [u8],
     disclosure: &'a Disclosure,
     registry: &'a ModuleRegistry,
@@ -366,16 +363,7 @@ pub fn sign_disclosed<'a>(
         disclosure
             .validate_bytes(canonical, registry)
             .map_err(SignError::from)?;
-        let (protocol_version, network_id) = disclosure.scope();
-        let message = SignatureMessage::new(
-            Domain::SignaturePreimage,
-            protocol_version,
-            network_id,
-            canonical,
-        )
-        .map_err(|_| SignError::InvalidDisclosure)?;
-        let request = SigningRequest::activity(message, disclosure)?;
-        signer.sign(request).await
+        Err(SignError::InvalidDisclosure)
     })
 }
 
@@ -433,6 +421,8 @@ impl fmt::Debug for KeystoreSigner {
         formatter.write_str("KeystoreSigner([external key])")
     }
 }
+
+impl BindSigner for KeystoreSigner {}
 
 impl Signer for KeystoreSigner {
     fn public_key(&self) -> [u8; 32] {
