@@ -1,234 +1,197 @@
 # Assets and tokens
 
-The Asset module is the balance authority for LayerX payments. Amounts are
-unsigned integer counts of the smallest unit; `decimals` is display metadata.
-The native Asset activity, record-v3, genesis, account-enumeration, and fee
-surfaces described here are served by the kernel Asset module
-(`src/modules/asset/`) and the public read path.
+Paxeer is one BFT network with the kernel integrated into `paxd`, including
+block proposal. EVM chain id is `125` (`0x7d`); a transaction is final when its
+block is committed. Native coin balances live in the chain bank ledger.
+EVM clients read bank facts at `0x0000000000000000000000000000000000001001`
+and discover token pointers at `0x000000000000000000000000000000000000100A`.
 
-The full activity catalog, payload fields, and refusals are on
-[Asset](Asset.md). This page covers account names, issuance, and the named
-fee schedule.
+This page covers native denominations, token pointers, account identifiers,
+and funding. The merged ledger precompile also retains registered Asset
+metadata and account operations; its ABI replaces the old public activity
+submission instructions.
 
-See also [Payments developer path](PaymentsQuickstart.md),
-[Public JSON-RPC](PublicRpc.md), [Fees](Fees.md), and [Programs](Programs.md).
+See also [Public JSON-RPC](PublicRpc.md), [Fees](Fees.md),
+[Programs](Programs.md), and [Hosted agent boundary](HostedAgentBoundary.md)
+for authenticated receipt reads.
+
+## Amounts and asset facts
+
+Amounts are unsigned integer counts of the asset's smallest unit. Keep them
+as integers or decimal strings throughout payment processing; apply a decimal
+scale only for display. A denomination, an ERC-20 contract address, and a
+32-byte registered Asset id identify different things and must not be
+interchanged.
+
+The bank ABI in [`Bank.sol`](../../precompiles/bank/Bank.sol) exposes:
+
+| Read | Result |
+| --- | --- |
+| `balance(address,string)` | Balance in raw units of the requested denomination |
+| `all_balances(address)` | Array of `(uint256 amount, string denom)` coins |
+| `name(string)` / `symbol(string)` | Bank denomination metadata; an unknown denomination is refused |
+| `decimals(string)` | Currently returns `0`, reflecting integer bank units |
+| `supply(string)` | Total bank supply for the denomination |
+
+The `decimals` behavior is implemented in
+[`bank.go`](../../precompiles/bank/bank.go). Do not use its zero result as an
+ERC-20 display scale. Query the actual token or pointer contract's metadata.
+For native EVM value, the launchpad chain profile uses PAX with 18 decimals
+and deterministic committed finality
+([`profile.go`](../../sdk/launchpad/shared/chain/profile/profile.go)). Bank
+base denominations and EVM value units require their own conversions.
+
+Use `eth_call` at a specified committed block when comparing metadata,
+balances, and supply. An RPC read is a node observation; it does not by itself
+provide an independent state proof.
+
+## Token pointers and registration
+
+[`Pointerview.sol`](../../precompiles/pointerview/Pointerview.sol) declares
+these read methods at `0x100A`:
+
+| Method | Token identity |
+| --- | --- |
+| `getNativePointer(string)` | Bank denomination |
+| `getCW20Pointer(string)` | CW20 native contract address |
+| `getCW721Pointer(string)` | CW721 native contract address |
+| `getCW1155Pointer(string)` | CW1155 native contract address |
+
+Each returns `(address addr, uint16 version, bool exists)`. Check `exists`
+before using the address; a pointer is a contract interface to the underlying
+asset, not an additional balance or issuance credit.
+
+For a new tokenfactory denomination, submit `MsgCreateDenom` through the
+native transaction path. It creates `factory/<creator>/<subdenom>` metadata
+and assigns the creator as admin. `MsgMint` and `MsgBurn` enforce denomination
+authority. The implementations are in
+[`createdenom.go`](../../modules/tokenfactory/keeper/createdenom.go) and
+[`msg_server.go`](../../modules/tokenfactory/keeper/msg_server.go).
+
+For an existing native denomination, the pointer precompile at
+`0x000000000000000000000000000000000000100b` exposes
+`addNativePointer(string)`. It requires stored bank metadata; without it,
+the call refuses and reports that the pointer can only be set through a
+governance proposal. Creating a pointer does not mint tokens. The same ABI
+includes `addCW20Pointer`, `addCW721Pointer`, and `addCW1155Pointer`; see
+[`Pointer.sol`](../../precompiles/pointer/Pointer.sol) and
+[`pointer.go`](../../precompiles/pointer/pointer.go).
 
 ## Account names and identifiers
 
-Named accounts use:
+Registered ledger accounts retain deterministic names. For agent accounts:
 
 ```text
 account_id32 = SHA-256("LX:ACCOUNT:v1" || u32_be(name_length) || name_bytes)
 ```
 
-All hexadecimal text in account names is lowercase.
+The length is a byte count and the integer is big-endian. Hexadecimal text
+inside canonical names is lowercase.
 
 | Purpose | Canonical name or identifier |
 | --- | --- |
-| Native-asset account for a DID | `agent:<DID>:main` |
-| Account for one Asset | `agent:<DID>:asset:<asset_id_hex64>` |
-| Native Asset id | `SHA-256("LX:ASSET:v1" || issuer_did_id32 || salt32)` |
-| Paxeer-custody Asset id | Supplied custody Asset id; it is not re-derived |
+| Main account for a DID | `agent:<DID>:main` |
+| Account for one registered Asset | `agent:<DID>:asset:<asset_id_hex64>` |
+| Native registered Asset id | `SHA-256("LX:ASSET:v1" || issuer_did_id32 || salt32)` |
+| Bank denomination for a registered Asset | `layerx/<asset_id_hex64>` |
 
-The issuance-account identifier is preserved from the named-account hash of
-`asset:<asset_id_hex64>:issuance`. Its current stored name is
-`module:asset:value:<issuance_account_id_hex64>`. The migration keeps the
-identifier stable while retiring the old name.
+The DID rendering is `did:layerx:<64 lowercase hex public-key characters>`.
+Use the derivation functions in
+[`accountmap.go`](../../modules/lxphost/accountmap.go) and
+[`layerx_binding.go`](../../modules/evm/types/layerx_binding.go).
+`BankAddress(account_id32)` derives `address.Module("layerx", account_id32)`;
+a 32-byte account id is not an EVM address and must not be truncated to one.
+The denomination mapping is defined in
+[`denom.go`](../../modules/layerxledger/types/denom.go).
 
-## Activity ordinals and payloads
+Issuance uses the stored name
+`module:asset:value:<issuance_account_id_hex64>`. Its id preserves the hash
+of `asset:<asset_id_hex64>:issuance`; the module-value name is interpreted
+by the account codec, rather than hashed as an ordinary agent name. See
+[`lx_account_id.c`](../../src/ledger/lx_account_id.c).
 
-Asset is module `1`. Every integer below is big-endian.
+## Registered Assets and issuance
 
-| Ordinal | Operation | Canonical payload |
-| ---: | --- | --- |
-| `1` | register | `version:u16=1 || asset_id32 || salt32 || symbol_len:u8 || symbol || name_len:u8 || name || decimals:u8 || supply_cap:u128 || issuer_kind:u8 || custody_ref_len:u8 || custody_ref` |
-| `2` | pause | Existing pause payload; not admitted by public `lx_sendActivity` |
-| `3` | unpause | Existing unpause payload; not admitted by public `lx_sendActivity` |
-| `4` | account open | `version:u16=1 || asset_id32` (34 bytes) |
-| `5` | send | Canonical `lxp_send` payload, tag `0x5301` |
-| `6` | receive | Canonical ten-field `lxp_receive` payload, tag `0x5201` (733 bytes) |
-| `7` | grant issue | Canonical payer grant (346 bytes) |
-| `8` | grant revoke | `version:u16=1 || grant_id32 || revocation_sequence:u64` (42 bytes) |
-| `9` | reserved | Refused; no public payload |
-| `10` | mint | `version:u16=1 || asset_id32 || to_account32 || amount:u128` (82 bytes) |
-| `11` | burn | `version:u16=1 || asset_id32 || from_account32 || amount:u128` (82 bytes) |
+For registered ledger Assets, use `layerxledger` at
+`0x000000000000000000000000000000000000101A`. Its current
+[`abi.json`](../../precompiles/layerxledger/abi.json) includes:
 
-The authenticated public RPC admits ordinals `1`, `4`, `5`, `6`, `7`, `8`,
-`10`, and `11`. Payload decoding alone is not execution: execution also checks
-the actor, authorization, sequence, registered Asset, pause state, account
-ownership, balances, and supply invariants.
+| Operation | ABI entry point |
+| --- | --- |
+| Register | `register(bytes32 assetId, bytes32 salt, string symbol, string name, uint8 decimals, uint128 supplyCap, uint8 issuerKind, bytes custodyReference)` |
+| Open an Asset account | `openAccount(bytes32 assetId)` |
+| Mint / burn | `mint(bytes32 assetId, bytes32 accountId, uint128 amount)` / `burn(bytes32 assetId, bytes32 accountId, uint128 amount)` |
+| Pause / unpause | `pause(bytes32 assetId)` / `unpause(bytes32 assetId)` |
+| Read | `getAsset(bytes32)`, `balanceOf(bytes32 accountId,bytes32 assetId)`, `totalUnits(bytes32)`, `accountId(bytes32 owner,bytes32 assetId)`, `accountOwner(bytes32)` |
 
-### Register
+State changes are nonpayable EVM calls. The precompile resolves the caller's
+bound identity and invokes the keeper; it refuses state changes through
+static calls and refuses delegate calls. Registration validates a symbol of
+1–16 ASCII bytes, a UTF-8 name of 1–32 bytes, decimals at most 38, and a
+`uint128` cap. Zero cap means uncapped. Native issuer kind `1` requires the
+derived Asset id and an empty custody reference. The codec retains custody
+issuer kind `2` and a bounded reference as metadata; this is not a deposit or
+custody-credit funding API.
 
-The register payload has these bounds:
+Registration creates the Asset record and issuance account. The keeper
+creates its bank supply under `layerx/<asset_id_hex64>` and places it in the
+issuance account; an uncapped record uses `2^128 - 1` issuance units. Mint
+moves units from issuance to a destination account; burn returns them.
+These operations update kernel and bank transfers together, enforcing issuer,
+ownership, pause, balance, and supply rules. See
+[`assets.go`](../../precompiles/layerxledger/assets.go),
+[`mirror.go`](../../modules/layerxledger/keeper/mirror.go), and
+[`supply.go`](../../modules/layerxledger/keeper/supply.go).
 
-- `symbol` is 1–16 ASCII bytes.
-- `name` is 1–32 bytes of valid UTF-8.
-- `decimals` is at most `38`.
-- `supply_cap` is a `u128`; zero means uncapped.
-- `issuer_kind` is `1` for native or `2` for Paxeer custody.
-- `custody_ref` is at most 128 bytes. Native Assets require an empty custody
-  reference and the derived Asset id shown above. Custody Assets require the
-  supplied Asset id.
+## Transfers and derived subaccount funding
 
-Registration creates a version-3 Asset record and its issuance account.
-Duplicate Assets are refused.
+Use a native bank `MsgSend` to fund a derived bank subaccount with the correct
+denomination and raw amount. Derive its native address with the owning
+account codec and verify the destination before signing. For EVM wallets,
+transfer a native denomination through its registered ERC-20 pointer. The
+bank `send(address,address,string,uint256)` entry point is restricted to
+that denomination's pointer contract; calling it directly from a wallet
+fails authorization. The five-argument overload additionally accepts a
+`bytes32 contextHash` and emits `LayerXReceipt` for a nonzero transfer when
+the merge plan is active.
 
-### Open, mint, and burn
+For native value sent to a Bech32 recipient, bank `sendNative(string)` is
+payable and requires nonzero transaction value and a mapped caller address.
+It refuses static and delegate calls. After merge activation, a zero value
+is `LXP_BANK_ZERO_VALUE`; an invalid address is
+`LXP_PRECOMPILE_INVALID_ADDR`. The implementation is
+[`bank.go`](../../precompiles/bank/bank.go).
 
-Account open creates the actor's per-Asset account and refuses an unknown,
-paused, or already-open Asset account.
+Funding a DID's bound EVM wallet is a different destination from a ledger
+module account. The hosted funding producer resolves the binding at address
+precompile `0x1004`, prepares a value-bearing EIP-1559 transaction with empty
+calldata, persists its identity, and submits the signed bytes. Its
+confirmation checks the transaction hash, sender, recipient, status, and
+nonzero block identity. See
+[`chain_fund.rs`](../../services/platform/hosted/core/src/chain_fund.rs) and
+[`funding_native.rs`](../../services/platform/hosted/core/src/funding_native.rs).
+Do not treat a wallet top-up as registered Asset issuance.
 
-Mint requires the actor to be the issuer, a positive amount, a destination
-account for that Asset, and sufficient units in the issuance account. A
-nonzero supply cap is enforced. Burn requires a positive amount, an
-actor-owned source account for the Asset, and sufficient balance. Mint moves
-units from issuance to the destination; burn returns units to issuance.
-`total_units` is checked against issuance before every update, and the supply
-before/after values are bound into the transition context.
+## Fees, submission, and receipts
 
-## Receive and payer grants
+Public node JSON-RPC is at the root of
+`https://api1.mainnet-beta.paxeer.network` through
+`https://api14.mainnet-beta.paxeer.network`, plus
+`https://api-mainnet-beta.paxeer.network`. Check `eth_chainId == "0x7d"` before
+signing. Submit signed EVM transactions with `eth_sendRawTransaction`; query
+the same hash with `eth_getTransactionReceipt`. Require a successful receipt
+in a committed block before crediting a transfer, and check the expected
+recipient, amount, denomination or token, and emitted events as appropriate.
+On an uncertain response, retain the signed bytes and hash and reconcile
+that transaction before creating another payment.
 
-An ordinal-6 receive is exactly 733 bytes:
-
-```text
-0x5201 || field_count:u16=10
-|| from32 || to32 || asset32 || amount:u128
-|| grant_id32 || receiver_sequence:u64
-|| idempotency_key32 || context_hash32
-|| receiver_authorization
-|| payer_grant
-```
-
-The receiver authorization is:
-
-```text
-kind:u8 || controller32 || public_key32 || signature64
-|| signed_context_hash32 || network_id:u32 || protocol_version:u16
-```
-
-The embedded payer grant is exactly 346 bytes:
-
-```text
-grant_id32 || from32 || recipient32 || asset32
-|| per_draw_maximum:u128 || allowance:u128 || recurring:u8
-|| window_length:u64 || expiration:u64 || purpose_hash32
-|| has_reference:u8 || reference_hash32 || revocation_sequence:u64
-|| public_key32 || signature64
-```
-
-The grant authorization preimage begins `LXP:GRANT:v1`; the receiver
-authorization preimage begins `LXP:RECEIVE:v1`. The receive must bind the same
-grant id, payer, recipient, Asset, purpose, network, and signed context as its
-grant and envelope. See [x402 transport](X402Transport.md) for metered draws and
-subscription renewals.
-
-## Asset record v3
-
-The persisted canonical record is variable length:
-
-```text
-version:u16=3
-|| asset_id32
-|| symbol_len:u8 || symbol
-|| decimals:u8
-|| custody_kind:u8
-|| custody_ref_len:u16 || custody_ref
-|| paused:u8
-|| name_len:u8 || name
-|| supply_cap:u128
-|| issuer_did32
-|| issuer_kind:u8
-|| total_units:u128
-|| salt32
-```
-
-Version 2 can be migrated to version 3 by supplying the missing salt and a
-non-empty salt-source label:
-
-```sh
-layerx-genesis-build --migrate-asset-v2 INPUT SALT_FILE SALT_SOURCE OUTPUT_DIR
-```
-
-The migration validates a native derived id and writes `asset-v3.bin` plus
-`salt-source.txt`; it does not guess the missing salt.
-
-## LXGB v2 genesis metadata
-
-An `LXGB` version-2 genesis body retains the fixed protocol, network,
-timestamp, parameter, guarantor, Asset-id, Programs metering, and Programs fee
-fields. It then appends:
-
-```text
-asset_record_count:u16
-repeat asset_record_count times:
-  asset_record_length:u16 || asset_record_v3
-fee_schedule_length:u16 || fee_schedule_v2
-```
-
-The record count is 1–64, records are keyed by Asset id, every genesis record
-has `total_units == 0`, and the requested genesis Asset must be present.
-Genesis records use custody issuer kind `2`; native issuance is performed by
-an authenticated register activity. Version 1 remains readable for old
-artifacts but carries no Asset-record or fee-schedule metadata.
-
-## Named fee schedule
-
-The canonical Asset fee schedule is version 2 and exactly 247 bytes:
-
-```text
-version:u16=2
-|| base_fee:u128
-|| per_activity_type_unit:u128
-|| per_encoded_byte:u128
-|| per_execution_unit:u128
-|| per_storage_unit:u128
-|| multiplier_basis_points:u32
-|| asset_price_count:u8=10
-|| ten asset prices:u128
-```
-
-The ten prices are ordered by ordinal and named:
-
-1. `fee.asset.register` — ordinal `1`
-2. `fee.asset.pause` — ordinal `2`
-3. `fee.asset.unpause` — ordinal `3`
-4. `fee.asset.account_open` — ordinal `4`
-5. `fee.asset.send` — ordinal `5`
-6. `fee.asset.receive` — ordinal `6`
-7. `fee.asset.grant_issue` — ordinal `7`
-8. `fee.asset.grant_revoke` — ordinal `8`
-9. `fee.asset.mint` — ordinal `10`
-10. `fee.asset.burn` — ordinal `11`
-
-Fee estimation uses the committed schedule and canonical activity length. An
-unsupported Asset ordinal or a schedule requiring unavailable execution or
-storage units fails closed.
-
-## Authenticated public reads
-
-The LNI minor-5 read contract provides:
-
-- `AssetReadRequest` version 1: kind `1` lists the complete Asset registry;
-  kind `2` gets one nonzero Asset id. The list is bounded to the 1024-record
-  registry capacity and is sorted by Asset id.
-- `AssetReadResponse` version 1: observed sequence, committed state root, count,
-  and length-prefixed version-3 records.
-- DID account enumeration: the complete bounded account list at the committed
-  snapshot, including canonical values and native proof material.
-- `FeeEstimateRequest` version 1: activity type, canonical byte count,
-  execution units, and storage units. The response carries observed sequence,
-  state root, parameter version, decimal fee, and the canonical schedule.
-
-The gateway exposes these through `lx_listAssets`, `lx_getAsset`,
-`lx_getBalances`, and `lx_estimateFee`. `lx_listAssets` is paginated: it takes
-an optional `cursor` (the exclusive Asset id to resume after, or `null`) and an
-optional `limit` (1 to 256, default 64), and returns one page ordered by
-ascending `asset_id` together with `next_cursor`, which is the last `asset_id`
-of a truncated page and `null` once the page is the last one. A malformed
-cursor or limit returns `-32602`. Their
-`verification=authenticated_committed_snapshot` label means an authenticated
-same-process committed snapshot; it is not an independent Merkle proof or a
-finality claim.
+Estimate EVM gas with `eth_estimateGas` and obtain fee inputs from the node.
+Programs expose their own metering and fee schedule views; the old Asset
+activity ordinal prices and standalone genesis fee blob are retired as
+public transaction instructions. Hosted `px_` methods have a separate
+application contract in
+[`openrpc.json`](../../services/platform/hosted/gateway/openrpc.json).
+The [Hosted agent boundary](HostedAgentBoundary.md) serves authenticated
+signed-receipt reads by transaction hash; it does not submit payments.
 
 [Home](Home.md)
