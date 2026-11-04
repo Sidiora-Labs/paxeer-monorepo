@@ -12,6 +12,8 @@ defmodule Mix.Tasks.Auth0ToKeycloakMigrate do
   ## Options
 
     * `--dry-run` - Preview migration without making changes
+    * `--auth0-export` - Read an existing Auth0 JSON-lines export for an offline dry-run
+    * `--no-start` - Use applications already started by the caller
     * `--batch-size` - Number of users per batch (default: 50)
 
   ## Prerequisites
@@ -23,6 +25,7 @@ defmodule Mix.Tasks.Auth0ToKeycloakMigrate do
   use Mix.Task
 
   alias Explorer.Account.Auth0ToKeycloakMigration
+  alias Mix.Tasks.Auth0ToKeycloakMigrate.Preview
   alias Mix.Task, as: MixTask
 
   @shortdoc "Migrate users from Auth0 to Keycloak"
@@ -31,12 +34,20 @@ defmodule Mix.Tasks.Auth0ToKeycloakMigrate do
   def run(args) do
     {opts, _, _} =
       OptionParser.parse(args,
-        switches: [dry_run: :boolean, batch_size: :integer],
+        switches: [dry_run: :boolean, batch_size: :integer, auth0_export: :string],
         aliases: [n: :dry_run, b: :batch_size]
       )
 
-    MixTask.run("app.start")
+    if opts[:auth0_export] && opts[:dry_run] != true do
+      Mix.raise("--auth0-export requires --dry-run")
+    end
 
-    Auth0ToKeycloakMigration.run(opts)
+    MixTask.run("app.start", args)
+
+    if opts[:dry_run] do
+      Preview.run(opts)
+    else
+      Auth0ToKeycloakMigration.run(opts)
+    end
   end
 end

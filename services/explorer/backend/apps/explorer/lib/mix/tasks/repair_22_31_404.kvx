@@ -1,0 +1,10 @@
+[repair.22.31.404]
+finding = "migration-preview"
+scope = "CLI dry-run uses a read-only planner; explicit execution retains Explorer.Account.Auth0ToKeycloakMigration.run."
+proof = "Explorer.Repair.Repair2231404Test: migration-preview CLI leaves duplicate identities and all associations byte-for-byte unchanged; migration-preview planning selects the wallet primary and protects missing users with data; explicit execution merges duplicate identities and moves their real associations; explicit CLI execution still enters the configured migration runner."
+baseline = "Not run: the task's ordered gate rules prohibit verification before implementation and prohibit running verify_cmd outside hf-done. No pre-change failures are claimed."
+wiring = "Domain 14: services/explorer/backend/apps/explorer/lib/explorer/account/auth0_to_keycloak_migration.ex must use a pure plan before branching and move Account.merge into execution, so release/RPC dry-runs receive the same protection; outside this task's allowed paths."
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit code and private log; this record does not claim unrun gates."
+limitation = "The explicit CLI execution test proves runner dispatch with missing provider configuration; the separate real Account.merge test proves database consolidation, not end-to-end Auth0-to-Keycloak import."
+gotcha = "Transaction hashes use Explorer.Chain.string_to_full_hash/1; string_to_transaction_hash/1 is not exported in this checkout. The first verification failed in fixture setup and was repaired without changing assertions."
+continuation = "The previous attempt's seven-test gate had two failures: compressed CLI preview started the indexer and crashed, then the duplicate-identity CLI preview captured no log. The CLI now forwards app.start arguments; tests rerun the real migration task with --no-start within the explorer application already started by test_helper. All seven cases and assertions are retained."
