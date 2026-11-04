@@ -73,6 +73,8 @@ impl SolidityVerifier for SolidityVerifierService {
             "solidity multi-part verification request received"
         );
 
+        common::validate_source_paths(request.source_files.keys())?;
+
         let maybe_verification_request =
             solidity::multi_part::VerificationRequest::try_from_with_post_actions(request);
         let (verification_request, post_actions) =
@@ -116,8 +118,10 @@ impl SolidityVerifier for SolidityVerifierService {
             "solidity standard-json verification request received"
         );
 
-        let maybe_verification_request =
-            solidity::standard_json::VerificationRequest::try_from_with_post_actions(request);
+        let input = serde_json::from_str(&request.input);
+        let maybe_verification_request = common::validate_standard_json_source_paths(input, || {
+            solidity::standard_json::VerificationRequest::try_from_with_post_actions(request)
+        });
         let (verification_request, post_actions) =
             common::process_solo_verification_request_conversion!(maybe_verification_request);
 
@@ -145,6 +149,8 @@ impl SolidityVerifier for SolidityVerifierService {
     ) -> Result<Response<BatchVerifyResponse>, Status> {
         let request = request.into_inner();
 
+        common::validate_source_paths(request.sources.keys())?;
+
         let maybe_verification_request =
             solidity::multi_part::BatchVerificationRequest::try_from(request);
         let verification_request =
@@ -167,8 +173,10 @@ impl SolidityVerifier for SolidityVerifierService {
     ) -> Result<Response<BatchVerifyResponse>, Status> {
         let request = request.into_inner();
 
-        let maybe_verification_request =
-            solidity::standard_json::BatchVerificationRequest::try_from(request);
+        let input = serde_json::from_str(&request.input);
+        let maybe_verification_request = common::validate_standard_json_source_paths(input, || {
+            solidity::standard_json::BatchVerificationRequest::try_from(request)
+        });
         let verification_request =
             common::process_batch_verification_request_conversion!(maybe_verification_request);
 

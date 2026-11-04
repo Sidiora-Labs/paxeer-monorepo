@@ -1,0 +1,29 @@
+[task.22.33.1417]
+base_revision = "b06a8e8502aeb3eee0ed79afb1979f134a140ff1"
+repair = "Finding 035's production repair is already present in the starting tree: openrpc.json omits servers, permits only root RPC paths and distinguishes public node origins from operator-provided hosted gateway coordinates. The real catalogue producer overlays those locations and omits the retired /rpc subtree. Preserve this implementation and add the missing task-specific regression proof and a fingerprint of the entire inherited OpenRPC source; no production behavior or unrelated contract changes."
+source_proof = "Parse the actual OpenRPC JSON and location metadata, gateway Kubernetes ingress, Railway environment example and node ConfigMap; assert root paths, deployed host consistency and chain 125. Inspect the production Rust producer, authenticated HTTP/JSON-RPC consumers, JSON serialization and ingress ordering to assert the retired subtree is filtered and refused before dispatch. Preserve every byte of the inherited OpenRPC document against the committed base fingerprint."
+review_only = "Rust compilation, runtime producer/transport/consumer execution, live authentication, TLS, dependency readiness and actual deployment availability are not executed by this Python source gate. No interface-mismatch or restart-recovery finding applies. No shell scripts, unit files, manifests or build files change; deployment manifests are parsed as read-only corroborating evidence. No credentials, environment variables, live endpoints, external binaries, subprocess toolchains or devices are needed."
+baseline = "No baseline test was run: the test module did not exist in the initial tree, and the explicit implementation-first and wrapper-only order forbids manually running verify_cmd before hf-build/hf-done. No pre-change test failures are claimed. Source inspection found the retired-reference repair already inherited from task 22.33.64. Initial private ledger was absent and gate.json reported zero builds/verifications; initial .cgignore and spec task-start bookkeeping changes were preserved."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1417.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision = "The final hf-done JSON and private evidence ledger name the exact verified candidate revision, command, exit and log. The build and verify must pass on the same candidate. This source record is finalized before qualification; embedding its own content-derived revision would change that revision. The runner retains the exact evidence and publishes the task."
+wiring_request = "tools/paxeer-x/route-catalogue.json and docs/system/routes.md via tools/docs/gen-system-docs.sh; owner domain 8 (platform): reconcile the shared source and generated guide with the gateway's root-only node and explicit hosted location metadata and retired /rpc subtree omission, as already requested by 22.33.64; no out-of-scope edits here."
+
+[finding.035]
+audit = "22.30.79"
+file = "services/platform/hosted/gateway/openrpc.json"
+class = "retired-reference"
+severity = "medium"
+tests = ["test_035_openrpc_has_no_retired_server_or_route_claims", "test_035_locations_match_deployment_origins_and_node_chain", "test_035_real_catalogue_producer_overlays_locations_and_filters_retired_routes", "test_035_source_transports_authenticate_and_serialize_the_real_catalogue", "test_035_production_ingress_refuses_retired_subtree_before_dispatch", "test_035_inherited_repair_preserves_entire_openrpc_document", "test_035_record_maps_finding_proofs_and_qualification_limits"]
+
+[gotcha.1]
+observed = "The step requesting an unchanged-tree verify contradicts the explicit implementation-first, hf-build-before-hf-done and no-manual-verify order."
+resolution = "Follow the explicit order, record the inherited source facts and claim no baseline execution; GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.2]
+observed = "Audit finding 035 predates the inherited 22.33.64 repair, so repeating its proposed edit would add unrelated production churn."
+resolution = "Retain the production catalogue byte for byte and qualify the closure with task-specific regression tests and a base-source fingerprint in the gateway test fixtures."
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths; follow .editorconfig UTF-8, LF, final-newline and no-trailing-whitespace conventions. The JSON fixture uses the repository's two-space indentation."
