@@ -409,7 +409,7 @@ impl ProofBundle {
         request.selector.encode()?;
         response.value.validate()?;
         let expected = request.selector.required_rung();
-        if response.achieved_rung != expected
+        if response.achieved_rung < expected
             || response.achieved_rung < request.requested_rung
             || response.value.verification_level != response.achieved_rung
         {
