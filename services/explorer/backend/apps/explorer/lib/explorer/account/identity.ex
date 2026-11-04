@@ -10,7 +10,7 @@ defmodule Explorer.Account.Identity do
   alias BlockScoutWeb.Chain
   alias Ecto.Multi
   alias Explorer.Account.Api.Plan
-  alias Explorer.Account.{TagAddress, Watchlist}
+  alias Explorer.Account.{Authentication, TagAddress, Watchlist}
   alias Explorer.{Chain, Repo}
   alias Explorer.Chain.{Address, Hash}
   alias Ueberauth.Auth
@@ -110,33 +110,47 @@ defmodule Explorer.Account.Identity do
   """
   @spec find_or_create(Auth.t()) :: {:ok, session()} | {:error, Ecto.Changeset.t()}
   def find_or_create(%Auth{} = auth) do
-    case find_identity(auth) do
-      nil ->
-        case create_identity(auth) do
-          %__MODULE__{} = identity ->
-            {:ok, session_info(auth, identity)}
-
-          {:error, changeset} ->
-            {:error, changeset}
+    with :ok <- Authentication.account_access(auth.provider) do
+      result =
+        case find_identity(auth) do
+          nil -> create_identity(auth)
+          identity -> recover_identity(identity, auth)
         end
 
-      %{} = identity ->
-        update_identity(identity, update_identity_map(auth))
-        {:ok, session_info(auth, identity)}
+      case result do
+        {:ok, %{identity: identity}} ->
+          {:ok, session_info(auth, identity)}
+
+        {:error, :acquire_identity, :not_found, _changes} ->
+          {:error, new_identity(auth) |> changeset(%{}) |> add_error(:uid, "User not found")}
+
+        {:error, _operation, changeset, _changes} ->
+          {:error, changeset}
+      end
+    else
+      {:enabled, false} ->
+        {:error, new_identity(auth) |> changeset(%{}) |> add_error(:uid, "Account access is disabled")}
     end
   end
 
   defp create_identity(auth) do
-    with {:ok, %__MODULE__{} = identity} <- Repo.account_repo().insert(new_identity(auth)),
-         {:ok, _watchlist} <- add_watchlist(identity) do
-      identity
-    end
+    Multi.new()
+    |> Multi.insert(:identity, new_identity(auth) |> changeset(%{}))
+    |> Multi.run(:watchlist, fn repo, %{identity: identity} -> add_watchlist(repo, identity) end)
+    |> Repo.account_repo().transaction()
   end
 
-  defp update_identity(identity, attrs) do
-    identity
-    |> changeset(attrs)
-    |> Repo.account_repo().update()
+  defp recover_identity(identity, auth) do
+    Multi.new()
+    |> acquire_with_lock(identity.id)
+    |> Multi.update(:identity, fn %{acquire_identity: locked} -> changeset(locked, update_identity_map(auth)) end)
+    |> Multi.run(:watchlist, fn repo, %{identity: updated} ->
+      case repo.one(from(w in Watchlist, where: w.identity_id == ^updated.id, limit: 1)) do
+        nil -> add_watchlist(repo, updated)
+        watchlist -> {:ok, watchlist}
+      end
+    end)
+    |> Repo.account_repo().transaction()
   end
 
   @spec new_identity(Auth.t()) :: t()
@@ -152,11 +166,11 @@ defmodule Explorer.Account.Identity do
     }
   end
 
-  defp add_watchlist(identity) do
-    watchlist = Ecto.build_assoc(identity, :watchlists, %{})
-
-    with {:ok, _} <- Repo.account_repo().insert(watchlist),
-         do: {:ok, identity}
+  defp add_watchlist(repo, identity) do
+    identity
+    |> Ecto.build_assoc(:watchlists, %{name: "default"})
+    |> Watchlist.changeset(%{})
+    |> repo.insert()
   end
 
   @doc """

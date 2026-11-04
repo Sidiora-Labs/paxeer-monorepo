@@ -174,8 +174,10 @@ defmodule Explorer.Account.TagAddress do
 
   def tag_address_by_address_hash_and_identity_id_query(address_hash, identity_id)
       when not is_nil(address_hash) and not is_nil(identity_id) do
+    normalized_hash = hash_to_lower_case_string(address_hash)
+
     __MODULE__
-    |> where([tag], tag.identity_id == ^identity_id and tag.address_hash == ^address_hash)
+    |> where([tag], tag.identity_id == ^identity_id and tag.address_hash_hash == ^normalized_hash)
   end
 
   def tag_address_by_address_hash_and_identity_id_query(_, _), do: nil
