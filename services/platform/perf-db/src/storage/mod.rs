@@ -5,3 +5,4 @@ pub mod relational;
 pub mod snapshot;
 pub mod tick_store;
 pub mod wal;
+pub(crate) mod writer_lease;
