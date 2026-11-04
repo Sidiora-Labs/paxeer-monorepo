@@ -45,7 +45,10 @@ func AdaptV2SquadRead(requestID string, q Squad, members []Membership, at time.T
 	})
 }
 
-func AdaptV2SquadMembership(requestID string, m Membership, at time.Time) ([]byte, error) {
+func AdaptV2SquadMembership(requestID string, m Membership, q Squad, at time.Time) ([]byte, error) {
+	if q.Validate() != nil || q.ID != m.SquadID {
+		return nil, ErrInvalid
+	}
 	revision := v2.PositiveUInt256(strconv.FormatUint(m.Revision, 10))
 	return marshalV2SquadEnvelope("SquadMembershipResponse", v2.SquadMembershipResponse{
 		RequestId: requestID,
@@ -57,7 +60,7 @@ func AdaptV2SquadMembership(requestID string, m Membership, at time.Time) ([]byt
 				State:     m.Status,
 				Revision:  revision,
 			},
-			SquadRevision: v2.UInt256(revision),
+			SquadRevision: v2.UInt256(strconv.FormatUint(q.Revision, 10)),
 		},
 		Revision:    &revision,
 		Quality:     "complete",

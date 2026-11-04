@@ -92,9 +92,25 @@ enum Record {
     },
 }
 
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct JournalRecord<T> {
+    generation: u64,
+    record: T,
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum JournalEntry {
+    Versioned(JournalRecord<Record>),
+    Legacy(Record),
+}
+
 #[derive(Default, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Snapshot {
+    #[serde(default)]
+    generation: u64,
     #[serde(default)]
     publication_keys: BTreeMap<String, (String, bool)>,
     principals: BTreeMap<String, BTreeMap<String, Principal>>,
@@ -111,6 +127,7 @@ struct Snapshot {
 
 #[derive(Serialize)]
 struct SnapshotView<'a> {
+    generation: u64,
     publication_keys: &'a BTreeMap<String, (String, bool)>,
     principals: &'a BTreeMap<String, BTreeMap<String, Principal>>,
     sessions: &'a BTreeMap<String, StoredSession>,
@@ -176,8 +193,9 @@ impl State {
         Ok(state)
     }
 
-    const fn view(&self) -> SnapshotView<'_> {
+    const fn view(&self, generation: u64) -> SnapshotView<'_> {
         SnapshotView {
+            generation,
             publication_keys: &self.publication_keys,
             principals: &self.principals,
             sessions: &self.sessions,
@@ -329,6 +347,7 @@ pub struct Store {
     journal: File,
     directory_identity: (u64, u64),
     failed: bool,
+    generation: u64,
     state: State,
 }
 
@@ -346,11 +365,18 @@ impl Store {
         } else {
             Snapshot::default()
         };
+        let generation = snapshot.generation;
         let mut state = State::restore(snapshot)?;
         if journal_path.exists() {
-            replay_journal(&journal_path, &mut state)?;
+            let has_legacy = replay_journal(&journal_path, &mut state, generation)?;
+            if has_legacy {
+                migrate_journal(directory, &journal_path, generation)?;
+            }
         }
-        write_snapshot(directory, &snapshot_path, &state.view())?;
+        let generation = generation
+            .checked_add(1)
+            .ok_or_else(|| "journal generation exhausted".to_owned())?;
+        write_snapshot(directory, &snapshot_path, &state.view(generation))?;
         let journal = OpenOptions::new()
             .create(true)
             .write(true)
@@ -365,6 +391,7 @@ impl Store {
         Ok(Self {
             directory_identity: (metadata.dev(), metadata.ino()),
             failed: false,
+            generation,
             directory: directory.to_path_buf(),
             journal,
             state,
@@ -642,7 +669,11 @@ impl Store {
 
     fn append(&mut self, record: &Record) -> Result<(), String> {
         self.check_available()?;
-        let mut line = serde_json::to_vec(record).map_err(|error| error.to_string())?;
+        let mut line = serde_json::to_vec(&JournalRecord {
+            generation: self.generation,
+            record,
+        })
+        .map_err(|error| error.to_string())?;
         if line.len() >= MAX_RECORD_BYTES {
             return Err("journal record exceeds its bound".to_owned());
         }
@@ -700,29 +731,77 @@ fn apply(state: &mut State, record: Record) -> Result<(), String> {
     }
 }
 
-fn replay_journal(path: &Path, state: &mut State) -> Result<(), String> {
+fn read_journal_entry(reader: &mut impl BufRead) -> Result<Option<JournalEntry>, String> {
+    let mut line = Vec::new();
+    let count = reader
+        .read_until(b'\n', &mut line)
+        .map_err(|error| format!("journal read: {error}"))?;
+    if count == 0 {
+        return Ok(None);
+    }
+    if line.last() != Some(&b'\n') {
+        eprintln!("layerx-identity: discarding a torn trailing journal record");
+        return Ok(None);
+    }
+    if line.len() > MAX_RECORD_BYTES {
+        return Err("journal record exceeds its bound".to_owned());
+    }
+    serde_json::from_slice(&line[..line.len() - 1])
+        .map(Some)
+        .map_err(|error| format!("journal record is not readable: {error}"))
+}
+
+fn replay_journal(path: &Path, state: &mut State, generation: u64) -> Result<bool, String> {
     let file = File::open(path).map_err(|error| format!("journal: {error}"))?;
     let mut reader = BufReader::new(file);
-    let mut line = Vec::new();
-    loop {
-        line.clear();
-        let count = reader
-            .read_until(b'\n', &mut line)
-            .map_err(|error| format!("journal read: {error}"))?;
-        if count == 0 {
-            return Ok(());
-        }
-        if line.last() != Some(&b'\n') {
-            eprintln!("layerx-identity: discarding a torn trailing journal record");
-            return Ok(());
-        }
-        if line.len() > MAX_RECORD_BYTES {
-            return Err("journal record exceeds its bound".to_owned());
-        }
-        let record: Record = serde_json::from_slice(&line[..line.len() - 1])
-            .map_err(|error| format!("journal record is not readable: {error}"))?;
+    let mut has_legacy = false;
+    while let Some(entry) = read_journal_entry(&mut reader)? {
+        let record = match entry {
+            JournalEntry::Versioned(entry) => {
+                if entry.generation > generation {
+                    return Err("journal generation is ahead of the snapshot".to_owned());
+                }
+                if entry.generation < generation {
+                    continue;
+                }
+                entry.record
+            }
+            JournalEntry::Legacy(record) => {
+                has_legacy = true;
+                record
+            }
+        };
         apply(state, record)?;
     }
+    Ok(has_legacy)
+}
+
+fn migrate_journal(directory: &Path, path: &Path, generation: u64) -> Result<(), String> {
+    let temporary = directory.join(format!("{JOURNAL_FILE}.tmp"));
+    let mut reader = BufReader::new(File::open(path).map_err(|error| format!("journal: {error}"))?);
+    let mut file = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .open(&temporary)
+        .map_err(|error| format!("journal migration: {error}"))?;
+    while let Some(entry) = read_journal_entry(&mut reader)? {
+        let entry = match entry {
+            JournalEntry::Versioned(entry) => entry,
+            JournalEntry::Legacy(record) => JournalRecord { generation, record },
+        };
+        let mut line = serde_json::to_vec(&entry).map_err(|error| error.to_string())?;
+        if line.len() >= MAX_RECORD_BYTES {
+            return Err("journal record exceeds its bound".to_owned());
+        }
+        line.push(b'\n');
+        file.write_all(&line)
+            .map_err(|error| format!("journal migration write: {error}"))?;
+    }
+    file.sync_all()
+        .map_err(|error| format!("journal migration sync: {error}"))?;
+    fs::rename(&temporary, path).map_err(|error| format!("journal migration rename: {error}"))?;
+    sync_directory(directory)
 }
 
 fn write_snapshot(directory: &Path, path: &Path, state: &SnapshotView<'_>) -> Result<(), String> {

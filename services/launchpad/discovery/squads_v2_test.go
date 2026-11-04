@@ -76,7 +76,7 @@ func TestAdaptV2SquadEnvelopesMatchFrozenSchema(t *testing.T) {
 		}
 	})
 	t.Run("membership", func(t *testing.T) {
-		body, err := AdaptV2SquadMembership(requestID, members[1], at)
+		body, err := AdaptV2SquadMembership(requestID, members[1], q, at)
 		assertEnvelope(t, "SquadMembershipResponse", body, err, "3")
 		var got v2.SquadMembershipResponse
 		if err := json.Unmarshal(body, &got); err != nil {
@@ -126,7 +126,7 @@ func TestAdaptV2SquadEnvelopesMatchFrozenSchema(t *testing.T) {
 		}{
 			{"request ID", func() ([]byte, error) { return AdaptV2SquadCreate("invalid", q, at) }},
 			{"squad", func() ([]byte, error) { return AdaptV2SquadRead(requestID, invalidSquad, members, at) }},
-			{"membership", func() ([]byte, error) { return AdaptV2SquadMembership(requestID, invalidMember, at) }},
+			{"membership", func() ([]byte, error) { return AdaptV2SquadMembership(requestID, invalidMember, q, at) }},
 		} {
 			t.Run(tc.name, func(t *testing.T) {
 				if body, err := tc.adapt(); err == nil || body != nil {

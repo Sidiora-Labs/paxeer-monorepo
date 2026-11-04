@@ -247,6 +247,8 @@ func TestCustodyInvariant(t *testing.T) {
 	c.holds(keeper.CustodyInvariantName, custody)
 
 	// A quote token without code cannot prove custody.
+	c = newCustodyEnv(t)
+	custody = keeper.CustodyInvariant(c.k)
 	params := c.k.GetParams(c.ctx)
 	params.QuoteToken = address("codeless token").Hex()
 	require.NoError(t, c.k.UpdateParams(c.ctx, c.k.Authority(), params))

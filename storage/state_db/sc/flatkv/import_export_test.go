@@ -1018,3 +1018,66 @@ func TestExporterImporterNonEVMLegacyRoundTrip(t *testing.T) {
 
 	require.NoError(t, dst.Close())
 }
+
+func testLatestExportRoundTrip(t *testing.T) {
+	t.Helper()
+	src := setupTestStore(t)
+	defer func() { require.NoError(t, src.Close()) }()
+	commitMixedState(t, src, 1)
+	commitMixedState(t, src, 2)
+	height := src.Version()
+	rows := repair124Rows(t, src)
+	require.NotEmpty(t, rows)
+	root := src.CommittedRootHash()
+	perDB := fullScanPerDBLtHash(t, src)
+
+	exp, err := src.Exporter(0)
+	require.NoError(t, err)
+	defer func() { require.NoError(t, exp.Close()) }()
+	nodes := drainExporter(t, exp)
+	require.NoError(t, exp.Close())
+	require.Len(t, nodes, len(rows))
+	for _, node := range nodes {
+		require.Equal(t, height, node.Version)
+	}
+
+	cfg := config.DefaultTestConfig(t)
+	dst := reopenTestStore(t, cfg)
+	defer func() { require.NoError(t, dst.Close()) }()
+	imp, err := dst.Importer(height)
+	require.NoError(t, err)
+	require.NoError(t, imp.AddModule(keys.FlatKVStoreKey))
+	for _, node := range nodes {
+		imp.AddNode(node)
+	}
+	require.NoError(t, imp.Close())
+	require.NoError(t, dst.Close())
+
+	reopened := reopenTestStore(t, cfg)
+	defer func() { require.NoError(t, reopened.Close()) }()
+	require.Equal(t, height, reopened.Version())
+	require.Equal(t, rows, repair124Rows(t, reopened))
+	for _, round := range []byte{1, 2} {
+		addr := addrN(round)
+		for _, pair := range []*proto.KVPair{
+			noncePair(addr, uint64(round)), codeHashPair(addr, codeHashN(round)),
+			codePair(addr, []byte{0x60, 0x80, round}), storagePair(addr, slotN(round), []byte{round, 0xAA}),
+		} {
+			value, found := reopened.Get(keys.EVMStoreKey, pair.Key)
+			require.True(t, found)
+			require.Equal(t, pair.Value, value)
+		}
+	}
+	require.Equal(t, root, reopened.CommittedRootHash())
+	require.Equal(t, root, reopened.RootHash())
+	require.NoError(t, VerifyLtHash(reopened))
+	verifyPerDBLtHash(t, reopened)
+	for _, db := range reopened.namedDataDBs() {
+		dir, hash := db.dir, perDB[db.dir]
+		require.True(t, hash.Equal(reopened.perDBWorkingLtHash[dir]), dir)
+		meta, err := loadLocalMeta(db.db)
+		require.NoError(t, err)
+		require.Equal(t, height, meta.CommittedVersion)
+		require.True(t, hash.Equal(meta.LtHash), dir)
+	}
+}
