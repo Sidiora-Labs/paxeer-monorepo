@@ -1,0 +1,9 @@
+[repair.22.31.73]
+audit = "22.30.41"
+finding = "11"
+implementation = "App.New admits the configured chartOutbox stream and candle.updated.v2 subject; Run starts a tracked bounded relay over ExactStore.PublishNextCommitted; Close cancels and joins it before closing dependencies; failures retry with bounded backoff from durable pending rows."
+proof = ["TestRepair_73_CommittedOnlyPublication", "TestRepair_73_RetryRestartAndGuardedRetention", "TestRepair_73_AdmissionAndShutdown"]
+baseline = "Not run: the explicit gate order prohibits verification before implementation and prohibits running verify_cmd by hand; no pre-change test failure is claimed."
+qualification = "hf-build then hf-done; the runner records the exact candidate revision, commands, exits and private log locations."
+wiring_request = "Domain 4 (launchpad deployment), DELIVERY_CONFIG_FILE consumed by services/launchpad/trading-charts/internal/config: bind chartOutbox={stream:<admitted output JetStream>,subject:candle.updated.v2,batch:1..64,intervalMillis:10..10000}, admit candle.updated.v2 in policy.subjects, and provision that stream/subject and publisher ACL in the deployment inventory."
+gotcha = "A chart outbox mark can fail after broker persistence; a stable identity must survive retry and reopen, and relay shutdown must finish before the broker connection or database pool closes."

@@ -84,10 +84,15 @@ func (k Keeper) GetBaseExchangeRate(ctx sdk.Context, denom string) (sdk.Dec, sdk
 }
 
 func (k Keeper) SetBaseExchangeRate(ctx sdk.Context, denom string, exchangeRate sdk.Dec) {
-	store := ctx.KVStore(k.storeKey)
 	currHeight := sdk.NewInt(ctx.BlockHeight())
 	blockTimestamp := ctx.BlockTime().UnixMilli()
 	rate := types.OracleExchangeRate{ExchangeRate: exchangeRate, LastUpdate: currHeight, LastUpdateTimestamp: blockTimestamp}
+	k.RestoreBaseExchangeRate(ctx, denom, rate)
+}
+
+// RestoreBaseExchangeRate restores an observation without refreshing its metadata.
+func (k Keeper) RestoreBaseExchangeRate(ctx sdk.Context, denom string, rate types.OracleExchangeRate) {
+	store := ctx.KVStore(k.storeKey)
 	bz := k.cdc.MustMarshal(&rate)
 	store.Set(types.GetExchangeRateKey(denom), bz)
 }

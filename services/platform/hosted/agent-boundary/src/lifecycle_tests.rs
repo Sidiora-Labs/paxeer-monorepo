@@ -1,8 +1,7 @@
 #[test]
 fn retired_program_routes_answer_not_found() {
     use std::collections::BTreeMap;
-    use std::sync::{Arc, Mutex};
-    use std::time::Duration;
+    use std::sync::Arc;
     use zeroize::Zeroizing;
 
     let mut nonce = [0; 16];
@@ -34,22 +33,17 @@ fn retired_program_routes_answer_not_found() {
         gateway_token: Zeroizing::new("gateway-plane-token".to_owned()),
         registry_token: Zeroizing::new("registry-plane-token".to_owned()),
         webhook_token: Zeroizing::new("webhook-plane-token".to_owned()),
-        node: super::NodeEndpoint { port: 1 },
         chain_receipts: super::chain_receipt::ChainReceipts::from_config(
             "http://127.0.0.1:1",
             &keys,
         )
         .expect("chain receipts"),
-        node_token: Zeroizing::new("node-token".to_owned()),
-        state_dir: root.join("state"),
-        protocol_network_id: 7_332,
         network_name: "layerx-retired-routes-test".to_owned(),
-        registry: super::module_registry().expect("module registry"),
-        receipt_wait: Duration::from_secs(1),
-        key_locks: Mutex::new(BTreeMap::new()),
     };
     let id = "01".repeat(32);
     let retired = [
+        ("GET", "/v1/protocol/account-state/head".to_owned()),
+        ("GET", format!("/v1/receipts/{id}/account-state")),
         ("POST", "/v1/activities".to_owned()),
         ("POST", "/v1/programs/call".to_owned()),
         ("POST", "/v1/programs/read".to_owned()),
@@ -114,14 +108,9 @@ fn retired_program_routes_answer_not_found() {
     let body: serde_json::Value =
         serde_json::from_str(&response.body).expect("receipt refusal JSON");
     assert_eq!(body["error"]["code"], "invalid_activity_id");
-    assert!(super::relay_path_allowed(
-        "/v1/protocol/account-state/head",
-        None
-    ));
-    assert!(super::relay_path_allowed(
-        &format!("/v1/receipts/{id}/account-state"),
-        None,
-    ));
-    assert!(!config.state_dir.exists(), "retired routes wrote a journal");
+    assert!(
+        !root.join("state").exists(),
+        "retired routes wrote a journal"
+    );
     std::fs::remove_dir_all(root).expect("remove test directory");
 }

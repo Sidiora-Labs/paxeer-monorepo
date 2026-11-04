@@ -159,6 +159,8 @@ fn fetch_git_archive(repository: &str, destination: &Path) -> Result<(), String>
         .ok_or_else(|| {
             format!("git location {GIT_SCHEME}{repository} must name the tag after `#`")
         })?;
+    let destination = std::path::absolute(destination)
+        .map_err(|error| format!("resolve {}: {error}", destination.display()))?;
     let checkout = PathBuf::from(format!("{}.checkout", destination.display()));
     if checkout.exists() {
         fs::remove_dir_all(&checkout)
@@ -175,7 +177,7 @@ fn fetch_git_archive(repository: &str, destination: &Path) -> Result<(), String>
             .arg("-C")
             .arg(&checkout)
             .args(["archive", "--format=tar", "--output"])
-            .arg(destination)
+            .arg(&destination)
             .arg("HEAD"),
         &format!("archive {url} at {tag}"),
     )?;

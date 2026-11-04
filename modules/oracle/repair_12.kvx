@@ -1,0 +1,25 @@
+[task]
+id = "22.31.12"
+audit = "22.30.13"
+base_revision = "a2c1b83e1c3e7ecd65fa771738df55e7e34f56fd"
+
+[finding.004]
+repair = "Genesis exchange-rate version 1 preserves each full OracleExchangeRate; export emits only this representation, import restores the original source height and UnixMilli timestamp, and version 0 legacy rates stay unavailable until a new valid observation. Unknown, mixed and malformed formats fail before writes."
+tests = ["TestRepair_12_ExportImportPreservesFreshness", "TestRepair_12_LegacyRatesUnavailableUntilVote", "TestRepair_12_RejectsAmbiguousGenesisBeforeWrites", "TestRepair_12_ZeroMetadataRemainsZero"]
+path = "Real staking validator -> oracle vote handler -> MidBlock tally -> keeper protobuf store -> store commit/close/reopen -> ExportGenesis -> protobuf and JSON codecs -> InitGenesis at a different height/time -> store commit/close/reopen -> keeper and typed single/plural queries."
+wiring_requests = []
+
+[qualification]
+baseline = "Not run: the explicit ordered gate instructions prohibit testing before implementation and reserve verification for hf-done; no baseline failures are claimed."
+build = "hf-build: go build ./modules/oracle/..."
+verify = "hf-done: cg spec done 22.31.12 -f layerx-merge --root /work/paxeer-monorepo (go test -count=1 ./modules/oracle/)"
+evidence = "The runner's private /out/run/gates.jsonl records the verified candidate revision, exact command, exit code and log location; the final response copies the last gate result."
+gotcha = "Legacy exchange_rates cannot establish freshness; preserving their numeric value with a recovery-time timestamp would fabricate an observation. The bounded gate order takes precedence over the contradictory baseline-test step."
+
+[qualification.repair]
+revision = "8fa72438ad81332aafd181879b0295b8704e169b"
+command = "cg spec done 22.31.12 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The new test used upstream JSON codec method names; this repository exposes MarshalAsJSON and UnmarshalAsJSON."
+repair = "Use the repository's real codec methods and initialize empty repeated collections before decoding, preserving every assertion and leaving all metadata zero until transport supplies it."

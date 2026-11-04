@@ -111,12 +111,54 @@ func (k *Keeper) setParams(ctx sdk.Context, params types.Params) error {
 // account, which is how ProtocolConfig's admin setters are reached natively.
 func (k *Keeper) UpdateParams(ctx sdk.Context, authority string, params types.Params) error {
 	if authority != k.authority {
-		return fmt.Errorf("%w: %s", types.ErrUnauthorized, authority)
+		return types.ErrUnauthorized.Wrap(authority)
+	}
+	if err := params.Validate(); err != nil {
+		return err
+	}
+	if common.HexToAddress(params.QuoteToken) != common.HexToAddress(k.GetParams(ctx).QuoteToken) {
+		if err := k.checkQuoteTokenChange(ctx); err != nil {
+			return err
+		}
 	}
 	if err := k.setParams(ctx, params); err != nil {
 		return err
 	}
 	ctx.EventManager().EmitEvent(sdk.NewEvent(types.EventTypeParamsUpdated))
+	return nil
+}
+
+// checkQuoteTokenChange refuses to redenominate unkeyed pool and fee ledgers.
+func (k *Keeper) checkQuoteTokenChange(ctx sdk.Context) error {
+	refusal := types.ErrInvalidParams.Wrap("quote token cannot change while markets or quote liabilities exist")
+	markets := sdk.KVStorePrefixIterator(k.store(ctx), types.MarketPrefix)
+	defer markets.Close()
+	if markets.Valid() || k.GetMarketCount(ctx) != 0 {
+		return refusal
+	}
+	for _, prefix := range [][]byte{types.HeldQuotePrefix, types.FeeHeldPrefix, types.ProtocolFeesPrefix,
+		lpRewardsPrefix, opticalSurplusPrefix} {
+		entries := sdk.KVStorePrefixIterator(k.store(ctx), prefix)
+		for ; entries.Valid(); entries.Next() {
+			amount, err := k.getLedgerAmount(ctx, entries.Key())
+			if err != nil {
+				entries.Close()
+				return err
+			}
+			if !amount.IsZero() {
+				entries.Close()
+				return refusal
+			}
+		}
+		entries.Close()
+	}
+	liabilities, err := k.TotalLiabilities(ctx)
+	if err != nil {
+		return err
+	}
+	if !liabilities.IsZero() {
+		return refusal
+	}
 	return nil
 }
 
