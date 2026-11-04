@@ -277734,7 +277734,7 @@ do_11 = "Attempt 3 (continue after 22.31.463): the test binary of precompiles/po
 
 [task.22.33.1282]
 title = "Repair audit record 22.30.65 medium findings in precompiles/xweb (part 1 of 1): interface-mismatch, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.130", "22.31.463"]
@@ -323066,7 +323066,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.994]
 title = "Repair audit record 22.30.32 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.48", "22.31.49", "22.31.50", "22.31.51", "22.31.52", "22.31.470"]
@@ -323101,7 +323101,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.982]
 title = "Repair audit record 22.30.30 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.43", "22.31.44", "22.31.45", "22.31.470"]
@@ -323241,7 +323241,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.968]
 title = "Repair audit record 22.30.3 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.42", "22.31.470"]
@@ -323355,7 +323355,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.959]
 title = "Repair audit record 22.30.28 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.40", "22.31.470"]
@@ -323885,7 +323885,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.888]
 title = "Repair audit record 22.30.183 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.330", "22.31.470"]
@@ -324238,7 +324238,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.869]
 title = "Repair audit record 22.30.182 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.430", "22.31.431", "22.31.432", "22.31.470"]
@@ -324529,7 +324529,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.854]
 title = "Repair audit record 22.30.181 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.428", "22.31.429", "22.31.470"]
@@ -324939,7 +324939,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.838]
 title = "Repair audit record 22.30.180 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.325", "22.31.326", "22.31.327", "22.31.328", "22.31.329", "22.31.470"]
@@ -330525,7 +330525,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.33]
 title = "Repair audit record 22.30.102 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.150", "22.31.470"]
