@@ -1,8 +1,8 @@
-use super::PrecompileSource;
+use super::{EmbeddedPrecompiles, PrecompileSource};
 use std::{
     collections::{BTreeSet, HashMap},
-    fs::File,
     path::Path,
+    process::Command,
 };
 
 fn canonical_signature(name: &str, inputs: impl Iterator<Item = String>) -> String {
@@ -22,51 +22,52 @@ fn table_entries(table: &HashMap<String, Vec<String>>) -> BTreeSet<(String, Stri
 
 #[test]
 fn embedded_table_matches_abi_files() {
-    let precompiles = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../../../precompiles");
+    let generator =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("src/sources/generate_precompiles.py");
+    let generated = Command::new("python3")
+        .arg(generator)
+        .arg("--stdout")
+        .output()
+        .unwrap();
+    assert!(
+        generated.status.success(),
+        "{}",
+        String::from_utf8_lossy(&generated.stderr)
+    );
+    let expected: serde_json::Value = serde_json::from_slice(&generated.stdout).unwrap();
+    let actual: serde_json::Value = serde_json::from_str(include_str!("precompiles.json")).unwrap();
+    assert_eq!(actual, expected, "embedded inventory and ABI must match the node's versioned registry and historical snapshot");
+    let embedded: EmbeddedPrecompiles = serde_json::from_value(expected).unwrap();
+    let abi = embedded.into_contract();
     let mut expected_functions = BTreeSet::new();
     let mut expected_events = BTreeSet::new();
-
-    for relative_path in [
-        "addr/abi.json",
-        "layerxexchange/abi.json",
-        "layerxbridge/abi.json",
-        "launchpad/abi.json",
-    ] {
-        let path = precompiles.join(relative_path);
-        let file = File::open(&path)
-            .unwrap_or_else(|error| panic!("cannot read {}: {error}", path.display()));
-        let abi = ethabi::Contract::load(file)
-            .unwrap_or_else(|error| panic!("invalid ABI {}: {error}", path.display()));
-
-        for function in abi.functions() {
-            expected_functions.insert((
-                hex::encode(function.short_signature()),
-                canonical_signature(
-                    &function.name,
-                    function.inputs.iter().map(|input| input.kind.to_string()),
-                ),
-            ));
-        }
-        for event in abi.events() {
-            expected_events.insert((
-                hex::encode(event.signature()),
-                canonical_signature(
-                    &event.name,
-                    event.inputs.iter().map(|input| input.kind.to_string()),
-                ),
-            ));
-        }
+    for function in abi.functions() {
+        expected_functions.insert((
+            hex::encode(function.short_signature()),
+            canonical_signature(
+                &function.name,
+                function.inputs.iter().map(|input| input.kind.to_string()),
+            ),
+        ));
     }
-
+    for event in abi.events() {
+        expected_events.insert((
+            hex::encode(event.signature()),
+            canonical_signature(
+                &event.name,
+                event.inputs.iter().map(|input| input.kind.to_string()),
+            ),
+        ));
+    }
     let embedded = PrecompileSource::signatures();
     assert_eq!(
         table_entries(&embedded.functions),
         expected_functions,
-        "embedded function signatures must equal the union of the four precompile ABIs"
+        "embedded functions must equal the versioned and historical ABI union"
     );
     assert_eq!(
         table_entries(&embedded.events),
         expected_events,
-        "embedded event signatures must equal the union of the four precompile ABIs"
+        "embedded events must equal the versioned and historical ABI union"
     );
 }

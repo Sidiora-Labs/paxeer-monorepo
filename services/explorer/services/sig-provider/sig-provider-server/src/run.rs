@@ -50,6 +50,9 @@ pub fn new_service(settings: SourcesSettings) -> Arc<Service> {
     sources.push(Arc::new(fourbyte::Source::new(settings.fourbyte)));
     let complete_sources = {
         let mut sources: Vec<Arc<dyn CompleteSignatureSource + Send + Sync + 'static>> = vec![];
+        if settings.precompiles.enabled {
+            sources.push(Arc::new(PrecompileSource::new()));
+        }
         if settings.eth_bytecode_db.enabled {
             sources.push(Arc::new(eth_bytecode_db::Source::new(
                 settings.eth_bytecode_db.url,

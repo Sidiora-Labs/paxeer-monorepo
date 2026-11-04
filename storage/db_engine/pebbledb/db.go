@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"sync"
 
 	"github.com/cockroachdb/pebble/v2"
 	"github.com/cockroachdb/pebble/v2/bloom"
@@ -22,8 +23,10 @@ import (
 
 // pebbleDB implements the db_engine.DB interface using PebbleDB.
 type pebbleDB struct {
-	db            *pebble.DB
-	metricsCancel context.CancelFunc
+	db        *pebble.DB
+	metrics   *PebbleMetrics
+	closeOnce sync.Once
+	closeErr  error
 }
 
 var _ types.KeyValueDB = (*pebbleDB)(nil)
@@ -86,15 +89,12 @@ func Open(
 		return nil, err
 	}
 
-	ctx, cancel := context.WithCancel(ctx)
+	p := &pebbleDB{db: db}
 	if config.EnableMetrics {
-		NewPebbleMetrics(ctx, db, filepath.Base(config.DataDir), config.MetricsScrapeInterval)
+		p.metrics = NewPebbleMetrics(ctx, db, filepath.Base(config.DataDir), config.MetricsScrapeInterval)
 	}
 
-	return &pebbleDB{
-		db:            db,
-		metricsCancel: cancel,
-	}, nil
+	return p, nil
 }
 
 // OpenWithCache opens a Pebble-backed DB and wraps it with a read-through cache.
@@ -199,20 +199,16 @@ func (p *pebbleDB) Checkpoint(destDir string) error {
 var _ types.Checkpointable = (*pebbleDB)(nil)
 
 func (p *pebbleDB) Close() error {
-	// Make Close idempotent: Pebble panics if Close is called twice.
-	if p.db == nil {
-		return nil
-	}
-
-	if p.metricsCancel != nil {
-		p.metricsCancel()
-		p.metricsCancel = nil
-	}
-
-	db := p.db
-	p.db = nil
-
-	return db.Close()
+	p.closeOnce.Do(func() {
+		if p.metrics != nil {
+			p.metrics.Stop()
+		}
+		if p.db != nil {
+			p.closeErr = p.db.Close()
+			p.db = nil
+		}
+	})
+	return p.closeErr
 }
 
 func toPebbleWriteOpts(opts types.WriteOptions) *pebble.WriteOptions {

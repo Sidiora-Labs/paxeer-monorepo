@@ -1,0 +1,15 @@
+[repair.22.33.1176]
+audit = "22.30.54"
+acceptance = "22998.1"
+baseline = "Not run: the explicit implementation-first gate order permits verification only through hf-done after implementation and hf-build; no baseline failure is claimed."
+evidence = "The runner hf-build/hf-done ledger and cg spec done record name the verified candidate revision, exact command, exit code and private evidence log."
+wiring_requests = []
+
+[finding.raw-metrics-close-race]
+tests = ["TestRepairM_1176_TickOverlapsClose", "TestRepairM_1176_ParentCancellation", "TestRepairM_1176_CloseWithoutMetrics"]
+repair = "Give PebbleMetrics an idempotent cancellation/join contract and retain it in the raw adapter; serialize concurrent Close calls, join collection before closing Pebble and reject queued ticks after cancellation."
+proof = "A real periodic Pebble snapshot reaches the OTel SDK exemplar filter and blocks there while eight adapter Close calls overlap; the raw handle remains usable until release, the collector then exits before shutdown, and the SDK reader exports exactly one attributed histogram sample despite a queued tick. Parent cancellation and metrics-disabled concurrent shutdown also retain repeated Close behavior."
+
+[qualification.constraints]
+observed = "The requested pre-change verify conflicts with the explicit implementation-first bounded gate order, and the root gotcha/spec logs are outside the permitted edit scope."
+assumption = "Follow the explicit gate order, record the conflict here, and let the runner own spec evidence and publication."
