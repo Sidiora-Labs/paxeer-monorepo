@@ -111,7 +111,11 @@ func (s Store) GetAllKeyStrsInRange(start, end []byte) []string {
 	} else {
 		newend = cloneAppend(s.prefix, end)
 	}
-	return s.parent.GetAllKeyStrsInRange(newstart, newend)
+	keys := s.parent.GetAllKeyStrsInRange(newstart, newend)
+	for i, key := range keys {
+		keys[i] = string(stripPrefix([]byte(key), s.prefix))
+	}
+	return keys
 }
 
 // Implements KVStore

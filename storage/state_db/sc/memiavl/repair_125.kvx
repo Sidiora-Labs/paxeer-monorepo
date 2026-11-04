@@ -1,0 +1,36 @@
+[repair.22.31.125]
+audit = "22.30.56"
+base = "ff6bf6162f496eda36bdb11465eb09d6f21a6fdd"
+build_cmd = "go build ./storage/state_db/sc/memiavl/..."
+verify_cmd = "go test -count=1 -run '^TestRepair_125_' ./storage/state_db/sc/memiavl/"
+evidence = "The runner's private hf-build/hf-done ledger records the candidate revision, command, exit code and log location."
+baseline = "Not run: the explicit task order prohibits testing before complete implementation and permits verification only through hf-done after hf-build; no pre-change failures are claimed."
+wiring = "spec/layerx-merge/spec.kvx: fm-node-runtime / task runner owns publication of this finding-to-test mapping and the declared gate evidence; agents are forbidden to edit spec files in this task."
+
+[finding.memiavl-upgrade-idempotence]
+tests = ["TestRepair_125_UpgradeIdempotence", "TestRepair_125_UpgradePlanAtomicity"]
+proof = "Committer upgrades stage additions, renames and deletions atomically; repeated merge/retirement delivery preserves retained state across commit, WAL replay and snapshot reopen at default and nondefault initial heights; rejected mid-plan upgrades preserve lookups, working hashes and previously accepted pending WAL work."
+
+[finding.memiavl-replay-gap]
+tests = ["TestRepair_125_ReplayGap", "TestRepair_125_ReplayInitialHeightAndDuplicates"]
+proof = "The real DB emits committed WAL records; removing the first height or a height after a valid prefix causes OpenDB to reject startup and reopened snapshot/WAL catchup to reject the gap before any mutation or global version publication. Contiguous replay, historical targets and repeated committed versions preserve every retained tree version and root at initial heights 0, 1 and 100."
+
+[finding.memiavl-duplicate-store-replay]
+tests = ["TestRepair_125_DuplicateStoreReplay"]
+proof = "A first ApplyChangeSets batch containing duplicate store names and ordered overwrites/deletion produces one merged WAL changeset per store; a single commit followed by real WAL reopen preserves versions, roots and values, including an untouched retained tree."
+
+[finding.memiavl-rejected-changeset-wal]
+tests = ["TestRepair_125_RejectedChangesetWAL"]
+proof = "A known-store/unknown-store batch leaves working state and earlier accepted pending WAL bytes unchanged at DB and MultiTree boundaries; a rejected single-store write also stays out of the WAL; later valid work commits and recovers from a real snapshot plus WAL."
+
+[constraint.retirement-assertion]
+path = "storage/state_db/sc/memiavl/anchor_delete_test.go:123"
+observed = "The prior assertion required an error on repeated retirement; task step 10 requires updating assertions for changed behavior. It now requires successful repeated deletion and reasserts the full retired state, retained versions, hashes and values."
+
+[qualification.first-gate]
+revision = "264b3b75a60cd41acca714c91f25e8a3c9d45077"
+command = "cg spec done 22.31.125 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Untouched assertions fail on repeated-delete success (anchor_delete_test.go:123), a new tree root expected at version 1 although additions already use the next chain height (db_test.go:358), and no snapshot completed inside the short timing window (snapshot_catchup_test.go:214)."
+assumption = "These contract/timing findings are recorded without changing or weakening their checks; the separate background snapshot error propagation exposed by the new continuity check is repaired within this task."

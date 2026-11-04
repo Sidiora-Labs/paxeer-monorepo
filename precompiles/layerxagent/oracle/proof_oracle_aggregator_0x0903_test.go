@@ -52,7 +52,10 @@ import (
 type proofOracleKeepers struct {
 	*app.PrecompileKeepers
 	exchange *exchangekeeper.Keeper
+	host     *lxphost.Host
 }
+
+func (k proofOracleKeepers) LayerXHost() *lxphost.Host { return k.host }
 
 func (k proofOracleKeepers) LayerXExchangeK() *exchangekeeper.Keeper { return k.exchange }
 
@@ -68,7 +71,7 @@ func newProofOracleHarness(t *testing.T) *proofOracleHarness {
 	f := fixture(t)
 	application := testkeeper.EVMTestApp
 	application.UpgradeKeeper.SetDone(f.ctx, precompiles.MergeUpgrade)
-	h := &proofOracleHarness{f: f, keepers: proofOracleKeepers{application.GetPrecompileKeepers().(*app.PrecompileKeepers), f.exchange}}
+	h := &proofOracleHarness{f: f, keepers: proofOracleKeepers{application.GetPrecompileKeepers().(*app.PrecompileKeepers), f.exchange, f.host}}
 	// Use the production constructor registry, including its merge version alias.
 	set, err := precompiles.GetCustomPrecompilesE(app.LatestUpgrade, h.keepers)
 	require.NoError(t, err)
@@ -261,6 +264,7 @@ func TestProofOracleAggregator0x0903(t *testing.T) {
 		f.host, err = lxphost.NewHost(lxphost.Config{StoreKey: f.hostKey, NetworkID: 7, ParameterVersion: 1, TimestampWindowMs: 60000, GasLimit: 1000000})
 		require.NoError(t, err)
 		t.Cleanup(f.host.Close)
+		h.keepers.host = f.host
 		previous := h.p
 		h.p, err = oracle.NewMergePrecompile(h.keepers, precompiles.MergeUpgrade)
 		require.NoError(t, err)

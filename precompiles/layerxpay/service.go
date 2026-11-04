@@ -1,6 +1,7 @@
 package layerxpay
 
 import (
+	"encoding/binary"
 	"fmt"
 
 	paytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/types"
@@ -20,6 +21,7 @@ func (p *Executor) serviceHandlers(ctx sdk.Context, method *abi.Method, caller c
 	var event string
 	var receipt lxphost.Receipt
 	var err error
+	var defaultSweep bool
 	switch method.Name {
 	case "serviceOfferPublish":
 		receipt, err = p.keeper.ServiceOfferPublish(ctx, caller, id, idArg(1), payU128(args[2]), idArg(3), idArg(4), args[5].(uint64), args[6].(uint64), args[7].(uint64), args[8].(uint8), args[9].(uint64))
@@ -63,6 +65,7 @@ func (p *Executor) serviceHandlers(ctx sdk.Context, method *abi.Method, caller c
 		agreement, found := p.keeper.GetAgreement(ctx, id)
 		if found && agreement.State == 3 && uint64(ctx.BlockTime().UnixMilli()) > agreement.AcceptanceWindowEndMs {
 			receipt, err = p.keeper.ServiceApplyDefaultOutcomes(ctx)
+			defaultSweep = true
 		} else {
 			receipt, err = p.keeper.ServiceAccept(ctx, caller, id, key)
 		}
@@ -71,6 +74,7 @@ func (p *Executor) serviceHandlers(ctx sdk.Context, method *abi.Method, caller c
 		agreement, found := p.keeper.GetAgreement(ctx, id)
 		if found && agreement.State == 3 && uint64(ctx.BlockTime().UnixMilli()) > agreement.AcceptanceWindowEndMs {
 			receipt, err = p.keeper.ServiceApplyDefaultOutcomes(ctx)
+			defaultSweep = true
 		} else {
 			receipt, err = p.keeper.ServiceReject(ctx, caller, id, args[1].(uint16), args[2].([][32]byte), key)
 		}
@@ -86,6 +90,12 @@ func (p *Executor) serviceHandlers(ctx sdk.Context, method *abi.Method, caller c
 	}
 	if err != nil {
 		return nil, err
+	}
+	if defaultSweep {
+		if err := p.emitServiceDefaultOutcomes(ctx, receipt, id, evm); err != nil {
+			return nil, err
+		}
+		return method.Outputs.Pack()
 	}
 	var record any
 	var found bool
@@ -131,4 +141,41 @@ func (p *Executor) serviceHandlers(ctx sdk.Context, method *abi.Method, caller c
 		return nil, err
 	}
 	return method.Outputs.Pack()
+}
+
+func (p *Executor) emitServiceDefaultOutcomes(ctx sdk.Context, receipt lxphost.Receipt, requestedID [32]byte, evm *vm.EVM) error {
+	seen := make(map[[32]byte]bool, len(receipt.Events))
+	values := make([][]interface{}, len(receipt.Events))
+	ids := make([][32]byte, len(receipt.Events))
+	for i, event := range receipt.Events {
+		if event.Code != 14 || len(event.Body) != 50 {
+			return fmt.Errorf("LXP_FATAL_INVARIANT: invalid default outcome event %d", i)
+		}
+		id := [32]byte(event.Body[:32])
+		sequence := binary.BigEndian.Uint64(event.Body[34:42])
+		timestamp := binary.BigEndian.Uint64(event.Body[42:50])
+		agreement, found := p.keeper.GetAgreement(ctx, id)
+		if !found || seen[id] || !agreement.DefaultApplied || event.Body[33] != 1 ||
+			(agreement.State != 4 && agreement.State != 5) || event.Body[32] != agreement.State ||
+			sequence != receipt.GlobalSequence || sequence != agreement.OutcomeSequence ||
+			timestamp != receipt.Timestamp || timestamp != agreement.OutcomeTimestampMs {
+			return fmt.Errorf("LXP_FATAL_INVARIANT: default outcome event disagrees with agreement %x", id)
+		}
+		seen[id] = true
+		ids[i] = id
+		var err error
+		values[i], err = payEvents["DefaultOutcomeApplied"].pack([]interface{}{id}, agreement)
+		if err != nil {
+			return err
+		}
+	}
+	if !seen[requestedID] {
+		return fmt.Errorf("LXP_FATAL_INVARIANT: default outcome missing for agreement %x", requestedID)
+	}
+	for i, id := range ids {
+		if err := emitPayEvent(evm, "DefaultOutcomeApplied", id, values[i]); err != nil {
+			return err
+		}
+	}
+	return nil
 }

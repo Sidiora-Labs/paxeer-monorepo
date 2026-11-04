@@ -45,7 +45,8 @@ func NewPublicationStore(pool *pgxpool.Pool, schema string, guard EpochGuard) (*
 	return &PublicationStore{s, guard}, nil
 }
 func (s *PublicationStore) Complete(ctx context.Context, snapshots []ranker.Snapshot) error {
-	if len(snapshots) != 1 && len(snapshots) != 5 {
+	heavyCategories := ranker.HeavyCategoryNames()
+	if len(snapshots) != 1 && len(snapshots) != len(heavyCategories) {
 		return errors.New("complete new or complete heavy run required")
 	}
 	ordered := append([]ranker.Snapshot(nil), snapshots...)
@@ -65,8 +66,8 @@ func (s *PublicationStore) Complete(ctx context.Context, snapshots []ranker.Snap
 	if len(ordered) == 1 && !categories["new"] {
 		return errors.New("new run required")
 	}
-	if len(ordered) == 5 {
-		for _, category := range ranker.HeavyCategoryNames() {
+	if len(ordered) != 1 {
+		for _, category := range heavyCategories {
 			if !categories[category] {
 				return errors.New("heavy categories incomplete")
 			}

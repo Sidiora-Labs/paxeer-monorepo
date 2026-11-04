@@ -87,3 +87,37 @@ def test_pin_provision_preserves_history_refusals(generated, mutation):
         history[start + 46] ^= 1
     (directory / "trust-history").write_bytes(history)
     assert_refused(directory)
+
+
+def test_gateway_projection_preserves_current_webhook_contract(tmp_path):
+    import yaml
+
+    hosted = DIRECTORY.parent
+    original_webhooks = list(yaml.safe_load_all(
+        (hosted / "webhooks/deployment.yaml").read_text()))
+    (tmp_path / "developer.yaml").write_text(
+        (hosted / "webhooks/deployment.yaml").read_text())
+    (tmp_path / "gateway.yaml").write_text(
+        (hosted / "gateway/deployment.yaml").read_text())
+    PINS.manifests(tmp_path)
+    rendered_webhooks = list(yaml.safe_load_all((tmp_path / "developer.yaml").read_text()))
+    assert rendered_webhooks == original_webhooks
+    workload = next(document for document in rendered_webhooks
+                    if document["kind"] == "Deployment"
+                    and document["metadata"]["name"] == "layerx-webhooks")
+    pod = workload["spec"]["template"]["spec"]
+    container = next(container for container in pod["containers"]
+                     if container["name"] == "webhooks")
+    environment = {entry["name"]: entry.get("value") for entry in container["env"]}
+    assert environment["LAYERX_WEBHOOKS_SEQUENCER_PUBLIC_KEY_FILE"] == "/run/layerx/keys/sequencer"
+    for suffix in ("ID", "FIRST_BATCH", "LAST_BATCH"):
+        assert environment["LAYERX_WEBHOOKS_SEQUENCER_" + suffix + "_FILE"] == (
+            "/run/layerx/keys/sequencer-" + suffix.lower().replace("_", "-"))
+    assert "LAYERX_WEBHOOKS_RECEIPT_KEYS_FILE" not in environment
+    runtime = next(volume for volume in pod["volumes"] if volume["name"] == "runtime")
+    secret = next(source["secret"] for source in runtime["projected"]["sources"]
+                  if source.get("secret", {}).get("name") == "layerx-developer-hosted-runtime")
+    for suffix, path in (("public-key", "sequencer"), ("id", "sequencer-id"),
+                         ("first-batch", "sequencer-first-batch"),
+                         ("last-batch", "sequencer-last-batch")):
+        assert {"key": "sequencer-" + suffix, "path": "keys/" + path} in secret["items"]

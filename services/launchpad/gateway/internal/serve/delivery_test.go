@@ -119,7 +119,7 @@ func TestApprovedColdConditionalAndBoundedRange(t *testing.T) {
 	NewApproved(Deps{Buckets: map[string]Reader{"token": store}, Cache: mediaCache}, ledger).RegisterRoutes(router)
 	missing := request("GET", nil)
 	before := observed.gets.Load()
-	if missing.Code != 404 || missing.Header().Get("Cache-Control") != "public, max-age=30" {
+	if missing.Code != 404 || missing.Header().Get("Cache-Control") != "no-store" || missing.Header().Get("CDN-Cache-Control") != "no-store" {
 		t.Fatal(missing.Code, missing.Header())
 	}
 	if w := request("GET", nil); w.Code != 404 || observed.gets.Load() != before {

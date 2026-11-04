@@ -195,7 +195,7 @@ func TestBankMirrorMatchesKernelBalances(t *testing.T) {
 	require.NoError(t, types.ValidateIssueGrantPayload(grant))
 	call(payerCaller, "issueGrant", grant)
 	assertMirror("issueGrant", 250)
-	sequence := call(payeeCaller, "nextSequence", payee.DIDKey, asset)[0].(uint64)
+	sequence := call(payeeCaller, "nextSequence", to, asset)[0].(uint64)
 	call(payeeCaller, "draw", grantID, to, big.NewInt(15), [32]byte{0x45}, sequence, purpose, contextHash)
 	balances[from], balances[to] = 150, 40
 	assertMirror("draw", 250)

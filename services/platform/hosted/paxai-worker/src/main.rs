@@ -10,8 +10,8 @@ use layerx_client::px::{PxNetworkHead, PxPaxeerHead};
 use layerx_paxai_worker::{
     auth::{
         acknowledgment_digest, decode_service, sign_status, verify_request, verify_signed_metadata,
-        AuthenticatedRequest, MetadataContext, Route, ServiceError, StatusChallenge, WorkerBinding,
-        STATUS_PATH,
+        AuthenticatedRequest, EvaluationAccess, MetadataContext, Route, ServiceError,
+        StatusChallenge, WorkerBinding, STATUS_PATH,
     },
     discovery::spki_sha256,
     discovery::{AuthorityEvidence, IdentityEvidence, VerifiedMetadata, READINESS_TTL_MS},
@@ -340,8 +340,22 @@ impl Service {
     }
 
     fn status(&self, body: &[u8]) -> Response {
-        let signed = StatusChallenge::decode(body)
-            .and_then(|challenge| sign_status(&self.binding, &challenge, &self.key));
+        let signed = (|| {
+            let challenge = StatusChallenge::decode(body)?;
+            let mut runtime = self
+                .runtime
+                .lock()
+                .map_err(|_| ServiceError::ExecutionUnavailable)?;
+            runtime.fresh()?;
+            let authority = &runtime
+                .membership
+                .current()
+                .ok_or(ServiceError::StaleAuthority)?
+                .authority;
+            let binding = authority.worker_binding();
+            let key = self.jobs.signing_key(binding.delegate)?;
+            sign_status(&binding, &challenge, &key)
+        })();
         match signed {
             Ok(body) => Response {
                 status: 200,
@@ -358,17 +372,27 @@ impl Service {
             Err(error) => return refusal(error, Presence::Absent),
         };
         let request = Presence::Present(envelope.context.request);
-        if let Err(error) = verify_request(&envelope, route, &self.binding) {
-            return refusal(error, request);
-        }
         let answer = (|| {
             let mut runtime = self
                 .runtime
                 .lock()
                 .map_err(|_| ServiceError::ExecutionUnavailable)?;
             runtime.fresh()?;
-            let authority = *runtime.membership.new_work()?;
-            let authenticated = verify_request(&envelope, route, &authority.worker_binding())?;
+            let authority = *runtime.membership.admitted_work()?;
+            let binding = if route == Route::Submit {
+                let key = JobKey::derive(
+                    envelope.context.market,
+                    envelope.context.actor,
+                    envelope.context.request,
+                )?;
+                match self.jobs.store().find(key)? {
+                    Some(saved) => saved.record.admission.worker_binding(),
+                    None => runtime.membership.new_work()?.worker_binding(),
+                }
+            } else {
+                authority.worker_binding()
+            };
+            let authenticated = verify_request(&envelope, route, &binding)?;
             let current = runtime
                 .current
                 .as_ref()
@@ -380,6 +404,9 @@ impl Service {
                 .ok_or(ServiceError::AccessDenied)?;
             match authenticated {
                 AuthenticatedRequest::Submit(submit) => {
+                    if let Some(receipt) = self.jobs.replay_submit(body, &authority, actor)? {
+                        return Ok(receipt.acknowledgment);
+                    }
                     let task = task_binding(&current.state, submit.task)?;
                     let key = JobKey::derive(
                         envelope.context.market,
@@ -396,6 +423,21 @@ impl Service {
                         &self.input_dir.join(format!("{name}.payload")),
                         layerx_paxai_worker::store::MAX_ENCRYPTED_BYTES,
                     )?;
+                    let access_path = self.input_dir.join(format!(
+                        "{}.access",
+                        hex(submit.evaluation_access.as_bytes())
+                    ));
+                    match fs::metadata(&access_path) {
+                        Ok(_) => {
+                            let access = read_bounded(&access_path, EvaluationAccess::MAX_BYTES)?;
+                            self.jobs
+                                .store()
+                                .retain_evaluation_access(submit.evaluation_access, &access)?;
+                        }
+                        // No access proof means no evaluator release; customer access is independent.
+                        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                        Err(_) => return Err(ServiceError::ExecutionUnavailable),
+                    }
                     let receipt = self.jobs.submit(
                         body,
                         Input {
@@ -412,21 +454,45 @@ impl Service {
                     )?;
                     Ok(receipt.acknowledgment)
                 }
-                AuthenticatedRequest::Query(_) => {
-                    let answer = self.jobs.query(body, &authority, actor, &[], now_ms()?)?;
-                    Ok(answer.result.unwrap_or(answer.acknowledgment))
-                }
-                AuthenticatedRequest::Cancel(reference) => {
-                    self.jobs.cancel(body, &authority, actor, now_ms()?)?;
-                    let answer = self
+                AuthenticatedRequest::Query(reference) => {
+                    let mut granted = Vec::new();
+                    for job in self
                         .jobs
                         .store()
-                        .by_request(envelope.context.market, reference.original)?;
-                    answer
-                        .into_iter()
-                        .next()
-                        .map(|job| job.record.acknowledgment)
-                        .ok_or(ServiceError::NotFound)
+                        .by_request(envelope.context.market, reference.original)?
+                    {
+                        let admission = job.record.admission;
+                        if actor.principal != admission.context.actor
+                            && (
+                                reference.task,
+                                reference.generation,
+                                reference.key_version,
+                                reference.metadata_revision,
+                            ) == (
+                                admission.task,
+                                admission.generation,
+                                admission.key_version,
+                                admission.metadata_revision,
+                            )
+                        {
+                            let request = job.record.request()?;
+                            let access = self
+                                .jobs
+                                .store()
+                                .evaluation_access(request.evaluation_access)?;
+                            granted.extend_from_slice(access.principals());
+                        }
+                    }
+                    let answer = self
+                        .jobs
+                        .query(body, &authority, actor, &granted, now_ms()?)?;
+                    Ok(answer.result.unwrap_or(answer.acknowledgment))
+                }
+                AuthenticatedRequest::Cancel(_) => {
+                    let cancelled = self
+                        .jobs
+                        .cancel_record(body, &authority, actor, now_ms()?)?;
+                    Ok(cancelled.acknowledgment)
                 }
             }
         })();
@@ -665,7 +731,21 @@ fn refresh_authority(service: &Service, config: &Config) -> Result<(), ServiceEr
             .runtime
             .lock()
             .map_err(|_| ServiceError::ExecutionUnavailable)?;
-        runtime.observe(&evidence, &observation.signed_metadata, identities)
+        runtime.observe(&evidence, &observation.signed_metadata, identities)?;
+        let delegate = runtime
+            .membership
+            .current()
+            .ok_or(ServiceError::StaleAuthority)?
+            .authority
+            .worker_binding()
+            .delegate;
+        let seed = fs::read_to_string(&config.delegate_seed)
+            .map_err(|_| ServiceError::ExecutionUnavailable)?;
+        let key = SigningKey::from_bytes(&hex32(&seed).map_err(|_| ServiceError::NonCanonical)?);
+        if PublicKey32(key.verifying_key().to_bytes()) != delegate {
+            return Err(ServiceError::WrongGeneration);
+        }
+        service.jobs.store().retain_signing_key(&key)
     })();
     if result.is_err() {
         service
@@ -725,9 +805,7 @@ pub(crate) fn signed_operation(
     payload: &[u8],
 ) -> Result<PendingCall, ServiceError> {
     let binding = authority.worker_binding();
-    if PublicKey32(service.key.verifying_key().to_bytes()) != binding.delegate {
-        return Err(ServiceError::WrongGeneration);
-    }
+    let key = service.jobs.signing_key(binding.delegate)?;
     let mut identity = payload.to_vec();
     identity.extend_from_slice(&sequence.to_be_bytes());
     identity.extend_from_slice(&operation.selector().to_be_bytes());
@@ -762,7 +840,7 @@ pub(crate) fn signed_operation(
     let digest = codec::decode_envelope(&encoded[..n])?.request_digest()?;
     envelope.authentication = Authentication::Delegate {
         key: binding.delegate,
-        signature: Signature64(service.key.sign(digest.as_bytes()).to_bytes()),
+        signature: Signature64(key.sign(digest.as_bytes()).to_bytes()),
     };
     let n = codec::encode_envelope(&envelope, &mut encoded)?;
     encoded.truncate(n);
@@ -799,6 +877,17 @@ fn send_pending(
         return Err(ServiceError::ExecutionUnavailable);
     }
     Ok(())
+}
+
+pub(crate) fn claim_admitted(
+    service: &Service,
+    membership: &MembershipObserver,
+    key: JobKey,
+    task: &TaskBinding,
+    now: u64,
+) -> Result<layerx_paxai_worker::jobs::Lease, ServiceError> {
+    let authority = membership.admitted_work()?;
+    service.jobs.claim(key, task, authority, now)
 }
 
 fn maintenance_tick(service: &Service, config: &Config) -> Result<(), ServiceError> {
@@ -875,7 +964,7 @@ fn maintenance_tick(service: &Service, config: &Config) -> Result<(), ServiceErr
         let task = task_binding(&current.state, job.record.admission.task)?;
         match (job.state.state, task.status) {
             (JobState::Accepted, TaskStatus::Admitted) => {
-                runtime.membership.new_work()?;
+                runtime.membership.admitted_work()?;
                 let mut payload = shared.revision.to_be_bytes().to_vec();
                 payload.extend_from_slice(task.task.as_bytes());
                 payload.extend_from_slice(
@@ -885,8 +974,7 @@ fn maintenance_tick(service: &Service, config: &Config) -> Result<(), ServiceErr
                 break;
             }
             (JobState::Accepted, TaskStatus::Accepted) => {
-                runtime.membership.new_work()?;
-                let lease = service.jobs.claim(key, &task, &authority, now)?;
+                let lease = claim_admitted(service, &runtime.membership, key, &task, now)?;
                 // Keep the timer and authority reader independent of a running model process.
                 let store = JobStore::open(&service.state_dir.join("jobs"))?;
                 let runner =

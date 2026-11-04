@@ -1,0 +1,6 @@
+[repair.22.31.241]
+finding = "22.30.116/account-names"
+proof = ["TestRepair_241_AccountNames", "TestRepair_241_ProducerTransportPolicy"]
+path = "Native C account parser and identifier producer -> signed send and activity wire codec -> real policy effect decoder and JSON disclosure matcher. Shared valid and invalid vectors cover C, proof codec and attestor."
+baseline = "Not run: the explicit gate order forbids tests before implementation and allows verification only through hf-done; the original source rejects stream, funding and module-value names."
+wiring = "None: all implementation and proof paths are in scope; the runner owns spec and qualification evidence."
