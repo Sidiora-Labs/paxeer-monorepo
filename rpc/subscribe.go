@@ -590,9 +590,15 @@ func (f *LogFetcher) loadBlockHeader(height int64, hash []byte) (map[string]inte
 	if err != nil {
 		return nil, err
 	}
-	delete(header, "transactions")
-	delete(header, "uncles")
-	return header, nil
+	// Project a fresh map: subscription consumers must not mutate the canonical
+	// formatter's result or retain transaction payloads in notification buffers.
+	head := make(map[string]interface{}, len(header)-2)
+	for field, value := range header {
+		if field != "transactions" && field != "uncles" {
+			head[field] = value
+		}
+	}
+	return head, nil
 }
 
 func (f *LogFetcher) loadHeadExecution(height int64) (headExecution, error) {
