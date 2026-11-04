@@ -1,0 +1,34 @@
+[repair.22.33.497]
+audit = "22.30.151"
+test_file = "services/explorer/backend/apps/explorer/test/repair/repair_22_33_497_test.exs"
+baseline = "Not run: the explicit gate order forbids verification before complete implementation; no pre-change failure or baseline gate is claimed. No earlier gate ledger or repair implementation was present."
+evidence = "The runner hf-build/hf-done ledger records the exact candidate revision, command, exit code and private log; qualification requires hf-done to pass on the built candidate."
+wiring_controller = "Domain 14: services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/capabilities_controller.ex should document that its existing PriceFeed.scanned_recently?/1 call reads retained durable successful-scan metadata after compaction; retain its API-only branch and 1000-block window."
+
+[finding.capability-transient-errors]
+proving_tests = ["capability-transient-errors: per-call failures retain the whole snapshot through the API", "capability-transient-errors: only explicit unsupported calls publish absence", "capability-transient-errors: partial discovery cannot replace a successful snapshot"]
+repair = "Share an explicit method-not-found / execution-revert classification between both call readers; propagate all other per-call errors so discovery publishes only a complete successful snapshot. The loopback node replays the existing ABI probe vectors as JSON-RPC envelopes through production EthereumJSONRPC.HTTP; the actual capabilities controller publishes the result over HTTP."
+
+[finding.feed-compaction-health]
+proving_tests = ["feed-compaction-health: API-only restart retains recent success after every marker is compacted", "feed-compaction-health: an empty successful scan survives compaction without stored submissions", "feed-compaction-health: failed and unavailable watermark heights cannot manufacture recent success"]
+repair = "Before deleting successful markers, compaction atomically retains their highest height with a monotonic counter; recent-health reads retained success or uncompacted successful markers, never a watermark containing only failures. Recorded Cosmos block transactions and results traverse real HTTP, CosmosRest, PriceFeed storage and the actual capabilities controller, whose HTTP listener is stopped and reopened with the indexer disabled."
+
+[gotcha.1]
+observed = "JSON-RPC -32000 includes both execution reverts and transient header/timeout errors; the code alone does not prove that a surface is unsupported."
+
+[gotcha.2]
+observed = "A scanned-through watermark includes failed and unavailable heights, so advancing it is not evidence of a recent successful scan; retain successful height metadata transactionally before marker deletion."
+
+[gotcha.3]
+observed = "The Elixir mise shim has no selected version in the sandbox; touched files were formatted with the installed Elixir 1.19.4 binary and the repository line length of 120. Code.format_file! already includes its final newline."
+
+[gotcha.4]
+observed = "The automatic zero-delay startup probe can finish after an immediate manual refresh and replace checked_at; synchronize on its real HTTP batch before capturing the snapshot asserted unchanged across failures."
+
+[qualification.first_attempt]
+revision = "6bb8cf22af4d0cdacc46f3279c4b8ff3eb2ecb07"
+command = "cg spec done 22.33.497 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Six tests executed; five passed, and one exact snapshot assertion exposed the startup-probe timestamp race in the test."
+repair = "Wait for the actual startup batch before requesting the baseline snapshot; all original assertions and bounds remain."

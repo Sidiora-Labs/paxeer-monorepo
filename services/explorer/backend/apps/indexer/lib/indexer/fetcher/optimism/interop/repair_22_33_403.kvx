@@ -1,0 +1,9 @@
+[repair.22.33.403]
+audit = "22.30.142"
+baseline = "Not run: the task's ordered bounded gates prohibit running verify by hand or before implementation. No pre-change test failures are claimed."
+finding_37 = "37: ABI failed relay RPC data reaches import and replays after reopening; 37: malformed failed relay calldata is rejected without blocking valid imports"
+finding_38 = "38: real queue transport and import reject ambiguous relay numeric substitutions; 38: outgoing queue signs typed init data across JSON and rejects timestamp chain substitution"
+finding_39 = "39: failed multichain HTTP export retains retry state and never logs credentials or response objects; 39: failed multichain transport logs only request identity and safe status"
+wiring_request = "Domain 14: services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/optimism_controller.ex must require signature_version=2 and use MessageQueue.verify_post_data/2 (or signing_payload/1) before import, with no legacy fallback; deploy receiving peers before enabling the v2 queue. This path is outside this task's scope."
+evidence = "The bounded runner records candidate revision, command, exit and private log in /out/run/gates.jsonl; no gate success is asserted here."
+gotcha = "SentMessage packs three indexed topic words before the unindexed sender/bytes ABI data; its dynamic bytes offset is relative to the unindexed data head, not the packed topics."

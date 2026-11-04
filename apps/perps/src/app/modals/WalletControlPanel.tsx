@@ -32,6 +32,7 @@ import { formatUnits } from "viem";
 import { paxeerChain } from "@/core/chain";
 import { usePaxeer, PAXEER_CONNECTOR_ID } from "@/core/wallet/embedded";
 import { cn } from "@/ui/utils/cn";
+import { useDialogPreferences } from "./dialogPreferences";
 
 interface WalletControlPanelProps {
   open: boolean;
@@ -49,26 +50,30 @@ export function WalletControlPanel({
   onDeposit,
   onWithdraw,
 }: WalletControlPanelProps) {
+  const preferences = useDialogPreferences();
   return (
     <Popover.Root open={open} onOpenChange={onOpenChange}>
       <Popover.Trigger asChild>{trigger}</Popover.Trigger>
       <Popover.Portal>
-        <Popover.Content
-          align="end"
-          sideOffset={8}
-          className={cn(
-            "z-50 w-[340px] overflow-hidden rounded-2xl",
-            "border border-border bg-surface-1",
-            "shadow-[0_24px_48px_rgba(0,0,0,0.4)] focus:outline-none",
-            "data-[state=open]:animate-in data-[state=open]:zoom-in-95",
-          )}
-        >
-          <PanelBody
-            close={() => onOpenChange(false)}
-            onDeposit={onDeposit}
-            onWithdraw={onWithdraw}
-          />
-        </Popover.Content>
+        {preferences.status !== "loading" && (
+          <Popover.Content
+            align="end"
+            sideOffset={8}
+            className={cn(
+              "z-50 w-[340px] overflow-hidden rounded-2xl",
+              "border border-border bg-surface-1",
+              "shadow-[0_24px_48px_rgba(0,0,0,0.4)] focus:outline-none",
+              !preferences.reduceMotion &&
+                "data-[state=open]:animate-in data-[state=open]:zoom-in-95",
+            )}
+          >
+            <PanelBody
+              close={() => onOpenChange(false)}
+              onDeposit={onDeposit}
+              onWithdraw={onWithdraw}
+            />
+          </Popover.Content>
+        )}
       </Popover.Portal>
     </Popover.Root>
   );
@@ -76,7 +81,7 @@ export function WalletControlPanel({
 
 // ─── Body ─────────────────────────────────────────────────────────────────────
 
-function PanelBody({
+export function PanelBody({
   close,
   onDeposit,
   onWithdraw,
@@ -90,6 +95,12 @@ function PanelBody({
   const { disconnect } = useDisconnect();
   const chainId = useChainId();
   const isEmbedded = connector?.id === PAXEER_CONNECTOR_ID;
+  const email =
+    isEmbedded &&
+    address &&
+    paxeer.publicWallet?.address.toLowerCase() === address.toLowerCase()
+      ? paxeer.user?.email
+      : undefined;
 
   const balance = useBalance({
     address,
@@ -152,17 +163,24 @@ function PanelBody({
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate text-[13px] font-medium text-foreground">
-            {paxeer.user?.email ?? (isEmbedded ? "Paxeer Wallet" : connector?.name ?? "Connected")}
+            {email ??
+              (isEmbedded
+                ? "Paxeer Wallet"
+                : (connector?.name ?? "Connected wallet"))}
           </p>
           <p className="truncate text-[11px] text-muted-foreground">
-            {isEmbedded ? "Embedded · server-signed" : `${connector?.name ?? "Injected"} · browser`}
+            {isEmbedded
+              ? `Embedded · ${address}`
+              : `${connector?.name ?? "Injected"} · ${address}`}
           </p>
         </div>
       </div>
 
       {/* ── Address card ── */}
       <div className="px-4 pt-4">
-        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Address</p>
+        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+          Address
+        </p>
         <button
           type="button"
           onClick={copy}
@@ -183,7 +201,9 @@ function PanelBody({
 
         <div className="mt-2 flex items-center justify-between text-[11px]">
           <span className="text-muted-foreground">Balance</span>
-          <span className="font-mono font-medium text-foreground">{balanceLabel}</span>
+          <span className="font-mono font-medium text-foreground">
+            {balanceLabel}
+          </span>
         </div>
       </div>
 
@@ -196,9 +216,13 @@ function PanelBody({
               onCorrectChain ? "bg-emerald-500" : "bg-amber-500",
             )}
           />
-          {onCorrectChain ? paxeerChain.name : `Wrong network · chain ${chainId}`}
+          {onCorrectChain
+            ? paxeerChain.name
+            : `Wrong network · chain ${chainId}`}
         </span>
-        <span className="font-mono text-muted-foreground">id {paxeerChain.id}</span>
+        <span className="font-mono text-muted-foreground">
+          id {paxeerChain.id}
+        </span>
       </div>
 
       {/* ── Quick actions ── */}
