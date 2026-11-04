@@ -179,6 +179,12 @@ impl Decisions {
     ) -> Result<DecisionResult, DecisionError> {
         validate_idempotency_key(idempotency_key)?;
         let hold = load_hold(boundary, approval_id, pending_nonce)?;
+        let budget = boundary.verified_budget_after(&hold, pending_nonce)?;
+        if budget.verification() != super::BudgetVerification::Verified
+            || budget.observed_at_sequence > pending_nonce
+        {
+            return Err(DecisionError::UnverifiedBudget);
+        }
         match passkeys.authorize(
             scope,
             access_token,
@@ -537,6 +543,7 @@ fn hex(bytes: impl AsRef<[u8]>) -> String {
 pub enum DecisionError {
     InvalidIdempotencyKey,
     DefectiveHold,
+    UnverifiedBudget,
     ReauthenticationRequired,
     MissingSubmissionReference,
     Agent(ApprovalBoundaryError),
@@ -551,6 +558,9 @@ impl Display for DecisionError {
         match self {
             Self::InvalidIdempotencyKey => formatter.write_str("invalid approval idempotency key"),
             Self::DefectiveHold => formatter.write_str("agent approval hold is defective"),
+            Self::UnverifiedBudget => {
+                formatter.write_str("approval requires committed budget evidence")
+            }
             Self::ReauthenticationRequired => {
                 formatter.write_str("approval decision requires reauthentication")
             }
