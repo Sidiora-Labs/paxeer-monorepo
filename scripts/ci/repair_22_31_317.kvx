@@ -1,0 +1,12 @@
+[repair.22.31.317]
+audit = "22.30.176"
+finding = "2"
+interface = "16.cli-scr-ci-release-gate"
+test = "scripts/ci/test_repair_22_31_317.py::test_release_record_is_accepted_unchanged"
+source = "release-gate.sh delegates execution, private logs, source monitoring, sidecars and append-only gate ordinals to beta-ledger-check.sh --source-run."
+baseline = "Not run: the task's ordered gate instructions prohibit verification before implementation and require verification only through hf-done; no baseline test failure is claimed."
+revision_evidence = "The bounded hf-build/hf-done private ledger records the verified task revision; each emitted gate and source sidecar also binds its actual execution revision."
+wiring_platform = ".github/workflows/platform.yml (domain 16, fm-tools-ops): migrate all three release-gate calls to explicit --spec, --task, --ledger and --evidence-root with task verify_cmd matching each make command; remove --ordinal and retain the entire private evidence root, including source sidecars, in access-controlled storage instead of spec/layerx-beta/evidence."
+wiring_release_tool = "tools/platform/release/src/main.rs and tools/platform/release/tests/registries.rs (domain 16, fm-tools-ops): validate the task-bound release-gate CLI and private ledger/log/source-sidecar retention, replacing legacy ordinal and source-tree evidence expectations together with the platform workflow."
+qualification = "Seeded bytecode caches removed before qualification; both bounded gates redirect Python bytecode to a private cache outside the source tree so build and verify use the same source-only candidate. No source edits follow hf-done."
+workspace = "The runner-provided .cgignore and in-progress spec bookkeeping are outside the task scope and were left untouched; the candidate publisher excludes that bookkeeping."
