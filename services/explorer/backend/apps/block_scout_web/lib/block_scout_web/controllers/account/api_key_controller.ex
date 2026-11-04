@@ -3,16 +3,16 @@ defmodule BlockScoutWeb.Account.ApiKeyController do
 
   alias Explorer.Account.Api.Key, as: ApiKey
 
-  import BlockScoutWeb.Account.AuthController, only: [authenticate!: 1]
+  import BlockScoutWeb.Account.AuthController, only: [authenticate: 2]
+
+  plug(:authenticate)
 
   def new(conn, _params) do
-    authenticate!(conn)
-
     render(conn, "form.html", method: :create, api_key: empty_api_key())
   end
 
   def create(conn, %{"key" => api_key}) do
-    current_user = authenticate!(conn)
+    current_user = conn.assigns.current_user
 
     case ApiKey.create(%{name: api_key["name"], identity_id: current_user.id}) do
       {:ok, _} ->
@@ -28,13 +28,13 @@ defmodule BlockScoutWeb.Account.ApiKeyController do
   end
 
   def index(conn, _params) do
-    current_user = authenticate!(conn)
+    current_user = conn.assigns.current_user
 
     render(conn, "index.html", api_keys: ApiKey.get_api_keys_by_identity_id(current_user.id))
   end
 
   def edit(conn, %{"id" => api_key}) do
-    current_user = authenticate!(conn)
+    current_user = conn.assigns.current_user
 
     case ApiKey.get_api_key_by_value_and_identity_id(api_key, current_user.id) do
       nil ->
@@ -46,7 +46,7 @@ defmodule BlockScoutWeb.Account.ApiKeyController do
   end
 
   def update(conn, %{"id" => api_key, "key" => %{"value" => api_key, "name" => name}}) do
-    current_user = authenticate!(conn)
+    current_user = conn.assigns.current_user
 
     ApiKey.update(%{value: api_key, identity_id: current_user.id, name: name})
 
@@ -54,7 +54,7 @@ defmodule BlockScoutWeb.Account.ApiKeyController do
   end
 
   def delete(conn, %{"id" => api_key}) do
-    current_user = authenticate!(conn)
+    current_user = conn.assigns.current_user
 
     ApiKey.delete(api_key, current_user.id)
 
