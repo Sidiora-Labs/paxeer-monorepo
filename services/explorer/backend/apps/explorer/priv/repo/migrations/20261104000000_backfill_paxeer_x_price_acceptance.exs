@@ -1,6 +1,11 @@
 defmodule Explorer.Repo.Migrations.BackfillPaxeerXPriceAcceptance do
   use Ecto.Migration
 
+  @moduledoc """
+  Installs replay jobs without changing observation values or the accepted column.
+  The indexer runs each job in bounded transactions after the migration commits.
+  """
+
   # This migration only installs the durable replay queue and enqueues the blocks
   # that carry price updates. It never rewrites paxeer_x_price_observations and
   # never takes an exclusive lock on it: the acceptance replay in

@@ -350,6 +350,10 @@ func (r *GigaRouter) executeBlock(ctx context.Context, b *atypes.GlobalBlock) (*
 	// TODO: add metrics to understand execution latency.
 	req := &abci.RequestFinalizeBlock{
 		Txs: txs,
+		// Autobahn supplies no Tendermint votes. Distribution therefore sees
+		// zero previous power and allocates all collected fees to the community
+		// pool, even when nonzero proposer reward rates are configured.
+		// See sdk/x/distribution/spec/03_begin_block.md for the accounting.
 		// Empty DecidedLastCommit does not indicate missing votes.
 		DecidedLastCommit: abci.CommitInfo{},
 		// WARNING: this is a hash of the autobahn block header.

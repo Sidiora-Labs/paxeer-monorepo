@@ -17,6 +17,11 @@ defmodule Explorer.Repo.Migrations.PriceAcceptanceBackfill do
   def step(server, batch_size) when is_integer(batch_size) and batch_size > 0,
     do: GenServer.call(server, {:step, batch_size}, :infinity)
 
+  def pending? do
+    %{rows: [[pending]]} = Repo.query!("SELECT EXISTS (SELECT 1 FROM #{@table} WHERE completed = false)")
+    pending
+  end
+
   @impl GenServer
   def init(options), do: {:ok, options}
 
@@ -41,13 +46,16 @@ defmodule Explorer.Repo.Migrations.PriceAcceptanceBackfill do
   end
 
   def handle_call({:step, batch_size}, _from, options) do
-    result =
-      case next_job() do
-        nil -> :complete
-        job -> replay(job, batch_size, options)
-      end
+    {:reply, run_step(batch_size, options), options}
+  end
 
-    {:reply, result, options}
+  defp run_step(batch_size, options) do
+    case next_job() do
+      nil -> :complete
+      job -> replay(job, batch_size, options)
+    end
+  rescue
+    error -> {:error, {:replay_failed, Exception.message(error)}}
   end
 
   defp next_job do

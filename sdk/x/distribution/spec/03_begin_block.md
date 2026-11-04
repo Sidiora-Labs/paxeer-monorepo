@@ -76,7 +76,10 @@ rewards for every supplied vote entry, including entries with
 `SignedLastBlock == false`; that flag affects `P`, not eligibility in this loop.
 
 With the default zero proposer rates, `proposerMul` is zero, so there is no
-special proposer bonus. These formulas do not establish a 1% to 5% proposer
+special proposer bonus. On the nonzero-power path, a known proposer still
+produces a zero-amount `proposer_reward` event and a call to validator allocation;
+its empty decimal coin list serializes as an empty `amount` string. Zero rates
+do not suppress events on that path. These formulas do not establish a 1% to 5% proposer
 payment or a precommit-inclusion incentive for the current Autobahn path,
 which returns through the zero-power branch before using them.
 
