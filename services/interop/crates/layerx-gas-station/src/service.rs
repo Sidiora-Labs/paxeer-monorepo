@@ -318,6 +318,8 @@ where
     /// The sequencer receipt of the submission `hash` at sponsor nonce
     /// `nonce`; a receipt naming another nonce, or a sponsor other than the
     /// one a successful sponsored write carries, is refused as malformed.
+    /// The RPC decoder maps a failed execution's zero address to no sponsor;
+    /// a nonzero failed sponsor remains malformed evidence.
     fn sequencer_summary(
         &self,
         sponsor: Address,
