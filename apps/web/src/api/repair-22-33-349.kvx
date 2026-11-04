@@ -1,0 +1,31 @@
+[meta]
+task = "22.33.349"
+audit = "22.30.139"
+acceptance = "22998.1"
+test_path = "apps/web/e2e/repair-22-33-349.test.ts"
+qualification = "Only hf-build and hf-done qualify the candidate; their private ledger binds the verified revision, exact command, exit and log."
+verified_revision_evidence = "/out/run/gates.jsonl: final hf-done record (the candidate includes this task record)"
+baseline = "Not run: the explicit ordered instructions prohibit tests before implementation and running verify_cmd by hand; no pre-change failures are claimed."
+
+[finding.abi-array-allocation]
+tests = ["abi_array_allocation_real_view", "abi_array_canonical_nested_extent"]
+repair = "Check remaining head extent by division before multiplication or allocation; share a 16384-entry work budget, bound nesting and enforce contiguous aligned canonical offsets and padding."
+
+[finding.rpc-response-memory-bound]
+tests = ["rpc_response_memory_bound_stream_cancellation", "rpc_response_byte_boundary_utf8_and_envelope", "rpc_response_body_retains_deadline"]
+repair = "Read at most nine MiB of bytes, cancel overflow without waiting for EOF, retain the fetch deadline while consuming the body, and reject malformed UTF-8 before the existing JSON/envelope checks."
+
+[finding.rum-orphaned-temporary]
+tests = ["rum_orphaned_temporary_stop_reopen", "rum_recovery_ownership_and_legacy_temporaries"]
+repair = "Use private owner-tagged write transactions; preserve active writes, recover validated complete abandoned temporaries without replacing commits, remove incomplete abandoned writes, and retain unleased legacy temporaries without suppressing committed aggregates."
+ownership = "Current-isolate writes use a shared active registry; other threads and live or ambiguous foreign processes retain their lease. Dead processes are recognized only by ESRCH. Ownership, private permissions, regular-file shape, link count, size, filename identity and inode are checked before recovery."
+restart = "Stop real writers before data and after fsync but before rename; reopen the same production module and private directory and assert preserved commits, recovered prepared data and idempotence."
+
+[finding.bridge-wide-log-scan]
+tests = ["bridge_wide_log_scan_bounded_cursor_real_rpc"]
+repair = "Read one explicit 100-block window per direction and page, pin the head in an account-bound cursor, sort and deduplicate decoded observations, and retain the current cursor on partial transport failure."
+wiring_request = "apps/web/src/app/bridge/page.tsx — owning domain 14 / fm-web-explorer-bridge: consume bridgeActivityPage items/status/detail/nextCursor for partial results and continuation; until wired, bridgeActivity throws a GatewayUnavailableError subtype carrying the page so the existing screen visibly reports incomplete coverage."
+
+[constraints]
+scope = "Only the four repaired API modules, this in-scope task record, and the declared regression test change."
+gotcha = "Legacy durable temporaries carry no process ownership proof: retain them after safe validation rather than treating age alone as authority to remove a possibly active file."

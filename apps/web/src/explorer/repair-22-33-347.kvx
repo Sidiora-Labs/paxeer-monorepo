@@ -1,0 +1,55 @@
+[meta]
+task = "22.33.347"
+base = "8a5302e1b13ed685ab2cd21b29cd69052c2a8f6a"
+status = "implemented; bounded qualification recorded by the private gate ledger"
+baseline = "UNRUN: the implementation-first order and hf-build/hf-done-only rules prohibit the contradictory unchanged-tree verification step; no baseline failure is claimed. No earlier gate ledger existed when this continuation began."
+scope = "Only apps/web/src/explorer and apps/web/e2e/repair-22-33-347.test.ts are changed; pre-existing runner bookkeeping, wallet lockfile and generated UI output are preserved."
+
+[finding.retired-freshness-presentation]
+test = "retired_freshness_presentation_native_http_to_display"
+repair = "FreshnessDisplay and NATIVE_FRESHNESS_COPY present indexed and committed block positions with current, stale and unavailable states; historical page props explicitly yield unavailable. The unused mirror display is removed. Native status and blocks readers are exercised through HTTP into the rendered display, including empty source, 404, 503 and older committed transactions."
+limit = "The native committed head is the explorer's observed consensus height, not an independently queried node head; freshness describes agreement between those native source observations."
+
+[finding.retired-explorer-receipt-link]
+test = "retired_receipt_link_gateway_to_native_destination"
+repair = "currentReceiptLink reads the actual native eth_getTransactionReceipt through the production gateway client, binds its transaction hash to the request and emits the validated native /tx URL. Missing receipts emit no link. Frozen receipt identifiers link only to the registered /api/v2/paxeer-x/archive/receipts/0x{id} API, which is fetched and decoded in the proof. Identifier, cross-identity and origin refusals remain enforced."
+identity = "Current native receipts are addressed by their transaction hash; a historical receipt digest is never guessed to be a current transaction identifier."
+
+[finding.explorer-retired-finality]
+test = "explorer_native_finality_and_account_facts"
+repair = "Live model.ts declares native committed transaction facts and native index freshness; native-model.ts supplies unified address totals and committed activity. Historical batch/checkpoint/custody types and encoders are preserved in historical-model.ts and exposed as historicalExplorer. Native account HTTP, loader and rendered page retain committed block facts and total balances, with real 404 transport and strict malformed commitment refusals."
+compatibility = "Existing named historical exports remain source-compatible for out-of-scope pages and old tests; they alias the explicit historical module. The client imports historical receipt/availability contracts explicitly and refuses to fabricate those retired live capabilities. Historical freshness cannot render as current."
+
+[finding.program-fixture-proof]
+tests = ["program_fixture_proof_preserves_missing_native_interface", "program_commitments_remain_strict", "the program consumer retains the producer's interface and verified source metadata", "a projection for another program never satisfies the requested program", "malformed interface and incomplete verified source metadata remain refused"]
+repair = "All original strict program decoder assertions execute unchanged in the declared gate, with added malformed receipt/state commitment assertions. The production client and actual app program page prove explicit unavailability without inventing an endpoint, synthetic not-found or substitute program producer."
+status = "Native producer HTTP-to-client-to-page closure remains unproved: api_router.ex has no registered program read, and programRecord explicitly raises program-read unavailable. Source metadata, cross-program and malformed commitments are decoder coverage only; they are not represented as producer qualification."
+
+[wiring.native-program-producer]
+request = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/api_router.ex and owning native program controller — domain 14 native explorer: implement and register the real program read and owning HTTP-to-web-page proof for source metadata, cross-program refusal, malformed commitments and actual 404; provide the declared contract before replacing programRecord's explicit refusal."
+
+[wiring.native-account-route]
+request = "apps/web/src/app/explorer/accounts/[accountId]/page.tsx — domain 14 web explorer: wire loadNativeAccountPage and NativeAccountPage, replace historical settlement and custody partitions, and use only native opaque cursors; keep historical contracts confined to a frozen archive consumer."
+
+[wiring.native-receipt-and-program-routes]
+request = "apps/web/src/app/explorer/receipts/[receiptId]/page.tsx, apps/web/src/app/explorer/programs/[programId]/page.tsx and apps/web/src/app/explorer/lookup/route.ts — domain 14 web explorer: distinguish current transaction-hash receipts from frozen receipt identifiers, render the native frozen archive contract explicitly, and consume the owner's program contract after it exists."
+
+[wiring.copy-catalog]
+request = "apps/web/copy/catalog.ts and generated copy runtime — domain 14 web copy owner: catalogue the scoped NATIVE_FRESHNESS_COPY current/stale/unavailable messages and committed/indexed position interpolation, replacing retired batch/checkpoint freshness keys."
+
+[wiring.historical-compatibility]
+request = "apps/web/e2e/proof_explorer.test.ts and other historical explorer fixtures — domain 14 web explorer tests: import preserved historical types/codecs directly from historical-model.ts or historicalExplorer, then retire the named compatibility exports after the out-of-scope route migration."
+
+[proof.native-peer]
+fixture = "apps/web/src/explorer/fixtures/repair-22-33-347-native-http.json"
+path = "Loopback peers replay committed native status, projected block-list and gateway receipt contracts into real fetch, gateway codec, explorer client, native account page loader and React rendering; existing repair-22-31-383 native account/archive transcripts are reused. No live endpoint, inherited configuration, external toolchain or credential is required."
+boundary = "This qualifies web consumers against committed native contract fixtures, not Phoenix producer execution or node consensus. The missing native program producer is recorded above instead of manufactured. No restart finding belongs to this task."
+
+[gotcha.baseline-order]
+symptom = "The task requests an unchanged-tree verify while its ordered implementation stage forbids tests and its qualification permits only hf-build followed by hf-done."
+resolution = "Follow the explicit gate order; record baseline UNRUN. GOTCHA.kvx and spec files are outside scope, so this task-local record retains the conflict."
+
+[qualification]
+evidence_source = "/out/run/gates.jsonl"
+claim = "Exact candidate revision, command, exit code and private log path are retained in the bounded hf-build/hf-done ledger; the final response copies the last printed evidence line. No gate pass or full native program closure is claimed before its evidence exists."
+formatter = "apps/web has no configured TypeScript formatter; touched TypeScript follows the repository's two-space and double-quote style. JSON uses two-space indentation; kvx has no formatter."

@@ -194,9 +194,7 @@ from .px import (
 )
 from .stream import ResumableStream, StreamCursor, StreamEvent, StreamPage
 from .verifier import (
-    AuthorizedReceiptBatch,
     LocalSignatureVerifier,
-    MerkleProof,
     ReceiptKey,
     ReceiptVerification,
     ReceiptVerificationError,
@@ -264,7 +262,6 @@ from .xweb_api import (
 )
 from .x402 import (
     PaymentCommitment,
-    PaymentCommitmentEvidence,
     payment_commitment,
     payment_payer,
     payment_purpose,
@@ -302,7 +299,6 @@ from .x402_receive import (
 from .x402_rpc import (
     PaymentRpc,
     PaymentRpcError,
-    rpc_batch_evidence,
     rpc_hex,
     verify_rpc_payment,
 )
@@ -367,7 +363,6 @@ __all__ = [
     "ApprovalRecord",
     "ApprovalRejectRequest",
     "ApprovalState",
-    "AuthorizedReceiptBatch",
     "BudgetLimit",
     "BuyerMiddleware",
     "Client",
@@ -394,7 +389,6 @@ __all__ = [
     "IntentSubmission",
     "LayerXKeyCredential",
     "LocalSignatureVerifier",
-    "MerkleProof",
     "MirrorCandidate",
     "MirrorPolicy",
     "MirrorVerification",
@@ -422,7 +416,6 @@ __all__ = [
     "Operation",
     "PaymentBudget",
     "PaymentCommitment",
-    "PaymentCommitmentEvidence",
     "PaymentEvidence",
     "PaymentRpc",
     "PaymentRpcError",
@@ -529,7 +522,6 @@ __all__ = [
     "px_quantity",
     "receive_authorization_message",
     "require_verified",
-    "rpc_batch_evidence",
     "rpc_hex",
     "validate_grant_draw",
     "validate_payload",

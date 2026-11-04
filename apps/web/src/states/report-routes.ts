@@ -1,34 +1,6 @@
-export const SUPPORT_REPORT_ROUTES = Object.freeze([
-  "/",
-  "/app",
-  "/app/move",
-  "/app/activity",
-  "/app/activity/[entryId]",
-  "/app/settings",
-  "/app/settings/devices",
-  "/app/settings/security",
-  "/app/settings/wallet",
-  "/app/security/devices",
-  "/app/security/recovery",
-  "/app/support",
-  "/app/approvals",
-  "/app/approvals/[approvalId]",
-  "/app/notifications",
-  "/app/agents",
-  "/app/agents/new",
-  "/app/agents/[agentId]",
-  "/explorer",
-  "/explorer/checkpoints",
-  "/explorer/checkpoints/[checkpointId]",
-  "/explorer/batches",
-  "/explorer/batches/[batchNumber]",
-  "/explorer/receipts/[receiptId]",
-  "/explorer/accounts/[accountId]",
-  "/explorer/programs/[programId]",
-  "/bridge",
-  "/exchange",
-  "/launchpad",
-] as const);
+import { CURRENT_ROUTES } from "./matrix.ts";
+
+export const SUPPORT_REPORT_ROUTES = CURRENT_ROUTES;
 
 export type SupportReportRoute = (typeof SUPPORT_REPORT_ROUTES)[number];
 
