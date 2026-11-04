@@ -1,0 +1,25 @@
+[manifest]
+task = "22.32.148"
+domain = 15
+owner_role = "fm-cosmos-fork"
+pages = 2
+
+[page.1]
+path = "docs/site/docs/concepts/accounts.md"
+status = "stale"
+bytes = 3060
+source_1 = "record 22.30.165 [doc.005] (stale): Lines 19-27 and 47-63 describe pre-merge named namespace balances and kernel counters rather than the current native account/bank contract."
+
+[page.2]
+path = "docs/site/docs/platform/hosted-core.md"
+status = "misleading"
+bytes = 41690
+source_1 = "record 22.30.106 [doc.5] (misleading): Full page read. Line 23 and configuration/route tables describe layerxd, LNI, replicas and the old core boundary as deployed; replace them with merged paxd architecture."
+source_2 = "record 22.30.162 [doc.007] (stale): Current operating guidance conflicts with the merged network; exact locations and rewrite proposals are recorded in hosted-core-daemon."
+source_3 = "record 22.30.164 [doc.10] (stale): Read all 340 lines. Lines 6, 23, 118-155 and 314-336 describe the removed standalone daemon and its LNI/replica lifecycle as operational dependencies."
+source_4 = "record 22.30.170 [doc.012] (stale): Lines 5-6 put the TLS core boundary in front of layerxd; lines 23-25 configure the LNI socket, replica listener and separate daemon in one pod. See finding.package_doc_12 for the concrete rewrite."
+source_5 = "record 22.30.182 [doc.12] (misleading): Lines 5, 23, 69, 83-85, 149 and 314 route to layerxd/LNI and old batch/checkpoint/replica readiness; see hosted-core-runbook."
+source_6 = "record 22.30.185 [doc.9] (stale): Read the page; rewrite starts at line 6. The boundary is described as sitting in front of layerxd; lines 23, 43, 69-93, 118-150 and 314-330 depend on LNI, a replica, sealed batches and a standalone daemon for routes, readiness, submission and recovery."
+source_7 = "record 22.30.52 [doc.3] (misleading): Read in full: lines 6, 43 and 116 onward present layerxd/LNI/replica transport as current hosted infrastructure; replace with merged node and hosted gateway paths."
+source_8 = "record 22.30.73 [doc.07] (stale): Lines 6, 23 and 41 name a running layerxd and LNI connection; 74-92 describe retired Activity and receipt-authority routes; 305-329 claim daemon-era qualification."
+source_9 = "record 22.30.83 [doc.core] (misleading): Reviewed core page: topology at 6/23, retired routes at 70 onward, LNI at 116 onward and removed boundary.rs funding/test evidence at 314-328 are wrong; see core-operator-page."

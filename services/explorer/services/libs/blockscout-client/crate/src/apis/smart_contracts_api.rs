@@ -26,6 +26,9 @@ use std::sync::Arc;
 #[cfg_attr(feature = "mockall", automock)]
 #[async_trait]
 pub trait SmartContractsApi: Send + Sync {
+    /// Scope subsequent paginated calls to the producer's validated next-page cursor.
+    fn with_cursor(&self, cursor: super::pagination::PageCursor) -> Box<dyn SmartContractsApi>;
+
     /// GET /api/v2/smart-contracts/{address_hash}
     ///
     ///
@@ -55,11 +58,15 @@ pub trait SmartContractsApi: Send + Sync {
 
 pub struct SmartContractsApiClient {
     configuration: Arc<configuration::Configuration>,
+    cursor: Option<super::pagination::PageCursor>,
 }
 
 impl SmartContractsApiClient {
     pub fn new(configuration: Arc<configuration::Configuration>) -> Self {
-        Self { configuration }
+        Self {
+            configuration,
+            cursor: None,
+        }
     }
 }
 
@@ -82,6 +89,13 @@ pub struct GetSmartContractsParams {
 
 #[async_trait]
 impl SmartContractsApi for SmartContractsApiClient {
+    fn with_cursor(&self, cursor: super::pagination::PageCursor) -> Box<dyn SmartContractsApi> {
+        Box::new(Self {
+            configuration: self.configuration.clone(),
+            cursor: Some(cursor),
+        })
+    }
+
     async fn get_smart_contract(
         &self,
         params: GetSmartContractParams,
@@ -164,7 +178,10 @@ impl SmartContractsApi for SmartContractsApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder.build()?;
+        if let Some(cursor) = &self.cursor {
+            cursor.apply(&mut local_var_req)?;
+        }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();

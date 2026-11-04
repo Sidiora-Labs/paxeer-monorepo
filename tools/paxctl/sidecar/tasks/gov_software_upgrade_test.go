@@ -20,8 +20,8 @@ func validSoftwareUpgradeRequest() GovSoftwareUpgradeRequest {
 		UpgradeName:    "v0.42",
 		UpgradeHeight:  10_000_000,
 		UpgradeInfo:    "https://github.com/sei-protocol/sei-chain/releases/tag/v0.42",
-		InitialDeposit: "10000000usei",
-		Fees:           "4000usei",
+		InitialDeposit: "10000000uhpx",
+		Fees:           "4000uhpx",
 		Gas:            300_000,
 	}
 }
@@ -38,7 +38,7 @@ func TestBuildSoftwareUpgradeMsg(t *testing.T) {
 		if msg.Proposer != addr.String() {
 			t.Errorf("proposer = %q, want %q", msg.Proposer, addr.String())
 		}
-		want, _ := sdk.ParseCoinsNormalized("10000000usei")
+		want, _ := sdk.ParseCoinsNormalized("10000000uhpx")
 		if !msg.InitialDeposit.IsEqual(want) {
 			t.Errorf("InitialDeposit = %v, want %v", msg.InitialDeposit, want)
 		}
@@ -66,9 +66,9 @@ func TestBuildSoftwareUpgradeMsg(t *testing.T) {
 		{"zero upgradeHeight", func(r *GovSoftwareUpgradeRequest) { r.UpgradeHeight = 0 }, "upgradeHeight required"},
 		{"negative upgradeHeight", func(r *GovSoftwareUpgradeRequest) { r.UpgradeHeight = -1 }, "upgradeHeight required"},
 		{"unparseable deposit", func(r *GovSoftwareUpgradeRequest) { r.InitialDeposit = "not-a-coin" }, "parse initialDeposit"},
-		{"zero deposit", func(r *GovSoftwareUpgradeRequest) { r.InitialDeposit = "0usei" }, "zero coins"},
-		{"non-usei deposit", func(r *GovSoftwareUpgradeRequest) { r.InitialDeposit = "10sei" }, "usei"},
-		{"mixed-denom deposit", func(r *GovSoftwareUpgradeRequest) { r.InitialDeposit = "10000000usei,1uatom" }, "uatom"},
+		{"zero deposit", func(r *GovSoftwareUpgradeRequest) { r.InitialDeposit = "0uhpx" }, "zero coins"},
+		{"non-uhpx deposit", func(r *GovSoftwareUpgradeRequest) { r.InitialDeposit = "10sei" }, "uhpx"},
+		{"mixed-denom deposit", func(r *GovSoftwareUpgradeRequest) { r.InitialDeposit = "10000000uhpx,1uatom" }, "uatom"},
 	}
 	for _, m := range mutations {
 		t.Run(m.name+" is Terminal", func(t *testing.T) {
@@ -129,7 +129,7 @@ func TestGovSoftwareUpgradeHandler_HappyPath(t *testing.T) {
 		ChainID: "pacific-1",
 		KeyName: "node_admin",
 		Msg:     msg,
-		Fees:    "4000usei",
+		Fees:    "4000uhpx",
 		Gas:     300_000,
 		TaskID:  "00000000-0000-0000-0000-0000000000aa",
 	}, info.GetAddress())

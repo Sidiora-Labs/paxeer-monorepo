@@ -1,0 +1,41 @@
+[manifest]
+task = "22.32.153"
+domain = 15
+owner_role = "fm-cosmos-fork"
+pages = 6
+
+[page.1]
+path = "sdk/x/distribution/spec/04_messages.md"
+status = "stale"
+bytes = 5710
+source_1 = "record 22.30.167 [doc.18] (stale): dist-slash-doc at line 56: The reward pseudocode multiplies stake by F(P), defined as the fraction slashed; keeper.CalculateDelegationRewards multiplies by one minus the slash fraction. The pseudocode also replaces rather than accumulates rewards across slash periods."
+
+[page.2]
+path = "sdk/x/distribution/spec/05_hooks.md"
+status = "stale"
+bytes = 1918
+source_1 = "record 22.30.167 [doc.19] (stale): dist-hook-doc at line 23: The After hook description says delegation starting height is set to the previous period. initializeDelegation stores PreviousPeriod=currentPeriod-1 and Height=ctx.BlockHeight(), which are different units used by slash and same-block reward handling."
+
+[page.3]
+path = "sdk/x/distribution/spec/06_events.md"
+status = "stale"
+bytes = 1892
+source_1 = "record 22.30.167 [doc.20] (stale): dist-events-doc at line 14: The event page calls the proposer_reward amount attribute reward, while keeper.AllocateTokens emits sdk.AttributeKeyAmount, whose wire name is amount."
+
+[page.4]
+path = "sdk/x/distribution/spec/07_params.md"
+status = "stale"
+bytes = 624
+source_1 = "record 22.30.167 [doc.21] (stale): dist-params-doc at line 16: The parameter page requires strictly positive tax and proposer rates; the producer accepts zero and initializes all three to zero. The examples retain the upstream 2%, 1% and 4% rates without distinguishing them from network defaults."
+
+[page.5]
+path = "sdk/x/evidence/atlas/atlas-v0.41.x.md"
+status = "stale"
+bytes = 4616
+source_1 = "record 22.30.162 [doc.016] (stale): The complete page contains interface or lifecycle drift; exact locations and concrete rewrite proposals are recorded in evidence-atlas-purpose."
+
+[page.6]
+path = "sdk/x/evidence/spec/07_client.md"
+status = "stale"
+bytes = 2987
+source_1 = "record 22.30.162 [doc.025] (stale): The complete page contains interface or lifecycle drift; exact locations and concrete rewrite proposals are recorded in evidence-grpc-hash, evidence-response-shapes."

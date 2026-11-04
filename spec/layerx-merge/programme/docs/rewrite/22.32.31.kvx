@@ -1,0 +1,11 @@
+[manifest]
+task = "22.32.31"
+domain = 5
+owner_role = "fm-node-runtime"
+pages = 1
+
+[page.1]
+path = "consensus/spec/abci++/abci++_methods_002_draft.md"
+status = "stale"
+bytes = 74697
+source_1 = "record 22.30.47 [doc.006] (stale): Vendored upstream ABCI++ draft abci++_methods_002_draft.md. The fork's in-process Application API and FinalizeBlock lifecycle are authoritative; no current-network conformance is asserted for the archival draft. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."

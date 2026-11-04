@@ -26,6 +26,9 @@ use std::sync::Arc;
 #[cfg_attr(feature = "mockall", automock)]
 #[async_trait]
 pub trait TransactionsApi: Send + Sync {
+    /// Scope subsequent paginated calls to the producer's validated next-page cursor.
+    fn with_cursor(&self, cursor: super::pagination::PageCursor) -> Box<dyn TransactionsApi>;
+
     /// GET /api/v2/transactions/{transaction_hash}/internal-transactions
     ///
     ///
@@ -102,11 +105,15 @@ pub trait TransactionsApi: Send + Sync {
 
 pub struct TransactionsApiClient {
     configuration: Arc<configuration::Configuration>,
+    cursor: Option<super::pagination::PageCursor>,
 }
 
 impl TransactionsApiClient {
     pub fn new(configuration: Arc<configuration::Configuration>) -> Self {
-        Self { configuration }
+        Self {
+            configuration,
+            cursor: None,
+        }
     }
 }
 
@@ -181,6 +188,13 @@ pub struct GetTxsParams {
 
 #[async_trait]
 impl TransactionsApi for TransactionsApiClient {
+    fn with_cursor(&self, cursor: super::pagination::PageCursor) -> Box<dyn TransactionsApi> {
+        Box::new(Self {
+            configuration: self.configuration.clone(),
+            cursor: Some(cursor),
+        })
+    }
+
     async fn get_transaction_internal_txs(
         &self,
         params: GetTransactionInternalTxsParams,
@@ -207,7 +221,10 @@ impl TransactionsApi for TransactionsApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder.build()?;
+        if let Some(cursor) = &self.cursor {
+            cursor.apply(&mut local_var_req)?;
+        }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
@@ -257,7 +274,10 @@ impl TransactionsApi for TransactionsApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder.build()?;
+        if let Some(cursor) = &self.cursor {
+            cursor.apply(&mut local_var_req)?;
+        }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
@@ -361,7 +381,10 @@ impl TransactionsApi for TransactionsApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder.build()?;
+        if let Some(cursor) = &self.cursor {
+            cursor.apply(&mut local_var_req)?;
+        }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
@@ -473,7 +496,10 @@ impl TransactionsApi for TransactionsApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder.build()?;
+        if let Some(cursor) = &self.cursor {
+            cursor.apply(&mut local_var_req)?;
+        }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
@@ -589,7 +615,10 @@ impl TransactionsApi for TransactionsApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder.build()?;
+        if let Some(cursor) = &self.cursor {
+            cursor.apply(&mut local_var_req)?;
+        }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
@@ -798,14 +827,14 @@ impl ResponseContent<GetTxSuccess> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum GetTxsSuccess {
-    Status200(Box<models::GetTxs200Response>),
+    Status200(Box<super::feed::TransactionFeedPage>),
 
     UnknownValue(serde_json::Value),
 }
 
 // changed
 impl ResponseContent<GetTxsSuccess> {
-    pub fn try_as_success(&self) -> Option<&models::GetTxs200Response> {
+    pub fn try_as_success(&self) -> Option<&super::feed::TransactionFeedPage> {
         match &self.entity {
             Some(GetTxsSuccess::Status200(data)) => Some(data),
             _ => None,
@@ -814,7 +843,7 @@ impl ResponseContent<GetTxsSuccess> {
 
     pub fn try_parse_as_success_model(
         &self,
-    ) -> Result<models::GetTxs200Response, serde_json_path_to_error::Error> {
+    ) -> Result<super::feed::TransactionFeedPage, serde_json_path_to_error::Error> {
         serde_json_path_to_error::from_str(&self.content)
     }
 }

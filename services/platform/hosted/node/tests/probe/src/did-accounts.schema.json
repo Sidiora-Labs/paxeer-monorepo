@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "layerx-node-probe did-accounts output",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["did", "count", "accounts"],
+  "properties": {
+    "did": { "type": "string" },
+    "count": { "type": "integer", "minimum": 0 },
+    "accounts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["evm_address", "pax_address", "layerx_did", "layerx_account", "bound"],
+        "properties": {
+          "evm_address": { "type": "string", "pattern": "^0x[0-9a-f]{40}$" },
+          "pax_address": { "type": ["string", "null"] },
+          "layerx_did": { "type": "string", "pattern": "^did:layerx:[0-9a-fA-F]{64}$" },
+          "layerx_account": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+          "bound": { "const": true }
+        }
+      }
+    }
+  }
+}

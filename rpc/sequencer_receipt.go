@@ -137,6 +137,8 @@ type SequencerReceiptLog struct {
 }
 
 // SequencerReceiptView is the decoded receipt and its pinned signing public key.
+// Sponsor is the summary address, including zero when reverted execution emitted
+// no Sponsored event. The address is serialized as a string, never JSON null.
 type SequencerReceiptView struct {
 	Seq               hexutil.Uint64        `json:"seq"`
 	Height            hexutil.Uint64        `json:"height"`
@@ -180,6 +182,9 @@ type SequencerReceiptResult struct {
 // The node produces px_getReceiptKeys and the gateway relays its governed
 // keyId/publicKey height ranges; signingKey beside a receipt is never a trust pin.
 func (r *SequencerReceiptResult) Verify(pins ...seqkeeper.ReceiptKeys) error {
+	if r.Rung != RungSubmitted && r.SequencerReceiptView == nil {
+		return fmt.Errorf("%w: %s answer has no receipt", ErrSequencerReceiptMismatch, r.Rung)
+	}
 	switch r.Rung {
 	case RungSubmitted:
 		if r.SequencerReceiptView != nil || r.BlockNumber != nil || r.BlockHash != nil {
@@ -194,14 +199,14 @@ func (r *SequencerReceiptResult) Verify(pins ...seqkeeper.ReceiptKeys) error {
 		if r.BlockNumber == nil || r.BlockHash == nil {
 			return fmt.Errorf("%w: a committed answer has no block", ErrSequencerReceiptMismatch)
 		}
+		if *r.BlockNumber == 0 || *r.BlockHash == (common.Hash{}) {
+			return fmt.Errorf("%w: a committed answer has an empty block", ErrSequencerReceiptMismatch)
+		}
 		if uint64(*r.BlockNumber) < uint64(r.Height) {
 			return fmt.Errorf("%w: committed block %d is below the receipt height %d", ErrSequencerReceiptMismatch, *r.BlockNumber, r.Height)
 		}
 	default:
 		return fmt.Errorf("%w: unknown rung %q", ErrSequencerReceiptMismatch, r.Rung)
-	}
-	if r.SequencerReceiptView == nil {
-		return fmt.Errorf("%w: %s answer has no receipt", ErrSequencerReceiptMismatch, r.Rung)
 	}
 	if r.PaymentDenom == "" {
 		return mismatch("missing paymentDenom in older receipt view")

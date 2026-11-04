@@ -14660,3 +14660,23 @@ fix = "Delete helper projects and caches before the gate runs; the proof lives i
 title = "The gate runs last, on the final candidate tree"
 symptom = "Several attempts passed their verify command on a tree that differed from the committed candidate because files were edited or generated after the run, so the recorded run qualified nothing."
 fix = "Run the verify command as the last action and change nothing afterwards; if any file changes, run the gate again and record that run."
+
+[gotcha.2968]
+title = "A hand-built fixture must satisfy the production validators its consumer runs"
+symptom = "Repair tests failed inside genesis validation, MsgCreateValidator.ValidateBasic, the generated HTTP response contract, the ABI result decoder and the SDK canonical-output decoder because the fixture was typed by hand instead of produced by the real encoder: perps genesis order indexes, a validator message without a commission, a preferences response missing notification categories, undecodable mocked return data, a terminal output blob with the wrong offsets."
+fix = "Produce fixtures with the production encoder, generator or message constructor and run the same validator the consumer runs on them before asserting on the consumer; when the validator refuses the fixture the test is wrong, not the component."
+
+[gotcha.2969]
+title = "The verify command matches the toolchain of the directory under repair"
+symptom = "Four repairs of Node example packages under services/platform carried a cargo test command naming a test target that no crate owns, so the implementers added bogus Rust test files to the platform workspace; a Next example was installed from the public registry where its private package does not exist; an explorer app pinned to yarn was driven with pnpm."
+fix = "Before writing a repair task read the package manifest of the touched directory and derive the build and verify commands from its own toolchain and scripts; a Rust command never gates a Node package and a registry install never gates a private package."
+
+[gotcha.2970]
+title = "A crate directory under a workspace is not a member until the workspace manifest lists it"
+symptom = "A repair task built a crate with cargo -p by the name of its directory under services/human/crates; the directory held one orphaned test file left behind by the deletion tasks of the crate, no manifest, and no workspace entry, so cargo refused the package id and the task failed at build."
+fix = "Before writing a cargo -p command read the workspace members list and the directory manifest; a directory that has lost its manifest is a deletion leftover and the task removes it instead of building it."
+
+[gotcha.2971]
+title = "The tail of a go test log hides why the package failed"
+symptom = "Two repair tasks printed every one of their TestRepair_ tests as PASS and still reported FAIL for the package: the cause (a sibling test in the same file from an earlier attempt, a vet refusal or a panic outside the matched tests) sat above the eighty-line tail the gate shows, and the agents called it out of scope."
+fix = "A go verify prints the RUN, PASS, FAIL and panic lines of the whole log before its tail, and every test matched by the run filter belongs to the task that owns the filter: it is fixed or removed, never declared out of scope."

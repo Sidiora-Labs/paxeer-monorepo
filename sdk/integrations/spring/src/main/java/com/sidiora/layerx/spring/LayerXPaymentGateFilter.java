@@ -60,12 +60,14 @@ public final class LayerXPaymentGateFilter extends OncePerRequestFilter {
             return;
         }
         byte[] body = released.resource().body();
-        request.setAttribute("layerx.receiptDigest", X402.hex(released.verification().receiptDigest()));
+        String receiptDigest = X402.hex(NativePaymentVerifier.receiptDigest(
+            released.verification().canonicalBytes()));
+        request.setAttribute("layerx.receiptDigest", receiptDigest);
         request.setAttribute("layerx.transaction", released.settlement().transaction());
         request.setAttribute("layerx.verificationLevel", released.verification().level().wire());
         response.setStatus(released.status());
         response.setHeader(X402.PAYMENT_RESPONSE_HEADER, released.header());
-        response.setHeader("layerx-receipt-digest", X402.hex(released.verification().receiptDigest()));
+        response.setHeader("layerx-receipt-digest", receiptDigest);
         response.setHeader("layerx-transaction", released.settlement().transaction());
         response.setContentType(released.resource().contentType());
         response.setContentLength(body.length);

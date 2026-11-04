@@ -30,43 +30,66 @@ pub(crate) struct ProofBundleScope<'a> {
 
 pub(crate) fn acquire(
     node: &mut SequencerEndpoint,
-    registry: &ModuleRegistry,
+    _registry: &ModuleRegistry,
     target: ProofBundleTarget,
     requested: Rung,
     scope: ProofBundleScope<'_>,
 ) -> Result<VerifiedRead<ProofBundle>, ApiError> {
-    let refuse = |class, reason| ApiError {
+    if scope.account == [0; 32]
+        || scope.asset == [0; 32]
+        || matches!(target, ProofBundleTarget::AccountState { account_id, .. } if account_id != scope.account)
+    {
+        return Err(read_refusal(
+            scope.correlation,
+            ErrorClass::PolicyRefusal,
+            "read.target_mismatch",
+        ));
+    }
+    acquire_native_receipt(
+        node,
+        target,
+        requested,
+        scope.retained_activity,
+        scope.served_receipt,
+        scope.correlation,
+    )
+}
+
+fn read_refusal(correlation: u64, class: ErrorClass, reason: &'static str) -> ApiError {
+    ApiError {
         class,
         protocol_result_code: None,
         retriability: Retriability::Terminal,
-        request_id: RequestId(scope.correlation),
+        request_id: RequestId(correlation),
         reason: ReasonCode::new(reason).expect("static read reason"),
-    };
-    if let ProofBundleTarget::AccountState { account_id, .. } = target {
-        if account_id != scope.account {
-            return Err(refuse(ErrorClass::PolicyRefusal, "read.target_mismatch"));
-        }
-        // PB1 supplies no Comet block commit with which to authenticate eth_getProof.
-        return Err(refuse(
-            ErrorClass::VerificationFailure,
-            "read.not_committed",
-        ));
     }
-    if requested > Rung::Receipted {
-        return Err(refuse(
-            ErrorClass::VerificationFailure,
-            "read.below_requested_rung",
-        ));
-    }
-    let activity = layerx_wire::activity::decode_signed(scope.retained_activity, registry)
+}
+
+/// Binds retained native EIP-1559 bytes to the node's authenticated receipt.
+/// Committed targets still require inclusion and storage material; a signed
+/// receipt alone never promotes the returned verification level.
+pub fn acquire_native_receipt(
+    node: &SequencerEndpoint,
+    target: ProofBundleTarget,
+    requested: Rung,
+    raw: &[u8],
+    served_receipt: &[u8],
+    correlation: u64,
+) -> Result<VerifiedRead<ProofBundle>, ApiError> {
+    let refuse = |class, reason| read_refusal(correlation, class, reason);
+    target
+        .encode()
+        .map_err(|_| refuse(ErrorClass::PolicyRefusal, "read.target_mismatch"))?;
+    let (call, _) = layerx_crypto::evm_transaction::decode_signed(raw)
         .map_err(|_| refuse(ErrorClass::VerificationFailure, "read.target_mismatch"))?;
-    if layerx_wire::hash::activity_id(&activity)
-        .map_err(|_| refuse(ErrorClass::VerificationFailure, "read.target_mismatch"))?
-        != target.activity_id()
-        || scope.account == [0; 32]
-        || scope.asset == [0; 32]
-    {
-        return Err(refuse(ErrorClass::PolicyRefusal, "read.target_mismatch"));
+    let chain_id = node
+        .chain_id()
+        .map_err(|_| refuse(ErrorClass::VerificationFailure, "read.invalid_proof"))?;
+    if call.chain_id != chain_id || keccak256(raw) != target.activity_id() {
+        return Err(refuse(
+            ErrorClass::VerificationFailure,
+            "read.target_mismatch",
+        ));
     }
     let keys = node
         .receipt_keys()
@@ -86,27 +109,42 @@ pub(crate) fn acquire(
             "read.invalid_proof",
         ));
     };
-    if receipt.canonical_bytes() != scope.served_receipt || receipt.height() == 0 {
+    if receipt.canonical_bytes() != served_receipt || receipt.height() == 0 {
         return Err(refuse(
             ErrorClass::VerificationFailure,
             "read.target_mismatch",
         ));
     }
-    let address = account_address(scope.account)
-        .map_err(|_| refuse(ErrorClass::PolicyRefusal, "read.target_mismatch"))?;
-    let bundle = layerx_client::rpc::evidence::proof_bundle(node, address, &[], receipt.height())
+    if matches!(target, ProofBundleTarget::AccountState { .. }) {
+        return Err(refuse(
+            ErrorClass::ProtocolIncompatibility,
+            "read.account_proof_material_missing",
+        ));
+    }
+    if requested > Rung::Receipted {
+        return Err(refuse(
+            ErrorClass::VerificationFailure,
+            "read.below_requested_rung",
+        ));
+    }
+    let height = node
+        .block_number()
         .map_err(|_| refuse(ErrorClass::VerificationFailure, "read.invalid_proof"))?;
-    if bundle.landing_block.number != receipt.height() {
-        return Err(refuse(
-            ErrorClass::VerificationFailure,
-            "read.target_mismatch",
-        ));
-    }
-    // A native PB1 Merkle path cannot establish an EVM receipts-trie root.
-    Err(refuse(
-        ErrorClass::ProtocolIncompatibility,
-        "read.proof_bundle_v2_material_missing",
-    ))
+    let block = node
+        .block_by_number(height)
+        .map_err(|_| refuse(ErrorClass::VerificationFailure, "read.invalid_proof"))?
+        .ok_or_else(|| refuse(ErrorClass::VerificationFailure, "read.invalid_proof"))?;
+    crate::human_runtime::receipt_proof_operation(
+        target,
+        requested,
+        raw,
+        served_receipt,
+        &keys,
+        chain_id,
+        height,
+        block.hash,
+    )
+    .map_err(|_| refuse(ErrorClass::VerificationFailure, "read.invalid_proof"))
 }
 
 pub(crate) fn acquire_at_committed_block(
@@ -126,7 +164,7 @@ pub(crate) fn acquire_at_committed_block(
             .ok_or(CheckpointReadError::InvalidProof)?;
         let slots: Vec<_> = requested.iter().map(|witness| witness.slot).collect();
         let proof = endpoint
-            .storage_witness(&account, &slots, request.header.height)
+            .storage_witness(&account, &slots, request.receipt.metadata.block_height)
             .map_err(CheckpointReadError::Rpc)?;
         verify_bundle(&ProofBundleRequest {
             account_proof: Some(&proof),
@@ -160,7 +198,7 @@ fn committed(
         return Err(CheckpointReadError::NotCommitted);
     }
     serve_checkpoint(
-        request.receipt.metadata.block_height,
+        request.header.height,
         request.chain_id,
         request.header,
         commit,
@@ -183,8 +221,12 @@ pub(crate) fn verify_bundle(
         ProofBundleTarget::Receipt(_) => ProofBundleKind::Receipt,
         ProofBundleTarget::AccountState { .. } => ProofBundleKind::State,
     };
-    let rung = request.target.required_rung();
-    if rung < request.requested_rung {
+    let rung = if checkpoint.is_some() {
+        Rung::Committed
+    } else {
+        Rung::Receipted
+    };
+    if rung < request.requested_rung || rung < request.target.required_rung() {
         return Err(CheckpointReadError::BelowRequestedRung);
     }
     if receipt.metadata.rung < Rung::Receipted
@@ -195,7 +237,7 @@ pub(crate) fn verify_bundle(
         || request.header.height > i64::MAX as u64
         || request.chain_id.is_empty()
         || request.chain_id.len() > 50
-        || request.header.height != receipt.metadata.block_height
+        || receipt.metadata.block_height.checked_add(1) != Some(request.header.height)
         || request.header.chain_id != request.chain_id
         || request.header.last_results_hash != Some(request.receipts_root)
     {
@@ -243,11 +285,10 @@ pub(crate) fn verify_bundle(
     )
     .map_err(|_| CheckpointReadError::InvalidProof)?;
     verify_receipt(receipt)?;
-    let key = rlp_index(receipt.metadata.tx_index);
-    let included = trie_value(request.receipts_root, &key, request.receipt_proof)?;
-    if included.as_deref() != Some(receipt.canonical_receipt.as_slice()) {
-        return Err(CheckpointReadError::RootMismatch);
-    }
+    let proof = super::AbciResultProof::decode(request.receipt_proof)?;
+    proof.verify(request.receipts_root, receipt.metadata.tx_index)?;
+    verify_result_receipt(&proof.result, receipt)?;
+
     let (account_proof, state_root) =
         if let ProofBundleTarget::AccountState { account_id, .. } = request.target {
             let account = account_address(account_id)?;
@@ -279,6 +320,101 @@ pub(crate) fn verify_bundle(
         state_root,
         verification_level: rung,
     })
+}
+
+fn verify_result_receipt(
+    result: &[u8],
+    receipt: &crate::receipt::TransactionReceiptEvidence,
+) -> Result<(), CheckpointReadError> {
+    use super::abci_result::{fields, ProtoValue};
+    let response = super::abci_result::evm_response(result)?;
+    let mut gas = 0;
+    let mut vm_error = &[][..];
+    let mut hash = None;
+    let mut logs = Vec::new();
+    let mut previous = 0;
+    for (number, value) in fields(response)? {
+        if number < previous || number == previous && number != 5 {
+            return Err(CheckpointReadError::InvalidProof);
+        }
+        previous = number;
+        match (number, value) {
+            (1, ProtoValue::Integer(value)) => gas = value,
+            (2, ProtoValue::Bytes(value)) => vm_error = value,
+            (3, ProtoValue::Bytes(_)) => {}
+            (4, ProtoValue::Bytes(value)) => hash = Some(value),
+            (5, ProtoValue::Bytes(value)) => logs.push(value),
+            _ => return Err(CheckpointReadError::InvalidProof),
+        }
+    }
+    let text = std::str::from_utf8(hash.ok_or(CheckpointReadError::InvalidProof)?)
+        .map_err(|_| CheckpointReadError::InvalidProof)?;
+    let hash = layerx_programs::hex::decode_digest(
+        text.strip_prefix("0x")
+            .ok_or(CheckpointReadError::InvalidProof)?,
+    )
+    .map_err(|_| CheckpointReadError::InvalidProof)?;
+    if hash != receipt.metadata.transaction_hash
+        || gas != receipt.metadata.gas_used
+        || vm_error.is_empty() != receipt.metadata.status
+    {
+        return Err(CheckpointReadError::TargetMismatch);
+    }
+    let bytes = receipt.canonical_receipt.as_slice();
+    let fields_rlp = list_items(if matches!(bytes.first(), Some(1..=4)) {
+        &bytes[1..]
+    } else {
+        bytes
+    })?;
+    if fields_rlp.len() != 4 {
+        return Err(CheckpointReadError::InvalidProof);
+    }
+    let receipt_logs = list_items(fields_rlp[3].raw)?;
+    if receipt_logs.len() != logs.len() {
+        return Err(CheckpointReadError::TargetMismatch);
+    }
+    for (wire, expected) in logs.into_iter().zip(receipt_logs) {
+        let expected = list_items(expected.raw)?;
+        if expected.len() != 3 {
+            return Err(CheckpointReadError::InvalidProof);
+        }
+        let mut address = None;
+        let mut topics = Vec::new();
+        let mut data = &[][..];
+        let mut previous = 0;
+        for (number, value) in fields(wire)? {
+            if number < previous || number == previous && number != 2 {
+                return Err(CheckpointReadError::InvalidProof);
+            }
+            previous = number;
+            let hex = |bytes| -> Result<Vec<u8>, CheckpointReadError> {
+                let text =
+                    std::str::from_utf8(bytes).map_err(|_| CheckpointReadError::InvalidProof)?;
+                layerx_programs::hex::decode(text.strip_prefix("0x").unwrap_or(text))
+                    .map_err(|_| CheckpointReadError::InvalidProof)
+            };
+            match (number, value) {
+                (1, ProtoValue::Bytes(bytes)) => address = Some(hex(bytes)?),
+                (2, ProtoValue::Bytes(bytes)) => topics.push(hex(bytes)?),
+                (3, ProtoValue::Bytes(bytes)) => data = bytes,
+                (4, ProtoValue::Integer(_)) | (5, ProtoValue::Integer(0 | 1)) => {}
+                _ => return Err(CheckpointReadError::InvalidProof),
+            }
+        }
+        let expected_topics = list_items(expected[1].raw)?;
+        if address.as_deref() != Some(expected[0].bytes()?)
+            || data != expected[2].bytes()?
+            || topics.len() != expected_topics.len()
+        {
+            return Err(CheckpointReadError::TargetMismatch);
+        }
+        for (topic, expected) in topics.iter().zip(expected_topics) {
+            if topic.as_slice() != expected.bytes()? {
+                return Err(CheckpointReadError::TargetMismatch);
+            }
+        }
+    }
+    Ok(())
 }
 
 fn verify_receipt(
@@ -326,6 +462,9 @@ fn verify_account(
     account: [u8; 20],
     checkpoint: &ServedCheckpoint,
 ) -> Result<AccountState, CheckpointReadError> {
+    if witnesses.is_empty() {
+        return Err(CheckpointReadError::InvalidProof);
+    }
     let mut storage = Vec::with_capacity(witnesses.len());
     for witness in witnesses {
         if witness.address != account || storage.iter().any(|(slot, _)| *slot == witness.slot) {
@@ -536,4 +675,173 @@ fn trie_value(
         }
     }
     Err(CheckpointReadError::InvalidProof)
+}
+
+/// Native acquisition uses the node's Comet result producer and, for account
+/// targets, explicit storage slots at the receipt's committed state height.
+pub struct NativeProofRequest<'a> {
+    pub target: ProofBundleTarget,
+    pub requested_rung: Rung,
+    pub raw_transaction: &'a [u8],
+    pub served_receipt: &'a [u8],
+    pub chain_id: &'a str,
+    pub validators: &'a [super::CommitValidator],
+    pub account_slots: &'a [[u8; 32]],
+}
+
+impl NativeProofRequest<'_> {
+    pub fn acquire(
+        &self,
+        endpoint: &SequencerEndpoint,
+        source: &super::NativeResultSource,
+    ) -> Result<VerifiedRead<ProofBundle>, CheckpointReadError> {
+        use layerx_agent_api::prepare::CanonicalBytes;
+        use layerx_agent_api::read::{Freshness, RelativeTo};
+        self.target
+            .encode()
+            .map_err(|_| CheckpointReadError::TargetMismatch)?;
+        let (call, signature) = layerx_crypto::evm_transaction::decode_signed(self.raw_transaction)
+            .map_err(|_| CheckpointReadError::TargetMismatch)?;
+        let numeric_chain = endpoint.chain_id().map_err(CheckpointReadError::Rpc)?;
+        let sender = layerx_crypto::evm_transaction::recover_sender(&call, &signature)
+            .map_err(|_| CheckpointReadError::TargetMismatch)?;
+        if self.requested_rung > Rung::Committed
+            || call.chain_id != numeric_chain
+            || keccak256(self.raw_transaction) != self.target.activity_id()
+        {
+            return Err(CheckpointReadError::TargetMismatch);
+        }
+        let keys = endpoint.receipt_keys().map_err(CheckpointReadError::Rpc)?;
+        let layerx_client::rpc::receipt::Lookup::Verified(receipt) =
+            layerx_client::rpc::receipt::lookup_authenticated(
+                endpoint,
+                self.target.activity_id(),
+                layerx_client::rpc::receipt::LookupContext {
+                    receipt_keys: &keys,
+                },
+            )
+            .map_err(|_| CheckpointReadError::InvalidProof)?
+        else {
+            return Err(CheckpointReadError::InvalidProof);
+        };
+        if receipt.canonical_bytes() != self.served_receipt
+            || receipt.height() == 0
+            || receipt.execution().from != sender
+            || receipt.execution().nonce != call.nonce
+        {
+            return Err(CheckpointReadError::TargetMismatch);
+        }
+        let block = endpoint
+            .block_by_number(receipt.height())
+            .map_err(CheckpointReadError::Rpc)?
+            .ok_or(CheckpointReadError::NotCommitted)?;
+        let commitment_height = receipt
+            .height()
+            .checked_add(1)
+            .ok_or(CheckpointReadError::Arithmetic)?;
+        let checkpoint = source.checkpoint(commitment_height, self.chain_id, self.validators)?;
+        if checkpoint.header.last_block_id.map(|id| id.hash) != Some(block.hash)
+            || checkpoint.header.last_results_hash != Some(block.receipts_root)
+        {
+            return Err(CheckpointReadError::CheckpointBlockMismatch);
+        }
+        let inclusion = source.acquire(receipt.height(), receipt.execution().index)?;
+        inclusion.verify_committed(
+            receipt.height(),
+            receipt.execution().index,
+            &checkpoint,
+            self.chain_id,
+            self.validators,
+        )?;
+        super::abci_result::verify_native_receipt(&inclusion.result, &receipt)?;
+        let canonical = |bytes: Vec<u8>| {
+            CanonicalBytes::new(bytes).map_err(|_| CheckpointReadError::Arithmetic)
+        };
+        let account_proof = if let ProofBundleTarget::AccountState { account_id, .. } = self.target
+        {
+            if self.account_slots.is_empty() || self.account_slots.len() > 1024 {
+                return Err(CheckpointReadError::InvalidProof);
+            }
+            let address = account_address(account_id)?;
+            let witnesses = endpoint
+                .storage_witness(&address, self.account_slots, receipt.height())
+                .map_err(CheckpointReadError::Rpc)?;
+            verify_account(&witnesses, address, &checkpoint)?;
+            let rows: Vec<_> = witnesses
+                .iter()
+                .map(|witness| {
+                    serde_json::json!({
+                        "address": layerx_programs::hex::encode(&witness.address),
+                        "slot": layerx_programs::hex::encode(&witness.slot),
+                        "value": layerx_programs::hex::encode(&witness.value),
+                        "ops": witness.ops.iter().map(|op| serde_json::json!({
+                            "type": op.op_type, "key": layerx_programs::hex::encode(&op.key),
+                            "data": layerx_programs::hex::encode(&op.data)
+                        })).collect::<Vec<_>>()
+                    })
+                })
+                .collect();
+            Some(canonical(
+                serde_json::to_vec(&rows).map_err(|_| CheckpointReadError::InvalidProof)?,
+            )?)
+        } else {
+            if !self.account_slots.is_empty() {
+                return Err(CheckpointReadError::TargetMismatch);
+            }
+            None
+        };
+        let commitment = checkpoint.commitment_proof()?;
+        let native_proof = serde_json::json!({
+            "algorithm": "comet-abci-results-v1", "height": receipt.height(),
+            "total": inclusion.proof.total, "index": inclusion.proof.index,
+            "result": layerx_programs::hex::encode(&inclusion.result),
+            "leaf_hash": layerx_programs::hex::encode(&inclusion.proof.leaf_hash),
+            "aunts": inclusion.proof.aunts.iter().map(|aunt| layerx_programs::hex::encode(aunt)).collect::<Vec<_>>()
+        });
+        let key = *keys
+            .iter()
+            .find(|key| {
+                key.key_id == receipt.execution().key_id
+                    && key.first_height <= receipt.height()
+                    && receipt.height() <= key.last_height
+            })
+            .ok_or(CheckpointReadError::InvalidProof)?;
+        let unsigned = layerx_wire::receipt::encode_unsigned(receipt.receipt())
+            .map_err(|_| CheckpointReadError::InvalidProof)?;
+        let bundle = ProofBundle {
+            format: "layerx-receipt-proof-v2".into(),
+            verification_level: Rung::Committed,
+            raw_transaction: canonical(self.raw_transaction.to_vec())?,
+            signed_receipt: canonical(receipt.canonical_bytes().to_vec())?,
+            receipt_digest: layerx_wire::hash::receipt_digest(&unsigned)
+                .map_err(|_| CheckpointReadError::InvalidProof)?,
+            receipt_key: key,
+            block_header: Some(canonical(commitment.signed_header)?),
+            receipt_inclusion: Some(canonical(
+                serde_json::to_vec(&native_proof).map_err(|_| CheckpointReadError::InvalidProof)?,
+            )?),
+            commit: Some(canonical(commitment.commit)?),
+            validator_set: Some(canonical(commitment.validator_set)?),
+            account_proof,
+        };
+        bundle
+            .validate()
+            .map_err(|_| CheckpointReadError::InvalidProof)?;
+        let head = endpoint.block_number().map_err(CheckpointReadError::Rpc)?;
+        if head < commitment_height {
+            return Err(CheckpointReadError::NotCommitted);
+        }
+        Ok(VerifiedRead::new(
+            bundle,
+            Rung::Committed,
+            Freshness {
+                chain_head: head,
+                value_height: receipt.height(),
+                relative_to: RelativeTo::Block {
+                    height: block.number,
+                    hash: block.hash,
+                },
+            },
+        ))
+    }
 }

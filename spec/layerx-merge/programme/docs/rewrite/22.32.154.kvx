@@ -1,0 +1,41 @@
+[manifest]
+task = "22.32.154"
+domain = 15
+owner_role = "fm-cosmos-fork"
+pages = 6
+
+[page.1]
+path = "sdk/x/feegrant/spec/01_concepts.md"
+status = "stale"
+bytes = 4952
+source_1 = "record 22.30.167 [doc.23] (stale): feegrant-types-doc at line 19: The concepts page says only BasicAllowance and PeriodicAllowance exist although AllowedMsgAllowance is registered, supported by CLI --allowed-messages and described later in the same page."
+
+[page.2]
+path = "sdk/x/feegrant/spec/04_events.md"
+status = "stale"
+bytes = 915
+source_1 = "record 22.30.167 [doc.26] (stale): feegrant-events-doc at line 15: The feegrant event tables advertise message.action=set_feegrant/revoke_feegrant/use_feegrant. Keeper code emits those names as event types with granter and grantee attributes, while transaction message.action comes from BaseApp."
+
+[page.3]
+path = "sdk/x/gov/spec/01_concepts.md"
+status = "stale"
+bytes = 10755
+source_1 = "record 22.30.167 [doc.28] (stale): gov-lifecycle-doc at line 195: The concepts page describes software switching after proposal-ID precommit signals; the actual software-upgrade handler schedules a named height plan. It also promises a strictly positive initial deposit and a veto exception to expedited conversion, which current handlers do not enforce."
+
+[page.4]
+path = "sdk/x/gov/spec/02_state.md"
+status = "stale"
+bytes = 7342
+source_1 = "record 22.30.167 [doc.29] (stale): gov-state-doc at line 34: The state page assigns No=2, NoWithVeto=3 and Abstain=4; the protobuf enum and validation code assign Abstain=2, No=3 and NoWithVeto=4. Its state sketches also omit weighted vote options and expedited proposal fields."
+
+[page.5]
+path = "sdk/x/gov/spec/03_messages.md"
+status = "stale"
+bytes = 5705
+source_1 = "record 22.30.167 [doc.30] (stale): gov-message-doc at line 41: The submission pseudocode rejects empty initial deposits and treats title, type and vote counters as direct message/proposal fields; the producer accepts an empty coin list and packs proposal content in Any with weighted vote records."
+
+[page.6]
+path = "sdk/x/gov/spec/04_events.md"
+status = "stale"
+bytes = 2580
+source_1 = "record 22.30.167 [doc.31] (stale): gov-events-doc at line 51: The weighted-vote table advertises message.action=vote; MsgVoteWeighted.Type returns vote_weighted and protobuf transport emits its full type URL. The page does not distinguish these transport-dependent action values."

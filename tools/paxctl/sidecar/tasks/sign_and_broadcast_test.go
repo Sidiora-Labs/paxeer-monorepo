@@ -174,7 +174,12 @@ func newGuardCfg(t *testing.T, chainID string) (engine.ExecutionConfig, sdk.AccA
 	t.Setenv("SEI_CHAIN_ID", chainID)
 	srv := fakeStatusServer(t, chainID, 0)
 	kb, addr := testKeyring(t)
-	return engine.ExecutionConfig{
+	store, err := engine.NewMemoryStore()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { store.Close() })
+	return engine.ExecutionConfig{Checkpointer: store,
 		Keyring: kb,
 		RPC:     rpc.NewClient(srv.URL, nil),
 	}, addr
@@ -190,7 +195,7 @@ func TestChainConfusionGuard_EnvMismatch(t *testing.T) {
 		ChainID: "wrong-chain",
 		KeyName: "node_admin",
 		Msg:     makeMsgVote(t, addr),
-		Fees:    "4000usei",
+		Fees:    "4000uhpx",
 		Gas:     200_000,
 		TaskID:  "00000000-0000-0000-0000-000000000001",
 	}, addr)
@@ -218,7 +223,7 @@ func TestChainConfusionGuard_StatusMismatch(t *testing.T) {
 		ChainID: "pacific-1",
 		KeyName: "node_admin",
 		Msg:     makeMsgVote(t, addr),
-		Fees:    "4000usei",
+		Fees:    "4000uhpx",
 		Gas:     200_000,
 		TaskID:  "00000000-0000-0000-0000-000000000002",
 	}, addr)
@@ -244,7 +249,7 @@ func TestChainConfusionGuard_MissingEnv(t *testing.T) {
 		ChainID: "pacific-1",
 		KeyName: "node_admin",
 		Msg:     makeMsgVote(t, addr),
-		Fees:    "4000usei",
+		Fees:    "4000uhpx",
 		Gas:     200_000,
 		TaskID:  "00000000-0000-0000-0000-000000000003",
 	}, addr)
@@ -267,8 +272,8 @@ func TestFeesDenomGuard_RejectsNonUSei(t *testing.T) {
 	if !IsTerminal(err) {
 		t.Fatalf("want Terminal denom error, got %v", err)
 	}
-	if !strings.Contains(err.Error(), "usei") {
-		t.Fatalf("error should mention usei, got %q", err.Error())
+	if !strings.Contains(err.Error(), "uhpx") {
+		t.Fatalf("error should mention uhpx, got %q", err.Error())
 	}
 }
 
@@ -284,7 +289,7 @@ func TestMissingKeyring_ReturnsTerminal(t *testing.T) {
 		ChainID: "pacific-1",
 		KeyName: "node_admin",
 		Msg:     govtypes.NewMsgVote(makeAddr(t), 7, govtypes.OptionYes),
-		Fees:    "4000usei",
+		Fees:    "4000uhpx",
 		Gas:     200_000,
 		TaskID:  "00000000-0000-0000-0000-000000000005",
 	})
@@ -300,7 +305,7 @@ func TestMissingKeyEntry_ReturnsTerminal(t *testing.T) {
 		ChainID: "pacific-1",
 		KeyName: "ghost", // not in the keyring
 		Msg:     govtypes.NewMsgVote(makeAddr(t), 7, govtypes.OptionYes),
-		Fees:    "4000usei",
+		Fees:    "4000uhpx",
 		Gas:     200_000,
 		TaskID:  "00000000-0000-0000-0000-000000000006",
 	})
@@ -318,7 +323,7 @@ func TestAccountRetrieverFailure_Propagates(t *testing.T) {
 		ChainID: "pacific-1",
 		KeyName: "node_admin",
 		Msg:     makeMsgVote(t, addr),
-		Fees:    "4000usei",
+		Fees:    "4000uhpx",
 		Gas:     200_000,
 		TaskID:  "00000000-0000-0000-0000-000000000007",
 	}, addr)
@@ -352,7 +357,7 @@ func TestSignedTxHasNoFeePayerOrGranter(t *testing.T) {
 		ChainID: "pacific-1",
 		KeyName: "node_admin",
 		Msg:     makeMsgVote(t, addr),
-		Fees:    "4000usei",
+		Fees:    "4000uhpx",
 		Gas:     200_000,
 		TaskID:  "00000000-0000-0000-0000-0000000000fe",
 	}, addr)
@@ -397,7 +402,7 @@ func TestBroadcastCheckTxFailure_ReturnsTerminal(t *testing.T) {
 		ChainID: "pacific-1",
 		KeyName: "node_admin",
 		Msg:     makeMsgVote(t, addr),
-		Fees:    "4000usei",
+		Fees:    "4000uhpx",
 		Gas:     200_000,
 		TaskID:  "00000000-0000-0000-0000-000000000008",
 	}, addr)
@@ -430,7 +435,7 @@ func TestInclusionPollingCtxCancel_ReturnsCtxErr(t *testing.T) {
 		ChainID: "pacific-1",
 		KeyName: "node_admin",
 		Msg:     makeMsgVote(t, addr),
-		Fees:    "4000usei",
+		Fees:    "4000uhpx",
 		Gas:     200_000,
 		TaskID:  "00000000-0000-0000-0000-00000000000c",
 	}, addr)
@@ -464,7 +469,7 @@ func TestInclusionPollingDeadline_ReturnsNonTerminalWithNilIncludedAt(t *testing
 		ChainID: "pacific-1",
 		KeyName: "node_admin",
 		Msg:     makeMsgVote(t, addr),
-		Fees:    "4000usei",
+		Fees:    "4000uhpx",
 		Gas:     200_000,
 		TaskID:  "00000000-0000-0000-0000-00000000000d",
 	}, addr)
@@ -506,7 +511,7 @@ func TestCallerSuppliedTaskIDInMemoRejected(t *testing.T) {
 		ChainID: "pacific-1",
 		KeyName: "node_admin",
 		Msg:     makeMsgVote(t, addr),
-		Fees:    "4000usei",
+		Fees:    "4000uhpx",
 		Gas:     200_000,
 		Memo:    "rationale taskID=forged-uuid",
 		TaskID:  "00000000-0000-0000-0000-0000000000aa",
@@ -526,7 +531,7 @@ func TestMemoCapEnforcedAfterTaskIDAppend(t *testing.T) {
 		ChainID: "pacific-1",
 		KeyName: "node_admin",
 		Msg:     makeMsgVote(t, addr),
-		Fees:    "4000usei",
+		Fees:    "4000uhpx",
 		Gas:     200_000,
 		Memo:    base,
 		TaskID:  "00000000-0000-0000-0000-000000000099",
@@ -568,7 +573,7 @@ func markerInput(t *testing.T, addr sdk.AccAddress) SignAndBroadcastInput {
 		ChainID: "pacific-1",
 		KeyName: "node_admin",
 		Msg:     makeMsgVote(t, addr),
-		Fees:    "4000usei",
+		Fees:    "4000uhpx",
 		Gas:     200_000,
 		TaskID:  "task-1",
 	}
@@ -580,9 +585,7 @@ func TestAdopt_FoundOnChain_NoRebroadcast(t *testing.T) {
 	shortenPolls(t)
 	tc := &fakeTxClient{queryDefault: &sdk.TxResponse{Code: 0, Height: 9, TxHash: "seed"}}
 	cfg, addr, cp := markerCfg(t, "pacific-1", tc)
-	cp.markers["task-1"] = &engine.TxMarker{
-		TaskID: "task-1", TxHash: "ABCD", TxBytes: []byte{1, 2, 3}, ChainID: "pacific-1",
-	}
+	cp.markers["task-1"] = signedMarkerFixture(t, cfg, addr)
 
 	res, err := signAndBroadcast(context.Background(), cfg, tc, markerInput(t, addr), addr)
 	if err != nil {
@@ -607,11 +610,8 @@ func TestAdopt_NotFound_RebroadcastsIdenticalBytes(t *testing.T) {
 		broadcastResp: &sdk.TxResponse{Code: 0, TxHash: "h"},
 	}
 	cfg, addr, cp := markerCfg(t, "pacific-1", tc)
-	want := []byte{0xDE, 0xAD, 0xBE, 0xEF, 0x01, 0x02}
-	cp.markers["task-1"] = &engine.TxMarker{
-		TaskID: "task-1", TxHash: "ABCD", TxBytes: want,
-		AccountNumber: 17, Sequence: 42, ChainID: "pacific-1",
-	}
+	cp.markers["task-1"] = signedMarkerFixture(t, cfg, addr)
+	want := cp.markers["task-1"].TxBytes
 
 	_, err := signAndBroadcast(context.Background(), cfg, tc, markerInput(t, addr), addr)
 	if err != nil {
@@ -632,9 +632,7 @@ func TestAdopt_QueryTransportError_ReportsPending_NoRebroadcast(t *testing.T) {
 	shortenPolls(t)
 	tc := &fakeTxClient{queryErr: errors.New("rpc down")}
 	cfg, addr, cp := markerCfg(t, "pacific-1", tc)
-	cp.markers["task-1"] = &engine.TxMarker{
-		TaskID: "task-1", TxHash: "ABCD", TxBytes: []byte{9, 9, 9}, ChainID: "pacific-1",
-	}
+	cp.markers["task-1"] = signedMarkerFixture(t, cfg, addr)
 
 	res, err := signAndBroadcast(context.Background(), cfg, tc, markerInput(t, addr), addr)
 	if err != nil {
@@ -643,7 +641,7 @@ func TestAdopt_QueryTransportError_ReportsPending_NoRebroadcast(t *testing.T) {
 	if res == nil || res.IncludedAt != nil {
 		t.Fatalf("expected an undetermined (pending) result, got %+v", res)
 	}
-	if res.TxHash != "ABCD" {
+	if res.TxHash != cp.markers["task-1"].TxHash {
 		t.Fatalf("pending result must carry the marker txHash, got %q", res.TxHash)
 	}
 	if tc.broadcasts != 0 {
@@ -700,9 +698,7 @@ func TestAdopt_TxIndexingDisabled_Unverifiable(t *testing.T) {
 	shortenPolls(t)
 	tc := &fakeTxClient{queryErr: errTxIndexingDisabled}
 	cfg, addr, cp := markerCfg(t, "pacific-1", tc)
-	cp.markers["task-1"] = &engine.TxMarker{
-		TaskID: "task-1", TxHash: "ABCD", TxBytes: []byte{9, 9, 9}, ChainID: "pacific-1",
-	}
+	cp.markers["task-1"] = signedMarkerFixture(t, cfg, addr)
 
 	res, err := signAndBroadcast(context.Background(), cfg, tc, markerInput(t, addr), addr)
 	if err != nil {
@@ -711,7 +707,7 @@ func TestAdopt_TxIndexingDisabled_Unverifiable(t *testing.T) {
 	if res == nil || !res.Unverifiable || res.IncludedAt != nil {
 		t.Fatalf("expected an unverifiable result with IncludedAt nil, got %+v", res)
 	}
-	if res.TxHash != "ABCD" {
+	if res.TxHash != cp.markers["task-1"].TxHash {
 		t.Fatalf("unverifiable result must carry the marker txHash, got %q", res.TxHash)
 	}
 	if tc.broadcasts != 0 {
@@ -766,9 +762,7 @@ func TestAdopt_RebroadcastRejectedButLanded_RequeryGuardRescues(t *testing.T) {
 		broadcastResp:   &sdk.TxResponse{Code: 32}, // sequence mismatch → Terminal
 	}
 	cfg, addr, cp := markerCfg(t, "pacific-1", tc)
-	cp.markers["task-1"] = &engine.TxMarker{
-		TaskID: "task-1", TxHash: "ABCD", TxBytes: []byte{1}, ChainID: "pacific-1",
-	}
+	cp.markers["task-1"] = signedMarkerFixture(t, cfg, addr)
 
 	res, err := signAndBroadcast(context.Background(), cfg, tc, markerInput(t, addr), addr)
 	if err != nil {
@@ -842,16 +836,15 @@ func TestNoCheckpointer_BroadcastsOnce(t *testing.T) {
 		queryDefault:  &sdk.TxResponse{Code: 0, Height: 7},
 	}
 
+	cfg.Checkpointer = nil
 	res, err := signAndBroadcast(context.Background(), cfg, tc, markerInput(t, addr), addr)
-	if err != nil {
-		t.Fatalf("back-compat path should succeed: %v", err)
+	if !IsTerminal(err) || res != nil {
+		t.Fatalf("missing durable store must refuse signing: %v, %+v", err, res)
 	}
-	if res == nil {
-		t.Fatal("expected a result")
+	if tc.broadcasts != 0 {
+		t.Fatalf("broadcast without durable store: %d", tc.broadcasts)
 	}
-	if tc.broadcasts != 1 {
-		t.Fatalf("expected exactly 1 broadcast, got %d", tc.broadcasts)
-	}
+
 }
 
 // Test 8 (L1): the persisted marker's TxHash equals sha256 of the exact
@@ -887,4 +880,15 @@ func makeAddr(t *testing.T) sdk.AccAddress {
 	t.Helper()
 	ensureBech32()
 	return sdk.AccAddress([]byte("aaaaaaaaaaaaaaaaaaaa"))
+}
+
+func signedMarkerFixture(t *testing.T, cfg engine.ExecutionConfig, addr sdk.AccAddress) *engine.TxMarker {
+	t.Helper()
+	in := markerInput(t, addr)
+	in.Memo = appendTaskIDToMemo(in.Memo, in.TaskID)
+	data, err := signTransaction(cfg, in, 17, 42)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return &engine.TxMarker{TaskID: in.TaskID, TxHash: fmt.Sprintf("%X", sha256.Sum256(data)), TxBytes: data, ChainID: in.ChainID, AccountNumber: 17, Sequence: 42}
 }

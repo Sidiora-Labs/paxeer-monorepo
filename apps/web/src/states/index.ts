@@ -55,3 +55,9 @@ export {
   type SupportReportRequest,
 } from "./report-schema";
 export { ApplicationStateBoundary } from "./application";
+export {
+  SUPPORT_REPORT_ROUTES,
+  supportReportRoute,
+  redactSupportReportRoute,
+  type SupportReportRoute,
+} from "./report-routes";

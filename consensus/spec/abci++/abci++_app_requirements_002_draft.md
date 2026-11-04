@@ -5,6 +5,179 @@ title: Application Requirements
 
 # Application Requirements
 
+## Current fork requirements
+
+This page documents the in-process application contract used by the consensus
+engine embedded in `paxd`. Paxeer mainnet-beta is one BFT network, with EVM chain
+ID 125 (`0x7d`); the merged kernel is part of the network and proposes blocks.
+A receipt is final when its block is committed. See the
+[specification overview](../README.md#mode-applicability) for mode selection and
+the [Autobahn protocol map](../README.md#autobahn-protocol-and-implementation-map)
+for block identity, quorum, time, transport and persistence.
+
+The upstream draft is retained [below](#archived-upstream-draft) for its formal
+reasoning and historical design discussion. Its method set, same-block execution
+options, connection model and recovery instructions do not define this fork.
+The current requirements in this section take precedence over the archive.
+
+### Implemented application interface
+
+[`Application`](../../abci/types/application.go) is the authoritative Go API.
+Calls use Go values and `context.Context` in the node process. The
+[proxy](../../internal/proxy/proxy.go) forwards directly to the application and
+records method timings; it supplies neither a global state lock nor a socket or
+gRPC ABCI transport. The draft's four “connections” are useful categories of
+responsibility, not four network connections to provision.
+
+| Responsibility | Current methods |
+| --- | --- |
+| Application information and queries | `Info`, `Query`, `GetValidators` |
+| Transaction admission and scheduling | `CheckTx(context.Context, *RequestCheckTxV2) *ResponseCheckTxV2`, `GetTxPriorityHint`, `EvmNonce`, `EvmBalance` |
+| Initialization, proposal validation and block execution | `InitChain`, `ProcessProposal`, `FinalizeBlock`, `Commit` |
+| Snapshot interface | `ListSnapshots`, `OfferSnapshot`, `LoadSnapshotChunk`, `ApplySnapshotChunk` |
+
+`PrepareProposal`, `ExtendVote` and `VerifyVoteExtension` are absent from this
+interface. Consequently the draft's Requirements 1–5 and 8–12 are not an
+implemented API checklist: their references to those methods are historical.
+The deterministic validation and execution principles in Requirements 6–7 and
+13–14 remain useful, subject to the actual caller and types described here.
+The archive's advice to always accept proposals or vote extensions is not a
+substitute for validating the current protocol's inputs.
+
+### Proposal validation, execution and persistence
+
+On the classic path,
+[`BlockExecutor.ProcessProposal`](../../internal/state/execution.go) calls the
+application to validate a proposal. It must make a deterministic accept/reject
+decision from the proposed block and the appropriate application state. Proposal
+work must not mutate the committed store. Repeated or discarded proposals must
+not leave committed side effects, and speculative state must be bounded and
+safe to discard. The SDK implementation uses separate proposal/delivery state;
+see [`BaseApp.ProcessProposal` and `BaseApp.FinalizeBlock`](../../../sdk/baseapp/abci.go).
+
+For a decided block, classic `ApplyBlock` performs these operations:
+
+1. Call `FinalizeBlock` with ordered transactions, header, block hash, last-commit
+   information and evidence.
+2. Save the finalization response; validate validator updates and apply consensus
+   parameter updates to the next state; compute the deterministic results hash.
+3. Lock the classic mempool, call `Commit`, and update/recheck the mempool.
+4. Save the resulting application hash and consensus state, request pruning, and
+   publish execution events.
+
+The application must persist its state before `Commit` returns. Do not wait for
+synchronous transaction admission from inside `Commit`: classic execution holds
+the mempool lock during that call. Admission checks, queries and background
+snapshot work must synchronize their access to application state; direct calls
+through the proxy do not provide that synchronization.
+
+The actual response fields are defined in
+[`abci/types/types.pb.go`](../../abci/types/types.pb.go):
+
+- `ResponseFinalizeBlock` carries `Events`, ordered `TxResults`, `ValidatorUpdates`,
+  `ConsensusParamUpdates` and `AppHash`.
+- `ResponseCommit` carries `RetainHeight`. It has no `Data` or application hash
+  field. The archive's instructions to return a Merkle root in
+  `ResponseCommit.Data` do not apply.
+- `Info` must report `LastBlockHeight` and `LastBlockAppHash` for the last durable
+  application commit, including after process restart.
+
+### Autobahn execution and recovery
+
+With `autobahn-config-file` set,
+[`GigaRouter.runExecute` and `executeBlock`](../../internal/p2p/giga_router.go)
+consume finalized global blocks in increasing global number. This path does not
+invoke `ProcessProposal`, and does not implement the archive's speculative
+`PrepareProposal` execution modes.
+
+The request uses `GlobalBlock.GlobalNumber` as `Header.Height`, the global block's
+timestamp as `Header.Time`, and the **lane-header hash** as
+`RequestFinalizeBlock.Hash`. `DecidedLastCommit` is empty by design. The adapter
+selects a deterministic proposer address from `GetValidators`; that address is
+not a classic proposer-election proof. Autobahn finality comes from its commit
+certificate, not from signatures in this adapter's last-commit field.
+
+For each block the adapter calls `FinalizeBlock`, saves the response, calls
+`Commit`, then reports `ResponseFinalizeBlock.AppHash` through `PushAppHash`.
+Only afterward does it publish `NewBlockHeader` and per-transaction `Tx` events.
+Return exactly one non-nil transaction result for each input transaction, in the
+same order: the event publisher uses each result's matching input index.
+[`PushAppHash`](../../internal/autobahn/data/state.go) waits for the block and its
+certificate to be persisted before the data layer can issue application votes.
+
+At fresh initialization (`Info.LastBlockHeight == 0`), `runExecute` calls
+`InitChain` and starts at the genesis initial height. After a durable commit it
+restores the last app hash into the data layer and resumes at the next height.
+The node bypasses the classic handshaker in this mode. The archived three-height
+replay procedure is therefore not an Autobahn recovery recipe.
+
+Persist the application store together with the Autobahn consensus safety state
+and data WALs described in the [overview](../README.md#application-state-and-durable-restart).
+The Autobahn JSON key is `persistent_state_dir`; ordinary configurations require
+it. Application `RetainHeight` controls data and saved-response pruning, so an
+application must not request removal of history still needed for recovery.
+Returning from `Commit` with only in-memory state breaks this restart contract.
+
+### Transaction admission and results
+
+`CheckTx` is admission, not final execution. A successful check does not establish
+inclusion or a successful execution result. The proxy's `CheckTxSafe` rejects a
+nil response; an EVM response must also supply a nonzero `EVMHash` and a nonempty
+`PaxSenderAddress`. The application must implement replay protection in its
+execution path as well as admission checks: a local duplicate cache cannot be a
+consensus guarantee.
+
+Every correct executor must derive the same application state and deterministic
+transaction results from the same ordered block and preceding state. A nonzero
+`ExecTxResult.Code` records a failed transaction that is still part of the block;
+it does not remove that transaction from the input order. Do not infer that
+failed transactions cannot be indexed from the archived draft's wording.
+
+Classic [`TxResultsHash`](../../internal/state/execution.go) hashes the canonical
+transaction-result encoding from
+[`MarshalTxResults`](../../abci/types/types.go). Deterministic result fields
+are `Code`, `Data`, `GasWanted` and `GasUsed`; logs and events are not leaves of
+that commitment. Gas accounting and resource limits must be enforced by the
+application and the selected admission/producer path. The archive's gas defaults
+and Tendermint version history are not current network configuration values.
+
+### Validators, parameters, queries and snapshots
+
+The classic executor validates and applies `ValidatorUpdates` and
+`ConsensusParamUpdates` from finalization. In contrast, Autobahn constructs its
+committee from configured validator keys at startup; `executeBlock` does not
+apply those response fields to change that committee. Do not assume that the
+archive's validator-update timing or consensus timeout list configures Autobahn.
+Use the [current configuration](../../config/config.go) and
+[Autobahn JSON type](../../config/autobahn.go), rather than the draft's v0.36.x
+parameter list.
+
+`Query` reads the local application's state; it does not itself run consensus.
+An application proof must be checked against an authenticated application-state
+commitment for the relevant height. A Tendermint-shaped Autobahn RPC response
+alone does not establish the classic light client's header/proof assumptions.
+The archive's generic proof discussion remains background material.
+
+The snapshot methods remain in `Application`, but
+[node construction](../../node/node.go) installs the classic state-sync reactor
+only on the non-Autobahn path. The classic TOML setting is `[statesync]` with
+`enable = true` (not the archive's `statesync.enabled`). Snapshot consistency,
+height/hash verification and untrusted metadata handling remain useful design
+requirements. The archived snapshot workflow is not an Autobahn bootstrap
+procedure or a claim that every application implements snapshots.
+
+## Archived upstream draft
+
+The remainder of this page preserves the upstream ABCI++ draft as historical
+material, including its original section anchors and links to companion drafts.
+All references below to Tendermint versions, methods, transports, parameters,
+execution modes and recovery algorithms belong to that draft. They must be read
+with the [current fork requirements](#current-fork-requirements) and the
+[mode applicability map](../README.md#mode-applicability); they assert no
+current-network or Autobahn conformance.
+
+---
+
 ## Formal Requirements
 
 This section specifies what Tendermint expects from the Application. It is structured as a set

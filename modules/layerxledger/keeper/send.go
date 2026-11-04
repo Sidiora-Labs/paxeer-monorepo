@@ -21,30 +21,8 @@ func (k *Keeper) Send(ctx sdk.Context, actor Actor, envelope []byte, idempotency
 	var from, assetID [32]byte
 	copy(from[:], envelope[4:36])
 	copy(assetID[:], envelope[68:100])
-	owner, err := k.host.ReadAccountOwner(ctx, from)
-	if err != nil {
-		return Result{}, ledgerReadError(err)
-	}
-	if owner != actor.Authority.Actor {
-		return Result{}, types.ErrUnauthorizedDebit
-	}
-	source, err := k.accountByID(ctx, from)
-	if err != nil {
+	if _, err := k.sendSource(ctx, actor, from, assetID); err != nil {
 		return Result{}, err
-	}
-	if !source.HasAsset || source.AssetID != assetID {
-		return Result{}, types.ErrAssetMismatch
-	}
-	mainName, _, err := lxphost.MainAccountID(actor.DIDKey)
-	if err != nil {
-		return Result{}, ledgerReadError(err)
-	}
-	assetName, _, err := lxphost.AssetAccountID(actor.DIDKey, assetID)
-	if err != nil {
-		return Result{}, ledgerReadError(err)
-	}
-	if source.Name != mainName && source.Name != assetName {
-		return Result{}, types.ErrUnauthorizedDebit
 	}
 	var zeroAmount [16]byte
 	if bytes.Equal(envelope[100:116], zeroAmount[:]) {
@@ -66,4 +44,36 @@ func (k *Keeper) Send(ctx sdk.Context, actor Actor, envelope []byte, idempotency
 	}
 	_, err = LedgerEvents(assetSendActivity, result.Receipt, EventArgs{})
 	return result, err
+}
+
+func (k *Keeper) sendSource(ctx sdk.Context, actor Actor, from, assetID [32]byte) (lxphost.AccountRecord, error) {
+	if !actor.Authority.Bound || actor.DIDKey != actor.Authority.VerifiedKey {
+		return lxphost.AccountRecord{}, types.ErrUnauthorizedDebit
+	}
+	owner, err := k.host.ReadAccountOwner(ctx, from)
+	if err != nil {
+		return lxphost.AccountRecord{}, ledgerReadError(err)
+	}
+	if owner != actor.Authority.Actor {
+		return lxphost.AccountRecord{}, types.ErrUnauthorizedDebit
+	}
+	source, err := k.accountByID(ctx, from)
+	if err != nil {
+		return lxphost.AccountRecord{}, err
+	}
+	if !source.HasAsset || source.AssetID != assetID {
+		return lxphost.AccountRecord{}, types.ErrAssetMismatch
+	}
+	mainName, _, err := lxphost.MainAccountID(actor.DIDKey)
+	if err != nil {
+		return lxphost.AccountRecord{}, ledgerReadError(err)
+	}
+	assetName, _, err := lxphost.AssetAccountID(actor.DIDKey, assetID)
+	if err != nil {
+		return lxphost.AccountRecord{}, ledgerReadError(err)
+	}
+	if source.Name != mainName && source.Name != assetName {
+		return lxphost.AccountRecord{}, types.ErrUnauthorizedDebit
+	}
+	return source, nil
 }

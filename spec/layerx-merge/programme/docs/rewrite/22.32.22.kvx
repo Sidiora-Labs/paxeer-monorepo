@@ -1,0 +1,21 @@
+[manifest]
+task = "22.32.22"
+domain = 4
+owner_role = "fm-launchpad"
+pages = 1
+
+[page.1]
+path = "docs/wiki/HostedNode.md"
+status = "misleading"
+bytes = 34931
+source_1 = "record 22.30.117 [doc.3] (misleading): Read the whole mirrored page and compared it with the site version; its link variants retain the same retired deployment model at line 3."
+source_2 = "record 22.30.172 [doc.012] (stale): Complete page read. Page-specific finding identifies separate LayerX/sequencer/daemon claims requiring rewrite around integrated paxd and commit-final receipts."
+source_3 = "record 22.30.22 [doc.02] (stale): Site mirror has the same retired daemon/bootstrap/runtime instructions, with wiki link targets; see hosted-node-wiki-doc."
+source_4 = "record 22.30.23 [doc.7] (stale): Lines 3-13 and 39-43 describe separate layerxd sequencer/replica deployments; lines 261-303 bind retired anchor/settlement configuration; lines 433 onward describe daemon LNI ingress."
+source_5 = "record 22.30.27 [doc.002] (misleading): Stale at lines 3-40 (layerxd and replica), 287-315 (settlement/anchor), and 435-459 (LNI boundary); rewrite the integrated paxd operating path."
+source_6 = "record 22.30.28 [doc.003] (stale): The page presents a running layerxd sequencer pod and separate authority replica, with LNI, guarantors and checkpoint-settlement bootstrap and recovery (lines 3-22, 39-42 and 433 onward)."
+source_7 = "record 22.30.29 [doc.11] (misleading): wiki-node: line4 The page advertises an image that builds layerxd and documents layerxd --serve, an authority replica and the LNI Unix socket as the running hosted node stack, including daemon configuration and receipt-authority routes."
+source_8 = "record 22.30.79 [doc.006] (misleading): Lines 4-13, 39-40 and 71 retain a separate layerxd sequencer, receipt authority replica and LNI setup. Replace the topology and recovery runbook with merged chain and retained hosted dependencies."
+source_9 = "record 22.30.91 [doc.hosted_node_wiki] (misleading): Read the complete bootstrap, supervisor, replica, LNI, environment, failure and deployment reference. Lines 3-12 define the running node as layerxd; lines 39-40 and 437 onward document retired supervisor/replica and LNI architecture rather than the merged paxd network."
+source_10 = "record 22.30.95 [doc.7] (misleading): The wiki duplicates the retired hosted node topology and executable layerxd/network-402 instructions; it must track the rewritten site deployment guide."
+source_11 = "record 22.30.96 [doc.d07] (misleading): Lines 3: The hosted node guide describes a standalone sequencer pod built from layerxd, local LNI bootstrap and guarantor authority; its bootstrap example configures the former network rather than the single merged chain. Replace the retired layerxd/sequencer provisioning path with the paxd embedded-kernel deployment, chain id 125 and current node/gateway root endpoints. Remove LNI and guarantor secret/setup instructions and document validator commit recovery."

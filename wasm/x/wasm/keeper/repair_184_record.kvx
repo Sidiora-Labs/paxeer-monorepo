@@ -1,0 +1,49 @@
+[task.22.31.184]
+mode = "BUILD"
+baseline = "Not run: the controlling task order forbids builds and tests before complete implementation and permits verification only through hf-done; no pre-change test failures are claimed."
+evidence = "The runner records the qualified candidate revision, exact command, exit code and private log in its hf-build/hf-done ledger."
+
+[finding.history-sequence]
+tests = ["TestRepair_184_HistorySequence", "TestRepair_184_HistoryRejectsCorruptionAndExhaustion"]
+remediation = "Malformed legacy sequences or chronology fail migration before native execution; overwritten history cannot be reconstructed by sorting surviving entries."
+wiring = "node/upgrades.go — chain upgrade owner: restore affected histories and contracts-by-code indexes from verified archived instantiate/migration transactions under a governed upgrade, including entries overwritten by the former sequence bug."
+
+[finding.compile-wall-clock]
+tests = ["TestRepair_184_CompileWallClock"]
+repair = "Compile synchronously under ownership, retaining the upload-size bound and native static validation/memory limits; no consensus wall-clock timeout. Cache read, analysis, metrics, pin, unpin and cleanup operations serialize with compilation."
+
+[finding.ibc-gas-units]
+tests = ["TestRepair_184_IBCGasUnits"]
+repair = "All six real native IBC callback boundaries use the configured gas adapter; the test records SDK and CosmWasm readings without substituting VM results, covers reads/writes, native account iteration, acknowledgements, timeout and native budget refusal with both multipliers."
+
+[finding.query-gas-units]
+tests = ["TestRepair_184_QueryGasUnits"]
+repair = "QueryHandler reports CosmWasm units and retains one SDK parent charge on success, error and out-of-gas; real native reflect queries call the bank keeper and another contract."
+
+[finding.stream-contract-reimport]
+tests = ["TestRepair_184_StreamContractReimport", "TestRepair_184_StreamRejectsConflicts"]
+repair = "Versioned Sequence control records survive the existing module protobuf/JSON transport; ordered offsets and matching metadata append state atomically, create history/index once, reject duplicates, and end with sequence/count/completeness checks. Persisted import markers support close/reopen midstream and block contract execution until finalization."
+wiring = "wasm/x/wasm/module.go and sdk/types/module/module.go — Wasm module and SDK genesis owners: invoke Keeper.FinalizeGenesisImport after the module input reaches EOF so a truncated file cannot complete chain initialization; the complete export already contains and checks a final control record."
+
+[finding.cw721-json-strings]
+tests = ["TestRepair_184_CW721JSONStrings", "TestRepair_184_CW721OwnerFailures"]
+repair = "Decode token and queried owner as JSON strings, abort on required lookup failures, and preserve a shared lookup error through the receipt consumer's missing-event refusal. Tests run native CW721 transfer/burn through the production handler into the real receipt hook, and send through actual receiver failure with state rollback."
+
+[qualification.repair_1]
+revision = "18f0690526a87bd87cf806f932b5f8dd0438b5fb"
+command = "cg spec done 22.31.184 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The new persistence tests called Commit without this SDK's required bumpVersion argument; repaired the five calls to Commit(true)."
+
+[qualification.continued_baseline]
+revision = "a24a966eaf8b0ff68cd00887e8fad4d04c45dd63"
+command = "cg spec done 22.31.184 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; focused output /tmp/repair-184.log"
+observed = "The inherited implementation passed eight repair tests; TestRepair_184_IBCGasUnits failed for both multipliers because the older keeper fixture returns a unit handshake response instead of the asserted IBC3 negotiated version."
+repair = "Preserve every assertion and exercise the same real keeper lifecycle with the committed wasm-runtime/testdata/ibc_reflect.wasm IBC3 fixture, whose existing native-runtime handshake test asserts ibc-reflect-v1."
+
+[gotcha.ibc_fixture_response]
+observed = "The keeper and native-runtime ibc_reflect.wasm fixtures have different hashes and handshake response types despite sharing a filename."
+fix = "Use the native-runtime IBC3 fixture when asserting the contract-produced negotiated version; retain the real upload, native callbacks, store operations and gas assertions."

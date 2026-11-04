@@ -69,6 +69,13 @@ public final class LayerXMobile: @unchecked Sendable {
       configuration: try PublishableConfiguration(declaredKeys: declaredKeys), session: session)
   }
 
+  public func gate() throws -> ReceiptGate {
+    guard !configuration.receiptKeys.isEmpty else {
+      throw MobileIntegrationError(.invalidConfiguration)
+    }
+    return ReceiptGate(client: client, receiptKeys: configuration.receiptKeys)
+  }
+
   public func gate(receipts: MobileReceiptResolver) throws -> ReceiptGate {
     guard !configuration.receiptKeys.isEmpty else {
       throw MobileIntegrationError(.invalidConfiguration)

@@ -1,8 +1,10 @@
 # LittDB Architecture
 
-This section explains the high level architecture of LittDB. It starts out by describing a simple (but inefficient)
-storage solution, and incrementally adds complexity in order to solve various problems. For the full picture, skip to
-[Putting it all together: LittDB](#putting-it-all-together-littdb).
+LittDB is the embedded Go storage library in `storage/db_engine/litt`. This walkthrough starts with
+hypothetical designs and adds the ideas used by the implementation. The iterations explain the design;
+the [final section](#putting-it-all-together-littdb) maps it to current code and its retention behavior.
+See the [API and limits](../README.md#api), [filesystem layout](filesystem_layout.md), and
+[CLI operations](littdb_cli.md) for practical use.
 
 For each iteration, the database must fulfill the following requirements:
 
@@ -50,7 +52,10 @@ lock and scan the file. Be sure to update the cache with the data you read.
 When writing data, write the data to the file, and then update the cache. Data that is recently written is often
 read immediately shortly after, for many workloads.
 
-When deleting data, remove the data from the file, and then remove the data from the cache.
+In this hypothetical design, deletion would also remove the cache entry. Current LittDB instead
+checks base-table existence before serving a cache hit. Garbage collection removes keys and segment
+files without actively evicting those cache entries; cached bytes can remain until eviction or shutdown.
+The [final section](#putting-it-all-together-littdb) describes this distinction and its regression test.
 
 ## Iteration 3: Add an index
 
@@ -153,7 +158,7 @@ In the previous iteration, we do garbage collection by deleting a segment once a
 has expired. But how do we figure out when that actually is? In the previous iteration, the only way to do that is to
 iterate over the entire segment file and read the timestamp stored with the last value. Let's do better.
 
-For each segment, let's create a metadata file. We'll put the timestamp of the last value written to the segment into
+For each segment, let's create a metadata file. We will record the time when the segment is sealed in
 this file. As a result, we will no longer need to store timestamp information inside the value files, which will
 save us a few bytes per entry.
 
@@ -198,10 +203,11 @@ When reading data, we need to know which shard the value lives in. To avoid havi
 the address itself records the shard ID alongside the offset. So the address is a self-contained pointer to the
 value: given just the address, we know exactly which file to open and where in that file to seek.
 
-Round-robin assignment has a nice security side effect for free. A predictable key-to-shard hash is dangerous because
-an attacker could craft keys that all map to the same shard and create a hot spot. With round-robin, the shard chosen
-for a given value depends only on the order in which it was written, not on the contents of its key, so this attack
-is not even expressible.
+Round-robin assignment prevents choosing a shard just by crafting a key: assignment depends on write
+order, not key contents. It balances the number of writes within a segment; variable-sized values can
+still produce unequal byte usage. The factor is in the inclusive range 1..255 and is stored as a byte
+in segment metadata. `Table.SetShardingFactor` changes the factor by starting a new segment;
+existing segments keep their recorded factors.
 
 We already have a metadata file for each segment. We can go ahead and save the sharding factor in the metadata
 file. This will give us enough information to find data contained within the segment.
@@ -222,3 +228,69 @@ time the database is opened.
 ## Putting it all together: LittDB
 
 ![littdb](resources/littdb-big-picture.png)
+
+### Current code paths
+
+[`littbuilder.NewDB`](../littbuilder/db_impl.go) validates configuration and locks the roots in
+`Config.Paths`. `BuildTable` opens each named table once per DB lifetime and constructs its disk table
+and optional cache wrapper. Per-table TTL, cache sizes, sharding factor, and GC filter come from
+[`TableConfig`](../table_config.go) each time the database is opened. Existing segment metadata retains
+the factor and seal time needed to read and collect those segments. Storage-root changes require a
+stop, reconfiguration and restart; [rebase](littdb_cli.md#litt-rebase) moves files off removed roots.
+
+The write path is:
+
+1. [`DiskTable.PutBatch`](../disktable/disk_table.go), also used by `Put`, validates keys, values,
+   aliases and ranges before populating the unflushed data map. A primary or secondary key may contain
+   at most 65,535 bytes; a value may contain at most 4,294,967,295 bytes. Callers supply unique keys and
+   must not mutate supplied slices.
+2. The [`control loop`](../disktable/control_loop.go) serializes writes and checks
+   `Segment.HasCapacity` for the next round-robin shard. If the whole primary/secondary group cannot
+   fit, it seals the current segment and retries the group on a new segment before sending any part.
+   Size and key-count targets also trigger rotation.
+3. [`Segment.Write`](../disktable/segment/segment.go) sends raw value bytes to the selected shard and
+   primary/secondary key records to the key file. V3 addresses encode segment index, raw byte offset,
+   shard ID and value length in 13 bytes. There is no per-value length prefix in the V3 value file.
+   The complete value extent must fit within the uint32 file-size bound.
+4. The [flush loop](../disktable/flush_loop.go) flushes the segment files, publishes keymap entries,
+   and removes flushed entries from the unflushed data map. A primary and its secondary records form
+   a recovery group; an incomplete group is discarded on recovery. A batch of distinct requests is
+   not a transaction.
+
+The read path checks the optional write cache, then read cache, then the disk table's unflushed map,
+then the keymap and segment value files. A keymap is either in memory or backed by PebbleDB. In-memory
+keymaps are rebuilt from segment key files after restart; a durable keymap can avoid a full rebuild.
+An address locates raw bytes without recomputing a shard from the key. Secondary keys point directly
+to subranges of those same bytes.
+
+### Retention and cache visibility
+
+[`cachedTable.CacheAwareGet`](../dbcache/cached_table.go) validates every cache hit with `base.Exists`.
+`cachedTable.Exists` delegates directly to the base table. When garbage collection removes a key,
+subsequent cached reads of its primary key or aliases return absent even if old bytes remain physically
+in either cache. This is an existence check, not eager cache invalidation; eviction and cache size
+changes reclaim cache memory independently. The regression test
+[`TestRepair_113_CacheExpiryVisibility`](../dbcache/repair_113_test.go) covers read/write caches,
+primary and secondary keys, base and wrapper GC, iteration, and close/reopen behavior.
+
+The control loop collects sealed segments in age order using their seal times and the current table
+TTL. A zero TTL disables online GC. An optional `GCFilter` can retain an entire segment until all its
+keys are eligible. Open iterators suspend GC until closed, and segment reference counts defer file
+removal while readers hold references. Iteration reads the base table directly and bypasses the caches.
+
+### Durability and snapshots
+
+`Table.Flush()` waits for writes completed before the call; writes overlapping it are outside that
+boundary. `DB.Close()` drains accepted data, and callers must stop writers first and check the close
+error. Crash-durability guarantees require `Config.Fsync = true` (the default) and successful completion;
+disabling fsync leaves data vulnerable to an OS or hardware crash.
+
+`Config.SnapshotDirectory` publishes sealed segments through snapshot symlinks backed by hard links.
+Publication and consumption use per-table upper/lower boundary files so a consumer does not reclaim
+unpublished segments. The snapshot does not include the actively written segment. Consumers must
+[push or prune](littdb_cli.md#litt-push) the snapshot to release retained files; otherwise disk usage grows.
+Restore from ordinary backup roots requires `litt push --no-gc` and a stopped destination database.
+
+These are local storage guarantees. Paxeer's kernel proposes blocks as part of the same BFT network;
+a receipt is final when its block is committed. A local flush or snapshot does not establish that
+consensus result. Tenant domains do not require a separate database process per sub-chain.

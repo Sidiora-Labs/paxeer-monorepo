@@ -1,0 +1,41 @@
+[manifest]
+task = "22.32.32"
+domain = 5
+owner_role = "fm-node-runtime"
+pages = 6
+
+[page.1]
+path = "consensus/spec/abci++/abci++_tmint_expected_behavior_002_draft.md"
+status = "stale"
+bytes = 11230
+source_1 = "record 22.30.47 [doc.007] (stale): Vendored upstream ABCI++ draft abci++_tmint_expected_behavior_002_draft.md. The fork's in-process Application API and FinalizeBlock lifecycle are authoritative; no current-network conformance is asserted for the archival draft. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[page.2]
+path = "consensus/spec/abci++/v0.md"
+status = "stale"
+bytes = 3966
+source_1 = "record 22.30.47 [doc.008] (stale): Vendored upstream v0.md ABCI++ evolution pseudocode, retained as a historical design variant. It is not the active in-process Application API or an Autobahn execution/recovery contract. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[page.3]
+path = "consensus/spec/abci++/v1.md"
+status = "stale"
+bytes = 4098
+source_1 = "record 22.30.47 [doc.009] (stale): Vendored upstream v1.md ABCI++ evolution pseudocode, retained as a historical design variant. It is not the active in-process Application API or an Autobahn execution/recovery contract. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[page.4]
+path = "consensus/spec/abci++/v2.md"
+status = "stale"
+bytes = 5451
+source_1 = "record 22.30.47 [doc.010] (stale): Vendored upstream v2.md ABCI++ evolution pseudocode, retained as a historical design variant. It is not the active in-process Application API or an Autobahn execution/recovery contract. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[page.5]
+path = "consensus/spec/abci++/v3.md"
+status = "stale"
+bytes = 6240
+source_1 = "record 22.30.47 [doc.011] (stale): Vendored upstream v3.md ABCI++ evolution pseudocode, retained as a historical design variant. It is not the active in-process Application API or an Autobahn execution/recovery contract. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[page.6]
+path = "consensus/spec/abci++/v4.md"
+status = "stale"
+bytes = 6117
+source_1 = "record 22.30.47 [doc.012] (stale): Vendored upstream v4.md ABCI++ evolution pseudocode, retained as a historical design variant. It is not the active in-process Application API or an Autobahn execution/recovery contract. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."

@@ -1,4 +1,5 @@
 pub mod a2a;
+pub mod binding_shape;
 pub mod mcp;
 
 use std::collections::BTreeMap;

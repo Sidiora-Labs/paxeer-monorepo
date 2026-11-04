@@ -3,6 +3,7 @@ package keeper
 import (
 	"bytes"
 	"fmt"
+	"sort"
 	"time"
 
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
@@ -642,24 +643,12 @@ func (k Keeper) Delegate(
 		return sdk.ZeroDec(), types.ErrDelegatorShareExRateInvalid
 	}
 
-	// check if the validator voting power exceeds the upper bound after the delegation
-	// validator.Tokens
-	lastTotalPower := k.GetLastTotalPower(ctx)
-	maxVotingPowerEnforcementThreshold := k.MaxVotingPowerEnforcementThreshold(ctx)
-
-	// 1 power = Bond Amount / Power Reduction
-	validatorAddtionalPower := bondAmt.Quo(k.PowerReduction(ctx))
-	newTotalPower := lastTotalPower.Add(validatorAddtionalPower)
-
-	// If it's beyond genesis then enforce power ratio per validator if there's more than maxVotingPowerEnforcementThreshold
-	if newTotalPower.GTE(maxVotingPowerEnforcementThreshold) && ctx.BlockHeight() > 0 {
-		// Convert bond amount to power first
-		validatorNewTotalPower := validator.Tokens.Add(bondAmt).Quo(k.PowerReduction(ctx))
-		// Validator's new total power cannot exceed the max power ratio that's allowed
-		newVotingPowerRatio := validatorNewTotalPower.ToDec().Quo(newTotalPower.ToDec())
-		maxVotingPowerRatio := k.MaxVotingPowerRatio(ctx)
-		if newVotingPowerRatio.GT(maxVotingPowerRatio) {
-			logger.Error("validator's voting power ratio exceeds the max allowed ratio", "current", newVotingPowerRatio, "max", maxVotingPowerRatio)
+	if ctx.BlockHeight() > 0 {
+		powerReduction := k.PowerReduction(ctx)
+		validatorPower := validator.Tokens.Add(bondAmt).Quo(powerReduction)
+		totalPower := k.delegationTotalPower(ctx, validator, validatorPower)
+		if totalPower.IsPositive() && totalPower.GTE(k.MaxVotingPowerEnforcementThreshold(ctx)) &&
+			validatorPower.ToDec().GT(totalPower.ToDec().Mul(k.MaxVotingPowerRatio(ctx))) {
 			return sdk.ZeroDec(), types.ErrExceedMaxVotingPowerRatio
 		}
 	}
@@ -730,6 +719,37 @@ func (k Keeper) Delegate(
 	k.AfterDelegationModified(ctx, delegatorAddress, delegation.GetValidatorAddr())
 
 	return newShares, nil
+}
+
+// delegationTotalPower projects the same highest-power set selected at end block.
+// BeginRedelegation has already removed the source shares from the current store.
+func (k Keeper) delegationTotalPower(ctx sdk.Context, destination types.Validator, destinationPower sdk.Int) sdk.Int {
+	maxValidators := int(k.MaxValidators(ctx))
+	powers := make([]sdk.Int, 0, maxValidators+1)
+	if !destination.Jailed && destinationPower.IsPositive() {
+		powers = append(powers, destinationPower)
+	}
+	iterator := k.ValidatorsPowerStoreIterator(ctx)
+	defer iterator.Close()
+	for count := 0; iterator.Valid() && count < maxValidators; iterator.Next() {
+		address := sdk.ValAddress(iterator.Value())
+		if address.Equals(destination.GetOperator()) {
+			continue
+		}
+		validator := k.mustGetValidator(ctx, address)
+		power := validator.Tokens.Quo(k.PowerReduction(ctx))
+		if power.IsZero() {
+			break
+		}
+		powers = append(powers, power)
+		count++
+	}
+	sort.Slice(powers, func(i, j int) bool { return powers[i].GT(powers[j]) })
+	total := sdk.ZeroInt()
+	for i := 0; i < len(powers) && i < maxValidators; i++ {
+		total = total.Add(powers[i])
+	}
+	return total
 }
 
 // Unbond unbonds a particular delegation and perform associated store operations.
@@ -861,6 +881,9 @@ func (k Keeper) Undelegate(
 // retrieved unbonding delegation object and returns the total unbonding balance
 // or an error upon failure.
 func (k Keeper) CompleteUnbonding(ctx sdk.Context, delAddr sdk.AccAddress, valAddr sdk.ValAddress) (sdk.Coins, error) {
+	parent := ctx
+	ctx, write := ctx.CacheContext()
+
 	ubd, found := k.GetUnbondingDelegation(ctx, delAddr, valAddr)
 	if !found {
 		return nil, types.ErrNoUnbondingDelegation
@@ -907,6 +930,9 @@ func (k Keeper) CompleteUnbonding(ctx sdk.Context, delAddr sdk.AccAddress, valAd
 		k.SetUnbondingDelegation(ctx, ubd)
 	}
 
+	write()
+	parent.EventManager().EmitEvents(ctx.EventManager().Events())
+
 	return balances, nil
 }
 
@@ -915,6 +941,13 @@ func (k Keeper) CompleteUnbonding(ctx sdk.Context, delAddr sdk.AccAddress, valAd
 func (k Keeper) BeginRedelegation(
 	ctx sdk.Context, delAddr sdk.AccAddress, valSrcAddr, valDstAddr sdk.ValAddress, sharesAmount sdk.Dec,
 ) (completionTime time.Time, err error) {
+	parent := ctx
+	ctx, write := ctx.CacheContext()
+	commit := func() {
+		write()
+		parent.EventManager().EmitEvents(ctx.EventManager().Events())
+	}
+
 	if bytes.Equal(valSrcAddr, valDstAddr) {
 		return time.Time{}, types.ErrSelfRedelegation
 	}
@@ -956,6 +989,7 @@ func (k Keeper) BeginRedelegation(
 	completionTime, height, completeNow := k.getBeginInfo(ctx, valSrcAddr)
 
 	if completeNow { // no need to create the redelegation object
+		commit()
 		return completionTime, nil
 	}
 
@@ -964,6 +998,7 @@ func (k Keeper) BeginRedelegation(
 		height, completionTime, returnAmount, sharesAmount, sharesCreated,
 	)
 	k.InsertRedelegationQueue(ctx, red, completionTime)
+	commit()
 
 	return completionTime, nil
 }

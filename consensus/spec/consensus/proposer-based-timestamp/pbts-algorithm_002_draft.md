@@ -1,5 +1,34 @@
 # PBTS: Protocol Specification
 
+This is the retained **second upstream research draft** for classic
+Tendermint PBTS. Its pseudocode describes changes to the paper algorithm;
+it is not executable Go or an Autobahn protocol specification. Paxeer's
+embedded engine runs within the single `paxd` network, whose kernel also
+proposes blocks. See the [PBTS index][main] for current runtime applicability.
+
+## Runtime applicability
+
+The classic path implements definitive block timestamps and a reception-window
+check, but its [consensus state](../../../internal/consensus/state.go) checks
+`Proposal.IsTimely` only when `POLRound == -1` and `LockedRound == -1`.
+It also checks that the proposal timestamp equals the block time. The
+[implementation](../../../types/proposal.go) uses inclusive bounds and doubles
+`MessageDelay` every ten rounds, capped before duration overflow. The fixed
+`PRECISION` and `MSGDELAY` below are research notation for the clock and delay
+assumptions; actual classic parameters are `SynchronyParams.Precision` and
+`SynchronyParams.MessageDelay`.
+
+Autobahn uses a separate [proposal and certificate
+implementation](../../../autobahn/types/proposal.go). Fresh proposals are
+bounded by `MaxFutureProposalDrift` (one second), including the last block's
+one-microsecond offset. A verified prepared reproposal preserves its timestamp,
+lane ranges and application state while moving to the new view, as defined by
+[the timeout certificate](../../../autobahn/types/timeout.go), without reapplying
+that fresh bound. These are different admission rules;
+the proof-of-lock argument below does not establish Autobahn safety or time
+validity. The [current runtime map](./README.md#current-runtime) describes both
+paths and their source locations.
+
 ## Proposal Time
 
 PBTS computes for a proposed value `v` the proposal time `v.time`, with bounded difference to the actual real-time the proposed value was generated.
@@ -16,7 +45,7 @@ When a value `v` is produced by a process, it also assigns the associated propos
 If the same value `v` is then re-proposed in a subsequent round of consensus,
 it retains its original time, assigned by its original proposer.
 
-A value `v` should re-proposed when it becomes locked by the network, i.e., when it receives `2f + 1 PREVOTES` in a round `r` of consensus.
+In this model, a value `v` can be re-proposed after a proof of lock: `2f + 1 PREVOTES` for that value in a round `r` of consensus.
 This means that processes with `2f + 1`-equivalent voting power accepted, in round `r`, both `v` and its associated time `v.time`.
 Since the originally proposed value and its associated time were considered valid, there is no reason for reassigning `v.time`.
 
@@ -32,14 +61,18 @@ Values decided in successive heights of consensus must have increasing times, so
 - Monotonicity: for any process `p` and any two decided heights `h` and `h'`, if `h > h'` then `decision_p[h].time > decision_p[h'].time`.
 
 For ensuring time monotonicity, it is enough to ensure that a value `v` proposed by process `p` at height `h_p` has `v.time > decision_p[h_p-1].time`.
-So, if process `p` is the proposer of a round of height `h_p` and reads from its clock a time `now_p <= decision_p[h_p-1]`,
-it should postpone the generation of its proposal until `now_p > decision_p[h_p-1]`.
+So, if process `p` is the proposer of a round of height `h_p` and reads from its clock a time `now_p <= decision_p[h_p-1].time`,
+it should postpone the generation of its proposal until `now_p > decision_p[h_p-1].time`.
 
 > Although it should be considered, this scenario is unlikely during regular operation,
 as from `decision_p[h_p-1].time` and the start of height `h_p`, a complete consensus instance need to terminate.
 
-Notice that monotonicity is not introduced by this proposal, being already ensured by  [`BFTTime`][bfttime].
-In `BFTTime`, the `Timestamp` field of every `Precommit` message of height `h_p` sent by a correct process is required to be larger than `decision_p[h_p-1].time`, as one of such `Timestamp` fields becomes the time assigned to a value proposed at height `h_p`.
+Monotonicity was also a goal of the historical [`BFTTime`][bfttime] design,
+which derived time from a weighted median of precommit timestamps. This draft
+instead puts time in the proposed value. In the current classic implementation,
+[block validation](../../../internal/state/validation.go) requires time to be
+strictly later than the last block after the initial height; the first block
+may equal genesis time. The median algorithm is not used by that path.
 
 The time monotonicity of values proposed in heights of consensus is verified by the `valid()` predicate, to which every proposed value is submitted.
 A value rejected by the `valid()` implementation is not accepted by any correct process.
@@ -71,7 +104,7 @@ the clock of `p` is `PRECISION` *ahead* of the clock of the proposer of `v`, and
 
 ## Updated Consensus Algorithm
 
-The following changes are proposed for the algorithm in the [arXiv paper][arXiv].
+The following research pseudocode changes the algorithm in the [arXiv paper][arXiv]. It describes the model below, subject to the runtime differences above.
 
 #### New `StartRound`
 
@@ -83,7 +116,7 @@ There are two additions to the `propose` round step when executed by the `propos
 
 #### **[PBTS-ALG-STARTROUND.1]**
 
-```go
+```text
 function StartRound(round) {
  round_p ← round
  step_p ← propose
@@ -113,7 +146,7 @@ as part of a `PROPOSAL` message, we require the `PROPOSAL` message to be `timely
 
 #### **[PBTS-ALG-UPON-PROP.1]**
 
-```go
+```text
 upon timely(⟨PROPOSAL, h_p, round_p, v, −1⟩) from proposer(h_p, round_p) while step_p = propose do {
   if valid(v) ∧ (lockedRound_p = −1 ∨ lockedValue_p = v) {
     broadcast ⟨PREVOTE, h_p, round_p, id(v)⟩ 
@@ -134,7 +167,7 @@ Which, in turn, means that these processes executed the line 22 of the algorithm
 In other words, we don't need to verify whether `v` is a timely proposal because at least `f + 1` processes judged `v` as `timely` in a previous round,
 and because, since `v` was re-proposed as a `validValue` (line 16), `v.time` has not being updated from its original proposal.
 
-**All other rules remains unchanged.**
+**All other rules of the referenced paper algorithm remain unchanged in this research draft.**
 
 Back to [main document][main].
 
@@ -144,5 +177,5 @@ Back to [main document][main].
 
 [sysmodel]: ./pbts-sysmodel_002_draft.md
 
-[bfttime]: https://github.com/tendermint/tendermint/blob/master/spec/consensus/bft-time.md
+[bfttime]: ../bft-time.md
 [arXiv]: https://arxiv.org/pdf/1807.04938.pdf

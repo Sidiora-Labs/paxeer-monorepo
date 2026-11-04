@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 import argparse
 import array
-import base64
 import contextlib
 import fcntl
 import hashlib
-import hmac
 import os
 import re
 import socket
@@ -17,14 +15,12 @@ import threading
 from reset_state import (MAX_STATE, Store, StoreError, canonical, decode,
                          open_directory, private_file, read_request)
 
-GENESIS = ('genesis/genesis.manifest', 'genesis/genesis-request.lxgb',
-           'genesis/genesis.registration', 'genesis/00000000000000000000.lxs',
-           'genesis/paxeer-registration-request.lxrr',
-           'genesis/paxeer-deployment-descriptor.lxgd')
-IDENTITY_FILES = ('producer.env', 'key.pem', 'genesis.lxs', 'genesis.manifest',
-                  'genesis.registration', 'identities.txt', 'node.conf')
-PUBLIC_FIELDS = ('LAYERX_NODE_NETWORK_ID', 'LAYERX_NODE_SEQUENCER_ID',
-                 'LAYERX_NODE_SEQUENCER_PUBLIC_KEY', 'LAYERX_NODE_REPLICA_ID')
+from data_directory import GENESIS_FILES
+
+GENESIS = tuple(sorted(GENESIS_FILES))
+PUBLIC_FIELDS = ('LAYERX_NODE_NETWORK_ID', 'LAYERX_NODE_CHAIN_ID',
+                 'LAYERX_NODE_EVM_CHAIN_ID', 'LAYERX_NODE_SEQUENCER_ID',
+                 'LAYERX_NODE_SEQUENCER_PUBLIC_KEY')
 MAX_ARTIFACT = 64 * 1024 * 1024
 
 
@@ -96,12 +92,10 @@ class Broker:
         if peer != (self.allowed_uid, self.allowed_gid):
             raise StoreError('unauthorized_peer')
         common = {'version', 'operation', 'expected_generation'}
-        if not isinstance(request, dict) or request.get('operation') not in ('identity', 'core'):
+        if (not isinstance(request, dict) or set(request) != common
+                or request.get('operation') != 'core'):
             raise StoreError('invalid_request')
-        identity = request['operation'] == 'identity'
-        if set(request) != common | ({'slot', 'capability'} if identity else set()):
-            raise StoreError('invalid_request')
-        if type(request['version']) is not int or request['version'] != 1:
+        if type(request['version']) is not int or request['version'] != 2:
             raise StoreError('unsupported_version')
         expected = request['expected_generation']
         if expected is not None and (type(expected) is not int or not 1 <= expected <= 0x7fffffffffffffff):
@@ -109,28 +103,6 @@ class Broker:
         with contextlib.ExitStack() as stack:
             state_directory = open_directory(self.state_dir)
             stack.callback(os.close, state_directory)
-            if identity:
-                slot = request['slot']
-                if type(slot) is not int or slot not in (1, 2):
-                    raise StoreError('unauthorized_slot')
-                try:
-                    supplied = base64.b64decode(request['capability'], validate=True)
-                except (ValueError, TypeError):
-                    raise StoreError('unauthorized_slot') from None
-                if len(supplied) != 32 or base64.b64encode(supplied).decode() != request['capability']:
-                    raise StoreError('unauthorized_slot')
-                authorization = os.open('generation-authorizations',
-                                        os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
-                                        dir_fd=state_directory)
-                stack.callback(os.close, authorization)
-                metadata = os.fstat(authorization)
-                if metadata.st_uid != os.geteuid() or stat.S_IMODE(metadata.st_mode) != 0o700:
-                    raise StoreError('unsafe_authorization')
-                capability = artifact(authorization, 'slot-' + str(slot) + '.cap', 32, private=True)
-                stack.callback(os.close, capability)
-                stored = contents(capability, 32)
-                if len(stored) != 32 or not hmac.compare_digest(supplied, stored):
-                    raise StoreError('unauthorized_slot')
             lock = os.open('state.lock', os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
                            dir_fd=state_directory)
             stack.callback(os.close, lock)
@@ -171,6 +143,10 @@ class Broker:
                         or (record['phase'] == 'activating' and record.get('activation_response') != {
                             'state': 'reset', 'reset_id': reset_id, 'generation': record['generation']})):
                     raise StoreError('generation_not_admitted')
+                durable = artifact(data, '.activation-durable.json', 8192, private=True)
+                stack.callback(os.close, durable)
+                if decode(contents(durable, 8192)) != marker:
+                    raise StoreError('activation_not_durable')
                 generation = record['generation']
                 binding = record['genesis']
                 if set(binding) != set(GENESIS):
@@ -192,35 +168,27 @@ class Broker:
                 public_descriptors[name] = descriptor
             if binding is not None and hashes != binding:
                 raise StoreError('genesis_mismatch')
-            node_environment = artifact(data, 'node.env', 65536)
+            prepared = artifact(data, '.native-prepared.json', 8192, private=True)
+            stack.callback(os.close, prepared)
+            if decode(contents(prepared, 8192)) != hashes:
+                raise StoreError('generation_not_prepared')
+            node_environment = artifact(proof, 'node.env', 65536)
             stack.callback(os.close, node_environment)
             node = environment(contents(node_environment, 65536))
             public = {key: node[key] for key in PUBLIC_FIELDS}
             if (not public['LAYERX_NODE_NETWORK_ID'].isdecimal()
                     or int(public['LAYERX_NODE_NETWORK_ID']) != state['network']
-                    or any(not re.fullmatch(r'[0-9a-f]{64}', public[key]) for key in ('LAYERX_NODE_SEQUENCER_ID', 'LAYERX_NODE_REPLICA_ID'))
-                    or not re.fullmatch(r'[0-9a-f]{64}', public['LAYERX_NODE_SEQUENCER_PUBLIC_KEY'])):
+                    or not public['LAYERX_NODE_EVM_CHAIN_ID'].isdecimal()
+                    or not re.fullmatch(r'[A-Za-z0-9_-]{1,128}', public['LAYERX_NODE_CHAIN_ID'])
+                    or any(not re.fullmatch(r'[0-9a-f]{64}', public[key]) for key in
+                           ('LAYERX_NODE_SEQUENCER_ID', 'LAYERX_NODE_SEQUENCER_PUBLIC_KEY'))):
                 raise StoreError('unsafe_environment')
-            files = {}
-            if identity:
-                root = 'producer-generations/guarantor-' + str(slot) + '/identity/'
-                for name in IDENTITY_FILES:
-                    descriptor = artifact(data, root + name, 65536 if name in ('producer.env', 'key.pem', 'node.conf', 'identities.txt') else MAX_ARTIFACT)
-                    stack.callback(os.close, descriptor)
-                    files[name] = descriptor
-                for exported, source in (('genesis.lxs', GENESIS[3]), ('genesis.manifest', GENESIS[0]), ('genesis.registration', GENESIS[2])):
-                    if hashlib.sha256(contents(files[exported], MAX_ARTIFACT)).hexdigest() != hashes[source]:
-                        raise StoreError('identity_genesis_mismatch')
-            else:
-                descriptor = artifact(data, 'core.env', 65536)
-                stack.callback(os.close, descriptor)
-                files['core.env'] = descriptor
-                files.update(public_descriptors)
+            files = public_descriptors
             current = open_directory(self.data_dir)
             stack.callback(os.close, current)
             if (os.fstat(current).st_dev, os.fstat(current).st_ino) != (os.fstat(data).st_dev, os.fstat(data).st_ino):
                 raise StoreError('generation_changed')
-            result = {'version': 1, 'generation': generation, 'reset_id': reset_id,
+            result = {'version': 2, 'generation': generation, 'reset_id': reset_id,
                       'artifacts': list(files), 'public': public}
             retained = []
             try:

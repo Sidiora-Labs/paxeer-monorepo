@@ -1,0 +1,20 @@
+[manifest]
+task = "22.32.47"
+domain = 5
+owner_role = "fm-node-runtime"
+pages = 2
+
+[page.1]
+path = "contracts/consensus-fork.md"
+status = "missing"
+bytes = 0
+source_1 = "record 22.30.166 [doc.22] (missing): Consensus interface contract target referenced by consumed registry rows is absent; see missing-interface-contract-pages."
+source_2 = "record 22.30.43 [doc.021] (missing): Consensus registry rows link to this contract, but it is absent at the reviewed revision; the source-level producer, wire decoder and consumer paths were used instead."
+source_3 = "record 22.30.46 [doc.18] (missing): Registry contract target for consensus exported types, RPC routes, metrics and OpenAPI does not exist at the audited revision; restore the authoritative contract or correct the registry links."
+
+[page.2]
+path = "contracts/sequencer.md"
+status = "missing"
+bytes = 0
+source_1 = "record 22.30.43 [doc.020] (missing): Interface rows for the CLI, storage and node helpers link to this contract, but it is absent at the reviewed revision; source and acceptance criteria supplied the reviewed behavior."
+source_2 = "record 22.30.46 [doc.19] (missing): Registry contract target for consensus configuration and ABCI APIs does not exist at the audited revision; restore the maintained merged-network contract or correct the registry links."

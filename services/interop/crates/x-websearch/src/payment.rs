@@ -1,5 +1,5 @@
 //! Pay per request over 402LXP. Paid routes offer SID, PAX, USDC and USDL
-//! as metered draws and exact payments. The receiver signs metered draws
+//! as exact payments. Historical metered records remain readable. The receiver signed metered draws
 //! as legacy EIP-155 transactions to the ledger precompile, journalling
 //! their raw bytes and hash before broadcast. The payment store binds each
 //! payment, idempotency key and receipt to one request.
@@ -1334,15 +1334,14 @@ impl PaymentGate {
         })
     }
 
-    /// The offers for one request: per asset a metered draw bound to the
-    /// named payer's grant, then the exact alternative.
+    /// The supported exact settlement offer for each configured asset.
     ///
     /// # Errors
     /// Answers 400 for a request without a usable `Host` header.
     pub fn payment_required(
         &self,
         request: &Request,
-        payer: Option<[u8; 20]>,
+        _payer: Option<[u8; 20]>,
     ) -> Result<PaymentRequired, Response> {
         let host = request
             .header("Host")
@@ -1355,11 +1354,8 @@ impl PaymentGate {
             })
             .ok_or_else(|| Response::error(400, "missing_host"))?;
         let target = canonical_target(request)?;
-        let mut accepts = Vec::with_capacity(8);
+        let mut accepts = Vec::with_capacity(4);
         for asset in self.assets.all() {
-            if payer.is_some() {
-                accepts.push(self.offer(asset, METERED, payer)?);
-            }
             accepts.push(self.offer(asset, EXACT, None)?);
         }
         Ok(PaymentRequired {

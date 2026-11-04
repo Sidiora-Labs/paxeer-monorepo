@@ -277,6 +277,8 @@ pub struct HttpProgramTransport {
     endpoint: Url,
     credential: Option<LayerXKeyCredential>,
     trusted_sequencer_public_key: [u8; 32],
+    lifecycle_node: Option<layerx_client::sequencer::SequencerEndpoint>,
+    lifecycle_receipt_keys: Vec<layerx_client::sequencer::ReceiptKeyEntry>,
 }
 
 impl HttpProgramTransport {
@@ -285,35 +287,111 @@ impl HttpProgramTransport {
         request: &crate::program_lifecycle::NativeProgramLifecycleRequest,
         key: [u8; 32],
         ordinal: u16,
-        operation: &'static str,
-        route: &str,
+        _operation: &'static str,
+        _route: &str,
     ) -> Result<crate::program_lifecycle::ProgramLifecycleSubmission, ProgramOperationError> {
+        use crate::program_lifecycle::ProgramLifecycleSubmission;
         if request.ordinal() != ordinal || request.bound_idempotency_key() != key {
             return Err(ProgramOperationError::IdentityMismatch);
         }
-        self.endpoint(route)?;
-        if let Some(credential) = &self.credential {
-            let _ = credential.authorization()?;
+        let node = self
+            .lifecycle_node
+            .as_ref()
+            .ok_or(ProgramOperationError::Authentication)?;
+        match node.send_raw_transaction(request.signed_activity()) {
+            Ok(hash) if hash == request.bound_activity_id() => {}
+            Ok(_) => return Err(ProgramOperationError::IdentityMismatch),
+            Err(layerx_client::sequencer::SequencerError::Unavailable) => {
+                return Ok(lifecycle_unknown(request))
+            }
+            Err(_) => return Err(ProgramOperationError::Transport),
         }
-        let attempt = self
-            .dispatch(
-                operation,
-                Method::Post,
-                route,
-                &json!({"signed_activity": hex(request.signed_activity())}),
-                Some(key),
-            )
-            .and_then(|value| {
-                Self::decode_lifecycle_submission(
-                    &value,
-                    request,
-                    self.trusted_sequencer_public_key,
-                )
-            });
-        resolve_lifecycle_submission(request, attempt)
+        match self.lookup_lifecycle(request)? {
+            Some(receipt) => Ok(ProgramLifecycleSubmission::Acknowledged {
+                activity_id: request.bound_activity_id(),
+                receipt: receipt.canonical_bytes().to_vec(),
+                result_code: receipt.result_code().raw(),
+            }),
+            None => Ok(lifecycle_unknown(request)),
+        }
     }
 
-    fn decode_lifecycle_submission(
+    fn lookup_lifecycle(
+        &self,
+        request: &crate::program_lifecycle::NativeProgramLifecycleRequest,
+    ) -> Result<Option<layerx_client::rpc::receipt::AuthenticatedReceipt>, ProgramOperationError>
+    {
+        use layerx_client::rpc::receipt::{lookup_authenticated, Lookup, LookupContext};
+        let node = self
+            .lifecycle_node
+            .as_ref()
+            .ok_or(ProgramOperationError::Authentication)?;
+        let result = lookup_authenticated(
+            node,
+            request.bound_activity_id(),
+            LookupContext {
+                receipt_keys: &self.lifecycle_receipt_keys,
+            },
+        );
+        match result {
+            Ok(Lookup::Absent | Lookup::Submitted { .. }) => Ok(None),
+            Ok(Lookup::Verified(receipt)) => {
+                let pins: Vec<_> = self
+                    .lifecycle_receipt_keys
+                    .iter()
+                    .map(|key| {
+                        layerx_proof::inclusion::SequencerAuthorization::new(
+                            key.key_id,
+                            key.public_key,
+                            key.first_height,
+                            key.last_height,
+                        )
+                    })
+                    .collect();
+                crate::program_lifecycle::verify_lifecycle_receipt(
+                    receipt.canonical_bytes(),
+                    request.bound_activity_id(),
+                    pins.as_slice(),
+                )?;
+                crate::program_lifecycle::verify_lifecycle_outcome(&receipt, request)?;
+                Ok(Some(receipt))
+            }
+            Err(error) if error.is_unavailable() => Ok(None),
+            Err(_) => Err(ProgramOperationError::Verification),
+        }
+    }
+
+    /// Connects lifecycle operations to the node with independently pinned receipt keys.
+    /// # Errors
+    /// Refuses empty, ambiguous or invalid key ranges and invalid node endpoints.
+    pub fn connect_node(
+        endpoint: &str,
+        trust_anchors: &[&[u8]],
+        receipt_keys: &[layerx_client::sequencer::ReceiptKeyEntry],
+        clock: fn() -> Result<u64, ProgramOperationError>,
+    ) -> Result<Self, ProgramOperationError> {
+        if receipt_keys.is_empty()
+            || receipt_keys.iter().enumerate().any(|(index, key)| {
+                key.key_id == [0; 32]
+                    || key.public_key == [0; 32]
+                    || key.first_height > key.last_height
+                    || receipt_keys[..index]
+                        .iter()
+                        .any(|prior| prior.key_id == key.key_id)
+            })
+        {
+            return Err(ProgramOperationError::Authentication);
+        }
+        let node = layerx_client::sequencer::SequencerEndpoint::new(endpoint, trust_anchors)
+            .map_err(|_| ProgramOperationError::InvalidEndpoint)?;
+        let mut transport = Self::connect(endpoint, None, receipt_keys[0].public_key, clock)?;
+        transport.lifecycle_node = Some(node);
+        transport.lifecycle_receipt_keys = receipt_keys.to_vec();
+        Ok(transport)
+    }
+
+    #[cfg(test)]
+    fn decode_historical_lifecycle_submission(
         value: &Value,
         request: &crate::program_lifecycle::NativeProgramLifecycleRequest,
         sequencer: [u8; 32],
@@ -366,11 +444,8 @@ impl HttpProgramTransport {
         if receipt.is_empty() {
             return Err(ProgramOperationError::Decode);
         }
-        let verified = crate::program_lifecycle::verify_lifecycle_receipt(
-            &receipt,
-            request.bound_activity_id(),
-            sequencer,
-        )?;
+        let verified =
+            verify_historical_lifecycle_receipt(&receipt, request.bound_activity_id(), sequencer)?;
         let protocol = verified
             .protocol()
             .ok_or(ProgramOperationError::Verification)?;
@@ -480,6 +555,8 @@ impl HttpProgramTransport {
             endpoint,
             credential,
             trusted_sequencer_public_key,
+            lifecycle_node: None,
+            lifecycle_receipt_keys: Vec::new(),
         })
     }
 
@@ -566,20 +643,11 @@ impl ProgramTransport for HttpProgramTransport {
         &self,
         request: &crate::program_lifecycle::NativeProgramLifecycleRequest,
     ) -> Result<layerx_wire::receipt::Receipt, ProgramOperationError> {
-        let key = request.bound_idempotency_key();
-        let value = self.dispatch("program.receipt", Method::Get, &format!("/v1/programs/receipts/by-idempotency/{}", hex(&key)),
-            &json!({"idempotency_key":hex(&key),"expected_activity_id":hex(&request.bound_activity_id()),"requested_rung":"receipted"}), None)?;
-        if value.get("idempotency_key").is_some()
-            && value.get("idempotency_key").and_then(Value::as_str) != Some(hex(&key).as_str())
-        {
-            return Err(ProgramOperationError::IdentityMismatch);
-        }
-        decode_lifecycle_recovery(
-            &value,
-            request.bound_activity_id(),
-            self.trusted_sequencer_public_key,
-        )
+        self.lookup_lifecycle(request)?
+            .map(|receipt| receipt.receipt().clone())
+            .ok_or(ProgramOperationError::Verification)
     }
+
     fn deploy(
         &self,
         request: &crate::program_lifecycle::NativeProgramLifecycleRequest,
@@ -885,6 +953,40 @@ fn decode_agent_document(
     Ok(value.clone())
 }
 
+fn lifecycle_unknown(
+    request: &crate::program_lifecycle::NativeProgramLifecycleRequest,
+) -> crate::program_lifecycle::ProgramLifecycleSubmission {
+    crate::program_lifecycle::ProgramLifecycleSubmission::Unknown {
+        activity_id: request.bound_activity_id(),
+        idempotency_key: request.bound_idempotency_key(),
+        retained_signed_activity: request.signed_activity().to_vec(),
+    }
+}
+
+#[cfg(test)]
+fn verify_historical_lifecycle_receipt(
+    receipt: &[u8],
+    activity: [u8; 32],
+    sequencer: [u8; 32],
+) -> Result<layerx_wire::receipt::Receipt, ProgramOperationError> {
+    let verified = layerx_proof::receipt::verify_sequencer_signature(receipt, sequencer)
+        .map_err(|_| ProgramOperationError::Verification)?;
+    let protocol = verified
+        .protocol()
+        .ok_or(ProgramOperationError::Verification)?;
+    if protocol.protocol_version() != 3
+        || protocol.module_id() != 9
+        || protocol.module_version() != 4
+        || protocol.operation() != 0
+        || protocol.program_outcome().is_some()
+        || protocol.activity_id() != activity
+    {
+        return Err(ProgramOperationError::Verification);
+    }
+    Ok(verified)
+}
+
+#[cfg(test)]
 fn resolve_lifecycle_submission(
     request: &crate::program_lifecycle::NativeProgramLifecycleRequest,
     attempt: Result<crate::program_lifecycle::ProgramLifecycleSubmission, ProgramOperationError>,
@@ -913,6 +1015,7 @@ fn resolve_lifecycle_submission(
     }
 }
 
+#[cfg(test)]
 fn decode_lifecycle_recovery(
     value: &Value,
     expected_activity: [u8; 32],
@@ -946,8 +1049,7 @@ fn decode_lifecycle_recovery(
         return Err(ProgramOperationError::IdentityMismatch);
     }
     let receipt = bounded_hex(value, "receipt", MAX_SIGNED_ACTIVITY_BYTES, None)?;
-    let verified =
-        crate::program_lifecycle::verify_lifecycle_receipt(&receipt, expected_activity, sequencer)?;
+    let verified = verify_historical_lifecycle_receipt(&receipt, expected_activity, sequencer)?;
     if gateway_result {
         let result_code = verified
             .protocol()

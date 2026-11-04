@@ -1,0 +1,17 @@
+[manifest]
+task = "22.32.37"
+domain = 5
+owner_role = "fm-node-runtime"
+pages = 2
+
+[page.1]
+path = "consensus/spec/core/data_structures.md"
+status = "stale"
+bytes = 48008
+source_1 = "record 22.30.47 [doc.036] (stale): Read complete page; rewrite targets: part-and-round-shapes at line 172. Concrete owning-domain proposals are recorded above."
+
+[page.2]
+path = "consensus/spec/core/encoding.md"
+status = "stale"
+bytes = 10355
+source_1 = "record 22.30.47 [doc.037] (stale): Read complete page; rewrite targets: block-part-encoding-limit at line 102. Concrete owning-domain proposals are recorded above."

@@ -1,0 +1,40 @@
+[manifest]
+task = "22.32.141"
+domain = 14
+owner_role = "fm-web-explorer-bridge"
+pages = 2
+
+[page.1]
+path = "docs/wiki/Quickstart.md"
+status = "misleading"
+bytes = 34608
+source_1 = "record 22.30.116 [doc.07] (misleading): Read the page and checked its network, endpoint and lifecycle claims. The wiki publishes the public /rpc and /rpc/ws URLs and router-based custody credit and repeats pre-merge trust/settlement setup. These are presented as current public onboarding instructions. Rewrite proposal: Rewrite docs/wiki/Quickstart.md with the same root node endpoint, chain id 125, committed receipts and supported hosted workflows as the corrected site quickstart; retain private profiles only under explicitly scoped instructions."
+source_2 = "record 22.30.120 [doc.010] (stale): Read in full. Finding wiki-quickstart-endpoints records the merged-network documentation drift beginning at line 174."
+source_3 = "record 22.30.136 [doc.06] (stale): Full page reviewed through the site text plus every wiki diff. Lines 20,174-223,298-303,590-593 retain retired router endpoints and custody-credit funding."
+source_4 = "record 22.30.148 [doc.06] (stale): Entire page reviewed and compared with the site quickstart; differences are links/citations and local wording. The same public /rpc and /rpc/ws recipe remains at 167-168 and 214-215; see wiki-quickstart-rpc."
+source_5 = "record 22.30.155 [doc.2] (stale): Lines 154, 167-168, 214-217, 277, 497, 518 and 596-597 retain pre-merge network, RPC and funding guidance; rewrite together with the mirrored quickstart."
+source_6 = "record 22.30.163 [doc.004] (misleading): Lines 20, 167-217, 299-304, 497-518, 553 and 596-597 repeat retired router, custody-credit and authorized-batch verification paths."
+source_7 = "record 22.30.71 [doc.12] (stale): Retired public /rpc and /rpc/ws, custody credit at 0x1013, anchor 0x1014 and relay guidance at lines 167-219, 306-310 and 567-650 require a merged-chain rewrite. Site and wiki content and their differing links/source references were read."
+source_8 = "record 22.30.91 [doc.quickstart_wiki] (misleading): Read the complete quickstart and the site/wiki differences. Lines 20, 167-216 and 299-303 direct users to /rpc and /rpc/ws and legacy activity RPC; later native-send and finality examples repeat the retired router/sequencer model. The maintained network uses root node JSON-RPC and committed blocks."
+
+[page.2]
+path = "docs/wiki/UnifiedNetwork.md"
+status = "misleading"
+bytes = 18744
+source_1 = "record 22.30.1 [doc.3] (stale): Lines 3-15 still describe two execution domains and a separate C node; 53-86 and 184-206 prescribe custody, checkpoint certificates and guarantors; 212 proposes a future shared router. These are retired after merge."
+source_2 = "record 22.30.109 [doc.012] (stale): Full page read. Lines 3-11,53-98,176-207 retain split runtimes, custody/anchor settlement and a future shared interface. See unified-network-doc."
+source_3 = "record 22.30.114 [doc.2] (stale): Read in full. Two-domain execution, live verification/custody/anchor and settlement descriptions conflict with the merged network."
+source_4 = "record 22.30.120 [doc.009] (stale): Read in full. Finding wiki-unified-architecture records the merged-network documentation drift beginning at line 52."
+source_5 = "record 22.30.140 [doc.003] (stale): Lines 11, 54-88 and 186-206 describe a separate layerxd sequencer, custody withdrawals and checkpoint/anchor finality. Rewrite for merged paxd execution and BFT commit finality."
+source_6 = "record 22.30.148 [doc.04] (stale): Entire page reviewed. Separate sequencer/daemon, bridge topology and anchor finality at lines 5, 11 and 198-212 conflict with one paxd network; see unified-network-bridge-finality."
+source_7 = "record 22.30.149 [doc.02] (stale): Read in full; current operating guidance conflicts with the merged network or with its own command availability statements. Rewrite proposals and exact entry lines: wiki-two-domains."
+source_8 = "record 22.30.155 [doc.8] (stale): Lines 3-31 and the custody/anchor sections describe the retired two-domain proof connector and daemon as running architecture."
+source_9 = "record 22.30.16 [doc.11] (stale): Read in full; opening architecture, anchor finality and planned shared endpoint are pre-merge. Native perps subsection remains useful."
+source_10 = "record 22.30.168 [doc.03] (misleading): Read in full. The verification/custody/anchor descriptions and single router endpoint sections describe the pre-merge network; see wiki-network-drift."
+source_11 = "record 22.30.33 [doc.10] (misleading): Read the full page; active separate execution/daemon and retired custody/checkpoint architecture contradict the merged-network brief. Exact incorrect locations and rewrite proposals are recorded in the documentation findings."
+source_12 = "record 22.30.34 [doc.002] (misleading): The running layerxd/sequencer and planned unified routing endpoint contradict the finished network; finding 024 identifies the rewrite."
+source_13 = "record 22.30.4 [doc.002] (misleading): Lines 11, 69-86 and 202-206 describe a separate LayerX daemon and guarantor/challenge finality; architecture and evidence guidance lag the merged paxd network. Findings: 026."
+source_14 = "record 22.30.52 [doc.9] (misleading): Read in full: line 11 describes layerxd and lines 17-86 expose retired verification/custody/anchor modules; site additionally advertises /rpc and /rpc/schema."
+source_15 = "record 22.30.6 [doc.3] (misleading): Read all 215 lines. Separate layerxd and custody/claim architecture at 11, 54-76 and 188-196 contradicts merged execution and finality; see wiki-separate-network."
+source_16 = "record 22.30.63 [doc.02] (stale): Lines 11, 19, 54 and 188-206 advertise a live daemon, stateless verifier, custody proofs and anchor genesis. Historical ABI shapes need lifecycle labels."
+source_17 = "record 22.30.65 [doc.05] (misleading): Read all 215 lines. Running layerxd at 11, active retired interfaces at 17-95, custody around 188, finality around 200 and shared RPC around 212 are pre-merge guidance."

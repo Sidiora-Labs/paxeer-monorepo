@@ -44,48 +44,73 @@ func ADLRankScore(position types.Position, mark, accountValue uint256.Int) (uint
 }
 
 func (k *Keeper) RankADL(ctx sdk.Context, deficitID, previousMark uint256.Int, limit uint32) ([]types.Position, error) {
-	if previousMark.IsZero() {
-		return nil, types.ErrPriceStale
-	}
 	params, err := k.GetParams(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if uint64(limit) > params.AdlPositionsPerBlock {
-		limit = uint32(params.AdlPositionsPerBlock)
+	ranked, _, err := k.rankADLWindow(ctx, deficitID, previousMark, min(uint64(limit), params.AdlPositionsPerBlock), params.AdlPositionsPerBlock, false)
+	return ranked, err
+}
+
+// rankADLWindow charges every examined index entry, including ineligible
+// accounts and unprofitable positions, and saves its last visited key for the
+// next block when called by ExecuteADL.
+func (k *Keeper) rankADLWindow(ctx sdk.Context, deficitID, previousMark uint256.Int, limit, allowance uint64, continuation bool) ([]types.Position, uint64, error) {
+	if previousMark.IsZero() {
+		return nil, 0, types.ErrPriceStale
 	}
-	store := ctx.KVStore(k.storeKey)
+	store := k.store(ctx)
 	deficit, err := adlPosition(store, deficitID)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	if limit == 0 {
-		return nil, nil
+	if limit == 0 || allowance == 0 {
+		return nil, 0, nil
 	}
 	prefix := types.AdlRankSidePrefix(deficit.MarketID, types.SideOf(!deficit.IsLong))
-	iterator := sdk.KVStorePrefixIterator(store, prefix)
+	start := prefix
+	if continuation {
+		start, err = adlScanStart(store, deficitID, prefix)
+		if err != nil {
+			return nil, 0, err
+		}
+	}
+	iterator := store.Iterator(start, sdk.PrefixEndBytes(prefix))
 	defer iterator.Close()
 	ranked := make([]types.Position, 0)
-	for ; iterator.Valid() && len(ranked) < int(limit); iterator.Next() {
+	var visited uint64
+	selectedSize := new(big.Int)
+	var last []byte
+	for ; iterator.Valid() && uint64(len(ranked)) < limit && visited < allowance && (!continuation || selectedSize.Cmp(deficit.SizeBase.ToBig()) < 0); iterator.Next() {
+		visited++
 		key := iterator.Key()
+		last = append(last[:0], key...)
 		if len(key) != len(prefix)+64 || len(iterator.Value()) != 0 {
-			return nil, types.ErrInvalidParams.Wrapf("malformed ADL index entry")
+			return nil, visited, types.ErrInvalidParams.Wrapf("malformed ADL index entry")
 		}
 		var id uint256.Int
 		id.SetBytes(key[len(key)-32:])
 		position, err := adlPosition(store, id)
 		if err != nil {
-			return nil, err
+			return nil, visited, err
 		}
 		expected := types.AdlRankIndexKey(position.MarketID, types.SideOf(position.IsLong), position.RankScore, position.ID)
 		if !bytes.Equal(key, expected) || position.SizeBase.IsZero() {
-			return nil, types.ErrInvalidParams.Wrapf("inconsistent ADL index entry")
+			return nil, visited, types.ErrInvalidParams.Wrapf("inconsistent ADL index entry")
 		}
 		if position.Account != deficit.Account && adlProfitable(position, previousMark) {
 			ranked = append(ranked, position)
+			selectedSize.Add(selectedSize, position.SizeBase.ToBig())
 		}
 	}
-	return ranked, nil
+	if continuation {
+		if iterator.Valid() && len(last) != 0 {
+			store.Set(adlCursorKey(deficitID), last)
+		} else {
+			store.Delete(adlCursorKey(deficitID))
+		}
+	}
+	return ranked, visited, nil
 }
 
 func (k *Keeper) ExecuteADL(ctx sdk.Context, deficitIDs []uint256.Int, previousMarks map[uint64]uint256.Int) ([]types.EventRecord, error) {
@@ -108,10 +133,19 @@ func (k *Keeper) ExecuteADL(ctx sdk.Context, deficitIDs []uint256.Int, previousM
 	if err != nil {
 		return nil, err
 	}
-	remaining := params.AdlPositionsPerBlock
+	budget, err := k.loadADLBudget(cached)
+	if err != nil {
+		return nil, err
+	}
+	remaining := params.AdlPositionsPerBlock - min(params.AdlPositionsPerBlock, budget.matches)
+	visitsRemaining := params.AdlPositionsPerBlock - min(params.AdlPositionsPerBlock, budget.visits)
 	var events []types.EventRecord
-	for _, id := range deficitIDs {
-		if remaining == 0 {
+	orderedDeficits, err := k.adlDeficitOrder(cached, deficitIDs)
+	if err != nil {
+		return nil, err
+	}
+	for _, id := range orderedDeficits {
+		if remaining == 0 || visitsRemaining == 0 {
 			break
 		}
 		deficit, err := adlPosition(store, id)
@@ -129,10 +163,16 @@ func (k *Keeper) ExecuteADL(ctx sdk.Context, deficitIDs []uint256.Int, previousM
 		if !found || price.IsZero() {
 			return nil, types.ErrPriceStale
 		}
-		ranked, err := k.RankADL(cached, id, price, uint32(min(remaining, uint64(^uint32(0)))))
+		ranked, visited, err := k.rankADLWindow(cached, id, price, remaining, visitsRemaining, true)
 		if err != nil {
 			return nil, err
 		}
+		if visited > 0 {
+			word := id.Bytes32()
+			store.Set(adlDeficitCursorKey, word[:])
+		}
+		budget.visits += visited
+		visitsRemaining -= visited
 		var total uint256.Int
 		for _, counterparty := range ranked {
 			account, err = adlAccount(store, deficit.Account)
@@ -160,9 +200,19 @@ func (k *Keeper) ExecuteADL(ctx sdk.Context, deficitIDs []uint256.Int, previousM
 				}
 				events = append(events, applied.Events...)
 				events = append(events, applied.TradeSettledEvents(new(big.Int), new(big.Int))...)
+				reconciled, err := k.ReconcileReduceOnly(cached, position.Account, position.MarketID)
+				if err != nil {
+					return nil, err
+				}
+				events = append(events, reconciled...)
 			}
 			if err := adlCoverDeficit(store, deficit.Account, counterparty, size, price); err != nil {
 				return nil, err
+			}
+			for _, address := range []common.Address{deficit.Account, counterparty.Account} {
+				if err := k.refreshAccountADLRanks(cached, address); err != nil {
+					return nil, err
+				}
 			}
 			oiEvent, err := k.CheckOpenInterest(cached, OpenInterestFill{
 				MarketID: deficit.MarketID, SizeBase: size, PriceUsd: price,
@@ -182,6 +232,7 @@ func (k *Keeper) ExecuteADL(ctx sdk.Context, deficitIDs []uint256.Int, previousM
 					notional.ToBig(), price.ToBig(), counterparty.RankScore.ToBig()},
 			})
 			remaining--
+			budget.matches++
 			deficit.SizeBase.Sub(&deficit.SizeBase, &size)
 			if !deficit.SizeBase.IsZero() {
 				deficit, err = adlPosition(store, id)
@@ -190,12 +241,16 @@ func (k *Keeper) ExecuteADL(ctx sdk.Context, deficitIDs []uint256.Int, previousM
 				}
 			}
 		}
+		if deficit.SizeBase.IsZero() {
+			store.Delete(adlCursorKey(id))
+		}
 		if !total.IsZero() {
 			events = append(events, types.EventRecord{
 				Name: types.EventADLExecuted, Args: []any{id.ToBig(), total.ToBig()},
 			})
 		}
 	}
+	k.storeADLBudget(cached, budget)
 	write()
 	return events, nil
 }

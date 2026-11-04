@@ -268,6 +268,11 @@ func committedAccounts(registry unsafe.Pointer) (map[string][]byte, error) {
 			return nil, err
 		}
 		key := accountKey(id)
+		// Standalone snapshot rows frame the account id with a big-endian u32.
+		if uint64(length) > uint64(len(buffer)) || length < 36 ||
+			binary.BigEndian.Uint32(buffer[:4]) != 32 || !bytes.Equal(buffer[4:36], id[:]) {
+			return nil, codeFatalInvariant
+		}
 		if _, duplicate := rows[string(key)]; duplicate {
 			return nil, codeFatalInvariant
 		}

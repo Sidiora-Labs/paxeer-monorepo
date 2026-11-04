@@ -1,0 +1,11 @@
+[manifest]
+task = "22.32.174"
+domain = 16
+owner_role = "fm-tools-ops"
+pages = 1
+
+[page.1]
+path = "tools/loadtest/README.md"
+status = "stale"
+bytes = 4192
+source_1 = "record 22.30.179 [doc.013] (stale): Read in full; lines 11/45 disagree on built binary location, 24/97 use chain 713714, and the options table omits bounds/report/precedence behavior; see loadtest-readme."
