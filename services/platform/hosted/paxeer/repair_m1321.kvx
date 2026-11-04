@@ -1,0 +1,79 @@
+[task.22.33.1321]
+mode = "BUILD"
+scope = "services/platform/hosted/paxeer only; existing runner bookkeeping outside this directory is untouched."
+planned_path = "The finding proofs run in tests/repair_22_33_1321.rs by task do_12 and gotcha 2984. repair_m1321_test.go additionally exercises the production shell compatibility entrypoint's retired-input refusals; no parallel native implementation or Rust subprocess test bridge is created."
+baseline = "Unmeasured: the explicit ordered instructions prohibit tests before complete implementation and permit verification only through hf-done after hf-build; no pre-change failure or pass is claimed."
+qualification = "hf-build then hf-done; the runner's final evidence JSON and private gates.jsonl bind the exact candidate revision, command, exit and log. No other gate is claimed."
+
+[finding.initialization-restart-drift]
+repair = "init-chain.sh invokes the native provisioning guard before the maintained ../node/bootstrap.sh. The guard holds a file lock, persists only canonical immutable-input fingerprints and a generation binding after successful publication, and compares every input before honoring an existing marker. All native genesis fields, configs, validator key, RPC CA, bootstrap options and protected signing-file contents are bound; mismatch diagnostics name the changed input path. An unmarked nonempty generation is refused for supervisor reconciliation."
+test = "TestRepairM_1321_InitializationRestartDrift"
+additional_test = "TestRepairM_1321_InitializationPublicationRefusals"
+
+[finding.relay-retirement-13]
+repair = "Deleted prepare-beta.py and its importable three-guarantor, LXGB and checkpoint bootstrap code. The native account command consumes an explicit per-tenant configuration and an existing protected node-owned key file, and publishes only public identity and positive funding read at a committed native height; it performs no funding broadcast or genesis mutation. Legacy operations and schema fields refuse before output."
+test = "TestRepairM_1321_RelayRetirement13"
+
+[finding.preparation-key-argv]
+repair = "Account identity is derived entirely in-process using the supported k256 secp256k1 library and Keccak-256 with EIP-55 address casing. No account derivation subprocess exists. Existing node key files must be private, regular, single-link and owned by the caller; symlinks refuse. The bootstrap command carries protected key paths only."
+test = "TestRepairM_1321_PreparationKeyArgv"
+
+[finding.relay-retirement-14]
+repair = "Deleted settlement-domain.py and replaced its offline evidence consumer with native evidence. The native tool requires EVM id 125, matching signed committed consensus/EVM height and hash, and fetches all validator pages at that height. Checkpoint-domain writes and guarantor membership are absent from the replacement. Public SEC1 identity derivation lives in the native provisioning library."
+test = "TestRepairM_1321_RelayRetirement14"
+additional_test = "TestRepairM_1321_CommittedEvidenceRefusals"
+
+[proof]
+restart = "Real BootstrapRequest codec -> ImmutableInputs canonical producer -> BootstrapGuard durable marker and native generation files -> drop owner/close descriptors -> open new owner -> compare recovered input and output bindings. Peers use the committed native node genesis/config/key fixture and native publication layout; the initializer under repair is production code."
+transport = "Real account/evidence handler -> supported HTTP client -> loopback committed native RPC peer -> real strict evidence consumer -> public JSON codec. Recorded status/commit/EVM transcripts and the native genesis validator/funding fixtures are committed; no live node, toolchain subprocess, environment setting or credential is needed by the declared Rust test."
+limits = "The RPC evidence command trusts the configured node, as maintained native committed_health does; it is not an independent BFT light client. Native paxd execution, protected signing and authoritative funding creation remain owned by node/ledger tooling. Historical relay tests retain their source targets for compilation only and are not this gate."
+
+[wiring.node_initializer]
+request = "services/platform/hosted/node/native_runtime.py and services/platform/hosted/node/bootstrap.sh — native node owner, platform domain 8: integrate the canonical request guard at direct one-shot bootstrap entrypoints and install/package paxeer-native-tool with the native node; the existing supervisor already binds source/options through reset_state.Store."
+
+[wiring.node_accounts]
+request = "services/platform/hosted/node/native_runtime.py, daemon/paxd/cmd and modules/layerxledger/keeper/genesis.go — native node/ledger domains 5/6/8: own per-tenant protected account key creation and authoritative bank/ledger funding, and consume the replacement account command's committed-height funding result; migrate independently useful public-key helpers to that supported owner."
+
+[wiring.cluster]
+request = "services/platform/hosted/tests/beta-cluster.sh and services/platform/Makefile.inc — platform domain 8: remove prepare-beta.py, settlement-domain.py and checkpoint-domain publication consumers; use the maintained native deployment and chain-id-125 committed validator evidence."
+
+[wiring.offline_evidence]
+request = "tests/vectors/checkpoint/generate.py, tools/bringup, tools/qualification/paxeer-x and tools/release/rehearsal — tooling domains 16/17: remove settlement-domain.py imports and retired guarantor bootstrap consumers; use committed-height native validator evidence where current deployment evidence is required."
+
+[wiring.historical_migration]
+request = "services/platform/hosted/paxeer/tests/migrations/v1/settlement_domains.py — platform domain 8: migrate historical checkpoint export compatibility off the removed settlement-domain.py helper; the landed migration test and its runner remain intact, while native evidence has its own runner."
+
+[wiring.workspace_images]
+request = "services/platform/Cargo.toml, services/platform/Makefile.inc, docker/paxeer and tools/containers — platform/image owners 8/16: retire historical relay workspace/build/image targets without deleting a still-listed member manifest; package the native input tool for compatibility initialization and migrate its maintained owner with the node tools."
+
+[gotcha.manifest]
+observed = "The prior scoped retirement removed Cargo.toml while the parent workspace still lists hosted/paxeer and the task explicitly requires its Cargo build/test gate."
+resolution = "Restore the in-scope member manifest, preserve existing source/test compilation, add the native library and CLI targets, and record parent target/image retirement as owner wiring instead of changing parent manifests."
+
+[gotcha.scope]
+observed = "The proposals name maintained node initialization and deployment/offline consumers outside the allowed directory."
+resolution = "Integrate the in-scope compatibility entrypoint and native replacement, record explicit owning-path wiring above, and make no claim that out-of-scope node entrypoints, images or cluster consumers were changed or qualified."
+
+[gotcha.patch]
+observed = "The patch tool rejects a single patch that both deletes and re-adds the same file."
+resolution = "Rewrite the existing file in place; the rejected patch made no changes."
+
+[gotcha.binary_read]
+observed = "An executable discovered on PATH can be a binary rather than a readable wrapper script."
+resolution = "Inspect its file type before attempting to read it as source; use the committed vendor sources for library API inspection."
+
+[gotcha.dependencies]
+observed = "The sandbox has no initial Cargo registry cache, and semver-compatible exact sha3 pins cannot conflict across this workspace."
+resolution = "Resolve registry dependencies normally and use the workspace's existing exact sha3 0.10.8 pin; this is dependency preparation, not a build or verification result."
+
+[gotcha.continuation_merge]
+observed = "The carried implementation conflicts with landed dependency ownership, retired-input refusals and historical EVM helper restoration."
+resolution = "Keep the landed operator metadata, dev-dependency ownership, initializer refusal checks and restored evm.py assertion; integrate the native guard, native dependencies and retired provisioning-helper assertions beside them. Runner-owned .cgignore and spec bookkeeping remain untouched."
+
+[qualification.first_gate]
+revision = "936a5fc6f95669d2b533413df3e3cbfb1694fad3"
+command = "cg spec done 22.33.1321 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All six declared Rust proof tests passed; the graph refused the missing repair_m1321_test.go change despite its explicit corrected Rust mapping."
+repair = "Add real compatibility-entrypoint refusal tests at the required Go path, then rerun hf-build and hf-done on the same candidate."

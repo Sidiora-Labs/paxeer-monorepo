@@ -5,6 +5,7 @@ fn real_paxd_boundary() {
     let status = Command::new("python3")
         .arg(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/real_chain.py"))
         .arg(env!("CARGO_BIN_EXE_layerx-paxeer-boundary"))
+        .arg(env!("CARGO_BIN_EXE_paxeer-native-tool"))
         .status()
         .unwrap_or_else(|error| panic!("launch real Paxeer qualification: {error}"));
     assert!(
@@ -74,5 +75,21 @@ fn settlement_domains() {
     assert!(
         status.success(),
         "version-one settlement migration qualification failed"
+    );
+}
+
+#[test]
+fn native_settlement_evidence() {
+    let status = Command::new("python3")
+        .arg(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/settlement_domains.py"
+        ))
+        .arg(env!("CARGO_BIN_EXE_paxeer-native-tool"))
+        .status()
+        .unwrap_or_else(|error| panic!("launch native evidence qualification: {error}"));
+    assert!(
+        status.success(),
+        "native settlement evidence qualification failed"
     );
 }

@@ -170,35 +170,19 @@ with tempfile.TemporaryDirectory(prefix='layerx-paxeer-real-') as work:
             raise AssertionError(f'real EVM transfer receipt unavailable: {transaction}')
         assert status == 200 and receipt['result']['status'] == '0x1', receipt
         if deployment_inputs:
-            run('openssl', 'x509', '-in', str(work/'ca.pem'), '-outform', 'DER', '-out', str(work/'ca.der'))
-            inputs = Path(deployment_inputs)
-            settlement = inputs/'checkpoint-settlement.json'
-            settlement.write_bytes((ROOT/'contracts/config/checkpoint-settlement.json').read_bytes())
-            deploy_env = env | {
-                'LAYERX_PAXEER_BOUNDARY_URL': f'https://localhost:{boundary_port}',
-                'LAYERX_PAXEER_BOUNDARY_CA_DER': str(work/'ca.der'),
-                'LAYERX_PAXEER_DEPLOYER_KEY_FILE': str(inputs/'keys/deployer.key'),
-                'LAYERX_PAXEER_GENESIS_DIR': str(inputs/'genesis'),
-                'LAYERX_PAXEER_DEPLOYMENT_INPUT': str(inputs/'deployment-input.json'),
-                'LAYERX_PAXEER_GUARANTORS': str(inputs/'guarantors.json'),
-                'LAYERX_PAXEER_GUARANTOR_KEYS_DIR': str(inputs/'keys'),
-                'LAYERX_PAXEER_DEPLOYMENT_RECORD': str(inputs/'deployment.json'),
-                'LAYERX_PAXEER_SETTLEMENT_JSON': str(settlement)}
-            immediate = json.loads((inputs/'deployment-input.json').read_text()).get('timelock_profile') == 'immediate-beta'
-            phase = 'bootstrap' if immediate else 'deploy'
-            try:
-                run('bash', str(ROOT/'services/platform/hosted/paxeer/deploy-contracts.sh'), phase, env=deploy_env)
-            except subprocess.CalledProcessError as error:
-                sys.stderr.buffer.write(error.stderr)
-                raise
-            if immediate:
-                deployment = json.loads((inputs/'deployment.json').read_text())
-                assert deployment['phases'] == ['deploy', 'permissions', 'activate', 'bond', 'finalize'], deployment['phases']
-                run('bash', str(ROOT/'services/platform/hosted/paxeer/deploy-contracts.sh'), 'status', env=deploy_env)
-            domain = json.loads(settlement.read_text())['settlement_domains']['beta']
-            assert domain['paxeer_chain_id'] == 125
-            assert domain['guarantor_set'] == [{key: row[key].lower() for key in ['guarantor_id', 'signer', 'public_key']}
-                                               for row in json.loads((inputs/'guarantors.json').read_text())]
+            # Current deployment evidence comes from committed native membership.
+            evidence_run = subprocess.run([
+                sys.argv[2], 'evidence',
+                f'http://127.0.0.1:{env["LAYERX_PAXEER_EVM_PORT"]}/',
+                f'http://127.0.0.1:{env["LAYERX_PAXEER_RPC_PORT"]}/'],
+                capture_output=True, text=True, check=True)
+            evidence = json.loads(evidence_run.stdout)
+            assert evidence['chain_id'] == 125
+            assert evidence['consensus_chain_id'] == genesis['chain_id']
+            assert evidence['height'] > 0 and evidence['validators']
+            assert all(int(member['voting_power']) > 0 for member in evidence['validators'])
+            assert 'guarantor_set' not in evidence
+            assert 'settlement_contract' not in evidence
         healthy_port = boundary_port
         boundary_port = port()
         wrong_env = env | {'LAYERX_PAXEER_CHAIN_ID': '126',
