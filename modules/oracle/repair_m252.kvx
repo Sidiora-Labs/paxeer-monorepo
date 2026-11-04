@@ -1,0 +1,52 @@
+[task]
+id = "22.33.252"
+audit = "22.30.13"
+base_revision = "58a590675bbe54c704c3f54c5ef49c6397e5992d"
+
+[finding.026]
+repair = "Retain the accurate retirement boundary and native query guidance; link current EVM consumers to precompiles/pricefeed/PriceFeed.sol at 0x1020, whose market and observation policy is separate."
+tests = ["TestRepairM_252_RetainedQuerySurfaces"]
+path = "Real validators -> codec-transported vote -> production handler -> MidBlock -> keeper -> protobuf query response and wasm queries; README assertions pin retained surfaces and pricefeed contract link."
+
+[finding.005]
+repair = "Validate genesis parameters and initialize targets from the whitelist before restoring imported ballots, removing stale destination targets."
+tests = ["TestRepairM_252_RestartTargetsAndFirstPeriod"]
+path = "Real staking validators -> delegation and vote handlers -> store commit/close/reopen -> ExportGenesis -> protobuf and JSON codecs -> InitGenesis at a changed height/time with destination targets cleared -> commit/close/reopen -> first tally -> prices, original source timestamps, success/miss/abstain counters -> EndBlock slashing, jailing and counter reset."
+
+[finding.009]
+repair = "Extend TestExportInitGenesis without removing its export comparison, retaining its nondefault targets under an explicit whitelist, asserting old source height/time and recovered targets directly, and exercising resumed prices and penalties."
+tests = ["TestRepairM_252_GenesisRoundTrip"]
+path = "The declared gate invokes the extended original genesis test, including real handler-produced pending votes and independently changed import height/time, then executes both original and recovered keepers through their first resumed period and penalty window."
+
+[finding.028]
+repair = "Retain the current protobuf store layout and units; document target reconstruction and the distinct historical store migrations and genesis observation version boundary."
+tests = ["TestRepairM_252_StateEncodingAndUnits"]
+path = "Production delegation/vote handlers and keeper writers -> raw KV keys and protobuf bytes -> decoded rate, feeder, counters, ballots, targets and snapshots -> real TWAP calculation and spam-prevention admission."
+
+[finding.029]
+repair = "Retain the accurate MidBlock/EndBlock split and quorum/reference/ballot clearing rules; make retained source metadata and first imported tally initialization explicit."
+tests = ["TestRepairM_252_MidBlockQuorumAndRetention"]
+path = "Real votes -> pre-boundary MidBlock preserving ballots -> boundary MidBlock with passing reference/cross-rate ballots or no quorum -> retained metadata, emitted prices, counters and deleted aggregate ballots."
+
+[finding.030]
+repair = "Retain current proto fields, reserved salt history and authorization; add valid Paxeer account/operator examples and explicit zero/negative rate parsing rules."
+tests = ["TestRepairM_252_MessageWireAndAuthorization"]
+path = "Real message constructors, signers and basic validation -> protobuf codecs -> delegation and vote handlers -> keeper; assert delegate/operator authorization, replacement, rejected unrelated feeder, malformed/duplicate/non-target rates, and parsed documentation addresses."
+
+[finding.031]
+repair = "Retain the correct current event tables and phases and state explicitly that the retired scalar vote event is absent."
+tests = ["TestRepairM_252_EventsByPhase"]
+path = "Production delegation and vote servers -> exact handler event attributes -> MidBlock price event -> EndBlock penalty-window events with counters before deletion; no retired vote event."
+
+[finding.032]
+repair = "Retain all current defaults and units; document validation, slash-window divisibility, positive query lookback semantics, illustrative governance values and reserved removed proto field 8. Add matching comments to oracle.proto without changing the wire schema."
+tests = ["TestRepairM_252_ParameterContract"]
+path = "DefaultParams -> real parameter store -> typed query -> protobuf codec -> consumer; valid illustrative parameters round trip, invalid periods fail validation and invalid TWAP lookbacks fail production checks."
+
+[qualification]
+baseline = "Not run: the explicit ordered gate instructions prohibit verification before full implementation and direct invocation of verify_cmd; no baseline failures are claimed."
+build = "hf-build: go build ./modules/oracle/..."
+verify = "hf-done: cg spec done 22.33.252 -f layerx-merge --root /work/paxeer-monorepo"
+evidence = "The runner's private /out/run/gates.jsonl records the candidate revision, exact command, exit code and log location. The final response copies the last gate evidence."
+wiring_requests = []
+gotcha = "CreateTestInput seeds default target keys; recovery tests must clear them before importing or a missing initialization passes accidentally. The ordered gate instructions supersede the contradictory baseline step; documentation already corrected at the base is retained and completed."

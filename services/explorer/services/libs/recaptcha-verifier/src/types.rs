@@ -1,12 +1,20 @@
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VerifyMode {
+    V2,
+    /// Requires both a score and an action in a successful provider response.
+    V3,
+}
+
 #[derive(Debug, Clone)]
 pub struct VerifyRequest<'a> {
     pub response_token: &'a str,
+    pub mode: VerifyMode,
     pub expected_hostname: Option<&'a str>,
-    /// Expected action name (v3 only, optional)
+    /// Expected action name; setting this requires a v3 response.
     pub expected_action: Option<&'a str>,
-    /// Minimum acceptable score (v3 only, defaults to 0.5)
+    /// Minimum acceptable score (defaults to 0.5); setting this requires v3.
     pub min_score: Option<f32>,
 }
 
@@ -14,9 +22,19 @@ impl<'a> VerifyRequest<'a> {
     pub fn new(response_token: &'a str) -> Self {
         Self {
             response_token,
+            mode: VerifyMode::V2,
             expected_hostname: None,
             expected_action: None,
             min_score: None,
+        }
+    }
+
+    /// Require a v3 response, including its score and action, with a default
+    /// minimum score of 0.5. Use the expectation builders to constrain their values.
+    pub fn new_v3(response_token: &'a str) -> Self {
+        Self {
+            mode: VerifyMode::V3,
+            ..Self::new(response_token)
         }
     }
 
@@ -27,12 +45,14 @@ impl<'a> VerifyRequest<'a> {
 
     /// Set the expected action (for v3)
     pub fn with_expected_action(mut self, action: &'a str) -> Self {
+        self.mode = VerifyMode::V3;
         self.expected_action = Some(action);
         self
     }
 
     /// Set the minimum acceptable score (for v3)
     pub fn with_min_score(mut self, min_score: f32) -> Self {
+        self.mode = VerifyMode::V3;
         self.min_score = Some(min_score);
         self
     }

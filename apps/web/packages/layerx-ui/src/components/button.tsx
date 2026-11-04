@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Slot } from "@radix-ui/react-slot";
+import { Slot, Slottable } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import { Loader2 } from "lucide-react";
 import { cn } from "../lib/utils";
@@ -51,15 +51,41 @@ export interface ButtonProps
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, fullWidth, asChild = false, loading, children, disabled, ...props }, ref) => {
     const Comp = asChild ? Slot : "button";
+    const isDisabled = Boolean(disabled || loading);
+    const blockInteraction = (event: React.SyntheticEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    const disabledSlotProps =
+      asChild && isDisabled
+        ? {
+            disabled: true,
+            "aria-disabled": true as const,
+            tabIndex: -1,
+            onClick: blockInteraction,
+            onClickCapture: blockInteraction,
+            onKeyDown: blockInteraction,
+            onKeyDownCapture: blockInteraction,
+          }
+        : {};
+    const child =
+      asChild && isDisabled
+        ? React.cloneElement(
+            React.Children.only(children) as React.ReactElement<React.HTMLAttributes<HTMLElement>>,
+            disabledSlotProps,
+          )
+        : children;
     return (
       <Comp
         ref={ref}
-        disabled={disabled || loading}
+        disabled={isDisabled}
+        aria-busy={loading || undefined}
         className={cn(buttonVariants({ variant, size, fullWidth, className }))}
         {...props}
+        {...disabledSlotProps}
       >
         {loading && <Loader2 className="animate-spin" aria-hidden />}
-        {children}
+        {asChild ? <Slottable>{child}</Slottable> : children}
       </Comp>
     );
   },

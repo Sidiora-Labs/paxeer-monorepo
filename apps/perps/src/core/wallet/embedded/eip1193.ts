@@ -31,7 +31,10 @@ import {
   type Hex,
 } from "viem";
 
-type RequestArgs = { method: string; params?: unknown[] | Record<string, unknown> };
+type RequestArgs = {
+  method: string;
+  params?: unknown[] | Record<string, unknown>;
+};
 type Listener = (...args: unknown[]) => void;
 
 export type EIP1193Event =
@@ -55,6 +58,8 @@ export interface PaxeerProviderOptions {
   chainId: number;
   rpcUrl: string;
   fetchImpl?: typeof fetch;
+  /** Read deadline, including the response body (10 seconds by default). */
+  rpcTimeoutMs?: number;
 }
 
 export function createPaxeerEIP1193Provider(
@@ -63,6 +68,14 @@ export function createPaxeerEIP1193Provider(
   const { wallet, chainId, rpcUrl } = opts;
   const fetchImpl = opts.fetchImpl ?? globalThis.fetch.bind(globalThis);
   const chainIdHex = `0x${chainId.toString(16)}`;
+  const rpcTimeoutMs = opts.rpcTimeoutMs ?? 10_000;
+  if (
+    !Number.isSafeInteger(rpcTimeoutMs) ||
+    rpcTimeoutMs <= 0 ||
+    rpcTimeoutMs > 10_000
+  )
+    throw new Error("rpcTimeoutMs must be an integer between 1 and 10000");
+  const rpcRequests = new Set<AbortController>();
 
   const listeners = new Map<EIP1193Event, Set<Listener>>();
   let cachedAddress: `0x${string}` | null = null;
@@ -71,7 +84,10 @@ export function createPaxeerEIP1193Provider(
   let sessionToken: string | null = null;
   let authGeneration = 0;
   let destroyed = false;
-  let addressLookup: { generation: number; promise: Promise<Hex | null> } | null = null;
+  let addressLookup: {
+    generation: number;
+    promise: Promise<Hex | null>;
+  } | null = null;
   let authTimer: ReturnType<typeof setTimeout> | undefined;
 
   function emit(event: EIP1193Event, ...args: unknown[]): void {
@@ -86,8 +102,15 @@ export function createPaxeerEIP1193Provider(
     }
   }
 
-  function providerError(code: number, message: string): Error & { code: number } {
-    return Object.assign(new Error(message), { code });
+  function providerError(
+    code: number,
+    message: string,
+    data?: unknown,
+  ): Error & { code: number; data?: unknown } {
+    return Object.assign(new Error(message), {
+      code,
+      ...(data === undefined ? {} : { data }),
+    });
   }
 
   function observeSession(session: Session | null): void {
@@ -112,7 +135,10 @@ export function createPaxeerEIP1193Provider(
       throw providerError(4100, "The wallet session changed");
   }
 
-  async function assertSession(session: Session, generation: number): Promise<void> {
+  async function assertSession(
+    session: Session,
+    generation: number,
+  ): Promise<void> {
     const current = await wallet.getSession();
     if (
       destroyed ||
@@ -139,7 +165,10 @@ export function createPaxeerEIP1193Provider(
         const r = await wallet.getWallet(session);
         await assertSession(session, generation);
         if (r.wallet.chain_id !== chainId || r.chain.id !== chainId) {
-          throw providerError(4901, "The wallet account is on a different chain");
+          throw providerError(
+            4901,
+            "The wallet account is on a different chain",
+          );
         }
         const address = toChecksum(r.wallet.address);
         if (cachedAddress !== address) {
@@ -182,11 +211,17 @@ export function createPaxeerEIP1193Provider(
       throw providerError(-32602, "A valid signing address is required");
     }
     if (value.toLowerCase() !== address.toLowerCase()) {
-      throw providerError(4100, "The requested signer is not the connected account");
+      throw providerError(
+        4100,
+        "The requested signer is not the connected account",
+      );
     }
   }
 
-  function requireTransactionConsent(tx: Record<string, unknown>, address: Hex): void {
+  function requireTransactionConsent(
+    tx: Record<string, unknown>,
+    address: Hex,
+  ): void {
     if (tx.from !== undefined) requireAccount(tx.from, address);
     if (tx.chainId !== undefined) {
       const value = tx.chainId;
@@ -194,7 +229,8 @@ export function createPaxeerEIP1193Provider(
         !(
           typeof value === "bigint" ||
           (typeof value === "number" && Number.isSafeInteger(value)) ||
-          (typeof value === "string" && /^(?:0x[0-9a-fA-F]+|[0-9]+)$/.test(value))
+          (typeof value === "string" &&
+            /^(?:0x[0-9a-fA-F]+|[0-9]+)$/.test(value))
         )
       ) {
         throw providerError(-32602, "Invalid transaction chainId");
@@ -208,7 +244,10 @@ export function createPaxeerEIP1193Provider(
     }
   }
 
-  function requireResponse(response: { address: Hex; chain_id: number }, address: Hex): void {
+  function requireResponse(
+    response: { address: Hex; chain_id: number },
+    address: Hex,
+  ): void {
     requireAccount(response.address, address);
     if (response.chain_id !== chainId)
       throw providerError(4901, "Signing response chain mismatch");
@@ -221,52 +260,129 @@ export function createPaxeerEIP1193Provider(
    * by `connect.paxportwallet.com` with a 400. Normalize every quantity
    * field to bigint before forwarding.
    */
-  function toBigIntOrUndef(v: unknown): bigint | undefined {
-    if (v === undefined || v === null || v === "") return undefined;
-    if (typeof v === "bigint") return v;
-    if (typeof v === "number") return BigInt(v);
-    if (typeof v === "string") {
-      // BigInt() accepts both "0x.." and decimal strings.
-      try {
-        return BigInt(v);
-      } catch {
-        return undefined;
-      }
-    }
-    return undefined;
+  function toBigIntOrUndef(v: unknown, field: string): bigint | undefined {
+    if (v === undefined) return undefined;
+    if (
+      !(
+        typeof v === "bigint" ||
+        (typeof v === "number" && Number.isSafeInteger(v)) ||
+        (typeof v === "string" && /^(?:0x[0-9a-fA-F]+|0|[1-9][0-9]*)$/.test(v))
+      )
+    )
+      throw providerError(
+        -32602,
+        `Invalid transaction ${field}: expected an unsigned integer`,
+        { field },
+      );
+    const value = BigInt(v);
+    if (value < 0n || value > (1n << 256n) - 1n)
+      throw providerError(
+        -32602,
+        `Invalid transaction ${field}: out of range`,
+        { field },
+      );
+    return value;
   }
 
-  function toIntOrUndef(v: unknown): number | undefined {
-    if (v === undefined || v === null || v === "") return undefined;
-    if (typeof v === "number") return v;
-    if (typeof v === "bigint") return Number(v);
-    if (typeof v === "string") {
-      try {
-        return Number(BigInt(v));
-      } catch {
-        return undefined;
-      }
-    }
-    return undefined;
+  function toIntOrUndef(v: unknown, field: string): number | undefined {
+    const value = toBigIntOrUndef(v, field);
+    if (value === undefined) return undefined;
+    if (value > BigInt(Number.MAX_SAFE_INTEGER))
+      throw providerError(
+        -32602,
+        `Invalid transaction ${field}: exceeds the safe integer range`,
+        { field },
+      );
+    return Number(value);
+  }
+
+  function transactionQuantities(tx: Record<string, unknown>) {
+    const gas = toBigIntOrUndef(tx.gas, "gas");
+    const gasLimit = toBigIntOrUndef(tx.gasLimit, "gasLimit");
+    return {
+      value: toBigIntOrUndef(tx.value, "value"),
+      gas: gas ?? gasLimit,
+      maxFeePerGas: toBigIntOrUndef(tx.maxFeePerGas, "maxFeePerGas"),
+      maxPriorityFeePerGas: toBigIntOrUndef(
+        tx.maxPriorityFeePerGas,
+        "maxPriorityFeePerGas",
+      ),
+      nonce: toIntOrUndef(tx.nonce, "nonce"),
+    };
   }
 
   async function rpcCall(method: string, params: unknown): Promise<unknown> {
     const id = ++rpcId;
-    const res = await fetchImpl(rpcUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jsonrpc: "2.0", id, method, params: params ?? [] }),
-    });
-    const json = (await res.json()) as {
-      result?: unknown;
-      error?: { code: number; message: string };
-    };
-    if (json.error) {
-      const err = new Error(json.error.message) as Error & { code?: number };
-      err.code = json.error.code;
-      throw err;
+    const controller = new AbortController();
+    rpcRequests.add(controller);
+    const timer = setTimeout(() => {
+      controller.abort(
+        providerError(
+          4900,
+          `Wallet RPC request timed out after ${rpcTimeoutMs}ms`,
+        ),
+      );
+    }, rpcTimeoutMs);
+    try {
+      let res: Response;
+      try {
+        res = await fetchImpl(rpcUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id,
+            method,
+            params: params ?? [],
+          }),
+          signal: controller.signal,
+        });
+      } catch (cause) {
+        throw providerError(4900, "Wallet RPC request failed", { cause });
+      }
+      if (!res.ok) {
+        await res.body?.cancel();
+        throw Object.assign(
+          providerError(4900, `Wallet RPC HTTP ${res.status}`),
+          { status: res.status },
+        );
+      }
+      let json: unknown;
+      try {
+        json = await res.json();
+      } catch {
+        throw providerError(-32603, "Invalid JSON in wallet RPC response");
+      }
+      if (
+        !isRecord(json) ||
+        json.jsonrpc !== "2.0" ||
+        json.id !== id ||
+        Object.hasOwn(json, "result") === Object.hasOwn(json, "error")
+      )
+        throw providerError(-32603, "Invalid wallet RPC response envelope");
+      if (Object.hasOwn(json, "error")) {
+        const error = json.error;
+        if (
+          !isRecord(error) ||
+          typeof error.code !== "number" ||
+          !Number.isSafeInteger(error.code) ||
+          typeof error.message !== "string"
+        )
+          throw providerError(-32603, "Invalid wallet RPC error envelope");
+        throw providerError(error.code, error.message, error.data);
+      }
+      return json.result;
+    } catch (error) {
+      if (controller.signal.aborted) throw controller.signal.reason;
+      throw error;
+    } finally {
+      clearTimeout(timer);
+      rpcRequests.delete(controller);
     }
-    return json.result;
+  }
+
+  function isRecord(value: unknown): value is Record<string, unknown> {
+    return value !== null && typeof value === "object" && !Array.isArray(value);
   }
 
   function asArray(params: RequestArgs["params"]): unknown[] {
@@ -278,38 +394,48 @@ export function createPaxeerEIP1193Provider(
       throw providerError(-32602, "personal_sign requires a message");
     if (!raw.startsWith("0x")) return raw;
     if (!/^0x(?:[0-9a-fA-F]{2})*$/.test(raw)) {
-      throw providerError(-32602, "personal_sign requires complete even-length hex");
+      throw providerError(
+        -32602,
+        "personal_sign requires complete even-length hex",
+      );
     }
     const buf = new Uint8Array((raw.length - 2) / 2);
-    for (let i = 0; i < buf.length; i++) buf[i] = parseInt(raw.slice(2 + i * 2, 4 + i * 2), 16);
+    for (let i = 0; i < buf.length; i++)
+      buf[i] = parseInt(raw.slice(2 + i * 2, 4 + i * 2), 16);
     try {
-      return new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(buf);
+      return new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(
+        buf,
+      );
     } catch {
       throw providerError(-32602, "personal_sign bytes must be UTF-8 text");
     }
   }
 
   // Supabase holds its auth lock while calling subscribers; read the session after it releases it.
-  const unsubAuth = wallet.onAuthStateChange((_event, session: Session | null) => {
-    if (destroyed) return;
-    observeSession(session);
-    clearTimeout(authTimer);
-    if (session)
-      authTimer = setTimeout(() => {
-        void getAddress();
-      }, 0);
-  });
+  const unsubAuth = wallet.onAuthStateChange(
+    (_event, session: Session | null) => {
+      if (destroyed) return;
+      observeSession(session);
+      clearTimeout(authTimer);
+      if (session)
+        authTimer = setTimeout(() => {
+          void getAddress();
+        }, 0);
+    },
+  );
 
   return {
     isPaxeerEmbedded: true as const,
 
     async request({ method, params }: RequestArgs): Promise<unknown> {
-      if (destroyed) throw providerError(4900, "The wallet provider was destroyed");
+      if (destroyed)
+        throw providerError(4900, "The wallet provider was destroyed");
       const args = [
         "eth_sendTransaction",
         "eth_signTransaction",
         "personal_sign",
         "eth_sign",
+        "eth_signTypedData_v4",
       ].includes(method)
         ? structuredClone(asArray(params))
         : asArray(params);
@@ -344,12 +470,8 @@ export function createPaxeerEIP1193Provider(
           const r = await wallet.sendTransaction(
             {
               to: tx.to as `0x${string}` | undefined,
-              value: toBigIntOrUndef(tx.value),
               data: tx.data as `0x${string}` | undefined,
-              gas: toBigIntOrUndef(tx.gas ?? tx.gasLimit),
-              maxFeePerGas: toBigIntOrUndef(tx.maxFeePerGas),
-              maxPriorityFeePerGas: toBigIntOrUndef(tx.maxPriorityFeePerGas),
-              nonce: toIntOrUndef(tx.nonce),
+              ...transactionQuantities(tx),
               chainId,
             },
             session,
@@ -370,12 +492,8 @@ export function createPaxeerEIP1193Provider(
           const r = await wallet.signTransaction(
             {
               to: tx.to as `0x${string}` | undefined,
-              value: toBigIntOrUndef(tx.value),
               data: tx.data as `0x${string}` | undefined,
-              gas: toBigIntOrUndef(tx.gas ?? tx.gasLimit),
-              maxFeePerGas: toBigIntOrUndef(tx.maxFeePerGas),
-              maxPriorityFeePerGas: toBigIntOrUndef(tx.maxPriorityFeePerGas),
-              nonce: toIntOrUndef(tx.nonce),
+              ...transactionQuantities(tx),
               chainId,
             },
             session,
@@ -394,7 +512,9 @@ export function createPaxeerEIP1193Provider(
           if (signed.chainId !== chainId)
             throw providerError(4901, "Signed transaction chain mismatch");
           requireAccount(
-            await recoverTransactionAddress({ serializedTransaction: serialized }),
+            await recoverTransactionAddress({
+              serializedTransaction: serialized,
+            }),
             address,
           );
           await assertSession(session, generation);
@@ -419,37 +539,55 @@ export function createPaxeerEIP1193Provider(
           return r.signature;
         }
 
-        case "eth_sign": {
+        case "eth_sign":
+        case "eth_signTypedData_v4": {
           const { session, generation, address } = await signingSession();
           requireAccount(args[0], address);
-          const canonical = wallet.createProvider({ chainId, rpcUrl }, session, () =>
-            requireGeneration(generation),
+          const canonical = wallet.createProvider(
+            { chainId, rpcUrl },
+            session,
+            () => requireGeneration(generation),
           );
           try {
             const accounts = (await canonical.request({
               method: "eth_requestAccounts",
             })) as Hex[];
             requireAccount(accounts[0], address);
-            if ((await canonical.request({ method: "eth_chainId" })) !== chainIdHex) {
-              throw providerError(4901, "The digest signing chain changed");
+            if (
+              (await canonical.request({ method: "eth_chainId" })) !==
+              chainIdHex
+            ) {
+              throw providerError(4901, "The signing chain changed");
             }
             await assertSession(session, generation);
-            const signature = await canonical.request({ method: "eth_sign", params: args });
+            const signature = await canonical.request({ method, params: args });
             await assertSession(session, generation);
             return signature;
           } catch (error) {
             await assertSession(session, generation);
+            if (
+              method === "eth_signTypedData_v4" &&
+              error instanceof Error &&
+              "status" in error &&
+              [404, 405, 501].includes(Number(error.status))
+            ) {
+              throw providerError(
+                4200,
+                "EIP-712 signing is unavailable on this wallet gateway deployment. Use a gateway with the canonical EIP-712 v4 signing route or an injected wallet.",
+                { cause: error },
+              );
+            }
             throw error;
           } finally {
             canonical.disconnect();
           }
         }
 
-        case "eth_signTypedData_v4":
         case "eth_signTypedData_v3":
+        case "eth_signTypedData_v1":
         case "eth_signTypedData": {
           const err = new Error(
-            "eth_signTypedData_v4 is not yet supported by the Paxeer Embedded Wallet API. Use an injected wallet for EIP-712 signing for now.",
+            `${method} is not supported. Use eth_signTypedData_v4 through the canonical wallet provider for EIP-712 signing.`,
           ) as Error & { code?: number };
           err.code = 4200; // Unsupported Method
           throw err;
@@ -476,7 +614,9 @@ export function createPaxeerEIP1193Provider(
             ? [
                 {
                   parentCapability: "eth_accounts",
-                  caveats: [{ type: "restrictReturnedAccounts", value: [addr] }],
+                  caveats: [
+                    { type: "restrictReturnedAccounts", value: [addr] },
+                  ],
                 },
               ]
             : [];
@@ -503,6 +643,11 @@ export function createPaxeerEIP1193Provider(
       destroyed = true;
       authGeneration += 1;
       clearTimeout(authTimer);
+      for (const controller of rpcRequests)
+        controller.abort(
+          providerError(4900, "The wallet provider was destroyed"),
+        );
+      rpcRequests.clear();
       unsubAuth();
       listeners.clear();
       cachedAddress = null;

@@ -23,7 +23,7 @@
  */
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, useRef, type FormEvent } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useConnect, useAccount, type Connector } from "wagmi";
 import { Mail, Loader2, X as XIcon, Wallet as WalletIcon, ChevronRight } from "lucide-react";
@@ -34,6 +34,8 @@ import {
   PAXEER_CONNECTOR_ID,
   type SignInProvider,
 } from "@/core/wallet/embedded";
+import { classifyError } from "@/core/errors/classify";
+import type { UserFacingError } from "@/core/errors/types";
 import { cn } from "@/ui/utils/cn";
 
 type EmailState =
@@ -69,13 +71,34 @@ export function ConnectWalletModal() {
 
 // ─── Body ─────────────────────────────────────────────────────────────────────
 
-function ConnectModalBody({ onDone }: { onDone: () => void }) {
+export function ConnectModalBody({ onDone }: { onDone: () => void }) {
   const embeddedAvailable = useEmbeddedWalletAvailable();
   const paxeer = usePaxeer();
-  const { isConnected: wagmiConnected } = useAccount();
-  const { connect: wagmiConnect, connectors, isPending: connectPending } = useConnect();
+  const connected = useAccount();
+  const { connectAsync: wagmiConnect, connectors, isPending: connectPending } = useConnect();
   const [busyConnector, setBusyConnector] = useState<string | null>(null);
-  const [postSignInBusy, setPostSignInBusy] = useState(false);
+  const [connectionError, setConnectionError] = useState<UserFacingError | null>(null);
+  const [chosenConnector, setChosenConnector] = useState<Connector | null>(null);
+  const [embeddedAttempt, setEmbeddedAttempt] = useState(false);
+  const attempt = useRef(0);
+  const connecting = useRef(false);
+  const embeddedStarted = useRef(false);
+  const priorSession = useRef<string | null>(null);
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    try {
+      if (sessionStorage.getItem("paxeer:auth:connect-intent") === "embedded") {
+        setEmbeddedAttempt(true);
+      }
+    } catch (error) {
+      setConnectionError(classifyError(error, "wallet/sign-in"));
+    }
+    return () => {
+      alive.current = false;
+      attempt.current += 1;
+    };
+  }, []);
 
   const injectedConnectors = useMemo(
     () => connectors.filter((c) => c.id !== PAXEER_CONNECTOR_ID),
@@ -86,28 +109,93 @@ function ConnectModalBody({ onDone }: { onDone: () => void }) {
     [connectors],
   );
 
-  // Once the embedded wallet finishes provisioning, auto-connect wagmi to it
-  // and close the modal — the user's already proven who they are.
-  useEffect(() => {
-    if (!paxeerConnector) return;
-    if (!paxeer.isAuthenticated) return;
-    if (wagmiConnected) {
+  function clearIntent() {
+    setEmbeddedAttempt(false);
+    sessionStorage.removeItem("paxeer:auth:connect-intent");
+  }
+
+  async function connectChosen(connector: Connector) {
+    if (connecting.current) return;
+    const generation = ++attempt.current;
+    connecting.current = true;
+    setChosenConnector(connector);
+    setBusyConnector(connector.id);
+    setConnectionError(null);
+    try {
+      clearIntent();
+      const result = await wagmiConnect({ connector });
+      if (!alive.current || generation !== attempt.current) return;
+      if (
+        connector.id === PAXEER_CONNECTOR_ID &&
+        (!paxeer.publicWallet ||
+          result.chainId !== paxeer.publicWallet.chain_id ||
+          result.accounts[0]?.toLowerCase() !== paxeer.publicWallet.address.toLowerCase())
+      ) {
+        throw new Error("The connected wallet does not match the provisioned account");
+      }
       onDone();
+    } catch (error) {
+      if (alive.current && generation === attempt.current) {
+        setConnectionError(classifyError(error, "wallet/connect"));
+      }
+    } finally {
+      connecting.current = false;
+      if (alive.current && generation === attempt.current) setBusyConnector(null);
+    }
+  }
+
+  useEffect(() => {
+    if (
+      !embeddedAttempt ||
+      embeddedStarted.current ||
+      (priorSession.current !== null && priorSession.current === paxeer.session?.access_token) ||
+      !paxeer.isAuthenticated ||
+      !paxeer.publicWallet ||
+      !paxeerConnector
+    )
+      return;
+    embeddedStarted.current = true;
+    if (
+      connected.connector?.id === PAXEER_CONNECTOR_ID &&
+      connected.address?.toLowerCase() === paxeer.publicWallet.address.toLowerCase() &&
+      connected.chainId === paxeer.publicWallet.chain_id
+    ) {
+      try {
+        clearIntent();
+        onDone();
+      } catch (error) {
+        setConnectionError(classifyError(error, "wallet/connect"));
+      }
       return;
     }
-    setPostSignInBusy(true);
-    wagmiConnect(
-      { connector: paxeerConnector },
-      {
-        onSuccess: () => {
-          setPostSignInBusy(false);
-          onDone();
-        },
-        onError: () => setPostSignInBusy(false),
-      },
-    );
-  }, [paxeer.isAuthenticated, paxeerConnector, wagmiConnected, wagmiConnect, onDone]);
+    void connectChosen(paxeerConnector);
+  }, [
+    embeddedAttempt,
+    paxeer.isAuthenticated,
+    paxeer.session,
+    paxeer.publicWallet,
+    paxeerConnector,
+    connected.address,
+    connected.connector,
+    connected.chainId,
+  ]);
 
+  function beginEmbeddedAttempt() {
+    attempt.current += 1;
+    embeddedStarted.current = false;
+    priorSession.current = paxeer.session?.access_token ?? null;
+    setConnectionError(null);
+    setChosenConnector(null);
+    sessionStorage.setItem("paxeer:auth:connect-intent", "embedded");
+    setEmbeddedAttempt(true);
+  }
+
+  function cancelEmbeddedAttempt() {
+    attempt.current += 1;
+    clearIntent();
+  }
+
+  const postSignInBusy = busyConnector === PAXEER_CONNECTOR_ID;
   return (
     <>
       <header className="flex items-center justify-between border-b border-border px-5 py-4">
@@ -126,7 +214,9 @@ function ConnectModalBody({ onDone }: { onDone: () => void }) {
         {embeddedAvailable && (
           <EmbeddedSignInSection
             paxeer={paxeer}
-            disabled={postSignInBusy || connectPending}
+            disabled={busyConnector !== null || connectPending}
+            onAttempt={beginEmbeddedAttempt}
+            onFailure={cancelEmbeddedAttempt}
           />
         )}
 
@@ -138,16 +228,28 @@ function ConnectModalBody({ onDone }: { onDone: () => void }) {
             disabledAll={postSignInBusy || connectPending || paxeer.authBusy}
             busyConnector={busyConnector}
             onConnect={(c) => {
-              setBusyConnector(c.id);
-              wagmiConnect(
-                { connector: c },
-                {
-                  onSettled: () => setBusyConnector(null),
-                  onSuccess: () => onDone(),
-                },
-              );
+              void connectChosen(c);
             }}
           />
+        )}
+
+        {connectionError && (
+          <div role="alert" data-error-code={connectionError.code} className="text-xs text-red-400">
+            <p>
+              {connectionError.message} {connectionError.suggestedFix}
+            </p>
+            {chosenConnector && (
+              <button
+                type="button"
+                disabled={busyConnector !== null || connectPending}
+                onClick={() => {
+                  void connectChosen(chosenConnector);
+                }}
+              >
+                Retry {chosenConnector.name}
+              </button>
+            )}
+          </div>
         )}
 
         {postSignInBusy && (
@@ -167,50 +269,74 @@ function ConnectModalBody({ onDone }: { onDone: () => void }) {
 
 // ─── Embedded sign-in (Supabase auth) ─────────────────────────────────────────
 
-function EmbeddedSignInSection({
+export function EmbeddedSignInSection({
   paxeer,
   disabled,
+  onAttempt,
+  onFailure,
 }: {
   paxeer: ReturnType<typeof usePaxeer>;
   disabled: boolean;
+  onAttempt: () => void;
+  onFailure: () => void;
 }) {
   const [email, setEmail] = useState("");
   const [emailState, setEmailState] = useState<EmailState>({ kind: "idle" });
+  const sending = useRef(false);
+  const [authFailure, setAuthFailure] = useState<UserFacingError | null>(null);
   const [oauthLoading, setOauthLoading] = useState<SignInProvider | null>(null);
 
+  function failed(error: unknown) {
+    const classified = classifyError(error, "wallet/sign-in");
+    setAuthFailure(classified);
+    setEmailState({ kind: "error", message: classified.message });
+    try {
+      onFailure();
+    } catch (storageError) {
+      setAuthFailure(classifyError(storageError, "wallet/sign-in"));
+    }
+  }
+
   async function clickProvider(provider: SignInProvider) {
-    if (disabled) return;
+    if (disabled || sending.current || paxeer.authBusy) return;
+    sending.current = true;
+    setAuthFailure(null);
     setOauthLoading(provider);
     try {
+      onAttempt();
       sessionStorage.setItem(
         "paxeer:auth:returnTo",
         window.location.pathname + window.location.search,
       );
-    } catch { /* quota / privacy */ }
-    try {
       await paxeer.signInWithOAuth(provider);
-      // Browser redirects away — never returns here on success.
-    } catch {
+    } catch (error) {
+      failed(error);
+    } finally {
+      sending.current = false;
       setOauthLoading(null);
     }
   }
 
   async function submitEmail(e: FormEvent) {
     e.preventDefault();
-    if (!email.includes("@")) return;
+    if (!email.includes("@") || disabled || sending.current || paxeer.authBusy) return;
+    sending.current = true;
+    setAuthFailure(null);
+    setEmailState({ kind: "sending" });
     try {
+      onAttempt();
       sessionStorage.setItem(
         "paxeer:auth:returnTo",
         window.location.pathname + window.location.search,
       );
-    } catch { /* quota / privacy */ }
-    setEmailState({ kind: "sending" });
-    const r = await paxeer.signInWithEmail(email);
-    setEmailState(
-      r.ok
-        ? { kind: "sent", email }
-        : { kind: "error", message: r.error ?? "Sign-in failed" },
-    );
+      const result = await paxeer.signInWithEmail(email);
+      if (!result.ok) throw new Error(result.error ?? "Sign-in failed");
+      setEmailState({ kind: "sent", email });
+    } catch (error) {
+      failed(error);
+    } finally {
+      sending.current = false;
+    }
   }
 
   if (emailState.kind === "sent") {
@@ -318,10 +444,14 @@ function EmbeddedSignInSection({
           )}
         </button>
         {emailState.kind === "error" && (
-          <p className="text-[11px] text-red-400">{emailState.message}</p>
+          <p role="alert" data-error-code={authFailure?.code} className="text-[11px] text-red-400">
+            {authFailure?.message ?? emailState.message} {authFailure?.suggestedFix}
+          </p>
         )}
         {paxeer.authError && emailState.kind !== "error" && (
-          <p className="text-[11px] text-red-400">{paxeer.authError}</p>
+          <p role="alert" className="text-[11px] text-red-400">
+            {classifyError(new Error(paxeer.authError), "wallet/sign-in").message}
+          </p>
         )}
       </form>
     </div>

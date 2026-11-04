@@ -36,7 +36,11 @@ var (
 	ErrRequest          = errors.New("jwt: request cannot be canonicalised")
 )
 
-const DefaultMaxAge = time.Hour
+const (
+	DefaultMaxAge                = time.Hour
+	DefaultKeySetRefreshInterval = 5 * time.Minute
+	DefaultMaxKeySetAge          = 15 * time.Minute
+)
 
 type TokenReplayStore interface {
 	UseTokenRequest(token [32]byte, request [32]byte, expiresAt time.Time) (bool, error)
@@ -83,28 +87,37 @@ type Config struct {
 	Issuer             string
 	Audience           string
 	MinRefreshInterval time.Duration
-	ClockSkew          time.Duration
-	HTTPClient         *http.Client
-	Now                func() time.Time
-	MaxAge             time.Duration
-	Replay             TokenReplayStore
+	// KeySetRefreshInterval bounds freshness even when every token has a known kid.
+	// Zero uses DefaultKeySetRefreshInterval.
+	KeySetRefreshInterval time.Duration
+	// MaxKeySetAge bounds total cache age, including during fetch failures.
+	// At this age verification fails closed. Zero uses DefaultMaxKeySetAge.
+	MaxKeySetAge time.Duration
+	ClockSkew    time.Duration
+	HTTPClient   *http.Client
+	Now          func() time.Time
+	MaxAge       time.Duration
+	Replay       TokenReplayStore
 }
 
 type TokenVerifier struct {
-	jwksURL    string
-	issuer     string
-	audience   string
-	minRefresh time.Duration
-	skew       time.Duration
-	client     *http.Client
-	now        func() time.Time
-	maxAge     time.Duration
-	replay     TokenReplayStore
+	jwksURL         string
+	issuer          string
+	audience        string
+	minRefresh      time.Duration
+	refreshInterval time.Duration
+	maxKeySetAge    time.Duration
+	skew            time.Duration
+	client          *http.Client
+	now             func() time.Time
+	maxAge          time.Duration
+	replay          TokenReplayStore
 
 	mu          sync.Mutex
 	keys        jwk.Set
 	lastFetch   time.Time
 	lastFetchOK bool
+	lastSuccess time.Time
 }
 
 func NewTokenVerifier(cfg Config) (*TokenVerifier, error) {
@@ -114,7 +127,7 @@ func NewTokenVerifier(cfg Config) (*TokenVerifier, error) {
 	if cfg.HTTPClient == nil {
 		return nil, fmt.Errorf("%w: http client is required", ErrInvalidConfig)
 	}
-	if cfg.MinRefreshInterval < 0 || cfg.ClockSkew < 0 || cfg.MaxAge < 0 {
+	if cfg.MinRefreshInterval < 0 || cfg.ClockSkew < 0 || cfg.MaxAge < 0 || cfg.KeySetRefreshInterval < 0 || cfg.MaxKeySetAge < 0 {
 		return nil, fmt.Errorf("%w: negative interval", ErrInvalidConfig)
 	}
 	now := cfg.Now
@@ -125,16 +138,29 @@ func NewTokenVerifier(cfg Config) (*TokenVerifier, error) {
 	if maxAge == 0 {
 		maxAge = DefaultMaxAge
 	}
+	refreshInterval := cfg.KeySetRefreshInterval
+	if refreshInterval == 0 {
+		refreshInterval = DefaultKeySetRefreshInterval
+	}
+	maxKeySetAge := cfg.MaxKeySetAge
+	if maxKeySetAge == 0 {
+		maxKeySetAge = DefaultMaxKeySetAge
+	}
+	if cfg.MinRefreshInterval > refreshInterval || refreshInterval > maxKeySetAge {
+		return nil, fmt.Errorf("%w: require minimum refresh interval <= key set refresh interval <= maximum key set age", ErrInvalidConfig)
+	}
 	return &TokenVerifier{
-		maxAge:     maxAge,
-		replay:     cfg.Replay,
-		jwksURL:    cfg.JWKSURL,
-		issuer:     cfg.Issuer,
-		audience:   cfg.Audience,
-		minRefresh: cfg.MinRefreshInterval,
-		skew:       cfg.ClockSkew,
-		client:     cfg.HTTPClient,
-		now:        now,
+		refreshInterval: refreshInterval,
+		maxKeySetAge:    maxKeySetAge,
+		maxAge:          maxAge,
+		replay:          cfg.Replay,
+		jwksURL:         cfg.JWKSURL,
+		issuer:          cfg.Issuer,
+		audience:        cfg.Audience,
+		minRefresh:      cfg.MinRefreshInterval,
+		skew:            cfg.ClockSkew,
+		client:          cfg.HTTPClient,
+		now:             now,
 	}, nil
 }
 
@@ -239,15 +265,21 @@ func keyMatchesAlgorithm(key jwk.Key, alg jwa.SignatureAlgorithm) error {
 func (v *TokenVerifier) lookupKey(ctx context.Context, kid string) (jwk.Key, error) {
 	v.mu.Lock()
 	defer v.mu.Unlock()
-	if v.keys != nil {
-		if key, ok := v.keys.LookupKeyID(kid); ok {
-			return key, nil
-		}
-	}
 	now := v.now()
+	var cached jwk.Key
+	if v.keys != nil {
+		cached, _ = v.keys.LookupKeyID(kid)
+	}
+	age := now.Sub(v.lastSuccess)
+	if cached != nil && age >= 0 && age < v.refreshInterval {
+		return cached, nil
+	}
 	if !v.lastFetch.IsZero() && now.Sub(v.lastFetch) < v.minRefresh {
-		if !v.lastFetchOK && v.keys == nil {
-			return nil, fmt.Errorf("%w: refresh interval not elapsed since failed fetch", ErrKeySetFetch)
+		if cached != nil && age >= 0 && age < v.maxKeySetAge {
+			return cached, nil
+		}
+		if !v.lastFetchOK || (cached != nil && (age < 0 || age >= v.maxKeySetAge)) {
+			return nil, fmt.Errorf("%w: no usable key set and refresh interval not elapsed", ErrKeySetFetch)
 		}
 		return nil, fmt.Errorf("%w: %s", ErrUnknownKey, kid)
 	}
@@ -255,10 +287,20 @@ func (v *TokenVerifier) lookupKey(ctx context.Context, kid string) (jwk.Key, err
 	set, err := jwk.Fetch(ctx, v.jwksURL, jwk.WithHTTPClient(v.client))
 	if err != nil {
 		v.lastFetchOK = false
+		// A failed attempt never extends the lifetime of the last successful set.
+		age = v.now().Sub(v.lastSuccess)
+		if cached != nil && age >= 0 && age < v.maxKeySetAge {
+			return cached, nil
+		}
 		return nil, fmt.Errorf("%w: %v", ErrKeySetFetch, err)
 	}
 	v.lastFetchOK = true
 	v.keys = set
+	// Count time spent fetching against freshness and the maximum stale bound.
+	v.lastSuccess = now
+	if age = v.now().Sub(v.lastSuccess); age < 0 || age >= v.maxKeySetAge {
+		return nil, fmt.Errorf("%w: fetched key set exceeded maximum age", ErrKeySetFetch)
+	}
 	if key, ok := set.LookupKeyID(kid); ok {
 		return key, nil
 	}

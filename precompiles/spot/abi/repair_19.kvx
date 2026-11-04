@@ -1,0 +1,46 @@
+[task.22.31.19]
+audit = "spec/layerx-merge/programme/audit/records/22.30.17.kvx"
+base_revision = "5c06a9cfa23f88d328fc7e91545e90609e8cd0c0"
+carried_revision = "0c5012822c7909f427c346e6fbcec61e42538d92"
+status = "Implemented in-scope interface repair and strict regression coverage; not qualified until hf-done passes."
+baseline = "Carried attempt 1 candidate 24d4a3971b31c6eebbec4729d7a24cea7ec1f1f1 failed TestRepair_19_ShareBalanceRevert: expected 0xe450d38c, received Error(string) 0x08c379a0. This continuation retains that proof and does not repeat unchanged verification; new verification runs only through hf-done after hf-build."
+evidence = "Exact candidate revision, command, exit and private log are emitted by hf-build/hf-done and retained in the runner gate ledger; completion requires passing hf-done on the build revision."
+
+[finding.share-administration-unserved]
+implementation = "share.json now describes the native deployment; share-solidity.json preserves the original snapshot byte-for-byte; share-deployment.kvx reconciles all five registry IDs with exact empty-revert behavior."
+tests = ["TestRepair_19_NativeShareDeploymentInterface", "TestRepair_19_ShareAdministrationUnserved"]
+path = "CreateShareToken -> native deployment -> bank-backed ERC20 calls and keeper mint/burn -> Share ABI consumer; historical selectors are called by holder, vault and governance."
+status = "In-scope repair implemented; central registry wiring remains outside scope."
+
+[finding.share-balance-revert]
+tests = ["TestRepair_19_ShareBalanceRevert", "TestRepair_19_ShareBalanceRevertFullWidth", "TestRepair_19_ShareBalanceErrorPrecedence", "TestVaultShareTransfer", "TestVaultShareTransferFrom"]
+implementation = "CreateShareToken installs an immutable EVM delegate boundary over the production native runtime; real native calls and bank authorization retain the share pointer address/storage. After a native transfer-failed revert, the boundary reads real bank-backed balanceOf and emits the frozen custom error if insufficient; original address/allowance failures are preserved byte-for-byte."
+path = "CreateShareToken -> deployed native pointer transfer/transferFrom -> bank precompile -> actual revert bytes decoded against share.json; failed calls preserve balances, supply and allowance."
+status = "In-scope runtime repair and strict regression tests implemented; qualification requires passing hf-done. Coverage includes transfer/transferFrom rollback, max uint256, zero balance, exact-balance success and native address/allowance error precedence."
+
+[wiring.native-balance-error]
+request = "Domain 6: apply the frozen error contract to contracts/src/NativePaxTokensERC20.sol and precompiles/bank/bank.go and regenerate modules/evm/artifacts/native; preserve the share-specific boundary when modules/evm/keeper/pointer_upgrade.go upgrades existing share pointers, or replace it with an equivalent corrected native runtime."
+
+[wiring.share-registry]
+request = "Domain 3: reconcile spec/layerx-merge/interfaces.kvx rows 3.pc-spotshare-mint, 3.pc-spotshare-burn, 3.pc-spotshare-owner, 3.pc-spotshare-renounceownership and 3.pc-spotshare-transferownership with precompiles/spot/abi/share-deployment.kvx; keep their selectors historical/unsupported on native pointers."
+
+[qualification.initial]
+revision = "8d546e4c4b00314fbea8aba7a0c57ecaaf98acbd"
+command = "cg spec done 22.31.19 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Structural big.Int zero comparison failed before the balance-error assertions; use exact numeric zero (Sign() == 0) to compare ABI-decoded values without depending on nil versus empty backing slices."
+
+[qualification.continuation-1]
+revision = "2fd7b3ae16ffee8d2dbc3dd90c5b6e3becbc31c7"
+command = "cg spec done 22.31.19 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The new zero-balance assertion indexed the interface{} returned by abi.Error.Unpack; repair uses a checked []interface{} assertion and asserts its exact length before inspecting arguments."
+
+[qualification.continuation-2]
+revision = "10cc18bc305c063209041753aacdcf6769b2dc9e"
+command = "cg spec done 22.31.19 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Both balance-error tests passed; the zero-owner transferFrom fixture reaches native ERC20InvalidApprover before sender validation. The invalid-sender case now calls transfer from zero and retains its exact error assertion; an additional transferFrom case asserts the native approver error exactly."

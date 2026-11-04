@@ -10,9 +10,9 @@ defmodule BlockScoutWeb.Schemas.API.V2.PaxeerX.UnifiedAccount do
   OpenApiSpex.schema(%{
     title: "PaxeerXUnifiedAccount",
     description:
-      "The one-account view of an EVM address: its four identities, one asset list where each asset " <>
-        "carries a single total beside its chain, custody and kernel parts, and one activity feed " <>
-        "merging the chain's transactions and token transfers with the LayerX kernel events.",
+      "The one-account view of an EVM address: its three identities (EVM, Paxeer and DID), " <>
+        "one asset list with a single total balance per asset, and one activity feed of the " <>
+        "chain's transactions and token transfers.",
     type: :object,
     properties: %{
       identities: Identities,

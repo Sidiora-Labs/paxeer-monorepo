@@ -7,17 +7,16 @@ import { copyEntry } from "../../../copy/runtime";
 import { formatCopy } from "../../../copy/format";
 import { humanApi, type ActivityEntryDetail, type ExportArtefact } from "../../api";
 import { ActivityEvidenceBadge } from "../../kit/activity";
-import { CopyableIdentifier, LabelValue, SignedWordedAmount, StatusPill } from "../../kit/money";
+import { CopyableIdentifier, StatusPill } from "../../kit/money";
 import { DesktopDetail, MobileDetail } from "../../kit/pattern-detail";
 import { ExplorerLink } from "../../kit/explorer";
 import { KitButton } from "../../kit/control";
 import { KitList, KitListItem } from "../../kit/display";
 import { ScreenCard, StateFrame } from "../../kit/surface";
-import { protocolAmount } from "../../kit/model";
 import { useShellSelection } from "../../shell/app-shell";
-import { PrivateFigure } from "../../settings/privacy";
 import { LoadingSurface, OfflineSurface, StillCheckingSurface } from "../../states/surfaces";
 import { ActivityErrorSurface } from "./activity";
+import { ActivityDetailFacts } from "./facts";
 import {
   activityFailure,
   detailUnresolved,
@@ -25,21 +24,15 @@ import {
   entryVerification,
   evidenceClassLabel,
   explorerPath,
-  formatEntryTimestamp,
   kindLabel,
   newExportKey,
   plainSentence,
   safeExportArtefact,
-  signedBaseUnits,
   stageView,
-  toKitDirection,
-  unsignedBaseUnits,
   validatedDetail,
   verificationLabel,
   type ActivityFailure,
 } from "./model";
-
-const AMOUNT_LOCALE = "en";
 
 type DetailLoad =
   | Readonly<{ kind: "loading" }>
@@ -190,44 +183,11 @@ export function ActivityDetail({ entryId }: Readonly<{ entryId: string }>) {
       .catch((error: unknown) => { setExportState({ kind: "failed", failure: activityFailure(error) }); });
   };
 
-  const amount = detail.money === undefined ? undefined : signedBaseUnits(detail.money, detail.direction);
-  const fee = detail.fees === undefined ? undefined : unsignedBaseUnits(detail.fees);
-
   return (
     <ScreenCard title={kindLabel(detail.kind)} description={plainSentence(detail)} landmark="section">
       <div className="mt-4 flex flex-col gap-6">
         <div><KitButton type="button" variant="secondary" onClick={() => { router.push("/app/activity"); }}>{copyEntry("activity.detail.back").message}</KitButton></div>
-        <section aria-labelledby="activity-what-happened" className="flex flex-col gap-3">
-          <h2 id="activity-what-happened" className="text-lg font-bold text-foreground">{copyEntry("activity.detail.what_happened").message}</h2>
-          <p className="text-foreground-secondary">{plainSentence(detail)}</p>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <LabelValue
-              label={copyEntry("activity.detail.amount").message}
-              value={amount === undefined || detail.money === undefined ? copyEntry("activity.detail.no_amount").message : (
-                <PrivateFigure><SignedWordedAmount
-                  value={amount}
-                  currency={detail.money.currency}
-                  locale={AMOUNT_LOCALE}
-                  decimals={0}
-                  direction={toKitDirection(detail.direction)}
-                /></PrivateFigure>
-              )}
-            />
-            <LabelValue
-              label={copyEntry("activity.detail.fee").message}
-              value={fee === undefined || detail.fees === undefined ? copyEntry("activity.detail.no_fee").message : (
-                <PrivateFigure><SignedWordedAmount
-                  value={protocolAmount(fee * -1)}
-                  currency={detail.fees.currency}
-                  locale={AMOUNT_LOCALE}
-                  decimals={0}
-                  direction="outbound"
-                /></PrivateFigure>
-              )}
-            />
-            <LabelValue label={copyEntry("activity.detail.when").message} value={formatEntryTimestamp(detail.occurred_at)} />
-          </div>
-        </section>
+        <ActivityDetailFacts detail={detail} />
         {detail.stages.length === 0 ? null : (
           <section aria-labelledby="activity-progress" className="flex flex-col gap-3">
             <h2 id="activity-progress" className="text-lg font-bold text-foreground">{copyEntry("activity.detail.timeline").message}</h2>

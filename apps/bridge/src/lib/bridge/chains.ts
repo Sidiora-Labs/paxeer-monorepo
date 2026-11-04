@@ -59,6 +59,9 @@ export type BridgeAsset = {
    * the token itself on EVM chains, the mint's 20-byte handle on Solana.
    */
   assetId: Address;
+
+  /** Full mint identity on Solana; explicit asset ids such as SID are not mint handles. */
+  solanaMint?: string;
   isNative: boolean;
 
   /** Config caps (base units, decimal strings) — display fallback only. */
@@ -235,6 +238,7 @@ export function buildBridgeChains(config: typeof bridgeConfig): BridgeChain[] {
           decimals: 9,
           address: NATIVE,
           assetId: '0xcf996523B5d068A26f0aa8a116602fE5033Ee3A1',
+          solanaMint: 'So11111111111111111111111111111111111111112',
           isNative: true,
           perTxCap: '5000000000000',
           totalCap: '100000000000000',
@@ -245,6 +249,7 @@ export function buildBridgeChains(config: typeof bridgeConfig): BridgeChain[] {
           decimals: 6,
           address: NATIVE,
           assetId: '0x21f7b20a555199fa73A238B1a91FD0f549068fEe',
+          solanaMint: '5w3wVdJaESaJKyLmStM6Hv9UyUkmZ1b9DLQquAqqpump',
           isNative: false,
           perTxCap: '1000000000000',
           totalCap: '50000000000000',

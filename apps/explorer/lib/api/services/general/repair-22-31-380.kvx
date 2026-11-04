@@ -1,0 +1,12 @@
+[repair.22.31.380]
+finding = "signature_gateway_route"
+implementation = "Admit only GET /api/v2/transactions/{transaction_hash_param}/signature through the existing bounded gateway path and header checks."
+tests = ["signatureGatewayRouteMatchesTheProducerAndExplorerResource", "signatureReplayUsesTheBackendsCryptographicallyValidFixture", "signatureResourcePreservesTheReceiptKeySignatureAndCommittedHeight", "signatureResourcePreservesMissingAndInvalidHashRefusals", "explorer_signature_route_preserves_admission_bounds"]
+fixture = "Backend committed-ok conformance vector and exact response contract asserted by services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_committed_test.exs and transaction_signature_controller_test.exs."
+coverage = "Each explorer transport test first checks the production gateway route against the consumer resource and backend router; the real fetch hook reads loopback HTTP responses and verifies the received signature against the received receipt and key. Vitest does not execute the Rust gateway or Elixir controller."
+baseline = "Not executed: the ordered implementation-first hf-build/hf-done gates prohibit an unchanged-tree verify; the missing gateway declaration makes signatureGatewayRouteMatchesTheProducerAndExplorerResource fail on the base source."
+wiring_request = "Domain 8 gateway and domain 14 backend: provide an admitted cross-runtime verification gate for explorer_proxy.rs through TransactionSignatureController; the declared TypeScript-only gate cannot execute either server without the expressly forbidden toolchain or native artifact."
+qualification = "Exact candidate revision, command, exit and private log are recorded by the runner gate ledger, outside the source tree."
+repair_cycle_1 = "The first Yarn build reached TypeScript and exposed incompatible Buffer declarations and an incomplete loopback ApiPropsFull; copy crypto inputs into Uint8Array values and supply every required API endpoint field, retaining all assertions."
+repair_cycle_2 = "The second build requires DER PublicKeyInput.key to remain a Buffer; construct that Buffer directly without Buffer.concat, retaining concrete Uint8Array digest and signature inputs."
+formatting = "rustfmt and the explorer ESLint fixer formatted the touched sources; ESLint additionally reports valid-title and expect-expect on the task-required test(namedFunction) registrations, which remain unchanged without disabling either rule."

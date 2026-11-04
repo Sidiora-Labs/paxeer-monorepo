@@ -73,15 +73,21 @@ export default function PrivacyPage() {
               <li>
                 <strong>Blockchain RPC requests</strong> — To read balances and send transactions,
                 the web wallet sends your public wallet address and signed transactions to the
-                Paxeer Network RPC node (<code>public-rpc.paxeer.app</code>).
+                configured Paxeer Network chain RPC at its root endpoint. If you select a custom RPC
+                or another network in wallet settings, that endpoint receives those requests.
               </li>
               <li>
                 <strong>Portfolio and price data</strong> — Your public wallet address is sent to
-                our indexer API to fetch token balances, transaction history, and price data.
+                the wallet server through a same-origin proxy to fetch token balances, transaction
+                history, and price data. The server forwards these queries to the configured Paxeer
+                indexer service (default: <code>api.paxscan.io</code>).
               </li>
               <li>
-                <strong>Block explorer queries</strong> — Your public address may be sent to PaxScan
-                (<code>paxscan.paxeer.app</code>) when viewing transaction details.
+                <strong>Block explorer queries</strong> — Your public address and transaction hashes
+                may be sent to the configured explorer (default: <code>paxscan.io</code>) when you
+                open explorer links. In-app explorer data is read through the wallet server&apos;s
+                same-origin proxy, which forwards queries to the configured Paxeer indexer service
+                (default: <code>api.paxscan.io</code>) using the Blockscout API.
               </li>
               <li>
                 <strong>Push subscription</strong> — If you enable push notifications, the wallet
@@ -215,19 +221,30 @@ export default function PrivacyPage() {
                     <td className="px-4 py-2.5">Chat messages and whether a wallet is connected</td>
                   </tr>
                   <tr>
-                    <td className="px-4 py-2.5 font-mono">public-rpc.paxeer.app</td>
+                    <td className="px-4 py-2.5">
+                      Configured chain RPC or selected network endpoint
+                    </td>
                     <td className="px-4 py-2.5">Blockchain RPC</td>
                     <td className="px-4 py-2.5">Public address, signed transactions</td>
                   </tr>
                   <tr>
-                    <td className="px-4 py-2.5 font-mono">paxscan.paxeer.app</td>
-                    <td className="px-4 py-2.5">Block explorer / Indexer API</td>
-                    <td className="px-4 py-2.5">Public address</td>
+                    <td className="px-4 py-2.5">
+                      Configured explorer (default: <code>paxscan.io</code>)
+                    </td>
+                    <td className="px-4 py-2.5">Explorer links</td>
+                    <td className="px-4 py-2.5">Public address, transaction hashes</td>
                   </tr>
                   <tr>
-                    <td className="px-4 py-2.5 font-mono">us-east-1.user-stats.sidiora.exchange</td>
-                    <td className="px-4 py-2.5">Portfolio & price data</td>
-                    <td className="px-4 py-2.5">Public address</td>
+                    <td className="px-4 py-2.5">
+                      Wallet server and configured Paxeer indexer (default:{' '}
+                      <code>api.paxscan.io</code>)
+                    </td>
+                    <td className="px-4 py-2.5">
+                      Portfolio, price and in-app explorer data via the same-origin Blockscout proxy
+                    </td>
+                    <td className="px-4 py-2.5">
+                      Public address, token addresses, transaction hashes
+                    </td>
                   </tr>
                 </tbody>
               </table>

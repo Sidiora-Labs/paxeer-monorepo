@@ -2,12 +2,14 @@
 //!
 //! A program is refused before deployment ever sees it when it reaches for a
 //! clock, for randomness, for floating point, or for any host interface
-//! outside the frozen `layerx_v1` surface. Every refusal is named, so a broken
+//! outside its recorded frozen ABI surface. Every refusal is named, so a broken
 //! build says which rule was violated rather than which byte offset failed.
 //!
 //! The lint reuses the runtime's own deterministic-subset validator for the
 //! module-level rules, so the toolchain and the node can never disagree about
 //! what is admissible.
+
+pub mod cli;
 
 use std::fmt::{self, Display};
 use std::fs;
@@ -15,8 +17,8 @@ use std::path::{Path, PathBuf};
 
 use layerx_program_sdk::{CALL_ENTRY_EXPORT, CALL_RESERVE_EXPORT, MEMORY_EXPORT};
 use layerx_programs_runtime::{
-    HostFunction, ValidationRefusal, WasmEngine, ABI_V1_VERSION, ABI_V2_VERSION, ABI_V3_VERSION,
-    ABI_V4_VERSION,
+    admit_abi_version, HostFunction, ValidationRefusal, WasmEngine, ABI_V1_VERSION, ABI_V2_VERSION,
+    ABI_V3_VERSION, ABI_V4_VERSION, ABI_V5_VERSION,
 };
 use wasmparser_nostd::{ExternalKind, Parser, Payload};
 
@@ -74,9 +76,8 @@ const FORBIDDEN_SOURCE_ITEMS: &[&str] = &[
 
 const FLOAT_TYPE_NAMES: &[&str] = &["f32", "f64"];
 
-/// Each host namespace with the ABI revision that introduced it and the exact
-/// host functions it exports. A revision admits its own namespace and every
-/// namespace an earlier revision introduced, and nothing else.
+/// Namespaces serialized by the frozen shared language manifest. The SDK's
+/// separate v5 table is parity-checked alongside its versioned manifest.
 const VERSIONED_HOST_NAMESPACES: [(&str, u16, &[HostFunction]); 4] = [
     (
         layerx_programs_runtime::ABI_V1_MODULE,
@@ -99,6 +100,15 @@ const VERSIONED_HOST_NAMESPACES: [(&str, u16, &[HostFunction]); 4] = [
         &layerx_programs_runtime::ABI_V4_HOST_FUNCTIONS,
     ),
 ];
+
+const V5_HOST_NAMESPACE: (&str, u16, &[HostFunction]) = (
+    layerx_programs_runtime::ABI_V5_MODULE,
+    ABI_V5_VERSION,
+    &layerx_programs_runtime::ABI_V5_HOST_FUNCTIONS,
+);
+
+const MAX_DEPLOYMENT_PAYLOAD_BYTES: u64 = 524_288;
+const DEPLOYMENT_ENVELOPE_BYTES: u64 = 104;
 
 /// A named determinism rule a program violated.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -354,6 +364,15 @@ pub fn abi_surface_violations() -> Vec<DeterminismViolation> {
             layerx_program_sdk::abi::V4_HOST_FUNCTIONS.as_slice(),
             layerx_programs_runtime::ABI_V4_HOST_FUNCTIONS.as_slice(),
         ),
+        (
+            5,
+            layerx_program_sdk::abi::V5_ABI_MODULE,
+            layerx_programs_runtime::ABI_V5_MODULE,
+            layerx_program_sdk::abi::V5_ABI_MANIFEST,
+            layerx_programs_runtime::ABI_V5_MANIFEST,
+            layerx_program_sdk::abi::V5_HOST_FUNCTIONS.as_slice(),
+            layerx_programs_runtime::ABI_V5_HOST_FUNCTIONS.as_slice(),
+        ),
     ] {
         if guest_module != host_module || guest_manifest != host_manifest {
             violations.push(DeterminismViolation::AbiDrift {
@@ -513,16 +532,22 @@ pub fn lint_candidate_artifact(wasm: &[u8]) -> Vec<DeterminismViolation> {
 /// Lints one artifact against the explicitly recorded ABI revision.
 #[must_use]
 pub fn lint_artifact_for_abi(wasm: &[u8], abi_version: u16) -> Vec<DeterminismViolation> {
-    match abi_version {
-        ABI_V1_VERSION | ABI_V2_VERSION | ABI_V3_VERSION | ABI_V4_VERSION => {
-            lint_supported_artifact(wasm, abi_version)
-        }
-        _ => vec![unsupported_abi_version(abi_version)],
+    if admit_abi_version(abi_version).is_err() {
+        return vec![unsupported_abi_version(abi_version)];
     }
+    lint_supported_artifact(wasm, abi_version)
 }
 
 fn lint_supported_artifact(wasm: &[u8], abi_version: u16) -> Vec<DeterminismViolation> {
     let mut violations = abi_surface_violations();
+    let limit = MAX_DEPLOYMENT_PAYLOAD_BYTES - DEPLOYMENT_ENVELOPE_BYTES;
+    if wasm.len() as u64 > limit {
+        violations.push(DeterminismViolation::ModuleTooLarge {
+            byte_size: wasm.len() as u64,
+            limit,
+        });
+        return violations;
+    }
     violations.extend(import_and_export_violations(wasm, abi_version));
     violations.extend(engine_violations(wasm, abi_version));
     violations
@@ -635,23 +660,16 @@ pub fn discover_artifact(project: &Path) -> Result<PathBuf, DeterminismViolation
 }
 
 fn permitted_import(abi_version: u16, import_module: &str, import_name: &str) -> bool {
-    (ABI_V1_VERSION..=ABI_V4_VERSION).contains(&abi_version)
-        && layerx_program_sdk::abi::SHARED_ABI_MANIFEST_TSV
-            .lines()
-            .any(|line| {
-                let mut fields = line.split('\t');
-                let introduced = fields
-                    .next()
-                    .and_then(|version| version.parse::<u16>().ok());
-                let module = fields.next();
-                let name = fields.next();
-                let signature = fields.next();
-                introduced
-                    .is_some_and(|version| version >= ABI_V1_VERSION && version <= abi_version)
-                    && module == Some(import_module)
-                    && name == Some(import_name)
-                    && signature.is_some()
-                    && fields.next().is_none()
+    admit_abi_version(abi_version).is_ok()
+        && VERSIONED_HOST_NAMESPACES
+            .into_iter()
+            .chain([V5_HOST_NAMESPACE])
+            .any(|(module, introduced, functions)| {
+                introduced <= abi_version
+                    && module == import_module
+                    && functions
+                        .iter()
+                        .any(|function| function.name == import_name)
             })
 }
 
@@ -757,13 +775,7 @@ fn engine_violations(wasm: &[u8], abi_version: u16) -> Vec<DeterminismViolation>
             }]
         }
     };
-    let validated = match abi_version {
-        ABI_V1_VERSION => engine.validate(wasm),
-        ABI_V2_VERSION => engine.validate_candidate_v2(wasm),
-        ABI_V3_VERSION => engine.validate_v3(wasm),
-        ABI_V4_VERSION => engine.validate_v4(wasm),
-        _ => return vec![unsupported_abi_version(abi_version)],
-    };
+    let validated = engine.validate_versioned(abi_version, wasm);
     match validated {
         Ok(_) => Vec::new(),
         Err(refusal) => vec![from_validation(&refusal)],
@@ -1007,7 +1019,7 @@ mod abi_surface_tests {
 
     #[test]
     fn each_revision_admits_exactly_its_own_and_earlier_namespaces() {
-        for version in 1..=4 {
+        for version in 1..=5 {
             assert!(permitted_import(version, "layerx_v1", "event_emit"));
             assert!(!permitted_import(version, "layerx_v1", "web_read"));
         }
@@ -1022,7 +1034,11 @@ mod abi_surface_tests {
         assert!(!permitted_import(4, "layerx_v4", "oracle_read"));
         assert!(!permitted_import(4, "layerx_v4", "web_fetch"));
         assert!(!permitted_import(4, "layerx_v5", "web_read"));
-        assert!(!permitted_import(5, "layerx_v1", "event_emit"));
+        assert!(permitted_import(5, "layerx_v5", "market_step_adjudicate"));
+        assert!(permitted_import(5, "layerx_v4", "web_read"));
+        assert!(!permitted_import(4, "layerx_v5", "market_step_adjudicate"));
+        assert!(!permitted_import(5, "layerx_v5", "web_read"));
+        assert!(!permitted_import(6, "layerx_v1", "event_emit"));
         assert!(!permitted_import(0, "layerx_v1", "event_emit"));
     }
 }

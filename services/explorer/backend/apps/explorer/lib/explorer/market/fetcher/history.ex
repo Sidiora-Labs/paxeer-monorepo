@@ -68,7 +68,7 @@ defmodule Explorer.Market.Fetcher.History do
       Logger.info("No market history sources are configured")
       :ignore
     else
-      state = %{types_states: types_states}
+      state = %{types_states: types_states, tasks: %{}, cycle_finished?: true}
 
       send(self(), {:fetch_all, config(:first_fetch_day_count)})
 
@@ -76,45 +76,55 @@ defmodule Explorer.Market.Fetcher.History do
     end
   end
 
-  def handle_info({:fetch_all, day_count}, state) do
+  @impl GenServer
+  def handle_info({:fetch_all, day_count}, %{cycle_finished?: true} = state) do
     new_types_states =
-      state.types_states
-      |> Map.new(fn {type, type_state} ->
+      Map.new(state.types_states, fn {type, type_state} ->
         {type, %{type_state | failed_attempts: 0, finished?: false, records: []}}
       end)
 
-    new_state = %{state | types_states: new_types_states} |> Map.put(:day_count, day_count)
+    new_state = %{state | types_states: new_types_states, cycle_finished?: false} |> Map.put(:day_count, day_count)
 
-    for type <- @types do
-      fetch(type, new_state)
-    end
-
-    {:noreply, new_state}
+    {:noreply, Enum.reduce(@types, new_state, &fetch/2)}
   end
+
+  def handle_info({:fetch_all, _day_count}, state), do: {:noreply, state}
 
   @impl GenServer
   def handle_info(type, state) when type in @types do
-    fetch(type, state)
-
-    {:noreply, state}
+    {:noreply, fetch(type, state)}
   end
 
   @impl GenServer
-  def handle_info({_ref, {type, {:ok, records}}}, state) do
+  def handle_info({ref, {type, result}}, state) when is_reference(ref) and type in @types do
+    case Map.pop(state.tasks, ref) do
+      {^type, tasks} ->
+        Process.demonitor(ref, [:flush])
+        handle_result(type, result, %{state | tasks: tasks})
+
+      _ ->
+        {:noreply, state}
+    end
+  end
+
+  @impl GenServer
+  def handle_info({:DOWN, ref, :process, _pid, reason}, state) do
+    case Map.pop(state.tasks, ref) do
+      {nil, _} -> {:noreply, state}
+      {type, tasks} -> handle_result(type, {:error, reason}, %{state | tasks: tasks})
+    end
+  end
+
+  defp handle_result(type, {:ok, records}, state) do
     new_types_states =
       state.types_states
       |> put_in([type, :records], records)
       |> put_in([type, :finished?], true)
 
-    new_state = %{state | types_states: new_types_states}
-
-    maybe_insert_and_schedule_refetch(new_state)
-
-    {:noreply, new_state}
+    {:noreply, maybe_insert_and_schedule_refetch(%{state | types_states: new_types_states})}
   end
 
-  @impl GenServer
-  def handle_info({_ref, {type, {:error, reason}}}, state) do
+  defp handle_result(type, {:error, reason}, state) do
     Logger.error("Failed to fetch #{type}: #{inspect(reason)}")
 
     failed_attempts = get_in(state.types_states, [type, :failed_attempts]) + 1
@@ -125,14 +135,10 @@ defmodule Explorer.Market.Fetcher.History do
     end
 
     new_types_states = put_in(state.types_states, [type, :failed_attempts], failed_attempts)
-    new_state = %{state | types_states: new_types_states}
-    maybe_insert_and_schedule_refetch(new_state)
-
-    {:noreply, new_state}
+    {:noreply, maybe_insert_and_schedule_refetch(%{state | types_states: new_types_states})}
   end
 
-  @impl GenServer
-  def handle_info({_ref, {type, :ignore}}, state) do
+  defp handle_result(type, :ignore, state) do
     Logger.info(
       "Selected source (#{inspect(get_in(state.types_states, [type, :source]))}) for #{type} is not implemented"
     )
@@ -142,37 +148,40 @@ defmodule Explorer.Market.Fetcher.History do
       |> put_in([type, :records], [])
       |> put_in([type, :source], nil)
 
-    new_state = %{state | types_states: new_types_states}
-
-    maybe_insert_and_schedule_refetch(new_state)
-
-    {:noreply, new_state}
+    {:noreply, maybe_insert_and_schedule_refetch(%{state | types_states: new_types_states})}
   end
 
-  @impl GenServer
-  def handle_info({:DOWN, _, :process, _, _}, state) do
-    {:noreply, state}
-  end
-
-  @spec fetch(atom(), map()) :: Task.t() | nil
+  @spec fetch(atom(), map()) :: map()
   defp fetch(type, state) do
-    if state.types_states[type].source do
-      Task.Supervisor.async_nolink(Explorer.MarketTaskSupervisor, fn ->
-        {type, apply(state.types_states[type].source, @types_to_default_state[type].fetch_function, [state.day_count])}
-      end)
+    type_state = state.types_states[type]
+
+    if type_state.source && !type_state.finished? &&
+         type_state.failed_attempts <= type_state.max_failed_attempts && type not in Map.values(state.tasks) do
+      task =
+        Task.Supervisor.async_nolink(Explorer.MarketTaskSupervisor, fn ->
+          {type, apply(type_state.source, @types_to_default_state[type].fetch_function, [state.day_count])}
+        end)
+
+      %{state | tasks: Map.put(state.tasks, task.ref, type)}
+    else
+      state
     end
   end
 
   defp maybe_insert_and_schedule_refetch(state) do
-    if Enum.all?(state.types_states, fn {_type, type_state} ->
-         is_nil(type_state.source) or type_state.finished? or
-           type_state.failed_attempts > type_state.max_failed_attempts
-       end) do
+    if !state.cycle_finished? &&
+         Enum.all?(state.types_states, fn {_type, type_state} ->
+           is_nil(type_state.source) or type_state.finished? or
+             type_state.failed_attempts > type_state.max_failed_attempts
+         end) do
       state
       |> compile_records()
       |> MarketHistory.bulk_insert()
 
       Process.send_after(self(), {:fetch_all, 1}, config(:history_fetch_interval))
+      %{state | cycle_finished?: true}
+    else
+      state
     end
   end
 

@@ -18,7 +18,7 @@ defmodule EthereumJSONRPC.HTTP.Throttle do
       `latest` or `pending`.
 
   A batch counts as a single in-flight request, and callers that cannot be admitted are queued in
-  arrival order instead of being rejected: the guard replies to them once a slot frees up. The
+  arrival order up to `:max_queue` waiting calls across all endpoints (default 1,024). The
   queue is scanned in order on every change, and an entry that cannot be admitted is skipped rather
   than blocking the ones behind it, so a saturated trace cap never stalls ordinary requests.
 
@@ -29,16 +29,22 @@ defmodule EthereumJSONRPC.HTTP.Throttle do
   out of a single-request response and ignores the response `id`, so sharing one response between
   callers that used different ids is transparent to them.
 
-  The guard is fail-closed. If this process is not running, callers wait for its supervisor to
-  restart it and acquire a slot from the new process; no request is ever let through unmetered.
+  `:request_timeout` (default 60,000 ms) is one absolute budget for admission and HTTP execution.
+  Full queues return `{:error, {:throttle, :overloaded}}`; an absent guard returns
+  `{:error, {:throttle, :unavailable}}`; expired work returns
+  `{:error, {:throttle, :deadline_exceeded}}`. Expired and abandoned executions are stopped before
+  their slots are released. No request is ever let through unmetered.
+
+  Outstanding admissions and rate budgets live in an ETS ledger whose heir is the supervising
+  process. A replacement guard recovers the active executions before admitting new work, including
+  across a terminate/restart of its child. Completed tickets retain their unique references, so
+  delayed completion messages cannot release a replacement admission.
 
   Queue depth, in-flight counts and admission wait time are exported through
   `EthereumJSONRPC.HTTP.Throttle.Metrics`.
   """
 
   use GenServer
-
-  require Logger
 
   alias EthereumJSONRPC.HTTP.Throttle.Metrics
 
@@ -49,10 +55,9 @@ defmodule EthereumJSONRPC.HTTP.Throttle do
   @default_trace_max_inflight 4
   @default_archive_max_inflight 8
   @default_coalesce? true
-
-  # How long a caller waits before looking the guard up again after the guard went down. The caller
-  # never proceeds without a slot, so a restart delays requests instead of releasing a burst.
-  @unavailable_retry_interval 50
+  @default_max_queue 1_024
+  @default_request_timeout 60_000
+  @ledger __MODULE__.Admissions
 
   # Upper bound on how long the guard sleeps before it re-examines a non-empty queue.
   @max_pump_interval 50
@@ -94,7 +99,8 @@ defmodule EthereumJSONRPC.HTTP.Throttle do
           class: class(),
           weight: pos_integer(),
           key: term(),
-          ref: reference()
+          ref: reference(),
+          deadline: integer()
         }
 
   @spec start_link(keyword()) :: GenServer.on_start()
@@ -108,18 +114,91 @@ defmodule EthereumJSONRPC.HTTP.Throttle do
   Runs `fun` once a slot for `request` on `url` is available.
 
   `request` is the single JSON-RPC request map or the batch about to be sent, and `fun` is the
-  function that performs the HTTP call. The return value of `fun` is returned unchanged. Callers
-  wait for a slot; they are never rejected because the guard is busy or absent.
+  function that performs the HTTP call. Execution shares the admission deadline, including when
+  the HTTP client has a longer timeout. Results and exceptions of `fun` are preserved.
   """
   @spec request(String.t() | nil, map() | [map()], (-> result)) :: result when result: term()
   def request(url, request, fun) when is_function(fun, 0) do
+    deadline = monotonic_ms() + build_config([]).request_timeout
+    caller = self()
+    callers = [caller | Process.get(:"$callers", [])]
+    result_ref = make_ref()
+
+    {worker, monitor} =
+      spawn_monitor(fn ->
+        Process.put(:"$callers", callers)
+        watch_execution(caller, self(), deadline)
+
+        outcome =
+          try do
+            {:return, execute(url, request, fun, deadline)}
+          catch
+            kind, reason -> {:raise, kind, reason, __STACKTRACE__}
+          end
+
+        send(caller, {result_ref, outcome})
+      end)
+
+    receive do
+      {^result_ref, outcome} ->
+        receive do
+          {:DOWN, ^monitor, :process, ^worker, _reason} -> :ok
+        end
+
+        case outcome do
+          {:return, result} -> result
+          {:raise, kind, reason, stacktrace} -> :erlang.raise(kind, reason, stacktrace)
+        end
+
+      {:DOWN, ^monitor, :process, ^worker, _reason} ->
+        execution_error(deadline)
+    after
+      remaining(deadline) ->
+        Process.exit(worker, :kill)
+
+        receive do
+          {:DOWN, ^monitor, :process, ^worker, _reason} -> :ok
+        end
+
+        receive do
+          {^result_ref, _outcome} -> :ok
+        after
+          0 -> :ok
+        end
+
+        {:error, {:throttle, :deadline_exceeded}}
+    end
+  end
+
+  defp execute(url, request, fun, deadline) do
     {class, weight} = classify(request)
     key = coalesce_key(url, request)
 
-    case acquire(url, class, weight, key) do
+    case acquire(url, class, weight, key, deadline) do
       {:run, ticket} -> run(ticket, fun)
       {:coalesced, result} -> result
+      {:error, _} = error -> error
     end
+  end
+
+  defp watch_execution(caller, worker, deadline) do
+    spawn(fn ->
+      caller_monitor = Process.monitor(caller)
+      worker_monitor = Process.monitor(worker)
+
+      receive do
+        {:DOWN, ^caller_monitor, :process, ^caller, _reason} -> Process.exit(worker, :kill)
+        {:DOWN, ^worker_monitor, :process, ^worker, _reason} -> :ok
+      after
+        remaining(deadline) -> Process.exit(worker, :kill)
+      end
+    end)
+  end
+
+  defp execution_error(deadline) do
+    if remaining(deadline) == 0,
+      do: {:error, {:throttle, :deadline_exceeded}},
+      else: {:error, {:throttle, :unavailable}}
   end
 
   @doc """
@@ -152,29 +231,52 @@ defmodule EthereumJSONRPC.HTTP.Throttle do
 
   @impl GenServer
   def init(opts) do
-    {:ok, %{config: build_config(opts), endpoints: %{}, waiters: %{}}}
+    ensure_ledger()
+    state = recover(%{config: build_config(opts), endpoints: %{}, waiters: %{}, monitors: %{}, entries: %{}})
+    publish(state)
+    {:ok, state}
   end
 
   @impl GenServer
-  def handle_call({:acquire, url, class, weight, key}, {pid, _tag} = from, state) do
+  def handle_call({:acquire, url, class, weight, key, deadline}, {pid, _tag} = from, state) do
+    state = pump(state, url)
     endpoint = endpoint(state, url)
 
     entry = %{
       from: from,
-      ref: Process.monitor(pid),
+      pid: pid,
       class: class,
       weight: min(weight, state.config.rps),
       key: key,
-      queued_at: monotonic_ms()
+      queued_at: monotonic_ms(),
+      deadline: deadline
     }
 
-    state =
-      state
-      |> put_endpoint(url, %{endpoint | queue: [entry | endpoint.queue]})
-      |> put_waiter(entry.ref, {:queued, url})
-      |> pump(url)
+    waiting? =
+      (state.config.coalesce? and coalescable_entry?(endpoint, entry)) or
+        not admissible?(endpoint, state.config, entry)
 
-    {:noreply, state}
+    cond do
+      remaining(deadline) == 0 ->
+        {:reply, {:error, {:throttle, :deadline_exceeded}}, state}
+
+      waiting? and waiting_count(state) >= state.config.max_queue ->
+        {:reply, {:error, {:throttle, :overloaded}}, state}
+
+      true ->
+        ref = Process.monitor(pid)
+        timer = Process.send_after(self(), {:expire, ref}, remaining(deadline))
+        entry = Map.merge(entry, %{ref: ref, timer: timer})
+        state = %{state | entries: Map.put(state.entries, ref, entry), monitors: Map.put(state.monitors, ref, ref)}
+
+        state =
+          state
+          |> put_endpoint(url, %{endpoint | queue: [entry | endpoint.queue]})
+          |> put_waiter(ref, {:queued, url})
+          |> pump(url)
+
+        {:noreply, state}
+    end
   end
 
   def handle_call({:stats, url}, _from, state) do
@@ -183,7 +285,9 @@ defmodule EthereumJSONRPC.HTTP.Throttle do
     stats = %{
       inflight: endpoint.inflight,
       inflight_total: endpoint.inflight_total,
-      queue_depth: length(endpoint.queue)
+      queue_depth:
+        length(endpoint.queue) +
+          Enum.reduce(endpoint.leaders, 0, fn {_key, leader}, sum -> sum + length(leader.followers) end)
     }
 
     {:reply, stats, state}
@@ -210,22 +314,50 @@ defmodule EthereumJSONRPC.HTTP.Throttle do
   end
 
   def handle_info({:DOWN, ref, :process, _pid, _reason}, state) do
+    ref = Map.get(state.monitors, ref, ref)
+    {:noreply, remove_waiter(state, ref)}
+  end
+
+  def handle_info({:expire, ref}, state) do
+    case Map.fetch(state.entries, ref) do
+      {:ok, entry} ->
+        case Map.get(state.waiters, ref) do
+          {:queued, _url} ->
+            GenServer.reply(entry.from, {:error, {:throttle, :deadline_exceeded}})
+            {:noreply, remove_waiter(state, ref)}
+
+          {:follower, _url, _key} ->
+            GenServer.reply(entry.from, {:error, {:throttle, :deadline_exceeded}})
+            {:noreply, remove_waiter(state, ref)}
+
+          _ ->
+            # DOWN, rather than the timer, releases an execution's slot after cancellation.
+            Process.exit(entry.pid, :kill)
+            {:noreply, state}
+        end
+
+      :error ->
+        {:noreply, state}
+    end
+  end
+
+  defp remove_waiter(state, ref) do
     case Map.fetch(state.waiters, ref) do
       {:ok, {:queued, url}} ->
         endpoint = endpoint(state, url)
         queue = Enum.reject(endpoint.queue, &(&1.ref == ref))
 
-        {:noreply, state |> drop_waiter(ref) |> put_endpoint(url, %{endpoint | queue: queue}) |> pump(url)}
+        state |> drop_waiter(ref) |> put_endpoint(url, %{endpoint | queue: queue}) |> pump(url)
 
       {:ok, {:running, url, class, weight}} ->
-        ticket = %{url: url, class: class, weight: weight, key: nil, ref: ref}
+        ticket = %{url: url, class: class, weight: weight, key: nil, ref: ref, deadline: state.entries[ref].deadline}
 
-        {:noreply, state |> finish(ticket, :promote) |> pump(url)}
+        state |> finish(ticket, :promote) |> pump(url)
 
       {:ok, {:leader, url, key, class, weight}} ->
-        ticket = %{url: url, class: class, weight: weight, key: key, ref: ref}
+        ticket = %{url: url, class: class, weight: weight, key: key, ref: ref, deadline: state.entries[ref].deadline}
 
-        {:noreply, state |> finish(ticket, :promote) |> pump(url)}
+        state |> finish(ticket, :promote) |> pump(url)
 
       {:ok, {:follower, url, key}} ->
         endpoint = endpoint(state, url)
@@ -245,26 +377,23 @@ defmodule EthereumJSONRPC.HTTP.Throttle do
               endpoint.leaders
           end
 
-        {:noreply, state |> drop_waiter(ref) |> put_endpoint(url, %{endpoint | leaders: leaders})}
+        state |> drop_waiter(ref) |> put_endpoint(url, %{endpoint | leaders: leaders}) |> publish()
 
       :error ->
-        {:noreply, state}
+        state
     end
   end
 
-  defp acquire(url, class, weight, key) do
-    GenServer.call(__MODULE__, {:acquire, url, class, weight, key}, :infinity)
+  defp acquire(url, class, weight, key, deadline) do
+    GenServer.call(__MODULE__, {:acquire, url, class, weight, key, deadline}, remaining(deadline))
   catch
-    :exit, _reason ->
-      Logger.debug(fn -> "JSON RPC node guard is unavailable, waiting for it to restart" end)
-
-      Process.sleep(@unavailable_retry_interval)
-
-      acquire(url, class, weight, key)
+    :exit, {:timeout, _} -> {:error, {:throttle, :deadline_exceeded}}
+    :exit, _reason -> {:error, {:throttle, :unavailable}}
   end
 
   defp run(ticket, fun) do
     result = fun.()
+    :ets.update_element(@ledger, ticket.ref, {4, :completed})
 
     # Only a request that can be coalesced has to hand its response to the guard, so a batch
     # response, which is the largest payload the transport returns, is never copied into the
@@ -278,6 +407,7 @@ defmodule EthereumJSONRPC.HTTP.Throttle do
     result
   catch
     kind, reason ->
+      :ets.update_element(@ledger, ticket.ref, {4, :completed})
       GenServer.cast(__MODULE__, {:abandon, ticket})
 
       :erlang.raise(kind, reason, __STACKTRACE__)
@@ -291,6 +421,8 @@ defmodule EthereumJSONRPC.HTTP.Throttle do
       rps: positive(merged[:rps], @default_rps),
       trace_max_inflight: positive(merged[:trace_max_inflight], @default_trace_max_inflight),
       archive_max_inflight: positive(merged[:archive_max_inflight], @default_archive_max_inflight),
+      max_queue: positive(merged[:max_queue], @default_max_queue),
+      request_timeout: positive(merged[:request_timeout], @default_request_timeout),
       coalesce?: if(is_boolean(merged[:coalesce?]), do: merged[:coalesce?], else: @default_coalesce?)
     }
   end
@@ -307,7 +439,11 @@ defmodule EthereumJSONRPC.HTTP.Throttle do
     {state, drained, kept} =
       Enum.reduce(arrival_order, {state, endpoint, []}, fn entry, {acc_state, acc_endpoint, kept} ->
         cond do
-          coalescable_entry?(acc_endpoint, entry) ->
+          remaining(entry.deadline) == 0 or not Process.alive?(entry.pid) ->
+            GenServer.reply(entry.from, {:error, {:throttle, :deadline_exceeded}})
+            {drop_waiter(acc_state, entry.ref), acc_endpoint, kept}
+
+          config.coalesce? and coalescable_entry?(acc_endpoint, entry) ->
             {acc_state, acc_endpoint} = attach_follower(acc_state, acc_endpoint, url, entry)
             {acc_state, acc_endpoint, kept}
 
@@ -322,9 +458,7 @@ defmodule EthereumJSONRPC.HTTP.Throttle do
 
     pumped = schedule_pump(%{drained | queue: kept}, url, config)
 
-    publish(pumped)
-
-    put_endpoint(state, url, pumped)
+    state |> put_endpoint(url, pumped) |> publish()
   end
 
   defp admissible?(endpoint, config, entry) do
@@ -355,11 +489,19 @@ defmodule EthereumJSONRPC.HTTP.Throttle do
   defp admit(state, endpoint, config, url, entry) do
     Metrics.wait_time(entry.class, monotonic_ms() - entry.queued_at)
 
-    ticket = %{url: url, class: entry.class, weight: entry.weight, key: entry.key, ref: entry.ref}
-
-    GenServer.reply(entry.from, {:run, ticket})
+    ticket = %{
+      url: url,
+      class: entry.class,
+      weight: entry.weight,
+      key: if(config.coalesce?, do: entry.key),
+      ref: entry.ref,
+      deadline: entry.deadline
+    }
 
     endpoint = reserve(endpoint, entry)
+    persist_rate(url, endpoint)
+    :ets.insert(@ledger, {entry.ref, entry.pid, ticket, :running})
+    GenServer.reply(entry.from, {:run, ticket})
 
     if config.coalesce? and not is_nil(entry.key) do
       leaders = Map.put(endpoint.leaders, entry.key, %{ref: entry.ref, followers: []})
@@ -392,8 +534,7 @@ defmodule EthereumJSONRPC.HTTP.Throttle do
     waiter = Map.get(state.waiters, ref)
 
     if match?({:running, _, _, _}, waiter) or match?({:leader, _, _, _, _}, waiter) do
-      Process.demonitor(ref, [:flush])
-
+      :ets.delete(@ledger, ref)
       state = drop_waiter(state, ref)
       endpoint = endpoint(state, url)
 
@@ -441,20 +582,25 @@ defmodule EthereumJSONRPC.HTTP.Throttle do
   defp resolve_leader(state, url, endpoint, ticket, followers, :promote) do
     %{class: class, weight: weight, key: key} = ticket
     [{from, follower_ref} | rest] = Enum.reverse(followers)
+    entry = Map.fetch!(state.entries, follower_ref)
 
-    GenServer.reply(
-      from,
-      {:run, %{url: url, class: class, weight: weight, key: key, ref: follower_ref}}
-    )
+    if remaining(entry.deadline) == 0 or not Process.alive?(entry.pid) do
+      GenServer.reply(from, {:error, {:throttle, :deadline_exceeded}})
+      resolve_leader(drop_waiter(state, follower_ref), url, endpoint, ticket, Enum.reverse(rest), :promote)
+    else
+      ticket = %{ticket | ref: follower_ref, deadline: entry.deadline}
+      :ets.insert(@ledger, {follower_ref, entry.pid, ticket, :running})
+      GenServer.reply(from, {:run, ticket})
 
-    endpoint = %{
-      endpoint
-      | leaders: Map.put(endpoint.leaders, key, %{ref: follower_ref, followers: Enum.reverse(rest)})
-    }
+      endpoint = %{
+        endpoint
+        | leaders: Map.put(endpoint.leaders, key, %{ref: follower_ref, followers: Enum.reverse(rest)})
+      }
 
-    state
-    |> put_waiter(follower_ref, {:leader, url, key, class, weight})
-    |> put_endpoint(url, endpoint)
+      state
+      |> put_waiter(follower_ref, {:leader, url, key, class, weight})
+      |> put_endpoint(url, endpoint)
+    end
   end
 
   defp refill(endpoint, config) do
@@ -494,13 +640,20 @@ defmodule EthereumJSONRPC.HTTP.Throttle do
     %{endpoint | timer: Process.send_after(self(), {:pump, url}, delay)}
   end
 
-  defp publish(endpoint) do
-    queued = Enum.frequencies_by(endpoint.queue, & &1.class)
-
+  defp publish(state) do
+    # Class-only labels represent the sum across every endpoint, including coalesced waiters.
     Enum.each(@classes, fn class ->
-      Metrics.queue_depth(class, Map.get(queued, class, 0))
-      Metrics.inflight(class, Map.fetch!(endpoint.inflight, class))
+      queued =
+        Enum.count(state.waiters, fn {ref, waiter} ->
+          waiting?(waiter) and Map.fetch!(state.entries, ref).class == class
+        end)
+
+      inflight = Enum.reduce(state.endpoints, 0, fn {_url, endpoint}, sum -> sum + endpoint.inflight[class] end)
+      Metrics.queue_depth(class, queued)
+      Metrics.inflight(class, inflight)
     end)
+
+    state
   end
 
   defp endpoint(state, url) do
@@ -520,6 +673,7 @@ defmodule EthereumJSONRPC.HTTP.Throttle do
   end
 
   defp put_endpoint(state, url, endpoint) do
+    persist_rate(url, endpoint)
     %{state | endpoints: Map.put(state.endpoints, url, endpoint)}
   end
 
@@ -528,7 +682,91 @@ defmodule EthereumJSONRPC.HTTP.Throttle do
   end
 
   defp drop_waiter(state, ref) do
-    %{state | waiters: Map.delete(state.waiters, ref)}
+    case Map.get(state.entries, ref) do
+      %{timer: timer} -> Process.cancel_timer(timer)
+      nil -> :ok
+    end
+
+    monitors =
+      Enum.reduce(state.monitors, state.monitors, fn {monitor, entry_ref}, acc ->
+        if entry_ref == ref do
+          Process.demonitor(monitor, [:flush])
+          Map.delete(acc, monitor)
+        else
+          acc
+        end
+      end)
+
+    %{state | waiters: Map.delete(state.waiters, ref), entries: Map.delete(state.entries, ref), monitors: monitors}
+  end
+
+  defp waiting?({:queued, _url}), do: true
+  defp waiting?({:follower, _url, _key}), do: true
+  defp waiting?(_waiter), do: false
+
+  defp waiting_count(state), do: Enum.count(state.waiters, fn {_ref, waiter} -> waiting?(waiter) end)
+
+  defp ensure_ledger do
+    if :ets.whereis(@ledger) == :undefined do
+      [parent | _] = Process.get(:"$ancestors")
+      parent = GenServer.whereis(parent)
+      :ets.new(@ledger, [:named_table, :public, :set, {:heir, parent, :throttle_admissions}])
+    end
+  end
+
+  defp persist_rate(url, endpoint) do
+    :ets.insert(@ledger, {{:rate, url}, endpoint.tokens, endpoint.refilled_at})
+  end
+
+  defp recover(state) do
+    rows = :ets.tab2list(@ledger)
+
+    state =
+      Enum.reduce(rows, state, fn
+        {{:rate, url}, tokens, refilled_at}, acc ->
+          endpoint = %{new_endpoint(acc.config) | tokens: min(tokens, acc.config.rps * 1.0), refilled_at: refilled_at}
+          %{acc | endpoints: Map.put(acc.endpoints, url, endpoint)}
+
+        _admission, acc ->
+          acc
+      end)
+
+    Enum.reduce(rows, state, fn
+      {ref, pid, ticket, :running}, acc ->
+        if Process.alive?(pid) do
+          monitor = Process.monitor(pid)
+          timer = Process.send_after(self(), {:expire, ref}, remaining(ticket.deadline))
+          endpoint = endpoint(acc, ticket.url)
+
+          endpoint = %{
+            endpoint
+            | inflight_total: endpoint.inflight_total + 1,
+              inflight: Map.update!(endpoint.inflight, ticket.class, &(&1 + 1))
+          }
+
+          {endpoint, waiter} =
+            if is_nil(ticket.key) do
+              {endpoint, {:running, ticket.url, ticket.class, ticket.weight}}
+            else
+              {%{endpoint | leaders: Map.put(endpoint.leaders, ticket.key, %{ref: ref, followers: []})},
+               {:leader, ticket.url, ticket.key, ticket.class, ticket.weight}}
+            end
+
+          entry = %{pid: pid, timer: timer, deadline: ticket.deadline, class: ticket.class}
+          acc = %{acc | entries: Map.put(acc.entries, ref, entry), monitors: Map.put(acc.monitors, monitor, ref)}
+          acc |> put_waiter(ref, waiter) |> put_endpoint(ticket.url, endpoint)
+        else
+          :ets.delete(@ledger, ref)
+          acc
+        end
+
+      {ref, _pid, _ticket, :completed}, acc ->
+        :ets.delete(@ledger, ref)
+        acc
+
+      _rate, acc ->
+        acc
+    end)
   end
 
   defp classify_method(request) when is_map(request) do
@@ -587,4 +825,5 @@ defmodule EthereumJSONRPC.HTTP.Throttle do
   end
 
   defp monotonic_ms, do: System.monotonic_time(:millisecond)
+  defp remaining(deadline), do: max(deadline - monotonic_ms(), 0)
 end

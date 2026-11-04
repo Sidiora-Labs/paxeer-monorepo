@@ -31,8 +31,24 @@ defmodule Indexer.Fetcher.PolygonZkevm.BridgeL1Tokens do
   end
 
   @impl BufferedTask
-  def init(_, _, _) do
-    {0, []}
+  def init(initial_acc, reducer, _) do
+    {:ok, acc} =
+      Repo.transaction(
+        fn ->
+          from(b in Explorer.Chain.PolygonZkevm.Bridge,
+            where: is_nil(b.l1_token_id) and not is_nil(b.l1_token_address),
+            select: b.l1_token_address,
+            distinct: true
+          )
+          |> Repo.stream(timeout: :infinity)
+          |> Enum.reduce(initial_acc, fn address, acc ->
+            reducer.(Helper.address_hash_to_string(address, true), acc)
+          end)
+        end,
+        timeout: :infinity
+      )
+
+    acc
   end
 
   @impl BufferedTask

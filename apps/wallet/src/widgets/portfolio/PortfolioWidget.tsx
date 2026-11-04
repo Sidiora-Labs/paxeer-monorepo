@@ -24,11 +24,7 @@ import { useWalletState } from '@/providers/WalletProvider';
 import { formatBalance } from '@/lib/format';
 import { ErrorBanner } from '@/components/ui/NetworkErrorScreen';
 import { PortfolioSkeleton } from '@/components/ui/Skeletons';
-import {
-    usePortfolioQuery,
-    useBalanceQuery,
-    usePaxPriceQuery,
-} from '@/lib/queries';
+import { usePortfolioQuery, useBalanceQuery, usePaxPriceQuery } from '@/lib/queries';
 import type { AppRoute } from '@/widgets/shell/useAppRoute';
 import { HeroBalance } from './HeroBalance';
 import { ActionBento } from './ActionBento';
@@ -39,112 +35,118 @@ import { useTokenFilters } from './useTokenFilters';
 import { useApplyPendingSend } from './useApplyPendingSend';
 
 export interface PortfolioWidgetProps {
-    onNavigate: (route: AppRoute) => void;
-    onTokenDetail?: (tokenId: string, symbol?: string) => void;
+  onNavigate: (route: AppRoute) => void;
+  onTokenDetail?: (tokenId: string, symbol?: string) => void;
 }
 
 export function PortfolioWidget({ onNavigate, onTokenDetail }: PortfolioWidgetProps) {
-    const { activeAccount } = useWalletState();
-    const address = activeAccount?.address;
+  const { activeAccount } = useWalletState();
+  const address = activeAccount?.address;
 
-    // ── Optimistic guard ─────────────────────────────────────────────────
-    // While a post-send mutation is in flight, query hooks must skip background
-    // refetches so the optimistic delta isn't stomped by a stale read. The ref
-    // is mutated by `useApplyPendingSend` once the pending send has been
-    // applied to the cache.
-    const optimisticBlockUntilRef = useRef(0);
-    const isOptimisticActive = useCallback(
-        () => Date.now() < optimisticBlockUntilRef.current,
-        [],
-    );
+  // ── Optimistic guard ─────────────────────────────────────────────────
+  // While a post-send mutation is in flight, query hooks must skip background
+  // refetches so the optimistic delta isn't stomped by a stale read. The ref
+  // is mutated by `useApplyPendingSend` once the pending send has been
+  // applied to the cache.
+  const optimisticBlockUntilRef = useRef(0);
+  const isOptimisticActive = useCallback(() => Date.now() < optimisticBlockUntilRef.current, []);
 
-    // ── Queries ──────────────────────────────────────────────────────────
-    const portfolioQuery = usePortfolioQuery(address, {
-        refetchOnWindowFocus: () => !isOptimisticActive(),
-        refetchOnReconnect: () => !isOptimisticActive(),
-    });
-    const balanceQuery = useBalanceQuery(address, {
-        refetchOnWindowFocus: () => !isOptimisticActive(),
-        refetchOnReconnect: () => !isOptimisticActive(),
-    });
-    const paxPriceQuery = usePaxPriceQuery();
+  // ── Queries ──────────────────────────────────────────────────────────
+  const portfolioQuery = usePortfolioQuery(address, {
+    refetchOnWindowFocus: () => !isOptimisticActive(),
+    refetchOnReconnect: () => !isOptimisticActive(),
+  });
+  const balanceQuery = useBalanceQuery(address, {
+    refetchOnWindowFocus: () => !isOptimisticActive(),
+    refetchOnReconnect: () => !isOptimisticActive(),
+  });
+  const paxPriceQuery = usePaxPriceQuery();
 
-    const portfolio = portfolioQuery.data ?? null;
-    const balanceData = balanceQuery.data ?? null;
-    const paxPrice = paxPriceQuery.data?.latest ?? 0;
-    const loading = portfolioQuery.isPending || balanceQuery.isPending;
-    const hasError = portfolioQuery.isError || balanceQuery.isError;
+  const portfolio = portfolioQuery.data ?? null;
+  const balanceData = balanceQuery.data ?? null;
+  const paxPrice = paxPriceQuery.data?.latest ?? 0;
+  const loading = portfolioQuery.isPending || balanceQuery.isPending;
+  const hasError = portfolioQuery.isError || balanceQuery.isError;
 
-    // ── Optimistic effect (runs when cache is populated) ─────────────────
-    useApplyPendingSend({ address, loading, optimisticBlockUntilRef });
+  // ── Optimistic effect (runs when cache is populated) ─────────────────
+  useApplyPendingSend({ address, loading, optimisticBlockUntilRef });
 
-    // ── Derived values ───────────────────────────────────────────────────
-    const nativeBalanceRaw = portfolio?.native_balance?.balance_raw || '0';
-    const nativeBalance = formatBalance(nativeBalanceRaw, 18, 4);
-    const nativeValueUsd = Number(formatBalance(nativeBalanceRaw, 18, 8)) * paxPrice;
+  // ── Derived values ───────────────────────────────────────────────────
+  const nativeBalanceRaw = portfolio?.native_balance?.balance_raw || '0';
+  const nativeBalance = formatBalance(nativeBalanceRaw, 18, 4);
+  const nativeValueUsd = Number(formatBalance(nativeBalanceRaw, 18, 8)) * paxPrice;
 
-    const allHoldings: HoldingsGridHolding[] = portfolio?.token_holdings || [];
-    const tokenValueUsd = allHoldings.reduce(
-        (sum, h) => sum + (h.value_usd != null ? Number(h.value_usd) : 0),
-        0,
-    );
-    const totalUsd = nativeValueUsd + tokenValueUsd;
+  const allHoldings: HoldingsGridHolding[] = portfolio?.token_holdings || [];
+  const tokenValueUsd = allHoldings.reduce(
+    (sum, h) => sum + (h.value_usd != null ? Number(h.value_usd) : 0),
+    0
+  );
+  const totalUsd = nativeValueUsd + tokenValueUsd;
 
-    // useTokenFilters must be called unconditionally before any early return.
-    const filters = useTokenFilters();
-    const holdings = filters.applyFilters(allHoldings);
+  // useTokenFilters must be called unconditionally before any early return.
+  const filters = useTokenFilters();
+  const holdings = filters.applyFilters(allHoldings);
 
-    // ── First-load skeleton ──────────────────────────────────────────────
-    // All hooks are above this line — safe to early-return here.
-    // `isPending` is true until the first successful fetch; after that TanStack
-    // Query returns stale data immediately so this guard never fires again.
-    if (loading && !portfolio && !balanceData) return <PortfolioSkeleton />;
+  // ── First-load skeleton ──────────────────────────────────────────────
+  // All hooks are above this line — safe to early-return here.
+  // `isPending` is true until the first successful fetch; after that TanStack
+  // Query returns stale data immediately so this guard never fires again.
+  if (loading && !portfolio && !balanceData) return <PortfolioSkeleton />;
 
-    return (
-        <div className="flex flex-col">
-            {hasError && !loading && (
-                <ErrorBanner
-                    message="Could not refresh portfolio. Showing last cached data."
-                    onRetry={() => { portfolioQuery.refetch(); balanceQuery.refetch(); }}
-                />
-            )}
-            <div className="grid grid-cols-2 gap-2.5 px-3 pt-3 pb-4">
-                <HeroBalance
-                    totalUsd={totalUsd}
-                    loading={loading}
-                    paxPrice={paxPrice}
-                    dailyPnlUsd={balanceData?.daily_pnl_usd ?? null}
-                    dailyPnlPercent={balanceData?.daily_pnl_percent ?? null}
-                />
+  return (
+    <div className="flex flex-col">
+      {hasError && !loading && (
+        <ErrorBanner
+          message="Could not refresh portfolio. Showing last cached data."
+          onRetry={() => {
+            portfolioQuery.refetch();
+            balanceQuery.refetch();
+          }}
+        />
+      )}
+      <div className="grid grid-cols-2 gap-2.5 px-3 pt-3 pb-4">
+        <HeroBalance
+          totalUsd={totalUsd}
+          loading={loading}
+          paxPrice={paxPrice}
+          dailyPnlUsd={balanceData?.daily_pnl_usd ?? null}
+          dailyPnlPercent={balanceData?.daily_pnl_percent ?? null}
+        />
 
-                <ActionBento onNavigate={onNavigate} />
+        <ActionBento onNavigate={onNavigate} />
 
-                <div className="col-span-2">
-                    <PaxCardExpand address={address} onTokenDetail={onTokenDetail} />
-                </div>
-
-                {allHoldings.length > 3 && (
-                    <>
-                        <HoldingsFilter
-                            allHoldings={allHoldings}
-                            hideDust={filters.hideDust}
-                            hiddenTokens={filters.hiddenTokens}
-                            onToggleHideDust={filters.toggleHideDust}
-                            onToggleTokenVisibility={filters.toggleTokenVisibility}
-                        />
-
-                        <HoldingsGrid
-                            hidden={false}
-                            loading={loading}
-                            nativeBalance={nativeBalance}
-                            nativeValueUsd={nativeValueUsd}
-                            holdings={holdings}
-                            allHoldingsCount={allHoldings.length}
-                            onTokenDetail={onTokenDetail}
-                        />
-                    </>
-                )}
-            </div>
+        <div className="col-span-2" aria-label="Token cards">
+          <PaxCardExpand
+            address={address}
+            holdings={holdings}
+            nativeBalance={nativeBalance}
+            nativeValueUsd={nativeValueUsd}
+            onTokenDetail={onTokenDetail}
+          />
         </div>
-    );
+
+        <HoldingsFilter
+          allHoldings={allHoldings}
+          hideDust={filters.hideDust}
+          hiddenTokens={filters.hiddenTokens}
+          onToggleHideDust={filters.toggleHideDust}
+          onToggleTokenVisibility={filters.toggleTokenVisibility}
+        />
+
+        {allHoldings.length > 3 && (
+          <div className="contents" aria-label="Token grid">
+            <HoldingsGrid
+              hidden={false}
+              loading={loading}
+              nativeBalance={nativeBalance}
+              nativeValueUsd={nativeValueUsd}
+              holdings={holdings}
+              allHoldingsCount={allHoldings.length}
+              onTokenDetail={onTokenDetail}
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }

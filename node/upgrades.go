@@ -568,14 +568,14 @@ func activationModules() []string {
 
 // activationPrecompileGate declares the custom precompiles the activation plan
 // brings online and, for each, the fork module whose state it serves: the
-// stateless evidence precompile is gated with the anchor module whose batch
-// headers and receipts it verifies, and the fee-token precompile with the bridge
+// retained retirement interfaces depend on the live upgrade module, and the
+// fee-token precompile depends on the bridge
 // module that holds the Sidiora asset it prices.
 func activationPrecompileGate() evmkeeper.CustomPrecompileActivation {
 	return evmkeeper.CustomPrecompileActivation{
 		Upgrade: ActivationUpgrade,
 		Modules: map[common.Address][]string{
-			common.HexToAddress(verifyprecompile.LayerXVerifyAddress): {layerxanchortypes.ModuleName},
+			common.HexToAddress(verifyprecompile.LayerXVerifyAddress): {upgradetypes.ModuleName},
 			common.HexToAddress(layerxcustodytypes.CustodyAddress):    {layerxcustodytypes.ModuleName},
 			common.HexToAddress(anchorprecompile.LayerXAnchorAddress): {upgradetypes.ModuleName},
 			common.HexToAddress(layerxexchangetypes.ExchangeAddress):  {layerxexchangetypes.ModuleName},
@@ -707,9 +707,49 @@ func (app *App) applyNamedUpgrade(ctx sdk.Context) {
 		panic(fmt.Errorf("upgrade %s is due at height %d but the store loader did not add the %s stores %s: the upgrade info height must equal the last committed height plus one when the process starts",
 			info.Name, info.Height, stores, strings.Join(missing, ", ")))
 	}
-	plan := upgradetypes.Plan{Name: info.Name, Height: ctx.BlockHeight()}
+	plan, err := app.resolveNamedUpgradePlan(ctx, info.Name, info.Height)
+	if err != nil {
+		panic(err)
+	}
 	logger.Info("applying upgrade", "name", plan.Name, "at", plan.DueAt())
 	app.UpgradeKeeper.ApplyUpgrade(ctx, plan)
+}
+
+// resolveNamedUpgradePlan binds the store loader's disk identity to the governed
+// plan. Operator-only merge plans use the keeper writer's JSON format, including
+// a string-valued info field containing the sequencer activation genesis.
+func (app *App) resolveNamedUpgradePlan(ctx sdk.Context, name string, height int64) (upgradetypes.Plan, error) {
+	if scheduled, found := app.UpgradeKeeper.GetUpgradePlan(ctx); found {
+		if scheduled.Name != name || scheduled.Height != height {
+			return upgradetypes.Plan{}, fmt.Errorf("disk upgrade %s at %d differs from scheduled plan %s at %d", name, height, scheduled.Name, scheduled.Height)
+		}
+		return scheduled, nil
+	}
+	plan := upgradetypes.Plan{Name: name, Height: height}
+	if name != MergeUpgrade {
+		return plan, nil
+	}
+	path, err := app.UpgradeKeeper.GetUpgradeInfoPath()
+	if err != nil {
+		return plan, err
+	}
+	bz, err := os.ReadFile(path)
+	if err != nil {
+		return plan, err
+	}
+	var disk struct {
+		Name   string `json:"name"`
+		Height int64  `json:"height"`
+		Info   string `json:"info"`
+	}
+	if err := json.Unmarshal(bz, &disk); err != nil {
+		return plan, fmt.Errorf("merge upgrade info: %w", err)
+	}
+	if disk.Name != name || disk.Height != height || disk.Info == "" || !json.Valid([]byte(disk.Info)) {
+		return plan, fmt.Errorf("operator merge plan requires matching name, height and info containing sequencer genesis")
+	}
+	plan.Info = disk.Info
+	return plan, nil
 }
 
 // activationModulesPresent reports whether the module version map of ctx already

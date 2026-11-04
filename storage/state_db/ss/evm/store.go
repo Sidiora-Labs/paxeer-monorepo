@@ -1,6 +1,8 @@
 package evm
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"sync"
@@ -29,6 +31,12 @@ type EVMStateStore struct {
 // NewEVMStateStore opens either a single unified MVCC DB for all EVM state
 // or one MVCC DB per EVM sub-type.
 func NewEVMStateStore(dir string, ssConfig config.StateStoreConfig) (*EVMStateStore, error) {
+	if ssConfig.AsyncWriteBuffer < 0 {
+		return nil, fmt.Errorf("EVMStateStore: AsyncWriteBuffer must be non-negative")
+	}
+	if ssConfig.KeepRecent < 0 {
+		return nil, fmt.Errorf("EVMStateStore: KeepRecent must be non-negative")
+	}
 	opener := backend.ResolveBackend(ssConfig.Backend)
 
 	store := &EVMStateStore{
@@ -43,8 +51,10 @@ func NewEVMStateStore(dir string, ssConfig config.StateStoreConfig) (*EVMStateSt
 			subCfg := subDBConfig(ssConfig, dbDir)
 			db, err := opener(dbDir, subCfg)
 			if err != nil {
-				_ = store.Close()
-				return nil, fmt.Errorf("failed to open EVM MVCC DB for %s: %w", StoreTypeName(storeType), err)
+				return nil, errors.Join(
+					fmt.Errorf("failed to open EVM MVCC DB for %s: %w", StoreTypeName(storeType), err),
+					store.Close(),
+				)
 			}
 			store.subDBs[storeType] = db
 			store.managedDBs = append(store.managedDBs, db)
@@ -104,25 +114,172 @@ func (s *EVMStateStore) Has(_ string, version int64, key []byte) (bool, error) {
 }
 
 func (s *EVMStateStore) Iterator(_ string, version int64, start, end []byte) (dbm.Iterator, error) {
-	if !s.separateDBs {
-		return s.primaryDB().Iterator(EVMStoreKey, version, start, end)
+	// Resolve visibility in reverse: the backend's forward cursor can skip a
+	// live key after seeking past a key written only at a later version.
+	source, err := s.ReverseIterator(EVMStoreKey, version, start, end)
+	if err != nil {
+		return nil, err
 	}
-	db := s.routeKey(start)
-	if db == nil {
-		return nil, fmt.Errorf("EVMStateStore: cannot route iteration for key")
+	itr := &forwardEVMIterator{start: bytes.Clone(start), end: bytes.Clone(end)}
+	for ; source.Valid(); source.Next() {
+		itr.pairs = append(itr.pairs, evmIteratorPair{
+			key: bytes.Clone(source.Key()), value: bytes.Clone(source.Value()),
+		})
 	}
-	return db.Iterator(EVMStoreKey, version, start, end)
+	if err := errors.Join(source.Error(), source.Close()); err != nil {
+		return nil, err
+	}
+	itr.index = len(itr.pairs) - 1
+	return itr, nil
+}
+
+type evmIteratorPair struct {
+	key, value []byte
+}
+
+type forwardEVMIterator struct {
+	pairs      []evmIteratorPair
+	start, end []byte
+	index      int
+}
+
+var _ dbm.Iterator = (*forwardEVMIterator)(nil)
+
+func (itr *forwardEVMIterator) Domain() ([]byte, []byte) {
+	return itr.start, itr.end
+}
+
+func (itr *forwardEVMIterator) Valid() bool {
+	return itr.index >= 0 && itr.index < len(itr.pairs)
+}
+
+func (itr *forwardEVMIterator) assertIsValid() {
+	if !itr.Valid() {
+		panic("iterator is invalid")
+	}
+}
+
+func (itr *forwardEVMIterator) Next() {
+	itr.assertIsValid()
+	itr.index--
+}
+
+func (itr *forwardEVMIterator) Key() []byte {
+	itr.assertIsValid()
+	return itr.pairs[itr.index].key
+}
+
+func (itr *forwardEVMIterator) Value() []byte {
+	itr.assertIsValid()
+	return itr.pairs[itr.index].value
+}
+
+func (itr *forwardEVMIterator) Error() error {
+	return nil
+}
+
+func (itr *forwardEVMIterator) Close() error {
+	itr.index = -1
+	itr.pairs = nil
+	return nil
 }
 
 func (s *EVMStateStore) ReverseIterator(_ string, version int64, start, end []byte) (dbm.Iterator, error) {
-	if !s.separateDBs {
-		return s.primaryDB().ReverseIterator(EVMStoreKey, version, start, end)
+	return s.mergedIterator(version, start, end)
+}
+
+func (s *EVMStateStore) mergedIterator(version int64, start, end []byte) (dbm.Iterator, error) {
+	itr := &mergedEVMIterator{start: bytes.Clone(start), end: bytes.Clone(end), current: -1}
+	// Bounds describe a logical range, not a complete routable key. Legacy
+	// keys can share any family prefix, so every DB must participate.
+	for _, db := range s.managedDBs {
+		child, err := db.ReverseIterator(EVMStoreKey, version, start, end)
+		if err != nil {
+			return nil, errors.Join(err, itr.Close())
+		}
+		itr.children = append(itr.children, child)
 	}
-	db := s.routeKey(start)
-	if db == nil {
-		return nil, fmt.Errorf("EVMStateStore: cannot route reverse iteration for key")
+	itr.selectCurrent()
+	return itr, nil
+}
+
+type mergedEVMIterator struct {
+	children   []dbm.Iterator
+	start, end []byte
+	current    int
+	err        error
+	closeErr   error
+	closed     bool
+}
+
+var _ dbm.Iterator = (*mergedEVMIterator)(nil)
+
+func (itr *mergedEVMIterator) selectCurrent() {
+	itr.current = -1
+	for i, child := range itr.children {
+		valid := child.Valid()
+		if err := child.Error(); err != nil {
+			itr.err = err
+			itr.current = -1
+			return
+		}
+		if !valid {
+			continue
+		}
+		if itr.current < 0 {
+			itr.current = i
+			continue
+		}
+		cmp := bytes.Compare(child.Key(), itr.children[itr.current].Key())
+		if cmp > 0 {
+			itr.current = i
+		}
 	}
-	return db.ReverseIterator(EVMStoreKey, version, start, end)
+}
+
+func (itr *mergedEVMIterator) Domain() ([]byte, []byte) {
+	return itr.start, itr.end
+}
+
+func (itr *mergedEVMIterator) Valid() bool {
+	return !itr.closed && itr.err == nil && itr.current >= 0
+}
+
+func (itr *mergedEVMIterator) assertIsValid() {
+	if !itr.Valid() {
+		panic("iterator is invalid")
+	}
+}
+
+func (itr *mergedEVMIterator) Next() {
+	itr.assertIsValid()
+	itr.children[itr.current].Next()
+	itr.selectCurrent()
+}
+
+func (itr *mergedEVMIterator) Key() []byte {
+	itr.assertIsValid()
+	return itr.children[itr.current].Key()
+}
+
+func (itr *mergedEVMIterator) Value() []byte {
+	itr.assertIsValid()
+	return itr.children[itr.current].Value()
+}
+
+func (itr *mergedEVMIterator) Error() error {
+	return itr.err
+}
+
+func (itr *mergedEVMIterator) Close() error {
+	if !itr.closed {
+		itr.closed = true
+		itr.current = -1
+		for _, child := range itr.children {
+			itr.closeErr = errors.Join(itr.closeErr, child.Close())
+		}
+	}
+	return itr.closeErr
 }
 
 func (s *EVMStateStore) RawIterate(_ string, _ func([]byte, []byte, int64) bool) (bool, error) {

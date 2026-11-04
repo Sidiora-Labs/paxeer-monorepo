@@ -1,0 +1,43 @@
+[repair.22.33.119]
+audit = "22.30.113"
+base = "081dc08ced37d64df4d676e4b2a2d07ef444115a"
+verify = "cargo test --locked --manifest-path services/interop/crates/x-websearch/Cargo.toml --test repair_22_33_119"
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit and private log; this file makes no unexecuted gate claim."
+baseline = "The supplied previous-attempt result reports seven passing cases and metered_test_producer_supported_offers_refuse_retired_draws_and_recover_once failing at payment_repair.rs:459 (24 receipt lookups versus 16); no additional baseline command was run because the ordered gates prohibit manual verification."
+
+[finding.application-proof-harness]
+test = "application_proof_harness_requires_producer_owned_input"
+repair = "Moved the live EVM assertion body to support/application_proof.rs and an explicit producer-owned application-proof executable; the default harness supplies explicit input and proves actual transport refusals without ambient stdin."
+wiring = "Domain 6: precompiles/xweb/proof_xweb_0x1019_test.go must invoke cargo run --manifest-path services/interop/crates/x-websearch/tests/application-proof/Cargo.toml --bin xweb-application-proof with requestJSON on stdin and check successful exit plus the unique XWEB_PROOF_ANSWER line instead of the retired cargo-test invocation and its 1-passed text."
+limit = "The Rust gate does not execute or claim the Go application EVM crossing; all original live crossing assertions remain in the dedicated entrypoint."
+
+[finding.metered-test-producer]
+tests = ["metered_test_producer_supported_offers_refuse_retired_draws_and_recover_once", "payment_producer::producer_receipt_crosses_the_public_api_into_the_exact_payment_consumer_twice", "payment_producer::malformed_producer_receipts_and_an_untrusted_signer_are_refused", "payment_producer::legacy_signed_grant_codec_is_observed_twice_and_corrupt_signatures_are_refused"]
+repair = "Current four-asset offers cross the actual seller/server, authenticated exact receipt consumer and durable delivery journal; unoffered metered envelopes, committed ledger refusal, changed receipt signatures/digests/references and redirected retries release nothing, and reopening replays identical bytes with one release. Retained grant/draw decoder and recording cases explicitly identify their legacy provenance."
+wiring = "Domain 6: precompiles/layerxledger/proof_layerxledger_0x101a_test.go owns live ledger grant/draw refusal execution; the Rust gate replays the committed LXP_NO_PAYER_GRANT transcript and authenticates the actual Go-produced exact receipt fixture without launching a Go toolchain."
+
+[finding.program-reopen-proof]
+tests = ["program_reopen::proof_x_websearch_program_requests", "program_reopen::malformed_persisted_program_producer_state_is_refused"]
+repair = "Persist two transported signatures below a three-signer quorum, stop and reopen all exchanges, watcher and index, change indexed content, recover identical answer bytes/digest/signatures and collect the third signature. A distinct request id decoded from the committed producer record observes fresh content; malformed peer and observation refusals remain enforced."
+
+[qualification.repair_1]
+revision = "a3af169afdf9f3f0154fe2649e257d398aa872d3"
+command = "cg spec done 22.33.119 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Six cases passed; the new harness expected Malformed for EvmRpc's HTTP-405 Unavailable classification, and the payment fixture passed an already-suffixed content directory to ContentStore::open."
+repair = "Assert the exact typed HTTP refusal and pass the shared data root to ContentStore, with an explicit directory assertion; retain all signature, receipt, recovery and release assertions."
+
+[continuation.receipt_reauthentication]
+source_revision = "1b5f353e9b2eb9cc966bd7204133ab9b083da476"
+observed = "PaymentGate::recover_pending_deliveries authenticates four persisted exact receipts and Plane::exact authenticates each retry, accounting for the eight lookups the previous attempt incorrectly treated as absent."
+repair = "Assert one receipt lookup per recovered payment and per retry; corrupt each producer receipt after reopening and require receipt_unverified without handler release, restore it and require identical response bytes, then retain the zero-lookup assertion specifically for redirected request_mismatch refusals."
+gotcha = "A durable exact-payment response remains subject to receipt authentication on recovery and retry; cached bytes guarantee one handler release, while redirected requests must fail before receipt lookup."
+
+[qualification.continuation_repair_1]
+revision = "bec3ecba591d4a9b9d37cf510f8f7bf871be3323"
+command = "cg spec done 22.33.119 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Seven tests passed; the payment case reached the inherited record.released assertion, but production resumable delivery uses DeliveryRecord.state=ready and leaves the legacy one-shot release flag false."
+repair = "Check exactly four ready deliveries and receipt claims bound to their payment keys, resource, principal and request/receipt digests, verify persisted response status and body digest, and preserve the exactly-four handler releases and byte-identical replay assertions."

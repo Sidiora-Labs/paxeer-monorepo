@@ -16,7 +16,7 @@ Both period checks use [`utils.IsPeriodLastBlock`](../utils/period.go):
 
 When the current block ends a `VotePeriod`, `MidBlocker` runs the [voting procedure](01_concepts.md#voting-procedure):
 
-1. Build a claim map from selected bonded validators, up to staking's `MaxValidators`, with their consensus voting power. Capture the current vote-target set and its size.
+1. Build a claim map from selected bonded validators, up to staking's `MaxValidators`, with their consensus voting power. Capture the current vote-target set and its size. Genesis initializes that set from the validated whitelist before any recovered ballot is processed.
 2. Organize stored aggregate votes into sorted denom ballots. Only validators present in the claim map participate; non-positive rates carry zero power.
 3. Discard non-target ballots. Separate target ballots that have zero power or power below the rounded threshold `VoteThreshold * totalBondedPower`. They will contribute participation wins without updating rates.
 4. Choose the passing target with the highest turnout as the reference denom, using ascending denom name to break ties. Calculate its weighted median. For every passing ballot, in sorted denom order, run `Tally`; non-reference ballots are first converted to sorted cross rates against each validator's reference vote.
@@ -25,7 +25,7 @@ When the current block ends a `VotePeriod`, `MidBlocker` runs the [voting proced
 7. For each validator claim, increment success if its wins equal the original target count; otherwise increment abstain if `DidVote` is false, or miss if it is true. See [counter rules](01_concepts.md#slashing).
 8. Delete all aggregate votes with `ClearBallots`. Run `ApplyWhitelist` to synchronize vote targets with the whitelist and register missing bank denom metadata when rebuilding targets.
 
-If no target ballot passes, no exchange rate is updated, but participation accounting, vote deletion, and target synchronization still run. Existing exchange rates are retained until replaced or removed by the feed cleanup below. There are no current prevotes to preserve and no ballot-winner token distribution or snapshot creation in this hook.
+If no target ballot passes, no exchange rate is updated, but participation accounting, vote deletion, and target synchronization still run. Existing exchange rates are retained with their original source height and Unix millisecond timestamp until replaced or removed by the feed cleanup below; running a tally without a replacement does not refresh either field. There are no current prevotes to preserve and no ballot-winner token distribution or snapshot creation in this hook.
 
 The tally and cross-rate helpers are in [`tally.go`](../tally.go), [`keeper/ballot.go`](../keeper/ballot.go), and [`types/ballot.go`](../types/ballot.go).
 

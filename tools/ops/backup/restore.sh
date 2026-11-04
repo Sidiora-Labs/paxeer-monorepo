@@ -3,7 +3,8 @@
 # Usage: restore.sh <archive-name|latest> <dest-dir> [env-file]
 # Needs BACKUP_IDENTITY (age identity file) in the env file or environment.
 set -euo pipefail
-. "$(dirname "$0")/lib.sh"
+here=$(cd "$(dirname "$0")" && pwd)
+. "$here/lib.sh"
 [ $# -ge 2 ] || die "usage: restore.sh <archive-name|latest> <dest-dir> [env-file]"
 want=$1 dest=$2
 load_env "${3:-}"
@@ -22,8 +23,6 @@ trap 'rm -rf "$work"' EXIT
 store "cat $dir/$(q "$want")" >"$work/$want"
 store "cat $dir/$(q "$want").sha256" >"$work/$want.sha256"
 (cd "$work" && sha256sum --quiet -c "$want.sha256") || die "checksum mismatch: $want"
-age -d -i "$BACKUP_IDENTITY" "$work/$want" | tar -tzf - >/dev/null || die "archive does not decrypt or list: $want"
-
-mkdir -p "$dest"
-age -d -i "$BACKUP_IDENTITY" "$work/$want" | tar -xzpf - -C "$dest"
+age -d -i "$BACKUP_IDENTITY" "$work/$want" >"$work/snapshot.tar.gz" || die "archive does not decrypt: $want"
+python3 "$here/checkpoint.py" restore "$work/snapshot.tar.gz" "$dest" || die "archive recovery validation failed: $want"
 echo "$want"

@@ -360,6 +360,7 @@ export class TradingWriter {
     };
   }
 
+  /** fees.evmNonce must come from eth_getTransactionCount(address, "pending"). */
   static async send(
     transport: Eip1193Requester,
     derived: DerivedAccount,
@@ -381,16 +382,16 @@ export class TradingWriter {
     if (typeof raw !== "string") {
       throw new TradingPayloadError("non_canonical", "raw transaction");
     }
-    const latestNonce = await transport.request({
+    const pendingNonce = await transport.request({
       method: "eth_getTransactionCount",
-      params: [derived.evmAddress, "latest"],
+      params: [derived.evmAddress, "pending"],
     });
     if (
-      typeof latestNonce !== "string" ||
-      !/^0x(?:0|[1-9a-fA-F][0-9a-fA-F]*)$/u.test(latestNonce) ||
-      BigInt(latestNonce) !== fees.evmNonce
+      typeof pendingNonce !== "string" ||
+      !/^0x(?:0|[1-9a-fA-F][0-9a-fA-F]*)$/u.test(pendingNonce) ||
+      BigInt(pendingNonce) !== fees.evmNonce
     ) {
-      throw new TradingPayloadError("non_canonical", "latest nonce");
+      throw new TradingPayloadError("non_canonical", "pending nonce");
     }
     const expected = `0x${tradingHex(keccak_256(tradingBytes(raw)))}`;
     const hash = await transport.request(request);

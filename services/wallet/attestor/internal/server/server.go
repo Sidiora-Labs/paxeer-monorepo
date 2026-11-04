@@ -41,6 +41,7 @@ const (
 	PathHealth    = "/health"
 	PathMetrics   = "/metrics"
 
+	DefaultAPIReadTimeout  = 15 * time.Second
 	DefaultProtocolTimeout = 5 * time.Minute
 	maxRequestBytes        = 2 << 20
 )
@@ -68,6 +69,7 @@ type Options struct {
 	Replica         func() health.ReplicaState
 	Snapshots       *backup.Writer
 	Metrics         *health.Metrics
+	APIReadTimeout  time.Duration
 	ProtocolTimeout time.Duration
 	PeerTimeout     time.Duration
 	RoundTimeout    time.Duration
@@ -78,12 +80,17 @@ type Server struct {
 	mux        *http.ServeMux
 	reporter   *health.Reporter
 	keyMu      sync.Mutex
-	keyLocks   map[string]*sync.Mutex
+	keyLocks   map[string]*keyLock
 	spends     *policy.SpendLedger
 	votesMu    sync.Mutex
 	votes      map[string]*refreshVote
 	afterStage func(keyID string)
 	ceremony   *ceremonyImports
+}
+
+type keyLock struct {
+	mu   sync.Mutex
+	refs int
 }
 
 func New(opts Options) (*Server, error) {
@@ -107,6 +114,9 @@ func New(opts Options) (*Server, error) {
 		return nil, errors.New("server: node id is not among the participants")
 	}
 	opts.Participants = participants
+	if opts.APIReadTimeout <= 0 {
+		opts.APIReadTimeout = DefaultAPIReadTimeout
+	}
 	if opts.ProtocolTimeout <= 0 {
 		opts.ProtocolTimeout = DefaultProtocolTimeout
 	}
@@ -116,7 +126,7 @@ func New(opts Options) (*Server, error) {
 	if err := registerMessages(); err != nil {
 		return nil, err
 	}
-	s := &Server{opts: opts, mux: http.NewServeMux(), keyLocks: make(map[string]*sync.Mutex)}
+	s := &Server{opts: opts, mux: http.NewServeMux(), keyLocks: make(map[string]*keyLock)}
 	if err := s.initPeer(); err != nil {
 		return nil, err
 	}
@@ -295,12 +305,21 @@ func (s *Server) lockKey(keyID string) func() {
 	s.keyMu.Lock()
 	m, ok := s.keyLocks[keyID]
 	if !ok {
-		m = &sync.Mutex{}
+		m = &keyLock{}
 		s.keyLocks[keyID] = m
 	}
+	m.refs++
 	s.keyMu.Unlock()
-	m.Lock()
-	return m.Unlock
+	m.mu.Lock()
+	return func() {
+		m.mu.Unlock()
+		s.keyMu.Lock()
+		m.refs--
+		if m.refs == 0 {
+			delete(s.keyLocks, keyID)
+		}
+		s.keyMu.Unlock()
+	}
 }
 
 func (s *Server) shareStats() (uint64, uint64, error) {
@@ -415,7 +434,7 @@ func APITLSConfig(certFile, keyFile string, clients *ClientAuthorities) (*tls.Co
 }
 
 func (s *Server) Serve(l net.Listener, cfg *tls.Config) *http.Server {
-	srv := &http.Server{Handler: s.mux, TLSConfig: cfg, ReadHeaderTimeout: 10 * time.Second}
+	srv := &http.Server{Handler: s.mux, TLSConfig: cfg, ReadHeaderTimeout: 10 * time.Second, ReadTimeout: s.opts.APIReadTimeout}
 	go func() { _ = srv.Serve(tls.NewListener(l, cfg)) }()
 	return srv
 }

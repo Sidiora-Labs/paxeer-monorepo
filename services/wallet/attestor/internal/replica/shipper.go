@@ -77,7 +77,7 @@ type Shipper struct {
 	logger  *log.Logger
 	now     func() time.Time
 
-	passMu sync.Mutex
+	passMu chan struct{}
 	mu     sync.Mutex
 	last   time.Time
 	class  string
@@ -86,6 +86,12 @@ type Shipper struct {
 func New(cfg Config, logger *log.Logger) (*Shipper, error) {
 	if cfg.Addr == "" || cfg.User == "" || cfg.RemoteDir == "" || cfg.SnapshotDir == "" || cfg.LedgerPath == "" || cfg.Interval < MinInterval {
 		return nil, fmt.Errorf("%w: incomplete shipper configuration", ErrConfig)
+	}
+	if cfg.OperationTimeout < 0 {
+		return nil, fmt.Errorf("%w: operation timeout must be positive", ErrConfig)
+	}
+	if cfg.OperationTimeout == 0 {
+		cfg.OperationTimeout = DefaultOperationTimeout
 	}
 	keyPEM, err := readSmallFile(cfg.KeyFile)
 	if err != nil {
@@ -118,6 +124,7 @@ func New(cfg Config, logger *log.Logger) (*Shipper, error) {
 	}
 	return &Shipper{
 		cfg:     cfg,
+		passMu:  make(chan struct{}, 1),
 		signer:  signer,
 		hostKey: hostKey,
 		ledger:  ledger,
@@ -167,9 +174,27 @@ func (s *Shipper) Run(ctx context.Context) {
 }
 
 func (s *Shipper) Ship(ctx context.Context) (int, error) {
-	s.passMu.Lock()
-	defer s.passMu.Unlock()
+	ctx, cancel := context.WithTimeout(ctx, s.cfg.OperationTimeout)
+	defer cancel()
+	select {
+	case s.passMu <- struct{}{}:
+		defer func() { <-s.passMu }()
+	case <-ctx.Done():
+		return 0, &ShipError{Class: ClassConnect, Err: ctx.Err()}
+	}
 	shipped, err := s.ship(ctx)
+	contextErr := ctx.Err()
+	if deadline, ok := ctx.Deadline(); contextErr == nil && ok && !time.Now().Before(deadline) {
+		contextErr = context.DeadlineExceeded
+	}
+	if contextErr != nil {
+		class := ClassConnect
+		var se *ShipError
+		if errors.As(err, &se) {
+			class = se.Class
+		}
+		err = &ShipError{Class: class, Err: contextErr}
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err != nil {
@@ -193,6 +218,9 @@ func (s *Shipper) pending() ([]string, error) {
 	if err != nil {
 		return nil, &ShipError{Class: ClassLocal, Err: err}
 	}
+	if err := s.ledger.RetireAbsent(s.cfg.SnapshotDir); err != nil {
+		return nil, &ShipError{Class: ClassLedger, Err: err}
+	}
 	var names []string
 	for _, e := range entries {
 		name := e.Name()
@@ -203,6 +231,20 @@ func (s *Shipper) pending() ([]string, error) {
 			return nil, &ShipError{Class: ClassSnapshotFormat, Snapshot: name, Err: errors.New("snapshot name outside the permitted characters")}
 		}
 		if _, done := s.ledger.Lookup(name); done {
+			continue
+		}
+		archived, done, err := s.ledger.Archived(name)
+		if err != nil {
+			return nil, &ShipError{Class: ClassLedger, Snapshot: name, Err: err}
+		}
+		if done {
+			local, err := s.readLocal(name)
+			if err != nil {
+				return nil, err
+			}
+			if local.size != archived.Size || hex.EncodeToString(local.digest[:]) != archived.SHA256 {
+				return nil, &ShipError{Class: ClassLedger, Snapshot: name, Err: fmt.Errorf("%w: snapshot differs from archived acknowledgement", ErrLedger)}
+			}
 			continue
 		}
 		names = append(names, name)
@@ -226,6 +268,9 @@ func validName(name string) bool {
 }
 
 func (s *Shipper) ship(ctx context.Context) (int, error) {
+	if err := ctx.Err(); err != nil {
+		return 0, &ShipError{Class: ClassConnect, Err: err}
+	}
 	names, err := s.pending()
 	if err != nil || len(names) == 0 {
 		return 0, err
@@ -271,24 +316,50 @@ func (s *Shipper) connect(ctx context.Context) (*sftp.Client, func(), error) {
 	if err != nil {
 		return nil, nil, &ShipError{Class: ClassConnect, Err: errors.New("replica unreachable")}
 	}
-	_ = raw.SetDeadline(time.Now().Add(dialTimeout))
+
+	stopClose := context.AfterFunc(ctx, func() { raw.Close() })
+	closeRaw := func() {
+		stopClose()
+		raw.Close()
+	}
+	handshakeDeadline := time.Now().Add(dialTimeout)
+	deadline, hasDeadline := ctx.Deadline()
+	if hasDeadline && deadline.Before(handshakeDeadline) {
+		handshakeDeadline = deadline
+	}
+	if err := raw.SetDeadline(handshakeDeadline); err != nil {
+		closeRaw()
+		return nil, nil, &ShipError{Class: ClassConnect, Err: err}
+	}
+
 	conn, chans, reqs, err := ssh.NewClientConn(raw, s.cfg.Addr, cfg)
 	if err != nil {
-		raw.Close()
+		closeRaw()
 		if mismatch || errors.Is(err, ErrHostKeyMismatch) {
 			s.logger.Printf("replica: refused the replica: presented host key %s does not match the expected key %s", presented, ssh.FingerprintSHA256(s.hostKey))
 			return nil, nil, &ShipError{Class: ClassHostKey, Err: ErrHostKeyMismatch}
 		}
 		return nil, nil, &ShipError{Class: ClassConnect, Err: errors.New("ssh handshake failed")}
 	}
-	_ = raw.SetDeadline(time.Time{})
+
+	// Keep the operation's absolute deadline through SFTP negotiation, writes,
+	// read-back and rename, even when the peer continues sending SSH traffic.
+	if hasDeadline {
+		if err := raw.SetDeadline(deadline); err != nil {
+			closeRaw()
+			return nil, nil, &ShipError{Class: ClassConnect, Err: err}
+		}
+	}
+
 	sshClient := ssh.NewClient(conn, chans, reqs)
 	client, err := sftp.NewClient(sshClient)
 	if err != nil {
+		closeRaw()
 		sshClient.Close()
 		return nil, nil, &ShipError{Class: ClassConnect, Err: errors.New("sftp subsystem unavailable")}
 	}
 	return client, func() {
+		closeRaw()
 		client.Close()
 		sshClient.Close()
 	}, nil

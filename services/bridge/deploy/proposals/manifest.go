@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxbridge/types"
@@ -38,8 +39,12 @@ func LoadAttestorManifest(path string) (AttestorManifest, error) {
 	if err := decoder.Decode(&manifest); err != nil {
 		return AttestorManifest{}, refuse(path, fieldDocument, "%v", err)
 	}
-	if decoder.More() {
-		return AttestorManifest{}, refuse(path, fieldDocument, "more than one JSON document")
+	var tail any
+	if err := decoder.Decode(&tail); err != io.EOF {
+		if err == nil {
+			return AttestorManifest{}, refuse(path, fieldDocument, "more than one JSON document")
+		}
+		return AttestorManifest{}, refuse(path, fieldDocument, "invalid JSON tail: %v", err)
 	}
 	signers, err := parseSignerList(path, manifest.Attestors)
 	if err != nil {

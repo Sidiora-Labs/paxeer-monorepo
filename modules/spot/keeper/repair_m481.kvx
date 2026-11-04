@@ -1,0 +1,34 @@
+[repair.22.33.481]
+audit = "22.30.15"
+base_revision = "58a590675bbe54c704c3f54c5ef49c6397e5992d"
+mode = "BUILD"
+scope = ["modules/spot/keeper", "precompiles/spot/listing_test.go"]
+build = "hf-build: go build ./modules/spot/keeper/..."
+verify = "hf-done: cg spec done 22.33.481 -f layerx-merge --root $TASK_ROOT"
+evidence = "/out/run/gates.jsonl records the exact candidate revision, command, exit and private log; the runner publishes the qualification record. No passing gate is claimed before that evidence exists."
+baseline = "No unchanged-tree verify ran: the explicit implementation-first order and prohibition on manual verification take precedence over the conflicting baseline instruction. No pre-change test failure is claimed."
+
+[finding.listing-test-incomplete-lifecycle]
+tests = ["TestRepairM_481_MessageServerListingLifecycle", "TestRepairM_481_GovernanceListingLifecycle"]
+repair = "The message-server test now lists a real native pointer, funds its governance-created share pool through the production vault, and verifies redemption after disk recovery. The precompile listing test consumes governance-created shares directly, checks ShareTokenCreated and live code, funds both pools, trades, withdraws, and recovers shares and books without manually calling CreateShareToken."
+proof = "Real message server and governance proposal router to production spot keeper, public vault ABI and native share pointer ABI; pointer balances, bank balances, locked shares, supply, custody and books agree before and after closing and reopening every application store."
+wiring = "None; both requested test paths are within scope and the production pointer repair is already supplied by prerequisite 22.31.17."
+
+[gotcha.gate_order]
+observed = "The baseline-verification step conflicts with the explicit allowed-gate order."
+resolution = "Implement completely, format touched Go files, then use only hf-build and hf-done."
+
+[gotcha.scope]
+observed = "The repository workflow asks for spec and root gotcha updates and commits outside this task's explicit scope."
+resolution = "Keep the repair and gotcha record here; leave spec bookkeeping and publishing to the runner."
+
+[qualification.first_verify]
+revision = "51739b171e64a3e37c6be0df0bad56616b2e808b"
+command = "cg spec done 22.33.481 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; full test detail /tmp/repair-m481.log"
+repair = "Compare custody with big.Int.Cmp at the same exact amount: ERC20 balance zero uses an empty magnitude while sdk.NewInt(0) uses nil, so deep structural equality incorrectly refused numerically identical zero values. Message-server lifecycle passed; governance lifecycle stopped at its initial zero-custody assertion."
+
+[gotcha.numeric_zero]
+observed = "ERC20 custody zero and SDK zero can have different big.Int internal magnitude representations."
+resolution = "Assert exact numeric equality with Cmp rather than deep representation equality."

@@ -5,28 +5,23 @@ defmodule EthereumJSONRPC.HTTP.HTTPoison do
 
   alias EthereumJSONRPC.HTTP
   alias EthereumJSONRPC.HTTP.Helper
-  alias EthereumJSONRPC.Prometheus.Instrumenter
   alias Utils.HttpClient.HTTPoisonHelper
 
   @behaviour HTTP
 
   @impl HTTP
   def json_rpc(url, json, headers, options) when is_binary(url) and is_list(options) do
-    method = Helper.get_method_from_json_string(json)
-
-    Instrumenter.json_rpc_requests(method)
+    requests = Helper.record_requests(json)
 
     case HTTPoison.post(url, json, headers, HTTPoisonHelper.request_opts(options)) do
       {:ok, %HTTPoison.Response{body: body, status_code: status_code, headers: headers}} ->
-        with {:ok, decoded_body} <- Jason.decode(body),
-             true <- Helper.response_body_has_error?(decoded_body) do
-          Instrumenter.json_rpc_errors(method)
-        end
+        body = Helper.try_unzip(body, headers)
+        Helper.record_response_errors(requests, body)
 
-        {:ok, %{body: Helper.try_unzip(body, headers), status_code: status_code}}
+        {:ok, %{body: body, status_code: status_code}}
 
       {:error, %HTTPoison.Error{reason: reason}} ->
-        Instrumenter.json_rpc_errors(method)
+        Helper.record_transport_errors(requests)
 
         {:error, reason}
     end

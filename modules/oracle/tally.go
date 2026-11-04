@@ -24,7 +24,7 @@ func Tally(_ sdk.Context, pb types.ExchangeRateBallot, rewardBand sdk.Dec, valid
 		// Filter ballot winners
 		key := vote.Voter.String()
 		claim := validatorClaimMap[key]
-		if vote.ExchangeRate.GTE(weightedMedian.Sub(rewardSpread)) &&
+		if vote.Power > 0 && vote.ExchangeRate.GTE(weightedMedian.Sub(rewardSpread)) &&
 			rewardSpread.GTE(vote.ExchangeRate.Sub(weightedMedian)) {
 
 			claim.Weight += vote.Power

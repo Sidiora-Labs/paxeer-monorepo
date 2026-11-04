@@ -5,8 +5,9 @@ defmodule Explorer.SmartContract.SolcDownloader do
   """
   use GenServer
 
-  alias Explorer.HttpClient
-  alias Explorer.SmartContract.CompilerVersion
+  require Logger
+
+  alias Explorer.SmartContract.{CompilerDownload, CompilerVersion}
 
   @latest_compiler_refetch_time :timer.minutes(30)
 
@@ -40,9 +41,10 @@ defmodule Explorer.SmartContract.SolcDownloader do
   # sobelow_skip ["Traversal"]
   @impl true
   def init([]) do
-    File.mkdir(compiler_dir())
-
-    {:ok, []}
+    case CompilerDownload.prepare_directory(compiler_dir(), "*-tmp.js") do
+      :ok -> {:ok, []}
+      {:error, reason} -> {:stop, reason}
+    end
   end
 
   # sobelow_skip ["Traversal"]
@@ -50,24 +52,26 @@ defmodule Explorer.SmartContract.SolcDownloader do
   def handle_call({:ensure_exists, version}, _from, state) do
     path = file_path(version)
 
-    if fetch?(version, path) do
-      temp_path = file_path("#{version}-tmp")
+    result =
+      if fetch?(version, path) do
+        with {:ok, contents} <- download(version),
+             :ok <- CompilerDownload.publish(path, contents, false) do
+          path
+        else
+          {:error, reason} ->
+            Logger.error("Failed to install solc compiler #{version}: #{inspect(reason)}")
+            false
+        end
+      else
+        path
+      end
 
-      contents = download(version)
-
-      file = File.open!(temp_path, [:write, :exclusive])
-
-      IO.binwrite(file, contents)
-
-      File.rename(temp_path, path)
-    end
-
-    {:reply, path, state}
+    {:reply, result, state}
   end
 
   defp fetch?("latest", path) do
     case File.stat(path) do
-      {:error, :enoent} ->
+      {:error, _reason} ->
         true
 
       {:ok, %{mtime: mtime}} ->
@@ -91,10 +95,28 @@ defmodule Explorer.SmartContract.SolcDownloader do
   end
 
   defp download(version) do
-    download_path = "https://binaries.soliditylang.org/bin/soljson-#{version}.js"
+    base_url = Application.fetch_env!(:explorer, :solc_bin_api_url)
 
-    download_path
-    |> HttpClient.get!([], timeout: 60_000, recv_timeout: 60_000)
-    |> Map.get(:body)
+    with {:ok, metadata} <- CompilerDownload.get("#{base_url}/bin/list.json"),
+         {:ok, %{"builds" => builds} = distribution} when is_list(builds) <- Jason.decode(metadata),
+         build when is_map(build) <- find_build(builds, distribution, version),
+         %{"path" => artifact_path, "sha256" => digest} <- build,
+         true <- is_binary(artifact_path) and Path.basename(artifact_path) == artifact_path,
+         {:ok, body} <- CompilerDownload.get("#{base_url}/bin/#{artifact_path}"),
+         :ok <- CompilerDownload.sha256(body, digest) do
+      {:ok, body}
+    else
+      {:error, _} = error -> error
+      _ -> {:error, :invalid_distribution_metadata}
+    end
+  end
+
+  defp find_build(builds, distribution, "latest") do
+    path = get_in(distribution, ["releases", distribution["latestRelease"]])
+    Enum.find(builds, &(&1["path"] == path))
+  end
+
+  defp find_build(builds, _distribution, version) do
+    Enum.find(builds, &(&1["path"] == "soljson-#{version}.js"))
   end
 end

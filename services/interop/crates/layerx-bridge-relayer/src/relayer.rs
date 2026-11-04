@@ -53,7 +53,9 @@ use crate::abi::{
 use crate::attestation::{
     assemble_signatures, recover_signer, OutboundAttestation, SignatureError,
 };
-use crate::attestation_api::{AttestationView, AuthenticatedPolicy, PolicyDestination};
+use crate::attestation_api::{
+    AttestationSnapshot, AttestationView, AuthenticatedPolicy, PolicyDestination,
+};
 use crate::cosign::CosignDirectory;
 use crate::hex;
 use crate::journal::{
@@ -586,6 +588,10 @@ impl Relayer {
         AttestationView::from_journal(&self.journal, self.cosign.as_ref(), &self.policies)
     }
 
+    pub fn attestation_snapshot(&self) -> AttestationSnapshot {
+        AttestationSnapshot::from_journal(&self.journal, self.cosign.as_ref(), &self.policies)
+    }
+
     fn evm_policy_destinations(&self, side: Side) -> Vec<PolicyDestination> {
         match side {
             Side::Paxeer => self
@@ -939,12 +945,7 @@ impl Relayer {
 
     fn observe(&mut self, observation: Observation) -> Result<bool, RelayerError> {
         let key = observation.key();
-        let known = self
-            .journal
-            .state()
-            .items
-            .get(&key)
-            .map(|item| item.observation);
+        let known = self.journal.lookup(&key)?.map(|item| item.observation);
         if known == Some(observation) {
             return Ok(false);
         }

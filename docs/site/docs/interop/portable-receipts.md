@@ -1,362 +1,194 @@
 # Portable receipt verifier
 
-`layerx-portable` exports a self-contained `layerx-receipt-proof-v1`
-JSON object and verifies it against an independently trusted
-`AuthorizedBatch` with no node, gateway, daemon, database, clock, or
-network (`services/interop/crates/layerx-portable/src/lib.rs:5-8`,
-`services/interop/crates/layerx-portable/src/receipt.rs:112-114`). The wire
-identifier is `PORTABLE_RECEIPT_FORMAT`
-(`services/interop/crates/layerx-portable/src/receipt.rs:11`;
-`services/interop/crates/layerx-portable/FORMAT.md:3-4`). The only admitted
-`verificationLevel` is the literal `sequencer-signed`
-(`services/interop/crates/layerx-portable/src/receipt.rs:12, 26, 171-172`;
-`services/interop/crates/layerx-portable/FORMAT.md:9`).
+`layerx-portable` exports and verifies `layerx-receipt-proof-v2`. It carries
+the exact signed receipt and checks it against independently pinned receipt
+keys without contacting a node, gateway, database, clock or network.
+The public API lives in
+`services/interop/crates/layerx-portable/src/receipt.rs` and is re-exported
+by that crate's `src/lib.rs`.
 
-This page describes that receipt proof and its refusals. For signed receipts
-returned by `pax_sequencerReceipt`, see
-[SDK sequencer receipt verification](../agents/sdk-verification.md).
-
----
+The only admitted `verificationLevel` is `receipted`, including proofs
+exported from committed RPC answers. Network finality occurs when a receipt's
+block is committed, but the portable object alone does not prove that
+commitment. See [Receipt concepts](../concepts/receipts.md) and
+[Mirrors](mirrors.md) for the distinct evidence boundaries.
 
 ## Inputs
 
-`PortableReceipt::verify` takes the parsed object and a caller-supplied
-`AuthorizedBatch` (`services/interop/crates/layerx-portable/src/receipt.rs:120-123`).
-`PortableReceipt::verify_json` takes JSON bytes and the same batch
-(`services/interop/crates/layerx-portable/src/receipt.rs:93-97`).
-`from_json` alone establishes no trust
-(`services/interop/crates/layerx-portable/src/receipt.rs:71-72`).
+`PortableReceiptV2::verify_json(bytes, receipt_keys)` parses and verifies
+the wire object. `verify_portable_json(bytes, receipt_keys)` dispatches by
+format and returns `PortableVerified::V2`. For an already parsed object,
+call `verify_v2(receipt_keys)`. `from_json` alone establishes no trust.
 
-JSON bounds: empty or longer than `MAX_JSON_BYTES` (`1_500_000`) is
-refused before parse (`services/interop/crates/layerx-portable/src/receipt.rs:14, 77-80`).
-Canonical receipt bounds on export: empty or longer than
-`MAX_RECEIPT_BYTES` (`1_048_576`)
-(`services/interop/crates/layerx-portable/src/receipt.rs:13, 49-51`).
+`ReceiptKeyEntry` aliases `SequencerAuthorization`. Each independently
+pinned entry binds a 32-byte key ID, a 32-byte Ed25519 public key and an
+inclusive first/last signing-height window. The carried key entry must
+match the verifier's own pin in full. Obtain those governed entries through
+an authenticated trust policy; a key carried only in the proof or in the
+RPC response is not authoritative.
 
-`AuthorizedBatch` is five 32-byte facts: `batch_id`, `asset`,
-`previous_state_root`, `resulting_state_root`, `sequencer_public_key`
-(`services/agent/crates/layerx-proof/src/receipt.rs:44-50, 52-69`). Those facts
-must come from a snapshot, certificate, or vector manifest the verifier
-already trusts (`services/interop/crates/layerx-portable/FORMAT.md:20-22`;
-`services/interop/crates/layerx-portable/src/receipt.rs:18-21`). Repeating them
-on the JSON object does not make them authoritative
-(`services/interop/crates/layerx-portable/src/receipt.rs:18-21`).
+JSON must be nonempty and at most `1_500_000` bytes. Signed receipt bytes
+and optional raw transaction bytes must each have length
+`1..=1_048_576`. Byte strings use lowercase, even-length `0x` hex.
+Heights use lowercase unsigned 64-bit `0x` quantities without leading
+zeroes, except `0x0`.
 
-The object members (`services/interop/crates/layerx-portable/src/receipt.rs:22-34`;
-`services/interop/crates/layerx-portable/FORMAT.md:6-16`):
-
-| Member | Role |
+| Member | Value |
 | --- | --- |
-| `format` | Literal `layerx-receipt-proof-v1` |
-| `verificationLevel` | Literal `sequencer-signed` |
-| `canonicalReceipt` | Exact canonical receipt bytes, unpadded base64url, length in `1..=1_048_576` |
-| `receiptDigest` | Claimed 32-byte receipt-signature digest, unpadded base64url |
-| `batchId` | Claimed 32-byte batch id, unpadded base64url |
-| `asset` | Claimed 32-byte batch asset, unpadded base64url |
-| `previousStateRoot` | Claimed 32-byte predecessor root, unpadded base64url |
-| `resultingStateRoot` | Claimed 32-byte successor root, unpadded base64url |
-| `sequencerPublicKey` | Claimed 32-byte Ed25519 public key, unpadded base64url |
+| `format` | Literal `layerx-receipt-proof-v2` (`PORTABLE_RECEIPT_FORMAT`). |
+| `verificationLevel` | Literal `receipted`. |
+| `signedReceipt` | Exact canonical signed receipt bytes. |
+| `receiptDigest` | 32-byte receipt-signature digest. |
+| `receiptKey` | Object containing exactly `keyId`, `publicKey`, `firstHeight`, `lastHeight`. IDs and public keys are 32-byte hex; heights are quantities. |
+| `inclusionHeight` | Quantity no lower than the height encoded in the signed receipt. |
+| `rawTransaction` | Optional exact signed transaction bytes. When present, their Keccak-256 hash must equal the receipt's activity ID. |
 
-Unknown JSON members are refused (`serde(deny_unknown_fields)` at
-`services/interop/crates/layerx-portable/src/receipt.rs:23`). Member order is
-insignificant (`services/interop/crates/layerx-portable/src/receipt.rs:100-102`;
-`services/interop/crates/layerx-portable/FORMAT.md:4-5`).
+Member order is insignificant. The Rust structs deny unknown fields at both
+object levels and reject duplicate declared fields; independent decoders
+should reject duplicate and unknown members before verification.
 
----
+## Export
+
+The supported constructors are:
+
+| API | Input and behavior |
+| --- | --- |
+| `PortableReceiptV2::export(signed_receipt, receipt_key, inclusion_height)` | Verifies the signed bytes under the supplied pinned entry and checks the height before producing the object. |
+| `PortableReceiptV2::export_with_transaction(signed_receipt, receipt_key, inclusion_height, raw_transaction)` | Also binds the raw transaction to the signed activity ID. |
+| `PortableReceiptV2::from_sequencer_receipt(answer, receipt_keys, raw_transaction)` | Extracts a `pax_sequencerReceipt` answer and checks it under the caller's complete key list. Refuses `submitted`; accepts `receipted` and `committed`. |
+
+The RPC constructor uses `height` for a receipted answer and `blockNumber`
+for a committed answer as the carried inclusion height. It reads `receipt`
+and `keyId` from the answer. It does not authenticate every other RPC view
+field or prove the reported block's commitment. Verify those separately
+when consuming the full RPC response. `to_json` encodes the bounded object;
+it is not a replacement for verification against the consumer's own pins.
 
 ## What it verifies
 
-After the wire object decodes, `verify` binds the five claimed batch
-fields to `trusted_batch`, then calls `layerx_proof::receipt::verify_outcome`
-on the decoded canonical bytes, then requires the recomputed digest to
-equal `receiptDigest`
-(`services/interop/crates/layerx-portable/src/receipt.rs:124-146`).
+After decoding fields, `verify_v2` performs these checks in order:
 
-`verify_outcome` (`services/agent/crates/layerx-proof/src/receipt.rs:246-310`):
+1. Call `layerx_proof::receipt::verify_sequencer_signature` on the canonical
+   signed bytes using the complete pinned key list. It decodes and
+   re-encodes byte-for-byte, requires a supported full protocol receipt,
+   a nonzero activity ID and a signature, and verifies the Ed25519 signature.
+2. Bind the carried `receiptKey` to the independently pinned entry selected
+   by the receipt's signed `context_hash` (the key ID).
+3. Require `inclusionHeight` to be at least the signed height.
+4. Recompute the receipt-signature digest and compare `receiptDigest`.
+5. If `rawTransaction` is present, require its Keccak-256 hash to equal the
+   signed activity ID.
 
-1. Decode the canonical receipt; re-encode; refuse a byte difference
-   (`services/agent/crates/layerx-proof/src/receipt.rs:250-256`).
-2. Require a full protocol receipt
-   (`services/agent/crates/layerx-proof/src/receipt.rs:257-259`).
-3. Require an occupancy protocol version (2 or 3)
-   (`services/agent/crates/layerx-proof/src/receipt.rs:15-16, 260-261`;
-   `services/agent/crates/layerx-wire/src/limits.rs:29-33`).
-4. Require a non-zero operation and a non-zero activity id
-   (`services/agent/crates/layerx-proof/src/receipt.rs:263-268`).
-5. Require receipt `batch_id`, `asset` (and asset non-zero),
-   `previous_state_root`, and `resulting_state_root` to equal the
-   authorised batch (`services/agent/crates/layerx-proof/src/receipt.rs:269-280`).
-6. When `result_code == 0`, require
-   `debit_balance_before - amount == debit_balance_after` and
-   `credit_balance_before + amount == credit_balance_after` with checked
-   unsigned arithmetic (`services/agent/crates/layerx-proof/src/receipt.rs:281-296`).
-7. Require a sequencer signature; encode the unsigned receipt; recompute
-   `receipt_digest` (`services/agent/crates/layerx-proof/src/receipt.rs:297-303`).
+For height-range keys, `verify_sequencer_signature` requires the first 24
+bytes of signed `batch_id` to be zero; its last eight bytes encode the
+big-endian signed height. Exactly one pinned entry must have the signed
+key ID. Missing or duplicate key identities, or a signed height outside
+that entry's inclusive window, are refusals. The window applies to the
+**signed height**, not `inclusionHeight`. A later inclusion height may lie
+outside the signing window.
 
-The digest is SHA-256 of domain tag `LXP/v1/receipt\0` concatenated with
-the unsigned canonical receipt
-(`services/agent/crates/layerx-wire/src/hash.rs:69, 126, 282-287`;
-`services/interop/crates/layerx-portable/FORMAT.md:32-35`). The signature scheme
-is Ed25519 `verify_strict` over that 32-byte digest with
-`sequencer_public_key` (`services/agent/crates/layerx-crypto/src/ed25519.rs:54-70`;
-`services/agent/crates/layerx-proof/src/receipt.rs:304-305`;
-`services/interop/crates/layerx-portable/FORMAT.md:35`).
+The digest is:
 
-`verify_outcome` always stores that digest on
-`Evidence::sequencer` (`services/agent/crates/layerx-proof/src/receipt.rs:309`;
-`services/agent/crates/layerx-proof/src/evidence.rs:19-22`). Portable `verify`
-then compares it to the object's `receiptDigest`
-(`services/interop/crates/layerx-portable/src/receipt.rs:135-141`).
+```text
+SHA-256("LXP/v1/receipt\0" || unsigned_canonical_receipt)
+```
 
-Export runs the same `verify_outcome` path before encoding JSON, and
-does not rewrite a rejected protocol result into success
-(`services/interop/crates/layerx-portable/src/receipt.rs:38-40, 45-68`).
+The domain ends in one NUL byte. For the canonical signed framing, replace
+the trailing 69 bytes (`01 00000040` followed by the 64-byte signature)
+with one zero signature-presence byte to obtain the unsigned preimage.
+Ed25519 verifies the 32-byte digest under the selected pinned public key.
+Transaction hashing uses Keccak-256, which differs from SHA3-256.
 
----
+Successful verification returns `PortableVerifiedReceiptV2`, exposing
+`signed_receipt`, optional `raw_transaction`, `receipt_digest`,
+`receipt_key`, `activity_id`, `global_sequence`, `result_code`, `height`
+and `inclusion_height` through accessors. It authenticates the outcome,
+including a rejected outcome: `result_code != 0` remains a failed
+transaction. Payment consumers must also check the intended accounts,
+asset, amount and relevant authenticated execution logs.
 
-## What it deliberately does not
+## Independent Python verification
 
-- Consult a node, gateway, daemon, database, clock, or network
-  (`services/interop/crates/layerx-portable/src/lib.rs:5-8`;
-  `services/interop/crates/layerx-portable/src/receipt.rs:112-114`).
-- Treat JSON batch members as a trust root
-  (`services/interop/crates/layerx-portable/src/receipt.rs:18-21`;
-  `services/interop/crates/layerx-portable/FORMAT.md:20-22`).
-- Claim batch inclusion, checkpoint finality, or external settlement
-  (`services/interop/crates/layerx-portable/FORMAT.md:37-39`).
-- Refuse a rejected protocol `result_code`. The portable path calls
-  `verify_outcome`, not `verify`. `verify` additionally refuses
-  `result_code != 0` as `ReceiptCheck::ResultCode`
-  (`services/agent/crates/layerx-proof/src/receipt.rs:224-236, 246-248`;
-  `services/interop/crates/layerx-portable/FORMAT.md:37`).
-- Impose 402LXP transfer-root or program-terminal reconstruction.
-- Run `verify_program_outcome` / `verify_program_state`
-  (`services/agent/crates/layerx-proof/src/receipt.rs:356-488`). Those entry
-  points are not the portable receipt verifier.
+`services/interop/crates/layerx-portable/tests/python_portable_verifier.py`
+implements the sequencer receipt v2 verification path without importing a
+LayerX SDK. It uses `cryptography` for Ed25519 and `pycryptodome` for
+Keccak-256; dependencies are listed in that directory's `requirements.txt`.
+Its `verify(document, pinned_keys)` function takes independently supplied
+pins, checks canonical fields and receipt layout, verifies digest and
+signature, and returns the receipt digest and activity ID.
 
-`verify_external_evidence` is a separate adapter-binding path for
-upstream mandates and receipts (`services/interop/crates/layerx-portable/src/lib.rs:8-12`;
-`services/interop/crates/layerx-portable/src/external.rs:140-184`). It is not
-this verifier.
+For this sequencer layout the decoder reads fixed-width big-endian integers
+and length-prefixed byte fields. It requires envelope version 2, tag
+`0x5201`, protocol version 2, a nonzero activity ID, module ID above 11 and
+module version 1. It bounds effect count and body lengths and rejects
+truncation, invalid effect kinds and flags, signature framing errors and
+trailing bytes. This is a verifier for that layout, not every historical or
+program-specific receipt shape.
 
----
+The Rust harness `tests/independent_verifier.rs` exports actual signed
+receipts from
+`sdk/platform/conformance/fixtures/sequencer-receipt-v1.json` and passes
+their v2 portable JSON to Python over stdin. The fixture filename describes
+the source recording, not the portable format version. Its six accepted
+receipt cases include five successful outcomes and one reverted outcome.
+Python checks the same digest and transaction identity, rejects substituted
+fields and untrusted key lists, and exercises signing-window boundaries.
+The script's command-line harness reads pins from the fixture and runs
+mutation assertions; production consumers must supply their own trust pins
+rather than use fixture keys.
 
-## Ordered steps and first refusal
-
-`verify_json` is `from_json` then `verify`
-(`services/interop/crates/layerx-portable/src/receipt.rs:93-97`).
-
-`from_json` (`services/interop/crates/layerx-portable/src/receipt.rs:77-84`):
-
-1. `JsonBounds` if `bytes` is empty or longer than `1_500_000`.
-2. `JsonShape` if `serde_json::from_slice` fails (wrong type, missing
-   members, unknown members).
-3. `decode_fields`.
-
-`decode_fields` (`services/interop/crates/layerx-portable/src/receipt.rs:167-188`):
-
-1. `UnsupportedFormat` if `format != "layerx-receipt-proof-v1"`.
-2. `UnsupportedVerificationLevel` if `verificationLevel != "sequencer-signed"`.
-3. Decode `canonicalReceipt` (length `1..=1_048_576`), then the six
-   32-byte fields in order: `receiptDigest`, `batchId`, `asset`,
-   `previousStateRoot`, `resultingStateRoot`, `sequencerPublicKey`.
-
-Each base64 field (`services/interop/crates/layerx-portable/src/receipt.rs:288-306`):
-
-1. `InvalidBase64` if empty or contains `=`.
-2. `InvalidBase64` if URL-safe unpadded decode fails.
-3. `InvalidLength` if decoded length is outside the field bound.
-4. `InvalidBase64` if re-encoding does not equal the input string.
-
-`verify` after a successful decode
-(`services/interop/crates/layerx-portable/src/receipt.rs:124-146`):
-
-1. `BatchAuthorizationMismatch` if any of the five decoded batch facts
-   differs from `trusted_batch`.
-2. `Receipt(VerificationFailure { check })` from `verify_outcome`, with
-   `ReceiptCheck` order Decode, CanonicalEncoding, ReceiptShape,
-   ProtocolVersion, Operation, ActivityId, BatchId, Asset,
-   PreviousStateRoot, ResultingStateRoot, DebitBalance, CreditBalance,
-   MissingSignature, CanonicalEncoding (unsigned encode / digest),
-   SequencerSignature (`services/agent/crates/layerx-proof/src/receipt.rs:250-305`).
-3. `MissingReceiptDigest` if `evidence().receipt_digest()` is `None`.
-4. `ReceiptDigestMismatch` if that digest differs from the object's
-   `receiptDigest`.
-
-Combined-fault order asserted by tests: a JSON object whose canonical
-bytes also fail `Decode`, verified against a non-matching batch, returns
-`BatchAuthorizationMismatch` rather than `Receipt(Decode)`
-(`services/interop/crates/layerx-portable/tests/independent_verifier.rs:126-137`).
-The same object against the matching batch returns `Receipt(Decode)`
-(`services/interop/crates/layerx-portable/tests/independent_verifier.rs:99-111`).
-Wire-shape faults (`from_json`) fire before `verify` and therefore
-before batch mismatch.
-
-`export` (`services/interop/crates/layerx-portable/src/receipt.rs:45-68`):
-
-1. `ReceiptBounds` if the canonical slice is empty or longer than
-   `1_048_576`.
-2. `Receipt(...)` from `verify_outcome`.
-3. `MissingReceiptDigest` if the verified evidence has no digest.
-
----
+`tests/proof_portable_receipt.rs` covers both direct and RPC constructors
+through the public JSON consumer, including repeated use, raw-transaction
+presence, corrupted transport and ambiguous pins.
 
 ## Typed refusals
 
-`PortableReceiptError`
-(`services/interop/crates/layerx-portable/src/receipt.rs:232-244`):
+`PortableReceiptError` preserves wire, authority and evidence failures:
 
-| Variant | Condition |
+| Variant | Condition in the v2 path |
 | --- | --- |
-| `JsonBounds` | JSON bytes empty or `len > 1_500_000` (`receipt.rs:14, 78-80`) |
-| `JsonShape` | `serde_json` parse or serialize failure, including unknown members (`receipt.rs:23, 81-82, 109`) |
-| `ReceiptBounds` | Canonical receipt empty or `len > 1_048_576` on `export` (`receipt.rs:13, 49-51`) |
-| `UnsupportedFormat` | `format` is not `layerx-receipt-proof-v1` (`receipt.rs:11, 168-169`) |
-| `UnsupportedVerificationLevel` | `verificationLevel` is not `sequencer-signed` (`receipt.rs:12, 171-172`) |
-| `InvalidBase64(field)` | Empty, padded (`=`), undecodable, or non-canonical unpadded base64url (`receipt.rs:294-305`) |
-| `InvalidLength(field)` | Decoded length outside the field bound (`receipt.rs:300-301, 282-285`) |
-| `Receipt(VerificationFailure)` | `verify_outcome` refused; `check` names the stage (`receipt.rs:53, 133-134, 240`) |
-| `BatchAuthorizationMismatch` | Object `batchId` / `asset` / `previousStateRoot` / `resultingStateRoot` / `sequencerPublicKey` differ from `trusted_batch` (`receipt.rs:125-131`) |
-| `MissingReceiptDigest` | `evidence().receipt_digest()` is `None` after `verify_outcome` (`receipt.rs:54-57, 135-138`) |
-| `ReceiptDigestMismatch` | Recomputed digest ≠ object `receiptDigest` (`receipt.rs:139-141`) |
+| `JsonBounds` | Empty or oversized JSON, including an oversized encoded export. |
+| `JsonShape` | Invalid JSON shape, missing required members, unknown members or an invalid RPC rung. |
+| `ReceiptBounds` | Empty or oversized receipt supplied to export, or insufficient signed framing for digest extraction. |
+| `UnsupportedFormat` | Format other than `layerx-receipt-proof-v2`. |
+| `UnsupportedVerificationLevel` | Level other than `receipted`. |
+| `InvalidHex(field)` | Missing `0x`, odd hex length or a non-lowercase hex digit. |
+| `InvalidLength(field)` | Decoded bytes outside the field's fixed size or bounds. |
+| `InvalidQuantity(field)` | Noncanonical or overflowing height quantity. |
+| `Receipt(VerificationFailure { check })` | Canonical receipt or signature verification failed; `check` names the failing stage. |
+| `ReceiptKeyMismatch` | No export key matching the RPC key ID, or the carried key differs from the pinned signing entry. |
+| `NotReceipted` | RPC source rung is `submitted`. |
+| `InclusionHeight` | Carried inclusion height precedes signed height. |
+| `ReceiptDigestMismatch` | Recomputed digest differs from `receiptDigest`. |
+| `RawTransactionMismatch` | Raw transaction hash differs from signed activity ID. |
 
-`ReceiptCheck` values `verify_outcome` can return
-(`services/agent/crates/layerx-proof/src/receipt.rs:99-132, 250-305`):
+Receipt verification stages are `Decode`, `CanonicalEncoding`,
+`ReceiptShape`, `ProtocolVersion`, `ActivityId`, `MissingSignature`,
+`BatchId` and `SequencerSignature`. Unpinned or ambiguous signing IDs and
+out-of-window signed heights fail at `SequencerSignature`. The error enum
+also retains older variants such as `InvalidBase64` and
+`BatchAuthorizationMismatch`; these are not the v2 verification contract.
 
-| `check` | Condition |
-| --- | --- |
-| `Decode` | Canonical decode failed |
-| `CanonicalEncoding` | Re-encode ≠ supplied bytes, or unsigned encode / digest failed |
-| `ReceiptShape` | Not a full protocol receipt |
-| `ProtocolVersion` | Version is not occupancy 2 or 3 |
-| `Operation` | Operation tag is 0 |
-| `ActivityId` | Activity id is 32 zero bytes |
-| `BatchId` | Receipt batch id ≠ authorised batch id |
-| `Asset` | Receipt asset ≠ authorised asset, or asset is 32 zero bytes |
-| `PreviousStateRoot` | Receipt predecessor ≠ authorised predecessor |
-| `ResultingStateRoot` | Receipt successor ≠ authorised successor |
-| `DebitBalance` | `result_code == 0` and debit did not decrease by `amount` |
-| `CreditBalance` | `result_code == 0` and credit did not increase by `amount` |
-| `MissingSignature` | Sequencer signature absent |
-| `SequencerSignature` | Ed25519 `verify_strict` failed under the authorised key |
+## Evidence limits and migration
 
-`ReceiptCheck::ResultCode` is raised only by `verify`, not by
-`verify_outcome` (`services/agent/crates/layerx-proof/src/receipt.rs:224-236`).
-`ReceiptCheck::Module` is raised only by `verify_program_state` /
-`verify_program_outcome` (`services/agent/crates/layerx-proof/src/receipt.rs:380-388, 446-454`).
+The v1 base64url object, its `sequencer-signed` level and caller-supplied
+`AuthorizedBatch` portable verification workflow are retired. Current
+`verify_portable_json` accepts v2 only. To migrate, obtain the exact signed
+receipt and authenticated receipt-key ranges, export v2 through the current
+constructor, then verify against the consumer's own pinned list. Renaming
+the old format field does not migrate its evidence.
 
-`Evidence::sequencer` always sets `receipt_digest: Some(...)`
-(`services/agent/crates/layerx-proof/src/evidence.rs:19-22`). Portable code still
-maps `None` to `MissingReceiptDigest`
-(`services/interop/crates/layerx-portable/src/receipt.rs:54-57, 135-138`).
+A portable proof does not establish committed block inclusion, current
+network head, arbitrary account-state validity, external settlement or
+provider payout. `inclusionHeight` is a checked carried value, not a block
+proof. It also does not validate the full RPC logs or reconstruct every
+program outcome. [AP2](ap2.md) and [ramps](ramps.md) impose their own
+mandate, payment and settlement checks in addition to receipt authenticity.
 
----
+`verify_external_evidence` is a separate API for upstream mandates and
+receipts. A version-pinned adapter owns protocol-specific cryptography and
+constraints; the generic layer binds its typed verified result to the exact
+presentation, media type, evidence kind, specification and conformance
+descriptor. It is not the network receipt verifier.
 
-## Vectors
-
-`services/interop/crates/layerx-portable/tests/receipt_vectors.rs` and
-`services/interop/crates/layerx-portable/tests/independent_verifier.rs` do not
-load files under `sdk/platform/conformance/fixtures/`. Their vectors are
-inline JSON constants. For sequencer receipt evidence under
-`daemon/committed-fixture/vectors/`, see
-[SDK sequencer receipt verification](../agents/sdk-verification.md).
-
-Shared inline object `GOLDEN_RECEIPT_JSON` /
-`GOLDEN_VECTOR_1` (`services/interop/crates/layerx-portable/tests/receipt_vectors.rs:11-21`;
-`services/interop/crates/layerx-portable/tests/independent_verifier.rs:14-24`):
-`format` `layerx-receipt-proof-v1`, `verificationLevel` `sequencer-signed`,
-batch facts `[1;32]`, `[2;32]`, `[3;32]`, `[4;32]`, `[5;32]`, dummy
-`canonicalReceipt` bytes. `GOLDEN_VECTOR_2`
-(`services/interop/crates/layerx-portable/tests/independent_verifier.rs:26-36`)
-uses a different dummy receipt and a `previousStateRoot` string that is
-not `[8;32]`.
-
-| Test | File | What it proves | Expected outcome |
-| --- | --- | --- | --- |
-| `format_constant_matches_specification` | `tests/receipt_vectors.rs:24-30` | Format and crate anchor strings | `PORTABLE_RECEIPT_FORMAT == "layerx-receipt-proof-v1"`; `interop_portable_verification() == "layerx-receipt-proof-v1-and-pinned-external-evidence-v1"` |
-| `parse_golden_receipt_json` | `tests/receipt_vectors.rs:33-41` | Golden JSON parses | `from_json` `Ok`; `format()` equals `PORTABLE_RECEIPT_FORMAT` |
-| `reject_malformed_json` | `tests/receipt_vectors.rs:44-58` | Empty, `{}`, `[]`, unknown field | `from_json` `Err` (variant not asserted) |
-| `reject_padded_base64` | `tests/receipt_vectors.rs:61-68` | Insert `=` into a base64 field | `Err(InvalidBase64(_))` |
-| `reject_non_canonical_base64` | `tests/receipt_vectors.rs:71-85` | Mutated last character of `receiptDigest` and `resultingStateRoot` (`Q` → `R`) | `Err(InvalidBase64(_))` |
-| `reject_wrong_field_lengths` | `tests/receipt_vectors.rs:88-98` | `receiptDigest` shortened to `BAQE` | `Err(InvalidLength(_))` |
-| `reject_unsupported_format` | `tests/receipt_vectors.rs:101-111` | `format` set to `layerx-receipt-proof-v2` | `Err(UnsupportedFormat)` |
-| `reject_unsupported_verification_level` | `tests/receipt_vectors.rs:114-124` | `verificationLevel` set to `checkpoint-finalized` | `Err(UnsupportedVerificationLevel)` |
-| `verify_requires_matching_batch_authorization` | `tests/receipt_vectors.rs:127-142` | Parsed golden vs `AuthorizedBatch` whose `batch_id` is `[99;32]` | `Err(BatchAuthorizationMismatch)` |
-| `export_rejects_truncated_canonical_receipt` | `tests/receipt_vectors.rs:145-159` | 32-byte dummy export | `Err(Receipt(VerificationFailure { check: Decode }))` |
-| `export_and_json_roundtrip` | `tests/receipt_vectors.rs:162-188` | `from_json` → `to_json` → `from_json` | `format`, `canonical_receipt`, `receipt_digest` equal |
-| `reject_oversized_json` | `tests/receipt_vectors.rs:191-204` | JSON longer than `1_500_000` | `Err(JsonBounds)` |
-| `reject_oversized_canonical_receipt` | `tests/receipt_vectors.rs:207-215` | Export `1_048_577` bytes | `Err(ReceiptBounds)` |
-| `reject_empty_canonical_receipt` | `tests/receipt_vectors.rs:218-225` | Export empty slice | `Err(ReceiptBounds)` |
-| `independent_verifier_rejects_invalid_receipt_in_golden_vector_1` | `tests/independent_verifier.rs:99-111` | Vector 1 vs matching `[1]..[5]` batch | `Err(Receipt(Decode))` |
-| `independent_verifier_rejects_root_mismatch_in_golden_vector_2` | `tests/independent_verifier.rs:113-124` | Vector 2 vs `[6]..[10]` batch | `Err(BatchAuthorizationMismatch)` |
-| `independent_verifier_rejects_batch_mismatch` | `tests/independent_verifier.rs:126-137` | Vector 1 vs `[99;32]`×5 (invalid receipt and mismatched batch) | `Err(BatchAuthorizationMismatch)` |
-| `independent_verifier_processes_all_vectors` | `tests/independent_verifier.rs:139-154` | Both golden vectors against their listed batches | `[Err(Receipt(Decode)), Err(BatchAuthorizationMismatch)]` |
-| `independent_verifier_no_layerx_infrastructure_required` | `tests/independent_verifier.rs:156-169` | Same as vector 1 matching batch | `Err(Receipt(Decode))` |
-| `portable_format_constant_is_stable` | `tests/independent_verifier.rs:171-177` | Format string | `"layerx-receipt-proof-v1"` |
-| `independent_implementation_can_enumerate_vectors` | `tests/independent_verifier.rs:179-195` | Two non-empty vectors contain the format id | length 2; each contains `layerx-receipt-proof-v1` |
-
-No portable test returns `Ok(PortableVerifiedReceipt)`. No portable test
-loads `sdk/platform/conformance/fixtures/`.
-
----
-
-## Relationship to SDK sequencer receipt verification
-
-[SDK sequencer receipt verification](../agents/sdk-verification.md) covers
-the signed sequencer receipt returned by `pax_sequencerReceipt` using the
-four committed JSON vectors under `daemon/committed-fixture/vectors/`.
-It describes receipt key authorization, RPC view bindings, and commitment
-evidence.
-
-The portable format described here recomputes the receipt digest over domain
-`LXP/v1/receipt\0`
-(`services/agent/crates/layerx-wire/src/hash.rs:69`;
-`services/interop/crates/layerx-portable/FORMAT.md:32-35`).
-
-The portable verifier stops at sequencer-signed receipt authenticity
-plus independently supplied batch facts. It does not unwrap
-`terminal_payload`, reconstruct applied legs, or classify
-`transfer_verification`.
-
----
-
-## Disagreements left intact
-
-1. `FORMAT.md` step 2 requires protocol version 1
-   (`services/interop/crates/layerx-portable/FORMAT.md:26-27`).
-   `verify_outcome` refuses unless `protocol_version_uses_occupancy`
-   (versions 2 and 3) (`services/agent/crates/layerx-proof/src/receipt.rs:15-16, 260-261`;
-   `services/agent/crates/layerx-wire/src/limits.rs:29-33`).
-2. `FORMAT.md` decodes and re-encodes the receipt, then compares batch
-   fields (`services/interop/crates/layerx-portable/FORMAT.md:24-29`).
-   `PortableReceipt::verify` compares object batch fields to
-   `trusted_batch` before `verify_outcome`
-   (`services/interop/crates/layerx-portable/src/receipt.rs:125-134`). Tests assert
-   that combined invalid-receipt plus batch-mismatch yields
-   `BatchAuthorizationMismatch`
-   (`services/interop/crates/layerx-portable/tests/independent_verifier.rs:126-137`).
-3. `FORMAT.md` names golden vectors in `tests/receipt_vectors.rs` and
-   `tests/independent_verifier.rs` as the portability proof
-   (`services/interop/crates/layerx-portable/FORMAT.md:72-74`). Those tests use
-   inline JSON, not `sdk/platform/conformance/fixtures/`.
-4. `FORMAT.md` step 6 requires `receiptDigest` equality, then Ed25519
-   (`services/interop/crates/layerx-portable/FORMAT.md:34-35`). `verify_outcome`
-   verifies Ed25519 first (`services/agent/crates/layerx-proof/src/receipt.rs:304-305`);
-   portable `verify` compares `receiptDigest` only after that returns
-   (`services/interop/crates/layerx-portable/src/receipt.rs:133-141`).
-
-Sources:
-
-- `services/interop/crates/layerx-portable/src/lib.rs:5-23`
-- `services/interop/crates/layerx-portable/src/receipt.rs:11-14, 18-34, 38-40, 45-146, 167-188, 232-244, 288-306`
-- `services/interop/crates/layerx-portable/FORMAT.md:3-39, 72-74`
-- `services/interop/crates/layerx-portable/tests/receipt_vectors.rs:11-225`
-- `services/interop/crates/layerx-portable/tests/independent_verifier.rs:14-195`
-- `services/agent/crates/layerx-proof/src/receipt.rs:15-16, 44-69, 99-132, 224-236, 246-310`
-- `services/agent/crates/layerx-proof/src/evidence.rs:19-22, 82-83`
-- `services/agent/crates/layerx-wire/src/hash.rs:69, 126, 282-287`
-- `services/agent/crates/layerx-wire/src/limits.rs:29-33`
-- `services/agent/crates/layerx-crypto/src/ed25519.rs:54-70`
-- `docs/wiki/SdkTerminalVerification.md`
-
-[Home](../index.md)
+[Interoperability](index.md) · [Home](../index.md)

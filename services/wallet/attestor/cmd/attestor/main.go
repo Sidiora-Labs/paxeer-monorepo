@@ -143,6 +143,18 @@ func NewMetrics(registry *prometheus.Registry) (*health.Metrics, error) {
 	return health.NewMetrics(registry, refusalCodes)
 }
 
+func tokenVerifierConfig(cfg *config.Config, st *store.Store) jwt.Config {
+	return jwt.Config{
+		JWKSURL:            cfg.JWKSURL,
+		Issuer:             cfg.JWTIssuer,
+		Audience:           cfg.JWTAudience,
+		MinRefreshInterval: time.Minute,
+		HTTPClient:         &http.Client{Timeout: 10 * time.Second},
+		MaxAge:             cfg.JWTMaxAge,
+		Replay:             st,
+	}
+}
+
 func run(ctx context.Context, getenv func(string) string, ready func(listening)) error {
 	cfg, err := config.Load(getenv)
 	if err != nil {
@@ -189,14 +201,7 @@ func run(ctx context.Context, getenv func(string) string, ready func(listening))
 	}
 	var tokens *jwt.TokenVerifier
 	if cfg.JWKSURL != "" {
-		tokens, err = jwt.NewTokenVerifier(jwt.Config{
-			JWKSURL:    cfg.JWKSURL,
-			Issuer:     cfg.JWTIssuer,
-			Audience:   cfg.JWTAudience,
-			HTTPClient: &http.Client{Timeout: 10 * time.Second},
-			MaxAge:     cfg.JWTMaxAge,
-			Replay:     st,
-		})
+		tokens, err = jwt.NewTokenVerifier(tokenVerifierConfig(cfg, st))
 		if err != nil {
 			return err
 		}

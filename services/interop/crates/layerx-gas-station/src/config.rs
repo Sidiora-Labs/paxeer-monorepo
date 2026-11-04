@@ -235,9 +235,11 @@ impl StationConfig {
 
 /// A sender sponsored under its own per-interval budget in place of the
 /// ordinary per-account limit.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RegisteredSender {
     pub address: Address,
+    #[serde(with = "crate::tx::fee_amount")]
     pub budget: u128,
 }
 

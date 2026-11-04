@@ -1,9 +1,12 @@
 # layerx-human-identity-provider
 
-Linux LXIP identity directory for the Unix client in
-`layerx-human-service/src/server/identity_dispatch.rs`. This is independent of
-the hosted HTTP identity service. It depends on the client's actual
-`PrincipalId`, `Device`, `AccountIdentity`, `Did`, and recovery policy types.
+Linux LXIP identity directory for the Unix client in the
+[Human service](../layerx-human-service/README.md), implemented in
+`src/server/identity_dispatch.rs` there. This local directory is distinct from
+the hosted HTTP identity service. It uses the service's `PrincipalId`, `Device`,
+`AccountIdentity`, `Did` and recovery policy types. Its records support
+principal-scoped onboarding on the merged chain, whose EVM chain id is 125;
+local directory provisioning alone is not proof of an on-chain account binding.
 
 ## Run
 
@@ -23,8 +26,8 @@ command:
 | `probe` | Sends operation 0 to the running listener |
 | `bind-device` | Imports one trusted device enrollment (below) |
 | `provision-owner` | Runs operation 1 against the exclusively held state from at most 16384 bytes of JSON on stdin and prints the provisioned fields as JSON |
-| `provision-account` | Reads a JSON request with an exported `did:layerx:` DID on stdin and prints the protocol 3 account id of `agent:<did>:main` as hex |
-| `validate-account-head` | Reads at most 1 MiB of JSON on stdin and verifies the account head's receipt, proof and signed batch header against the given sequencer key |
+| `provision-account` | Compatibility helper: derives a protocol-3 account id from an exported DID; does not submit a transaction or prove a current chain binding |
+| `validate-account-head` | Compatibility validator for a first-batch protocol-3 account head; not a merged-chain commitment verifier |
 
 Required environment for `serve`:
 
@@ -35,6 +38,15 @@ Required environment for `serve`:
 | `LAYERX_HUMAN_IDENTITY_PROVIDER_ALLOWED_UID` | Decimal effective UID of the human-service process permitted by Linux SO_PEERCRED. Required; no wildcard. |
 | `LAYERX_HUMAN_IDENTITY_PROVIDER_RECOVERY_POLICY_FILE` | Absolute path to a 0600, single-link, regular JSON file owned by the provider UID. Required even on restart. Its parent must be protected. |
 | `LAYERX_HUMAN_IDENTITY_PROVIDER_DEADLINE_SECONDS` | Optional total connection I/O budget, 1–60 seconds; default 5. |
+| `LAYERX_RUNTIME_CLOCK_SOCKET` | Required absolute Unix socket of the authenticated clock supervisor. Socket and parent directory must be private to the configured clock UID. |
+| `LAYERX_RUNTIME_CLOCK_PID` | Required nonzero decimal supervisor PID, checked against SO_PEERCRED. |
+| `LAYERX_RUNTIME_CLOCK_UID` | Required decimal supervisor UID, checked against socket ownership and SO_PEERCRED. |
+
+The listener connects to the clock before opening its state. Missing clock
+configuration or an unavailable or mismatched clock peer refuses startup.
+The administrative commands and `probe` do not attach to that clock.
+For local development the [workspace guide](../../README.md) shows the supervisor
+wrapper; direct production launches must inherit all three clock bindings.
 
 The recovery file has `root` (array of 32 byte integers), `threshold` (nonzero
 u16), and `delay_seconds` (nonzero u64). The operator supplies an established,
@@ -60,6 +72,29 @@ finishes the active bounded transaction, and removes only this listener's
 socket inode. Filesystem fsync duration is not forcibly bounded. A crashed
 listener's socket is removed on startup only if it is owned, protected, and
 connection-refused; a live or untrusted endpoint is refused.
+
+## Provisioning helpers and chain evidence
+
+`provision-owner` needs `STATE_ROOT` and `RECOVERY_POLICY_FILE`, takes the same
+exclusive state lock as the listener, and accepts `email`, `display_name`,
+`idempotency_key` and `now`. Its JSON response contains `principal`, `did`,
+`recovery_root`, `recovery_threshold` and `recovery_delay_seconds`. Stop the
+listener before using this command.
+
+`provision-account` accepts at most 16384 bytes of JSON with only `did`. The
+suffix of `did:layerx:` must be exactly 64 lowercase hex characters and nonzero.
+It returns `{"account":"<hex>"}` using the retained protocol-3 derivation of
+`agent:<did>:main`. It performs no account registration.
+
+`validate-account-head` remains a compatibility command in
+[provision_head.rs](src/provision_head.rs). Its input is bounded to 1 MiB and
+contains `head`, `network_id`, `sequencer_id` and `public_key`. It requires
+`head.current`, protocol 3 and **batch number 1**, checks the receipt digest,
+state root and observed sequence, and prints `{"consumed":0}` on success.
+It refuses later retained batches and does not establish current committed
+chain state. Do not use this helper to initialize limits from an arbitrary
+current head or treat its successful output as merged-chain onboarding evidence.
+The receipt/binding path belongs to the Human service and its chain adapters.
 
 ## LXIP v1 wire contract
 
@@ -152,13 +187,9 @@ device. Exact repeated enrollment is idempotent. The library exposes the same
 operation as `State::bind_device`. Exclusive state locking prevents concurrent
 imports while serving. No enrollment endpoint is exposed to LXIP callers.
 
-The client module and error type are private to the service crate. Integration
-tests compile the unchanged original `identity_dispatch.rs` through a path
-module, with all its imports bound to the real service types. They execute
-`RemoteIdentityProvider` itself against the real listener; no protocol client
-copy, fake provider, or service-source modification is used. Auxiliary symbols
-in that source remain linked and type-checked. Separate wire and binary tests
-exercise malformed frames, protected storage, crash restart and shutdown.
+The provider's integration suites cover the service client, wire validation,
+protected storage and listener lifecycle. [Shared test support](../layerx-human-test-support/README.md)
+distinguishes local admission evidence from committed chain evidence.
 
 ## Durability and limits
 

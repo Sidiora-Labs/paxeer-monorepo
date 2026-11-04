@@ -43,6 +43,7 @@ func TestNewNodeAssemblesSequencerComponents(t *testing.T) {
 			cfg.WALDir = filepath.Join(t.TempDir(), "wal")
 			cfg.ReceiptKeyFile = writeSeed(t, t.TempDir(), "receipt_key", testKeySeed, 0o600)
 			cfg.StandbyAddress = "127.0.0.1:1"
+			cfg.ReplicationTLS, _ = sequencer.Repair103TLSFixture(t)
 			cfg.ReplicationTimeout = replicationTimeout
 			cfg.LeaseDuration = 3 * replicationTimeout
 			cfg.NonceQueueMaxPerSender = 1
