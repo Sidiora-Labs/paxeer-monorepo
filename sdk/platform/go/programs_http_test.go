@@ -763,7 +763,106 @@ func TestProgramSDKInterfaceNativeBindingAndBound(t *testing.T) {
 	}
 }
 
+// The public corpus uses unchanged native JSON receipts, retained signed EVM
+// transactions and independently pinned receipt keys. Terminal codecs are tested
+// separately because native receipts authenticate logs, not kernel projections.
 func TestProgramTerminalV5NativeCorpus(t *testing.T) {
+	for _, vector := range sequencerReceiptCases(t) {
+		t.Run(vector.ID, func(t *testing.T) {
+			var view sequencerReceiptJSON
+			if err := json.Unmarshal(vector.ReceiptJSON, &view); err != nil {
+				t.Fatal(err)
+			}
+			raw := sequencerFixtureBytes(t, vector.RawTransaction)
+			keys := sequencerFixtureKeys(t, vector)
+			execution := ProgramExecutionDocument{TransactionHash: view.TxHash, Receipt: string(vector.ReceiptJSON), RawTransaction: raw, ReceiptKeys: keys}
+			if vector.ID == "V1-layerxprograms-call" {
+				execution.ProgramID, execution.GuestABIVersion = view.Logs[0].Topics[1][2:], 1
+			}
+			programs := committedRecordedPrograms(t, vector.ReceiptJSON, raw, keys)
+			submission, transportErr := programs.Activity(context.Background(), receiptKeccak256(raw))
+			verified, err := VerifyProgramReceipt(execution)
+			if vector.Vector == "V3" {
+				if err == nil || transportErr == nil || verified.SequencerReceipt != nil || verified.NativeResult != nil || verified.Verification.Level != "" || submission.SequencerReceipt != nil {
+					t.Fatalf("malformed producer proof accepted: %+v %v / %+v %v", verified, err, submission, transportErr)
+				}
+				return
+			}
+			if err != nil || transportErr != nil || submission.SequencerReceipt == nil || verified.SequencerReceipt == nil {
+				t.Fatalf("recorded native receipt refused: %v / %v", err, transportErr)
+			}
+			if verified.Verification.Level != "receipted" || verified.Verification.Receipt.ProgramOutcome != nil ||
+				!bytes.Equal(verified.Verification.CanonicalBytes, sequencerFixtureBytes(t, vector.SignedReceipt)) ||
+				verified.Verification.ReceiptDigest != fixture32(t, strings.TrimPrefix(vector.ReceiptDigest, "0x")) ||
+				!bytes.Equal(submission.SequencerReceipt.CanonicalBytes, verified.Verification.CanonicalBytes) {
+				t.Fatal("public verification changed producer evidence or reported a retired rung")
+			}
+			wantState := ProgramSubmissionExecuted
+			if vector.Vector == "V2" {
+				wantState = ProgramSubmissionRefused
+			}
+			if submission.State != wantState {
+				t.Fatalf("native transaction state = %s, want %s", submission.State, wantState)
+			}
+			if vector.ID == "V1-layerxprograms-call" {
+				if verified.NativeResult == nil || verified.NativeResult.ProgramID != fixture32(t, execution.ProgramID) || verified.NativeResult.GuestABIVersion != 1 || verified.NativeResult.TerminalResult != 0 {
+					t.Fatalf("missing authenticated program log: %+v", verified.NativeResult)
+				}
+			} else if verified.NativeResult != nil {
+				t.Fatal("ordinary receipt invented a program result")
+			}
+		})
+	}
+	execution := nativeProgramReceiptDocument(t)
+	for name, mutate := range map[string]func(*ProgramExecutionDocument){
+		"missing-raw-transaction": func(e *ProgramExecutionDocument) { e.RawTransaction = nil },
+		"wrong-raw-transaction": func(e *ProgramExecutionDocument) {
+			e.RawTransaction = append([]byte(nil), e.RawTransaction...)
+			e.RawTransaction[0] ^= 1
+		},
+		"missing-pins": func(e *ProgramExecutionDocument) { e.ReceiptKeys.Pins = nil },
+		"unpinned-sequencer": func(e *ProgramExecutionDocument) {
+			e.ReceiptKeys.Pins = append([]ReceiptKey(nil), e.ReceiptKeys.Pins...)
+			e.ReceiptKeys.Pins[0].PublicKey[0] ^= 1
+		},
+		"wrong-transaction-hash": func(e *ProgramExecutionDocument) { e.TransactionHash = "0x" + strings.Repeat("ff", 32) },
+		"wrong-program":          func(e *ProgramExecutionDocument) { e.ProgramID = strings.Repeat("ff", 32) },
+		"wrong-abi":              func(e *ProgramExecutionDocument) { e.GuestABIVersion = 4 },
+		"legacy-module":          func(e *ProgramExecutionDocument) { e.ModuleVersion = 3 },
+		"legacy-terminal":        func(e *ProgramExecutionDocument) { e.TerminalPayload = "00" },
+		"legacy-graph":           func(e *ProgramExecutionDocument) { e.CallGraph = "00" },
+		"legacy-outcome":         func(e *ProgramExecutionDocument) { e.Outcome.Kind = "completed" },
+		"signature": func(e *ProgramExecutionDocument) {
+			var fields map[string]json.RawMessage
+			if err := json.Unmarshal([]byte(e.Receipt), &fields); err != nil {
+				t.Fatal(err)
+			}
+			var encoded string
+			if err := json.Unmarshal(fields["receipt"], &encoded); err != nil {
+				t.Fatal(err)
+			}
+			raw := sequencerFixtureBytes(t, encoded)
+			raw[len(raw)-1] ^= 1
+			fields["receipt"], _ = json.Marshal(portableHex(raw))
+			changed, err := json.Marshal(fields)
+			if err != nil {
+				t.Fatal(err)
+			}
+			e.Receipt = string(changed)
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			changed := execution
+			mutate(&changed)
+			if verified, err := VerifyProgramReceipt(changed); err == nil || verified.SequencerReceipt != nil || verified.NativeResult != nil || verified.Verification.Level != "" {
+				t.Fatalf("malformed public proof accepted: %+v %v", verified, err)
+			}
+		})
+	}
+}
+
+// Historical terminal codec coverage; this is not a public receipt verifier.
+func TestProgramTerminalV5HistoricalCodecCorpus(t *testing.T) {
 	path := os.Getenv("PAXEER_X_PROGRAM_TERMINAL_V5_CORPUS")
 	if path == "" {
 		t.Fatal("real native terminal-v5 signed corpus required")
@@ -855,11 +954,10 @@ func TestProgramTerminalV5NativeCorpus(t *testing.T) {
 			if err != nil || binding.ActivityID != fixture32(t, execution.ActivityID) {
 				t.Fatal("native signed activity identity mismatch")
 			}
-			verified, err := VerifyProgramReceipt(execution, 3)
-			if err != nil {
-				t.Fatalf("real native %s verification: %v", key, err)
+			if _, _, err := verifyProgramTerminal(execution, decoded.protocol, actualTerminal, fixtureBytes(t, vector.Graph), nil); err != nil {
+				t.Fatalf("historical native %s terminal codec: %v", key, err)
 			}
-			outcome := verified.Verification.Receipt.ProgramOutcome
+			outcome := decoded.protocol.ProgramOutcome
 			if outcome == nil || outcome.ABIVersion != call.GuestABI {
 				t.Fatal("signed receipt ABI differs from request")
 			}
@@ -896,7 +994,7 @@ func TestProgramTerminalV5NativeCorpus(t *testing.T) {
 					func(o *ProgramReceiptOutcome) { o.OutputBytes++ },
 					func(o *ProgramReceiptOutcome) { o.FeeUnits = NewUint128(0, 18446744073709551615) },
 				} {
-					changedReceipt := verified.Verification.Receipt
+					changedReceipt := decoded.protocol
 					changedOutcome := *outcome
 					mutate(&changedOutcome)
 					changedReceipt.ProgramOutcome = &changedOutcome
@@ -911,16 +1009,16 @@ func TestProgramTerminalV5NativeCorpus(t *testing.T) {
 				}
 			}
 			for length := 0; length < len(terminal); length++ {
-				if _, _, err := verifyProgramTerminal(execution, verified.Verification.Receipt, terminal[:length], graph, nil); err == nil {
+				if _, _, err := verifyProgramTerminal(execution, decoded.protocol, terminal[:length], graph, nil); err == nil {
 					t.Fatalf("accepted terminal truncation %d", length)
 				}
 			}
-			if _, _, err := verifyProgramTerminal(execution, verified.Verification.Receipt, append(append([]byte{}, terminal...), 0), graph, nil); err == nil {
+			if _, _, err := verifyProgramTerminal(execution, decoded.protocol, append(append([]byte{}, terminal...), 0), graph, nil); err == nil {
 				t.Fatal("accepted trailing terminal byte")
 			}
 			badGraph := append([]byte(nil), graph...)
 			badGraph[0] ^= 1
-			if _, _, err := verifyProgramTerminal(execution, verified.Verification.Receipt, terminal, badGraph, nil); err == nil {
+			if _, _, err := verifyProgramTerminal(execution, decoded.protocol, terminal, badGraph, nil); err == nil {
 				t.Fatal("accepted changed graph")
 			}
 			unpinnedExecution := execution
