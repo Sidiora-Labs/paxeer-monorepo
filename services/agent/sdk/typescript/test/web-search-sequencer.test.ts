@@ -39,7 +39,7 @@ async function purchase(entry: ReturnType<typeof recording>, keys: readonly Sequ
     payer: {
       ...(typeof payerAddress === "string" ? { address: payerAddress } : {}),
       preferences: [{ currency: entry.currency, scheme: entry.scheme }],
-      exact: async () => ({ receipt: entry.receipt, rawTransaction: entry.raw, idempotencyKey: entry.payment.payload.idempotencyKey }),
+      exact: async () => ({ receipt: entry.receipt, txHash: entry.transactionHash, rawTransaction: entry.raw, idempotencyKey: entry.payment.payload.idempotencyKey }),
       metered: async () => ({ grant: unhex(buyer.grants[entry.currency]), idempotencyKey: entry.payment.payload.idempotencyKey }),
     }, now: () => 1_000_000_000n,
   });

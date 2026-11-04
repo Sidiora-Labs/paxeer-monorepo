@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from hashlib import sha256
 import threading
 import unittest
 from dataclasses import replace
@@ -42,7 +43,7 @@ SUBMISSION = {
 
 PLAN_REQUEST = PlanIntentRequest(
     IntentEndpointRef("paxeer-wallet", None),
-    IntentEndpointRef("agent", "agent:did:layerx:bob:main"),
+    IntentEndpointRef("agent", "agent:did:layerx:8020367c3d7d568d84ef8d5b2725431dc7bb21daf42630cceb95cc09cd9e30ba:main"),
     "99" * 32,
     IntentMoney(500000, "LXP"),
     IntentConstraints("2026-08-18T09:35:00Z", IntentMoney(250, "LXP"), False),
@@ -101,6 +102,10 @@ class HumanIntentBindingTest(unittest.TestCase):
         self.assertIsInstance(FIXTURE["provenance"], str)
         self.assertEqual(encode_plan_intent_request(PLAN_REQUEST), FIXTURE["plan_request"])
         self.assertNotIn("account", FIXTURE["plan_request"]["source"])
+        self.assertEqual(FIXTURE["plan_request"]["source"], {"kind": "paxeer-wallet"})
+        self.assertEqual(FIXTURE["plan_request"]["destination"], {
+            "kind": "agent", "account": PLAN_REQUEST.destination.account,
+        })
         self.assertEqual(encode_submit_plan_request(SUBMIT_REQUEST), {
             "plan_digest": "4b" * 32,
             "signed_digest": "7c" * 32,
@@ -149,21 +154,89 @@ class HumanIntentBindingTest(unittest.TestCase):
             with self.assertRaises(PlatformSdkError):
                 encode_submit_plan_request(submission)
 
+    def test_plan_legs_use_producer_evm_fields(self) -> None:
+        request = FIXTURE["plan_request"]
+        result = FIXTURE["plan_result"]
+        for index, leg in enumerate(result["legs"]):
+            self.assertEqual(set(leg), {
+                "index", "mechanism", "domain", "source", "destination", "money", "fee",
+                "to", "value", "calldata", "nonce", "chain_id", "gas_limit",
+                "max_fee_per_gas", "max_priority_fee_per_gas",
+            })
+            self.assertEqual(leg["chain_id"], 125)
+            self.assertEqual(leg["to"], "0x000000000000000000000000000000000000101a")
+            self.assertEqual(leg["nonce"], index)
+            self.assertEqual(leg["value"], "0")
+            self.assertEqual(leg["money"], request["money"])
+            accounts = []
+            for endpoint in (leg["source"], leg["destination"]):
+                name = endpoint["account"].encode("utf-8")
+                accounts.append(sha256(b"LX:ACCOUNT:v1" + len(name).to_bytes(4, "big") + name).digest())
+            signing = result["signing_requirements"][index]
+            self.assertEqual(signing["leg_index"], index)
+            payment = b"".join((
+                *accounts, bytes.fromhex(request["asset_id"]),
+                int(leg["money"]["amount"]).to_bytes(32, "big"),
+                bytes(32), bytes.fromhex(signing["action_key"]),
+            ))
+            self.assertEqual(leg["calldata"], "0x78ea11db" + payment.hex())
+            self.assertEqual(len(bytes.fromhex(leg["calldata"][2:])), 196)
+
     def test_plan_result_decoding_binds_every_leg(self) -> None:
         plan = decode_intent_plan(FIXTURE["plan_result"])
         self.assertEqual(plan.plan_digest, "4b" * 32)
-        self.assertEqual(plan.journey_kind, "deposit")
+        self.assertEqual(plan.journey_kind, "transfer")
         self.assertEqual(plan.total_fee, IntentMoney(9, "LXP"))
         self.assertEqual(len(plan.legs), 2)
         self.assertEqual(plan.legs[0].domain, "paxeer")
         self.assertIsNone(plan.legs[0].source.account)
-        self.assertEqual(plan.legs[1].destination.account, "agent:did:layerx:bob:main")
+        self.assertEqual(plan.legs[1].destination.account, PLAN_REQUEST.destination.account)
         self.assertEqual(plan.legs[1].money.amount, 500000)
         self.assertEqual(plan.legs[1].fee.amount, 8)
-        self.assertEqual(plan.signing_requirements[1].authority, "agent-authority")
+        self.assertEqual(plan.signing_requirements[1].authority, "evm-sender")
         unordered = {**FIXTURE["plan_result"], "legs": list(reversed(FIXTURE["plan_result"]["legs"]))}
         with self.assertRaises(PlatformSdkError):
             decode_intent_plan(unordered)
+
+    def test_plan_decodes_optional_evm_fields_and_transaction_hash(self) -> None:
+        plan = decode_intent_plan(FIXTURE["plan_result"])
+        self.assertIsNone(plan.tx_hash)
+        for index, leg in enumerate(plan.legs):
+            row = FIXTURE["plan_result"]["legs"][index]
+            self.assertEqual(leg.to, row["to"])
+            self.assertEqual(leg.calldata, row["calldata"])
+            self.assertEqual(leg.value, 0)
+            self.assertEqual(leg.nonce, index)
+            self.assertEqual(leg.chain_id, 125)
+            self.assertEqual(leg.gas_limit, 100000)
+            self.assertEqual(leg.max_fee_per_gas, 30)
+            self.assertEqual(leg.max_priority_fee_per_gas, 2)
+        tx_hash = "0x" + "12" * 32
+        self.assertEqual(decode_intent_plan({**FIXTURE["plan_result"], "tx_hash": tx_hash}).tx_hash, tx_hash)
+        required = {"index", "mechanism", "domain", "source", "destination", "money", "fee"}
+        legs = [{key: value for key, value in row.items() if key in required}
+                for row in FIXTURE["plan_result"]["legs"]]
+        for leg in decode_intent_plan({**FIXTURE["plan_result"], "legs": legs}).legs:
+            self.assertIsNone(leg.to)
+            self.assertIsNone(leg.nonce)
+            self.assertIsNone(leg.chain_id)
+        for tx_hash in (None, "0x12", "12" * 32, 12):
+            with self.subTest(tx_hash=tx_hash), self.assertRaises(PlatformSdkError):
+                decode_intent_plan({**FIXTURE["plan_result"], "tx_hash": tx_hash})
+
+    def test_plan_refuses_nonproducer_and_invalid_evm_fields(self) -> None:
+        rows = FIXTURE["plan_result"]["legs"]
+        for field, value in (
+            ("payment", {}), ("chainId", 125), ("data", rows[0]["calldata"]),
+            ("call", {}), ("to", "0x1234"), ("calldata", "0x1"),
+            ("value", "-1"), ("value", str(1 << 256)), ("nonce", -1),
+            ("nonce", True), ("chain_id", 1.5), ("gas_limit", -1),
+            ("max_fee_per_gas", "01"), ("max_priority_fee_per_gas", str(1 << 256)),
+        ):
+            with self.subTest(field=field, value=value), self.assertRaises(PlatformSdkError):
+                decode_intent_plan({**FIXTURE["plan_result"], "legs": [{**rows[0], field: value}, rows[1]]})
+        with self.assertRaises(PlatformSdkError):
+            decode_intent_plan({**FIXTURE["plan_result"], "sponsored": False})
         with self.assertRaises(PlatformSdkError):
             decode_intent_plan({**FIXTURE["plan_result"], "total_fee": {"amount": 9, "currency": "LXP"}})
         with self.assertRaises(PlatformSdkError):
