@@ -2,7 +2,7 @@ use layerx_human_service::journeys::{
     Endpoint, FeeSchedule, NetworkObservation, ObservationError, ObservedStateBuilder,
 };
 use layerx_network_gateway::{
-    AccountBalances, AssetBalance, Evidence, LookupSelector, ResolvedIdentities,
+    AccountBalances, AssetBalance, Evidence, LookupSelector, Quantity, ResolvedIdentities,
 };
 use layerx_types::account::AccountId;
 use layerx_types::amount::Amount;
@@ -15,7 +15,15 @@ fn observed_balances_use_denom_amount_and_height() -> Result<(), Box<dyn std::er
     let native = AssetId::new(Sha256::digest(b"upax").into());
     let other = AssetId::new(Sha256::digest(b"uother").into());
     let wallet = [7; 20];
+    let zero = Quantity::from_be_bytes([0; 32]);
+    let zero_amount = Amount::from_u128(zero.for_operation("intent-planning")?);
     for (height, amount) in [(42, 4_096), (43, u128::MAX)] {
+        let mut word = [0; 32];
+        word[16..].copy_from_slice(&amount.to_be_bytes());
+        let quantity = Quantity::from_be_bytes(word);
+        let expected_amount = Amount::from_u128(quantity.for_operation("intent-planning")?);
+        assert_eq!(expected_amount, Amount::from_u128(amount));
+        assert_eq!(zero_amount, Amount::from_u128(0));
         let answer = AccountBalances {
             account: ResolvedIdentities {
                 lookup_selector: Some(LookupSelector::Evm(wallet)),
@@ -30,11 +38,11 @@ fn observed_balances_use_denom_amount_and_height() -> Result<(), Box<dyn std::er
             balances: vec![
                 AssetBalance {
                     denom: "uother".to_owned(),
-                    amount: 0,
+                    amount: zero,
                 },
                 AssetBalance {
                     denom: "upax".to_owned(),
-                    amount,
+                    amount: quantity,
                 },
             ],
             evidence: Evidence::GatewayReported,
@@ -43,19 +51,19 @@ fn observed_balances_use_denom_amount_and_height() -> Result<(), Box<dyn std::er
         assert_eq!(network.wallet(), EvmAddress::new(wallet));
         assert_eq!(network.height(), height);
         assert_eq!(network.joined(), &answer);
-        assert_eq!(network.balance("upax"), Some(Amount::from_u128(amount)));
-        assert_eq!(network.balance("uother"), Some(Amount::from_u128(0)));
+        assert_eq!(network.balance("upax"), Some(quantity));
+        assert_eq!(network.balance("uother"), Some(zero));
         assert_eq!(network.balance("unobserved"), None);
         assert_eq!(
             network.joined().asset("upax").map(|row| row.amount),
-            Some(amount)
+            Some(quantity)
         );
         assert_eq!(
             network.joined().asset("uother").map(|row| row.amount),
-            Some(0)
+            Some(zero)
         );
-        assert_eq!(network.wallet_balance(native)?, Amount::from_u128(amount));
-        assert_eq!(network.wallet_balance(other)?, Amount::from_u128(0));
+        assert_eq!(network.wallet_balance(native)?, expected_amount);
+        assert_eq!(network.wallet_balance(other)?, zero_amount);
         assert_eq!(
             network.wallet_balance(AssetId::new([6; 32])),
             Err(ObservationError::AssetNotJoined {
@@ -82,11 +90,11 @@ fn observed_balances_use_denom_amount_and_height() -> Result<(), Box<dyn std::er
         .build()?;
         assert_eq!(
             observed.available(&Endpoint::PaxeerWallet, native),
-            Amount::from_u128(amount)
+            expected_amount
         );
         assert_eq!(
             observed.available(&Endpoint::PaxeerWallet, other),
-            Amount::from_u128(0)
+            zero_amount
         );
 
         let mut missing = answer;
