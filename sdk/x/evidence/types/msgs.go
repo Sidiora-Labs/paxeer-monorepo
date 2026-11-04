@@ -43,8 +43,8 @@ func (m MsgSubmitEvidence) Type() string { return TypeMsgSubmitEvidence }
 
 // ValidateBasic performs basic (non-state-dependant) validation on a MsgSubmitEvidence.
 func (m MsgSubmitEvidence) ValidateBasic() error {
-	if m.Submitter == "" {
-		return sdkerrors.Wrap(sdkerrors.ErrInvalidAddress, m.Submitter)
+	if _, err := sdk.AccAddressFromBech32(m.Submitter); err != nil {
+		return sdkerrors.Wrapf(sdkerrors.ErrInvalidAddress, "invalid evidence submitter: %s", err)
 	}
 
 	evi := m.GetEvidence()
@@ -52,7 +52,7 @@ func (m MsgSubmitEvidence) ValidateBasic() error {
 		return sdkerrors.Wrap(ErrInvalidEvidence, "missing evidence")
 	}
 	if err := evi.ValidateBasic(); err != nil {
-		return err
+		return sdkerrors.Wrap(ErrInvalidEvidence, err.Error())
 	}
 
 	return nil
@@ -75,6 +75,9 @@ func (m MsgSubmitEvidence) GetSigners() []sdk.AccAddress {
 }
 
 func (m MsgSubmitEvidence) GetEvidence() exported.Evidence {
+	if m.Evidence == nil {
+		return nil
+	}
 	evi, ok := m.Evidence.GetCachedValue().(exported.Evidence)
 	if !ok {
 		return nil
