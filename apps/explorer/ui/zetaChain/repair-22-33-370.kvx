@@ -1,0 +1,20 @@
+[repair.22.33.370]
+finding = "zeta-default-tab"
+production = "apps/explorer/ui/zetaChain/ZetaChainCCTXsTab.tsx"
+proof = "apps/explorer/ui/zetaChain/repair-22-33-370.spec.ts: defaultCctxFiltersResetTheValidatedRequest"
+controls = "minedCctxFiltersResetTheValidatedRequest; pendingCctxFiltersResetThePendingRequest"
+behavior = "Only cctx_pending selects the pending query; default cctx and cctx_mined reset the validated query cursor when filtering and clearing filters."
+path = "Production component callbacks through production pagination/query hooks and HTTP URL serializer to a loopback transcript server, then decoded rows and pagination supplied to the production list consumer."
+baseline = "Not run: the task's explicit ordered gate instructions prohibit verification before implementation and require hf-done after hf-build. No baseline failures are claimed."
+wiring_requests = "None; the repair is contained in the declared scope."
+evidence = "The bounded hf-done gate records the verified candidate revision, exact command, exit code and private log location in /out/run/gates.jsonl."
+continuation = "The carried ListCctxsResponse fixture explicitly includes next_page_params: undefined, as required by the production type for a terminal page; all filtering, emitted-request, row and pagination assertions are preserved."
+gotcha = "Vitest 4 treats test(namedFunction) as a TODO; register each declared test with its function name as the title and the function as its callback so all three tests execute."
+
+[qualification.build_1]
+revision = "eced91d5cc270b4b6f608f16be8d2db178519397"
+command = "pnpm --dir apps/explorer exec tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "TypeScript also fails outside this task: ui/marketplace/essentialDapps/revoke/hooks/repair-22-31-381.spec.ts imports ganache, which is unavailable."
+assumption = "That existing test and its dependency declarations belong to their owning task and remain unchanged; no passing qualification is claimed."
