@@ -1112,7 +1112,10 @@ fn sequencer_outcome(
             continue;
         }
         let data = bytes(log["data"].as_str().ok_or(RpcFault::Malformed)?)?;
-        if data.len() != 64 || data[..32] != p.rate {
+        if data.len() != 64
+            || data[..32] != p.rate
+            || data[32..] != word(field_quantity(receipt, "timestamp")? / 1_000)
+        {
             return Err(RpcFault::Malformed);
         }
         updated = true;

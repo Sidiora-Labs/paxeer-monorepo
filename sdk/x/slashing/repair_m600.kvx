@@ -1,0 +1,37 @@
+[repair.22.33.600]
+audit = "22.30.162"
+requirement = "22998.1"
+implementation = "Return liveness events from the read-only signature calculation with SlashingWriteInfo and emit them before each vote's ordered write/penalty; align module documentation with packed state, circular resizing and permanent tombstones."
+baseline = "Not run: the explicit implementation-first gate order prohibits unchanged-tree verification and manual verify_cmd runs. No pre-change failing test is claimed; existing packed-state and tombstone documentation is retained and clarified."
+qualification = "The runner hf-build/hf-done ledger and final evidence name the exact candidate revision, command, exit code and private log. Qualification is claimed only when hf-done passes on the same revision as hf-build."
+wiring_request = "None: all proposed source and documentation repairs and their proving tests are inside sdk/x/slashing; evidence and staking keepers are exercised without modification."
+
+[finding.slashing-readme-bitmap]
+proving_test = "TestRepairM_600_ReadmeBitmap"
+proof_path = "Real validator hooks and parameter keeper -> BeginBlock votes -> allocated protobuf bitmap -> repeated circular overwrites -> raw persisted key/codec and bit/counter assertions."
+assertions = "Windows 1, 64, 65 and 129 allocate ceil(W/64) words on first use, keep unused bits clear, maintain the active population counter and modulo offset, and store only one bitmap key per validator."
+
+[finding.slashing-event-order]
+proving_test = "TestRepairM_600_EventOrder"
+proof_path = "Identical real keeper state -> seven mixed ABCI votes -> concurrent signature producers -> indexed SlashingWriteInfo results -> ordered state/event consumer -> complete ABCI event stream."
+assertions = "Thirty-two executions compare every event and attribute in input order, including liveness before each downtime slash, absence of liveness for signed votes, and corresponding jailed/reset persisted state."
+
+[finding.slashing-state-layout]
+proving_test = "TestRepairM_600_StateLayout"
+proof_path = "Legacy little-endian per-slot boolean fixture -> Migrate2to3 height-list output -> Migrate3to4 packed protobuf output -> real BeginBlock -> commit, close, new store/codec/keepers and reopen -> continued BeginBlock."
+assertions = "Legacy slot keys are removed; one address-only packed key decodes to the expected bits and counter; committed bitmap, signing offset and public-key relation survive restart and drive the next overwrite."
+
+[finding.slashing-beginblock-pseudocode]
+proving_test = "TestRepairM_600_BeginBlockAlgorithm"
+additional_proving_test = "TestRepairM_600_EventOrder"
+proof_path = "Real prerequisite lookups -> read-only signature calculation -> BeginBlock packed writes -> expansion and shrinkage through the parameter keeper."
+assertions = "Missing public-key/signing records panic, calculation returns pending events without mutations/emission, offsets wrap, expansion 65->66 retains the old final missed slot and counter while inserting clear capacity, and shrinkage resets the bitmap/counter/offset before the current vote."
+
+[finding.slashing-tombstone-doc]
+proving_test = "TestRepairM_600_TombstoneDoc"
+proof_path = "ABCI equivocation -> real evidence BeginBlock/keeper -> slashing Slash/Jail/JailUntil/Tombstone -> persisted signing flag -> real MsgUnjail server and staking state; compare real downtime jail and successful unjail."
+assertions = "Accepted evidence persists the tombstone and permanent deadline, repeated evidence is ignored, duplicate Tombstone panics, MsgUnjail rejects even after the permanent deadline, while downtime has no tombstone and unjails at its finite deadline."
+
+[gotcha.22.33.600]
+observed = "The baseline-verification step conflicts with the explicit implementation-first gate order; the spec task record and root GOTCHA.kvx are outside the allowed paths."
+resolution = "Use only hf-build followed by hf-done, record no baseline claim, keep the finding-to-test mapping and gotcha in this scoped repair record, and leave out-of-scope bookkeeping to the runner."

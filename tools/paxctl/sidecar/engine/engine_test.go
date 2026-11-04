@@ -50,11 +50,29 @@ func waitForStatus(t *testing.T, eng *Engine, want string) {
 	t.Fatalf("timed out waiting for status %q, got %q", want, eng.Status().Status)
 }
 
+func mustGetResult(t *testing.T, eng *Engine, id string) *TaskResult {
+	t.Helper()
+	result, err := eng.GetResult(id)
+	if err != nil {
+		t.Fatalf("get task result: %v", err)
+	}
+	return result
+}
+
+func mustRecentResults(t *testing.T, eng *Engine) []TaskResult {
+	t.Helper()
+	results, err := eng.RecentResults()
+	if err != nil {
+		t.Fatalf("list task results: %v", err)
+	}
+	return results
+}
+
 func waitForResult(t *testing.T, eng *Engine, id string) *TaskResult {
 	t.Helper()
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
-		if r := eng.GetResult(id); r != nil && r.CompletedAt != nil {
+		if r := mustGetResult(t, eng, id); r != nil && r.CompletedAt != nil {
 			return r
 		}
 		time.Sleep(5 * time.Millisecond)
@@ -125,7 +143,7 @@ func TestRunTaskCtxCancel_LeavesRunningForRehydrate(t *testing.T) {
 	<-ran
 	time.Sleep(50 * time.Millisecond) // let runTask's post-handler guard run
 
-	r := eng.GetResult(id)
+	r := mustGetResult(t, eng, id)
 	if r == nil {
 		t.Fatal("task row missing")
 	}
@@ -448,7 +466,7 @@ func TestGetResultReturnsRunning(t *testing.T) {
 		t.Fatal("timed out waiting for task to start")
 	}
 
-	result := eng.GetResult(id)
+	result := mustGetResult(t, eng, id)
 	if result == nil {
 		t.Fatal("expected non-nil result for active task")
 	}
@@ -480,7 +498,7 @@ func TestRecentResultsReturnsAll(t *testing.T) {
 		waitForResult(t, eng, id)
 	}
 
-	results := eng.RecentResults()
+	results := mustRecentResults(t, eng)
 	if len(results) != 7 {
 		t.Fatalf("expected 7 results, got %d", len(results))
 	}
@@ -507,7 +525,7 @@ func TestRecentResultsIncludesActive(t *testing.T) {
 		t.Fatal("timed out waiting for task to start")
 	}
 
-	results := eng.RecentResults()
+	results := mustRecentResults(t, eng)
 	if len(results) != 1 {
 		t.Fatalf("expected 1 result (active), got %d", len(results))
 	}
@@ -535,7 +553,7 @@ func TestRemoveResult(t *testing.T) {
 	if deleted, err := eng.RemoveResult(id); err != nil || deleted {
 		t.Fatalf("second remove should return (false, nil), got (%v, %v)", deleted, err)
 	}
-	if eng.GetResult(id) != nil {
+	if mustGetResult(t, eng, id) != nil {
 		t.Fatal("expected nil after removal")
 	}
 }
@@ -570,7 +588,7 @@ func TestRemoveActiveTaskCancels(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("task goroutine did not observe cancellation after RemoveResult")
 	}
-	if eng.GetResult(id) != nil {
+	if mustGetResult(t, eng, id) != nil {
 		t.Fatal("expected nil after removal")
 	}
 }
@@ -638,7 +656,7 @@ func TestRemoveRehydratedTaskCancels(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("rehydrated task goroutine did not observe cancellation")
 	}
-	if eng.GetResult(id) != nil {
+	if mustGetResult(t, eng, id) != nil {
 		t.Fatal("expected nil after removal")
 	}
 }
@@ -794,7 +812,7 @@ func TestRemoveResultFailedDeleteDoesNotStrand(t *testing.T) {
 	}
 
 	// The row survives and stays 'running', so it remains actionable.
-	r := eng.GetResult(id)
+	r := mustGetResult(t, eng, id)
 	if r == nil {
 		t.Fatal("row must survive a failed delete so it stays recoverable")
 	}
@@ -811,7 +829,7 @@ func TestRemoveResultFailedDeleteDoesNotStrand(t *testing.T) {
 	if !deleted {
 		t.Fatal("DELETE retry should report the row removed")
 	}
-	if eng.GetResult(id) != nil {
+	if mustGetResult(t, eng, id) != nil {
 		t.Fatal("row should be gone after a successful DELETE retry")
 	}
 }
@@ -838,7 +856,7 @@ func TestRunTaskSyncSuppressesErrorUnderCancellation(t *testing.T) {
 	}
 	eng.runTaskSync(WithTaskID(ctx, id), id, TaskConfigPatch, eng.handlers[TaskConfigPatch], nil, tr.SubmittedAt, 1, 1, tr.Generation)
 
-	if r := eng.GetResult(id); r != nil {
+	if r := mustGetResult(t, eng, id); r != nil {
 		t.Fatalf("non-context error under a cancelled ctx must not persist; got %q row", r.Status)
 	}
 }
@@ -883,7 +901,7 @@ func TestRunTaskSyncPersistsFailedOnDeadlineExceeded(t *testing.T) {
 			ctx := WithTaskID(tc.ctx(t), tc.id)
 			eng.runTaskSync(ctx, tc.id, TaskConfigPatch, eng.handlers[TaskConfigPatch], nil, tr.SubmittedAt, 1, 1, tr.Generation)
 
-			r := eng.GetResult(tc.id)
+			r := mustGetResult(t, eng, tc.id)
 			if r == nil {
 				t.Fatal("DeadlineExceeded must persist a row; got nil (wrongly suppressed)")
 			}

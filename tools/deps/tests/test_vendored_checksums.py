@@ -60,6 +60,20 @@ def test_vendored_database_checksums():
             assert required_imports <= packages, (
                 f"Unresolved imports in {module}: {required_imports - packages}"
             )
+
+            built = subprocess.run(
+                ["go", "build", "-mod=readonly", "./..."],
+                cwd=module,
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=300,
+            )
+            assert built.returncode == 0, (
+                f"go build failed in {module}:\n"
+                f"{built.stdout}{built.stderr}"
+            )
     finally:
         for path, original in before.items():
             assert path.read_bytes() == original, f"Go modified {path}"

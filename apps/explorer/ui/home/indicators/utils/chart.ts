@@ -18,7 +18,7 @@ const CHART_ITEMS: Record<ChainIndicatorId, Pick<TimeChartDataItem, 'name' | 'va
     valueFormatter: (x: number) => '$' + x.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 }),
   },
   secondary_coin_price: {
-    name: `${ config.chain.currency.symbol } price`,
+    name: `${ config.chain.secondaryCoin.symbol } price`,
     valueFormatter: (x: number) => '$' + x.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 }),
   },
   market_cap: {

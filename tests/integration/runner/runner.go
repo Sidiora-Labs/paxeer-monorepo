@@ -15,6 +15,8 @@
 package runner
 
 import (
+	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"math/big"
@@ -24,6 +26,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
+	"unicode"
 
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
@@ -38,9 +42,10 @@ type TestCase struct {
 
 // Input is one command step within a test case.
 type Input struct {
-	Cmd  string `yaml:"cmd"`
-	Env  string `yaml:"env,omitempty"`  // capture trimmed stdout into this name
-	Node string `yaml:"node,omitempty"` // docker container; defaults to Options.DefaultContainer
+	Cmd              string `yaml:"cmd"`
+	Env              string `yaml:"env,omitempty"`                // capture trimmed stdout into this name
+	Node             string `yaml:"node,omitempty"`               // docker container; defaults to Options.DefaultContainer
+	ExpectedExitCode int    `yaml:"expected_exit_code,omitempty"` // defaults to successful exit (0)
 }
 
 // Verifier checks the accumulated env map after all inputs have run.
@@ -52,6 +57,10 @@ type Verifier struct {
 
 // Options controls how RunFile executes commands.
 type Options struct {
+	// Context cancels command execution; otherwise the test context is used.
+	Context context.Context
+	// CommandTimeout bounds each command, including output collection. Defaults to two minutes.
+	CommandTimeout time.Duration
 	// DefaultContainer is the docker container used when an Input has no Node set.
 	DefaultContainer string
 	// ExtraPath is appended to PATH inside docker containers.
@@ -79,10 +88,20 @@ func WithShell(shell string) Option {
 	return func(o *Options) { o.Shell = shell }
 }
 
+// WithContext adds caller cancellation to command execution.
+func WithContext(ctx context.Context) Option {
+	return func(o *Options) { o.Context = ctx }
+}
+
+// WithCommandTimeout sets the positive per-command execution limit.
+func WithCommandTimeout(timeout time.Duration) Option {
+	return func(o *Options) { o.CommandTimeout = timeout }
+}
+
 func newOptions(opts []Option) Options {
 	var o Options
 	//applying default options
-	for _, f := range []Option{WithContainer("pax-node-0"), WithExtraPath("/root/go/bin:/root/.foundry/bin"), WithShell("bash")} {
+	for _, f := range []Option{WithContainer("pax-node-0"), WithExtraPath("/root/go/bin:/root/.foundry/bin"), WithShell("bash"), WithCommandTimeout(2 * time.Minute)} {
 		f(&o)
 	}
 	for _, opt := range opts {
@@ -115,7 +134,7 @@ func runCase(t *testing.T, tc TestCase, opts Options) {
 		if container == "" {
 			container = opts.DefaultContainer
 		}
-		out, err := execCmd(t, inp.Cmd, container, envMap, opts)
+		out, err := execCmd(t, inp, container, envMap, opts)
 		t.Logf("[%d] $ %s\n    => %s", i, inp.Cmd, out)
 		require.NoError(t, err, "input[%d] failed: %v", i, err)
 		if inp.Env != "" {
@@ -130,38 +149,60 @@ func runCase(t *testing.T, tc TestCase, opts Options) {
 	}
 }
 
-// execCmd runs cmd in the given docker container (or locally if container is empty),
-// injecting the accumulated envMap. Non-zero exit is logged but not fatal — this
-// matches runner.py behaviour where commands that echo error codes exit 0 from
-// bash but the captured output is the code.
-func execCmd(t *testing.T, cmd, container string, envMap map[string]string, opts Options) (string, error) {
+// execCmd preserves stdout, enforces the declared exit status and reports stderr.
+// Cancellation and launch failures can never satisfy an expected negative status.
+func execCmd(t *testing.T, inp Input, container string, envMap map[string]string, opts Options) (string, error) {
 	t.Helper()
+	if inp.ExpectedExitCode < 0 || inp.ExpectedExitCode > 255 {
+		return "", fmt.Errorf("expected_exit_code must be between 0 and 255: %d", inp.ExpectedExitCode)
+	}
+	if opts.CommandTimeout <= 0 {
+		return "", fmt.Errorf("command timeout must be positive")
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), opts.CommandTimeout)
+	defer cancel()
+	if opts.Context != nil {
+		stop := context.AfterFunc(opts.Context, cancel)
+		defer stop()
+		if opts.Context.Err() != nil {
+			cancel()
+		}
+	}
 	var c *exec.Cmd
-
 	if container != "" {
-		// capacity: 1 ("exec") + 2*len(envMap) ("-e" + "k=v" per entry) + 4 (container, "/bin/bash", "-c", cmd)
 		args := make([]string, 1, 1+2*len(envMap)+4)
 		args[0] = "exec"
 		for k, v := range envMap {
 			args = append(args, "-e", k+"="+v)
 		}
-		args = append(args, container, opts.Shell, "-c",
-			"export PATH=$PATH:"+opts.ExtraPath+" && "+cmd)
-		c = exec.Command("docker", args...) //nolint:gosec
+		args = append(args, container, opts.Shell, "-c", "export PATH=$PATH:"+opts.ExtraPath+" && "+inp.Cmd)
+		c = exec.CommandContext(ctx, "docker", args...) //nolint:gosec
 	} else {
-		c = exec.Command(opts.Shell, "-c", cmd) //nolint:gosec
+		c = exec.CommandContext(ctx, opts.Shell, "-c", inp.Cmd) //nolint:gosec
 		c.Env = append(os.Environ(), envMapSlice(envMap)...)
 	}
-
+	// Descendants may inherit output pipes even after the command is killed.
+	c.WaitDelay = time.Second
+	var stderr bytes.Buffer
+	c.Stderr = &stderr
 	out, err := c.Output()
 	stdout := strings.TrimSpace(string(out))
+	if ctx.Err() != nil {
+		return stdout, fmt.Errorf("command canceled; stderr: %s: %w", strings.TrimSpace(stderr.String()), errors.Join(ctx.Err(), err))
+	}
+	status := 0
 	if err != nil {
 		var exit *exec.ExitError
-		if errors.As(err, &exit) {
-			t.Logf("    (exit %d) stderr: %s", exit.ExitCode(), strings.TrimSpace(string(exit.Stderr)))
-			return stdout, nil
+		if !errors.As(err, &exit) || exit.ExitCode() < 0 {
+			return stdout, fmt.Errorf("command failed; stderr: %s: %w", strings.TrimSpace(stderr.String()), err)
 		}
-		return stdout, err
+		status = exit.ExitCode()
+	}
+	if status != inp.ExpectedExitCode {
+		if err == nil {
+			err = fmt.Errorf("unexpected successful exit")
+		}
+		return stdout, fmt.Errorf("exit status %d (expected %d); stderr: %s: %w", status, inp.ExpectedExitCode, strings.TrimSpace(stderr.String()), err)
 	}
 	return stdout, nil
 }
@@ -188,12 +229,16 @@ func verify(v Verifier, envMap map[string]string) error {
 		}
 		return nil
 	case "regex":
-		val := envMap[v.Result]
-		ok, err := regexp.MatchString(v.Expr, val)
+		val, exists := envMap[v.Result]
+		if !exists {
+			return fmt.Errorf("missing regex result %q", v.Result)
+		}
+		// Python re.match starts at offset zero, even with multiline anchors.
+		pattern, err := regexp.Compile("\\A(?:" + v.Expr + ")")
 		if err != nil {
 			return fmt.Errorf("bad pattern %q: %w", v.Expr, err)
 		}
-		if !ok {
+		if !pattern.MatchString(strings.TrimSpace(val)) {
 			return fmt.Errorf("pattern %q did not match %q", v.Expr, val)
 		}
 		return nil
@@ -202,105 +247,315 @@ func verify(v Verifier, envMap map[string]string) error {
 	}
 }
 
-// evalExpr evaluates a Python-runner-compatible eval expression.
-// Handles: VAR op literal, VAR op VAR, expr and expr, expr or expr.
-// Operators: ==, !=, >, <, >=, <=.
+// Expressions use whitespace-delimited tokens, with quoted strings kept intact.
+// Precedence, from low to high: or, and, comparisons, +/-, */ (left associative).
+// OR retains the harness contract: report the first error unless a branch is true.
+type exprToken struct {
+	text   string
+	quoted bool
+}
+
+func exprTokens(expr string) ([]exprToken, error) {
+	var tokens []exprToken
+	for i := 0; i < len(expr); {
+		if unicode.IsSpace(rune(expr[i])) {
+			i++
+			continue
+		}
+		start := i
+		if expr[i] == '\'' || expr[i] == '"' {
+			quote := expr[i]
+			i++
+			var value strings.Builder
+			for i < len(expr) && expr[i] != quote {
+				if expr[i] == '\\' {
+					i++
+					if i == len(expr) {
+						return nil, fmt.Errorf("unterminated quoted string")
+					}
+				}
+				value.WriteByte(expr[i])
+				i++
+			}
+			if i == len(expr) {
+				return nil, fmt.Errorf("unterminated quoted string")
+			}
+			i++
+			if i < len(expr) && !unicode.IsSpace(rune(expr[i])) {
+				return nil, fmt.Errorf("expected whitespace after quoted string")
+			}
+			tokens = append(tokens, exprToken{text: value.String(), quoted: true})
+		} else {
+			for i < len(expr) && !unicode.IsSpace(rune(expr[i])) {
+				i++
+			}
+			tokens = append(tokens, exprToken{text: expr[start:i]})
+		}
+	}
+	return tokens, nil
+}
+
+func tokenIs(t exprToken, op string) bool { return !t.quoted && t.text == op }
+
+func comparisonOp(t exprToken) bool {
+	if t.quoted {
+		return false
+	}
+	switch t.text {
+	case "==", "!=", ">", "<", ">=", "<=":
+		return true
+	}
+	return false
+}
+
+// Validate operator structure before short circuiting, so dangling operators
+// cannot disappear behind a true OR or false AND branch.
+func validateExprTokens(tokens []exprToken) error {
+	if len(tokens) == 0 {
+		return fmt.Errorf("empty expression")
+	}
+	start := 0
+	for i := 0; i <= len(tokens); i++ {
+		if i != len(tokens) && !tokenIs(tokens[i], "or") && !tokenIs(tokens[i], "and") {
+			continue
+		}
+		branch := tokens[start:i]
+		if len(branch) == 0 {
+			return fmt.Errorf("missing operand for boolean operator")
+		}
+		cmp := -1
+		for j, token := range branch {
+			if comparisonOp(token) {
+				if cmp >= 0 {
+					return fmt.Errorf("multiple comparison operators")
+				}
+				cmp = j
+			}
+		}
+		if cmp >= 0 {
+			for _, side := range [][]exprToken{branch[:cmp], branch[cmp+1:]} {
+				if len(side) == 0 || len(side)%2 == 0 {
+					return fmt.Errorf("missing arithmetic operand")
+				}
+				for j, token := range side {
+					op := !token.quoted && strings.Contains("+-*/", token.text) && len(token.text) == 1
+					if j%2 == 0 && op {
+						return fmt.Errorf("missing arithmetic operand")
+					}
+					if j%2 == 1 && !op {
+						return fmt.Errorf("invalid arithmetic operator %q", token.text)
+					}
+				}
+			}
+		}
+		start = i + 1
+	}
+	return nil
+}
+
 func evalExpr(expr string, envMap map[string]string) (bool, error) {
-	if parts := strings.Split(expr, " and "); len(parts) > 1 {
-		for _, p := range parts {
-			ok, err := evalExpr(strings.TrimSpace(p), envMap)
-			if err != nil {
-				return false, err
-			}
-			if !ok {
-				return false, nil
-			}
-		}
-		return true, nil
+	tokens, err := exprTokens(expr)
+	if err != nil {
+		return false, err
 	}
-	if parts := strings.Split(expr, " or "); len(parts) > 1 {
+	if err := validateExprTokens(tokens); err != nil {
+		return false, err
+	}
+	return evalBoolTokens(tokens, envMap)
+}
+
+func evalBoolTokens(tokens []exprToken, envMap map[string]string) (bool, error) {
+	// Split the lowest-precedence operator first.
+	for _, op := range []string{"or", "and"} {
+		start := 0
 		var firstErr error
-		for _, p := range parts {
-			ok, err := evalExpr(strings.TrimSpace(p), envMap)
-			if err != nil && firstErr == nil {
-				firstErr = err
+		found := false
+		for i := 0; i <= len(tokens); i++ {
+			if i != len(tokens) && !tokenIs(tokens[i], op) {
+				continue
 			}
-			if err == nil && ok {
-				return true, nil
+			if i == len(tokens) && !found {
+				break
 			}
+			found = true
+			ok, err := evalBoolTokens(tokens[start:i], envMap)
+			if op == "and" {
+				if err != nil || !ok {
+					return false, err
+				}
+			} else {
+				if err == nil && ok {
+					return true, nil
+				}
+				if firstErr == nil {
+					firstErr = err
+				}
+			}
+			start = i + 1
 		}
-		return false, firstErr
+		if found {
+			return op == "and", firstErr
+		}
 	}
-	return cmpExpr(strings.TrimSpace(expr), envMap)
+	return cmpTokens(tokens, envMap)
 }
 
-// cmpExpr evaluates a single "LHS op RHS" comparison.
-// It tokenizes by whitespace first and substitutes env var names before
-// locating the operator, so arithmetic sub-expressions like EXPECTED_COUNTS + 1
-// are evaluated rather than compared as literal strings.
 func cmpExpr(expr string, envMap map[string]string) (bool, error) {
-	tokens := strings.Fields(expr)
-	for i, t := range tokens {
-		if len(t) >= 2 && t[0] == '"' && t[len(t)-1] == '"' {
-			tokens[i] = t[1 : len(t)-1]
-		} else if v, ok := envMap[t]; ok {
-			tokens[i] = v
-		}
+	tokens, err := exprTokens(expr)
+	if err != nil {
+		return false, err
 	}
-	for i, t := range tokens {
-		for _, op := range []string{"!=", ">=", "<=", "==", ">", "<"} {
-			if t == op {
-				lhs, err := evalArith(tokens[:i])
-				if err != nil {
-					return false, err
-				}
-				rhs, err := evalArith(tokens[i+1:])
-				if err != nil {
-					return false, err
-				}
-				return cmpValues(lhs, rhs, op)
-			}
-		}
+	if err := validateExprTokens(tokens); err != nil {
+		return false, err
 	}
-	return false, fmt.Errorf("no operator in %q", expr)
+	return cmpTokens(tokens, envMap)
 }
 
-// evalArith evaluates a sequence of tokens as big.Int arithmetic (e.g. ["4", "+", "1"] → "5").
-// Falls back to the raw joined string when the first token is not a valid integer,
-// allowing float and string comparisons to fall through to cmpValues.
+func cmpTokens(tokens []exprToken, envMap map[string]string) (bool, error) {
+	for i, token := range tokens {
+		if !comparisonOp(token) {
+			continue
+		}
+		resolve := func(side []exprToken) []string {
+			values := make([]string, len(side))
+			for j, t := range side {
+				values[j] = t.text
+				if j%2 == 0 && !t.quoted {
+					if v, ok := envMap[t.text]; ok {
+						values[j] = v
+					}
+				}
+			}
+			return values
+		}
+		lhs, err := evalArith(resolve(tokens[:i]))
+		if err != nil {
+			return false, err
+		}
+		rhs, err := evalArith(resolve(tokens[i+1:]))
+		if err != nil {
+			return false, err
+		}
+		return cmpValues(lhs, rhs, token.text)
+	}
+	var words []string
+	for _, token := range tokens {
+		words = append(words, token.text)
+	}
+	return false, fmt.Errorf("no operator in %q", strings.Join(words, " "))
+}
+
+// arithmeticValue keeps integer operations exact; division and decimal operands
+// use floating point, as in the Python runner.
+type arithmeticValue struct {
+	integer  *big.Int
+	floating float64
+}
+
+func parseArithmeticValue(text string) (arithmeticValue, error) {
+	if n, ok := new(big.Int).SetString(text, 10); ok {
+		return arithmeticValue{integer: n}, nil
+	}
+	f, err := strconv.ParseFloat(text, 64)
+	if err != nil {
+		return arithmeticValue{}, fmt.Errorf("non-numeric arithmetic operand %q", text)
+	}
+	return arithmeticValue{floating: f}, nil
+}
+
+func (v arithmeticValue) asFloat() float64 {
+	if v.integer == nil {
+		return v.floating
+	}
+	f, _ := new(big.Float).SetInt(v.integer).Float64()
+	return f
+}
+
+func applyArithmetic(a, b arithmeticValue, op string) (arithmeticValue, error) {
+	switch op {
+	case "+", "-", "*", "/":
+	default:
+		return arithmeticValue{}, fmt.Errorf("invalid arithmetic operator %q", op)
+	}
+	if a.integer != nil && b.integer != nil && op != "/" {
+		result := new(big.Int)
+		switch op {
+		case "+":
+			result.Add(a.integer, b.integer)
+		case "-":
+			result.Sub(a.integer, b.integer)
+		case "*":
+			result.Mul(a.integer, b.integer)
+		}
+		return arithmeticValue{integer: result}, nil
+	}
+	x, y := a.asFloat(), b.asFloat()
+	switch op {
+	case "+":
+		x += y
+	case "-":
+		x -= y
+	case "*":
+		x *= y
+	case "/":
+		x /= y
+	}
+	return arithmeticValue{floating: x}, nil
+}
+
+// evalArith applies multiplication/division before addition/subtraction, keeping
+// operators within each precedence level left associative.
 func evalArith(tokens []string) (string, error) {
 	if len(tokens) == 0 {
 		return "", fmt.Errorf("empty side of comparison")
 	}
+	if len(tokens)%2 == 0 {
+		return "", fmt.Errorf("missing arithmetic operand in %v", tokens)
+	}
 	if len(tokens) == 1 {
 		return tokens[0], nil
 	}
-	result := new(big.Int)
-	if _, ok := result.SetString(tokens[0], 10); !ok {
-		return strings.Join(tokens, " "), nil
+	term, err := parseArithmeticValue(tokens[0])
+	if err != nil {
+		return "", err
 	}
-	for i := 1; i+1 < len(tokens); i += 2 {
-		operand := new(big.Int)
-		if _, ok := operand.SetString(tokens[i+1], 10); !ok {
-			return strings.Join(tokens, " "), nil
+	// Fold each multiplicative term first, then the additive terms in order.
+	var terms []arithmeticValue
+	var additive []string
+	for i := 1; i < len(tokens); i += 2 {
+		operand, err := parseArithmeticValue(tokens[i+1])
+		if err != nil {
+			return "", err
 		}
 		switch tokens[i] {
-		case "+":
-			result.Add(result, operand)
-		case "-":
-			result.Sub(result, operand)
-		case "*":
-			result.Mul(result, operand)
-		case "/":
-			if operand.Sign() == 0 {
+		case "*", "/":
+			if tokens[i] == "/" && operand.asFloat() == 0 {
 				return "", fmt.Errorf("division by zero in %v", tokens)
 			}
-			result.Div(result, operand)
+			term, err = applyArithmetic(term, operand, tokens[i])
+			if err != nil {
+				return "", err
+			}
+		case "+", "-":
+			terms = append(terms, term)
+			additive = append(additive, tokens[i])
+			term = operand
 		default:
-			return strings.Join(tokens, " "), nil
+			return "", fmt.Errorf("invalid arithmetic operator %q", tokens[i])
 		}
 	}
-	return result.String(), nil
+	terms = append(terms, term)
+	result := terms[0]
+	for i, op := range additive {
+		result, err = applyArithmetic(result, terms[i+1], op)
+		if err != nil {
+			return "", err
+		}
+	}
+	if result.integer != nil {
+		return result.integer.String(), nil
+	}
+	return strconv.FormatFloat(result.floating, 'g', -1, 64), nil
 }
 
 // cmpValues compares a and b with op. Tries big.Int (for large integers without

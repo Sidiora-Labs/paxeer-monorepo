@@ -29,6 +29,7 @@ defmodule Indexer.Helper do
   @finite_retries_number 3
   @infinite_retries_number 100_000_000
   @block_check_interval_range_size 100
+  @initial_block_check_interval 2_000
   @block_by_number_chunk_size 50
   @http_get_request_max_attempts 10
 
@@ -116,6 +117,8 @@ defmodule Indexer.Helper do
   @doc """
   Calculates average block time in milliseconds (based on the latest 100 blocks) divided by 2.
   Sends corresponding requests to the RPC node.
+  Until two non-genesis heights exist, uses the configured realtime polling period
+  (or 2000 milliseconds) without requesting timestamp samples.
 
   ## Parameters
   - `json_rpc_named_arguments`: Configuration parameters for the JSON RPC connection.
@@ -130,6 +133,17 @@ defmodule Indexer.Helper do
   def get_block_check_interval(json_rpc_named_arguments) do
     {last_safe_block, _} = get_safe_block(json_rpc_named_arguments)
 
+    calculate_block_check_interval(last_safe_block, json_rpc_named_arguments)
+  end
+
+  defp calculate_block_check_interval(last_safe_block, _json_rpc_named_arguments) when last_safe_block < 2 do
+    interval =
+      Application.get_env(:indexer, Indexer.Block.Realtime.Fetcher)[:polling_period] || @initial_block_check_interval
+
+    {:ok, interval, last_safe_block}
+  end
+
+  defp calculate_block_check_interval(last_safe_block, json_rpc_named_arguments) do
     first_block = max(last_safe_block - @block_check_interval_range_size, 1)
 
     with {:ok, first_block_timestamp} <-
@@ -245,8 +259,10 @@ defmodule Indexer.Helper do
   Splits a given range into chunks of the specified size.
 
   ## Parameters
-  - `range`: The range to be split into chunks.
-  - `chunk_size`: The size of each chunk.
+  - `range`: An ascending, unit-step range to be split into chunks.
+  - `chunk_size`: The positive integer size of each chunk.
+
+  Raises `ArgumentError` for an invalid range or chunk size.
 
   ## Returns
   - A stream of ranges, each representing a chunk of the specified size.
@@ -259,16 +275,21 @@ defmodule Indexer.Helper do
       iex> Enum.to_list(Indexer.Helper.range_chunk_every(1..10, 3))
       [1..3, 4..6, 7..9, 10..10]
   """
-  @spec range_chunk_every(Range.t(), non_neg_integer()) :: Enum.t()
-  def range_chunk_every(from..to//_, chunk_size) do
-    chunks_number = floor((to - from + 1) / chunk_size)
+  @spec range_chunk_every(Range.t(), pos_integer()) :: Enum.t()
+  def range_chunk_every(from..to//1, chunk_size)
+      when from <= to and is_integer(chunk_size) and chunk_size > 0 do
+    chunks_number = div(to - from, chunk_size) + 1
 
-    0..chunks_number
+    0..(chunks_number - 1)
     |> Stream.map(fn current_chunk ->
       chunk_start = from + chunk_size * current_chunk
       chunk_end = min(chunk_start + chunk_size - 1, to)
       chunk_start..chunk_end
     end)
+  end
+
+  def range_chunk_every(_range, _chunk_size) do
+    raise ArgumentError, "expected an ascending unit-step range and a positive integer chunk_size"
   end
 
   # todo: refactor: reuse existing code from EthereumJSONRPC app
@@ -521,8 +542,8 @@ defmodule Indexer.Helper do
 
     This function performs a batch of RPC calls, retrying a specified number of times
     with a progressive delay between each attempt up to a maximum (20 minutes). If,
-    after all retries, some calls remain unsuccessful, it returns the batch responses,
-    which include the results of successful calls or error descriptions.
+    after all retries, some calls remain unsuccessful, it returns a tagged error
+    retaining the batch responses and their request IDs, including successful results.
 
     ## Parameters
     - `requests`: A list of `Transport.request()` instances describing the RPC calls.
@@ -534,13 +555,14 @@ defmodule Indexer.Helper do
     ## Returns
     - `{:ok, responses}`: When all calls are successful, `responses` is a list of standard
                           JSON responses, each including `id` and `result` fields.
-    - `{:error, responses}`: When some calls fail, `responses` is a list containing either
-                             standard JSON responses for successful calls (including `id`
-                             and `result` fields) or errors, which may be in an unassured
-                             format.
+    - `{:error, {:batch_rpc_error, responses}}`: When element failures exhaust retries.
+      Each response retains its `id` and either `result` or `error`, allowing callers
+      that support partial success to correlate successful results with requests.
+    - `{:error, reason}`: When the transport fails after all retries.
   """
+  @type batch_rpc_error :: {:batch_rpc_error, Transport.batch_response()}
   @spec repeated_batch_rpc_call([Transport.request()], EthereumJSONRPC.json_rpc_named_arguments(), fun(), integer()) ::
-          {:error, any()} | {:ok, any()}
+          {:error, batch_rpc_error() | term()} | {:ok, Transport.batch_response()}
   def repeated_batch_rpc_call(requests, json_rpc_named_arguments, error_message_generator, max_retries)
       when is_list(requests) and is_function(error_message_generator) and is_integer(max_retries) do
     do_repeated_batch_rpc_call(requests, json_rpc_named_arguments, error_message_generator, max_retries, 0)
@@ -558,18 +580,13 @@ defmodule Indexer.Helper do
     |> json_rpc(json_rpc_named_arguments)
     |> case do
       {:ok, responses_list} = batch_responses ->
-        standardized_error =
-          Enum.reduce_while(responses_list, %{}, fn one_response, acc ->
-            # credo:disable-for-next-line Credo.Check.Refactor.Nesting
-            case one_response do
-              %{error: error_msg_with_code} -> {:halt, error_msg_with_code}
-              _ -> {:cont, acc}
-            end
-          end)
+        case Enum.find(responses_list, &Map.has_key?(&1, :error)) do
+          %{error: error} ->
+            message = if is_map(error), do: Map.get(error, :message, inspect(error)), else: inspect(error)
+            {:error, message, {:error, {:batch_rpc_error, responses_list}}}
 
-        case standardized_error do
-          %{code: _, message: error_msg} -> {:error, error_msg, batch_responses}
-          _ -> {:ok, batch_responses, []}
+          nil ->
+            {:ok, batch_responses, []}
         end
 
       {:error, message} = err ->

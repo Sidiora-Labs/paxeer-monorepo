@@ -1,0 +1,8 @@
+{
+  "recording": "Git inventory for the codebase-map paths at the task base; graph.sql initializes the supported schema-14 in-memory store without indexed files.",
+  "tracked": "100644 907dd14b98a23e261c2868f2ba6a25546e0cd589 0\ttools/codebase-map/app.js\u0000100644 a0d50f4dd3d62491012320f7d205b6849edfe9ac 0\ttools/codebase-map/generate.mjs\u0000100644 25dd40d2a424f5a2421da8c2dc11a6a4ffed32d7 0\ttools/codebase-map/package.json\u0000",
+  "status": " M tools/codebase-map/app.js\u0000 M tools/codebase-map/generate.mjs\u0000",
+  "commit": "79d99a9cd334a5da02f3a4aac2a324549c9a0d5e",
+  "branch": "task/22.33.799",
+  "graphUpdatedAt": "2026-11-04T06:36:00.000Z"
+}

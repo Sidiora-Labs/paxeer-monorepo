@@ -1,0 +1,24 @@
+[meta]
+task = "22.33.693"
+audit = "22.30.168"
+acceptance = "22998.1"
+mode = "BUILD"
+scope = "sdk/x/authz/client/testutil"
+evidence = "Exact candidate revision, command, exit and private log location are recorded by hf-build/hf-done in the runner ledger."
+baseline = "Not run: the explicit ordered gates prohibit verification before implementation and allow verification only through hf-done after hf-build; no pre-change failures are claimed."
+
+[finding.authz-cli-config]
+test = "TestRepairM_693_AuthzCLIConfig"
+repair = "Pass the current testing context to network.DefaultConfig in the norace suite; check that call and exercise the real configuration, suite, CLI transaction producer, JSON/binary codecs, keeper, store, query transport and typed grant event."
+
+[finding.expired-grant-cli-fixture]
+test = "TestRepairM_693_ExpiredGrantCLIFixture"
+repair = "Retain the resolved expiration code and assert its codespace, absent grant records and absent EventGrant in transaction events and logs; supply the normal transaction fee so rejection reaches the authz handler."
+proof = "For CLI-produced past and equal-block-time grants, execute the real keeper, inspect raw storage before cleanup queries, encode its actual ABCI error through the client response codec and run the same rejection assertions used by the integration suite; a future CLI-produced grant proves storage, query and event creation work."
+
+[wiring]
+tagged_suite = "Owning domain 15: qualify sdk/x/authz/client/testutil/cli_test.go TestIntegrationTestSuite under the norace tag in its integration gate; this task's sole declared verification command has no norace tag and cannot run the owning network suite."
+
+[gotcha.1]
+observed = "The baseline verification step conflicts with the explicit implementation-first gate order and bounded gate count."
+resolution = "Follow the explicit ordered gates without claiming an unexecuted baseline result."

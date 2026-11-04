@@ -284,13 +284,31 @@ fn mcp_web(config: &Config) -> Result<Option<WebDeclaration>, String> {
     let keys = NativeReadRoute::new(client, config.expected_chain_id)
         .signed_authority()
         .map_err(|error| format!("MCP receipt keys unavailable: {error:?}"))?;
-    let key = keys
-        .get(index)
-        .ok_or("LAYERX_AGENT_MCP_WEB_RECEIPT_KEY_INDEX has no px_getReceiptKeys entry")?;
+    if config.expected_chain_id != 125 {
+        return Err("the MCP web binding requires chain id 125".to_owned());
+    }
+    let address = |name: &str| -> Result<[u8; 20], String> {
+        let value = required(name)?;
+        let text = value
+            .strip_prefix("0x")
+            .ok_or_else(|| format!("{name} must be an EVM address"))?;
+        if text.len() != 40 || !text.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+            return Err(format!("{name} must be an EVM address"));
+        }
+        let mut bytes = [0; 20];
+        for (index, byte) in bytes.iter_mut().enumerate() {
+            *byte = u8::from_str_radix(&text[index * 2..index * 2 + 2], 16)
+                .map_err(|_| format!("{name} must be an EVM address"))?;
+        }
+        Ok(bytes)
+    };
     WebDeclaration::new(
         endpoint,
         required("LAYERX_AGENT_MCP_WEB_NETWORK")?,
-        key.public_key,
+        address("LAYERX_AGENT_MCP_WEB_PAYER_ADDRESS")?,
+        address("LAYERX_AGENT_MCP_WEB_RECEIVER_ADDRESS")?,
+        keys,
+        index,
         parse_u64("LAYERX_AGENT_MCP_WEB_TIMEOUT_MS")?,
         required("LAYERX_AGENT_MCP_WEB_PENDING_ATTEMPTS")?
             .parse()

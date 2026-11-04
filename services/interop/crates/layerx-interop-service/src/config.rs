@@ -44,6 +44,8 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use zeroize::{Zeroize, Zeroizing};
 
+pub const PAXEER_CHAIN_ID: u64 = 125;
+
 const MAX_IDEMPOTENCY_SECONDS: u64 = 2_592_000;
 const REQUIRED_ADAPTERS: [&str; 5] = ["x402", "ap2", "ucp", "visa-tap", "fiat"];
 const REQUIRED_TRANSPORTS: [&str; 3] = ["http", "mcp", "a2a"];
@@ -68,6 +70,7 @@ pub struct Config {
     pub idempotency_seconds: u64,
     pub manifest: RuntimeManifest,
     pub migration_v2: Option<MigrationV2Config>,
+    pub(crate) ap2_receipt_signers: Option<Mutex<crate::ap2_export::Ap2ReceiptSigners>>,
 }
 
 pub struct MigrationV2Config {
@@ -311,7 +314,7 @@ pub fn load() -> Result<Config, String> {
         .map_err(|_| "LAYERX_INTEROP_CHAIN_ID is required".to_owned())?
         .parse::<u64>()
         .map_err(|_| "interop chain identifier is invalid".to_owned())?;
-    if readiness_chain_id != 125 {
+    if readiness_chain_id != PAXEER_CHAIN_ID {
         return Err("interop chain identifier must select Paxeer chain 125".to_owned());
     }
     let readiness_max_age_ms = env::var("LAYERX_INTEROP_READINESS_MAX_AGE_MS")
@@ -339,7 +342,7 @@ pub fn load() -> Result<Config, String> {
         client: Client::new(outbound_ca.clone(), identity),
         store: RedisStore::new(redis, outbound_ca, redis_username, redis_password),
         sequencer: Arc::new(sequencer),
-        relay_journal,
+        relay_journal: relay_journal.with_retention(idempotency_seconds),
         receipt_keys,
         network_id,
         wire_version,
@@ -352,7 +355,27 @@ pub fn load() -> Result<Config, String> {
         idempotency_seconds,
         manifest,
         migration_v2: migration_v2_config()?,
+        ap2_receipt_signers: ap2_receipt_signers()?,
     })
+}
+
+fn ap2_receipt_signers() -> Result<Option<Mutex<crate::ap2_export::Ap2ReceiptSigners>>, String> {
+    let name = "LAYERX_INTEROP_AP2_RECEIPT_SIGNERS_FILE";
+    let path = match env::var(name) {
+        Err(env::VarError::NotPresent) => return Ok(None),
+        Err(_) => return Err(format!("{name} is invalid")),
+        Ok(path) => path,
+    };
+    let metadata = fs::metadata(&path).map_err(|_| format!("{name} cannot be read"))?;
+    if !metadata.is_file()
+        || metadata.len() == 0
+        || metadata.len() > 4096
+        || metadata.permissions().mode() & 0o077 != 0
+    {
+        return Err(format!("{name} must be a private bounded signer file"));
+    }
+    let bytes = Zeroizing::new(fs::read(path).map_err(|_| format!("{name} cannot be read"))?);
+    crate::ap2_export::Ap2ReceiptSigners::from_json(&bytes).map(|signers| Some(Mutex::new(signers)))
 }
 
 fn parse_receipt_keys(bytes: &[u8]) -> Result<Vec<SequencerAuthorization>, String> {

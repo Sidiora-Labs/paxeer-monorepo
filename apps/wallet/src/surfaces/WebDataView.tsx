@@ -6,7 +6,6 @@ import {
   webData,
   WEB_DATA_KIND_FETCH,
   WEB_DATA_KIND_SEARCH,
-  type WalletCapsState,
   type WebDataModule,
   type IntentLeg,
   type ModuleTransaction,
@@ -22,6 +21,7 @@ import {
   buildOrError,
 } from './Surface';
 import {
+  type SurfaceCapsState,
   errorMessage,
   parseSurfaceId,
   useFeeSelection,
@@ -41,7 +41,7 @@ export const DEFAULT_CALLBACK_GAS = '200000';
 
 export interface WebDataViewProps {
   readonly sidRate: string | null;
-  readonly caps: WalletCapsState;
+  readonly caps: SurfaceCapsState;
   readonly refreshCaps: () => void;
   readonly legs?: readonly IntentLeg[];
 }
@@ -54,6 +54,17 @@ export function DrawCaps({ caps }: Pick<WebDataViewProps, 'caps'>) {
       className="space-y-2 rounded-2xl bg-[var(--color-surface-raised)] p-4 text-xs"
     >
       <h2 className="text-sm font-semibold text-pax-light">402 draws</h2>
+      {(!('budgetAvailability' in caps) || caps.budgetAvailability === 'unavailable') && (
+        <p role="status" data-role="budgets-unavailable">
+          Budget discovery is unavailable. Budget balances have not been read.
+        </p>
+      )}
+      {caps.state === 'incomplete' && (
+        <p data-role="caps-discovery">
+          Indexed height {caps.indexedHeight ?? 'unknown'} · required finalized height{' '}
+          {caps.finalizedHeight}
+        </p>
+      )}
       {caps.state === 'loading' ? (
         <p role="status">Reading verified account caps</p>
       ) : 'reason' in caps ? (
@@ -86,7 +97,11 @@ export function DrawCaps({ caps }: Pick<WebDataViewProps, 'caps'>) {
             Account {caps.account_id}
           </p>
           {caps.state === 'empty' ? (
-            <p data-role="caps-empty">No budgets or grants at this verified observation.</p>
+            <p data-role="caps-empty">
+              {caps.budgetAvailability === 'available'
+                ? 'No budgets or grants at this verified observation.'
+                : 'No grants at this verified observation.'}
+            </p>
           ) : null}
           {caps.budgets.map((budget) => (
             <div

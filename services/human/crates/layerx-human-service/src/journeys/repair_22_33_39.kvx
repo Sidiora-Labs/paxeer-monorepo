@@ -1,0 +1,58 @@
+[task.22.33.39]
+status = "implemented-awaiting-qualification"
+baseline = "No repair_22_33_39 test or prior gate ledger existed in the initial tree. The explicit implementation-first and hf-done-only gate order supersedes the contradictory unchanged-tree verify step; no pre-change failure is claimed as executed."
+evidence = "hf-build and hf-done record the exact candidate revision, command, exit and private log. No completion is claimed without matching build and verification evidence."
+
+[finding.receipt-authority-retained]
+test = "receipt_authority_retained_chain_lookup_and_reopen"
+repair = "ChainReceiptMaterial and refresh_bank_receipt consume the authenticated chain-key/rung contract without AuthorizedBatch or VerificationLevel; advance_bank uses the same completion path. Current durable records do not retain receipt_authority. Compatibility ReceiptMaterial transport and public authority projections remain for out-of-scope consumers, with projections derived from the verified receipt and key instead of supplied authority."
+proof = "The committed node/sequencer transcript crosses a loopback JSON-RPC server and the real SequencerEndpoint, lookup_authenticated, JourneyEngine and PrincipalStore; reopening retains exact signed transaction, receipt, digest, key and rung without caller batch material."
+
+[finding.verified-evidence-reload]
+test = "verified_evidence_reload_refuses_missing_or_changed_evidence_before_done; committed_evidence_reload_rechecks_quorum_batch_and_inclusion"
+repair = "Active ReceiptVerified records require a complete digest, receipt, signed transaction, key, inclusion-height and rung invariant; load, list, status and evidence retrieval verify it before projecting Done. Committed evidence replays the retained validator quorum, signed sequence batch and transaction proof through production verifiers without a live endpoint."
+migration = "Older active records with complete signed chain-key evidence migrate by authenticated replay, ignoring the retired authority column; records missing evidence are refused. Evidence-less retired kinds remain explicitly Closed and cannot advance or acquire Done."
+
+[finding.observation-requires-retired-wallet]
+test = "observation_requires_current_route_and_authenticated_pending_bank_read"
+repair = "ObservedStateBuilder::for_route binds owner account, principal, tenant and wallet and requires only actual spending sources. Current ledger routes need no joined wallet or retired custody accounts; bank observations use the canonical bank balance ABI and pending nonce reads on both sides of the read. Unavailable or malformed chain readings are refused."
+
+[finding.bank-target-drift]
+test = "bank_target_drift_producer_matches_bank_consumer_at_pending_nonce"
+repair = "RouteResolver emits send(from,to,denom,amount) at 0x1001, authenticates asset as SHA-256(denom), and refuses arbitrary pointer targets. The retained pointer field is a compatibility encoding of the canonical target, never an alternate asset authority."
+proof = "The real resolver's output at the RPC pending nonce is decoded by the production bank signing/disclosure consumer, compared with precompiles/bank/abi.json, signed and round-tripped through the production transaction codec. This gate does not claim to execute the Go bank ledger."
+
+[finding.missing-balance-is-zero]
+test = "missing_balance_is_refused_separately_from_zero_and_authorized_top_up"
+repair = "ObservedState::available preserves Known versus Unknown and names the missing endpoint/asset; candidate spending sources and top-up origins require observations before funds or allowances are considered. Builder route requirements reject partial ledger answers. Known zero, unsigned top-up refusal and authorized top-up remain separate assertions."
+
+[wiring.receipt-agent]
+request = "Domain 9: services/agent/crates/layerx-agentd/src/human_receipt_frame.rs and the real human receipt producer should publish the chain-key-only frame corresponding to ChainReceiptMaterial, dropping supplied AuthorizedBatch and VerificationLevel while retaining authenticated key-height and rung evidence."
+
+[wiring.receipt-server]
+request = "Domain 10: services/human/crates/layerx-human-service/src/server/agent_runtime.rs should decode the chain-key-only producer frame directly; agents/reclaim.rs and activity/mod.rs should consume independently verified chain evidence instead of the retained compatibility authority projection."
+
+[wiring.observation-production]
+request = "Domain 10: services/human/crates/layerx-human-service/src/server/production_components.rs should construct route observations through ObservedStateBuilder::for_route with its authenticated MovementExecutionIdentity and committed ledger reads or read_pending_bank_balance, preserving every required source's unknown state."
+
+[wiring.bank-execution-proof]
+request = "Domain 1: precompiles/bank should retain an execution transcript for the canonical 0x1001 send ABI at a pending nonce, including balance effects, for the Human crate's portable integration gate; the present proof covers the actual signing/disclosure consumer and frozen bank ABI, not Go ledger execution."
+
+[gotcha.receipt-compatibility]
+observed = "The supplied scope excludes existing agent producer, server decoder and several public receipt consumers, so removing the legacy struct fields would break required test compilation outside this task."
+resolution = "The current journey boundary and storage use chain keys only; a checked legacy frame adapter and derived compatibility read projections remain until the named owning-domain wiring lands. No caller batch is required on the new retrieval path."
+
+[gotcha.committed-reload]
+observed = "Retaining a rung label or an RPC landing alone does not authenticate committed state after restart."
+resolution = "Every active committed reload rechecks the retained signed header quorum, sequence batch, exact transaction hash proof and receipt state-root coverage through the production daemon/client verifiers."
+
+[qualification.verify-1]
+revision = "f15a4cc66b9e2d6a82cf99670d8f87683ba79a95"
+command = "cg spec done 22.33.39 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Five cases passed; the evidence-reload negative case assigned zero to a receipt byte already equal to zero. Repair flips the original byte with XOR, preserving the refusal assertion."
+
+[gotcha.receipt-corruption-fixture]
+observed = "Canonical receipt encodings can start with a zero protocol byte, so assigning zero does not necessarily corrupt a fixture."
+resolution = "Flip the actual recorded byte to guarantee distinct invalid material; retain every missing-evidence, signature, height, transaction, fee, time and commitment refusal assertion."

@@ -1,79 +1,73 @@
 package simulation
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"os"
-	"path"
 	"path/filepath"
 	"time"
 )
 
-// log writter
+// LogWriter records operations and returns the actual diagnostic path and any export error.
 type LogWriter interface {
 	AddEntry(OperationEntry)
-	PrintLogs()
+	PrintLogs() (string, error)
 }
 
-// LogWriter - return a dummy or standard log writer given the testingmode
 func NewLogWriter(testingmode bool) LogWriter {
 	if !testingmode {
 		return &DummyLogWriter{}
 	}
-
 	return &StandardLogWriter{}
 }
 
-// log writter
 type StandardLogWriter struct {
 	OpEntries []OperationEntry `json:"op_entries" yaml:"op_entries"`
+	// Directory overrides the default user simulation directory.
+	Directory string `json:"-" yaml:"-"`
 }
 
-// add an entry to the log writter
 func (lw *StandardLogWriter) AddEntry(opEntry OperationEntry) {
 	lw.OpEntries = append(lw.OpEntries, opEntry)
 }
 
-// PrintLogs - print the logs to a simulation file
-func (lw *StandardLogWriter) PrintLogs() {
-	f := createLogFile()
-	defer func() { _ = f.Close() }()
+func (lw *StandardLogWriter) PrintLogs() (string, error) {
+	f, err := createLogFile(lw.Directory)
+	if err != nil {
+		return "", err
+	}
+	return f.Name(), writeLogEntries(f, lw.OpEntries)
+}
 
-	for i := 0; i < len(lw.OpEntries); i++ {
-		writeEntry := fmt.Sprintf("%s\n", (lw.OpEntries[i]).MustMarshal())
-		_, err := f.WriteString(writeEntry)
-
-		if err != nil {
-			panic("Failed to write logs to file")
+func writeLogEntries(w io.WriteCloser, entries []OperationEntry) (err error) {
+	defer func() { err = errors.Join(err, w.Close()) }()
+	encoder := json.NewEncoder(w)
+	for _, entry := range entries {
+		if err = encoder.Encode(entry); err != nil {
+			return err
 		}
 	}
+	return nil
 }
 
-func createLogFile() *os.File {
-	var f *os.File
-
-	fileName := fmt.Sprintf("%s.log", time.Now().Format("2006-01-02_15:04:05"))
-	folderPath := path.Join(os.ExpandEnv("$HOME"), ".simapp", "simulations")
-	filePath := filepath.Clean(filepath.Join(folderPath, fileName))
-
-	err := os.MkdirAll(folderPath, 0750)
-	if err != nil {
-		panic(err)
+func createLogFile(directory string) (*os.File, error) {
+	if directory == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return nil, err
+		}
+		directory = filepath.Join(home, ".simapp", "simulations")
 	}
-
-	f, err = os.Create(filePath)
-	if err != nil {
-		panic(err)
+	if err := os.MkdirAll(directory, 0750); err != nil {
+		return nil, err
 	}
-	fmt.Printf("Logs to writing to %s\n", filePath)
-
-	return f
+	// CreateTemp uses exclusive creation; its random suffix identifies this export.
+	return os.CreateTemp(directory, fmt.Sprintf("%s-*.log", time.Now().UTC().Format("2006-01-02_15-04-05")))
 }
 
-// dummy log writter
 type DummyLogWriter struct{}
 
-// do nothing
-func (lw *DummyLogWriter) AddEntry(_ OperationEntry) {}
-
-// do nothing
-func (lw *DummyLogWriter) PrintLogs() {}
+func (lw *DummyLogWriter) AddEntry(_ OperationEntry)  {}
+func (lw *DummyLogWriter) PrintLogs() (string, error) { return "", nil }

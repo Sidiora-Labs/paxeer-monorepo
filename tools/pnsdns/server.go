@@ -289,13 +289,31 @@ func (h *Handler) serveUDP(conn net.PacketConn) error {
 	}
 }
 
+// Each admitted connection processes one request at a time, so this also caps
+// concurrent TCP answer/RPC work. Pipelined frames stay on that connection and
+// are answered in order without allocating a goroutine for each request.
+const tcpConnectionLimit = 128
+
 func (h *Handler) serveTCP(listener net.Listener) error {
+	slots := make(chan struct{}, tcpConnectionLimit)
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
 			return err
 		}
-		go h.serveTCPConn(conn)
+		select {
+		case slots <- struct{}{}:
+			go func() {
+				// serveTCPConn closes the socket before returning, including on
+				// malformed frames, EOF, deadline and write errors.
+				defer func() { <-slots }()
+				h.serveTCPConn(conn)
+			}()
+		default:
+			// Refuse overload by closing immediately. Reading a question to
+			// send a DNS error would itself admit unbounded slow-peer work.
+			conn.Close()
+		}
 	}
 }
 
