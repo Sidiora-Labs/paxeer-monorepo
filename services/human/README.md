@@ -1,43 +1,93 @@
 # Human interface
 
-`human/` holds the person-facing side of Paxeer X Network: the Rust services that sign principals in, hold custody keys, plan and execute money movement and index public evidence, plus the web applications and wallet packages people use. The Rust services reach the LayerX kernel through the agent-layer crates (path dependencies into `agent/`, `interop/`, `programs/` and `services/platform/`) and reach the Paxeer X chain through typed JSON-RPC boundaries.
+`services/human/` contains the Rust services for person-facing authentication,
+onboarding, custody, money movement, approvals and receipt-backed activity.
+Paxeer mainnet-beta is one BFT network, with EVM chain id **125** (`0x7d`).
+The kernel is part of that network and proposes blocks. A receipt is final when
+its block is committed. Tenant domains are database namespaces, so a sub-chain
+does not require a new chain deployment.
 
 ## Layout
 
+The members in [`Cargo.toml`](Cargo.toml) are:
+
 | Path | Contents |
 | --- | --- |
-| [`Cargo.toml`](Cargo.toml) | Rust workspace for every crate under `crates/` |
-| [`crates/layerx-human-service`](crates/layerx-human-service/README.md) | The human service: authentication, onboarding, journeys, approvals, custody and movement orchestration |
-| [`crates/layerx-intents`](crates/layerx-intents) | The single typed-intent payload compiler (see below) |
-| [`crates/layerx-human-identity-provider`](crates/layerx-human-identity-provider/README.md) | LXIP Unix-socket identity directory |
-| [`crates/layerx-human-security-provider`](crates/layerx-human-security-provider/README.md) | LXSP Unix-socket authenticator and recovery-receipt provider |
-| [`crates/layerx-human-kms`](crates/layerx-human-kms/README.md) | LXKP mutual-TLS key provider |
-| [`crates/layerx-human-movement-provider`](crates/layerx-human-movement-provider/README.md) | Movement planning, execution and settlement-evidence daemon |
-| [`crates/layerx-paxeer-client`](crates/layerx-paxeer-client/README.md) | Typed Paxeer X chain custody, finality, withdrawal and exit boundaries |
-| [`crates/layerx-network-gateway`](crates/layerx-network-gateway) | Network gateway library used by the service crates and the explorer index |
-| [`crates/layerx-explorer-index`](crates/layerx-explorer-index/README.md) | Rebuildable public explorer projections |
-| [`crates/layerx-human-test-support`](crates/layerx-human-test-support/README.md) | Shared helpers for the service integration suites |
-| [`schema/human-api`](schema/human-api/README.md) | Versioned HTTPS and JSON contract between the human service and the web application |
-| [`apps/web`](../../apps/web) | Human web application (`@layerx/human-web`) and its [`@layerx/ui`](../../apps/web/packages/layerx-ui/README.md) component library |
-| [`apps/wallet`](../../apps/wallet/README.md) | Wallet web app (`@paxeer/wallet-app`) |
-| [`wallet`](wallet/README.md) | Wallet workspace: gateway, SDK, demo app, attestor and ceremony Go modules, deployment configuration |
-| [`tools`](tools) | Workspace gates: `api-gen`, `boundary-check`, `copy-lint`, `schema-check`, `ui-gate` and `dependency-policy.sh` |
+| [`crates/layerx-human-service`](crates/layerx-human-service/README.md) | HTTP service and privileged components for authentication, onboarding, journeys, approvals, custody and activity |
+| [`crates/layerx-intents`](crates/layerx-intents) | Typed intent compilation, disclosure checks and canonical protocol codecs |
+| [`crates/layerx-human-identity-provider`](crates/layerx-human-identity-provider/README.md) | LXIP identity directory and optional tenant-bound wallet-binding reader |
+| [`crates/layerx-human-security-provider`](crates/layerx-human-security-provider/README.md) | LXSP authenticator management and verified recovery-receipt disclosure |
+| [`crates/layerx-human-kms`](crates/layerx-human-kms/README.md) | LXKP mutual-TLS custody provider and threshold attestor client |
+| [`crates/layerx-network-gateway`](crates/layerx-network-gateway) | Typed client for hosted gateway account, balance, asset and network reads |
+| [`crates/layerx-human-test-support`](crates/layerx-human-test-support/README.md) | Development helpers for stores, evidence and durable transaction admission |
+
+Related applications and contracts:
+
+| Path | Contents |
+| --- | --- |
+| [`schema/human-api`](schema/human-api/README.md) | Versioned HTTP/JSON contract consumed by the web application |
+| [`apps/web`](../../apps/web) | Human web application and [`@layerx/ui`](../../apps/web/packages/layerx-ui/README.md) components |
+| [`apps/wallet`](../../apps/wallet/README.md) | Wallet web application |
+| [`services/wallet`](../wallet/README.md) | Wallet gateway, SDK workspace, demo, attestor, ceremony and deployment files |
+| [`tools`](tools) | API generation, boundary, copy, schema, UI and dependency checks |
+
+## Transaction and evidence boundaries
+
+`layerx-intents` compiles the retained typed protocol intents and their
+disclosures. It is not the encoder for every transaction byte: the shared
+`layerx-crypto` EIP-1559 codecs and the KMS attestor path handle unsigned calls,
+signatures and signed type-2 transactions. Bank sends target the bank precompile
+at `0x0000000000000000000000000000000000001001`; KMS checks the recipient,
+denomination and amount against the disclosed call before signing.
+
+The service binds custody and authorizations to the authenticated principal and
+tenant. EVM wallets use configured attestor key identities; their secp256k1
+private material is not returned to the Human service. Onboarding includes a
+gas-station sponsorship path, with successful matching binding evidence required
+before that path reports completion. See the [service guide](crates/layerx-human-service/README.md)
+and [KMS guide](crates/layerx-human-kms/README.md) for the corresponding configuration.
+
+Submission acknowledgement, a verified execution receipt and committed block
+evidence are distinct observations. A submitted transaction hash alone does not
+prove execution or commitment. Hosted gateway reads are explicitly labeled
+`gateway-reported`, not promoted to cryptographically verified evidence.
+
+Public node JSON-RPC uses the root path of
+`https://api1.mainnet-beta.paxeer.network` through
+`https://api14.mainnet-beta.paxeer.network`, plus
+`https://api-mainnet-beta.paxeer.network`. The node namespaces are `debug`, `echo`,
+`eth`, `net`, `pax`, `test` and `txpool`. Hosted `px_*` methods have their own
+[OpenRPC contract](../platform/hosted/gateway/openrpc.json); do not assume that
+public nodes serve those methods. `node.hyperpaxeer.com` is the library mirror,
+not a JSON-RPC endpoint.
 
 ## Build and test
 
-From the repository root:
+The repository-root Makefile provides these development targets:
 
 ```sh
-make human-js-install   # npm ci for the web app and the agent TypeScript SDK
-make human-build        # API generation check, cargo build of the workspace, web build
-make human-test         # cargo test of the workspace, web unit tests
-make human-check        # cargo check, payload-authority gate, schema check, web typecheck
-make human-lint         # copy lint, clippy -D warnings, payload-authority gate
-make human-check-ui     # UI gate, @layerx/ui build, web typecheck and tests
+make human-js-install   # agent TypeScript SDK and Human web dependencies
+make human-build        # SDK, API checks, Rust workspace and web build
+make human-test         # provisioning, Rust workspace and web tests
+make human-check        # Rust, boundary, schema and web type checks
+make human-lint         # copy, Rust, dependency and web lint checks
+make human-check-ui     # UI checks, component build and web checks
 ```
 
-`make human-test` runs hosted provisioning tests, the Rust workspace tests and web unit tests. A single crate runs with `cargo test --locked --manifest-path services/human/Cargo.toml -p <crate>`.
+`human-test` also builds native custody prerequisites and webhooks; its hosted
+provisioning tests require the Python dependencies checked by that target.
+Rust tests need the authenticated runtime clock. For a focused suite, use the
+repository wrapper, for example:
 
-## The single payload authority
+```sh
+sh tools/runtime/run-with-clock.sh cargo test --locked \
+  --manifest-path services/human/Cargo.toml \
+  -p layerx-human-identity-provider --test probe
+```
 
-`layerx-intents` is the only component in `human/` permitted to construct protocol payload bytes. Every other crate and the web application describe protocol effects as typed intents and receive canonical bytes back as opaque evidence; none of them may depend on `layerx-wire` or invoke its encoding entry points. The rule exists so the disclosure a person approves is the bytes that get signed: one compiler produces the payload and no second encoder can drift from it. `make human-check` and `make human-lint` run the `boundary-check` gate over `services/human/crates`, and `make human-check-bundle` builds the web app and runs the same gate over the built `.next` bundle so the browser ships no payload-encoding code path.
+The wrapper uses `LAYERX_RUNTIME_CLOCK_BIN` when provided, otherwise builds the
+clock supervisor. If attaching to an existing clock, supply all three bindings
+`LAYERX_RUNTIME_CLOCK_SOCKET`, `LAYERX_RUNTIME_CLOCK_PID` and
+`LAYERX_RUNTIME_CLOCK_UID`. Production listener requirements are documented in
+the provider guides above. The boundary checker used by `human-check`,
+`human-lint` and `human-check-bundle` remains the source for encoding policy.
