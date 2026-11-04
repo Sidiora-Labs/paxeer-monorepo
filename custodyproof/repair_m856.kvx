@@ -1,0 +1,23 @@
+[repair.22.33.856]
+audit = "22.30.182"
+base_revision = "fedbeb3bb47c5bb972f66afc8189f92f5395f3eb"
+scope = "custodyproof"
+mode = "BUILD"
+evidence = "The qualified candidate revision, exact command, exit code and private log are recorded by hf-done in /out/run/gates.jsonl and the cg spec done task evidence; no qualification is claimed by this source record."
+baseline = "No unchanged-tree verification ran: the explicit gate order prohibits tests before complete implementation and permits verification only through hf-done after hf-build; no baseline failure is claimed."
+producer = "Native bank InitGenesis and SendCoins write real codec values through CacheMultiStore into paxd's sdk/storev2/rootmulti commitment store; BaseApp.Query emits committed /store/bank/key proofs, consensus MakeBlock/MakeCommit and FilePV produce signed headers, JSON transport passes through Decode into Verify and Verifier.Verify."
+trust = "An operator pins the network and signed header separately from Request; extensions verify adjacent header hashes, validator transitions and quorum, then atomically sync a bounded retained window into a dedicated local DB; reopening validates its identity, signatures, transitions and live head without discarding old trust."
+compatibility = "Historical custody records remain behind their explicit v3 version boundary; native bank proofs use paxeer-bank-state-v1 and verify-bank without custody address, asset mapping or deposit membership."
+wiring_request = "spec/layerx-merge/programme/audit/repairs.kvx — programme/domain 1: copy this finding-to-test mapping and hf-done's verified revision into the central audit closure record; that spec path is outside this task's edit scope."
+
+[finding.commit-verifier-height]
+tests = ["TestRepairM_856_MatureHeightAndWorkBound", "TestRepairM_856_CheckpointRefusals", "TestRepairM_856_ExpiredTrustCannotRefresh", "TestRepairM_856_RecoveryAfterOriginalPinExpires", "TestRepairM_856_CorruptTrustRefusal"]
+repair = "Pinned checkpoints admit mature heights with at most MaxHistory input headers and retained headers; expired trust cannot refresh, conflicting pins or signed overlap cannot replace stored trust, and validator transitions survive close/reopen."
+
+[finding.commit-verifier-custody]
+tests = ["TestRepairM_856_NativeBankRoundtrip", "TestRepairM_856_GenesisNativeBank", "TestRepairM_856_HistoricalCustodyBoundary"]
+repair = "Reusable committed-header trust exposes independent VerifyHeaders and native bank balance verification; real bank keeper updates, committed membership and restart-safe trust replace the retired deposit hop while retaining historical record verification."
+
+[finding.commit-verifier-tests]
+tests = ["TestRepairM_856_NativeBankRoundtrip", "TestRepairM_856_GenesisNativeBank", "TestRepairM_856_BadHeadersMembershipAndChain", "TestRepairM_856_CorruptTrustRefusal"]
+repair = "The focused gate exercises production producer, ABCI query, codec, JSON decoder, consensus verifier and on-disk trust recovery; malformed headers, signatures, membership, heights and network identities fail without advancing durable trust."
