@@ -6,7 +6,7 @@ defmodule Explorer.Chain.PaxeerX.SequencerReceipt do
   sequencer contract (section a1): protocol version 2 or 3, structure tag 0x5201,
   no program outcome, and a trailing signature flag followed by a 64-byte Ed25519
   signature. `verify/4` runs the client checks R1-R8 against the pinned
-  ReceiptKeys list read from the router.
+  governed ReceiptKeys list configured independently of the router.
   """
 
   alias Explorer.Chain.Hash
@@ -172,7 +172,8 @@ defmodule Explorer.Chain.PaxeerX.SequencerReceipt do
   def verify(tx_hash, answer, receipt_keys, opts \\ []) when is_list(receipt_keys) and is_list(opts) do
     with {:ok, bytes} <- step(r1(answer), :r1),
          {:ok, receipt} <- step(decode_signed(bytes), :r2),
-         {:ok, key} <- step(pinned_key(receipt_keys, receipt.context_hash), :r3),
+         {:ok, governed} <- step(governed_keys(receipt_keys), :r3),
+         {:ok, key} <- step(pinned_key(governed, receipt.context_hash), :r3),
          :ok <- step(signed_by?(receipt, key.public_key), :r2),
          {:ok, height} <- step(height_in_range(receipt.batch_id, key), :r3),
          :ok <- step(activity_matches?(receipt, tx_hash, answer), :r4),
@@ -184,7 +185,8 @@ defmodule Explorer.Chain.PaxeerX.SequencerReceipt do
   end
 
   @doc """
-  Reads the pinned ReceiptKeys list from the router `px_getReceiptKeys`.
+  Reads `px_getReceiptKeys` and authenticates discovery against configured governed pins.
+  Returned validity ranges always come from configuration, including after a restart.
 
   Returns `:disabled` when no router URL is configured; the caller then keeps the
   submitted rung.
@@ -197,8 +199,11 @@ defmodule Explorer.Chain.PaxeerX.SequencerReceipt do
   def receipt_keys(router_url) do
     with {:ok, result} <- router_call(router_url, "px_getReceiptKeys", []) do
       case result do
-        %{"keys" => keys} -> decode_receipt_keys(keys)
-        _ -> {:error, :malformed_receipt_keys}
+        %{"keys" => keys} ->
+          with {:ok, discovered} <- decode_receipt_keys(keys), do: governed_keys(discovered)
+
+        _ ->
+          {:error, :malformed_receipt_keys}
       end
     end
   end
@@ -560,6 +565,33 @@ defmodule Explorer.Chain.PaxeerX.SequencerReceipt do
     :crypto.verify(:eddsa, :none, digest(receipt), receipt.signature, [public_key, :ed25519])
   end
 
+  defp governed_keys(discovered) do
+    config = Application.get_env(:explorer, __MODULE__, [])
+    pins = config[:receipt_keys]
+
+    if is_binary(config[:chain_id]) and config[:chain_id] != "" and is_list(pins) and pins != [] do
+      keys =
+        for pin <- pins,
+            %{key_id: id, public_key: public, first_height: first, last_height: last} = pin,
+            is_binary(id) and byte_size(id) == 32 and is_binary(public) and byte_size(public) == 32,
+            is_integer(first) and is_integer(last) and first >= 0 and first <= last,
+            :crypto.hash(:sha256, public) == id,
+            Enum.any?(discovered, fn
+              %{key_id: ^id, public_key: ^public, first_height: a, last_height: b}
+              when is_integer(a) and is_integer(b) ->
+                a <= first and b >= last
+
+              _ ->
+                false
+            end),
+            do: pin
+
+      if keys == [], do: {:error, :untrusted_receipt_keys}, else: {:ok, keys}
+    else
+      {:error, :untrusted_receipt_keys}
+    end
+  end
+
   defp pinned_key(receipt_keys, context_hash) do
     case Enum.find(receipt_keys, &match?(%{key_id: ^context_hash, public_key: <<_::256>>}, &1)) do
       nil -> :error
@@ -772,9 +804,17 @@ defmodule Explorer.Chain.PaxeerX.SequencerReceipt do
         {:receipted, key}
 
       {:ok, eth_receipt} ->
-        with {:ok, height} <- step(r7(receipt, view, eth_receipt), :r7),
-             :ok <- ReceiptInclusion.verify(receipt, key, height, opts) do
-          {:committed, key, height}
+        with {:ok, height} <- step(r7(receipt, view, eth_receipt), :r7) do
+          case ReceiptInclusion.verify(receipt, key, height, Keyword.put(opts, :receipt_view, view)) do
+            :ok ->
+              {:committed, key, height}
+
+            {:error, :r7} = error ->
+              if opts[:on_invalid_inclusion] == :receipted, do: {:receipted, key}, else: error
+
+            error ->
+              error
+          end
         end
     end
   end
