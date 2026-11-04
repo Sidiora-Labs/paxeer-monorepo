@@ -174254,7 +174254,7 @@ do_5 = "Attempt 2 (requalify): attempt 1 restored the manifest, both Rust builds
 
 [task.22.31.462]
 title = "Make the agent daemon and the Human service share one wire contract for the budget-state verification rank so daemon-written budget state decodes in the Human service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -178773,7 +178773,7 @@ do_12 = "Attempt 7 (requalify after 22.31.485): attempt 6 added the identity tes
 
 [task.22.33.1336]
 title = "Repair audit record 22.30.72 medium findings in services/platform/hosted/gateway/tests (part 2 of 2): restart-recovery, retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.133", "22.31.465", "22.31.483"]
@@ -198375,7 +198375,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.31.507]
 title = "Bring the launchpad go directives under the pinned image toolchain and regenerate the six module graphs the image build rejects"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
