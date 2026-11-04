@@ -1442,6 +1442,7 @@ pub struct CoreCapabilityScope {
     pub verification: u8,
     pub evidence_digest: [u8; 32],
 }
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CoreBudgetState {
     pub revocation_sequence: u64,
     pub observed_head_sequence: u64,
@@ -1453,6 +1454,85 @@ pub struct CoreBudgetState {
     pub maximum_age_sequences: u64,
     pub remaining: u128,
     pub asset: [u8; 32],
+}
+
+/// Decodes only the ranks defined by the shared write-rung type.
+pub fn budget_rung_from_rank(
+    rank: u8,
+) -> Result<layerx_types::rung::Rung, crate::store::StoreError> {
+    use layerx_types::rung::Rung;
+    [Rung::Submitted, Rung::Receipted, Rung::Committed]
+        .into_iter()
+        .find(|rung| rung.wire_rank() == rank)
+        .ok_or(crate::store::StoreError::Corrupt(
+            "invalid budget rung rank",
+        ))
+}
+
+impl CoreBudgetState {
+    /// Encodes the budget observation with one shared rung byte, never a level byte.
+    pub fn encode_snapshot(&self, budget: [u8; 32]) -> Result<Vec<u8>, crate::store::StoreError> {
+        let level = VerificationLevel::from_wire_rank(self.verification)
+            .map_err(|_| crate::store::StoreError::Corrupt("invalid budget verification level"))?;
+        let rung = level.rung().ok_or(crate::store::StoreError::Corrupt(
+            "budget level has no current rung",
+        ))?;
+        let mut out = Encoder::new();
+        out.fixed(&budget);
+        out.u64(self.revocation_sequence);
+        out.u64(self.observed_head_sequence);
+        out.u8(rung.wire_rank());
+        out.fixed(&self.evidence_digest);
+        out.fixed(&self.receipt_digest);
+        out.fixed(&self.checkpoint_digest);
+        out.u64(self.age_sequences);
+        out.u64(self.maximum_age_sequences);
+        out.u128(self.remaining);
+        out.fixed(&self.asset);
+        Ok(out.0)
+    }
+
+    /// Restores the floor of the persisted rung without inventing finer evidence.
+    pub fn decode_snapshot(bytes: &[u8]) -> Result<([u8; 32], Self), crate::store::StoreError> {
+        use layerx_types::rung::Rung;
+        let corrupt = || crate::store::StoreError::Corrupt("invalid budget snapshot");
+        let mut input = layerx_wire::decode::Decoder::new(bytes, 0);
+        fn fixed(
+            input: &mut layerx_wire::decode::Decoder<'_>,
+        ) -> Result<[u8; 32], crate::store::StoreError> {
+            input
+                .fixed(32)
+                .ok()
+                .and_then(|bytes| bytes.try_into().ok())
+                .ok_or(crate::store::StoreError::Corrupt(
+                    "truncated budget snapshot",
+                ))
+        }
+        let budget = fixed(&mut input)?;
+        let revocation_sequence = input.u64().map_err(|_| corrupt())?;
+        let observed_head_sequence = input.u64().map_err(|_| corrupt())?;
+        let rung = budget_rung_from_rank(input.u8().map_err(|_| corrupt())?)?;
+        let verification = match rung {
+            Rung::Submitted => VerificationLevel::UNVERIFIED,
+            Rung::Receipted => VerificationLevel::BATCH_INCLUDED,
+            Rung::Committed => VerificationLevel::COMMITTED,
+        }
+        .wire_rank();
+        let state = Self {
+            revocation_sequence,
+            observed_head_sequence,
+            verification,
+            evidence_digest: fixed(&mut input)?,
+            receipt_digest: fixed(&mut input)?,
+            checkpoint_digest: fixed(&mut input)?,
+            age_sequences: input.u64().map_err(|_| corrupt())?,
+            maximum_age_sequences: input.u64().map_err(|_| corrupt())?,
+            remaining: input.u128().map_err(|_| corrupt())?,
+            asset: fixed(&mut input)?,
+        };
+        input.finish().map_err(|_| corrupt())?;
+        Ok((budget, state))
+    }
 }
 pub struct CoreKeyPolicy {
     pub policy_revision: u64,
@@ -1982,8 +2062,7 @@ impl HumanAuthorityBoundary for RemoteHumanAuthority {
         };
         if state.revocation_sequence == 0
             || state.observed_head_sequence < state.revocation_sequence
-            || state.verification < 4
-            || state.verification > 5
+            || state.verification != VerificationLevel::COMMITTED.wire_rank()
             || state.evidence_digest == [0; 32]
             || state.receipt_digest == [0; 32]
             || state.checkpoint_digest == [0; 32]
@@ -22003,6 +22082,71 @@ mod tests {
     use serde_json::json;
     use std::io::{Read as _, Write as _};
     use std::sync::atomic::{AtomicBool, Ordering};
+
+    #[test]
+    fn budget_snapshot_round_trips_the_floor_of_every_current_rung() {
+        use layerx_types::rung::Rung;
+        for (level, rung, floor) in [
+            (
+                VerificationLevel::UNVERIFIED,
+                Rung::Submitted,
+                VerificationLevel::UNVERIFIED,
+            ),
+            (
+                VerificationLevel::SEQUENCER_SIGNED,
+                Rung::Submitted,
+                VerificationLevel::UNVERIFIED,
+            ),
+            (
+                VerificationLevel::BATCH_INCLUDED,
+                Rung::Receipted,
+                VerificationLevel::BATCH_INCLUDED,
+            ),
+            (
+                VerificationLevel::STATE_PROVEN,
+                Rung::Receipted,
+                VerificationLevel::BATCH_INCLUDED,
+            ),
+            (
+                VerificationLevel::COMMITTED,
+                Rung::Committed,
+                VerificationLevel::COMMITTED,
+            ),
+        ] {
+            let mut state = CoreBudgetState {
+                revocation_sequence: 11,
+                observed_head_sequence: 12,
+                verification: level.wire_rank(),
+                evidence_digest: [3; 32],
+                receipt_digest: [4; 32],
+                checkpoint_digest: [5; 32],
+                age_sequences: 1,
+                maximum_age_sequences: 2,
+                remaining: 100,
+                asset: [6; 32],
+            };
+            let encoded = state.encode_snapshot([7; 32]).expect("budget encoding");
+            assert_eq!(encoded.len(), 209);
+            assert_eq!(encoded[48], rung.wire_rank());
+            let (budget, decoded) =
+                CoreBudgetState::decode_snapshot(&encoded).expect("budget decoding");
+            state.verification = floor.wire_rank();
+            assert_eq!(budget, [7; 32]);
+            assert_eq!(decoded, state);
+            assert_eq!(
+                decoded.encode_snapshot(budget).expect("re-encoding"),
+                encoded
+            );
+            for invalid in 3..=u8::MAX {
+                let mut corrupt = encoded.clone();
+                corrupt[48] = invalid;
+                assert!(matches!(
+                    CoreBudgetState::decode_snapshot(&corrupt),
+                    Err(crate::store::StoreError::Corrupt(_))
+                ));
+            }
+        }
+    }
 
     #[test]
     fn receipt_lookup_not_ready_bytes_distinguish_submitted_from_absent() {
