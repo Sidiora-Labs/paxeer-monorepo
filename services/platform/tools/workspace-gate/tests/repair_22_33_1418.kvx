@@ -1,0 +1,7 @@
+[repair.22.33.1418]
+finding = "22.30.79/041"
+proof = "gate_tests::committed_manifest_passes_on_the_real_repository in repair_22_33_1418 exercises production default_workspace_gate and workspace_gate against services/platform/workspace.kvx and the checked-in tree; the same integration target executes every original positive and refusal test from gate.rs."
+change = "The canonical manifest declares services/platform, sdk/platform and tools/platform roots, and MANIFEST_PATH points to it. Fixtures copy committed Rust ecosystem files at parsed declaration paths; every existing missing-directory/policy/lockfile, undeclared-directory/ecosystem, unknown-section/declaration and escaping-path refusal is retained."
+baseline = "Inherited attempt 1 at revision 5655bf49d9ae671614d5cada91702e78b0079386: the declared verify command exited 101 with 9 passed and committed_manifest_passes_on_the_real_repository failed against the stale platform/ root. No extra baseline gate is run because the bounded order permits verification only through hf-done after hf-build."
+wiring_request = "None: the continuation ruling includes services/platform/workspace.kvx and services/platform/tools/workspace-gate/src, so the earlier Domain 8 manifest wiring request is resolved in scope."
+qualification = "Declared bounded gates supply the verified candidate revision, exact command, exit code and private evidence location in the runner ledger; finding 041 remains unqualified unless hf-done passes."
