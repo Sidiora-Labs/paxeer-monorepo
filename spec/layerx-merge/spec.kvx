@@ -146703,7 +146703,7 @@ do_11 = "Attempt 3: the perps typecheck fails on the missing viem import in sdk/
 
 [task.22.31.13]
 title = "Repair audit record 22.30.13 findings in apps/perps/tests: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284334,7 +284334,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.178]
 title = "Rewrite the programme documentation pages of spec/layerx-merge: stale and misleading pages (manifest 22.32.178, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284364,7 +284364,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.177]
 title = "Rewrite the programme documentation pages of docs/wiki: stale and misleading pages (manifest 22.32.177, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284394,7 +284394,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.176]
 title = "Rewrite the programme documentation pages of .: stale and misleading pages (manifest 22.32.176, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284424,7 +284424,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.175]
 title = "Rewrite the tools-ops documentation pages of tools/paxeer-x: stale and misleading pages (manifest 22.32.175, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284454,7 +284454,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.174]
 title = "Rewrite the tools-ops documentation pages of tools/loadtest: stale and misleading pages (manifest 22.32.174, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284484,7 +284484,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.173]
 title = "Rewrite the tools-ops documentation pages of tools/hpx: stale and misleading pages (manifest 22.32.173, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286704,7 +286704,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.99]
 title = "Rewrite the interop documentation pages of docs/site: stale and misleading pages (manifest 22.32.99, 3 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286974,7 +286974,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.90]
 title = "Rewrite the agent documentation pages of services/agent: stale and misleading pages (manifest 22.32.90, 5 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
