@@ -38,6 +38,7 @@ async function qualifierRefusesSequencerSignedLabel() {
       {
         application: "merchant-shop", environment: "emulator", state: "paid", orderId: "reference-order",
         rung: "committed", receiptDigest: "2".repeat(64), transactionHash: `0x${"b".repeat(64)}`,
+        resultCode: 0,
       },
       ...marketplace,
       {
@@ -86,7 +87,7 @@ async function qualifierRefusesSequencerSignedLabel() {
       actual: 4, expected: 5, operator: "strictEqual",
     });
 
-    for (let index = 3; index <= 5; index += 1) {
+    for (let index = 2; index <= 5; index += 1) {
       for (const resultCode of [undefined, 1, "0", null]) {
         const invalidCode = structuredClone(outcomes);
         invalidCode[index].resultCode = resultCode;
