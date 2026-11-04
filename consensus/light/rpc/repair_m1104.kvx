@@ -1,0 +1,19 @@
+[task]
+id = "22.33.1104"
+audit = "22.30.46"
+acceptance = "22998.1"
+verification = "hf-build then hf-done; the runner records the exact candidate revision, command, exit and private log location."
+baseline = "Not run: the explicit gate order requires complete implementation before hf-build and hf-done and forbids running verify_cmd by hand; no baseline failures are claimed."
+wiring = "None: cancellation and the existing proxy disconnect callback are handled within consensus/light/rpc."
+
+[finding.20]
+tests = ["TestRepairM_1104_Unsubscribe", "TestRepairM_1104_UnsubscribeAll", "TestRepairM_1104_Disconnect", "TestRepairM_1104_SubscriberAndQueryIsolation", "TestRepairM_1104_UnsubscribeErrorStillReleasesForwarder", "TestRepairM_1104_FailedAndDuplicateSubscribe", "TestRepairM_1104_ConcurrentLifecycleAndShutdown"]
+proof = "Real event-bus producers, local and HTTP subscription clients, loopback websocket servers and consumers exercise forwarding, unsubscribe and disconnect; completion channels prove forwarding exits and the synchronized subscriber/query registry releases state while other subscriptions remain active."
+
+[qualification.verify_1]
+revision = "0ae7baf5fb1b02f59d5a9c7625da6e657e3a4926"
+command = "cg spec done 22.33.1104 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; compiler details: /tmp/repair-m1104.log"
+observed = "Internal-package integration tests imported core, which imports statesync and then light/rpc, creating a test import cycle; repaired by external-package tests with synchronized test-only lifecycle accessors."
+assumption = "No proving tests executed in the failed setup; the external-package repair requires hf-build and hf-done on the same candidate, using the continuation's fresh gate ledger."

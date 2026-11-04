@@ -443,6 +443,7 @@ func TestUpdateParams(t *testing.T) {
 		"zero callback cap": func(m *types.MsgSetParams) { m.MaxCallbackGas = 0 },
 		"callback limit":    func(m *types.MsgSetParams) { m.MaxCallbackGas = types.CallbackGasLimit + 1 },
 		"zero timeout":      func(m *types.MsgSetParams) { m.TimeoutBlocks = 0 },
+		"timeout limit":     func(m *types.MsgSetParams) { m.TimeoutBlocks = types.TimeoutBlocksLimit + 1 },
 	} {
 		bad := msg
 		mutate(&bad)

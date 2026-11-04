@@ -70,7 +70,7 @@ func (gs GenesisState) Validate() error {
 		}
 	}
 
-	if maxSequence != 0 && maxSequence >= gs.NextConnectionSequence {
+	if len(gs.Connections) > 0 && maxSequence >= gs.NextConnectionSequence {
 		return fmt.Errorf("next connection sequence %d must be greater than maximum sequence used in connection identifier %d", gs.NextConnectionSequence, maxSequence)
 	}
 

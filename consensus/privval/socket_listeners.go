@@ -43,18 +43,27 @@ var _ net.Listener = (*TCPListener)(nil)
 type TCPListener struct {
 	*net.TCPListener
 
-	secretConnKey ed25519.SecretKey
+	secretConnKey  ed25519.SecretKey
+	peerKey        ed25519.PublicKey
+	peerConfigured bool
 
 	timeoutAccept    time.Duration
 	timeoutReadWrite time.Duration
 }
 
 // NewTCPListener returns a listener that accepts authenticated encrypted connections
-// using the given secretConnKey and the default timeout values.
-func NewTCPListener(ln net.Listener, secretConnKey ed25519.SecretKey) *TCPListener {
+// using the given secretConnKey and the default timeout values. Exactly one
+// authorized remote public key is required before Accept can return a connection.
+func NewTCPListener(ln net.Listener, secretConnKey ed25519.SecretKey, peers ...ed25519.PublicKey) *TCPListener {
+	var peer ed25519.PublicKey
+	if len(peers) == 1 {
+		peer = peers[0]
+	}
 	return &TCPListener{
 		TCPListener:      ln.(*net.TCPListener),
 		secretConnKey:    secretConnKey,
+		peerKey:          peer,
+		peerConfigured:   len(peers) == 1 && peer != (ed25519.PublicKey{}),
 		timeoutAccept:    time.Second * defaultTimeoutAcceptSeconds,
 		timeoutReadWrite: time.Second * defaultTimeoutReadWriteSeconds,
 	}
@@ -62,6 +71,9 @@ func NewTCPListener(ln net.Listener, secretConnKey ed25519.SecretKey) *TCPListen
 
 // Accept implements net.Listener.
 func (ln *TCPListener) Accept() (net.Conn, error) {
+	if !ln.peerConfigured {
+		return nil, ErrPeerNotAuthorized
+	}
 	deadline := time.Now().Add(ln.timeoutAccept)
 	err := ln.SetDeadline(deadline)
 	if err != nil {
@@ -81,6 +93,10 @@ func (ln *TCPListener) Accept() (net.Conn, error) {
 		return nil, err
 	}
 
+	if secretConn.RemotePubKey() != ln.peerKey {
+		_ = secretConn.Close()
+		return nil, ErrPeerNotAuthorized
+	}
 	return secretConn, nil
 }
 

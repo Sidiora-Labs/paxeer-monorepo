@@ -7,7 +7,8 @@ import (
 
 // A builder for blocks of transactions.
 type blockBuilder struct {
-	ctx context.Context
+	ctx  context.Context
+	done chan struct{}
 
 	config *CryptoSimConfig
 
@@ -32,24 +33,32 @@ func NewBlockBuilder(
 	dataGenerator *DataGenerator,
 ) *blockBuilder {
 	return &blockBuilder{
-		ctx:           ctx,
-		config:        config,
-		metrics:       metrics,
-		dataGenerator: dataGenerator,
-		blocksChan:    make(chan *block, config.BlockChannelCapacity),
+		ctx:             ctx,
+		config:          config,
+		metrics:         metrics,
+		dataGenerator:   dataGenerator,
+		blocksChan:      make(chan *block, config.BlockChannelCapacity),
+		done:            make(chan struct{}),
+		nextBlockNumber: int64(dataGenerator.database.nextBlockNumber),
 	}
 }
 
 // Starts the block builder. This should not be called until all other threads are done using the data generator,
 // as the data generator is not thread-safe.
 func (b *blockBuilder) Start() {
+	// Setup may have finalized additional blocks since construction.
+	b.nextBlockNumber = int64(b.dataGenerator.database.nextBlockNumber)
 	go b.mainLoop()
 }
 
 // Builds blocks and sends them to the blocks channel.
 func (b *blockBuilder) mainLoop() {
+	defer close(b.done)
 	defer b.dataGenerator.Close()
 	for {
+		if b.ctx.Err() != nil {
+			return
+		}
 		block := b.buildBlock()
 		select {
 		case <-b.ctx.Done():

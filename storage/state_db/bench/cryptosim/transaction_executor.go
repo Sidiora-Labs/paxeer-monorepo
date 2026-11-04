@@ -20,6 +20,8 @@ type TransactionExecutor struct {
 
 	// The Incoming transactions to be executed.
 	workChan chan any
+	stop     context.CancelFunc
+	done     chan struct{}
 
 	// Used to time the execution of transactions.
 	phaseTimer *metrics.PhaseTimer
@@ -40,13 +42,16 @@ func NewTransactionExecutor(
 	queueSize int,
 	metrics *CryptosimMetrics,
 ) *TransactionExecutor {
+	workerCtx, stop := context.WithCancel(context.WithoutCancel(ctx))
 	e := &TransactionExecutor{
-		ctx:                  ctx,
+		ctx:                  workerCtx,
 		cancel:               cancel,
 		config:               config,
 		database:             database,
 		feeCollectionAddress: feeCollectionAddress,
 		workChan:             make(chan any, queueSize),
+		stop:                 stop,
+		done:                 make(chan struct{}),
 		phaseTimer:           metrics.GetTransactionPhaseTimerInstance(),
 	}
 
@@ -79,7 +84,14 @@ func (e *TransactionExecutor) Flush() {
 	}
 }
 
+func (e *TransactionExecutor) Close() {
+	e.Flush()
+	e.stop()
+	<-e.done
+}
+
 func (e *TransactionExecutor) mainLoop() {
+	defer close(e.done)
 
 	for {
 		select {

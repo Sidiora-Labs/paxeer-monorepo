@@ -44,10 +44,14 @@ func NewEventSink(connStr, chainID string) (*EventSink, error) {
 		return nil, err
 	}
 
-	return &EventSink{
-		store:   db,
-		chainID: chainID,
-	}, nil
+	return NewEventSinkWithDB(db, chainID), nil
+}
+
+// NewEventSinkWithDB constructs a sink with an already-open SQL connection.
+// The sink owns the connection and closes it on Stop. This also lets embedded
+// database fixtures exercise the production writes and schema without a service.
+func NewEventSinkWithDB(db *sql.DB, chainID string) *EventSink {
+	return &EventSink{store: db, chainID: chainID}
 }
 
 // DB returns the underlying Postgres connection used by the sink.

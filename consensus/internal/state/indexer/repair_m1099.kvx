@@ -1,0 +1,21 @@
+[repair.22.33.1099]
+audit = "22.30.46"
+findings = ["51", "4"]
+baseline = "Not run: the explicit gate order forbids verification before implementation and running verify_cmd by hand. No claim is made about pre-change test results; no previous gate ledger or repair existed on inspection."
+qualification = "The private hf-build and hf-done receipts and final task evidence name the exact verified candidate revision, command, exit code and log path."
+wiring_requests = []
+
+[finding.51]
+tests = ["TestRepairM_1099_DocumentedSQL"]
+implementation = "The hash example joins tx_events through blocks by chain_id and height, then tx_results by block_id and index and filters tx_hash; type.key uses composite_key. The full-result guidance names the same keys and tx_result."
+proof = "Execute the three queries extracted from doc.go against the actual schema and real SQL sink output, after Stop and reopen. Include equal heights and indexes on different chains, multiple transactions and heights, non-indexed attributes and competing bare/composite keys; decode the joined producer protobuf."
+fixture = "Reuse the committed embedded SQLite driver through repairfixture and an owned SQL-connection constructor; no PostgreSQL service or subprocess. Only PostgreSQL identity syntax and the reserved index identifier are translated by the existing fixture. PostgreSQL integration is not claimed."
+
+[finding.4]
+tests = ["TestRepairM_1099_RangeIntersection", "TestRepairM_1099_TemporalRangeIntersection"]
+implementation = "Intersect lower bounds by maximum and upper bounds by minimum, using strictness on equal endpoints, retaining unsupported-bound errors for consumers."
+proof = "All permutations of reordered, duplicate, contradictory, inclusive and strict conditions search real KV block and transaction indexes, including height metadata and application-produced app.key indexes. Date/time bounds pass through both consumers using their existing Unix-second representation."
+
+[gotcha.gate_order]
+observed = "The task steps request a baseline verify, but the explicit order allows only hf-build followed by hf-done after the whole implementation."
+resolution = "Follow the explicit gate order; retain the baseline omission here instead of running an unauthorized extra gate or editing the out-of-scope feature specification or root gotcha ledger."
