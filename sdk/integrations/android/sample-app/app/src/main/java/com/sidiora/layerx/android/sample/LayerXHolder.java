@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.res.Resources;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sidiora.layerx.android.LayerXAndroid;
+import com.sidiora.layerx.android.MobileIntegrationException;
 import com.sidiora.layerx.android.PublishableConfiguration;
 import java.net.URI;
 import java.util.HashMap;
@@ -45,6 +46,12 @@ public final class LayerXHolder {
             resources.getString(R.string.layerx_request_timeout_seconds));
         declared.put(PublishableConfiguration.EVENT_PUBLIC_KEY_PREFIX + keyId,
             resources.getString(R.string.layerx_event_public_key));
+        int receiptKeysResource = resources.getIdentifier(
+            "layerx_receipt_keys", "string", context.getPackageName());
+        if (receiptKeysResource == 0) {
+            throw MobileIntegrationException.of(MobileIntegrationException.Code.INVALID_CONFIGURATION);
+        }
+        declared.put(PublishableConfiguration.RECEIPT_KEYS_KEY, resources.getString(receiptKeysResource));
 
         PublishableConfiguration configuration = PublishableConfiguration.of(declared);
         LayerXAndroid mobile = LayerXAndroid.create(context, configuration);

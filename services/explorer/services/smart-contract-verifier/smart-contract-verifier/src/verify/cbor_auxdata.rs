@@ -64,7 +64,7 @@ impl CborAuxdataType for VyperCborAuxdata {
 
     fn validate_encoded_length(encoded_length: usize, actual_size: usize) -> bool {
         // Vyper counts 2 length related bytes as part of the auxdata
-        encoded_length == actual_size + 2
+        actual_size.checked_add(2) == Some(encoded_length)
     }
 }
 
@@ -108,26 +108,32 @@ fn next_cbor_auxdata_value<T: CborAuxdataType>(
     mut start: usize,
 ) -> Result<CborAuxdataValue, Error> {
     let length = loop {
-        let mut result = T::from_cbor(&code[start..]);
-        while result.is_err() {
-            if start == already_processed {
-                Err(anyhow::anyhow!("failed to parse next cbor auxdata value"))?
+        let remaining = code
+            .get(start..)
+            .ok_or_else(|| anyhow::anyhow!("failed to parse next cbor auxdata value"))?;
+        if let Ok(length) = T::from_cbor(remaining) {
+            if is_cbor_auxdata_length_valid::<T>(code, start, length) {
+                break length;
             }
-            start -= 1;
-            result = T::from_cbor(&code[start..]);
-        }
-        let length = result.unwrap();
-
-        if is_cbor_auxdata_length_valid::<T>(code, start, length) {
-            break length;
         }
 
-        start -= 1;
+        start = start
+            .checked_sub(1)
+            .filter(|previous| *previous >= already_processed)
+            .ok_or_else(|| anyhow::anyhow!("failed to parse next cbor auxdata value"))?;
     };
 
+    let end = start
+        .checked_add(length)
+        .and_then(|end| end.checked_add(2))
+        .ok_or_else(|| anyhow::anyhow!("cbor auxdata length overflow"))?;
     let value = CborAuxdataValue {
-        value: code[start..start + length + 2].to_vec(),
-        offset: start as u32,
+        value: code
+            .get(start..end)
+            .ok_or_else(|| anyhow::anyhow!("cbor auxdata length exceeds code size"))?
+            .to_vec(),
+        offset: u32::try_from(start)
+            .map_err(|_| anyhow::anyhow!("cbor auxdata offset exceeds u32"))?,
     };
     Ok(value)
 }
@@ -137,14 +143,18 @@ fn is_cbor_auxdata_length_valid<T: CborAuxdataType>(
     start: usize,
     length: usize,
 ) -> bool {
-    if code.len() < start + length + 2
-    /* 2 length bytes are not parsed and included in length */
-    {
+    let Some(length_start) = start.checked_add(length) else {
         return false;
-    }
+    };
+    let Some(end) = length_start.checked_add(2) else {
+        return false;
+    };
+    let Some(encoded_length) = code.get(length_start..end) else {
+        return false;
+    };
 
     let mut encoded_length_bytes = [0u8; 2];
-    encoded_length_bytes.copy_from_slice(&code[start + length..start + length + 2]);
+    encoded_length_bytes.copy_from_slice(encoded_length);
     let encoded_length = u16::from_be_bytes(encoded_length_bytes) as usize;
 
     T::validate_encoded_length(encoded_length, length)

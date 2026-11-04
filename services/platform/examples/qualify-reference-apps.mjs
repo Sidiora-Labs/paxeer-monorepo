@@ -111,6 +111,7 @@ export async function qualifyReferenceAppOutcomes(outcomesFile, environment) {
   assert.deepEqual(JSON.parse(buyer.body), declaredResource, "seller did not release actual declared resource after verified payment");
   const merchant = only((row) => row.application === "merchant-shop" && row.environment === environment && row.state === "paid", "verified merchant checkout");
   assert.ok(["receipted", "committed"].includes(merchant.rung), "merchant checkout rung must be receipted or committed");
+  assert.equal(merchant.resultCode, 0, "merchant checkout result code must indicate success");
   assert.match(merchant.receiptDigest, /^[0-9a-f]{64}$/u);
   assert.match(merchant.transactionHash, /^0x[0-9a-fA-F]{64}$/u, "invalid merchant transaction hash");
   assert.ok(typeof merchant.orderId === "string" && merchant.orderId.length > 0);
