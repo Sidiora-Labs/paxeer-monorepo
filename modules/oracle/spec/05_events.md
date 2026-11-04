@@ -4,7 +4,7 @@ order: 5
 
 # Events
 
-The module's event names and attribute keys are declared in [`types/events.go`](../types/events.go). The tables below describe attributes emitted by the oracle keeper and message handlers. Values are strings in the SDK events; framework transaction processing can add its own message metadata.
+The module's event names and attribute keys are declared in [`types/events.go`](../types/events.go). The tables below describe attributes emitted by the oracle keeper and message handlers. The retired scalar `vote` event is absent from the current lifecycle. Values are strings in the SDK events; framework transaction processing can add its own message metadata.
 
 ## MidBlocker
 
