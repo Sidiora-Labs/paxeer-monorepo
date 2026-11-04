@@ -1,3 +1,5 @@
+use thiserror::Error;
+
 use crate::core::types::FixedI128;
 
 /// A referral tier definition. Matches PostgreSQL `referral_tiers` table.
@@ -8,6 +10,18 @@ pub struct ReferralTier {
     pub min_volume: FixedI128,
     pub reward_bps: u32,
     pub fee_discount_bps: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+pub enum ReferralTierError {
+    #[error("referral tier table must not be empty")]
+    Empty,
+    #[error("base referral tier must have zero referral and volume thresholds")]
+    MissingBase,
+    #[error("referral tier {index} has unordered thresholds")]
+    UnorderedThresholds { index: usize },
+    #[error("referral tier {index} has basis points above 10000")]
+    InvalidBasisPoints { index: usize },
 }
 
 /// Default tier table — sorted ascending by min_referrals.
@@ -61,13 +75,39 @@ impl ReferralEngine {
     }
 
     /// Create with custom tier definitions.
-    pub fn with_tiers(tiers: Vec<ReferralTier>) -> Self {
-        Self { tiers }
+    pub fn with_tiers(tiers: Vec<ReferralTier>) -> Result<Self, ReferralTierError> {
+        Self::validate_tiers(&tiers)?;
+        Ok(Self { tiers })
     }
 
     /// Replace the tier table at runtime.
-    pub fn set_tiers(&mut self, tiers: Vec<ReferralTier>) {
+    pub fn set_tiers(&mut self, tiers: Vec<ReferralTier>) -> Result<(), ReferralTierError> {
+        Self::validate_tiers(&tiers)?;
         self.tiers = tiers;
+        Ok(())
+    }
+
+    pub fn validate_tiers(tiers: &[ReferralTier]) -> Result<(), ReferralTierError> {
+        let base = tiers.first().ok_or(ReferralTierError::Empty)?;
+        if base.min_referrals != 0 || base.min_volume != 0 {
+            return Err(ReferralTierError::MissingBase);
+        }
+        for (index, tier) in tiers.iter().enumerate() {
+            if tier.reward_bps > 10_000 || tier.fee_discount_bps > 10_000 {
+                return Err(ReferralTierError::InvalidBasisPoints { index });
+            }
+            if index > 0 {
+                let previous = &tiers[index - 1];
+                if tier.min_referrals < previous.min_referrals
+                    || tier.min_volume < previous.min_volume
+                    || (tier.min_referrals == previous.min_referrals
+                        && tier.min_volume == previous.min_volume)
+                {
+                    return Err(ReferralTierError::UnorderedThresholds { index });
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Get all tier definitions (for API: GET /referral-tiers).
@@ -205,7 +245,8 @@ mod tests {
                 reward_bps: 50,
                 fee_discount_bps: 25,
             },
-        ]);
+        ])
+        .unwrap();
 
         assert_eq!(engine.compute_tier(0, 0).tier, "basic");
         assert_eq!(engine.compute_tier(10, 0).tier, "pro");
@@ -216,13 +257,15 @@ mod tests {
         let mut engine = ReferralEngine::new();
         assert_eq!(engine.tier_count(), 4);
 
-        engine.set_tiers(vec![ReferralTier {
-            tier: "only".into(),
-            min_referrals: 0,
-            min_volume: 0,
-            reward_bps: 100,
-            fee_discount_bps: 100,
-        }]);
+        engine
+            .set_tiers(vec![ReferralTier {
+                tier: "only".into(),
+                min_referrals: 0,
+                min_volume: 0,
+                reward_bps: 100,
+                fee_discount_bps: 100,
+            }])
+            .unwrap();
         assert_eq!(engine.tier_count(), 1);
         assert_eq!(engine.compute_tier(999, 999).tier, "only");
     }

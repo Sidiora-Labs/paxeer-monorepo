@@ -2048,14 +2048,14 @@
       ],
       "legacy_dependencies": [],
       "legacy_predecessors": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "interface_digest": "b8d400593ea9184337a6ab66ae5be49da1676708a4ffcbdb31ce0c4732a0b7e6",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "110858de197f4dfdc519666936dfbebf984a86fa5e076eaa89ea0f91617e173f",
       "source_inputs": [
         {
           "path": "spec/production-system/handoffs/L18/phase2/migration-proposal.sql",
@@ -2588,7 +2588,7 @@
       ]
     }
   ],
-  "approval_digest": null,
+  "approval_digest": "110858de197f4dfdc519666936dfbebf984a86fa5e076eaa89ea0f91617e173f",
   "qualification_required": [
     "isolated PostgreSQL measured lock <=2000ms",
     "reviewed deployed reader minimum versions",
