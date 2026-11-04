@@ -1,0 +1,20 @@
+[repair.22.31.250]
+finding = "receipt-authentication"
+tests = ["receipt_authentication_preserves_real_producer_evidence_and_events", "receipt_authentication_rejects_real_producer_negative_vectors", "receipt_authentication_rejects_unsigned_fields_signatures_keys_and_logs", "receipt_authentication_binds_direct_and_fallback_sends_to_the_requested_call", "receipt_authentication_is_required_at_each_surface_consumer", "receipt_authentication_stops_unverified_approvals_and_hook_success", "receipt_authentication_gates_sponsored_settlement_and_recovery"]
+producer = "sdk/platform/conformance/fixtures/generate_kernel_receipt_fixture.mjs emits kernel-receipt-v1.json through sdk/wallet/src/receipt.ts encodeKernelReceipt; six positive kernel records round-trip the Go producer's bytes unchanged, and six negative records exercise governed key, height, transaction, sequence, log and canonical encoding checks over loopback HTTP through the real SDK and surface consumers."
+baseline = "Not run: the task's explicit gate order forbids testing before the whole implementation and reserves verification for hf-done; no pre-change test result is claimed."
+evidence = "The runner records the verified candidate revision, command, exit code and private log through hf-build and hf-done."
+wiring = "None: receipt authentication, module transport and surface consumers are within the allowed paths."
+
+[continuation.22.31.250]
+fixture_root = "Walk from the test import.meta.url to the pnpm-workspace.yaml containing the conformance fixture; nested wallet workspace configuration is not the repository root."
+integration = "Preserve the current strict canonical decoder and governed pin reader; add transaction-bound immutable authentication evidence and require it at surface consumers."
+previous_failure = "Attempt 1 verification at 5d10821c5ad7e47bdca5d616570b99dcd80d50bf exited 1 before test collection because the fixture path resolved under /work/sdk."
+nested_workspace = "The first continued verification collected no tests because apps/wallet/pnpm-workspace.yaml is a standalone build policy; require the producer fixture alongside the workspace marker when finding the repository root."
+attempt_2_failure = "At beb8aa02a9ed9063e463e27c20d529398cc58a1b, cg spec done 22.31.250 -f layerx-merge --root /work/paxeer-monorepo exited 1 before collecting tests: fixture lookup stopped at apps/wallet; the continuation asserts that test and nested-wallet file URLs resolve to the same repository root."
+test_registration = "At b555af2716db0565f945c31b71a156057551d9aa, hf-done returned zero but /out/logs/verify-1.log reported all seven functions as todo; Vitest 4 requires an explicit callback after the test name, so each named function is registered with its name and callback before qualification."
+attempt_3_ruling = "The fixture is named for the kernel embedded in the network; repository discovery walks to pnpm-workspace.yaml plus the SDK source marker instead of stopping at the nested wallet workspace or depending on fixture existence."
+encoding = "The production authentication path re-encodes the verified structured receipt with encodeKernelReceipt and requires exact canonical bytes; the fixture generator uses that same encoder and checks positive records against the production decoder before writing."
+negative_sequence = "The kernel corpus signs an internally inconsistent resulting sequence hash to prove the consumer's sequence hash check; predecessor history outside a standalone receipt is not asserted as locally available."
+generator_gotcha = "Vite fixture emission disables dependency discovery so it loads only production receipt modules instead of scanning unrelated playground HTML."
+qualification_repair = "At afa9c116353bd85c3307a074d80551d7b1419c40, cg spec done 22.31.250 -f layerx-merge --root /work/paxeer-monorepo exited 1 (/out/logs/verify-1.log): six tests passed, but an unsafe numeric pin was losslessly transported as a valid decimal string; the loopback peer now emits unsafe numeric pins in exponent notation so the original rejection assertion exercises the numeric validator."
