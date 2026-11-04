@@ -12,11 +12,18 @@ import (
 )
 
 func TestMigrate5To6RejectsInconsistentCountersAtomically(t *testing.T) {
+	assertMigrate5To6AtomicRejection(t)
+}
+
+func assertMigrate5To6AtomicRejection(t *testing.T) {
+	t.Helper()
 	cases := []struct {
 		name      string
 		counter   types.VotePenaltyCounter
 		malformed bool
 	}{
+		{name: "25 penalties exceed completed periods", counter: types.VotePenaltyCounter{MissCount: 12, AbstainCount: 13}},
+		{name: "one beyond completed periods", counter: types.VotePenaltyCounter{MissCount: 13}},
 		{name: "miss exceeds elapsed", counter: types.VotePenaltyCounter{MissCount: 26}},
 		{name: "combined exceeds elapsed", counter: types.VotePenaltyCounter{MissCount: 12, AbstainCount: 14}},
 		{name: "addition overflow", counter: types.VotePenaltyCounter{MissCount: math.MaxUint64, AbstainCount: 1}},
@@ -51,14 +58,27 @@ func TestMigrate5To6RejectsInconsistentCountersAtomically(t *testing.T) {
 }
 
 func TestMigrate5To6AcceptsZeroSuccessBoundary(t *testing.T) {
-	input := testutils.CreateTestInput(t)
-	ctx := input.Ctx.WithBlockHeight(50)
-	address := testutils.ValAddrs[0]
-	input.OracleKeeper.SetVotePenaltyCounter(ctx, address, 12, 13, 0)
-	require.NoError(t, keeper.NewMigrator(input.OracleKeeper, keeper.VotePeriodHistory{
-		StartHeight: 1, EndHeight: 50,
-		VotePeriod:  input.OracleKeeper.VotePeriod(ctx),
-		SlashWindow: input.OracleKeeper.SlashWindow(ctx),
-	}).Migrate5To6(ctx))
-	require.Equal(t, types.VotePenaltyCounter{MissCount: 12, AbstainCount: 13, SuccessCount: 0}, input.OracleKeeper.GetVotePenaltyCounter(ctx, address))
+	assertMigrate5To6ZeroSuccessBoundary(t)
+}
+
+func assertMigrate5To6ZeroSuccessBoundary(t *testing.T) {
+	t.Helper()
+	for _, height := range []int64{25, 50} {
+		input := testutils.CreateTestInput(t)
+		ctx := input.Ctx.WithBlockHeight(height)
+		period := input.OracleKeeper.VotePeriod(ctx)
+		window := input.OracleKeeper.SlashWindow(ctx)
+		observations := migrationHookObservations(ctx, period, window)
+		address := testutils.ValAddrs[0]
+		misses := observations / 2
+		abstentions := observations - misses
+		input.OracleKeeper.SetVotePenaltyCounter(ctx, address, misses, abstentions, 0)
+
+		require.NoError(t, keeper.NewMigrator(input.OracleKeeper, keeper.VotePeriodHistory{
+			StartHeight: 1, EndHeight: uint64(height),
+			VotePeriod: period, SlashWindow: window,
+		}).Migrate5To6(ctx))
+
+		require.Equal(t, types.VotePenaltyCounter{MissCount: misses, AbstainCount: abstentions, SuccessCount: 0}, input.OracleKeeper.GetVotePenaltyCounter(ctx, address))
+	}
 }

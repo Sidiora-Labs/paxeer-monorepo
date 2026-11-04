@@ -54,5 +54,14 @@ eth_uninstallFilter
 net_listening
 net_peerCount
 net_version
+px_getAccount
+px_getBalances
+px_getCapabilities
+px_getNetwork
+px_getRouteCatalogue
+px_listAssets
+px_register
+px_requestFunds
+px_resolveAccount
 web3_clientVersion
 web3_sha3

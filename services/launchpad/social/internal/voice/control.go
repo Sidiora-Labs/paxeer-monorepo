@@ -34,6 +34,7 @@ type Pools interface {
 	Exists(context.Context, string) (bool, error)
 }
 type Control struct {
+	reconciliation      reconciliationState
 	DB                  *pgxpool.Pool
 	Provider            Provider
 	Policy              Policy

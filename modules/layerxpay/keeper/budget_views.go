@@ -32,6 +32,9 @@ func (k Keeper) BudgetRemaining(ctx sdk.Context, budgetID [32]byte) (sdk.Int, er
 	if err != nil || !found {
 		return sdk.ZeroInt(), err
 	}
+	if record.Revoked || record.Closed {
+		return sdk.ZeroInt(), nil
+	}
 	allowance, ok := record.PerPeriodLimit.CheckedSub(record.SpentThisPeriod)
 	if !ok {
 		return sdk.ZeroInt(), lxphost.Code(-1001)

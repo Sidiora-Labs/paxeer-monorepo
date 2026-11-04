@@ -1,0 +1,17 @@
+[repair.22.33.1013]
+finding = "mutation-commit-telemetry"
+status = "Telemetry operation boundary implemented; service adoption requires the wiring requests below. Qualification is recorded by the runner."
+tests = ["TestRepairM_1013_Commit", "TestRepairM_1013_Rollback", "TestRepairM_1013_MissingAck", "TestRepairM_1013_CommitBeforeAck", "TestRepairM_1013_InvalidOperation", "TestRepairM_1013_Panic", "TestRepairM_1013_ConcurrentOperations"]
+proof = "Metrics.WithMutation drives validation, the fixture's atomic authoritative-state/outbox transaction and a loopback HTTP acknowledgement consumer; a second HTTP server exports the production Prometheus handler. Tests assert persisted state, decoded delivery, acknowledgement failure, transaction rollback, validation exclusion, panic propagation and exact bounded counter series."
+baseline = "Not run: the explicit implementation-first order and hf-done-only verification prohibit an unchanged-tree verify run; no pre-change failures are claimed. No earlier gate ledger was present."
+evidence = "The final hf-done entry in the private /out/run/gates.jsonl ledger names the exact verified candidate revision, command, exit and evidence log; the final response copies that entry."
+wiring_services = "services/launchpad/*/internal/app/app.go (domain 4 / fm-launchpad): pass each service's existing telemetry.Metrics to its mutation owner and use WithMutation at the actual validated operation boundary, with server-owned bounded routes and the real response or durable-delivery acknowledgement. HTTP status alone is not transaction evidence."
+wiring_transactions = "sdk/launchpad/shared/db/client.go, sdk/launchpad/shared/auth/ledger.go, services/launchpad/user/internal/account/store.go and other service-owned mutation stores (domain 4 / fm-launchpad): supply WithMutation's transaction callback using the existing authoritative-state plus outbox transaction; return commit errors unchanged and acknowledge only after that transaction succeeds; instrument each transaction once."
+
+[gotcha.m1013_scope]
+observed = "The audit's running-service call sites are outside this task's telemetry-only scope; adding a telemetry boundary cannot by itself make those services call it."
+resolution = "Keep the telemetry implementation and its real exported-metrics proof in scope, and leave explicit wiring requests for the owning domain without claiming deployed service integration."
+
+[gotcha.m1013_baseline]
+observed = "Step 5 asks for a pre-change verify while the explicit gate order prohibits tests before full implementation and permits verification only through hf-done after hf-build."
+resolution = "Follow the explicit ordered gate protocol and record the baseline as unrun."

@@ -12,3 +12,11 @@ pub fn sandbox_state_key(kind: u8, lease_id: [u8; 32]) -> Result<Vec<u8>, Sandbo
     kernel_key[2..].copy_from_slice(&lease_id);
     Ok(programs_state_key(&kernel_key))
 }
+
+/// Mounted key of the permanent native destruction record.
+#[must_use]
+pub fn sandbox_terminal_key(lease_id: [u8; 32]) -> Vec<u8> {
+    let mut key = b"ts".to_vec();
+    key.extend_from_slice(&lease_id);
+    programs_state_key(&key)
+}

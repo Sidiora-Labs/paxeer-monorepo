@@ -100,7 +100,6 @@ std::thread_local! {
 }
 
 /// Counts every host surface registration performed on the calling thread.
-#[cfg(test)]
 pub(crate) fn linker_constructions_on_current_thread() -> usize {
     LINKER_CONSTRUCTIONS.with(core::cell::Cell::get)
 }

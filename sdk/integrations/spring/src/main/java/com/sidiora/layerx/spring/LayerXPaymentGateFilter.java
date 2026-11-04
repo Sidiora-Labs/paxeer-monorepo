@@ -30,9 +30,24 @@ public final class LayerXPaymentGateFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         SellerMiddleware.SellerDecision decision;
         try {
+            ResourceRelease release;
+            if (resources instanceof LayerXResourceHandler.Recoverable recoverable) {
+                release = new ResourceRelease.Recoverable() {
+                    @Override
+                    public LayerXResource release(String idempotencyKey) throws IOException {
+                        return recoverable.release(request, idempotencyKey);
+                    }
+
+                    @Override
+                    public ResourceRelease.Recovery recover(String idempotencyKey) throws IOException {
+                        return recoverable.recover(request, idempotencyKey);
+                    }
+                };
+            } else {
+                release = () -> resources.release(request);
+            }
             decision = seller.handle(config.principal(),
-                Http.singleHeader(request, X402.PAYMENT_SIGNATURE_HEADER),
-                () -> resources.release(request));
+                Http.singleHeader(request, X402.PAYMENT_SIGNATURE_HEADER), release);
         } catch (MiddlewareException error) {
             Http.writeError(response, paymentErrorStatus(error.code()), error.code().wire());
             return;

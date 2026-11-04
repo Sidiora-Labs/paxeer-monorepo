@@ -12,7 +12,6 @@ import (
 )
 
 func TestIntegrationTestSuite(t *testing.T) {
-	cfg := network.DefaultConfig()
-	cfg.NumValidators = 2
+	cfg := network.DefaultConfig(t)
 	suite.Run(t, NewIntegrationTestSuite(cfg))
 }

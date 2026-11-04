@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strconv"
 	"testing"
 
 	"github.com/google/uuid"
@@ -82,19 +81,24 @@ func TestTraderRealizedRowsSelectsHistoryForWindowSellers(t *testing.T) {
 	}
 	pool := internaltest.NewPostgres(t)
 	ctx := context.Background()
-	if _, err := pool.Exec(ctx, `CREATE SCHEMA realized; CREATE TABLE realized.accounting_market_commits_v1(source_fill_id text PRIMARY KEY,source_fact_digest text NOT NULL,projection_version text NOT NULL,pool text NOT NULL,fill jsonb NOT NULL,sequence bigint NOT NULL)`); err != nil {
+	if _, err := pool.Exec(ctx, `CREATE SCHEMA realized; CREATE TABLE indexer.indexer_token_transfers_v1(chain_id integer,token text,from_address text,to_address text,height bigint,payload jsonb); CREATE TABLE realized.accounting_market_commits_v1(source_fill_id text PRIMARY KEY,source_fact_digest text NOT NULL,projection_version text NOT NULL,pool text NOT NULL,fill jsonb NOT NULL,sequence bigint NOT NULL)`); err != nil {
 		t.Fatal(err)
 	}
 	insert := func(sequence int, side, sender, owner string, height, ts int64, token, paid, usdl string) {
 		t.Helper()
-		attribution := map[string]any{"transactionSender": sender, "trader": sender, "quality": "exact_receipt"}
-		if side == "buy" {
-			attribution["recipient"] = owner
-		} else {
-			attribution["payer"] = owner
+		projected, movement := repairM984Fill(t, side, sender, owner, height, ts, token, paid, usdl)
+		fill, err := json.Marshal(projected)
+		if err != nil {
+			t.Fatal(err)
 		}
-		fill, _ := json.Marshal(map[string]any{"side": side, "tokenAmountRaw": token, "paidInputRaw": paid, "usdlAmountRaw": usdl, "blockTimestampSeconds": strconv.FormatInt(ts, 10), "position": map[string]string{"height": strconv.FormatInt(height, 10), "transactionIndex": "0", "logIndex": "0"}, "attribution": attribution})
-		if _, err := pool.Exec(ctx, `INSERT INTO realized.accounting_market_commits_v1 VALUES($1,$2,'accounting-v2',$3,$4,$5)`, uuid.NewString(), fmt.Sprintf("%064d", sequence), realizedPool, fill, sequence); err != nil {
+		raw, err := json.Marshal(movement)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err = pool.Exec(ctx, `INSERT INTO indexer.indexer_token_transfers_v1 VALUES(125,$1,$2,$3,$4,$5)`, movement.Token, movement.From, movement.To, height, raw); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = pool.Exec(ctx, `INSERT INTO realized.accounting_market_commits_v1 VALUES($1,$2,'accounting-v2',$3,$4,$5)`, uuid.NewString(), fmt.Sprintf("%064d", sequence), realizedPool, fill, sequence); err != nil {
 			t.Fatal(err)
 		}
 	}

@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"math/rand/v2"
 )
 
@@ -76,6 +77,9 @@ type RandomGasGenerator struct {
 func (r *RandomGasGenerator) GenerateGas() (uint64, error) {
 	if r.Min >= r.Max {
 		return 0, fmt.Errorf("invalid random gas range: min %d must be less than max %d", r.Min, r.Max)
+	}
+	if r.Min == 0 && r.Max == math.MaxUint64 {
+		return rand.Uint64(), nil
 	}
 	return r.Min + rand.Uint64N(r.Max-r.Min+1), nil
 }

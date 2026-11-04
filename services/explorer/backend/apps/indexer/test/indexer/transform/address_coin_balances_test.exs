@@ -15,7 +15,7 @@ defmodule Indexer.Transform.AddressCoinBalancesTest do
       params_set = AddressCoinBalances.params_set(%{blocks_params: [%{miner_hash: miner_hash, number: block_number}]})
 
       assert MapSet.size(params_set) == 1
-      assert %{address_hash: miner_hash, block_number: block_number}
+      assert params_set == MapSet.new([%{address_hash: miner_hash, block_number: block_number}])
     end
 
     test "with block second degree relations extracts nothing" do

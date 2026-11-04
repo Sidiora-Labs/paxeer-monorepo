@@ -92,6 +92,15 @@ pub struct StepUpChallenge {
     pub expires_at: u64,
 }
 
+impl StepUpChallenge {
+    /// Projects the shared Human API timestamp and digest representations.
+    #[must_use]
+    pub fn to_schema_json(&self) -> serde_json::Value {
+        serde_json::json!({"challenge_id": self.challenge_id, "confirms": self.confirms.to_schema(),
+            "ceremony": self.ceremony, "expires_at": crate::time::rfc3339(self.expires_at)})
+    }
+}
+
 /// Fresh operation-bound evidence produced only after a verified passkey
 /// assertion. Fields are private so callers cannot construct evidence.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -104,6 +113,14 @@ pub struct StepUp {
 }
 
 impl StepUp {
+    /// Projects completed evidence without changing its durable storage encoding.
+    #[must_use]
+    pub fn to_schema_json(&self) -> serde_json::Value {
+        serde_json::json!({"challenge_id": self.challenge_id, "confirms": self.confirms.to_schema(),
+            "passkey_id": self.passkey_id, "completed_at": crate::time::rfc3339(self.completed_at),
+            "expires_at": crate::time::rfc3339(self.expires_at)})
+    }
+
     /// Challenge identifier.
     #[must_use]
     pub fn challenge_id(&self) -> &str {
@@ -336,7 +353,7 @@ impl Passkeys {
         Ok(evidence)
     }
 
-    pub(super) fn validate_step_up(
+    pub(crate) fn validate_step_up(
         scope: &mut PrincipalScope<'_>,
         evidence: &StepUpEvidence,
         expected: OperationDigest,

@@ -1,9 +1,12 @@
 package evm
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 
 	dbm "github.com/tendermint/tm-db"
 
@@ -24,11 +27,18 @@ type EVMStateStore struct {
 	managedDBs  []types.StateStore
 	dir         string
 	separateDBs bool
+	closed      atomic.Bool
 }
 
 // NewEVMStateStore opens either a single unified MVCC DB for all EVM state
 // or one MVCC DB per EVM sub-type.
 func NewEVMStateStore(dir string, ssConfig config.StateStoreConfig) (*EVMStateStore, error) {
+	if ssConfig.AsyncWriteBuffer < 0 {
+		return nil, fmt.Errorf("EVMStateStore: AsyncWriteBuffer must be non-negative")
+	}
+	if ssConfig.KeepRecent < 0 {
+		return nil, fmt.Errorf("EVMStateStore: KeepRecent must be non-negative")
+	}
 	opener := backend.ResolveBackend(ssConfig.Backend)
 
 	store := &EVMStateStore{
@@ -43,8 +53,10 @@ func NewEVMStateStore(dir string, ssConfig config.StateStoreConfig) (*EVMStateSt
 			subCfg := subDBConfig(ssConfig, dbDir)
 			db, err := opener(dbDir, subCfg)
 			if err != nil {
-				_ = store.Close()
-				return nil, fmt.Errorf("failed to open EVM MVCC DB for %s: %w", StoreTypeName(storeType), err)
+				return nil, errors.Join(
+					fmt.Errorf("failed to open EVM MVCC DB for %s: %w", StoreTypeName(storeType), err),
+					store.Close(),
+				)
 			}
 			store.subDBs[storeType] = db
 			store.managedDBs = append(store.managedDBs, db)
@@ -104,29 +116,188 @@ func (s *EVMStateStore) Has(_ string, version int64, key []byte) (bool, error) {
 }
 
 func (s *EVMStateStore) Iterator(_ string, version int64, start, end []byte) (dbm.Iterator, error) {
-	if !s.separateDBs {
-		return s.primaryDB().Iterator(EVMStoreKey, version, start, end)
+	// Resolve visibility in reverse: the backend's forward cursor can skip a
+	// live key after seeking past a key written only at a later version.
+	source, err := s.ReverseIterator(EVMStoreKey, version, start, end)
+	if err != nil {
+		return nil, err
 	}
-	db := s.routeKey(start)
-	if db == nil {
-		return nil, fmt.Errorf("EVMStateStore: cannot route iteration for key")
+	itr := &forwardEVMIterator{start: bytes.Clone(start), end: bytes.Clone(end)}
+	for ; source.Valid(); source.Next() {
+		itr.pairs = append(itr.pairs, evmIteratorPair{
+			key: bytes.Clone(source.Key()), value: bytes.Clone(source.Value()),
+		})
 	}
-	return db.Iterator(EVMStoreKey, version, start, end)
+	if err := errors.Join(source.Error(), source.Close()); err != nil {
+		return nil, err
+	}
+	itr.index = len(itr.pairs) - 1
+	return itr, nil
+}
+
+type evmIteratorPair struct {
+	key, value []byte
+}
+
+type forwardEVMIterator struct {
+	pairs      []evmIteratorPair
+	start, end []byte
+	index      int
+}
+
+var _ dbm.Iterator = (*forwardEVMIterator)(nil)
+
+func (itr *forwardEVMIterator) Domain() ([]byte, []byte) {
+	return itr.start, itr.end
+}
+
+func (itr *forwardEVMIterator) Valid() bool {
+	return itr.index >= 0 && itr.index < len(itr.pairs)
+}
+
+func (itr *forwardEVMIterator) assertIsValid() {
+	if !itr.Valid() {
+		panic("iterator is invalid")
+	}
+}
+
+func (itr *forwardEVMIterator) Next() {
+	itr.assertIsValid()
+	itr.index--
+}
+
+func (itr *forwardEVMIterator) Key() []byte {
+	itr.assertIsValid()
+	return itr.pairs[itr.index].key
+}
+
+func (itr *forwardEVMIterator) Value() []byte {
+	itr.assertIsValid()
+	return itr.pairs[itr.index].value
+}
+
+func (itr *forwardEVMIterator) Error() error {
+	return nil
+}
+
+func (itr *forwardEVMIterator) Close() error {
+	itr.index = -1
+	itr.pairs = nil
+	return nil
 }
 
 func (s *EVMStateStore) ReverseIterator(_ string, version int64, start, end []byte) (dbm.Iterator, error) {
-	if !s.separateDBs {
-		return s.primaryDB().ReverseIterator(EVMStoreKey, version, start, end)
-	}
-	db := s.routeKey(start)
-	if db == nil {
-		return nil, fmt.Errorf("EVMStateStore: cannot route reverse iteration for key")
-	}
-	return db.ReverseIterator(EVMStoreKey, version, start, end)
+	return s.mergedIterator(version, start, end)
 }
 
-func (s *EVMStateStore) RawIterate(_ string, _ func([]byte, []byte, int64) bool) (bool, error) {
-	return false, fmt.Errorf("EVMStateStore: RawIterate not supported")
+func (s *EVMStateStore) mergedIterator(version int64, start, end []byte) (dbm.Iterator, error) {
+	itr := &mergedEVMIterator{start: bytes.Clone(start), end: bytes.Clone(end), current: -1}
+	// Bounds describe a logical range, not a complete routable key. Legacy
+	// keys can share any family prefix, so every DB must participate.
+	for _, db := range s.managedDBs {
+		child, err := db.ReverseIterator(EVMStoreKey, version, start, end)
+		if err != nil {
+			return nil, errors.Join(err, itr.Close())
+		}
+		itr.children = append(itr.children, child)
+	}
+	itr.selectCurrent()
+	return itr, nil
+}
+
+type mergedEVMIterator struct {
+	children   []dbm.Iterator
+	start, end []byte
+	current    int
+	err        error
+	closeErr   error
+	closed     bool
+}
+
+var _ dbm.Iterator = (*mergedEVMIterator)(nil)
+
+func (itr *mergedEVMIterator) selectCurrent() {
+	itr.current = -1
+	for i, child := range itr.children {
+		valid := child.Valid()
+		if err := child.Error(); err != nil {
+			itr.err = err
+			itr.current = -1
+			return
+		}
+		if !valid {
+			continue
+		}
+		if itr.current < 0 {
+			itr.current = i
+			continue
+		}
+		cmp := bytes.Compare(child.Key(), itr.children[itr.current].Key())
+		if cmp > 0 {
+			itr.current = i
+		}
+	}
+}
+
+func (itr *mergedEVMIterator) Domain() ([]byte, []byte) {
+	return itr.start, itr.end
+}
+
+func (itr *mergedEVMIterator) Valid() bool {
+	return !itr.closed && itr.err == nil && itr.current >= 0
+}
+
+func (itr *mergedEVMIterator) assertIsValid() {
+	if !itr.Valid() {
+		panic("iterator is invalid")
+	}
+}
+
+func (itr *mergedEVMIterator) Next() {
+	itr.assertIsValid()
+	itr.children[itr.current].Next()
+	itr.selectCurrent()
+}
+
+func (itr *mergedEVMIterator) Key() []byte {
+	itr.assertIsValid()
+	return itr.children[itr.current].Key()
+}
+
+func (itr *mergedEVMIterator) Value() []byte {
+	itr.assertIsValid()
+	return itr.children[itr.current].Value()
+}
+
+func (itr *mergedEVMIterator) Error() error {
+	return itr.err
+}
+
+func (itr *mergedEVMIterator) Close() error {
+	if !itr.closed {
+		itr.closed = true
+		itr.current = -1
+		for _, child := range itr.children {
+			itr.closeErr = errors.Join(itr.closeErr, child.Close())
+		}
+	}
+	return itr.closeErr
+}
+
+func (s *EVMStateStore) RawIterate(storeKey string, fn func([]byte, []byte, int64) bool) (bool, error) {
+	if s.closed.Load() {
+		return false, fmt.Errorf("EVMStateStore: database is closed")
+	}
+	for i, db := range s.managedDBs {
+		stopped, err := db.RawIterate(storeKey, fn)
+		if err != nil {
+			return stopped, fmt.Errorf("EVM raw traversal of database %d failed: %w", i, err)
+		}
+		if stopped {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (s *EVMStateStore) GetLatestVersion() int64 {
@@ -143,6 +314,9 @@ func (s *EVMStateStore) GetLatestVersion() int64 {
 }
 
 func (s *EVMStateStore) SetLatestVersion(version int64) error {
+	if s.closed.Load() {
+		return fmt.Errorf("EVMStateStore: database is closed")
+	}
 	for _, db := range s.managedDBs {
 		if err := db.SetLatestVersion(version); err != nil {
 			return err
@@ -152,19 +326,17 @@ func (s *EVMStateStore) SetLatestVersion(version int64) error {
 }
 
 func (s *EVMStateStore) GetEarliestVersion() int64 {
-	var minVersion int64 = -1
+	var maxVersion int64
 	for _, db := range s.managedDBs {
-		if v := db.GetEarliestVersion(); minVersion < 0 || v < minVersion {
-			minVersion = v
-		}
+		maxVersion = max(maxVersion, db.GetEarliestVersion())
 	}
-	if minVersion < 0 {
-		return 0
-	}
-	return minVersion
+	return maxVersion
 }
 
 func (s *EVMStateStore) SetEarliestVersion(version int64, ignoreVersion bool) error {
+	if s.closed.Load() {
+		return fmt.Errorf("EVMStateStore: database is closed")
+	}
 	for _, db := range s.managedDBs {
 		if err := db.SetEarliestVersion(version, ignoreVersion); err != nil {
 			return err
@@ -281,6 +453,9 @@ func (s *EVMStateStore) applyToSubDB(storeType EVMStoreType, version int64, pair
 }
 
 func (s *EVMStateStore) Import(version int64, ch <-chan types.SnapshotNode) error {
+	if s.closed.Load() {
+		return fmt.Errorf("EVMStateStore: database is closed")
+	}
 	if !s.separateDBs {
 		db := s.primaryDB()
 		if db == nil {
@@ -361,6 +536,7 @@ func (s *EVMStateStore) Prune(version int64) error {
 }
 
 func (s *EVMStateStore) Close() error {
+	s.closed.Store(true)
 	var lastErr error
 	for _, db := range s.managedDBs {
 		if err := db.Close(); err != nil {

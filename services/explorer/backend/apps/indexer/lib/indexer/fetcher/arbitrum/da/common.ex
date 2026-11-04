@@ -58,11 +58,13 @@ defmodule Indexer.Fetcher.Arbitrum.DA.Common do
       - A list of DA records (`DaMultiPurposeRecord`) ready for import, deduplicated both within
         the current batch and against existing database records.
       - A list of batch-to-blob associations (`BatchToDaBlob`) ready for import.
+    - `{:error, {:anytrust_keyset, hash, reason}}` when an AnyTrust keyset is unavailable or invalid.
   """
   @spec prepare_for_import([Celestia.t() | Anytrust.t() | Eigenda.t() | map()], %{
           :sequencer_inbox_address => String.t(),
           :json_rpc_named_arguments => EthereumJSONRPC.json_rpc_named_arguments()
-        }) :: {[Arbitrum.DaMultiPurposeRecord.to_import()], [Arbitrum.BatchToDaBlob.to_import()]}
+        }) ::
+          {[Arbitrum.DaMultiPurposeRecord.to_import()], [Arbitrum.BatchToDaBlob.to_import()]} | Anytrust.import_error()
   def prepare_for_import([], _), do: {[], []}
 
   def prepare_for_import(da_info, l1_connection_config) do
@@ -78,54 +80,48 @@ defmodule Indexer.Fetcher.Arbitrum.DA.Common do
     }
 
     # Process all DA info entries
-    {da_records_by_type, batch_to_blobs, _cache} =
+    result =
       da_info
-      |> Enum.reduce(initial_acc, fn info, {da_records_by_type, batch_to_blob_acc, cache} ->
+      |> Enum.reduce_while(initial_acc, fn info, {da_records_by_type, batch_to_blob_acc, cache} ->
         case info do
           %Celestia{} ->
             {updated_records, updated_batches} =
               Celestia.prepare_for_import({da_records_by_type.celestia, batch_to_blob_acc}, info)
 
-            {
-              %{da_records_by_type | celestia: updated_records},
-              updated_batches,
-              cache
-            }
+            {:cont, {%{da_records_by_type | celestia: updated_records}, updated_batches, cache}}
 
           %Anytrust{} ->
-            {{updated_records, updated_batches}, updated_cache} =
-              Anytrust.prepare_for_import(
-                {da_records_by_type.anytrust, batch_to_blob_acc},
-                info,
-                l1_connection_config,
-                cache
-              )
+            case Anytrust.prepare_for_import(
+                   {da_records_by_type.anytrust, batch_to_blob_acc},
+                   info,
+                   l1_connection_config,
+                   cache
+                 ) do
+              {{updated_records, updated_batches}, updated_cache} ->
+                {:cont, {%{da_records_by_type | anytrust: updated_records}, updated_batches, updated_cache}}
 
-            {
-              %{da_records_by_type | anytrust: updated_records},
-              updated_batches,
-              updated_cache
-            }
+              {:error, _} = error ->
+                {:halt, error}
+            end
 
           %Eigenda{} ->
             {updated_records, updated_batches} =
               Eigenda.prepare_for_import({da_records_by_type.eigenda, batch_to_blob_acc}, info)
 
-            {
-              %{da_records_by_type | eigenda: updated_records},
-              updated_batches,
-              cache
-            }
+            {:cont, {%{da_records_by_type | eigenda: updated_records}, updated_batches, cache}}
 
           _ ->
-            {da_records_by_type, batch_to_blob_acc, cache}
+            {:cont, {da_records_by_type, batch_to_blob_acc, cache}}
         end
       end)
 
-    # Eliminate conflicts with database records
-    da_records = eliminate_conflicts(da_records_by_type)
+    case result do
+      {:error, _} = error ->
+        error
 
-    {da_records, batch_to_blobs}
+      {da_records_by_type, batch_to_blobs, _cache} ->
+        {eliminate_conflicts(da_records_by_type), batch_to_blobs}
+    end
   end
 
   # Eliminates conflicts between candidate DA records and existing database records.

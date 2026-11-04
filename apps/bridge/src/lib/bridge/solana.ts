@@ -87,18 +87,22 @@ export function solanaRecipientHandle(base58Address: string): Address | undefine
 }
 
 export function recipientRecordAddress(programId: string, handle: Address): { address: string; bump: number } | undefined {
+  if (!/^0x[0-9a-fA-F]{40}$/.test(handle)) return undefined;
+  return solanaProgramAddress(programId, [ RECIPIENT_SEED, hexToBytes(handle) ]);
+}
+
+export function solanaProgramAddress(programId: string, seeds: readonly Uint8Array[]): { address: string; bump: number } | undefined {
   const program = base58Decode(programId);
-  if (!program || program.length !== 32 || !/^0x[0-9a-fA-F]{40}$/.test(handle)) return undefined;
-  const handleBytes = hexToBytes(handle);
+  if (!program || program.length !== 32 || seeds.length > 15 || seeds.some((seed) => seed.length > 32)) return undefined;
   for (let bump = 255; bump >= 0; bump -= 1) {
-    const candidate = sha256(concat([ RECIPIENT_SEED, handleBytes, new Uint8Array([ bump ]), program, PDA_MARKER ]), 'bytes');
+    const candidate = sha256(concat([ ...seeds, new Uint8Array([ bump ]), program, PDA_MARKER ]), 'bytes');
     try {
       ed25519.Point.fromBytes(candidate, true);
     } catch {
       return { address: base58Encode(candidate), bump };
     }
   }
-  throw new Error('No off-curve recipient record address exists for these seeds');
+  throw new Error('No off-curve program address exists for these seeds');
 }
 
 export function parseRecipientRecord(bytes: Uint8Array, handle: Address): Uint8Array | undefined {

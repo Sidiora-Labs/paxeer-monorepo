@@ -1,0 +1,21 @@
+[repair.22.33.185]
+audit = "spec/layerx-merge/programme/audit/records/22.30.119.kvx"
+test_path = "apps/wallet/src/wallet/repair-22-33-185.test.ts"
+baseline = "Not run: the explicit gate order prohibits tests before full implementation and requires hf-build before hf-done; no pre-change gate failure is claimed. The provider finding is a coverage gap whose production repair is already present from 22.31.248; the new proof adds successful virtual sends and actual HTTPS routing before and after restart."
+wiring_requests = []
+evidence = "The private runner ledger records the verified candidate revision, exact command, exit code and log; final output copies its final gate line without modifying the qualified tree."
+
+[finding.provider-switch-restart-coverage]
+tests = ["provider_switch_restart_coverage", "wallet_provider_switches_sends_and_restores_virtual_network_without_signing_out"]
+proof = "The production React WalletProvider and WalletNetworkProvider add and switch the connected WalletInterface, read distinct root and virtual block heights over real loopback HTTPS with certificate verification, send a transaction signed by the committed synthetic fixture key on the selected chain, reject mismatched input without sending, and unmount/remount with fresh identity and provider instances to recover preferences and send again without sign-out or reauthentication. The named WalletProvider suite test and the declared repair gate share this complete scenario."
+fixture = "The HTTPS transport uses Node's HTTPS client and a committed local test certificate as its trust anchor; no TLS check is disabled, no live endpoint or environment configuration is needed, and fixtures run entirely in process."
+
+[finding.signer-extra-fields-discarded]
+tests = ["signer_extra_fields_discarded_rejects_unsupported_input", "signer_extra_fields_discarded_preserves_supported_fields"]
+proof = "The production ethers adapter rejects every non-null supplied unsupported transaction field with WalletSignerError before account resolution or send; the real WalletInterface, SDK codec and recorded HTTP gateway demonstrate no send for unsupported values, including zero, false, empty lists, inherited/non-enumerable properties and unknown extensions. A supported request crosses the same SDK/gateway boundary with every field intact and returns the real ethers RPC transaction response."
+contract = "Supported fields remain from, to, data, value, gasLimit, maxFeePerGas, maxPriorityFeePerGas, nonce and chainId; null and undefined optional fields remain absent. No SDK or gateway field support is added and no out-of-path wiring is required."
+
+[task_notes]
+scope = "Runner-supplied .cgignore and task status edits are preserved; no spec, root gotcha ledger or other out-of-scope file is edited, and publication is owned by the runner."
+registration = "Vitest 4 requires an explicit name and callback to execute tests; each proof is a declared named function registered with its name and function, rather than test(function), which the earlier repair record reports as TODO."
+tooling = "The configured jsxBracketSameLine Prettier option is deprecated; the local TLS test certificate and synthetic key use .fixture extensions because repository ignore rules exclude .pem files. Root GOTCHA.kvx is outside the authorized scope."

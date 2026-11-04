@@ -7,26 +7,30 @@
 import { createConfig, http } from 'wagmi';
 import { injected } from 'wagmi/connectors';
 
-import { walletBridgeChains, paxeer } from './chains';
+import { buildBridgeChains, walletBridgeChains, paxeer } from './chains';
 import { bridgeConfig } from './config';
+import { effectiveForeignRpcUrl } from './rpc';
 
-const evmBridgeChains = walletBridgeChains();
-const evmViemChains = evmBridgeChains.map((chain) => chain.viemChain);
+export function createBridgeWagmiConfig(config: typeof bridgeConfig) {
+  const evmBridgeChains = walletBridgeChains(buildBridgeChains(config));
+  const evmViemChains = evmBridgeChains.map((chain) => chain.viemChain);
+  return createConfig({
+    chains: [ paxeer, ...evmViemChains ],
+    connectors: [ injected() ],
+    transports: {
+      ...Object.fromEntries(
+        evmBridgeChains.map((c) => [
+          c.viemChain.id,
+          http(effectiveForeignRpcUrl(c, config)),
+        ]),
+      ),
+      [paxeer.id]: http(config.paxeerRpcUrl),
+    },
+    ssr: true,
+  });
+}
 
-export const wagmiConfig = createConfig({
-  chains: [ paxeer, ...evmViemChains ],
-  connectors: [ injected() ],
-  transports: {
-    ...Object.fromEntries(
-      evmBridgeChains.map((c) => [
-        c.viemChain.id,
-        http(bridgeConfig.foreignRpcUrls[c.key as keyof typeof bridgeConfig.foreignRpcUrls]),
-      ]),
-    ),
-    [paxeer.id]: http(bridgeConfig.paxeerRpcUrl),
-  },
-  ssr: true,
-});
+export const wagmiConfig = createBridgeWagmiConfig(bridgeConfig);
 
 declare module 'wagmi' {
   interface Register {

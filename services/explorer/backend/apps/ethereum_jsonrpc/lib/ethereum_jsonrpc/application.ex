@@ -11,6 +11,8 @@ defmodule EthereumJSONRPC.Application do
 
   @impl Application
   def start(_type, _args) do
+    EthereumJSONRPC.PaxeerX.stored_cosmos_transaction_type()
+
     config = Application.fetch_env!(:ethereum_jsonrpc, RequestCoordinator)
 
     rolling_window_opts = Keyword.fetch!(config, :rolling_window_opts)

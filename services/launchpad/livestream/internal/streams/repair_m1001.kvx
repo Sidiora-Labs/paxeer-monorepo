@@ -1,0 +1,48 @@
+[repair]
+task = "22.33.1001"
+audit = "22.30.34"
+base_revision = "caa8b41ee668274ee1e5c1df6691288455c46278"
+findings = ["007", "008", "016", "006"]
+qualification = "The authoritative verified revision, command, exit code and private log location are the final hf-done runner receipt; build and verify must identify the same candidate."
+baseline = "No earlier gate ledger or streams edits existed; TestRepairM_1001_* did not exist on the base. No baseline verify was run: the explicit implementation-first ordering and hf-build/hf-done-only gate rule take precedence over step 8's conflicting unchanged-tree verify request. No pre-change test failure is claimed."
+
+[finding.007]
+repair = "The lifecycle proof uses StudioWebhook production routing, pinned producer frames, LiveWebhookResponse schema/type consumption and a closed/reopened HTTP component and database pool between first delivery and duplicate; invalid HMAC, one inbox record and exactly one lifecycle revision remain asserted."
+tests = ["TestRepairM_1001_007_StudioRestart", "TestProofLaunchpadLivestream"]
+focused_evidence = "Real production HTTP adapter, normalizer, signature verifier and frozen schema consumer over loopback HTTP, with a durable checkpointing inbox peer; no external executable or service is required."
+
+[finding.008]
+repair = "ProvisionAmbiguityResolver requires trusted fresh authorization, a provider settlement reference and exact revision/worker attempt with no active lease. A missing listing alone never proves nonallocation. Confirmed absence can re-arm one create or terminalize/release admission; verified adoption records the provider ID while retaining create_sent and resuming the worker's normal policy/encrypted-binding path. Resolution updates, audit receipt and outbox are one PostgreSQL transaction. The worker refuses discovery that contradicts the adopted provider ID."
+tests = ["TestRepairM_1001_008_CrashBeforeSendResume", "TestRepairM_1001_008_RejectionRelease", "TestRepairM_1001_008_VerifiedAdoptionRestart", "TestRepairM_1001_008_RevisionLeaseAndProviderRefusals", "TestRepairM_1001_008_LeaseAcquiredDuringDiscovery"]
+focused_evidence = "The real resolver, shared transition, worker allocation component and Livepeer HTTP client use loopback provider transcripts and a durable repository peer. Checkpoints reopen after ambiguous send reservation, confirmed resume, rejection release and verified adoption; create counts rule out blind retries."
+supplementary_postgres_test = "TestPostgresRepairM1001AmbiguityRestartAndAdmission exercises real SQL send reservation, pool restart, resolution audit, single-send enforcement and admission release; it is outside the declared focused gate and is not claimed as executed."
+wiring_request = "services/launchpad/livestream/internal/app/app.go — owning domain 4 / launchpad runtime: wire authenticated operator recovery controls to ProvisionWorker.ResolveAmbiguity and display LifecycleStore.ProvisionRecovery.Actions; supply trusted provider-settlement attestation tied to the returned attempt and revision, never direct request JSON."
+
+[finding.016]
+repair = "Usage ingestion, budget policy, vendor prices/minutes, spend estimates and threshold arithmetic share a plain nonnegative decimal grammar bounded to 78 integer and 18 fractional digits. Rational, exponent, signed, whitespace and oversized values are refused before persistence. Vendor cost must be exactly representable at the supported scale; rounding is refused."
+tests = ["TestRepairM_1001_016_DecimalNumericRoundTrip", "TestRepairM_1001_016_RejectNonDecimalBeforeStorage"]
+focused_evidence = "Accepted decimals round-trip the real pgx PostgreSQL binary numeric codec exactly; real ingestion and alert entry points refuse invalid values before database access; exact decimal threshold and vendor-cost boundaries are asserted. This does not claim PostgreSQL server writes ran."
+supplementary_postgres_test = "TestPostgresRepairM1001DecimalsAndAlerts writes numeric usage, verifies exact/idempotent redelivery and all three alert thresholds against PostgreSQL; it is outside the declared focused gate and is not claimed as executed."
+qualification_limit = "Step 6 requests actual PostgreSQL writes while step 11 forbids PostgreSQL in the only allowed verify command; the later focused-gate restriction governs execution. Server persistence qualification remains separate."
+
+[finding.006]
+repair = "ProviderWebhookAdapter is the shared production Studio ingress and normalized frozen consumer. The alias proof drives it via the registered production routes using Studio-emitted fixtures rather than decoding or serializing internal ProviderEvent as the external body. Stale/future, malformed/duplicate JSON, tampering, signatures, body/timestamp mismatch, cross-format signatures and idempotent redelivery are asserted. Seconds-based Studio delivery is explicitly refused by the pinned millisecond contract."
+tests = ["TestRepairM_1001_006_StudioAliases", "TestRepairM_1001_006_PinnedProducerFrames", "TestPostgresProviderWebhookAliasVerifiesSignature"]
+producer_source = "https://github.com/livepeer/studio/blob/72187ec428cdd41c81ff75556d77a609b2990695/packages/api/src/webhooks/cannon.ts#L390-L398"
+producer_provenance = "testdata/studio-72187/producer.txt records the upstream source hash and exact expression used to emit both committed frames; the gate consumes those frames without Node or a network source fetch."
+
+[gotcha.baseline_order]
+observed = "The task steps request an unchanged-tree verify and also forbid verification until implementation is complete."
+resolution = "Follow the explicit Order and allowed gates; record baseline as unmeasured, never invent pre-change failures."
+
+[gotcha.postgres_scope]
+observed = "A proposal asks for actual PostgreSQL writes but the task's final execution rule requires no PostgreSQL."
+resolution = "Keep supplementary real SQL tests available for separate qualification and state exactly which codec/loopback proof the bounded gate executes."
+
+[gotcha.fixture_binding]
+observed = "Evaluating the upstream body expression requires its local payload binding as well as event, webhook, stream and timestamp."
+resolution = "Bind payload to the event payload before emitting the committed JSON fixtures; no runtime fixture generation is part of the gate."
+
+[gotcha.edit_script]
+observed = "A draft multiline edit script had mismatched quoting and exited before changing files."
+resolution = "Apply the affected edits as explicit patches and inspect the final implementation before qualification."

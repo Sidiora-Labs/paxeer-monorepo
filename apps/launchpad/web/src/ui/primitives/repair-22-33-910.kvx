@@ -1,0 +1,35 @@
+[repair.22.33.910]
+audit = "22.30.20"
+test_file = "apps/launchpad/web/src/ui/primitives/repair-22-33-910.test.ts"
+baseline = "Not run: the explicit implementation-first order and gate limits prohibit running verify before implementation; no pre-change execution is claimed."
+wiring_requests = []
+evidence = "The runner records the qualified revision, command, exit and private log through hf-build and hf-done."
+
+[finding.avatar-recovery]
+test = "avatar_recovery"
+proof = "Image error reaches the production handler, replacement src renders its image, load retains it, and stop/reopen retains the successful URL."
+
+[finding.disabled-button-link]
+test = "disabled_button_link"
+proof = "Pointer and keyboard activation cannot produce a navigation destination or click callback; enabling restores the real Link navigation path."
+
+[finding.segmented-end]
+test = "segmented_end"
+proof = "End changes controlled selection and focus to the last enabled option across one, two, three and disabled trailing/interleaved options."
+
+[finding.disabled-disclosure-link]
+test = "disabled_disclosure_link"
+proof = "Pointer and keyboard activation cannot navigate or toggle; enabling restores the real Link navigation path."
+
+[finding.initial-popover-position]
+test = "initial_popover_position, popover_layer_size_changes"
+proof = "The production hook consumes committed DOM geometry fixtures and positions the real portal at right/bottom edges before resize/scroll, after reopen and after layer growth/shrink."
+limitation = "jsdom supplies no browser layout or native ResizeObserver; geometry fixtures provide dimensions and React commits drive size changes. No browser-layout qualification is claimed."
+
+[qualification.1]
+revision = "c1759a80a615e33609a64b10e1cc07eb3ec2aa7c"
+command = "cg spec done 22.33.910 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The end-aligned fixture ended 12px from the right edge but asserted the 8px overflow clamp."
+repair = "Move the fixture anchor to 4px from the right edge so every alignment exercises the same overflow clamp; retain every assertion unchanged."

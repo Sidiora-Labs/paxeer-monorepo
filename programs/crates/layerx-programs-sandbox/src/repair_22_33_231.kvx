@@ -1,0 +1,47 @@
+[repair.22.33.231]
+audit = "22.30.128"
+requirement = "22998.1"
+record = "Bounded hf-build and hf-done ledger supplies the exact verified revision, commands, exits and private evidence locations."
+baseline = "No baseline gate was run: the mandatory implementation-first order and hf-done-only verification override step 10's unchanged-tree run; the lease-prefix length check already exists at the supplied base."
+
+[finding.truncated-submission]
+test = "truncated_submission_refuses_every_native_operation_prefix"
+repair = "Preserve the existing minimum lease-prefix check and exercise every truncated prefix of native producer recordings for all three operations."
+
+[finding.expiry-lifetime-capacity]
+test = "expiry_history_survives_lifetime_batches_replay_and_reopen"
+repair = "Separate terminal history from the bounded active queue, reserve history before callbacks and recover canonical durable queue state without a lifetime 4096 cap."
+
+[finding.terminal-token-lifecycle]
+test = "native_terminal_refusals_preserve_token_result_until_single_consumption"
+repair = "Shared production archive publisher and guarded ABI reader bind terminal bytes to the producing token and validate capacity before consumption."
+
+[finding.registry-transition-proof]
+test = "registry_transition_contract_matches_native_chain_state_producer"
+repair = "Document the actual VerifiedChainHead/canonical_lease/lease_ops contract in verify_call rustdoc and the crate contract."
+wiring = "spec/layerx-merge/interfaces.kvx — owning Programs interface registry domain 13: replace obsolete activity/header proof inputs with VerifiedChainHead, canonical_lease, lease_ops, lxphost module-9 key and chain authority; link the in-crate programs_contract.md pending contracts publication."
+
+[finding.missing-programs-contract]
+test = "programs_contract_is_published_with_the_crate"
+repair = "Publish explicit ABI, state keys, refusal semantics and restart behavior as crate documentation included from programs_contract.md."
+wiring = "contracts/programs.md — owning Programs contracts domain 13: publish the in-crate programs_contract.md at the sandbox-crate anchor and wire the Programs registry contract rows to it."
+
+[finding.snapshot-allocation-bounds]
+test = "snapshot_decoder_bounds_counts_lengths_and_truncated_runtime_capture"
+repair = "Validate counts, remaining minimum encoded bytes, lease byte budgets and protocol bounds before fallible allocation."
+
+[gotcha.implementation]
+observed = "Native Programs headers and sandbox_expiry.c live at include/layerx/programs.h and src/modules/programs/sandbox_expiry.c, outside programs/."
+action = "Read their root paths; the native ABI regression compiles shared production Rust source and uses a committed in-memory archive transport, requiring no native build or subprocess toolchain."
+
+[qualification.preexisting_activity_unit_case]
+revision = "6e06b1c8949e3ff5796d67650e88690cc0264a56"
+command = "cg spec done 22.33.231 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Importing the whole lib into the focused target also ran the unchanged activity unit case, whose obsolete SandboxProtocolContext::new(2, 3) fails with ProtocolMismatch; the focused harness now imports the actual submission crate and only needed private lifecycle modules, leaving that source test untouched."
+assumption = "Repairing that pre-existing unit case is outside this audit task; the declared integration target proves submissions with real native protocol-3/ABI-4 producer recordings."
+
+[qualification.repair_cycle_1]
+observed = "The expiry fixture supplied a noncanonical charge root, and the synthetic host archive fixture omitted native request history."
+repair = "Derive the exact sandbox_escrow_charge_root and use the committed native funded/active lease recordings for the archive producer."

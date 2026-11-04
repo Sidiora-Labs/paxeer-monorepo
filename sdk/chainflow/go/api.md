@@ -1,6 +1,13 @@
 # Chainflow Data Gateway Go API
 
-Complete reference of every operation, grouped by resource. See [the README](./README.md) for usage and configuration.
+Reference of the generated REST operations, grouped by resource. See
+[the README](./README.md) for local module installation, authentication and the
+merged network context. Requests go to the Chainflow data gateway at
+`https://data.feed.chainflowtrading.com/`; chain JSON-RPC uses public node roots
+and EVM chain ID 125. Explorer data here is a snapshot of observations.
+
+The Go client provides REST calls and token minting; it does not include a
+WebSocket connection manager. Never log token responses or handshake URLs.
 
 ## Contents
 
@@ -51,12 +58,23 @@ Complete reference of every operation, grouped by resource. See [the README](./R
 import (
 	"context"
 	"fmt"
+	"os"
 
 	sdk "chainflow-data-gateway"
+	"chainflow-data-gateway/option"
 )
 
-client := sdk.NewClient()
+client := sdk.NewClient(
+	option.WithRestAPIKey(os.Getenv("REST_API_KEY")),
+	option.WithQueryDel("token"),
+)
 ```
+
+Keep imports at file scope and place the setup and operation calls inside your
+application function. Include only the imports each example uses. All REST
+methods accept trailing
+`option.RequestOption` arguments. Set deadlines through the context or
+`option.WithRequestTimeout`.
 
 ## `Gateway`
 
@@ -89,19 +107,35 @@ Authenticate with the separate WS API key, not the REST key. Lifetime is 300 sec
 | Response | [`WsToken`](./gateway.go) |
 
 ```go
-gateway, err := client.Gateway.NewWebSocketToken(context.Background(), sdk.GatewayNewWebSocketTokenParams{
-	Symbol: sdk.F[sdk.WsScope](sdk.WsScope("btc")),
-})
+credential, err := client.Gateway.NewWebSocketToken(
+	context.Background(),
+	sdk.GatewayNewWebSocketTokenParams{Symbol: sdk.F(sdk.WsScopeBtc)},
+	option.WithWsMintKey(os.Getenv("WS_MINT_KEY")),
+)
 if err != nil {
-	panic(err)
+	var apiErr *sdk.Error
+	if errors.As(err, &apiErr) {
+		fmt.Println("token mint failed with status", apiErr.StatusCode)
+	}
+	return
 }
 
-fmt.Println(gateway)
+fmt.Println(credential.Symbol, credential.ExpiresAt, credential.ExpiresIn)
+// Keep credential.Token in memory for the matching WebSocket handshake.
+// Additional import: "errors".
 ```
+
+The per-request minting option above overrides the REST header. Send
+`credential.Token` as the `token` query parameter when your WebSocket transport
+opens `wss://data.feed.chainflowtrading.com/ws/btc`. URL-encode the query value;
+never print the URL. Use a fresh token for a new handshake after expiry, with
+`symbol="markets"` for `/ws/markets` or `symbol="explorer"` for `/ws/explorer`.
+Do not send long-lived API keys on the WebSocket handshake.
 
 ## `PriceFeeds`
 
-Per-symbol USD prices, statistics and tapes.
+Per-symbol USD prices, statistics and tapes. `market` is a lowercase feed
+identifier such as `sdk.MarketBtc`; trade symbols are uppercase, such as `BTC`.
 
 ### Get the current feed price
 
@@ -167,7 +201,7 @@ fmt.Println(priceFeed)
 
 ### Get trade-tape storage status
 
-This path reports tape storage status; use /trades/{symbol} for trade records.
+This path reports tape storage status; use `/api/{market}/trades/{symbol}` for trade records.
 
 | Direction | Type |
 | --- | --- |
@@ -190,7 +224,7 @@ fmt.Println(priceFeed)
 | Response | [`SpotTrades`](./pricefeed.go) |
 
 ```go
-priceFeed, err := client.PriceFeeds.GetRecentSpotTrades(context.Background(), "btc", "symbol", sdk.PriceFeedGetRecentSpotTradesParams{
+priceFeed, err := client.PriceFeeds.GetRecentSpotTrades(context.Background(), "btc", "BTC", sdk.PriceFeedGetRecentSpotTradesParams{
 	Limit: sdk.F[int64](100),
 })
 if err != nil {
@@ -208,7 +242,7 @@ fmt.Println(priceFeed)
 | Response | [`PerpTrades`](./pricefeed.go) |
 
 ```go
-priceFeed, err := client.PriceFeeds.GetRecentPerpetualTrades(context.Background(), "btc", "symbol", sdk.PriceFeedGetRecentPerpetualTradesParams{
+priceFeed, err := client.PriceFeeds.GetRecentPerpetualTrades(context.Background(), "btc", "BTC", sdk.PriceFeedGetRecentPerpetualTradesParams{
 	Limit: sdk.F[int64](100),
 })
 if err != nil {
@@ -306,10 +340,10 @@ Ascending, inclusive range. Countback limits rows from the START of that range. 
 
 ```go
 tradingView, err := client.TradingView.ListCandleHistory(context.Background(), "btc", sdk.TradingViewListCandleHistoryParams{
-	From:       sdk.F[int64](1),
+	From:       sdk.F[int64](1700000000),
 	Resolution: sdk.F[sdk.TradingViewListCandleHistoryParamsResolution](sdk.TradingViewListCandleHistoryParamsResolution("1")),
 	Symbol:     sdk.F[sdk.Symbol](sdk.Symbol("BTC")),
-	To:         sdk.F[int64](1),
+	To:         sdk.F[int64](1700003600),
 	Countback:  sdk.F[int64](1000),
 })
 if err != nil {
@@ -329,7 +363,9 @@ Omitting symbols returns an empty d array. Bid and ask both equal candle close; 
 | Response | [`TradingViewListQuotesResponse`](./tradingview.go) |
 
 ```go
-tradingView, err := client.TradingView.ListQuotes(context.Background(), "btc", sdk.TradingViewListQuotesParams{})
+tradingView, err := client.TradingView.ListQuotes(context.Background(), "btc", sdk.TradingViewListQuotesParams{
+	Symbols: sdk.F([]sdk.Symbol{sdk.SymbolBtc}),
+})
 if err != nil {
 	panic(err)
 }
@@ -427,7 +463,7 @@ Unknown, missing or stale prices return HTTP 503, not 404.
 | Response | [`MarketGetTickerResponse`](./market.go) |
 
 ```go
-market, err := client.Markets.GetTicker(context.Background(), "symbol")
+market, err := client.Markets.GetTicker(context.Background(), "BTC")
 if err != nil {
 	panic(err)
 }
@@ -573,7 +609,7 @@ coinGecko, err := client.CoinGecko.Get(context.Background(), "bitcoin", sdk.Coin
 	CommunityData: sdk.F[bool](false),
 	DeveloperData: sdk.F[bool](false),
 	Localization:  sdk.F[bool](false),
-	MarketData:    sdk.F[bool](bool(true)),
+	MarketData:    sdk.F[bool](true),
 	Sparkline:     sdk.F[bool](false),
 	Tickers:       sdk.F[bool](false),
 })

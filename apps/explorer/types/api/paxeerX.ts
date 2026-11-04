@@ -51,6 +51,22 @@ export interface PaxeerXUnifiedAccount {
   activity_total: number | null;
 }
 
+// The native controller's wire response is narrower than the presentation rows above,
+// which also drive loading skeletons and the shared settlement-ladder components.
+export interface PaxeerXNativeActivityItem extends PaxeerXActivityItem {
+  kind: 'transaction';
+  status: 'committed';
+  result: 'ok' | 'error' | null;
+  timestamp: string;
+  asset: PaxeerXAsset;
+  amount: string;
+}
+
+export interface PaxeerXNativeUnifiedAccount extends PaxeerXUnifiedAccount {
+  identities: PaxeerXIdentities & { evm: string };
+  activity: Array<PaxeerXNativeActivityItem>;
+}
+
 // Precompile probe result: which unified surfaces the connected node actually answers for.
 export interface PaxeerXCapabilities {
   addr: boolean;

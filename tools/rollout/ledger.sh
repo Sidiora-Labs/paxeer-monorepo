@@ -21,6 +21,8 @@ evidence_root="${ROLLOUT_EVIDENCE_ROOT:-/root/lx-ops}"
 dir="${ROLLOUT_LEDGER_DIR:-$root/deploy/ledger}"
 file="$dir/${started%%T*}.kvx"
 mkdir -p "$dir"
+exec 9>>"$file"
+flock -x 9
 section="rollout.${sha:0:12}.$svc"
 if [ -f "$file" ] && grep -qF "[$section]" "$file"; then
 	n=$(grep -cE "^\[$section(\.[0-9]+)?\]$" "$file")
@@ -30,4 +32,4 @@ fi
 	[ -s "$file" ] && echo
 	printf '[%s]\nrevision = "%s"\ntarget = "%s"\nstarted_at = "%s"\noutcome = "%s"\nevidence = "%s"\n' \
 		"$section" "$sha" "$target" "$started" "$outcome" "$evidence"
-} >>"$file"
+} >&9

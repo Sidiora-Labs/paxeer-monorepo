@@ -1,3 +1,5 @@
+Code.require_file("test_environment.exs", __DIR__)
+
 defmodule Indexer.Fetcher.OnDemand.TokenBalanceTest do
   use EthereumJSONRPC.Case, async: false
   use Explorer.DataCase
@@ -22,13 +24,13 @@ defmodule Indexer.Fetcher.OnDemand.TokenBalanceTest do
     configuration = Application.get_env(:indexer, TokenBalanceOnDemand.Supervisor)
     Application.put_env(:indexer, TokenBalanceOnDemand.Supervisor, disabled?: false)
 
+    Indexer.Fetcher.OnDemand.TestEnvironment.preserve(:explorer, AverageBlockTime)
     Application.put_env(:explorer, AverageBlockTime, enabled: true, cache_period: 1_800_000)
 
     TokenBalanceOnDemand.Supervisor.Case.start_supervised!(json_rpc_named_arguments: mocked_json_rpc_named_arguments)
 
     on_exit(fn ->
       Application.put_env(:indexer, TokenBalanceOnDemand.Supervisor, configuration)
-      Application.put_env(:explorer, AverageBlockTime, enabled: false, cache_period: 1_800_000)
     end)
 
     %{json_rpc_named_arguments: mocked_json_rpc_named_arguments}

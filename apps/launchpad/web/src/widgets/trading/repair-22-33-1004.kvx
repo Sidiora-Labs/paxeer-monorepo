@@ -1,0 +1,10 @@
+[repair.22.33.1004]
+mode = "BUILD"
+acceptance = "22998.1"
+finding_015 = "alternateSellInputPreservesExactUnitsAndInvalidText: production alternate-input hook and amount surface preserve 37/60/77-decimal sells and block malformed or unsupported conversions."
+finding_012 = "candleWindowPaginatesPansCorrectsAndRecovers: real canonical history codec, loopback store, 5000-candle pagination, repeated pans, correction, stale projection rejection, disposal and reopening."
+finding_013 = "metadataRejectsStallsCancelsAndRetries: real metadata client rejects config/time HTTP and validation failures, cancels stalled HTTP, retries recorded production responses and cancels on disposal."
+finding_011 = "slowBalanceRpcSettlesAcrossRefreshIdentityAndVisibility: real hook and ChainTradeProvider over loopback ABI RPC settle 5.1s reads, coalesce refreshes, cancel identity/session changes, time out hung reads and recover on visibility."
+baseline = "Not run: the explicit implementation-first order and prohibition on running verify_cmd by hand take precedence over step 8's contradictory unchanged-tree verify instruction; no before-change gate result is claimed."
+wiring_requests = "None; provider cancellation and chart metadata error handling are inside the trading scope."
+evidence = "The authoritative revision, command, exit code and private log are emitted by hf-done and copied verbatim in the final response; the runner owns spec bookkeeping."

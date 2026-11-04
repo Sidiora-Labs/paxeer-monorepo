@@ -60,7 +60,7 @@ function formatUnits(n: number): string { return compact.format(n); }
 
 /* ------------------------------------------------------------- audit */
 
-interface RiskBreakdown { riskRating: number; riskLevel: 'low' | 'medium' | 'high'; riskFactors: string[]; details: { holderCount: number | null; top10ConcentrationPct: number | null; creatorHoldingsPct: number | null; hasCreatorSold: boolean; isNew: boolean; ageSeconds: number | null } }
+interface RiskBreakdown { riskRating: number; riskLevel: 'low' | 'medium' | 'high'; riskFactors: string[]; details: { holderCount: number | null; top10ConcentrationPct: number | null; creatorHoldingsPct: number | null; hasCreatorSold: boolean | null; isNew: boolean | null; ageSeconds: number | null } }
 
 class RiskRequestError extends Error {
   constructor(readonly status: number) { super(`GET /stats/{p}/risk answered ${status}`); }
@@ -87,8 +87,8 @@ function parseRisk(value: unknown): RiskBreakdown {
       holderCount: numberOrNull(details.holderCount),
       top10ConcentrationPct: numberOrNull(details.top10ConcentrationPct),
       creatorHoldingsPct: numberOrNull(details.creatorHoldingsPct),
-      hasCreatorSold: details.hasCreatorSold === true,
-      isNew: details.isNew === true,
+      hasCreatorSold: typeof details.hasCreatorSold === 'boolean' ? details.hasCreatorSold : null,
+      isNew: typeof details.isNew === 'boolean' ? details.isNew : null,
       ageSeconds: numberOrNull(details.ageSeconds),
     },
   };
@@ -150,10 +150,10 @@ function AuditRows({ risk, now }: { risk: RiskBreakdown; now: number }) {
       <CheckRow label="Risk rating" verdict={levelVerdict} value={`${risk.riskRating} · ${risk.riskLevel}`} />
       <CheckRow label="Top 10 holders" verdict={top10} value={percent(details.top10ConcentrationPct)} />
       <CheckRow label="Creator holdings" verdict={dev} value={percent(details.creatorHoldingsPct)} />
-      <CheckRow label="Creator sold" verdict={details.hasCreatorSold ? 'fail' : 'pass'} value={details.hasCreatorSold ? 'Yes' : 'No'} />
-      <CheckRow label="New coin" verdict={details.isNew ? 'fail' : 'pass'} value={details.isNew ? 'Yes' : 'No'} />
+      <CheckRow label="Creator sold" verdict={details.hasCreatorSold === null ? 'unknown' : details.hasCreatorSold ? 'fail' : 'pass'} value={details.hasCreatorSold === null ? 'Creator sale status was not provided' : details.hasCreatorSold ? 'Yes' : 'No'} />
+      <CheckRow label="New coin" verdict={details.isNew === null ? 'unknown' : details.isNew ? 'fail' : 'pass'} value={details.isNew === null ? 'Coin age status was not provided' : details.isNew ? 'Yes' : 'No'} />
       <CheckRow label="Holders" verdict={details.holderCount === null ? 'unknown' : details.holderCount >= 10 ? 'pass' : 'fail'} value={details.holderCount === null ? null : formatCount(details.holderCount)} />
-      <CheckRow label="Age" verdict={age === null ? 'unknown' : details.isNew ? 'fail' : 'pass'} value={age} />
+      <CheckRow label="Age" verdict={age === null || details.isNew === null ? 'unknown' : details.isNew ? 'fail' : 'pass'} value={age} />
       {risk.riskFactors.length ? <KeyValueRow label="Factors" value={<span className="font-mono text-xs">{risk.riskFactors.join(', ')}</span>} /> : null}
     </dl>
   );

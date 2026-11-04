@@ -257,16 +257,21 @@ func (s *Identity) walletLinksHTTP(w http.ResponseWriter, r *http.Request) {
 		s.writeIdentityError(w, err)
 		return
 	}
-	if len(r.URL.Query()) != 0 {
-		s.writeIdentityError(w, invalid())
-		return
-	}
-	items, err := s.WalletLinks(r.Context(), p)
+	limit, cursor, err := walletPageQuery(r)
 	if err != nil {
 		s.writeIdentityError(w, err)
 		return
 	}
-	s.writeIdentity(w, struct {
+	items, next, err := s.WalletLinksPage(r.Context(), p, limit, cursor)
+	if err != nil {
+		s.writeIdentityError(w, err)
+		return
+	}
+	envelope := s.Envelope(struct {
 		Items []WalletLink `json:"items"`
 	}{items})
+	envelope.NextCursor = next
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	json.NewEncoder(w).Encode(envelope)
 }

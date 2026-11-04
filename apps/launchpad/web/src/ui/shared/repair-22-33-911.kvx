@@ -1,0 +1,9 @@
+[repair.22.33.911]
+audit = "22.30.20"
+test_path = "apps/launchpad/web/src/ui/shared/repair-22-33-911.test.ts"
+token-image-double-failure = "tokenImageDoubleFailure and tokenImageSkipsDuplicateAttempts in token-image.test.tsx, imported and executed by repair-22-33-911.test.ts; real TokenImage -> real Next Image -> DOM error event -> fallback -> placeholder -> new primary, for sized and fill layouts."
+cleared-token-logo = "clearedTokenLogo in repair-22-33-911.test.ts; real TokenLogo -> metadataApiUrl -> DOM src, covering address A -> empty -> B, image error, unchanged failed identity, cleared identity and retry."
+baseline = "No baseline gate was run: the explicit implementation-first order and hf-done-only verification rule prohibit the requested pre-change run. Source inspection identifies the pre-change failing assertions: second image failure remains on fallbackSrc; clearing tokenAddress retains address A's logo. No pre-change test execution is claimed."
+wiring_requests = []
+evidence = "The runner's /out/run/gates.jsonl records the exact candidate revision, command, exit code and private evidence log for hf-build and hf-done; the final response copies the last gate evidence."
+gotcha = "The existing token-image.test.tsx CJS next/image interop adapter re-exports the real Next Image component without substituting its behavior; the repair suite imports that suite to execute the proposed regression with the real renderer. Vitest registrations use explicit function names and callbacks to avoid TODO registration."

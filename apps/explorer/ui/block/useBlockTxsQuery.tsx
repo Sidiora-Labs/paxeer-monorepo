@@ -9,7 +9,6 @@ import type { ResourceError } from 'lib/api/resources';
 import { retry } from 'lib/api/useQueryClientConfig';
 import dayjs from 'lib/date/dayjs';
 import hexToDecimal from 'lib/hexToDecimal';
-import { publicClient } from 'lib/web3/client';
 import { GET_BLOCK_WITH_TRANSACTIONS } from 'stubs/RPC';
 import { TX } from 'stubs/tx';
 import { generateListStub } from 'stubs/utils';
@@ -20,6 +19,7 @@ import useQueryWithPages from 'ui/shared/pagination/useQueryWithPages';
 import { emptyPagination } from 'ui/shared/pagination/utils';
 
 import type { BlockQuery } from './useBlockQuery';
+import useBlockRpcClient from './useBlockRpcClient';
 
 type RpcResponseType = GetBlockReturnType<Chain, boolean, 'latest'> | null;
 
@@ -35,6 +35,7 @@ interface Params {
 
 export default function useBlockTxsQuery({ heightOrHash, blockQuery, tab }: Params): BlockTxsQuery {
   const [ isRefetchEnabled, setRefetchEnabled ] = React.useState(false);
+  const { rpcClient, chainId } = useBlockRpcClient();
 
   const apiQuery = useQueryWithPages({
     resourceName: 'general:block_txs',
@@ -61,16 +62,16 @@ export default function useBlockTxsQuery({ heightOrHash, blockQuery, tab }: Para
   });
 
   const rpcQuery = useQuery<RpcResponseType, unknown, BlockTransactionsResponse | null>({
-    queryKey: [ 'RPC', 'block_txs', { heightOrHash } ],
+    queryKey: [ 'RPC', 'block_txs', chainId, { heightOrHash } ],
     queryFn: async() => {
-      if (!publicClient) {
+      if (!rpcClient) {
         return null;
       }
 
       const blockParams = heightOrHash.startsWith('0x') ?
         { blockHash: heightOrHash as `0x${ string }`, includeTransactions: true } :
         { blockNumber: BigInt(heightOrHash), includeTransactions: true };
-      return publicClient.getBlock(blockParams).catch(() => null);
+      return rpcClient.getBlock(blockParams).catch(() => null);
     },
     select: (block) => {
       if (!block) {
@@ -130,13 +131,13 @@ export default function useBlockTxsQuery({ heightOrHash, blockQuery, tab }: Para
       };
     },
     placeholderData: GET_BLOCK_WITH_TRANSACTIONS,
-    enabled: publicClient !== undefined && tab === 'txs' && (blockQuery.isDegradedData || apiQuery.isError || apiQuery.errorUpdateCount > 0),
+    enabled: rpcClient !== undefined && tab === 'txs' && (blockQuery.isDegradedData || apiQuery.isError || apiQuery.errorUpdateCount > 0),
     retry: false,
     refetchOnMount: false,
   });
 
   React.useEffect(() => {
-    if (apiQuery.isPlaceholderData || !publicClient) {
+    if (apiQuery.isPlaceholderData || !rpcClient) {
       return;
     }
 
@@ -145,7 +146,7 @@ export default function useBlockTxsQuery({ heightOrHash, blockQuery, tab }: Para
     } else if (!apiQuery.isError) {
       setRefetchEnabled(false);
     }
-  }, [ apiQuery.errorUpdateCount, apiQuery.isError, apiQuery.isPlaceholderData ]);
+  }, [ apiQuery.errorUpdateCount, apiQuery.isError, apiQuery.isPlaceholderData, rpcClient ]);
 
   React.useEffect(() => {
     if (!rpcQuery.isPlaceholderData && !rpcQuery.data) {
@@ -156,7 +157,7 @@ export default function useBlockTxsQuery({ heightOrHash, blockQuery, tab }: Para
   const isRpcQuery = Boolean((
     blockQuery.isDegradedData ||
     ((apiQuery.isError || apiQuery.isPlaceholderData) && apiQuery.errorUpdateCount > 0)
-  ) && rpcQuery.data && publicClient);
+  ) && rpcQuery.data && rpcClient);
 
   const rpcQueryWithPages: QueryWithPagesResult<'general:block_txs'> = {
     ...rpcQuery as UseQueryResult<BlockTransactionsResponse, ResourceError>,

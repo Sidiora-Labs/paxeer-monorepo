@@ -1,0 +1,93 @@
+[repair.22.33.205]
+mode = "BUILD"
+criterion = "22998.1"
+baseline = "Not run: the explicit ordered instructions prohibit pre-implementation testing and reserve verify_cmd for hf-done; no pre-change failure is claimed."
+continuation_baseline = "The supplied attempt-3 verification executed eight tests: seven passed and rung-not-rendered failed during receipt authentication; all prior implementation and assertions are preserved for this bounded qualification."
+evidence = "hf-build and hf-done retain the exact candidate revision, command, exit code and private evidence location; their final JSON line is the qualification record."
+fixture_provenance = "Bridge and V1 native-transfer proofs replay rpc/sequencer_receipt_vectors_test.go recordings through wallet authentication and surfaceReceipt; the committed-result proof replays the unmodified daemon/committed-fixture/vectors/vector-v4-committed.json settlement pair and conformance pin through verifySequencerReceipt, decodeSequencerReceipt and SentResult on its recorded conformance network; grant proofs use the existing in-memory GrantChain store and real SDK holder-record pagination, grant codec, hook and UI; collateral proofs replay the perps-data CollateralTokens resolver response over loopback HTTP."
+
+[finding.bridge-rung-consumer]
+test = "bridge_rung_consumer_renders_authenticated_receipted_result_and_events"
+existing_test = "bridge_view_shows_the_receipted_rung_and_events_from_the_sequencer_receipt"
+repair = "The actual mounted bridge sends the recorded producer transaction, authenticates its receipt and renders its receipted rung and every decoded event field; the existing bridge test retains its rung assertion."
+
+[finding.rung-not-rendered]
+tests = ["bridge_rung_consumer_renders_authenticated_receipted_result_and_events", "rung_not_rendered_distinguishes_authenticated_committed_outcomes"]
+repair = "SentResult renders state.sent.rung alongside hash and execution status; signed receipted and committed recordings both remain confirmed while exposing distinct lifecycle rungs."
+
+[finding.unsupported-collateral-success]
+test = "unsupported_collateral_success_is_rejected_before_allowance_or_signing"
+existing_test = "exchange_view_approves_the_selected_collateral_and_keeps_deposits_in_usdl"
+repair = "The invented-token success scenario now reads served active USDL collateral, proves the supported builder and exact approval, and rejects an unsupported order before any allowance lookup or signing request."
+
+[finding.collateral-selection]
+tests = ["unsupported_collateral_success_is_rejected_before_allowance_or_signing", "collateral_selection_uses_served_asset_precision_and_refuses_stale_configuration", "collateral_selection_fails_closed_when_configuration_is_unavailable_or_invalid"]
+repair = "ExchangeView offers only served active collateral, uses its decimals and selected asset units, and repeats configuration validation before allowance or signing; changed precision or unsupported collateral refuses submission."
+
+[finding.empty-lagging-index-test]
+test = "empty_lagging_index_test_stays_incomplete_until_the_issued_grant_is_discovered"
+existing_test = "web_data_view_reports_caps_unavailable_when_served_holder_records_fail_and_never_falls_back_to_the_scan"
+repair = "The lagging-index scenario asserts incomplete discovery, then exposes the issued grant after index catch-up; existing served-method failure and no-fallback assertions remain."
+
+[finding.incomplete-grant-discovery]
+tests = ["empty_lagging_index_test_stays_incomplete_until_the_issued_grant_is_discovered", "incomplete_grant_discovery_requires_coverage_on_every_page_and_refuses_unknown_heights"]
+repair = "Discovery requires the minimum indexed height across all pages to cover the pinned finalized observation; unknown or lagging coverage has no authoritative empty state or committed observation."
+
+[finding.budgets-not-discovered]
+test = "budgets_not_discovered_is_exposed_separately_from_verified_grant_absence"
+repair = "SurfaceCapsSnapshot explicitly carries budgetAvailability; readGrantCaps marks budget discovery unavailable, and DrawCaps exposes that status independently of verified grant presence or absence."
+wiring_request = "sdk/wallet/src/kernel.ts and sdk/wallet/src/modules: wallet SDK domain owns account budget discovery plus pinned-height layerxpay getBudget reads; until wired, the surface reports budget discovery unavailable."
+
+[wiring.perps]
+request = "apps/wallet deployment configuration: wallet deployment domain must supply NEXT_PUBLIC_PERPS_GATEWAY_URL for the existing services/platform/perps-data /graphql collateralTokens contract; without it, collateral-dependent actions explicitly remain unavailable."
+
+[gotcha.formatter]
+observed = "pnpm --dir does not change the working directory for dlx; use absolute file paths for the touched-file formatter invocation."
+
+[qualification.repair_1]
+revision = "2634a071a82f182a5eacc64360db8aa0dae56b56"
+command = "pnpm --dir apps/wallet exec tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+repair = "Renamed a receipt fixture member that collided with a private SurfaceChain method; made refusal constants satisfy WalletCapsState while retaining their exact inferred discriminants."
+
+[qualification.repair_2]
+revision = "783e48c99313bda3ab0cd8c60777fc5264f75fd7"
+command = "cg spec done 22.33.205 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+repair = "Six tests passed; normalized recorded SentCall storage to its exact fields, preserved the original bridge DOM rung assertion, and drove the committed native-transfer recording through readSequencerReceipt and surfaceReceipt into SentResult instead of the module-calldata send path."
+
+[gotcha.gate_budget]
+observed = "The gate wrapper counts each extra build and each extra verification separately; after a build repair and a verification repair, the required third build spends the two-cycle budget before the second verification can run."
+
+[continuation.22.33.205]
+repair = "Preserved the prior attempt's receipt-path repairs; bridge inputs now derive the amount from the producer log and assert the builder calldata equals the signed raw transaction before exercising the send hook."
+qualification = "The final hf-build and hf-done JSON records identify the candidate revision and private evidence; no qualification of the previous attempt is claimed."
+
+[qualification.continuation_repair]
+revision = "1e0440c10615d5dbab6e0beeb8df73b361c4d2c7"
+command = "cg spec done 22.33.205 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+repair = "Seven tests passed; replace the obsolete SDK committed-answer fixture missing signingKey and paymentDenom with the complete committed payExact settlement recording and its conformance key pin, preserving receipt authentication and every result assertion."
+
+[gotcha.committed_fixture]
+observed = "The older SDK sequencer-receipt.json lacks fields required by the current codec; use the complete daemon committed-fixture settlement receipt and matching conformance pin for committed-result proofs."
+
+[continuation.fixture_pair]
+repair = "The rung proof now additionally authenticates and renders the unchanged V1-pax-transfer transaction, receipt and key pin from sdk/platform/conformance/fixtures/vector-v1-receipted-positive.json; its confirmed execution remains visibly receipted, with no committed block fields. All prior committed-outcome assertions remain intact."
+observed = "The specified V1-pax-transfer recording is receipted, not committed; the existing committed settlement recording uses a transaction layout refused by the production wallet authenticator."
+wiring_request = "sdk/platform/conformance/fixtures and daemon/committed-fixture/vectors: conformance and daemon domains own a matching committed receipt and raw transaction accepted by the current wallet authenticator; the V1 receipted pair cannot supply committed block metadata."
+
+[continuation.fixture_constraints]
+repair = "The V1-pax-transfer test retains both unmodified halves from the named conformance vector and explicitly checks its raw transaction hash and chain ID before the real wallet authentication and renderer path; all committed-case assertions remain, with the committed peer authenticated by the real SDK verifier and decoder on its own recorded network before passing its result model to SentResult."
+observed = "The V1 recording has rung receipted and no block metadata; the committed-payExact recording is signed for chain ID 713714, whereas sdk/wallet/src/receipt.ts authenticateSequencerReceipt requires chain ID 125."
+boundary = "The production wallet authenticator and surfaceReceipt checks are unchanged and exercised by both bridge and V1 proofs; the committed renderer fixture uses its real cryptographic authentication and preserves its recorded transaction, receipt, key pin, block metadata and chain ID."
+
+[qualification.renderer_fixture_repair]
+revision = "90c0e81b4991a8157e05c1428c4048d9f3c53858"
+command = "cg spec done 22.33.205 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+repair = "Seven tests passed including the V1 wallet path; the committed renderer peer now uses its own SDK verifier and decoder instead of the wallet's incompatible chain-125 transaction policy, retaining every committed result assertion."

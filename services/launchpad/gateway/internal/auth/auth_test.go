@@ -139,6 +139,10 @@ func TestAuth_RejectsBadSignature(t *testing.T) {
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want 401", rec.Code)
 	}
+	rec = postJSON(t, r, "/auth/login", loginRequest{Wallet: w.addr, Message: nr.Message, Signature: w.sign(t, nr.Message)})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("valid retry after invalid signature = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
 }
 
 func TestAuth_RejectsUnknownNonce(t *testing.T) {

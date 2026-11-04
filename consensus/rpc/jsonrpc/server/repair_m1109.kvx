@@ -1,0 +1,8 @@
+[repair.22.33.1109]
+audit = "22.30.46"
+finding = "29"
+proofs = ["TestRepairM_1109_BatchArrays", "TestRepairM_1109_RequestBatchNotifications"]
+change = "Require array decoding for both existing notification batch cases and send those cases through production RequestBatch.Send, a loopback forwarding gateway and the production HTTP handler; assert framing, response count, IDs and decoded results."
+baseline = "Not run: the ordered gate instructions prohibit tests before complete implementation and prohibit running verify_cmd outside hf-done. No pre-change test failures are claimed."
+evidence = "The final hf-done receipt records the verified revision, command, exit code and private log location."
+wiring_requests = []

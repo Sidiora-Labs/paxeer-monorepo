@@ -142,7 +142,7 @@ func TestE2E_TaskLifecycle(t *testing.T) {
 	// --- Phase 2: Verify RecentResults lists everything ---
 
 	t.Run("recent_results", func(t *testing.T) {
-		results := eng.RecentResults()
+		results := mustRecentResults(t, eng)
 		if len(results) < 3 {
 			t.Fatalf("expected at least 3 results, got %d", len(results))
 		}
@@ -162,7 +162,7 @@ func TestE2E_TaskLifecycle(t *testing.T) {
 		if deleted, err := eng.RemoveResult(failID); err != nil || !deleted {
 			t.Fatalf("expected remove to return (true, nil), got (%v, %v)", deleted, err)
 		}
-		if eng.GetResult(failID) != nil {
+		if mustGetResult(t, eng, failID) != nil {
 			t.Fatal("expected nil after removal")
 		}
 		if deleted, err := eng.RemoveResult(failID); err != nil || deleted {
@@ -183,7 +183,7 @@ func TestE2E_TaskLifecycle(t *testing.T) {
 
 		// The successful task should still be there.
 		const successID = "11111111-1111-1111-1111-111111111111"
-		result := eng2.GetResult(successID)
+		result := mustGetResult(t, eng2, successID)
 		if result == nil {
 			t.Fatal("completed task should survive restart")
 		}
@@ -196,12 +196,12 @@ func TestE2E_TaskLifecycle(t *testing.T) {
 
 		// The removed task should stay removed.
 		const failID = "22222222-2222-2222-2222-222222222222"
-		if eng2.GetResult(failID) != nil {
+		if mustGetResult(t, eng2, failID) != nil {
 			t.Fatal("removed task should not reappear after restart")
 		}
 
 		// RecentResults should return persisted results.
-		results := eng2.RecentResults()
+		results := mustRecentResults(t, eng2)
 		if len(results) < 2 {
 			t.Fatalf("expected at least 2 results after restart, got %d", len(results))
 		}
@@ -222,7 +222,7 @@ func TestE2E_TaskLifecycle(t *testing.T) {
 			t.Fatalf("new task after restart: %v", err)
 		}
 		waitForResult(t, eng2, newTaskID)
-		newResult := eng2.GetResult(newTaskID)
+		newResult := mustGetResult(t, eng2, newTaskID)
 		if newResult.Status != TaskStatusCompleted {
 			t.Fatalf("new task should complete, got %q", newResult.Status)
 		}
@@ -306,7 +306,7 @@ func TestE2E_ConcurrentSubmit(t *testing.T) {
 	}
 
 	// All should be in the store.
-	results := eng.RecentResults()
+	results := mustRecentResults(t, eng)
 	if len(results) < n {
 		t.Fatalf("expected at least %d results, got %d", n, len(results))
 	}

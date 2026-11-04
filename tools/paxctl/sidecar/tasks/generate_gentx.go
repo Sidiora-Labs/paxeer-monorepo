@@ -6,6 +6,7 @@ import (
 	"crypto/ecdsa"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -23,7 +24,6 @@ import (
 	cryptocodec "github.com/sei-protocol/sei-chain/sei-cosmos/crypto/codec"
 	"github.com/sei-protocol/sei-chain/sei-cosmos/crypto/hd"
 	"github.com/sei-protocol/sei-chain/sei-cosmos/crypto/keyring"
-	"github.com/sei-protocol/sei-chain/sei-cosmos/server"
 	sdk "github.com/sei-protocol/sei-chain/sei-cosmos/types"
 	authclient "github.com/sei-protocol/sei-chain/sei-cosmos/x/auth/client"
 	authtx "github.com/sei-protocol/sei-chain/sei-cosmos/x/auth/tx"
@@ -76,10 +76,6 @@ func NewGentxGenerator(homeDir string) *GentxGenerator {
 //	}
 func (g *GentxGenerator) Handler() engine.TaskHandler {
 	return engine.TypedHandler(func(ctx context.Context, params GenerateGentxRequest) error {
-		if markerExists(g.homeDir, gentxMarkerFile) {
-			gentxLog.Debug("already completed, skipping")
-			return nil
-		}
 
 		if params.ChainID == "" {
 			return fmt.Errorf("generate-gentx: missing required param 'chainId'")
@@ -91,24 +87,13 @@ func (g *GentxGenerator) Handler() engine.TaskHandler {
 			return fmt.Errorf("generate-gentx: missing required param 'accountBalance'")
 		}
 
-		cdc, txCfg := makeCodec()
-		ensureBech32()
-
-		address, err := g.addValidatorKey(cdc)
+		unlock, err := lockRecovery(ctx, g.homeDir, ".sei-sidecar-gentx-lock")
 		if err != nil {
 			return err
 		}
+		defer unlock()
+		return g.resumeGentx(params)
 
-		if err := g.addGenesisAccount(cdc, address, params.AccountBalance); err != nil {
-			return err
-		}
-
-		if err := g.generateGentx(cdc, txCfg, params.ChainID, params.StakingAmount); err != nil {
-			return err
-		}
-
-		gentxLog.Info("gentx generated", "address", address)
-		return writeMarker(g.homeDir, gentxMarkerFile)
 	})
 }
 
@@ -221,7 +206,7 @@ func (g *GentxGenerator) addGenesisAccount(cdc codec.Codec, address, balance str
 
 // generateGentx builds and signs a MsgCreateValidator.
 // Same path as: seid gentx validator <amount> --chain-id <chain>
-func (g *GentxGenerator) generateGentx(cdc codec.Codec, txCfg client.TxConfig, chainID, stakingAmount string) error {
+func (g *GentxGenerator) buildGentx(cdc codec.Codec, txCfg client.TxConfig, chainID, stakingAmount string) (string, []byte, error) {
 	gentxLog.Info("generating gentx", "chainId", chainID, "stakingAmount", stakingAmount)
 
 	cfg := tmcfg.DefaultConfig()
@@ -229,52 +214,46 @@ func (g *GentxGenerator) generateGentx(cdc codec.Codec, txCfg client.TxConfig, c
 
 	nodeID, valPubKey, err := genutil.InitializeNodeValidatorFiles(cfg)
 	if err != nil {
-		return fmt.Errorf("generate-gentx: loading validator files: %w", err)
+		return "", nil, fmt.Errorf("generate-gentx: loading validator files: %w", err)
 	}
 
 	kb, err := keyring.New(sdk.KeyringServiceName(), keyring.BackendTest, g.homeDir, os.Stdin)
 	if err != nil {
-		return fmt.Errorf("generate-gentx: opening keyring: %w", err)
+		return "", nil, fmt.Errorf("generate-gentx: opening keyring: %w", err)
 	}
 
 	keyInfo, err := kb.Key(validatorKeyName)
 	if err != nil {
-		return fmt.Errorf("generate-gentx: looking up key: %w", err)
+		return "", nil, fmt.Errorf("generate-gentx: looking up key: %w", err)
 	}
 
 	// Read and validate genesis
 	genDoc, err := tmtypes.GenesisDocFromFile(cfg.GenesisFile())
 	if err != nil {
-		return fmt.Errorf("generate-gentx: reading genesis: %w", err)
+		return "", nil, fmt.Errorf("generate-gentx: reading genesis: %w", err)
 	}
 
 	var genesisState map[string]json.RawMessage
 	if err := json.Unmarshal(genDoc.AppState, &genesisState); err != nil {
-		return fmt.Errorf("generate-gentx: parsing app_state: %w", err)
+		return "", nil, fmt.Errorf("generate-gentx: parsing app_state: %w", err)
 	}
 
 	// Validate account has sufficient balance (same check seid gentx does)
 	coins, err := sdk.ParseCoinsNormalized(stakingAmount)
 	if err != nil {
-		return fmt.Errorf("generate-gentx: parsing staking amount: %w", err)
+		return "", nil, fmt.Errorf("generate-gentx: parsing staking amount: %w", err)
 	}
 
 	genBalIterator := banktypes.GenesisBalancesIterator{}
 	if err := genutil.ValidateAccountInGenesis(
 		genesisState, genBalIterator, keyInfo.GetAddress(), coins, cdc,
 	); err != nil {
-		return fmt.Errorf("generate-gentx: %w", err)
+		return "", nil, fmt.Errorf("generate-gentx: %w", err)
 	}
 
-	// Resolve the pod's IP for the gentx memo (nodeID@ip:port).
-	// collect-gentxs requires a non-empty memo for peer discovery.
-	// The memo IP is vestigial — the controller overwrites persistent
-	// peers with DNS-based addresses — but it must be non-empty.
-	// Same call as seid gentx: server.ExternalIP().
-	ip, ipErr := server.ExternalIP()
-	if ipErr != nil {
-		gentxLog.Warn("ExternalIP resolution failed, memo will contain empty IP", "error", ipErr)
-	}
+	// Peer discovery uses controller-published DNS peers. A fixed loopback
+	// memo avoids host-interface discovery changing signed bytes on restart.
+	ip := "127.0.0.1"
 
 	// Build MsgCreateValidator (same struct seid gentx populates)
 	createValCfg := stakingcli.TxCreateValidatorConfig{
@@ -304,11 +283,11 @@ func (g *GentxGenerator) generateGentx(cdc codec.Codec, txCfg client.TxConfig, c
 
 	txBldr, msg, err := stakingcli.BuildCreateValidatorMsg(clientCtx, createValCfg, txFactory, true)
 	if err != nil {
-		return fmt.Errorf("generate-gentx: building MsgCreateValidator: %w", err)
+		return "", nil, fmt.Errorf("generate-gentx: building MsgCreateValidator: %w", err)
 	}
 
 	if err := msg.ValidateBasic(); err != nil {
-		return fmt.Errorf("generate-gentx: invalid MsgCreateValidator: %w", err)
+		return "", nil, fmt.Errorf("generate-gentx: invalid MsgCreateValidator: %w", err)
 	}
 
 	// Round-trip through the codec — same flow as seid gentx
@@ -316,36 +295,41 @@ func (g *GentxGenerator) generateGentx(cdc codec.Codec, txCfg client.TxConfig, c
 	clientCtx = clientCtx.WithOutput(w)
 
 	if err := authclient.PrintUnsignedStdTx(txBldr, clientCtx, []sdk.Msg{msg}); err != nil {
-		return fmt.Errorf("generate-gentx: generating unsigned tx: %w", err)
+		return "", nil, fmt.Errorf("generate-gentx: generating unsigned tx: %w", err)
 	}
 
 	stdTx, err := txCfg.TxJSONDecoder()(w.Bytes())
 	if err != nil {
-		return fmt.Errorf("generate-gentx: decoding unsigned tx: %w", err)
+		return "", nil, fmt.Errorf("generate-gentx: decoding unsigned tx: %w", err)
 	}
 
 	txBuilder, err := txCfg.WrapTxBuilder(stdTx)
 	if err != nil {
-		return fmt.Errorf("generate-gentx: wrapping tx builder: %w", err)
+		return "", nil, fmt.Errorf("generate-gentx: wrapping tx builder: %w", err)
 	}
 
 	if err := authclient.SignTx(txFactory, clientCtx, validatorKeyName, txBuilder, true, true); err != nil {
-		return fmt.Errorf("generate-gentx: signing: %w", err)
+		return "", nil, fmt.Errorf("generate-gentx: signing: %w", err)
 	}
 
 	signedJSON, err := txCfg.TxJSONEncoder()(txBuilder.GetTx())
 	if err != nil {
-		return fmt.Errorf("generate-gentx: encoding signed tx: %w", err)
+		return "", nil, fmt.Errorf("generate-gentx: encoding signed tx: %w", err)
 	}
 
-	// Write gentx file
-	gentxDir := filepath.Join(g.homeDir, "config", "gentx")
-	if err := os.MkdirAll(gentxDir, 0o700); err != nil {
-		return fmt.Errorf("generate-gentx: creating gentx dir: %w", err)
-	}
+	return fmt.Sprintf("gentx-%s.json", nodeID), append(signedJSON, '\n'), nil
+}
 
-	gentxFile := filepath.Join(gentxDir, fmt.Sprintf("gentx-%s.json", nodeID))
-	return os.WriteFile(gentxFile, append(signedJSON, '\n'), 0o600)
+func (g *GentxGenerator) generateGentx(cdc codec.Codec, txCfg client.TxConfig, chainID, stakingAmount string) error {
+	name, data, err := g.buildGentx(cdc, txCfg, chainID, stakingAmount)
+	if err != nil {
+		return err
+	}
+	dir := filepath.Join(g.homeDir, "config", "gentx")
+	if err := ensureRecoveryDir(dir); err != nil {
+		return err
+	}
+	return durableJSONFile(dir, name, data)
 }
 
 // addEVMAddressAssociation derives the Ethereum address from the
@@ -445,4 +429,216 @@ func makeCodec() (codec.Codec, client.TxConfig) {
 
 	txConfig := authtx.NewTxConfig(cdc, authtx.DefaultSignModes)
 	return cdc, txConfig
+}
+
+const gentxOperationFile = ".sei-sidecar-gentx-operation.json"
+const gentxStageDir = ".sei-sidecar-gentx-stage"
+
+// This private, mode-0600 journal has the same trust boundary as the test
+// keyring. Persisting the seed before key creation closes the key-write crash
+// window; it is never included in public ceremony artifacts.
+type gentxOperation struct {
+	Request   GenerateGentxRequest `json:"request"`
+	Mnemonic  string               `json:"mnemonic"`
+	Address   string               `json:"address"`
+	Input     []byte               `json:"input"`
+	Account   []byte               `json:"account,omitempty"`
+	GentxName string               `json:"gentxName,omitempty"`
+	Signed    []byte               `json:"signed,omitempty"`
+}
+
+func (g *GentxGenerator) resumeGentx(params GenerateGentxRequest) error {
+	cdc, txCfg := makeCodec()
+	ensureBech32()
+	kb, err := keyring.New(sdk.KeyringServiceName(), keyring.BackendTest, g.homeDir, nil)
+	if err != nil {
+		return err
+	}
+	var op gentxOperation
+	data, err := readRecoveryFile(g.homeDir, gentxOperationFile)
+	if errors.Is(err, os.ErrNotExist) {
+		// Never adopt a pre-existing key, account, gentx or legacy marker.
+		keys, err := kb.List()
+		if err != nil {
+			return err
+		}
+		for _, key := range keys {
+			if key.GetName() == validatorKeyName {
+				return fmt.Errorf("generate-gentx: unbound validator key already exists")
+			}
+		}
+		if markerExists(g.homeDir, gentxMarkerFile) {
+			return fmt.Errorf("generate-gentx: unbound completion marker")
+		}
+		files, err := os.ReadDir(filepath.Join(g.homeDir, "config", "gentx"))
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		if len(files) > 0 {
+			return fmt.Errorf("generate-gentx: unbound gentx already exists")
+		}
+		input, err := os.ReadFile(filepath.Join(g.homeDir, "config", "genesis.json"))
+		if err != nil {
+			return err
+		}
+		doc, err := tmtypes.GenesisDocFromJSON(input)
+		if err != nil {
+			return err
+		}
+		if doc.ChainID != params.ChainID {
+			return fmt.Errorf("generate-gentx: genesis chain does not match request")
+		}
+		memory := keyring.NewInMemory()
+		info, mnemonic, err := memory.NewMnemonic(validatorKeyName, keyring.English, sdk.GetConfig().GetFullBIP44Path(), "", hd.Secp256k1)
+		if err != nil {
+			return err
+		}
+		op = gentxOperation{Request: params, Mnemonic: mnemonic, Address: info.GetAddress().String(), Input: input}
+		if err := saveRecovery(g.homeDir, gentxOperationFile, op); err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	} else if err := json.Unmarshal(data, &op); err != nil {
+		return fmt.Errorf("generate-gentx: corrupt operation: %w", err)
+	}
+	if op.Request != params || op.Mnemonic == "" || len(op.Input) == 0 {
+		return fmt.Errorf("generate-gentx: operation does not match request")
+	}
+	expected, err := keyring.NewInMemory().NewAccount(validatorKeyName, op.Mnemonic, "", sdk.GetConfig().GetFullBIP44Path(), hd.Secp256k1)
+	if err != nil {
+		return err
+	}
+	if expected.GetAddress().String() != op.Address {
+		return fmt.Errorf("generate-gentx: operation key identity mismatch")
+	}
+	keys, err := kb.List()
+	if err != nil {
+		return err
+	}
+	found := false
+	for _, key := range keys {
+		if key.GetName() != validatorKeyName {
+			continue
+		}
+		if !key.GetPubKey().Equals(expected.GetPubKey()) {
+			return fmt.Errorf("generate-gentx: existing key does not match operation")
+		}
+		found = true
+	}
+	if !found {
+		if _, err := kb.NewAccount(validatorKeyName, op.Mnemonic, "", sdk.GetConfig().GetFullBIP44Path(), hd.Secp256k1); err != nil {
+			return err
+		}
+	}
+	if len(op.Signed) > 0 {
+		completion, completionErr := readRecoveryFile(g.homeDir, gentxMarkerFile)
+		if completionErr == nil {
+			var done map[string]string
+			if err := json.Unmarshal(completion, &done); err != nil {
+				return fmt.Errorf("generate-gentx: corrupt completion: %w", err)
+			}
+			if !plainFilename(op.GentxName) || done["requestHash"] != recoveryHash(mustGentxRequest(params)) || done["gentxHash"] != recoveryHash(op.Signed) {
+				return fmt.Errorf("generate-gentx: completion does not match operation")
+			}
+			signed, err := readRecoveryFile(filepath.Join(g.homeDir, "config", "gentx"), op.GentxName)
+			if err != nil {
+				return err
+			}
+			if !bytes.Equal(signed, op.Signed) {
+				return fmt.Errorf("generate-gentx: completed signed gentx does not match operation")
+			}
+			return nil
+		}
+		if !errors.Is(completionErr, os.ErrNotExist) {
+			return completionErr
+		}
+	}
+	if len(op.Account) == 0 {
+		stage := GentxGenerator{homeDir: filepath.Join(g.homeDir, gentxStageDir)}
+		stageConfig := filepath.Join(stage.homeDir, "config")
+		if err := ensureRecoveryDir(stageConfig); err != nil {
+			return err
+		}
+		if err := durableJSONFile(stageConfig, "genesis.json", op.Input); err != nil {
+			return err
+		}
+		stageKB, err := keyring.New(sdk.KeyringServiceName(), keyring.BackendTest, stage.homeDir, nil)
+		if err != nil {
+			return err
+		}
+		stageKeys, err := stageKB.List()
+		if err != nil {
+			return err
+		}
+		stageFound := false
+		for _, key := range stageKeys {
+			if key.GetName() != validatorKeyName {
+				continue
+			}
+			if !key.GetPubKey().Equals(expected.GetPubKey()) {
+				return fmt.Errorf("generate-gentx: staged key does not match operation")
+			}
+			stageFound = true
+		}
+		if !stageFound {
+			if _, err := stageKB.NewAccount(validatorKeyName, op.Mnemonic, "", sdk.GetConfig().GetFullBIP44Path(), hd.Secp256k1); err != nil {
+				return err
+			}
+		}
+		if err := stage.addGenesisAccount(cdc, op.Address, params.AccountBalance); err != nil {
+			return err
+		}
+		op.Account, err = os.ReadFile(filepath.Join(stageConfig, "genesis.json"))
+		if err != nil {
+			return err
+		}
+		if err := saveRecovery(g.homeDir, gentxOperationFile, op); err != nil {
+			return err
+		}
+	}
+	current, err := os.ReadFile(filepath.Join(g.homeDir, "config", "genesis.json"))
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(current, op.Account) {
+		if !bytes.Equal(current, op.Input) {
+			return fmt.Errorf("generate-gentx: genesis does not match operation input or account stage")
+		}
+		if err := durableJSONFile(filepath.Join(g.homeDir, "config"), "genesis.json", op.Account); err != nil {
+			return err
+		}
+	}
+	if len(op.Signed) == 0 {
+		op.GentxName, op.Signed, err = g.buildGentx(cdc, txCfg, params.ChainID, params.StakingAmount)
+		if err != nil {
+			return err
+		}
+		if err := saveRecovery(g.homeDir, gentxOperationFile, op); err != nil {
+			return err
+		}
+	}
+	if !plainFilename(op.GentxName) {
+		return fmt.Errorf("generate-gentx: invalid staged gentx name")
+	}
+	gentxDir := filepath.Join(g.homeDir, "config", "gentx")
+	if err := ensureRecoveryDir(gentxDir); err != nil {
+		return err
+	}
+	existing, err := readRecoveryFile(gentxDir, op.GentxName)
+	if err == nil && !bytes.Equal(existing, op.Signed) {
+		return fmt.Errorf("generate-gentx: signed gentx does not match operation")
+	}
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	if err := durableJSONFile(gentxDir, op.GentxName, op.Signed); err != nil {
+		return err
+	}
+	return saveRecovery(g.homeDir, gentxMarkerFile, map[string]string{"requestHash": recoveryHash(mustGentxRequest(params)), "gentxHash": recoveryHash(op.Signed)})
+}
+
+func mustGentxRequest(params GenerateGentxRequest) []byte {
+	data, _ := json.Marshal(params)
+	return data
 }

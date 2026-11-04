@@ -1,135 +1,85 @@
 {
   "adapters": [
     {
+      "conformance_sha256": "fa0f81cd359feeca5d9df78e4fe73aac58249540dc795e171b36f8a733f2f692",
+      "conformance_suite": "layerx-x402-conformance-v1",
+      "conformance_vectors": 27,
+      "evidence_policy": "layerx-receipt",
       "id": "x402",
       "specification": "x402",
-      "version": "2.0.0",
       "specification_sha256": "7d9be66cbcf51d3593e17ac51a623395f8ccb86fd3d76a27919419e4ce83efef",
-      "conformance_suite": "layerx-x402-conformance-v1",
-      "conformance_vectors": 22,
-      "conformance_sha256": "f43180174584858e9b644234b951ebec99aa192590c00dad3c02b8746f22eb9e",
-      "evidence_policy": "layerx-receipt"
+      "version": "2.0.0"
     },
     {
-      "id": "ap2",
-      "specification": "ap2",
-      "version": "1.0.0",
-      "specification_sha256": "32c3be5011f481d2760e56e7b9935b0842c3da0d5f7d7b8a68402a599f1e6aa3",
+      "conformance_sha256": "fc3f20f609e63327eed98bdb7984151faf459690514b0b9f9fa7a0d04b781698",
       "conformance_suite": "layerx-ap2-conformance-v1",
       "conformance_vectors": 6,
-      "conformance_sha256": "fc3f20f609e63327eed98bdb7984151faf459690514b0b9f9fa7a0d04b781698",
-      "evidence_policy": "verified-mandate+layerx-receipt"
+      "evidence_policy": "verified-mandate+layerx-receipt",
+      "id": "ap2",
+      "specification": "ap2",
+      "specification_sha256": "32c3be5011f481d2760e56e7b9935b0842c3da0d5f7d7b8a68402a599f1e6aa3",
+      "version": "1.0.0"
     },
     {
+      "conformance_sha256": "2a1aaa7d7b24b1fc150a222f94aab28fe5e9db22299cb1d1cb8f5ac3c03dca80",
+      "conformance_suite": "layerx-ucp-conformance-v1",
+      "conformance_vectors": 29,
+      "evidence_policy": "layerx-receipt",
       "id": "ucp",
       "specification": "ucp-checkout",
-      "version": "20260408",
       "specification_sha256": "a579df10ae589a63f8f0d01e7b4f8e3183ba227025c692bb0385d92362b894b3",
-      "conformance_suite": "layerx-ucp-conformance-v1",
-      "conformance_vectors": 26,
-      "conformance_sha256": "950e2b79c54e4b31c124329b817e756a696d6f14d38752665248b7befb3b6272",
-      "evidence_policy": "layerx-receipt"
+      "version": "20260408"
     },
     {
-      "id": "visa-tap",
-      "specification": "visa-tap",
-      "version": "1",
-      "specification_sha256": "5f5fbaef32d575d1f83a0a2c8051338c37f7224cd6afd464d638b8f2863cada5",
+      "conformance_sha256": "00e4bfeb2c0f897f1b3251e33ba5160a5c6f0cd802e6e79a52bfe1120e2b9fa9",
       "conformance_suite": "layerx-visa-tap-conformance-v1",
       "conformance_vectors": 23,
-      "conformance_sha256": "00e4bfeb2c0f897f1b3251e33ba5160a5c6f0cd802e6e79a52bfe1120e2b9fa9",
-      "evidence_policy": "trusted-agent-credential"
+      "evidence_policy": "trusted-agent-credential",
+      "id": "visa-tap",
+      "specification": "visa-tap",
+      "specification_sha256": "5f5fbaef32d575d1f83a0a2c8051338c37f7224cd6afd464d638b8f2863cada5",
+      "version": "1"
     },
     {
+      "conformance_sha256": "b8ab8eaa5885aa5e47da7bf91de0b4ece329bc3104e069e722603d8b3dbc93e8",
+      "conformance_suite": "layerx-fiat-conformance-v1",
+      "conformance_vectors": 31,
+      "evidence_policy": "external-settlement+layerx-receipt",
       "id": "fiat",
       "specification": "layerx-fiat-settlement",
-      "version": "1",
-      "specification_sha256": "1ecabb073b1a2c5f96a91d5bb1f943a94a30b9e4b92f8642fb7c8ae1e757f9f2",
-      "conformance_suite": "layerx-fiat-conformance-v1",
-      "conformance_vectors": 26,
-      "conformance_sha256": "546563891495362dd876cd777baac23be1fee4d2f09f2addff765a493a6878e9",
-      "evidence_policy": "external-settlement+layerx-receipt"
-    }
-  ],
-  "transports": [
-    {
-      "id": "http",
-      "version": "2",
-      "specification_sha256": "4f0298aaa23ac75de0eb49b1e96e6e67a5b910d7527b3a71c63e426b3bf5bdfb",
-      "conformance_sha256": "7ebe8013fdb2aca55ce28a5cd53cc1668f68267f85a4d5d89b13d90915f57157"
-    },
-    {
-      "id": "mcp",
-      "version": "2",
-      "specification_sha256": "4f1e0bb50c60e3fe384142f589cd6323b8a9ec4432335ef29053d1220f9e2146",
-      "conformance_sha256": "082146b167f010c9f8345b7e244dc13cbadf06b8ff02011953bdda821a0da332"
-    },
-    {
-      "id": "a2a",
-      "version": "2",
-      "specification_sha256": "bbf078363a2fc4eeeb8f6e9b66cf36033f5acfc3984c0e8f427143368979d878",
-      "conformance_sha256": "4ad786ebd8117fe72ce4156108b07d386a53d6585c0951cac854aff8f7cd6930"
-    }
-  ],
-  "x402_supported": {
-    "kinds": [{"x402Version": 2, "scheme": "exact", "network": "layerx:beta"}],
-    "extensions": [],
-    "signers": {"layerx:beta": ["did:layerx:9999999999999999999999999999999999999999999999999999999999999999"]}
-  },
-  "ap2_keys": [
-    {
-      "use_case": "checkout-mandate",
-      "key_id": "layerx-beta-checkout-mandate-key",
-      "public_key_sec1": "04aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-    },
-    {
-      "use_case": "payment-mandate",
-      "key_id": "layerx-beta-payment-mandate-key",
-      "public_key_sec1": "04bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-    },
-    {
-      "use_case": "merchant-checkout",
-      "key_id": "layerx-beta-merchant-checkout-key",
-      "public_key_sec1": "04cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      "specification_sha256": "78f39be4ad25d685a5ca633ddf0e896010ca207d07903fbc277e1af98c7287ea",
+      "version": "1"
     }
   ],
   "ap2_assets": [
     {
-      "principal_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+      "asset": "b5a32b12029f8ddfb905f90f280f664b46390de0fc62770fc197dd87b18cd898",
+      "atomic_units_per_minor_unit": "1000000000000000000",
       "audience": "https://layerx-interop-gateway.layerx-testnet.svc.cluster.local:9443",
       "currency": "LXT",
       "minor_unit_exponent": 0,
-      "atomic_units_per_minor_unit": "1000000000000000000",
-      "asset": "b5a32b12029f8ddfb905f90f280f664b46390de0fc62770fc197dd87b18cd898",
-      "payer_account": "1111111111111111111111111111111111111111111111111111111111111111",
       "payee_account": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
       "payee_merchant_id": "layerx-beta-merchant",
-      "payee_merchant_name": "LayerX Beta Testnet Merchant"
+      "payee_merchant_name": "LayerX Beta Testnet Merchant",
+      "payer_account": "1111111111111111111111111111111111111111111111111111111111111111",
+      "principal_digest": "3333333333333333333333333333333333333333333333333333333333333333"
     }
   ],
-  "ucp_payment_handler": {
-    "id": "layerx-ucp-handler",
-    "version": "2026-04-08",
-    "spec": "https://ucp.dev/2026-04-08/specification/checkout/",
-    "schema": "https://ucp.dev/2026-04-08/schemas/shopping/checkout.json"
-  },
-  "visa_agents": [
+  "ap2_keys": [
     {
-      "key_id": "layerx-beta-tap-key-1",
-      "agent_id": "layerx-beta-trusted-agent",
-      "agent_domain": "https://layerx-interop-gateway.layerx-testnet.svc.cluster.local:9443",
-      "layerx_agent": "1111111111111111111111111111111111111111111111111111111111111111",
-      "algorithm": "ed25519",
-      "public_key": "2222222222222222222222222222222222222222222222222222222222222222",
-      "status": "active",
-      "expires_at": 1893456000
-    }
-  ],
-  "visa_targets": [
+      "key_id": "layerx-beta-checkout-mandate-key",
+      "public_key_sec1": "04aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "use_case": "checkout-mandate"
+    },
     {
-      "principal_digest": "3333333333333333333333333333333333333333333333333333333333333333",
-      "authority": "layerx-interop-gateway.layerx-testnet.svc.cluster.local:9443",
-      "path": "/checkout"
+      "key_id": "layerx-beta-payment-mandate-key",
+      "public_key_sec1": "04bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "use_case": "payment-mandate"
+    },
+    {
+      "key_id": "layerx-beta-merchant-checkout-key",
+      "public_key_sec1": "04cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "use_case": "merchant-checkout"
     }
   ],
   "fiat_providers": [
@@ -137,5 +87,66 @@
       "provider": "layerx-beta-fiat-provider",
       "public_key_ed25519": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
     }
-  ]
+  ],
+  "transports": [
+    {
+      "conformance_sha256": "199c7351f47083cb9c99f92768a5edcd5a31207245fea2d63b0a749426759131",
+      "id": "http",
+      "specification_sha256": "4f0298aaa23ac75de0eb49b1e96e6e67a5b910d7527b3a71c63e426b3bf5bdfb",
+      "version": "2"
+    },
+    {
+      "conformance_sha256": "32d731fd55bcb7e1a9ee8a95809db2cc19d9bf0652eb9ddd80f77dba47194999",
+      "id": "mcp",
+      "specification_sha256": "4f1e0bb50c60e3fe384142f589cd6323b8a9ec4432335ef29053d1220f9e2146",
+      "version": "2"
+    },
+    {
+      "conformance_sha256": "8a869441bb66ac99af142e84036db333cae9c61f54b98ab9a3f873e980c3ce9c",
+      "id": "a2a",
+      "specification_sha256": "bbf078363a2fc4eeeb8f6e9b66cf36033f5acfc3984c0e8f427143368979d878",
+      "version": "2"
+    }
+  ],
+  "ucp_payment_handler": {
+    "id": "layerx-ucp-handler",
+    "schema": "https://ucp.dev/2026-04-08/schemas/shopping/checkout.json",
+    "spec": "https://ucp.dev/2026-04-08/specification/checkout/",
+    "version": "2026-04-08"
+  },
+  "visa_agents": [
+    {
+      "agent_domain": "https://layerx-interop-gateway.layerx-testnet.svc.cluster.local:9443",
+      "agent_id": "layerx-beta-trusted-agent",
+      "algorithm": "ed25519",
+      "expires_at": 1893456000,
+      "key_id": "layerx-beta-tap-key-1",
+      "layerx_agent": "1111111111111111111111111111111111111111111111111111111111111111",
+      "public_key": "2222222222222222222222222222222222222222222222222222222222222222",
+      "status": "active"
+    }
+  ],
+  "visa_targets": [
+    {
+      "authority": "layerx-interop-gateway.layerx-testnet.svc.cluster.local:9443",
+      "path": "/checkout",
+      "principal_digest": "3333333333333333333333333333333333333333333333333333333333333333"
+    }
+  ],
+  "x402_supported": {
+    "extensions": [],
+    "kinds": [
+      {
+        "network": "eip155:125",
+        "scheme": "exact",
+        "x402Version": 2
+      }
+    ],
+    "signers": {
+      "eip155:125": [
+        "did:layerx:8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+        "did:layerx:d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737"
+      ]
+    }
+  }
 }

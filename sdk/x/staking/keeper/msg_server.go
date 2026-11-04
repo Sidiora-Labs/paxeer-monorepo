@@ -147,6 +147,19 @@ func (k msgServer) EditValidator(goCtx context.Context, msg *types.MsgEditValida
 
 	validator.Description = description
 
+	if msg.MinSelfDelegation != nil {
+		if !msg.MinSelfDelegation.GT(validator.MinSelfDelegation) {
+			return nil, types.ErrMinSelfDelegationDecreased
+		}
+
+		selfDelegation, found := k.GetDelegation(ctx, sdk.AccAddress(valAddr), valAddr)
+		if !found || validator.TokensFromShares(selfDelegation.Shares).TruncateInt().LT(*msg.MinSelfDelegation) {
+			return nil, types.ErrSelfDelegationBelowMinimum
+		}
+
+		validator.MinSelfDelegation = *msg.MinSelfDelegation
+	}
+
 	if msg.CommissionRate != nil {
 		commission, err := k.UpdateValidatorCommission(ctx, validator, *msg.CommissionRate)
 		if err != nil {
@@ -157,18 +170,6 @@ func (k msgServer) EditValidator(goCtx context.Context, msg *types.MsgEditValida
 		k.BeforeValidatorModified(ctx, valAddr)
 
 		validator.Commission = commission
-	}
-
-	if msg.MinSelfDelegation != nil {
-		if !msg.MinSelfDelegation.GT(validator.MinSelfDelegation) {
-			return nil, types.ErrMinSelfDelegationDecreased
-		}
-
-		if msg.MinSelfDelegation.GT(validator.Tokens) {
-			return nil, types.ErrSelfDelegationBelowMinimum
-		}
-
-		validator.MinSelfDelegation = (*msg.MinSelfDelegation)
 	}
 
 	k.SetValidator(ctx, validator)
@@ -220,12 +221,8 @@ func (k msgServer) Delegate(goCtx context.Context, msg *types.MsgDelegate) (*typ
 		return nil, err
 	}
 
-	if msg.Amount.Amount.IsInt64() {
-		defer func() {
-			stakingMetrics.delegateTotal.Add(goCtx, 1)
-			stakingMetrics.delegateAmount.Record(goCtx, msg.Amount.Amount.Int64())
-		}()
-	}
+	stakingMetrics.delegateTotal.Add(goCtx, 1)
+	recordStakingAmount(goCtx, msg.Amount.Amount, stakingMetrics.delegateAmount, "delegate")
 
 	ctx.EventManager().EmitEvents(sdk.Events{
 		sdk.NewEvent(
@@ -281,12 +278,8 @@ func (k msgServer) BeginRedelegate(goCtx context.Context, msg *types.MsgBeginRed
 		return nil, err
 	}
 
-	if msg.Amount.Amount.IsInt64() {
-		defer func() {
-			stakingMetrics.redelegateTotal.Add(goCtx, 1)
-			stakingMetrics.redelegateAmount.Record(goCtx, msg.Amount.Amount.Int64())
-		}()
-	}
+	stakingMetrics.redelegateTotal.Add(goCtx, 1)
+	recordStakingAmount(goCtx, msg.Amount.Amount, stakingMetrics.redelegateAmount, "redelegate")
 
 	ctx.EventManager().EmitEvents(sdk.Events{
 		sdk.NewEvent(
@@ -339,12 +332,8 @@ func (k msgServer) Undelegate(goCtx context.Context, msg *types.MsgUndelegate) (
 		return nil, err
 	}
 
-	if msg.Amount.Amount.IsInt64() {
-		defer func() {
-			stakingMetrics.undelegateTotal.Add(goCtx, 1)
-			stakingMetrics.undelegateAmount.Record(goCtx, msg.Amount.Amount.Int64())
-		}()
-	}
+	stakingMetrics.undelegateTotal.Add(goCtx, 1)
+	recordStakingAmount(goCtx, msg.Amount.Amount, stakingMetrics.undelegateAmount, "undelegate")
 
 	ctx.EventManager().EmitEvents(sdk.Events{
 		sdk.NewEvent(

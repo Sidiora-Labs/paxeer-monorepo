@@ -31,6 +31,8 @@ pub mod commit;
 #[deny(unsafe_code)]
 pub mod crypto;
 #[deny(unsafe_code)]
+pub mod dispute_artifacts;
+#[deny(unsafe_code)]
 pub mod dynamic_spend;
 #[deny(unsafe_code)]
 pub mod engine;
@@ -88,6 +90,8 @@ pub mod lifecycle;
 pub mod limits;
 #[deny(unsafe_code)]
 pub mod meter;
+#[allow(unsafe_code)]
+pub mod native_contract;
 #[deny(unsafe_code)]
 pub mod occupancy;
 #[deny(unsafe_code)]

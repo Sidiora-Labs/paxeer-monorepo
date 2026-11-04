@@ -1,0 +1,296 @@
+{
+  "node": "Geth/v1.15.11-stable-36b2371c/linux-amd64/go1.24.2",
+  "runtime": "0x600d601460053960556066600d60056007f0500063deadbeef6000526003601df3",
+  "tx": {
+    "blockHash": "0xd03fb4cd8c1eec8531af25306d0b03528ce8eb5255910be14c7fc512f447fce9",
+    "blockNumber": "0x7",
+    "from": "0x64951db68abc1c7c37977fc068ed51cf1173adcd",
+    "gas": "0x300000",
+    "gasPrice": "0x179ba274",
+    "maxFeePerGas": "0x35e179d9",
+    "maxPriorityFeePerGas": "0x1",
+    "hash": "0x1995c8aebe8c2dbf70827d0b0340ec0a21d65206e159a7cf037cacb17ac3b7f3",
+    "input": "0x",
+    "nonce": "0x6",
+    "to": "0xdf59ef9b58434d5d2beeaf77eec1d92ddcd3fd1a",
+    "transactionIndex": "0x0",
+    "value": "0x7",
+    "type": "0x2",
+    "accessList": [],
+    "chainId": "0x539",
+    "v": "0x0",
+    "r": "0x9c170400485022363b634b62d8526aace973eb75fe1948d99c7c04417c540d27",
+    "s": "0x2608a675d8a6c6bc29641a4703fb16c80884b0dfaceac0f85516113ab740cdb0",
+    "yParity": "0x0"
+  },
+  "receipt": {
+    "blockHash": "0xd03fb4cd8c1eec8531af25306d0b03528ce8eb5255910be14c7fc512f447fce9",
+    "blockNumber": "0x7",
+    "contractAddress": null,
+    "cumulativeGasUsed": "0xd197",
+    "effectiveGasPrice": "0x179ba274",
+    "from": "0x64951db68abc1c7c37977fc068ed51cf1173adcd",
+    "gasUsed": "0xd197",
+    "logs": [],
+    "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "status": "0x1",
+    "to": "0xdf59ef9b58434d5d2beeaf77eec1d92ddcd3fd1a",
+    "transactionHash": "0x1995c8aebe8c2dbf70827d0b0340ec0a21d65206e159a7cf037cacb17ac3b7f3",
+    "transactionIndex": "0x0",
+    "type": "0x2"
+  },
+  "result": {
+    "gas": 53655,
+    "failed": false,
+    "returnValue": "0x",
+    "structLogs": [
+      {
+        "pc": 0,
+        "op": "PUSH1",
+        "gas": 3124728,
+        "gasCost": 3,
+        "depth": 1,
+        "stack": []
+      },
+      {
+        "pc": 2,
+        "op": "PUSH1",
+        "gas": 3124725,
+        "gasCost": 3,
+        "depth": 1,
+        "stack": [
+          "0xd"
+        ]
+      },
+      {
+        "pc": 4,
+        "op": "PUSH1",
+        "gas": 3124722,
+        "gasCost": 3,
+        "depth": 1,
+        "stack": [
+          "0xd",
+          "0x14"
+        ]
+      },
+      {
+        "pc": 6,
+        "op": "CODECOPY",
+        "gas": 3124719,
+        "gasCost": 9,
+        "depth": 1,
+        "stack": [
+          "0xd",
+          "0x14",
+          "0x5"
+        ]
+      },
+      {
+        "pc": 7,
+        "op": "PUSH1",
+        "gas": 3124710,
+        "gasCost": 3,
+        "depth": 1,
+        "stack": [],
+        "memory": [
+          "000000000063deadbeef6000526003601df30000000000000000000000000000"
+        ]
+      },
+      {
+        "pc": 9,
+        "op": "PUSH1",
+        "gas": 3124707,
+        "gasCost": 3,
+        "depth": 1,
+        "stack": [
+          "0x55"
+        ],
+        "memory": [
+          "000000000063deadbeef6000526003601df30000000000000000000000000000"
+        ]
+      },
+      {
+        "pc": 11,
+        "op": "PUSH1",
+        "gas": 3124704,
+        "gasCost": 3,
+        "depth": 1,
+        "stack": [
+          "0x55",
+          "0x66"
+        ],
+        "memory": [
+          "000000000063deadbeef6000526003601df30000000000000000000000000000"
+        ]
+      },
+      {
+        "pc": 13,
+        "op": "PUSH1",
+        "gas": 3124701,
+        "gasCost": 3,
+        "depth": 1,
+        "stack": [
+          "0x55",
+          "0x66",
+          "0xd"
+        ],
+        "memory": [
+          "000000000063deadbeef6000526003601df30000000000000000000000000000"
+        ]
+      },
+      {
+        "pc": 15,
+        "op": "PUSH1",
+        "gas": 3124698,
+        "gasCost": 3,
+        "depth": 1,
+        "stack": [
+          "0x55",
+          "0x66",
+          "0xd",
+          "0x5"
+        ],
+        "memory": [
+          "000000000063deadbeef6000526003601df30000000000000000000000000000"
+        ]
+      },
+      {
+        "pc": 17,
+        "op": "CREATE",
+        "gas": 3124695,
+        "gasCost": 32002,
+        "depth": 1,
+        "stack": [
+          "0x55",
+          "0x66",
+          "0xd",
+          "0x5",
+          "0x7"
+        ],
+        "memory": [
+          "000000000063deadbeef6000526003601df30000000000000000000000000000"
+        ]
+      },
+      {
+        "pc": 0,
+        "op": "PUSH4",
+        "gas": 3044370,
+        "gasCost": 3,
+        "depth": 2,
+        "stack": []
+      },
+      {
+        "pc": 5,
+        "op": "PUSH1",
+        "gas": 3044367,
+        "gasCost": 3,
+        "depth": 2,
+        "stack": [
+          "0xdeadbeef"
+        ]
+      },
+      {
+        "pc": 7,
+        "op": "MSTORE",
+        "gas": 3044364,
+        "gasCost": 6,
+        "depth": 2,
+        "stack": [
+          "0xdeadbeef",
+          "0x0"
+        ]
+      },
+      {
+        "pc": 8,
+        "op": "PUSH1",
+        "gas": 3044358,
+        "gasCost": 3,
+        "depth": 2,
+        "stack": [],
+        "memory": [
+          "00000000000000000000000000000000000000000000000000000000deadbeef"
+        ]
+      },
+      {
+        "pc": 10,
+        "op": "PUSH1",
+        "gas": 3044355,
+        "gasCost": 3,
+        "depth": 2,
+        "stack": [
+          "0x3"
+        ],
+        "memory": [
+          "00000000000000000000000000000000000000000000000000000000deadbeef"
+        ]
+      },
+      {
+        "pc": 12,
+        "op": "RETURN",
+        "gas": 3044352,
+        "gasCost": 0,
+        "depth": 2,
+        "stack": [
+          "0x3",
+          "0x1d"
+        ],
+        "memory": [
+          "00000000000000000000000000000000000000000000000000000000deadbeef"
+        ]
+      },
+      {
+        "pc": 18,
+        "op": "POP",
+        "gas": 3092075,
+        "gasCost": 2,
+        "depth": 1,
+        "stack": [
+          "0x55",
+          "0x66",
+          "0x2e8a0875090eaf9f2c0d826692f7b1b2e2c62b14"
+        ],
+        "memory": [
+          "000000000063deadbeef6000526003601df30000000000000000000000000000"
+        ]
+      },
+      {
+        "pc": 19,
+        "op": "STOP",
+        "gas": 3092073,
+        "gasCost": 0,
+        "depth": 1,
+        "stack": [
+          "0x55",
+          "0x66"
+        ],
+        "memory": [
+          "000000000063deadbeef6000526003601df30000000000000000000000000000"
+        ]
+      }
+    ]
+  },
+  "callTracer": {
+    "from": "0x64951db68abc1c7c37977fc068ed51cf1173adcd",
+    "gas": "0x300000",
+    "gasUsed": "0xd197",
+    "to": "0xdf59ef9b58434d5d2beeaf77eec1d92ddcd3fd1a",
+    "input": "0x",
+    "calls": [
+      {
+        "from": "0xdf59ef9b58434d5d2beeaf77eec1d92ddcd3fd1a",
+        "gas": "0x2e7412",
+        "gasUsed": "0x26a",
+        "to": "0x2e8a0875090eaf9f2c0d826692f7b1b2e2c62b14",
+        "input": "0x63deadbeef6000526003601df3",
+        "output": "0xadbeef",
+        "value": "0x7",
+        "type": "CREATE"
+      }
+    ],
+    "value": "0x7",
+    "type": "CALL"
+  },
+  "codes": {
+    "0x2e8a0875090eaf9f2c0d826692f7b1b2e2c62b14": "0xadbeef"
+  }
+}

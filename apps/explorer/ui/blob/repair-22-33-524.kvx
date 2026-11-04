@@ -1,0 +1,18 @@
+[repair.22.33.524]
+audit = "22.30.154"
+acceptance = "22998.1"
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit and private log location."
+baseline = "Not run: the explicit gate order prohibits testing before implementation and running verify_cmd by hand; no pre-change test failure is claimed."
+wiring_requests = []
+
+[finding.blob_navigation_coverage]
+tests = ["blob_navigation_coverage", "image to text navigation downloads the current blob"]
+proof = "Same mounted BlobData navigates from padded JPEG to text; selector membership, visible content, real download bytes and current hash filename are asserted; original screenshot and zero-padding cases remain."
+
+[finding.blob_format_state]
+tests = ["blob_navigation_coverage", "blob_format_state_loading_navigation", "blob_format_state_preserves_explicit_formats", "blob_format_state_initial_loading_and_image_bytes"]
+proof = "Production collection reconciles Image to Raw and preserves valid explicit formats; rendering and the download handler consume the same reconciled format through loading and changed data/hash."
+
+[qualification_constraints]
+scope = "Only apps/explorer/ui/blob; no spec, shared helper, manifest, commit or push edits by the worker."
+environment = "Existing committed component test wrapper supplies the UI providers; Node Blob/object-URL store and native DOM events record actual downloads in process."

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/chainread"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/store"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/storage"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -85,16 +86,18 @@ func TestArchive96HourReconstructionPostgres(t *testing.T) {
 	if err != nil || chain == nil || chain.Cmp(big.NewInt(125)) != 0 {
 		t.Fatal("real chain125 required", err)
 	}
-	reader := store.ArchiveReader{Objects: objects, Bucket: objects.Bucket(), Exact: exact, BlockTime: func(ctx context.Context, height int64, hash string) (int64, error) {
-		header, err := rpc.HeaderByNumber(ctx, big.NewInt(height))
-		if err != nil {
-			return 0, err
-		}
-		if header == nil || header.Hash().Hex() != hash {
-			return 0, store.ErrIntegrity
-		}
-		return int64(header.Time), nil
-	}}
+	reader := store.ArchiveReader{Objects: objects, Bucket: objects.Bucket(), Exact: exact, BlockTime: archiveBlockTime(chainread.Reader{RPC: rpc})}
+	firstBlock := manifests[0].Blocks[0]
+	if _, err = reader.BlockTime(ctx, firstBlock.Height, firstBlock.Hash); err != nil {
+		t.Fatal("committed node hash refused", err)
+	}
+	foreignHash := "0x" + strings.Repeat("f", 64)
+	if foreignHash == firstBlock.Hash {
+		foreignHash = "0x" + strings.Repeat("e", 64)
+	}
+	if _, err = reader.BlockTime(ctx, firstBlock.Height, foreignHash); err == nil {
+		t.Fatal("foreign block identity accepted")
+	}
 	report, err := ReconstructArchive(ctx, exact, reader, "qualification_"+fmt.Sprint(time.Now().UnixNano()), os.Getenv("L10_ARCHIVE_POOL"), from, to, manifests)
 	if err != nil {
 		t.Fatal(err)
@@ -118,5 +121,18 @@ func TestArchive96HourReconstructionPostgres(t *testing.T) {
 	}
 	if _, err = reader.Read(ctx, store.ArchiveManifest{}); err == nil {
 		t.Fatal("missing segment accepted")
+	}
+}
+
+func archiveBlockTime(reader chainread.Reader) func(context.Context, int64, string) (int64, error) {
+	return func(ctx context.Context, height int64, expected string) (int64, error) {
+		block, err := reader.Block(ctx, height)
+		if err != nil {
+			return 0, err
+		}
+		if block.Hash != strings.ToLower(expected) {
+			return 0, store.ErrIntegrity
+		}
+		return block.Time, nil
 	}
 }

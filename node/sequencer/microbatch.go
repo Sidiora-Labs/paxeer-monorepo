@@ -223,8 +223,26 @@ func (m *microBatch) execute(txs [][]byte) []microOutcome {
 		if limit == 0 {
 			limit = microRunnable(queue, math.MaxUint64-s.lastSeq)
 		}
+		// Reserve exactly the runnable prefix in arrival order. A refused
+		// execution rolls back these reservations before retrying its prefix.
+		beforeAdmission := s.open.ctx
+		for j := 0; j < limit; j++ {
+			if err := s.admit(queue[j].tx, queue[j].bytes); err != nil {
+				if j == 0 {
+					out[queue[0].pos].err = err
+					queue = queue[1:]
+				}
+				limit = j
+				break
+			}
+		}
+		if limit == 0 {
+			s.open.ctx = beforeAdmission
+			continue
+		}
 		results, branch, err := m.deliverBatch(queue[:limit])
 		if err != nil {
+			s.open.ctx = beforeAdmission
 			if limit > 1 {
 				limit = 1
 				continue
@@ -249,9 +267,11 @@ func (m *microBatch) execute(txs [][]byte) []microOutcome {
 			}
 			queue, limit = queue[limit:], 0
 		case 0:
+			s.open.ctx = beforeAdmission
 			out[queue[0].pos].err = sdkerrors.ABCIError(results[0].Codespace, results[0].Code, results[0].Log)
 			queue, limit = queue[1:], 0
 		default:
+			s.open.ctx = beforeAdmission
 			limit = k
 		}
 	}

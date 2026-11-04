@@ -1,0 +1,9 @@
+[task.22.33.637]
+finding = "bulk-gas-and-trace"
+tests = ["TestRepairM_637_BulkRanges", "TestRepairM_637_ExactGasAndMutationSafety", "TestRepairM_637_OutOfGas", "TestRepairM_637_ContextPrefixAccounting", "TestRepairM_637_NoLegacyTiming"]
+path = "sdk/store/gaskv/repair_m637_test.go"
+proof = "Real MemDB/dbadapter and rootmulti stores, nested caches, Context.KVStore, prefix.Store, bounded gas meters and StoreTracer JSON consumer; bulk scans match existing forward-iterator gas and trace values, deletes additionally charge and trace each mutation after iterator closure."
+baseline = "Not run: the explicit task gate order prohibits verification before complete implementation and hf-build; no pre-change test failure is claimed."
+wiring_request = "modules/evm/keeper (owning EVM domain 2): add a PurgePrefix caller integration test in its native-runtime qualification target; importing that package here introduces native Wasm artifacts forbidden by this repair gate."
+qualification = "The hf-done private evidence record names the verified candidate revision, command, exit code and log; this record claims no unrun gate."
+gotcha = "Legacy cacheMergeIterator.Error reports normal exhausted iteration as invalid; this repair retains existing iterator semantics and closes the scan before mutation without changing out-of-scope iterators."

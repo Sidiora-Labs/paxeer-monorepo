@@ -3,6 +3,46 @@ defmodule EthereumJSONRPC.HTTP.Helper do
   Helper functions for `EthereumJSONRPC.HTTP` implementations.
   """
 
+  alias EthereumJSONRPC.Prometheus.Instrumenter
+
+  @doc "Counts every outgoing member and retains its ID for response attribution."
+  @spec record_requests(iodata()) :: [map()]
+  def record_requests(json) do
+    requests = json |> IO.iodata_to_binary() |> Jason.decode!() |> List.wrap()
+    Enum.each(requests, &Instrumenter.json_rpc_requests(Map.fetch!(&1, "method")))
+    requests
+  end
+
+  @doc "Counts JSON-RPC errors by response ID, independently of response order."
+  @spec record_response_errors([map()], binary()) :: :ok
+  def record_response_errors(requests, body) do
+    case Jason.decode(body) do
+      {:ok, response} ->
+        errors =
+          response
+          |> List.wrap()
+          |> Enum.filter(&response_body_has_error?/1)
+          |> MapSet.new(&Map.get(&1, "id"))
+
+        Enum.each(requests, fn request ->
+          if Map.has_key?(request, "id") and MapSet.member?(errors, request["id"]) do
+            Instrumenter.json_rpc_errors(Map.fetch!(request, "method"))
+          end
+        end)
+
+      {:error, _} ->
+        :ok
+    end
+
+    :ok
+  end
+
+  @doc "A whole-transport failure counts one error for every outgoing member."
+  @spec record_transport_errors([map()]) :: :ok
+  def record_transport_errors(requests) do
+    Enum.each(requests, &Instrumenter.json_rpc_errors(Map.fetch!(&1, "method")))
+  end
+
   @doc """
   Extracts the JSON-RPC method from a JSON string payload.
 

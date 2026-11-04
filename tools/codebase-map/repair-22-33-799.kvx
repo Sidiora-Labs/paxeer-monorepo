@@ -1,0 +1,38 @@
+[task.22.33.799]
+audit = "spec/layerx-merge/programme/audit/records/22.30.178.kvx"
+base_revision = "79d99a9cd334a5da02f3a4aac2a324549c9a0d5e"
+acceptance = "22998.1"
+qualification = "The runner's hf-build and hf-done ledger records the exact verified candidate revision, command, exit and private evidence path; this record does not assert an unrun result."
+baseline = "No baseline test was run: the explicit gate order forbids tests before complete implementation and forbids invoking verify_cmd by hand; the declared test file did not exist at the base revision, and no previous gate ledger was present."
+wiring_requests = "None: all four finding proposals are implemented within tools/codebase-map."
+
+[finding.6]
+tests = ["readmeWalkthroughMatchesGenerator", "activeFeatureSnapshotWalkthrough"]
+repair = "Document configured layerx-merge authority, supported schema 14, generation and serving prerequisites, bounded Delivery navigation and the runnable focused walkthrough."
+
+[finding.4]
+tests = ["deliveryWaveExpansionAndSearch", "deliveryScaleRemainsBounded"]
+repair = "Group by wave once, aggregate wave dependencies once, bound wave and task pages, use a fixed grid without force simulation, and open the exact page of any searched task, including wave zero."
+
+[finding.1]
+tests = ["activeFeatureSnapshotWalkthrough", "authoritativeSourceIsRequired"]
+repair = "Read [meta] active_feature from spec/workflow.kvx, load its authoritative spec, retain explicit configuration/source errors, and emit accurate source metadata through the real producer."
+
+[finding.2]
+tests = ["sectionBoundariesSurviveTransport"]
+repair = "Every KVX header ends the current block; only req and task sections contribute records, including when a decision repeats title, status, wave, requires, symbols and touches."
+
+[proof]
+producer = "generateSnapshot is the same producer used by the generator CLI; tests supply recorded Git output and an in-memory Codify schema-14 store through its explicit input interface."
+transport = "The production createMapServer serves the serialized producer output over an ephemeral loopback port; tests assert GET path and host, status, response content type, cache policy, full JSON shape and source provenance."
+consumer = "The app's loadSnapshot, DeliveryMap and deliveryGraph consume that response; tests assert active task visibility, correct fields, aggregate and page-local edges, explicit expansion, exhaustive paging, exact search navigation and finite unique fixed-grid positions."
+fixtures = "git.json records the actual base commit and scoped Git inventory; graph.sql initializes the supported schema-14 in-memory store without indexed files; the KVX fixture has 2486 deliverables across 85 waves, parent and unrelated sections."
+recovery = "None of these four findings concerns persisted state or restart recovery."
+
+[gotcha.baseline-order]
+observed = "The task's audit steps request an unchanged-tree verify, while its explicit gate order forbids pre-implementation tests and direct verify_cmd execution."
+action = "Follow the explicit order and report no baseline evidence; retain all existing tests."
+
+[gotcha.live-index-schema]
+observed = "Read-only inspection found the sandbox's existing .codegraph/graph.db metadata reports schema 18, while the generator explicitly supports schema 14; no live generation gate was run or claimed."
+action = "Keep the explicit schema check and document the compatible-index prerequisite; migrating additional graph schemas is outside these four finding proposals."

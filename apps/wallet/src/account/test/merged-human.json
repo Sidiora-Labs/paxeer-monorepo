@@ -1,0 +1,132 @@
+{
+  "intent.plan.request": {
+    "method": "POST",
+    "path": "/v1/intents/plan",
+    "body": {
+      "source": {
+        "kind": "human",
+        "account": "agent:did:layerx:6161616161616161616161616161616161616161616161616161616161616161:main"
+      },
+      "destination": {
+        "kind": "agent",
+        "account": "agent:did:layerx:6262626262626262626262626262626262626262626262626262626262626262:main"
+      },
+      "asset_id": "ff1dab81aa6e12a8d1fb690e37ca4ae5adcf5712000f972b652b44a3e65a8361",
+      "money": {
+        "amount": "100000",
+        "currency": "LXP"
+      },
+      "constraints": {
+        "deadline": "2026-08-18T09:35:00Z",
+        "max_fee": {
+          "amount": "250",
+          "currency": "LXP"
+        },
+        "allow_top_up": false
+      }
+    }
+  },
+  "intent.plan.response": {
+    "status": 200,
+    "body": {
+      "ok": true,
+      "result": {
+        "plan_digest": "4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b",
+        "journey_kind": "move",
+        "total_fee": {
+          "amount": "8",
+          "currency": "LXP"
+        },
+        "legs": [
+          {
+            "index": 0,
+            "mechanism": "send",
+            "domain": "layerx",
+            "source": {
+              "kind": "human",
+              "account": "agent:did:layerx:6161616161616161616161616161616161616161616161616161616161616161:main"
+            },
+            "destination": {
+              "kind": "agent",
+              "account": "agent:did:layerx:6262626262626262626262626262626262626262626262626262626262626262:main"
+            },
+            "money": {
+              "amount": "100000",
+              "currency": "LXP"
+            },
+            "fee": {
+              "amount": "8",
+              "currency": "LXP"
+            },
+            "nonce": 4,
+            "chain_id": 125,
+            "to": "0x0000000000000000000000000000000000001001",
+            "value": "0",
+            "calldata": "0x5c05961b00000000000000000000000011111111111111111111111111111111111111110000000000000000000000002222222222222222222222222222222222222222000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000186a00000000000000000000000000000000000000000000000000000000000000004756c787000000000000000000000000000000000000000000000000000000000",
+            "gas_limit": 100000,
+            "max_fee_per_gas": "1000000000",
+            "max_priority_fee_per_gas": "100000000"
+          }
+        ],
+        "signing_requirements": [
+          {
+            "leg_index": 0,
+            "action_key": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+            "signing_context": "d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4",
+            "authority": "account-owner"
+          }
+        ]
+      },
+      "trace": "trc_01j2gxq2bmd3e4f5g6h7j8k9m0"
+    }
+  },
+  "intent.submit.response": {
+    "status": 200,
+    "body": {
+      "ok": true,
+      "result": {
+        "journey_id": "jrn_01j2gx3fam9kq4vte8n5w6y7z8",
+        "plan_digest": "4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b",
+        "state": "processing",
+        "state_copy_key": "status.processing"
+      },
+      "trace": "trc_01j2gxq4dpc2d3e4f5g6h7j8k9"
+    }
+  },
+  "journey.get.response": {
+    "status": 200,
+    "body": {
+      "ok": true,
+      "result": {
+        "journey_id": "jrn_01j2gx3fam9kq4vte8n5w6y7z8",
+        "kind": "move",
+        "state": "processing",
+        "state_copy_key": "journey.state.processing",
+        "stages": [
+          {
+            "stage_id": "stg_01j2gx3famm2x3y4z5a6b7c8d9",
+            "copy_key": "journey.stage.submitted",
+            "state": "processing",
+            "evidence": [
+              {
+                "evidence_id": "evd_01j2gx3famn4z5a6b7c8d9e0f1",
+                "class": "submission-record",
+                "verification": "unverified"
+              }
+            ]
+          }
+        ],
+        "evidence": [
+          {
+            "evidence_id": "evd_01j2gx3famp6b7c8d9e0f1g2h3",
+            "class": "local-journey-state",
+            "verification": "unverified"
+          }
+        ],
+        "started_at": "2026-08-18T09:30:00Z",
+        "updated_at": "2026-08-18T09:31:42Z"
+      },
+      "trace": "trc_01j2gx3famq8d9e0f1g2h3j4k5"
+    }
+  }
+}

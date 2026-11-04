@@ -127,8 +127,10 @@ def receipt_rows(output):
 
 def run(directory, manifest, native, rust):
     bundle = fixture.artifacts(os.environ['PAXEER_X_RUNTIME_ARTIFACTS'])
-    require(fixture.digest(bundle['artifacts']['layerxd']['path']) == manifest['artifacts']['layerxd']['sha256'],
-            'runtime must use this task native producer')
+    require(bundle.get('source_revision') == manifest['revision']
+            and bundle.get('source_tree') == manifest['source_tree']
+            and 'paxd' in bundle.get('artifacts', {}),
+            'runtime must use the source-bound merged node producer')
     client = {'version': 1, 'source_revision': manifest['revision'], 'path': native,
               'sha256': fixture.digest(native)}
     runtime = fixture.RuntimeFixture(directory, bundle, client)

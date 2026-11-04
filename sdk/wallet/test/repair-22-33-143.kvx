@@ -1,0 +1,41 @@
+[repair.22.33.143]
+audit = "22.30.115"
+base_revision = "2b502183a86af3a2498748de6572b1bde20e4768"
+scope = "sdk/wallet/test"
+evidence = "The runner records the candidate revision, exact command, exit code and private log in its hf-build/hf-done ledger; the final response copies that evidence."
+baseline = "No unchanged-tree gate was run: the ordered implementation-first instructions prohibit tests before implementation and require hf-build before hf-done; the initial runner ledger had no earlier gate evidence. No pre-change test failure is claimed."
+qualification = "The declared repair test executes the receipt fixture, gas status, type diagnostics and SDK recovery tests plus focused endpoint, metadata, module and custody regressions; it requires no credentials, live service, external binary or subprocess toolchain."
+
+[finding.endpoint-tests-retired-shapes]
+test = "endpoint_tests_retired_shapes_use_merged_transport"
+repair = "Endpoint scenarios use explicit hosted/node transports, consensus availability, EVM addresses, bank balances, eth_getTransactionCount and authenticated pax_sequencerReceipt. Removed activity methods are asserted absent; independent retired read refusals and legacy joined-shape rejections remain negative coverage."
+
+[finding.receipt-fixture-third-shape]
+tests = ["sdk_fixtures_carry_one_answer_per_sequencer_and_explorer_rung", "receipt_fixture_third_shape_authenticates_every_rung"]
+repair = "Receipted bytes are copied unchanged from the RPC-generated V1 transfer; committed bytes and block metadata come from the committed V4 recording. Complete producer views, paymentDenom, signingKey, output/log digests, governed pins and every required field are checked through the shared authenticated decoder. The rungs intentionally represent different recorded transactions."
+
+[finding.gas-fixture-invalid-signed-view]
+test = "gas_station_status_evidence_carries_the_matching_sequencer_receipt"
+repair = "The status consumer receives the unchanged signed V2 revert via the real PaxeerProvider and node JSON-RPC transport; altering success status/vmError or attaching committed block fields to a receipted rung is authentication rejection coverage. Receipt/status identity disagreements retain pending evidence."
+limitation = "The committed V2 is an ordinary reverted ledger transaction, not a sponsored send; it proves authenticated revert consumption, not sponsorship execution."
+
+[finding.bank-types-test-nullability]
+tests = ["merged_types_type_every_merged_read_and_the_sequencer_receipt", "bank_types_test_nullability_keeps_zero_and_rejects_invalid_metadata"]
+repair = "The exact BankAsset assertion represents nullable denom/metadata, retaining required asset_id/kind and all unrelated exact type checks. Hosted decoder tests preserve missing metadata and zero decimals while rejecting malformed identities, missing fields, fractional/out-of-range decimals and noncanonical supply."
+
+[finding.module-fixture-invalid-signed-view]
+test = "module_fixture_invalid_signed_view_uses_captured_bridge_outputs"
+repair = "Bridge transaction calldata, hash and logs come from the unchanged RPC-generated bridge-out vector; the production module sender, HTTP RPC, governed keys, receipt authenticator and event consumer agree. Changed log count/data, added block fields and missing committed metadata are refused."
+
+[finding.sdk-proof-substitute-producers]
+test = "proof_wallet_sdk_producer_transport_consumer"
+repair = "Removed the handwritten signer/executor and producer Journal. The production WalletInterface/PaxeerProvider submit the committed gateway send construction over HTTP; node receipt recovery authenticates an independently recorded transaction. The provider and HTTP transport stop and reopen, and production recovery validates persisted evidence and rejects tampered or cross-transaction recovery."
+limitation = "The gateway send capture and node receipt capture have different transaction hashes. They are never joined. This proves SDK consumer recovery, not a gateway/node state-owner restart or a completed sponsored send. Those producer proofs need the wiring requests below."
+
+[finding.provider-tests-removed-custody]
+test = "provider_tests_removed_custody_has_no_surface_or_transport"
+repair = "The original WalletInterface scenario now asserts absent signCustody in embedded/injected wrappers and unsupported provider methods before transport; independent retired custody tests remain intact."
+
+[wiring.requests]
+funded_and_sponsored = "services/wallet/gateway/test/e2e/wallet-signing-adapters.production.ts (domain 12 wallet) with rpc/sequencer_receipt_vectors_test.go (domain 7 RPC) and daemon/committed-fixture (domain 5 node-runtime): capture funded send and sponsored success/revert submissions, raw transactions, matching authenticated node receipts/governed pins and unchanged identities after restarting the actual persisted producer; publish credential-free transcripts under sdk/wallet/test/fixtures."
+gateway_reads = "services/platform/hosted/gateway/tests/one_source_reads.rs (domain 8 platform): export account/network/bank responses, including metadata-missing and zero-decimal assets, from the real route producer as committed transcripts; the scoped merged-contract fixture currently transcribes existing producer contract examples, and the zero-decimal case is a consumer boundary example."

@@ -29,6 +29,10 @@ static uint64_t take_u64(const uint8_t *in) {
 static void state_key(uint8_t kind, const uint8_t lease[32], uint8_t key[34]) {
     key[0]=(uint8_t)'s'; key[1]=kind; (void)memcpy(key+2U, lease, 32U);
 }
+static void sandbox_terminal_key(const uint8_t lease[32], uint8_t key[34]) {
+    key[0]=(uint8_t)'t'; key[1]=(uint8_t)'s';
+    (void)memcpy(key+2U, lease, 32U);
+}
 static uint16_t take_u16(const uint8_t *p){return (uint16_t)(((uint16_t)p[0]<<8U)|p[1]);}
 static uint32_t take_u32(const uint8_t *p){return ((uint32_t)p[0]<<24U)|((uint32_t)p[1]<<16U)|((uint32_t)p[2]<<8U)|p[3];}
 static void put_u32(uint8_t *p,uint32_t v){p[0]=(uint8_t)(v>>24U);p[1]=(uint8_t)(v>>16U);p[2]=(uint8_t)(v>>8U);p[3]=(uint8_t)v;}
@@ -145,7 +149,7 @@ static lxp_result drop_storage_head(lxp_module_ctx *ctx,const uint8_t *key,size_
 lxp_result lxp_programs_sandbox_lease_terminal(lxp_module_ctx *ctx,const uint8_t lease[32]){
     uint8_t key[34];const uint8_t *v;size_t n;lxp_result s;
     if(ctx==NULL||lease==NULL)return LXP_ERR_NON_CANONICAL;
-    key[0]=(uint8_t)'t';key[1]=(uint8_t)'s';(void)memcpy(key+2U,lease,32U);
+    sandbox_terminal_key(lease,key);
     s=lxp_ctx_kv_get(ctx,key,sizeof(key),&v,&n);
     if(s==LXP_ERR_UNKNOWN_FIELD)return LXP_OK;
     return s==LXP_OK?LXP_ERR_IDEMPOTENT_REPLAY:s;
@@ -166,10 +170,19 @@ lxp_result layerx_programs_sandbox_destroy_state_byte(uint64_t token,uint16_t ki
     return s==LXP_OK&&off<n?(lxp_result)v[off]:LXP_ERR_NON_CANONICAL;
 }
 lxp_result layerx_programs_sandbox_destroy_archive(uint64_t token,uint16_t kind,const uint8_t *bytes,uint32_t length){
-    lxp_module_ctx *ctx=(lxp_module_ctx*)(uintptr_t)token;uint8_t key[34];
+    lxp_module_ctx *ctx=(lxp_module_ctx*)(uintptr_t)token;
+    uint8_t key[34], archive[41];
+    lxp_result status;
     if(ctx!=active_destroy_ctx||active_destroy==NULL||kind>3U||bytes==NULL||length==0U)return LXP_ERR_AUTH_SCOPE;
     key[0]=(uint8_t)'d';key[1]=(uint8_t)kind;(void)memcpy(key+2U,active_destroy->lease_id,32U);
-    return lxp_ctx_kv_put(ctx,key,sizeof(key),bytes,length);
+    /* Lease history can exceed a module value. Archive the complete canonical
+     * bytes as a content-addressed blob with an explicit versioned descriptor. */
+    (void)memcpy(archive,"LXDA1",5U);
+    put_u32(archive+5U,length);
+    status=lxp_hash_sha256(bytes,length,archive+9U);
+    if(status==LXP_OK)status=lxp_ctx_blob_put(ctx,archive+9U,bytes,length);
+    if(status==LXP_OK)status=lxp_ctx_kv_put(ctx,key,sizeof(key),archive,sizeof(archive));
+    return status;
 }
 lxp_result layerx_programs_sandbox_destroy_charge(uint64_t token,const uint8_t from[32],const uint8_t to[32],
     const uint8_t asset[32],uint64_t hi,uint64_t lo,uint8_t root[32]){
@@ -309,8 +322,7 @@ lxp_result lxp_programs_sandbox_destroy_execute(lxp_module_ctx *ctx,
     if(status!=LXP_OK)return status;
     (void)memcpy(terminal+261U,namespace_root,32U);(void)memcpy(terminal+293U,snapshot_root,32U);
     put_u64(terminal+325U,cells);put_u64(terminal+333U,bytes);
-    terminal_key[0]=(uint8_t)'t';terminal_key[1]=(uint8_t)'s';
-    (void)memcpy(terminal_key+2U,value->lease_id,32U);
+    sandbox_terminal_key(value->lease_id,terminal_key);
     status=lxp_ctx_kv_put(ctx,terminal_key,sizeof(terminal_key),terminal,sizeof(terminal));
     if(status==LXP_OK&&ctx->effects!=NULL){uint8_t frame[256];size_t first=248U;
         (void)memcpy(frame,"LXDT",4U);frame[4]=0U;frame[5]=2U;frame[6]=1U;frame[7]=0U;
@@ -422,9 +434,7 @@ int32_t layerx_programs_sandbox_sweep_host(
         (void)memcpy(ctx->activity_id, old_id, 32U);
         if (status != LXP_OK) break;
         processed = i + 1U;
-        terminal_key[0] = (uint8_t)'t';
-        terminal_key[1] = (uint8_t)'s';
-        (void)memcpy(terminal_key + 2U, value.lease_id, 32U);
+        sandbox_terminal_key(value.lease_id, terminal_key);
         status = lxp_ctx_kv_get(ctx, terminal_key, sizeof(terminal_key),
                                 &terminal, &terminal_length);
         if (status == LXP_ERR_UNKNOWN_FIELD) {

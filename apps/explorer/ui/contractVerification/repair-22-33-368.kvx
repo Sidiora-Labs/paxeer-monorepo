@@ -1,0 +1,27 @@
+[repair.22.33.368]
+finding = "22.30.140/verification-completion"
+production_path = "ContractVerificationForm.tsx -> useVerificationSubmission.ts -> useApiFetch/useSocketChannel/useSocketMessage -> react-hook-form errors/submission completion or success navigation"
+proof = "repair-22-33-368.spec.ts"
+tests = ["verificationCompletionReleasesOnSocketClose", "verificationCompletionDisplaysPostFailure", "verificationCompletionHandlesResultBeforePostReturns", "verificationCompletionConsumesSocketSuccessOnce", "verificationCompletionRecoversLostResultByPolling", "verificationCompletionBoundsMissingResults", "verificationCompletionUnmountReleasesAndReopens"]
+fixtures = "In-process loopback HTTP status store and Phoenix WebSocket endpoint; real API, socket, and form hooks; no live endpoints or credentials."
+baseline = "Not executed: the ordered task instructions prohibit verification before complete implementation and prohibit invoking verify_cmd outside hf-done. No pre-change failure is claimed."
+evidence = "The bounded hf-done ledger records the verified candidate revision, exact command, exit code and private log; the runner publishes that revision."
+wiring_requests = "None; the existing contract status API supplies polling recovery."
+formatting = "Repository ESLint --fix applied to the three touched TypeScript files. Its string-title/assertion-discovery rules reject named-function registration; all assertions remain in declared functions and no lint rule is disabled."
+registration = "Vitest requires a separate callback even when the test name is a function: each declared test is registered as both name and callback so its assertions execute."
+
+[qualification.registration]
+revision = "dccfe7e1503efe9b3aa050d3c7c54c04248c8b07"
+command = "cg spec done 22.33.368 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 0
+log = "/out/logs/verify-1.log"
+observed = "The initial gate exited zero but Vitest collected seven TODO tests and executed no assertions; this is not behavioral qualification."
+assumption = "Supplying each named function again as its execution callback repairs registration without changing assertions or bounds."
+
+[qualification.unrelated]
+revision = "d357b67b3bc61cb6a1254e6f6ca0eb23ff90f817"
+command = "pnpm --dir apps/explorer exec tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "Existing ui/marketplace/essentialDapps/revoke/hooks/repair-22-31-381.spec.ts cannot resolve ganache; the runner's dependency preparation also reported missing ganache in the root lockfile."
+assumption = "The marketplace/root dependency setup is outside this repair; it is recorded without changing or investigating that code."

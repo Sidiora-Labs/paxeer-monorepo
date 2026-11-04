@@ -10,9 +10,9 @@ defmodule Indexer.Memory.Shrinkable do
   @doc """
   Asks `pid` to shrink its memory usage.
   """
-  @spec shrink(pid()) :: :ok | {:error, :minimum_size}
+  @spec shrink(pid()) :: :ok | {:error, :minimum_size | :not_alive}
   def shrink(pid) when is_pid(pid) do
-    GenServer.call(pid, :shrink)
+    call_participant(pid, :shrink)
   end
 
   @doc """
@@ -39,8 +39,18 @@ defmodule Indexer.Memory.Shrinkable do
   Used by `Indexer.Memory.Monitor` to report how much queued work a shrink shed.  Only the queue is
   counted, because `shrink/1` drops entries from the queue and from nowhere else.
   """
-  @spec queued_entry_count(pid()) :: non_neg_integer()
+  @spec queued_entry_count(pid()) :: non_neg_integer() | {:error, :not_alive}
   def queued_entry_count(pid) when is_pid(pid) do
-    GenServer.call(pid, :queue_size)
+    call_participant(pid, :queue_size)
+  end
+
+  defp call_participant(pid, request) do
+    GenServer.call(pid, request)
+  catch
+    :exit, {reason, {GenServer, :call, _}} when reason in [:noproc, :normal, :shutdown, :killed] ->
+      {:error, :not_alive}
+
+    :exit, {{:shutdown, _reason}, {GenServer, :call, _}} ->
+      {:error, :not_alive}
   end
 end

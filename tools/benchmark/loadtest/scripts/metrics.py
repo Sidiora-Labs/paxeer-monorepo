@@ -7,10 +7,8 @@ import argparse
 
 DATE_TIME_FMT = "%Y-%m-%dT%H:%M:%S.%f"
 DEX_MSGS = ["MsgPlaceOrder"]
-parser = argparse.ArgumentParser()
-parser.add_argument("--node", default="localhost", help="Node base URL")
-args = parser.parse_args()
-node_base_url = args.node
+node_base_url = "localhost"
+rpc_base_url = "http://localhost:26657"
 
 def get_block_height(tx_hash_str):
     res = requests.get(f"http://{node_base_url}:1317/txs/{tx_hash_str}")
@@ -33,10 +31,37 @@ def get_all_heights():
                 seen_heights.add(height)
     return sorted(list(seen_heights))
 
+def get_block(height):
+    res = requests.get(f"{rpc_base_url}/block?height={height}")
+    res.raise_for_status()
+    body = res.json()
+    if not isinstance(body, dict) or body.get("jsonrpc") != "2.0":
+        raise ValueError("Invalid block JSON-RPC response")
+    if body.get("error") is not None:
+        error = body["error"]
+        if not isinstance(error, dict):
+            raise ValueError("Invalid block JSON-RPC error")
+        raise RuntimeError(
+            f"Block JSON-RPC error {error.get('code')}: "
+            f"{error.get('message')} ({error.get('data', '')})"
+        )
+    result = body.get("result")
+    if not isinstance(result, dict) or not isinstance(result.get("block"), dict):
+        raise ValueError("Missing result.block in block JSON-RPC response")
+    block = result["block"]
+    data = block.get("data")
+    if not isinstance(data, dict) or "txs" not in data:
+        raise ValueError("Missing result.block.data.txs in block JSON-RPC response")
+    txs = data["txs"]
+    if txs is None:
+        data["txs"] = []
+    elif not isinstance(txs, list) or any(not isinstance(tx, str) for tx in txs):
+        raise ValueError("Invalid result.block.data.txs in block JSON-RPC response")
+    return block
+
 def get_block_info(height):
-    res = requests.get(f"http://{node_base_url}:26657/block?height={height}")
     #timestamp: "2023-02-27T23:00:44.214Z"
-    block = res.json()["block"]
+    block = get_block(height)
     return {
         "height": height,
         "timestamp": datetime.strptime(block["header"]["time"][:26], DATE_TIME_FMT),
@@ -51,8 +76,7 @@ This code is quite brittle as it handles different message types differently, an
 the proto or want to test more modules, we'll need to modify this. However, it works for now.
 """
 def get_transaction_breakdown(height):
-    res = requests.get(f"http://{node_base_url}:26657/block?height={height}")
-    output = res.json()["block"]["data"]["txs"]
+    output = get_block(height)["data"]["txs"]
     tx_mapping = {}
     for tx in output:
         module = None
@@ -142,4 +166,15 @@ def get_metrics():
         }
     }
 
-print(json.dumps(get_metrics(), indent=4))
+def main():
+    global node_base_url, rpc_base_url
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--node", default="localhost", help="Node base URL")
+    args = parser.parse_args()
+    node_base_url = args.node
+    rpc_base_url = f"http://{node_base_url}:26657"
+    print(json.dumps(get_metrics(), indent=4))
+
+
+if __name__ == "__main__":
+    main()

@@ -44765,6 +44765,131 @@
       "connect_timeout_seconds": 3
     },
     {
+      "id": "wallet-gateway:POST:/v1/wallet/evm/review",
+      "service": "wallet-gateway",
+      "method": "POST",
+      "path": "/v1/wallet/evm/review",
+      "transport": "http",
+      "authentication": "requireAuth",
+      "upstream": "wallet-gateway",
+      "timeout_seconds": 8,
+      "retries": 0,
+      "health_predicate": "service-ready-and-network-version-bound",
+      "version": "1",
+      "consumers": [
+        "wallet",
+        "developer"
+      ],
+      "source": "services/wallet/gateway/src/routes/evmApprovals.ts",
+      "proxy": true,
+      "timeout_scope": "per-io",
+      "connect_timeout_seconds": 3,
+      "attestor_authorization_headers": [
+        "X-Agent-Attestor-Authorization-Id",
+        "X-Agent-Attestor-Authorization"
+      ]
+    },
+    {
+      "id": "wallet-gateway:POST:/v1/wallet/evm/approve",
+      "service": "wallet-gateway",
+      "method": "POST",
+      "path": "/v1/wallet/evm/approve",
+      "transport": "http",
+      "authentication": "requireAuth",
+      "upstream": "wallet-gateway",
+      "timeout_seconds": 8,
+      "retries": 0,
+      "health_predicate": "service-ready-and-network-version-bound",
+      "version": "1",
+      "consumers": [
+        "wallet",
+        "developer"
+      ],
+      "source": "services/wallet/gateway/src/routes/evmApprovals.ts",
+      "proxy": true,
+      "timeout_scope": "per-io",
+      "connect_timeout_seconds": 3,
+      "attestor_authorization_headers": [
+        "X-Agent-Attestor-Authorization-Id",
+        "X-Agent-Attestor-Authorization"
+      ]
+    },
+    {
+      "id": "wallet-gateway:POST:/v1/wallet/evm/sign",
+      "service": "wallet-gateway",
+      "method": "POST",
+      "path": "/v1/wallet/evm/sign",
+      "transport": "http",
+      "authentication": "requireAuth",
+      "upstream": "wallet-gateway",
+      "timeout_seconds": 8,
+      "retries": 0,
+      "health_predicate": "service-ready-and-network-version-bound",
+      "version": "1",
+      "consumers": [
+        "wallet",
+        "developer"
+      ],
+      "source": "services/wallet/gateway/src/routes/evmApprovals.ts",
+      "proxy": true,
+      "timeout_scope": "per-io",
+      "connect_timeout_seconds": 3,
+      "attestor_authorization_headers": [
+        "X-Agent-Attestor-Authorization-Id",
+        "X-Agent-Attestor-Authorization"
+      ]
+    },
+    {
+      "id": "wallet-gateway:GET:/v1/wallet/evm/approvals/:id",
+      "service": "wallet-gateway",
+      "method": "GET",
+      "path": "/v1/wallet/evm/approvals/:id",
+      "transport": "http",
+      "authentication": "requireAuth",
+      "upstream": "wallet-gateway",
+      "timeout_seconds": 8,
+      "retries": 0,
+      "health_predicate": "service-ready-and-network-version-bound",
+      "version": "1",
+      "consumers": [
+        "wallet",
+        "developer"
+      ],
+      "source": "services/wallet/gateway/src/routes/evmApprovals.ts",
+      "proxy": true,
+      "timeout_scope": "per-io",
+      "connect_timeout_seconds": 3,
+      "attestor_authorization_headers": [
+        "X-Agent-Attestor-Authorization-Id",
+        "X-Agent-Attestor-Authorization"
+      ]
+    },
+    {
+      "id": "wallet-gateway:POST:/v1/wallet/sponsored/quote",
+      "service": "wallet-gateway",
+      "method": "POST",
+      "path": "/v1/wallet/sponsored/quote",
+      "transport": "http",
+      "authentication": "requireAuth",
+      "upstream": "wallet-gateway",
+      "timeout_seconds": 8,
+      "retries": 0,
+      "health_predicate": "service-ready-and-network-version-bound",
+      "version": "1",
+      "consumers": [
+        "wallet",
+        "developer"
+      ],
+      "source": "services/wallet/gateway/src/routes/wallet.ts",
+      "proxy": true,
+      "timeout_scope": "per-io",
+      "connect_timeout_seconds": 3,
+      "attestor_authorization_headers": [
+        "X-Agent-Attestor-Authorization-Id",
+        "X-Agent-Attestor-Authorization"
+      ]
+    },
+    {
       "id": "wallet-gateway:POST:/v1/wallet/sponsored/submit",
       "service": "wallet-gateway",
       "method": "POST",
@@ -45568,5 +45693,161 @@
   "rpc_paths": [
     "/",
     "/rpc"
+  ],
+  "pending_wiring": [
+    {
+      "task": "22.31.378",
+      "finding": "hosted-route-admission",
+      "status": "local-contract-covered-domain-8-wiring-pending",
+      "backend_router": "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/api_router.ex",
+      "test": "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_31_378_test.exs",
+      "baseline": "Attempt 1 reported 13 tests, 11 failures: the two recorded-data backend cases passed; all seven hosted REST cases, hosted backend-error propagation, and all three hosted page cases failed. Hosted requests returned 404. Seed revision: 2cee03f2494ed1d795e9efd3524744e914edb6b9; exact verify revision and private log were not supplied in the continuation.",
+      "rest_routes": [
+        {
+          "method": "GET",
+          "path": "/api/v2/advanced-filters",
+          "controller": "BlockScoutWeb.API.V2.AdvancedFilterController",
+          "action": "list"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v2/advanced-filters/csv",
+          "controller": "BlockScoutWeb.API.V2.AdvancedFilterController",
+          "action": "list_csv"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v2/advanced-filters/methods",
+          "controller": "BlockScoutWeb.API.V2.AdvancedFilterController",
+          "action": "list_methods"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v2/paxeer-x/feed/markets",
+          "controller": "BlockScoutWeb.API.V2.PaxeerX.FeedController",
+          "action": "markets"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v2/paxeer-x/feed/markets/{market_id}/updates",
+          "controller": "BlockScoutWeb.API.V2.PaxeerX.FeedController",
+          "action": "market_updates"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v2/paxeer-x/feed/updates",
+          "controller": "BlockScoutWeb.API.V2.PaxeerX.FeedController",
+          "action": "updates"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v2/paxeer-x/feed/updates/{hash}",
+          "controller": "BlockScoutWeb.API.V2.PaxeerX.FeedController",
+          "action": "update"
+        }
+      ],
+      "page_patterns": [
+        "/explorer/feed",
+        "/explorer/feed/market/[id]",
+        "/explorer/feed/update/[hash]"
+      ],
+      "proving_tests": [
+        "recorded submissions traverse the decoder, database, router and feed consumers",
+        "advanced-filter routes preserve list, CSV and method-query responses",
+        "hosted REST admission preserves list producer response",
+        "hosted REST admission preserves list_csv producer response",
+        "hosted REST admission preserves list_methods producer response",
+        "hosted REST admission preserves markets producer response",
+        "hosted REST admission preserves market_updates producer response",
+        "hosted REST admission preserves updates producer response",
+        "hosted REST admission preserves update producer response",
+        "hosted REST admission preserves backend errors",
+        "hosted feed page index reaches the frontend",
+        "hosted feed page market reaches the frontend",
+        "hosted feed page update reaches the frontend",
+        "admission contract enumerates exactly the seven backend interfaces",
+        "optional hosted probe performs no request without explicit origins"
+      ],
+      "wiring_requests": [
+        "Domain 8: services/platform/hosted/gateway/src/explorer_proxy.rs must admit the seven exact GET rest_routes under /explorer/backend, preserving existing header, query, origin, timeout and input bounds.",
+        "Domain 8: services/platform/hosted/gateway/src/ui_proxy.rs must admit the three exact page_patterns using the existing GET/HEAD policy and input bounds.",
+        "Domain 14 with Domain 8: services/platform/hosted/gateway/tests must exercise the production Rust gateway with loopback backend/frontend peers for all seven REST paths, encoded queries, JSON/CSV headers, 404/422 errors and GET/HEAD page loads."
+      ],
+      "qualification": "The focused gate covers the committed admission contract and the production Phoenix endpoint with recorded chain data, plus the frontend page/resource mappings recorded from the Next sources; it does not certify the out-of-scope Rust gateway or rendered page loads. Domain 8/14 wiring remains pending.",
+      "baseline_command": "services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test/repair/repair_22_31_378_test.exs",
+      "baseline_exit": 2,
+      "baseline_failed_tests": [
+        "hosted REST admission preserves list producer response",
+        "hosted REST admission preserves list_csv producer response",
+        "hosted REST admission preserves list_methods producer response",
+        "hosted REST admission preserves markets producer response",
+        "hosted REST admission preserves market_updates producer response",
+        "hosted REST admission preserves updates producer response",
+        "hosted REST admission preserves update producer response",
+        "hosted REST admission preserves backend errors",
+        "hosted feed page index reaches the frontend",
+        "hosted feed page market reaches the frontend",
+        "hosted feed page update reaches the frontend"
+      ],
+      "qualification_blockers": [
+        "Domain 8: services/platform/hosted/gateway/src/explorer_proxy.rs owns production REST admission and does not load this contract.",
+        "Domain 8: services/platform/hosted/gateway/src/ui_proxy.rs owns production page admission and does not load this contract.",
+        "Domain 14 with Domain 8: services/platform/hosted/gateway/tests must qualify actual frontend page loads with the production gateway."
+      ],
+      "hosted_backend_prefix": "/explorer/backend",
+      "page_routes": [
+        {
+          "pattern": "/explorer/feed",
+          "methods": [
+            "GET",
+            "HEAD"
+          ],
+          "source": "apps/explorer/pages/feed/index.tsx",
+          "component": "PaxeerXFeed",
+          "resource": "paxeer_x_feed_markets",
+          "resource_path": "/api/v2/paxeer-x/feed/markets",
+          "backend_action": "markets",
+          "recorded_page_source": "import type { NextPage } from 'next';\nimport dynamic from 'next/dynamic';\nimport React from 'react';\n\nimport PageNextJs from 'nextjs/PageNextJs';\n\nconst PaxeerXFeed = dynamic(() => import('ui/pages/PaxeerXFeed'), { ssr: false });\n\nconst Page: NextPage = () => {\n  return (\n    <PageNextJs pathname=\"/feed\">\n      <PaxeerXFeed/>\n    </PageNextJs>\n  );\n};\n\nexport default Page;\n\nexport { paxeerXFeed as getServerSideProps } from 'nextjs/getServerSideProps/main';\n"
+        },
+        {
+          "pattern": "/explorer/feed/market/[id]",
+          "methods": [
+            "GET",
+            "HEAD"
+          ],
+          "source": "apps/explorer/pages/feed/market/[id].tsx",
+          "component": "PaxeerXFeedMarket",
+          "resource": "paxeer_x_feed_market_updates",
+          "resource_path": "/api/v2/paxeer-x/feed/markets/:id/updates",
+          "backend_action": "market_updates",
+          "recorded_page_source": "import type { GetServerSideProps, NextPage } from 'next';\nimport dynamic from 'next/dynamic';\nimport React from 'react';\n\nimport type { Route } from 'nextjs-routes';\nimport type { Props } from 'nextjs/getServerSideProps/handlers';\nimport * as gSSP from 'nextjs/getServerSideProps/main';\nimport PageNextJs from 'nextjs/PageNextJs';\n\nconst PaxeerXFeedMarket = dynamic(() => import('ui/pages/PaxeerXFeedMarket'), { ssr: false });\n\nconst pathname: Route['pathname'] = '/feed/market/[id]';\n\nconst Page: NextPage<Props<typeof pathname>> = (props: Props<typeof pathname>) => {\n  return (\n    <PageNextJs pathname={ pathname } query={ props.query }>\n      <PaxeerXFeedMarket/>\n    </PageNextJs>\n  );\n};\n\nexport default Page;\n\nexport const getServerSideProps: GetServerSideProps<Props<typeof pathname>> = gSSP.paxeerXFeed;\n"
+        },
+        {
+          "pattern": "/explorer/feed/update/[hash]",
+          "methods": [
+            "GET",
+            "HEAD"
+          ],
+          "source": "apps/explorer/pages/feed/update/[hash].tsx",
+          "component": "PaxeerXFeedUpdate",
+          "resource": "paxeer_x_feed_update",
+          "resource_path": "/api/v2/paxeer-x/feed/updates/:hash",
+          "backend_action": "update",
+          "recorded_page_source": "import type { GetServerSideProps, NextPage } from 'next';\nimport dynamic from 'next/dynamic';\nimport React from 'react';\n\nimport type { Route } from 'nextjs-routes';\nimport type { Props } from 'nextjs/getServerSideProps/handlers';\nimport * as gSSP from 'nextjs/getServerSideProps/main';\nimport PageNextJs from 'nextjs/PageNextJs';\n\nconst PaxeerXFeedUpdate = dynamic(() => import('ui/pages/PaxeerXFeedUpdate'), { ssr: false });\n\nconst pathname: Route['pathname'] = '/feed/update/[hash]';\n\nconst Page: NextPage<Props<typeof pathname>> = (props: Props<typeof pathname>) => {\n  return (\n    <PageNextJs pathname={ pathname } query={ props.query }>\n      <PaxeerXFeedUpdate/>\n    </PageNextJs>\n  );\n};\n\nexport default Page;\n\nexport const getServerSideProps: GetServerSideProps<Props<typeof pathname>> = gSSP.paxeerXFeed;\n"
+        }
+      ],
+      "optional_probe": "BlockScoutWeb.Repair2231378Test.probe_hosted/3 takes explicit gateway_origin, backend_origin and frontend_origin arguments; nil returns {:skipped, :url_not_supplied}. Qualification reads no environment variables and makes no HTTP requests.",
+      "continuation_baseline": {
+        "revision": "c6e3dd1444bcf920a08863d9386974e908498015",
+        "command": "services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test/repair/repair_22_31_378_test.exs",
+        "exit": 2,
+        "observed": "Attempt 2 reported the same 11 failing cases, stopped by its loopback-only assertion before any HTTP request; the two recorded-data controller cases passed.",
+        "log": "not supplied in continuation"
+      },
+      "recorded_resource_source": {
+        "path": "apps/explorer/lib/api/services/general/paxeerXFeed.ts",
+        "content": "import type { ApiResource } from '../../types';\nimport type { FeedMarketsResponse, MarketUpdatesResponse, PriceUpdateItem } from 'types/api/paxeerXFeed';\n\nexport const GENERAL_API_PAXEER_X_FEED_RESOURCES = {\n  paxeer_x_feed_markets: {\n    path: '/api/v2/paxeer-x/feed/markets',\n  },\n  paxeer_x_feed_update: {\n    path: '/api/v2/paxeer-x/feed/updates/:hash',\n    pathParams: [ 'hash' as const ],\n  },\n  paxeer_x_feed_market_updates: {\n    path: '/api/v2/paxeer-x/feed/markets/:id/updates',\n    pathParams: [ 'id' as const ],\n    filterFields: [],\n    paginated: true,\n  },\n} satisfies Record<string, ApiResource>;\n\nexport type GeneralApiPaxeerXFeedResourceName = `general:${ keyof typeof GENERAL_API_PAXEER_X_FEED_RESOURCES }`;\n\nexport type GeneralApiPaxeerXFeedResourcePayload<R extends GeneralApiPaxeerXFeedResourceName> =\n  R extends 'general:paxeer_x_feed_markets' ? FeedMarketsResponse :\n    R extends 'general:paxeer_x_feed_update' ? PriceUpdateItem :\n      R extends 'general:paxeer_x_feed_market_updates' ? MarketUpdatesResponse :\n        never;\n"
+      }
+    }
   ]
 }

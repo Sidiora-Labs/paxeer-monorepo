@@ -1,0 +1,15 @@
+[repair.22.33.924]
+audit = "22.30.21"
+base_revision = "0e1d5eb94cabe89e2260279a849b7154911ef8ee"
+mode = "BUILD"
+qualification = "hf-build then hf-done; the runner records the exact candidate revision, command, exit code and private evidence location in /out/run/gates.jsonl and the final evidence line."
+baseline = "No unchanged-tree verify was run: the explicit task Order requires complete implementation first and hf-done as the sole initial verification; no pre-change test failures are claimed. The audit records the absent ignored Hardhat artifact directory."
+
+[finding.catalog-checkout-artifacts]
+proof = ["TestRepairM_924_CheckoutProvenance", "TestRepairM_924_ReviewedArtifactConsumer", "TestRepairM_924_ReviewRefusals"]
+path = "Pinned checked-in compiler artifact and complete Solidity input sources/settings -> reviewed bundle JSON -> real Registry.WithReviewedOpticalRegistry and Registry.Decode; retain digest, compiler/source/ABI identities, explicit attestation, activation bounds and base-registry immutability refusals."
+capture = "One Solidity compiler execution recorded the fixture from the real OpticalRegistry and its recursive imports; source/test implementation preceded capture, and the gate never invokes the recorder."
+fixture = "testdata/repair-m924 contains Solidity 0.8.27 compiler output, its full standard input and the independently pinned review. capture.cjs records it; the gate only reads embedded JSON and invokes no subprocess, environment variable, native artifact or external service."
+
+[wiring.generator-inputs]
+request = "sdk/launchpad/protocol/generator-inputs/test_export.py — owning domain 4: its separate OpticalRegistry provenance test also reads ignored contracts/launchpad/artifacts; consume a checked-in provenance fixture or declare its compiler provisioning in that task's setup."

@@ -1,8 +1,4 @@
 use std::collections::{BTreeMap, BTreeSet};
-use std::fs::{File, OpenOptions};
-use std::io::{BufRead as _, BufReader, Write as _};
-use std::os::unix::fs::MetadataExt as _;
-use std::os::unix::fs::OpenOptionsExt as _;
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
@@ -10,6 +6,9 @@ use serde::{Deserialize, Serialize};
 use crate::quote::{keccak, quote_digest, word, Address, Quote, Word};
 use crate::tx::{recover, Fees};
 use crate::SignedQuote;
+
+#[path = "journal_storage.rs"]
+mod storage;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum JournalError {
@@ -184,6 +183,9 @@ impl Admission {
 #[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Entry {
+    PolicyBound {
+        identity: PolicyIdentity,
+    },
     QuoteReserved {
         quote: Box<QuoteRecord>,
     },
@@ -287,27 +289,287 @@ pub struct Settlement {
     pub cost_wei: u128,
     pub succeeded: bool,
 }
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
+#[serde(deny_unknown_fields)]
 pub struct Item {
     pub account: Address,
     pub quote: Option<QuoteRecord>,
     pub submission: Option<Submission>,
     pub completion: Option<Completion>,
 }
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct PolicyIdentity {
+    pub station: Word,
+    pub sponsor: Address,
+    pub interval_seconds: u64,
+    pub did_gas_limit: u64,
+    pub registered_senders: Vec<crate::config::RegisteredSender>,
+}
+impl PolicyIdentity {
+    pub(crate) fn new(
+        config: &crate::config::StationConfig,
+        sponsor: Address,
+        did_gas_limit: u64,
+        senders: &[crate::config::RegisteredSender],
+    ) -> Result<Self, JournalError> {
+        let mut registered_senders = senders.to_vec();
+        registered_senders.sort_by_key(|sender| sender.address);
+        let encoded = serde_json::to_vec(&serde_json::json!([
+            config.chain_id,
+            config.paymaster,
+            config.token,
+            config.decimals,
+            config.max_rate_age,
+            config.spread_bps,
+            config.margin_bps,
+            config.per_account_limit.to_string(),
+            config.per_interval_limit.to_string(),
+            config.per_quote_limit.to_string(),
+            config.interval_seconds,
+            config.balance_floor.to_string()
+        ]))
+        .map_err(|_| JournalError::Corrupt)?;
+        Ok(Self {
+            station: keccak(&encoded),
+            sponsor,
+            interval_seconds: config.interval_seconds,
+            did_gas_limit,
+            registered_senders,
+        })
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct TokenUsage {
+    pub account: Address,
+    pub did: String,
+    pub amount: u128,
+    pub issued_at: u64,
+}
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct GasUsage {
+    pub did: String,
+    pub gas: u64,
+    pub issued_at: u64,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize, Eq, PartialEq)]
+#[serde(deny_unknown_fields)]
 pub struct State {
+    #[serde(with = "storage::map")]
     pub items: BTreeMap<Key, Item>,
+    #[serde(with = "storage::map")]
     pub receipts: BTreeMap<Word, serde_json::Value>,
+    #[serde(with = "storage::map")]
     pub publications: BTreeMap<Word, (Publication, Option<Settlement>)>,
+    #[serde(with = "storage::map")]
     pub admissions: BTreeMap<Word, (Admission, Key)>,
     pub tracked_quotes: BTreeSet<Key>,
+    #[serde(with = "storage::map")]
     pub signing_intents: BTreeMap<Key, u64>,
+    #[serde(with = "storage::map")]
     pub liability_releases: BTreeMap<Key, LiabilityRelease>,
+    #[serde(with = "storage::map")]
     pub rate_transactions: BTreeMap<Word, PublicationTransaction>,
+    #[serde(with = "storage::map")]
     pub rate_active: BTreeMap<(Address, u64), Word>,
     pub rate_broadcast: BTreeSet<Word>,
+    pub policy_identity: Option<PolicyIdentity>,
+    pub token_usage: Vec<TokenUsage>,
+    pub gas_usage: Vec<GasUsage>,
+    pub time_high_water: u64,
+    pub quote_nonce_high_water: Word,
+    pub retired_finalized_spend: u128,
+    pub retired_rate_gas: u128,
+    pub retired_rate_wei: u128,
+    pub rate_identity: Option<(Address, u64, Address)>,
+    pub rate_fee_high_water: u128,
+    #[serde(with = "storage::map")]
+    pub finalized_nonces: BTreeMap<Address, u64>,
+    #[serde(with = "storage::map")]
+    pub rate_finalized_nonces: BTreeMap<Address, u64>,
+    #[serde(with = "storage::map")]
+    pub rate_history: BTreeMap<u64, (u128, u128)>,
 }
+
 impl State {
+    fn working_records(&self) -> usize {
+        self.items.len()
+            + self.publications.len()
+            + self.token_usage.len()
+            + self.gas_usage.len()
+            + self.finalized_nonces.len()
+            + self.rate_finalized_nonces.len()
+            + self.rate_history.len()
+    }
+
+    fn compact(&mut self) -> Result<Vec<Key>, JournalError> {
+        let now = self.time_high_water;
+        let interval_seconds = self.policy_identity.as_ref().map(|p| p.interval_seconds);
+        let mut tokens = BTreeMap::<(Address, String), u128>::new();
+        let mut gas = BTreeMap::<String, u64>::new();
+        for usage in &self.token_usage {
+            if interval_seconds.is_some_and(|seconds| usage.issued_at / seconds == now / seconds) {
+                let total = tokens
+                    .entry((usage.account, usage.did.clone()))
+                    .or_default();
+                *total = total
+                    .checked_add(usage.amount)
+                    .ok_or(JournalError::Corrupt)?;
+            }
+        }
+        for usage in &self.gas_usage {
+            if usage.issued_at / 86_400 == now / 86_400 {
+                let total = gas.entry(usage.did.clone()).or_default();
+                *total = total.checked_add(usage.gas).ok_or(JournalError::Corrupt)?;
+            }
+        }
+        let mut retired = Vec::new();
+        for (key, item) in &self.items {
+            let released = self.liability_releases.contains_key(key);
+            let consumed = item.quote.is_none() && item.completion == Some(Completion::Consumed);
+            if !released && !consumed {
+                continue;
+            }
+            // Legacy quotes without a persisted policy must retain their full history.
+            if item.quote.is_some() && interval_seconds.is_none() {
+                continue;
+            }
+            // Keep current admissions so the unchanged 4/128 limits include released quotes.
+            if item.quote.as_ref().is_some_and(|quote| {
+                interval_seconds.is_some_and(|seconds| quote.issued_at / seconds == now / seconds)
+            }) {
+                continue;
+            }
+            if let Some(quote) = &item.quote {
+                if quote.amount[..16] != [0; 16] {
+                    return Err(JournalError::Corrupt);
+                }
+                if interval_seconds
+                    .is_some_and(|seconds| quote.issued_at / seconds == now / seconds)
+                {
+                    let total = tokens
+                        .entry((quote.account, quote.did.clone()))
+                        .or_default();
+                    *total = total
+                        .checked_add(u128::from_be_bytes(
+                            quote.amount[16..]
+                                .try_into()
+                                .map_err(|_| JournalError::Corrupt)?,
+                        ))
+                        .ok_or(JournalError::Corrupt)?;
+                }
+                if quote.issued_at / 86_400 == now / 86_400 {
+                    let total = gas.entry(quote.did.clone()).or_default();
+                    *total = total
+                        .checked_add(quote.fees.gas_limit)
+                        .ok_or(JournalError::Corrupt)?;
+                }
+            }
+            if let Some(LiabilityRelease::Settled { hash }) = self.liability_releases.get(key) {
+                self.retired_finalized_spend = self
+                    .retired_finalized_spend
+                    .checked_add(self.settlement_cost(*key, *hash)?)
+                    .ok_or(JournalError::Corrupt)?;
+                if let Some(submission) = &item.submission {
+                    self.finalized_nonces
+                        .entry(key.sponsor)
+                        .and_modify(|last| *last = (*last).max(submission.nonce))
+                        .or_insert(submission.nonce);
+                }
+            }
+            retired.push(*key);
+        }
+        for key in &retired {
+            if let Some(item) = self.items.remove(key) {
+                if let Some(submission) = item.submission {
+                    self.receipts.remove(&submission.hash);
+                }
+            }
+            self.tracked_quotes.remove(key);
+            self.signing_intents.remove(key);
+            self.liability_releases.remove(key);
+        }
+        self.admissions
+            .retain(|_, (_, key)| self.items.contains_key(key));
+        self.token_usage = tokens
+            .into_iter()
+            .map(|((account, did), amount)| TokenUsage {
+                account,
+                did,
+                amount,
+                issued_at: now,
+            })
+            .collect();
+        self.gas_usage = gas
+            .into_iter()
+            .map(|(did, gas)| GasUsage {
+                did,
+                gas,
+                issued_at: now,
+            })
+            .collect();
+        let mut settled = BTreeMap::new();
+        for (publication, settlement) in self.publications.values() {
+            if let Some(settlement) = settlement {
+                settled.insert(
+                    (publication.owner, publication.nonce),
+                    (*publication, *settlement),
+                );
+            }
+        }
+        for ((owner, nonce), (publication, settlement)) in &settled {
+            let total = self
+                .rate_history
+                .entry(publication.signed_at / 86_400)
+                .or_default();
+            total.0 = total
+                .0
+                .checked_add(u128::from(settlement.gas_used))
+                .ok_or(JournalError::Corrupt)?;
+            total.1 = total
+                .1
+                .checked_add(settlement.cost_wei)
+                .ok_or(JournalError::Corrupt)?;
+            self.rate_finalized_nonces
+                .entry(*owner)
+                .and_modify(|last| *last = (*last).max(*nonce))
+                .or_insert(*nonce);
+        }
+        self.publications
+            .retain(|_, (p, _)| !settled.contains_key(&(p.owner, p.nonce)));
+        self.rate_transactions
+            .retain(|hash, _| self.publications.contains_key(hash));
+        self.rate_broadcast
+            .retain(|hash| self.publications.contains_key(hash));
+        self.rate_active
+            .retain(|group, _| !settled.contains_key(group));
+        let old_days: Vec<_> = self
+            .rate_history
+            .keys()
+            .copied()
+            .filter(|day| *day < now / 86_400)
+            .collect();
+        for day in old_days {
+            let (gas, wei) = self
+                .rate_history
+                .remove(&day)
+                .ok_or(JournalError::Corrupt)?;
+            self.retired_rate_gas = self
+                .retired_rate_gas
+                .checked_add(gas)
+                .ok_or(JournalError::Corrupt)?;
+            self.retired_rate_wei = self
+                .retired_rate_wei
+                .checked_add(wei)
+                .ok_or(JournalError::Corrupt)?;
+        }
+        Ok(retired)
+    }
+
     /// The gas the rate publisher spent or reserved on the chain day `day`
     /// (chain time divided by 86400): the gas used of each settled
     /// publication and the gas limit of each unsettled one.
@@ -330,7 +592,10 @@ impl State {
                 .and_modify(|value| *value = (*value).max(gas))
                 .or_insert(gas);
         }
-        groups.values().copied().fold(0, u128::saturating_add)
+        groups.values().copied().fold(
+            self.rate_history.get(&day).map_or(0, |value| value.0),
+            u128::saturating_add,
+        )
     }
     /// The wei the rate publisher spent on the chain day `day`: the cost of
     /// each settled publication signed that day.
@@ -340,7 +605,10 @@ impl State {
             .values()
             .filter(|(p, _)| p.signed_at / 86_400 == day)
             .filter_map(|(_, s)| s.map(|s| s.cost_wei))
-            .fold(0, u128::saturating_add)
+            .fold(
+                self.rate_history.get(&day).map_or(0, |value| value.1),
+                u128::saturating_add,
+            )
     }
     /// The publications still able to spend: unsettled, with no settled
     /// publication of the same owner at their nonce or above.
@@ -385,15 +653,18 @@ impl State {
     /// sequencer did not refuse holds `nonce`.
     #[must_use]
     pub fn holds(&self, sponsor: Address, nonce: u64) -> bool {
-        self.items.iter().any(|(key, item)| {
-            key.sponsor == sponsor
-                && !self.refused(key)
-                && (self
-                    .signing_intents
-                    .get(key)
-                    .is_some_and(|saved| *saved == nonce)
-                    || item.submission.as_ref().is_some_and(|s| s.nonce == nonce))
-        })
+        self.finalized_nonces
+            .get(&sponsor)
+            .is_some_and(|last| nonce <= *last)
+            || self.items.iter().any(|(key, item)| {
+                key.sponsor == sponsor
+                    && !self.refused(key)
+                    && (self
+                        .signing_intents
+                        .get(key)
+                        .is_some_and(|saved| *saved == nonce)
+                        || item.submission.as_ref().is_some_and(|s| s.nonce == nonce))
+            })
     }
     #[must_use]
     pub fn next_nonce(&self, sponsor: Address, pending: u64) -> Option<u64> {
@@ -407,7 +678,12 @@ impl State {
         }) {
             return None;
         }
-        let mut nonce = pending;
+        let mut nonce = self
+            .finalized_nonces
+            .get(&sponsor)
+            .map_or(Some(pending), |last| {
+                last.checked_add(1).map(|next| pending.max(next))
+            })?;
         while self.holds(sponsor, nonce) {
             nonce = nonce.checked_add(1)?;
         }
@@ -475,9 +751,9 @@ impl State {
     /// # Errors
     /// Refuses a corrupt settlement record or an overflowing total.
     pub fn finalized_spend(&self) -> Result<u128, JournalError> {
-        self.liability_releases
-            .iter()
-            .try_fold(0u128, |sum, (key, proof)| {
+        self.liability_releases.iter().try_fold(
+            self.retired_finalized_spend,
+            |sum, (key, proof)| {
                 let spent = match proof {
                     LiabilityRelease::Expired { .. }
                     | LiabilityRelease::Refused { .. }
@@ -485,7 +761,8 @@ impl State {
                     LiabilityRelease::Settled { hash } => self.settlement_cost(*key, *hash)?,
                 };
                 sum.checked_add(spent).ok_or(JournalError::Corrupt)
-            })
+            },
+        )
     }
 
     fn settlement_cost(&self, key: Key, hash: Word) -> Result<u128, JournalError> {
@@ -525,6 +802,20 @@ impl State {
 
     fn apply(&mut self, entry: &Entry) -> Result<(), JournalError> {
         match entry {
+            Entry::PolicyBound { identity } => {
+                if identity.interval_seconds == 0 || identity.did_gas_limit == 0 {
+                    return Err(JournalError::Corrupt);
+                }
+                if self
+                    .policy_identity
+                    .as_ref()
+                    .is_some_and(|saved| saved != identity)
+                {
+                    return Err(JournalError::Conflict);
+                }
+                self.policy_identity = Some(identity.clone());
+                Ok(())
+            }
             Entry::QuoteReserved { quote } => self.apply_quote_reserved(quote),
             Entry::SigningIntent { key, nonce, digest } => {
                 self.apply_signing_intent(key, *nonce, digest)
@@ -697,9 +988,14 @@ impl State {
 
     fn apply_quoted(&mut self, quote: &QuoteRecord) -> Result<(), JournalError> {
         quote.signed_quote()?;
+        if quote.issued_at < self.time_high_water {
+            return Err(JournalError::Conflict);
+        }
         if self.items.contains_key(&quote.key) {
             return Err(JournalError::Conflict);
         }
+        self.time_high_water = self.time_high_water.max(quote.issued_at);
+        self.quote_nonce_high_water = self.quote_nonce_high_water.max(quote.key.quote_nonce);
         self.items.insert(
             quote.key,
             Item {
@@ -722,6 +1018,13 @@ impl State {
             .and_then(|item| item.quote.as_ref())
             .ok_or(JournalError::Conflict)?;
         if submission.did != quote.did || submission.batch_nonce != quote.batch_nonce {
+            return Err(JournalError::Conflict);
+        }
+        if self
+            .finalized_nonces
+            .get(&key.sponsor)
+            .is_some_and(|last| submission.nonce <= *last)
+        {
             return Err(JournalError::Conflict);
         }
         if submission.raw.first() != Some(&4) || keccak(&submission.raw) != submission.hash {
@@ -762,6 +1065,7 @@ impl State {
         account: &Address,
         completion: &Completion,
     ) -> Result<(), JournalError> {
+        self.quote_nonce_high_water = self.quote_nonce_high_water.max(key.quote_nonce);
         let item = self.items.entry(*key).or_insert(Item {
             account: *account,
             quote: None,
@@ -826,7 +1130,12 @@ impl State {
     }
 
     fn apply_rate_published(&mut self, publication: &Publication) -> Result<(), JournalError> {
-        if publication.hash == [0; 32]
+        if self
+            .rate_finalized_nonces
+            .get(&publication.owner)
+            .is_some_and(|last| publication.nonce <= *last)
+            || publication.signed_at < self.time_high_water
+            || publication.hash == [0; 32]
             || publication.rate == [0; 32]
             || publication.gas_limit == 0
             || publication.max_fee_per_gas == 0
@@ -836,6 +1145,7 @@ impl State {
         if self.publications.contains_key(&publication.hash) {
             return Err(JournalError::Conflict);
         }
+        self.time_high_water = self.time_high_water.max(publication.signed_at);
         self.publications
             .insert(publication.hash, (*publication, None));
         Ok(())
@@ -872,7 +1182,18 @@ impl State {
     ) -> Result<(), JournalError> {
         crate::rate::validate_publication_transaction(transaction)?;
         let p = transaction.publication;
-        if transaction.cancellation
+        let identity = (p.owner, transaction.chain_id, transaction.paymaster);
+        if self.rate_identity.is_some_and(|saved| saved != identity) {
+            return Err(JournalError::Conflict);
+        }
+        if p.signed_at < self.time_high_water {
+            return Err(JournalError::Conflict);
+        }
+        if self
+            .rate_finalized_nonces
+            .get(&p.owner)
+            .is_some_and(|last| p.nonce <= *last)
+            || transaction.cancellation
             || self.rate_active.contains_key(&(p.owner, p.nonce))
             || self
                 .publications
@@ -882,6 +1203,9 @@ impl State {
         {
             return Err(JournalError::Conflict);
         }
+        self.rate_identity = Some(identity);
+        self.rate_fee_high_water = self.rate_fee_high_water.max(p.max_fee_per_gas);
+        self.time_high_water = self.time_high_water.max(p.signed_at);
         self.publications.insert(p.hash, (p, None));
         self.rate_transactions.insert(p.hash, transaction.clone());
         self.rate_active.insert((p.owner, p.nonce), p.hash);
@@ -933,6 +1257,7 @@ impl State {
         {
             return Err(JournalError::Conflict);
         }
+        self.rate_fee_high_water = self.rate_fee_high_water.max(p.max_fee_per_gas);
         self.publications.insert(p.hash, (p, None));
         self.rate_transactions.insert(p.hash, transaction.clone());
         self.rate_active.insert((p.owner, p.nonce), p.hash);
@@ -1064,67 +1389,66 @@ fn unreadable(line: &[u8]) -> JournalError {
 }
 
 pub struct Journal {
-    file: File,
+    storage: storage::Storage,
     state: State,
     poisoned: bool,
+    appended: usize,
 }
 impl Journal {
     /// # Errors
-    /// Refuses concurrent writers, malformed lines, torn tails and contradictory records.
+    /// Refuses concurrent writers, malformed records, torn tails and invalid authentication.
     pub fn open(path: &Path) -> Result<Self, JournalError> {
-        let mut options = OpenOptions::new();
-        options.read(true).append(true).create(true).mode(0o600);
-        #[cfg(target_os = "linux")]
-        options.custom_flags(0x20000);
-        let file = options.open(path).map_err(|_| JournalError::Io)?;
-        let metadata = file.metadata().map_err(|_| JournalError::Io)?;
-        let owner = std::fs::metadata("/proc/self")
-            .map_err(|_| JournalError::Io)?
-            .uid();
-        if !metadata.is_file()
-            || metadata.mode() & 0o077 != 0
-            || metadata.nlink() != 1
-            || metadata.uid() != owner
-        {
-            return Err(JournalError::Corrupt);
-        }
-        file.try_lock().map_err(|_| JournalError::Locked)?;
-        let mut reader = BufReader::new(&file);
-        let mut state = State::default();
-        loop {
-            let mut line = Vec::new();
-            let count = reader
-                .read_until(b'\n', &mut line)
-                .map_err(|_| JournalError::Io)?;
-            if count == 0 {
-                break;
-            }
-            if line.last() != Some(&b'\n') || count > 4_194_304 {
-                return Err(JournalError::Corrupt);
-            }
-            let entry = serde_json::from_slice(&line).map_err(|_| unreadable(&line))?;
-            state.apply(&entry)?;
-        }
-        file.sync_all().map_err(|_| JournalError::Io)?;
-        let parent = path
-            .parent()
-            .filter(|p| !p.as_os_str().is_empty())
-            .unwrap_or_else(|| Path::new("."));
-        File::open(parent)
-            .and_then(|f| f.sync_all())
-            .map_err(|_| JournalError::Io)?;
+        let (storage, state) = storage::Storage::open(path)?;
+        let appended = storage.tail_records;
         Ok(Self {
-            file,
+            storage,
             state,
             poisoned: false,
+            appended,
         })
     }
     #[must_use]
     pub const fn state(&self) -> &State {
         &self.state
     }
+
     /// # Errors
-    /// Refuses conflicting entries and permanently stops this writer after uncertain disk writes.
+    /// Refuses an unreadable or unauthenticated replay index.
+    pub fn retired(&self, key: Key) -> Result<bool, JournalError> {
+        self.storage.contains(key)
+    }
+
+    /// # Errors
+    /// Refuses a changed policy identity or an uncertain disk write.
+    pub(crate) fn bind_policy(&mut self, identity: PolicyIdentity) -> Result<(), JournalError> {
+        if self.state.policy_identity.as_ref() == Some(&identity) {
+            return Ok(());
+        }
+        self.append(&Entry::PolicyBound { identity })
+    }
+
+    /// Atomically rotates the authenticated snapshot and retires released history.
+    /// # Errors
+    /// Refuses corrupt accounting, index capacity or uncertain disk writes.
+    pub fn compact(&mut self) -> Result<(), JournalError> {
+        if self.poisoned {
+            return Err(JournalError::Io);
+        }
+        let mut next = self.state.clone();
+        let retired = next.compact()?;
+        if next.working_records() > storage::MAX_WORKING_RECORDS {
+            return Err(JournalError::Conflict);
+        }
+        self.poisoned = true;
+        self.storage.rotate(&next, &retired)?;
+        self.state = next;
+        self.appended = 0;
+        self.poisoned = false;
+        Ok(())
+    }
+
+    /// # Errors
+    /// Refuses conflicting entries and permanently stops after uncertain disk writes.
     pub fn append(&mut self, entry: &Entry) -> Result<(), JournalError> {
         if self.poisoned {
             return Err(JournalError::Io);
@@ -1139,20 +1463,30 @@ impl Journal {
                 return Ok(());
             }
         }
+        let quote_key = match entry {
+            Entry::QuoteReserved { quote }
+            | Entry::QuoteAdmitted { quote, .. }
+            | Entry::Quoted { quote } => Some(quote.key),
+            Entry::Completed { key, .. } if !self.state.items.contains_key(key) => Some(*key),
+            _ => None,
+        };
+        if let Some(key) = quote_key {
+            if self.retired(key)? {
+                return Err(JournalError::Conflict);
+            }
+        }
+        if self.appended >= storage::ROTATE_RECORDS {
+            self.compact()?;
+        }
         let mut next = self.state.clone();
         next.apply(entry)?;
-        let mut line = serde_json::to_vec(entry).map_err(|_| JournalError::Corrupt)?;
-        line.push(b'\n');
-        if line.len() > 4_194_304 {
-            return Err(JournalError::Corrupt);
+        if next.working_records() > storage::MAX_WORKING_RECORDS {
+            return Err(JournalError::Conflict);
         }
         self.poisoned = true;
-        self.file
-            .write_all(&line)
-            .and_then(|()| self.file.flush())
-            .and_then(|()| self.file.sync_all())
-            .map_err(|_| JournalError::Io)?;
+        self.storage.append(entry)?;
         self.state = next;
+        self.appended += 1;
         self.poisoned = false;
         Ok(())
     }
@@ -1162,6 +1496,8 @@ impl Journal {
 mod tests {
     use super::*;
     use crate::signer::QuoteSigner;
+    use std::fs::OpenOptions;
+    use std::io::Write as _;
     #[test]
     fn append_replay_lock_conflict_and_corruption() -> Result<(), Box<dyn std::error::Error>> {
         let path =

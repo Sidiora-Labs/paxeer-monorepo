@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/chainread"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/store"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
@@ -19,7 +18,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"log/slog"
 	"regexp"
-	"strconv"
 	"sync"
 	"time"
 
@@ -190,8 +188,9 @@ type AccountingConfig struct {
 	SeriesCheckpoint                          func(context.Context, pgx.Tx, accounting.PublicationV1) (engine.SeriesCheckpoint, error)
 }
 type AccountingConsumer struct {
-	config    AccountingConfig
-	reprocess *ReprocessRequest
+	config       AccountingConfig
+	reprocess    *ReprocessRequest
+	completeness *completenessRuntime
 }
 
 func NewAccountingConsumer(config AccountingConfig) (*AccountingConsumer, error) {
@@ -374,59 +373,11 @@ func NewSourceVerifiedAccountingConsumer(config SourceVerifiedAccountingConfig) 
 	}
 	var mu sync.Mutex
 	initialized := map[string]bool{}
-	sourceState := func(ctx context.Context, tx pgx.Tx) (int64, error) {
-		var raw, typed, fence int64
-		var owner string
-		var alive bool
-		err := tx.QueryRow(ctx, `SELECT w.raw_complete_height,w.typed_complete_height,l.fence_token,l.owner_instance,l.expires_at>clock_timestamp() FROM indexer.indexer_ingest_watermarks_v1 w JOIN indexer.indexer_ingest_leases_v1 l USING(chain_id,stream_id) WHERE w.chain_id=125 AND w.stream_id=$1`, config.SourceStream).Scan(&raw, &typed, &fence, &owner, &alive)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return 0, ErrAccountingSourceUnavailable
-		}
-		if err != nil {
-			return 0, err
-		}
-		if raw < 0 || raw != typed || fence <= 0 || owner == "" || !alive {
-			return 0, ErrAccountingSourceUnavailable
-		}
-		return typed, nil
+	authority := func(tx pgx.Tx) sourceAuthority {
+		return sourceAuthority{reader: postgresSourceAuthority{tx: tx, config: config}, rpc: config.RPC, projection: config.ProjectionVersion}
 	}
 	authorize := func(ctx context.Context, tx pgx.Tx, fill accounting.FillV1) error {
-		if err := accounting.ValidateFillV1(fill); err != nil {
-			return fmt.Errorf("%w: %v", ErrAccountingAuthority, err)
-		}
-		watermark, err := sourceState(ctx, tx)
-		if err != nil {
-			return err
-		}
-		height, err := strconv.ParseInt(fill.Position.Height, 10, 64)
-		if err != nil {
-			return err
-		}
-		if height > watermark {
-			return ErrAccountingSourceUnavailable
-		}
-		transactionIndex, err := strconv.ParseInt(fill.Position.TransactionIndex, 10, 64)
-		if err != nil {
-			return err
-		}
-		logIndex, err := strconv.ParseInt(fill.Position.LogIndex, 10, 64)
-		if err != nil {
-			return err
-		}
-		body, err := json.Marshal(fill)
-		if err != nil {
-			return err
-		}
-		digest, err := accounting.FillDigest(fill)
-		if err != nil {
-			return err
-		}
-		var same bool
-		err = tx.QueryRow(ctx, `SELECT f.source_fact_digest=$2 AND f.payload=$3::jsonb AND f.pool_address=$4 AND r.height=$5 AND r.transaction_index=$6 AND r.block_hash=$7 AND r.emitter=$8 AND c.block_hash=r.block_hash AND c.fetch_complete AND c.required_decode_complete AND EXISTS(SELECT 1 FROM indexer.indexer_ingest_commits_v1 a WHERE a.chain_id=125 AND a.stream_id=$9 AND a.previous_height<r.height AND a.last_complete_height>=r.height) FROM indexer.indexer_accounting_fills_v1 f JOIN indexer.indexer_raw_logs_v1 r ON r.chain_id=f.chain_id AND r.transaction_hash=f.transaction_hash AND r.log_index=f.log_index JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=r.chain_id AND c.stream_id=$9 AND c.height=r.height WHERE f.source_fill_id=$1 AND f.chain_id=125 AND f.transaction_hash=$10 AND f.log_index=$11`, fill.SourceFillID, string(digest), body, fill.PoolAddress, height, transactionIndex, fill.Position.BlockHash, fill.ActualEmitter, config.SourceStream, fill.Position.TransactionHash, logIndex).Scan(&same)
-		if errors.Is(err, pgx.ErrNoRows) || err == nil && !same {
-			return ErrAccountingAuthority
-		}
-		return err
+		return authority(tx).authorizeFill(ctx, fill)
 	}
 	bootstrapper := sourceBootstrapper{config: config, authorize: authorize}
 	loadBootstrap := bootstrapper.load
@@ -472,72 +423,20 @@ func NewSourceVerifiedAccountingConsumer(config SourceVerifiedAccountingConfig) 
 		return l, nil
 	}
 	authorizePublication := func(ctx context.Context, tx pgx.Tx, publication accounting.PublicationV1) error {
-		body, err := accounting.CanonicalPublicationV1(publication)
-		if err != nil {
-			return err
-		}
-		if len(publication.Positions) != 1 {
-			return ErrAccountingAuthority
-		}
-		position := publication.Positions[0]
-		sequence, err := strconv.ParseInt(position.Sequence, 10, 64)
-		if err != nil {
-			return err
-		}
-		positionWire, err := json.Marshal(position)
-		if err != nil {
-			return err
-		}
-		q := pgx.Identifier{config.SourcePartitionSchema}.Sanitize()
-		var same bool
-		err = tx.QueryRow(ctx, `SELECT p.payload=$2::jsonb AND EXISTS(SELECT 1 FROM `+q+`.indexer_market_partition_positions_v1 s WHERE s.projection_version=$3 AND s.partition_kind='market' AND s.partition_key=$4 AND s.sequence=$5 AND s.position=$6) FROM indexer.indexer_accounting_publications_v1 p WHERE p.publication_id=$1`, publication.PublicationID, body, position.ProjectionVersion, position.PartitionKey, sequence, positionWire).Scan(&same)
-		if errors.Is(err, pgx.ErrNoRows) || err == nil && !same {
-			return ErrAccountingAuthority
-		}
-		return err
+		return authority(tx).authorizePublication(ctx, publication)
 	}
 	var checkpoint func(context.Context, pgx.Tx, accounting.PublicationV1) (engine.SeriesCheckpoint, error)
 	if config.SeriesV2 {
-		checkpoint = func(ctx context.Context, tx pgx.Tx, p accounting.PublicationV1) (engine.SeriesCheckpoint, error) {
-			watermark, err := sourceState(ctx, tx)
-			if err != nil {
-				return engine.SeriesCheckpoint{}, err
-			}
-			q := pgx.Identifier{config.SourcePartitionSchema}.Sanitize()
-			var head int64
-			err = tx.QueryRow(ctx, `SELECT COALESCE(max(sequence),0) FROM `+q+`.indexer_market_partition_positions_v1 WHERE projection_version=$1 AND partition_kind='market' AND partition_key=$2`, config.ProjectionVersion, "125:"+p.Fill.PoolAddress).Scan(&head)
-			if err != nil {
-				return engine.SeriesCheckpoint{}, err
-			}
-			sequence, err := strconv.ParseInt(p.Positions[0].Sequence, 10, 64)
-			if err != nil {
-				return engine.SeriesCheckpoint{}, err
-			}
-			if sequence != head {
-				var prior engine.SeriesCheckpoint
-				prior.HasGaps = true
-				err = tx.QueryRow(ctx, `SELECT watermark_height,watermark_timestamp FROM `+config.Exact.Schema+`.chart_series_clock WHERE chain_id='125' AND pool=$1`, p.Fill.PoolAddress).Scan(&prior.Height, &prior.Timestamp)
-				if errors.Is(err, pgx.ErrNoRows) {
-					err = nil
-				}
-				return prior, err
-			}
-			bounded, cancel := context.WithTimeout(ctx, 2*time.Second)
-			defer cancel()
-			header, err := chainread.Reader{RPC: config.RPC}.Block(bounded, watermark)
-			if err != nil {
-				return engine.SeriesCheckpoint{}, err
-			}
-			var expected string
-			err = tx.QueryRow(ctx, `SELECT block_hash FROM indexer.indexer_block_completeness_v1 WHERE chain_id=125 AND stream_id=$1 AND height=$2 AND fetch_complete AND required_decode_complete`, config.SourceStream, watermark).Scan(&expected)
-			if err != nil {
-				return engine.SeriesCheckpoint{}, err
-			}
-			if header.Hash != expected {
-				return engine.SeriesCheckpoint{}, ErrAccountingAuthority
-			}
-			return engine.SeriesCheckpoint{Height: uint64(watermark), Timestamp: header.Time}, nil
+		checkpoint = func(ctx context.Context, tx pgx.Tx, publication accounting.PublicationV1) (engine.SeriesCheckpoint, error) {
+			return authority(tx).checkpoint(ctx, publication)
 		}
 	}
-	return NewAccountingConsumer(AccountingConfig{Deliveries: config.Deliveries, Partitions: config.Partitions, Exact: config.Exact, ConsumerID: config.ConsumerID, Generation: config.Generation, ProjectionVersion: config.ProjectionVersion, Lease: lease, Authorize: authorize, AuthorizePublication: authorizePublication, SeriesCheckpoint: checkpoint, StreamWriter: config.StreamWriter, SourceStream: config.SourceStream})
+	c, err := NewAccountingConsumer(AccountingConfig{Deliveries: config.Deliveries, Partitions: config.Partitions, Exact: config.Exact, ConsumerID: config.ConsumerID, Generation: config.Generation, ProjectionVersion: config.ProjectionVersion, Lease: lease, Authorize: authorize, AuthorizePublication: authorizePublication, SeriesCheckpoint: checkpoint, StreamWriter: config.StreamWriter, SourceStream: config.SourceStream})
+	if err != nil {
+		return nil, err
+	}
+	if config.SeriesV2 {
+		c.completeness = &completenessRuntime{store: postgresCompletenessStore{config: config}, rpc: config.RPC, projection: config.ProjectionVersion}
+	}
+	return c, nil
 }

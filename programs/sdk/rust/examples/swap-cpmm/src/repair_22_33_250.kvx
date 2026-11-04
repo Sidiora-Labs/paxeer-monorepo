@@ -1,0 +1,11 @@
+[repair.22.33.250]
+finding = "22.30.129/036"
+status = "documentation_repaired_native_composition_blocked"
+implementation = "The guide identifies the incompatible supplied token, exact canonical pull/push contract and authority, deployment and recipient-registration blockers, and the absent native rollback/restart proof."
+tests = ["finding_036_documented_wire_and_authority_match_production", "finding_036_guide_preserves_token_blockers_and_proof_boundary"]
+proof_limit = "The regression exercises the production swap TokenCall, SDK CallInput and GrantedCapabilities transport bytes, canonical Request codec and NestedTokenCall decoder; source checks preserve the documented token and registry blockers. It does not execute native settlement or claim finding 001 closed."
+baseline = "No pre-change verify ran: the ordered task instructions require complete implementation before any gate and verification exclusively through hf-done. The declared test did not exist in the starting tree; no baseline failure is claimed."
+qualification = "hf-build and hf-done record the exact immutable candidate revision, commands, exits and private evidence locations in the runner gate ledger; final task evidence identifies the verified revision without changing the candidate after qualification."
+wiring_token = "Domain 13 (fm-programs): programs/sdk/rust/examples/token-lxt20/src/lib.rs must implement authenticated Context::immediate_caller settlement, finite pool-spender allowances, pool-owned recipient registration and atomic backing/token-state staging."
+wiring_registry = "Domain 13 (fm-programs): programs/crates/layerx-programs-registry/src/lxt20.rs must bind the nested route and exact authority to distinct deployed token artifacts and the swap's backing assets."
+wiring_proof = "Domain 13 (fm-programs): programs/crates/layerx-programs-runtime/tests must prove native liquidity and both swap directions with real artifacts, output-leg refusal rolling back token balances, allowances, backing balances, reserves and shares, then close/reopen persistent storage and check refused and committed state before documentation claims successful composition."

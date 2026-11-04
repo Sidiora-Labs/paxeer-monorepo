@@ -23,6 +23,7 @@ type cometNode struct {
 	header       *types.Header
 	receiptBlock common.Hash
 	balanceAt    []string
+	balance      *big.Int
 }
 
 func (n *cometNode) hash() common.Hash {
@@ -59,6 +60,26 @@ func (n *cometNode) serve(t *testing.T) *ethclient.Client {
 			json.Unmarshal(req.Params[1], &at)
 			n.balanceAt = append(n.balanceAt, at)
 			result = "0x64"
+		case "eth_getCode":
+			result = "0x6000"
+		case "eth_call":
+			var call struct {
+				Input string `json:"input"`
+				Data  string `json:"data"`
+			}
+			json.Unmarshal(req.Params[0], &call)
+			input := call.Input
+			if input == "" {
+				input = call.Data
+			}
+			value := big.NewInt(100)
+			if n.balance != nil {
+				value = n.balance
+			}
+			if input == "0x313ce567" {
+				value = big.NewInt(6)
+			}
+			result = hexutil.Encode(common.LeftPadBytes(value.Bytes(), 32))
 		case "eth_getTransactionReceipt":
 			log := &types.Log{Address: common.HexToAddress(USDLAddress), Topics: []common.Hash{common.HexToHash("0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"), common.BytesToHash(common.HexToAddress(custody).Bytes()), common.BytesToHash(common.HexToAddress(beneficiary).Bytes())}, Data: common.LeftPadBytes(big.NewInt(80).Bytes(), 32), BlockNumber: n.header.Number.Uint64(), TxHash: settlement, BlockHash: n.receiptBlock}
 			result = &types.Receipt{Type: 2, Status: types.ReceiptStatusSuccessful, CumulativeGasUsed: 50000, GasUsed: 50000, Logs: []*types.Log{log}, TxHash: settlement, BlockHash: n.receiptBlock, BlockNumber: n.header.Number}

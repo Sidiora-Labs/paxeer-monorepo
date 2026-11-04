@@ -15,7 +15,18 @@ func InitGenesis(ctx sdk.Context, keeper keeper.Keeper, data *types.GenesisState
 	if err := types.ValidateGenesisExchangeRates(data); err != nil {
 		panic(err)
 	}
+	if err := data.Params.Validate(); err != nil {
+		panic(err)
+	}
 	keeper.SetParams(ctx, data.Params)
+	// Genesis carries the whitelist rather than target records. Reconstruct it
+	// before restored ballots can be accepted or tallied in the first period.
+	targets := make(map[string]types.Denom)
+	keeper.IterateVoteTargets(ctx, func(denom string, info types.Denom) bool {
+		targets[denom] = info
+		return false
+	})
+	keeper.ApplyWhitelist(ctx, data.Params.Whitelist, targets)
 	for _, d := range data.FeederDelegations {
 		voter, err := sdk.ValAddressFromBech32(d.ValidatorAddress)
 		if err != nil {

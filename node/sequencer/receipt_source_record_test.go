@@ -15,6 +15,7 @@ func receiptSourceAcceptedSend(t *testing.T, height int64) (common.Hash, evmrpc.
 	in := vectorInput()
 	in.PaymentDenom = "upax"
 	in.Accepted.Height = height
+	in.Accepted.Seq += uint64(height) * 2
 	in.Accepted.ActivityID[0] ^= byte(height)
 	in.Accepted.SeqHash = expectedSeqHash(in.Accepted.PrevSeqHash, in.Accepted.Seq, in.Accepted.ActivityID)
 	in.EVM.Status = 0
@@ -98,7 +99,7 @@ func TestReceiptSourceRecordsAcceptedSend(t *testing.T) {
 	source.Record(hash, send)
 	got, err = source.SequencerSend(hash)
 	require.NoError(t, err)
-	require.Nil(t, got, "a record at or below the watermark records nothing and never restores an evicted send")
+	require.Nil(t, got, "an evicted duplicate cannot restore the send")
 	source.Committed(vectorHeight + 3)
 	for hash, want := range map[common.Hash]evmrpc.SequencerSend{nextHash: next, lastHash: last} {
 		got, err := source.SequencerSend(hash)
@@ -210,6 +211,7 @@ func TestReceiptSourceEvictsOldestCommittedSendAtCapacity(t *testing.T) {
 		in := vectorInput()
 		in.PaymentDenom = "upax"
 		in.Accepted.Height = 1
+		in.Accepted.Seq += 3
 		in.Accepted.ActivityID[0] ^= 0x80
 		in.Accepted.SeqHash = expectedSeqHash(in.Accepted.PrevSeqHash, in.Accepted.Seq, in.Accepted.ActivityID)
 		in.EVM.Status = 0

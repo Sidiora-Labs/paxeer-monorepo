@@ -10,7 +10,9 @@ use serde_json::{json, Value};
 use crate::attestation::eligible_signatures;
 use crate::cosign::CosignDirectory;
 use crate::hex;
-use crate::journal::{inbound_key, outbound_key, Item, Journal, Observation};
+use crate::journal::{
+    inbound_key, outbound_key, History, Item, Journal, JournalError, Observation,
+};
 
 /// Identity of the consumer whose authenticated policy authorizes a bundle.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
@@ -139,12 +141,98 @@ impl AttestationView {
     }
 }
 
+/// Serving snapshots copy pending work only. Completed bundles are read by key
+/// from the journal's durable index and cosigns are collected for that request.
+pub struct AttestationSnapshot {
+    pub pending: AttestationView,
+    history: History,
+    cosign: Option<CosignDirectory>,
+    policies: BTreeMap<PolicyDestination, AuthenticatedPolicy>,
+}
+
+impl std::ops::Deref for AttestationSnapshot {
+    type Target = AttestationView;
+    fn deref(&self) -> &Self::Target {
+        &self.pending
+    }
+}
+
+impl AttestationSnapshot {
+    pub fn from_journal(
+        journal: &Journal,
+        cosign: Option<&CosignDirectory>,
+        policies: &BTreeMap<PolicyDestination, AuthenticatedPolicy>,
+    ) -> Self {
+        Self {
+            pending: AttestationView::from_journal(journal, cosign, policies),
+            history: journal.history(),
+            cosign: cosign.cloned(),
+            policies: policies.clone(),
+        }
+    }
+}
+
+pub trait AttestationSource {
+    fn resolve(&self, key: &str) -> Result<AttestationView, JournalError>;
+}
+
+impl<S: AttestationSource + ?Sized> AttestationSource for &S {
+    fn resolve(&self, key: &str) -> Result<AttestationView, JournalError> {
+        S::resolve(*self, key)
+    }
+}
+
+impl AttestationSource for AttestationView {
+    fn resolve(&self, key: &str) -> Result<AttestationView, JournalError> {
+        let mut view = AttestationView::default();
+        if let Some(item) = self.items.get(key) {
+            view.items.insert(key.to_owned(), item.clone());
+            if let Some(digest) = item_digest(item) {
+                if let Some(signatures) = self.signatures.get(&digest) {
+                    view.signatures.insert(digest, signatures.clone());
+                }
+            }
+        }
+        Ok(view)
+    }
+}
+
+fn item_digest(item: &Item) -> Option<[u8; 32]> {
+    match item.observation {
+        Observation::Inbound { .. } => item.observation.inbound_attestation().map(|a| a.digest()),
+        Observation::Outbound { .. } => item.observation.outbound_attestation().map(|a| a.digest()),
+    }
+}
+
+impl AttestationSource for AttestationSnapshot {
+    fn resolve(&self, key: &str) -> Result<AttestationView, JournalError> {
+        if self.pending.items.contains_key(key) {
+            return self.pending.resolve(key);
+        }
+        let mut view = AttestationView::default();
+        if let Some(mut item) = self.history.lookup(key)? {
+            let mut policies = self.policies.iter().filter(|(destination, policy)| {
+                **destination == policy.destination && destination.accepts(&item.observation)
+            });
+            item.attestation_policy = policies.next().map(|(_, policy)| policy.clone());
+            if policies.next().is_some() {
+                item.attestation_policy = None;
+            }
+            if let (Some(digest), Some(cosign)) = (item_digest(&item), &self.cosign) {
+                view.signatures.insert(digest, cosign.collect(&digest));
+            }
+            view.items.insert(key.to_owned(), item);
+        }
+        Ok(view)
+    }
+}
+
 const MAX_REQUEST_BYTES: usize = 8192;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(2);
 
-pub fn serve(
+pub fn serve<S: AttestationSource>(
     listener: TcpListener,
-    view: Arc<RwLock<AttestationView>>,
+    view: Arc<RwLock<S>>,
     origins: Vec<String>,
 ) -> io::Result<()> {
     for connection in listener.incoming() {
@@ -158,9 +246,9 @@ pub fn serve(
     Ok(())
 }
 
-fn serve_connection(
+fn serve_connection<S: AttestationSource>(
     stream: &mut TcpStream,
-    view: &RwLock<AttestationView>,
+    view: &RwLock<S>,
     origins: &[String],
 ) -> io::Result<()> {
     stream.set_write_timeout(Some(REQUEST_TIMEOUT))?;
@@ -258,10 +346,25 @@ fn serve_connection(
                 json!({"error": "attestation view unavailable"}),
             );
         };
-        if *route == "deposit" {
-            deposit_answer(&view, chain, &hash, index)
+        let key = if *route == "deposit" {
+            inbound_key(chain, &hash, index)
         } else {
-            release_answer(&view, chain, &hash, index)
+            outbound_key(chain, &hash, index)
+        };
+        let resolved = match view.resolve(&key) {
+            Ok(resolved) => resolved,
+            Err(_) => {
+                return respond(
+                    stream,
+                    500,
+                    json!({"error": "attestation history unavailable"}),
+                )
+            }
+        };
+        if *route == "deposit" {
+            deposit_from_view(&resolved, chain, &hash, index)
+        } else {
+            release_from_view(&resolved, chain, &hash, index)
         }
     };
     match answer {
@@ -327,7 +430,31 @@ fn respond_with_origin(
 }
 
 #[must_use]
-pub fn deposit_answer(
+pub fn deposit_answer<S: AttestationSource + ?Sized>(
+    view: &S,
+    chain_id: u64,
+    tx_hash: &[u8; 32],
+    log_index: u64,
+) -> Option<Value> {
+    let resolved = view
+        .resolve(&inbound_key(chain_id, tx_hash, log_index))
+        .ok()?;
+    deposit_from_view(&resolved, chain_id, tx_hash, log_index)
+}
+
+#[must_use]
+pub fn release_answer<S: AttestationSource + ?Sized>(
+    view: &S,
+    chain_id: u64,
+    tx_hash: &[u8; 32],
+    nonce: u64,
+) -> Option<Value> {
+    let resolved = view.resolve(&outbound_key(chain_id, tx_hash, nonce)).ok()?;
+    release_from_view(&resolved, chain_id, tx_hash, nonce)
+}
+
+#[must_use]
+fn deposit_from_view(
     view: &AttestationView,
     chain_id: u64,
     tx_hash: &[u8; 32],
@@ -353,7 +480,7 @@ pub fn deposit_answer(
 }
 
 #[must_use]
-pub fn release_answer(
+fn release_from_view(
     view: &AttestationView,
     chain_id: u64,
     paxeer_tx_hash: &[u8; 32],

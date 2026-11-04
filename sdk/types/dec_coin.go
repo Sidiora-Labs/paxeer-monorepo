@@ -182,8 +182,8 @@ func sanitizeDecCoins(decCoins []DecCoin) DecCoins {
 // NewDecCoinsFromCoins constructs a new coin set with decimal values
 // from regular Coins.
 func NewDecCoinsFromCoins(coins ...Coin) DecCoins {
-	decCoins := make(DecCoins, len(coins))
 	newCoins := NewCoins(coins...)
+	decCoins := make(DecCoins, len(newCoins))
 	for i, coin := range newCoins {
 		decCoins[i] = NewDecCoinFromCoin(coin)
 	}
@@ -357,7 +357,7 @@ func (coins DecCoins) UnionMax(coinsB DecCoins) DecCoins {
 		maxDecCoins = append(maxDecCoins, NewDecCoinFromDec(denom, amount))
 	}
 
-	return maxDecCoins
+	return NewDecCoins(maxDecCoins...)
 }
 
 // GetDenomByIndex returns the Denom to make the findDup generic

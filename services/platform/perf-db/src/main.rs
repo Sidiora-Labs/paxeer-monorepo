@@ -3,11 +3,11 @@ use std::process;
 
 use clap::{Parser, Subcommand};
 
-use perfdb::core::market::{market_by_id, market_by_symbol, MarketId, MARKETS, MARKET_COUNT};
+use perfdb::PerfDb;
+use perfdb::core::market::{MARKET_COUNT, MARKETS, MarketId, market_by_id, market_by_symbol};
 use perfdb::core::timeframe::Timeframe;
 use perfdb::core::types::FixedI128;
 use perfdb::engine::PerfDbConfig;
-use perfdb::PerfDb;
 
 #[derive(Parser)]
 #[command(
@@ -162,10 +162,18 @@ fn main() {
     let cli = Cli::parse();
 
     let config = PerfDbConfig::new(&cli.data_dir);
-    let db = match PerfDb::open(config) {
+    let opened = if matches!(&cli.command, Command::Snapshot) {
+        PerfDb::open(config)
+    } else {
+        PerfDb::open_read_only(config)
+    };
+    let db = match opened {
         Ok(db) => db,
         Err(e) => {
-            eprintln!("error: failed to open PerfDB at {}: {e}", cli.data_dir.display());
+            eprintln!(
+                "error: failed to open PerfDB at {}: {e}",
+                cli.data_dir.display()
+            );
             process::exit(1);
         }
     };
@@ -175,12 +183,24 @@ fn main() {
         Command::Markets => cmd_markets(&db, cli.json),
         Command::Prices { market } => cmd_prices(&db, market.as_deref(), cli.json),
         Command::Ticks { market, last } => cmd_ticks(&db, &market, last, cli.json),
-        Command::Candles { market, timeframe, last } => {
-            cmd_candles(&db, &market, &timeframe, last, cli.json)
-        }
-        Command::Positions { user, market, id, open } => {
-            cmd_positions(&db, user.as_deref(), market.as_deref(), id.as_deref(), open, cli.json)
-        }
+        Command::Candles {
+            market,
+            timeframe,
+            last,
+        } => cmd_candles(&db, &market, &timeframe, last, cli.json),
+        Command::Positions {
+            user,
+            market,
+            id,
+            open,
+        } => cmd_positions(
+            &db,
+            user.as_deref(),
+            market.as_deref(),
+            id.as_deref(),
+            open,
+            cli.json,
+        ),
         Command::Orders { user, id, active } => {
             cmd_orders(&db, user.as_deref(), id.as_deref(), active, cli.json)
         }
@@ -190,9 +210,11 @@ fn main() {
         Command::Stats { address } => cmd_stats(&db, &address, cli.json),
         Command::Daily { address, limit } => cmd_daily(&db, &address, limit, cli.json),
         Command::Leaderboard { metric, limit } => cmd_leaderboard(&db, &metric, limit, cli.json),
-        Command::Events { market, trader, last } => {
-            cmd_events(&db, market.as_deref(), trader.as_deref(), last, cli.json)
-        }
+        Command::Events {
+            market,
+            trader,
+            last,
+        } => cmd_events(&db, market.as_deref(), trader.as_deref(), last, cli.json),
         Command::Checkpoint => cmd_checkpoint(&db, cli.json),
         Command::Snapshot => cmd_snapshot(&db),
     };
@@ -233,11 +255,17 @@ fn parse_hash(input: &str) -> [u8; 32] {
 }
 
 fn hex_addr(addr: &[u8; 20]) -> String {
-    format!("0x{}", addr.iter().map(|b| format!("{b:02x}")).collect::<String>())
+    format!(
+        "0x{}",
+        addr.iter().map(|b| format!("{b:02x}")).collect::<String>()
+    )
 }
 
 fn hex_hash(hash: &[u8; 32]) -> String {
-    format!("0x{}", hash.iter().map(|b| format!("{b:02x}")).collect::<String>())
+    format!(
+        "0x{}",
+        hash.iter().map(|b| format!("{b:02x}")).collect::<String>()
+    )
 }
 
 fn format_fixed(val: FixedI128) -> String {
@@ -301,7 +329,10 @@ fn cmd_info(db: &PerfDb, json: bool) -> Result<(), String> {
         println!("{}", "=".repeat(40));
         println!("{:<24} {}", "Ticks (total):", tick_total);
         println!("{:<24} {} ({} open)", "Positions:", pos_count, open_pos);
-        println!("{:<24} {} ({} active)", "Orders:", order_count, active_orders);
+        println!(
+            "{:<24} {} ({} active)",
+            "Orders:", order_count, active_orders
+        );
         println!("{:<24} {}", "Users:", user_count);
         println!("{:<24} {}", "Balance entries:", balance_count);
         println!("{:<24} {}", "Events:", event_count);
@@ -579,9 +610,7 @@ fn cmd_positions(
         );
         println!("{}", "-".repeat(90));
         for p in &positions {
-            let market_sym = market_by_id(p.market_id)
-                .map(|m| m.symbol)
-                .unwrap_or("???");
+            let market_sym = market_by_id(p.market_id).map(|m| m.symbol).unwrap_or("???");
             let side = if p.is_long { "LONG" } else { "SHORT" };
             let status = format!("{:?}", p.status);
             println!(
@@ -656,9 +685,7 @@ fn cmd_orders(
         );
         println!("{}", "-".repeat(94));
         for o in &orders {
-            let market_sym = market_by_id(o.market_id)
-                .map(|m| m.symbol)
-                .unwrap_or("???");
+            let market_sym = market_by_id(o.market_id).map(|m| m.symbol).unwrap_or("???");
             let side = if o.is_long { "LONG" } else { "SHORT" };
             println!(
                 "{:<14} {:<14} {:<5} {:<5} {:<10} {:>14} {:>14} {:<10}",
@@ -816,11 +843,7 @@ fn cmd_user(db: &PerfDb, address: &str, json: bool) -> Result<(), String> {
         if let Some(ref referrer) = user.referred_by {
             println!("{:<20} {}", "Referred by:", hex_addr(referrer));
         }
-        println!(
-            "{:<20} {}",
-            "Referrals:",
-            db.users.referral_count(&addr)
-        );
+        println!("{:<20} {}", "Referrals:", db.users.referral_count(&addr));
         if let Some(ref vault) = user.vault_address {
             println!("{:<20} {}", "Vault:", hex_addr(vault));
         }
@@ -870,24 +893,37 @@ fn cmd_stats(db: &PerfDb, address: &str, json: bool) -> Result<(), String> {
         println!("Trader Stats: {}", short_addr(&stats.address));
         println!("{}", "=".repeat(50));
         println!("{:<24} {}", "Total PnL:", format_fixed(stats.total_pnl));
-        println!("{:<24} {}", "Total volume:", format_fixed(stats.total_volume));
-        println!("{:<24} {}", "Total fees:", format_fixed(stats.total_fees_paid));
+        println!(
+            "{:<24} {}",
+            "Total volume:",
+            format_fixed(stats.total_volume)
+        );
+        println!(
+            "{:<24} {}",
+            "Total fees:",
+            format_fixed(stats.total_fees_paid)
+        );
         println!("{:<24} {}", "Trades:", stats.total_trades);
         println!("{:<24} {}", "Positions (total):", stats.total_positions);
         println!("{:<24} {}", "Positions (open):", stats.open_positions);
         println!(
             "{:<24} {} / {} / {}",
-            "W / L / Liq:",
-            stats.win_count,
-            stats.loss_count,
-            stats.liquidation_count
+            "W / L / Liq:", stats.win_count, stats.loss_count, stats.liquidation_count
         );
         if stats.total_trades > 0 {
             let wr = stats.win_count as f64 / stats.total_trades as f64 * 100.0;
             println!("{:<24} {:.1}%", "Win rate:", wr);
         }
-        println!("{:<24} {}", "Best trade:", format_fixed(stats.best_trade_pnl));
-        println!("{:<24} {}", "Worst trade:", format_fixed(stats.worst_trade_pnl));
+        println!(
+            "{:<24} {}",
+            "Best trade:",
+            format_fixed(stats.best_trade_pnl)
+        );
+        println!(
+            "{:<24} {}",
+            "Worst trade:",
+            format_fixed(stats.worst_trade_pnl)
+        );
     }
     Ok(())
 }

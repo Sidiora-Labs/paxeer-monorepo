@@ -1,0 +1,7 @@
+[repair.22.33.639]
+finding = "prefix-iterator-error"
+tests = ["TestRepairM_639_EmptyRanges", "TestRepairM_639_Traversal", "TestRepairM_639_PrefixBoundary", "TestRepairM_639_BackendFailure"]
+proof = "Production memory stores and nested prefix wrappers prove empty domains, empty prefixes, forward/reverse traversal, relative key/value round-trips and prefix-boundary exhaustion with a still-valid parent. A real GoLevelDB closed before iterator creation produces ErrClosed through dbadapter and the prefix store; the consumer requires the original backend error. Positional operations must still panic after invalidation."
+baseline = "Not run: the ordered bounded-gate instructions require complete implementation before hf-build and hf-done and prohibit running verify_cmd by hand, superseding step 5's unchanged-tree verification. No baseline failure is claimed."
+wiring_requests = []
+evidence = "The hf-done gate ledger records the exact verified candidate revision, command, exit code and private log location."

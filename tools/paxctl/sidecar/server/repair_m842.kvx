@@ -1,0 +1,31 @@
+[task.22.33.842]
+audit = "22.30.180"
+finding = "unbounded-task-admission"
+base_revision = "fedbeb3bb47c5bb972f66afc8189f92f5395f3eb"
+proving_tests = ["TestRepairM_842_RequestSize", "TestRepairM_842_BoundedQueueAndNodeExclusion", "TestRepairM_842_PersistentQueueRecovery", "TestRepairM_842_DeleteKeepsNodeSlotUntilHandlerExit", "TestRepairM_842_RetentionAndRecoveryMarkers", "TestRepairM_842_FailedTaskRetry", "TestRepairM_842_AdmissionUnavailable", "TestRepairM_842_ExclusiveStoreOwner", "TestRepairM_842_DeletePendingTask"]
+baseline = "Not run: the explicit implementation-first order and hf-build/hf-done-only gates prohibit the audit step's unchanged-tree verification; no baseline failures are claimed."
+repair = "Bound the full POST body to 64 KiB, persist at most 32 queued/active tasks and 256 distinct retained identities, and dispatch through one node execution slot. The existing production ExecutionConfig.Checkpointer binds the real TaskStore queue to the engine before HTTP submissions. Return explicit 413, 429 and 503 errors with Retry-After for overload/unavailability."
+retention = "Results remain until explicit deletion; there is no automatic eviction. Transaction markers and cancellation tombstones count toward the retained-identity cap and are never removed to make room. DELETE holds an active queue slot until the engine's handler-exit cleanup; generation-bound claims protect retries from obsolete cleanup. Legacy stores already above capacity reject new identities and retain all recovery evidence."
+proof = "Typed task producers -> generated HTTP client over loopback -> authenticated production handler -> FULL-synchronous SQLite queue -> real engine -> production ConditionWaiter/ConfigPatcher/MarkReady consumers. Tests stop and reopen the real store and engine, preserve a running generation, execute queued configuration mutations after recovery, and retain checkpoint bytes across reopening."
+evidence = "The bounded hf-build/hf-done private ledger identifies the verified candidate revision, command, exit and log. No gate is claimed before it runs."
+
+[wiring.1]
+request = "Domain 16 (cfg-paxctl engine): tools/paxctl/sidecar/engine/engine.go must route non-HTTP Submit callers and multiple legacy running rows through bounded scheduling and expose handler shutdown joining; TaskStore fails closed on multiple legacy running rows instead of rehydrating them concurrently."
+
+[wiring.2]
+request = "Domain 16 (cfg-paxctl API/client): tools/paxctl/sidecar/api/openapi.yaml and tools/paxctl/sidecar/client/sidecar.gen.go must declare the queued result status and POST 413/429/503 responses with Retry-After; generic HTTP response status and body remain available to existing clients."
+
+[wiring.3]
+request = "Domain 16 (cfg-paxctl callers): constructors outside tools/paxctl/sidecar/server must install the same TaskStore as engine.ResultStore and ExecutionConfig.Checkpointer, as tools/paxctl/serve.go already does; a server without durable admission returns 503 for submission."
+
+[gotcha.gate-order]
+observed = "The audit's baseline verification conflicts with the bounded implementation-first gate order; the explicit task order takes precedence."
+
+[gotcha.generation]
+observed = "TaskStore's exact-JSON Save envelope copied TaskResult without returning the generated engine generation; queue completion must propagate that generation to bind handler-exit cleanup to the correct persisted claim."
+
+[gotcha.layout]
+observed = "The server startup is tools/paxctl/serve.go, task wire constants are sidecar/wire/wire.go, and config-patch/mark-ready handlers live in config.go/ready.go; assumed similarly named files do not exist."
+
+[gotcha.toolchain]
+observed = "The module requires Go 1.26.0; bounded gates select GOTOOLCHAIN=go1.26.0 rather than the sandbox default go1.25.8+auto."

@@ -7,1378 +7,472 @@ parent:
 
 # RPC spec
 
-This file defines the JSON-RPC spec of Tendermint. This is meant to be implemented by all clients.
-In this repository the server routes are registered in [`internal/rpc/core/routes.go`](../../internal/rpc/core/routes.go). The examples assume a node with its RPC listener on the default port 26657 of the local machine.
+This page documents the consensus JSON-RPC service implemented in this tree.
+[`internal/rpc/core/routes.go`](../../internal/rpc/core/routes.go) registers the
+methods; [`requests.go`](../../rpc/coretypes/requests.go) and
+[`responses.go`](../../rpc/coretypes/responses.go) define their wire fields.
+These local consensus methods are distinct from the public Ethereum-compatible
+node API.
+
+Paxeer mainnet-beta is one BFT network, with the kernel participating in block
+proposal. Its EVM chain ID is 125 (`0x7d`), and a receipt is final once its block
+is committed. The public JSON-RPC endpoints are HTTPS at the **root path** of
+`api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network` and
+`api-mainnet-beta.paxeer.network`. They expose the node namespaces `debug`,
+`echo`, `eth`, `net`, `pax`, `test` and `txpool`. For example:
+
+```sh
+curl -sS 'https://api1.mainnet-beta.paxeer.network/' \
+  -H 'Content-Type: application/json' \
+  --data-binary '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
+```
+
+The chain ID result is `"0x7d"`. Hosted `px_` methods have their own declared
+contract in
+[`services/platform/hosted/gateway/openrpc.json`](../../../services/platform/hosted/gateway/openrpc.json).
+Sub-chains are tenant domains in the database. They do not require a new
+consensus listener per domain.
+
+See [Peers](../p2p/peer.md), [classic consensus messages](../p2p/messages/consensus.md)
+and [state-sync messages](../p2p/messages/state-sync.md) for the underlying peer
+protocols.
 
 ## Support
 
-  |              | [Tendermint-Go](https://github.com/tendermint/tendermint/)  | [Tendermint-Rs](https://github.com/informalsystems/tendermint-rs) |
-  |--------------|:-----------------------------------------------------------:|:-----------------------------------------------------------------:|
-  | JSON-RPC 2.0 |                             ✅                              |                                ✅                                 |
-  | HTTP         |                             ✅                              |                                ✅                                 |
-  | HTTPS        |                             ✅                              |                                ❌                                 |
-  | WS           |                             ✅                              |                                ✅                                 |
-  
-  | Routes                                  | [Tendermint-Go](https://github.com/tendermint/tendermint/) | [Tendermint-Rs](https://github.com/informalsystems/tendermint-rs) |
-  |-----------------------------------------|:----------------------------------------------------------:|:-----------------------------------------------------------------:|
-  | [Health](#health)                       |                             ✅                              |                                 ✅                                 |
-  | [Status](#status)                       |                             ✅                              |                                 ✅                                 |
-  | [NetInfo](#netinfo)                     |                             ✅                              |                                 ✅                                 |
-  | [Blockchain](#blockchain)               |                             ✅                              |                                 ✅                                 |
-  | [Header](#header)                       |                             ✅                              |                                 ❌                                  |
-  | [HeaderByHash](#headerbyhash)           |                             ✅                              |                                 ❌                                 |
-  | [Block](#block)                         |                             ✅                              |                                 ✅                                 |
-  | [BlockByHash](#blockbyhash)             |                             ✅                              |                                 ❌                                 |
-  | [BlockResults](#blockresults)           |                             ✅                              |                                 ✅                                 |
-  | [Commit](#commit)                       |                             ✅                              |                                 ✅                                 |
-  | [Validators](#validators)               |                             ✅                              |                                 ✅                                 |
-  | [Genesis](#genesis)                     |                             ✅                              |                                 ✅                                 |
-  | [GenesisChunked](#genesischunked)       |                             ✅                              |                                 ❌                                 |
-  | [ConsensusParams](#consensusparams)     |                             ✅                              |                                 ❌                                 |
-  | [UnconfirmedTxs](#unconfirmedtxs)       |                             ✅                              |                                 ❌                                 |
-  | [NumUnconfirmedTxs](#numunconfirmedtxs) |                             ✅                              |                                 ❌                                 |
-  | [Tx](#tx)                               |                             ✅                              |                                 ❌                                 |
-  | [BroadCastTxSync](#broadcasttxsync)     |                             ✅                              |                                 ✅                                 |
-  | [BroadCastTxAsync](#broadcasttxasync)   |                             ✅                              |                                 ✅                                 |
-  | [ABCIInfo](#abciinfo)                   |                             ✅                              |                                 ✅                                 |
-  | [ABCIQuery](#abciquery)                 |                             ✅                              |                                 ✅                                 |
-  | [BroadcastTxAsync](#broadcasttxasync)   |                             ✅                              |                                 ✅                                 |
-  | [BroadcastEvidence](#broadcastevidence) |                             ✅                              |                                 ✅                                 |
+The local listener defaults to `tcp://127.0.0.1:26657` via `[rpc] laddr` in
+[`config/config.go`](../../config/config.go). The examples below use ordinary
+HTTP on that listener. HTTPS requires both `tls-cert-file` and `tls-key-file` to
+be configured; changing the URL scheme alone does not enable TLS.
+
+| Transport | Local consensus service |
+| --- | --- |
+| JSON-RPC 2.0 over HTTP | POST to `http://localhost:26657/` |
+| HTTP URI requests | GET a registered method path, such as `/status` |
+| WebSocket | `ws://localhost:26657/websocket`, unless `experimental-disable-websocket` is enabled |
+
+`subscribe`, `unsubscribe` and `unsubscribe_all` are WebSocket-only. The root
+handler accepts batches of at most ten requests. Requests without an ID are
+notifications and are ignored. An HTTP URI request has response ID `-1`; a
+JSON-RPC request receives its own ID back.
+
+Use named parameter objects. Request `Int64` fields accept either decimal JSON
+numbers or decimal strings. Boolean fields use JSON booleans. Consensus hashes
+and ABCI query `data` use hex strings **without** a `0x` prefix in JSON; transaction
+bytes (`tx`) use base64. Do not copy Ethereum quantity encoding into consensus
+RPC parameters. Result integer encodings vary by field; the response types,
+rather than a rule that every number is a string, define the format.
+
+For shell requests, single-quote literal JSON and quote URLs containing `&`.
+Use `curl --get --data-urlencode` for URI string parameters that need escaping.
+Examples referring to a height, hash, query path or transaction require data
+available to the selected node; syntactic validity does not imply that the
+application accepts a particular query or transaction.
+
+### Consensus mode and errors
+
+The same route names are registered for classic consensus and Autobahn. Under
+Autobahn, block and header queries read finalized global blocks, and
+`block_results` reads stored `FinalizeBlock` responses. Methods that require
+classic commits or round state return explicit errors:
+
+| Method | Autobahn error data |
+| --- | --- |
+| `commit` | `commit is not available under autobahn consensus` |
+| `consensus_state`, `dump_consensus_state` | `consensus round state is not available under autobahn consensus` |
+| `broadcast_evidence` | `evidence is not accepted under autobahn consensus` |
+
+These errors are currently mapped to JSON-RPC code `-32603`, with the message in
+`error.data`. They do not indicate that a committed Autobahn block lacks
+finality. For example, an Autobahn node answers a `commit` request with:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -32603,
+    "message": "Internal error",
+    "data": "commit is not available under autobahn consensus"
+  }
+}
+```
+
+The JSON-RPC error codes in
+[`types.go`](../../rpc/jsonrpc/types/types.go) are:
+
+| Code | Meaning |
+| --- | --- |
+| -32700 | Parse error |
+| -32600 | Invalid request, including mapped height/page/request validation errors |
+| -32601 | Method not found or unavailable on the selected transport |
+| -32602 | Invalid params |
+| -32603 | Internal error; also the current mapping for other service errors |
+| -32604 | Lag is too high |
+
+A service error is an `error` object, not an empty string. Application-level
+failure can instead appear as a nonzero `result.code` or `result.response.code`.
+Inspect both layers. A pruned height and a height beyond the head are distinct
+service errors; do not treat every `-32603` as an unknown block. For
+`block_by_hash` and `header_by_hash`, an unknown hash returns a result with a null
+block or header rather than a fabricated historical record.
 
 ## Timestamps
 
-Timestamps in the RPC layer of Tendermint follows RFC3339Nano.  The RFC3339Nano format removes trailing zeros from the seconds field.
-
-This means if a block has a timestamp like: `1985-04-12T23:20:50.5200000Z`, the value returned in the RPC will be `1985-04-12T23:20:50.52Z`.
-
+RPC timestamps use RFC3339Nano. Trailing fractional-second zeros are removed:
+`1985-04-12T23:20:50.5200000Z` is returned as
+`1985-04-12T23:20:50.52Z`.
 
 ## Info Routes
 
 ### Health
 
-Node heartbeat
-
-#### Parameters
-
-None
-
-#### Request
-
-##### HTTP
+`health` takes no parameters and returns `{}` when the service is responsive.
+This is a heartbeat, not a claim that the node has caught up.
 
 ```sh
-curl http://localhost:26657/health
+curl -sS 'http://localhost:26657/health'
+curl -sS 'http://localhost:26657/' -H 'Content-Type: application/json' \
+  --data-binary '{"jsonrpc":"2.0","id":1,"method":"health","params":{}}'
 ```
 
-##### JSONRPC
-
-```sh
-curl -X POST https://localhost:26657 -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"health\"}"
-```
-
-#### Response
+The POST response is:
 
 ```json
-{
-  "jsonrpc": "2.0",
-  "id": -1,
-  "result": {}
-}
+{"jsonrpc":"2.0","id":1,"result":{}}
 ```
 
 ### Status
 
-Get Tendermint status including node info, pubkey, latest block hash, app hash, block height and time.
+`status` takes no parameters. It returns `node_info`, `application_info`,
+`sync_info`, `validator_info` and `light_client_info`. `node_info` describes
+identity, the network string and protocol versions. `sync_info` includes the
+latest and earliest retained heights, hashes and times, peer height and
+`catching_up`.
 
-#### Parameters
-
-None
-
-#### Request
-
-##### HTTP
-
-```sh
-curl http://localhost:26657/status
-```
-
-##### JSONRPC
+`sync_info.last_committed_block_height` is the consensus-finalized height;
+`latest_block_height` is the application-applied height. Under classic consensus
+they coincide. Under Autobahn the committed height can briefly lead the applied
+height while the application catches up within the same node.
 
 ```sh
-curl -X POST https://localhost:26657 -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"status\"}"
+curl -sS 'http://localhost:26657/status'
+curl -sS 'http://localhost:26657/' -H 'Content-Type: application/json' \
+  --data-binary '{"jsonrpc":"2.0","id":1,"method":"status","params":{}}'
 ```
 
-#### Response
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": -1,
-  "result": {
-    "node_info": {
-      "protocol_version": {
-        "p2p": "8",
-        "block": "11",
-        "app": "0"
-      },
-      "id": "b93270b358a72a2db30089f3856475bb1f918d6d",
-      "listen_addr": "tcp://localhost:26656",
-      "network": "cosmoshub-4",
-      "version": "v0.34.8",
-      "channels": "40202122233038606100",
-      "moniker": "aib-hub-node",
-      "other": {
-        "tx_index": "on",
-        "rpc_address": "tcp://localhost:26657"
-      }
-    },
-    "sync_info": {
-      "latest_block_hash": "50F03C0EAACA8BCA7F9C14189ACE9C05A9A1BBB5268DB63DC6A3C848D1ECFD27",
-      "latest_app_hash": "2316CFF7644219F4F15BEE456435F280E2B38955EEA6D4617CCB6D7ABF781C22",
-      "latest_block_height": "5622165",
-      "latest_block_time": "2021-03-25T14:00:43.356134226Z",
-      "earliest_block_hash": "1455A0C15AC49BB506992EC85A3CD4D32367E53A087689815E01A524231C3ADF",
-      "earliest_app_hash": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
-      "earliest_block_height": "5200791",
-      "earliest_block_time": "2019-12-11T16:11:34Z",
-      "catching_up": false
-    },
-    "validator_info": {
-      "address": "38FB765D0092470989360ECA1C89CD06C2C1583C",
-      "pub_key": {
-        "type": "tendermint/PubKeyEd25519",
-        "value": "Z+8kntVegi1sQiWLYwFSVLNWqdAUGEy7lskL78gxLZI="
-      },
-      "voting_power": "0"
-    }
-  }
-}
-```
+The consensus `node_info.network` value comes from genesis; it is not the
+Ethereum hex chain ID returned by `eth_chainId`.
 
 ### NetInfo
 
-Network information
-
-#### Parameters
-
-None
-
-#### Request
-
-##### HTTP
+`net_info` takes no parameters. The result includes `listening`, `listeners`,
+`n_peers`, `peers` (with `node_id` and `url`) and `peer_connections` (with
+`node_id`, `state` and `score`).
 
 ```sh
-curl http://localhost:26657/net_info
-```
-
-##### JSONRPC
-
-```sh
-curl -X POST https://localhost:26657 -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"net_info\"}"
-```
-
-#### Response
-
-```json
-{
-  "id": 0,
-  "jsonrpc": "2.0",
-  "result": {
-    "listening": true,
-    "listeners": [
-      "Listener(@)"
-    ],
-    "n_peers": "1",
-	"peers": [
-	  {
-		  "node_id": "5576458aef205977e18fd50b274e9b5d9014525a",
-		  "url": "tcp://5576458aef205977e18fd50b274e9b5d9014525a@peer.example.com:26656"
-	  }
-	]
-  }
-}
+curl -sS 'http://localhost:26657/net_info'
 ```
 
 ### Blockchain
 
-Get block headers. Returned in descending order. May be limited in quantity.
-
-#### Parameters
-
-- `minHeight (integer)`: The lowest block to be returned in the response
-- `maxHeight (integer)`: The highest block to be returned in the response
-
-#### Request
-
-##### HTTP
+`blockchain` accepts `minHeight` and `maxHeight` and returns `last_height` and
+`block_metas` in descending height order, at most 20 entries. Zero or omitted
+bounds use defaults; the range is bounded by retained data and the current
+head. Autobahn may omit pruned entries within the requested range.
 
 ```sh
-curl http://localhost:26657/blockchain
-
-curl http://localhost:26657/blockchain?minHeight=1&maxHeight=2
-```
-
-##### JSONRPC
-
-```sh
-curl -X POST https://localhost:26657 -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"blockchain\",\"params\":{\"minHeight\":\"1\", \"maxHeight\":\"2\"}}"
-```
-
-#### Response
-
-```json
-{
-  "id": 0,
-  "jsonrpc": "2.0",
-  "result": {
-    "last_height": "1276718",
-    "block_metas": [
-      {
-        "block_id": {
-          "hash": "112BC173FD838FB68EB43476816CD7B4C6661B6884A9E357B417EE957E1CF8F7",
-          "parts": {
-            "total": 1,
-            "hash": "38D4B26B5B725C4F13571EFE022C030390E4C33C8CF6F88EDD142EA769642DBD"
-          }
-        },
-        "block_size": 1000000,
-        "header": {
-          "version": {
-            "block": "10",
-            "app": "0"
-          },
-          "chain_id": "cosmoshub-2",
-          "height": "12",
-          "time": "2019-04-22T17:01:51.701356223Z",
-          "last_block_id": {
-            "hash": "112BC173FD838FB68EB43476816CD7B4C6661B6884A9E357B417EE957E1CF8F7",
-            "parts": {
-              "total": 1,
-              "hash": "38D4B26B5B725C4F13571EFE022C030390E4C33C8CF6F88EDD142EA769642DBD"
-            }
-          },
-          "last_commit_hash": "21B9BC845AD2CB2C4193CDD17BFC506F1EBE5A7402E84AD96E64171287A34812",
-          "data_hash": "970886F99E77ED0D60DA8FCE0447C2676E59F2F77302B0C4AA10E1D02F18EF73",
-          "validators_hash": "D658BFD100CA8025CFD3BECFE86194322731D387286FBD26E059115FD5F2BCA0",
-          "next_validators_hash": "D658BFD100CA8025CFD3BECFE86194322731D387286FBD26E059115FD5F2BCA0",
-          "consensus_hash": "0F2908883A105C793B74495EB7D6DF2EEA479ED7FC9349206A65CB0F9987A0B8",
-          "app_hash": "223BF64D4A01074DC523A80E76B9BBC786C791FB0A1893AC5B14866356FCFD6C",
-          "last_results_hash": "",
-          "evidence_hash": "",
-          "proposer_address": "D540AB022088612AC74B287D076DBFBC4A377A2E"
-        },
-        "num_txs": "54"
-      }
-    ]
-  }
-}
+curl -sS 'http://localhost:26657/blockchain?minHeight=1&maxHeight=2'
+curl -sS 'http://localhost:26657/' -H 'Content-Type: application/json' \
+  --data-binary '{"jsonrpc":"2.0","id":1,"method":"blockchain","params":{"minHeight":"1","maxHeight":"2"}}'
 ```
 
 ### Header
 
-Get a header at a specified height.
-
-#### Parameters
-
-- `height (integer)`: height of the requested header. If no height is specified the latest height will be used.
-
-#### Request
-
-##### HTTP
+`header` accepts optional `height`; omission selects the latest available height.
+The result wraps the header in `header`. Explicit heights must be positive,
+retained and no greater than the available head.
 
 ```sh
-curl http://localhost:26657/header
-
-curl http://localhost:26657/header?height=1
-```
-
-##### JSONRPC
-
-```sh
-curl -X POST https://localhost:26657 -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"header\",\"params\":{\"height\":\"1\"}}"
-```
-
-#### Response
-
-```json
-{
-  "id": 0,
-  "jsonrpc": "2.0",
-  "result": {
-    "header": {
-      "version": {
-        "block": "10",
-        "app": "0"
-      },
-      "chain_id": "cosmoshub-2",
-      "height": "12",
-      "time": "2019-04-22T17:01:51.701356223Z",
-      "last_block_id": {
-        "hash": "112BC173FD838FB68EB43476816CD7B4C6661B6884A9E357B417EE957E1CF8F7",
-        "parts": {
-          "total": 1,
-          "hash": "38D4B26B5B725C4F13571EFE022C030390E4C33C8CF6F88EDD142EA769642DBD"
-        }
-      },
-      "last_commit_hash": "21B9BC845AD2CB2C4193CDD17BFC506F1EBE5A7402E84AD96E64171287A34812",
-      "data_hash": "970886F99E77ED0D60DA8FCE0447C2676E59F2F77302B0C4AA10E1D02F18EF73",
-      "validators_hash": "D658BFD100CA8025CFD3BECFE86194322731D387286FBD26E059115FD5F2BCA0",
-      "next_validators_hash": "D658BFD100CA8025CFD3BECFE86194322731D387286FBD26E059115FD5F2BCA0",
-      "consensus_hash": "0F2908883A105C793B74495EB7D6DF2EEA479ED7FC9349206A65CB0F9987A0B8",
-      "app_hash": "223BF64D4A01074DC523A80E76B9BBC786C791FB0A1893AC5B14866356FCFD6C",
-      "last_results_hash": "",
-      "evidence_hash": "",
-      "proposer_address": "D540AB022088612AC74B287D076DBFBC4A377A2E"
-    }
-  }
-}
+curl -sS 'http://localhost:26657/header'
+curl -sS 'http://localhost:26657/' -H 'Content-Type: application/json' \
+  --data-binary '{"jsonrpc":"2.0","id":1,"method":"header","params":{"height":"1"}}'
 ```
 
 ### HeaderByHash
 
-#### Parameters
-
-- `hash (string)`: Hash of the header to query for.
-
-#### Request
-
-##### HTTP
+`header_by_hash` accepts `hash` and returns `header`. Use the hash of a block
+available on this node; the illustrative hash below may return a null header.
 
 ```sh
-curl http://localhost:26657/header_by_hash?hash=0xD70952032620CC4E2737EB8AC379806359D8E0B17B0488F627997A0B043ABDED
-```
-
-##### JSONRPC
-
-```sh
-curl -X POST https://localhost:26657 -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"header_by_hash\",\"params\":{\"hash\":\"0xD70952032620CC4E2737EB8AC379806359D8E0B17B0488F627997A0B043ABDED\"}}"
-```
-
-#### Response
-
-```json
-{
-  "id": 0,
-  "jsonrpc": "2.0",
-  "result": {
-      "header": {
-        "version": {
-          "block": "10",
-          "app": "0"
-        },
-        "chain_id": "cosmoshub-2",
-        "height": "12",
-        "time": "2019-04-22T17:01:51.701356223Z",
-        "last_block_id": {
-          "hash": "112BC173FD838FB68EB43476816CD7B4C6661B6884A9E357B417EE957E1CF8F7",
-          "parts": {
-            "total": 1,
-            "hash": "38D4B26B5B725C4F13571EFE022C030390E4C33C8CF6F88EDD142EA769642DBD"
-          }
-        },
-        "last_commit_hash": "21B9BC845AD2CB2C4193CDD17BFC506F1EBE5A7402E84AD96E64171287A34812",
-        "data_hash": "970886F99E77ED0D60DA8FCE0447C2676E59F2F77302B0C4AA10E1D02F18EF73",
-        "validators_hash": "D658BFD100CA8025CFD3BECFE86194322731D387286FBD26E059115FD5F2BCA0",
-        "next_validators_hash": "D658BFD100CA8025CFD3BECFE86194322731D387286FBD26E059115FD5F2BCA0",
-        "consensus_hash": "0F2908883A105C793B74495EB7D6DF2EEA479ED7FC9349206A65CB0F9987A0B8",
-        "app_hash": "223BF64D4A01074DC523A80E76B9BBC786C791FB0A1893AC5B14866356FCFD6C",
-        "last_results_hash": "",
-        "evidence_hash": "",
-        "proposer_address": "D540AB022088612AC74B287D076DBFBC4A377A2E"
-      }
-    }
-  }
-}
+curl -sS 'http://localhost:26657/' -H 'Content-Type: application/json' \
+  --data-binary '{"jsonrpc":"2.0","id":1,"method":"header_by_hash","params":{"hash":"D70952032620CC4E2737EB8AC379806359D8E0B17B0488F627997A0B043ABDED"}}'
 ```
 
 ### Block
 
-Get block at a specified height.
-
-#### Parameters
-
-- `height (integer)`: height of the requested block. If no height is specified the latest height will be used.
-
-#### Request
-
-##### HTTP
+`block` accepts optional `height` and returns `block_id` and `block`. Omission
+selects the latest available block. Under Autobahn the block comes from finalized
+global block data, not the classic block store.
 
 ```sh
-curl http://localhost:26657/block
-
-curl http://localhost:26657/block?height=1
-```
-
-##### JSONRPC
-
-```sh
-curl -X POST https://localhost:26657 -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"block\",\"params\":{\"height\":\"1\"}}"
-```
-
-#### Response
-
-```json
-{
-  "id": 0,
-  "jsonrpc": "2.0",
-  "result": {
-    "block_id": {
-      "hash": "112BC173FD838FB68EB43476816CD7B4C6661B6884A9E357B417EE957E1CF8F7",
-      "parts": {
-        "total": 1,
-        "hash": "38D4B26B5B725C4F13571EFE022C030390E4C33C8CF6F88EDD142EA769642DBD"
-      }
-    },
-    "block": {
-      "header": {
-        "version": {
-          "block": "10",
-          "app": "0"
-        },
-        "chain_id": "cosmoshub-2",
-        "height": "12",
-        "time": "2019-04-22T17:01:51.701356223Z",
-        "last_block_id": {
-          "hash": "112BC173FD838FB68EB43476816CD7B4C6661B6884A9E357B417EE957E1CF8F7",
-          "parts": {
-            "total": 1,
-            "hash": "38D4B26B5B725C4F13571EFE022C030390E4C33C8CF6F88EDD142EA769642DBD"
-          }
-        },
-        "last_commit_hash": "21B9BC845AD2CB2C4193CDD17BFC506F1EBE5A7402E84AD96E64171287A34812",
-        "data_hash": "970886F99E77ED0D60DA8FCE0447C2676E59F2F77302B0C4AA10E1D02F18EF73",
-        "validators_hash": "D658BFD100CA8025CFD3BECFE86194322731D387286FBD26E059115FD5F2BCA0",
-        "next_validators_hash": "D658BFD100CA8025CFD3BECFE86194322731D387286FBD26E059115FD5F2BCA0",
-        "consensus_hash": "0F2908883A105C793B74495EB7D6DF2EEA479ED7FC9349206A65CB0F9987A0B8",
-        "app_hash": "223BF64D4A01074DC523A80E76B9BBC786C791FB0A1893AC5B14866356FCFD6C",
-        "last_results_hash": "",
-        "evidence_hash": "",
-        "proposer_address": "D540AB022088612AC74B287D076DBFBC4A377A2E"
-      },
-      "data": [
-        "yQHwYl3uCkKoo2GaChRnd+THLQ2RM87nEZrE19910Z28ABIUWW/t8AtIMwcyU0sT32RcMDI9GF0aEAoFdWF0b20SBzEwMDAwMDASEwoNCgV1YXRvbRIEMzEwMRCd8gEaagom61rphyEDoJPxlcjRoNDtZ9xMdvs+lRzFaHe2dl2P5R2yVCWrsHISQKkqX5H1zXAIJuC57yw0Yb03Fwy75VRip0ZBtLiYsUqkOsPUoQZAhDNP+6LY+RUwz/nVzedkF0S29NZ32QXdGv0="
-      ],
-      "evidence": [
-        {
-          "type": "string",
-          "height": 0,
-          "time": 0,
-          "total_voting_power": 0,
-          "validator": {
-            "pub_key": {
-              "type": "tendermint/PubKeyEd25519",
-              "value": "A6DoBUypNtUAyEHWtQ9bFjfNg8Bo9CrnkUGl6k6OHN4="
-            },
-            "voting_power": 0,
-            "address": "string"
-          }
-        }
-      ],
-      "last_commit": {
-        "height": 0,
-        "round": 0,
-        "block_id": {
-          "hash": "112BC173FD838FB68EB43476816CD7B4C6661B6884A9E357B417EE957E1CF8F7",
-          "parts": {
-            "total": 1,
-            "hash": "38D4B26B5B725C4F13571EFE022C030390E4C33C8CF6F88EDD142EA769642DBD"
-          }
-        },
-        "signatures": [
-          {
-            "type": 2,
-            "height": "1262085",
-            "round": 0,
-            "block_id": {
-              "hash": "112BC173FD838FB68EB43476816CD7B4C6661B6884A9E357B417EE957E1CF8F7",
-              "parts": {
-                "total": 1,
-                "hash": "38D4B26B5B725C4F13571EFE022C030390E4C33C8CF6F88EDD142EA769642DBD"
-              }
-            },
-            "timestamp": "2019-08-01T11:39:38.867269833Z",
-            "validator_address": "000001E443FD237E4B616E2FA69DF4EE3D49A94F",
-            "validator_index": 0,
-            "signature": "DBchvucTzAUEJnGYpNvMdqLhBAHG4Px8BsOBB3J3mAFCLGeuG7uJqy+nVngKzZdPhPi8RhmE/xcw/M9DOJjEDg=="
-          }
-        ]
-      }
-    }
-  }
-}
+curl -sS 'http://localhost:26657/block'
+curl -sS 'http://localhost:26657/' -H 'Content-Type: application/json' \
+  --data-binary '{"jsonrpc":"2.0","id":1,"method":"block","params":{"height":"1"}}'
 ```
 
 ### BlockByHash
 
-#### Parameters
-
-- `hash (string)`: Hash of the block to query for.
-
-#### Request
-
-##### HTTP
+`block_by_hash` accepts `hash` and returns the same wrapper as `block`. Unknown
+hashes have `block: null`. Autobahn's hash lookup uses a temporary in-memory
+index, so it is not a promise of archival hash lookup across restarts.
 
 ```sh
-curl http://localhost:26657/block_by_hash?hash=0xD70952032620CC4E2737EB8AC379806359D8E0B17B0488F627997A0B043ABDED
-```
-
-##### JSONRPC
-
-```sh
-curl -X POST https://localhost:26657 -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"block_by_hash\",\"params\":{\"hash\":\"0xD70952032620CC4E2737EB8AC379806359D8E0B17B0488F627997A0B043ABDED\"}}"
-```
-
-#### Response
-
-```json
-{
-  "id": 0,
-  "jsonrpc": "2.0",
-  "result": {
-    "block_id": {
-      "hash": "112BC173FD838FB68EB43476816CD7B4C6661B6884A9E357B417EE957E1CF8F7",
-      "parts": {
-        "total": 1,
-        "hash": "38D4B26B5B725C4F13571EFE022C030390E4C33C8CF6F88EDD142EA769642DBD"
-      }
-    },
-    "block": {
-      "header": {
-        "version": {
-          "block": "10",
-          "app": "0"
-        },
-        "chain_id": "cosmoshub-2",
-        "height": "12",
-        "time": "2019-04-22T17:01:51.701356223Z",
-        "last_block_id": {
-          "hash": "112BC173FD838FB68EB43476816CD7B4C6661B6884A9E357B417EE957E1CF8F7",
-          "parts": {
-            "total": 1,
-            "hash": "38D4B26B5B725C4F13571EFE022C030390E4C33C8CF6F88EDD142EA769642DBD"
-          }
-        },
-        "last_commit_hash": "21B9BC845AD2CB2C4193CDD17BFC506F1EBE5A7402E84AD96E64171287A34812",
-        "data_hash": "970886F99E77ED0D60DA8FCE0447C2676E59F2F77302B0C4AA10E1D02F18EF73",
-        "validators_hash": "D658BFD100CA8025CFD3BECFE86194322731D387286FBD26E059115FD5F2BCA0",
-        "next_validators_hash": "D658BFD100CA8025CFD3BECFE86194322731D387286FBD26E059115FD5F2BCA0",
-        "consensus_hash": "0F2908883A105C793B74495EB7D6DF2EEA479ED7FC9349206A65CB0F9987A0B8",
-        "app_hash": "223BF64D4A01074DC523A80E76B9BBC786C791FB0A1893AC5B14866356FCFD6C",
-        "last_results_hash": "",
-        "evidence_hash": "",
-        "proposer_address": "D540AB022088612AC74B287D076DBFBC4A377A2E"
-      },
-      "data": [
-        "yQHwYl3uCkKoo2GaChRnd+THLQ2RM87nEZrE19910Z28ABIUWW/t8AtIMwcyU0sT32RcMDI9GF0aEAoFdWF0b20SBzEwMDAwMDASEwoNCgV1YXRvbRIEMzEwMRCd8gEaagom61rphyEDoJPxlcjRoNDtZ9xMdvs+lRzFaHe2dl2P5R2yVCWrsHISQKkqX5H1zXAIJuC57yw0Yb03Fwy75VRip0ZBtLiYsUqkOsPUoQZAhDNP+6LY+RUwz/nVzedkF0S29NZ32QXdGv0="
-      ],
-      "evidence": [
-        {
-          "type": "string",
-          "height": 0,
-          "time": 0,
-          "total_voting_power": 0,
-          "validator": {
-            "pub_key": {
-              "type": "tendermint/PubKeyEd25519",
-              "value": "A6DoBUypNtUAyEHWtQ9bFjfNg8Bo9CrnkUGl6k6OHN4="
-            },
-            "voting_power": 0,
-            "address": "string"
-          }
-        }
-      ],
-      "last_commit": {
-        "height": 0,
-        "round": 0,
-        "block_id": {
-          "hash": "112BC173FD838FB68EB43476816CD7B4C6661B6884A9E357B417EE957E1CF8F7",
-          "parts": {
-            "total": 1,
-            "hash": "38D4B26B5B725C4F13571EFE022C030390E4C33C8CF6F88EDD142EA769642DBD"
-          }
-        },
-        "signatures": [
-          {
-            "type": 2,
-            "height": "1262085",
-            "round": 0,
-            "block_id": {
-              "hash": "112BC173FD838FB68EB43476816CD7B4C6661B6884A9E357B417EE957E1CF8F7",
-              "parts": {
-                "total": 1,
-                "hash": "38D4B26B5B725C4F13571EFE022C030390E4C33C8CF6F88EDD142EA769642DBD"
-              }
-            },
-            "timestamp": "2019-08-01T11:39:38.867269833Z",
-            "validator_address": "000001E443FD237E4B616E2FA69DF4EE3D49A94F",
-            "validator_index": 0,
-            "signature": "DBchvucTzAUEJnGYpNvMdqLhBAHG4Px8BsOBB3J3mAFCLGeuG7uJqy+nVngKzZdPhPi8RhmE/xcw/M9DOJjEDg=="
-          }
-        ]
-      }
-    }
-  }
-}
+curl -sS 'http://localhost:26657/' -H 'Content-Type: application/json' \
+  --data-binary '{"jsonrpc":"2.0","id":1,"method":"block_by_hash","params":{"hash":"D70952032620CC4E2737EB8AC379806359D8E0B17B0488F627997A0B043ABDED"}}'
 ```
 
 ### BlockResults
 
-### Parameters
-
-- `height (integer)`: Height of the block which contains the results. If no height is specified, the latest block height will be used
-
-#### Request
-
-##### HTTP
+`block_results` accepts optional `height`. Its result contains `height`,
+`txs_results`, `total_gas_used`, `finalize_block_events`, `validator_updates` and
+`consensus_param_updates`. The events come from `FinalizeBlock`; the response
+does not have the old begin-block/end-block event fields. If a stored response
+is unavailable the method returns an error rather than inventing empty results.
 
 ```sh
-curl  http://localhost:26657/block_results
-
-
-curl  http://localhost:26657/block_results?height=1
-```
-
-##### JSONRPC
-
-```sh
-curl -X POST https://localhost:26657 -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"block_results\",\"params\":{\"height\":\"1\"}}"
-```
-
-#### Response
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 0,
-  "result": {
-    "height": "12",
-    "total_gas_used": "100",
-    "txs_results": [
-      {
-        "code": "0",
-        "data": "",
-        "log": "not enough gas",
-        "info": "",
-        "gas_wanted": "100",
-        "gas_used": "100",
-        "events": [
-          {
-            "type": "app",
-            "attributes": [
-              {
-                "key": "YWN0aW9u",
-                "value": "c2VuZA==",
-                "index": false
-              }
-            ]
-          }
-        ],
-        "codespace": "ibc"
-      }
-    ],
-    "begin_block_events": [
-      {
-        "type": "app",
-        "attributes": [
-          {
-            "key": "YWN0aW9u",
-            "value": "c2VuZA==",
-            "index": false
-          }
-        ]
-      }
-    ],
-    "end_block": [
-      {
-        "type": "app",
-        "attributes": [
-          {
-            "key": "YWN0aW9u",
-            "value": "c2VuZA==",
-            "index": false
-          }
-        ]
-      }
-    ],
-    "validator_updates": [
-      {
-        "pub_key": {
-          "type": "tendermint/PubKeyEd25519",
-          "value": "9tK9IT+FPdf2qm+5c2qaxi10sWP+3erWTKgftn2PaQM="
-        },
-        "power": "300"
-      }
-    ],
-    "consensus_params_updates": {
-      "block": {
-        "max_bytes": "22020096",
-        "max_gas_wanted": "1000",
-        "max_gas": "1000",
-        "time_iota_ms": "1000"
-      },
-      "evidence": {
-        "max_age": "100000"
-      },
-      "validator": {
-        "pub_key_types": [
-          "ed25519"
-        ]
-      }
-    }
-  }
-}
+curl -sS 'http://localhost:26657/block_results'
+curl -sS 'http://localhost:26657/' -H 'Content-Type: application/json' \
+  --data-binary '{"jsonrpc":"2.0","id":1,"method":"block_results","params":{"height":"1"}}'
 ```
 
 ### Commit
 
-#### Parameters
-
-- `height (integer)`: Height of the block the requested commit pertains to. If no height is set the latest commit will be returned.
-
-#### Request
-
-##### HTTP
+`commit` accepts optional `height`. With classic consensus it returns
+`signed_header` and `canonical`. The latest height may use the locally seen
+commit with `canonical: false`; a canonical commit comes from the next block.
+Under Autobahn this method returns the explicit error described in
+[Consensus mode and errors](#consensus-mode-and-errors).
 
 ```sh
-curl  http://localhost:26657/commit
-
-
-curl  http://localhost:26657/commit?height=1
-```
-
-##### JSONRPC
-
-```sh
-curl -X POST https://localhost:26657 -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"commit\",\"params\":{\"height\":\"1\"}}"
-```
-
-#### Response
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 0,
-  "result": {
-    "signed_header": {
-      "header": {
-        "version": {
-          "block": "10",
-          "app": "0"
-        },
-        "chain_id": "cosmoshub-2",
-        "height": "12",
-        "time": "2019-04-22T17:01:51.701356223Z",
-        "last_block_id": {
-          "hash": "112BC173FD838FB68EB43476816CD7B4C6661B6884A9E357B417EE957E1CF8F7",
-          "parts": {
-            "total": 1,
-            "hash": "38D4B26B5B725C4F13571EFE022C030390E4C33C8CF6F88EDD142EA769642DBD"
-          }
-        },
-        "last_commit_hash": "21B9BC845AD2CB2C4193CDD17BFC506F1EBE5A7402E84AD96E64171287A34812",
-        "data_hash": "970886F99E77ED0D60DA8FCE0447C2676E59F2F77302B0C4AA10E1D02F18EF73",
-        "validators_hash": "D658BFD100CA8025CFD3BECFE86194322731D387286FBD26E059115FD5F2BCA0",
-        "next_validators_hash": "D658BFD100CA8025CFD3BECFE86194322731D387286FBD26E059115FD5F2BCA0",
-        "consensus_hash": "0F2908883A105C793B74495EB7D6DF2EEA479ED7FC9349206A65CB0F9987A0B8",
-        "app_hash": "223BF64D4A01074DC523A80E76B9BBC786C791FB0A1893AC5B14866356FCFD6C",
-        "last_results_hash": "",
-        "evidence_hash": "",
-        "proposer_address": "D540AB022088612AC74B287D076DBFBC4A377A2E"
-      },
-      "commit": {
-        "height": "1311801",
-        "round": 0,
-        "block_id": {
-          "hash": "112BC173FD838FB68EB43476816CD7B4C6661B6884A9E357B417EE957E1CF8F7",
-          "parts": {
-            "total": 1,
-            "hash": "38D4B26B5B725C4F13571EFE022C030390E4C33C8CF6F88EDD142EA769642DBD"
-          }
-        },
-        "signatures": [
-          {
-            "block_id_flag": 2,
-            "validator_address": "000001E443FD237E4B616E2FA69DF4EE3D49A94F",
-            "timestamp": "2019-04-22T17:01:58.376629719Z",
-            "signature": "14jaTQXYRt8kbLKEhdHq7AXycrFImiLuZx50uOjs2+Zv+2i7RTG/jnObD07Jo2ubZ8xd7bNBJMqkgtkd0oQHAw=="
-          }
-        ]
-      }
-    },
-    "canonical": true
-  }
-}
+curl -sS 'http://localhost:26657/commit'
 ```
 
 ### Validators
 
-#### Parameters
-
-- `height (integer)`: Block height at which the validators were present on. If no height is set the latest commit will be returned.
-- `page (integer)`:
-- `per_page (integer)`:
-
-#### Request
-
-##### HTTP
+`validators` accepts optional `height`, `page` and `per_page`. Results contain
+`block_height`, `validators`, `count` and `total`. Pagination starts at page 1;
+the default page size is 30 and normal safe mode caps it at 100. Under Autobahn
+it returns the fixed genesis committee for the validated retained height, with
+proposer priorities zero. Classic mode loads the height's validator set from
+state.
 
 ```sh
-curl  http://localhost:26657/validators
-```
-
-##### JSONRPC
-
-```sh
-curl -X POST https://localhost:26657 -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"validators\",\"params\":{\"height\":\"1\", \"page\":\"1\", \"per_page\":\"20\"}}"
-```
-
-#### Response
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 0,
-  "result": {
-    "block_height": "55",
-    "validators": [
-      {
-        "address": "000001E443FD237E4B616E2FA69DF4EE3D49A94F",
-        "pub_key": {
-          "type": "tendermint/PubKeyEd25519",
-          "value": "9tK9IT+FPdf2qm+5c2qaxi10sWP+3erWTKgftn2PaQM="
-        },
-        "voting_power": "239727",
-        "proposer_priority": "-11896414"
-      }
-    ],
-    "count": "1",
-    "total": "25"
-  }
-}
+curl -sS 'http://localhost:26657/validators?page=1&per_page=20'
+curl -sS 'http://localhost:26657/' -H 'Content-Type: application/json' \
+  --data-binary '{"jsonrpc":"2.0","id":1,"method":"validators","params":{"page":1,"per_page":20}}'
 ```
 
 ### Genesis
 
-Get Genesis of the chain. If the response is large, this operation
-will return an error: use `genesis_chunked` instead.
-
-#### Request
-
-##### HTTP
+`genesis` takes no parameters and returns `genesis`, the node's genesis document.
+For a document spanning more than one genesis chunk, use `genesis_chunked`.
 
 ```sh
-curl  http://localhost:26657/genesis
-```
-
-##### JSONRPC
-
-```sh
-curl -X POST https://localhost:26657 -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"genesis\"}"
-```
-
-#### Response
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 0,
-  "result": {
-    "genesis": {
-      "genesis_time": "2019-04-22T17:00:00Z",
-      "chain_id": "cosmoshub-2",
-      "initial_height": "2",
-      "consensus_params": {
-        "block": {
-          "max_bytes": "22020096",
-          "max_gas": "1000",
-          "time_iota_ms": "1000"
-        },
-        "evidence": {
-          "max_age": "100000"
-        },
-        "validator": {
-          "pub_key_types": [
-            "ed25519"
-          ]
-        }
-      },
-      "validators": [
-        {
-          "address": "B00A6323737F321EB0B8D59C6FD497A14B60938A",
-          "pub_key": {
-            "type": "tendermint/PubKeyEd25519",
-            "value": "cOQZvh/h9ZioSeUMZB/1Vy1Xo5x2sjrVjlE/qHnYifM="
-          },
-          "power": "9328525",
-          "name": "Certus One"
-        }
-      ],
-      "app_hash": "",
-      "app_state": {}
-    }
-  }
-}
+curl -sS 'http://localhost:26657/genesis'
 ```
 
 ### GenesisChunked
 
-Get the genesis document in a chunks to support easily transfering larger documents.
-
-#### Parameters
-
-- `chunk` (integer): the index number of the chunk that you wish to
-  fetch. These IDs are 0 indexed.
-
-#### Request
-
-##### HTTP
+`genesis_chunked` takes `chunk`, a zero-based integer index. The result has
+`chunk` and `total` encoded as decimal strings, and `data` containing base64
+bytes. Decode and concatenate the chunks in index order to recover the genesis
+JSON document. These are RPC document chunks, not state-sync snapshot chunks.
 
 ```sh
-curl  http://localhost:26657/genesis_chunked?chunk=0
-```
-
-##### JSONRPC
-
-```sh
-curl -X POST https://localhost:26657 -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"genesis_chunked\",\"params\":{\"chunk\":0}}"
-```
-
-#### Response
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 0,
-  "result": {
-     "chunk": 0,
-     "total": 10,
-     "data": "dGVuZGVybWludAo="
-  }
-}
+curl -sS 'http://localhost:26657/genesis_chunked?chunk=0'
+curl -sS 'http://localhost:26657/' -H 'Content-Type: application/json' \
+  --data-binary '{"jsonrpc":"2.0","id":1,"method":"genesis_chunked","params":{"chunk":0}}'
 ```
 
 ### ConsensusParams
 
-Get the consensus parameters.
-
-#### Parameters
-
-- `height (integer)`: Block height at which the consensus params would like to be fetched for.
-
-#### Request
-
-##### HTTP
+`consensus_params` accepts optional `height` and returns `block_height` and
+`consensus_params`. Classic mode loads the height's parameters from state.
+Autobahn returns the genesis parameters for a validated retained height.
+Synchrony and timeout defaults are populated by the service.
 
 ```sh
-curl  http://localhost:26657/consensus_params
-```
-
-##### JSONRPC
-
-```sh
-curl -X POST https://localhost:26657 -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"consensus_params\"}"
-```
-
-#### Response
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 0,
-  "result": {
-    "block_height": "1",
-    "consensus_params": {
-      "block": {
-        "max_bytes": "22020096",
-        "max_gas": "1000",
-        "time_iota_ms": "1000"
-      },
-      "evidence": {
-        "max_age": "100000"
-      },
-      "validator": {
-        "pub_key_types": [
-          "ed25519"
-        ]
-      }
-    }
-  }
-}
+curl -sS 'http://localhost:26657/consensus_params'
 ```
 
 ### UnconfirmedTxs
 
-Get a list of unconfirmed transactions.
-
-#### Parameters
-
-- `limit (integer)` The amount of txs to respond with.
-
-#### Request
-
-##### HTTP
+`unconfirmed_txs` accepts `page` and `per_page`, with the same pagination defaults
+as `validators`. There is no `limit` request field. The result has `n_txs` (the
+returned page's count), `total`, `total_bytes` and `txs` (base64 transaction
+bytes). The first three fields are decimal strings. The mempool can change
+between requests, so pagination is not a stable snapshot across calls.
 
 ```sh
-curl  http://localhost:26657/unconfirmed_txs
-```
-
-##### JSONRPC
-
-```sh
-curl -X POST https://localhost:26657 -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"unconfirmed_txs\, \"params\":{\"limit\":\"20\"}}"
-```
-
-#### Response
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 0,
-  "result": {
-    "n_txs": "82",
-    "total": "82",
-    "total_bytes": "19974",
-    "txs": [
-      "gAPwYl3uCjCMTXENChSMnIkb5ZpYHBKIZqecFEV2tuZr7xIUA75/FmYq9WymsOBJ0XSJ8yV8zmQKMIxNcQ0KFIyciRvlmlgcEohmp5wURXa25mvvEhQbrvwbvlNiT+Yjr86G+YQNx7kRVgowjE1xDQoUjJyJG+WaWBwSiGannBRFdrbma+8SFK2m+1oxgILuQLO55n8mWfnbIzyPCjCMTXENChSMnIkb5ZpYHBKIZqecFEV2tuZr7xIUQNGfkmhTNMis4j+dyMDIWXdIPiYKMIxNcQ0KFIyciRvlmlgcEohmp5wURXa25mvvEhS8sL0D0wwgGCItQwVowak5YB38KRIUCg4KBXVhdG9tEgUxMDA1NBDoxRgaagom61rphyECn8x7emhhKdRCB2io7aS/6Cpuq5NbVqbODmqOT3jWw6kSQKUresk+d+Gw0BhjiggTsu8+1voW+VlDCQ1GRYnMaFOHXhyFv7BCLhFWxLxHSAYT8a5XqoMayosZf9mANKdXArA="
-    ]
-  }
-}
+curl -sS 'http://localhost:26657/unconfirmed_txs?page=1&per_page=20'
+curl -sS 'http://localhost:26657/' -H 'Content-Type: application/json' \
+  --data-binary '{"jsonrpc":"2.0","id":1,"method":"unconfirmed_txs","params":{"page":1,"per_page":20}}'
 ```
 
 ### NumUnconfirmedTxs
 
-Get data about unconfirmed transactions.
-
-#### Parameters
-
-None
-
-#### Request
-
-##### HTTP
+`num_unconfirmed_txs` takes no parameters. It returns `n_txs`, `total` and
+`total_bytes` for the whole mempool; it does not return transaction contents.
 
 ```sh
-curl  http://localhost:26657/num_unconfirmed_txs
-```
-
-##### JSONRPC
-
-```sh
-curl -X POST https://localhost:26657 -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"num_unconfirmed_txs\"}"
-```
-
-#### Response
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 0,
-  "result": {
-    "n_txs": "31",
-    "total": "82",
-    "total_bytes": "19974"
-  }
-}
+curl -sS 'http://localhost:26657/num_unconfirmed_txs'
 ```
 
 ### Tx
 
-#### Parameters
-
-- `hash (string)`: The hash of the transaction
-- `prove (bool)`: If the response should include proof the transaction was included in a block.
-
-#### Request
-
-##### HTTP
+`tx` accepts a hex `hash` and boolean `prove`. It requires the KV event sink.
+Results contain `hash`, `height`, `index`, `tx_result`, `tx` and an optional
+inclusion `proof`. Proof construction also requires the corresponding block to
+remain available. A missing indexed transaction produces an error.
 
 ```sh
-curl  "http://localhost:26657/tx?hash=0xD70952032620CC4E2737EB8AC379806359D8E0B17B0488F627997A0B043ABDED&prove=false"
-```
-
-##### JSONRPC
-
-```sh
-curl -X POST https://localhost:26657 -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tx\",\"params\":{\"hash\":\"D70952032620CC4E2737EB8AC379806359D8E0B17B0488F627997A0B043ABDED\",\"prove\":false}}"
-```
-
-#### Response
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 0,
-  "result": {
-    "hash": "D70952032620CC4E2737EB8AC379806359D8E0B17B0488F627997A0B043ABDED",
-    "height": "1000",
-    "index": 0,
-    "tx_result": {
-      "log": "[{\"msg_index\":\"0\",\"success\":true,\"log\":\"\"}]",
-      "gas_wanted": "200000",
-      "gas_used": "28596",
-      "tags": [
-        {
-          "key": "YWN0aW9u",
-          "value": "c2VuZA==",
-          "index": false
-        }
-      ]
-    },
-    "tx": "5wHwYl3uCkaoo2GaChQmSIu8hxpJxLcCuIi8fiHN4TMwrRIU/Af1cEG7Rcs/6LjTl7YjRSymJfYaFAoFdWF0b20SCzE0OTk5OTk1MDAwEhMKDQoFdWF0b20SBDUwMDAQwJoMGmoKJuta6YchAwswBShaB1wkZBctLIhYqBC3JrAI28XGzxP+rVEticGEEkAc+khTkKL9CDE47aDvjEHvUNt+izJfT4KVF2v2JkC+bmlH9K08q3PqHeMI9Z5up+XMusnTqlP985KF+SI5J3ZOIhhNYWRlIGJ5IENpcmNsZSB3aXRoIGxvdmU="
-  }
-}
+curl -sS 'http://localhost:26657/' -H 'Content-Type: application/json' \
+  --data-binary '{"jsonrpc":"2.0","id":1,"method":"tx","params":{"hash":"D70952032620CC4E2737EB8AC379806359D8E0B17B0488F627997A0B043ABDED","prove":false}}'
 ```
 
 ## Transaction Routes
 
+All transaction submission methods take `tx`, the base64 representation of actual
+application transaction bytes in JSON. Obtain a signed transaction from the
+application's transaction tooling; base64 does not sign or validate it. A
+successful mempool admission is not yet a committed receipt.
+
 ### BroadCastTxSync
 
-Returns with the response from CheckTx. Does not wait for DeliverTx result.
+`broadcast_tx` is the current synchronous admission method;
+`broadcast_tx_sync` is a deprecated alias. It waits for mempool validation and
+returns numeric `code`, hex `data`, `log`, `codespace` and hex `hash`. It does not
+wait for execution in a block. Under Autobahn admission goes through its mempool;
+classic mode uses `CheckTx`.
 
-#### Parameters
-
-- `tx (string)`: The transaction encoded
-
-#### Request
-
-##### HTTP
-
-```sh
-curl  http://localhost:26657/broadcast_tx_sync?tx=encoded_tx
-```
-
-##### JSONRPC
+Given a file `signed-tx.json` containing `{"tx":"..."}` with the actual base64
+transaction substituted, construct and send a request with:
 
 ```sh
-curl -X POST https://localhost:26657 -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"broadcast_tx_sync\",\"params\":{\"tx\":\"a/encoded_tx/c\"}}"
-```
-
-#### Response
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 0,
-  "result": {
-    "code": "0",
-    "data": "",
-    "log": "",
-    "codespace": "ibc",
-    "hash": "0D33F2F03A5234F38706E43004489E061AC40A2E"
-  },
-  "error": ""
-}
+jq '{jsonrpc:"2.0",id:1,method:"broadcast_tx",params:.}' signed-tx.json |
+  curl -sS 'http://localhost:26657/' -H 'Content-Type: application/json' \
+    --data-binary @-
 ```
 
 ### BroadCastTxAsync
 
-Returns right away, with no response. Does not wait for CheckTx nor DeliverTx results.
+`broadcast_tx_async` is deprecated. It schedules admission and returns the
+transaction hash immediately; it does not wait for validation or execution.
+The result uses the `ResultBroadcastTx` shape, but its zero-valued admission
+fields do not certify success.
 
-#### Parameters
+### BroadcastTxCommit
 
-- `tx (string)`: The transaction encoded
-
-#### Request
-
-##### HTTP
-
-```sh
-curl  http://localhost:26657/broadcast_tx_async?tx=encoded_tx
-```
-
-##### JSONRPC
-
-```sh
-curl -X POST https://localhost:26657 -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"broadcast_tx_async\",\"params\":{\"tx\":\"a/encoded_tx/c\"}}"
-```
-
-#### Response
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 0,
-  "result": {
-    "code": "0",
-    "data": "",
-    "log": "",
-    "codespace": "ibc",
-    "hash": "0D33F2F03A5234F38706E43004489E061AC40A2E"
-  },
-  "error": ""
-}
-```
+`broadcast_tx_commit` is deprecated but still registered. It waits for admission
+and, on acceptance, polls the indexed transaction until execution is available
+or the configured timeout expires. It requires the KV event sink for commit
+confirmation. Its result includes `check_tx`, `tx_result`, `hash` and `height`.
+A nonzero `check_tx.code` returns without waiting for a commit.
 
 ### CheckTx
 
-Checks the transaction without executing it.
-
-#### Parameters
-
-- `tx (string)`: String of the encoded transaction
-
-#### Request
-
-##### HTTP
-
-```sh
-curl  http://localhost:26657/check_tx?tx=encoded_tx
-```
-
-##### JSONRPC
-
-```sh
-curl -X POST https://localhost:26657 -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"check_tx\",\"params\":{\"tx\":\"a/encoded_tx/c\"}}"
-```
-
-#### Response
-
-```json
-{
-  "id": 0,
-  "jsonrpc": "2.0",
-  "error": "",
-  "result": {
-    "code": "0",
-    "data": "",
-    "log": "",
-    "info": "",
-    "gas_wanted": "1",
-    "gas_used": "0",
-    "events": [
-      {
-        "type": "app",
-        "attributes": [
-          {
-            "key": "YWN0aW9u",
-            "value": "c2VuZA==",
-            "index": false
-          }
-        ]
-      }
-    ],
-    "codespace": "bank"
-  }
-}
-```
+`check_tx` validates a transaction through the application without adding it to
+the mempool. It returns the application's check result directly under `result`,
+including `code`, `data`, `log`, `gasWanted`, `gasEstimated`, `priority` and
+`codespace`. The gas and priority values are decimal strings; `data` is base64
+and `code` is numeric. Use the request construction above with method `check_tx`
+and actual transaction bytes.
 
 ## ABCI Routes
 
 ### ABCIInfo
 
-Get some info about the application.
-
-#### Parameters
-
-None
-
-#### Request
-
-##### HTTP
+`abci_info` takes no parameters. It returns the application's ABCI `Info`
+response under `response`, including its version and last applied block data.
 
 ```sh
-curl  http://localhost:26657/abci_info
-```
-
-##### JSONRPC
-
-```sh
-curl -X POST https://localhost:26657 -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"abci_info\"}"
-```
-
-#### Response
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 0,
-  "result": {
-    "response": {
-      "data": "{\"size\":0}",
-      "version": "0.16.1",
-      "app_version": "1314126"
-    }
-  }
-}
+curl -sS 'http://localhost:26657/abci_info'
+curl -sS 'http://localhost:26657/' -H 'Content-Type: application/json' \
+  --data-binary '{"jsonrpc":"2.0","id":1,"method":"abci_info","params":{}}'
 ```
 
 ### ABCIQuery
 
-Query the application for some information.
+`abci_query` forwards these parameters to the application:
 
-#### Parameters
+| Parameter | Type | Meaning |
+| --- | --- | --- |
+| path | string | Application-defined query route |
+| data | hex string | Query bytes, separate from the path |
+| height | decimal integer or string | Application query height; zero uses application semantics |
+| prove | boolean | Request application state proof operations |
 
-- `path (string)`: Path to the data. This is defined by the application.
-- `data (string)`: The data requested
-- `height (integer)`: Height at which the data is being requested for.
-- `prove (bool)`: Include proofs of the transactions inclusion in the block
-
-#### Request
-
-##### HTTP
-
-```sh
-curl  http://localhost:26657/abci_query?path="a/b/c"=IHAVENOIDEA&height=1&prove=true
-```
-
-##### JSONRPC
+The service does not interpret application paths or verify the returned proof
+for the caller. This is a state-query proof request, not a transaction inclusion
+proof. The following examples encode the same query: replace `a/b/c` and
+`DEADBEEF` with a route and query bytes supported by the application.
 
 ```sh
-curl -X POST https://localhost:26657 -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"abci_query\",\"params\":{\"path\":\"a/b/c\", \"height\":\"1\", \"bool\":\"true\"}}"
+curl -sS --get 'http://localhost:26657/abci_query' \
+  --data-urlencode 'path="a/b/c"' \
+  --data-urlencode 'data=DEADBEEF' \
+  --data-urlencode 'height=1' \
+  --data-urlencode 'prove=true'
+
+curl -sS 'http://localhost:26657/' -H 'Content-Type: application/json' \
+  --data-binary '{"jsonrpc":"2.0","id":1,"method":"abci_query","params":{"path":"a/b/c","data":"DEADBEEF","height":"1","prove":true}}'
 ```
 
-#### Response
-
-```json
-{
-  "error": "",
-  "result": {
-    "response": {
-      "log": "exists",
-      "height": "0",
-      "proof": "010114FED0DAD959F36091AD761C922ABA3CBF1D8349990101020103011406AA2262E2F448242DF2C2607C3CDC705313EE3B0001149D16177BC71E445476174622EA559715C293740C",
-      "value": "61626364",
-      "key": "61626364",
-      "index": "-1",
-      "code": "0"
-    }
-  },
-  "id": 0,
-  "jsonrpc": "2.0"
-}
-```
+The result wraps `ResponseQuery` in `response`. It contains numeric `code`,
+`log`, `info`, string-encoded `index` and `height`, base64 `key` and `value`,
+`proofOps` (null when absent), and `codespace`. The nested ABCI response uses
+protobuf JSON field names, including camel-case `proofOps`. Application failures can therefore be a
+successful JSON-RPC response with nonzero `response.code`; inspect that field.
 
 ## Evidence Routes
 
 ### BroadcastEvidence
 
-Broadcast evidence of the misbehavior.
+`broadcast_evidence` accepts `evidence` as a registered typed JSON evidence
+object, not an arbitrary string containing encoded JSON. The decoder and
+registered evidence types are in
+[`internal/jsontypes`](../../internal/jsontypes) and
+[`types/evidence.go`](../../types/evidence.go). Classic mode validates the
+object and adds it to the evidence pool, returning a base64 `hash` on success.
+Autobahn rejects classic evidence with the explicit error described above.
 
-#### Parameters
-
-- `evidence (string)`:
-
-#### Request
-
-##### HTTP
-
-```sh
-curl http://localhost:26657/broadcast_evidence?evidence=JSON_EVIDENCE_encoded
-```
-
-#### JSONRPC
+Given `evidence.json` containing a real typed evidence object for a classic node,
+the request can be constructed without shell-escaping its nested JSON:
 
 ```sh
-curl -X POST https://localhost:26657 -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"broadcast_evidence\",\"params\":{\"evidence\":\"JSON_EVIDENCE_encoded\"}}"
+jq '{jsonrpc:"2.0",id:1,method:"broadcast_evidence",params:{evidence:.}}' evidence.json |
+  curl -sS 'http://localhost:26657/' -H 'Content-Type: application/json' \
+    --data-binary @-
 ```
 
-#### Response
+## Additional registered routes
 
-```json
-{
-  "error": "",
-  "result": "",
-  "id": 0,
-  "jsonrpc": "2.0"
-}
-```
+The registration map also exposes the following methods. Request and response
+fields are defined by the linked core types at the top of this page.
+
+| Method | Parameters | Result or restriction |
+| --- | --- | --- |
+| `lag_status` | None | `current_height`, `max_peer_height`, `lag`; excessive lag uses error code -32604 |
+| `tx_search` | `query`, `prove`, `page`, `per_page`, `order_by` | Indexed `txs` and `total_count`; requires KV event sink |
+| `block_search` | `query`, `page`, `per_page`, `order_by` | Indexed `blocks` and `total_count`; requires KV event sink |
+| `consensus_state` | None | Classic `round_state`; unavailable under Autobahn |
+| `dump_consensus_state` | None | Classic `round_state` and `peers`; unavailable under Autobahn |
+| `events` | `filter`, `maxItems`, `after`, `before`, `waitTime` | Cursor-based event log, when enabled |
+| `subscribe` | `query` | WebSocket-only event subscription |
+| `unsubscribe` | `query` | WebSocket-only subscription cancellation |
+| `unsubscribe_all` | None | WebSocket-only cancellation of all this connection's subscriptions |
+
+`unsafe_flush_mempool` is only registered when unsafe routes are enabled and the
+service implements `RPCUnsafe`. Search ordering accepts `asc`, `desc` or empty
+(default descending). Event-log retention and availability depend on the local
+RPC configuration; they are not a durable history guarantee.

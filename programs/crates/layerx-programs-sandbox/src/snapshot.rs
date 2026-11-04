@@ -88,9 +88,12 @@ impl SandboxState {
         {
             return Err(SnapshotRefusal::StateLeaseMismatch);
         }
-        let linear_memory = cursor.bytes()?;
-        let globals_count = cursor.length()?;
-        let mut globals = Vec::with_capacity(globals_count);
+        let memory_limit = usize::try_from(lease.limits().memory_bytes)
+            .unwrap_or(usize::MAX)
+            .min(MAX_SANDBOX_LINEAR_MEMORY_BYTES);
+        let linear_memory = cursor.bounded_bytes(memory_limit)?;
+        let globals_count = cursor.count(MAX_SANDBOX_GLOBALS, 14)?;
+        let mut globals = reserved_vec(globals_count)?;
         for _ in 0..globals_count {
             let name = String::from_utf8(cursor.bytes()?)
                 .map_err(|_| SnapshotRefusal::NonCanonicalContinuation)?;
@@ -101,18 +104,21 @@ impl SandboxState {
         }
         let entrypoint = String::from_utf8(cursor.bytes()?)
             .map_err(|_| SnapshotRefusal::NonCanonicalContinuation)?;
-        let argument_count = cursor.length()?;
-        let mut arguments = Vec::with_capacity(argument_count);
+        let argument_count = cursor.count(MAX_SANDBOX_OPERAND_STACK, 5)?;
+        let mut arguments = reserved_vec(argument_count)?;
         for _ in 0..argument_count {
             arguments.push(cursor.value()?);
         }
-        let cell_count = cursor.length()?;
-        let mut namespace_cells = Vec::with_capacity(cell_count);
+        let cell_count = cursor.count(MAX_SANDBOX_NAMESPACE_CELLS, 17)?;
+        let mut namespace_cells = reserved_vec(cell_count)?;
+        let mut namespace_remaining =
+            usize::try_from(lease.limits().namespace_bytes).unwrap_or(usize::MAX);
         for _ in 0..cell_count {
-            namespace_cells.push(NamespaceCell {
-                key: cursor.bytes()?,
-                value: cursor.bytes()?,
-            });
+            let key = cursor.bounded_bytes(namespace_remaining)?;
+            namespace_remaining -= key.len();
+            let value = cursor.bounded_bytes(namespace_remaining)?;
+            namespace_remaining -= value.len();
+            namespace_cells.push(NamespaceCell { key, value });
         }
         if !cursor.is_empty() {
             return Err(SnapshotRefusal::NonCanonicalContinuation);
@@ -127,6 +133,7 @@ impl SandboxState {
             },
             namespace_cells,
         )?;
+        state.validate_against(lease)?;
         if state.canonical_bytes()? != bytes {
             return Err(SnapshotRefusal::NonCanonicalContinuation);
         }
@@ -261,6 +268,14 @@ impl SandboxState {
     }
 }
 
+fn reserved_vec<T>(length: usize) -> Result<Vec<T>, SnapshotRefusal> {
+    let mut values = Vec::new();
+    values
+        .try_reserve_exact(length)
+        .map_err(|_| SnapshotRefusal::StateBoundExceeded)?;
+    Ok(values)
+}
+
 struct SnapshotCursor<'a> {
     bytes: &'a [u8],
     offset: usize,
@@ -290,9 +305,28 @@ impl<'a> SnapshotCursor<'a> {
         usize::try_from(u64::from_be_bytes(self.array()?))
             .map_err(|_| SnapshotRefusal::StateBoundExceeded)
     }
+    fn count(&mut self, maximum: usize, minimum_bytes: usize) -> Result<usize, SnapshotRefusal> {
+        let count = self.length()?;
+        if count > maximum {
+            return Err(SnapshotRefusal::StateBoundExceeded);
+        }
+        if count > (self.bytes.len() - self.offset) / minimum_bytes {
+            return Err(SnapshotRefusal::NonCanonicalContinuation);
+        }
+        Ok(count)
+    }
     fn bytes(&mut self) -> Result<Vec<u8>, SnapshotRefusal> {
+        self.bounded_bytes(usize::MAX)
+    }
+    fn bounded_bytes(&mut self, maximum: usize) -> Result<Vec<u8>, SnapshotRefusal> {
         let length = self.length()?;
-        Ok(self.take(length)?.to_vec())
+        if length > maximum {
+            return Err(SnapshotRefusal::StateBoundExceeded);
+        }
+        let bytes = self.take(length)?;
+        let mut output = reserved_vec(length)?;
+        output.extend_from_slice(bytes);
+        Ok(output)
     }
     fn value(&mut self) -> Result<WasmValue, SnapshotRefusal> {
         match self.array::<1>()?[0] {
@@ -614,10 +648,12 @@ pub fn restore(
         layerx_programs_runtime::AbiRevision::V4 => layerx_programs_runtime::ABI_V4_VERSION,
         layerx_programs_runtime::AbiRevision::V5 => layerx_programs_runtime::ABI_V5_VERSION,
     };
+    let capabilities =
+        crate::LeaseCapabilities::derive(&candidate).map_err(SnapshotRefusal::Authority)?;
     let abi = Abi::new(
         abi_version,
-        target.host_program(),
-        authorization,
+        candidate.host_program(),
+        capabilities.authorization(),
         candidate_storage,
         &UnavailableReceiptOracle,
     )
@@ -660,6 +696,9 @@ fn validate_restore<'a>(
     module: &ValidatedModule,
     activation: &LeaseTransition,
 ) -> Result<ValidatedRestore<'a>, SnapshotRefusal> {
+    if !module.supports_continuation() {
+        return Err(SnapshotRefusal::IncompatibleTarget);
+    }
     let record = source
         .snapshot_records()
         .iter()
@@ -886,6 +925,7 @@ pub enum SnapshotRefusal {
     Storage(StorageError),
     Runtime(ExecutionFault),
     Abi(layerx_programs_runtime::AbiError),
+    Authority(crate::SandboxRefusal),
 }
 
 impl Display for SnapshotRefusal {

@@ -68,8 +68,7 @@ use crate::notify::{
 };
 use crate::onboarding::OnboardingJourney;
 use crate::security::{
-    AuthenticatorMethod, AuthenticatorProvider, AuthenticatorStatus, KeyExportCeremony,
-    RecoveryEvidenceProvider, SecurityError,
+    AuthenticatorMethod, AuthenticatorProvider, AuthenticatorStatus, RecoveryEvidenceProvider,
 };
 use crate::store::{
     PrincipalStore, RetentionPeriod, RetentionPolicy, RowKey, Table, TenancyDigest,
@@ -2637,23 +2636,6 @@ fn authenticator_status_json(
     )
 }
 
-const KEY_EXPORT_WINDOW_SECONDS: u64 = 300;
-
-fn key_export_failure(error: &SecurityError) -> ApiFailure {
-    match error {
-        SecurityError::KeyExported | SecurityError::Custody(CustodyError::SelfCustodied) => {
-            ApiFailure::forbidden()
-        }
-        SecurityError::StepUpMismatch | SecurityError::StepUpExpired => ApiFailure::forbidden(),
-        SecurityError::InvalidTarget => ApiFailure::invalid_request(None),
-        SecurityError::SessionExpired => ApiFailure::session_expired(),
-        SecurityError::Auth(error) => auth_api_failure(error),
-        SecurityError::Boundary(_) | SecurityError::Custody(_) | SecurityError::Audit(_) => {
-            ApiFailure::upstream_degraded()
-        }
-    }
-}
-
 fn timed_secret_json(
     secret: &crate::security::TimedSecret,
 ) -> Result<serde_json::Value, ApiFailure> {
@@ -3908,7 +3890,7 @@ impl ProductionComponents {
         )
         .map_err(|error| identity_failure(&error))?;
         Ok(BackendResponse {
-            result: json!({"confirms": format!("opd_{}", URL_SAFE_NO_PAD.encode(digest.bytes()))}),
+            result: json!({"confirms": digest.to_schema()}),
             session: None,
         })
     }
@@ -3919,21 +3901,8 @@ impl ProductionComponents {
         scope: &mut crate::store::PrincipalScope<'_>,
         principal: &crate::store::PrincipalId,
     ) -> Result<BackendResponse, ApiFailure> {
-        let encoded = text_field(&request.body, "confirms")?
-            .strip_prefix("opd_")
-            .ok_or_else(|| ApiFailure::invalid_request(Some("confirms")))?;
-        let bytes = URL_SAFE_NO_PAD
-            .decode(encoded)
-            .map_err(|_| ApiFailure::invalid_request(Some("confirms")))?;
-        let digest = crate::auth::OperationDigest::new(
-            bytes
-                .try_into()
-                .map_err(|_| ApiFailure::invalid_request(Some("confirms")))?,
-        );
-        let challenge = self
-            .passkeys
-            .begin_step_up_authorized(scope, digest, self.now()?)
-            .map_err(|error| auth_api_failure(&error))?;
+        let challenge =
+            super::key_export::step_up_begin(&self.passkeys, scope, &request.body, self.now()?)?;
         self.auth_index
             .bind_step_up(&challenge.challenge_id, principal, challenge.expires_at)
             .map_err(|error| auth_failure(&error))?;
@@ -4706,7 +4675,7 @@ impl ProductionComponents {
             .asset(&denom)
             .ok_or_else(ApiFailure::forbidden)?
             .amount
-            < amount
+            < amount.into()
         {
             return Err(ApiFailure::forbidden());
         }
@@ -5173,23 +5142,18 @@ impl ProductionComponents {
         })
     }
 
-    fn key_export_ceremony() -> Result<KeyExportCeremony, ApiFailure> {
-        let key = KeyId::new("human-primary").map_err(|_| ApiFailure::upstream_degraded())?;
-        KeyExportCeremony::new(key, KEY_EXPORT_WINDOW_SECONDS)
-            .map_err(|_| ApiFailure::upstream_degraded())
-    }
-
     fn execute_key_export_begin(
         &self,
-        principal: &crate::store::PrincipalId,
+        request: &ScopedRequest<'_>,
+        scope: &mut crate::store::PrincipalScope<'_>,
     ) -> Result<BackendResponse, ApiFailure> {
-        let challenge = Self::key_export_ceremony()?
-            .begin(self.custody.creation_keystore(), principal, self.now()?)
-            .map_err(|error| key_export_failure(&error))?;
-        Ok(BackendResponse {
-            result: super::identity::IdentityProjector::key_export_challenge(&challenge)?,
-            session: None,
-        })
+        super::key_export::begin(
+            self.custody.creation_keystore(),
+            &self.passkeys,
+            scope,
+            &request.body,
+            self.now()?,
+        )
     }
 
     fn execute_key_export_finish(
@@ -5197,33 +5161,14 @@ impl ProductionComponents {
         request: &ScopedRequest<'_>,
         scope: &mut crate::store::PrincipalScope<'_>,
     ) -> Result<BackendResponse, ApiFailure> {
-        let export_id = text_field(&request.body, "export_id")?.to_owned();
-        let challenge = request
-            .body
-            .get("step_up")
-            .and_then(|value| value.get("challenge_id"))
-            .and_then(serde_json::Value::as_str)
-            .ok_or_else(ApiFailure::forbidden)?;
-        let evidence = self
-            .passkeys
-            .load_step_up_evidence(scope, challenge, self.now()?)
-            .map_err(|error| auth_api_failure(&error))?;
-        let trace =
-            TraceId::parse(&request.trace).map_err(|_| ApiFailure::invalid_request(None))?;
-        let exported = Self::key_export_ceremony()?
-            .finish(
-                self.custody.creation_keystore(),
-                scope,
-                &export_id,
-                &evidence,
-                &trace,
-                self.now()?,
-            )
-            .map_err(|error| key_export_failure(&error))?;
-        Ok(BackendResponse {
-            result: super::identity::IdentityProjector::exported_key(&exported)?,
-            session: None,
-        })
+        super::key_export::finish(
+            &self.passkeys,
+            self.custody.creation_keystore(),
+            scope,
+            &request.body,
+            &request.trace,
+            self.now()?,
+        )
     }
 
     fn execute_session_list(
@@ -5396,7 +5341,7 @@ impl ProductionComponents {
         .map_err(|_| ApiFailure::upstream_degraded())?;
         Ok(BackendResponse {
             result: json!({"approval_id":encoded,"held_digest":super::projection::hex(&held_digest),
-            "decision":decision,"confirms":format!("opd_{}", URL_SAFE_NO_PAD.encode(digest.bytes())),
+            "decision":decision,"confirms":digest.to_schema(),
             "evidence":projected.material["evidence"]}),
             session: None,
         })
@@ -6840,7 +6785,7 @@ impl ProductionComponents {
             "authenticator.disable" => self.execute_authenticator_disable(request, principal),
             "authenticator.backup.rotate" => self.execute_authenticator_backup_rotate(principal),
             "security.recovery.reveal" => self.execute_security_recovery_reveal(request, principal),
-            "security.key-export.begin" => self.execute_key_export_begin(principal),
+            "security.key-export.begin" => self.execute_key_export_begin(request, scope),
             "security.key-export.finish" => self.execute_key_export_finish(request, scope),
             "session.list" => Self::execute_session_list(scope, session_id),
             "session.revoke" | "security.session.revoke" => {
@@ -8493,7 +8438,7 @@ impl ProductionComponents {
         let digest = super::native_send::access_operation(scope, &access)
             .map_err(agent_failure_from_creation_contract)?;
         Ok(BackendResponse {
-            result: json!({"access_id":text_field(&request.body,"access_id")?,"confirms":format!("opd_{}",URL_SAFE_NO_PAD.encode(digest.bytes()))}),
+            result: json!({"access_id":text_field(&request.body,"access_id")?,"confirms":digest.to_schema()}),
             session: None,
         })
     }
@@ -9041,7 +8986,7 @@ mod send_leg_denom_tests {
                 height: 16,
                 balances: vec![AssetBalance {
                     denom: "ulxp".to_owned(),
-                    amount: 100,
+                    amount: 100.into(),
                 }],
                 evidence: Evidence::GatewayReported,
             },

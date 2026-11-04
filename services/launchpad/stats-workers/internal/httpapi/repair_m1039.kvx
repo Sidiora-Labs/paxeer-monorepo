@@ -1,0 +1,33 @@
+[task]
+id = "22.33.1039"
+audit = "22.30.40"
+baseline = "No baseline verification was run: the explicit gate order forbids tests until implementation is complete; no pre-change test failures are claimed."
+evidence = "The final hf-build/hf-done ledger contains the candidate revision, exact command, exit code and private log; the runner publishes the qualified candidate."
+fixture_boundary = "Production handlers, Store, pgx codec/transport, SQL generation, auth operation envelope/signature verifier, PostgreSQL ledger and reaction authority execute against committed loopback table/RESP/RPC/identity peer fixtures. PostgreSQL wire tables persist to a private temporary file, then handlers and connection pools are stopped and reopened. The peer fixture is not PostgreSQL SQL execution, query-plan, production capacity or canonical multihop-ingestion evidence."
+reaction_migration = "Both legacy reaction routes return 410 Gone and an explicit successor link requiring fresh v2 signed intent, identity, policy, nonce, expiry and expectedRevision; unsigned/arbitrary-message Redis mutation and Redis tally authority are retired. v2 remains the sole mutation/read authority and already commits vote, nonce result, aggregate/outbox and shared operation ledger atomically."
+ownership_migration = "Distribution/whales read canonical transfer aggregates and numerically indexed balances in a read-only repeatable-read transaction, defaulting to the committed production holder schema stats_transfer_holdings; registration accepts an explicit validated schema. Missing canonical data fails visibly without legacy fallback. Wallet cursors bind pool, kind and revision; changed revisions require restart."
+
+[proof]
+cross_history_page_bound = "TestRepairM_1039_CrossHistoryPageBound: real Store insert/pgx/registered wallet and token handlers, 1003 rows, exact 500/500/3 pages, tied timestamp/id order, malformed/duplicate/oversized/negative/deep-offset refusal and scoped keyset cursors."
+creator_history_unbounded = "TestRepairM_1039_CreatorHistoryUnbounded: SQL summary and bounded page share one statement, nine cursor pages, exact integer totals, deterministic ties and a concurrent newer canonical append excluded until a fresh history read."
+legacy_holder_page_bound = "TestRepairM_1039_LegacyHolderPageBound: real handler/store against 12003-row table peer, maximum and offset boundaries, bad input refused, canonical IF_HOLDERS still registered independently."
+distribution_unbounded = "TestRepairM_1039_DistributionUnbounded and TestRepairM_1039_WhalePageBound: million-wallet source produced through holdings.Accumulator, bounded persisted-aggregate and indexed numeric-page SQL, 16 fixture wallet visits for two seven-wallet pages including lookahead, cursor revision refusal and separate whale maximum/threshold."
+transaction_page_bound = "TestRepairM_1039_TransactionPageBound: real insert/store/handler path, 1003 rows, maximum/oversized/negative cases, exact empty/end boundaries, lowercase lookup and deterministic newest-first ties."
+legacy_reaction_signature = "TestRepairM_1039_LegacyReactionSignature: production registered legacy route retirement; fresh EIP-191 canonical signed v2 operation; actual signature transplantation across pool, reaction, method, expiry, nonce and environment refused; identical replay preserves the stored result."
+legacy_reaction_state = "TestRepairM_1039_LegacyReactionState: legacy Redis authority retired, simultaneous freshly signed replacements through v2 ledger/authority, transactional failure before ledger commit rolls back vote, then stopped/reopened connection pools and handlers recover tally and original operation replay without vote/cache publication."
+reaction_test_wrong_intent = "TestRepairM_1039_ReactionTestWrongIntent: fresh signed bullish/replacement/clear operations, expected-revision conflict, changed-body signature refusal and replay across reopen; TestReactionsRoutes runs the same production paths without clearing admission."
+
+[wiring]
+multihop = "services/launchpad/stats-workers/internal/consumers and canonical multihop producer: launchpad stats/indexer owner must wire canonical multihop facts into InsertCrossTokenSwap and run the producer-to-history proof; this task proves persisted history transport/page boundaries only."
+clients = "apps/launchpad/web and sdk/launchpad/packages/sdk: launchpad web/SDK owners must migrate legacy reaction clients to the already registered /v2/stats/{poolAddress}/reactions with fresh signed reaction.replace intent, identity credential and explicit clear semantics."
+app = "services/launchpad/stats-workers/internal/app/app.go: launchpad stats owner must pass d.Phase2.HolderSchema to RegisterPoolHolders and RegisterPoolAnalytics when using a nondefault canonical holder schema; no app edit is in scope."
+capacity = "services/launchpad/stats-workers/internal/holdings/phase2_million_test.go and production integration migration: launchpad holdings/database owner must qualify the existing (token,balance DESC,address ASC) index and canonical aggregate conservation against a million-row PostgreSQL source; fixture visit counts are not a PostgreSQL query-plan claim."
+
+[gotcha]
+order = "Step 12 asks for baseline verification, but the explicit ordered gates prohibit it; the gate runs only after completed implementation."
+legacy = "Legacy signed messages authorize no specific action and Redis vote sets cannot recover durable state; clients receive an explicit 410 migration instead of a redirect that might replay a signature on a different signed path."
+scope = "Task record and gotchas are stored here because this task forbids editing spec files and GOTCHA.kvx."
+
+[qualification_repair]
+first = "Candidate 137396f9fe14ba4ed1e4d2997e1d6a074886c39e: hf-build exited 0; hf-done (cg spec done 22.33.1039 -f layerx-merge --root /work/paxeer-monorepo) exited 1 at test compilation because reactions_test.go retained an unused net/http import; private evidence /out/logs/verify-1.log and /tmp/repair-m1039.log."
+repair = "Removed the unused import and corrected the peer transcript's PostgreSQL boolean/bytea decoding and independent rollback snapshots; assertions and production behavior are unchanged."
