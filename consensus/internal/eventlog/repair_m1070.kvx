@@ -1,0 +1,7 @@
+[repair.22.33.1070]
+finding = "22.30.43/f004"
+implementation = "Capture the head and ready channel in one locked logState snapshot; wait on that snapshot's notification generation."
+proof = ["TestRepairM_1070_SnapshotSubscriptionBoundary", "TestRepairM_1070_WaitScanBroadcastAndResubscribe", "TestRepairM_1070_WaitScanCancellationAndImmediateScan"]
+baseline = "Not run: the task's ordered gate instructions prohibit verification before implementation and require hf-build before hf-done; no pre-change failures are claimed."
+wiring_requests = []
+evidence = "The runner gate ledger records the exact candidate revision, command, exit code and private log location; qualification is claimed only when hf-done passes."

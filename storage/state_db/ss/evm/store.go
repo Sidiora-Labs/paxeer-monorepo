@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 
 	dbm "github.com/tendermint/tm-db"
 
@@ -26,6 +27,7 @@ type EVMStateStore struct {
 	managedDBs  []types.StateStore
 	dir         string
 	separateDBs bool
+	closed      atomic.Bool
 }
 
 // NewEVMStateStore opens either a single unified MVCC DB for all EVM state
@@ -282,8 +284,20 @@ func (itr *mergedEVMIterator) Close() error {
 	return itr.closeErr
 }
 
-func (s *EVMStateStore) RawIterate(_ string, _ func([]byte, []byte, int64) bool) (bool, error) {
-	return false, fmt.Errorf("EVMStateStore: RawIterate not supported")
+func (s *EVMStateStore) RawIterate(storeKey string, fn func([]byte, []byte, int64) bool) (bool, error) {
+	if s.closed.Load() {
+		return false, fmt.Errorf("EVMStateStore: database is closed")
+	}
+	for i, db := range s.managedDBs {
+		stopped, err := db.RawIterate(storeKey, fn)
+		if err != nil {
+			return stopped, fmt.Errorf("EVM raw traversal of database %d failed: %w", i, err)
+		}
+		if stopped {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (s *EVMStateStore) GetLatestVersion() int64 {
@@ -300,6 +314,9 @@ func (s *EVMStateStore) GetLatestVersion() int64 {
 }
 
 func (s *EVMStateStore) SetLatestVersion(version int64) error {
+	if s.closed.Load() {
+		return fmt.Errorf("EVMStateStore: database is closed")
+	}
 	for _, db := range s.managedDBs {
 		if err := db.SetLatestVersion(version); err != nil {
 			return err
@@ -309,19 +326,17 @@ func (s *EVMStateStore) SetLatestVersion(version int64) error {
 }
 
 func (s *EVMStateStore) GetEarliestVersion() int64 {
-	var minVersion int64 = -1
+	var maxVersion int64
 	for _, db := range s.managedDBs {
-		if v := db.GetEarliestVersion(); minVersion < 0 || v < minVersion {
-			minVersion = v
-		}
+		maxVersion = max(maxVersion, db.GetEarliestVersion())
 	}
-	if minVersion < 0 {
-		return 0
-	}
-	return minVersion
+	return maxVersion
 }
 
 func (s *EVMStateStore) SetEarliestVersion(version int64, ignoreVersion bool) error {
+	if s.closed.Load() {
+		return fmt.Errorf("EVMStateStore: database is closed")
+	}
 	for _, db := range s.managedDBs {
 		if err := db.SetEarliestVersion(version, ignoreVersion); err != nil {
 			return err
@@ -438,21 +453,46 @@ func (s *EVMStateStore) applyToSubDB(storeType EVMStoreType, version int64, pair
 }
 
 func (s *EVMStateStore) Import(version int64, ch <-chan types.SnapshotNode) error {
+	if s.closed.Load() {
+		return fmt.Errorf("EVMStateStore: database is closed")
+	}
 	if !s.separateDBs {
 		db := s.primaryDB()
 		if db == nil {
 			return nil
 		}
 		filtered := make(chan types.SnapshotNode, 100)
+		stop := make(chan struct{})
+		finished := make(chan struct{})
 		go func() {
+			defer close(finished)
 			defer close(filtered)
-			for node := range ch {
-				if node.StoreKey == EVMStoreKey {
-					filtered <- node
+			for {
+				select {
+				case <-stop:
+					return
+				case node, ok := <-ch:
+					if !ok {
+						return
+					}
+					if node.StoreKey == EVMStoreKey {
+						select {
+						case filtered <- node:
+						case <-stop:
+							return
+						}
+					}
 				}
 			}
 		}()
-		return db.Import(version, filtered)
+		err := db.Import(version, filtered)
+		close(stop)
+		<-finished
+		// Composite import owns the input's close; drain it so an early backend
+		// return cannot block its router before it can finish the snapshot.
+		for range ch {
+		}
+		return err
 	}
 
 	const flushThreshold = 10000
@@ -518,6 +558,7 @@ func (s *EVMStateStore) Prune(version int64) error {
 }
 
 func (s *EVMStateStore) Close() error {
+	s.closed.Store(true)
 	var lastErr error
 	for _, db := range s.managedDBs {
 		if err := db.Close(); err != nil {

@@ -60,21 +60,25 @@ func NewManager(ctx context.Context, txConfig client.TxConfig, chainID string, e
 		return nil, err
 	}
 
-	benchLogger := NewLogger()
-	go benchLogger.Start(ctx)
-
-	proposalCh := gen.StartProposalChannel(ctx, benchLogger)
+	manager := startManager(ctx, gen)
 
 	logger.Info("Benchmark manager initialized",
 		"configPath", configPath,
 		"scenarios", len(cfg.Scenarios),
 	)
 
+	return manager, nil
+}
+
+func startManager(ctx context.Context, gen *Generator) *Manager {
+	benchLogger := NewLogger()
+	proposalCh := gen.StartProposalChannel(ctx, benchLogger)
+	go benchLogger.Start(ctx)
 	return &Manager{
 		Generator:  gen,
 		Logger:     benchLogger,
 		proposalCh: proposalCh,
-	}, nil
+	}
 }
 
 // ProposalChannel returns the channel of prepared proposals.

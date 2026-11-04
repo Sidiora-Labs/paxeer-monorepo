@@ -1,0 +1,7 @@
+[repair.22.33.1156]
+finding = "reservoir-dirty-state-overwritten"
+test = "TestRepairM_1156_DirtyStateSurvivesEqualReplacement"
+change = "Accumulate dirty state until Percentile recalculates; prove changed then equal replacements refresh at the five-second cache boundary through real Add and Percentile calls."
+baseline = "Not run: the task's gate order requires complete implementation before hf-build and hf-done, and forbids running verify_cmd by hand; no pre-change test failure is claimed."
+wiring_requests = "None; the finding is repaired entirely inside the reservoir package."
+evidence = "The runner's gate ledger records the exact candidate revision, command, exit code and private log; the final task response copies the hf-done evidence line."

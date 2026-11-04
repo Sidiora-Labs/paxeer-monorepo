@@ -149,6 +149,9 @@ func run() error {
 	}
 
 	cs.BlockUntilHalted()
+	if err := cs.Close(); err != nil {
+		return fmt.Errorf("benchmark shutdown: %w", err)
+	}
 
 	if config.DeleteDataDirOnShutdown {
 		if config.DataDir == "" {

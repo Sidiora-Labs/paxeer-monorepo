@@ -311,28 +311,50 @@ func (evpool *Pool) State() sm.State {
 }
 
 func (evpool *Pool) Start(state sm.State) error {
+	evpool.storeMtx.Lock()
+	defer evpool.storeMtx.Unlock()
 	if evpool.isStarted {
 		return errors.New("pool is already running")
 	}
 
-	evpool.state = state
-
-	// If pending evidence already in db, in event of prior failure, then check
-	// for expiration, update the size and load it back to the evidenceList.
-	evpool.pruningHeight, evpool.pruningTime = evpool.removeExpiredPendingEvidence()
+	// Stage recovery before publishing any in-memory state, so failed startup
+	// leaves the pool available for a retry without duplicate gossip entries.
 	evList, _, err := evpool.listEvidence(prefixPending, -1)
 	if err != nil {
 		return err
 	}
+	batch := evpool.evidenceStore.NewBatch()
+	defer func() { _ = batch.Close() }()
+	pruningHeight, pruningTime := state.LastBlockHeight, state.LastBlockTime
+	params := state.ConsensusParams.Evidence
+	var expired int
+	for _, ev := range evList {
+		if state.LastBlockHeight-ev.Height() <= params.MaxAgeNumBlocks ||
+			state.LastBlockTime.Sub(ev.Time()) <= params.MaxAgeDuration {
+			pruningHeight = ev.Height() + params.MaxAgeNumBlocks + 1
+			pruningTime = ev.Time().Add(params.MaxAgeDuration).Add(time.Second)
+			break
+		}
+		if err := batch.Delete(keyPending(ev)); err != nil {
+			return err
+		}
+		expired++
+	}
+	if expired > 0 {
+		if err := batch.WriteSync(); err != nil {
+			return err
+		}
+	}
+	evList = evList[expired:]
 
+	evpool.updateState(state)
+	evpool.pruningHeight, evpool.pruningTime = pruningHeight, pruningTime
 	atomic.StoreUint32(&evpool.evidenceSize, uint32(len(evList))) //nolint:gosec // evidence list is bounded by block limits; no overflow risk
-
 	evpool.Metrics.NumEvidence.Set(float64(evpool.evidenceSize))
-
 	for _, ev := range evList {
 		evpool.evidenceList.PushBack(ev)
 	}
-
+	evpool.isStarted = true
 	return nil
 }
 

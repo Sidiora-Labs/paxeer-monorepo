@@ -151,10 +151,15 @@ func TestSignerProposal(t *testing.T) {
 				Timestamp: ts,
 			}
 
-			require.NoError(t, tc.mockPV.SignProposal(ctx, tc.chainID, want.ToProto()))
-			require.NoError(t, tc.signerClient.SignProposal(ctx, tc.chainID, have.ToProto()))
+			wantPB, havePB := want.ToProto(), have.ToProto()
+			signBytes := types.ProposalSignBytes(tc.chainID, havePB)
 
-			assert.Equal(t, want.Signature, have.Signature)
+			require.NoError(t, tc.mockPV.SignProposal(ctx, tc.chainID, wantPB))
+			require.NoError(t, tc.signerClient.SignProposal(ctx, tc.chainID, havePB))
+
+			assert.Equal(t, wantPB.Signature, havePB.Signature)
+			require.NotEmpty(t, havePB.Signature)
+			assertSignerSignature(t, tc.mockPV, signBytes, havePB.Signature)
 		})
 
 	}
@@ -192,10 +197,15 @@ func TestSignerVote(t *testing.T) {
 				ValidatorIndex:   1,
 			}
 
-			require.NoError(t, tc.mockPV.SignVote(ctx, tc.chainID, want.ToProto()))
-			require.NoError(t, tc.signerClient.SignVote(ctx, tc.chainID, have.ToProto()))
+			wantPB, havePB := want.ToProto(), have.ToProto()
+			signBytes := types.VoteSignBytes(tc.chainID, havePB)
 
-			assert.Equal(t, want.Signature, have.Signature)
+			require.NoError(t, tc.mockPV.SignVote(ctx, tc.chainID, wantPB))
+			require.NoError(t, tc.signerClient.SignVote(ctx, tc.chainID, havePB))
+
+			assert.Equal(t, wantPB.Signature, havePB.Signature)
+			require.NotEmpty(t, havePB.Signature)
+			assertSignerSignature(t, tc.mockPV, signBytes, havePB.Signature)
 		})
 	}
 }
@@ -232,18 +242,25 @@ func TestSignerVoteResetDeadline(t *testing.T) {
 
 			time.Sleep(testTimeoutReadWrite2o3)
 
-			require.NoError(t, tc.mockPV.SignVote(ctx, tc.chainID, want.ToProto()))
-			require.NoError(t, tc.signerClient.SignVote(ctx, tc.chainID, have.ToProto()))
-			assert.Equal(t, want.Signature, have.Signature)
+			wantPB, havePB := want.ToProto(), have.ToProto()
+			signBytes := types.VoteSignBytes(tc.chainID, havePB)
+
+			require.NoError(t, tc.mockPV.SignVote(ctx, tc.chainID, wantPB))
+			require.NoError(t, tc.signerClient.SignVote(ctx, tc.chainID, havePB))
+			assert.Equal(t, wantPB.Signature, havePB.Signature)
+			require.NotEmpty(t, havePB.Signature)
+			assertSignerSignature(t, tc.mockPV, signBytes, havePB.Signature)
 
 			// TODO(jleni): Clarify what is actually being tested
 
 			// This would exceed the deadline if it was not extended by the previous message
 			time.Sleep(testTimeoutReadWrite2o3)
 
-			require.NoError(t, tc.mockPV.SignVote(ctx, tc.chainID, want.ToProto()))
-			require.NoError(t, tc.signerClient.SignVote(ctx, tc.chainID, have.ToProto()))
-			assert.Equal(t, want.Signature, have.Signature)
+			require.NoError(t, tc.mockPV.SignVote(ctx, tc.chainID, wantPB))
+			require.NoError(t, tc.signerClient.SignVote(ctx, tc.chainID, havePB))
+			assert.Equal(t, wantPB.Signature, havePB.Signature)
+			require.NotEmpty(t, havePB.Signature)
+			assertSignerSignature(t, tc.mockPV, signBytes, havePB.Signature)
 		})
 	}
 }
@@ -287,10 +304,15 @@ func TestSignerVoteKeepAlive(t *testing.T) {
 			// test messages are properly interleaved in the test logs
 			time.Sleep(testTimeoutReadWrite * 3)
 
-			require.NoError(t, tc.mockPV.SignVote(ctx, tc.chainID, want.ToProto()))
-			require.NoError(t, tc.signerClient.SignVote(ctx, tc.chainID, have.ToProto()))
+			wantPB, havePB := want.ToProto(), have.ToProto()
+			signBytes := types.VoteSignBytes(tc.chainID, havePB)
 
-			assert.Equal(t, want.Signature, have.Signature)
+			require.NoError(t, tc.mockPV.SignVote(ctx, tc.chainID, wantPB))
+			require.NoError(t, tc.signerClient.SignVote(ctx, tc.chainID, havePB))
+
+			assert.Equal(t, wantPB.Signature, havePB.Signature)
+			require.NotEmpty(t, havePB.Signature)
+			assertSignerSignature(t, tc.mockPV, signBytes, havePB.Signature)
 		})
 	}
 }
@@ -417,4 +439,13 @@ func TestSignerUnexpectedResponse(t *testing.T) {
 			assert.EqualError(t, e, "empty response")
 		})
 	}
+}
+
+func assertSignerSignature(t *testing.T, pv types.PrivValidator, signBytes, rawSignature []byte) {
+	t.Helper()
+	pubKey, err := pv.GetPubKey(t.Context())
+	require.NoError(t, err)
+	signature, err := crypto.SigFromBytes(rawSignature)
+	require.NoError(t, err)
+	require.NoError(t, pubKey.Verify(signBytes, signature))
 }

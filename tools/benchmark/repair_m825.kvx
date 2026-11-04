@@ -1,0 +1,20 @@
+[repair.22.33.825]
+audit = "22.30.179"
+base_revision = "4299cb15eced23eb9a839162acd11e9a937edd05"
+inspected_revision = "1faba2c53c2a999494155e1a530557179c2fb5f3"
+baseline = "Not run: the mandatory implementation-first, hf-build-then-hf-done order prohibits the contradictory pre-change verification step. No gate ledger or repair_m825_test.go existed on inspection; no pre-change failing-test result is claimed."
+evidence = "hf-build and hf-done record the exact verified candidate revision, command, exit code and private log in /out/run/gates.jsonl."
+wiring_requests = []
+
+[finding.benchmark-readme-command]
+repair = "Preserve the existing corrected default invocation ./tools/benchmark/benchmark.sh and make the repository-root working-directory assumption explicit before all three examples; retain the in-process deployment, running-chain identity override and live-chain refusal explanation."
+tests = ["TestRepairM_825_BenchmarkReadmeCommand", "TestRepairM_825_BenchmarkReadmeDeploymentAndChainIDs"]
+proof = "Read the committed Usage examples, resolve their paths through a real repository-root filesystem handle, require each to identify the real executable launcher, and open the explicitly selected scenario files. Read and assert the retained deployment and chain identity explanation without invoking a shell, node, toolchain or live endpoint."
+
+[gotcha.baseline]
+observed = "The audit's baseline instruction conflicts with the explicit ordered gate constraints."
+action = "Follow the ordered gates and record the conflict here because root GOTCHA.kvx and spec files are outside task scope."
+
+[gotcha.existing-repair]
+observed = "The inspected checkout already has the corrected default invocation and a repository-root note."
+action = "Continue from the existing documentation, clarify the assumption and add the missing focused regression proof without reverting prior repairs."

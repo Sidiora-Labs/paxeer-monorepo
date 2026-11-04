@@ -382,6 +382,19 @@ fn canonical_trace_bytes(trace: &crate::ExecutionTrace) -> Vec<u8> {
     })
 }
 
+fn append_canonical_trace(trace: &crate::ExecutionTrace, evidence: &mut Vec<u8>) {
+    let length_offset = evidence.len();
+    evidence.extend_from_slice(&[0; 8]);
+    let start = evidence.len();
+    trace
+        .append_canonical_arbitration_bytes(evidence)
+        .unwrap_or_else(|_| {
+            unreachable!("ordinary traced execution has a validated v2 arbitration chain")
+        });
+    let length = (evidence.len() - start) as u64;
+    evidence[length_offset..length_offset + 8].copy_from_slice(&length.to_be_bytes());
+}
+
 fn canonical_wasm_arguments(args: &[WasmValue]) -> Vec<u8> {
     let mut encoded = Vec::with_capacity(8_usize.saturating_add(args.len().saturating_mul(9)));
     encoded.extend_from_slice(&(args.len() as u64).to_be_bytes());
@@ -904,9 +917,14 @@ fn record_legacy_commitments(
             || commitment.commitment_fuel != snapshot.supplement.commitment_fuel
         {
             return Err(ExecutionFault::EngineFault {
-                reason:
-                    "preauthorized execution commitment accounting diverged from canonical state"
-                        .to_string(),
+                reason: format!(
+                    "preauthorized execution commitment accounting diverged from canonical state at step {}: encoded bytes {}, authorized bytes {}, commitment fuel {}, authorized fuel {}",
+                    commitment.step_index,
+                    commitment.encoded_state_bytes,
+                    snapshot.supplement.canonical_state_bytes,
+                    commitment.commitment_fuel,
+                    snapshot.supplement.commitment_fuel,
+                ),
             });
         }
         if *last_recorded_step != Some(commitment.step_index) {
@@ -1598,7 +1616,7 @@ impl ProgramInstance {
             .as_ref()
             .ok_or_else(|| ExecutionFault::EngineFault {
                 reason:
-                    "sandbox continuation requires every mutable global to be exported exactly once"
+                    "sandbox continuation requires exported mutable globals and no tables or passive segments"
                         .to_string(),
             })?
             .clone();
@@ -1653,7 +1671,7 @@ impl ProgramInstance {
                 .ok_or_else(|| {
                     ExecutionFault::EngineFault {
                 reason:
-                    "sandbox continuation requires every mutable global to be exported exactly once"
+                    "sandbox continuation requires exported mutable globals and no tables or passive segments"
                         .to_string(),
             }
                 })?;
@@ -2520,79 +2538,14 @@ impl V2AuthorizedExecutionRecord {
 
     #[must_use]
     pub fn canonical_evidence(&self) -> Vec<u8> {
-        let mut evidence = match self.abi_revision {
-            AbiRevision::V3 | AbiRevision::V4 | AbiRevision::V5 => {
-                b"LXP/program-execution/v5\0".to_vec()
-            }
-            AbiRevision::V1 | AbiRevision::V2 => b"LXP/program-execution/v4\0".to_vec(),
-        };
-        evidence.extend_from_slice(&self.execution.runtime_version.to_be_bytes());
-        evidence.extend_from_slice(&self.execution.fee_schedule_version.to_be_bytes());
-        evidence.extend_from_slice(&self.execution.metering_schedule_version.to_be_bytes());
-        evidence.extend_from_slice(&(self.execution.outputs.len() as u64).to_be_bytes());
-        for output in &self.execution.outputs {
-            match output {
-                WasmValue::I32(value) => {
-                    evidence.push(1);
-                    evidence.extend_from_slice(&value.to_be_bytes());
-                }
-                WasmValue::I64(value) => {
-                    evidence.push(2);
-                    evidence.extend_from_slice(&value.to_be_bytes());
-                }
-            }
-        }
-        evidence.extend_from_slice(&self.execution.usage.cpu_fuel.to_be_bytes());
-        evidence.extend_from_slice(&self.execution.usage.memory_bytes.to_be_bytes());
-        evidence.extend_from_slice(&self.execution.usage.storage_read_bytes.to_be_bytes());
-        evidence.extend_from_slice(&self.execution.usage.storage_write_bytes.to_be_bytes());
-        evidence.extend_from_slice(&self.execution.usage.output_values.to_be_bytes());
-        evidence.extend_from_slice(&self.execution.usage.output_bytes.to_be_bytes());
-        evidence.extend_from_slice(&self.execution.usage.fee_units.to_be_bytes());
-        match &self.execution.trace {
-            Some(trace) => {
-                evidence.push(1);
-                let trace = canonical_trace_bytes(trace);
-                evidence.extend_from_slice(&(trace.len() as u64).to_be_bytes());
-                evidence.extend_from_slice(&trace);
-            }
-            None => evidence.push(0),
-        }
-        evidence.extend_from_slice(&self.root_program.bytes());
-        let abi_revision = match self.abi_revision {
-            AbiRevision::V1 => crate::abi::manifest::ABI_V1_VERSION,
-            AbiRevision::V2 => 2,
-            AbiRevision::V3 => 3,
-            AbiRevision::V4 => 4,
-            AbiRevision::V5 => 5,
-        };
-        evidence.extend_from_slice(&abi_revision.to_be_bytes());
-        match &self.outcome {
-            V2ActivityOutcome::Failure(failure) => {
-                evidence.push(1);
-                let failure = failure.canonical_encode();
-                evidence.extend_from_slice(&(failure.len() as u64).to_be_bytes());
-                evidence.extend_from_slice(&failure);
-            }
-            V2ActivityOutcome::Success { response, .. } => {
-                evidence.push(0);
-                evidence.extend_from_slice(&response.code.to_be_bytes());
-                evidence.extend_from_slice(&(response.bytes.len() as u64).to_be_bytes());
-                evidence.extend_from_slice(&response.bytes);
-            }
-            V2ActivityOutcome::Resource(refusal) => {
-                evidence.push(2);
-                encode_meter_refusal(&mut evidence, refusal);
-            }
-        }
-        let graph = self.call_graph.canonical_evidence();
-        evidence.extend_from_slice(&(graph.len() as u64).to_be_bytes());
-        evidence.extend_from_slice(&graph);
+        let mut evidence = Vec::new();
+        let mut graph = Vec::new();
+        self.write_canonical_evidence(&mut evidence, &mut graph);
         evidence
     }
 
-    #[cfg(feature = "host-ffi")]
-    pub(crate) fn write_canonical_evidence(&self, evidence: &mut Vec<u8>, graph: &mut Vec<u8>) {
+    /// Writes the same versioned evidence used by native terminal publication.
+    pub fn write_canonical_evidence(&self, evidence: &mut Vec<u8>, graph: &mut Vec<u8>) {
         evidence.clear();
         evidence.extend_from_slice(match self.abi_revision {
             AbiRevision::V3 | AbiRevision::V4 | AbiRevision::V5 => b"LXP/program-execution/v5\0",
@@ -2624,22 +2577,7 @@ impl V2AuthorizedExecutionRecord {
         match &self.execution.trace {
             Some(trace) => {
                 evidence.push(1);
-                let length_offset = evidence.len();
-                evidence.extend_from_slice(&[0; 8]);
-                let start = evidence.len();
-                evidence.extend_from_slice(&crate::STEP_COMMITMENT_VERSION.to_be_bytes());
-                evidence.extend_from_slice(&trace.policy().canonical_bytes());
-                evidence.extend_from_slice(&(trace.commitments().len() as u64).to_be_bytes()[4..]);
-                for commitment in trace.commitments() {
-                    evidence.extend_from_slice(&commitment.step_index.to_be_bytes());
-                    evidence.extend_from_slice(&commitment.digest);
-                    evidence.extend_from_slice(&commitment.encoded_state_bytes.to_be_bytes());
-                    evidence.extend_from_slice(&commitment.commitment_fuel.to_be_bytes());
-                }
-                evidence.extend_from_slice(&trace.total_commitment_fuel().to_be_bytes());
-                evidence.extend_from_slice(&trace.total_state_bytes().to_be_bytes());
-                let length = (evidence.len() - start) as u64;
-                evidence[length_offset..length_offset + 8].copy_from_slice(&length.to_be_bytes());
+                append_canonical_trace(trace, evidence);
             }
             None => evidence.push(0),
         }
@@ -2722,7 +2660,7 @@ impl V2ActivityReceipt {
         + 16
         + 8
         + (crate::calls::DEFAULT_MAX_CALL_GRAPH_EDGES as usize * 68);
-    const MAX_TRACE_EVIDENCE_BYTES: usize = 34 + (crate::MAX_TRACE_COMMITMENTS * 52);
+    const MAX_TRACE_EVIDENCE_BYTES: usize = crate::commit::MAX_CANONICAL_ARBITRATION_TRACE_BYTES;
 
     #[must_use]
     pub const fn root_program(&self) -> ProgramId {
@@ -2848,7 +2786,7 @@ impl V2ActivityReceipt {
         let root_program =
             ProgramId::new(cursor.array::<32>()?).map_err(|_| Error::InvalidProgram)?;
         let abi_revision = u16::from_be_bytes(cursor.array()?);
-        if abi_revision != 2 {
+        if !matches!(abi_revision, 2..=5) || ((legacy_v2 || legacy_v3) && abi_revision != 2) {
             return Err(Error::Malformed);
         }
         let runtime_version = u16::from_be_bytes(cursor.array()?);
@@ -2872,19 +2810,19 @@ impl V2ActivityReceipt {
             occupancy_fee_units: 0,
             fee_units: u128::from_be_bytes(cursor.array()?),
         };
-        let graph_length = u32::from_be_bytes(cursor.array()?) as usize;
-        if graph_length > Self::MAX_GRAPH_EVIDENCE_BYTES {
-            return Err(Error::Malformed);
-        }
-        let graph_evidence = cursor.take(graph_length)?.to_vec();
+        let graph_evidence = cursor
+            .bounded_bytes(Self::MAX_GRAPH_EVIDENCE_BYTES)?
+            .to_vec();
         let trace_evidence = if legacy_v2 || legacy_v3 {
             None
         } else {
             match cursor.take(1)?[0] {
                 0 => None,
                 1 => {
-                    let length = u32::from_be_bytes(cursor.array()?) as usize;
-                    Some(cursor.take(length)?.to_vec())
+                    let trace = cursor.bounded_bytes(Self::MAX_TRACE_EVIDENCE_BYTES)?;
+                    crate::ExecutionTrace::verify_canonical_arbitration_bytes(trace)
+                        .map_err(|_| Error::Malformed)?;
+                    Some(trace.to_vec())
                 }
                 _ => return Err(Error::Malformed),
             }
@@ -2896,16 +2834,11 @@ impl V2ActivityReceipt {
                 if code < 0 {
                     return Err(Error::Malformed);
                 }
-                let length = u32::from_be_bytes(cursor.array()?) as usize;
-                if length > Self::MAX_TRACE_EVIDENCE_BYTES {
-                    return Err(Error::Malformed);
-                }
-                if length > crate::MAX_CALL_RESPONSE_BYTES {
-                    return Err(Error::Malformed);
-                }
                 V2ReceiptOutcome::Success(CallResponse {
                     code,
-                    bytes: cursor.take(length)?.to_vec(),
+                    bytes: cursor
+                        .bounded_bytes(crate::MAX_CALL_RESPONSE_BYTES)?
+                        .to_vec(),
                 })
             }
             1 => {
@@ -3033,6 +2966,17 @@ impl<'a> ReceiptCursor<'a> {
         self.take(N)?
             .try_into()
             .map_err(|_| crate::fault::FailureEncodingError::Malformed)
+    }
+
+    fn bounded_bytes(
+        &mut self,
+        maximum: usize,
+    ) -> Result<&'a [u8], crate::fault::FailureEncodingError> {
+        let length = u32::from_be_bytes(self.array()?) as usize;
+        if length > maximum {
+            return Err(crate::fault::FailureEncodingError::Malformed);
+        }
+        self.take(length)
     }
 
     const fn is_empty(&self) -> bool {
@@ -3185,48 +3129,12 @@ impl ExecutionRecord {
     #[must_use]
     pub fn canonical_evidence(&self) -> Vec<u8> {
         let mut evidence = Vec::with_capacity(64 + self.outputs.len().saturating_mul(9));
-        evidence.extend_from_slice(if self.trace.is_some() {
-            b"LXP/program-execution/v3\0"
-        } else {
-            b"LXP/program-execution/v2\0"
-        });
-        evidence.extend_from_slice(&self.runtime_version.to_be_bytes());
-        evidence.extend_from_slice(&self.abi_version.to_be_bytes());
-        evidence.extend_from_slice(&self.metering_schedule_version.to_be_bytes());
-        let native_output_count = self.outputs.len().to_be_bytes();
-        let mut output_count = [0u8; 16];
-        let count_offset = output_count.len() - native_output_count.len();
-        output_count[count_offset..].copy_from_slice(&native_output_count);
-        evidence.extend_from_slice(&output_count);
-        for output in &self.outputs {
-            match output {
-                WasmValue::I32(value) => {
-                    evidence.push(1);
-                    evidence.extend_from_slice(&value.to_be_bytes());
-                }
-                WasmValue::I64(value) => {
-                    evidence.push(2);
-                    evidence.extend_from_slice(&value.to_be_bytes());
-                }
-            }
-        }
-        evidence.extend_from_slice(&self.usage.cpu_fuel.to_be_bytes());
-        evidence.extend_from_slice(&self.usage.memory_bytes.to_be_bytes());
-        evidence.extend_from_slice(&self.usage.storage_read_bytes.to_be_bytes());
-        evidence.extend_from_slice(&self.usage.storage_write_bytes.to_be_bytes());
-        evidence.extend_from_slice(&self.usage.output_values.to_be_bytes());
-        evidence.extend_from_slice(&self.usage.fee_units.to_be_bytes());
-        if let Some(trace) = &self.trace {
-            evidence.push(1);
-            let trace = canonical_trace_bytes(trace);
-            evidence.extend_from_slice(&(trace.len() as u64).to_be_bytes());
-            evidence.extend_from_slice(&trace);
-        }
+        self.write_canonical_evidence(&mut evidence);
         evidence
     }
 
-    #[cfg(feature = "host-ffi")]
-    pub(crate) fn write_canonical_evidence(&self, evidence: &mut Vec<u8>) {
+    /// Writes the same versioned evidence used by native terminal publication.
+    pub fn write_canonical_evidence(&self, evidence: &mut Vec<u8>) {
         evidence.clear();
         evidence.extend_from_slice(if self.trace.is_some() {
             b"LXP/program-execution/v3\0"
@@ -3261,18 +3169,7 @@ impl ExecutionRecord {
         evidence.extend_from_slice(&self.usage.fee_units.to_be_bytes());
         if let Some(trace) = &self.trace {
             evidence.push(1);
-            let length_offset = evidence.len();
-            evidence.extend_from_slice(&[0; 8]);
-            let start = evidence.len();
-            evidence.extend_from_slice(&crate::STEP_COMMITMENT_VERSION.to_be_bytes());
-            evidence.extend_from_slice(&trace.policy().canonical_bytes());
-            evidence.extend_from_slice(&(trace.commitments().len() as u64).to_be_bytes()[4..]);
-            for commitment in trace.commitments() {
-                evidence.extend_from_slice(&commitment.step_index.to_be_bytes());
-                evidence.extend_from_slice(&commitment.digest);
-            }
-            let length = (evidence.len() - start) as u64;
-            evidence[length_offset..length_offset + 8].copy_from_slice(&length.to_be_bytes());
+            append_canonical_trace(trace, evidence);
         }
     }
 }
@@ -4197,6 +4094,35 @@ impl Executor {
         budgeted: BudgetedAuthorizedExecutionRequest<'_>,
     ) -> Result<V2AuthorizedExecutionRecord, ExecutionError> {
         self.execute_authorized_v2_budgeted_for_qualification(storage, budgeted)
+    }
+
+    /// Executes an allocated ABI 2 through 5 guest against caller-owned state.
+    /// This qualification seam uses the production execution and evidence path;
+    /// production authority still enters through the authenticated native bridge.
+    pub fn execute_authorized_versioned_for_qualification(
+        &self,
+        storage: &mut Storage,
+        request: AuthorizedExecutionRequest<'_>,
+    ) -> Result<V2AuthorizedExecutionRecord, ExecutionError> {
+        let abi = crate::abi_policy::abi_version(request.module.abi_revision());
+        let executor = self.for_abi(abi);
+        let context = ExecutionContext::authenticated(
+            1,
+            1,
+            executor.runtime_version,
+            abi,
+            executor.prices.version(),
+        )
+        .map_err(ExecutionError::Context)?;
+        executor.execute_authorized_v2_with_budget(
+            storage,
+            request,
+            executor.budget,
+            None,
+            Some(context),
+            crate::AccessDeclaration::absent(),
+            None,
+        )
     }
 
     /// Executes an authorized activity through the frozen ABI v2.
@@ -6230,13 +6156,31 @@ pub fn adjudicate_market_step(
         || billing.boundary_count > profile.maximum_boundaries
         || profile.market_program != executing_program.bytes()
         || profile.runtime_version != crate::RUNTIME_VERSION
-        || fees.version() != profile.fee_schedule_version
     {
         return Err(MarketStepRefusal::Denied);
     }
-    let module = resolver
-        .program_module(program)
-        .ok_or(MarketStepRefusal::Denied)?;
+    let fees = if fees.version() == profile.fee_schedule_version {
+        fees
+    } else {
+        resolver
+            .dispute_fee_schedule(profile.fee_schedule_version)
+            .ok_or(MarketStepRefusal::Denied)?
+    };
+    if !fees.is_valid() || fees.version() != profile.fee_schedule_version {
+        return Err(MarketStepRefusal::Denied);
+    }
+    let historical = resolver.dispute_artifact(
+        program,
+        profile.code_hash,
+        profile.abi_version,
+        profile.metering_schedule_version,
+    );
+    let module = match historical.as_ref() {
+        Some(artifact) => artifact.validated(),
+        None => resolver
+            .program_module(program)
+            .ok_or(MarketStepRefusal::Denied)?,
+    };
     let module_abi = match module.abi_revision() {
         AbiRevision::V1 => 1,
         AbiRevision::V2 => 2,

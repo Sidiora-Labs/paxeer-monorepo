@@ -19,6 +19,10 @@ defmodule BlockScoutWeb.VerifiedContractsController do
     :smart_contract => :optional
   }
 
+  def search_verified_contracts(conn, params) do
+    index(conn, Map.put(params, "type", "JSON"))
+  end
+
   def index(conn, %{"type" => "JSON"} = params) do
     cursor =
       case params do
@@ -63,7 +67,12 @@ defmodule BlockScoutWeb.VerifiedContractsController do
 
         next_page_params ->
           next_page_params = Map.merge(next_page_params, Map.take(params, ["filter", "search", "q"]))
-          verified_contracts_path(conn, :index, Map.delete(next_page_params, "type"))
+
+          if action_name(conn) == :search_verified_contracts do
+            verified_contracts_path(conn, :search_verified_contracts, Map.delete(next_page_params, "type"))
+          else
+            verified_contracts_path(conn, :index, Map.delete(next_page_params, "type"))
+          end
       end
 
     json(conn, %{items: items, next_page_path: next_page_path})

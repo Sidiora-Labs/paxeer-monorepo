@@ -16,7 +16,7 @@ const (
 	minPaddedAccountSize        = 8
 	minErc20StorageSlotSize     = 32
 	minErc20InteractionsPerAcct = 1
-	receiptReadModeCache        = "cache"
+	receiptReadModeRecent       = "recent"
 )
 
 // Defines the configuration for the cryptosim benchmark.
@@ -197,7 +197,7 @@ type CryptoSimConfig struct {
 	ReceiptReadsPerSecond int
 
 	// Controls which block range receipt-by-hash reads target.
-	// "cache" = only read receipts in the cache window (guaranteed cache hit).
+	// "recent" = read written receipts within backend retention.
 	// Required when ReceiptReadConcurrency > 0.
 	ReceiptReadMode string
 
@@ -209,7 +209,7 @@ type CryptoSimConfig struct {
 	ReceiptLogFilterReadsPerSecond int
 
 	// Controls which block range log filter reads target.
-	// "cache" = only query blocks in the cache window.
+	// "recent" = query written blocks within backend retention; Pebble refuses FilterLogs.
 	// Required when ReceiptLogFilterReadConcurrency > 0.
 	ReceiptLogFilterReadMode string
 
@@ -219,7 +219,7 @@ type CryptoSimConfig struct {
 	// Maximum number of blocks in a log filter query range. Default 10.
 	ReceiptLogFilterMaxBlockRange int
 
-	// Number of recent blocks to keep before pruning parquet files. 0 disables pruning.
+	// Number of recent blocks to keep before pruning receipt versions. 0 disables pruning.
 	ReceiptKeepRecent int64
 
 	// Interval in seconds between prune checks. 0 disables pruning.
@@ -285,10 +285,10 @@ func DefaultCryptoSimConfig() *CryptoSimConfig {
 		MaxTPS:                            0,
 		ReceiptReadConcurrency:            0,
 		ReceiptReadsPerSecond:             100,
-		ReceiptReadMode:                   receiptReadModeCache,
+		ReceiptReadMode:                   receiptReadModeRecent,
 		ReceiptLogFilterReadConcurrency:   0,
 		ReceiptLogFilterReadsPerSecond:    100,
-		ReceiptLogFilterReadMode:          receiptReadModeCache,
+		ReceiptLogFilterReadMode:          receiptReadModeRecent,
 		ReceiptLogFilterMinBlockRange:     1,
 		ReceiptLogFilterMaxBlockRange:     10,
 		ReceiptKeepRecent:                 100_000,
@@ -383,23 +383,23 @@ func (c *CryptoSimConfig) Validate() error {
 	if c.ReceiptReadConcurrency < 0 {
 		return fmt.Errorf("ReceiptReadConcurrency must be non-negative (got %d)", c.ReceiptReadConcurrency)
 	}
-	if c.ReceiptReadConcurrency > 0 {
+	if c.ReceiptReadConcurrency > 0 || c.ReceiptReadMode == "cache" {
 		switch c.ReceiptReadMode {
-		case receiptReadModeCache:
+		case receiptReadModeRecent:
 		default:
 			return fmt.Errorf("ReceiptReadMode must be %q (got %q)",
-				receiptReadModeCache, c.ReceiptReadMode)
+				receiptReadModeRecent, c.ReceiptReadMode)
 		}
 	}
 	if c.ReceiptLogFilterReadConcurrency < 0 {
 		return fmt.Errorf("ReceiptLogFilterReadConcurrency must be non-negative (got %d)", c.ReceiptLogFilterReadConcurrency)
 	}
-	if c.ReceiptLogFilterReadConcurrency > 0 {
+	if c.ReceiptLogFilterReadConcurrency > 0 || c.ReceiptLogFilterReadMode == "cache" {
 		switch c.ReceiptLogFilterReadMode {
-		case receiptReadModeCache:
+		case receiptReadModeRecent:
 		default:
 			return fmt.Errorf("ReceiptLogFilterReadMode must be %q (got %q)",
-				receiptReadModeCache, c.ReceiptLogFilterReadMode)
+				receiptReadModeRecent, c.ReceiptLogFilterReadMode)
 		}
 	}
 	if c.ReceiptLogFilterMinBlockRange < 1 {

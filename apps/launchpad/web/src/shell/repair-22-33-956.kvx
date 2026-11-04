@@ -1,0 +1,12 @@
+[repair.22.33.956]
+audit = "22.30.28"
+acceptance = "22998.1"
+mobile-test-session-shape = "repair-22-33-956.test.ts:mobile_test_session_shape; mobile-bottom-nav.test.tsx covers disconnected, wallet-only and authenticated sessions through the maintained installAccountSession producer and useAccountSession consumer."
+mobile-session-gate = "repair-22-33-956.test.ts:mobile_session_gate; mobile and desktop share isNavItemEligible; revocation, wallet mismatch and disconnect remove Chat without changing its page session-acquisition behavior."
+paste-long-hex = "repair-22-33-956.test.ts:paste_long_hex; s1-helpers.test.ts rejects 41-digit identifiers and transaction hashes while preserving bare addresses and explorer URLs."
+baseline = "Not run: the explicit allowed-gates order requires complete implementation before hf-build and hf-done and prohibits running verify_cmd by hand; no pre-change failures are claimed."
+evidence = "The runner records the exact verified candidate revision, command, exit and private log in its hf-build/hf-done ledger."
+qualification_gotcha = "Vitest treats test(function) as a todo; register each declared function as test(function.name, function) so every assertion executes. The first hf-done exit zero with three todos is not behavioral evidence."
+continuation = "Attempt 1 executed all three repair tests: mobile_test_session_shape failed because opening More applied destination tint; mobile_session_gate and paste_long_hex passed. More now derives tint and icon weight only from an eligible active destination, with aria-expanded indicating disclosure state; all original repair assertions are retained."
+fixture_gotcha = "The continued verification exposed a wallet connection leaking between test configurations through default local storage (ConnectorAlreadyConnectedError); each navigation fixture now uses its own real in-memory store through wagmi createStorage, preserving connection and session checks."
+wiring_requests = "None; all proposed changes are within the shell scope."

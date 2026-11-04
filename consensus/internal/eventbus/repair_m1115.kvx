@@ -1,0 +1,11 @@
+[repair.22.33.1115]
+audit = "22.30.47"
+base_revision = "4299cb15eced23eb9a839162acd11e9a937edd05"
+event-reserved-keys = "TestRepairM_1115_ReservedKeys"
+event-tests-no-reserved-collision = "TestRepairM_1115_DuplicateApplicationKeys; TestEventBusPublishEventTxReservedKeys"
+producer = "The real in-memory kvstore application executes and commits sender=foo; Query and Info prove the state change. Tests supply adversarial application attributes at the event bus input boundary alongside its execution-produced events."
+transport = "PublishEventTx -> pubsub.Server -> query.Matches -> Subscription.Next; production shutdown drains the queue and returns ErrTerminated to prove non-delivery."
+baseline = "Not run: the task's explicit gate order and single verification allowance prohibit the contradictory pre-change verify clause; no pre-change test failure is claimed. The runner's initial ledger had no gate runs."
+qualification_repair = "At cb284423b62fcf109d4b59495e8100effb42523e, cg spec done 22.33.1115 -f layerx-merge --root /work/paxeer-monorepo exited 1 (/out/logs/verify-1.log; /tmp/repair-m1115.log): RequestFinalizeBlock has no Height field. Remove that test-only field and obtain the committed height through the real application's Info response."
+evidence = "The runner records the exact candidate revision, command, exit code and private log in /out/run/gates.jsonl; the final response copies the last bounded gate evidence."
+wiring_request = "spec/layerx-merge/spec.kvx (programme domain): mirror these finding-to-test mappings and the runner's verified revision in the task record; direct spec edits are outside this task's scope."

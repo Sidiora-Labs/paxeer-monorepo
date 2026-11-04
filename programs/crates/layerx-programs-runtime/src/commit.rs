@@ -25,6 +25,15 @@ pub const STEP_COMMITMENT_FUEL_PER_BYTE: u64 = 1;
 pub const MAX_STEP_STATE_BYTES: usize = 32 * 1_024 * 1_024;
 /// Protocol bound on commitments carried by one execution trace.
 pub const MAX_TRACE_COMMITMENTS: usize = 65_536;
+/// Exact maximum of the version-two canonical trace envelope and both chains.
+pub const MAX_CANONICAL_ARBITRATION_TRACE_BYTES: usize = 2
+    + 4
+    + (2 + 12 + 4 + MAX_TRACE_COMMITMENTS * (8 + 32 + 4 + 8) + 8 + 8)
+    + 4
+    + MAX_TRACE_COMMITMENTS * (2 + 8 + 32 + 4 + 8)
+    + 8
+    + 8;
+
 /// Maximum validated source instruction encoding retained in a step witness.
 pub const MAX_STEP_INSTRUCTION_BYTES: usize = 65_536;
 /// Aggregate canonical state bytes retained by one trace.
@@ -507,10 +516,15 @@ impl ExecutionTrace {
     ///
     /// Returns a commitment encoding or size-limit refusal.
     pub fn canonical_bytes(&self) -> Result<Vec<u8>, CommitmentError> {
-        let mut bytes = Vec::with_capacity(20 + self.commitments.len() * 52);
+        let mut bytes = Vec::with_capacity(34 + self.commitments.len() * 52);
+        self.append_canonical_bytes(&mut bytes)?;
+        Ok(bytes)
+    }
+
+    fn append_canonical_bytes(&self, bytes: &mut Vec<u8>) -> Result<(), CommitmentError> {
         bytes.extend_from_slice(&STEP_COMMITMENT_VERSION.to_be_bytes());
         bytes.extend_from_slice(&self.policy.canonical_bytes());
-        put_len(&mut bytes, self.commitments.len())?;
+        put_len(bytes, self.commitments.len())?;
         for commitment in &self.commitments {
             bytes.extend_from_slice(&commitment.step_index.to_be_bytes());
             bytes.extend_from_slice(&commitment.digest);
@@ -519,7 +533,7 @@ impl ExecutionTrace {
         }
         bytes.extend_from_slice(&self.total_commitment_fuel.to_be_bytes());
         bytes.extend_from_slice(&self.total_state_bytes.to_be_bytes());
-        Ok(bytes)
+        Ok(())
     }
 
     /// Canonical arbitration evidence. Legacy commitments remain embedded for
@@ -530,10 +544,25 @@ impl ExecutionTrace {
     ///
     /// Returns an arbitration trace encoding or size-limit refusal.
     pub fn canonical_arbitration_bytes(&self) -> Result<Vec<u8>, CommitmentError> {
+        let mut bytes = Vec::new();
+        self.append_canonical_arbitration_bytes(&mut bytes)?;
+        Ok(bytes)
+    }
+
+    /// Appends the versioned chain directly into a reserved terminal buffer.
+    pub fn append_canonical_arbitration_bytes(
+        &self,
+        bytes: &mut Vec<u8>,
+    ) -> Result<(), CommitmentError> {
         if self.arbitration_commitments.is_empty() || self.arbitration_steps.is_empty() {
             return Err(CommitmentError::LegacyCommitmentNotArbitrable);
         }
-        let legacy = self.canonical_bytes()?;
+        let legacy_length = self
+            .commitments
+            .len()
+            .checked_mul(52)
+            .and_then(|size| size.checked_add(34))
+            .ok_or(CommitmentError::CostOverflow)?;
         let per_commitment = 2_usize + 8 + 32 + 4 + 8;
         let commitment_bytes = self
             .arbitration_commitments
@@ -542,7 +571,7 @@ impl ExecutionTrace {
             .ok_or(CommitmentError::CostOverflow)?;
         let capacity = 2_usize
             .checked_add(4)
-            .and_then(|bytes| bytes.checked_add(legacy.len()))
+            .and_then(|bytes| bytes.checked_add(legacy_length))
             .and_then(|bytes| bytes.checked_add(4))
             .and_then(|bytes| bytes.checked_add(commitment_bytes))
             .and_then(|bytes| bytes.checked_add(16))
@@ -553,10 +582,10 @@ impl ExecutionTrace {
                 limit: MAX_ARBITRATION_STATE_BYTES,
             });
         }
-        let mut bytes = Vec::with_capacity(capacity);
         bytes.extend_from_slice(&ARBITRATION_STEP_COMMITMENT_VERSION.to_be_bytes());
-        put_bytes(&mut bytes, &legacy)?;
-        put_len(&mut bytes, self.arbitration_commitments.len())?;
+        put_len(bytes, legacy_length)?;
+        self.append_canonical_bytes(bytes)?;
+        put_len(bytes, self.arbitration_commitments.len())?;
         for commitment in &self.arbitration_commitments {
             bytes.extend_from_slice(&commitment.version.to_be_bytes());
             bytes.extend_from_slice(&commitment.step_index.to_be_bytes());
@@ -566,7 +595,7 @@ impl ExecutionTrace {
         }
         bytes.extend_from_slice(&self.total_arbitration_commitment_fuel.to_be_bytes());
         bytes.extend_from_slice(&self.total_arbitration_state_bytes.to_be_bytes());
-        Ok(bytes)
+        Ok(())
     }
 
     /// Verifies frozen arbitration-trace evidence without manufacturing the

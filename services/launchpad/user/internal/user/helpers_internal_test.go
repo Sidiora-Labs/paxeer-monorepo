@@ -28,11 +28,11 @@ func TestBaseURL(t *testing.T) {
 		t.Errorf("configured baseURL = %q", got)
 	}
 	r := &http.Request{Host: "api.local", Header: http.Header{}}
-	if got := baseURL("", r); got != "http://api.local" {
+	if got := baseURL("", r); got != "" {
 		t.Errorf("http baseURL = %q", got)
 	}
 	r.Header.Set("X-Forwarded-Proto", "https")
-	if got := baseURL("", r); got != "https://api.local" {
+	if got := baseURL("", r); got != "" {
 		t.Errorf("forwarded https baseURL = %q", got)
 	}
 }

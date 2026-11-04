@@ -1,10 +1,18 @@
 package sequencer
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
+	"errors"
 	"fmt"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/node/ante"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"net"
 	"path/filepath"
+	"sync"
+	"time"
 
 	tmconfig "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/config"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/privval"
@@ -35,6 +43,9 @@ type Node struct {
 	Metrics          *Metrics
 	Standby          *Standby
 	cancel           context.CancelFunc
+	LeaseHolder      *LeaseHolder
+	leaseDone        chan struct{}
+	lifecycle        sync.Mutex
 }
 
 func NewNode(cfg Config, a *app.App) (_ *Node, err error) {
@@ -159,11 +170,13 @@ func NewNode(cfg Config, a *app.App) (_ *Node, err error) {
 	}
 	n.Driver, err = NewDriver(DriverConfig{
 		App: a, Executor: n.FeeFloor, Replicator: n.Replicator,
+		ReceiptKey: n.ReceiptKey, NonceAdmission: n.NonceAdmission,
 		NonceQueue: n.NonceAdmission.queue, Metrics: n.Metrics, WALRetainBlocks: cfg.WALRetainBlocks,
 	})
 	if err != nil {
 		return nil, err
 	}
+	n.ReceiptSource.pending = n.pendingSend
 	return n, nil
 }
 
@@ -171,4 +184,244 @@ type nodeOpenNonces struct{ app *app.App }
 
 func (r nodeOpenNonces) EvmNonce(addr common.Address) uint64 {
 	return r.app.EvmKeeper.GetNonce(r.app.LatestCtx(), addr)
+}
+
+var ErrNonceHeld = errors.New("sequencer: transaction held at submitted awaiting nonce")
+
+// Accept is the verified RPC admission adapter; queued transactions never execute
+// until their sender's exact next nonce is available.
+func (n *Node) Accept(txBytes []byte) (evmrpc.AcceptedSend, error) {
+	n.Accepter.mu.Lock()
+	err := n.Accepter.admission()
+	n.Accepter.mu.Unlock()
+	if err != nil {
+		return evmrpc.AcceptedSend{}, err
+	}
+	tx, err := n.App.GetTxConfig().TxDecoder()(txBytes)
+	if err != nil {
+		return evmrpc.AcceptedSend{}, err
+	}
+	msg := n.App.GetEVMMsg(tx)
+	if msg == nil {
+		return n.Accepter.Accept(txBytes)
+	}
+	etx, _ := msg.AsTransaction()
+	if etx == nil {
+		return evmrpc.AcceptedSend{}, inputErr("missing EVM transaction")
+	}
+	if _, err := ante.ResolveTransactionChain(n.App.LatestCtx(), etx, n.App.EvmKeeper.ChainID(n.App.GetCheckCtx()), n.App.LayerXChainsKeeper); err != nil {
+		return evmrpc.AcceptedSend{}, err
+	}
+	sender, err := ethtypes.Sender(ethtypes.LatestSignerForChainID(etx.ChainId()), etx)
+	if err != nil {
+		return evmrpc.AcceptedSend{}, err
+	}
+	held, err := n.NonceAdmission.Send(sender, etx.Nonce(), txBytes)
+	if err != nil {
+		return evmrpc.AcceptedSend{}, err
+	}
+	if held {
+		return evmrpc.AcceptedSend{}, ErrNonceHeld
+	}
+	send, err := n.ReceiptSource.SequencerSend(etx.Hash())
+	if err != nil {
+		return evmrpc.AcceptedSend{}, err
+	}
+	if send == nil || len(send.Receipt) == 0 {
+		return evmrpc.AcceptedSend{}, ErrReceiptInvariant
+	}
+	decoded, err := codec.DecodeReceipt(send.Receipt)
+	if err != nil {
+		return evmrpc.AcceptedSend{}, err
+	}
+	n.ReceiptSource.mu.RLock()
+	entry := n.ReceiptSource.entries[etx.Hash()]
+	n.ReceiptSource.mu.RUnlock()
+	if entry.exec == nil {
+		return evmrpc.AcceptedSend{}, ErrReceiptInvariant
+	}
+	rcpt := *entry.exec
+	return evmrpc.AcceptedSend{Receipt: send.Receipt, Height: int64(binary.BigEndian.Uint64(decoded.BatchID[24:])), Exec: &rcpt}, nil
+
+}
+
+func (n *Node) pendingSend(hash common.Hash) (*evmrpc.SequencerSend, error) {
+	for _, failure := range n.NonceAdmission.queue.Failures() {
+		tx, err := n.App.GetTxConfig().TxDecoder()(failure.Tx)
+		if err != nil {
+			return nil, err
+		}
+		if msg := n.App.GetEVMMsg(tx); msg != nil {
+			etx, _ := msg.AsTransaction()
+			if etx != nil && etx.Hash() == hash {
+				return nil, failure.Err
+			}
+		}
+	}
+	for _, h := range n.NonceAdmission.queue.Pending() {
+		tx, err := n.App.GetTxConfig().TxDecoder()(h.Tx)
+		if err != nil {
+			return nil, err
+		}
+		if msg := n.App.GetEVMMsg(tx); msg != nil {
+			etx, _ := msg.AsTransaction()
+			if etx != nil && etx.Hash() == hash {
+				return &evmrpc.SequencerSend{Nonce: h.Nonce}, nil
+			}
+		}
+	}
+	return nil, nil
+}
+
+// Promote is the operator-triggered takeover of this pinned standby's durable WAL.
+// It fences and drains the replicated tail before replacing the running pipeline.
+func (n *Node) Promote(ctx context.Context) error {
+	n.lifecycle.Lock()
+	defer n.lifecycle.Unlock()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if n.Standby == nil {
+		return errors.New("sequencer: promotion requires a running standby")
+	}
+	info, err := n.App.UpgradeKeeper.GetUpgradeInfoPath()
+	if err != nil {
+		return err
+	}
+	consensus := tmconfig.DefaultConfig().SetRoot(filepath.Dir(filepath.Dir(info))).PrivValidator
+	consensusPV, err := privval.LoadFilePVEmptyState(consensus.KeyFile(), "")
+	if err != nil {
+		return err
+	}
+	leaders, err := n.App.SequencerKeeper.Leaders(n.App.GetCheckCtx())
+	if err != nil {
+		return err
+	}
+	authorized := false
+	for _, leader := range leaders {
+		authorized = authorized || bytes.Equal(consensusPV.Key.PubKey.Bytes(), leader[:])
+	}
+	if !authorized {
+		return errors.New("sequencer: takeover consensus key is no longer governed")
+	}
+	pins, err := n.App.SequencerKeeper.ReceiptKeyPins(n.App.GetCheckCtx())
+	if err != nil {
+		return err
+	}
+	height := n.App.LastBlockHeight() + 1
+	key, err := LoadReceiptKey(n.Config.ReceiptKeyFile, consensus.KeyFile(), pins, height)
+	if err != nil {
+		return err
+	}
+	s := n.Standby
+	historical, ok := s.exec.(*standbyRoleReplay)
+	if !ok {
+		return errors.New("sequencer: standby is missing its authorized replay pipeline")
+	}
+	if !bytes.Equal(key.private, s.receiptKey) {
+		return ErrReceiptKeyNotPinned
+	}
+	if _, err := Failover(s, key, height, uint64(time.Now().Add(n.Config.LeaseDuration).UnixMilli())); err != nil {
+		return err
+	}
+	if n.cancel != nil {
+		n.cancel()
+	}
+	if s.serveDone != nil {
+		select {
+		case <-s.serveDone:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	s.wal.Close()
+	n.App.SetOpenBlock(nil)
+	n.App.SetSequencerSource(nil)
+	n.App.SetCommitListener(nil)
+	n.App.SetSequencerRPC(evmrpc.SequencerOption{}, evmrpc.SequencerReceiptOption{})
+	cfg := n.Config
+	cfg.Role = RolePrimary
+	cfg.StandbyAddress = ""
+	promoted, err := NewNode(cfg, n.App)
+	if err != nil {
+		return err
+	}
+	// Older OPEN records do not carry their proposer. The running standby
+	// retains the original primary proposer for those historical records.
+	oldFloor := historical.exec.(*FeeFloor)
+	oldSeq := baseSequential(oldFloor.Executor)
+	currentSeq := baseSequential(promoted.FeeFloor.Executor)
+	currentSeq.proposer = append([]byte(nil), oldSeq.proposer...)
+	if err := promoted.Start(ctx); err != nil {
+		_ = promoted.Stop()
+		return err
+	}
+	pv, err := privval.LoadFilePVEmptyState(consensus.KeyFile(), "")
+	if err != nil {
+		_ = promoted.Stop()
+		return err
+	}
+	currentSeq.mu.Lock()
+	currentSeq.proposer = append([]byte(nil), pv.Key.PubKey.Address()...)
+	currentSeq.mu.Unlock()
+	// Keep the receiver stable: installed RPC and commit callbacks own promoted.
+	// Its resources are also retained here for operator stop and inspection.
+	n.Config, n.WAL, n.Replicator = promoted.Config, promoted.WAL, promoted.Replicator
+	n.Executor, n.FeeFloor, n.ReceiptKey = promoted.Executor, promoted.FeeFloor, promoted.ReceiptKey
+	n.Receipter, n.Accepter, n.ConsensusSource = promoted.Receipter, promoted.Accepter, promoted.ConsensusSource
+	n.Driver, n.ReceiptSource, n.ReceiptLogFeed = promoted.Driver, promoted.ReceiptSource, promoted.ReceiptLogFeed
+	n.LogFeedPublisher, n.NonceAdmission, n.Metrics = promoted.LogFeedPublisher, promoted.NonceAdmission, promoted.Metrics
+	n.LeaseHolder, n.leaseDone, n.cancel = promoted.LeaseHolder, promoted.leaseDone, promoted.cancel
+	n.Standby = nil
+	return nil
+}
+
+func baseSequential(exec Executor) *sequential {
+	switch e := exec.(type) {
+	case *microBatch:
+		return e.sequential
+	case *sequential:
+		return e
+	default:
+		panic("sequencer: unknown execution pipeline")
+	}
+}
+
+func (n *Node) startLease(ctx context.Context, result wal.ReplayResult) error {
+	keyID, err := n.ReceiptKey.KeyID(n.App.LastBlockHeight() + 1)
+	if err != nil {
+		return err
+	}
+	holder, err := NewLeaseHolder(LeaseHolderConfig{Replicator: n.Replicator, Replay: result, KeyID: keyID, LeaseDuration: n.Config.LeaseDuration})
+	if err != nil {
+		return err
+	}
+	if err := holder.Start(ctx); err != nil {
+		return err
+	}
+	n.LeaseHolder, n.Accepter.lease = holder, holder
+	n.Driver.cfg.LeaseHolder = holder
+	run, cancel := context.WithCancel(ctx)
+	n.cancel, n.leaseDone = cancel, make(chan struct{})
+	go func() {
+		defer close(n.leaseDone)
+		ticker := time.NewTicker(max(time.Nanosecond, n.Config.LeaseDuration/4))
+		defer ticker.Stop()
+		for {
+			select {
+			case <-run.Done():
+				return
+			case <-ticker.C:
+				now := time.Now()
+				if !now.Before(holder.Expiry()) || holder.renew(run, now) != nil {
+					n.Accepter.mu.Lock()
+					n.Accepter.halted = true
+					_ = n.Executor.Fence()
+					n.Accepter.mu.Unlock()
+					return
+				}
+			}
+		}
+	}()
+	return nil
 }

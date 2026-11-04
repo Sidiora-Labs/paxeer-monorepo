@@ -1,0 +1,14 @@
+[repair.22.33.1172]
+audit = "22.30.53"
+baseline = "Not run: the explicit gate order forbids verification before complete implementation and permits verification only through hf-done after hf-build; no unchanged-tree failures are claimed."
+qualification = "The runner's hf-build/hf-done ledger and final evidence line record the exact candidate revision, command, exit code and private log location."
+wiring = "None; both proposals are implemented within storage/db_engine/litt/test."
+
+[finding.cached-gc-coverage]
+test = "TestRepairM_1172_CachedGC"
+repair = "TestGarbageCollection includes cached builders; deterministic coverage warms distinct read/write cache entries through Put and PutBatch, includes whole and slice aliases, collects expired segments and checks Get, Exists, both CacheAwareGet modes, KeyCount and forward/reverse iterators with live survivors and an empty table."
+
+[finding.purge-multivolume-fixture]
+test = "TestRepairM_1172_PurgeMultivolume"
+repair = "TestPurgeLocks uses three distinct canonical roots, checks every root's metadata and real lock acquisition before purge, after reopen and after close, and verifies persisted data after purge and a second normal reopen."
+fixture = "Persistent advisory guards from the existing stale-lock-takeover repair prevent opening two live owners even after metadata purge; the fixture replays lock metadata emitted by the real DB after closing its owner, preserves the open-conflict assertion and proves explicit purge followed by exclusive recovery."

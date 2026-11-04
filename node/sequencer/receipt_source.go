@@ -5,12 +5,14 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"math"
 	"sort"
 	"sync"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
+	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer/wal"
 	evmrpc "github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
 	"github.com/ethereum/go-ethereum/common"
@@ -25,6 +27,7 @@ type receiptSequenceRange struct{ first, last uint64 }
 type receiptSourceEntry struct {
 	height int64
 	send   evmrpc.SequencerSend
+	exec   *evmtypes.Receipt
 }
 
 // ReceiptSource retains accepted sends after their receipt heights commit,
@@ -35,6 +38,8 @@ type ReceiptSource struct {
 	entries        map[common.Hash]receiptSourceEntry
 	capacity       int
 	committed      int64
+	reserved       int
+	pending        func(common.Hash) (*evmrpc.SequencerSend, error)
 	evicted        []receiptSequenceRange
 	pendingOrder   []common.Hash
 	committedOrder []common.Hash
@@ -190,9 +195,13 @@ func (s *ReceiptSource) record(hash common.Hash, send evmrpc.SequencerSend, repl
 // what the RPC consumer decodes on its next lookup.
 func (s *ReceiptSource) SequencerSend(hash common.Hash) (*evmrpc.SequencerSend, error) {
 	s.mu.RLock()
-	defer s.mu.RUnlock()
 	entry, ok := s.entries[hash]
+	pending := s.pending
+	s.mu.RUnlock()
 	if !ok {
+		if pending != nil {
+			return pending(hash)
+		}
 		return nil, nil
 	}
 	send := cloneReceiptSourceSend(entry.send)
@@ -263,4 +272,22 @@ func cloneReceiptSourceSend(send evmrpc.SequencerSend) evmrpc.SequencerSend {
 		send.LogData = logs
 	}
 	return send
+}
+
+var ErrReceiptCapacity = errors.New("sequencer: receipt source capacity exhausted before execution")
+
+// Reserve accounts for every in-flight send before any execution can change state.
+func (s *ReceiptSource) Reserve() (func(), error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	capacity := s.capacity
+	if capacity == 0 {
+		capacity = defaultReceiptSourceCapacity
+	}
+	if len(s.pendingOrder)+s.reserved >= capacity {
+		return nil, ErrReceiptCapacity
+	}
+	s.reserved++
+	var once sync.Once
+	return func() { once.Do(func() { s.mu.Lock(); s.reserved--; s.mu.Unlock() }) }, nil
 }

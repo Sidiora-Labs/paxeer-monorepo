@@ -8,24 +8,24 @@
  */
 
 import { portfolioApi } from './client';
-import type {
-  ApiV2WatchRequest,
-  ApiV2WatchResponse,
-  ApiV2WatchStatusResponse,
-} from './types';
+import type { ApiV2WatchRequest, ApiV2WatchResponse, ApiV2WatchStatusResponse } from './types';
 
-export const watchAddress = (body: ApiV2WatchRequest, signal?: AbortSignal) =>
-  portfolioApi.post<ApiV2WatchResponse>('/api/v2/watch', { address: body.address }, { signal });
+export const watchAddress = (body: ApiV2WatchRequest, signal?: AbortSignal, accessToken?: string) =>
+  portfolioApi.post<ApiV2WatchResponse>(
+    '/api/v2/watch',
+    { address: body.address },
+    { signal, accessToken }
+  );
 
-export const getWatchStatus = (address: string, signal?: AbortSignal) =>
+export const getWatchStatus = (address: string, signal?: AbortSignal, accessToken?: string) =>
   portfolioApi.get<ApiV2WatchStatusResponse>(
     `/api/v2/watch/${encodeURIComponent(address)}`,
     undefined,
-    { signal },
+    { signal, accessToken }
   );
 
-export const unwatchAddress = (address: string, signal?: AbortSignal) =>
+export const unwatchAddress = (address: string, signal?: AbortSignal, accessToken?: string) =>
   portfolioApi.delete<{ status?: string; [key: string]: unknown }>(
     `/api/v2/watch/${encodeURIComponent(address)}`,
-    { signal },
+    { signal, accessToken }
   );

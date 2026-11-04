@@ -30,15 +30,19 @@ hex, whereas the [generated gateway](../types/query.pb.gw.go) calls
 `runtime.Bytes` to decode base64. The protobuf field's Go `HexBytes` cast does
 not change that gateway conversion or protobuf JSON's bytes encoding.
 
-For the illustrative digest used in these commands:
+The commands and response examples use the same deterministic ABCI-produced
+`Equivocation` fixture (RFC 8032 test-vector validator, height `100`, power
+`1000000`, time `2006-01-02T15:04:05Z`). `TestRepairM_605_ResponseShapes`
+checks the examples against the current CLI and gateway marshalers;
+`TestRepairM_605_GRPCHash` queries this digest through the real Query service:
 
 ```text
-hex:    DF0C23E8634E480F84B9D5674A7CDC9816466DEC28A3358F73260F68D28D7660
-base64: 3wwj6GNOSA+EudVnSnzcmBZGbewoozWPcyYPaNKNdmA=
+hex:    6DE180E498DA2745F6E8243AEB9837A93A36056C8D2788BE51A08DF973583CB4
+base64: beGA5JjaJ0X26CQ665g3qTo2BWyNJ4i+UaCN+XNYPLQ=
 ```
 
-Replace it with a digest stored on your node. These examples do not assert that
-this particular record exists. `Equivocation.Hash()` is SHA-256 of the concrete
+Replace it with a digest stored on your node; this deterministic test record
+need not exist there. `Equivocation.Hash()` is SHA-256 of the concrete
 evidence's protobuf encoding, not the transaction hash.
 
 ## CLI
@@ -62,14 +66,13 @@ responses until the command wiring parses its declared flags.
 A positional hash selects one record:
 
 ```bash
-paxd query evidence DF0C23E8634E480F84B9D5674A7CDC9816466DEC28A3358F73260F68D28D7660
+paxd query evidence 6DE180E498DA2745F6E8243AEB9837A93A36056C8D2788BE51A08DF973583CB4
 ```
 
 The CLI prints `QueryEvidenceResponse.Evidence` directly. When the client output
 format is JSON, its output is the expanded `Any` object, with no outer
 `evidence` field. For a stored
-`Equivocation`, the shape is as follows (illustrative values, independent of the
-digest above):
+`Equivocation`, the shape is as follows:
 
 ```json
 {
@@ -77,7 +80,7 @@ digest above):
   "height": "100",
   "time": "2006-01-02T15:04:05Z",
   "power": "1000000",
-  "consensus_address": "paxvalcons1vehk7h6lta047h6lta047h6lta047h6l4d56wf"
+  "consensus_address": "paxvalcons1y8lrrhap2j3xzcntlp2qgm7jyudhhm2tm03xxn"
 }
 ```
 
@@ -98,7 +101,7 @@ a one-record response with no further page has this shape:
       "height": "100",
       "time": "2006-01-02T15:04:05Z",
       "power": "1000000",
-      "consensus_address": "paxvalcons1vehk7h6lta047h6lta047h6lta047h6l4d56wf"
+      "consensus_address": "paxvalcons1y8lrrhap2j3xzcntlp2qgm7jyudhhm2tm03xxn"
     }
   ],
   "pagination": {
@@ -127,10 +130,10 @@ These routes do not submit transactions.
 ### Evidence
 
 Get evidence by hash using the base64 representation in the generated route.
-The `+` in this digest is percent-encoded below:
+Reserved characters in the base64 value must be URL-escaped when present:
 
 ```bash
-curl 'http://localhost:1317/cosmos/evidence/v1beta1/evidence/3wwj6GNOSA%2BEudVnSnzcmBZGbewoozWPcyYPaNKNdmA='
+curl 'http://localhost:1317/cosmos/evidence/v1beta1/evidence/beGA5JjaJ0X26CQ665g3qTo2BWyNJ4i%2BUaCN%2BXNYPLQ='
 ```
 
 Unlike the single-record CLI output, this response wraps the expanded `Any` in
@@ -143,7 +146,7 @@ an `evidence` field:
     "height": "100",
     "time": "2006-01-02T15:04:05Z",
     "power": "1000000",
-    "consensus_address": "paxvalcons1vehk7h6lta047h6lta047h6lta047h6l4d56wf"
+    "consensus_address": "paxvalcons1y8lrrhap2j3xzcntlp2qgm7jyudhhm2tm03xxn"
   }
 }
 ```
@@ -173,7 +176,7 @@ JSON request, bytes must be base64:
 
 ```bash
 grpcurl -plaintext \
-  -d '{"evidence_hash":"3wwj6GNOSA+EudVnSnzcmBZGbewoozWPcyYPaNKNdmA="}' \
+  -d '{"evidence_hash":"beGA5JjaJ0X26CQ665g3qTo2BWyNJ4i+UaCN+XNYPLQ="}' \
   localhost:9090 cosmos.evidence.v1beta1.Query/Evidence
 ```
 
@@ -216,9 +219,10 @@ submitter and evidence `Any`; its response hash is protobuf bytes (base64 in
 protobuf JSON). Submit it through a signed SDK transaction and the transaction
 broadcast service, rather than treating the Msg method as an unsigned query.
 
-The current node does not initialize the keeper's transaction evidence dispatch
-table, and the CLI transaction root does not attach its internally created
-`submit` command. Thus these declarations do not establish a working generic
-submission path. See the [atlas setup and limitations](../atlas/atlas-v0.41.x.md#usage)
+The current node explicitly installs an empty sealed transaction evidence router,
+so new submissions return `ErrNoEvidenceHandlerExists`. The CLI transaction root
+also does not attach its internally created `submit` command. An embedding
+application must register a concrete handler before accepting submissions. See
+the [atlas setup and limitations](../atlas/atlas-v0.41.x.md#usage)
 and [message contract](03_messages.md) before integrating submissions. Consensus
 misbehavior still enters through the node's block-processing path.

@@ -139,23 +139,37 @@ func (bm BasicManager) ValidateGenesisStream(cdc codec.JSONCodec, txEncCfg clien
 	moduleGenesisCh := make(chan json.RawMessage)
 	moduleDoneCh := make(chan struct{})
 
-	var err error
+	var validationErr error
 
 	go func() {
-		err = module.ValidateGenesisStream(cdc, txEncCfg, moduleGenesisCh)
-		if err != nil {
-			errCh <- err
+		defer close(moduleDoneCh)
+		validationErr = module.ValidateGenesisStream(cdc, txEncCfg, moduleGenesisCh)
+	}()
+	defer func() {
+		close(moduleGenesisCh)
+		<-moduleDoneCh
+		if validationErr != nil {
+			errCh <- validationErr
 		}
-		moduleDoneCh <- struct{}{}
 	}()
 
 	for {
 		select {
 		case <-doneCh:
-			close(moduleGenesisCh)
 			return
-		case genesisChunk := <-genesisCh:
-			moduleGenesisCh <- genesisChunk
+		case <-moduleDoneCh:
+			return
+		case genesisChunk, ok := <-genesisCh:
+			if !ok {
+				return
+			}
+			select {
+			case <-doneCh:
+				return
+			case <-moduleDoneCh:
+				return
+			case moduleGenesisCh <- genesisChunk:
+			}
 		}
 	}
 }
@@ -674,6 +688,15 @@ func (m Manager) RunMigrations(ctx sdk.Context, cfg Configurator, fromVM Version
 	var modules = m.OrderMigrations
 	if modules == nil {
 		modules = DefaultMigrationsOrder(m.ModuleNames())
+	}
+
+	// Check every target before any migration or genesis initialization writes state.
+	for _, moduleName := range modules {
+		fromVersion, exists := fromVM[moduleName]
+		toVersion := m.Modules[moduleName].ConsensusVersion()
+		if exists && fromVersion > toVersion {
+			return nil, sdkerrors.Wrapf(sdkerrors.ErrInvalidVersion, "cannot downgrade module %s from version %d to version %d", moduleName, fromVersion, toVersion)
+		}
 	}
 
 	updatedVM := VersionMap{}

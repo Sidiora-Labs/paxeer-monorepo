@@ -17,11 +17,13 @@ import (
 )
 
 var (
-	amino     = codec.NewLegacyAmino()
-	ModuleCdc = codec.NewAminoCodec(amino)
+	amino          = codec.NewLegacyAmino()
+	ModuleCdc      = codec.NewAminoCodec(amino)
+	txDataRegistry = codectypes.NewInterfaceRegistry()
 )
 
 func init() {
+	registerTxDataInterfaces(txDataRegistry)
 	RegisterCodec(amino)
 	cryptocodec.RegisterCrypto(amino)
 	amino.Seal()
@@ -65,6 +67,12 @@ func RegisterInterfaces(registry codectypes.InterfaceRegistry) {
 		&MsgAssociate{},
 		&MsgBindERCNativePointer{},
 	)
+	registerTxDataInterfaces(registry)
+
+	msgservice.RegisterMsgServiceDesc(registry, &_Msg_serviceDesc)
+}
+
+func registerTxDataInterfaces(registry codectypes.InterfaceRegistry) {
 	registry.RegisterInterface(
 		"paxprotocol.paxchain.evm.TxData",
 		(*ethtx.TxData)(nil),
@@ -75,8 +83,6 @@ func RegisterInterfaces(registry codectypes.InterfaceRegistry) {
 		&ethtx.AssociateTx{},
 		&ethtx.SetCodeTx{},
 	)
-
-	msgservice.RegisterMsgServiceDesc(registry, &_Msg_serviceDesc)
 }
 
 func PackTxData(txData ethtx.TxData) (*codectypes.Any, error) {
@@ -98,40 +104,24 @@ func UnpackTxData(any *codectypes.Any) (ethtx.TxData, error) {
 		return nil, errors.New("protobuf Any message cannot be nil")
 	}
 
-	txData, ok := any.GetCachedValue().(ethtx.TxData)
-	if !ok {
-		ltx := ethtx.LegacyTx{}
-		if proto.Unmarshal(any.Value, &ltx) == nil {
-			// value is a legacy tx
-			return &ltx, nil
-		}
-		atx := ethtx.AccessListTx{}
-		if proto.Unmarshal(any.Value, &atx) == nil {
-			// value is a accesslist tx
-			return &atx, nil
-		}
-		dtx := ethtx.DynamicFeeTx{}
-		if proto.Unmarshal(any.Value, &dtx) == nil {
-			// value is a dynamic fee tx
-			return &dtx, nil
-		}
-		btx := ethtx.BlobTx{}
-		if proto.Unmarshal(any.Value, &btx) == nil {
-			// value is a blob tx
-			return &btx, nil
-		}
-		astx := ethtx.AssociateTx{}
-		if proto.Unmarshal(any.Value, &astx) == nil {
-			// value is an associate tx
-			return &astx, nil
-		}
-		stx := ethtx.SetCodeTx{}
-		if proto.Unmarshal(any.Value, &stx) == nil {
-			// value is a set code tx
-			return &stx, nil
-		}
-		return nil, fmt.Errorf("cannot unpack Any into TxData %T", any)
+	// Resolve before consulting the cache: an Any's URL is authoritative.
+	message, err := txDataRegistry.Resolve(any.TypeUrl)
+	if err != nil {
+		return nil, err
 	}
-
+	if _, ok := message.(ethtx.TxData); !ok {
+		return nil, fmt.Errorf("type URL %q does not identify TxData", any.TypeUrl)
+	}
+	if cached := any.GetCachedValue(); cached != nil {
+		txData, ok := cached.(ethtx.TxData)
+		if !ok || "/"+proto.MessageName(txData) != any.TypeUrl {
+			return nil, fmt.Errorf("cached TxData %T does not match type URL %q", cached, any.TypeUrl)
+		}
+		return txData, nil
+	}
+	var txData ethtx.TxData
+	if err := txDataRegistry.UnpackAny(any, &txData); err != nil {
+		return nil, err
+	}
 	return txData, nil
 }

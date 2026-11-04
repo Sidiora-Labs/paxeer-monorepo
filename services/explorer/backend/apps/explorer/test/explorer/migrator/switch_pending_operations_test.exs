@@ -1,3 +1,5 @@
+Code.require_file("pending_operations_restart.exs", __DIR__)
+
 defmodule Explorer.Migrator.SwitchPendingOperationsTest do
   use Explorer.DataCase, async: false
 
@@ -85,5 +87,10 @@ defmodule Explorer.Migrator.SwitchPendingOperationsTest do
       assert [] = Repo.all(PendingTransactionOperation)
       assert [_, _] = Repo.all(PendingBlockOperation)
     end
+  end
+
+  test "pending-conversion-restart: a committed partial batch survives worker and pool restart" do
+    context = Explorer.Migrator.PendingOperationsRestart.setup()
+    Explorer.Migrator.PendingOperationsRestart.assert_partial_batch_recovers(context)
   end
 end

@@ -1,5 +1,7 @@
 mod chain_receipt;
 mod committed;
+#[path = "../../registry/src/committed_head_route.rs"]
+mod committed_head_route;
 mod human;
 mod protected;
 mod trust;
@@ -963,6 +965,21 @@ fn route(config: &Arc<Config>, request: &Request) -> Response {
             }
             Err(response) => response,
         };
+    }
+    if let Some((status, document)) = committed_head_route::route(
+        &request.method,
+        path,
+        request.query.as_deref(),
+        || authenticate(config, request).is_ok(),
+        config.replica_id,
+        |target| match replica_get(config, target) {
+            ReplicaAnswer::Status(200, body) => {
+                serde_json::from_slice(&body).map_err(|error| error.to_string())
+            }
+            _ => Err("independent committed head is unavailable".to_owned()),
+        },
+    ) {
+        return json(status, &document);
     }
     if request.query.is_some() {
         return refusal(404, "not_found", None);

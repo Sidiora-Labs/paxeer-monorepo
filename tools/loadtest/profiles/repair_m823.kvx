@@ -1,0 +1,57 @@
+[repair.22.33.823]
+audit = "22.30.179"
+base_revision = "4299cb15eced23eb9a839162acd11e9a937edd05"
+implementation = "All seven profiles explicitly target operator-controlled chain-125 qualification at local root RPCs; main constructs profiles.NewCommand, whose preflight validates every configured endpoint with eth_chainId before the existing CLI deployment/signing pipeline. The autobake JSON report path is relative to the working directory."
+baseline = "No baseline verification ran: the explicit implementation-before-gates order forbids testing before implementation and running verify_cmd by hand. No pre-change failures are claimed; no earlier gate ledger or repair implementation existed."
+evidence = "The private runner hf-build/hf-done ledger records the final candidate revision, exact command, exit code and log; the final response copies the last evidence line."
+proof = "Production LoadConfig JSON codec -> profile file -> executable's production Cobra constructor -> ethclient over loopback HTTP -> actual chain identity validation -> existing RunLoadTest -> real signed EVM transfers -> HTTP sender -> collector -> JSON report. All rejected profile paths preserve their original scenarios and fail before deployment or file-writer RPC."
+wiring_readme = "tools/loadtest/README.md, owning domain 16 (tools-ops): replace stale chain-713714 fixture/manual-only identity guidance with a link to profiles/README.md and the executable's automatic chain preflight/report policy."
+wiring_funding = "tools/loadtest/types/account.go and tools/loadtest/generator/generator.go, owning domain 16 (tools-ops): expose/provision generated sender and deployer accounts before deployment/signing for fee-paying qualification; until then live qualification requires an external controlled funding harness."
+
+[finding.profile-chain-autobake_evm_transfer]
+tests = ["TestRepairM_823_ProfileChainAutobakeEVMTransfer", "TestRepairM_823_ProfileOutputPath"]
+
+[finding.profile-output-path]
+tests = ["TestRepairM_823_ProfileOutputPath", "TestRepairM_823_ReportParentError"]
+
+[finding.profile-chain-conflict]
+tests = ["TestRepairM_823_ProfileChainConflict"]
+
+[finding.profile-chain-evm_transfer]
+tests = ["TestRepairM_823_ProfileChainEVMTransfer"]
+
+[finding.profile-chain-evm_transfer_write_file]
+tests = ["TestRepairM_823_ProfileChainEVMTransferWriteFile"]
+
+[finding.profile-chain-loadtest_default]
+tests = ["TestRepairM_823_ProfileChainLoadtestDefault"]
+
+[finding.profile-chain-local]
+tests = ["TestRepairM_823_ProfileChainLocal"]
+
+[finding.profile-chain-local_docker]
+tests = ["TestRepairM_823_ProfileChainLocalDocker"]
+
+[proof.preflight-errors]
+tests = ["TestRepairM_823_PreflightErrors"]
+assertions = "Reject invalid configured IDs, mismatched and oversized IDs, invalid or absent RPC results, HTTP/RPC/connection errors and cancellation; dry-run cannot bypass preflight; --nodes cannot conceal an incompatible configured endpoint."
+
+[gotcha.scope]
+observed = "Root GOTCHA.kvx, spec task records and tools/loadtest/README.md are outside this task's scope; record mappings, wiring and gotchas here without modifying them."
+
+[gotcha.command-location]
+observed = "Prerequisite repairs moved the real CLI into config/cli outside this task's scope; an importable profiles.NewCommand adds the executable preflight without duplicating the CLI implementation or using a subprocess toolchain in proofs."
+
+[gotcha.inspection]
+observed = "Large repository ledgers and graph survey output truncate; inspect the task, workflow rules, pertinent gotcha sections and named code paths separately. The service helper is utils/service/start.go rather than service.go."
+
+[qualification.attempt1]
+revision = "22900b72aca06679a6c8ff76de244b34f9295395"
+command = "cg spec done 22.33.823 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All preflight tests passed; ProfileOutputPath and ReportParentError failed the assertion that signed transfers reach both shards, because the two-account pool selects the same sender every time."
+repair = "Use an odd 129-account pool and require observed traffic on both real loopback peers before cancellation; preserve all assertions and profile bounds."
+
+[gotcha.account-pool]
+observed = "A transaction advances the round-robin account pool for both sender and receiver, so a two-account CLI fixture uses only one sender and one shard; an odd pool and endpoint-aware completion exercise all senders and both shards."

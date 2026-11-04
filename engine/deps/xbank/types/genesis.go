@@ -66,7 +66,22 @@ func getTotalSupply(genState *GenesisState) (sdk.Coins, error) {
 		}
 		totalSupply = totalSupply.Add(coins...)
 	}
+	seenWeiBalances := make(map[string]bool, len(genState.WeiBalances))
 	for _, weiBalance := range genState.WeiBalances {
+		addr, err := sdk.AccAddressFromBech32(weiBalance.Address)
+		if err != nil {
+			return nil, fmt.Errorf("invalid wei balance address %q: %w", weiBalance.Address, err)
+		}
+		if weiBalance.Amount.IsNil() {
+			return nil, fmt.Errorf("uninitialized wei balance amount for address %s", weiBalance.Address)
+		}
+		if weiBalance.Amount.IsNegative() {
+			return nil, fmt.Errorf("negative wei balance amount for address %s", weiBalance.Address)
+		}
+		if seenWeiBalances[string(addr)] {
+			return nil, fmt.Errorf("duplicate wei balance for address %s", weiBalance.Address)
+		}
+		seenWeiBalances[string(addr)] = true
 		totalWeiBalance = totalWeiBalance.Add(weiBalance.Amount)
 	}
 	weiInUhpx, weiRemainder := SplitUhpxWeiAmount(totalWeiBalance)

@@ -20,14 +20,15 @@ const cacheMeterName = "litt"
 // receives references to the same underlying instruments because OTel
 // instrument registration is idempotent. The "cache" attribute (set at
 // construction time) distinguishes series in the exporter
-// (e.g. litt_chunk_cache_keys_added{cache="chunk_read"}).
+// (e.g. litt_chunk_cache_keys_added{cache="chunk_read"}). Occupancy is the
+// sum across all live caches in that series, rather than the last FIFO size.
 type CacheMetrics struct {
 	// Pre-computed attribute option reused on every recording to avoid
 	// per-call allocations on the hot path.
 	attrs metric.MeasurementOption
 
-	keyCount        metric.Int64Gauge
-	weight          metric.Int64Gauge
+	keyCount        metric.Int64UpDownCounter
+	weight          metric.Int64UpDownCounter
 	keysAdded       metric.Int64Counter
 	weightAdded     metric.Int64Counter
 	evictionLatency metric.Float64Histogram
@@ -43,13 +44,13 @@ type CacheMetrics struct {
 func NewCacheMetrics(cacheName string) *CacheMetrics {
 	meter := otel.Meter(cacheMeterName)
 
-	keyCount, _ := meter.Int64Gauge(
+	keyCount, _ := meter.Int64UpDownCounter(
 		"litt_chunk_cache_key_count",
 		metric.WithDescription("Reports on the number of keys in the cache."),
 		metric.WithUnit("{count}"),
 	)
 
-	weight, _ := meter.Int64Gauge(
+	weight, _ := meter.Int64UpDownCounter(
 		"litt_chunk_cache_weight_bytes",
 		metric.WithDescription("Reports on the weight of the cache in bytes."),
 		metric.WithUnit("By"),
@@ -104,13 +105,13 @@ func (m *CacheMetrics) reportEviction(age time.Duration) {
 	m.evictionLatency.Record(context.Background(), age.Seconds(), m.attrs)
 }
 
-// reportCurrentSize is used to report the current size/weight of the cache.
-func (m *CacheMetrics) reportCurrentSize(size int, weight uint64) {
+// reportSizeChange aggregates occupancy deltas from every FIFO sharing this series.
+func (m *CacheMetrics) reportSizeChange(oldSize int, oldWeight uint64, size int, weight uint64) {
 	if m == nil {
 		return
 	}
 
 	ctx := context.Background()
-	m.keyCount.Record(ctx, int64(size), m.attrs) //nolint:gosec // size fits int64
-	m.weight.Record(ctx, int64(weight), m.attrs) //nolint:gosec // weight fits int64
+	m.keyCount.Add(ctx, int64(size)-int64(oldSize), m.attrs)   //nolint:gosec // sizes fit int64
+	m.weight.Add(ctx, int64(weight)-int64(oldWeight), m.attrs) //nolint:gosec // weights fit int64
 }

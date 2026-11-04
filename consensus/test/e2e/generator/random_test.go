@@ -57,3 +57,48 @@ func TestUniformSetChoice(t *testing.T) {
 		})
 	}
 }
+
+func TestUniformSetChoiceCardinalities(t *testing.T) {
+	assertUniformSetChoiceCardinalities(t)
+}
+
+func assertUniformSetChoiceCardinalities(t *testing.T) {
+	t.Helper()
+	for size := 0; size <= 6; size++ {
+		set := make(uniformSetChoice, size)
+		for i := range set {
+			set[i] = fmt.Sprintf("item%d", i)
+		}
+		for minimum := 0; minimum <= size+1; minimum++ {
+			t.Run(fmt.Sprintf("size%d/minimum%d", size, minimum), func(t *testing.T) {
+				assertUniformSetChoiceRange(t, set, minimum, func(r *rand.Rand) []string {
+					return set.ChooseAtLeast(r, minimum)
+				})
+			})
+		}
+		t.Run(fmt.Sprintf("size%d/Choose", size), func(t *testing.T) {
+			assertUniformSetChoiceRange(t, set, 1, set.Choose)
+		})
+	}
+}
+
+func assertUniformSetChoiceRange(t *testing.T, set uniformSetChoice, minimum int, choose func(*rand.Rand) []string) {
+	t.Helper()
+	r := rand.New(rand.NewSource(2384))
+	seen := make(map[int]bool)
+	for i := 0; i < 512; i++ {
+		choices := choose(r)
+		require.GreaterOrEqual(t, len(choices), min(minimum, len(set)))
+		require.LessOrEqual(t, len(choices), len(set))
+		members := make(map[string]bool)
+		for _, choice := range choices {
+			require.Contains(t, set, choice)
+			require.False(t, members[choice], "duplicate choice %q", choice)
+			members[choice] = true
+		}
+		seen[len(choices)] = true
+	}
+	for count := min(minimum, len(set)); count <= len(set); count++ {
+		require.True(t, seen[count], "cardinality %d is unreachable", count)
+	}
+}

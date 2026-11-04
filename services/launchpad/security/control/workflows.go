@@ -99,8 +99,8 @@ func (a StoredAwardAuthority) VerifyAward(ctx context.Context, b Bounty, evidenc
 	if a.Store == nil || a.Wallets == nil || !uuidPattern.MatchString(evidence) {
 		return Unavailable
 	}
-	var raw []byte
-	if err := a.Store.pool.QueryRow(ctx, "SELECT body FROM "+a.Store.schema+".objects WHERE kind='submission' AND id=$1", evidence).Scan(&raw); err != nil {
+	var raw json.RawMessage
+	if err := a.Store.readObject(ctx, "submission", evidence, &raw); err != nil {
 		return Unavailable
 	}
 	var submission Submission
@@ -116,12 +116,15 @@ func (v DurableJobResults) Verify(ctx context.Context, action Action, state, ref
 	if v.Store == nil || action.JobID == "" {
 		return Unavailable
 	}
-	var raw []byte
-	if err := v.Store.pool.QueryRow(ctx, "SELECT body FROM "+v.Store.schema+".objects WHERE kind='executor_result' AND id=$1", action.JobID).Scan(&raw); err != nil {
+	var raw json.RawMessage
+	if err := v.Store.readObject(ctx, "executor_result", action.JobID, &raw); err != nil {
 		return Unavailable
 	}
-	var result struct{ ActionID, PayloadHash, State, Reference string }
+	var result ReplayResult
 	if json.Unmarshal(raw, &result) != nil || result.ActionID != action.ID || result.PayloadHash != action.PayloadHash || result.State != state || result.Reference != reference {
+		return Denied
+	}
+	if action.PayloadReference != "" && (result.JobID != action.JobID || result.PayloadReference != action.PayloadReference || result.CompletionIdentity != action.CompletionIdentity || action.CompletionIdentity != "control-replay:"+action.JobID) {
 		return Denied
 	}
 	return nil
@@ -133,8 +136,8 @@ func (v IncidentRecovery) Check(ctx context.Context, i Incident, rotation, integ
 	if v.Store == nil {
 		return Unavailable
 	}
-	var raw []byte
-	if err := v.Store.pool.QueryRow(ctx, "SELECT body FROM "+v.Store.schema+".objects WHERE kind='incident_outbox' AND id=$1", i.ID).Scan(&raw); err != nil {
+	var raw json.RawMessage
+	if err := v.Store.readObject(ctx, "incident_outbox", i.ID, &raw); err != nil {
 		return Unavailable
 	}
 	var record map[string]string
@@ -212,7 +215,7 @@ func (s *Store) ProposeReplay(ctx context.Context, credential string, q ReplayPr
 		} else if err != Missing {
 			return err
 		}
-		action = Action{ID: id(), Kind: "replay", Scope: q.Scope, Reason: q.Reason, RequestedBy: t.actor.ID, State: "proposed", PayloadHash: payloadHash, Revision: 1, Expires: q.Expires}
+		action = Action{ID: id(), Kind: "replay", Scope: q.Scope, Reason: q.Reason, RequestedBy: t.actor.ID, State: "proposed", PayloadHash: payloadHash, PayloadReference: q.Key, Revision: 1, Expires: q.Expires}
 		if err := t.put("action_payload", q.Key, q.Payload); err != nil {
 			return err
 		}
@@ -230,12 +233,15 @@ func (s *Store) TransitionWorkflow(ctx context.Context, credential string, q Tra
 			return action, err
 		}
 		if action.Kind == "replay" {
-			var raw []byte
-			if err := s.pool.QueryRow(ctx, "SELECT body FROM "+s.schema+".objects WHERE kind='action_payload' AND id=$1", q.Key).Scan(&raw); err != nil {
+			var raw json.RawMessage
+			if s.replay == nil {
+				return action, Unavailable
+			}
+			if err := s.readObject(ctx, "action_payload", q.Key, &raw); err != nil {
 				return action, Unavailable
 			}
 			var payload ReplayPayload
-			if json.Unmarshal(raw, &payload) != nil || digest(payload) != action.PayloadHash {
+			if action.PayloadReference != q.Key || json.Unmarshal(raw, &payload) != nil || digest(payload) != action.PayloadHash {
 				return action, Conflict
 			}
 		} else {

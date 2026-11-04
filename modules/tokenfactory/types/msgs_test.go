@@ -219,145 +219,124 @@ func TestMsgMint(t *testing.T) {
 
 // TestMsgBurn tests if valid/invalid create denom messages are properly validated/invalidated
 func TestMsgBurn(t *testing.T) {
-	// generate a private/public key pair and get the respective address
-	pk1 := ed25519.GenerateSecretKey().Public()
-	addr1 := sdk.AccAddress(pk1.Address())
-
-	// make a proper burn message
-	baseMsg := types.NewMsgBurn(
-		addr1.String(),
-		sdk.NewCoin("bitcoin", sdk.NewInt(500000000)),
-	)
-
-	// validate burn message was created as intended
-	require.Equal(t, baseMsg.Route(), types.RouterKey)
-	require.Equal(t, baseMsg.Type(), "burn")
-	signers := baseMsg.GetSigners()
-	require.Equal(t, len(signers), 1)
-	require.Equal(t, signers[0].String(), addr1.String())
-
-	tests := []struct {
-		name       string
-		msg        func() *types.MsgBurn
-		expectPass bool
-	}{
-		{
-			name: "proper msg",
-			msg: func() *types.MsgBurn {
-				msg := baseMsg
-				return msg
-			},
-			expectPass: true,
-		},
-		{
-			name: "empty sender",
-			msg: func() *types.MsgBurn {
-				msg := baseMsg
-				msg.Sender = ""
-				return msg
-			},
-			expectPass: false,
-		},
-		{
-			name: "zero amount",
-			msg: func() *types.MsgBurn {
-				msg := baseMsg
-				msg.Amount.Amount = sdk.ZeroInt()
-				return msg
-			},
-			expectPass: false,
-		},
-		{
-			name: "negative amount",
-			msg: func() *types.MsgBurn {
-				msg := baseMsg
-				msg.Amount.Amount = sdk.NewInt(-10000000)
-				return msg
-			},
-			expectPass: false,
-		},
+	pk := ed25519.GenerateSecretKey().Public()
+	addr := sdk.AccAddress(pk.Address())
+	newMsg := func() *types.MsgBurn {
+		return types.NewMsgBurn(addr.String(), sdk.NewCoin("bitcoin", sdk.NewInt(500000000)))
 	}
+	baseMsg := newMsg()
+	require.Equal(t, types.RouterKey, baseMsg.Route())
+	require.Equal(t, "burn", baseMsg.Type())
+	require.Equal(t, []sdk.AccAddress{addr}, baseMsg.GetSigners())
 
-	for _, test := range tests {
-		if test.expectPass {
-			require.NoError(t, test.msg().ValidateBasic(), "test: %v", test.name)
-		} else {
-			require.Error(t, test.msg().ValidateBasic(), "test: %v", test.name)
-		}
+	for _, tc := range []struct {
+		name    string
+		mutate  func(*types.MsgBurn)
+		wantErr error
+	}{
+		{name: "proper msg"},
+		{
+			name:    "empty sender",
+			mutate:  func(msg *types.MsgBurn) { msg.Sender = "" },
+			wantErr: sdkerrors.ErrInvalidAddress,
+		},
+		{
+			name:    "zero amount",
+			mutate:  func(msg *types.MsgBurn) { msg.Amount.Amount = sdk.ZeroInt() },
+			wantErr: sdkerrors.ErrInvalidCoins,
+		},
+		{
+			name:    "negative amount",
+			mutate:  func(msg *types.MsgBurn) { msg.Amount.Amount = sdk.NewInt(-10000000) },
+			wantErr: sdkerrors.ErrInvalidCoins,
+		},
+		{
+			name:    "invalid coin denom",
+			mutate:  func(msg *types.MsgBurn) { msg.Amount.Denom = "!" },
+			wantErr: sdkerrors.ErrInvalidCoins,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			msg := newMsg()
+			if tc.mutate != nil {
+				tc.mutate(msg)
+			}
+			err := msg.ValidateBasic()
+			if tc.wantErr == nil {
+				require.NoError(t, err)
+			} else {
+				require.ErrorIs(t, err, tc.wantErr)
+			}
+			require.Equal(t, newMsg(), baseMsg, "a case must not mutate the baseline")
+			require.NoError(t, baseMsg.ValidateBasic())
+		})
 	}
 }
 
-// TestMsgChangeAdmin tests if valid/invalid create denom messages are properly validated/invalidated
+// TestMsgChangeAdmin checks transfer and renunciation validation independently.
 func TestMsgChangeAdmin(t *testing.T) {
-	// generate a private/public key pair and get the respective address
-	pk1 := ed25519.GenerateSecretKey().Public()
-	addr1 := sdk.AccAddress(pk1.Address())
-	pk2 := ed25519.GenerateSecretKey().Public()
-	addr2 := sdk.AccAddress(pk2.Address())
-	tokenFactoryDenom := fmt.Sprintf("factory/%s/bitcoin", addr1.String())
-
-	// make a proper changeAdmin message
-	baseMsg := types.NewMsgChangeAdmin(
-		addr1.String(),
-		tokenFactoryDenom,
-		addr2.String(),
-	)
-
-	// validate changeAdmin message was created as intended
-	require.Equal(t, baseMsg.Route(), types.RouterKey)
-	require.Equal(t, baseMsg.Type(), "change_admin")
-	signers := baseMsg.GetSigners()
-	require.Equal(t, len(signers), 1)
-	require.Equal(t, signers[0].String(), addr1.String())
-
-	tests := []struct {
-		name       string
-		msg        func() *types.MsgChangeAdmin
-		expectPass bool
-	}{
-		{
-			name: "proper msg",
-			msg: func() *types.MsgChangeAdmin {
-				msg := baseMsg
-				return msg
-			},
-			expectPass: true,
-		},
-		{
-			name: "empty sender",
-			msg: func() *types.MsgChangeAdmin {
-				msg := baseMsg
-				msg.Sender = ""
-				return msg
-			},
-			expectPass: false,
-		},
-		{
-			name: "empty newAdmin",
-			msg: func() *types.MsgChangeAdmin {
-				msg := baseMsg
-				msg.NewAdmin = ""
-				return msg
-			},
-			expectPass: false,
-		},
-		{
-			name: "invalid denom",
-			msg: func() *types.MsgChangeAdmin {
-				msg := baseMsg
-				msg.Denom = "bitcoin"
-				return msg
-			},
-			expectPass: false,
-		},
+	addr1 := sdk.AccAddress(ed25519.GenerateSecretKey().Public().Address())
+	addr2 := sdk.AccAddress(ed25519.GenerateSecretKey().Public().Address())
+	denom, err := types.GetTokenDenom(addr1.String(), "bitcoin")
+	require.NoError(t, err)
+	newMsg := func() *types.MsgChangeAdmin {
+		return types.NewMsgChangeAdmin(addr1.String(), denom, addr2.String())
 	}
+	baseMsg := newMsg()
+	require.Equal(t, types.RouterKey, baseMsg.Route())
+	require.Equal(t, "change_admin", baseMsg.Type())
+	require.Equal(t, []sdk.AccAddress{addr1}, baseMsg.GetSigners())
 
-	for _, test := range tests {
-		if test.expectPass {
-			require.NoError(t, test.msg().ValidateBasic(), "test: %v", test.name)
-		} else {
-			require.Error(t, test.msg().ValidateBasic(), "test: %v", test.name)
-		}
+	for _, tc := range []struct {
+		name    string
+		mutate  func(*types.MsgChangeAdmin)
+		wantErr error
+	}{
+		{name: "proper msg"},
+		{
+			name:    "empty sender",
+			mutate:  func(msg *types.MsgChangeAdmin) { msg.Sender = "" },
+			wantErr: sdkerrors.ErrInvalidAddress,
+		},
+		{
+			name:   "empty newAdmin renounces authority",
+			mutate: func(msg *types.MsgChangeAdmin) { msg.NewAdmin = "" },
+		},
+		{
+			name:    "invalid nonempty newAdmin",
+			mutate:  func(msg *types.MsgChangeAdmin) { msg.NewAdmin = "invalid-admin" },
+			wantErr: sdkerrors.ErrInvalidAddress,
+		},
+		{
+			name:    "invalid denom",
+			mutate:  func(msg *types.MsgChangeAdmin) { msg.Denom = "bitcoin" },
+			wantErr: types.ErrInvalidDenom,
+		},
+		{
+			name:    "invalid denom during renunciation",
+			mutate:  func(msg *types.MsgChangeAdmin) { msg.Denom = "bitcoin"; msg.NewAdmin = "" },
+			wantErr: types.ErrInvalidDenom,
+		},
+		{
+			name:    "empty sender during renunciation",
+			mutate:  func(msg *types.MsgChangeAdmin) { msg.Sender = ""; msg.NewAdmin = "" },
+			wantErr: sdkerrors.ErrInvalidAddress,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			msg := newMsg()
+			if tc.mutate != nil {
+				tc.mutate(msg)
+			}
+			err := msg.ValidateBasic()
+			if tc.wantErr == nil {
+				require.NoError(t, err)
+			} else {
+				require.ErrorIs(t, err, tc.wantErr)
+			}
+			require.Equal(t, newMsg(), baseMsg, "a case must not mutate the baseline")
+			require.NoError(t, baseMsg.ValidateBasic())
+		})
 	}
 }
 

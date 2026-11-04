@@ -1,0 +1,8 @@
+[repair.22.33.790]
+audit = "22.30.176"
+acceptance = "22998.1"
+finding_17 = "TestRepairM_790_StoreNames: identical sorted names, rejected replacement/missing names, preserved ignored-store contents policy."
+finding_16 = "TestRepairM_790_EventAttributes and TestRepairM_790_ExecTxResults: occurrence counts and consumed matches reject unequal duplicates; real bank transactions execute sequentially and with OCC, with zero result codes, equal events and equal state."
+baseline = "Not run: the explicit gate order prohibits verification before the complete implementation and prohibits running verify_cmd by hand. No baseline failure is claimed."
+wiring_requests = "None: both proposals are confined to tests/occ."
+evidence = "The runner records the exact candidate revision, command, exit and private log in its hf-build/hf-done ledger; no qualification is claimed before hf-done passes."

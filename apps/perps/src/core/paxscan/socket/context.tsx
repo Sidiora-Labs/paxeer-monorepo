@@ -3,7 +3,7 @@ import type { Channel, SocketConnectOption } from 'phoenix';
 import { Socket } from 'phoenix';
 import React, { useEffect, useState } from 'react';
 
-type ChannelRegistry = Record<string, { channel: Channel; subscribers: number }>;
+type ChannelRegistry = Record<string, { channel: Channel; socket: Socket; subscribers: number }>;
 
 /**
  * Phoenix's Socket constructor auto-appends `/websocket` to reach the
@@ -30,6 +30,7 @@ function reconnectBackoffMs(tries: number): number {
 
 const socketContexts = new Map<string, React.Context<{
   socket: Socket | null;
+  createSocket: () => Socket | null;
   channelRegistry: React.MutableRefObject<ChannelRegistry>;
 } | null>>();
 
@@ -37,6 +38,7 @@ function getSocketContext(name: string) {
   if (!socketContexts.has(name)) {
     socketContexts.set(name, React.createContext<{
       socket: Socket | null;
+      createSocket: () => Socket | null;
       channelRegistry: React.MutableRefObject<ChannelRegistry>;
     } | null>(null));
   }
@@ -54,9 +56,9 @@ export function PaxscanSocketProvider({ children, options, url, name = 'default'
   const [ socket, setSocket ] = useState<Socket | null>(null);
   const channelRegistry = React.useRef<ChannelRegistry>({});
 
-  useEffect(() => {
+  const createSocket = React.useCallback(() => {
     if (!url) {
-      return;
+      return null;
     }
 
     const normalized = normalizePhoenixUrl(url);
@@ -69,23 +71,28 @@ export function PaxscanSocketProvider({ children, options, url, name = 'default'
       );
     }
 
-    const socketInstance = new Socket(normalized, {
+    return new Socket(normalized, {
       reconnectAfterMs: reconnectBackoffMs,
       ...options,
     });
-    // The first channel join connects; an unused provider opens no socket.
+  }, [ options, url ]);
+
+  useEffect(() => {
+    const socketInstance = createSocket();
+    if (!socketInstance) return;
     setSocket(socketInstance);
 
     return () => {
       socketInstance.disconnect();
       setSocket(null);
     };
-  }, [ options, url ]);
+  }, [ createSocket ]);
 
   const value = React.useMemo(() => ({
     socket,
+    createSocket,
     channelRegistry,
-  }), [ socket, channelRegistry ]);
+  }), [ socket, createSocket, channelRegistry ]);
 
   const SocketContext = getSocketContext(name);
 

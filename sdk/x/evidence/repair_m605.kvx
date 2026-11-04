@@ -1,0 +1,55 @@
+[repair.22.33.605]
+audit = "22.30.162"
+base_revision = "4299cb15eced23eb9a839162acd11e9a937edd05"
+previous_attempt_revision = "f2856724c795c8eabdd1580945ec441f06dd9ab2"
+baseline = "No TestRepairM_605_ tests or prior gate ledger existed on the starting tree. Baseline verification was not run: the explicit ordered gates prohibit testing before complete implementation and running verify_cmd by hand. No pre-change test failure is claimed."
+qualification = "The bounded hf-build and hf-done ledger at /out/run/gates.jsonl records the exact candidate revision, command, exit and private evidence path; the runner publishes this same qualified candidate."
+wiring_requests = "None: documentation example compilation, fixtures and query transport proofs are inside sdk/x/evidence."
+
+[finding.evidence-atlas-purpose]
+test = "TestRepairM_605_AtlasPurpose"
+change = "Retain the already-correct evidence routing, storage and equivocation purpose, explicitly label upstream provenance, and align fork integration with the current sealed router policy; exercise ABCI handling, routed submission, storage and querying with real keepers."
+
+[finding.evidence-setup-example]
+test = "TestRepairM_605_SetupExample"
+change = "Use evidencekeeper/evidencetypes imports, actual constructor interfaces, explicit SetRouter before copying the keeper into AppModule and current manager service registration. Compare the documented function AST to the compiled function, execute it and exercise its registered Msg and Query services."
+
+[finding.evidence-genesis-fixture]
+test = "TestRepairM_605_GenesisFixture"
+change = "Original genesis success fixtures use FromABCIEvidence with real validator addresses; JSON/Any, InitGenesis, export and keeper decoding preserve address bytes. Preserve the invalid-height case and add hexadecimal-address rejection with an empty-store assertion. The repair gate also executes the original genesis suite."
+
+[finding.evidence-handler-fixture]
+test = "TestRepairM_605_HandlerFixture"
+change = "Original handler fixtures use FromABCIEvidence; protobuf/Any message transport, production handler and keeper decoding preserve validator address bytes. Preserve even-height rejection and add hexadecimal-address rejection with no write or event. The repair gate also executes the original handler suite."
+
+[finding.evidence-response-shapes]
+test = "TestRepairM_605_ResponseShapes"
+change = "Tie all JSON blocks to one deterministic real ABCI producer and compare real single/all gRPC responses through the CLI printer and generated HTTP gateway using current marshalers; assert repeated Any identity, pagination, numeric strings and empty collections."
+
+[finding.evidence-grpc-hash]
+test = "TestRepairM_605_GRPCHash"
+change = "Use the same producer digest for hex CLI and base64 grpcurl examples. Resolve Query/Evidence's input descriptor over the production gogo reflection service, decode the exact documented protobuf JSON request, query the real registered Query/Evidence service over in-process gRPC and compare returned evidence and address bytes; show that the hex literal resolves different bytes and returns NotFound."
+
+[gotcha.baseline-order]
+observed = "The audit step requests a pre-change verify but the explicit gate order prohibits it; no baseline run or failure is claimed."
+
+[gotcha.router-doc-drift]
+observed = "Prior repairs already corrected atlas purpose and query examples, but their node router descriptions still claimed nil dispatch; node/app.go now explicitly installs an empty sealed router and NewKeeper defaults to a sealed router."
+
+[qualification.first-verification]
+revision = "da3c321964840cde0af5df0411cf54383b289074"
+command = "cg spec done 22.33.605 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; test detail: /tmp/repair-m605.log"
+observed = "The new genesis proof reused a protobuf destination whose repeated Evidence field is appended during Unmarshal, causing duplicate import. Use independent decode destinations for each transport without changing the duplicate rejection or any assertion."
+
+[gotcha.protobuf-decode-destination]
+observed = "Generated GenesisState.Unmarshal appends repeated fields; independent transport round trips must decode into fresh GenesisState values."
+
+[qualification.previous-attempt]
+revision = "f2856724c795c8eabdd1580945ec441f06dd9ab2"
+observed = "The supplied previous-attempt verification failed TestRepairM_605_GRPCHash before service invocation because the local descriptor loader could not resolve cosmos.base.query.v1beta1.PageRequest; the other five repair tests passed."
+evidence = "/out/run/gate.json seed.reason retains the supplied previous-attempt output; no baseline gate was repeated."
+
+[gotcha.grpc-descriptor-registry]
+observed = "The generic Go protobuf reflection loader cannot resolve all gogo-registered SDK dependencies. The grpcurl proof must resolve its input descriptor through the node's production gogo reflection service on the same in-process gRPC server as Query/Evidence."
