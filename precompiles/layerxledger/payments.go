@@ -105,13 +105,14 @@ func (p *PrecompileExecutor) draw(ctx sdk.Context, method *abi.Method, actor led
 	return nil, RevertError(types.ErrNoPayerGrant)
 }
 
+// payExact takes a Unix expiry in milliseconds; the keeper selects the next account sequence.
 func (p *PrecompileExecutor) payExact(ctx sdk.Context, method *abi.Method, actor ledgerkeeper.Actor, args []interface{}, evm *vm.EVM, _ *tracing.Hooks) ([]byte, error) {
 	var input struct {
 		From             [32]byte
 		To               [32]byte
 		AssetId          [32]byte
 		Amount           *big.Int
-		ExpiresAt        uint64 `abi:"sequence"`
+		ExpiresAtMs      uint64 `abi:"expiresAtMs"`
 		PaymentReference [32]byte
 	}
 	if err := method.Inputs.Copy(&input, args); err != nil {
@@ -119,7 +120,7 @@ func (p *PrecompileExecutor) payExact(ctx sdk.Context, method *abi.Method, actor
 	}
 	result, err := p.keeper.PayExact(ctx, actor, ledgerkeeper.PayExactArgs{
 		From: input.From, To: input.To, Asset: input.AssetId,
-		Amount: sdk.NewIntFromBigInt(input.Amount), ExpiresAt: input.ExpiresAt,
+		Amount: sdk.NewIntFromBigInt(input.Amount), ExpiresAt: input.ExpiresAtMs,
 		PaymentReference: input.PaymentReference,
 	})
 	if err != nil {

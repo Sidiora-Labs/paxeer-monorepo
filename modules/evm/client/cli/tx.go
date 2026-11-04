@@ -500,7 +500,8 @@ func CmdCallPrecompile() *cobra.Command {
 
 			valueBig := big.NewInt(0)
 			if value != "" {
-				valueBig, success := new(big.Int).SetString(value, 10)
+				var success bool
+				valueBig, success = new(big.Int).SetString(value, 10)
 				if !success || valueBig.Cmp(utils.Big0) < 0 {
 					return fmt.Errorf("%s is not a valid value. Must be a decimal nonnegative integer", value)
 				}

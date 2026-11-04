@@ -30,6 +30,7 @@ func (a *Approved) RegisterRoutes(r chi.Router) {
 	r.Head("/media/{bucket}/*", a.ServeHTTP)
 }
 func (a *Approved) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w = approvedResponseWriter{ResponseWriter: w}
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Content-Security-Policy", "default-src 'none'; sandbox")
 	w.Header().Set("Cache-Control", "no-store")
@@ -95,4 +96,29 @@ func (a *Approved) RegisterConnectedRoutes(r chi.Router, bucket string) error {
 	r.Method(http.MethodGet, "/approved/{hash}/{size}/{file}", handler)
 	r.Method(http.MethodHead, "/approved/{hash}/{size}/{file}", handler)
 	return nil
+}
+
+// approvedResponseWriter enforces the authority boundary when headers commit,
+// after delegated handlers (including ServeContent) have applied their policy.
+type approvedResponseWriter struct {
+	http.ResponseWriter
+}
+
+func (w approvedResponseWriter) noStore() {
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("CDN-Cache-Control", "no-store")
+}
+
+func (w approvedResponseWriter) WriteHeader(status int) {
+	w.noStore()
+	w.ResponseWriter.WriteHeader(status)
+}
+
+func (w approvedResponseWriter) Write(body []byte) (int, error) {
+	w.noStore()
+	return w.ResponseWriter.Write(body)
+}
+
+func (w approvedResponseWriter) Unwrap() http.ResponseWriter {
+	return w.ResponseWriter
 }

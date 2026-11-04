@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -1014,4 +1015,161 @@ func TestOverlayRefusesAnUnknownChainAndAnUnlistedCap(t *testing.T) {
 	if err := overlay.Apply(&ChainConfig{Chain: "ethereum"}); err == nil {
 		t.Fatal("an overlay capping an asset the chain does not list was accepted")
 	}
+}
+
+func capBoundaryValues(kind Kind) (maximum, overflow string) {
+	if kind == KindSolana {
+		return "18446744073709551615", "18446744073709551616"
+	}
+	return "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+		"115792089237316195423570985008687907853269984665640564039457584007913129639936"
+}
+
+func capTestConfigPath(t *testing.T, chain Chain) string {
+	t.Helper()
+	return copyOf(t, repositoryRoot(t), chain.Name, func(decoded map[string]any) {
+		decoded["attestors"] = realAttestors()
+		if chain.Kind == KindSolana {
+			decoded["owner"] = WrappedSolMint
+			section(t, decoded, "solana")["program_id"] = SidioraMint
+		} else {
+			decoded["owner"] = realOwner
+			decoded["assets"] = append(assets(t, decoded), secondEVMAsset())
+		}
+		if chain.Name == BigBlockChain {
+			section(t, decoded, "big_blocks")["acknowledged"] = true
+		}
+	})
+}
+
+func requireCapResult(t *testing.T, err error, source, field string) {
+	t.Helper()
+	if field == "" {
+		if err != nil {
+			t.Fatalf("representable caps refused: %v", err)
+		}
+		return
+	}
+	if err == nil {
+		t.Fatalf("invalid cap accepted; expected a refusal for %s", field)
+	}
+	if !strings.Contains(err.Error(), source+": "+field+":") {
+		t.Fatalf("refusal must name the source and exact field %s: %v", field, err)
+	}
+}
+
+func testCapDestinationBoundaries(t *testing.T) {
+	t.Helper()
+	t.Setenv(OverlayEnv, "")
+	for _, chain := range Chains() {
+		t.Run(chain.Name, func(t *testing.T) {
+			path := capTestConfigPath(t, chain)
+			base, err := Load(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := base.RequireDeployable(); err != nil {
+				t.Fatalf("baseline is not deployable: %v", err)
+			}
+			maximum, overflow := capBoundaryValues(chain.Kind)
+			cases := []struct {
+				name, perTx, total, field string
+			}{
+				{"maximum", maximum, maximum, ""},
+				{"one", "1", "1", ""},
+				{"maximum_total", "1", maximum, ""},
+				{"both_overflow", overflow, overflow, "per_tx_cap"},
+				{"per_tx_overflow", overflow, maximum, "per_tx_cap"},
+				{"total_overflow", "1", overflow, "total_cap"},
+				{"zero_per_tx", "0", maximum, "per_tx_cap"},
+				{"zero_total", "1", "0", "total_cap"},
+				{"per_tx_above_total", maximum, "1", "per_tx_cap"},
+				{"negative_per_tx", "-1", maximum, "per_tx_cap"},
+				{"negative_total", "1", "-1", "total_cap"},
+				{"leading_zero_per_tx", "01", maximum, "per_tx_cap"},
+				{"leading_zero_total", "1", "01", "total_cap"},
+				{"non_decimal_per_tx", "1e3", maximum, "per_tx_cap"},
+				{"non_decimal_total", "1", "1e3", "total_cap"},
+				{"overlong_per_tx", strings.Repeat("9", 79), maximum, "per_tx_cap"},
+				{"overlong_total", "1", strings.Repeat("9", 79), "total_cap"},
+			}
+			for index, original := range base.Assets {
+				for _, test := range cases {
+					t.Run(original.Symbol+"/"+test.name, func(t *testing.T) {
+						field := ""
+						if test.field != "" {
+							field = fmt.Sprintf("assets[%d].%s", index, test.field)
+						}
+						t.Run("Load", func(t *testing.T) {
+							config := *base
+							config.Assets = append([]Asset(nil), base.Assets...)
+							config.Assets[index].PerTxCap = test.perTx
+							config.Assets[index].TotalCap = test.total
+							body, err := json.Marshal(config)
+							if err != nil {
+								t.Fatal(err)
+							}
+							dir := filepath.Join(t.TempDir(), chain.Name)
+							if err := os.MkdirAll(dir, 0o750); err != nil {
+								t.Fatal(err)
+							}
+							source := filepath.Join(dir, configFileName)
+							if err := os.WriteFile(source, body, 0o600); err != nil {
+								t.Fatal(err)
+							}
+							loaded, err := Load(source)
+							requireCapResult(t, err, source, field)
+							if field == "" {
+								requireCapResult(t, loaded.RequireDeployable(), source, "")
+								if loaded.Assets[index].PerTxCap != test.perTx || loaded.Assets[index].TotalCap != test.total {
+									t.Fatal("Load changed the cap strings")
+								}
+							}
+						})
+						t.Run("Overlay", func(t *testing.T) {
+							config, err := Load(path)
+							if err != nil {
+								t.Fatal(err)
+							}
+							overlay := Overlay{Chains: map[string]ChainOverlay{
+								chain.Name: {Caps: map[string]AssetCap{
+									original.Symbol: {PerTxCap: test.perTx, TotalCap: test.total},
+								}},
+							}}
+							body, err := json.Marshal(overlay)
+							if err != nil {
+								t.Fatal(err)
+							}
+							overlayPath := filepath.Join(t.TempDir(), "overlay.json")
+							if err := os.WriteFile(overlayPath, body, 0o600); err != nil {
+								t.Fatal(err)
+							}
+							loadedOverlay, err := LoadOverlay(overlayPath)
+							if err != nil {
+								t.Fatal(err)
+							}
+							if err := loadedOverlay.Apply(config); err != nil {
+								t.Fatal(err)
+							}
+							if config.Assets[index].PerTxCap != test.perTx || config.Assets[index].TotalCap != test.total {
+								t.Fatal("Overlay.Apply changed the cap strings")
+							}
+							requireCapResult(t, config.Validate(), path, field)
+							requireCapResult(t, config.RequireDeployable(), path, field)
+							t.Setenv(OverlayEnv, overlayPath)
+							loaded, err := Load(path)
+							requireCapResult(t, err, path, field)
+							if field == "" {
+								requireCapResult(t, loaded.RequireDeployable(), path, "")
+							}
+						})
+					})
+				}
+			}
+		})
+	}
+}
+
+func TestCapsFitDestinationWidths(t *testing.T) {
+	testCapDestinationBoundaries(t)
 }

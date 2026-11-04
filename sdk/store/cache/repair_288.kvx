@@ -1,0 +1,8 @@
+[task.22.31.288]
+finding = "persistent-cache-bulk-invalidation"
+tests = ["TestRepair_288_RangeRoundTrip", "TestRepair_288_ResetRoundTrip"]
+path = "sdk/store/cache/repair_288_test.go"
+proof = "Real mem.Store and dbadapter parent, exported CommitKVStore interface, read-through hits and misses, half-open and unbounded deletion, binary keys, reinsertion, Get/Has/iteration/enumeration, and manager/direct Reset."
+baseline = "Not run: the task's explicit gate order prohibits verification before the implementation and hf-build; no pre-change test failure is claimed."
+wiring_requests = []
+qualification = "The hf-done private evidence record identifies the verified candidate revision, command, exit code and log; this record does not claim an unrun gate."
