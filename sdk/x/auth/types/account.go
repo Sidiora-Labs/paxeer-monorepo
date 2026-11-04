@@ -297,7 +297,9 @@ func (ma *ModuleAccount) UnmarshalJSON(bz []byte) error {
 	return nil
 }
 
-// AccountI is an interface used to store coins at a given address within state.
+// AccountI exposes account identity and signing metadata persisted by x/auth.
+// Coin and fractional wei balances are persisted and queried separately by x/bank;
+// AccountI has no balance accessors (see x/auth/spec/02_state.md).
 // It presumes a notion of sequence numbers for replay protection,
 // a notion of account numbers for replay protection for previously pruned accounts,
 // and a pubkey for authentication purposes.

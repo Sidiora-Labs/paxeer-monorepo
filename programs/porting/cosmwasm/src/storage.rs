@@ -6,13 +6,23 @@
 //! rules are reproduced here exactly, so an exported contract state dump can be
 //! located key for key.
 //!
-//! What changes is what a key *reaches*. A `CosmWasm` contract owns one flat
-//! key-value store that every caller shares. A `LayerX` program owns a
-//! byte-keyed map inside a namespace that is `(program, principal)`, fixed by
-//! the runtime before guest code runs. So an `Item` that was one global cell
-//! becomes one cell per principal, a `Map` keyed by `info.sender` collapses
-//! onto its namespace prefix, and a `Map` that has to be readable by everybody
-//! is refused by name rather than being faked.
+//! A `LayerX` program has two disjoint scopes: `(program, principal)` for
+//! caller-owned state, and `(program)` for state shared by all callers. Key
+//! bytes alone do not select a scope. Preserve a global `Item` by using
+//! `StateBinding::Shared.layerx_key("order_count", &[])` in shared scope;
+//! preserve a shared `Map` with `map_key("orders", &id.to_le_bytes())` in that
+//! same scope. `StateBinding::Item` deliberately selects a per-principal copy;
+//! it is appropriate only when that isolation is intended. Sender-indexed and
+//! sender-suffixed maps use principal scope and omit the authenticated sender
+//! from their raw keys.
+//!
+//! Guests select `StorageSelector::Shared` (selector 2) with ABI-v2
+//! `storage_read_scoped`, `storage_write_scoped` and `storage_delete_scoped`,
+//! under separate `SharedStorageRead` and `SharedStorageWrite` grants. Principal
+//! scope uses `StorageSelector::Principal` (selector 1) and `StorageRead` /
+//! `StorageWrite` grants. The host fixes the owning program and principal;
+//! neither can be supplied in key bytes. See [`crate::shared_orderbook`] for
+//! executable shared reads and atomic matching alongside principal positions.
 //!
 //! [`Item`]: https://docs.rs/cw-storage-plus
 //! [`Map`]: https://docs.rs/cw-storage-plus
@@ -90,9 +100,9 @@ pub fn composite_map_key(
 /// What one piece of contract state becomes after the port.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum StateBinding {
-    /// An `Item`, which was one global cell and becomes one cell per
-    /// principal. Deployment-time configuration is the usual case, and the
-    /// reference port pins it into the module instead.
+    /// An intentionally principal-scoped `Item`. Use `Shared` instead to
+    /// preserve a source-global cell; the donation reference pins its global
+    /// deployment configuration into the module.
     Item,
     /// A `Map` whose key is `info.sender`. The key half is already carried by
     /// the namespace, so the entry collapses onto the map's namespace prefix.
@@ -100,8 +110,9 @@ pub enum StateBinding {
     /// A `Map` whose key is a composite ending in `info.sender`. The trailing
     /// key half collapses; the leading elements stay in the key.
     SenderSuffixed,
-    /// A `Map` any account must be able to read, such as a name registry or an
-    /// order book. Maps onto the program-shared namespace `(program)`.
+    /// A global `Item` or a `Map` any account must be able to read. Selects
+    /// the program-shared namespace `(program)`. `layerx_key` returns an Item
+    /// key; compose Map entries with `map_key` in that same scope.
     Shared,
 }
 

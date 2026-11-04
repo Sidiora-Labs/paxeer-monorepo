@@ -1,0 +1,12 @@
+[repair.22.33.652]
+finding = "migration-fixture-unwired"
+audit = "22.30.165"
+base_revision = "caa8b41ee668274ee1e5c1df6691288455c46278"
+tests = ["TestRepairM_652_RegisteredTargets", "TestRepairM_652_WeightedVoteMigration", "TestRepairM_652_InvalidConsensusParams"]
+proof = "Assert the fork's empty production migration registry, command targets and help agree; decode the committed legacy governance vote with the application codec, execute the real CLI, require explicit v0.43 rejection without weighted-vote output or input mutation, and retain invalid consensus rejection before dispatch."
+baseline = "The supplied attempt-1 result at 2c3d160664c940728aeb98b534c31fadf281ae07 records RegisteredTargets and WeightedVoteMigration failing because v0.43 is unregistered, while InvalidConsensusParams passes; no additional pre-change verification was run."
+qualification = "hf-build and hf-done retain the exact candidate revision, command, exit and private log; no qualification or finding closure is claimed until the declared gate passes."
+qualification_repair = "Initial verify at c84e7fa6fe2ea2ecdc7460992a747e4897dd02b9 exited 1 before executing tests (/out/logs/verify-1.log; compiler detail /tmp/repair-m652.log): use this SDK's Codec.UnmarshalAsJSON method to decode governance output."
+ruling = "Attempt 2 explicitly replaces upstream v0.43 success expectations with this fork's actual registry contract. The registry is initialized empty, and only applications register callbacks; no upstream callback or wiring request is required."
+gotcha = "An empty migration registry must be asserted explicitly; iterating its targets proves no callback coverage, and upstream SDK version names are not fork registrations."
+status = "Implemented; closure and the verified revision are established only by the matching hf-build/hf-done evidence."

@@ -1,0 +1,23 @@
+[task.22.33.783]
+mode = "BUILD"
+scope = "utils/helpers"
+base_revision = "caa8b41ee668274ee1e5c1df6691288455c46278"
+baseline = "Not executed: the explicit implementation-first gate order prohibits the unchanged-tree verify requested by step 7; no baseline failure is claimed."
+qualification = "hf-build, then hf-done; exact candidate revision, command, exit and private log are recorded by /out/run/gates.jsonl and the final evidence line."
+wiring_requests = "None: all callers of PubkeyBytesToPaxPubKey are inside utils/helpers and are updated here."
+
+[finding.address-invalid-key]
+test = "TestRepairM_783_AddressInvalidKey"
+repair = "Validate complete uncompressed secp256k1 points before EVM derivation; propagate Pax parser errors and return ErrInvalidPubkey with no partial addresses; preserve valid compressed Pax keys."
+
+[finding.address-test-chain]
+test = "TestRepairM_783_AddressTestChain"
+repair = "Retain historical vectors; sign, encode, decode and recover protected legacy, access-list and dynamic-fee transactions for chains 125 and 713715; reject foreign transactions, signers and recovery domains."
+
+[finding.address-test-invalid-key]
+test = "TestRepairM_783_AddressTestInvalidKey"
+repair = "Replace prefix-only success assertions with invalid-point refusal through GetAddressesFromPubkeyBytes without panic; retain valid-key address equivalence checks."
+
+[gotcha.gate-order]
+observed = "The task also asks for an unchanged-tree verify, conflicting with the explicit order and allowed bounded gates."
+resolution = "Follow the explicit order; run no baseline or extra gate, and keep this record within scope because spec and GOTCHA edits are prohibited."

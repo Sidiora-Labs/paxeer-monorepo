@@ -1,3 +1,5 @@
+import React from 'react';
+
 import type { AdvancedFilterAge, AdvancedFilterParams } from 'types/api/advancedFilter';
 
 import dayjs from 'lib/date/dayjs';

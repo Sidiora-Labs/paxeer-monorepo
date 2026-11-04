@@ -27,12 +27,12 @@ import (
 )
 
 func main() {
-	mode := flag.String("mode", "replay", "replay a plan over a data directory, apply it in the current process, or write a fixture: replay | apply | fixture")
+	mode := flag.String("mode", "replay", "replay | apply | fixture | stage (copy a source home into -out)")
 	dataDir := flag.String("data", "", "chain data directory to replay against; it is written to, so hand over a disposable copy")
 	home := flag.String("home", "", "throwaway application home whose data directory is the one replayed (default: a directory beside it)")
 	plan := flag.String("plan", app.V610Upgrade, "name of the upgrade plan to replay")
 	chainID := flag.String("chain-id", defaultChainID, "chain id of the replayed block header and of a generated fixture")
-	out := flag.String("out", "", "application home to write a fixture into (fixture mode)")
+	out := flag.String("out", "", "application home to write a fixture or isolated source copy into (fixture/stage modes)")
 	blocks := flag.Int("blocks", 5, "blocks to commit after the genesis of a fixture (fixture mode)")
 	keepStores := flag.Bool("keep-stores", false, "leave the fork modules' stores in a generated fixture, the shape of a chain whose binary carried them while its version map never did (fixture mode)")
 	preHeight := flag.Int64("pre-height", 0, "committed height the state carried before the plan (apply mode)")
@@ -47,6 +47,11 @@ func main() {
 
 func run(mode, dataDir, home, plan, chainID, out string, blocks int, keepStores bool, preHeight int64, preMissing string) error {
 	switch mode {
+	case "stage":
+		if dataDir == "" || out == "" {
+			return errors.New("stage mode needs -data and -out")
+		}
+		return stageSourceHome(dataDir, out)
 	case "fixture":
 		if out == "" {
 			return errors.New("fixture mode needs -out, the application home to write the fixture into")

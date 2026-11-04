@@ -1,0 +1,44 @@
+[repair.22.33.440]
+finding = "native-create-stack"
+tests = ["native-create-stack: minimal CREATE and CREATE2 operands produce constructor code through HTTP import", "native-create-stack: unrelated stack entries never become creation output offsets", "native-create-stack: nested constructors retain their own return memory and creator addresses", "native-create-stack: empty constructors complete without a depth change or memory field", "native-create-stack: uninitialized creation memory is zero-filled before constructor execution", "native-create-stack: reverted exceptional and rejected-code creations publish no deployed code"]
+proof = "Recorded debug_traceTransaction structLogs replay through production Geth.Tracer and through loopback Cowboy HTTP, EthereumJSONRPC.HTTP.HTTPoison, Geth.fetch_internal_transactions and Calls conversion; creation data, addresses, gas and code are checked against the same node's callTracer captures, which also run through the unchanged production callTracer import path."
+fixtures = "fixtures/repair_22_33_440/*.json: complete local Geth 1.15.11 debug_traceTransaction, callTracer, transaction, receipt and eth_getCode results; each capture includes the factory runtime bytecode. Constructors return distinct bytes from nonzero memory offsets; nested creation uses CREATE then CREATE2. No external process or endpoint is required at test runtime."
+baseline = "No baseline gate ran: the explicit implementation-first order and hf-done-only verification rule take precedence over step 5's contradictory unchanged-tree verification request. Before repair, the captured valid three/four-operand creation stacks cannot match create_op's five-operand pattern."
+wiring_requests = []
+evidence = "hf-build and hf-done retain the exact candidate revision, command, exit code and private evidence log; hf-done runs after hf-build on the unchanged final tree."
+
+[gotcha.1]
+area = "chain"
+symptom = "A newly started development node can report transaction indexing is in progress while capturing a receipt."
+cause = "The receipt index may lag the first immediately mined transaction."
+do = "Retry that specific capture-read response until the recorded receipt is available; committed regression fixtures avoid the indexer race."
+
+[gotcha.2]
+area = "chain"
+symptom = "Native structLogs can omit memory entirely when it is empty, and empty creation emits no constructor-depth log."
+cause = "The node omits empty optional trace fields and skips execution for empty init code."
+do = "Handle zero-length creation memory without fetching a memory field, and finalize creation from the next parent log even when no child depth was observed."
+
+[qualification.1]
+revision = "dc4f365ee72c0a011e23613fe253bfce773e28c5"
+command = "cg spec done 22.33.440 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All six cases stopped at exact creation-gas comparison because the repository quantity helper emits uppercase digits and recorded Geth quantities use lowercase."
+repair = "Serialize native creation gas and gasUsed in the node's lowercase encoding; preserve every assertion and the other trace types."
+
+[gotcha.3]
+area = "chain"
+symptom = "Creation gas matches the node numerically but differs in hexadecimal letter case."
+cause = "The shared integer_to_quantity helper uses uppercase digits."
+do = "Canonicalize native creation gas quantities to lowercase at serialization to match recorded debug-trace responses."
+
+[continuation.2]
+repair = "Compare the eth_getCode requested block and recorded receipt block after decoding both with EthereumJSONRPC.quantity_to_integer/1; hexadecimal letter case does not change the requested block. Preserve the native creation repair and all six regression cases."
+evidence = "The final unchanged candidate is qualified by hf-build followed by hf-done; their private ledger records the exact revision, command, exit code and log path."
+
+[gotcha.4]
+area = "test"
+symptom = "The recorded-node eth_getCode handler rejects 0xB when the receipt contains 0xb."
+cause = "The explorer quantity encoder and recorded node use different hexadecimal letter case."
+do = "Decode both block quantities with EthereumJSONRPC.quantity_to_integer/1 before matching their integer values."

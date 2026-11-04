@@ -1,43 +1,53 @@
-/**
- * Public Paxeer RPC endpoints the browser may read from.
- *
- * One authority for every client that needs an RPC URL (wagmi transports, the
- * wallet SDK public client, the embedded wallet's EIP-1193 bridge), so the
- * precedence is identical everywhere: NEXT_PUBLIC_RPC_URL, then
- * NEXT_PUBLIC_RPC_URL_FALLBACK, then NEXT_PUBLIC_PAXEER_RPC_URL. Endpoints
- * known to be offline are filtered out even when an environment still names
- * them, so a stale variable can never route reads to a dead host.
- */
-
+/** Shared, validated node-root RPC selection for public and wallet transports. */
 export const DEFAULT_PAXEER_RPC_URL = 'https://api5.mainnet-beta.paxeer.network';
 
-/** Hosts that no longer answer JSON-RPC for chain 125. */
-const RETIRED_RPC_HOSTS = new Set(['public-mainnet.rpcpaxeer.online']);
+const RETIRED_RPC_HOSTS = new Set(['public-mainnet.rpcpaxeer.online', 'node.hyperpaxeer.com']);
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
 
-function usable(value: string | undefined): string | null {
-  if (!value) return null;
-  try {
-    const url = new URL(value);
-    if (url.protocol !== 'https:' && url.protocol !== 'http:') return null;
-    if (RETIRED_RPC_HOSTS.has(url.hostname)) return null;
-    return url.toString().replace(/\/$/, '');
-  } catch {
-    return null;
+export class RpcConfigurationError extends Error {
+  constructor(readonly variable: string) {
+    super(
+      `${variable} must name an approved HTTPS node root without credentials, query or fragment`,
+    );
+    this.name = 'RpcConfigurationError';
   }
+}
+
+function checkedRpc(variable: string, value: string): string {
+  const invalid = () => new RpcConfigurationError(variable);
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw invalid();
+  }
+  const localQualification =
+    process.env.NODE_ENV !== 'production' && LOOPBACK_HOSTS.has(url.hostname);
+  if (
+    (url.protocol !== 'https:' && !(localQualification && url.protocol === 'http:')) ||
+    RETIRED_RPC_HOSTS.has(url.hostname.replace(/\.$/, '')) ||
+    url.username ||
+    url.password ||
+    url.search ||
+    url.hash ||
+    (value !== url.origin && value !== `${url.origin}/`)
+  )
+    throw invalid();
+  return url.origin;
 }
 
 export function getPaxeerRpcUrls(): string[] {
   const out: string[] = [];
-  for (const candidate of [
-    process.env.NEXT_PUBLIC_RPC_URL,
-    process.env.NEXT_PUBLIC_RPC_URL_FALLBACK,
-    process.env.NEXT_PUBLIC_PAXEER_RPC_URL,
-  ]) {
-    const url = usable(candidate);
-    if (url && !out.includes(url)) out.push(url);
+  for (const [variable, candidate] of [
+    ['NEXT_PUBLIC_RPC_URL', process.env.NEXT_PUBLIC_RPC_URL],
+    ['NEXT_PUBLIC_RPC_URL_FALLBACK', process.env.NEXT_PUBLIC_RPC_URL_FALLBACK],
+    ['NEXT_PUBLIC_PAXEER_RPC_URL', process.env.NEXT_PUBLIC_PAXEER_RPC_URL],
+  ] as const) {
+    if (candidate === undefined) continue;
+    const url = checkedRpc(variable, candidate);
+    if (!out.includes(url)) out.push(url);
   }
-  if (out.length === 0) out.push(DEFAULT_PAXEER_RPC_URL);
-  return out;
+  return out.length ? out : [DEFAULT_PAXEER_RPC_URL];
 }
 
 /** The primary read RPC for this deployment. */
