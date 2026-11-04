@@ -24,6 +24,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
+	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/kv"
 )
@@ -34,6 +35,36 @@ type StoreGenesis struct {
 }
 
 func DefaultStoreGenesis() *StoreGenesis { return &StoreGenesis{} }
+
+func validateGenesisPaymentReference(key, value []byte, lastSequence uint64) error {
+	if len(key) != 33 {
+		return fmt.Errorf("invalid payment reference key length")
+	}
+	receipt, err := codec.DecodeReceipt(value)
+	if err != nil {
+		return fmt.Errorf("invalid payment reference receipt: %w", err)
+	}
+	if receipt.ProtocolVersion != codec.StateCommitmentProtocolVersion ||
+		receipt.ModuleID != C.LXP_MODULE_ASSET || receipt.Operation != 5 ||
+		receipt.ResultCode != 0 || receipt.Amount.IsZero() ||
+		receipt.GlobalSequence == 0 || receipt.GlobalSequence > lastSequence {
+		return fmt.Errorf("payment reference must contain a versioned successful send receipt")
+	}
+	material := append([]byte(nil), receipt.From[:]...)
+	material = append(material, receipt.To[:]...)
+	material = append(material, receipt.Asset[:]...)
+	amount := receipt.Amount.Bytes()
+	material = append(material, amount[:]...)
+	material = append(material, key[1:]...)
+	context, err := codec.DomainHash(codec.DomainContextHash, material)
+	if err != nil {
+		return err
+	}
+	if context != receipt.ContextHash {
+		return fmt.Errorf("payment reference does not match send context")
+	}
+	return nil
+}
 
 func (gs StoreGenesis) Validate() error {
 	ledgerRows := 0
@@ -71,6 +102,10 @@ func (gs StoreGenesis) Validate() error {
 			if err := result(C.lxphost_genesis_account_validate(bytesPtr(record.Key[1:]), bytesPtr(record.Value), C.size_t(len(record.Value)))); err != nil {
 				return fmt.Errorf("lxphost: record %d: invalid account: %w", i, err)
 			}
+		case idempotencyPrefix:
+			if err := validateGenesisPaymentReference(record.Key, record.Value, gs.LastSequence); err != nil {
+				return invalid(err.Error())
+			}
 		default:
 			return invalid("foreign or reserved prefix")
 		}
@@ -85,9 +120,18 @@ func ExportStoreGenesis(ctx sdk.Context, key sdk.StoreKey) (*StoreGenesis, error
 		return nil, err
 	}
 	gs := &StoreGenesis{LastSequence: last}
-	for _, prefix := range [][]byte{{moduleKVPrefix, 0, C.LXP_MODULE_ASSET}, {identitySequencePrefix}, {accountPrefix}} {
+	for _, prefix := range [][]byte{{moduleKVPrefix, 0, C.LXP_MODULE_ASSET}, {identitySequencePrefix}, {idempotencyPrefix}, {accountPrefix}} {
 		iterator := sdk.KVStorePrefixIterator(branch.store, prefix)
 		for ; iterator.Valid(); iterator.Next() {
+			if prefix[0] == idempotencyPrefix {
+				if len(iterator.Key()) != 33 {
+					continue
+				}
+				if err := validateGenesisPaymentReference(iterator.Key(), iterator.Value(), last); err != nil {
+					iterator.Close()
+					return nil, fmt.Errorf("lxphost: export payment reference: %w", err)
+				}
+			}
 			gs.Records = append(gs.Records, kv.Pair{Key: bytes.Clone(iterator.Key()), Value: bytes.Clone(iterator.Value())})
 		}
 		if err := iterator.Close(); err != nil {

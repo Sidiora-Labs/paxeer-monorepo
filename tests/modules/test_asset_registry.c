@@ -699,6 +699,259 @@ static int test_withdraw_dispatch(void)
     return 0;
 }
 
+static int test_asset_record_codec_validation(void)
+{
+    lx_asset_registry *registry = calloc(1U, sizeof(*registry));
+    lx_asset_record record = {0};
+    lx_asset_record decoded;
+    lx_asset_record unchanged;
+    uint8_t encoded[384];
+    uint8_t saved[384];
+    uint8_t roundtrip[384];
+    size_t length;
+    size_t roundtrip_length;
+
+    PAUSE_CHECK(registry != NULL);
+    record.asset_id[0] = 1U;
+    record.issuer_did32[0] = 2U;
+    record.salt[0] = 3U;
+    record.symbol_length = LX_ASSET_SYMBOL_MAX;
+    (void)memset(record.symbol, 'a', record.symbol_length);
+    record.name_length = LX_ASSET_NAME_MAX;
+    (void)memset(record.name, 'n', record.name_length);
+    record.supply_cap = (lxp_u128){UINT64_MAX, UINT64_MAX};
+    record.total_units = (lxp_u128){1U, 17U};
+    for (uint8_t issuer = 1U; issuer <= 2U; ++issuer) {
+        record.issuer_kind = issuer;
+        record.custody_kind = (lx_asset_custody_kind)issuer;
+        record.custody_reference_length = issuer == 1U ? 0U :
+            LX_ASSET_CUSTODY_REFERENCE_MAX;
+        (void)memset(record.custody_reference, 'r',
+                     record.custody_reference_length);
+        for (uint8_t decimals = 0U; decimals <= 38U; ++decimals) {
+            record.decimals = decimals;
+            record.paused = (decimals % 2U) != 0U;
+            PAUSE_CHECK(lx_asset_registry_init(registry, 7U) == LXP_OK);
+            PAUSE_CHECK(lx_asset_register(registry, &record, 7U,
+                (lxp_u128){0U, 3U}) == LXP_OK);
+            PAUSE_CHECK(lx_asset_record_encode(&registry->assets[0], encoded,
+                sizeof(encoded), &length) == LXP_OK);
+            PAUSE_CHECK(encoded[0] == 0U && encoded[1] == 3U);
+            PAUSE_CHECK(lx_asset_record_decode_for_id(encoded, length,
+                record.asset_id, &decoded) == LXP_OK);
+            PAUSE_CHECK(decoded.decimals == decimals &&
+                decoded.issuer_kind == issuer && decoded.paused == record.paused &&
+                decoded.custody_kind == record.custody_kind &&
+                decoded.symbol_length == record.symbol_length &&
+                decoded.name_length == record.name_length &&
+                decoded.custody_reference_length == record.custody_reference_length &&
+                memcmp(decoded.asset_id, record.asset_id, 32U) == 0 &&
+                memcmp(decoded.symbol, record.symbol, record.symbol_length) == 0 &&
+                memcmp(decoded.name, record.name, record.name_length) == 0 &&
+                memcmp(decoded.issuer_did32, record.issuer_did32, 32U) == 0 &&
+                memcmp(decoded.salt, record.salt, 32U) == 0 &&
+                memcmp(decoded.custody_reference, record.custody_reference,
+                       record.custody_reference_length) == 0 &&
+                lxp_u128_cmp(decoded.supply_cap, record.supply_cap) == 0 &&
+                lxp_u128_cmp(decoded.total_units, record.total_units) == 0);
+            PAUSE_CHECK(lx_asset_record_encode(&decoded, roundtrip,
+                sizeof(roundtrip), &roundtrip_length) == LXP_OK);
+            PAUSE_CHECK(length == roundtrip_length &&
+                memcmp(encoded, roundtrip, length) == 0);
+        }
+    }
+
+    record.issuer_kind = 1U;
+    record.custody_kind = LX_ASSET_CUSTODY_NATIVE;
+    record.custody_reference_length = 0U;
+    PAUSE_CHECK(lx_asset_registry_init(registry, 7U) == LXP_OK);
+    for (size_t invalid = 0U; invalid < 16U; ++invalid) {
+        lx_asset_record candidate = record;
+        switch (invalid) {
+        case 0U: candidate.decimals = 39U; break;
+        case 1U: candidate.decimals = UINT8_MAX; break;
+        case 2U: (void)memset(candidate.asset_id, 0, 32U); break;
+        case 3U: candidate.symbol_length = 0U; break;
+        case 4U: candidate.symbol_length = LX_ASSET_SYMBOL_MAX + 1U; break;
+        case 5U: candidate.symbol[candidate.symbol_length] = 'x'; break;
+        case 6U: candidate.symbol[0] = (char)0x80U; break;
+        case 7U: candidate.issuer_kind = 0U; break;
+        case 8U: candidate.issuer_kind = 3U; break;
+        case 9U: candidate.custody_kind = LX_ASSET_CUSTODY_PAXEER; break;
+        case 10U: candidate.name_length = 0U; break;
+        case 11U: candidate.name_length = LX_ASSET_NAME_MAX + 1U; break;
+        case 12U: (void)memset(candidate.issuer_did32, 0, 32U); break;
+        case 13U:
+            candidate.custody_reference_length = LX_ASSET_CUSTODY_REFERENCE_MAX + 1U;
+            break;
+        case 14U: candidate.custody_reference_length = 1U; break;
+        case 15U:
+            candidate.issuer_kind = 2U;
+            candidate.custody_kind = LX_ASSET_CUSTODY_PAXEER;
+            break;
+        }
+        (void)memset(encoded, 0xa5, sizeof(encoded));
+        (void)memcpy(saved, encoded, sizeof(saved));
+        length = 123U;
+        PAUSE_CHECK(lx_asset_record_encode(&candidate, encoded, sizeof(encoded),
+            &length) == LXP_ERR_NON_CANONICAL);
+        PAUSE_CHECK(length == 123U && memcmp(encoded, saved, sizeof(saved)) == 0);
+        PAUSE_CHECK(lx_asset_register(registry, &candidate, 7U,
+            (lxp_u128){0U, 3U}) == LXP_ERR_NON_CANONICAL);
+        PAUSE_CHECK(registry->count == 0U && registry->next_sequence == 7U &&
+            lxp_u128_is_zero(registry->fees_charged));
+    }
+    PAUSE_CHECK(lx_asset_record_encode(&record, encoded, sizeof(encoded),
+        &length) == LXP_OK);
+    (void)memcpy(saved, encoded, sizeof(saved));
+    roundtrip_length = 123U;
+    PAUSE_CHECK(lx_asset_record_encode(&record, encoded, length - 1U,
+        &roundtrip_length) == LXP_ERR_LENGTH_LIMIT);
+    PAUSE_CHECK(roundtrip_length == 123U &&
+        memcmp(encoded, saved, sizeof(saved)) == 0);
+    (void)memset(&decoded, 0xa5, sizeof(decoded));
+    (void)memcpy(&unchanged, &decoded, sizeof(unchanged));
+    for (size_t prefix = 0U; prefix < length; ++prefix) {
+        PAUSE_CHECK(lx_asset_record_decode(encoded, prefix, &decoded) ==
+            LXP_ERR_NON_CANONICAL);
+        PAUSE_CHECK(memcmp(&decoded, &unchanged, sizeof(decoded)) == 0);
+    }
+    encoded[35U + record.symbol_length] = 39U;
+    PAUSE_CHECK(lx_asset_record_decode(encoded, length, &decoded) ==
+        LXP_ERR_NON_CANONICAL);
+    PAUSE_CHECK(memcmp(&decoded, &unchanged, sizeof(decoded)) == 0);
+    (void)memcpy(encoded, saved, sizeof(encoded));
+    (void)memset(encoded + 2U, 0, 32U);
+    PAUSE_CHECK(lx_asset_record_decode(encoded, length, &decoded) ==
+        LXP_ERR_NON_CANONICAL);
+    PAUSE_CHECK(memcmp(&decoded, &unchanged, sizeof(decoded)) == 0);
+    free(registry);
+    return 0;
+}
+
+static int test_asset_record_save_restore(void)
+{
+    static const uint8_t seed[32] = {19U};
+    static const uint8_t did[] = "did:key:codec-issuer";
+    pause_fixture *f = calloc(1U, sizeof(*f));
+    lx_asset_registry *restored = calloc(1U, sizeof(*restored));
+    lxp_transfer_asset_state transfer_states[4];
+    lx_asset_runtime runtime = {0};
+    lx_asset_record record;
+    lx_asset_record decoded;
+    lx_asset_record *found;
+    lxp_hash_context hash;
+    uint8_t actor[32];
+    uint8_t payload[90] = {0};
+    uint8_t idempotency[32] = {0};
+    uint8_t encoded[384] = {0};
+    uint8_t saved[384];
+    uint8_t before[32];
+    uint8_t after[32];
+    size_t length;
+    size_t saved_length;
+    uint64_t sequence = 1U;
+    lxp_result result;
+
+    PAUSE_CHECK(f != NULL && restored != NULL);
+    PAUSE_CHECK(lxp_did_id_derive(did, sizeof(did) - 1U, actor) == LXP_OK);
+    PAUSE_CHECK(lx_account_registry_init(&f->accounts) == LXP_OK);
+    f->parameters = 1U;
+    PAUSE_CHECK(lxp_state_store_init(&f->state, 1U) == LXP_OK);
+    PAUSE_CHECK(lxp_state_store_bind_accounts(&f->state, &f->accounts) == LXP_OK);
+    PAUSE_CHECK(lxp_state_store_require_account_root(&f->state) == LXP_OK);
+    PAUSE_CHECK(lxp_kernel_create(&f->kernel, &f->state, &f->journal,
+        &f->parameters, 0U) == LXP_OK);
+    PAUSE_CHECK(lxp_kernel_register_module(&f->kernel,
+        lx_asset_module_iface()) == LXP_OK);
+    PAUSE_CHECK(lxp_kernel_set_capabilities(&f->kernel, NULL,
+        lxp_kernel_canonical_ledger_apply) == LXP_OK);
+    for (size_t i = 0U; i < 4U; ++i) {
+        (void)memset(payload, 0, sizeof(payload));
+        payload[1] = 1U;
+        payload[34] = (uint8_t)(i + 1U);
+        lxp_hash_init(&hash);
+        PAUSE_CHECK(lxp_hash_update(&hash, (const uint8_t *)"LX:ASSET:v1",
+            11U) == LXP_OK);
+        PAUSE_CHECK(lxp_hash_update(&hash, actor, 32U) == LXP_OK);
+        PAUSE_CHECK(lxp_hash_update(&hash, payload + 34U, 32U) == LXP_OK);
+        PAUSE_CHECK(lxp_hash_final(&hash, payload + 2U) == LXP_OK);
+        payload[66] = 1U;
+        payload[67] = 'C';
+        payload[68] = 1U;
+        payload[69] = 'C';
+        payload[70] = (uint8_t)((i % 2U) == 0U ? 0U : 38U);
+        payload[86] = 100U;
+        payload[87] = (uint8_t)(i < 2U ? 1U : 2U);
+        payload[88] = (uint8_t)(i < 2U ? 0U : 1U);
+        payload[89] = 'r';
+        idempotency[0] = (uint8_t)sequence;
+        PAUSE_CHECK(pause_submit(f, seed, did, sizeof(did) - 1U,
+            LX_ASSET_REGISTER, payload, i < 2U ? 89U : 90U, idempotency,
+            sequence++, true, &result) == 0);
+        PAUSE_CHECK(result == LXP_OK);
+        PAUSE_CHECK(pause_record(f, payload + 2U, &record) == 0);
+        PAUSE_CHECK(record.decimals == payload[70] &&
+            record.issuer_kind == payload[87]);
+        PAUSE_CHECK(lx_asset_runtime_restore(&f->kernel, restored,
+            transfer_states, &runtime) == LXP_OK);
+        PAUSE_CHECK(restored->count == i + 1U && runtime.asset_count == i + 1U &&
+            runtime.transfer_asset_count == i + 1U &&
+            runtime.accounts == &f->accounts);
+        for (size_t j = 0U; j < restored->count; ++j) {
+            PAUSE_CHECK(memcmp(transfer_states[j].asset_id,
+                restored->assets[j].asset_id, 32U) == 0);
+        }
+        PAUSE_CHECK(lx_asset_lookup(restored, record.asset_id, &found) == LXP_OK);
+        PAUSE_CHECK(found->decimals == record.decimals &&
+            found->issuer_kind == record.issuer_kind &&
+            found->custody_kind == record.custody_kind &&
+            memcmp(found->issuer_did32, actor, 32U) == 0);
+        PAUSE_CHECK(lx_asset_record_encode(&record, encoded, sizeof(encoded),
+            &length) == LXP_OK);
+        {
+            uint8_t key[38];
+            const uint8_t *persisted;
+            size_t persisted_length;
+            (void)memcpy(key, "asset:", 6U);
+            (void)memcpy(key + 6U, record.asset_id, 32U);
+            PAUSE_CHECK(lxp_ctx_kv_get(&f->ctx, key, sizeof(key), &persisted,
+                &persisted_length) == LXP_OK);
+            PAUSE_CHECK(persisted_length == length &&
+                memcmp(persisted, encoded, length) == 0);
+        }
+        saved_length = length;
+        (void)memcpy(saved, encoded, sizeof(saved));
+        record.decimals = 39U;
+        PAUSE_CHECK(lx_asset_record_encode(&record, encoded, sizeof(encoded),
+            &length) == LXP_ERR_NON_CANONICAL);
+        PAUSE_CHECK(length == saved_length &&
+            memcmp(encoded, saved, sizeof(saved)) == 0);
+        PAUSE_CHECK(lx_asset_record_decode_for_id(encoded, length,
+            record.asset_id, &decoded) == LXP_OK);
+        PAUSE_CHECK(decoded.decimals == payload[70]);
+
+        PAUSE_CHECK(lxp_state_root(&f->kernel, before) == LXP_OK);
+        payload[70] = 39U;
+        idempotency[0] = (uint8_t)sequence;
+        PAUSE_CHECK(pause_submit(f, seed, did, sizeof(did) - 1U,
+            LX_ASSET_REGISTER, payload, i < 2U ? 89U : 90U, idempotency,
+            sequence, true, &result) == 0);
+        PAUSE_CHECK(result == LXP_ERR_NON_CANONICAL);
+        PAUSE_CHECK(lxp_state_root(&f->kernel, after) == LXP_OK &&
+            memcmp(before, after, 32U) == 0);
+        PAUSE_CHECK(pause_record(f, record.asset_id, &decoded) == 0 &&
+            decoded.decimals != 39U);
+        PAUSE_CHECK(lx_asset_runtime_restore(&f->kernel, restored,
+            transfer_states, &runtime) == LXP_OK);
+        PAUSE_CHECK(restored->count == i + 1U);
+    }
+    PAUSE_CHECK(lxp_state_store_destroy(&f->state) == LXP_OK);
+    free(restored);
+    free(f);
+    return 0;
+}
+
 int main(void)
 {
     lx_asset_registry registry;
@@ -837,6 +1090,8 @@ int main(void)
                 LXP_ERR_ASSET_PAUSED);
     PAUSE_CHECK(lx_asset_unpause(&registry, record.asset_id) == LXP_OK);
     PAUSE_CHECK(lxp_state_store_destroy(&state) == LXP_OK);
+    PAUSE_CHECK(test_asset_record_codec_validation() == 0);
+    PAUSE_CHECK(test_asset_record_save_restore() == 0);
     PAUSE_CHECK(test_pause_dispatch() == 0);
     PAUSE_CHECK(test_supply_binding_dispatch() == 0);
     PAUSE_CHECK(test_withdraw_dispatch() == 0);

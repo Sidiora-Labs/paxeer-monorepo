@@ -1706,9 +1706,16 @@ fn outside(dir: &Path, mark: &Path) -> bool {
     } else {
         parent
     };
-    parent
-        .canonicalize()
-        .is_ok_and(|p| !p.join(name).starts_with(&dir))
+    let Ok(parent) = parent.canonicalize() else {
+        return false;
+    };
+    if parent.join(name).starts_with(&dir) {
+        return false;
+    }
+    match std::fs::symlink_metadata(mark) {
+        Ok(_) => mark.canonicalize().is_ok_and(|p| !p.starts_with(&dir)),
+        Err(e) => e.kind() == std::io::ErrorKind::NotFound,
+    }
 }
 
 fn main() {
@@ -1728,6 +1735,19 @@ fn main() {
     let kms = LocalFileKeyProvider::load(&PathBuf::from(key_file))
         .unwrap_or_else(|e| die("key provider", e));
     let dir = PathBuf::from(dir);
+    std::fs::create_dir_all(&dir).unwrap_or_else(|_| die("store", ArtifactError::StorageFailure));
+    let retention_mark = config.retention_mark();
+    for (name, mark) in [
+        (
+            "revocation mark inside the data dir",
+            &config.revocation_mark,
+        ),
+        ("retention mark inside the data dir", &retention_mark),
+    ] {
+        if !outside(&dir, mark) {
+            die(name, ArtifactError::Malformed);
+        }
+    }
     let mut store = Store::open(&dir, &config.revocation_mark).unwrap_or_else(|e| die("store", e));
     if !store.restore_ready() {
         eprintln!(
@@ -1736,13 +1756,6 @@ fn main() {
             store.live_mark()
         );
         std::process::exit(3);
-    }
-    let retention_mark = config.retention_mark();
-    if !outside(&dir, &retention_mark) {
-        die(
-            "retention mark inside the data dir",
-            ArtifactError::Malformed,
-        );
     }
     let mut ledger =
         Ledger::open(&dir, &retention_mark).unwrap_or_else(|e| die("retention ledger", e));

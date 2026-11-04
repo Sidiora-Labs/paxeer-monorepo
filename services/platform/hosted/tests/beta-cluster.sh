@@ -31,6 +31,9 @@
 #   LAYERX_BETA_SEQUENCER_KEY_FILE      PEM ed25519 private key of the beta sequencer; generated when unset. Its
 #                                       32-byte seed is the node's sequencer key, so the node, the receipt
 #                                       authority, the gateway and the registry share one sequencer identity
+#   LAYERX_BETA_RECEIPT_KEYS_FILE       owner-supplied JSON export of the native governed ReceiptKeys list
+#                                       (key_id/public_key base64, inclusive first_height/last_height).
+#                                       Required for fresh gateway material; retained starts reopen the saved list.
 #   LAYERX_BETA_MIRROR_FOUNDRY_BIN      directory holding the pinned forge and cast that
 #                                       services/interop/deploy/mirror/deploy-ethereum-mirror.sh needs to compile and deploy
 #                                       the Ethereum mirror archive contract (default /root/.foundry/bin). Nothing
@@ -1005,6 +1008,8 @@ secrets_generate() {
     cp "$CA_DIR/sequencer.pub.hex" "$d/sequencer-public-key"
     (umask 077; encode_trust_history "$d/trust-history" "$SEQUENCER_ID" "$(cat "$CA_DIR/sequencer.pub.hex")")
     python3 "$SCRIPT_DIR/sequencer-pins.py" "$d" "$WORK_DIR/sequencer-authorization.json"
+    python3 "$SCRIPT_DIR/sequencer-pins.py" --gateway \
+        "${LAYERX_BETA_RECEIPT_KEYS_FILE:?native governed ReceiptKeys export is required}" "$d/receipt-keys.json"
     printf '%s' "$(random_hex 32)" > "$d/receipt-authority-replica-id"
     module_registry_generate > "$d/module-registry.json"
     if [ -n "$CUSTODY_PROFILE" ]; then cp "$CUSTODY_PROFILE" "$d/custody.profile"; fi
@@ -1130,6 +1135,7 @@ material_prepare() {
             ;;
         1)
             retained_material_inventory check || fail "retained material refused: inventory validation failed"
+            python3 "$SCRIPT_DIR/sequencer-pins.py" --gateway-check "$SECRETS_DIR/receipt-keys.json"
             KUBECONFIG_FILE=${LAYERX_BETA_KUBECONFIG:-$WORK_DIR/kubeconfig}
             [ -x "$TOOLS_DIR/kubectl" ] && [ -r "$KUBECONFIG_FILE" ] \
                 || fail "retained material refused: live cluster kubeconfig and kubectl are required"
@@ -1370,9 +1376,8 @@ secrets_apply() {
     apply_secret "$ns" layerx-webhooks-component-client --from-file=token="$s/webhook-component.token"
     apply_secret "$dev" layerx-webhooks-component-client --from-file=token="$s/webhook-component.token"
     apply_secret "$ns" layerx-gateway-component-client --from-file=token="$s/gateway-component.token"
-    apply_secret "$ns" layerx-gateway-authority-client --from-file=token="$s/gateway-authority.token" --from-file=sequencer-public-key="$s/sequencer-public-key" \
-        --from-file=sequencer-id="$s/sequencer-id" --from-file=sequencer-first-batch="$s/sequencer-first-batch" \
-        --from-file=sequencer-last-batch="$s/sequencer-last-batch"
+    apply_secret "$ns" layerx-gateway-authority-client --from-file=token="$s/gateway-authority.token"
+    python3 "$SCRIPT_DIR/sequencer-pins.py" --gateway-secret "$s" "$ns" | kube apply -f - > /dev/null
     apply_secret "$ns" layerx-gateway-identity-client --from-file=token="$s/gateway-identity.token"
     apply_secret "$ns" layerx-gateway-faucet-client --from-file=token="$s/gateway-faucet.token"
     apply_secret "$ns" layerx-gateway-redis-tls --from-file=tls.crt="$c/gateway-redis/cert.pem" \

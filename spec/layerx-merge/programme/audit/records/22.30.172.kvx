@@ -1,0 +1,2191 @@
+# Pre-upgrade source audit; product findings and repair proposals only.
+
+[audit.22.30.172]
+task = "22.30.172"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 157
+findings = 109
+docs_reviewed = 22
+upgrade_ready = false
+blocking = ["tokenfactory-unset-creator", "mint-output-flags", "feehistory-zero-quantity"]
+review_basis = "Full member-file source review against decision 2515, package requirements, retired inventory, registry producers/consumers and documentation. Product repair proposals only; this audit does not claim an integration run or dependency-install result."
+interfaces_produced = ["16.env-dock-platform-dashboard-web-dockerfile-env-hostname", "16.env-dock-platform-dashboard-web-dockerfile-env-node-env", "16.env-dock-platform-dashboard-web-dockerfile-env-port", "16.fmt-dock-platform-dashboard-web-dockerfile", "16.fmt-integration-yaml-suite-j59", "16.go-integration-runner-evalexpr-j59", "16.go-integration-runner-excludedsuites-j59", "16.go-integration-runner-runfile-j59", "16.go-integration-runner-suites-j59"]
+interfaces_consumed = ["11.cfg-mirror-runtime-config-node", "12.cli-gw-script-build", "12.cli-gw-script-test", "12.env-gw-node-env", "12.env-gw-port", "14.cfg-sdkjs-package-exports-encoding", "14.env-pool-size", "14.ts-sdkjs-encoding-index-encoder", "14.ts-sdkjs-encoding-registry-paxprotoregistry", "15.go-consensus-libs-json-unmarshal-j57", "15.go-consensus-rpc-coretypes-result-abci-info-j57", "16.cli-dock-localnode-scripts-step5-start-pax", "16.cli-dock-rpcnode-scripts-step2-start-pax", "16.cli-scr-ci-developer-dashboard-lock", "16.env-dock-hpx-registry-entrypoint-port", "16.env-make-chain-invariant-check-interval", "16.env-paxctl-hostname", "16.fmt-dock-docker-compose-yml", "16.fmt-dock-localnode-config-app-toml", "16.fmt-dock-localnode-config-config-toml", "16.fmt-dock-rpcnode-config-app-toml", "16.fmt-dock-rpcnode-config-config-toml", "16.mk-chain-clean", "16.mk-docker-cluster-start", "16.mk-docker-cluster-start-giga-mixed", "16.mk-docker-cluster-stop", "16.mk-run-rpc-node-skipbuild", "3.cli-mint-query-minter", "3.cli-oracle-query-feeder", "3.cli-oracle-query-params", "3.cli-oracle-query-vote-penalty-counter", "4.sol-erc721base-setapprovalforall-a22cb465", "4.sol-erc721base-supportsinterface-01ffc9a7", "4.sol-erc721enumerable-supportsinterface-01ffc9a7", "4.sol-erc721enumerable-tokenofownerbyindex-2f745c59", "4.sol-sidioranft-supportsinterface-01ffc9a7", "6.cli-evm-query-pointer", "6.cli-evm-tx-associate-address", "6.cli-evm-tx-deploy", "6.cli-evm-tx-register-evm-pointer", "6.cli-evm-tx-send", "6.cli-tokenfactory-query-denom-authority-metadata", "6.cli-tokenfactory-query-denoms-from-creator", "6.cli-tokenfactory-tx-burn", "6.cli-tokenfactory-tx-change-admin", "6.cli-tokenfactory-tx-create-denom", "6.cli-tokenfactory-tx-mint", "6.msg-tokenfactory-createdenom", "6.pc-0x1005-evt-delegate", "6.pc-0x1005-validator", "6.pc-0x1005-validators", "6.proto-tokenfactory-msgcreatedenom", "6.sol-cw1155erc1155pointer-setapprovalforall-a22cb465", "6.sol-cw721erc721pointer-approve-095ea7b3", "6.sol-cw721erc721pointer-ownerof-6352211e", "6.sol-cw721erc721pointer-supportsinterface-01ffc9a7", "6.sol-cw721erc721pointer-tokenofownerbyindex-2f745c59", "6.sol-cw721erc721pointer-transferfrom-23b872dd", "6.sol-erc721-approve-095ea7b3", "6.sol-erc721-ownerof-6352211e", "6.sol-erc721-safetransferfrom-42842e0e", "6.sol-erc721-supportsinterface-01ffc9a7", "6.sol-erc721-transferfrom-23b872dd", "6.sol-ierc165-supportsinterface-01ffc9a7", "6.sol-ierc721-approve-095ea7b3", "6.sol-ierc721-ownerof-6352211e", "6.sol-ierc721-safetransferfrom-42842e0e", "6.sol-ierc721-transferfrom-23b872dd", "7.rpc-debug-getrawblock", "7.rpc-debug-getrawheader", "7.rpc-debug-getrawreceipts", "7.rpc-debug-getrawtransaction", "7.rpc-debug-traceblockbyhash", "7.rpc-debug-traceblockbynumber", "7.rpc-debug-tracecall", "7.rpc-debug-tracestateaccess", "7.rpc-debug-tracetransaction", "7.rpc-echo-echo", "7.rpc-eth-accounts", "7.rpc-eth-blobbasefee", "7.rpc-eth-coinbase", "7.rpc-eth-createaccesslist", "7.rpc-eth-estimategas", "7.rpc-eth-estimategasaftercalls", "7.rpc-eth-feehistory", "7.rpc-eth-gasprice", "7.rpc-eth-getblockbyhash", "7.rpc-eth-getblockreceipts", "7.rpc-eth-getblocktransactioncountbyhash", "7.rpc-eth-getblocktransactioncountbynumber", "7.rpc-eth-getfilterchanges", "7.rpc-eth-getfilterlogs", "7.rpc-eth-getproof", "7.rpc-eth-getstorageat", "7.rpc-eth-gettransactionbyblockhashandindex", "7.rpc-eth-gettransactionbyblocknumberandindex", "7.rpc-eth-gettransactionerrorbyhash", "7.rpc-eth-getvmerror", "7.rpc-eth-maxpriorityfeepergas", "7.rpc-eth-newblockfilter", "7.rpc-eth-newfilter", "7.rpc-eth-newpendingtransactionfilter", "7.rpc-eth-sign", "7.rpc-eth-signtransaction", "7.rpc-eth-subscribe", "7.rpc-eth-syncing", "7.rpc-eth-uninstallfilter", "7.rpc-eth-unsubscribe", "7.rpc-net-version", "7.rpc-pax-associate", "7.rpc-pax-getblockbyhashexcludetracefail", "7.rpc-pax-getblockbynumber", "7.rpc-pax-getblockbynumberexcludetracefail", "7.rpc-pax-getcosmostx", "7.rpc-pax-getevmaddress", "7.rpc-pax-getevmtx", "7.rpc-pax-getfilterchanges", "7.rpc-pax-getfilterlogs", "7.rpc-pax-getlogs", "7.rpc-pax-getpaxaddress", "7.rpc-pax-gettransactionreceiptexcludetracefail", "7.rpc-pax-newblockfilter", "7.rpc-pax-newfilter", "7.rpc-pax-sign", "7.rpc-pax-traceblockbyhashexcludetracefail", "7.rpc-pax-traceblockbynumberexcludetracefail", "7.rpc-pax-uninstallfilter", "7.rpc-txpool-content", "7.rpc-web3-clientversion", "7.ws-endpoint-root", "7.ws-eth-subscribe-logs", "7.ws-eth-subscribe-newheads", "8.rpc-gateway-eth-coinbase-refused", "8.rpc-gateway-eth-signtransaction-refused", "8.rpc-gateway-eth-subscribe", "8.rpc-gateway-eth-subscription", "8.rpc-gateway-eth-unsubscribe", "8.rpc-paxeer-net-version", "8.rpc-paxeer-web3-clientversion"]
+interface_applicability = "All package rows considered. Docker node CMD is not the hpx mirror node runtime. Shared NODE_ENV/PORT/HOSTNAME and local POOL_SIZE names do not wire this slice to a wallet gateway, explorer or hpx service. Node coinbase/signTransaction behavior differs from gateway refusal. Legacy pax address conversion remains allowlisted. ERC721 selectors and the staking validators tuple match the real ABI."
+requirements_review = "16259.1 OR error propagation and 16260.1 suite inventory are implemented. Manifests and security overrides reviewed without install qualification. Retired deploy choices violate 16980.1; gas-price neighboring-height tolerance weakens 181218.1. Known skipped failures cannot satisfy 22998.1."
+audited_lines = 23772
+
+[file.001]
+path = "docker/platform-dashboard-web/Dockerfile"
+lines = 21
+verdict = "clean"
+note = "Frozen apps/web lock, UI build and standalone Next server; production PORT/HOSTNAME agree with entrypoint and dashboard guide."
+
+[file.002]
+path = "tests/integration/README.md"
+lines = 80
+verdict = "issues"
+note = "Full README read; shared YAML expression guidance does not distinguish Python and Go evaluators."
+
+[file.003]
+path = "tests/integration/authz_module/generic_authorization_test.yaml"
+lines = 31
+verdict = "clean"
+note = "Generic authz uses registered MsgCreateDenom URL and verifies deterministic factory denom authority state."
+
+[file.004]
+path = "tests/integration/authz_module/send_authorization_test.yaml"
+lines = 34
+verdict = "issues"
+note = "Grant, two executions and balance read; second execution lacks a checked authorization failure result."
+
+[file.005]
+path = "tests/integration/authz_module/staking_authorization_test.yaml"
+lines = 55
+verdict = "issues"
+note = "All delegate/unbond steps read; final query conflates missing delegation with query failure."
+
+[file.006]
+path = "tests/integration/autobahn/autobahn_test.go"
+lines = 580
+verdict = "clean"
+note = "Complete four-validator Autobahn test read, including process/block/RPC polling and cleanup; consensus response decoding agrees."
+
+[file.007]
+path = "tests/integration/bank_module/multi_sig_send_test.yaml"
+lines = 33
+verdict = "clean"
+note = "Multisig signatures and recipient balances use consistent native units and key names."
+
+[file.008]
+path = "tests/integration/bank_module/send_funds_test.yaml"
+lines = 45
+verdict = "clean"
+note = "Bank/historical balance checks use shared helpers; exact inclusion-height limitations are recorded there."
+
+[file.009]
+path = "tests/integration/bank_module/simulation_tx.yaml"
+lines = 26
+verdict = "clean"
+note = "Simulation checks explicit command status and gas output without claiming a committed transaction."
+
+[file.010]
+path = "tests/integration/chain_operation/snapshot_operation.yaml"
+lines = 9
+verdict = "issues"
+note = "Snapshot assertion checks directory existence rather than an exported usable snapshot."
+
+[file.011]
+path = "tests/integration/chain_operation/statesync_operation.yaml"
+lines = 9
+verdict = "issues"
+note = "State-sync assertion checks positive receiver height without proving the recovery path."
+
+[file.012]
+path = "tests/integration/contracts/bad_parallelism_template.json"
+lines = 41
+verdict = "clean"
+note = "Authored negative parallelism JSON intentionally contains dependency conflicts; not generated or vendored."
+
+[file.013]
+path = "tests/integration/contracts/contract_dep_generator.py"
+lines = 44
+verdict = "clean"
+note = "Generator transforms both dependency templates with consistent JSON fields and bounded loops."
+
+[file.014]
+path = "tests/integration/contracts/create_tokenfactory_denoms.sh"
+lines = 85
+verdict = "issues"
+note = "Thirty denom creations and polling read; final creator query uses an unset variable then exits zero."
+
+[file.015]
+path = "tests/integration/contracts/deploy_dex_contract.sh"
+lines = 75
+verdict = "issues"
+note = "All Wasm deployment/dex registration read; retired contract choices remain supported."
+
+[file.016]
+path = "tests/integration/contracts/deploy_flatkv_evm_fixture.sh"
+lines = 286
+verdict = "issues"
+note = "Receipt/deploy/bulk writes read; expected storage and runtime code are copied from observed RPC results."
+
+[file.017]
+path = "tests/integration/contracts/deploy_timelocked_token_contract.sh"
+lines = 87
+verdict = "issues"
+note = "All key/vesting/deployment inputs read; keys add exposes generated mnemonic output to job logs."
+
+[file.018]
+path = "tests/integration/contracts/deploy_wasm_contracts.sh"
+lines = 61
+verdict = "clean"
+note = "Three cw20_base batches read; shared code/contract selection races are recorded at _tx_helpers.sh."
+
+[file.019]
+path = "tests/integration/contracts/parallelism_template.json"
+lines = 58
+verdict = "clean"
+note = "Authored positive parallelism JSON has consistent operation and dependency fields."
+
+[file.020]
+path = "tests/integration/contracts/verify_cross_validator_flatkv_digest.sh"
+lines = 185
+verdict = "clean"
+note = "All validator heights/dumps/digests read; canonical buckets use one common historical version."
+
+[file.021]
+path = "tests/integration/contracts/verify_flatkv_crash_recovery.sh"
+lines = 329
+verdict = "clean"
+note = "Kill/process absence/restart/catch-up/EVM assertions read; real pre/post state supplies the recovery proof."
+
+[file.022]
+path = "tests/integration/contracts/verify_flatkv_evm_migrate.sh"
+lines = 758
+verdict = "issues"
+note = "Full migration flow read; digest height is not tied to the actual completion boundary."
+
+[file.023]
+path = "tests/integration/contracts/verify_flatkv_evm_store.sh"
+lines = 102
+verdict = "issues"
+note = "Raw dump checks read; contract presence and value length can match different storage records."
+
+[file.024]
+path = "tests/integration/contracts/verify_flatkv_only_statesync.sh"
+lines = 508
+verdict = "issues"
+note = "Full snapshot/trust/wipe/recovery read; fallback can pass and process absence is not proved before wipe."
+
+[file.025]
+path = "tests/integration/contracts/verify_flatkv_partial_loss_fails_loudly.sh"
+lines = 232
+verdict = "issues"
+note = "Partial-loss setup/readiness read; broad log matching can misattribute an unrelated startup failure."
+
+[file.026]
+path = "tests/integration/contracts/verify_flatkv_statesync_crash_recovery.sh"
+lines = 696
+verdict = "issues"
+note = "Entire snapshot-crash script read; kill may precede import, fallback is accepted and row identity is loose."
+
+[file.027]
+path = "tests/integration/contracts/verify_flatkv_total_loss_recovery.sh"
+lines = 536
+verdict = "issues"
+note = "Full-loss recovery read; import path is not enforced and storage key/value matches are independent."
+
+[file.028]
+path = "tests/integration/contracts/verify_statesync_flatkv_digest.sh"
+lines = 161
+verdict = "clean"
+note = "All shared-height/RPC/dump checks read; validators compare the same version with canonical bucket order."
+
+[file.029]
+path = "tests/integration/dapp_tests/README.md"
+lines = 45
+verdict = "issues"
+note = "Entire dApp guide read; configured Hardhat network can differ from independent pointer/native endpoints."
+
+[file.030]
+path = "tests/integration/dapp_tests/constants.js"
+lines = 20
+verdict = "issues"
+note = "Remote endpoints and Cosmos IDs are hard-coded independently of Hardhat environment URLs."
+
+[file.031]
+path = "tests/integration/dapp_tests/contracts/MockERC20.sol"
+lines = 14
+verdict = "clean"
+note = "Explicit disposable mintable ERC20 fixture; open mint is declared fixture behavior, not production authority."
+
+[file.032]
+path = "tests/integration/dapp_tests/contracts/MockERC721.sol"
+lines = 54
+verdict = "issues"
+note = "Mint/enumeration overrides read; public burn omits owner/operator authorization."
+
+[file.033]
+path = "tests/integration/dapp_tests/contracts/NftMarketplace.sol"
+lines = 163
+verdict = "clean"
+note = "Marketplace listings/buys/cancel/withdraw read; ownership checks and checks-effects-interactions agree."
+
+[file.034]
+path = "tests/integration/dapp_tests/dapp_nft_steak_tests.sh"
+lines = 14
+verdict = "clean"
+note = "NFT/Steak wrapper uses frozen installs and set -e failure propagation."
+
+[file.035]
+path = "tests/integration/dapp_tests/dapp_tests.sh"
+lines = 53
+verdict = "clean"
+note = "Dispatcher validates suite selection, uses npm ci, compiles and exports selected DAPP_TEST_ENV."
+
+[file.036]
+path = "tests/integration/dapp_tests/dapp_uniswap_tests.sh"
+lines = 13
+verdict = "clean"
+note = "Uniswap wrapper uses frozen installs and the named real local suite with failure propagation."
+
+[file.037]
+path = "tests/integration/dapp_tests/hardhat.config.js"
+lines = 39
+verdict = "clean"
+note = "Hardhat remote networks require explicit URL/mnemonic; no separate LayerX transport is configured."
+
+[file.038]
+path = "tests/integration/dapp_tests/nftMarketplace/nftMarketplaceTests.js"
+lines = 178
+verdict = "issues"
+note = "All native/pointer NFT flows read; two asynchronous rejection assertions are unawaited."
+
+[file.039]
+path = "tests/integration/dapp_tests/package.json"
+lines = 70
+verdict = "clean"
+note = "Manifest/advisory overrides read against dependency requirements; no frozen-install result is claimed."
+
+[file.040]
+path = "tests/integration/dapp_tests/steak/SteakTests.js"
+lines = 206
+verdict = "clean"
+note = "All bond/unbond/pointer cases read; parent utils.js is live; endpoint drift is owned by constants.js."
+
+[file.041]
+path = "tests/integration/dapp_tests/steak/utils.js"
+lines = 154
+verdict = "issues"
+note = "Duplicate Steak helper exports are unused by SteakTests.js, which imports ../utils.js."
+
+[file.042]
+path = "tests/integration/dapp_tests/uniswap/uniswapTest.js"
+lines = 305
+verdict = "issues"
+note = "All liquidity/pool/swap cases read; asynchronous rejection expectations are detached from test completion."
+
+[file.043]
+path = "tests/integration/dapp_tests/utils.js"
+lines = 390
+verdict = "issues"
+note = "All helpers read; address precision, poll exhaustion and swallowed estimate errors need repair."
+
+[file.044]
+path = "tests/integration/db/flatkv_evm_test.yaml"
+lines = 95
+verdict = "clean"
+note = "YAML dispatches fixture/migration/recovery in order; individual proof gaps are recorded at scripts."
+
+[file.045]
+path = "tests/integration/db/state_store_test.yaml"
+lines = 130
+verdict = "issues"
+note = "All historical code/contract/denom cases read; baseline counts and batch comments depend on prior state."
+
+[file.046]
+path = "tests/integration/distribution_module/community_pool.yaml"
+lines = 15
+verdict = "clean"
+note = "Community-pool donation checks actual distribution state; shared execution-code limits recorded separately."
+
+[file.047]
+path = "tests/integration/distribution_module/rewards.yaml"
+lines = 30
+verdict = "clean"
+note = "Rewards/delegation/withdrawal verifiers use consistent units and actual queried state."
+
+[file.048]
+path = "tests/integration/evm_module/rpc_io_test/RPC_IO_README.md"
+lines = 128
+verdict = "issues"
+note = "Full IO guide read; aggregate report totals are incorrectly equated with per-method parity."
+
+[file.049]
+path = "tests/integration/evm_module/rpc_io_test/io.go"
+lines = 352
+verdict = "issues"
+note = "Full parser/bindings/HTTP/comparator read; kind-only schema and unmatched-request handling weaken coverage."
+
+[file.050]
+path = "tests/integration/evm_module/rpc_io_test/io_parse_test.go"
+lines = 550
+verdict = "issues"
+note = "All parser/comparison/transport tests read; TestSpecOnly explicitly accepts unequal values without schemas."
+
+[file.051]
+path = "tests/integration/evm_module/rpc_io_test/rpc_io_test.go"
+lines = 288
+verdict = "issues"
+note = "Full discovery/binding/report logic read; enabled integration can skip mandatory fixtures."
+
+[file.052]
+path = "tests/integration/evm_module/scripts/contracts/reverter.sol"
+lines = 14
+verdict = "clean"
+note = "Reverter fixture matches expected Error(user error) behavior through its receive/fallback entrypoints."
+
+[file.053]
+path = "tests/integration/evm_module/scripts/disable_wasm.sh"
+lines = 7
+verdict = "clean"
+note = "Wasm-disable script explicitly configures local test mode; optional consumer problems recorded separately."
+
+[file.054]
+path = "tests/integration/evm_module/scripts/evm_compat_tests.sh"
+lines = 7
+verdict = "clean"
+note = "Compatibility wrapper installs canonical lock and invokes real local Hardhat suite with failure propagation."
+
+[file.055]
+path = "tests/integration/evm_module/scripts/evm_giga_mixed_tests.sh"
+lines = 62
+verdict = "issues"
+note = "Mixed-mode startup/workload read; no post-workload validator liveness and same-height agreement check."
+
+[file.056]
+path = "tests/integration/evm_module/scripts/evm_giga_tests.sh"
+lines = 26
+verdict = "issues"
+note = "GIGA wrapper replaces failed npm ci with npm install, losing frozen resolution."
+
+[file.057]
+path = "tests/integration/evm_module/scripts/evm_interoperability_misc_tests.sh"
+lines = 9
+verdict = "clean"
+note = "Interop-misc wrapper runs actual named contracts tests after frozen installation."
+
+[file.058]
+path = "tests/integration/evm_module/scripts/evm_interoperability_pointer_tests.sh"
+lines = 13
+verdict = "clean"
+note = "Interop-pointer wrapper runs real pointer suites using canonical ABI/address helpers."
+
+[file.059]
+path = "tests/integration/evm_module/scripts/evm_precompile_tests.sh"
+lines = 9
+verdict = "clean"
+note = "Precompile wrapper uses frozen installation and real paxlocal precompile tests."
+
+[file.060]
+path = "tests/integration/evm_module/scripts/evm_rpc_tests.sh"
+lines = 138
+verdict = "issues"
+note = "Seed/association/deploy/poll paths read; failed setup can remove mandatory bindings and skip cases."
+
+[file.061]
+path = "tests/integration/evm_module/ws_test/ws_test.go"
+lines = 109
+verdict = "issues"
+note = "Full WS handshake/subscription/header test read; subset of keys does not prove committed canonical content."
+
+[file.062]
+path = "tests/integration/gov_module/gov_proposal_test.yaml"
+lines = 108
+verdict = "issues"
+note = "All governance scenarios read; fixed sleeps and absolute supply totals couple them to timing/prior mint."
+
+[file.063]
+path = "tests/integration/gov_module/proposal/expedited_proposal.json"
+lines = 15
+verdict = "clean"
+note = "Expedited proposal fields, flag and native deposit agree with its CLI consumer."
+
+[file.064]
+path = "tests/integration/gov_module/proposal/param_change_proposal.json"
+lines = 23
+verdict = "clean"
+note = "Parameter proposal uses expected legacy governance content and module parameter keys."
+
+[file.065]
+path = "tests/integration/gov_module/proposal/staking_proposal.json"
+lines = 13
+verdict = "clean"
+note = "Staking proposal content and deposit agree with its submit path."
+
+[file.066]
+path = "tests/integration/gov_module/staking_proposal_test.yaml"
+lines = 43
+verdict = "issues"
+note = "Staking proposal flow read; fixed sleep replaces observing proposal finalization."
+
+[file.067]
+path = "tests/integration/mint_module/mint_test.yaml"
+lines = 42
+verdict = "issues"
+note = "All minter/supply checks read; malformed output flags prevent expected flattened JSON transport."
+
+[file.068]
+path = "tests/integration/oracle_module/set_feeder_test.yaml"
+lines = 28
+verdict = "issues"
+note = "Feeder replacement/vote/restore read; only CheckTx codes are asserted, not committed feeder/vote state."
+
+[file.069]
+path = "tests/integration/oracle_module/verify_penalty_counts.yaml"
+lines = 46
+verdict = "issues"
+note = "Oracle counter/height arithmetic read; zero-count observation window divides by zero."
+
+[file.070]
+path = "tests/integration/rpc_tests/.mocharc.bootstrap.json"
+lines = 14
+verdict = "clean"
+note = "Bootstrap Mocha config uses ts-node, dedicated spec/report and serial execution."
+
+[file.071]
+path = "tests/integration/rpc_tests/.mocharc.run.json"
+lines = 15
+verdict = "clean"
+note = "Run Mocha config excludes bootstrap and keeps serial shared-chain process with correct report path."
+
+[file.072]
+path = "tests/integration/rpc_tests/README.md"
+lines = 224
+verdict = "issues"
+note = "Entire RPC README read; unset/latest fork block contradicts executable configuration."
+
+[file.073]
+path = "tests/integration/rpc_tests/_start/00_bootstrap.spec.ts"
+lines = 279
+verdict = "clean"
+note = "Full bootstrap read: signed funding, checksum-verified CW20 and runtime publication; persistence owned by testUtils.ts."
+
+[file.074]
+path = "tests/integration/rpc_tests/config/endpoints.ts"
+lines = 25
+verdict = "issues"
+note = "Configurable root-path local HTTP/WS; accountless fallback is an old public host."
+
+[file.075]
+path = "tests/integration/rpc_tests/contracts/GasBurner.sol"
+lines = 51
+verdict = "clean"
+note = "GasBurner performs actual EVM gas work and deterministic state/log operations for fee/log tests."
+
+[file.076]
+path = "tests/integration/rpc_tests/contracts/SimpleAccount7702.sol"
+lines = 34
+verdict = "issues"
+note = "Delegated account forwards arbitrary value/calls for any caller without execution authorization."
+
+[file.077]
+path = "tests/integration/rpc_tests/contracts/TestERC20.sol"
+lines = 65
+verdict = "clean"
+note = "TestERC20 events/layout/reverts/storage agree with calldata, ABI word and raw-slot readers."
+
+[file.078]
+path = "tests/integration/rpc_tests/eth/eth_accounts.spec.ts"
+lines = 92
+verdict = "issues"
+note = "Accounts schema/order/errors read; keyless serialization case skips unreachable external endpoint."
+
+[file.079]
+path = "tests/integration/rpc_tests/eth/eth_blockNumber.spec.ts"
+lines = 95
+verdict = "clean"
+note = "Block-number canonical quantities, monotonic progress and malformed parameters use actual JSON-RPC."
+
+[file.080]
+path = "tests/integration/rpc_tests/eth/eth_call.spec.ts"
+lines = 621
+verdict = "issues"
+note = "All call/override/EIP-1898/precompile/revert cases read; nonce override has no observable assertion."
+
+[file.081]
+path = "tests/integration/rpc_tests/eth/eth_chainId.spec.ts"
+lines = 62
+verdict = "issues"
+note = "Chain/network/error cases read; accepted mapping omits correct merged-network EVM id 125."
+
+[file.082]
+path = "tests/integration/rpc_tests/eth/eth_coinbase.spec.ts"
+lines = 88
+verdict = "clean"
+note = "Coinbase cases target node keyring behavior; gateway refusal is a distinct interface, not node policy."
+
+[file.083]
+path = "tests/integration/rpc_tests/eth/eth_estimateGas.spec.ts"
+lines = 433
+verdict = "clean"
+note = "Full estimate-gas arguments/creation/precompile/selectors/reverts read; real fixture ABI/error decoding agrees."
+
+[file.084]
+path = "tests/integration/rpc_tests/eth/eth_feeHistory.spec.ts"
+lines = 364
+verdict = "issues"
+note = "All history ranges/forecasts/rewards/errors read; zero-count quantity mismatch confirmed in producer and skipped tests."
+
+[file.085]
+path = "tests/integration/rpc_tests/eth/eth_gasPrice.spec.ts"
+lines = 135
+verdict = "issues"
+note = "Idle/loaded gas-price cases use a helper accepting neighboring block fee formulas beyond req.181218.1."
+
+[file.086]
+path = "tests/integration/rpc_tests/eth/eth_getBalance.spec.ts"
+lines = 221
+verdict = "clean"
+note = "All native/contract/historical/tag/error/fee balance cases read; uhpx/wei conversion is explicit."
+
+[file.087]
+path = "tests/integration/rpc_tests/eth/eth_getBlockByHash.spec.ts"
+lines = 505
+verdict = "issues"
+note = "All hash-block/schema/rich-tx/byte/receipt/fee cases read; parameter or load failures skip fee assertions."
+
+[file.088]
+path = "tests/integration/rpc_tests/eth/eth_getBlockByNumber.spec.ts"
+lines = 548
+verdict = "issues"
+note = "All number-block/tag/schema/rich-tx/byte/fee cases read; parameter or load failures skip fee assertions."
+
+[file.089]
+path = "tests/integration/rpc_tests/eth/eth_getBlockReceipts.spec.ts"
+lines = 722
+verdict = "issues"
+note = "Every receipt/type/fee/log/dual-VM case read; failed transaction co-location skips Cosmos exclusion proof."
+
+[file.090]
+path = "tests/integration/rpc_tests/eth/eth_getBlockTransactionCountByHash.spec.ts"
+lines = 123
+verdict = "clean"
+note = "Hash-based count uses pinned block identity, malformed hash checks and unknown-block null semantics."
+
+[file.091]
+path = "tests/integration/rpc_tests/eth/eth_getBlockTransactionCountByNumber.spec.ts"
+lines = 210
+verdict = "issues"
+note = "All number/tag/dual-VM count cases read; latest requests can race and failed co-location skips proof."
+
+[file.092]
+path = "tests/integration/rpc_tests/eth/eth_getCode.spec.ts"
+lines = 299
+verdict = "clean"
+note = "Deployed/empty/delegated/pointer code and errors read; optional Wasm pointer access is explicitly guarded."
+
+[file.093]
+path = "tests/integration/rpc_tests/eth/eth_getFilterChanges.spec.ts"
+lines = 200
+verdict = "clean"
+note = "Change/filter lifecycle and invalid/uninstalled IDs read; canonical HTTP block/log oracles are used."
+
+[file.094]
+path = "tests/integration/rpc_tests/eth/eth_getFilterLogs.spec.ts"
+lines = 117
+verdict = "clean"
+note = "Filter criteria/canonical logs/repeat reads/errors read; current-session filter lifecycle is explicit."
+
+[file.095]
+path = "tests/integration/rpc_tests/eth/eth_getLogs.spec.ts"
+lines = 530
+verdict = "issues"
+note = "All topic/address/range/rich cases read; optional Wasm is unguarded and per-tx log index wrongly starts at zero."
+
+[file.096]
+path = "tests/integration/rpc_tests/eth/eth_getStorageAt.spec.ts"
+lines = 216
+verdict = "clean"
+note = "All storage scalar/mapping/array/history/selectors read; fixture slot hashing and ABI words agree."
+
+[file.097]
+path = "tests/integration/rpc_tests/eth/eth_getTransactionByBlockHashAndIndex.spec.ts"
+lines = 150
+verdict = "clean"
+note = "Hash/index lookups preserve signed tx and pinned block identity; null and invalid selectors checked."
+
+[file.098]
+path = "tests/integration/rpc_tests/eth/eth_getTransactionByBlockNumberAndIndex.spec.ts"
+lines = 192
+verdict = "clean"
+note = "Number/index/tag lookup and signed fields read; no private txpool or hosted gateway method presumed."
+
+[file.099]
+path = "tests/integration/rpc_tests/eth/eth_getTransactionByHash.spec.ts"
+lines = 192
+verdict = "clean"
+note = "Hash lookup covers fixture types/unknown/malformed input; actual signed identity and receipts compared."
+
+[file.100]
+path = "tests/integration/rpc_tests/eth/eth_getTransactionCount.spec.ts"
+lines = 278
+verdict = "clean"
+note = "Latest/pending/historical nonce/error cases read; quantities are explicit and no unsubmitted pool activity claimed."
+
+[file.101]
+path = "tests/integration/rpc_tests/eth/eth_getTransactionReceipt.spec.ts"
+lines = 305
+verdict = "clean"
+note = "All receipt inclusion/fee/cumulative gas/bloom/event checks read; identity remains consistent across results."
+
+[file.102]
+path = "tests/integration/rpc_tests/eth/eth_getVMError.spec.ts"
+lines = 64
+verdict = "clean"
+note = "VM error success/revert/unknown/invalid cases consume the optional result correctly."
+
+[file.103]
+path = "tests/integration/rpc_tests/eth/eth_maxPriorityFeePerGas.spec.ts"
+lines = 144
+verdict = "clean"
+note = "Priority-fee idle/congested/errors read; shared load setup weaknesses recorded in txUtils.ts."
+
+[file.104]
+path = "tests/integration/rpc_tests/eth/eth_newBlockFilter.spec.ts"
+lines = 87
+verdict = "clean"
+note = "Block-filter empty polling/hash ordering/uninstall read; identifiers treated as opaque values."
+
+[file.105]
+path = "tests/integration/rpc_tests/eth/eth_newFilter.spec.ts"
+lines = 132
+verdict = "clean"
+note = "Log-filter address/topic/criteria/error cases compare canonical HTTP log identity."
+
+[file.106]
+path = "tests/integration/rpc_tests/eth/eth_sendRawTransaction.spec.ts"
+lines = 132
+verdict = "clean"
+note = "Actual signed raw txs/wrong-chain/duplicate/malformed cases reach the real node transport."
+
+[file.107]
+path = "tests/integration/rpc_tests/eth/eth_subscribe.spec.ts"
+lines = 234
+verdict = "issues"
+note = "Complete newHeads/log filters/cross-RPC/unsubscribe suite read; reconnect/restart boundary not exercised."
+
+[file.108]
+path = "tests/integration/rpc_tests/eth/eth_uninstallFilter.spec.ts"
+lines = 51
+verdict = "clean"
+note = "Successful/repeated/unknown uninstall and malformed input read; boolean lifecycle matches filter contract."
+
+[file.109]
+path = "tests/integration/rpc_tests/hardhat.config.ts"
+lines = 26
+verdict = "clean"
+note = "Compilation config and artifact paths match bootstrap loading without launching a separate kernel."
+
+[file.110]
+path = "tests/integration/rpc_tests/hardhat/README.md"
+lines = 40
+verdict = "issues"
+note = "Full optional manual fork guide read; unset block default is rejected by configuration."
+
+[file.111]
+path = "tests/integration/rpc_tests/hardhat/hardhat.config.ts"
+lines = 58
+verdict = "issues"
+note = "Upstream validation/fork config read; undefined optional block fails Number.isSafeInteger."
+
+[file.112]
+path = "tests/integration/rpc_tests/package.json"
+lines = 67
+verdict = "clean"
+note = "Scripts/external SDK pin/dependency overrides read; external encoding is not the in-tree SDK build."
+
+[file.113]
+path = "tests/integration/rpc_tests/scripts/run-ci.sh"
+lines = 166
+verdict = "issues"
+note = "Full CI setup/bootstrap/run/cleanup read; an existing mismatched geth version is accepted despite reference pin."
+
+[file.114]
+path = "tests/integration/rpc_tests/tsconfig.json"
+lines = 18
+verdict = "clean"
+note = "CommonJS/JSON/Node/Mocha compiler settings match actual scripts/specs; no runtime router introduced."
+
+[file.115]
+path = "tests/integration/rpc_tests/utils/chainUtils.ts"
+lines = 301
+verdict = "issues"
+note = "Full raw-envelope/provider/polling/gas/params helpers read; deadlines and same-chain parameter failures are weak."
+
+[file.116]
+path = "tests/integration/rpc_tests/utils/constants.ts"
+lines = 57
+verdict = "issues"
+note = "Scaling/HD/precompile/Wasm digest/Docker constants read; default EVM id is legacy 713714."
+
+[file.117]
+path = "tests/integration/rpc_tests/utils/cosmosUtils.ts"
+lines = 230
+verdict = "issues"
+note = "Native signing/bank/funding/association/registry helpers read; Docker funding is not bound to endpoint chain identity."
+
+[file.118]
+path = "tests/integration/rpc_tests/utils/evmUtils.ts"
+lines = 296
+verdict = "clean"
+note = "EVM key derivation/signing/transaction/balance helpers use consistent funded-account identity and wei units."
+
+[file.119]
+path = "tests/integration/rpc_tests/utils/feeHistoryUtils.ts"
+lines = 147
+verdict = "issues"
+note = "History parsing/count/ratio/percentile/next-fee helpers read; null params suppress fee formula checks."
+
+[file.120]
+path = "tests/integration/rpc_tests/utils/format.ts"
+lines = 38
+verdict = "clean"
+note = "Distinct canonical validators for quantities, bytes, hashes, addresses, bloom, ABI words and early-state errors."
+
+[file.121]
+path = "tests/integration/rpc_tests/utils/gasPriceUtils.ts"
+lines = 78
+verdict = "issues"
+note = "Integer formula/congestion helper read; neighborhood can accept wrong block's fee and congestion."
+
+[file.122]
+path = "tests/integration/rpc_tests/utils/gasPriceUtils.unit.spec.ts"
+lines = 76
+verdict = "issues"
+note = "Every unit assertion read; one case explicitly accepts all neighbor formulas for a single sample height."
+
+[file.123]
+path = "tests/integration/rpc_tests/utils/logsUtils.ts"
+lines = 407
+verdict = "issues"
+note = "All log builders/matrices/bloom/oracles read; generic shape validator rejects valid LOG0 output."
+
+[file.124]
+path = "tests/integration/rpc_tests/utils/storageUtils.ts"
+lines = 115
+verdict = "clean"
+note = "Scalar/mapping/array/history utilities match TestERC20 keccak slot layout and padded ABI words."
+
+[file.125]
+path = "tests/integration/rpc_tests/utils/subscribeUtils.ts"
+lines = 208
+verdict = "issues"
+note = "Full WS client/head validators read; pending calls lack close/deadline handling and successor fee is accepted."
+
+[file.126]
+path = "tests/integration/rpc_tests/utils/testUtils.ts"
+lines = 165
+verdict = "issues"
+note = "Runtime shape/write/read/pool/errors read; secret state uses default file mode and lacks chain-instance validation."
+
+[file.127]
+path = "tests/integration/rpc_tests/utils/txLookupUtils.ts"
+lines = 169
+verdict = "clean"
+note = "All lookup helpers/errors across hashes/indices/tags/receipts read; optional fields remain explicit."
+
+[file.128]
+path = "tests/integration/rpc_tests/utils/txUtils.ts"
+lines = 1330
+verdict = "issues"
+note = "Full rich-block/reconstruction/load/receipt helpers read; byte/hash and load-send failures are discarded."
+
+[file.129]
+path = "tests/integration/rpc_tests/utils/wasmUtils.ts"
+lines = 172
+verdict = "issues"
+note = "Capability/hash/deploy/pointer/transfer helpers read; query errors mean disabled and signer cache ignores mnemonic."
+
+[file.130]
+path = "tests/integration/runner/eval_test.go"
+lines = 62
+verdict = "clean"
+note = "OR first-error and short-circuit tests cover req.16259.1; old registry defect is implemented, not reopened."
+
+[file.131]
+path = "tests/integration/runner/runner.go"
+lines = 363
+verdict = "issues"
+note = "Full Go runner read; command exit failures swallowed and boolean/arithmetic precedence differs from Python."
+
+[file.132]
+path = "tests/integration/runner/runner_test.go"
+lines = 95
+verdict = "clean"
+note = "Subtest dispatch/cluster opt-in/suite iteration read; uses central registry, not a duplicate hard-coded list."
+
+[file.133]
+path = "tests/integration/runner/suites.go"
+lines = 57
+verdict = "clean"
+note = "Complete ordered Suites and reasoned ExcludedSuites declarations implement req.16260.1."
+
+[file.134]
+path = "tests/integration/runner/suites_test.go"
+lines = 89
+verdict = "clean"
+note = "Inventory/uniqueness/missing/exclusion tests cover every module YAML in exactly one registry set."
+
+[file.135]
+path = "tests/integration/scripts/runner.py"
+lines = 99
+verdict = "issues"
+note = "Full Python runner read; output interpolation crosses shell/eval boundaries and status/deadline are ignored."
+
+[file.136]
+path = "tests/integration/staking_module/staking_test.yaml"
+lines = 103
+verdict = "clean"
+note = "All staking transitions/query verifiers use consistent native amounts and validator address forms."
+
+[file.137]
+path = "tests/integration/startup/startup_test.yaml"
+lines = 17
+verdict = "clean"
+note = "Startup checks four live validators and positive local height without a separate sequencer assumption."
+
+[file.138]
+path = "tests/integration/template/template_test.yaml"
+lines = 16
+verdict = "issues"
+note = "Authoring template promises general Python eval unlike the Go shared-format consumer."
+
+[file.139]
+path = "tests/integration/tokenfactory_module/create_tokenfactory_test.yaml"
+lines = 51
+verdict = "clean"
+note = "Create/mint/burn/admin transitions use deterministic factory denoms and standard CLI argument shapes."
+
+[file.140]
+path = "tests/integration/upgrade_module/major_upgrade_test.yaml"
+lines = 176
+verdict = "issues"
+note = "Full major upgrade lifecycle read; historical version fixture lacks merged-kernel/EVM state preservation proof."
+
+[file.141]
+path = "tests/integration/upgrade_module/minor_upgrade_test.yaml"
+lines = 155
+verdict = "issues"
+note = "Full minor upgrade lifecycle read; historical version fixture lacks merged-kernel/EVM state preservation proof."
+
+[file.142]
+path = "tests/integration/upgrade_module/scripts/launch_cluster.sh"
+lines = 24
+verdict = "issues"
+note = "Launch targets/background jobs/sentinel read; failed cluster launch can wait forever."
+
+[file.143]
+path = "tests/integration/upgrade_module/scripts/paxd_downgrade.sh"
+lines = 44
+verdict = "issues"
+note = "Downgrade stop/retry/readiness read; process existence after grace sleep is treated as success."
+
+[file.144]
+path = "tests/integration/upgrade_module/scripts/paxd_upgrade.sh"
+lines = 52
+verdict = "issues"
+note = "Upgrade list/stop/retry/readiness read; process existence after grace sleep is treated as success."
+
+[file.145]
+path = "tests/integration/upgrade_module/scripts/proposal_submit.sh"
+lines = 49
+verdict = "clean"
+note = "Proposal submit uses sync and matches a new title beyond prior maximum ID through shared helpers."
+
+[file.146]
+path = "tests/integration/upgrade_module/scripts/proposal_target_height.sh"
+lines = 38
+verdict = "issues"
+note = "Measured interval/target arithmetic read; stalled sampling silently substitutes an assumed interval."
+
+[file.147]
+path = "tests/integration/upgrade_module/scripts/proposal_vote.sh"
+lines = 31
+verdict = "issues"
+note = "Vote/sequence polling read; CheckTx rejection exits zero and YAML ignores its printed code."
+
+[file.148]
+path = "tests/integration/upgrade_module/scripts/proposal_wait_for_pass.sh"
+lines = 22
+verdict = "clean"
+note = "Bounded proposal polling explicitly requires PASSED and fails after its deadline."
+
+[file.149]
+path = "tests/integration/upgrade_module/scripts/verify_panic.sh"
+lines = 27
+verdict = "issues"
+note = "Upgrade halt verifier accepts any absent process or target-1 stall without specific panic evidence."
+
+[file.150]
+path = "tests/integration/upgrade_module/scripts/verify_running.sh"
+lines = 17
+verdict = "issues"
+note = "Running verifier's only success predicate is a pgrep match."
+
+[file.151]
+path = "tests/integration/upgrade_module/scripts/verify_upgrade_needed_log.sh"
+lines = 49
+verdict = "issues"
+note = "Both upgrade log encodings read; height fallback passes despite missing named trigger log."
+
+[file.152]
+path = "tests/integration/upgrade_module/scripts/wait_for_height.sh"
+lines = 82
+verdict = "clean"
+note = "Bounded height polling/process checks/diagnostics read; no completion inferred from a mere launch marker."
+
+[file.153]
+path = "tests/integration/utils/_tx_helpers.sh"
+lines = 292
+verdict = "issues"
+note = "All shared tx helpers read; CheckTx/execution confusion, inclusion fallback and global Wasm identity races remain."
+
+[file.154]
+path = "tests/integration/wasm_module/timelocked_token_admin_test.yaml"
+lines = 52
+verdict = "clean"
+note = "Timelock admin/authorization/final state assertions use the actual deployed test identities."
+
+[file.155]
+path = "tests/integration/wasm_module/timelocked_token_delegation_test.yaml"
+lines = 58
+verdict = "clean"
+note = "Timelock delegation/reward/vesting checks use real Wasm state rather than CheckTx alone."
+
+[file.156]
+path = "tests/integration/wasm_module/timelocked_token_emergency_withdraw_test.yaml"
+lines = 37
+verdict = "clean"
+note = "Emergency withdraw authorization and balances cover negative and positive deployed-fixture transitions."
+
+[file.157]
+path = "tests/integration/wasm_module/timelocked_token_withdraw_test.yaml"
+lines = 17
+verdict = "clean"
+note = "Vesting withdrawal/bank balances use consistent fixture times and native denomination."
+
+[finding.yaml-eval-contract]
+file = "tests/integration/README.md"
+line = 41
+class = "doc-drift"
+severity = "medium"
+observed = "The YAML example permits any valid Python eval, but the Go consumer uses a whitespace parser with different boolean and arithmetic precedence."
+expected = "Authors of the shared suite format must know which expressions both real test runners accept and evaluate identically."
+proposal = "Update tests/integration/README.md and template with a common expression grammar and make runner.go enforce it with cross-runner expression cases."
+owner_domain = 16
+interface = "16.fmt-integration-yaml-suite-j59"
+
+[finding.authz-send-rejection]
+file = "tests/integration/authz_module/send_authorization_test.yaml"
+line = 24
+class = "test-gap"
+severity = "medium"
+observed = "The second authz exec result is discarded; unchanged recipient balance also passes a transport, fee or sequence submission failure."
+expected = "The negative authorization case must prove the committed spend-limit error and unchanged recipient state together."
+proposal = "Capture the committed second execution result in tests/integration/authz_module/send_authorization_test.yaml and require the intended authorization code alongside the balance assertion."
+owner_domain = 16
+
+[finding.authz-unbond-query]
+file = "tests/integration/authz_module/staking_authorization_test.yaml"
+line = 41
+class = "test-gap"
+severity = "medium"
+observed = "The final delegation query suppresses all errors and maps empty output to zero, so an unavailable query can satisfy full-unbond success."
+expected = "Missing delegation after successful unbond must be distinguished from RPC failure, malformed JSON and unrelated CLI errors."
+proposal = "In tests/integration/authz_module/staking_authorization_test.yaml require committed unbond evidence and accept only the specific delegation-not-found result as zero."
+owner_domain = 16
+
+[finding.authz-unbond-rejection]
+file = "tests/integration/authz_module/staking_authorization_test.yaml"
+line = 28
+class = "test-gap"
+severity = "medium"
+observed = "Unauthorized unbond has no checked execution error; unchanged stake cannot distinguish authorization rejection from failed submission."
+expected = "The negative path must reach execution and return the authorization error while preserving the delegation."
+proposal = "Capture the committed negative execution result in tests/integration/authz_module/staking_authorization_test.yaml before granting unbond permission."
+owner_domain = 16
+
+[finding.snapshot-directory-only]
+file = "tests/integration/chain_operation/snapshot_operation.yaml"
+line = 4
+class = "test-gap"
+severity = "medium"
+observed = "The snapshot test passes when the directory exists, including an empty directory created before any snapshot export."
+expected = "Snapshot coverage must establish a usable advertised snapshot at a committed height and successful restoration of known state."
+proposal = "Extend tests/integration/chain_operation/snapshot_operation.yaml to inspect snapshot metadata and drive a bounded restore with known application-state verification."
+owner_domain = 16
+
+[finding.statesync-height-only]
+file = "tests/integration/chain_operation/statesync_operation.yaml"
+line = 4
+class = "test-gap"
+severity = "medium"
+observed = "The receiver only needs latest_block_height greater than zero; stale local state or ordinary block replay meets that predicate."
+expected = "State-sync coverage must prove a snapshot was imported and restored state matches the donor at an identified committed height."
+proposal = "Extend tests/integration/chain_operation/statesync_operation.yaml with a clean receiver, successful import outcome and known-state/digest comparison."
+owner_domain = 16
+
+[finding.tokenfactory-unset-creator]
+file = "tests/integration/contracts/create_tokenfactory_denoms.sh"
+line = 82
+class = "interface-mismatch"
+severity = "high"
+observed = "The final query expands CREATOR_ID, which is never assigned; modules/tokenfactory/client/cli/query.go requires exactly one valid creator address. The script then exits zero."
+expected = "The declared creator query must receive the keyaddress used by the thirty creations and return a successfully decoded list for that creator."
+proposal = "In tests/integration/contracts/create_tokenfactory_denoms.sh pass quoted keyaddress through paxdbin, propagate CLI/JSON failures and assert all thirty expected denoms with pagination if needed."
+owner_domain = 16
+interface = "6.cli-tokenfactory-query-denoms-from-creator"
+
+[finding.retired-dex-contracts]
+file = "tests/integration/contracts/deploy_dex_contract.sh"
+line = 10
+class = "retired-reference"
+severity = "medium"
+observed = "The usage still offers mars,saturn,venus and accepts their Wasm deployment names; this script does not enforce the in-tree cw20_base replacement."
+expected = "Requirement 16980.1 requires both deploy scripts to use cw20_base and retain no saturn.wasm or venus.wasm deployment choice."
+proposal = "Replace retired choices in tests/integration/contracts/deploy_dex_contract.sh with contracts/wasm/cw20_base.wasm and migrate registration scenarios to supported product operations."
+owner_domain = 16
+
+[finding.fixture-self-oracle]
+file = "tests/integration/contracts/deploy_flatkv_evm_fixture.sh"
+line = 223
+class = "test-gap"
+severity = "medium"
+observed = "storage_expected and code_expected are copied from RPC query output, so an incorrect or empty initial fixture can become the recovery oracle."
+expected = "The fixture must independently prove its intended runtime bytes and slot value before using them as persistence expectations."
+proposal = "In tests/integration/contracts/deploy_flatkv_evm_fixture.sh compare the deployed code and slot-zero value to the embedded contract before writing expectation files."
+owner_domain = 16
+
+[finding.timelock-key-output]
+file = "tests/integration/contracts/deploy_timelocked_token_contract.sh"
+line = 13
+class = "security"
+severity = "medium"
+observed = "Seven paxd keys add calls write normal newly generated key output directly to the integration job stream, including mnemonic recovery material."
+expected = "Disposable test account secrets must stay out of retained job logs and must not share an operator keyring."
+proposal = "Use an isolated disposable keyring in tests/integration/contracts/deploy_timelocked_token_contract.sh and capture only required public addresses without printing mnemonic output."
+owner_domain = 16
+
+[finding.migration-height-boundary]
+file = "tests/integration/contracts/verify_flatkv_evm_migrate.sh"
+line = 687
+class = "test-gap"
+severity = "medium"
+observed = "Progress is tested against absolute MIN_HEIGHT_AFTER and the digest version is minimum head minus a buffer, without recording actual migration completion heights."
+expected = "A claimed post-migration comparison must select a version strictly after every validator completed migration and committed subsequent state."
+proposal = "Capture completion heights in tests/integration/contracts/verify_flatkv_evm_migrate.sh, wait beyond their maximum plus the comparison buffer and require the selected version to exceed that boundary."
+owner_domain = 16
+
+[finding.storage-dump-row-identity]
+file = "tests/integration/contracts/verify_flatkv_evm_store.sh"
+line = 77
+class = "test-gap"
+severity = "medium"
+observed = "Contract address presence and the 82-character serialized storage value length are checked separately and can describe different rows."
+expected = "The raw storage proof must bind exact contract, slot, height, tag and expected value in one decoded record."
+proposal = "Decode dump-flatkv rows in tests/integration/contracts/verify_flatkv_evm_store.sh and match the fixture composite key with its expected StorageData in the same row."
+owner_domain = 16
+
+[finding.only-statesync-fallback]
+file = "tests/integration/contracts/verify_flatkv_only_statesync.sh"
+line = 311
+class = "restart-recovery"
+severity = "medium"
+observed = "log_recovery_path prints STATE-SYNC, BLOCKSYNC FALLBACK or UNKNOWN, and every outcome continues toward PASS claiming state-sync recovery."
+expected = "Snapshot recovery qualification must fail when its intended import path did not execute, even if replay reconstructs correct final state."
+proposal = "Require successful snapshot import in tests/integration/contracts/verify_flatkv_only_statesync.sh and retain snapshot height/restored state; test blocksync as a distinct scenario."
+owner_domain = 16
+
+[finding.only-statesync-stop-proof]
+file = "tests/integration/contracts/verify_flatkv_only_statesync.sh"
+line = 484
+class = "runtime-risk"
+severity = "medium"
+observed = "The victim receives pkill and a fixed two-second sleep before data and Wasm deletion; no process-exit check protects the wipe."
+expected = "Destructive recovery setup must prove the exact node released databases before deleting state while preserving validator signing state."
+proposal = "Add bounded exit waiting, escalation and a final process-absence assertion in tests/integration/contracts/verify_flatkv_only_statesync.sh before removing directories."
+owner_domain = 16
+
+[finding.partial-loss-attribution]
+file = "tests/integration/contracts/verify_flatkv_partial_loss_fails_loudly.sh"
+line = 210
+class = "test-gap"
+severity = "medium"
+observed = "Any exited node plus flatkv|version|missing|LoadVersion|reconcile|state_commit in its log counts as the intended partial-loss failure."
+expected = "Partial-loss coverage must identify the specific reconciliation error, not an unrelated startup crash accompanied by normal database logs."
+proposal = "Require the exact missing-state error and affected version in tests/integration/contracts/verify_flatkv_partial_loss_fails_loudly.sh and reject unrelated startup failures."
+owner_domain = 16
+
+[finding.statesync-kill-window]
+file = "tests/integration/contracts/verify_flatkv_statesync_crash_recovery.sh"
+line = 405
+class = "restart-recovery"
+severity = "medium"
+observed = "The kill regex accepts This node needs state sync before import begins, and timeout kills anyway and continues without an observed partial import."
+expected = "Mid-import crash coverage must establish durable partial snapshot progress and prove recovery of that same snapshot."
+proposal = "In tests/integration/contracts/verify_flatkv_statesync_crash_recovery.sh require persisted chunk progress before kill, fail unobserved windows and assert resumed or safely discarded partial import."
+owner_domain = 16
+
+[finding.statesync-restored-row]
+file = "tests/integration/contracts/verify_flatkv_statesync_crash_recovery.sh"
+line = 499
+class = "test-gap"
+severity = "medium"
+observed = "One grep finds the contract and another finds storage_hex anywhere in the bucket; the value need not belong to the intended contract slot."
+expected = "Recovered fixture evidence must associate the exact value with its restored contract/slot key and committed version."
+proposal = "Decode and compare a single composite key/value record in tests/integration/contracts/verify_flatkv_statesync_crash_recovery.sh instead of independent substring checks."
+owner_domain = 16
+
+[finding.statesync-resume-fallback]
+file = "tests/integration/contracts/verify_flatkv_statesync_crash_recovery.sh"
+line = 602
+class = "test-gap"
+severity = "medium"
+observed = "Recovery-path reporting labels blocksync or unknown outcomes without rejecting them, so resumed import is not a final PASS condition."
+expected = "A snapshot crash scenario must distinguish verified import recovery from successful recovery by a different mechanism."
+proposal = "Enforce import-resume outcome in tests/integration/contracts/verify_flatkv_statesync_crash_recovery.sh and expose replay recovery as a separately asserted scenario."
+owner_domain = 16
+
+[finding.total-loss-restored-row]
+file = "tests/integration/contracts/verify_flatkv_total_loss_recovery.sh"
+line = 362
+class = "test-gap"
+severity = "medium"
+observed = "Full-loss checks independently find the contract and expected value in storage dumps, allowing unrelated records to jointly satisfy the assertion."
+expected = "Full-loss recovery must restore the expected slot under the exact contract and height as well as produce equal node digests."
+proposal = "Decode fixture records by composite key and compare typed values at the selected version in tests/integration/contracts/verify_flatkv_total_loss_recovery.sh."
+owner_domain = 16
+
+[finding.total-loss-path-label]
+file = "tests/integration/contracts/verify_flatkv_total_loss_recovery.sh"
+line = 462
+class = "test-gap"
+severity = "medium"
+observed = "The snapshot-driven full-loss scenario reports blocksync fallback without rejecting it; correct final state does not establish which import mechanism ran."
+expected = "The snapshot recovery claim must assert the durable restoration mechanism and its successful outcome."
+proposal = "Require snapshot-import outcome in tests/integration/contracts/verify_flatkv_total_loss_recovery.sh or split replay fallback into a separately named and qualified scenario."
+owner_domain = 16
+
+[finding.dapp-endpoint-guide]
+file = "tests/integration/dapp_tests/README.md"
+line = 17
+class = "doc-drift"
+severity = "medium"
+observed = "The guide describes environment-selected Hardhat networks, but native and pointer helpers also use independent hard-coded constants.js endpoints."
+expected = "One dApp network choice must select a coherent Cosmos/EVM pair and chain identity across every operation."
+proposal = "Align tests/integration/dapp_tests/README.md with a single validated network configuration shared by Hardhat, native helpers and pointer operations."
+owner_domain = 16
+
+[finding.dapp-split-endpoints]
+file = "tests/integration/dapp_tests/constants.js"
+line = 1
+class = "config-drift"
+severity = "medium"
+observed = "rpcUrls/evmRpcUrls use pax-apis.com hosts and chainIds uses atlantic-2/arctic-1 while Hardhat accepts separately configured URLs."
+expected = "Every leg of one scenario must target the same selected chain; merged-network mode uses the declared mainnet-beta root RPC family and EVM id 125."
+proposal = "Replace tests/integration/dapp_tests/constants.js with shared validated network configuration and reject inconsistent chain identities before funding or pointer registration."
+owner_domain = 16
+
+[finding.mock721-burn-auth]
+file = "tests/integration/dapp_tests/contracts/MockERC721.sol"
+line = 25
+class = "security"
+severity = "medium"
+observed = "Public burn calls OpenZeppelin internal _burn without owner/operator authorization, so an unrelated caller can destroy another fixture user NFT."
+expected = "The ownership-preserving NFT scenarios require burn to respect the owner/operator authority boundary."
+proposal = "Add owner/operator checks in tests/integration/dapp_tests/contracts/MockERC721.sol and a real unauthorized-burn rejection case in the marketplace suite."
+owner_domain = 16
+interface = "6.sol-erc721-ownerof-6352211e"
+
+[finding.nft-unawaited-rejections]
+file = "tests/integration/dapp_tests/nftMarketplace/nftMarketplaceTests.js"
+line = 78
+class = "test-gap"
+severity = "medium"
+observed = "Unauthorized transferFrom and unassociated pointer buy expectations start asynchronous reverted assertions without await or return."
+expected = "Each negative assertion must complete and fail its owning test before another case begins."
+proposal = "Await both rejected-transaction expectations in tests/integration/dapp_tests/nftMarketplace/nftMarketplaceTests.js and retain rejection reason and unchanged-ownership checks."
+owner_domain = 16
+interface = "6.sol-erc721-transferfrom-23b872dd"
+
+[finding.steak-duplicate-helpers]
+file = "tests/integration/dapp_tests/steak/utils.js"
+line = 1
+class = "dead-code"
+severity = "low"
+observed = "steak/utils.js exports duplicate Wasm/staking helpers, while SteakTests.js imports ../utils.js and does not exercise this implementation."
+expected = "One live helper implementation should own signer and staking fixture behavior and be exercised by the actual suite."
+proposal = "Remove unused tests/integration/dapp_tests/steak/utils.js after checking callers, or wire a single canonical helper module and remove the duplicate implementation."
+owner_domain = 16
+
+[finding.uniswap-unawaited-rejections]
+file = "tests/integration/dapp_tests/uniswap/uniswapTest.js"
+line = 150
+class = "test-gap"
+severity = "medium"
+observed = "Pool-creation and pointer-swap reverted expectations are asynchronous promises neither awaited nor returned by their test callbacks."
+expected = "Unassociated rejection must be proven by a completed negative transaction rather than a detached assertion promise."
+proposal = "Await rejected-transaction expectations in tests/integration/dapp_tests/uniswap/uniswapTest.js and assert the intended error plus unchanged token/liquidity state."
+owner_domain = 16
+
+[finding.uniswap-address-precision]
+file = "tests/integration/dapp_tests/utils.js"
+line = 53
+class = "runtime-risk"
+severity = "medium"
+observed = "tokenOrder converts 160-bit addresses with parseInt to JavaScript Number, so addresses differing in low bits can compare equal after rounding."
+expected = "Uniswap ordering requires an exact unsigned 160-bit comparison with amounts attached to the correct address."
+proposal = "Use normalized address BigInts in tests/integration/dapp_tests/utils.js and cover addresses sharing upper bits but differing below Number precision."
+owner_domain = 16
+
+[finding.dapp-poll-exhaustion]
+file = "tests/integration/dapp_tests/utils.js"
+line = 181
+class = "test-gap"
+severity = "medium"
+observed = "pollBalance returns its last balance after exhausting attempts even when criteria never passed, indistinguishable from successful convergence."
+expected = "A bounded wait proving a token transition must fail if that transition was never observed."
+proposal = "Make tests/integration/dapp_tests/utils.js throw on poll exhaustion with expected/observed values and use BigNumber-aware predicates at callers."
+owner_domain = 16
+
+[finding.dapp-estimate-swallowed]
+file = "tests/integration/dapp_tests/utils.js"
+line = 145
+class = "runtime-risk"
+severity = "medium"
+observed = "estimateAndCall logs estimation failure then submits with undefined gasLimit; direct UTF-8 decoding of ABI revert bytes can obscure the original cause."
+expected = "A helper promising successful estimation must preserve typed simulation errors and stop before submission on failure."
+proposal = "Propagate estimate failures with ABI-aware error decoding in tests/integration/dapp_tests/utils.js and let negative cases explicitly assert expected errors."
+owner_domain = 16
+
+[finding.state-store-fixed-fixtures]
+file = "tests/integration/db/state_store_test.yaml"
+line = 42
+class = "test-gap"
+severity = "medium"
+observed = "Wasm counts assume a baseline of three and fixed later totals, while comments still describe hundreds of contracts/denoms instead of ten-item batches."
+expected = "Historical storage coverage must identify its own writes without relying on unrelated suites leaving exactly three code entries."
+proposal = "Capture baseline and fixture IDs in tests/integration/db/state_store_test.yaml, compare deltas at recorded heights and update comments to actual batches."
+owner_domain = 16
+
+[finding.io-aggregate-parity-guide]
+file = "tests/integration/evm_module/rpc_io_test/RPC_IO_README.md"
+line = 85
+class = "doc-drift"
+severity = "medium"
+observed = "The guide says equal Total/Passed/Failed/Skipped counts mean parity; two endpoints can have identical totals with different failing cases."
+expected = "Parity evidence must compare matching case identities and declared response schemas and deterministic values."
+proposal = "Rewrite tests/integration/evm_module/rpc_io_test/RPC_IO_README.md to require per-case comparison and explain the limits of aggregate totals and kind-only checking."
+owner_domain = 16
+
+[finding.io-kind-only-schema]
+file = "tests/integration/evm_module/rpc_io_test/io.go"
+line = 295
+class = "test-gap"
+severity = "medium"
+observed = "specOnly accepts any result for a result fixture and any error for an error fixture, requiring only presence of jsonrpc without checking its value, id, types or error codes."
+expected = "Real RPC conformance must validate canonical encodings and declared errors even when dynamic values prevent byte equality."
+proposal = "Add method-aware schema/error validators in tests/integration/evm_module/rpc_io_test/io.go and preserve exact expectations for deterministic fields."
+owner_domain = 16
+interface = "7.rpc-eth-feehistory"
+
+[finding.io-unpaired-request]
+file = "tests/integration/evm_module/rpc_io_test/io.go"
+line = 69
+class = "test-gap"
+severity = "medium"
+observed = "A new request overwrites curReq and EOF returns pairs without rejecting an outstanding request, silently dropping intended cases from malformed fixtures."
+expected = "Every request marker in an enabled fixture must have exactly one expected response or fail parsing."
+proposal = "Reject overwritten and EOF-unmatched requests in tests/integration/evm_module/rpc_io_test/io.go and add parser cases proving both errors."
+owner_domain = 16
+
+[finding.io-tests-accept-wrong-result]
+file = "tests/integration/evm_module/rpc_io_test/io_parse_test.go"
+line = 447
+class = "test-gap"
+severity = "medium"
+observed = "TestSpecOnly expects actual result 0x2 to satisfy expected 0x1 and accepts populated error details against an empty error object without schema checks."
+expected = "Comparator coverage must reject wrong deterministic values, malformed quantities and incorrect error codes in a conformance claim."
+proposal = "Extend tests/integration/evm_module/rpc_io_test/io_parse_test.go with method-aware negative schemas and deterministic-value disagreements alongside comparator repair."
+owner_domain = 16
+
+[finding.io-enabled-skips]
+file = "tests/integration/evm_module/rpc_io_test/rpc_io_test.go"
+line = 28
+class = "test-gap"
+severity = "medium"
+observed = "After integration opt-in, missing directories, zero files/pairs, missing reverter or unresolved bindings call t.Skip and can leave a green run without mandatory cases."
+expected = "An explicitly enabled qualification must execute its declared inventory and fail missing required setup."
+proposal = "Fail missing required fixtures/bindings in tests/integration/evm_module/rpc_io_test/rpc_io_test.go and compare executed case identities to a declared inventory."
+owner_domain = 16
+
+[finding.giga-mixed-final-agreement]
+file = "tests/integration/evm_module/scripts/evm_giga_mixed_tests.sh"
+line = 52
+class = "test-gap"
+severity = "medium"
+observed = "The mixed-executor wrapper targets node 0 after startup markers but never requires every validator to stay live and agree after the workload."
+expected = "Mixed-executor correctness needs post-workload committed progress and same-height AppHash agreement across both executor modes."
+proposal = "Add bounded all-validator post-workload progress/hash checks in tests/integration/evm_module/scripts/evm_giga_mixed_tests.sh and preserve failure diagnostics via an EXIT trap."
+owner_domain = 16
+interface = "16.mk-docker-cluster-start-giga-mixed"
+
+[finding.giga-unfrozen-fallback]
+file = "tests/integration/evm_module/scripts/evm_giga_tests.sh"
+line = 21
+class = "config-drift"
+severity = "medium"
+observed = "Failed npm ci --prefer-offline falls back to npm install, allowing new dependency resolution or lock mutation instead of exposing the frozen-install failure."
+expected = "Requirements 22108.1, 22076.1 and 22117.1 require the recorded manifest/lock to install reproducibly with the frozen command."
+proposal = "Remove the npm install fallback from tests/integration/evm_module/scripts/evm_giga_tests.sh and repair a broken lock in a separate dependency task with its own evidence."
+owner_domain = 16
+
+[finding.io-setup-suppressed]
+file = "tests/integration/evm_module/scripts/evm_rpc_tests.sh"
+line = 30
+class = "test-gap"
+severity = "medium"
+observed = "Failed sender resolution disables waits, wait_from_seq_advance lacks a timeout failure, and failed deploy/receipt lookup can leave seed/reverter bindings unset."
+expected = "An enabled execution-API run must prove signed setup and committed fixtures before executing all mandatory cases."
+proposal = "Make tests/integration/evm_module/scripts/evm_rpc_tests.sh fail missing sender, failed waits or deployments, validate receipt status and require all mandatory bindings before Go suites."
+owner_domain = 16
+interface = "6.cli-evm-tx-deploy"
+
+[finding.go-ws-header-proof]
+file = "tests/integration/evm_module/ws_test/ws_test.go"
+line = 93
+class = "test-gap"
+severity = "medium"
+observed = "The live newHeads test checks only a few key-presence/nonzero hints and never compares them to the committed block at that height."
+expected = "Declared newHeads includes canonical encodings, roots, bloom, gas usage and identity matching its committed HTTP block."
+proposal = "Decode the full header in tests/integration/evm_module/ws_test/ws_test.go and compare same-height committed fields through eth_getBlockByNumber."
+owner_domain = 16
+interface = "7.ws-eth-subscribe-newheads"
+
+[finding.governance-fixed-time-supply]
+file = "tests/integration/gov_module/gov_proposal_test.yaml"
+line = 106
+class = "test-gap"
+severity = "medium"
+observed = "Governance cases use fixed 20/35-second sleeps and absolute supply totals tied to prior mint state; valid voting delay or other issuance changes the outcome."
+expected = "Proof must observe the submitted proposal lifecycle and measure its own supply delta at committed heights."
+proposal = "In tests/integration/gov_module/gov_proposal_test.yaml poll proposal status with a deadline, capture pre-proposal supply and verify the intended burn delta after execution."
+owner_domain = 16
+
+[finding.staking-proposal-fixed-sleep]
+file = "tests/integration/gov_module/staking_proposal_test.yaml"
+line = 30
+class = "test-gap"
+severity = "medium"
+observed = "The staking proposal waits twenty seconds then reads the parameter instead of observing that its specific proposal passed and executed."
+expected = "The named proposal must reach its final lifecycle state before parameter state is attributed to its execution."
+proposal = "Poll the submitted proposal to PASSED in tests/integration/gov_module/staking_proposal_test.yaml and then query the parameter at a committed post-execution height."
+owner_domain = 16
+
+[finding.mint-output-flags]
+file = "tests/integration/mint_module/mint_test.yaml"
+line = 6
+class = "interface-mismatch"
+severity = "high"
+observed = "All minter queries use --output --json; standard query flags require a string output format, so the malformed invocation cannot provide the flattened QueryMinterResponse fields."
+expected = "The registered minter CLI must transport valid JSON with denom, dates and integer amount fields to its YAML consumers."
+proposal = "Use --output json throughout tests/integration/mint_module/mint_test.yaml, propagate query/jq failures and retain every existing amount/date/supply assertion."
+owner_domain = 16
+interface = "3.cli-mint-query-minter"
+
+[finding.oracle-checktx-only]
+file = "tests/integration/oracle_module/set_feeder_test.yaml"
+line = 18
+class = "test-gap"
+severity = "medium"
+observed = "Feeder change and aggregate vote are asserted using helper CheckTx codes, with no committed feeder readback or vote proof before restoration."
+expected = "The scenario must prove the new feeder became authoritative, its vote executed and the original feeder was restored."
+proposal = "Query feeder after each change and assert the committed vote outcome in tests/integration/oracle_module/set_feeder_test.yaml."
+owner_domain = 16
+interface = "3.cli-oracle-query-feeder"
+
+[finding.oracle-zero-window]
+file = "tests/integration/oracle_module/verify_penalty_counts.yaml"
+line = 37
+class = "runtime-risk"
+severity = "medium"
+observed = "SUCCESS_PERCENT divides by TOTAL_COUNT without guarding zero; early vote windows can have no counted votes."
+expected = "Oracle coverage must distinguish an empty observation window from a low success percentage and never divide by zero."
+proposal = "Wait for a complete nonempty vote period at a pinned height in tests/integration/oracle_module/verify_penalty_counts.yaml and validate positive parameters before percentage arithmetic."
+owner_domain = 16
+interface = "3.cli-oracle-query-vote-penalty-counter"
+
+[finding.rpc-fork-default-guide]
+file = "tests/integration/rpc_tests/README.md"
+line = 164
+class = "doc-drift"
+severity = "medium"
+observed = "The table advertises unset ETH_MAINNET_FORK_BLOCK as latest, but hardhat/hardhat.config.ts rejects undefined before the fork starts."
+expected = "Reference-node setup must work with its documented variables and describe a deterministic block policy accurately."
+proposal = "Document a required positive pinned block in tests/integration/rpc_tests/README.md and include it in the complete manual fork command."
+owner_domain = 16
+
+[finding.accountless-old-host]
+file = "tests/integration/rpc_tests/config/endpoints.ts"
+line = 17
+class = "config-drift"
+severity = "medium"
+observed = "RPC_ACCOUNTLESS defaults to evm-rpc.pax-apis.com rather than a declared mainnet-beta root RPC or an isolated keyless fixture."
+expected = "Empty-account behavior must target a known keyless node on the intended chain using its current declared transport."
+proposal = "Require an explicit verified keyless endpoint or local keyless fixture in tests/integration/rpc_tests/config/endpoints.ts, using mainnet-beta root hosts for public mode."
+owner_domain = 16
+interface = "7.rpc-eth-accounts"
+
+[finding.delegated-execution-auth]
+file = "tests/integration/rpc_tests/contracts/SimpleAccount7702.sol"
+line = 20
+class = "security"
+severity = "medium"
+observed = "SimpleAccount7702.executeBatch accepts any caller and forwards arbitrary value/calldata in the delegated EOA context, exposing the funded fixture account to unauthorized execution."
+expected = "The delegation fixture must maintain an explicit execution authorization boundary even on configured remote test chains."
+proposal = "Add a self-call or verified signed-execution policy in tests/integration/rpc_tests/contracts/SimpleAccount7702.sol and prove another wallet cannot spend the delegated balance."
+owner_domain = 16
+
+[finding.accountless-silent-skip]
+file = "tests/integration/rpc_tests/eth/eth_accounts.spec.ts"
+line = 60
+class = "test-gap"
+severity = "medium"
+observed = "The only keyless eth_accounts empty-array case calls this.skip on an unreachable external endpoint, hiding null-serialization regressions."
+expected = "The declared keyless result needs a required reachable fixture in a qualifying integration run."
+proposal = "Provision a local keyless node for tests/integration/rpc_tests/eth/eth_accounts.spec.ts and fail its required readiness rather than skipping serialization coverage."
+owner_domain = 16
+interface = "7.rpc-eth-accounts"
+
+[finding.call-nonce-override-observability]
+file = "tests/integration/rpc_tests/eth/eth_call.spec.ts"
+line = 526
+class = "test-gap"
+severity = "medium"
+observed = "The nonce-override case reads balanceOf and checks a hex result, which is unchanged if the node ignores the override completely."
+expected = "Override conformance must observe behavior that depends on that exact override and verify persistent account state is unchanged."
+proposal = "Add an observable nonce-dependent creation/call fixture in tests/integration/rpc_tests/eth/eth_call.spec.ts and compare the real overridden result to geth."
+owner_domain = 16
+
+[finding.chain-id-legacy-table]
+file = "tests/integration/rpc_tests/eth/eth_chainId.spec.ts"
+line = 7
+class = "config-drift"
+severity = "medium"
+observed = "The mapping accepts 1329/1328/713715 with fallback 713714, so correct merged-network id 125 fails its mapping assertion."
+expected = "Integration must validate configured merged-network identity 125 rather than require legacy network IDs."
+proposal = "Replace the legacy table in tests/integration/rpc_tests/eth/eth_chainId.spec.ts with explicit expected network configuration and require 0x7d in merged mainnet-beta mode."
+owner_domain = 16
+
+[finding.feehistory-zero-quantity]
+file = "tests/integration/rpc_tests/eth/eth_feeHistory.spec.ts"
+line = 198
+class = "interface-mismatch"
+severity = "high"
+observed = "rpc/info.go returns a zero-value FeeHistoryResult for blockCount zero, so nil OldestBlock marshals as null; the consumer requires canonical 0x0 and both related tests are skipped."
+expected = "The declared fee-history interface must round-trip oldestBlock as a quantity for an empty range; geth FeeHistory returns common.Big0 for this input."
+proposal = "Initialize zero-count oldestBlock to a zero hex quantity in rpc/info.go and enable preserved spec/parity cases in tests/integration/rpc_tests/eth/eth_feeHistory.spec.ts over actual Pax/geth transports."
+owner_domain = 7
+interface = "7.rpc-eth-feehistory"
+
+[finding.feehistory-disabled-regressions]
+file = "tests/integration/rpc_tests/eth/eth_feeHistory.spec.ts"
+line = 295
+class = "test-gap"
+severity = "medium"
+observed = "Two it.skip declarations disable the known zero-count spec and parity assertions as expected failures, excluding a confirmed public response-shape defect from passing runs."
+expected = "Requirement 22998.1 requires repair without skipped, expected-failing or weakened regression tests."
+proposal = "Repair the producer and restore both cases in tests/integration/rpc_tests/eth/eth_feeHistory.spec.ts with their canonical quantity and real reference-node assertions intact."
+owner_domain = 16
+interface = "7.rpc-eth-feehistory"
+
+[finding.gasprice-spec-neighbor]
+file = "tests/integration/rpc_tests/eth/eth_gasPrice.spec.ts"
+line = 58
+class = "test-gap"
+severity = "medium"
+observed = "Gas-price cases delegate to a helper accepting any neighboring block fee formula and can accept the wrong next fee for the stable sampled height."
+expected = "Requirement 181218.1 requires exact sampled next base fee times 110/100 plus one gwei on an uncongested chain."
+proposal = "Pin sample height and exact pending/successor fee in tests/integration/rpc_tests/eth/eth_gasPrice.spec.ts and its helper, retaining idle-floor assertions."
+owner_domain = 16
+interface = "7.rpc-eth-gasprice"
+
+[finding.hash-block-fee-skips]
+file = "tests/integration/rpc_tests/eth/eth_getBlockByHash.spec.ts"
+line = 269
+class = "test-gap"
+severity = "medium"
+observed = "Fee-market cases skip when params is null or burst.maxBlock is zero, including swallowed parameter-query and submission failures."
+expected = "Required fee-market scenarios must establish valid parameters and an included workload or fail with the actual setup error."
+proposal = "Make mandatory parameter/load setup fail in tests/integration/rpc_tests/eth/eth_getBlockByHash.spec.ts while retaining fee transitions at pinned block hashes."
+owner_domain = 16
+interface = "7.rpc-eth-getblockbyhash"
+
+[finding.number-block-fee-skips]
+file = "tests/integration/rpc_tests/eth/eth_getBlockByNumber.spec.ts"
+line = 312
+class = "test-gap"
+severity = "medium"
+observed = "Both fee-market assertions skip when parameter or load setup fails, allowing the scenario to disappear after an infrastructure or transaction error."
+expected = "Selected fee-market checks must execute their real workload and fail missing required setup."
+proposal = "Reject failed parameter/load preparation in tests/integration/rpc_tests/eth/eth_getBlockByNumber.spec.ts and assert transitions at identified committed heights."
+owner_domain = 16
+
+[finding.receipts-dualvm-skip]
+file = "tests/integration/rpc_tests/eth/eth_getBlockReceipts.spec.ts"
+line = 601
+class = "test-gap"
+severity = "medium"
+observed = "After four concurrent native/EVM attempts the Cosmos exclusion group skips if heights do not match; nonzero native execution codes do not immediately fail setup."
+expected = "Receipt VM-boundary coverage must establish successful co-located transactions and cannot vanish when fixture setup fails."
+proposal = "Use controlled co-location in tests/integration/rpc_tests/eth/eth_getBlockReceipts.spec.ts, reject failed native transactions and fail required setup with bounded diagnostics."
+owner_domain = 16
+interface = "7.rpc-eth-getblockreceipts"
+
+[finding.txcount-latest-race]
+file = "tests/integration/rpc_tests/eth/eth_getBlockTransactionCountByNumber.spec.ts"
+line = 71
+class = "test-gap"
+severity = "medium"
+observed = "Concurrent latest count and latest block requests are not pinned to one height; a commit between them can make two valid answers disagree."
+expected = "Count/list equality must compare one committed block instead of independently resolved latest aliases."
+proposal = "Pin a numeric height in tests/integration/rpc_tests/eth/eth_getBlockTransactionCountByNumber.spec.ts or prove stable surrounding heads before asserting equality."
+owner_domain = 16
+interface = "7.rpc-eth-getblocktransactioncountbynumber"
+
+[finding.txcount-dualvm-skip]
+file = "tests/integration/rpc_tests/eth/eth_getBlockTransactionCountByNumber.spec.ts"
+line = 117
+class = "test-gap"
+severity = "medium"
+observed = "Cosmos and CW20 exclusion groups skip if bounded attempts fail to land transactions at one height, removing the central boundary proof from the run."
+expected = "Required native/EVM exclusion coverage must use a known shared block and distinguish failed setup from successful qualification."
+proposal = "Establish controlled shared-block fixtures in tests/integration/rpc_tests/eth/eth_getBlockTransactionCountByNumber.spec.ts and fail required co-location errors; keep explicit disabled-Wasm mode separate."
+owner_domain = 16
+interface = "7.rpc-eth-getblocktransactioncountbynumber"
+
+[finding.logs-optional-wasm]
+file = "tests/integration/rpc_tests/eth/eth_getLogs.spec.ts"
+line = 250
+class = "config-drift"
+severity = "medium"
+observed = "The pointer log case dereferences runtime.wasm!.actor and cw20Pointer without a guard although bootstrap deliberately omits wasm on disabled chains."
+expected = "The declared optional runtime shape must be consumed consistently with the selected test capability mode."
+proposal = "Enforce declared Wasm capability before pointer cases in tests/integration/rpc_tests/eth/eth_getLogs.spec.ts and retain separately qualified Wasm-enabled coverage."
+owner_domain = 16
+
+[finding.logs-transaction-index-origin]
+file = "tests/integration/rpc_tests/eth/eth_getLogs.spec.ts"
+line = 325
+class = "test-gap"
+severity = "medium"
+observed = "The multiple-logs-from-one-tx case requires indices starting at zero within txLogs although canonical logIndex is block-global."
+expected = "Filtered transaction logs must preserve their original block-global indices when earlier transactions emitted logs."
+proposal = "Compare relative contiguous indices and their positions in the complete block log list in tests/integration/rpc_tests/eth/eth_getLogs.spec.ts."
+owner_domain = 16
+
+[finding.subscription-restart-proof]
+file = "tests/integration/rpc_tests/eth/eth_subscribe.spec.ts"
+line = 0
+class = "test-gap"
+severity = "medium"
+observed = "The WS suite proves subscriptions/unsubscribe within one live connection but never restarts or reconnects around a committed event boundary."
+expected = "The real transport proof must cover restart/recovery and distinguish connection-local subscriptions from durable committed events."
+proposal = "Add bounded restart/reconnect coverage in tests/integration/rpc_tests/eth/eth_subscribe.spec.ts, establish a fresh subscription and compare notifications plus HTTP catch-up against committed blocks."
+owner_domain = 16
+interface = "7.ws-eth-subscribe-newheads"
+
+[finding.fork-readme-latest]
+file = "tests/integration/rpc_tests/hardhat/README.md"
+line = 31
+class = "doc-drift"
+severity = "medium"
+observed = "The optional fork guide advertises unset ETH_MAINNET_FORK_BLOCK as latest, but executable configuration rejects undefined."
+expected = "Reference-node instructions must identify every required variable for a runnable deterministic fork."
+proposal = "Require a positive pinned block in tests/integration/rpc_tests/hardhat/README.md and include it in the displayed startup command."
+owner_domain = 16
+
+[finding.fork-optional-validation]
+file = "tests/integration/rpc_tests/hardhat/hardhat.config.ts"
+line = 30
+class = "config-drift"
+severity = "medium"
+observed = "FORK_BLOCK is undefined when unset and fails Number.isSafeInteger even though the config header describes it as optional."
+expected = "Configuration validation, header and both guides must agree on the required pinned-block policy."
+proposal = "Make the positive pinned-block requirement explicit in tests/integration/rpc_tests/hardhat/hardhat.config.ts with a clear missing-value error and matching README commands."
+owner_domain = 16
+
+[finding.geth-reference-pin]
+file = "tests/integration/rpc_tests/scripts/run-ci.sh"
+line = 101
+class = "config-drift"
+severity = "medium"
+observed = "ensure_geth warns but accepts an installed version differing from GETH_VERSION, letting machine PATH silently change byte-identical parity expectations."
+expected = "The actual reference must match the declared pinned version or be an explicitly recorded distinct comparison configuration."
+proposal = "Enforce exact reference version in tests/integration/rpc_tests/scripts/run-ci.sh, install an isolated pinned binary as needed and record the version in reports."
+owner_domain = 16
+
+[finding.rpc-request-deadline]
+file = "tests/integration/rpc_tests/utils/chainUtils.ts"
+line = 90
+class = "runtime-risk"
+severity = "medium"
+observed = "rawJsonRpc fetch has no abort deadline, and waitUntil awaits callbacks before checking elapsed time; a hung request can outlive the intended bound."
+expected = "Bounded live-network tests must terminate in-flight requests and release resources at their deadline."
+proposal = "Add AbortSignal request deadlines in tests/integration/rpc_tests/utils/chainUtils.ts and propagate the overall polling deadline to each attempt."
+owner_domain = 16
+
+[finding.rpc-parameter-failure-mask]
+file = "tests/integration/rpc_tests/utils/chainUtils.ts"
+line = 206
+class = "test-gap"
+severity = "medium"
+observed = "queryEip1559Params always queries pax-node-0 and converts every command/JSON failure to null, causing callers to omit fee-formula checks."
+expected = "Fee validation must read parameters from the same selected chain and distinguish unsupported capability from broken queries."
+proposal = "Query validated same-chain parameters in tests/integration/rpc_tests/utils/chainUtils.ts and propagate failures in mandatory fee scenarios instead of reducing coverage."
+owner_domain = 16
+
+[finding.rpc-default-chain-id]
+file = "tests/integration/rpc_tests/utils/constants.ts"
+line = 26
+class = "config-drift"
+severity = "medium"
+observed = "DEFAULT_EVM_CHAIN_ID exports legacy 713714 while the merged-network contract fixes EVM identity at 125."
+expected = "Shared merged-network fixture constants must use actual configured identity without a legacy silent fallback."
+proposal = "Replace the legacy default in tests/integration/rpc_tests/utils/constants.ts with explicit validated network identity and name historical fixture configurations separately."
+owner_domain = 16
+
+[finding.cosmos-docker-chain-binding]
+file = "tests/integration/rpc_tests/utils/cosmosUtils.ts"
+line = 153
+class = "config-drift"
+severity = "medium"
+observed = "Docker funding targets fixed pax-node-0 while bank/association clients use configurable cosmosRpc; container presence does not prove these endpoints share a chain."
+expected = "Funding, association and EVM observation must agree on genesis/network identity across their transports."
+proposal = "Validate container/configured endpoint chain identity in tests/integration/rpc_tests/utils/cosmosUtils.ts before selecting Docker funding or use an explicit signer on the configured endpoint."
+owner_domain = 16
+
+[finding.feehistory-optional-formula]
+file = "tests/integration/rpc_tests/utils/feeHistoryUtils.ts"
+line = 125
+class = "test-gap"
+severity = "medium"
+observed = "History formula checks depend on optional EIP-1559 parameters and are omitted when the parameter helper returns null, including actual query errors."
+expected = "Fee correctness must prove the forecast against active same-chain parameters rather than silently become structural-only coverage."
+proposal = "Require validated parameters in tests/integration/rpc_tests/utils/feeHistoryUtils.ts formula scenarios and fail mandatory query/decoding setup errors."
+owner_domain = 16
+interface = "7.rpc-eth-feehistory"
+
+[finding.gasprice-neighborhood-formula]
+file = "tests/integration/rpc_tests/utils/gasPriceUtils.ts"
+line = 58
+class = "test-gap"
+severity = "medium"
+observed = "The helper accepts formula values from block-1 through block+2; any congestion in that neighborhood permits merely covering the minimum sampled base fee."
+expected = "Requirement 181218.1 binds exact idle formula and congestion state to the stable sampled block next fee, not neighbors."
+proposal = "Bind sample, congestion inputs and successor fee to one height in tests/integration/rpc_tests/utils/gasPriceUtils.ts and assert exact uncongested integer arithmetic."
+owner_domain = 16
+interface = "7.rpc-eth-gasprice"
+
+[finding.gasprice-neighbor-unit-contract]
+file = "tests/integration/rpc_tests/utils/gasPriceUtils.unit.spec.ts"
+line = 45
+class = "test-gap"
+severity = "medium"
+observed = "sampledNeighbourhoodAcceptsOnlyAnExactNeighbourFormula explicitly accepts four different prices for one sample block, codifying a widened temporal bound."
+expected = "Unit coverage must reject neighboring-block formulas differing from the actual sampled next fee even if each formula is internally exact."
+proposal = "Replace neighbor acceptance in tests/integration/rpc_tests/utils/gasPriceUtils.unit.spec.ts with pinned next-fee cases and reject every wrong neighbor price."
+owner_domain = 16
+interface = "7.rpc-eth-gasprice"
+
+[finding.log0-shape]
+file = "tests/integration/rpc_tests/utils/logsUtils.ts"
+line = 327
+class = "test-gap"
+severity = "medium"
+observed = "expectLogShape requires one through four topics although EVM LOG0 validly emits an empty topics array."
+expected = "A generic log validator must allow zero through four topics while checking every topic encoding."
+proposal = "Accept LOG0 in tests/integration/rpc_tests/utils/logsUtils.ts and add a real zero-topic emitter in transport scenarios while preserving the upper bound and 32-byte topic checks."
+owner_domain = 16
+
+[finding.ws-pending-lifecycle]
+file = "tests/integration/rpc_tests/utils/subscribeUtils.ts"
+line = 51
+class = "runtime-risk"
+severity = "medium"
+observed = "WsClient.call has no deadline or close/error rejection of pending calls; buffers remain after unsubscribe and grow without bounds."
+expected = "Connection-local calls must settle on deadline/disconnect and subscription state must be released or bounded after unsubscribe/close."
+proposal = "Add per-call timers, close/error rejection, buffer cleanup and explicit overflow failure in tests/integration/rpc_tests/utils/subscribeUtils.ts."
+owner_domain = 16
+interface = "7.ws-endpoint-root"
+
+[finding.ws-successor-fee-tolerance]
+file = "tests/integration/rpc_tests/utils/subscribeUtils.ts"
+line = 188
+class = "test-gap"
+severity = "medium"
+observed = "The head fee validator accepts the successor fee if the same-height fee differs, while assertNewHeadMatchesBlock omits roots, bloom and gasUsed."
+expected = "Declared newHeads uses parent context for its own fee and must agree with committed-header and receipt-derived fields at that exact height."
+proposal = "Require same-height fee and complete canonical field equality in tests/integration/rpc_tests/utils/subscribeUtils.ts; repair rpc/subscribe.go/data sources if real transport exposes a race."
+owner_domain = 16
+interface = "7.ws-eth-subscribe-newheads"
+
+[finding.runtime-secret-file]
+file = "tests/integration/rpc_tests/utils/testUtils.ts"
+line = 81
+class = "security"
+severity = "medium"
+observed = "Runtime JSON contains admin mnemonic and funded private keys but is written with default permissions; typical umask 022 leaves it readable by other local users."
+expected = "Secret fixture state must be accessible only to the test principal and excluded from public report artifacts."
+proposal = "Use owner-only directory/file modes and atomic writes in tests/integration/rpc_tests/utils/testUtils.ts, correct existing modes and keep secrets outside uploaded reports."
+owner_domain = 16
+
+[finding.runtime-restart-binding]
+file = "tests/integration/rpc_tests/utils/testUtils.ts"
+line = 95
+class = "restart-recovery"
+severity = "medium"
+observed = "Persisted JSON is cast and cached as RuntimeState without schema, genesis, endpoint or deployed-code checks, permitting stale fixtures after chain replacement."
+expected = "Restarted fixture state must be validated against the actual current chain instance before addresses, keys and heights are used."
+proposal = "Store chain-instance binding and validate schema/genesis/code in tests/integration/rpc_tests/utils/testUtils.ts; reject stale state with a bootstrap-required error."
+owner_domain = 16
+
+[finding.tx-byte-failures-ignored]
+file = "tests/integration/rpc_tests/utils/txUtils.ts"
+line = 933
+class = "test-gap"
+severity = "medium"
+observed = "Reconstruction exceptions and hash mismatches are silently omitted by assertActualBytesAndSize; type 4 is skipped, so a few good transactions can mask corrupted others."
+expected = "A byte proof must reject each supported transaction that cannot reconstruct its signed hash and explicitly verify authorization-list encoding."
+proposal = "Fail per-transaction byte/hash disagreements and implement actual type-4 signed-byte round-tripping in tests/integration/rpc_tests/utils/txUtils.ts."
+owner_domain = 16
+interface = "7.rpc-eth-getblockbyhash"
+
+[finding.load-send-failures-ignored]
+file = "tests/integration/rpc_tests/utils/txUtils.ts"
+line = 1093
+class = "test-gap"
+severity = "medium"
+observed = "burnGasBurst catches all submission/receipt errors and can return maxBlock zero, which consumers use to skip mandatory fee assertions."
+expected = "Fee-load setup must prove successful included execution and retain failures explaining why the required workload was not achieved."
+proposal = "Collect typed outcomes and require the intended included load in tests/integration/rpc_tests/utils/txUtils.ts, failing with bounded diagnostics instead of silently dropping errors."
+owner_domain = 16
+
+[finding.wasm-error-is-disabled]
+file = "tests/integration/rpc_tests/utils/wasmUtils.ts"
+line = 37
+class = "test-gap"
+severity = "medium"
+observed = "isWasmEnabled queries fixed Docker state and maps every command/transport/JSON error to false, making broken setup indistinguishable from disabled capability."
+expected = "Optional mode must reflect successfully validated selected-chain configuration while query failures remain failures."
+proposal = "Query the selected chain and validate capability in tests/integration/rpc_tests/utils/wasmUtils.ts; propagate transport/decoding failures and make disabled mode explicit."
+owner_domain = 16
+
+[finding.wasm-client-cache-key]
+file = "tests/integration/rpc_tests/utils/wasmUtils.ts"
+line = 56
+class = "runtime-risk"
+severity = "medium"
+observed = "adminCosmWasm accepts a mnemonic but caches a single client; a later different mnemonic silently signs as the first account."
+expected = "A helper accepting signer identity must select that signer or reject identity changes rather than silently reuse another signer."
+proposal = "Key the client cache by endpoint and signer identity in tests/integration/rpc_tests/utils/wasmUtils.ts, disconnect discarded clients and keep mnemonic keys out of logs."
+owner_domain = 16
+
+[finding.go-runner-exit-status]
+file = "tests/integration/runner/runner.go"
+line = 160
+class = "runtime-risk"
+severity = "medium"
+observed = "execCmd logs exec.ExitError then returns stdout,nil, so failed setup commands can be treated as successful when later verifiers happen to pass."
+expected = "RunFile must preserve unexpected command failure and distinguish explicit expected-negative commands."
+proposal = "Propagate unexpected exit/stderr in tests/integration/runner/runner.go, add declared expected statuses for negatives and bound subprocess execution with context cancellation."
+owner_domain = 16
+interface = "16.go-integration-runner-runfile-j59"
+
+[finding.go-runner-expression-precedence]
+file = "tests/integration/runner/runner.go"
+line = 209
+class = "test-gap"
+severity = "medium"
+observed = "evalExpr splits and before or, grouping A or B and C as (A or B) and C; evalArith evaluates multiplication left-to-right and ignores a trailing operator."
+expected = "Shared YAML expressions must have equivalent Go/Python meaning and malformed expressions must be rejected."
+proposal = "Implement declared boolean/arithmetic precedence in tests/integration/runner/runner.go and cover mixed operators and dangling operators in eval_test.go."
+owner_domain = 16
+interface = "16.go-integration-runner-evalexpr-j59"
+
+[finding.python-interpolation-boundaries]
+file = "tests/integration/scripts/runner.py"
+line = 75
+class = "security"
+severity = "medium"
+observed = "Captured output is inserted into single-quoted Docker shell arguments and double-quoted Python eval source without escaping; quotes can change executable syntax."
+expected = "Chain output must remain data across subprocess environment and expression evaluation boundaries."
+proposal = "Use argv and shell=False plus bound parsed-expression values in tests/integration/scripts/runner.py instead of constructing shell/eval source from captured output."
+owner_domain = 16
+
+[finding.python-status-timeout]
+file = "tests/integration/scripts/runner.py"
+line = 81
+class = "runtime-risk"
+severity = "medium"
+observed = "Popen waits without timeout and process.returncode is discarded, so a failed command feeds empty data or a hung command strands the suite."
+expected = "Every integration command needs a bound and unexpected exit propagation while explicitly asserted negative execution remains possible."
+proposal = "Enforce deadlines/expected status and capture stderr for private diagnostics in tests/integration/scripts/runner.py; stop later setup after unexpected failure."
+owner_domain = 16
+
+[finding.template-eval-grammar]
+file = "tests/integration/template/template_test.yaml"
+line = 13
+class = "doc-drift"
+severity = "medium"
+observed = "Template comments advertise a valid Python eval for shared YAML although the Go consumer cannot evaluate general Python expressions equivalently."
+expected = "Copyable authoring guidance must constrain expressions to the supported common grammar and identify runner-specific behavior."
+proposal = "Align tests/integration/template/template_test.yaml comments with a validated common grammar and include supported boolean/arithmetic examples."
+owner_domain = 16
+interface = "16.fmt-integration-yaml-suite-j59"
+
+[finding.major-merge-state-coverage]
+file = "tests/integration/upgrade_module/major_upgrade_test.yaml"
+line = 27
+class = "test-gap"
+severity = "medium"
+observed = "The v2.0.0 major fixture checks version/halt behavior without establishing merged-kernel state, work, committed receipts or cross-VM balances before/after upgrade."
+expected = "Merged-network readiness needs the actual supported artifact transition and proof committed application state survives it."
+proposal = "Add a targeted real merge-upgrade scenario under tests/integration/upgrade_module with pinned binaries, pre/post kernel/EVM state, receipt finality and restart assertions while retaining the historical fixture."
+owner_domain = 16
+
+[finding.minor-merge-state-coverage]
+file = "tests/integration/upgrade_module/minor_upgrade_test.yaml"
+line = 27
+class = "test-gap"
+severity = "medium"
+observed = "The v1.0.3 minor fixture checks process/version lifecycle without validating merged-kernel or EVM data preservation."
+expected = "Current upgrade readiness requires the supported artifact transition with committed state and receipt checks across restart."
+proposal = "Add a current-network minor-upgrade proof under tests/integration/upgrade_module covering kernel state, EVM balances/storage and committed receipts, keeping the historical fixture explicitly named."
+owner_domain = 16
+
+[finding.upgrade-launch-unbounded]
+file = "tests/integration/upgrade_module/scripts/launch_cluster.sh"
+line = 13
+class = "runtime-risk"
+severity = "medium"
+observed = "The loop waits forever for exactly four launch.complete lines after backgrounding make, without checking child exit status."
+expected = "Failed cluster setup must terminate within a bound and preserve the actual failed launch evidence."
+proposal = "Track child status and require identified ready nodes with a deadline in tests/integration/upgrade_module/scripts/launch_cluster.sh; reject stale or incomplete markers."
+owner_domain = 16
+interface = "16.mk-docker-cluster-start"
+
+[finding.downgrade-process-only]
+file = "tests/integration/upgrade_module/scripts/paxd_downgrade.sh"
+line = 32
+class = "restart-recovery"
+severity = "medium"
+observed = "The downgrade reports PASS when a matching process exists after its grace sleep, without RPC readiness or a committed block under the intended version."
+expected = "Successful downgrade restart must identify the intended process/binary and establish committed progress with preserved application state."
+proposal = "Retain child PID/version, require bounded RPC/block progress and preserve per-attempt logs in tests/integration/upgrade_module/scripts/paxd_downgrade.sh rather than truncating failure evidence."
+owner_domain = 16
+
+[finding.upgrade-process-only]
+file = "tests/integration/upgrade_module/scripts/paxd_upgrade.sh"
+line = 40
+class = "restart-recovery"
+severity = "medium"
+observed = "The upgrade reports PASS when a matching process exists after its grace sleep, without RPC readiness or a committed block under the intended version."
+expected = "Successful upgrade restart must identify the intended process/binary and establish committed progress with preserved application state."
+proposal = "Retain child PID/version, require bounded RPC/block progress and preserve per-attempt logs in tests/integration/upgrade_module/scripts/paxd_upgrade.sh rather than truncating failure evidence."
+owner_domain = 16
+
+[finding.upgrade-target-stalled-sample]
+file = "tests/integration/upgrade_module/scripts/proposal_target_height.sh"
+line = 30
+class = "runtime-risk"
+severity = "medium"
+observed = "A no-progress interval sample silently substitutes 400ms and returns a target without establishing that voting/scheduling can complete."
+expected = "An upgrade target must derive from validated progress and leave adequate height/time for the actual voting period."
+proposal = "Retry bounded progress sampling and validate positive arithmetic in tests/integration/upgrade_module/scripts/proposal_target_height.sh; fail a stalled chain instead of inventing its interval."
+owner_domain = 16
+
+[finding.upgrade-vote-rejection-success]
+file = "tests/integration/upgrade_module/scripts/proposal_vote.sh"
+line = 24
+class = "test-gap"
+severity = "medium"
+observed = "A CheckTx rejection prints its number and exits zero; YAML ignores that output, so rejected votes look like successful setup."
+expected = "A required vote must immediately fail rejection and prove its committed voting effect before proposal polling."
+proposal = "Return failure for rejection and verify the intended voter/tally in tests/integration/upgrade_module/scripts/proposal_vote.sh before reporting success."
+owner_domain = 16
+
+[finding.upgrade-panic-false-positive]
+file = "tests/integration/upgrade_module/scripts/verify_panic.sh"
+line = 14
+class = "test-gap"
+severity = "medium"
+observed = "Any missing process or target-1 stall is accepted as PASS without proving the scheduled upgrade panic or reaching its halt boundary."
+expected = "Upgrade-halt coverage must identify planned height/version and upgrade-required reason, rejecting unrelated crashes or quorum loss."
+proposal = "Correlate scheduled state, target boundary and specific panic/log evidence in tests/integration/upgrade_module/scripts/verify_panic.sh and fail unexplained stalls/process loss."
+owner_domain = 16
+
+[finding.upgrade-running-process-only]
+file = "tests/integration/upgrade_module/scripts/verify_running.sh"
+line = 8
+class = "test-gap"
+severity = "medium"
+observed = "A pgrep match alone reports PASS, including processes stuck on database recovery or failed RPC startup."
+expected = "Running after upgrade means the intended binary serves the expected chain and commits blocks after recovery."
+proposal = "Require expected process/version, RPC identity and bounded committed-height advancement in tests/integration/upgrade_module/scripts/verify_running.sh."
+owner_domain = 16
+
+[finding.upgrade-log-fallback]
+file = "tests/integration/upgrade_module/scripts/verify_upgrade_needed_log.sh"
+line = 41
+class = "test-gap"
+severity = "medium"
+observed = "The log checker accepts a target-1 stall even if neither encoding of the named UPGRADE NEEDED event exists."
+expected = "A supervisor-trigger-log assertion must prove that exact height/version event rather than a different peer-induced stall."
+proposal = "Keep exact log assertions mandatory in tests/integration/upgrade_module/scripts/verify_upgrade_needed_log.sh and diagnose target-1 stalls without converting missing evidence to PASS."
+owner_domain = 16
+
+[finding.tx-helper-execution-code]
+file = "tests/integration/utils/_tx_helpers.sh"
+line = 120
+class = "test-gap"
+severity = "medium"
+observed = "submit_tx_and_wait returns original CheckTx code after sequence advances; ante handling may consume sequence even when message execution fails."
+expected = "Callers naming the result transaction success or authorization failure need the committed execution code or a transaction-specific effect proof."
+proposal = "Resolve submitted hash to committed execution through supported index/receipt transport in tests/integration/utils/_tx_helpers.sh, returning that code and separately naming CheckTx acceptance."
+owner_domain = 16
+
+[finding.tx-helper-inclusion-fallback]
+file = "tests/integration/utils/_tx_helpers.sh"
+line = 79
+class = "test-gap"
+severity = "medium"
+observed = "bank_send_and_get_height claims exact inclusion but returns h_obs on repeated historical failure or an indexer race; h_obs can be later than the transfer block."
+expected = "Historical assertions require the exact block containing the specific transfer, not a current-height upper bound."
+proposal = "Derive exact inclusion from committed transaction identity in tests/integration/utils/_tx_helpers.sh and fail if it cannot be established before the deadline."
+owner_domain = 16
+
+[finding.wasm-helper-global-identity]
+file = "tests/integration/utils/_tx_helpers.sh"
+line = 154
+class = "runtime-risk"
+severity = "medium"
+observed = "store_wasm returns the globally greatest code ID after growth and instantiate_wasm the first newly listed contract; a concurrent writer can supply another object."
+expected = "Deployment helpers must return the object created by their own signed transaction and verify committed execution success."
+proposal = "Resolve code_id and contract address from that transaction committed events in tests/integration/utils/_tx_helpers.sh and verify checksum, creator and initialization state."
+owner_domain = 16
+
+[finding.root-separate-daemon]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "Architecture says layerxd is a separate C17 daemon with checkpoints settling through layerxAnchor."
+expected = "The finished network is one paxd BFT chain with integrated kernel, EVM id 125 and receipts final at commit; layerxd is retired as a running service."
+proposal = "Rewrite README.md around integrated paxd lifecycle, committed receipts and mainnet-beta root RPCs; replace separate sequencer topology/deployment/recovery instructions."
+owner_domain = 16
+
+[finding.network-separate-settlement]
+file = "docs/paxeer-network.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "Ordinary activity stays on LayerX and Paxeer independently settles checkpoints from a separate LayerX sequencer."
+expected = "The finished network is one paxd BFT chain with integrated kernel, EVM id 125 and receipts final at commit; layerxd is retired as a running service."
+proposal = "Rewrite docs/paxeer-network.md around integrated paxd lifecycle, committed receipts and mainnet-beta root RPCs; replace separate sequencer topology/deployment/recovery instructions."
+owner_domain = 7
+
+[finding.monorepo-running-layerxd]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction identifies the LayerX kernel as layerxd alongside paxd, preserving a separate running-daemon model."
+expected = "The finished network is one paxd BFT chain with integrated kernel, EVM id 125 and receipts final at commit; layerxd is retired as a running service."
+proposal = "Rewrite docs/MONOREPO.md around integrated paxd lifecycle, committed receipts and mainnet-beta root RPCs; replace separate sequencer topology/deployment/recovery instructions."
+owner_domain = 16
+
+[finding.german-overview-separate-runtime]
+file = "docs/site/docs/overview/i18n/de.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The German overview places activity on a separate LayerX network with periodic Paxeer checkpoints and lists layerxd as a native daemon."
+expected = "The finished network is one paxd BFT chain with integrated kernel, EVM id 125 and receipts final at commit; layerxd is retired as a running service."
+proposal = "Rewrite docs/site/docs/overview/i18n/de.md around integrated paxd lifecycle, committed receipts and mainnet-beta root RPCs; replace separate sequencer topology/deployment/recovery instructions."
+owner_domain = 7
+
+[finding.german-readme-separate-runtime]
+file = "docs/readme/README.de.md"
+line = 125
+class = "doc-drift"
+severity = "medium"
+observed = "German architecture describes two execution domains and draws layerxd as an independently running LNI sequencer."
+expected = "The finished network is one paxd BFT chain with integrated kernel, EVM id 125 and receipts final at commit; layerxd is retired as a running service."
+proposal = "Rewrite docs/readme/README.de.md around integrated paxd lifecycle, committed receipts and mainnet-beta root RPCs; replace separate sequencer topology/deployment/recovery instructions."
+owner_domain = 7
+
+[finding.hosted-node-site-retired-topology]
+file = "docs/site/docs/platform/hosted-node.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The guide provisions a separate layerxd sequencer pod and authority replica with daemon configurations, recovery and LNI listeners."
+expected = "The finished network is one paxd BFT chain with integrated kernel, EVM id 125 and receipts final at commit; layerxd is retired as a running service."
+proposal = "Rewrite docs/site/docs/platform/hosted-node.md around integrated paxd lifecycle, committed receipts and mainnet-beta root RPCs; replace separate sequencer topology/deployment/recovery instructions."
+owner_domain = 16
+
+[finding.hosted-node-wiki-retired-topology]
+file = "docs/wiki/HostedNode.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki provisions a separate layerxd sequencer pod and authority replica with independent daemon and LNI recovery operations."
+expected = "The finished network is one paxd BFT chain with integrated kernel, EVM id 125 and receipts final at commit; layerxd is retired as a running service."
+proposal = "Rewrite docs/wiki/HostedNode.md around integrated paxd lifecycle, committed receipts and mainnet-beta root RPCs; replace separate sequencer topology/deployment/recovery instructions."
+owner_domain = 16
+
+[finding.webhooks-site-tls-topology]
+file = "docs/site/docs/platform/webhooks.md"
+line = 249
+class = "doc-drift"
+severity = "medium"
+observed = "Trusted-component prose says inbound TLS has no client authentication, contradicting role deployment instructions requiring an internal-CA client certificate for ingress."
+expected = "Operators need one role-specific policy distinguishing developer TLS from authenticated internal producer ingress."
+proposal = "Rewrite TLS/credential and deployment sections in docs/site/docs/platform/webhooks.md against actual role listener and Railway env-init configuration, removing the blanket no-client-auth claim."
+owner_domain = 8
+
+[finding.webhooks-wiki-tls-topology]
+file = "docs/wiki/HostedWebhooks.md"
+line = 250
+class = "doc-drift"
+severity = "medium"
+observed = "Trusted-component prose says inbound TLS has no client authentication, contradicting role deployment instructions requiring an internal-CA client certificate for ingress."
+expected = "Operators need one role-specific policy distinguishing developer TLS from authenticated internal producer ingress."
+proposal = "Rewrite TLS/credential and deployment sections in docs/wiki/HostedWebhooks.md against actual role listener and Railway env-init configuration, removing the blanket no-client-auth claim."
+owner_domain = 8
+
+[finding.identity-wiki-service-name]
+file = "docs/wiki/HostedIdentity.md"
+line = 9
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki lists control as service-token identity and credential-file key while its table and producer Service enum use testnet."
+expected = "Token identity names must match the exact declared Service enum values so operators provision usable credentials."
+proposal = "Replace control with testnet where it names service identity in docs/wiki/HostedIdentity.md, aligning the producer and site guide."
+owner_domain = 8
+
+[finding.go-python-regex-semantics]
+file = "tests/integration/runner/runner.go"
+line = 192
+class = "test-gap"
+severity = "medium"
+observed = "Go verify uses regexp.MatchString, accepting a match anywhere in captured output, while the Python runner uses re.match and requires the match to start at the beginning."
+expected = "The shared regex verifier must have one explicit matching boundary so identical captured data cannot pass one runner and fail the other."
+proposal = "Define and enforce common prefix or full-match semantics in tests/integration/runner/runner.go and tests/integration/scripts/runner.py, with shared cases containing leading unmatched output."
+owner_domain = 16
+interface = "16.fmt-integration-yaml-suite-j59"
+
+[doc.001]
+path = "README.md"
+status = "stale"
+notes = "Complete page read. Page-specific finding identifies separate LayerX/sequencer/daemon claims requiring rewrite around integrated paxd and commit-final receipts."
+
+[doc.002]
+path = "docs/paxeer-network.md"
+status = "stale"
+notes = "Complete page read. Page-specific finding identifies separate LayerX/sequencer/daemon claims requiring rewrite around integrated paxd and commit-final receipts."
+
+[doc.003]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Complete page read. Page-specific finding identifies separate LayerX/sequencer/daemon claims requiring rewrite around integrated paxd and commit-final receipts."
+
+[doc.004]
+path = "docs/site/docs/overview/i18n/de.md"
+status = "stale"
+notes = "Complete page read. Page-specific finding identifies separate LayerX/sequencer/daemon claims requiring rewrite around integrated paxd and commit-final receipts."
+
+[doc.005]
+path = "docs/site/docs/platform/hosted-node.md"
+status = "stale"
+notes = "Complete page read. Page-specific finding identifies separate LayerX/sequencer/daemon claims requiring rewrite around integrated paxd and commit-final receipts."
+
+[doc.006]
+path = "docs/site/docs/platform/identity.md"
+status = "accurate"
+notes = "Complete guide read: service identities, introspection shapes, TLS, tokens and errors. Site uses actual testnet enum spelling; the wiki divergence is recorded separately."
+
+[doc.007]
+path = "docs/site/docs/platform/webhooks.md"
+status = "stale"
+notes = "Complete delivery, persistence, deployment and auth guide read. Trusted-component TLS paragraph contradicts authenticated ingress in role deployment instructions; see the page-specific finding."
+
+[doc.008]
+path = "docs/readme/README.de.md"
+status = "stale"
+notes = "Complete page read. Page-specific finding identifies separate LayerX/sequencer/daemon claims requiring rewrite around integrated paxd and commit-final receipts."
+
+[doc.009]
+path = "docs/wiki/HostedWebhooks.md"
+status = "stale"
+notes = "Complete delivery, persistence, deployment and auth guide read. Trusted-component TLS paragraph contradicts authenticated ingress in role deployment instructions; see the page-specific finding."
+
+[doc.010]
+path = "docs/wiki/HostedIdentity.md"
+status = "stale"
+notes = "Complete page read and compared to the site guide. Lines 9 and 66 use control for the actual testnet Service identity; see identity-wiki-service-name."
+
+[doc.011]
+path = "docs/wiki/HostedDashboard.md"
+status = "accurate"
+notes = "Complete page read. Standalone Next deployment, port 3000 and read API boundaries agree with docker/platform-dashboard-web/Dockerfile and its dashboard target."
+
+[doc.012]
+path = "docs/wiki/HostedNode.md"
+status = "stale"
+notes = "Complete page read. Page-specific finding identifies separate LayerX/sequencer/daemon claims requiring rewrite around integrated paxd and commit-final receipts."
+
+[doc.013]
+path = "tests/integration/README.md"
+status = "stale"
+notes = "All 80 lines read. Python invocation is real; shared YAML authoring promises lack the Go grammar restrictions and differing precedence. See yaml-eval-contract."
+
+[doc.014]
+path = "tests/integration/dapp_tests/README.md"
+status = "stale"
+notes = "All 45 lines read. Scenario descriptions are recognizable, but environment-selected network guidance omits the independent legacy constants used for native/pointer operations."
+
+[doc.015]
+path = "tests/integration/evm_module/rpc_io_test/RPC_IO_README.md"
+status = "misleading"
+notes = "All 128 lines read. Binding syntax and invocation match; line 85 wrongly treats equal aggregate counts as parity despite potentially different failing case identities."
+
+[doc.016]
+path = "tests/integration/rpc_tests/README.md"
+status = "stale"
+notes = "All 224 lines read. Serial bootstrap/reference orchestration matches code; line 164 unset/latest fork block cannot start the declared configuration."
+
+[doc.017]
+path = "tests/integration/rpc_tests/hardhat/README.md"
+status = "stale"
+notes = "All 40 lines read. Optional fork isolation is sound but lines 4 and 31 advertise a latest-block default rejected by the config."
+
+[doc.018]
+path = "spec/layerx-merge/contracts/test-harness.md"
+status = "accurate"
+notes = "Consulted integration-runner section 204-242. Explicitly pinned historical source contract; current OR error propagation and both suite tables are implemented, so old planned labels are not reopened as live defects."
+
+[doc.019]
+path = "spec/layerx-merge/contracts/evm-rpc.md"
+status = "accurate"
+notes = "Consulted conformance, gas-price, fee-history, WS endpoint and newHeads sections. Quantity and same-height committed-header contracts ground these findings; historical source line references remain pinned."
+
+[doc.020]
+path = "spec/layerx-merge/contracts/sdk-js.md"
+status = "accurate"
+notes = "Consulted encoding-index 3068-3076 and encoding-registry 3322-3330. Both correctly state that integration resolves the external dependency pin rather than the in-tree SDK types."
+
+[doc.021]
+path = "spec/layerx-merge/contracts/address-inventory.md"
+status = "accurate"
+notes = "Consulted tokenfactory creator-query, create-denom message/protobuf and ERC721 inventory sections. Address arity, sender/subdenom fields and canonical selectors agree; consumer defects are recorded separately."
+
+[doc.022]
+path = "spec/layerx-merge/contracts/markets.md"
+status = "accurate"
+notes = "Consulted mint/oracle CLI inventory entries for the package rows. Standard minter query flags and oracle query signatures define these consumer contracts; pinned historical acceptance is not live qualification."
+

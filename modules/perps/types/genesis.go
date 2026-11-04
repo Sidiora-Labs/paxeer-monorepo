@@ -1,8 +1,6 @@
 package types
 
 import (
-	"fmt"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/holiman/uint256"
 )
@@ -146,7 +144,7 @@ func DefaultGenesis() *GenesisState {
 }
 
 func invalidGenesis(format string, args ...any) error {
-	return fmt.Errorf("%w: "+format, append([]any{ErrInvalidGenesis}, args...)...)
+	return ErrInvalidGenesis.Wrapf(format, args...)
 }
 
 type genesisIndex struct {
@@ -166,7 +164,7 @@ type genesisIndex struct {
 // id and sequence.
 func ValidateGenesis(gs GenesisState) error {
 	if err := gs.Params.Validate(); err != nil {
-		return fmt.Errorf("%w: %w", ErrInvalidGenesis, err)
+		return ErrInvalidGenesis.Wrap(err.Error())
 	}
 	idx := genesisIndex{
 		markets:   map[uint64]bool{},
@@ -177,6 +175,7 @@ func ValidateGenesis(gs GenesisState) error {
 	for _, check := range []func(GenesisState) error{
 		idx.validateMarkets, idx.validateAccounts, idx.validateOrders, idx.validateOrderIndexes,
 		idx.validatePositions, idx.validatePositionIndexes, idx.validateVolumes, validateCounters,
+		idx.validateOwnershipAndTotals,
 	} {
 		if err := check(gs); err != nil {
 			return err
@@ -188,7 +187,7 @@ func ValidateGenesis(gs GenesisState) error {
 func (idx genesisIndex) validateMarkets(gs GenesisState) error {
 	for _, market := range gs.Markets {
 		if err := market.Validate(); err != nil {
-			return fmt.Errorf("%w: %w", ErrInvalidGenesis, err)
+			return ErrInvalidGenesis.Wrap(err.Error())
 		}
 		if idx.markets[market.ID] {
 			return invalidGenesis("duplicate market %d", market.ID)
@@ -532,6 +531,75 @@ func validateCounters(gs GenesisState) error {
 	}
 	if gs.Counters.NextSequence <= maxSequence {
 		return invalidGenesis("next placement sequence %d not above stored sequence %d", gs.Counters.NextSequence, maxSequence)
+	}
+	return nil
+}
+
+// validateOwnershipAndTotals reconciles the canonical liabilities with the
+// ownership keys and aggregates that recovery consumers read directly.
+func (idx genesisIndex) validateOwnershipAndTotals(gs GenesisState) error {
+	orderOwners := make(map[uint256.Int]bool, len(gs.AccountOrders))
+	for _, entry := range gs.AccountOrders {
+		order := idx.orders[entry.OrderID]
+		if order.Status != OrderStatusResting && order.Status != OrderStatusUntriggered {
+			return invalidGenesis("account order entry of closed order %s", entry.OrderID.Dec())
+		}
+		orderOwners[entry.OrderID] = true
+	}
+	orderCounts := map[common.Address]uint64{}
+	for _, order := range gs.Orders {
+		if order.Status != OrderStatusResting && order.Status != OrderStatusUntriggered {
+			continue
+		}
+		if !orderOwners[order.ID] {
+			return invalidGenesis("open order %s without an account order entry", order.ID.Dec())
+		}
+		orderCounts[order.Account]++
+	}
+	positionOwners := make(map[uint256.Int]bool, len(gs.AccountMarketPositions))
+	for _, entry := range gs.AccountMarketPositions {
+		positionOwners[entry.PositionID] = true
+	}
+	positionCounts := map[common.Address]uint64{}
+	type interests struct{ long, short uint256.Int }
+	totals := map[uint64]interests{}
+	for _, position := range gs.Positions {
+		if !positionOwners[position.ID] {
+			return invalidGenesis("position %s without an account market entry", position.ID.Dec())
+		}
+		positionCounts[position.Account]++
+		total := totals[position.MarketID]
+		side := &total.short
+		if position.IsLong {
+			side = &total.long
+		}
+		if _, overflow := side.AddOverflow(side, &position.SizeBase); overflow {
+			return invalidGenesis("market %d position open interest overflows 256 bits", position.MarketID)
+		}
+		totals[position.MarketID] = total
+	}
+	for _, account := range gs.Accounts {
+		if account.OpenOrderCount != orderCounts[account.Address] {
+			return invalidGenesis("account %s open order count %d differs from canonical count %d",
+				account.Address, account.OpenOrderCount, orderCounts[account.Address])
+		}
+		if account.PositionCount != positionCounts[account.Address] {
+			return invalidGenesis("account %s position count %d differs from canonical count %d",
+				account.Address, account.PositionCount, positionCounts[account.Address])
+		}
+	}
+	for _, state := range gs.MarketStates {
+		total := totals[state.MarketID]
+		if !state.LongOpenInterest.Eq(&total.long) || !state.ShortOpenInterest.Eq(&total.short) {
+			return invalidGenesis("market %d open interest disagrees with canonical positions", state.MarketID)
+		}
+		if !total.long.Eq(&total.short) {
+			return invalidGenesis("market %d long and short open interest differ", state.MarketID)
+		}
+		delete(totals, state.MarketID)
+	}
+	for marketID := range totals {
+		return invalidGenesis("market %d positions without a market state", marketID)
 	}
 	return nil
 }
