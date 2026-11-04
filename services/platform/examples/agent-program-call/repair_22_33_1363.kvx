@@ -1,0 +1,24 @@
+[repair.22.33.1363]
+audit = "22.30.74"
+finding = "program-raw-transaction-fetch-bounds"
+source_revision = "72c91077cb966f1c4c640ded61b4b259f41cad90"
+implementation = "The initial raw-transaction POST has a ten-second absolute deadline covering headers and body, and counts streamed bytes before buffering or JSON decoding. The cap is two MiB plus one KiB for the JSON-RPC envelope, preserving the existing one-MiB decoded transaction bound. Every completion or failure clears the timer, aborts the fetch and releases the reader. Transport failure, timeout, overflow and undecodable bodies preserve unknown fate. Hash matching and height-scoped pinned-key signature verification remain mandatory."
+proof = "services/platform/examples/test/repair-22-33-1363.test.mjs invokes the production verifyCalledReceipt with loopback HTTP peers and the committed program-call transcript from sdk/platform/conformance/fixtures/sequencer-receipt-v1.json, produced by rpc/sequencer_receipt_vectors_test.go. It asserts both JSON-RPC requests and the verified proof, cancellation of stalled or oversized streams, raw-byte limits, hash binding, receipt signature and key-height checks, and existing response-state classifications. No subprocess, external service, credential or environment variable is needed."
+baseline = "Not run: the explicit ordered gate rules require complete implementation before any test and prohibit running verify_cmd by hand. No pre-change test failures are claimed."
+qualification = "hf-build then hf-done record the exact candidate revision, command, exit code and private log in /out/run/gates.jsonl; the final evidence line identifies the verified revision. No passing gate is claimed without that record."
+wiring = "None: the finding's proposal is entirely inside the declared paths. The shared SequencerReceiptClient transport is outside scope and unchanged."
+
+[finding.program-raw-transaction-fetch-bounds]
+tests = ["program_raw_transaction_fetch_verifies_bounded_producer_transcript", "program_raw_transaction_fetch_caps_streamed_bytes_before_decoding", "program_raw_transaction_fetch_deadline_covers_headers_body_and_drips", "program_raw_transaction_fetch_preserves_hash_and_raw_bounds", "program_raw_transaction_fetch_preserves_pinned_key_height_and_signature_checks", "program_raw_transaction_fetch_preserves_response_states"]
+
+[gotcha.scope]
+observed = "Task-local scope excludes GOTCHA.kvx and spec records; the pre-change test instruction conflicts with the explicit implementation-first gate order."
+action = "Keep the baseline limitation and finding-to-test mapping in this in-scope repair record, and use only the authorized gate wrappers without editing global ledgers or spec files."
+
+[qualification.repair-1]
+revision = "6ddd34c510bba1f87607194b27cfedd893d560c5"
+command = "cg spec done 22.33.1363 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The gate failed at module loading because the workspace SDK export points at absent dist/src/index.js; no behavioral test executed."
+repair = "The test loads the complete real SDK source entry and its relative TypeScript modules through Node's in-process module hooks and type transformation; no SDK build, subprocess, generated artifact or replacement implementation is needed."
