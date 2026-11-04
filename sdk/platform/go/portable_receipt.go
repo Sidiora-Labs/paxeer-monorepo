@@ -47,7 +47,7 @@ func portableKey(key ReceiptKey) PortableReceiptKey {
 		FirstHeight: "0x" + strconv.FormatUint(key.FirstHeight, 16), LastHeight: "0x" + strconv.FormatUint(key.LastHeight, 16)}
 }
 
-func ExportPortableReceipt(receiptJSON, rawTransaction []byte, keys ReceiptKeys, committed *PortableCommittedEvidence) (PortableReceipt, error) {
+func ExportPortableReceipt(receiptJSON, rawTransaction []byte, keys ReceiptKeys, committed *PortableCommittedEvidence, trust ...CommittedTrust) (PortableReceipt, error) {
 	r, err := VerifySequencerReceipt(receiptJSON, rawTransaction, keys)
 	if err != nil {
 		return PortableReceipt{}, err
@@ -70,7 +70,7 @@ func ExportPortableReceipt(receiptJSON, rawTransaction []byte, keys ReceiptKeys,
 		p.Commit = &committed.Commit
 		p.ValidatorSet = committed.ValidatorSet
 	}
-	if _, err := p.verify(keys); err != nil {
+	if _, err := p.verify(keys, trust...); err != nil {
 		return PortableReceipt{}, err
 	}
 	return p, nil
@@ -92,19 +92,19 @@ func (p PortableReceipt) export() ([]byte, error) {
 	return data, nil
 }
 
-func VerifyPortableReceipt(data []byte, keys ReceiptKeys) (SequencerReceiptVerification, error) {
+func VerifyPortableReceipt(data []byte, keys ReceiptKeys, trust ...CommittedTrust) (SequencerReceiptVerification, error) {
 	var p PortableReceipt
 	if err := json.Unmarshal(data, &p); err != nil {
 		return SequencerReceiptVerification{}, receiptFailure("portable-decode")
 	}
-	return p.verify(keys)
+	return p.verify(keys, trust...)
 }
 
-func (p PortableReceipt) Verify(keys ReceiptKeys) (SequencerReceiptVerification, error) {
-	return p.verify(keys)
+func (p PortableReceipt) Verify(keys ReceiptKeys, trust ...CommittedTrust) (SequencerReceiptVerification, error) {
+	return p.verify(keys, trust...)
 }
 
-func (p PortableReceipt) verify(keys ReceiptKeys) (SequencerReceiptVerification, error) {
+func (p PortableReceipt) verify(keys ReceiptKeys, trust ...CommittedTrust) (SequencerReceiptVerification, error) {
 	fail := func(check ReceiptCheck) (SequencerReceiptVerification, error) {
 		return SequencerReceiptVerification{}, receiptFailure(check)
 	}
@@ -138,7 +138,7 @@ func (p PortableReceipt) verify(keys ReceiptKeys) (SequencerReceiptVerification,
 	if !ok || !bytes.Equal(raw, wrapped) {
 		return fail(ReceiptCheckRawTransaction)
 	}
-	committed, err := VerifyCommittedReceipt(r, *p.BlockHeader, *p.ReceiptInclusion, *p.Commit, p.ValidatorSet)
+	committed, err := VerifyCommittedReceipt(r, *p.BlockHeader, *p.ReceiptInclusion, *p.Commit, p.ValidatorSet, trust...)
 	if err != nil {
 		return SequencerReceiptVerification{}, err
 	}

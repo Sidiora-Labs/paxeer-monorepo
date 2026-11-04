@@ -594,7 +594,13 @@ func (r *ReceiptRevert) Error() string {
 	return "execution reverted"
 }
 
+type CommittedCoordinate struct {
+	Height    uint64
+	BlockHash [32]byte
+}
+
 type SequencerReceiptVerification struct {
+	TransportBlock *CommittedCoordinate
 	VerifiedReceipt
 	Rung       string
 	Status     uint64
@@ -612,6 +618,8 @@ type SequencerReceiptLog struct {
 
 type sequencerReceiptJSON struct {
 	Rung              string                `json:"rung"`
+	BlockNumber       *string               `json:"blockNumber,omitempty"`
+	BlockHash         *string               `json:"blockHash,omitempty"`
 	TxHash            string                `json:"txHash"`
 	Nonce             string                `json:"nonce"`
 	Seq               string                `json:"seq"`
@@ -741,6 +749,13 @@ func VerifySequencerReceipt(receiptBytes, rawTransaction []byte, keys ReceiptKey
 			Facts: ProtocolReceiptFacts{ResultCode: r.ResultCode, Asset: r.Asset, Amount: r.Amount, FeeCharged: r.FeeCharged}},
 		Rung: string(VerificationReceipted), Status: status, ReturnData: append([]byte(nil), data...), Logs: view.Logs,
 	}
+	if view.BlockNumber != nil {
+		number, _ := receiptQuantity(*view.BlockNumber, 63)
+		hash, _ := receiptHex(*view.BlockHash)
+		coordinate := &CommittedCoordinate{Height: number.Uint64()}
+		copy(coordinate.BlockHash[:], hash)
+		result.TransportBlock = coordinate
+	}
 	if status == 0 {
 		result.Revert = decodeReceiptRevert(data)
 	}
@@ -780,8 +795,18 @@ func receiptQuantityEquals(value string, expected uint64) bool {
 
 func verifySequencerFields(v sequencerReceiptJSON, r ProtocolReceipt, height uint64) (uint64, error) {
 	fail := func() (uint64, error) { return 0, receiptFailure(ReceiptCheckFields) }
-	if v.Rung != "receipted" || r.ModuleID <= 11 || r.ModuleVersion != 1 || r.ParameterVersion != 0 || r.ProgramOutcome != nil || r.GlobalSequence == 0 || height == 0 || r.Timestamp == 0 || len(r.Effects) == 0 || r.ResultCode < 0 || r.ResultCode > 1 {
+	if (v.Rung != "receipted" && v.Rung != "committed") || r.ModuleID <= 11 || r.ModuleVersion != 1 || r.ParameterVersion != 0 || r.ProgramOutcome != nil || r.GlobalSequence == 0 || height == 0 || r.Timestamp == 0 || len(r.Effects) == 0 || r.ResultCode < 0 || r.ResultCode > 1 {
 		return fail()
+	}
+	if (v.BlockNumber == nil) != (v.BlockHash == nil) || v.Rung == "committed" && v.BlockNumber == nil {
+		return fail()
+	}
+	if v.BlockNumber != nil {
+		number, ok := receiptQuantity(*v.BlockNumber, 63)
+		hash, valid := receiptHex(*v.BlockHash)
+		if !ok || number.Sign() <= 0 || number.Uint64() < height || !valid || len(hash) != 32 || bytes.Equal(hash, make([]byte, 32)) {
+			return fail()
+		}
 	}
 	status := uint64(1 - r.ResultCode)
 	if !receiptHexEquals(v.TxHash, r.ActivityID[:]) || !receiptHexEquals(v.KeyID, r.ContextHash[:]) ||

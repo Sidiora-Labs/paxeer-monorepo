@@ -358,6 +358,25 @@ func (request NativeProgramLifecycleRequest) EVMCalldata() ([]byte, error) {
 		}
 		head := [][]byte{value.ProgramID[:], programABIWord(uint64(value.GuestABI)), programABIWord(flags), value.OldHash[:], value.NewHash[:], nil, nil, nil, programABIFee(request.FeeLimit)}
 		return programABIDynamic("a860929f", head, []int{5, 6, 7}, [][]byte{value.MigrationHook, value.Interface, value.Wasm}), nil
+	case 7:
+		value, err := DecodeNativeProgramWindDown(request.payload)
+		if err != nil {
+			return nil, err
+		}
+		switch value.Operation {
+		case 1:
+			return programABIDynamic("23330dd5", [][]byte{value.ProgramID[:], value.Account[:], value.Asset[:], value.Destination[:], nil}, []int{4}, [][]byte{value.Seed}), nil
+		case 2:
+			if value.ExitProgram != value.ProgramID {
+				return nil, lifecycleInvalid()
+			}
+			return programABI("86ba1a99", value.ProgramID[:], value.ExitProgram[:], programABIWord(value.DeadlineBatch)), nil
+		case 3:
+			return programABI("a512f1a9", value.ProgramID[:]), nil
+		case 4:
+			return programABI("4dc50730", value.ProgramID[:], value.Account[:]), nil
+		}
+		return nil, lifecycleInvalid()
 	default:
 		return nil, lifecycleInvalid()
 	}
@@ -396,25 +415,25 @@ func (programs *Programs) Upgrade(ctx context.Context, value NativeProgramUpgrad
 	return ProgramSubmission{State: ProgramSubmissionPrepared, Transaction: &tx, IdempotencyKey: key.String()}, nil
 }
 
-func (programs *Programs) WindDown(ctx context.Context, value NativeProgramWindDown, signed []byte, key IdempotencyKey) (VerifiedReceipt, error) {
+func (programs *Programs) WindDown(ctx context.Context, value NativeProgramWindDown, signed []byte, key IdempotencyKey) (ProgramSubmission, error) {
 	payload, err := EncodeNativeProgramWindDown(value)
 	if err != nil {
-		return VerifiedReceipt{}, err
+		return ProgramSubmission{}, err
 	}
-	request, err := NewNativeProgramLifecycleRequest(7, payload, signed)
+	// The native activity compatibility constructor still validates signed activities.
+	// EVM preparation authorizes the sender through eth_estimateGas at the precompile.
+	request := NativeProgramLifecycleRequest{ordinal: 7, payload: payload}
+	if len(signed) != 0 {
+		request, err = NewNativeProgramLifecycleRequest(7, payload, signed)
+		if err != nil {
+			return ProgramSubmission{}, err
+		}
+	}
+	tx, err := request.Transaction(ctx, programs)
 	if err != nil {
-		return VerifiedReceipt{}, err
+		return ProgramSubmission{}, err
 	}
-	binding, err := bindNativeProgramActivity(7, payload, signed)
-	if err != nil || programs.protocolVersion != 3 || !canonicalProgramKey(key) || key.String() != hex.EncodeToString(binding.IdempotencyKey[:]) {
-		return VerifiedReceipt{}, lifecycleInvalid()
-	}
-	var raw json.RawMessage
-	err = programs.client.Agent(ctx, AgentOperation("program.wind-down"), map[string]string{"signed_activity": hex.EncodeToString(request.signedActivity), "payload": hex.EncodeToString(request.payload)}, &raw, CallOptions{IdempotencyKey: key})
-	if err != nil {
-		return VerifiedReceipt{}, err
-	}
-	return decodeLifecycleSubmission(raw, binding.ActivityID, programs.trustedSequencerPublicKey)
+	return ProgramSubmission{State: ProgramSubmissionPrepared, Transaction: &tx, IdempotencyKey: key.String()}, nil
 }
 
 func (programs *Programs) lifecycle(ctx context.Context, ordinal uint16, payload, signed []byte, key IdempotencyKey) (ProgramSubmission, error) {
