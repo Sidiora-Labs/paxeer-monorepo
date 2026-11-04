@@ -49,41 +49,16 @@ else
   step "service worker built" fail "build-pwa exited non-zero"
 fi
 
-if manifest_output=$(node --input-type=module -e '
-import { readFileSync, existsSync } from "node:fs";
-const manifest = JSON.parse(readFileSync("public/manifest.json", "utf8"));
-const problems = [];
-for (const key of ["id", "name", "short_name", "start_url", "scope", "background_color", "theme_color"]) {
-  if (typeof manifest[key] !== "string" || manifest[key].length === 0) problems.push(`missing ${key}`);
-}
-if (manifest.display !== "standalone") problems.push("display is not standalone");
-const icons = Array.isArray(manifest.icons) ? manifest.icons : [];
-for (const [size, purpose] of [["192x192", "any"], ["512x512", "any"], ["192x192", "maskable"], ["512x512", "maskable"]]) {
-  if (!icons.some((icon) => icon.sizes === size && icon.purpose === purpose)) problems.push(`no ${purpose} ${size} icon`);
-}
-let checked = 0;
-for (const icon of icons) {
-  const file = `public${icon.src}`;
-  if (!existsSync(file)) { problems.push(`missing ${file}`); continue; }
-  const bytes = readFileSync(file);
-  const size = `${bytes.readUInt32BE(16)}x${bytes.readUInt32BE(20)}`;
-  if (bytes.toString("latin1", 1, 4) !== "PNG" || size !== icon.sizes) problems.push(`${file} is ${size}, declared ${icon.sizes}`);
-  checked += 1;
-}
-if (problems.length > 0) { console.log(problems.join("; ")); process.exit(1); }
-console.log(`${checked} icons present at their declared sizes`);
-' 2>&1); then
+if manifest_output=$(node scripts/check-pwa-release.mjs manifest 2>&1); then
   step "manifest" pass "$manifest_output"
 else
   step "manifest" fail "$manifest_output"
 fi
 
-if grep -q "register(SERVICE_WORKER_URL" src/pwa/register.ts \
-  && grep -q "SERVICE_WORKER_URL = '/sw.js'" src/pwa/caching.ts \
-  && grep -q "registerServiceWorker(container" src/providers/PWAProvider.tsx; then
-  step "service worker registered" pass "PWAProvider registers /sw.js through registerServiceWorker"
+if registration_output=$(node scripts/check-pwa-release.mjs registration 2>&1); then
+  step "service worker registered" pass "$registration_output"
 else
-  step "service worker registered" fail "no client registration of /sw.js"
+  step "service worker registered" fail "$registration_output"
 fi
 
 third_party=$(grep -rli 'progressier' src/app src/lib src/proxy.ts public next.config.mjs 2>/dev/null || true)
