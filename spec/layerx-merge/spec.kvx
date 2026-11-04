@@ -143504,7 +143504,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.153]
 title = "Repair audit record 22.30.116 medium findings in apps/wallet/src/pwa (part 1 of 1): restart-recovery, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.240", "22.31.241"]
@@ -179920,7 +179920,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.176]
 title = "Repair audit record 22.30.118 medium findings in services/wallet/ceremony/internal/archive (part 1 of 1): restart-recovery, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.245", "22.31.246", "22.31.247", "22.31.369"]
@@ -180027,7 +180027,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.173]
 title = "Repair audit record 22.30.118 medium findings in services/wallet/ceremony/cmd/ceremony (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.245", "22.31.246", "22.31.247", "22.31.369"]
@@ -180062,7 +180062,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.172]
 title = "Repair audit record 22.30.118 medium findings in services/wallet/attestor/cmd/loadtest (part 1 of 1): test-gap, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.245", "22.31.246", "22.31.247", "22.31.369"]
