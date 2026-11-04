@@ -1,0 +1,7 @@
+[repair.22.33.171]
+finding = "authority-idempotence-quota"
+proofs = ["TestRepairM_171_RetryAfterReopenWithFullQuotas", "TestRepairM_171_RequestBindingSurvivesReopen", "TestRepairM_171_RetryRequiresCurrentAuthority"]
+change = "Validate current authority and all retained request bindings before recognizing a matching persisted effect, then apply rate and value quotas only to new effects."
+baseline = "Not run: the ordered task instructions require implementation before qualification and prohibit invoking verify_cmd by hand; no baseline failures are claimed."
+wiring_requests = []
+revision_evidence = "The runner records the exact candidate revision, command, exit and private log in /out/run/gates.jsonl; the final response copies the last gate record."

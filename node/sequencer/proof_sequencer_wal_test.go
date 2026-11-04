@@ -43,6 +43,7 @@ type proofWalPath struct {
 	holder       *sequencer.LeaseHolder
 	cfg          sequencer.StandbyConfig
 	dir, address string
+	auth         sequencer.ReplicationTLSConfig
 	stop         func()
 }
 
@@ -84,7 +85,7 @@ func newProofWalPath(t *testing.T, sender utils.TestAcct) *proofWalPath {
 	f.rep, err = sequencer.NewReplicator(sequencer.ReplicatorConfig{
 		WAL: f.pw, ReplicationTimeout: replicationTimeout,
 		Dial: func(ctx context.Context) (net.Conn, error) {
-			return sequencer.DialStandby(f.address, replicationTimeout)(ctx)
+			return sequencer.DialStandby(f.address, replicationTimeout, f.auth)(ctx)
 		},
 	})
 	require.NoError(t, err)
@@ -119,8 +120,8 @@ func (f *proofWalPath) start(t *testing.T) {
 	var err error
 	f.sb, err = sequencer.NewStandby(ctx, f.cfg)
 	require.NoError(t, err)
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
+	l, auth := listenAuthenticated(t)
+	f.auth = auth
 	f.address = l.Addr().String()
 	served := make(chan error, 1)
 	sb := f.sb

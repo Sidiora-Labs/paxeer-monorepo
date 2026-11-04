@@ -4,9 +4,45 @@ package lxphost
 
 /*
 #include <stdlib.h>
+#include <string.h>
 #include "layerx/lxp_module_ctx.h"
 #include "layerx/programs.h"
 #include "layerx/lxp_governance.h"
+#include "layerx/lxp_activity.h"
+#include "layerx/lxp_crypto.h"
+#include "layerx/lxp_protocol.h"
+
+static int32_t lxphost_encode_sandbox_activity(uint16_t protocol, uint32_t network,
+    uint32_t type, const uint8_t *did, size_t did_length, const uint8_t key[32],
+    uint64_t sequence, uint64_t before, uint64_t after, const uint8_t reference[32],
+    const uint8_t fee[16], const uint8_t *payload, size_t payload_length,
+    const uint8_t *signature, size_t signature_length, uint8_t *out, size_t *out_length)
+{
+    lxp_activity activity = {0};
+    lxp_arena arena;
+    lxp_byte_span encoded;
+    lxp_result status;
+    if (type != 0x00090009U) return LXP_ERR_NON_CANONICAL;
+    activity.protocol_version = protocol;
+    activity.network_id = network;
+    activity.activity_type = type;
+    activity.actor_did = (lxp_byte_span){did, did_length};
+    activity.authority = (lxp_byte_span){key, 32U};
+    activity.account_sequence = sequence;
+    activity.timestamp_bound = (lxp_timestamp_bound){before, after};
+    (void)memcpy(activity.idempotency_key, reference, 32U);
+    for (size_t i = 0U; i < 8U; ++i) {
+        activity.fee_limit.hi = (activity.fee_limit.hi << 8U) | fee[i];
+        activity.fee_limit.lo = (activity.fee_limit.lo << 8U) | fee[8U + i];
+    }
+    activity.payload = (lxp_byte_span){payload, payload_length};
+    activity.signature = (lxp_byte_span){signature, signature_length};
+    status = lxp_hash_payload(payload, payload_length, activity.payload_hash);
+    if (status == LXP_OK) status = lxp_arena_init(&arena, out, *out_length);
+    if (status == LXP_OK) status = lxp_activity_encode(&activity, &arena, &encoded);
+    if (status == LXP_OK) *out_length = encoded.length;
+    return status;
+}
 
 typedef struct lxphost_read_state {
     lxp_kernel kernel;
@@ -389,6 +425,45 @@ func (h *Host) ReadSandbox(ctx sdk.Context, leaseID [32]byte, kind uint8) ([]byt
 		var err error
 		out, err = programReadBytes(module, append([]byte{'s', kind}, leaseID[:]...))
 		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// CanonicalSandboxActivity encodes the native activity witness for an included submission.
+func (h *Host) CanonicalSandboxActivity(activity Activity) ([]byte, error) {
+	out := make([]byte, C.LXP_MAX_ACTIVITY_BYTES)
+	length := C.size_t(len(out))
+	status := C.lxphost_encode_sandbox_activity(C.uint16_t(activity.ProtocolVersion), C.uint32_t(h.cfg.NetworkID),
+		C.uint32_t(activity.Type), bytesPtr(activity.ActorDID), C.size_t(len(activity.ActorDID)), bytes32(&activity.AuthorityKey),
+		C.uint64_t(activity.AccountSequence), C.uint64_t(activity.NotBefore), C.uint64_t(activity.NotAfter), bytes32(&activity.IdempotencyKey),
+		bytesPtr(activity.FeeLimit[:]), bytesPtr(activity.Payload), C.size_t(len(activity.Payload)), bytesPtr(activity.Signature),
+		C.size_t(len(activity.Signature)), bytesPtr(out), &length)
+	if err := result(status); err != nil {
+		return nil, err
+	}
+	return out[:int(length)], nil
+}
+
+// ReadSandboxTerminal reads the durable native destruction record after the live
+// lease, escrow and usage ledger have been deleted.
+func (h *Host) ReadSandboxTerminal(ctx sdk.Context, leaseID [32]byte) ([]byte, error) {
+	var out []byte
+	err := h.withProgramRead(ctx, func(module unsafe.Pointer) error {
+		if leaseID == ([32]byte{}) {
+			return codeNonCanonical
+		}
+		var err error
+		out, err = programReadBytes(module, programKey("ts", leaseID))
+		if err != nil {
+			return err
+		}
+		if len(out) != 352 || string(out[:5]) != "LXSD1" || string(out[5:37]) != string(leaseID[:]) {
+			return codeFatalInvariant
+		}
+		return nil
 	})
 	if err != nil {
 		return nil, err

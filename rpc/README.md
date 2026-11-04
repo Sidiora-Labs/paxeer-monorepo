@@ -1,187 +1,237 @@
 # EVM JSON-RPC
 
-This package (`evmrpc`) serves the EVM JSON-RPC interface of the Paxeer X chain (`paxd`, EVM chain ID 125). It implements the standard Ethereum `eth_`, `net_`, `web3_`, `txpool_` and `debug_` namespaces plus the chain-specific `pax_` and `pax2_` namespaces described below. Behavioural differences from Ethereum (no pending blocks, no uncles, no trie, no blobs, explicitly unsupported methods) are listed in [`AGENTS.md`](AGENTS.md) and [`docs/evm_jsonrpc_unsupported.md`](../docs/evm_jsonrpc_unsupported.md). Public endpoints are listed in [`docs/site/docs/reference/public-rpc.md`](../docs/site/docs/reference/public-rpc.md).
+This package (`evmrpc`) serves the EVM JSON-RPC interface inside `paxd`.
+Paxeer mainnet-beta is one BFT network with EVM chain ID `125` (`0x7d`). The
+kernel is part of the network and proposes blocks. Receipts become final when
+their block is committed; an open block can already contain executed,
+receipted transactions before that commitment.
+
+Public JSON-RPC uses the root path of
+`https://api-mainnet-beta.paxeer.network` and the numbered nodes
+`https://api1.mainnet-beta.paxeer.network` through
+`https://api14.mainnet-beta.paxeer.network`. See the
+[public endpoint reference](../docs/site/docs/reference/public-rpc.md) for
+the full list and WebSocket URLs. `node.hyperpaxeer.com` is the hpx library mirror,
+not an RPC endpoint. The former router and its prefixed routes are retired.
+
+See [AGENTS.md](AGENTS.md) for implementation requirements and compatibility
+differences. [server.go](server.go) defines the HTTP and WebSocket registrations;
+configuration and method availability differ between the two transports.
 
 ## Understanding the RPC Architecture
 
 ### Eth_ Endpoints
-The `eth_` prefixed endpoints provide a pure EVM-compatible view of the chain. These endpoints:
-- Only process and return EVM transactions
-- Ignore Cosmos-native transactions
-- Maintain compatibility with Ethereum tooling and libraries
+
+Use supported `eth_*` methods for EVM applications and Ethereum tooling.
+The ordinary transaction view filters Cosmos-native transactions, while
+EVM-originating transactions can also contain synthetic CosmWasm event logs.
+Chain-generated venue receipts are also included by the block-receipt/log
+paths when present; an EVM view is not a promise that every receipt represents
+a user-signed Ethereum transaction. See [block.go](block.go), [tx.go](tx.go),
+[filter.go](filter.go) and [utils.go](utils.go).
+
+HTTP also registers `net`, `web3`, `txpool`, `debug` and `echo`, plus the
+chain-specific APIs below. WebSocket registers `eth`, `net`, `web3` and `echo`,
+including `eth_subscribe` for heads, logs and pending transaction hashes.
+The `test` namespace requires `enable_test_api` and a non-live chain ID.
+An operator's `deny_list` can further restrict methods.
+
+The node's receipt APIs are `pax_sequencerReceipt` and `px_getReceiptKeys`,
+registered on HTTP in [server.go](server.go), with provider/forwarding behavior
+defined by [sequencer_receipt.go](sequencer_receipt.go). The broader hosted
+gateway `px_*` contract is declared in
+[openrpc.json](../services/platform/hosted/gateway/openrpc.json); its methods
+are not automatically node methods.
 
 ### Pax_ Endpoints
-The `pax_` prefixed endpoints provide a view that combines EVM transactions with the Cosmos transactions that have synthetic EVM receipts. These endpoints:
-- Include both EVM and Cosmos transactions where relevant
-- Include synthetic transactions and logs for CosmWasm (CW20 and CW721) events
 
-The `pax2_` namespace exposes the same block shape as the `pax_` block methods with bank transfers included in block payloads (HTTP only): `pax2_getBlockByNumber`, `pax2_getBlockByHash`, their `ExcludeTraceFail` variants, `pax2_getBlockReceipts`, `pax2_getBlockTransactionCountByNumber` and `pax2_getBlockTransactionCountByHash`.
+Legacy `pax_*` block, receipt and log APIs include relevant Cosmos transactions
+with synthetic EVM receipts, including CosmWasm CW20/CW721 events. They remain
+useful when maintaining an existing pointer-contract indexer or reconciling
+historical mixed EVM/Cosmos data, subject to the
+[legacy gate](#legacy-gate-and-deprecation). Prefer supported `eth_*` and
+`debug_*` APIs for new integrations.
+
+`pax2_*` adds bank transfers to the legacy block payload. It exposes seven
+HTTP methods: `pax2_getBlockByNumber`, `pax2_getBlockByHash`, their
+`ExcludeTraceFail` variants, `pax2_getBlockReceipts`,
+`pax2_getBlockTransactionCountByNumber` and
+`pax2_getBlockTransactionCountByHash`. There is no `pax2` transaction or filter
+API. Bank-transfer inclusion in block payloads does not imply a receipt for
+every bank transfer.
 
 ### Key Differences
-1. **Transaction Coverage**
-   - `eth_` endpoints: EVM transactions only
-   - `pax_` endpoints: Both EVM and relevant Cosmos transactions
 
-2. **Transaction Indices**
-   - `eth_` endpoints: Index only EVM transactions
-   - `pax_` endpoints: Index all transactions in sequence
+| View | Transaction coverage | Index interpretation |
+| --- | --- | --- |
+| `eth_*` | EVM-visible transactions and applicable synthetic receipts/logs | The EVM view of the relevant method |
+| Legacy `pax_*` | Adds Cosmos transactions that have synthetic EVM receipts | The combined filtered view |
+| Legacy `pax2_*` | Adds bank transfers to block payloads | The block method's filtered view |
+
+Sub-chains are tenant domains in the database and do not require new node
+infrastructure. [rpcstack.go](rpcstack.go) resolves `/chain/<id>` to a domain
+scope on the same server; [domain_scope.go](domain_scope.go) carries that scope.
+Root-path mainnet requests retain chain ID `125`.
 
 ## Pending
 
-Pending reads on the sequencer and standby wait up to `PendingOpenWait` (two seconds) for the next open block during the seal-to-open window, respect request cancellation, and return `ErrPendingBlockClosed` (`-32000`, `no block is open; retry`) if no block opens in time.
-When `eth_sendRawTransaction` encounters a sealed layer, it uses the same bounded wait and retries acceptance once, returning the transaction hash on success or `ErrPendingBlockClosed` if the next layer is still closed.
-An accepted transaction's logs are recorded at its receipt's height even if the next layer has opened, and commit waits for in-flight sends to record their logs before advancing the receipt log feed.
+`pending` is method- and provider-dependent. It is not universally an alias
+for `latest`. In [watermark_manager.go](watermark_manager.go), `latest`, `safe`
+and `finalized` resolve to the latest queryable committed height. A node wired
+with `NewPendingOption` can additionally expose the proposer or standby's
+open execution snapshot.
+
+### State and simulation reads
+
+`eth_getBalance`, `eth_getCode`, `eth_getStorageAt` and pending simulation
+reads use a frozen open-block snapshot after the last accepted transaction.
+The simulation header uses that block's height, time, gas limit and base fee,
+and the committed parent's hash. See [state.go](state.go) and
+[simulate.go](simulate.go).
+
+If the provider reports that no block is open, `pendingSnapshot` waits up to
+`PendingOpenWait` (two seconds), honoring request cancellation. If the wait
+expires, these reads resolve to the latest queryable committed state and
+header. When the next block opens, they use its snapshot. A node without a
+pending provider returns `-32000`, `pending served by sequencer`, for these
+explicit pending requests.
+
+### Block, nonce and send behavior
+
+- `eth_getBlockByNumber("pending", false)` reads the open snapshot directly.
+  Its `number` is the open height; `hash` and `stateRoot` are null. It lists
+  receipted transaction hashes in order. Passing `true` for full transactions
+  returns `-32000`, `pending block lists transaction hashes only`.
+- Pending block objects, indexed pending transactions and pending block
+  transaction counts read the snapshot directly and report an error if it is
+  closed; they do not share the state-read idle fallback. Without a provider,
+  `eth_getBlockTransactionCountByNumber("pending")` returns null, while pending
+  block-number resolution returns `-32000`, `pending served by sequencer`.
+- Pending `eth_getTransactionCount` uses `PendingContext` and waits for an open
+  block. If none opens within the bound, it returns `ErrPendingBlockClosed`
+  (`-32000`, `no block is open; retry`).
+- On the local acceptance path, `eth_sendRawTransaction` encountering a sealed
+  block waits using the same bound and retries acceptance once. It returns the
+  hash on success, or the closed-block error if the retry still finds no open
+  block. Accepted logs retain their receipt's height, and commit waits for
+  in-flight sends to record logs before advancing the receipt log feed.
+
+See [block.go](block.go), [tx.go](tx.go) and [send.go](send.go). The different
+paths mean clients must not infer one method's idle behavior from another.
+
+### Filters, proofs and tracing
+
+`eth_newPendingTransactionFilter` is available when the server has a receipt
+log feed. Polling returns hashes receipted since the last poll in sequence
+order. Full transaction objects are refused; without the feed the method
+returns `-32000` with an unsupported message. See [filter.go](filter.go).
+
+`eth_getProof` always refuses `pending` with `-32000`,
+`pending state has no committed root`. Committed proofs use ICS23 operations
+through the SDK app root, not Ethereum trie proofs. Pending tracing is also
+refused; use a committed block for historical traces. See [state.go](state.go),
+[simulate.go](simulate.go) and [tracers.go](tracers.go).
 
 ## Legacy gate and deprecation
 
-All `pax_*` and `pax2_*` methods are deprecated and scheduled for removal; new integrations should use `eth_*`. On the EVM HTTP endpoint every one of them is gated by the `enabled_legacy_pax_apis` list in the `[evm]` section of `app.toml` ([`pax_legacy.go`](pax_legacy.go), [`pax_legacy_http.go`](pax_legacy_http.go)):
+The legacy methods listed in [pax_legacy.go](pax_legacy.go) are deprecated
+and scheduled for removal. New integrations should use supported `eth_*`,
+`debug_*` and documented replacements. `pax_sequencerReceipt` is explicitly
+exempt from the legacy gate; it reports transaction progress as `submitted`,
+`receipted` or `committed` according to its provider and committed batch state.
 
-- Only methods named in that list are served. `paxd init` pre-fills `pax_getPaxAddress`, `pax_getEVMAddress` and `pax_getCosmosTx`; the other gated methods appear commented out in the generated template.
-- A method that is not enabled returns JSON-RPC error code `-32601` with error data `"legacy_pax_deprecated"`.
-- Allowed calls carry the `Pax-Legacy-RPC-Deprecation` response header.
-- The local Docker cluster config ([`docker/localnode/config/app.toml`](../docker/localnode/config/app.toml)) enables every gated method except `pax_sign`.
+On HTTP, legacy calls are controlled by `enabled_legacy_pax_apis` under `[evm]`
+in `app.toml`, enforced centrally by `wrapPaxLegacyHTTP` in
+[pax_legacy_http.go](pax_legacy_http.go). Only allowlisted methods pass this
+gate; `deny_list` remains an independent restriction. The node WebSocket
+server does not register the legacy `pax` or `pax2` APIs.
 
-The endpoints below are therefore available only where the node operator has enabled them.
+- [DefaultConfig](config/config.go) and its generated template enable
+  `pax_getPaxAddress`, `pax_getEVMAddress` and `pax_getCosmosTx`; other legacy
+  methods are commented out in the template.
+- Disabled calls return JSON-RPC error `-32601` with data
+  `"legacy_pax_deprecated"` and a message explaining enablement and deprecation.
+  The gate uses HTTP 200 for these JSON-RPC responses.
+- Forwarded legacy calls preserve the result shape and carry the
+  `Pax-Legacy-RPC-Deprecation` response header. Mixed batches are merged by
+  request ID. Notifications have no response entries; an all-notification
+  batch returns an empty HTTP body.
+- The [Docker localnet config](../docker/localnode/config/app.toml) enables
+  all gated methods except `pax_sign`; it is not the production default.
 
-## Pax_ Endpoints
-The `pax_` prefixed endpoints provide an enhanced view that combines both EVM and relevant Cosmos transactions. These endpoints:
-- Include both EVM and Cosmos transactions where relevant
-- Provide additional context about the chain's state
-- Support synthetic transactions for cross-chain events
-- Offer more comprehensive transaction tracing
-- Are recommended for applications that need a complete view of the chain
-
-### Key Differences
-1. **Transaction Coverage**
-   - `eth_` endpoints: EVM transactions only
-   - `pax_` endpoints: Both EVM and relevant Cosmos transactions
-
-2. **Use Cases**
-   - `eth_` endpoints: Best for pure EVM applications and Ethereum tooling
-   - `pax_` endpoints: Best for applications needing full chain visibility
-
-3. **Transaction Indices**
-   - `eth_` endpoints: Index only EVM transactions
-   - `pax_` endpoints: Index all transactions in sequence
+The legacy endpoints below require operator enablement.
 
 ## Pax_ Endpoints
-
-The `pax_` endpoints fall into two categories: those that include synthetic transactions and those that exclude transactions that never reached the EVM.
 
 ### 1. Synthetic Transaction Endpoints
 
-#### Overview
-These endpoints expose CosmWasm events (CW20 and CW721) as EVM-compatible logs and receipts. This is useful for:
-- Indexing pointer contracts
-- Tracking token transfers between CosmWasm and EVM representations
-- Monitoring CosmWasm contract events from EVM applications
+Existing integrations can query CosmWasm token events as EVM-compatible logs
+and receipts to index pointer contracts or reconcile token transfers:
 
-#### Available Endpoints
+| Method | Legacy behavior |
+| --- | --- |
+| `pax_getFilterLogs`, `pax_getLogs` | Include synthetic Cosmos-sourced logs in the combined view |
+| `pax_getBlockByNumber`, `pax_getBlockByHash` | Include supported synthetic transactions in block data |
+| `pax_getBlockReceipts` | Include the corresponding synthetic receipts in the combined view |
 
-##### Log Querying
-- `pax_getFilterLogs`
-  - Enhanced version of `eth_getFilterLogs`
-  - Includes both EVM and synthetic logs
-  - Useful for real-time event monitoring
-
-- `pax_getLogs`
-  - Enhanced version of `eth_getLogs`
-  - Includes both EVM and synthetic logs
-  - Ideal for historical event queries
-
-##### Block Data
-- `pax_getBlockByNumber` and `pax_getBlockByHash`
-  - Enhanced versions of their `eth_` counterparts
-  - Include synthetic transactions in block data
-  - Provide complete block information
-
-- `pax_getBlockReceipts`
-  - Enhanced version of `eth_getBlockReceipts`
-  - Includes receipts for synthetic transactions
-  - Maintains transaction order and relationships
-
-> **Note**: For synthetic transactions, you can use `eth_getTransactionReceipt` with the synthetic transaction hash to retrieve receipt data. There is no `pax_getTransactionByReceipt`.
+EVM-originating transactions can expose synthetic event logs through
+`eth_getLogs` and `eth_getTransactionReceipt`. For Cosmos-originating
+CosmWasm transactions, use the enabled legacy combined view to obtain their
+synthetic receipts/logs. Do not assume a Cosmos hash is a signed Ethereum
+transaction or that `eth_getTransactionReceipt` can encode every synthetic
+receipt. There is no `pax_getTransactionByReceipt` method.
 
 ### 2. Tracing Failure Management Endpoints
 
-#### Overview
-Some EVM transactions pass the nonce check but fail a later ante step (for example insufficient funds or an insufficient fee). They are included in blocks with a stub receipt (zero effective gas price and zero gas used) but never reach the EVM, so they have no meaningful trace. The `ExcludeTraceFail` endpoints drop those transactions, and the chain-generated synthetic receipts that also have no trace (see `isReceiptUntraceable` in [`utils.go`](utils.go)). Reverted and out-of-gas transactions did execute and stay visible.
+Some transactions consume a nonce but fail before entering the VM, producing
+a stub receipt with zero effective gas price and zero gas used. The
+`ExcludeTraceFail` views exclude these and synthetic receipts without EVM
+execution, using `isReceiptUntraceable` in [utils.go](utils.go). Reverted and
+out-of-gas transactions did execute and remain visible. These APIs do not
+select only successful transactions.
 
-#### Available Endpoints
+| Method | Behavior |
+| --- | --- |
+| `pax_traceBlockByNumberExcludeTraceFail`, `pax_traceBlockByHashExcludeTraceFail` | Omit untraceable entries from block tracing |
+| `pax_getBlockByNumberExcludeTraceFail`, `pax_getBlockByHashExcludeTraceFail` | Omit synthetic and untraceable entries from block data |
+| `pax_getTransactionReceiptExcludeTraceFail` | Refuse a receipt classified as untraceable; retain executed failures |
 
-##### Block Tracing
-- `pax_traceBlockByNumberExcludeTraceFail`
-  - Enhanced version of `debug_traceBlockByNumber`
-  - Excludes transactions that failed pre-state checks
-  - Provides cleaner tracing output
-
-- `pax_traceBlockByHashExcludeTraceFail`
-  - Enhanced version of `debug_traceBlockByHash`
-  - Excludes transactions that failed pre-state checks
-  - Useful for debugging specific blocks
-
-##### Transaction and Block Data
-- `pax_getTransactionReceiptExcludeTraceFail`
-  - Enhanced version of `eth_getTransactionReceipt`
-  - Only returns receipts for successfully executed transactions
-  - Helps avoid confusion with failed transactions
-
-- `pax_getBlockByNumberExcludeTraceFail` and `pax_getBlockByHashExcludeTraceFail`
-  - Enhanced versions of their `eth_` counterparts
-  - Exclude transactions that failed pre-state checks
-  - Provide cleaner block data
-
-#### Best Practices
-1. Use these endpoints when you need to:
-   - Filter out failed transactions
-   - Get cleaner debugging output
-   - Focus on successfully executed transactions
-
-2. Consider using the standard `eth_` endpoints when you need to:
-   - See all transactions, including failures
-   - Debug specific failure cases
-   - Maintain compatibility with standard Ethereum tooling
+Use regular supported `eth_*` and `debug_*` methods when diagnosing execution
+failures. Historical traces must reflect the original error and actual gas
+usage, as described in [AGENTS.md](AGENTS.md#debug_-prefixed-endpoints).
 
 ## Transaction Index Mismatches
 
-### Overview
-When querying block receipts, there is a discrepancy between the transaction indices returned by `eth_getBlockReceipts` and `pax_getBlockReceipts` endpoints. This occurs because `eth_getBlockReceipts` only includes EVM transactions, while `pax_getBlockReceipts` includes both EVM and Cosmos transactions.
+Transaction and log indices depend on the method's filtered view. For example,
+suppose a block contains EVM transaction A, a Cosmos transaction C with a
+synthetic receipt, and EVM transaction B. Ignoring any additional synthetic
+venue receipts, the receipt views are:
 
-### Example
-Consider a block containing the following transactions in order:
-```
-Block Transactions:
-1. EVM Transaction 1
-2. Cosmos Transaction 1
-3. EVM Transaction 2
-```
+| Transaction | `eth_getBlockReceipts` index | `pax_getBlockReceipts` index |
+| --- | --- | --- |
+| A | 0 | 0 |
+| C | Excluded | 1 |
+| B | 1 | 2 |
 
-The transaction indices will differ between endpoints:
-
-#### eth_getBlockReceipts
-Returns only EVM transactions with sequential indices:
-- EVM Transaction 1 (tx index: 0)
-- EVM Transaction 2 (tx index: 1)
-
-#### pax_getBlockReceipts
-Returns all transactions (both EVM and Cosmos) with sequential indices:
-- EVM Transaction 1 (tx index: 0)
-- Cosmos Transaction 1 (tx index: 1)
-- EVM Transaction 2 (tx index: 2)
+This example does not mean every Cosmos transaction has a synthetic receipt
+or appears in the legacy view. [utils.go](utils.go) filters messages and
+receipts; [tx.go](tx.go) translates stored consensus positions to the selected
+view in `GetEvmTxIndex` and `encodeReceipt`. Venue synthetic receipts have
+their own assigned positions and should not be renumbered by clients.
 
 ### Receipts and Logs
-- For EVM‑originating transactions, synthetic events are included in both `eth_getLogs` and `eth_getTransactionReceipt`. The set of logs is identical across these endpoints for a given block/tx, and `logIndex` values are strictly increasing and consistent between them.
-- For Cosmos‑originating transactions, synthetic events are not included in `eth_` methods. Use `pax_getLogs` and `pax_getBlockReceipts` to access Cosmos‑sourced synthetic logs.
-- When comparing indices, note that `eth_` transaction indices and log indices reflect only EVM transactions/logs, while `pax_` indices reflect the combined EVM+Cosmos view. For full accounting of interoperable assets, combine both data sources or use the `pax_` endpoints.
 
-### Important Note
-When working with transaction indices, be aware that:
-1. The same transaction will have different indices depending on which endpoint you use
-2. `eth_getBlockReceipts` indices are based only on EVM transactions
-3. `pax_getBlockReceipts` indices include all transactions in the block
-4. Applications should handle these differences appropriately based on which endpoint they're using
+EVM-originating synthetic events remain part of their EVM transaction's logs.
+Cosmos-originating CosmWasm events require the combined legacy log view.
+Receipt encoding and log-query normalization use the relevant namespace's
+transaction mapping and log offsets; do not compare indices across namespaces
+as though they were absolute consensus positions.
 
 ### Best Practices
-- Always use the same endpoint consistently within your application
-- When switching between endpoints, be sure to account for the index differences
-- Consider using transaction hashes instead of indices when possible, as they remain consistent across endpoints
+
+- Use one namespace consistently for receipts, logs and transaction indices.
+- Use transaction hashes to correlate entries across views; keep the source
+  namespace when persisting indices.
+- Include executed failures when investigating failures or accounting for gas.
+- Treat pending data as a view that changes during block execution; stable
+  historical data requires an available committed height.
