@@ -1,9 +1,9 @@
-use layerx_crypto::disclosure::call::{bind_call, ConstructMethod};
+use layerx_crypto::disclosure::call::{bind_call, reencode, ConstructMethod};
 use layerx_crypto::disclosure::{
     AmountRole, CounterpartyRole, DisclosedWithdrawal, DisclosureError, Expiry,
 };
 use layerx_crypto::evm_transaction::{decode_unsigned, recover_sender, Eip1559Call};
-use layerx_crypto::signer::{sign_disclosed_call, SignError};
+use layerx_crypto::signer::{sign_disclosed, sign_disclosed_call, SignError, Signer};
 use layerx_wire::decode::Decoder;
 use sha2::{Digest as _, Sha256};
 
@@ -42,7 +42,7 @@ fn canonical_send_discloses_every_authorised_semantic_and_reencodes_exactly() {
         }
     );
     assert_eq!(disclosure.idempotency_key, [0x71; 32]);
-    assert_eq!(disclosure.reencode(), Ok(canonical));
+    assert_eq!(reencode(&disclosure), Ok(produced.call.encode_unsigned()));
 }
 
 /// Retired custody payloads remain recorded evidence, never a transaction a
@@ -116,9 +116,15 @@ fn recorded_custody_credit_discloses_the_signed_activity() {
     assert_eq!(activity.signature().map(<[u8]>::len), Some(64));
     let payload = activity.payload();
     assert_eq!(payload.len(), 1495);
+    let old = support::signing::old_envelope(support::signer().public_key());
     assert_eq!(
-        payload,
-        include_bytes!("../../../../../tests/fixtures/custody/daemon-light-credit-receipt/credit")
+        ready(sign_disclosed(
+            &support::signer(),
+            &old.canonical,
+            &old.disclosure,
+            &old.registry
+        )),
+        Err(SignError::InvalidDisclosure)
     );
     assert_eq!(payload, &recorded[257..257 + payload.len()]);
     assert_eq!(&payload[..5], b"LXDC3");

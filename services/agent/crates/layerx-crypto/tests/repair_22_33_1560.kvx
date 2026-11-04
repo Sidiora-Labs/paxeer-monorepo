@@ -1,0 +1,82 @@
+[repair.22.33.1560]
+status = "implemented; qualification is exclusively the declared runner gates"
+base_revision = "76c050242a1edcad6212aa52fac15670ecb5612d"
+audit = "22.30.98"
+acceptance = "22998.1"
+baseline = "Continue attempt 1 rather than rerun its failed gate: its initial verify recorded three passes and five failures (local activity refusal, SSH pre-contact refusal, recovered-key activity refusal, remote activity refusal/certificate authentication, and missing program execution fee projection). No new unchanged-tree execution is claimed: the explicit gate order forbids testing before implementation and manual verify_cmd runs."
+qualification = "The exact verified candidate revision, command, exit and private log are the last hf-done record in /out/run/gates.jsonl, echoed verbatim in the final response; this file does not claim a gate that has not run."
+
+[finding.authority-fixture-old-wrapper]
+test = "authority_fixture_old_wrapper_preserves_native_grant_scope; authority_fixtures::signing_disclosure_binds_every_immutable_grant_field"
+repair = "Retain both native vectors and all immutable-field mutations; authority_grant_call emits the actual grantCapability(bytes) ABI, signed type-2 transport recovers its owner sender, and bind_call preserves the complete grant, scope, authority and expiry. No unsigned activity helper remains in authority_grant.rs."
+
+[finding.disclosure-activity-success-tests]
+test = "disclosure_activity_success_tests_use_sender_bound_evm_calls; disclosure_activity_success_tests_refuse_retired_activity_signing; disclosure_fixtures"
+repair = "Migrate the disclosure cases to real ledger producers, bind_call, sender-bound signing and transaction decoding. Keep malformed/truncated/extended payload and signature substitution coverage. SigningRequest::new and sign_disclosed refuse retired activity requests with InvalidDisclosure before key or transport access. Historical bridge/withdrawal inputs are refusal cases."
+
+[finding.monetary-call-tests-miss-common-view]
+test = "monetary_call_tests_miss_common_view_program_execution_fee; call_fixtures::monetary_call_tests_miss_common_view_program_execution_fee; call_fixtures::monetary_call_tests_miss_common_view_bank_denomination_and_uint256"
+repair = "Real program/bank encoders feed signed transaction transport, sender recovery, bind_call and the production call_monetary approval/policy projection. Assert the exact bank denomination and all uint256 bits/decimal digits, and separately assert gas and execution bounds with the verified execution asset context. The inherited assertion against the incomplete legacy amounts list is replaced with exact equality on the complete typed monetary view, including u128::MAX, and refusal of missing context."
+wiring = "Domain 9 daemon owner: services/agent/crates/layerx-agentd/src/prepare/mod.rs, src/human_runtime.rs, src/policy/approval.rs and src/approval/call_bound.rs must consume and persist Disclosure::call_monetary with a verified execution fee asset; these out-of-path consumers are not claimed as exercised by the crypto gate."
+
+[finding.native-fee-grant-activity-test]
+test = "native_fee_grant_activity_test_preserves_raw_grant_identity; native_fee_fixtures::original_native_fee_grants_preserve_owner_signatures_and_native_ids; native_fee_fixtures::every_fee_field_is_bound_into_the_signing_disclosure"
+repair = "Retain all five raw kernel grant bodies/IDs, zero-counter and malformed-vector checks; submit via authority_grant_call, signed EIP-1559 transport, recovered owner sender and bind_call. Assert the unchanged native grant ID and fee scope from the consumed body; every fee-field mutation and removal remains refused. Remove activity decoding and activity-signature success expectations."
+wiring = "Domain 9 receipt/client owner: services/agent/crates/layerx-proof/src/receipt.rs and services/agent/crates/layerx-client/src/sequencer.rs must verify merged grant receipt txHash, governed receipt-key/height and grantId/GrantBody pins from a committed grantCapability transcript; existing native grant.receipt fixtures attest retired activity identities, so they are not relabeled as merged receipts here."
+
+[finding.reopened-agent-signs-old-activity]
+test = "reopened_agent_signs_old_activity_refuses_before_and_after_key_recovery; retained_bind_external_key_recovers_across_agent_restart"
+repair = "Stop and reopen the production encrypted store and the loopback SSH peer from persisted bytes; the real KeystoreSigner signs typed bind messages with the recovered key, obtains the same valid signature, refuses unknown keys, and refuses activities before and after peer shutdown/reopen. proof_crypto.rs retains its real external SSH process restart and unknown-key tests with bind success and activity refusal."
+
+[finding.remote-success-fixture-is-activity]
+test = "remote_success_fixture_is_activity_refuses_before_remote_transport; remote_bind_codec_refuses_retired_domains_and_malformed_frames; remote_fixtures"
+repair = "RemoteSigner sends version-2 typed raw bind consent over mutual TLS; decode_bind_request validates both sides of the interface and the real client verifies the returned raw Ed25519 signature. Certificates are generated in-process. Retain identity pinning, handshake/read timeouts, explicit refusal, malformed framing, hostile signatures and no-retry disconnect assertions; activities never contact the peer."
+
+[finding.ssh-agent-test-expects-old-signature]
+test = "ssh_agent_test_expects_old_signature_refuses_before_contact; retained_bind_external_key_recovers_across_agent_restart; retained_bind_signing_preserves_raw_chain_address_nonce_scope"
+repair = "KeystoreSigner refuses retired preimages without connecting, then signs the exact chain-enforced raw bind consent with the same external key through the production SSH codec. Cross-check the signature against the maintained client producer and prove chain/address/nonce substitutions fail. signer.rs retains its actual OpenSSH process test with these same boundaries."
+
+[gotcha.signing_scope]
+observed = "The retained bind signs raw LX:PAXEER-BIND:v1 bytes, while payer authorizations sign a scoped SHA-256 digest."
+resolution = "Use BindMessage/BindSigner for raw consent and keep the existing Signer payer/transaction interface unchanged; version the remote bind frame explicitly rather than reinterpreting a v1 request."
+
+[gotcha.shared_fixture]
+observed = "The current shared canonical_send helper already produces unsigned EIP-1559 bytes rather than a legacy activity."
+resolution = "Use send_call/bind_call for successful constructor tests and encode_send_envelope only to produce historical refusal evidence."
+
+[qualification.initial]
+revision = "2d03130a24dd6fa56d5b1492a21880c71863d494"
+command = "cg spec done 22.33.1560 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Attempt 1 recorded three passes and five failures; the current attempt implements the production signer refusal and retained bind interface that ruling requires, and uses the newer typed monetary projection."
+assumption = "The prior gate is historical evidence, not a passing result for this candidate; only the new runner gate can qualify this revision."
+
+[qualification.build_1]
+revision = "de0249bc478cceb47affff727d0ac898244134f8"
+command = "cargo build --locked --manifest-path services/agent/crates/layerx-crypto/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The operation-dependent const ABI signature guard indexed a Vec through a non-const Index implementation."
+repair = "Match its const as_slice result against the exact four-byte grant header; retain the same selector and all checks."
+
+[qualification.verify_1]
+revision = "a1cd4b2359a649e8e0b81fb2863e17d2a14df472"
+command = "cg spec done 22.33.1560 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "64 tests passed and one fixture setup failed: the shared native payer producer emits protocol version 2, but the historical refusal fixture wrapped it as version 3."
+repair = "Use the producer's PROTOCOL_VERSION and NETWORK_ID in both historical refusal fixture helpers; preserve every refusal, signature, monetary and transport assertion."
+
+[qualification.platform_metadata]
+observed = "The runner's dependent-crate check skipped services/platform/Cargo.toml after cargo metadata exited 101, while all 30 checked dependents passed."
+evidence = "/out/logs/run-task.log and /out/logs/dependents-1.log; no out-of-scope investigation or repair performed."
+
+[continuation.current_base]
+observed = "The seed conflicted with landed typed binding, payer authorization and transaction-fixture repairs; preserve that current coverage and integrate activity refusal beside it using the existing binding::BindMessage."
+repair = "Resolve all conflict markers; keep current payer and malformed/archive assertions; migrate grant mutation signatures to EIP-1559 transport and add retired-preimage refusal before SSH I/O both before and after reopening."
+qualification = "No build or test was run before the complete implementation; the current attempt has its own bounded hf-build/hf-done evidence, separate from the historical attempts above."
+
+[gotcha.seed_conflicts]
+observed = "Seed changes duplicate the landed BindMessage type and leave activity mutation references outside the merge-conflict hunks."
+resolution = "Use binding::BindMessage and migrate complete mutation proofs to signed grant-call transactions, retaining all field and signature-substitution assertions."
