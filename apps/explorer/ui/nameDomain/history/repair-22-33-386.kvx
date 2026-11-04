@@ -1,0 +1,9 @@
+[repair.22.33.386]
+audit = "22.30.141"
+finding = "domain-history-sort-reversed"
+tests = ["domainHistorySortControlsFromOldestFirst", "domainHistorySortControlsFromNewestFirst", "domainHistorySortPreservesEqualTimestampsAndDefaultOrder"]
+proof = "The real NameDomainHistoryTable renders committed ENS fixtures and handles clicks on its Timestamp control using the production sort state transition; both initial orders exercise descending, ascending and default order without mutating the response."
+baseline = "Not executed: the explicit gate order prohibits verification before implementation. The original descending comparator places event A (2021) before event B (2022), contradicting both control tests."
+evidence = "The runner's hf-done record supplies the exact verified candidate revision, command, exit and private log; this record does not claim a gate has run."
+continuation = "Preserved the comparator repair and all three cases; initialized real app configuration before settings to avoid the cookie/config import cycle, and registered named callbacks with module-level describe/it calls, string titles and assertions in each test body."
+wiring_request = "apps/explorer/ui/nameDomain/NameDomainHistory.tsx (owning domain: explorer/nameDomain, audit domain 14): mobile currently maps unsorted response items and has no Timestamp control; expose the same sort state/control and apply history/utils.ts sortFn to a copy of its items."
