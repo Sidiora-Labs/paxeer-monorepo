@@ -136,7 +136,8 @@ func (s *KeeperTestHelper) AllocateRewardsToValidator(valAddr sdk.ValAddress, re
 	s.App.DistrKeeper.AllocateTokensToValidator(s.Ctx, validator, decTokens)
 }
 
-// BuildTx builds a transaction.
+// BuildTx builds a transaction containing every message in order.
+// It panics on empty input before changing the transaction builder.
 func (s *KeeperTestHelper) BuildTx(
 	txBuilder client.TxBuilder,
 	msgs []sdk.Msg,
@@ -145,7 +146,11 @@ func (s *KeeperTestHelper) BuildTx(
 	txFee sdk.Coins,
 	gasLimit uint64,
 ) authsigning.Tx {
-	err := txBuilder.SetMsgs(msgs[0])
+	if len(msgs) == 0 {
+		panic("BuildTx requires at least one message")
+	}
+
+	err := txBuilder.SetMsgs(msgs...)
 	s.Require().NoError(err)
 
 	err = txBuilder.SetSignatures(sigV2)
