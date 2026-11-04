@@ -3,6 +3,7 @@ package sender
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
@@ -231,23 +233,13 @@ func (w *Worker) sendTransaction(ctx context.Context, client *http.Client, tx *t
 	if err != nil {
 		return fmt.Errorf("Worker %d: Failed to send transaction: %w", w.id, err)
 	}
-	defer func() {
-		// Limit read to prevent memory issues with large responses
-		_, err = io.CopyN(io.Discard, resp.Body, 64*1024) // Read up to 64KB
-		if err != nil && err != io.EOF {
-			log.Printf("Worker %d: Failed to read response body: %v", w.id, err)
-			// Log but don't fail - this is just for connection reuse
-		}
+	defer resp.Body.Close()
 
-		// Close response body and handle error
-		if closeErr := resp.Body.Close(); closeErr != nil {
-			log.Printf("Worker %d: Failed to close response body: %v", w.id, closeErr)
-		}
-	}()
-
-	// Check response status
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("Worker %d: HTTP error %d for transaction to %s", w.id, resp.StatusCode, w.endpoint)
+	}
+	if err := validateTransactionResponse(resp.Body, tx); err != nil {
+		return fmt.Errorf("Worker %d: invalid transaction response: %w", w.id, err)
 	}
 
 	// Write to sentTxs channel without blocking
@@ -267,4 +259,87 @@ func (w *Worker) GetChannelLength() int {
 // GetEndpoint returns the worker's endpoint
 func (w *Worker) GetEndpoint() string {
 	return w.endpoint
+}
+
+const maxTransactionResponseBytes = 64 * 1024
+
+// TransactionRPCError preserves the node's JSON-RPC error for callers.
+type TransactionRPCError struct {
+	Code    int
+	Message string
+	Data    json.RawMessage
+}
+
+func (e *TransactionRPCError) Error() string {
+	return fmt.Sprintf("JSON-RPC error %d: %s", e.Code, e.Message)
+}
+
+func (e *TransactionRPCError) ErrorCode() int         { return e.Code }
+func (e *TransactionRPCError) ErrorData() interface{} { return e.Data }
+
+func validateTransactionResponse(body io.Reader, tx *types.LoadTx) error {
+	data, err := io.ReadAll(io.LimitReader(body, maxTransactionResponseBytes+1))
+	if err != nil {
+		return err
+	}
+	if len(data) > maxTransactionResponseBytes {
+		return fmt.Errorf("JSON-RPC response exceeds %d bytes", maxTransactionResponseBytes)
+	}
+	var response struct {
+		Version string          `json:"jsonrpc"`
+		ID      json.RawMessage `json:"id"`
+		Result  json.RawMessage `json:"result"`
+		Error   json.RawMessage `json:"error"`
+	}
+	if err := json.Unmarshal(data, &response); err != nil {
+		return err
+	}
+	var request types.JSONRPCRequest
+	if err := json.Unmarshal(tx.JSONRPCPayload, &request); err != nil {
+		return fmt.Errorf("decode request: %w", err)
+	}
+	var requestID, responseID bytes.Buffer
+	if err := json.Compact(&requestID, request.ID); err != nil {
+		return fmt.Errorf("invalid request id: %w", err)
+	}
+	if err := json.Compact(&responseID, response.ID); err != nil {
+		return fmt.Errorf("invalid response id: %w", err)
+	}
+	var id interface{}
+	if err := json.Unmarshal(request.ID, &id); err != nil {
+		return err
+	}
+	switch id.(type) {
+	case string, float64:
+	default:
+		return fmt.Errorf("invalid JSON-RPC request id")
+	}
+	if response.Version != "2.0" || !bytes.Equal(requestID.Bytes(), responseID.Bytes()) {
+		return fmt.Errorf("JSON-RPC version or id mismatch")
+	}
+	if len(response.Error) != 0 {
+		if len(response.Result) != 0 {
+			return fmt.Errorf("JSON-RPC response contains both result and error")
+		}
+		var nodeError struct {
+			Code    *int            `json:"code"`
+			Message *string         `json:"message"`
+			Data    json.RawMessage `json:"data"`
+		}
+		if err := json.Unmarshal(response.Error, &nodeError); err != nil {
+			return err
+		}
+		if nodeError.Code == nil || nodeError.Message == nil {
+			return fmt.Errorf("malformed JSON-RPC error")
+		}
+		return &TransactionRPCError{Code: *nodeError.Code, Message: *nodeError.Message, Data: nodeError.Data}
+	}
+	var hash common.Hash
+	if err := json.Unmarshal(response.Result, &hash); err != nil {
+		return fmt.Errorf("invalid transaction hash: %w", err)
+	}
+	if tx.EthTx == nil || hash != tx.EthTx.Hash() {
+		return fmt.Errorf("JSON-RPC transaction hash mismatch")
+	}
+	return nil
 }
