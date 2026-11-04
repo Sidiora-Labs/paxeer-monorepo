@@ -1,0 +1,27 @@
+[task.22.33.1051]
+findings = ["22.30.41/16", "22.30.41/17", "22.30.41/18", "22.30.41/24"]
+finding_16 = "TestRepairM_1051_ConcurrentDistinctSwaps: two builders fold concurrent distinct identities into initially absent and existing buckets, asserting every timeframe's buy/sell/token volumes, trade counts, durable trader membership and committed deliveries. The SQL adapter takes transaction-scoped identity and pool advisory locks before any claim or fold."
+finding_17 = "TestRepairM_1051_RollbackAndRedisRestart and TestRepairM_1051_CommittedOutboxRetry: a corrupt later-timeframe amount rolls back the early candle, membership, claim and outbox; stop/reopen the embedded database and transport, retry, and prove stable counts, committed-only delivery, retained outbox on transport/ack failure, identical event IDs and payloads on retry, and no resend after acknowledgement."
+finding_18 = "TestRepairM_1051_LateSourceOrder: deliver a latest bucket before an old missing bucket, close/reopen storage, deliver earlier/middle source positions into existing buckets, and prove persisted OHLC source order, within-block ordering and monotonic current cursors. Missing chain positions are refused explicitly."
+finding_24 = "TestRepairM_1051_ArchiveNodeIdentity: the same ArchiveReader.BlockTime adapter used by rollup_test.go drives production chainread.Reader over a committed loopback JSON-RPC response; accept its reported hash and reject its different local header rehash and a foreign hash. The live archive test also retains explicit committed/foreign hash checks."
+proof_boundary = "The focused gate runs the production builder, fold, persistence codecs and committed Redis relay with a real transactional LevelDB peer and committed loopback RESP/JSON-RPC fixtures. It needs no live endpoint, credential, environment variable, external binary or subprocess. RESP fixtures prove transport/retry behavior; they do not qualify a Redis server implementation, PostgreSQL deployment or a live chain capture."
+baseline = "Not run: the explicit ordered instructions require complete implementation before either gate and prohibit manually running verify_cmd before hf-done. There were no earlier task changes or gate ledger entries; no pre-change failure is claimed."
+qualification = "The exact verified revision, command, exit and private evidence location are supplied by the runner's final hf-done record; declarations here do not claim qualification."
+
+[wiring.schema]
+request = "services/launchpad/trading-charts/migrations (owner fm-launchpad, domain 4): apply engine.DevelopmentSchemaDDL before enabling development ingestion and source-reconstruct pre-existing candle projections lacking persisted development ordering/membership; the engine refuses such projections instead of resetting their economics."
+
+[wiring.source_order]
+request = "services/launchpad/trading-charts/internal/consumer/swap_consumer.go and internal/httpapi/webhook.go (owner fm-launchpad, domain 4): carry authenticated block height, transaction index and log index into SwapEvent.Position on both legacy transports; ingestion without a complete source position is refused."
+
+[wiring.relay]
+request = "services/launchpad/trading-charts/internal/app/app.go (owner fm-launchpad, domain 4): schedule Builder.RelayCommitted for development pools after restart even without a new swap; every ingestion retry already drains committed outbox records without refolding the claimed source."
+
+[wiring.consumer]
+request = "services/launchpad/api/internal/broker/transform.go (owner fm-launchpad, domain 4): consume the stable development eventId and revision idempotently across ambiguous acknowledgements plus Redis data loss; publication is atomically revision-fenced in Redis, while acknowledged records and trader membership survive in SQL."
+
+[gotcha.source_metadata]
+observed = "Legacy webhook and Redis adapters retain timestamps but discard transaction ordering; timestamp or hash sorting cannot replace source chain order, so the repaired builder requires explicit source metadata."
+
+[gotcha.evidence]
+observed = "The initial tree contains runner-owned .cgignore and spec task-start changes; these were preserved, and task implementation changes stay inside internal/engine. GOTCHA.kvx and spec files are outside the user-authorized scope."
