@@ -3,6 +3,7 @@ import type { GetServerSidePropsContext, GetServerSidePropsResult } from 'next';
 import type { AdBannerProviders } from 'types/client/adProviders';
 
 import type { Route } from 'nextjs-routes';
+import { httpLogger } from 'nextjs/utils/logger';
 
 import config from 'configs/app';
 import * as cookies from 'lib/cookies';
@@ -21,6 +22,28 @@ export interface Props<Pathname extends Route['pathname'] = never> {
   // so we force it to be always present in the props but it can be null
   apiData: metadata.ApiData<Pathname> | null;
   uuid: string;
+}
+
+async function reportPageview(body: string): Promise<void> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 1_000);
+
+  try {
+    const response = await fetch('https://monitor.blockscout.com/count', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      httpLogger.logger.warn({ message: 'Pageview reporting failed', code: response.status });
+    }
+    await response.body?.cancel();
+  } catch (error) {
+    httpLogger.logger.warn({ message: 'Pageview reporting failed', err: error });
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export const base = async <Pathname extends Route['pathname'] = never>({ req, res, query }: GetServerSidePropsContext):
@@ -57,18 +80,14 @@ Promise<GetServerSidePropsResult<Props<Pathname>>> => {
       const chainName = process.env.NEXT_PUBLIC_NETWORK_NAME;
       const publicRPC = process.env.NEXT_PUBLIC_NETWORK_RPC_URL;
 
-      fetch('https://monitor.blockscout.com/count', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          hostname,
-          timestamp,
-          chainId,
-          chainName,
-          publicRPC,
-          uuid,
-        }),
-      });
+      void reportPageview(JSON.stringify({
+        hostname,
+        timestamp,
+        chainId,
+        chainName,
+        publicRPC,
+        uuid,
+      }));
     }
   }
 
