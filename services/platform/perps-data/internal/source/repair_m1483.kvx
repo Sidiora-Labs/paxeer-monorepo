@@ -1,0 +1,22 @@
+[repair.22.33.1483]
+audit = "22.30.87"
+status = "Implementation complete; attempt 3 continues the inherited repair after production migration 0016_spot_board_omissions.sql from 22.31.468. Qualification is established only by the matching build and verify records in /out/run/gates.jsonl."
+finding_rpc_url_credentials = "rpc-url-credentials: TestRepairM_1483_RPCURLCredentials, TestRepairM_1483_StartupAndHealthTransitions, TestRepairM_1483_RPCStartupFailure, TestRepairM_1483_HeadDecodeCredentials and TestRepairM_1483_CometURLCredentials passed through real RPC/Comet clients against loopback HTTP peers, covering safe startup, wrapped transport failures, HTTP/RPC refusals, head decoding before historical state reads, quarantine and recovery diagnostics; config path redaction remains an out-of-scope wiring request."
+finding_rewind_path_test = "rewind-path-test: TestRepairM_1483_FollowerRecovery in source/repair_m1483_test.go implements production Indexer.Run, Follower continuity recovery, the production rebuild callback and real store folds; its assertions cover populated projections, unaffected account rows, lease renewal, deleted fork facts, cursor and rewind envelope, reopened storage and canonical logs after restart. The same-named indexer/indexer_test.go case directly ages and asserts the writer lease through the production step. Attempt 3 qualifies this proof against the supplied PostgreSQL fixture and the production migration from 22.31.468."
+baseline = "Not run: the explicit gate order forbids testing before complete implementation and allows verification only through hf-done after hf-build; no unchanged-tree failures are claimed."
+evidence = "hf-build and hf-done record the exact candidate revision, command, exit and private log in /out/run/gates.jsonl; no verification is claimed until the corresponding gate runs."
+wiring_config = "services/platform/perps-data/internal/config/config.go — perps-data, owner_domain 8: safeEndpoint must omit credential-bearing Path and RawPath, in addition to its existing userinfo/query/fragment redaction, consistently across String, GoString, LogValue and MarshalJSON; preserve original transport endpoints."
+migration_dependency = "Resolved by owning-domain task 22.31.468: services/platform/perps-data/migrations/0016_spot_board_omissions.sql supplies perps.spot_board_omissions and perps.spot_board_generation through store.Migrate; this task changes no migration or test-side schema."
+fixture = "Per do_9, do_10 and gotcha 2980, PERPS_DATA_TEST_DATABASE_URL names the qualification-provided PostgreSQL fixture and takes precedence over the earlier no-environment clause. Recovery uses the real store without Redis, S3, Anvil, a live RPC endpoint or subprocesses."
+
+[gotcha.storage]
+observed = "Production recovery folds require PostgreSQL SQL dialect, migrations, transaction fencing and persisted projections; an in-memory or recorded reader alone cannot prove those persisted mutations."
+assumption = "The qualification-provided PostgreSQL fixture is explicitly authorized by do_9 and do_10; no alternate backend is required."
+
+[qualification.missing_store_migration]
+revision = "150c33a4797cd905928ea92c32ee1cce1614ee7d"
+command = "cg spec done 22.33.1483 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "TestRepairM_1483_FollowerRecovery failed at fixture WriteBlock: store: write spot omission: pq: relation perps.spot_board_omissions does not exist; the build and all five security tests passed at this revision."
+assumption = "The inherited production store references a relation absent from the embedded migrations; its owning domain must repair that out-of-scope interface before recovery can qualify, and this finding is not rerun or reinvestigated."
