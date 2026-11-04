@@ -1,4 +1,5 @@
 import { subscribeRpc, type SubscriptionEvent, type SubscriptionTopic } from "./rpc-subscription.js";
+export { SubscriptionReconciliationRequiredError, SUBSCRIPTION_MAX_BACKLOG, SUBSCRIPTION_MAX_BACKLOG_BYTES } from "./rpc-subscription.js";
 export type { SubscriptionEvent, SubscriptionTopic } from "./rpc-subscription.js";
 import { keccak_256 } from "@noble/hashes/sha3.js";
 import { createHash } from "node:crypto";

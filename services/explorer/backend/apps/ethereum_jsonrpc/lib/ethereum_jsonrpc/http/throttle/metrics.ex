@@ -3,7 +3,8 @@ defmodule EthereumJSONRPC.HTTP.Throttle.Metrics do
   Prometheus metrics for `EthereumJSONRPC.HTTP.Throttle`.
 
   All metrics are labelled by the request class (`default`, `archive` or `trace`) only. The
-  endpoint URL is deliberately never used as a label because it can carry credentials.
+  endpoint URL is deliberately never used as a label because it can carry credentials. Class gauges
+  sum all endpoints; queue depth includes coalesced callers waiting for an in-flight response.
   """
 
   use Prometheus.Metric

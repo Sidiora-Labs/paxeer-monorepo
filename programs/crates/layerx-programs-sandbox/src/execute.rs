@@ -59,7 +59,7 @@ impl LeaseCapabilities {
         &self.grants
     }
 
-    fn authorization(&self) -> AuthorizationContext {
+    pub(crate) fn authorization(&self) -> AuthorizationContext {
         AuthorizationContext::new(self.principal, self.grants.clone())
     }
 }

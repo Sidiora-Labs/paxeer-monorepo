@@ -4,7 +4,7 @@ defmodule Explorer.Account.Authentication do
   """
 
   alias Explorer.{Account, Helper}
-  alias Explorer.Account.Identity
+  alias Explorer.Account.{Identity, MigrationCheckpoint}
   alias Explorer.Chain.{Address, Hash}
   alias Explorer.ThirdPartyIntegrations.{Auth0, Dynamic, Keycloak}
   alias Ueberauth.Auth
@@ -277,7 +277,7 @@ defmodule Explorer.Account.Authentication do
   """
   @spec authenticate_via_dynamic(String.t()) :: {:ok, Auth.t()} | {:error, String.t()} | :error | {:enabled, false}
   def authenticate_via_dynamic(token) do
-    Dynamic.get_auth_from_token(token)
+    with :ok <- account_access(:dynamic), do: Dynamic.get_auth_from_token(token)
   end
 
   defp cache_nonce_for_address(nonce, address_hash) do
@@ -313,7 +313,25 @@ defmodule Explorer.Account.Authentication do
     end
   end
 
-  defp responsible_module do
+  @doc false
+  def account_access(provider \\ nil) do
+    case MigrationCheckpoint.access() do
+      :closed -> {:enabled, false}
+      :keycloak when provider not in [nil, :keycloak] -> {:enabled, false}
+      _ -> :ok
+    end
+  end
+
+  @doc false
+  def responsible_module do
+    case MigrationCheckpoint.access() do
+      :closed -> {:enabled, false}
+      :keycloak -> if Keycloak.enabled?(), do: {:ok, Keycloak}, else: {:enabled, false}
+      :legacy -> configured_module()
+    end
+  end
+
+  defp configured_module do
     cond do
       Auth0.enabled?() -> {:ok, Auth0}
       Keycloak.enabled?() -> {:ok, Keycloak}

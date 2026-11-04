@@ -3,6 +3,7 @@ use bon::Builder;
 use dashmap::DashMap;
 use futures::{
     FutureExt,
+    channel::oneshot,
     future::{BoxFuture, Shared},
 };
 use std::{cmp::Eq, fmt::Display, hash::Hash, sync::Arc, time::Duration};
@@ -13,6 +14,25 @@ type EventHandler<K, V> = Arc<dyn Fn(&K, &V) + Send + Sync>;
 type InflightRequest<K, V, C> =
     SharedFuture<V, CacheRequestError<<C as AsyncCacheStore<K, V>>::Error>>;
 type InflightMap<K, V, C> = DashMap<K, InflightRequest<K, V, C>>;
+
+struct InflightOwner<C, K, V>
+where
+    C: AsyncCacheStore<K, V>,
+    K: Sync + Hash + Eq,
+{
+    inflight: Arc<InflightMap<K, V, C>>,
+    key: K,
+}
+
+impl<C, K, V> Drop for InflightOwner<C, K, V>
+where
+    C: AsyncCacheStore<K, V>,
+    K: Sync + Hash + Eq,
+{
+    fn drop(&mut self) {
+        self.inflight.remove(&self.key);
+    }
+}
 
 #[derive(Builder, Clone)]
 pub struct CacheHandler<C, K, V>
@@ -139,7 +159,8 @@ where
             return Ok(val);
         }
 
-        let fut = match self.inflight.entry(self.key.clone()) {
+        let inflight = self.inflight.clone();
+        let fut = match inflight.entry(self.key.clone()) {
             dashmap::Entry::Occupied(entry) => {
                 let fut_shared = entry.get().clone();
                 async move {
@@ -150,21 +171,11 @@ where
                 .boxed()
             }
             dashmap::Entry::Vacant(entry) => {
-                let fut_shared = Self::build_shared_future(compute());
-
+                let (sender, fut_shared) = Self::result_channel();
                 entry.insert(fut_shared.clone());
-
-                let inflight = Arc::clone(&self.inflight);
-                async move {
-                    let res = fut_shared.await;
-                    if let Ok(val) = res.as_ref() {
-                        let _ = self.cache.set(&self.key, val, self.ttl).await;
-                        (self.on_computed)(&self.key, val);
-                    }
-                    inflight.remove(&self.key);
-                    res
-                }
-                .boxed()
+                let on_computed = self.on_computed.clone();
+                self.spawn_computation(compute, sender, on_computed);
+                fut_shared.boxed()
             }
         };
 
@@ -190,35 +201,59 @@ where
             return;
         }
 
-        let entry = self.inflight.entry(self.key.clone());
+        let inflight = self.inflight.clone();
+        let entry = inflight.entry(self.key.clone());
         if let dashmap::Entry::Vacant(entry) = entry {
-            let fut_shared = Self::build_shared_future(compute());
-
-            entry.insert(fut_shared.clone());
-
-            let inflight = Arc::clone(&self.inflight);
-            tokio::spawn(async move {
-                let res = fut_shared.await;
-                if let Ok(val) = res.as_ref() {
-                    let _ = self.cache.set(&self.key, val, self.ttl).await;
-                    (self.on_refresh_computed)(&self.key, val);
-                }
-                inflight.remove(&self.key);
-            });
+            let (sender, fut_shared) = Self::result_channel();
+            entry.insert(fut_shared);
+            let on_computed = self.on_refresh_computed.clone();
+            self.spawn_computation(compute, sender, on_computed);
         }
     }
 
-    fn build_shared_future<Fut, E>(fut: Fut) -> SharedFuture<V, CacheRequestError<C::Error>>
-    where
+    fn spawn_computation<F, Fut, E>(
+        self,
+        compute: F,
+        sender: oneshot::Sender<Result<V, CacheRequestError<C::Error>>>,
+        on_computed: EventHandler<K, V>,
+    ) where
+        F: FnOnce() -> Fut,
         Fut: Future<Output = Result<V, E>> + Send + 'static,
         E: Display,
     {
-        async move {
-            fut.await
-                .map_err(|e| CacheRequestError::ComputeError(e.to_string()))
+        let owner: InflightOwner<C, K, V> = InflightOwner {
+            inflight: self.inflight.clone(),
+            key: self.key.clone(),
+        };
+        let fut = compute();
+        tokio::spawn(async move {
+            let res = fut
+                .await
+                .map_err(|e| CacheRequestError::ComputeError(e.to_string()));
+            if let Ok(val) = res.as_ref() {
+                let _ = self.cache.set(&self.key, val, self.ttl).await;
+                on_computed(&self.key, val);
+            }
+            drop(owner);
+            let _ = sender.send(res);
+        });
+    }
+
+    fn result_channel() -> (
+        oneshot::Sender<Result<V, CacheRequestError<C::Error>>>,
+        InflightRequest<K, V, C>,
+    ) {
+        let (sender, receiver) = oneshot::channel();
+        let future = async move {
+            receiver.await.unwrap_or_else(|_| {
+                Err(CacheRequestError::ComputeError(
+                    "cache computation task cancelled or panicked".to_owned(),
+                ))
+            })
         }
         .boxed()
-        .shared()
+        .shared();
+        (sender, future)
     }
 }
 

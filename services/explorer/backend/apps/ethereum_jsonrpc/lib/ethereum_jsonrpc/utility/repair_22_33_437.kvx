@@ -1,0 +1,8 @@
+[repair.22.33.437]
+audit = "22.30.147"
+finding = "duration-parser-partial"
+test_file = "services/explorer/backend/apps/ethereum_jsonrpc/test/repair/repair_22_33_437_test.exs"
+proving_tests = ["duration-parser-partial: complete supported components preserve millisecond values", "duration-parser-partial: malformed fragments and bare numbers return a typed error to Geth", "duration-parser-partial: configured composite timeouts drive HTTP trace import with recorded chain data"]
+baseline = "Not run: task gate-order instructions prohibit verification before implementation and require verification only through hf-done after hf-build; no baseline test failures are claimed."
+wiring_requests = []
+qualification = "The runner records the candidate revision, exact command, exit code and private log path through hf-build and hf-done."

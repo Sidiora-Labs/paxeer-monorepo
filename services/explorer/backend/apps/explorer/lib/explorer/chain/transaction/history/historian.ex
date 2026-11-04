@@ -189,7 +189,7 @@ defmodule Explorer.Chain.Transaction.History.Historian do
         block in Block,
         where: block.consensus == true,
         where: block.number >= ^min_block and block.number <= ^max_block,
-        select: block.number
+        select: block.hash
       )
 
     # Not actual if the block_consensus information is already the part of the transaction
@@ -201,7 +201,7 @@ defmodule Explorer.Chain.Transaction.History.Historian do
       else
         from(transaction in subquery(all_transactions_query),
           join: block in subquery(all_blocks_query),
-          on: transaction.block_number == block.number,
+          on: transaction.block_hash == block.hash,
           select: transaction
         )
       end

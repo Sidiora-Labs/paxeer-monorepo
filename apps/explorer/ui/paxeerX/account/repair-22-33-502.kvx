@@ -1,0 +1,28 @@
+[repair.22.33.502]
+audit = "22.30.151"
+test_entrypoint = "apps/explorer/ui/paxeerX/account/repair-22-33-502.spec.ts"
+proof = "The entrypoint imports all three component suites, rendering production components through the real Chakra and application providers with committed unified-account response fixtures and production loading placeholders."
+baseline = "Not run: the explicit gate order forbids tests before implementation and permits only hf-build followed by hf-done. No baseline failure is claimed."
+baseline_observed = "Static inspection: ActivityList and AssetList expect retired notes; AssetListItem selects HPX as tokenBalance and USDX as custodyBalance, contradicting their symbol, amount and metadata assertions."
+formatter_observed = "Initial layout formatting reported Vitest rules incompatible with test(namedFunction) and existing snake_case names; no rule was disabled. Verification showed Vitest 4 requires an explicit callback, so registrations now supply the function name and callback."
+wiring_requests = []
+
+[finding.activity-test-retired-copy]
+test = "ActivityList > activityTestRetiredCopy"
+coverage = "Native activity copy and producer-shaped empty, loading-to-populated and populated states; all existing row, amount and status assertions retained."
+
+[finding.asset-test-retired-copy]
+test = "AssetList > assetTestRetiredCopy"
+coverage = "Actual native per-asset note and response row identities, empty state, loading-to-populated totals, flat rows and absent metadata."
+
+[finding.asset-item-fixture-mismatch]
+test = "AssetListItem > assetItemFixtureMismatch"
+coverage = "Token and native coin rows selected by identity, each checked for asset id, symbol, denom and scaled amount; explicit absent-metadata scenario retains id-only and unscaled-amount assertions."
+
+[qualification.initial_verify]
+revision = "174c5a4b3c6b9da0938bef8c78ecf08806fd4311"
+command = "cg spec done 22.33.502 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The inherited whole-card data-part selector counted five footer-select elements; Vitest treated five callback-only registrations as todos."
+repair = "Assert zero balance parts inside the explicitly present asset table and register every named function with an explicit callback; all 23 cases must execute."

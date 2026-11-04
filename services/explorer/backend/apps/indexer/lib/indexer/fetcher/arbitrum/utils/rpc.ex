@@ -316,7 +316,7 @@ defmodule Indexer.Fetcher.Arbitrum.Utils.Rpc do
         # the safe block feature (non standard Arbitrum deployments).
         # In both cases, it is necessary to step back a bit from the latest block to
         # suspect these blocks as unfinalized.
-        latest_chain_block + 1 - min(finalization_threshold, hard_limit)
+        max(0, latest_chain_block + 1 - min(finalization_threshold, hard_limit))
       else
         safe_chain_block
       end

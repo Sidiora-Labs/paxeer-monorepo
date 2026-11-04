@@ -1,0 +1,18 @@
+{
+  "create_failed": {
+    "POST /api/v2/jobs/users-exports": {
+      "status": 403,
+      "body": {"statusCode": 403, "error": "Forbidden", "message": "Insufficient scope, expected read:users"}
+    }
+  },
+  "poll_failed": {
+    "POST /api/v2/jobs/users-exports": {
+      "status": 200,
+      "body": {"id": "job_recorded_export", "type": "users_export", "status": "pending", "format": "json"}
+    },
+    "GET /api/v2/jobs/job_recorded_export": {
+      "status": 200,
+      "body": {"id": "job_recorded_export", "type": "users_export", "status": "failed"}
+    }
+  }
+}

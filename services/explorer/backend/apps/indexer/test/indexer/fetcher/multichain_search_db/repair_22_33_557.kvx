@@ -1,0 +1,43 @@
+[repair.22.33.557]
+audit = "22.30.158"
+base_revision = "de8ab245609a7e0707cc32c502b6dcbe17ce3aca"
+proof = "apps/indexer/test/repair/repair_22_33_557_test.exs loads all three original suites and runs Indexer.Repair2233557Test against production queue schemas, fetchers, BufferedTask supervisors and HTTP transport with a loopback import receiver."
+qualification = "The gate runner retains the exact candidate revision, command, exit and private log in /out/run/gates.jsonl; this record does not claim an unexecuted gate."
+baseline = "No earlier gate evidence existed; the repair test was absent at the base. No pre-change test was executed because the explicit gate order forbids testing before complete implementation and allows only hf-done to invoke verify_cmd. No baseline failures are claimed."
+wiring_request = "Domain 14 owns services/explorer/backend/apps/explorer/lib/explorer/microservice_interfaces/multichain_search.ex: reconcile the requested API-key header with the existing import contract, which authenticates through JSON api_key and sends only Content-Type; this task asserts that actual contract without changing transport outside scope."
+
+[finding.036]
+test = "036: exact configuration is restored after normal and interrupted exits"
+repair = "Balances setup snapshots the complete service, adapter and supervisor values before mutation and restores absent keys, explicit nil and arbitrary full prior values through on_exit."
+
+[finding.013]
+test = "013: native, ERC-20 and NFT balances retain precision through durable replay"
+repair = "The original success receiver validates the whole import body, authentication and content type; replay drives a 503 through the real producer and transport, reopens the stopped fetcher and asserts the complete received native/token/NFT payload and drained durable queue."
+
+[finding.037]
+test = "037: exact configuration is restored after normal and interrupted exits"
+repair = "Main setup preserves full service, adapter and supervisor values before any mutation instead of installing assumed defaults on exit."
+
+[finding.034]
+test = "034: address, block range and typed hashes survive durable replay"
+repair = "The original success receiver asserts address, block and transaction fields; replay uses the committed Paxeer transaction transcript and asserts chain, authentication, range, typed hashes, preserved rows after stop and queue deletion after receiver acknowledgement."
+
+[finding.038]
+test = "038: exact configuration is restored after normal and interrupted exits"
+repair = "Token-info setup restores the exact prior service, adapter and supervisor values, including absence and explicit nil, on every exit."
+
+[finding.035]
+test = "035: all token-info variants reach the receiver after interruption"
+repair = "The original success receiver validates the entire request; replay exercises metadata, total supply, counters and price data through production serialization, a failed receiver, persisted recovery, a real fetcher restart and successful receiver acknowledgement."
+
+[gotcha.auth_contract]
+observed = "The audit asks for an API-key header but the production transport places api_key in the JSON body; no receiving-service implementation is present in this repository slice."
+action = "Assert exact JSON authentication and Content-Type and route a header-contract change to domain 14 without editing out-of-scope production code."
+
+[gotcha.supervisor_arguments]
+observed = "The first hf-done candidate ran 15 tests with 3 replay failures because generated fetcher supervisors accept [init_options, genserver_options], not bare keyword options."
+action = "Pass a nested init-options list to the real supervisor child_spec; retain all payload, persistence and recovery assertions."
+first_revision = "b2cc7c4739811dc64a13fbe588120f9997593a53"
+first_command = "cg spec done 22.33.557 -f layerx-merge --root /work/paxeer-monorepo"
+first_exit = 1
+first_log = "/out/logs/verify-1.log"

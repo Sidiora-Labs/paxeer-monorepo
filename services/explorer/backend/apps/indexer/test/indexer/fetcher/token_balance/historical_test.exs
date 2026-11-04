@@ -1,3 +1,5 @@
+Code.require_file("recorded_node.exs", __DIR__)
+
 defmodule Indexer.Fetcher.TokenBalance.HistoricalTest do
   use EthereumJSONRPC.Case
   use Explorer.DataCase
@@ -9,6 +11,7 @@ defmodule Indexer.Fetcher.TokenBalance.HistoricalTest do
   alias Explorer.Repo
   alias Explorer.Utility.MissingBalanceOfToken
   alias Indexer.Fetcher.TokenBalance.Historical, as: TokenBalanceHistorical
+  alias Indexer.Fetcher.TokenBalance.RecordedNode
 
   @moduletag :capture_log
 
@@ -185,20 +188,8 @@ defmodule Indexer.Fetcher.TokenBalance.HistoricalTest do
         value: nil
       )
 
-      expect(
-        EthereumJSONRPC.Mox,
-        :json_rpc,
-        fn [%{id: id, method: "eth_call", params: [%{data: _, to: _}, _]}], _options ->
-          {:ok,
-           [
-             %{
-               id: id,
-               jsonrpc: "2.0",
-               error: %{code: "-32000", message: "execution reverted"}
-             }
-           ]}
-        end
-      )
+      node = RecordedNode.start()
+      RecordedNode.expect_response(node, "revert", address.hash, token_contract_address_hash, 1)
 
       assert TokenBalanceHistorical.run(
                [
@@ -207,8 +198,13 @@ defmodule Indexer.Fetcher.TokenBalance.HistoricalTest do
                nil
              ) == :ok
 
-      assert %{token_contract_address_hash: ^token_contract_address_hash, block_number: 1} =
-               Repo.one(MissingBalanceOfToken)
+      assert_receive {:recorded_eth_call, "revert", _}
+
+      assert %{
+               token_contract_address_hash: ^token_contract_address_hash,
+               block_number: 1,
+               currently_implemented: nil
+             } = Repo.one(MissingBalanceOfToken)
 
       assert Repo.all(Address.TokenBalance) == []
     end
@@ -227,20 +223,8 @@ defmodule Indexer.Fetcher.TokenBalance.HistoricalTest do
         retries_count: nil
       )
 
-      expect(
-        EthereumJSONRPC.Mox,
-        :json_rpc,
-        fn [%{id: id, method: "eth_call", params: [%{data: _, to: _}, _]}], _options ->
-          {:ok,
-           [
-             %{
-               id: id,
-               jsonrpc: "2.0",
-               error: %{code: "-32000", message: "other error"}
-             }
-           ]}
-        end
-      )
+      node = RecordedNode.start()
+      RecordedNode.expect_response(node, "retry", address.hash, token_contract_address_hash, 1)
 
       assert TokenBalanceHistorical.run(
                [
@@ -249,8 +233,11 @@ defmodule Indexer.Fetcher.TokenBalance.HistoricalTest do
                nil
              ) == :ok
 
+      assert_receive {:recorded_eth_call, "retry", _}
       assert %{retries_count: 1, refetch_after: refetch_after} = Repo.one(Address.TokenBalance)
       refute is_nil(refetch_after)
+      assert DateTime.compare(refetch_after, DateTime.utc_now()) == :gt
+      assert Repo.all(MissingBalanceOfToken) == []
     end
   end
 

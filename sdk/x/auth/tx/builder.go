@@ -162,8 +162,26 @@ func (w *wrapper) GetTimeoutHeight() uint64 {
 }
 
 func (w *wrapper) GetSignaturesV2() ([]signing.SignatureV2, error) {
+	if w.tx == nil || w.tx.AuthInfo == nil {
+		return nil, sdkerrors.ErrTxDecode.Wrap("missing transaction auth info")
+	}
 	signerInfos := w.tx.AuthInfo.SignerInfos
 	sigs := w.tx.Signatures
+	unsigned := len(sigs) == 0
+	for i, si := range signerInfos {
+		if si == nil {
+			return nil, sdkerrors.ErrTxDecode.Wrapf("nil signer info at index %d", i)
+		}
+		unsigned = unsigned && si.ModeInfo == nil
+		if si.ModeInfo == nil && i < len(sigs) && len(sigs[i]) != 0 {
+			return nil, sdkerrors.ErrTxDecode.Wrapf("signature without mode info at index %d", i)
+		}
+	}
+	// Unsigned simulation may omit signatures only when every mode is absent.
+	// Otherwise each signer needs a signature slot, even if its bytes are empty.
+	if !unsigned && len(sigs) != len(signerInfos) {
+		return nil, sdkerrors.ErrTxDecode.Wrapf("signature count %d does not match signer info count %d", len(sigs), len(signerInfos))
+	}
 	pubKeys, err := w.GetPubKeys()
 	if err != nil {
 		return nil, err
