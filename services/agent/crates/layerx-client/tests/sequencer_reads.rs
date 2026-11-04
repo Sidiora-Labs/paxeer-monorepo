@@ -175,6 +175,14 @@ fn storage_witness_replaces_the_account_proof() {
     }
 }
 
+fn recorded_freshness() -> Value {
+    let transcript: Value = serde_json::from_str(include_str!(
+        "../../../../../apps/web/e2e/fixtures/px-get-unified-history.json"
+    ))
+    .must();
+    transcript["result"]["freshness"].clone()
+}
+
 #[test]
 fn history_sends_px_get_history_with_a_32_hex_cursor_and_refuses_other_forms() {
     let account = "0x1212121212121212121212121212121212121212";
@@ -185,18 +193,18 @@ fn history_sends_px_get_history_with_a_32_hex_cursor_and_refuses_other_forms() {
         json!({"kind": "call"}),
     ];
     let result = json!({
+        "account": account, "chainHeight": 44000, "freshness": recorded_freshness(),
         "items": items, "next_cursor": next, "indexedHeight": 43982
     });
     let mut exchanges = vec![
         ("px_getHistory", result.clone()),
-        ("eth_blockNumber", json!("0xabe0")),
         (
             "px_getHistory",
             json!({
+                "account": account, "chainHeight": 0, "freshness": recorded_freshness(),
                 "items": [], "next_cursor": null, "indexedHeight": 0
             }),
         ),
-        ("eth_blockNumber", json!("0x0")),
     ];
     for (field, invalid) in [
         ("items", json!({})),
@@ -209,16 +217,17 @@ fn history_sends_px_get_history_with_a_32_hex_cursor_and_refuses_other_forms() {
         malformed[field] = invalid;
         exchanges.push(("px_getHistory", malformed));
     }
-    let malformed_count = exchanges.len() - 4;
+    let malformed_count = exchanges.len() - 2;
     let mut unindexed = result.clone();
     unindexed["indexedHeight"] = Value::Null;
     exchanges.push(("px_getHistory", unindexed));
-    exchanges.push(("eth_blockNumber", json!("0xabe0")));
     let (url, handle) = serve(exchanges);
     let endpoint = SequencerEndpoint::new(&url, &[]).must();
     assert_eq!(
         endpoint.history(account, Some(cursor), 2).must(),
         HistoryPage {
+            account: account.to_owned(),
+            freshness: recorded_freshness(),
             items: items.clone(),
             next_cursor: Some(next.to_owned()),
             indexed_height: Some(43982),
@@ -228,6 +237,8 @@ fn history_sends_px_get_history_with_a_32_hex_cursor_and_refuses_other_forms() {
     assert_eq!(
         endpoint.history(account, None, 50).must(),
         HistoryPage {
+            account: account.to_owned(),
+            freshness: recorded_freshness(),
             items: vec![],
             next_cursor: None,
             indexed_height: Some(0),
@@ -243,16 +254,16 @@ fn history_sends_px_get_history_with_a_32_hex_cursor_and_refuses_other_forms() {
     assert_eq!(
         endpoint.history(account, Some(cursor), 2).must(),
         HistoryPage {
+            account: account.to_owned(),
+            freshness: recorded_freshness(),
             items,
             next_cursor: Some(next.to_owned()),
             indexed_height: None,
             chain_height: Some(44000),
         }
     );
-    let mut seen = handle.join().must();
-    assert_eq!(seen.pop(), Some(json!([])));
-    assert_eq!(seen.remove(3), json!([]));
-    assert_eq!(seen.remove(1), json!([]));
+    let seen = handle.join().must();
+    assert_eq!(seen.len(), 3 + malformed_count);
     assert_eq!(seen[0], json!([account, cursor, 2]));
     assert_eq!(seen[1], json!([account, null, 50]));
     for params in &seen[2..] {
