@@ -20,17 +20,65 @@ static int database_digest(lxp_projection *projection, uint8_t digest[32])
         "FROM receipts ORDER BY 1";
     sqlite3_stmt *statement = NULL;
     lxp_hash_context hash;
+    int status;
+    int finalize_status;
     if (sqlite3_prepare_v2((sqlite3 *)projection->database, query, -1,
                            &statement, NULL) != SQLITE_OK) return 0;
     lxp_hash_init(&hash);
-    while (sqlite3_step(statement) == SQLITE_ROW) {
+    while ((status = sqlite3_step(statement)) == SQLITE_ROW) {
         const void *text = sqlite3_column_text(statement, 0);
         int length = sqlite3_column_bytes(statement, 0);
-        if (length < 0) return 0;
-        if (lxp_hash_update(&hash, text, (size_t)length) != LXP_OK) return 0;
+        if (text == NULL || length < 0 ||
+            lxp_hash_update(&hash, text, (size_t)length) != LXP_OK) {
+            (void)sqlite3_finalize(statement);
+            return 0;
+        }
     }
-    (void)sqlite3_finalize(statement);
+    finalize_status = sqlite3_finalize(statement);
+    if (status != SQLITE_DONE || finalize_status != SQLITE_OK) return 0;
     return lxp_hash_final(&hash, digest) == LXP_OK;
+}
+
+static int interrupt_digest_read(unsigned int event, void *context,
+                                  void *statement, void *detail)
+{
+    unsigned int *rows = context;
+    (void)detail;
+    if (event == SQLITE_TRACE_ROW) {
+        ++*rows;
+        if (*rows == 1U)
+            sqlite3_interrupt(sqlite3_db_handle(statement));
+    }
+    return 0;
+}
+
+/* Audit 22.30.178 finding 26 is proven by this rebuilt-projection read. */
+static int test_projection_digest_read_failure(lxp_projection *projection,
+                                                const uint8_t expected[32])
+{
+    sqlite3 *database = projection->database;
+    uint8_t digest[32];
+    uint8_t untouched[32];
+    unsigned int rows = 0U;
+    int accepted;
+    int read_status;
+    int trace_status;
+    (void)memset(digest, 0xa5, sizeof(digest));
+    (void)memcpy(untouched, digest, sizeof(untouched));
+    if (sqlite3_trace_v2(database, SQLITE_TRACE_ROW, interrupt_digest_read,
+                          &rows) != SQLITE_OK) return 1;
+    accepted = database_digest(projection, digest);
+    read_status = sqlite3_errcode(database);
+    trace_status = sqlite3_trace_v2(database, 0U, NULL, NULL);
+    if (accepted || rows != 1U || read_status != SQLITE_INTERRUPT ||
+        trace_status != SQLITE_OK ||
+        memcmp(digest, untouched, sizeof(digest)) != 0 ||
+        sqlite3_next_stmt(database, NULL) != NULL ||
+        !database_digest(projection, digest) ||
+        memcmp(digest, expected, sizeof(digest)) != 0 ||
+        sqlite3_next_stmt(database, NULL) != NULL)
+        return 1;
+    return 0;
 }
 
 static void fill_record(lxp_projection_record *record, uint8_t id,
@@ -265,6 +313,7 @@ int main(void)
                                "migrations/0001_projection.sql") != LXP_OK ||
         !database_digest(&projection, second_digest) ||
         memcmp(first_digest, second_digest, sizeof(first_digest)) != 0 ||
+        test_projection_digest_read_failure(&projection, second_digest) != 0 ||
         pread(log.descriptor, &corrupt, 1U,
               (off_t)(receipt_offsets[1] + LXP_LOG_HEADER_BYTES)) != 1)
         return 1;
@@ -286,5 +335,6 @@ int main(void)
         return 1;
     }
     (void)printf("PASS test_projection_stale_restart_rebuild\n");
+    (void)printf("PASS test_projection_digest_read_failure\n");
     return 0;
 }

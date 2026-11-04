@@ -1,0 +1,61 @@
+[repair.22.33.253]
+audit = "22.30.13"
+base_revision = "84b6cf09552744359c78f419900ba8fcd9bbeaf5"
+continuation_base_revision = "19a27bf2d7e3308503bf7adf19e866efefdd5d0f"
+verification = "hf-build followed by hf-done; the runner ledger records the exact candidate revision, command, exit and private evidence path without modifying this record after qualification"
+baseline = "Not run: the explicit ordered implementation-first and hf-done-only instructions prohibit the conflicting pre-change verify request; no pre-change execution result is claimed"
+proof_transport = "Real viem RPC and ABI codecs, real gqlQuery HTTP transport, real production form adapter and planner, real React full-page rendering; peers are committed loopback and in-memory fixtures"
+live_node = "The historical local-node journey is strengthened but is not run by this credential-free gate; stored chain leverage and raw off-tick revert assertions remain in that journey"
+
+[finding.023]
+test = "repair023FundingProgressAndGatewayIndexingShareAWallDeadline"
+repair = "The same journey function bounds initial and subsequent reads, chain progress, and gateway indexing with one wall deadline and last height/time diagnostics; the loopback fixture controls its clock across the funding boundary"
+
+[finding.024]
+test = "repair024AuthoritativeRpcInventoryAndConfiguredTransport"
+repair = "api1 through api14 and api-mainnet-beta at root; exact defaults reach the chain config and the configured transport obtains chain 125 through a real loopback RPC"
+
+[finding.008]
+test = "repair008DecodedConfigAndTiersReachTheChainOrderCodec"
+repair = "The local tick journey shares configuredLimitPlan with the gate, reading real ABI-config and margin tiers into orderLimitsFromConfig and then buildOrderPlan; the journey also reads the accepted order's stored leverage"
+
+[finding.007]
+test = "quoteAndPlanReachConfirmationAndSnapshotConsumers"
+repair = "ABI-decoded integer tiers and market config enter orderLimitsFromConfig before the planner; confirmation and snapshot assertions remain, with enabled, disabled, tier and market leverage boundaries"
+
+[finding.021]
+test = "spotWidgetsReachDesktopMobileAndRouteConsumers"
+repair = "The complete page renders under an explicitly supplied real classic JSX runtime in the test harness; routes, paused state, malformed token refusal and recovery remain asserted"
+wiring = "apps/perps/src/widgets/spot/SpotOrderbook.tsx — domain 3: add the explicit React runtime import required by the default classic tsx transform; the source is outside this task's paths"
+
+[finding.022]
+test = "marketsRowsCrossExportsIntoTheRealTableWithoutStaleResults"
+repair = "Every present malformed numeric market field refuses its snapshot; the real frame normalizer, row builder and table distinguish unavailable rows from valid numeric zero and recover on the next valid frame"
+
+[wiring.local_node]
+request = "services/platform/perps-data and the owning domain 3 local-node initializer: start the isolated journey near the hourly funding boundary or advance its controlled clock before funding qualification; external fixture startup is outside this task's paths"
+
+[gotcha.runtime]
+observed = "The default tsx classic JSX transform requires a React binding, whereas Next supplies an automatic runtime; the test harness explicitly provides the installed real React runtime without replacing production widgets"
+
+[gotcha.configuration]
+observed = "gatewayUrls captures its environment at module evaluation; loopback funding proofs pass a real gqlEndpoint explicitly rather than changing environment variables after import"
+
+[gotcha.continuation]
+observed = "The carried RPC implementation conflicted with an already-aligned authoritative inventory; preserve the current endpoint array and availability caveat while resolving the seed markers"
+
+[qualification.build_1]
+revision = "fdfa645a0baa091a4936ef5449a4a40ee506e418"
+command = "pnpm --dir apps/perps exec tsc --noEmit"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "Task helper latestBlockTime was removed despite another caller; unrelated wallet packages also lacked installed viem, noble and zod dependencies"
+repair = "Restore the helper and install existing package manifests without lifecycle scripts; the configured-URL proof uses real HTTP directly to avoid starting viem's permanent background ranking timer"
+
+[qualification.verify_1]
+revision = "47884abc43f6ecd3626f096beee2b94a92c27a83"
+command = "cg spec done 22.33.253 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All six finding proofs passed; importing the shared widget traversal from another test file also registered the unrelated markets_mode_handler_switches_to_spot test, which fails without QueryClientProvider"
+repair = "Keep both historical release tests and every assertion unchanged, moving only their shared element traversal into a fixture utility so the declared repair entry point registers its own proofs"

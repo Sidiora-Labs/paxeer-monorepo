@@ -4,18 +4,26 @@ import { once } from "node:events";
 import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import test from "node:test";
-import { AgentMiddleware, decodeDaemonSubmitResult, resolveDaemonReceipt } from "@sidiora/layerx-agent-middleware";
-import { keccak256, ProductionClient, SecretBytes } from "@sidiora/layerx-sdk";
-import { decodePaymentExactLog } from "@sidiora/layerx-seller-middleware";
-import { authenticatedAgentTransport, readDeclaredConfig } from "../dist/config.js";
-import {
-  LayerXAgentTransport,
-  LayerXBudgetLedger,
-  LayerXReceiptResolver,
-  LayerXRemoteSigner,
-  LayerXServiceEndpoint,
-} from "../dist/services.js";
-import { AgentToolExecutor, renderOutcome } from "../dist/tools.js";
+import { sdk, middleware, services, config, currentPaymentReceipt, currentPortableReceipt,
+  currentStatus, transcript, paymentFacts } from "./receipt-producer-fixture.mjs";
+const { AgentMiddleware, decodeDaemonSubmitResult, resolveDaemonReceipt } = middleware;
+const { keccak256, ProductionClient, SecretBytes } = sdk;
+const { authenticatedAgentTransport, readDeclaredConfig } = config;
+const { LayerXAgentTransport, LayerXBudgetLedger, LayerXReceiptResolver,
+  LayerXRemoteSigner, LayerXServiceEndpoint } = services;
+const { AgentToolExecutor, renderOutcome } = await import("../src/tools.ts");
+const producedEvidence = await currentPaymentReceipt();
+const trackedEvidence = await currentPortableReceipt();
+const paymentPin = {
+  ...producedEvidence.receiptKey,
+  firstHeight: BigInt(producedEvidence.receiptKey.firstHeight).toString(),
+  lastHeight: BigInt(producedEvidence.receiptKey.lastHeight).toString(),
+};
+const trackingPin = {
+  ...transcript.receipt_key,
+  firstHeight: BigInt(transcript.receipt_key.firstHeight).toString(),
+  lastHeight: BigInt(transcript.receipt_key.lastHeight).toString(),
+};
 
 const vectors = JSON.parse(readFileSync(
   new URL("../../../platform/conformance/fixtures/sequencer-receipt-v1.json", import.meta.url), "utf8",
@@ -53,7 +61,7 @@ function trackedSubmission(entry = vector, state = "Executed", rung = "receipted
 
 async function receiptFixture(t) {
   const fixture = {
-    proof: await portableReceipt(), tracked: trackedSubmission(), requests: [],
+    proof: await portableReceipt(), tracked: trackedSubmission(), requests: [], replies: [],
     verification: { state: "achieved", rung: "receipted" },
   };
   const server = createServer(async (request, response) => {
@@ -73,11 +81,13 @@ async function receiptFixture(t) {
       assert.match(body.request.submission_ref, /^[0-9a-f]{64}$/u);
     }
     response.setHeader("content-type", "application/json");
-    response.end(JSON.stringify(request.url === "/v1/agent/rpc" ? {
+    const reply = request.url === "/v1/agent/rpc" ? {
       request_id: body.request_id,
       value: fixture.tracked,
       verification_status: fixture.verification,
-    } : fixture.proof));
+    } : fixture.proof;
+    fixture.replies.push(reply);
+    response.end(JSON.stringify(reply));
   });
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
@@ -134,15 +144,7 @@ function changedByte(value) {
 async function paymentToolVerifiesSignedSequencerReceipt(t) {
   const fixture = await receiptFixture(t);
   const tools = executor(t, fixture);
-  const log = vector.receiptJson.logs[0];
-  assert.ok(log);
-  const payment = decodePaymentExactLog({ address: log.address, data: bytes(log.data), topics: log.topics.map(bytes) });
-  const input = {
-    receiptRef: "payment-receipt",
-    asset: hex(payment.assetId),
-    amount: payment.amount.toString(),
-    recipient: hex(payment.to),
-  };
+  const input = { receiptRef: "payment-receipt", ...paymentFacts(fixture.proof) };
   const expected = {
     ok: true,
     tool: "layerx_verify_receipt",
@@ -185,6 +187,7 @@ async function paymentToolVerifiesSignedSequencerReceipt(t) {
   for (const [field, value] of [
     ["signedReceipt", changedByte(vector.signedReceipt)],
     ["rawTransaction", changedByte(vector.rawTransaction)],
+    ["receiptDigest", `0x${"99".repeat(32)}`],
   ]) {
     fixture.proof = { ...await portableReceipt(), [field]: value };
     assert.deepEqual(await tools.execute("layerx_verify_receipt", input), refused("layerx_verify_receipt"));
@@ -237,7 +240,7 @@ async function serviceClientReadsSignedReceiptFields(t) {
     { ...proof, receiptDigest: "0x00" },
     { ...proof, receiptKey: undefined },
     ...["keyId", "publicKey"].map((field) => ({ ...proof, receiptKey: { ...proof.receiptKey, [field]: "0x00" } })),
-    ...["-1", "01", "18446744073709551616", 1000, "0x00", "0x01", "0x10000000000000000", "0x", "0X1"].map((firstHeight) => ({
+    ...["1", "1000", "-1", "01", "18446744073709551616", 1000, "0x00", "0x01", "0x10000000000000000", "0x", "0X1"].map((firstHeight) => ({
       ...proof, receiptKey: { ...proof.receiptKey, firstHeight },
     })),
     { ...proof, receiptKey: { ...proof.receiptKey, firstHeight: "0x7d0" } },
@@ -319,6 +322,143 @@ async function trackToolRefusesMismatchedEvidenceAndMalformedSubmissions(t) {
   }
 }
 
+async function currentTrackingFixture(t) {
+  const fixture = await receiptFixture(t);
+  fixture.tracked = structuredClone(transcript.committed.submission);
+  fixture.proof = structuredClone(trackedEvidence);
+  fixture.verification = currentStatus;
+  return fixture;
+}
+
+async function paymentToolVerifiesCurrentProducerReceipt(t) {
+  const fixture = await receiptFixture(t);
+  fixture.proof = structuredClone(producedEvidence);
+  const input = { receiptRef: "payment-receipt", ...paymentFacts(producedEvidence) };
+  assert.deepEqual(await executor(t, fixture, [paymentPin]).execute("layerx_verify_receipt", input), {
+    ok: true, tool: "layerx_verify_receipt", result: {
+      ...input, level: "sequencer-signed", receiptDigest: producedEvidence.receiptDigest.slice(2), resultCode: 0,
+    },
+  });
+  assert.deepEqual(fixture.requests, [{
+    path: "/receipt", method: "POST", body: { receipt_ref: "payment-receipt" },
+  }]);
+  assert.deepEqual(fixture.replies, [producedEvidence]);
+}
+
+async function trackingToolVerifiesCurrentProducerReceipt(t) {
+  const fixture = await currentTrackingFixture(t);
+  const tools = executor(t, fixture, [trackingPin]);
+  assert.deepEqual(await tools.execute("layerx_track", { submissionRef: transcript.committed.submission.submission_ref }), {
+    ok: true,
+    tool: "layerx_track",
+    result: {
+      submissionRef: transcript.committed.submission.submission_ref, state: "Committed",
+      receiptDigest: trackedEvidence.receiptDigest.slice(2), verificationLevel: "sequencer-signed",
+    },
+  });
+  assert.equal(fixture.requests[0].body.operation, "track");
+  assert.deepEqual(fixture.requests[0].body.request, { submission_ref: transcript.committed.submission.submission_ref });
+  assert.deepEqual(fixture.requests[1], {
+    path: "/receipt", method: "POST", body: { receipt_ref: transcript.committed.submission.receipt_ref },
+  });
+}
+
+async function trackingToolRefusesUntrustedCurrentProducerReceipt(t) {
+  const fixture = await currentTrackingFixture(t);
+  const refused = { ok: false, tool: "layerx_track", code: "verification-failure" };
+  for (const pinnedKey of [
+    { ...trackingPin, keyId: `0x${"77".repeat(32)}` },
+    { ...trackingPin, publicKey: `0x${"88".repeat(32)}` },
+    { ...trackingPin, firstHeight: 8, lastHeight: "1000" },
+    { ...trackingPin, firstHeight: 0, lastHeight: 6 },
+  ]) {
+    await t.test(`refuses untrusted pin ${JSON.stringify(pinnedKey)}`, async () => {
+      const untrusted = executor(t, fixture, [pinnedKey]);
+      assert.deepEqual(await untrusted.execute("layerx_track", {
+        submissionRef: transcript.committed.submission.submission_ref,
+      }), refused);
+    });
+  }
+  const tools = executor(t, fixture, [trackingPin]);
+  fixture.proof.signedReceipt = changedByte(trackedEvidence.signedReceipt);
+  await t.test("refuses a changed sequencer signature", async () => {
+    assert.deepEqual(await tools.execute("layerx_track", {
+      submissionRef: transcript.committed.submission.submission_ref,
+    }), refused);
+  });
+  const reverted = vectors.find((entry) => entry.id === "V2-layerxledger-revert");
+  assert.ok(reverted);
+  fixture.proof = await portableReceipt(reverted);
+  fixture.tracked = trackedSubmission(reverted);
+  await t.test("refuses a reverted receipt", async () => {
+    assert.deepEqual(await tools.execute("layerx_track", {
+      submissionRef: reverted.receiptJson.txHash.slice(2),
+    }), refused);
+  });
+}
+
+async function trackingToolVerifiesExecutedReceiptAndRefusesSignedRevert(t) {
+  const fixture = await currentTrackingFixture(t);
+  fixture.tracked.state = "Executed";
+  fixture.tracked.rung = "receipted";
+  fixture.proof.verificationLevel = "receipted";
+  fixture.verification = { state: "achieved", rung: "receipted" };
+  assert.deepEqual(await executor(t, fixture, [trackingPin]).execute("layerx_track", {
+    submissionRef: fixture.tracked.submission_ref,
+  }), {
+    ok: true, tool: "layerx_track", result: {
+      submissionRef: fixture.tracked.submission_ref, state: "Executed",
+      receiptDigest: trackedEvidence.receiptDigest.slice(2), verificationLevel: "sequencer-signed",
+    },
+  });
+  const reverted = vectors.find((entry) => entry.id === "V2-layerxledger-revert");
+  assert.ok(reverted);
+  fixture.proof = await portableReceipt(reverted);
+  const proof = fixture.proof;
+  const pin = { ...reverted.pinnedKey,
+    firstHeight: String(reverted.pinnedKey.firstHeight), lastHeight: String(reverted.pinnedKey.lastHeight) };
+  const verified = await sdk.verifySequencerReceipt(bytes(proof.signedReceipt), bytes(proof.rawTransaction), [{
+    keyId: bytes(pin.keyId), publicKey: bytes(pin.publicKey),
+    first_height: BigInt(pin.firstHeight), last_height: BigInt(pin.lastHeight),
+  }]);
+  assert.notEqual(verified.receipt.resultCode, 0);
+  const activityId = reverted.receiptJson.txHash.slice(2);
+  fixture.tracked.tx_hash = activityId;
+  fixture.tracked.submission_ref = activityId;
+  fixture.tracked.receipt_ref = trackedSubmission(reverted).receipt_ref;
+  assert.deepEqual(await executor(t, fixture, [pin]).execute("layerx_track", { submissionRef: activityId }), {
+    ok: false, tool: "layerx_track", code: "verification-failure",
+  });
+}
+
+async function serviceTransportRefusesObsoleteStatusFields(t) {
+  const fixture = await receiptFixture(t);
+  const configured = readDeclaredConfig(fixture.environment);
+  const authenticated = authenticatedAgentTransport(fixture.environment, configured);
+  t.after(() => authenticated.destroy());
+  for (const status of [
+    { state: "achieved", level: "SequencerSigned" },
+    { state: "achieved", rung: "committed", level: "SequencerSigned" },
+  ]) {
+    fixture.verification = status;
+    await assert.rejects(authenticated.transport.call({ plane: "agent", operation: "track",
+      request: { submission_ref: transcript.committed.submission.submission_ref } }),
+    { code: "verification-failure", retry: "never" });
+  }
+  assert.equal(fixture.requests.length, 2);
+  for (const request of fixture.requests) {
+    assert.equal(request.path, "/v1/agent/rpc");
+    assert.equal(request.method, "POST");
+    assert.equal(request.body.operation, "track");
+    assert.deepEqual(request.body.request, { submission_ref: transcript.committed.submission.submission_ref });
+  }
+}
+
+test(serviceTransportRefusesObsoleteStatusFields);
+test(paymentToolVerifiesCurrentProducerReceipt);
+test(trackingToolVerifiesCurrentProducerReceipt);
+test(trackingToolRefusesUntrustedCurrentProducerReceipt);
+test(trackingToolVerifiesExecutedReceiptAndRefusesSignedRevert);
 test(paymentToolVerifiesSignedSequencerReceipt);
 test(serviceClientReadsSignedReceiptFields);
 test(trackToolReadsRecordedDaemonSubmissions);

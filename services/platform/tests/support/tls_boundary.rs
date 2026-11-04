@@ -6,6 +6,9 @@ use std::process::{Child, Command, Stdio};
 use std::sync::mpsc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+#[path = "probe_process.rs"]
+mod probe_process;
+
 struct Boundary(Child);
 
 impl Drop for Boundary {
@@ -291,30 +294,35 @@ pub fn qualify(test_name: &str, probe: impl Fn(&str) -> Result<Vec<u8>, String>)
         ("empty-roots", "localhost", "empty-cert.pem"),
         ("ca-as-server", "localhost", "cert.pem"),
     ] {
-        let output = Command::new(
+        let mut command = Command::new(
             std::env::current_exe().unwrap_or_else(|error| panic!("test executable: {error}")),
+        );
+        command
+            .args(["--exact", test_name, "--nocapture", "--test-threads=1"])
+            .env(
+                "LAYERX_TLS_QUAL_ENDPOINT",
+                format!(
+                    "https://{host}:{}",
+                    if case == "ca-as-server" {
+                        ca_port
+                    } else {
+                        port
+                    }
+                ),
+            )
+            .env("LAYERX_TLS_QUAL_EXPECT", case)
+            .env(
+                "LAYERX_TLS_QUAL_CA_DER",
+                directory.join(roots).with_extension("der"),
+            )
+            .env("SSL_CERT_FILE", directory.join(roots))
+            .env("SSL_CERT_DIR", &empty_roots);
+        let output = probe_process::run_probe(
+            &mut command,
+            probe_process::PROBE_DEADLINE,
+            probe_process::PROBE_OUTPUT_LIMIT,
         )
-        .args(["--exact", test_name, "--nocapture", "--test-threads=1"])
-        .env(
-            "LAYERX_TLS_QUAL_ENDPOINT",
-            format!(
-                "https://{host}:{}",
-                if case == "ca-as-server" {
-                    ca_port
-                } else {
-                    port
-                }
-            ),
-        )
-        .env("LAYERX_TLS_QUAL_EXPECT", case)
-        .env(
-            "LAYERX_TLS_QUAL_CA_DER",
-            directory.join(roots).with_extension("der"),
-        )
-        .env("SSL_CERT_FILE", directory.join(roots))
-        .env("SSL_CERT_DIR", &empty_roots)
-        .output()
-        .unwrap_or_else(|error| panic!("start TLS client probe: {error}"));
+        .unwrap_or_else(|error| panic!("TLS case {case}: {error}"));
         assert!(
             output.status.success(),
             "TLS case {case}: {} {}",

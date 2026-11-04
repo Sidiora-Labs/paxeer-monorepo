@@ -1,5 +1,5 @@
-// Package paxeer resolves the hosted deployment handoff to the maintained native
-// node. It owns no relay, signing operation, genesis mutation or deployment phase.
+// Package paxeer renders the tracked boundary deployment and its native node
+// handoff. It owns no signing operation, genesis mutation or deployment phase.
 package paxeer
 
 import (
@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -59,6 +60,12 @@ func (p DeploymentProfile) Validate() error {
 		!rootOrigin(p.Node.RPC, false) || !rootOrigin(p.Node.ConsensusRPC, false) ||
 		!rootOrigin(p.Tenant.GatewayRPC, true) {
 		return errors.New("native deployment requires the maintained node, mapped chain identity and root RPC origins")
+	}
+	for _, endpoint := range []string{p.Node.RPC, p.Node.ConsensusRPC} {
+		u, err := url.Parse(endpoint)
+		if err != nil || !net.ParseIP(u.Hostname()).IsLoopback() {
+			return errors.New("boundary node RPC origins require literal loopback addresses")
+		}
 	}
 	return nil
 }
@@ -114,18 +121,20 @@ func (d *Deployment) Profile() (DeploymentProfile, error) {
 	return d.profile, nil
 }
 
-// WriteManifest reads the canonical maintained deployment on every invocation;
-// there is no copied node configuration or second StatefulSet to drift.
+// WriteManifest validates and emits the tracked Paxeer boundary deployment.
+// Node.Manifest identifies the separately maintained native node facts.
 func (d *Deployment) WriteManifest(w io.Writer) error {
 	if d.closed {
 		return errors.New("native deployment is closed")
 	}
-	raw, err := os.ReadFile(filepath.Join(d.directory, d.profile.Node.Manifest))
+	raw, err := os.ReadFile(filepath.Join(d.directory, "deployment.yaml"))
 	if err != nil {
 		return err
 	}
 	decoder := yaml.NewDecoder(bytes.NewReader(raw))
 	count := 0
+	workloads := 0
+	services := make(map[string]bool)
 	for {
 		var document map[string]any
 		if err := decoder.Decode(&document); err == io.EOF {
@@ -133,13 +142,28 @@ func (d *Deployment) WriteManifest(w io.Writer) error {
 		} else if err != nil {
 			return err
 		}
-		if document["apiVersion"] == nil || document["kind"] == nil {
-			return errors.New("invalid maintained node manifest")
+		metadata, ok := document["metadata"].(map[string]any)
+		if document["apiVersion"] == nil || document["kind"] == nil || !ok ||
+			metadata["namespace"] != "layerx-testnet" {
+			return errors.New("invalid Paxeer boundary manifest")
+		}
+		if document["kind"] == "StatefulSet" {
+			if metadata["name"] != "paxeer" {
+				return errors.New("boundary workload must be paxeer")
+			}
+			workloads++
+		}
+		if document["kind"] == "Service" {
+			name, ok := metadata["name"].(string)
+			if !ok || services[name] {
+				return errors.New("invalid or duplicate boundary service")
+			}
+			services[name] = true
 		}
 		count++
 	}
-	if count == 0 {
-		return errors.New("maintained node manifest is empty")
+	if count == 0 || workloads != 1 || !services["paxeer-boundary"] || !services["paxeer-observer-boundary"] {
+		return errors.New("Paxeer manifest requires one boundary workload and both boundary services")
 	}
 	_, err = w.Write(raw)
 	return err

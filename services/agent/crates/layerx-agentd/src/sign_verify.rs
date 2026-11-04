@@ -20,6 +20,7 @@ pub struct SubmissionBindingAudit {
 pub struct VerifiedSubmission {
     pub(super) signed_canonical_bytes: Vec<u8>,
     pub(super) audit: SubmissionBindingAudit,
+    recovered_sender: [u8; 20],
 }
 
 impl VerifiedSubmission {
@@ -31,6 +32,12 @@ impl VerifiedSubmission {
     #[must_use]
     pub fn into_exact_bytes(self) -> Vec<u8> {
         self.signed_canonical_bytes
+    }
+
+    /// The secp256k1 sender recovered while admitting these exact bytes.
+    #[must_use]
+    pub const fn recovered_sender(&self) -> [u8; 20] {
+        self.recovered_sender
     }
 
     #[must_use]
@@ -89,6 +96,7 @@ pub(crate) fn verify_exact(
     }
     Ok(VerifiedSubmission {
         signed_canonical_bytes: signed_canonical_bytes.to_vec(),
+        recovered_sender: sender,
         audit: SubmissionBindingAudit {
             activity_id: transaction_hash(signed_canonical_bytes),
             idempotency_key: prepared.transaction.disclosure.idempotency_key,

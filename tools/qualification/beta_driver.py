@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import importlib.util
 import json
@@ -12,6 +13,7 @@ import shutil
 import subprocess
 import sys
 import time
+import tomllib
 from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
@@ -108,7 +110,8 @@ FAULT_BOUNDARY = re.compile(r"^\s*(LXP_FAULT_[A-Z_]+) = (\d+)", re.MULTILINE)
 GAUNTLET_INVENTORY = ROOT / "programs" / "tests" / "gauntlet" / "attack-inventory.tsv"
 FAULT_HEADER = ROOT / "include" / "layerx" / "lxp_fault.h"
 PROGRAMS_DIRECTORY = ROOT / "programs"
-AGENT_MANIFEST = ROOT / "agent" / "Cargo.toml"
+AGENT_MANIFEST = ROOT / "services" / "agent" / "Cargo.toml"
+NETWORK_TRUST_INPUT = "LAYERX_QUALIFICATION_NETWORK_TRUST"
 HUMAN_MANIFEST = ROOT / "services" / "human" / "Cargo.toml"
 INTEROP_MANIFEST = ROOT / "services" / "interop" / "Cargo.toml"
 PLATFORM_MANIFEST = ROOT / "services" / "platform" / "Cargo.toml"
@@ -161,6 +164,9 @@ class Execution:
     def cargo_tests(self) -> list[str]:
         return CARGO_TEST_LINE.findall(self.output)
 
+    def native_tests(self) -> list[str]:
+        return re.findall(r"^--- PASS: (\w+) \(", self.output, re.MULTILINE)
+
     def last_json(self) -> dict[str, object]:
         for line in reversed(self.output.splitlines()):
             candidate = line.strip()
@@ -211,6 +217,7 @@ class CaseContext:
         self.directory.mkdir(parents=True, exist_ok=False)
         self.artifacts: list[dict[str, str]] = []
         self.executions: list[Execution] = []
+        self.paxd_evidence: list[dict[str, object]] = []
         self.started_at = utc_now()
         self.started = time.monotonic()
 
@@ -409,6 +416,9 @@ class CaseContext:
             "components": self.stack.components(),
             "executions": self.execution_records(),
             **details,
+            "scope": "paxd-committed" if self.paxd_evidence else "local-suite",
+            "real_stack": bool(self.paxd_evidence),
+            "paxd_evidence": list(self.paxd_evidence),
         }
         return self.artifact_json("result", "result.json", payload)
 
@@ -468,6 +478,273 @@ def crate_identity(directory: Path) -> dict[str, object]:
         "manifest_sha256": file_digest(manifest),
         "pinned_constants": pins,
     }
+
+
+def agent_workspace_identity(manifest: Path = AGENT_MANIFEST) -> dict[str, object]:
+    try:
+        workspace = tomllib.loads(manifest.read_text(encoding="utf-8"))["workspace"]
+        members = workspace["members"]
+        identities = {}
+        for member, expected in (
+            ("crates/layerx-agentd", "layerx-agentd"),
+            ("crates/layerx-agentd-host", "layerx-agentd-host"),
+        ):
+            if member not in members:
+                raise CaseFailure(f"agent workspace is missing {member}")
+            path = manifest.parent / member / "Cargo.toml"
+            document = tomllib.loads(path.read_text(encoding="utf-8"))
+            if document["package"]["name"] != expected:
+                raise CaseFailure(f"agent package identity mismatch at {path}")
+            identities[expected] = {"manifest": str(path), "sha256": file_digest(path)}
+            if expected == "layerx-agentd-host":
+                binaries = [entry for entry in document.get("bin", []) if entry["name"] == "layerx-agentd"]
+                source = manifest.parent / "crates/layerx-agentd/src/main.rs"
+                if (len(binaries) != 1 or not source.is_file()
+                        or (path.parent / binaries[0]["path"]).resolve() != source.resolve()):
+                    raise CaseFailure("layerx-agentd binary must be owned by layerx-agentd-host")
+                identities[expected]["binary"] = "layerx-agentd"
+                identities[expected]["source_sha256"] = file_digest(source)
+        return {"manifest": str(manifest), "sha256": file_digest(manifest), "packages": identities}
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        raise CaseFailure(f"invalid agent workspace identity: {error}") from error
+
+
+def network_trust(ctx: CaseContext) -> tuple[Path, dict[str, object]]:
+    path = ctx.require_file(
+        Path(ctx.require_env(NETWORK_TRUST_INPUT)[NETWORK_TRUST_INPUT]), "independent network trust"
+    )
+    try:
+        trust = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(trust, dict) or set(trust) != {
+            "node_url", "comet_url", "chain_id", "evm_chain_id", "receipt_keys", "validators"
+        }:
+            raise ValueError("network trust fields are incomplete")
+        if validated_url(trust["node_url"], "trusted node") != ctx.stack.node:
+            raise ValueError("node endpoint differs from independent network trust")
+        validated_url(trust["comet_url"], "trusted Comet endpoint")
+        if (not isinstance(trust["chain_id"], str) or not trust["chain_id"]
+                or type(trust["evm_chain_id"]) is not int or trust["evm_chain_id"] <= 0
+                or not isinstance(trust["receipt_keys"], list) or not trust["receipt_keys"]
+                or not isinstance(trust["validators"], list) or not trust["validators"]):
+            raise ValueError("independent network trust facts are missing")
+    except (OSError, ValueError, TypeError, QualificationFailure) as error:
+        raise CaseFailure(f"invalid independent network trust: {error}") from error
+    return path, trust
+
+
+def protobuf_fields(message: bytes) -> dict[int, list[bytes | int]]:
+    """Read the length-delimited and uint fields of the native TxRaw envelope."""
+    if not message or len(message) > 8388608:
+        raise ValueError("invalid native transaction envelope size")
+    offset = 0
+
+    def integer() -> int:
+        nonlocal offset
+        value = 0
+        for shift in range(0, 70, 7):
+            if offset >= len(message):
+                raise ValueError("truncated native protobuf integer")
+            byte = message[offset]
+            offset += 1
+            value |= (byte & 127) << shift
+            if byte < 128:
+                if value >= 1 << 64:
+                    raise ValueError("native protobuf integer overflow")
+                return value
+        raise ValueError("native protobuf integer overflow")
+
+    fields: dict[int, list[bytes | int]] = {}
+    while offset < len(message):
+        tag = integer()
+        field, wire = tag >> 3, tag & 7
+        if not 0 < field < 1 << 29:
+            raise ValueError("invalid native protobuf tag")
+        if wire == 0:
+            value = integer()
+        elif wire == 2:
+            size = integer()
+            if offset + size > len(message):
+                raise ValueError("truncated native protobuf field")
+            value = message[offset:offset + size]
+            offset += size
+        else:
+            raise ValueError("unsupported native protobuf wire type")
+        fields.setdefault(field, []).append(value)
+    return fields
+
+
+def bind_native_transaction(envelope: bytes, raw_transaction: bytes) -> None:
+    """Bind TxRaw/TxBody/Any/MsgEVMTransaction to the exact signed EVM call."""
+    from layerx_sdk.evm_transaction import LegacyTransaction, decode_signed_transaction
+
+    def one(fields: dict, field: int) -> bytes:
+        values = fields[field]
+        if len(values) != 1 or not isinstance(values[0], bytes):
+            raise ValueError("ambiguous native transaction envelope")
+        return values[0]
+
+    outer = protobuf_fields(envelope)
+    body = protobuf_fields(one(outer, 1))
+    message = protobuf_fields(one(body, 1))
+    if one(message, 1) != b"/paxprotocol.paxchain.evm.MsgEVMTransaction":
+        raise ValueError("native transaction is not an EVM producer message")
+    evm = protobuf_fields(one(message, 2))
+    data = protobuf_fields(one(evm, 1))
+    tx, signature = decode_signed_transaction(raw_transaction)
+    parity = signature[64] - 27
+    if isinstance(tx, LegacyTransaction):
+        kind = b"/paxprotocol.paxchain.eth.LegacyTx"
+        expected = {
+            1: tx.nonce, 2: str(tx.gas_price).encode(), 3: tx.gas_limit,
+            4: tx.to, 5: str(tx.value).encode(), 6: tx.data,
+            7: (tx.chain_id * 2 + 35 + parity).to_bytes(9, "big").lstrip(b"\0"),
+            8: signature[:32].lstrip(b"\0"), 9: signature[32:64].lstrip(b"\0"),
+        }
+        address_field = 4
+    else:
+        kind = b"/paxprotocol.paxchain.eth.DynamicFeeTx"
+        expected = {
+            1: str(tx.chain_id).encode(), 2: tx.nonce,
+            3: str(tx.max_priority_fee_per_gas).encode(), 4: str(tx.max_fee_per_gas).encode(),
+            5: tx.gas_limit, 6: tx.to, 7: str(tx.value).encode(), 8: tx.data,
+            10: bytes([parity]) if parity else b"", 11: signature[:32].lstrip(b"\0"),
+            12: signature[32:64].lstrip(b"\0"),
+        }
+        address_field = 6
+    if one(data, 1) != kind:
+        raise ValueError("native EVM transaction type mismatch")
+    fields = protobuf_fields(one(data, 2))
+    if set(fields) - set(expected):
+        raise ValueError("unexpected native EVM transaction fields")
+    for field, expected_value in expected.items():
+        # Proto3 omits zero uints and empty bytes; these are schema defaults.
+        values = fields.get(field, [0 if type(expected_value) is int else b""])
+        if len(values) != 1:
+            raise ValueError("duplicate native EVM transaction field")
+        value = values[0]
+        if field == address_field:
+            address = value.decode("ascii")
+            if re.fullmatch(r"0x[0-9a-fA-F]{40}", address) is None:
+                raise ValueError("invalid native EVM destination")
+            value = bytes.fromhex(address[2:])
+        if type(value) is not type(expected_value) or value != expected_value:
+            raise ValueError("native envelope differs from signed EVM transaction")
+
+
+def verify_paxd_commit(
+    ctx: CaseContext, transaction_hash: str, *, receipt_hex: str | None = None,
+) -> dict[str, object]:
+    """Bind a case's transaction to a live receipt and independently trusted commit."""
+    trust_path, trust = network_trust(ctx)
+    sdk = str(ROOT / "services/agent/sdk/python")
+    if sdk not in sys.path:
+        sys.path.insert(0, sdk)
+    from layerx_sdk.committed import CommitTrust
+    from layerx_sdk.evm_transaction import decode_signed_transaction
+    from layerx_sdk.x402_rpc import (
+        PaymentRpc, _transaction_bytes, _verified_rpc_receipt, decode_receipt_keys,
+    )
+
+    try:
+        _transaction_bytes(transaction_hash, 32)
+        rpc = PaymentRpc(ctx.stack.node)
+        chain = rpc.call("eth_chainId", [])
+        if not isinstance(chain, str) or int(chain, 16) != trust["evm_chain_id"]:
+            raise ValueError("live node chain differs from independent network trust")
+        raw = _transaction_bytes(rpc.call("eth_getRawTransactionByHash", [transaction_hash]))
+        transaction, _ = decode_signed_transaction(raw)
+        if transaction.chain_id != trust["evm_chain_id"]:
+            raise ValueError("transaction chain differs from independent network trust")
+        receipt = rpc.receipt(transaction_hash)
+        landing = rpc.status(transaction_hash)
+        if receipt is None or landing is None or receipt.get("rung") != "committed":
+            raise ValueError("committed receipt verification was not performed: transaction is not committed")
+        if receipt_hex is not None and _transaction_bytes(receipt_hex) != _transaction_bytes(receipt["receipt"]):
+            raise ValueError("CLI receipt differs from live paxd receipt")
+        height = int(landing["blockNumber"], 16)
+        if (height <= 0 or landing["blockHash"] != receipt["blockHash"]
+                or landing["transactionIndex"] != receipt["index"]):
+            raise ValueError("committed transaction position mismatch")
+        comet = str(trust["comet_url"]).rstrip("/")
+        commit_response = ctx.http_json(f"{comet}/commit?height={height}")
+        block_response = ctx.http_json(f"{comet}/block?height={height}")
+        tx_index = int(landing["transactionIndex"], 16)
+        if tx_index < 0:
+            raise ValueError("invalid native transaction index")
+        envelope = base64.b64decode(block_response["result"]["block"]["data"]["txs"][tx_index], validate=True)
+        bind_native_transaction(envelope, raw)
+        tx_digest = hashlib.sha256(envelope).hexdigest().upper()
+        tx_response = ctx.http_json(f"{comet}/tx?hash=0x{tx_digest}&prove=true")
+        signed_header = commit_response["result"]["signed_header"]
+        if commit_response["result"]["canonical"] is not True:
+            raise ValueError("Comet did not report a canonical committed block")
+        header = signed_header["header"]
+        # Comet RPC uses decimal heights and base64 signatures and proof aunts.
+        commit = json.loads(json.dumps(signed_header["commit"]))
+        commit["height"] = int(commit["height"])
+        commit["round"] = int(commit["round"])
+        for signature in commit["signatures"]:
+            if signature["block_id_flag"] == 2:
+                signature["signature"] = base64.b64decode(signature["signature"], validate=True).hex()
+        tx = tx_response["result"]
+        wire_proof = tx["proof"]
+        proof = wire_proof["proof"]
+        # ExecTxResult.code is a protobuf uint32 with json omitempty: absent is zero.
+        code = tx["tx_result"].get("code", 0)
+        if (int(tx["height"]) != height or commit["height"] != height
+                or tx["hash"].upper() != tx_digest or type(code) is not int or code != 0
+                or base64.b64decode(tx["tx"], validate=True) != envelope
+                or int(tx["index"]) != int(landing["transactionIndex"], 16)
+                or int(proof["index"]) != int(tx["index"])):
+            raise ValueError("Comet committed result differs from case transaction")
+        evidence = {
+            "header": header, "commit": commit,
+            "proof": {
+                "data": base64.b64decode(wire_proof["data"], validate=True).hex(),
+                "index": int(proof["index"]), "total": int(proof["total"]),
+                "aunts": [base64.b64decode(aunt, validate=True).hex() for aunt in proof["aunts"]],
+            },
+        }
+        keys = decode_receipt_keys({"keys": trust["receipt_keys"]})
+        authority = CommitTrust(trust["chain_id"], height, tuple(trust["validators"]))
+        verified = _verified_rpc_receipt(receipt, raw, keys)
+        if verified is None or verified.receipt.result_code != 0:
+            raise ValueError("signed receipt verification was not successful")
+        committed = authority.verify(envelope, verified.height, evidence)
+        if (_transaction_bytes(receipt["blockHash"], 32) != committed.block_hash
+                or bytes.fromhex(block_response["result"]["block_id"]["hash"]) != committed.block_hash):
+            raise ValueError("committed block identity mismatch")
+    except Exception as error:
+        raise CaseFailure(f"committed receipt verification failed: {error}") from error
+    record = {
+        "case": ctx.case_id, "performed": True, "verified": True, "endpoint": ctx.stack.node,
+        "comet_endpoint": trust["comet_url"], "chain_id": trust["chain_id"],
+        "evm_chain_id": trust["evm_chain_id"], "transaction_hash": transaction_hash,
+        "raw_transaction_sha256": bytes_digest(raw), "receipt_sha256": bytes_digest(verified.canonical_bytes),
+        "native_transaction_sha256": bytes_digest(envelope),
+        "height": height, "block_hash": receipt["blockHash"],
+        "trust_sha256": file_digest(trust_path),
+        "commit_response_sha256": bytes_digest(json_bytes(commit_response)),
+        "block_response_sha256": bytes_digest(json_bytes(block_response)),
+        "transaction_response_sha256": bytes_digest(json_bytes(tx_response)),
+    }
+    ctx.paxd_evidence.append(record)
+    ctx.artifact_json("paxd-commit", "paxd-commit.json", {
+        **record, "receipt": receipt, "transaction_receipt": landing,
+        "commit_response": commit_response, "block_response": block_response, "transaction_response": tx_response,
+    })
+    return record
+
+
+def verify_first_payment_receipt(
+    ctx: CaseContext, receipt_id: str, receipt: dict[str, object],
+) -> dict[str, object]:
+    receipt_hex = receipt.get("receipt")
+    if not isinstance(receipt_hex, str) or not receipt_hex:
+        raise CaseFailure(f"receipt read returned no receipt bytes: {json.dumps(receipt)}")
+    if receipt.get("txHash") != receipt_id:
+        raise CaseFailure("receipt read changed the payment transaction identity")
+    return verify_paxd_commit(ctx, receipt_id, receipt_hex=receipt_hex)
 
 
 def file_inventory(paths: Sequence[Path]) -> list[dict[str, object]]:
@@ -744,6 +1021,7 @@ def cli_output(execution: Execution, kind: str) -> dict[str, object]:
 
 @case("platform-qualify-adoption", "rust/first-payment")
 def rust_first_payment(ctx: CaseContext) -> None:
+    network_trust(ctx)
     inputs = ctx.require_env(*SAMPLE_INPUTS)
     binary, environment, name = cli_environment(ctx, ctx.stack.human_service)
     ctx.run(
@@ -803,43 +1081,7 @@ def rust_first_payment(ctx: CaseContext) -> None:
         ),
         "receipt.read",
     )
-    receipt_result = receipt.get("result")
-    if not isinstance(receipt_result, dict):
-        raise CaseFailure(f"receipt read carried no result envelope: {json.dumps(receipt)}")
-    receipt_hex = receipt_result.get("receipt")
-    if not isinstance(receipt_hex, str) or not receipt_hex:
-        raise CaseFailure(f"receipt read returned no receipt bytes: {json.dumps(receipt)}")
-    verification: dict[str, object] = {"performed": False, "reason": "receipt read carried no authority facts"}
-    authority = receipt_result.get("authority")
-    if isinstance(authority, dict):
-        receipt_file = ctx.directory / "cli" / "receipt.hex"
-        receipt_file.write_text(receipt_hex + "\n", encoding="utf-8")
-        verified = cli_output(
-            ctx.run(
-                (
-                    str(binary),
-                    "--json",
-                    "receipt",
-                    "verify",
-                    "--receipt",
-                    str(receipt_file),
-                    "--batch-id",
-                    str(authority.get("batch_id")),
-                    "--asset",
-                    str(authority.get("asset")),
-                    "--previous-state-root",
-                    str(authority.get("previous_state_root")),
-                    "--resulting-state-root",
-                    str(authority.get("resulting_state_root")),
-                    "--sequencer-public-key",
-                    str(authority.get("sequencer_public_key")),
-                ),
-                label="receipt-verify",
-                env=environment,
-            ),
-            "receipt.verified",
-        )
-        verification = {"performed": True, "verified": verified}
+    verification = verify_first_payment_receipt(ctx, receipt_id, receipt)
     version = ctx.run((str(binary), "--version"), label="cli-version").output.strip()
     ctx.artifact_json(
         "published-artifact",
@@ -861,7 +1103,7 @@ def rust_first_payment(ctx: CaseContext) -> None:
         receipt={
             "evidence_id": evidence_id,
             "receipt_id": receipt_id,
-            "receipt_sha256": bytes_digest(receipt_hex.encode("utf-8")),
+            "receipt_sha256": verification["receipt_sha256"],
         },
         local_verification=verification,
     )
@@ -1014,8 +1256,23 @@ def runtime_test(ctx: CaseContext, label: str, *arguments: str) -> Execution:
 
 
 def agent_test(ctx: CaseContext, label: str, suite: str, *filters: str) -> Execution:
+    agent_workspace_identity()
     arguments = ("--test", suite) + (("--", *filters) if filters else ())
     return ctx.cargo_test(AGENT_MANIFEST, "layerx-agentd", *arguments, label=label)
+
+
+def native_test_command(package: str, tests: Sequence[str]) -> tuple[str, ...]:
+    if not tests or any(re.fullmatch(r"Test[A-Za-z0-9_]+", name) is None for name in tests):
+        raise CaseFailure("native qualification requires explicit test identities")
+    return ("go", "test", package, "-count=1", "-v", "-run", "^(" + "|".join(tests) + ")$")
+
+
+def native_test(ctx: CaseContext, label: str, package: str, *tests: str) -> Execution:
+    execution = ctx.run(native_test_command(package, tests), label=label)
+    passed = set(execution.native_tests())
+    if not set(tests) <= passed:
+        raise CaseFailure(f"{label} did not execute every declared native test: {sorted(set(tests) - passed)}")
+    return execution
 
 
 def built_binary(ctx: CaseContext, name: str, label: str) -> Execution:
@@ -1032,7 +1289,8 @@ def programs_case(
     inventory: dict[str, object],
 ) -> None:
     executed = [
-        {"label": execution.label, "argv": list(execution.argv), "tests": execution.cargo_tests()}
+        {"label": execution.label, "argv": list(execution.argv),
+         "tests": execution.native_tests() if execution.argv[:2] == ("go", "test") else execution.cargo_tests()}
         for execution in result
     ]
     ctx.artifact_json("inventory", "inventory.json", {"case": ctx.case_id, "executed": executed, **inventory})
@@ -1085,7 +1343,7 @@ def concurrent_same_account_transfers(ctx: CaseContext) -> None:
     agent = agent_test(
         ctx, "agent-concurrent-duplicates", "idempotency", "concurrent_duplicates_produce_exactly_one_economic_effect"
     )
-    ledger = ctx.make("test-ledger-send")
+    ledger = native_test(ctx, "native-concurrent-commit", "./node/sequencer", "TestProofSequencerExecutorTransportRecovery")
     programs_case(
         ctx,
         result=(gateway, agent),
@@ -1100,7 +1358,7 @@ def duplicate_idempotency_keys(ctx: CaseContext) -> None:
     agent = agent_test(
         ctx, "agent-repeated-key", "idempotency", "repeated_key_returns_original_and_changed_body_conflicts"
     )
-    ledger = ctx.make("test-ledger-receive")
+    ledger = native_test(ctx, "native-idempotent-recovery", "./node/sequencer", "TestCrashAfterReceiptReplaysIdenticalReceipt")
     programs_case(
         ctx,
         result=(kernel, agent),
@@ -1112,7 +1370,7 @@ def duplicate_idempotency_keys(ctx: CaseContext) -> None:
 @case("programs-qualify", "real-node/lost-response-after-successful-commit")
 def lost_response_after_successful_commit(ctx: CaseContext) -> None:
     agent = agent_test(ctx, "agent-lost-response", "unknown")
-    ledger = ctx.make("test-ledger-set")
+    ledger = native_test(ctx, "native-lost-response", "./node/sequencer", "TestCrashAfterReceiptReplaysIdenticalReceipt")
     programs_case(
         ctx,
         result=(agent,),
@@ -1121,41 +1379,60 @@ def lost_response_after_successful_commit(ctx: CaseContext) -> None:
     )
 
 
-CRASH_POINTS: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
-    "real-node/crash-before-batch-wal": (("test-batch-wal-recovery",), ()),
-    "real-node/crash-after-batch-wal": (("test-batch-wal-recovery", "test-log-durability"), ()),
-    "real-node/crash-before-state-mutation": (("test-recovery",), ()),
-    "real-node/crash-after-state-mutation": (("test-recovery", "test-projection"), ()),
-    "real-node/crash-before-receipt-publication": (("test-finality-evidence",), ()),
-    "real-node/crash-after-receipt-publication": (("test-finality-evidence", "test-rebuild"), ()),
+CRASH_POINTS: dict[str, tuple[str, tuple[str, ...], tuple[str, ...]]] = {
+    "real-node/crash-before-node-wal": (
+        "./node/sequencer/wal", ("TestWALGroupSyncBeforeRelease", "TestWALCorruptTailStopsReplay"), (),
+    ),
+    "real-node/crash-after-node-wal": (
+        "./node/sequencer/wal", ("TestWALReplayReproducesReceipts",), (),
+    ),
+    "real-node/crash-before-state-mutation": (
+        "./node/sequencer", ("TestProofSequencerExecutorTransportRecovery",), (),
+    ),
+    "real-node/crash-after-state-mutation": (
+        "./node", ("TestRepair475_CommitHashesSurviveEveryRestart", "TestRepair475_RejectCorruptedCommittedHash"), (),
+    ),
+    "real-node/crash-before-block-commit": (
+        "./node/sequencer", ("TestCrashAfterReceiptReplaysIdenticalReceipt",), (),
+    ),
+    "real-node/crash-after-block-commit": (
+        "./node", ("TestRepair475_ReconcileSealAfterCommitCrash", "TestRepair475_CommitHashesSurviveEveryRestart"), (),
+    ),
+    "real-node/crash-before-receipt-publication": (
+        "./node/sequencer", ("TestProofSequencerExecutorTransportRecovery",), (),
+    ),
+    "real-node/crash-after-receipt-publication": (
+        "./node/sequencer", ("TestCrashAfterReceiptReplaysIdenticalReceipt",), (),
+    ),
     "real-node/crash-before-acknowledgement": (
-        (),
+        "./node", ("TestRepair475_ReconcileSealAfterCommitCrash",),
         ("idempotency", "post_restart_retry_reuses_original_result_and_pending_bytes"),
     ),
     "real-node/crash-after-acknowledgement": (
-        (),
+        "./node/sequencer", ("TestCrashAfterReceiptReplaysIdenticalReceipt",),
         ("unknown", "acknowledgement_loss_is_resolved_only_by_the_existing_receipt"),
     ),
 }
 
 
 def crash_case(case_id: str) -> CaseFunction:
-    targets, agent = CRASH_POINTS[case_id]
+    package, tests, agent = CRASH_POINTS[case_id]
 
     def run_crash_point(ctx: CaseContext) -> None:
-        results = [ctx.make(target) for target in targets]
+        results = [native_test(ctx, "native-crash-recovery", package, *tests)]
         if agent:
             results.append(agent_test(ctx, f"agent-{agent[0]}", *agent))
-        ledger = ctx.make("qualify-faults")
+        ledger = native_test(ctx, "native-commit-boundary", "./node", "TestRepair_102_StrictResultCommitment")
         programs_case(
             ctx,
             result=results,
             ledger_proof=ledger,
             inventory={
                 "crash_point": case_id.rsplit("/", 1)[1],
-                "targets": list(targets),
+                "package": package,
+                "native_tests": list(tests),
                 "agent_tests": list(agent[1:]),
-                "fault_boundaries": fault_boundaries(),
+                "scope": "local-native-restart",
             },
         )
 
@@ -1184,14 +1461,16 @@ def ported_reference_contracts(ctx: CaseContext) -> None:
 @case("programs-qualify", "program-heavy-monetary-law-replay")
 def program_heavy_monetary_law_replay(ctx: CaseContext) -> None:
     conservation = ctx.make("programs-conservation")
-    replay = ctx.make("qualify-replay")
+    replay = native_test(
+        ctx, "native-monetary-replay", "./node/sequencer", "TestCrashAfterReceiptReplaysIdenticalReceipt"
+    )
     programs_case(
         ctx,
         result=(conservation,),
         ledger_proof=replay,
         inventory={
-            "suites": ["programs-conservation", "qualify-replay"],
-            "expected_digest": str((ROOT / "tests" / "vectors" / "qualification_replay_10m.digest").relative_to(ROOT)),
+            "suites": ["programs-conservation", "TestCrashAfterReceiptReplaysIdenticalReceipt"],
+            "scope": "local-native-restart",
         },
     )
 
@@ -1460,23 +1739,11 @@ def one_ledger(ctx: CaseContext) -> None:
     )
     if "human-api schema conformance passed" not in schema.output:
         raise CaseFailure(f"schema check did not report conformance:\n{schema.tail()}")
-    rejection = ctx.run(
-        (
-            "cargo",
-            "test",
-            "--manifest-path",
-            str(SCHEMA_CHECK_MANIFEST),
-            "--locked",
-            "--",
-            "custody_claim_without_a_settlement_domain_declaration_is_rejected",
-            "custody_claim_without_the_domain_field_is_rejected",
-            "foreign_settlement_domain_on_a_custody_claim_is_rejected",
-            "internal_movement_naming_a_settlement_domain_is_rejected",
-        ),
-        label="settlement-domain-rejections",
+    rejection = native_test(
+        ctx, "native-ledger-boundary-rejections", "./node",
+        "TestRepair_102_TenantReplay", "TestRepair_102_StrictResultCommitment",
+        "TestRepair475_RejectCorruptedCommittedHash", "TestHaltedBlockLeavesCommittedStateAtPreviousHeight",
     )
-    if len(rejection.cargo_tests()) < 4:
-        raise CaseFailure(f"settlement-domain rejections did not all execute:\n{rejection.tail()}")
     conformance = ctx.run(
         ("cargo", "test", "--manifest-path", str(SCHEMA_CHECK_MANIFEST), "--locked"),
         label="schema-conformance",
@@ -1535,13 +1802,16 @@ def reference_ramp_labelling(ctx: CaseContext) -> None:
             str(SCHEMA_CHECK_MANIFEST),
             "--locked",
             "--",
-            "custody_claim_without_a_settlement_domain_declaration_is_rejected",
-            "foreign_settlement_domain_on_a_custody_claim_is_rejected",
+            "retired_movement_failure_vectors_answer_operation_retired",
+            "retired_binding_failure_vectors_answer_operation_retired",
         ),
         label="custody-label-rejections",
     )
-    if len(rejection.cargo_tests()) < 2:
-        raise CaseFailure(f"custody label rejections did not all execute:\n{rejection.tail()}")
+    if not {
+        "retired_movement_failure_vectors_answer_operation_retired",
+        "retired_binding_failure_vectors_answer_operation_retired",
+    } <= set(rejection.cargo_tests()):
+        raise CaseFailure(f"retired movement rejection did not execute:\n{rejection.tail()}")
     ctx.artifact_log("proof", proof)
     ctx.artifact_log("tamper-rejection", rejection)
     ctx.result(toolkit_tests=toolkit.cargo_tests())
@@ -1579,6 +1849,9 @@ def run_case(
         "elapsed_seconds": round(elapsed, 3),
         "artifacts": ctx.artifacts if status == "passed" else [],
         "executions": ctx.execution_records(),
+        "scope": "paxd-committed" if status == "passed" and ctx.paxd_evidence else "local-suite",
+        "real_stack": status == "passed" and bool(ctx.paxd_evidence),
+        "paxd_evidence": list(ctx.paxd_evidence) if status == "passed" else [],
     }
 
 
@@ -1594,6 +1867,42 @@ def parse_arguments(arguments: Sequence[str]) -> argparse.Namespace:
     return parser.parse_args(arguments)
 
 
+def qualification_manifest(
+    gate: str, source_identity: str, stack: Stack, started_at: str,
+    records: Sequence[dict[str, object]], agent_identity: dict[str, object],
+) -> dict[str, object]:
+    def live(record: dict[str, object]) -> bool:
+        proofs = record.get("paxd_evidence")
+        return (
+            record.get("status") == "passed" and record.get("real_stack") is True
+            and record.get("scope") == "paxd-committed" and isinstance(proofs, list) and bool(proofs)
+            and all(
+                isinstance(proof, dict) and proof.get("case") == record["id"]
+                and proof.get("endpoint") == stack.node and proof.get("performed") is True
+                and proof.get("verified") is True
+                and type(proof.get("height")) is int and proof["height"] > 0
+                and all(
+                    isinstance(proof.get(name), str) and re.fullmatch(r"0x[0-9a-fA-F]{64}", proof[name])
+                    for name in ("transaction_hash", "block_hash")
+                )
+                and all(
+                    isinstance(proof.get(name), str) and re.fullmatch(r"[0-9a-f]{64}", proof[name])
+                    for name in ("receipt_sha256", "trust_sha256", "native_transaction_sha256",
+                                 "commit_response_sha256", "block_response_sha256", "transaction_response_sha256")
+                )
+                for proof in proofs
+            )
+        )
+    real_stack = bool(records) and all(live(record) for record in records)
+    return {
+        "schema": SCHEMA, "gate": gate, "real_stack": real_stack,
+        "scope": "paxd-committed" if real_stack else "local-suites-or-partial-evidence",
+        "agent_workspace": agent_identity, "source_identity": source_identity,
+        "driver_sha256": file_digest(Path(__file__).resolve()), "components": stack.components(),
+        "started_at": started_at, "finished_at": utc_now(), "cases": list(records),
+    }
+
+
 def beta_driver(arguments: Sequence[str], environment: Mapping[str, str] | None = None) -> int:
     parsed = parse_arguments(arguments)
     environment = dict(os.environ if environment is None else environment)
@@ -1605,6 +1914,11 @@ def beta_driver(arguments: Sequence[str], environment: Mapping[str, str] | None 
             )
         )
     except QualificationFailure as failure:
+        print(f"beta_driver: {failure}", file=sys.stderr)
+        return 2
+    try:
+        agent_identity = agent_workspace_identity()
+    except CaseFailure as failure:
         print(f"beta_driver: {failure}", file=sys.stderr)
         return 2
     gate = parsed.gate
@@ -1632,24 +1946,17 @@ def beta_driver(arguments: Sequence[str], environment: Mapping[str, str] | None 
         for case_id in sorted(spec.cases)
     ]
     failed = [record for record in records if record["status"] != "passed"]
-    manifest = {
-        "schema": SCHEMA,
-        "gate": gate,
-        "real_stack": True,
-        "source_identity": parsed.source_identity,
-        "driver_sha256": file_digest(Path(__file__).resolve()),
-        "components": stack.components(),
-        "started_at": started_at,
-        "finished_at": utc_now(),
-        "cases": records,
-    }
+    manifest = qualification_manifest(gate, parsed.source_identity, stack, started_at, records, agent_identity)
+    real_stack = manifest["real_stack"]
     atomic_json(output / "evidence.json", manifest)
+    if not real_stack:
+        print("beta_driver: real-stack qualification refused: every case needs its own live paxd committed evidence", file=sys.stderr)
     print(
         f"beta_driver: {gate} {len(records) - len(failed)}/{len(records)} cases passed;"
         f" evidence at {output / 'evidence.json'}",
         flush=True,
     )
-    return 1 if failed else 0
+    return 1 if failed or not real_stack else 0
 
 
 if __name__ == "__main__":

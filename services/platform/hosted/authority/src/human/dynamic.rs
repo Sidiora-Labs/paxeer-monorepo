@@ -103,7 +103,10 @@ fn subject(human: &Human, params: &BTreeMap<String, String>) -> Result<Subject, 
 }
 
 struct Current {
-    head: u64,
+    session: budget_state::Session,
+    committed_height: u64,
+    state_height: u64,
+    receipt_sequence: u64,
     timestamp: u64,
     checkpoint: [u8; 32],
     authorization: layerx_proof::inclusion::SequencerAuthorization,
@@ -114,14 +117,28 @@ fn current(
     subject: &Subject,
     policy: &PrincipalPolicy,
 ) -> Result<Current, Response> {
+    current_account(
+        config,
+        &subject.did,
+        subject.account_id,
+        subject.asset,
+        policy,
+    )
+}
+
+fn current_account(
+    config: &Config,
+    did: &str,
+    owner: [u8; 32],
+    asset: [u8; 32],
+    policy: &PrincipalPolicy,
+) -> Result<Current, Response> {
     let refused = || unavailable("subject_checkpoint_proof_unavailable");
     let session = budget_state::Session::open(config).map_err(|()| refused())?;
-    let (account, _) = session
-        .identity(&subject.did, subject.account_id)
-        .map_err(|()| refused())?;
+    let (account, _) = session.identity(did, owner).map_err(|()| refused())?;
     if account["kind"].as_u64() != Some(1)
         || account["frozen"].as_bool() != Some(false)
-        || account["asset_id"].as_str() != Some(hex::encode(&subject.asset).as_str())
+        || account["asset_id"].as_str() != Some(hex::encode(&asset).as_str())
     {
         return Err(refused());
     }
@@ -130,10 +147,13 @@ fn current(
         .map_err(|()| unavailable("subject_checkpoint_stale"))?;
     session.unchanged().map_err(|()| refused())?;
     Ok(Current {
-        head: session.committed_height,
+        committed_height: session.committed_height,
+        state_height: session.finality.state_height,
+        receipt_sequence: session.receipt_sequence,
         timestamp: session.timestamp,
         checkpoint: session.checkpoint_id,
         authorization: config.authorization,
+        session,
     })
 }
 
@@ -365,7 +385,7 @@ fn validate_parameters(name: &str, params: &BTreeMap<String, String>) -> Result<
 fn context(subject: &Subject, current: &Current) -> Response {
     json(
         200,
-        &value!({"tenant":subject.binding.tenant(),"subject_principal":subject.binding.principal(),"agent_tenant":subject.binding.agent_tenant(),"owner_did":subject.did,"account_id":hex::encode(&subject.account_id),"asset_id":hex::encode(&subject.asset),"verification_level":"checkpoint_finalised","observed_head_sequence":current.head,"checkpoint_digest":hex::encode(&current.checkpoint)}),
+        &value!({"tenant":subject.binding.tenant(),"subject_principal":subject.binding.principal(),"agent_tenant":subject.binding.agent_tenant(),"owner_did":subject.did,"account_id":hex::encode(&subject.account_id),"asset_id":hex::encode(&subject.asset),"verification_level":"checkpoint_finalised","observed_head_sequence":current.receipt_sequence,"committed_height":current.committed_height,"state_height":current.state_height,"checkpoint_digest":hex::encode(&current.checkpoint)}),
     )
 }
 
@@ -516,6 +536,27 @@ fn capability(
     Err(refusal(403, "capability_not_bound", None))
 }
 
+fn bind_current(
+    config: &Config,
+    current: &Current,
+    evidence: &mut [Verified],
+) -> Result<(), Response> {
+    super::bind_committed(config, evidence)?;
+    let latest = evidence
+        .last()
+        .ok_or_else(|| unavailable("identity_head_evidence_incomplete"))?;
+    let checkpoint = native_checkpoint(latest)?;
+    if latest.last_sequence != current.receipt_sequence
+        || checkpoint.finality.height != current.committed_height
+        || checkpoint.finality.state_height != current.state_height
+        || checkpoint.finality.block_hash != current.checkpoint
+        || checkpoint.finality.app_hash != current.session.finality.app_hash
+    {
+        return Err(unavailable("identity_head_evidence_incomplete"));
+    }
+    Ok(())
+}
+
 pub(super) fn dispatch(
     config: &Config,
     human: &Human,
@@ -543,19 +584,24 @@ pub(super) fn dispatch(
         bound.account_id = hex::encode(&subject.account_id);
         bound.asset_id = hex::encode(&subject.asset);
         if name == "budget-state" {
-            return budget_state::read_dynamic(config, &bound, &params["budget_id"], &subject.did);
+            return budget_state::read_dynamic(
+                config,
+                &bound,
+                &params["budget_id"],
+                &subject.did,
+                &current.session,
+            );
         }
-        return budget_state::export_dynamic(config, &bound, &params["budget_id"], &subject.did);
+        return budget_state::export_dynamic(
+            config,
+            &bound,
+            &params["budget_id"],
+            &subject.did,
+            &current.session,
+        );
     }
     let mut evidence = human.evidence(config)?;
-    super::bind_committed(config, &mut evidence)?;
-    let latest = evidence
-        .last()
-        .ok_or_else(|| unavailable("identity_head_evidence_incomplete"))?;
-    let checkpoint = native_checkpoint(latest)?;
-    if latest.last_sequence != current.head || checkpoint.checkpoint_id != current.checkpoint {
-        return Err(unavailable("identity_head_evidence_incomplete"));
-    }
+    bind_current(config, &current, &mut evidence)?;
     let target = params
         .get("did")
         .map_or(subject.did.as_str(), String::as_str);
@@ -570,13 +616,13 @@ pub(super) fn dispatch(
         params.get("registration"),
         &evidence,
     )?;
-    let (anchor, _) = identity_at(&evidence, target, current.head)?;
+    let (anchor, _) = identity_at(&evidence, target, current.receipt_sequence)?;
     let mut identity = identity(anchor, target)?;
     let (state, authorities) = session_membership::current(&identity, anchor, &evidence, policy)?;
     if name == "identity" {
         return Ok(json(
             200,
-            &value!({"authorities":authorities,"canonical_core_bytes":hex::encode(&state),"head_sequence":current.head,"revocation_sequence":native_u64(&state,69)?,"frozen":false,"verification_level":"checkpoint_finalised"}),
+            &value!({"authorities":authorities,"canonical_core_bytes":hex::encode(&state),"head_sequence":current.receipt_sequence,"committed_height":current.committed_height,"state_height":current.state_height,"revocation_sequence":native_u64(&state,69)?,"frozen":false,"verification_level":"checkpoint_finalised"}),
         ));
     }
     if name == "capability-scope" {
@@ -595,15 +641,49 @@ pub(super) fn dispatch(
     bound.identities = vec![identity];
     match name {
         "core-clock" => super::clock(&evidence, human.horizon),
-        "budget-state" => {
-            budget_state::read_dynamic(config, &bound, &params["budget_id"], &subject.did)
-        }
-        "budget-proof" => {
-            budget_state::export_dynamic(config, &bound, &params["budget_id"], &subject.did)
-        }
+        "budget-state" => budget_state::read_dynamic(
+            config,
+            &bound,
+            &params["budget_id"],
+            &subject.did,
+            &current.session,
+        ),
+        "budget-proof" => budget_state::export_dynamic(
+            config,
+            &bound,
+            &params["budget_id"],
+            &subject.did,
+            &current.session,
+        ),
         _ => super::policy_route(name, params, &bound, &evidence),
     }
 }
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+impl Config {
+    pub(crate) fn fixture_subject_head(
+        &self,
+        policy: &serde_json::Value,
+        did: &str,
+        owner: [u8; 32],
+        asset: [u8; 32],
+    ) -> Result<Response, Response> {
+        let policy: PrincipalPolicy = serde_json::from_value(policy.clone())
+            .map_err(|_| unavailable("fixture_policy_invalid"))?;
+        let current = current_account(self, did, owner, asset, &policy)?;
+        let mut evidence = self
+            .human
+            .as_ref()
+            .ok_or_else(|| unavailable("human_authority_unconfigured"))?
+            .evidence(self)?;
+        bind_current(self, &current, &mut evidence)?;
+        Ok(json(
+            200,
+            &value!({"committed_height":current.committed_height,"state_height":current.state_height,
+            "block_hash":hex::encode(&current.checkpoint),"receipt_sequence":current.receipt_sequence}),
+        ))
+    }
+}

@@ -17,7 +17,8 @@ decisions cannot grant protocol authority.
 Public JSON-RPC uses HTTPS at the root path of
 `api1.mainnet-beta.paxeer.network` through
 `api14.mainnet-beta.paxeer.network`, and
-`api-mainnet-beta.paxeer.network`. The EVM chain ID is **125** (`0x7d`). Node
+[`api-mainnet-beta.paxeer.network`](https://api-mainnet-beta.paxeer.network/).
+The EVM chain ID is **125** (`0x7d`). Node
 namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test` and `txpool`.
 The hosted gateway's `px_` contract is defined in
 [`openrpc.json`](../platform/hosted/gateway/openrpc.json); those methods are
@@ -73,6 +74,17 @@ linkage and mirrored layouts. Its explicit exceptions are declared in
 [`nondeterminism-allowlist.toml`](nondeterminism-allowlist.toml), not in source
 comments. The node boundary harness uses `AGENT_NODE_RPC_URL`, defaulting to
 `http://127.0.0.1:8545`.
+
+The boundary scanner traverses all Rust sources and Cargo manifests under
+`crates/`, including integration tests, host tests and `src/bin/`, excluding
+`target/` directories. Clock permission is an exact-file exception for
+`crates/layerx-agentd/src/main.rs`; membership in a binary or test target
+grants no additional exception. Library deadlines use an injected `Clock` and
+`Deadline`. Test timestamps use the shared
+[`wall_time`](tests/support/wall_clock.rs) and
+[`monotonic_time`](tests/support/monotonic_clock.rs) adapters; those adapters
+live outside the scanner's `crates/` traversal. Calling ambient clocks directly
+inside a test remains a boundary violation.
 
 ## Tests
 
