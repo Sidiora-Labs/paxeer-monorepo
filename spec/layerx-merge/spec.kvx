@@ -202246,7 +202246,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1131]
 title = "Repair audit record 22.30.49 medium findings in engine/executor/internal (part 1 of 1): config-drift, runtime-risk, security, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.94", "22.31.95", "22.31.96", "22.31.97"]
@@ -335548,7 +335548,7 @@ do_9 = "Attempt 2 (requalify): both gates passed (all thirty-nine tests) and the
 
 [task.22.31.426]
 title = "Repair audit record 22.30.176 findings in : interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
