@@ -1,0 +1,10 @@
+[repair.22.31.362]
+finding = "connected-verification-rung"
+test = "services/platform/middleware/conformance/test/repair-22-31-362.test.mjs::connected_verification_rung_uses_real_balance_during_recovery"
+implementation = "Require achieved/committed in read.balance responses; send the producer's account, asset and requested rung; retain canonical amounts, account/asset binding and the existing before/after recovery assertion."
+proof_path = "Committed BalanceValue/VerificationStatus peer fixture in a reopened SQLite store -> loopback HTTP -> production AgentEnvelopeTransport codec -> readConnectedBalance and verifyConnectedRecovery, also called by connected.mjs. The real transport maps the lowercase wire rung to Rung.Committed; weaker or legacy evidence, changed replay identities and a second debit fail."
+baseline_revision = "7f80bc77d69d432a30797265253debe7936b8dfb"
+baseline_tests = "Attempt 1 failed before any test ran: cargo test --locked --manifest-path services/platform/Cargo.toml --test repair_22_31_362 (exit 101, no such test target). No baseline behavioral test failure is claimed; the current explicit gate order forbids a pre-implementation verify."
+qualification = "Unqualified until hf-done passes; its private gate ledger records the candidate revision, command, exit code and log."
+wiring_agent = "services/agent/crates/layerx-agentd/src/human_runtime.rs (fm-agent): the current ProductionHumanOperations::balance uses pending ledger_balance and balance_operation_value emits no achieved rung; supply genuine committed read evidence before qualifying committed recovery."
+prerequisites = "The declared SDK build and node:test command are the whole gate; fixture peers need no environment variable, live endpoint, credential or subprocess. Live daemon balance evidence remains the separate fm-agent wiring request above."

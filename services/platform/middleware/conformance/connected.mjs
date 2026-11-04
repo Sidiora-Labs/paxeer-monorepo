@@ -10,6 +10,7 @@ import { PlatformSdkError, eip1559SigningHash, idempotencyKey } from "@sidiora/l
 import { decodePaymentRequiredHeader, decodeSettlementHeader, encodePaymentPayloadHeader, verifyPaymentReceipt } from "@sidiora/layerx-seller-middleware";
 
 import { receiptKeysFromEnvironment } from "../../examples/support/runtime.mjs";
+import { readConnectedBalance, verifyConnectedRecovery } from "./connected-balance.mjs";
 
 const agentEntry = fileURLToPath(new URL("../../examples/agent-spend/index.mjs", import.meta.url));
 const merchantEntry = fileURLToPath(new URL("../../examples/merchant-checkout/index.mjs", import.meta.url));
@@ -137,20 +138,15 @@ async function main() {
     agentRpcUrl: process.env.LAYERX_AGENT_RPC_URL, tenant: request.tenant, requestTimeoutMs: remaining(),
   });
   try {
-    const balance = async () => {
-      const response = await authenticated.transport.call({ plane: "agent", operation: "read.balance", request: { tenant: request.tenant, agent: process.env.LAYERX_ACTOR } });
-      const value = object(response.value);
-      assert.equal(response.verification_status?.state, "achieved");
-      assert.ok(["CheckpointFinalised", "SettlementAnchored"].includes(response.verification_status.level));
-      assert.equal(value.account, fixture.payerAccount); assert.equal(value.asset, request.asset.replace(/^0x/u, ""));
-      assert.ok(typeof value.amount === "string" && /^(0|[1-9][0-9]*)$/u.test(value.amount));
-      return value.amount;
+    const coordinates = {
+      tenant: request.tenant, agent: process.env.LAYERX_ACTOR,
+      account: fixture.payerAccount, asset: request.asset,
     };
+    const balance = () => readConnectedBalance(authenticated.transport, coordinates);
     phase = "durable recovery without a second debit";
-    const before = await balance();
-    const recovered = await example("spend", approved);
+    const { before, recovered } = await verifyConnectedRecovery(authenticated.transport, coordinates, settled, () => example("spend", approved));
     check(recovered.kind === "owner-budget" && recovered.ownerState === "settled" && recovered.preparationId === settled.preparationId
-      && recovered.receiptDigest === settled.receiptDigest && await balance() === before, "fresh agent process reopens durable preparation and receipt without a second debit");
+      && recovered.receiptDigest === settled.receiptDigest, "fresh agent process reopens durable preparation and receipt without a second debit");
     const refused = async (input) => {
       try { await authenticated.transport.call(input); }
       catch (error) {
