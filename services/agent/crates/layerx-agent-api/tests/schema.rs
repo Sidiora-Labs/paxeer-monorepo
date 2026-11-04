@@ -238,6 +238,14 @@ fn programs_contract_is_included_with_receipt_resolution_and_call_idempotency() 
         programs["operation.program.call.unknown_outcome"],
         "\"retain_exact_signed_EIP1559_transaction_and_resolve_by_hash\""
     );
+    assert_eq!(
+        programs["operation.program.call.request_profiles"],
+        "[\"retained_legacy_call\",\"native-v1\"]"
+    );
+    assert_eq!(
+        programs["type.NativeProgramCallRequest.signed_activity"],
+        "\"canonical_lowercase_signed_EIP1559_transaction_hex_at_most_1048576_bytes\""
+    );
 }
 
 #[test]

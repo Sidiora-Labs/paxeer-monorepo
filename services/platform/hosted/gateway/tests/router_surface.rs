@@ -555,6 +555,21 @@ fn consensus_answer(request: &IncomingRequest) -> http::Response {
     assert_eq!(request.path, "/consensus");
     let call: Value = serde_json::from_slice(&request.body).expect("consensus JSON-RPC request");
     assert_eq!(call["jsonrpc"], "2.0");
+    if call["method"] == "status" {
+        assert_eq!(call["params"], json!({}));
+        return http::json(
+            200,
+            &json!({
+                "jsonrpc": "2.0", "id": call["id"],
+                "result": {"sync_info": {
+                    "latest_block_height": CHAIN_HEIGHT.to_string(),
+                    "latest_block_hash": "AB".repeat(32),
+                    "latest_app_hash": "CD".repeat(32),
+                    "catching_up": false
+                }}
+            }),
+        );
+    }
     let height = call["params"]["height"]
         .as_str()
         .expect("requested height")
@@ -778,8 +793,15 @@ fn router_answers_every_listed_method() {
     let calls = consensus_calls.lock().expect("recorded consensus calls");
     assert_eq!(
         calls.len(),
-        6,
+        7,
         "every consensus read must reach the one listener: {calls:?}"
+    );
+    assert_eq!(
+        calls
+            .iter()
+            .filter(|call| call["method"] == "status" && call["params"] == json!({}))
+            .count(),
+        1
     );
     for height in [5, 23] {
         for method in ["commit", "validators", "block"] {

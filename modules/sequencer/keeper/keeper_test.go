@@ -45,10 +45,10 @@ func newFixture(t *testing.T) fixture {
 	copy(leader[:], bytes.Repeat([]byte{0x55}, 32))
 
 	k := keeper.NewKeeper(key)
-	require.NoError(t, k.InitGenesis(ctx, types.GenesisState{
-		Leaders:     [][32]byte{leader},
-		ReceiptKeys: []types.ReceiptKey{{KeyId: keyID, PublicKey: public, FirstHeight: 1000, LastHeight: 1999}},
-	}))
+	require.NoError(t, k.SetLeaders(ctx, [][32]byte{leader}))
+	require.NoError(t, k.SetReceiptKeys(ctx, keeper.ReceiptKeys{{
+		KeyId: keyID[:], PublicKey: public[:], FirstHeight: 1000, LastHeight: 1999,
+	}}))
 	return fixture{keeper: k, ctx: ctx, private: private, keyID: keyID, storeKey: key}
 }
 

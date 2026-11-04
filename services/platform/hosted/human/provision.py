@@ -185,10 +185,18 @@ def purpose_catalog(template_path, registry_path, treasury_path, sequencer_path,
     result = {'version': template['version'], 'presets': []}
     seen = set()
     for preset in template['presets']:
-        fields(preset, 'id amount_ceiling rate_maximum_uses rate_window_sequences purposes expiry_sequence session_scopes session_lifetime_seconds budget_period_seconds budget_expiry_seconds initial_funding', template_path, 'preset template')
+        fields(preset, 'id call_selectors amount_ceiling rate_maximum_uses rate_window_sequences purposes expiry_sequence session_scopes session_lifetime_seconds budget_period_seconds budget_expiry_seconds initial_funding', template_path, 'preset template')
         text(preset['id'], template_path, 'preset.id')
         require(preset['id'] not in seen, template_path, 'duplicate preset')
         seen.add(preset['id'])
+        array(preset['call_selectors'], template_path, 'call_selectors')
+        require(bool(preset['call_selectors']), template_path, 'call_selectors')
+        selectors = set()
+        for selector in preset['call_selectors']:
+            require(type(selector) is str and re.fullmatch(r'0x[0-9a-fA-F]{8}', selector) is not None,
+                    template_path, 'call_selectors[]')
+            require(selector.lower() not in selectors, template_path, 'duplicate call selector')
+            selectors.add(selector.lower())
         for name in ('purposes', 'session_scopes'):
             array(preset[name], template_path, name)
             require(bool(preset[name]), template_path, name)
@@ -200,7 +208,7 @@ def purpose_catalog(template_path, registry_path, treasury_path, sequencer_path,
         for name in ('rate_maximum_uses', 'rate_window_sequences', 'expiry_sequence',
                      'session_lifetime_seconds', 'budget_period_seconds', 'budget_expiry_seconds'):
             uint(preset[name], 64, template_path, name, 1)
-        result['presets'].append(dict(preset, activity_types=sorted(activities),
+        result['presets'].append(dict(preset,
             counterparties=[list(bytes.fromhex(a)) for a in counterparties],
             assets=[list(bytes.fromhex(asset))], budget_asset=list(bytes.fromhex(asset))))
     return result
