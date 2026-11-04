@@ -14,15 +14,16 @@ import sys
 import tempfile
 import time
 
-from generation_transport import GENESIS, PUBLIC_FIELDS, environment
+from generation_transport import (
+    CORE_FIELDS, GENESIS, NATIVE_CORE_VERSION, PUBLIC_FIELDS, environment,
+)
 from reset_state import StoreError, canonical, decode, open_directory
 
-CORE_FIELDS = {
-    "LAYERX_CORE_SEQUENCER_ID", "LAYERX_CORE_TREASURY_ASSET",
-    "LAYERX_CORE_TREASURY_SIGNER_SOCKET", "LAYERX_CORE_SEQUENCER_ENDPOINT",
-    "LAYERX_CORE_SEQUENCER_TRUST_ANCHOR_DER", "LAYERX_CORE_CHAIN_RPC_URL",
-    "LAYERX_CORE_FUNDING_SENDER_KEY_FILE",
-}
+RETIRED_FIELDS = frozenset({
+    "LAYERX_NODE_SNAPSHOT", "LAYERX_NODE_SEQUENCER_PRIVATE_KEY",
+    "LAYERX_NODE_SEQUENCER_KEY_FILE", "LAYERX_NODE_SETTLEMENT_ENV",
+    "LAYERX_CORE_LNI_SOCKET",
+})
 
 
 def close_descriptors(descriptors):
@@ -45,7 +46,7 @@ def receive(
     ):
         raise StoreError("unsafe_generation_socket")
     request = {
-        "version": 2,
+        "version": NATIVE_CORE_VERSION,
         "operation": operation,
         "expected_generation": expected_generation,
     }
@@ -97,7 +98,7 @@ def receive(
                 or set(result)
                 != {"version", "generation", "reset_id", "artifacts", "public"}
                 or type(result["version"]) is not int
-                or result["version"] != 2
+                or result["version"] != NATIVE_CORE_VERSION
                 or type(result["generation"]) is not int
                 or not 1 <= result["generation"] <= 0x7FFFFFFFFFFFFFFF
                 or (
@@ -152,6 +153,9 @@ def receive(
 def child_environment(result, descriptors, operation):
     if operation != "core":
         raise StoreError("invalid_operation")
+    if any(key in RETIRED_FIELDS or key.startswith(("LAYERX_AUTHORITY_", "LAYERX_GUARANTOR_"))
+           for key in os.environ):
+        raise StoreError("retired_environment")
     files = dict(zip(result["artifacts"], descriptors))
     raw = os.pread(files["core.env"], 65537, 0)
     if len(raw) > 65536:
