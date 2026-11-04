@@ -147094,7 +147094,7 @@ do_9 = "Attempt 2 (continue): installing the buyer middleware by itself resolves
 
 [task.22.33.1476]
 title = "Repair audit record 22.30.86 medium findings in services/platform/middleware/agent/test (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.359", "22.31.360", "22.31.361", "22.31.362", "22.31.434", "22.31.435", "22.31.436"]
@@ -179050,7 +179050,7 @@ do_8 = "The gate of this task is corrected (gotcha 2984): the generated command 
 
 [task.22.33.307]
 title = "Repair audit record 22.30.135 medium findings in services/explorer/services/sig-provider/sig-provider-server/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.267", "22.31.381"]
@@ -179120,7 +179120,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.305]
 title = "Repair audit record 22.30.135 medium findings in services/explorer/services/sig-provider/sig-provider/src (part 1 of 1): runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.267", "22.31.381"]
@@ -180604,7 +180604,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.115]
 title = "Repair audit record 22.30.112 medium findings in services/interop/crates/layerx-ucp/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.167", "22.31.168", "22.31.232", "22.31.233", "22.31.443", "22.31.466"]
@@ -199418,7 +199418,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1299]
 title = "Repair audit record 22.30.69 medium findings in rpc/config (part 1 of 1): config-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.185", "22.31.463"]
@@ -209169,7 +209169,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.820]
 title = "Repair audit record 22.30.179 medium findings in tools/loadtest/generator/scenarios (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.321", "22.31.322", "22.31.323", "22.31.324", "22.31.427"]
@@ -210573,7 +210573,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.690]
 title = "Repair audit record 22.30.168 medium findings in sdk/x/staking (part 1 of 1): doc-drift, restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.310", "22.31.311", "22.31.463"]
@@ -210952,7 +210952,7 @@ do_11 = "Attempt 4 (continue): TestRepairM_680_FeeGrantCLIFixtures panics with a
 
 [task.22.33.679]
 title = "Repair audit record 22.30.167 medium findings in sdk/x/gov (part 1 of 1): doc-drift, test-gap, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.305", "22.31.306", "22.31.307", "22.31.308", "22.31.309"]
@@ -211216,7 +211216,7 @@ do_11 = "Attempt 3 (continue after 22.31.463): the Go build or test binary could
 
 [task.22.33.672]
 title = "Repair audit record 22.30.167 medium findings in sdk/testutil/network (part 1 of 1): runtime-risk, test-gap, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.305", "22.31.306", "22.31.307", "22.31.308", "22.31.309", "22.31.463"]
@@ -252372,7 +252372,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1391]
 title = "Repair audit record 22.30.77 medium findings in sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.343", "22.31.344", "22.31.345"]
@@ -276780,7 +276780,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.22.33.1503]
 title = "Repair audit record 22.30.9 medium findings in precompiles/layerxauth (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.144", "22.31.145", "22.31.146", "22.31.463"]
@@ -276861,7 +276861,7 @@ do_16 = "Attempt 3 (continue after 22.31.463): the Go build or test binary could
 
 [task.22.33.1426]
 title = "Repair audit record 22.30.8 medium findings in precompiles/layerxagent/streams (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.192", "22.31.193", "22.31.194", "22.31.195", "22.31.196", "22.31.197", "22.31.463"]
@@ -277236,7 +277236,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1303]
 title = "Repair audit record 22.30.7 medium findings in modules/layerxpay/keeper (part 1 of 2): interface-mismatch, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.131", "22.31.132", "22.31.463"]
@@ -277555,7 +277555,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1284]
 title = "Repair audit record 22.30.65 medium findings in precompiles/solo (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.130", "22.31.463"]
