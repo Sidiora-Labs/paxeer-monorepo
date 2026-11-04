@@ -6,18 +6,22 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/artifacts/cw20"
 )
 
-type TestAPI struct{}
+// TestAPI owns the process-wide test pointer override. A replacement API starts
+// from the compiled version and invalidates its predecessor. HTTPServer releases
+// the owner when its RPC services stop; overrides never survive server replacement.
+type TestAPI struct{ version *cw20.VersionOverride }
 
 func NewTestAPI() *TestAPI {
-	return &TestAPI{}
+	return &TestAPI{version: cw20.BeginVersionOverride()}
 }
 
 func (a *TestAPI) IncrementPointerVersion(pointerType string, offset int16) error {
 	switch pointerType {
 	case "cw20":
-		cw20.SetVersionWithOffset(offset)
+		return a.version.SetVersionWithOffset(offset)
 	default:
 		return errors.New("invalid pointer type")
 	}
-	return nil
 }
+
+func (a *TestAPI) close() { a.version.Close() }

@@ -141,8 +141,7 @@ defmodule Explorer.MicroserviceInterfaces.AccountAbstraction do
     case HttpClient.get(url, [], params: query_params) do
       {:ok, %{body: body, status_code: status_code}}
       when status_code in [200, 404] ->
-        {:ok, response_json} = Jason.decode(body)
-        {status_code, response_json}
+        decode_response(body, status_code, url)
 
       {_, %{body: body, status_code: status_code} = error} ->
         old_truncate = Application.get_env(:logger, :truncate)
@@ -156,11 +155,22 @@ defmodule Explorer.MicroserviceInterfaces.AccountAbstraction do
         end)
 
         Logger.configure(truncate: old_truncate)
-        {:ok, response_json} = Jason.decode(body)
-        {status_code, response_json}
+        decode_response(body, status_code, url)
 
       {:error, reason} ->
         {500, %{error: reason}}
+    end
+  end
+
+  defp decode_response(body, status_code, url) do
+    case Jason.decode(body) do
+      {:ok, response_json} ->
+        {status_code, response_json}
+
+      {:error, reason} ->
+        Logger.error("Invalid JSON from Account Abstraction microservice url: #{url}, position: #{reason.position}")
+        safe_status = if status_code < 400, do: 502, else: status_code
+        {safe_status, %{error: "Invalid response from Account Abstraction microservice"}}
     end
   end
 
