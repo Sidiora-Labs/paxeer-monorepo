@@ -46,8 +46,11 @@ pub fn new_service(settings: SourcesSettings) -> Arc<Service> {
     if settings.precompiles.enabled {
         sources.push(Arc::new(PrecompileSource::new()));
     }
-    sources.push(Arc::new(sigeth::Source::new(settings.sigeth)));
-    sources.push(Arc::new(fourbyte::Source::new(settings.fourbyte)));
+    let import_sources: Vec<Arc<dyn SignatureSource + Send + Sync>> = vec![
+        Arc::new(sigeth::Source::new(settings.sigeth)),
+        Arc::new(fourbyte::Source::new(settings.fourbyte)),
+    ];
+    sources.extend(import_sources.iter().cloned());
     let complete_sources = {
         let mut sources: Vec<Arc<dyn CompleteSignatureSource + Send + Sync + 'static>> = vec![];
         if settings.precompiles.enabled {
@@ -61,7 +64,7 @@ pub fn new_service(settings: SourcesSettings) -> Arc<Service> {
         sources
     };
     let aggregator = Arc::new(SourceAggregator::new(sources, complete_sources));
-    Arc::new(Service::new(aggregator))
+    Arc::new(Service::with_import_sources(aggregator, import_sources))
 }
 
 pub async fn sig_provider(settings: Settings) -> Result<(), anyhow::Error> {

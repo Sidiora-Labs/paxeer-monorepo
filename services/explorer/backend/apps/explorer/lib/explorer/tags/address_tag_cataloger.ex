@@ -11,7 +11,8 @@ defmodule Explorer.Tags.AddressTag.Cataloger do
   alias Explorer.Validator.MetadataRetriever
 
   def start_link(_) do
-    GenServer.start_link(__MODULE__, :ok, name: __MODULE__)
+    tags = EnvVarTranslator.map_array_env_var_to_list(:new_tags)
+    GenServer.start_link(__MODULE__, tags, name: __MODULE__)
   end
 
   @impl GenServer
@@ -23,7 +24,7 @@ defmodule Explorer.Tags.AddressTag.Cataloger do
 
   @impl GenServer
   def handle_info(:fetch_tags, state) do
-    create_new_tags()
+    create_new_tags(state)
 
     send(self(), :bind_addresses)
 
@@ -97,9 +98,7 @@ defmodule Explorer.Tags.AddressTag.Cataloger do
     AddressToTag.set_tag_to_addresses(tag_id, addresses)
   end
 
-  defp create_new_tags do
-    tags = EnvVarTranslator.map_array_env_var_to_list(:new_tags)
-
+  defp create_new_tags(tags) do
     tags
     |> Enum.each(fn %{tag: tag_name, title: tag_display_name} ->
       AddressTag.set(tag_name, tag_display_name)

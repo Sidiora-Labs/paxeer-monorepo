@@ -1,0 +1,56 @@
+[repair.22.33.1165]
+audit = "22.30.53"
+acceptance = "22998.1"
+change = "Align the public DB root-membership contract with offline restart/rebase, retain the corrected README/CLI/cache contracts, add exact key examples and checked Close handling, and prove all eight documentation claims against production storage paths."
+baseline = "Not run: the explicit gate order requires the entire implementation before hf-build then hf-done and prohibits running verify_cmd by hand. There was no repair_m1165_test.go or prior gate ledger on the unchanged tree, so no pre-change failing test is claimed."
+evidence = "hf-build and hf-done record the exact candidate revision, command, exit code and private evidence location in the runner gate ledger; the final response copies the last hf-done evidence line."
+wiring_requests = []
+
+[finding.readme-key-limit]
+test = "TestRepairM_1165_KeyLimit"
+proof = "Checks feature/request limits and examples, writes maximum-sized primary and secondary keys through Put, rejects over-limit keys, closes/reopens and checks the recovered group; the real address codec preserves MaxUint32 length without allocating a 4 GiB value."
+
+[finding.readme-close-name]
+test = "TestRepairM_1165_CloseName"
+proof = "Checks real Close spelling, checked errors and overlap boundary; joins concurrent production writers, closes without Flush, reopens and reads every acknowledged value. No durability guarantee is asserted for overlapping writes."
+
+[finding.readme-unbounded-value]
+test = "TestRepairM_1165_BoundedValue"
+proof = "Sparse padding positions the real shard writer near MaxUint32. Production HasCapacity/Write reject a group whose first byte fits but whose extent does not; PutBatch rotates before the group, and real key codecs, segment readers and reopen verify the unchanged aliases."
+
+[finding.readme-shard-limit]
+test = "TestRepairM_1165_ShardLimit"
+proof = "Rejects zero, changes a live table from one shard to 255, writes all shards, loads the production metadata and addresses, and reopens using a different current factor while reading both generations."
+
+[finding.db-runtime-volume-doc]
+test = "TestRepairM_1165_RuntimeVolumeDoc"
+proof = "Checks the offline contract, confirms SetShardingFactor does not add roots, closes, adds a root in a new config, restarts, writes across roots and verifies recovery after another reopen. Removal guidance names offline rebase; this documentation task does not change that command."
+
+[finding.architecture-cache-deletion]
+test = "TestRepairM_1165_CacheDeletion"
+proof = "Real FIFO read/write caches wrap a real disk table; segment GC removes primary/secondary keymap entries while old cache bytes remain. Both cache-only and ordinary reads return absent immediately; the test waits for asynchronous file deletion with a five-second deadline, asserts no expired files remain, and reopens to verify only live state. The architecture links TestRepair_113_CacheExpiryVisibility and TestRepairM_1165_CacheDeletion."
+
+[finding.cli-doc-installation]
+test = "TestRepairM_1165_CLIInstallation"
+proof = "Checks monorepo working-directory, alias, PATH and copy examples against the actual Makefile and parsed CLI entry point, then consumes DB-produced files with the production segment scanner/reader used by CLI table-info. It does not invoke a subprocess toolchain or claim to run an installed binary."
+
+[finding.cli-doc-validator-config]
+test = "TestRepairM_1165_CLIValidatorConfig"
+proof = "Checks the explicit Config.Paths-to---src mapping and removal of upstream validator settings, deserializes a real three-root Config, writes via NewDB, and consumes every root through the same scanner/path builder used by CLI inspection before verifying reopen."
+
+[gotcha.ordered-baseline]
+observed = "The generated baseline step conflicts with the explicit implementation-first and hf-build/hf-done-only order."
+resolution = "Follow the explicit gate order, record the absent baseline honestly, and never claim pre-change test failures. Root GOTCHA.kvx and spec files are outside this task's permitted write scope."
+
+[gotcha.table-wrappers]
+observed = "The first verification stopped in the sparse-file fixture: BuildTable returns ownedTable wrapping cachedTable wrapping DiskTable, even with disabled caches."
+resolution = "Unwrap the real ownership and cache layers explicitly before positioning the disk writer; keep all production-path assertions unchanged."
+revision = "db5533d103399ab06b67e0c811c97ef46a3c2a33"
+command = "cg spec done 22.33.1165 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+
+[gotcha.async-segment-deletion]
+observed = "The supplied attempt-1 result at revision 39d510df9b5dd4bf8d16e42a5384a99055259be8 failed CacheDeletion/write and CacheDeletion/read because the test asserted file removal immediately after RunGC."
+cause = "RunGC waits for keymap removal, but Segment.Release starts file deletion in a separate goroutine after the final reservation is released."
+resolution = "Assert the files exist before GC, retain every cache, file-removal and recovery assertion, and wait with a five-second deadline for asynchronous deletion before checking the empty file list. No production behavior changes."
