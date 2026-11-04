@@ -3,6 +3,8 @@
 
 #include <string.h>
 
+#include "test_escrow_audit.h"
+
 typedef struct hold_scan {
     uint8_t previous[32];
     size_t count;
@@ -336,6 +338,9 @@ int main(void)
     uint64_t parameters = 1U;
     lx_account terminal_account;
     lx_escrow_record terminal_record;
+
+    if (audit_escrow_findings() != 0) return 1;
+    (void)puts("escrow audit findings 8, 9, 10 and 11: passed");
 
     (void)memset(&asset, 0, sizeof(asset));
     asset.asset_id[0] = 5U;
