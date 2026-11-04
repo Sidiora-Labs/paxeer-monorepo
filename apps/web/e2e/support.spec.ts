@@ -1,4 +1,21 @@
-import { expect, test } from "@playwright/test";
+import { expect, test as base } from "@playwright/test";
+import { openSupportFixture } from "../src/support/service.fixture.ts";
+
+const test = base.extend<{ supportPeer: Awaited<ReturnType<typeof openSupportFixture>> }>({
+  supportPeer: [async ({ page }, use) => {
+    const peer = await openSupportFixture();
+    await page.route(/\/human\/v1\/(support\/conversations|account\/balance)/u, async (route) => {
+      const incoming = route.request();
+      const path = new URL(incoming.url()).pathname;
+      const response = await fetch(`${peer.baseUrl.replace(/\/human$/u, "")}${path}`, {
+        method: incoming.method(), headers: incoming.headers(),
+        ...(incoming.postData() === null ? {} : { body: incoming.postData()! }),
+      });
+      await route.fulfill({ status: response.status, headers: Object.fromEntries(response.headers), body: await response.text() });
+    });
+    try { await use(peer); } finally { await peer.close(); }
+  }, { auto: true }],
+});
 
 import { copyEntry } from "../copy/catalog.ts";
 import { SUPPORT_TOPICS } from "../src/support/topics.ts";
@@ -138,7 +155,7 @@ test.describe("@support support chat states and flows", () => {
 
 test.describe("@support report-to-support from error surfaces", () => {
   test("error surface includes support button", async ({ page }) => {
-    await page.route("/api/human/v1/**", route => route.abort("failed"));
+    await page.route("/human/v1/**", route => route.abort("failed"));
     
     await page.goto("/app", { waitUntil: "networkidle" });
     
@@ -146,7 +163,7 @@ test.describe("@support report-to-support from error surfaces", () => {
   });
 
   test("error surface support button navigates with trace", async ({ page }) => {
-    await page.route("/api/human/v1/**", route => route.abort("failed"));
+    await page.route("/human/v1/**", route => route.abort("failed"));
     
     await page.goto("/app", { waitUntil: "networkidle" });
     
@@ -168,7 +185,7 @@ test.describe("@support report-to-support from error surfaces", () => {
   });
 
   test("report action submits trace identifier", async ({ page }) => {
-    await page.route("/api/human/v1/**", route => route.abort("failed"));
+    await page.route("/human/v1/**", route => route.abort("failed"));
     
     await page.goto("/app", { waitUntil: "networkidle" });
     
@@ -199,41 +216,17 @@ test.describe("@support message delivery states", () => {
     await expect(page.getByRole("button", { name: copyEntry("action.retry").message })).toBeVisible();
   });
 
-  test("feedback loop appears after support replies", async ({ page }) => {
+  test("feedback loop appears after support replies", async ({ page, supportPeer }) => {
     await page.goto("/app/support", { waitUntil: "networkidle" });
     
-    await page.route("/api/human/v1/support/list", async route => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          conversations: [{
-            conversation_id: "conv_test123",
-            state: "open",
-            messages: [
-              {
-                message_id: "msg_user_1",
-                author: "you",
-                body: "I need help",
-                sent_at: new Date().toISOString(),
-                read: true
-              },
-              {
-                message_id: "msg_support_1",
-                author: "support",
-                body: "How can I help you?",
-                sent_at: new Date().toISOString(),
-                read: true
-              }
-            ],
-            feedback: []
-          }]
-        })
-      });
-    });
-    
-    await page.reload({ waitUntil: "networkidle" });
-    
+    const composer = page.getByRole("textbox", { name: copyEntry("support.compose.label").message });
+    await composer.fill("I need help");
+    await page.getByRole("button", { name: copyEntry("support.send").message }).click();
+    await expect.poll(() => supportPeer.service.conversations().length).toBe(1);
+    const conversation = supportPeer.service.conversations()[0]!;
+    supportPeer.service.recordSupportReply(conversation.conversation_id, "operator-feedback", "How can I help you?");
+    await expect(page.getByText("How can I help you?", { exact: true })).toBeVisible();
+
     await expect(page.getByText(copyEntry("support.feedback.question").message)).toBeVisible();
     await expect(page.getByRole("button", { name: copyEntry("support.feedback.yes").message })).toBeVisible();
     await expect(page.getByRole("button", { name: copyEntry("support.feedback.no").message })).toBeVisible();
