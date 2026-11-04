@@ -4,10 +4,12 @@
 package client_test
 
 import (
+	"context"
 	"fmt"
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
-
+	rpcclient "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/client"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
 	banktypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
 )
 
@@ -49,16 +51,30 @@ func (s *IntegrationTestSuite) TestQueryABCIHeight() {
 			clientCtx = clientCtx.WithHeight(tc.ctxHeight)
 
 			req := abci.RequestQuery{
-				Path:   fmt.Sprintf("store/%s/key", banktypes.StoreKey),
+				Path:   fmt.Sprintf("/store/%s/key", banktypes.StoreKey),
 				Height: tc.reqHeight,
 				Data:   banktypes.CreateAccountBalancesPrefix(val.Address),
-				Prove:  true,
+				Prove:  false,
 			}
 
 			res, err := clientCtx.QueryABCI(req)
 			s.Require().NoError(err)
 
 			s.Require().Equal(tc.expHeight, res.Height)
+
+			req.Prove = true
+			refused, err := clientCtx.QueryABCI(req)
+			s.Require().ErrorIs(err, client.ErrQueryProofVerificationUnavailable)
+			s.Require().Empty(refused.Value)
+
+			node, err := clientCtx.GetNode()
+			s.Require().NoError(err)
+			proof, err := node.ABCIQueryWithOptions(context.Background(), req.Path, req.Data, rpcclient.ABCIQueryOptions{Height: tc.expHeight, Prove: true})
+			s.Require().NoError(err)
+			s.Require().Zero(proof.Response.Code)
+			s.Require().Equal(tc.expHeight, proof.Response.Height)
+			s.Require().NotNil(proof.Response.ProofOps)
+			s.Require().NotEmpty(proof.Response.ProofOps.Ops)
 		})
 	}
 }
