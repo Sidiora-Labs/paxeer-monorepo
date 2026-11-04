@@ -190,7 +190,7 @@ func InitTestnet(
 		}
 
 		// save private key seed words
-		if err := writeFile(fmt.Sprintf("%v.json", "key_seed"), nodeDir, cliPrint); err != nil {
+		if err := writePrivateSeed(nodeDir, cliPrint); err != nil {
 			return err
 		}
 
@@ -393,4 +393,62 @@ func writeFile(name string, dir string, contents []byte) error {
 	}
 
 	return nil
+}
+
+func writePrivateSeed(nodeDir string, contents []byte) error {
+	dir := filepath.Join(nodeDir, "private")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return err
+	}
+	info, err := os.Lstat(dir)
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("seed directory is not a directory: %s", dir)
+	}
+	if err := os.Chmod(dir, 0o700); err != nil {
+		return err
+	}
+
+	file := filepath.Join(dir, "key_seed.json")
+	// Move seeds from older testnets out of the public configuration directory.
+	legacy := filepath.Join(nodeDir, "key_seed.json")
+	if info, err := os.Lstat(legacy); err == nil {
+		if !info.Mode().IsRegular() {
+			return fmt.Errorf("seed file is not a regular file: %s", legacy)
+		}
+		if err := os.Chmod(legacy, 0o600); err != nil {
+			return err
+		}
+		if err := os.Rename(legacy, file); err != nil {
+			return err
+		}
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	if info, err := os.Lstat(file); err == nil {
+		if !info.Mode().IsRegular() {
+			return fmt.Errorf("seed file is not a regular file: %s", file)
+		}
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+
+	f, err := os.OpenFile(file, os.O_WRONLY|os.O_CREATE, 0o600)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	// OpenFile's mode only applies to new files; restrict existing files before writing.
+	if err := f.Chmod(0o600); err != nil {
+		return err
+	}
+	if err := f.Truncate(0); err != nil {
+		return err
+	}
+	if _, err := f.Write(contents); err != nil {
+		return err
+	}
+	return f.Close()
 }

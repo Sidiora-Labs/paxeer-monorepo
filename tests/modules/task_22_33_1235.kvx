@@ -1,0 +1,54 @@
+[task.22.33.1235]
+mode = "BUILD"
+base_revision = "3d966cec5ca7ad40ba94c2b73620d43c7316db5a"
+continued_revision = "89991723003879951cf12766fbf235ce5b2b8123"
+build_cmd = "make -s all"
+verify_cmd = "make -s test-wave-9"
+baseline = "Not run: the explicit implementation-first order and hf-done-only verification rule prohibit the audit step's unchanged-tree verification. No earlier gate ledger existed at entry and no baseline failures are claimed."
+evidence = "The runner-owned /out/run/gates.jsonl records exact candidate revision, command, exit and private log for hf-build and hf-done. The final gate evidence line identifies the verified repair revision; no qualification is claimed before hf-done passes."
+test_path = "tests/modules/test_perps_position.c includes test_perps_repairs.h and test_perps_oracle_repairs.h; main calls both proving cases in make -s test-wave-9."
+wiring_requests = ["include/layerx/lx_perps.h — fm-kernel/domain 1: document POSITION_INCREASE with zero size_delta and zero notional_delta as a positive margin-only top-up, and export the canonical lx_perps_oracle_transport_encode declaration currently in the perps internal header.", "Makefile — fm-kernel/domain 1: add test_perps_repairs.h and test_perps_oracle_repairs.h as prerequisites of test_perps_position so header-only repairs rebuild the proving executable."]
+
+[finding.halted-margin-policy]
+test = "test_halted_margin_policy"
+repair = "Registered POSITION_INCREASE accepts positive margin with zero size and notional deltas. Both validation and execution apply the protective-action policy, retain owner/position/account/asset authorization and real ledger checks, and bypass oracle pricing only for pure margin. Cancellation shares the policy. Nonzero exposure requests still require an enabled market and fresh oracle."
+proof = "Protocol-v3 registered kernel dispatch covers administrative halt, stale oracle and committed oracle health halt, owner refusal, insufficient balance, conserved transfer and one consumed owner sequence, byte-identical committed position/funding records, authorized cancellation, refused new orders/opens/increases, durable snapshot destruction/reopen and late event-capacity rollback."
+
+[finding.parallel-oracle-state]
+test = "test_parallel_oracle_state"
+repair = "Production oracle admission and acceptance live in lx_oracle_intake.c and consume canonical perps KV. Epoch hooks persist oracle-halt:<market32> as a canonical one-byte boolean for missing, future or stale committed observations; signed fresh acceptance atomically writes the oracle and clears only that health halt. Registered action admission and the committed cross-module oracle reader consume this record. Administrative market.halted remains independent and cannot be cleared by oracle updates."
+proof = "The production signer and transport encoder feed the registered protocol-v3 dispatcher. Real kernel epoch transitions prove the exact staleness boundary, persisted halt and consumer refusal; invalid signature, stale/duplicate/out-of-bounds/deviating observations and late event-capacity failure preserve the entire state root. Fresh signed recovery, canonical sequence/price/source/key, cross-module context restoration and administrative-halt preservation are checked before and after snapshot destruction/reopen."
+compatibility = "lx_oracle_push_execute and caller-owned lx_oracle_store/lx_oracle_market_store plus their halt helpers remain historical bounded compatibility APIs, not production lifecycle or restart authority. Their historical invalid-observation halt behavior is not claimed as the registered contract: registered invalid activities roll back without accepting observations or changing health; the epoch hook halts stale/missing canonical state, and successful fresh registered intake alone recovers health."
+legacy_snapshot = "An absent health key means no persisted automatic halt in a legacy snapshot; trading still enforces freshness independently and the next epoch records stale/missing health. Newly accepted observations always write the canonical health record. Malformed health records are refused, never treated as healthy."
+
+[gotcha.1]
+symptom = "The audit step requests baseline verification while explicit ordered gate instructions prohibit it."
+resolution = "Follow the explicit gate order, claim no baseline result and keep the task record in scope because spec/ and GOTCHA.kvx may not be edited."
+
+[gotcha.2]
+symptom = "Position and funding encoders are private to the canonical state implementation."
+resolution = "Read and compare the producer's committed KV bytes, after validating them through public production lookups; do not duplicate or invent encoders in the test."
+
+[qualification.1]
+revision = "d9972ebfe83e3a229557ddce359c331417730cd2"
+command = "cg spec done 22.33.1235 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The new cancellation assertion expected an inactive order, but registered execute_order_cancel deletes its canonical record and lookup correctly returns UNKNOWN_FIELD."
+assumption = "Require an active order before cancellation, exact record absence and repeat-cancel refusal afterwards, and record absence after restart, matching the existing cancellation contract."
+
+[gotcha.3]
+symptom = "Registered perps cancellation deletes the order KV; it does not retain an inactive tombstone."
+resolution = "Prove the active record before cancellation, canonical absence and repeated cancellation refusal afterwards, and absence after snapshot reopen."
+
+[continuation]
+inherited_failure = "Attempt 1 reported test-perps-margin failing at order_state(3U, &order) with UNKNOWN_FIELD instead of OK; its task record identifies the cancelled-order tombstone assertion and the supplied tree already repairs that assertion. This is a task-owned failure, not an unchanged-mainline baseline result."
+repair = "Retain all inherited production and cancellation repairs, assert the order is active immediately after placement as well as before cancellation, and select dispatch registrations and module contexts at kernel.epoch when exercising epoch transitions and recovery."
+
+[gotcha.4]
+symptom = "The perps position test target declares its C source but omits the included repair headers from its prerequisites."
+resolution = "The current continuation also changes the C harness, which rebuilds the executable; request the missing Makefile dependencies from the owning domain without changing the out-of-scope file."
+
+[gotcha.5]
+symptom = "The position harness used epoch zero for module contexts and registration lookups even after a real epoch transition."
+resolution = "Use kernel.epoch for both sides of registered dispatch so the oracle halt and recovery proofs execute against the current lifecycle."

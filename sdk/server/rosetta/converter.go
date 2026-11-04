@@ -12,6 +12,7 @@ import (
 	tmcoretypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/coretypes"
 	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 	"github.com/btcsuite/btcd/btcec/v2"
+	"github.com/btcsuite/btcd/btcec/v2/ecdsa"
 
 	crgtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/server/rosetta/lib/types"
 
@@ -146,6 +147,9 @@ func (c converter) UnsignedTx(ops []*rosettatypes.Operation) (tx authsigning.Tx,
 
 	for i := 0; i < len(ops); i++ {
 		op := ops[i]
+		if op == nil {
+			return nil, crgerrs.WrapError(crgerrs.ErrBadArgument, fmt.Sprintf("nil operation at index %d", i))
+		}
 
 		protoMessage, err := c.ir.Resolve(op.Type)
 		if err != nil {
@@ -166,44 +170,31 @@ func (c converter) UnsignedTx(ops []*rosettatypes.Operation) (tx authsigning.Tx,
 		if err = msg.ValidateBasic(); err != nil {
 			return nil, crgerrs.WrapError(
 				crgerrs.ErrBadArgument,
-				fmt.Sprintf("validation of operation at index %d failed: %s", op.OperationIdentifier.Index, err),
+				fmt.Sprintf("validation of operation at index %d failed: %s", i, err),
 			)
 		}
 		signers := msg.GetSigners()
 		// check if there are enough signers
 		if len(signers) == 0 {
-			return nil, crgerrs.WrapError(crgerrs.ErrBadArgument, fmt.Sprintf("operation at index %d got no signers", op.OperationIdentifier.Index))
+			return nil, crgerrs.WrapError(crgerrs.ErrBadArgument, fmt.Sprintf("operation at index %d got no signers", i))
 		}
-		// append the msg
+		// Each message occupies one contiguous operation per signer.
+		start := i
+		if len(signers) > len(ops)-start {
+			return nil, crgerrs.WrapError(crgerrs.ErrBadArgument, fmt.Sprintf("incomplete signer group at index %d", start))
+		}
+		for j, signer := range signers {
+			sibling := ops[start+j]
+			if sibling == nil || sibling.Type != op.Type || !reflect.DeepEqual(op.Metadata, sibling.Metadata) {
+				return nil, crgerrs.WrapError(crgerrs.ErrBadArgument, fmt.Sprintf("inconsistent signer operation at index %d", start+j))
+			}
+			if sibling.Account == nil || sibling.Account.Address != signer.String() || sibling.Account.SubAccount != nil {
+				return nil, crgerrs.WrapError(crgerrs.ErrBadArgument, fmt.Sprintf("wrong signer at index %d", start+j))
+			}
+		}
 		msgs = append(msgs, msg)
-		// if there's only one signer then simply continue
-		if len(signers) == 1 {
-			continue
-		}
-		// after we have got the msg, we need to verify if the message has multiple signers
-		// if it has got multiple signers, then we need to fetch all the related operations
-		// which involve the other signers of the msg, we expect to find them in order
-		// so if the msg is named "v1.test.Send" and it expects 3 signers, the next 3 operations
-		// must be with the same name "v1.test.Send" and contain the other signers
-		// then we can just skip their processing
-		for j := 0; j < len(signers)-1; j++ {
-			skipOp := ops[i+j] // get the next index
-			// verify that the operation is equal to the new one
-			if skipOp.Type != op.Type {
-				return nil, crgerrs.WrapError(
-					crgerrs.ErrBadArgument,
-					fmt.Sprintf("operation at index %d should have had type %s got: %s", i+j, op.Type, skipOp.Type),
-				)
-			}
+		i = start + len(signers) - 1
 
-			if !reflect.DeepEqual(op.Metadata, skipOp.Metadata) {
-				return nil, crgerrs.WrapError(
-					crgerrs.ErrBadArgument,
-					fmt.Sprintf("operation at index %d should have had metadata equal to %#v, got: %#v", i+j, op.Metadata, skipOp.Metadata))
-			}
-
-			i++ // increase so we skip it
-		}
 	}
 
 	if err := builder.SetMsgs(msgs...); err != nil {
@@ -264,6 +255,14 @@ func (c converter) Ops(status string, msg sdk.Msg) ([]*rosettatypes.Operation, e
 
 // Tx converts a tendermint raw transaction and its result (if provided) to a rosetta transaction
 func (c converter) Tx(rawTx tmtypes.Tx, txResult *abci.ResponseDeliverTx) (*rosettatypes.Transaction, error) {
+	// Unsigned construction transactions carry canonical signing context.
+	if len(rawTx) > 0 && rawTx[0] == '{' {
+		var unsigned UnsignedTransaction
+		if err := json.Unmarshal(rawTx, &unsigned); err != nil {
+			return nil, crgerrs.WrapError(crgerrs.ErrCodec, err.Error())
+		}
+		rawTx = unsigned.Transaction
+	}
 	// decode tx
 	tx, err := c.txDecode(rawTx)
 	if err != nil {
@@ -602,7 +601,11 @@ func (c converter) OpsAndSigners(txBytes []byte) (ops []*rosettatypes.Operation,
 }
 
 func (c converter) SignedTx(txBytes []byte, signatures []*rosettatypes.Signature) (signedTxBytes []byte, err error) {
-	rawTx, err := c.txDecode(txBytes)
+	var unsigned UnsignedTransaction
+	if err := json.Unmarshal(txBytes, &unsigned); err != nil {
+		return nil, crgerrs.WrapError(crgerrs.ErrInvalidTransaction, "missing unsigned signing context")
+	}
+	rawTx, err := c.txDecode(unsigned.Transaction)
 	if err != nil {
 		return nil, err
 	}
@@ -612,12 +615,13 @@ func (c converter) SignedTx(txBytes []byte, signatures []*rosettatypes.Signature
 		return nil, err
 	}
 
-	notSignedSigs, err := txBuilder.GetTx().GetSignaturesV2() //
+	notSignedSigs, err := txBuilder.GetTx().GetSignaturesV2()
 	if err != nil {
 		return nil, crgerrs.WrapError(crgerrs.ErrCodec, err.Error())
 	}
 
-	if len(notSignedSigs) != len(signatures) {
+	signers := txBuilder.GetTx().GetSigners()
+	if len(signers) == 0 || len(signers) != len(notSignedSigs) || len(unsigned.SignersData) != len(signers) || len(notSignedSigs) != len(signatures) {
 		return nil, crgerrs.WrapError(
 			crgerrs.ErrInvalidTransaction,
 			fmt.Sprintf("expected transaction to have signers data matching the provided signatures: %d <-> %d", len(notSignedSigs), len(signatures)))
@@ -625,7 +629,50 @@ func (c converter) SignedTx(txBytes []byte, signatures []*rosettatypes.Signature
 
 	signedSigs := make([]signing.SignatureV2, len(notSignedSigs))
 	for i, signature := range signatures {
-		// TODO(fdymylja): here we should check that the public key matches...
+		invalid := func(reason string) ([]byte, error) {
+			return nil, crgerrs.WrapError(crgerrs.ErrInvalidTransaction, fmt.Sprintf("signature %d: %s", i, reason))
+		}
+		if signature == nil || signature.PublicKey == nil || signature.SigningPayload == nil || signature.SigningPayload.AccountIdentifier == nil || unsigned.SignersData[i] == nil {
+			return invalid("missing signature identity or context")
+		}
+		if signature.SignatureType != rosettatypes.Ecdsa || signature.SigningPayload.SignatureType != rosettatypes.Ecdsa {
+			return invalid("only ECDSA signatures supported")
+		}
+		pubKey, err := c.PubKey(signature.PublicKey)
+		if err != nil {
+			return invalid(err.Error())
+		}
+		expectedData, ok := notSignedSigs[i].Data.(*signing.SingleSignatureData)
+		if !ok || expectedData.SignMode != signing.SignMode_SIGN_MODE_LEGACY_AMINO_JSON || len(expectedData.Signature) != 0 {
+			return invalid("transaction is not an unsigned legacy amino ECDSA transaction")
+		}
+		expectedKey := notSignedSigs[i].PubKey
+		account := signature.SigningPayload.AccountIdentifier
+		if expectedKey == nil || !pubKey.Equals(expectedKey) || !bytes.Equal(pubKey.Address(), signers[i]) || account.Address != signers[i].String() || account.SubAccount != nil {
+			return invalid("public key or account does not match transaction signer")
+		}
+		if unsigned.SignersData[i].Sequence != notSignedSigs[i].Sequence {
+			return invalid("sequence does not match transaction")
+		}
+		payload, err := c.bytesToSign(txBuilder.GetTx(), authsigning.SignerData{ChainID: unsigned.ChainID, AccountNumber: unsigned.SignersData[i].AccountNumber, Sequence: notSignedSigs[i].Sequence})
+		if err != nil {
+			return invalid(err.Error())
+		}
+		if !bytes.Equal(payload, signature.SigningPayload.Bytes) {
+			return invalid("payload does not match unsigned transaction")
+		}
+		// Rosetta signs the SHA-256 digest directly; SDK VerifySignature would hash again.
+		if len(signature.Bytes) != 64 {
+			return invalid("invalid ECDSA signature length")
+		}
+		var r, s btcec.ModNScalar
+		if r.SetByteSlice(signature.Bytes[:32]) || s.SetByteSlice(signature.Bytes[32:]) || r.IsZero() || s.IsZero() || s.IsOverHalfOrder() {
+			return invalid("invalid ECDSA signature scalars")
+		}
+		parsedKey, err := btcec.ParsePubKey(pubKey.Bytes())
+		if err != nil || !ecdsa.NewSignature(&r, &s).Verify(payload, parsedKey) {
+			return invalid("signature verification failed")
+		}
 		signedSigs[i] = signing.SignatureV2{
 			PubKey: notSignedSigs[i].PubKey,
 			Data: &signing.SingleSignatureData{
@@ -649,6 +696,9 @@ func (c converter) SignedTx(txBytes []byte, signatures []*rosettatypes.Signature
 }
 
 func (c converter) PubKey(pubKey *rosettatypes.PublicKey) (cryptotypes.PubKey, error) {
+	if pubKey == nil {
+		return nil, crgerrs.WrapError(crgerrs.ErrBadArgument, "missing public key")
+	}
 	if pubKey.CurveType != "secp256k1" {
 		return nil, crgerrs.WrapError(crgerrs.ErrUnsupportedCurve, "only secp256k1 supported")
 	}
@@ -709,6 +759,9 @@ func (c converter) SigningComponents(tx authsigning.Tx, metadata *ConstructionMe
 			)
 		}
 
+		if metadata.SignersData[i] == nil {
+			return nil, nil, crgerrs.WrapError(crgerrs.ErrBadArgument, "missing signer metadata")
+		}
 		// set the signer data
 		signerData := authsigning.SignerData{
 			ChainID:       metadata.ChainID,
@@ -717,7 +770,7 @@ func (c converter) SigningComponents(tx authsigning.Tx, metadata *ConstructionMe
 		}
 
 		// get signature bytes
-		signBytes, err := c.bytesToSign(tx, signerData)
+		signBytes, err := c.bytesToSign(builder.GetTx(), signerData)
 		if err != nil {
 			return nil, nil, crgerrs.WrapError(crgerrs.ErrUnknown, fmt.Sprintf("unable to sign tx: %s", err.Error()))
 		}
@@ -732,7 +785,7 @@ func (c converter) SigningComponents(tx authsigning.Tx, metadata *ConstructionMe
 		// set partial signature
 		partialSignatures[i] = signing.SignatureV2{
 			PubKey:   pubKey,
-			Data:     &signing.SingleSignatureData{}, // needs to be set to empty otherwise the codec will cry
+			Data:     &signing.SingleSignatureData{SignMode: signing.SignMode_SIGN_MODE_LEGACY_AMINO_JSON},
 			Sequence: metadata.SignersData[i].Sequence,
 		}
 
@@ -752,7 +805,11 @@ func (c converter) SigningComponents(tx authsigning.Tx, metadata *ConstructionMe
 		return nil, nil, crgerrs.WrapError(crgerrs.ErrCodec, err.Error())
 	}
 
-	return txBytes, payloadsToSign, nil
+	unsignedBytes, err := json.Marshal(UnsignedTransaction{Transaction: txBytes, ChainID: metadata.ChainID, SignersData: metadata.SignersData})
+	if err != nil {
+		return nil, nil, crgerrs.WrapError(crgerrs.ErrCodec, err.Error())
+	}
+	return unsignedBytes, payloadsToSign, nil
 }
 
 // SignerData converts the given any account to signer data
