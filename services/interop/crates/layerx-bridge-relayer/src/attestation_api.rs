@@ -7,15 +7,136 @@ use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
 
-use crate::attestation::recover_signer;
+use crate::attestation::eligible_signatures;
+use crate::cosign::CosignDirectory;
 use crate::hex;
-use crate::journal::{inbound_key, outbound_key, Item};
+use crate::journal::{inbound_key, outbound_key, Item, Journal, Observation};
+
+/// Identity of the consumer whose authenticated policy authorizes a bundle.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
+pub enum PolicyDestination {
+    Inbound {
+        chain_id: u64,
+        bridge: [u8; 20],
+        source_chain_id: u64,
+        source_vault: [u8; 20],
+    },
+    EvmRelease {
+        chain_id: u64,
+        vault: [u8; 20],
+    },
+    SolanaRelease {
+        chain_id: u64,
+        program: [u8; 32],
+        vault: [u8; 20],
+    },
+}
+
+impl PolicyDestination {
+    fn accepts(&self, observation: &Observation) -> bool {
+        match (self, observation) {
+            (
+                Self::Inbound {
+                    source_chain_id,
+                    source_vault,
+                    ..
+                },
+                Observation::Inbound {
+                    chain_id, vault, ..
+                },
+            ) => source_chain_id == chain_id && source_vault == vault,
+            (
+                Self::EvmRelease {
+                    chain_id: destination_chain,
+                    vault: destination_vault,
+                }
+                | Self::SolanaRelease {
+                    chain_id: destination_chain,
+                    vault: destination_vault,
+                    ..
+                },
+                Observation::Outbound {
+                    chain_id, vault, ..
+                },
+            ) => destination_chain == chain_id && destination_vault == vault,
+            _ => false,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AuthenticatedPolicy {
+    pub destination: PolicyDestination,
+    pub threshold: usize,
+    pub attestors: Vec<[u8; 20]>,
+}
 
 #[derive(Clone, Debug, Default)]
 pub struct AttestationView {
     pub items: BTreeMap<String, Item>,
     pub signatures: BTreeMap<[u8; 32], Vec<[u8; 65]>>,
+    /// Informational summary for chains with an unambiguous threshold.
+    /// Readiness and membership use each item's authenticated policy.
     pub thresholds: BTreeMap<u64, usize>,
+}
+
+impl AttestationView {
+    /// Takes a journal snapshot without treating durable signatures as durable
+    /// policy. Only current authenticated destination policies can authorize it.
+    #[must_use]
+    pub fn from_journal(
+        journal: &Journal,
+        cosign: Option<&CosignDirectory>,
+        policies: &BTreeMap<PolicyDestination, AuthenticatedPolicy>,
+    ) -> Self {
+        let mut view = Self {
+            items: journal.state().items.clone(),
+            ..Self::default()
+        };
+        let mut summaries: BTreeMap<u64, Option<usize>> = BTreeMap::new();
+        for item in view.items.values_mut() {
+            // Ambiguous destination identity is unknown, never last-writer-wins.
+            let mut matches = policies.iter().filter(|(destination, policy)| {
+                **destination == policy.destination && destination.accepts(&item.observation)
+            });
+            item.attestation_policy = matches.next().map(|(_, policy)| policy.clone());
+            if matches.next().is_some() {
+                item.attestation_policy = None;
+            }
+            let (Observation::Inbound { chain_id, .. } | Observation::Outbound { chain_id, .. }) =
+                &item.observation;
+            if let Some(policy) = &item.attestation_policy {
+                summaries
+                    .entry(*chain_id)
+                    .and_modify(|summary| {
+                        if *summary != Some(policy.threshold) {
+                            *summary = None;
+                        }
+                    })
+                    .or_insert(Some(policy.threshold));
+            }
+            let digest = item
+                .observation
+                .inbound_attestation()
+                .map(|attestation| attestation.digest())
+                .or_else(|| {
+                    item.observation
+                        .outbound_attestation()
+                        .map(|attestation| attestation.digest())
+                });
+            if let Some(digest) = digest {
+                let collected = cosign
+                    .map(|cosign| cosign.collect(&digest))
+                    .unwrap_or_default();
+                view.signatures.insert(digest, collected);
+            }
+        }
+        view.thresholds = summaries
+            .into_iter()
+            .filter_map(|(chain, threshold)| threshold.map(|threshold| (chain, threshold)))
+            .collect();
+        view
+    }
 }
 
 const MAX_REQUEST_BYTES: usize = 8192;
@@ -216,7 +337,7 @@ pub fn deposit_answer(
     let attestation = item.observation.inbound_attestation()?;
     let digest = attestation.digest();
     let signatures = signatures(view, item, &digest);
-    let status = status(view, item, chain_id, signatures.len());
+    let status = status(item, signatures.len());
     Some(json!({
         "chainId": attestation.chain_id.to_string(),
         "vault": hex::prefixed(&attestation.vault),
@@ -244,7 +365,7 @@ pub fn release_answer(
     let attestation = item.observation.outbound_attestation()?;
     let digest = attestation.digest();
     let signatures = signatures(view, item, &digest);
-    let status = status(view, item, chain_id, signatures.len());
+    let status = status(item, signatures.len());
     Some(json!({
         "chainId": attestation.chain_id.to_string(),
         "vault": hex::prefixed(&attestation.vault),
@@ -260,29 +381,29 @@ pub fn release_answer(
 }
 
 fn signatures(view: &AttestationView, item: &Item, digest: &[u8; 32]) -> Vec<String> {
-    let mut by_signer = BTreeMap::new();
-    for signature in item
-        .signature
-        .iter()
-        .chain(view.signatures.get(digest).into_iter().flatten())
-    {
-        if let Ok(signer) = recover_signer(digest, signature) {
-            by_signer.entry(signer).or_insert(*signature);
-        }
-    }
-    by_signer
-        .values()
-        .map(|signature| hex::prefixed(signature))
-        .collect()
+    let Some(policy) = &item.attestation_policy else {
+        return Vec::new();
+    };
+    eligible_signatures(
+        digest,
+        item.signature
+            .iter()
+            .copied()
+            .chain(view.signatures.get(digest).into_iter().flatten().copied()),
+        &policy.attestors,
+    )
+    .iter()
+    .map(|signature| hex::prefixed(signature))
+    .collect()
 }
 
-fn status(view: &AttestationView, item: &Item, chain_id: u64, signatures: usize) -> &'static str {
+fn status(item: &Item, signatures: usize) -> &'static str {
     if item.signature.is_none() {
         "observed"
-    } else if view
-        .thresholds
-        .get(&chain_id)
-        .is_some_and(|threshold| *threshold > 0 && signatures >= *threshold)
+    } else if item
+        .attestation_policy
+        .as_ref()
+        .is_some_and(|policy| policy.threshold > 0 && signatures >= policy.threshold)
     {
         "ready"
     } else {

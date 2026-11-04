@@ -25,9 +25,7 @@ impl PrincipalStore {
         if !root.is_absolute() || fs::canonicalize(root)? != root {
             return Err(StoreError::Tenancy(TenancyError::DigestMismatch));
         }
-        let lock = provider_lock(root)?;
         let mut store = Self::open(root, retention, tenancy_digest)?;
-        store.provider_lock = Some(lock);
         store.provider = Some(authority);
         for principal in store.known_principals()? {
             store.resolve_tenant(&principal)?;
@@ -62,9 +60,6 @@ impl PrincipalStore {
         let Some(provider) = &self.provider else {
             return configured.cloned().map_err(StoreError::from);
         };
-        if self.provider_lock.is_none() {
-            return Err(StoreError::Tenancy(TenancyError::DigestMismatch));
-        }
         let tenant = provider.tenant_for(principal)?;
         if configured.is_ok_and(|value| value != &tenant) {
             return Err(StoreError::Tenancy(TenancyError::DigestMismatch));
@@ -125,7 +120,7 @@ fn verify_binding_file(path: &Path, expected: &[u8]) -> Result<(), StoreError> {
     Ok(())
 }
 
-fn provider_lock(root: &Path) -> Result<fs::File, StoreError> {
+pub(super) fn ownership_lock(root: &Path) -> Result<fs::File, StoreError> {
     let nofollow = i32::try_from(rustix::fs::OFlags::NOFOLLOW.bits())
         .map_err(|_| io::Error::other("O_NOFOLLOW exceeds the native file option bound"))?;
     let lock = fs::OpenOptions::new()

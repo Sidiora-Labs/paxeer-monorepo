@@ -525,6 +525,7 @@ impl Server {
         let tools = TOOL_CATALOGUE
             .iter()
             .chain(WEB_TOOLS.iter())
+            .chain(catalogue::SESSION_TOOLS.iter())
             .filter(|tool| {
                 binding.scopes.contains(tool.required_scope)
                     && (mode == DeploymentMode::Full || tool.kind == ToolKind::Read)
