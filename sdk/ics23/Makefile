@@ -1,20 +1,11 @@
-.PHONY: protoc test
+.PHONY: test protoc install-proto-dep
 
-# make sure we turn on go modules
 export GO111MODULE := on
-
-# PROTOC_FLAGS := -I=.. -I=./vendor -I=$(GOPATH)/src
-PROTOC_FLAGS := -I=.. -I=$(GOPATH)/src
 
 test:
 	go test .
 
-protoc:
-#	@go mod vendor
-	protoc --gocosmos_out=plugins=interfacetype+grpc,Mgoogle/protobuf/any.proto=github.com/gogo/protobuf/types:. $(PROTOC_FLAGS) ../proofs.proto
-
-install-proto-dep:
-	@echo "Installing protoc-gen-gocosmos..."
-	@go install github.com/regen-network/cosmos-proto/protoc-gen-gocosmos
-
-
+# Independent protobuf generation is retired; see README.md.
+protoc install-proto-dep:
+	@echo "Local ICS23 protobuf generation is retired. Use github.com/cosmos/cosmos-sdk/ics23/go v0.8.0 selected by the root go.mod; see README.md." >&2
+	@exit 1
