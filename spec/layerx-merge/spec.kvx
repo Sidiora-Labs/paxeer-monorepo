@@ -131710,7 +131710,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.149]
 title = "Repair audit record 22.30.101 findings in services/agent/sdk/typescript/src/x402: restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -131918,7 +131918,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.43]
 title = "Repair audit record 22.30.30 findings in apps/launchpad/web/src/widgets/swap: runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -132366,7 +132366,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.2]
 title = "Repair audit record 22.30.10 findings in apps/perps/src/app/modals: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -146454,7 +146454,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.276]
 title = "Repair audit record 22.30.148 findings in services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/proto/v2: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -146621,7 +146621,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.272]
 title = "Repair audit record 22.30.141 findings in services/explorer/services/libs/actix-phoenix-channel/src: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -146826,7 +146826,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.264]
 title = "Repair audit record 22.30.129 findings in programs/sdk/rust/examples/swap-cpmm/src: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -146859,7 +146859,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.263]
 title = "Repair audit record 22.30.128 findings in programs/porting/evm/src: wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -147491,7 +147491,7 @@ do_7 = "Attempt 2 (continue): the test checkpoint imports layerx_proof::checkpoi
 
 [task.22.31.225]
 title = "Repair audit record 22.30.97 findings in services/agent/crates/layerx-agentd/src/approval: interface-mismatch, restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -148520,7 +148520,7 @@ do_7 = "The Rust tests spawn no Go producer process (its link step fails in the 
 
 [task.22.31.167]
 title = "Repair audit record 22.30.112 findings in services/interop/crates/layerx-portable/src: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -148800,7 +148800,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.159]
 title = "Repair audit record 22.30.107 findings in services/human/crates/layerx-human-service/src/approvals: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -149089,7 +149089,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.151]
 title = "Repair audit record 22.30.103 findings in services/human/crates/layerx-human-service/src/agents: wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -160602,7 +160602,7 @@ do_9 = "Verification runs go test -v, keeps its log and requires a PASS line for
 
 [task.22.31.292]
 title = "Repair audit record 22.30.165 findings in sdk/store/rootmulti: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -160637,7 +160637,7 @@ do_8 = "Verification runs go test -v, keeps its log and requires a PASS line for
 
 [task.22.31.291]
 title = "Repair audit record 22.30.165 findings in sdk/store/prefix: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -160707,7 +160707,7 @@ do_8 = "Verification runs go test -v, keeps its log and requires a PASS line for
 
 [task.22.31.289]
 title = "Repair audit record 22.30.165 findings in sdk/store/cachekv: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -160742,7 +160742,7 @@ do_8 = "Verification runs go test -v, keeps its log and requires a PASS line for
 
 [task.22.31.288]
 title = "Repair audit record 22.30.165 findings in sdk/store/cache: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -160989,7 +160989,7 @@ do_8 = "Verification runs go test -v, keeps its log and requires a PASS line for
 
 [task.22.31.268]
 title = "Repair audit record 22.30.138 findings in services/bridge/deploy/chainconfig: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -161024,7 +161024,7 @@ do_8 = "Verification runs go test -v, keeps its log and requires a PASS line for
 
 [task.22.31.247]
 title = "Repair audit record 22.30.118 findings in services/wallet/ceremony/internal/attestor: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -161164,7 +161164,7 @@ do_8 = "Verification runs go test -v, keeps its log and requires a PASS line for
 
 [task.22.31.242]
 title = "Repair audit record 22.30.117 findings in services/wallet/attestor/internal/policy/lx: wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -161233,7 +161233,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.240]
 title = "Repair audit record 22.30.116 findings in services/wallet/attestor/internal/store: restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -161548,7 +161548,7 @@ do_10 = "Verification runs go test -v, keeps its log and requires a PASS line fo
 
 [task.22.31.186]
 title = "Repair audit record 22.30.70 findings in sdk/server: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -161973,7 +161973,7 @@ do_7 = "Verification runs only the TestRepair_172_* functions of repair_172_test
 
 [task.22.31.171]
 title = "Repair audit record 22.30.45 findings in consensus/privval/grpc: interface-mismatch, runtime-risk, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -162547,7 +162547,7 @@ do_10 = "Verification runs go test -v, keeps its log and requires a PASS line fo
 
 [task.22.31.125]
 title = "Repair audit record 22.30.56 findings in storage/state_db/sc/memiavl: interface-mismatch, restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -163446,7 +163446,7 @@ do_7 = "Verification runs only the TestRepair_93_* functions of repair_93_test.g
 
 [task.22.31.92]
 title = "Repair audit record 22.30.47 findings in consensus/autobahn/types: interface-mismatch, runtime-risk, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -163808,7 +163808,7 @@ do_8 = "Verification runs only the TestRepair_83_* functions of repair_83_test.g
 
 [task.22.31.82]
 title = "Repair audit record 22.30.46 findings in consensus/internal/state/indexer/sink/psql: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -164368,7 +164368,7 @@ do_11 = "Verification runs go test -v, keeps its log and requires a PASS line fo
 
 [task.22.31.65]
 title = "Repair audit record 22.30.38 findings in services/launchpad/security/control: interface-mismatch, restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -164872,7 +164872,7 @@ do_9 = "Verification runs go test -v, keeps its log and requires a PASS line for
 
 [task.22.31.50]
 title = "Repair audit record 22.30.32 findings in services/launchpad/gateway/internal/serve: security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -221797,7 +221797,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.42]
 title = "Repair audit record 22.30.3 findings in src/protocol: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -221830,7 +221830,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.36]
 title = "Repair audit record 22.30.25 findings in precompiles/launchpad: runtime-risk, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
