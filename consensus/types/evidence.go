@@ -420,7 +420,7 @@ func (l *LightClientAttackEvidence) Hash() []byte {
 	buf := make([]byte, binary.MaxVarintLen64)
 	n := binary.PutVarint(buf, l.CommonHeight)
 	bz := make([]byte, crypto.HashSize+n)
-	copy(bz[:crypto.HashSize-1], l.ConflictingBlock.Hash().Bytes())
+	copy(bz[:crypto.HashSize], l.ConflictingBlock.Hash().Bytes())
 	copy(bz[crypto.HashSize:], buf)
 	hash := crypto.Checksum(bz)
 	return hash[:]

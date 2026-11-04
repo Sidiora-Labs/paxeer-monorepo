@@ -22,8 +22,6 @@ import (
 // blocking integration-test CI today (no reader), but external tooling will
 // want them:
 //
-//   - CatchingUp: currently hardcoded `true` under Autobahn because
-//     ConsensusReactor is nil. Needs a sync-state signal from Autobahn.
 //   - MaxPeerBlockHeight / TotalSyncedTime / RemainingTime: require an
 //     Autobahn equivalent of BlockSyncReactor.
 //
@@ -64,16 +62,36 @@ func (env *Environment) Status(ctx context.Context) (*coretypes.ResultStatus, er
 	// consensus-committed number from the GigaRouter's cached CommitQC watch
 	// (lock-free per-call atomic load).
 	lastCommittedBlockHeight := latestHeight
-	if giga, ok := env.gigaRouter().Get(); ok {
-		if abciInfo, err := env.ABCIInfo(ctx); err == nil {
-			latestHeight = abciInfo.Response.LastBlockHeight
-			latestAppHash = abciInfo.Response.LastBlockAppHash
-			if block, err := giga.BlockByNumber(ctx, atypes.GlobalBlockNumber(latestHeight)); err == nil {
-				latestBlockHash = block.BlockID.Hash
-				latestBlockTimeNano = block.Block.Header.Time.UnixNano()
+	catchingUp := true
+	var applicationInfo coretypes.ApplicationInfo
+	gigaRouter := env.gigaRouter()
+	if giga, ok := gigaRouter.Get(); ok {
+		abciInfo, err := env.ABCIInfo(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("load Autobahn application info: %w", err)
+		}
+		latestHeight = abciInfo.Response.LastBlockHeight
+		if latestHeight < 0 {
+			return nil, fmt.Errorf("invalid Autobahn executed height %d", latestHeight)
+		}
+		latestAppHash = abciInfo.Response.LastBlockAppHash
+		applicationInfo.Version = fmt.Sprint(abciInfo.Response.AppVersion)
+		// Height zero is the startup-only empty executed state. It has no
+		// block to look up, even if consensus has already finalized blocks.
+		latestBlockHash = nil
+		latestBlockTimeNano = 0
+		if latestHeight > 0 {
+			block, err := giga.BlockByNumber(ctx, atypes.GlobalBlockNumber(latestHeight))
+			if err != nil {
+				return nil, fmt.Errorf("load latest Autobahn block at height %d: %w", latestHeight, err)
 			}
+			latestBlockHash = block.BlockID.Hash
+			latestBlockTimeNano = block.Block.Header.Time.UnixNano()
 		}
 		lastCommittedBlockHeight = giga.LastCommittedBlockNumber()
+		// The CommitQC head is Autobahn's known synchronization target. Keep
+		// startup and recovery pending until the app has executed that head.
+		catchingUp = latestHeight == 0 || latestHeight != lastCommittedBlockHeight
 		earliestBlockHeight = giga.EarliestBlockNumber()
 		if earliestBlockHeight <= lastCommittedBlockHeight {
 			block, err := giga.BlockByNumber(ctx, atypes.GlobalBlockNumber(earliestBlockHeight))
@@ -106,9 +124,10 @@ func (env *Environment) Status(ctx context.Context) (*coretypes.ResultStatus, er
 	if val, ok := env.validatorAtHeight(env.latestUncommittedHeight()).Get(); ok {
 		validatorInfo.VotingPower = val.VotingPower
 	}
-	var applicationInfo coretypes.ApplicationInfo
-	if abciInfo, err := env.ABCIInfo(ctx); err == nil {
-		applicationInfo.Version = fmt.Sprint(abciInfo.Response.AppVersion)
+	if !gigaRouter.IsPresent() {
+		if abciInfo, err := env.ABCIInfo(ctx); err == nil {
+			applicationInfo.Version = fmt.Sprint(abciInfo.Response.AppVersion)
+		}
 	}
 
 	result := &coretypes.ResultStatus{
@@ -128,12 +147,12 @@ func (env *Environment) Status(ctx context.Context) (*coretypes.ResultStatus, er
 			// hasn't started yet, and then flip to false
 			// (or true,) depending on what's actually
 			// happening.
-			CatchingUp: true,
+			CatchingUp: catchingUp,
 		},
 		ValidatorInfo: validatorInfo,
 	}
 
-	if reactor, ok := env.ConsensusReactor.Get(); ok {
+	if reactor, ok := env.ConsensusReactor.Get(); ok && !gigaRouter.IsPresent() {
 		result.SyncInfo.CatchingUp = reactor.WaitSync()
 	}
 
