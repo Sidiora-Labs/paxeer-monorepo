@@ -1,0 +1,1297 @@
+[audit.22.30.17]
+task = "22.30.17"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 117
+findings = 50
+docs_reviewed = 15
+upgrade_ready = false
+blocking = ["share-administration-unserved", "share-balance-revert", "indexer-subscription-wire-types", "referral-null-tier"]
+review_basis = "Full member review against package requirements, registry and real producer/transport/consumer paths, with all twelve package documentation pages. Embedded compiled ERC20 fixture data treated as generated; surrounding test logic reviewed in full."
+interface_review = "Compared native ABI selectors/tuples/error bytes, production upgrade registration, pricefeed keeper/views, oracle/perps protobuf service and genesis shapes, GraphQL/REST/websocket producers and UI consumers. Shared-name/comment search hits are not treated as live wiring. Retired raw spot export and eight retired subgraph exports are absent as intended."
+qualification_scope = "Only the declared revision-log build and audit-record/graph verification are authorized. Source-review of existing tests is not a claim that Go, browser, network or inventory sweep commands executed in this audit."
+
+[file.001]
+path = "api/oracle/genesis.proto"
+lines = 33
+verdict = "clean"
+note = "Oracle genesis field tags, reserved tag 5 and persisted votes/delegations/snapshots agree with generated types and keeper import/export."
+
+[file.002]
+path = "api/oracle/oracle.proto"
+lines = 127
+verdict = "clean"
+note = "Oracle decimals, custom types, timestamps, voting parameters and reserved tag 8 agree with keeper and protobuf encodings."
+
+[file.003]
+path = "api/oracle/query.proto"
+lines = 189
+verdict = "clean"
+note = "All ten query pairs and HTTP annotations agree with oracle registration and generated gateway routes."
+
+[file.004]
+path = "api/oracle/tx.proto"
+lines = 45
+verdict = "clean"
+note = "Vote/consent message names, signer fields, reserved salt and empty responses agree with the oracle Msg server."
+
+[file.005]
+path = "api/perps/tx.proto"
+lines = 24
+verdict = "clean"
+note = "Authority-signed perps governance messages use the registered service and protobuf customtype Params/Market bytes."
+
+[file.006]
+path = "apps/perps/pnpm-workspace.yaml"
+lines = 10
+verdict = "clean"
+note = "Workspace globs and build permissions introduce no retired endpoint or runtime configuration."
+
+[file.007]
+path = "apps/perps/src/hooks/chain/index.ts"
+lines = 3
+verdict = "clean"
+note = "Chain barrel resolves the two implementation modules without connection side effects."
+
+[file.008]
+path = "apps/perps/src/hooks/chain/useEvmBlockStream.ts"
+lines = 151
+verdict = "issues"
+note = "Full EVM block adapter/watch lifecycle reviewed; quantities and ISO dates agree with explorer shapes; endpoint comment and consumed default node list drift from the brief."
+
+[file.009]
+path = "apps/perps/src/hooks/chain/useExplorerStream.ts"
+lines = 241
+verdict = "clean"
+note = "Explorer snapshots/incremental frames normalize dates, bound buffers, guard sequences and clean up reconnects."
+
+[file.010]
+path = "apps/perps/src/hooks/paxscan/index.ts"
+lines = 17
+verdict = "clean"
+note = "Paxscan barrel resolves typed query hooks and client/resource helpers without background work."
+
+[file.011]
+path = "apps/perps/src/hooks/paxscan/useBlockscoutInfiniteQuery.ts"
+lines = 86
+verdict = "clean"
+note = "Infinite Blockscout query uses resource/parameter keys, cancellation and explicit terminal cursor handling."
+
+[file.012]
+path = "apps/perps/src/hooks/paxscan/useBlockscoutQuery.ts"
+lines = 55
+verdict = "clean"
+note = "Blockscout query keys include resource/parameters, forward cancellation and surface client errors."
+
+[file.013]
+path = "apps/perps/src/hooks/perps/index.ts"
+lines = 3
+verdict = "clean"
+note = "Empty perps barrel has no runtime side effect or retired export."
+
+[file.014]
+path = "apps/perps/src/hooks/perps/useAccount.ts"
+lines = 82
+verdict = "clean"
+note = "Cross-margin account reads/deposit/withdraw use USDL and 0x1015 ABI; exact approval and receipt paths agree."
+
+[file.015]
+path = "apps/perps/src/hooks/perps/useAnalytics.ts"
+lines = 122
+verdict = "clean"
+note = "Analytics fields and filters match perps-data SDL and shared polling; amounts remain exact strings."
+
+[file.016]
+path = "apps/perps/src/hooks/perps/useAutoCollateral.ts"
+lines = 66
+verdict = "issues"
+note = "USDL six-decimal selection is correct; reused mountedRef permits old-account collateral publication."
+
+[file.017]
+path = "apps/perps/src/hooks/perps/useContract.ts"
+lines = 179
+verdict = "clean"
+note = "Viem clients use current chain and wallet checks; transaction failure and committed receipt handling agree."
+
+[file.018]
+path = "apps/perps/src/hooks/perps/useDailyPnl.ts"
+lines = 149
+verdict = "clean"
+note = "Daily PnL decoder preserves signed amounts/nullable ROI and uses effect-local cancellation on address replacement."
+
+[file.019]
+path = "apps/perps/src/hooks/perps/useEnrichedStats.ts"
+lines = 114
+verdict = "clean"
+note = "Enriched/venue queries match SDL and share scheduling through useSharedPolledQuery."
+
+[file.020]
+path = "apps/perps/src/hooks/perps/useFeeTier.ts"
+lines = 47
+verdict = "issues"
+note = "Fee tuple validates widths and signed maker fee; served registry return declaration differs from actual view/loading/error wrapper."
+
+[file.021]
+path = "apps/perps/src/hooks/perps/useFees.ts"
+lines = 35
+verdict = "clean"
+note = "Fee query fields/filters agree with producer and preserve decimal strings."
+
+[file.022]
+path = "apps/perps/src/hooks/perps/useFundingPayments.ts"
+lines = 33
+verdict = "clean"
+note = "Funding payment query fields/filters and units agree with producer; polling is delegated to the shared hook."
+
+[file.023]
+path = "apps/perps/src/hooks/perps/useGraphQLQuery.ts"
+lines = 119
+verdict = "issues"
+note = "Shared query subscription cleanup exists, but manual refresh and retained data lack selection-generation protection."
+
+[file.024]
+path = "apps/perps/src/hooks/perps/useIndexerSubscriptions.ts"
+lines = 283
+verdict = "issues"
+note = "Subscription roots exist; timestamp/nullability contracts disagree and selection changes retain old stream state."
+
+[file.025]
+path = "apps/perps/src/hooks/perps/useMarginMode.ts"
+lines = 144
+verdict = "issues"
+note = "Margin/top-up ABI and approval paths agree; margin read completions lack selection-generation protection."
+
+[file.026]
+path = "apps/perps/src/hooks/perps/useMarketConfig.ts"
+lines = 54
+verdict = "issues"
+note = "Chain config/tiers are validated; perpetual cache does not refresh governance changes and registry signature is stale."
+
+[file.027]
+path = "apps/perps/src/hooks/perps/useMarketsStream.ts"
+lines = 473
+verdict = "clean"
+note = "Full market feed reviewed: exact funding decoding, bounded shared snapshots, sequence guards, reconnect replay and closed-socket clearing agree."
+
+[file.028]
+path = "apps/perps/src/hooks/perps/useOrderLineStore.ts"
+lines = 65
+verdict = "clean"
+note = "Draft order lines hold local panel state with explicit setters/reset and no monetary authority."
+
+[file.029]
+path = "apps/perps/src/hooks/perps/usePerfdbAlerts.ts"
+lines = 164
+verdict = "issues"
+note = "Alert routes and bearer mutations agree with producer; late old-account query completion can overwrite selected alerts."
+
+[file.030]
+path = "apps/perps/src/hooks/perps/usePerfdbAuth.ts"
+lines = 266
+verdict = "issues"
+note = "Auth payloads agree; pending credentials can outlive logout and stored tokens are not bound to the visible wallet."
+
+[file.031]
+path = "apps/perps/src/hooks/perps/usePerfdbBalances.ts"
+lines = 84
+verdict = "issues"
+note = "Balance fields agree with producer; mountedRef reuse permits old-account completion after wallet replacement."
+
+[file.032]
+path = "apps/perps/src/hooks/perps/usePerfdbCompetitions.ts"
+lines = 258
+verdict = "issues"
+note = "Competition selections are valid; list count derives from omitted rankings and detail responses can cross selection generations."
+
+[file.033]
+path = "apps/perps/src/hooks/perps/usePerfdbReferrals.ts"
+lines = 204
+verdict = "issues"
+note = "Referrals omit available earnings, assume a non-null tier from a nullable join and accept superseded address responses."
+
+[file.034]
+path = "apps/perps/src/hooks/perps/usePerfdbSubscriptions.ts"
+lines = 100
+verdict = "issues"
+note = "PerfDB subscription roots/encodings exist; retained market results and connection flags lack transport/selection lifecycle updates."
+
+[file.035]
+path = "apps/perps/src/hooks/perps/usePerfdbTraderStats.ts"
+lines = 89
+verdict = "issues"
+note = "Trader-stat fields agree with producer; old-address request completion can overwrite the selected wallet statistics."
+
+[file.036]
+path = "apps/perps/src/hooks/perps/usePerfdbUser.ts"
+lines = 81
+verdict = "issues"
+note = "User-profile fields agree with producer; old-address request completion can overwrite the selected profile."
+
+[file.037]
+path = "apps/perps/src/hooks/perps/usePerpsMarkets.ts"
+lines = 77
+verdict = "issues"
+note = "Catalog decoder preserves disabled rows and exact risk data; served registry still declares another catalog/loading shape."
+
+[file.038]
+path = "apps/perps/src/hooks/perps/usePerpsOrders.ts"
+lines = 72
+verdict = "clean"
+note = "Perps order planners and query variables use current account/position ABI names and exact encodings."
+
+[file.039]
+path = "apps/perps/src/hooks/perps/usePerpsWallet.ts"
+lines = 145
+verdict = "clean"
+note = "Wallet signs through wagmi/injected provider with chain 125; no node signing or browser gateway secret is introduced."
+
+[file.040]
+path = "apps/perps/src/hooks/perps/usePortfolioStats.ts"
+lines = 302
+verdict = "issues"
+note = "Account/position paths and resync are wired; a delayed REST position snapshot can overwrite a newer pushed full list."
+
+[file.041]
+path = "apps/perps/src/hooks/perps/usePosition.ts"
+lines = 197
+verdict = "clean"
+note = "Write-plan execution serializes exact approval/transaction steps, preserving real receipt and failure outcomes."
+
+[file.042]
+path = "apps/perps/src/hooks/perps/useQuoter.ts"
+lines = 283
+verdict = "issues"
+note = "Quoter uses chain risk configuration; optional venue URL shares one unkeyed open-interest cache."
+
+[file.043]
+path = "apps/perps/src/hooks/perps/useRealtimePrices.ts"
+lines = 76
+verdict = "issues"
+note = "Funding strings decode exactly; rows-dependent memoization does not expire price freshness on elapsed time alone."
+
+[file.044]
+path = "apps/perps/src/hooks/perps/useSidPaxMarketStream.ts"
+lines = 707
+verdict = "clean"
+note = "All symbol feed/kline/book/trade logic reviewed against venue transport; sequence guards, replay and bounded buffers agree."
+
+[file.045]
+path = "apps/perps/src/hooks/perps/useSubgraph.ts"
+lines = 1174
+verdict = "clean"
+note = "All 1174 lines reviewed; catalog/portfolio decoders and current queries agree with SDL; eight retired spot query exports are absent under 3527.1."
+
+[file.046]
+path = "apps/perps/src/hooks/presence/index.ts"
+lines = 3
+verdict = "clean"
+note = "Presence barrel exposes implemented hooks without creating a separate runtime."
+
+[file.047]
+path = "apps/perps/src/hooks/presence/usePresence.ts"
+lines = 122
+verdict = "clean"
+note = "Presence heartbeat/snapshot match app API and visibility-aware cleanup; presence has no chain/account authority."
+
+[file.048]
+path = "apps/perps/src/hooks/spot/useSpotApprovals.ts"
+lines = 153
+verdict = "clean"
+note = "Allowance helpers use ERC20 ABI, exact planner, native exemptions and real receipt failure propagation."
+
+[file.049]
+path = "apps/perps/src/hooks/spot/useSpotMarketStream.ts"
+lines = 369
+verdict = "clean"
+note = "Spot venue symbol/topics, bounded books/trades and replay agree with shared venue transport."
+
+[file.050]
+path = "apps/perps/src/hooks/spot/useSpotOrders.ts"
+lines = 578
+verdict = "clean"
+note = "Full spot order pipeline reviewed: amounts/deadlines, pointer/native handling, exact approvals and order-id event decoding agree."
+
+[file.051]
+path = "apps/perps/src/hooks/spot/useSpotPortfolio.ts"
+lines = 430
+verdict = "issues"
+note = "Full spot portfolio reviewed; wallet state isolation, stream-triggered cancellation and snapshot/live ordering require repair."
+
+[file.052]
+path = "apps/perps/src/hooks/spot/useSpotQuoter.ts"
+lines = 279
+verdict = "clean"
+note = "All 23 QuoteResult fields and price/liquidity tuples match the native quoter and named viem ABI decoding."
+
+[file.053]
+path = "apps/perps/src/hooks/spot/useSpotTokenState.ts"
+lines = 57
+verdict = "issues"
+note = "Token pause/info tuple validation and polling agree; actual required-address state/error wrapper differs from served declaration."
+
+[file.054]
+path = "apps/perps/src/hooks/spot/useSpotUserStream.ts"
+lines = 390
+verdict = "issues"
+note = "Gateway address/stream routing and replay agree; React wrappers retain earlier address/stream frames."
+
+[file.055]
+path = "apps/perps/src/hooks/ui/index.ts"
+lines = 3
+verdict = "clean"
+note = "Empty UI barrel has no runtime side effect or external wiring."
+
+[file.056]
+path = "apps/perps/src/hooks/ui/useCookieConsent.ts"
+lines = 66
+verdict = "clean"
+note = "Cookie preferences are SSR-safe accepted/declined persistence without credentials or monetary authority."
+
+[file.057]
+path = "apps/perps/src/hooks/ui/useFavoriteMarkets.ts"
+lines = 149
+verdict = "clean"
+note = "Favorite-market preferences and storage notifications are local UI state rather than chain/account authority."
+
+[file.058]
+path = "apps/perps/src/hooks/ui/useLayoutPresets.ts"
+lines = 81
+verdict = "clean"
+note = "Layout presets persist explicit local panel choices, not balances, authorizations or transaction outcomes."
+
+[file.059]
+path = "apps/perps/src/hooks/ui/useMobile.tsx"
+lines = 21
+verdict = "clean"
+note = "Media listener setup/cleanup exposes one responsive boolean with browser-correct event handling."
+
+[file.060]
+path = "apps/perps/src/hooks/ui/useSidebar.ts"
+lines = 24
+verdict = "clean"
+note = "Sidebar store exposes local set/toggle state without external authority or restart-sensitive financial state."
+
+[file.061]
+path = "apps/perps/src/hooks/useErrorHandler.ts"
+lines = 84
+verdict = "clean"
+note = "Error classification/reporting uses the central error interface with explicit user-facing handling and no credential logging."
+
+[file.062]
+path = "apps/perps/src/hooks/wallet/index.ts"
+lines = 3
+verdict = "clean"
+note = "Wallet barrel resolves the implemented store without another signer/provider."
+
+[file.063]
+path = "apps/perps/src/hooks/wallet/useWalletStore.ts"
+lines = 83
+verdict = "clean"
+note = "Wallet UI state delegates actual signing/account authority to wallet core and stores no private keys."
+
+[file.064]
+path = "precompiles/pricefeed/PriceFeed.sol"
+lines = 94
+verdict = "clean"
+note = "Solidity pricefeed address/structs/mutability/indexed events agree with embedded ABI and keeper-backed dispatch."
+
+[file.065]
+path = "precompiles/pricefeed/abi/abi.go"
+lines = 10
+verdict = "clean"
+note = "go:embed exposes the exact pricefeed ABI consumed by constructor and golden tests."
+
+[file.066]
+path = "precompiles/pricefeed/abi/abi.json"
+lines = 16
+verdict = "clean"
+note = "All fourteen ABI entries and nested field types/mutability/event indexing agree with Solidity and Go packing."
+
+[file.067]
+path = "precompiles/pricefeed/abi_test.go"
+lines = 151
+verdict = "clean"
+note = "ABI tests compare real Solidity/JSON selectors and perps market boundary fields without weakened assertions."
+
+[file.068]
+path = "precompiles/pricefeed/dispatch_test.go"
+lines = 327
+verdict = "clean"
+note = "Dispatch tests cover reads/writes, forbidden call modes/value, batch/gas bounds and production wrappers."
+
+[file.069]
+path = "precompiles/pricefeed/gov_views_test.go"
+lines = 96
+verdict = "clean"
+note = "Governance view tests exercise actual stored parameter/listed-market changes through keeper-backed views."
+
+[file.070]
+path = "precompiles/pricefeed/harness_test.go"
+lines = 352
+verdict = "clean"
+note = "Harness uses real stores/bank/staking/pricefeed and EVM paths rather than a replacement interface producer."
+
+[file.071]
+path = "precompiles/pricefeed/lxp_registry_test.go"
+lines = 37
+verdict = "clean"
+note = "Registry error tests require exact named LXP refusal mapping."
+
+[file.072]
+path = "precompiles/pricefeed/pricefeed.go"
+lines = 173
+verdict = "clean"
+note = "Constructor requires keepers, dispatches dynamic gas, bounds batches and preserves ABI arguments/refusals."
+
+[file.073]
+path = "precompiles/pricefeed/register.go"
+lines = 48
+verdict = "clean"
+note = "Feed registration/revocation use validator/delegate identity checks and ABI-shaped response/indexed logs."
+
+[file.074]
+path = "precompiles/pricefeed/register_test.go"
+lines = 286
+verdict = "clean"
+note = "Registration tests cover compressed keys, delegation, revocation, event shape and transactional rollback."
+
+[file.075]
+path = "precompiles/pricefeed/revert_golden_test.go"
+lines = 115
+verdict = "clean"
+note = "Revert golden tests freeze named refusal bytes rather than accepting generic unavailable or success values."
+
+[file.076]
+path = "precompiles/pricefeed/setup.go"
+lines = 21
+verdict = "generated"
+note = "Generated version-registration scaffold inspected as generated wiring; source tests cover constructor/error propagation."
+
+[file.077]
+path = "precompiles/pricefeed/views.go"
+lines = 178
+verdict = "clean"
+note = "Price/market/params/observation views match tuples, numeric conversion, id bounds and stale/unlisted behavior."
+
+[file.078]
+path = "precompiles/pricefeed/views_golden_test.go"
+lines = 94
+verdict = "clean"
+note = "Golden view tests assert keeper-backed tuple field order and encoding."
+
+[file.079]
+path = "precompiles/pricefeed/views_test.go"
+lines = 312
+verdict = "clean"
+note = "View tests cover ids/symbols, batches, freshness, validator mapping and observations through actual executor."
+
+[file.080]
+path = "precompiles/spot/abi/abi.go"
+lines = 45
+verdict = "issues"
+note = "Embedded accessors parse six ABI snapshots; normative registry contract pages are missing."
+
+[file.081]
+path = "precompiles/spot/abi/abi_test.go"
+lines = 46
+verdict = "clean"
+note = "Accessor tests load all six JSON ABIs and reject parse failures; they do not prove deployment behavior."
+
+[file.082]
+path = "precompiles/spot/abi/orders.json"
+lines = 1106
+verdict = "clean"
+note = "All order functions/tuples/indexed events/custom errors agree with orders.go and keeper-backed tests."
+
+[file.083]
+path = "precompiles/spot/abi/pecor.json"
+lines = 1251
+verdict = "clean"
+note = "All PECOR swaps/quotes/native/multicall/governance refusal signatures agree with executor and real EVM tests."
+
+[file.084]
+path = "precompiles/spot/abi/quoter.json"
+lines = 1277
+verdict = "clean"
+note = "All quoter methods and 23-field result layouts agree with keeper packing and consumer names."
+
+[file.085]
+path = "precompiles/spot/abi/share.json"
+lines = 446
+verdict = "issues"
+note = "Whole share ABI reviewed; stable admin/mint/burn methods and frozen balance errors disagree with deployed native pointer."
+
+[file.086]
+path = "precompiles/spot/abi/stoporders.json"
+lines = 1456
+verdict = "clean"
+note = "All stop-order functions/getters/status widths/indexed events agree with executor and keeper paths."
+
+[file.087]
+path = "precompiles/spot/abi/vault.json"
+lines = 1206
+verdict = "clean"
+note = "All vault methods/six-field token info/event/error layouts agree; governance-only writes explicitly refuse EVM administration."
+
+[file.088]
+path = "precompiles/spot/abi_orders_test.go"
+lines = 78
+verdict = "clean"
+note = "Order ABI golden test checks bidirectional signatures, selectors, mutability, tuple fields and indexing."
+
+[file.089]
+path = "precompiles/spot/abi_pecor_test.go"
+lines = 70
+verdict = "clean"
+note = "PECOR ABI golden test checks bidirectional function/event/error coverage and payable/native/multicall encodings."
+
+[file.090]
+path = "precompiles/spot/abi_quoter_test.go"
+lines = 67
+verdict = "clean"
+note = "Quoter golden test checks tuple names/order, method coverage and selectors."
+
+[file.091]
+path = "precompiles/spot/abi_share_test.go"
+lines = 68
+verdict = "issues"
+note = "Share golden test calls parsed snapshot entries served without deployed pointer proof; real pointer tests prove several unserved."
+
+[file.092]
+path = "precompiles/spot/abi_stoporders_test.go"
+lines = 75
+verdict = "clean"
+note = "Stop-order golden test checks all signatures, mutability, event topics and tuple layouts."
+
+[file.093]
+path = "precompiles/spot/abi_vault_test.go"
+lines = 68
+verdict = "clean"
+note = "Vault golden test checks full function/event/error coverage and distinguishes vault/perps deposit signatures."
+
+[file.094]
+path = "precompiles/spot/errors.go"
+lines = 41
+verdict = "clean"
+note = "Error mapping preserves exact named keeper selectors/arguments and refuses unknown variants."
+
+[file.095]
+path = "precompiles/spot/errors_test.go"
+lines = 672
+verdict = "clean"
+note = "Full error matrix covers SDK mappings, exact revert arguments, actual wrappers, rollback and nested multicall failures."
+
+[file.096]
+path = "precompiles/spot/events.go"
+lines = 225
+verdict = "clean"
+note = "Event encoding preserves topic0/indexed addresses/ids, widths, rail-specific layouts and emitter ownership."
+
+[file.097]
+path = "precompiles/spot/events_test.go"
+lines = 498
+verdict = "clean"
+note = "Event tests decode real execution logs and compare topic/data ordering and rollback."
+
+[file.098]
+path = "precompiles/spot/export_test.go"
+lines = 12
+verdict = "clean"
+note = "Test-only exports expose existing helpers for external integration without replacing production execution."
+
+[file.099]
+path = "precompiles/spot/integration_test.go"
+lines = 799
+verdict = "clean"
+note = "Full integration tests cover actual pointers, approvals, swaps, orders, fees, shares/NAV and rollback/replay; embedded ERC20 creation bytecode is generated fixture data."
+
+[file.100]
+path = "precompiles/spot/listing_test.go"
+lines = 184
+verdict = "clean"
+note = "Governance listing tests trade the listed asset through production rail and observe actual reserves/logs."
+
+[file.101]
+path = "precompiles/spot/orders.go"
+lines = 451
+verdict = "clean"
+note = "Limit dispatch checks uint256-to-uint64 bounds, tuple layout, permissions, keeper state and event encoding."
+
+[file.102]
+path = "precompiles/spot/orders_test.go"
+lines = 792
+verdict = "clean"
+note = "Full order test logic reviewed including writes/views/refusals/list gas; embedded compiled ERC20 bytecode treated as generated fixture data."
+
+[file.103]
+path = "precompiles/spot/pecor.go"
+lines = 325
+verdict = "clean"
+note = "PECOR validates mode/value/arguments, snapshots nested state and preserves custom errors; current mainnet native lookup resolves uhpx."
+
+[file.104]
+path = "precompiles/spot/pecor_test.go"
+lines = 710
+verdict = "clean"
+note = "Full PECOR test logic covers actual EVM/bank swaps, native units, fees, multicall and rollback; embedded bytecode is generated fixture data."
+
+[file.105]
+path = "precompiles/spot/production_rails_test.go"
+lines = 120
+verdict = "clean"
+note = "Production tests require native receive refusal bytes, per-token sync gas and per-element multicall gas through served wrappers."
+
+[file.106]
+path = "precompiles/spot/production_test.go"
+lines = 44
+verdict = "clean"
+note = "Node production registration test requires dynamic-gas wrappers at all five rail addresses."
+
+[file.107]
+path = "precompiles/spot/quoter.go"
+lines = 196
+verdict = "clean"
+note = "Quoter packing matches all QuoteResult fields; static execution/read bounds and configured native pointer agree."
+
+[file.108]
+path = "precompiles/spot/quoter_test.go"
+lines = 412
+verdict = "clean"
+note = "Quoter tests cover actual prices/liquidity, every quote variant, tuple contents, gas and static behavior; embedded bytecode is generated fixture data."
+
+[file.109]
+path = "precompiles/spot/setup.go"
+lines = 40
+verdict = "clean"
+note = "NewServedSet returns five named dynamic-gas rails and required-keeper errors; retired raw constructor is unexported."
+
+[file.110]
+path = "precompiles/spot/setup_test.go"
+lines = 58
+verdict = "clean"
+note = "Setup tests assert exact addresses/names/types/version registration and missing-keeper failures."
+
+[file.111]
+path = "precompiles/spot/spot.go"
+lines = 388
+verdict = "clean"
+note = "Wrapper snapshots/gas preserve custom revert bytes, reject forbidden modes and select the current served set."
+
+[file.112]
+path = "precompiles/spot/spot_abis_test.go"
+lines = 36
+verdict = "clean"
+note = "ABI registration tests require exact fixed-rail mappings rather than assigning all snapshots to every address."
+
+[file.113]
+path = "precompiles/spot/spot_test.go"
+lines = 376
+verdict = "clean"
+note = "Activation/wrapper tests prove upgrade gates, dynamic gas, limits, rollback and production keeper availability."
+
+[file.114]
+path = "precompiles/spot/stoporders.go"
+lines = 663
+verdict = "clean"
+note = "Full stop executor reviewed: bounds, activation/cancel/execute transitions, tuple ordering, governance refusal and logs agree."
+
+[file.115]
+path = "precompiles/spot/stoporders_test.go"
+lines = 924
+verdict = "clean"
+note = "Full stop test logic covers escrow/refunds/batches/gas/rollback and all states; embedded compiled ERC20 bytecode is generated fixture data."
+
+[file.116]
+path = "precompiles/spot/vault.go"
+lines = 272
+verdict = "clean"
+note = "Vault rejects delegatecall before reads, limits administration, packs token info and executes mutations transactionally."
+
+[file.117]
+path = "precompiles/spot/vault_test.go"
+lines = 1027
+verdict = "clean"
+note = "Full vault tests cover actual deposits/NAV/native/withdrawals/governance and pointer ERC20 behavior; five share selectors are explicitly proven unserved."
+
+[finding.share-administration-unserved]
+file = "precompiles/spot/abi/share.json"
+line = 126
+class = "interface-mismatch"
+severity = "high"
+observed = "Stable registry rows 3.pc-spotshare-mint, burn, owner, renounceownership and transferownership advertise these methods on vault share pointers. CreateShareToken deploys NativePaxTokensERC20; vault_test.go:990-1027 proves all five selectors revert empty for holder, vault and governance. owner() never returns the declared address."
+expected = "The deployed share-token contract must describe methods a client can actually call and the exact refusal contract for intentionally unavailable operations."
+proposal = "In precompiles/spot/abi and modules/spot/keeper/shares.go publish an explicit native-share deployment interface with its supported ERC20 subset and unsupported-selector policy; retain the historical Solidity snapshot separately and reconcile all five registry rows with deployed pointer calls. Keep share mint/burn authority inside the keeper."
+owner_domain = 3
+interface = "3.pc-spotshare-mint"
+
+[finding.share-balance-revert]
+file = "precompiles/spot/abi/share.json"
+line = 359
+class = "interface-mismatch"
+severity = "high"
+observed = "share.json declares ERC20InsufficientBalance(address,uint256,uint256), frozen by decision 321. The real native share-pointer transfer over balance returns Error(string) NativePaxTokensERC20: transfer failed, asserted in vault_test.go:972-975. Fixed-rail packError never executes for the native pointer."
+expected = "Share clients must receive the frozen custom-error selector with sender/balance/needed arguments on insufficient balance, matching the declared error contract."
+proposal = "Repair the NativePaxTokensERC20 transfer boundary under contracts/src and its bank/precompile path to retain ERC20InsufficientBalance data; extend precompiles/spot/vault_test.go to decode actual deployed share-pointer transfer and transferFrom failures against share.json."
+owner_domain = 6
+interface = "3.pc-spotshare-err-erc20insufficientbalance"
+
+[finding.share-golden-served-claim]
+file = "precompiles/spot/abi_share_test.go"
+line = 29
+class = "test-gap"
+severity = "medium"
+observed = "TestPECORVaultShareABIGolden builds its served map by parsing share.json and compares a second JSON snapshot, requiring 25 entries including mint/owner/ownership errors. It calls no deployed pointer although vault_test.go proves several entries are unserved."
+expected = "Snapshot encoding stability and deployment capability are separate claims; current served-ABI coverage requires a real activated pointer-to-client call/refusal proof."
+proposal = "In precompiles/spot/abi_share_test.go retain the snapshot assertions and add actual native share-pointer coverage using the activation path of vault_test.go, explicitly checking supported selectors, unsupported selectors and revert bytes."
+owner_domain = 3
+
+[finding.indexer-subscription-wire-types]
+file = "apps/perps/src/hooks/perps/useIndexerSubscriptions.ts"
+line = 56
+class = "interface-mismatch"
+severity = "high"
+observed = "IndexerOrder/Trade/Liquidation declare blockTimestamp:number. subscriptions.go:260 serializes subTime as an RFC3339Nano string, and subscribeStream forwards JSON unchanged. The hook also declares nullable Order.remainingSize/blockTimestamp, Trade.userAddress/executionPrice and Liquidation.sizeUsd/executionPrice as required values."
+expected = "Hook values must preserve producer DateTime string encoding and nullability, or explicitly decode them into the promised numeric/non-null consumer shape."
+proposal = "In apps/perps/src/hooks/perps/useIndexerSubscriptions.ts decode actual frames with accurate DateTime/nullability handling and update consumers to render unavailable fields; prove Order/Trade/Liquidation from the real perps-data websocket producer through subscribeStream into the hook adapter."
+owner_domain = 3
+interface = "3.http-perps-data-graphql-subscription-orderchanged-j27"
+
+[finding.referral-null-tier]
+file = "apps/perps/src/hooks/perps/usePerfdbReferrals.ts"
+line = 45
+class = "interface-mismatch"
+severity = "high"
+observed = "RawUserReferrals and UserReferralData declare tier:string but SDL tier:String is nullable. account.go:111,224 uses a LEFT JOIN that yields null when no tier qualifies; normalizeUser passes it through and page-modules/referrals/index.tsx:49 calls data.tier.toLowerCase(), throwing on a valid server response."
+expected = "A referral account with no qualifying tier must render an unranked/unavailable state without throwing, preserving valid nullable data through transport and consumer."
+proposal = "In apps/perps/src/hooks/perps/usePerfdbReferrals.ts represent the actual nullable tier and update apps/perps/src/page-modules/referrals/index.tsx to render unranked status; prove a persisted referral with no eligible tier through the real GraphQL resolver and page adapter."
+owner_domain = 3
+interface = "3.http-perps-data-graphql-query-userreferrals-j27"
+
+[finding.collateral-account-race]
+file = "apps/perps/src/hooks/perps/useAutoCollateral.ts"
+line = 38
+class = "runtime-risk"
+severity = "medium"
+observed = "The collateral fetch checks only shared mountedRef after awaiting. Address replacement runs cleanup then resets that ref true, so a delayed request for A can overwrite state after B is selected; stale failure/finally paths can also clear current data or loading."
+expected = "Account-scoped data, errors and loading flags must belong to the active normalized address; replacement/disconnect must invalidate all prior request generations."
+proposal = "In apps/perps/src/hooks/perps/useAutoCollateral.ts key visible state by account, use per-generation cancellation for every completion path and clear prior-account values on selection change; cover delayed A success/failure after B or disconnect."
+owner_domain = 3
+
+[finding.alert-account-race]
+file = "apps/perps/src/hooks/perps/usePerfdbAlerts.ts"
+line = 96
+class = "runtime-risk"
+severity = "medium"
+observed = "The alerts fetch checks only shared mountedRef after awaiting. Address replacement runs cleanup then resets that ref true, so a delayed request for A can overwrite state after B is selected; stale failure/finally paths can also clear current data or loading."
+expected = "Account-scoped data, errors and loading flags must belong to the active normalized address; replacement/disconnect must invalidate all prior request generations."
+proposal = "In apps/perps/src/hooks/perps/usePerfdbAlerts.ts key visible state by account, use per-generation cancellation for every completion path and clear prior-account values on selection change; cover delayed A success/failure after B or disconnect."
+owner_domain = 3
+
+[finding.balance-account-race]
+file = "apps/perps/src/hooks/perps/usePerfdbBalances.ts"
+line = 54
+class = "runtime-risk"
+severity = "medium"
+observed = "The balances fetch checks only shared mountedRef after awaiting. Address replacement runs cleanup then resets that ref true, so a delayed request for A can overwrite state after B is selected; stale failure/finally paths can also clear current data or loading."
+expected = "Account-scoped data, errors and loading flags must belong to the active normalized address; replacement/disconnect must invalidate all prior request generations."
+proposal = "In apps/perps/src/hooks/perps/usePerfdbBalances.ts key visible state by account, use per-generation cancellation for every completion path and clear prior-account values on selection change; cover delayed A success/failure after B or disconnect."
+owner_domain = 3
+
+[finding.stats-account-race]
+file = "apps/perps/src/hooks/perps/usePerfdbTraderStats.ts"
+line = 59
+class = "runtime-risk"
+severity = "medium"
+observed = "The trader statistics fetch checks only shared mountedRef after awaiting. Address replacement runs cleanup then resets that ref true, so a delayed request for A can overwrite state after B is selected; stale failure/finally paths can also clear current data or loading."
+expected = "Account-scoped data, errors and loading flags must belong to the active normalized address; replacement/disconnect must invalidate all prior request generations."
+proposal = "In apps/perps/src/hooks/perps/usePerfdbTraderStats.ts key visible state by account, use per-generation cancellation for every completion path and clear prior-account values on selection change; cover delayed A success/failure after B or disconnect."
+owner_domain = 3
+
+[finding.profile-account-race]
+file = "apps/perps/src/hooks/perps/usePerfdbUser.ts"
+line = 51
+class = "runtime-risk"
+severity = "medium"
+observed = "The profile fetch checks only shared mountedRef after awaiting. Address replacement runs cleanup then resets that ref true, so a delayed request for A can overwrite state after B is selected; stale failure/finally paths can also clear current data or loading."
+expected = "Account-scoped data, errors and loading flags must belong to the active normalized address; replacement/disconnect must invalidate all prior request generations."
+proposal = "In apps/perps/src/hooks/perps/usePerfdbUser.ts key visible state by account, use per-generation cancellation for every completion path and clear prior-account values on selection change; cover delayed A success/failure after B or disconnect."
+owner_domain = 3
+
+[finding.referral-account-race]
+file = "apps/perps/src/hooks/perps/usePerfdbReferrals.ts"
+line = 150
+class = "runtime-risk"
+severity = "medium"
+observed = "The referrals fetch checks only shared mountedRef after awaiting. Address replacement runs cleanup then resets that ref true, so a delayed request for A can overwrite state after B is selected; stale failure/finally paths can also clear current data or loading."
+expected = "Account-scoped data, errors and loading flags must belong to the active normalized address; replacement/disconnect must invalidate all prior request generations."
+proposal = "In apps/perps/src/hooks/perps/usePerfdbReferrals.ts key visible state by account, use per-generation cancellation for every completion path and clear prior-account values on selection change; cover delayed A success/failure after B or disconnect."
+owner_domain = 3
+
+[finding.margin-selection-race]
+file = "apps/perps/src/hooks/perps/useMarginMode.ts"
+line = 32
+class = "runtime-risk"
+severity = "medium"
+observed = "usePositionMargin and useAccountSummary retain old data on missing/changed selection and reuse mountedRef across effects. A pending old position/account read can pass that ref after the new effect begins and overwrite the next selection."
+expected = "Margin data must remain associated with the selected account/position/token and become unavailable when the selection is missing or has no matching response."
+proposal = "In apps/perps/src/hooks/perps/useMarginMode.ts scope success/error/finally to an account/position/token request generation and reset invalid selections; prove out-of-order account and position replacement."
+owner_domain = 3
+
+[finding.shared-query-selection-race]
+file = "apps/perps/src/hooks/perps/useGraphQLQuery.ts"
+line = 81
+class = "runtime-risk"
+severity = "medium"
+observed = "useSharedPolledQuery retains data/error when variables change or enabled becomes false. Imperative refetch has no cleanup/generation check and reads pickRef.current at completion, allowing an old response to be interpreted by the next selection picker and published as current."
+expected = "Shared polling and manual refresh must expose only values belonging to the active endpoint/document/variables and must honor disable/unmount selection changes."
+proposal = "In apps/perps/src/hooks/perps/useGraphQLQuery.ts key state and completions by serialized query generation, clear prior selections on disable/change and capture the matching picker; prove delayed manual refresh after variable replacement and disable."
+owner_domain = 3
+
+[finding.competition-detail-race]
+file = "apps/perps/src/hooks/perps/usePerfdbCompetitions.ts"
+line = 214
+class = "runtime-risk"
+severity = "medium"
+observed = "fetchDetail checks shared mountedRef, reset true for each selected id. A slow A response/error can overwrite B or a cleared selection; join refresh can similarly publish a competition that is no longer selected."
+expected = "Competition detail/loading/join outcomes must remain attached to the currently selected competition id across selection changes and clearing."
+proposal = "In apps/perps/src/hooks/perps/usePerfdbCompetitions.ts bind all completions to selected-id generations, clear superseded detail and cover delayed A/B responses plus selection clearing during a join refresh."
+owner_domain = 3
+
+[finding.competition-count-zero]
+file = "apps/perps/src/hooks/perps/usePerfdbCompetitions.ts"
+line = 110
+class = "runtime-risk"
+severity = "medium"
+observed = "normalize derives participantCount from raw.rankings.length, but COMPETITIONS_LIST_QUERY never selects rankings. Every list competition reports zero participants even when the real detail resolver returns enrolled ranking rows."
+expected = "List participant counts must reflect enrollment or explicitly be unavailable; an unrequested GraphQL field must not become an invented zero."
+proposal = "In apps/perps/src/hooks/perps/usePerfdbCompetitions.ts request an authoritative count, adding a perps-data aggregate if needed, and render unavailable until loaded; prove persisted enrolled users yield matching list/detail counts."
+owner_domain = 3
+
+[finding.referral-earnings-omitted]
+file = "apps/perps/src/hooks/perps/usePerfdbReferrals.ts"
+line = 58
+class = "runtime-risk"
+severity = "medium"
+observed = "USER_REFERRALS_QUERY omits totalEarned, so normalizeUser always outputs null although schema.go:832 and account.go:230 serve the persisted exact earned amount. The schema comment incorrectly says the field is absent."
+expected = "Available referral rewards must reach the page as their exact producer decimal strings; null must describe unavailable data rather than an omitted selection."
+proposal = "In apps/perps/src/hooks/perps/usePerfdbReferrals.ts select totalEarned, preserve its exact nullable decimal value and correct the schema comment; prove stored nonzero total_earned reaches the page through the real resolver."
+owner_domain = 3
+
+[finding.auth-late-completion]
+file = "apps/perps/src/hooks/perps/usePerfdbAuth.ts"
+line = 141
+class = "security"
+severity = "medium"
+observed = "logout clears storage/timers without invalidating pending authenticate/refresh. applyNewToken writes localStorage before checking mountedRef, so a response after logout/unmount can restore credentials and an older concurrent sign-in can replace a newer identity."
+expected = "Logout and superseding sign-in must invalidate pending credentials before any persistent token, state or timer can be changed by their completion."
+proposal = "In apps/perps/src/hooks/perps/usePerfdbAuth.ts increment auth generation on logout/sign-in/unmount and check the captured generation before storage/state/timer writes; prove delayed verify/refresh after logout leave storage empty."
+owner_domain = 3
+
+[finding.auth-wallet-binding]
+file = "apps/perps/src/hooks/perps/usePerfdbAuth.ts"
+line = 225
+class = "security"
+severity = "medium"
+observed = "The hook hydrates one global perfdb_jwt and marks it authenticated without matching its account to the visible wallet. AlertsPanel and referrals/competitions instantiate it independently; account replacement can retain A token while B is displayed and token-scoped actions are issued."
+expected = "Authenticated actions must belong to the selected wallet identity; replacing or disconnecting a wallet must not silently retain another account authorization in the product."
+proposal = "In apps/perps/src/hooks/perps/usePerfdbAuth.ts share account-aware auth state, bind storage to the verified address and clear/re-authenticate on account replacement; require matching identity in AlertsPanel and referrals/competitions mutations."
+owner_domain = 3
+
+[finding.portfolio-snapshot-live-ordering]
+file = "apps/perps/src/hooks/perps/usePortfolioStats.ts"
+line = 184
+class = "restart-recovery"
+severity = "medium"
+observed = "_fetchPositionsOnce starts before the positionChanged subscription and replaces positions after the request resolves. The onData path also replaces the list but neither path compares a revision/watermark; a delayed older initial or resync query can therefore overwrite a newer pushed list."
+expected = "Initial/recovery position snapshots and live updates must reconcile monotonically so completed position changes are not undone in the displayed portfolio."
+proposal = "In apps/perps/src/hooks/perps/usePortfolioStats.ts establish an account-scoped snapshot watermark or buffer/replay full-list pushes while snapshots are pending; prove a live close before delayed initial/resync completion never resurrects the position."
+owner_domain = 3
+
+[finding.indexer-selection-state]
+file = "apps/perps/src/hooks/perps/useIndexerSubscriptions.ts"
+line = 144
+class = "runtime-risk"
+severity = "medium"
+observed = "Selection-dependent price/position/order/trade/liquidation hooks unsubscribe on variable changes but do not reset useState results. Missing account/market also returns without clearing the previous result."
+expected = "New selections must expose empty/loading state until matching subscription data arrives, and disabled selections must not expose another stream result."
+proposal = "In apps/perps/src/hooks/perps/useIndexerSubscriptions.ts key/reset retained values by normalized variables before subscribing and clear missing selections; prove wallet/market replacement without new events and disconnect."
+owner_domain = 3
+
+[finding.perfdb-selection-connection]
+file = "apps/perps/src/hooks/perps/usePerfdbSubscriptions.ts"
+line = 48
+class = "runtime-risk"
+severity = "medium"
+observed = "latestUpdate/latestTrade and connected=true survive marketId changes. connected is cleared only by onError, while shared client websocket onclose reconnects without invoking that callback, so an offline or newly selected stream can continue claiming connected."
+expected = "Connection status must reflect transport close/recovery and retained payloads must belong to the currently selected market."
+proposal = "In apps/perps/src/hooks/perps/usePerfdbSubscriptions.ts reset payloads on market changes and observe explicit shared-client transport status; prove socket close and market replacement before replacement data arrives."
+owner_domain = 3
+
+[finding.market-config-infinite-cache]
+file = "apps/perps/src/hooks/perps/useMarketConfig.ts"
+line = 43
+class = "config-drift"
+severity = "medium"
+observed = "staleTime/gcTime are Infinity and mount/focus/reconnect refetch is disabled. No production query invalidation/refetch exists, leaving mounted order forms on old enabled/tick/lot/leverage/tier values after a governance change for the browser lifetime."
+expected = "Mutable market status and risk limits must refresh after governance changes and recovery so trading availability and order previews follow current chain configuration."
+proposal = "In apps/perps/src/hooks/perps/useMarketConfig.ts use bounded freshness and governance/resync invalidation for config and tiers together; prove a real governance update changes mounted order-form limits and disabled state without reload."
+owner_domain = 3
+
+[finding.registry-market-config]
+file = "apps/perps/src/hooks/perps/useMarketConfig.ts"
+line = 52
+class = "doc-drift"
+severity = "medium"
+observed = "Served registry row 3.ts-perps-hooks-usemarketconfig-j27 describes another public hook signature. The real export requires bigint and returns React Query data.config/data.tiers instead of accepting undefined and returning top-level config/tiers; current callers use the implementation shape, leaving the declared integration contract stale."
+expected = "Served registry signatures and linked hook documentation must describe the actual export, optional inputs and current consumer return shape."
+proposal = "Reconcile spec/layerx-merge/interfaces.kvx row 3.ts-perps-hooks-usemarketconfig-j27 and restore contracts/perps-client.md#hooks from apps/perps/src/hooks/perps/useMarketConfig.ts; document real loading/error/unavailable behavior and preserve current consumer usage."
+owner_domain = 3
+interface = "3.ts-perps-hooks-usemarketconfig-j27"
+
+[finding.registry-market-catalog]
+file = "apps/perps/src/hooks/perps/usePerpsMarkets.ts"
+line = 67
+class = "doc-drift"
+severity = "medium"
+observed = "Served registry row 3.ts-perps-hooks-useperpsmarkets-j27 describes another public hook signature. The real export returns catalog/tradeable/isLoading/error/refetch instead of markets/loading; current callers use the implementation shape, leaving the declared integration contract stale."
+expected = "Served registry signatures and linked hook documentation must describe the actual export, optional inputs and current consumer return shape."
+proposal = "Reconcile spec/layerx-merge/interfaces.kvx row 3.ts-perps-hooks-useperpsmarkets-j27 and restore contracts/perps-client.md#hooks from apps/perps/src/hooks/perps/usePerpsMarkets.ts; document real loading/error/unavailable behavior and preserve current consumer usage."
+owner_domain = 3
+interface = "3.ts-perps-hooks-useperpsmarkets-j27"
+
+[finding.registry-fee-tier]
+file = "apps/perps/src/hooks/perps/useFeeTier.ts"
+line = 40
+class = "doc-drift"
+severity = "medium"
+observed = "Served registry row 3.ts-perps-hooks-usefeetier-j27 describes another public hook signature. The real export returns view/isLoading/error instead of FeeTierView or undefined; current callers use the implementation shape, leaving the declared integration contract stale."
+expected = "Served registry signatures and linked hook documentation must describe the actual export, optional inputs and current consumer return shape."
+proposal = "Reconcile spec/layerx-merge/interfaces.kvx row 3.ts-perps-hooks-usefeetier-j27 and restore contracts/perps-client.md#hooks from apps/perps/src/hooks/perps/useFeeTier.ts; document real loading/error/unavailable behavior and preserve current consumer usage."
+owner_domain = 3
+interface = "3.ts-perps-hooks-usefeetier-j27"
+
+[finding.registry-spot-state]
+file = "apps/perps/src/hooks/spot/useSpotTokenState.ts"
+line = 45
+class = "doc-drift"
+severity = "medium"
+observed = "Served registry row 3.ts-perps-hooks-usespottokenstate-j27 describes another public hook signature. The real export requires Address, accepts native and returns state/error instead of SpotTokenState or undefined; current callers use the implementation shape, leaving the declared integration contract stale."
+expected = "Served registry signatures and linked hook documentation must describe the actual export, optional inputs and current consumer return shape."
+proposal = "Reconcile spec/layerx-merge/interfaces.kvx row 3.ts-perps-hooks-usespottokenstate-j27 and restore contracts/perps-client.md#hooks from apps/perps/src/hooks/spot/useSpotTokenState.ts; document real loading/error/unavailable behavior and preserve current consumer usage."
+owner_domain = 3
+interface = "3.ts-perps-hooks-usespottokenstate-j27"
+
+[finding.quoter-cache-origin]
+file = "apps/perps/src/hooks/perps/useQuoter.ts"
+line = 111
+class = "runtime-risk"
+severity = "medium"
+observed = "useQuoter accepts marketDataUrl but _oiCache/_oiLastFetch/_oiInflight are single globals. Hooks with distinct origins share one open-interest response/inflight promise while ticker requests use their own origins, mixing quote data sources."
+expected = "A selected market-data origin must determine both ticker and open-interest values, with cache/inflight/retry state scoped to that origin."
+proposal = "In apps/perps/src/hooks/perps/useQuoter.ts key open-interest cache and inflight state by normalized marketDataUrl and make fallback age/origin explicit; prove simultaneous distinct-origin hooks cannot reuse each other rows."
+owner_domain = 3
+
+[finding.price-freshness-clock]
+file = "apps/perps/src/hooks/perps/useRealtimePrices.ts"
+line = 54
+class = "runtime-risk"
+severity = "medium"
+observed = "The thirty-second price-age check runs in useMemo dependent only on rows. With a silent open stream the rows reference remains unchanged, so fresh prices stay exported past thirty seconds until another frame or the later socket timeout changes rows."
+expected = "Prices must become unavailable at their advertised freshness deadline even while a websocket remains open and emits no market frame."
+proposal = "In apps/perps/src/hooks/perps/useRealtimePrices.ts expire rows from price_updated_at via a bounded freshness clock/deadline callback independent of frames; prove an open silent socket removes prices after thirty seconds."
+owner_domain = 3
+
+[finding.spot-portfolio-address-state]
+file = "apps/perps/src/hooks/spot/useSpotPortfolio.ts"
+line = 180
+class = "runtime-risk"
+severity = "medium"
+observed = "Valid A-to-B replacement scopes only tradeHistory. Holdings/positions/openOrders/PnL/hasLoadedOnce and last-frame refs retain A; failed B requests preserve them and B upserts may mix with A rows."
+expected = "Every visible spot portfolio field/frame must belong to the selected wallet and become unavailable until that account has a matching snapshot."
+proposal = "In apps/perps/src/hooks/spot/useSpotPortfolio.ts key the complete snapshot/frame state by normalized address, reset on wallet replacement and retain data only for same-account refresh; prove partial/all B request failure after loading A."
+owner_domain = 3
+
+[finding.spot-stream-fetch-cancellation]
+file = "apps/perps/src/hooks/spot/useSpotPortfolio.ts"
+line = 305
+class = "runtime-risk"
+severity = "medium"
+observed = "Trade handlers create controllers for holdings/positions/PnL requests but cleanup returns only websocket unsubscribe. Controllers are never retained/aborted and setters lack account checks; the PnL fallback at line 371 repeats this, allowing late A requests to publish into B."
+expected = "Every stream-triggered refresh must be canceled or ignored after its account subscription is superseded or the hook unmounts."
+proposal = "In apps/perps/src/hooks/spot/useSpotPortfolio.ts retain all effect-scoped refresh controllers and check address generation before setters; prove an A trade refresh completing after B selection cannot change B holdings/positions/PnL."
+owner_domain = 3
+
+[finding.spot-snapshot-live-ordering]
+file = "apps/perps/src/hooks/spot/useSpotPortfolio.ts"
+line = 204
+class = "restart-recovery"
+severity = "medium"
+observed = "Only trades buffer live events while initial REST is pending. A newer order/position/PnL push can update state before slower Promise.allSettled completion replaces it with an older snapshot, including resurrecting an already executed order."
+expected = "Initial/reconnect snapshots must reconcile with newer events without moving order/position/PnL state backwards or waiting for another event to correct it."
+proposal = "In apps/perps/src/hooks/spot/useSpotPortfolio.ts watermark snapshots and replay/deduplicate buffered order/position/PnL updates after them, as trade history already does; prove pushes preceding delayed initial/recovery snapshots retain newest state."
+owner_domain = 3
+
+[finding.spot-user-frame-selection]
+file = "apps/perps/src/hooks/spot/useSpotUserStream.ts"
+line = 349
+class = "runtime-risk"
+severity = "medium"
+observed = "Single-stream wrapper clears frame only for an empty address; multi-stream wrapper clears only empty address/list. Valid account replacement, stream replacement or removing a stream retains prior frames, exposing A or an unsubscribed stream as current."
+expected = "Latest-frame state must belong only to the active normalized account and requested stream set, beginning empty for new subscriptions."
+proposal = "In apps/perps/src/hooks/spot/useSpotUserStream.ts key retained frames by subscription identity, clear account/stream replacements and remove unrequested keys; prove A-to-B and trade-to-order changes before any new frame."
+owner_domain = 3
+
+[finding.block-rpc-comment]
+file = "apps/perps/src/hooks/chain/useEvmBlockStream.ts"
+line = 9
+class = "doc-drift"
+severity = "low"
+observed = "The hook comment presents api.hyperpax.xyz as the Paxeer RPC, while implementation obtains the canonical fallback transport from core/viem/clients.ts and core/rpc.ts for the current merged-network node list."
+expected = "Inline integration guidance must identify the configured chain-125 root-path node RPC source rather than an obsolete hard-coded endpoint."
+proposal = "Update apps/perps/src/hooks/chain/useEvmBlockStream.ts comment to reference getPublicClient and canonical node endpoints from core/rpc.ts while preserving the existing block polling and adapter."
+owner_domain = 3
+
+[finding.unused-indexer-hooks]
+file = "apps/perps/src/hooks/perps/useIndexerSubscriptions.ts"
+line = 24
+class = "dead-code"
+severity = "low"
+observed = "The exported indexer subscription hooks have no production import/call outside this file in apps/perps/src. Current trading panels subscribe directly through subscribeStream, so these typed wrappers and their lifecycle guarantees are not used by the live product."
+expected = "Code described as product wiring must have a live caller; unused convenience wrappers must be identified separately from active producer and transport implementations."
+proposal = "In apps/perps/src/widgets/trading/PerpsPositionsPanel.tsx consolidate the corresponding direct subscription behind corrected hooks from useIndexerSubscriptions.ts and prove the panel uses their real producer data; remove genuinely redundant wrappers only after reconciling the declared client surface."
+owner_domain = 3
+
+[finding.unused-perfdb-subscription-hooks]
+file = "apps/perps/src/hooks/perps/usePerfdbSubscriptions.ts"
+line = 44
+class = "dead-code"
+severity = "low"
+observed = "usePriceSubscription and useTradeSubscription have no production import/call in apps/perps/src; the market UI uses other feed paths. These exported PerfDB wrappers therefore do not demonstrate any live product wiring."
+expected = "Code described as product wiring must have a live caller; unused convenience wrappers must be identified separately from active producer and transport implementations."
+proposal = "Consolidate live PerfDB subscription consumption under apps/perps/src/core/graphql/client.ts and retire the unused wrapper exports in apps/perps/src/hooks/perps/usePerfdbSubscriptions.ts with registry reconciliation, preserving existing live market feeds and their producer-path coverage."
+owner_domain = 3
+
+[finding.unused-user-profile-hook]
+file = "apps/perps/src/hooks/perps/usePerfdbUser.ts"
+line = 35
+class = "dead-code"
+severity = "low"
+observed = "usePerfdbUser is exported but no production caller imports or invokes it in apps/perps/src; the query and returned profile fields currently have no mounted user-facing consumer."
+expected = "Code described as product wiring must have a live caller; unused convenience wrappers must be identified separately from active producer and transport implementations."
+proposal = "Resolve ownership in apps/perps/src/hooks/perps/usePerfdbUser.ts by retiring this unused wrapper and its registry export while preserving the served perps-data user query; retain the query contract for actual consumers rather than presenting unused frontend code as wired."
+owner_domain = 3
+
+[finding.readme-network]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "README describes layerxd as a separate C daemon whose checkpoints settle through layerxAnchor; line 181 repeats obsolete daemon/checkpoint operator guidance."
+expected = "Operator/integrator documentation must agree with the merged-network brief, actual active wiring and current product configuration, distinguishing historical implementations from served behavior."
+proposal = "Rewrite README.md architecture and operator/build guidance around the paxd BFT node, integrated block-proposing kernel and committed-block receipt finality; label retained legacy source as replay/history only."
+owner_domain = 17
+
+[finding.site-index-network]
+file = "docs/site/docs/index.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "The site puts ordinary activity inside LayerX and periodic settlement/bonds/challenges/exits on Paxeer, presenting separate deployment and trust boundaries."
+expected = "Operator/integrator documentation must agree with the merged-network brief, actual active wiring and current product configuration, distinguishing historical implementations from served behavior."
+proposal = "Rewrite docs/site/docs/index.md for one paxd network and committed-block finality, documenting current node/gateway surfaces and removing operational guarantor/checkpoint settlement guidance."
+owner_domain = 17
+
+[finding.wiki-home-network]
+file = "docs/wiki/Home.md"
+line = 7
+class = "doc-drift"
+severity = "medium"
+observed = "Wiki Home introduces the pre-merge execution/settlement split and separate LayerX runtime instead of integrated network execution."
+expected = "Operator/integrator documentation must agree with the merged-network brief, actual active wiring and current product configuration, distinguishing historical implementations from served behavior."
+proposal = "Rewrite docs/wiki/Home.md overview and operator/module entry points for the integrated kernel and BFT commit finality; explicitly label retained historical subsystem pages."
+owner_domain = 17
+
+[finding.wiki-modules-runtime]
+file = "docs/wiki/Modules.md"
+line = 120
+class = "doc-drift"
+severity = "medium"
+observed = "The module page retains daemon/guarantor host-runtime binding and describes modules checkpointing to the separate Paxeer settlement stack."
+expected = "Operator/integrator documentation must agree with the merged-network brief, actual active wiring and current product configuration, distinguishing historical implementations from served behavior."
+proposal = "Update docs/wiki/Modules.md runtime ownership and host binding for the integrated paxd kernel, distinguishing retained daemon sources from current served module behavior."
+owner_domain = 17
+
+[finding.site-modules-runtime]
+file = "docs/site/docs/protocol/modules.md"
+line = 115
+class = "doc-drift"
+severity = "medium"
+observed = "The module page explicitly says layerxd and the guarantor bind host runtimes via lxp_daemon_module_runtimes_bind; line 25 describes modules checkpointing to a separate settlement stack."
+expected = "Operator/integrator documentation must agree with the merged-network brief, actual active wiring and current product configuration, distinguishing historical implementations from served behavior."
+proposal = "Update docs/site/docs/protocol/modules.md deployment and runtime binding for paxd integration; preserve current operation encodings and label replay-only history."
+owner_domain = 17
+
+[finding.checkpoint-finality]
+file = "docs/site/docs/concepts/checkpoints.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The concepts page teaches checkpoint certificates/guarantor attestations as operational finality and links separate checkpoint production rather than block commitment."
+expected = "Operator/integrator documentation must agree with the merged-network brief, actual active wiring and current product configuration, distinguishing historical implementations from served behavior."
+proposal = "Rewrite docs/site/docs/concepts/checkpoints.md as historical context or current paxd block finality guidance, removing active guarantor operation instructions and documenting the current receipt proof path."
+owner_domain = 17
+
+[finding.network-page-split]
+file = "docs/paxeer-network.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The network page says ordinary activity stays on LayerX and checkpoints settle on an independently replayed L1; it advertises a public faucet and lists retired settlement modules as current."
+expected = "Operator/integrator documentation must agree with the merged-network brief, actual active wiring and current product configuration, distinguishing historical implementations from served behavior."
+proposal = "Rewrite docs/paxeer-network.md introduction/trust/deployment/module tables for the single paxd network; document approved developer allocations and distinguish tenant namespaces from retired settlement modules."
+owner_domain = 17
+
+[finding.quickstart-rpc-finality]
+file = "docs/site/docs/overview/quickstart.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "Quickstart uses /rpc and /rpc/ws, repeats /rpc submission at lines 497-520 and teaches finality through a separate Paxeer boundary/anchor checkpoint settings at lines 596-647."
+expected = "Operator/integrator documentation must agree with the merged-network brief, actual active wiring and current product configuration, distinguishing historical implementations from served behavior."
+proposal = "Rewrite docs/site/docs/overview/quickstart.md for chain-125 root-path node JSON-RPC and hosted methods in their declared gateway namespace, with committed-block receipts; remove operational daemon/anchor setup and obsolete /rpc examples."
+owner_domain = 17
+
+[finding.precompile-retirement]
+file = "docs/system/precompiles.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The current catalog labels layerxexchange at 0x1015 alongside perps and lists retired anchor/custody/verify contracts without historical upgrade-selection status."
+expected = "Operator/integrator documentation must agree with the merged-network brief, actual active wiring and current product configuration, distinguishing historical implementations from served behavior."
+proposal = "Change docs/system/precompiles.md generation to separate current served contracts from replay versions, showing perps at 0x1015 after v6.12.0 and labeling retired settlement contracts as historical only."
+owner_domain = 17
+
+[finding.precompile-address-map]
+file = "docs/system/precompiles.md"
+line = 1800
+class = "doc-drift"
+severity = "medium"
+observed = "All spot ABI sections receive all five 0x1021-0x1025 addresses, including share.json at line 2018. Each fixed rail actually serves one ABI; shares are individual dynamic native-pointer addresses."
+expected = "Operator/integrator documentation must agree with the merged-network brief, actual active wiring and current product configuration, distinguishing historical implementations from served behavior."
+proposal = "Repair docs/system/precompiles.md generator mappings to PECOR 0x1021, orders 0x1022, stops 0x1023, quoter 0x1024 and vault 0x1025; document share-pointer lookup/lifecycle and actual native deployment ABI separately."
+owner_domain = 17
+
+[finding.module-activation-inventory]
+file = "docs/system/chain-modules.md"
+line = 15
+class = "doc-drift"
+severity = "medium"
+observed = "The generated module catalog puts layerxanchor/custody/exchange and sequencer beside current modules without activation/replay status, letting a source inventory read as a live operational inventory."
+expected = "Operator/integrator documentation must agree with the merged-network brief, actual active wiring and current product configuration, distinguishing historical implementations from served behavior."
+proposal = "Extend docs/system/chain-modules.md generation with explicit live/replay/retired status from node wiring and current perps/spot/pricefeed routes; distinguish retained source schemas from operator-configurable modules."
+owner_domain = 17
+
+[finding.launchpad-governance-mode]
+file = "contracts/launchpad/README.md"
+line = 244
+class = "doc-drift"
+severity = "low"
+observed = "Deployment Details unconditionally says Governance Token: SID, while line 116 and operations/README.md specify administrator mode by default with no voting token and explicit GOVERNANCE_MODE=token opt-in."
+expected = "Operator/integrator documentation must agree with the merged-network brief, actual active wiring and current product configuration, distinguishing historical implementations from served behavior."
+proposal = "Update contracts/launchpad/README.md Deployment Details to state administrator/Timelock default and SID only for explicit token mode; link operations/README.md mode-specific configuration."
+owner_domain = 4
+
+[finding.missing-interface-contracts]
+file = "precompiles/spot/abi/abi.go"
+line = 1
+class = "doc-drift"
+severity = "medium"
+observed = "Current spot/pricefeed, perps-data and hook registry rows cite contracts/markets.md, contracts/perps-data.md and contracts/perps-client.md, but all three pages are absent at this revision, so their normative field/error/lifecycle contracts cannot be read."
+expected = "Current market producer/client interfaces must have existing normative contracts for addresses, types, custom errors, configuration and restart/reconnect lifecycle."
+proposal = "Restore contracts/markets.md, contracts/perps-data.md and contracts/perps-client.md from verified current producers/consumers, or reconcile registry links to existing normative pages; cover native-share pointer behavior and real hook return shapes."
+owner_domain = 3
+
+[finding.default-rpc-node-set]
+file = "apps/perps/src/hooks/chain/useEvmBlockStream.ts"
+line = 120
+class = "config-drift"
+severity = "medium"
+observed = "The block hook consumes getPublicClient, whose core/rpc.ts default list generates api1 through api16.mainnet-beta.paxeer.network. The brief declares api1 through api14 plus api-mainnet-beta.paxeer.network; the default thus includes two undeclared hosts and omits the declared aggregate endpoint."
+expected = "Default public client transports must use the declared chain-125 root-path node endpoint set, with deployment overrides remaining explicit and independently validated."
+proposal = "Update apps/perps/src/core/rpc.ts default list to the fourteen declared numbered nodes plus api-mainnet-beta.paxeer.network and reconcile endpoint examples/configuration; cover the default list used by useEvmBlockStream and other shared-client consumers without probing undeclared hosts."
+owner_domain = 3
+
+[doc.01]
+path = "README.md"
+status = "stale"
+notes = "Lines 47 and 181 retain separate layerxd execution and anchor checkpoint guidance; rewrite for integrated kernel and block finality."
+
+[doc.02]
+path = "docs/site/docs/index.md"
+status = "stale"
+notes = "Lines 3, 11-26 and settlement row retain execution/settlement split, guarantor finality and separate deployment authority."
+
+[doc.03]
+path = "docs/site/docs/protocol/modules.md"
+status = "stale"
+notes = "Lines 25 and 115 describe checkpointing modules and daemon/guarantor binding; operation schemas were reviewed separately."
+
+[doc.04]
+path = "docs/wiki/Modules.md"
+status = "stale"
+notes = "Introduction and tail runtime-binding section retain daemon/checkpoint settlement guidance; synchronize with corrected site module page."
+
+[doc.05]
+path = "docs/wiki/Home.md"
+status = "stale"
+notes = "Lines 7-23 retain pre-merge execution/settlement split and obsolete operational boundaries."
+
+[doc.06]
+path = "docs/system/precompiles.md"
+status = "misleading"
+notes = "Full catalog reviewed: lines 32-41 mix retired/current address versions; spot sections 1800/1895/1987/2018/2057/2168 assign every ABI all five fixed rails, including dynamic shares."
+
+[doc.07]
+path = "docs/system/chain-modules.md"
+status = "misleading"
+notes = "All 482 lines reviewed. Source-schema inventory remains useful but lines 15-19 and 132-243/390-395 omit historical activation/replay status."
+
+[doc.08]
+path = "contracts/launchpad/README.md"
+status = "stale"
+notes = "All 295 lines including recovery reviewed for the separate Solidity launchpad; line 244 unconditional SID governance conflicts with default administrator mode at line 116."
+
+[doc.09]
+path = "contracts/launchpad/operations/README.md"
+status = "accurate"
+notes = "All 116 lines reviewed: administrator default, explicit token mode, manifest recovery and Timelock handoff agree with launchpad deployment behavior. Optional PECOR controllers describe Solidity launchpad integration, not native spot governance."
+
+[doc.10]
+path = "docs/paxeer-network.md"
+status = "stale"
+notes = "Lines 3-20 and module table retain separate custody/checkpoint boundaries; line 9 public faucet is stale. Tenant namespace feature is distinct from the retired stack."
+
+[doc.11]
+path = "docs/site/docs/overview/quickstart.md"
+status = "stale"
+notes = "All 670 lines reviewed; lines 20, 191, 239, 497-520 and 596-647 retain /rpc transport and anchor/checkpoint finality requiring a merged-network rewrite."
+
+[doc.12]
+path = "docs/site/docs/concepts/checkpoints.md"
+status = "stale"
+notes = "All 56 lines reviewed; lines 3-37 finality/guarantor production describe the retired checkpoint architecture, not current BFT block commitment."
+
+[doc.13]
+path = "contracts/markets.md"
+status = "missing"
+notes = "Current interface registry links here for a normative market/client contract, but the page is absent at the audited revision; restore it or reconcile links to an existing verified contract."
+
+[doc.14]
+path = "contracts/perps-data.md"
+status = "missing"
+notes = "Current interface registry links here for a normative market/client contract, but the page is absent at the audited revision; restore it or reconcile links to an existing verified contract."
+
+[doc.15]
+path = "contracts/perps-client.md"
+status = "missing"
+notes = "Current interface registry links here for a normative market/client contract, but the page is absent at the audited revision; restore it or reconcile links to an existing verified contract."
+

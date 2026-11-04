@@ -1,0 +1,741 @@
+[audit.22.30.105]
+task = "22.30.105"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 71
+findings = 24
+docs_reviewed = 13
+upgrade_ready = false
+blocking = ["export-handoff", "export-challenge-wire"]
+
+[file.001]
+path = "services/agent/crates/layerx-crypto/src/evm_transaction.rs"
+lines = 623
+verdict = "clean"
+note = "Read all encoders, decoders and vectors: typed transaction prefixes, RLP canonicality, chain/nonce widths, signature recovery and authorization-list bounds agree across the crypto call surface."
+
+[file.002]
+path = "services/human/crates/layerx-explorer-index/tests/retired_client_modules.rs"
+lines = 52
+verdict = "clean"
+note = "Read the retained explorer regression guard: removed client module paths are rejected by source scanning; historical names are negative assertions, not a live retired explorer dependency."
+
+[file.003]
+path = "services/human/crates/layerx-human-service/Cargo.toml"
+lines = 48
+verdict = "clean"
+note = "Workspace dependencies and binary discovery agree with imports and runtime boundaries; test-only credential and intent-vector support stays in development dependencies."
+
+[file.004]
+path = "services/human/crates/layerx-human-service/README.md"
+lines = 24
+verdict = "issues"
+note = "Movement protocol, custody bridge configuration and finality instructions still describe retired product journeys; the three additional binaries remain identifiable."
+
+[file.005]
+path = "services/human/crates/layerx-human-service/src/frame.rs"
+lines = 376
+verdict = "issues"
+note = "Length-prefixed UDS/TLS implementations and callers agree on a usize byte maximum, bounded connections and deadlines; the published registry signatures describe a different API."
+
+[file.006]
+path = "services/human/crates/layerx-human-service/src/health.rs"
+lines = 139
+verdict = "clean"
+note = "Dependency health separates service failures from agent failures, preserves named causes and derives readiness from required dependencies without treating a partial dependency set as ready."
+
+[file.007]
+path = "services/human/crates/layerx-human-service/src/lib.rs"
+lines = 49
+verdict = "clean"
+note = "Public modules and workspace manifest keep the agent API as the declared core boundary; no retired client module is imported or exported."
+
+[file.008]
+path = "services/human/crates/layerx-human-service/src/main.rs"
+lines = 132
+verdict = "clean"
+note = "Listener/TLS validation, configured component socket, runtime clock, request/body/header/principal limits and bounded serving agree with the live server constructors."
+
+[file.009]
+path = "services/human/crates/layerx-human-service/src/redaction.rs"
+lines = 786
+verdict = "clean"
+note = "Read schema registry, emission admission and funnel validation: typed fields and allowed stage vocabularies exclude the declared sensitive channels; negative schema cases are present."
+
+[file.010]
+path = "services/human/crates/layerx-human-service/src/security.rs"
+lines = 696
+verdict = "issues"
+note = "Read security actions, sessions, timed secrets, provider refusals and export ceremony; export persistence ordering and production challenge projection prevent a safe complete key handoff."
+
+[file.011]
+path = "services/human/crates/layerx-human-service/src/support.rs"
+lines = 725
+verdict = "issues"
+note = "Principal scoping, normalized messages, durable records and retry identities are implemented; conversation enumeration is unbounded and resolved state masks a successful reply replay."
+
+[file.012]
+path = "services/human/crates/layerx-human-service/src/time.rs"
+lines = 141
+verdict = "clean"
+note = "Read civil-date conversion and strict UTC parser: normal supported dates round-trip, invalid calendar dates, offsets and fractional seconds are refused; no retired time authority is referenced."
+
+[file.013]
+path = "services/human/crates/layerx-human-service/src/trace.rs"
+lines = 159
+verdict = "clean"
+note = "Trace parsing, generation and propagated header values use the same bounded alphabet and reject malformed input; no secret-bearing display channel is introduced."
+
+[file.014]
+path = "services/human/crates/layerx-human-service/tests/activity_rungs.rs"
+lines = 155
+verdict = "clean"
+note = "Durable activity rows preserve received rungs and reject stored rung bytes above Committed; readback uses the same receipt-reference representation as the producer."
+
+[file.015]
+path = "services/human/crates/layerx-human-service/tests/agent_creation_rungs.rs"
+lines = 608
+verdict = "clean"
+note = "Creation evidence carries distinct budget identity, runtime finalization rung and canonical signature material; unsupported rung bytes and invalid signed creation shapes are refused."
+
+[file.016]
+path = "services/human/crates/layerx-human-service/tests/agent_evidence_rungs.rs"
+lines = 180
+verdict = "clean"
+note = "Creation completion requires Committed, and purpose presets with retired activity-type selectors are rejected rather than accepted as capability evidence."
+
+[file.017]
+path = "services/human/crates/layerx-human-service/tests/agent_recovery.rs"
+lines = 585
+verdict = "issues"
+note = "Rotation/recovery transition checks cover delays, competition, identity continuity and notifications, but the core producer and alleged restart remain local to the test process."
+
+[file.018]
+path = "services/human/crates/layerx-human-service/tests/agent_recovery_rungs.rs"
+lines = 232
+verdict = "clean"
+note = "Effective key changes require Committed and out-of-range observation ranks are refused; Submitted and Receipted observations do not make a new key effective."
+
+[file.019]
+path = "services/human/crates/layerx-human-service/tests/agent_runtime_eip1559.rs"
+lines = 384
+verdict = "clean"
+note = "Runtime preparation emits unsigned type-2 bytes with matching signing hash; intent-engine binding refuses transaction bytes that are not the declared canonical envelope."
+
+[file.020]
+path = "services/human/crates/layerx-human-service/tests/agent_runtime_nonces.rs"
+lines = 309
+verdict = "clean"
+note = "Account state below Committed is unverified and native owner context carries the peer pending nonce instead of substituting the kernel account sequence."
+
+[file.021]
+path = "services/human/crates/layerx-human-service/tests/agent_runtime_receipt_frame.rs"
+lines = 140
+verdict = "clean"
+note = "The runtime consumes the shared owner-receipt answer encoding over its boundary and refuses corrupt evidence instead of silently accepting an alternate layout."
+
+[file.022]
+path = "services/human/crates/layerx-human-service/tests/agent_runtime_rungs.rs"
+lines = 308
+verdict = "clean"
+note = "Runtime frame decoding handles rung bytes zero through two, rejects three and preserves the declared 65-byte finalization signature."
+
+[file.023]
+path = "services/human/crates/layerx-human-service/tests/approval_rungs.rs"
+lines = 129
+verdict = "clean"
+note = "Approval budget presentation remains unverified below Committed and preserves the verified budget at Committed; lower-rung observations cannot grant approval authority."
+
+[file.024]
+path = "services/human/crates/layerx-human-service/tests/audit.rs"
+lines = 424
+verdict = "clean"
+note = "Audit hash chains, durable anchors, evidence export and typed trace propagation are checked against mutation, reordering and tail truncation; funnel stages and redaction gates reject foreign values."
+
+[file.025]
+path = "services/human/crates/layerx-human-service/tests/bearer_admission.rs"
+lines = 557
+verdict = "clean"
+note = "Authenticated bearer assertions pass through operation four with their context binding; foreign-origin and expired assertions are refused before admission."
+
+[file.026]
+path = "services/human/crates/layerx-human-service/tests/component_frame.rs"
+lines = 167
+verdict = "clean"
+note = "Real Unix components communicate with HumanComponentServer through the Human frame implementation using the same length prefix and configured limits."
+
+[file.027]
+path = "services/human/crates/layerx-human-service/tests/custody_frame.rs"
+lines = 379
+verdict = "clean"
+note = "The custody gateway relays a real authenticated LXKP probe through the shared Human frame transport, preserving provider identity and bounded frame handling."
+
+[file.028]
+path = "services/human/crates/layerx-human-service/tests/decide_nonces.rs"
+lines = 647
+verdict = "issues"
+note = "Pending/stale nonce assertions reach the decisions service, but hold preparation serializes JSON and a DID actor rather than the canonical type-2 call accepted by durable production approval validation."
+
+[file.029]
+path = "services/human/crates/layerx-human-service/tests/detail.rs"
+lines = 321
+verdict = "clean"
+note = "All declared activity classes assemble from verified receipt actuals; unbacked amounts are refused and refusal copy states whether funds left the source."
+
+[file.030]
+path = "services/human/crates/layerx-human-service/tests/detail_rungs.rs"
+lines = 255
+verdict = "clean"
+note = "Receipt/finality references preserve their rung; Receipted detail remains non-final and Committed detail is final without inventing a third settlement stage."
+
+[file.031]
+path = "services/human/crates/layerx-human-service/tests/evidence_node.rs"
+lines = 503
+verdict = "issues"
+note = "Authentication and admission ordering assertions exercise a test-local AdmissionSequencer and journal rather than the running merged node admission producer."
+
+[file.032]
+path = "services/human/crates/layerx-human-service/tests/export.rs"
+lines = 548
+verdict = "clean"
+note = "Filtered statements and evidence exports retain bounded referenced bytes, verify offline and exclude sensitive channels; audit export uses the same bounded bundle path."
+
+[file.033]
+path = "services/human/crates/layerx-human-service/tests/export_receipts.rs"
+lines = 254
+verdict = "clean"
+note = "Receipt bundle version two preserves receipt fields and proof material; version one and a tampered receipt hash are rejected."
+
+[file.034]
+path = "services/human/crates/layerx-human-service/tests/frame_transport.rs"
+lines = 104
+verdict = "clean"
+note = "Real UDS frame transfer round-trips the declared byte prefix within limits and refuses oversized frames without replacing transport behavior."
+
+[file.035]
+path = "services/human/crates/layerx-human-service/tests/gas_station_client.rs"
+lines = 163
+verdict = "clean"
+note = "Quote requests use exactly the station field names and response validation refuses another EVM chain id, preserving the chain-125 binding."
+
+[file.036]
+path = "services/human/crates/layerx-human-service/tests/health.rs"
+lines = 37
+verdict = "clean"
+note = "Read both failure assertions: service and agent readiness failures remain separately named rather than collapsing dependency causes."
+
+[file.037]
+path = "services/human/crates/layerx-human-service/tests/intent_nonces.rs"
+lines = 160
+verdict = "clean"
+note = "Intent binding uses the sender pending nonce and refuses repeated nonces for the same sender; there is no fallback to the old kernel sequence."
+
+[file.038]
+path = "services/human/crates/layerx-human-service/tests/intent_plan_evm.rs"
+lines = 220
+verdict = "clean"
+note = "Intent plans disclose EIP-1559 legs and submission records each accepted transaction hash, preserving the plan-to-leg identity."
+
+[file.039]
+path = "services/human/crates/layerx-human-service/tests/journey_receipts.rs"
+lines = 144
+verdict = "clean"
+note = "Stored retired journey kinds are rendered closed; retained historical rows are not allowed to restart a removed economic action."
+
+[file.040]
+path = "services/human/crates/layerx-human-service/tests/key_export.rs"
+lines = 430
+verdict = "clean"
+note = "Real keystore/passkey ceremony tests bind principal, action and one-time export, but do not cross the production HTTP challenge decoder or inject failure after custody is disabled; see security findings. Blocking findings are recorded at their security.rs producer."
+
+[file.041]
+path = "services/human/crates/layerx-human-service/tests/kms_gateway_frame.rs"
+lines = 366
+verdict = "issues"
+note = "Process tests use genuine TLS/provider framing and chain snapshot documents, but clearing the environment omits the mandatory runtime-clock binding before startup validation."
+
+[file.042]
+path = "services/human/crates/layerx-human-service/tests/links.rs"
+lines = 406
+verdict = "clean"
+note = "Deep-link resolution checks principal and shell context, durable notification identity, read marking and stale/foreign targets; links retain product-owned destinations."
+
+[file.043]
+path = "services/human/crates/layerx-human-service/tests/move_commit_bank_send.rs"
+lines = 288
+verdict = "clean"
+note = "Bank-send commit preserves accepted hashes across receipt failures, consumed-nonce reconciliation and real store reopening; Submitted receipts stay pending without resend."
+
+[file.044]
+path = "services/human/crates/layerx-human-service/tests/move_money_bank_send.rs"
+lines = 621
+verdict = "clean"
+note = "Move planning uses one bank transfer per leg, preserves authorized source/target/amount and completes from verified receipt evidence without a retired movement provider."
+
+[file.045]
+path = "services/human/crates/layerx-human-service/tests/native_onboarding_rungs.rs"
+lines = 460
+verdict = "clean"
+note = "Native setup completes only at Committed and prepares with the runtime pending nonce, matching requirement 10031 without weakening lower-rung assertions."
+
+[file.046]
+path = "services/human/crates/layerx-human-service/tests/native_send_nonces.rs"
+lines = 484
+verdict = "clean"
+note = "Native-send disclosure preserves nonce and fee fields; a prepared access below the current pending nonce expires rather than being reused."
+
+[file.047]
+path = "services/human/crates/layerx-human-service/tests/native_send_purpose.rs"
+lines = 666
+verdict = "clean"
+note = "The native SEND provider and SDK path preserves purpose-bound authority, owner context and canonical transaction material; no retired activity-type preset is admitted."
+
+[file.048]
+path = "services/human/crates/layerx-human-service/tests/no_retired_intent_kinds.rs"
+lines = 37
+verdict = "clean"
+note = "Source guard checks the Human service for retired intent-kind identifiers; historical refusal vocabulary is distinguished from executable retired kinds."
+
+[file.049]
+path = "services/human/crates/layerx-human-service/tests/notify.rs"
+lines = 334
+verdict = "clean"
+note = "Required notification classes reach durable channels with audited effects; preference changes and critical-security overrides are scoped, and event/restart retries converge once per principal."
+
+[file.050]
+path = "services/human/crates/layerx-human-service/tests/onboarding.rs"
+lines = 686
+verdict = "clean"
+note = "Read preparation, receipt binding, staged recovery and durable reopening: tampered/wrong-operation evidence cannot activate the account and duplicate key creation converges; native Committed semantics are covered separately."
+
+[file.051]
+path = "services/human/crates/layerx-human-service/tests/onboarding_gas_station.rs"
+lines = 343
+verdict = "clean"
+note = "Sponsor preparation starts with bindLayerX at the native precompile, rejects legacy module-registry documents and refuses the settlement-recipient operation as unknown."
+
+[file.052]
+path = "services/human/crates/layerx-human-service/tests/projection_rungs.rs"
+lines = 229
+verdict = "issues"
+note = "Started servers and durable activity rows do not exercise a journey/activity response: both vocabulary assertions call the static mapping helper directly."
+
+[file.053]
+path = "services/human/crates/layerx-human-service/tests/receipt_evidence_v2.rs"
+lines = 111
+verdict = "clean"
+note = "Evidence lookup returns receipt proof version two with the committed marker bound to the actual rung rather than an obsolete settlement encoding."
+
+[file.054]
+path = "services/human/crates/layerx-human-service/tests/receipt_material_rungs.rs"
+lines = 191
+verdict = "clean"
+note = "Journey leg receipt material preserves rung and receipt hash across the runtime boundary, keeping received proof identity distinct from transaction submission."
+
+[file.055]
+path = "services/human/crates/layerx-human-service/tests/reclaim.rs"
+lines = 366
+verdict = "clean"
+note = "Reclaim uses agent receipt evidence and records activity for each supported return mechanism; conflicting idempotency reuse and non-return contract shapes are refused."
+
+[file.056]
+path = "services/human/crates/layerx-human-service/tests/reclaim_nonces.rs"
+lines = 188
+verdict = "clean"
+note = "Reclaim preparation binds the peer pending nonce and refuses stale prepared calls, matching current account consumption rather than kernel sequence."
+
+[file.057]
+path = "services/human/crates/layerx-human-service/tests/render.rs"
+lines = 418
+verdict = "issues"
+note = "Renderer facts, digest mutation refusals and unverified budgets are checked, but the claimed real hold substitutes a DID actor and uses an in-memory registry rather than the durable production approval path."
+
+[file.058]
+path = "services/human/crates/layerx-human-service/tests/resolver.rs"
+lines = 372
+verdict = "clean"
+note = "Resolver totality, deterministic routes, custody vocabulary, explicit limit refusals and complete receive authority are checked without returning partial plans."
+
+[file.059]
+path = "services/human/crates/layerx-human-service/tests/retired_client_modules.rs"
+lines = 75
+verdict = "clean"
+note = "The source-path guard rejects imports of removed client modules; the retired names occur as rejection criteria, not as calls to a running retired service."
+
+[file.060]
+path = "services/human/crates/layerx-human-service/tests/retired_client_modules_w2.rs"
+lines = 48
+verdict = "clean"
+note = "The second retirement wave checks removed client module paths throughout its declared source roots; matching strings are guard inputs only."
+
+[file.061]
+path = "services/human/crates/layerx-human-service/tests/retired_crypto_codec_1.rs"
+lines = 139
+verdict = "clean"
+note = "The first crypto retirement guard checks source paths for removed codecs and old wire dependencies; the inventory is a negative compatibility rule."
+
+[file.062]
+path = "services/human/crates/layerx-human-service/tests/retired_crypto_codec_2.rs"
+lines = 52
+verdict = "clean"
+note = "The second crypto codec guard rejects the remaining retired module paths; no retired encoder is called by the guard itself."
+
+[file.063]
+path = "services/human/crates/layerx-human-service/tests/retired_operations.rs"
+lines = 629
+verdict = "clean"
+note = "Authenticated HTTP over real Unix components returns 410 operation-retired for all eleven operations before body decoding/authorization and still dispatches a live move quote."
+
+[file.064]
+path = "services/human/crates/layerx-human-service/tests/send_routes.rs"
+lines = 252
+verdict = "clean"
+note = "EVM address destinations resolve to chain-125 bank-transfer calls with decoded sender and ABI binding; bridge-only destinations are explicitly refused."
+
+[file.065]
+path = "services/human/crates/layerx-human-service/tests/server_browser_boundary.rs"
+lines = 277
+verdict = "clean"
+note = "Real browser preflight/plain-listener checks enforce allowed bare HTTPS origins, preserve response CORS headers and reject incompatible TLS/listener configuration."
+
+[file.066]
+path = "services/human/crates/layerx-human-service/tests/server_identity.rs"
+lines = 103
+verdict = "clean"
+note = "Session metadata and schema admission are explicit; operation digests strictly round-trip as lowercase hex and owner rotation retains mandatory step-up."
+
+[file.067]
+path = "services/human/crates/layerx-human-service/tests/server_identity_boundary.rs"
+lines = 508
+verdict = "clean"
+note = "The real component/provider boundary registers and asserts a passkey, opens a session and authorizes it using genuine credential material and principal bindings."
+
+[file.068]
+path = "services/human/crates/layerx-human-service/tests/spend.rs"
+lines = 588
+verdict = "clean"
+note = "Receipt-backed activity evidence and real limiter bounds are checked; absent canonical budget state deliberately returns Unreconciled rather than presenting a fabricated verified budget."
+
+[file.069]
+path = "services/human/crates/layerx-human-service/tests/stream_journal_domain.rs"
+lines = 257
+verdict = "clean"
+note = "Journal encoding removes settlement_domain; real store reopening reads and migrates a legacy row once while preserving timestamps and idempotent identity."
+
+[file.070]
+path = "services/human/crates/layerx-human-service/tests/wallet_routes.rs"
+lines = 322
+verdict = "clean"
+note = "Every declared wallet SDK route is served with schema and admitted bearer; unknown paths and dynamic-call quote input receive explicit refusals."
+
+[file.071]
+path = "services/human/crates/layerx-human-service/tests/web_authenticator.rs"
+lines = 142
+verdict = "clean"
+note = "Browser authenticator interoperates with real passkey registration/assertion and refuses forged credentials and replayed ceremonies."
+
+[finding.export-handoff]
+file = "services/human/crates/layerx-human-service/src/security.rs"
+line = 574
+class = "restart-recovery"
+severity = "high"
+observed = "KeyExportCeremony::finish calls export_primary_once before AuditChain::open/append and before constructing or returning ExportedKey. custody/mod.rs:875-912 atomically marks the identity self_custodied; production_components.rs:5040-5069 emits the secret only after finish succeeds. An audit error or process loss after the marker makes retry return SelfCustodied and disables service signing without delivering the key."
+expected = "The one-time primary-key export must leave an authenticated recoverable handoff after a restart or audit/storage failure; custody must not be irreversibly disabled while the owner has no recoverable key delivery."
+proposal = "Coordinate services/human/crates/layerx-human-service/src/security.rs and src/custody/mod.rs around a durable export handoff with principal-bound retry identity, audited state and explicit delivery acknowledgement. Preserve one-time authorization and service-signing refusal; exercise real keystore/store reopening and failure between marker, audit and response."
+owner_domain = 10
+interface = "10.rs-human-service-custody-keystore-export-primary-once"
+
+[finding.export-challenge-wire]
+file = "services/human/crates/layerx-human-service/src/security.rs"
+line = 477
+class = "interface-mismatch"
+severity = "high"
+observed = "KeyExportChallenge stores expires_at as u64 and production_components.rs:5030-5032 copies it directly into JSON as a number. identity.kvx:445 declares Timestamp, v1.kvx:50-52 requires an RFC3339 UTC string, and apps/web/src/api/generated/index.ts:2758-2764 calls expectString, so securityKeyExportBegin rejects the real successful response. That projection also emits base64url confirms while IdentityProjector and OperationDigest::to_schema use lowercase hex."
+expected = "Registry row 10.fmt-human-api-type-key-export-challenge must round-trip from KeyExportCeremony through the production handler into the generated browser client with the declared Timestamp and one operation-digest encoding."
+proposal = "Project the challenge in services/human/crates/layerx-human-service/src/server/production_components.rs using the shared timestamp and digest codecs; align step-up readers on that same encoding. Extend tests/key_export.rs through the authenticated production HTTP/component path and generated client decoder, including expiry and wrong-digest refusals."
+owner_domain = 10
+interface = "10.fmt-human-api-type-key-export-challenge"
+
+[finding.frame-registry]
+file = "services/human/crates/layerx-human-service/src/frame.rs"
+line = 119
+class = "doc-drift"
+severity = "medium"
+observed = "The implementation declares pub trait FrameTransport and read_frame/write_frame take maximum: usize. Registry rows 10.rs-human-service-frame-frame-transport-j45, 10.rs-human-service-frame-read-frame-j45 and 10.rs-human-service-frame-write-frame-j45 advertise an enum and &Limits parameters; live call sites use the actual trait and byte maximum."
+expected = "The interface registry must describe the transport declaration and parameter types that its producers and consumers actually compile against."
+proposal = "Update the three frame rows in spec/layerx-merge/interfaces.kvx from the declarations in services/human/crates/layerx-human-service/src/frame.rs, including current line anchors and real callers; retain the existing frame bounds and error behavior."
+owner_domain = 10
+
+[finding.support-unbounded-list]
+file = "services/human/crates/layerx-human-service/src/support.rs"
+line = 336
+class = "runtime-risk"
+severity = "medium"
+observed = "Support::list loads and deserializes every principal Support conversation, sorts the complete collection, then truncates to MAX_CONVERSATIONS=100. create admits arbitrarily many distinct idempotency keys, so the output bound does not bound memory, disk growth or list work."
+expected = "Authenticated support history must have bounded per-request work and an explicit retained-history/admission policy without losing retry identity."
+proposal = "Add persisted pagination or a bounded recent-conversation index in services/human/crates/layerx-human-service/src/support.rs with an explicit retention/admission policy and durable retry tombstones; verify more than 100 conversations and reopening without scanning full message bodies."
+owner_domain = 10
+
+[finding.support-reply-replay]
+file = "services/human/crates/layerx-human-service/src/support.rs"
+line = 566
+class = "restart-recovery"
+severity = "medium"
+observed = "append returns ConversationResolved for Author::You before looking up the deterministic message_id. A successful reply whose acknowledgement is lost cannot be retried after support resolves the conversation, even though the exact message and body remain durable."
+expected = "A retry of an already accepted reply must converge to the recorded conversation independently of subsequent state transitions; only a new reply should be refused after resolution."
+proposal = "In services/human/crates/layerx-human-service/src/support.rs resolve exact existing message identity and body before applying the resolved-state restriction to new messages. Cover reply, resolve, reopen and identical retry, and retain Conflict for changed content under the same key."
+owner_domain = 10
+
+[finding.kms-clock-fixture]
+file = "services/human/crates/layerx-human-service/tests/kms_gateway_frame.rs"
+line = 176
+class = "test-gap"
+severity = "medium"
+observed = "Fixture::gateway clears all environment variables and supplies only LAYERX_HUMAN_KMS_GATEWAY_* settings. The real gateway binary calls RuntimeClock::from_environment at src/bin/layerx-human-kms-gateway.rs:40 before registry validation, so these positive/rejection cases cannot reach their intended snapshot/document assertions."
+expected = "The process fixture must satisfy mandatory runtime dependencies and assert startup/refusal at the registry boundary it claims to test."
+proposal = "Start the real runtime-clock authority in services/human/crates/layerx-human-service/tests/kms_gateway_frame.rs and explicitly pass its authenticated binding into the cleared child environment. Keep both exact registry-document refusal and successful chain-snapshot serving assertions; do not bypass the clock."
+owner_domain = 10
+
+[finding.nonce-hold-shape]
+file = "services/human/crates/layerx-human-service/tests/decide_nonces.rs"
+line = 315
+class = "test-gap"
+severity = "medium"
+observed = "preparation uses serde_json::to_vec(EvmTransaction), calls the result unsigned_canonical_bytes and substitutes did:layerx:decision-agent as disclosure.actor. The real durable approval validator at services/agent/crates/layerx-agentd/src/policy/approval.rs:1136 decodes unsigned type-2 bytes, rebinds disclosure and requires the hexadecimal sender; this fixture can only exercise the permissive in-memory registration path."
+expected = "Pending-nonce approval evidence must use the real prepare/disclose output and remain valid when the held approval is persisted and reopened."
+proposal = "Replace preparation in services/human/crates/layerx-human-service/tests/decide_nonces.rs with output from the actual EVM prepare/disclosure path, register it through the durable approval service, reopen and assert pending-nonce release plus stale-nonce refusal without changing nonce assertions."
+owner_domain = 10
+
+[finding.projection-route-coverage]
+file = "services/human/crates/layerx-human-service/tests/projection_rungs.rs"
+line = 160
+class = "test-gap"
+severity = "medium"
+observed = "projected_journey_names_rung_vocabulary starts a server but calls verification_level_name directly; projection_never_emits_settlement_anchored writes a separate activity store then calls the same helper. Neither assertion decodes a served journey/activity response, so route wiring, field names and production response rung selection are untested."
+expected = "Rung vocabulary must be proven through the running producer, transport and consumer, including readback of persisted receipt evidence."
+proposal = "Extend services/human/crates/layerx-human-service/tests/projection_rungs.rs to request authenticated journey/activity JSON from real components and decode it through the schema client for Submitted, Receipted and Committed, including reopening persisted evidence and retaining the forbidden-vocabulary assertions."
+owner_domain = 10
+
+[finding.recovery-real-boundary]
+file = "services/human/crates/layerx-human-service/tests/agent_recovery.rs"
+line = 48
+class = "test-gap"
+severity = "medium"
+observed = "CoreRecoveryContract locally implements the producer state machine and AgentRecoveryBoundary. The load labelled after restart at lines 537-541 reads the existing Human scope while the same in-memory core producer and service remain alive; producer recovery, transport shape and durable cross-process reconciliation are not exercised."
+expected = "Rotation and recovery evidence must agree with the real protocol producer and survive reopening both sides of the operation, not just re-reading a Human row."
+proposal = "Keep these transition cases and add real producer/boundary integration in services/human/crates/layerx-human-service/tests/agent_recovery.rs using committed key-change evidence; close and reopen producer and Human stores during the challenge and after commit, then verify reconciliation, identity/history and exact superseded-key window."
+owner_domain = 10
+
+[finding.admission-real-producer]
+file = "services/human/crates/layerx-human-service/tests/evidence_node.rs"
+line = 120
+class = "test-gap"
+severity = "medium"
+observed = "AdmissionSequencer recreates authentication maps, queue capacity, receipt signing and admission state inside this test, using a test-support AdmissionJournal. The HTTP exchange reaches this local implementation rather than the merged node admission path, so its fdatasync/authentication claims cannot establish the running node behavior."
+expected = "Durable admission claims need a real producer/transport/consumer test that verifies authenticated append-before-ack ordering and restart recovery at the merged node boundary."
+proposal = "Add a real merged-node admission integration case to services/human/crates/layerx-human-service/tests/evidence_node.rs using the production submit handler and durable store. Reopen after accepted submission, look up the receipt/idempotency identity, and retain typed unauthorized and capacity assertions without reproducing admission logic in the fixture."
+owner_domain = 10
+
+[finding.doc-01]
+file = "docs/system/routes.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The generated route catalogue presents a Router routes surface, retired deposit/wallet-binding/withdrawal/exit paths as ordinary session routes, and old RPC routes. This conflicts with the merged root RPC and tests/retired_operations.rs, which returns 410 before dispatch."
+expected = "Published instructions must describe one merged BFT network with an in-process kernel, supported Human operations and the actual declared producer/consumer contract; retired endpoints and journeys must be explicitly identified as retired."
+proposal = "Update tools/paxeer-x/route-catalogue.json to distinguish retained 410 tombstones from active routes and describe the in-process kernel and root node RPC; regenerate docs/system/routes.md through tools/docs/gen-system-docs.sh."
+owner_domain = 16
+
+[finding.doc-02]
+file = "docs/site/docs/agents/running.md"
+line = 512
+class = "doc-drift"
+severity = "medium"
+observed = "The running-agent instructions send Ethereum submission to /rpc and present sequencer authority/settlement verification as the live network configuration, although the merged BFT node serves root JSON-RPC and has no separate sequencer service."
+expected = "Published instructions must describe one merged BFT network with an in-process kernel, supported Human operations and the actual declared producer/consumer contract; retired endpoints and journeys must be explicitly identified as retired."
+proposal = "Rewrite docs/site/docs/agents/running.md against the merged agent runtime: use chain-125 node root endpoints, supported rungs and live runtime bindings; label any retained emulator-only trust-anchor workflow explicitly and remove it from production setup."
+owner_domain = 9
+
+[finding.doc-03]
+file = "docs/wiki/RunningAnAgent.md"
+line = 512
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki running-agent page independently repeats /rpc Ethereum submission and the old sequencer/settlement authority setup, exposing the same obsolete production setup through a second published entry point."
+expected = "Published instructions must describe one merged BFT network with an in-process kernel, supported Human operations and the actual declared producer/consumer contract; retired endpoints and journeys must be explicitly identified as retired."
+proposal = "Update docs/wiki/RunningAnAgent.md with the corrected merged-node setup and keep its commands, root endpoint examples, rungs and links synchronized with docs/site/docs/agents/running.md."
+owner_domain = 9
+
+[finding.doc-04]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The CLI page requires a /rpc URL for public JSON-RPC, later says the documented global flags do not exist, and describes separate node/sequencer administration alongside production usage without a consistent boundary."
+expected = "Published instructions must describe one merged BFT network with an in-process kernel, supported Human operations and the actual declared producer/consumer contract; retired endpoints and journeys must be explicitly identified as retired."
+proposal = "Reconcile docs/site/docs/platform/cli.md with the current CLI command definitions and merged node contract: use root node URLs for Ethereum methods, document hosted px methods from their own contract, and clearly label local emulator commands and trust configuration."
+owner_domain = 16
+
+[finding.doc-05]
+file = "docs/wiki/Cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki CLI page repeats the /rpc-only public URL requirement and conflicting statements about implemented global flags, so the parallel reference leads operators to an obsolete endpoint."
+expected = "Published instructions must describe one merged BFT network with an in-process kernel, supported Human operations and the actual declared producer/consumer contract; retired endpoints and journeys must be explicitly identified as retired."
+proposal = "Rewrite docs/wiki/Cli.md together with docs/site/docs/platform/cli.md from the actual command surface, merged root RPC and separately declared hosted gateway methods; synchronize examples and emulator-only labels."
+owner_domain = 16
+
+[finding.doc-06]
+file = "docs/site/docs/platform/hosted-gateway.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "The hosted gateway guide says one router unifies eth_*, lx_* and px_*, public node names serve only an EVM domain, and /rpc, /rpc/schema and /rpc/ws are the public surfaces. It also gives a different contract method count from its wiki counterpart."
+expected = "Published instructions must describe one merged BFT network with an in-process kernel, supported Human operations and the actual declared producer/consumer contract; retired endpoints and journeys must be explicitly identified as retired."
+proposal = "Rewrite docs/site/docs/platform/hosted-gateway.md around the merged node root namespaces debug, echo, eth, net, pax, test and txpool, and the hosted gateway px contract in services/platform/hosted/gateway/openrpc.json. Remove the unified router architecture and derive method inventory from its owning contract."
+owner_domain = 8
+
+[finding.doc-07]
+file = "docs/wiki/HostedGateway.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki hosted-gateway guide repeats the retired unified-router topology and /rpc endpoint contract and disagrees with the site guide on its supposedly exact method count."
+expected = "Published instructions must describe one merged BFT network with an in-process kernel, supported Human operations and the actual declared producer/consumer contract; retired endpoints and journeys must be explicitly identified as retired."
+proposal = "Update docs/wiki/HostedGateway.md alongside the site page to describe merged root node RPC and the separate hosted px contract; generate or verify method inventory from services/platform/hosted/gateway/openrpc.json and synchronize both published copies."
+owner_domain = 8
+
+[finding.doc-08]
+file = "docs/readme/README.de.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The German architecture text and diagram describe paxd plus a separately running layerxd/LNI sequencer and batch-sync service topology, which the merged network retires."
+expected = "Published instructions must describe one merged BFT network with an in-process kernel, supported Human operations and the actual declared producer/consumer contract; retired endpoints and journeys must be explicitly identified as retired."
+proposal = "Rewrite docs/readme/README.de.md architecture paragraphs, command inventory and Mermaid diagram for one chain-125 BFT paxd node with its in-process kernel, root RPC and tenant domains; preserve translation consistency with the finished network facts."
+owner_domain = 16
+
+[finding.doc-09]
+file = "docs/readme/README.pt-BR.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The Portuguese architecture text and diagram retain a separately running layerxd/LNI sequencer and cross-domain batch-sync topology after the kernel has merged into the BFT node."
+expected = "Published instructions must describe one merged BFT network with an in-process kernel, supported Human operations and the actual declared producer/consumer contract; retired endpoints and journeys must be explicitly identified as retired."
+proposal = "Rewrite docs/readme/README.pt-BR.md architecture and diagram for the single chain-125 BFT network, kernel inside paxd, root public RPC and tenant domains; update the command inventory to remove retired daemons."
+owner_domain = 16
+
+[finding.doc-10]
+file = "docs/wiki/HumanJourneys.md"
+line = 31
+class = "doc-drift"
+severity = "medium"
+observed = "The Human journeys wiki advertises wallet binding, deposits, withdrawal claims and exits as active workflows; its onboarding completion threshold is receipt-verified although native onboarding requires Committed."
+expected = "Published instructions must describe one merged BFT network with an in-process kernel, supported Human operations and the actual declared producer/consumer contract; retired endpoints and journeys must be explicitly identified as retired."
+proposal = "Rewrite docs/wiki/HumanJourneys.md from the active Human operation/schema inventory: describe bank transfers and committed native setup, mark retained retired routes as 410 operation-retired, and remove actionable custody bridge instructions."
+owner_domain = 10
+
+[finding.doc-11]
+file = "docs/site/docs/human/journeys.md"
+line = 4
+class = "doc-drift"
+severity = "medium"
+observed = "The Human journeys guide lists wallet binding, deposits, withdrawal and emergency exit as implemented product journeys and describes movement spanning separate Paxeer/LayerX domains, contrary to the merged bank-transfer path and retirement responses."
+expected = "Published instructions must describe one merged BFT network with an in-process kernel, supported Human operations and the actual declared producer/consumer contract; retired endpoints and journeys must be explicitly identified as retired."
+proposal = "Rewrite docs/site/docs/human/journeys.md around supported chain-125 bank moves and native onboarding, specify Committed before economic completion, and describe legacy custody routes solely as explicit retirement responses."
+owner_domain = 10
+
+[finding.doc-12]
+file = "docs/site/docs/operators/hosted-internal.md"
+line = 232
+class = "doc-drift"
+severity = "medium"
+observed = "The operator inventory says no layerx-human workload is declared under services/platform/hosted except policy peers and upstream URLs. It omits the current Human Service selecting app=layerx-node, named human-https target and dedicated ingress/egress policy, leaving ownership and troubleshooting guidance stale."
+expected = "Published instructions must describe one merged BFT network with an in-process kernel, supported Human operations and the actual declared producer/consumer contract; retired endpoints and journeys must be explicitly identified as retired."
+proposal = "Update docs/site/docs/operators/hosted-internal.md from services/platform/hosted/human/deployment.yaml and web-deployment.yaml: document the Service-to-node ownership, named Human port, web deployment and current policy peers. Preserve the valid Service URL on port 9443 rather than confusing it with target port 9447."
+owner_domain = 8
+
+[finding.doc-13]
+file = "services/human/crates/layerx-human-service/README.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The Human README advertises the retired movement protocol/executor, withdrawal/forced-exit precompile configuration and two-vote withdrawal/emergency-exit readiness as required service setup, despite live retirement guards and bank-transfer moves."
+expected = "Published instructions must describe one merged BFT network with an in-process kernel, supported Human operations and the actual declared producer/consumer contract; retired endpoints and journeys must be explicitly identified as retired."
+proposal = "Rewrite services/human/crates/layerx-human-service/README.md around the active bank-transfer executor, chain-125 native calls, pending nonces and Committed receipts; replace custody bridge/exit configuration with the actual production settings and supported test targets."
+owner_domain = 10
+
+[finding.render-hold-shape]
+file = "services/human/crates/layerx-human-service/tests/render.rs"
+line = 209
+class = "test-gap"
+severity = "medium"
+observed = "held_digest labels its approval hold real but substitutes did:layerx:approval-render for disclosure.actor and actor_address [4;20], then uses ApprovalRegistry::default. The durable production validator in services/agent/crates/layerx-agentd/src/policy/approval.rs:1136 requires the sender-hex actor and canonical call binding; this test never reopens or validates that hold through the real producer boundary."
+expected = "A rendered approval presented as a real hold must carry the producer's unchanged disclosure and remain valid through durable hold registration, transport and reopening."
+proposal = "Use the actual prepare/disclose result and sender context in services/human/crates/layerx-human-service/tests/render.rs, create a durable approval registry, reopen it and obtain the held digest through the same production boundary the Human renderer consumes. Retain every copy, mutation and budget assertion."
+owner_domain = 10
+
+[doc.01]
+path = "docs/system/routes.md"
+status = "stale"
+notes = "Lines 3, 31-35, 611-615, 675-681, 702-706 and 908 describe a router, separate sequencer/settlement and retired Human operations as active routes; no retirement/410 status is shown."
+
+[doc.02]
+path = "docs/site/docs/agents/running.md"
+status = "stale"
+notes = "Lines 67-71 require a sequencer trust anchor; line 512 sends eth_sendRawTransaction to /rpc; lines 701-702 retain settlement-anchored and sequencer authority configuration."
+
+[doc.03]
+path = "docs/wiki/RunningAnAgent.md"
+status = "stale"
+notes = "Lines 67-71, 512 and 701-702 repeat the site page sequencer trust-anchor, /rpc submission and settlement-anchored configuration drift."
+
+[doc.04]
+path = "docs/site/docs/platform/cli.md"
+status = "misleading"
+notes = "Lines 8, 131, 278 and 298 prescribe /rpc; lines 129-136 deny flags described at line 8; production/emulator endpoint and trust-anchor descriptions are mixed."
+
+[doc.05]
+path = "docs/wiki/Cli.md"
+status = "misleading"
+notes = "Lines 8, 131, 278 and 298 mirror the invalid /rpc requirement and contradictory global-flag account in the site CLI page."
+
+[doc.06]
+path = "docs/site/docs/platform/hosted-gateway.md"
+status = "misleading"
+notes = "Lines 39-42 advertise a unified router and EVM-only node names; lines 50-52 and 198-200 advertise /rpc surfaces; line 51 says 15 methods while the wiki says 18."
+
+[doc.07]
+path = "docs/wiki/HostedGateway.md"
+status = "misleading"
+notes = "Lines 39-42 and 50-52 repeat router and /rpc drift; lines 198-200 list obsolete RPC surfaces; line 51 reports 18 methods instead of the site page 15."
+
+[doc.08]
+path = "docs/readme/README.de.md"
+status = "stale"
+notes = "Lines 37, 80, 125, 152, 195-209 and 239 describe layerxd as a running daemon with LNI, sequencer and batch-sync links."
+
+[doc.09]
+path = "docs/readme/README.pt-BR.md"
+status = "stale"
+notes = "Lines 37, 80, 125, 152, 195-209 and 239 repeat the separately running layerxd/LNI/sequencer architecture and batch-sync links."
+
+[doc.10]
+path = "docs/wiki/HumanJourneys.md"
+status = "misleading"
+notes = "Lines 31-35 and the wallet-binding/deposit/withdraw/exit sections at 99-136 and 158-187 present retired operations as live; lines 75-78 allow onboarding at receipt-verified."
+
+[doc.11]
+path = "docs/site/docs/human/journeys.md"
+status = "misleading"
+notes = "Lines 4-12 advertise retired journeys; lines 17-20 and 46-57 describe separate custody/execution domains; lines 25-29 and 62 fail to state Committed completion."
+
+[doc.12]
+path = "docs/site/docs/operators/hosted-internal.md"
+status = "stale"
+notes = "Lines 232-233 say Human is declared only as a policy peer/upstream. services/platform/hosted/human/deployment.yaml now declares its Service selecting layerx-node and Human-specific policies; web-deployment.yaml declares web workloads."
+
+[doc.13]
+path = "services/human/crates/layerx-human-service/README.md"
+status = "stale"
+notes = "Lines 3-7 retain movement protocol/executor and withdrawal shapes; line 15 configures the custody precompile for withdrawal/forced exit; line 20 requires independent RPC votes for retired exit journeys."

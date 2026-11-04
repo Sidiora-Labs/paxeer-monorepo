@@ -1,13 +1,16 @@
-# Public JSON-RPC
+# Public node and hosted gateway JSON-RPC
 
-The limited beta has not opened yet; the gateway API becomes available
-when it does. Once available, the JSON-RPC gateway publishes **33** `lx_*` and `px_*` methods in the
-embedded OpenRPC 1.3.2 document
-(`services/platform/hosted/gateway/openrpc.json`). Those names are self-service
-onboarding, authenticated canonical submission, unauthenticated
-committed reads, fee estimation, and scoped live subscriptions. The
-gateway dispatch serves these method names
-(`services/platform/hosted/gateway/src/rpc.rs`).
+The public JSON-RPC of Paxeer X Network is served at the root of
+`https://api-mainnet-beta.paxeer.network` and `api1` through
+`api14.mainnet-beta.paxeer.network` (EVM chain ID `125`, hex `0x7d`).
+It has no separate public LayerX interface. The node names do not serve
+`px_*` or `lx_*`; `px_getReceiptKeys` and `px_getHistory` at the node root
+return `-32601` (method not available).
+
+The hosted gateway is operator-deployed. Its OpenRPC 1.3.2 document defines
+33 `lx_*` and `px_*` methods for onboarding, canonical submission, committed
+reads, fee estimation, and subscriptions. These are gateway contracts, and
+availability depends on the operator's deployment and upstream configuration.
 
 See [Commitment levels](CommitmentLevels.md), [Assets](Assets.md),
 [Payments developer path](PaymentsQuickstart.md), and the
@@ -15,11 +18,26 @@ See [Commitment levels](CommitmentLevels.md), [Assets](Assets.md),
 
 ## Endpoints
 
-| Transport | Endpoint | Use |
+The checked-in `services/platform/hosted/gateway/deployment.yaml` Ingress and
+`railway.env.example` public-host setting still name the public node hostname.
+Live checks there return `0x7d` for root `eth_chainId` and HTTP 404 for
+`POST /rpc`; they do not establish a public gateway deployment. No separate
+public gateway endpoint is configured, so the gateway OpenRPC document and CLI
+fixture omit `servers`. Obtain a gateway origin from its operator.
+
+The gateway implements these paths relative to that operator-provided origin:
+
+| Transport | Gateway path | Use |
 | --- | --- | --- |
-| HTTPS | `https://api-mainnet-beta.paxeer.network/rpc` | JSON-RPC 2.0 request or batch |
-| HTTPS | `https://api-mainnet-beta.paxeer.network/rpc/schema` | Embedded OpenRPC document |
-| WebSocket | `wss://api-mainnet-beta.paxeer.network/rpc/ws` | `lx_subscribe` |
+| HTTPS | `POST /rpc` | JSON-RPC 2.0 request or batch |
+| HTTPS | `GET /rpc/schema` | Embedded OpenRPC document |
+| WebSocket | `GET /rpc/ws` | Authenticated `lx_subscribe` |
+| WebSocket | `GET /rpc/evm/ws` | Authenticated EVM relay, only when `LAYERX_GATEWAY_PAXEER_WS_URL` is configured |
+
+The WebSocket mounts are in `services/platform/hosted/gateway/src/main.rs`;
+JSON-RPC and schema dispatch are in `src/rpc.rs`. These paths belong to a
+gateway deployment. They are not public node paths. WebSocket upgrades were
+observed at the public node's root and `/ws`; `/rpc/ws` did not upgrade.
 
 `POST /rpc` requires `Content-Type: application/json`. It accepts a single
 request or a batch of 1–32 requests. A request that carries no `id`, alone or

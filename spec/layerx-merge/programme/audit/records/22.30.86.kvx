@@ -1,0 +1,1345 @@
+# Pre-upgrade static audit: all 96 package members, package requirements, 273 produced and 279 consumed registry rows, merged-network brief, and documentation. Findings propose repairs; no production change or runtime qualification is claimed.
+
+[audit.22.30.86]
+task = "22.30.86"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 96
+findings = 67
+docs_reviewed = 13
+upgrade_ready = false
+blocking = ["node-root-rejected", "daemon-submission-shape", "jvm-native-prepare-shape", "buyer-draw-recipient", "seller-draw-recipient", "agent-draw-recipient", "draw-producer-unavailable", "seller-grant-final-verifier", "seller-network-unbound", "receipt-reuse-principal", "commitment-inclusion-unverified", "commitment-validator-trust", "fulfillment-release-before-claim", "js-gateway-node-conflation", "py-gateway-node-conflation", "python-purpose-optional", "live-python-deleted-flag", "connected-verification-rung"]
+
+[file.001]
+path = "sdk/platform/generators/Cargo.toml"
+lines = 38
+verdict = "clean"
+note = "Cargo manifest, generator targets, local KVX dependency and test dependencies agree with the pipeline."
+
+[file.002]
+path = "sdk/platform/generators/clippy.toml"
+lines = 2
+verdict = "clean"
+note = "Both lint thresholds concern generator lint policy and introduce no runtime endpoint or retired component."
+
+[file.003]
+path = "sdk/platform/generators/deny.toml"
+lines = 56
+verdict = "clean"
+note = "All license, advisory, duplicate-version and source policy entries reviewed; no product interface disagreement found."
+
+[file.004]
+path = "sdk/platform/generators/generate_jvm.py"
+lines = 622
+verdict = "issues"
+note = "JVM schema overlays, renderers and output selection reviewed; native prepare result is replaced with an incompatible transaction model."
+
+[file.005]
+path = "sdk/platform/generators/generate_portable.py"
+lines = 330
+verdict = "clean"
+note = "Portable manifest validation, duplicate checks, HTTP/EVM transport distinction and Swift/C# descriptor generation agree with declared operation metadata."
+
+[file.006]
+path = "sdk/platform/generators/src/main.rs"
+lines = 2527
+verdict = "clean"
+note = "Complete Rust pipeline, manifest checks, source/output resealing, operation catalogs and receipt generation reviewed against their consumers; no additional mismatch found."
+
+[file.007]
+path = "sdk/platform/generators/tests/drift.rs"
+lines = 1096
+verdict = "clean"
+note = "All drift fixtures and assertions reviewed, including locked outputs and operation contract mutations; synthetic negative schema cases are intentional."
+
+[file.008]
+path = "sdk/platform/generators/tests/lifecycle_retired.rs"
+lines = 202
+verdict = "clean"
+note = "Lifecycle retirement assertions and artifact scans use historical names as absence/refusal expectations rather than live routes."
+
+[file.009]
+path = "sdk/platform/generators/tests/paxai_schema.rs"
+lines = 117
+verdict = "clean"
+note = "All PaxAI schema generation and mutation checks preserve status, freshness and typed operation metadata."
+
+[file.010]
+path = "sdk/platform/generators/tests/pipeline_reseal.rs"
+lines = 208
+verdict = "clean"
+note = "All pipeline reseal, missing/unknown output and manifest coverage checks reviewed; no silent fallback or weakened contract found."
+
+[file.011]
+path = "sdk/platform/generators/tests/proof_generators.rs"
+lines = 330
+verdict = "clean"
+note = "All generator proof cases and subprocess handling reviewed; source/output drift checks do not prescribe live historical interfaces."
+
+[file.012]
+path = "sdk/platform/generators/tests/receipt_contract.rs"
+lines = 358
+verdict = "clean"
+note = "All receipt enum, wire field, error and guest ABI generation checks reviewed against the declared catalog."
+
+[file.013]
+path = "sdk/platform/generators/tests/test_generate_jvm_retired.py"
+lines = 79
+verdict = "clean"
+note = "Complete human retirement test verifies removed routes and models against actual generated contract outputs."
+
+[file.014]
+path = "sdk/platform/generators/tests/test_generate_portable_manifest.py"
+lines = 86
+verdict = "clean"
+note = "All portable manifest tests reviewed for group shapes, identifiers, duplicates and HTTP/EVM metadata refusal."
+
+[file.015]
+path = "services/platform/examples/support/artifacts.mjs"
+lines = 42
+verdict = "clean"
+note = "Artifact containment, command/config lookup and reference artifact resolution agree with declared application inputs."
+
+[file.016]
+path = "services/platform/examples/support/merchant-app.mjs"
+lines = 487
+verdict = "issues"
+note = "Complete receipt, order, fulfillment, webhook and HTTP paths reviewed; durable claims, fenced webhook leases, multi-process transitions, inbound authorization and transport bounds need repairs."
+
+[file.017]
+path = "services/platform/examples/support/runtime.mjs"
+lines = 251
+verdict = "issues"
+note = "Complete config, URL, receipt-pin and verification helpers reviewed; outbound receipt fetch is unbounded and the IPv6 loopback allowlist differs from URL hostname encoding."
+
+[file.018]
+path = "services/platform/middleware/agent/package.json"
+lines = 44
+verdict = "clean"
+note = "Package exports, ESM dependencies and build/test scripts agree with the agent source layout."
+
+[file.019]
+path = "services/platform/middleware/agent/src/daemon.ts"
+lines = 231
+verdict = "issues"
+note = "All spend validation, EVM preparation/signing, submission decoding and approval pagination reviewed; daemon response shape is incompatible."
+
+[file.020]
+path = "services/platform/middleware/agent/src/index.ts"
+lines = 1021
+verdict = "issues"
+note = "All budget, approval, submit/track/recover, receipt and grant branches reviewed; draw recipient binding is reversed."
+
+[file.021]
+path = "services/platform/middleware/agent/test/agent-grant.test.mjs"
+lines = 284
+verdict = "issues"
+note = "All grant reservation, mutation, replay and unknown-outcome tests reviewed; positive fixtures conceal recipient/source reversal and unavailable live draw execution."
+
+[file.022]
+path = "services/platform/middleware/agent/test/agent-receipt.test.mjs"
+lines = 59
+verdict = "clean"
+note = "Complete receipt tests use merged signed EVM evidence and pinned transaction/payment binding; no further disagreement found."
+
+[file.023]
+path = "services/platform/middleware/agent/test/committed-receipt.test.mjs"
+lines = 40
+verdict = "clean"
+note = "Committed-agent tests refuse missing proof resolvers and do not accept a relabeled receipted proof as commitment."
+
+[file.024]
+path = "services/platform/middleware/agent/test/daemon-evm.test.mjs"
+lines = 188
+verdict = "issues"
+note = "All preparation/signing/submission cases reviewed; hand-built submission fixture differs from the real daemon serializer."
+
+[file.025]
+path = "services/platform/middleware/agent/test/evm-terms.test.mjs"
+lines = 158
+verdict = "clean"
+note = "All agent EVM term and commitment mutations reviewed; retired networks and finality terms are refusal cases."
+
+[file.026]
+path = "services/platform/middleware/agent/test/proof_middleware_agent_ts_exports.test.mjs"
+lines = 331
+verdict = "issues"
+note = "All agent exports and integration fixtures reviewed; positive daemon responses use a consumer-defined third shape."
+
+[file.027]
+path = "services/platform/middleware/agent/test/protocol-selection.test.mjs"
+lines = 124
+verdict = "clean"
+note = "Complete protocol-selection tests reject retired selections and do not offer them as live networks."
+
+[file.028]
+path = "services/platform/middleware/agent/tsconfig.json"
+lines = 19
+verdict = "clean"
+note = "All strict compiler flags, source includes and output paths agree with agent package exports."
+
+[file.029]
+path = "services/platform/middleware/buyer/package.json"
+lines = 40
+verdict = "clean"
+note = "Buyer package entry points, dependencies and scripts agree with ESM source/build targets."
+
+[file.030]
+path = "services/platform/middleware/buyer/src/index.ts"
+lines = 1056
+verdict = "issues"
+note = "All HTTP preparation, capture, exact/grant checks, account resolution and signing branches reviewed; draw recipient checks are reversed."
+
+[file.031]
+path = "services/platform/middleware/buyer/test/evm-terms.test.mjs"
+lines = 90
+verdict = "clean"
+note = "All buyer EVM offer and network tests reviewed; retired labels are negative assertions only."
+
+[file.032]
+path = "services/platform/middleware/buyer/test/grant-draw-header.test.mjs"
+lines = 288
+verdict = "issues"
+note = "All header, calldata and grant settlement mutations reviewed, including ABI word order; positive payer/recipient mapping is incorrect."
+
+[file.033]
+path = "services/platform/middleware/buyer/test/portable-receipts.test.mjs"
+lines = 318
+verdict = "clean"
+note = "All portable receipt, pin, sender, amount, asset, recipient, retry and malformed-response cases reviewed; no additional mismatch identified."
+
+[file.034]
+path = "services/platform/middleware/buyer/test/proof_middleware_buyer_ts_exports.test.mjs"
+lines = 341
+verdict = "issues"
+note = "All buyer exports and HTTP consumer paths reviewed; grant export proof places payer in the ABI recipient field."
+
+[file.035]
+path = "services/platform/middleware/buyer/test/protocol-selection.test.mjs"
+lines = 13
+verdict = "clean"
+note = "Complete protocol retirement test checks removed selector exports remain absent."
+
+[file.036]
+path = "services/platform/middleware/buyer/tsconfig.json"
+lines = 19
+verdict = "clean"
+note = "All strict buyer compiler options and include/output targets agree with package exports."
+
+[file.037]
+path = "services/platform/middleware/conformance/connected.mjs"
+lines = 253
+verdict = "issues"
+note = "Complete connected merchant/agent lifecycle and recovery checks reviewed; balance check reads the retired verification ladder."
+
+[file.038]
+path = "services/platform/middleware/conformance/package.json"
+lines = 30
+verdict = "clean"
+note = "Conformance dependencies, scripts and exports agree with declared command entry points."
+
+[file.039]
+path = "services/platform/middleware/conformance/pay6/agent-commitment.test.mjs"
+lines = 36
+verdict = "clean"
+note = "All agent commitment assertions distinguish valid signed receipt evidence from an unproved committed label."
+
+[file.040]
+path = "services/platform/middleware/conformance/pay6/asset.test.mjs"
+lines = 43
+verdict = "clean"
+note = "All asset/account/grant-revoke codec assertions agree with the corresponding native layouts."
+
+[file.041]
+path = "services/platform/middleware/conformance/pay6/commitment.test.mjs"
+lines = 35
+verdict = "clean"
+note = "Complete payment commitment test refuses old rungs and requires a resolver for committed verification."
+
+[file.042]
+path = "services/platform/middleware/conformance/pay6/committed-fixture.mjs"
+lines = 147
+verdict = "clean"
+note = "Complete committed fixture, validator hashing, header and inclusion construction reviewed; it supplies fields discarded by the consumer, recorded against that consumer."
+
+[file.043]
+path = "services/platform/middleware/conformance/pay6/committed-rung.test.mjs"
+lines = 45
+verdict = "issues"
+note = "Both committed fixture tests reviewed; signer replacement masks the missing validator-set/header-hash comparison."
+
+[file.044]
+path = "services/platform/middleware/conformance/pay6/evm-receipt.json"
+lines = 39
+verdict = "generated"
+note = "Generated deterministic EVM receipt fixture produced by pay6/generate_evm_receipt.mjs and conformance receipt builders; provenance classification rather than a source-code verdict."
+
+[file.045]
+path = "services/platform/middleware/conformance/pay6/evm-receipt.test.mjs"
+lines = 46
+verdict = "clean"
+note = "All receipt field, key-range and signed-transaction mutation assertions agree with the generated EVM fixture."
+
+[file.046]
+path = "services/platform/middleware/conformance/pay6/examples.test.mjs"
+lines = 14
+verdict = "clean"
+note = "Both example environment cases reviewed; /rpc is only part of the forbidden persistent-host URL rejected before any network call."
+
+[file.047]
+path = "services/platform/middleware/conformance/pay6/generate_evm_receipt.mjs"
+lines = 48
+verdict = "clean"
+note = "Fixture generation, safe writes and receipt-pin conversion reviewed; no unsupported live receipt capability advertised."
+
+[file.048]
+path = "services/platform/middleware/conformance/pay6/ledger-draw.test.mjs"
+lines = 201
+verdict = "issues"
+note = "All ABI, signature, log, nonce and RPC assertions reviewed; event fixture reverses recipient/source and transport assumes /rpc."
+
+[file.049]
+path = "services/platform/middleware/conformance/pay6/rpc.test.mjs"
+lines = 32
+verdict = "issues"
+note = "All RPC pending, signed evidence and endpoint-bound cases reviewed; valid root node endpoints are explicitly rejected."
+
+[file.050]
+path = "services/platform/middleware/conformance/pay6/test_agent.py"
+lines = 195
+verdict = "issues"
+note = "All Python budget, draw, concurrency and recovery tests reviewed; positive network and digest expectations diverge from the merged portable receipt."
+
+[file.051]
+path = "services/platform/middleware/conformance/pay6/test_asset.py"
+lines = 96
+verdict = "clean"
+note = "All Python native asset/account/receive/grant codec and malformed-field cases agree with their corresponding wire layouts."
+
+[file.052]
+path = "services/platform/middleware/conformance/pay6/test_commitment.py"
+lines = 114
+verdict = "issues"
+note = "All Python pin, transaction, payment and commitment cases reviewed; submitted is positively accepted as a release commitment."
+
+[file.053]
+path = "services/platform/middleware/conformance/pay6/test_http.py"
+lines = 184
+verdict = "issues"
+note = "All Python HTTP seller/buyer, replay, concurrency, authority and header cases reviewed; positive network and proof envelope are premerge."
+
+[file.054]
+path = "services/platform/middleware/conformance/pay6/test_rpc.py"
+lines = 83
+verdict = "issues"
+note = "All Python RPC commitment, receipt, nonce and endpoint cases reviewed; a label/hash substitutes for committed proof and node roots are rejected."
+
+[file.055]
+path = "services/platform/middleware/conformance/run.mjs"
+lines = 55
+verdict = "clean"
+note = "Complete harness and result-reporting paths invoke declared scenarios without inventing a production response shape."
+
+[file.056]
+path = "services/platform/middleware/conformance/service.mjs"
+lines = 1118
+verdict = "issues"
+note = "All merchant/agent service cases, state stores, wallet signing and restarts reviewed; daemon fixtures and node routing disagree with actual producers."
+
+[file.057]
+path = "services/platform/middleware/conformance/src/receipts.ts"
+lines = 395
+verdict = "clean"
+note = "All EVM receipt/effect, digest, amount and offer builders reviewed against the current wire contract; no additional disagreement found."
+
+[file.058]
+path = "services/platform/middleware/conformance/src/scenarios.ts"
+lines = 830
+verdict = "clean"
+note = "All seller/buyer/agent/webhook scenarios and failures reviewed; shared fulfillment repository race is recorded at its owning implementation."
+
+[file.059]
+path = "services/platform/middleware/conformance/src/support.ts"
+lines = 137
+verdict = "issues"
+note = "All in-memory fulfillment, delivery and refusal helpers reviewed; fulfillment has no atomic pre-release claim."
+
+[file.060]
+path = "services/platform/middleware/conformance/test/proof_middleware_conformance_ts_exports.test.mjs"
+lines = 182
+verdict = "clean"
+note = "All exported conformance consumer proofs reviewed; shared repository and service-fixture defects are recorded at their implementations."
+
+[file.061]
+path = "services/platform/middleware/conformance/test/receipts.test.mjs"
+lines = 138
+verdict = "clean"
+note = "All receipt codec, pin, effect and mutation tests agree with deterministic fixture structure."
+
+[file.062]
+path = "services/platform/middleware/conformance/test/scenarios.test.mjs"
+lines = 23
+verdict = "clean"
+note = "All scenario selection and result assertions preserve declared failures rather than skip them."
+
+[file.063]
+path = "services/platform/middleware/conformance/test/service-account.test.mjs"
+lines = 112
+verdict = "clean"
+note = "All account/network/purpose service tests reviewed; old network labels are expressly refused."
+
+[file.064]
+path = "services/platform/middleware/conformance/test/service-scenarios.test.mjs"
+lines = 42
+verdict = "clean"
+note = "All service scenario registration and payment checks reviewed; actual producer response coverage is missing in the shared service fixture and recorded there."
+
+[file.065]
+path = "services/platform/middleware/conformance/tsconfig.json"
+lines = 20
+verdict = "clean"
+note = "All conformance compiler flags and source/output includes agree with the package targets."
+
+[file.066]
+path = "services/platform/middleware/examples/examples-check.sh"
+lines = 143
+verdict = "issues"
+note = "All offline preflights, dependencies and live-runner configuration reviewed; Python authority variable masks a deleted CLI option."
+
+[file.067]
+path = "services/platform/middleware/examples/examples-live-check.sh"
+lines = 201
+verdict = "issues"
+note = "Complete live runner reviewed; unified /rpc topology and removed Python flag prevent the declared path."
+
+[file.068]
+path = "services/platform/middleware/examples/public-rpc.mjs"
+lines = 291
+verdict = "issues"
+note = "All JavaScript CLI, identity, faucet, transaction and verification branches reviewed; origin conflation and proof preflight need repair."
+
+[file.069]
+path = "services/platform/middleware/examples/public_rpc.py"
+lines = 355
+verdict = "issues"
+note = "All Python CLI, identity, faucet, offer and signed-payment branches reviewed; origin split, proof preflight and optional exact purpose disagree with the contract."
+
+[file.070]
+path = "services/platform/middleware/examples/test/public-rpc.test.mjs"
+lines = 218
+verdict = "issues"
+note = "All JavaScript example server and request assertions reviewed; combined /rpc fixture hides actual service boundaries."
+
+[file.071]
+path = "services/platform/middleware/examples/test_public_rpc.py"
+lines = 199
+verdict = "issues"
+note = "All Python example, CLI, receipt pin and refusal cases reviewed; combined /rpc fixture hides actual service boundaries."
+
+[file.072]
+path = "services/platform/middleware/merchant/package.json"
+lines = 44
+verdict = "clean"
+note = "Merchant package exports, dependencies and build/test scripts agree with its ESM source layout."
+
+[file.073]
+path = "services/platform/middleware/merchant/src/index.ts"
+lines = 585
+verdict = "clean"
+note = "All quote, order, seller-result, receipt recheck and verified webhook branches reviewed; delegated seller and concrete file-store defects are recorded at their owners."
+
+[file.074]
+path = "services/platform/middleware/merchant/test/evm-terms.test.mjs"
+lines = 204
+verdict = "clean"
+note = "All merchant EVM offer and receipt cases reviewed; retired terms are refused and signed evidence is rechecked."
+
+[file.075]
+path = "services/platform/middleware/merchant/test/proof_middleware_merchant_ts_exports.test.mjs"
+lines = 218
+verdict = "clean"
+note = "All merchant exports, order-store contracts and webhook consumer proofs reviewed; no additional independent producer disagreement found."
+
+[file.076]
+path = "services/platform/middleware/merchant/test/protocol-selection.test.mjs"
+lines = 117
+verdict = "clean"
+note = "Complete merchant protocol retirement and selection checks reviewed; historical choices are refused."
+
+[file.077]
+path = "services/platform/middleware/merchant/test/settlement-webhook.test.mjs"
+lines = 273
+verdict = "clean"
+note = "All webhook signature, replay, conflict, pending receipt and order-update cases reviewed; no independent verified-webhook authentication bypass found."
+
+[file.078]
+path = "services/platform/middleware/merchant/tsconfig.json"
+lines = 19
+verdict = "clean"
+note = "All merchant strict compiler options and source/output paths agree with package targets."
+
+[file.079]
+path = "services/platform/middleware/seller/package.json"
+lines = 40
+verdict = "clean"
+note = "Seller package exports, dependencies and build/test scripts agree with its ESM source layout."
+
+[file.080]
+path = "services/platform/middleware/seller/src/commitment.ts"
+lines = 224
+verdict = "issues"
+note = "All terms, commitment resolution, proof encoding/decoding and verification reviewed; block membership and trusted validator binding are missing."
+
+[file.081]
+path = "services/platform/middleware/seller/src/grant.ts"
+lines = 108
+verdict = "issues"
+note = "Complete grant authority and event binding reviewed; recipient mapping is reversed and the real precompile draw cannot succeed."
+
+[file.082]
+path = "services/platform/middleware/seller/src/index.ts"
+lines = 1166
+verdict = "issues"
+note = "All authorities, fulfillment, receipt/effect verification, headers, settlement and webhooks reviewed; scheme, network and replay identity defects are recorded."
+
+[file.083]
+path = "services/platform/middleware/seller/src/ledger.ts"
+lines = 150
+verdict = "issues"
+note = "All ABI encoders, log decoders and shape/integer checks reviewed; wire order is correct but legacy field names confuse recipient/purpose with payer/asset."
+
+[file.084]
+path = "services/platform/middleware/seller/src/rpc.ts"
+lines = 143
+verdict = "issues"
+note = "Complete bounded RPC client and payment bridge reviewed; URL validation refuses the deployed node root."
+
+[file.085]
+path = "services/platform/middleware/seller/test/checkpoint-retired.test.mjs"
+lines = 12
+verdict = "clean"
+note = "Complete checkpoint retirement test asserts removed exports are absent rather than using them."
+
+[file.086]
+path = "services/platform/middleware/seller/test/commitment-rungs.test.mjs"
+lines = 133
+verdict = "issues"
+note = "All signature quorum, height and mutation tests reviewed; committed fixtures omit authenticated receipt membership and validator identity."
+
+[file.087]
+path = "services/platform/middleware/seller/test/evm-terms.test.mjs"
+lines = 90
+verdict = "clean"
+note = "All seller EVM offer/network cases reviewed; retired labels occur only in refusal assertions."
+
+[file.088]
+path = "services/platform/middleware/seller/test/grant-draw.test.mjs"
+lines = 204
+verdict = "issues"
+note = "All grant execution, log mutations, pending/refused and malformed payload cases reviewed; positive synthetic success reverses recipient semantics."
+
+[file.089]
+path = "services/platform/middleware/seller/test/ledger.test.mjs"
+lines = 141
+verdict = "clean"
+note = "All ledger selector, word layout, log decoder and malformed integer assertions reviewed; compatibility-name migration is recorded on the source interface."
+
+[file.090]
+path = "services/platform/middleware/seller/test/payment-rpc.test.mjs"
+lines = 189
+verdict = "issues"
+note = "All RPC send/poll/recovery, nonce, error and response bounds reviewed; successful fixture transport assumes retired /rpc."
+
+[file.091]
+path = "services/platform/middleware/seller/test/proof_middleware_seller_ts_exports.test.mjs"
+lines = 357
+verdict = "issues"
+note = "All seller consumer and HTTP export proofs reviewed; commitment fixtures are unbound and RPC cases assume /rpc."
+
+[file.092]
+path = "services/platform/middleware/seller/test/receipt-replay.test.mjs"
+lines = 167
+verdict = "issues"
+note = "All durable replay and proof-tampering cases reviewed; cross-principal success assertion permits a second fulfillment from one receipt."
+
+[file.093]
+path = "services/platform/middleware/seller/test/receipt-verification.test.mjs"
+lines = 247
+verdict = "clean"
+note = "All signed receipt, pin, amount, asset, payee, payer, purpose and effect mutations reviewed; absent network binding is recorded at the shared source verifier."
+
+[file.094]
+path = "services/platform/middleware/seller/test/retired-exports.test.mjs"
+lines = 18
+verdict = "clean"
+note = "Both export retirement/preservation tests reviewed; kernel batch evidence is absent and ledger/receipt exports retained."
+
+[file.095]
+path = "services/platform/middleware/seller/test/settlement-response.test.mjs"
+lines = 364
+verdict = "issues"
+note = "All settled response, pin, portable proof and restart cases reviewed; committed block fixtures lack authenticated receipt inclusion."
+
+[file.096]
+path = "services/platform/middleware/seller/tsconfig.json"
+lines = 19
+verdict = "clean"
+note = "All seller compiler strictness and source/output includes agree with package exports."
+
+[finding.node-root-rejected]
+file = "services/platform/middleware/seller/src/rpc.ts"
+line = 59
+class = "interface-mismatch"
+severity = "high"
+observed = "PaymentRpc requires URL.pathname to equal /rpc. A configured public node such as https://api-mainnet-beta.paxeer.network/ is refused before eth_sendRawTransaction or pax_sequencerReceipt can run."
+expected = "Brief facts 2 and 3 put public node JSON-RPC at the root path and retire the unified /rpc endpoint. The seller RPC client must round-trip with that node."
+proposal = "In services/platform/middleware/seller/src/rpc.ts accept the node root URL and keep authentication, redirect, deadline and body bounds; route hosted gateway methods through a separate client and prove both origins."
+owner_domain = 8
+interface = "8.ts-middleware-seller-rpc-paymentrpc-j41"
+
+[finding.daemon-submission-shape]
+file = "services/platform/middleware/agent/src/daemon.ts"
+line = 143
+class = "interface-mismatch"
+severity = "high"
+observed = "decodeDaemonSubmission requires top-level tx_hash/submission/receipt, inner verification_level with PascalCase values and no inner tx_hash; it rejects Committed state. The real agent_rpc_dispatch.rs decode_observation emits activity_id, inner tx_hash and lowercase rung, and supports Committed; decode_eip1559_submission emits a flat preparation_ref/state/signed_receipt/tx_hash result."
+expected = "Submit and tracking responses must retain actual producer fields, enum spellings and terminal states across submission, restart and recovery, as required by the brief and reqs 8253 and 8331."
+proposal = "In services/platform/middleware/agent/src/daemon.ts decode the separate submit and observation contracts emitted by services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs, resolve trusted receipt keys explicitly, and exercise real producer serialization through transport and resumed tracking."
+owner_domain = 8
+interface = "8.ts-middleware-agent-sidiora-layerx-agent-middleware-decodedaemonsubmission"
+
+[finding.jvm-native-prepare-shape]
+file = "sdk/platform/generators/generate_jvm.py"
+line = 42
+class = "interface-mismatch"
+severity = "high"
+observed = "agent_plane overwrites NativePrepareResultV1 with chainId, nonce, gas, to and data and replaces operation.prepare.response. The native_v1 producer dispatches NativePrepareResultV1Wire, whose required version, preparation_id, canonical_bytes, signing_preimage, activity, approval_required and approval_id are declared in services/agent/schema/agent-api/v1.kvx:811."
+expected = "Generated native prepare results must preserve the public versioned producer record, including approval and signing disclosure. A separate EIP-1559 preparation contract must preserve its own fee and signing fields."
+proposal = "In sdk/platform/generators/generate_jvm.py generate NativePrepareResultV1 from its declared schema rather than substituting TRANSACTION_FIELDS, model EVM preparation separately, and round-trip an actual native daemon answer into the JVM client."
+owner_domain = 8
+interface = "8.cli-sdkgen-generate-jvm-py"
+
+[finding.buyer-draw-recipient]
+file = "services/platform/middleware/buyer/src/index.ts"
+line = 1041
+class = "interface-mismatch"
+severity = "high"
+observed = "grantDrawTransaction compares draw calldata bytes 36..68 to paymentPayer; captureSettlement also compares PaymentDrawn.from to those bytes. precompiles/layerxledger/abi.json calls the second argument recipient, so ordinary grant payments with distinct payer and seller cannot bind correctly."
+expected = "Req 8331 and the draw ABI order are grantId, recipient, amount, idempotencyKey, sequence, purposeHash, contextHash. Recipient must equal accepted payTo; the grant determines the debited payer and asset."
+proposal = "In services/platform/middleware/buyer/src/index.ts bind word 1 to accepted.payTo and PaymentDrawn.to to that recipient; authenticate payer through the grant rather than the recipient word, and exercise distinct payer/payee through the node."
+owner_domain = 8
+interface = "8.ts-middleware-buyer-index-grantpaymentheader-j41"
+
+[finding.seller-draw-recipient]
+file = "services/platform/middleware/seller/src/grant.ts"
+line = 79
+class = "interface-mismatch"
+severity = "high"
+observed = "GrantPaymentAuthority compares PaymentDrawn.from with calldata word 1 while separately requiring PaymentDrawn.to to equal payTo. That word is the draw ABI recipient rather than the source account; positive fixtures put the payer there."
+expected = "The draw producer and seller consumer must agree that calldata recipient is the credited account and equals event to; source identity must come from the grant and authenticated execution."
+proposal = "In services/platform/middleware/seller/src/grant.ts bind the recipient word and PaymentDrawn.to to requirements.payTo, resolve grant source and asset, and prove settlement with distinct payer/recipient using node-produced receipts."
+owner_domain = 8
+interface = "8.ts-middleware-seller-grant-grantpaymentauthority-j41"
+
+[finding.agent-draw-recipient]
+file = "services/platform/middleware/agent/src/index.ts"
+line = 1007
+class = "interface-mismatch"
+severity = "high"
+observed = "AgentGrantMiddleware compares payment.from to calldata bytes 36..68 and payment.to to requirements.payTo. The ledger ABI names those bytes recipient, so this accepts the same reversed fixture mapping as the seller."
+expected = "An authorized draw must credit the selected recipient and preserve grant source, asset and event/calldata agreement before reserved agent budget is committed."
+proposal = "In services/platform/middleware/agent/src/index.ts verify the recipient word against payTo and PaymentDrawn.to, obtain payer/asset from authenticated grant state, and preserve unknown reservations while recovering real outcomes."
+owner_domain = 8
+interface = "8.ts-middleware-agent-index-agentgrantmiddleware-j41"
+
+[finding.draw-producer-unavailable]
+file = "services/platform/middleware/seller/src/grant.ts"
+line = 39
+class = "wiring-gap"
+severity = "high"
+observed = "GrantPaymentAuthority exposes metered/subscription draws.execute, but precompiles/layerxledger/payments.go:92-106 unconditionally returns ErrNoPayerGrant after parsing draw; getPayerGrant at 141 likewise always refuses. A successful draw cannot traverse the advertised live ledger path."
+expected = "Req 8331 requires a live authorized grant draw, persisted accounting and PaymentDrawn receipt that seller, buyer and agent can verify and recover without a second debit."
+proposal = "Implement grant lookup, authorization, debit, event emission and replay recovery in precompiles/layerxledger/payments.go and its modules/ledger keeper path; coordinate seller grant offer availability with that capability and prove a real grant payment."
+owner_domain = 7
+interface = "8.ts-middleware-seller-grant-grantpaymentauthority-j41"
+
+[finding.seller-grant-final-verifier]
+file = "services/platform/middleware/seller/src/index.ts"
+line = 286
+class = "interface-mismatch"
+severity = "high"
+observed = "SellerMiddleware sends every settled result to verifyPaymentReceipt, whose loop at 453 recognizes only PaymentExact. GrantPaymentAuthority returns PaymentDrawn-only evidence for metered/subscription, so even a successful grant authority result cannot release the product through SellerMiddleware."
+expected = "The seller path must verify the event appropriate to the accepted scheme; req 8331 requires metered/subscription grant payments to reach verified fulfillment through the same boundary."
+proposal = "In services/platform/middleware/seller/src/index.ts share pinned receipt verification and dispatch scheme-specific PaymentExact/PaymentDrawn binding; prove GrantPaymentAuthority through SellerMiddleware, BuyerMiddleware and durable fulfillment."
+owner_domain = 8
+interface = "8.ts-middleware-seller-sidiora-layerx-seller-middleware-sellermiddleware"
+
+[finding.seller-network-unbound]
+file = "services/platform/middleware/seller/src/index.ts"
+line = 411
+class = "security"
+severity = "high"
+observed = "verifyPaymentReceipt checks signedReceipt against rawTransaction hash but never compares decoded transaction chainId with requirements.network. services/agent/sdk/typescript/src/verifier.ts:495 checks key, signature, height and hash only; authentic other-chain payment under a shared pin can satisfy seller amount/payee checks."
+expected = "Payment must bind the accepted eip155 network along with asset, amount, recipient and optional purpose; valid evidence for another chain must not release an order on chain 125."
+proposal = "In services/platform/middleware/seller/src/index.ts authenticate the EIP-1559 transaction and require chainId to match requirements.network before fulfillment; add an authentic other-chain receipt under the same pin as a refusal case for seller, buyer, merchant and RPC callers."
+owner_domain = 8
+interface = "8.ts-middleware-seller-sidiora-layerx-seller-middleware-verifypaymentreceipt"
+
+[finding.receipt-reuse-principal]
+file = "services/platform/middleware/seller/src/index.ts"
+line = 827
+class = "security"
+severity = "high"
+observed = "Fulfillment identity hashes principal with receiptDigest; handle uses this at 261 and 287. The same receipt can release two different payloads under different principals in one seller/payee domain, and receipt-replay.test.mjs explicitly expects two releases."
+expected = "Req 22074.1 forbids a second fulfillment for one verified receipt presented with two payloads; changing principal must not reset payment consumption for the same seller/payee domain."
+proposal = "In services/platform/middleware/seller/src/index.ts atomically claim receipt identity within its authenticated tenant/payee domain and persist the bound owner/request digest; prove conflicting principals, payloads, concurrent redelivery and process reopen produce one release."
+owner_domain = 8
+interface = "8.ts-middleware-seller-sidiora-layerx-seller-middleware-fulfillmentrepository"
+
+[finding.commitment-inclusion-unverified]
+file = "services/platform/middleware/seller/src/commitment.ts"
+line = 124
+class = "security"
+severity = "high"
+observed = "verifyPaymentCommitmentEvidence compares caller-supplied receiptInclusion identifiers with the receipt then forwards only chainId, height, blockId, commit and validators to verifyCommittedReceipt. No Merkle path, receipt root or recomputed header hash ties the receipt to that block; the type and encoder at 10 and 153 omit those fields."
+expected = "A committed payment must demonstrate that the authenticated receipt belongs to the committed block, rather than accompany an unrelated valid commit at a sufficient height. Portable persistence must preserve the entire inclusion binding."
+proposal = "Extend services/platform/middleware/seller/src/commitment.ts and services/agent/sdk/typescript/src/verifier.ts with actual node header/receipt proof verification, recompute block hash and root inclusion, retain proof fields in encoding, and refuse an unrelated valid block commit."
+owner_domain = 8
+interface = "8.ts-middleware-seller-commitment-paymentcommitmentevidence-j41"
+
+[finding.commitment-validator-trust]
+file = "services/platform/middleware/seller/src/commitment.ts"
+line = 129
+class = "security"
+severity = "high"
+observed = "evidence.validatorSet is passed directly to the SDK as trusted validators. There is no comparison with an authenticated header validatorsHash or independently configured chain/height anchor, and blockHeader.chainId is not bound to the requested eip155 network."
+expected = "Req 8262 demands validator-set/header mismatch refusal. A quorum of an arbitrary supplied validator set is not Paxeer commitment; chain identity and validators must be authenticated for the landing block."
+proposal = "In services/platform/middleware/seller/src/commitment.ts require a trusted validator resolver anchored to chain/height, verify the committed header validator hash, bind chain identity to the offer network, and refuse foreign self-signed sets and unsigned-member substitutions."
+owner_domain = 8
+interface = "8.ts-middleware-seller-commitment-verifypaymentcommitmentevidence-j41"
+
+[finding.fulfillment-release-before-claim]
+file = "services/platform/examples/support/merchant-app.mjs"
+line = 278
+class = "restart-recovery"
+severity = "high"
+observed = "FileFulfillments.fulfill awaits release before exclusively creating its result file. Concurrent processes can both release; a crash after release and before writing leaves no record and releases again on restart. EEXIST is discovered after the resource operation."
+expected = "Req 22074 requires one fulfillment for one receipt under concurrent redelivery and recovery; a durable claim must precede fulfillment and support resolving an interrupted release."
+proposal = "In services/platform/examples/support/merchant-app.mjs use a durable atomic pending/completed claim ledger, pass the stable receipt idempotency key to an idempotent release operation, and recover pending work; exercise concurrent processes and crash boundaries."
+owner_domain = 8
+interface = "8.ts-examples-support-merchant-app-runmerchantapplication-j41"
+
+[finding.order-file-crash-window]
+file = "services/platform/examples/support/merchant-app.mjs"
+line = 140
+class = "restart-recovery"
+severity = "medium"
+observed = "FileOrders.open creates the final JSON path with wx before writing its content. A crash can leave an empty/truncated file; the next open gets EEXIST and getRequired cannot parse or recover the order."
+expected = "An accepted checkout key must reopen as the same complete order after a crash, or resume incomplete creation without losing the order or requiring manual file removal."
+proposal = "In services/platform/examples/support/merchant-app.mjs publish complete fsynced order content atomically with exclusive creation semantics and recoverable pending state; cover failures between creation, write and directory sync."
+owner_domain = 8
+
+[finding.order-cross-process-transitions]
+file = "services/platform/examples/support/merchant-app.mjs"
+line = 160
+class = "restart-recovery"
+severity = "medium"
+observed = "FileOrders.locked serializes one instance only. Two processes can read awaiting-payment and independently rename paid/refused files over each other, bypassing state conflict checks and losing the winning terminal state."
+expected = "Terminal order state and receipt binding must remain consistent across concurrent checkout, settlement webhook and reopened application processes."
+proposal = "In services/platform/examples/support/merchant-app.mjs use shared transactional compare-and-set storage for order creation/terminal updates; race separate paid/refused processes and preserve the single winning receipt."
+owner_domain = 8
+
+[finding.merchant-order-read-auth]
+file = "services/platform/examples/support/merchant-app.mjs"
+line = 424
+class = "security"
+severity = "medium"
+observed = "GET /orders/<id> returns the full FileOrders record without authenticating the caller or checking tenant/principal. The generated resource URL exposes the route; a loopback listener does not authenticate its owner."
+expected = "Order details and payment evidence must be readable only by the authenticated customer or authorized operator within the selected tenant."
+proposal = "In services/platform/examples/support/merchant-app.mjs authenticate inbound requests and authorize tenant/principal before order reads; cover cross-principal and cross-tenant disclosure refusal."
+owner_domain = 8
+interface = "8.http-examples-support-get-orders"
+
+[finding.merchant-checkout-principal-auth]
+file = "services/platform/examples/support/merchant-app.mjs"
+line = 448
+class = "security"
+severity = "medium"
+observed = "POST /checkout passes String(body.principal) into merchant.checkout. The configured bearer token authenticates outbound settlement only; no inbound verified identity binds the claimed principal or tenant."
+expected = "Checkout principal and tenant must derive from authenticated context so a caller cannot create or resume another customer payment by choosing their principal."
+proposal = "In services/platform/examples/support/merchant-app.mjs authenticate checkout, derive tenant/principal from credentials, scope checkout keys to that identity and reject impersonation."
+owner_domain = 8
+interface = "8.http-examples-support-post-checkout"
+
+[finding.receipt-transport-unbounded]
+file = "services/platform/examples/support/runtime.mjs"
+line = 117
+class = "runtime-risk"
+severity = "medium"
+observed = "SequencerReceiptClient.resolve calls fetch then response.json without an abort deadline, streamed byte cap or redirect refusal, allowing indefinite operations or excessive allocation on oversized receipt responses."
+expected = "Receipt retrieval must have bounded latency/allocation, retain unknown-outcome semantics after transport failure and stay on its configured endpoint."
+proposal = "In services/platform/examples/support/runtime.mjs reuse a bounded JSON-RPC transport with deadline, streamed response cap and redirect:error; preserve typed pending/refused/unknown errors and verify cancellation/oversized responses."
+owner_domain = 8
+interface = "8.ts-examples-support-runtime-sequencerreceiptclient-j41"
+
+[finding.merchant-transport-unbounded]
+file = "services/platform/examples/support/merchant-app.mjs"
+line = 48
+class = "runtime-risk"
+severity = "medium"
+observed = "TransactionReceipts.resolve and SettlementAuthority.settle have no fetch deadline or response size cap. Settlement follows redirects by default while carrying authorization and payment data."
+expected = "Transaction lookup and settlement failures must not hold checkout/recovery indefinitely; decoding and endpoint policy must remain bounded."
+proposal = "In services/platform/examples/support/merchant-app.mjs use the shared bounded transport, refuse redirects, cap bodies before parsing and preserve explicit unknown-outcome recovery after deadlines."
+owner_domain = 8
+
+[finding.legacy-draw-field-names]
+file = "services/platform/middleware/seller/src/ledger.ts"
+line = 13
+class = "interface-mismatch"
+severity = "medium"
+observed = "LedgerDraw exposes from as ABI recipient and assetId as purposeHash. Comments explain the legacy names, but buyer/seller/agent callers interpret them as payer and asset and propagate the wrong meaning into calldata checks."
+expected = "The draw public model should name grantId, recipient, amount, idempotencyKey, sequence, purposeHash and contextHash consistently with the precompile; grant payer/asset are separate identities."
+proposal = "In services/platform/middleware/seller/src/ledger.ts expose recipient, purposeHash and sequence explicitly and migrate callers; keep any compatibility conversion at an explicit boundary and prove distinct payer, recipient, asset and purpose values."
+owner_domain = 8
+interface = "8.ts-middleware-seller-ledger-encodeledgerdraw-j41"
+
+[finding.js-gateway-node-conflation]
+file = "services/platform/middleware/examples/public-rpc.mjs"
+line = 210
+class = "interface-mismatch"
+severity = "high"
+observed = "The JavaScript example sends px_resolveAccount, eth_getTransactionCount, eth_sendRawTransaction and pax_sequencerReceipt through one PublicRpc endpoint inherited from PaymentRpc, with no independent hosted gateway origin and a /rpc restriction."
+expected = "Brief fact 3 places px methods on the hosted gateway and eth/pax methods on the root public node. A combined router is retired, so the identity-to-payment path cannot complete against the declared services."
+proposal = "In services/platform/middleware/examples/public-rpc.mjs expose separate gateway/node configuration, resolve identity on the gateway and transact/read receipts at the node root; prove both actual origins and their authentication."
+owner_domain = 8
+interface = "8.rpc-gateway-px-resolveaccount"
+
+[finding.py-gateway-node-conflation]
+file = "services/platform/middleware/examples/public_rpc.py"
+line = 311
+class = "interface-mismatch"
+severity = "high"
+observed = "The Python example sends px_resolveAccount, eth_getTransactionCount, eth_sendRawTransaction and pax_sequencerReceipt through one PublicRpc endpoint inherited from PaymentRpc, with no independent hosted gateway origin and a /rpc restriction."
+expected = "Brief fact 3 places px methods on the hosted gateway and eth/pax methods on the root public node. A combined router is retired, so the identity-to-payment path cannot complete against the declared services."
+proposal = "In services/platform/middleware/examples/public_rpc.py expose separate gateway/node configuration, resolve identity on the gateway and transact/read receipts at the node root; prove both actual origins and their authentication."
+owner_domain = 8
+interface = "8.rpc-gateway-px-resolveaccount"
+
+[finding.js-offer-proof-preflight]
+file = "services/platform/middleware/examples/public-rpc.mjs"
+line = 228
+class = "runtime-risk"
+severity = "medium"
+observed = "The example selects metered/subscription and committed offers before submitting raw transactions. Verification only binds PaymentExact and supplies no committed-proof resolver; Python explicitly raises committed-receipt-proof-verifier-unavailable after submission."
+expected = "The payment example must establish scheme, network, terms and proof capability before spending, and return a verified or recoverable pending result for supported transactions."
+proposal = "In services/platform/middleware/examples/public-rpc.mjs validate scheme/network/terms/proof capability before eth_sendRawTransaction, implement the grant and trusted commitment paths before advertising them, and prove unsupported offers cause no transaction submission."
+owner_domain = 8
+
+[finding.py-offer-proof-preflight]
+file = "services/platform/middleware/examples/public_rpc.py"
+line = 329
+class = "runtime-risk"
+severity = "medium"
+observed = "The example selects metered/subscription and committed offers before submitting raw transactions. Verification only binds PaymentExact and supplies no committed-proof resolver; Python explicitly raises committed-receipt-proof-verifier-unavailable after submission."
+expected = "The payment example must establish scheme, network, terms and proof capability before spending, and return a verified or recoverable pending result for supported transactions."
+proposal = "In services/platform/middleware/examples/public_rpc.py validate scheme/network/terms/proof capability before eth_sendRawTransaction, implement the grant and trusted commitment paths before advertising them, and prove unsupported offers cause no transaction submission."
+owner_domain = 8
+
+[finding.python-purpose-optional]
+file = "services/platform/middleware/examples/public_rpc.py"
+line = 220
+class = "interface-mismatch"
+severity = "high"
+observed = "verify_rpc_payment unconditionally calls receipt_hex(terms.get(\"purposeHash\"), 32), rejecting an otherwise valid exact offer without purposeHash after submission. Seller and JavaScript permit exact purposeHash omission."
+expected = "Req 8303 treats exact purposeHash as optional and binds it when present; Python and TypeScript must accept the same valid exact offer and receipt."
+proposal = "In services/platform/middleware/examples/public_rpc.py check exact purpose only when supplied, keep grant purpose mandatory where supported, and cover an authentic exact receipt with absent purpose alongside a mismatched present purpose."
+owner_domain = 8
+interface = "8.cli-middleware-examples-public-rpc-py-offer"
+
+[finding.live-python-deleted-flag]
+file = "services/platform/middleware/examples/examples-live-check.sh"
+line = 199
+class = "interface-mismatch"
+severity = "high"
+observed = "examples-live-check.sh calls public_rpc.py with --authority and LAYERX_EXAMPLE_PYTHON_AUTHORITY_FILE. The parser accepts --receipt-keys only and test_public_rpc.py rejects --authority, so the Python leg exits at parsing."
+expected = "The live runner must pass the current receipt pin contract matching CLI keyId, publicKey, firstHeight and lastHeight entries."
+proposal = "In services/platform/middleware/examples/examples-live-check.sh use a Python receipt-key pin file and --receipt-keys; update examples-check.sh environment validation and exercise the exact Python invocation."
+owner_domain = 8
+interface = "8.cli-middleware-examples-public-rpc-py-receipt-keys-j41"
+
+[finding.live-router-endpoint]
+file = "services/platform/middleware/examples/examples-live-check.sh"
+line = 121
+class = "retired-reference"
+severity = "medium"
+observed = "The live runner appends /rpc to LAYERX_GATEWAY_URL and uses that URL for both examples identity, nonce, transaction and receipt methods; help at 23 calls it public JSON-RPC."
+expected = "The merged network exposes node JSON-RPC at root and hosted px methods through the gateway contract; there is no unified /rpc router."
+proposal = "In services/platform/middleware/examples/examples-live-check.sh require separate gateway/node URLs, preserve node root paths and pass each origin through matching example options."
+owner_domain = 8
+
+[finding.offline-runner-stale-config]
+file = "services/platform/middleware/examples/examples-check.sh"
+line = 61
+class = "config-drift"
+severity = "medium"
+observed = "examples-check.sh requires LAYERX_EXAMPLE_PYTHON_AUTHORITY_FILE and supplies receipt keys under that name. Its direct Python --receipt-keys check also supplies --help, exiting before the actual live invocation is validated."
+expected = "Offline checks must match the current CLI/environment and detect removed options before an operator attempts a paid run."
+proposal = "In services/platform/middleware/examples/examples-check.sh adopt the Python receipt-key variable and execute parsing preflight for the exact live command so deleted --authority usage fails locally."
+owner_domain = 8
+
+[finding.connected-verification-rung]
+file = "services/platform/middleware/conformance/connected.mjs"
+line = 144
+class = "interface-mismatch"
+severity = "high"
+observed = "The connected balance check reads verification_status.level and accepts CheckpointFinalised or SettlementAnchored. The current VerificationStatus producer emits state achieved with lowercase rung committed, so valid committed balance recovery fails."
+expected = "Connected payment recovery must consume the submitted/receipted/committed ladder and rung field, retaining its proof of no second debit after reopening."
+proposal = "In services/platform/middleware/conformance/connected.mjs require the real committed rung, preserve the before/after balance assertion and exercise an actual read.balance producer response during recovery."
+owner_domain = 8
+interface = "9.http-rpc-read-balance"
+
+[finding.agent-draw-fixture]
+file = "services/platform/middleware/agent/test/agent-grant.test.mjs"
+line = 72
+class = "test-gap"
+severity = "medium"
+observed = "The positive grant fixture encodes legacy draw.from into calldata recipient but treats that value as PaymentDrawn payer and assigns a different payee. Locally signed hand-built results succeed without executing the actual grant precompile."
+expected = "Req 8331 and brief check 7 require the real producer, transport and consumer to agree on recipient, source, purpose and asset; reversed fixtures cannot prove grant settlement."
+proposal = "In services/platform/middleware/agent/test/agent-grant.test.mjs execute the real 0x101A draw with distinct grant payer/recipient and assert node-produced events through the consumer, including refused, unknown and restarted outcomes."
+owner_domain = 8
+
+[finding.buyer-draw-fixture]
+file = "services/platform/middleware/buyer/test/grant-draw-header.test.mjs"
+line = 101
+class = "test-gap"
+severity = "medium"
+observed = "The positive grant fixture encodes legacy draw.from into calldata recipient but treats that value as PaymentDrawn payer and assigns a different payee. Locally signed hand-built results succeed without executing the actual grant precompile."
+expected = "Req 8331 and brief check 7 require the real producer, transport and consumer to agree on recipient, source, purpose and asset; reversed fixtures cannot prove grant settlement."
+proposal = "In services/platform/middleware/buyer/test/grant-draw-header.test.mjs execute the real 0x101A draw with distinct grant payer/recipient and assert node-produced events through the consumer, including refused, unknown and restarted outcomes."
+owner_domain = 8
+
+[finding.seller-draw-fixture]
+file = "services/platform/middleware/seller/test/grant-draw.test.mjs"
+line = 70
+class = "test-gap"
+severity = "medium"
+observed = "The positive grant fixture encodes legacy draw.from into calldata recipient but treats that value as PaymentDrawn payer and assigns a different payee. Locally signed hand-built results succeed without executing the actual grant precompile."
+expected = "Req 8331 and brief check 7 require the real producer, transport and consumer to agree on recipient, source, purpose and asset; reversed fixtures cannot prove grant settlement."
+proposal = "In services/platform/middleware/seller/test/grant-draw.test.mjs execute the real 0x101A draw with distinct grant payer/recipient and assert node-produced events through the consumer, including refused, unknown and restarted outcomes."
+owner_domain = 8
+
+[finding.buyer-export-draw-fixture]
+file = "services/platform/middleware/buyer/test/proof_middleware_buyer_ts_exports.test.mjs"
+line = 285
+class = "test-gap"
+severity = "medium"
+observed = "The positive grant fixture encodes legacy draw.from into calldata recipient but treats that value as PaymentDrawn payer and assigns a different payee. Locally signed hand-built results succeed without executing the actual grant precompile."
+expected = "Req 8331 and brief check 7 require the real producer, transport and consumer to agree on recipient, source, purpose and asset; reversed fixtures cannot prove grant settlement."
+proposal = "In services/platform/middleware/buyer/test/proof_middleware_buyer_ts_exports.test.mjs execute the real 0x101A draw with distinct grant payer/recipient and assert node-produced events through the consumer, including refused, unknown and restarted outcomes."
+owner_domain = 8
+
+[finding.abi-test-reversed-payment]
+file = "services/platform/middleware/conformance/pay6/ledger-draw.test.mjs"
+line = 117
+class = "test-gap"
+severity = "medium"
+observed = "ledgerDrawTransactionBindsGrantTerms reads ABI names but builds eventValues.from from calldata word 1 and eventValues.to from the transaction sender, reversing the ABI recipient meaning; its RPC server at 161 also requires /rpc."
+expected = "ABI conformance must prove recipient is credited and distinguish transaction sender, grant source and payee. A self-assembled event cannot establish execution semantics."
+proposal = "In services/platform/middleware/conformance/pay6/ledger-draw.test.mjs execute a real grant with distinct source/recipient, compare emitted events with the offer, and submit through the root node transport."
+owner_domain = 8
+
+[finding.daemon-decoder-fixture]
+file = "services/platform/middleware/agent/test/daemon-evm.test.mjs"
+line = 119
+class = "test-gap"
+severity = "medium"
+observed = "The fixture constructs tx_hash/submission/receipt with PascalCase verification_level to satisfy decodeDaemonSubmission. agent_rpc_dispatch.rs does not serialize this shape; committed evidence is modeled by changing a label rather than using the real terminal response."
+expected = "Actual submit and observation responses must reach middleware with flat submit fields, activity_id, lowercase rung, inner tx_hash and Committed recovery state wherever the producer declares them."
+proposal = "In services/platform/middleware/agent/test/daemon-evm.test.mjs drive actual daemon serializer output through transport and exercise pending submission, receipt tracking and resumed committed observation without consumer-defined substitute messages."
+owner_domain = 8
+
+[finding.agent-export-daemon-fixture]
+file = "services/platform/middleware/agent/test/proof_middleware_agent_ts_exports.test.mjs"
+line = 117
+class = "test-gap"
+severity = "medium"
+observed = "The fixture constructs tx_hash/submission/receipt with PascalCase verification_level to satisfy decodeDaemonSubmission. agent_rpc_dispatch.rs does not serialize this shape; committed evidence is modeled by changing a label rather than using the real terminal response."
+expected = "Actual submit and observation responses must reach middleware with flat submit fields, activity_id, lowercase rung, inner tx_hash and Committed recovery state wherever the producer declares them."
+proposal = "In services/platform/middleware/agent/test/proof_middleware_agent_ts_exports.test.mjs drive actual daemon serializer output through transport and exercise pending submission, receipt tracking and resumed committed observation without consumer-defined substitute messages."
+owner_domain = 8
+
+[finding.conformance-daemon-fixture]
+file = "services/platform/middleware/conformance/service.mjs"
+line = 662
+class = "test-gap"
+severity = "medium"
+observed = "The fixture constructs tx_hash/submission/receipt with PascalCase verification_level to satisfy decodeDaemonSubmission. agent_rpc_dispatch.rs does not serialize this shape; committed evidence is modeled by changing a label rather than using the real terminal response."
+expected = "Actual submit and observation responses must reach middleware with flat submit fields, activity_id, lowercase rung, inner tx_hash and Committed recovery state wherever the producer declares them."
+proposal = "In services/platform/middleware/conformance/service.mjs drive actual daemon serializer output through transport and exercise pending submission, receipt tracking and resumed committed observation without consumer-defined substitute messages."
+owner_domain = 8
+
+[finding.conformance-node-router-fixture]
+file = "services/platform/middleware/conformance/service.mjs"
+line = 281
+class = "test-gap"
+severity = "medium"
+observed = "Merchant service conformance mounts node receipt methods at /rpc and constructs rpcUrl with that suffix at 331. This agrees with the invalid PaymentRpc URL policy instead of the deployed public node."
+expected = "Product examples and service scenarios must work with root node JSON-RPC and independent hosted gateway methods, following brief facts 2 and 3."
+proposal = "In services/platform/middleware/conformance/service.mjs use the actual node root transport contract and configure hosted identity resolution separately; preserve the payment/restart scenarios and prove intended origins."
+owner_domain = 8
+
+[finding.commit-test-unbound-block]
+file = "services/platform/middleware/seller/test/commitment-rungs.test.mjs"
+line = 40
+class = "test-gap"
+severity = "medium"
+observed = "The committed fixture signs arbitrary block/part-set hashes and copies receipt identifiers into receiptInclusion; no authenticated header root or Merkle path binds payment to that block. Positive committed assertions only prove signature arithmetic."
+expected = "Committed and portable settlement tests must prove receipt membership, trusted validator identity, network binding and lossless proof encoding/persistence across reopen."
+proposal = "In services/platform/middleware/seller/test/commitment-rungs.test.mjs consume real node header/receipt inclusion evidence, retain quorum cases and refuse unrelated valid blocks, changed roots, missing paths, foreign sets and evidence lost in serialization."
+owner_domain = 8
+
+[finding.settlement-test-unbound-block]
+file = "services/platform/middleware/seller/test/settlement-response.test.mjs"
+line = 149
+class = "test-gap"
+severity = "medium"
+observed = "The committed fixture signs arbitrary block/part-set hashes and copies receipt identifiers into receiptInclusion; no authenticated header root or Merkle path binds payment to that block. Positive committed assertions only prove signature arithmetic."
+expected = "Committed and portable settlement tests must prove receipt membership, trusted validator identity, network binding and lossless proof encoding/persistence across reopen."
+proposal = "In services/platform/middleware/seller/test/settlement-response.test.mjs consume real node header/receipt inclusion evidence, retain quorum cases and refuse unrelated valid blocks, changed roots, missing paths, foreign sets and evidence lost in serialization."
+owner_domain = 8
+
+[finding.seller-export-unbound-block]
+file = "services/platform/middleware/seller/test/proof_middleware_seller_ts_exports.test.mjs"
+line = 93
+class = "test-gap"
+severity = "medium"
+observed = "The committed fixture signs arbitrary block/part-set hashes and copies receipt identifiers into receiptInclusion; no authenticated header root or Merkle path binds payment to that block. Positive committed assertions only prove signature arithmetic."
+expected = "Committed and portable settlement tests must prove receipt membership, trusted validator identity, network binding and lossless proof encoding/persistence across reopen."
+proposal = "In services/platform/middleware/seller/test/proof_middleware_seller_ts_exports.test.mjs consume real node header/receipt inclusion evidence, retain quorum cases and refuse unrelated valid blocks, changed roots, missing paths, foreign sets and evidence lost in serialization."
+owner_domain = 8
+
+[finding.validator-mismatch-test-masks-hash]
+file = "services/platform/middleware/conformance/pay6/committed-rung.test.mjs"
+line = 25
+class = "test-gap"
+severity = "medium"
+observed = "committedFixtureRefusesValidatorSetMismatch replaces a validator that signed the commit. Signature lookup fails even though middleware never checks blockHeader.validatorsHash, so the test does not isolate the stated set/header criterion."
+expected = "Req 8262 must refuse a set/header disagreement even if all commit signatures still verify and still exceed two thirds of the supplied voting power."
+proposal = "In services/platform/middleware/conformance/pay6/committed-rung.test.mjs change only an unsigned validator or authenticated header set hash, preserve quorum/signatures and require refusal for the set/header disagreement."
+owner_domain = 8
+
+[finding.replay-test-second-release]
+file = "services/platform/middleware/seller/test/receipt-replay.test.mjs"
+line = 119
+class = "test-gap"
+severity = "medium"
+observed = "receiptIdentityIsScopedToMerchant expects merchant-one and merchant-two to release the same signed receipt for two request payloads and asserts two releases, directly encoding the principal-scoped reuse prohibited by req 22074."
+expected = "One verified receipt presented with a second payload in one seller/payee domain must be refused regardless of caller-selected principal and cannot run a second release."
+proposal = "In services/platform/middleware/seller/test/receipt-replay.test.mjs use authenticated principal changes, conflicting payloads, concurrent calls and process reopen against one durable receipt claim, asserting exactly one fulfillment."
+owner_domain = 8
+
+[finding.memory-fulfillment-race]
+file = "services/platform/middleware/conformance/src/support.ts"
+line = 48
+class = "test-gap"
+severity = "medium"
+observed = "InMemoryFulfillmentRepository reads its map, awaits release and only then stores the result. Concurrent calls can both see no record and both release; sequential retries cannot establish single fulfillment."
+expected = "The conformance repository must enforce the same atomic receipt/request claim as production fulfillment and expose concurrent regressions instead of hiding them."
+proposal = "In services/platform/middleware/conformance/src/support.ts atomically claim/serialize each receipt before release and report the declared fulfillment-conflict error; add concurrent scenarios and use durable storage for restart assertions."
+owner_domain = 8
+
+[finding.seller-rpc-route-test]
+file = "services/platform/middleware/seller/test/payment-rpc.test.mjs"
+line = 78
+class = "test-gap"
+severity = "medium"
+observed = "The RPC test uses successful /rpc fixtures or explicitly expects a valid secure root node URL to be rejected. These assertions preserve the retired router and do not test the public node deployment contract."
+expected = "Node conformance must accept a valid secure root endpoint while still refusing embedded credentials, remote plaintext, redirects and malformed transaction/receipt responses."
+proposal = "In services/platform/middleware/seller/test/payment-rpc.test.mjs use the node root for sends/receipts and assert root acceptance; retain security, nonce and body bounds, and test hosted gateway methods on their own origin."
+owner_domain = 8
+
+[finding.seller-export-rpc-route-test]
+file = "services/platform/middleware/seller/test/proof_middleware_seller_ts_exports.test.mjs"
+line = 318
+class = "test-gap"
+severity = "medium"
+observed = "The RPC test uses successful /rpc fixtures or explicitly expects a valid secure root node URL to be rejected. These assertions preserve the retired router and do not test the public node deployment contract."
+expected = "Node conformance must accept a valid secure root endpoint while still refusing embedded credentials, remote plaintext, redirects and malformed transaction/receipt responses."
+proposal = "In services/platform/middleware/seller/test/proof_middleware_seller_ts_exports.test.mjs use the node root for sends/receipts and assert root acceptance; retain security, nonce and body bounds, and test hosted gateway methods on their own origin."
+owner_domain = 8
+
+[finding.pay6-rpc-root-refused]
+file = "services/platform/middleware/conformance/pay6/rpc.test.mjs"
+line = 28
+class = "test-gap"
+severity = "medium"
+observed = "The RPC test uses successful /rpc fixtures or explicitly expects a valid secure root node URL to be rejected. These assertions preserve the retired router and do not test the public node deployment contract."
+expected = "Node conformance must accept a valid secure root endpoint while still refusing embedded credentials, remote plaintext, redirects and malformed transaction/receipt responses."
+proposal = "In services/platform/middleware/conformance/pay6/rpc.test.mjs use the node root for sends/receipts and assert root acceptance; retain security, nonce and body bounds, and test hosted gateway methods on their own origin."
+owner_domain = 8
+
+[finding.python-rpc-root-refused]
+file = "services/platform/middleware/conformance/pay6/test_rpc.py"
+line = 78
+class = "test-gap"
+severity = "medium"
+observed = "The RPC test uses successful /rpc fixtures or explicitly expects a valid secure root node URL to be rejected. These assertions preserve the retired router and do not test the public node deployment contract."
+expected = "Node conformance must accept a valid secure root endpoint while still refusing embedded credentials, remote plaintext, redirects and malformed transaction/receipt responses."
+proposal = "In services/platform/middleware/conformance/pay6/test_rpc.py use the node root for sends/receipts and assert root acceptance; retain security, nonce and body bounds, and test hosted gateway methods on their own origin."
+owner_domain = 8
+
+[finding.public-js-combined-server]
+file = "services/platform/middleware/examples/test/public-rpc.test.mjs"
+line = 121
+class = "test-gap"
+severity = "medium"
+observed = "The public example test serves px_resolveAccount together with eth/pax methods on one /rpc fixture and expects that request path. Distinct actual gateway/node producers cannot emit this combined endpoint contract."
+expected = "Identity-to-payment examples must traverse hosted identity resolution and root node transaction transport separately with the actual declared fields and authentication."
+proposal = "In services/platform/middleware/examples/test/public-rpc.test.mjs exercise separate gateway/node producer origins and the node root path, and prove unsupported schemes or unavailable commitment verification cause no transaction submission."
+owner_domain = 8
+
+[finding.public-py-combined-server]
+file = "services/platform/middleware/examples/test_public_rpc.py"
+line = 45
+class = "test-gap"
+severity = "medium"
+observed = "The public example test serves px_resolveAccount together with eth/pax methods on one /rpc fixture and expects that request path. Distinct actual gateway/node producers cannot emit this combined endpoint contract."
+expected = "Identity-to-payment examples must traverse hosted identity resolution and root node transaction transport separately with the actual declared fields and authentication."
+proposal = "In services/platform/middleware/examples/test_public_rpc.py exercise separate gateway/node producer origins and the node root path, and prove unsupported schemes or unavailable commitment verification cause no transaction submission."
+owner_domain = 8
+
+[finding.python-http-retired-proof]
+file = "services/platform/middleware/conformance/pay6/test_http.py"
+line = 30
+class = "test-gap"
+severity = "medium"
+observed = "Positive Python HTTP cases use layerx:beta and a base64 receipt with SHA256 LXP/v1/merkle-leaf digest and sequencer-signed level, plus /rpc. This differs from the TypeScript merged PortableReceiptV2 envelope."
+expected = "Cross-language conformance must exchange eip155:125 offers and the same PortableReceiptV2 fields, hex encodings, signed-transaction binding, receipt identity and receipted/committed terms."
+proposal = "In services/platform/middleware/conformance/pay6/test_http.py exchange real seller/buyer envelopes across Python and TypeScript through root node RPC; retain replay, concurrent fulfillment and malformed-proof assertions under the merged contract."
+owner_domain = 8
+
+[finding.python-agent-retired-proof]
+file = "services/platform/middleware/conformance/pay6/test_agent.py"
+line = 34
+class = "test-gap"
+severity = "medium"
+observed = "Python budget tests use layerx:beta and assert a SHA256 merkle-leaf receipt identity at 85, unlike merged TypeScript eip155 PortableReceiptV2 Keccak wire identity. Draw cases also synthesize results behind the legacy /rpc client."
+expected = "Agent budget/replay identity must agree across languages on network, payment event and portable digest, retaining unknown reservations and durable recovery for real draws."
+proposal = "In services/platform/middleware/conformance/pay6/test_agent.py feed actual merged receipts/draws through Python and TypeScript with matching network/digest and prove reopened reservations cannot commit one receipt twice."
+owner_domain = 8
+
+[finding.python-rpc-unproven-commit]
+file = "services/platform/middleware/conformance/pay6/test_rpc.py"
+line = 39
+class = "test-gap"
+severity = "medium"
+observed = "test_receipt_binding_and_pending changes rung to committed, adds an arbitrary blockHash and expects commitment committed verification to succeed without BFT commit, trusted validator set or receipt membership."
+expected = "A committed label/hash must not upgrade a signed receipt; Python RPC must require the same authenticated block and receipt evidence as other consumers."
+proposal = "In services/platform/middleware/conformance/pay6/test_rpc.py obtain actual committed evidence through the Python verifier, retain receipted/pending cases and refuse RPC-only labels or arbitrary block hashes."
+owner_domain = 8
+
+[finding.python-submitted-payment-rung]
+file = "services/platform/middleware/conformance/pay6/test_commitment.py"
+line = 103
+class = "test-gap"
+severity = "medium"
+observed = "test_no_commitment_downgrade positively accepts submitted as a payment commitment and verifies a receipt under it; Python HTTP permits such offers while TypeScript paymentCommitment allows only receipted/committed."
+expected = "Current payment terms release only at receipted/committed. Submitted is a tracking state and cannot authorize resource fulfillment or a budget debit."
+proposal = "In services/platform/middleware/conformance/pay6/test_commitment.py and the Python x402 consumer enforce merged payment terms and cover submitted only as pending tracking with no fulfillment or budget commit."
+owner_domain = 8
+
+[finding.doc-programs-site]
+file = "docs/site/docs/programs/index.md"
+line = 119
+class = "doc-drift"
+severity = "medium"
+observed = "The guide describes lxp_daemon_lni_simulate, LNI-backed hosted call/simulate and cmd/layerxd, then explains CALL settlement through later batch finalization. Guest ABI prose caps guests at 1/2 while the current generated receipt catalog recognizes 1 through 5."
+expected = "Programs execute inside paxd with node EVM/precompile transport and committed block finality. All registration paths must agree on guest ABI support and the 524288-byte deployment limit including its 104-byte envelope."
+proposal = "Rewrite docs/site/docs/programs/index.md from the merged Programs producer and EVM/precompile lifecycle, document actual guest ABI admission and payload budgets, and remove live LNI/separate daemon and delayed batch/checkpoint finality instructions."
+owner_domain = 17
+
+[finding.doc-programs-wiki]
+file = "docs/wiki/Programs.md"
+line = 118
+class = "doc-drift"
+severity = "medium"
+observed = "The guide describes lxp_daemon_lni_simulate, LNI-backed hosted call/simulate and cmd/layerxd, then explains CALL settlement through later batch finalization. Guest ABI prose caps guests at 1/2 while the current generated receipt catalog recognizes 1 through 5."
+expected = "Programs execute inside paxd with node EVM/precompile transport and committed block finality. All registration paths must agree on guest ABI support and the 524288-byte deployment limit including its 104-byte envelope."
+proposal = "Rewrite docs/wiki/Programs.md from the merged Programs producer and EVM/precompile lifecycle, document actual guest ABI admission and payload budgets, and remove live LNI/separate daemon and delayed batch/checkpoint finality instructions."
+owner_domain = 17
+
+[finding.doc-x402-site]
+file = "docs/site/docs/interop/x402.md"
+line = 90
+class = "doc-drift"
+severity = "medium"
+observed = "The x402 guide directs payments through gateway POST /rpc, lx_sendActivity and lx_getProof with executed/batched/finalised commitments, canonical receive/grant bytes and authorized batch/checkpoint evidence."
+expected = "Merged payments use root node EIP-1559 submission and pax receipt evidence on eip155 networks with PortableReceiptV2, pinned keys, PaymentExact/PaymentDrawn and receipted/committed terms."
+proposal = "Rewrite docs/site/docs/interop/x402.md around actual seller/buyer/agent envelopes, independent hosted px identity resolution, node root transaction RPC, receipt pins and trusted committed inclusion evidence; replace runnable legacy examples."
+owner_domain = 17
+
+[finding.doc-x402-wiki]
+file = "docs/wiki/X402Transport.md"
+line = 91
+class = "doc-drift"
+severity = "medium"
+observed = "The x402 guide directs payments through gateway POST /rpc, lx_sendActivity and lx_getProof with executed/batched/finalised commitments, canonical receive/grant bytes and authorized batch/checkpoint evidence."
+expected = "Merged payments use root node EIP-1559 submission and pax receipt evidence on eip155 networks with PortableReceiptV2, pinned keys, PaymentExact/PaymentDrawn and receipted/committed terms."
+proposal = "Rewrite docs/wiki/X402Transport.md around actual seller/buyer/agent envelopes, independent hosted px identity resolution, node root transaction RPC, receipt pins and trusted committed inclusion evidence; replace runnable legacy examples."
+owner_domain = 17
+
+[finding.doc-root-readme]
+file = "README.md"
+line = 44
+class = "doc-drift"
+severity = "medium"
+observed = "README declares two execution domains, a separate cmd/layerxd daemon, checkpoint settlement through layerxAnchor and a draft merge with an independently running kernel."
+expected = "The finished product is one BFT chain 125 network whose paxd kernel proposes blocks; no standalone LayerX daemon or periodic checkpoint settlement is needed for payment finality."
+proposal = "Rewrite README.md architecture and running/build instructions for merged paxd and root public RPC, retire the layerxd operator command and link current payment/tenant integration documentation."
+owner_domain = 17
+
+[finding.doc-docs-index]
+file = "docs/README.md"
+line = 21
+class = "doc-drift"
+severity = "medium"
+observed = "The documentation index presents wiki/LNI.md as Node interface v1.7, directing integrators to the retired LayerX daemon transport rather than the merged public node RPC contract."
+expected = "The main index must point node integrations to root JSON-RPC on the merged chain and clearly distinguish historical protocol references from supported product endpoints."
+proposal = "In docs/README.md replace the active LNI node-interface entry with merged paxd JSON-RPC documentation and label historical references; keep the agent daemon API entry scoped to the separate agent service."
+owner_domain = 17
+
+[finding.doc-chain-docs]
+file = "docs/paxeer-chain-docs.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The chain docs index calls Paxeer an EVM L1 used by LayerX for custody/checkpoint settlement, says co-location does not merge trust boundaries and points to a separate LayerX settlement tree."
+expected = "The finished network merges LayerX execution into paxd chain 125, with block commitment finality and current node interfaces rather than a separate custody/checkpoint settlement network."
+proposal = "Rewrite docs/paxeer-chain-docs.md topology and normative links around the single merged network and actual node/precompile boundaries; retain accurate Swagger and registered EVM RPC references."
+owner_domain = 17
+
+[finding.doc-network]
+file = "docs/paxeer-network.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The network overview says ordinary activity stays on LayerX, periodic checkpoints settle on Paxeer, each side has its own trust boundary and LayerX exposes a gateway while custody lives on Paxeer."
+expected = "The merged product is one chain 125 BFT network with paxd execution; eth/pax node RPC is served at root and hosted gateway px methods are auxiliary platform services."
+proposal = "Rewrite docs/paxeer-network.md architecture, module ownership, operator paths and protocol links from the merged node deployment, replacing independent custody/checkpoint claims with block commitment finality."
+owner_domain = 17
+
+[finding.doc-monorepo]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The monorepo guide names layerxd alongside paxd and divides deterministic execution from chain custody, checkpoints, bonds, challenges and emergency exits as separate trust domains."
+expected = "The repository guide must distinguish source/build organization from the one deployed network and identify paxd as the merged execution, accounting and consensus node."
+proposal = "Rewrite docs/MONOREPO.md runtime and trust sections for merged paxd, retaining valid toolchain distinctions while replacing separate kernel deployment and retired settlement ownership claims."
+owner_domain = 17
+
+[finding.doc-site-home]
+file = "docs/site/docs/index.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "The site overview says execution stays in LayerX while checkpoints settle to Paxeer, with independent deployment authority and Paxeer custody, finality and emergency exits."
+expected = "The site introduction must describe the single merged BFT chain and finality at committed blocks, and point developers to actual root node RPC and hosted gateway contracts."
+proposal = "Rewrite docs/site/docs/index.md topology, settlement and getting-started links for chain 125 and merged paxd, removing the separate network/checkpoint finality narrative."
+owner_domain = 17
+
+[finding.doc-middleware-contract]
+file = "spec/layerx-merge/contracts/platform-middleware.md"
+line = 867
+class = "doc-drift"
+severity = "medium"
+observed = "Portable receipt context lists PaymentExact and PaymentDrawn in events but requires exactly one PaymentExact in its invariant. Pinned route tables show conformance /agent and seller /rpc while actual agent conformance uses /v1/agent/rpc and the merged node serves root RPC."
+expected = "The middleware contract must describe scheme-specific event binding and actual producer/transport/consumer routes, distinguishing historical citations from the target merged interfaces."
+proposal = "Correct the owning context and interface registry for spec/layerx-merge/contracts/platform-middleware.md, then regenerate with scheme-specific payment invariants, actual service routes and authenticated committed inclusion evidence; preserve the pinned revision distinction."
+owner_domain = 17
+
+[finding.ipv6-loopback-refused]
+file = "services/platform/examples/support/runtime.mjs"
+line = 6
+class = "config-drift"
+severity = "low"
+observed = "LOOPBACK contains ::1, but the Node URL hostname for http://[::1]:PORT/ is [::1]. secureUrl therefore rejects the IPv6 loopback endpoint while accepting IPv4 and localhost."
+expected = "The explicitly permitted local HTTP development transport must treat IPv4 and IPv6 loopback consistently without admitting non-loopback HTTP services."
+proposal = "In services/platform/examples/support/runtime.mjs compare the URL hostname with its bracketed IPv6 representation or normalize IP literals consistently; retain HTTPS-only remote endpoints and cover IPv6 loopback configuration."
+owner_domain = 8
+interface = "8.ts-examples-support-runtime-secureurl-j41"
+
+[finding.webhook-cross-process-claim]
+file = "services/platform/examples/support/merchant-app.mjs"
+line = 320
+class = "restart-recovery"
+severity = "medium"
+observed = "FileWebhookDeliveries.claim uses an instance-local serial map followed by readFile and atomicJson rename. Two processes can read the same absent/expired lease and both return claimed; a stale process transition checks only payloadDigest and can complete or release a newer lease."
+expected = "A webhook delivery claim must have one active owner across processes and recovery, with a fenced lease so an earlier worker cannot overwrite a reclaimed delivery state."
+proposal = "In services/platform/examples/support/merchant-app.mjs store webhook claims in shared transactional compare-and-set storage with lease ownership/fencing, check that token on complete/release, and race two application processes across lease expiry and restart."
+owner_domain = 8
+interface = "8.http-examples-support-post-webhooks-settlement"
+
+[doc.programs-site]
+path = "docs/site/docs/programs/index.md"
+status = "stale"
+notes = "Lines 119-137 prescribe retired LNI simulation; guest ABI admission and later batch-finality sections also require a merged node rewrite."
+
+[doc.programs-wiki]
+path = "docs/wiki/Programs.md"
+status = "stale"
+notes = "Lines 118-137 prescribe retired LNI simulation; guest ABI admission and later batch-finality sections also require a merged node rewrite."
+
+[doc.x402-site]
+path = "docs/site/docs/interop/x402.md"
+status = "misleading"
+notes = "Positive examples prescribe /rpc, lx_sendActivity, kernel receive/grant bytes and executed/batched/finalised payment evidence."
+
+[doc.x402-wiki]
+path = "docs/wiki/X402Transport.md"
+status = "misleading"
+notes = "Positive examples prescribe /rpc, lx_sendActivity, kernel receive/grant bytes and executed/batched/finalised payment evidence."
+
+[doc.sdk]
+path = "docs/system/sdk.md"
+status = "accurate"
+notes = "Generated agent TypeScript, Python and Rust export inventory matches the read entry points, including retained compatibility exports; it is not a payment transport guide or proof of middleware integration."
+
+[doc.root-readme]
+path = "README.md"
+status = "stale"
+notes = "Lines 44-47, 145 and 181 prescribe a separate layerxd execution daemon and describe the merge as draft."
+
+[doc.docs-index]
+path = "docs/README.md"
+status = "stale"
+notes = "Line 21 advertises the legacy LNI v1.7 node interface without a historical qualification."
+
+[doc.chain-docs]
+path = "docs/paxeer-chain-docs.md"
+status = "stale"
+notes = "Lines 3-5 and 17 describe separate LayerX execution and Paxeer custody/checkpoint trust domains."
+
+[doc.unsupported-evm]
+path = "docs/evm_jsonrpc_unsupported.md"
+status = "accurate"
+notes = "Registered unsupported EVM methods and instant BFT finality explanation agree with the node contract; no standalone router or LayerX execution deployment is prescribed."
+
+[doc.network]
+path = "docs/paxeer-network.md"
+status = "misleading"
+notes = "Lines 3-20 and 93 describe Paxeer as a separate custody/checkpoint settlement venue for activity on LayerX."
+
+[doc.monorepo]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Lines 3, 61 and 70-72 describe a live layerxd kernel and separate custody/checkpoint trust boundaries."
+
+[doc.site-home]
+path = "docs/site/docs/index.md"
+status = "stale"
+notes = "Lines 11-18 and 24-26 retain separate LayerX execution and periodic Paxeer checkpoint/custody settlement."
+
+[doc.middleware-contract]
+path = "spec/layerx-merge/contracts/platform-middleware.md"
+status = "stale"
+notes = "Read pinned interface and context sections including lines 607, 755 and 857-868; scheme invariant conflicts with its own PaymentDrawn support. Historical source citations are not current implementation evidence."

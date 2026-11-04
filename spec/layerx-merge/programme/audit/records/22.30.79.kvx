@@ -1,0 +1,1499 @@
+# Pre-upgrade audit: merged network interface, runtime, recovery and documentation review.
+
+[audit.22.30.79]
+task = "22.30.79"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 135
+findings = 55
+docs_reviewed = 22
+upgrade_ready = false
+blocking = ["005", "017", "018", "019", "020", "036", "037"]
+
+[file.001]
+path = "sdk/codec/amino.go"
+lines = 197
+verdict = "issues"
+note = "Read in full: Amino registration, Any JSON preparation and Must/error boundaries; the indentation error path is recorded below."
+
+[file.002]
+path = "sdk/codec/amino_codec.go"
+lines = 126
+verdict = "clean"
+note = "Read in full: AminoCodec binary/JSON adapters and interface unpacking delegation match the legacy codec API."
+
+[file.003]
+path = "sdk/codec/amino_codec_test.go"
+lines = 141
+verdict = "clean"
+note = "Read in full: Amino codec registration and binary/JSON round-trip assertions use the corresponding codec implementation."
+
+[file.004]
+path = "sdk/codec/any_test.go"
+lines = 134
+verdict = "clean"
+note = "Read in full: Any packing/unpacking and JSON cases exercise registered concrete protobuf messages."
+
+[file.005]
+path = "sdk/codec/codec.go"
+lines = 98
+verdict = "clean"
+note = "Read in full: codec interfaces consistently separate binary, JSON, interface registration and explicit Must helpers."
+
+[file.006]
+path = "sdk/codec/codec_common_test.go"
+lines = 135
+verdict = "clean"
+note = "Read in full: shared codec test registration and message fixtures agree with the concrete Amino/protobuf encoders."
+
+[file.007]
+path = "sdk/codec/json.go"
+lines = 34
+verdict = "clean"
+note = "Read in full: JSON helper preparation and marshaler delegation preserve the codec's declared error boundary."
+
+[file.008]
+path = "sdk/codec/legacy/codec.go"
+lines = 31
+verdict = "clean"
+note = "Read in full: legacy codec helpers register the expected Amino types without exposing a network listener."
+
+[file.009]
+path = "sdk/codec/legacy/doc.go"
+lines = 4
+verdict = "clean"
+note = "Read in full: package comment accurately identifies the scope of legacy Amino support."
+
+[file.010]
+path = "sdk/codec/proto_codec.go"
+lines = 265
+verdict = "clean"
+note = "Read in full: ProtoCodec binary/JSON methods, interface resolution and error forwarding match the protobuf API."
+
+[file.011]
+path = "sdk/codec/proto_codec_test.go"
+lines = 133
+verdict = "clean"
+note = "Read in full: ProtoCodec tests cover concrete/interface conversion and malformed input using the production codec."
+
+[file.012]
+path = "sdk/codec/types/any.go"
+lines = 137
+verdict = "clean"
+note = "Read in full: Any envelope construction, type URL and cached-value handling reviewed against the registry unpacker; mutation is localized to interface_registry.go."
+
+[file.013]
+path = "sdk/codec/types/any_internal_test.go"
+lines = 65
+verdict = "clean"
+note = "Read in full: internal Any tests assert cache and envelope behavior without declaring a public network receipt format."
+
+[file.014]
+path = "sdk/codec/types/any_test.go"
+lines = 63
+verdict = "clean"
+note = "Read in full: Any tests cover registered message packing and error cases against production message types."
+
+[file.015]
+path = "sdk/codec/types/compat.go"
+lines = 211
+verdict = "clean"
+note = "Read in full: compatibility packing and Amino JSON bridging reviewed with Any cache representations."
+
+[file.016]
+path = "sdk/codec/types/compat_test.go"
+lines = 132
+verdict = "clean"
+note = "Read in full: compatibility tests use the matching Amino/protobuf paths and registered types."
+
+[file.017]
+path = "sdk/codec/types/doc.go"
+lines = 6
+verdict = "clean"
+note = "Read in full: package comment describes protobuf interface support without retired node endpoints."
+
+[file.018]
+path = "sdk/codec/types/interface_registry.go"
+lines = 339
+verdict = "issues"
+note = "Read in full: type registration, whitelist checking, recursion/work limits and Any mutation reviewed; alias/envelope preservation issue recorded."
+
+[file.019]
+path = "sdk/codec/types/legacy.go"
+lines = 196
+verdict = "issues"
+note = "Read in full: legacy registration and recursive interface unpacking reviewed; missing work bounds recorded."
+
+[file.020]
+path = "sdk/codec/types/types_test.go"
+lines = 182
+verdict = "clean"
+note = "Read in full: interface registry tests exercise declared concrete registrations and rejected type resolutions."
+
+[file.021]
+path = "sdk/codec/unknownproto/benchmarks_test.go"
+lines = 113
+verdict = "clean"
+note = "Read in full: unknown-field benchmarks use the actual rejection routines and retain their resolver contract."
+
+[file.022]
+path = "sdk/codec/unknownproto/doc.go"
+lines = 24
+verdict = "issues"
+note = "Read in full: examples disagree with the current resolver and return signatures; documentation finding recorded."
+
+[file.023]
+path = "sdk/codec/unknownproto/regression_test.go"
+lines = 24
+verdict = "clean"
+note = "Read in full: regression wire inputs exercise the production unknown-field decoder and its refusal paths."
+
+[file.024]
+path = "sdk/codec/unknownproto/unit_helpers_test.go"
+lines = 32
+verdict = "clean"
+note = "Read in full: test message/descriptor helpers support real protobuf field resolution for unknown-field tests."
+
+[file.025]
+path = "sdk/codec/unknownproto/unknown_fields.go"
+lines = 452
+verdict = "clean"
+note = "Read in full: wire-type checking, unknown critical/noncritical fields, groups and resolver recursion reviewed."
+
+[file.026]
+path = "sdk/codec/unknownproto/unknown_fields_test.go"
+lines = 720
+verdict = "clean"
+note = "Read in full: unknown-field cases call the real decoder and assert strict/noncritical acceptance and malformed input errors."
+
+[file.027]
+path = "sdk/codec/yaml.go"
+lines = 29
+verdict = "clean"
+note = "Read in full: YAML conversion delegates through codec JSON and propagates conversion errors."
+
+[file.028]
+path = "sdk/codec/yaml_test.go"
+lines = 49
+verdict = "clean"
+note = "Read in full: YAML tests compare the declared JSON/YAML representation with the implementation."
+
+[file.029]
+path = "sdk/cosmovisor/Makefile"
+lines = 12
+verdict = "clean"
+note = "Read in full: cosmovisor build/install targets point to its actual Go command and do not start a separate LayerX service."
+
+[file.030]
+path = "sdk/cosmovisor/README.md"
+lines = 118
+verdict = "clean"
+note = "Read in full: paxd supervisor layout, environment variables and JSON binary-download documentation; accurate page with implementation findings recorded separately."
+
+[file.031]
+path = "sdk/cosmovisor/args.go"
+lines = 150
+verdict = "clean"
+note = "Read in full: configuration validation, binary paths and CurrentBin genesis fallback checked with the non-atomic upgrade selection finding."
+
+[file.032]
+path = "sdk/cosmovisor/args_test.go"
+lines = 131
+verdict = "clean"
+note = "Read in full: argument tests cover environment, required paths and binary selection; crash-safe publication is an upgrade implementation concern."
+
+[file.033]
+path = "sdk/cosmovisor/cmd/cosmovisor/main.go"
+lines = 30
+verdict = "clean"
+note = "Read in full: command configuration, child launch loop and error reporting use the retained paxd supervisor."
+
+[file.034]
+path = "sdk/cosmovisor/deps_floor_test.go"
+lines = 79
+verdict = "clean"
+note = "Read in full: dependency-floor assertions inspect the actual cosmovisor module versions without changing a runtime interface."
+
+[file.035]
+path = "sdk/cosmovisor/process.go"
+lines = 153
+verdict = "issues"
+note = "Read in full: child lifecycle, log pipes and signal forwarding reviewed; goroutine cleanup and final-log race findings recorded."
+
+[file.036]
+path = "sdk/cosmovisor/process_test.go"
+lines = 115
+verdict = "clean"
+note = "Read in full: child-process tests use actual subprocesses and the public launcher; unjoined lifecycle edges are recorded on process.go."
+
+[file.037]
+path = "sdk/cosmovisor/scanner.go"
+lines = 44
+verdict = "issues"
+note = "Read in full: log matcher and UpgradeInfo extraction reviewed against documented JSON downloads; whitespace truncation recorded."
+
+[file.038]
+path = "sdk/cosmovisor/scanner_test.go"
+lines = 63
+verdict = "issues"
+note = "Read in full: scanner cases assert truncated info rather than the complete documented JSON input; explicit test-gap recorded."
+
+[file.039]
+path = "sdk/cosmovisor/upgrade.go"
+lines = 194
+verdict = "issues"
+note = "Read in full: download, checksum, executable validation and current-link replacement reviewed; restart-safe binary selection blocks readiness."
+
+[file.040]
+path = "sdk/cosmovisor/upgrade_test.go"
+lines = 280
+verdict = "issues"
+note = "Read in full: download and filesystem assertions reviewed; early function return can skip map cases."
+
+[file.041]
+path = "sdk/platform/conformance/README.md"
+lines = 52
+verdict = "clean"
+note = "Read in full: conformance guide documents sequencer, committed and portable receipt checks, with pinned fixture provenance and real Go verifier entry points."
+
+[file.042]
+path = "sdk/platform/conformance/evm-call-wrapping.test.py"
+lines = 231
+verdict = "clean"
+note = "Read in full: Python EVM call fixture wrapping validates the retained transaction wrapper and fixture provenance."
+
+[file.043]
+path = "sdk/platform/conformance/evm-lifecycle-wrapping.test.py"
+lines = 130
+verdict = "clean"
+note = "Read in full: deploy/upgrade EVM wrapper cases bind the ABI calls and fixture contents rather than exposing raw kernel submission."
+
+[file.044]
+path = "sdk/platform/conformance/evm-wind-down-wrapping.test.py"
+lines = 134
+verdict = "clean"
+note = "Read in full: mode-specific wind-down wrapper vectors align with the merged Programs lifecycle calls."
+
+[file.045]
+path = "sdk/platform/conformance/kernel-fixtures-retired-1.test.py"
+lines = 39
+verdict = "clean"
+note = "Read in full: historical kernel vector checks are explicitly retired coverage, not a public ingress or claimed merged transport."
+
+[file.046]
+path = "sdk/platform/conformance/kernel-fixtures-retired-2.test.py"
+lines = 50
+verdict = "clean"
+note = "Read in full: historical kernel proof cases remain named and isolated as retired fixtures."
+
+[file.047]
+path = "sdk/platform/conformance/kernel-fixtures-retired-3.test.py"
+lines = 47
+verdict = "clean"
+note = "Read in full: historical kernel receipt cases are explicitly marked retired rather than reused as the live verifier."
+
+[file.048]
+path = "sdk/platform/conformance/kernel-fixtures-retired-4.test.py"
+lines = 27
+verdict = "clean"
+note = "Read in full: retained archival kernel fixture assertions do not register a live network client."
+
+[file.049]
+path = "sdk/platform/conformance/mirror-v2.json"
+lines = 34
+verdict = "generated"
+note = "Generated manifest output of sdk/platform/generators/src/main.rs; reviewed provenance and checked catalogue relationship, without treating generated fixture inventory as handwritten transport code."
+
+[file.050]
+path = "sdk/platform/conformance/operations.json"
+lines = 1452
+verdict = "generated"
+note = "Generated operation catalogue emitted by sdk/platform/generators/src/main.rs; reviewed generation provenance and retained EVM/hosted operation classification."
+
+[file.051]
+path = "sdk/platform/conformance/run-go.sh"
+lines = 11
+verdict = "clean"
+note = "Read in full: Go conformance launcher invokes the declared retained SDK conformance entry points."
+
+[file.052]
+path = "sdk/platform/conformance/run-jvm.sh"
+lines = 34
+verdict = "generated"
+note = "Generated JVM conformance launcher emitted by sdk/platform/generators/src/main.rs; recorded as generator-owned output."
+
+[file.053]
+path = "sdk/platform/conformance/secret-hygiene.test.py"
+lines = 157
+verdict = "issues"
+note = "Read in full: secret refusal/serialization tests reviewed; wipe observation and inverted token assertions recorded."
+
+[file.054]
+path = "sdk/platform/conformance/secret-hygiene.test.rs"
+lines = 152
+verdict = "issues"
+note = "Read in full: Rust secret lifecycle and error tests reviewed; copy-before-drop does not establish zeroization."
+
+[file.055]
+path = "sdk/platform/conformance/secret-hygiene.test.ts"
+lines = 161
+verdict = "issues"
+note = "Read in full: TypeScript secret lifecycle tests reviewed; inverted token check and vacuous catch recorded."
+
+[file.056]
+path = "sdk/platform/conformance/streaming-resumability.test.py"
+lines = 371
+verdict = "issues"
+note = "Read in full: Python log cursor/refusal cases reviewed; synthetic transport and non-durable restart coverage recorded."
+
+[file.057]
+path = "sdk/platform/conformance/streaming-resumability.test.rs"
+lines = 444
+verdict = "issues"
+note = "Read in full: Rust cursor ordering/refusal cases reviewed; actual producer and persisted restart proof missing."
+
+[file.058]
+path = "sdk/platform/conformance/streaming-resumability.test.ts"
+lines = 260
+verdict = "issues"
+note = "Read in full: TypeScript resumability cases reviewed; opaque in-memory cursors omit merged log-position recovery."
+
+[file.059]
+path = "services/agent/crates/layerx-sdk/src/approval.rs"
+lines = 304
+verdict = "clean"
+note = "Read in full: approval request/response binding and refusal behavior checked against the agent approval data types."
+
+[file.060]
+path = "services/agent/crates/layerx-sdk/src/mirror_generated.rs"
+lines = 33
+verdict = "generated"
+note = "Generated Rust mirror emitted by sdk/platform/generators/src/main.rs with generated header; reviewed catalogue provenance rather than assigning handwritten-code coverage."
+
+[file.061]
+path = "services/agent/crates/layerx-sdk/src/native_capabilities.rs"
+lines = 365
+verdict = "clean"
+note = "Read in full: native capability wire construction and bounded field validation match the declared payload types; these are payload codecs, not a public node listener."
+
+[file.062]
+path = "services/agent/crates/layerx-sdk/src/native_effect.rs"
+lines = 666
+verdict = "clean"
+note = "Read in full: native effect encoding and typed validation checked against their host/guest payload definitions."
+
+[file.063]
+path = "services/agent/crates/layerx-sdk/src/program_lifecycle.rs"
+lines = 317
+verdict = "issues"
+note = "Read in full: lifecycle binding and verification reviewed through EVM wrapper/receipt producers; raw kernel signing and legacy receipt contract findings recorded."
+
+[file.064]
+path = "services/agent/crates/layerx-sdk/src/programs/native_activity.rs"
+lines = 52
+verdict = "clean"
+note = "Read in full: native activity payload fields, bounds and encoding reviewed as internal guest payloads, distinct from EVM transaction submission."
+
+[file.065]
+path = "services/agent/crates/layerx-sdk/src/purpose.rs"
+lines = 99
+verdict = "clean"
+note = "Read in full: purpose validation and value conversion agree with the bounded purpose representation consumed by agent APIs."
+
+[file.066]
+path = "services/agent/crates/layerx-sdk/src/register.rs"
+lines = 184
+verdict = "clean"
+note = "Read in full: registration binding domain, key material and request fields reviewed with the gateway registration contract."
+
+[file.067]
+path = "services/agent/crates/layerx-sdk/src/rpc_capability.rs"
+lines = 428
+verdict = "clean"
+note = "Read in full: RPC capability request fields and typed responses checked against the hosted capability methods."
+
+[file.068]
+path = "services/agent/crates/layerx-sdk/src/rpc_policy.rs"
+lines = 243
+verdict = "clean"
+note = "Read in full: policy response decoding and option handling reviewed against the retained hosted policy schema."
+
+[file.069]
+path = "services/agent/crates/layerx-sdk/src/rpc_subscription.rs"
+lines = 987
+verdict = "issues"
+note = "Read in full: socket URL, subscription methods, cancellation and cursor handling reviewed; retired lx_ stream blocks merged subscription use."
+
+[file.070]
+path = "services/agent/crates/layerx-sdk/src/tls.rs"
+lines = 17
+verdict = "clean"
+note = "Read in full: TLS client configuration, certificate handling and refusal propagation reviewed for the SDK transport."
+
+[file.071]
+path = "services/platform/examples/marketplace/deploy-payload.mjs"
+lines = 362
+verdict = "issues"
+note = "Read in full: deployment payload preparation, account lookup and node request construction reviewed; retired snapshot and /rpc dependency blocks the example."
+
+[file.072]
+path = "services/platform/examples/marketplace/index.mjs"
+lines = 237
+verdict = "clean"
+note = "Read in full: marketplace operation flow consumes the signed receipt outcome helper and distinguishes EVM/hosted inputs; deployment transport defects are owned by deploy-payload.mjs."
+
+[file.073]
+path = "services/platform/examples/marketplace/layerx.example.json"
+lines = 36
+verdict = "issues"
+note = "Read in full: example environment keys checked against consumers; configured RPC paths require correction."
+
+[file.074]
+path = "services/platform/examples/marketplace/package.json"
+lines = 22
+verdict = "issues"
+note = "Read in full: marketplace scripts and dependencies reviewed; receipt outcome checks are absent from the declared test command."
+
+[file.075]
+path = "services/platform/examples/marketplace/program/Cargo.toml"
+lines = 33
+verdict = "clean"
+note = "Read in full: marketplace guest manifest uses the actual SDK dependencies and release build metadata."
+
+[file.076]
+path = "services/platform/examples/marketplace/program/LayerX.toml"
+lines = 4
+verdict = "clean"
+note = "Read in full: Programs application metadata and guest entry configuration checked against the guest source."
+
+[file.077]
+path = "services/platform/examples/marketplace/program/src/lib.rs"
+lines = 138
+verdict = "clean"
+note = "Read in full: marketplace guest request decoding, listing/payment logic and host calls reviewed with the declared guest ABI."
+
+[file.078]
+path = "services/platform/examples/marketplace/receipt-outcome.mjs"
+lines = 96
+verdict = "clean"
+note = "Read in full: transaction hash, pinned receipt verification and outcome mapping checked against the real sequencer receipt verifier."
+
+[file.079]
+path = "services/platform/examples/marketplace/test/deploy-payload.test.mjs"
+lines = 338
+verdict = "issues"
+note = "Read in full: deployment tests reviewed against current account/nonce reads; hosted fixture shape and selector expectations are stale."
+
+[file.080]
+path = "services/platform/examples/marketplace/test/receipt-outcome.test.mjs"
+lines = 117
+verdict = "issues"
+note = "Read in full: signed outcome cases reviewed against receipt-outcome.mjs; asserted status/digest shape does not match the producer."
+
+[file.081]
+path = "services/platform/hosted/agent-boundary/Cargo.toml"
+lines = 30
+verdict = "clean"
+note = "Read in full: boundary crate targets and dependencies include chain receipt verification and retired-route refusal tests."
+
+[file.082]
+path = "services/platform/hosted/agent-boundary/src/artifacts.rs"
+lines = 492
+verdict = "issues"
+note = "Read in full: artifact verifier remains compiled but is not reached by retained routes; dead-code finding recorded."
+
+[file.083]
+path = "services/platform/hosted/agent-boundary/src/batch_maintenance_tests.rs"
+lines = 130
+verdict = "issues"
+note = "Read in full: historical maintained-kernel execution assertions bypass the live chain receipt route; archival test scope recorded."
+
+[file.084]
+path = "services/platform/hosted/agent-boundary/src/chain_receipt.rs"
+lines = 371
+verdict = "clean"
+note = "Read in full: node receipt/key RPC decoding, hash binding, receipt-key height bounds and verification reviewed with the node producer."
+
+[file.085]
+path = "services/platform/hosted/agent-boundary/src/deployment.rs"
+lines = 47
+verdict = "clean"
+note = "Read in full: deployment inclusion/evidence validation uses chain receipts and rejects mismatched transaction/program evidence."
+
+[file.086]
+path = "services/platform/hosted/agent-boundary/src/lifecycle_tests.rs"
+lines = 127
+verdict = "clean"
+note = "Read in full: lifecycle tests assert retired write routes refuse requests rather than admitting kernel activities."
+
+[file.087]
+path = "services/platform/hosted/agent-boundary/src/main.rs"
+lines = 1047
+verdict = "issues"
+note = "Read in full: route authentication, receipt lookup, bounded relays, config and readiness reviewed; dead upstream account-state and readiness wiring block operation."
+
+[file.088]
+path = "services/platform/hosted/agent-boundary/tests/chain_receipt.rs"
+lines = 582
+verdict = "clean"
+note = "Read in full: chain receipt integration uses a real boundary listener and pinned key responses, including malformed/missing evidence refusals."
+
+[file.089]
+path = "services/platform/hosted/agent-boundary/tests/retired_client_modules.rs"
+lines = 91
+verdict = "clean"
+note = "Read in full: retired-client checks enforce removed dependency/module boundaries without deleting behavioral assertions."
+
+[file.090]
+path = "services/platform/hosted/agent-boundary/tests/retired_client_modules_w2.rs"
+lines = 60
+verdict = "clean"
+note = "Read in full: second-wave retired client checks verify the retained boundary source and dependency removals."
+
+[file.091]
+path = "services/platform/hosted/agentd/live-check.sh"
+lines = 97
+verdict = "clean"
+note = "Read in full: agent daemon live-check selects actual daemon health/transport checks and propagates failures."
+
+[file.092]
+path = "services/platform/hosted/agentd/manifest_check.py"
+lines = 260
+verdict = "clean"
+note = "Read in full: deployment manifest checker compares required probe, secret and mount fields with the actual manifests."
+
+[file.093]
+path = "services/platform/hosted/agentd/probe.sh"
+lines = 324
+verdict = "issues"
+note = "Read in full: credential, TLS and journey probes reviewed; default health-only success overstates verified tenant reads."
+
+[file.094]
+path = "services/platform/hosted/dashboard/Cargo.toml"
+lines = 27
+verdict = "clean"
+note = "Read in full: dashboard package targets and hosted reader/gateway dependencies agree with its service entry points."
+
+[file.095]
+path = "services/platform/hosted/dashboard/src/error.rs"
+lines = 71
+verdict = "clean"
+note = "Read in full: dashboard typed errors map to bounded user-facing refusal responses."
+
+[file.096]
+path = "services/platform/hosted/dashboard/src/gateway.rs"
+lines = 489
+verdict = "issues"
+note = "Read in full: Redis TLS/credentials and principal request pagination reviewed; global audit cutoff can hide a principal's retained records."
+
+[file.097]
+path = "services/platform/hosted/dashboard/src/lib.rs"
+lines = 31
+verdict = "clean"
+note = "Read in full: dashboard exports align with the service/model/error modules and consumer imports."
+
+[file.098]
+path = "services/platform/hosted/dashboard/src/main.rs"
+lines = 264
+verdict = "clean"
+note = "Read in full: dashboard listener, request authorization and principal-scoped route dispatch reviewed with service behavior."
+
+[file.099]
+path = "services/platform/hosted/dashboard/src/model.rs"
+lines = 307
+verdict = "clean"
+note = "Read in full: dashboard serialized models checked with TypeScript consumers and retained evidence states."
+
+[file.100]
+path = "services/platform/hosted/dashboard/src/service.rs"
+lines = 216
+verdict = "issues"
+note = "Read in full: overview, event paging and receipt lookup reviewed; latest-200 snapshot is insufficient for identifier lookup."
+
+[file.101]
+path = "services/platform/hosted/dashboard/tests/plain_listener.rs"
+lines = 326
+verdict = "clean"
+note = "Read in full: plain-listener test exercises the actual dashboard routes and bounded authorization/refusal responses."
+
+[file.102]
+path = "services/platform/hosted/dashboard/web/app/data.ts"
+lines = 102
+verdict = "clean"
+note = "Read in full: frontend data decoding matches Rust field names and refuses unsupported evidence before presenting claims."
+
+[file.103]
+path = "services/platform/hosted/dashboard/web/app/healthz/route.ts"
+lines = 5
+verdict = "clean"
+note = "Read in full: web health endpoint provides process availability without treating it as verified settlement evidence."
+
+[file.104]
+path = "services/platform/hosted/dashboard/web/app/layout.tsx"
+lines = 11
+verdict = "clean"
+note = "Read in full: page layout and metadata accurately identify the hosted dashboard UI."
+
+[file.105]
+path = "services/platform/hosted/dashboard/web/app/page.tsx"
+lines = 131
+verdict = "clean"
+note = "Read in full: dashboard page derives labels from decoded data and does not manufacture receipt finality from transport success."
+
+[file.106]
+path = "services/platform/hosted/dashboard/web/fly.toml"
+lines = 41
+verdict = "clean"
+note = "Read in full: frontend deployment configuration matches the app port and health endpoint."
+
+[file.107]
+path = "services/platform/hosted/dashboard/web/next.config.ts"
+lines = 24
+verdict = "clean"
+note = "Read in full: Next configuration and service URL handling reviewed with the data loader."
+
+[file.108]
+path = "services/platform/hosted/dashboard/web/package.json"
+lines = 26
+verdict = "issues"
+note = "Read in full: frontend package scripts omit evidence-decoding.mjs despite its user-facing refusal checks."
+
+[file.109]
+path = "services/platform/hosted/dashboard/web/postcss.config.mjs"
+lines = 1
+verdict = "clean"
+note = "Read in full: PostCSS configuration only registers the actual frontend styling pipeline."
+
+[file.110]
+path = "services/platform/hosted/dashboard/web/tests/evidence-decoding.mjs"
+lines = 7
+verdict = "clean"
+note = "Read in full: evidence decoder checks target the production TypeScript decoder; package-level registration gap recorded separately."
+
+[file.111]
+path = "services/platform/hosted/dashboard/web/tests/ui-contract.mjs"
+lines = 9
+verdict = "clean"
+note = "Read in full: UI contract assertions cover production page/data imports and refusal presentation."
+
+[file.112]
+path = "services/platform/hosted/dashboard/web/tsconfig.json"
+lines = 20
+verdict = "clean"
+note = "Read in full: TypeScript project settings include the actual app source and framework types."
+
+[file.113]
+path = "services/platform/hosted/faucet/Cargo.toml"
+lines = 22
+verdict = "clean"
+note = "Read in full: faucet package dependencies and target remain a refusal-only retained compatibility service."
+
+[file.114]
+path = "services/platform/hosted/faucet/src/main.rs"
+lines = 1404
+verdict = "clean"
+note = "Read in full: retired faucet service refuses claims rather than issuing kernel activity receipts or exposing removed client behavior."
+
+[file.115]
+path = "services/platform/hosted/feeder/Cargo.toml"
+lines = 24
+verdict = "clean"
+note = "Read in full: feeder dependencies and sidecar target agree with Cosmos transaction signing and Chainflow retrieval."
+
+[file.116]
+path = "services/platform/hosted/feeder/Dockerfile"
+lines = 9
+verdict = "clean"
+note = "Read in full: image builds and starts the price sidecar target using the retained configuration and binary."
+
+[file.117]
+path = "services/platform/hosted/feeder/src/bin/price-sidecar/health.rs"
+lines = 218
+verdict = "clean"
+note = "Read in full: sidecar health windows and metrics match admitted-submission state; missing confirmed-progress distinction is recorded on round.rs."
+
+[file.118]
+path = "services/platform/hosted/feeder/src/bin/price-sidecar/main.rs"
+lines = 240
+verdict = "issues"
+note = "Read in full: sidecar configuration, key loading and listener startup reviewed; plaintext external feed credentials require restriction."
+
+[file.119]
+path = "services/platform/hosted/feeder/src/bin/price-sidecar/round.rs"
+lines = 1159
+verdict = "issues"
+note = "Read in full: quote collection, retries, account state, signed broadcast and journal updates reviewed; admission versus committed progress finding recorded."
+
+[file.120]
+path = "services/platform/hosted/feeder/src/chainflow.rs"
+lines = 694
+verdict = "clean"
+note = "Read in full: ticker request/response parsing, API key header, quote bounds and retry classification checked with sidecar consumers."
+
+[file.121]
+path = "services/platform/hosted/feeder/src/cosmos_tx.rs"
+lines = 676
+verdict = "clean"
+note = "Read in full: protobuf MsgSubmitPrices, AuthInfo/SignDoc and secp256k1 signing fields match the Go producer-side vector contract."
+
+[file.122]
+path = "services/platform/hosted/feeder/src/lib.rs"
+lines = 285
+verdict = "issues"
+note = "Read in full: journal persistence, RPC helpers, sender binding and health primitives reviewed; UTF-8 indexing in hex decode can panic."
+
+[file.123]
+path = "services/platform/hosted/feeder/tests/chainflow.rs"
+lines = 116
+verdict = "clean"
+note = "Read in full: Chainflow test listener and response cases exercise production retrieval and quote refusals."
+
+[file.124]
+path = "services/platform/hosted/feeder/tests/cosmos_tx.rs"
+lines = 159
+verdict = "clean"
+note = "Read in full: transaction vectors bind the production Cosmos bytes, account sequence and signature format."
+
+[file.125]
+path = "services/platform/hosted/feeder/tests/feeder.rs"
+lines = 105
+verdict = "clean"
+note = "Read in full: feeder tests cover journal reload, binding, health and RPC refusal behavior using the production helpers."
+
+[file.126]
+path = "services/platform/hosted/gateway/openrpc.json"
+lines = 2482
+verdict = "issues"
+note = "Read in full: hosted px_ method schema checked against gateway dispatch; retired server/rpc_paths advertising recorded."
+
+[file.127]
+path = "services/platform/tools/benchmark/Cargo.toml"
+lines = 17
+verdict = "clean"
+note = "Read in full: benchmark crate target and dependencies agree with the benchmark command implementation."
+
+[file.128]
+path = "services/platform/tools/benchmark/src/main.rs"
+lines = 732
+verdict = "clean"
+note = "Read in full: bounded benchmark orchestration, command execution and report generation reviewed with its declared CLI/config inputs."
+
+[file.129]
+path = "services/platform/tools/dependency-policy.sh"
+lines = 125
+verdict = "issues"
+note = "Read in full: retired package ban and SPDX evaluation reviewed; missing global client ban and grouped-license evaluation defects recorded."
+
+[file.130]
+path = "services/platform/tools/kvx/Cargo.toml"
+lines = 10
+verdict = "clean"
+note = "Read in full: KVX crate manifest exposes the actual parser library without hidden generated source."
+
+[file.131]
+path = "services/platform/tools/kvx/src/lib.rs"
+lines = 151
+verdict = "issues"
+note = "Read in full: line/block parsing, quoted strings and list helpers reviewed; comma/embedded-quote round-trip defect recorded."
+
+[file.132]
+path = "services/platform/tools/kvx/tests/parse.rs"
+lines = 55
+verdict = "clean"
+note = "Read in full: parser tests cover the implemented grammar; production quote/list round-trip issue recorded on the helper implementation."
+
+[file.133]
+path = "services/platform/tools/workspace-gate/Cargo.toml"
+lines = 13
+verdict = "clean"
+note = "Read in full: workspace gate manifest and executable target match the CLI entry point."
+
+[file.134]
+path = "services/platform/tools/workspace-gate/src/main.rs"
+lines = 119
+verdict = "issues"
+note = "Read in full: manifest resolution and workspace containment reviewed; stale default layout and path escape findings recorded."
+
+[file.135]
+path = "services/platform/tools/workspace-gate/tests/gate.rs"
+lines = 165
+verdict = "issues"
+note = "Read in full: workspace fixtures and refusal cases reviewed; synthetic old layout hides the checked-in manifest's broken default."
+
+[finding.001]
+file = "sdk/codec/amino.go"
+line = 190
+class = "runtime-risk"
+severity = "medium"
+observed = "LegacyAmino.MarshalJSONIndent panics when jsonMarshalAnys returns an error despite its ([]byte, error) signature; ordinary malformed Any values can escape an error-handling caller."
+expected = "The non-Must JSON indentation API returns codec errors to its caller; only explicitly named Must helpers should panic."
+proposal = "Return nil and the unpacking error from sdk/codec/amino.go MarshalJSONIndent and cover a real unprepared Any value in the codec tests."
+owner_domain = 15
+interface = "15.go-codec-marshal-json-indent-j76"
+
+[finding.002]
+file = "sdk/codec/types/interface_registry.go"
+line = 306
+class = "runtime-risk"
+severity = "medium"
+observed = "statefulUnpacker replaces the input Any with NewAnyWithValue(msg), deriving a new TypeUrl instead of retaining a RegisterCustomTypeURL alias; custom aliases and unknown fields are lost after unpacking."
+expected = "Unpacking an accepted Any caches its decoded message without changing the original serialized envelope or its registered custom type URL."
+proposal = "Preserve TypeUrl and Value while updating cachedValue in sdk/codec/types/interface_registry.go; add a custom-alias decode and re-encode case including a second decode."
+owner_domain = 15
+interface = "15.go-codec-types-interface-registry-j76"
+
+[finding.003]
+file = "sdk/codec/types/legacy.go"
+line = 169
+class = "runtime-risk"
+severity = "medium"
+observed = "NewLegacyInterfaceRegistry exposes UnpackAny that recursively invokes UnpackInterfaces(msg, registry) without the depth and shared-call limits present in NewInterfaceRegistry."
+expected = "Every externally usable Any unpacker bounds nesting and total work so nested network messages cannot exhaust the process stack or CPU."
+proposal = "Apply the bounded stateful unpacker to sdk/codec/types/legacy.go or restrict this legacy registry to trusted migration inputs and remove live network callers."
+owner_domain = 15
+interface = "15.go-codec-types-new-legacy-interface-registry-j76"
+
+[finding.004]
+file = "sdk/codec/unknownproto/doc.go"
+line = 11
+class = "doc-drift"
+severity = "low"
+observed = "The package examples pass false as RejectUnknownFieldsStrict's third argument and omit the required resolver and two return values for RejectUnknownFields."
+expected = "The documented examples match RejectUnknownFieldsStrict(bz, msg, resolver) and RejectUnknownFields(bz, msg, allowUnknownNonCriticals, resolver)."
+proposal = "Update sdk/codec/unknownproto/doc.go examples with DefaultAnyResolver and the current return arity so integrators can compile the shown validation path."
+owner_domain = 15
+
+[finding.005]
+file = "sdk/cosmovisor/upgrade.go"
+line = 164
+class = "restart-recovery"
+severity = "high"
+observed = "SetCurrentUpgrade removes current before creating the replacement symlink and never syncs the directory. A crash in between leaves no current; args.go CurrentBin then selects genesis on restart against an upgraded data directory."
+expected = "The selected node binary survives interruption of an upgrade and never silently rolls back to genesis when the node's store has already migrated."
+proposal = "Publish a temporary symlink by atomic rename with directory fsync in sdk/cosmovisor/upgrade.go and distinguish first initialization from lost upgrade state in args.go; prove recovery after interruption."
+owner_domain = 15
+interface = "15.go-cosmovisor-do-upgrade-j76"
+
+[finding.006]
+file = "sdk/cosmovisor/process.go"
+line = 146
+class = "runtime-risk"
+severity = "medium"
+observed = "WaitForUpgradeOrExit launches two scanner goroutines but returns directly from cmd.Wait without joining either. It can miss a final upgrade line or return while the supplied writers are still in use."
+expected = "An upgrade log emitted before child exit is processed before the supervisor decides which binary to run, and writers are quiescent when LaunchProcess returns."
+proposal = "Join both pipe readers before reading WaitResult in sdk/cosmovisor/process.go, coordinate scanner failure with child shutdown, and cover a child that emits an upgrade immediately before exit."
+owner_domain = 15
+interface = "15.go-cosmovisor-launch-process-j76"
+
+[finding.007]
+file = "sdk/cosmovisor/process.go"
+line = 57
+class = "runtime-risk"
+severity = "medium"
+observed = "Every LaunchProcess calls signal.Notify and starts a goroutine awaiting one signal, with no signal.Stop or exit cancellation. Old launches retain handlers for dead children; forwarding failure calls log.Fatal."
+expected = "After an upgrade only the active node receives shutdown signals, and old process lifetimes release their signal subscriptions."
+proposal = "Cancel and join the signal forwarder and call signal.Stop for each completed launch in sdk/cosmovisor/process.go; return forwarding errors through the supervisor instead of terminating from a goroutine."
+owner_domain = 15
+interface = "15.go-cosmovisor-launch-process-j76"
+
+[finding.008]
+file = "sdk/cosmovisor/scanner.go"
+line = 19
+class = "runtime-risk"
+severity = "medium"
+observed = "upgradeRegex captures Info with (\S*), so a valid JSON binary map containing spaces is truncated at its first whitespace; scanner_test.go explicitly accepts truncation."
+expected = "The README permits a JSON binaries map in upgrade-info; the complete map reaches GetDownloadURL regardless of insignificant JSON whitespace."
+proposal = "Parse the full upgrade info without truncating JSON, preserving compatibility with structured logger suffixes in sdk/cosmovisor/scanner.go, and use a real x/upgrade log containing spaced JSON in the scanner tests."
+owner_domain = 15
+interface = "15.go-cosmovisor-wait-for-update-j76"
+
+[finding.009]
+file = "sdk/cosmovisor/upgrade_test.go"
+line = 256
+class = "test-gap"
+severity = "medium"
+observed = "TestDownloadBinary returns from the entire test function after the first expected download failure inside its map loop. Map iteration can skip valid-checksum and archive cases without reporting subtests."
+expected = "Every declared checksum, archive and malformed-download case executes and asserts its result on every test run."
+proposal = "Run each sdk/cosmovisor/upgrade_test.go TestDownloadBinary case in t.Run or continue after an asserted expected failure so all map entries execute."
+owner_domain = 15
+
+[finding.010]
+file = "sdk/platform/conformance/secret-hygiene.test.py"
+line = 27
+class = "test-gap"
+severity = "medium"
+observed = "test_zeroizes_on_del copies the live bytes, asserts a pre-deletion byte and deletes the wrapper without inspecting the underlying buffer afterward; removing zeroization would leave this test green."
+expected = "The secret lifecycle test demonstrates that the production-owned allocation is wiped at destruction, without retaining an unwiped copy as its only observation."
+proposal = "Use a safely observable production allocation lifecycle in sdk/platform/conformance/secret-hygiene.test.py and assert post-destruction zeroes and refused access."
+owner_domain = 8
+
+[finding.011]
+file = "sdk/platform/conformance/secret-hygiene.test.rs"
+line = 17
+class = "test-gap"
+severity = "medium"
+observed = "secret_bytes_zeroizes_on_drop copies a secret into another Vec and checks it before drop; no assertion observes zeroization. The error test drops a secret then formats an unrelated error."
+expected = "Secret conformance proves wiping of the owned bytes and secret-free errors generated by the actual secret operation."
+proposal = "Exercise a production secret lifecycle with a safe wipe observation in sdk/platform/conformance/secret-hygiene.test.rs and assert a refusal from actual post-destruction access where supported."
+owner_domain = 8
+
+[finding.012]
+file = "sdk/platform/conformance/secret-hygiene.test.py"
+line = 156
+class = "test-gap"
+severity = "medium"
+observed = "test_never_includes_session_tokens_in_serialized_errors asserts that token-Bearer-abc123 IS present in serialized request_id; its named security property is inverted."
+expected = "A test claiming to prevent session-token serialization refuses or redacts sensitive request context rather than requiring it to appear."
+proposal = "Separate nonsecret request-id round-trip coverage from secret redaction in sdk/platform/conformance/secret-hygiene.test.py; drive an actual credential failure and assert that the token is absent."
+owner_domain = 8
+
+[finding.013]
+file = "sdk/platform/conformance/secret-hygiene.test.ts"
+line = 159
+class = "test-gap"
+severity = "medium"
+observed = "The never includes session tokens test requires token-Bearer-abc123 to occur in serialized errors; the destroyed-secret test also succeeds without throwing because its assertions only run in a conditional catch."
+expected = "Security conformance explicitly asserts the refusal and verifies sensitive credential material is absent from every serialized error path."
+proposal = "Use explicit throwing assertions and an actual credential failure in sdk/platform/conformance/secret-hygiene.test.ts, while testing nonsecret requestId round-trip separately."
+owner_domain = 8
+
+[finding.014]
+file = "sdk/platform/conformance/streaming-resumability.test.ts"
+line = 225
+class = "test-gap"
+severity = "medium"
+observed = "The TypeScript resumption test uses c0/c1/c2 on one in-memory ResumableStream and no eth_subscription log positions; it never reopens the stream or refuses a log at or before its saved cursor."
+expected = "The shared streaming contract proves (blockHeight, txIndex, logIndex) resumption and refusal of regressing first positions in every language."
+proposal = "Add TypeScript cases using the production log-cursor encoder and real log delivery, reconstruct the consumer from its persisted cursor and assert strict ordering and atomic refusal."
+owner_domain = 8
+
+[finding.015]
+file = "sdk/platform/conformance/streaming-resumability.test.py"
+line = 15
+class = "test-gap"
+severity = "medium"
+observed = "_log_event constructs eth_subscription JSON and links previous_cursor by hand; restart coverage reconstructs only an in-memory ResumableStream, with no node transport or persisted cursor."
+expected = "Brief checks 5 and 7 require actual producer bytes through the transport and recovery of the saved last-delivered log position."
+proposal = "Retain the unit cases but add a real node log stream through the Python SDK and durable cursor reload in sdk/platform/conformance/streaming-resumability.test.py."
+owner_domain = 8
+
+[finding.016]
+file = "sdk/platform/conformance/streaming-resumability.test.rs"
+line = 14
+class = "test-gap"
+severity = "medium"
+observed = "log_event synthesizes eth_subscription envelopes and cursor links; resumption recreates a value from memory rather than reopening persisted state or a node connection."
+expected = "The resumed Rust SDK must deliver real node logs strictly after the saved position across a transport disconnect and consumer restart."
+proposal = "Supplement sdk/platform/conformance/streaming-resumability.test.rs with a real producer and transport and a persisted position reopened in a new consumer."
+owner_domain = 8
+
+[finding.017]
+file = "services/agent/crates/layerx-sdk/src/program_lifecycle.rs"
+line = 88
+class = "interface-mismatch"
+severity = "high"
+interface = "9.rs-sdk-program-lifecycle-nativeprogramlifecyclerequest"
+observed = "NativeProgramLifecycleRequest::bind requires transaction.data == NativeProgramDeploy/Upgrade/WindDown::encode() raw kernel payload; its own test signs those bytes with chain_id 1. The 0x101D producer accepts selector-prefixed ABI calldata on chain 125."
+expected = "Lifecycle requests round-trip the merged Programs precompile deploy, upgrade and mode-specific wind-down ABI declared by the operation catalogue and EVM wrapper fixtures."
+proposal = "Use the real 0x101D ABI encoders and validate chain 125 in services/agent/crates/layerx-sdk/src/program_lifecycle.rs; prove signed SDK transactions execute through the Programs precompile instead of signing raw kernel fixture payloads."
+owner_domain = 9
+
+[finding.018]
+file = "services/agent/crates/layerx-sdk/src/program_lifecycle.rs"
+line = 157
+class = "retired-reference"
+severity = "high"
+observed = "verify_lifecycle_receipt insists on a protocol-3 kernel receipt for module 9 version 4 operation 0, so the retained public lifecycle verifier cannot accept the merged chain's EVM sequencer receipt."
+expected = "Requirement 8286 and the merged receipt contract use the signed EVM sequencer receipt pinned by receipt-key height, with the transaction hash and Programs outcome bound."
+proposal = "Replace the kernel lifecycle receipt API in services/agent/crates/layerx-sdk/src/program_lifecycle.rs and its transport callers with the retained sequencer verifier and pinned ReceiptKeys; keep historical decoding isolated if required."
+owner_domain = 9
+interface = "9.rs-sdk-program-lifecycle-verify-lifecycle-receipt-j44"
+
+[finding.019]
+file = "services/agent/crates/layerx-sdk/src/rpc_subscription.rs"
+line = 189
+class = "retired-reference"
+severity = "high"
+observed = "RpcClient::subscribe and subscribe_from reach connect, which appends /ws and sends lx_subscribe; unsubscribe and notification use lx_unsubscribe and lx_subscription, although gateway dispatch rejects all lx_ names."
+expected = "Requirement 8009 retires lx_ ingress; node streaming uses eth_subscribe logs and resumes by block, transaction and log position."
+proposal = "Migrate services/agent/crates/layerx-sdk/src/rpc_subscription.rs and RpcClient entry points to node eth_subscribe/eth_unsubscribe with log-position replay, proving disconnect and restart on the real listener."
+owner_domain = 9
+interface = "9.rs-sdk-rpc-subscription-rpcsubscription-j44"
+
+[finding.020]
+file = "services/platform/examples/marketplace/deploy-payload.mjs"
+line = 73
+class = "retired-reference"
+severity = "high"
+observed = "readLifecycleAnchor fetches /v1/state and expects network_mode/canonical_state_root/timestamp_ms before reading the nonce; callRpc then posts to /rpc. The configured mainnet node has JSON-RPC at the root and no retired kernel state snapshot."
+expected = "The marketplace can deploy and call against the merged node root endpoint using current EVM state and pending account nonce."
+proposal = "Replace the kernel snapshot and /rpc URL construction in services/platform/examples/marketplace/deploy-payload.mjs with the node JSON-RPC root and the retained transaction-builder inputs; prove against the real node."
+owner_domain = 8
+
+[finding.021]
+file = "services/platform/examples/marketplace/layerx.example.json"
+line = 24
+class = "config-drift"
+severity = "medium"
+observed = "Both configured rpcUrl values append /rpc; beta therefore directs receipt lookup to https://api-mainnet-beta.paxeer.network/rpc instead of the public node root."
+expected = "Brief facts 2 and 3 specify public JSON-RPC at the root and retire the unified /rpc route."
+proposal = "Use the root RPC URL in services/platform/examples/marketplace/layerx.example.json and align emulator configuration with the endpoint it actually serves."
+owner_domain = 8
+interface = "8.cfg-examples-marketplace-environments-beta-rpcurl-j41"
+
+[finding.022]
+file = "services/platform/examples/marketplace/test/deploy-payload.test.mjs"
+line = 275
+class = "test-gap"
+severity = "medium"
+observed = "The hosted fixture returns the retired lx_getSequence snapshot, asserts IDENTITY_SEQUENCE_SELECTOR == identity and expects one /rpc request; production now selects pending and first decodes px_resolveAccount before eth_getTransactionCount."
+expected = "The hosted deployment test consumes the actual identity resolver wire shape and pending EVM nonce response used by readLifecycleAnchor."
+proposal = "Replace the hand-built hosted snapshot in services/platform/examples/marketplace/test/deploy-payload.test.mjs with the real resolver and node responses over the retained root listener, asserting actual calls and typed refusal."
+owner_domain = 8
+
+[finding.023]
+file = "services/platform/examples/marketplace/test/receipt-outcome.test.mjs"
+line = 77
+class = "test-gap"
+severity = "medium"
+observed = "The success assertion expects status and a 0x-prefixed keccak receiptDigest, whereas programReceiptOutcome returns transactionHash, resultCode and the verifier's unprefixed receiptDigest; the refusal assertion also reads absent status."
+expected = "Requirement 8341.1 requires outcome transactionHash, rung and resultCode, exactly as returned by the production verifier."
+proposal = "Drive a real producer receipt into services/platform/examples/marketplace/test/receipt-outcome.test.mjs and assert the production outcome fields and canonical receipt digest, including a failed transaction."
+owner_domain = 8
+
+[finding.024]
+file = "services/platform/examples/marketplace/package.json"
+line = 14
+class = "test-gap"
+severity = "medium"
+observed = "npm test runs node --check index.mjs and deploy-payload.test.mjs only; receipt-outcome.test.mjs is never registered in the package test command."
+expected = "Marketplace qualification executes the signed outcome and unpinned-key refusal tests required by 8286 and 8341."
+proposal = "Include test/receipt-outcome.test.mjs in services/platform/examples/marketplace/package.json's test script after repairing its producer-shape assertions."
+owner_domain = 8
+
+[finding.025]
+file = "services/platform/hosted/agentd/probe.sh"
+line = 323
+class = "test-gap"
+severity = "medium"
+observed = "The default health-only journey prints 'transport and verified reads only' without sending the tenant.readiness request; tenant_probe remains zero when no session credentials are supplied."
+expected = "A health response proves daemon availability and authentication, whereas verified tenant reads require the owner readiness result and a verified read path."
+proposal = "Change services/platform/hosted/agentd/probe.sh's default success claim to health/authentication only and retain the verified-read claim exclusively after the authenticated tenant journey."
+owner_domain = 8
+interface = "8.cli-agentd-probe-sh-journey"
+
+[finding.026]
+file = "services/platform/hosted/dashboard/src/service.rs"
+line = 77
+class = "runtime-risk"
+severity = "medium"
+observed = "Dashboard::receipt looks up an activity only in HostedReader::snapshot(..., MAXIMUM_PAGE), the most recent 200 events; an older settled receipt becomes receipt_not_found as new events arrive."
+expected = "A receipt lookup by canonical activity identifier remains valid for retained durable evidence regardless of the size of the recent-events page."
+proposal = "Add principal-scoped indexed activity lookup in services/platform/hosted/webhooks and use it in services/platform/hosted/dashboard/src/service.rs; cover more than 200 later events."
+owner_domain = 8
+
+[finding.027]
+file = "services/platform/hosted/dashboard/src/gateway.rs"
+line = 156
+class = "runtime-risk"
+severity = "medium"
+observed = "Store::requests scans only limit*8 newest entries in the shared gateway:audit stream and filters the principal afterward, so another busy principal can make an existing request log appear empty."
+expected = "Principal-isolated request pages can retrieve the requested principal's retained records without an arbitrary global-traffic cutoff."
+proposal = "Maintain a principal-scoped audit index in services/platform/hosted/gateway and page it from services/platform/hosted/dashboard/src/gateway.rs with bounded cursor traversal."
+owner_domain = 8
+
+[finding.028]
+file = "services/platform/hosted/dashboard/web/package.json"
+line = 9
+class = "test-gap"
+severity = "medium"
+observed = "test:static runs ui-contract.mjs and TypeScript checking but never executes tests/evidence-decoding.mjs, leaving its four evidence refusal assertions outside the declared test script."
+expected = "Dashboard qualification must execute the checks that prevent unsupported receipt and settlement claims from reaching users."
+proposal = "Include tests/evidence-decoding.mjs in services/platform/hosted/dashboard/web/package.json's test command and add a positive decode using the Rust producer's serialized overview."
+owner_domain = 8
+
+[finding.029]
+file = "services/platform/hosted/feeder/src/bin/price-sidecar/round.rs"
+line = 678
+class = "runtime-risk"
+severity = "medium"
+observed = "submit treats broadcast_tx_sync code 0 as Accepted, persists next account and observation sequences and refreshes readiness at query height + 1 without checking inclusion or DeliverTx; an evicted or failed transaction is recorded as an accepted round."
+expected = "A reported last accepted height must distinguish the queried height plus one from confirmed execution; operators need to see when submissions reach consensus rather than only CheckTx admission."
+proposal = "In services/platform/hosted/feeder/src/bin/price-sidecar/round.rs, distinguish submitted hashes and proposed target heights from committed results, reconcile the journal after failed or evicted submissions, and expose confirmed feed progress separately."
+owner_domain = 8
+
+[finding.030]
+file = "services/platform/hosted/feeder/src/lib.rs"
+line = 55
+class = "runtime-risk"
+severity = "medium"
+observed = "hex_decode indexes a UTF-8 str at every second byte before radix parsing; an even-byte-length input containing multibyte characters can panic at a non-character boundary."
+expected = "Malformed hex in RPC answers, journal inputs or key files returns a typed refusal without terminating the sidecar."
+proposal = "Decode ASCII byte pairs with explicit hexadecimal validation in services/platform/hosted/feeder/src/lib.rs and cover non-ASCII strings as rejected inputs."
+owner_domain = 8
+
+[finding.031]
+file = "services/platform/hosted/feeder/src/bin/price-sidecar/main.rs"
+line = 97
+class = "security"
+severity = "medium"
+observed = "Config::validate permits an http:// Chainflow base_url and ticker_request attaches X-API-Key to that endpoint; deployment configuration can send the feed credential over plaintext."
+expected = "Authenticated external quote retrieval protects the API key with TLS; an explicit narrowly scoped local test path must not permit remote plaintext credentials."
+proposal = "Require HTTPS for deployed Chainflow sources in services/platform/hosted/feeder/src/bin/price-sidecar/main.rs and isolate loopback transport used by tests."
+owner_domain = 8
+interface = "8.cfg-feeder-config-chainflow"
+
+[finding.032]
+file = "services/platform/tools/workspace-gate/src/main.rs"
+line = 56
+class = "runtime-risk"
+severity = "medium"
+observed = "Directory containment checks only a textual root/ prefix; a declared path such as platform/../outside or a symlink under platform can pass when the target directory exists."
+expected = "The gate's documented workspace-root boundary applies to resolved paths and rejects parent traversal and symlink escapes."
+proposal = "Normalize and canonicalize declared paths against the canonical workspace root in services/platform/tools/workspace-gate/src/main.rs and reject traversal and symlink escapes before existence checks."
+owner_domain = 8
+interface = "8.cli-tools-workspace-gate-platform-workspace-gate-manifest-path-repo-root"
+
+[finding.033]
+file = "services/platform/tools/dependency-policy.sh"
+line = 80
+class = "runtime-risk"
+severity = "medium"
+observed = "The SPDX check flattens parentheses and, whenever any AND occurs, requires every token to be allowlisted, so (MIT OR GPL-3.0-only) AND Apache-2.0 is rejected despite an allowed MIT/Apache choice."
+expected = "Dependency policy evaluates SPDX AND/OR/WITH expressions according to their grouping and permits a valid fully allowlisted license choice."
+proposal = "Use an SPDX expression parser or a correctly grouped expression evaluator in services/platform/tools/dependency-policy.sh and cover mixed grouped alternatives."
+owner_domain = 8
+
+[finding.034]
+file = "services/platform/tools/kvx/src/lib.rs"
+line = 144
+class = "runtime-risk"
+severity = "medium"
+observed = "string_list splits at every comma and unquote rejects every embedded quote; quote interpolates strings without escaping. A quoted item such as \"a,b\" or a string containing a quote cannot round-trip through these public helpers."
+expected = "The quote/unquote and quoted-list APIs preserve the caller's string contents; the programme kvx parser supports commas inside strings and escaped double quotes."
+proposal = "Implement escaped quotes and quote-aware list tokenization in services/platform/tools/kvx/src/lib.rs, and cover quote/unquote and list round-trips with commas and embedded quotes."
+owner_domain = 8
+
+[finding.035]
+file = "services/platform/hosted/gateway/openrpc.json"
+line = 2479
+class = "retired-reference"
+severity = "medium"
+observed = "The servers list advertises https://api-mainnet-beta.paxeer.network/rpc and px_getRouteCatalogue.rpc_paths permits /rpc, presenting the retired unified route as a public node endpoint."
+expected = "Brief facts 2 and 3 put public node JSON-RPC at the root and retire the separate LayerX/router /rpc interface."
+proposal = "Remove the retired server and route claims from services/platform/hosted/gateway/openrpc.json and align the catalogue's advertised origins with the deployed hosted gateway and node."
+owner_domain = 8
+
+[finding.036]
+file = "services/platform/hosted/agent-boundary/src/main.rs"
+line = 676
+class = "interface-mismatch"
+severity = "high"
+interface = "8.http-agent-boundary-any-v1-protocol-account-state-head"
+observed = "relay_path_allowed retains /v1/protocol/account-state/head and /v1/receipts/<digest>/account-state, then relay_bounded sends their old HTTP GET wire shapes to LAYERX_AGENT_BOUNDARY_NODE_URL on loopback port 9401 in deployment.yaml. Their producer is the retired layerxd HTTP listener, absent from paxd's RPC."
+expected = "The registry and agent consumers must obtain current account-state evidence from the merged node with a shared committed height; a retained stable registry interface must have a reachable producer."
+proposal = "Migrate the account-state consumers and retained relay contract in services/platform/hosted/agent-boundary/src/main.rs, hosted/registry/src/node_state.rs and agentd/src/read/program_node.rs to the chain state/proof APIs, then remove the old HTTP relays and prove the complete transport."
+owner_domain = 8
+
+[finding.037]
+file = "services/platform/hosted/agent-boundary/src/main.rs"
+line = 737
+class = "wiring-gap"
+severity = "high"
+interface = "8.http-agent-boundary-get-readyz"
+observed = "readiness first opens the old config.node loopback HTTP port before checking chain_receipts, so a healthy merged chain cannot make this boundary ready without the retired node listener. config also requires NODE_URL and its bearer file and creates unused kernel journal directories."
+expected = "The retained receipt boundary starts and reports readiness from its chain receipt/key dependencies without a retired layerxd listener; readiness must not claim state_snapshot or synchronous execution services it no longer serves."
+proposal = "Remove the retired node connectivity and unused journal/config requirements from services/platform/hosted/agent-boundary/src/main.rs, derive readiness from the actual receipt dependency, and test readiness and receipt reads with all old node variables unset."
+owner_domain = 8
+
+[finding.038]
+file = "services/platform/hosted/agent-boundary/src/artifacts.rs"
+line = 140
+class = "dead-code"
+severity = "low"
+observed = "The compiled artifacts module retains StoredExecution verification, AuthorizedBatch and maintained kernel execution paths, but main.rs only uses canonical_hex and carries StoredExecution in an otherwise unused JournalRecord; no live route invokes verify."
+expected = "The merged receipt boundary exposes chain receipt verification; retired execution completion and batch authorization code should not remain as apparently supported live verification."
+proposal = "Keep bounded canonical hex decoding in services/platform/hosted/agent-boundary/src/chain_receipt.rs and remove the unused artifact verifier, stored journal shape and dependent historical batch tests from the runtime crate, relocating any needed archival tests."
+owner_domain = 8
+
+[finding.039]
+file = "services/platform/tools/dependency-policy.sh"
+line = 27
+class = "wiring-gap"
+severity = "medium"
+observed = "The banned package pattern omits layerx-paxeer-client. The later check rejects it only if reachable from layerx-ramp-toolkit or layerx-reference-ramp, so a metadata document including the retired client outside those closures passes this check."
+expected = "Requirement 8279.2 explicitly requires services/platform/tools/dependency-policy.sh to refuse a metadata document whose packages include layerx-paxeer-client."
+proposal = "Add the retired client to the package-wide boundary ban in services/platform/tools/dependency-policy.sh, keeping the ramp transitive check for its additional constraints and covering a standalone metadata entry."
+owner_domain = 8
+
+[finding.040]
+file = "services/platform/tools/workspace-gate/src/main.rs"
+line = 5
+class = "config-drift"
+severity = "medium"
+interface = "8.cli-tools-workspace-gate-platform-workspace-gate-manifest-path-repo-root"
+observed = "The default gate reads services/platform/workspace.kvx, whose workspace.root and all directories/policy files still start platform/. The tree now locates these across services/platform, sdk/platform and tools/platform, so the committed default points to a nonexistent workspace root."
+expected = "The default workspace gate should validate the repository's actual platform workspaces and policy files, rather than a synthetic pre-move directory tree."
+proposal = "Revise services/platform/workspace.kvx and services/platform/tools/workspace-gate/src/main.rs to model the split workspace roots, and exercise the default against the checked-in tree before fixture mutations."
+owner_domain = 8
+
+[finding.041]
+file = "services/platform/tools/workspace-gate/tests/gate.rs"
+line = 45
+class = "test-gap"
+severity = "medium"
+observed = "repo_fixture creates all paths from the stale manifest plus hard-coded platform/Cargo.toml, Cargo.lock and policy files. committed_manifest_passes_on_a_complete_tree therefore proves a fabricated old layout while the repository's default invocation cannot find platform/."
+expected = "Workspace qualification must prove that the committed manifest describes the real checked-in directories, while preserving the existing missing-path and declaration refusal assertions."
+proposal = "Add the real repository check to services/platform/tools/workspace-gate/tests/gate.rs and derive fixture ecosystem paths from the corrected manifest, retaining every refusal case against the new split layout."
+owner_domain = 8
+
+[finding.042]
+file = "sdk/cosmovisor/scanner_test.go"
+line = 31
+class = "test-gap"
+severity = "medium"
+observed = "TestWaitForInfo expects only DownloadData from the input 'DownloadData here!', encoding first-whitespace truncation as successful parsing; it has no actual x/upgrade JSON binary-map case."
+expected = "Upgrade-log tests preserve the whole documented upgrade-info value and prove the download parser can consume JSON containing insignificant whitespace."
+proposal = "Replace the truncated expected value and add a real spaced JSON x/upgrade log in sdk/cosmovisor/scanner_test.go alongside the scanner repair; assert the resulting download URL is usable."
+owner_domain = 15
+interface = "15.go-cosmovisor-wait-for-update-j76"
+
+[finding.043]
+file = "services/platform/hosted/agent-boundary/src/batch_maintenance_tests.rs"
+line = 73
+class = "test-gap"
+severity = "low"
+observed = "actual_module_maintained_call_binds_the_original_signed_execution calls the unused historical artifacts verifier directly and asserts protocol 3/module 9 kernel receipts; it never traverses the retained chain receipt HTTP route."
+expected = "Tests presented as boundary execution evidence identify their archival scope; merged receipt qualification follows the actual route, node response and height-pinned verifier."
+proposal = "Move the historical fixture coverage in services/platform/hosted/agent-boundary/src/batch_maintenance_tests.rs into an explicitly archival verifier suite and retain current receipt transport qualification in tests/chain_receipt.rs."
+owner_domain = 8
+
+[finding.044]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 26
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 26-50 describe separate kernel genesis, settlement/GuarantorBond/CheckpointRegistry contracts and layerxd custody profiles; rewrite the bringup for one paxd chain 125 and block-commit finality."
+expected = "Operator and integrator documentation describes the finished single paxd network, its root JSON-RPC and retained hosted interfaces, with lifecycle and recovery instructions matching the current code."
+proposal = "Rewrite docs/site/docs/operators/beta-cluster.md at the cited lines using the merged node and hosted contracts, remove the obsolete operational steps, and validate each replacement command and response through its real producer and consumer."
+owner_domain = 8
+
+[finding.045]
+file = "docs/site/docs/platform/hosted-node.md"
+line = 4
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 4-13 and 39-40 describe a layerxd sequencer and authority replica; line 71 and checkpoint recovery instructions retain LNI/anchor dependencies. Rewrite deployment, storage and recovery for merged paxd and the retained hosted receipt services."
+expected = "Operator and integrator documentation describes the finished single paxd network, its root JSON-RPC and retained hosted interfaces, with lifecycle and recovery instructions matching the current code."
+proposal = "Rewrite docs/site/docs/platform/hosted-node.md at the cited lines using the merged node and hosted contracts, remove the obsolete operational steps, and validate each replacement command and response through its real producer and consumer."
+owner_domain = 8
+
+[finding.046]
+file = "docs/site/docs/interop/x402.md"
+line = 90
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 90-103 prescribe POST /rpc, lx_sendActivity and kernel authorization/checkpoint proof. Rewrite payment submission and acceptance around root node EIP-1559, pax_sequencerReceipt and height-pinned ReceiptKeys, naming the hosted px_ gateway separately."
+expected = "Operator and integrator documentation describes the finished single paxd network, its root JSON-RPC and retained hosted interfaces, with lifecycle and recovery instructions matching the current code."
+proposal = "Rewrite docs/site/docs/interop/x402.md at the cited lines using the merged node and hosted contracts, remove the obsolete operational steps, and validate each replacement command and response through its real producer and consumer."
+owner_domain = 11
+
+[finding.047]
+file = "docs/wiki/X402Transport.md"
+line = 91
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 91-104 retain /rpc, lx_sendActivity, authorized kernel batches and checkpoint evidence. Synchronize this wiki page with the merged payment submission and verified sequencer receipt contract."
+expected = "Operator and integrator documentation describes the finished single paxd network, its root JSON-RPC and retained hosted interfaces, with lifecycle and recovery instructions matching the current code."
+proposal = "Rewrite docs/wiki/X402Transport.md at the cited lines using the merged node and hosted contracts, remove the obsolete operational steps, and validate each replacement command and response through its real producer and consumer."
+owner_domain = 11
+
+[finding.048]
+file = "docs/wiki/BetaCluster.md"
+line = 26
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 26-42 retain separately deployed kernel/settlement contracts and custody profiles. Rewrite the cluster topology and readiness checks for the merged paxd chain rather than layerxd plus settlement."
+expected = "Operator and integrator documentation describes the finished single paxd network, its root JSON-RPC and retained hosted interfaces, with lifecycle and recovery instructions matching the current code."
+proposal = "Rewrite docs/wiki/BetaCluster.md at the cited lines using the merged node and hosted contracts, remove the obsolete operational steps, and validate each replacement command and response through its real producer and consumer."
+owner_domain = 8
+
+[finding.049]
+file = "docs/wiki/HostedNode.md"
+line = 4
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 4-13, 39-40 and 71 retain a separate layerxd sequencer, receipt authority replica and LNI setup. Replace the topology and recovery runbook with merged chain and retained hosted dependencies."
+expected = "Operator and integrator documentation describes the finished single paxd network, its root JSON-RPC and retained hosted interfaces, with lifecycle and recovery instructions matching the current code."
+proposal = "Rewrite docs/wiki/HostedNode.md at the cited lines using the merged node and hosted contracts, remove the obsolete operational steps, and validate each replacement command and response through its real producer and consumer."
+owner_domain = 8
+
+[finding.050]
+file = "docs/system/routes.md"
+line = 843
+class = "doc-drift"
+severity = "medium"
+observed = "The generated inventory is titled Router routes at line 3; lines 843-848 advertise kernel state and lx_subscribe, line 908 /rpc/evm/ws, and lines 925-937 Programs REST routes now refused by the boundary. Regenerate from live registrations after correcting the owning route catalogue."
+expected = "Operator and integrator documentation describes the finished single paxd network, its root JSON-RPC and retained hosted interfaces, with lifecycle and recovery instructions matching the current code."
+proposal = "Correct tools/paxeer-x/route-catalogue.json and tools/docs/gen-system-docs.sh against live node and hosted registrations, then regenerate docs/system/routes.md with root JSON-RPC, retained hosted interfaces and explicit retired-route refusals."
+owner_domain = 8
+
+[finding.051]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "Line 47 describes a separate layerxd component, line 145 builds layerxd, and line 181 describes the merge as draft beside separately settled checkpoints. Rewrite architecture and build guidance for the running merged paxd chain."
+expected = "Operator and integrator documentation describes the finished single paxd network, its root JSON-RPC and retained hosted interfaces, with lifecycle and recovery instructions matching the current code."
+proposal = "Rewrite README.md at the cited lines using the merged node and hosted contracts, remove the obsolete operational steps, and validate each replacement command and response through its real producer and consumer."
+owner_domain = 16
+
+[finding.052]
+file = "docs/site/docs/index.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 11-26 describe periodic checkpoints, separate custody, guarantors and emergency exits, with the old module wire as the public interface. Rewrite the introduction for one chain 125, root node RPC and finality at committed blocks."
+expected = "Operator and integrator documentation describes the finished single paxd network, its root JSON-RPC and retained hosted interfaces, with lifecycle and recovery instructions matching the current code."
+proposal = "Rewrite docs/site/docs/index.md at the cited lines using the merged node and hosted contracts, remove the obsolete operational steps, and validate each replacement command and response through its real producer and consumer."
+owner_domain = 16
+
+[finding.053]
+file = "docs/site/docs/overview/quickstart.md"
+line = 167
+class = "doc-drift"
+severity = "medium"
+observed = "Line 20 and lines 167-215 teach /rpc, /rpc/ws and lx_ ingress; subsequent Programs REST/custody funding examples use the retired topology. Replace with root node RPC, hosted px_ identity, EIP-1559 Programs and log-position resumption."
+expected = "Operator and integrator documentation describes the finished single paxd network, its root JSON-RPC and retained hosted interfaces, with lifecycle and recovery instructions matching the current code."
+proposal = "Rewrite docs/site/docs/overview/quickstart.md at the cited lines using the merged node and hosted contracts, remove the obsolete operational steps, and validate each replacement command and response through its real producer and consumer."
+owner_domain = 8
+
+[finding.054]
+file = "docs/site/docs/operators/hosted-internal.md"
+line = 71
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 71-81 claim the internal image is absent, while lines 232-233 deny a layerx-human workload. Reconcile these instructions with current beta cluster rendering and the deployed human workload; replace retired Programs event upstream instructions."
+expected = "Operator and integrator documentation describes the finished single paxd network, its root JSON-RPC and retained hosted interfaces, with lifecycle and recovery instructions matching the current code."
+proposal = "Rewrite docs/site/docs/operators/hosted-internal.md at the cited lines using the merged node and hosted contracts, remove the obsolete operational steps, and validate each replacement command and response through its real producer and consumer."
+owner_domain = 8
+
+[finding.055]
+file = "docs/site/docs/platform/agent-boundary.md"
+line = 141
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-5 and 141-152 describe LNI activity submission; lines 223-288 document a removed idempotency journal, line 297 LNI configuration and line 420 old tests. Rewrite for retained chain receipt/deployment evidence, retired-route refusals and current configuration."
+expected = "Operator and integrator documentation describes the finished single paxd network, its root JSON-RPC and retained hosted interfaces, with lifecycle and recovery instructions matching the current code."
+proposal = "Rewrite docs/site/docs/platform/agent-boundary.md at the cited lines using the merged node and hosted contracts, remove the obsolete operational steps, and validate each replacement command and response through its real producer and consumer."
+owner_domain = 8
+
+[doc.001]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "misleading"
+notes = "Lines 26-50 describe separate kernel genesis, settlement/GuarantorBond/CheckpointRegistry contracts and layerxd custody profiles; rewrite the bringup for one paxd chain 125 and block-commit finality."
+
+[doc.002]
+path = "docs/site/docs/platform/hosted-node.md"
+status = "misleading"
+notes = "Lines 4-13 and 39-40 describe a layerxd sequencer and authority replica; line 71 and checkpoint recovery instructions retain LNI/anchor dependencies. Rewrite deployment, storage and recovery for merged paxd and the retained hosted receipt services."
+
+[doc.003]
+path = "docs/site/docs/interop/x402.md"
+status = "misleading"
+notes = "Lines 90-103 prescribe POST /rpc, lx_sendActivity and kernel authorization/checkpoint proof. Rewrite payment submission and acceptance around root node EIP-1559, pax_sequencerReceipt and height-pinned ReceiptKeys, naming the hosted px_ gateway separately."
+
+[doc.004]
+path = "docs/wiki/X402Transport.md"
+status = "misleading"
+notes = "Lines 91-104 retain /rpc, lx_sendActivity, authorized kernel batches and checkpoint evidence. Synchronize this wiki page with the merged payment submission and verified sequencer receipt contract."
+
+[doc.005]
+path = "docs/wiki/BetaCluster.md"
+status = "misleading"
+notes = "Lines 26-42 retain separately deployed kernel/settlement contracts and custody profiles. Rewrite the cluster topology and readiness checks for the merged paxd chain rather than layerxd plus settlement."
+
+[doc.006]
+path = "docs/wiki/HostedNode.md"
+status = "misleading"
+notes = "Lines 4-13, 39-40 and 71 retain a separate layerxd sequencer, receipt authority replica and LNI setup. Replace the topology and recovery runbook with merged chain and retained hosted dependencies."
+
+[doc.007]
+path = "docs/system/routes.md"
+status = "misleading"
+notes = "The generated inventory is titled Router routes at line 3; lines 843-848 advertise kernel state and lx_subscribe, line 908 /rpc/evm/ws, and lines 925-937 Programs REST routes now refused by the boundary. Regenerate from live registrations after correcting the owning route catalogue."
+
+[doc.008]
+path = "README.md"
+status = "misleading"
+notes = "Line 47 describes a separate layerxd component, line 145 builds layerxd, and line 181 describes the merge as draft beside separately settled checkpoints. Rewrite architecture and build guidance for the running merged paxd chain."
+
+[doc.009]
+path = "docs/site/docs/index.md"
+status = "misleading"
+notes = "Lines 11-26 describe periodic checkpoints, separate custody, guarantors and emergency exits, with the old module wire as the public interface. Rewrite the introduction for one chain 125, root node RPC and finality at committed blocks."
+
+[doc.010]
+path = "docs/site/docs/overview/quickstart.md"
+status = "misleading"
+notes = "Line 20 and lines 167-215 teach /rpc, /rpc/ws and lx_ ingress; subsequent Programs REST/custody funding examples use the retired topology. Replace with root node RPC, hosted px_ identity, EIP-1559 Programs and log-position resumption."
+
+[doc.011]
+path = "docs/site/docs/operators/hosted-internal.md"
+status = "stale"
+notes = "Lines 71-81 claim the internal image is absent, while lines 232-233 deny a layerx-human workload. Reconcile these instructions with current beta cluster rendering and the deployed human workload; replace retired Programs event upstream instructions."
+
+[doc.012]
+path = "docs/site/docs/platform/agent-boundary.md"
+status = "misleading"
+notes = "Lines 3-5 and 141-152 describe LNI activity submission; lines 223-288 document a removed idempotency journal, line 297 LNI configuration and line 420 old tests. Rewrite for retained chain receipt/deployment evidence, retired-route refusals and current configuration."
+
+[doc.013]
+path = "sdk/cosmovisor/README.md"
+status = "accurate"
+notes = "Reviewed the complete supervisor guide, paxd binary layout, environment and upgrade-info download contract. Runtime atomicity and scanner defects are recorded separately; the documented JSON download input is intentional."
+
+[doc.014]
+path = "sdk/platform/conformance/README.md"
+status = "accurate"
+notes = "Reviewed the complete V1-V5 guide: sequencer receipt provenance, receipt-key pins, committed inclusion proofs and portable export encodings agree with the merged client verification direction."
+
+[doc.015]
+path = "spec/layerx-merge/contracts/clients.md"
+status = "accurate"
+notes = "Reviewed operation, identity, receipt verification and switch-off sections, plus the beginning of operation mapping. This contract explicitly freezes HEAD citations at revision 2a1033aa2; historical lx_ inventory is marked for replacement rather than current deployment guidance."
+
+[doc.016]
+path = "spec/layerx-merge/contracts/platform-tools.md"
+status = "accurate"
+notes = "Reviewed the complete pinned tools contract: CLI/manifest interfaces, benchmark and dependency policy obligations, with emulator routes explicitly retired to 404. Historical source citations do not establish that the current manifest resolves correctly."
+
+[doc.017]
+path = "spec/layerx-merge/contracts/platform-hosted.md"
+status = "accurate"
+notes = "Reviewed the pinned boundary environment/routes and feeder configuration/metrics sections (lines 1-70, 175-220 and 1421-1507). Frozen inventory is distinguished from live wiring; current boundary dependencies are reported as findings."
+
+[doc.018]
+path = "spec/layerx-merge/contracts/platform-sdk.md"
+status = "accurate"
+notes = "Reviewed the pinned transport table (lines 1-70) and operation catalogue section (1187-1208). Current transport direction and deliberately historical source inventory were checked against the generated catalogue and merged ABI."
+
+[doc.019]
+path = "spec/layerx-merge/contracts/agent-rust-api.md"
+status = "accurate"
+notes = "Reviewed lines 1-70 covering current AI-market preparation, fifteen-word ABI, chain 125 EIP-1559 calls and durable OperationRecord; these requirements inform the lifecycle mismatch finding."
+
+[doc.020]
+path = "sdk/codec/unknownproto/doc.go"
+status = "stale"
+notes = "Read in full. Lines 11 onward show obsolete RejectUnknownFields argument and return shapes; replace with resolver-aware examples matching unknown_fields.go."
+
+[doc.021]
+path = "sdk/codec/legacy/doc.go"
+status = "accurate"
+notes = "Read in full. The short package description identifies legacy Amino helpers and does not claim a merged network transport or current public RPC."
+
+[doc.022]
+path = "sdk/codec/types/doc.go"
+status = "accurate"
+notes = "Read in full. Package documentation describes protobuf interface/Any support without asserting a retired network listener or receipt format."
+

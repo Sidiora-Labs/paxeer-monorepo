@@ -1,0 +1,1531 @@
+[audit.22.30.8]
+task = "22.30.8"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 180
+findings = 37
+docs_reviewed = 12
+upgrade_ready = false
+blocking = ["capability-message-url", "unscoped-message-bypasses-policy", "grant-validity-not-enforced", "period-budget-not-enforced", "zero-total-disagrees-with-kernel", "multi-grantor-context-overwritten", "send-refuses-opened-account", "payexact-uses-different-account-sequence", "chain-history-omitted-from-genesis", "oracle-read-needs-test-context", "oracle-write-has-no-producer", "oracle-writes-use-retired-exchange", "weighted-median-rounds-down"]
+lines_reviewed = 24245
+produced_interfaces_reviewed = 334
+consumed_interfaces_reviewed = 312
+review_basis = "Package requirements and acceptance criteria; declared interface signatures and callers; ledger-auth and agent-functions contracts; merged-network facts, retirement registry, source producers, node transport and downstream consumers. Findings are proposals; no product behavior is repaired by this record."
+
+[file.1]
+path = "api/layerxagent/events.proto"
+lines = 22
+verdict = "clean"
+note = "Full-file review: layerxagent protobuf field widths, service signatures and scheduler event/genesis transport agree with the declared module types."
+
+[file.2]
+path = "api/layerxagent/genesis.proto"
+lines = 24
+verdict = "clean"
+note = "Full-file review: layerxagent protobuf field widths, service signatures and scheduler event/genesis transport agree with the declared module types."
+
+[file.3]
+path = "api/layerxagent/query.proto"
+lines = 43
+verdict = "clean"
+note = "Full-file review: layerxagent protobuf field widths, service signatures and scheduler event/genesis transport agree with the declared module types."
+
+[file.4]
+path = "api/layerxagent/tx.proto"
+lines = 29
+verdict = "clean"
+note = "Full-file review: layerxagent protobuf field widths, service signatures and scheduler event/genesis transport agree with the declared module types."
+
+[file.5]
+path = "modules/layerxauth/ante/integration_test.go"
+lines = 289
+verdict = "issues"
+note = "Full-file review of integration_test.go: assertions and fixtures for bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport. No additional issue beyond findings attached to this file."
+
+[file.6]
+path = "modules/layerxauth/ante/revocation.go"
+lines = 72
+verdict = "issues"
+note = "Full-file review of revocation.go: bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport."
+
+[file.7]
+path = "modules/layerxauth/ante/revocation_test.go"
+lines = 233
+verdict = "clean"
+note = "Full-file review of revocation_test.go: assertions and fixtures for bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport. No additional issue beyond findings attached to this file."
+
+[file.8]
+path = "modules/layerxauth/keeper/authority.go"
+lines = 40
+verdict = "clean"
+note = "Full-file review of authority.go: bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport."
+
+[file.9]
+path = "modules/layerxauth/keeper/authority_test.go"
+lines = 73
+verdict = "clean"
+note = "Full-file review of authority_test.go: assertions and fixtures for bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport. No additional issue beyond findings attached to this file."
+
+[file.10]
+path = "modules/layerxauth/keeper/capability.go"
+lines = 102
+verdict = "issues"
+note = "Full-file review of capability.go: bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport."
+
+[file.11]
+path = "modules/layerxauth/keeper/capability_test.go"
+lines = 149
+verdict = "issues"
+note = "Full-file review of capability_test.go: assertions and fixtures for bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport. No additional issue beyond findings attached to this file."
+
+[file.12]
+path = "modules/layerxauth/keeper/events.go"
+lines = 82
+verdict = "clean"
+note = "Full-file review of events.go: bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport."
+
+[file.13]
+path = "modules/layerxauth/keeper/events_test.go"
+lines = 143
+verdict = "clean"
+note = "Full-file review of events_test.go: assertions and fixtures for bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport. No additional issue beyond findings attached to this file."
+
+[file.14]
+path = "modules/layerxauth/keeper/execute.go"
+lines = 63
+verdict = "clean"
+note = "Full-file review of execute.go: bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport."
+
+[file.15]
+path = "modules/layerxauth/keeper/execute_test.go"
+lines = 201
+verdict = "clean"
+note = "Full-file review of execute_test.go: assertions and fixtures for bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport. No additional issue beyond findings attached to this file."
+
+[file.16]
+path = "modules/layerxauth/keeper/export_test.go"
+lines = 77
+verdict = "clean"
+note = "Full-file review of export_test.go: assertions and fixtures for bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport. No additional issue beyond findings attached to this file."
+
+[file.17]
+path = "modules/layerxauth/keeper/genesis.go"
+lines = 21
+verdict = "clean"
+note = "Full-file review of genesis.go: bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport."
+
+[file.18]
+path = "modules/layerxauth/keeper/genesis_test.go"
+lines = 70
+verdict = "clean"
+note = "Full-file review of genesis_test.go: assertions and fixtures for bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport. No additional issue beyond findings attached to this file."
+
+[file.19]
+path = "modules/layerxauth/keeper/harness_test.go"
+lines = 75
+verdict = "clean"
+note = "Full-file review of harness_test.go: assertions and fixtures for bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport. No additional issue beyond findings attached to this file."
+
+[file.20]
+path = "modules/layerxauth/keeper/keeper.go"
+lines = 46
+verdict = "clean"
+note = "Full-file review of keeper.go: bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport."
+
+[file.21]
+path = "modules/layerxauth/keeper/keeper_test.go"
+lines = 49
+verdict = "clean"
+note = "Full-file review of keeper_test.go: assertions and fixtures for bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport. No additional issue beyond findings attached to this file."
+
+[file.22]
+path = "modules/layerxauth/keeper/kernel_codes.go"
+lines = 28
+verdict = "clean"
+note = "Full-file review of kernel_codes.go: bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport."
+
+[file.23]
+path = "modules/layerxauth/keeper/kernel_codes_test.go"
+lines = 48
+verdict = "clean"
+note = "Full-file review of kernel_codes_test.go: assertions and fixtures for bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport. No additional issue beyond findings attached to this file."
+
+[file.24]
+path = "modules/layerxauth/keeper/lifecycle.go"
+lines = 13
+verdict = "clean"
+note = "Full-file review of lifecycle.go: bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport."
+
+[file.25]
+path = "modules/layerxauth/keeper/msg_server.go"
+lines = 29
+verdict = "clean"
+note = "Full-file review of msg_server.go: bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport."
+
+[file.26]
+path = "modules/layerxauth/keeper/msg_server_test.go"
+lines = 81
+verdict = "clean"
+note = "Full-file review of msg_server_test.go: assertions and fixtures for bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport. No additional issue beyond findings attached to this file."
+
+[file.27]
+path = "modules/layerxauth/keeper/pause.go"
+lines = 15
+verdict = "clean"
+note = "Full-file review of pause.go: bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport."
+
+[file.28]
+path = "modules/layerxauth/keeper/pause_test.go"
+lines = 54
+verdict = "clean"
+note = "Full-file review of pause_test.go: assertions and fixtures for bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport. No additional issue beyond findings attached to this file."
+
+[file.29]
+path = "modules/layerxauth/keeper/proof_did_binding_test.go"
+lines = 171
+verdict = "clean"
+note = "Full-file review of proof_did_binding_test.go: assertions and fixtures for bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport. No additional issue beyond findings attached to this file."
+
+[file.30]
+path = "modules/layerxauth/keeper/proof_layerxauth_keeper_test.go"
+lines = 282
+verdict = "issues"
+note = "Full-file review of proof_layerxauth_keeper_test.go: assertions and fixtures for bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport. No additional issue beyond findings attached to this file."
+
+[file.31]
+path = "modules/layerxauth/keeper/retire_test.go"
+lines = 214
+verdict = "clean"
+note = "Full-file review of retire_test.go: assertions and fixtures for bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport. No additional issue beyond findings attached to this file."
+
+[file.32]
+path = "modules/layerxauth/keeper/revoke.go"
+lines = 79
+verdict = "clean"
+note = "Full-file review of revoke.go: bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport."
+
+[file.33]
+path = "modules/layerxauth/keeper/revoke_test.go"
+lines = 223
+verdict = "clean"
+note = "Full-file review of revoke_test.go: assertions and fixtures for bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport. No additional issue beyond findings attached to this file."
+
+[file.34]
+path = "modules/layerxauth/keeper/sessions.go"
+lines = 42
+verdict = "clean"
+note = "Full-file review of sessions.go: bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport."
+
+[file.35]
+path = "modules/layerxauth/keeper/sessions_test.go"
+lines = 222
+verdict = "clean"
+note = "Full-file review of sessions_test.go: assertions and fixtures for bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport. No additional issue beyond findings attached to this file."
+
+[file.36]
+path = "modules/layerxauth/keeper/shared_host_test.go"
+lines = 275
+verdict = "clean"
+note = "Full-file review of shared_host_test.go: assertions and fixtures for bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport. No additional issue beyond findings attached to this file."
+
+[file.37]
+path = "modules/layerxauth/keeper/views.go"
+lines = 232
+verdict = "clean"
+note = "Full-file review of views.go: bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport."
+
+[file.38]
+path = "modules/layerxauth/keeper/views_test.go"
+lines = 278
+verdict = "clean"
+note = "Full-file review of views_test.go: assertions and fixtures for bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport. No additional issue beyond findings attached to this file."
+
+[file.39]
+path = "modules/layerxauth/module.go"
+lines = 111
+verdict = "clean"
+note = "Full-file review of module.go: bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport."
+
+[file.40]
+path = "modules/layerxauth/module_test.go"
+lines = 134
+verdict = "clean"
+note = "Full-file review of module_test.go: assertions and fixtures for bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport. No additional issue beyond findings attached to this file."
+
+[file.41]
+path = "modules/layerxauth/types/authorization.go"
+lines = 209
+verdict = "issues"
+note = "Full-file review of authorization.go: bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport."
+
+[file.42]
+path = "modules/layerxauth/types/authorization_test.go"
+lines = 668
+verdict = "issues"
+note = "Full-file review of authorization_test.go: assertions and fixtures for bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport. No additional issue beyond findings attached to this file."
+
+[file.43]
+path = "modules/layerxauth/types/codec.go"
+lines = 35
+verdict = "clean"
+note = "Full-file review of codec.go: bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport."
+
+[file.44]
+path = "modules/layerxauth/types/errors.go"
+lines = 18
+verdict = "clean"
+note = "Full-file review of errors.go: bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport."
+
+[file.45]
+path = "modules/layerxauth/types/errors_test.go"
+lines = 71
+verdict = "clean"
+note = "Full-file review of errors_test.go: assertions and fixtures for bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport. No additional issue beyond findings attached to this file."
+
+[file.46]
+path = "modules/layerxauth/types/expected_keepers.go"
+lines = 20
+verdict = "clean"
+note = "Full-file review of expected_keepers.go: bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport."
+
+[file.47]
+path = "modules/layerxauth/types/genesis.go"
+lines = 13
+verdict = "clean"
+note = "Full-file review of genesis.go: bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport."
+
+[file.48]
+path = "modules/layerxauth/types/genesis_test.go"
+lines = 67
+verdict = "clean"
+note = "Full-file review of genesis_test.go: assertions and fixtures for bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport. No additional issue beyond findings attached to this file."
+
+[file.49]
+path = "modules/layerxauth/types/keys.go"
+lines = 17
+verdict = "clean"
+note = "Full-file review of keys.go: bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport."
+
+[file.50]
+path = "modules/layerxauth/types/msgs.go"
+lines = 93
+verdict = "clean"
+note = "Full-file review of msgs.go: bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport."
+
+[file.51]
+path = "modules/layerxauth/types/msgs_test.go"
+lines = 93
+verdict = "clean"
+note = "Full-file review of msgs_test.go: assertions and fixtures for bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport. No additional issue beyond findings attached to this file."
+
+[file.52]
+path = "modules/layerxauth/types/params.go"
+lines = 14
+verdict = "issues"
+note = "Full-file review of params.go: bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport."
+
+[file.53]
+path = "modules/layerxauth/types/params_test.go"
+lines = 38
+verdict = "clean"
+note = "Full-file review of params_test.go: assertions and fixtures for bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport. No additional issue beyond findings attached to this file."
+
+[file.54]
+path = "modules/layerxauth/types/payload.go"
+lines = 62
+verdict = "clean"
+note = "Full-file review of payload.go: bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport."
+
+[file.55]
+path = "modules/layerxauth/types/payload_test.go"
+lines = 141
+verdict = "clean"
+note = "Full-file review of payload_test.go: assertions and fixtures for bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport. No additional issue beyond findings attached to this file."
+
+[file.56]
+path = "modules/layerxauth/types/proof_layerxauth_genesis_test.go"
+lines = 119
+verdict = "clean"
+note = "Full-file review of proof_layerxauth_genesis_test.go: assertions and fixtures for bound DID authority, canonical governance payloads, kernel refusal mapping, authz scope and revocation transport. No additional issue beyond findings attached to this file."
+
+[file.57]
+path = "modules/layerxchains/keeper/accounting.go"
+lines = 96
+verdict = "clean"
+note = "Full-file review of accounting.go: tenant ID derivation, registry lifecycle, allowances, bank escrow and per-domain accounting."
+
+[file.58]
+path = "modules/layerxchains/keeper/genesis.go"
+lines = 37
+verdict = "issues"
+note = "Full-file review of genesis.go: tenant ID derivation, registry lifecycle, allowances, bank escrow and per-domain accounting."
+
+[file.59]
+path = "modules/layerxchains/keeper/keeper.go"
+lines = 361
+verdict = "clean"
+note = "Full-file review of keeper.go: tenant ID derivation, registry lifecycle, allowances, bank escrow and per-domain accounting."
+
+[file.60]
+path = "modules/layerxchains/keeper/keeper_test.go"
+lines = 523
+verdict = "issues"
+note = "Full-file review of keeper_test.go: assertions and fixtures for tenant ID derivation, registry lifecycle, allowances, bank escrow and per-domain accounting. No additional issue beyond findings attached to this file."
+
+[file.61]
+path = "modules/layerxchains/module.go"
+lines = 113
+verdict = "clean"
+note = "Full-file review of module.go: tenant ID derivation, registry lifecycle, allowances, bank escrow and per-domain accounting."
+
+[file.62]
+path = "modules/layerxchains/types/context.go"
+lines = 16
+verdict = "clean"
+note = "Full-file review of context.go: tenant ID derivation, registry lifecycle, allowances, bank escrow and per-domain accounting."
+
+[file.63]
+path = "modules/layerxchains/types/domain.go"
+lines = 55
+verdict = "clean"
+note = "Full-file review of domain.go: tenant ID derivation, registry lifecycle, allowances, bank escrow and per-domain accounting."
+
+[file.64]
+path = "modules/layerxchains/types/errors.go"
+lines = 18
+verdict = "clean"
+note = "Full-file review of errors.go: tenant ID derivation, registry lifecycle, allowances, bank escrow and per-domain accounting."
+
+[file.65]
+path = "modules/layerxchains/types/expected_keepers.go"
+lines = 10
+verdict = "clean"
+note = "Full-file review of expected_keepers.go: tenant ID derivation, registry lifecycle, allowances, bank escrow and per-domain accounting."
+
+[file.66]
+path = "modules/layerxchains/types/genesis.go"
+lines = 60
+verdict = "clean"
+note = "Full-file review of genesis.go: tenant ID derivation, registry lifecycle, allowances, bank escrow and per-domain accounting."
+
+[file.67]
+path = "modules/layerxchains/types/keys.go"
+lines = 36
+verdict = "clean"
+note = "Full-file review of keys.go: tenant ID derivation, registry lifecycle, allowances, bank escrow and per-domain accounting."
+
+[file.68]
+path = "modules/layerxchains/types/params.go"
+lines = 45
+verdict = "clean"
+note = "Full-file review of params.go: tenant ID derivation, registry lifecycle, allowances, bank escrow and per-domain accounting."
+
+[file.69]
+path = "modules/layerxchains/types/params_test.go"
+lines = 17
+verdict = "clean"
+note = "Full-file review of params_test.go: assertions and fixtures for tenant ID derivation, registry lifecycle, allowances, bank escrow and per-domain accounting. No additional issue beyond findings attached to this file."
+
+[file.70]
+path = "modules/layerxledger/keeper/accounts.go"
+lines = 31
+verdict = "clean"
+note = "Full-file review of accounts.go: canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors."
+
+[file.71]
+path = "modules/layerxledger/keeper/accounts_test.go"
+lines = 187
+verdict = "clean"
+note = "Full-file review of accounts_test.go: assertions and fixtures for canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors. No additional issue beyond findings attached to this file."
+
+[file.72]
+path = "modules/layerxledger/keeper/app_genesis_test.go"
+lines = 86
+verdict = "clean"
+note = "Full-file review of app_genesis_test.go: assertions and fixtures for canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors. No additional issue beyond findings attached to this file."
+
+[file.73]
+path = "modules/layerxledger/keeper/assets.go"
+lines = 48
+verdict = "clean"
+note = "Full-file review of assets.go: canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors."
+
+[file.74]
+path = "modules/layerxledger/keeper/assets_test.go"
+lines = 177
+verdict = "clean"
+note = "Full-file review of assets_test.go: assertions and fixtures for canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors. No additional issue beyond findings attached to this file."
+
+[file.75]
+path = "modules/layerxledger/keeper/authority.go"
+lines = 37
+verdict = "clean"
+note = "Full-file review of authority.go: canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors."
+
+[file.76]
+path = "modules/layerxledger/keeper/authority_test.go"
+lines = 83
+verdict = "clean"
+note = "Full-file review of authority_test.go: assertions and fixtures for canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors. No additional issue beyond findings attached to this file."
+
+[file.77]
+path = "modules/layerxledger/keeper/draw.go"
+lines = 20
+verdict = "clean"
+note = "Full-file review of draw.go: canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors."
+
+[file.78]
+path = "modules/layerxledger/keeper/events.go"
+lines = 95
+verdict = "clean"
+note = "Full-file review of events.go: canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors."
+
+[file.79]
+path = "modules/layerxledger/keeper/events_test.go"
+lines = 193
+verdict = "clean"
+note = "Full-file review of events_test.go: assertions and fixtures for canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors. No additional issue beyond findings attached to this file."
+
+[file.80]
+path = "modules/layerxledger/keeper/execute.go"
+lines = 62
+verdict = "clean"
+note = "Full-file review of execute.go: canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors."
+
+[file.81]
+path = "modules/layerxledger/keeper/execute_test.go"
+lines = 315
+verdict = "clean"
+note = "Full-file review of execute_test.go: assertions and fixtures for canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors. No additional issue beyond findings attached to this file."
+
+[file.82]
+path = "modules/layerxledger/keeper/genesis.go"
+lines = 23
+verdict = "issues"
+note = "Full-file review of genesis.go: canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors."
+
+[file.83]
+path = "modules/layerxledger/keeper/genesis_test.go"
+lines = 55
+verdict = "clean"
+note = "Full-file review of genesis_test.go: assertions and fixtures for canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors. No additional issue beyond findings attached to this file."
+
+[file.84]
+path = "modules/layerxledger/keeper/grants.go"
+lines = 24
+verdict = "clean"
+note = "Full-file review of grants.go: canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors."
+
+[file.85]
+path = "modules/layerxledger/keeper/harness_test.go"
+lines = 74
+verdict = "clean"
+note = "Full-file review of harness_test.go: assertions and fixtures for canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors. No additional issue beyond findings attached to this file."
+
+[file.86]
+path = "modules/layerxledger/keeper/host_route_test.go"
+lines = 153
+verdict = "clean"
+note = "Full-file review of host_route_test.go: assertions and fixtures for canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors. No additional issue beyond findings attached to this file."
+
+[file.87]
+path = "modules/layerxledger/keeper/issuer_binding.go"
+lines = 107
+verdict = "issues"
+note = "Full-file review of issuer_binding.go: canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors."
+
+[file.88]
+path = "modules/layerxledger/keeper/keeper.go"
+lines = 42
+verdict = "clean"
+note = "Full-file review of keeper.go: canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors."
+
+[file.89]
+path = "modules/layerxledger/keeper/keeper_test.go"
+lines = 35
+verdict = "clean"
+note = "Full-file review of keeper_test.go: assertions and fixtures for canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors. No additional issue beyond findings attached to this file."
+
+[file.90]
+path = "modules/layerxledger/keeper/kernel_codes.go"
+lines = 36
+verdict = "clean"
+note = "Full-file review of kernel_codes.go: canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors."
+
+[file.91]
+path = "modules/layerxledger/keeper/kernel_codes_test.go"
+lines = 101
+verdict = "clean"
+note = "Full-file review of kernel_codes_test.go: assertions and fixtures for canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors. No additional issue beyond findings attached to this file."
+
+[file.92]
+path = "modules/layerxledger/keeper/main_test.go"
+lines = 15
+verdict = "clean"
+note = "Full-file review of main_test.go: assertions and fixtures for canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors. No additional issue beyond findings attached to this file."
+
+[file.93]
+path = "modules/layerxledger/keeper/mirror.go"
+lines = 73
+verdict = "clean"
+note = "Full-file review of mirror.go: canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors."
+
+[file.94]
+path = "modules/layerxledger/keeper/mirror_test.go"
+lines = 197
+verdict = "clean"
+note = "Full-file review of mirror_test.go: assertions and fixtures for canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors. No additional issue beyond findings attached to this file."
+
+[file.95]
+path = "modules/layerxledger/keeper/msg_server.go"
+lines = 29
+verdict = "clean"
+note = "Full-file review of msg_server.go: canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors."
+
+[file.96]
+path = "modules/layerxledger/keeper/msg_server_test.go"
+lines = 84
+verdict = "clean"
+note = "Full-file review of msg_server_test.go: assertions and fixtures for canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors. No additional issue beyond findings attached to this file."
+
+[file.97]
+path = "modules/layerxledger/keeper/pause.go"
+lines = 18
+verdict = "clean"
+note = "Full-file review of pause.go: canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors."
+
+[file.98]
+path = "modules/layerxledger/keeper/payexact.go"
+lines = 108
+verdict = "issues"
+note = "Full-file review of payexact.go: canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors."
+
+[file.99]
+path = "modules/layerxledger/keeper/payexact_test.go"
+lines = 201
+verdict = "issues"
+note = "Full-file review of payexact_test.go: assertions and fixtures for canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors. No additional issue beyond findings attached to this file."
+
+[file.100]
+path = "modules/layerxledger/keeper/proof_layerxledger_keeper_test.go"
+lines = 334
+verdict = "clean"
+note = "Full-file review of proof_layerxledger_keeper_test.go: assertions and fixtures for canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors. No additional issue beyond findings attached to this file."
+
+[file.101]
+path = "modules/layerxledger/keeper/send.go"
+lines = 48
+verdict = "issues"
+note = "Full-file review of send.go: canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors."
+
+[file.102]
+path = "modules/layerxledger/keeper/send_test.go"
+lines = 251
+verdict = "issues"
+note = "Full-file review of send_test.go: assertions and fixtures for canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors. No additional issue beyond findings attached to this file."
+
+[file.103]
+path = "modules/layerxledger/keeper/supply.go"
+lines = 55
+verdict = "clean"
+note = "Full-file review of supply.go: canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors."
+
+[file.104]
+path = "modules/layerxledger/keeper/supply_test.go"
+lines = 173
+verdict = "clean"
+note = "Full-file review of supply_test.go: assertions and fixtures for canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors. No additional issue beyond findings attached to this file."
+
+[file.105]
+path = "modules/layerxledger/keeper/views.go"
+lines = 49
+verdict = "clean"
+note = "Full-file review of views.go: canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors."
+
+[file.106]
+path = "modules/layerxledger/module.go"
+lines = 109
+verdict = "clean"
+note = "Full-file review of module.go: canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors."
+
+[file.107]
+path = "modules/layerxledger/module_test.go"
+lines = 139
+verdict = "clean"
+note = "Full-file review of module_test.go: assertions and fixtures for canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors. No additional issue beyond findings attached to this file."
+
+[file.108]
+path = "modules/layerxledger/types/codec.go"
+lines = 30
+verdict = "clean"
+note = "Full-file review of codec.go: canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors."
+
+[file.109]
+path = "modules/layerxledger/types/denom.go"
+lines = 36
+verdict = "clean"
+note = "Full-file review of denom.go: canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors."
+
+[file.110]
+path = "modules/layerxledger/types/denom_test.go"
+lines = 74
+verdict = "clean"
+note = "Full-file review of denom_test.go: assertions and fixtures for canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors. No additional issue beyond findings attached to this file."
+
+[file.111]
+path = "modules/layerxledger/types/errors.go"
+lines = 36
+verdict = "clean"
+note = "Full-file review of errors.go: canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors."
+
+[file.112]
+path = "modules/layerxledger/types/errors_test.go"
+lines = 106
+verdict = "clean"
+note = "Full-file review of errors_test.go: assertions and fixtures for canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors. No additional issue beyond findings attached to this file."
+
+[file.113]
+path = "modules/layerxledger/types/expected_keepers.go"
+lines = 25
+verdict = "clean"
+note = "Full-file review of expected_keepers.go: canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors."
+
+[file.114]
+path = "modules/layerxledger/types/genesis.go"
+lines = 13
+verdict = "clean"
+note = "Full-file review of genesis.go: canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors."
+
+[file.115]
+path = "modules/layerxledger/types/genesis_test.go"
+lines = 57
+verdict = "clean"
+note = "Full-file review of genesis_test.go: assertions and fixtures for canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors. No additional issue beyond findings attached to this file."
+
+[file.116]
+path = "modules/layerxledger/types/keys.go"
+lines = 17
+verdict = "clean"
+note = "Full-file review of keys.go: canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors."
+
+[file.117]
+path = "modules/layerxledger/types/msgs.go"
+lines = 135
+verdict = "clean"
+note = "Full-file review of msgs.go: canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors."
+
+[file.118]
+path = "modules/layerxledger/types/msgs_test.go"
+lines = 215
+verdict = "clean"
+note = "Full-file review of msgs_test.go: assertions and fixtures for canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors. No additional issue beyond findings attached to this file."
+
+[file.119]
+path = "modules/layerxledger/types/params.go"
+lines = 8
+verdict = "clean"
+note = "Full-file review of params.go: canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors."
+
+[file.120]
+path = "modules/layerxledger/types/params_test.go"
+lines = 25
+verdict = "clean"
+note = "Full-file review of params_test.go: assertions and fixtures for canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors. No additional issue beyond findings attached to this file."
+
+[file.121]
+path = "modules/layerxledger/types/payload.go"
+lines = 101
+verdict = "clean"
+note = "Full-file review of payload.go: canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors."
+
+[file.122]
+path = "modules/layerxledger/types/payload_test.go"
+lines = 208
+verdict = "clean"
+note = "Full-file review of payload_test.go: assertions and fixtures for canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors. No additional issue beyond findings attached to this file."
+
+[file.123]
+path = "modules/layerxledger/types/payload_transfer.go"
+lines = 150
+verdict = "clean"
+note = "Full-file review of payload_transfer.go: canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors."
+
+[file.124]
+path = "modules/layerxledger/types/payload_transfer_test.go"
+lines = 222
+verdict = "clean"
+note = "Full-file review of payload_transfer_test.go: assertions and fixtures for canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors. No additional issue beyond findings attached to this file."
+
+[file.125]
+path = "modules/layerxledger/types/proof_layerxledger_genesis_test.go"
+lines = 188
+verdict = "clean"
+note = "Full-file review of proof_layerxledger_genesis_test.go: assertions and fixtures for canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors. No additional issue beyond findings attached to this file."
+
+[file.126]
+path = "modules/layerxledger/types/proof_payload_codec_test.go"
+lines = 323
+verdict = "clean"
+note = "Full-file review of proof_payload_codec_test.go: assertions and fixtures for canonical ledger payloads, caller ownership, host activity sequencing, bank balance mirroring and typed errors. No additional issue beyond findings attached to this file."
+
+[file.127]
+path = "modules/lxphost/genesis.go"
+lines = 112
+verdict = "clean"
+note = "Full-file review of genesis.go: shared host-store genesis ownership, ordered import/export and canonical account/sequence records; pay genesis separately exports governance module rows."
+
+[file.128]
+path = "modules/lxphost/genesis_test.go"
+lines = 210
+verdict = "clean"
+note = "Full-file review of genesis_test.go: assertions and fixtures for shared host-store genesis ownership, ordered import/export and canonical account/sequence records; pay genesis separately exports governance module rows. No additional issue beyond findings attached to this file."
+
+[file.129]
+path = "modules/lxphost/module.go"
+lines = 98
+verdict = "clean"
+note = "Full-file review of module.go: shared host-store genesis ownership, ordered import/export and canonical account/sequence records; pay genesis separately exports governance module rows."
+
+[file.130]
+path = "node/app_host_genesis_test.go"
+lines = 69
+verdict = "clean"
+note = "Full-file review of app_host_genesis_test.go: assertions and fixtures for shared host-store genesis ownership, ordered import/export and canonical account/sequence records; pay genesis separately exports governance module rows. No additional issue beyond findings attached to this file."
+
+[file.131]
+path = "precompiles/layerxagent/clearing/clearing.go"
+lines = 164
+verdict = "clean"
+note = "Full-file review of clearing.go: agent helper selectors, exact ABI widths, deterministic integer arithmetic, bounded batches, merge activation and common gas/error transport."
+
+[file.132]
+path = "precompiles/layerxagent/clearing/clearing_test.go"
+lines = 426
+verdict = "clean"
+note = "Full-file review of clearing_test.go: assertions and fixtures for agent helper selectors, exact ABI widths, deterministic integer arithmetic, bounded batches, merge activation and common gas/error transport. No additional issue beyond findings attached to this file."
+
+[file.133]
+path = "precompiles/layerxagent/clearing/merge.go"
+lines = 34
+verdict = "clean"
+note = "Full-file review of merge.go: agent helper selectors, exact ABI widths, deterministic integer arithmetic, bounded batches, merge activation and common gas/error transport."
+
+[file.134]
+path = "precompiles/layerxagent/clearing/merge_test.go"
+lines = 129
+verdict = "clean"
+note = "Full-file review of merge_test.go: assertions and fixtures for agent helper selectors, exact ABI widths, deterministic integer arithmetic, bounded batches, merge activation and common gas/error transport. No additional issue beyond findings attached to this file."
+
+[file.135]
+path = "precompiles/layerxagent/common/common.go"
+lines = 222
+verdict = "clean"
+note = "Full-file review of common.go: agent helper selectors, exact ABI widths, deterministic integer arithmetic, bounded batches, merge activation and common gas/error transport."
+
+[file.136]
+path = "precompiles/layerxagent/common/common_test.go"
+lines = 498
+verdict = "clean"
+note = "Full-file review of common_test.go: assertions and fixtures for agent helper selectors, exact ABI widths, deterministic integer arithmetic, bounded batches, merge activation and common gas/error transport. No additional issue beyond findings attached to this file."
+
+[file.137]
+path = "precompiles/layerxagent/common/errors.go"
+lines = 25
+verdict = "clean"
+note = "Full-file review of errors.go: agent helper selectors, exact ABI widths, deterministic integer arithmetic, bounded batches, merge activation and common gas/error transport."
+
+[file.138]
+path = "precompiles/layerxagent/common/errors_registry_test.go"
+lines = 174
+verdict = "clean"
+note = "Full-file review of errors_registry_test.go: assertions and fixtures for agent helper selectors, exact ABI widths, deterministic integer arithmetic, bounded batches, merge activation and common gas/error transport. No additional issue beyond findings attached to this file."
+
+[file.139]
+path = "precompiles/layerxagent/common/gas.go"
+lines = 82
+verdict = "clean"
+note = "Full-file review of gas.go: agent helper selectors, exact ABI widths, deterministic integer arithmetic, bounded batches, merge activation and common gas/error transport."
+
+[file.140]
+path = "precompiles/layerxagent/common/proof_errors_test.go"
+lines = 263
+verdict = "clean"
+note = "Full-file review of proof_errors_test.go: assertions and fixtures for agent helper selectors, exact ABI widths, deterministic integer arithmetic, bounded batches, merge activation and common gas/error transport. No additional issue beyond findings attached to this file."
+
+[file.141]
+path = "precompiles/layerxagent/eip712/eip712.go"
+lines = 165
+verdict = "clean"
+note = "Full-file review of eip712.go: agent helper selectors, exact ABI widths, deterministic integer arithmetic, bounded batches, merge activation and common gas/error transport."
+
+[file.142]
+path = "precompiles/layerxagent/eip712/eip712_test.go"
+lines = 454
+verdict = "clean"
+note = "Full-file review of eip712_test.go: assertions and fixtures for agent helper selectors, exact ABI widths, deterministic integer arithmetic, bounded batches, merge activation and common gas/error transport. No additional issue beyond findings attached to this file."
+
+[file.143]
+path = "precompiles/layerxagent/eip712/merge.go"
+lines = 40
+verdict = "clean"
+note = "Full-file review of merge.go: agent helper selectors, exact ABI widths, deterministic integer arithmetic, bounded batches, merge activation and common gas/error transport."
+
+[file.144]
+path = "precompiles/layerxagent/eip712/merge_test.go"
+lines = 112
+verdict = "clean"
+note = "Full-file review of merge_test.go: assertions and fixtures for agent helper selectors, exact ABI widths, deterministic integer arithmetic, bounded batches, merge activation and common gas/error transport. No additional issue beyond findings attached to this file."
+
+[file.145]
+path = "precompiles/layerxagent/eip712/proof_eip712_0x0908_test.go"
+lines = 232
+verdict = "clean"
+note = "Full-file review of proof_eip712_0x0908_test.go: assertions and fixtures for agent helper selectors, exact ABI widths, deterministic integer arithmetic, bounded batches, merge activation and common gas/error transport. No additional issue beyond findings attached to this file."
+
+[file.146]
+path = "precompiles/layerxagent/oracle/merge.go"
+lines = 46
+verdict = "issues"
+note = "Full-file review of merge.go: oracle feed ABI, weight/confidence bounds, signed observation dependency and committed-price reader."
+
+[file.147]
+path = "precompiles/layerxagent/oracle/merge_test.go"
+lines = 119
+verdict = "clean"
+note = "Full-file review of merge_test.go: assertions and fixtures for oracle feed ABI, weight/confidence bounds, signed observation dependency and committed-price reader. No additional issue beyond findings attached to this file."
+
+[file.148]
+path = "precompiles/layerxagent/oracle/oracle.go"
+lines = 264
+verdict = "issues"
+note = "Full-file review of oracle.go: oracle feed ABI, weight/confidence bounds, signed observation dependency and committed-price reader."
+
+[file.149]
+path = "precompiles/layerxagent/oracle/oracle_test.go"
+lines = 340
+verdict = "issues"
+note = "Full-file review of oracle_test.go: assertions and fixtures for oracle feed ABI, weight/confidence bounds, signed observation dependency and committed-price reader. No additional issue beyond findings attached to this file."
+
+[file.150]
+path = "precompiles/layerxagent/oracle/proof_oracle_aggregator_0x0903_test.go"
+lines = 317
+verdict = "issues"
+note = "Full-file review of proof_oracle_aggregator_0x0903_test.go: assertions and fixtures for oracle feed ABI, weight/confidence bounds, signed observation dependency and committed-price reader. No additional issue beyond findings attached to this file."
+
+[file.151]
+path = "precompiles/layerxagent/orob/merge.go"
+lines = 36
+verdict = "clean"
+note = "Full-file review of merge.go: agent helper selectors, exact ABI widths, deterministic integer arithmetic, bounded batches, merge activation and common gas/error transport."
+
+[file.152]
+path = "precompiles/layerxagent/orob/merge_test.go"
+lines = 130
+verdict = "clean"
+note = "Full-file review of merge_test.go: assertions and fixtures for agent helper selectors, exact ABI widths, deterministic integer arithmetic, bounded batches, merge activation and common gas/error transport. No additional issue beyond findings attached to this file."
+
+[file.153]
+path = "precompiles/layerxagent/orob/orob.go"
+lines = 188
+verdict = "clean"
+note = "Full-file review of orob.go: agent helper selectors, exact ABI widths, deterministic integer arithmetic, bounded batches, merge activation and common gas/error transport."
+
+[file.154]
+path = "precompiles/layerxagent/orob/orob_test.go"
+lines = 480
+verdict = "clean"
+note = "Full-file review of orob_test.go: assertions and fixtures for agent helper selectors, exact ABI widths, deterministic integer arithmetic, bounded batches, merge activation and common gas/error transport. No additional issue beyond findings attached to this file."
+
+[file.155]
+path = "precompiles/layerxagent/orob/proof_orob_0x0901_test.go"
+lines = 192
+verdict = "clean"
+note = "Full-file review of proof_orob_0x0901_test.go: assertions and fixtures for agent helper selectors, exact ABI widths, deterministic integer arithmetic, bounded batches, merge activation and common gas/error transport. No additional issue beyond findings attached to this file."
+
+[file.156]
+path = "precompiles/layerxagent/pofq/merge.go"
+lines = 37
+verdict = "clean"
+note = "Full-file review of merge.go: agent helper selectors, exact ABI widths, deterministic integer arithmetic, bounded batches, merge activation and common gas/error transport."
+
+[file.157]
+path = "precompiles/layerxagent/pofq/merge_test.go"
+lines = 84
+verdict = "clean"
+note = "Full-file review of merge_test.go: assertions and fixtures for agent helper selectors, exact ABI widths, deterministic integer arithmetic, bounded batches, merge activation and common gas/error transport. No additional issue beyond findings attached to this file."
+
+[file.158]
+path = "precompiles/layerxagent/pofq/pofq.go"
+lines = 261
+verdict = "clean"
+note = "Full-file review of pofq.go: agent helper selectors, exact ABI widths, deterministic integer arithmetic, bounded batches, merge activation and common gas/error transport."
+
+[file.159]
+path = "precompiles/layerxagent/pofq/pofq_test.go"
+lines = 477
+verdict = "clean"
+note = "Full-file review of pofq_test.go: assertions and fixtures for agent helper selectors, exact ABI widths, deterministic integer arithmetic, bounded batches, merge activation and common gas/error transport. No additional issue beyond findings attached to this file."
+
+[file.160]
+path = "precompiles/layerxagent/pofq/proof_pofq_0x0904_test.go"
+lines = 217
+verdict = "clean"
+note = "Full-file review of proof_pofq_0x0904_test.go: assertions and fixtures for agent helper selectors, exact ABI widths, deterministic integer arithmetic, bounded batches, merge activation and common gas/error transport. No additional issue beyond findings attached to this file."
+
+[file.161]
+path = "precompiles/layerxagent/scheduler/harness_test.go"
+lines = 156
+verdict = "clean"
+note = "Full-file review of harness_test.go: assertions and fixtures for scheduled-job ABI, activation, caller authorization, deposit handling and keeper execution lifecycle; outcome records intentionally use typed module events. No additional issue beyond findings attached to this file."
+
+[file.162]
+path = "precompiles/layerxagent/scheduler/merge.go"
+lines = 60
+verdict = "clean"
+note = "Full-file review of merge.go: scheduled-job ABI, activation, caller authorization, deposit handling and keeper execution lifecycle; outcome records intentionally use typed module events."
+
+[file.163]
+path = "precompiles/layerxagent/scheduler/merge_test.go"
+lines = 137
+verdict = "clean"
+note = "Full-file review of merge_test.go: assertions and fixtures for scheduled-job ABI, activation, caller authorization, deposit handling and keeper execution lifecycle; outcome records intentionally use typed module events. No additional issue beyond findings attached to this file."
+
+[file.164]
+path = "precompiles/layerxagent/scheduler/proof_scheduler_0x0905_test.go"
+lines = 445
+verdict = "clean"
+note = "Full-file review of proof_scheduler_0x0905_test.go: assertions and fixtures for scheduled-job ABI, activation, caller authorization, deposit handling and keeper execution lifecycle; outcome records intentionally use typed module events. No additional issue beyond findings attached to this file."
+
+[file.165]
+path = "precompiles/layerxagent/scheduler/scheduler.go"
+lines = 231
+verdict = "clean"
+note = "Full-file review of scheduler.go: scheduled-job ABI, activation, caller authorization, deposit handling and keeper execution lifecycle; outcome records intentionally use typed module events."
+
+[file.166]
+path = "precompiles/layerxagent/scheduler/scheduler_test.go"
+lines = 195
+verdict = "clean"
+note = "Full-file review of scheduler_test.go: assertions and fixtures for scheduled-job ABI, activation, caller authorization, deposit handling and keeper execution lifecycle; outcome records intentionally use typed module events. No additional issue beyond findings attached to this file."
+
+[file.167]
+path = "precompiles/layerxagent/scheduler/topics_test.go"
+lines = 41
+verdict = "clean"
+note = "Full-file review of topics_test.go: assertions and fixtures for scheduled-job ABI, activation, caller authorization, deposit handling and keeper execution lifecycle; outcome records intentionally use typed module events. No additional issue beyond findings attached to this file."
+
+[file.168]
+path = "precompiles/layerxagent/served/served_test.go"
+lines = 206
+verdict = "clean"
+note = "Full-file review of served_test.go: assertions and fixtures for agent helper selectors, exact ABI widths, deterministic integer arithmetic, bounded batches, merge activation and common gas/error transport. No additional issue beyond findings attached to this file."
+
+[file.169]
+path = "precompiles/layerxagent/streams/harness_test.go"
+lines = 304
+verdict = "clean"
+note = "Full-file review of harness_test.go: assertions and fixtures for agent stream ABI, pay keeper parity, payer/payee authority, rate changes, pause scope and settlement/refund accounting. No additional issue beyond findings attached to this file."
+
+[file.170]
+path = "precompiles/layerxagent/streams/merge.go"
+lines = 40
+verdict = "clean"
+note = "Full-file review of merge.go: agent stream ABI, pay keeper parity, payer/payee authority, rate changes, pause scope and settlement/refund accounting."
+
+[file.171]
+path = "precompiles/layerxagent/streams/merge_test.go"
+lines = 128
+verdict = "clean"
+note = "Full-file review of merge_test.go: assertions and fixtures for agent stream ABI, pay keeper parity, payer/payee authority, rate changes, pause scope and settlement/refund accounting. No additional issue beyond findings attached to this file."
+
+[file.172]
+path = "precompiles/layerxagent/streams/parity_test.go"
+lines = 159
+verdict = "clean"
+note = "Full-file review of parity_test.go: assertions and fixtures for agent stream ABI, pay keeper parity, payer/payee authority, rate changes, pause scope and settlement/refund accounting. No additional issue beyond findings attached to this file."
+
+[file.173]
+path = "precompiles/layerxagent/streams/proof_streams_0x0906_test.go"
+lines = 302
+verdict = "issues"
+note = "Full-file review of proof_streams_0x0906_test.go: assertions and fixtures for agent stream ABI, pay keeper parity, payer/payee authority, rate changes, pause scope and settlement/refund accounting. No additional issue beyond findings attached to this file."
+
+[file.174]
+path = "precompiles/layerxagent/streams/streams.go"
+lines = 252
+verdict = "clean"
+note = "Full-file review of streams.go: agent stream ABI, pay keeper parity, payer/payee authority, rate changes, pause scope and settlement/refund accounting."
+
+[file.175]
+path = "precompiles/layerxagent/streams/streams_test.go"
+lines = 235
+verdict = "clean"
+note = "Full-file review of streams_test.go: assertions and fixtures for agent stream ABI, pay keeper parity, payer/payee authority, rate changes, pause scope and settlement/refund accounting. No additional issue beyond findings attached to this file."
+
+[file.176]
+path = "precompiles/layerxagent/streams/topics_test.go"
+lines = 55
+verdict = "clean"
+note = "Full-file review of topics_test.go: assertions and fixtures for agent stream ABI, pay keeper parity, payer/payee authority, rate changes, pause scope and settlement/refund accounting. No additional issue beyond findings attached to this file."
+
+[file.177]
+path = "precompiles/layerxagent/teeattestor/proof_tee_attestor_0x0907_test.go"
+lines = 299
+verdict = "clean"
+note = "Full-file review of proof_tee_attestor_0x0907_test.go: assertions and fixtures for attestor-signed TEE envelope decoding, trust-root access, freshness/debug/report-data refusal and read-only behavior; verify intentionally emits no log. No additional issue beyond findings attached to this file."
+
+[file.178]
+path = "precompiles/layerxagent/teeattestor/resolution_test.go"
+lines = 138
+verdict = "clean"
+note = "Full-file review of resolution_test.go: assertions and fixtures for attestor-signed TEE envelope decoding, trust-root access, freshness/debug/report-data refusal and read-only behavior; verify intentionally emits no log. No additional issue beyond findings attached to this file."
+
+[file.179]
+path = "precompiles/layerxagent/teeattestor/teeattestor.go"
+lines = 328
+verdict = "clean"
+note = "Full-file review of teeattestor.go: attestor-signed TEE envelope decoding, trust-root access, freshness/debug/report-data refusal and read-only behavior; verify intentionally emits no log."
+
+[file.180]
+path = "precompiles/layerxagent/teeattestor/teeattestor_test.go"
+lines = 502
+verdict = "clean"
+note = "Full-file review of teeattestor_test.go: assertions and fixtures for attestor-signed TEE envelope decoding, trust-root access, freshness/debug/report-data refusal and read-only behavior; verify intentionally emits no log. No additional issue beyond findings attached to this file."
+
+[finding.capability-message-url]
+file = "modules/layerxauth/keeper/capability.go"
+line = 91
+class = "interface-mismatch"
+severity = "high"
+observed = "SaveGrant sets MsgTypeUrl to /paxprotocol.paxchain.layerxauth.LayerXScopeAuthorization, the authorization protobuf rather than an executable message. SDK authz.DispatchActions looks up grants by sdk.MsgTypeURL of the wrapped message, and Accept also requires that exact URL. No Msg service executes the authorization object; successive capabilities for the same address pair also share this single grant key."
+expected = "Decision 210 and interface 2.go-layerxauth-grantcapability-j23 require the kernel capability mirror to authorize the intended SDK activity through real MsgExec dispatch."
+proposal = "In modules/layerxauth/keeper/capability.go define the supported kernel-scope to executable-message mapping, persist each applicable grant under its actual message URL, and specify how multiple grants for the same pair compose. Prove grantCapability followed directly by MsgExec without replacing the stored grant."
+owner_domain = 2
+interface = "2.go-layerxauth-grantcapability-j23"
+
+[finding.unscoped-message-bypasses-policy]
+file = "modules/layerxauth/types/authorization.go"
+line = 79
+class = "security"
+severity = "high"
+observed = "After the revocation check, Accept returns Accept:true for every message that does not implement ScopedActivity. Ordinary bank MsgSend does not implement it; only layerXScopeTestActivity in authorization_test.go supplies LayerXScope. Consequently bank sends bypass module mask, ordinal, asset, maximum amounts and spending updates."
+expected = "A LayerX scope must constrain the activity actually executed; a delegated bank payment cannot bypass the stored spending policy because its message lacks a Go-only helper interface."
+proposal = "In modules/layerxauth/types/authorization.go reject unsupported message shapes or decode supported production messages into authenticated scope metadata. Add a real bank MsgExec proof showing an out-of-scope or over-limit transfer is refused and an allowed transfer charges the grant."
+owner_domain = 2
+
+[finding.grant-validity-not-enforced]
+file = "modules/layerxauth/types/authorization.go"
+line = 57
+class = "security"
+severity = "high"
+observed = "Accept never compares the block timestamp with NotBefore or NotAfter. ValidateBasic checks only the ordering of the two stored values. SDK authz expiration is a separate value chosen by the MsgGrant sender, and even the capability mirror expiration does not enforce the lower bound."
+expected = "Decision 211 says the full kernel scope is checked by Accept; a not-yet-valid or expired authority must not execute an SDK activity."
+proposal = "In modules/layerxauth/types/authorization.go enforce the millisecond validity interval against block time on every Accept call, bind SDK grant expiration to that interval, and prove exact start/end behavior through signed MsgGrant and MsgExec."
+owner_domain = 2
+
+[finding.period-budget-not-enforced]
+file = "modules/layerxauth/types/authorization.go"
+line = 115
+class = "security"
+severity = "high"
+observed = "Accept increments only SpentTotal. It never reads PeriodLength or MaxPerPeriod and has no persisted period start or spent-in-period counter. Two individually allowed activities can exceed a nonzero per-period allowance while remaining below MaxTotal. PurposeHash is likewise stored without binding it to activity metadata."
+expected = "Decision 211 and the kernel authority scope require period spending and restricted purpose to remain effective when a capability crosses into SDK authz."
+proposal = "Extend the authorization state and production activity adapter in modules/layerxauth to preserve kernel period counters and purpose binding. Atomically update them with execution, roll periods at block time, and prove cumulative refusal, boundary rollover and recovery after reopening state."
+owner_domain = 2
+
+[finding.zero-total-disagrees-with-kernel]
+file = "modules/layerxauth/types/authorization.go"
+line = 111
+class = "interface-mismatch"
+severity = "high"
+observed = "Accept refuses every positive scoped amount when MaxTotal is zero because it unconditionally compares spent with total. The kernel lxp_authority_spend_check in src/state/lxp_authority.c and keeper.CheckActivity treat a zero maximum_total as no total cap. ValidateBasic permits a positive MaxPerActivity with MaxTotal zero."
+expected = "The same valid authority must permit the same amount at the kernel and SDK consumer, including the zero-total sentinel encoding of the declared LayerXScopeAuthorization scope."
+proposal = "Align modules/layerxauth/types/authorization.go with the kernel zero-total semantics while retaining u128 overflow and per-activity checks. Prove one canonical grant through both consumers, including finite limits and zero total."
+owner_domain = 2
+interface = "2.proto-layerxauth-layerxscopeauthorization"
+
+[finding.multi-grantor-context-overwritten]
+file = "modules/layerxauth/ante/revocation.go"
+line = 45
+class = "interface-mismatch"
+severity = "high"
+observed = "RevocationDecorator.walk repeatedly stores grantors under the single grantorRevocationKey. WithGrantorRevocation replaces the prior value, so a MsgExec containing valid messages from two distinct bound grantors reaches Accept with only the last grantor established. Earlier messages fail ErrAuthRevoked even when both grants are live."
+expected = "Requirement 2043 and interface 2.go-layerxauth-revocationdecorator-j23 require MsgExec to see the current revocation sequence of each grantor."
+proposal = "Use a detached map keyed by grantor address in modules/layerxauth/types/authorization.go and populate it in the decorator, or resolve the epoch per dispatched action. Prove mixed grantors, mixed bound/unbound messages and nested MsgExec using production ante and authz dispatch."
+owner_domain = 2
+interface = "2.go-layerxauth-revocationdecorator-j23"
+
+[finding.auth-integration-replaces-producer-grant]
+file = "modules/layerxauth/ante/integration_test.go"
+line = 159
+class = "test-gap"
+severity = "medium"
+observed = "TestAuthzExecRefusedAfterKernelRevoke calls grantCapability, then constructs another LayerXScopeAuthorization with the bank MsgSend URL and installs it through MsgGrant before exercising MsgExec. The capability producer actually stores its authorization type URL, so the test proves the replacement grant and conceals the broken capability-to-MsgExec path."
+expected = "Brief check 7 requires the test consumer to use the real producer output without replacing its message shape or installing a second authorization."
+proposal = "In modules/layerxauth/ante/integration_test.go execute the supported message directly under the grant produced by grantCapability, keep the kernel revoke and regrant stages, and assert the unchanged grant identity and all scope limits at the SDK consumer."
+owner_domain = 2
+
+[finding.capability-test-endpoint-gap]
+file = "modules/layerxauth/keeper/capability_test.go"
+line = 74
+class = "test-gap"
+severity = "medium"
+observed = "The capability test compares MsgTypeUrl and the authz lookup key with the same exported CapabilityAuthorizationTypeURL constant used by SaveGrant. That constant identifies the authorization object. Storage equality therefore passes without establishing that any production SDK message can consume the mirrored grant."
+expected = "A capability proof must demonstrate executable grant lookup through the actual SDK MsgExec handler, with the producer-selected type URL and no hand-built substitute."
+proposal = "Extend this test in modules/layerxauth to dispatch a real supported message under the freshly produced grant and assert its observable effect, then prove refusal after revocation and after spending limits are reached."
+owner_domain = 2
+
+[finding.auth-proof-endpoint-gap]
+file = "modules/layerxauth/keeper/proof_layerxauth_keeper_test.go"
+line = 172
+class = "test-gap"
+severity = "medium"
+observed = "The capability test compares MsgTypeUrl and the authz lookup key with the same exported CapabilityAuthorizationTypeURL constant used by SaveGrant. That constant identifies the authorization object. Storage equality therefore passes without establishing that any production SDK message can consume the mirrored grant."
+expected = "A capability proof must demonstrate executable grant lookup through the actual SDK MsgExec handler, with the producer-selected type URL and no hand-built substitute."
+proposal = "Extend this test in modules/layerxauth to dispatch a real supported message under the freshly produced grant and assert its observable effect, then prove refusal after revocation and after spending limits are reached."
+owner_domain = 2
+
+[finding.scope-tests-use-only-test-message]
+file = "modules/layerxauth/types/authorization_test.go"
+line = 389
+class = "test-gap"
+severity = "medium"
+observed = "The scoped spending tests implement LayerXScope only on layerXScopeTestActivity, a test wrapper around MsgSend. The production MsgSend lacks that method and takes Accept:true before those checks. The added period and validity tests exercise ValidateBasic and protobuf transport rather than runtime enforcement."
+expected = "Scope tests must cover the shape delivered by the real message decoder and assert validity, cumulative period spending and purpose restrictions on the executed action."
+proposal = "Add SDK transaction decoder and authz dispatch coverage in modules/layerxauth/types using supported production message types. Keep the stateless validation cases and add runtime refusal, rollover and persisted spending assertions."
+owner_domain = 2
+
+[finding.send-refuses-opened-account]
+file = "modules/layerxledger/keeper/send.go"
+line = 21
+class = "interface-mismatch"
+severity = "high"
+observed = "Send accepts envelope.from only when it equals MainAccountID(actor.DIDKey). AccountID and OpenAccount produce an asset-specific account, and the kernel source_matches_actor explicitly accepts both main and canonical asset accounts. A funded account returned by openAccount is rejected by the Send keeper before the kernel can authorize it."
+expected = "The declared ledger account-opening, balance and send interfaces must compose: an account produced by OpenAccount and owned by the bound actor must be spendable through Send."
+proposal = "In modules/layerxledger/keeper/send.go validate the source account ownership and supported namespace consistently with kernel source_matches_actor. Prove OpenAccount, mint/fund, encode and Send through 0x101A using the returned account ID."
+owner_domain = 2
+interface = "2.go-layerxledger-send-j23"
+
+[finding.payexact-uses-different-account-sequence]
+file = "modules/layerxledger/keeper/payexact.go"
+line = 35
+class = "interface-mismatch"
+severity = "high"
+observed = "PayExact takes the sequence of the actor asset account through NextSequence, but places the unrestricted args.From in the send envelope. The kernel checks send.sequence against the actual source account next_sequence. A valid actor-owned main source can have a different sequence or no corresponding asset account, causing an otherwise valid payment to fail."
+expected = "Interface 2.go-layerxledger-payexact-j23 must derive the sequence of the account it actually debits, with ownership checked against the bound caller."
+proposal = "In modules/layerxledger/keeper/payexact.go resolve and validate args.From and read its own sequence, or explicitly constrain the public interface to the canonical asset account. Prove divergent main/asset sequences and refusal of another actor source through the real precompile."
+owner_domain = 2
+interface = "2.go-layerxledger-payexact-j23"
+
+[finding.send-test-invents-main-account]
+file = "modules/layerxledger/keeper/send_test.go"
+line = 29
+class = "test-gap"
+severity = "medium"
+observed = "sendMainAccount manually serializes a main account and writes it at host prefix 0x06. newSendFixture then funds it through a direct host activity. This is a different account path from public OpenAccount, which produces an asset account; the test bypasses the producer that exposes the Send namespace disagreement."
+expected = "The account producer and transfer consumer must be proven together using real account creation and funding paths rather than raw host-store account fixtures."
+proposal = "Replace the positive account setup in modules/layerxledger/keeper/send_test.go with public AccountID/OpenAccount and actual registration/funding calls, then execute Send and assert both kernel and bank balances and source sequence."
+owner_domain = 2
+
+[finding.send-test-retired-idempotency]
+file = "modules/layerxledger/keeper/send_test.go"
+line = 160
+class = "test-gap"
+severity = "medium"
+observed = "TestSendMovesBalance expects ErrIdempotentReplay when the same key is sent with the next valid source sequence. Neither keeper maintains a payment-reference table, and decision 101/202 removed the kernel idempotency table; current kernel replay protection checks consumed sequences rather than key uniqueness."
+expected = "Requirement 2020.2 and decision 202 explicitly permit key reuse at the next sequence and require refusal when a sequence is consumed. Tests must assert that real contract rather than a retired receipt cache."
+proposal = "Resolve payment-reference retry semantics in the ledger contract, then update modules/layerxledger/keeper/send_test.go to exercise the real source sequence and EVM transaction nonce paths. Preserve balance, rollback and replay assertions, with explicit consumed-sequence refusal and next-sequence key reuse."
+owner_domain = 2
+
+[finding.payexact-test-retired-idempotency]
+file = "modules/layerxledger/keeper/payexact_test.go"
+line = 121
+class = "test-gap"
+severity = "medium"
+observed = "TestPayExact expects a repeated PaymentReference to return an empty result and ErrIdempotentReplay, although PayExact obtains a fresh source sequence for every invocation. Neither keeper maintains a payment-reference table, and decision 101/202 removed the kernel idempotency table; current kernel replay protection checks consumed sequences rather than key uniqueness."
+expected = "Requirement 2020.2 and decision 202 explicitly permit key reuse at the next sequence and require refusal when a sequence is consumed. Tests must assert that real contract rather than a retired receipt cache."
+proposal = "Resolve payment-reference retry semantics in the ledger contract, then update modules/layerxledger/keeper/payexact_test.go to exercise the real source sequence and EVM transaction nonce paths. Preserve balance, rollback and replay assertions, with explicit consumed-sequence refusal and next-sequence key reuse."
+owner_domain = 2
+
+[finding.issuer-binding-unwired]
+file = "modules/layerxledger/keeper/issuer_binding.go"
+line = 18
+class = "wiring-gap"
+severity = "medium"
+observed = "NewIssuerBindingKeeper is instantiated only by tests. node/app.go installs the bare ledger Keeper and the precompile uses that keeper, so production RegisterAsset/PauseAsset never execute bindIssuerDenom or mirrorPause. The tokenfactory issuer integration shown by the contract is unreachable on the ordinary ledger path."
+expected = "The ledger/tokenfactory integration described by contract ledger-auth.md acceptance 2962 must bind an issuer and mirror pause through the running node path."
+proposal = "Wire the issuer behavior into the production ledger construction in node/app.go and precompile keeper types, or retire the unused wrapper and publish a consistent product contract. Prove registration and pause from the node-built 0x101A against tokenfactory state."
+owner_domain = 6
+
+[finding.issuer-binding-not-exported]
+file = "modules/layerxledger/keeper/genesis.go"
+line = 22
+class = "restart-recovery"
+severity = "medium"
+observed = "IssuerBindingKeeper persists asset-to-denom mappings under ledger store prefix 0x02 and inherits this params-only ExportGenesis. The shared host exporter reads lxphost rather than this ledger store. An export/import therefore omits those bindings and a restored wrapper cannot mirrorPause even when the tokenfactory denom survives."
+expected = "If issuer binding is retained, its persistent mapping must survive the same JSON genesis boundary as the asset, issuer metadata and pause state."
+proposal = "Add an owned genesis section for issuer-denom bindings or a deterministic validated rebuild in modules/layerxledger. Prove registration, export, fresh application import and pause/unpause using the restored mapping; coordinate with production wiring."
+owner_domain = 2
+
+[finding.chain-history-omitted-from-genesis]
+file = "modules/layerxchains/keeper/genesis.go"
+line = 30
+class = "restart-recovery"
+severity = "high"
+observed = "ExportGenesis serializes registry records, NextID and next base fees only. RecordDomainTx persists per-height transaction hashes and executed gas under DomainTxPrefix and DomainGasUsedPrefix, and InitGenesis does not restore them. After a fresh import DomainTxs returns empty and DomainGasUsed returns zero for previously indexed heights."
+expected = "Tenant-domain transaction membership and gas history are committed state used to serve scoped block and receipt views. A recovery/export boundary must preserve them or rebuild them from retained committed blocks before serving those views."
+proposal = "Extend modules/layerxchains genesis with validated per-domain history, or implement a deterministic block-backed rebuild with a readiness boundary. Prove two domains at several heights, export/import into fresh stores and identical scoped history and fee inputs."
+owner_domain = 2
+
+[finding.chain-genesis-proof-omits-accounting]
+file = "modules/layerxchains/keeper/keeper_test.go"
+line = 357
+class = "test-gap"
+severity = "medium"
+observed = "TestGenesisExportImportRoundTrip creates and changes registry records and base fees, then compares only the exported registry envelope in a fresh keeper. It never calls RecordDomainTx before export or compares DomainTxs and DomainGasUsed after import, so omitted accounting families remain invisible."
+expected = "The recovery proof must include the transaction membership and executed gas state that the same keeper produces for tenant-scoped network views."
+proposal = "Extend modules/layerxchains/keeper/keeper_test.go with real accounting at multiple heights and domains before the export, restore into a fresh committed database, and assert every membership list and gas total after reopening."
+owner_domain = 2
+
+[finding.oracle-read-needs-test-context]
+file = "precompiles/layerxagent/oracle/oracle.go"
+line = 247
+class = "interface-mismatch"
+severity = "high"
+observed = "getValidatorPrice requires replayBinding from the private replayKey and then CommittedOraclePrice requires another replay context with host/store/validator. Only tests call oracle.WithOracleReplay. A normal node eth_call supplies neither, so the declared public view always returns LXP_PRECOMPILE_NO_CONTEXT before reading committed prices."
+expected = "Interface 2.pc-0x0903-getvalidatorprice is a feed-keyed view available to any caller; its committed read must work on the normal node execution and query contexts."
+proposal = "Bind the shared committed host store into the oracle constructor and exchange read API, remove the validator replay prerequisite from feed reads, and prove an ordinary node eth_call before and after process/store reopening."
+owner_domain = 2
+interface = "2.pc-0x0903-getvalidatorprice"
+
+[finding.oracle-write-has-no-producer]
+file = "precompiles/layerxagent/oracle/oracle.go"
+line = 213
+class = "wiring-gap"
+severity = "high"
+observed = "submitPrice also requires WithOracleReplay to supply an externally signed LX_ORACLE_PUSH activity and validator binding that its ABI does not carry. Production call sites never install that context. Binding a validator DID alone therefore cannot reach SubmitOracleObservation; ordinary EVM transactions fail with no context."
+expected = "Interface 2.pc-0x0903-submitprice must have a reachable authenticated producer-to-node-to-exchange path under the merged network, with every required signature and authority derived from an explicit transport contract."
+proposal = "Define and wire the production oracle intake in precompiles/layerxagent/oracle and the node/exchange integration. Either derive a valid host activity from authenticated EVM authority or expose the required signed transport, then prove a normal signed node transaction without test context injection."
+owner_domain = 2
+interface = "2.pc-0x0903-submitprice"
+
+[finding.oracle-writes-use-retired-exchange]
+file = "precompiles/layerxagent/oracle/merge.go"
+line = 33
+class = "interface-mismatch"
+severity = "high"
+observed = "NewMergePrecompile selects the node LayerXExchangeKeeper. Its SubmitOracleObservation returns retirementError whenever Retired is true; RetiredFromUpgrade is v6.12.0, already before the v7.0 merge that activates 0x0903. The fixture uses a separate empty retirement upgrade store, masking this independent write refusal."
+expected = "The new merge oracle submit interface must remain usable after its activation even though legacy exchange intents are retired. Oracle writes cannot inherit the old intent keeper retirement gate."
+proposal = "Have domain 3 separate live oracle observation storage and authorization from the retired exchange-intent API, and update the oracle constructor to that live dependency. Prove the node-built keeper after v6.12.0 and v7.0 with a committed observation and subsequent read."
+owner_domain = 3
+interface = "2.pc-0x0903-submitprice"
+
+[finding.weighted-median-rounds-down]
+file = "precompiles/layerxagent/oracle/oracle.go"
+line = 74
+class = "interface-mismatch"
+severity = "high"
+observed = "Aggregate compares cumulative confidence with floor(total/2). For prices 10 and 30 with weights 2 and 3, total is 5 and the threshold is 2, so it returns 10 although weight 3 lies above it and the weighted median is 30. Small odd totals can systematically select a minority-weight low price."
+expected = "Interface 2.pc-0x0903-aggregate and agent-functions.md promise the weighted median, retaining the lower price only for an exact half-weight tie."
+proposal = "In precompiles/layerxagent/oracle/oracle.go compare twice the cumulative weight against total or use an exact ceiling-half threshold. Prove odd totals, even ties, one-unit weights and large integer weights through both Aggregate and ABI transport."
+owner_domain = 2
+interface = "2.pc-0x0903-aggregate"
+
+[finding.oracle-test-endorses-wrong-median]
+file = "precompiles/layerxagent/oracle/oracle_test.go"
+line = 207
+class = "test-gap"
+severity = "medium"
+observed = "TestOracleAggregateWeightedMedian explicitly expects price 10 for weights 2 at price 10 and 3 at price 30 under the case named odd floor. That expected value copies the implementation threshold and contradicts the weighted-median contract."
+expected = "A mathematical reference assertion must choose 30 for this distribution while keeping 10 for an exact even half-weight tie."
+proposal = "Repair the oracle median implementation and this test together in the owning oracle task, preserving all refusal and immutability cases. Add independently derived cases where the cumulative weight is floor(total/2), strictly below one half."
+owner_domain = 2
+
+[finding.oracle-fixture-bypasses-production]
+file = "precompiles/layerxagent/oracle/oracle_test.go"
+line = 83
+class = "test-gap"
+severity = "medium"
+observed = "fixture creates an exchange keeper on a replacement store with a separate upgrade keeper that has no v6.12.0 retirement record. It also inserts a 622-byte market record directly and observation injects WithOracleReplay. These are prerequisites absent from the normal node path despite the tests exercising real native execution afterward."
+expected = "Brief facts 1 and 7 require an oracle proof from the actual node keeper, production market configuration and authenticated intake, including the active upgrade lifecycle."
+proposal = "Add a node-level oracle test using the application exchange dependency, real governance market producer and ordinary EVM submission/read contexts. Keep native decoder negatives but remove reliance on custom retirement state for the positive production proof."
+owner_domain = 2
+
+[finding.oracle-proof-does-not-reopen-store]
+file = "precompiles/layerxagent/oracle/proof_oracle_aggregator_0x0903_test.go"
+line = 260
+class = "test-gap"
+severity = "medium"
+observed = "The claimed reopen proof closes Host and reconstructs Host and the precompile but retains the same sdk.Context, cache multistore and in-memory fixture databases. It then re-injects WithOracleReplay. No committed application store is closed and reopened, and proofOracleKeepers replaces the node exchange keeper."
+expected = "Restart recovery requires committed data to survive actual store/application recreation and to remain readable through the production public view without reconstructing private test context."
+proposal = "Extend the oracle proof to commit, close and reopen the database/application, use the registered node dependencies, and read the prior observation through ordinary eth_call before submitting the next observation. Assert the same price, timestamp and source identity after recovery."
+owner_domain = 2
+
+[finding.streams-proof-reopens-only-precompile]
+file = "precompiles/layerxagent/streams/proof_streams_0x0906_test.go"
+line = 43
+class = "test-gap"
+severity = "medium"
+observed = "The proof_reopen RPC recreates StreamsPrecompile and resets the EVM precompile map over the same pay keeper and stores. It does not commit and close the application/database or reload stream metadata, so subsequent settlement proves object reconstruction rather than persistent stream recovery."
+expected = "Brief check 5 requires stream accounting and idempotent settlement to survive reopening the persisted consumer state, including 0x0906 metadata and the shared 0x101B kernel record."
+proposal = "In the stream proof commit and close the backing stores, reconstruct host/pay keeper/EVM from the reopened database, then settle/read/close the original stream through both addresses and compare paid totals, rate, caps and refund without replaying a payment."
+owner_domain = 2
+
+[finding.auth-retention-comment-describes-retired-store]
+file = "modules/layerxauth/types/params.go"
+line = 9
+class = "retired-reference"
+severity = "low"
+observed = "Params.Validate documentation says IdempotencyRetention controls journal expiry and zero keeps every entry in the C store. The current auth keeper never applies it to the host, and decisions 101/202 retire the kernel idempotency table. The field is compatibility state rather than an effective pruning control."
+expected = "Configuration documentation must distinguish a retained wire field from an active retention mechanism and must not promise operator control over a retired table."
+proposal = "Update comments in modules/layerxauth/types/params.go and the generated parameter documentation to state the field is retained for compatibility and has no kernel pruning effect; keep its existing serialized shape."
+owner_domain = 2
+
+[finding.readme-separate-kernel-network]
+file = "README.md"
+line = 44
+class = "doc-drift"
+severity = "medium"
+observed = "README describes layerxd as a separate C daemon settling checkpoints through layerxAnchor, directs operators to make layerxd, and calls the merge a draft with a separately running kernel. Lines 48-51, 81, 161-165 and 208 retain that deployment story."
+expected = "Brief facts 1 and 2 define one paxd BFT network with the kernel in the node and no separate LayerX daemon or checkpoint settlement service after upgrade."
+proposal = "Rewrite README.md architecture, build and release sections for the merged paxd network, root JSON-RPC at chain ID 125 and finality at block commit; label any preserved historical daemon material explicitly as retired."
+owner_domain = 16
+
+[finding.network-page-retired-custody-story]
+file = "docs/paxeer-network.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The page presents Paxeer as the separate custody/settlement layer for LayerX, says ordinary activity stays on LayerX with periodic checkpoints, and advertises guarantor bonds, exits and a public faucet. Lines 3-20 contradict the merged one-network operation even though the later virtual-chain section matches current registry behavior."
+expected = "The finished network has native ledger moves and committed-block finality, with retired checkpoint/custody/guarantor hops removed from user and operator instructions."
+proposal = "Rewrite docs/paxeer-network.md opening architecture, funding and trust-boundary sections around the merged network. Preserve the registry ID derivation and /chain/<id> domain behavior and link to current funding policy."
+owner_domain = 16
+
+[finding.precompile-doc-omits-tuple-shapes]
+file = "docs/system/precompiles.md"
+line = 2349
+class = "doc-drift"
+severity = "medium"
+observed = "The generated ABI reference prints aggregate(tuple[] feeds), computeClearing order tuples, scoreBatch fill tuples and getStream/TEE tuple returns without their component fields. For example the oracle tuple actually contains int256 price, uint256 confidence and uint256 timestamp in that order; the reference alone cannot supply a Solidity ABI or decode those results."
+expected = "Brief check 1 and check 9 require documented field names, types and tuple ordering to agree with the emitted ABI and be sufficient for an integrator to encode/decode each declared interface."
+proposal = "Extend tools/docs/gen-system-docs.sh to expand tuple components recursively from inline abiJSON and JSON ABI sources, regenerate docs/system/precompiles.md, and retain canonical signatures, addresses, indexed event fields and activation notes."
+owner_domain = 16
+
+[finding.chain-module-doc-omits-tenant-module]
+file = "docs/system/chain-modules.md"
+line = 0
+class = "doc-drift"
+severity = "medium"
+observed = "The generated module summary and body omit layerxchains entirely, while the running module exposes MinBond, CreationFee, allowance bounds, MaxChains, authority and lifecycle state in modules/layerxchains/types and keeper. The auth section also lists idempotency_retention without its compatibility-only semantics."
+expected = "The merged network module reference must include the tenant-domain registry and distinguish effective configuration from retained compatibility fields."
+proposal = "Teach tools/docs/gen-system-docs.sh to include custom Go-defined module Params and annotate compatibility-only settings, then regenerate docs/system/chain-modules.md with layerxchains ownership, units, defaults and lifecycle links."
+owner_domain = 16
+
+[finding.ledger-contract-pinned-availability]
+file = "spec/layerx-merge/contracts/ledger-auth.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction says both 0x101A and 0x101C packages are planned and not served; its interface tables and many tests retain planned status although the packages, node wiring and merge registrations exist. The pinned-revision wording is historical but this page is also the live interface registry contract target."
+expected = "The upgrade-facing contract must distinguish the historical baseline from implemented surfaces and current activation requirements so operators and integrators can assess availability."
+proposal = "Refresh spec/layerx-merge/contracts/ledger-auth.md against the merged source and current registry. Keep historical revision provenance in a clearly marked history section, reconcile retired compatibility methods, and identify unresolved wiring issues from this audit."
+owner_domain = 2
+
+[finding.agent-contract-pinned-availability]
+file = "spec/layerx-merge/contracts/agent-functions.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction says no production import registers merge constructors and 0x0903, 0x0905 and 0x0906 have no package; the current source has all eight packages and registered merge constructors. The pinned-revision wording is historical but this page is also the live interface registry contract target."
+expected = "The upgrade-facing contract must distinguish the historical baseline from implemented surfaces and current activation requirements so operators and integrators can assess availability."
+proposal = "Refresh spec/layerx-merge/contracts/agent-functions.md against the merged source and current registry. Keep historical revision provenance in a clearly marked history section, reconcile retired compatibility methods, and identify unresolved wiring issues from this audit."
+owner_domain = 2
+
+[finding.programs-site-retired-adapter]
+file = "docs/site/docs/programs/workspace.md"
+line = 15
+class = "doc-drift"
+severity = "medium"
+observed = "The workspace reference advertises layerx-programs-protocol-adapter as the C/Rust bridge exposing receipt-verified program reads to the rest of the protocol. The retired-component registry marks this adapter deleted and replaces those reads with node program queries and ICS23 proofs. The workspace gate guide gives no merged guest deployment limit or chain-domain build guidance."
+expected = "The programs reference must describe the retained node runtime and guest ABI path, distinguish retired protocol adapters, and state the decision 2483 deployment envelope limit when describing deployable guest builds."
+proposal = "Rewrite docs/site/docs/programs/workspace.md for the retained programs workspace and node integration. Include matching host/guest ABI registration, release opt-level z and build-time chain domain for AI market guests, and the 524288-byte total payload limit including the 104-byte envelope."
+owner_domain = 13
+
+[finding.programs-wiki-retired-adapter]
+file = "docs/wiki/ProgramsWorkspace.md"
+line = 15
+class = "doc-drift"
+severity = "medium"
+observed = "The workspace reference advertises layerx-programs-protocol-adapter as the C/Rust bridge exposing receipt-verified program reads to the rest of the protocol. The retired-component registry marks this adapter deleted and replaces those reads with node program queries and ICS23 proofs. The workspace gate guide gives no merged guest deployment limit or chain-domain build guidance."
+expected = "The programs reference must describe the retained node runtime and guest ABI path, distinguish retired protocol adapters, and state the decision 2483 deployment envelope limit when describing deployable guest builds."
+proposal = "Rewrite docs/wiki/ProgramsWorkspace.md for the retained programs workspace and node integration. Include matching host/guest ABI registration, release opt-level z and build-time chain domain for AI market guests, and the 524288-byte total payload limit including the 104-byte envelope."
+owner_domain = 13
+
+[finding.registry-scope-and-deployment-notes]
+file = "spec/layerx-merge/interfaces.kvx"
+line = 33921
+class = "doc-drift"
+severity = "medium"
+observed = "The LayerXScopeAuthorization registry signature stops at field 9 although the producer protobuf and Go type have kind, period_length, max_per_period, purpose_hash, not_before, not_after and spent_total at fields 10-16. Agent error rows still say no production merge constructor and some packages do not exist, contradicting current registrations."
+expected = "The interface registry must describe the actual declared message shape and upgrade availability so a consumer or audit does not reconstruct a pre-change authority object."
+proposal = "Reconcile spec/layerx-merge/interfaces.kvx for the auth scope fields and the agent constructor/error rows against their real declarations and callers. Preserve wire numbering and distinguish implemented registration from runtime oracle readiness."
+owner_domain = 2
+
+[doc.1]
+path = "docs/system/precompiles.md"
+status = "stale"
+notes = "Agent inline ABI endpoints and method counts are present and match the source. Tuple component layouts are omitted; the reference needs recursive tuple expansion for usable encodings."
+
+[doc.2]
+path = "docs/system/chain-modules.md"
+status = "stale"
+notes = "Ledger/auth and scheduler parameter field names agree with the producers, but the tenant registry is omitted and auth retention needs a compatibility-only annotation."
+
+[doc.3]
+path = "README.md"
+status = "misleading"
+notes = "Lines 48-51, 81, 161-165 and 208 describe a separate layerxd/checkpoint deployment and a draft merge. The precompile address list is useful but the architecture and operator build story need replacement."
+
+[doc.4]
+path = "docs/paxeer-network.md"
+status = "misleading"
+notes = "Lines 3-20 retain separate settlement/custody/guarantor architecture and a faucet claim. The virtual-chain registry and /chain/<id> description agree with this slice."
+
+[doc.5]
+path = "docs/site/docs/agents/sdk-verification.md"
+status = "accurate"
+notes = "Receipt-key pinning, raw-transaction binding, authenticated logs and CometBFT commitment are distinguished correctly. Sequencer references concern the node receipt path and do not prescribe a separate daemon."
+
+[doc.6]
+path = "docs/site/docs/programs/workspace.md"
+status = "stale"
+notes = "The frozen ABI and gate descriptions retain useful provenance, but the adapter membership at line 15 describes a retired integration and the merged deployment build/payload constraints are absent."
+
+[doc.7]
+path = "docs/wiki/SdkTerminalVerification.md"
+status = "accurate"
+notes = "The mirrored terminal-verification guide correctly separates receipted execution from committed consensus evidence and requires independent key and validator trust."
+
+[doc.8]
+path = "docs/wiki/VirtualChains.md"
+status = "accurate"
+notes = "Registry statuses, chain ID 125000000+id, /chain/<id> scope, shared EVM state, allowance accounting and registry persistence agree with the reviewed source; the genesis-history recovery gap is recorded on its producer."
+
+[doc.9]
+path = "docs/wiki/ProgramsWorkspace.md"
+status = "stale"
+notes = "The mirrored workspace guide repeats the retired adapter description and lacks the current guest deployment envelope and build-domain constraints."
+
+[doc.10]
+path = "spec/layerx-merge/contracts/ledger-auth.md"
+status = "stale"
+notes = "Read in full as the registry contract: params-only genesis, bound authority, bank mirror and consumed-sequence rules remain normative. Its planned availability statements lag the implemented modules and precompiles."
+
+[doc.11]
+path = "spec/layerx-merge/contracts/agent-functions.md"
+status = "stale"
+notes = "Read in full: integer helper contracts, gas/error framing, typed scheduler outcomes, attestor-signed TEE format and stream authority rules distinguish intended behavior from defects. Package and constructor availability statements are historical."
+
+[doc.12]
+path = "spec/layerx-merge/interfaces.kvx"
+status = "stale"
+notes = "All 334 produced and 312 consumed package rows were inspected against declaration/caller paths. The scope message signature omits added fields and agent error deployment notes still describe absent constructors; relevant runtime mismatches are attached to member producers."

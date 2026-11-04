@@ -1,0 +1,1903 @@
+# Pre-upgrade audit of cosmos-fork SDK integrations, telemetry and parameter store.
+# Static source review; repairs belong to the named domains.
+
+[audit.22.30.163]
+task = "22.30.163"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 193
+findings = 61
+docs_reviewed = 21
+upgrade_ready = false
+blocking = ["011", "012", "013", "014", "015", "019", "022", "024", "025", "026", "027", "031", "032", "038"]
+coverage = "All 193 member files read in full, all 41 package requirement ids reviewed, and all 400 listed produces plus 400 listed consumes registry rows inspected. Package totals exceed its capped row lists; this record covers the explicitly listed rows. Historical and lexical registry references are distinguished from current runtime interfaces."
+qualification = "Audit conclusions are static review findings and repair proposals. No integration, node, browser or package test gate is claimed; the task declares only revision build and audit-record verification."
+
+[file.001]
+path = "sdk/integrations/agents/examples/agent-runtime/index.mjs"
+lines = 165
+verdict = "clean"
+note = "Live agent runtime example binds authenticated services, tools and durable paths from explicit environment; no embedded credentials or public router defaults."
+
+[file.002]
+path = "sdk/integrations/agents/examples/agent-runtime/package.json"
+lines = 16
+verdict = "clean"
+note = "Example dependency manifest names the agent integrations package and ESM entry consistently."
+
+[file.003]
+path = "sdk/integrations/agents/examples/agent-runtime/webhook-conformance.mjs"
+lines = 207
+verdict = "clean"
+note = "Webhook conformance example drives signed delivery, duplicates and restart against configured real service bindings."
+
+[file.004]
+path = "sdk/integrations/agents/examples/mcp-server/index.mjs"
+lines = 99
+verdict = "clean"
+note = "MCP sample delegates stdio setup to the package and supplies explicit environment rather than a separate network daemon endpoint."
+
+[file.005]
+path = "sdk/integrations/agents/examples/mcp-server/package.json"
+lines = 15
+verdict = "clean"
+note = "MCP example manifest resolves the local integration package and SDK dependencies."
+
+[file.006]
+path = "sdk/integrations/agents/package.json"
+lines = 87
+verdict = "issues"
+note = "Normal package test script omits the two receipt suites; see the test-gap finding. Findings: 039."
+
+[file.007]
+path = "sdk/integrations/agents/scripts/dependency-patches.json"
+lines = 143
+verdict = "clean"
+note = "Dependency patch manifest pins the intended package versions and patch payloads; no runtime network authority."
+
+[file.008]
+path = "sdk/integrations/agents/scripts/patch-dependencies.mjs"
+lines = 38
+verdict = "clean"
+note = "Dependency patcher checks versions and before/after content before changing installed dependencies, refusing unknown inputs."
+
+[file.009]
+path = "sdk/integrations/agents/src/a2a.ts"
+lines = 836
+verdict = "clean"
+note = "A2A adapter maps registered tasks, cancellation and delivery IDs through the integration with persisted task records and conflict checks."
+
+[file.010]
+path = "sdk/integrations/agents/src/anthropic.ts"
+lines = 72
+verdict = "clean"
+note = "Anthropic tool adapter preserves tool names and JSON input/result types and converts integration refusals into provider error content."
+
+[file.011]
+path = "sdk/integrations/agents/src/config.ts"
+lines = 315
+verdict = "clean"
+note = "Declared service, session and webhook keys are validated before binding; no retired router or embedded service-secret default."
+
+[file.012]
+path = "sdk/integrations/agents/src/daemon-budget.ts"
+lines = 261
+verdict = "issues"
+note = "Interrupted preparation/signing stages cannot reconcile and resume after reopen; see recovery finding. Findings: 001."
+
+[file.013]
+path = "sdk/integrations/agents/src/daemon-providers.ts"
+lines = 322
+verdict = "issues"
+note = "Durable principal-bound receipt aliases are checked, but program.receipt sends an obsolete selector; see interface finding. Findings: 038."
+
+[file.014]
+path = "sdk/integrations/agents/src/index.ts"
+lines = 86
+verdict = "clean"
+note = "Public exports correspond to concrete adapter, configuration, service, budget and receipt-provider definitions."
+
+[file.015]
+path = "sdk/integrations/agents/src/integration.ts"
+lines = 80
+verdict = "clean"
+note = "Integration constructor binds validated config, tools and webhook consumer; exceptions remain typed and secret-free."
+
+[file.016]
+path = "sdk/integrations/agents/src/langchain.ts"
+lines = 150
+verdict = "clean"
+note = "LangChain adapter preserves structured argument schema and returns the integration's registered result/refusal."
+
+[file.017]
+path = "sdk/integrations/agents/src/mcp-server.ts"
+lines = 61
+verdict = "clean"
+note = "MCP executable reads explicit environment and starts its registered server with bounded error reporting."
+
+[file.018]
+path = "sdk/integrations/agents/src/mcp.ts"
+lines = 706
+verdict = "issues"
+note = "MCP tool and verified event paths are concrete; sentinel queue locking cannot recover from process death. Findings: 002."
+
+[file.019]
+path = "sdk/integrations/agents/src/openai.ts"
+lines = 89
+verdict = "clean"
+note = "OpenAI adapter registers named tools and parses call arguments through the common integration contract."
+
+[file.020]
+path = "sdk/integrations/agents/src/service-providers.ts"
+lines = 85
+verdict = "clean"
+note = "Service providers pass explicit principal/session context and require receipt-backed results from declared service clients."
+
+[file.021]
+path = "sdk/integrations/agents/src/services.ts"
+lines = 455
+verdict = "clean"
+note = "Service client rejects obsolete batch fields and validates canonical portable signed evidence before returning it."
+
+[file.022]
+path = "sdk/integrations/agents/src/tools.ts"
+lines = 615
+verdict = "clean"
+note = "Registered tool catalogue validates arguments, calls owner services and gates success on verified receipts."
+
+[file.023]
+path = "sdk/integrations/agents/src/vercel-ai.ts"
+lines = 46
+verdict = "clean"
+note = "Vercel AI adapter maps input schemas, tool execution and provider results through the same integration."
+
+[file.024]
+path = "sdk/integrations/agents/src/webhooks.ts"
+lines = 510
+verdict = "issues"
+note = "File store has transactional coordination; process-local store evicts active claims at capacity, permitting concurrent replay. Findings: 040."
+
+[file.025]
+path = "sdk/integrations/agents/test/a2a-store.test.mjs"
+lines = 298
+verdict = "clean"
+note = "A2A store tests cover persisted task identity, replay/conflicts and multiple instances without a third receipt shape."
+
+[file.026]
+path = "sdk/integrations/agents/test/daemon-providers-receipts.test.mjs"
+lines = 114
+verdict = "issues"
+note = "Receipt fixtures use obsolete daemon status and decimal portable heights; see test-gap finding. Findings: 003."
+
+[file.027]
+path = "sdk/integrations/agents/test/dependency-contracts.test.mjs"
+lines = 38
+verdict = "clean"
+note = "Dependency contract assertions validate pinned provider surfaces and actual adapter tool registration."
+
+[file.028]
+path = "sdk/integrations/agents/test/tools-receipts.test.mjs"
+lines = 234
+verdict = "issues"
+note = "Tool receipt fixtures use obsolete status/height encodings and require real producer alignment. Findings: 004."
+
+[file.029]
+path = "sdk/integrations/agents/tsconfig.json"
+lines = 19
+verdict = "clean"
+note = "TypeScript compiler configuration matches the ESM source/output layout and strict package exports."
+
+[file.030]
+path = "sdk/integrations/android/sample-app/app/build.gradle.kts"
+lines = 97
+verdict = "issues"
+note = "Android sample Gradle configuration omits publishable receipt keys required by its wallet gate. Findings: 006."
+
+[file.031]
+path = "sdk/integrations/android/sample-app/app/src/main/java/com/sidiora/layerx/android/sample/EventRelayReceiver.java"
+lines = 57
+verdict = "clean"
+note = "Relay receiver hands raw bytes and envelope headers to the verified consumer; signature verification precedes wallet delivery."
+
+[file.032]
+path = "sdk/integrations/android/sample-app/app/src/main/java/com/sidiora/layerx/android/sample/LayerXHolder.java"
+lines = 56
+verdict = "issues"
+note = "Android app wiring omits receipt pins before constructing the configured gate. Findings: 005."
+
+[file.033]
+path = "sdk/integrations/android/sample-app/app/src/main/java/com/sidiora/layerx/android/sample/WalletActivity.java"
+lines = 137
+verdict = "clean"
+note = "Activity renders wallet state and delegates network work off the UI callback path; gate defects are recorded at their source."
+
+[file.034]
+path = "sdk/integrations/android/sample-app/build.gradle.kts"
+lines = 3
+verdict = "clean"
+note = "Android root build plugins agree with the sample module and JVM toolchain settings."
+
+[file.035]
+path = "sdk/integrations/android/sample-app/settings.gradle.kts"
+lines = 25
+verdict = "clean"
+note = "Android dependency repositories and module includes match the published sample artifacts."
+
+[file.036]
+path = "sdk/integrations/android/src/main/java/com/sidiora/layerx/android/AndroidHttpTransport.java"
+lines = 233
+verdict = "clean"
+note = "HTTP transport binds Human and agent planes, request deadlines and session credentials without a public /rpc default."
+
+[file.037]
+path = "sdk/integrations/android/src/main/java/com/sidiora/layerx/android/BrokeredSessionTokenProvider.java"
+lines = 137
+verdict = "clean"
+note = "Brokered session provider validates and caches expiring scoped tokens; refresh and error handling preserve the broker contract."
+
+[file.038]
+path = "sdk/integrations/android/src/main/java/com/sidiora/layerx/android/EmbeddedSecretDetector.java"
+lines = 287
+verdict = "issues"
+note = "Artifact scanning misses provider credentials embedded within printable structured-text runs. Findings: 010."
+
+[file.039]
+path = "sdk/integrations/android/src/main/java/com/sidiora/layerx/android/EmbeddedSecretScan.java"
+lines = 46
+verdict = "clean"
+note = "Secret scan CLI validates artifact/config arguments and returns a failing exit on detected findings without printing secrets."
+
+[file.040]
+path = "sdk/integrations/android/src/main/java/com/sidiora/layerx/android/EphemeralSessionToken.java"
+lines = 69
+verdict = "clean"
+note = "Ephemeral token value is bounded and expiration is checked before use; diagnostic representation omits credential contents."
+
+[file.041]
+path = "sdk/integrations/android/src/main/java/com/sidiora/layerx/android/EventDeliveryStore.java"
+lines = 10
+verdict = "clean"
+note = "Delivery store interface declares claim/complete/release and explicit replay states used by the verified consumer."
+
+[file.042]
+path = "sdk/integrations/android/src/main/java/com/sidiora/layerx/android/EventEnvelopeHeaders.java"
+lines = 48
+verdict = "clean"
+note = "Envelope header parser normalizes names and refuses duplicate/missing fields before verification."
+
+[file.043]
+path = "sdk/integrations/android/src/main/java/com/sidiora/layerx/android/FileEventDeliveryStore.java"
+lines = 200
+verdict = "issues"
+note = "File claims are locked and atomically replaced, but parent-directory durability is missing. Findings: 009."
+
+[file.044]
+path = "sdk/integrations/android/src/main/java/com/sidiora/layerx/android/InMemoryEventDeliveryStore.java"
+lines = 81
+verdict = "issues"
+note = "Capacity eviction can discard an active unexpired delivery claim and admit the same effect again. Findings: 041."
+
+[file.045]
+path = "sdk/integrations/android/src/main/java/com/sidiora/layerx/android/LayerXAndroid.java"
+lines = 120
+verdict = "clean"
+note = "Factory binds transport, declared receipt pins and delivery store to concrete mobile clients and gates."
+
+[file.046]
+path = "sdk/integrations/android/src/main/java/com/sidiora/layerx/android/MobileClient.java"
+lines = 200
+verdict = "clean"
+note = "Typed Human operation calls preserve required quote, commit, journey and idempotency fields; gate projection defect is separate."
+
+[file.047]
+path = "sdk/integrations/android/src/main/java/com/sidiora/layerx/android/MobileIntegrationException.java"
+lines = 51
+verdict = "clean"
+note = "Mobile error codes have bounded messages and do not disclose raw token or receipt material."
+
+[file.048]
+path = "sdk/integrations/android/src/main/java/com/sidiora/layerx/android/PublishableConfiguration.java"
+lines = 270
+verdict = "issues"
+note = "HTTP loopback exception also accepts remote DNS names beginning with 127.; see security finding. Findings: 007."
+
+[file.049]
+path = "sdk/integrations/android/src/main/java/com/sidiora/layerx/android/ReceiptGate.java"
+lines = 114
+verdict = "issues"
+note = "Current Human Journey states and evidence fields do not match the completion projection. Findings: 031."
+
+[file.050]
+path = "sdk/integrations/android/src/main/java/com/sidiora/layerx/android/SessionTokenProvider.java"
+lines = 7
+verdict = "clean"
+note = "Session provider exposes the asynchronous expiring-token contract consumed by mobile transport."
+
+[file.051]
+path = "sdk/integrations/android/src/main/java/com/sidiora/layerx/android/VerifiedEventConsumer.java"
+lines = 182
+verdict = "clean"
+note = "Verified consumer checks envelope key, signature, timestamp and payload digest before claiming and invoking a handler."
+
+[file.052]
+path = "sdk/integrations/android/src/sample/java/com/sidiora/layerx/android/sample/ConsoleSampleMain.java"
+lines = 216
+verdict = "clean"
+note = "Console sample supplies explicit environment, receipt resolver and configured mobile instance with no router default."
+
+[file.053]
+path = "sdk/integrations/android/src/sample/java/com/sidiora/layerx/android/sample/RelayReceiptResolver.java"
+lines = 135
+verdict = "issues"
+note = "Relay proof decoder rejects retired batch fields, but HTTP endpoint loopback validation is too broad. Findings: 008."
+
+[file.054]
+path = "sdk/integrations/android/src/sample/java/com/sidiora/layerx/android/sample/SampleEnvironment.java"
+lines = 33
+verdict = "clean"
+note = "Sample environment maps explicit service/broker/event/receipt settings, sets timeouts and selects a durable delivery ledger."
+
+[file.055]
+path = "sdk/integrations/android/src/sample/java/com/sidiora/layerx/android/sample/WalletModel.java"
+lines = 161
+verdict = "clean"
+note = "Typed Android wallet refresh consumes groups and service correctly and delegates payment completion to its gate."
+
+[file.056]
+path = "sdk/integrations/android/src/sample/java/com/sidiora/layerx/android/sample/WebhookConformanceMain.java"
+lines = 132
+verdict = "clean"
+note = "Webhook executable drives configured signed deliveries and replay against the same mobile consumer."
+
+[file.057]
+path = "sdk/integrations/android/src/test/java/com/sidiora/layerx/android/ReceiptGateTest.java"
+lines = 199
+verdict = "issues"
+note = "Receipt test projects a synthetic settled/receipt_ref journey instead of the producer's done/evidence response. Findings: 033."
+
+[file.058]
+path = "sdk/integrations/android/src/test/java/com/sidiora/layerx/android/sample/RelayReceiptResolverTest.java"
+lines = 109
+verdict = "clean"
+note = "Relay decoder tests assert current signed receipt fields and refuse obsolete authorized batches."
+
+[file.059]
+path = "sdk/integrations/build-dependencies.mjs"
+lines = 45
+verdict = "clean"
+note = "Integration dependency builder orders package dependencies and fails on child build errors rather than silently continuing."
+
+[file.060]
+path = "sdk/integrations/express/example/index.mjs"
+lines = 97
+verdict = "issues"
+note = "Express example repository lacks required get and persists obsolete receipt fields. Findings: 011."
+
+[file.061]
+path = "sdk/integrations/express/example/package.json"
+lines = 16
+verdict = "clean"
+note = "Express example manifest names its integration dependency and actual ESM entry."
+
+[file.062]
+path = "sdk/integrations/express/example/resource.json"
+lines = 1
+verdict = "clean"
+note = "Example resource is ordinary product data with no network authority or credentials."
+
+[file.063]
+path = "sdk/integrations/express/package.json"
+lines = 44
+verdict = "clean"
+note = "Express package exports, dependency manifest and compiler entry agree."
+
+[file.064]
+path = "sdk/integrations/express/src/index.ts"
+lines = 831
+verdict = "clean"
+note = "Express middleware mounts payment/webhook handlers with bounded bodies and guards verified completion against signed receipt data."
+
+[file.065]
+path = "sdk/integrations/express/test/completion-gate.test.mjs"
+lines = 380
+verdict = "clean"
+note = "Completion assertions preserve refusal of admission-only and fabricated success decisions."
+
+[file.066]
+path = "sdk/integrations/express/test/receipt-keys.test.mjs"
+lines = 384
+verdict = "clean"
+note = "Express config tests exercise pinned receipt keys, retired-key refusal and native payment receipt fields."
+
+[file.067]
+path = "sdk/integrations/express/tsconfig.json"
+lines = 19
+verdict = "clean"
+note = "Express compiler options and declarations match the package exports."
+
+[file.068]
+path = "sdk/integrations/fastapi/build_backend.py"
+lines = 93
+verdict = "clean"
+note = "Python build backend includes the package and metadata through its declared build interface."
+
+[file.069]
+path = "sdk/integrations/fastapi/examples/paid_api.py"
+lines = 129
+verdict = "issues"
+note = "Python example releases before durable exclusive admission and can leave an interrupted final record. Findings: 018."
+
+[file.070]
+path = "sdk/integrations/fastapi/examples/resource.json"
+lines = 1
+verdict = "clean"
+note = "Python example resource contains only static response data."
+
+[file.071]
+path = "sdk/integrations/fastapi/layerx_fastapi/__init__.py"
+lines = 195
+verdict = "clean"
+note = "Python public exports omit obsolete authorized-batch APIs and expose implemented config/middleware types."
+
+[file.072]
+path = "sdk/integrations/fastapi/layerx_fastapi/config.py"
+lines = 239
+verdict = "clean"
+note = "Python config parses declared pins and webhook settings without default credentials; the network parser incompatibility is recorded at protocol.py."
+
+[file.073]
+path = "sdk/integrations/fastapi/layerx_fastapi/integration.py"
+lines = 316
+verdict = "issues"
+note = "FastAPI HTTP completion guard still compares retired Merkle and lxp identifiers against current seller output. Findings: 014."
+
+[file.074]
+path = "sdk/integrations/fastapi/layerx_fastapi/protocol.py"
+lines = 631
+verdict = "issues"
+note = "Python network/evidence decoding and payment semantics disagree with current native buyer evidence. Findings: 012, 013, 015."
+
+[file.075]
+path = "sdk/integrations/fastapi/layerx_fastapi/seller.py"
+lines = 310
+verdict = "issues"
+note = "Seller now stores signed evidence but retains misleading authorized-batch tuple aliases. Findings: 016."
+
+[file.076]
+path = "sdk/integrations/fastapi/layerx_fastapi/signatures.py"
+lines = 301
+verdict = "clean"
+note = "Ed25519 signature adapter validates exact key/signature lengths and fails verification rather than bypassing it."
+
+[file.077]
+path = "sdk/integrations/fastapi/layerx_fastapi/webhooks.py"
+lines = 199
+verdict = "clean"
+note = "Webhook parser verifies signed raw payloads before claim, invokes handlers with stable delivery identity and exposes replay refusals."
+
+[file.078]
+path = "sdk/integrations/fastapi/pyproject.toml"
+lines = 24
+verdict = "clean"
+note = "Python package metadata and build backend expose the implemented module and dependencies."
+
+[file.079]
+path = "sdk/integrations/fastapi/tests/conftest.py"
+lines = 9
+verdict = "clean"
+note = "Test configuration supplies import/package paths without replacing production verification."
+
+[file.080]
+path = "sdk/integrations/fastapi/tests/test_package_surface.py"
+lines = 141
+verdict = "issues"
+note = "Package test bypasses the mounted HTTP completion guard and uses obsolete payment fixtures. Findings: 017."
+
+[file.081]
+path = "sdk/integrations/fastapi/tests/test_receipt_keys_config.py"
+lines = 113
+verdict = "clean"
+note = "Config tests require pinned receipt keys and reject authorized-batch-only configuration without weakening key checks."
+
+[file.082]
+path = "sdk/integrations/fastapi/tests/test_seller_receipts.py"
+lines = 430
+verdict = "issues"
+note = "Seller tests preserve a payment shape different from the current TypeScript producer. Findings: 060."
+
+[file.083]
+path = "sdk/integrations/ios/Package.swift"
+lines = 56
+verdict = "clean"
+note = "Swift manifest declares the concrete SDK, Crypto, mobile, sample and scan targets and product dependencies."
+
+[file.084]
+path = "sdk/integrations/ios/Sources/LayerXMobile/EmbeddedSecretDetector.swift"
+lines = 241
+verdict = "issues"
+note = "Swift artifact scanner misses structured-text credential substrings. Findings: 021."
+
+[file.085]
+path = "sdk/integrations/ios/Sources/LayerXMobile/Errors.swift"
+lines = 24
+verdict = "clean"
+note = "Swift typed error codes and descriptions omit secret values and preserve transport/verification refusal categories."
+
+[file.086]
+path = "sdk/integrations/ios/Sources/LayerXMobile/EventVerification.swift"
+lines = 405
+verdict = "issues"
+note = "File ledger coordination and in-memory active-claim eviction allow duplicate delivery across instances or capacity pressure. Findings: 020, 042."
+
+[file.087]
+path = "sdk/integrations/ios/Sources/LayerXMobile/LayerXMobile.swift"
+lines = 99
+verdict = "clean"
+note = "Mobile facade uses declared configuration and supplies pins through gate(receipts:); sample bypass is recorded in WalletModel."
+
+[file.088]
+path = "sdk/integrations/ios/Sources/LayerXMobile/MobileClient.swift"
+lines = 127
+verdict = "clean"
+note = "Swift client dispatches declared Human operations, carries idempotency options and validates journey identifiers."
+
+[file.089]
+path = "sdk/integrations/ios/Sources/LayerXMobile/PublishableConfiguration.swift"
+lines = 241
+verdict = "clean"
+note = "Swift publishable config validates URLs, public receipt pins and bounded timeouts and rejects secret-shaped declared settings."
+
+[file.090]
+path = "sdk/integrations/ios/Sources/LayerXMobile/ReceiptGate.swift"
+lines = 154
+verdict = "issues"
+note = "Swift completion projector expects obsolete Journey fields despite current pinned signed receipt verification. Findings: 032."
+
+[file.091]
+path = "sdk/integrations/ios/Sources/LayerXMobile/SessionBroker.swift"
+lines = 205
+verdict = "clean"
+note = "Session broker validates scoped expiring tokens and refreshes before expiry; credential descriptions are redacted."
+
+[file.092]
+path = "sdk/integrations/ios/Sources/LayerXMobileSample/main.swift"
+lines = 191
+verdict = "clean"
+note = "Executable sample binds explicit environment and invokes the sample wallet rather than embedding authority."
+
+[file.093]
+path = "sdk/integrations/ios/Sources/LayerXMobileSampleKit/SampleEnvironment.swift"
+lines = 176
+verdict = "clean"
+note = "Swift sample environment builds bounded URLSession and durable delivery storage and rejects obsolete receipt proof fields."
+
+[file.094]
+path = "sdk/integrations/ios/Sources/LayerXMobileSampleKit/WalletModel.swift"
+lines = 144
+verdict = "issues"
+note = "Wallet sample drops configured receipt pins and reads obsolete activity/version response fields. Findings: 019, 034."
+
+[file.095]
+path = "sdk/integrations/ios/Sources/LayerXMobileSampleKit/WalletScreen.swift"
+lines = 83
+verdict = "clean"
+note = "Wallet screen presents snapshot state and refusals without independently treating HTTP success as verified payment."
+
+[file.096]
+path = "sdk/integrations/ios/Sources/LayerXMobileSecretScan/main.swift"
+lines = 36
+verdict = "clean"
+note = "Swift scan entry point loads configured exemptions and exits on findings without disclosing embedded values."
+
+[file.097]
+path = "sdk/integrations/ios/Sources/LayerXMobileWebhookConformance/main.swift"
+lines = 103
+verdict = "clean"
+note = "Swift webhook conformance executable exercises signed event delivery and persisted duplicate refusal using configured bindings."
+
+[file.098]
+path = "sdk/integrations/ios/Tests/LayerXMobileTests/ReceiptGateTests.swift"
+lines = 244
+verdict = "issues"
+note = "Swift receipt tests omit real Journey projection through the configured WalletModel. Findings: 061."
+
+[file.099]
+path = "sdk/integrations/ios/Tests/LayerXMobileTests/SampleEnvironmentTests.swift"
+lines = 80
+verdict = "clean"
+note = "Swift sample environment tests verify timeouts, ledger persistence and refusal of retired proof fields."
+
+[file.100]
+path = "sdk/integrations/ios/sample-app/Sources/LayerXWalletApp.swift"
+lines = 91
+verdict = "clean"
+note = "SwiftUI app obtains configuration through SampleEnvironment and hands the model to the wallet screen."
+
+[file.101]
+path = "sdk/integrations/ios/sample-app/project.yml"
+lines = 33
+verdict = "clean"
+note = "iOS project settings reference the actual package products and publishable configuration inputs."
+
+[file.102]
+path = "sdk/integrations/next/bin/layerx-scan-bundle.mjs"
+lines = 75
+verdict = "clean"
+note = "Bundle scan executable delegates argument/config validation to the integration scanner and exits on detected secrets."
+
+[file.103]
+path = "sdk/integrations/next/example/app/layerx/webhooks/route.js"
+lines = 8
+verdict = "clean"
+note = "Next webhook route exports the mounted handler on the Node runtime with raw request verification."
+
+[file.104]
+path = "sdk/integrations/next/example/app/paid/route.js"
+lines = 8
+verdict = "clean"
+note = "Next paid route delegates to the mounted seller; the supplied repository defect is recorded on fulfillment.mjs."
+
+[file.105]
+path = "sdk/integrations/next/example/lib/fulfillment.mjs"
+lines = 138
+verdict = "issues"
+note = "Next example repository has durable admission/reconciliation but omits required lookup method get. Findings: 022."
+
+[file.106]
+path = "sdk/integrations/next/example/lib/layerx.js"
+lines = 23
+verdict = "clean"
+note = "Next example binds mount options and its file repository from explicit environment and resource data."
+
+[file.107]
+path = "sdk/integrations/next/example/next.config.mjs"
+lines = 12
+verdict = "clean"
+note = "Next config externalizes server-side integration packages and connects bundle scanning to the expected artifact stage."
+
+[file.108]
+path = "sdk/integrations/next/example/package.json"
+lines = 24
+verdict = "clean"
+note = "Next example manifest names actual routes, package dependency and fulfillment test entry."
+
+[file.109]
+path = "sdk/integrations/next/example/resource.json"
+lines = 1
+verdict = "clean"
+note = "Next example resource is static response data without authority or embedded credentials."
+
+[file.110]
+path = "sdk/integrations/next/example/test/fulfillment.test.mjs"
+lines = 170
+verdict = "issues"
+note = "Example repository tests do not traverse the actual mounted seller and miss its missing get requirement. Findings: 023."
+
+[file.111]
+path = "sdk/integrations/next/package.json"
+lines = 58
+verdict = "clean"
+note = "Next package exports and scanner binary match concrete compiled entry points."
+
+[file.112]
+path = "sdk/integrations/next/src/index.ts"
+lines = 817
+verdict = "clean"
+note = "Next handlers validate configuration, pinned authority, raw webhook body and verified seller completion."
+
+[file.113]
+path = "sdk/integrations/next/src/scan.ts"
+lines = 105
+verdict = "clean"
+note = "Bundle scanner inspects packaged files, reports bounded finding metadata and refuses secret-shaped published settings."
+
+[file.114]
+path = "sdk/integrations/next/test/receipt-keys.test.mjs"
+lines = 309
+verdict = "clean"
+note = "Next receipt-key tests assert required pin configuration and reject old batch authority."
+
+[file.115]
+path = "sdk/integrations/next/tsconfig.json"
+lines = 19
+verdict = "clean"
+note = "Next TypeScript configuration matches ESM declarations and scanner output."
+
+[file.116]
+path = "sdk/integrations/spring/example/resource.json"
+lines = 1
+verdict = "clean"
+note = "Spring example resource is static payload data with no authority or secrets."
+
+[file.117]
+path = "sdk/integrations/spring/example/src/main/java/com/sidiora/layerx/example/PaidApiApplication.java"
+lines = 58
+verdict = "clean"
+note = "Spring app declares resource and verified event beans with concrete release/handler implementations."
+
+[file.118]
+path = "sdk/integrations/spring/example/src/main/resources/application.yaml"
+lines = 32
+verdict = "clean"
+note = "Spring example configuration references receipt keys and durable storage from explicit operator settings."
+
+[file.119]
+path = "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/DurableStores.java"
+lines = 548
+verdict = "issues"
+note = "Spring fulfillment durability omits a persisted admission before external release. Findings: 028."
+
+[file.120]
+path = "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/Ed25519Verifier.java"
+lines = 33
+verdict = "clean"
+note = "Ed25519 verifier uses declared key bytes and exact signature checks without an accept-on-error fallback."
+
+[file.121]
+path = "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/Fulfillments.java"
+lines = 45
+verdict = "issues"
+note = "Concurrent in-memory fulfillment can execute release twice before putIfAbsent resolves the race. Findings: 029."
+
+[file.122]
+path = "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/Http.java"
+lines = 70
+verdict = "clean"
+note = "HTTP helper bounds request bodies and consistently writes resource, refusal and payment headers."
+
+[file.123]
+path = "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/LayerXAutoConfiguration.java"
+lines = 100
+verdict = "clean"
+note = "Auto-configuration registers filters conditionally on concrete handler beans and supplies current receipt-key authority and durable stores."
+
+[file.124]
+path = "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/LayerXDeclaredConfig.java"
+lines = 12
+verdict = "clean"
+note = "Declared config carries receipt keys and copies webhook key mapping; removed batch authority is absent."
+
+[file.125]
+path = "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/LayerXPaymentGateFilter.java"
+lines = 81
+verdict = "clean"
+note = "Payment filter maps protected paths and delegates to seller plus completion checks; seller contract mismatches are recorded separately."
+
+[file.126]
+path = "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/LayerXProperties.java"
+lines = 242
+verdict = "clean"
+note = "Properties require declared payment/key/storage configuration and convert it into typed current receipt-key config."
+
+[file.127]
+path = "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/LayerXResource.java"
+lines = 14
+verdict = "clean"
+note = "Resource type defensively preserves response body/content metadata for replay."
+
+[file.128]
+path = "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/LayerXResourceHandler.java"
+lines = 9
+verdict = "clean"
+note = "Resource handler interface passes the servlet request into the actual release implementation."
+
+[file.129]
+path = "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/LayerXWebhookEventHandler.java"
+lines = 9
+verdict = "clean"
+note = "Webhook handler interface carries delivery identity with the verified event."
+
+[file.130]
+path = "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/LayerXWebhookFilter.java"
+lines = 76
+verdict = "clean"
+note = "Webhook filter verifies bounded raw requests before calling event handlers and maps replay outcomes to explicit responses."
+
+[file.131]
+path = "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/MiddlewareException.java"
+lines = 39
+verdict = "clean"
+note = "Middleware exception codes provide bounded safe messages without exposing receipt or credential material."
+
+[file.132]
+path = "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/PlatformIntegration.java"
+lines = 19
+verdict = "clean"
+note = "Spring package metadata names the actual starter and declared protocol integration."
+
+[file.133]
+path = "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/PublishedSecretGuard.java"
+lines = 60
+verdict = "clean"
+note = "Published secret guard inspects declared property sources and refuses known secret-shaped names and values."
+
+[file.134]
+path = "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/ResourceRelease.java"
+lines = 8
+verdict = "clean"
+note = "Resource release is an explicit effect boundary; durable admission responsibility is recorded on the owning stores."
+
+[file.135]
+path = "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/SellerMiddleware.java"
+lines = 208
+verdict = "issues"
+note = "Spring payment verification and settlement response do not match native EVM payment effects and buyer transaction identifiers. Findings: 026, 027."
+
+[file.136]
+path = "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/Webhooks.java"
+lines = 187
+verdict = "clean"
+note = "Webhook signatures bind timestamp, delivery identity and raw payload; durable claim lifecycle is delegated explicitly."
+
+[file.137]
+path = "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/X402.java"
+lines = 602
+verdict = "issues"
+note = "Spring network parser and exact evidence field set reject current native buyer offers and evidence. Findings: 024, 025."
+
+[file.138]
+path = "sdk/integrations/spring/src/test/java/com/sidiora/layerx/spring/ReceiptKeysConfigTest.java"
+lines = 136
+verdict = "clean"
+note = "Receipt-key config tests require pinned authority, reject removed batch settings and assert concrete context wiring."
+
+[file.139]
+path = "sdk/integrations/spring/src/test/java/com/sidiora/layerx/spring/SellerReceiptsTest.java"
+lines = 183
+verdict = "issues"
+note = "Spring seller tests assert a third payment shape and synthetic lxp response without current HTTP buyer proof. Findings: 030."
+
+[file.140]
+path = "sdk/telemetry/legacy_definitions_test.go"
+lines = 65
+verdict = "clean"
+note = "Legacy metric definition test protects compatibility aliases and observable metric names."
+
+[file.141]
+path = "sdk/telemetry/metrics.go"
+lines = 181
+verdict = "issues"
+note = "Telemetry startup indexes malformed label rows and ignores enable-service-label. Findings: 035, 036."
+
+[file.142]
+path = "sdk/telemetry/metrics_test.go"
+lines = 76
+verdict = "clean"
+note = "Metric tests cover gather formats and configured sinks; malformed global labels and service-label behavior remain gaps in metrics.go findings."
+
+[file.143]
+path = "sdk/telemetry/utils.go"
+lines = 18
+verdict = "clean"
+note = "Telemetry utility conversions preserve numeric values and bounded label construction."
+
+[file.144]
+path = "sdk/telemetry/wrapper.go"
+lines = 92
+verdict = "clean"
+note = "Metric wrappers consistently attach global labels and guard telemetry calls through the common enabled state."
+
+[file.145]
+path = "sdk/x/README.md"
+lines = 61
+verdict = "clean"
+note = "SDK module overview remains applicable to module development and keeper/application wiring."
+
+[file.146]
+path = "sdk/x/params/client/cli/query.go"
+lines = 152
+verdict = "clean"
+note = "Query CLI binds subspace/key arguments to the generated params request and prints typed responses."
+
+[file.147]
+path = "sdk/x/params/client/cli/tx.go"
+lines = 88
+verdict = "issues"
+note = "Parameter proposal help incorrectly claims registered values are not validated. Findings: 044."
+
+[file.148]
+path = "sdk/x/params/client/cli/tx_test.go"
+lines = 42
+verdict = "clean"
+note = "CLI proposal tests exercise real transaction arguments and proposal encoding without skipping assertions."
+
+[file.149]
+path = "sdk/x/params/client/proposal_handler.go"
+lines = 10
+verdict = "clean"
+note = "Governance client proposal handler registers the actual CLI/REST parameter-change handlers."
+
+[file.150]
+path = "sdk/x/params/client/rest/grpc_query_test.go"
+lines = 130
+verdict = "clean"
+note = "gRPC REST query test uses the declared params route and response shape."
+
+[file.151]
+path = "sdk/x/params/client/rest/rest.go"
+lines = 49
+verdict = "clean"
+note = "Legacy REST registration binds the proposal handler and marks the existing compatibility surface explicitly."
+
+[file.152]
+path = "sdk/x/params/client/testutil/cli_test.go"
+lines = 18
+verdict = "clean"
+note = "CLI test helpers construct real parameter proposals and check transaction/query response data."
+
+[file.153]
+path = "sdk/x/params/client/testutil/suite.go"
+lines = 80
+verdict = "clean"
+note = "Integration suite builds a concrete test network and registers parameter module interfaces and codecs."
+
+[file.154]
+path = "sdk/x/params/client/utils/utils.go"
+lines = 84
+verdict = "clean"
+note = "Proposal JSON utilities convert file changes into typed governance content and propagate decoding errors."
+
+[file.155]
+path = "sdk/x/params/client/utils/utils_test.go"
+lines = 32
+verdict = "clean"
+note = "Utility tests cover proposal JSON changes, raw-value encoding and parsing errors."
+
+[file.156]
+path = "sdk/x/params/doc.go"
+lines = 110
+verdict = "clean"
+note = "Module package declaration describes the parameter keeper and validation responsibilities."
+
+[file.157]
+path = "sdk/x/params/keeper/common_test.go"
+lines = 34
+verdict = "clean"
+note = "Keeper test setup uses concrete codecs, stores and context with initialized parameter tables."
+
+[file.158]
+path = "sdk/x/params/keeper/consensus_params.go"
+lines = 39
+verdict = "clean"
+note = "Consensus parameter accessors preserve typed defaults and baseapp validation for registered groups."
+
+[file.159]
+path = "sdk/x/params/keeper/genesis.go"
+lines = 19
+verdict = "clean"
+note = "Genesis imports and exports fee/gas parameters through the declared keeper stores."
+
+[file.160]
+path = "sdk/x/params/keeper/genesis_test.go"
+lines = 79
+verdict = "clean"
+note = "Genesis tests round-trip initialized parameter values and verify export behavior."
+
+[file.161]
+path = "sdk/x/params/keeper/grpc_query.go"
+lines = 36
+verdict = "clean"
+note = "gRPC query rejects missing request/subspace keys and returns the registered parameter value as declared JSON."
+
+[file.162]
+path = "sdk/x/params/keeper/grpc_query_test.go"
+lines = 86
+verdict = "clean"
+note = "gRPC tests exercise real registered and missing parameter queries."
+
+[file.163]
+path = "sdk/x/params/keeper/keeper.go"
+lines = 117
+verdict = "clean"
+note = "Keeper allocates named subspaces and registered fee/gas parameter tables with explicit persistent and transient keys."
+
+[file.164]
+path = "sdk/x/params/keeper/keeper_test.go"
+lines = 296
+verdict = "clean"
+note = "Keeper tests verify named subspace uniqueness and typed parameter store initialization."
+
+[file.165]
+path = "sdk/x/params/keeper/migrations.go"
+lines = 23
+verdict = "clean"
+note = "Consensus migration writes the supported parameter groups through the registered target subspaces."
+
+[file.166]
+path = "sdk/x/params/keeper/migrations_test.go"
+lines = 22
+verdict = "clean"
+note = "Migration tests assert the exact post-migration parameter values using real stores."
+
+[file.167]
+path = "sdk/x/params/keeper/querier.go"
+lines = 47
+verdict = "clean"
+note = "Legacy query handler decodes subspace/key request and returns compatible parameter JSON with explicit errors."
+
+[file.168]
+path = "sdk/x/params/module.go"
+lines = 173
+verdict = "clean"
+note = "Module registers interfaces, gateway/query service, migration and genesis operations against concrete keeper methods."
+
+[file.169]
+path = "sdk/x/params/proposal_handler.go"
+lines = 42
+verdict = "clean"
+note = "Governance handler resolves subspaces and applies each change through registered validation before emitting events."
+
+[file.170]
+path = "sdk/x/params/proposal_handler_test.go"
+lines = 105
+verdict = "clean"
+note = "Proposal handler tests assert successful changes, unknown subspaces/keys and invalid values without dropping refusal cases."
+
+[file.171]
+path = "sdk/x/params/simulation/operations.go"
+lines = 55
+verdict = "issues"
+note = "Simulation parameter count excludes the upper bound and panics for a one-entry pool. Findings: 037."
+
+[file.172]
+path = "sdk/x/params/simulation/proposals.go"
+lines = 21
+verdict = "clean"
+note = "Proposal simulation config selects the governance weight and routes real generated parameter content."
+
+[file.173]
+path = "sdk/x/params/spec/01_keeper.md"
+lines = 19
+verdict = "clean"
+note = "Keeper specification agrees with named subspaces, ownership and persistent/transient store responsibilities."
+
+[file.174]
+path = "sdk/x/params/spec/02_subspace.md"
+lines = 38
+verdict = "issues"
+note = "Subspace page promises primary-key attribute inheritance that exact key lookups do not implement. Findings: 045."
+
+[file.175]
+path = "sdk/x/params/spec/README.md"
+lines = 29
+verdict = "clean"
+note = "Parameter specification overview matches keeper, subspace and governance responsibilities."
+
+[file.176]
+path = "sdk/x/params/types/common_test.go"
+lines = 98
+verdict = "clean"
+note = "Common type test setup initializes real stores/codecs and registered parameter tables."
+
+[file.177]
+path = "sdk/x/params/types/deref_test.go"
+lines = 27
+verdict = "clean"
+note = "Dereference tests exercise pointer/value updates and registered type behavior."
+
+[file.178]
+path = "sdk/x/params/types/doc.go"
+lines = 13
+verdict = "clean"
+note = "Parameter type package documentation agrees with typed parameter and governance usage."
+
+[file.179]
+path = "sdk/x/params/types/genesis.go"
+lines = 42
+verdict = "clean"
+note = "Genesis defaults validate fee/gas groups and preserve explicitly supplied values on import/export."
+
+[file.180]
+path = "sdk/x/params/types/keys.go"
+lines = 9
+verdict = "clean"
+note = "Store/router/query key constants agree with module registration and client paths."
+
+[file.181]
+path = "sdk/x/params/types/params.go"
+lines = 77
+verdict = "issues"
+note = "Fee validation omits allowed denomination checks consumed by transaction ante handlers. Findings: 043."
+
+[file.182]
+path = "sdk/x/params/types/params_test.go"
+lines = 18
+verdict = "clean"
+note = "Parameter tests assert gas multiplier and minimum-price validity; allowlist validation defect is recorded on params.go."
+
+[file.183]
+path = "sdk/x/params/types/paramset.go"
+lines = 26
+verdict = "clean"
+note = "ParamSet pairs bind exact keys, value pointers and validators as required by KeyTable."
+
+[file.184]
+path = "sdk/x/params/types/proposal/codec.go"
+lines = 19
+verdict = "clean"
+note = "Proposal codec registers concrete legacy/governance parameter proposal types."
+
+[file.185]
+path = "sdk/x/params/types/proposal/errors.go"
+lines = 15
+verdict = "clean"
+note = "Proposal error constants retain the module codespace and stable error identities."
+
+[file.186]
+path = "sdk/x/params/types/proposal/keys.go"
+lines = 9
+verdict = "clean"
+note = "Governance proposal type constants agree with registration and client dispatch."
+
+[file.187]
+path = "sdk/x/params/types/proposal/proposal.go"
+lines = 135
+verdict = "clean"
+note = "Proposal content validates title/description and nonempty changes and preserves raw JSON values for execution-time validation."
+
+[file.188]
+path = "sdk/x/params/types/proposal/proposal_test.go"
+lines = 40
+verdict = "clean"
+note = "Proposal tests assert content validation, value encoding and proposal-type semantics."
+
+[file.189]
+path = "sdk/x/params/types/querier.go"
+lines = 35
+verdict = "clean"
+note = "Legacy query request contains the declared subspace and key fields consumed by the keeper handler."
+
+[file.190]
+path = "sdk/x/params/types/subspace.go"
+lines = 290
+verdict = "clean"
+note = "Subspace reads/writes exact registered keys with type/value validation and transient modified markers; documentation inheritance mismatch is recorded on its page."
+
+[file.191]
+path = "sdk/x/params/types/subspace_test.go"
+lines = 228
+verdict = "clean"
+note = "Subspace tests cover registered key types, value validation, partial updates and change tracking with actual stores."
+
+[file.192]
+path = "sdk/x/params/types/table.go"
+lines = 80
+verdict = "clean"
+note = "Key table rejects empty/non-alphanumeric/duplicate keys and missing validators and records concrete value types."
+
+[file.193]
+path = "sdk/x/params/types/table_test.go"
+lines = 46
+verdict = "clean"
+note = "Key table tests assert actual registration constraints and duplicate/type behavior."
+
+[finding.001]
+file = "sdk/integrations/agents/src/daemon-budget.ts"
+line = 116
+class = "restart-recovery"
+severity = "medium"
+observed = "DaemonPreparationBudget persists stage preparing before prepareNative and stage signing before signer.sign; reopening either interrupted stage returns admission-unknown or unknown indefinitely, without reconciliation or a retry of the same operation."
+expected = "An interrupted payment preparation must be reconciled with its owning daemon and signer so the same admitted request can resume safely after a process restart."
+proposal = "In sdk/integrations/agents/src/daemon-budget.ts add owner lookup and recovery transitions for preparing and signing, retaining the exact request and idempotency identity; prove crashes before and after each remote call resume without a second payment."
+owner_domain = 15
+
+[finding.002]
+file = "sdk/integrations/agents/src/mcp.ts"
+line = 640
+class = "restart-recovery"
+severity = "medium"
+observed = "FileVerifiedEventQueue uses an exclusive .lock file removed only in finally; a killed process leaves the file behind, and acquireMcpFileLock retries EEXIST before refusing every subsequent push, count and drain."
+expected = "The durable MCP event queue must become usable after its owning process crashes without an operator deleting a lock file or losing queued events."
+proposal = "Replace the sentinel lock in sdk/integrations/agents/src/mcp.ts with process-released locking or the SQLite coordination used by FileWebhookDeliveryStore, and exercise kill/reopen with the same persisted queue."
+owner_domain = 15
+
+[finding.003]
+file = "sdk/integrations/agents/test/daemon-providers-receipts.test.mjs"
+line = 14
+class = "test-gap"
+severity = "medium"
+observed = "The status fixture emits {state, level}, while verifySequencerReceipt in daemon-providers.ts requires exactly {state, rung}; expected evidence also uses decimal firstHeight/lastHeight while the implementation emits hexadecimal quantities."
+expected = "Receipt provider tests must consume the current daemon envelope and assert the actual portable receipt encoding, including the receipted rung and hexadecimal height quantities."
+proposal = "Replace the hand-built status and height fixtures in sdk/integrations/agents/test/daemon-providers-receipts.test.mjs with a captured real producer response and prove it traverses DaemonReceiptResolver before asserting the signed evidence."
+owner_domain = 15
+
+[finding.004]
+file = "sdk/integrations/agents/test/tools-receipts.test.mjs"
+line = 36
+class = "test-gap"
+severity = "medium"
+observed = "portableReceipt constructs decimal-string receipt key heights, but LayerXReceiptResolver.receiptHeight accepts only canonical 0x quantities; the fixture gateway also returns verification_status.level instead of the current rung field."
+expected = "Tool and service-client tests must replay the receipt service and agent envelope shapes actually produced and accepted by the current transports."
+proposal = "Update sdk/integrations/agents/test/tools-receipts.test.mjs to obtain evidence and envelopes from the real current producers and retain refusal coverage for decimal heights and obsolete status fields."
+owner_domain = 15
+
+[finding.005]
+file = "sdk/integrations/android/sample-app/app/src/main/java/com/sidiora/layerx/android/sample/LayerXHolder.java"
+line = 49
+class = "config-drift"
+severity = "medium"
+observed = "LayerXHolder builds configuration without layerx.receipt_keys, and the Gradle sample exposes no receipt-key resource; WalletModel immediately calls mobile.gate, which refuses configuration with no pinned receipt keys."
+expected = "The shipped Android wallet sample must configure its pinned receipt keys and start successfully before offering receipt-verified payments."
+proposal = "Add a publishable receipt-key Gradle property/resource in sdk/integrations/android/sample-app/app/build.gradle.kts and bind it in LayerXHolder.java; prove startup and a signed payment through the actual sample configuration."
+owner_domain = 15
+
+[finding.006]
+file = "sdk/integrations/android/sample-app/app/build.gradle.kts"
+line = 15
+class = "config-drift"
+severity = "medium"
+observed = "The declaredKeys map and generated string resources omit layerx.receipt_keys entirely, although the sample's WalletModel now requires LayerXAndroid.gate to receive a pinned key set."
+expected = "The Android sample's build-time publishable configuration must supply all keys required by its receipt-verification path."
+proposal = "Expose a receiptKeysJson property and generated resource in sdk/integrations/android/sample-app/app/build.gradle.kts, include public key values in scanner exemptions and consume that resource in LayerXHolder."
+owner_domain = 15
+
+[finding.007]
+file = "sdk/integrations/android/src/main/java/com/sidiora/layerx/android/PublishableConfiguration.java"
+line = 222
+class = "security"
+severity = "medium"
+observed = "isLoopback accepts every hostname starting with 127., including a DNS name such as 127.attacker.example; endpoint consequently permits cleartext HTTP for a remotely controlled service or session broker."
+expected = "HTTP exceptions for device credentials must apply only to actual loopback IP literals or the explicitly supported localhost name."
+proposal = "In sdk/integrations/android/src/main/java/com/sidiora/layerx/android/PublishableConfiguration.java validate numeric IPv4 octets and the 127/8 range without DNS suffixes; cover DNS-lookalike hosts and actual loopback addresses."
+owner_domain = 15
+
+[finding.008]
+file = "sdk/integrations/android/src/sample/java/com/sidiora/layerx/android/sample/RelayReceiptResolver.java"
+line = 131
+class = "security"
+severity = "medium"
+observed = "requireRelay uses startsWith(127.) to classify a host as loopback and therefore allows an arbitrary remote DNS name with that prefix over HTTP."
+expected = "The Android receipt relay must use HTTPS outside actual loopback addresses, consistent with the mobile transport security policy."
+proposal = "Share a strict loopback-host validator with PublishableConfiguration in sdk/integrations/android and reject remote DNS names that merely begin with a numeric loopback prefix."
+owner_domain = 15
+
+[finding.009]
+file = "sdk/integrations/android/src/main/java/com/sidiora/layerx/android/FileEventDeliveryStore.java"
+line = 163
+class = "restart-recovery"
+severity = "medium"
+observed = "write fsyncs the temporary ledger and atomically renames it, but never fsyncs the parent directory; completed delivery claims acknowledged to the relay can disappear after a filesystem crash and permit the effect again."
+expected = "A delivery store advertised as crash-durable must persist both the data and the directory entry before reporting completion."
+proposal = "In sdk/integrations/android/src/main/java/com/sidiora/layerx/android/FileEventDeliveryStore.java force the containing directory after the atomic move and qualify recovery of completed claims after abrupt termination."
+owner_domain = 15
+
+[finding.010]
+file = "sdk/integrations/android/src/main/java/com/sidiora/layerx/android/EmbeddedSecretDetector.java"
+line = 81
+class = "security"
+severity = "medium"
+observed = "scan collects entire printable ASCII runs, while providerCredentialRule recognizes credentials only at the beginning of a run; a credential inside compact JSON or an XML attribute is not recognized as a provider key."
+expected = "The mobile artifact scanner must reject credential material in the ordinary resource and configuration encodings that applications ship."
+proposal = "Tokenize textual JSON/XML/property values and search bounded provider-key substrings in sdk/integrations/android/src/main/java/com/sidiora/layerx/android/EmbeddedSecretDetector.java; prove complete packaged artifacts with embedded provider credentials are refused without exposing the value."
+owner_domain = 15
+
+[finding.011]
+file = "sdk/integrations/express/example/index.mjs"
+line = 10
+class = "interface-mismatch"
+severity = "high"
+observed = "The sample FileFulfillmentRepository defines fulfill and read but no get; SellerMiddleware.handle calls this.#fulfillments.get before release. Its persisted record also reads proposed.canonicalReceipt, which the current ProposedFulfillment no longer supplies."
+expected = "The seller repository contract requires get(idempotencyKey) and stored signedReceipt/rawTransaction/receiptDigest data so a paid request and replay round-trip through the real seller."
+proposal = "Port sdk/integrations/express/example/index.mjs to the current FulfillmentRepository and ProposedFulfillment contracts, including get and exact persisted receipt fields; prove the example's real paid route and reopen/replay before shipping."
+owner_domain = 15
+interface = "8.ts-middleware-seller-sidiora-layerx-seller-middleware-fulfillmentrepository"
+
+[finding.012]
+file = "sdk/integrations/fastapi/layerx_fastapi/protocol.py"
+line = 510
+class = "interface-mismatch"
+severity = "high"
+observed = "parse_network accepts only layerx:<identifier>, whereas the merged payment clients and Express/Next sellers advertise eip155:125. A current EVM payment offer cannot be parsed by this FastAPI seller."
+expected = "The FastAPI x402 offer and payload must agree with the native EVM payment network identifier eip155:125 and the actual transaction chain id."
+proposal = "Update sdk/integrations/fastapi/layerx_fastapi/protocol.py and its configured offers to the merged eip155 network contract and bind verification to the transaction chain id; qualify a real buyer payment against the FastAPI HTTP route."
+owner_domain = 15
+interface = "15.go-integrations-fastapi-parse-network-j76"
+
+[finding.013]
+file = "sdk/integrations/fastapi/layerx_fastapi/protocol.py"
+line = 425
+class = "interface-mismatch"
+severity = "high"
+observed = "parse_layerx_evidence requires sequencer-signed, base64 transaction/receipt bytes, integer key heights and no format field. Current TypeScript portable evidence carries format=layerx-receipt-proof-v2, verificationLevel=receipted, 0x byte strings and 0x height quantities, which this exact-field decoder refuses."
+expected = "Portable payment evidence produced by the real buyer must retain one field set, verification vocabulary and encoding across TypeScript, Python and JVM sellers."
+proposal = "Align sdk/integrations/fastapi/layerx_fastapi/protocol.py and seller.py with the current portable receipt evidence contract, preserving strict validation; add a producer-to-HTTP-to-FastAPI proof using unmodified buyer evidence and replay after reopen."
+owner_domain = 15
+interface = "15.go-integrations-fastapi-parse-layerx-evidence-j76"
+
+[finding.014]
+file = "sdk/integrations/fastapi/layerx_fastapi/integration.py"
+line = 186
+class = "interface-mismatch"
+severity = "high"
+observed = "assert_receipt_backed computes the retired Merkle leaf digest and requires transaction=lxp:<that digest>; SellerMiddleware.handle emits transaction=0x<activity_id> and receiptDigest from the signed sequencer receipt. A successfully fulfilled payment is rejected by the mounted HTTP gate."
+expected = "The HTTP completion guard must agree with its own seller's transaction hash and signed-receipt digest and return the already verified resource."
+proposal = "Replace the legacy digest/transaction/level comparisons in sdk/integrations/fastapi/layerx_fastapi/integration.py with the current SequencerReceiptVerification fields; prove the mounted route returns the paid resource and identical replay before and after reopening."
+owner_domain = 15
+interface = "15.go-integrations-fastapi-assert-receipt-backed-j76"
+
+[finding.015]
+file = "sdk/integrations/fastapi/layerx_fastapi/protocol.py"
+line = 488
+class = "interface-mismatch"
+severity = "high"
+observed = "verify_payment_receipt checks the outer receipt asset/to_account/amount only and never decodes the native EVM payment call and effects or checks scheme, chain id or purpose. For layerxledger payments, the outer recipient is the precompile and amount is zero while the actual payment is in calldata and committed effects."
+expected = "Payment verification must establish the offered scheme, network, asset, amount, payee and purpose from the real native payment transaction and signed execution effects."
+proposal = "In sdk/integrations/fastapi/layerx_fastapi/protocol.py use the merged SDK payment verifier with exact calldata/effect agreement, pinned receipt keys and purpose/chain checks, and prove native payExact plus metered/subscription paths and wrong-purpose refusals."
+owner_domain = 15
+interface = "15.go-integrations-fastapi-verify-payment-receipt-j76"
+
+[finding.016]
+file = "sdk/integrations/fastapi/layerx_fastapi/seller.py"
+line = 77
+class = "retired-reference"
+severity = "low"
+observed = "seller.py still defines AuthorizedBatchResolver and StaticAuthorizedBatches as receipt-key tuple aliases even though their authorized-batch semantics and package exports were retired."
+expected = "Requirements 15007 and 15008 remove authorized-batch vocabulary and authority from the Python seller surface rather than retaining misleading aliases."
+proposal = "Remove the obsolete aliases from sdk/integrations/fastapi/layerx_fastapi/seller.py and update the corresponding registry rows to the receipt-key authority names, preserving the public export refusal tests."
+owner_domain = 15
+
+[finding.017]
+file = "sdk/integrations/fastapi/tests/test_package_surface.py"
+line = 114
+class = "test-gap"
+severity = "medium"
+observed = "The integration test creates a mount but calls mount.seller.handle directly; it never invokes mount.payment_gate or the registered HTTP route, so the incompatible assert_receipt_backed digest/transaction guard remains unexercised."
+expected = "A package integration proof must traverse the mounted FastAPI HTTP gate and its completion checks, not stop at the seller decision."
+proposal = "Extend sdk/integrations/fastapi/tests/test_package_surface.py with an actual HTTP request using real producer evidence through mount_layerx, retaining the seller assertions and adding paid response plus restart/replay assertions."
+owner_domain = 15
+
+[finding.018]
+file = "sdk/integrations/fastapi/examples/paid_api.py"
+line = 38
+class = "restart-recovery"
+severity = "medium"
+observed = "FileFulfillmentRepository runs release before creating the exclusive receipt record, then writes directly into the final file; simultaneous or interrupted releases can repeat effects or leave a truncated record that blocks replay."
+expected = "A payment receipt's resource release must have durable admission and recoverable completion so retries across workers or crashes cannot run a second non-idempotent effect."
+proposal = "Give sdk/integrations/fastapi/examples/paid_api.py a transactional fulfillment store and pass the stable receipt-derived idempotency key to resource release; prove concurrent delivery and crash/reopen at each persistence boundary."
+owner_domain = 15
+
+[finding.019]
+file = "sdk/integrations/ios/Sources/LayerXMobileSampleKit/WalletModel.swift"
+line = 37
+class = "wiring-gap"
+severity = "high"
+observed = "WalletModel constructs ReceiptGate with its default empty receiptKeys instead of the pinned keys in mobile.configuration; every settled payment reaches the pinned-key check and is refused even with a correctly configured app."
+expected = "The shipped iOS wallet must use its configured receipt authority when projecting a committed payment into a settled state."
+proposal = "Construct the gate through mobile.gate(receipts:) in sdk/integrations/ios/Sources/LayerXMobileSampleKit/WalletModel.swift and propagate initialization errors; prove an actual sample payment with configured pinned keys reaches settled and rejects a different key."
+owner_domain = 15
+
+[finding.020]
+file = "sdk/integrations/ios/Sources/LayerXMobile/EventVerification.swift"
+line = 140
+class = "restart-recovery"
+severity = "medium"
+observed = "FileEventDeliveryStore loads a private ledger snapshot once and replaces the whole file on every mutation without cross-instance locking or reload; two app/extension instances can overwrite completed claims and execute the same delivery again."
+expected = "A file-backed event ledger shared by bindings must serialize claims and preserve completed deliveries across concurrent instances and reopen."
+proposal = "Use transactional storage or an OS lock plus reload/atomic durable replacement in sdk/integrations/ios/Sources/LayerXMobile/EventVerification.swift, with two-instance claim and crash/reopen proofs against one application-support file."
+owner_domain = 15
+
+[finding.021]
+file = "sdk/integrations/ios/Sources/LayerXMobile/EmbeddedSecretDetector.swift"
+line = 65
+class = "security"
+severity = "medium"
+observed = "The scanner extracts whole printable ASCII runs and recognizes provider credentials only at a run prefix; a key inside a compact JSON object or plist attribute can pass artifact scanning."
+expected = "The mobile artifact scanner must find credential material in the ordinary structured resources and configuration encodings shipped in an app."
+proposal = "In sdk/integrations/ios/Sources/LayerXMobile/EmbeddedSecretDetector.swift inspect bounded credential tokens inside structured text and prove packaged JSON/plist credentials are refused without logging their values."
+owner_domain = 15
+
+[finding.022]
+file = "sdk/integrations/next/example/lib/fulfillment.mjs"
+line = 9
+class = "interface-mismatch"
+severity = "high"
+observed = "The Next sample FileFulfillmentRepository implements fulfill and reconcile but has no get method; the current SellerMiddleware.handle calls fulfillments.get before invoking fulfill, so the shipped paid route fails before its durable logic runs."
+expected = "The repository supplied to mountLayerX must implement the complete current FulfillmentRepository contract, including lookup of committed signed receipt evidence and resource data."
+proposal = "Add a current-contract get implementation in sdk/integrations/next/example/lib/fulfillment.mjs that reconstructs all required evidence and preserves conflict checks, then prove the actual Next paid handler and replay after reopening."
+owner_domain = 15
+interface = "8.ts-middleware-seller-sidiora-layerx-seller-middleware-fulfillmentrepository"
+
+[finding.023]
+file = "sdk/integrations/next/example/test/fulfillment.test.mjs"
+line = 58
+class = "test-gap"
+severity = "medium"
+observed = "The example tests directly exercise fulfill/reconcile using proposed proof data and never supply the example repository to the actual mounted seller; they therefore miss the missing get method on the production route."
+expected = "The shipped Next example must qualify its repository through the real seller and HTTP handler with current producer evidence, including reopened replay."
+proposal = "Add a mounted paid-route proof in sdk/integrations/next/example/test/fulfillment.test.mjs using the actual FileFulfillmentRepository and current buyer evidence while preserving its concurrent and crash/reconciliation checks."
+owner_domain = 15
+
+[finding.024]
+file = "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/X402.java"
+line = 508
+class = "interface-mismatch"
+severity = "high"
+observed = "X402.parseNetwork accepts only layerx:<identifier>; merged TypeScript buyers and current EVM payment routes use eip155:125, so their offers and payloads cannot round-trip through the Spring seller."
+expected = "Spring must accept and verify the same native EVM payment network identifier and chain binding as the merged buyer and node."
+proposal = "Align sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/X402.java with eip155:125 and enforce the corresponding transaction chain id; prove a real current buyer payment through LayerXPaymentGateFilter."
+owner_domain = 15
+interface = "15.go-integrations-spring-x402-parse-network-j76"
+
+[finding.025]
+file = "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/X402.java"
+line = 373
+class = "interface-mismatch"
+severity = "high"
+observed = "parseReceiptEvidence has an exact allowed field set without format; the current TypeScript receipt producer includes format=layerx-receipt-proof-v2, so valid producer evidence is refused as INVALID_PAYMENT_PAYLOAD."
+expected = "The portable receipt field set and version marker must survive unchanged across producer, payment header transport and JVM receipt consumer."
+proposal = "Implement the versioned portable evidence contract in sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/X402.java with strict format validation and current producer-to-filter evidence proofs, rather than dropping producer fields."
+owner_domain = 15
+interface = "15.go-integrations-spring-x402-parse-receipt-evidence-j76"
+
+[finding.026]
+file = "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/SellerMiddleware.java"
+line = 174
+class = "interface-mismatch"
+severity = "high"
+observed = "verifyPaymentReceipt compares only outer receipt amount, asset and recipient; a native layerxledger payment carries zero outer value and targets the precompile, while payee, asset, purpose and actual amount are committed in calldata and execution effects. Scheme and chain are not checked."
+expected = "Spring must verify the real native payment effects against the complete offered scheme, network, asset, payee, amount and purpose before releasing a resource."
+proposal = "Use the merged native payment verifier from sdk/platform/jvm in sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/SellerMiddleware.java and prove payExact plus metered/subscription and wrong-chain/purpose refusals through the actual filter."
+owner_domain = 15
+interface = "15.go-integrations-spring-seller-middleware-verify-payment-receipt-j76"
+
+[finding.027]
+file = "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/SellerMiddleware.java"
+line = 155
+class = "interface-mismatch"
+severity = "high"
+observed = "Spring emits settlement.transaction=lxp:<signed receipt digest> and its completion guard requires that synthetic identifier; the merged buyer expects the actual 0x EVM transaction hash and verifies it against portable rawTransaction."
+expected = "A successful PAYMENT-RESPONSE must identify the committed transaction hash and round-trip through the buyer's receipt verification."
+proposal = "Emit and assert the verified EVM transaction hash in sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/SellerMiddleware.java and prove the unmodified Spring response is accepted by the current buyer."
+owner_domain = 15
+interface = "15.go-integrations-spring-seller-middleware-assert-receipt-backed-j76"
+
+[finding.028]
+file = "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/DurableStores.java"
+line = 77
+class = "restart-recovery"
+severity = "medium"
+observed = "The durable fulfillment store holds a file lock but writes no admission record before release.release; a process crash after an external effect and before writeAtomic leaves no record, allowing the same payment to release again after restart."
+expected = "A durable fulfillment must retain an interrupted admission and reconcile its external result before allowing another resource effect."
+proposal = "Add a durable claim and explicit recovery protocol in sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/DurableStores.java, passing stable idempotency to the effect and proving crashes before/after release with reopen."
+owner_domain = 15
+
+[finding.029]
+file = "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/Fulfillments.java"
+line = 28
+class = "runtime-risk"
+severity = "medium"
+observed = "InMemoryFulfillmentRepository checks entries, invokes release, then uses putIfAbsent; concurrent equal requests can both invoke a non-idempotent release before one stored result wins."
+expected = "Within its advertised in-memory lifetime the fulfillment repository must serialize a payment identity so concurrent delivery releases at most one resource effect."
+proposal = "Serialize admission per idempotency key in sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/Fulfillments.java before invoking release, retain conflict checks and prove simultaneous equal requests execute one release."
+owner_domain = 15
+
+[finding.030]
+file = "sdk/integrations/spring/src/test/java/com/sidiora/layerx/spring/SellerReceiptsTest.java"
+line = 101
+class = "test-gap"
+severity = "medium"
+observed = "The Spring seller test constructs layerx:mainnet offers from a plain transfer receipt and asserts a synthetic lxp receipt transaction; it does not exercise native EVM payment effects, a current portable format field or the HTTP filter/buyer response path."
+expected = "The Spring integration proof must use current producer evidence and the merged eip155:125 payment semantics through the registered HTTP filter and consuming buyer."
+proposal = "Extend sdk/integrations/spring/src/test/java/com/sidiora/layerx/spring/SellerReceiptsTest.java with current native payment vectors and a filter-to-buyer proof while retaining key/signature and durable store refusal assertions."
+owner_domain = 15
+
+[finding.031]
+file = "sdk/integrations/android/src/main/java/com/sidiora/layerx/android/ReceiptGate.java"
+line = 99
+class = "interface-mismatch"
+severity = "high"
+observed = "ReceiptGate.project verifies only journey states settled or completed and reads receipt_ref; the Human Journey producer declares done/done-finalised with evidence references and no receipt_ref. Real completed journeys fall through to Pending indefinitely."
+expected = "Android must project the actual Human journey vocabulary, fetch its declared evidence reference and independently verify that receipt before displaying payment completion."
+proposal = "Align sdk/integrations/android/src/main/java/com/sidiora/layerx/android/ReceiptGate.java and its resolver with services/human/schema/human-api/journeys.kvx; prove a real done journey through mobile transport, evidence lookup and gate, including reopened tracking."
+owner_domain = 15
+interface = "10.http-human-journey-get"
+
+[finding.032]
+file = "sdk/integrations/ios/Sources/LayerXMobile/ReceiptGate.swift"
+line = 120
+class = "interface-mismatch"
+severity = "high"
+observed = "ReceiptGate.project accepts settled/completed plus receipt_ref, while the Human API emits done/done-finalised and evidence arrays. Successful current journeys are repeatedly projected as pending and their receipt evidence is never resolved."
+expected = "The iOS wallet must consume the current Human Journey states and evidence identifiers and show completion only after the exact payment receipt verifies."
+proposal = "Update sdk/integrations/ios/Sources/LayerXMobile/ReceiptGate.swift to consume the normative Journey and evidence.get contract, and prove a real Human completion through transport and the configured mobile gate after reconnect."
+owner_domain = 15
+interface = "10.http-human-journey-get"
+
+[finding.033]
+file = "sdk/integrations/android/src/test/java/com/sidiora/layerx/android/ReceiptGateTest.java"
+line = 53
+class = "test-gap"
+severity = "medium"
+observed = "The gate test builds a synthetic {state:settled,receipt_ref:signed-transfer} journey that the declared Human producer never emits; it therefore proves a third shape and hides completed payments remaining pending."
+expected = "The Android journey test must use the current done/done-finalised Journey with evidence references supplied by the real Human producer."
+proposal = "Replace the synthetic journey source in sdk/integrations/android/src/test/java/com/sidiora/layerx/android/ReceiptGateTest.java with current producer evidence and exercise transport, resolution and pinned verification without weakening tamper checks."
+owner_domain = 15
+
+[finding.034]
+file = "sdk/integrations/ios/Sources/LayerXMobileSampleKit/WalletModel.swift"
+line = 48
+class = "interface-mismatch"
+severity = "medium"
+observed = "WalletModel.refresh reads activity.entries and version.version/protocol_version, but the Human API returns groups[].entries and version.service. The live sample always reports zero activity and an empty version despite successful responses."
+expected = "The mobile wallet must display the activity count and service version using groups[].entries and service from the Human response declarations."
+proposal = "Decode the typed Human activity and version response shapes in sdk/integrations/ios/Sources/LayerXMobileSampleKit/WalletModel.swift and prove refresh against captured producer responses with nonempty groups and a service version."
+owner_domain = 15
+interface = "10.http-human-activity-query"
+
+[finding.035]
+file = "sdk/telemetry/metrics.go"
+line = 82
+class = "runtime-risk"
+severity = "medium"
+observed = "New indexes both elements of every GlobalLabels row without checking its length; an operator-supplied empty or one-element label panics during node telemetry initialization instead of returning the constructor's error."
+expected = "Invalid telemetry configuration must produce an actionable startup error and must not cause an unchecked index panic."
+proposal = "Validate each global-label pair before indexing in sdk/telemetry/metrics.go and return a redacted configuration error naming the row; cover malformed rows and successful metrics with a valid pair."
+owner_domain = 15
+
+[finding.036]
+file = "sdk/telemetry/metrics.go"
+line = 90
+class = "config-drift"
+severity = "medium"
+observed = "Config exposes enable-service-label but New never applies cfg.EnableServiceLabel to metricsConf; the operator's requested service label therefore does not control emitted metric series."
+expected = "Every declared telemetry option must affect the sink configuration with the documented name and value semantics."
+proposal = "Apply EnableServiceLabel when constructing metricsConf in sdk/telemetry/metrics.go and qualify the emitted Prometheus series with the option enabled and disabled."
+owner_domain = 15
+
+[finding.037]
+file = "sdk/x/params/simulation/operations.go"
+line = 31
+class = "runtime-risk"
+severity = "medium"
+observed = "SimulateParamChangeProposalContent passes [1,maxSimultaneousParamChanges) to RandIntBetween, whose implementation calls Intn(max-min); a one-entry parameter pool panics and larger pools can never select all declared entries."
+expected = "The simulator must produce between one and the total available changes inclusively, including the valid single-parameter pool."
+proposal = "Correct the inclusive count selection in sdk/x/params/simulation/operations.go and qualify one-entry and full-pool coverage using the real random helper without changing the pool limit."
+owner_domain = 15
+
+[finding.038]
+file = "sdk/integrations/agents/src/daemon-providers.ts"
+line = 135
+class = "interface-mismatch"
+severity = "high"
+observed = "DaemonReceiptResolver sends requested_verification_level=sequencer-signed to program.receipt; ActivityLookupRequest denies unknown fields and requires requested_rung with submitted, receipted or committed, so the live daemon refuses every such receipt lookup."
+expected = "The agent receipt resolver must send the daemon's exact current selector and receive the achieved receipted rung before verifying and recording a payment receipt."
+proposal = "Use requested_rung=receipted in sdk/integrations/agents/src/daemon-providers.ts and prove an actual agent daemon request, response verification and persisted-context replay after reopening; keep obsolete-selector refusal coverage."
+owner_domain = 15
+interface = "9.http-rpc-program-receipt"
+
+[finding.039]
+file = "sdk/integrations/agents/package.json"
+line = 60
+class = "test-gap"
+severity = "medium"
+observed = "The package test script runs dependency-contracts and a2a-store only; daemon-providers-receipts.test.mjs and tools-receipts.test.mjs are omitted, leaving the current receipt transport and tool fixtures outside normal package qualification."
+expected = "The agent integration package's declared test command must execute receipt provider and tool assertions as well as dependency and storage assertions."
+proposal = "Include both receipt suites in sdk/integrations/agents/package.json and qualify the real daemon and service producer shapes through these suites after repairing their obsolete fixtures."
+owner_domain = 15
+
+[finding.040]
+file = "sdk/integrations/agents/src/webhooks.ts"
+line = 105
+class = "runtime-risk"
+severity = "medium"
+observed = "SingleProcessWebhookDeliveryStore discards an active unexpired delivery claim when all capacity is occupied; replay of the evicted delivery can start a second handler while the first is still executing, and the first completion can then fail."
+expected = "A process-local delivery store must preserve active claims until completion or lease expiry and refuse additional admissions when it cannot retain their replay protection."
+proposal = "In sdk/integrations/agents/src/webhooks.ts apply backpressure at capacity instead of evicting live claims, define completed-claim retention, and prove capacity-one overlapping deliveries cannot run the same handler twice."
+owner_domain = 15
+
+[finding.041]
+file = "sdk/integrations/android/src/main/java/com/sidiora/layerx/android/InMemoryEventDeliveryStore.java"
+line = 74
+class = "runtime-risk"
+severity = "medium"
+observed = "InMemoryEventDeliveryStore discards an active unexpired delivery claim when all capacity is occupied; replay of the evicted delivery can start a second handler while the first is still executing, and the first completion can then fail."
+expected = "A process-local delivery store must preserve active claims until completion or lease expiry and refuse additional admissions when it cannot retain their replay protection."
+proposal = "In sdk/integrations/android/src/main/java/com/sidiora/layerx/android/InMemoryEventDeliveryStore.java apply backpressure at capacity instead of evicting live claims, define completed-claim retention, and prove capacity-one overlapping deliveries cannot run the same handler twice."
+owner_domain = 15
+
+[finding.042]
+file = "sdk/integrations/ios/Sources/LayerXMobile/EventVerification.swift"
+line = 102
+class = "runtime-risk"
+severity = "medium"
+observed = "InMemoryEventDeliveryStore discards an active unexpired delivery claim when all capacity is occupied; replay of the evicted delivery can start a second handler while the first is still executing, and the first completion can then fail."
+expected = "A process-local delivery store must preserve active claims until completion or lease expiry and refuse additional admissions when it cannot retain their replay protection."
+proposal = "In sdk/integrations/ios/Sources/LayerXMobile/EventVerification.swift apply backpressure at capacity instead of evicting live claims, define completed-claim retention, and prove capacity-one overlapping deliveries cannot run the same handler twice."
+owner_domain = 15
+
+[finding.043]
+file = "sdk/x/params/types/params.go"
+line = 27
+class = "config-drift"
+severity = "medium"
+observed = "FeesParams.Validate checks individual GlobalMinimumGasPrices entries but ignores AllowedFeeDenoms; invalid denominations reach mustValidateDenom in ante NonZeroAmountsOf and duplicate denominations, including uhpx, are appended repeatedly to the selected fee coins."
+expected = "Governance fee parameters must validate the denomination allowlist before activation so transaction checking cannot panic or construct duplicate fee entries from accepted parameters."
+proposal = "Validate syntax and uniqueness of AllowedFeeDenoms in sdk/x/params/types/params.go, account for the automatically included bond denom, and prove rejected malformed and duplicate proposals through Subspace.Update and the actual ante consumers."
+owner_domain = 15
+
+[finding.044]
+file = "sdk/x/params/client/cli/tx.go"
+line = 30
+class = "doc-drift"
+severity = "low"
+observed = "The param-change CLI help says parameter changes are not validated, while Subspace.Update looks up the registered validator and calls Validate before committing a change."
+expected = "Governance proposal help must distinguish basic proposal admission from registered value validation at execution and describe the real failure behavior."
+proposal = "Correct the long help in sdk/x/params/client/cli/tx.go to describe registered type/value checks and execution timing, keeping its proposal example aligned with client JSON encoding."
+owner_domain = 15
+
+[finding.045]
+file = "sdk/x/params/spec/02_subspace.md"
+line = 27
+class = "doc-drift"
+severity = "medium"
+observed = "The subspace specification promises that unregistered subkeys inherit the primary key's attributes, but checkType and Update use exact table.m[string(key)] lookups and reject a key that has not itself been registered."
+expected = "The documented key-registration contract must match actual keeper lookup behavior so module integrators cannot deploy parameter keys that panic or fail governance execution."
+proposal = "Update sdk/x/params/spec/02_subspace.md to require exact registered keys, or implement and qualify an explicitly delimited subkey contract in sdk/x/params/types before promising inheritance."
+owner_domain = 15
+
+[finding.046]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The repository map still presents layerxd as a running kernel and preserves separate settlement/custody trust boundaries for LayerX."
+expected = "The merged network has one paxd BFT node with kernel execution and final receipts at block commit."
+proposal = "Rewrite docs/MONOREPO.md around the merged runtime and native balance writer; retain old layout names only as explicitly historical migration references."
+owner_domain = 15
+
+[finding.047]
+file = "docs/site/docs/overview/quickstart.md"
+line = 167
+class = "doc-drift"
+severity = "medium"
+observed = "The site quickstart tells clients to use gateway POST /rpc and /rpc/ws, authorized-batch inclusion and lxp receipt identifiers, and custody-credit funding."
+expected = "Current clients use the declared node root or hosted px gateway contract, EVM transactions and pinned signed-receipt evidence from the merged network."
+proposal = "Rewrite docs/site/docs/overview/quickstart.md with root-path mainnet-beta endpoints, eip155:125 native payments and receipted portable evidence, and prove each maintained example through its actual integration."
+owner_domain = 15
+
+[finding.048]
+file = "docs/wiki/PaymentsQuickstart.md"
+line = 22
+class = "doc-drift"
+severity = "medium"
+observed = "The payments guide exports the retired public /rpc URL, funds accounts by custody credit and describes canonical Merkle receipts with synthetic lxp settlement transactions."
+expected = "A merged payment guide must use native account funding, actual EVM transaction hashes and the pinned signed-receipt format accepted across current integrations."
+proposal = "Replace the obsolete payment and funding instructions in docs/wiki/PaymentsQuickstart.md with the current merged buyer-to-seller flow and separately document refusal and replay behavior."
+owner_domain = 15
+
+[finding.049]
+file = "docs/wiki/Quickstart.md"
+line = 167
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki quickstart advertises POST /rpc and GET /rpc/ws with authorized signed batches and lxp receipt settlement identifiers as the maintained client path."
+expected = "The wiki and site guides must both describe the single merged network, node root JSON-RPC and current native payment receipt verification."
+proposal = "Rewrite docs/wiki/Quickstart.md together with the canonical site quickstart and replace the obsolete RPC, funding, receipt and SDK examples using validated current interfaces."
+owner_domain = 15
+
+[finding.050]
+file = "docs/system/sdk.md"
+line = 916
+class = "doc-drift"
+severity = "low"
+observed = "The generated Rust item catalog lists the token fn as a const, which is a parser artifact rather than a declared exported constant."
+expected = "The SDK reference must list actual declaration names and kinds so integrators can locate usable symbols."
+proposal = "Correct the Rust declaration parser in the documentation generator and regenerate docs/system/sdk.md, recognizing const fn as a function qualifier rather than a const named fn."
+owner_domain = 15
+
+[finding.051]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "The root README says the LayerX kernel runs as a separate layerxd daemon, settles through layerxAnchor and remains a draft merge."
+expected = "The finished network executes its merged kernel within paxd and finalizes signed receipts at BFT block commitment."
+proposal = "Update README.md architecture, build and current-status instructions to the merged node and reserve separate-daemon/checkpoint instructions for labeled historical documentation."
+owner_domain = 15
+
+[finding.052]
+file = "docs/README.md"
+line = 21
+class = "doc-drift"
+severity = "medium"
+observed = "The documentation index links wiki/LNI.md as Node interface v1.7 without warning that the separate LayerX node interface is retired."
+expected = "The documentation entry points must direct integrators to the live merged node namespaces and current hosted gateway contract."
+proposal = "Replace the current-node entry in docs/README.md with the merged node and gateway references, clearly labeling any retained LNI page as historical."
+owner_domain = 15
+
+[finding.053]
+file = "docs/paxeer-chain-docs.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The chain documentation entry describes Paxeer as LayerX custody and checkpoint settlement and explicitly says the two trust boundaries are not merged."
+expected = "Paxeer mainnet-beta is the single BFT network whose merged kernel executes transactions and returns final committed-block receipts."
+proposal = "Rewrite docs/paxeer-chain-docs.md to describe the merged node, its SDK integration boundary and the retired status of separate custody/checkpoint execution."
+owner_domain = 15
+
+[finding.054]
+file = "docs/paxeer-network.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The network page says ordinary LayerX activity stays off Paxeer and periodic checkpoints settle from an independent sequencer, with 402LXP as the only balance writer."
+expected = "The merged kernel proposes within the Paxeer BFT chain and native payments and ledger effects finalize together in committed blocks."
+proposal = "Rewrite docs/paxeer-network.md around merged execution and tenant namespaces, replacing off-chain activity, separate sequencer, custody and retired module descriptions with current contracts."
+owner_domain = 15
+
+[finding.055]
+file = "docs/runbooks/paxeer-x-fork.md"
+line = 4
+class = "doc-drift"
+severity = "medium"
+observed = "The fork runbook's opening procedure and environment table target v6.6, while the later merged-network rehearsal requires v7.0 and v7.0-anchor-store-delete."
+expected = "An operator preparing the merged network must receive one coherent ordered upgrade and store-recovery procedure for the actual supported starting revision."
+proposal = "Split historical fork instructions from the current merged-network rehearsal in docs/runbooks/paxeer-x-fork.md, naming prerequisites, exact plan names and staged anchor-store deletion consistently."
+owner_domain = 15
+
+[finding.056]
+file = "docs/site/docs/index.md"
+line = 12
+class = "doc-drift"
+severity = "medium"
+observed = "The site landing page describes ordinary LayerX activity separately from Paxeer custody and periodic checkpoint settlement, preserving independent deployment and trust boundaries."
+expected = "The public landing page must describe one merged BFT chain and finality at the receipt's committed block."
+proposal = "Rewrite docs/site/docs/index.md architecture and settlement overview around the merged Paxeer runtime and replace the retired separate LayerX interface and checkpoint flow."
+owner_domain = 15
+
+[finding.057]
+file = "spec/layerx-merge/interfaces.kvx"
+line = 668605
+class = "doc-drift"
+severity = "medium"
+observed = "The stable Python verification row still takes canonical_receipt, AuthorizedReceiptBatch and signatures; the actual verify_payment_receipt now takes raw_transaction, signed_receipt and pinned receipt keys. StaticAuthorizedBatches is likewise advertised as a stable class although only a tuple alias remains."
+expected = "Stable registry declarations must describe the actual producer signatures and fields so integration owners can agree on one current contract."
+proposal = "Reconcile the FastAPI registry rows with sdk/integrations/fastapi/layerx_fastapi/protocol.py and seller.py, recording removed batch authority as retired and current signed-receipt/key signatures explicitly."
+owner_domain = 15
+interface = "15.go-integrations-fastapi-verify-payment-receipt-j76"
+
+[finding.058]
+file = "spec/layerx-merge/interfaces.kvx"
+line = 669615
+class = "doc-drift"
+severity = "medium"
+observed = "Stable iOS evidence rows advertise canonicalReceipt and authorizedBatch plus their old initializer, while MobileReceiptEvidence now contains rawTransaction, signedReceipt, receiptKey, receiptJSON and prevSeqHash."
+expected = "Stable registry declarations must describe the actual producer signatures and fields so integration owners can agree on one current contract."
+proposal = "Reconcile the iOS evidence fields and initializer rows in spec/layerx-merge/interfaces.kvx with sdk/integrations/ios/Sources/LayerXMobile/ReceiptGate.swift, retiring removed batch fields and documenting current pinned evidence."
+owner_domain = 15
+interface = "15.go-integrations-ios-mobile-receipt-evidence-init-j76"
+
+[finding.059]
+file = "spec/layerx-merge/interfaces.kvx"
+line = 670305
+class = "doc-drift"
+severity = "medium"
+observed = "Stable Spring registry rows advertise layerXAuthorizedBatchResolver, batch-based layerXPaymentAuthority, LayerXDeclaredConfig.authorizedBatch and getAuthorizedBatch; current source exposes receipt-key authority and no such batch accessors."
+expected = "Stable registry declarations must describe the actual producer signatures and fields so integration owners can agree on one current contract."
+proposal = "Reconcile the Spring configuration and authority rows with sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring, retiring removed batch APIs and adding exact current receipt-key signatures and consumer links."
+owner_domain = 15
+interface = "15.go-integrations-spring-layer-x-auto-configuration-layer-x-authorized-batch-resolver-j76"
+
+[finding.060]
+file = "sdk/integrations/fastapi/tests/test_seller_receipts.py"
+line = 147
+class = "test-gap"
+severity = "medium"
+observed = "The seller fixture builds layerx:paxeer evidence with base64 fields, integer key heights and verificationLevel=sequencer-signed; current TypeScript buyers emit eip155:125, hex fields, a format marker and receipted, so these tests preserve a third incompatible shape."
+expected = "FastAPI payment tests must demonstrate acceptance of the exact current buyer-produced header and enforce the actual native payment call/effect semantics."
+proposal = "Use current producer vectors in sdk/integrations/fastapi/tests/test_seller_receipts.py and exercise the mounted HTTP path with eip155:125 evidence and replay, retaining strict tamper and key refusal assertions."
+owner_domain = 15
+
+[finding.061]
+file = "sdk/integrations/ios/Tests/LayerXMobileTests/ReceiptGateTests.swift"
+line = 91
+class = "test-gap"
+severity = "medium"
+observed = "ReceiptGateTests verify signed evidence directly with explicitly supplied keys but never project a real Human Journey through WalletModel; both the incompatible journey state/evidence shape and the sample's missing pin wiring escape these assertions."
+expected = "The iOS payment proof must cover producer Journey JSON, configured sample wiring, evidence resolution and receipt verification through the user-visible completion state."
+proposal = "Extend sdk/integrations/ios/Tests/LayerXMobileTests/ReceiptGateTests.swift with a current Human completion through WalletModel and its mobile-configured gate, retaining direct signature and tamper tests."
+owner_domain = 15
+
+[doc.001]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Lines 3 and 68-72 describe layerxd and separate custody/checkpoint trust boundaries; replace these current-system claims with paxd and committed-block finality."
+
+[doc.002]
+path = "docs/site/docs/overview/quickstart.md"
+status = "misleading"
+notes = "Lines 20, 167-217, 299-304, 497-518, 553 and 596-597 direct users to retired router paths, authorized batches and lxp settlement identifiers."
+
+[doc.003]
+path = "docs/wiki/PaymentsQuickstart.md"
+status = "misleading"
+notes = "Lines 22, 78-107 and 251-274 retain the router, custody-credit funding, sequencer-signed portable labels and Merkle-based lxp transaction recipe."
+
+[doc.004]
+path = "docs/wiki/Quickstart.md"
+status = "misleading"
+notes = "Lines 20, 167-217, 299-304, 497-518, 553 and 596-597 repeat retired router, custody-credit and authorized-batch verification paths."
+
+[doc.005]
+path = "docs/system/sdk.md"
+status = "stale"
+notes = "The generated export catalog is useful inventory; line 916 incorrectly lists fn as a const in the Rust crate. It does not prove integration transport agreement."
+
+[doc.006]
+path = "README.md"
+status = "misleading"
+notes = "Lines 44-47, 145 and 181 describe a separate layerxd kernel, checkpoint anchoring and a draft-only merge as current operation."
+
+[doc.007]
+path = "docs/README.md"
+status = "stale"
+notes = "Line 21 advertises Node interface v1.7 as a current starting point, although that separate LayerX interface is retired."
+
+[doc.008]
+path = "docs/paxeer-chain-docs.md"
+status = "misleading"
+notes = "Lines 3-5 and 17 describe Paxeer as the custody/checkpoint L1 for a separately trusted LayerX network."
+
+[doc.009]
+path = "docs/paxeer-network.md"
+status = "misleading"
+notes = "Lines 3-7, 16-20, 38 and 93 describe independent LayerX activity, periodic checkpoint settlement and retired balance-writer/settlement modules."
+
+[doc.010]
+path = "docs/perps-abi-change-history.md"
+status = "accurate"
+notes = "Read as a pinned historical ABI change log; its dated source revisions and historical contract changes are not claims about the current integration receipt transport."
+
+[doc.011]
+path = "docs/runbooks/paxeer-x-fork.md"
+status = "stale"
+notes = "Lines 3-8, 28 and 138 prescribe the v6.6 store loader while lines 252-258 describe v7.0 merge and the later anchor-store deletion."
+
+[doc.012]
+path = "docs/site/docs/index.md"
+status = "misleading"
+notes = "Lines 10-25 and 46 present separate LayerX execution, Paxeer custody and periodic checkpoint settlement as current architecture."
+
+[doc.013]
+path = "sdk/x/README.md"
+status = "accurate"
+notes = "Read in full as an SDK module development overview; module organization and the distinction between keeper implementation and application wiring remain applicable."
+
+[doc.014]
+path = "sdk/x/params/spec/01_keeper.md"
+status = "accurate"
+notes = "Keeper and subspace ownership description agrees with the inspected keeper, typed parameter table and persistent/transient store use."
+
+[doc.015]
+path = "sdk/x/params/spec/02_subspace.md"
+status = "stale"
+notes = "Lines 27-28 promise inherited subkey attributes; exact lookup in Subspace.checkType and Update requires every key to be registered. See the member finding."
+
+[doc.016]
+path = "sdk/x/params/spec/README.md"
+status = "accurate"
+notes = "The parameter-store overview matches keeper/subspace separation and governance-controlled typed parameter changes; the subkey exception is recorded on its detailed page."
+
+[doc.017]
+path = "spec/layerx-merge/interfaces.kvx"
+status = "stale"
+notes = "Read all 400 listed producer rows and 400 listed consumer rows; several stable Python, Swift and Spring signatures retain removed authorized-batch fields. Lexical caller matches are not proof of runtime wiring."
+
+[doc.018]
+path = "spec/layerx-merge/contracts/cosmos-fork.md"
+status = "accurate"
+notes = "Read the header and integration-receipts section at lines 7740-7904 as frozen historical contract context; old batch expectations are superseded by the active merge requirements, and UNRUN is not qualification evidence."
+
+[doc.019]
+path = "services/human/schema/human-api/activity.kvx"
+status = "accurate"
+notes = "Read in full: activity.query returns groups with nested entries, evidence and pagination. This producer shape exposes the iOS sample refresh mismatch."
+
+[doc.020]
+path = "services/human/schema/human-api/journeys.kvx"
+status = "accurate"
+notes = "Read the Journey types and journey.get routes: done/done-finalised with evidence references are the declared consumer contract. Historical finality copy requires the current merge overlay."
+
+[doc.021]
+path = "services/human/schema/human-api/movement.kvx"
+status = "accurate"
+notes = "Read move.quote/commit request and response declarations; quote/native-access fields agree with transport calls, while completion must use the declared Journey response."

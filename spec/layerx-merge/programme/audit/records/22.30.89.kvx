@@ -1,0 +1,1059 @@
+# Pre-upgrade product audit of tools/platform/cli at the recorded revision.
+# Source repairs are proposals; the record does not assert a Rust build or integration-suite result.
+
+[audit.22.30.89]
+task = "22.30.89"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 68
+findings = 60
+docs_reviewed = 7
+upgrade_ready = false
+blocking = ["wallet_bind_rpc", "wallet_balance_shape", "wallet_account_shape", "wallet_assets_shape", "credential_profile_key_loss", "mcp_enrollment_shape"]
+
+[file.001]
+path = "tools/platform/cli/Cargo.toml"
+lines = 50
+verdict = "clean"
+note = "Entire manifest reviewed: binary/library targets, feature-gated test credential backend, workspace dependencies and integration-test declarations agree with the crate layout; no retired service dependency is introduced."
+
+[file.002]
+path = "tools/platform/cli/README.md"
+lines = 255
+verdict = "issues"
+note = "Entire README reviewed against the EVM command paths, wallet policy parser, faucet implementation and merged-network endpoint rules; operator instructions drift as recorded."
+
+[file.003]
+path = "tools/platform/cli/examples/hosted-send.rs"
+lines = 180
+verdict = "clean"
+note = "Entire hosted-send example reviewed: shared Send authorization and EVM signing bind explicit source, identity, fee and transaction facts; output contains signed bytes and their hash, with no network submission or receipt-verification claim."
+
+[file.004]
+path = "tools/platform/cli/src/a2a.rs"
+lines = 1322
+verdict = "issues"
+note = "Entire A2A module reviewed: loopback authorization, Agent Card, task validation, cancellation and unknown submission classification are present; task persistence and embedded endpoint expectations need the recorded repairs."
+
+[file.005]
+path = "tools/platform/cli/src/account.rs"
+lines = 85
+verdict = "clean"
+note = "Entire account module reviewed: emulator registration and hosted human account/profile calls preserve their distinct request types and require zero initial hosted balance."
+
+[file.006]
+path = "tools/platform/cli/src/chains.rs"
+lines = 495
+verdict = "issues"
+note = "Entire chain command module reviewed: contract selectors, tenant-domain creation, sparse listings, key protection and pending receipt polling; endpoint migration and lost-response recovery remain open."
+
+[file.007]
+path = "tools/platform/cli/src/commands.rs"
+lines = 38
+verdict = "clean"
+note = "Entire commands module reviewed: parser and dispatch types agree with the public command variants; unavailable histories and retired commands remain explicit refusals."
+
+[file.008]
+path = "tools/platform/cli/src/config.rs"
+lines = 185
+verdict = "clean"
+note = "Entire configuration module reviewed: versioned profiles, testnet-to-beta alias migration, absolute config path resolution and atomic owner-only replacement agree with callers; keyring isolation is owned by credential.rs."
+
+[file.009]
+path = "tools/platform/cli/src/credential.rs"
+lines = 373
+verdict = "issues"
+note = "Entire credential module reviewed: bounded secret input, redaction, backend refusal and zeroization are present; OS identities can collide across configuration files and overwrite keys."
+
+[file.010]
+path = "tools/platform/cli/src/emulator.rs"
+lines = 954
+verdict = "clean"
+note = "Entire emulator module reviewed: real emulator launch, generated seed/anchor provisioning, environment identity verification and restart state handling agree with the local bootstrap instructions."
+
+[file.011]
+path = "tools/platform/cli/src/encoding.rs"
+lines = 34
+verdict = "clean"
+note = "Entire encoding module reviewed: fixed-size hexadecimal and canonical byte encoding reject malformed inputs and agree with signing and RPC consumers."
+
+[file.012]
+path = "tools/platform/cli/src/faucet.rs"
+lines = 234
+verdict = "issues"
+note = "Entire faucet module reviewed: identity session, selected signer binding and px_requestFunds response validation are wired; transport still fixes the retired path."
+
+[file.013]
+path = "tools/platform/cli/src/file_store.rs"
+lines = 293
+verdict = "clean"
+note = "Entire encrypted file-store module reviewed: profile-local protected storage, passphrase-derived encryption, authenticated records, atomic publication and explicit failure behavior agree with credential callers."
+
+[file.014]
+path = "tools/platform/cli/src/http.rs"
+lines = 506
+verdict = "clean"
+note = "Entire HTTP module reviewed: HTTPS off loopback, explicit session versus gateway authorization, bounded response bodies, redacted sensitive requests and stateful request classifications agree with consumers."
+
+[file.015]
+path = "tools/platform/cli/src/install/a2a.rs"
+lines = 530
+verdict = "clean"
+note = "Entire A2A installer reviewed: scoped gateway credential provisioning, protected local authorization file, idempotent reinstall and explicit rotation agree with the managed runtime configuration."
+
+[file.016]
+path = "tools/platform/cli/src/install/mcp.rs"
+lines = 241
+verdict = "issues"
+note = "Entire MCP installer reviewed: host registration is delayed until binding authentication and live catalogue admission; actual enrollment output cannot pass the binding consumer."
+
+[file.017]
+path = "tools/platform/cli/src/install/mod.rs"
+lines = 1153
+verdict = "clean"
+note = "Entire install support module reviewed: host-specific registration encodings, protected file transactions, rollback and command resolution agree with both installers."
+
+[file.018]
+path = "tools/platform/cli/src/lib.rs"
+lines = 9
+verdict = "clean"
+note = "Entire library root reviewed: exported modules match callers and excluded retired client modules remain absent."
+
+[file.019]
+path = "tools/platform/cli/src/main.rs"
+lines = 1788
+verdict = "issues"
+note = "Entire command entry point reviewed: clap groups, output envelopes, EVM dispatch, explicit credential inputs and local refusals; RPC override validation preserves the retired endpoint contract."
+
+[file.020]
+path = "tools/platform/cli/src/mcp.rs"
+lines = 119
+verdict = "issues"
+note = "Entire MCP stdio module reviewed: bounded line framing, read-only catalogue narrowing and authenticated daemon delegation are implemented; the real enrollment document is incompatible with its binding consumer."
+
+[file.021]
+path = "tools/platform/cli/src/output.rs"
+lines = 100
+verdict = "clean"
+note = "Entire output module reviewed: JSON success/error envelopes, stderr failure routing and stable machine codes match command consumers and tests."
+
+[file.022]
+path = "tools/platform/cli/src/payment.rs"
+lines = 48
+verdict = "clean"
+note = "Entire payment module reviewed: hosted human quote/commit and emulator payment paths preserve supplied idempotency, amount and identity inputs without claiming unsupported finality."
+
+[file.023]
+path = "tools/platform/cli/src/programs.rs"
+lines = 3690
+verdict = "issues"
+note = "Entire program module reviewed: EVM lifecycle/calldata, simulation, registry events, deployment proof bindings, source handling, key files and retained legacy proof helpers; findings distinguish current paths from unused helpers."
+
+[file.024]
+path = "tools/platform/cli/src/receipt.rs"
+lines = 65
+verdict = "clean"
+note = "Entire receipt module reviewed: independent canonical receipt verification binds activity, sequencer key, batch facts and state root; raw receipt retrieval is not itself represented as proof."
+
+[file.025]
+path = "tools/platform/cli/src/register.rs"
+lines = 297
+verdict = "issues"
+note = "Entire registration module reviewed: tagged principal signature, tenant/subject/public-key result matching and explicit credential handling agree; endpoint path needs migration."
+
+[file.026]
+path = "tools/platform/cli/src/rpc.rs"
+lines = 843
+verdict = "issues"
+note = "Entire RPC module reviewed: explicit lx_ refusal, positional request validation, quantity/hash decoders, subscription and error-code preservation; wallet binding calls fall outside this module contract."
+
+[file.027]
+path = "tools/platform/cli/src/rpc_subscription.rs"
+lines = 174
+verdict = "issues"
+note = "Entire subscription module reviewed: bounded timeout, authenticated upgrade, notification/subscription identity checks and unverified-hint labeling agree; URL construction appends the retired websocket path."
+
+[file.028]
+path = "tools/platform/cli/src/scaffold.rs"
+lines = 74
+verdict = "issues"
+note = "Entire scaffold module reviewed: package-name bounds, exclusive file creation and release WASM profile are present; generated dependency path embeds the build host checkout."
+
+[file.029]
+path = "tools/platform/cli/src/toolset.rs"
+lines = 383
+verdict = "issues"
+note = "Entire shared toolset reviewed: raw EVM submission, faucet session binding, read-only surface and A2A unknown-hash preservation; generic submit loses recovery identity and RPC paths are retired."
+
+[file.030]
+path = "tools/platform/cli/src/wallet.rs"
+lines = 1918
+verdict = "issues"
+note = "Entire wallet module reviewed: shared payments, independent source/EVM nonces, signing disclosure, cryptographic receipt checks and committed block comparison are present; gateway snapshot shapes, finality options, proof labels and recovery disagree as recorded."
+
+[file.031]
+path = "tools/platform/cli/src/wallet_derive.rs"
+lines = 236
+verdict = "issues"
+note = "Entire derivation module reviewed: BIP-39 vectors, secret export protection, passphrase handling and bind planning; live bind cannot pass its own RPC request/response validation."
+
+[file.032]
+path = "tools/platform/cli/src/wallet_encoding.rs"
+lines = 167
+verdict = "clean"
+note = "Entire wallet encoding module reviewed: shared payment selectors, native asset derivation and calldata round-trips agree with the payments crate rather than duplicating retired activity submission."
+
+[file.033]
+path = "tools/platform/cli/src/wallet_send.rs"
+lines = 149
+verdict = "clean"
+note = "Entire Send module reviewed: authorization preimage, source sequence, context, debit fields and CallOptions forwarding agree with the shared Send/payment types."
+
+[file.034]
+path = "tools/platform/cli/src/wallet_signing.rs"
+lines = 393
+verdict = "issues"
+note = "Entire wallet signing module reviewed: disclosure binding, chain125 fee bounds, sender recovery and signed-byte equality agree; private-key file opening lacks the protections used by the other EVM writers."
+
+[file.035]
+path = "tools/platform/cli/src/workspace.rs"
+lines = 1507
+verdict = "issues"
+note = "Entire workspace module reviewed: module selection, dependency installation, dry-run and production refusal; core test plan still includes retired layerxd and guarantor language."
+
+[file.036]
+path = "tools/platform/cli/tests/chains_commands.rs"
+lines = 650
+verdict = "issues"
+note = "Entire chain integration test reviewed: real ABI decoders and sparse tenant records are exercised; wire capture still asserts the retired endpoint."
+
+[file.037]
+path = "tools/platform/cli/tests/clean-bootstrap.sh"
+lines = 118
+verdict = "clean"
+note = "Entire bootstrap script reviewed: extracts the existing services/platform/docs/content/install.md bootstrap block, runs the real emulator and CLI, preserves explicit trust provisioning and cleans up its child process."
+
+[file.038]
+path = "tools/platform/cli/tests/commands.rs"
+lines = 497
+verdict = "clean"
+note = "Entire command integration tests reviewed: executable help, unknown command behavior and JSON outputs agree with current parser variants."
+
+[file.039]
+path = "tools/platform/cli/tests/common/credential_environment.rs"
+lines = 197
+verdict = "clean"
+note = "Entire credential-environment helper reviewed: real OS keyring availability and documented dbus-launch absence handling are explicit; requirement22021 permits that environment skip."
+
+[file.040]
+path = "tools/platform/cli/tests/common/daemon_gateway.rs"
+lines = 255
+verdict = "issues"
+note = "Entire daemon gateway helper reviewed: authenticated HTTPS forwarding and credential protection are present; it rewrites producer bindings to add readiness instead of proving publication."
+
+[file.041]
+path = "tools/platform/cli/tests/common/daemon_https.py"
+lines = 53
+verdict = "clean"
+note = "Entire HTTPS test transport reviewed: the authenticated agent route forwards bounded JSON into the real daemon and rejects incorrect credentials; /v1/agent/rpc is an agent route, not the retired public /rpc endpoint."
+
+[file.042]
+path = "tools/platform/cli/tests/common/mod.rs"
+lines = 284
+verdict = "clean"
+note = "Entire common test support reviewed: isolated CLI configurations, real emulator processes, bounded startup/teardown and public envelope helpers agree with consumers."
+
+[file.043]
+path = "tools/platform/cli/tests/credential.rs"
+lines = 237
+verdict = "issues"
+note = "Entire credential tests reviewed: real key storage lifecycle, secret non-disclosure and explicit invalid input behavior; they omit the destructive cross-configuration OS alias collision."
+
+[file.044]
+path = "tools/platform/cli/tests/emulator.rs"
+lines = 1187
+verdict = "clean"
+note = "Entire emulator tests reviewed: real bootstrap documentation extraction, protected seed/anchor checks, environment adoption and restart behavior agree with the current installation page."
+
+[file.045]
+path = "tools/platform/cli/tests/faucet_route.rs"
+lines = 232
+verdict = "issues"
+note = "Entire faucet tests reviewed: session requirement, signer-bound service claim and px_requestFunds naming are asserted; HTTP path expectations remain retired."
+
+[file.046]
+path = "tools/platform/cli/tests/file_store.rs"
+lines = 85
+verdict = "clean"
+note = "Entire file-store tests reviewed: real encryption, wrong-passphrase refusal, integrity failure, permissions, profile isolation and cross-process persistence match the file backend."
+
+[file.047]
+path = "tools/platform/cli/tests/install-journey.sh"
+lines = 289
+verdict = "issues"
+note = "Entire install journey reviewed: authenticated MCP workflow and A2A lifecycle are driven, but the A2A payment arguments and response extraction use an obsolete tool contract."
+
+[file.048]
+path = "tools/platform/cli/tests/install.rs"
+lines = 155
+verdict = "clean"
+note = "Entire install tests reviewed: executable host configurations, read-only flags, protected credentials, idempotence and explicit binding refusal paths agree with installer behavior; producer mismatch is captured separately."
+
+[file.049]
+path = "tools/platform/cli/tests/lx_switch_off.rs"
+lines = 160
+verdict = "issues"
+note = "Entire lx switch-off test reviewed: retired methods are correctly negative cases; its configured transport URL still uses the retired public endpoint path."
+
+[file.050]
+path = "tools/platform/cli/tests/mcp_daemon_bound.rs"
+lines = 639
+verdict = "issues"
+note = "Entire daemon-bound MCP integration test reviewed: genuine enrollment/store/session paths and retired-field rejection are exercised, but success setup rewrites core_sequence to core_height before consumption."
+
+[file.051]
+path = "tools/platform/cli/tests/mcp_evm_submit.rs"
+lines = 366
+verdict = "issues"
+note = "Entire MCP EVM submission test reviewed: shared signing and tool validation execute, but direct local toolset invocation and a capture-only response do not prove the served daemon path."
+
+[file.052]
+path = "tools/platform/cli/tests/no_retired_client_modules.rs"
+lines = 71
+verdict = "clean"
+note = "Entire retired-client-module test reviewed: forbidden module names appear only as negative assertions and source scans; these are guards against retirement regressions rather than active retired references."
+
+[file.053]
+path = "tools/platform/cli/tests/production-credential-refusal.sh"
+lines = 27
+verdict = "clean"
+note = "Entire production credential refusal script reviewed: explicit feature/build target isolation, production mock-backend refusal and machine-output assertions agree with the credential backend boundary."
+
+[file.054]
+path = "tools/platform/cli/tests/program_evm_calls.rs"
+lines = 338
+verdict = "issues"
+note = "Entire program call tests reviewed: shared calldata and vector decoding execute, but request capture stops without a real producer response and asserts the retired path."
+
+[file.055]
+path = "tools/platform/cli/tests/program_evm_lifecycle.rs"
+lines = 397
+verdict = "issues"
+note = "Entire program lifecycle tests reviewed: canonical payload vectors and request dispatch are exercised; bare status objects and first-request-only capture cannot establish authenticated lifecycle results."
+
+[file.056]
+path = "tools/platform/cli/tests/program_evm_registry.rs"
+lines = 639
+verdict = "issues"
+note = "Entire program registry tests reviewed: bounded event windows and EVM ABI decoders are exercised; transport expectations still use /rpc."
+
+[file.057]
+path = "tools/platform/cli/tests/proof_cli_cli_commands.rs"
+lines = 480
+verdict = "issues"
+note = "Entire CLI proof tests reviewed: real emulator receipt verification is exercised, but the RPC proof intentionally expects a missing /rpc route and therefore does not establish merged-node round-trip behavior."
+
+[file.058]
+path = "tools/platform/cli/tests/rpc_identity.rs"
+lines = 186
+verdict = "issues"
+note = "Entire identity RPC tests reviewed: explicit session authorization and method scope refusals agree with the boundary; endpoint acceptance is still tied to /rpc."
+
+[file.059]
+path = "tools/platform/cli/tests/tls.rs"
+lines = 50
+verdict = "clean"
+note = "Entire TLS tests reviewed: verified HTTPS, explicit trust roots, off-loopback HTTP refusal and authentication handling exercise the HTTP client boundary."
+
+[file.060]
+path = "tools/platform/cli/tests/wallet_commands.rs"
+lines = 171
+verdict = "issues"
+note = "Entire wallet command tests reviewed: input validation, explicit unavailable histories and envelope stability agree; endpoint fixtures retain the old public path."
+
+[file.061]
+path = "tools/platform/cli/tests/wallet_derive.rs"
+lines = 142
+verdict = "issues"
+note = "Entire derivation tests reviewed: shared mnemonic vectors, protected exports and invalid-input refusals agree; --bind is tested only without an endpoint and has no successful producer path."
+
+[file.062]
+path = "tools/platform/cli/tests/wallet_encoding.rs"
+lines = 144
+verdict = "clean"
+note = "Entire wallet encoding tests reviewed: native payment selectors, canonical values and shared calldata equality cover the actual EVM payment builder."
+
+[file.063]
+path = "tools/platform/cli/tests/wallet_estimate_fee.rs"
+lines = 407
+verdict = "issues"
+note = "Entire fee tests reviewed: pending eth_estimateGas times gasPrice, explicit --from, unsigned EIP1559 inputs and kernel-hex refusal are asserted; transport path remains retired."
+
+[file.064]
+path = "tools/platform/cli/tests/wallet_evm_writes.rs"
+lines = 872
+verdict = "issues"
+note = "Entire wallet EVM write tests reviewed: real transaction signing, receipt proofs and commit evidence are exercised, but handwritten account/balance snapshots differ from the gateway producer and conceal live write refusal."
+
+[file.065]
+path = "tools/platform/cli/tests/wallet_px_reads.rs"
+lines = 297
+verdict = "issues"
+note = "Entire wallet px read tests reviewed: OpenRPC fixture equality and method names are checked; capture closes without serving balances/assets, concealing incompatible gateway responses."
+
+[file.066]
+path = "tools/platform/cli/tests/wallet_send.rs"
+lines = 229
+verdict = "clean"
+note = "Entire Send tests reviewed: canonical shared Send builder, independent source sequence, authorization identity and calldata round-trip assertions agree with current payment types."
+
+[file.067]
+path = "tools/platform/cli/tests/wallet_watch_logs.rs"
+lines = 251
+verdict = "issues"
+note = "Entire log watch tests reviewed: real websocket notification validation and timeout/refusal behavior are exercised, but upgrade URL assertions encode the retired /rpc/ws path."
+
+[file.068]
+path = "tools/platform/cli/tests/workspace.rs"
+lines = 134
+verdict = "clean"
+note = "Entire workspace tests reviewed: module planning, dry-run, production guard and unknown selections agree with dispatch; retired core targets are recorded against workspace.rs."
+
+[finding.wallet_bind_rpc]
+file = "tools/platform/cli/src/wallet_derive.rs"
+line = 124
+class = "interface-mismatch"
+severity = "high"
+observed = "bind calls eth_chainId and eth_call through the CLI RpcClient, but src/rpc.rs:80 rejects both names and its response decoder does not accept their string results. Its later eth_estimateGas request at line145 also omits pending and the required full EIP1559 object, so --bind cannot submit even after the first refusal is fixed."
+expected = "The wallet derive --bind interface must resolve chain125 and binding nonce, recognize an existing DID binding, estimate the actual EVM call and submit the signed bind through one compatible transport."
+proposal = "Update tools/platform/cli/src/rpc.rs and src/wallet_derive.rs together to admit and decode the required Ethereum reads and construct the complete pending estimate. Add a successful bind and already-bound integration path using the real binding precompile and unchanged RPC responses."
+owner_domain = 8
+interface = "8.cli-cli-layerx-wallet-derive-bind"
+
+[finding.wallet_balance_shape]
+file = "tools/platform/cli/src/wallet.rs"
+line = 1511
+class = "interface-mismatch"
+severity = "high"
+observed = "verified_account_snapshot forwards SDK get_balances into validated_account_records, which requires did, verification=state_proven and an accounts array containing proof and source-sequence fields. services/platform/hosted/gateway/src/paxeer.rs:811 instead emits account, height and balances of denom/amount; SDK rpc.rs:884 does not translate this result. Live wallet balance and debit selection refuse it."
+expected = "The wallet balance command and gateway px_getBalances producer must agree on account identity, asset units, committed height and the evidence available to authorize source-account selection."
+proposal = "Have tools/platform/cli/src/wallet.rs, services/agent/crates/layerx-sdk/src/rpc.rs and services/platform/hosted/gateway/src/paxeer.rs adopt one declared balances schema. Obtain real ledger account evidence where writes require it, and qualify an unchanged gateway response through the installed CLI; never invent state_proven labels."
+owner_domain = 8
+interface = "9.rs-sdk-rpc-rpcclient"
+
+[finding.wallet_account_shape]
+file = "tools/platform/cli/src/wallet.rs"
+line = 1240
+class = "interface-mismatch"
+severity = "high"
+observed = "prepare_send asks SDK get_account for a 32-byte ledger account id and demands top-level account_id, asset_id and next_sequence. The registered px_getAccount implementation in gateway paxeer.rs:584 resolves an account/DID into account and paxeer.address/balance/nonce/height instead; it does not emit the source-ledger fields the CLI reads."
+expected = "The declared account query must round-trip the identity and independent source-ledger sequence used to authorize Send; an EVM transaction nonce cannot substitute for that source sequence."
+proposal = "Align tools/platform/cli/src/wallet.rs and the SDK account API with a declared gateway or node ledger-account query carrying authenticated account_id, asset_id and source sequence. Keep EVM nonce separate and drive a real gateway Send preparation with independently changing source and EVM sequences."
+owner_domain = 8
+interface = "8.rpc-gateway-px-getaccount"
+
+[finding.wallet_assets_shape]
+file = "tools/platform/cli/src/wallet.rs"
+line = 715
+class = "interface-mismatch"
+severity = "high"
+observed = "Token list calls SDK list_assets_page, and token info reaches the same API through get_asset; its decoder requires next_cursor and authenticated_committed_snapshot/state_root/observed_head_sequence plus native AssetMetadata. Gateway paxeer.rs:755 accepts no pagination parameters and emits height/assets/joined_limit with custody metadata. Default pages fail decoding, and explicit cursor/limit requests return -32602."
+expected = "The CLI token list/info commands, SDK page decoder and px_listAssets registry contract must agree on pagination, ordering, metadata units and available committed-state evidence."
+proposal = "Unify the gateway OpenRPC contract, services/platform/hosted/gateway/src/paxeer.rs, services/agent/crates/layerx-sdk/src/rpc.rs and tools/platform/cli/src/wallet.rs around the current asset listing product. Define supported paging and proof fields explicitly and prove default and subsequent pages through the real producer."
+owner_domain = 8
+interface = "8.rpc-gateway-px-listassets"
+
+[finding.credential_profile_key_loss]
+file = "tools/platform/cli/src/credential.rs"
+line = 86
+class = "security"
+severity = "high"
+observed = "The OS backend stores every key under service dev.layerx.cli and identity key:<name>, independent of LAYERX_CONFIG. create/import checks only the current configuration map, then set_password replaces an existing same-name key from another configuration. A failed configuration save deletes that credential during rollback, potentially destroying the original seed."
+expected = "Separate CLI configurations must not overwrite or delete each other's signing material; publishing a new wallet must preserve any previously stored key through both success and save failure."
+proposal = "Give OS entries in tools/platform/cli/src/credential.rs a stable configuration namespace, refuse existing secret replacement during creation, and migrate old aliases explicitly with public-key checks. Exercise two real OS-backed configurations using the same key name and a failed metadata save without losing either seed."
+owner_domain = 8
+
+[finding.mcp_enrollment_shape]
+file = "tools/platform/cli/src/install/mcp.rs"
+line = 42
+class = "interface-mismatch"
+severity = "high"
+observed = "platform_install_mcp opens the document written by BindingPublisher, but agentd enrolment.rs:807 publishes core_sequence and no agent.readiness. layerx-mcp binding.rs:618 explicitly rejects core_sequence, requires core_height at line664 and requires authenticated readiness for daemon clients. An unmodified genuine enrollment cannot be installed or served."
+expected = "The enrolled daemon binding must be accepted unchanged by the MCP installation and serving consumers, with current height semantics and authenticated readiness configuration that survive reopening."
+proposal = "Update services/agent/crates/layerx-agentd/src/enrolment.rs to publish the current layerx-mcp binding schema, including core_height and the declared readiness transport. Qualify tools/platform/cli installation and serving against that exact output before and after restart, without rewriting fixture documents."
+owner_domain = 9
+interface = "9.rs-agentd-enrolment-bindingpublisher"
+
+[finding.a2a_task_recovery]
+file = "tools/platform/cli/src/a2a.rs"
+line = 305
+class = "restart-recovery"
+severity = "medium"
+observed = "A2A executes activity.submit before inserting its task into a process-local BTreeMap. On reaching MAX_TRACKED_TASKS it removes the first lexicographic id without protecting submitted or unknown transactions. Restart, a crash after submission or capacity eviction loses the task and its reconciliation hash."
+expected = "A client must be able to recover an accepted or indeterminate payment task after restart and must not lose unresolved tasks because another request fills a bounded cache."
+proposal = "Persist task identity and signed-transaction hash in tools/platform/cli/src/a2a.rs before submission, journal the resulting status atomically, and reload/reconcile unresolved tasks on start. Refuse capacity safely or evict only terminal retained history; test restart after a lost response and at the task limit."
+owner_domain = 8
+
+[finding.wallet_submission_recovery]
+file = "tools/platform/cli/src/wallet.rs"
+line = 912
+class = "restart-recovery"
+severity = "medium"
+observed = "execute_write has expected_hash from the exact signed bytes, but send_raw_transaction.map_err(rpc_error) returns an ordinary transport error before printing that hash. If the node accepted the bytes and its reply was lost, the command gives the operator no transaction identity to reconcile."
+expected = "A wallet submission with an indeterminate reply must expose the local transaction hash and an unknown/pending outcome without suggesting that a retry is a new payment."
+proposal = "Use the existing expected_hash in tools/platform/cli/src/wallet.rs to report and retain indeterminate submissions, then reconcile that hash through node receipts. Exercise an accepted transaction whose HTTP response is lost and prove recovery without issuing a second signed transaction."
+owner_domain = 8
+
+[finding.program_submission_recovery]
+file = "tools/platform/cli/src/programs.rs"
+line = 1603
+class = "restart-recovery"
+severity = "medium"
+observed = "submit_program_transaction propagates rpc_call failure before submitted_program_result computes the local transaction hash. A lost response after a deploy, upgrade or call was accepted therefore produces only an error with no recoverable hash."
+expected = "Program writes must retain the hash of the exact submitted bytes when transport failure leaves acceptance unknown, so operators can discover the eventual committed result."
+proposal = "Compute and retain the local transaction hash before sending in tools/platform/cli/src/programs.rs, classify unsent/refused/indeterminate outcomes and include the hash in the latter. Qualify a lost-response deployment and subsequent receipt reconciliation without resubmitting different bytes."
+owner_domain = 8
+
+[finding.chain_submission_recovery]
+file = "tools/platform/cli/src/chains.rs"
+line = 336
+class = "restart-recovery"
+severity = "medium"
+observed = "Chain creation computes hash before eth_sendRawTransaction but propagates rpc errors with ? before returning it. A successfully accepted tenant creation followed by a lost HTTP response leaves only an error, unlike the later pending-receipt timeout which includes hash."
+expected = "Tenant creation must expose a stable reconciliation identity whenever acceptance is unknown, so a user can recover the tenant rather than paying for a second creation."
+proposal = "Preserve hash in the indeterminate submission result in tools/platform/cli/src/chains.rs and provide receipt/domain reconciliation by that hash. Exercise node acceptance followed by response loss and resume discovery using the original transaction."
+owner_domain = 8
+
+[finding.tool_submit_recovery]
+file = "tools/platform/cli/src/toolset.rs"
+line = 291
+class = "restart-recovery"
+severity = "medium"
+observed = "The generic submit wrapper discards tx_hash from SubmitFailure::Indeterminate and returns only detail; invoke_task correctly keeps txHash and rung unknown. Callers of the ordinary invoke entry point therefore lose the same recovery identity that A2A retains."
+expected = "Every exposed raw-transaction submission path must retain the locally computed hash when the transport cannot determine whether the node accepted it."
+proposal = "Align submit and invoke_task in tools/platform/cli/src/toolset.rs around one structured indeterminate result containing txHash and unknown status. Keep explicit unsent and rejected failures distinct and prove both public invocation paths against an accepted transaction with a dropped response."
+owner_domain = 8
+
+[finding.wallet_key_file_open]
+file = "tools/platform/cli/src/wallet_signing.rs"
+line = 44
+class = "security"
+severity = "medium"
+observed = "EvmSigningKey::read calls File::open before checking file type and mode, follows symlinks, and never checks the owner uid. A FIFO blocks at open before the regular-file refusal, while a symlink or another user's readable owner-only export can pass metadata checks."
+expected = "Private-key file loading must enforce a bounded, nonblocking read of the current user's regular file without following links, consistent with the protected EVM readers in programs.rs and chains.rs."
+proposal = "Reuse the protected key-file opening policy in tools/platform/cli/src/wallet_signing.rs with O_NOFOLLOW, nonblocking open, uid/type/mode validation and the existing byte bound. Qualify FIFO, symlink, foreign-owner and valid derived-export inputs without exposing secret contents."
+owner_domain = 8
+
+[finding.wallet_finality_option]
+file = "tools/platform/cli/src/wallet.rs"
+line = 788
+class = "config-drift"
+severity = "medium"
+observed = "The public wait/receipt options expose finalised, but execute_write and wait_transaction always reject it with MissingFinalityTrust. The supported batched choice maps to committed, retaining terminology from a separate checkpoint finality ladder."
+expected = "On the merged BFT chain a committed block is final; wallet commitment choices and help must describe this actual lifecycle rather than require an unavailable guarantor checkpoint."
+proposal = "Align commitment parsing, help and receipt outputs in tools/platform/cli/src/wallet.rs and the shared SDK with submitted/receipted/committed semantics. Treat verified committed evidence as final under the declared chain trust policy and qualify each supported wait option through a committed node receipt."
+owner_domain = 8
+
+[finding.wallet_snapshot_proof_label]
+file = "tools/platform/cli/src/wallet.rs"
+line = 1583
+class = "security"
+severity = "medium"
+observed = "verified_account_snapshot only validates field formats through validated_account_records. canonical_value and proof_material are checked for canonical hex but are not cryptographically bound to balance, asset or next_sequence; the server-supplied state_proven string is accepted as the evidence claim."
+expected = "An account described as state_proven must be verified against an independently trusted committed root before its balance or source sequence is used for payment authorization."
+proposal = "Use the SDK account-proof verification boundary from tools/platform/cli/src/wallet.rs and bind decoded account fields to canonical evidence and a pinned chain root. Reject tampered balances/sequences even when the JSON still says state_proven; keep any unverified display explicitly labeled."
+owner_domain = 8
+
+[finding.program_lifecycle_evidence]
+file = "tools/platform/cli/src/programs.rs"
+line = 641
+class = "security"
+severity = "medium"
+observed = "lifecycle_receipt_result accepts an object containing just matching txHash and any known rung, including submitted. It neither authenticates receipt evidence nor inspects execution result/revert data, although the lifecycle contract describes receipt-backed outcomes. The result is labeled an outcome before execution is established."
+expected = "Program lifecycle output must distinguish submission from successful execution and surface authenticated terminal failure or revert information before describing a completed deployment, upgrade or wind-down."
+proposal = "In tools/platform/cli/src/programs.rs verify the node receipt/result under the declared chain policy, expose submitted as pending, and report execution failure separately. Exercise successful and reverted lifecycle transactions using actual producer receipts rather than txHash/rung-only objects."
+owner_domain = 8
+
+[finding.program_legacy_helpers]
+file = "tools/platform/cli/src/programs.rs"
+line = 656
+class = "dead-code"
+severity = "low"
+observed = "Old verify_lifecycle_result, discover_call_head and read_program_registry helpers retain a signed REST /v1/programs/registry verification model alongside the current EVM lifecycle and discovery paths. Their internal tests can remain green without qualifying the selected command path."
+expected = "Program command implementation and proof coverage should have one clear current EVM path; unused former transport helpers should not imply that their verification protects live operations."
+proposal = "Trace remaining callers of the legacy helper cluster in tools/platform/cli/src/programs.rs, remove unreachable former transport code in its owning repair, and move any still-required verification into the actual EVM result consumer with tests registered on that command path."
+owner_domain = 8
+
+[finding.scaffold_build_host_path]
+file = "tools/platform/cli/src/scaffold.rs"
+line = 65
+class = "runtime-risk"
+severity = "medium"
+observed = "SDK_DEFAULT_PATH embeds CARGO_MANIFEST_DIR from the machine that compiled the CLI and writes that absolute path into every generated Cargo.toml. A binary installed or copied to another machine scaffolds a project whose SDK dependency points at a nonexistent build checkout."
+expected = "The installed layerx new command must create a project whose SDK can be resolved on the user's machine, without requiring the original binary build directory to exist."
+proposal = "Replace the build-host dependency default in tools/platform/cli/src/scaffold.rs with a released SDK dependency or a validated explicitly configured local SDK. Validate availability before creating files and qualify a built CLI relocated away from its source checkout."
+owner_domain = 8
+
+[finding.workspace_retired_core]
+file = "tools/platform/cli/src/workspace.rs"
+line = 295
+class = "retired-reference"
+severity = "medium"
+observed = "The workspace core test plan still selects test-layerxd, and its description at line275 describes guarantors as a current network component. These plans expose the retired daemon architecture through the operator workspace interface."
+expected = "The merged network runs paxd and committed-block BFT finality; workspace plans must select current node/kernel domain gates and describe their actual product purpose."
+proposal = "Replace the retired daemon targets and guarantor descriptions in tools/platform/cli/src/workspace.rs with declared paxd/kernel targets owned by the merged domain, then update tests/workspace.rs to assert the resulting current module plan."
+owner_domain = 8
+
+[finding.mcp_serve_binding_wiring]
+file = "tools/platform/cli/src/mcp.rs"
+line = 18
+class = "wiring-gap"
+severity = "medium"
+observed = "InstalledSession::open requires Binding::open_daemon_client readiness. Actual agentd enrollment omits that readiness and publishes the refused core_sequence field, so the served stdio path cannot open its advertised enrollment output without external document surgery."
+expected = "An operator must be able to enroll a daemon and serve the CLI MCP catalogue using exactly the resulting protected binding document, including reopening it after restart."
+proposal = "Qualify tools/platform/cli/src/mcp.rs against the corrected agentd publisher described in mcp_enrollment_shape. Drive initialize, tools/list and an authorized call over the real stdio/HTTPS/daemon path using the unmodified persisted enrollment document."
+owner_domain = 9
+
+[finding.retired_endpoint_rpc]
+file = "tools/platform/cli/src/rpc.rs"
+line = 21
+class = "retired-reference"
+severity = "medium"
+observed = "RpcClient::new and new_session strip a required /rpc suffix, then call posts to /rpc. This preserves the pre-merge public endpoint convention even though the hosted gateway currently still mounts it."
+expected = "Audit brief network facts2 and3 define public node JSON-RPC at the root and retire /rpc and /rpc/ws. Hosted px_ gateway service routing must be distinguished from the node transport."
+proposal = "Update tools/platform/cli/src/rpc.rs and its callers to accept the declared root node endpoint and explicit service-specific gateway configuration where px_ is needed. Preserve TLS and authorization while proving Ethereum node and hosted gateway routing separately."
+owner_domain = 8
+
+[finding.retired_endpoint_main]
+file = "tools/platform/cli/src/main.rs"
+line = 97
+class = "retired-reference"
+severity = "medium"
+observed = "The global --rpc help and chain/program override validators require a URL ending in /rpc. This preserves the pre-merge public endpoint convention even though the hosted gateway currently still mounts it."
+expected = "Audit brief network facts2 and3 define public node JSON-RPC at the root and retire /rpc and /rpc/ws. Hosted px_ gateway service routing must be distinguished from the node transport."
+proposal = "Update tools/platform/cli/src/main.rs and its callers to accept the declared root node endpoint and explicit service-specific gateway configuration where px_ is needed. Preserve TLS and authorization while proving Ethereum node and hosted gateway routing separately."
+owner_domain = 8
+
+[finding.retired_endpoint_chains]
+file = "tools/platform/cli/src/chains.rs"
+line = 45
+class = "retired-reference"
+severity = "medium"
+observed = "The chain RPC helper posts every Ethereum request to /rpc. This preserves the pre-merge public endpoint convention even though the hosted gateway currently still mounts it."
+expected = "Audit brief network facts2 and3 define public node JSON-RPC at the root and retire /rpc and /rpc/ws. Hosted px_ gateway service routing must be distinguished from the node transport."
+proposal = "Update tools/platform/cli/src/chains.rs and its callers to accept the declared root node endpoint and explicit service-specific gateway configuration where px_ is needed. Preserve TLS and authorization while proving Ethereum node and hosted gateway routing separately."
+owner_domain = 8
+
+[finding.retired_endpoint_programs]
+file = "tools/platform/cli/src/programs.rs"
+line = 1386
+class = "retired-reference"
+severity = "medium"
+observed = "The active EVM program RPC helper posts requests to /rpc. This preserves the pre-merge public endpoint convention even though the hosted gateway currently still mounts it."
+expected = "Audit brief network facts2 and3 define public node JSON-RPC at the root and retire /rpc and /rpc/ws. Hosted px_ gateway service routing must be distinguished from the node transport."
+proposal = "Update tools/platform/cli/src/programs.rs and its callers to accept the declared root node endpoint and explicit service-specific gateway configuration where px_ is needed. Preserve TLS and authorization while proving Ethereum node and hosted gateway routing separately."
+owner_domain = 8
+
+[finding.retired_endpoint_wallet]
+file = "tools/platform/cli/src/wallet.rs"
+line = 807
+class = "retired-reference"
+severity = "medium"
+observed = "The wallet write path strips a required /rpc suffix and posts gas estimation to /rpc. This preserves the pre-merge public endpoint convention even though the hosted gateway currently still mounts it."
+expected = "Audit brief network facts2 and3 define public node JSON-RPC at the root and retire /rpc and /rpc/ws. Hosted px_ gateway service routing must be distinguished from the node transport."
+proposal = "Update tools/platform/cli/src/wallet.rs and its callers to accept the declared root node endpoint and explicit service-specific gateway configuration where px_ is needed. Preserve TLS and authorization while proving Ethereum node and hosted gateway routing separately."
+owner_domain = 8
+
+[finding.retired_endpoint_faucet]
+file = "tools/platform/cli/src/faucet.rs"
+line = 112
+class = "retired-reference"
+severity = "medium"
+observed = "The faucet service claim is posted to the fixed /rpc path. This preserves the pre-merge public endpoint convention even though the hosted gateway currently still mounts it."
+expected = "Audit brief network facts2 and3 define public node JSON-RPC at the root and retire /rpc and /rpc/ws. Hosted px_ gateway service routing must be distinguished from the node transport."
+proposal = "Update tools/platform/cli/src/faucet.rs and its callers to accept the declared root node endpoint and explicit service-specific gateway configuration where px_ is needed. Preserve TLS and authorization while proving Ethereum node and hosted gateway routing separately."
+owner_domain = 8
+
+[finding.retired_endpoint_register]
+file = "tools/platform/cli/src/register.rs"
+line = 118
+class = "retired-reference"
+severity = "medium"
+observed = "Self-service registration is posted to the fixed /rpc path. This preserves the pre-merge public endpoint convention even though the hosted gateway currently still mounts it."
+expected = "Audit brief network facts2 and3 define public node JSON-RPC at the root and retire /rpc and /rpc/ws. Hosted px_ gateway service routing must be distinguished from the node transport."
+proposal = "Update tools/platform/cli/src/register.rs and its callers to accept the declared root node endpoint and explicit service-specific gateway configuration where px_ is needed. Preserve TLS and authorization while proving Ethereum node and hosted gateway routing separately."
+owner_domain = 8
+
+[finding.retired_endpoint_toolset]
+file = "tools/platform/cli/src/toolset.rs"
+line = 225
+class = "retired-reference"
+severity = "medium"
+observed = "Read, faucet and raw-transaction tool helpers post to the fixed /rpc path. This preserves the pre-merge public endpoint convention even though the hosted gateway currently still mounts it."
+expected = "Audit brief network facts2 and3 define public node JSON-RPC at the root and retire /rpc and /rpc/ws. Hosted px_ gateway service routing must be distinguished from the node transport."
+proposal = "Update tools/platform/cli/src/toolset.rs and its callers to accept the declared root node endpoint and explicit service-specific gateway configuration where px_ is needed. Preserve TLS and authorization while proving Ethereum node and hosted gateway routing separately."
+owner_domain = 8
+
+[finding.retired_endpoint_subscription]
+file = "tools/platform/cli/src/rpc_subscription.rs"
+line = 48
+class = "retired-reference"
+severity = "medium"
+observed = "Websocket connection appends /ws to the configured /rpc URL, producing /rpc/ws. This preserves the pre-merge public endpoint convention even though the hosted gateway currently still mounts it."
+expected = "Audit brief network facts2 and3 define public node JSON-RPC at the root and retire /rpc and /rpc/ws. Hosted px_ gateway service routing must be distinguished from the node transport."
+proposal = "Update tools/platform/cli/src/rpc_subscription.rs and its callers to accept the declared root node endpoint and explicit service-specific gateway configuration where px_ is needed. Preserve TLS and authorization while proving Ethereum node and hosted gateway routing separately."
+owner_domain = 8
+
+[finding.test_retired_endpoint_chains]
+file = "tools/platform/cli/tests/chains_commands.rs"
+line = 218
+class = "test-gap"
+severity = "medium"
+observed = "The test configures /rpc as the accepted public endpoint or asserts POST /rpc; websocket coverage expects /rpc/ws. This locks in the former public transport contract and cannot detect refusal or misrouting of the merged root endpoint."
+expected = "The finished network transport test must exercise the public node root endpoint and its declared websocket address while separately validating any hosted-only px_ service route."
+proposal = "Update tools/platform/cli/tests/chains_commands.rs after the transport repair to drive the actual node listener and explicit gateway service route. Assert successful root routing, authentication and preserved lx_ refusal without retaining the retired public path as the success contract."
+owner_domain = 8
+
+[finding.test_retired_endpoint_faucet]
+file = "tools/platform/cli/tests/faucet_route.rs"
+line = 142
+class = "test-gap"
+severity = "medium"
+observed = "The test configures /rpc as the accepted public endpoint or asserts POST /rpc; websocket coverage expects /rpc/ws. This locks in the former public transport contract and cannot detect refusal or misrouting of the merged root endpoint."
+expected = "The finished network transport test must exercise the public node root endpoint and its declared websocket address while separately validating any hosted-only px_ service route."
+proposal = "Update tools/platform/cli/tests/faucet_route.rs after the transport repair to drive the actual node listener and explicit gateway service route. Assert successful root routing, authentication and preserved lx_ refusal without retaining the retired public path as the success contract."
+owner_domain = 8
+
+[finding.test_retired_endpoint_lx_refusal]
+file = "tools/platform/cli/tests/lx_switch_off.rs"
+line = 44
+class = "test-gap"
+severity = "medium"
+observed = "The test configures /rpc as the accepted public endpoint or asserts POST /rpc; websocket coverage expects /rpc/ws. This locks in the former public transport contract and cannot detect refusal or misrouting of the merged root endpoint."
+expected = "The finished network transport test must exercise the public node root endpoint and its declared websocket address while separately validating any hosted-only px_ service route."
+proposal = "Update tools/platform/cli/tests/lx_switch_off.rs after the transport repair to drive the actual node listener and explicit gateway service route. Assert successful root routing, authentication and preserved lx_ refusal without retaining the retired public path as the success contract."
+owner_domain = 8
+
+[finding.test_retired_endpoint_mcp_submit]
+file = "tools/platform/cli/tests/mcp_evm_submit.rs"
+line = 90
+class = "test-gap"
+severity = "medium"
+observed = "The test configures /rpc as the accepted public endpoint or asserts POST /rpc; websocket coverage expects /rpc/ws. This locks in the former public transport contract and cannot detect refusal or misrouting of the merged root endpoint."
+expected = "The finished network transport test must exercise the public node root endpoint and its declared websocket address while separately validating any hosted-only px_ service route."
+proposal = "Update tools/platform/cli/tests/mcp_evm_submit.rs after the transport repair to drive the actual node listener and explicit gateway service route. Assert successful root routing, authentication and preserved lx_ refusal without retaining the retired public path as the success contract."
+owner_domain = 8
+
+[finding.test_retired_endpoint_program_calls]
+file = "tools/platform/cli/tests/program_evm_calls.rs"
+line = 66
+class = "test-gap"
+severity = "medium"
+observed = "The test configures /rpc as the accepted public endpoint or asserts POST /rpc; websocket coverage expects /rpc/ws. This locks in the former public transport contract and cannot detect refusal or misrouting of the merged root endpoint."
+expected = "The finished network transport test must exercise the public node root endpoint and its declared websocket address while separately validating any hosted-only px_ service route."
+proposal = "Update tools/platform/cli/tests/program_evm_calls.rs after the transport repair to drive the actual node listener and explicit gateway service route. Assert successful root routing, authentication and preserved lx_ refusal without retaining the retired public path as the success contract."
+owner_domain = 8
+
+[finding.test_retired_endpoint_program_lifecycle]
+file = "tools/platform/cli/tests/program_evm_lifecycle.rs"
+line = 78
+class = "test-gap"
+severity = "medium"
+observed = "The test configures /rpc as the accepted public endpoint or asserts POST /rpc; websocket coverage expects /rpc/ws. This locks in the former public transport contract and cannot detect refusal or misrouting of the merged root endpoint."
+expected = "The finished network transport test must exercise the public node root endpoint and its declared websocket address while separately validating any hosted-only px_ service route."
+proposal = "Update tools/platform/cli/tests/program_evm_lifecycle.rs after the transport repair to drive the actual node listener and explicit gateway service route. Assert successful root routing, authentication and preserved lx_ refusal without retaining the retired public path as the success contract."
+owner_domain = 8
+
+[finding.test_retired_endpoint_program_registry]
+file = "tools/platform/cli/tests/program_evm_registry.rs"
+line = 63
+class = "test-gap"
+severity = "medium"
+observed = "The test configures /rpc as the accepted public endpoint or asserts POST /rpc; websocket coverage expects /rpc/ws. This locks in the former public transport contract and cannot detect refusal or misrouting of the merged root endpoint."
+expected = "The finished network transport test must exercise the public node root endpoint and its declared websocket address while separately validating any hosted-only px_ service route."
+proposal = "Update tools/platform/cli/tests/program_evm_registry.rs after the transport repair to drive the actual node listener and explicit gateway service route. Assert successful root routing, authentication and preserved lx_ refusal without retaining the retired public path as the success contract."
+owner_domain = 8
+
+[finding.test_retired_endpoint_rpc_identity]
+file = "tools/platform/cli/tests/rpc_identity.rs"
+line = 107
+class = "test-gap"
+severity = "medium"
+observed = "The test configures /rpc as the accepted public endpoint or asserts POST /rpc; websocket coverage expects /rpc/ws. This locks in the former public transport contract and cannot detect refusal or misrouting of the merged root endpoint."
+expected = "The finished network transport test must exercise the public node root endpoint and its declared websocket address while separately validating any hosted-only px_ service route."
+proposal = "Update tools/platform/cli/tests/rpc_identity.rs after the transport repair to drive the actual node listener and explicit gateway service route. Assert successful root routing, authentication and preserved lx_ refusal without retaining the retired public path as the success contract."
+owner_domain = 8
+
+[finding.test_retired_endpoint_wallet_commands]
+file = "tools/platform/cli/tests/wallet_commands.rs"
+line = 99
+class = "test-gap"
+severity = "medium"
+observed = "The test configures /rpc as the accepted public endpoint or asserts POST /rpc; websocket coverage expects /rpc/ws. This locks in the former public transport contract and cannot detect refusal or misrouting of the merged root endpoint."
+expected = "The finished network transport test must exercise the public node root endpoint and its declared websocket address while separately validating any hosted-only px_ service route."
+proposal = "Update tools/platform/cli/tests/wallet_commands.rs after the transport repair to drive the actual node listener and explicit gateway service route. Assert successful root routing, authentication and preserved lx_ refusal without retaining the retired public path as the success contract."
+owner_domain = 8
+
+[finding.test_retired_endpoint_wallet_fee]
+file = "tools/platform/cli/tests/wallet_estimate_fee.rs"
+line = 98
+class = "test-gap"
+severity = "medium"
+observed = "The test configures /rpc as the accepted public endpoint or asserts POST /rpc; websocket coverage expects /rpc/ws. This locks in the former public transport contract and cannot detect refusal or misrouting of the merged root endpoint."
+expected = "The finished network transport test must exercise the public node root endpoint and its declared websocket address while separately validating any hosted-only px_ service route."
+proposal = "Update tools/platform/cli/tests/wallet_estimate_fee.rs after the transport repair to drive the actual node listener and explicit gateway service route. Assert successful root routing, authentication and preserved lx_ refusal without retaining the retired public path as the success contract."
+owner_domain = 8
+
+[finding.test_retired_endpoint_wallet_writes]
+file = "tools/platform/cli/tests/wallet_evm_writes.rs"
+line = 532
+class = "test-gap"
+severity = "medium"
+observed = "The test configures /rpc as the accepted public endpoint or asserts POST /rpc; websocket coverage expects /rpc/ws. This locks in the former public transport contract and cannot detect refusal or misrouting of the merged root endpoint."
+expected = "The finished network transport test must exercise the public node root endpoint and its declared websocket address while separately validating any hosted-only px_ service route."
+proposal = "Update tools/platform/cli/tests/wallet_evm_writes.rs after the transport repair to drive the actual node listener and explicit gateway service route. Assert successful root routing, authentication and preserved lx_ refusal without retaining the retired public path as the success contract."
+owner_domain = 8
+
+[finding.test_retired_endpoint_wallet_reads]
+file = "tools/platform/cli/tests/wallet_px_reads.rs"
+line = 34
+class = "test-gap"
+severity = "medium"
+observed = "The test configures /rpc as the accepted public endpoint or asserts POST /rpc; websocket coverage expects /rpc/ws. This locks in the former public transport contract and cannot detect refusal or misrouting of the merged root endpoint."
+expected = "The finished network transport test must exercise the public node root endpoint and its declared websocket address while separately validating any hosted-only px_ service route."
+proposal = "Update tools/platform/cli/tests/wallet_px_reads.rs after the transport repair to drive the actual node listener and explicit gateway service route. Assert successful root routing, authentication and preserved lx_ refusal without retaining the retired public path as the success contract."
+owner_domain = 8
+
+[finding.test_retired_endpoint_wallet_watch]
+file = "tools/platform/cli/tests/wallet_watch_logs.rs"
+line = 102
+class = "test-gap"
+severity = "medium"
+observed = "The test configures /rpc as the accepted public endpoint or asserts POST /rpc; websocket coverage expects /rpc/ws. This locks in the former public transport contract and cannot detect refusal or misrouting of the merged root endpoint."
+expected = "The finished network transport test must exercise the public node root endpoint and its declared websocket address while separately validating any hosted-only px_ service route."
+proposal = "Update tools/platform/cli/tests/wallet_watch_logs.rs after the transport repair to drive the actual node listener and explicit gateway service route. Assert successful root routing, authentication and preserved lx_ refusal without retaining the retired public path as the success contract."
+owner_domain = 8
+
+[finding.test_retired_endpoint_a2a_embedded]
+file = "tools/platform/cli/src/a2a.rs"
+line = 1006
+class = "test-gap"
+severity = "medium"
+observed = "The test configures /rpc as the accepted public endpoint or asserts POST /rpc; websocket coverage expects /rpc/ws. This locks in the former public transport contract and cannot detect refusal or misrouting of the merged root endpoint."
+expected = "The finished network transport test must exercise the public node root endpoint and its declared websocket address while separately validating any hosted-only px_ service route."
+proposal = "Update tools/platform/cli/src/a2a.rs after the transport repair to drive the actual node listener and explicit gateway service route. Assert successful root routing, authentication and preserved lx_ refusal without retaining the retired public path as the success contract."
+owner_domain = 8
+
+[finding.mcp_binding_test_rewrite]
+file = "tools/platform/cli/tests/mcp_daemon_bound.rs"
+line = 144
+class = "test-gap"
+severity = "medium"
+observed = "The success helper calls genuine enrolment and then removes core_sequence and inserts core_height in the produced binding before opening it. Thus passing install/serve tests do not demonstrate that the real enrollment producer emits a consumable document."
+expected = "Requirement21015 and the audit interface rule require a real producer document to reach the consumer unchanged, including persistence and reopening."
+proposal = "Replace the mutation in tools/platform/cli/tests/mcp_daemon_bound.rs with assertions on the corrected agentd publisher, consume its unmodified binding for install and stdio serving, and reopen the same document and daemon state after restart."
+owner_domain = 9
+
+[finding.mcp_readiness_test_rewrite]
+file = "tools/platform/cli/tests/common/daemon_gateway.rs"
+line = 129
+class = "test-gap"
+severity = "medium"
+observed = "DaemonGateway adds agent.readiness to the binding JSON itself. The actual enrollment publisher emits no such field, so the helper supplies configuration required by open_daemon_client that enrollment did not produce."
+expected = "Transport setup may supply real listener configuration to the producer but must not rewrite its emitted protocol document into a third shape before consumption."
+proposal = "Provide the authenticated HTTPS readiness endpoint and protected credential to services/agent/crates/layerx-agentd/src/enrolment.rs through its real publication inputs, then remove document patching from tools/platform/cli/tests/common/daemon_gateway.rs and consume the exact published output."
+owner_domain = 9
+
+[finding.mcp_submit_path_test]
+file = "tools/platform/cli/tests/mcp_evm_submit.rs"
+line = 144
+class = "test-gap"
+severity = "medium"
+observed = "mcp_submit_tool_sends_raw_transaction calls the CLI local toolset::invoke directly and captures a request without a node reply. The deployed MCP implementation instead delegates stdio calls to an authenticated agent daemon; this test does not traverse that path or assert a real returned transaction hash."
+expected = "Requirements8542 and21015 require served MCP tools to submit signed EVM transactions through their real producer, authenticated transport and consumer, with observable returned outcome."
+proposal = "Add the served-path case in tools/platform/cli/tests/mcp_evm_submit.rs using genuine enrollment, CLI MCP stdio, the authenticated daemon and a real node transaction. Assert the exact hash and receipt, and lost-response recovery at the actual submission owner."
+owner_domain = 9
+
+[finding.wallet_third_shape_test]
+file = "tools/platform/cli/tests/wallet_evm_writes.rs"
+line = 552
+class = "test-gap"
+severity = "medium"
+observed = "The handcrafted server responds to px_getBalances with did/verification/accounts and to account reads with ledger proof fields matching wallet internals. The real gateway emits account/height/balances and account/paxeer instead, so these successful write tests conceal the live schema mismatch."
+expected = "Wallet write qualification must consume the actual gateway account and balances schemas without replacing them with a test-only third shape."
+proposal = "After the shared account contracts are reconciled, replace handwritten read responses in tools/platform/cli/tests/wallet_evm_writes.rs with the real gateway producer over the node/kernel. Assert source selection, independent sequence checks and the complete signed submission/receipt path."
+owner_domain = 8
+
+[finding.wallet_read_capture_gap]
+file = "tools/platform/cli/tests/wallet_px_reads.rs"
+line = 52
+class = "test-gap"
+severity = "medium"
+observed = "The capture helper shuts down the connection immediately after recording the request. Wallet balance and token list method-name assertions therefore never feed a genuine gateway result to the CLI decoder and cannot expose their incompatible response schemas."
+expected = "Requirements8536,181331 and21015 need request fixtures and the real producer response to round-trip through wallet read commands, including invalid or unavailable evidence behavior."
+proposal = "Extend tools/platform/cli/tests/wallet_px_reads.rs with real gateway/node-backed balance, account and asset reads and assert the CLI public output. Retain fixture equality checks but prove the emitted field names, quantities and committed-height semantics end to end."
+owner_domain = 8
+
+[finding.wallet_bind_success_gap]
+file = "tools/platform/cli/tests/wallet_derive.rs"
+line = 118
+class = "test-gap"
+severity = "medium"
+observed = "Derivation vectors and secret export checks execute, but the only --bind case omits an endpoint and asserts local refusal. No successful bind reaches eth_chainId, eth_call, the pending estimate or actual transaction submission, leaving the incompatible RpcClient contract undetected."
+expected = "The advertised bind interface must be exercised through its real node/precompile path as well as invalid-input refusals and derivation-only vectors."
+proposal = "Add real bind, already-bound, other-DID refusal and nonce-recovery cases to tools/platform/cli/tests/wallet_derive.rs after reconciling the RPC contract. Assert exact derived address/DID and the committed binding without replacing producer results with handcrafted shapes."
+owner_domain = 8
+
+[finding.credential_profile_collision_gap]
+file = "tools/platform/cli/tests/credential.rs"
+line = 1
+class = "test-gap"
+severity = "medium"
+observed = "Credential lifecycle tests use isolated names/configurations but do not create the same alias under two different LAYERX_CONFIG paths in one actual OS credential backend. They therefore cannot detect one profile replacing or deleting another profile's signing seed."
+expected = "OS credential qualification must demonstrate cross-configuration isolation and failed-publication preservation in addition to ordinary create/import/delete behavior."
+proposal = "Add a bounded real OS-backend profile-isolation case to tools/platform/cli/tests/credential.rs as part of credential_profile_key_loss repair. Preserve both public keys and seeds across same-alias creation, deletion and metadata-save failure; do not substitute the profile-local file backend."
+owner_domain = 8
+
+[finding.program_capture_path_gap]
+file = "tools/platform/cli/tests/program_evm_calls.rs"
+line = 296
+class = "test-gap"
+severity = "medium"
+observed = "The CLI call/receipt tests record outbound RPC requests and deliberately close without a node response; ABI and submitted-result checks run separately against constructed values. They establish encoding but not the real program result/revert consumer path."
+expected = "Requirements8537 and21015 require a real program call and simulation to carry producer output through transport into the CLI, including terminal success and revert data."
+proposal = "Qualify tools/platform/cli/tests/program_evm_calls.rs against a real deployed program and node for simulate, call and receipt read. Assert shared ABI return values, exact signed transaction hash and terminal revert behavior in the CLI output."
+owner_domain = 8
+
+[finding.program_lifecycle_third_shape]
+file = "tools/platform/cli/tests/program_evm_lifecycle.rs"
+line = 255
+class = "test-gap"
+severity = "medium"
+observed = "The receipt result test supplies only txHash/rung and accepts submitted as an outcome, while assert_cli_rpc ends after eth_chainId with no node response. Neither case establishes real deployment execution, authenticated receipt material or the reported lifecycle result."
+expected = "Requirements8538 and21015 require deploy/upgrade/wind-down to consume actual node execution receipts and distinguish pending submission from successful or failed lifecycle execution."
+proposal = "Update tools/platform/cli/tests/program_evm_lifecycle.rs with the real node/kernel lifecycle path and unchanged receipt output, including revert, pending and committed cases. Assert authentication and resultant program state as well as selector/calldata vectors."
+owner_domain = 8
+
+[finding.proof_rpc_expected_failure]
+file = "tools/platform/cli/tests/proof_cli_cli_commands.rs"
+line = 413
+class = "test-gap"
+severity = "medium"
+observed = "The RPC proof intentionally asserts POST /rpc returned HTTP404 from the real emulator and documents the route as missing. That negative check cannot prove the declared public wallet/receipt RPC path works on the merged network."
+expected = "A test presented as command-path proof must show the finished node producer and CLI consumer round-trip successfully; an explicit unavailable emulator route is only a negative boundary check."
+proposal = "Keep the emulator refusal as a separately named negative test and add the actual root-node receipt/wallet consumer proof in tools/platform/cli/tests/proof_cli_cli_commands.rs using real gateway services only for hosted methods. Assert authentic receipt output rather than expected route absence."
+owner_domain = 8
+
+[finding.install_journey_a2a_contract]
+file = "tools/platform/cli/tests/install-journey.sh"
+line = 248
+class = "test-gap"
+severity = "medium"
+observed = "The A2A journey sends destination/amount/account_sequence/expiry arguments to activity.submit and extracts result.gateway.result.activity_id. Current src/a2a.rs requires raw_transaction and toolset.rs permits exactly that one field, returning txHash/rung. The declared successful payment journey cannot reach submission with its current request."
+expected = "The installation journey must execute the actual signed EVM submission contract and verify its transaction/receipt outcome through the installed authorized A2A runtime."
+proposal = "Rewrite the A2A payment portion of tools/platform/cli/tests/install-journey.sh to build and disclose a real signed EIP1559 transaction, submit raw_transaction, retain txHash and reconcile the actual node receipt. Preserve authorization, account funding and independent sequence checks."
+owner_domain = 8
+
+[finding.readme_operator_contract]
+file = "tools/platform/cli/README.md"
+line = 83
+class = "doc-drift"
+severity = "medium"
+observed = "The README calls the faucet lx_requestFunds at line83, describes protocol_version3/checkpoint_context_digest policy at lines97-103, source selection via lx_getSequence/lx_getBalances at 139-146, guarantor finality at 153 and unsupported watch receipt/checkpoint topics at 168-177. The current code uses px_requestFunds, protocol2 chain125 transaction policy and EVM writes."
+expected = "Operator instructions must describe the actual merged-chain wallet inputs, supported topics, independently trusted receipts and committed-block finality without retired methods or checkpoint services."
+proposal = "Rewrite tools/platform/cli/README.md wallet/faucet/receipt/watch sections from the actual commands and policy parser, include the required --evm-key-file in write examples and use supported account-log topics. Prove the published example sequence against the real CLI and merged node."
+owner_domain = 8
+
+[finding.readme_retired_endpoint]
+file = "tools/platform/cli/README.md"
+line = 19
+class = "doc-drift"
+severity = "medium"
+observed = "The README requires --rpc to end in /rpc at line19 and194 and directs websocket watchers to /rpc/ws at177. These instructions preserve the retired public router URL rather than the declared root node endpoint."
+expected = "Audit brief network facts2 and3 require public JSON-RPC at the root and distinguish hosted px_ gateway calls from Ethereum node transport."
+proposal = "Update tools/platform/cli/README.md connection examples with root mainnet-beta node URLs and explicit hosted service configuration after the transport repair. Remove /rpc and /rpc/ws as public network instructions and qualify the displayed commands."
+owner_domain = 8
+
+[finding.site_cli_contract]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "This page requires /rpc at line8, describes wallet/token transfers as pre-signing refusals at44-51, calls the faucet lx_requestFunds at75 and labels implemented command groups unimplemented around110-150. Program lifecycle instructions around290 retain REST-era behavior and proof claims around345 describe helpers outside the live EVM path."
+expected = "The CLI reference must accurately list currently parsed commands, required EVM signing inputs, available RPC methods and the verified evidence actually returned by the selected live paths."
+proposal = "Rewrite docs/site/docs/platform/cli.md from current clap commands and EVM handlers, replace retired endpoint/finality language, distinguish hosted gateway methods and explain actual receipt verification limits. Update code anchors and qualify the listed wallet, token and program examples."
+owner_domain = 8
+
+[finding.wiki_cli_contract]
+file = "docs/wiki/Cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "This page requires /rpc at line8, describes wallet/token transfers as pre-signing refusals at44-51, calls the faucet lx_requestFunds at75 and labels implemented command groups unimplemented around110-150. Program lifecycle instructions around290 retain REST-era behavior and proof claims around345 describe helpers outside the live EVM path."
+expected = "The CLI reference must accurately list currently parsed commands, required EVM signing inputs, available RPC methods and the verified evidence actually returned by the selected live paths."
+proposal = "Rewrite docs/wiki/Cli.md from current clap commands and EVM handlers, replace retired endpoint/finality language, distinguish hosted gateway methods and explain actual receipt verification limits. Update code anchors and qualify the listed wallet, token and program examples."
+owner_domain = 8
+
+[finding.payments_guide_contract]
+file = "docs/site/docs/overview/payments.md"
+line = 19
+class = "doc-drift"
+severity = "medium"
+observed = "The payment guide directs users through a router /rpc at19, describes protocol3/checkpoint policy near33, uses retired lx_getSequence and lx_ balance/activity calls near140,178 and226 and says CLI payment commands remain unimplemented near257. Write examples omit the required EVM export and use destination conventions that differ from the current transfer parser."
+expected = "Payment guidance must use the merged chain125 EIP1559 flow, independent source sequence and EVM nonce, required signing material and current account-id/receipt shapes."
+proposal = "Rewrite docs/site/docs/overview/payments.md around shared payment calldata, current --evm-key-file and policy inputs, root-node transport and hosted account resolution. Qualify every example through an actual funded transfer and authenticated committed receipt."
+owner_domain = 8
+
+[finding.install_guide_inputs]
+file = "services/platform/docs/content/install.md"
+line = 68
+class = "doc-drift"
+severity = "medium"
+observed = "The wallet quickstart link at68 targets the old platform/cli path in a pinned revision. A2A guidance at79 and95-99 tells the operator to prepare Ed25519/source-account/asset inputs but never explains the required signed raw_transaction that the current payment tool exclusively consumes."
+expected = "The installation page must link the current tools/platform/cli wallet instructions and give operators the actual inputs needed to use an installed payment-capable A2A runtime."
+proposal = "Update services/platform/docs/content/install.md to link the maintained CLI guide and explain current EIP1559 signing/disclosure and raw_transaction submission with txHash reconciliation. Retain its working real-emulator bootstrap and current MCP height/readiness requirements."
+owner_domain = 8
+
+[finding.contract_snapshot_drift]
+file = "spec/layerx-merge/contracts/platform-cli.md"
+line = 416
+class = "doc-drift"
+severity = "low"
+observed = "The generated contract notes still say faucet sends lx_requestFunds at 416, wallet balance reads lx_getBalances at 623 and token/wallet writes use lx_getSequence at 581-649. The stable signature table at 1039-1047 describes pre-EVM prepare/sign interfaces absent from the current source."
+expected = "The declared CLI contract and interface registry snapshot must describe current px_/EVM behavior and exact exported signatures rather than obsolete implementation notes."
+proposal = "Correct the owning interface/source metadata and regenerate spec/layerx-merge/contracts/platform-cli.md through its contract generator. Reconcile faucet, account reads, EVM write descriptions and current CallOptions/EvmSigningKey signatures with the source before publishing the refreshed contract."
+owner_domain = 8
+
+[doc.readme]
+path = "tools/platform/cli/README.md"
+status = "misleading"
+notes = "Read in full. Lines19,83,97-103,139-153,168-177 and194 contain retired endpoint, method, policy and finality/watch guidance; write examples must include the required EVM key export."
+
+[doc.site_cli]
+path = "docs/site/docs/platform/cli.md"
+status = "misleading"
+notes = "Read in full. Lines8,44-51,75,110-150,290 and345 need endpoint, command availability, faucet, lifecycle and verification rewrites; the site and wiki describe the same obsolete behavior."
+
+[doc.wiki_cli]
+path = "docs/wiki/Cli.md"
+status = "misleading"
+notes = "Read in full. Lines8,44-51,75,110-150,290 and345 need endpoint, command availability, faucet, lifecycle and verification rewrites; the site and wiki describe the same obsolete behavior."
+
+[doc.payments]
+path = "docs/site/docs/overview/payments.md"
+status = "misleading"
+notes = "Read in full. Lines19,33,140,178,226 and257 retain router URLs, old receipt policy, retired methods and false CLI availability claims; signing and destination examples need current syntax."
+
+[doc.install]
+path = "services/platform/docs/content/install.md"
+status = "stale"
+notes = "Read in full. Bootstrap block29-39 matches the real CLI/tests and MCP core_height/readiness guidance87 is current. Line68 links an old path; A2A setup79,95-99 omits the current raw-transaction payment inputs."
+
+[doc.contract]
+path = "spec/layerx-merge/contracts/platform-cli.md"
+status = "stale"
+notes = "Read all 1302 lines. Introductory EVM direction is current, but notes416,581-649 and signature rows1039-1047 preserve obsolete method names and pre-EVM exported signatures; regenerate from corrected owning metadata."
+
+[doc.system_cli]
+path = "docs/system/cli.md"
+status = "accurate"
+notes = "Read all 86 lines. This generated clap command index matches current command declarations and summaries; it is an index, with detailed runtime gaps captured against their implementation and operator guides."

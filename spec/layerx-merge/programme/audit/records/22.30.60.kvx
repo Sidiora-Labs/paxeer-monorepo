@@ -1,0 +1,2117 @@
+[audit.22.30.60]
+task = "22.30.60"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 240
+findings = 35
+docs_reviewed = 11
+upgrade_ready = false
+blocking = ["001", "011", "012", "019"]
+requirements = ["6042.2", "22011.1", "21049.1", "21047.1", "20004.2", "20004.1", "20003.2", "6042.1", "6042.3", "6042.4", "6057.1", "6057.2", "6057.3", "6999.1", "6710.1", "6028.1", "6029.1", "6036.1", "6041.1", "6030.1", "6037.1", "6059.1", "6059.2", "6004.1", "6005.1", "6006.1", "6007.1", "6008.1", "6966.1", "7288.1", "22998.1"]
+produces_total = 590
+consumes_total = 401
+review_basis = "Whole-member source review against the merged-network brief, package requirements, declared interfaces, callers, persistence and relevant contract pages. Generated protobuf/artifact files outside the package were used only as transport context."
+interface_scope = "The package truncates produces and consumes lists at 400 names; additional module declarations and receipt-store caller rows were inspected in the complete registry. A false conformance HTTP caller edge is documented in finding 035."
+qualification_scope = "This record is a static pre-upgrade audit with repair proposals. The declared task gates qualify record coverage and graph consistency; no EVM execution suite, formerly failing inventory command or repair qualification is claimed."
+
+[file.001]
+path = "modules/evm/AGENTS.md"
+lines = 172
+verdict = "issues"
+note = "The dual-address, pointer, receipt and lifecycle guide was read in full; the ante ordering and domain-admission description need the correction in finding 032."
+findings = ["032"]
+
+[file.002]
+path = "modules/evm/ante/basic.go"
+lines = 131
+verdict = "clean"
+note = "BasicDecorator checks transaction size, value, gas, intrinsic cost and unsupported types before execution; its ordinary typed inputs agree with the ante contract."
+produces = ["6.go-evm-ante-basicdecorator-antehandle-j34", "6.go-evm-ante-newbasicdecorator-j34"]
+consumes = ["15.go-types-ante-handler-j76", "15.go-types-errors-err-invalid-coins-j76", "15.go-types-errors-err-out-of-gas-j76", "15.go-types-errors-err-unsupported-tx-type-j76", "15.go-types-tx-j76"]
+
+[file.003]
+path = "modules/evm/ante/basic_test.go"
+lines = 59
+verdict = "clean"
+note = "Basic-decorator fixtures and assertions were read for gas, transaction type and value handling; no contradictory expected result was identified in this file."
+consumes = ["7.proto-eth-blobtx", "7.proto-eth-legacytx", "15.go-types-errors-err-unsupported-tx-type-j76", "16.go-testutil-keeper-evmtestapp-j59"]
+
+[file.004]
+path = "modules/evm/ante/fee.go"
+lines = 220
+verdict = "clean"
+note = "Fee admission selects tenant or root base fee and account fee denomination, converts the charge, and records surplus through the real keeper contract."
+produces = ["6.go-evm-ante-evmfeecheckdecorator-antehandle-j34", "6.go-evm-ante-newevmfeecheckdecorator-j34"]
+consumes = ["5.go-node-antedecorators-max-priority", "6.met-otel-evm-effective-gas-price", "15.go-types-ante-handler-j76", "15.go-types-errors-err-insufficient-fee-j76", "15.go-types-errors-err-insufficient-funds-j76", "15.go-types-errors-err-invalid-request-j76", "15.go-types-errors-err-wrong-sequence-j76", "15.go-types-new-dec-from-big-int-j76", "15.go-types-new-infinite-gas-meter-j76", "15.go-types-new-int-from-big-int-j76", "15.go-types-tx-j76", "15.go-x-upgrade-keeper-keeper-j76"]
+
+[file.005]
+path = "modules/evm/ante/fee_domain_test.go"
+lines = 95
+verdict = "clean"
+note = "Domain fee tests distinguish root and tenant admission and reject a tenant price below its own base fee; assertions agree with the ChainsFeeReader input."
+
+[file.006]
+path = "modules/evm/ante/fee_test.go"
+lines = 391
+verdict = "clean"
+note = "Fee admission cases cover gas purchase, minimum fee, surplus and fee-token paths; the fixture shapes agree with the fee decorator and bank interfaces."
+consumes = ["5.go-node-antedecorators-max-priority", "6.go-pc-feetoken-clearfeedenommethod-j34", "6.go-pc-feetoken-feetokenaddress-j34", "6.go-pc-feetoken-newprecompilewithkeeper-j34", "6.proto-evm-allowedfeedenom", "7.proto-eth-dynamicfeetx", "16.go-testutil-keeper-evmtestapp-j59", "16.go-testutil-keeper-mockprivatekey-j59"]
+
+[file.007]
+path = "modules/evm/ante/gas.go"
+lines = 51
+verdict = "clean"
+note = "GasDecorator translates EVM gas into the SDK gas meter after fee handling; gas normalization and context propagation agree with keeper parameters."
+produces = ["6.go-evm-ante-gasdecorator-antehandle-j34", "6.go-evm-ante-mingasevmtx-j34", "6.go-evm-ante-newgasdecorator-j34"]
+consumes = ["15.go-types-ante-handler-j76", "15.go-types-errors-err-invalid-request-j76", "15.go-types-new-gas-meter-with-multiplier-j76", "15.go-types-tx-j76"]
+
+[file.008]
+path = "modules/evm/ante/gas_test.go"
+lines = 25
+verdict = "clean"
+note = "Gas-meter assertions use the same priority normalizer and EVM gas source as GasDecorator; no contradictory expectation was identified."
+consumes = ["7.proto-eth-legacytx", "16.go-testutil-keeper-evmtestapp-j59"]
+
+[file.009]
+path = "modules/evm/ante/metrics.go"
+lines = 61
+verdict = "clean"
+note = "Ante metric declarations and recording use the existing OpenTelemetry instruments and bounded operation labels; no retired endpoint or service is addressed."
+produces = ["6.met-otel-evm-ante-association-error", "6.met-otel-evm-effective-gas-price", "6.met-otel-evm-nonce-mismatch", "6.met-otel-evm-pending-nonce"]
+
+[file.010]
+path = "modules/evm/ante/no_cosmos_fields.go"
+lines = 112
+verdict = "clean"
+note = "Cosmos field rejection prevents an EVM envelope from carrying memo, timeout, SDK fee or Cosmos signature fields; it leaves the EVM envelope authoritative."
+produces = ["6.go-evm-ante-evmnocosmosfieldsdecorator-antehandle-j34", "6.go-evm-ante-newevmnocosmosfieldsdecorator-j34", "6.go-evm-ante-validatenocosmostxfields-j34"]
+consumes = ["7.proto-cosmos-tx-v1beta1-authinfo-j39", "7.proto-cosmos-tx-v1beta1-tx-j39", "7.proto-cosmos-tx-v1beta1-txbody-j39", "15.go-types-ante-handler-j76", "15.go-types-errors-err-invalid-request-j76", "15.go-types-tx-j76", "15.go-types-tx-signing-signature-v2-j76"]
+
+[file.011]
+path = "modules/evm/ante/no_cosmos_fields_test.go"
+lines = 83
+verdict = "clean"
+note = "Cosmos-field rejection fixtures correspond to the actual SDK transaction fields and verify the intended invalid-request boundary."
+consumes = ["7.proto-cosmos-tx-v1beta1-authinfo-j39", "7.proto-cosmos-tx-v1beta1-fee-j39", "7.proto-cosmos-tx-v1beta1-signerinfo-j39", "7.proto-cosmos-tx-v1beta1-txbody-j39"]
+
+[file.012]
+path = "modules/evm/ante/preprocess.go"
+lines = 318
+verdict = "clean"
+note = "Preprocessing unpacks EVM data, derives fork-specific signatures and address metadata, and handles association transactions before later decorators."
+produces = ["6.go-evm-ante-evmaddressdecorator-antehandle-j34", "6.go-evm-ante-evmpreprocessdecorator-antehandle-j34", "6.go-evm-ante-getversion-j34", "6.go-evm-ante-istxtypeallowed-j34", "6.go-evm-ante-newevmaddressdecorator-j34", "6.go-evm-ante-newevmpreprocessdecorator-j34", "6.go-evm-ante-preprocess-j34", "6.go-evm-ante-preprocessunpacked-j34", "6.go-evm-ante-recoversenderfromethtx-j34", "6.go-evm-ante-signermap-j34"]
+consumes = ["5.go-node-antedecorators-evm-associate-priority", "6.err-go-evm-association-missing", "6.evt-evm-signer", "6.met-otel-evm-ante-association-error", "6.msg-evm-evmtransaction", "6.proto-evm-msgevmtransaction", "7.proto-cosmos-crypto-secp256k1-pubkey-j39", "7.proto-eth-associatetx", "15.go-crypto-types-pub-key-j76", "15.go-types-ante-handler-j76", "15.go-types-errors-err-insufficient-funds-j76", "15.go-types-errors-err-invalid-chain-id-j76", "15.go-types-errors-err-invalid-pub-key-j76", "15.go-types-errors-err-invalid-request-j76", "15.go-types-errors-err-tx-decode-j76", "15.go-types-must-get-base-denom-j76", "15.go-types-new-attribute-j76", "15.go-types-new-event-j76", "15.go-types-new-infinite-gas-meter-with-multiplier-j76", "15.go-types-tx-j76", "15.go-x-auth-keeper-account-keeper-j76", "15.go-x-auth-signing-sig-verifiable-tx-j76"]
+
+[file.013]
+path = "modules/evm/ante/preprocess_test.go"
+lines = 308
+verdict = "clean"
+note = "Preprocessing tests use the concrete transaction encodings and signer derivation expected by the decoder; no additional shape disagreement was identified."
+consumes = ["7.proto-cosmos-auth-v1beta1-baseaccount-j39", "7.proto-cosmos-crypto-secp256k1-pubkey-j39", "7.proto-eth-associatetx", "7.proto-eth-legacytx", "15.go-x-auth-types-new-base-account-j76", "15.go-x-auth-vesting-types-new-base-vesting-account-j76", "15.go-x-auth-vesting-types-new-delayed-vesting-account-raw-j76", "15.go-x-bank-types-new-msg-send-j76", "16.go-testutil-keeper-evmtestapp-j59", "16.go-testutil-keeper-mockaddresspair-j59", "16.go-testutil-keeper-mockprivatekey-j59", "16.go-testutil-keeper-privatekeytoaddresses-j59"]
+
+[file.014]
+path = "modules/evm/ante/router.go"
+lines = 51
+verdict = "clean"
+note = "Ante routing detects the EVM message and rejects mixed EVM/Cosmos envelopes before selecting the configured handler."
+produces = ["6.go-evm-ante-evmrouterdecorator-antehandle-j34", "6.go-evm-ante-isevmmessage-j34", "6.go-evm-ante-newevmrouterdecorator-j34"]
+consumes = ["6.msg-evm-evmtransaction", "6.proto-evm-msgevmtransaction", "15.go-types-ante-handler-j76"]
+
+[file.015]
+path = "modules/evm/ante/router_test.go"
+lines = 67
+verdict = "clean"
+note = "Router tests exercise the message classifications used by the real routing decorator and the single-EVM-message constraint."
+consumes = ["7.msg-cosmos-bank-v1beta1-send-j39", "7.proto-cosmos-bank-v1beta1-msgsend-j39", "7.proto-cosmos-tx-v1beta1-authinfo-j39", "7.proto-cosmos-tx-v1beta1-txbody-j39", "7.proto-eth-legacytx"]
+
+[file.016]
+path = "modules/evm/ante/sig.go"
+lines = 106
+verdict = "clean"
+note = "Signature handling distinguishes mempool and delivered nonce checks, bumps sequence on admitted failures and uses domain-aware chain IDs."
+produces = ["6.go-evm-ante-evmsigverifydecorator-antehandle-j34", "6.go-evm-ante-newevmsigverifydecorator-j34"]
+consumes = ["6.met-otel-evm-nonce-mismatch", "15.go-types-ante-handler-j76", "15.go-types-errors-err-invalid-chain-id-j76", "15.go-types-errors-err-wrong-sequence-j76"]
+
+[file.017]
+path = "modules/evm/ante/sig_metrics_test.go"
+lines = 150
+verdict = "clean"
+note = "Signature metric assertions correspond to the actual instrument labels and error/success paths; no retired service assumption was identified."
+
+[file.018]
+path = "modules/evm/ante/sig_test.go"
+lines = 160
+verdict = "clean"
+note = "Signature cases were read for sender derivation, chain ID, association and sequence behavior; fixture fields agree with the typed signature consumer."
+consumes = ["16.go-testutil-keeper-evmtestapp-j59", "16.go-testutil-keeper-mockprivatekey-j59", "16.go-testutil-keeper-privatekeytoaddresses-j59"]
+
+[file.019]
+path = "modules/evm/blocktest/config.go"
+lines = 37
+verdict = "clean"
+note = "Ethereum block-test options use eth_blocktest_enabled and eth_blocktest_test_data_path consistently with the node's option namespace."
+produces = ["6.go-evm-blocktest-config-j34", "6.go-evm-blocktest-defaultconfig-j34", "6.go-evm-blocktest-readconfig-j34"]
+consumes = ["5.cfg-app-eth-blocktest-eth-blocktest-enabled", "5.cfg-app-eth-blocktest-eth-blocktest-test-data-path", "15.go-server-types-app-options-j76"]
+
+[file.020]
+path = "modules/evm/client/cli/call_precompile_test.go"
+lines = 101
+verdict = "clean"
+note = "CLI precompile cases reject an unknown name and resolve perps, pricefeed and spot names to registered addresses/ABIs; these assertions do not establish positive-value delivery, which fails in tx.go."
+
+[file.021]
+path = "modules/evm/client/cli/cli_surface_test.go"
+lines = 111
+verdict = "clean"
+note = "The CLI surface test checks registered commands against the actual Cobra tree and identifies advertised command paths without inventing an RPC namespace."
+
+[file.022]
+path = "modules/evm/client/cli/common.go"
+lines = 107
+verdict = "issues"
+note = "ABI payload assembly was read for scalar, address and array packing; signed narrow-integer lower bounds are missing as detailed in finding 005."
+findings = ["005"]
+
+[file.023]
+path = "modules/evm/client/cli/gov_tx.go"
+lines = 168
+verdict = "clean"
+note = "Governance CLI builds the concrete pointer proposal types and Cosmos governance messages consumed by the registered proposal handler."
+produces = ["6.cli-evm-tx-add-erc-native-pointer", "6.cli-evm-tx-bind-erc-native-pointer"]
+consumes = ["6.proto-evm-addercnativepointerproposalv2", "6.proto-evm-pointerbindingproposal", "7.msg-cosmos-gov-v1beta1-submitproposal-j39", "7.proto-cosmos-gov-v1beta1-msgsubmitproposal-j39", "15.go-client-flags-add-tx-flags-to-cmd-j76", "15.go-client-get-client-tx-context-j76", "15.go-client-tx-generate-or-broadcast-tx-cli-j76", "15.go-codec-json-codec-j76", "15.go-types-parse-coins-normalized-j76", "15.go-x-gov-client-cli-flag-deposit-j76", "15.go-x-gov-types-content-j76", "15.go-x-gov-types-new-msg-submit-proposal-j76"]
+
+[file.024]
+path = "modules/evm/client/cli/native_tx.go"
+lines = 308
+verdict = "clean"
+note = "Native send and association command construction matches the message fields and signing route; recipient validation remains owned by the message finding."
+produces = ["6.cli-evm-tx-associate-contract-address", "6.cli-evm-tx-native-associate", "6.cli-evm-tx-native-send", "6.cli-evm-tx-print-claim", "6.cli-evm-tx-print-claim-by-sender", "6.cli-evm-tx-print-claim-specific", "6.cli-evm-tx-register-cw-pointer", "6.cli-evm-tx-register-evm-pointer"]
+consumes = ["6.go-pc-pointer-addcw1155pointer-j34", "6.go-pc-pointer-addcw20pointer-j34", "6.go-pc-pointer-addcw721pointer-j34", "6.go-pc-pointer-addnativepointer-j34", "6.go-pc-pointer-pointeraddress-j34", "6.go-pc-pointer-precompilename-j34", "6.go-pc-setup-getprecompileinfo-j34", "6.msg-evm-registerpointer", "6.msg-evm-send", "6.proto-evm-asset", "6.proto-evm-msgregisterpointer", "6.proto-evm-msgsend", "7.go-localaddress-j38", "15.go-client-flags-add-tx-flags-to-cmd-j76", "15.go-client-flags-flag-from-j76", "15.go-client-get-client-tx-context-j76", "15.go-client-tx-generate-or-broadcast-tx-cli-j76", "15.go-types-must-acc-address-from-bech32-j76", "15.go-types-parse-coins-normalized-j76"]
+
+[file.025]
+path = "modules/evm/client/cli/query.go"
+lines = 504
+verdict = "issues"
+note = "Query and payload commands were read end to end; method-specific argument counts, scalar errors and unknown-method responses need findings 006 and 007."
+produces = ["6.cli-evm-query-erc1155-payload", "6.cli-evm-query-erc20", "6.cli-evm-query-erc20-payload", "6.cli-evm-query-erc721-payload", "6.cli-evm-query-evm-addr", "6.cli-evm-query-pax-addr", "6.cli-evm-query-payload", "6.cli-evm-query-pointee", "6.cli-evm-query-pointer", "6.cli-evm-query-pointer-version", "6.cli-evm-query-root", "6.cli-evm-query-tx"]
+consumes = ["4.sol-erc721base-setapprovalforall-a22cb465", "6.cli-evm-query-erc1155-payload", "6.cli-evm-query-erc20", "6.cli-evm-query-erc20-payload", "6.cli-evm-query-erc721-payload", "6.cli-evm-query-evm-addr", "6.cli-evm-query-pax-addr", "6.cli-evm-query-payload", "6.cli-evm-query-pointee", "6.cli-evm-query-pointer", "6.cli-evm-query-pointer-version", "6.cli-evm-query-tx", "6.proto-evm-queryevmaddressbypaxaddressrequest", "6.proto-evm-querypaxaddressbyevmaddressrequest", "6.proto-evm-querypointeerequest", "6.proto-evm-querypointerrequest", "6.proto-evm-querypointerversionrequest", "6.proto-evm-querystaticcallrequest", "6.qry-evm-evmaddressbypaxaddress", "6.qry-evm-paxaddressbyevmaddress", "6.qry-evm-pointee", "6.qry-evm-pointer", "6.qry-evm-pointerversion", "6.qry-evm-staticcall", "6.sol-cw1155erc1155pointer-setapprovalforall-a22cb465", "6.sol-cw721erc721pointer-approve-095ea7b3", "6.sol-cw721erc721pointer-balanceof-70a08231", "6.sol-cw721erc721pointer-setapprovalforall-a22cb465", "6.sol-cw721erc721pointer-totalsupply-18160ddd", "6.sol-cw721erc721pointer-transferfrom-23b872dd", "6.sol-erc721-approve-095ea7b3", "6.sol-erc721-balanceof-70a08231", "6.sol-erc721-safetransferfrom-42842e0e", "6.sol-erc721-safetransferfrom-b88d4fde", "6.sol-erc721-setapprovalforall-a22cb465", "6.sol-erc721-totalsupply-18160ddd", "6.sol-erc721-transferfrom-23b872dd", "6.sol-ierc721-approve-095ea7b3", "6.sol-ierc721-balanceof-70a08231", "6.sol-ierc721-safetransferfrom-42842e0e", "6.sol-ierc721-safetransferfrom-b88d4fde", "6.sol-ierc721-setapprovalforall-a22cb465", "6.sol-ierc721-transferfrom-23b872dd", "7.go-localaddress-j38", "15.go-client-flags-add-query-flags-to-cmd-j76", "15.go-client-get-client-query-context-j76", "15.go-client-validate-cmd-j76", "15.go-types-new-int-from-string-j76"]
+findings = ["006", "007"]
+
+[file.026]
+path = "modules/evm/client/cli/tx.go"
+lines = 729
+verdict = "issues"
+note = "Signing, deployment, association, RPC lookups and precompile submission were read in full; findings 001-004 identify payment, error and request-lifecycle defects."
+produces = ["6.cli-evm-tx-associate-address", "6.cli-evm-tx-call-contract", "6.cli-evm-tx-call-precompile", "6.cli-evm-tx-deploy", "6.cli-evm-tx-deploy-wpax", "6.cli-evm-tx-erc20-send", "6.cli-evm-tx-root", "6.cli-evm-tx-send"]
+consumes = ["6.cli-evm-tx-add-erc-native-pointer", "6.cli-evm-tx-associate-address", "6.cli-evm-tx-associate-contract-address", "6.cli-evm-tx-bind-erc-native-pointer", "6.cli-evm-tx-call-contract", "6.cli-evm-tx-call-precompile", "6.cli-evm-tx-deploy", "6.cli-evm-tx-deploy-wpax", "6.cli-evm-tx-erc20-send", "6.cli-evm-tx-native-associate", "6.cli-evm-tx-native-send", "6.cli-evm-tx-print-claim", "6.cli-evm-tx-print-claim-by-sender", "6.cli-evm-tx-print-claim-specific", "6.cli-evm-tx-register-cw-pointer", "6.cli-evm-tx-register-evm-pointer", "6.cli-evm-tx-send", "6.go-pc-setup-getprecompileinfo-j34", "7.go-associaterequest-j38", "7.go-localaddress-j38", "15.go-client-flags-add-tx-flags-to-cmd-j76", "15.go-client-get-client-tx-context-j76", "15.go-client-tx-new-factory-cli-j76", "15.go-client-validate-cmd-j76", "15.go-codec-legacy-priv-key-from-bytes-j76", "15.go-crypto-hd-secp256k1-type-j76", "15.go-crypto-keyring-local-info-j76"]
+findings = ["001", "002", "003", "004"]
+
+[file.027]
+path = "modules/evm/client/cli/tx_test.go"
+lines = 200
+verdict = "clean"
+note = "Transaction command cases use the registered command names and emitted message types; no additional contradictory fixture shape was found."
+consumes = ["6.cli-evm-tx-root", "6.go-lxbridge-types-sidioradenom-j36", "6.msg-evm-bindercnativepointer", "6.proto-evm-msgbindercnativepointer", "6.proto-evm-pointerbindingproposal", "15.go-codec-proto-codec-j76", "15.go-std-register-interfaces-j76", "15.go-x-gov-client-cli-flag-deposit-j76", "15.go-x-gov-types-register-interfaces-j76"]
+
+[file.028]
+path = "modules/evm/client/cli/usage_flags_test.go"
+lines = 37
+verdict = "clean"
+note = "Usage and flag cases match --gas-limit and --evm-rpc in the Cobra commands, supporting the documentation correction in finding 033."
+
+[file.029]
+path = "modules/evm/client/wasm/bindings/queries.go"
+lines = 467
+verdict = "clean"
+note = "PaxEVMQuery JSON fields correspond to the dispatcher and token-query variants; nullable numeric inputs need validation in their handlers under finding 008."
+produces = ["6.go-evm-client-wasm-bindings-erc1155balanceofbatchtype-j34", "6.go-evm-client-wasm-bindings-erc1155balanceoftype-j34", "6.go-evm-client-wasm-bindings-erc1155batchtransfertype-j34", "6.go-evm-client-wasm-bindings-erc1155isapprovedforalltype-j34", "6.go-evm-client-wasm-bindings-erc1155namesymboltype-j34", "6.go-evm-client-wasm-bindings-erc1155royaltyinfotype-j34", "6.go-evm-client-wasm-bindings-erc1155setapprovalalltype-j34", "6.go-evm-client-wasm-bindings-erc1155tokenexiststype-j34", "6.go-evm-client-wasm-bindings-erc1155totalsupplyfortokentype-j34", "6.go-evm-client-wasm-bindings-erc1155totalsupplytype-j34", "6.go-evm-client-wasm-bindings-erc1155transfertype-j34", "6.go-evm-client-wasm-bindings-erc1155uritype-j34", "6.go-evm-client-wasm-bindings-erc20allowancetype-j34", "6.go-evm-client-wasm-bindings-erc20approvetype-j34", "6.go-evm-client-wasm-bindings-erc20balancetype-j34", "6.go-evm-client-wasm-bindings-erc20tokeninfotype-j34", "6.go-evm-client-wasm-bindings-erc20transferfromtype-j34", "6.go-evm-client-wasm-bindings-erc20transfertype-j34", "6.go-evm-client-wasm-bindings-erc721approvedtype-j34", "6.go-evm-client-wasm-bindings-erc721approvetype-j34", "6.go-evm-client-wasm-bindings-erc721isapprovedforalltype-j34", "6.go-evm-client-wasm-bindings-erc721namesymboltype-j34", "6.go-evm-client-wasm-bindings-erc721ownertype-j34", "6.go-evm-client-wasm-bindings-erc721royaltyinfotype-j34", "6.go-evm-client-wasm-bindings-erc721setapprovalalltype-j34", "6.go-evm-client-wasm-bindings-erc721totalsupplytype-j34", "6.go-evm-client-wasm-bindings-erc721transfertype-j34", "6.go-evm-client-wasm-bindings-erc721uritype-j34", "6.go-evm-client-wasm-bindings-evmquerytype-j34", "6.go-evm-client-wasm-bindings-getevmaddresstype-j34", "6.go-evm-client-wasm-bindings-getpaxaddresstype-j34", "6.go-evm-client-wasm-bindings-paxevmquery-getquerytype-j34", "6.go-evm-client-wasm-bindings-paxevmquery-j34", "6.go-evm-client-wasm-bindings-staticcalltype-j34", "6.go-evm-client-wasm-bindings-supportsinterfacetype-j34", "6.wasm-pax-evm-erc1155-balance-of", "6.wasm-pax-evm-erc1155-balance-of-batch", "6.wasm-pax-evm-erc1155-batch-transfer-payload", "6.wasm-pax-evm-erc1155-is-approved-for-all", "6.wasm-pax-evm-erc1155-name-symbol", "6.wasm-pax-evm-erc1155-royalty-info", "6.wasm-pax-evm-erc1155-set-approval-all-payload", "6.wasm-pax-evm-erc1155-token-exists", "6.wasm-pax-evm-erc1155-total-supply", "6.wasm-pax-evm-erc1155-total-supply-for-token", "6.wasm-pax-evm-erc1155-transfer-payload", "6.wasm-pax-evm-erc1155-uri", "6.wasm-pax-evm-erc20-allowance", "6.wasm-pax-evm-erc20-approve-payload", "6.wasm-pax-evm-erc20-balance", "6.wasm-pax-evm-erc20-token-info", "6.wasm-pax-evm-erc20-transfer-from-payload", "6.wasm-pax-evm-erc20-transfer-payload", "6.wasm-pax-evm-erc721-approve-payload", "6.wasm-pax-evm-erc721-approved", "6.wasm-pax-evm-erc721-is-approved-for-all", "6.wasm-pax-evm-erc721-name-symbol", "6.wasm-pax-evm-erc721-owner", "6.wasm-pax-evm-erc721-royalty-info", "6.wasm-pax-evm-erc721-set-approval-all-payload", "6.wasm-pax-evm-erc721-total-supply", "6.wasm-pax-evm-erc721-transfer-payload", "6.wasm-pax-evm-erc721-uri", "6.wasm-pax-evm-get-evm-address", "6.wasm-pax-evm-get-pax-address", "6.wasm-pax-evm-static-call", "6.wasm-pax-evm-supports-interface"]
+
+[file.030]
+path = "modules/evm/client/wasm/encoder.go"
+lines = 53
+verdict = "clean"
+note = "Wasm message encoding carries delegate FromContract as bech32 text, matching reverse-pointer lookup's existing text-byte registry key rather than a raw-address key."
+produces = ["6.go-evm-client-wasm-encodecallevm-j34", "6.go-evm-client-wasm-encodedelegatecallevm-j34"]
+consumes = ["5.go-node-wasmbinding-bindings-call-evm", "5.go-node-wasmbinding-bindings-delegate-call-evm", "5.go-wasmvmtypes-messageinfo", "5.wasm-pax-msg-call-evm", "5.wasm-pax-msg-delegate-call-evm", "6.go-wasmtypes-codeinfo", "6.msg-evm-internalevmcall", "6.msg-evm-internalevmdelegatecall", "6.proto-evm-msginternalevmcall", "6.proto-evm-msginternalevmdelegatecall"]
+
+[file.031]
+path = "modules/evm/client/wasm/query.go"
+lines = 1078
+verdict = "issues"
+note = "All Wasm token and address query handlers were read; nullable unsigned inputs and ERC165 identifier length need findings 008 and 009."
+produces = ["6.go-evm-client-wasm-evmqueryhandler-handleerc1155balanceof-j34", "6.go-evm-client-wasm-evmqueryhandler-handleerc1155balanceofbatch-j34", "6.go-evm-client-wasm-evmqueryhandler-handleerc1155batchtransferpayload-j34", "6.go-evm-client-wasm-evmqueryhandler-handleerc1155isapprovedforall-j34", "6.go-evm-client-wasm-evmqueryhandler-handleerc1155namesymbol-j34", "6.go-evm-client-wasm-evmqueryhandler-handleerc1155royaltyinfo-j34", "6.go-evm-client-wasm-evmqueryhandler-handleerc1155setapprovalallpayload-j34", "6.go-evm-client-wasm-evmqueryhandler-handleerc1155tokenexists-j34", "6.go-evm-client-wasm-evmqueryhandler-handleerc1155totalsupply-j34", "6.go-evm-client-wasm-evmqueryhandler-handleerc1155totalsupplyfortoken-j34", "6.go-evm-client-wasm-evmqueryhandler-handleerc1155transferpayload-j34", "6.go-evm-client-wasm-evmqueryhandler-handleerc1155uri-j34", "6.go-evm-client-wasm-evmqueryhandler-handleerc20allowance-j34", "6.go-evm-client-wasm-evmqueryhandler-handleerc20approvepayload-j34", "6.go-evm-client-wasm-evmqueryhandler-handleerc20balance-j34", "6.go-evm-client-wasm-evmqueryhandler-handleerc20tokeninfo-j34", "6.go-evm-client-wasm-evmqueryhandler-handleerc20transferfrompayload-j34", "6.go-evm-client-wasm-evmqueryhandler-handleerc20transferpayload-j34", "6.go-evm-client-wasm-evmqueryhandler-handleerc721approved-j34", "6.go-evm-client-wasm-evmqueryhandler-handleerc721approvepayload-j34", "6.go-evm-client-wasm-evmqueryhandler-handleerc721isapprovedforall-j34", "6.go-evm-client-wasm-evmqueryhandler-handleerc721namesymbol-j34", "6.go-evm-client-wasm-evmqueryhandler-handleerc721owner-j34", "6.go-evm-client-wasm-evmqueryhandler-handleerc721royaltyinfo-j34", "6.go-evm-client-wasm-evmqueryhandler-handleerc721setapprovalallpayload-j34", "6.go-evm-client-wasm-evmqueryhandler-handleerc721totalsupply-j34", "6.go-evm-client-wasm-evmqueryhandler-handleerc721transferpayload-j34", "6.go-evm-client-wasm-evmqueryhandler-handleerc721uri-j34", "6.go-evm-client-wasm-evmqueryhandler-handlegetevmaddress-j34", "6.go-evm-client-wasm-evmqueryhandler-handlegetpaxaddress-j34", "6.go-evm-client-wasm-evmqueryhandler-handlestaticcall-j34", "6.go-evm-client-wasm-evmqueryhandler-handlesupportsinterface-j34", "6.go-evm-client-wasm-evmqueryhandler-j34", "6.go-evm-client-wasm-newevmqueryhandler-j34"]
+consumes = ["4.sol-erc721base-setapprovalforall-a22cb465", "6.err-go-evm-association-missing", "6.sol-cw1155erc1155pointer-balanceofbatch-4e1273f4", "6.sol-cw1155erc1155pointer-royaltyinfo-2a55205a", "6.sol-cw1155erc1155pointer-setapprovalforall-a22cb465", "6.sol-cw721erc721pointer-approve-095ea7b3", "6.sol-cw721erc721pointer-balanceof-70a08231", "6.sol-cw721erc721pointer-getapproved-081812fc", "6.sol-cw721erc721pointer-isapprovedforall-e985e9c5", "6.sol-cw721erc721pointer-ownerof-6352211e", "6.sol-cw721erc721pointer-royaltyinfo-2a55205a", "6.sol-cw721erc721pointer-setapprovalforall-a22cb465", "6.sol-cw721erc721pointer-supportsinterface-01ffc9a7", "6.sol-cw721erc721pointer-tokenuri-c87b56dd", "6.sol-cw721erc721pointer-totalsupply-18160ddd", "6.sol-cw721erc721pointer-transferfrom-23b872dd", "6.sol-erc721-approve-095ea7b3", "6.sol-erc721-balanceof-70a08231", "6.sol-erc721-getapproved-081812fc", "6.sol-erc721-isapprovedforall-e985e9c5", "6.sol-erc721-ownerof-6352211e", "6.sol-erc721-safetransferfrom-42842e0e", "6.sol-erc721-safetransferfrom-b88d4fde", "6.sol-erc721-setapprovalforall-a22cb465", "6.sol-erc721-supportsinterface-01ffc9a7", "6.sol-erc721-totalsupply-18160ddd", "6.sol-erc721-transferfrom-23b872dd", "6.sol-ierc165-supportsinterface-01ffc9a7", "6.sol-ierc721-approve-095ea7b3", "6.sol-ierc721-balanceof-70a08231", "6.sol-ierc721-getapproved-081812fc", "6.sol-ierc721-isapprovedforall-e985e9c5", "6.sol-ierc721-ownerof-6352211e", "6.sol-ierc721-safetransferfrom-42842e0e", "6.sol-ierc721-safetransferfrom-b88d4fde", "6.sol-ierc721-setapprovalforall-a22cb465", "6.sol-ierc721-transferfrom-23b872dd", "6.sol-mynft-royaltyinfo-2a55205a", "6.sol-mynft-tokenuri-c87b56dd", "6.wasm-pax-evm-erc1155-balance-of", "6.wasm-pax-evm-erc1155-balance-of-batch", "6.wasm-pax-evm-erc1155-batch-transfer-payload", "6.wasm-pax-evm-erc1155-is-approved-for-all", "6.wasm-pax-evm-erc1155-name-symbol", "6.wasm-pax-evm-erc1155-royalty-info", "6.wasm-pax-evm-erc1155-set-approval-all-payload", "6.wasm-pax-evm-erc1155-token-exists", "6.wasm-pax-evm-erc1155-total-supply", "6.wasm-pax-evm-erc1155-total-supply-for-token", "6.wasm-pax-evm-erc1155-transfer-payload", "6.wasm-pax-evm-erc1155-uri", "6.wasm-pax-evm-erc20-allowance", "6.wasm-pax-evm-erc20-approve-payload", "6.wasm-pax-evm-erc20-balance", "6.wasm-pax-evm-erc20-token-info", "6.wasm-pax-evm-erc20-transfer-from-payload", "6.wasm-pax-evm-erc20-transfer-payload", "6.wasm-pax-evm-erc721-approve-payload", "6.wasm-pax-evm-erc721-approved", "6.wasm-pax-evm-erc721-is-approved-for-all", "6.wasm-pax-evm-erc721-name-symbol", "6.wasm-pax-evm-erc721-owner", "6.wasm-pax-evm-erc721-royalty-info", "6.wasm-pax-evm-erc721-set-approval-all-payload", "6.wasm-pax-evm-erc721-total-supply", "6.wasm-pax-evm-erc721-transfer-payload", "6.wasm-pax-evm-erc721-uri", "6.wasm-pax-evm-get-evm-address", "6.wasm-pax-evm-get-pax-address", "6.wasm-pax-evm-static-call", "6.wasm-pax-evm-supports-interface", "15.go-types-new-int-from-big-int-j76", "15.go-types-new-int-from-string-j76"]
+findings = ["008", "009"]
+
+[file.032]
+path = "modules/evm/client/wasm/query_addresses_test.go"
+lines = 74
+verdict = "clean"
+note = "Address query cases preserve the EVM hex/Pax bech32 distinction and reject malformed input rather than silently normalizing it."
+consumes = ["6.wasm-pax-evm-erc1155-batch-transfer-payload", "6.wasm-pax-evm-erc1155-is-approved-for-all", "6.wasm-pax-evm-erc1155-set-approval-all-payload", "6.wasm-pax-evm-erc1155-transfer-payload", "6.wasm-pax-evm-erc20-allowance", "6.wasm-pax-evm-erc20-approve-payload", "6.wasm-pax-evm-erc20-transfer-from-payload", "6.wasm-pax-evm-erc20-transfer-payload", "6.wasm-pax-evm-erc721-approve-payload", "6.wasm-pax-evm-erc721-is-approved-for-all", "6.wasm-pax-evm-erc721-set-approval-all-payload", "6.wasm-pax-evm-erc721-transfer-payload"]
+
+[file.033]
+path = "modules/evm/client/wasm/query_test.go"
+lines = 627
+verdict = "clean"
+note = "Wasm query cases use the exported binding structs and current handler response shapes; no additional producer/fixture disagreement was identified."
+consumes = ["6.proto-evm-msgevmtransactionresponse", "6.wasm-pax-evm-erc1155-balance-of", "6.wasm-pax-evm-erc1155-balance-of-batch", "6.wasm-pax-evm-erc1155-batch-transfer-payload", "6.wasm-pax-evm-erc1155-is-approved-for-all", "6.wasm-pax-evm-erc1155-name-symbol", "6.wasm-pax-evm-erc1155-royalty-info", "6.wasm-pax-evm-erc1155-set-approval-all-payload", "6.wasm-pax-evm-erc1155-token-exists", "6.wasm-pax-evm-erc1155-total-supply", "6.wasm-pax-evm-erc1155-total-supply-for-token", "6.wasm-pax-evm-erc1155-transfer-payload", "6.wasm-pax-evm-erc1155-uri", "6.wasm-pax-evm-erc20-allowance", "6.wasm-pax-evm-erc20-approve-payload", "6.wasm-pax-evm-erc20-balance", "6.wasm-pax-evm-erc20-token-info", "6.wasm-pax-evm-erc20-transfer-from-payload", "6.wasm-pax-evm-erc20-transfer-payload", "6.wasm-pax-evm-erc721-approve-payload", "6.wasm-pax-evm-erc721-approved", "6.wasm-pax-evm-erc721-is-approved-for-all", "6.wasm-pax-evm-erc721-name-symbol", "6.wasm-pax-evm-erc721-owner", "6.wasm-pax-evm-erc721-royalty-info", "6.wasm-pax-evm-erc721-set-approval-all-payload", "6.wasm-pax-evm-erc721-total-supply", "6.wasm-pax-evm-erc721-transfer-payload", "6.wasm-pax-evm-erc721-uri", "6.wasm-pax-evm-get-evm-address", "6.wasm-pax-evm-get-pax-address", "6.wasm-pax-evm-static-call", "16.go-testutil-keeper-mockaddresspair-j59", "16.go-testutil-keeper-mockprivatekey-j59", "16.go-testutil-keeper-privatekeytoaddresses-j59", "16.go-testutil-keeper-waitforreceipt-j59"]
+
+[file.034]
+path = "modules/evm/config/config.go"
+lines = 58
+verdict = "clean"
+note = "Live IDs map hyperpax_125-1 to EVM 125, with compatibility names separated by the live-chain helpers; no retired RPC endpoint is configured."
+produces = ["6.go-evm-config-chainidmapping-j34", "6.go-evm-config-defaultchainid-j34", "6.go-evm-config-evmchainidmapping-j34", "6.go-evm-config-getevmchainid-j34", "6.go-evm-config-islivechainid-j34", "6.go-evm-config-isliveevmchainid-j34"]
+
+[file.035]
+path = "modules/evm/config/config_test.go"
+lines = 307
+verdict = "clean"
+note = "Chain-ID tests assert the live mainnet mapping and live-ID classification used by production configuration consumers."
+
+[file.036]
+path = "modules/evm/derived/derived.go"
+lines = 33
+verdict = "clean"
+note = "Derived transaction metadata uses explicit signer versions and go-ethereum addresses; its ephemeral role agrees with preprocessing and execution."
+produces = ["6.go-evm-derived-cancun-j34", "6.go-evm-derived-derived-j34", "6.go-evm-derived-london-j34", "6.go-evm-derived-prague-j34", "6.go-evm-derived-signerversion-j34"]
+consumes = ["7.proto-cosmos-crypto-secp256k1-pubkey-j39"]
+
+[file.037]
+path = "modules/evm/genesis.go"
+lines = 199
+verdict = "issues"
+note = "Ordinary and streamed genesis import/export were read in full; completed binding consistency and durable fee/bloom state need findings 019 and 020."
+produces = ["6.go-evm-getgenesisstatefromappstate-j34"]
+consumes = ["6.proto-evm-addressassociation", "6.proto-evm-code", "6.proto-evm-contractstate", "6.proto-evm-genesisstate", "6.proto-evm-nonce", "6.proto-evm-serialized", "15.go-codec-json-codec-j76", "15.go-types-must-acc-address-from-bech32-j76"]
+findings = ["019", "020"]
+
+[file.038]
+path = "modules/evm/genesis_fee_denom_test.go"
+lines = 62
+verdict = "clean"
+note = "Fee-denom genesis cases use actual serialized account-prefix entries and validate their transport shape; their assertions match the current fee-denom codec."
+
+[file.039]
+path = "modules/evm/genesis_stream_fee_denom_test.go"
+lines = 67
+verdict = "clean"
+note = "Streamed fee-denom cases transport the same prefix/key/value schema as ordinary export; no independent fee-denom disagreement was identified."
+
+[file.040]
+path = "modules/evm/genesis_stream_test.go"
+lines = 44
+verdict = "clean"
+note = "Streamed genesis fixtures follow the actual GenesisState chunk shape; broader invalid-chunk acceptance is recorded against the validator in finding 021."
+consumes = ["6.proto-evm-genesisstate"]
+
+[file.041]
+path = "modules/evm/genesis_test.go"
+lines = 50
+verdict = "clean"
+note = "Genesis tests cover the exported association/code/state/nonce representation; missing fee/bloom recovery coverage is included in the export proposal."
+consumes = ["6.proto-evm-receipt", "16.go-testutil-keeper-mockaddresspair-j59"]
+
+[file.042]
+path = "modules/evm/gov.go"
+lines = 101
+verdict = "clean"
+note = "Governance dispatch routes concrete pointer proposals to their typed keeper operations and returns errors for unsupported content."
+produces = ["6.go-evm-newparamchangeproposalhandler-j34"]
+consumes = ["6.proto-evm-addcwerc1155pointerproposal", "6.proto-evm-addcwerc20pointerproposal", "6.proto-evm-addcwerc721pointerproposal", "6.proto-evm-adderccw1155pointerproposal", "6.proto-evm-adderccw20pointerproposal", "6.proto-evm-adderccw721pointerproposal", "6.proto-evm-addercnativepointerproposal", "6.proto-evm-addercnativepointerproposalv2", "7.proto-cosmos-params-v1beta1-parameterchangeproposal-j39", "15.go-x-gov-types-content-j76", "15.go-x-gov-types-handler-j76", "15.go-x-params-keeper-keeper-j76", "15.go-x-params-new-param-change-proposal-handler-j76"]
+
+[file.043]
+path = "modules/evm/gov_test.go"
+lines = 157
+verdict = "clean"
+note = "Governance tests use the same content types registered by codecs and handled by the proposal switch; no additional route mismatch was identified."
+consumes = ["6.proto-evm-addercnativepointerproposalv2", "6.proto-evm-allowedfeedenom", "7.proto-cosmos-params-v1beta1-paramchange-j39", "7.proto-cosmos-params-v1beta1-parameterchangeproposal-j39", "15.go-types-must-new-dec-from-str-j76", "15.go-x-params-types-proposal-new-param-change-j76", "15.go-x-params-types-proposal-new-parameter-change-proposal-j76", "16.go-testutil-keeper-mockevmkeeper-j59"]
+
+[file.044]
+path = "modules/evm/handler.go"
+lines = 103
+verdict = "clean"
+note = "Legacy message routing unwraps concrete EVM messages and delegates to the corresponding message server; unknown messages return an SDK error."
+produces = ["6.go-evm-newproposalhandler-j34"]
+consumes = ["6.msg-evm-associatecontractaddress", "6.msg-evm-bindercnativepointer", "6.msg-evm-evmtransaction", "6.msg-evm-registerpointer", "6.msg-evm-send", "6.proto-evm-addcwerc1155pointerproposal", "6.proto-evm-addcwerc20pointerproposal", "6.proto-evm-addcwerc721pointerproposal", "6.proto-evm-adderccw1155pointerproposal", "6.proto-evm-adderccw20pointerproposal", "6.proto-evm-adderccw721pointerproposal", "6.proto-evm-addercnativepointerproposal", "6.proto-evm-addercnativepointerproposalv2", "6.proto-evm-msgassociatecontractaddress", "6.proto-evm-msgbindercnativepointer", "6.proto-evm-msgevmtransaction", "6.proto-evm-msgregisterpointer", "6.proto-evm-msgsend", "6.proto-evm-pointerbindingproposal", "7.proto-cosmos-base-abci-v1beta1-result-j39", "15.go-types-errors-err-unknown-request-j76", "15.go-types-handler-j76", "15.go-types-msg-type-url-j76", "15.go-types-new-event-manager-j76", "15.go-types-wrap-sdk-context-j76", "15.go-types-wrap-service-result-j76", "15.go-x-gov-types-content-j76", "15.go-x-gov-types-err-invalid-proposal-content-j76", "15.go-x-gov-types-handler-j76"]
+
+[file.045]
+path = "modules/evm/integration_test.go"
+lines = 609
+verdict = "clean"
+note = "Integration assertions use the mounted SDK/EVM message path and persistent keeper state rather than a separate LayerX RPC service."
+consumes = ["5.go-consensus-abci-types-request-deliver-tx-v2", "6.go-pc-pointer-pointeraddress-j34", "6.go-pc-pointer-precompileexecutor-execute-j34", "6.msg-evm-associate", "6.msg-evm-registerpointer", "6.pc-0x100b-addcw1155pointer", "6.pc-0x100b-addcw721pointer", "6.proto-evm-msgassociate", "6.proto-evm-msgevmtransactionresponse", "6.proto-evm-msgregisterpointer", "6.proto-evm-receipt", "6.sol-cw1155erc1155pointer-royaltyinfo-2a55205a", "6.sol-cw721erc721pointer-royaltyinfo-2a55205a", "6.sol-erc1155example-name-06fdde03", "6.sol-erc1155example-setdefaultroyalty-b03b74aa", "6.sol-erc1155example-symbol-95d89b41", "6.sol-mynft-royaltyinfo-2a55205a", "7.proto-cosmos-base-abci-v1beta1-txmsgdata-j39", "7.proto-eth-associatetx", "15.go-client-tx-sign-with-priv-key-j76", "16.go-testutil-keeper-mockaddresspair-j59", "16.go-testutil-keeper-mockprivatekey-j59", "16.go-testutil-keeper-privatekeytoaddresses-j59", "16.go-testutil-keeper-waitforreceipt-j59"]
+
+[file.046]
+path = "modules/evm/keeper/abci.go"
+lines = 244
+verdict = "issues"
+note = "BeginBlock and EndBlock wiring, receipt migration, cleanup, fee adjustment and settlement were read in full; operator payout needs findings 011 and 012."
+produces = ["6.go-evm-keeper-keeper-beginblock-j34", "6.go-evm-keeper-keeper-endblock-j34"]
+consumes = ["5.go-storage-ledger-db-receipt-err-not-found", "6.met-otel-evm-abci-begin-blocker-duration", "6.met-otel-evm-abci-end-blocker-duration", "6.met-otel-evm-block-base-fee", "6.msg-evm-evmtransaction", "6.proto-evm-deferredinfo", "6.proto-evm-msgevmtransaction", "6.proto-evm-receipt", "8.http-middleware-conformance-any-receipt", "15.go-telemetry-module-measure-since-j76", "15.go-types-new-coins-j76", "15.go-types-zero-int-j76", "15.go-x-auth-types-fee-collector-name-j76", "15.met-tel-key-begin-blocker", "15.met-tel-key-end-blocker"]
+findings = ["011", "012"]
+
+[file.047]
+path = "modules/evm/keeper/abci_failure_test.go"
+lines = 14
+verdict = "clean"
+note = "EndBlock failure tests assert fail-closed handling of fee/receipt settlement errors with actual stores; no silent fallback is asserted here."
+
+[file.048]
+path = "modules/evm/keeper/abci_test.go"
+lines = 253
+verdict = "clean"
+note = "ABCI lifecycle cases use the current deferred transaction, coinbase and bloom shapes; domain payout-specific test defects are isolated in domain_fees_test.go."
+consumes = ["6.msg-evm-evmtransaction", "6.proto-evm-allowedfeedenom", "6.proto-evm-msgevmtransaction", "15.go-types-errors-err-invalid-recipient-j76", "16.go-testutil-keeper-mockaddresspair-j59"]
+
+[file.049]
+path = "modules/evm/keeper/address.go"
+lines = 106
+verdict = "clean"
+note = "Pax/EVM association lookup and deletion use paired prefixes and deterministic cast fallbacks; text and byte address forms match bank consumers."
+produces = ["6.go-evm-keeper-keeper-getevmaddress-j34", "6.go-evm-keeper-keeper-getevmaddressordefault-j34", "6.go-evm-keeper-keeper-getpaxaddress-j34", "6.go-evm-keeper-keeper-getpaxaddressordefault-j34", "6.go-evm-keeper-keeper-setaddressmapping-j34", "6.go-evm-keeper-newevmaddresshandler-j34"]
+consumes = ["6.evt-evm-address-associated"]
+
+[file.050]
+path = "modules/evm/keeper/address_test.go"
+lines = 154
+verdict = "clean"
+note = "Address-mapping tests exercise both lookup directions, cast fallback and association removal against keeper storage."
+consumes = ["16.go-testutil-keeper-mockaddresspair-j59"]
+
+[file.051]
+path = "modules/evm/keeper/ante.go"
+lines = 34
+verdict = "clean"
+note = "Ante surplus and deferred fee-token charge state use transaction-indexed transient keys with an explicit absence contract."
+produces = ["6.go-evm-keeper-keeper-addantesurplus-j34", "6.go-evm-keeper-keeper-getantesurplussum-j34"]
+consumes = ["15.go-types-zero-int-j76"]
+
+[file.052]
+path = "modules/evm/keeper/balance.go"
+lines = 17
+verdict = "clean"
+note = "Keeper balance reads preserve six-decimal coin plus wei remainder through the associated address bank view."
+produces = ["6.go-evm-keeper-keeper-getbalance-j34"]
+
+[file.053]
+path = "modules/evm/keeper/chains_binding.go"
+lines = 42
+verdict = "clean"
+note = "ChainsBinding exposes typed domain identity, base-fee, gas and operator readers and synchronized wiring; node injection supplies these collaborators."
+
+[file.054]
+path = "modules/evm/keeper/code.go"
+lines = 70
+verdict = "clean"
+note = "Code and code-hash storage distinguish absent code from empty code and iterate concrete EVM addresses as required by genesis and StateDB."
+produces = ["6.go-evm-keeper-keeper-getcode-j34", "6.go-evm-keeper-keeper-setcode-j34"]
+
+[file.055]
+path = "modules/evm/keeper/code_test.go"
+lines = 57
+verdict = "clean"
+note = "Code-storage cases use the same address/hash keys and iteration representation as the keeper producer."
+
+[file.056]
+path = "modules/evm/keeper/coinbase.go"
+lines = 37
+verdict = "clean"
+note = "Coinbase selection uses the transaction's deterministic address and the fee collector/association mapping required by execution."
+produces = ["6.go-evm-keeper-keeper-getfeecollectoraddress-j34"]
+consumes = ["15.go-types-new-infinite-gas-meter-with-multiplier-j76", "15.go-x-auth-types-fee-collector-name-j76"]
+
+[file.057]
+path = "modules/evm/keeper/coinbase_test.go"
+lines = 22
+verdict = "clean"
+note = "Coinbase assertions cover the actual keeper address selection rather than an external block builder or sequencer account."
+
+[file.058]
+path = "modules/evm/keeper/deferred.go"
+lines = 94
+verdict = "clean"
+note = "Deferred execution information uses the generated DeferredInfo schema and transaction ordering consumed by EndBlock."
+produces = ["6.go-evm-keeper-keeper-appendtoevmtxdeferredinfo-j34", "6.go-evm-keeper-keeper-getevmtxdeferredinfo-j34", "6.go-evm-keeper-keeper-setnoncebumped-j34"]
+consumes = ["6.proto-evm-deferredinfo"]
+
+[file.059]
+path = "modules/evm/keeper/domain_fees_test.go"
+lines = 169
+verdict = "issues"
+note = "Operator share tests were read in full; prefunding, wrong denomination expectations and skipped unfunded payouts conceal findings 011 and 012 as explained in 013."
+findings = ["013"]
+
+[file.060]
+path = "modules/evm/keeper/evm.go"
+lines = 215
+verdict = "clean"
+note = "EVM call construction enforces the one-hop write restriction and delegate pointer authorization; FromContract's text encoding agrees with the existing reverse registry."
+produces = ["6.go-evm-keeper-keeper-callevm-j34", "6.go-evm-keeper-keeper-handleinternalevmcall-j34", "6.go-evm-keeper-keeper-handleinternalevmdelegatecall-j34", "6.go-evm-keeper-keeper-staticcallevm-j34"]
+consumes = ["6.err-go-evm-association-missing", "6.go-pc-solo-soloaddress-j34", "6.met-otel-evm-keeper-association-error", "6.msg-evm-internalevmcall", "6.msg-evm-internalevmdelegatecall", "6.proto-evm-msginternalevmcall", "6.proto-evm-msginternalevmdelegatecall", "7.proto-cosmos-base-abci-v1beta1-result-j39", "15.go-types-errors-err-invalid-coins-j76", "15.go-types-new-dec-from-int-j76", "15.go-types-new-infinite-gas-meter-with-multiplier-j76", "15.go-types-new-int-from-uint64-j76", "15.go-types-zero-int-j76"]
+
+[file.061]
+path = "modules/evm/keeper/evm_test.go"
+lines = 217
+verdict = "issues"
+note = "Internal-call and delegate-call assertions were read; the delegate rejection fixture needs the real registration and successful encoder path in finding 010."
+consumes = ["6.msg-evm-internalevmcall", "6.msg-evm-internalevmdelegatecall", "6.proto-evm-msginternalevmcall", "6.proto-evm-msginternalevmdelegatecall"]
+findings = ["010"]
+
+[file.062]
+path = "modules/evm/keeper/fee.go"
+lines = 116
+verdict = "clean"
+note = "Root and domain fee adjustment readers use decimal wei-per-gas and persisted next-fee keys; export of those keys is missing in genesis.go, finding 020."
+produces = ["6.go-evm-keeper-keeper-getcurrbasefeepergas-j34", "6.go-evm-keeper-keeper-getnextbasefeepergas-j34"]
+consumes = ["15.go-types-dec-j76", "15.go-types-new-dec-j76"]
+
+[file.063]
+path = "modules/evm/keeper/fee_test.go"
+lines = 214
+verdict = "clean"
+note = "Fee adjustment tests assert the production decimal fee units, clipping and utilization behavior rather than native-unit operator payouts."
+consumes = ["16.go-testutil-keeper-mockevmkeeper-j59"]
+
+[file.064]
+path = "modules/evm/keeper/feecollect.go"
+lines = 43
+verdict = "clean"
+note = "Fee-token routing validates distribution and allowance and uses a cached context to avoid publishing partial transfers on an error."
+produces = ["6.go-evm-keeper-keeper-routecollectedfeetokens-j34"]
+consumes = ["15.go-types-new-coins-j76", "15.go-x-auth-types-fee-collector-name-j76"]
+
+[file.065]
+path = "modules/evm/keeper/feecollect_test.go"
+lines = 179
+verdict = "clean"
+note = "Fee collection cases use the actual denom distribution and bank movements, with conservation/error expectations matching the router."
+consumes = ["5.go-consensus-abci-types-commit-info", "5.go-node-app-process-block", "5.go-node-block-process-request", "6.proto-evm-allowedfeedenom", "6.proto-evm-params", "15.go-types-new-dec-coins-from-coins-j76", "15.go-x-auth-types-burner-j76", "15.go-x-auth-types-minter-j76", "15.go-x-distribution-begin-blocker-j76"]
+
+[file.066]
+path = "modules/evm/keeper/feetoken.go"
+lines = 140
+verdict = "clean"
+note = "Account fee denomination and allowed-rate storage validate rates, age, spread and overflow; persisted fields match the Params and AllowedFeeDenom schema."
+produces = ["6.go-evm-keeper-convertfeefromdenom-j34", "6.go-evm-keeper-convertfeetodenom-j34", "6.go-evm-keeper-errfeetokendenomnotallowed-j34", "6.go-evm-keeper-errfeetokenoverflow-j34", "6.go-evm-keeper-keeper-convertfeefromdenom-j34", "6.go-evm-keeper-keeper-convertfeetodenom-j34", "6.go-evm-keeper-keeper-getantefeetokencharge-j34", "6.go-evm-keeper-keeper-getfeetokencharge-j34", "6.go-evm-keeper-keeper-setaccountfeedenom-j34", "6.go-evm-keeper-keeper-setantefeetokencharge-j34"]
+consumes = ["15.go-types-dec-j76", "15.go-types-new-infinite-gas-meter-with-multiplier-j76", "15.go-types-new-int-from-big-int-j76", "15.go-types-new-int-j76", "15.go-types-validate-denom-j76"]
+
+[file.067]
+path = "modules/evm/keeper/feetoken_test.go"
+lines = 184
+verdict = "clean"
+note = "Fee-token assertions use declared parameter fields, oracle-independent rates and the same conversion boundaries as the keeper."
+consumes = ["6.proto-evm-allowedfeedenom", "15.go-types-new-gas-meter-j76"]
+
+[file.068]
+path = "modules/evm/keeper/genesis.go"
+lines = 117
+verdict = "issues"
+note = "Pointer bytecode installation and parameter initialization were read; initialization currently continues after mandatory Wasm installation fails, finding 022."
+produces = ["6.go-evm-keeper-keeper-initgenesis-j34"]
+consumes = ["6.proto-evm-genesisstate", "15.go-types-must-acc-address-from-bech32-j76", "15.go-x-auth-types-burner-j76", "15.go-x-auth-types-fee-collector-name-j76", "15.go-x-auth-types-minter-j76", "15.go-x-auth-types-new-empty-module-account-j76"]
+findings = ["022"]
+
+[file.069]
+path = "modules/evm/keeper/genesis_test.go"
+lines = 19
+verdict = "clean"
+note = "Keeper genesis tests use installed pointer code IDs and actual params; failure-to-install handling is proposed against genesis.go."
+
+[file.070]
+path = "modules/evm/keeper/grpc_query.go"
+lines = 281
+verdict = "clean"
+note = "gRPC query methods return the declared address, pointer, version and static-call fields, validate requests and preserve associated/exists flags."
+produces = ["6.go-evm-keeper-querier-staticcall-j34"]
+consumes = ["6.proto-evm-queryevmaddressbypaxaddressrequest", "6.proto-evm-queryevmaddressbypaxaddressresponse", "6.proto-evm-querypaxaddressbyevmaddressrequest", "6.proto-evm-querypaxaddressbyevmaddressresponse", "6.proto-evm-querypointeerequest", "6.proto-evm-querypointeeresponse", "6.proto-evm-querypointerrequest", "6.proto-evm-querypointerresponse", "6.proto-evm-querypointerversionrequest", "6.proto-evm-querypointerversionresponse", "6.proto-evm-querystaticcallrequest", "6.proto-evm-querystaticcallresponse", "15.go-types-errors-err-invalid-request-j76", "15.go-types-new-gas-meter-with-multiplier-j76", "15.go-types-unwrap-sdk-context-j76"]
+
+[file.071]
+path = "modules/evm/keeper/grpc_query_test.go"
+lines = 228
+verdict = "clean"
+note = "gRPC cases use the generated request/response structs and keeper lookup behavior with no alternate address encoding."
+consumes = ["6.proto-evm-querypointeerequest", "6.proto-evm-querypointeeresponse", "6.proto-evm-querypointerrequest", "6.proto-evm-querypointerresponse", "6.qry-evm-pointee", "6.qry-evm-pointer", "16.go-testutil-keeper-mockevmkeeper-j59"]
+
+[file.072]
+path = "modules/evm/keeper/keeper.go"
+lines = 718
+verdict = "clean"
+note = "Keeper construction, collaborator injection, precompile version selection and context-aware chain ID were read against node wiring and activation rules."
+produces = ["6.cfg-custom-precompile-activation", "6.cfg-set-custom-precompiles", "6.go-evm-keeper-activationaddresseswithoutprecompile-j34", "6.go-evm-keeper-keeper-accountkeeper-j34", "6.go-evm-keeper-keeper-bankkeeper-j34", "6.go-evm-keeper-keeper-customprecompiles-j34", "6.go-evm-keeper-keeper-getbasefee-j34", "6.go-evm-keeper-keeper-getcustomprecompilesversions-j34", "6.go-evm-keeper-keeper-getstorekey-j34", "6.go-evm-keeper-keeper-getvmblockcontext-j34", "6.go-evm-keeper-keeper-j34", "6.go-evm-keeper-keeper-preparereplayedaddr-j34", "6.go-evm-keeper-keeper-receiptstore-j34", "6.go-evm-keeper-keeper-setcustomprecompileactivation-j34", "6.go-evm-keeper-keeper-setmsgs-j34", "6.go-evm-keeper-keeper-settracedb-j34", "6.go-evm-keeper-keeper-settracesnapshotcapture-j34", "6.go-evm-keeper-keeper-settracesnapshotstore-j34", "6.go-evm-keeper-keeper-settxresults-j34", "6.go-evm-keeper-keeper-tracedb-j34", "6.go-evm-keeper-keeper-tracesnapshotstore-j34", "6.go-evm-keeper-keeper-upgradekeeper-j34", "6.go-evm-keeper-keeper-wasmkeeper-j34", "6.go-evm-keeper-newkeeper-j34"]
+consumes = ["5.go-storage-ledger-db-receipt-receipt-store", "5.go-storage-state-db-sc-types-committer", "6.cfg-custom-precompile-activation", "6.cfg-precompile-activation-list", "6.go-ibc-transfer-keeper-keeper", "6.go-pc-utils-versionedprecompiles-j34", "6.go-wasmkeeper-keeper", "6.go-wasmkeeper-permissionedkeeper", "6.msg-evm-evmtransaction", "6.proto-evm-msgevmtransaction", "6.proto-evm-params", "8.http-middleware-conformance-any-receipt", "15.go-consensus-types-header-from-proto-j57", "15.go-types-new-infinite-gas-meter-j76", "15.go-x-auth-keeper-account-keeper-j76", "15.go-x-bank-keeper-keeper-j76", "15.go-x-staking-keeper-keeper-j76", "15.go-x-upgrade-keeper-keeper-j76"]
+
+[file.073]
+path = "modules/evm/keeper/keeper_activation_audit_test.go"
+lines = 106
+verdict = "clean"
+note = "Activation audit cases match registered precompile addresses and merge-height boundaries; no separate router or daemon is required."
+
+[file.074]
+path = "modules/evm/keeper/keeper_activation_test.go"
+lines = 261
+verdict = "clean"
+note = "Precompile activation assertions distinguish pre-merge and merged heights using the mounted custom-precompile selection."
+consumes = ["3.go-pclayerxexchange-exchangeaddress-j26", "4.go-launchpad-types-module-name", "5.go-node-activation-upgrade", "5.go-node-merge-upgrade", "6.cfg-activation-upgrade", "6.cfg-custom-precompile-activation", "6.cfg-merge-upgrade-node", "6.cfg-precompile-activation-list", "6.go-lxbridge-types-modulename-j36", "6.go-lxcustody-types-modulename-j36", "6.go-lxverify-layerxverifyaddress-j37", "6.go-pc-feetoken-feetokenaddress-j34", "6.go-pclxbridge-bridgeaddress-j36", "6.go-pclxcustody-layerxcustodyaddress-j36", "6.go-pxweb-xwebaddress-j37", "15.go-x-upgrade-types-store-key-j76", "15.go-x-upgrade-types-version-map-byte-j76", "16.go-testutil-keeper-mockevmkeeper-j59"]
+
+[file.075]
+path = "modules/evm/keeper/keeper_test.go"
+lines = 284
+verdict = "issues"
+note = "Keeper tests were read in full; the historical precompile loop skips every version assertion because names are compared with hex addresses, finding 014."
+consumes = ["6.cfg-feetoken-upgrade", "6.go-pc-feetoken-feetokenaddress-j34", "6.go-pc-feetoken-precompilename-j34", "6.go-pc-setup-iprecompile-j34", "6.msg-evm-evmtransaction", "6.proto-evm-msgevmtransaction", "16.go-testutil-keeper-mockevmkeeper-j59", "16.go-testutil-keeper-mockevmkeeperprecompiles-j59"]
+findings = ["014"]
+
+[file.076]
+path = "modules/evm/keeper/layerx_binding.go"
+lines = 165
+verdict = "clean"
+note = "Binding signatures include chain, address and nonce; ordinary bind/unbind writes both directions and validates canonical keys. The table validator exists but genesis does not call it."
+consumes = ["1.go-layerxproof-verify-ed25519", "1.go-layerxproof-verify-public-key-is-canonical", "6.err-go-evm-layer-xaddress-bound", "6.err-go-evm-layer-xdid-bound", "6.err-go-evm-layer-xgenesis-binding", "6.err-go-evm-layer-xgenesis-entry-size", "6.err-go-evm-layer-xnon-canonical-key", "6.err-go-evm-layer-xnonce-exhausted", "6.err-go-evm-layer-xnot-bound", "6.err-go-evm-layer-xsignature", "6.evt-evm-layerx-bound", "6.evt-evm-layerx-unbound"]
+
+[file.077]
+path = "modules/evm/keeper/layerx_binding_test.go"
+lines = 357
+verdict = "clean"
+note = "Binding tests exercise canonical signatures, duplicate identities and nonce consumption against both lookup directions; no independent codec disagreement was found."
+consumes = ["1.go-layerxproof-testvectors-load-paxeer-bind", "1.go-layerxproof-testvectors-vector-uint64", "6.err-go-evm-layer-xaddress-bound", "6.err-go-evm-layer-xdid-bound", "6.err-go-evm-layer-xnon-canonical-key", "6.err-go-evm-layer-xnot-bound", "6.err-go-evm-layer-xsignature", "6.evt-evm-layerx-bound", "6.evt-evm-layerx-unbound", "6.proto-evm-serialized"]
+
+[file.078]
+path = "modules/evm/keeper/log.go"
+lines = 113
+verdict = "clean"
+note = "Log and bloom readers distinguish legacy and EVM-only history using a persisted cutoff; recovery export omissions are recorded in finding 020."
+produces = ["6.go-evm-keeper-convertethlog-j34", "6.go-evm-keeper-convertsyntheticethlog-j34", "6.go-evm-keeper-getlogsfortx-j34", "6.go-evm-keeper-keeper-getblockbloom-j34", "6.go-evm-keeper-keeper-getevmonlyblockbloom-j34", "6.go-evm-keeper-keeper-setblockbloom-j34", "6.go-evm-keeper-keeper-setevmonlyblockbloom-j34"]
+consumes = ["6.proto-evm-log", "6.proto-evm-receipt"]
+
+[file.079]
+path = "modules/evm/keeper/log_test.go"
+lines = 214
+verdict = "clean"
+note = "Log assertions use concrete Ethereum bloom bytes and synthetic-log markers matching receipt and RPC readers."
+consumes = ["6.proto-evm-log", "6.proto-evm-receipt"]
+
+[file.080]
+path = "modules/evm/keeper/metrics.go"
+lines = 123
+verdict = "clean"
+note = "Keeper metric instruments use the shared telemetry provider and fixed operation labels; collection does not alter consensus state."
+produces = ["6.met-otel-evm-abci-begin-blocker-duration", "6.met-otel-evm-abci-end-blocker-duration", "6.met-otel-evm-block-base-fee", "6.met-otel-evm-errors", "6.met-otel-evm-keeper-association-error", "6.met-otel-evm-panics", "6.met-otel-evm-receipt-status", "6.met-otel-evm-zero-storage-processed-keys", "6.met-otel-evm-zero-storage-pruned-bytes", "6.met-otel-evm-zero-storage-pruned-keys"]
+
+[file.081]
+path = "modules/evm/keeper/msg_server.go"
+lines = 445
+verdict = "clean"
+note = "Message methods route sends, pointer registration, claims and associations into the mounted keeper and bank contracts; malformed recipient validation is missing in types/message_send.go."
+produces = ["6.go-evm-keeper-keeper-getevmmessage-j34", "6.go-evm-keeper-keeper-getgaspool-j34", "6.go-evm-keeper-keeper-preparectxforevmtransaction-j34", "6.go-evm-keeper-newmsgserverimpl-j34"]
+consumes = ["6.evt-evm-pointer-registered", "6.go-pc-wasmd-iswasmdcall", "6.go-pc-wasmd-precompileexecutor-execute-j34", "6.met-otel-evm-errors", "6.met-otel-evm-panics", "6.met-otel-evm-receipt-status", "6.proto-evm-msgassociate", "6.proto-evm-msgassociatecontractaddress", "6.proto-evm-msgassociatecontractaddressresponse", "6.proto-evm-msgassociateresponse", "6.proto-evm-msgbindercnativepointer", "6.proto-evm-msgbindercnativepointerresponse", "6.proto-evm-msgevmtransaction", "6.proto-evm-msgevmtransactionresponse", "6.proto-evm-msgregisterpointer", "6.proto-evm-msgregisterpointerresponse", "6.proto-evm-msgsend", "6.proto-evm-msgsendresponse", "7.msg-cosmos-bank-v1beta1-send-j39", "7.proto-cosmos-bank-v1beta1-msgsend-j39", "15.go-types-errors-err-invalid-request-j76", "15.go-types-errors-err-unauthorized-j76", "15.go-types-gas-meter-j76", "15.go-types-must-acc-address-from-bech32-j76", "15.go-types-new-infinite-gas-meter-with-multiplier-j76", "15.go-types-occ-err-read-estimate-j76", "15.go-types-unwrap-sdk-context-j76", "15.go-types-zero-int-j76", "15.go-x-bank-keeper-new-msg-server-impl-j76"]
+
+[file.082]
+path = "modules/evm/keeper/msg_server_test.go"
+lines = 1104
+verdict = "clean"
+note = "Message-server cases use concrete SDK message structs and keeper state transitions; no additional wrong-shaped fixture was identified."
+consumes = ["6.evt-evm-pointer-registered", "6.msg-evm-associatecontractaddress", "6.msg-evm-bindercnativepointer", "6.msg-evm-registerpointer", "6.msg-evm-send", "6.proto-evm-allowedfeedenom", "6.proto-evm-msgassociatecontractaddress", "6.proto-evm-msgbindercnativepointer", "6.proto-evm-msgevmtransactionresponse", "6.proto-evm-msgregisterpointer", "6.proto-evm-msgsend", "7.proto-eth-associatetx", "15.go-types-errors-err-evmvm-error-j76", "16.go-testutil-keeper-mockevmkeeper-j59", "16.go-testutil-keeper-mockevmkeeperwithprecompiles-j59", "16.go-testutil-keeper-privatekeytoaddresses-j59", "16.go-testutil-keeper-waitforreceipt-j59"]
+
+[file.083]
+path = "modules/evm/keeper/nonce.go"
+lines = 35
+verdict = "clean"
+note = "Nonce storage and iteration use eight-byte ordered values with deterministic EVM-address keys consumed by genesis and StateDB."
+produces = ["6.go-evm-keeper-keeper-getnonce-j34", "6.go-evm-keeper-keeper-setnonce-j34"]
+
+[file.084]
+path = "modules/evm/keeper/nonce_test.go"
+lines = 17
+verdict = "clean"
+note = "Nonce cases match keeper persistence and iteration behavior, including absent-account defaults."
+
+[file.085]
+path = "modules/evm/keeper/params.go"
+lines = 364
+verdict = "clean"
+note = "Parameter getters use the registered key table and concrete Params fields, with fee and delegate whitelist settings read from SDK state."
+produces = ["6.go-evm-keeper-basedenom-j34", "6.go-evm-keeper-errfeetokenrateinvalid-j34", "6.go-evm-keeper-errfeetokenratespread-j34", "6.go-evm-keeper-errfeetokenratestale-j34", "6.go-evm-keeper-errfeetokenrateunavailable-j34", "6.go-evm-keeper-keeper-chainid-j34", "6.go-evm-keeper-keeper-getallowedfeedenoms-j34", "6.go-evm-keeper-keeper-getbasedenom-j34", "6.go-evm-keeper-keeper-getbasefeepergas-j34", "6.go-evm-keeper-keeper-getdelivertxhookwasmgaslimit-j34", "6.go-evm-keeper-keeper-getfeetokenenabled-j34", "6.go-evm-keeper-keeper-getfeetokenrate-j34", "6.go-evm-keeper-keeper-getminimumfeepergas-j34", "6.go-evm-keeper-keeper-getparams-j34", "6.go-evm-keeper-keeper-getprioritynormalizer-j34", "6.go-evm-keeper-keeper-getsstoresetgaseip2200-j34", "6.go-evm-keeper-keeper-isallowedfeedenom-j34", "6.go-evm-keeper-keeper-setparams-j34"]
+consumes = ["6.proto-evm-allowedfeedenom", "6.proto-evm-params", "6.proto-evm-paramsprev580", "6.proto-evm-paramsprev600", "6.proto-evm-paramsprev601", "6.proto-evm-paramsprev606", "15.go-types-dec-j76", "15.go-types-new-dec-from-int-j76", "15.go-types-new-int-from-uint64-j76"]
+
+[file.086]
+path = "modules/evm/keeper/params_test.go"
+lines = 396
+verdict = "clean"
+note = "Parameter round-trip assertions cover the actual keeper parameter store and current defaults; no renamed config key was identified."
+consumes = ["6.proto-evm-allowedfeedenom", "6.proto-evm-params", "7.proto-cosmos-params-v1beta1-paramchange-j39", "7.proto-cosmos-params-v1beta1-parameterchangeproposal-j39", "15.go-store-new-commit-multi-store-j76", "15.go-types-must-new-dec-from-str-j76", "15.go-types-new-kv-store-key-j76", "15.go-types-new-transient-store-key-j76", "15.go-types-store-type-iavl-j76", "15.go-types-store-type-transient-j76", "15.go-x-params-types-new-subspace-j76", "15.go-x-params-types-proposal-new-param-change-j76", "15.go-x-params-types-proposal-new-parameter-change-proposal-j76", "15.go-x-params-types-store-key-j76", "15.go-x-params-types-t-store-key-j76"]
+
+[file.087]
+path = "modules/evm/keeper/pointer.go"
+lines = 452
+verdict = "clean"
+note = "Pointer registration and reverse lookup preserve type, version, native-denom and CW-address keys; Wasm reverse keys intentionally use address text bytes."
+produces = ["6.go-evm-keeper-keeper-getanypointeeinfo-j34", "6.go-evm-keeper-keeper-geterc1155cw1155pointer-j34", "6.go-evm-keeper-keeper-geterc20cw20pointer-j34", "6.go-evm-keeper-keeper-geterc20nativepointer-j34", "6.go-evm-keeper-keeper-geterc721cw721pointer-j34", "6.go-evm-keeper-keeper-getnativepointee-j34", "6.go-evm-keeper-keeper-seterc20cw20pointer-j34", "6.go-evm-keeper-keeper-seterc20nativepointer-j34"]
+consumes = ["15.go-types-errors-err-invalid-request-j76", "15.go-types-must-acc-address-from-bech32-j76"]
+
+[file.088]
+path = "modules/evm/keeper/pointer_test.go"
+lines = 450
+verdict = "clean"
+note = "Pointer tests use current forward/reverse registry and code-version shapes; no additional persistence mismatch was identified."
+
+[file.089]
+path = "modules/evm/keeper/pointer_upgrade.go"
+lines = 123
+verdict = "clean"
+note = "Pointer upgrades use ABI metadata and versioned contract artifacts with cached execution before updating the registry."
+produces = ["6.go-evm-keeper-keeper-runwithoneoffevminstance-j34", "6.go-evm-keeper-keeper-upserterccw20pointer-j34", "6.go-evm-keeper-keeper-upsertercnativepointer-j34"]
+consumes = ["6.evt-evm-pointer-registered"]
+
+[file.090]
+path = "modules/evm/keeper/pointer_upgrade_test.go"
+lines = 150
+verdict = "clean"
+note = "Pointer upgrade cases use the corresponding versioned artifacts and actual registry entries; fixture versions match the producer."
+
+[file.091]
+path = "modules/evm/keeper/precompile.go"
+lines = 29
+verdict = "issues"
+note = "Payable precompile classification still includes the retired anchor payment exception; historical scoping or removal is proposed in finding 028."
+produces = ["6.go-evm-keeper-ispayableprecompile-j34"]
+consumes = ["6.go-pc-bank-bankaddress-j34", "6.go-pc-gov-govaddress-j34", "6.go-pc-staking-stakingaddress-j34", "6.go-pc-wasmd-wasmdaddress"]
+findings = ["028"]
+
+[file.092]
+path = "modules/evm/keeper/precompile_test.go"
+lines = 29
+verdict = "clean"
+note = "Payable classification assertions use the mounted custom-precompile set; retirement of the unconditional anchor exception is recorded against precompile.go."
+consumes = ["6.go-pc-bank-bankaddress-j34", "6.go-pc-gov-govaddress-j34", "6.go-pc-staking-stakingaddress-j34"]
+
+[file.093]
+path = "modules/evm/keeper/receipt.go"
+lines = 294
+verdict = "issues"
+note = "Receipt store fallback, migration and transient flushing were read; a nonpositive retry count produces nil success, finding 018."
+produces = ["6.go-evm-keeper-keeper-flushtransientreceipts-j34", "6.go-evm-keeper-keeper-getreceipt-j34", "6.go-evm-keeper-keeper-getreceiptfromreceiptstore-j34", "6.go-evm-keeper-keeper-getreceiptwithretry-j34", "6.go-evm-keeper-keeper-gettransientreceipt-j34", "6.go-evm-keeper-keeper-mockreceipt-j34", "6.go-evm-keeper-keeper-settransientreceipt-j34", "6.go-evm-keeper-keeper-writereceipt-j34"]
+consumes = ["5.go-storage-ledger-db-receipt-err-not-configured", "5.go-storage-ledger-db-receipt-err-not-found", "5.go-storage-ledger-db-receipt-receipt-record", "6.proto-evm-receipt", "8.http-middleware-conformance-any-receipt"]
+findings = ["018"]
+
+[file.094]
+path = "modules/evm/keeper/receipt_migration_test.go"
+lines = 125
+verdict = "clean"
+note = "Legacy receipt migration cases verify actual receipt-store writes and retained source state on errors rather than a third receipt shape."
+consumes = ["6.proto-evm-receipt", "16.go-testutil-keeper-waitforreceipt-j59", "16.go-testutil-keeper-waitforreceiptfromstore-j59"]
+
+[file.095]
+path = "modules/evm/keeper/receipt_test.go"
+lines = 276
+verdict = "clean"
+note = "Receipt serialization and transient/store lookup cases match the current protobuf and durable receipt record representation."
+consumes = ["6.proto-evm-receipt"]
+
+[file.096]
+path = "modules/evm/keeper/replay.go"
+lines = 109
+verdict = "clean"
+note = "Historical replay reads Ethereum block data and rehydrates keeper code/balances only under replay configuration; it is not a live RPC endpoint default."
+consumes = ["15.go-types-new-int-j76"]
+
+[file.097]
+path = "modules/evm/keeper/resolution_fee_test.go"
+lines = 220
+verdict = "clean"
+note = "Resolution/fee cases use the real address mapping and fee conversion contract without assuming a different native decimal scale."
+consumes = ["6.go-pc-feetoken-clearfeedenommethod-j34", "6.go-pc-feetoken-getfeedenommethod-j34", "6.go-pc-feetoken-newprecompile-j34", "6.go-pc-feetoken-setfeedenommethod-j34", "6.proto-evm-allowedfeedenom", "6.sol-batchcallandsponsor-setrate-34fcf437", "7.proto-cosmos-params-v1beta1-parameterchangeproposal-j39", "7.proto-cosmos-staking-v1beta1-description-j39", "15.go-x-gov-end-blocker-j76", "15.go-x-gov-types-new-non-split-vote-option-j76", "15.go-x-params-types-proposal-err-setting-parameter-j76", "15.go-x-staking-keeper-new-msg-server-impl-j76"]
+
+[file.098]
+path = "modules/evm/keeper/state.go"
+lines = 49
+verdict = "clean"
+note = "Persistent contract slots and storage iteration use exact address/hash key components and omit zero state as required by cleanup."
+produces = ["6.go-evm-keeper-keeper-getstate-j34", "6.go-evm-keeper-keeper-iteratestate-j34", "6.go-evm-keeper-keeper-setstate-j34"]
+
+[file.099]
+path = "modules/evm/keeper/state_test.go"
+lines = 31
+verdict = "clean"
+note = "Keeper state assertions match the stored slot keys, absent-value behavior and iteration representation."
+
+[file.100]
+path = "modules/evm/keeper/storage_cleanup.go"
+lines = 111
+verdict = "clean"
+note = "Zero-slot cleanup uses a persisted cursor and bounded scan size, deletes only zero values and resumes deterministically across blocks."
+consumes = ["6.met-otel-evm-zero-storage-processed-keys", "6.met-otel-evm-zero-storage-pruned-bytes", "6.met-otel-evm-zero-storage-pruned-keys"]
+
+[file.101]
+path = "modules/evm/keeper/storage_cleanup_test.go"
+lines = 164
+verdict = "clean"
+note = "Cleanup cases exercise cursor progression, wrapped scans and nonzero preservation with the same keys as the real cleanup loop."
+consumes = ["15.go-types-iterator-j76", "15.go-types-multi-store-j76"]
+
+[file.102]
+path = "modules/evm/keeper/synthetic_receipts.go"
+lines = 71
+verdict = "clean"
+note = "Synthetic receipt hashes and provisional indices are domain-separated by kind, with explicit context and real receipt storage integration."
+produces = ["6.go-evm-keeper-syntheticreceiptactivation-j34", "6.go-evm-keeper-syntheticreceiptcontext-j34", "6.go-evm-keeper-syntheticreceipthash-j34", "6.go-evm-keeper-syntheticreceiptkind-j34", "6.go-evm-keeper-syntheticreceiptkindof-j34", "6.go-evm-keeper-syntheticreceiptkinds-j34", "6.go-evm-keeper-syntheticreceiptperps-j34", "6.go-evm-keeper-syntheticreceiptprovisionalindex-j34", "6.go-evm-keeper-syntheticreceiptspot-j34"]
+
+[file.103]
+path = "modules/evm/keeper/synthetic_receipts_test.go"
+lines = 207
+verdict = "clean"
+note = "Synthetic receipt assertions match the producer hash/kind/index encoding and the RPC-facing committed receipt representation."
+consumes = ["6.msg-evm-evmtransaction", "6.proto-evm-msgevmtransaction", "6.proto-evm-receipt"]
+
+[file.104]
+path = "modules/evm/keeper/trace_db.go"
+lines = 222
+verdict = "clean"
+note = "TraceDB stores durable block traces and baked height separately; node/RPC baker progression advances only contiguous completed heights before persisting the watermark."
+produces = ["6.go-evm-keeper-newtracedb-j34", "6.go-evm-keeper-tracedb-close-j34", "6.go-evm-keeper-tracedb-enqueue-j34", "6.go-evm-keeper-tracedb-get-j34", "6.go-evm-keeper-tracedb-getblock-j34", "6.go-evm-keeper-tracedb-j34", "6.go-evm-keeper-tracedb-lastbakedheight-j34", "6.go-evm-keeper-tracedb-prune-j34", "6.go-evm-keeper-tracedb-put-j34", "6.go-evm-keeper-tracedb-putblock-j34", "6.go-evm-keeper-tracedb-setlastbakedheight-j34", "6.go-evm-keeper-tracedb-settraceenqueuer-j34"]
+
+[file.105]
+path = "modules/evm/keeper/trace_db_test.go"
+lines = 240
+verdict = "clean"
+note = "Trace database cases exercise record/block lookup, persistence and pruning with the production keys and stored encoding."
+
+[file.106]
+path = "modules/evm/keeper/trace_snapshot.go"
+lines = 129
+verdict = "clean"
+note = "Snapshot store retains versioned committed snapshots and releases leases before closure; the tracing consumer selects the preceding block state."
+produces = ["6.go-evm-keeper-newtracesnapshotstore-j34", "6.go-evm-keeper-tracesnapshotstore-close-j34", "6.go-evm-keeper-tracesnapshotstore-get-j34", "6.go-evm-keeper-tracesnapshotstore-lease-j34", "6.go-evm-keeper-tracesnapshotstore-put-j34"]
+consumes = ["5.go-storage-state-db-sc-types-committer"]
+
+[file.107]
+path = "modules/evm/keeper/trace_snapshot_test.go"
+lines = 130
+verdict = "clean"
+note = "Snapshot tests exercise retained versions, leases and close behavior against the actual store lifecycle."
+consumes = ["5.go-storage-proto-commit-info", "5.go-storage-proto-tree-name-upgrade", "5.go-storage-state-db-sc-types-commit-kv-store", "5.go-storage-state-db-sc-types-committer", "5.go-storage-state-db-sc-types-exporter", "5.go-storage-state-db-sc-types-importer"]
+
+[file.108]
+path = "modules/evm/keeper/tx.go"
+lines = 23
+verdict = "clean"
+note = "Execution converts signed data into StateDB transitions, writes receipts/deferred info and propagates VM failures using the declared response shape."
+
+[file.109]
+path = "modules/evm/keeper/tx_test.go"
+lines = 42
+verdict = "clean"
+note = "Execution assertions use actual signed EVM envelopes and receipt fields; no additional transport-shape disagreement was identified."
+
+[file.110]
+path = "modules/evm/keeper/view.go"
+lines = 24
+verdict = "issues"
+note = "Single-output ERC query helpers suppress ABI errors and can return successful nil results; pointer metadata consumers need the correction in finding 015."
+findings = ["015"]
+
+[file.111]
+path = "modules/evm/migrations/add_new_param_migration.go"
+lines = 16
+verdict = "clean"
+note = "Historical parameter addition uses the prior parameter struct and explicitly writes the new current parameter state."
+
+[file.112]
+path = "modules/evm/migrations/add_new_param_migration_test.go"
+lines = 17
+verdict = "clean"
+note = "Parameter-addition assertions target the actual stored migration fields and current decoder."
+
+[file.113]
+path = "modules/evm/migrations/disable_register_pointer.go"
+lines = 13
+verdict = "clean"
+note = "Register-pointer migration sets the intended parameter through the existing parameter keeper; mounted upgrade ordering was checked."
+
+[file.114]
+path = "modules/evm/migrations/disable_register_pointer_test.go"
+lines = 17
+verdict = "clean"
+note = "Register-pointer migration expectations agree with the persisted enabled/disabled parameter value."
+
+[file.115]
+path = "modules/evm/migrations/fix_total_supply.go"
+lines = 40
+verdict = "clean"
+note = "Supply correction iterates the actual bank supply/balance representation and returns an error for an invalid correction."
+consumes = ["15.go-types-must-get-base-denom-j76", "15.go-types-one-int-j76", "15.go-types-zero-int-j76", "15.go-x-bank-keeper-one-uhpx-in-wei-j76", "15.go-x-bank-keeper-split-uhpx-wei-amount-j76"]
+
+[file.116]
+path = "modules/evm/migrations/fix_total_supply_test.go"
+lines = 28
+verdict = "clean"
+note = "Supply correction cases use the corresponding bank denominations and store-backed balances."
+
+[file.117]
+path = "modules/evm/migrations/migrate_all_pointers.go"
+lines = 342
+verdict = "clean"
+note = "Pointer migration validates metadata and applies versioned pointer upgrades through keeper APIs rather than manufacturing registry entries."
+consumes = ["15.go-types-new-infinite-gas-meter-with-multiplier-j76"]
+
+[file.118]
+path = "modules/evm/migrations/migrate_all_pointers_test.go"
+lines = 144
+verdict = "clean"
+note = "Pointer migration cases use the versioned registry and real contract metadata expected by the migration."
+consumes = ["6.msg-evm-registerpointer", "6.proto-evm-msgregisterpointer"]
+
+[file.119]
+path = "modules/evm/migrations/migrate_all_pointers_validation_test.go"
+lines = 31
+verdict = "clean"
+note = "Pointer validation tests exercise malformed metadata and migration errors using the real migration validators."
+
+[file.120]
+path = "modules/evm/migrations/migrate_base_fee_off_by_one.go"
+lines = 12
+verdict = "clean"
+note = "Base-fee off-by-one migration moves the persisted next-fee value into the intended height interpretation."
+
+[file.121]
+path = "modules/evm/migrations/migrate_base_fee_off_by_one_test.go"
+lines = 22
+verdict = "clean"
+note = "Off-by-one assertions use current/next fee keys and reload migrated storage."
+
+[file.122]
+path = "modules/evm/migrations/migrate_block_bloom.go"
+lines = 25
+verdict = "clean"
+note = "Bloom migration establishes a legacy cutoff and the EVM-only bloom interpretation; recovery must also export these keys under finding 020."
+
+[file.123]
+path = "modules/evm/migrations/migrate_block_bloom_test.go"
+lines = 22
+verdict = "clean"
+note = "Bloom migration cases agree with the legacy cutoff and historical log reader representation."
+
+[file.124]
+path = "modules/evm/migrations/migrate_cast_address_balances.go"
+lines = 29
+verdict = "clean"
+note = "Cast-balance migration resolves the actual association and bank accounts, preserving coin and wei balances during migration."
+
+[file.125]
+path = "modules/evm/migrations/migrate_cast_address_balances_test.go"
+lines = 37
+verdict = "clean"
+note = "Cast-balance assertions exercise associated versus cast account balances with the production bank split."
+consumes = ["16.go-testutil-keeper-uhpxcoins-j59"]
+
+[file.126]
+path = "modules/evm/migrations/migrate_deliver_tx_gas_limit.go"
+lines = 20
+verdict = "clean"
+note = "DeliverTx gas migration reads the historical parameter struct and writes the current hook gas setting."
+
+[file.127]
+path = "modules/evm/migrations/migrate_deliver_tx_gas_limit_test.go"
+lines = 37
+verdict = "clean"
+note = "DeliverTx gas assertions target the migrated parameter value in the keeper store."
+
+[file.128]
+path = "modules/evm/migrations/migrate_eip_1559_max_base_fee.go"
+lines = 14
+verdict = "clean"
+note = "Maximum base-fee migration loads parameters, changes the declared cap and stores the resulting Params; its test does not inspect that state."
+
+[file.129]
+path = "modules/evm/migrations/migrate_eip_1559_max_base_fee_test.go"
+lines = 26
+verdict = "issues"
+note = "The migration test asserts its unchanged local copy instead of persisted state; seeding and reloading real values is proposed in finding 016."
+findings = ["016"]
+
+[file.130]
+path = "modules/evm/migrations/migrate_eip_1559_params.go"
+lines = 17
+verdict = "clean"
+note = "EIP-1559 migration loads parameters, applies the declared adjustment settings and writes Params; its test inspects an unstored local copy."
+
+[file.131]
+path = "modules/evm/migrations/migrate_eip_1559_params_test.go"
+lines = 31
+verdict = "issues"
+note = "The EIP-1559 test neither stores its setup nor reloads migrated parameters; finding 017 specifies the missing persistent-state assertions."
+findings = ["017"]
+
+[file.132]
+path = "modules/evm/migrations/migrate_fee_token_params.go"
+lines = 34
+verdict = "clean"
+note = "Fee-token parameter migration preserves existing parameter values and introduces current fee-token fields through the parameter store."
+
+[file.133]
+path = "modules/evm/migrations/migrate_fee_token_params_test.go"
+lines = 127
+verdict = "clean"
+note = "Fee-token migration cases inspect the concrete new fields and preservation of existing parameters."
+consumes = ["15.go-x-params-types-store-key-j76"]
+
+[file.134]
+path = "modules/evm/migrations/migrate_remove_curr_block_base_fee.go"
+lines = 15
+verdict = "clean"
+note = "Current-block base-fee removal deletes only the obsolete current key while preserving the next-fee state used by execution."
+
+[file.135]
+path = "modules/evm/migrations/migrate_remove_curr_block_base_fee_test.go"
+lines = 33
+verdict = "clean"
+note = "Removal cases use the same fee key and preservation boundary as the migration."
+
+[file.136]
+path = "modules/evm/migrations/migrate_remove_tx_hashes.go"
+lines = 13
+verdict = "clean"
+note = "Transaction-hash removal deletes the retired key prefix through the keeper's bounded cleanup surface."
+
+[file.137]
+path = "modules/evm/migrations/migrate_remove_tx_hashes_test.go"
+lines = 24
+verdict = "clean"
+note = "Hash-removal assertions distinguish the target prefix from other persistent module state."
+
+[file.138]
+path = "modules/evm/migrations/migrate_sstore_gas.go"
+lines = 15
+verdict = "clean"
+note = "SSTORE migration writes the configured EIP-2200 parameter without replacing unrelated current parameter values."
+
+[file.139]
+path = "modules/evm/migrations/migrate_sstore_gas_test.go"
+lines = 25
+verdict = "clean"
+note = "SSTORE parameter migration assertions match the keeper field consumed by the chain configuration."
+
+[file.140]
+path = "modules/evm/migrations/store_cw_pointer_code.go"
+lines = 48
+verdict = "clean"
+note = "CW pointer code migration installs versioned embedded Wasm and records code IDs through the same pointer registry keys as genesis."
+
+[file.141]
+path = "modules/evm/module.go"
+lines = 286
+verdict = "clean"
+note = "Module routes register query/message services, migrations, genesis, ABCI hooks and current consensus version; normal import calls the audited InitGenesis."
+produces = ["6.go-evm-appmodule-initgenesis-j34", "6.go-evm-appmodule-j34", "6.go-evm-appmodule-registerservices-j34", "6.go-evm-appmodulebasic-j34", "6.go-evm-basic-registergrpcgatewayroutes-j34", "6.go-evm-basic-registerrestroutes-j34", "6.go-evm-module-consensusversion-j34", "6.go-evm-newappmodule-j34"]
+consumes = ["6.cli-evm-query-root", "6.cli-evm-tx-root", "6.proto-evm-genesisstate", "15.go-client-tx-encoding-config-j76", "15.go-codec-codec-j76", "15.go-codec-json-codec-j76", "15.go-types-invariant-registry-j76", "15.go-types-module-app-module-basic-j76", "15.go-types-module-app-module-j76", "15.go-types-module-configurator-j76", "15.go-types-new-route-j76", "15.go-types-querier-j76", "15.go-types-route-j76"]
+
+[file.142]
+path = "modules/evm/module_test.go"
+lines = 237
+verdict = "clean"
+note = "Module tests use the registered services and concrete AppModule genesis/validation types; no additional mount discrepancy was identified."
+consumes = ["6.msg-evm-evmtransaction", "6.proto-evm-msgevmtransaction", "6.proto-evm-receipt", "7.msg-cosmos-vesting-v1beta1-createvestingaccount-j39", "7.proto-cosmos-vesting-v1beta1-msgcreatevestingaccount-j39", "15.go-x-auth-vesting-new-msg-server-impl-j76", "16.go-testutil-keeper-waitforreceipt-j59"]
+
+[file.143]
+path = "modules/evm/pointer_abi.json"
+lines = 1
+verdict = "clean"
+note = "The embedded pointer ABI declares four payable string-to-address registration functions matching pointer precompile names and return types; no generator provenance is asserted."
+
+[file.144]
+path = "modules/evm/querier/config.go"
+lines = 29
+verdict = "clean"
+note = "Query gas configuration uses evm-query-gas-limit with the node's evm-query namespace and a bounded default."
+produces = ["6.go-evm-querier-config-j34", "6.go-evm-querier-defaultconfig-j34", "6.go-evm-querier-readconfig-j34"]
+consumes = ["5.cfg-app-evm-query-evm-query-gas-limit", "15.go-server-types-app-options-j76"]
+
+[file.145]
+path = "modules/evm/replay/config.go"
+lines = 53
+verdict = "clean"
+note = "Replay options use eth_replay_enabled, eth_rpc, eth_data_dir and eth_replay_contract_state_checks consistently with node configuration."
+produces = ["6.go-evm-replay-config-j34", "6.go-evm-replay-defaultconfig-j34", "6.go-evm-replay-readconfig-j34"]
+consumes = ["5.cfg-app-eth-replay-eth-data-dir", "5.cfg-app-eth-replay-eth-replay-contract-state-checks", "5.cfg-app-eth-replay-eth-replay-enabled", "5.cfg-app-eth-replay-eth-rpc", "15.go-server-types-app-options-j76"]
+
+[file.146]
+path = "modules/evm/state/accesslist.go"
+lines = 105
+verdict = "clean"
+note = "Access-list state tracks address/slot warming with journal entries so snapshots restore the previous membership."
+produces = ["6.go-evm-state-dbimpl-prepare-j34"]
+
+[file.147]
+path = "modules/evm/state/accesslist_test.go"
+lines = 153
+verdict = "clean"
+note = "Access-list cases use Ethereum addresses and storage hashes identical to the StateDB contract."
+
+[file.148]
+path = "modules/evm/state/balance.go"
+lines = 229
+verdict = "clean"
+note = "StateDB balance operations split wei into uhpx plus remainder, resolve associations and retain bank errors in s.err."
+produces = ["6.go-evm-state-dbimpl-addbalance-j34", "6.go-evm-state-dbimpl-getbalance-j34", "6.go-evm-state-dbimpl-setfeetokencharge-j34", "6.go-evm-state-dbimpl-subbalance-j34", "6.go-evm-state-feetokencharge-j34"]
+consumes = ["15.go-types-dec-j76", "15.go-types-new-event-manager-j76", "15.go-types-one-int-j76"]
+
+[file.149]
+path = "modules/evm/state/balance_test.go"
+lines = 202
+verdict = "clean"
+note = "Balance tests exercise actual bank coin/wei balances and StateDB conversion, rather than a separate EVM balance map."
+
+[file.150]
+path = "modules/evm/state/check.go"
+lines = 37
+verdict = "clean"
+note = "Account checks combine transient deletion/creation markers, code, nonce and balance under Ethereum's account-existence rules."
+produces = ["6.go-evm-state-dbimpl-empty-j34"]
+
+[file.151]
+path = "modules/evm/state/check_test.go"
+lines = 59
+verdict = "clean"
+note = "Account-check assertions match the current transient markers and persistent account lookup behavior."
+
+[file.152]
+path = "modules/evm/state/code.go"
+lines = 36
+verdict = "clean"
+note = "StateDB code operations journal mutation and delegate code/hash storage to the keeper with exact address keys."
+produces = ["6.go-evm-state-dbimpl-getcode-j34", "6.go-evm-state-dbimpl-getcodehash-j34", "6.go-evm-state-dbimpl-getcodesize-j34", "6.go-evm-state-dbimpl-setcode-j34"]
+
+[file.153]
+path = "modules/evm/state/code_test.go"
+lines = 29
+verdict = "clean"
+note = "Code assertions use the real keeper-backed StateDB and verify snapshot restoration."
+
+[file.154]
+path = "modules/evm/state/expected_keepers.go"
+lines = 36
+verdict = "clean"
+note = "The expected keeper interface declares concrete bank, nonce, code, address, replay and storage methods matching the injected keeper implementation."
+produces = ["6.go-evm-state-evmkeeper-j34"]
+consumes = ["15.go-types-dec-j76", "15.go-x-auth-keeper-account-keeper-j76", "15.go-x-bank-keeper-keeper-j76", "15.go-x-upgrade-keeper-keeper-j76"]
+
+[file.155]
+path = "modules/evm/state/expected_keepers_test.go"
+lines = 19
+verdict = "clean"
+note = "Compile-time/interface cases and keeper adapter assertions agree with the concrete StateDB collaborator surface."
+
+[file.156]
+path = "modules/evm/state/journal.go"
+lines = 129
+verdict = "clean"
+note = "Journal entries preserve previous balances, slots, refunds, code and transient account state for reverse-order rollback."
+
+[file.157]
+path = "modules/evm/state/journal_slots_test.go"
+lines = 42
+verdict = "clean"
+note = "Slot journal assertions preserve the original slot value across repeated changes and snapshot reverts."
+
+[file.158]
+path = "modules/evm/state/journal_test.go"
+lines = 109
+verdict = "clean"
+note = "Journal tests correspond to the actual entry types and rollback semantics rather than alternate serialized state."
+
+[file.159]
+path = "modules/evm/state/keys.go"
+lines = 23
+verdict = "clean"
+note = "StateDB transient account keys and markers are internal to each execution; durable keeper prefixes remain separate."
+
+[file.160]
+path = "modules/evm/state/log.go"
+lines = 34
+verdict = "clean"
+note = "Logs carry EVM address, topics, data and transaction context, with synthetic markers retained through keeper conversion."
+produces = ["6.go-evm-state-dbimpl-addlog-j34", "6.go-evm-state-dbimpl-getalllogs-j34"]
+
+[file.161]
+path = "modules/evm/state/log_test.go"
+lines = 52
+verdict = "clean"
+note = "Log assertions match emitted index/order and snapshot rollback behavior with production log structures."
+
+[file.162]
+path = "modules/evm/state/mock_balances.go"
+lines = 71
+verdict = "issues"
+note = "The optional mock balance build guards only retired pacific-1 and has an unguarded minting path; live-chain protection needs finding 024."
+consumes = ["15.go-types-one-int-j76"]
+findings = ["024"]
+
+[file.163]
+path = "modules/evm/state/mock_balances_noop.go"
+lines = 15
+verdict = "clean"
+note = "The ordinary build's balance hook performs no minting and leaves bank balances authoritative."
+
+[file.164]
+path = "modules/evm/state/nonce.go"
+lines = 22
+verdict = "clean"
+note = "Nonce reads/writes resolve EVM addresses through the keeper and journal previous nonce state for rollback."
+produces = ["6.go-evm-state-dbimpl-getnonce-j34", "6.go-evm-state-dbimpl-setnonce-j34"]
+
+[file.165]
+path = "modules/evm/state/nonce_test.go"
+lines = 56
+verdict = "clean"
+note = "Nonce assertions exercise the same keeper-backed state and snapshot restoration as execution."
+
+[file.166]
+path = "modules/evm/state/refund.go"
+lines = 36
+verdict = "clean"
+note = "Refund accounting journals each change and prevents refund underflow with Ethereum-compatible behavior."
+
+[file.167]
+path = "modules/evm/state/refund_test.go"
+lines = 23
+verdict = "clean"
+note = "Refund cases use the actual StateDB counter and journal rollback contract."
+
+[file.168]
+path = "modules/evm/state/sstore_refund_test.go"
+lines = 44
+verdict = "clean"
+note = "SSTORE refund cases use real VM operations and the configured EIP-2200 setting rather than a separate gas formula."
+
+[file.169]
+path = "modules/evm/state/state.go"
+lines = 229
+verdict = "issues"
+note = "Storage, transient state, snapshot and self-destruct paths were read in full; association deletion before balance debit strands funds under finding 029."
+produces = ["6.go-evm-state-dbimpl-getstate-j34", "6.go-evm-state-dbimpl-gettransientstate-j34", "6.go-evm-state-dbimpl-reverttosnapshot-j34", "6.go-evm-state-dbimpl-setstate-j34", "6.go-evm-state-dbimpl-settransientstate-j34", "6.go-evm-state-dbimpl-snapshot-j34"]
+consumes = ["15.go-store-types-kv-store-j76", "15.go-types-new-event-manager-j76"]
+findings = ["029"]
+
+[file.170]
+path = "modules/evm/state/state_test.go"
+lines = 273
+verdict = "issues"
+note = "State tests were read in full; the associated destruction test checks an unfunded parent context and conceals the debit defect, finding 030."
+consumes = ["15.go-types-event-j76"]
+findings = ["030"]
+
+[file.171]
+path = "modules/evm/state/statedb.go"
+lines = 339
+verdict = "issues"
+note = "StateDB cache publication, tracing copies and finalization were read in full; errors raised during residual settlement are not rechecked, finding 031."
+produces = ["6.go-evm-state-dbimpl-cleanup-j34", "6.go-evm-state-dbimpl-cleanupfortracer-j34", "6.go-evm-state-dbimpl-commit-j34", "6.go-evm-state-dbimpl-copy-j34", "6.go-evm-state-dbimpl-ctx-j34", "6.go-evm-state-dbimpl-err-j34", "6.go-evm-state-dbimpl-finalize-j34", "6.go-evm-state-dbimpl-getprecompileerror-j34", "6.go-evm-state-dbimpl-j34", "6.go-evm-state-dbimpl-resetfortracer-j34", "6.go-evm-state-dbimpl-setlogger-j34", "6.go-evm-state-dbimpl-setprecompileerror-j34", "6.go-evm-state-dbimpl-settxcontext-j34", "6.go-evm-state-dbimpl-txindex-j34", "6.go-evm-state-dbimpl-withctx-j34", "6.go-evm-state-getdbimpl-j34", "6.go-evm-state-newdbimpl-j34"]
+consumes = ["15.go-types-cache-multi-store-j76", "15.go-types-new-event-manager-j76"]
+findings = ["031"]
+
+[file.172]
+path = "modules/evm/state/statedb_interface_test.go"
+lines = 22
+verdict = "clean"
+note = "The StateDB interface test uses the production go-ethereum vm.StateDB surface, including fork-specific methods."
+
+[file.173]
+path = "modules/evm/state/statedb_test.go"
+lines = 34
+verdict = "clean"
+note = "StateDB lifecycle cases exercise real cached contexts, copies and finalization; late residual settlement failure coverage is proposed in finding 031."
+
+[file.174]
+path = "modules/evm/state/transfer.go"
+lines = 20
+verdict = "clean"
+note = "Transfer operations use bank and association resolution with wei splitting and retained errors; no independent encoding disagreement was identified."
+
+[file.175]
+path = "modules/evm/state/transfer_test.go"
+lines = 26
+verdict = "clean"
+note = "Transfer cases compare actual sender, receiver and remainder balances under the StateDB bank adapter."
+
+[file.176]
+path = "modules/evm/state/utils.go"
+lines = 27
+verdict = "clean"
+note = "Temporary state copying and utility conversions preserve the journal's typed maps and value semantics."
+produces = ["6.go-evm-state-getcoinbaseaddress-j34", "6.go-evm-state-sdkuhpxtosweimultiplier-j34", "6.go-evm-state-splituhpxweiamount-j34", "6.go-evm-state-uhpxtosweimultiplier-j34"]
+
+[file.177]
+path = "modules/evm/state/utils_test.go"
+lines = 52
+verdict = "clean"
+note = "Utility cases match the StateDB's deep-copy and value-conversion contract."
+
+[file.178]
+path = "modules/evm/types/codec.go"
+lines = 137
+verdict = "issues"
+note = "Any transaction unpacking ignores the declared type URL on uncached data and trial-decodes overlapping schemas; finding 027 specifies a typed transport round-trip."
+produces = ["6.go-evm-types-registerinterfaces-j34", "6.go-evm-types-unpacktxdata-j34"]
+consumes = ["6.msg-evm-claim", "6.msg-evm-claimspecific", "6.proto-evm-addcwerc1155pointerproposal", "6.proto-evm-addcwerc20pointerproposal", "6.proto-evm-addcwerc721pointerproposal", "6.proto-evm-adderccw1155pointerproposal", "6.proto-evm-adderccw20pointerproposal", "6.proto-evm-adderccw721pointerproposal", "6.proto-evm-addercnativepointerproposal", "6.proto-evm-addercnativepointerproposalv2", "6.proto-evm-msgassociate", "6.proto-evm-msgassociatecontractaddress", "6.proto-evm-msgbindercnativepointer", "6.proto-evm-msgclaim", "6.proto-evm-msgclaimspecific", "6.proto-evm-msgevmtransaction", "6.proto-evm-msgregisterpointer", "6.proto-evm-msgsend", "6.proto-evm-pointerbindingproposal", "7.proto-eth-accesslisttx", "7.proto-eth-associatetx", "7.proto-eth-blobtx", "7.proto-eth-dynamicfeetx", "7.proto-eth-legacytx", "7.proto-eth-setcodetx", "15.go-codec-new-amino-codec-j76", "15.go-codec-new-legacy-amino-j76", "15.go-codec-types-new-any-with-value-j76", "15.go-crypto-codec-register-crypto-j76", "15.go-types-msgservice-register-msg-service-desc-j76", "15.go-x-gov-types-content-j76"]
+findings = ["027"]
+
+[file.179]
+path = "modules/evm/types/config.go"
+lines = 79
+verdict = "clean"
+note = "Ethereum fork configuration maps Cancun, Prague, Verkle and SSTORE settings into the geth chain configuration with typed validation."
+produces = ["6.go-evm-types-cancuntime-j34", "6.go-evm-types-chainconfig-ethereumconfig-j34", "6.go-evm-types-chainconfig-ethereumconfigwithsstore-j34", "6.go-evm-types-chainconfig-validate-j34", "6.go-evm-types-defaultchainconfig-j34"]
+consumes = ["6.proto-evm-chainconfig"]
+
+[file.180]
+path = "modules/evm/types/constants.go"
+lines = 6
+verdict = "clean"
+note = "Module constants retain the declared denomination and EVM message routing names; no live retired-daemon endpoint is embedded."
+produces = ["6.go-evm-types-shellevmtxtype-j34"]
+
+[file.181]
+path = "modules/evm/types/errors.go"
+lines = 25
+verdict = "clean"
+note = "Association errors preserve the requested address type and text for callers; their constructor and Error methods agree."
+produces = ["6.err-go-evm-association-missing", "6.go-evm-types-associationmissingerr-addresstype-j34", "6.go-evm-types-associationmissingerr-j34", "6.go-evm-types-newassociationmissingerr-j34"]
+consumes = ["6.err-go-evm-association-missing"]
+
+[file.182]
+path = "modules/evm/types/errors_test.go"
+lines = 42
+verdict = "clean"
+note = "Error assertions match the actual address-type and formatting contract exported by the module."
+
+[file.183]
+path = "modules/evm/types/ethtx/access_list.go"
+lines = 49
+verdict = "clean"
+note = "Access-list conversion preserves tuple address and storage-key bytes between protobuf and Ethereum types."
+consumes = ["7.proto-eth-accesstuple"]
+
+[file.184]
+path = "modules/evm/types/ethtx/access_list_test.go"
+lines = 24
+verdict = "clean"
+note = "Access-list cases assert the corresponding tuple ordering and hash/address conversion."
+
+[file.185]
+path = "modules/evm/types/ethtx/access_list_tx.go"
+lines = 223
+verdict = "clean"
+note = "Access-list transaction validation and conversion preserve chain, nonce, gas, recipient, amount, signature and access-list fields for valid typed inputs."
+produces = ["6.go-evm-types-ethtx-accesslisttx-asethereumdata-j34", "6.go-evm-types-ethtx-accesslisttx-effectivegasprice-j34", "6.go-evm-types-ethtx-accesslisttx-getblobfeecap-j34", "6.go-evm-types-ethtx-accesslisttx-getblobhashes-j34", "6.go-evm-types-ethtx-accesslisttx-getchainid-j34", "6.go-evm-types-ethtx-accesslisttx-getgas-j34", "6.go-evm-types-ethtx-accesslisttx-getgasfeecap-j34", "6.go-evm-types-ethtx-accesslisttx-getgastipcap-j34", "6.go-evm-types-ethtx-accesslisttx-getnonce-j34", "6.go-evm-types-ethtx-accesslisttx-getrawsignaturevalues-j34", "6.go-evm-types-ethtx-accesslisttx-validate-j34", "6.go-evm-types-ethtx-newaccesslisttx-j34"]
+consumes = ["7.proto-eth-accesslisttx"]
+
+[file.186]
+path = "modules/evm/types/ethtx/access_list_tx_setter.go"
+lines = 19
+verdict = "clean"
+note = "Access-list setters implement the typed TxData mutation contract without changing transport field names."
+
+[file.187]
+path = "modules/evm/types/ethtx/access_list_tx_test.go"
+lines = 123
+verdict = "clean"
+note = "Access-list transaction cases use valid protobuf fields and Ethereum envelope round-trips matching the implementation."
+
+[file.188]
+path = "modules/evm/types/ethtx/associate_tx.go"
+lines = 43
+verdict = "clean"
+note = "Association transaction validation preserves its Pax-specific signature and custom-message representation before preprocessing."
+produces = ["6.go-evm-types-ethtx-associatetx-getrawsignaturevalues-j34", "6.go-evm-types-ethtx-associatetx-validate-j34"]
+consumes = ["7.proto-eth-associatetx"]
+
+[file.189]
+path = "modules/evm/types/ethtx/auth_list.go"
+lines = 65
+verdict = "clean"
+note = "Authorization-list conversion preserves the declared EIP-7702 tuple fields and address encoding for valid authorizations."
+produces = ["6.go-evm-types-ethtx-authlist-j34"]
+consumes = ["7.proto-eth-setcodeauthorization"]
+
+[file.190]
+path = "modules/evm/types/ethtx/blob_tx.go"
+lines = 300
+verdict = "issues"
+note = "Blob transaction conversion and validation can panic on missing fee caps or short sidecar arrays before unsupported-type refusal, finding 026."
+produces = ["6.go-evm-types-ethtx-blobtx-asethereumdata-j34", "6.go-evm-types-ethtx-blobtx-blobgas-j34", "6.go-evm-types-ethtx-blobtx-effectivegasprice-j34", "6.go-evm-types-ethtx-blobtx-getblobfeecap-j34", "6.go-evm-types-ethtx-blobtx-getblobhashes-j34", "6.go-evm-types-ethtx-blobtx-getchainid-j34", "6.go-evm-types-ethtx-blobtx-getgas-j34", "6.go-evm-types-ethtx-blobtx-getgasfeecap-j34", "6.go-evm-types-ethtx-blobtx-getgastipcap-j34", "6.go-evm-types-ethtx-blobtx-getnonce-j34", "6.go-evm-types-ethtx-blobtx-getrawsignaturevalues-j34", "6.go-evm-types-ethtx-blobtx-validate-j34", "6.go-evm-types-ethtx-newblobtx-j34"]
+consumes = ["7.proto-eth-blobtx", "7.proto-eth-blobtxsidecar"]
+findings = ["026"]
+
+[file.191]
+path = "modules/evm/types/ethtx/blob_tx_setter.go"
+lines = 35
+verdict = "clean"
+note = "Blob setters retain the shared transaction field interface; input validation must occur before conversion as proposed in finding 026."
+consumes = ["7.proto-eth-blobtxsidecar"]
+
+[file.192]
+path = "modules/evm/types/ethtx/blob_tx_test.go"
+lines = 140
+verdict = "clean"
+note = "Blob tests use well-formed Ethereum/protobuf envelope fields; malformed admission coverage is specified in finding 026."
+
+[file.193]
+path = "modules/evm/types/ethtx/dynamic_fee_tx.go"
+lines = 242
+verdict = "clean"
+note = "Dynamic-fee transaction handling preserves fee cap, tip, value and access list and validates the ordering required by Ethereum."
+produces = ["6.go-evm-types-ethtx-dynamicfeetx-asethereumdata-j34", "6.go-evm-types-ethtx-dynamicfeetx-effectivegasprice-j34", "6.go-evm-types-ethtx-dynamicfeetx-getblobfeecap-j34", "6.go-evm-types-ethtx-dynamicfeetx-getblobhashes-j34", "6.go-evm-types-ethtx-dynamicfeetx-getchainid-j34", "6.go-evm-types-ethtx-dynamicfeetx-getgas-j34", "6.go-evm-types-ethtx-dynamicfeetx-getgasfeecap-j34", "6.go-evm-types-ethtx-dynamicfeetx-getgastipcap-j34", "6.go-evm-types-ethtx-dynamicfeetx-getnonce-j34", "6.go-evm-types-ethtx-dynamicfeetx-getrawsignaturevalues-j34", "6.go-evm-types-ethtx-dynamicfeetx-validate-j34", "6.go-evm-types-ethtx-newdynamicfeetx-j34"]
+consumes = ["7.proto-eth-dynamicfeetx"]
+
+[file.194]
+path = "modules/evm/types/ethtx/dynamic_fee_tx_setter.go"
+lines = 23
+verdict = "clean"
+note = "Dynamic-fee setters use the shared TxData types and assign the corresponding protobuf fields."
+
+[file.195]
+path = "modules/evm/types/ethtx/dynamic_fee_tx_test.go"
+lines = 140
+verdict = "clean"
+note = "Dynamic-fee cases assert current fee/value/access-list conversion and signature representation."
+
+[file.196]
+path = "modules/evm/types/ethtx/int.go"
+lines = 12
+verdict = "clean"
+note = "Integer conversion utilities distinguish empty optional amounts from concrete uint256 values and use explicit SDK integer types."
+
+[file.197]
+path = "modules/evm/types/ethtx/legacy_tx.go"
+lines = 212
+verdict = "clean"
+note = "Legacy transaction conversion preserves Ethereum signing fields, replay-protection chain ID and contract-creation destination semantics."
+produces = ["6.go-evm-types-ethtx-legacytx-asethereumdata-j34", "6.go-evm-types-ethtx-legacytx-effectivegasprice-j34", "6.go-evm-types-ethtx-legacytx-getblobfeecap-j34", "6.go-evm-types-ethtx-legacytx-getblobhashes-j34", "6.go-evm-types-ethtx-legacytx-getchainid-j34", "6.go-evm-types-ethtx-legacytx-getgas-j34", "6.go-evm-types-ethtx-legacytx-getgasfeecap-j34", "6.go-evm-types-ethtx-legacytx-getgastipcap-j34", "6.go-evm-types-ethtx-legacytx-getnonce-j34", "6.go-evm-types-ethtx-legacytx-getrawsignaturevalues-j34", "6.go-evm-types-ethtx-legacytx-validate-j34", "6.go-evm-types-ethtx-newlegacytx-j34"]
+consumes = ["7.proto-eth-legacytx"]
+
+[file.198]
+path = "modules/evm/types/ethtx/legacy_tx_setter.go"
+lines = 15
+verdict = "clean"
+note = "Legacy setters implement the same concrete integer, bytes and recipient types as the shared TxData interface."
+
+[file.199]
+path = "modules/evm/types/ethtx/legacy_tx_test.go"
+lines = 117
+verdict = "clean"
+note = "Legacy cases use matching signed Ethereum and protobuf fields and assert replay-protected chain-ID behavior."
+
+[file.200]
+path = "modules/evm/types/ethtx/semantic_validation.go"
+lines = 82
+verdict = "clean"
+note = "Semantic transaction validation uses Ethereum sender, fee, nonce and fork rules with explicit errors rather than changing envelope shape."
+
+[file.201]
+path = "modules/evm/types/ethtx/set_code_tx.go"
+lines = 265
+verdict = "issues"
+note = "Set-code validation accepts an empty destination that conversion dereferences, allowing a malformed envelope to panic admission; finding 025 specifies rejection."
+produces = ["6.go-evm-types-ethtx-newsetcodetx-j34", "6.go-evm-types-ethtx-setcodetx-asethereumdata-j34", "6.go-evm-types-ethtx-setcodetx-effectivegasprice-j34", "6.go-evm-types-ethtx-setcodetx-getblobfeecap-j34", "6.go-evm-types-ethtx-setcodetx-getblobhashes-j34", "6.go-evm-types-ethtx-setcodetx-getchainid-j34", "6.go-evm-types-ethtx-setcodetx-getgas-j34", "6.go-evm-types-ethtx-setcodetx-getgasfeecap-j34", "6.go-evm-types-ethtx-setcodetx-getgastipcap-j34", "6.go-evm-types-ethtx-setcodetx-getnonce-j34", "6.go-evm-types-ethtx-setcodetx-getrawsignaturevalues-j34", "6.go-evm-types-ethtx-setcodetx-validate-j34"]
+consumes = ["7.proto-eth-setcodetx"]
+findings = ["025"]
+
+[file.202]
+path = "modules/evm/types/ethtx/set_code_tx_setter.go"
+lines = 27
+verdict = "clean"
+note = "Set-code setters preserve the common field contract and authorization-list storage; mandatory destination validation belongs in set_code_tx.go."
+
+[file.203]
+path = "modules/evm/types/ethtx/set_code_tx_test.go"
+lines = 75
+verdict = "clean"
+note = "Set-code cases use nonempty destinations and typed authorizations; malformed protobuf admission coverage is proposed in finding 025."
+consumes = ["7.proto-eth-setcodetx"]
+
+[file.204]
+path = "modules/evm/types/ethtx/txdata.go"
+lines = 119
+verdict = "clean"
+note = "TxData declares one typed transaction surface across legacy, access-list, dynamic-fee, blob, association and set-code forms."
+produces = ["6.go-evm-types-ethtx-ethereumtxdata-j34", "6.go-evm-types-ethtx-newtxdatafromtx-j34"]
+consumes = ["7.proto-eth-accesslisttx", "7.proto-eth-associatetx", "7.proto-eth-blobtx", "7.proto-eth-dynamicfeetx", "7.proto-eth-legacytx", "7.proto-eth-setcodetx"]
+
+[file.205]
+path = "modules/evm/types/ethtx/utils.go"
+lines = 60
+verdict = "clean"
+note = "Transaction utilities derive signature/chain fields and use the same Ethereum encoding as TxData consumers."
+
+[file.206]
+path = "modules/evm/types/ethtx/validations.go"
+lines = 19
+verdict = "clean"
+note = "Shared EVM address validation requires an exact 20-byte hexadecimal representation, optionally prefixed with 0x or 0X, and rejects malformed strings before casting."
+
+[file.207]
+path = "modules/evm/types/ethtx/validations_test.go"
+lines = 17
+verdict = "clean"
+note = "Address validation assertions use exact-length valid and invalid hexadecimal strings matching the production validator."
+
+[file.208]
+path = "modules/evm/types/events.go"
+lines = 18
+verdict = "clean"
+note = "Event names and attribute keys match address association, pointer registration, signer and identity-binding producers."
+produces = ["6.evt-evm-address-associated", "6.evt-evm-layerx-bound", "6.evt-evm-layerx-unbound", "6.evt-evm-pointer-registered", "6.evt-evm-signer", "6.go-evm-types-attributekeyevmaddress-j34", "6.go-evm-types-attributekeypaxaddress-j34", "6.go-evm-types-attributekeypointee-j34", "6.go-evm-types-attributekeypointeraddress-j34", "6.go-evm-types-attributekeypointertype-j34", "6.go-evm-types-attributekeypointerversion-j34"]
+
+[file.209]
+path = "modules/evm/types/events_freeze_test.go"
+lines = 70
+verdict = "clean"
+note = "Event freeze assertions pin the actual emitted key strings and names for consumer compatibility."
+
+[file.210]
+path = "modules/evm/types/fee_denom_genesis.go"
+lines = 25
+verdict = "clean"
+note = "Fee-denom genesis entry validation checks prefix, address-key length and denom shape before serialized state insertion."
+produces = ["6.go-evm-types-validateaccountfeedenomgenesisentry-j34"]
+
+[file.211]
+path = "modules/evm/types/fee_denom_genesis_test.go"
+lines = 71
+verdict = "clean"
+note = "Fee-denom validation cases use the actual account-fee prefix and malformed-entry errors expected by import."
+
+[file.212]
+path = "modules/evm/types/genesis.go"
+lines = 27
+verdict = "issues"
+note = "Genesis validation checks only Params and the streamed validator accepts invalid chunks whenever one chunk succeeds; finding 021 proposes whole-state validation."
+produces = ["6.go-evm-types-defaultgenesis-j34", "6.go-evm-types-genesisstate-validate-j34"]
+consumes = ["6.proto-evm-genesisstate", "6.proto-evm-params"]
+findings = ["021"]
+
+[file.213]
+path = "modules/evm/types/gov.go"
+lines = 474
+verdict = "clean"
+note = "Governance proposal types expose the pointer fields and supported message conversion expected by dispatch and codec registration."
+produces = ["6.go-evm-types-pointerbindingproposal-getmessages-j34"]
+consumes = ["6.proto-evm-addcwerc1155pointerproposal", "6.proto-evm-addcwerc20pointerproposal", "6.proto-evm-addcwerc721pointerproposal", "6.proto-evm-adderccw1155pointerproposal", "6.proto-evm-adderccw20pointerproposal", "6.proto-evm-adderccw721pointerproposal", "6.proto-evm-addercnativepointerproposal", "6.proto-evm-addercnativepointerproposalv2", "6.proto-evm-msgbindercnativepointer", "6.proto-evm-pointerbindingproposal", "15.go-codec-types-new-any-with-value-j76", "15.go-types-errors-err-unauthorized-j76", "15.go-types-msg-type-url-j76", "15.go-x-gov-types-content-j76", "15.go-x-gov-types-err-invalid-proposal-content-j76", "15.go-x-gov-types-register-proposal-type-codec-j76", "15.go-x-gov-types-register-proposal-type-j76", "15.go-x-gov-types-validate-abstract-j76"]
+
+[file.214]
+path = "modules/evm/types/gov_test.go"
+lines = 90
+verdict = "clean"
+note = "Governance type cases use the registered content types and validate the current pointer proposal shapes."
+consumes = ["15.go-x-gov-types-err-invalid-proposal-content-j76"]
+
+[file.215]
+path = "modules/evm/types/keys.go"
+lines = 192
+verdict = "clean"
+note = "Module storage prefixes and key constructors retain stable byte encodings for receipt, pointer, fees, cleanup and bidirectional identities."
+produces = ["6.go-evm-types-accountfeedenomkey-j34", "6.go-evm-types-layerxbindnoncekey-j34", "6.go-evm-types-modulename-j34", "6.go-evm-types-receiptkey-j34", "6.go-evm-types-receiptstorekey-j34", "6.go-evm-types-routerkey-j34", "6.go-evm-types-statekey-j34", "6.go-evm-types-storekey-j34", "6.go-evm-types-transientstorekey-j34", "6.go-evm-types-txhasheskey-j34", "6.key-evm-accountfeedenomkeyprefix-j34", "6.key-evm-accounttransientstatekeyprefix-j34", "6.key-evm-antefeetokenchargeprefix-j34", "6.key-evm-antesurplusprefix-j34", "6.key-evm-basefeepergasprefix-j34", "6.key-evm-blockbloomprefix-j34", "6.key-evm-codehashkeyprefix-j34", "6.key-evm-codekeyprefix-j34", "6.key-evm-codesizekeyprefix-j34", "6.key-evm-deferredinfoprefix-j34", "6.key-evm-evmaddresstolayerxdidkeyprefix-j34", "6.key-evm-evmaddresstopaxaddresskeyprefix-j34", "6.key-evm-evmonlyblockbloomprefix-j34", "6.key-evm-layerxbindnoncekeyprefix-j34", "6.key-evm-layerxdidtoevmaddresskeyprefix-j34", "6.key-evm-legacyblockbloomcutoffheightkey-j34", "6.key-evm-nextbasefeepergasprefix-j34", "6.key-evm-noncebumpprefix-j34", "6.key-evm-noncekeyprefix-j34", "6.key-evm-paxaddresstoevmaddresskeyprefix-j34", "6.key-evm-pointercwcodeprefix-j34", "6.key-evm-pointererc20nativeprefix-j34", "6.key-evm-pointerregistryprefix-j34", "6.key-evm-pointerreverseregistryprefix-j34", "6.key-evm-receiptkeyprefix-j34", "6.key-evm-replayedheight-j34", "6.key-evm-replayinitialheight-j34", "6.key-evm-replayseenaddrprefix-j34", "6.key-evm-statekeyprefix-j34", "6.key-evm-transientmodulestatekeyprefix-j34", "6.key-evm-transientstatekeyprefix-j34", "6.key-evm-txhashesprefix-j34", "6.key-evm-whitelistedcodehashesforbanksendprefix-j34", "6.key-evm-whitelistedcodehashesfordelegatecallprefix-j34", "6.key-evm-zerostoragecleanupcheckpointkey-j34"]
+
+[file.216]
+path = "modules/evm/types/keys_freeze_test.go"
+lines = 146
+verdict = "clean"
+note = "Key-freeze assertions pin the exact durable prefix bytes used by import/export and historical readers."
+
+[file.217]
+path = "modules/evm/types/keys_test.go"
+lines = 116
+verdict = "clean"
+note = "Key cases use the same address, nonce and hash components as keeper persistence."
+
+[file.218]
+path = "modules/evm/types/layerx_binding.go"
+lines = 105
+verdict = "clean"
+note = "Binding message encoding includes domain separation, fixed-width chain/address/nonce fields and canonical Ed25519 identity validation matching the shared proof codec."
+produces = ["6.err-go-evm-layer-xaddress-bound", "6.err-go-evm-layer-xchain-id", "6.err-go-evm-layer-xdid-bound", "6.err-go-evm-layer-xgenesis-binding", "6.err-go-evm-layer-xgenesis-entry-size", "6.err-go-evm-layer-xnon-canonical-key", "6.err-go-evm-layer-xnonce-exhausted", "6.err-go-evm-layer-xnot-bound", "6.err-go-evm-layer-xsignature", "6.err-go-evm-layer-xsignature-length", "6.go-evm-types-layerxbindmessage-j34", "6.go-evm-types-layerxdid-j34", "6.go-evm-types-layerxdidprefix-j34", "6.go-evm-types-layerxmainaccountid-j34", "6.go-evm-types-layerxmainaccountname-j34"]
+consumes = ["1.go-layerxproof-codec-derive-account-id", "1.go-layerxproof-verify-public-key-is-canonical", "6.err-go-evm-layer-xchain-id", "6.err-go-evm-layer-xgenesis-entry-size", "6.err-go-evm-layer-xnon-canonical-key"]
+
+[file.219]
+path = "modules/evm/types/logs.go"
+lines = 25
+verdict = "clean"
+note = "Ethereum log conversion preserves address, topics, data, index and synthetic flag through the generated receipt log representation."
+produces = ["6.go-evm-types-newlogsfrometh-j34"]
+consumes = ["6.proto-evm-log"]
+
+[file.220]
+path = "modules/evm/types/message_associate.go"
+lines = 57
+verdict = "clean"
+note = "Association messages retain the declared sender and custom-message signing shape with normal sender validation."
+produces = ["6.go-evm-types-istxmsgassociate-j34"]
+consumes = ["6.proto-evm-msgassociate", "15.go-types-errors-err-tx-too-large-j76", "15.go-types-must-sort-json-j76"]
+
+[file.221]
+path = "modules/evm/types/message_associate_contract_address.go"
+lines = 49
+verdict = "clean"
+note = "Contract-association messages validate the actual contract/account fields before the message server's association operation."
+consumes = ["6.proto-evm-msgassociatecontractaddress"]
+
+[file.222]
+path = "modules/evm/types/message_bind_erc_native_pointer.go"
+lines = 79
+verdict = "clean"
+note = "Authority-bound native-pointer messages validate the governance authority and native denom with exact ERC pointer address requirements."
+consumes = ["6.proto-evm-msgbindercnativepointer", "15.go-types-errors-err-invalid-request-j76", "15.go-types-validate-denom-j76", "15.go-x-auth-types-new-module-address-j76", "15.go-x-gov-types-module-name-j76"]
+
+[file.223]
+path = "modules/evm/types/message_bind_erc_native_pointer_test.go"
+lines = 75
+verdict = "clean"
+note = "Native-pointer message assertions match authority, token, pointer and version fields used by the real service."
+
+[file.224]
+path = "modules/evm/types/message_claim.go"
+lines = 46
+verdict = "clean"
+note = "Claim messages carry sender and claimer consistently with mounted claim handling and bech32 account validation."
+produces = ["6.go-evm-types-newmsgclaim-j34"]
+consumes = ["6.msg-evm-claim", "6.proto-evm-msgclaim"]
+
+[file.225]
+path = "modules/evm/types/message_claim_specific.go"
+lines = 72
+verdict = "clean"
+note = "Specific-claim messages retain the declared asset-type, contract-address and denom representation used by the mounted typed claim consumer."
+produces = ["6.go-evm-types-newmsgclaimspecific-j34"]
+consumes = ["6.msg-evm-claimspecific", "6.proto-evm-asset", "6.proto-evm-msgclaimspecific"]
+
+[file.226]
+path = "modules/evm/types/message_claim_specific_test.go"
+lines = 17
+verdict = "clean"
+note = "Specific-claim cases use the concrete Asset enum and fields consumed by message handling; no alternate transport shape was identified."
+
+[file.227]
+path = "modules/evm/types/message_claim_test.go"
+lines = 25
+verdict = "clean"
+note = "Claim assertions use the same sender/claimer address representation and authorization boundary as the message."
+
+[file.228]
+path = "modules/evm/types/message_evm_transaction.go"
+lines = 128
+verdict = "clean"
+note = "EVM messages preserve Any transaction data and derived metadata across signing and execution; uncached concrete-type selection needs finding 027 in codec.go."
+produces = ["6.go-evm-types-getevmtransactionmessage-j34", "6.go-evm-types-msgevmtransaction-astransaction-j34", "6.go-evm-types-msgevmtransaction-isassociatetx-j34", "6.go-evm-types-mustgetevmtransactionmessage-j34", "6.go-evm-types-newmsgevmtransaction-j34"]
+consumes = ["6.proto-evm-msgevmtransaction", "6.proto-evm-msgevmtransactionresponse", "7.proto-cosmos-base-abci-v1beta1-result-j39", "7.proto-eth-associatetx", "15.go-codec-types-new-any-with-value-j76", "15.go-types-errors-err-invalid-pub-key-j76", "15.go-types-errors-err-tx-too-large-j76", "15.go-types-result-decorator-j76"]
+
+[file.229]
+path = "modules/evm/types/message_evm_transaction_test.go"
+lines = 137
+verdict = "clean"
+note = "EVM message cases use the actual TxData Any representation; malformed set-code/blob and uncached type-URL cases are proposed in their owning findings."
+consumes = ["5.go-node-new-test-tx", "6.proto-evm-nonce", "7.proto-eth-accesstuple", "7.proto-eth-associatetx"]
+
+[file.230]
+path = "modules/evm/types/message_internal_evm_call.go"
+lines = 30
+verdict = "clean"
+note = "Internal calls validate sender, destination, value and data with the same field types used by the Wasm encoder and keeper."
+consumes = ["6.msg-evm-internalevmcall", "6.proto-evm-msginternalevmcall"]
+
+[file.231]
+path = "modules/evm/types/message_internal_evm_delegate_call.go"
+lines = 31
+verdict = "clean"
+note = "Internal delegate messages retain FromContract text, code hash and calldata matching the encoder and pointer authorization lookup."
+consumes = ["6.msg-evm-internalevmdelegatecall", "6.proto-evm-msginternalevmdelegatecall"]
+
+[file.232]
+path = "modules/evm/types/message_register_pointer.go"
+lines = 58
+verdict = "clean"
+note = "Pointer registration messages validate sender, enum and ERC address according to the real registration route."
+consumes = ["6.proto-evm-msgregisterpointer"]
+
+[file.233]
+path = "modules/evm/types/message_send.go"
+lines = 54
+verdict = "issues"
+note = "Send message validation omits the EVM recipient before common.HexToAddress normalizes it during transfer; finding 023 requires exact-address rejection."
+consumes = ["6.proto-evm-msgsend", "15.go-types-errors-err-invalid-coins-j76"]
+findings = ["023"]
+
+[file.234]
+path = "modules/evm/types/message_send_test.go"
+lines = 31
+verdict = "clean"
+note = "Send cases use valid destinations and SDK coins matching the message shape; malformed recipient coverage is proposed in finding 023."
+consumes = ["7.proto-cosmos-base-v1beta1-coin-j39"]
+
+[file.235]
+path = "modules/evm/types/params.go"
+lines = 410
+verdict = "clean"
+note = "Params validation enforces fee, spread, age, gas and delegate-whitelist bounds with current defaults and historical reserved fields retained."
+produces = ["6.gen-evm-keyallowedfeedenoms-j34", "6.gen-evm-keybasefeepergas-j34", "6.gen-evm-keydelivertxhookwasmgaslimit-j34", "6.gen-evm-keyfeetokendistribution-j34", "6.gen-evm-keyfeetokenenabled-j34", "6.gen-evm-keymaxdynamicbasefeedownwardadjustment-j34", "6.gen-evm-keymaxdynamicbasefeeupwardadjustment-j34", "6.gen-evm-keymaxfeepergas-j34", "6.gen-evm-keymaxfeetokenrateage-j34", "6.gen-evm-keymaxfeetokenspread-j34", "6.gen-evm-keyminfeepergas-j34", "6.gen-evm-keypaxsstoresetgaseip2200-j34", "6.gen-evm-keyprioritynormalizer-j34", "6.gen-evm-keyregisterpointerdisabled-j34", "6.gen-evm-keytargetgasusedperblock-j34", "6.gen-evm-keywhitelistedcwcodehashesfordelegatecall-j34", "6.go-evm-types-defaultfeetokendistribution-j34", "6.go-evm-types-defaultfeetokenenabled-j34", "6.go-evm-types-defaultmaxfeetokenrateage-j34", "6.go-evm-types-defaultmaxfeetokenspread-j34", "6.go-evm-types-defaultminfeepergas-j34", "6.go-evm-types-defaultparams-j34", "6.go-evm-types-defaultpaxsstoresetgaseip2200-j34", "6.go-evm-types-feetokenholdingaccount-j34", "6.go-evm-types-initialsidiorabaseunitsperpax-j34", "6.go-evm-types-maxminfeepergas-j34", "6.go-evm-types-params-validate-j34"]
+consumes = ["6.proto-evm-allowedfeedenom", "6.proto-evm-params", "15.go-types-dec-j76", "15.go-types-new-dec-j76", "15.go-types-new-dec-with-prec-j76", "15.go-types-one-dec-j76", "15.go-types-validate-denom-j76", "15.go-x-params-types-key-table-j76", "15.go-x-params-types-new-key-table-j76", "15.go-x-params-types-new-param-set-pair-j76", "15.go-x-params-types-param-set-j76", "15.go-x-params-types-param-set-pairs-j76"]
+
+[file.236]
+path = "modules/evm/types/params_keys_freeze_test.go"
+lines = 96
+verdict = "clean"
+note = "Parameter-key freeze assertions preserve names consumed by the parameter keeper and migrations."
+
+[file.237]
+path = "modules/evm/types/params_reserved_test.go"
+lines = 83
+verdict = "clean"
+note = "Reserved-field cases preserve deprecated protobuf field numbers/names without exposing them as new configuration."
+
+[file.238]
+path = "modules/evm/types/params_test.go"
+lines = 393
+verdict = "clean"
+note = "Parameter assertions use current bounds and defaults for fee-token and EVM execution settings."
+consumes = ["6.proto-evm-allowedfeedenom", "15.go-store-new-commit-multi-store-j76", "15.go-types-must-new-dec-from-str-j76", "15.go-types-new-kv-store-key-j76", "15.go-types-new-transient-store-key-j76", "15.go-types-smallest-dec-j76", "15.go-types-store-type-iavl-j76", "15.go-types-store-type-transient-j76", "15.go-x-params-types-new-subspace-j76", "15.go-x-params-types-store-key-j76", "15.go-x-params-types-t-store-key-j76", "15.go-x-params-types-value-validator-fn-j76"]
+
+[file.239]
+path = "modules/evm/types/proto_freeze_test.go"
+lines = 404
+verdict = "clean"
+note = "Proto freeze assertions compare declared message descriptors and field numbers with the public transport contract."
+
+[file.240]
+path = "modules/evm/types/whitelist.go"
+lines = 12
+verdict = "clean"
+note = "Whitelist checks use embedded versioned pointer code hashes and current delegate authorization rules; no arbitrary caller bypass was identified."
+
+[finding.001]
+file = "modules/evm/client/cli/tx.go"
+line = 494
+class = "interface-mismatch"
+severity = "high"
+interface = "6.cli-evm-tx-call-precompile"
+observed = "CmdCallPrecompile declares an outer valueBig initialized to zero, then shadows it with valueBig, success := inside the value branch; the transaction always carries zero even when --value is positive."
+expected = "The registered call-precompile --value flag must become the exact payment in the transaction consumed by payable precompiles."
+proposal = "In modules/evm/client/cli/tx.go assign the parsed payment to the transaction's value variable and prove a payable precompile call receives the requested amount through the command and node."
+owner_domain = 6
+
+[finding.002]
+file = "modules/evm/client/cli/tx.go"
+line = 643
+class = "runtime-risk"
+severity = "medium"
+observed = "getNonce and getChainId assert resObj[\"result\"].(string) without checking JSON-RPC error, missing result or result type; a normal server error response panics the CLI."
+expected = "RPC errors and malformed results must return actionable command errors without panicking or treating a failed lookup as transaction metadata."
+proposal = "Decode a typed JSON-RPC response in modules/evm/client/cli/tx.go, propagate its error and check result type and hex encoding before signing; exercise actual error responses."
+owner_domain = 6
+interface = "7.rpc-eth-gettransactioncount"
+
+[finding.003]
+file = "modules/evm/client/cli/tx.go"
+line = 630
+class = "runtime-risk"
+severity = "medium"
+observed = "The association, nonce and chain-ID HTTP requests use http.DefaultClient without a deadline and io.ReadAll without a response bound; sendTx also uses context.Background and leaves ethClient open."
+expected = "A command contacting a configured RPC endpoint must terminate on cancellation or a bounded timeout and bound response memory."
+proposal = "Use the Cobra context with a finite timeout and capped response reads in modules/evm/client/cli/tx.go, close the ethclient and propagate cancellation through transaction submission."
+owner_domain = 6
+interface = "6.cli-evm-tx-associate-address"
+
+[finding.004]
+file = "modules/evm/client/cli/tx.go"
+line = 239
+class = "runtime-risk"
+severity = "medium"
+observed = "CmdDeployContract panics when the supplied binary cannot be read or its contents are not exact bare hexadecimal, losing the underlying error and command error contract."
+expected = "Invalid user files must produce an ordinary descriptive command error, including the file path and parse failure."
+proposal = "Return wrapped read and hex errors from modules/evm/client/cli/tx.go and define accepted whitespace and 0x conventions in command help."
+owner_domain = 6
+interface = "6.cli-evm-tx-deploy"
+
+[finding.005]
+file = "modules/evm/client/cli/common.go"
+line = 36
+class = "runtime-risk"
+severity = "medium"
+observed = "getMethodPayload checks only upper bounds before casting signed int8, int16 and int32; values below MinInt silently wrap and pack a different ABI argument."
+expected = "A numeric CLI argument must either preserve its exact value within the ABI type's range or be rejected before signing."
+proposal = "Validate both lower and upper signed bounds in modules/evm/client/cli/common.go and range-check wide integers and unsigned signs before ABI packing."
+owner_domain = 6
+interface = "6.cli-evm-query-payload"
+
+[finding.006]
+file = "modules/evm/client/cli/query.go"
+line = 139
+class = "runtime-risk"
+severity = "medium"
+observed = "CmdQueryERC20 accepts two arguments but indexes args[2] for balanceOf and args[3] for allowance; an incomplete query panics instead of returning a usage error."
+expected = "Each supported token query must validate its method-specific argument count before reading its parameters."
+proposal = "Validate the method and exact argument count in modules/evm/client/cli/query.go before address conversion or querying the node; include missing-argument cases."
+owner_domain = 6
+interface = "6.cli-evm-query-erc20"
+
+[finding.007]
+file = "modules/evm/client/cli/query.go"
+line = 240
+class = "runtime-risk"
+severity = "medium"
+observed = "The ERC20, ERC721 and ERC1155 payload commands ignore scalar sdk.NewIntFromString failures, accept unknown methods with empty successful output, and convert every approval text except true into false."
+expected = "Malformed amounts, token IDs, approval values and unsupported methods must be rejected without emitting misleading call data."
+proposal = "In modules/evm/client/cli/query.go check parsing success and unsigned bounds, require true or false explicitly, and return an unknown-method error from each payload switch."
+owner_domain = 6
+interface = "6.cli-evm-query-erc20-payload"
+
+[finding.008]
+file = "modules/evm/client/wasm/query.go"
+line = 63
+class = "runtime-risk"
+severity = "medium"
+observed = "Amount and salePrice pointer fields in PaxEVMQuery may be omitted or null, but ERC20/1155 payload and royalty handlers call BigInt on them without nil or unsigned validation; token IDs also accept negative integers."
+expected = "Malformed contract queries must return typed errors before ABI packing rather than panic or encode wrapped unsigned values."
+proposal = "Validate all optional sdk.Int pointers and require 0..2^256-1 values in modules/evm/client/wasm/query.go at the real query dispatcher boundary; test omitted and null fields through JSON."
+owner_domain = 6
+interface = "6.go-evm-client-wasm-evmqueryhandler-handleerc20transferpayload-j34"
+
+[finding.009]
+file = "modules/evm/client/wasm/query.go"
+line = 1040
+class = "runtime-risk"
+severity = "medium"
+observed = "HandleSupportsInterface copies any decoded hex length into a four-byte array, silently padding short interface IDs or truncating long ones to a different ID."
+expected = "An ERC165 interface identifier must contain exactly four bytes and invalid lengths must be rejected before calling the contract."
+proposal = "Require len(idbz) == 4 in modules/evm/client/wasm/query.go and prove exact IDs survive the CosmWasm query path unchanged."
+owner_domain = 6
+interface = "6.go-evm-client-wasm-evmqueryhandler-handlesupportsinterface-j34"
+
+[finding.010]
+file = "modules/evm/keeper/evm_test.go"
+line = 209
+class = "test-gap"
+severity = "medium"
+observed = "TestHandleInternalEVMDelegateCall_AssociationError supplies raw binary strings for FromContract and stores an invented CW address instead of exercising EncodeDelegateCallEVM with a registered bech32 pointer; it proves only the missing-association branch."
+expected = "Delegate-call proof should cover the bech32 shape emitted by the encoder, the reverse registry entry from RegisterPointer, and a successful authorised call."
+proposal = "Add a real pointer registration and EncodeDelegateCallEVM round-trip to modules/evm/keeper/evm_test.go, retain the association rejection assertion, and assert successful return data and rejection of another pointer."
+owner_domain = 6
+interface = "6.msg-evm-internalevmdelegatecall"
+
+[finding.011]
+file = "modules/evm/keeper/abci.go"
+line = 125
+class = "runtime-risk"
+severity = "high"
+observed = "EndBlock computes operator share from wei-per-gas times gasUsed but compares and transfers that integer as base-denom units; 1 uhpx is 10^12 wei, so it either skips payment or overpays from unrelated collector funds."
+expected = "Requirement 20004.1 pays FeeShareBps of the chain's actual base fees with the network's six-decimal denomination and preserves any sub-unit remainder."
+proposal = "In modules/evm/keeper/abci.go calculate the share in wei from the fee actually charged, split it with state.SplitUhpxWeiAmount and transfer coin plus wei without drawing excess funds."
+owner_domain = 6
+interface = "6.go-evm-keeper-keeper-endblock-j34"
+
+[finding.012]
+file = "modules/evm/keeper/abci.go"
+line = 126
+class = "runtime-risk"
+severity = "high"
+observed = "Domain operator payout occurs before the deferred transaction coinbase sweep and silently does nothing when collector balance is insufficient; no unpaid share is persisted or retried."
+expected = "Requirement 20004.1 requires the chain's executed transaction fees to fund its operator share at end of that block, including when the collector began empty."
+proposal = "Move domain payout after fee settlement in modules/evm/keeper/abci.go and either account for the exact paid fee denom or persist explicit obligations; prove an empty collector is funded by the real transaction."
+owner_domain = 6
+interface = "6.go-evm-keeper-keeper-endblock-j34"
+
+[finding.013]
+file = "modules/evm/keeper/domain_fees_test.go"
+line = 151
+class = "test-gap"
+severity = "medium"
+observed = "TestOperatorReceivesTheFeeShareAtEndBlock prefunds the collector with one million base units and expects 69999 native units for 21000 gas at about 10 wei per gas; it expects zero when unfunded, endorsing the unit and settlement-order defects."
+expected = "Fee-share proof must derive money from executed transactions, preserve wei/native conversion, and assert the agreed payout without an unrelated collector subsidy."
+proposal = "In modules/evm/keeper/domain_fees_test.go submit signed transactions through admission, execution and EndBlock at production-scale fees, verify conservation and payout, then commit and reopen to check persistence."
+owner_domain = 6
+interface = "6.go-evm-keeper-keeper-endblock-j34"
+
+[finding.014]
+file = "modules/evm/keeper/keeper_test.go"
+line = 167
+class = "test-gap"
+severity = "medium"
+observed = "TestGetCustomPrecompiles iterates address keys p but compares p.Hex() with directory names such as bank and staking; the comparison always continues, so its version equality assertion is never reached."
+expected = "Historical precompile tests must assert the version selected for the actual registered address on both sides of each upgrade."
+proposal = "Resolve each precompile directory name to its registered address in modules/evm/keeper/keeper_test.go and require an assertion count so absent matches cannot pass silently."
+owner_domain = 6
+
+[finding.015]
+file = "modules/evm/keeper/view.go"
+line = 17
+class = "runtime-risk"
+severity = "medium"
+observed = "QueryERCSingleOutput discards ABI Pack and Unpack errors and returns nil, err when output length differs from one; after a successful StaticCallEVM err is nil, so malformed return data becomes a successful nil result."
+expected = "An unsuccessful metadata decode must return an actionable error to pointer registration, governance and migration callers."
+proposal = "Propagate Pack and Unpack errors and return an explicit output-count error in modules/evm/keeper/view.go; exercise empty and malformed return data from actual EVM contract code."
+owner_domain = 6
+interface = "6.go-evm-keeper-keeper-upsertercnativepointer-j34"
+
+[finding.016]
+file = "modules/evm/migrations/migrate_eip_1559_max_base_fee_test.go"
+line = 25
+class = "test-gap"
+severity = "medium"
+observed = "The migration test mutates a local keeperParams copy without storing it, runs the migration, and asserts against that same unchanged local copy rather than reading migrated parameters."
+expected = "Migration proof must show stored pre-upgrade governed values and assert the actual persisted post-migration state and preservation of unrelated fields."
+proposal = "In modules/evm/migrations/migrate_eip_1559_max_base_fee_test.go seed nondefault parameters through SetParams, invoke the migration, reload GetParams and assert the changed and preserved fields, including a reopen of the committed store."
+owner_domain = 6
+
+[finding.017]
+file = "modules/evm/migrations/migrate_eip_1559_params_test.go"
+line = 25
+class = "test-gap"
+severity = "medium"
+observed = "The migration test mutates a local keeperParams copy without storing it, runs the migration, and asserts against that same unchanged local copy rather than reading migrated parameters."
+expected = "Migration proof must show stored pre-upgrade governed values and assert the actual persisted post-migration state and preservation of unrelated fields."
+proposal = "In modules/evm/migrations/migrate_eip_1559_params_test.go seed nondefault parameters through SetParams, invoke the migration, reload GetParams and assert the changed and preserved fields, including a reopen of the committed store."
+owner_domain = 6
+
+[finding.018]
+file = "modules/evm/keeper/receipt.go"
+line = 78
+class = "runtime-risk"
+severity = "medium"
+observed = "GetReceiptWithRetry performs no read when maxRetries is zero or negative and returns nil, nil because lastErr was never assigned, falsely signalling a successful receipt lookup."
+expected = "Every successful receipt lookup must return a receipt, and an invalid retry budget must produce an explicit error or perform a defined initial attempt."
+proposal = "Define the retry budget contract in modules/evm/keeper/receipt.go, reject nonpositive attempts or always make the initial lookup, and cover zero, negative and cancelled lookups without nil-success results."
+owner_domain = 6
+interface = "6.go-evm-keeper-keeper-getreceiptwithretry-j34"
+
+[finding.019]
+file = "modules/evm/genesis.go"
+line = 28
+class = "restart-recovery"
+severity = "high"
+observed = "InitGenesis validates each serialized binding entry independently but never calls ValidateLayerXBindings after loading the complete table. Valid-sized forward and reverse entries can disagree, so EVM-to-DID and DID-to-EVM resolution return inconsistent identities after import."
+expected = "The bidirectional identity mapping must remain a bijection through both ordinary and streamed genesis recovery, as required by the binding contract and ValidateLayerXBindings."
+proposal = "In modules/evm/genesis.go and the final streamed-import boundary, validate the completed table with ValidateLayerXBindings before exposing the recovered chain; reject missing reverse rows, conflicting rows and duplicate identities, and exercise complete export/import recovery."
+owner_domain = 6
+interface = "6.err-go-evm-layer-xgenesis-binding"
+
+[finding.020]
+file = "modules/evm/genesis.go"
+line = 75
+class = "restart-recovery"
+severity = "medium"
+observed = "ExportGenesis and ExportGenesisStream omit NextBaseFeePerGasPrefix, BaseFeePerGasPrefix, LegacyBlockBloomCutoffHeightKey and EvmOnlyBlockBloomPrefix. Recovery drops the next base fee and historical bloom interpretation while exporting the older BlockBloomPrefix."
+expected = "A state export used for recovery must preserve the fee schedule and the bloom data needed to interpret the exported receipt history, or explicitly define and validate a coordinated history reset."
+proposal = "Extend both export prefix lists in modules/evm/genesis.go with the durable fee and bloom state required by keeper/fee.go and keeper/log.go; prove ordinary and streamed round-trips with a nonminimum fee and both bloom formats."
+owner_domain = 6
+interface = "6.proto-evm-genesisstate"
+
+[finding.021]
+file = "modules/evm/types/genesis.go"
+line = 16
+class = "runtime-risk"
+severity = "medium"
+observed = "ValidateStream records invalid parameter chunks but returns nil if any other chunk validates; GenesisState.Validate checks only Params and ignores addresses, state shapes and serialized entries."
+expected = "Genesis validation must reject invalid supplied chunks and malformed state before InitGenesis mutates the store or panics on an address."
+proposal = "Validate every supplied state entry in modules/evm/types/genesis.go and make the streamed validator reject any invalid populated chunk while preserving the documented stream parameter convention; test a valid chunk followed by invalid parameters and malformed addresses."
+owner_domain = 6
+interface = "6.go-evm-types-genesisstate-validate-j34"
+
+[finding.022]
+file = "modules/evm/keeper/genesis.go"
+line = 40
+class = "wiring-gap"
+severity = "medium"
+observed = "InitGenesis logs wasmKeeper.Create failures for CWERC20, CWERC721 and CWERC1155 pointer code and continues without storing the corresponding PointerCWCodePrefix entry. Later RegisterPointer cannot find the required code ID."
+expected = "Genesis must either establish every mandatory pointer implementation or fail initialization with its original cause before the node begins serving pointer operations."
+proposal = "Make pointer code installation failure abort genesis in modules/evm/keeper/genesis.go and prove each failed installation leaves no usable partially initialized chain; verify the installed IDs through RegisterPointer."
+owner_domain = 6
+interface = "6.go-evm-keeper-keeper-initgenesis-j34"
+
+[finding.023]
+file = "modules/evm/types/message_send.go"
+line = 40
+class = "runtime-risk"
+severity = "medium"
+observed = "MsgSend.ValidateBasic validates the sender and coins but never ToAddress; msgServer.Send passes it to common.HexToAddress, which maps malformed strings to a zero or truncated address before moving the user's funds."
+expected = "An invalid EVM recipient must be rejected before signing and before the bank transfer; the accepted recipient must preserve the complete requested address."
+proposal = "Validate an exact 20-byte hexadecimal EVM recipient in modules/evm/types/message_send.go and at CLI entry points before normalization; verify malformed, short and oversized destinations through the message service without transferring funds."
+owner_domain = 6
+interface = "6.msg-evm-send"
+
+[finding.024]
+file = "modules/evm/state/mock_balances.go"
+line = 32
+class = "security"
+severity = "medium"
+observed = "The mock_balances build rejects only retired chain ID pacific-1, so a tagged build on hyperpax_125-1 can mint test funds in GetBalance. ensureSufficientBalance can call topOffAccount without even that obsolete guard."
+expected = "The testing balance minting feature must fail closed on every live Paxeer chain and on every path that can mint balances."
+proposal = "Guard the actual minting boundary in modules/evm/state/mock_balances.go using the live chain-ID policy from modules/evm/config/config.go, and make production packaging reject the mock_balances tag; prove both balance-read and debit paths refuse live chain IDs."
+owner_domain = 6
+
+[finding.025]
+file = "modules/evm/types/ethtx/set_code_tx.go"
+line = 214
+class = "runtime-risk"
+severity = "medium"
+observed = "SetCodeTx.Validate permits an empty To string, but AsEthereumData dereferences *tx.GetTo() at line 133; GetTo returns nil for that exact validated input. MsgEVMTransaction.AsTransaction is called by EvmStatelessChecks before signature verification."
+expected = "A decoded set-code transaction must have the mandatory EIP-7702 destination and malformed envelopes must produce a validation error without panicking admission."
+proposal = "Require the destination in modules/evm/types/ethtx/set_code_tx.go and validate all mandatory uint256 fields before conversion; exercise a protobuf Any set-code envelope with empty To through MsgEVMTransaction.ValidateBasic and the real stateless admission path."
+owner_domain = 6
+interface = "6.go-evm-types-ethtx-setcodetx-asethereumdata-j34"
+
+[finding.026]
+file = "modules/evm/types/ethtx/blob_tx.go"
+line = 216
+class = "runtime-risk"
+severity = "medium"
+observed = "BlobTx.Validate calls tx.Fee without validating BlobFeeCap, and Fee multiplies that possibly nil pointer. sidecarToEthSidecar also converts arbitrary protobuf byte slices to fixed arrays without length checks, so short blobs, commitments or proofs panic conversion before the later blob-type refusal."
+expected = "Unsupported or malformed blob envelopes must be refused as input errors before any nil arithmetic or fixed-array conversion can panic the transaction admission path."
+proposal = "In modules/evm/types/ethtx/blob_tx.go validate the blob fee cap, exact hash and sidecar byte lengths and list cardinalities before conversion, or reject the unsupported envelope at decoding; test malformed protobuf envelopes through MsgEVMTransaction and EvmStatelessChecks."
+owner_domain = 6
+interface = "6.go-evm-types-ethtx-blobtx-asethereumdata-j34"
+
+[finding.027]
+file = "modules/evm/types/codec.go"
+line = 105
+class = "runtime-risk"
+severity = "medium"
+observed = "UnpackTxData ignores Any.TypeUrl when its cached value is absent and tries six protobuf schemas in order. Empty or overlapping wire payloads decode as LegacyTx regardless of the declared type, so uncached and cached transport paths can interpret the same Any differently."
+expected = "The protobuf Any type URL must determine the transaction schema consistently across caching, serialization and recovery; unknown or mismatched type URLs must return errors."
+proposal = "Replace trial decoding in modules/evm/types/codec.go with registered type-URL dispatch and reject unknown types; prove every envelope retains its concrete TxData type after clearing the Any cache and after JSON/protobuf transport."
+owner_domain = 6
+interface = "6.go-evm-types-unpacktxdata-j34"
+
+[finding.028]
+file = "modules/evm/keeper/precompile.go"
+line = 20
+class = "retired-reference"
+severity = "low"
+observed = "The payablePrecompiles map still imports layerxanchor and suppresses transfer events for LayerXAnchorAddress unconditionally, although the merged-network retirement inventory retires the anchor write surface at 0x1014."
+expected = "Merged operation must not carry an unconditional live-payment exception for a retired precompile; any historical behavior must be confined to the historical execution version."
+proposal = "Remove the current anchor payment exception from modules/evm/keeper/precompile.go or scope it to explicitly supported historical replay, and assert normal post-retirement transfer logging for the address."
+owner_domain = 6
+
+[finding.029]
+file = "modules/evm/state/state.go"
+line = 79
+class = "runtime-risk"
+severity = "medium"
+observed = "SelfDestruct deletes the EVM-to-Pax association before calling GetBalance and SubBalance. For an association whose Pax address differs from the cast EVM address, those calls switch to the cast account and leave the original associated balance untouched."
+expected = "Self-destruction must debit the balance of the account being destroyed before removing its address association, preserving balance conservation across mapped accounts."
+proposal = "In modules/evm/state/state.go retain the resolved Pax address through the destruction debit and remove the association only afterward; verify associated and cast balances in the same cached context and after commit/reopen, including historical execution."
+owner_domain = 6
+
+[finding.030]
+file = "modules/evm/state/state_test.go"
+line = 124
+class = "test-gap"
+severity = "medium"
+observed = "TestSelfDestructAssociated funds paxAddr inside statedb.Ctx() but checks its bank balance using the parent ctx, where the cache has not been flushed and the funding is invisible. The zero assertion therefore cannot detect funds stranded after association deletion."
+expected = "The destruction test must inspect the funded account in the execution context and then prove the resulting committed balance, rather than compare an untouched parent store."
+proposal = "In modules/evm/state/state_test.go assert the initial funded balance and final debit using statedb.Ctx(), assert the returned destruction amount, and reload the committed store to prove neither the mapped account nor the cast address retains unintended funds."
+owner_domain = 6
+
+[finding.031]
+file = "modules/evm/state/statedb.go"
+line = 138
+class = "runtime-risk"
+severity = "medium"
+observed = "Finalize checks s.err only before handleResidualFundsInDestructedAccounts, whose SubBalance and AddBalance can set s.err. It then clears state and flushes caches while returning a nil error even if residual fund settlement failed."
+expected = "Finalization must not publish state or report successful settlement after a bank debit or credit error during self-destruct cleanup."
+proposal = "In modules/evm/state/statedb.go check and propagate residual-settlement errors before clearing or flushing state, and keep the debit and collector credit atomic; exercise real locked-fund rejection and verify the parent store remains unchanged."
+owner_domain = 6
+interface = "6.go-evm-state-dbimpl-finalize-j34"
+
+[finding.032]
+file = "modules/evm/AGENTS.md"
+line = 57
+class = "doc-drift"
+severity = "medium"
+observed = "The documented ante pipeline lists address derivation inside the EVM chain and signature verification before fee validation, while node/ante.go mounts domain chain-ID routing, preprocessing, basic checks, fee validation and domain signature verification in that order; address derivation is in the Cosmos chain."
+expected = "The EVM module guide must describe the actual mounted pipeline and the domain-specific chain-ID, fee and signature rules operators and maintainers rely on."
+proposal = "Rewrite the Ante Handler Pipeline in modules/evm/AGENTS.md against node/ante.go and node/ante/evm_checktx.go, including root versus tenant-domain admission and the ordering of fee purchase and signature/nonce verification."
+owner_domain = 6
+
+[finding.033]
+file = "spec/layerx-merge/contracts/address-inventory.md"
+line = 3159
+class = "doc-drift"
+severity = "low"
+observed = "The CLI catalogue advertises --rpc on associate-address and --gas-limt on call-contract, call-precompile, deploy, deploy-wpax and erc20-send, whereas the current Cobra commands register and advertise --evm-rpc and --gas-limit."
+expected = "Command examples supplied to integrators must use the registered flag names required by requirement 6037.1, with historical spellings clearly separated from runnable commands."
+proposal = "Regenerate the CLI entries in spec/layerx-merge/contracts/address-inventory.md from the corrected command trees and amend the corresponding interface signatures; retain the pinned historical revision only in a clearly identified history section."
+owner_domain = 6
+
+[finding.034]
+file = "spec/layerx-merge/contracts/rpc.md"
+line = 9
+class = "doc-drift"
+severity = "medium"
+owner_domain = 7
+observed = "The RPC catalogue sends readers to contracts/sequencer.md for a sequencer receipt and repeatedly documents pending served by sequencer and pax_sequencerReceipt served by sequencer errors as the API behavior."
+expected = "The audit brief specifies a single BFT paxd network whose kernel proposes blocks and whose receipts are final at commit, without a separate sequencer service or receipt authority."
+proposal = "Update spec/layerx-merge/contracts/rpc.md and the EVM RPC companion to state committed-block finality and the node's current pending/error behavior, removing instructions that require a separate sequencer service or receipt source."
+
+[finding.035]
+file = "spec/layerx-merge/interfaces.kvx"
+line = 379205
+class = "doc-drift"
+severity = "low"
+owner_domain = 8
+interface = "8.http-middleware-conformance-any-receipt"
+observed = "The /receipt conformance HTTP row lists modules/evm/keeper/abci.go:17, keeper.go:24 and receipt.go:14 as callers, but those lines import storage/ledger_db/receipt and do not issue HTTP requests. This introduces a false middleware dependency into the package's consumed interfaces."
+expected = "The interface registry must distinguish Go receipt-store imports from HTTP /receipt consumers so a chain node is not described as depending on a separate conformance receipt service."
+proposal = "Correct caller extraction and the /receipt row in spec/layerx-merge/interfaces.kvx under the platform middleware owner; associate the EVM imports with storage/ledger_db/receipt interfaces and regenerate the audit package without the false HTTP dependency."
+
+[doc.001]
+path = "modules/evm/AGENTS.md"
+status = "stale"
+notes = "Full module guide read. The balance unit, pointer registry and deferred receipt descriptions match the code; lines 57-71 omit domain admission and misorder the actual ante chain, finding 032."
+
+[doc.002]
+path = "spec/layerx-merge/contracts/evm.md"
+status = "accurate"
+notes = "Pinned baseline contract read across EVM configuration, API declarations, notes, context and acceptance tables. Planned sources and UNRUN statuses are historical qualification markers, not claims that present gates ran. Current implementations were compared with the frozen fee, admission, genesis and pointer criteria; defects are recorded against their source files."
+
+[doc.003]
+path = "spec/layerx-merge/contracts/address-inventory.md"
+status = "stale"
+notes = "Reviewed the inventory framing and EVM CLI, error, event and protobuf sections, including lines 3091-3243, 3328-3351 and 4036-4330. The CLI flags at 3159 and adjacent command rows are stale, finding 033; this entry does not claim review of unrelated domains in this catalogue."
+
+[doc.004]
+path = "spec/layerx-merge/contracts/rpc.md"
+status = "stale"
+notes = "Reviewed lines 1-130 for endpoints, receipt finality, error model and EVM methods. Lines 9, 52, 66 and the pending-error rows still direct integrators toward a separate sequencer receipt service, conflicting with the single BFT node in the audit brief; finding 034."
+
+[doc.005]
+path = "spec/layerx-merge/contracts/evm-rpc.md"
+status = "stale"
+notes = "Reviewed client-parity declarations, context and acceptance rows through line 140. The separate sequencer receipt server fixture at line 56 and pending-sequencer wording at line 27 need the same committed-receipt rewrite as finding 034; historical planned/UNRUN markers were not treated as current test evidence."
+
+[doc.006]
+path = "spec/layerx-merge/programme/audit/BRIEF.kvx"
+status = "accurate"
+notes = "Full brief read before the package. Its single BFT network, root JSON-RPC, tenant-domain, retirement and producer/transport/consumer rules are the target behavior for this audit."
+
+[doc.007]
+path = "spec/layerx-merge/programme/data/retired.kvx"
+status = "accurate"
+notes = "Retirement inventory read as the policy source for retired router, daemon, separate sequencer and anchor write surfaces; historical compatibility was distinguished from live defaults."
+
+[doc.008]
+path = "spec/workflow.kvx"
+status = "accurate"
+notes = "Workflow and hard rules read as task governance. This audit's explicit record-only scope, gate wrappers and runner publication instructions control its deliverable and qualification."
+
+[doc.009]
+path = "GOTCHA.kvx"
+status = "accurate"
+notes = "Known-pitfall framing and selected current entries were consulted as audit context; this entry does not claim a full audit of the repository-wide historical gotcha catalogue."
+
+[doc.010]
+path = "spec/layerx-merge/spec.kvx"
+status = "accurate"
+notes = "Read the package's requirement sections, audit task and linked acceptance/decision context. These clauses define required behavior; their presence does not establish implementation qualification or execution of the inventory's formerly failing commands."
+
+[doc.011]
+path = "spec/layerx-merge/interfaces.kvx"
+status = "stale"
+notes = "Read produced and consumed rows for this package, including producer rows beyond its 400-entry list cap. Go receipt imports were incorrectly classified as callers of the platform conformance /receipt HTTP route, finding 035; other actual boundary discrepancies name their row IDs in the findings."
