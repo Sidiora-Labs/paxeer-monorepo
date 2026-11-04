@@ -23,6 +23,8 @@ import urllib.parse
 
 sys.dont_write_bytecode = True
 root = Path(sys.argv[1]).resolve()
+sys.path.insert(0, str(root / "tools/paxeer-x/gates"))
+from compiler_manifest import require_manifest
 count = 0
 
 class Refusal(Exception):
@@ -231,6 +233,8 @@ def main():
                  and p.is_file() and not p.is_symlink() and os.access(p, os.X_OK)]
         require(len(paths) == expected, "exact compiled migration target set required: " + family)
         executables[family] = sorted(paths)
+    require_manifest(root, "104.24.1",
+                     [str(path) for paths in executables.values() for path in paths])
     deadline = time.monotonic() + 29 * 60
     for family, paths in executables.items():
         family_count = 0

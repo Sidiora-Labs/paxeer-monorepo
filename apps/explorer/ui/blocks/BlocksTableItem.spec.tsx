@@ -9,6 +9,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper')).nextRouterModule());
 
+import { desktopBlockValueScale, desktopBlockChainLink } from './blocksChainTest';
 import BlocksTableItem from './BlocksTableItem';
 
 const renderItem = (data = blockMock.base) => render(
@@ -55,3 +56,6 @@ describe('BlocksTableItem', () => {
     expect(container.querySelector('a[href^="/block/"]')?.getAttribute('href')).toBe(`/block/${ blockMock.base2.height }`);
   });
 });
+
+it(desktopBlockValueScale, desktopBlockValueScale);
+it(desktopBlockChainLink, desktopBlockChainLink);

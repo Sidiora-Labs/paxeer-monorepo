@@ -1,0 +1,44 @@
+[repair.22.33.406]
+audit = "22.30.143"
+base_revision = "2a8418f3ce46275830d68ea57514c30466a3493f"
+mode = "BUILD"
+scope = ["services/bridge/deploy", "tools/qualification/audit_repairs/repair_22_33_406.kvx", "tools/qualification/audit_repairs/test_repair_22_33_406.py"]
+acceptance = "22998.1: qualify the unchanged candidate through hf-build and hf-done without removing, skipping, weakening or replacing any existing assertion; the private gate ledger names the verified revision."
+implementation = "deploy-evm-chain.sh derives and checks the local signer before forge script, serializes deployments with a per-chain lock, retains a private run directory and broadcast intent before broadcast, reopens that run for readback, and delegates durable checkpoints and final atomic publication to evm-run-journal.py."
+configuration = "The private resolved-config.json retains an allowlisted projection of resolved public owner, deployer, attestors, threshold, chain, native asset, assets, caps, finality, environment variable names and big-block acknowledgements; arbitrary overlay extensions and credential values are excluded. The deployment record stores its absolute durable configuration path, configuration_sha256 and run_journal. Recovery verifies the digest and uses the snapshot without requiring the deleted overlay or original chains root."
+recovery = "The durable prepared phase allows the first broadcast; begin persists broadcasting before forge script. Every later invocation reads the same Foundry artifacts and vault, never creates a replacement vault, and retains missing-receipt and failed-broadcast evidence. A missing artifact or incomplete/reverted receipt set refuses publication; an operator must recover the exact original run in the retained private directory before rerunning this script for readback. Automatic transaction resubmission is deliberately not authorized by the journal."
+publication = "Only after the existing code-hash, threshold, attestor and cap readbacks succeed does publish validate the retained chain, vault, signer and block, attach durable provenance, fsync a private sibling, atomically replace the deployment record, fsync its directory, and mark the journal complete. A failed readback leaves the previous deployment record intact and retains the journal."
+qualified_revision = "Recorded by the final hf-done JSON and private gates.jsonl; the candidate cannot embed its own revision without changing that revision."
+qualification = "Run hf-build then hf-done on the same candidate; the latter runs cg spec done 22.33.406 -f layerx-merge --root TASK_ROOT and the declared pytest command. Exact revision, command, exit and private log location are copied from the final gate JSON, not inferred from HEAD."
+baseline = "No earlier repair or gate evidence existed at entry: only runner changes to .cgignore and spec task status were present, gate.json recorded builds_used=0 and verify_runs_used=0, and gates.jsonl was absent. No tests are claimed to have failed before this change: step 7's baseline request conflicts with the explicit implementation-first order and prohibition on running verify_cmd by hand. Follow the explicit order."
+wiring_requests = []
+
+[finding.bridge-broadcast-recovery]
+path = "services/bridge/deploy/deploy-evm-chain.sh"
+tests = ["test_bridge_shell_syntax_and_guarded_broadcast", "test_bridge_broadcast_recovery_reopens_same_vault", "test_bridge_unrecorded_broadcast_never_redeploys_after_restart", "test_bridge_atomic_publication_and_retained_source_contract"]
+proof = "The real RunJournal producer fsyncs broadcasting and the recorded public vault identity to disk; after the object is closed and reopened the consumer recovers the same vault and refuses another broadcast. Missing Foundry evidence refuses capture and final publication. Source assertions prove durable FOUNDRY_BROADCAST/deploy.log paths, retained transactions/receipts, receipt-success and identity checks, preserved readback checks, atomic publication ordering and absence of journal deletion in EXIT traps."
+review_only = "No Foundry executable or live chain is used: the gate does not claim to broadcast, replay submitted EVM transactions, execute cast/forge RPC readback, or prove Foundry's own artifact write timing. If Foundry dies before writing its artifact, the persisted broadcasting marker conservatively stops a second deployment. Recovery of an incomplete original transaction set remains an explicit operator action."
+
+[finding.bridge-deployer-after-broadcast]
+path = "services/bridge/deploy/deploy-evm-chain.sh"
+tests = ["test_bridge_deployer_mismatch_refused_before_broadcast", "test_bridge_shell_syntax_and_guarded_broadcast", "test_bridge_journal_refuses_cross_chain_record_and_signer_drift"]
+proof = "Production require_signer/prepare reject the wrong signer without creating any journal or record; correct addresses compare case-insensitively and malformed/zero signers fail. Shell source proves local cast wallet address and its guarded comparison precede the only forge script --broadcast, while post-broadcast configured-deployer and local-signer checks remain. A retained journal refuses signer, chain or record-path drift."
+review_only = "The gate does not execute cast's local cryptographic key derivation or a forge subprocess; it checks the real derivation command and refusal ordering and executes the production address comparison."
+
+[finding.bridge-config-provenance]
+path = "services/bridge/deploy/deploy-evm-chain.sh"
+tests = ["test_bridge_config_provenance_survives_overlay_removal", "test_bridge_snapshot_rejects_credentials_in_environment_values", "test_bridge_atomic_publication_and_retained_source_contract", "test_bridge_shell_syntax_and_guarded_broadcast"]
+proof = "The production snapshot writer consumes resolved settings from the committed Anvil dry-run recording. The test deletes the input directory, closes and reopens the production journal, verifies the persisted settings/path/SHA-256 and 0700/0600 privacy, rejects credential-valued environment fields and configuration drift, and detects digest tampering. Unknown nested credential extensions are excluded. Source assertions prove the final record receives the durable snapshot path and digest."
+review_only = "Overlay application itself is unchanged. The gate exercises the journal's resolved-config input boundary and persisted output, not jq execution against a live deployment overlay."
+
+[gotcha.baseline-order]
+observed = "The baseline run requested in task step 7 conflicts with the explicitly ordered implementation-first, wrapper-only bounded gate workflow."
+resolution = "Do not run an extra baseline gate or invent baseline failures; record the absence of that evidence here. Root GOTCHA.kvx and spec ledgers are outside scope."
+
+[gotcha.external-tool-boundary]
+observed = "No committed real Foundry broadcast transcript is available under the deployment fixtures; the existing legacy shell check uses command stand-ins and incomplete synthetic receipt data."
+resolution = "Do not invent a Foundry transcript or add replacement cast/forge binaries. Exercise the real Python checkpoint producer and reopen consumer using public identities/settings from the committed Anvil recording; prove Foundry-boundary source facts and clearly reserve actual tool execution for review."
+
+[gotcha.pending-governance]
+observed = "The committed attestor manifest explicitly awaits governance approval and the existing production precondition rejects it before deployment."
+resolution = "Preserve the manifest and its refusal unchanged. This repair qualifies local recovery/provenance logic without claiming governance approval or deployment readiness."

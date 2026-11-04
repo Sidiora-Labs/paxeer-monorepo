@@ -123,6 +123,9 @@ impl TransactionsApiClient {
 pub struct GetTransactionInternalTxsParams {
     /// Transaction hash
     pub transaction_hash: String,
+
+    /// Continuation returned by this route; overrides the client-scoped cursor.
+    pub cursor: Option<super::pagination::PageCursor>,
 }
 
 /// struct for passing parameters to the method [`get_transaction_logs`]
@@ -131,6 +134,9 @@ pub struct GetTransactionInternalTxsParams {
 pub struct GetTransactionLogsParams {
     /// Transaction hash
     pub transaction_hash: String,
+
+    /// Continuation returned by this route; overrides the client-scoped cursor.
+    pub cursor: Option<super::pagination::PageCursor>,
 }
 
 /// struct for passing parameters to the method [`get_transaction_raw_trace`]
@@ -147,6 +153,9 @@ pub struct GetTransactionRawTraceParams {
 pub struct GetTransactionStateChangesParams {
     /// Transaction hash
     pub transaction_hash: String,
+
+    /// Continuation returned by this route; overrides the client-scoped cursor.
+    pub cursor: Option<super::pagination::PageCursor>,
 }
 
 /// struct for passing parameters to the method [`get_transaction_summary`]
@@ -165,6 +174,9 @@ pub struct GetTransactionTokenTransfersParams {
     pub transaction_hash: String,
 
     pub r#type: Option<String>,
+
+    /// Continuation returned by this route; overrides the client-scoped cursor.
+    pub cursor: Option<super::pagination::PageCursor>,
 }
 
 /// struct for passing parameters to the method [`get_tx`]
@@ -184,6 +196,9 @@ pub struct GetTxsParams {
     pub r#type: Option<String>,
 
     pub method: Option<String>,
+
+    /// Continuation returned by this route; overrides the client-scoped cursor.
+    pub cursor: Option<super::pagination::PageCursor>,
 }
 
 #[async_trait]
@@ -202,7 +217,10 @@ impl TransactionsApi for TransactionsApiClient {
         ResponseContent<GetTransactionInternalTxsSuccess>,
         Error<GetTransactionInternalTxsError>,
     > {
-        let GetTransactionInternalTxsParams { transaction_hash } = params;
+        let GetTransactionInternalTxsParams {
+            transaction_hash,
+            cursor,
+        } = params;
 
         let local_var_configuration = &self.configuration;
 
@@ -224,7 +242,7 @@ impl TransactionsApi for TransactionsApiClient {
         let mut local_var_req = local_var_req_builder
             .timeout(local_var_configuration.request_timeout)
             .build()?;
-        if let Some(cursor) = &self.cursor {
+        if let Some(cursor) = cursor.as_ref().or(self.cursor.as_ref()) {
             cursor.apply(&mut local_var_req)?;
         }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
@@ -245,7 +263,10 @@ impl TransactionsApi for TransactionsApiClient {
         &self,
         params: GetTransactionLogsParams,
     ) -> Result<ResponseContent<GetTransactionLogsSuccess>, Error<GetTransactionLogsError>> {
-        let GetTransactionLogsParams { transaction_hash } = params;
+        let GetTransactionLogsParams {
+            transaction_hash,
+            cursor,
+        } = params;
 
         let local_var_configuration = &self.configuration;
 
@@ -267,7 +288,7 @@ impl TransactionsApi for TransactionsApiClient {
         let mut local_var_req = local_var_req_builder
             .timeout(local_var_configuration.request_timeout)
             .build()?;
-        if let Some(cursor) = &self.cursor {
+        if let Some(cursor) = cursor.as_ref().or(self.cursor.as_ref()) {
             cursor.apply(&mut local_var_req)?;
         }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
@@ -332,7 +353,10 @@ impl TransactionsApi for TransactionsApiClient {
         ResponseContent<GetTransactionStateChangesSuccess>,
         Error<GetTransactionStateChangesError>,
     > {
-        let GetTransactionStateChangesParams { transaction_hash } = params;
+        let GetTransactionStateChangesParams {
+            transaction_hash,
+            cursor,
+        } = params;
 
         let local_var_configuration = &self.configuration;
 
@@ -354,7 +378,7 @@ impl TransactionsApi for TransactionsApiClient {
         let mut local_var_req = local_var_req_builder
             .timeout(local_var_configuration.request_timeout)
             .build()?;
-        if let Some(cursor) = &self.cursor {
+        if let Some(cursor) = cursor.as_ref().or(self.cursor.as_ref()) {
             cursor.apply(&mut local_var_req)?;
         }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
@@ -422,6 +446,7 @@ impl TransactionsApi for TransactionsApiClient {
         let GetTransactionTokenTransfersParams {
             transaction_hash,
             r#type,
+            cursor,
         } = params;
 
         let local_var_configuration = &self.configuration;
@@ -449,7 +474,7 @@ impl TransactionsApi for TransactionsApiClient {
         let mut local_var_req = local_var_req_builder
             .timeout(local_var_configuration.request_timeout)
             .build()?;
-        if let Some(cursor) = &self.cursor {
+        if let Some(cursor) = cursor.as_ref().or(self.cursor.as_ref()) {
             cursor.apply(&mut local_var_req)?;
         }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
@@ -514,6 +539,7 @@ impl TransactionsApi for TransactionsApiClient {
             filter,
             r#type,
             method,
+            cursor,
         } = params;
 
         let local_var_configuration = &self.configuration;
@@ -550,7 +576,7 @@ impl TransactionsApi for TransactionsApiClient {
         let mut local_var_req = local_var_req_builder
             .timeout(local_var_configuration.request_timeout)
             .build()?;
-        if let Some(cursor) = &self.cursor {
+        if let Some(cursor) = cursor.as_ref().or(self.cursor.as_ref()) {
             cursor.apply(&mut local_var_req)?;
         }
         let local_var_resp = local_var_client.execute(local_var_req).await?;

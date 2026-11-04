@@ -43,8 +43,8 @@
 # The endpoint reaches cast through ETH_RPC_URL rather than a command argument.
 # The pinned foundry offers no environment variable and no standard-input path
 # for a raw deploy key, and importing one into a keystore needs a terminal, so
-# the key reaches exactly one command - the broadcasting forge script - as an
-# argument; run a deployment only where process arguments are not readable by
+# the key reaches local cast wallet address and the broadcasting forge script
+# as an argument; run a deployment only where process arguments are not readable by
 # another user, or hand foundry a keystore out of band.
 #
 # services/bridge/deploy/chainconfig is the schema of a configuration and the authority
@@ -96,9 +96,30 @@ chain=$1
 
 chains_root=${PAXEER_BRIDGE_EVM_CHAINS_ROOT:-$EVM_ROOT/chains}
 config="$chains_root/$chain/config.json"
-[ -r "$config" ] || fail "$config is not readable; $chain is not a bridge EVM chain"
 trap 'rm -rf ${OVERLAY_ROOT:+"$OVERLAY_ROOT"}' EXIT
-apply_overlay
+[ -n "${PAXEER_BRIDGE_DEPLOYMENT_RECORD:-}" ] || fail "PAXEER_BRIDGE_DEPLOYMENT_RECORD is required and is not set"
+record_directory=$(cd "$(dirname "$PAXEER_BRIDGE_DEPLOYMENT_RECORD")" && pwd) \
+    || fail "the deployment record directory does not exist"
+record="$record_directory/$(basename "$PAXEER_BRIDGE_DEPLOYMENT_RECORD")"
+journal="$record_directory/.$chain.run"
+JOURNAL_TOOL="$SCRIPT_DIR/evm-run-journal.py"
+journal_command() { python3 "$JOURNAL_TOOL" "$1" "$journal" "$record" "$chain" "${@:2}"; }
+if [ "$preflight_only" -eq 0 ]; then
+    # Keep this lock and the run journal across EXIT. A second process must not
+    # race the decision to broadcast, even before the journal has been created.
+    umask 077
+    command -v flock > /dev/null 2>&1 || fail "flock is required and is not on the PATH"
+    exec 9> "$record_directory/.$chain.deploy.lock"
+    flock -n 9 || fail "another deployment is using the $chain run journal"
+fi
+if [ "$preflight_only" -eq 0 ] && [ -e "$journal" ]; then
+    # Recovery uses the resolved snapshot; it does not need the old overlay or
+    # temporary chains root, and cannot silently pick up new deployment values.
+    config=$(journal_command config) || fail "the retained run cannot be reopened"
+else
+    [ -r "$config" ] || fail "$config is not readable; $chain is not a bridge EVM chain"
+    apply_overlay
+fi
 
 refuse() { fail "$config: $*"; }
 
@@ -202,10 +223,14 @@ configured_deployer=$(jq -r '.deployer // empty' "$config")
 for variable in "$rpc_variable" "$key_variable" PAXEER_BRIDGE_DEPLOYMENT_RECORD; do
     [ -n "${!variable:-}" ] || fail "$variable is required and is not set"
 done
-record=$PAXEER_BRIDGE_DEPLOYMENT_RECORD
-record_directory=$(dirname "$record")
 [ -d "$record_directory" ] || fail "$record_directory does not exist, so the deployment record cannot be written"
 [ -w "$record_directory" ] || fail "$record_directory is not writable, so the deployment record cannot be written"
+
+deploy_key=${!key_variable}
+local_signer=$(cast wallet address --private-key "$deploy_key") \
+    || fail "the deployment key has no readable local signer"
+python3 "$JOURNAL_TOOL" signer "$configured_deployer" "$local_signer" > /dev/null \
+    || fail "the local signer does not agree with configured_deployer"
 
 if [ "$preflight_only" -eq 1 ]; then
     printf 'deploy-evm-chain: %s (chain %s) is ready to deploy: %s owned by %s, %d attestors at threshold %s, %d assets\n' \
@@ -220,7 +245,6 @@ fi
     || fail "$EVM_ROOT/bootstrap-libs.sh is missing, so the pinned libraries cannot be fetched"
 
 rpc=${!rpc_variable}
-deploy_key=${!key_variable}
 export ETH_RPC_URL="$rpc"
 
 work=$(mktemp -d)
@@ -247,28 +271,38 @@ joined() {
 # The Foundry script is named by its path under the script's own EVM_ROOT, because
 # forge resolves a relative script path against the working directory and not
 # against --root, so the deployment runs from any directory.
-PAXEER_BRIDGE_VAULT_OWNER=$owner \
-    PAXEER_BRIDGE_VAULT_ATTESTORS=$(joined "${attestors[@]}") \
-    PAXEER_BRIDGE_VAULT_THRESHOLD=$threshold \
-    PAXEER_BRIDGE_VAULT_ASSETS=$(joined "${asset_addresses[@]}") \
-    PAXEER_BRIDGE_VAULT_PER_TX_CAPS=$(joined "${asset_per_tx[@]}") \
-    PAXEER_BRIDGE_VAULT_TOTAL_CAPS=$(joined "${asset_total[@]}") \
-    FOUNDRY_BROADCAST="$work/broadcast" \
-    forge script --root "$EVM_ROOT" "$EVM_ROOT/script/DeployPaxeerXVault.s.sol:DeployPaxeerXVault" \
-    --rpc-url "$rpc" --private-key "$deploy_key" --broadcast --slow > "$work/deploy.log" 2>&1 \
-    || {
-        cat "$work/deploy.log" >&2
-        fail "the deployment did not run"
-    }
+action=$(journal_command prepare "$config" "$local_signer") || fail "the run journal could not be prepared"
+if [ "$action" = broadcast ]; then
+    journal_command begin || fail "the broadcast intent could not be persisted"
+    PAXEER_BRIDGE_VAULT_OWNER=$owner \
+        PAXEER_BRIDGE_VAULT_ATTESTORS=$(joined "${attestors[@]}") \
+        PAXEER_BRIDGE_VAULT_THRESHOLD=$threshold \
+        PAXEER_BRIDGE_VAULT_ASSETS=$(joined "${asset_addresses[@]}") \
+        PAXEER_BRIDGE_VAULT_PER_TX_CAPS=$(joined "${asset_per_tx[@]}") \
+        PAXEER_BRIDGE_VAULT_TOTAL_CAPS=$(joined "${asset_total[@]}") \
+        FOUNDRY_BROADCAST="$journal/broadcast" \
+        forge script --root "$EVM_ROOT" "$EVM_ROOT/script/DeployPaxeerXVault.s.sol:DeployPaxeerXVault" \
+        --rpc-url "$rpc" --private-key "$deploy_key" --broadcast --slow > "$journal/deploy.log" 2>&1 \
+        || {
+            # Capture whatever Foundry retained, including a partial broadcast.
+            # A retry reads this same run and never creates a replacement vault.
+            if ! journal_command capture; then
+                printf 'deploy-evm-chain: incomplete broadcast evidence retained under %s\n' "$journal" >&2
+            fi
+            cat "$journal/deploy.log" >&2
+            fail "the deployment did not finish; recover the retained run under $journal"
+        }
+fi
+journal_command capture || fail "the retained broadcast is not ready for readback; recover that exact run under $journal"
 
 # Only the record this run wrote: a record left under $EVM_ROOT by an earlier
 # deployment to the same chain id would pass every read-back below, because the
 # bytecode, the attestors and the caps of that vault are the same, and the run
 # would name the earlier vault as this deployment.
-run="$work/broadcast/DeployPaxeerXVault.s.sol/$chain_id/run-latest.json"
+run="$journal/broadcast/DeployPaxeerXVault.s.sol/$chain_id/run-latest.json"
 [ -r "$run" ] || {
-    cat "$work/deploy.log" >&2
-    fail "the deployment wrote no broadcast record under $work/broadcast"
+    cat "$journal/deploy.log" >&2
+    fail "the deployment wrote no broadcast record under $journal/broadcast"
 }
 vault=$(jq -r '[.transactions[] | select(.transactionType == "CREATE") | .contractAddress] | first // empty' "$run")
 [ -n "$vault" ] || fail "the broadcast record names no created contract"
@@ -280,6 +314,9 @@ deployer=$(jq -r '[.transactions[] | .transaction.from] | first // empty' "$run"
 if [ -n "$configured_deployer" ] && [ "$(lower "$deployer")" != "$(lower "$configured_deployer")" ]; then
     fail "$vault was deployed by $deployer, and the configuration names the deployer $configured_deployer"
 fi
+
+[ "$(lower "$deployer")" = "$(lower "$local_signer")" ] \
+    || fail "the broadcast deployer differs from the local signer"
 
 normalise() { sed -e 's/ \[[^]]*\]//g' -e 's/[][]//g' -e 's/, */,/g'; }
 
@@ -341,7 +378,8 @@ jq -n --arg chain "$chain" --argjson chain_id "$chain_id" --arg kind evm \
     '{chain: $chain, chain_id: $chain_id, kind: $kind, configuration: $configuration,
       vault: $vault, deployer: $deployer, code_hash: $code_hash, block: $block,
       owner: $owner, configured_owner: $configured_owner, ownership: $ownership,
-      threshold: $threshold, attestors: $attestors, caps: $caps[0]}' > "$record"
+      threshold: $threshold, attestors: $attestors, caps: $caps[0]}' > "$work/record.json"
+journal_command publish "$work/record.json" || fail "the completed deployment record could not be published"
 
 printf 'deploy-evm-chain: %s vault %s deployed by %s in block %s, code %s\n' \
     "$chain" "$vault" "$deployer" "$block" "$deployed_hash" >&2

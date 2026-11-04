@@ -15,6 +15,7 @@ import AddressEntity from 'ui/shared/entities/address/AddressEntity';
 import IconSvg from 'ui/shared/IconSvg';
 
 const SVG_OPTIONS = {
+  type: 'svg' as const,
   margin: 0,
 };
 
@@ -30,7 +31,7 @@ const AddressQrCode = ({ hash, className, isLoading }: Props) => {
   const router = useRouter();
   const rollbar = useRollbar();
 
-  const [ qr, setQr ] = React.useState('');
+  const [ qr, setQr ] = React.useState<{ hash: string; svg: string }>();
   const [ error, setError ] = React.useState('');
 
   const pageType = getPageType(router.pathname);
@@ -61,7 +62,7 @@ const AddressQrCode = ({ hash, className, isLoading }: Props) => {
         }
 
         setError('');
-        setQr(svg);
+        setQr({ hash, svg });
         mixpanel.logEvent(mixpanel.EventTypes.QR_CODE, { 'Page type': pageType });
       });
     }).catch(() => {
@@ -116,7 +117,11 @@ const AddressQrCode = ({ hash, className, isLoading }: Props) => {
                 address={{ hash }}
                 noLink
               />
-              <Box p={ 4 } dangerouslySetInnerHTML={{ __html: qr }}/>
+              { qr?.hash === hash ? (
+                <Box p={ 4 } dangerouslySetInnerHTML={{ __html: qr.svg }}/>
+              ) : (
+                <Skeleton loading h="256px" role="status" aria-label="Generating QR code"/>
+              ) }
             </DialogBody>
           </DialogContent>
         </DialogRoot>

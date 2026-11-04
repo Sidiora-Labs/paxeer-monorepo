@@ -1,0 +1,25 @@
+[task.22.33.359]
+base_revision = "8a5302e1b13ed685ab2cd21b29cd69052c2a8f6a"
+checkout_revision = "ff5c3a50977622016167e1ecf8a82408a7311325"
+repair = "Qualify audit 22.30.139 finding doc-01 against README.md as task 22.31.470 left it, per decision 2525. Add focused offline documentation proofs and this closure record; README.md is outside this task's scope."
+source_proof = "The pytest module asserts README source facts: one chain-125 paxd BFT network, embedded kernel execution and block proposal, root api1..api14 JSON-RPC hosts, parsed curl JSON request and chain response, transaction submission and committed receipt flows, retired custody/checkpoint executors, historical source names and no separate daemon/checkpoint deployment. It checks production host/consensus wiring, root HTTP dispatch, submission acceptance/forwarding, durable acknowledgement before receipt publication, receipt rungs and committed batch coverage, retirement gates and native-linked paxd build targets. Diagrams preserve the integrated topology and execution-to-commit order. The record itself is parsed and its finding and proof names checked against the audit and declared tests."
+review_only = "Native Go/C/Rust builds, node startup, transaction execution, WAL restart/recovery, cryptographic verification, endpoint availability and BFT finality are not executed by this documentation gate. Source inspection establishes documented connections, not runtime or deployment certification. This doc-drift finding changes no production interface or stateful component; restart-recovery and interface-mismatch behavior tests do not apply. No shell script, unit file or manifest is repaired."
+baseline = "Initial git status/diff showed only existing runner changes in .cgignore and spec/layerx-merge/spec.kvx, and neither scoped task file existed. gate.json showed zero build and verification runs and two repair cycles available; no gates.jsonl existed. No pre-change verification was run: the explicit implementation-first ordering and exclusive hf-done verification rule supersede the older baseline-run step. No baseline test failure is claimed. README source inspection already showed the expected facts supplied by task 22.31.470."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_359.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision = "The last hf-done JSON and private /out/run/gates.jsonl name the exact verified candidate revision, command, exit and private log; build and verification must pass on the same candidate revision. This record is finalized before qualification because embedding its own candidate hash would change the candidate. The runner retains evidence and commits; this record alone makes no passing-gate claim."
+wiring_requests = []
+format = "No Python or KVX formatter is configured for these paths; follow .editorconfig UTF-8, LF, trailing-whitespace and final-newline conventions after implementation."
+
+[finding.doc-01]
+audit = "22.30.139"
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+owner_domain = 17
+readme_owner_task = "22.31.470"
+expected = "Current operator and integrator guidance must describe the integrated chain-125 network and the registered code paths at the audited revision, with historical or planned behavior explicitly identified."
+disposition = "The README rewrite belongs to tools-ops domain 17, task 22.31.470, and is already present in this checkout. All requested facts were found during source inspection; there is no missing-fact wiring request. This task supplies regression proofs, with closure conditional on hf-done evidence."
+tests = ["test_doc_01_one_paxd_bft_network_embeds_kernel_execution", "test_doc_01_chain_125_root_rpc_hosts_and_request", "test_doc_01_transaction_receipt_path_requires_block_commit", "test_doc_01_custody_and_checkpoint_executors_are_retired", "test_doc_01_source_names_are_distinct_from_running_components", "test_doc_01_repair_record_maps_the_finding_to_declared_proofs"]
