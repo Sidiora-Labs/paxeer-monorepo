@@ -160336,7 +160336,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.148]
 title = "Repair the inventory sweep target services/agent/sdk/typescript"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.9.10", "22.31.441"]
