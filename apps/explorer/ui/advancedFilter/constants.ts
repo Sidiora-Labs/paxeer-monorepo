@@ -1,7 +1,6 @@
 import type { TokenInfo } from 'types/api/token';
 import type { ClusterChainConfig } from 'types/multichain';
 
-import config from 'configs/app';
 import { getTokenTypes } from 'lib/token/tokenTypes';
 
 export type ColumnsIds = 'tx_hash' | 'type' | 'method' | 'age' | 'from' | 'or_and' | 'to' | 'amount' | 'asset' | 'fee';
@@ -94,10 +93,18 @@ export const getAdvancedFilterTypes = (chainConfig?: Array<ClusterChainConfig['a
   ];
 };
 
-export const NATIVE_TOKEN = {
-  name: config.chain.currency.name || '',
-  icon_url: '',
-  symbol: config.chain.currency.symbol || '',
-  address_hash: 'native',
-  type: 'ERC-20' as const,
-} as TokenInfo;
+export function getNativeToken(currency: ClusterChainConfig['app_config']['chain']['currency']): TokenInfo {
+  return {
+    name: currency.name || '',
+    icon_url: '',
+    symbol: currency.symbol || '',
+    decimals: String(currency.decimals),
+    address_hash: 'native',
+    type: 'ERC-20',
+    holders_count: null,
+    exchange_rate: null,
+    total_supply: null,
+    circulating_market_cap: null,
+    reputation: null,
+  };
+}
