@@ -348,12 +348,9 @@ class MaterialTests(unittest.TestCase):
         code = source.split("<<'PY'\n", 1)[1].split('\nPY\n', 1)[0]
         module = {}
         exec(compile(code.rsplit('sys.exit(main())', 1)[0], 'topology-check.sh', 'exec'), module)
-        cluster = (ROOT / 'services/platform/hosted/tests/beta-cluster.sh').read_text()
-        observer = cluster.split("<<'PYOBSERVER'\n", 1)[1].split('\nPYOBSERVER\n', 1)[0]
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'paxeer.yaml'
             path.write_text((ROOT / 'services/platform/hosted/paxeer/deployment.yaml').read_text())
-            subprocess.run([sys.executable, '-c', observer, str(path)], check=True)
             topology = module['Topology']()
             for manifest in (ROOT / 'services/platform/hosted/node/deployment.yaml', path):
                 for document in yaml.safe_load_all(manifest.read_text()):
@@ -361,6 +358,7 @@ class MaterialTests(unittest.TestCase):
             node = next(w for w in topology.workloads if w['name'] == 'layerx-node')
             paxeer = next(w for w in topology.workloads if w['name'] == 'paxeer')
             service = topology.services[('layerx-testnet', 'paxeer-observer-boundary')]
+            self.assertEqual(service['ports'][0]['port'], '9443')
             self.assertEqual(service['ports'][0]['targetPort'], 'observer-https')
             self.assertEqual(paxeer['ports']['observer-https'], ('9444', 'TCP'))
             def admits():
