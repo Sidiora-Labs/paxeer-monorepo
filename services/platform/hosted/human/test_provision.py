@@ -354,8 +354,8 @@ class RegistrationInputTests(unittest.TestCase):
         paxeer.mkdir()
         provision.write_json(paxeer / 'deployment.json', {'addresses': {}})
         with self.assertRaises(provision.Refused) as caught:
-            provision.movement_source(self.root, self.root / 'secrets')
-        self.assertIn('deployment.json: invalid custody_reference missing', str(caught.exception))
+            provision.funding_evidence(self.root)
+        self.assertIn('owner-registration.json', str(caught.exception))
         self.assertFalse((self.input / 'movement-source.json').exists())
 
     def run_cli(self):

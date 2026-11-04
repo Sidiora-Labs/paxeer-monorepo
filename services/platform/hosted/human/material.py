@@ -290,6 +290,9 @@ def policy_from_inputs(inputs, records, network, chain):
     funding = parse(producer['merged-owner-evidence.json'])
     if funding['asset_id'] != principals[0]['asset_id']:
         refuse('owner funding asset binding')
+    if policy['movement'] != {'LEDGER_ASSET_ID': '0x' + funding['asset_id'],
+                              'LEDGER_OWNER_ACCOUNT': '0x' + registration['owner_account']}:
+        refuse('merged ledger funding projection binding; retained custody policy requires explicit migration')
     state = identity_state(funding['transactions']['recovery']['receipt'], registration['authority'])
     recovery = policy['recovery_policy']
     if (list(state[77:109]) != recovery['root'] or int.from_bytes(state[109:111], 'big') != recovery['threshold']
@@ -675,6 +678,15 @@ def verify_projected_material(bundle, projections, network, chain):
     bundle, projections = Path(bundle), Path(projections)
     verify_bundle(bundle, network, chain)
     policy = parse(read_bytes(bundle / 'policy.json'))
+    from history_material import CHAIN_FILES, CHAIN_ROLES, validate as validate_chain
+    source = bundle / 'inputs/producer-records'
+    chain_files = {name: read_bytes(source / name) for name in CHAIN_FILES}
+    context = parse(chain_files['native-context.json'])
+    for role in CHAIN_ROLES:
+        files = projected_files(projections / role, CHAIN_FILES)
+        if files != chain_files:
+            refuse('runtime chain receipts differ from verified owner bundle')
+        validate_chain(files, context, network, chain)
     if parse(projected_files(projections / 'module-registry', {'registry.json'})['registry.json']) != parse(read_bytes(bundle / 'inputs/module-registry.json')):
         refuse('runtime canonical module registry differs from actual producer input')
     json_fields = [('components', 'purpose-catalog.json', 'purpose_catalog'), ('kms', 'registry.json', 'registry'),
@@ -766,12 +778,33 @@ def movement_defaults(network, chain):
 
 def install(root, network, chain, policy_path='', binding_path=''):
     root = Path(root)
+    from history_material import refuse_legacy
+    refuse_legacy(root)
     config = component_defaults(network, chain, binding_path)
     policy = protected_json(policy_path) if policy_path else None
     if policy is not None:
         if Path(policy.get('journal_directory', '')).is_absolute():
             refuse('producer-local journal path')
         verify_bundle(Path(policy_path).parent, network, chain)
+        # The same receipt files are transported in each role's private Secret.
+        # Their consumer validates against the separately verified bundle context.
+        from history_material import CHAIN_FILES, CHAIN_ROLES, verify as verify_chain
+        source = Path(policy_path).parent / 'inputs/producer-records'
+        expected_context = protected_json(source / 'native-context.json')
+        for role in CHAIN_ROLES:
+            directory = root / role
+            directory.mkdir(mode=0o700, exist_ok=True)
+            present = [os.path.lexists(directory / name) for name in CHAIN_FILES]
+            if any(present):
+                if not all(present):
+                    refuse('partial retained chain receipt material; reconciliation required')
+                verify_chain(directory, expected_context, network, chain)
+                if any(read_bytes(directory / name) != read_bytes(source / name) for name in CHAIN_FILES):
+                    refuse('retained chain receipt material differs from verified bundle')
+            else:
+                from onboarding_material import write as retain_bytes
+                for name in CHAIN_FILES:
+                    retain_bytes(directory / name, read_bytes(source / name))
     onboarding = policy.get('onboarding_configuration') if policy else None
     if onboarding is not None:
         if onboarding['directory'] != 'onboarding':
@@ -829,7 +862,6 @@ def install(root, network, chain, policy_path='', binding_path=''):
         'NODE_ENDPOINT': 'http://127.0.0.1:9401',
         'AUTHORITY_ENDPOINT': 'https://layerx-receipt-authority.layerx-testnet.svc.cluster.local:9443',
         'AUTHORITY_REPLICA_ID': (root.parent / 'receipt-authority-replica-id').read_text().strip(),
-        'SEQUENCER_TRUST_HISTORY': '/run/human-private/agent/trust-history',
         'DEPLOYMENT_JOURNAL': '/run/human-private/agent/journal',
     }
     journal = root / 'journal'
@@ -936,13 +968,6 @@ def install(root, network, chain, policy_path='', binding_path=''):
             destination.chmod(0o600)
     for key, value in config.items():
         write(root / 'config', 'LAYERX_HUMAN_' + key, value)
-    history_files = [root / 'agent/genesis-handover-trust.lxt', root / 'agent/handover-finality.conf']
-    if any(path.exists() or path.is_symlink() for path in history_files):
-        from provision import protected_bytes
-        protected_bytes(root / 'agent/genesis-handover-trust.lxt')
-        protected_bytes(root / 'agent/handover-finality.conf')
-        agent.update(GENESIS_TRUST='/run/human-private/agent/genesis-handover-trust.lxt',
-                     HANDOVER_FINALITY='/run/human-private/agent/handover-finality.conf')
     write_agent_config(root / 'agent-config', agent)
 
 
