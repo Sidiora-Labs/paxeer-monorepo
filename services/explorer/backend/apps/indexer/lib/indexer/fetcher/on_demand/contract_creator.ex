@@ -24,14 +24,6 @@ defmodule Indexer.Fetcher.OnDemand.ContractCreator do
   @pending_blocks_cache_key "pending_blocks"
 
   def start_link(_) do
-    :ets.new(@table_name, [
-      :set,
-      :named_table,
-      :public,
-      read_concurrency: true,
-      write_concurrency: true
-    ])
-
     GenServer.start_link(__MODULE__, [], name: __MODULE__)
   end
 
@@ -44,19 +36,9 @@ defmodule Indexer.Fetcher.OnDemand.ContractCreator do
     with false <- is_nil(address.contract_code),
          true <- is_nil(creator_hash),
          false <- Address.eoa_with_code?(address),
-         {:address_lookup, [{_, contract_creation_block_number}]} <-
-           {:address_lookup, :ets.lookup(@table_name, address_cache_name(address.hash))},
-         {:pending_blocks_lookup, [{@pending_blocks_cache_key, blocks}]} <-
-           {:pending_blocks_lookup, :ets.lookup(@table_name, @pending_blocks_cache_key)},
-         contract_creation_block when is_nil(contract_creation_block) <-
-           Enum.find(blocks, fn %{block_number: block_number} ->
-             block_number == contract_creation_block_number
-           end) do
+         true <- :ets.insert_new(@table_name, {address_cache_name(address.hash), :in_progress}) do
       GenServer.cast(__MODULE__, {:fetch, address})
     else
-      {:address_lookup, []} ->
-        GenServer.cast(__MODULE__, {:fetch, address})
-
       _ ->
         :ignore
     end
@@ -84,7 +66,10 @@ defmodule Indexer.Fetcher.OnDemand.ContractCreator do
       end
 
     updated_pending_blocks =
-      case Enum.member?(pending_blocks, contract_creation_block_number) do
+      case Enum.any?(pending_blocks, fn pending ->
+             pending.block_number == contract_creation_block_number and
+               pending.address_hash_string == to_string(address_hash)
+           end) do
         true ->
           pending_blocks
 
@@ -96,6 +81,7 @@ defmodule Indexer.Fetcher.OnDemand.ContractCreator do
       end
 
     :ets.insert(@table_name, {@pending_blocks_cache_key, updated_pending_blocks})
+    :ets.insert(@table_name, {address_cache_name(address_hash), {:pending_import, contract_creation_block_number}})
 
     unless Block.indexed?(contract_creation_block_number) do
       # Change `1` to specific label when `priority` field becomes `Ecto.Enum`.
@@ -106,7 +92,6 @@ defmodule Indexer.Fetcher.OnDemand.ContractCreator do
   end
 
   defp find_contract_creation_block_number(block_ranges, address_hash) do
-    :ets.insert(@table_name, {address_cache_name(address_hash), :in_progress})
     json_rpc_named_arguments = Application.get_env(:explorer, :json_rpc_named_arguments)
     medium = trunc((block_ranges.right - block_ranges.left) / 2)
     medium_position = block_ranges.left + medium
@@ -165,6 +150,14 @@ defmodule Indexer.Fetcher.OnDemand.ContractCreator do
 
   @impl true
   def init([]) do
+    :ets.new(@table_name, [
+      :set,
+      :named_table,
+      :public,
+      read_concurrency: true,
+      write_concurrency: true
+    ])
+
     {:ok, %{}}
   end
 
@@ -197,38 +190,45 @@ defmodule Indexer.Fetcher.OnDemand.ContractCreator do
   """
   @spec async_update_cache_of_contract_creator_on_demand(map()) :: Task.t()
   def async_update_cache_of_contract_creator_on_demand(imported) do
-    Task.async(fn ->
-      imported_block_numbers =
-        imported
-        |> Map.get(:blocks, [])
-        |> Enum.map(&Map.get(&1, :number))
+    Task.async(fn -> GenServer.call(__MODULE__, {:imported, imported}) end)
+  end
 
-      if !Enum.empty?(imported_block_numbers) do
-        cache_key = @pending_blocks_cache_key
-        # credo:disable-for-next-line Credo.Check.Refactor.Nesting
-        case pending_blocks_cache() do
-          [{^cache_key, pending_blocks}] ->
-            update_pending_contract_creator_blocks(pending_blocks, imported_block_numbers, imported)
+  @impl true
+  def handle_call({:imported, imported}, _from, state) do
+    imported_block_numbers =
+      imported
+      |> Map.get(:blocks, [])
+      |> Enum.map(&Map.get(&1, :number))
 
-          [] ->
-            :ok
-        end
+    if !Enum.empty?(imported_block_numbers) do
+      cache_key = @pending_blocks_cache_key
+      # credo:disable-for-next-line Credo.Check.Refactor.Nesting
+      case pending_blocks_cache() do
+        [{^cache_key, pending_blocks}] ->
+          update_pending_contract_creator_blocks(pending_blocks, imported_block_numbers, imported)
+
+        [] ->
+          :ok
       end
-    end)
+    end
+
+    {:reply, :ok, state}
   end
 
   defp update_pending_contract_creator_blocks([], _imported_block_numbers, _imported), do: []
 
   defp update_pending_contract_creator_blocks(pending_blocks, imported_block_numbers, imported) do
+    pending_blocks
+    |> Enum.filter(&(&1.block_number in imported_block_numbers))
+    |> Enum.uniq_by(& &1.block_number)
+    |> Enum.each(fn pending_block ->
+      contract_creation_block = find_contract_creation_block_in_imported(imported, pending_block.block_number)
+      async_import_internal_transactions(%{blocks: [contract_creation_block]}, true)
+    end)
+
     updated_pending_block_numbers =
       Enum.filter(pending_blocks, fn pending_block ->
         if Enum.member?(imported_block_numbers, pending_block.block_number) do
-          contract_creation_block =
-            find_contract_creation_block_in_imported(imported, pending_block.block_number)
-
-          internal_transactions_import_params = [%{blocks: [contract_creation_block]}]
-          async_import_internal_transactions(internal_transactions_import_params, true)
-
           # todo: emit event that contract creator updated for the contract. This was the purpose keeping address_hash_string in that cache key.
           :ets.delete(@table_name, pending_block.address_hash_string)
           false

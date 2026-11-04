@@ -6,8 +6,10 @@ defmodule Indexer.Fetcher.OnDemand.TokenBalance do
 
   use Indexer.Fetcher
 
+  import Ecto.Query, only: [from: 2]
+
   alias Explorer.{Chain, Repo}
-  alias Explorer.Chain.Address.CurrentTokenBalance
+  alias Explorer.Chain.Address.{CurrentTokenBalance, TokenBalance}
   alias Explorer.Chain.Cache.BlockNumber
   alias Explorer.Chain.Cache.Counters.AverageBlockTime
   alias Explorer.Chain.Events.Publisher
@@ -141,7 +143,7 @@ defmodule Indexer.Fetcher.OnDemand.TokenBalance do
         )
 
       result =
-        if stale_current_token_balance.token_type == "ERC-1155" do
+        if nft_balance?(prepared_ctb) do
           Map.put(acc, :nft_balances, [prepared_ctb | acc[:nft_balances]])
         else
           Map.put(acc, :ft_balances, [prepared_ctb | acc[:ft_balances]])
@@ -173,14 +175,17 @@ defmodule Indexer.Fetcher.OnDemand.TokenBalance do
         token_id: token_id && Decimal.to_integer(token_id)
       }
 
-      case {token_type, token_id} do
-        {"ERC-404", nil} -> {[request | regular_acc], erc_1155_acc}
-        {"ERC-404", _token_id} -> {regular_acc, [request | erc_1155_acc]}
-        {"ERC-1155", _token_id} -> {regular_acc, [request | erc_1155_acc]}
-        {_type, _token_id} -> {[request | regular_acc], erc_1155_acc}
+      if nft_balance?(request) do
+        {regular_acc, [request | erc_1155_acc]}
+      else
+        {[request | regular_acc], erc_1155_acc}
       end
     end)
   end
+
+  defp nft_balance?(%{token_type: "ERC-1155"}), do: true
+  defp nft_balance?(%{token_type: "ERC-404", token_id: token_id}), do: not is_nil(token_id)
+  defp nft_balance?(_), do: false
 
   defp process_fetch_responses(responses, tokens, balances_map, block_number) do
     filtered_current_token_balances_update_params =
@@ -243,7 +248,57 @@ defmodule Indexer.Fetcher.OnDemand.TokenBalance do
           acc
       end)
 
-    Chain.import(%{address_token_balances: %{params: import_params}, broadcast: :on_demand})
+    {id_balances, other_balances} =
+      Enum.split_with(import_params, &(&1.token_type == "ERC-404" and nft_balance?(&1)))
+
+    {:ok, multi} =
+      Chain.Import.all_single_multi([Chain.Import.Runner.Address.TokenBalances], %{
+        address_token_balances: %{params: other_balances}
+      })
+
+    {:ok, %{historic_id_balances: fetched_id_balances} = imported} =
+      multi
+      |> Ecto.Multi.run(:historic_id_balances, fn _repo, _changes ->
+        # Transfer imports deliberately leave ERC-404 id balances unfetched.
+        # These values came from balanceOf(address,uint256), so persist them as fetched schema values.
+        fetched_id_balances =
+          id_balances
+          |> Enum.sort_by(&{&1.token_contract_address_hash, &1.token_id, &1.address_hash, &1.block_number})
+          |> Enum.map(&import_historic_id_balance/1)
+
+        {:ok, fetched_id_balances}
+      end)
+      |> Repo.transaction()
+
+    imported
+    |> Map.delete(:historic_id_balances)
+    |> Map.update(:address_token_balances, fetched_id_balances, &(&1 ++ fetched_id_balances))
+    |> Publisher.broadcast(:on_demand)
+  end
+
+  defp import_historic_id_balance(params) do
+    on_conflict =
+      from(balance in TokenBalance,
+        update: [
+          set: [
+            value: fragment("EXCLUDED.value"),
+            value_fetched_at: fragment("EXCLUDED.value_fetched_at"),
+            refetch_after: nil,
+            retries_count: nil,
+            updated_at: fragment("GREATEST(EXCLUDED.updated_at, ?)", balance.updated_at)
+          ]
+        ],
+        where: is_nil(balance.value_fetched_at) or fragment("? < EXCLUDED.value_fetched_at", balance.value_fetched_at)
+      )
+
+    %TokenBalance{}
+    |> TokenBalance.changeset(params)
+    |> Repo.insert!(
+      on_conflict: on_conflict,
+      conflict_target:
+        {:unsafe_fragment, "(address_hash, token_contract_address_hash, COALESCE(token_id, -1), block_number)"},
+      returning: true
+    )
   end
 
   defp delete_invalid_balances(current_token_balances) do
@@ -264,7 +319,8 @@ defmodule Indexer.Fetcher.OnDemand.TokenBalance do
   end
 
   defp ctb_to_key(ctb) do
-    {ctb.token_contract_address_hash.bytes, ctb.token_type, ctb.token_id && Decimal.to_integer(ctb.token_id)}
+    {ctb.address_hash.bytes, ctb.token_contract_address_hash.bytes, ctb.token_type,
+     ctb.token_id && Decimal.to_integer(ctb.token_id)}
   end
 
   defp prepare_updated_balance({{:ok, updated_balance}, stale_current_token_balance}, block_number) do

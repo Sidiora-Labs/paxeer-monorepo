@@ -27,19 +27,126 @@ function latencyToBars(ms: number | null): 0 | 1 | 2 | 3 | 4 {
   return 1;
 }
 
+export interface NetworkStatus {
+  blockNumber: number | null;
+  latency: number | null;
+  observedAt: number | null;
+  stale: boolean;
+}
+
+export const NETWORK_STATUS_MAX_AGE_MS = 60_000;
+
 // Public status only. No operator telemetry socket or background RPC poll.
-function useNetworkStatus(open: boolean): { blockNumber: number | null; latency: number | null } {
-  const [status, setStatus] = useState<{ blockNumber: number | null; latency: number | null }>({ blockNumber: null, latency: null });
+export class NetworkStatusMonitor {
+  private status: NetworkStatus = {
+    blockNumber: null,
+    latency: null,
+    observedAt: null,
+    stale: true,
+  };
+  private generation = 0;
+  private stopPoll: (() => void) | undefined;
+  private expiry: ReturnType<typeof setTimeout> | undefined;
+
+  constructor(
+    private readonly onChange: (status: NetworkStatus) => void,
+    private readonly healthUrl = `${FEED_ORIGIN}/api/explorer/health`,
+  ) {}
+
+  getSnapshot(): NetworkStatus {
+    return this.status;
+  }
+
+  private publish(status: NetworkStatus) {
+    if (this.expiry !== undefined) clearTimeout(this.expiry);
+    this.expiry = undefined;
+    this.status = status;
+    this.onChange(status);
+    if (!status.stale && status.observedAt !== null) {
+      const expiresAt = status.observedAt + NETWORK_STATUS_MAX_AGE_MS;
+      this.expiry = setTimeout(
+        () => {
+          if (Date.now() >= expiresAt) this.markStale();
+          else this.publish(this.status);
+        },
+        Math.max(0, expiresAt - Date.now()),
+      );
+    }
+  }
+
+  private markStale() {
+    this.publish({ ...this.status, latency: null, stale: true });
+  }
+
+  start() {
+    this.stop();
+    if (
+      this.status.observedAt !== null &&
+      Date.now() - this.status.observedAt >= NETWORK_STATUS_MAX_AGE_MS
+    ) {
+      this.markStale();
+    } else {
+      this.publish(this.status);
+    }
+    const generation = this.generation;
+    this.stopPoll = activePoll(async () => {
+      const started = Date.now();
+      try {
+        const data = await fetchJsonWithPolicy<{
+          latest_block: number | null;
+          chain_connected: boolean;
+        }>(this.healthUrl);
+        if (generation !== this.generation) return;
+        if (!data.chain_connected) {
+          this.markStale();
+          return;
+        }
+        const observedAt = Date.now();
+        this.publish({
+          blockNumber: data.latest_block,
+          latency: observedAt - started,
+          observedAt,
+          stale: false,
+        });
+      } catch (error) {
+        if (generation === this.generation) this.markStale();
+        throw error;
+      }
+    }, 30_000);
+  }
+
+  stop() {
+    this.generation++;
+    this.stopPoll?.();
+    this.stopPoll = undefined;
+  }
+
+  dispose() {
+    this.stop();
+    if (this.expiry !== undefined) clearTimeout(this.expiry);
+    this.expiry = undefined;
+  }
+}
+
+export function networkBlockLabel(status: NetworkStatus): string {
+  if (status.blockNumber === null) return "…";
+  return `#${status.blockNumber.toLocaleString()}${status.stale ? " (stale)" : ""}`;
+}
+
+function useNetworkStatus(open: boolean): NetworkStatus {
+  const [status, setStatus] = useState<NetworkStatus>({
+    blockNumber: null,
+    latency: null,
+    observedAt: null,
+    stale: true,
+  });
+  const [monitor] = useState(() => new NetworkStatusMonitor(setStatus));
+  useEffect(() => () => monitor.dispose(), [monitor]);
   useEffect(() => {
     if (!open) return;
-    let mounted = true;
-    const stop = activePoll(async () => {
-      const started = Date.now();
-      const data = await fetchJsonWithPolicy<{ latest_block: number | null; chain_connected: boolean }>(`${FEED_ORIGIN}/api/explorer/health`);
-      if (mounted) setStatus({ blockNumber: data.chain_connected ? data.latest_block : null, latency: Date.now() - started });
-    }, 30000);
-    return () => { mounted = false; stop(); };
-  }, [open]);
+    monitor.start();
+    return () => monitor.stop();
+  }, [monitor, open]);
   return status;
 }
 
@@ -95,7 +202,8 @@ function shortRpc(rpc: string): string {
 export function NetworkPill({ className, style }: NetworkPillProps) {
   const chainId = useChainId();
   const [open, setOpen] = useState(false);
-  const { blockNumber, latency } = useNetworkStatus(open);
+  const status = useNetworkStatus(open);
+  const { latency } = status;
   const ref = useRef<HTMLDivElement | null>(null);
 
   // Close on outside click
@@ -246,7 +354,7 @@ export function NetworkPill({ className, style }: NetworkPillProps) {
                   textAlign: "right",
                 }}
               >
-                {blockNumber === null ? "…" : `#${blockNumber.toLocaleString()}`}
+                {networkBlockLabel(status)}
               </dd>
 
               <dt
