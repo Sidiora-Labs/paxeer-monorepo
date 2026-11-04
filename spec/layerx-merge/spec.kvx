@@ -143649,7 +143649,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.142]
 title = "Repair audit record 22.30.115 medium findings in apps/wallet/src/widgets/settings (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.238", "22.31.239"]
@@ -143683,7 +143683,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.141]
 title = "Repair audit record 22.30.115 medium findings in apps/wallet/src/widgets/txDetail (part 1 of 1): runtime-risk, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.238", "22.31.239"]
@@ -145968,7 +145968,7 @@ do_9 = "Attempt 3 (continue): the test file fails at its first line with only te
 
 [task.22.31.250]
 title = "Repair audit record 22.30.120 findings in apps/wallet/src/surfaces: security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -162806,7 +162806,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.116]
 title = "Repair audit record 22.30.112 medium findings in services/interop/crates/layerx-visa-tap/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.167", "22.31.168", "22.31.232", "22.31.233"]
@@ -162948,7 +162948,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.108]
 title = "Repair audit record 22.30.112 medium findings in services/interop/crates/layerx-mirror-signer/src (part 1 of 1): security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.167", "22.31.168", "22.31.232", "22.31.233"]
@@ -180525,7 +180525,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.111]
 title = "Repair audit record 22.30.112 medium findings in services/interop/deploy/mirror/tests (part 1 of 1): retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.167", "22.31.168", "22.31.232", "22.31.233"]
@@ -288177,7 +288177,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.53]
 title = "Rewrite the node-runtime documentation pages of rpc: stale and misleading pages (manifest 22.32.53, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -324583,7 +324583,7 @@ do_9 = "Attempt 2 (continue): the API parameter schema transaction_type_param in
 
 [task.22.31.407]
 title = "Repair audit record 22.30.154 findings in services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
