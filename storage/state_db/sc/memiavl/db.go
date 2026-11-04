@@ -396,10 +396,13 @@ func (db *DB) ApplyUpgrades(upgrades []*proto.TreeNameUpgrade) error {
 		return errReadOnly
 	}
 
+	if err := db.MultiTree.ApplyUpgrades(upgrades); err != nil {
+		return err
+	}
 	if len(upgrades) > 0 {
 		db.pendingLogEntry.Upgrades = append(db.pendingLogEntry.Upgrades, upgrades...)
 	}
-	return db.MultiTree.ApplyUpgrades(upgrades)
+	return nil
 }
 
 // ApplyChangeSets wraps MultiTree.ApplyChangeSets to add a lock.
@@ -424,8 +427,11 @@ func (db *DB) ApplyChangeSets(changeSets []*proto.NamedChangeSet) (_err error) {
 		return errReadOnly
 	}
 
+	if err := db.MultiTree.ApplyChangeSets(changeSets); err != nil {
+		return err
+	}
 	db.mergePendingChangesets(changeSets)
-	return db.MultiTree.ApplyChangeSets(changeSets)
+	return nil
 }
 
 // ApplyChangeSet wraps MultiTree.ApplyChangeSet to add a lock.
@@ -445,10 +451,13 @@ func (db *DB) ApplyChangeSet(name string, changeSet proto.ChangeSet) error {
 		return errReadOnly
 	}
 
+	if err := db.MultiTree.ApplyChangeSet(name, changeSet); err != nil {
+		return err
+	}
 	db.mergePendingChangesets([]*proto.NamedChangeSet{
 		{Name: name, Changeset: changeSet},
 	})
-	return db.MultiTree.ApplyChangeSet(name, changeSet)
+	return nil
 }
 
 // mergePendingChangesets merges new changesets into pendingLogEntry.Changesets.
@@ -457,10 +466,6 @@ func (db *DB) ApplyChangeSet(name string, changeSet proto.ChangeSet) error {
 // one changeset per store, which is required for correct replay (Catchup calls
 // SaveVersion once per changeset, so duplicates would incorrectly bump tree versions).
 func (db *DB) mergePendingChangesets(changeSets []*proto.NamedChangeSet) {
-	if len(db.pendingLogEntry.Changesets) == 0 {
-		db.pendingLogEntry.Changesets = changeSets
-		return
-	}
 	idx := make(map[string]int, len(db.pendingLogEntry.Changesets))
 	for i, cs := range db.pendingLogEntry.Changesets {
 		idx[cs.Name] = i
@@ -473,7 +478,10 @@ func (db *DB) mergePendingChangesets(changeSets []*proto.NamedChangeSet) {
 			)
 		} else {
 			idx[cs.Name] = len(db.pendingLogEntry.Changesets)
-			db.pendingLogEntry.Changesets = append(db.pendingLogEntry.Changesets, cs)
+			db.pendingLogEntry.Changesets = append(db.pendingLogEntry.Changesets, &proto.NamedChangeSet{
+				Name:      cs.Name,
+				Changeset: proto.ChangeSet{Pairs: append([]*proto.KVPair(nil), cs.Changeset.Pairs...)},
+			})
 		}
 	}
 }
@@ -543,6 +551,11 @@ func (db *DB) checkBackgroundSnapshotRewrite() error {
 				return nil
 			}
 			time.Sleep(time.Millisecond)
+		}
+
+		if result.err != nil {
+			_ = result.mtree.Close()
+			return fmt.Errorf("background snapshot catchup failed: %w", result.err)
 		}
 
 		// catchup the remaining entries in rlog
@@ -1019,7 +1032,7 @@ func (db *DB) rewriteSnapshotBackground() error {
 			catchupStart := time.Now()
 			if err := mtree.Catchup(ctx, wal, db.walIndexDelta, 0); err != nil {
 				logger.Error("failed to catchup after snapshot", "error", err)
-				ch <- snapshotResult{err: err}
+				ch <- snapshotResult{mtree: mtree, err: err}
 				return
 			}
 			catchupElapsed := time.Since(catchupStart).Seconds()
