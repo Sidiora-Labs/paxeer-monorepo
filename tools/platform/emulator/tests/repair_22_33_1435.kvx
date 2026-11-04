@@ -1,0 +1,36 @@
+[repair.22.33.1435]
+base_revision = "9e535b4932ba8111a729a5cef10e0ca2370ca435"
+acceptance = "22998.1"
+disposition = "Use both findings' explicit retirement alternative: the supported merged emulator is an inspection/control listener, not a local merged-node transaction executor. Retire the obsolete local transfer/head-proof and lifecycle-echo promises; preserve the existing negative regressions without weakening them."
+baseline = "No baseline gate ran and no pre-existing failing test is claimed: repair_22_33_1435.rs was absent on the unchanged tree, and the explicit implementation/build/verify order prohibits the conflicting do_6 request to verify before implementation."
+evidence = "The runner's private hf-build/hf-done ledger is the qualification record and names the exact verified candidate revision, command, exit code and log; no source record can embed its own candidate hash. Qualification is claimed only if hf-done passes on the built candidate."
+
+[finding.emulator-head-proof-coverage]
+test = "tools/platform/emulator/tests/repair_22_33_1435.rs::emulator_head_proof_coverage_retires_local_transfer_promise_without_fabricating_head"
+disposition = "Acceptance 8544.2's local positive transfer-to-head promise is obsolete after ingress retirement, not satisfied by a 503. The public run/run_until listener and GET /v1/surface expose no supported transfer producer; the residual native execution bridge is not merged-node transaction ingress. No successful committed transfer or real-verifier positive proof is claimed."
+proof = "For both protocol profiles, start the real listener/core, pin its Ed25519 public identity, prefund and inspect both balances, refuse retired transfer endpoints and a recorded real merged-node payment transaction, and assert unchanged state, absent receipt and unavailable head. Export a production snapshot, stop and destroy the listener/core, reopen and import, then assert recovered balances, identity and retirement with no fabricated proof."
+preserved = "tools/platform/emulator/tests/core_linkage.rs::head_read_without_a_sealed_batch_is_refused remains unchanged."
+
+[finding.emulator-program-path-coverage]
+test = "tools/platform/emulator/tests/repair_22_33_1435.rs::emulator_program_path_coverage_retires_local_lifecycle_echo_and_keeps_8323_refusals"
+disposition = "Acceptance 8969.1's local lifecycle-echo promise is obsolete on the supported inspection/control surface; retained native runtime linkage and historical snapshot metadata do not supply a public deploy/call transaction path. Keep 8323.1's retirement. Merged-node program execution remains owned by the node/program domains, not emulated here."
+proof = "For both protocol profiles, consume real discovery, require all advertised writes to be emulator controls, drive deploy/call/upgrade/wind-down/simulation/registry/receipt routes over real HTTP and require 404 not_found without success payloads. Refuse a recorded real merged-node program-call transaction at local RPC ingress, then assert no receipt, no state change, unavailable head and continuing health."
+preserved = "tools/platform/emulator/tests/gateway.rs::retired_kernel_routes_answer_not_found remains unchanged."
+
+[wiring.requirements]
+request = "Programme owner and platform domain 8: update spec/layerx-merge/spec.kvx req.8544 ac_2 and req.8969 ac_1 to retire their local execution promises, retain req.8323 ac_1, and assign any retained merged-node transfer/head-verifier or lifecycle-echo success acceptance to the owning node/program transaction paths."
+
+[wiring.contracts]
+request = "Platform domain 8: reconcile spec/layerx-merge/contracts/platform-cli.md and spec/layerx-merge/interfaces.kvx with tools/platform/emulator/src/surface.rs: local inspection/control only; submission uses merged-node eth_sendRawTransaction and pax_sequencerReceipt with independent commitment verification."
+
+[wiring.task_record]
+request = "Programme owner: copy these finding/test mappings, explicit retirement dispositions and baseline-order conflict into spec/layerx-merge/spec.kvx task.22.33.1435; spec edits are excluded from this task's scope."
+
+[gotcha.baseline_order]
+observed = "The generated task step asks for verification before a new repair target exists, conflicting with the task's explicit mandatory gate order."
+action = "Follow the explicit order and record that no baseline ran; never invent a pre-change failure or run an extra gate."
+
+[gotcha.protocol_genesis]
+observed = "The first verify failed in the new head case: protocol 3 starts with three genesis accounts, so asserting two total accounts after two prefunds used an incorrect fixture assumption; the program case passed."
+action = "Capture the production initial state, require exactly two additional named accounts and byte-for-byte preserved genesis account rows, and require the reopened core to equal that initial state before snapshot import."
+failed_evidence = "revision=4c6b4688fe860861c1ee1c7136a1ed648b703e46; command=cg spec done 22.33.1435 -f layerx-merge --root /work/paxeer-monorepo; exit=1; log=/out/logs/verify-1.log"
