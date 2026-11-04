@@ -1,4 +1,4 @@
-use std::fs::{self, File};
+use std::fs::{self, File, OpenOptions};
 use std::io::{Read as _, Write as _};
 use std::net::{IpAddr, TcpStream, ToSocketAddrs as _};
 use std::path::{Path, PathBuf};
@@ -14,8 +14,6 @@ use layerx_crypto::signer::AgentSignature;
 use native_tls::{Certificate, Identity, TlsConnector};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
-use std::collections::BTreeMap;
-use std::sync::Mutex;
 
 use crate::{
     compile_operator_send, compile_payer_grant_draw, verify_order_receipt, AuthenticatedPrincipal,
@@ -29,29 +27,42 @@ const MAX_BODY_BYTES: usize = 512 * 1024;
 const MAX_HEADER_BYTES: usize = 32 * 1024;
 
 #[derive(Clone, Debug)]
-pub struct SecretFile(PathBuf);
+pub struct SecretFile {
+    path: PathBuf,
+    device: u64,
+    inode: u64,
+}
 
 impl SecretFile {
     /// # Errors
-    /// Returns [`RampError::Configuration`] when the path is not a private file within the size bound.
+    /// Refuses links, non-regular files, foreign owners and non-private files.
     pub fn new(path: impl Into<PathBuf>) -> Result<Self, RampError> {
         let path = path.into();
-        let metadata = fs::metadata(&path).map_err(|_| RampError::Configuration)?;
-        if !metadata.is_file() || metadata.len() == 0 || metadata.len() > MAX_SECRET_BYTES as u64 {
-            return Err(RampError::Configuration);
-        }
-        require_private(&metadata)?;
-        Ok(Self(path))
+        let file = open_secret(&path)?;
+        let metadata = file.metadata().map_err(|_| RampError::Configuration)?;
+        use std::os::unix::fs::MetadataExt as _;
+        Ok(Self {
+            path,
+            device: metadata.dev(),
+            inode: metadata.ino(),
+        })
     }
 
     /// # Errors
-    /// Returns [`RampError::Configuration`] when the file cannot be read within the size bound.
+    /// Refuses replacement and validates the descriptor before reading bounded content.
     pub fn read(&self) -> Result<Vec<u8>, RampError> {
-        let file = File::open(&self.0).map_err(|_| RampError::Configuration)?;
+        use std::os::unix::fs::MetadataExt as _;
+        let mut file = open_secret(&self.path)?;
+        let metadata = file.metadata().map_err(|_| RampError::Configuration)?;
+        if (metadata.dev(), metadata.ino()) != (self.device, self.inode) {
+            return Err(RampError::Configuration);
+        }
         let mut bytes = Vec::new();
-        file.take((MAX_SECRET_BYTES + 1) as u64)
+        (&mut file)
+            .take((MAX_SECRET_BYTES + 1) as u64)
             .read_to_end(&mut bytes)
             .map_err(|_| RampError::Configuration)?;
+        require_private(&file.metadata().map_err(|_| RampError::Configuration)?)?;
         if bytes.is_empty() || bytes.len() > MAX_SECRET_BYTES {
             return Err(RampError::Configuration);
         }
@@ -60,8 +71,19 @@ impl SecretFile {
 
     #[must_use]
     pub fn path(&self) -> &Path {
-        &self.0
+        &self.path
     }
+}
+
+fn open_secret(path: &Path) -> Result<File, RampError> {
+    use std::os::unix::fs::OpenOptionsExt as _;
+    let file = OpenOptions::new()
+        .read(true)
+        .custom_flags((rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::NONBLOCK).bits() as i32)
+        .open(path)
+        .map_err(|_| RampError::Configuration)?;
+    require_private(&file.metadata().map_err(|_| RampError::Configuration)?)?;
+    Ok(file)
 }
 
 #[derive(Clone, Debug)]
@@ -895,7 +917,6 @@ impl LayerxConfig {
             max_fee_per_gas: self.max_fee_per_gas,
             max_priority_fee_per_gas: self.max_priority_fee_per_gas,
             gas_limit_cap: self.gas_limit_cap,
-            raw_transactions: Mutex::new(BTreeMap::new()),
         })
     }
 }
@@ -929,7 +950,6 @@ pub struct LayerxClient {
     pub max_fee_per_gas: u128,
     pub max_priority_fee_per_gas: u128,
     pub gas_limit_cap: u64,
-    raw_transactions: Mutex<BTreeMap<[u8; 32], Vec<u8>>>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1082,10 +1102,6 @@ impl LayerxClient {
         let signature = self.sign(order, &call)?;
         let raw_transaction = assemble(&call, &signature);
         let tx_hash = transaction_hash(&raw_transaction);
-        self.raw_transactions
-            .lock()
-            .map_err(|_| RampError::Layerx)?
-            .insert(tx_hash, raw_transaction.clone());
         Ok(PreparedLayerx {
             tx_hash,
             raw_transaction,
@@ -1206,13 +1222,9 @@ impl LayerxClient {
         order: &RampOrder,
         tx_hash: [u8; 32],
     ) -> Result<(LayerxSubmission, Option<ReceiptEvidence>, bool), RampError> {
-        let cached = self
-            .raw_transactions
-            .lock()
-            .map_err(|_| RampError::Layerx)?
-            .get(&tx_hash)
-            .cloned();
-        self.resolve_transaction(order, tx_hash, cached.as_deref(), false)
+        // Signed bytes belong to the journal or authenticated committed block,
+        // never to a process-lifetime cache. Receipted recovery supplies journal evidence.
+        self.resolve_transaction(order, tx_hash, None, false)
     }
 
     /// Reconciles the exact signed bytes retained in the journal. Recovery is
@@ -1834,17 +1846,17 @@ pub(crate) fn base64_decode(encoded: &str) -> Result<Vec<u8>, RampError> {
     Ok(decoded)
 }
 
-#[cfg(unix)]
 fn require_private(metadata: &fs::Metadata) -> Result<(), RampError> {
-    use std::os::unix::fs::PermissionsExt as _;
-    if metadata.permissions().mode() & 0o077 != 0 {
+    use std::os::unix::fs::MetadataExt as _;
+    if !metadata.is_file()
+        || metadata.mode() & 0o7077 != 0
+        || metadata.uid() != rustix::process::geteuid().as_raw()
+        || metadata.nlink() != 1
+        || metadata.len() == 0
+        || metadata.len() > MAX_SECRET_BYTES as u64
+    {
         return Err(RampError::Configuration);
     }
-    Ok(())
-}
-
-#[cfg(not(unix))]
-fn require_private(_metadata: &fs::Metadata) -> Result<(), RampError> {
     Ok(())
 }
 
