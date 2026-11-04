@@ -161,7 +161,7 @@ func TestWriteRPCResponse(t *testing.T) {
 	// one argument
 	w := httptest.NewRecorder()
 
-	writeRPCResponse(w, req.MakeResponse(&sampleResult{"hello"}))
+	writeRPCResponse(w, false, req.MakeResponse(&sampleResult{"hello"}))
 	resp := w.Result()
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, resp.Body.Close())
@@ -173,7 +173,7 @@ func TestWriteRPCResponse(t *testing.T) {
 
 	// multiple arguments
 	w = httptest.NewRecorder()
-	writeRPCResponse(w,
+	writeRPCResponse(w, true,
 		req.MakeResponse(&sampleResult{"hello"}),
 		req.MakeResponse(&sampleResult{"world"}),
 	)

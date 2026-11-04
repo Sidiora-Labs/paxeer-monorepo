@@ -1,0 +1,8 @@
+[repair.22.31.35]
+audit = "22.30.24"
+finding = "f03"
+proof = "TestRepair_35_QuoteUint256"
+path = "Real ERC20 transfer and keeper swap -> exported launchpad/EVM genesis -> live ABCI Query/Quote -> CmdQueryQuote -> protobuf JSON consumer; buy and sell above MaxUint64, leading zeros, uint256 boundary, malformed, zero and overflow refusals."
+baseline = "Not run: the explicit implementation-first order and one verify gate prohibit the contradictory unchanged-tree verify requested by step 5; no pre-change test failure is claimed."
+evidence = "The hf-build/hf-done private ledger records the exact qualified candidate revision, commands, exits and logs; this record does not claim qualification before those gates pass."
+wiring = "None: f03 requires no change outside modules/launchpad/client/cli."

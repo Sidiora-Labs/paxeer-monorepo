@@ -6,6 +6,7 @@ import (
 	"math"
 	"os"
 	"path"
+	"sort"
 	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/db_engine/litt/util"
@@ -353,31 +354,36 @@ func GatherSegmentFiles(
 		}
 	}
 
-	if len(metadataFiles) > 0 {
-		// Adjust the segment range to exclude orphaned segments.
-		if _, ok := damagedSegments[highestSegmentIndex]; ok {
-			highestSegmentIndex--
+	// Derive the range from healthy survivors. Adjusting the scanned endpoints
+	// underflows when the only segment is a partially created segment zero.
+	healthyIndices := make([]uint32, 0, len(metadataFiles))
+	for index := range metadataFiles {
+		if _, damaged := damagedSegments[index]; !damaged {
+			healthyIndices = append(healthyIndices, index)
 		}
-		if _, ok := damagedSegments[lowestSegmentIndex]; ok {
-			lowestSegmentIndex++
-		}
+	}
+	if len(healthyIndices) == 0 {
+		return 0, 0, segments, nil
+	}
+	sort.Slice(healthyIndices, func(i, j int) bool { return healthyIndices[i] < healthyIndices[j] })
+	lowestSegmentIndex = healthyIndices[0]
+	highestSegmentIndex = healthyIndices[len(healthyIndices)-1]
 
-		// Load all healthy segments.
-		for i := lowestSegmentIndex; i <= highestSegmentIndex; i++ {
-			segment, err := LoadSegment(logger, errorMonitor, i, segmentPaths, snapshottingEnabled, now, fsync)
-			if err != nil {
-				return 0, 0, nil,
-					fmt.Errorf("failed to create segment %d: %v", i, err)
-			}
-			segments[i] = segment
-		}
-
-		// Stitch together the segments.
-		err = linkSegments(lowestSegmentIndex, highestSegmentIndex, segments)
+	// Load all healthy segments.
+	for _, i := range healthyIndices {
+		segment, err := LoadSegment(logger, errorMonitor, i, segmentPaths, snapshottingEnabled, now, fsync)
 		if err != nil {
 			return 0, 0, nil,
-				fmt.Errorf("failed to link segments: %v", err)
+				fmt.Errorf("failed to create segment %d: %v", i, err)
 		}
+		segments[i] = segment
+	}
+
+	// Stitch together the segments.
+	err = linkSegments(lowestSegmentIndex, highestSegmentIndex, segments)
+	if err != nil {
+		return 0, 0, nil,
+			fmt.Errorf("failed to link segments: %v", err)
 	}
 
 	return lowestSegmentIndex, highestSegmentIndex, segments, nil

@@ -14620,3 +14620,13 @@ fix = "A task that adds a field to an exact field set lists every consumer crate
 title = "A header rename at a paid gateway is a producer change every client must follow"
 symptom = "The x-websearch gateway reads LAYERX-PAYER-ADDRESS (an EVM address) and ignores the former LAYERX-PAYER-DID header, so the TypeScript and python web-search clients kept sending the retired header and failed only through the replayed exchange the gateway recorded (400 unrecorded_request on the metered search)."
 fix = "When a producer renames or re-types a request header, git grep the old name across every client and queue one consumer task per owning domain; the recorded exchange is the contract both sides must match, and a header the producer silently ignores is still a defect."
+
+[gotcha.2960]
+title = "A package-wide Go test run is not a repair task's gate when the package carries service-bound tests"
+symptom = "Repair tasks in services/launchpad packages passed their own tests and failed the gate on pre-existing tests that need PostgreSQL, Redis, S3, Anvil or a live RPC endpoint; others wrote repair tests that themselves skip-fail without such services."
+fix = "A repair task's verification runs only its own TestRepair_N_* functions, and those run in-process; the package's other tests must keep compiling and follow any behaviour the repair changes."
+
+[gotcha.2961]
+title = "A durable approval's actor is an EVM address; a DID comparison on it never matches"
+symptom = "The approval budget facts operation compared a managed agent DID with the held activity actor, which the hold validation fixes to the 40-hex address form, and parsed that actor as a DID; the operation refused every real held approval."
+fix = "Resolve the managed agent by its signing address and use its DID afterwards (decision 2517); never parse a durable approval actor as a DID."

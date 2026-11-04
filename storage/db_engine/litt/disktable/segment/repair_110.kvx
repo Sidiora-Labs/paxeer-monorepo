@@ -1,0 +1,22 @@
+[task.22.31.110]
+audit = "22.30.53"
+base_revision = "630bbaef660d5fa23f2d56d1c74264a6fcaa9325"
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, commands, exits and private logs."
+baseline = "Not run: the ordered gate contract prohibits verification before implementation and a separate manual verify invocation; no baseline failure is claimed."
+
+[finding.key-durability]
+tests = ["TestRepair_110_KeyDurabilityRestart", "TestRepair_110_KeySyncFailure", "TestRepair_110_KeyDurabilityMode"]
+repair = "Retain the writable file and fsync mode, sync key bytes before successful flush/seal, sync creation's directory entry, close on seal, propagate mode into recovery replacements, and withhold completion after a sync failure."
+proof = "An abruptly exited real segment writer is reopened, primary and secondary records rebuild real memory and durable Pebble keymaps, the durable keymap is stopped/reopened, and an incomplete group exercises the synced recovery replacement. Closed real descriptors inject sync-boundary failures without mocking the component."
+limit = "Process exit and real descriptor faults exercise crash recovery and sync error handling; these tests do not physically power-cycle the host."
+
+[finding.initial-segment-recovery]
+tests = ["TestRepair_110_InitialSegmentRecovery", "TestRepair_110_HealthySegmentSurvivors"]
+repair = "Compute bounds from healthy metadata indices and explicitly return an empty map with zero bounds when none survive."
+proof = "Restart from every subset of the real producer's four segment-zero files across two directories, with and without orphan cleanup; recreate segment zero and reopen acknowledged data; retain healthy neighbors and reject internal corruption."
+
+[wiring]
+request = "None: both repairs and their tests are contained in storage/db_engine/litt/disktable/segment; external consumers use the unchanged Segment API."
+
+[notes]
+gate_order = "The request's unchanged-tree verify instruction conflicts with its explicit implementation-first order and bounded gates; the explicit order is followed."

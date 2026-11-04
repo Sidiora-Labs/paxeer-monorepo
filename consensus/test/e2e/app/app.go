@@ -76,7 +76,7 @@ type Config struct {
 	// not specified are not changed.
 	//
 	// height <-> pubkey <-> voting power
-	ValidatorUpdates map[string]map[string]uint8 `toml:"validator_update"`
+	ValidatorUpdates map[string]map[string]int64 `toml:"validator_update"`
 	LeaderPin        []string                    `toml:"leader_pin"`
 	LeaderPinHeight  int64                       `toml:"leader_pin_height"`
 
@@ -394,7 +394,7 @@ func (app *Application) validatorUpdates(height uint64) (abci.ValidatorUpdates, 
 		}
 		valUpdates = append(valUpdates, abci.ValidatorUpdate{
 			PubKey: crypto.PubKeyToProto(pubKey),
-			Power:  int64(power),
+			Power:  power,
 		})
 	}
 
