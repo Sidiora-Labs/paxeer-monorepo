@@ -29,6 +29,20 @@ const RELEASED_MAGIC: &[u8; 8] = b"LXAPREL1";
 const MAX_HOLD_RECORD_BYTES: usize = 2 * 1024 * 1024;
 const MAX_DISCLOSURE_ITEMS: u32 = 64;
 
+fn validated_item_count(count: usize) -> Result<u32, ApprovalError> {
+    let count = u32::try_from(count).map_err(|_| ApprovalError::TooManyItems)?;
+    if count > MAX_DISCLOSURE_ITEMS {
+        return Err(ApprovalError::TooManyItems);
+    }
+    Ok(count)
+}
+
+fn validate_disclosure_counts(disclosure: &Disclosure) -> Result<(), ApprovalError> {
+    validated_item_count(disclosure.counterparties.values().len())?;
+    validated_item_count(disclosure.amounts.values().len())?;
+    Ok(())
+}
+
 /// Complete audit context captured before an approval hold is created.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ApprovalContext {
@@ -571,6 +585,53 @@ pub enum ApprovalError {
     DecisionConflict,
     Unavailable,
     CorruptRecord,
+    TooManyItems,
+}
+
+/// Refusal while acquiring and durably publishing an approval reservation.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum ApprovalReservationError {
+    Reservation(budget::LimitRefusal),
+    Approval(ApprovalError),
+}
+
+impl From<budget::LimitRefusal> for ApprovalReservationError {
+    fn from(error: budget::LimitRefusal) -> Self {
+        Self::Reservation(error)
+    }
+}
+
+/// Acquires budget only if the approval can be published; every refusal rolls back acquisition.
+///
+/// # Errors
+///
+/// Returns the reservation refusal or the approval admission/persistence refusal.
+pub fn reserve_and_hold(
+    registry: &ApprovalRegistry,
+    limiter: &BudgetLimiter,
+    context: ApprovalContext,
+    prepared: Prepared,
+    request: &budget::ReservationRequest,
+    expires_at_sequence: u64,
+) -> Result<ApprovalTicket, ApprovalReservationError> {
+    let mut ticket = None;
+    limiter.reserve_locked(request, None, budget::CoreTimestampMs(0), |reservation| {
+        ticket = Some(
+            hold_reserved(
+                registry,
+                context,
+                prepared,
+                request.current_sequence,
+                expires_at_sequence,
+                reservation,
+            )
+            .map_err(ApprovalReservationError::Approval)?,
+        );
+        Ok::<(), ApprovalReservationError>(())
+    })?;
+    ticket.ok_or(ApprovalReservationError::Approval(
+        ApprovalError::CorruptRecord,
+    ))
 }
 
 /// Holds only prepared bytes and their decoded disclosure, never the caller request.
@@ -598,6 +659,8 @@ pub fn hold(
 }
 
 /// Persists an approval and its exact already-acquired budget reservation in one record.
+/// The caller retains ownership of the reservation on refusal; [`reserve_and_hold`] rolls
+/// back a newly acquired reservation automatically.
 ///
 /// # Errors
 ///
@@ -723,6 +786,7 @@ fn validate_reservation(
     context: &ApprovalContext,
     reservation: &BudgetReservation,
 ) -> Result<(), ApprovalError> {
+    validated_item_count(reservation.durable.len())?;
     let mut durable_limits = reservation
         .durable
         .iter()
@@ -778,6 +842,8 @@ fn register_hold(
     budget_reservations: Vec<DurableBudgetReservation>,
     presentation: Option<ApprovalPresentation>,
 ) -> Result<ApprovalTicket, ApprovalError> {
+    validated_item_count(budget_reservations.len())?;
+    validate_disclosure_counts(&prepared.disclosure)?;
     let digest = canonical_digest(prepared.unsigned_canonical_bytes.as_bytes());
     if digest != prepared.disclosure.canonical_digest {
         return Err(ApprovalError::InvalidDisclosureDigest);
@@ -1218,6 +1284,8 @@ fn encode_hold(h: &HeldApproval) -> Result<Vec<u8>, ApprovalError> {
 }
 
 fn encode_legacy_hold(h: &HeldApproval) -> Result<Vec<u8>, ApprovalError> {
+    let reservation_count = validated_item_count(h.budget_reservations.len())?;
+    validate_disclosure_counts(&h.prepared.disclosure)?;
     let mut o = HOLD_MAGIC.to_vec();
     put_text(&mut o, h.context.tenant.as_str())?;
     put_bytes(&mut o, h.context.agent.as_bytes())?;
@@ -1228,10 +1296,7 @@ fn encode_legacy_hold(h: &HeldApproval) -> Result<Vec<u8>, ApprovalError> {
     o.extend_from_slice(&h.sender);
     o.extend_from_slice(&h.created_at_sequence.to_be_bytes());
     o.extend_from_slice(&h.expires_at_sequence.to_be_bytes());
-    o.extend_from_slice(
-        &(u32::try_from(h.budget_reservations.len()).map_err(|_| ApprovalError::CorruptRecord)?)
-            .to_be_bytes(),
-    );
+    o.extend_from_slice(&reservation_count.to_be_bytes());
     for reservation in &h.budget_reservations {
         o.extend_from_slice(&reservation.reservation_id);
         o.extend_from_slice(&reservation.limit_id.0);
@@ -1251,16 +1316,12 @@ fn encode_legacy_hold(h: &HeldApproval) -> Result<Vec<u8>, ApprovalError> {
     put_text(&mut o, h.prepared.disclosure.actor.as_str())?;
     put_text(&mut o, h.prepared.disclosure.authority.as_str())?;
     let cps = h.prepared.disclosure.counterparties.values();
-    o.extend_from_slice(
-        &(u32::try_from(cps.len()).map_err(|_| ApprovalError::CorruptRecord)?).to_be_bytes(),
-    );
+    o.extend_from_slice(&validated_item_count(cps.len())?.to_be_bytes());
     for v in cps {
         put_text(&mut o, v.as_str())?;
     }
     let amts = h.prepared.disclosure.amounts.values();
-    o.extend_from_slice(
-        &(u32::try_from(amts.len()).map_err(|_| ApprovalError::CorruptRecord)?).to_be_bytes(),
-    );
+    o.extend_from_slice(&validated_item_count(amts.len())?.to_be_bytes());
     for v in amts {
         put_text(&mut o, v.counterparty.as_str())?;
         o.extend_from_slice(&v.amount.0.to_be_bytes());
@@ -1300,6 +1361,10 @@ impl<'a> Reader<'a> {
                 .try_into()
                 .map_err(|_| ApprovalError::CorruptRecord)?,
         ))
+    }
+    fn item_count(&mut self) -> Result<u32, ApprovalError> {
+        let count = usize::try_from(self.u32()?).map_err(|_| ApprovalError::CorruptRecord)?;
+        validated_item_count(count).map_err(|_| ApprovalError::CorruptRecord)
     }
     fn u64(&mut self) -> Result<u64, ApprovalError> {
         Ok(u64::from_be_bytes(
@@ -1396,18 +1461,12 @@ fn decode_legacy_hold(bytes: &[u8]) -> Result<HeldApproval, ApprovalError> {
     let activity_type = ActivityType(r.u16()?);
     let actor = AgentDid::new(r.text()?).map_err(|_| ApprovalError::CorruptRecord)?;
     let authority = AuthorityRef::new(r.text()?).map_err(|_| ApprovalError::CorruptRecord)?;
-    let cp_count = r.u32()?;
-    if cp_count > MAX_DISCLOSURE_ITEMS {
-        return Err(ApprovalError::CorruptRecord);
-    }
+    let cp_count = r.item_count()?;
     let mut cps = Vec::new();
     for _ in 0..cp_count {
         cps.push(AgentDid::new(r.text()?).map_err(|_| ApprovalError::CorruptRecord)?);
     }
-    let amount_count = r.u32()?;
-    if amount_count > MAX_DISCLOSURE_ITEMS {
-        return Err(ApprovalError::CorruptRecord);
-    }
+    let amount_count = r.item_count()?;
     let mut amounts = Vec::new();
     for _ in 0..amount_count {
         let counterparty = AgentDid::new(r.text()?).map_err(|_| ApprovalError::CorruptRecord)?;
@@ -1488,8 +1547,8 @@ fn decode_scope(tag: u8, id: [u8; 32]) -> Result<LimitScope, ApprovalError> {
 }
 
 fn decode_reservations(r: &mut Reader<'_>) -> Result<Vec<DurableBudgetReservation>, ApprovalError> {
-    let reservation_count = r.u32()?;
-    if reservation_count == 0 || reservation_count > MAX_DISCLOSURE_ITEMS {
+    let reservation_count = r.item_count()?;
+    if reservation_count == 0 {
         return Err(ApprovalError::CorruptRecord);
     }
     let mut budget_reservations = Vec::new();

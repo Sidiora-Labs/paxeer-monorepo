@@ -45,6 +45,11 @@ fn main() -> ExitCode {
                 return ExitCode::FAILURE;
             }
         };
+        for result in relayer.refresh_attestation_policies() {
+            if let Err(error) = result {
+                eprintln!("layerx-bridge-relayer: attestation policy unavailable: {error}");
+            }
+        }
         if let Ok(mut shared) = view.write() {
             *shared = relayer.attestation_view();
         } else {
@@ -72,6 +77,11 @@ fn main() -> ExitCode {
             }
         }
         if config.attestation_listen.is_some() {
+            for result in relayer.refresh_attestation_policies() {
+                if let Err(error) = result {
+                    eprintln!("layerx-bridge-relayer: attestation policy unavailable: {error}");
+                }
+            }
             let snapshot = relayer.attestation_view();
             match view.write() {
                 Ok(mut shared) => *shared = snapshot,
