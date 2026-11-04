@@ -1,0 +1,50 @@
+[repair.22.33.689]
+audit = "22.30.168"
+requirement = "22998.1"
+base_revision = "fedbeb3bb47c5bb972f66afc8189f92f5395f3eb"
+baseline = "Not run: the explicit ordered gate instructions prohibit verification before implementation and authorize only hf-build followed by hf-done; no pre-change test failures are claimed."
+evidence = "hf-build and hf-done retain the exact candidate revision, command, exit and private log in the runner gate ledger; the final response copies the terminal evidence."
+wiring = "No out-of-path implementation is required; node/test_helpers.go already accepts testing.TB, so keeper helpers can preserve it without an owning-domain change."
+
+[finding.unbonding-retry-test]
+test = "TestRepairM_689_UnbondingRetryRestart"
+repair = "The delegation regression drives real messages and end blocks, asserts the refused mature pair remains scheduled, commits and closes LevelDB, reopens the store, admits the recipient, and proves one transfer, entry and queue cleanup, unchanged supply and no second payment."
+
+[finding.redelegation-filter-test]
+test = "TestRepairM_689_RedelegationPartialFilters"
+repair = "Eight real message-produced redelegations cover distinct delegators, source and destination pairs; protobuf query routing verifies every filter combination, exact identities and balances, filtered totals and complete forward/reverse key and offset traversal."
+
+[finding.minimum-self-backing]
+test = "TestRepairM_689_MinimumSelfBacking"
+repair = "Validate a raised minimum against the operator delegation's current token value before commission hooks; reject missing or insufficient self-backing despite third-party stake, preserve serialized validator state on rejection, and accept the exact current value after real slashing."
+
+[finding.large-amount-metrics]
+test = "TestRepairM_689_LargeAmountMetrics"
+repair = "Every successful Delegate, BeginRedelegate and Undelegate increments its operation counter; amounts above MaxInt64 saturate the amount gauge at MaxInt64 and increment staking_keeper_amount_overflow labeled by operation. Real bank and staking transitions prove MaxInt64, MaxInt64+1 and twice MaxInt64, later ordinary amounts and rejected-message non-emission."
+
+[finding.benchmark-context-panic]
+test = "TestRepairM_689_BenchmarkContext"
+repair = "Keeper setup preserves testing.TB through the existing app setup; the declared gate executes BenchmarkGetValidator in-process with testing.Benchmark, retaining all 900 real store reads per iteration and asserting each lookup returns its validator."
+
+[qualification.fixture-repair]
+revision = "b0fefdc26c92ddba62c2932b7549926fbfdf742a"
+command = "cg spec done 22.33.689 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Bank admission checks occur twice per payout, query entries live in top-level entry responses, and constructing the app before installing the metric reader binds static instruments to the production provider."
+assumption = "Count actual coin-received events exactly once, compare transported entries with stored producer entries, and install the owning metric fixture before any app construction; retain every behavior assertion and bound."
+
+[qualification.repair-order-error]
+revision = "aecdfc0a6284838584690926e1297e87096fd1c7"
+command = "go build ./sdk/x/staking/keeper/..."
+exit = 0
+log = "/out/logs/build-2.log"
+observed = "A task edit script stopped after the retry correction, but its shell continued into hf-build before the query schema and metric installation-order corrections were applied."
+assumption = "Finish both corrections and rebuild the final tree; the runner charges each repeated build or verification separately, so the two-allowance budget then prevents final verification."
+
+[qualification.continuation]
+seed_revision = "396eb09350eb0c3b371e595dc7c39e82cbefaafc"
+observed = "The inherited attempt failed query entry assertions and metric collection before its final fixture corrections were verified; no unchanged baseline run is claimed."
+repair = "Retain the corrected top-level query entries and package-initialized metric reader, preserving exact identities, filtered totals, counter deltas, overflow bounds, restart cleanup and benchmark store assertions."
+gotcha = "OTel package instruments bind to the first installed provider; install the committed manual-reader fixture before the first app construction."
+evidence = "The runner records the final candidate revision and both bounded gate results under /out/run/gates.jsonl with private logs under /out/logs/."
