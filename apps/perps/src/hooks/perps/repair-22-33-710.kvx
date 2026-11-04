@@ -1,0 +1,80 @@
+[repair.22.33.710]
+mode = "BUILD"
+audit = "22.30.17"
+acceptance = "22998.1"
+status = "implemented_not_qualified"
+baseline = "Not run: the explicit ordered implementation-first instructions and bounded hf-build/hf-done-only gates supersede the conflicting unchanged-tree verification step; no pre-change test failure is claimed."
+evidence = "The final hf-done ledger row identifies the exact candidate revision, command, exit code and private log; qualification is not claimed before that gate runs."
+
+[finding.auth-late-completion]
+test = "apps/perps/tests/repair-22-33-710.test.ts:authLateCompletion,authSupersedingSignIn"
+repair = "Shared authentication generations invalidate challenge/signature/verify/refresh continuations before any persistent credential, state or refresh timer write on logout, superseding sign-in, wallet replacement and hook unmount."
+
+[finding.auth-wallet-binding]
+test = "apps/perps/tests/repair-22-33-710.test.ts:authWalletBinding,referralMutationAccountRace,competitionDetailRace"
+repair = "Every auth consumer shares one wallet-store-bound session; storage records the verified address, rejects unbound/expired hydration, and clears on replacement/disconnect. Alert, referral and competition mutations require the selected wallet, shared session and persisted identity to match."
+wiring_request = "apps/perps/src/widgets/alerts/AlertsPanel.tsx (fm-markets): require auth.address to match the panel address prop before rendering authenticated actions; usePerfdbAlerts already rejects both mutations on that mismatch."
+
+[finding.balance-account-race]
+test = "apps/perps/tests/repair-22-33-710.test.ts:balanceAccountRace"
+repair = "Normalized account keys hide prior account values immediately; selection lifetime and request generations reject every superseded success/error/loading completion, including disconnect and unmount."
+
+[finding.competition-count-zero]
+test = "apps/perps/tests/repair-22-33-710.test.ts:competitionCountZero"
+repair = "List and detail request the authoritative non-null rankings relation, which includes every enrollment; no competition/count is published until loaded, and no missing selection becomes invented zero. No perps-data aggregate is needed."
+
+[finding.competition-detail-race]
+test = "apps/perps/tests/repair-22-33-710.test.ts:competitionDetailRace"
+repair = "Detail requests and join refreshes capture selected-id lifetimes and request generations; superseded details/errors/loading are hidden and cannot publish after replacement or clearing."
+
+[finding.referral-earnings-omitted]
+test = "apps/perps/tests/repair-22-33-710.test.ts:referralEarningsOmitted"
+repair = "Select nullable totalEarned from the existing schema and preserve its exact decimal string without numeric conversion; correct the schema comment."
+
+[finding.referral-account-race]
+test = "apps/perps/tests/repair-22-33-710.test.ts:referralAccountRace,referralMutationAccountRace"
+repair = "Normalized account keys and generation checks cover read success/failure/loading and mutation-triggered refreshes; replacement/disconnect clears the old referral and tier values immediately."
+
+[finding.perfdb-selection-connection]
+test = "apps/perps/tests/repair-22-33-710.test.ts:perfdbSelectionConnection"
+repair = "Price/trade payloads and transport status are selection-scoped; data frames never invent transport connectivity. Hooks consume an explicit onStatus callback and expose unavailable until the shared transport supplies status."
+status = "market replacement repaired; connected/disconnected/recovery notification requires out-of-scope core wiring"
+wiring_request = "apps/perps/src/core/graphql/client.ts (fm-markets): add onStatus to StreamSubscriptionOptions and stored subscribers, replay conn.ready on registration, broadcast true on connection_ack and false on close/error/complete, including reconnect; hooks already provide onStatus."
+
+[proof]
+path = "Committed in-memory account/enrollment fixture peer -> loopback HTTP/RFC6455 -> real perfdbQuery/perfdbRestAuth/subscribeStream -> mounted production hooks using real React DOM and wallet store. No hook, fetch or WebSocket is mocked."
+auth = "Loopback auth peer delays real challenge/verify/refresh HTTP requests; real shared hook, localStorage and wallet store enforce generation/identity. Tests reopen the auth consumer and verify bound storage hydration."
+producer_limit = "The gate drives in-memory fixture peers, not the Go/PostgreSQL resolver; it proves exact selected-field transport and hook consumption but does not claim a fresh production resolver capture."
+wiring_request = "services/platform/perps-data/internal/graphql/account_test.go (fm-markets): publish recorded NewSchema/UserReferrals and Competitions/Rankings responses for nonzero total_earned and enrolled users so the node-only gate can additionally replay production resolver output."
+
+[gotchas]
+baseline = "The unchanged-tree baseline step conflicts with the explicit implementation-first ordered gate policy; no baseline was executed."
+transport = "Shared subscribeStream currently has no transport-status observer, and closes do not call onError; the hook must report status unavailable until the owning core domain wires onStatus."
+formatter = "The perps package declares no standalone formatter; touched TypeScript is formatted with its installed TypeScript language-service formatter."
+scope = "No spec/GOTCHA edits or commits are authorized; this in-scope repair record contains finding mappings, limitations and wiring requests."
+
+[qualification.build_1]
+revision = "2acc3dd04eddf675300e8f032141ce6493b76359"
+command = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
+exit = 2
+log = "/out/logs/build-1.log"
+repair = "Retain every assertion and use a typed read function for reactive hook snapshots: TypeScript assertion narrowing otherwise persists empty/null getter values across awaited rerenders."
+
+[qualification.verify_1]
+revision = "9ad5b3eb815ddd2d9fe726f9ff15a6f6014945fc"
+command = "cg spec done 22.33.710 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+repair = "Eight tests passed; handle bodyless POST requests in the fixture peer and create a visible JSDOM document so the real shared client's visibility policy permits sockets; retain every assertion and five-second bound."
+
+[qualification.budget]
+observed = "hf-gate.py counts every extra build and every extra verification separately: build-2 uses one repair, build-3 uses the second, so a subsequent verify-2 is refused despite the task's prescribed paired build/verify repair order."
+assumption = "Do not alter the runner ledger or bypass its gate budget; run the required rebuild then request hf-done and report its exact bounded result without claiming completion."
+
+[continuation]
+base_revision = "72c91077cb966f1c4c640ded61b4b259f41cad90"
+implementation = "Retain the seeded repairs, resolve Alerts conflicts in favor of the current selection-request lifecycle and add account-bound identity checks beside it."
+fixture = "Accept the real bodyless referral POST, assert its method/body and auth header, answer explicit mutation routes with recorded response shapes, and expose a visible document so the real shared socket policy allows the fixture origin."
+teardown = "Await React unmounts, release pending HTTP responses, destroy upgraded sockets and await HTTP server closure before restoring fixture globals."
+qualification = "No gates from this continuation have run yet; the final hf-build/hf-done ledger is the authority for the unchanged candidate and its private evidence location."
+gotcha = "Seed merge markers can interleave an older hook lifecycle with the newer selection-request implementation; preserve the newer lifecycle and integrate only the identity guard."
