@@ -241,4 +241,9 @@ final class ReceiptGateTests: XCTestCase {
       state,
       .verified(level: "receipted", receiptDigest: String(try vector().receiptDigest.dropFirst(2))))
   }
+
+  func testCurrentHumanCompletionThroughConfiguredWallet() async throws {
+    try await RecordedHumanWallet2233630.assertCompletion()
+  }
+
 }
