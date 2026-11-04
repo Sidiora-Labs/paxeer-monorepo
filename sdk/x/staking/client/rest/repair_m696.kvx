@@ -1,0 +1,28 @@
+[repair.22.33.696]
+audit = "22.30.168"
+base_revision = "264615cba89456c37eeb19535cb16b81846f6a68"
+verified_revision = "The candidate revision and exact gate evidence are recorded by hf-done in the private gate ledger; this file is an input to that candidate."
+baseline = "Not run: the ordered gate instructions prohibit verification before implementation and prohibit running verify_cmd by hand; no pre-change test failure is claimed."
+
+[finding.staking-rest-config]
+test = "TestRepairM_696_StakingRESTConfig"
+repair = "SetupSuite calls network.DefaultConfig(s.T()); every existing CLI and HTTP assertion is retained."
+proof = "The focused gate parses the actual tagged SetupSuite and verifies its constructor argument is the current receiver's T(); this is source-contract coverage, not execution or qualification of the native tagged suite."
+wiring_request = "Domain 15 (cosmos-fork), sdk/testutil/network and sdk/x/staking/client/rest/grpc_query_test.go: qualify the norace suite in its native node harness; the allowed focused gate does not select norace."
+
+[finding.rest-redelegation-filter-test]
+test = "TestRepairM_696_RedelegationFilterPages; TestRepairM_696_RedelegationInvalidFilters"
+repair = "TestQueryRedelegationsGRPC also runs the shared competing-record fixture and exact per-page checks; its existing live-network URL and address assertions remain intact."
+proof = "Production SetValidator/SetRedelegation and their codecs produce records in MemDB; loopback HTTP traverses the production API router, generated gateway binder and real staking Querier; the production codec decodes exact records, entries, balances, total counts and next matching keys for all four URL filter combinations, additional negative records, offsets, key continuations, both directions and limits 1, 2 and 3."
+
+[qualification_limits]
+source_observation = "The existing tagged suites also call Codec.UnmarshalJSON and LegacyAmino.UnmarshalJSON, whereas sdk/codec exposes UnmarshalAsJSON; this is a pre-existing interface mismatch outside these two finding proposals, observed by source inspection, not a claimed failing gate."
+wiring_request = "Domain 15 (cosmos-fork), sdk/codec and the norace staking REST suites: reconcile the pre-existing JSON decoder method mismatch in its owning interface repair without weakening assertions."
+
+[repair_cycle.1]
+revision = "e7d11567b67732cea989b5be736119e5015212d2"
+command = "cg spec done 22.33.696 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; /tmp/repair-m696.log"
+observed = "The direct gateway fixture accepted the empty path segment; unlike api.Server it bypassed the outer router that normalizes double slashes."
+repair = "Use api.New and its production outer Router and GRPCGatewayRouter; retain the invalid-URL assertion and all other assertions unchanged."
