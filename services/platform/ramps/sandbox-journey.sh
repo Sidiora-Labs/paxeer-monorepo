@@ -13,12 +13,13 @@ Required environment:
   LAYERX_RAMP_CUSTOMER_TOKEN
   LAYERX_RAMP_OPERATOR_URL
   LAYERX_RAMP_OPERATOR_TOKEN
-  LAYERX_RAMP_ON_QUOTE_ID
-  LAYERX_RAMP_OFF_QUOTE_ID
-  LAYERX_RAMP_OFF_GRANT_JSON
-  LAYERX_RAMP_OFF_RECEIVER_SEQUENCE    Receiver sequence for draws
+  LAYERX_RAMP_INPUTS_FILE             Protected on/off orders and BFT rebalance inputs
+  LAYERX_RAMP_SERVICE_CONTROL_FILE    Protected JSON stop/start argv for the real service
 
 The on-ramp send reads its pending nonce from the merged node.
+Off-ramp inputs bind customer_budget_id and customer_budget_purpose plus the
+customer-signed raw_transaction (canonical hex EIP-1559 bytes, no 0x prefix).
+The service verifies the payer, purpose, nonce and exact payment before broadcast.
 PAXEER_X_RAMP_FULL_CONTRACT=1 selects the protected full-contract journey inputs.
 HELP
   exit 0
@@ -41,12 +42,14 @@ import time
 from urllib.parse import urlsplit
 
 root = Path(sys.argv[1]).resolve()
-sys.path.insert(0, str(root / "services/agent/sdk/python"))
+sys.path.insert(0, str(root / "services/platform/ramps"))
+from journey_contract import order_request, work_request, load_inputs, observe_rebalance
 
 LABEL = "External custody: this independent market maker controls the off-platform funds and payout."
 CASE_NAMES = (
     "on_ramp_receipt", "off_ramp_receipt", "external_custody_labels",
-    "principal_isolation", "operator_authorization", "payer_grant_required",
+    "principal_isolation", "operator_authorization", "customer_budget_required",
+    "authority_conflicts", "retired_work_refused", "no_credit_before_commit",
     "customer_authority_rejected", "out_of_order_refused", "order_idempotency",
     "rebalance_own_account_finality", "rebalance_idempotency", "recovery_same_identifiers",
 )
@@ -207,7 +210,8 @@ def read_order(digest):
 
 
 def work(digest, action, values=None, status=(200,), error=None):
-    body = {"order_digest": list(digest), "action": action, "account_sequence": None}
+    raw = inputs["off"]["raw_transaction"] if action == "submit_customer_payment" else None
+    body = work_request(list(digest), action, raw)
     if values is not None:
         body.update(values)
     return request("operator", "operator", "POST", "/internal/v1/work", body, status, error)[0]
@@ -310,11 +314,64 @@ def verify_done(snapshot):
     return validate_cli_receipt(snapshot, json.loads(encoded), layerx)
 
 
-def create(terms, grant, body_extra=None, statuses=(201,), error=None):
-    body = {"order_id": terms["order_id"], "quote_id": terms["quote_id"], "payer_grant": grant}
+def create(terms, body_extra=None, statuses=(201,), error=None):
+    body = order_request(terms)
     if body_extra:
         body.update(body_extra)
     return request("customer", "customer", "POST", "/v1/orders", body, statuses, error)[0]
+
+
+def service_control():
+    control = json.loads(read_protected("LAYERX_RAMP_SERVICE_CONTROL_FILE"))
+    require(isinstance(control, dict) and set(control) == {"stop", "start"}, "service_control_schema")
+    for action in ("stop", "start"):
+        argv = control[action]
+        require(isinstance(argv, list) and argv and all(isinstance(arg, str) and arg
+                and "\x00" not in arg for arg in argv) and Path(argv[0]).is_absolute(),
+                "service_control_argv")
+    return control
+
+
+def restart_service():
+    for action in ("stop", "start"):
+        completed = subprocess.run(control[action], stdin=subprocess.DEVNULL,
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                   timeout=60, check=False)
+        require(completed.returncode == 0, "service_" + action + "_failed")
+        if action == "stop":
+            for endpoint in ("operator",):
+                parsed, pinned = origins[endpoint]
+                try:
+                    connection = socket.create_connection((pinned, parsed.port or 443), timeout=5)
+                except ConnectionRefusedError:
+                    continue
+                else:
+                    connection.close()
+                    raise RuntimeError("service_still_listening")
+    for _ in range(30):
+        try:
+            recovering = False
+            for endpoint in ("customer", "operator"):
+                ready, status = request(endpoint, None, "GET", "/readyz", statuses=(200, 503))
+                require(ready["build_revision"] == expected_revision
+                        and ready["build_source_digest"] == expected_digest, "restart_source_binding")
+                custody(ready)
+                if status == 503:
+                    recovering = True
+                    continue
+                require(ready.get("ready") is True and ready["journal"]["ready"] is True
+                        and ready["journal"]["halted"] is False
+                        and ready["journal"]["recovery_required"] is False
+                        and ready["build_revision"] == expected_revision
+                        and ready["build_source_digest"] == expected_digest,
+                        "restart_source_and_journal_binding")
+                custody(ready)
+            if not recovering:
+                return
+        except (ConnectionRefusedError, TimeoutError):
+            pass
+        time.sleep(1)
+    raise RuntimeError("service_restart_deadline")
 
 
 try:
@@ -330,29 +387,9 @@ try:
             and stat.S_IMODE(info.st_mode) == 0o700 and not evidence_path.resolve().is_relative_to(root),
             "evidence_permissions")
     evidence = evidence_path
-    inputs = json.loads(read_protected("LAYERX_RAMP_INPUTS_FILE"))
-    for side in ("on", "off"):
-        terms = inputs[side]
-        require(isinstance(terms["order_id"], str)
-                and re.fullmatch(r"[A-Za-z0-9_.-]{1,100}", terms["order_id"]), "order_id")
-        require(isinstance(terms["quote_id"], str) and terms["quote_id"], "quote_id")
-        if side == "off":
-            integer(terms["account_sequence"])
-        integer(int(terms["amount"]), 1, 2**128 - 1)
-        for field in ("asset", "from_account", "to_account", "context"):
-            hex32(terms[field])
-    require(inputs["on"]["order_id"] != inputs["off"]["order_id"], "distinct_orders_required")
-    grant = list(hex32(inputs["off"]["payer_grant"]))
-    require(any(grant), "payer_grant_required")
-    octets(inputs["off"]["canonical_receive_payload"], 733)
+    inputs = load_inputs(env("LAYERX_RAMP_INPUTS_FILE"))
     rebalance = inputs["rebalance"]
-    for field in ("asset", "idempotency_key"):
-        require(any(hex32(rebalance[field])), "rebalance_binding")
-    require(isinstance(rebalance["operator_account"], str)
-            and rebalance["operator_account"].startswith("agent:did:layerx:")
-            and len(rebalance["operator_account"]) <= 512, "operator_agent_account")
-    integer(int(rebalance["amount"]), 1, 2**128 - 2)
-    integer(rebalance["required_confirmations"], 1)
+    control = service_control()
     tokens = {}
     for actor, variable in (("customer", "CUSTOMER"), ("other", "OTHER_CUSTOMER"),
                             ("operator", "OPERATOR")):
@@ -389,15 +426,18 @@ try:
     report["unified_endpoint_exercised"] = public_prefix == "/v1/ramp"
     report["runtime_source_digest"] = expected_digest
     current_step = "authorization_refusals"
-    invalid_off = dict(inputs["off"], order_id=inputs["off"]["order_id"] + "-missing-grant")
-    create(invalid_off, None, statuses=(400,), error="request_refused")
-    invalid_on = dict(inputs["on"], order_id=inputs["on"]["order_id"] + "-unexpected-grant")
-    create(invalid_on, grant, statuses=(400,), error="request_refused")
-    cases["payer_grant_required"] = True
-    create(inputs["on"], None, {"operator_account": rebalance["operator_account"]},
+    for missing in ("customer_budget_id", "customer_budget_purpose"):
+        body = order_request(inputs["off"])
+        del body[missing]
+        request("customer", "customer", "POST", "/v1/orders", body,
+                (400,), "request_refused")
+    create(inputs["on"], {key: value for key, value in order_request(inputs["off"]).items()
+                          if key.startswith("customer_budget_")}, (400,), "request_refused")
+    cases["customer_budget_required"] = True
+    create(inputs["on"], {"operator_account": rebalance["operator_account"]},
            (400,), "order_invalid")
     cases["customer_authority_rejected"] = True
-    on_created = create(inputs["on"], None)
+    on_created = create(inputs["on"])
     custody(on_created)
     on_digest = octets(on_created["order_digest"])
     request("customer", None, "GET", "/v1/orders/" + on_digest.hex(), statuses=(401,), error="authentication_required")
@@ -410,9 +450,9 @@ try:
     presentation(read_order(on_digest))
     work(on_digest, "submit_layerx", status=(409,), error="operation_conflict")
     cases["out_of_order_refused"] = True
-    repeated = create(inputs["on"], None)
+    repeated = create(inputs["on"])
     require(octets(repeated["order_digest"]) == on_digest, "order_replay_identity")
-    create(inputs["on"], None, {"quote_id": inputs["on"]["quote_id"] + "-changed"}, (409,), "order_id_conflict")
+    create(inputs["on"], {"quote_id": inputs["on"]["quote_id"] + "-changed"}, (409,), "order_id_conflict")
     current_step = "on_ramp"
     presentation(work(on_digest, "compliance"))
     work(on_digest, "submit_provider")
@@ -422,26 +462,26 @@ try:
     report["on"] = verify_done(on_done)
     cases["on_ramp_receipt"] = True
     current_step = "off_ramp"
-    off_created = create(inputs["off"], grant)
+    off_created = create(inputs["off"])
     custody(off_created)
     off_digest = octets(off_created["order_digest"])
     presentation(work(off_digest, "compliance"))
-    work(off_digest, "submit_layerx", {"account_sequence": inputs["off"]["account_sequence"]},
-         (400,), "native_payer_grant_authorization_required")
-    work(off_digest, "submit_layerx", {"account_sequence": inputs["off"]["account_sequence"],
-         "canonical_receive_payload": inputs["off"]["canonical_receive_payload"]})
+    for field in ("customer_budget_id", "customer_budget_purpose"):
+        changed = order_request(inputs["off"])[field]
+        changed[0] ^= 1
+        create(inputs["off"], {field: changed}, (409,), "order_id_conflict")
+    cases["authority_conflicts"] = True
+    work(off_digest, "submit_layerx", {"account_sequence": 0},
+         (400,), "layerx_binding_refused")
+    work(off_digest, "submit_layerx", {"canonical_receive_payload": []},
+         (400,), "work_invalid")
+    cases["retired_work_refused"] = True
+    work(off_digest, "submit_customer_payment")
     wait_stage(off_digest, "layerx_verified")
     work(off_digest, "submit_provider")
     off_done = wait_stage(off_digest, "done")
     report["off"] = verify_done(off_done)
     cases["off_ramp_receipt"] = True
-    current_step = "order_recovery"
-    for side, grant_value, digest, done in (("on", None, on_digest, on_done), ("off", grant, off_digest, off_done)):
-        replay = create(inputs[side], grant_value)
-        require(replay == done["presentation"], "completed_order_replay_changed")
-        recovered = read_order(digest)
-        require(recovered == done, "completed_order_recovery_changed")
-    cases["order_idempotency"] = True
     current_step = "paxeer_own_account_rebalance"
     key = hex32(rebalance["idempotency_key"])
     submit = {"action": "submit", "asset": list(hex32(rebalance["asset"])),
@@ -463,46 +503,60 @@ try:
             and re.fullmatch(r"0x[0-9a-f]{64}", transaction), "rebalance_real_identity")
     poll = {"action": "poll", "idempotency_key": list(key), "operation_id": operation,
             "transaction_hash": transaction}
+    previous = started
+    observe_rebalance(started, rebalance)
     for _ in range(120):
         observed = request("operator", "operator", "POST", "/internal/v1/rebalances", poll)[0]
         custody(observed)
         require(observed["operation_id"] == operation and observed["transaction_hash"] == transaction
                 and observed["settlement_domain"] == "paxeer", "rebalance_identity_changed")
-        required = integer(observed["required_confirmations"], rebalance["required_confirmations"])
-        if observed["status"] == "final":
-            integer(observed["confirmations"], required)
+        committed = observe_rebalance(observed, rebalance, previous)
+        if not committed:
+            cases["no_credit_before_commit"] = True
+        previous = observed
+        if committed:
             break
-        require(observed["status"] in ("announced", "missing", "pooled", "confirming", "displaced", "broadcast_unknown"),
-                "rebalance_status")
         time.sleep(3)
     else:
         raise RuntimeError("rebalance_finality_deadline")
     rebalance_path = "/internal/v1/rebalances/" + key.hex()
     final = request("operator", "operator", "GET", rebalance_path)[0]
-    require(final["status"] == "final" and final["operation_id"] == operation
+    require(final["status"] == final["rung"] == "committed" and final["operation_id"] == operation
             and final["transaction_hash"] == transaction
             and octets(final["idempotency_key"]) == key
             and final["operator_account"] == rebalance["operator_account"]
             and octets(final["asset"]) == hex32(rebalance["asset"])
             and final["amount"] == int(rebalance["amount"])
             and re.fullmatch(r"0x[0-9a-f]{64}", final["block_hash"]), "own_account_finality_binding")
-    integer(final["confirmations"], required)
+    require(observe_rebalance(final, rebalance, previous), "authenticated_commit_required")
+    # Submitted and receipted responses cannot carry a committed block or height.
+    cases["no_credit_before_commit"] = True
     custody(final)
     cases["rebalance_own_account_finality"] = True
     for replay in (submit, {"action": "reconcile", "idempotency_key": list(key)}):
         resumed = request("operator", "operator", "POST", "/internal/v1/rebalances", replay, (202,))[0]
         require(resumed["operation_id"] == operation and resumed["transaction_hash"] == transaction
-                and resumed["status"] == "final", "rebalance_replay_changed")
+                and resumed["status"] == resumed["rung"] == "committed", "rebalance_replay_changed")
+        require(observe_rebalance(resumed, rebalance, final), "rebalance_replay_commit")
     request("operator", "operator", "POST", "/internal/v1/rebalances",
             dict(submit, amount=submit["amount"] + 1), (409,), "operation_conflict")
+    current_step = "service_restart"
+    restart_service()
+    current_step = "order_recovery"
+    for side, digest, done in (("on", on_digest, on_done), ("off", off_digest, off_done)):
+        replay = create(inputs[side])
+        require(replay == done["presentation"], "completed_order_replay_changed")
+        require(read_order(digest) == done, "completed_order_recovery_changed")
+    cases["order_idempotency"] = True
     recovered = request("operator", "operator", "GET", rebalance_path)[0]
+    require(observe_rebalance(recovered, rebalance, final), "recovered_commit_required")
     require(recovered == final, "rebalance_recovery_changed")
     cases["rebalance_idempotency"] = True
     cases["recovery_same_identifiers"] = True
     cases["external_custody_labels"] = True
     report["rebalance"] = {"idempotency_key": key.hex(), "operation_id": operation,
                             "transaction_hash": transaction, "block_hash": final["block_hash"],
-                            "confirmations": final["confirmations"], "required_confirmations": required,
+                            "rung": final["rung"], "block_height": final["block_height"],
                             "settlement_domain": "paxeer"}
     require(all(cases.values()), "incomplete_cases")
     report["qualified"] = True
@@ -533,10 +587,9 @@ trap 'rm -rf "$journey_directory"' EXIT HUP INT TERM
 : "${LAYERX_RAMP_CUSTOMER_TOKEN:?}"
 : "${LAYERX_RAMP_OPERATOR_URL:?}"
 : "${LAYERX_RAMP_OPERATOR_TOKEN:?}"
-: "${LAYERX_RAMP_ON_QUOTE_ID:?}"
-: "${LAYERX_RAMP_OFF_QUOTE_ID:?}"
-: "${LAYERX_RAMP_OFF_GRANT_JSON:?}"
-: "${LAYERX_RAMP_OFF_RECEIVER_SEQUENCE:?}"
+: "${LAYERX_RAMP_INPUTS_FILE:?}"
+contract=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/journey_contract.py
+journey_inputs=$(python3 "$contract" inputs "$LAYERX_RAMP_INPUTS_FILE")
 
 customer() {
   curl --fail-with-body --silent --show-error --cacert "${LAYERX_RAMP_CA_PEM}" \
@@ -548,21 +601,45 @@ operator() {
     -H "Authorization: Bearer ${LAYERX_RAMP_OPERATOR_TOKEN}" "$@"
 }
 
+create_body() {
+  side="$1"
+  printf '%s' "$journey_inputs" | jq -e --arg side "$side" '.[$side]' | python3 "$contract" order
+}
+
 create_order() {
-  direction="$1"
-  quote="$2"
-  grant="$3"
-  order_id="sandbox-${direction}-${GITHUB_RUN_ID:-manual}-${GITHUB_RUN_ATTEMPT:-1}"
-  customer -H 'Content-Type: application/json' -X POST "${LAYERX_RAMP_URL}/v1/orders" \
-    --data "{\"order_id\":\"${order_id}\",\"quote_id\":\"${quote}\",\"payer_grant\":${grant}}"
+  body=$(create_body "$1")
+  customer -H 'Content-Type: application/json' -X POST "${LAYERX_RAMP_URL}/v1/orders" --data "$body"
 }
 
 work() {
   digest="$1"
   action="$2"
-  sequence="$3"
-  operator -H 'Content-Type: application/json' -X POST "${LAYERX_RAMP_OPERATOR_URL}/internal/v1/work" \
-    --data "{\"order_digest\":${digest},\"action\":\"${action}\",\"account_sequence\":${sequence}}"
+  if [ "$action" = submit_customer_payment ]; then
+    body=$(printf '%s' "$journey_inputs" | jq -c --argjson digest "$digest" --arg action "$action" \
+      '{order_digest:$digest, action:$action, raw_transaction:.off.raw_transaction}')
+  else
+    body=$(jq -nc --argjson digest "$digest" --arg action "$action" '{order_digest:$digest, action:$action}')
+  fi
+  body=$(printf '%s' "$body" | python3 "$contract" work)
+  operator -H 'Content-Type: application/json' -X POST "${LAYERX_RAMP_OPERATOR_URL}/internal/v1/work" --data "$body"
+}
+
+expect_refusal() {
+  actor="$1"
+  path="$2"
+  body="$3"
+  expected_status="$4"
+  expected_error="$5"
+  case "$actor" in
+    customer) origin="$LAYERX_RAMP_URL"; token="$LAYERX_RAMP_CUSTOMER_TOKEN" ;;
+    operator) origin="$LAYERX_RAMP_OPERATOR_URL"; token="$LAYERX_RAMP_OPERATOR_TOKEN" ;;
+    *) return 1 ;;
+  esac
+  status=$(curl --silent --show-error --cacert "$LAYERX_RAMP_CA_PEM" \
+    -H "Authorization: Bearer $token" -H 'Content-Type: application/json' \
+    -X POST "$origin$path" --data "$body" --output "$journey_directory/refusal.json" --write-out '%{http_code}')
+  [ "$status" = "$expected_status" ]
+  jq -e --arg error "$expected_error" '.error == $error' "$journey_directory/refusal.json" >/dev/null
 }
 
 wait_stage() {
@@ -627,22 +704,35 @@ verify_done() {
      .presentation.external_custody_label == $proof[0].external_custody_label' >/dev/null
 }
 
-on_created="$(create_order on-ramp "${LAYERX_RAMP_ON_QUOTE_ID}" null)"
+off_body=$(create_body off)
+for field in customer_budget_id customer_budget_purpose; do
+  missing=$(printf '%s' "$off_body" | jq -c --arg field "$field" 'del(.[$field])')
+  expect_refusal customer /v1/orders "$missing" 400 request_refused
+done
+on_created="$(create_order on)"
 on_digest="$(printf '%s' "${on_created}" | jq -c '.order_digest')"
 on_hex="$(printf '%s' "${on_digest}" | jq -r '.[]' | awk '{printf "%02x", $1}')"
-work "${on_digest}" compliance null >/dev/null
-work "${on_digest}" submit_provider null >/dev/null
+work "${on_digest}" compliance >/dev/null
+work "${on_digest}" submit_provider >/dev/null
 wait_stage "${on_hex}" provider_settled >/dev/null
-work "${on_digest}" submit_layerx null >/dev/null
+work "${on_digest}" submit_layerx >/dev/null
 on_done="$(wait_stage "${on_hex}" done)"
 
-off_created="$(create_order off-ramp "${LAYERX_RAMP_OFF_QUOTE_ID}" "${LAYERX_RAMP_OFF_GRANT_JSON}")"
+off_created="$(create_order off)"
 off_digest="$(printf '%s' "${off_created}" | jq -c '.order_digest')"
 off_hex="$(printf '%s' "${off_digest}" | jq -r '.[]' | awk '{printf "%02x", $1}')"
-work "${off_digest}" compliance null >/dev/null
-work "${off_digest}" submit_layerx "${LAYERX_RAMP_OFF_RECEIVER_SEQUENCE}" >/dev/null
+for field in customer_budget_id customer_budget_purpose; do
+  changed=$(printf '%s' "$off_body" | jq -c --arg field "$field" '.[$field][0] = ((.[$field][0] + 1) % 256)')
+  expect_refusal customer /v1/orders "$changed" 409 order_id_conflict
+done
+work "${off_digest}" compliance >/dev/null
+retired=$(jq -nc --argjson digest "$off_digest" '{order_digest:$digest, action:"submit_layerx", account_sequence:null, canonical_receive_payload:[]}')
+expect_refusal operator /internal/v1/work "$retired" 400 work_invalid
+unauthorized=$(jq -nc --argjson digest "$off_digest" '{order_digest:$digest, action:"submit_layerx", account_sequence:0}')
+expect_refusal operator /internal/v1/work "$unauthorized" 400 layerx_binding_refused
+work "${off_digest}" submit_customer_payment >/dev/null
 wait_stage "${off_hex}" layerx_verified >/dev/null
-work "${off_digest}" submit_provider null >/dev/null
+work "${off_digest}" submit_provider >/dev/null
 off_done="$(wait_stage "${off_hex}" done)"
 
 printf '%s' "${on_done}" | jq -e '.presentation.status == "done" and .presentation.receipt_digest != null and .presentation.external_custody_label != ""' >/dev/null
