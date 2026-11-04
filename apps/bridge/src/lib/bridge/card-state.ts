@@ -39,14 +39,14 @@ function cardInputError(inputs: CardStateInputs): string | undefined {
   if (value === 0n) {
     return 'Enter an amount greater than zero.';
   }
-  const solana = foreign?.kind === 'solana';
-  if (solana && vaultState.loaded && value > vaultState.perTx) return 'Above the vault per-transaction cap.';
+  const custodyLoaded = vaultState.loaded && (foreign?.vault !== undefined || foreign?.kind === 'solana');
   const limitError = amountLimitError({
     direction,
     amount: value,
     balance,
-    perTx: (foreign?.vault || solana) ? (vaultState.loaded ? vaultState.perTx : BigInt(asset.perTxCap)) : 0n,
-    total: (foreign?.vault || solana) && vaultState.loaded ? vaultState.total : 0n,
+    perTx: vaultState.perTx,
+    total: vaultState.total,
+    capsLoaded: custodyLoaded,
     outstanding: vaultState.outstanding,
   });
   if (limitError) {

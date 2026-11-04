@@ -46,7 +46,10 @@ async function fetchJson(path: string, base: string | undefined): Promise<unknow
   if (!base) throw new AttestationApiError('The bridge backend is not configured.');
   let response: Response;
   try {
-    response = await fetch(`${ base }${ path }`, {
+    const url = new URL(base);
+    url.pathname = `${ url.pathname.replace(/\/+$/, '') }${ path }`;
+    url.hash = '';
+    response = await fetch(url, {
       headers: { accept: 'application/json' },
       cache: 'no-store',
       signal: AbortSignal.timeout(10_000),
