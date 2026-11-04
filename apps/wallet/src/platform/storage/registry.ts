@@ -2,17 +2,10 @@ import { reportBackgroundFailure } from '@/platform/status/background-failures';
 
 export type StorageArea = 'local' | 'session';
 export type StorageSensitivity =
-  | 'public'
-  | 'preferences'
-  | 'private-metadata'
-  | 'security-relevant';
+  'public' | 'preferences' | 'private-metadata' | 'security-relevant';
 export type StorageCorruption = 'reset-and-signal' | 'fail-closed';
 export type StorageLifecycle =
-  | 'reset'
-  | 'logout'
-  | 'custody-switch'
-  | 'account-removal'
-  | 'uninstall';
+  'reset' | 'logout' | 'custody-switch' | 'account-removal' | 'uninstall';
 
 export interface StorageRegistration {
   readonly id: string;
@@ -36,17 +29,29 @@ interface StorageEnvelope {
   value: unknown;
 }
 
+export type StorageReader = Pick<Storage, 'getItem' | 'key' | 'length'>;
+
+export interface StorageMigration {
+  readonly value: unknown;
+  readonly sourceKeys: readonly string[];
+}
+
+export interface PersistedStorageValue<T> {
+  readonly persisted: true;
+  readonly value: T;
+}
+
 interface RepositoryDefinition<T> extends StorageRegistration {
   readonly fallback: () => T;
   readonly parse: (input: unknown) => T;
-  readonly migrateLegacy?: (storage: Storage) => unknown | undefined;
+  readonly migrateLegacy?: (storage: StorageReader) => StorageMigration | undefined;
   readonly legacyKeys?: readonly string[];
 }
 
 export interface StorageRepository<T> {
   readonly registration: StorageRegistration;
   read(): T;
-  write(value: T): void;
+  write(value: T): PersistedStorageValue<T>;
   update(updater: (current: T) => T): T;
   remove(): void;
 }
@@ -55,6 +60,17 @@ export class StorageCorruptionError extends Error {
   constructor(readonly storageId: string) {
     super('A security-relevant storage record is corrupt');
     this.name = 'StorageCorruptionError';
+  }
+}
+
+export class StoragePersistenceError extends Error {
+  constructor(
+    readonly storageId: string,
+    readonly code: 'STORAGE_UNAVAILABLE' | 'STORAGE_QUOTA_EXCEEDED' | 'STORAGE_WRITE_FAILED',
+    readonly cause?: unknown
+  ) {
+    super('Changes could not be saved on this device.');
+    this.name = 'StoragePersistenceError';
   }
 }
 
@@ -99,7 +115,7 @@ function signal(definition: StorageRegistration, code: string): void {
 }
 
 export function defineStorageRepository<T>(
-  definition: RepositoryDefinition<T>,
+  definition: RepositoryDefinition<T>
 ): StorageRepository<T> {
   if (definitions.has(definition.id) || definitions.has(definition.key)) {
     throw new TypeError(`Duplicate storage registration: ${definition.id}`);
@@ -107,11 +123,22 @@ export function defineStorageRepository<T>(
   definitions.set(definition.id, definition as RepositoryDefinition<unknown>);
   definitions.set(definition.key, definition as RepositoryDefinition<unknown>);
 
-  const removeLegacy = (storage: Storage) => {
-    for (const key of definition.legacyKeys ?? []) storage.removeItem(key);
+  const removeLegacy = (storage: Storage, keys = definition.legacyKeys ?? []) => {
+    for (const key of keys) storage.removeItem(key);
   };
 
-  const writeTo = (storage: Storage, value: T): void => {
+  const refuse = (code: StoragePersistenceError['code'], cause?: unknown): never => {
+    reportBackgroundFailure({
+      domain: 'storage',
+      kind: 'unavailable',
+      code,
+      message: 'Changes could not be saved on this device.',
+      retryable: true,
+    });
+    throw new StoragePersistenceError(definition.id, code, cause);
+  };
+
+  const writeTo = (storage: Storage, value: T): PersistedStorageValue<T> => {
     const parsed = definition.parse(value);
     const serialized = JSON.stringify({
       version: definition.version,
@@ -119,10 +146,14 @@ export function defineStorageRepository<T>(
       value: parsed,
     });
     if (new TextEncoder().encode(serialized).byteLength > definition.quotaBytes) {
-      signal(definition, 'STORAGE_QUOTA_EXCEEDED');
-      return;
+      return refuse('STORAGE_QUOTA_EXCEEDED');
     }
-    storage.setItem(definition.key, serialized);
+    try {
+      storage.setItem(definition.key, serialized);
+    } catch (cause) {
+      return refuse('STORAGE_WRITE_FAILED', cause);
+    }
+    return { persisted: true, value: parsed };
   };
 
   return {
@@ -136,9 +167,7 @@ export function defineStorageRepository<T>(
           if (new TextEncoder().encode(raw).byteLength > definition.quotaBytes) {
             throw new TypeError('Storage record exceeds quota');
           }
-          return definition.parse(
-            envelope(JSON.parse(raw) as unknown, definition.version),
-          );
+          return definition.parse(envelope(JSON.parse(raw) as unknown, definition.version));
         } catch {
           storage.removeItem(definition.key);
           signal(definition, 'STORAGE_CORRUPT');
@@ -146,47 +175,39 @@ export function defineStorageRepository<T>(
         }
       }
       if (!definition.migrateLegacy) return definition.fallback();
+      let migration: StorageMigration;
+      let parsed: T;
       try {
         const legacy = definition.migrateLegacy(storage);
         if (legacy === undefined) return definition.fallback();
-        const parsed = definition.parse(legacy);
-        writeTo(storage, parsed);
-        removeLegacy(storage);
-        return parsed;
+        migration = legacy;
+        parsed = definition.parse(legacy.value);
       } catch {
-        removeLegacy(storage);
         signal(definition, 'STORAGE_MIGRATION_FAILED');
         return definition.fallback();
       }
-    },
-    write(value: T): void {
-      const storage = browserStorage(definition.area);
-      if (!storage) {
-        reportBackgroundFailure({
-          domain: 'storage',
-          kind: 'unavailable',
-          code: 'STORAGE_UNAVAILABLE',
-          message: 'Changes could not be saved on this device.',
-          retryable: true,
-        });
-        return;
-      }
+      const persisted = writeTo(storage, parsed);
       try {
-        writeTo(storage, value);
+        removeLegacy(storage, migration.sourceKeys);
       } catch {
         reportBackgroundFailure({
           domain: 'storage',
           kind: 'unavailable',
-          code: 'STORAGE_WRITE_FAILED',
-          message: 'Changes could not be saved on this device.',
+          code: 'STORAGE_LEGACY_CLEANUP_FAILED',
+          message: 'Saved application data could not be removed from its previous location.',
           retryable: true,
         });
       }
+      return persisted.value;
+    },
+    write(value: T): PersistedStorageValue<T> {
+      const storage = browserStorage(definition.area);
+      if (!storage) return refuse('STORAGE_UNAVAILABLE');
+      return writeTo(storage, value);
     },
     update(updater: (current: T) => T): T {
       const next = definition.parse(updater(this.read()));
-      this.write(next);
-      return next;
+      return this.write(next).value;
     },
     remove(): void {
       const storage = browserStorage(definition.area);
@@ -198,9 +219,9 @@ export function defineStorageRepository<T>(
 }
 
 export function storageCatalog(): readonly StorageRegistration[] {
-  return [...new Map(
-    [...definitions.values()].map((definition) => [definition.id, definition]),
-  ).values()].map((definition) => ({
+  return [
+    ...new Map([...definitions.values()].map((definition) => [definition.id, definition])).values(),
+  ].map((definition) => ({
     id: definition.id,
     key: definition.key,
     owner: definition.owner,
@@ -219,7 +240,7 @@ export function storageCatalog(): readonly StorageRegistration[] {
 
 export function resetStorageForLifecycle(lifecycle: StorageLifecycle): void {
   for (const definition of new Map(
-    [...definitions.values()].map((item) => [item.id, item]),
+    [...definitions.values()].map((item) => [item.id, item])
   ).values()) {
     if (!definition.resetOn.includes(lifecycle)) continue;
     const storage = browserStorage(definition.area);

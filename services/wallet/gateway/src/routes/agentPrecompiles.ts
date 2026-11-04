@@ -97,12 +97,18 @@ function buildAudit(
 }
 
 function refuseUnserved(key: keyof typeof PRECOMPILE_ADDRESSES) {
-  return async (_req: FastifyRequest, reply: FastifyReply): Promise<void> => {
+  return async (req: FastifyRequest, reply: FastifyReply): Promise<void> => {
     try {
       await ensureServed(key);
       return;
     } catch (err) {
-      if (!(err instanceof PrecompileNotServedError)) throw err;
+      if (!(err instanceof PrecompileNotServedError)) {
+        if (req.method === 'GET' && (key === 'scheduler' || key === 'streams')) {
+          void reply.code(502).send({ error: 'read_failed' });
+          return;
+        }
+        throw err;
+      }
     }
     void reply
       .code(503)
@@ -129,7 +135,11 @@ export async function teeVerificationResponse(body: unknown) {
   const family = resolveFamily(parsed.data.family);
   try {
     const attestation = parsed.data.expected_report_data
-      ? await teeAttestor.verifyAndExpect(family, parsed.data.quote as Hex, parsed.data.expected_report_data as Hex)
+      ? await teeAttestor.verifyAndExpect(
+          family,
+          parsed.data.quote as Hex,
+          parsed.data.expected_report_data as Hex
+        )
       : await teeAttestor.verify(family, parsed.data.quote as Hex);
     return { status: 200, body: { attestation } };
   } catch (err) {
@@ -244,8 +254,12 @@ export async function agentPrecompileRoutes(app: FastifyInstance): Promise<void>
     async (req, reply) => {
       const wallet = await getAgentWallet(req.agent!.did);
       if (!wallet) return reply.code(404).send({ error: 'no_wallet', message: 'provision first' });
-      const ids = await scheduler.pending(wallet.address).catch(() => []);
-      return reply.send({ creator: wallet.address, job_ids: ids });
+      try {
+        const ids = await scheduler.pending(wallet.address);
+        return reply.send({ creator: wallet.address, job_ids: ids });
+      } catch {
+        return reply.code(502).send({ error: 'read_failed' });
+      }
     }
   );
 
@@ -337,9 +351,13 @@ export async function agentPrecompileRoutes(app: FastifyInstance): Promise<void>
     async (req, reply) => {
       const { id } = req.params as { id: string };
       if (!/^\d{1,80}$/.test(id)) return reply.code(400).send({ error: 'invalid_stream_id' });
-      const stream = await streams.getStream(BigInt(id)).catch(() => null);
-      if (!stream) return reply.code(404).send({ error: 'not_found' });
-      return reply.send({ stream });
+      try {
+        const stream = await streams.getStream(BigInt(id));
+        if (stream === null) return reply.code(404).send({ error: 'not_found' });
+        return reply.send({ stream });
+      } catch {
+        return reply.code(502).send({ error: 'read_failed' });
+      }
     }
   );
 
