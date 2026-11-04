@@ -17,7 +17,7 @@ use layerx_programs_runtime::{Meter, Storage};
 #[cfg(any(feature = "host-ffi", test))]
 use crate::usage::record_expiry_occupancy_settlement;
 use crate::{
-    sandbox_state_key, EscrowRefusal, Lease, LeaseId, LeaseRefusal, LeaseState, UsageRefusal,
+    sandbox_terminal_key, EscrowRefusal, Lease, LeaseId, LeaseRefusal, LeaseState, UsageRefusal,
 };
 #[cfg(any(feature = "host-ffi", test))]
 use crate::{DurableUsageState, UsageReceipt};
@@ -69,13 +69,15 @@ impl AuthenticatedTerminalRecord {
         {
             return Err(ExpiryRefusal::InvalidProtocolReceipt);
         }
-        let key = sandbox_state_key(2, expected_lease.bytes())
-            .map_err(|_| ExpiryRefusal::InvalidProtocolReceipt)?;
+        let key = sandbox_terminal_key(expected_lease.bytes());
         let bytes = commitment
             .value
             .as_deref()
             .ok_or(ExpiryRefusal::InvalidProtocolReceipt)?;
-        if commitment.store_name != "lxphost" || commitment.key != key {
+        if commitment.store_name != "lxphost"
+            || commitment.key != key
+            || commitment.proof_ops != evidence.terminal_ops
+        {
             return Err(ExpiryRefusal::InvalidProtocolReceipt);
         }
         verify_state(&head, "lxphost", &key, bytes, &evidence.terminal_ops)
