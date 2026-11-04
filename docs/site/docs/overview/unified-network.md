@@ -1,234 +1,155 @@
 # Unified Network Architecture
 
-One repository, one network, two execution domains.
+Paxeer mainnet-beta is one BFT chain, run by `paxd`, with EVM chain ID `125`
+(`0x7d`). The kernel is part of the network and proposes blocks. EVM
+transactions, native modules and kernel-backed ledger operations participate
+in that chain's execution and commitment. A receipt is final once its block
+is committed.
 
-Paxeer is a Cosmos-SDK chain with a native EVM. LayerX is a deterministic execution and accounting network built in C and Rust. Both live in the same monorepo and share a single network identifier, but they execute in different runtimes. The bridge between them is not a message queue or a bridge contract — it is a set of native precompiles that run inside the Paxeer EVM and verify cryptographic evidence produced by LayerX.
+## Execution inside the network
 
-## The two domains
+The chain entry point is `daemon/paxd/`. The Go application in `node/app.go`
+wires the Cosmos-SDK modules, EVM and embedded kernel host. The kernel code
+lives under `src/` and `include/layerx/`; `modules/lxphost/` connects it to
+chain state. Native precompiles under `precompiles/` expose module operations
+to EVM callers. `node/sequencer/` and `modules/sequencer/` implement ordered
+transaction execution, receipt production and committed sequence tracking
+inside this network.
 
-**Paxeer EVM / Cosmos** is written in Go. The chain binary builds from `node/`, modules live in `modules/`, precompiles in `precompiles/`, and the build rules are in `chain.mk` with the Go module root at `go.mod`. Paxeer provides account management, bank transfers, staking, governance, and an EVM that can call into all of these through precompiled contracts.
+The pre-merge router, separate `layerxd` daemon and execution-to-settlement
+bridge are retired. The historical LayerXVerify, LayerXCustody and LayerXAnchor
+surfaces at `0x1012`, `0x1013` and `0x1014` are retired integration guidance;
+they do not define current funding or finality. Current applications submit
+signed EVM transactions and verify committed-chain evidence.
 
-**LayerX** has three language domains. The core node, sequencer, and consensus layer are in C under `src/` and `cmd/layerxd`. The agent runtime, platform services, and hosted infrastructure are in Rust under `agent/`, `services/platform/`, `human/`, and `programs/`. LayerX produces signed receipts, batch headers, state proofs, and checkpoint certificates — the evidence that the Paxeer precompiles verify.
+Sub-chains are tenant domains: namespaces in the database, launchable without
+new infrastructure. A tenant identifier scopes data and authority; it does
+not imply a separately deployed consensus network. Services must retain that
+domain when reading or writing tenant state.
 
-## The proof-carrying connector
+## Accounts and native operations
 
-Four precompiles at well-known EVM addresses connect the two domains. Each one is declared as a Solidity interface and implemented as a native Go function inside the EVM module. A precompile sees only Paxeer state and calldata; it never makes an outbound network call. Its job is to verify submitted LayerX evidence using the `layerxproof/codec` and `layerxproof/verify` Go packages, both of which are pure — no clock, no network, no database.
+An EVM address may be bound to an Ed25519 DID through the `addr` precompile at
+`0x0000000000000000000000000000000000001004`. The interface is
+`precompiles/addr/Addr.sol`; binding messages and identity names are defined in
+`modules/evm/types/layerx_binding.go`.
 
-### LayerXVerify — `0x0000000000000000000000000000000000001012`
+The DID is `did:layerx:<64 lowercase hex characters of the public key>`.
+`bindLayerX(didPublicKey, signature)` requires both the EVM caller's transaction
+and the DID key's signature over:
 
-Stateless verification of LayerX evidence. Every trust anchor is calldata: the precompile reads no chain state, so the caller decides which sequencer key, sequencer identity, batch range, state root or program it trusts.
-
-Declared in `precompiles/layerxverify/LayerXVerify.sol`:
-
-| Method | Purpose |
-|--------|---------|
-| `verifyEd25519(publicKey, domain, message, signature) → bool` | Strict Ed25519 over SHA256(LayerX domain tag ‖ message) for domain 0..19, or over message itself for domain 255. |
-| `verifyReceipt(receipt, sequencerPublicKey) → ReceiptFacts` | Canonical receipt decode and the sequencer signature over its digest. |
-| `verifyReceiptInclusion(receipt, proof, batchHeader, headerSignature, sequencerId, sequencerPublicKey, firstBatchNumber, lastBatchNumber) → ReceiptFacts, BatchFacts` | Receipt plus a Merkle path to the receipt root of a signed batch header inside the authorised batch range. |
-| `verifyStateProof(witness, stateRoot) → moduleId, key, value` | A version-2 native state witness folded to stateRoot. |
-| `verifyDiscoveryProof(payload, proofMaterial, programId, stalenessMs, sequencerPublicKey) → DiscoveryFacts` | A sequencer program head attestation whose validity window is exactly stalenessMs. |
-
-`verifyEd25519` answers with a boolean. Every other method reverts unless the evidence verifies, so a returned value is a verified fact.
-
-### Addr — `0x0000000000000000000000000000000000001004`
-
-Binding methods that link a Paxeer EVM address to a LayerX DID key. Declared in `precompiles/addr/Addr.sol`:
-
-| Method | Purpose |
-|--------|---------|
-| `associate(v, r, s, customMessage) → paxAddr, evmAddr` | Associate a Pax address with an EVM address. |
-| `associatePubKey(pubKeyHex) → paxAddr, evmAddr` | Associate using a compressed public key. |
-| `bindLayerX(didPublicKey, signature)` | Bind `msg.sender` to `did:layerx:<hex of didPublicKey>`. The signature is the DID key's strict Ed25519 over `"LX:PAXEER-BIND:v1" ‖ chain id ‖ msg.sender ‖ layerXBindNonce(msg.sender)`. |
-| `unbindLayerX()` | Remove the caller's LayerX binding and consume a nonce. |
-| `getPaxAddr(addr) → response` | Look up the Pax address for an EVM address. |
-| `getEvmAddr(addr) → response` | Look up the EVM address for a Pax address. |
-| `getLayerXDid(addr) → didPublicKey, did` | Get the LayerX DID for an EVM address. Reverts when unbound. |
-| `getEvmAddrByLayerX(didPublicKey) → evmAddr` | Get the EVM address for a DID public key. |
-| `layerXBindNonce(addr) → nonce` | The nonce the next `bindLayerX` signature must cover. |
-| `getUnifiedAccount(addr) → evm, paxAddr, didPublicKey, layerxMainAccountId` | Returns all four identifiers for an address. Never reverts for a missing identity. |
-
-Events: `LayerXBound(evm, didPublicKey, nonce)` and `LayerXUnbound(evm, didPublicKey, nonce)`.
-
-### LayerXCustody — `0x0000000000000000000000000000000000001013`
-
-Native LayerX custody. Funds are held by the `layerxcustody` module account and leave it only against verified LayerX evidence: a sequencer-signed withdrawal receipt included in a finalized batch, or a native state proof of a balance plus the account authority's recipient signature. Forced exits prove against the latest finalized batch until the first forced exit is queued, and against that exit checkpoint batch afterwards. Declared in `precompiles/layerxcustody/LayerXCustody.sol`:
-
-| Method | Purpose |
-|--------|---------|
-| `deposit(beneficiary) → depositId` | Custody `msg.value` of the native coin for a LayerX account; once the exit checkpoint is set, deposits are refused. |
-| `depositToken(pointer, amount, beneficiary) → depositId` | Custody a bank denom addressed by its registered ERC20 pointer; once the exit checkpoint is set, deposits are refused. |
-| `requestWithdrawal(receipt, proof, header, headerSignature) → claimId, availableAt` | Verify a withdrawal and queue its claim; payable after the withdrawal delay. |
-| `finaliseWithdrawal(receipt, proof, header, headerSignature) → claimId` | Re-verify a withdrawal and pay the recipient the receipt names. Queues the claim first when it was never requested. |
-| `requestForcedExit(witness, batchNumber, account, assetId, recipient, recipientSignature) → claimId, availableAt` | Prove a whole balance against the latest finalized batch until the first forced exit is queued, and against that exit checkpoint batch afterwards; queue its exit. |
-| `executeForcedExit(witness, batchNumber, account, assetId, recipient, recipientSignature) → claimId` | Pay a forced exit, queueing it first when it was never requested. |
-
-View methods: `depositCount`, `depositNonce`, `getDeposit`, `getDepositByIndex`, `getClaim`, `nullifierStatus`, `getAsset`, `assetByPointer`, `nativeAssetId`, `exitEligible`.
-
-### LayerXAnchor — `0x0000000000000000000000000000000000001014`
-
-Checkpoint registry, finality authority, availability record and guarantor bonds. Certificates are self-verifying, so anyone may submit them. A checkpoint is final once the required threshold of bonded, active guarantors attested it, it continues the finalized chain, no challenge is open and the challenge window elapsed. Declared in `precompiles/layerxanchor/LayerXAnchor.sol`:
-
-| Method | Purpose |
-|--------|---------|
-| `submitCheckpoint(header, headerSignature, certificate) → checkpointId, status` | Submit a 354-byte batch header with its sequencer signature and guarantor certificate. Status: 1 submitted, 2 final. |
-| `submitAvailabilityAttestation(attestation) → availabilityMask` | One 274-byte guarantor attestation over a known checkpoint. |
-| `finalize(batchNumber) → bool` | Finalize a submitted checkpoint whose challenge or window has cleared. |
-| `registerGuarantor(guarantorId, signer) → bool` | Register a new guarantor (payable, must meet min bond). |
-| `increaseBond(guarantorId) → bool` | Add bond to an existing guarantor. |
-| `beginUnbond(guarantorId, amount) → completionTime` | Start unbonding. The bond stays slashable until completion. |
-| `completeUnbond(guarantorId) → amount` | Withdraw an expired unbonding. |
-| `submitEquivocation(evidenceA, evidenceB) → slashed` | Two 274-byte attestations by one guarantor naming different checkpoints for one batch. |
-| `openChallenge(batchNumber, kind, evidenceHash) → challengeId` | kind: 0 fraud, 1 data availability. The value must be the challenge bond. |
-| `resolveChallenge(challengeId, upheld) → bool` | Authority only. |
-| `activateGuarantor(guarantorId) → bool` | Authority only. |
-| `setSequencerAuthorization(sequencerId, publicKey, firstBatchNumber, lastBatchNumber) → bool` | Authority only. |
-
-View methods: `latestFinalized`, `checkpoint`, `finalizedStateRoot`, `finalizedReceiptRoot`, `guarantor`, `threshold`, `statusOf`.
-
-The `statusOf` function returns the checkpoint status ladder: **0 unknown**, **1 submitted**, **2 final**.
-
-## Account binding
-
-An EVM address can be linked to a `did:layerx` identifier. The binding requires consent from both keys: the LayerX DID key signs a message, and the EVM address sends the transaction.
-
-The message format is defined in `modules/evm/types/layerx_binding.go`:
-
-```
-"LX:PAXEER-BIND:v1" || chain_id (uint256 big-endian) || evm_address (20 bytes) || nonce (uint64 big-endian)
+```text
+"LX:PAXEER-BIND:v1" || chain_id (uint256 big-endian)
+                     || evm_address (20 bytes) || nonce (uint64 big-endian)
 ```
 
-The domain string `LX:PAXEER-BIND:v1` is the constant `LayerXBindDomain`. The DID is rendered as `did:layerx:<64 lowercase hex characters>`. The LayerX main account name for a DID is `agent:did:layerx:<hex>:main`, and its native account ID is derived via `codec.DeriveAccountID`.
+Read `layerXBindNonce(address)` before signing. An EVM address has at most one
+DID and a DID at most one EVM address. `unbindLayerX()` removes the caller's
+binding and consumes a nonce. `getUnifiedAccount(address)` reports the EVM
+address, Pax address, DID public key and main account ID without reverting
+for a missing identity; absent fields use the interface's empty or zero
+values. `getLayerXDid` and the reverse `getEvmAddrByLayerX` read revert when
+unbound. [One account](../concepts/one-account.md) describes derivation,
+consent, recovery and chain-domain compatibility.
 
-One EVM address has at most one DID, and one DID has at most one EVM address. Genesis can pre-populate the binding table; `ValidateLayerXGenesisEntry` checks that every entry under the binding prefixes is well formed and that every DID public key is canonical.
+The LayerXLedger precompile at
+`0x000000000000000000000000000000000000101a` exposes the ABI in
+`precompiles/layerxledger/abi.json`. Asset registration, per-asset account
+opening, issuance and payments execute through the native keeper in
+`modules/layerxledger/`. Read balances through `balanceOf(accountId, assetId)`
+and submit mutations as EVM transactions. Native PAX for gas is funded with
+chain transfers; binding and opening an asset account do not create funds.
+The [getting-started lifecycle](getting-started.md#ledger-assets-and-payments)
+shows the register/open/mint/payment order.
 
-## Custody
+## Receipts and commitment
 
-The `layerxcustody` module (in `modules/layerxcustody/`) holds funds in a module account. Coins enter through `deposit` or `depositToken`. They leave only through proof-carrying claims:
+`eth_getTransactionReceipt` reports EVM execution status and block metadata.
+The optional `pax_sequencerReceipt` API in `rpc/sequencer_receipt.go` also
+reports signed receipt progress:
 
-- **Withdrawals** — a sequencer-signed receipt proving a LayerX withdrawal, included in a finalized batch via `requestWithdrawal`. After the withdrawal delay, `finaliseWithdrawal` pays the recipient. Once the exit checkpoint is set, withdrawals included in batches after the checkpoint are refused.
-- **Forced exits** — a state proof of the entire balance, plus the recipient's signature, via `requestForcedExit`. Forced exits prove against the latest finalized batch until the first forced exit is queued, and against that exit checkpoint batch afterwards. After the delay, `executeForcedExit` pays out.
-- **Emergency exits** — a special fast path when the custody module enters emergency mode.
+| Rung | Meaning |
+| --- | --- |
+| `submitted` | The node has a send record but no signed execution receipt. |
+| `receipted` | A signed execution receipt is available; commitment has not yet been established. |
+| `committed` | A committed block's `MsgSequenceBatch` covers the receipt's sequence. |
 
-Nullifiers prevent double-spending. Every claim is bound to a nullifier; a nullifier can be reserved, consumed, or cancelled but never reopened.
+A committed transaction can still have failed execution. Check status and
+return data as well as commitment. The receipt signature binds execution
+fields under a pinned receipt key; it does not itself prove a BFT commit.
 
-Genesis for the custody module is written by `services/platform/hosted/paxeer/custody-genesis.py`, which outputs a JSON section that `init-chain.sh` merges into the Paxeer genesis. It configures the network ID, sequencer authorization, withdrawal delays, forced-exit delays, liveness bound, and the asset map.
+Independent verification needs authenticated receipt key ranges, the signed
+transaction, the execution header, transaction and sequence-batch inclusion
+proofs, and a validator commit with more than two thirds of voting power.
+Execution results from height H are proven against `LastResultsHash` in the
+committed successor header at H+1. Verifying that successor authenticates the
+result proof; it does not introduce a second network or settlement authority.
+Authenticate the chain identity and validator history from a trusted source.
 
-## Anchor
-
-The `layerxanchor` module (in `modules/layerxanchor/`) is the finality authority for LayerX checkpoints. Its status ladder is **instant** (0 unknown), **sealed** (1 submitted), and **final** (2 final). The constants are defined in `modules/layerxanchor/types/state.go`.
-
-A checkpoint starts as submitted when `submitCheckpoint` accepts a valid certificate. It becomes final when `finalize` runs and the challenge window has elapsed, no challenges are open, and the required threshold of bonded, active guarantors attested it.
-
-Guarantors bond native tokens. They can register, increase their bond, begin unbonding (with a configurable delay during which the bond stays slashable), and complete unbonding. Equivocation — signing two different checkpoints for the same batch — results in a slash. Fraud and data-availability challenges can be opened against a checkpoint; the authority resolves them.
-
-Genesis for the anchor module is written by `services/platform/hosted/paxeer/anchor-genesis.py`. It configures the authority account, Paxeer chain ID, network ID, certificate threshold, minimum bond, challenge parameters, unbonding delay, sequencer authorization, and optional pre-registered guarantors. The anchor point — the batch the first checkpoint must continue — is set at genesis.
+[SDK terminal verification](../agents/sdk-verification.md) documents current
+verifier entry points, the recorded evidence and refusal cases. An RPC
+`committed` label is the node's report; an independent client establishes the
+same conclusion by checking that evidence.
 
 ## Public node JSON-RPC and the hosted gateway
 
-The public JSON-RPC is at the root of
-`https://api-mainnet-beta.paxeer.network` and the node names `api1` through
-`api14.mainnet-beta.paxeer.network`, with EVM chain ID `125` (`0x7d`).
-These serve the merged network; there is no separate public LayerX interface.
-WebSocket upgrades were observed at the mainnet-beta node's root and `/ws`.
-The block explorer is `paxscan.io` and the wallet is `paxportwallet.com`.
+Public HTTPS JSON-RPC is at the root of
+`https://api-mainnet-beta.paxeer.network` and
+`https://api1.mainnet-beta.paxeer.network` through
+`https://api14.mainnet-beta.paxeer.network`. Require `eth_chainId` to return
+`"0x7d"`. These nodes serve the merged network. The public node namespace
+inventory is `debug`, `echo`, `eth`, `net`, `pax`, `test` and `txpool`;
+method availability still depends on the node's configuration.
 
-The hosted gateway is an operator-deployed service. The checked-in deployment
-configuration establishes no separate public gateway URL; obtain its origin
-from the operator. The `px_*` and `lx_*` methods below are gateway methods;
-the public node returns `-32601` for `px_getReceiptKeys` and `px_getHistory`.
-Within a gateway deployment, the method name selects the backend:
+The old `/rpc`, `/rpc/ws` and `/rpc/schema` public paths are retired.
+`node.hyperpaxeer.com` is the hpx library mirror used by build scripts, not an RPC endpoint.
 
-- `eth_*`, `net_*` and `web3_*` are the Paxeer EVM JSON-RPC, relayed verbatim to
-  the chain through the first answering Paxeer RPC name of
-  `LAYERX_GATEWAY_PAXEER_RPC_URLS`, two to eight names tried in order.
-  `eth_sendRawTransaction` is included: a
-  signed transaction sent to the gateway lands on Paxeer. The node's own key
-  never signs for a caller, so `eth_accounts`, `eth_coinbase`,
-  `eth_sendTransaction`, `eth_sign`, `eth_signTransaction`, `eth_signTypedData`,
-  `eth_signTypedData_v4` and `eth_mining` are refused, as are `eth_subscribe`
-  and `eth_unsubscribe` — the gateway's WebSocket carries `lx_subscribe` only.
-- `lx_*` are the LayerX methods, unchanged.
-- `px_*` are unified cross-domain reads that answer from the precompiles above:
-  `px_resolveAccount`, `px_getAccount`, `px_getBalances`, `px_listAssets` and
-  `px_getNetwork`.
+The hosted gateway under `services/platform/hosted/gateway/` is an
+operator-deployed service. Use the endpoint supplied by its operator. Its
+`openrpc.json` declares the `px_*` operations and parameter/result shapes;
+these methods are not a separate execution network. Gateway operators
+configure EVM upstreams with `LAYERX_GATEWAY_PAXEER_RPC_URLS`, a JSON array of
+two to eight distinct endpoints, as parsed by `src/paxeer.rs` in that service.
+Consumers of the shared Human service gateway client configure
+`LAYERX_NETWORK_GATEWAY_ENDPOINT`.
 
-A JSON-RPC batch may mix all three namespaces; entries keep their ids and their
-order. The `px_*` and `lx_*` reads need no API key; they are gated only by the
-public read budget.
+| Gateway method | Current contract |
+| --- | --- |
+| `px_resolveAccount`, `px_getAccount` | Resolve an EVM address or explicit DID through the addr precompile and report the binding. |
+| `px_getBalances`, `px_listAssets` | Return the gateway's declared balance and asset views; retain source and verification metadata. |
+| `px_getNetwork` | Report `network_id`, EVM `paxeer.chain_id` and `paxeer.latest_block`, and consensus head information when available. |
+| `px_getHistory`, `px_getUnifiedHistory` | Return indexed history with the declared pagination and freshness fields. |
+| `px_getCapabilities` | Probe the declared native precompile capabilities at a recorded RPC height. |
 
-`px_resolveAccount` and `px_getAccount` take one identifier — an
-`0x`-prefixed EVM address, a `did:layerx:<hex>` DID, or the bare 64-hex DID
-public key — and answer with both halves of the identity (`evm_address`,
-`pax_address`, `layerx_did`, `layerx_account`, `bound`) as
-`getUnifiedAccount`, `getLayerXDid` and `getEvmAddrByLayerX` report them.
-`px_listAssets` joins the LayerX asset list to the custody asset map read from
-`getAsset`. `px_getBalances` resolves the account and then, per asset, reports
-the custody record, the Paxeer bank balance of the custody denom for that EVM
-address, and the LayerX account for the same asset. `px_getNetwork` reports the
-chain id, the head block, the LayerX node info, and the latest finalized
-checkpoint with its status from the anchor's ladder. Both joins are bounded to
-the first sixteen assets and say so in `joined_limit`.
+Identity results carry `evm_address`, `pax_address`, `layerx_did`,
+`layerx_account` and `bound`. Keep the original EVM or DID selector for later
+lookups: `layerx_account` is a separate native reference. A bare 64-hex
+identifier is refused with `-32001` and
+`data.code = "native_account_reverse_resolution_unsupported"`; it is not
+reinterpreted as a DID. Conflicting binding joins also refuse.
 
-Successful `px_listAssets` ledger rows include `paused` (boolean) and `verification` (`"authenticated_committed_snapshot"`); both fields are optional in the closed result schema and absent from bank, token-factory and failed-read rows.
-
-The exact parameter and result shapes are in the gateway's
-[`openrpc.json`](https://github.com/Sidiora-Labs/Layerx-protocol/blob/main/platform/hosted/gateway/openrpc.json),
-served by a deployed gateway at `GET /rpc/schema`.
-
-Clients that want to bind an account call `bindLayerX` with a signature the
-`layerx-client` crate builds: `layerx_client::paxeer_binding::Binding` assembles
-the exact consent message described below and signs it with the DID key.
+`px_getNetwork` reports `consensus: null` and
+`reason: "consensus_unavailable"` when it cannot read consensus status; the
+EVM chain ID and latest block can still answer. Keep that partial availability
+explicit. A reported balance, index record or head is not a substitute for a
+verified committed receipt.
 
 ## Unified intent planning
 
-The human service plans one stated intent across both domains. `plan(intent,
-observed_state)` is pure: the same intent over the same observed state yields
-byte-identical plan bytes, so the plan digest is stable. That digest is bound
-into every leg's action key, every signing context and the journey idempotency
-key, so a signed plan cannot be re-routed — altering any leg changes the digest
-and therefore invalidates every signature over it.
+The Human service plans wallet and ledger operations from observed state and
+user-authorized allowances. Its implementation is under
+`services/human/crates/layerx-human-service/src/journeys/`.
+`ObservedStateBuilder` assembles the required observations; a missing source
+is an explicit refusal rather than an assumed zero balance.
 
-The planner never reads the network itself. `ObservedStateBuilder` assembles
-the snapshot it consumes, and each source is read from the one place that is
-authoritative for it:
+`POST /v1/intents/plan` returns the proposed legs, fees, plan digest and signing
+requirements without executing a journey. `POST /v1/intents/submit` re-plans
+against current observations and refuses when the recomputed digest differs
+from the signed plan. Progress is available through
+`GET /v1/journeys/{journey_id}`. These are service operations over the same
+network and require the deployment's authentication and allowance policy.
 
-- the bound wallet and its Paxeer balances come from the gateway's `px_*`
-  joins, through the shared network-gateway client, and stay tagged as
-  gateway-reported;
-- the LayerX spendable balances, the allowance inventory (budget allowances,
-  payer grants and delegated capabilities with their remaining caps) and the
-  budget bindings come from the service's own records — never from the caller's
-  request, which states an intent and never the headroom that would authorise
-  it;
-- the fee schedule and limits come from the same component configuration that
-  move, deposit and withdraw already take them from.
-
-A source that cannot answer is a typed refusal naming that source. An
-unobserved balance is never read as zero: an asset with no joined row, or a
-joined row with no Paxeer half, refuses the plan rather than planning on a
-partial state. A top-up leg is emitted only when a user-signed allowance
-covers that exact leg; where none does, the plan is refused and no allowance is
-widened or synthesised.
-
-Both the human service and the explorer index read the gateway endpoint from
-`LAYERX_NETWORK_GATEWAY_ENDPOINT`, and both decode the `px_*` answers with the
-same client, so there is one decoder for the gateway's declared shapes rather
-than one per reader.
-
-Two operations expose the planner. `POST /v1/intents/plan` states what would
-happen: the legs, the total fee, the plan digest, and exactly what must be
-signed for it to happen. It creates no journey and changes no state. `POST
-/v1/intents/submit` takes the signed plan, re-plans the intent server-side
-against the observed state at submission time, and refuses when the recomputed
-digest no longer matches the signed one — a plan signed against a state that
-has since moved never executes. Both authenticate as money movement, exactly as
-move, deposit and withdrawal do. Progress is then read through
-`GET /v1/journeys/{journey_id}` like every other journey: intent planning adds
-no new verb, and `planIntent` / `submitPlan` in the TypeScript and Python agent
-SDKs call these two operations and nothing else.
-
-## Not yet built
-
-The following components are planned but not yet implemented:
-
-- **Light-client verification of Paxeer deposits on LayerX** — a light-client proof that a deposit transaction was included in a Paxeer block, verifiable on the LayerX side without a full Paxeer node.
+[Getting started](getting-started.md) ·
+[One account](../concepts/one-account.md) ·
+[SDK terminal verification](../agents/sdk-verification.md) ·
+[Home](../index.md)

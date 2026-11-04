@@ -1,9 +1,12 @@
 # One account
 
-On the Paxeer X Network a person has two keys. The Paxeer EVM account is a
-secp256k1 key. The LayerX identity is an Ed25519 key, and its DID is the key
-itself: `did:layerx:<64 hex characters of the Ed25519 public key>`. A deposit
-that opens a new LayerX account requires that key-derived DID.
+Paxeer X Network is one chain, with EVM chain ID `125` (`0x7d`). An EVM
+account uses a secp256k1 key; a LayerX identity uses an Ed25519 key whose DID
+is `did:layerx:<64 lowercase hex characters of the Ed25519 public key>`.
+Binding these identifiers records their relationship in the same chain.
+It does not fund an account. Ledger accounts are opened per asset through
+`openAccount(assetId)` at the LayerXLedger precompile; see
+[Getting started](../overview/getting-started.md#ledger-assets-and-payments).
 
 This page specifies how **one user secret yields both keys**, the same way in
 every implementation, and how first use binds them on-chain so the network
@@ -11,9 +14,9 @@ shows one account.
 
 | Implementation | Where |
 | --- | --- |
-| Rust | `layerx_crypto::account_derivation`, `layerx_client::account_binding` |
-| TypeScript | `@sidiora/layerx-sdk`, `src/account-derivation.ts` |
-| Python | `layerx_sdk.account_derivation` (install the `derivation` extra) |
+| Rust | `services/agent/crates/layerx-crypto/src/account_derivation.rs`, `services/agent/crates/layerx-client/src/account_binding.rs` |
+| TypeScript | `@sidiora/layerx-sdk`, `services/agent/sdk/typescript/src/account-derivation.ts` |
+| Python | `services/agent/sdk/python/layerx_sdk/account_derivation.py` (install the `derivation` extra) |
 | CLI | `layerx wallet derive` |
 | Shared vectors | `sdk/platform/conformance/fixtures/account-derivation-v1.json` |
 
@@ -35,18 +38,15 @@ mnemonic with an optional passphrase. BIP-39 turns it into a 64-byte seed.
 `i` is the account index, below 2^31, and it is the same on both sides: EVM
 account `i` always pairs with LayerX identity `i`.
 
-The EVM path is the one every Ethereum wallet uses, so the address matches
-what MetaMask and hardware wallets show for the same phrase. SLIP-0010 only
-defines hardened derivation for Ed25519, so every LayerX component is
-hardened.
+The EVM path matches wallets configured for that same path, phrase,
+passphrase and index. SLIP-0010 only defines hardened derivation for Ed25519,
+so every LayerX component is hardened.
 
 ### The coin type 19544
 
-`19544` is `0x4c58`, the ASCII bytes `LX`. It is not registered in SLIP-0044
-and collides with no coin listed there, so no other wallet derives keys for
-another network on this branch. Reusing `60'` was rejected so the LayerX
-branch never shares a subtree with keys other software derives and exports.
-The value is a fixed part of version 1 of this derivation and will not change.
+`19544` is `0x4c58`, the ASCII bytes `LX`. It is the implementation's
+`LAYERX_COIN_TYPE`, separate from the EVM coin type `60`. The value is part
+of version 1 of this derivation; changing it would change the derived key.
 
 ```sh
 # The phrase is read from standard input or a file, never from arguments.
@@ -84,7 +84,7 @@ every field instead of an opaque string.
     ]
   },
   "primaryType": "LayerXKeyDerivation",
-  "domain": { "name": "Paxeer X Network", "version": "1", "chainId": 713714 },
+  "domain": { "name": "Paxeer X Network", "version": "1", "chainId": 125 },
   "message": {
     "purpose": "Derive your LayerX account key",
     "warning": "Only sign this on https://paxportwallet.com. Anyone holding this signature controls your LayerX account.",
@@ -97,7 +97,16 @@ every field instead of an opaque string.
 
 `chainId` is the chain the wallet is connected to (at most 2^53 - 1, so it
 is exact in JSON), `address` is the signing account and `index` is the account
-index. Nothing else varies.
+index. Mainnet-beta uses `125`; the TypeScript automatic binding helper
+requires that chain ID. The origin also affects the message as described below.
+
+Older derivation vectors use chain ID `713714`. Those are historical test
+inputs, not mainnet-beta configuration. The external-wallet derivation binds
+the chain ID into both the signing document and HKDF context: deriving with
+`125` produces a different key from deriving with `713714`. Preserve the
+original chain ID, origin, index and version when recovering an existing
+identity. Updating a connection setting does not migrate a key or its binding.
+The mnemonic paths above do not depend on the chain ID.
 
 The LayerX Ed25519 seed is then
 
@@ -130,6 +139,8 @@ Three rules make that safe to repeat:
 ```ts
 import { deriveFromBrowserWallet, autoBindLayerX } from "@sidiora/layerx-sdk";
 
+const chainId = 125;
+const [address] = await window.ethereum.request({ method: "eth_requestAccounts" });
 const account = await deriveFromBrowserWallet(window.ethereum, { chainId, address });
 await autoBindLayerX(window.ethereum, account, chainId);
 ```
@@ -175,16 +186,22 @@ With a seed phrase both consents come from the same secret: `layerx wallet
 derive --bind --rpc <endpoint>` signs and submits the transaction, and the
 Rust and TypeScript helpers return the signed EIP-1559 transaction. With an
 external wallet the helper hands the call to the wallet with
-`eth_sendTransaction`. Afterwards `px_resolveAccount` answers with the same
-account for the EVM address and for the DID.
+`eth_sendTransaction`. A returned transaction hash means submitted; wait for
+its committed receipt and read the binding again before treating it as active.
+The hosted gateway's `px_resolveAccount` accepts either the original EVM
+address or explicit DID and reports their binding. Its `layerx_account` field
+is a native reference, not a reverse-lookup selector. See
+[Unified network](../overview/unified-network.md#public-node-json-rpc-and-the-hosted-gateway).
 
 ## Recovery
 
 The same secret restores both keys. Re-entering the phrase (and passphrase)
 with the same index yields the same pair. With an external wallet, signing the
 same message again with the same account on the same chain yields the same
-LayerX key; the binding is already on-chain, so the helper reports
-`already_bound`. Nothing besides the phrase, or the wallet, needs backing up.
+LayerX key; if the binding is already on-chain, the helper reports
+`already_bound`. Retain the mnemonic passphrase and index, or the external
+wallet's chain ID, origin, index and derivation version, along with access to
+the secret needed for recovery.
 
 ## What is not covered
 
