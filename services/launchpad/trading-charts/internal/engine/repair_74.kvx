@@ -1,0 +1,29 @@
+[task.22.31.74]
+finding = "22.30.41/21"
+implementation = "ReconstructArchive reads the independent economic commitment retained by an exact-range promoted chart_rebuild_runs record and its matching chart_archive_checkpoints entry; the damaged chart_exact projection is not consulted during recovery."
+bootstrap = "Initial qualification still compares the authenticated archive output with the live projection before StageRebuild/PromoteRebuild persist the commitment; ChecksumAuthority reports this distinct initial qualification path. Overlapping retained authority forbids bootstrap."
+epoch_policy = "A retained commitment is accepted only at its promotion revision; a later series revision requires a fresh range commitment from the store owner rather than trusting potentially stale parity."
+tests = ["TestRepair_74_RetainedParitySurvivesRestart", "TestRepair_74_RejectsInvalidRetainedAuthority", "TestRepair_74_DeleteCloseReopenReconstructArchive"]
+proof = "The offline proof retains the independent checkpoint produced from live FoldQualified bars, removes projection files, closes and reopens the checkpoint transport, decodes committed arithmetic archive codec vectors through store.ValidateArchive and the shared production reconstruction, and consumes staged SeriesCandle snapshots. It checks every interval, trader membership, checksum refusal and deterministic equal re-emission. It does not qualify PostgreSQL promotion or upstream chain authentication."
+qualification = "Qualification evidence is the runner-emitted revision, command, exit and private log from hf-build/hf-done; no qualification is claimed from test declarations."
+baseline = "Not run: task step 5 conflicts with the explicit ordered gate rules forbidding verification before complete implementation and forbidding a separate manual verify_cmd run. No baseline failures claimed."
+wiring_request = "services/launchpad/trading-charts/internal/store (owner fm-launchpad, domain 4): persist immutable algorithm-versioned range economic commitments atomically before every retention deletion, bind their validity to in-range source changes, and retain them independently of rebuild cleanup; expose exact requested parent-boundary range lookup so recovery can also cover ranges without a matching retained promoted run."
+gotcha = "Archive checkpoints currently store only manifest digests; economic commitments survive in promoted rebuild records, so unmatched/subrange checkpoints and advanced series revisions must fail closed until the store-owned wiring is implemented."
+
+[qualification.22.31.74]
+revision = "45119ee21464f18caad675974e1353b6b2dc429c"
+command = "cg spec done 22.31.74 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Real restart recovery reaches store.PromoteRebuild, which resets a retained-away candle revision to 1 and collides with the existing chart_outbox unique key; existing tests also require absent L10_TEST_POSTGRES and L10_ARCHIVE_CHART_SCHEMA, and the full archive proof requires absent L10_ARCHIVE_MANIFESTS."
+assumption = "This is historical attempt-1 evidence, not the current focused gate; the offline test now exercises the production checkpoint/archive codecs and reconstruction without external services."
+
+[wiring.22.31.74]
+request = "services/launchpad/trading-charts/internal/store/rebuild.go (owner fm-launchpad, domain 4): retain monotonic revisions and make chart_outbox re-emission use ON CONFLICT DO NOTHING only for identical JSON content, returning ErrIntegrity for differing content at the same unique key; qualify DeleteRetainedRange -> store close/reopen -> PromoteRebuild against real PostgreSQL in the store-owned gate."
+
+[continuation.22.31.74]
+implementation = "The SQL adapter transports retained promoted-run authority through the same bounded strict JSON checkpoint decoder used in-process; exact pool/range, manifest, promoted state, retained checkpoint and revision checks precede economic parity. ReconstructArchive uses the shared reconstruction code, retaining authenticated reader, source identity, parent rollup, incident and promotion fencing paths."
+fixtures = "testdata/repair74/manifests.json and segment.json are pinned arithmetic codec vectors, not a claim of live chain authentication; the live engine producer FoldQualified creates the independent expected commitment before the projection is removed."
+baseline = "Attempt-1 verification failed with the historical evidence above; no separate pre-change verify was rerun because the ordered task rules reserve verification for hf-done after implementation."
+wiring_request = "services/launchpad/indexer/internal/processor (owner fm-launchpad, domain 4): publish an approved Archive.Produce capture with authenticated boundary headers for the store-owned end-to-end recovery gate; engine codec vectors do not replace upstream source authentication."
+gotcha = "The previous repair tests depended on DELIVERY_TEST_DSN and L10 archive/RPC/S3 variables; the focused repair gate must exercise shared production codecs and reconstruction in-process, while store-owned integration and idempotent outbox wiring stay explicitly deferred."
