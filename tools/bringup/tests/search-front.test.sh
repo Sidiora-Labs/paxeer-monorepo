@@ -63,6 +63,9 @@ map \$xweb_node \$xweb_eligible {
     $expected_primary 0;
 }
 WANT'
+qualify_status=0
+env "${fixture_env[@]}" "$front" qualify <"$work/upstreams.conf" >"$work/qualify.out" 2>"$work/qualify.err" || qualify_status=$?
+check live_consumer_refuses_unadmitted_render '[ "$qualify_status" -eq 1 ] && [ ! -s "$work/qualify.out" ]'
 check render_names_both_unready 'grep -Fq "neither $expected_primary nor $expected_backup" "$work/render.err"'
 
 deploy_prints_upstreams_and_edge_registration() {
