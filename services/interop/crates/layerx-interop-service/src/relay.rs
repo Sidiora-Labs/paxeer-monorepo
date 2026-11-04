@@ -28,12 +28,14 @@ pub(crate) struct RelayJournal {
     connector: TlsConnector,
     username: Zeroizing<String>,
     password: Zeroizing<String>,
+    retention_seconds: u64,
 }
 
 struct JournalEntry {
     tx_hash: [u8; 32],
     raw: Vec<u8>,
     submitted: bool,
+    finalized: bool,
 }
 
 impl RelayJournal {
@@ -68,6 +70,7 @@ impl RelayJournal {
             connector,
             username,
             password,
+            retention_seconds: 604800,
         })
     }
 
@@ -162,6 +165,7 @@ impl RelayJournal {
                 .map_err(|_| RelayError::TransactionHashMismatch)?,
             raw: raw.to_vec(),
             submitted: false,
+            finalized: false,
         })
     }
 
@@ -169,7 +173,7 @@ impl RelayJournal {
         let progress_key = format!("{key}:submitted");
         self.command(&[
             b"EVAL",
-            b"local old = redis.call('GET', KEYS[1]); if not old then return nil end; local progress = redis.call('GET', KEYS[2]); if progress and progress ~= string.sub(old, 1, 32) then return redis.error_reply('relay submission hash mismatch') end; return string.char(progress and 1 or 0) .. old",
+            b"local old = redis.call('GET', KEYS[1]); local finalized = redis.call('GET', KEYS[1] .. ':finalized'); if finalized then if old and string.sub(old, 1, 32) ~= finalized then return redis.error_reply('relay finality hash mismatch') end; return string.char(2) .. (old or finalized) end; if not old then return nil end; local progress = redis.call('GET', KEYS[2]); if progress and progress ~= string.sub(old, 1, 32) then return redis.error_reply('relay submission hash mismatch') end; return string.char(progress and 1 or 0) .. old",
             b"2", key.as_bytes(), progress_key.as_bytes(),
         ])?
         .map(|bytes| {
@@ -179,9 +183,10 @@ impl RelayJournal {
             let mut entry = Self::decode(bytes)?;
             entry.submitted = match status {
                 0 => false,
-                1 => true,
+                1 | 2 => true,
                 _ => return Err(RelayError::Journal("invalid relay submission progress".to_owned())),
             };
+            entry.finalized = *status == 2;
             Ok(entry)
         })
         .transpose()
@@ -204,6 +209,54 @@ impl RelayJournal {
         Ok(())
     }
 
+    fn retention_candidates(&self) -> Result<Vec<String>, RelayError> {
+        // Keep the scan cursor in Redis, so a restart also resumes discovery of
+        // journals written before retention was introduced. SCAN does not read raw values.
+        let answer = self.command(&[
+            b"EVAL",
+            b"local cursor = redis.call('GET', KEYS[1]) or '0'; local page = redis.call('SCAN', cursor, 'MATCH', 'interop:relay:v1:*', 'COUNT', 16); redis.call('SET', KEYS[1], page[1]); local result = {}; for _, key in ipairs(page[2]) do if #key == 81 and string.match(key, '^interop:relay:v1:[0-9a-f]+$') and not redis.call('GET', key .. ':finalized') then table.insert(result, key) end end; return table.concat(result, string.char(10))",
+            b"1", b"interop:relay:retention-cursor:v1",
+        ])?.ok_or_else(|| RelayError::Journal("missing relay retention page".to_owned()))?;
+        let text = std::str::from_utf8(&answer)
+            .map_err(|_| RelayError::Journal("invalid relay retention page".to_owned()))?;
+        text.lines()
+            .map(|key| {
+                if key.len() != 81
+                    || !key.starts_with("interop:relay:v1:")
+                    || !key[17..]
+                        .bytes()
+                        .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+                {
+                    return Err(RelayError::Journal(
+                        "invalid relay retention key".to_owned(),
+                    ));
+                }
+                Ok(key.to_owned())
+            })
+            .collect()
+    }
+
+    pub(crate) fn with_retention(mut self, seconds: u64) -> Self {
+        self.retention_seconds = seconds;
+        self
+    }
+
+    fn finalize(&self, key: &str, tx_hash: [u8; 32]) -> Result<(), RelayError> {
+        // The hash tombstone never expires. Raw payer bytes and submission progress
+        // live for the gateway replay window, measured from the first finality observation.
+        let answer = self.command(&[
+            b"EVAL",
+            b"local terminal = KEYS[1] .. ':finalized'; local old = redis.call('GET', KEYS[1]); local finalized = redis.call('GET', terminal); if finalized then if finalized ~= ARGV[1] then return redis.error_reply('relay finality hash mismatch') end; return finalized end; if not old or string.sub(old, 1, 32) ~= ARGV[1] then return nil end; redis.call('SET', terminal, ARGV[1]); redis.call('EXPIRE', KEYS[1], ARGV[2]); redis.call('EXPIRE', KEYS[1] .. ':submitted', ARGV[2]); return ARGV[1]",
+            b"1", key.as_bytes(), &tx_hash, self.retention_seconds.to_string().as_bytes(),
+        ])?;
+        if answer.as_deref() != Some(tx_hash.as_slice()) {
+            return Err(RelayError::Journal(
+                "relay finality claim changed".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
     fn claim(&self, key: &str, raw: &[u8], tx_hash: [u8; 32]) -> Result<bool, RelayError> {
         let mut record = tx_hash.to_vec();
         record.extend_from_slice(raw);
@@ -214,14 +267,14 @@ impl RelayJournal {
         }
         let answer = self.command(&[
             b"EVAL",
-            b"local old = redis.call('GET', KEYS[1]); if old then return string.char(0) .. old end; redis.call('SET', KEYS[1], ARGV[1]); return string.char(1) .. ARGV[1]",
+            b"local old = redis.call('GET', KEYS[1]); local finalized = redis.call('GET', KEYS[1] .. ':finalized'); if finalized then return string.char(0) .. finalized end; if old then return string.char(0) .. old end; redis.call('SET', KEYS[1], ARGV[1]); return string.char(1) .. ARGV[1]",
             b"1", key.as_bytes(), &record,
         ])?.ok_or_else(|| RelayError::Journal("missing relay journal claim".to_owned()))?;
         let (status, bytes) = answer
             .split_first()
             .ok_or_else(|| RelayError::Journal("invalid relay journal claim".to_owned()))?;
         let entry = Self::decode(bytes)?;
-        if entry.raw != raw {
+        if !entry.raw.is_empty() && entry.raw != raw {
             return Err(RelayError::TransactionReplacementRefused);
         }
         if entry.tx_hash != tx_hash {
@@ -253,6 +306,7 @@ pub enum RelayError {
     ReceiptRejected(VerificationFailure),
     LogsRejected(SequencerLogRefusal),
     Unknown,
+    FinalizedEvidenceUnavailable,
 }
 
 impl std::fmt::Display for RelayError {
@@ -286,7 +340,10 @@ impl ChainRelay {
     ) -> Result<RelayOutcome, RelayError> {
         let key = RelayJournal::key(idempotency_key)?;
         let stored = self.journal.read(&key)?;
-        if stored.as_ref().is_some_and(|entry| entry.raw != raw) {
+        if stored
+            .as_ref()
+            .is_some_and(|entry| !entry.raw.is_empty() && entry.raw != raw)
+        {
             return Err(RelayError::TransactionReplacementRefused);
         }
         let (_, sender, decoded_hash) = decode_pay_exact(raw).map_err(RelayError::Transaction)?;
@@ -314,8 +371,37 @@ impl ChainRelay {
                 tx_hash: decoded_hash,
                 raw: raw.to_vec(),
                 submitted: false,
+                finalized: false,
             },
         )
+    }
+
+    /// Polls one Redis scan page for finality without submitting transactions.
+    /// Unknown, pending or unverifiable claims keep their complete recovery bytes.
+    pub fn compact_finalized(&self) -> Result<usize, RelayError> {
+        let mut compacted = 0;
+        for key in self.journal.retention_candidates()? {
+            let Some(entry) = self.journal.read(&key)? else {
+                continue;
+            };
+            if entry.finalized {
+                continue;
+            }
+            match self.receipt(&key, entry.tx_hash) {
+                Ok(RelayOutcome::Executed(_)) => {
+                    if self
+                        .journal
+                        .read(&key)?
+                        .is_some_and(|entry| entry.finalized)
+                    {
+                        compacted += 1;
+                    }
+                }
+                Ok(RelayOutcome::Pending { .. }) | Err(RelayError::Unknown) => (),
+                Err(error) => return Err(error),
+            }
+        }
+        Ok(compacted)
     }
 
     pub fn recorded_evidence(
@@ -330,11 +416,20 @@ impl ChainRelay {
     }
 
     fn recover(&self, key: &str, entry: &JournalEntry) -> Result<RelayOutcome, RelayError> {
-        let (_, _, tx_hash) = decode_pay_exact(&entry.raw).map_err(RelayError::Transaction)?;
-        if tx_hash != entry.tx_hash {
-            return Err(RelayError::TransactionHashMismatch);
+        if !entry.raw.is_empty() {
+            let (_, _, tx_hash) = decode_pay_exact(&entry.raw).map_err(RelayError::Transaction)?;
+            if tx_hash != entry.tx_hash {
+                return Err(RelayError::TransactionHashMismatch);
+            }
+        } else if !entry.finalized {
+            return Err(RelayError::Journal(
+                "unresolved relay lost payer bytes".to_owned(),
+            ));
         }
-        match self.receipt(tx_hash) {
+        match self.receipt(key, entry.tx_hash) {
+            Err(RelayError::Unknown) if entry.finalized => {
+                Err(RelayError::FinalizedEvidenceUnavailable)
+            }
             Err(RelayError::Unknown) => self.submit(key, entry),
             Ok(outcome) => {
                 if !entry.submitted {
@@ -355,32 +450,31 @@ impl ChainRelay {
             return Err(RelayError::TransactionHashMismatch);
         }
         self.journal.submitted(key, entry)?;
-        self.receipt(entry.tx_hash)
+        self.receipt(key, entry.tx_hash)
     }
 
-    fn receipt(&self, tx_hash: [u8; 32]) -> Result<RelayOutcome, RelayError> {
+    fn receipt(&self, key: &str, tx_hash: [u8; 32]) -> Result<RelayOutcome, RelayError> {
         let answer = self
             .endpoint
             .sequencer_receipt(&tx_hash)
             .map_err(RelayError::Sequencer)?;
-        let (executed, rung) = match answer {
+        let (executed, finalized) = match answer {
             Some(SequencerReceipt::Submitted { .. }) => {
                 return Ok(RelayOutcome::Pending { tx_hash });
             }
-            Some(SequencerReceipt::Receipted(receipt)) => (receipt, SettlementRung::Receipted),
+            Some(SequencerReceipt::Receipted(receipt)) => (receipt, false),
             Some(SequencerReceipt::Committed {
                 receipt,
                 block_number,
                 block_hash,
             }) => {
-                let rung = match self.endpoint.block_by_number(block_number) {
-                    Ok(Some(block)) if block.hash == block_hash => SettlementRung::Committed {
-                        block_number,
-                        block_hash,
-                    },
-                    Ok(_) | Err(_) => SettlementRung::Receipted,
-                };
-                (receipt, rung)
+                // A node finality observation may release raw journal bytes, but is
+                // not portable inclusion evidence. Export remains receipted.
+                let finalized = self
+                    .endpoint
+                    .block_by_number(block_number)
+                    .is_ok_and(|block| block.is_some_and(|block| block.hash == block_hash));
+                (receipt, finalized)
             }
             None => return Err(RelayError::Unknown),
         };
@@ -402,11 +496,14 @@ impl ChainRelay {
         let logs = verify_logs(&verified, logs)
             .map_err(RelayError::LogsRejected)?
             .into_logs();
+        if finalized {
+            self.journal.finalize(key, tx_hash)?;
+        }
         Ok(RelayOutcome::Executed(SequencerEvidence {
             transaction_hash: tx_hash,
             signed_receipt: executed.receipt,
             logs,
-            rung,
+            rung: SettlementRung::Receipted,
         }))
     }
 }
@@ -889,14 +986,7 @@ mod tests {
         wrong_height["number"] = json!("0x3ea");
         for (idempotency_key, block_answer, expected_rung) in [
             ("mismatched-block", mismatched, SettlementRung::Receipted),
-            (
-                "matching-block",
-                block,
-                SettlementRung::Committed {
-                    block_number,
-                    block_hash: fixed(&committed["blockHash"])?,
-                },
-            ),
+            ("matching-block", block, SettlementRung::Receipted),
             ("missing-block", Value::Null, SettlementRung::Receipted),
             ("wrong-height", wrong_height, SettlementRung::Receipted),
         ] {

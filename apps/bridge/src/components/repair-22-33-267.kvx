@@ -1,0 +1,18 @@
+[repair.22.33.267]
+finding = "theme-storage-write"
+audit_record = "spec/layerx-merge/programme/audit/records/22.30.131.kvx"
+implementation = "Theme and accent update in memory before optional persistence; SecurityError and QuotaExceededError are explicitly handled, other errors propagate."
+proving_tests = ["theme_storage_write_handles_denied_reads_and_writes", "theme_storage_write_handles_storage_denied_after_mount", "theme_storage_write_handles_quota_and_recovers_persistence", "theme_storage_write_preserves_real_cross_document_synchronization"]
+test_path = "apps/bridge/src/components/repair-22-33-267.spec.ts"
+baseline = "Not run: ordered task instructions prohibit testing before complete implementation and prohibit running verify_cmd by hand; no prior gate evidence exists. The denied-write cases exercise setters whose original unguarded storage writes throw before updating state."
+wiring_requests = []
+qualification_evidence = "Exact candidate revision, command, exit and private log are recorded by hf-build and hf-done in /out/run/gates.jsonl."
+test_registration = "Vitest requires an explicit callback: test(function.name, function). Passing only the function reported four todo tests without executing them; both gates are rerun after correcting the registrations."
+
+[qualification.preexisting_layout_type]
+revision = "59a2625eb6161a11426e94114716596211277077"
+command = "pnpm --dir apps/bridge exec tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "Out-of-scope src/app/layout.tsx:36 cannot find the generated LayoutProps type (TS2304); this failure prevents the declared verification pipeline from reaching Vitest."
+assumption = "The apps/bridge owner must supply the Next.js generated layout types; this task does not edit the layout, TypeScript configuration, or generated files outside its declared scope."

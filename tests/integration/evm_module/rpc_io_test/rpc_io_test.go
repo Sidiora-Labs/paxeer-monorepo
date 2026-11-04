@@ -6,194 +6,254 @@ package rpc_io_test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
 
 var evmRPCSpecResults struct{ passed, failed, skipped int }
 
+type ioFixture struct {
+	Name  string
+	Pairs []ioxPair
+}
+
+type ioRunOptions struct{ SeedBlock, ReverterAddress, DeployTxHash string }
+
+func caseIdentity(file string, pair int) string { return fmt.Sprintf("%s#pair-%d", file, pair+1) }
+
+func compareCaseInventory(declared, executed []string) error {
+	if len(declared) == 0 {
+		return fmt.Errorf("declared case inventory is empty")
+	}
+	counts := make(map[string]int, len(declared))
+	for _, id := range declared {
+		if id == "" || counts[id] != 0 {
+			return fmt.Errorf("empty or duplicate declared case %q", id)
+		}
+		counts[id] = 1
+	}
+	for _, id := range executed {
+		if counts[id] != 1 {
+			return fmt.Errorf("unexpected or duplicate executed case %q", id)
+		}
+		counts[id] = 0
+	}
+	var missing []string
+	for _, id := range declared {
+		if counts[id] != 0 {
+			missing = append(missing, id)
+		}
+	}
+	if len(missing) != 0 {
+		return fmt.Errorf("missing executed cases: %v", missing)
+	}
+	return nil
+}
+
+// Load every declared fixture before transport, so a debug selection cannot hide missing files.
+func loadIOFixtures(dir string, declared []string, selection string) ([]ioFixture, []string, error) {
+	files, err := collectIOFiles(dir)
+	if err != nil {
+		return nil, nil, fmt.Errorf("collect fixtures: %w", err)
+	}
+	if len(files) == 0 {
+		return nil, nil, fmt.Errorf("no .io/.iox fixtures in %s", dir)
+	}
+	var fixtures []ioFixture
+	var discovered []string
+	for _, rel := range files {
+		content, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(rel)))
+		if err != nil {
+			return nil, nil, err
+		}
+		pairs, err := parseIOFile(string(content))
+		if err != nil {
+			return nil, nil, fmt.Errorf("%s: %w", rel, err)
+		}
+		if len(pairs) == 0 {
+			return nil, nil, fmt.Errorf("%s has no request/response pairs", rel)
+		}
+		fixtures = append(fixtures, ioFixture{Name: rel, Pairs: pairs})
+		for i := range pairs {
+			discovered = append(discovered, caseIdentity(rel, i))
+		}
+	}
+	if err := compareCaseInventory(declared, discovered); err != nil {
+		return nil, nil, err
+	}
+	if selection == "" {
+		return fixtures, declared, nil
+	}
+	wanted := make(map[string]bool)
+	for _, name := range strings.Split(selection, ",") {
+		name = strings.TrimSpace(name)
+		if name == "" || wanted[name] {
+			return nil, nil, fmt.Errorf("empty or duplicate debug fixture %q", name)
+		}
+		wanted[name] = true
+	}
+	var selected []ioFixture
+	var selectedIDs []string
+	for _, fixture := range fixtures {
+		if wanted[fixture.Name] {
+			selected = append(selected, fixture)
+			for i := range fixture.Pairs {
+				selectedIDs = append(selectedIDs, caseIdentity(fixture.Name, i))
+			}
+			delete(wanted, fixture.Name)
+		}
+	}
+	if len(wanted) != 0 {
+		return nil, nil, fmt.Errorf("debug selection names unknown fixtures: %v", wanted)
+	}
+	return selected, selectedIDs, nil
+}
+
+func prepareIORequest(pair ioxPair, bindings map[string]any, options ioRunOptions) ([]byte, error) {
+	if bytes.Contains(pair.Request, []byte("__REVERTER__")) && options.ReverterAddress == "" {
+		return nil, fmt.Errorf("__REVERTER__ requires PAX_EVM_IO_REVERTER_ADDRESS")
+	}
+	for _, name := range requestPlaceholders(pair.Request) {
+		if value, ok := bindings[name]; !ok || value == nil {
+			return nil, fmt.Errorf("missing binding ${%s}", name)
+		}
+	}
+	request := substituteSeedTag(substituteRequest(substituteReverterTag(pair.Request, options.ReverterAddress), bindings), options.SeedBlock)
+	if bytes.Contains(request, []byte("${")) {
+		return nil, fmt.Errorf("unresolved request binding")
+	}
+	return request, nil
+}
+
+func checkIOPair(request, body []byte, header http.Header, pair ioxPair, prior [][]byte) error {
+	if len(pair.Expected) == 0 && pair.RefPair == 0 && bytes.HasPrefix(bytes.TrimSpace(body), []byte("[")) {
+		var batch []json.RawMessage
+		if err := json.Unmarshal(body, &batch); err != nil || len(batch) == 0 {
+			return fmt.Errorf("invalid or empty batch response")
+		}
+		if len(pair.ExpectBodyContains) == 0 && len(pair.ExpectResponseHeaders) == 0 {
+			return fmt.Errorf("batch response needs explicit directives")
+		}
+	} else {
+		if err := validateRPCResponse(request, body, pair.Expected); err != nil {
+			return err
+		}
+		if pair.RefPair != 0 {
+			idx := pair.RefPair - 1
+			if idx < 0 || idx >= len(prior) {
+				return fmt.Errorf("ref_pair %d must name an earlier response", pair.RefPair)
+			}
+			for _, path := range []string{"result.number", "result.hash"} {
+				got, ok := getJSONPath(body, path)
+				reference, found := getJSONPath(prior[idx], path)
+				if !ok || !found || !reflect.DeepEqual(got, reference) {
+					return fmt.Errorf("ref_pair %d differs at %s", pair.RefPair, path)
+				}
+			}
+		}
+	}
+	for _, sub := range pair.ExpectBodyContains {
+		if !bytes.Contains(body, []byte(sub)) {
+			return fmt.Errorf("response body missing %q", sub)
+		}
+	}
+	for _, name := range pair.ExpectResponseHeaders {
+		if header.Get(name) == "" {
+			return fmt.Errorf("response header missing %q", name)
+		}
+	}
+	return nil
+}
+
+func executeIOFixture(client *rpcClient, fixture ioFixture, options ioRunOptions) ([]string, error) {
+	if len(fixture.Pairs) == 0 {
+		return nil, fmt.Errorf("%s has no request/response pairs", fixture.Name)
+	}
+	bindings := make(map[string]any)
+	if options.DeployTxHash != "" {
+		bindings["deployTxHash"] = options.DeployTxHash
+		bindings["txHash"] = options.DeployTxHash
+	}
+	var executed []string
+	var responses [][]byte
+	for i, pair := range fixture.Pairs {
+		id := caseIdentity(fixture.Name, i)
+		request, err := prepareIORequest(pair, bindings, options)
+		if err != nil {
+			return executed, fmt.Errorf("%s: %w", id, err)
+		}
+		body, status, header, err := client.call(request)
+		executed = append(executed, id)
+		if err != nil {
+			return executed, fmt.Errorf("%s: call: %w", id, err)
+		}
+		if status != http.StatusOK {
+			return executed, fmt.Errorf("%s: HTTP %d body %s", id, status, body)
+		}
+		if err := checkIOPair(request, body, header, pair, responses); err != nil {
+			return executed, fmt.Errorf("%s: %w; response %s", id, err, body)
+		}
+		for _, b := range pair.AfterBindings {
+			if value, ok := getJSONPath(body, b.Path); !ok || value == nil {
+				return executed, fmt.Errorf("%s: missing binding path %s", id, b.Path)
+			}
+		}
+		applyBindings(bindings, body, pair)
+		responses = append(responses, body)
+	}
+	return executed, nil
+}
+
 func TestEVMRPCSpec(t *testing.T) {
 	if os.Getenv("PAX_EVM_IO_RUN_INTEGRATION") != "1" {
 		t.Skip("EVM RPC integration tests skipped (set PAX_EVM_IO_RUN_INTEGRATION=1 to run)")
 	}
-
 	abs, err := ioTestsDir()
 	if err != nil {
-		t.Fatalf("resolve io tests dir: %v", err)
+		t.Fatal(err)
 	}
-	if _, err := os.Stat(abs); os.IsNotExist(err) {
-		t.Skipf("io tests dir not found: %s", abs)
-	}
-	files, err := collectIOFiles(abs)
+	content, err := os.ReadFile("case_inventory.json")
 	if err != nil {
-		t.Fatalf("collect .io files: %v", err)
+		t.Fatalf("read declared case inventory: %v", err)
 	}
-	if len(files) == 0 {
-		t.Skipf("no .io files in %s", abs)
+	var declared []string
+	if err := json.Unmarshal(content, &declared); err != nil {
+		t.Fatal(err)
 	}
-	if list := os.Getenv("PAX_EVM_IO_DEBUG_FILES"); list != "" {
-		allowed := make(map[string]bool)
-		for _, s := range strings.Split(list, ",") {
-			allowed[strings.TrimSpace(s)] = true
-		}
-		filtered := files[:0]
-		for _, f := range files {
-			if allowed[f] {
-				filtered = append(filtered, f)
-			}
-		}
-		if len(filtered) > 0 {
-			files = filtered
-		}
+	fixtures, selected, err := loadIOFixtures(abs, declared, os.Getenv("PAX_EVM_IO_DEBUG_FILES"))
+	if err != nil {
+		t.Fatal(err)
 	}
-
-	url := rpcURL()
-	client := &rpcClient{URL: url}
+	client := &rpcClient{URL: rpcURL()}
 	if !nodeReachable(client) {
-		t.Fatalf("EVM RPC node not reachable at %s (integration mode requires a running node)", url)
+		t.Fatalf("EVM RPC node not reachable at %s", client.URL)
 	}
-
-	debug := os.Getenv("PAX_EVM_IO_DEBUG_FILES") != ""
-	seedBlock := os.Getenv("PAX_EVM_IO_SEED_BLOCK")
-	reverterAddr := os.Getenv("PAX_EVM_IO_REVERTER_ADDRESS")
-	var passed, failed, skipped int
-
-	for _, rel := range files {
-		rel := rel
-		t.Run(rel, func(t *testing.T) {
-			defer func() {
-				switch {
-				case t.Skipped():
-					skipped++
-				case t.Failed():
-					failed++
-				default:
-					passed++
-				}
-			}()
-
-			if debug {
-				t.Logf("[DEBUG] PAX_EVM_IO_SEED_BLOCK=%q", seedBlock)
+	options := ioRunOptions{SeedBlock: os.Getenv("PAX_EVM_IO_SEED_BLOCK"), ReverterAddress: os.Getenv("PAX_EVM_IO_REVERTER_ADDRESS"), DeployTxHash: os.Getenv("PAX_EVM_IO_DEPLOY_TX_HASH")}
+	var executed []string
+	evmRPCSpecResults = struct{ passed, failed, skipped int }{}
+	for _, fixture := range fixtures {
+		if t.Run(fixture.Name, func(t *testing.T) {
+			cases, err := executeIOFixture(client, fixture, options)
+			executed = append(executed, cases...)
+			for _, id := range cases {
+				t.Logf("executed %s", id)
 			}
-			path := filepath.Join(abs, filepath.FromSlash(rel))
-			content, err := os.ReadFile(path)
 			if err != nil {
-				t.Fatalf("read file: %v", err)
+				t.Fatal(err)
 			}
-			pairs, err := parseIOFile(string(content))
-			if err != nil {
-				t.Fatalf("parse .io: %v", err)
-			}
-			if len(pairs) == 0 {
-				t.Skip("no request/response pairs in file")
-			}
-			needReverter := false
-			for _, p := range pairs {
-				if bytes.Contains(p.Request, []byte("__REVERTER__")) {
-					needReverter = true
-					break
-				}
-			}
-			if needReverter && reverterAddr == "" {
-				t.Skip("__REVERTER__ used but PAX_EVM_IO_REVERTER_ADDRESS not set (run evm_rpc_tests.sh to deploy reverter)")
-			}
-
-			bindings := make(map[string]any)
-			if deployTx := os.Getenv("PAX_EVM_IO_DEPLOY_TX_HASH"); deployTx != "" {
-				bindings["deployTxHash"] = deployTx
-				bindings["txHash"] = deployTx
-			}
-			responses := make([][]byte, len(pairs))
-
-			for i, pair := range pairs {
-				placeholders := requestPlaceholders(pair.Request)
-				if debug {
-					t.Logf("[DEBUG] pair %d: placeholders=%v bindings=%v", i+1, placeholders, bindings)
-				}
-				var missing []string
-				for _, name := range placeholders {
-					if _, ok := bindings[name]; !ok {
-						missing = append(missing, name)
-					}
-				}
-				if len(missing) > 0 {
-					t.Logf("[SKIP] pair %d needs %v; missing %v", i+1, placeholders, missing)
-					t.Skipf("pair %d: missing binding ${%s}", i+1, missing[0])
-				}
-
-				req := substituteSeedTag(substituteRequest(substituteReverterTag(pair.Request, reverterAddr), bindings), seedBlock)
-				if debug {
-					t.Logf("[DEBUG] pair %d: request %s", i+1, req)
-				}
-				body, status, respHdr, err := client.call(req)
-				if err != nil {
-					t.Fatalf("pair %d: call: %v", i+1, err)
-				}
-				if status != http.StatusOK {
-					t.Fatalf("pair %d: status %d body %s", i+1, status, body)
-				}
-				responses[i] = body
-				if debug {
-					logDebugResponse(t, body, i+1)
-				}
-				applyBindings(bindings, body, pair)
-				if debug {
-					t.Logf("[DEBUG] pair %d: bindings after apply: %v", i+1, bindings)
-				}
-
-				if pair.RefPair != 0 {
-					refIdx := pair.RefPair - 1
-					if refIdx < 0 || refIdx >= len(responses) || refIdx == i {
-						t.Fatalf("pair %d: invalid ref_pair %d", i+1, pair.RefPair)
-					}
-					if !sameBlockResult(t, body, responses[refIdx]) {
-						t.Fatalf("pair %d: ref_pair %d check failed", i+1, pair.RefPair)
-					}
-					assertPairBodyDirectives(t, pair, body)
-					assertPairHeaderDirectives(t, pair, respHdr)
-					continue
-				}
-				if len(pair.Expected) > 0 {
-					if !specOnly(t, body, pair.Expected) {
-						logActualResponse(t, body)
-						t.Fatalf("pair %d: spec-only check failed", i+1)
-					}
-					assertPairBodyDirectives(t, pair, body)
-					assertPairHeaderDirectives(t, pair, respHdr)
-					continue
-				}
-				var m map[string]json.RawMessage
-				if err := json.Unmarshal(body, &m); err != nil {
-					// JSON-RPC batch responses are a top-level JSON array; require @ directives to assert them.
-					var batch []json.RawMessage
-					if err2 := json.Unmarshal(body, &batch); err2 == nil && len(batch) > 0 {
-						if len(pair.ExpectBodyContains) == 0 && len(pair.ExpectResponseHeaders) == 0 {
-							t.Fatalf("pair %d: batch response needs @ expect_body_contains or @ expect_response_header (got %d elements)", i+1, len(batch))
-						}
-						assertPairBodyDirectives(t, pair, body)
-						assertPairHeaderDirectives(t, pair, respHdr)
-						continue
-					}
-					t.Fatalf("pair %d: invalid JSON response: %v", i+1, err)
-				}
-				if _, hasResult := m["result"]; !hasResult {
-					if _, hasErr := m["error"]; !hasErr {
-						t.Fatalf("pair %d: response has neither result nor error", i+1)
-					}
-				}
-				assertPairBodyDirectives(t, pair, body)
-				assertPairHeaderDirectives(t, pair, respHdr)
-			}
-		})
+		}) {
+			evmRPCSpecResults.passed++
+		} else {
+			evmRPCSpecResults.failed++
+		}
 	}
-
-	if passed+failed+skipped > 0 {
-		evmRPCSpecResults.passed = passed
-		evmRPCSpecResults.failed = failed
-		evmRPCSpecResults.skipped = skipped
+	if err := compareCaseInventory(selected, executed); err != nil {
+		t.Fatal(err)
 	}
 }
 

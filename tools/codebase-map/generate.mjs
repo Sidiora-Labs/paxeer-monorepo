@@ -8,7 +8,6 @@ import { DatabaseSync } from "node:sqlite";
 const toolRoot = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(toolRoot, "../..");
 const databasePath = join(repositoryRoot, ".codegraph/graph.db");
-const specPath = join(repositoryRoot, "spec/layerx-platform/spec.kvx");
 const outputPath = join(toolRoot, "data/codebase-map.json");
 
 const GRAPH_SCHEMA_VERSION = "14";
@@ -26,8 +25,8 @@ function zeroSeparated(buffer) {
   return buffer.toString("utf8").split("\0").filter(Boolean);
 }
 
-function parseTrackedFiles() {
-  const records = zeroSeparated(git(["ls-files", "--stage", "-z"], { encoding: "buffer" }));
+export function parseTrackedFiles(output = git(["ls-files", "--stage", "-z"], { encoding: "buffer" })) {
+  const records = zeroSeparated(output);
   return records.map((record) => {
     const tab = record.indexOf("\t");
     const [mode, blob, stage] = record.slice(0, tab).split(" ");
@@ -35,10 +34,8 @@ function parseTrackedFiles() {
   });
 }
 
-function parseStatus() {
-  const records = zeroSeparated(
-    git(["status", "--porcelain=v1", "-z", "--untracked-files=all"], { encoding: "buffer" }),
-  );
+export function parseStatus(output = git(["status", "--porcelain=v1", "-z", "--untracked-files=all"], { encoding: "buffer" })) {
+  const records = zeroSeparated(output);
   const statuses = new Map();
   for (let index = 0; index < records.length; index += 1) {
     const record = records[index];
@@ -77,8 +74,8 @@ function areaFor(path) {
   return path.includes("/") ? path.slice(0, path.indexOf("/")) : "(root)";
 }
 
-function workingMetadata(path, changed) {
-  const absolutePath = join(repositoryRoot, path);
+function workingMetadata(path, changed, root) {
+  const absolutePath = join(root, path);
   if (!existsSync(absolutePath)) return { workingSize: null, workingHash: null, deleted: true };
   const stat = lstatSync(absolutePath);
   if (!stat.isFile()) return { workingSize: stat.size, workingHash: null, deleted: false };
@@ -89,8 +86,8 @@ function workingMetadata(path, changed) {
   return { workingSize: stat.size, workingHash, deleted: false };
 }
 
-function parseManifestName(path) {
-  const absolutePath = join(repositoryRoot, path);
+function parseManifestName(path, root) {
+  const absolutePath = join(root, path);
   if (!existsSync(absolutePath) || lstatSync(absolutePath).size > 2 * 1024 * 1024) return null;
   const source = readFileSync(absolutePath, "utf8");
   const filename = path.split("/").at(-1);
@@ -113,7 +110,7 @@ function parseManifestName(path) {
   return null;
 }
 
-function discoverPackages(paths) {
+function discoverPackages(paths, root) {
   const manifestNames = new Set([
     "Cargo.toml", "package.json", "go.mod", "pyproject.toml", "Package.swift", "pom.xml",
     "build.gradle", "build.gradle.kts",
@@ -125,7 +122,7 @@ function discoverPackages(paths) {
       const fallback = directory ? directory.split("/").at(-1) : "LayerX protocol";
       return {
         id: "",
-        name: parseManifestName(manifest) ?? fallback,
+        name: parseManifestName(manifest, root) ?? fallback,
         directory,
         manifest,
         ecosystem: manifest.split("/").at(-1),
@@ -165,11 +162,12 @@ export function parsePlatformSpec(source) {
   const tasks = [];
   let current = null;
   for (const line of source.split(/\r?\n/)) {
-    const section = line.match(/^\[(req|task)\.([^\]]+)\]\s*$/);
-    if (section) {
+    const header = line.match(/^\s*\[([^\]]+)\]\s*(?:#.*)?$/);
+    if (header) {
       if (current?.type === "req") requirements.push(current.value);
       if (current?.type === "task") tasks.push(current.value);
-      current = { type: section[1], value: { id: section[2] } };
+      const section = header[1].match(/^(req|task)\.(.+)$/);
+      current = section ? { type: section[1], value: { id: section[2] } } : null;
       continue;
     }
     if (!current) continue;
@@ -214,23 +212,43 @@ function aggregateEdges(edges, sourceFor, targetFor) {
   return [...aggregated.values()].sort((left, right) => right.total - left.total);
 }
 
-function main() {
-  if (!existsSync(databasePath)) throw new Error("Missing .codegraph/graph.db. Run `cg init` first.");
-  if (!existsSync(specPath)) throw new Error("Missing authoritative spec/layerx-platform/spec.kvx.");
+export function readActiveSpec(root = repositoryRoot) {
+  const workflowPath = join(root, "spec/workflow.kvx");
+  if (!existsSync(workflowPath)) throw new Error("Missing spec configuration spec/workflow.kvx.");
+  let section = null;
+  let feature = null;
+  for (const line of readFileSync(workflowPath, "utf8").split(/\r?\n/)) {
+    const header = line.match(/^\s*\[([^\]]+)\]\s*(?:#.*)?$/);
+    if (header) section = header[1];
+    if (section !== "meta") continue;
+    const setting = line.match(/^\s*active_feature\s*=\s*("(?:[^"\\]|\\.)*")\s*(?:#.*)?$/);
+    if (setting) feature = JSON.parse(setting[1]);
+  }
+  if (!feature || !/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(feature)) {
+    throw new Error("Missing or invalid [meta] active_feature in spec/workflow.kvx.");
+  }
+  const specPath = `spec/${feature}/spec.kvx`;
+  const absolutePath = join(root, specPath);
+  if (!existsSync(absolutePath)) throw new Error(`Missing authoritative ${specPath}.`);
+  return { feature, specPath, ...parsePlatformSpec(readFileSync(absolutePath, "utf8")) };
+}
 
-  const database = new DatabaseSync(databasePath, { readOnly: true });
+// The CLI supplies live Git/index inputs; offline consumers may supply recorded
+// inventories and an in-memory Codify database through the same producer.
+export function generateSnapshot({
+  root = repositoryRoot, database, tracked, statusByPath,
+  commit, branch, graphUpdatedAt, platform = readActiveSpec(root),
+}) {
   const metadata = Object.fromEntries(database.prepare("SELECT key, value FROM meta").all().map((row) => [row.key, row.value]));
   if (metadata.schema_version !== GRAPH_SCHEMA_VERSION) {
     throw new Error(`Unsupported Codify schema ${metadata.schema_version}; expected ${GRAPH_SCHEMA_VERSION}.`);
   }
 
-  const tracked = parseTrackedFiles();
-  const statusByPath = parseStatus();
   const graphFiles = database.prepare("SELECT id, path, lang, size, mtime, hash, lines FROM files ORDER BY path").all();
   const graphFileByPath = new Map(graphFiles.map((file) => [file.path, file]));
   const trackedByPath = new Map(tracked.map((file) => [file.path, file]));
   const paths = [...new Set([...trackedByPath.keys(), ...graphFileByPath.keys()])].sort();
-  const packages = discoverPackages(paths);
+  const packages = discoverPackages(paths, root);
   const packageById = new Map(packages.map((entry) => [entry.id, entry]));
 
   const symbolCounts = new Map(database.prepare("SELECT file_id, count(*) count FROM symbols GROUP BY file_id").all().map((row) => [row.file_id, row.count]));
@@ -248,7 +266,7 @@ function main() {
     const graph = graphFileByPath.get(path);
     const gitFile = trackedByPath.get(path);
     const status = statusByPath.get(path) ?? "  ";
-    const working = workingMetadata(path, status !== "  ");
+    const working = workingMetadata(path, status !== "  ", root);
     return {
       id: `f:${index}`,
       graphId: graph?.id ?? null,
@@ -386,7 +404,6 @@ function main() {
     (edge) => areaMap.get(fileById.get(edge.target)?.area)?.id,
   );
 
-  const platform = parsePlatformSpec(readFileSync(specPath, "utf8"));
   const taskLinks = [];
   for (const task of platform.tasks) {
     for (const path of task.touches) {
@@ -413,15 +430,14 @@ function main() {
     return result;
   }, {})).sort((left, right) => right.files - left.files);
 
-  const graphStat = statSync(databasePath);
   const data = {
     schemaVersion: GENERATED_SCHEMA_VERSION,
     meta: {
       generatedAt: new Date().toISOString(),
-      repository: relative(dirname(repositoryRoot), repositoryRoot),
-      branch: git(["branch", "--show-current"]).trim() || "detached",
-      commit: git(["rev-parse", "HEAD"]).trim(),
-      graphDatabaseUpdatedAt: graphStat.mtime.toISOString(),
+      repository: relative(dirname(root), root),
+      branch,
+      commit,
+      graphDatabaseUpdatedAt: graphUpdatedAt,
       codifySchemaVersion: metadata.schema_version,
       codifyIndexMilliseconds: Number(metadata.last_index_ms),
       relationshipPolicy: "Only Codify-resolved internal call targets and resolved imports become code edges.",
@@ -429,8 +445,8 @@ function main() {
       sources: [
         "git ls-files --stage",
         "git status --porcelain=v1",
-        ".codegraph/graph.db schema 10",
-        "spec/layerx-platform/spec.kvx",
+        `.codegraph/graph.db schema ${GRAPH_SCHEMA_VERSION}`,
+        platform.specPath,
       ],
     },
     coverage: {
@@ -467,11 +483,30 @@ function main() {
     taskLinks,
   };
 
+  return data;
+}
+
+function main() {
+  const platform = readActiveSpec();
+  if (!existsSync(databasePath)) throw new Error("Missing .codegraph/graph.db. Run `cg init` first.");
+  const database = new DatabaseSync(databasePath, { readOnly: true });
+  let data;
+  try {
+    data = generateSnapshot({
+      database, platform,
+      tracked: parseTrackedFiles(), statusByPath: parseStatus(),
+      commit: git(["rev-parse", "HEAD"]).trim(),
+      branch: git(["branch", "--show-current"]).trim() || "detached",
+      graphUpdatedAt: statSync(databasePath).mtime.toISOString(),
+    });
+  } finally {
+    database.close();
+  }
   mkdirSync(dirname(outputPath), { recursive: true });
   writeFileSync(outputPath, JSON.stringify(data));
   const megabytes = statSync(outputPath).size / (1024 * 1024);
   console.log(`Generated ${outputPath}`);
-  console.log(`${files.length} files, ${symbols.length} symbols, ${fileEdges.length} file edges, ${symbolEdges.length} resolved symbol edges`);
+  console.log(`${data.files.length} files, ${data.symbols.length} symbols, ${data.fileEdges.length} file edges, ${data.symbolEdges.length} resolved symbol edges`);
   console.log(`${megabytes.toFixed(1)} MiB; Git ${data.meta.commit.slice(0, 12)} on ${data.meta.branch}`);
 }
 
