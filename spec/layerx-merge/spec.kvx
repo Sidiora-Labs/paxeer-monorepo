@@ -154696,7 +154696,7 @@ do_11 = "Attempt 2 (continue): the bridge type-check now runs the package typech
 
 [task.22.33.253]
 title = "Repair audit record 22.30.13 medium findings in apps/perps/tests (part 1 of 1): config-drift, runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.10", "22.31.11", "22.31.12", "22.31.13", "22.31.479", "22.31.480"]
@@ -155075,7 +155075,7 @@ do_10 = "Attempt 2 (continue): the type-check failed only because sdk/wallet and
 
 [task.22.33.200]
 title = "Repair audit record 22.30.12 medium findings in apps/perps/src/widgets/network-pill (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.7", "22.31.8", "22.31.9", "22.31.479", "22.31.480"]
@@ -279599,7 +279599,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1143]
 title = "Repair audit record 22.30.50 medium findings in node (part 4 of 4): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.102"]
