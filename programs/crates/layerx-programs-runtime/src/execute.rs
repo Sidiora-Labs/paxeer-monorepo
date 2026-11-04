@@ -5431,12 +5431,20 @@ pub struct MarketSandboxExecution {
     pub profile_binding: [u8; 32],
     pub values: Vec<WasmValue>,
     pub usage: crate::MeteredUsage,
+    pub ingress_bytes: u64,
+    pub output_digest: [u8; 32],
     pub record: crate::replay_record::ProgramReplayRecord,
     pub boundary_leaves: Vec<Vec<u8>>,
     pub initial_commitment: crate::ArbitrationStepCommitment,
     pub final_commitment: crate::ArbitrationStepCommitment,
     pub terminal_fault: Option<ExecutionFault>,
     pub final_namespace_bytes: u64,
+}
+
+impl MarketSandboxExecution {
+    pub fn billing_usage(&self, interval_batches: u64) -> Option<[u64; 6]> {
+        market_billing_usage(self.usage, self.ingress_bytes, interval_batches)
+    }
 }
 
 pub fn market_sandbox_input_bytes(
@@ -5487,6 +5495,40 @@ pub fn market_sandbox_input_digest(
     );
     hash.update(arguments);
     Ok(hash.finalize().into())
+}
+
+fn market_sandbox_output_digest(
+    values: &[WasmValue],
+) -> Result<[u8; 32], crate::replay::ReplayWitnessError> {
+    use sha2::{Digest, Sha256};
+    let bytes = market_sandbox_input_bytes(values)?;
+    let mut hash = Sha256::new();
+    hash.update(b"LayerX/programs/market-output/v1\0");
+    hash.update(
+        u64::try_from(bytes.len())
+            .map_err(|_| crate::replay::ReplayWitnessError::Bounds)?
+            .to_be_bytes(),
+    );
+    hash.update(bytes);
+    Ok(hash.finalize().into())
+}
+
+fn market_billing_usage(
+    usage: MeteredUsage,
+    ingress_bytes: u64,
+    interval: u64,
+) -> Option<[u64; 6]> {
+    if interval == 0 {
+        return None;
+    }
+    Some([
+        usage.cpu_fuel,
+        usage.memory_bytes.checked_mul(interval)?,
+        usage.storage_read_bytes,
+        usage.storage_write_bytes,
+        ingress_bytes,
+        usage.output_bytes,
+    ])
 }
 
 impl ProgramInstance {
@@ -5678,10 +5720,15 @@ impl ProgramInstance {
             .ok_or(RuntimeBoundaryReplayError::Binding)?
             .storage_snapshot();
         let final_namespace_bytes = inputs.namespace_bytes(&final_storage)?;
+        let ingress_bytes = u64::try_from(market_sandbox_input_bytes(request.args)?.len())
+            .map_err(|_| crate::replay::ReplayWitnessError::Bounds)?;
+        let output_digest = market_sandbox_output_digest(&values)?;
         Ok(MarketSandboxExecution {
             profile_binding: inputs.profile_binding,
             values,
             usage,
+            ingress_bytes,
+            output_digest,
             record,
             boundary_leaves,
             initial_commitment,
@@ -6054,6 +6101,85 @@ fn market_step_holds(
     )
 }
 
+fn market_terminal_billing_holds(
+    module: &ValidatedModule,
+    profile: &layerx_program_sdk::arbiter::MarketSandboxProfile,
+    billing: &layerx_program_sdk::arbiter::MarketBillingCommitment,
+    authority: &crate::replay::MarketSandboxReplayAuthority,
+    last: &crate::portable_replay::PortableBoundary,
+    maximum: usize,
+) -> bool {
+    let Ok((restored, _)) =
+        crate::replay::restore_market_sandbox_semantic(&last.semantic_bytes, authority, maximum)
+    else {
+        return false;
+    };
+    if restored
+        .recapture(maximum)
+        .and_then(|semantic| {
+            semantic.compare_boundary(module.code_hash(), &last.replay.snapshot.supplement)
+        })
+        .is_err()
+    {
+        return false;
+    }
+    let state = restored.into_runtime_state();
+    let Ok(usage) = state.meter().execution_trace_usage() else {
+        return false;
+    };
+    let Ok(instance) = module.instantiate_untrusted_replay(state) else {
+        return false;
+    };
+    let Ok(entrypoint) = profile.entrypoint() else {
+        return false;
+    };
+    let Some(function) = instance
+        .instance
+        .get_export(&instance.store, entrypoint)
+        .and_then(Extern::into_func)
+    else {
+        return false;
+    };
+    let signature = function.ty(&instance.store);
+    let mut ingress_bytes = 0_u64;
+    for parameter in signature.params() {
+        let bytes = match parameter {
+            wasmi::core::ValueType::I32 => 5,
+            wasmi::core::ValueType::I64 => 9,
+            _ => return false,
+        };
+        let Some(next) = ingress_bytes.checked_add(bytes) else {
+            return false;
+        };
+        ingress_bytes = next;
+    }
+    let Some(interval) = profile.interval_end.checked_sub(profile.interval_start) else {
+        return false;
+    };
+    if market_billing_usage(usage, ingress_bytes, interval) != Some(billing.usage) {
+        return false;
+    }
+    let mut values = Vec::new();
+    if last.trap.is_none() {
+        let stack = &last.arbitration.legacy.value_stack;
+        if stack.len() != signature.results().len() {
+            return false;
+        }
+        for (value, expected) in stack.iter().zip(signature.results()) {
+            values.push(match (value, expected) {
+                (crate::ExecutionValue::I32(value), wasmi::core::ValueType::I32) => {
+                    WasmValue::I32(*value)
+                }
+                (crate::ExecutionValue::I64(value), wasmi::core::ValueType::I64) => {
+                    WasmValue::I64(*value)
+                }
+                _ => return false,
+            });
+        }
+    }
+    market_sandbox_output_digest(&values).is_ok_and(|digest| digest == billing.output_digest)
+}
+
 /// Adjudicates one step of a provider's committed sandbox trace for the calling market program.
 ///
 /// The header names the mode, the trace position and the market's own authorized sandbox profile
@@ -6232,6 +6358,9 @@ pub fn adjudicate_market_step(
             let last = &boundaries[0];
             market_boundary_identity_holds(&profile, last)
                 && commitment == Some(billing.final_execution_state_root)
+                && market_terminal_billing_holds(
+                    module, &profile, &billing, &authority, last, maximum,
+                )
                 && if last.trap.is_some() {
                     market_step_holds(module, &authority, last, last.clone(), true, maximum)
                 } else {
