@@ -3,7 +3,7 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/../../.."
 : "${CAPS_BUILD_DIR:?private output directory required}"
 : "${CAPS_NATIVE_STAGE_DIR:?own non-secret executable staging directory required}"
-: "${CAPS_NATIVE_BIN_DIR:?compatible prebuilt layerxd and genesis builder directory required}"
+: "${CAPS_NATIVE_BIN_DIR:?source-bound prebuilt paxd capability transport directory required}"
 : "${CAPS_NATIVE_SOURCE:?source checkout of compatible prebuilt native libraries required}"
 : "${CARGO_TARGET_DIR:?unique task target directory required}"
 : "${CAPS_RUST_TOOLCHAIN:?explicit Rust1.91.1 toolchain directory required}"
@@ -20,22 +20,28 @@ python3 - <<'PY'
 import os,subprocess,pathlib,json,hashlib,shutil
 root=pathlib.Path.cwd(); source=pathlib.Path(os.environ['CAPS_NATIVE_SOURCE']); out=pathlib.Path(os.environ['CAPS_BUILD_DIR'])
 def git(where,*args):return subprocess.check_output(['git','-C',str(where),*args],text=True).strip()
-def sha(p):return hashlib.file_digest(open(p,'rb'),'sha256').hexdigest()
+def sha(p):
+ with open(p,'rb') as stream:return hashlib.file_digest(stream,'sha256').hexdigest()
+def stage_capability_transport(original, directory):
+ original=pathlib.Path(original)
+ if original.is_symlink() or not original.is_file() or not os.access(original,os.X_OK):
+  raise RuntimeError('retained paxd capability transport executable required')
+ target=pathlib.Path(directory)/'paxd'
+ if target.is_symlink() or original.resolve()==target.resolve():
+  raise RuntimeError('cannot stage over the producer capability transport')
+ shutil.copy2(original,target)
+ target.chmod(0o755)
+ if sha(target)!=sha(original):raise RuntimeError('staged capability transport digest mismatch')
+ return {'path':str(target.resolve()),'sha256':sha(target)}
 for tree in ['src','include','programs','cmd','migrations','contracts/config']:
  if git(root,'rev-parse','HEAD:'+tree)!=git(source,'rev-parse','HEAD:'+tree):raise SystemExit('incompatible native source tree: '+tree)
  subprocess.run(['git','-C',str(source),'diff','--exit-code','HEAD','--',tree],check=True,stdout=subprocess.DEVNULL)
 paths=[source/'build/liblayerx.a',source/'programs/target/debug/liblayerx_programs_sandbox.a']
-provenance={'revision':git(root,'rev-parse','HEAD'),'native_revision':git(source,'rev-parse','HEAD'),'native_source_trees':{t:git(root,'rev-parse','HEAD:'+t) for t in ['src','include','programs','cmd','migrations','contracts/config']},'native_libraries':{str(p):sha(p) for p in paths},'rustc':subprocess.check_output([os.environ['RUSTC'],'--version'],text=True).strip()}
+provenance={'revision':git(root,'rev-parse','HEAD'),'native_revision':git(source,'rev-parse','HEAD'),'capability_transport':{'process':'paxd','method':'px_getCapabilities','rpc_path':'/'},'native_source_trees':{t:git(root,'rev-parse','HEAD:'+t) for t in ['src','include','programs','cmd','migrations','contracts/config']},'native_libraries':{str(p):sha(p) for p in paths},'rustc':subprocess.check_output([os.environ['RUSTC'],'--version'],text=True).strip()}
 native=pathlib.Path(os.environ['CAPS_NATIVE_STAGE_DIR']).resolve()
 if native == pathlib.Path(os.environ['CAPS_NATIVE_BIN_DIR']).resolve():raise SystemExit('cannot stage over producer binaries')
 native.mkdir(parents=True,exist_ok=True);native.chmod(0o755)
-provenance['authority_binaries']={}
-for name in ['layerxd','layerx-genesis-build']:
- original=pathlib.Path(os.environ['CAPS_NATIVE_BIN_DIR'])/name
- target=native/name
- shutil.copy2(original,target)
- target.chmod(0o755)
- provenance['authority_binaries'][name]={'path':str(target),'sha256':sha(target)}
+provenance['authority_binaries']={'paxd':stage_capability_transport(pathlib.Path(os.environ['CAPS_NATIVE_BIN_DIR'])/'paxd',native)}
 (out/'native-source.json').write_text(json.dumps(provenance,indent=2)+'\n')
 PY
 if [[ -n "${CAPS_REUSE_MANIFEST:-}" ]]; then
