@@ -277,7 +277,7 @@
         "cmd/layerxd/lxp_daemon_lni.c",
         "cmd/layerxd"
       ],
-      "replacement": "writes are eth_sendRawTransaction through the unified router and reads are eth_call on the precompile views or gRPC queries at a height"
+      "replacement": "Submit writes with eth_sendRawTransaction directly to the public node root JSON-RPC on the one Paxeer network (chain ID 125); read precompile views with eth_call or gRPC queries pinned to a committed block height. Block commitment is final."
     },
     "paxeer-verifier": {
       "req": "11022",
