@@ -205131,7 +205131,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1006]
 title = "Repair audit record 22.30.35 medium findings in services/launchpad/metadata/internal/app (part 1 of 1): runtime-risk, security, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.58", "22.31.59"]
@@ -205238,7 +205238,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1001]
 title = "Repair audit record 22.30.34 medium findings in services/launchpad/livestream/internal/streams (part 1 of 1): config-drift, restart-recovery, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.57"]
@@ -220531,7 +220531,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.3]
 title = "Repair audit record 22.30.105 findings in services/human/crates/layerx-human-service/src: interface-mismatch, restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.443"]
