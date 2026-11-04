@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -35,19 +36,18 @@ func TestCanonicalRevisionRejectsManifestAndInterfaceDrift(t *testing.T) {
 }
 
 func TestSerialExportUsesOneCanonicalIdentityWithoutPartialExport(t *testing.T) {
-	m, reader, block, policy := newEVM(t, nil, 125)
-	a, err := Attest(t.Context(), reader, m, block, policy)
-	if err != nil {
-		t.Fatal(err)
-	}
+	a, m, policy, _ := attestSurface(t, nil)
 	r, err := NewRevision(m, strings.Repeat("1", 64), strings.Repeat("2", 64), strings.Repeat("3", 64))
 	if err != nil {
 		t.Fatal(err)
 	}
-	endpoints := PublicEndpoints{RPC: "https://public.example/rpc", Explorer: "https://scan.example", AllowedRPCs: []string{"https://public.example/rpc"}, AllowedExplorers: []string{"https://scan.example"}}
+	endpoints := PublicEndpoints{RPC: "https://api1.mainnet-beta.paxeer.network", Explorer: "https://scan.example", AllowedRPCs: []string{"https://api1.mainnet-beta.paxeer.network"}, AllowedExplorers: []string{"https://scan.example"}}
 	exported, err := ExportRevision(m, a, policy, endpoints, r, m.Addresses(), m.Addresses())
 	if err != nil {
 		t.Fatal(err)
+	}
+	if exported.Network.PublicRPC != "https://api1.mainnet-beta.paxeer.network" {
+		t.Fatalf("serial export root RPC = %q", exported.Network.PublicRPC)
 	}
 	encoded, digest, err := exported.CanonicalBytes()
 	if err != nil {
@@ -56,6 +56,14 @@ func TestSerialExportUsesOneCanonicalIdentityWithoutPartialExport(t *testing.T) 
 	hash := sha256.Sum256(encoded)
 	if digest != hex.EncodeToString(hash[:]) || exported.Revision != r {
 		t.Fatal("serial canonical identity mismatch")
+	}
+	var consumed SerialExport
+	if err = json.Unmarshal(encoded, &consumed); err != nil {
+		t.Fatal(err)
+	}
+	networkHash, err := consumed.Network.Hash()
+	if err != nil || consumed.Network.PublicRPC != endpoints.RPC || consumed.Revision != r || consumed.NetworkSHA256 != networkHash {
+		t.Fatalf("canonical export changed endpoint or deployment identity in JSON transport: %+v %v", consumed, err)
 	}
 	again, againHash, err := exported.CanonicalBytes()
 	if err != nil || !bytes.Equal(encoded, again) || digest != againHash {

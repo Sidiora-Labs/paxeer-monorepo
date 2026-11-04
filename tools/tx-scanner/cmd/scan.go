@@ -1,11 +1,16 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"math"
+	"strings"
 	"sync"
 	"time"
 
+	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
+	pagination "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/query"
+	txtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/tx"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/tools/tx-scanner/client"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/tools/tx-scanner/query"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/tools/tx-scanner/state"
@@ -17,7 +22,7 @@ func ScanCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "scan-tx",
 		Short: "A tool to scan missing transactions",
-		Run:   execute,
+		RunE:  execute,
 	}
 	cmd.PersistentFlags().String("endpoint", "127.0.0.1", "GRPC server endpoint")
 	cmd.PersistentFlags().Int("port", 9090, "GRPC server port")
@@ -28,13 +33,19 @@ func ScanCmd() *cobra.Command {
 	return cmd
 }
 
-func execute(cmd *cobra.Command, _ []string) {
+func execute(cmd *cobra.Command, _ []string) error {
 	endpoint, _ := cmd.Flags().GetString("endpoint")
 	port, _ := cmd.Flags().GetInt("port")
 	bpsLimit, _ := cmd.Flags().GetInt("bps-limit")
 	batchSize, _ := cmd.Flags().GetInt("batch-size")
 	stateDir, _ := cmd.Flags().GetString("state-dir")
 	startHeight, _ := cmd.Flags().GetInt64("start-height")
+	if batchSize <= 0 {
+		return fmt.Errorf("batch-size must be positive (got %d)", batchSize)
+	}
+	if bpsLimit <= 0 {
+		return fmt.Errorf("bps-limit must be positive (got %d)", bpsLimit)
+	}
 	var badBlocks []int64
 	var currentState = state.State{}
 	if batchSize > bpsLimit {
@@ -120,23 +131,55 @@ func processBlock(height int64) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	numTxInBlock := len(blockResp.Block.Data.Txs)
-	// Get all indexed TXs events
-	txResp, err := query.GetTxsEvent(height)
-	if err != nil {
-		return false, err
+	if blockResp == nil || blockResp.Block == nil {
+		return false, fmt.Errorf("missing block at height %d", height)
 	}
-	numTxIndexed := len(txResp.Txs)
-	// Check if the number matches
-	if numTxIndexed == 0 && numTxIndexed != numTxInBlock {
+	canonical := make(map[string]int, len(blockResp.Block.Data.Txs))
+	for _, tx := range blockResp.Block.Data.Txs {
+		canonical[fmt.Sprintf("%X", tmtypes.Tx(tx).Hash())]++
+	}
+	indexed := make(map[string]int, len(canonical))
+	const pageSize = pagination.DefaultLimit
+	for offset := uint64(0); ; offset += pageSize {
+		txResp, err := client.GetTxClient().GetTxsEvent(context.Background(), &txtypes.GetTxsEventRequest{
+			Events:     []string{fmt.Sprintf("tx.height=%d", height)},
+			Pagination: &pagination.PageRequest{Offset: offset, Limit: pageSize, CountTotal: true},
+			OrderBy:    txtypes.OrderBy_ORDER_BY_ASC,
+		})
+		if err != nil {
+			return false, err
+		}
+		if txResp == nil || txResp.Pagination == nil || len(txResp.Txs) != len(txResp.TxResponses) {
+			return false, fmt.Errorf("invalid indexed transaction page at height %d offset %d", height, offset)
+		}
+		for _, resp := range txResp.TxResponses {
+			if resp == nil {
+				return false, fmt.Errorf("missing indexed transaction response at height %d offset %d", height, offset)
+			}
+			indexed[strings.ToUpper(resp.TxHash)]++
+		}
+		end := offset + uint64(len(txResp.TxResponses))
+		if end > txResp.Pagination.Total || (end < txResp.Pagination.Total && len(txResp.TxResponses) != pageSize) {
+			return false, fmt.Errorf("incomplete indexed transaction page at height %d offset %d", height, offset)
+		}
+		if end == txResp.Pagination.Total {
+			break
+		}
+	}
+	if len(indexed) != len(canonical) {
 		fmt.Printf("[Fatal] Missing TXs at block height %d\n", height)
 		return true, nil
 	}
-	// Now make sure each TX does exist
-	for _, resp := range txResp.TxResponses {
-		hash := resp.TxHash
+	for hash, count := range canonical {
+		if indexed[hash] != count {
+			fmt.Printf("[Fatal] Missing transaction hash %s at block height %d\n", hash, height)
+			return true, nil
+		}
+	}
+	// Now make sure each indexed TX can also be retrieved by hash.
+	for hash := range indexed {
 		txByHashResponse, err := query.GetTxByHash(hash)
-		if err != nil || txByHashResponse.TxResponse == nil || txByHashResponse.TxResponse.TxHash != hash {
+		if err != nil || txByHashResponse == nil || txByHashResponse.TxResponse == nil || !strings.EqualFold(txByHashResponse.TxResponse.TxHash, hash) {
 			fmt.Printf("[Fatal] Failed to find transaction hash %s at block height %d \n", hash, height)
 			return true, nil
 		}

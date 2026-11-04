@@ -4,6 +4,7 @@ import React from 'react';
 
 import type { PaxeerXArchiveAnchor } from 'types/api/paxeerXArchive';
 
+import { PAXEER_X_ANCHORS_ITEM } from 'stubs/paxeerXLists';
 import { TableBody, TableRoot } from 'toolkit/chakra/table';
 import { render } from 'ui/shared/layout/testWrapper';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -13,16 +14,7 @@ vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper'))
 
 import PaxeerXAnchorsTableItem, { ANCHOR_SETTLEMENT_RUNG } from './PaxeerXAnchorsTableItem';
 
-const anchor: PaxeerXArchiveAnchor = {
-  frozen: true,
-  batch_number: 1042,
-  checkpoint_id: '0x1a2b3c4d5e6f7081928374655647382910ffeeddccbbaa99887766554433221100',
-  checkpoint_height: 8340992,
-  sealed_height: 8340960,
-  state_root: '0xabcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
-  block_number: 8341004,
-  timestamp: '2023-05-22T18:00:36.000000Z',
-};
+const anchor = PAXEER_X_ANCHORS_ITEM;
 
 const renderItem = (item: PaxeerXArchiveAnchor = anchor) => render(
   <TableRoot variant="scan">
@@ -39,6 +31,10 @@ function anchors_table_item_renders_archive_row() {
   expect(row).toBeTruthy();
   expect(row.getAttribute('data-anchor')).toBe(anchor.checkpoint_id);
   expect(within(row).getByText(String(anchor.batch_number))).toBeTruthy();
+  const checkpointCell = within(row).getAllByRole('cell')[1];
+  const checkpointText = within(checkpointCell).getByText('0x3ed9d81e7c...6967');
+  expect(window.getComputedStyle(checkpointText).visibility).toBe('visible');
+  expect(within(checkpointCell).getByRole('button', { name: 'copy' })).toBeTruthy();
   expect(row.querySelector('[data-label="checkpoint-height"]')?.textContent).toBe(String(anchor.checkpoint_height));
   expect(row.querySelector('[data-label="sealed-height"]')?.textContent).toBe(String(anchor.sealed_height));
   expect(row.querySelector(`a[href="/block/${ anchor.block_number }"]`)?.textContent).toBe(String(anchor.block_number));
@@ -61,8 +57,10 @@ describe('PaxeerXAnchorsTableItem', () => {
   it('offers the state root with a copy control', () => {
     const { container } = renderItem();
 
-    expect(screen.getAllByLabelText('copy')).toHaveLength(1);
-    expect(container.querySelectorAll('td')[3]?.textContent).not.toBe('—');
+    expect(screen.getAllByLabelText('copy')).toHaveLength(2);
+    const stateRootCell = container.querySelectorAll('td')[4];
+    expect(within(stateRootCell).getByRole('button', { name: 'copy' })).toBeTruthy();
+    expect(stateRootCell?.textContent).not.toBe('—');
   });
 
   it('settles the row on the rung the ladder spells for a submitted checkpoint', () => {
@@ -75,7 +73,9 @@ describe('PaxeerXAnchorsTableItem', () => {
   it('drops the copy control when the log carries no state root', () => {
     const { container } = renderItem({ ...anchor, state_root: null });
 
-    expect(screen.queryByLabelText('copy')).toBeNull();
-    expect(container.querySelectorAll('td')[3]?.textContent).toBe('—');
+    expect(screen.getAllByLabelText('copy')).toHaveLength(1);
+    const stateRootCell = container.querySelectorAll('td')[4];
+    expect(within(stateRootCell).queryByLabelText('copy')).toBeNull();
+    expect(stateRootCell?.textContent).toBe('—');
   });
 });

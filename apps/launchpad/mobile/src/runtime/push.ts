@@ -1,5 +1,3 @@
-import { DeviceEventEmitter } from 'react-native';
-import { nativePush } from '../platform/protected-storage.ts';
 import { safePushRoute } from '../contracts.ts';
 import type { SessionController } from './session.ts';
 import type { MobileServices } from './service-client.ts';
@@ -45,6 +43,7 @@ export class PushController {
     try {
       if (!this.session.current)
         throw new Error('Sign in before enabling account notifications');
+      await this.session.validate(this.services, signal);
       const status = await this.platform.requestPermission();
       if (status !== 'granted') return status;
       signal.throwIfAborted();
@@ -133,33 +132,39 @@ export type DeviceProofIssuer = (input: {
   sessionId: string;
   signal: AbortSignal;
 }) => Promise<string>;
+export interface NativePushProvider {
+  permission: PlatformPush['permission'];
+  requestPermission: PlatformPush['requestPermission'];
+  registration(): Promise<
+    Omit<Awaited<ReturnType<PlatformPush['registration']>>, 'proof'>
+  >;
+  listenTokenChanged(listener: () => void): () => void;
+}
 export class NativePlatformPush implements PlatformPush {
   constructor(
     readonly session: SessionController,
-    readonly proofIssuer?: DeviceProofIssuer,
-    readonly authorizeDevice?: MobileServices['deviceAuthorization'],
+    readonly proofIssuer: DeviceProofIssuer | undefined,
+    readonly authorizeDevice: MobileServices['deviceAuthorization'],
+    readonly native: NativePushProvider,
   ) {}
   listenTokenChanged(listener: () => void) {
-    const subscription = DeviceEventEmitter.addListener(
-      'SidioraPushTokenChanged',
-      listener,
-    );
-    return () => subscription.remove();
+    return this.native.listenTokenChanged(listener);
   }
   permission() {
-    return nativePush.permission();
+    return this.native.permission();
   }
   requestPermission() {
-    return nativePush.requestPermission();
+    return this.native.requestPermission();
   }
   async registration() {
     const generation = this.session.generation,
       identity = this.session.current?.identity;
     if (!identity)
       throw new Error('Current authenticated identity required for push');
-    const registration = await nativePush.registration();
+    const registration = await this.native.registration();
     if (
       !/^[0-9a-f-]{36}$/i.test(registration.installationId) ||
+      !['ios', 'android'].includes(registration.platform) ||
       !registration.token ||
       registration.token.length > 4096 ||
       registration.provider !==

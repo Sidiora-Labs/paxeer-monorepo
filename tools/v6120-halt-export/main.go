@@ -15,14 +15,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
 	"math/big"
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
+	"syscall"
+	"time"
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
@@ -228,21 +228,29 @@ func readCalls(goldenPath, usdlPath string, caller sdk.AccAddress) ([]replayCall
 }
 
 type fetcher struct {
-	calls  []replayCall
-	client *rpc.Client
-	block  string
-	a      *app.App
-	base   sdk.Context
-	done   map[readKey]bool
-	codes  []codeEntry
-	states []stateEntry
+	calls          []replayCall
+	client         *rpc.Client
+	block          rpc.BlockNumberOrHash
+	a              *app.App
+	base           sdk.Context
+	done           map[readKey]bool
+	codes          []codeEntry
+	states         []stateEntry
+	requestTimeout time.Duration
+	binding        snapshotBinding
+	publication    *publication
+	raw            []byte
+	heights        []byte
 }
 
 // fetch reads every key of keys the base state lacks from the RPC at the
 // fetcher height and writes the nonzero results into the base state.
 func (f *fetcher) fetch(ctx context.Context, keys []readKey) error {
 	todo := f.pending(keys)
-	sort.Slice(todo, func(i, j int) bool { return lessKey(todo[i], todo[j]) })
+	sortReadKeys(todo)
+	if f.requestTimeout <= 0 {
+		return fmt.Errorf("request timeout must be positive")
+	}
 	for start := 0; start < len(todo); start += batchSize {
 		chunk := todo[start:min(start+batchSize, len(todo))]
 		results := make([]hexutil.Bytes, len(chunk))
@@ -255,13 +263,21 @@ func (f *fetcher) fetch(ctx context.Context, keys []readKey) error {
 					Result: &results[i]}
 			}
 		}
-		if err := f.client.BatchCallContext(ctx, batch); err != nil {
-			return err
+		request, cancel := context.WithTimeout(ctx, f.requestTimeout)
+		err := f.client.BatchCallContext(request, batch)
+		cancel()
+		if err != nil {
+			return fmt.Errorf("fetch batch: %w", err)
 		}
 		for i, k := range chunk {
 			if batch[i].Error != nil {
 				return fmt.Errorf("%s %s: %w", batch[i].Method, k.addr.Hex(), batch[i].Error)
 			}
+			if !k.code && len(results[i]) != common.HashLength {
+				return fmt.Errorf("eth_getStorageAt %s %s: %d bytes", k.addr.Hex(), k.slot.Hex(), len(results[i]))
+			}
+		}
+		for i, k := range chunk {
 			f.done[k] = true
 			if k.code {
 				if len(results[i]) == 0 {
@@ -271,9 +287,6 @@ func (f *fetcher) fetch(ctx context.Context, keys []readKey) error {
 				f.codes = append(f.codes, codeEntry{Address: k.addr.Hex(), Code: results[i]})
 				continue
 			}
-			if len(results[i]) != common.HashLength {
-				return fmt.Errorf("eth_getStorageAt %s %s: %d bytes", k.addr.Hex(), k.slot.Hex(), len(results[i]))
-			}
 			value := common.BytesToHash(results[i])
 			if value == (common.Hash{}) {
 				continue
@@ -281,8 +294,15 @@ func (f *fetcher) fetch(ctx context.Context, keys []readKey) error {
 			f.a.EvmKeeper.SetState(f.base, k.addr, k.slot, value)
 			f.states = append(f.states, stateEntry{Address: k.addr.Hex(), Key: k.slot.Bytes(), Value: value.Bytes()})
 		}
+		if err := f.save(); err != nil {
+			return fmt.Errorf("checkpoint: %w", err)
+		}
 	}
 	return nil
+}
+
+func sortReadKeys(keys []readKey) {
+	sort.Slice(keys, func(i, j int) bool { return lessKey(keys[i], keys[j]) })
 }
 
 // replay sends every call to ctx and returns how many disagree with the
@@ -346,7 +366,12 @@ func (f *fetcher) migrate() (reads []readKey, mismatches int, err error) {
 
 func (f *fetcher) pending(reads []readKey) []readKey {
 	var out []readKey
+	seen := map[readKey]bool{}
 	for _, k := range reads {
+		if seen[k] {
+			continue
+		}
+		seen[k] = true
 		if f.done[k] {
 			continue
 		}
@@ -411,115 +436,58 @@ func (f *fetcher) check(l layoutFile) error {
 	return nil
 }
 
-// fetchRecord is the sibling .height file: the height every key is fetched
-// at and the keys that height holds no code or a zero word for, so a rerun
-// on a complete export needs no RPC.
-type fetchRecord struct {
-	Height uint64        `json:"height"`
-	Absent []absentEntry `json:"absent"`
-}
-
-type absentEntry struct {
-	Address common.Address `json:"address"`
-	Slot    *common.Hash   `json:"slot,omitempty"`
-}
-
-func readRecord(path string, l layoutFile, client *rpc.Client) (fetchRecord, error) {
-	var rec fetchRecord
-	if raw, err := os.ReadFile(path); err == nil {
-		return rec, json.Unmarshal(raw, &rec)
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return rec, err
-	}
-	var head hexutil.Uint64
-	if err := client.Call(&head, "eth_blockNumber"); err != nil {
-		return rec, err
-	}
-	if uint64(head) < l.Height {
-		return rec, fmt.Errorf("eth_blockNumber %d is below the layout.json height %d", head, l.Height)
-	}
-	rec.Height = l.Height
-	return rec, nil
-}
-
-func writeRecord(path string, height uint64, done map[readKey]bool, f *fetcher) error {
-	rec := fetchRecord{Height: height, Absent: []absentEntry{}}
-	var keys []readKey
-	for k := range done {
-		keys = append(keys, k)
-	}
-	sort.Slice(keys, func(i, j int) bool { return lessKey(keys[i], keys[j]) })
-	for _, k := range keys {
-		if k.code {
-			if len(f.a.EvmKeeper.GetCode(f.base, k.addr)) == 0 {
-				rec.Absent = append(rec.Absent, absentEntry{Address: k.addr})
-			}
-			continue
-		}
-		if f.a.EvmKeeper.GetState(f.base, k.addr, k.slot) == (common.Hash{}) {
-			slot := k.slot
-			rec.Absent = append(rec.Absent, absentEntry{Address: k.addr, Slot: &slot})
-		}
-	}
-	bz, err := json.MarshalIndent(rec, "", "  ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(path, append(bz, '\n'), 0o644)
-}
-
-// writeExport appends codes and states to app_state.evm of the export.
-func writeExport(path string, raw []byte, codes []codeEntry, states []stateEntry) error {
+// encodeExport appends codes and states to app_state.evm of the export.
+func encodeExport(raw []byte, codes []codeEntry, states []stateEntry) ([]byte, error) {
 	var doc, appState, evm map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &doc); err != nil {
-		return err
+		return nil, err
 	}
 	if err := json.Unmarshal(doc["app_state"], &appState); err != nil {
-		return err
+		return nil, err
 	}
 	if err := json.Unmarshal(appState["evm"], &evm); err != nil {
-		return err
+		return nil, err
 	}
 	var allCodes []json.RawMessage
 	var allStates []json.RawMessage
 	if err := json.Unmarshal(evm["codes"], &allCodes); err != nil {
-		return err
+		return nil, err
 	}
 	if err := json.Unmarshal(evm["states"], &allStates); err != nil {
-		return err
+		return nil, err
 	}
 	for _, c := range codes {
 		bz, err := json.Marshal(c)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		allCodes = append(allCodes, bz)
 	}
 	for _, s := range states {
 		bz, err := json.Marshal(s)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		allStates = append(allStates, bz)
 	}
 	var err error
 	if evm["codes"], err = marshal(allCodes); err != nil {
-		return err
+		return nil, err
 	}
 	if evm["states"], err = marshal(allStates); err != nil {
-		return err
+		return nil, err
 	}
 	if appState["evm"], err = marshal(evm); err != nil {
-		return err
+		return nil, err
 	}
 	if doc["app_state"], err = marshal(appState); err != nil {
-		return err
+		return nil, err
 	}
 	out, err := marshal(doc)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return os.WriteFile(path, append(out, '\n'), 0o644)
+	return append(out, '\n'), nil
 }
 
 // withInitialHeight returns the genesis document raw with initial_height set
@@ -555,12 +523,34 @@ func run() error {
 	usdlPath := flag.String("usdl", filepath.Join("modules", "launchpad", "keeper", "testdata", "v6120",
 		"usdl.json"), "usdl.json")
 	rpcURL := flag.String("rpc", defaultRPC, "mainnet JSON-RPC")
+	chainID := flag.Uint64("chain-id", defaultChainID, "expected EVM chain ID")
+	blockHash := flag.String("block-hash", "", "required pinned snapshot block hash (0x + 64 hex digits)")
+	requestTimeout := flag.Duration("request-timeout", defaultRequestTimeout, "deadline per RPC request")
+	overallTimeout := flag.Duration("overall-timeout", defaultOverallTimeout, "overall export deadline")
 	activationDone := flag.Int64("activation-done", 0,
 		"done height of the activation (v6.9) plan in the source chain's upgrade store")
 	v610Done := flag.Int64("v610-done", 0, "done height of the v6.10 plan in the source chain's upgrade store")
 	flag.Parse()
-	heightsPath := filepath.Join(filepath.Dir(*exportPath), "v6120-halt-heights.json")
-	heightPath := strings.TrimSuffix(*exportPath, ".json") + ".height"
+	if *requestTimeout <= 0 || *overallTimeout <= 0 {
+		return fmt.Errorf("request and overall timeouts must be positive")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), *overallTimeout)
+	defer cancel()
+	fmt.Fprintf(os.Stderr, "RPC request deadline %s, overall deadline %s\n", *requestTimeout, *overallTimeout)
+	var pinned common.Hash
+	if err := pinned.UnmarshalText([]byte(*blockHash)); err != nil || pinned == (common.Hash{}) {
+		return fmt.Errorf("--block-hash must pin a nonzero 32-byte snapshot hash")
+	}
+	publication := newPublication(*exportPath)
+	lock, err := os.OpenFile(*exportPath+".lock", os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		return err
+	}
+	defer lock.Close()
+	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		return fmt.Errorf("export is locked: %w", err)
+	}
+	defer syscall.Flock(int(lock.Fd()), syscall.LOCK_UN)
 
 	var l layoutFile
 	bz, err := os.ReadFile(*layoutPath)
@@ -573,7 +563,7 @@ func run() error {
 	if len(l.Generations) != 2 {
 		return fmt.Errorf("layout.json lists %d generations", len(l.Generations))
 	}
-	raw, err := os.ReadFile(*exportPath)
+	raw, recordRaw, savedHeights, err := publication.open()
 	if err != nil {
 		return err
 	}
@@ -582,13 +572,30 @@ func run() error {
 		return err
 	}
 
-	client, err := rpc.Dial(*rpcURL)
+	heights, err := marshal(map[string]int64{app.ActivationUpgrade: *activationDone, app.V610Upgrade: *v610Done})
+	if err != nil {
+		return err
+	}
+	heights = append(heights, '\n')
+	if len(savedHeights) > 0 && !bytes.Equal(savedHeights, heights) {
+		var saved, wanted map[string]int64
+		if json.Unmarshal(savedHeights, &saved) != nil || json.Unmarshal(heights, &wanted) != nil || len(saved) != len(wanted) || saved[app.ActivationUpgrade] != *activationDone || saved[app.V610Upgrade] != *v610Done {
+			return fmt.Errorf("upgrade heights sidecar does not match requested heights")
+		}
+	}
+	binding := snapshotBinding{Version: 1, Height: l.Height, ChainID: *chainID, GenesisChain: doc.ChainID, BlockHash: pinned, LayoutDigest: digest(bz), ExportDigest: digest(raw), HeightsDigest: digest(heights)}
+	record, err := readRecord(recordRaw, binding)
+	if err != nil {
+		return err
+	}
+	dialContext, dialCancel := context.WithTimeout(ctx, *requestTimeout)
+	client, err := rpc.DialContext(dialContext, *rpcURL)
+	dialCancel()
 	if err != nil {
 		return err
 	}
 	defer client.Close()
-	record, err := readRecord(heightPath, l, client)
-	if err != nil {
+	if err := validateSnapshot(ctx, client, binding, *requestTimeout); err != nil {
 		return err
 	}
 	height := record.Height
@@ -612,8 +619,9 @@ func run() error {
 	defer func() { _ = os.RemoveAll(home) }()
 	app.DefaultNodeHome = home
 	a := app.SetupWithDefaultHome(true, true, false)
+	defer a.Close()
 	params := doc.ConsensusParams.ToProto()
-	if _, err := a.InitChain(context.Background(), &abci.RequestInitChain{
+	if _, err := a.InitChain(ctx, &abci.RequestInitChain{
 		Time:            doc.GenesisTime,
 		ChainId:         doc.ChainID,
 		ConsensusParams: &params,
@@ -632,7 +640,8 @@ func run() error {
 		return err
 	}
 	fmt.Fprintf(os.Stderr, "replaying %d calls at heights %d and %d\n", len(calls), height, height+1)
-	f := &fetcher{calls: calls, client: client, block: hexutil.EncodeUint64(height), a: a, base: base, done: map[readKey]bool{}}
+	f := &fetcher{calls: calls, client: client, block: rpc.BlockNumberOrHashWithHash(pinned, true), a: a, base: base, done: map[readKey]bool{},
+		requestTimeout: *requestTimeout, binding: binding, publication: publication, raw: raw, heights: heights}
 	for _, e := range record.Absent {
 		if e.Slot == nil {
 			f.done[readKey{addr: e.Address, code: true}] = true
@@ -657,10 +666,15 @@ func run() error {
 		seeds = append(seeds, readKey{addr: g.SidioraFactory, slot: treasurySlot},
 			readKey{addr: g.PoolRegistry, slot: allPools})
 	}
-	ctx := context.Background()
+	if err := f.save(); err != nil {
+		return err
+	}
 	pending := seeds
 	var migrateErr error
 	for round := 1; len(pending) > 0; round++ {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		if round > maxRounds {
 			return fmt.Errorf("no fixed point after %d rounds", maxRounds)
 		}
@@ -674,21 +688,14 @@ func run() error {
 		fmt.Fprintf(os.Stderr, "round %d: %d reads, %d to fetch, %d calls differ from golden.json at %d, result %v\n",
 			round, len(reads), len(pending), mismatches, height, migrateErr)
 	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if err := f.check(l); err != nil {
 		return err
 	}
-	if err := writeRecord(heightPath, height, f.done, f); err != nil {
-		return err
-	}
 	fmt.Fprintf(os.Stderr, "height %d: adding %d codes and %d states\n", height, len(f.codes), len(f.states))
-	if err := writeExport(*exportPath, raw, f.codes, f.states); err != nil {
-		return err
-	}
-	heights, err := marshal(map[string]int64{app.ActivationUpgrade: *activationDone, app.V610Upgrade: *v610Done})
-	if err != nil {
-		return err
-	}
-	if err := os.WriteFile(heightsPath, append(heights, '\n'), 0o644); err != nil {
+	if err := f.save(); err != nil {
 		return err
 	}
 	if migrateErr != nil {

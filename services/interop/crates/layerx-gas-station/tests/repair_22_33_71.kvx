@@ -1,0 +1,46 @@
+[meta]
+task = "22.33.71"
+audit = "22.30.109"
+base_revision = "79d99a9cd334a5da02f3a4aac2a324549c9a0d5e"
+status = "implemented_pending_qualification"
+qualification = "hf-build and hf-done record the exact candidate revision, command, exit and private log in /out/run/gates.jsonl; only a passing hf-done qualifies this repair."
+baseline = "Inherited attempt 1 ran the declared gate: two reverted-receipt tests passed; publication success, pending recovery, revert, JSON-only tampering and cumulative budget admissions failed (2 passed, 5 failed). No duplicate baseline gate was run."
+
+[finding.rate-fixture-effects]
+tests = ["rate_fixture_effects_success_and_commitment", "rate_fixture_effects_pending_publication_restart", "rate_fixture_effects_reverted_publication", "rate_fixture_effects_view_only_tampering"]
+repair = "The production RatePublisher published against the real node. Capture preserves raw type-2 transactions, pinned keys, signed summary/log effects and unchanged receipt JSON at receipted and committed rungs. Tests reproduce exact publication bytes, verify effects, hold receipt delivery to persist a pending publication, stop/reopen the publisher and journal, and recover/settle without rebroadcast. JSON-only gas, status and event timestamp forgeries retain signed bytes and are refused. RateUpdated timestamps must equal the authenticated execution timestamp in seconds."
+failed_publication = "A real transferOwnership/acceptOwnership between owner preflight and broadcast makes the second publication genuinely revert; restoring ownership lets the reopened publisher settle its committed failure."
+
+[finding.revert-fixture-shape]
+tests = ["revert_fixture_shape_matches_signed_node_recording", "revert_fixture_shape_http_refusal_status_and_restart"]
+repair = "The real Service quoted, signed and broadcast a sponsored transaction against the node and received execution reverted with a zero-address sponsor. Offline HTTP replay uses the exact captured quote, submit request, transaction, signed receipt and status with no identity rebinding. The refusal and receipted status persist after stopping the HTTP worker and reopening its locked journal; resubmission never rebroadcasts. Canonical signed bytes, summary effects, hash, gas and malformed-sponsor refusals are independently checked."
+repeat_submission = "Production /submit validates the retained sequencer failure before attempting finalized settlement, so a repeated authenticated request after restart still returns refusal while finality recovery remains the station recovery pass's responsibility."
+
+[finding.registered-budget-test-gap]
+tests = ["registered_budget_test_gap_admissions_and_restart"]
+repair = "Four cumulative real HTTP service admissions cross ordinary 8000000, registered 5000000 and registered 12000000 caps, admitting exactly two, one and three quotes. Each service is stopped and reopened after its first admission. Distinct batch nonces, fixed interval/DID, ample sponsor balance, unchanged journal on refusal and zero broadcasts isolate cap accounting. Base revision already includes the production registered-sender wiring and durable policy identity; this repair exercises it."
+
+[producer_capture]
+fixture = "services/interop/crates/layerx-gas-station/tests/fixtures/producer_22_33_71.json"
+node_revision = "79d99a9cd334a5da02f3a4aac2a324549c9a0d5e"
+contract = "contracts/src/BatchCallAndSponsor.sol compiled unchanged with solc 0.8.26, optimizer 200, Cancun"
+transport = "Real node HTTP JSON-RPC through ConfiguredRpc; the one-time recorder uses production RatePublisher and Service."
+node_log = "/out/logs/receipt-node-capture-tls.log"
+production_log = "/out/logs/receipt-production-capture.log"
+recorded_outcomes = "success gas 35098, failed publication gas 23758, failed sponsored service gas 118394; node-produced signatures and JSON retained unchanged."
+
+[wiring_requests]
+node_fixture = "Domain 7: daemon/committed-fixture/main.go must provision replication TLS certificate/key/CA/peer name/SPKI in its ephemeral app.toml inputs; this capture supplied those inputs externally without modifying that path."
+retired_pointer = "Domain 7: the task's tests/daemon startup pointer is retired; daemon/committed-fixture is the maintained real node startup fixture."
+
+[constraints]
+gate_dependencies = "No environment supplied by the caller, credentials, live endpoint, external binary, subprocess toolchain, native artifact or device is required by the gate. Tests initialize their own test signer settings and replay committed observations in process."
+implementation_tools = "Ephemeral Go/Rust recorder projects and caches are removed before qualification (gotcha 2966); raw private capture logs remain under /out/logs."
+
+[qualification.first_verify]
+revision = "a023c79fc7916bb02f1f0e01132d4089c7873b1b"
+command = "cg spec done 22.33.71 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Six tests passed; repeating the refused HTTP submission after reopening unnecessarily queried eth_getTransactionReceipt, which is absent from the captured receipted exchange."
+repair = "Keep all assertions and recorded JSON unchanged; /submit now returns the retained, validated sequencer failure before delegating to finalized settlement recovery."

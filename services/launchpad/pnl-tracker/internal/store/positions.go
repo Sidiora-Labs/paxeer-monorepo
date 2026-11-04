@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -67,7 +69,8 @@ type TradeInput struct {
 // FoldTrade records a trade and folds it into the (user, pool) position, all in
 // one advisory-lock-guarded transaction. It returns whether the trade was newly
 // recorded (false on redelivery — the position is left untouched, so the fold is
-// exactly-once). Ports the TS PositionService swap fold.
+// exactly-once). New trades rebuild the position in canonical block/log order,
+// including when realtime delivery overlaps backfill.
 func (s *Store) FoldTrade(ctx context.Context, in TradeInput) (bool, error) {
 	user := strings.ToLower(in.UserAddress)
 	pool := strings.ToLower(in.PoolAddress)
@@ -93,50 +96,80 @@ func (s *Store) FoldTrade(ctx context.Context, in TradeInput) (bool, error) {
 		}
 		inserted = true
 
-		prior, priorToken, err := loadPosition(ctx, tx, user, pool)
+		// The journal retains the block and the numeric log index (in id), so
+		// replay also repairs a missed historical buy/sell before publishing.
+		rows, err := tx.Query(ctx, `
+			SELECT id, token_address, is_buy, usdl_amount, token_amount,
+			       block_number, block_timestamp
+			FROM pnl.user_trades WHERE user_address = $1 AND pool_address = $2`, user, pool)
 		if err != nil {
-			return err
+			return fmt.Errorf("store: load trade journal: %w", err)
 		}
-		next, err := pnlmath.Fold(prior, pnlmath.Trade{
-			IsBuy:       in.IsBuy,
-			UsdlAmount:  in.UsdlAmount,
-			TokenAmount: in.TokenAmount,
-			Ts:          in.BlockTimestamp,
+		trades, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (TradeInput, error) {
+			var trade TradeInput
+			err := row.Scan(&trade.ID, &trade.TokenAddress, &trade.IsBuy,
+				&trade.UsdlAmount, &trade.TokenAmount, &trade.BlockNumber, &trade.BlockTimestamp)
+			return trade, err
 		})
 		if err != nil {
-			return err
+			return fmt.Errorf("store: scan trade journal: %w", err)
 		}
-		// Keep a previously-resolved token address if this trade couldn't resolve one.
-		storeToken := token
-		if storeToken == "" {
-			storeToken = priorToken
+		next, storeToken, err := projectOrderedPosition(trades)
+		if err != nil {
+			return err
 		}
 		return upsertPosition(ctx, tx, user, pool, storeToken, next)
 	})
-	return inserted, err
+	return inserted && err == nil, err
 }
 
-// loadPosition reads the current position aggregates inside the fold tx, or the
-// zero position when none exists yet. priorToken carries the stored token so the
-// fold can preserve it when a later trade can't resolve one.
-func loadPosition(ctx context.Context, tx pgx.Tx, user, pool string) (pnlmath.Position, string, error) {
-	var p pnlmath.Position
+// projectOrderedPosition is the legacy journal projection used inside FoldTrade's
+// transaction. Ethereum log indexes order all transactions within a block; the
+// txHash-logIndex primary key retains them without a schema/producer change.
+func projectOrderedPosition(trades []TradeInput) (pnlmath.Position, string, error) {
+	type orderedTrade struct {
+		trade TradeInput
+		log   uint64
+	}
+	ordered := make([]orderedTrade, 0, len(trades))
+	for _, trade := range trades {
+		i := strings.LastIndexByte(trade.ID, '-')
+		if i <= 0 || i == len(trade.ID)-1 || trade.BlockNumber < 0 {
+			return pnlmath.Position{}, "", fmt.Errorf("store: invalid canonical position for trade %q", trade.ID)
+		}
+		suffix := trade.ID[i+1:]
+		log, err := strconv.ParseUint(suffix, 10, 64)
+		if err != nil || strconv.FormatUint(log, 10) != suffix {
+			return pnlmath.Position{}, "", fmt.Errorf("store: invalid log index for trade %q", trade.ID)
+		}
+		ordered = append(ordered, orderedTrade{trade: trade, log: log})
+	}
+	sort.Slice(ordered, func(i, j int) bool {
+		if ordered[i].trade.BlockNumber != ordered[j].trade.BlockNumber {
+			return ordered[i].trade.BlockNumber < ordered[j].trade.BlockNumber
+		}
+		return ordered[i].log < ordered[j].log
+	})
+	var position pnlmath.Position
 	var token string
-	err := tx.QueryRow(ctx, `
-		SELECT token_address, total_usdl_spent, total_tokens_bought, total_usdl_received,
-		       total_tokens_sold, avg_cost_basis, current_holdings, realized_pnl_usdl,
-		       first_buy_ts, last_trade_ts, trade_count
-		FROM pnl.user_positions WHERE user_address = $1 AND pool_address = $2`, user, pool).
-		Scan(&token, &p.TotalUsdlSpent, &p.TotalTokensBought, &p.TotalUsdlReceived,
-			&p.TotalTokensSold, &p.AvgCostBasis, &p.CurrentHoldings, &p.RealizedPnlUsdl,
-			&p.FirstBuyTs, &p.LastTradeTs, &p.TradeCount)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return pnlmath.Position{}, "", nil
+	for i, item := range ordered {
+		if i > 0 && ordered[i-1].trade.BlockNumber == item.trade.BlockNumber && ordered[i-1].log == item.log {
+			return pnlmath.Position{}, "", fmt.Errorf("store: ambiguous canonical position for trade %q", item.trade.ID)
+		}
+		trade := item.trade
+		next, err := pnlmath.Fold(position, pnlmath.Trade{
+			IsBuy: trade.IsBuy, UsdlAmount: trade.UsdlAmount,
+			TokenAmount: trade.TokenAmount, Ts: trade.BlockTimestamp,
+		})
+		if err != nil {
+			return pnlmath.Position{}, "", fmt.Errorf("store: project trade %q: %w", trade.ID, err)
+		}
+		position = next
+		if trade.TokenAddress != "" {
+			token = strings.ToLower(trade.TokenAddress)
+		}
 	}
-	if err != nil {
-		return pnlmath.Position{}, "", fmt.Errorf("store: load position: %w", err)
-	}
-	return p, token, nil
+	return position, token, nil
 }
 
 // upsertPosition writes the folded aggregates back, inserting on first sight.

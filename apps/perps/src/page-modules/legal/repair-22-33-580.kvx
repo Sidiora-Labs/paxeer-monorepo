@@ -1,0 +1,24 @@
+[repair.22.33.580]
+audit = "22.30.16"
+base_revision = "fedbeb3bb47c5bb972f66afc8189f92f5395f3eb"
+record = "Qualification revision, exact command, exit and private log are recorded by hf-build/hf-done; this record makes no independent qualification claim."
+baseline = "Not executed: the ordered bounded-gate instructions prohibit verification before complete implementation and prohibit running verify_cmd by hand. No pre-change test result is claimed. All three tests assert disclosures absent from the base pages and reject their contradictory claims."
+continuation = "Attempt 2 failed before cookie assertions while importing Sentry with an incompatible OpenTelemetry core override from the standalone perps install. The declared gates now install the root workspace, build the agent SDK and install the wallet workspace, which supplies matching OpenTelemetry core and trace SDK 1.30.1 dependencies. Preserve all three tests and their assertions; qualify this candidate with both gates."
+qualification_repair = "At revision 3d58e913d8b92451d8810a0547f96e7f4081f5e1, hf-build passed and cg spec done 22.33.580 -f layerx-merge --root /work/paxeer-monorepo exited 1 (/out/logs/verify-1.log): Sentry.close disables but does not detach the client, so the next configuration's initialization was skipped. Detach the closed client between configurations, assert the browser/server redaction distinction, and preserve all transport and policy assertions for the paired gate rerun."
+
+[finding.cookie-error-consent]
+test = "apps/perps/tests/repair-22-33-580.test.ts:cookieErrorConsentMatchesOperationalCapture"
+repair = "Disclose configured browser/server operational capture before choice and after decline, acceptance and withdrawal; distinguish transmission from storage, disclose possible fields and redaction limits, and state deployment-dependent retention without inventing a duration. Real Sentry configurations send exception envelopes to a loopback receiver while the real consent store transitions; the real policy is rendered through LegalLayout to HTML."
+wiring = "Domain 3 (apps/perps telemetry/privacy owners): apps/perps/sentry.client.config.ts and apps/perps/sentry.server.config.ts — confirm and publish deployed Sentry project retention and deletion handling; any future consent-gated capture must be implemented and verified by this owner."
+
+[finding.privacy-offchain-records]
+test = "apps/perps/tests/repair-22-33-580.test.ts:privacyOffchainRecordsDescribeFieldsRetentionAndDeletion"
+repair = "Render the production PrivacyPolicy through LegalLayout; identify authentication, referral, competition and alert fields and purposes, distinguish validity from row deletion, disclose persistent records and lack of automatic expiry/self-service deletion, and explain ownership-verified requests separately from immutable chain history."
+sources = ["services/platform/perps-data/migrations/0004_accounts.sql", "services/platform/perps-data/internal/auth/auth.go", "services/platform/perps-data/internal/rest/accountv2.go", "services/platform/perps-data/internal/graphql/account.go"]
+wiring = "Domain 3 (perps-data/privacy owners): services/platform/perps-data/internal/auth/auth.go and internal/rest/accountv2.go — establish an approved retention schedule and operator deletion procedure for authentication, referral and competition records, including backups; publish any resulting guarantees in the policy only after enforcement exists."
+
+[finding.terms-native-venue]
+test = "apps/perps/tests/repair-22-33-580.test.ts:termsNativeVenueDisclosesExecutionGovernanceAndCustody"
+repair = "Render the production TermsOfService through LegalLayout; disclose native Go modules/perps execution via 0x1015, the Solidity interface boundary, governance/upgrade/pause controls and module-account USDL custody. Remove the unsupported blanket audit assertion; require exact release/revision and component scope for any audit report relied upon."
+sources = ["precompiles/perps/Perps.sol", "modules/perps/keeper/keeper.go", "modules/perps/keeper/msg_server.go", "modules/perps/types/params.go"]
+wiring = "Domain 3 (product/legal and native-perps owners): modules/perps and precompiles/perps/Perps.sol — provide approved release/revision and component-scoped independent audit evidence before adding an affirmative audit claim to TermsOfService.tsx."

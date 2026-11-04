@@ -397,72 +397,81 @@ impl ListenerDeclaration {
     }
 }
 
-/// The search sidecar reference a session with the web scopes is served through. It carries
-/// no payer or key material; paid tools still require the separately attached payer.
+/// The public payment addresses and governed receipt keys carried by the web binding.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WebDeclaration {
     endpoint: String,
     network: String,
-    sequencer_public_key: [u8; 32],
+    payer_address: [u8; 20],
+    receiver_address: [u8; 20],
+    receipt_key_index: Vec<layerx_client::sequencer::ReceiptKeyEntry>,
+    selected_key: usize,
     timeout_ms: u64,
     pending_attempts: u8,
     approval_threshold: u128,
 }
 
 impl WebDeclaration {
-    /// Validates the sidecar reference the binding document will carry.
+    /// Validates the current closed-key MCP web binding, including the selected key range.
     ///
     /// # Errors
     ///
-    /// Refuses an invalid or over-long HTTP sidecar endpoint or LayerX network, an all-zero
-    /// sequencer key, a timeout outside 1 to 60,000 milliseconds, and pending attempts outside
-    /// 1 to 10.
+    /// Refuses invalid addresses, a network other than eip155:125, an invalid or duplicate
+    /// receipt key, an absent selected key, or out-of-bound transport settings.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         endpoint: String,
         network: String,
-        sequencer_public_key: [u8; 32],
+        payer_address: [u8; 20],
+        receiver_address: [u8; 20],
+        receipt_key_index: Vec<layerx_client::sequencer::ReceiptKeyEntry>,
+        selected_key: usize,
         timeout_ms: u64,
         pending_attempts: u8,
         approval_threshold: u128,
     ) -> Result<Self, EnrolmentError> {
-        for value in [&endpoint, &network] {
-            if value.is_empty() || value.len() > MAX_TEXT_BYTES {
-                return Err(EnrolmentError::InvalidWeb(
-                    "the web endpoint and network must be 1 to 255 bytes",
-                ));
-            }
-        }
-        if !valid_web_endpoint(&endpoint) {
+        if endpoint.is_empty() || endpoint.len() > MAX_TEXT_BYTES || !valid_web_endpoint(&endpoint)
+        {
             return Err(EnrolmentError::InvalidWeb(
                 "the web endpoint is not an HTTP sidecar authority",
             ));
         }
-        if !network.strip_prefix("layerx:").is_some_and(|rest| {
-            !rest.is_empty() && rest.bytes().all(|byte| byte.is_ascii_alphanumeric())
-        }) {
+        if network != "eip155:125" {
             return Err(EnrolmentError::InvalidWeb(
-                "the web network is not a LayerX network",
+                "the web network must be eip155:125",
             ));
         }
-        if sequencer_public_key == [0; 32] {
+        if payer_address == [0; 20] || receiver_address == [0; 20] {
             return Err(EnrolmentError::InvalidWeb(
-                "the sequencer public key is not a key",
+                "the web payment addresses must be nonzero",
             ));
         }
-        if timeout_ms == 0 {
-            return Err(EnrolmentError::InvalidWeb("the web timeout is zero"));
+        if receipt_key_index.is_empty()
+            || receipt_key_index.len() > 64
+            || selected_key >= receipt_key_index.len()
+        {
+            return Err(EnrolmentError::InvalidWeb(
+                "the web receipt key index or selection is invalid",
+            ));
         }
-        if timeout_ms > MAX_WEB_TIMEOUT_MS {
+        let mut seen = BTreeSet::new();
+        for key in &receipt_key_index {
+            if key.key_id == [0; 32]
+                || key.public_key == [0; 32]
+                || key.first_height > key.last_height
+                || !seen.insert(key.key_id)
+            {
+                return Err(EnrolmentError::InvalidWeb(
+                    "the web receipt key index has an invalid or repeated key",
+                ));
+            }
+        }
+        if timeout_ms == 0 || timeout_ms > MAX_WEB_TIMEOUT_MS {
             return Err(EnrolmentError::InvalidWeb(
                 "the web timeout must be 1 to 60,000 milliseconds",
             ));
         }
-        if pending_attempts == 0 {
-            return Err(EnrolmentError::InvalidWeb(
-                "the web pending attempts are zero",
-            ));
-        }
-        if pending_attempts > MAX_WEB_PENDING_ATTEMPTS {
+        if pending_attempts == 0 || pending_attempts > MAX_WEB_PENDING_ATTEMPTS {
             return Err(EnrolmentError::InvalidWeb(
                 "the web pending attempts must be 1 to 10",
             ));
@@ -470,7 +479,10 @@ impl WebDeclaration {
         Ok(Self {
             endpoint,
             network,
-            sequencer_public_key,
+            payer_address,
+            receiver_address,
+            receipt_key_index,
+            selected_key,
             timeout_ms,
             pending_attempts,
             approval_threshold,
@@ -478,10 +490,28 @@ impl WebDeclaration {
     }
 
     fn document(&self) -> Value {
+        let key = &self.receipt_key_index[self.selected_key];
+        let keys: Vec<_> = self
+            .receipt_key_index
+            .iter()
+            .map(|key| {
+                json!({
+                    "keyId": hex::encode(&key.key_id),
+                    "publicKey": hex::encode(&key.public_key),
+                    "firstHeight": key.first_height,
+                    "lastHeight": key.last_height,
+                })
+            })
+            .collect();
         json!({
             "endpoint": self.endpoint,
+            "payer_address": format!("0x{}", hex::encode(&self.payer_address)),
+            "receiver_address": format!("0x{}", hex::encode(&self.receiver_address)),
             "network": self.network,
-            "sequencer_public_key": hex::encode(&self.sequencer_public_key),
+            "receipt_key_index": keys,
+            "sequencer_id": hex::encode(&key.key_id),
+            "first_batch_number": key.first_height,
+            "last_batch_number": key.last_height,
             "timeout_ms": self.timeout_ms,
             "pending_attempts": self.pending_attempts,
             "approval_threshold": self.approval_threshold.to_string(),

@@ -1075,78 +1075,14 @@ impl crate::receipt::ReceiptIngress for layerx_client::rpc::receipt::Authenticat
         idempotency_key: [u8; 32],
         receipt_bytes: &[u8],
     ) -> Result<Self::Stored, crate::receipt::ReceiptStoreError> {
-        use crate::receipt::{ReceiptLookupKey, ReceiptMetadata, ReceiptStoreError, ServedReceipt};
-        if self.rung() < layerx_types::rung::Rung::Receipted {
-            return Err(ReceiptStoreError::BelowReceipted);
-        }
-        if idempotency_key != self.activity_id() || receipt_bytes != self.canonical_bytes() {
-            return Err(ReceiptStoreError::Corrupt);
-        }
-        let metadata = ReceiptMetadata {
-            activity_id: self.activity_id(),
-            idempotency_key,
-            global_sequence: self.global_sequence(),
-            verification_level: VerificationLevel::SEQUENCER_SIGNED,
-            result: crate::receipt::classify(self.result_code()),
-        };
-        match crate::receipt::serve(
+        crate::receipt::persist_authenticated_receipt(
             durable,
-            tenant.clone(),
-            ReceiptLookupKey::Idempotency(idempotency_key),
-        ) {
-            Ok(existing) => {
-                if existing.canonical_bytes != receipt_bytes
-                    || existing.metadata.activity_id != metadata.activity_id
-                    || existing.metadata.idempotency_key != metadata.idempotency_key
-                    || existing.metadata.global_sequence != metadata.global_sequence
-                    || existing.metadata.result != metadata.result
-                    || existing.metadata.verification_level < metadata.verification_level
-                {
-                    return Err(ReceiptStoreError::Corrupt);
-                }
-                return Ok(existing);
-            }
-            Err(ReceiptStoreError::Missing) => {}
-            Err(error) => return Err(error),
-        }
-        let mut encoded = b"LXRM".to_vec();
-        encoded.extend_from_slice(&metadata.activity_id);
-        encoded.extend_from_slice(&metadata.idempotency_key);
-        encoded.extend_from_slice(&metadata.global_sequence.to_be_bytes());
-        encoded.push(metadata.verification_level.wire_rank());
-        encoded.extend_from_slice(&metadata.result.code.raw().to_be_bytes());
-        let mut indexes = Vec::new();
-        for (prefix, selector) in [
-            (
-                b"receipt:activity:".as_slice(),
-                metadata.activity_id.as_slice(),
-            ),
-            (
-                b"receipt:idempotency:".as_slice(),
-                metadata.idempotency_key.as_slice(),
-            ),
-            (
-                b"receipt:sequence:".as_slice(),
-                metadata.global_sequence.to_be_bytes().as_slice(),
-            ),
-        ] {
-            indexes.push(TenantKey::new(
-                tenant.clone(),
-                ObjectKind::Receipt,
-                [prefix, selector].concat(),
-            )?);
-        }
-        let digest: [u8; 32] = Sha256::digest(receipt_bytes).into();
-        let key = TenantKey::new(
             tenant,
-            ObjectKind::Configuration,
-            [b"receipt-metadata:".as_slice(), &digest].concat(),
-        )?;
-        durable.record_verified_receipt(&indexes, receipt_bytes, key, encoded)?;
-        Ok(ServedReceipt {
-            canonical_bytes: receipt_bytes.to_vec(),
-            metadata,
-        })
+            idempotency_key,
+            receipt_bytes,
+            self,
+            false,
+        )
     }
 }
 
@@ -17895,7 +17831,7 @@ const fn plan_code(plan: ActionPlan) -> u8 {
 impl From<AdminError> for HumanOperationError {
     fn from(error: AdminError) -> Self {
         match error {
-            AdminError::Audit(_) => Self::Unavailable,
+            AdminError::Audit(_) | AdminError::AuditRecord(_) => Self::Unavailable,
             AdminError::InvalidOperator
             | AdminError::ProtectedMutation(_)
             | AdminError::NotUnknown

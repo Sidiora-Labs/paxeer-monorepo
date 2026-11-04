@@ -96,12 +96,45 @@ function HoldersBody({ pool, price }: { pool: string; price: number | null }) {
   const [pages, setPages] = useState<Record<string, HoldersPage>>({});
   const [sort, setSort] = useState(defaultSort);
   const [search, setSearch] = useState<HolderSearch>({ query: '', filter: 'all' });
+  const first = useHolders(pool);
   const holders = useHolders(pool, cursor);
   useEffect(() => { setCursor(null); setPages({}); setSort(defaultSort); setSearch({ query: '', filter: 'all' }); }, [pool]);
   const pageKey = cursor ?? 'first';
+  const firstPage = first.state === 'ready' ? first.data : null;
   const readyPage = holders.state === 'ready' ? holders.data : null;
-  useEffect(() => { if (readyPage) setPages(current => current[pageKey] ? current : { ...current, [pageKey]: readyPage }); }, [readyPage, pageKey]);
-  const loaded = useMemo(() => Object.values(pages), [pages]);
+  useEffect(() => {
+    if (firstPage && pages.first !== firstPage) {
+      const previous = pages.first;
+      const sameSnapshot = previous && previous.response?.revision === firstPage.response?.revision && previous.response?.data === firstPage.response?.data && previous.nextCursor === firstPage.nextCursor && previous.legacyShare === firstPage.legacyShare;
+      setPages(current => sameSnapshot ? { ...current, first: firstPage } : { first: firstPage });
+      if (!sameSnapshot) setCursor(null);
+      return;
+    }
+    if (readyPage && pages[pageKey] !== readyPage) setPages(current => {
+      const next: Record<string, HoldersPage> = {};
+      let key: string | null = 'first';
+      while (key !== null && key !== pageKey && current[key] && !next[key]) {
+        const page: HoldersPage = current[key]!;
+        next[key] = page;
+        key = page.nextCursor;
+      }
+      if (key !== pageKey) return current;
+      next[pageKey] = readyPage;
+      return next;
+    });
+  }, [firstPage, readyPage, pageKey, pages]);
+  const loaded = useMemo(() => {
+    const chain: HoldersPage[] = [];
+    const visited = new Set<string>();
+    let key: string | null = 'first';
+    while (key !== null && pages[key] && !visited.has(key)) {
+      visited.add(key);
+      const page: HoldersPage = pages[key]!;
+      chain.push(page);
+      key = page.nextCursor;
+    }
+    return chain;
+  }, [pages]);
   const token = snapshot.data?.token ?? null;
   // The live quote first; else PoolStats.spotPriceWad (null before the first trade: positions stay unavailable).
   const spot = statsSpotPrice(snapshot.data?.stats ?? null).value;
@@ -186,7 +219,7 @@ function HoldersBody({ pool, price }: { pool: string; price: number | null }) {
         </tbody>
       </table>
     </div>
-    {loaded.length > 0 ? <LoadMore auto={false} hasMore={hasMore} loading={holders.state === 'loading'} error={holders.state === 'error'} label="Load more holders" endLabel="That's everyone" onLoadMore={() => { if (last?.nextCursor) setCursor(last.nextCursor); }} /> : null}
+    {loaded.length > 0 ? <LoadMore auto={false} hasMore={holders.state === 'error' || hasMore} loading={holders.state === 'loading'} error={holders.state === 'error'} label="Load more holders" endLabel="That's everyone" onLoadMore={() => { if (holders.state === 'error') holders.retry(); else if (last?.nextCursor) setCursor(last.nextCursor); }} /> : null}
   </div>;
 }
 

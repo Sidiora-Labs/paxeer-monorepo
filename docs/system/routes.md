@@ -295,6 +295,25 @@ Public icons and configuration assets use explicit lists/prefix policies in
 `ui_proxy.rs`; these examples do not admit arbitrary files. Frontend account
 pages, backend account routes and the explorer socket have different handlers.
 
+#### Price feed API admission
+
+The explorer backend proxy admits these three read-only feed routes through its
+existing target, origin, header and upstream checks. Market ids contain only
+ASCII decimal digits (at most 256 characters); update hashes are `0x` followed by
+64 hexadecimal digits. Other feed paths and methods remain refused. Query
+parameters, including the `block_number` and `index` history cursor, are forwarded
+unchanged to the backend.
+
+| Method | Admitted hosted path | Backend action |
+| --- | --- | --- |
+| GET | `/explorer/backend/api/v2/paxeer-x/feed/markets` | `FeedController.markets` |
+| GET | `/explorer/backend/api/v2/paxeer-x/feed/markets/{market_id}/updates` | `FeedController.market_updates` |
+| GET | `/explorer/backend/api/v2/paxeer-x/feed/updates/{hash}` | `FeedController.update` |
+
+The overview carries `FeedView` markets and chain head; history carries items and
+`next_page_params`; detail carries the stored type-127 submission, observation
+acceptance flags and exact decimal price strings.
+
 #### Pending explorer route admission
 
 The backend declares the following GET routes, but they are absent from the
@@ -306,21 +325,24 @@ wiring targets, not currently admitted routes.
 | GET | `/explorer/backend/api/v2/advanced-filters` | `AdvancedFilterController.list` |
 | GET | `/explorer/backend/api/v2/advanced-filters/csv` | `AdvancedFilterController.list_csv` |
 | GET | `/explorer/backend/api/v2/advanced-filters/methods` | `AdvancedFilterController.list_methods` |
-| GET | `/explorer/backend/api/v2/paxeer-x/feed/markets` | `FeedController.markets` |
-| GET | `/explorer/backend/api/v2/paxeer-x/feed/markets/{market_id}/updates` | `FeedController.market_updates` |
 | GET | `/explorer/backend/api/v2/paxeer-x/feed/updates` | `FeedController.updates` |
-| GET | `/explorer/backend/api/v2/paxeer-x/feed/updates/{hash}` | `FeedController.update` |
 
-The corresponding feed page patterns `/explorer/feed`,
+The feed page patterns `/explorer/feed`,
 `/explorer/feed/market/[id]` and `/explorer/feed/update/[hash]` are also absent from
 the hosted frontend page allowlist. The existing `/explorer/advanced-filter`
 page registration does not admit its backend API by implication.
 
 The [admission record](../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/hosted_route_admission.json)
-tracks this gap. It is not loaded by the Rust allowlists. Backend contract
-coverage does not establish that the hosted gateway forwards these requests or
-that hosted feed pages render. Admission still requires the exact REST and page
-entries plus proof through the production gateway.
+is not loaded by the Rust allowlists and requires reconciliation with the three
+API entries above. Domain 8 owns the outstanding `ui_proxy.rs` page admissions:
+`/explorer/feed`, `/explorer/feed/market/[id]` and `/explorer/feed/update/[hash]`,
+including their constrained Next data routes. Those page entries and a production
+gateway integration gate are required before claiming hosted feed pages render.
+Task 22.31.382's TypeScript gate checks API registrations against the real client
+and backend router and exercises the real fetch hook and feed renderers with
+committed response fixtures over loopback HTTP; it does not execute Rust or Elixir.
+The route catalogue at `tools/paxeer-x/route-catalogue.json` also needs regeneration
+by its owning gateway domain after that wiring is complete.
 
 ### wallet-gateway
 

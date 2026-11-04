@@ -1,9 +1,15 @@
 "use client";
 import { useEffect, useState } from "react";
 import { fetchWithPolicy } from "@/core/net/fetch";
-import { scheduleActive, sequenceGuard, watchSocket, type CancelTask } from "@/core/net/realtime";
+import {
+  scheduleActive,
+  sequenceGuard,
+  watchSocket,
+  type CancelTask,
+} from "@/core/net/realtime";
 import { gatewayUrls } from "@/core/network/gateway";
 import { PERPS_MARKETS } from "@/core/perps/config";
+import { registerCandleFeedSymbols } from "@/core/feeds";
 import { normalizeLevels, type SpotBookLevel } from "@/core/perps/bookLevels";
 
 /** Gateway topic protocol of the shared `/ws` socket: one socket per origin, topics multiplexed. */
@@ -72,7 +78,9 @@ interface Connection {
   disposed: boolean;
 }
 
-const registeredVenueSymbols = new Set(PERPS_MARKETS.map(m => m.symbol.toUpperCase()));
+const registeredVenueSymbols = new Set(
+  PERPS_MARKETS.map((m) => m.symbol.toUpperCase()),
+);
 /** The spot venue serves @orderbook and @trade for PAX and SID only; other symbols answer unknown_topic (contracts/data-services.md section 10). */
 const SPOT_VENUE_SYMBOLS = new Set(["PAX", "SID"]);
 const connections = new Map<string, Connection>();
@@ -84,6 +92,7 @@ export function registerVenueSymbols(symbols: readonly string[]): void {
     }
     return symbol.toUpperCase();
   });
+  registerCandleFeedSymbols(next);
   registeredVenueSymbols.clear();
   for (const symbol of next) registeredVenueSymbols.add(symbol);
 }
@@ -120,7 +129,12 @@ const TOPIC_NAMES: Record<Topic["kind"], (symbol: string) => string> = {
 };
 
 function finite(value: unknown): number | null {
-  const n = typeof value === "number" ? value : typeof value === "string" && value.trim() !== "" ? Number(value) : NaN;
+  const n =
+    typeof value === "number"
+      ? value
+      : typeof value === "string" && value.trim() !== ""
+        ? Number(value)
+        : NaN;
   return Number.isFinite(n) ? n : null;
 }
 
@@ -131,7 +145,8 @@ export function parseVenueBook(data: unknown, ts: number): VenueBook | null {
   const asks = normalizeLevels(d.asks, "asks");
   const bids = normalizeLevels(d.bids, "bids");
   // Refuse the whole frame: dropping a malformed level would invent liquidity.
-  if (asks.length !== d.asks.length || bids.length !== d.bids.length) return null;
+  if (asks.length !== d.asks.length || bids.length !== d.bids.length)
+    return null;
   return {
     asks,
     bids,
@@ -150,9 +165,21 @@ export function parseVenueFill(raw: unknown): VenueFill | null {
   const contracts = finite(t.contracts);
   const notional = finite(t.notional);
   const tradeTime = finite(t.trade_time);
-  if ((side !== "BUY" && side !== "SELL") || price === null || contracts === null || notional === null || tradeTime === null || price <= 0 || tradeTime <= 0) return null;
+  if (
+    (side !== "BUY" && side !== "SELL") ||
+    price === null ||
+    contracts === null ||
+    notional === null ||
+    tradeTime === null ||
+    price <= 0 ||
+    tradeTime <= 0
+  )
+    return null;
   return {
-    id: typeof t.id === "string" || typeof t.id === "number" ? String(t.id) : null,
+    id:
+      typeof t.id === "string" || typeof t.id === "number"
+        ? String(t.id)
+        : null,
     side,
     price,
     contracts,
@@ -169,9 +196,20 @@ export function parseSpotVenueTrade(raw: unknown): SpotVenueTrade | null {
   const price = finite(t.price);
   const size = finite(t.size);
   const tradeTime = finite(t.trade_time);
-  if ((side !== "BUY" && side !== "SELL") || price === null || size === null || tradeTime === null || price <= 0 || tradeTime <= 0) return null;
+  if (
+    (side !== "BUY" && side !== "SELL") ||
+    price === null ||
+    size === null ||
+    tradeTime === null ||
+    price <= 0 ||
+    tradeTime <= 0
+  )
+    return null;
   return {
-    id: typeof t.id === "string" || typeof t.id === "number" ? String(t.id) : null,
+    id:
+      typeof t.id === "string" || typeof t.id === "number"
+        ? String(t.id)
+        : null,
     side,
     price,
     size,
@@ -179,7 +217,10 @@ export function parseSpotVenueTrade(raw: unknown): SpotVenueTrade | null {
   };
 }
 
-function parseTradeList<T>(raw: unknown, parse: (entry: unknown) => T | null): T[] {
+function parseTradeList<T>(
+  raw: unknown,
+  parse: (entry: unknown) => T | null,
+): T[] {
   if (!Array.isArray(raw)) return [];
   const trades: T[] = [];
   for (const entry of raw) {
@@ -191,7 +232,12 @@ function parseTradeList<T>(raw: unknown, parse: (entry: unknown) => T | null): T
 }
 
 /** `null` when a live frame carries no valid trade. */
-function nextTape<T>(prev: T[] | null, data: Record<string, unknown> | undefined, snapshot: boolean, parse: (entry: unknown) => T | null): T[] | null {
+function nextTape<T>(
+  prev: T[] | null,
+  data: Record<string, unknown> | undefined,
+  snapshot: boolean,
+  parse: (entry: unknown) => T | null,
+): T[] | null {
   if (snapshot) return parseTradeList(data?.trades, parse);
   const trade = parse(data);
   return trade ? [trade, ...(prev ?? [])].slice(0, FILL_CAP) : null;
@@ -199,31 +245,53 @@ function nextTape<T>(prev: T[] | null, data: Record<string, unknown> | undefined
 
 function emit(conn: Connection, topic: Topic) {
   const value = conn.open && !topic.unavailable ? topic.value : null;
-  topic.listeners.forEach(fn => {
-    try { fn(value); } catch { /* independent consumers */ }
+  topic.listeners.forEach((fn) => {
+    try {
+      fn(value);
+    } catch {
+      /* independent consumers */
+    }
   });
 }
 
-function send(conn: Connection, frame: VenueFrame | { event: "ping" }): boolean {
+function send(
+  conn: Connection,
+  frame: VenueFrame | { event: "ping" },
+): boolean {
   if (!conn.ws || !conn.open) return false;
-  try { conn.ws.send(JSON.stringify(frame)); return true; } catch { return false; }
+  try {
+    conn.ws.send(JSON.stringify(frame));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function subscribedCount(conn: Connection): number {
   let n = 0;
-  conn.topics.forEach(t => { if (t.subscribed) n++; });
+  conn.topics.forEach((t) => {
+    if (t.subscribed) n++;
+  });
   return n;
 }
 
 function subscribe(conn: Connection, topic: Topic) {
   if (topic.subscribed || !conn.open) return;
-  if (subscribedCount(conn) >= MAX_SUBSCRIPTIONS) { topic.unavailable = true; emit(conn, topic); return; }
+  if (subscribedCount(conn) >= MAX_SUBSCRIPTIONS) {
+    topic.unavailable = true;
+    emit(conn, topic);
+    return;
+  }
   topic.subscribed = send(conn, { event: "subscribe", topic: topic.name });
 }
 
 function dropState(conn: Connection) {
   conn.accept = sequenceGuard();
-  conn.topics.forEach(topic => { topic.value = null; topic.seq = null; emit(conn, topic); });
+  conn.topics.forEach((topic) => {
+    topic.value = null;
+    topic.seq = null;
+    emit(conn, topic);
+  });
 }
 
 /** The REST book carries no seq: the subscribe snapshot that follows sets the baseline. */
@@ -232,24 +300,46 @@ async function resyncFromRest(conn: Connection, topic: Topic) {
   try {
     const res = await fetchWithPolicy(url);
     const json = (await res.json()) as { success?: unknown; data?: unknown };
-    if (json.success !== true || conn.topics.get(topic.name) !== topic || topic.value !== null) return;
+    if (
+      json.success !== true ||
+      conn.topics.get(topic.name) !== topic ||
+      topic.value !== null
+    )
+      return;
     const book = parseVenueBook(json.data, Date.now());
     if (!book) return;
     topic.value = book;
     emit(conn, topic);
-  } catch { /* the subscribe snapshot restores the book */ }
+  } catch {
+    /* the subscribe snapshot restores the book */
+  }
 }
 
-function handleFrame(conn: Connection, ws: WebSocket, msg: Record<string, unknown>) {
+function handleFrame(
+  conn: Connection,
+  ws: WebSocket,
+  msg: Record<string, unknown>,
+) {
   const snapshotId = typeof msg.snapshotId === "string" ? msg.snapshotId : null;
   if (msg.event === "welcome") {
-    if (snapshotId !== null && conn.snapshotId !== null && snapshotId !== conn.snapshotId) dropState(conn);
+    if (
+      snapshotId !== null &&
+      conn.snapshotId !== null &&
+      snapshotId !== conn.snapshotId
+    )
+      dropState(conn);
     if (snapshotId !== null) conn.snapshotId = snapshotId;
     return;
   }
   if (msg.event === "error") {
-    const topic = typeof msg.topic === "string" ? conn.topics.get(msg.topic) : undefined;
-    if (topic) { topic.subscribed = false; topic.unavailable = true; topic.value = null; emit(conn, topic); }
+    const topic =
+      typeof msg.topic === "string" ? conn.topics.get(msg.topic) : undefined;
+    if (topic) {
+      topic.subscribed = false;
+      topic.unavailable = true;
+      topic.value = null;
+      emit(conn, topic);
+    }
     return;
   }
   if (typeof msg.event === "string" || typeof msg.topic !== "string") return;
@@ -257,10 +347,14 @@ function handleFrame(conn: Connection, ws: WebSocket, msg: Record<string, unknow
   const seq = msg.seq;
   if (!topic || typeof seq !== "number") return;
 
-  if (snapshotId !== null && conn.snapshotId !== null && snapshotId !== conn.snapshotId) {
+  if (
+    snapshotId !== null &&
+    conn.snapshotId !== null &&
+    snapshotId !== conn.snapshotId
+  ) {
     conn.snapshotId = snapshotId;
     dropState(conn);
-    conn.topics.forEach(t => {
+    conn.topics.forEach((t) => {
       if (t.subscribed) send(conn, { event: "unsubscribe", topic: t.name });
       t.subscribed = false;
       subscribe(conn, t);
@@ -270,12 +364,17 @@ function handleFrame(conn: Connection, ws: WebSocket, msg: Record<string, unknow
   if (snapshotId !== null) conn.snapshotId = snapshotId;
 
   if (!conn.accept(msg)) {
-    if (topic.kind === "book") { topic.value = null; topic.seq = null; void resyncFromRest(conn, topic); }
+    if (topic.kind === "book") {
+      topic.value = null;
+      topic.seq = null;
+      void resyncFromRest(conn, topic);
+    }
     ws.close(GAP_CLOSE_CODE, "sequence-gap");
     return;
   }
   const snapshot = msg.snapshot === true;
-  if (topic.seq !== null && (snapshot ? seq < topic.seq : seq <= topic.seq)) return;
+  if (topic.seq !== null && (snapshot ? seq < topic.seq : seq <= topic.seq))
+    return;
   const ts = typeof msg.ts === "number" ? msg.ts : Date.now();
 
   if (topic.kind === "book" || topic.kind === "spotBook") {
@@ -284,9 +383,20 @@ function handleFrame(conn: Connection, ws: WebSocket, msg: Record<string, unknow
     topic.value = book;
   } else {
     const data = msg.data as Record<string, unknown> | undefined;
-    const tape = topic.kind === "fills"
-      ? nextTape(topic.value as VenueFill[] | null, data, snapshot, parseVenueFill)
-      : nextTape(topic.value as SpotVenueTrade[] | null, data, snapshot, parseSpotVenueTrade);
+    const tape =
+      topic.kind === "fills"
+        ? nextTape(
+            topic.value as VenueFill[] | null,
+            data,
+            snapshot,
+            parseVenueFill,
+          )
+        : nextTape(
+            topic.value as SpotVenueTrade[] | null,
+            data,
+            snapshot,
+            parseSpotVenueTrade,
+          );
     if (!tape) return;
     topic.value = tape;
   }
@@ -298,27 +408,49 @@ function connect(conn: Connection) {
   conn.reconnect = null;
   if (conn.disposed) return;
   let ws: WebSocket;
-  try { ws = new WebSocket(conn.url); } catch { scheduleReconnect(conn); return; }
+  try {
+    ws = new WebSocket(conn.url);
+  } catch {
+    scheduleReconnect(conn);
+    return;
+  }
   conn.ws = ws;
-  watchSocket(ws, () => { conn.delay = INITIAL_RECONNECT_DELAY; }, { event: "ping" });
+  watchSocket(
+    ws,
+    () => {
+      conn.delay = INITIAL_RECONNECT_DELAY;
+    },
+    { event: "ping" },
+  );
   ws.addEventListener("open", () => {
     if (conn.ws !== ws) return;
     conn.open = true;
-    conn.topics.forEach(topic => { subscribe(conn, topic); emit(conn, topic); });
+    conn.topics.forEach((topic) => {
+      subscribe(conn, topic);
+      emit(conn, topic);
+    });
   });
-  ws.addEventListener("message", event => {
+  ws.addEventListener("message", (event) => {
     if (conn.ws !== ws) return;
     let msg: unknown;
-    try { msg = JSON.parse(typeof event.data === "string" ? event.data : ""); } catch { return; }
-    if (msg && typeof msg === "object") handleFrame(conn, ws, msg as Record<string, unknown>);
+    try {
+      msg = JSON.parse(typeof event.data === "string" ? event.data : "");
+    } catch {
+      return;
+    }
+    if (msg && typeof msg === "object")
+      handleFrame(conn, ws, msg as Record<string, unknown>);
   });
   ws.addEventListener("close", () => {
     if (conn.ws !== ws) return;
     conn.ws = null;
     conn.open = false;
-    conn.topics.forEach(topic => { topic.subscribed = false; topic.unavailable = false; });
+    conn.topics.forEach((topic) => {
+      topic.subscribed = false;
+      topic.unavailable = false;
+    });
     conn.accept = sequenceGuard();
-    conn.topics.forEach(topic => {
+    conn.topics.forEach((topic) => {
       // A gap keeps the REST resync book of its topic; every other topic waits for a fresh snapshot.
       if (topic.seq !== null || topic.kind === "fills") topic.value = null;
       topic.seq = null;
@@ -335,21 +467,50 @@ function scheduleReconnect(conn: Connection) {
   conn.reconnect = scheduleActive(() => connect(conn), delay, conn.url);
 }
 
-function acquire(kind: Topic["kind"], symbol: string, listener: Listener): CancelTask {
+function acquire(
+  kind: Topic["kind"],
+  symbol: string,
+  listener: Listener,
+): CancelTask {
   const key = symbol.toUpperCase();
-  const listed = kind === "spotBook" || kind === "spotTrades" ? isSpotVenueSymbol(key) : isVenueSymbol(key);
-  if (typeof window === "undefined" || !listed) { listener(null); return () => {}; }
+  const listed =
+    kind === "spotBook" || kind === "spotTrades"
+      ? isSpotVenueSymbol(key)
+      : isVenueSymbol(key);
+  if (typeof window === "undefined" || !listed) {
+    listener(null);
+    return () => {};
+  }
   const url = gatewayUrls().venueWsUrl;
   let conn = connections.get(url);
   if (!conn) {
-    conn = { url, ws: null, open: false, topics: new Map(), accept: sequenceGuard(), snapshotId: null, reconnect: null, delay: INITIAL_RECONNECT_DELAY, disposed: false };
+    conn = {
+      url,
+      ws: null,
+      open: false,
+      topics: new Map(),
+      accept: sequenceGuard(),
+      snapshotId: null,
+      reconnect: null,
+      delay: INITIAL_RECONNECT_DELAY,
+      disposed: false,
+    };
     connections.set(url, conn);
   }
   const owner = conn;
   const name = TOPIC_NAMES[kind](key);
   let topic = owner.topics.get(name);
   if (!topic) {
-    topic = { name, symbol: key, kind, listeners: new Set(), value: null, seq: null, subscribed: false, unavailable: false };
+    topic = {
+      name,
+      symbol: key,
+      kind,
+      listeners: new Set(),
+      value: null,
+      seq: null,
+      subscribed: false,
+      unavailable: false,
+    };
     owner.topics.set(name, topic);
     subscribe(owner, topic);
   }
@@ -364,7 +525,8 @@ function acquire(kind: Topic["kind"], symbol: string, listener: Listener): Cance
     released = true;
     held.listeners.delete(listener);
     if (held.listeners.size > 0) return;
-    if (held.subscribed) send(owner, { event: "unsubscribe", topic: held.name });
+    if (held.subscribed)
+      send(owner, { event: "unsubscribe", topic: held.name });
     owner.topics.delete(held.name);
     if (owner.topics.size > 0) return;
     owner.disposed = true;
@@ -379,19 +541,28 @@ function acquire(kind: Topic["kind"], symbol: string, listener: Listener): Cance
 }
 
 /** `null` while the gateway socket is not open, before the first snapshot, or when the venue does not list the symbol. */
-export function subscribeVenueBook(symbol: string, listener: (book: VenueBook | null) => void): CancelTask {
+export function subscribeVenueBook(
+  symbol: string,
+  listener: (book: VenueBook | null) => void,
+): CancelTask {
   return acquire("book", symbol, listener as Listener);
 }
 
 /** Newest first, at most FILL_CAP; `null` under the same conditions as subscribeVenueBook. */
-export function subscribeVenueFills(symbol: string, listener: (fills: VenueFill[] | null) => void): CancelTask {
+export function subscribeVenueFills(
+  symbol: string,
+  listener: (fills: VenueFill[] | null) => void,
+): CancelTask {
   return acquire("fills", symbol, listener as Listener);
 }
 
 export function useVenueBook(symbol: string | undefined): VenueBook | null {
   const [book, setBook] = useState<VenueBook | null>(null);
   useEffect(() => {
-    if (!symbol) { setBook(null); return; }
+    if (!symbol) {
+      setBook(null);
+      return;
+    }
     return subscribeVenueBook(symbol, setBook);
   }, [symbol]);
   return book;
@@ -400,35 +571,52 @@ export function useVenueBook(symbol: string | undefined): VenueBook | null {
 export function useVenueFills(symbol: string | undefined): VenueFill[] | null {
   const [fills, setFills] = useState<VenueFill[] | null>(null);
   useEffect(() => {
-    if (!symbol) { setFills(null); return; }
+    if (!symbol) {
+      setFills(null);
+      return;
+    }
     return subscribeVenueFills(symbol, setFills);
   }, [symbol]);
   return fills;
 }
 
 /** The spot venue book of <SYMBOL>@orderbook; `null` while the gateway socket is not open, before the first snapshot, or for a symbol the spot venue does not list. */
-export function subscribeSpotVenueBook(symbol: string, listener: (book: VenueBook | null) => void): CancelTask {
+export function subscribeSpotVenueBook(
+  symbol: string,
+  listener: (book: VenueBook | null) => void,
+): CancelTask {
   return acquire("spotBook", symbol, listener as Listener);
 }
 
 /** The spot venue trades of <SYMBOL>@trade, newest first, at most FILL_CAP; `null` under the same conditions as subscribeSpotVenueBook. */
-export function subscribeSpotVenueTrades(symbol: string, listener: (trades: SpotVenueTrade[] | null) => void): CancelTask {
+export function subscribeSpotVenueTrades(
+  symbol: string,
+  listener: (trades: SpotVenueTrade[] | null) => void,
+): CancelTask {
   return acquire("spotTrades", symbol, listener as Listener);
 }
 
 export function useSpotVenueBook(symbol: string | undefined): VenueBook | null {
   const [book, setBook] = useState<VenueBook | null>(null);
   useEffect(() => {
-    if (!symbol) { setBook(null); return; }
+    if (!symbol) {
+      setBook(null);
+      return;
+    }
     return subscribeSpotVenueBook(symbol, setBook);
   }, [symbol]);
   return book;
 }
 
-export function useSpotVenueTrades(symbol: string | undefined): SpotVenueTrade[] | null {
+export function useSpotVenueTrades(
+  symbol: string | undefined,
+): SpotVenueTrade[] | null {
   const [trades, setTrades] = useState<SpotVenueTrade[] | null>(null);
   useEffect(() => {
-    if (!symbol) { setTrades(null); return; }
+    if (!symbol) {
+      setTrades(null);
+      return;
+    }
     return subscribeSpotVenueTrades(symbol, setTrades);
   }, [symbol]);
   return trades;

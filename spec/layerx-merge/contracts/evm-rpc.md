@@ -3588,3 +3588,44 @@ Contract context <code>contract_context.7.ws-transport</code>:
 | <code>acceptance.7.9.6</code> | test | rpc/http_ws_parity_test.go::TestHTTPAndWSAnswersMatch (planned) |
 | <code>acceptance.7.9.6</code> | qualification | UNRUN |
 | <code>req.7009</code> | ac_6 | For every read method served on both transports, the WebSocket answer equals the HTTP answer for the same parameters, using the helpers at rpc/setup_test.go:1224 and rpc/setup_test.go:1280. |
+
+## px-node-root-account
+
+Decisions 2514 and 2521 place the px namespace on the same node root `/` as eth
+and pax. Both HTTP and WebSocket register `px_resolveAccount`, `px_getAccount`,
+`px_getBalances`, `px_listAssets`, `px_getNetwork`, `px_getCapabilities` and
+`px_getRouteCatalogue`. Parameters and results follow
+`services/platform/hosted/gateway/openrpc.json`. Existing px receipt-key
+registration remains available independently.
+
+Account resolution checks both addr binding directions and the derived native
+main account. Account and coin reads share one committed watermark; balances
+and nonces use the existing state/transaction paths and bank amounts retain
+all 256 bits as decimal strings. A bare native account ID returns `-32001`,
+`Paxeer read unavailable`, data.code `native_account_reverse_resolution_unsupported`;
+conflicts return `conflicting_identity_binding`. An unbound DID has null paxeer
+state; its coin-list read returns `identity_binding_unavailable`.
+
+Asset enumeration uses `[evm].px_indexer_url` or `WithPxIndexerURL` on each server; no hosted gateway
+or environment variable is required. A missing indexer returns `-32001`,
+`Paxeer read unavailable`, data.code `indexer_not_configured`. The joined result
+is sorted by asset ID, capped at sixteen, and uses local metadata at one height.
+Failed per-asset metadata reads retain the documented null fields. Successful
+ledger reads alone carry authenticated snapshot verification and paused state.
+
+Network identity comes from the node chain context and EVM keeper. An invalid
+or unavailable local consensus Status leaves consensus null with reason
+`consensus_unavailable`. Capability probes execute the seven documented views
+at one committed height and require canonical ABI output; the result is cached
+for fifteen seconds. Hosted capability write gating stays with the gateway.
+The catalogue carries committed product route definitions, advertises only
+`/`, reports actual node registrations and marks hosted dependencies unknown.
+It publishes no private route bindings or upstream topology.
+
+`px_register` and `px_requestFunds` validate positional arguments before
+returning `-32004`, `Hosted gateway service operation`, with data
+`{code:"hosted_gateway_service_required", method:<requested method>}`.
+Malformed parameters return `-32602`. These are deliberate, dispatched
+refusals on both transports, never method-not-found responses. Every px method
+records the same per-method/error/transport metrics as the existing RPC APIs.
+The node handlers perform no chain writes and require no hosted credentials.

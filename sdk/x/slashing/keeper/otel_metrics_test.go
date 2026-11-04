@@ -8,6 +8,7 @@ import (
 	paxapp "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/testutil/oteltest"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/slashing/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/staking"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/staking/teststaking"
 	stakingtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/staking/types"
@@ -62,8 +63,12 @@ func TestSlashRecordsValidatorSlashed(t *testing.T) {
 		before := validatorSlashed(reader)
 
 		for i := int64(0); i < 2; i++ {
-			blockCtx := ctx.WithBlockHeight(params.SignedBlocksWindow + 1 + i)
-			addr, missedInfo, signInfo, shouldSlash, slashInfo := app.SlashingKeeper.HandleValidatorSignatureConcurrent(blockCtx, pks[1].Address(), power, false)
+			blockCtx := ctx.WithBlockHeight(params.SignedBlocksWindow + 1 + i).WithEventManager(sdk.NewEventManager())
+			addr, missedInfo, signInfo, shouldSlash, slashInfo, events := app.SlashingKeeper.HandleValidatorSignatureConcurrent(blockCtx, pks[1].Address(), power, false)
+			require.Empty(t, blockCtx.EventManager().Events())
+			require.Len(t, events, 1)
+			require.Equal(t, types.EventTypeLiveness, events[0].Type)
+			blockCtx.EventManager().EmitEvents(events)
 			require.Equal(t, consAddr, addr)
 			require.Equal(t, i == 1, shouldSlash)
 			require.Equal(t, before, validatorSlashed(reader))
