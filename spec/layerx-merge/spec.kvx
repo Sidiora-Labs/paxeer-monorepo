@@ -148783,7 +148783,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.908]
 title = "Repair audit record 22.30.19 medium findings in apps/launchpad/web/src/core/network/abis (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.22", "22.31.23"]
@@ -148854,7 +148854,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.905]
 title = "Repair audit record 22.30.19 medium findings in apps/launchpad/web/src/core/market (part 1 of 1): config-drift, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.22", "22.31.23"]
@@ -152969,7 +152969,7 @@ do_15 = "Attempt 2 (requalify): twenty-one cases passed and seventeen failed; th
 
 [task.22.33.303]
 title = "Repair audit record 22.30.135 medium findings in apps/explorer/ui/multichain/searchResults (part 1 of 1): runtime-risk, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.267", "22.31.381"]
@@ -208142,7 +208142,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.839]
 title = "Repair audit record 22.30.180 medium findings in tools/paxctl (part 1 of 1): config-drift, doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.325", "22.31.326", "22.31.327", "22.31.328", "22.31.329"]
@@ -208631,7 +208631,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.822]
 title = "Repair audit record 22.30.179 medium findings in tools/loadtest/stats (part 1 of 1): restart-recovery, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.321", "22.31.322", "22.31.323", "22.31.324", "22.31.427"]
@@ -330059,7 +330059,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.9]
 title = "Repair audit record 22.30.1 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.1"]
