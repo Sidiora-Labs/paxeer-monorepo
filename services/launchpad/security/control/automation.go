@@ -135,7 +135,7 @@ func zero(v string) string {
 	return v
 }
 func (s *Store) CreatePolicy(ctx context.Context, cred, owner, reason string, p Policy) error {
-	if !key(p.ID) || p.Owner != owner || !p.Asset.Valid() || p.Mode != "disclosed_assistant" || !text(p.Disclosure, 256) || len(p.Instruments) < 1 || len(p.Instruments) > 20 || p.Requests < 1 || p.Requests > 1000000 || p.QuoteAge <= 0 || p.QuoteAge > time.Minute {
+	if !uuidPattern.MatchString(p.ID) || !uuidPattern.MatchString(owner) || p.Owner != owner || !p.Asset.Valid() || p.Mode != "disclosed_assistant" || !text(p.Disclosure, 256) || len(p.Instruments) < 1 || len(p.Instruments) > 20 || p.Requests < 1 || p.Requests > 1000000 || p.QuoteAge <= 0 || p.QuoteAge > time.Minute {
 		return Invalid
 	}
 	if _, e := amount(p.Spend); e != nil {
@@ -143,7 +143,7 @@ func (s *Store) CreatePolicy(ctx context.Context, cred, owner, reason string, p 
 	}
 	seen := map[string]bool{}
 	for _, v := range p.Instruments {
-		if !key(v) || seen[v] {
+		if !destination(v) || seen[v] {
 			return Invalid
 		}
 		seen[v] = true

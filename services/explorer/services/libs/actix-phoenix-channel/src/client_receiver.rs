@@ -9,8 +9,26 @@ use std::{
 
 #[derive(Debug)]
 pub struct ClientReceiver {
+    race: Pin<Box<Race<SubscribedBroadcasts, Receiver<ChannelEvent>>>>,
+}
+
+#[derive(Debug)]
+struct SubscribedBroadcasts {
+    receiver: BroadcastReceiver<ChannelEvent>,
     subscriptions: SubscriptionRegistry,
-    race: Pin<Box<Race<BroadcastReceiver<ChannelEvent>, Receiver<ChannelEvent>>>>,
+}
+
+impl Stream for SubscribedBroadcasts {
+    type Item = ChannelEvent;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        loop {
+            match Pin::new(&mut self.receiver).poll_next(cx) {
+                Poll::Ready(Some(event)) if !self.subscriptions.subscribes(&event) => continue,
+                other => return other,
+            }
+        }
+    }
 }
 
 impl ClientReceiver {
@@ -19,9 +37,12 @@ impl ClientReceiver {
         broadcast: BroadcastReceiver<ChannelEvent>,
         subscriptions: SubscriptionRegistry,
     ) -> Self {
+        let broadcast = SubscribedBroadcasts {
+            receiver: broadcast,
+            subscriptions,
+        };
         Self {
             race: Box::pin(broadcast.race(individual)),
-            subscriptions,
         }
     }
 }
@@ -32,7 +53,6 @@ impl Stream for ClientReceiver {
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         loop {
             match self.race.poll_next(cx) {
-                Poll::Ready(Some(event)) if !self.subscriptions.subscribes(&event) => continue,
                 Poll::Ready(Some(event)) => {
                     if let Ok(text) = event.serialize() {
                         break Poll::Ready(Some(text));

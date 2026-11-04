@@ -541,7 +541,7 @@ func TestSnapshotVersionBindsNodeID(t *testing.T) {
 		t.Fatal(err)
 	}
 	blob := snap.Bytes()
-	if SnapshotVersion != 2 || blob[0] != SnapshotVersion {
+	if SnapshotVersion != 3 || blob[0] != SnapshotVersion {
 		t.Fatalf("snapshot version %d, blob version %d", SnapshotVersion, blob[0])
 	}
 	owner, err := SnapshotNodeID(blob)
@@ -569,7 +569,7 @@ func TestSnapshotVersionBindsNodeID(t *testing.T) {
 		t.Fatalf("rewritten node id: %v", err)
 	}
 
-	for _, version := range []byte{0, 1, 3, 0xff} {
+	for _, version := range []byte{0, 1, 2, 0xff} {
 		other := append([]byte(nil), blob...)
 		other[0] = version
 		if err := restoreFresh(t, other, backupKey, nodeKey); !errors.Is(err, ErrSnapshotVersion) {

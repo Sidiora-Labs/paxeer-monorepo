@@ -4,6 +4,7 @@ import (
 	"context"
 
 	grpc "google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/crypto"
@@ -67,7 +68,10 @@ func (sc *SignerClient) GetPubKey(ctx context.Context) (crypto.PubKey, error) {
 
 // SignVote requests a remote signer to sign a vote
 func (sc *SignerClient) SignVote(ctx context.Context, chainID string, vote *tmproto.Vote) error {
-	resp, err := sc.client.SignVote(ctx, &privvalproto.SignVoteRequest{ChainId: sc.chainID, Vote: vote})
+	if chainID != sc.chainID {
+		return status.Errorf(codes.InvalidArgument, "chain ID mismatch: got %q, want %q", chainID, sc.chainID)
+	}
+	resp, err := sc.client.SignVote(ctx, &privvalproto.SignVoteRequest{ChainId: chainID, Vote: vote})
 	if err != nil {
 		errStatus, _ := status.FromError(err)
 		logger.Error("Client SignVote", "err", errStatus)
@@ -81,6 +85,9 @@ func (sc *SignerClient) SignVote(ctx context.Context, chainID string, vote *tmpr
 
 // SignProposal requests a remote signer to sign a proposal
 func (sc *SignerClient) SignProposal(ctx context.Context, chainID string, proposal *tmproto.Proposal) error {
+	if chainID != sc.chainID {
+		return status.Errorf(codes.InvalidArgument, "chain ID mismatch: got %q, want %q", chainID, sc.chainID)
+	}
 	resp, err := sc.client.SignProposal(
 		ctx, &privvalproto.SignProposalRequest{ChainId: chainID, Proposal: proposal})
 

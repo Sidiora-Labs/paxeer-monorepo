@@ -1,0 +1,25 @@
+[repair.22.31.36]
+mode = "BUILD"
+audit = "22.30.25"
+baseline = "Not run: the explicit gate order requires complete implementation before hf-build and hf-done; no unchanged-tree test failure is claimed."
+evidence = "The runner records the qualified revision, command, exit and private log through hf-build and hf-done."
+
+[finding.native-value-loss]
+tests = ["TestRepair_36_NativeValueLoss"]
+repair = "Canonical surface runtime rejects CALLVALUE before forwarding; role installation, pool creation and migration consume the updated keeper bytes; package installation identities now pin the guarded 51-byte runtime."
+wiring = "modules/launchpad/keeper/migrate_v6120_test.go: launchpad module domain 4 must update v6120SurfaceRuntime and its 41-byte migration identity assertion to the guarded 51-byte runtime; this fixture is outside task scope."
+
+[finding.multicall-metering]
+tests = ["TestRepair_36_MulticallCumulativeGas", "TestRepair_36_MulticallWriteGasRollback", "TestRepair_36_MulticallDepthRollback"]
+repair = "Each Router batch entry pays calldata/base/write charges before decode from the shared nested-call budget; each dispatched entry occupies EVM depth, refuses excess recursion and releases its frame on failure; EVM snapshots roll back state and logs."
+
+[qualification.notes]
+workflow = "Spec and root gotcha records are outside the explicit writable scope; no manual bookkeeping edits, commits or pushes are made."
+
+[qualification.repair_1]
+observed = "The strict depth-boundary success test failed because the initial guard refused a child at CallCreateDepth, while EVM.Call admits that child and rejects only when the current depth exceeds CallCreateDepth. RunPrecompiledContract already counts the root frame."
+repair = "Match EVM.Call admission exactly and retain the original success, refusal and rollback assertions unchanged."
+failed_command = "cg spec done 22.31.36 -f layerx-merge --root /work/paxeer-monorepo"
+failed_revision = "628fda3cbcb0087c98bfe2bab6dbdc4469d2333f"
+failed_exit = 1
+failed_log = "/out/logs/verify-1.log"
