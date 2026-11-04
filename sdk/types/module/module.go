@@ -35,6 +35,7 @@ import (
 	"time"
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
+	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 	"github.com/gorilla/mux"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/paxeer-network/paxlog"
@@ -385,43 +386,8 @@ func parseModule(jsonStr string) (*ModuleState, error) {
 func (m *Manager) InitGenesis(ctx sdk.Context, cdc codec.JSONCodec, genesisData map[string]json.RawMessage, genesisImportConfig genesistypes.GenesisImportConfig) abci.ResponseInitChain {
 	var validatorUpdates []abci.ValidatorUpdate
 	if genesisImportConfig.StreamGenesisImport {
-		lines := genesistypes.IngestGenesisFileLineByLine(genesisImportConfig.GenesisStreamFile)
-		errCh := make(chan error, 1)
-		seenModules := make(map[string]bool)
-		var moduleName string
-		go func() {
-			for line := range lines {
-				moduleState, err := parseModule(line)
-				if err != nil {
-					moduleName = "genesisDoc"
-				} else {
-					moduleName = moduleState.AppState.Module
-				}
-				if moduleName == "genesisDoc" {
-					continue
-				}
-				module, ok := m.Modules[moduleName]
-				if !ok {
-					continue
-				}
-				if seenModules[moduleName] {
-					errCh <- fmt.Errorf("module %s seen twice in genesis file", moduleName)
-					return
-				}
-				moduleValUpdates := module.InitGenesis(ctx, cdc, moduleState.AppState.Data)
-				if len(moduleValUpdates) > 0 {
-					if len(validatorUpdates) > 0 {
-						panic("validator InitGenesis updates already set by a previous module")
-					}
-					validatorUpdates = moduleValUpdates
-				}
-			}
-			errCh <- nil
-		}()
-		err := <-errCh
-		if err != nil {
-			panic(err)
-		}
+		stream := genesistypes.IngestGenesisFileLineByLineContext(ctx.Context(), genesisImportConfig.GenesisStreamFile)
+		return m.InitGenesisStream(ctx, cdc, stream)
 	} else {
 		for _, moduleName := range m.OrderInitGenesis {
 			if genesisData[moduleName] == nil {
@@ -444,6 +410,50 @@ func (m *Manager) InitGenesis(ctx sdk.Context, cdc codec.JSONCodec, genesisData 
 	return abci.ResponseInitChain{
 		Validators: validatorUpdates,
 	}
+}
+
+// InitGenesisStream publishes initialized module state only after the source has
+// completed successfully. A read failure or a malformed final record discards
+// the entire cache, including state initialized from earlier records.
+func (m *Manager) InitGenesisStream(ctx sdk.Context, cdc codec.JSONCodec, stream *genesistypes.Stream) abci.ResponseInitChain {
+	defer stream.Close()
+	cachedCtx, write := ctx.CacheContext()
+	var validatorUpdates []abci.ValidatorUpdate
+	headerSeen := false
+	err := stream.Consume(func(line string) error {
+		moduleState, err := parseModule(line)
+		if err != nil {
+			if _, headerErr := tmtypes.GenesisDocFromJSON([]byte(line)); headerErr != nil {
+				return fmt.Errorf("invalid genesis record: %w", headerErr)
+			}
+			if headerSeen {
+				return fmt.Errorf("multiple genesis docs found in stream")
+			}
+			headerSeen = true
+			return nil
+		}
+		mod, ok := m.Modules[moduleState.AppState.Module]
+		if !ok {
+			return nil
+		}
+		updates := mod.InitGenesis(cachedCtx, cdc, moduleState.AppState.Data)
+		if len(updates) > 0 {
+			if len(validatorUpdates) > 0 {
+				return fmt.Errorf("validator InitGenesis updates already set by a previous module")
+			}
+			validatorUpdates = updates
+		}
+		return nil
+	})
+	if err != nil {
+		panic(err)
+	}
+	if !headerSeen {
+		panic("genesis stream is missing a valid genesis header")
+	}
+	write()
+	ctx.EventManager().EmitEvents(cachedCtx.EventManager().Events())
+	return abci.ResponseInitChain{Validators: validatorUpdates}
 }
 
 // ExportGenesis performs export genesis functionality for modules

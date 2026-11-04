@@ -1,0 +1,79 @@
+[repair.22.31.256]
+mode = "BUILD"
+acceptance = "22998.1"
+qualification = "hf-build followed by hf-done on the same candidate; runner retains revision, command, exit and private log"
+baseline = "Retained attempt 1 reported seven passing tests and upgrade_journal_recovery failing to link layerx_programs_migration_runtime_version; no unchanged-tree rerun was made because the ordered gate contract forbids it."
+
+[finding.deployment-transaction-binding]
+test = "deployment_transaction_binding"
+repair = "Decode the actual Cosmos EVM transaction and Programs ABI call, authenticate its successful indexed TxResult, link H to H+1 and bind prior/resulting program and interface leaves."
+[finding.deployment-interface-rebinding]
+test = "deployment_interface_rebinding"
+repair = "Require canonical descriptor equality for deployment and upgrade binding."
+[finding.host-account-proof-shape]
+test = "host_account_proof_shape"
+repair = "Consume 06 || id and standalone framed account bytes; consume committed production ctx.go C export/restore bridge transcripts, prove both standalone rows through ICS23, and reopen the persisted row."
+[finding.upgrade-journal-recovery]
+test = "upgrade_journal_recovery"
+repair = "Retain authenticated predecessor and optional host migration-accounting facts in the validated durable record and proof; shared production hosted envelope decoding reopens and rebuilds contiguous history."
+[finding.replay-deployment-identity]
+test = "replay_deployment_identity"
+repair = "Persist typed transaction provenance beside the canonical record and its separate integrity digest; replay the same chain identity."
+[finding.legacy-interface-root]
+test = "legacy_interface_root"
+repair = "Public interface reads accept IAVL/multistore operations under the authenticated app hash; the obsolete kernel proof shape refuses."
+[finding.archive-bound-roundtrip]
+test = "archive_bound_roundtrip"
+repair = "Count header, paths and file framing against the existing encoded-size limit."
+[finding.build-command-roundtrip]
+test = "build_command_roundtrip"
+repair = "Build-plan version two encodes each UTF-8 argument as canonical hex, preserving argument boundaries through durable transport and the production BuildAttempt command setup."
+
+[wiring.node-admission]
+request = "node/rpc and proof publisher owning domain: assemble DeploymentExecutionProof from raw TxRaw bytes, H prior-state proof, indexed TxResult, H+1 interface proof and optional LXMA1 membership/previous absence; transport canonical admission in the hosted package's admission field."
+[wiring.legacy-fixtures]
+request = "Programs test owning domain: migrate pre-existing deployment fixtures outside this scope from untyped payload/arbitrary transaction bytes to the authenticated execution-proof transport; they are not valid chain deployment evidence."
+[wiring.cli]
+request = "programs/crates/layerx-programs-cli and agent consumer owning domains: use ICS23 InterfaceStateWitness<Vec<ProofOp>> for verify_interface_read and publish/parse canonical BuildPlan version two."
+[wiring.hosted-verification]
+request = "services/platform/hosted/registry/src/verified.rs and builder.rs, hosted registry owning domain: existing BuildPlan encode/parse and argument-vector consumers carry version two without command splitting; migrate persisted version-one recipes explicitly rather than silently interpreting ambiguous arguments."
+[wiring.record-only-replay]
+request = "Deployment journal consumer owning domains: use DeploymentJournalEntry for chain replay; record-only legacy journals have no transaction provenance and cannot authorize resolution of chain evidence."
+
+[gotcha.baseline-order]
+observed = "The task includes a historical baseline-test instruction that conflicts with its explicit ordered gate contract; the ordered contract was followed."
+[gotcha.account-layout]
+observed = "Kernel account-tree primary values and host standalone snapshot records have different length framing and keys; only standalone rows authenticate host accounts."
+
+[gotcha.node-abi-integer]
+observed = "The node geth ABI encoder accepts uint128 as *big.Int; the precompile's internal decoded [16]byte representation is not its encoder input type."
+
+[qualification.first-attempt]
+revision = "638f71fb4411bf919765346abe36ee29a68d9088"
+command = "cg spec done 22.31.256 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Three focused cases passed; five chain cases stopped in the Go producer's uint128 ABI argument conversion before verifier admission."
+
+[fixtures.production-transcript]
+path = "programs/crates/layerx-programs-registry/src/repair_22_31_256.hex"
+sha256 = "5798c9304ce5dd774f153da4f4f3208f1205f4cbfd1854732a49636dc9d76c6e"
+producer = "Node TxRaw, MsgEVMTransaction, geth ABI and ResponseDeliverTx serializers; ctx.go account export/restore bridge; deploy.c migration_accounting_stage with the production scalar runtime-version accessor."
+consumer = "The focused gate consumes the transcript in process and checks module/interface input parity, result roots, account framing, full migration usage, durable envelopes and recovered identities."
+
+[gotcha.seed-native-link]
+observed = "The runtime default static library omits the host-ffi feature and therefore cannot supply layerx_programs_migration_runtime_version to a C subprocess; committed producer transcripts remove that gate dependency."
+
+[gotcha.upgrade-budget-word]
+observed = "The canonical uint128 ABI word requires zero high sixteen bytes; checking the low sixteen bytes incorrectly rejects nonzero migration fee limits."
+
+[wiring.build-command-setup]
+request = "services/platform/hosted/registry/src/builder.rs, hosted build runner owning domain: use BuildAttempt::command when preparing local execution; the existing runner already forwards each stored vector argument without splitting."
+
+[qualification.continuation-repair]
+revision = "ec80d16884124b2d6bdcb637c44c6fb804fa181c"
+command = "cg spec done 22.31.256 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Seven tests passed; the complete runtime-usage assertion exposed an incorrect recorded input to the host accounting producer."
+repair = "Re-recorded the accounting fixture from Lifecycle::upgrade's actual metering schedule and full MeteredUsage, then the unchanged production C accounting stage; every assertion is preserved."

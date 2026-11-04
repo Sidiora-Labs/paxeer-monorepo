@@ -1,0 +1,13 @@
+[repair.22.31.400]
+finding = "receipt-commit-inclusion"
+test_file = "services/explorer/backend/apps/explorer/test/repair/repair_22_31_400_test.exs"
+proving_tests = ["receipt-commit-inclusion: recorded producer survives HTTP transport and reaches committed consumer", "receipt-commit-inclusion: a matching-height valid unrelated commit cannot authenticate a receipt", "receipt-commit-inclusion: proofs bind the exact batch bytes and signed data hash", "receipt-commit-inclusion: sequence range, activity root and receipt roots are authenticated", "receipt-commit-inclusion: receipt results and landing identity cannot be substituted", "receipt-commit-inclusion: RPC evidence cannot choose its own chain or validator trust", "receipt-commit-inclusion: actual controller rejects its discarded-proof range input"]
+baseline = "Not run: the explicit gate order forbids verification before complete implementation; no pre-change failure or baseline gate is claimed."
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit code and private log; qualification requires hf-done to pass on the built candidate."
+wiring_controller = "Domain 14: services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_controller.ex must retain the complete px_getSequenceBatch result (tx and proof), pass ordered block activity IDs as batch_activity_ids, and use configured chain_id rather than deriving identity from the commit; range-only input now fails closed."
+wiring_configuration = "Domain 14: services/explorer/backend/config/runtime.exs must supply SequencerReceipt chain_id and trusted_validator_hashes keyed by landing height from the trusted network/light-client context; missing or unmatched trust never promotes a receipt."
+wiring_activity_ids = "Domain 8: services/platform/hosted/gateway/src/chain_reads.rs consumers must obtain the ordered block activity IDs for batch_activity_ids from the node block interface; the verifier authenticates their concatenation against the batch txRoot and replays the sequence hash chain."
+existing_expectations = "Existing committed-only tests outside scope use unrelated commits and range-only batch fixtures; their old success expectations conflict with authenticated inclusion and were not run or changed."
+
+[gotcha.1]
+observed = "The batch inclusion leaf is SHA256(0x00 || SHA256(tx)), while its txRoot is SHA256(concatenated activity IDs); the receipt activity_root hashes return data and is not the batch transaction root."

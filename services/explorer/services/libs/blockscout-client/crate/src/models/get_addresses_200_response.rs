@@ -19,8 +19,8 @@ use serde_aux::prelude::*;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize, derive_new::new)]
 pub struct GetAddresses200Response {
-    pub exchange_rate: String,
-    pub total_supply: String,
+    pub exchange_rate: Option<String>,
+    pub total_supply: Option<String>,
     pub items: Vec<models::AddressWithTxCount>,
     pub next_page_params: serde_json::Value,
 }

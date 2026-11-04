@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"path/filepath"
@@ -420,8 +421,10 @@ func (k Keeper) execute(ctx sdk.Context, contractAddress sdk.AccAddress, caller 
 
 	// prepare querier
 	querier := k.newQueryHandler(ctx, contractAddress)
+	if err := k.emitCW721OwnerBeforeTransferIfApplicable(ctx, contractAddress, msg); err != nil {
+		return nil, err
+	}
 	gas := k.runtimeGasForContract(ctx)
-	k.emitCW721OwnerBeforeTransferIfApplicable(ctx, contractAddress, msg)
 	res, gasUsed, execErr := k.getWasmer(ctx).Execute(codeInfo.CodeHash, env, info, msg, prefixStore, cosmwasmAPI, querier, k.gasMeter(ctx), gas, costJSONDeserialization)
 	k.consumeRuntimeGas(ctx, gasUsed)
 	if execErr != nil {
@@ -452,6 +455,9 @@ func (k Keeper) migrate(ctx sdk.Context, contractAddress sdk.AccAddress, caller 
 	}
 	if !authZ.CanModifyContract(contractInfo.AdminAddr(), caller) {
 		return nil, sdkerrors.Wrap(sdkerrors.ErrUnauthorized, "can not migrate")
+	}
+	if err := k.validateContractHistory(ctx, contractAddress, contractInfo.CodeID); err != nil {
+		return nil, sdkerrors.Wrap(types.ErrMigrationFailed, err.Error())
 	}
 
 	newCodeInfo := k.GetCodeInfo(ctx, newCodeID)
@@ -630,7 +636,14 @@ func (k Keeper) appendToContractHistory(ctx sdk.Context, contractAddr sdk.AccAdd
 	defer func() { _ = iter.Close() }()
 
 	if iter.Valid() {
-		pos = sdk.BigEndianToUint64(iter.Value())
+		key := iter.Key()
+		if len(key) != 8 || binary.BigEndian.Uint64(key) == 0 {
+			panic("invalid contract history sequence; restore history from verified transaction records before upgrading")
+		}
+		pos = binary.BigEndian.Uint64(key)
+	}
+	if uint64(len(newEntries)) > math.MaxUint64-pos {
+		panic("contract history sequence exhausted")
 	}
 	// then store with incrementing position
 	for _, e := range newEntries {
@@ -638,6 +651,36 @@ func (k Keeper) appendToContractHistory(ctx sdk.Context, contractAddr sdk.AccAdd
 		key := types.GetContractCodeHistoryElementKey(contractAddr, pos)
 		store.Set(key, k.cdc.MustMarshal(&e)) //nolint:gosec
 	}
+}
+
+// Legacy writes can have overwritten entries; sorting survivors cannot recover
+// them. Refuse migration until a governed upgrade restores verified history and
+// its code index from archived transactions rather than guessing missing entries.
+func (k Keeper) validateContractHistory(ctx sdk.Context, addr sdk.AccAddress, codeID uint64) error {
+	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.GetContractCodeHistoryElementPrefix(addr))
+	iter := store.Iterator(nil, nil)
+	defer iter.Close()
+	var pos uint64
+	var last types.ContractCodeHistoryEntry
+	for ; iter.Valid(); iter.Next() {
+		key := iter.Key()
+		var entry types.ContractCodeHistoryEntry
+		if len(key) != 8 || pos == math.MaxUint64 || binary.BigEndian.Uint64(key) != pos+1 {
+			return sdkerrors.Wrap(types.ErrInvalid, "malformed contract history sequence; restore verified history before migration")
+		}
+		if err := k.cdc.Unmarshal(iter.Value(), &entry); err != nil {
+			return err
+		}
+		if entry.Updated == nil || (last.Updated != nil && bytes.Compare(last.Updated.Bytes(), entry.Updated.Bytes()) > 0) {
+			return sdkerrors.Wrap(types.ErrInvalid, "malformed contract history ordering; restore verified history before migration")
+		}
+		last = entry
+		pos++
+	}
+	if pos == 0 || last.CodeID != codeID {
+		return sdkerrors.Wrap(types.ErrInvalid, "contract history does not match current code; restore verified history before migration")
+	}
+	return nil
 }
 
 func (k Keeper) GetContractHistory(ctx sdk.Context, contractAddr sdk.AccAddress) []types.ContractCodeHistoryEntry {
@@ -780,6 +823,9 @@ func (k Keeper) QueryRaw(ctx sdk.Context, contractAddress sdk.AccAddress, key []
 
 func (k Keeper) contractInstance(ctx sdk.Context, contractAddress sdk.AccAddress) (types.ContractInfo, types.CodeInfo, wasmvm.KVStore, error) {
 	store := ctx.KVStore(k.storeKey)
+	if store.Has(genesisStreamStorePrefix) {
+		return types.ContractInfo{}, types.CodeInfo{}, nil, sdkerrors.Wrap(types.ErrInvalid, "contract genesis import is incomplete")
+	}
 
 	contractBz := store.Get(types.GetContractAddressKey(contractAddress))
 	if contractBz == nil {
@@ -1128,54 +1174,62 @@ func (k Keeper) newQueryHandler(ctx sdk.Context, contractAddress sdk.AccAddress)
 	return NewQueryHandler(ctx, k.wasmVMQueryHandler, contractAddress, k.gasRegister)
 }
 
-func (k Keeper) emitCW721OwnerBeforeTransferIfApplicable(ctx sdk.Context, contractAddress sdk.AccAddress, msg []byte) {
+var ErrCW721OwnerLookup = errors.New("required CW721 pretransfer owner lookup failed")
+
+func (k Keeper) emitCW721OwnerBeforeTransferIfApplicable(ctx sdk.Context, contractAddress sdk.AccAddress, msg []byte) error {
 	parsedMsg := map[string]json.RawMessage{}
 	if err := json.Unmarshal(msg, &parsedMsg); err != nil {
-		return
+		return nil
 	}
-	subMsg, ok := parsedMsg["transfer_nft"]
+	var subMsg json.RawMessage
+	for _, action := range []string{"transfer_nft", "send_nft", "burn"} {
+		if raw, ok := parsedMsg[action]; ok {
+			subMsg = raw
+			break
+		}
+	}
+	if subMsg == nil {
+		return nil
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(subMsg, &fields); err != nil {
+		return fmt.Errorf("%w: invalid transfer: %v", ErrCW721OwnerLookup, err)
+	}
+	rawToken, ok := fields["token_id"]
 	if !ok {
-		subMsg, ok = parsedMsg["send_nft"]
+		return nil
 	}
-	if !ok {
-		subMsg, ok = parsedMsg["burn"]
+	var tokenID string
+	if err := json.Unmarshal(rawToken, &tokenID); err != nil || string(rawToken) == "null" || tokenID == "" {
+		return fmt.Errorf("%w: token_id must be a nonempty JSON string", ErrCW721OwnerLookup)
 	}
-	if !ok {
-		return
+	ownerQuery, err := json.Marshal(map[string]interface{}{"owner_of": map[string]string{"token_id": tokenID}})
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrCW721OwnerLookup, err)
 	}
-	parsedSubMsg := map[string]json.RawMessage{}
-	if err := json.Unmarshal(subMsg, &parsedSubMsg); err != nil {
-		return
+	if ctx.IsTracing() && ctx.ChainID() == "pacific-1" && semver.Compare(ctx.ClosestUpgradeName(), "v6.3.0") < 0 {
+		ctx = ctx.WithGasMeter(sdk.NewInfiniteGasMeterWithMultiplier(ctx))
 	}
-	if tokenBz, ok := parsedSubMsg["token_id"]; ok && len(tokenBz) > 2 {
-		tokenID := string(tokenBz[1 : len(tokenBz)-1])
-		ownerQuery := map[string]interface{}{"owner_of": map[string]string{
-			"token_id": tokenID,
-		}}
-		ownerQueryBz, err := json.Marshal(ownerQuery)
-		if err != nil {
-			return
-		}
-		if ctx.IsTracing() && ctx.ChainID() == "pacific-1" && semver.Compare(ctx.ClosestUpgradeName(), "v6.3.0") < 0 {
-			ctx = ctx.WithGasMeter(sdk.NewInfiniteGasMeterWithMultiplier(ctx))
-		}
-		resBz, err := k.QuerySmart(ctx, contractAddress, ownerQueryBz)
-		if err != nil {
-			return
-		}
-		res := map[string]json.RawMessage{}
-		if err := json.Unmarshal(resBz, &res); err != nil {
-			return
-		}
-		if ownerBz, ok := res["owner"]; ok && len(ownerBz) > 2 {
-			ctx.EventManager().EmitEvent(sdk.NewEvent(
-				types.EventTypeCW721PreTransferOwner,
-				sdk.NewAttribute(types.AttributeKeyContractAddr, contractAddress.String()),
-				sdk.NewAttribute(types.AttributeKeyTokenId, tokenID),
-				sdk.NewAttribute(types.AttributeKeyOwner, string(ownerBz[1:len(ownerBz)-1])),
-			))
-		}
+	resBz, err := k.QuerySmart(ctx, contractAddress, ownerQuery)
+	if err != nil {
+		return fmt.Errorf("%w: contract %s token %q: %v", ErrCW721OwnerLookup, contractAddress, tokenID, err)
 	}
+	var response struct {
+		Owner string `json:"owner"`
+	}
+	if err := json.Unmarshal(resBz, &response); err != nil {
+		return fmt.Errorf("%w: invalid owner response: %v", ErrCW721OwnerLookup, err)
+	}
+	if _, err := sdk.AccAddressFromBech32(response.Owner); err != nil {
+		return fmt.Errorf("%w: invalid owner: %v", ErrCW721OwnerLookup, err)
+	}
+	ctx.EventManager().EmitEvent(sdk.NewEvent(
+		types.EventTypeCW721PreTransferOwner,
+		sdk.NewAttribute(types.AttributeKeyContractAddr, contractAddress.String()),
+		sdk.NewAttribute(types.AttributeKeyTokenId, tokenID),
+		sdk.NewAttribute(types.AttributeKeyOwner, response.Owner),
+	))
+	return nil
 }
 
 // MultipliedGasMeter wraps the GasMeter from context and multiplies all reads by out defined multiplier

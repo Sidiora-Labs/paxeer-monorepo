@@ -1,0 +1,76 @@
+[repair.22.31.238]
+audit = "22.30.115"
+base_revision = "61b2c3c98c61e72d831e1ce948a0bde6d218c980"
+previous_attempt_base_revision = "4273de5e86f58f8212e00898cbfeb995efcb85b5"
+mode = "BUILD"
+qualification = "Runner hf-build and hf-done candidate revisions and private logs are authoritative; no qualification claimed by this record."
+baseline = "Continued the ten in-scope paths from attempt 1; its recorded verification at 9de4245608fd162de70114995dc539b350656426 exited zero but registered nine TODOs and executed no assertions. The inherited tree fixes registration after that run; this continuation qualifies executable tests. No unchanged-tree verification was run because the explicit ordered gate instructions prohibit verification before implementation and running verify_cmd by hand."
+
+[finding.receipt-authentication]
+tests = ["receipt_authentication_rejects_tampered_node_outputs", "receipt_authentication_protects_module_provider_and_ladder_consumers", "receipt_authentication_keeps_uint64_key_ranges_lossless"]
+repair = "Complete rung-specific views, strict layout-1 canonical decoding, Ed25519 signature under a governed height-scoped key pin, transaction/nonce/output binding, committed height coverage, and authentication in receipt reads, waits, provider, module, wallet and ladder consumers; recovered failure receipts cannot promote persisted receipt steps above submitted."
+producer = "rpc/sequencer_receipt_vectors_test.go emitted sdk/platform/conformance/fixtures/sequencer-receipt-v1.json; daemon/committed-fixture/vectors/vector-v4-committed.json records the committed node receipt. Tests replay those signed bytes over HTTP without generating replacement receipts or signatures."
+regression = "Before this repair the decoder accepts incomplete receipted answers and tampered signed execution fields, and the ladder trusts those unverified fields; these are source-derived failure expectations, not a baseline test execution claim."
+
+[finding.receipt-fields-lost]
+test = "receipt_fields_lost_preserves_complete_node_views"
+repair = "Preserve paymentDenom and the 32-byte signingKey, require every producer field for receipted/committed answers, and distinguish the three shapes in the exported discriminated union."
+regression = "The former decoder drops both fields from real node views, so equality against producer output fails before this repair."
+
+[finding.provider-session-binding]
+tests = ["provider_session_binding_invalidates_approval_before_writes", "provider_session_binding_checks_final_token_await_before_dispatch", "provider_session_binding_preserves_approved_sender_token_and_payload", "provider_session_binding_recovers_message_and_typed_data_signers"]
+repair = "Bind the connected account to its authenticated token; capture account, chain, generation, immutable params and token before approval; recheck after each asynchronous boundary and before dispatch; include tx.from and use only the captured token; recover EIP-191/EIP-712 signers before returning signatures."
+producer = "sdk/wallet/test/fixtures/gateway captures are replayed over HTTP; signature substitution uses the other real gateway-emitted signature, not a fabricated signer."
+regression = "The former provider broadcasts after confirmation changes the token, omits tx.from, and returns the substituted valid signature for the wrong payload without recovering its signer."
+
+[finding.default-node-hosted-methods]
+test = "default_node_hosted_methods_require_hosted_configuration_and_use_producer_namespaces"
+repair = "Separate explicit nodeUrl and hostedUrl; retain the node default for node RPC; require hostedUrl before account, bank, discovery or history reads; route mixed batches by producer while preserving caller order. px_getReceiptKeys remains a node method."
+producer = "Hosted method names are checked against services/platform/hosted/gateway/openrpc.json and node registrations in rpc/server.go; the hosted account capture and node eth_chainId capture cross real HTTP into the SDK. Default account/network reads fail locally until hostedUrl is supplied. The committed legacy network capture is routed to hosted and rejected because it lacks the merged consensus view."
+regression = "The former default client silently sends px_resolveAccount and px_getNetwork to the node and routes every batch item to one endpoint."
+
+[wiring.registry]
+request = "Domain 12: update spec/layerx-merge/interfaces.kvx interface.12.ts-sdk-sequencer-receipt-answer-j50 to mirror the complete discriminated SequencerReceiptAnswer, including required paymentDenom and signingKey in signed views."
+
+[wiring.gateway]
+request = "Domain 12 wallet gateway: services/wallet/gateway/src/schemas/tx.ts must preserve and validate tx.from; services/wallet/gateway/src/routes/sign.ts must compare it with the authenticated wallet before signing or broadcasting, rejecting mismatches."
+
+[gotcha.receipt-key-numbers]
+observed = "ReceiptKeys publishes uint64 JSON height bounds that can exceed Number.MAX_SAFE_INTEGER; ordinary JSON.parse rounds them before height-scoped authentication."
+repair = "Preserve unsafe integer tokens as decimal strings on receipt-key responses, then validate the inclusive bounds as bigint."
+
+[gotcha.format-ranges]
+observed = "Prettier range formatting of a private TypeScript method can parse the selected method outside its class and refuse it."
+repair = "Format the touched TypeScript files as complete syntax units with the repository's Prettier conventions."
+
+[continuation.2]
+implementation = "Preserved the inherited implementation and executable test registration; added producer-emitted refusal vectors, HTTP read/wait tamper rejection, committed wait success, signature rejection under a substituted governed public key, legacy network transport rejection and failed-receipt recovery refusal."
+scope = "Inherited .cgignore and spec status edits were inspected and left untouched; the runner excludes bookkeeping from the task candidate. No files outside the declared sources and test are edited by this continuation."
+evidence = "The final hf-build and hf-done ledger rows name the verified candidate revision and private evidence paths; the final response copies the authoritative hf-done row without any subsequent source edits."
+
+[qualification.build-1]
+revision = "5296bbbb6b9c4a33b0a2483b2757212d1d205276"
+command = "pnpm --dir sdk/wallet exec tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+repair = "Pass the receipt digest preimage pieces as the array required by viem.concatBytes."
+
+[qualification.verify-1]
+revision = "9de4245608fd162de70114995dc539b350656426"
+command = "cg spec done 22.31.238 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 0
+log = "/out/logs/verify-1.log"
+observed = "Vitest registered nine todo cases and ran zero tests despite the zero command exit; this is not behavioral qualification."
+repair = "Register each declared named function as test(functionName.name, functionName), supplying the executable callback required by installed Vitest."
+
+[qualification.continuation-verify-1]
+revision = "e76f1b21d2e73ac14fc3484aba1e84396adc28b8"
+command = "cg spec done 22.31.238 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All nine tests executed; eight passed and the module path rejected empty test calldata before receipt authentication."
+repair = "Drive the module with the recorded V1-layerxledger-pay-exact transaction calldata decoded by viem.parseTransaction and assert that the real transport carries its sender, target and calldata."
+
+[gotcha.module-calldata]
+observed = "The real precompileTransactionRequest rejects calldata shorter than a four-byte selector; an empty call never reaches module receipt authentication."
+repair = "Use the actual recorded module transaction calldata; retain the encoder validation and receipt assertions."

@@ -1,7 +1,6 @@
 package keeper
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/perps/types"
@@ -23,10 +22,10 @@ func (k *Keeper) GetMarketState(ctx sdk.Context, marketID uint64) (types.MarketS
 	}
 	var state types.MarketState
 	if err := state.Unmarshal(bz); err != nil {
-		return types.MarketState{}, fmt.Errorf("%w: corrupt market state %d: %v", types.ErrInvalidParams, marketID, err)
+		return types.MarketState{}, types.ErrInvalidParams.Wrapf("corrupt market state %d: %v", marketID, err)
 	}
 	if state.MarketID != marketID {
-		return types.MarketState{}, fmt.Errorf("%w: market state %d holds market %d", types.ErrInvalidParams, marketID, state.MarketID)
+		return types.MarketState{}, types.ErrInvalidParams.Wrapf("market state %d holds market %d", marketID, state.MarketID)
 	}
 	return state, nil
 }
@@ -34,6 +33,12 @@ func (k *Keeper) GetMarketState(ctx sdk.Context, marketID uint64) (types.MarketS
 // SetMarketState stores the state of its market.
 func (k *Keeper) SetMarketState(ctx sdk.Context, state types.MarketState) {
 	k.store(ctx).Set(types.MarketStateKey(state.MarketID), state.Marshal())
+	// Initialize the first committed snapshot; subsequent price updates advance it
+	// before changing the live mark, once per block.
+	key := previousMarkKey(state.MarketID)
+	if !k.store(ctx).Has(key) && !state.MarkPrice.IsZero() {
+		k.store(ctx).Set(key, previousMarkValue(ctx.BlockHeight(), state.MarkPrice))
+	}
 }
 
 // UpdatePrices is the first EndBlock step: it reads GetPrice of the pricefeed
@@ -84,6 +89,9 @@ func (k *Keeper) updateMarketPrice(ctx sdk.Context, marketID uint64, emaSeconds 
 	}
 	state, err := k.GetMarketState(ctx, marketID)
 	if err != nil {
+		return types.EventRecord{}, false, err
+	}
+	if err := k.snapshotCommittedMark(ctx, state); err != nil {
 		return types.EventRecord{}, false, err
 	}
 	previousTimestampMs := state.PriceTimestampMs
@@ -179,7 +187,7 @@ func (k *Keeper) RequireFresh(ctx sdk.Context, marketID uint64) error {
 		return err
 	}
 	if !price.Fresh {
-		return fmt.Errorf("%w: market %d", types.ErrPriceStale, marketID)
+		return types.ErrPriceStale.Wrapf("market %d", marketID)
 	}
 	return nil
 }
@@ -230,7 +238,7 @@ func signedBig(word uint256.Int) *big.Int {
 // outside [-2^255, 2^255).
 func signedWord(value *big.Int, marketID uint64) (uint256.Int, error) {
 	if value.Cmp(two255) >= 0 || value.Cmp(new(big.Int).Neg(two255)) < 0 {
-		return uint256.Int{}, fmt.Errorf("%w: market %d EMA basis %s outside int256", types.ErrOverflow, marketID, value)
+		return uint256.Int{}, types.ErrOverflow.Wrapf("market %d EMA basis %s outside int256", marketID, value)
 	}
 	unsigned := new(big.Int).Set(value)
 	if unsigned.Sign() < 0 {
@@ -248,7 +256,7 @@ func priceWord(price sdk.Int, name string, marketID uint64) (uint256.Int, error)
 	}
 	value := price.BigInt()
 	if value.Sign() < 0 || value.BitLen() > 256 {
-		return uint256.Int{}, fmt.Errorf("%w: market %d pricefeed %s price %s outside uint256", types.ErrOverflow, marketID, name, value)
+		return uint256.Int{}, types.ErrOverflow.Wrapf("market %d pricefeed %s price %s outside uint256", marketID, name, value)
 	}
 	var word uint256.Int
 	word.SetFromBig(value)

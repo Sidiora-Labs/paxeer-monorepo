@@ -16,7 +16,7 @@ use crate::{
     VerifiedDeploymentEvidence,
 };
 
-const PLAN_VERSION: &str = "1";
+const PLAN_VERSION: &str = "2";
 const PLAN_KEYS: [&str; 9] = [
     "artifact_path",
     "builder_image_digest",
@@ -83,10 +83,7 @@ impl BuildPlan {
                 source_date_epoch: field(&fields, "source_date_epoch")?
                     .parse()
                     .map_err(|_| BuildRefusal::InvalidPlan)?,
-                command: field(&fields, "command")?
-                    .split_whitespace()
-                    .map(str::to_owned)
-                    .collect(),
+                command: decode_command(field(&fields, "command")?)?,
             },
             artifact_path: field(&fields, "artifact_path")?.to_owned(),
             toolchain_manifest: field(&fields, "toolchain_manifest")?.to_owned(),
@@ -108,12 +105,15 @@ impl BuildPlan {
             self.artifact_path,
             self.toolchain_manifest,
             self.dependency_lock,
-            self.environment.command.join(" "),
+            self.environment.command.iter().map(|arg| hex::encode(arg.as_bytes())).collect::<Vec<_>>().join(","),
         )
     }
 
     fn validate(&self) -> Result<(), BuildRefusal> {
         self.environment.validate()?;
+        if self.encode().len() > MAX_PLAN_BYTES {
+            return Err(BuildRefusal::InvalidPlan);
+        }
         validate_path(&self.artifact_path)?;
         validate_path(&self.toolchain_manifest)?;
         validate_path(&self.dependency_lock)?;
@@ -127,6 +127,16 @@ pub struct BuildAttempt<'inputs> {
     pub archive: &'inputs SourceArchive,
     pub plan: &'inputs BuildPlan,
     pub attempt: u32,
+}
+
+impl BuildAttempt<'_> {
+    /// Prepares the exact executable and arguments authenticated by the plan.
+    pub fn command(&self) -> Result<std::process::Command, BuildRefusal> {
+        self.plan.validate()?;
+        let mut command = std::process::Command::new(&self.plan.environment.command[0]);
+        command.args(&self.plan.environment.command[1..]);
+        Ok(command)
+    }
 }
 
 /// Sandbox boundary that materialises the published archive, executes the
@@ -353,10 +363,11 @@ fn validate_artifact(wasm: &[u8], abi_version: u16) -> Result<(), BuildRefusal> 
     let engine = WasmEngine::declared().map_err(|refusal| BuildRefusal::Engine {
         reason: refusal.to_string(),
     })?;
-    crate::resolver::validate_deployment_module(&engine, wasm, abi_version)
-        .map_err(|refusal| BuildRefusal::ArtifactRejected {
+    crate::resolver::validate_deployment_module(&engine, wasm, abi_version).map_err(|refusal| {
+        BuildRefusal::ArtifactRejected {
             reason: refusal.to_string(),
-        })?;
+        }
+    })?;
     Ok(())
 }
 
@@ -372,4 +383,17 @@ fn digest<'text>(
     key: &str,
 ) -> Result<[u8; 32], BuildRefusal> {
     hex::decode_digest(field(fields, key)?).map_err(BuildRefusal::Registry)
+}
+
+fn decode_command(encoded: &str) -> Result<Vec<String>, BuildRefusal> {
+    encoded
+        .split(',')
+        .map(|arg| {
+            let bytes = hex::decode(arg).map_err(|_| BuildRefusal::InvalidPlan)?;
+            if hex::encode(&bytes) != arg {
+                return Err(BuildRefusal::InvalidPlan);
+            }
+            String::from_utf8(bytes).map_err(|_| BuildRefusal::InvalidPlan)
+        })
+        .collect()
 }
