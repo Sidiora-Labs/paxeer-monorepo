@@ -128998,7 +128998,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.9]
 title = "Repair audit record 22.30.12 findings in apps/perps/src/widgets/spot: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129065,7 +129065,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.7]
 title = "Repair audit record 22.30.12 findings in apps/perps/src/pages/api/candle: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -158658,7 +158658,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.10]
 title = "Repair audit record 22.30.13 findings in modules/oracle/types: runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -158691,7 +158691,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.6]
 title = "Repair audit record 22.30.11 findings in modules/epoch/types: runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -158758,7 +158758,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.1]
 title = "Repair audit record 22.30.1 findings in layerxproof/codec: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -251945,7 +251945,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.182]
 title = "Pre-upgrade audit of tools-ops: tools/qualification/paxeer-x/human_deposit_initial_response.py (130 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
