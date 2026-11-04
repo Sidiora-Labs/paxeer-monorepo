@@ -2,9 +2,11 @@
 //! `NativeProgramCall`, owner review and signing, and durable exact-byte submission with
 //! receipt and block-commit resolution.
 
-use std::fs::{self, File};
+use std::cell::Cell;
+use std::fs::{self, File, OpenOptions};
 use std::io::{self, Write as _};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use layerx_crypto::disclosure::call::{decode_program_call, encode_program_call};
 use layerx_crypto::disclosure::{DisclosedNativeOperation, Disclosure, DisclosureError};
@@ -230,6 +232,7 @@ pub enum AiClientError {
     HistoryUnavailable(EpochStatus),
     Journal(io::ErrorKind),
     CorruptRecord,
+    StaleRecord,
 }
 
 macro_rules! from_refusal {
@@ -1456,6 +1459,7 @@ fn transaction_identity(
 /// Durable record of one signed operation; the signed bytes never change after signing.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OperationRecord {
+    generation: Cell<[u8; 32]>,
     state: OperationState,
     domain: DomainStatus,
     protocol_version: u16,
@@ -1489,7 +1493,8 @@ impl OperationRecord {
         not_after: u64,
     ) -> Result<Self, AiClientError> {
         let (identity, key) = transaction_identity(&signed_bytes, not_after)?;
-        Ok(Self {
+        let record = Self {
+            generation: Cell::new([0; 32]),
             state: OperationState::Signed,
             domain: DomainStatus::Pending,
             protocol_version: identity.protocol_version,
@@ -1509,7 +1514,11 @@ impl OperationRecord {
             checkpoint: None,
             rung: None,
             signed_bytes,
-        })
+        };
+        record
+            .generation
+            .set(Sha256::digest(record.encode()?).into());
+        Ok(record)
     }
 
     #[must_use]
@@ -1647,6 +1656,10 @@ impl OperationRecord {
     /// `CorruptRecord` for malformed, trailing, inconsistent or pre-signing records, and
     /// wire or signature refusals of the retained bytes.
     pub fn decode(bytes: &[u8], _registry: &ModuleRegistry) -> Result<Self, AiClientError> {
+        Self::decode_bytes(bytes)
+    }
+
+    fn decode_bytes(bytes: &[u8]) -> Result<Self, AiClientError> {
         let mut input = Cursor(bytes);
         let magic = input.take::<8>()?;
         let legacy = &magic == LEGACY_RECORD_MAGIC;
@@ -1656,6 +1669,7 @@ impl OperationRecord {
         let state = OperationState::from_code(input.take::<1>()?[0])?;
         let domain = DomainStatus::from_code(input.take::<1>()?[0])?;
         let mut record = Self {
+            generation: Cell::new(Sha256::digest(bytes).into()),
             state,
             domain,
             protocol_version: u16::from_be_bytes(input.take()?),
@@ -1853,20 +1867,86 @@ impl OperationJournal {
             .join(format!("{}.{RECORD_EXTENSION}", hex(activity_id)))
     }
 
-    /// Atomically replaces the record file and syncs file and directory.
-    ///
-    /// # Errors
-    /// `Journal` for any filesystem failure, `CorruptRecord` for an unencodable record.
+    fn acquire(&self, activity_id: &[u8; 32]) -> Result<File, AiClientError> {
+        // The lock inode is permanent: unlinking it would allow a second owner.
+        let file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .open(self.record_path(activity_id).with_extension("lock"))?;
+        file.try_lock().map_err(|error| match error {
+            std::fs::TryLockError::WouldBlock => AiClientError::Journal(io::ErrorKind::WouldBlock),
+            std::fs::TryLockError::Error(error) => error.into(),
+        })?;
+        Ok(file)
+    }
+
+    fn current(&self, record: &OperationRecord) -> Result<Option<OperationRecord>, AiClientError> {
+        let bytes = match fs::read(self.record_path(&record.activity_id)) {
+            Ok(bytes) => bytes,
+            Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
+            Err(error) => return Err(error.into()),
+        };
+        if <[u8; 32]>::from(Sha256::digest(&bytes)) != record.generation.get() {
+            return Err(AiClientError::StaleRecord);
+        }
+        let previous = OperationRecord::decode_bytes(&bytes)?;
+        if !same_operation(&previous, record) {
+            return Err(AiClientError::CorruptRecord);
+        }
+        Ok(Some(previous))
+    }
+
+    /// Generation-checked atomic replacement under exclusive process-safe ownership.
+    /// A record cloned before another transition cannot overwrite the newer state.
     pub fn persist(&self, record: &OperationRecord) -> Result<(), AiClientError> {
+        let _owner = self.acquire(&record.activity_id)?;
+        self.persist_owned(record)
+    }
+
+    fn persist_owned(&self, record: &OperationRecord) -> Result<(), AiClientError> {
+        if !record.consistent() {
+            return Err(AiClientError::CorruptRecord);
+        }
+        if let Some(previous) = self.current(record)? {
+            if !monotonic(&previous, record) {
+                return Err(AiClientError::InvalidTransition {
+                    from: previous.state,
+                });
+            }
+        }
         let bytes = record.encode()?;
         let path = self.record_path(&record.activity_id);
-        let partial = path.with_extension("partial");
-        let mut file = File::create(&partial)?;
-        file.write_all(&bytes)?;
-        file.sync_all()?;
-        drop(file);
-        fs::rename(&partial, &path)?;
-        File::open(&self.directory)?.sync_all()?;
+        static NEXT_PARTIAL: AtomicU64 = AtomicU64::new(0);
+        let (partial, mut file) = loop {
+            let partial = path.with_extension(format!(
+                "{}.{}.partial",
+                std::process::id(),
+                NEXT_PARTIAL.fetch_add(1, Ordering::Relaxed)
+            ));
+            match OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&partial)
+            {
+                Ok(file) => break (partial, file),
+                Err(error) if error.kind() == io::ErrorKind::AlreadyExists => continue,
+                Err(error) => return Err(error.into()),
+            }
+        };
+        let result = (|| -> io::Result<()> {
+            file.write_all(&bytes)?;
+            file.sync_all()?;
+            drop(file);
+            fs::rename(&partial, &path)?;
+            File::open(&self.directory)?.sync_all()
+        })();
+        if result.is_err() {
+            let _ = fs::remove_file(&partial);
+        }
+        result?;
+        record.generation.set(Sha256::digest(&bytes).into());
         Ok(())
     }
 
@@ -1879,6 +1959,7 @@ impl OperationJournal {
         activity_id: &[u8; 32],
         registry: &ModuleRegistry,
     ) -> Result<OperationRecord, AiClientError> {
+        let _owner = self.acquire(activity_id)?;
         let bytes = fs::read(self.record_path(activity_id))?;
         let migrated = bytes.starts_with(LEGACY_RECORD_MAGIC);
         let mut record = OperationRecord::decode(&bytes, registry)?;
@@ -1887,9 +1968,9 @@ impl OperationJournal {
         }
         if record.state == OperationState::Submitting {
             record.state = OperationState::Unknown;
-            self.persist(&record)?;
+            self.persist_owned(&record)?;
         } else if migrated {
-            self.persist(&record)?;
+            self.persist_owned(&record)?;
         }
         Ok(record)
     }
@@ -1900,7 +1981,23 @@ impl OperationJournal {
     /// `InvalidTransition` unless the record is `Signed`; journal failures.
     pub fn record_signed(&self, record: &OperationRecord) -> Result<(), AiClientError> {
         require(record, &[OperationState::Signed])?;
-        self.persist(record)
+        let _owner = self.acquire(&record.activity_id)?;
+        match fs::read(self.record_path(&record.activity_id)) {
+            Ok(bytes) => {
+                let current = OperationRecord::decode_bytes(&bytes)?;
+                if !same_operation(&current, record) {
+                    return Err(AiClientError::CorruptRecord);
+                }
+                // Registration is idempotent, even after execution. Keep the caller's
+                // old generation so a later mutation must reload the current record.
+                if current.state == OperationState::Signed {
+                    record.generation.set(current.generation.get());
+                }
+                Ok(())
+            }
+            Err(error) if error.kind() == io::ErrorKind::NotFound => self.persist_owned(record),
+            Err(error) => Err(error.into()),
+        }
     }
 
     /// First transmission of the exact signed bytes. `Submitting` is durable before sending;
@@ -1935,6 +2032,8 @@ impl OperationJournal {
         record: &mut OperationRecord,
         endpoint: &SequencerEndpoint,
     ) -> Result<OperationState, AiClientError> {
+        let _owner = self.acquire(&record.activity_id)?;
+        self.current(record)?.ok_or(AiClientError::StaleRecord)?;
         let (identity, key) = transaction_identity(&record.signed_bytes, record.not_after)?;
         if identity.activity_id != record.activity_id
             || identity.idempotency_key != record.idempotency_key
@@ -1944,13 +2043,12 @@ impl OperationJournal {
         {
             return Err(AiClientError::CorruptRecord);
         }
-        let (prior_state, prior_attempt) = (record.state, record.attempt);
         record.attempt = record
             .attempt
             .checked_add(1)
             .ok_or(AiClientError::CorruptRecord)?;
         record.state = OperationState::Submitting;
-        self.persist(record)?;
+        self.persist_owned(record)?;
         record.state = match submit_signed(endpoint, &record.signed_bytes) {
             Ok(Submission::Submitted { tx_hash, rung }) if tx_hash == record.activity_id => {
                 record.rung = Some(rung);
@@ -1958,7 +2056,7 @@ impl OperationJournal {
             }
             Ok(Submission::Submitted { .. }) => {
                 record.state = OperationState::Unknown;
-                self.persist(record)?;
+                self.persist_owned(record)?;
                 return Err(AiClientError::ReceiptMismatch);
             }
             Err(SubmitError::Refused { result, .. })
@@ -1973,18 +2071,17 @@ impl OperationJournal {
                 OperationState::Unknown
             }
             Err(error @ SubmitError::Sequencer(SequencerError::Endpoint | SequencerError::Tls)) => {
-                record.state = prior_state;
-                record.attempt = prior_attempt;
-                self.persist(record)?;
+                record.state = OperationState::Unknown;
+                self.persist_owned(record)?;
                 return Err(error.into());
             }
             Err(error @ SubmitError::Sequencer(_)) => {
                 record.state = OperationState::Unknown;
-                self.persist(record)?;
+                self.persist_owned(record)?;
                 return Err(error.into());
             }
         };
-        self.persist(record)?;
+        self.persist_owned(record)?;
         Ok(record.state)
     }
 
@@ -1999,6 +2096,8 @@ impl OperationJournal {
         endpoint: &SequencerEndpoint,
         context: AuthenticatedLookupContext<'_>,
     ) -> Result<OperationState, AiClientError> {
+        let _owner = self.acquire(&record.activity_id)?;
+        self.current(record)?.ok_or(AiClientError::StaleRecord)?;
         require(record, &[OperationState::Pending, OperationState::Unknown])?;
         let receipt = match lookup_authenticated(endpoint, record.activity_id, context)? {
             AuthenticatedLookup::Absent | AuthenticatedLookup::Submitted { .. } => {
@@ -2017,6 +2116,8 @@ impl OperationJournal {
         context: AuthenticatedLookupContext<'_>,
         evidence: &ReceiptCommitEvidence<'_>,
     ) -> Result<OperationState, AiClientError> {
+        let _owner = self.acquire(&record.activity_id)?;
+        self.current(record)?.ok_or(AiClientError::StaleRecord)?;
         require(record, &[OperationState::Pending, OperationState::Unknown])?;
         match lookup_authenticated_with_commit(endpoint, record.activity_id, context, evidence)? {
             AuthenticatedLookup::Verified(receipt) => self.apply_receipt(record, receipt),
@@ -2061,7 +2162,7 @@ impl OperationJournal {
         } else {
             OperationState::Failed
         };
-        self.persist(record)?;
+        self.persist_owned(record)?;
         Ok(record.state)
     }
 
@@ -2075,6 +2176,8 @@ impl OperationJournal {
         record: &mut OperationRecord,
         finality: &CommitFinality,
     ) -> Result<OperationState, AiClientError> {
+        let _owner = self.acquire(&record.activity_id)?;
+        self.current(record)?.ok_or(AiClientError::StaleRecord)?;
         require(record, &[OperationState::Executed])?;
         let coverage = finality.coverage.ok_or(AiClientError::FinalityMismatch)?;
         if !record.covers(&coverage)
@@ -2087,7 +2190,7 @@ impl OperationJournal {
         record.checkpoint = Some(finality.block_hash.bytes());
         record.rung = Some(Rung::Committed);
         record.state = OperationState::Finalized;
-        self.persist(record)?;
+        self.persist_owned(record)?;
         Ok(record.state)
     }
 
@@ -2101,13 +2204,43 @@ impl OperationJournal {
         record: &mut OperationRecord,
         now: u64,
     ) -> Result<OperationState, AiClientError> {
+        let _owner = self.acquire(&record.activity_id)?;
+        self.current(record)?.ok_or(AiClientError::StaleRecord)?;
         require(record, &[OperationState::Signed])?;
         if now > record.not_after {
             record.state = OperationState::Failed;
-            self.persist(record)?;
+            self.persist_owned(record)?;
         }
         Ok(record.state)
     }
+}
+
+fn same_operation(left: &OperationRecord, right: &OperationRecord) -> bool {
+    left.signed_bytes == right.signed_bytes
+        && left.intent == right.intent
+        && left.not_after == right.not_after
+        && left.activity_id == right.activity_id
+}
+
+fn monotonic(previous: &OperationRecord, next: &OperationRecord) -> bool {
+    use OperationState::{Executed, Failed, Finalized, Pending, Signed, Submitting, Unknown};
+    if previous.state == next.state {
+        return previous.encode().ok() == next.encode().ok();
+    }
+    let allowed = matches!(
+        (previous.state, next.state),
+        (Signed, Submitting | Failed)
+            | (Submitting, Pending | Unknown | Failed)
+            | (Pending | Unknown, Executed | Failed)
+            | (Unknown, Submitting)
+            | (Executed, Finalized)
+    );
+    let attempt = if next.state == Submitting {
+        previous.attempt.checked_add(1) == Some(next.attempt)
+    } else {
+        previous.attempt == next.attempt
+    };
+    allowed && attempt
 }
 
 fn require(record: &OperationRecord, allowed: &[OperationState]) -> Result<(), AiClientError> {
