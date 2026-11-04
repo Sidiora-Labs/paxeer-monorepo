@@ -809,8 +809,15 @@ pub fn approval_get_tool(
         .ok_or_else(malformed)?
         .parse()
         .map_err(|_| malformed())?;
+    let current_time = layerx_agent_api::TimestampSeconds(
+        arguments["current_time"]
+            .as_str()
+            .ok_or_else(malformed)?
+            .parse()
+            .map_err(|_| malformed())?,
+    );
     let record = service
-        .get(tenant, approval_id, sequence)
+        .get(tenant, approval_id, sequence, current_time)
         .map_err(|error| BoundaryRefusal::Unavailable(format!("approval lookup: {error:?}")))?;
     let disclosure = &record.held_activity;
     if arguments
@@ -935,8 +942,8 @@ fn session_input_schema(name: &str, native: bool) -> Option<Value> {
             &["current_sequence", "limit"],
         ),
         "approval.get" => session_object(
-            json!({"tenant": session_text(), "agent": session_text(), "approval_id": session_digest(), "current_sequence": session_decimal(u64::MAX)}),
-            &["approval_id", "current_sequence"],
+            json!({"tenant": session_text(), "agent": session_text(), "approval_id": session_digest(), "current_sequence": session_decimal(u64::MAX), "current_time": session_decimal(u64::MAX)}),
+            &["approval_id", "current_sequence", "current_time"],
         ),
         "approval.approve" | "approval.reject" => session_object(
             json!({"tenant": session_text(), "agent": session_text(), "approval_id": session_digest(), "held_digest": session_digest(), "current_sequence": session_decimal(u64::MAX)}),
