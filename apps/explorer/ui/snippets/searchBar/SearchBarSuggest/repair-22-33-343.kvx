@@ -1,0 +1,12 @@
+[repair.22.33.343]
+finding = "search-category-ref-crash"
+tests = ["searchCategoryRefCrashHiddenKinds", "searchCategoryRefCrashCategoryChanges", "searchCategoryRefCrashEmptyResults", "searchCategoryRefCrashTabsAndKeyboard"]
+proof = "The real QueryClient in-memory store feeds the production useApiQuery hook and SearchBarSuggest; committed result fixtures and viewport coordinates exercise scrolling, category changes, empty results and tab keyboard activation."
+baseline = "Not run: the task's explicit gate order forbids verification before the entire implementation is complete; the original array's hidden-kind tail is a createRef object and category narrowing leaves null entries. No pre-change test failure is claimed."
+wiring_requests = []
+qualification_repair = "The first focused run passed the three scroll/lifecycle tests; jsdom lacked CSS.escape for the real tab keyboard path, so the spec loads the installed CSSOM polyfill and asserts its escaping behavior without changing any existing assertion."
+continuation_repair = "The real query store starts with the disabled marketplace's empty result, the keyboard event is delivered to the real tab list handler and the selected block tab is awaited with a find query; focus and smooth-scroll assertions remain intact."
+failed_gate = "revision=20f88e6232f4f2aa64878a8d1980cafd3089c7a4; command=cg spec done 22.33.343 -f layerx-merge --root /work/paxeer-monorepo; exit=1; log=/out/logs/verify-1.log; three cases passed and ArrowRight focused Blocks without selecting it."
+keyboard_repair = "Visible category focus changes now use the production selection and scroll handler, retaining the tab library's navigation; the proof checks focus, selected state and smooth scrolling for both arrow directions."
+wiring_request = "apps/explorer/package.json (domain 14): add @testing-library/user-event so the keyboard proof can use its browser event sequence; the dependency is absent from the scoped manifest and lockfile."
+evidence = "The runner's private hf-build/hf-done ledger records the exact candidate revision, command, exit and log; this task is qualified only by a passing hf-done record."

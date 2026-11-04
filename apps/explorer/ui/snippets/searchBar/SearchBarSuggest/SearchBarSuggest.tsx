@@ -44,7 +44,7 @@ const SearchBarSuggest = ({ query, zetaChainCCTXQuery, externalSearchItem, searc
   const marketplaceApps = useMarketplaceApps(searchTerm);
   const settingsContext = useSettingsContext();
 
-  const categoriesRefs = React.useRef<Array<HTMLParagraphElement>>([]);
+  const categoriesRefs = React.useRef(new Map<Category, HTMLParagraphElement>());
 
   const [ currentTab, setCurrentTab ] = React.useState<Category | undefined>(undefined);
 
@@ -54,42 +54,36 @@ const SearchBarSuggest = ({ query, zetaChainCCTXQuery, externalSearchItem, searc
 
   const handleScroll = React.useCallback(() => {
     const container = scrollContainerRef.current;
-    if (!container || (!query.data?.length && !zetaChainCCTXQuery.data?.items.length)) {
+    if (!container) {
+      return;
+    }
+    const headings: Array<{ id: Category; element: HTMLParagraphElement }> = [];
+    visibleCategories.forEach(({ id }) => {
+      const element = categoriesRefs.current.get(id);
+      if (element instanceof HTMLParagraphElement && element.isConnected) {
+        headings.push({ id, element });
+      }
+    });
+    const lastCategory = headings[headings.length - 1];
+    if (!lastCategory) {
       return;
     }
     const topLimit = container.getBoundingClientRect().y + TABS_HEIGHT;
-    if (categoriesRefs.current[categoriesRefs.current.length - 1].getBoundingClientRect().y <= topLimit) {
-      const lastCategory = categoriesRefs.current[categoriesRefs.current.length - 1];
-      const lastCategoryId = lastCategory.getAttribute('data-id');
-      if (lastCategoryId) {
-        setCurrentTab(lastCategoryId as Category);
-      }
+    if (lastCategory.element.getBoundingClientRect().y <= topLimit) {
+      setCurrentTab(lastCategory.id);
       return;
     }
-    for (let i = 0; i < categoriesRefs.current.length - 1; i++) {
-      if (categoriesRefs.current[i]?.getBoundingClientRect().y <= topLimit && categoriesRefs.current[i + 1]?.getBoundingClientRect().y > topLimit) {
-        const currentCategory = categoriesRefs.current[i];
-        const currentCategoryId = currentCategory.getAttribute('data-id');
-        if (currentCategoryId) {
-          setCurrentTab(currentCategoryId as Category);
-        }
+    for (let i = 0; i < headings.length - 1; i++) {
+      if (headings[i].element.getBoundingClientRect().y <= topLimit && headings[i + 1].element.getBoundingClientRect().y > topLimit) {
+        setCurrentTab(headings[i].id);
         break;
       }
     }
-  }, [ query.data, zetaChainCCTXQuery.data ]);
+  }, [ visibleCategories ]);
 
-  React.useEffect(() => {
-    const container = scrollContainerRef.current;
-    const debouncedHandleScroll = debounce(handleScroll, 300);
-    if (container) {
-      container.addEventListener('scroll', debouncedHandleScroll);
-    }
-    return () => {
-      if (container) {
-        container.removeEventListener('scroll', debouncedHandleScroll);
-      }
-    };
-  }, [ handleScroll ]);
+  const debouncedHandleScroll = React.useMemo(() => debounce(handleScroll, 300), [ handleScroll ]);
+
+  React.useEffect(() => () => debouncedHandleScroll.cancel(), [ debouncedHandleScroll ]);
 
   const itemsGroups = React.useMemo(() => {
     if (!query.data && !zetaChainCCTXQuery.data?.items.length && !marketplaceApps.displayedApps) {
@@ -131,7 +125,6 @@ const SearchBarSuggest = ({ query, zetaChainCCTXQuery, externalSearchItem, searc
   }, [ query.data, marketplaceApps.displayedApps, searchTerm, zetaChainCCTXQuery.data?.items ]);
 
   React.useEffect(() => {
-    categoriesRefs.current = Array(Object.keys(itemsGroups).length).fill('').map((_, i) => categoriesRefs.current[i] || React.createRef());
     const resultCategories = visibleCategories.filter(cat => itemsGroups[cat.id]);
     setCurrentTab(resultCategories[0]?.id);
   }, [ itemsGroups, visibleCategories ]);
@@ -162,6 +155,12 @@ const SearchBarSuggest = ({ query, zetaChainCCTXQuery, externalSearchItem, searc
     }));
   }, [ itemsGroups, isMobile, visibleCategories ]);
 
+  const handleTabsFocusChange = React.useCallback(({ focusedValue }: { focusedValue: string | null }) => {
+    if (focusedValue && focusedValue !== currentTab && categoryTabs.some(tab => tab.value === focusedValue)) {
+      handleTabsValueChange({ value: focusedValue });
+    }
+  }, [ categoryTabs, currentTab, handleTabsValueChange ]);
+
   const content = (() => {
     if (query.isPending || marketplaceApps.isPlaceholderData || (config.features.zetachain.isEnabled && zetaChainCCTXQuery.isPending)) {
       return <ContentLoader text="We are searching, please wait... " fontSize="sm" maxW="250px"/>;
@@ -187,6 +186,7 @@ const SearchBarSuggest = ({ query, zetaChainCCTXQuery, externalSearchItem, searc
           <AdaptiveTabs
             tabs={ categoryTabs }
             onValueChange={ handleTabsValueChange }
+            onFocusChange={ handleTabsFocusChange }
             defaultValue={ currentTab }
             variant="secondary"
             size="sm"
@@ -203,7 +203,7 @@ const SearchBarSuggest = ({ query, zetaChainCCTXQuery, externalSearchItem, searc
             }}
           />
         ) }
-        <Flex flexDirection="column" overflowY="auto" ref={ scrollContainerRef }>
+        <Flex flexDirection="column" overflowY="auto" ref={ scrollContainerRef } onScroll={ debouncedHandleScroll }>
           { resultCategories.map((cat, index) => {
             return (
               <Box key={ cat.id } data-scroll-target={ `cat_${ cat.id }` }>
@@ -213,8 +213,12 @@ const SearchBarSuggest = ({ query, zetaChainCCTXQuery, externalSearchItem, searc
                   color="text.secondary"
                   mt={ index === 0 ? 1 : 6 }
                   mb={{ base: 2, lg: 3 }}
-                  ref={ (el: HTMLParagraphElement) => {
-                    categoriesRefs.current[index] = el;
+                  ref={ (el: HTMLParagraphElement | null) => {
+                    if (el) {
+                      categoriesRefs.current.set(cat.id, el);
+                    } else {
+                      categoriesRefs.current.delete(cat.id);
+                    }
                   } }
                   data-id={ cat.id }
                 >
