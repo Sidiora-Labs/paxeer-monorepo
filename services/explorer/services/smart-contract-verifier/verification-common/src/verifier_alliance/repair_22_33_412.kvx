@@ -1,0 +1,10 @@
+[repair.22.33.412]
+record = "22.30.143"
+finding = "artifact-offset-panic"
+base_revision = "aefa91aa13a43dff9d0a27098f8280d43fd1ed42"
+implementation = "Check start-plus-length with checked_add and require the reference range to fit both deployed and compiled bytecode before either slice is used; retain reference reason, identifier, start and length in errors."
+tests = ["artifact_offset_valid_library_creation_and_runtime", "artifact_offset_valid_immutable_runtime", "artifact_offset_invalid_library_ranges_return_contextual_errors", "artifact_offset_invalid_immutable_ranges_return_contextual_errors", "artifact_offset_library_range_must_fit_compiled_code", "artifact_offset_immutable_range_must_fit_compiled_code", "artifact_offset_exact_end_and_empty_boundary_ranges_are_valid", "artifact_offset_repeated_reference_consistency_is_preserved", "artifact_offset_unrelated_bytecode_mismatch_is_preserved"]
+proof = "The integration test replays committed compiler and deployed bytecode fixtures through the production artifact JSON codec and public creation/runtime verifiers, including u32::MAX offset/length combinations and truncated compiled buffers."
+baseline = "Not run: explicit task order forbids testing before full implementation or running verify_cmd by hand, and permits the first hf-done only after hf-build; no pre-change test failure is claimed."
+wiring_requests = []
+evidence = "The bounded hf-build and hf-done runner records retain the exact candidate revision, command, exit code and private log location."
