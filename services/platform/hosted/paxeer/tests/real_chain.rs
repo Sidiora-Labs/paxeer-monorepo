@@ -67,9 +67,12 @@ fn settlement_domains() {
     let status = Command::new("python3")
         .arg(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/tests/settlement_domains.py"
+            "/tests/migrations/v1/settlement_domains.py"
         ))
         .status()
-        .unwrap_or_else(|error| panic!("launch domain qualification: {error}"));
-    assert!(status.success(), "settlement domain qualification failed");
+        .unwrap_or_else(|error| panic!("launch version-one migration qualification: {error}"));
+    assert!(
+        status.success(),
+        "version-one settlement migration qualification failed"
+    );
 }
