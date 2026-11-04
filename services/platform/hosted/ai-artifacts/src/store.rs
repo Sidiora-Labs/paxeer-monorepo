@@ -191,6 +191,10 @@ pub struct State {
     /// Monotonic count of deny transitions (grant and publisher revocation,
     /// rotation, tombstone); restored state below the live mark is stale.
     pub revocation_mark: u64,
+    /// Terminal staging deletion intents. Reservations remain charged until
+    /// removal and the staging directory have both been synced.
+    #[serde(default)]
+    pub reclaiming: BTreeMap<String, SessionState>,
 }
 
 pub struct Store {
@@ -238,6 +242,9 @@ impl Store {
             state: State::default(),
         };
         store.reload()?;
+        if store.restore_ready() {
+            store.recover_staging()?;
+        }
         Ok(store)
     }
 
@@ -280,22 +287,140 @@ impl Store {
         }
     }
 
-    /// Terminal staging dispositions release their quota reservation exactly once.
-    pub fn expire_staging(&mut self, at: u64) -> usize {
-        let expired: Vec<(String, String, u64)> = self
+    /// Persist deletion intent before removing any payload. An interrupted or
+    /// failed deletion stays charged and is retried on reopen and maintenance.
+    pub fn reclaim_session(
+        &mut self,
+        id: &str,
+        terminal: SessionState,
+    ) -> Result<(), ArtifactError> {
+        if self
+            .state
+            .objects
+            .values()
+            .any(|o| o.session == id && o.state != ObjectState::Purged)
+        {
+            return Err(FAIL);
+        }
+        let session = self.state.sessions.get_mut(id).ok_or(FAIL)?;
+        session.state = terminal;
+        session.wrapped_key = None;
+        self.state.reclaiming.insert(id.to_string(), terminal);
+        self.persist()?;
+        self.finish_reclamation()
+    }
+
+    fn reconcile_quota(&mut self) -> Result<(), ArtifactError> {
+        let mut used = BTreeMap::<String, u64>::new();
+        let mut charge = |tenant: &str, bytes: u64| -> Result<(), ArtifactError> {
+            let total = used.entry(tenant.to_string()).or_default();
+            *total = total.checked_add(bytes).ok_or(FAIL)?;
+            Ok(())
+        };
+        for object in self
+            .state
+            .objects
+            .values()
+            .filter(|o| o.state != ObjectState::Purged)
+        {
+            charge(&object.tenant, object.byte_length)?;
+        }
+        for (id, session) in &self.state.sessions {
+            if (session.state == SessionState::Staging
+                || self.state.reclaiming.contains_key(id)
+                || (session.state == SessionState::Published && self.session_dir(id).exists()))
+                && !self
+                    .state
+                    .objects
+                    .values()
+                    .any(|o| &o.session == id && o.state != ObjectState::Purged)
+            {
+                charge(&session.tenant, session.byte_length)?;
+            }
+        }
+        self.state.quota_used = used;
+        Ok(())
+    }
+
+    pub fn finish_reclamation(&mut self) -> Result<(), ArtifactError> {
+        let pending: Vec<String> = self.state.reclaiming.keys().cloned().collect();
+        for id in pending {
+            self.remove_session_dir(&id)?;
+            self.state.reclaiming.remove(&id);
+            self.reconcile_quota()?;
+            // If this fails, reload restores the durable intent and reservation.
+            if let Err(error) = self.persist() {
+                self.reload()?;
+                return Err(error);
+            }
+        }
+        Ok(())
+    }
+
+    /// Also migrates old snapshots whose terminal staging bytes were never
+    /// reclaimed, and removes unacknowledged directories from interrupted prepare.
+    fn recover_staging(&mut self) -> Result<(), ArtifactError> {
+        for entry in fs::read_dir(self.dir.join("staging")).map_err(|_| FAIL)? {
+            let entry = entry.map_err(|_| FAIL)?;
+            let id = entry.file_name().into_string().map_err(|_| FAIL)?;
+            if !self.state.sessions.contains_key(&id) {
+                self.remove_session_dir(&id)?;
+            }
+        }
+        // Preserve a legacy replica until retention recovery can replace a
+        // damaged primary. Healthy duplicate publications are reclaimed.
+        let needed_replicas: BTreeSet<String> = self
             .state
             .sessions
             .iter()
-            .filter(|(_, s)| s.state == SessionState::Staging && at >= s.created_at + STAGING_SECS)
-            .map(|(id, s)| (id.clone(), s.tenant.clone(), s.byte_length))
+            .filter(|(_, session)| session.state == SessionState::Published)
+            .filter_map(|(id, session)| {
+                let record = self.state.objects.get(session.root.as_deref()?)?;
+                let valid = hex::decode(&record.manifest)
+                    .ok()
+                    .and_then(|bytes| {
+                        layerx_programs_ai_market::evidence::decode_manifest(&bytes)
+                            .ok()
+                            .map(|manifest| self.verify_content(&record.session, &manifest).is_ok())
+                    })
+                    .unwrap_or(false);
+                (!valid && record.state != ObjectState::Purged).then(|| id.clone())
+            })
             .collect();
-        for (id, tenant, bytes) in &expired {
-            if let Some(s) = self.state.sessions.get_mut(id) {
-                s.state = SessionState::Expired;
+        for (id, session) in &mut self.state.sessions {
+            let owns_payload = self
+                .state
+                .objects
+                .values()
+                .any(|o| &o.session == id && o.state != ObjectState::Purged);
+            if !owns_payload
+                && session.state != SessionState::Staging
+                && !needed_replicas.contains(id)
+            {
+                self.state.reclaiming.insert(id.clone(), session.state);
+                session.wrapped_key = None;
             }
-            self.release_quota(tenant, *bytes);
         }
-        expired.len()
+        self.reconcile_quota()?;
+        self.persist()?;
+        self.finish_reclamation()
+    }
+
+    pub fn expire_staging(&mut self, at: u64) -> Result<usize, ArtifactError> {
+        let expired: Vec<String> = self
+            .state
+            .sessions
+            .iter()
+            .filter(|(_, s)| {
+                s.state == SessionState::Staging && at.saturating_sub(s.created_at) >= STAGING_SECS
+            })
+            .map(|(id, _)| id.clone())
+            .collect();
+        for id in &expired {
+            self.reclaim_session(id, SessionState::Expired)?;
+        }
+        self.finish_reclamation()?;
+        Ok(expired.len())
     }
 
     /// Records the intent durably before any byte is sent. The same identity
@@ -438,7 +563,9 @@ impl Store {
     fn remove_session_dir(&self, session: &str) -> Result<(), ArtifactError> {
         match fs::remove_dir_all(self.session_dir(session)) {
             Ok(()) => sync_dir(&self.dir.join("staging")),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                sync_dir(&self.dir.join("staging"))
+            }
             Err(_) => Err(FAIL),
         }
     }
@@ -466,6 +593,30 @@ impl Store {
             };
         }
         write_durable(&self.session_dir(session).join(index.to_string()), bytes)
+    }
+
+    /// Returns the exact buffer authenticated by the complete content root;
+    /// never re-read the selected file after verification (a TOCTOU boundary).
+    pub fn verified_chunk(
+        &self,
+        session: &str,
+        manifest: &ArtifactManifest<'_>,
+        requested: u32,
+    ) -> Result<Vec<u8>, ArtifactError> {
+        let mut scratch = vec![[0u8; 32]; manifest.chunk_count as usize];
+        let mut assembler = ContentAssembler::new(manifest, &mut scratch)?;
+        let mut selected = None;
+        for index in 0..manifest.chunk_count {
+            let chunk = self
+                .read_chunk(session, index)?
+                .ok_or(ArtifactError::MissingChunk)?;
+            assembler.deliver(index, &chunk)?;
+            if index == requested {
+                selected = Some(chunk);
+            }
+        }
+        assembler.finish()?;
+        selected.ok_or(ArtifactError::MissingChunk)
     }
 
     /// Re-reads every durable chunk and recomputes the manifest content root;
