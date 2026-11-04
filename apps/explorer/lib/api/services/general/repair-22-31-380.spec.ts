@@ -46,8 +46,12 @@ const committedResponse: PaxeerXTxSignature = {
 };
 const { committed_height: committedHeight, ...receiptedResponse } = { ...committedResponse, rung: 'receipted' as const };
 
-beforeAll(() => fetchMock.disableMocks());
-afterAll(() => fetchMock.enableMocks());
+beforeAll(() => {
+  fetchMock.disableMocks();
+});
+afterAll(() => {
+  fetchMock.enableMocks();
+});
 
 function signatureGatewayRouteMatchesTheProducerAndExplorerResource() {
   const resource = GENERAL_API_PAXEER_X_LISTS_RESOURCES.paxeer_x_tx_signature;
@@ -67,8 +71,11 @@ function signatureGatewayRouteMatchesTheProducerAndExplorerResource() {
   expect(router).toContain('get("/:transaction_hash_param/signature", V2.PaxeerX.TransactionSignatureController, :signature)');
 }
 
-function signatureReplayUsesTheBackendsCryptographicallyValidFixture() {
-  expect(committedHeight).toBe(1000);
+test('signatureReplayUsesTheBackendsCryptographicallyValidFixture', function signatureReplayUsesTheBackendsCryptographicallyValidFixture() {
+  const expectedHeight = Number.parseInt(committed.eth_receipt.blockNumber, 16);
+  expect(committedHeight).toBe(expectedHeight);
+  // The canonical signed tail encodes the height as a 32-byte big-endian batch ID.
+  expect(receipt.subarray(-424, -392).toString('hex')).toBe(expectedHeight.toString(16).padStart(64, '0'));
   expect(receipt.subarray(-69, -64).toString('hex')).toBe('0100000040');
   const digest = createHash('sha256')
     .update('LXP/v1/receipt\0')
@@ -84,7 +91,7 @@ function signatureReplayUsesTheBackendsCryptographicallyValidFixture() {
   const changed = Uint8Array.from(signature);
   changed[0] ^= 1;
   expect(verify(null, Uint8Array.from(digest), key, changed)).toBe(false);
-}
+});
 
 async function openBackendResponseReplay(responseBody: PaxeerXTxSignature = committedResponse) {
   const requests: Array<{ method: string | undefined; target: string | undefined }> = [];
@@ -152,7 +159,7 @@ function openSignatureConsumer() {
   return { read: state.read, close: () => client.clear() };
 }
 
-async function signatureResourcePreservesTheReceiptKeySignatureAndCommittedHeight() {
+test('signatureResourcePreservesTheReceiptKeySignatureAndCommittedHeight', async function signatureResourcePreservesTheReceiptKeySignatureAndCommittedHeight() {
   signatureGatewayRouteMatchesTheProducerAndExplorerResource();
   for (const response of [ committedResponse, receiptedResponse ]) {
     const replay = await openBackendResponseReplay(response);
@@ -187,9 +194,9 @@ async function signatureResourcePreservesTheReceiptKeySignatureAndCommittedHeigh
       await replay.close();
     }
   }
-}
+});
 
-async function signatureResourcePreservesMissingAndInvalidHashRefusals() {
+test('signatureResourcePreservesMissingAndInvalidHashRefusals', async function signatureResourcePreservesMissingAndInvalidHashRefusals() {
   signatureGatewayRouteMatchesTheProducerAndExplorerResource();
   const replay = await openBackendResponseReplay();
   const consumer = openSignatureConsumer();
@@ -207,9 +214,22 @@ async function signatureResourcePreservesMissingAndInvalidHashRefusals() {
     consumer.close();
     await replay.close();
   }
-}
+});
 
-test(signatureGatewayRouteMatchesTheProducerAndExplorerResource);
-test(signatureReplayUsesTheBackendsCryptographicallyValidFixture);
-test(signatureResourcePreservesTheReceiptKeySignatureAndCommittedHeight);
-test(signatureResourcePreservesMissingAndInvalidHashRefusals);
+test('signatureGatewayRouteMatchesTheProducerAndExplorerResource', function signatureGatewayRouteMatchesTheProducerAndExplorerResource() {
+  const resource = GENERAL_API_PAXEER_X_LISTS_RESOURCES.paxeer_x_tx_signature;
+  expect(resource.path).toBe('/api/v2/transactions/:hash/signature');
+  expect(resource.pathParams).toEqual([ 'hash' ]);
+  expectTypeOf<GeneralApiPaxeerXListsResourcePayload<'general:paxeer_x_tx_signature'>>().toEqualTypeOf<PaxeerXTxSignature>();
+
+  const routes = gatewaySource.slice(gatewaySource.indexOf('static ROUTES:'));
+  const declarations = Array.from(routes.matchAll(/Route\s*\{\s*method:\s*"([A-Z]+)",\s*path:\s*"([^"]+)",\s*session_csrf:\s*(true|false),\s*\}/g));
+  const signatureRoutes = declarations.filter(route => route[2].endsWith('/signature'));
+  expect(signatureRoutes.map(route => ({ method: route[1], path: route[2], sessionCsrf: route[3] }))).toEqual([ {
+    method: 'GET',
+    path: resource.path.replace(':hash', '{transaction_hash_param}'),
+    sessionCsrf: 'false',
+  } ]);
+  const router = readFileSync(path.join(backend, 'block_scout_web/lib/block_scout_web/routers/api_router.ex'), 'utf8');
+  expect(router).toContain('get("/:transaction_hash_param/signature", V2.PaxeerX.TransactionSignatureController, :signature)');
+});

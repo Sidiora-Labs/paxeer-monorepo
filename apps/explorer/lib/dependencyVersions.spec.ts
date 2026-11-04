@@ -2,9 +2,10 @@ import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import * as v from 'valibot';
+
 import { expect, test } from 'vitest';
 
-function explorerDependencyVersionsMatchPins() {
+test('explorerDependencyVersionsMatchPins', function explorerDependencyVersionsMatchPins() {
   const explorerRoot = resolve(__dirname, '..');
   const manifestPath = resolve(explorerRoot, 'package.json');
   const explorerRequire = createRequire(manifestPath);
@@ -22,14 +23,14 @@ function explorerDependencyVersionsMatchPins() {
   const lockEntries = Array.from(lockfile.matchAll(/^([^\s#][^\r\n]*):\r?\n((?:[ \t][^\r\n]*(?:\r?\n|$))*)/gm));
 
   for (const [ name, pin ] of Object.entries(pins)) {
-    expect(manifest.dependencies[name], `${ name } direct dependency`).toBe(pin);
-    expect(manifest.resolutions[name], `${ name } resolution`).toBe(pin);
-    expect(floors.manifests['apps/explorer/package.json'][name], `${ name } security floor`).toBe(pin);
+    expect(manifest.dependencies[name]).toBe(pin);
+    expect(manifest.resolutions[name]).toBe(pin);
+    expect(floors.manifests['apps/explorer/package.json'][name]).toBe(pin);
 
     let installedRoot = dirname(explorerRequire.resolve(name));
     while (!existsSync(resolve(installedRoot, 'package.json'))) {
       const parent = dirname(installedRoot);
-      expect(parent, `${ name } package manifest must exist`).not.toBe(installedRoot);
+      expect(parent).not.toBe(installedRoot);
       installedRoot = parent;
     }
     const installed = v.parse(
@@ -37,19 +38,17 @@ function explorerDependencyVersionsMatchPins() {
       JSON.parse(readFileSync(resolve(installedRoot, 'package.json'), 'utf8')),
     );
     expect(installed.name).toBe(name);
-    expect(installed.version, `${ name } installed version`).toBe(pin);
+    expect(installed.version).toBe(pin);
 
     const selectors: Array<string> = [];
     for (const [ , header, body ] of lockEntries) {
       const entrySelectors = Array.from(header.matchAll(/"([^"]+)"|([^,\s]+)/g), (match) => match[1] ?? match[2]);
       const packageSelectors = entrySelectors.filter((selector) => selector.startsWith(`${ name }@`));
       for (const selector of packageSelectors) {
-        expect(body.match(/^  version "([^"]+)"\r?$/m)?.[1], selector).toBe(pin);
+        expect(body.match(/^ {2}version "([^"]+)"\r?$/m)?.[1]).toBe(pin);
         selectors.push(selector);
       }
     }
-    expect(selectors, `${ name } lock selectors`).toContain(`${ name }@${ pin }`);
+    expect(selectors).toContain(`${ name }@${ pin }`);
   }
-}
-
-test(explorerDependencyVersionsMatchPins);
+});
