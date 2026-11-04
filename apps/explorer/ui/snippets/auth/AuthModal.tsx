@@ -167,6 +167,7 @@ const AuthModal = ({ initialScreen, onClose, mixpanelConfig, closeOnError }: Pro
             isAuth={ currentStep.isAuth }
             profile={ currentStep.profile }
             rewardsToken={ currentStep.rewardsToken }
+            rewardsAuthFailed={ currentStep.rewardsAuthFailed }
           />
         );
     }
