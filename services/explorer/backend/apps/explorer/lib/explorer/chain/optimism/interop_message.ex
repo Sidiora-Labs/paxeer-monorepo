@@ -306,7 +306,7 @@ defmodule Explorer.Chain.Optimism.InteropMessage do
   end
 
   @doc """
-    Lists `t:Explorer.Chain.Optimism.InteropMessage.t/0`'s' in descending order based on `timestamp` and `init_transaction_hash`.
+    Lists messages in descending timestamp, transaction hash, source chain and nonce order.
 
     ## Parameters
     - `options`: A keyword list of options that may include whether to use a replica database, paging and filter options.
@@ -326,7 +326,7 @@ defmodule Explorer.Chain.Optimism.InteropMessage do
         base_query =
           from(m in __MODULE__,
             where: not is_nil(m.init_transaction_hash),
-            order_by: [desc: m.timestamp, desc: m.init_transaction_hash]
+            order_by: [desc: m.timestamp, desc: m.init_transaction_hash, desc: m.init_chain_id, desc: m.nonce]
           )
 
         base_query
@@ -336,6 +336,44 @@ defmodule Explorer.Chain.Optimism.InteropMessage do
         |> select_repo(options).all(timeout: :infinity)
     end
   end
+
+  @doc """
+    Builds API cursor parameters including the message's composite primary key.
+  """
+  @spec paging_params(t()) :: map()
+  def paging_params(%__MODULE__{} = message) do
+    %{
+      timestamp: DateTime.to_unix(message.timestamp),
+      init_transaction_hash: to_string(message.init_transaction_hash),
+      init_chain_id: message.init_chain_id,
+      nonce: message.nonce
+    }
+  end
+
+  @doc """
+    Decodes interop API cursor parameters after query-string transport.
+    Invalid or incomplete cursors return an error rather than restarting pagination.
+  """
+  @spec paging_options(map()) :: {:ok, PagingOptions.t()} | :error
+  def paging_options(%{
+        "timestamp" => timestamp,
+        "init_transaction_hash" => transaction_hash,
+        "init_chain_id" => init_chain_id,
+        "nonce" => nonce
+      })
+      when is_binary(timestamp) and is_binary(transaction_hash) and is_binary(init_chain_id) and is_binary(nonce) do
+    with {timestamp_unix, ""} <- Integer.parse(timestamp),
+         {:ok, _} <- DateTime.from_unix(timestamp_unix),
+         {:ok, hash} <- Hash.Full.cast(transaction_hash),
+         {chain_id, ""} when chain_id > 0 <- Integer.parse(init_chain_id),
+         {message_nonce, ""} when message_nonce >= 0 <- Integer.parse(nonce) do
+      {:ok, %{default_paging_options() | key: {timestamp_unix, hash, chain_id, message_nonce}}}
+    else
+      _ -> :error
+    end
+  end
+
+  def paging_options(_), do: :error
 
   @doc """
     Decodes message payload to get cross-chain transfer details (such as token address, from, to addresses, and amount).
@@ -597,7 +635,7 @@ defmodule Explorer.Chain.Optimism.InteropMessage do
   # ## Returns
   # - `{:include, to_include}` tuple with the list of mandatory addresses.
   # - `{:exclude, to_exclude}` tuple with the list of undesired addresses.
-  # - `nil` if the input lists are empty or mutually exclusive.
+  # - `nil` if the input lists are empty.
   @spec filter_process_address_inclusion(include: [Hash.Address.t()], exclude: [Hash.Address.t()]) ::
           {:exclude, list()} | {:include, list()} | nil
   defp filter_process_address_inclusion(addresses) when is_list(addresses) do
@@ -609,10 +647,7 @@ defmodule Explorer.Chain.Optimism.InteropMessage do
         {:exclude, to_exclude}
 
       {to_include, to_exclude} when is_list(to_include) ->
-        case to_include -- (to_exclude || []) do
-          [] -> nil
-          to_include -> {:include, to_include}
-        end
+        {:include, to_include -- (to_exclude || [])}
     end
   end
 
@@ -663,12 +698,26 @@ defmodule Explorer.Chain.Optimism.InteropMessage do
 
   defp page_messages(query, %PagingOptions{key: nil}), do: query
 
+  defp page_messages(query, %PagingOptions{key: {timestamp_unix, init_transaction_hash, init_chain_id, nonce}}) do
+    timestamp = DateTime.from_unix!(timestamp_unix)
+
+    from(m in query,
+      where:
+        m.timestamp < ^timestamp or
+          (m.timestamp == ^timestamp and m.init_transaction_hash < ^init_transaction_hash) or
+          (m.timestamp == ^timestamp and m.init_transaction_hash == ^init_transaction_hash and
+             m.init_chain_id < ^init_chain_id) or
+          (m.timestamp == ^timestamp and m.init_transaction_hash == ^init_transaction_hash and
+             m.init_chain_id == ^init_chain_id and m.nonce < ^nonce)
+    )
+  end
+
   defp page_messages(query, %PagingOptions{key: {timestamp_unix, init_transaction_hash}}) do
     timestamp = DateTime.from_unix!(timestamp_unix)
 
     from(m in query,
-      where: m.timestamp < ^timestamp,
-      or_where: m.timestamp == ^timestamp and m.init_transaction_hash < ^init_transaction_hash
+      where:
+        m.timestamp < ^timestamp or (m.timestamp == ^timestamp and m.init_transaction_hash < ^init_transaction_hash)
     )
   end
 
