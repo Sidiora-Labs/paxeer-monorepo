@@ -7,3 +7,9 @@ pub mod metadata;
 pub mod metrics;
 pub mod runner;
 pub mod store;
+
+#[doc(hidden)]
+pub mod http;
+
+#[doc(hidden)]
+pub mod process;

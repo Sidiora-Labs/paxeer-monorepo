@@ -1,0 +1,8 @@
+[repair.22.33.356]
+finding = "recovery-retired-evidence-rungs"
+proving_tests = ["recovery_retired_evidence_rungs_are_not_ready", "recovery_current_receipts_require_a_completed_stage", "recovery_selects_only_current_receipts_in_the_recovery_stage"]
+test_file = "apps/web/e2e/repair-22-33-356.test.ts"
+path = "Production Journey encoder -> JSON transport -> compatibility decoder -> recoveryPresentation"
+baseline = "Not run: the explicit task order forbids testing before full implementation or running verify_cmd outside hf-done. Before-change failures inferred from the original predicate: retired rung rejection and current receipt selection behind retired evidence; no baseline failure is claimed as executed."
+wiring_requests = []
+evidence = "The runner records the verified candidate revision, exact gate command, exit code and private log in its gate ledger."

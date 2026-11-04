@@ -1,0 +1,61 @@
+[meta]
+task = "22.33.100"
+audit = "22.30.111"
+acceptance = "22998.1"
+base_revision = "0ba7cfa54c7f07b37201b1f12fcc2f1dd7ed0ed7"
+qualification = "hf-build, then hf-done on the unchanged candidate; the gate's final JSON supplies the exact qualified revision, command, exit and private log."
+baseline = "No baseline verify was run: the explicit ordered instructions prohibit testing before full implementation and prohibit invoking verify_cmd by hand; there was no earlier gate ledger or repair test on entry, so no pre-change failure is claimed."
+continuation = "The task's dependency 22.31.443 owns the previously recorded observed_balances_denom Quantity build failure (gotcha 2974); this task changes no human-service code."
+
+[finding.22]
+repair = "Document the concrete source and coordinate trust contract; verify latest_committed(previous) -> CommittedCoordinate and acquire_next(previous) -> CommittedBlock through authenticated root HTTPS, signed recorded receipts, pinned chain/genesis and parent continuity."
+test = "finding_22_source_coordinates_pin_identity_and_enforce_previous_continuity"
+wiring_request = "Domain 11 (interop): reconcile spec/layerx-merge/interfaces.kvx rows 11.rs-mirror-committed-block-source-latest-j48, acquire-next-j48 and committed-coordinate-j48 with committed.rs: chain/genesis are configured and pinned by open; coordinates contain height/block_hash; latest takes Option<CommittedCoordinate> and refuses height regression, acquire_next takes the previous coordinate and checks its successor's parent."
+
+[finding.23]
+repair = "Document the existing concrete three-input constructor, checked runtime network conversion and observed-head freshness metadata. Prove source -> archive -> durable spool reopen -> codec -> real receipt verifier with unchanged signed receipt bytes."
+test = "finding_23_source_archive_codec_and_receipt_consumer_preserve_all_inputs"
+wiring_request = "Domain 11 (interop): update spec/layerx-merge/interfaces.kvx row 11.rs-mirror-archive-from-committed-j48 and declared constructor consumers to Archive::from_committed(&CommittedBlock, u32, NodeHead) -> Result<Archive, SourceError>; runtime validates a nonzero representable configured chain id, network_id is encoded, NodeHead covers the block and its committed coordinate and is retained as spool freshness metadata."
+
+[finding.13]
+repair = "Use one monotonic per-endpoint deadline for resolver wait, connect attempts, TLS, request writes, HTTP headers and every body read; reset socket timeouts only to remaining time. Keep at most one outstanding resolver worker per endpoint and fail concurrent lookup contention promptly. Independent read endpoints run concurrently under their own bounded request budgets and establish quorum without serialized healthy-endpoint latency."
+tests = ["finding_13_slow_drip_and_tls_share_a_finite_budget_without_losing_quorum", "finding_13_resolution_timeout_is_bounded_and_outstanding_lookups_are_limited", "finding_13_resolution_and_body_do_not_receive_separate_deadlines"]
+proof = "Real rustls client crosses authenticated loopback HTTPS; a peer drips body bytes or delays TLS. A controlled resolver peer delays the real system address lookup; the real transport expires it, bounds outstanding lookup threads, and obtains matching answers from independent healthy peers."
+
+[finding.25]
+repair = "Prove the committed renderer example shape through RuntimeConfig::load and the actual source loader, including nested RPC, configured identity, receipt-key windows and explicit retired-key refusal."
+test = "finding_25_and_21_rendered_native_configuration_loads_at_root_with_strict_key_windows"
+wiring_request = "Domain 11 (interop): reconcile spec/layerx-merge/interfaces.kvx rows 11.cfg-mirror-runtime-config-node and 11.cfg-mirror-paxeer-section-j48 with runtime.rs and committed.rs; retire node/node_endpoint/expected_protocol_version/sequencer_authority_source/first_batch_number/checkpoint_freshness_budget_batches, declare paxeer.rpc, chain_id, genesis_hash_hex, receipt_keys with first_height/last_height, runtime first_height/freshness_budget_blocks, and optional solana as emitted by services/interop/deploy/mirror/render-config.py."
+
+[finding.29]
+repair = "Status revision 2 exposes native_network_id only after source identity pinning; remove unsupported native_protocol_version rather than emitting zero. Rename serialized batch/checkpoint progress to height/committed-block fields; retain source/service identity and explicit refusal state."
+test = "finding_10_and_29_tip_advancement_backlog_and_refusal_have_distinct_status"
+wiring_request = "Domain 11 (interop), with registered status consumers: update spec/layerx-merge/interfaces.kvx row 11.fmt-mirror-runtime-status and its consumers together to status_revision=2, nullable verified native_network_id, removed native_protocol_version, latest_height_mirrored/observed/verified, latest_committed_height_mirrored/verified, latest_committed_block_hash_mirrored, committed_block_lag, freshness_budget_blocks, committed_within_budget and top-level committed_freshness_budget_blocks; stop reading retired checkpoint fields."
+
+[finding.10]
+repair = "The production CommittedAcquisition worker polls latest_committed separately, checks monotonic coordinates, drains at most 16 blocks per poll, preserves a healthy caught-up source, measures freshness against the observed finalized head and retains that head in spool metadata. Refusal clears readiness without erasing observed progress."
+test = "finding_10_and_29_tip_advancement_backlog_and_refusal_have_distinct_status"
+proof = "Dynamic loopback native peers serve the committed signed-receipt fixture and contiguous empty successors. Test distinguishes steady tip without a next-height probe, advancing head, bounded backlog, endpoint refusal, and recovery."
+
+[finding.11]
+repair = "Persist a height -> commitment index beside immutable spool objects and sealed independent lane cursors. Reconcile the index once per open from verified retained objects, recover missing entries after interrupted writes, refuse conflicts/corruption, and select at most 32 archives per lane poll with a 16-archive recheck window plus the journal tip for canonical reconciliation."
+tests = ["finding_11_ordered_spool_and_lane_cursors_recover_without_reloading_history_per_poll", "publication::finding_11_real_publication_acknowledges_and_recovers_each_lane_cursor", "finding_11_index_and_cursor_damage_are_refused_without_discarding_retained_bytes"]
+proof = "The actual native acquisition/spool writer stops and reopens, recovers both cursors and interrupted index entries, preserves exact bytes, refuses index/cursor damage and parent discontinuity, and selects independent bounded windows without reading damaged out-of-window history. Concrete Ethereum/Solana publishers use the committed signer/RPC peers to emit actual transactions, populate real archive storage, acknowledge byte-identical retrieval through ProgressGate/save_lane_progress, then stop and reopen the journals/spool and re-retrieve the same bytes."
+retention = "Operator-owned durable archival storage retains all spool objects and lane journals; the runtime never deletes verified history or silently prunes it. Provision and monitor archival disk; storage refusal stops acquisition. Old objects are authenticated once at reopen, and only bounded active windows are loaded per poll. Height/commitment entries live on disk; the running index retains only first/last/count, and per-poll memory is bounded by the selected archive window. Lane scheduling cursors are never finality authority: a restarted gate rechecks the journal tip against the chain."
+
+[finding.21]
+repair = "Change only native runtime fixture URLs to root paths and verify the committed renderer example's root endpoints through the real configuration/source loader with loopback credentials. Ethereum and Solana provider sections remain byte-for-byte equal JSON values."
+test = "finding_25_and_21_rendered_native_configuration_loads_at_root_with_strict_key_windows"
+wiring_request = "Domain 11 (interop deployment): keep services/interop/deploy/mirror/config.example.json native URLs at root paths (already correct in this base); retain Ethereum/Solana provider paths and keep renderer output aligned with the strict source loader."
+
+[constraints]
+scope = "Only layerx-mirror/src and tests/repair_22_33_100.rs are edited; no specification or external domain file is changed, and the runner owns publication."
+peers = "Peers are recorded signed receipts, authenticated loopback TLS servers, a controlled blocking resolver delegating real system lookup, and existing committed chain/signer fixtures; no repaired production component is replaced. No live endpoint, credential, environment variable, external binary, subprocess toolchain or device is required by the focused test."
+
+[qualification_repair.1]
+revision = "8f4a904e0147d201d09b59717c3a396af5f5996e"
+command = "cg spec done 22.33.100 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The combined resolution/body test took 533ms against its unchanged 530ms bound: after the slow endpoint's 350ms deadline, sequential healthy endpoint TLS exchanges added latency."
+repair = "Run independent read requests concurrently; preserve the same monotonic per-endpoint budget, all quorum/refusal checks, broadcast identity semantics, and every test assertion."

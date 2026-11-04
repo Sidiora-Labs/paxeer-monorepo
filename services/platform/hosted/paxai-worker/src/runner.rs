@@ -21,12 +21,10 @@ use crate::auth::{ServiceError, RESULT_KEY_BYTES};
 use crate::store::{JobKey, MAX_ENCRYPTED_BYTES, MAX_REFERENCE_BYTES};
 use layerx_programs_ai_market::{codec::Reader, errors::CodecResult, types::Digest32};
 use std::ffi::OsString;
-use std::io::{Read, Write};
 use std::path::PathBuf;
-use std::process::{Command, Stdio};
+use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 pub const MAGIC: &[u8; 7] = b"PAXRUN1";
 pub const VERSION: u16 = 1;
@@ -43,7 +41,6 @@ pub const MAX_PAYLOAD_BYTES: usize = MAX_ENCRYPTED_BYTES;
 pub const MAX_DISPATCH_BYTES: usize = MAX_PAYLOAD_BYTES + MAX_REFERENCE_BYTES + 1_024;
 /// Exit status of a runner that refused a request before starting anything.
 pub const EXIT_NOT_STARTED: i32 = 75;
-const POLL: Duration = Duration::from_millis(5);
 const NOT_RECEIVED: u8 = 1;
 const RUNNING: u8 = 2;
 const SUCCEEDED: u8 = 3;
@@ -609,51 +606,18 @@ impl ProcessRunner {
         timeout: Duration,
     ) -> Result<Vec<u8>, RunnerError> {
         self.invocations.fetch_add(1, Ordering::SeqCst);
-        let mut child = Command::new(&self.program)
-            .args(&self.args)
-            .arg(verb)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null())
-            .spawn()
-            .map_err(|_| RunnerError::Unavailable)?;
-        let stdin = child.stdin.take();
-        let stdout = child.stdout.take();
-        let writer = thread::spawn(move || stdin.map(|mut pipe| pipe.write_all(&input)));
-        let reader = thread::spawn(move || {
-            let mut out = Vec::new();
-            stdout.map(|pipe| {
-                pipe.take(
-                    u64::try_from(MAX_REPORT_BYTES)
-                        .unwrap_or(u64::MAX)
-                        .saturating_add(1),
-                )
-                .read_to_end(&mut out)
-                .map(|_| out)
-            })
-        });
-        let started = Instant::now();
-        let status = loop {
-            match child.try_wait() {
-                Ok(Some(status)) => break status,
-                Ok(None) if started.elapsed() < timeout => thread::sleep(POLL),
-                _ => {
-                    // The reader is detached: a runner descendant may still hold the pipe.
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    return Err(RunnerError::Ambiguous);
-                }
+        let answer = crate::process::invoke(
+            Command::new(&self.program).args(&self.args).arg(verb),
+            &input,
+            MAX_REPORT_BYTES,
+            timeout,
+        );
+        match answer {
+            Ok((status, _)) if status.code() == Some(EXIT_NOT_STARTED) => {
+                Err(RunnerError::Unavailable)
             }
-        };
-        if status.code() == Some(EXIT_NOT_STARTED) {
-            return Err(RunnerError::Unavailable);
-        }
-        let written = writer.join();
-        let output = reader.join();
-        match (status.success(), written, output) {
-            (true, Ok(Some(Ok(()))), Ok(Some(Ok(bytes)))) if bytes.len() <= MAX_REPORT_BYTES => {
-                Ok(bytes)
-            }
+            Ok((status, bytes)) if status.success() => Ok(bytes),
+            Err(crate::process::CallError::NotStarted) => Err(RunnerError::Unavailable),
             _ => Err(RunnerError::Ambiguous),
         }
     }

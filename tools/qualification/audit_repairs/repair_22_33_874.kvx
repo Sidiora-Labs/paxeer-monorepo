@@ -1,0 +1,36 @@
+[repair]
+task = "22.33.874"
+requirement = "22998.1"
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+implementation = "Publish Grafana on loopback by default. GRAFANA_BIND_ADDRESS permits remote binding only with an explicit nonempty, non-admin, single-line GRAFANA_ADMIN_PASSWORD. Pass the password by inherited Docker environment, never in command arguments or UI output. Validate existing container network mode and exact port binding before returning success or starting it; remote reuse also requires its configured bootstrap credential to match. Refuse incompatible containers with operator recreation guidance, without deleting their data."
+source_proof = "The pytest module parses the production shell with bash -n, tokenizes its real Docker launch with shlex, checks the loopback default through the publish argument, the fail-closed remote credential guard before Docker operations, inherited credential transport into Grafana's GF_SECURITY_ADMIN_PASSWORD setting, unchanged admin user/signup policy, and absence of credential interpolation in output. It checks both existing-container branches call the network/binding/credential guard before any success or start, including host networking, missing or multiple bindings, wrong host port, absent or mismatched remote credentials."
+review_only = "Docker daemon/container execution, live socket exposure and Grafana authentication are not executed; this is the specified offline source-fact gate. Bash is used only for the explicitly required syntax parse; no Docker, native build toolchain, service, credentials or operator environment is needed. Docker publishing and Grafana's bootstrap environment consumption are reviewed configuration contracts. An operator-changed password in Grafana's persistent database is outside this bootstrap check: environment inspection cannot authenticate the running UI. This security repair changes launch configuration, not an application interface or restart-recovery mechanism; no runtime recovery claim is made."
+baseline = "Initial git status/diff showed only runner-prepared .cgignore and spec task status changes, no scoped implementation or tests, and no /out/run/gates.jsonl. The unchanged-tree verify was not run: the explicit gate order requires complete implementation before hf-build and permits verify only inside hf-done. No pre-change failing-test result is claimed; source inspection established the unqualified publication and fixed admin credential."
+build_cmd = "bash -n docker/monitornode/scripts/start-grafana.sh"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_874.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private evidence ledger name the exact verified candidate revision, command, exit code and log path. Build and verify must pass on that same content-derived revision; this record is finalized before gates to avoid changing the candidate after qualification. The runner commits the qualified result."
+wiring_requests = ["docker/README.md — owning domain 16 (tools/ops): replace the unconditional admin/admin monitoring guidance with loopback default, GRAFANA_BIND_ADDRESS and required remote GRAFANA_ADMIN_PASSWORD, and existing-container recreation/data-preservation guidance."]
+
+[finding.f007]
+audit = "22.30.183"
+file = "docker/monitornode/scripts/start-grafana.sh"
+line = 79
+class = "security"
+severity = "medium"
+owner_domain = 16
+observed = "The standalone script publishes Grafana on every host interface and configures the publicly known admin/admin login."
+expected = "Local monitoring should be loopback-bound by default or require an operator-provided secret before exposure to other hosts."
+resolution = "The launch defaults to 127.0.0.1:3000 and remote launch/reuse fails closed without an explicit non-default credential. Unsafe legacy containers cannot be silently restarted or reported as safely configured."
+tests = ["test_f007_shell_syntax", "test_f007_loopback_default_reaches_docker_publish", "test_f007_remote_password_guard_precedes_all_container_operations", "test_f007_existing_bindings_fail_closed_before_start_or_success", "test_f007_existing_remote_credential_is_checked_without_disclosure"]
+
+[format]
+policy = "No Python, shell or KVX formatter is configured for these paths; preserve existing shell tabs and Python four-space style, UTF-8, LF and final newlines."
+
+[gotcha.1]
+observed = "The generated step asks for unchanged-tree verification while the explicit order prohibits verification before complete implementation and hf-build."
+resolution = "Follow the explicit ordered gates and claim no unrun baseline; keep notes in this scoped record because root GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.2]
+observed = "cg brief reports stale repository change counts and an unrelated next task; broad combined context reads exceed output limits."
+resolution = "Use git status/diff and the task's private ledger for actual state, and read bounded sections for relevant source facts."
