@@ -603,6 +603,8 @@ static int test_liquidation_funding(void)
     return 0;
 }
 
+#include "test_perps_oracle_repairs.h"
+
 #undef REPAIR_CHECK
 #undef REPAIR_RESULT
 #endif

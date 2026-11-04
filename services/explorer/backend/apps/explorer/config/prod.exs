@@ -1,6 +1,8 @@
 import Config
 
-import_config "database_tls.exs"
+# Database TLS options (config/database_tls.exs) carry a verification function
+# and are applied from config/runtime/prod.exs at startup. They must not be
+# imported here: `mix release` refuses function terms in build-time config.
 
 # Configures the database
 config :explorer, Explorer.Repo,
