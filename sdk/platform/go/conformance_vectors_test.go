@@ -18,8 +18,8 @@ func VerifySequencerReceipt(receiptJSON, rawTransaction []byte, keys sdk.Receipt
 	return sdk.VerifySequencerReceipt(receiptJSON, rawTransaction, keys)
 }
 
-func VerifyCommittedReceipt(receipt sdk.SequencerReceiptVerification, header sdk.CommittedHeader, inclusion sdk.ReceiptInclusion, commit sdk.CometCommit, validators []sdk.CometValidator) (sdk.Committed, error) {
-	return sdk.VerifyCommittedReceipt(receipt, header, inclusion, commit, validators)
+func VerifyCommittedReceipt(receipt sdk.SequencerReceiptVerification, header sdk.CommittedHeader, inclusion sdk.ReceiptInclusion, commit sdk.CometCommit, validators []sdk.CometValidator, trust ...sdk.CommittedTrust) (sdk.Committed, error) {
+	return sdk.VerifyCommittedReceipt(receipt, header, inclusion, commit, validators, trust...)
 }
 
 type conformanceReceiptCase struct {
@@ -253,6 +253,7 @@ func TestVectorV4CommittedVerifiesAndRefuses(t *testing.T) {
 		t.Fatal("missing V4 identity or insufficient-power refusal")
 	}
 	c := vector.Positive
+	trust := sdk.CommittedTrust{ChainID: c.BlockHeader.ChainID, Height: c.BlockHeader.Height, BlockHash: c.BlockHeader.Hash()}
 	if c.Expected.Rung != "committed" {
 		t.Fatal("V4 positive must require the committed rung")
 	}
@@ -266,7 +267,7 @@ func TestVectorV4CommittedVerifiesAndRefuses(t *testing.T) {
 	}
 	assertConformanceReceipt(t, c.conformanceReceiptCase, receipt, "receipted")
 	t.Run("positive", func(t *testing.T) {
-		result, err := VerifyCommittedReceipt(receipt, c.BlockHeader, c.ReceiptInclusion, c.Commit, c.ValidatorSet)
+		result, err := VerifyCommittedReceipt(receipt, c.BlockHeader, c.ReceiptInclusion, c.Commit, c.ValidatorSet, trust)
 		if err != nil {
 			t.Fatalf("recorded V4 positive must verify at committed (header height %d, supplied commit height %d, check %s): %v", c.BlockHeader.Height, c.Commit.Height, conformanceFailureCheck(err), err)
 		}
@@ -304,7 +305,7 @@ func TestVectorV4CommittedVerifiesAndRefuses(t *testing.T) {
 			}
 			inclusion := c.ReceiptInclusion
 			inclusion.NextCommit = commit
-			result, err := VerifyCommittedReceipt(receipt, c.BlockHeader, inclusion, c.Commit, c.ValidatorSet)
+			result, err := VerifyCommittedReceipt(receipt, c.BlockHeader, inclusion, c.Commit, c.ValidatorSet, trust)
 			var verification *sdk.VerificationError
 			if !errors.Is(err, sdk.ErrVerification) || !errors.As(err, &verification) || verification.Check != refusal.ExpectedCheck || result.Rung != "" || len(result.CanonicalBytes) != 0 {
 				t.Fatalf("want %s refusal without verified evidence, got %+v, %v", refusal.ExpectedCheck, result, err)
@@ -340,6 +341,7 @@ func TestVectorV5PortableRoundTrips(t *testing.T) {
 				evidence = &sdk.PortableCommittedEvidence{BlockHeader: v4.Positive.BlockHeader, ReceiptInclusion: v4.Positive.ReceiptInclusion, Commit: v4.Positive.Commit, ValidatorSet: v4.Positive.ValidatorSet}
 			}
 			keys := conformanceKeys(t, c)
+			trust := sdk.CommittedTrust{ChainID: v4.Positive.BlockHeader.ChainID, Height: v4.Positive.BlockHeader.Height, BlockHash: v4.Positive.BlockHeader.Hash()}
 			data := vector.Bundles[i]
 			var bundle sdk.PortableReceipt
 			if err := json.Unmarshal(data, &bundle); err != nil {
@@ -368,19 +370,19 @@ func TestVectorV5PortableRoundTrips(t *testing.T) {
 						!reflect.DeepEqual(bundle.ValidatorSet, evidence.ValidatorSet) {
 						t.Fatal("portable committed evidence differs from V4 execution and successor evidence")
 					}
-					committed, err := VerifyCommittedReceipt(receipt, *bundle.BlockHeader, *bundle.ReceiptInclusion, *bundle.Commit, bundle.ValidatorSet)
+					committed, err := VerifyCommittedReceipt(receipt, *bundle.BlockHeader, *bundle.ReceiptInclusion, *bundle.Commit, bundle.ValidatorSet, trust)
 					if err != nil {
 						t.Fatalf("V5 committed evidence (check %s): %v", conformanceFailureCheck(err), err)
 					}
 					assertConformanceReceipt(t, c, committed.SequencerReceiptVerification, level)
 				})
 			}
-			result, err := sdk.VerifyPortableReceipt(data, keys)
+			result, err := sdk.VerifyPortableReceipt(data, keys, trust)
 			if err != nil {
 				t.Fatalf("portable %s verification (check %s): %v", level, conformanceFailureCheck(err), err)
 			}
 			assertConformanceReceipt(t, c, result, level)
-			rebuilt, err := sdk.ExportPortableReceipt(c.ReceiptJSON, conformanceHex(t, c.RawTransaction, 0), keys, evidence)
+			rebuilt, err := sdk.ExportPortableReceipt(c.ReceiptJSON, conformanceHex(t, c.RawTransaction, 0), keys, evidence, trust)
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -131,9 +131,6 @@ func TestProgramOperationsNeverCallProgramsRestIngress(t *testing.T) {
 					wantCode, wantRequests := ErrorUnavailableCapability, 0
 					if useRPC {
 						wantCode, wantRequests = ErrorTransportFailure, 1
-						if operation == "program.wind-down" {
-							wantCode, wantRequests = ErrorInvalidArgument, 0
-						}
 					}
 					if code := programErrorCode(err); code != wantCode {
 						t.Fatalf("operation error = %v, want %s", err, wantCode)

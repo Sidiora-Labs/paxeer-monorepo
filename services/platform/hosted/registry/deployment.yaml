@@ -74,6 +74,7 @@ spec:
             - {name: LAYERX_REGISTRY_IDENTITY_CLIENT_IDENTITY_PASSWORD_FILE, value: "/run/layerx/events/password"}
             - {name: LAYERX_REGISTRY_LISTEN, value: "0.0.0.0:9420"}
             - {name: LAYERX_REGISTRY_HEALTH_LISTEN, value: "0.0.0.0:9421"}
+            - {name: LAYERX_REGISTRY_CHAIN_RPC_URL, value: "https://api1.mainnet-beta.paxeer.network/"}
             - {name: LAYERX_REGISTRY_STATE, value: /var/lib/layerx-program-registry}
             - {name: LAYERX_REGISTRY_JOURNAL, value: /var/lib/layerx-registry-journal}
             - {name: LAYERX_REGISTRY_REQUEST_TOKEN_FILE, value: /run/layerx/request/token}
@@ -238,6 +239,8 @@ spec:
     - from: [{podSelector: {matchLabels: {layerx-role: source-publication-operator}}}]
       ports: [{protocol: TCP, port: 9420}]
   egress:
+    - to: [{ipBlock: {cidr: 0.0.0.0/0}}, {ipBlock: {cidr: "::/0"}}]
+      ports: [{protocol: TCP, port: 443}]
     - to: [{podSelector: {matchLabels: {layerx-plane: trusted-boundary}}}]
       ports: [{protocol: TCP, port: 9443}, {protocol: TCP, port: 9445}, {protocol: TCP, port: 9446}]
     - to: [{podSelector: {matchLabels: {app: layerx-gateway}}}]
