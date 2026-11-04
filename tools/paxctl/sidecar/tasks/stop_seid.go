@@ -2,6 +2,7 @@ package tasks
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"syscall"
@@ -37,13 +38,16 @@ type seidStopper struct {
 func (s seidStopper) stop(ctx context.Context) error {
 	pid, err := s.signaler.FindPID(restartSeidProcess)
 	if err != nil {
-		if s.probeUp(ctx) {
-			return fmt.Errorf("seid RPC is serving but its process was not found in /proc: %w — refusing to report a %s that did not happen", err, s.op)
+		if !errors.Is(err, errNodeProcessAbsent) {
+			return fmt.Errorf("cannot confirm node process state: %w", err)
 		}
-		s.log.Info("seid process not running and RPC down; nothing to stop", "reason", err.Error())
+		if s.probeUp(ctx) {
+			return fmt.Errorf("paxd RPC is serving but its process was not found in /proc: %w — refusing to report a %s that did not happen", err, s.op)
+		}
+		s.log.Info("paxd process not running and RPC down; nothing to stop", "reason", err.Error())
 		return nil
 	}
-	s.log.Info("stopping seid", "pid", pid, "grace", s.gracePeriod)
+	s.log.Info("stopping paxd", "pid", pid, "grace", s.gracePeriod)
 	return s.gracefulStop(ctx, pid)
 }
 
@@ -52,7 +56,7 @@ func (s seidStopper) stop(ctx context.Context) error {
 // deadline the task fails and the process is left running for an operator.
 func (s seidStopper) gracefulStop(ctx context.Context, pid int) error {
 	if err := s.signaler.Signal(pid, syscall.SIGTERM); err != nil {
-		return fmt.Errorf("sending SIGTERM to seid pid %d: %w", pid, err)
+		return fmt.Errorf("sending SIGTERM to paxd pid %d: %w", pid, err)
 	}
 
 	ticker := time.NewTicker(s.exitPollInterval)
@@ -64,17 +68,17 @@ func (s seidStopper) gracefulStop(ctx context.Context, pid int) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-deadline:
-			return fmt.Errorf("seid pid %d still alive %s after SIGTERM; leaving it running (not force-killing a validator mid-commit)", pid, s.gracePeriod)
+			return fmt.Errorf("paxd pid %d still alive %s after SIGTERM; leaving it running (not force-killing a validator mid-commit)", pid, s.gracePeriod)
 		case <-ticker.C:
 			if !s.signaler.Alive(pid) {
-				s.log.Info("seid exited after SIGTERM", "pid", pid)
+				s.log.Info("paxd exited after SIGTERM", "pid", pid)
 				return nil
 			}
 		}
 	}
 }
 
-// StopSeider SIGTERMs the co-located seid process and confirms it exited, then
+// StopSeider SIGTERMs the co-located paxd process and confirms it exited, then
 // returns — unlike restart-seid it never waits for seid to come back up. The
 // kubelet restarts the container and the start gate parks it (healthz 503) once
 // the readiness flag is false. This is the hold's stop step: pair it with a
@@ -86,11 +90,11 @@ type StopSeider struct {
 
 // NewStopSeider builds a StopSeider with the real /proc + syscall + local-RPC
 // implementations, sharing restart-seid's graceful-stop core and grace window.
-func NewStopSeider() *StopSeider {
-	statusClient := rpc.NewStatusClient("", nil)
+func NewStopSeider(config ...NodeProcessConfig) *StopSeider {
+	statusClient := rpc.NewStatusClient(processConfig(config).RPCEndpoint, nil)
 	return &StopSeider{
 		stopper: seidStopper{
-			signaler:         seidStartFinder{},
+			signaler:         seidStartFinder{config: processConfig(config)},
 			probeUp:          func(ctx context.Context) bool { return seidRPCUp(ctx, statusClient) },
 			gracePeriod:      restartSeidGracePeriod,
 			exitPollInterval: restartSeidExitPollInterval,

@@ -23,11 +23,11 @@ const matchFilter = (filterValue: AddressFromToFilter, transaction: Transaction,
   }
 
   if (filterValue === 'from') {
-    return transaction.from.hash === address;
+    return transaction.from.hash.toLowerCase() === address?.toLowerCase();
   }
 
   if (filterValue === 'to') {
-    return transaction.to?.hash === address;
+    return transaction.to?.hash.toLowerCase() === address?.toLowerCase();
   }
 };
 
