@@ -155068,7 +155068,7 @@ do_9 = "Attempt 2 (after 22.31.486): 5 of 6 cases pass; jsonSignatureChainFixtur
 
 [task.22.33.209]
 title = "Repair audit record 22.30.120 medium findings in services/wallet/gateway/test/e2e (part 1 of 1): retired-reference, runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.249", "22.31.250", "22.31.447"]
@@ -177602,7 +177602,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1440]
 title = "Repair audit record 22.30.81 medium findings in services/platform/hosted/gateway/src (part 2 of 3): retired-reference, runtime-risk, test-gap, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.202"]
