@@ -7,6 +7,7 @@
    ══════════════════════════════════════════════════════════════════════ */
 
 import * as Sentry from "@sentry/nextjs";
+import { sanitizeSentryEvent } from "./src/core/errors/sentrySanitizer";
 
 const DSN = process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN;
 const ENV = process.env.SENTRY_ENV || process.env.NODE_ENV || "production";
@@ -19,5 +20,6 @@ if (DSN) {
     release: RELEASE,
     tracesSampleRate: 0,
     sendDefaultPii: false,
+    beforeSend: sanitizeSentryEvent,
   });
 }
