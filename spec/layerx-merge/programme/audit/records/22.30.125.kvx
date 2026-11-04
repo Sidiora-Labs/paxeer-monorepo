@@ -1,0 +1,378 @@
+[audit.22.30.125]
+task = "22.30.125"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 19
+findings = 19
+docs_reviewed = 13
+upgrade_ready = true
+blocking = []
+
+[file.1]
+path = "programs/crates/layerx-programs-ai-market/tests/aggregation_contract.rs"
+lines = 1359
+verdict = "clean"
+note = "Full-file review: independent aggregation frame construction, optional quality presence, exact bounds, ordered workers, integer median/quorum, chunk composition and arrival permutations agree with aggregation_codec and aggregation producers. These are explicitly codec and integer contracts, not host settlement evidence."
+
+[file.2]
+path = "programs/crates/layerx-programs-ai-market/tests/artifact_binding.rs"
+lines = 2303
+verdict = "clean"
+note = "Full-file review: real CREATE/open/seal state producers feed exact result, event, request-replay, task-set and evaluator seal checks. Evidence roots, output commitments, policy isolation and corruption refusals agree with codec/evidence consumers; setup helpers construct prerequisite identities and funding rather than claim full guest enrollment coverage."
+
+[file.3]
+path = "programs/crates/layerx-programs-ai-market/tests/artifact_contract.rs"
+lines = 1387
+verdict = "clean"
+note = "Full-file review: independent artifact/chunk hashes, strict object/proof caps, contextual binding, typed evidence field roots, wrapper versions and reproduction records agree with artifact codecs. Codec-only claims are explicit and malformed or duplicate material is refused."
+
+[file.4]
+path = "programs/crates/layerx-programs-ai-market/tests/canonical_contract.rs"
+lines = 1586
+verdict = "clean"
+note = "Full-file review: independent vectors cover all 55 selector names, frozen errors, big-endian envelopes, native/delegate layouts, signatures, IDs, domain separation, result/events, framed sections and exact retry ordering. Epoch-zero absent/present roster cases agree with dispatch admission without claiming monetary settlement."
+
+[file.5]
+path = "programs/crates/layerx-programs-ai-market/tests/f03_evaluator_admission.rs"
+lines = 1964
+verdict = "clean"
+note = "Full-file review: signed commit/reveal and challenge journeys consume real shared state with exact identities, config/epoch/roster, authority, seal and request bindings. Explicit zero votes remain distinct from omitted workers; revoked/pending evaluators and retransmission checks agree with authority and assessment consumers."
+
+[file.6]
+path = "programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs"
+lines = 1664
+verdict = "issues"
+note = "Full-file review: release-built, build-domain-bound ABI-5 guest and WASMI_0_31_2 execution compare real result/event/state bytes and fuel. The fixed selector inventory omits currently routed lifecycle, settlement, history, admission and read operations; see fuel_selector_coverage. Its guest builder also inherits a different optimization profile from the required deployment build; see fuel_guest_build_profile."
+
+[file.7]
+path = "programs/crates/layerx-programs-ai-market/tests/market_protocol_boundary.rs"
+lines = 1662
+verdict = "issues"
+note = "Full-file review: close journal phases, outstanding claims, retained retry results, admission state and byte-restored cursor are checked using real closure and reward state producers. Close/refund execution stops before the compiled guest monetary settlement boundary; see close_settlement_coverage."
+
+[file.8]
+path = "programs/crates/layerx-programs-ai-market/tests/rewards.rs"
+lines = 1762
+verdict = "clean"
+note = "Full-file review: independent reward arithmetic plus RewardState transitions exercise conservation, insufficient free funds, authority rotation, exact expiry, late settlement, consent, principal scope, refund cursors and malformed persisted state. This file explicitly tests the reward ledger model, not transfer execution."
+
+[file.9]
+path = "programs/crates/layerx-programs-ai-market/tests/task_admission_boundary.rs"
+lines = 1297
+verdict = "clean"
+note = "Full-file review: routed task admission/acceptance/result/seal cases bind frozen worker identity, commitments, revision, deadline and request cursor. Refusal leaves authoritative task bytes unchanged; restart retry uses retained committed shared state, with cached context as test setup rather than a claim of host process recovery."
+
+[file.10]
+path = "programs/crates/layerx-programs-runtime/src/access.rs"
+lines = 2340
+verdict = "clean"
+note = "Full-file review against registry 13.rs-rt-access-* and SDK/FFI/scheduler/host-state consumers: canonical declaration/set framing, size caps, ordering and duplicates, namespace/key/prefix/range permissions, callee grants, resolved principal/program accounts and resource charges agree. Absent and explicit-empty remain distinct; decoder and SDK byte-equality tests exercise transport."
+
+[file.11]
+path = "programs/crates/layerx-programs-runtime/src/commit.rs"
+lines = 1526
+verdict = "issues"
+note = "Full-file review against registry 13.rs-rt-commit-* and executor/portable replay consumers: versioned legacy and arbitration commitments bind exact state, identity, instruction, monotonic steps and bounded evidence. Refused legacy record mutates totals before the byte limit is checked; see trace_refusal_atomicity."
+
+[file.12]
+path = "programs/crates/layerx-programs-runtime/src/market_tests.rs"
+lines = 1472
+verdict = "clean"
+note = "Full-file review: LAYERX_MARKET_WASM identifies the compiled compute-market guest, distinct from the AI-market guest; ABI-5 execution covers honest/lying disputes, bisection, timeouts, forged and replayed moves, capacity/slashing and concurrent leases. Restart serializes and decodes storage and asserts no duplicate economic effects."
+
+[file.13]
+path = "programs/crates/layerx-programs-runtime/src/meter.rs"
+lines = 2187
+verdict = "clean"
+note = "Full-file review against registry 13.rs-rt-meter-* and budget/execution/fee consumers: checked resource debits, exact versioned fee units, overflow and maximum bounds, historical schedule selection and bounded occupancy-price adjustment agree. FeeGovernance is a pure authority model; durable authority remains with its caller, not an implicit persistence service."
+
+[file.14]
+path = "programs/crates/layerx-programs-runtime/src/replay.rs"
+lines = 1834
+verdict = "clean"
+note = "Full-file review against registry 13.rs-rt-replay-* and host-state/executor/portable-replay consumers: bounded canonical witness versions capture storage, balances, writes, events and replay authority. Restored state remains untrusted, is recaptured and compared before use; domain, namespace, root, authority and trailing-byte refusals preserve exact recovery bindings."
+
+[file.15]
+path = "src/modules/programs/sandbox.c"
+lines = 866
+verdict = "issues"
+note = "Full-file review of registration decode/validate/execute, lease/funding, staged state, guest sealing, usage receipts and cleanup against Rust host FFI and module savepoints. Wire widths and usage/lifecycle bounds agree; error cleanup drops a potentially fatal rollback result; see sandbox_rollback_error."
+
+[file.16]
+path = "src/modules/programs/transfer.c"
+lines = 256
+verdict = "clean"
+note = "Full-file review: account/asset identifiers and u128 amounts retain exact C/Rust scalar widths. Program authority, canonical source ownership, permitted principal fast path, explicit 402LXP authorization and wind-down settlement feed the conserved transfer engine; errors and roots propagate without a second debit."
+
+[file.17]
+path = "tests/codec/lxp_test_sandbox_lifecycle.c"
+lines = 953
+verdict = "clean"
+note = "Full-file review: exact hand-encoded lifecycle payloads, real module decode/validation and Rust bridge calls exercise version, owner, lease, digest, funding and bounds refusals. Constructed program-registry records are unit fixtures; this file makes no claim of a compiled guest recovery journey."
+
+[file.18]
+path = "tests/codec/lxp_test_sandbox_receipt.c"
+lines = 586
+verdict = "clean"
+note = "Full-file review: independent receipt byte layout and corruption checks cover usage counters, fee/version/lease/root bindings, expiry and signed execution receipt transport. The sequencer_private_key field is a retained local receipt-codec input, not a configured separate network service."
+
+[file.19]
+path = "tests/programs/test_transfer_principal.c"
+lines = 212
+verdict = "clean"
+note = "Full-file review: real principal transfer setup and execution assert conserved balances, source authorization and unauthorized debit refusal. Canonical account derivation and program/owner metadata match transfer.c and the shared ledger interface; rejected transfers preserve balances."
+
+[finding.fuel_selector_coverage]
+file = "programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs"
+line = 93
+class = "test-gap"
+severity = "medium"
+observed = "ROUTED fixes coverage to 31 operations and every_routed_operation_fits_the_protocol_cpu_fuel_cap only checks that list at lines 1639-1644. dispatch::transition_inner also routes 0x010A/0x010B, F05 aggregation, F06 rewards, F07 history, F08 admission and 0x0A01/0x0A02 reads; prerequisites described as unrouted in lines 7-8 now have routed producers."
+expected = "Every operation claimed by the fuel test must execute through the deployed ABI-5 guest within DEFAULT_CPU_FUEL; selector additions must cause missing coverage to fail rather than silently escape the inventory."
+proposal = "Extend programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs to all 55 dispatch selectors, including close/refund/claim, aggregation, history, admission and reads. Compare the covered set with dispatch metadata and exercise maximum bounded states with real required value-transfer authority."
+owner_domain = 13
+
+[finding.close_settlement_coverage]
+file = "programs/crates/layerx-programs-ai-market/tests/market_protocol_boundary.rs"
+line = 974
+class = "test-gap"
+severity = "medium"
+observed = "World::close invokes closure::apply directly and commits returned state; a07_close_refunds_free_once_and_waits_for_live_claims checks RewardEffect and ledger counters. The actual dispatch::close additionally invokes value_adapter::settle in wasm, so this correct journal does not establish that the refund reaches its fixed recipient exactly once."
+expected = "The close/refund lifecycle must preserve balances and retained receipts across the real guest, value adapter, transfer host and durable restart, including uncertain delivery and already-applied retries."
+proposal = "Extend programs/crates/layerx-programs-ai-market/tests/market_protocol_boundary.rs with a compiled ABI-5 CREATE/fund/request-close/advance-close/claim/expiry journey using the real transfer host. Persist and restore its ledger/state, then assert recipient balances, conservation and no additional transfer on exact retries."
+owner_domain = 13
+
+[finding.trace_refusal_atomicity]
+file = "programs/crates/layerx-programs-runtime/src/commit.rs"
+line = 359
+class = "runtime-risk"
+severity = "medium"
+observed = "ExecutionTrace::record_commitment increments total_commitment_fuel and total_state_bytes before testing MAX_TRACE_STATE_BYTES at line 367. TraceByteLimit returns without pushing the commitment, leaving a retained trace with totals that include a refused record; canonical_bytes still serializes those totals."
+expected = "A refused trace append must leave the public trace usable with its prior ordered commitments and accounting unchanged, so subsequent receipt encoding and retry observe the same bounded state."
+proposal = "In programs/crates/layerx-programs-runtime/src/commit.rs, calculate prospective totals and check all limits before changing any field, as record_arbitration_step already does. Add a boundary refusal test comparing canonical bytes, totals and commitments before/after and verifying a subsequent admissible append."
+owner_domain = 13
+interface = "13.rs-rt-commit-executiontrace-record"
+
+[finding.sandbox_rollback_error]
+file = "src/modules/programs/sandbox.c"
+line = 435
+class = "runtime-risk"
+severity = "medium"
+observed = "The ordinary guest-error branch discards lxp_module_savepoint_discard status. That helper can return LXP_FATAL_INVARIANT or an arena-reset error and leave the savepoint active. The success-only active-savepoint guard at lines 452-453 does not propagate rollback failure when the original ordinary error is returned without published usage."
+expected = "A failed rollback must preserve fatal/error classification for enclosing kernel execution; callers must not treat a context whose state could not be restored as an ordinary recoverable guest refusal."
+proposal = "In src/modules/programs/sandbox.c, propagate the discard result, retaining fatal rollback failure over the original guest refusal and preventing ordinary receipt completion. Extend tests/codec/lxp_test_sandbox_lifecycle.c with real savepoint-invariant failure conditions and verify fatal return and absence of committed guest effects."
+owner_domain = 1
+
+[finding.programs_site_abi]
+file = "docs/site/docs/programs/index.md"
+line = 307
+class = "doc-drift"
+severity = "medium"
+observed = "The page says Rust admits only ABI 1 and 2 and C CALL caps guest ABI at 2; its frozen ABI inventory also stops at 2. programs/abi-frozen.sha256 pins versions 1 through 5, runtime policy accepts V5, sandbox lifecycle tests exercise ABI 3 and market_tests executes a compiled ABI-5 guest."
+expected = "Programs authors must see the supported guest ABI versions and actual host registration predicates for sandbox and market guests; frozen vectors must agree with the installed runtime."
+proposal = "Rewrite the ABI and frozen-vector sections of docs/site/docs/programs/index.md from current runtime policy, call admission and programs/abi-frozen.sha256. List versions 1-5, import groups and protocol/account-profile restrictions while retaining immutable older definitions."
+owner_domain = 13
+
+[finding.programs_wiki_abi]
+file = "docs/wiki/Programs.md"
+line = 348
+class = "doc-drift"
+severity = "medium"
+observed = "The page says Rust admits only ABI 1 and 2 and C CALL caps guest ABI at 2; its frozen ABI inventory also stops at 2. programs/abi-frozen.sha256 pins versions 1 through 5, runtime policy accepts V5, sandbox lifecycle tests exercise ABI 3 and market_tests executes a compiled ABI-5 guest."
+expected = "Programs authors must see the supported guest ABI versions and actual host registration predicates for sandbox and market guests; frozen vectors must agree with the installed runtime."
+proposal = "Rewrite the ABI and frozen-vector sections of docs/wiki/Programs.md from current runtime policy, call admission and programs/abi-frozen.sha256. List versions 1-5, import groups and protocol/account-profile restrictions while retaining immutable older definitions."
+owner_domain = 13
+
+[finding.programs_site_retired]
+file = "docs/site/docs/programs/index.md"
+line = 119
+class = "doc-drift"
+severity = "medium"
+observed = "Simulation presents lxp_daemon_lni_simulate and hosted POST /v1/programs/call and /v1/programs/simulate over LNI as the current integration path and cites cmd/layerxd/lxp_daemon_lni.c. Later sections retain lx_sendActivity/native REST and old hosted wire/genesis pins as operating guidance."
+expected = "Merged-network Programs calls and simulation must use current node/precompile and hosted px contracts on chain 125; the retired layerxd daemon and LNI service cannot be required to use Programs."
+proposal = "Replace simulation, submission and deployment instructions in docs/site/docs/programs/index.md with current PLX transaction/call/query and hosted gateway contracts. Document noncommitting simulation and block-commit finality and label retained legacy wire discussion as historical."
+owner_domain = 13
+
+[finding.programs_wiki_retired]
+file = "docs/wiki/Programs.md"
+line = 118
+class = "doc-drift"
+severity = "medium"
+observed = "Simulation presents lxp_daemon_lni_simulate and hosted POST /v1/programs/call and /v1/programs/simulate over LNI as the current integration path and cites cmd/layerxd/lxp_daemon_lni.c. Later sections retain lx_sendActivity/native REST and old hosted wire/genesis pins as operating guidance."
+expected = "Merged-network Programs calls and simulation must use current node/precompile and hosted px contracts on chain 125; the retired layerxd daemon and LNI service cannot be required to use Programs."
+proposal = "Replace simulation, submission and deployment instructions in docs/wiki/Programs.md with current PLX transaction/call/query and hosted gateway contracts. Document noncommitting simulation and block-commit finality and label retained legacy wire discussion as historical."
+owner_domain = 13
+
+[finding.programs_site_missing_example]
+file = "docs/site/docs/programs/index.md"
+line = 144
+class = "doc-drift"
+severity = "medium"
+observed = "The LXT-20 introduction says programs/sdk/rust/src/lxt20.rs, programs/sdk/rust/examples/token-lxt20 and programs/fixtures/pay5 are absent although all three exist and the same page later supplies build/use instructions. The wiki counterpart already identifies the paths as present."
+expected = "An author must be able to locate and build the maintained reference kit and its backing-asset payment fixture without being told that the checked-in implementation is unavailable."
+proposal = "Correct docs/site/docs/programs/index.md lines 144-146 to link the existing LXT-20 SDK, example and pay5 fixture, explain their ABI-2 reference-kit scope and align the build instructions with docs/wiki/Programs.md."
+owner_domain = 13
+
+[finding.workspace_site_abi]
+file = "docs/site/docs/programs/workspace.md"
+line = 24
+class = "doc-drift"
+severity = "medium"
+observed = "Frozen ABI lists only v1/v2 checksum rows and says generate-abi-vectors.py requires ABI_VERSION 2 and rebuilds only those manifests. The current baseline contains five versions; this description omits sandbox, oracle/web and ABI-5 surfaces used by this slice."
+expected = "Workspace maintenance instructions must identify every frozen ABI baseline and current generator checks so authors preserve compatibility while building the registered guest version."
+proposal = "Update docs/site/docs/programs/workspace.md Frozen ABI and generator sections from programs/abi-frozen.sha256 and scripts/programs/generate-abi-vectors.py. List all five immutable versions and current version-specific checks; refresh the workspace inventory to include the AI-market crate."
+owner_domain = 13
+
+[finding.workspace_wiki_abi]
+file = "docs/wiki/ProgramsWorkspace.md"
+line = 24
+class = "doc-drift"
+severity = "medium"
+observed = "Frozen ABI lists only v1/v2 checksum rows and says generate-abi-vectors.py requires ABI_VERSION 2 and rebuilds only those manifests. The current baseline contains five versions; this description omits sandbox, oracle/web and ABI-5 surfaces used by this slice."
+expected = "Workspace maintenance instructions must identify every frozen ABI baseline and current generator checks so authors preserve compatibility while building the registered guest version."
+proposal = "Update docs/wiki/ProgramsWorkspace.md Frozen ABI and generator sections from programs/abi-frozen.sha256 and scripts/programs/generate-abi-vectors.py. List all five immutable versions and current version-specific checks; refresh the workspace inventory to include the AI-market crate."
+owner_domain = 13
+
+[finding.workspace_site_retired]
+file = "docs/site/docs/programs/workspace.md"
+line = 156
+class = "doc-drift"
+severity = "medium"
+observed = "The maintained programs-differential recipe instructs readers to link cmd/layerxd/lxp_daemon_batch_wal.c. The retirement ledger removes the separate daemon; this is presented as a current build dependency rather than a historical offline vector source."
+expected = "Programs qualification guidance must name the merged-node differential path and sources that exist without requiring the retired layerxd process or its removed implementation."
+proposal = "Replace the programs-differential row in docs/site/docs/programs/workspace.md with the current Makefile target and actual source/dependency list. Distinguish retained offline receipt vectors from a running daemon and identify the merged host comparison boundary."
+owner_domain = 13
+
+[finding.workspace_wiki_retired]
+file = "docs/wiki/ProgramsWorkspace.md"
+line = 156
+class = "doc-drift"
+severity = "medium"
+observed = "The maintained programs-differential recipe instructs readers to link cmd/layerxd/lxp_daemon_batch_wal.c. The retirement ledger removes the separate daemon; this is presented as a current build dependency rather than a historical offline vector source."
+expected = "Programs qualification guidance must name the merged-node differential path and sources that exist without requiring the retired layerxd process or its removed implementation."
+proposal = "Replace the programs-differential row in docs/wiki/ProgramsWorkspace.md with the current Makefile target and actual source/dependency list. Distinguish retained offline receipt vectors from a running daemon and identify the merged host comparison boundary."
+owner_domain = 13
+
+[finding.xweb_retired_kernel]
+file = "docs/site/docs/protocol/xweb.md"
+line = 168
+class = "doc-drift"
+severity = "medium"
+observed = "The kernel path correctly disables web_read, but lines 170-173 still describe PAXEERX_WEB_REQUEST_V1 plus transfer_402 to a kernel fee account, kernel pending-request intake and a sequencer web-root batch header as live lifecycle. Line 292 still points to retired kernel web and sequencer sources."
+expected = "Program-origin web work must use origin 2 of the xweb module, its shared attestor threshold and escrow, with answers read from the keeper query and finality supplied by the committed BFT block."
+proposal = "Rewrite docs/site/docs/protocol/xweb.md kernel-path and source-pointer sections around modules/xweb request/fulfil/result state and the current Programs bridge. Remove retired kernel fee/pending/web-root instructions; retain the disabled web_read import and frozen signature."
+owner_domain = 6
+
+[finding.gateway_site_router]
+file = "docs/site/docs/platform/hosted-gateway.md"
+line = 38
+class = "doc-drift"
+severity = "medium"
+observed = "The page calls api-mainnet-beta.paxeer.network the only unified router for eth_*, lx_* and px_*, says public nodes are EVM-only, and advertises public POST /rpc, GET /rpc/schema and GET /rpc/ws at lines 50-52 with repetitions around 198-201 and 609-611."
+expected = "Merged-node JSON-RPC is served at the root with debug, echo, eth, net, pax, test and txpool namespaces; px methods belong to hosted gateway OpenRPC. No separate LayerX router or unified /rpc surface exists."
+proposal = "Rewrite docs/site/docs/platform/hosted-gateway.md endpoint overview, public route tables and readiness guidance to separate root node JSON-RPC from services/platform/hosted/gateway/openrpc.json. Use chain 125 and current namespace/method inventories and remove unified router and /rpc paths."
+owner_domain = 8
+
+[finding.gateway_wiki_router]
+file = "docs/wiki/HostedGateway.md"
+line = 38
+class = "doc-drift"
+severity = "medium"
+observed = "The page calls api-mainnet-beta.paxeer.network the only unified router for eth_*, lx_* and px_*, says public nodes are EVM-only, and advertises public POST /rpc, GET /rpc/schema and GET /rpc/ws at lines 50-52 with repetitions around 198-201 and 609-611."
+expected = "Merged-node JSON-RPC is served at the root with debug, echo, eth, net, pax, test and txpool namespaces; px methods belong to hosted gateway OpenRPC. No separate LayerX router or unified /rpc surface exists."
+proposal = "Rewrite docs/wiki/HostedGateway.md endpoint overview, public route tables and readiness guidance to separate root node JSON-RPC from services/platform/hosted/gateway/openrpc.json. Use chain 125 and current namespace/method inventories and remove unified router and /rpc paths."
+owner_domain = 8
+
+[finding.x402_site_finality]
+file = "docs/site/docs/interop/x402.md"
+line = 94
+class = "doc-drift"
+severity = "medium"
+observed = "Public transport requires POST /rpc with lx_sendActivity/lx_getReceipt/lx_getProof, then defines executed, batched and finalised by sequencer signature, signed batch header and guarantor checkpoint certificate. This treats the retired separate execution/finality stack as current payment settlement authority."
+expected = "An x402 payment must be submitted and recovered through current merged-network transports and bound to a successful receipt in a committed BFT block; retry must preserve exact-once payer, purpose, asset, amount and recipient checks."
+proposal = "Rewrite payment submission, recovery and settlement-proof instructions in docs/site/docs/interop/x402.md using current chain-125 transaction/receipt and hosted gateway contracts, block-commit finality and configured node trust. Keep exact units, payment bindings and same-payment recovery; remove sequencer/guarantor prerequisites."
+owner_domain = 11
+
+[finding.x402_wiki_finality]
+file = "docs/wiki/X402Transport.md"
+line = 95
+class = "doc-drift"
+severity = "medium"
+observed = "Public transport requires POST /rpc with lx_sendActivity/lx_getReceipt/lx_getProof, then defines executed, batched and finalised by sequencer signature, signed batch header and guarantor checkpoint certificate. This treats the retired separate execution/finality stack as current payment settlement authority."
+expected = "An x402 payment must be submitted and recovered through current merged-network transports and bound to a successful receipt in a committed BFT block; retry must preserve exact-once payer, purpose, asset, amount and recipient checks."
+proposal = "Rewrite payment submission, recovery and settlement-proof instructions in docs/wiki/X402Transport.md using current chain-125 transaction/receipt and hosted gateway contracts, block-commit finality and configured node trust. Keep exact units, payment bindings and same-payment recovery; remove sequencer/guarantor prerequisites."
+owner_domain = 11
+
+[finding.fuel_guest_build_profile]
+file = "programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs"
+line = 574
+class = "config-drift"
+severity = "medium"
+observed = "guest_module invokes cargo build --release without selecting opt-level z; programs/Cargo.toml sets profile.release.opt-level to 3 and programs/.cargo/config.toml supplies only target-feature/linker flags. It then measures that artifact. The helper therefore does not reproduce the size-optimized guest required by decision 2483. Its line-67 Makefile-default comment also names the old text chain domain while Makefile now uses a chain-derived hex domain."
+expected = "The artifact used to qualify guest fuel must use the release opt-level z deployment configuration and an explicitly identified build-time chain domain. Deployment readiness must account for the 524288-byte payload ceiling including its 104-byte envelope; this audit has not measured an oversized artifact."
+proposal = "In programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs, select the same explicit opt-level z build configuration as the production AI-market artifact, identify its test versus deployment chain domain accurately, and check wasm length plus the 104-byte deployment envelope against 524288 before validating and executing the guest. Align the owning programs/Cargo.toml and Makefile release recipe in a Programs repair task."
+owner_domain = 13
+
+[doc.programs_site]
+path = "docs/site/docs/programs/index.md"
+status = "misleading"
+notes = "Read full page. Lines 112-128 and 137 retain ABI-2-only CALL and retired LNI/daemon simulation; 144-146 falsely mark existing LXT-20 paths absent; 248-250 retain old submission; 292, 307-319 and 554 onward omit frozen ABIs 3-5; 325-333 describe old hosted pins. See programs_site_abi, programs_site_retired and programs_site_missing_example."
+
+[doc.programs_wiki]
+path = "docs/wiki/Programs.md"
+status = "misleading"
+notes = "Read full page including expanded import table. Lines 111-127 and 136 retain retired LNI/daemon guidance; 294 and 348-365 cap runtime/frozen ABIs at 2; 366-374 describe old hosted pins; 595 onward repeats incomplete frozen guidance. LXT-20 paths at 144-148 are correctly present. See programs_wiki_abi and programs_wiki_retired."
+
+[doc.workspace_site]
+path = "docs/site/docs/programs/workspace.md"
+status = "stale"
+notes = "Read full page. Lines 24-37 list two frozen checksums and an obsolete version-2-only generator; the crate inventory omits AI-market. Line 156 names retired cmd/layerxd/lxp_daemon_batch_wal.c as a current source. See workspace_site_abi and workspace_site_retired."
+
+[doc.workspace_wiki]
+path = "docs/wiki/ProgramsWorkspace.md"
+status = "stale"
+notes = "Read full page. Lines 24-37 list two frozen checksums and an obsolete version-2-only generator; the crate inventory omits AI-market. Line 156 names retired cmd/layerxd/lxp_daemon_batch_wal.c as a current source. See workspace_wiki_abi and workspace_wiki_retired."
+
+[doc.xweb]
+path = "docs/site/docs/protocol/xweb.md"
+status = "misleading"
+notes = "Read full page. Lines 168-176 mix correctly retired web_read with a live kernel fee/pending-request/web-root story, especially 170-173; line 292 points to retired sources. Origin-2 xweb module requests, escrow, shared attestors and keeper results should replace that lifecycle; see xweb_retired_kernel."
+
+[doc.porting]
+path = "docs/site/docs/operators/porting.md"
+status = "accurate"
+notes = "Read full page. Within this slice, ABI-2 porting reference kits, explicit account/capability grants, strict native versus program balances, refusal of direct monetary writes and bounded storage agree with access, transfer and runtime contracts. ABI-2 kit scope does not cap the runtime at version 2."
+
+[doc.gateway_site]
+path = "docs/site/docs/platform/hosted-gateway.md"
+status = "misleading"
+notes = "Read full page. Lines 38-41 describe unified router and EVM-only nodes; 50-52, 198-201 and 609-611 advertise retired /rpc paths. Lines 285-300 retain legacy lx submission and network/authority language. Replace with root node JSON-RPC and hosted px OpenRPC; see gateway_site_router."
+
+[doc.gateway_wiki]
+path = "docs/wiki/HostedGateway.md"
+status = "misleading"
+notes = "Read full page. Lines 38-41 describe unified router and EVM-only nodes; 50-52, 198-201 and 609-611 advertise retired /rpc paths. Lines 285-300 retain legacy lx submission and network/authority language. Replace with root node JSON-RPC and hosted px OpenRPC; see gateway_wiki_router."
+
+[doc.storage_site]
+path = "docs/site/docs/programs/storage-scan.md"
+status = "accurate"
+notes = "Read full page. Scoped selectors, bounded key/value/result bytes, cursor binding to program/namespace/scope/prefix/limits, status mapping and charge-on-success agree with access enforcement and scan consumers. These frozen ABI-2 storage rules remain valid in later composite ABIs."
+
+[doc.storage_wiki]
+path = "docs/wiki/StorageScan.md"
+status = "accurate"
+notes = "Read full page. Scoped selectors, bounded key/value/result bytes, cursor binding to program/namespace/scope/prefix/limits, status mapping and charge-on-success agree with access enforcement and scan consumers. These frozen ABI-2 storage rules remain valid in later composite ABIs."
+
+[doc.x402_site]
+path = "docs/site/docs/interop/x402.md"
+status = "misleading"
+notes = "Read full page. Site lines 94-110 (wiki 95-111) require retired /rpc and lx methods plus sequencer, batch-header and guarantor evidence. Amount precision, recipient/purpose binding and same-payment retry remain useful; transport and finality need replacement. See x402_site_finality."
+
+[doc.x402_wiki]
+path = "docs/wiki/X402Transport.md"
+status = "misleading"
+notes = "Read full page. Site lines 94-110 (wiki 95-111) require retired /rpc and lx methods plus sequencer, batch-header and guarantor evidence. Amount precision, recipient/purpose binding and same-payment retry remain useful; transport and finality need replacement. See x402_wiki_finality."
+
+[doc.programs_contract]
+path = "spec/layerx-merge/contracts/programs.md"
+status = "accurate"
+notes = "Read relevant host-interface, runtime-FFI, runtime-crate and AI-market contract sections and interface inventories. Stable access/commit/meter/replay signatures agree with registry declarations; planned authority/finality migrations are distinguished from frozen interfaces. This status covers the sections relevant to this slice."

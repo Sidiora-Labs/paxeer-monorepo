@@ -1,0 +1,1706 @@
+# Pre-upgrade audit of web-explorer-bridge; product repairs are proposals only.
+
+[audit.22.30.150]
+task = "22.30.150"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 216
+findings = 24
+docs_reviewed = 30
+upgrade_ready = false
+blocking = ["004"]
+interfaces_produced = 71
+interfaces_consumed = 797
+interfaces_listed_consumed = 400
+note = "One merged chain 125 has committed-block finality; node JSON-RPC uses the origin root and hosted px_ methods belong to the gateway. The package lists 400 of 797 consumed registry rows; all 797 were recovered through callers beneath package paths, including configuration files outside the member list. Generic version/OPTIONS/DATABASE_URL name matches do not establish cross-domain service calls. Unchanged imported Blockscout members have explicit vendored provenance; locally maintained members have full-file verdicts. Readiness is blocked by the Solana partial-deployment record reaching a configured application route."
+interface_review = "Produced interfaces include GraphQL queries/subscription and Phoenix notifier events, channel registration and scalar encodings, plus bridge Record/LoadRecord/EnvLines/EnvNames/Check/Run and deployment CLI contracts. Consumed rows comprise 722 environment variables, 59 configuration keys, 7 metrics, 3 JSON-RPC methods, 3 HTTP routes, 2 Solidity events and 1 file format. Optional upstream chain modules and example compose settings are scoped to their selected chain rather than product defaults. No runtime gate beyond the declared audit-record qualification is claimed."
+
+[file.001]
+path = "apps/explorer/.cursor/BUGBOT.md"
+lines = 53
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob f8d389874b65ba9b4d1b38e35ecb4a94f56ee1df from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/.cursor/BUGBOT.md. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.002]
+path = "apps/explorer/.cursor/hooks.json"
+lines = 13
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob c4fcae02666deef4a4dc1c68f339a750d36b30ab from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/.cursor/hooks.json. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.003]
+path = "apps/explorer/.cursor/mcp.json"
+lines = 8
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 0701fd8af710ce97d7858348f23b89429f1a92af from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/.cursor/mcp.json. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.004]
+path = "apps/explorer/.cursor/skills/check-github-cli/SKILL.md"
+lines = 17
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob ba55e5f97ce028a32cb424940bc5fb64fb19a30a from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/.cursor/skills/check-github-cli/SKILL.md. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.005]
+path = "apps/explorer/.cursor/skills/create-pr/SKILL.md"
+lines = 62
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob cd2daca6825e7398a1e7ceee67c4bc4859e2ff5f from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/.cursor/skills/create-pr/SKILL.md. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.006]
+path = "apps/explorer/.cursor/skills/deploy-demo/SKILL.md"
+lines = 59
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob b5fbc40301ec8f122d134897d953cb6cabb59fe4 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/.cursor/skills/deploy-demo/SKILL.md. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.007]
+path = "apps/explorer/.cursor/skills/get-checks-status/SKILL.md"
+lines = 36
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob bd766364b6599b8d7e39153fbfffc7ba7f38d8dd from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/.cursor/skills/get-checks-status/SKILL.md. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.008]
+path = "apps/explorer/.cursor/skills/prepare-release/SKILL.md"
+lines = 73
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob cae2ea6a8d49552aee0e4c347acea405f9c6d162 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/.cursor/skills/prepare-release/SKILL.md. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.009]
+path = "apps/explorer/.cursor/skills/prepare-release/fetch-release-prs.js"
+lines = 101
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 000689ea3f8607e1497bddc0971b5f867d025d20 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/.cursor/skills/prepare-release/fetch-release-prs.js. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.010]
+path = "apps/explorer/ui/addressVerification/AddressVerificationModal.tsx"
+lines = 134
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 908732dc5d2a73707f488fde2f4c0a8601e4992d from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/addressVerification/AddressVerificationModal.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.011]
+path = "apps/explorer/ui/addressVerification/steps/AddressVerificationStepAddress.pw.tsx"
+lines = 43
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 70d4e89cfe51738ba1ab7d00549a619e51c22ac9 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/addressVerification/steps/AddressVerificationStepAddress.pw.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.012]
+path = "apps/explorer/ui/addressVerification/steps/AddressVerificationStepAddress.tsx"
+lines = 130
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob ba0ff63fc5b11b333eab7c8783a2328c77a9a9b8 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/addressVerification/steps/AddressVerificationStepAddress.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.013]
+path = "apps/explorer/ui/addressVerification/steps/AddressVerificationStepSignature.pw.tsx"
+lines = 48
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 250b402aac7ecbca2dc22f0cf9dfa347294c8c6f from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/addressVerification/steps/AddressVerificationStepSignature.pw.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.014]
+path = "apps/explorer/ui/addressVerification/steps/AddressVerificationStepSignature.tsx"
+lines = 271
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 5be2c56749b534f3aa82dcda316458fd1b5e1611 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/addressVerification/steps/AddressVerificationStepSignature.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.015]
+path = "apps/explorer/ui/addressVerification/steps/AddressVerificationStepSuccess.tsx"
+lines = 37
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob fc71c504f1ab6ef08e89c200e63983db95a39bc2 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/addressVerification/steps/AddressVerificationStepSuccess.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.016]
+path = "apps/explorer/ui/addressVerification/types.ts"
+lines = 50
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 1a6635a7dcd36db820675795642632e771e94ac3 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/addressVerification/types.ts. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.017]
+path = "apps/explorer/ui/epochs/EpochDetails.tsx"
+lines = 154
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob c6a779452e315157438aa789aca3a1648ee8a9d7 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/epochs/EpochDetails.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.018]
+path = "apps/explorer/ui/epochs/EpochsListItem.tsx"
+lines = 76
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 97bc3265218ae71598dccd1e638ebd6818ed5019 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/epochs/EpochsListItem.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.019]
+path = "apps/explorer/ui/epochs/EpochsTable.tsx"
+lines = 48
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 9c53f5d3e533439693d6f6fa1a8dc6776ee9cc5d from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/epochs/EpochsTable.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.020]
+path = "apps/explorer/ui/epochs/EpochsTableItem.tsx"
+lines = 70
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob ab6c0076636dec86cbe46f578248caa4da9070ee from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/epochs/EpochsTableItem.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.021]
+path = "apps/explorer/ui/epochs/electionRewards/EpochElectionRewardDetailsDesktop.tsx"
+lines = 97
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob a5ae3982b17a6a90cfa3ccc45003b2a5de07e608 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/epochs/electionRewards/EpochElectionRewardDetailsDesktop.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.022]
+path = "apps/explorer/ui/epochs/electionRewards/EpochElectionRewardDetailsMobile.tsx"
+lines = 77
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob e9c5ebdecfc62dc0daea96838acba7d81c458733 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/epochs/electionRewards/EpochElectionRewardDetailsMobile.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.023]
+path = "apps/explorer/ui/epochs/electionRewards/EpochElectionRewards.pw.tsx"
+lines = 35
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 42b5434fd60346dc5c8bd2f11fe3c163fcdae95d from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/epochs/electionRewards/EpochElectionRewards.pw.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.024]
+path = "apps/explorer/ui/epochs/electionRewards/EpochElectionRewards.tsx"
+lines = 79
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob ed4d618df3ef98f692990929768ea513bb5ec447 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/epochs/electionRewards/EpochElectionRewards.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.025]
+path = "apps/explorer/ui/epochs/electionRewards/EpochElectionRewardsListItem.tsx"
+lines = 70
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 4244c22fa5d318b6419d04726dc5436def40d132 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/epochs/electionRewards/EpochElectionRewardsListItem.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.026]
+path = "apps/explorer/ui/epochs/electionRewards/EpochElectionRewardsTableItem.tsx"
+lines = 80
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 1fb334078190a899b71780b404768259c342c0cd from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/epochs/electionRewards/EpochElectionRewardsTableItem.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.027]
+path = "apps/explorer/ui/epochs/electionRewards/utils.ts"
+lines = 45
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 8eb981025d263d2c36f18a2e2469571f0175dee6 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/epochs/electionRewards/utils.ts. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.028]
+path = "apps/explorer/ui/privateTags/AddressModal/AddressForm.tsx"
+lines = 113
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob c01b87b436ac95237a18e1d46d9f02d4692d4ec5 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/privateTags/AddressModal/AddressForm.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.029]
+path = "apps/explorer/ui/privateTags/AddressModal/AddressModal.tsx"
+lines = 57
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 06767d5de33232a340f77e2405d5709b34a53f8f from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/privateTags/AddressModal/AddressModal.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.030]
+path = "apps/explorer/ui/privateTags/AddressTagTable/AddressTagListItem.tsx"
+lines = 51
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 9bc21d0cf21a02d37a4cbefe159f08b8b1169ea6 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/privateTags/AddressTagTable/AddressTagListItem.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.031]
+path = "apps/explorer/ui/privateTags/AddressTagTable/AddressTagTable.tsx"
+lines = 42
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 96ceeca580451e60b13051610a005f479fd1b1ff from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/privateTags/AddressTagTable/AddressTagTable.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.032]
+path = "apps/explorer/ui/privateTags/AddressTagTable/AddressTagTableItem.tsx"
+lines = 46
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 2156adcc3b8d4ebdd2000e17ff0336107f5bf3c6 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/privateTags/AddressTagTable/AddressTagTableItem.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.033]
+path = "apps/explorer/ui/privateTags/DeletePrivateTagModal.tsx"
+lines = 66
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 9ccf23a9641f9afdbacd6bb80b044de9dd561bd5 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/privateTags/DeletePrivateTagModal.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.034]
+path = "apps/explorer/ui/privateTags/PrivateAddressTags.tsx"
+lines = 126
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 5d1157ece2fd7641c5f53795ad87c80af3f28742 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/privateTags/PrivateAddressTags.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.035]
+path = "apps/explorer/ui/privateTags/PrivateTransactionTags.tsx"
+lines = 123
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 59debfd2c4f047b92e5a799fd55e35419e2b5594 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/privateTags/PrivateTransactionTags.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.036]
+path = "apps/explorer/ui/privateTags/TransactionModal/TransactionForm.tsx"
+lines = 125
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob cb0046921bf047f72f08426d63a6329208dc4129 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/privateTags/TransactionModal/TransactionForm.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.037]
+path = "apps/explorer/ui/privateTags/TransactionModal/TransactionModal.tsx"
+lines = 57
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob d6aea3b6bdc3c2d0b8ba68b8983b083ebaaf22da from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/privateTags/TransactionModal/TransactionModal.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.038]
+path = "apps/explorer/ui/privateTags/TransactionTagTable/TransactionTagListItem.tsx"
+lines = 46
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 501096116c0c2c69606f2f2ee7fabe4d2a6d7ce6 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/privateTags/TransactionTagTable/TransactionTagListItem.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.039]
+path = "apps/explorer/ui/privateTags/TransactionTagTable/TransactionTagTable.tsx"
+lines = 42
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob aebd2dcba0a215876e547d138b887181648319d1 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/privateTags/TransactionTagTable/TransactionTagTable.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.040]
+path = "apps/explorer/ui/privateTags/TransactionTagTable/TransactionTagTableItem.tsx"
+lines = 45
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob c4383f3aa58767018ab22ad8f766710dce745677 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/privateTags/TransactionTagTable/TransactionTagTableItem.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.041]
+path = "apps/explorer/ui/userOp/UserOpCallData.tsx"
+lines = 52
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob bcc0b2aee5d337049cd098fe5c5b174b10e18df8 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/userOp/UserOpCallData.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.042]
+path = "apps/explorer/ui/userOp/UserOpCallDataSwitch.tsx"
+lines = 45
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 1e3913013c81cb0c668550d4148d949b6121aeae from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/userOp/UserOpCallDataSwitch.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.043]
+path = "apps/explorer/ui/userOp/UserOpDecodedCallData.tsx"
+lines = 61
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob cc5835fbf0ee590cb571e7ea94ffb05614d73642 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/userOp/UserOpDecodedCallData.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.044]
+path = "apps/explorer/ui/userOp/UserOpDetails.tsx"
+lines = 370
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 568fee3d14131c594e17b8d66a9d2d7e01f6ce4b from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/userOp/UserOpDetails.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.045]
+path = "apps/explorer/ui/userOp/UserOpDetailsActions.tsx"
+lines = 48
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 0e91ad5d9d3333b3366afec22bbb35a0c4863a7c from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/userOp/UserOpDetailsActions.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.046]
+path = "apps/explorer/ui/userOp/UserOpRaw.tsx"
+lines = 33
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob ebb066e7aa1e0f6de62aee9872a9c5067c256013 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/userOp/UserOpRaw.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.047]
+path = "apps/explorer/ui/userOp/UserOpSubHeading.tsx"
+lines = 86
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob ed7bc356ff8562d8dc2ea83db50c74857f5afc53 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/userOp/UserOpSubHeading.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.048]
+path = "apps/explorer/ui/validators/blackfort/ValidatorsCounters.tsx"
+lines = 33
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob bfa00afcc1d40babd182de3216247c59d03a07a4 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/validators/blackfort/ValidatorsCounters.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.049]
+path = "apps/explorer/ui/validators/blackfort/ValidatorsList.tsx"
+lines = 22
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 90c24fea7e50b4fde09f4c5bf0552b09326b70e2 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/validators/blackfort/ValidatorsList.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.050]
+path = "apps/explorer/ui/validators/blackfort/ValidatorsListItem.tsx"
+lines = 67
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 231fa58fdea69e866ed700550c84cc4323541671 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/validators/blackfort/ValidatorsListItem.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.051]
+path = "apps/explorer/ui/validators/blackfort/ValidatorsTable.tsx"
+lines = 61
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 16e567dee323bd98961dfd768356caa4251eb05a from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/validators/blackfort/ValidatorsTable.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.052]
+path = "apps/explorer/ui/validators/blackfort/ValidatorsTableItem.tsx"
+lines = 55
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob e390209adc7478f2e46e3e843730967325d7bc3b from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/validators/blackfort/ValidatorsTableItem.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.053]
+path = "apps/explorer/ui/validators/blackfort/utils.ts"
+lines = 16
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 647b658d1cdb102ed4d36268961e6fad6a564852 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/validators/blackfort/utils.ts. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.054]
+path = "apps/explorer/ui/validators/stability/ValidatorsCounters.tsx"
+lines = 38
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob f863b4e53d371f32e64a8793d31218b3168cf254 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/validators/stability/ValidatorsCounters.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.055]
+path = "apps/explorer/ui/validators/stability/ValidatorsFilter.tsx"
+lines = 37
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 21422cda0f8a46edc7cf4fe8a769f2d8dfd0b1c4 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/validators/stability/ValidatorsFilter.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.056]
+path = "apps/explorer/ui/validators/stability/ValidatorsList.tsx"
+lines = 22
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 1193a908c3e5a2ef5169ef9cdc4e3ac9460f3d62 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/validators/stability/ValidatorsList.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.057]
+path = "apps/explorer/ui/validators/stability/ValidatorsListItem.tsx"
+lines = 44
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob aa8a71938cbfff995e560541430656a2237dcf93 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/validators/stability/ValidatorsListItem.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.058]
+path = "apps/explorer/ui/validators/stability/ValidatorsTable.tsx"
+lines = 66
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 67cab7a9f891e03dbe0e6c0b8f19fab57475fbbb from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/validators/stability/ValidatorsTable.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.059]
+path = "apps/explorer/ui/validators/stability/ValidatorsTableItem.tsx"
+lines = 37
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob bc3ed76f6899794f3b400633fceda9e72ded63be from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/validators/stability/ValidatorsTableItem.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.060]
+path = "apps/explorer/ui/validators/stability/utils.ts"
+lines = 19
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 40ec175adfb3357a9497e06b77610b4b22f07dd4 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/validators/stability/utils.ts. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.061]
+path = "apps/explorer/ui/validators/zilliqa/ValidatorDetails.pw.tsx"
+lines = 16
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 5e3c8c68d5aa8c662cab54ac5f20a14e15404d43 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/validators/zilliqa/ValidatorDetails.pw.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.062]
+path = "apps/explorer/ui/validators/zilliqa/ValidatorDetails.tsx"
+lines = 120
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 5debc23cdb48493de4963dd009929d1e32053baa from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/validators/zilliqa/ValidatorDetails.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.063]
+path = "apps/explorer/ui/validators/zilliqa/ValidatorsList.tsx"
+lines = 22
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob bb0c571e1bf93f311d9761cb558ec06c135c87f4 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/validators/zilliqa/ValidatorsList.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.064]
+path = "apps/explorer/ui/validators/zilliqa/ValidatorsListItem.tsx"
+lines = 46
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob f74f209eb459c9e15e60666e10f3e27e96020076 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/validators/zilliqa/ValidatorsListItem.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.065]
+path = "apps/explorer/ui/validators/zilliqa/ValidatorsTable.tsx"
+lines = 40
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 8077f755d8cf2da63a0d61e38689aca3add5acce from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/validators/zilliqa/ValidatorsTable.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.066]
+path = "apps/explorer/ui/validators/zilliqa/ValidatorsTableItem.tsx"
+lines = 37
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 4cfff594d77bd8db31cb847570a306146fe8e05b from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/validators/zilliqa/ValidatorsTableItem.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.067]
+path = "apps/explorer/ui/watchlist/AddressModal/AddressForm.tsx"
+lines = 173
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob f86ad7188692b8c973033d9a2535c21e1ab74838 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/watchlist/AddressModal/AddressForm.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.068]
+path = "apps/explorer/ui/watchlist/AddressModal/AddressFormNotifications.tsx"
+lines = 61
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 30afbfee82e08489bb9d25b580a31f518b9ba576 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/watchlist/AddressModal/AddressFormNotifications.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.069]
+path = "apps/explorer/ui/watchlist/AddressModal/AddressModal.tsx"
+lines = 51
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 4c6979aa4ffb389041cb6e3cd101219f8651470b from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/watchlist/AddressModal/AddressModal.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.070]
+path = "apps/explorer/ui/watchlist/DeleteAddressModal.tsx"
+lines = 49
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob bcad457fa9d54530eb553b4fd91c3580e42e685f from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/watchlist/DeleteAddressModal.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.071]
+path = "apps/explorer/ui/watchlist/WatchlistEmailAlert.tsx"
+lines = 40
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 53737b63c85b5544c32990a98309f7c7874f02b8 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/watchlist/WatchlistEmailAlert.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.072]
+path = "apps/explorer/ui/watchlist/WatchlistTable/WatchListAddressItem.tsx"
+lines = 89
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob f00b8a26d2df52fd815ee73cd2732e20a7977f31 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/watchlist/WatchlistTable/WatchListAddressItem.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.073]
+path = "apps/explorer/ui/watchlist/WatchlistTable/WatchListItem.tsx"
+lines = 104
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 4c2c579c7dedc0fb4ad4e1a9c065c3e50c73116c from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/watchlist/WatchlistTable/WatchListItem.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.074]
+path = "apps/explorer/ui/watchlist/WatchlistTable/WatchListTableItem.tsx"
+lines = 99
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob c7b93c30828e52998ceb67acceb3c35b895d229a from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/watchlist/WatchlistTable/WatchListTableItem.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.075]
+path = "apps/explorer/ui/watchlist/WatchlistTable/WatchlistTable.tsx"
+lines = 45
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob bd469cd1244b5e7426d334fb4a99b0c568667dcb from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/frontend/ui/watchlist/WatchlistTable/WatchlistTable.tsx. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.076]
+path = "apps/names/e2e/shell.test.ts"
+lines = 335
+verdict = "issues"
+note = "Read in full; concrete disagreements and owning repair proposals are findings 001."
+
+[file.077]
+path = "apps/names/next.config.ts"
+lines = 9
+verdict = "clean"
+note = "Shell tracing and workspace root configuration agree with the owning Next package and introduce no retired RPC origin."
+
+[file.078]
+path = "apps/names/package.json"
+lines = 33
+verdict = "clean"
+note = "The shell's scripts and workspace dependencies resolve the real names library and Next runtime; its declared e2e entrypoint remains present."
+
+[file.079]
+path = "apps/names/pnpm-workspace.yaml"
+lines = 2
+verdict = "clean"
+note = "Local workspace selection resolves shared names code without introducing a separate resolver implementation."
+
+[file.080]
+path = "apps/names/src/app/_pns/[label]/[[...path]]/route.ts"
+lines = 41
+verdict = "clean"
+note = "GET/HEAD obtain resolveContent and Tendermint header dependencies from explicit deployment configuration, check the host label and dispatch through serve."
+
+[file.081]
+path = "apps/names/src/app/layout.tsx"
+lines = 14
+verdict = "clean"
+note = "The shell layout provides the ordinary Next document wrapper and imports no retired network service or custody lifecycle."
+
+[file.082]
+path = "apps/names/src/app/page.tsx"
+lines = 64
+verdict = "clean"
+note = "The landing page describes proof-verified .pax content and host-based serving without promising unverified publication success."
+
+[file.083]
+path = "apps/names/src/lib/serve.ts"
+lines = 124
+verdict = "issues"
+note = "Read in full; concrete disagreements and owning repair proposals are findings 002."
+
+[file.084]
+path = "apps/names/src/proxy.ts"
+lines = 30
+verdict = "clean"
+note = "Host-to-label dispatch preserves method and path segments; malformed URI decoding reaches the structured serve refusal before resolution or fetch."
+
+[file.085]
+path = "apps/names/tsconfig.json"
+lines = 28
+verdict = "clean"
+note = "Strict TypeScript source and workspace paths include shell implementation and tests without introducing a synthetic network interface."
+
+[file.086]
+path = "services/bridge/deploy/appenv/appenv.go"
+lines = 191
+verdict = "issues"
+note = "Read in full; concrete disagreements and owning repair proposals are findings 004."
+
+[file.087]
+path = "services/bridge/deploy/appenv/appenv_test.go"
+lines = 474
+verdict = "clean"
+note = "Read all unit cases for chain identity, EVM address validation, Solana base58 length, deterministic env ordering, duplicate/malformed inputs, empty directories and check diagnostics. The deployment lifecycle proof gap is separately localized in proof_app_env_test.go."
+
+[file.088]
+path = "services/bridge/deploy/appenv/proof_app_env_test.go"
+lines = 238
+verdict = "issues"
+note = "Read in full; concrete disagreements and owning repair proposals are findings 003."
+
+[file.089]
+path = "services/bridge/deploy/deploy-solana-program.sh"
+lines = 556
+verdict = "issues"
+note = "Read in full; concrete disagreements and owning repair proposals are findings 005, 006."
+
+[file.090]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/api_v2.ex"
+lines = 9
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 6bd12a410332606ff94ee00f4fa5d57d195c28b2 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/block_scout_web/lib/block_scout_web/api_v2.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.091]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/graphql/body_reader.ex"
+lines = 35
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob fe12ebfb1ca1e8d8442e741f3795564d5a0e7d1f from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/block_scout_web/lib/block_scout_web/graphql/body_reader.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.092]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/graphql/celo/resolvers/token_transfer.ex"
+lines = 21
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 0eb2a5a32375b7039b51610baef83433f1a2f768 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/block_scout_web/lib/block_scout_web/graphql/celo/resolvers/token_transfer.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.093]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/graphql/celo/resolvers/token_transfer_transaction.ex"
+lines = 27
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 4b39ec0c4bd25b179bd1d5cd03e1b7c58485eb00 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/block_scout_web/lib/block_scout_web/graphql/celo/resolvers/token_transfer_transaction.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.094]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/graphql/celo/schema/query_fields.ex"
+lines = 28
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 8e2d277accc731e311b62be9ca43e22e76b0cc3c from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/block_scout_web/lib/block_scout_web/graphql/celo/schema/query_fields.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.095]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/graphql/celo/schema/types.ex"
+lines = 87
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 61419d03e9985c418614b9aeb2761dea7cb363fa from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/block_scout_web/lib/block_scout_web/graphql/celo/schema/types.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.096]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/graphql/middleware/api_enabled.ex"
+lines = 19
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob dfe2bdb57564948052f3d33023923e724f24e9f6 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/block_scout_web/lib/block_scout_web/graphql/middleware/api_enabled.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.097]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/graphql/resolvers/address.ex"
+lines = 19
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 1cbc324a1076cda1333da95d4c25527947e7937f from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/block_scout_web/lib/block_scout_web/graphql/resolvers/address.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.098]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/graphql/resolvers/block.ex"
+lines = 32
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 1b03f48dfc88ef26d634f1b5fb2d7643f4e1738b from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/block_scout_web/lib/block_scout_web/graphql/resolvers/block.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.099]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/graphql/resolvers/internal_transaction.ex"
+lines = 46
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 33971212e21f05f76e244111e584b07ed3d49077 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/block_scout_web/lib/block_scout_web/graphql/resolvers/internal_transaction.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.100]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/graphql/resolvers/token.ex"
+lines = 10
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 55092ec02e75d2cf8a4a77de5aa0c9c9af415c3f from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/block_scout_web/lib/block_scout_web/graphql/resolvers/token.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.101]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/graphql/resolvers/token_transfer.ex"
+lines = 37
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob bf155c1748fa5e20f73bb60487d1911574c1d63e from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/block_scout_web/lib/block_scout_web/graphql/resolvers/token_transfer.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.102]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/graphql/resolvers/transaction.ex"
+lines = 29
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob e297a13a3d0fa1ce87cad0065589e867628d42f7 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/block_scout_web/lib/block_scout_web/graphql/resolvers/transaction.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.103]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/graphql/schema.ex"
+lines = 149
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 727aea396e35c2498be3899ab8e0294ebfdf0ac5 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/block_scout_web/lib/block_scout_web/graphql/schema.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.104]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/graphql/schema/scalars.ex"
+lines = 121
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob e74af83ba582c66a6ac6803e5cf664c5b464188b from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/block_scout_web/lib/block_scout_web/graphql/schema/scalars.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.105]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/graphql/schema/scalars/JSON.ex"
+lines = 33
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 530e2a01baa0f3b4a591b32e271a6daa5d271a48 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/block_scout_web/lib/block_scout_web/graphql/schema/scalars/JSON.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.106]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/graphql/schema/types.ex"
+lines = 307
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 7b655498dfb7dc966171c7b06e63220800c01e7b from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/block_scout_web/lib/block_scout_web/graphql/schema/types.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.107]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/graphql/schema_controller.ex"
+lines = 20
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 02701360818b3bd0bd6811162e5f1162a15e8405 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/block_scout_web/lib/block_scout_web/graphql/schema_controller.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.108]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/notifier.ex"
+lines = 913
+verdict = "issues"
+note = "Read in full; concrete disagreements and owning repair proposals are findings 007."
+
+[file.109]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/paging_helper.ex"
+lines = 532
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob d45e04273e2073d1c76dc68692379577498bd37d from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/block_scout_web/lib/block_scout_web/paging_helper.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.110]
+path = "services/explorer/backend/apps/explorer/lib/explorer/arbitrum/claim_rollup_message.ex"
+lines = 734
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 39318ecf8590a83d0ff14d59bd6cb522951d5f72 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/lib/explorer/arbitrum/claim_rollup_message.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.111]
+path = "services/explorer/backend/apps/explorer/lib/explorer/arbitrum/withdraw.ex"
+lines = 86
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob d026f829bbda8573dfd16d6fad234007d81dfe0a from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/lib/explorer/arbitrum/withdraw.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.112]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/beacon/blob.ex"
+lines = 47
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob d6cb28a2740210f330a781a874d0441bcce750df from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/lib/explorer/chain/beacon/blob.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.113]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/beacon/blob_transaction.ex"
+lines = 47
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 59e3d400fefbe7e0407e3dcf4743283d51f35366 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/lib/explorer/chain/beacon/blob_transaction.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.114]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/beacon/deposit.ex"
+lines = 306
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 353b38c54704b6ac640e2c7e44eadde0cb0a7a70 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/lib/explorer/chain/beacon/deposit.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.115]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/beacon/deposit/pending.ex"
+lines = 28
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 781241424381766d075598e8b702eae816eb0a64 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/lib/explorer/chain/beacon/deposit/pending.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.116]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/beacon/reader.ex"
+lines = 216
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 36172e6d8e0ebcc9d17eb712aa6abeae24df7a49 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/lib/explorer/chain/beacon/reader.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.117]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/block/emission_reward.ex"
+lines = 28
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 8be68584b56eb9b44a00f37302ba0e28f117bd9c from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/lib/explorer/chain/block/emission_reward.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.118]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/block/range.ex"
+lines = 190
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 354ccd6d420a8589a3c4d23db34426303ca103a3 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/lib/explorer/chain/block/range.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.119]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/block/reader/general.ex"
+lines = 284
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 6886c856182427e970e97e36bccacd95d1da8185 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/lib/explorer/chain/block/reader/general.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.120]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/block/reward.ex"
+lines = 284
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 524cf65b8d5a9b7cab4f52b5ac7e545491b1e578 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/lib/explorer/chain/block/reward.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.121]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/block/reward/address_type.ex"
+lines = 103
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 9e0fe2ac52e60aecb69674a6f48c1702feee4066 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/lib/explorer/chain/block/reward/address_type.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.122]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/block/second_degree_relation.ex"
+lines = 63
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 941dc51480e7ae8dcf70b671404190ac044b374d from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/lib/explorer/chain/block/second_degree_relation.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.123]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/bridged_token.ex"
+lines = 1025
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob ba4ceb2911236795bc1bb4253138c2d1484ae5b9 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/lib/explorer/chain/bridged_token.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.124]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/data.ex"
+lines = 430
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob a1019b416c3233c90bbce94dd283175eb8e99e7d from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/lib/explorer/chain/data.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.125]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/metrics/public_metrics.ex"
+lines = 83
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 5b5b33c22eda7506746832d743c9d6bc34102315 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/lib/explorer/chain/metrics/public_metrics.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.126]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/metrics/queries/indexer_metrics.ex"
+lines = 321
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob cc6661c85bc24dad288c6b70fe03a4c8a50dba1c from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/lib/explorer/chain/metrics/queries/indexer_metrics.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.127]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/metrics/queries/public_chain_metrics.ex"
+lines = 273
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 3b1baa59b607dbff2ead4b11026f1de1ec30c325 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/lib/explorer/chain/metrics/queries/public_chain_metrics.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.128]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/mud.ex"
+lines = 648
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob dc70e0467285909c58c9d049f0398ca8c5d3f7a4 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/lib/explorer/chain/mud.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.129]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/token_transfer.ex"
+lines = 797
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 6ca7900a4fc50cac2eeefd746bdc9fcdee125f5b from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/lib/explorer/chain/token_transfer.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.130]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/transaction/fork.ex"
+lines = 55
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 794d64c1736079a92944e328a3f783a37ba205e8 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/lib/explorer/chain/transaction/fork.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.131]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/transaction/history/historian.ex"
+lines = 311
+verdict = "issues"
+note = "Read in full; concrete disagreements and owning repair proposals are findings 009."
+
+[file.132]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/transaction/history/transaction_stats.ex"
+lines = 60
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob f1a7f6eb67ff3a958e181fb5e3c291113cf8aa97 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/lib/explorer/chain/transaction/history/transaction_stats.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.133]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/transaction/reader.ex"
+lines = 87
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 9064d135a4151d850befc10a3d43d4fedf8e0f7d from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/lib/explorer/chain/transaction/reader.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.134]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/transaction/state_change.ex"
+lines = 368
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 91d01bc569916faea43028133483a5829ff06c3c from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/lib/explorer/chain/transaction/state_change.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.135]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/transaction/status.ex"
+lines = 109
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob df4e56597f5f8cacc59dd0fa00c72d95100daa7f from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/lib/explorer/chain/transaction/status.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.136]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/zilliqa/aggregate_quorum_certificate.ex"
+lines = 64
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob f26936009f654aa3f4835b15cc8d1b8393481360 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/lib/explorer/chain/zilliqa/aggregate_quorum_certificate.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.137]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/zilliqa/hash/bls_public_key.ex"
+lines = 58
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob a0f16b6eef46cd0a4bd2c3117242287b65ab303e from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/lib/explorer/chain/zilliqa/hash/bls_public_key.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.138]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/zilliqa/hash/peer_id.ex"
+lines = 58
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 5ad612b059f554ae9e7f0a4bf7847b1c28e445f3 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/lib/explorer/chain/zilliqa/hash/peer_id.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.139]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/zilliqa/hash/signature.ex"
+lines = 60
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 44c4253f990b222ff180adb65e9af9d717ac6205 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/lib/explorer/chain/zilliqa/hash/signature.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.140]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/zilliqa/helper.ex"
+lines = 18
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 748ae1f1e05901e1c33bb39a05488d7fdc3fd087 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/lib/explorer/chain/zilliqa/helper.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.141]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/zilliqa/nested_quorum_certificate.ex"
+lines = 64
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 8edd55a14813cdcf1701601f17b5d434fcc60185 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/lib/explorer/chain/zilliqa/nested_quorum_certificate.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.142]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/zilliqa/quorum_certificate.ex"
+lines = 56
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 61235bae2699d6807df8f80d250400eee190c4a2 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/lib/explorer/chain/zilliqa/quorum_certificate.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.143]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/zilliqa/reader.ex"
+lines = 51
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 726439ff551ee9bf10db35117429a5e378b15982 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/lib/explorer/chain/zilliqa/reader.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.144]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/zilliqa/staker.ex"
+lines = 118
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 36b7722f1d7eb6ef3355210cc57a9e24c0c5b83b from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/lib/explorer/chain/zilliqa/staker.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.145]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/zilliqa/zrc2/token_adapter.ex"
+lines = 97
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 958c1bb2c5795ffc8809570197c355c7db40d889 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/lib/explorer/chain/zilliqa/zrc2/token_adapter.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.146]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/zilliqa/zrc2/token_transfer.ex"
+lines = 220
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 01fb8e08f05b04df30c09217a4fed290d9ee4df2 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/lib/explorer/chain/zilliqa/zrc2/token_transfer.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.147]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain_spec/genesis_data.ex"
+lines = 320
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob cbeae6750c998efc5f1e68f6964cb1f6be036db6 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/lib/explorer/chain_spec/genesis_data.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.148]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain_spec/geth/importer.ex"
+lines = 155
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 1a7e86d2bffeaf466b364ba2f1c2231024eb0063 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/lib/explorer/chain_spec/geth/importer.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.149]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain_spec/parity/importer.ex"
+lines = 177
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob d104b59312cfd6f15e963194e8cce48e998d9a72 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/lib/explorer/chain_spec/parity/importer.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.150]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain_spec/poa/importer.ex"
+lines = 111
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 1abfea0b03473fbf5b5026d656bac2dff82b870a from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/lib/explorer/chain_spec/poa/importer.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.151]
+path = "services/explorer/backend/apps/explorer/lib/explorer/etherscan.ex"
+lines = 852
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob d1fbfbce38ea6808b8619c3139bb84bb03434079 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/lib/explorer/etherscan.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.152]
+path = "services/explorer/backend/apps/explorer/lib/explorer/helper.ex"
+lines = 761
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 3ee9b893fa2b66e99d559ce45201642d70d16e52 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/lib/explorer/helper.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.153]
+path = "services/explorer/backend/apps/explorer/test/explorer/account/identity_test.exs"
+lines = 103
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 2bcb06708a12a69c0eb9838836fea8d1edd65541 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/test/explorer/account/identity_test.exs. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.154]
+path = "services/explorer/backend/apps/explorer/test/explorer/account/notifier/email_test.exs"
+lines = 138
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 6541474eb8bd433a231a8295d603557baf1a469a from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/test/explorer/account/notifier/email_test.exs. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.155]
+path = "services/explorer/backend/apps/explorer/test/explorer/account/notifier/notify_test.exs"
+lines = 174
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 72884d5dde9fa982c9e120d881b47d2ea0208ebb from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/test/explorer/account/notifier/notify_test.exs. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.156]
+path = "services/explorer/backend/apps/explorer/test/explorer/account/notifier/summary_test.exs"
+lines = 511
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 96a65c15b0370ce52e6f67de8de76b135bfe9d8b from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/test/explorer/account/notifier/summary_test.exs. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.157]
+path = "services/explorer/backend/apps/explorer/test/explorer/etherscan/logs_test.exs"
+lines = 813
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 2df2a32b15c1f65b13df7f24d344867bc7323065 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/explorer/test/explorer/etherscan/logs_test.exs. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.158]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/beacon/blob.ex"
+lines = 175
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 88e7067f2bd56221e5cc8550cd1ba45f34d8c84a from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/indexer/lib/indexer/fetcher/beacon/blob.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.159]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/beacon/client.ex"
+lines = 103
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob fd62ab60f952a526775c2c884332f1b951897633 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/indexer/lib/indexer/fetcher/beacon/client.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.160]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/beacon/deposit.ex"
+lines = 639
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob d698db9d7808b09cb47b284614fb14d5ae33b8c0 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/indexer/lib/indexer/fetcher/beacon/deposit.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.161]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/beacon/deposit/status.ex"
+lines = 123
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 53774b379a751947c7afdda99580611308ae8a00 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/indexer/lib/indexer/fetcher/beacon/deposit/status.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.162]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/internal_transaction.ex"
+lines = 640
+verdict = "issues"
+note = "Read in full; concrete disagreements and owning repair proposals are findings 008."
+
+[file.163]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/multichain_search_db/balances_export_queue.ex"
+lines = 215
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob a8ae9e2fcb69ca04789cdffdedec9715e8b0ffb0 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/indexer/lib/indexer/fetcher/multichain_search_db/balances_export_queue.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.164]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/multichain_search_db/counters_export_queue.ex"
+lines = 136
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 42a64451c9eaba4e74b8a8f2935341199cd048ee from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/indexer/lib/indexer/fetcher/multichain_search_db/counters_export_queue.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.165]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/multichain_search_db/counters_fetcher.ex"
+lines = 134
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 29815353a29b230ce7d25882eb70e899a7c0e50a from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/indexer/lib/indexer/fetcher/multichain_search_db/counters_fetcher.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.166]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/multichain_search_db/main_export_queue.ex"
+lines = 290
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob d9ced6aea75020d576de98f0a82feda03c32a541 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/indexer/lib/indexer/fetcher/multichain_search_db/main_export_queue.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.167]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/multichain_search_db/token_info_export_queue.ex"
+lines = 133
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 66378b80bdef2cb3e83c31494419dec64a2e2855 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/indexer/lib/indexer/fetcher/multichain_search_db/token_info_export_queue.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.168]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/optimism.ex"
+lines = 645
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob c3bcfec4cc563b4efbc5bb83c590ccfc3c580868 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/indexer/lib/indexer/fetcher/optimism.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.169]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/zilliqa/scilla_smart_contracts.ex"
+lines = 135
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 2a022db6de8c6c342bd3d5d28937d51eac5c11b1 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/indexer/lib/indexer/fetcher/zilliqa/scilla_smart_contracts.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.170]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/zilliqa/zrc2_tokens.ex"
+lines = 700
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 601b626bd5d1aec4692484e8fbe56ed6c83a8ad1 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/indexer/lib/indexer/fetcher/zilliqa/zrc2_tokens.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.171]
+path = "services/explorer/backend/apps/nft_media_handler/README.md"
+lines = 45
+verdict = "issues"
+note = "Read in full; concrete disagreements and owning repair proposals are findings 010."
+
+[file.172]
+path = "services/explorer/backend/apps/nft_media_handler/lib/nft_media_handler.ex"
+lines = 201
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob c284da6d4e529ec56bb97cfe0c9790b54017717d from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/nft_media_handler/lib/nft_media_handler.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.173]
+path = "services/explorer/backend/apps/nft_media_handler/lib/nft_media_handler/application.ex"
+lines = 38
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob a037dd2bfde3a4c2ee1dd8f2879a2d7aafa47ed0 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/nft_media_handler/lib/nft_media_handler/application.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.174]
+path = "services/explorer/backend/apps/nft_media_handler/lib/nft_media_handler/dispatcher.ex"
+lines = 100
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob aae38745ca5f012439b666f6ef4435671c694011 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/nft_media_handler/lib/nft_media_handler/dispatcher.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.175]
+path = "services/explorer/backend/apps/nft_media_handler/lib/nft_media_handler/dispatcher_interface.ex"
+lines = 113
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob cff45a22c31b7fd0e267377a632e29be31d6ce77 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/nft_media_handler/lib/nft_media_handler/dispatcher_interface.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.176]
+path = "services/explorer/backend/apps/nft_media_handler/lib/nft_media_handler/image/resizer.ex"
+lines = 64
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 659e4c9f0fb44f5102e1d86a543e79af69cca9c6 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/nft_media_handler/lib/nft_media_handler/image/resizer.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.177]
+path = "services/explorer/backend/apps/nft_media_handler/lib/nft_media_handler/media/fetcher.ex"
+lines = 60
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 05d3e44da4d55c568d202849cbf8632589ca8eb9 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/nft_media_handler/lib/nft_media_handler/media/fetcher.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.178]
+path = "services/explorer/backend/apps/nft_media_handler/lib/nft_media_handler/r2/uploader.ex"
+lines = 51
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 5ecebf44bc0597d15995fbf746c84be46ad2c12c from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/nft_media_handler/lib/nft_media_handler/r2/uploader.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.179]
+path = "services/explorer/backend/apps/nft_media_handler/mix.exs"
+lines = 47
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob dddb62d532aadc41390e7535be2aa7d563a7462b from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/nft_media_handler/mix.exs. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.180]
+path = "services/explorer/backend/apps/utils/README.md"
+lines = 7
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 6845d6194123579984e06a8c2d555fba4e75f454 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/utils/README.md. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.181]
+path = "services/explorer/backend/apps/utils/lib/credo/checks/compile_env_usage.ex"
+lines = 54
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob b17505011edc12b3bb79c414bee3218047aa5649 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/utils/lib/credo/checks/compile_env_usage.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.182]
+path = "services/explorer/backend/apps/utils/lib/utils/compile_time_env_helper.ex"
+lines = 170
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob d5f50191cd1bae03ea93e688628c3d664178830c from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/utils/lib/utils/compile_time_env_helper.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.183]
+path = "services/explorer/backend/apps/utils/lib/utils/config_helper.ex"
+lines = 89
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 49f0dd1d0de168dcb6954783f79d02c6da111e17 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/utils/lib/utils/config_helper.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.184]
+path = "services/explorer/backend/apps/utils/lib/utils/helper.ex"
+lines = 43
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob bf891ec462b926fc0ae120af98cf3896bdbac1f0 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/utils/lib/utils/helper.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.185]
+path = "services/explorer/backend/apps/utils/lib/utils/http_client/httpoison_helper.ex"
+lines = 62
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob c4dcd9f4ccb3de4aa53f45ccdbcc5a3e1d2a6e28 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/utils/lib/utils/http_client/httpoison_helper.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.186]
+path = "services/explorer/backend/apps/utils/lib/utils/http_client/tesla_helper.ex"
+lines = 85
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 74b1c8d35939458364d454faaacbb5060f36a55f from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/utils/lib/utils/http_client/tesla_helper.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.187]
+path = "services/explorer/backend/apps/utils/lib/utils/runtime_env_helper.ex"
+lines = 93
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 5beaef30fb8ad96736ba453912d4a706e2587370 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/utils/lib/utils/runtime_env_helper.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.188]
+path = "services/explorer/backend/apps/utils/lib/utils/token_instance_helper.ex"
+lines = 70
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob cd6f6bbe1588d4003afcb5b49afb59b3f20a6614 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/utils/lib/utils/token_instance_helper.ex. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.189]
+path = "services/explorer/backend/apps/utils/mix.exs"
+lines = 42
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 79760498604a267e87f945c0a573490d91c9ba60 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/utils/mix.exs. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.190]
+path = "services/explorer/backend/apps/utils/test/checks/compile_env_usage_test.exs"
+lines = 38
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 3422a8ccb3e3e66945af299cf82c18d37ff4f464 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/utils/test/checks/compile_env_usage_test.exs. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.191]
+path = "services/explorer/backend/apps/utils/test/test_helper.exs"
+lines = 1
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 97950157e27cb1b6c7a6fd49b4f386f0f4552174 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/apps/utils/test/test_helper.exs. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.192]
+path = "services/explorer/backend/docker-compose/README.md"
+lines = 98
+verdict = "clean"
+note = "Explicitly retained upstream Ethereum development composition with the maintained Paxeer stack linked separately; local defaults are scoped examples."
+
+[file.193]
+path = "services/explorer/backend/docker-compose/anvil.yml"
+lines = 94
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob af91124f099cadbe72863b35497a63868c02d686 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/docker-compose/anvil.yml. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.194]
+path = "services/explorer/backend/docker-compose/docker-compose.yml"
+lines = 107
+verdict = "clean"
+note = "Retained upstream local Ethereum stack with the repository backend Dockerfile path corrected. Chain 1337 and host.docker.internal RPC are examples under the adjacent upstream README."
+
+[file.195]
+path = "services/explorer/backend/docker-compose/erigon.yml"
+lines = 87
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob c91739d076bf2988b5b7c8a5ba141e0b2cc5a29c from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/docker-compose/erigon.yml. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.196]
+path = "services/explorer/backend/docker-compose/external-backend.yml"
+lines = 70
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 4dd9e28522088c31f2e0da07984ae30006b78119 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/docker-compose/external-backend.yml. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.197]
+path = "services/explorer/backend/docker-compose/external-db.yml"
+lines = 70
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 082927beb05319ba1d0e1a274b1747fc7f2c1b14 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/docker-compose/external-db.yml. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.198]
+path = "services/explorer/backend/docker-compose/external-frontend.yml"
+lines = 83
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 775ea67de6c0059a6cd04d57a611ba2cdc44c2c5 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/docker-compose/external-frontend.yml. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.199]
+path = "services/explorer/backend/docker-compose/geth-clique-consensus.yml"
+lines = 88
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 75a0b457e79267820d1e971ca88c185ab63dbac9 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/docker-compose/geth-clique-consensus.yml. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.200]
+path = "services/explorer/backend/docker-compose/geth.yml"
+lines = 87
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob deed14c686b9452df38a6decbc89fc5ed9ce449d from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/docker-compose/geth.yml. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.201]
+path = "services/explorer/backend/docker-compose/hardhat-network.yml"
+lines = 94
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob a2a54e48ef5fcc8bc8ec0d0358b6373c2aec6d6b from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/docker-compose/hardhat-network.yml. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.202]
+path = "services/explorer/backend/docker-compose/microservices.yml"
+lines = 57
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob d6dd8b69d5a8023c5e21a8d7691751c6ae757920 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/docker-compose/microservices.yml. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.203]
+path = "services/explorer/backend/docker-compose/no-services.yml"
+lines = 63
+verdict = "clean"
+note = "Minimal upstream local Ethereum composition uses the repository backend Dockerfile and explicit local RPC examples; the maintained Paxeer stack is documented separately."
+
+[file.204]
+path = "services/explorer/backend/docker-compose/services/backend.yml"
+lines = 17
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob cb1cb54de023f975a00890543886c990b29563ed from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/docker-compose/services/backend.yml. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.205]
+path = "services/explorer/backend/docker-compose/services/db.yml"
+lines = 35
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 2db8647d13dc5b96cd56b427c321ae7c1ab8162e from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/docker-compose/services/db.yml. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.206]
+path = "services/explorer/backend/docker-compose/services/frontend.yml"
+lines = 11
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 2dba9b2856ff0253f835d962dabd0e20388c3395 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/docker-compose/services/frontend.yml. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.207]
+path = "services/explorer/backend/docker-compose/services/nft_media_handler.yml"
+lines = 16
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 7a5b8b2ecd14ae7145483d446294a2617ca63fd5 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/docker-compose/services/nft_media_handler.yml. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.208]
+path = "services/explorer/backend/docker-compose/services/nginx-explorer.yml"
+lines = 14
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 513a054b0575f3fa635759c3091adca79c8b73e9 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/docker-compose/services/nginx-explorer.yml. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.209]
+path = "services/explorer/backend/docker-compose/services/nginx.yml"
+lines = 20
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob bc225c9082b6abb8ebf328115215da0655e18b99 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/docker-compose/services/nginx.yml. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.210]
+path = "services/explorer/backend/docker-compose/services/redis.yml"
+lines = 9
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 93f616686de66f7c8db4f38da180ab7d0aab05aa from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/docker-compose/services/redis.yml. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.211]
+path = "services/explorer/backend/docker-compose/services/sig-provider.yml"
+lines = 9
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 8c0cb33337c904e6498b83368658d83b2dbc1ae1 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/docker-compose/services/sig-provider.yml. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.212]
+path = "services/explorer/backend/docker-compose/services/smart-contract-verifier.yml"
+lines = 11
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 03e633c6958a0146742ec623dd3a504d959d6c0b from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/docker-compose/services/smart-contract-verifier.yml. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.213]
+path = "services/explorer/backend/docker-compose/services/stats.yml"
+lines = 51
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob d4f7e8dffcd6f06829691617e7c4104d5c00a648 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/docker-compose/services/stats.yml. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.214]
+path = "services/explorer/backend/docker-compose/services/user-ops-indexer.yml"
+lines = 17
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 352083b9a688d4d8d9ece9fc42b539d9d6999df7 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/docker-compose/services/user-ops-indexer.yml. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.215]
+path = "services/explorer/backend/docker-compose/services/visualizer.yml"
+lines = 11
+verdict = "vendored"
+note = "Unchanged Blockscout import: byte-identical Git blob 37a4aaad880becf0babeb1f5aa76003a8e13a484 from f72f4cee4868a6a72dbdeda8574ed092ec9d8e11:explorer/backend/docker-compose/services/visualizer.yml. Retained upstream content under services/explorer/UPSTREAM.md provenance; vendored verdict rather than a clean claim for product-specific behavior."
+
+[file.216]
+path = "services/explorer/deploy/db/README.md"
+lines = 428
+verdict = "clean"
+note = "Read the database startup, online indexes, migration/copy and operator recovery instructions including continuation controls and durable evidence; no retired network service is required."
+
+[finding.001]
+file = "apps/names/e2e/shell.test.ts"
+line = 148
+class = "test-gap"
+severity = "medium"
+observed = "fixture() replaces the proof-verified vector digest with published.digest while retaining verified: proven.verified; the successful serve path never resolves that newly published digest from its actual storage proof."
+expected = "Requirement 19004.1 and brief check_7 require the successful published-site response to use the digest actually verified by the resolver on the producer-to-consumer path."
+proposal = "In apps/names/e2e/shell.test.ts add a success case whose real publication is committed and proved through the real names resolver, then serve that exact verified digest; retain the corrupted-proof and digest refusal cases."
+owner_domain = 14
+
+[finding.002]
+file = "apps/names/src/lib/serve.ts"
+line = 83
+class = "runtime-risk"
+severity = "medium"
+observed = "serve() fetches manifests and site objects without an AbortSignal or a response-size bound and materializes both complete response bodies before checking their digest and size."
+expected = "Brief checks_4 and _8 require bounded network waits and input lengths before decoding untrusted manifests or allocating entire object responses."
+proposal = "In apps/names/src/lib/serve.ts enforce a request deadline and stream byte limits for manifests and objects, using the parsed manifest size and a documented site-object ceiling, with typed bounded failures."
+owner_domain = 14
+
+[finding.003]
+file = "services/bridge/deploy/appenv/proof_app_env_test.go"
+line = 111
+class = "test-gap"
+severity = "medium"
+observed = "TestProofAppEnv serializes minimal appenv.Record values and proves the EnvLines-to-Check/CLI path, but neither a record emitted by deploy-solana-program.sh nor the bridge application's readConfig participates; a deployed-but-uninitialized record is absent from its refusal cases."
+expected = "Brief fact_7 and checks_1/_7 require deployment record lifecycle to be checked across the actual deployment producer, environment transport and bridge application consumer, including partial completion and restart."
+proposal = "Extend the owning bridge deployment proof to capture the real scripts' record output and pass emitted environment values into apps/bridge/src/lib/bridge/config.ts readConfig, including restart and partial-deployment refusal."
+owner_domain = 14
+
+[finding.004]
+file = "services/bridge/deploy/appenv/appenv.go"
+line = 61
+class = "interface-mismatch"
+severity = "high"
+observed = "LoadRecord accepts the record that deploy-solana-program.sh:474-496 writes before refusing the placeholder deployment's initialise step: chain identity and a 32-byte program_id suffice. EnvLines exports it and apps/bridge/src/lib/bridge/config.ts readConfig accepts it; with an attestation API URL set, chains.ts marks the uninitialized Solana route configured."
+expected = "The declared Solana deployment record (14.fmt-bridge-solana-deployment-record-j55) includes owner, threshold, attestors and assets. Its LoadRecord-to-EnvLines-to-app path must preserve readiness, refusing a deployed-but-uninitialized checkpoint until custody configuration and assets are verified."
+proposal = "Version Solana deployment records with an explicit deployment phase; write checkpoints atomically and have services/bridge/deploy/appenv/appenv.go refuse records until initialized configuration and registered assets are verified."
+owner_domain = 14
+interface = "14.go-bridge-appenv-loadrecord-j55"
+interfaces = ["14.fmt-bridge-solana-deployment-record-j55", "14.go-bridge-appenv-envlines-j55", "14.go-bridge-appenv-loadrecord-j55"]
+
+[finding.005]
+file = "services/bridge/deploy/deploy-solana-program.sh"
+line = 504
+class = "restart-recovery"
+severity = "medium"
+observed = "The script always submits initialise and then register-asset for every mint, and writes the final record only after all succeed. The real program's admin.rs initialise creates the config PDA and rejects a second initialization with Conflict, as core.rs explicitly asserts, so a stop after the first confirmed initialization cannot resume this script."
+expected = "Brief check_5 requires a deployment restart to reconcile confirmed config and asset state and finish pending work without repeating a confirmed instruction that the custody program refuses."
+proposal = "In services/bridge/deploy/deploy-solana-program.sh persist phase and transaction intent before each write and reconcile existing config and asset accounts on resume before issuing further instructions."
+owner_domain = 14
+
+[finding.006]
+file = "services/bridge/deploy/deploy-solana-program.sh"
+line = 383
+class = "security"
+severity = "medium"
+observed = "The program deploy transaction uses PAXEER_BRIDGE_SOLANA_PROGRAM_KEYPAIR_FILE immediately; the script compares the returned programId with configured_program_id only after the broadcast. A readable keypair for another program controlled by the same publisher can therefore upgrade that other program before this run refuses."
+expected = "Deployment identity must be verified before issuing a foreign-chain write; a configured custody program and the supplied program keypair must identify the same target throughout preflight and execution."
+proposal = "Derive the supplied program keypair's public key with the pinned solana-keygen before deployment in services/bridge/deploy/deploy-solana-program.sh, refuse a configured identity mismatch before any broadcast, and cover the wrong-keypair refusal."
+owner_domain = 14
+interface = "14.cli-bridge-deploy-solana-program-j55"
+
+[finding.007]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/notifier.ex"
+line = 573
+class = "runtime-risk"
+severity = "medium"
+observed = "schedule_broadcasting sleeps and recursively retries until the ETS head equals exactly the predecessor of its block. If a later height advances the head beyond that predecessor, this linked task can never finish; repeated out-of-order imports accumulate waiting processes."
+expected = "Brief checks_4/_5 require live block notification workers to terminate after bounded waiting and to handle a head that overtakes an outstanding notification."
+proposal = "In notifier.ex bound sequence waiting, reconcile a head at or above the target predecessor without regressing the watermark, and exercise delayed, missing and overtaken predecessor events through the real broadcaster."
+owner_domain = 14
+interface = "14.ws-explorer-push-blocks-new-block-new-block"
+
+[finding.008]
+file = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/internal_transaction.ex"
+line = 303
+class = "restart-recovery"
+severity = "medium"
+observed = "mark_not_traceable deletes old PendingBlockOperation/PendingTransactionOperation rows after the configured lookback expires and retains only a warning log. An outage longer than the trace window removes the durable identities of unfinished trace work, so reopening with an archive trace source cannot resume that work from the queue."
+expected = "Brief check_5 requires unfinished indexing and recovery dispositions to remain durable across restart; limiting calls to a pruned node must preserve which historical transactions remain unindexed."
+proposal = "Keep durable unavailable-trace records or a deferred archive backfill queue in the explorer schema, expose the missing trace coverage to operators and API consumers, and resume those records when an archive source becomes available without retrying the pruned node indefinitely."
+owner_domain = 14
+interface = "14.cfg-indexer-indexer-fetcher-internaltransaction"
+
+[finding.009]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/transaction/history/historian.ex"
+line = 204
+class = "runtime-risk"
+severity = "medium"
+observed = "Before transaction denormalization finishes, the count and gas queries match transactions to consensus blocks by block_number only. A stored nonconsensus transaction at the same height is counted, whereas total_fee joins by block_hash and excludes it, so the daily statistics disagree during recovery of a database containing fork records."
+expected = "The historian's documented consensus-only daily statistics must use the identity of the committed block consistently for transaction counts, gas and fees, including while denormalization is incomplete."
+proposal = "Select block hashes in all_blocks_query and join transaction.block_hash to the consensus block hash in historian.ex; retain the separate native price-update count and add a real-database case with consensus and nonconsensus blocks sharing a height."
+owner_domain = 14
+
+[finding.010]
+file = "services/explorer/backend/apps/nft_media_handler/README.md"
+line = 31
+class = "doc-drift"
+severity = "medium"
+observed = "The resizing example assigns Vix.Vips.Image.new_from_file directly to image and passes it to Resizer.resize/3. The non-bang Vix constructor returns an ok/error tuple; resize/3 expects a Vix image and immediately calls Image.width(image), so the documented successful example is invalid."
+expected = "A maintainer following the media-handler usage page must obtain the actual image object and handle a failed open before calling the resizer's declared image-struct interface."
+proposal = "Change the README resizing example to match {:ok, image} from Vix.Vips.Image.new_from_file and show an explicit open-error branch before invoking the existing resize/3 path."
+owner_domain = 14
+
+[finding.011]
+file = "docs/system/routes.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The generated Router routes catalogue presents retired core-boundary, replica-authority and sequencer-era services as running dependencies and advertises GET /rpc/evm/ws at line 908."
+expected = "Brief facts 1-3 specify one paxd network with root-path node JSON-RPC and hosted gateway px_ methods, without the separate router or retired authority services."
+proposal = "Update the owning route catalogue input tools/paxeer-x/route-catalogue.json and its documentation generator to publish the current node and gateway origins, authentication and paths, explicitly separating historical retired routes before regenerating docs/system/routes.md."
+owner_domain = 17
+
+[finding.012]
+file = "contracts/launchpad/README.md"
+line = 217
+class = "doc-drift"
+severity = "medium"
+observed = "The AIRDROP strategy description promises proportional distribution to all current token holders through on-chain iteration, whereas contracts/data/FeeAccumulator.sol creates a previous-block snapshot epoch and pays individual eligible holders through claimAirdrop."
+expected = "Launchpad integrators need the actual snapshot eligibility, holder-initiated claim, expiry and unclaimed-fund lifecycle so they can calculate rewards and tell holders how to obtain them."
+proposal = "Rewrite the AIRDROP section in contracts/launchpad/README.md around FeeAccumulator's snapshot block, eligible supply, claimAirdrop entrypoint, claim window and expiry handling, with an example showing a transfer after the snapshot."
+owner_domain = 4
+
+[finding.013]
+file = "docs/site/docs/operators/settlement-evidence.md"
+line = 7
+class = "doc-drift"
+severity = "medium"
+observed = "The page instructs operators to register guarantor-certified checkpoints, publish version-2 native witnesses and configure a deposit-root authority for custody settlement, without labeling this as historical behavior."
+expected = "The merged network commits final receipts in paxd; the retired guarantor, anchor and native custody lifecycle must not be presented as the way operators obtain current network finality or funds."
+proposal = "Rewrite docs/site/docs/operators/settlement-evidence.md to describe committed-height receipt and state evidence from the merged node, identify any retained archive-only publication material explicitly, and remove current-operation instructions for retired checkpoint and custody authority provisioning."
+owner_domain = 17
+
+[finding.014]
+file = "docs/wiki/SettlementEvidence.md"
+line = 7
+class = "doc-drift"
+severity = "medium"
+observed = "The page instructs operators to register guarantor-certified checkpoints, publish version-2 native witnesses and configure a deposit-root authority for custody settlement, without labeling this as historical behavior."
+expected = "The merged network commits final receipts in paxd; the retired guarantor, anchor and native custody lifecycle must not be presented as the way operators obtain current network finality or funds."
+proposal = "Rewrite docs/wiki/SettlementEvidence.md to describe committed-height receipt and state evidence from the merged node, identify any retained archive-only publication material explicitly, and remove current-operation instructions for retired checkpoint and custody authority provisioning."
+owner_domain = 17
+
+[finding.015]
+file = "docs/system/precompiles.md"
+line = 1170
+class = "doc-drift"
+severity = "medium"
+observed = "The generated ABI catalogue advertises callable layerxanchor methods at 0x1014 and native custody/verification methods at 0x1013/0x1012, without the retirement or disabled-module refusal state."
+expected = "The retired component inventory replaces the guarantor anchor and native custody lifecycle; preserved historical addresses and selectors must not imply that those methods still perform settlement on the merged network."
+proposal = "Extend the owning precompile catalogue generator to annotate historical ABI entries, disabled module refusals and their live replacements; regenerate docs/system/precompiles.md with an explicit current availability column and merged-node finality guidance."
+owner_domain = 17
+
+[finding.016]
+file = "contracts/launchpad/operations/README.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "The runbook says to run launchpad deployment, verification and health commands from contracts/, but the launchpad package, hardhat network and scripts/verify.js and production-health.js belong under contracts/launchpad/; root scripts/deploy.js deploys a different contract suite."
+expected = "An operator following the launchpad runbook must select the launchpad workspace and its deployment journal rather than invoking a different deployment entrypoint or a nonexistent verification script."
+proposal = "Correct the working-directory instructions and relative command examples throughout contracts/launchpad/operations/README.md to contracts/launchpad/, including deployment, verification, health inspection and release qualification."
+owner_domain = 4
+
+[finding.017]
+file = "docs/paxeer-network.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The network overview calls Paxeer the settlement and custody layer for a separate LayerX execution network; lines 5-20 describe periodic checkpoints, guarantor bonds and public faucet funding as current operation."
+expected = "Brief facts 1-3 require one BFT paxd network on chain 125 with committed-block finality, and the retired inventory removes the separate execution, guarantor and custody lifecycle."
+proposal = "Rewrite docs/paxeer-network.md around the single merged network, current source directories and root node RPC origins; replace checkpoint/custody/faucet onboarding with the current committed-height evidence and authorized funding flow."
+owner_domain = 17
+
+[finding.018]
+file = "docs/site/docs/overview/quickstart.md"
+line = 167
+class = "doc-drift"
+severity = "medium"
+observed = "The quickstart instructs clients to use gateway POST /rpc and GET /rpc/ws, gives api-mainnet-beta.paxeer.network/rpc as the public origin, and describes executed/batched/finalised receipt levels and custody funding through 0x1013."
+expected = "The maintained onboarding path must use chain-125 root-path node RPC, identify separately hosted gateway methods and treat committed block inclusion as final without the retired native custody lifecycle."
+proposal = "Rewrite docs/site/docs/overview/quickstart.md examples, links and transaction/funding narrative for the merged node and hosted gateway contracts, removing /rpc suffixes and the retired execution and custody stages."
+owner_domain = 17
+
+[finding.019]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The beta-cluster runbook provisions a separate LayerX daemon and trusted-boundary/receipt-authority services beside Paxeer, and mounts a native custody profile using layerxd --custody-profile at line 50."
+expected = "The current beta topology must run the merged paxd chain and its actual hosted services, without retired daemon, core boundary, guarantor or custody authority provisioning."
+proposal = "Replace the deployment and recovery instructions in docs/site/docs/operators/beta-cluster.md with the actual merged paxd cluster topology, retained service configuration, secret inventory and durable recovery procedure; mark preserved historical commands as retired."
+owner_domain = 17
+
+[finding.020]
+file = "docs/site/docs/agents/running.md"
+line = 512
+class = "doc-drift"
+severity = "medium"
+observed = "The agent guide directs eth_sendRawTransaction to /rpc and at line 767 attributes px_getReceiptKeys to the node, mixing the retired routed RPC surface with hosted gateway receipt-key methods."
+expected = "Brief facts 2-3 require node eth_ calls at the origin root and px_ methods on the hosted gateway's declared interface, with chain identity and committed-height evidence preserved."
+proposal = "Rewrite docs/site/docs/agents/running.md RPC examples and receipt-verification instructions to name the root node and hosted gateway separately, using the gateway OpenRPC contract for px_getReceiptKeys and current committed-block finality."
+owner_domain = 17
+
+[finding.021]
+file = "services/explorer/README.md"
+line = 10
+class = "doc-drift"
+severity = "medium"
+observed = "The explorer overview still locates the frontend at frontend/ under explorer/, gives commands from that directory and describes explorer/ as the GPL tree, after the frontend moved to apps/explorer and the backend to services/explorer."
+expected = "Maintainers need current workspace paths and license boundaries for the moved explorer components so the documented build and contribution commands resolve to the intended package."
+proposal = "Update services/explorer/README.md tables, build/test command directories and license paths to apps/explorer, services/explorer/backend and the retained Rust service locations, keeping upstream revisions and license identities explicit."
+owner_domain = 14
+
+[finding.022]
+file = "services/explorer/backend/README.md"
+line = 35
+class = "doc-drift"
+severity = "medium"
+observed = "The Paxeer additions section advertises /api/v2/paxeer-x/anchors and /receipts, but the registered historical evidence routes now live under /api/v2/paxeer-x/archive/anchors and /archive/receipts; the advertised paths fall through to 404."
+expected = "Explorer consumers must distinguish current committed transaction status and live feeds from archive-only checkpoint/receipt data, and documented endpoint paths must match the Phoenix router."
+proposal = "Update services/explorer/backend/README.md to name the registered archive routes explicitly and explain their historical purpose beside the current committed-height transaction and feed interfaces."
+owner_domain = 14
+
+[finding.023]
+file = "services/explorer/UPSTREAM.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The provenance page describes the current imports as trees under explorer/ and frontend/ and points to services/LICENSE-MIT relative to the old parent, although the explorer frontend and Rust services have since moved."
+expected = "Upstream provenance must retain the exact imported revisions while giving the present locations of the copied sources, retained license texts and local modifications."
+proposal = "Update services/explorer/UPSTREAM.md path columns, license links and import notes for the current apps/explorer and services/explorer layout, preserving the imported commit identifiers and explaining the relocation separately."
+owner_domain = 14
+
+[finding.024]
+file = "contracts/launchpad/README.md"
+line = 244
+class = "doc-drift"
+severity = "medium"
+owner_domain = 4
+observed = "The deployment details promise an existing SID governance token and a network multisig transitioning to token governance, while the maintained operations runbook and deployment defaults use administrator-only governance, do not read SID_ADDRESS and default the administrator to the deployment wallet."
+expected = "Launchpad users and deployers need the actual selected authority model, retained administrator powers and delayed execution policy; a token-governance transition or a multisig must not be implied without deployment evidence."
+proposal = "Revise contracts/launchpad/README.md governance and deployment sections to distinguish default administrator governance from opt-in checkpoint-token governance, document the explicit multisig selection and describe any handoff only when its actual deployed role evidence exists."
+
+[doc.001]
+path = "docs/system/routes.md"
+status = "stale"
+notes = "Generated route catalogue: lines 3, 20, 31, 35, 41 and 908 describe the retired router and authority topology; rewrite from the owning route catalogue input (finding 011). Repetitive generated wallet asset rows retain the same transport/authentication/timeout schema."
+
+[doc.002]
+path = "contracts/bridge/README.md"
+status = "accurate"
+notes = "Read the bridge configuration, deployment, attestor, EVM and Solana operator instructions. The first placeholder deployment is explicitly distinguished from initialization at line 114; findings 003-006 concern implementation and proof coverage rather than a promise that the first run is ready."
+
+[doc.003]
+path = "docs/wiki/VirtualChains.md"
+status = "accurate"
+notes = "Tenant domains are namespaces over shared EVM infrastructure; the page distinguishes implemented interfaces from feature-20 qualification and does not require a separate chain per tenant."
+
+[doc.004]
+path = "contracts/launchpad/README.md"
+status = "misleading"
+notes = "AIRDROP at line 217 describes iteration over current holders, and deployment details at lines 244-245 promise token governance/multisig defaults; findings 012 and 024 propose the snapshot-claim and actual authority model."
+
+[doc.005]
+path = "docs/site/docs/operators/settlement-evidence.md"
+status = "stale"
+notes = "Lines 7-37 prescribe the retired checkpoint, guarantor and custody publication lifecycle as current operation; finding 013 proposes committed-height evidence and explicit historical archive labeling."
+
+[doc.006]
+path = "docs/wiki/SettlementEvidence.md"
+status = "stale"
+notes = "The mirrored settlement-evidence page repeats the retired checkpoint/custody instructions at lines 7-37; finding 014 records its separate rewrite target."
+
+[doc.007]
+path = "docs/system/precompiles.md"
+status = "misleading"
+notes = "Generated ABI catalogue preserves historical addresses but omits the retirement/refusal state for native verification, anchor and custody, including layerxanchor at line 1170; finding 015 proposes availability annotations in the generator."
+
+[doc.008]
+path = "contracts/launchpad/operations/README.md"
+status = "stale"
+notes = "Authority and deployment journal guidance describes default administrator governance accurately, but commands at lines 11 onward select contracts/ instead of contracts/launchpad/; finding 016 proposes consistent workspace paths."
+
+[doc.009]
+path = "docs/paxeer-network.md"
+status = "stale"
+notes = "Lines 3-20 describe Paxeer beside a separate LayerX execution and custody/checkpoint network and public faucet; finding 017 proposes the single-network overview and current funding/finality."
+
+[doc.010]
+path = "docs/site/docs/overview/quickstart.md"
+status = "stale"
+notes = "Lines 167-215 prescribe /rpc and /rpc/ws and staged receipt finality; lines 300-302 prescribe retired native custody funding; finding 018 proposes current onboarding and origins."
+
+[doc.011]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "stale"
+notes = "Lines 3-5 and 50 provision the retired daemon, boundary/receipt authority services and custody profile; finding 019 proposes the merged paxd topology and recovery runbook."
+
+[doc.012]
+path = "docs/site/docs/agents/running.md"
+status = "stale"
+notes = "Line 512 posts eth_sendRawTransaction to /rpc, and line 767 attributes hosted px_getReceiptKeys to the node; finding 020 proposes separate current node and gateway instructions."
+
+[doc.013]
+path = "services/explorer/README.md"
+status = "stale"
+notes = "Upstream revisions and local explorer purpose remain identifiable, but lines 10, 18, 30, 111 and 254 retain the old frontend/explorer workspace paths; finding 021 proposes current directories and license paths."
+
+[doc.014]
+path = "services/explorer/backend/README.md"
+status = "stale"
+notes = "Lines 35-36 advertise anchors/receipts without the registered archive path component; finding 022 proposes archive-only endpoint documentation beside the live interfaces."
+
+[doc.015]
+path = "apps/explorer/README.md"
+status = "accurate"
+notes = "The frontend page names its current apps/explorer workspace, chain-125 network configuration and backend integration; retained upstream behavior is identified separately from the product deployment."
+
+[doc.016]
+path = "services/explorer/UPSTREAM.md"
+status = "stale"
+notes = "Exact upstream revision and license identities support the imported-file provenance comparison, but current tree and license locations retain pre-relocation paths at lines 3-16; finding 023 proposes path updates without changing provenance."
+
+[doc.017]
+path = "services/explorer/backend/apps/nft_media_handler/README.md"
+status = "misleading"
+notes = "The line-31 Vix image-open example passes the constructor tuple to an image-struct consumer; finding 010 proposes explicit successful-open matching and error handling."
+
+[doc.018]
+path = "services/explorer/backend/apps/utils/README.md"
+status = "accurate"
+notes = "Retained upstream umbrella utility application description; no claim about a separate LayerX runtime, public RPC routing or current mainnet configuration."
+
+[doc.019]
+path = "services/explorer/backend/docker-compose/README.md"
+status = "accurate"
+notes = "Explicitly describes the retained upstream Ethereum development examples and points to the separate maintained Paxeer deployment stack. Local chain 1337/geth settings are scoped examples, not asserted merged-network production defaults."
+
+[doc.020]
+path = "services/explorer/deploy/db/README.md"
+status = "accurate"
+notes = "Database startup, online index and migration/copy procedures describe their operational prerequisites and durable migration evidence; the page does not promise replay of trace work discarded by the fetcher in finding 008."
+
+[doc.021]
+path = "apps/explorer/.cursor/BUGBOT.md"
+status = "accurate"
+notes = "Retained upstream review guidance in the unchanged imported frontend. This page is vendored project tooling guidance rather than a merged-network endpoint or deployment contract."
+
+[doc.022]
+path = "apps/explorer/.cursor/skills/check-github-cli/SKILL.md"
+status = "accurate"
+notes = "Retained upstream GitHub CLI contribution instructions in the unchanged imported frontend. This page is vendored project tooling guidance rather than a merged-network endpoint or deployment contract."
+
+[doc.023]
+path = "apps/explorer/.cursor/skills/create-pr/SKILL.md"
+status = "accurate"
+notes = "Retained upstream pull-request contribution instructions in the unchanged imported frontend. This page is vendored project tooling guidance rather than a merged-network endpoint or deployment contract."
+
+[doc.024]
+path = "apps/explorer/.cursor/skills/deploy-demo/SKILL.md"
+status = "accurate"
+notes = "Retained upstream demo deployment contribution instructions in the unchanged imported frontend. This page is vendored project tooling guidance rather than a merged-network endpoint or deployment contract."
+
+[doc.025]
+path = "apps/explorer/.cursor/skills/get-checks-status/SKILL.md"
+status = "accurate"
+notes = "Retained upstream check-status contribution instructions in the unchanged imported frontend. This page is vendored project tooling guidance rather than a merged-network endpoint or deployment contract."
+
+[doc.026]
+path = "apps/explorer/.cursor/skills/prepare-release/SKILL.md"
+status = "accurate"
+notes = "Retained upstream release preparation contribution instructions in the unchanged imported frontend. This page is vendored project tooling guidance rather than a merged-network endpoint or deployment contract."
+
+[doc.027]
+path = "spec/layerx-merge/contracts/explorer-ws.md"
+status = "accurate"
+notes = "Pinned interface catalogue identifies v2 and legacy sockets, channel registration conditions and event names; lack of an in-repository consumer is explicitly labeled. The block notification sequencing behavior is separately recorded in finding 007."
+
+[doc.028]
+path = "spec/layerx-merge/contracts/explorer-eth-rpc.md"
+status = "accurate"
+notes = "Pinned catalogue distinguishes explorer-served /api/eth-rpc methods from node RPC origins and states the source revision and unrun acceptance qualification explicitly."
+
+[doc.029]
+path = "spec/layerx-merge/contracts/explorer-indexer.md"
+status = "accurate"
+notes = "Pinned requirements preserve lx_* historical tables as read-only archives, stop retired writers and retain market/binding ingestion; the context marks acceptance qualification UNRUN rather than asserting runtime success."
+
+[doc.030]
+path = "spec/layerx-merge/contracts/bridge-deploy.md"
+status = "accurate"
+notes = "Read the app-env, deployment record and script interface sections: chain identity checks, deterministic env ordering and refusal diagnostics are explicit. The versioned final Solana record includes owner, threshold, attestors and assets; finding 004 records the partial producer/consumer readiness disagreement."

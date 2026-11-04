@@ -1,0 +1,789 @@
+# Pre-upgrade audit record; source revision names the reviewed tree.
+# Findings are repair proposals; no implementation gates are claimed here.
+
+[audit.22.30.108]
+task = "22.30.108"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 57
+findings = 33
+docs_reviewed = 19
+upgrade_ready = false
+blocking = ["startup-policy", "directional-policy", "bundle-membership", "solana-caught-cpi", "receipt-key-contract", "rpc-constructor-contract", "receipt-error-contract", "paxeer-transport-contract"]
+
+[file.01]
+path = "services/interop/crates/layerx-bridge-relayer/Cargo.toml"
+lines = 32
+verdict = "clean"
+note = "Workspace dependencies, two binary entrypoints and strict lints agree with the current relayer modules; no retired verifier dependency remains."
+
+[file.02]
+path = "services/interop/crates/layerx-bridge-relayer/src/abi.rs"
+lines = 713
+verdict = "clean"
+note = "Read complete ABI encoders, strict event decoders and inline tests; bridge selectors, topics, padding and integer limits agree with native bridge and EVM vault consumers."
+
+[file.03]
+path = "services/interop/crates/layerx-bridge-relayer/src/attestation.rs"
+lines = 448
+verdict = "clean"
+note = "Read complete digest builders, signature conversion/recovery and inline vectors; domains, low-s checks and ascending distinct signer assembly agree with destination verification."
+
+[file.04]
+path = "services/interop/crates/layerx-bridge-relayer/src/attestation_api.rs"
+lines = 312
+verdict = "issues"
+note = "Bundle field encodings and HTTP parsing reviewed in full; readiness membership is incorrect as recorded in bundle-membership."
+
+[file.05]
+path = "services/interop/crates/layerx-bridge-relayer/src/bin/cosign.rs"
+lines = 43
+verdict = "clean"
+note = "Cosign executable loads the configured transport and operator inventory, validates the operator and starts the authenticated server; no separate sequencer is started."
+
+[file.06]
+path = "services/interop/crates/layerx-bridge-relayer/src/config.rs"
+lines = 911
+verdict = "issues"
+note = "Full strict config load, validation and build paths reviewed; code matches canonical sequencer_id requirement but the served receipt-key declaration does not round-trip."
+
+[file.07]
+path = "services/interop/crates/layerx-bridge-relayer/src/cosign.rs"
+lines = 1137
+verdict = "clean"
+note = "Full operator inventory, authenticated peer admission, directory persistence, delivery retries and transport framing reviewed against signer protocol and operator tests."
+
+[file.08]
+path = "services/interop/crates/layerx-bridge-relayer/src/hex.rs"
+lines = 171
+verdict = "clean"
+note = "Full hex and quantity codecs and inline tests reviewed; fixed-length serde and overflow refusals agree with receipt and transaction consumers."
+
+[file.09]
+path = "services/interop/crates/layerx-bridge-relayer/src/journal.rs"
+lines = 1602
+verdict = "issues"
+note = "Full journal grammar, fsync-before-effect ordering, replay validation and inline recovery tests reviewed; retained history has unbounded copying cost."
+
+[file.10]
+path = "services/interop/crates/layerx-bridge-relayer/src/lib.rs"
+lines = 34
+verdict = "clean"
+note = "Exports and native bridge address constants reviewed; current modules are reachable from the relayer binary and no retired verifier module is exported."
+
+[file.11]
+path = "services/interop/crates/layerx-bridge-relayer/src/main.rs"
+lines = 101
+verdict = "issues"
+note = "Full startup and tick lifecycle read; the first served snapshot after replay lacks authenticated destination thresholds."
+
+[file.12]
+path = "services/interop/crates/layerx-bridge-relayer/src/receipt.rs"
+lines = 337
+verdict = "issues"
+note = "Full node receipt decoding and authenticated signed-view/log comparisons read; actual ReceiptError does not match served Rust result declarations."
+
+[file.13]
+path = "services/interop/crates/layerx-bridge-relayer/src/relayer.rs"
+lines = 1879
+verdict = "issues"
+note = "Full inbound, outbound, retry, nullification, policy and Solana release loops read; destination policy identity is conflated between directions."
+
+[file.14]
+path = "services/interop/crates/layerx-bridge-relayer/src/rpc.rs"
+lines = 207
+verdict = "issues"
+note = "Full read/broadcast semantics reviewed; repeated endpoints count as separate votes and the declared constructor type is stale."
+
+[file.15]
+path = "services/interop/crates/layerx-bridge-relayer/src/signer.rs"
+lines = 267
+verdict = "clean"
+note = "Full remote attestor, submitter and fee-payer wrappers read; signing algorithms, public-key checks and transaction domains match signer protocol."
+
+[file.16]
+path = "services/interop/crates/layerx-bridge-relayer/src/solana/mod.rs"
+lines = 323
+verdict = "clean"
+note = "Full Solana account layouts and derivations read; config, asset, receipt and handle mappings agree with custody producer layouts and worked vectors."
+
+[file.17]
+path = "services/interop/crates/layerx-bridge-relayer/src/solana/observe.rs"
+lines = 669
+verdict = "issues"
+note = "Full log attribution, deposit evidence comparison, pagination and inline tests read; caught failed CPI and unbounded backfill are recorded findings."
+
+[file.18]
+path = "services/interop/crates/layerx-bridge-relayer/src/solana/release.rs"
+lines = 683
+verdict = "clean"
+note = "Full Solana release account validation, instruction/message assembly and encoding read; account flags, secp offsets, amount bounds and fee-payer framing agree with custody release."
+
+[file.19]
+path = "services/interop/crates/layerx-bridge-relayer/src/solana/rpc.rs"
+lines = 484
+verdict = "clean"
+note = "Full RPC parsing and account resolution read; attempted inner instructions are preserved as attempts, with the success-classification defect owned by their observer consumer."
+
+[file.20]
+path = "services/interop/crates/layerx-bridge-relayer/src/transport.rs"
+lines = 441
+verdict = "issues"
+note = "Full URL, authenticated TLS, per-request chain-id, bounded HTTP framing and JSON-RPC refusal paths read; served transport type and error declarations differ."
+
+[file.21]
+path = "services/interop/crates/layerx-bridge-relayer/src/tx.rs"
+lines = 121
+verdict = "clean"
+note = "Full EVM transaction call construction read; replayed raw bytes, nonce, EIP-1559 fields and chain-domain signer use match the submitter contract."
+
+[file.22]
+path = "services/interop/crates/layerx-bridge-relayer/tests/attestation_api.rs"
+lines = 472
+verdict = "issues"
+note = "Full bundle and signature fixture tests read; manually constructed policy views do not establish destination membership or replay readiness."
+
+[file.23]
+path = "services/interop/crates/layerx-bridge-relayer/tests/attestation_server.rs"
+lines = 561
+verdict = "clean"
+note = "Full running HTTP-server tests read; routing, CORS, field shape, observed 404 and request bounds agree with implementation. Policy proof gaps are recorded on attestation_api tests."
+
+[file.24]
+path = "services/interop/crates/layerx-bridge-relayer/tests/cosign_transport.rs"
+lines = 760
+verdict = "clean"
+note = "Full authenticated cosign tests read; certificate binding, peer identity, malformed frame refusals, on-disk admission and delivery restart behavior match the transport."
+
+[file.25]
+path = "services/interop/crates/layerx-bridge-relayer/tests/loops.rs"
+lines = 1247
+verdict = "clean"
+note = "Full loop tests read; observation, threshold assembly, source receipt refusal, exact-byte retry, nullifier completion and journal recovery checks match their exercised branches. API policy counterexamples are recorded separately."
+
+[file.26]
+path = "services/interop/crates/layerx-bridge-relayer/tests/operator_config.rs"
+lines = 623
+verdict = "issues"
+note = "Full configuration tests read; positive Paxeer endpoints retain the retired /rpc path instead of proving the merged node root."
+
+[file.27]
+path = "services/interop/crates/layerx-bridge-relayer/tests/operator_cosign_contract.rs"
+lines = 1607
+verdict = "issues"
+note = "Full signer and operator delivery tests read; genuine signer protocol and journal isolation checks retain a pre-merge Paxeer path in the operator configuration fixture."
+
+[file.28]
+path = "services/interop/crates/layerx-bridge-relayer/tests/outbound_isolation.rs"
+lines = 758
+verdict = "issues"
+note = "Full captured-boundary harness read; provenance and scenario checks are strict but the unconditional external corpus prerequisite conflicts with the no-input suite requirement."
+
+[file.29]
+path = "services/interop/crates/layerx-bridge-relayer/tests/paxeer_rpc.rs"
+lines = 254
+verdict = "issues"
+note = "Full RPC quorum tests read; duplicate endpoint acceptance is asserted and positive responders require the retired /rpc path."
+
+[file.30]
+path = "services/interop/crates/layerx-bridge-relayer/tests/paxeer_transport.rs"
+lines = 321
+verdict = "issues"
+note = "Full HTTPS and framing tests read; authentication and chain mismatch cases are substantive but positive request assertions still require /rpc."
+
+[file.31]
+path = "services/interop/crates/layerx-bridge-relayer/tests/proof_bridge_relayer.rs"
+lines = 669
+verdict = "clean"
+note = "Full proof harness read; real chain/custody/signer paths and printed missing-prerequisite dispositions match requirement 22022.1. No execution is claimed by this audit."
+
+[file.32]
+path = "services/interop/crates/layerx-bridge-relayer/tests/sequencer_receipt.rs"
+lines = 627
+verdict = "clean"
+note = "Full producer receipt corpus tests read; submitted, receipted, committed, changed signed-view/log fields and signer-window refusals agree with the node receipt consumer."
+
+[file.33]
+path = "services/interop/crates/layerx-bridge-relayer/tests/solana.rs"
+lines = 698
+verdict = "clean"
+note = "Full Solana observation and vector tests read; exercised account, log and finality cases match custody layouts. Caught failed invocation coverage is proposed with the observer finding."
+
+[file.34]
+path = "services/interop/crates/layerx-bridge-relayer/tests/solana_release.rs"
+lines = 1460
+verdict = "clean"
+note = "Full Solana release tests read; wire layout, fee-payer domain, thresholds, nullifiers, rejection, exact-byte replay and restart cases agree with release assembly."
+
+[file.35]
+path = "services/interop/crates/layerx-bridge-relayer/tests/support/mod.rs"
+lines = 567
+verdict = "clean"
+note = "Full shared test support read; destination, signer and receipt helpers construct the shapes their targeted tests exercise; broader production proof limitations are recorded on the relevant harnesses."
+
+[file.36]
+path = "services/interop/crates/layerx-bridge-relayer/tests/support/signer_binary.rs"
+lines = 42
+verdict = "clean"
+note = "Full helper read; locates or builds the genuine signer binary and propagates build failure rather than substituting a signer implementation."
+
+[file.37]
+path = "services/interop/crates/layerx-interop-gateway/Cargo.toml"
+lines = 20
+verdict = "clean"
+note = "Dependency and lint manifest read; proof and hash dependencies match the exported gateway implementation and no retired authorized-batch dependency is required."
+
+[file.38]
+path = "services/interop/crates/layerx-interop-gateway/src/adapter.rs"
+lines = 343
+verdict = "clean"
+note = "Full adapter declarations and registry reviewed; schema compatibility, supported transports and policy parsing match gateway registration."
+
+[file.39]
+path = "services/interop/crates/layerx-interop-gateway/src/audit.rs"
+lines = 468
+verdict = "clean"
+note = "Full audit serialization, hash chaining and export validation read; canonical field ordering, principal scoping and tamper refusal agree with gateway writes."
+
+[file.40]
+path = "services/interop/crates/layerx-interop-gateway/src/codec.rs"
+lines = 80
+verdict = "clean"
+note = "Full bounded binary codec read; lengths, UTF-8 and exact-consumption checks agree with principal, translation and audit decoders."
+
+[file.41]
+path = "services/interop/crates/layerx-interop-gateway/src/error.rs"
+lines = 239
+verdict = "clean"
+note = "Full gateway error, retriability and tracing types read; receipt-pending and terminal refusal codes agree with response rendering."
+
+[file.42]
+path = "services/interop/crates/layerx-interop-gateway/src/evidence.rs"
+lines = 62
+verdict = "clean"
+note = "Full evidence types and canonical digest read; submitted/receipted/committed labels and domain-separated receipt digest agree with consumers. Identity binding defect is in GatewayCore."
+
+[file.43]
+path = "services/interop/crates/layerx-interop-gateway/src/gateway.rs"
+lines = 875
+verdict = "issues"
+note = "Full gateway state, principal scope, idempotency, redaction and signed receipt settlement read; evidence transaction identity is not bound inside settlement."
+
+[file.44]
+path = "services/interop/crates/layerx-interop-gateway/src/lib.rs"
+lines = 59
+verdict = "clean"
+note = "Full public module and workspace boundary exports read; edge-only gateway construction agrees with the service integration."
+
+[file.45]
+path = "services/interop/crates/layerx-interop-gateway/src/principal.rs"
+lines = 291
+verdict = "clean"
+note = "Full principal validation and replay policy read; canonical encodings and tenant/principal scope checks match gateway storage keys."
+
+[file.46]
+path = "services/interop/crates/layerx-interop-gateway/src/redaction.rs"
+lines = 530
+verdict = "clean"
+note = "Full schema-ordered redaction and payload limit code read; public/private classifications and deterministic refusal behavior agree with adapter declarations."
+
+[file.47]
+path = "services/interop/crates/layerx-interop-gateway/src/server.rs"
+lines = 366
+verdict = "clean"
+note = "Full route registration and response rendering read; migration-v2, method/path matching and receipt-pending HTTP 202 agree with tests and current service callers."
+
+[file.48]
+path = "services/interop/crates/layerx-interop-gateway/src/trace.rs"
+lines = 196
+verdict = "clean"
+note = "Full trace identifier and traced-error transport read; validation and propagation preserve errors without affecting receipt verification."
+
+[file.49]
+path = "services/interop/crates/layerx-interop-gateway/tests/evidence.rs"
+lines = 75
+verdict = "clean"
+note = "Full evidence tests read; canonical digest encoding/refusal and lifecycle labels agree with evidence implementation."
+
+[file.50]
+path = "services/interop/crates/layerx-interop-gateway/tests/gateway.rs"
+lines = 1213
+verdict = "clean"
+note = "Full gateway tests read; principal isolation, request identity, read-only restrictions, receipt/log refusals and audit export checks agree with exercised behavior."
+
+[file.51]
+path = "services/interop/crates/layerx-interop-gateway/tests/proof_gateway_sequencer_evidence.rs"
+lines = 412
+verdict = "issues"
+note = "Full genuine evidence proof test read; positive identity is checked by the test before settlement but a mismatched identity is not tested at the consumer."
+
+[file.52]
+path = "services/interop/crates/layerx-interop-gateway/tests/receipt_pending.rs"
+lines = 14
+verdict = "clean"
+note = "Full receipt-pending error test read; retriable code and submitted lifecycle mapping agree with response rendering."
+
+[file.53]
+path = "services/interop/crates/layerx-interop-gateway/tests/route_freeze.rs"
+lines = 208
+verdict = "clean"
+note = "Full route freeze tests read; registered methods and paths, migration-v2 routes and pending response shape match server.rs."
+
+[file.54]
+path = "services/interop/crates/layerx-interop-gateway/tests/sequencer_evidence.rs"
+lines = 301
+verdict = "clean"
+note = "Full sequencer evidence tests read; submitted leaves state pending and receipt/evidence entrypoints agree on canonical digest for genuine matching evidence."
+
+[file.55]
+path = "services/interop/crates/layerx-interop-gateway/tests/workspace_lock.rs"
+lines = 279
+verdict = "clean"
+note = "Full workspace boundary and retired-symbol refusal tests read; current exports, crate order and removal guards agree with the source tree."
+
+[file.56]
+path = "services/interop/deploy/search-front/tests/test_nginx_headers.py"
+lines = 26
+verdict = "clean"
+note = "Full nginx header test and target location read; it requires clearing untrusted LAYERX-PAYER-DID at the proxy edge and does not reinstate the retired payer mechanism."
+
+[file.57]
+path = "services/interop/deploy/tests/test_deploy_templates.py"
+lines = 30
+verdict = "clean"
+note = "Full deployment template guard read; it rejects retired intent-ingester templates and references rather than depending on that service."
+
+[finding.startup-policy]
+file = "services/interop/crates/layerx-bridge-relayer/src/main.rs"
+line = 49
+class = "restart-recovery"
+severity = "high"
+observed = "Before the first tick, main publishes Relayer::attestation_view from the reopened journal. Relayer::new initializes thresholds empty and attestation_view substitutes 1 for every historical chain at relayer.rs:594. A persisted item with one local signature is therefore advertised ready even when its destination requires three signatures; failed policy reads can leave that answer in place."
+expected = "Requirements 11421.3 and 11423.1 require readiness to use the destination threshold. A restart must preserve a truthful attesting state until the destination policy has been authenticated; the bridge app stops its polling after a ready bundle."
+proposal = "In services/interop/crates/layerx-bridge-relayer/src/relayer.rs and src/main.rs, publish unknown policy as attesting, remove the threshold-of-one substitution, and refresh the authenticated destination policy before declaring any replayed bundle ready. Add a real journal-reopen and HTTP-read regression with one stored signature and a threshold of three."
+owner_domain = 11
+interface = "11.rs-relayer-relayer-attestation-view-j48"
+
+[finding.directional-policy]
+file = "services/interop/crates/layerx-bridge-relayer/src/relayer.rs"
+line = 1165
+class = "interface-mismatch"
+severity = "high"
+observed = "attestor_policy stores native inbound and foreign-vault outbound thresholds in the same thresholds[chain_id] entry. Both observations use the foreign chain id, so the last policy read overwrites the other direction. attestation_view then exposes that shared value to both deposit_answer and release_answer; the Solana release policy also writes the same map."
+expected = "Requirements 11421.3 and 11423.1 require each bundle to use its own destination threshold. The native mint and the external release vault are independent destinations and can have different thresholds for the same foreign chain."
+proposal = "In services/interop/crates/layerx-bridge-relayer/src/relayer.rs and src/attestation_api.rs, key the authenticated policy by direction and destination identity, including vault or program, and select it from the observation. Exercise inbound threshold three and outbound threshold one in both loop orders and after restart."
+owner_domain = 11
+interface = "11.rs-relayer-attestation-view-j48"
+
+[finding.bundle-membership]
+file = "services/interop/crates/layerx-bridge-relayer/src/attestation_api.rs"
+line = 262
+class = "interface-mismatch"
+severity = "high"
+observed = "signatures recovers and deduplicates every local or collected signer, without testing membership in the current destination attestor set; status counts that entire list. AttestationView carries no membership set. A removed attestor can make a bundle ready, and its signature is returned even alongside enough current signatures. PaxeerXVault._verifyThreshold rejects every nonmember signature at contracts/bridge/evm/src/PaxeerXVault.sol:267."
+expected = "Requirement 11421.3 counts distinct destination attestors. Both served bundle routes must return signatures that their destination consumer accepts; a stale signer must neither satisfy quorum nor poison an otherwise valid release bundle."
+proposal = "Extend the policy snapshot in services/interop/crates/layerx-bridge-relayer/src/attestation_api.rs and src/relayer.rs with current authenticated membership and filter before counting and returning signatures, using the same eligibility rule as transaction assembly. Test rotation with old local and cosign signatures through the HTTP bundle and actual vault verification."
+owner_domain = 11
+interface = "11.http-relayer-v1-release-j48"
+
+[finding.solana-caught-cpi]
+file = "services/interop/crates/layerx-bridge-relayer/src/solana/observe.rs"
+line = 354
+class = "runtime-risk"
+severity = "high"
+observed = "transaction_findings treats every attempted custody deposit instruction in an outer-successful transaction as a completed call. solana/rpc.rs:220-241 flattens innerInstructions without invocation outcomes, and observe.rs:376 fetches the receipt account for each attempt. A caller can catch a failed deposit CPI, leaving no receipt while the outer transaction succeeds. The missing account returns Malformed and observe_deposits retries that same scan window indefinitely, blocking later valid deposits."
+expected = "A failed custody invocation produces no locked deposit and must not block observation of successful deposits. The producer at contracts/bridge/solana/src/deposit.rs writes its receipt and deposit log only after its checks and token transfer succeed; outer transaction success does not prove every inner invocation succeeded."
+proposal = "In services/interop/crates/layerx-bridge-relayer/src/solana/rpc.rs and src/solana/observe.rs, preserve invocation identity and successful completion, including successful ancestors, and correlate only committed custody calls with their logs and receipt accounts. Keep missing evidence for a successful deposit fail-closed. Use a real caller program that catches a failed CPI before a valid deposit, and prove progress and restart recovery."
+owner_domain = 11
+interface = "11.rs-relayer-observe-deposits"
+
+[finding.solana-scan-budget]
+file = "services/interop/crates/layerx-bridge-relayer/src/solana/observe.rs"
+line = 428
+class = "runtime-risk"
+severity = "medium"
+observed = "signatures_in starts at the newest signature for every requested slot window and follows every full page until it reaches from. max_slot_range bounds slots but neither the number of pages above to nor the number of transactions held in found. A relayer catching up from old history repeatedly traverses the entire newer history and can spend an unbounded tick on an increasingly busy custody program."
+expected = "The runtime-risk check requires bounded work and memory for externally growing history. Catch-up must eventually advance without dropping a signature, even when the live history is much larger than the configured slot window."
+proposal = "Add a persisted backfill continuation and per-pass page or transaction budget in services/interop/crates/layerx-bridge-relayer/src/solana/observe.rs and the journal. Persist the program identity, inclusive from/to slot bounds and before signature together, so restart resumes the fixed window rather than starting at the growing head. Advance its slot cursor only after complete coverage, and prove paginated catch-up and restart against producer history larger than the budget."
+owner_domain = 11
+interface = "11.rs-relayer-observe-deposits"
+
+[finding.journal-growth]
+file = "services/interop/crates/layerx-bridge-relayer/src/journal.rs"
+line = 832
+class = "runtime-risk"
+severity = "medium"
+observed = "Journal::append clones the complete State for every entry; State retains completed observations, signatures and submission bytes without a checkpoint or archival boundary. Journal::open replays the entire file, and Relayer::attestation_view clones all historical items and recollects their cosigns. Memory, append cost and startup time therefore grow with lifetime bridge volume rather than pending work."
+expected = "The brief runtime and recovery checks require a bridge that remains operable over sustained network use. Durable replay protection, pending raw transactions and historical attestations must remain available without forcing every new append and tick to copy the entire lifetime history."
+proposal = "Design crash-safe checkpoints and indexed historical storage in services/interop/crates/layerx-bridge-relayer/src/journal.rs, with bounded pending-state snapshots in src/relayer.rs. Preserve nullifier and idempotency history, exact pending transaction bytes and API lookup capability; prove equivalent replay after checkpoint replacement and interrupted archival."
+owner_domain = 11
+
+[finding.duplicate-quorum]
+file = "services/interop/crates/layerx-bridge-relayer/src/rpc.rs"
+line = 125
+class = "security"
+severity = "medium"
+observed = "PaxeerRpc::new checks list size and chain ids but accepts repeated endpoint entries. request issues a call per entry and call counts each identical answer as an independent vote. Repeating one URL can therefore satisfy a configured multi-endpoint strict majority from a single backend; tests/paxeer_rpc.rs:210 explicitly accepts eight clones."
+expected = "Requirement 11241.5 uses endpoint agreement to protect Paxeer reads, including burn observations. A configured quorum should not imply independent agreement when its votes are repeated aliases of one endpoint; the mirror RpcCluster already validates independent endpoint identities."
+proposal = "In services/interop/crates/layerx-bridge-relayer/src/rpc.rs and src/config.rs, reject duplicate normalized authorities and require explicit independent-backend identities for a multi-endpoint quorum. Retain deliberately configured single-endpoint operation as such, and test duplicate URLs and backend aliases without claiming extra votes."
+owner_domain = 11
+interface = "11.rs-relayer-paxeer-rpc-new"
+
+[finding.evidence-identity]
+file = "services/interop/crates/layerx-interop-gateway/src/gateway.rs"
+line = 583
+class = "security"
+severity = "medium"
+observed = "settle_with_sequencer_evidence verifies the receipt signature, logs and paymentReference but never compares evidence.transaction_hash with the authenticated receipt protocol activity_id. Changing that declared evidence identity leaves settlement unchanged. The receipt convenience method derives the identity correctly, and the inspected AP2 and x402 callers perform their own checks, so this is a weakness of the public core boundary rather than demonstrated theft through those callers."
+expected = "The SequencerEvidence boundary must describe one transaction consistently across producer, transport and settlement consumer. Receipt authentication should bind the declared transaction identity inside GatewayCore so every caller receives the same refusal semantics."
+proposal = "In services/interop/crates/layerx-interop-gateway/src/gateway.rs, compare the evidence hash with the verified protocol receipt activity_id before recording settlement, return a traced receipt rejection on mismatch and leave the translation pending. Add a mutation test that changes only transaction_hash on genuine signed evidence."
+owner_domain = 11
+interface = "11.rs-gw-gateway-core-settle-with-sequencer-evidence-j47"
+
+[finding.receipt-key-contract]
+file = "services/interop/crates/layerx-bridge-relayer/src/config.rs"
+line = 118
+class = "interface-mismatch"
+severity = "high"
+observed = "The served registry row 11.cfg-relayer-receipt-keys declares entries with key_id, and spec/layerx-merge/contracts/interop-bridge-relayer.md:571 repeats that shape. ReceiptKeyConfig denies unknown fields and requires sequencer_id instead. A configuration produced from the declared contract is rejected at startup; the code agrees with requirement 11242.2."
+expected = "The declared receipt-key producer shape and the strict configuration consumer must round-trip. Requirement 11242.2 defines the canonical fields as sequencer_id, public_key, first_height and last_height, with validated authorization windows."
+proposal = "Correct 11.cfg-relayer-receipt-keys in spec/layerx-merge/interfaces.kvx and its source contract generation inputs to use sequencer_id, then regenerate spec/layerx-merge/contracts/interop-bridge-relayer.md. Prove the published configuration example loads through RelayerConfig::load without adding a permissive alias or weakening unknown-field validation."
+owner_domain = 11
+interface = "11.cfg-relayer-receipt-keys"
+
+[finding.rpc-constructor-contract]
+file = "services/interop/crates/layerx-bridge-relayer/src/rpc.rs"
+line = 121
+class = "interface-mismatch"
+severity = "high"
+observed = "Registry row 11.rs-relayer-paxeer-rpc-new and its frozen contract declare new(Vec<EndpointConfig>), while the public constructor accepts Vec<PaxeerEndpoint>. The EndpointConfig comes from the retired verifier transport and is not accepted by the current implementation; callers built from the published signature cannot construct the relayer RPC."
+expected = "The public Rust interface declaration must name the actual authenticated transport type. Requirement 11244.1 removes the verifier transport dependency, and the constructor contract must expose the replacement PaxeerEndpoint type consistently."
+proposal = "Update 11.rs-relayer-paxeer-rpc-new in spec/layerx-merge/interfaces.kvx and regenerate spec/layerx-merge/contracts/interop-bridge-relayer.md with Vec<PaxeerEndpoint>. Include a small compiling consumer of the published constructor and preserve the current pinned-TLS and chain-id checks."
+owner_domain = 11
+interface = "11.rs-relayer-paxeer-rpc-new"
+
+[finding.receipt-error-contract]
+file = "services/interop/crates/layerx-bridge-relayer/src/receipt.rs"
+line = 202
+class = "interface-mismatch"
+severity = "high"
+observed = "The served rows 11.rs-relayer-sequencer-receipt-decode-j48 and 11.rs-relayer-sequencer-receipt-verify-j48 declare Result values with RpcFault, but decode and verify return ReceiptError. The contract page spec/layerx-merge/contracts/interop.md:22-24 repeats RpcFault. A consumer written against that result type or its error cases does not compile against the implementation."
+expected = "Declared receipt decoding and verification must expose the same error type and refusal categories that the consumer receives. ReceiptError distinguishes malformed data, signature verification, signed-view mismatch and log refusal and must remain visible in the contract."
+proposal = "Correct both served rows in spec/layerx-merge/interfaces.kvx and regenerate spec/layerx-merge/contracts/interop.md to publish ReceiptError and its cases. Prove a public consumer handles an authentic receipt and the real malformed, mismatch and verification errors without erasing their distinctions."
+owner_domain = 11
+interface = "11.rs-relayer-sequencer-receipt-decode-j48"
+
+[finding.paxeer-transport-contract]
+file = "services/interop/crates/layerx-bridge-relayer/src/transport.rs"
+line = 13
+class = "interface-mismatch"
+severity = "high"
+observed = "Served row 11.rs-relayer-paxeer-endpoint-j48 declares trust_anchor and local_emulator fields, but PaxeerEndpoint has trust_anchor_der and expected_chain_id and no local_emulator field. The related call row declares an instance method although PaxeerTransport::call takes endpoint as an explicit argument. The transport-fault row also names Timeout and Malformed variants absent from the real enum and omits its structured refusal cases."
+expected = "Published transport construction, call signatures and errors must match the Rust producer and consumer. Requirement 11242.1 requires endpoints to carry chain id, timeout and trust-anchor bytes; local_emulator is a constructor validation input rather than a stored public field."
+proposal = "Reconcile 11.rs-relayer-paxeer-endpoint-j48, 11.rs-relayer-paxeer-transport-call-j48 and 11.rs-relayer-transport-fault-j48 in spec/layerx-merge/interfaces.kvx with src/transport.rs, then regenerate spec/layerx-merge/contracts/interop.md. Compile a contract example that constructs the endpoint, calls the associated transport function and matches actual structured errors."
+owner_domain = 11
+interface = "11.rs-relayer-paxeer-endpoint-j48"
+
+[finding.attestation-policy-coverage]
+file = "services/interop/crates/layerx-bridge-relayer/tests/attestation_api.rs"
+line = 218
+class = "test-gap"
+severity = "medium"
+observed = "deposit_status_follows_the_collected_signatures builds AttestationView directly with a manually assigned threshold and counts all recoverable signatures. It cannot express destination membership, and the tests do not drive a reopened relayer with different inbound and outbound thresholds into the HTTP server. These fixtures therefore miss the startup, direction and membership failures recorded in this audit."
+expected = "Requirements 11421.3 and 11423.1 and the brief path-proof check require readiness evidence from the actual policy producer through the snapshot and served bundle, including replay and attestor rotation."
+proposal = "Extend services/interop/crates/layerx-bridge-relayer/tests/attestation_api.rs and tests/attestation_server.rs with genuine destination policy changes and journal restart, then read the actual HTTP bundle. Assert that one of three signatures stays attesting, opposite-direction policy reads cannot change it, and removed members never enter a ready bundle."
+owner_domain = 11
+
+[finding.quorum-coverage]
+file = "services/interop/crates/layerx-bridge-relayer/tests/paxeer_rpc.rs"
+line = 210
+class = "test-gap"
+severity = "medium"
+observed = "paxeer_rpc_refuses_mixed_chain_ids_and_more_than_eight_endpoints explicitly asserts that eight copies of the same endpoint are accepted. It checks cardinality and chain identity but blesses the duplicate-vote configuration that defeats independent quorum agreement."
+expected = "Quorum qualification must distinguish repeated configuration entries from independently authenticated backends; an accepted eight-entry list must not silently stand for one backend when operators intend multiple votes."
+proposal = "After defining endpoint independence in services/interop/crates/layerx-bridge-relayer/src/rpc.rs, update tests/paxeer_rpc.rs to assert duplicate and alias refusal and demonstrate that divergent independent backends cannot be outvoted by cloning one entry. Keep the existing mixed-chain and size bounds intact."
+owner_domain = 11
+
+[finding.evidence-identity-coverage]
+file = "services/interop/crates/layerx-interop-gateway/tests/proof_gateway_sequencer_evidence.rs"
+line = 197
+class = "test-gap"
+severity = "medium"
+observed = "The proof test asserts receipt.protocol().activity_id equals evidence.transaction_hash before invoking GatewayCore. That proves the positive producer case but does not test whether the consumer rejects a changed transaction_hash; the current consumer accepts that mutation because it ignores the field."
+expected = "The real producer-to-consumer proof must cover refusal when the transport identity disagrees with the authenticated receipt, leaving both translation state and audit history unchanged."
+proposal = "Add a negative case to services/interop/crates/layerx-interop-gateway/tests/proof_gateway_sequencer_evidence.rs that retains the genuine receipt and logs, mutates only transaction_hash, invokes settle_with_sequencer_evidence and asserts a traced refusal with pending state and no completion audit entry."
+owner_domain = 11
+
+[finding.capture-prerequisite]
+file = "services/interop/crates/layerx-bridge-relayer/tests/outbound_isolation.rs"
+line = 746
+class = "test-gap"
+severity = "medium"
+observed = "outbound_isolation_captured_production_boundaries unconditionally calls Corpus::load. load returns an error when LAYERX_BRIDGE_CAPTURE_MANIFEST or its independent SHA256 pin is absent at lines 198-203. Consequently the source path fails an ordinary no-environment cargo test instead of producing the prerequisite disposition required by 22022.1; no Rust test execution is claimed by this audit."
+expected = "Requirement 22022.1 says the relayer suite with no environment inputs must pass or print a reason naming a missing prerequisite. The production-boundary qualification must still require genuine, independently pinned capture artifacts and must never be reported as proved without them."
+proposal = "In services/interop/crates/layerx-bridge-relayer/tests/outbound_isolation.rs and its owning qualification job, separate explicit missing-prerequisite reporting for the no-input suite from the mandatory captured-boundary gate. Provision and pin the genuine corpus in that gate, retaining every scenario assertion and failing qualification when required artifacts are absent."
+owner_domain = 11
+
+[finding.operator-root-fixture]
+file = "services/interop/crates/layerx-bridge-relayer/tests/operator_config.rs"
+line = 157
+class = "retired-reference"
+severity = "medium"
+observed = "The configuration fixture supplies https://paxeer.example.invalid/rpc and asserts that suffix at lines 168 and 347. These are test endpoints, not evidence of a live public router, but the positive fixtures keep the retired Paxeer path in the tested contract."
+expected = "Brief facts 2 and 3 retire the unified /rpc path and specify Paxeer JSON-RPC at the root path. Positive production-shaped fixtures must cover root requests and must not imply that /rpc is required."
+proposal = "Change the positive Paxeer endpoint fixtures and request assertions in services/interop/crates/layerx-bridge-relayer/tests/operator_config.rs to the root URL and POST /, preserving TLS, chain-id and malformed-input assertions. Prove the same transport against the node root; retain a non-root case only if clearly documented as an optional private proxy."
+owner_domain = 11
+
+[finding.cosign-root-fixture]
+file = "services/interop/crates/layerx-bridge-relayer/tests/operator_cosign_contract.rs"
+line = 1059
+class = "retired-reference"
+severity = "medium"
+observed = "The operator delivery configuration supplied to the real relayer selects https://paxeer.example.invalid/rpc. These are test endpoints, not evidence of a live public router, but the positive fixtures keep the retired Paxeer path in the tested contract."
+expected = "Brief facts 2 and 3 retire the unified /rpc path and specify Paxeer JSON-RPC at the root path. Positive production-shaped fixtures must cover root requests and must not imply that /rpc is required."
+proposal = "Change the positive Paxeer endpoint fixtures and request assertions in services/interop/crates/layerx-bridge-relayer/tests/operator_cosign_contract.rs to the root URL and POST /, preserving TLS, chain-id and malformed-input assertions. Prove the same transport against the node root; retain a non-root case only if clearly documented as an optional private proxy."
+owner_domain = 11
+
+[finding.quorum-root-fixture]
+file = "services/interop/crates/layerx-bridge-relayer/tests/paxeer_rpc.rs"
+line = 26
+class = "retired-reference"
+severity = "medium"
+observed = "The local Paxeer RPC responder requires POST /rpc HTTP/1.1 and all of its endpoint producers supply that path. These are test endpoints, not evidence of a live public router, but the positive fixtures keep the retired Paxeer path in the tested contract."
+expected = "Brief facts 2 and 3 retire the unified /rpc path and specify Paxeer JSON-RPC at the root path. Positive production-shaped fixtures must cover root requests and must not imply that /rpc is required."
+proposal = "Change the positive Paxeer endpoint fixtures and request assertions in services/interop/crates/layerx-bridge-relayer/tests/paxeer_rpc.rs to the root URL and POST /, preserving TLS, chain-id and malformed-input assertions. Prove the same transport against the node root; retain a non-root case only if clearly documented as an optional private proxy."
+owner_domain = 11
+
+[finding.transport-root-fixture]
+file = "services/interop/crates/layerx-bridge-relayer/tests/paxeer_transport.rs"
+line = 44
+class = "retired-reference"
+severity = "medium"
+observed = "The transport responder requires POST /rpc HTTP/1.1; its positive endpoint cases therefore exercise the retired path rather than the node root. These are test endpoints, not evidence of a live public router, but the positive fixtures keep the retired Paxeer path in the tested contract."
+expected = "Brief facts 2 and 3 retire the unified /rpc path and specify Paxeer JSON-RPC at the root path. Positive production-shaped fixtures must cover root requests and must not imply that /rpc is required."
+proposal = "Change the positive Paxeer endpoint fixtures and request assertions in services/interop/crates/layerx-bridge-relayer/tests/paxeer_transport.rs to the root URL and POST /, preserving TLS, chain-id and malformed-input assertions. Prove the same transport against the node root; retain a non-root case only if clearly documented as an optional private proxy."
+owner_domain = 11
+
+[finding.beta-site]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "This operator page presents a separate LayerX daemon, relay-archive and intent-ingester images as live cluster components at line 3, an authorized-batch authority path at line 5, and GuarantorBond or CheckpointRegistry settlement in the bring-up instructions. Its custody and LNI instructions also belong to the pre-merge network."
+expected = "Brief facts 1 and 2 define one paxd BFT network with the kernel inside the node and committed-block finality. Retired daemon, archive, ingester, authorized-batch and guarantor paths must not be presented as required operator infrastructure."
+proposal = "Rewrite docs/site/docs/operators/beta-cluster.md from the current merged-node deployment and root JSON-RPC contract. Replace the image and startup sequence, key/configuration prerequisites and settlement checks with the live paxd, bridge-relayer and hosted-service paths; remove retired custody, LNI and checkpoint instructions."
+owner_domain = 16
+
+[finding.beta-wiki]
+file = "docs/wiki/BetaCluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "This operator page presents a separate LayerX daemon, relay-archive and intent-ingester images as live cluster components at line 3, an authorized-batch authority path at line 5, and GuarantorBond or CheckpointRegistry settlement in the bring-up instructions. Its custody and LNI instructions also belong to the pre-merge network."
+expected = "Brief facts 1 and 2 define one paxd BFT network with the kernel inside the node and committed-block finality. Retired daemon, archive, ingester, authorized-batch and guarantor paths must not be presented as required operator infrastructure."
+proposal = "Rewrite docs/wiki/BetaCluster.md from the current merged-node deployment and root JSON-RPC contract. Replace the image and startup sequence, key/configuration prerequisites and settlement checks with the live paxd, bridge-relayer and hosted-service paths; remove retired custody, LNI and checkpoint instructions."
+owner_domain = 16
+
+[finding.x402-site]
+file = "docs/site/docs/interop/x402.md"
+line = 90
+class = "doc-drift"
+severity = "medium"
+observed = "The page directs integrators to gateway POST /rpc with lx_sendActivity and lx_getReceipt, describes executed/batched/finalised commitments and guarantor certificates, and retains ordinal-6/7 activity grants and AuthorizedBatch or leaf_hash settlement prose. Later SequencerEvidence sections coexist with these incompatible instructions."
+expected = "The merged-network brief retires the router and separate sequencer service. Current x402 integration uses authenticated Paxeer transaction evidence, submitted/receipted/committed lifecycle labels and canonical receipt digests through the declared gateway routes."
+proposal = "Rewrite docs/site/docs/interop/x402.md around the current x402 and GatewayCore SequencerEvidence producer/consumer flow. Replace the retired transport and grant examples, commitment labels and batch proof steps with root Paxeer RPC, signed receipt verification, payment-log checks and canonical receiptDigest examples."
+owner_domain = 11
+
+[finding.x402-wiki]
+file = "docs/wiki/X402Transport.md"
+line = 90
+class = "doc-drift"
+severity = "medium"
+observed = "The page directs integrators to gateway POST /rpc with lx_sendActivity and lx_getReceipt, describes executed/batched/finalised commitments and guarantor certificates, and retains ordinal-6/7 activity grants and AuthorizedBatch or leaf_hash settlement prose. Later SequencerEvidence sections coexist with these incompatible instructions."
+expected = "The merged-network brief retires the router and separate sequencer service. Current x402 integration uses authenticated Paxeer transaction evidence, submitted/receipted/committed lifecycle labels and canonical receipt digests through the declared gateway routes."
+proposal = "Rewrite docs/wiki/X402Transport.md around the current x402 and GatewayCore SequencerEvidence producer/consumer flow. Replace the retired transport and grant examples, commitment labels and batch proof steps with root Paxeer RPC, signed receipt verification, payment-log checks and canonical receiptDigest examples."
+owner_domain = 11
+
+[finding.readme-pt-BR]
+file = "docs/readme/README.pt-BR.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview describes paxd and layerxd as two execution domains at line 37, live custody 0x1013 and checkpoint anchor 0x1014 at line 39, retired daemon and old top-level source paths at lines 80-87, and the pre-merge LNI, guarantor and archive architecture in the diagram at lines 148-242."
+expected = "Brief facts 1 and 2 specify a single BFT chain with the kernel in paxd, committed-block receipt finality and no running layerxd, router, guarantor or relay archive. Repository navigation must name current services and contracts paths."
+proposal = "Update docs/readme/README.pt-BR.md with the merged-network architecture in its existing language, replace the full architecture diagram and runtime table, and correct services/agent, services/human, services/interop and contracts/bridge paths. Keep bridge attestation terminology aligned with the actual vault and native bridge contracts."
+owner_domain = 16
+
+[finding.readme-fr]
+file = "docs/readme/README.fr.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview describes paxd and layerxd as two execution domains at line 37, live custody 0x1013 and checkpoint anchor 0x1014 at line 39, retired daemon and old top-level source paths at lines 80-87, and the pre-merge LNI, guarantor and archive architecture in the diagram at lines 148-242."
+expected = "Brief facts 1 and 2 specify a single BFT chain with the kernel in paxd, committed-block receipt finality and no running layerxd, router, guarantor or relay archive. Repository navigation must name current services and contracts paths."
+proposal = "Update docs/readme/README.fr.md with the merged-network architecture in its existing language, replace the full architecture diagram and runtime table, and correct services/agent, services/human, services/interop and contracts/bridge paths. Keep bridge attestation terminology aligned with the actual vault and native bridge contracts."
+owner_domain = 16
+
+[finding.readme-ja]
+file = "docs/readme/README.ja.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview describes paxd and layerxd as two execution domains at line 37, live custody 0x1013 and checkpoint anchor 0x1014 at line 39, retired daemon and old top-level source paths at lines 80-87, and the pre-merge LNI, guarantor and archive architecture in the diagram at lines 148-242."
+expected = "Brief facts 1 and 2 specify a single BFT chain with the kernel in paxd, committed-block receipt finality and no running layerxd, router, guarantor or relay archive. Repository navigation must name current services and contracts paths."
+proposal = "Update docs/readme/README.ja.md with the merged-network architecture in its existing language, replace the full architecture diagram and runtime table, and correct services/agent, services/human, services/interop and contracts/bridge paths. Keep bridge attestation terminology aligned with the actual vault and native bridge contracts."
+owner_domain = 16
+
+[finding.readme-ru]
+file = "docs/readme/README.ru.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview describes paxd and layerxd as two execution domains at line 37, live custody 0x1013 and checkpoint anchor 0x1014 at line 39, retired daemon and old top-level source paths at lines 80-87, and the pre-merge LNI, guarantor and archive architecture in the diagram at lines 148-242."
+expected = "Brief facts 1 and 2 specify a single BFT chain with the kernel in paxd, committed-block receipt finality and no running layerxd, router, guarantor or relay archive. Repository navigation must name current services and contracts paths."
+proposal = "Update docs/readme/README.ru.md with the merged-network architecture in its existing language, replace the full architecture diagram and runtime table, and correct services/agent, services/human, services/interop and contracts/bridge paths. Keep bridge attestation terminology aligned with the actual vault and native bridge contracts."
+owner_domain = 16
+
+[finding.readme-zh-CN]
+file = "docs/readme/README.zh-CN.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview describes paxd and layerxd as two execution domains at line 37, live custody 0x1013 and checkpoint anchor 0x1014 at line 39, retired daemon and old top-level source paths at lines 80-87, and the pre-merge LNI, guarantor and archive architecture in the diagram at lines 148-242."
+expected = "Brief facts 1 and 2 specify a single BFT chain with the kernel in paxd, committed-block receipt finality and no running layerxd, router, guarantor or relay archive. Repository navigation must name current services and contracts paths."
+proposal = "Update docs/readme/README.zh-CN.md with the merged-network architecture in its existing language, replace the full architecture diagram and runtime table, and correct services/agent, services/human, services/interop and contracts/bridge paths. Keep bridge attestation terminology aligned with the actual vault and native bridge contracts."
+owner_domain = 16
+
+[finding.readme-de]
+file = "docs/readme/README.de.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview describes paxd and layerxd as two execution domains at line 37, live custody 0x1013 and checkpoint anchor 0x1014 at line 39, retired daemon and old top-level source paths at lines 80-87, and the pre-merge LNI, guarantor and archive architecture in the diagram at lines 148-242."
+expected = "Brief facts 1 and 2 specify a single BFT chain with the kernel in paxd, committed-block receipt finality and no running layerxd, router, guarantor or relay archive. Repository navigation must name current services and contracts paths."
+proposal = "Update docs/readme/README.de.md with the merged-network architecture in its existing language, replace the full architecture diagram and runtime table, and correct services/agent, services/human, services/interop and contracts/bridge paths. Keep bridge attestation terminology aligned with the actual vault and native bridge contracts."
+owner_domain = 16
+
+[finding.readme-es]
+file = "docs/readme/README.es.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview describes paxd and layerxd as two execution domains at line 37, live custody 0x1013 and checkpoint anchor 0x1014 at line 39, retired daemon and old top-level source paths at lines 80-87, and the pre-merge LNI, guarantor and archive architecture in the diagram at lines 148-242."
+expected = "Brief facts 1 and 2 specify a single BFT chain with the kernel in paxd, committed-block receipt finality and no running layerxd, router, guarantor or relay archive. Repository navigation must name current services and contracts paths."
+proposal = "Update docs/readme/README.es.md with the merged-network architecture in its existing language, replace the full architecture diagram and runtime table, and correct services/agent, services/human, services/interop and contracts/bridge paths. Keep bridge attestation terminology aligned with the actual vault and native bridge contracts."
+owner_domain = 16
+
+[finding.interop-registration-doc]
+file = "docs/wiki/Interop.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "The adapter list names migration, while the gateway registration uses migration-v2. The route table at lines 32-49 omits the four /v2/migration endpoints, so an integrator cannot discover or configure the current migration surface from this page."
+expected = "The documentation check requires adapter identifiers and published routes to agree with services/interop/crates/layerx-interop-gateway/src/server.rs, including the migration-v2 registration and its versioned paths."
+proposal = "Update docs/wiki/Interop.md to list migration-v2 and transcribe the current migration methods and /v2/migration paths from server.rs, including the read-only history route and the distinction between read-only and settling operations."
+owner_domain = 11
+
+[finding.solana-vector-doc]
+file = "contracts/bridge/ATTESTATION-SOLANA.md"
+line = 125
+class = "doc-drift"
+severity = "low"
+observed = "Lines 125-129 say that only the Go vector check exists and that custody and relayer tests are still to be written, although both implementations now have tests against the documented vectors. Lines 45-46 also promise the custody identity module is the only Rust handle derivation, while the relayer implements the same mapping."
+expected = "The mapping document must describe the implemented cross-language vector coverage and the actual ownership of handle derivation without suggesting the Rust producer and consumer checks are absent."
+proposal = "Refresh contracts/bridge/ATTESTATION-SOLANA.md lines 43-46 and 122-129 with links to the current custody and relayer vector tests and an explicit shared vector compatibility rule. Keep the existing digest values and mapping formula unchanged."
+owner_domain = 6
+
+[doc.01]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "misleading"
+notes = "Lines 3, 5 and the bring-up, custody and LNI sections retain the separate daemon, archived batch settlement and retired operator infrastructure; see beta-site or beta-wiki."
+
+[doc.02]
+path = "docs/wiki/BetaCluster.md"
+status = "misleading"
+notes = "Lines 3, 5 and the bring-up, custody and LNI sections retain the separate daemon, archived batch settlement and retired operator infrastructure; see beta-site or beta-wiki."
+
+[doc.03]
+path = "docs/site/docs/interop/x402.md"
+status = "misleading"
+notes = "Lines 26-27, 83-103, 132-165 and the legacy settlement sections around 375-412 contradict the later SequencerEvidence flow: retired /rpc, commitments, grants and batch proofs remain."
+
+[doc.04]
+path = "docs/readme/README.pt-BR.md"
+status = "misleading"
+notes = "Lines 37-41, 80-87 and 148-242 describe two execution domains, retired custody/checkpoints, old repository paths and the pre-merge architecture; see the language-specific readme finding."
+
+[doc.05]
+path = "docs/readme/README.fr.md"
+status = "misleading"
+notes = "Lines 37-41, 80-87 and 148-242 describe two execution domains, retired custody/checkpoints, old repository paths and the pre-merge architecture; see the language-specific readme finding."
+
+[doc.06]
+path = "docs/readme/README.ja.md"
+status = "misleading"
+notes = "Lines 37-41, 80-87 and 148-242 describe two execution domains, retired custody/checkpoints, old repository paths and the pre-merge architecture; see the language-specific readme finding."
+
+[doc.07]
+path = "docs/readme/README.ru.md"
+status = "misleading"
+notes = "Lines 37-41, 80-87 and 148-242 describe two execution domains, retired custody/checkpoints, old repository paths and the pre-merge architecture; see the language-specific readme finding."
+
+[doc.08]
+path = "docs/readme/README.zh-CN.md"
+status = "misleading"
+notes = "Lines 37-41, 80-87 and 148-242 describe two execution domains, retired custody/checkpoints, old repository paths and the pre-merge architecture; see the language-specific readme finding."
+
+[doc.09]
+path = "docs/readme/README.de.md"
+status = "misleading"
+notes = "Lines 37-41, 80-87 and 148-242 describe two execution domains, retired custody/checkpoints, old repository paths and the pre-merge architecture; see the language-specific readme finding."
+
+[doc.10]
+path = "docs/readme/README.es.md"
+status = "misleading"
+notes = "Lines 37-41, 80-87 and 148-242 describe two execution domains, retired custody/checkpoints, old repository paths and the pre-merge architecture; see the language-specific readme finding."
+
+[doc.11]
+path = "docs/wiki/Interop.md"
+status = "stale"
+notes = "Lines 10-12 use migration rather than migration-v2; lines 32-49 omit the versioned migration route table. Existing gateway receipt verification description remains applicable."
+
+[doc.12]
+path = "docs/wiki/X402Transport.md"
+status = "misleading"
+notes = "Lines 26-27, 83-103, 132-165 and the legacy settlement sections around 375-412 contradict the later SequencerEvidence flow: retired /rpc, commitments, grants and batch proofs remain."
+
+[doc.13]
+path = "contracts/bridge/evm/ATTESTATION.md"
+status = "accurate"
+notes = "Inbound and outbound digest domains, field ordering, ascending distinct signer verification and destination threshold behavior agree with the vault and relayer implementations."
+
+[doc.14]
+path = "modules/layerxbridge/ATTESTATION.md"
+status = "accurate"
+notes = "Native bridge attestation fields, nullifier construction, attestor authorization and ABI encodings agree with the relayer builders and native bridge consumer."
+
+[doc.15]
+path = "contracts/bridge/ATTESTATION-SOLANA.md"
+status = "stale"
+notes = "Mapping formulas and worked digests agree with producer and relayer vectors; lines 43-46 and 125-129 still claim unique or not-yet-implemented Rust derivations and tests."
+
+[doc.16]
+path = "services/interop/deploy/mirror/signer-protocol.md"
+status = "accurate"
+notes = "LXCS framing, algorithm tags, key handles, domain/message boundaries and response lengths agree with the relayer signer wrappers and genuine signer binary tests."
+
+[doc.17]
+path = "spec/layerx-merge/contracts/interop-bridge-relayer.md"
+status = "stale"
+notes = "Read the receipt-key and PaxeerRpc construction sections: line 571 declares key_id instead of sequencer_id and line 3038 retains Vec<EndpointConfig>; the frozen snapshot is not the current consumable API."
+
+[doc.18]
+path = "spec/layerx-merge/contracts/interop.md"
+status = "stale"
+notes = "Read bridge-relayer lines 7-45: endpoint fields and transport call/error shapes at lines 17-26 and RpcFault receipt results at lines 22-24 differ from the current served implementation; planned labels are historical."
+
+[doc.19]
+path = "spec/layerx-merge/contracts/interop-gateway.md"
+status = "accurate"
+notes = "Read gateway-sequencer-settlement lines 311-371: pending refusal, signed receipt and log checks and canonical digest rules agree with the implemented path. The pinned planned/UNRUN labels describe its source snapshot, not new qualification."
