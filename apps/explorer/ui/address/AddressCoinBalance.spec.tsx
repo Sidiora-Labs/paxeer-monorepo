@@ -48,7 +48,7 @@ describe('AddressCoinBalance', () => {
     const { container } = render(<AddressCoinBalance/>);
 
     expect(container.querySelector('[data-scan-table-card] [data-title]')?.textContent)
-      .toBe('A total of 50 balance changes found');
+      .toBe('50 visible balance changes');
   });
 
   it('renders nothing when the tab is not the one being shown', () => {

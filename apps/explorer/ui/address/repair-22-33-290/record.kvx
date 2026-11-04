@@ -1,0 +1,61 @@
+[repair.22.33.290]
+audit = "22.30.134"
+base_revision = "f945549b95baf4ec2b0d6bb05148010091c762a2"
+qualification = "hf-build followed by hf-done; the runner ledger records the exact candidate revision, command, exit and private log."
+baseline = "Not executed: the explicit gate order requires complete implementation before hf-build and hf-done and forbids running verify_cmd by hand; no pre-change test failure is claimed."
+peer = "The test starts a loopback HTTP/WebSocket server backed by an in-memory history store and committed API fixtures; production components, query hooks, Next context, Phoenix client and CSV codec execute unchanged."
+
+[finding.coin_history_reconnect_gap]
+test = "coinHistoryRestartRecovery"
+repair = "Successful shared-channel rejoin replies reconcile the first HTTP page and chart; failed reconciliation retains the warning, and reopening the consumer with its existing cache recovers missed balance changes."
+
+[finding.coin_history_growth]
+test = "coinHistoryBoundedStreamCursorAndVisibleCount"
+repair = "Socket events invalidate the need for a local prepend: coalesced authoritative HTTP reads reconcile producer block identities and return a bounded page with its matching cursor."
+
+[finding.coin_history_total]
+test = "coinHistoryBoundedStreamCursorAndVisibleCount"
+repair = "History describes visible balance changes before and after live updates and paging."
+
+[finding.contract_http_waits_for_socket]
+test = "contractHttpWithoutSocketAndDuringStalledJoin"
+repair = "Address readiness enables HTTP contract reads independently of the live channel."
+wiring_request = "apps/explorer/lib/socket/useSocketChannel.tsx — domain 14 explorer transport owner: handle channel join timeout explicitly and notify subscribers."
+
+[finding.unified_identity_test]
+test = "unifiedIdentityNativeResponseValuesAndLink"
+repair = "AddressDetails.spec.tsx asserts evm, pax and did values from nativeUnifiedAccount and the unified account URL; the repair gate also renders that response over HTTP."
+
+[finding.internal_page_csv]
+test = "internalPageCsvFilteredSecondPage"
+repair = "Download Page Data exports exactly the displayed HTTP rows as CSV; the independent date-range export is labeled accordingly."
+
+[finding.token_page_csv]
+test = "tokenPageCsvPreservesTypeTokenDirectionAndPage"
+repair = "The real page CSV preserves type, token address, direction and cursor through the selected HTTP rows; the separate date-range export explicitly says all tokens when a token selection exists."
+wiring_request = "apps/explorer/types/client/address.ts, apps/explorer/ui/pages/CsvExport.tsx, apps/explorer/ui/csvExport/CsvExportForm.tsx and services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/address_controller.ex — domain 14 explorer CSV owner: add a supported typed date-range export contract for selected token types and token address before offering filtered date-range token export."
+
+[finding.nft_page_total]
+test = "nftPageVisibleCountCollectionListAndFilterChange"
+repair = "NFT and collection headings describe visible items across multiple pages, display modes and token-type selection."
+
+[gotcha.gate_order]
+observed = "The audit step asks for a baseline verify but the task's explicit gate order forbids it; qualification follows the explicit gate order and records no invented baseline failures."
+
+[gotcha.target]
+observed = "The explorer TypeScript target is es2017; in-memory balance arithmetic uses BigInt constructors instead of unsupported bigint literals."
+
+[gotcha.shared_channel]
+observed = "useSocketChannel attaches onJoin only for the first subscriber; the address recovery hook observes successful shared-channel replies so later subscribers also reconcile after reconnect."
+
+[gotcha.formatter]
+observed = "The repository ESLint formatter applies layout fixes but also reports non-layout rules, including pre-existing named-test violations in AddressDetails.spec.tsx; no additional lint gate is claimed."
+
+[gotcha.typed_peers]
+observed = "Next router queries are discriminated by route and require an explicit address hash; socket metadata can be null, JSON decoding yields unknown, and the ts-reset filter overload needs each NFT response array narrowed before filtering."
+
+[gotcha.responsive_filter]
+observed = "jsdom excludes the responsive Filter text from the button accessible name; select that real control by its text and assert the fetched ERC-721 row as well as the visible-item heading."
+
+[gotcha.http_lifecycle]
+observed = "Requalification reached an HTTP error state in internalPageCsvFilteredSecondPage before its download link became ready; query readiness now includes the error in its assertion, each loopback HTTP response closes its connection, and teardown cancels and clears every mounted query client before the store resets."
