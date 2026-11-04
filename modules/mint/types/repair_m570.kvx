@@ -1,0 +1,7 @@
+[repair.22.33.570]
+finding = "mint-null-proposal"
+tests = ["TestRepairM_570_MissingMinter", "TestRepairM_570_AbstractFields", "TestRepairM_570_MinterValidation", "TestRepairM_570_ValidProposal"]
+path = "NewMsgSubmitProposal -> protobuf/JSON codec -> unpacked UpdateMinterProposal -> MsgSubmitProposal.ValidateBasic"
+baseline = "Not run: the task's explicit Order prohibits verification before implementation and requires hf-build then hf-done; no pre-change test failure is claimed."
+wiring_requests = []
+evidence = "The runner records the verified candidate revision, command, exit code and private log location in its gate ledger."

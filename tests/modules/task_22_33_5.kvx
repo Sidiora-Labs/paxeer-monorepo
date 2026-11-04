@@ -1,0 +1,35 @@
+[task.22.33.5]
+mode = "BUILD"
+base_revision = "aefa91aa13a43dff9d0a27098f8280d43fd1ed42"
+continuation_base_revision = "f945549b95baf4ec2b0d6bb05148010091c762a2"
+verify_cmd = "make -s test-escrow-capture test-escrow-dispute test-escrow-invariants test-escrow-open test-escrow-timeout"
+evidence = "The runner records the exact candidate revision, command, exit and private log in /out/run/gates.jsonl; the final hf-done evidence line is authoritative."
+baseline = "Not run: the explicit implementation-first order and single hf-done verification rule prohibit step 8's unchanged-tree verification; no baseline failures are claimed."
+
+repair_1 = "Candidate e01095e7551d1f6d115dd724af6058cab541bfbb: cg spec done 22.33.5 -f layerx-merge --root /work/paxeer-monorepo exited 1 (/out/logs/verify-1.log); the existing cross-hold replay fixture shared custody with a later successful capture, so assign its second hold separate funded custody and preserve every replay assertion; set the new epoch recovery fixture's explicit owner authority kind."
+continuation = "The prior attempt stopped in test-escrow-dispute. Its dispatch helper accumulated activity effects despite the production receipt binder requiring exactly one activity event. Give dispatch its own buffer, assert exactly one event, and append to the existing observation buffer so every cumulative event assertion remains intact."
+continuation_repair = "Candidate 8c87519ed620da88c0ebe74f0bc387ef2c80dffc: cg spec done 22.33.5 -f layerx-merge --root /work/paxeer-monorepo exited 1 (/out/logs/verify-1.log); independently validated activity events each start at ordinal zero, so assign their observation-buffer ordinals before the sorted append while preserving their event bodies and every existing assertion."
+continuation_asset_binding = "Attempt 2 stopped before the invariant assertions because the asset runtime omitted its required transfer-state table. The shared audit fixture now derives that table with lx_asset_transfer_state, binds it with the asset record and account registry, and registers and binds asset before escrow on initial creation and snapshot reopen; all invariant assertions remain intact."
+continuation_encoder_repair = "Candidate 7ace79f2648a441b7c568e1d8395ba75273d0563: cg spec done 22.33.5 -f layerx-merge --root /work/paxeer-monorepo exited 1 (/out/logs/verify-1.log); the canonical encoder reserves LXP_MAX_ACTIVITY_BYTES, so its transport buffer and the protocol-3 validation arena must provide that capacity. The invariant test entry point reports execution of all four audit proofs and rebuilds its included fixture."
+
+[finding.22.30.1.8]
+test = "tests/modules/test_escrow_audit.h:audit_escrow_dedicated_custody; audit_escrow_shared_restored_custody"
+proof = "Canonical signed activities pass encode/decode and kernel dispatch for protocol versions 1, 2 and 3; a second hold presenting the first custody account refuses without changing balances, sequences, state root, events or hold records. Opening requires empty custody and exclusive live binding; completed holds may reuse an empty legacy account, preserving the existing sequential lifecycle contract."
+
+[finding.22.30.1.9]
+test = "tests/modules/test_escrow_audit.h:audit_escrow_overfunded_restore; audit_escrow_shared_restored_custody"
+proof = "Real opening and native ledger credit produce an overfunded hold; snapshot write, destruction, recreation and file reload preserve it. Kernel full/partial capture, release, timeout, dispute opening and resolution refuse without moving balances or writing results. A restored shared account refuses even when each hold individually matches its balance. Owner-only excess recovery returns exactly the surplus, preserves the commercial lock, binds replay separately from release, and also handles terminal surplus."
+
+[finding.22.30.1.10]
+test = "tests/modules/test_escrow_audit.h:audit_escrow_overfunded_restore; audit_escrow_post_settlement_rollback"
+proof = "Shared transition preparation checks binding and the production invariant before settlement and dispute opening. Shared settlement validates its projected lock after the real ledger application and result commit validates terminal state. A self-beneficiary capture reaches the real ledger, fails the post-settlement invariant and rolls back balances, account sequence, hold and result writes; reopened inconsistent holds refuse before settlement."
+
+[finding.22.30.1.11]
+test = "tests/modules/test_escrow_audit.h:audit_escrow_epoch_chunks; tests/modules/test_escrow_timeout.c:sweep_capacity"
+proof = "Registered epoch transition processes 25 and 49 simultaneous expiries in deterministic chunks of 24, assembling one transfer set under the existing protocol/journal limits. A late inconsistent hold rolls back the epoch, state sequence, module state and balances; owner recovery then permits the same transition and all 49 exact refund results are asserted, followed by a no-double-refund epoch."
+
+[wiring]
+owner_recovery = "include/layerx/lx_escrow.h and modules/layerxpay/keeper (owning domains 1 kernel and 3 layerxpay): expose lx_escrow_recover_excess_execute through an explicitly owner-authenticated recovery admission; it is internally declared in src/modules/escrow/lx_escrow_internal.h and deliberately unavailable as an ordinary release or capture."
+
+[notes]
+gotchas = "No earlier gates existed in /out/run/gate.json. Kernel module contexts admit one economic transfer set, so chunks share one assembled set and the same journal instead of committing chunks independently. No repository C formatter is configured or installed; touched C follows the existing four-space style."

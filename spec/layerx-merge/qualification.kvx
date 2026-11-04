@@ -23739,3 +23739,107 @@ symbol = "repair_22_33_493_test.exs"
 observed = "Attempt 1: a connection ownership error after the scanner restart and an empty transaction-actions parse; the repair budget was spent."
 assumption = "Test wiring of the database connection ownership and an unsupported synthetic log."
 severity = "medium"
+
+[finding.22.33.575.1]
+task = "22.33.575"
+file = "apps/perps/tests/repair-22-33-575.test.ts"
+symbol = "repair-22-33-575.test.ts"
+observed = "Attempt 1: the perps type-check fails on unresolved wallet SDK dependencies before this task's tests run."
+assumption = "An environment gap of the gate, not a defect of the repair."
+severity = "medium"
+
+[finding.22.33.577.1]
+task = "22.33.577"
+file = "apps/perps/tests/repair-22-33-577.test.ts"
+symbol = "repair-22-33-577.test.ts"
+observed = "Attempt 1: the perps type-check fails on unresolved wallet SDK dependencies before this task's tests run."
+assumption = "An environment gap of the gate, not a defect of the repair."
+severity = "medium"
+
+[finding.22.33.579.1]
+task = "22.33.579"
+file = "apps/perps/tests/repair-22-33-579.test.ts"
+symbol = "repair-22-33-579.test.ts"
+observed = "Attempt 1: the perps type-check fails on unresolved wallet SDK dependencies before this task's tests run."
+assumption = "An environment gap of the gate, not a defect of the repair."
+severity = "medium"
+
+[finding.22.33.580.1]
+task = "22.33.580"
+file = "apps/perps/tests/repair-22-33-580.test.ts"
+symbol = "repair-22-33-580.test.ts"
+observed = "Attempt 1: the perps type-check fails on unresolved wallet SDK dependencies before this task's tests run."
+assumption = "An environment gap of the gate, not a defect of the repair."
+severity = "medium"
+
+[finding.22.33.267.1]
+task = "22.33.267"
+file = "apps/bridge/src/components/repair-22-33-267.spec.ts"
+symbol = "repair-22-33-267.spec.ts"
+observed = "Attempt 1: the bridge type-check fails on the LayoutProps name before this task's tests run."
+assumption = "An environment blocker of the bridge gate, fixed independently of this task."
+severity = "medium"
+
+[finding.22.33.266.2]
+task = "22.33.266"
+file = "apps/bridge/src/test/repair-22-33-266.spec.ts"
+symbol = "repair-22-33-266.spec.ts"
+observed = "Attempt 2: the bridge type-check fails on the LayoutProps name before this task's tests run."
+assumption = "An environment blocker of the bridge gate, fixed independently of this task."
+severity = "medium"
+
+[finding.22.33.371.1]
+task = "22.33.371"
+file = "apps/explorer/ui/zetaChain/cctxDetails/repair-22-33-371.spec.ts"
+symbol = "repair-22-33-371.spec.ts"
+observed = "Attempt 1: the explorer type-check stopped on the pnpm and yarn mismatch before TypeScript ran."
+assumption = "An environment blocker of the explorer gate, fixed independently of this task."
+severity = "medium"
+
+[finding.22.33.329.2]
+task = "22.33.329"
+file = "apps/explorer/ui/shared/pagination/repair-22-33-329.spec.ts"
+symbol = "repair-22-33-329.spec.ts"
+observed = "Attempt 2: the explorer type-check stopped on the pnpm and yarn mismatch before TypeScript ran."
+assumption = "An environment blocker of the explorer gate, fixed independently of this task."
+severity = "medium"
+
+[finding.22.33.466.2]
+task = "22.33.466"
+file = "apps/explorer/ui/tokens/repair-22-33-466.spec.ts"
+symbol = "repair-22-33-466.spec.ts"
+observed = "Attempt 2: the explorer type-check stopped on the pnpm and yarn mismatch before TypeScript ran."
+assumption = "An environment blocker of the explorer gate, fixed independently of this task."
+severity = "medium"
+
+[finding.22.31.279.3]
+task = "22.31.279"
+file = "services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_279.rs"
+symbol = "repair_22_31_279.rs"
+observed = "Attempt 4: two E0308 mismatches in a test outside this task's paths stop the build; the task's own tests did not run."
+assumption = "An unrelated producer change left a consumer test behind; blocked until 22.31.445 publishes."
+severity = "medium"
+
+[finding.22.33.206.1]
+task = "22.33.206"
+file = "apps/wallet/src/surfaces/test/repair-22-33-206.test.ts"
+symbol = "repair-22-33-206.test.ts"
+observed = "Attempt 1: one case failed on a precompile ABI calldata value; the repair of that case was never verified."
+assumption = "A fixture encoding defect repaired after the last verify."
+severity = "low"
+
+[finding.22.33.541.1]
+task = "22.33.541"
+file = "apps/explorer/nextjs/getServerSideProps/repair-22-33-541.spec.ts"
+symbol = "repair-22-33-541.spec.ts"
+observed = "Attempt 1: one case failed on the telemetry hostname; the repair of that case was never verified."
+assumption = "A fixture host mismatch repaired after the last verify."
+severity = "low"
+
+[finding.22.33.337.2]
+task = "22.33.337"
+file = "apps/web/e2e/repair-22-33-337.test.ts"
+symbol = "repair-22-33-337.test.ts"
+observed = "Attempt 2: the suite fails with ERR_MODULE_NOT_FOUND on next/link before any assertion runs; the type-check passes."
+assumption = "A test importing a bundler-only entry under node --test."
+severity = "medium"

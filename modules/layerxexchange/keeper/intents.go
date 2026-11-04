@@ -31,14 +31,8 @@ func layerxAmount(amount sdk.Int) bool {
 }
 
 func (k *Keeper) retirementError(ctx sdk.Context) error {
-	upgrade, ok := k.upgrade.(interface {
-		GetDoneHeight(sdk.Context, string) int64
-	})
-	if !ok {
-		return sdkerrors.Wrap(types.ErrKeeperMissing, "upgrade keeper done-height reader")
-	}
 	return sdkerrors.Wrapf(types.ErrRetired, "%s done at height %d", types.RetiredFromUpgrade,
-		upgrade.GetDoneHeight(ctx, types.RetiredFromUpgrade))
+		k.upgrade.GetDoneHeight(ctx, types.RetiredFromUpgrade))
 }
 
 // record assigns the owner's next nonce and its intent identifier and stores

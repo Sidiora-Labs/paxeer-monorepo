@@ -96,6 +96,16 @@ func (k *Keeper) EndBlock(ctx sdk.Context) []types.EventRecord {
 		k.endBlockFailure(pass, stageSetup, nil, err)
 		return nil
 	}
+	// All liquidation, coverage and backstop-close calls debit the same durable
+	// height-scoped ledger through ExecuteADL. Keep it in the pass transaction:
+	// failed isolated work or a failed receipt must not consume the allowance,
+	// and re-entering EndBlock at this height must not replenish it.
+	budget, err := k.loadADLBudget(passCtx)
+	if err != nil {
+		k.endBlockFailure(pass, stageSetup, nil, err)
+		return nil
+	}
+	k.storeADLBudget(passCtx, budget)
 	pass.params = params
 	if err := k.IterateMarkets(passCtx, func(market types.Market) bool {
 		if market.Enabled {
