@@ -162636,7 +162636,7 @@ do_10 = "The candidate carries only sources under the touches and the test file:
 
 [task.22.31.295]
 title = "Repair audit record 22.30.165 findings in sdk/types/module: restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -162960,7 +162960,7 @@ do_11 = "The candidate carries only sources under the touches and the test file:
 
 [task.22.31.285]
 title = "Repair audit record 22.30.162 findings in sdk/x/slashing/client/rest: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
