@@ -1,0 +1,1257 @@
+[audit.22.30.19]
+task = "22.30.19"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 137
+findings = 38
+docs_reviewed = 4
+upgrade_ready = false
+blocking = ["surface_authority","embedded_signer_scope","embedded_message_encoding","embedded_eth_sign_contract","embedded_typed_data"]
+
+[file.001]
+path = "apps/launchpad/web/src/core/analytics.ts"
+lines = 28
+verdict = "issues"
+note = "Configured event collection has no production transport; see analytics_delivery."
+
+[file.002]
+path = "apps/launchpad/web/src/core/app-foundation/cache-scope.ts"
+lines = 23
+verdict = "clean"
+note = "Reviewed chain/deployment, wallet and session key validation and the private no-persistence policy."
+
+[file.003]
+path = "apps/launchpad/web/src/core/app-foundation/design-tokens.json"
+lines = 10
+verdict = "clean"
+note = "Reviewed all static color, spacing, radius, typography and motion token values; no runtime interface."
+
+[file.004]
+path = "apps/launchpad/web/src/core/app-foundation/draft-store.ts"
+lines = 59
+verdict = "clean"
+note = "Reviewed allowlisted nonsecret payloads, consent, byte budgets, expiry and deployment-change recovery."
+
+[file.005]
+path = "apps/launchpad/web/src/core/app-foundation/history-context.ts"
+lines = 63
+verdict = "clean"
+note = "Reviewed route/address validation, filter allowlist, history-state ownership and deferred scroll restoration."
+
+[file.006]
+path = "apps/launchpad/web/src/core/app-foundation/navigation.test.ts"
+lines = 94
+verdict = "clean"
+note = "Reviewed navigation, address normalization and safe destination assertions against route helpers."
+
+[file.007]
+path = "apps/launchpad/web/src/core/app-foundation/navigation.ts"
+lines = 74
+verdict = "clean"
+note = "Reviewed route matching, chain-125 entity identity and external destination restrictions."
+
+[file.008]
+path = "apps/launchpad/web/src/core/app-foundation/private-cache.ts"
+lines = 23
+verdict = "clean"
+note = "Reviewed cancellation/removal before principal publication, mutation clearing and deployment invalidation."
+
+[file.009]
+path = "apps/launchpad/web/src/core/app-foundation/recovery.ts"
+lines = 20
+verdict = "clean"
+note = "Reviewed recovery classification, bounded retry scheduling and synchronous draft handoff registration."
+
+[file.010]
+path = "apps/launchpad/web/src/core/app-foundation/redacted-report.ts"
+lines = 11
+verdict = "clean"
+note = "Reviewed allowlisted telemetry fields and correlation identifiers; raw errors and page URLs are excluded."
+
+[file.011]
+path = "apps/launchpad/web/src/core/app-foundation/search-client.test.ts"
+lines = 45
+verdict = "clean"
+note = "Reviewed normalization, unavailable classification and metadata identity assertions; image projection is reported in the implementation."
+
+[file.012]
+path = "apps/launchpad/web/src/core/app-foundation/search-client.ts"
+lines = 127
+verdict = "issues"
+note = "Reviewed pool/token/profile search, metadata limits and cancellation; approved logo information is discarded."
+
+[file.013]
+path = "apps/launchpad/web/src/core/app-foundation/use-dialog-focus.test.tsx"
+lines = 117
+verdict = "clean"
+note = "Reviewed all background ownership assertions, including two mounted dialogs; they do not establish usable focus in the overlapping state."
+
+[file.014]
+path = "apps/launchpad/web/src/core/app-foundation/use-dialog-focus.ts"
+lines = 79
+verdict = "issues"
+note = "Reviewed keyboard containment and inert ownership; overlapping dialogs can trap one another."
+
+[file.015]
+path = "apps/launchpad/web/src/core/app-foundation/window.ts"
+lines = 14
+verdict = "clean"
+note = "Reviewed finite geometry, safe total height and the 200-row mounted DOM budget."
+
+[file.016]
+path = "apps/launchpad/web/src/core/backend-origins.test.ts"
+lines = 221
+verdict = "clean"
+note = "Reviewed configured origins, development isolation, CSP and feature-conditional connection assertions against the resolver and middleware."
+
+[file.017]
+path = "apps/launchpad/web/src/core/backend-origins.ts"
+lines = 232
+verdict = "issues"
+note = "Reviewed required configuration, HTTPS policy, optional wallet endpoints and CSP derivation; parent-origin validation differs from the backend policy."
+
+[file.018]
+path = "apps/launchpad/web/src/core/cache-policy.ts"
+lines = 74
+verdict = "clean"
+note = "Reviewed per-resource stale, polling and retention policies and hidden-tab behavior."
+
+[file.019]
+path = "apps/launchpad/web/src/core/charts-udf.ts"
+lines = 19
+verdict = "clean"
+note = "Reviewed the versioned UDF route constants and same-origin/default chart routing."
+
+[file.020]
+path = "apps/launchpad/web/src/core/clients/candle-stats.ts"
+lines = 79
+verdict = "issues"
+note = "Reviewed every history decoder and statistic calculation; unavailable data becomes zero and labelled windows exceed their stated periods."
+
+[file.021]
+path = "apps/launchpad/web/src/core/clients/chat-api.ts"
+lines = 102
+verdict = "clean"
+note = "Reviewed bearer-only REST, v2 envelopes, durable message fields, action revisions and exact ticket binding/digest."
+
+[file.022]
+path = "apps/launchpad/web/src/core/clients/chat-auth.ts"
+lines = 142
+verdict = "issues"
+note = "Reviewed the complete legacy sessionStorage signature cache; no current importer uses this authentication path."
+
+[file.023]
+path = "apps/launchpad/web/src/core/clients/chat-ws.ts"
+lines = 129
+verdict = "clean"
+note = "Reviewed credential-free URLs, ticket subprotocol, desired subscriptions, heartbeat, reconnect and authorization refresh against the live social/gateway handlers."
+
+[file.024]
+path = "apps/launchpad/web/src/core/clients/explorer-api.ts"
+lines = 230
+verdict = "clean"
+note = "Reviewed configured Blockscout paths, pagination, transfer normalization and explicit unavailable errors."
+
+[file.025]
+path = "apps/launchpad/web/src/core/clients/livestream-api.ts"
+lines = 145
+verdict = "clean"
+note = "Reviewed gateway paths, error-envelope and Retry-After handling, playback validation and provisioned/unavailable states."
+
+[file.026]
+path = "apps/launchpad/web/src/core/clients/meta-ag.ts"
+lines = 595
+verdict = "clean"
+note = "Reviewed every quote/order tuple and hook against Solidity signatures; zero optional bindings remain disabled and writes refuse before dispatch."
+
+[file.027]
+path = "apps/launchpad/web/src/core/clients/metadata.ts"
+lines = 245
+verdict = "issues"
+note = "Reviewed legacy/v2 reads, bounded decoding, action statements and approved media shapes; shared single-token cancellation has no independent subscriber ownership."
+
+[file.028]
+path = "apps/launchpad/web/src/core/clients/paxscan.ts"
+lines = 138
+verdict = "issues"
+note = "Reviewed deprecated first-page supply calculation and fabricated empty error responses; no current importer uses this client."
+
+[file.029]
+path = "apps/launchpad/web/src/core/clients/social-gateway.test.ts"
+lines = 308
+verdict = "issues"
+note = "Reviewed the full Node HTTP/WebSocket fixture and assertions; its stated live upgrade authentication limitation is outdated."
+
+[file.030]
+path = "apps/launchpad/web/src/core/clients/token-image.ts"
+lines = 76
+verdict = "issues"
+note = "Reviewed scheme/SVG handling and legacy image host list; no current importer uses either exported helper."
+
+[file.031]
+path = "apps/launchpad/web/src/core/community-lane-config.test.ts"
+lines = 12
+verdict = "clean"
+note = "Reviewed that the community lane include actually matches the existing interaction controls suite."
+
+[file.032]
+path = "apps/launchpad/web/src/core/iframe-bridge-init.ts"
+lines = 14
+verdict = "clean"
+note = "Reviewed browser-only iframe initialization and refusal to install outside an embedded window."
+
+[file.033]
+path = "apps/launchpad/web/src/core/lane-cache-dirs.test.ts"
+lines = 42
+verdict = "clean"
+note = "Reviewed all three lane cache default checks against the web workspace; no external cache default is asserted."
+
+[file.034]
+path = "apps/launchpad/web/src/core/market/client.ts"
+lines = 93
+verdict = "issues"
+note = "Reviewed public, gateway, stats and bearer-bound client construction; accepted base path prefixes are lost at origin conversion."
+
+[file.035]
+path = "apps/launchpad/web/src/core/market/development-refusal.test.ts"
+lines = 92
+verdict = "clean"
+note = "Reviewed production Unsupported behavior for development-only operations and the before-network refusal assertion."
+
+[file.036]
+path = "apps/launchpad/web/src/core/market/market-units.test.ts"
+lines = 30
+verdict = "clean"
+note = "Reviewed exact decimal conversion, basis points, oversized count and precision-bound assertions."
+
+[file.037]
+path = "apps/launchpad/web/src/core/market/market-units.ts"
+lines = 59
+verdict = "clean"
+note = "Reviewed canonical integer bounds, lossless USDL conversion and explicit number-conversion refusal."
+
+[file.038]
+path = "apps/launchpad/web/src/core/market/operations.ts"
+lines = 42
+verdict = "clean"
+note = "Reviewed public/session/gateway operation factories, weak client reuse and context selection."
+
+[file.039]
+path = "apps/launchpad/web/src/core/market/platform-metrics.ts"
+lines = 64
+verdict = "clean"
+note = "Reviewed 24-hour producer fields, optional 2.2.0 aggregates and quarantine refusal; missing values remain absent."
+
+[file.040]
+path = "apps/launchpad/web/src/core/market/pool-listings.test.ts"
+lines = 94
+verdict = "clean"
+note = "Reviewed recorded production read envelopes, exact reserves-based prices, cache seeding and the explicitly unserved-pool case."
+
+[file.041]
+path = "apps/launchpad/web/src/core/market/pool-listings.ts"
+lines = 169
+verdict = "issues"
+note = "Reviewed immutable listing cache and detail identity guards; partial success hides integrity and unexpected failures."
+
+[file.042]
+path = "apps/launchpad/web/src/core/market/pool-resolver.test.ts"
+lines = 140
+verdict = "clean"
+note = "Reviewed token/pool resolution over recorded routes, metadata absence, statistics failures and identity disagreement assertions."
+
+[file.043]
+path = "apps/launchpad/web/src/core/market/pool-resolver.ts"
+lines = 146
+verdict = "clean"
+note = "Reviewed detail/search resolution, chain and cross-entity checks, quarantine refusal and separate unavailable markers."
+
+[file.044]
+path = "apps/launchpad/web/src/core/market/pool-stats-display.test.ts"
+lines = 63
+verdict = "clean"
+note = "Reviewed raw unit, baseline quality, nullable valuation and holder share display assertions."
+
+[file.045]
+path = "apps/launchpad/web/src/core/market/pool-stats-display.ts"
+lines = 131
+verdict = "clean"
+note = "Reviewed 2.2.0 field quality distinctions, exact valuations and unavailable display behavior."
+
+[file.046]
+path = "apps/launchpad/web/src/core/market/profile-absence.ts"
+lines = 53
+verdict = "issues"
+note = "Reviewed sessionStorage hydration, persistence and profile-save invalidation; negative entries have no count or age bound."
+
+[file.047]
+path = "apps/launchpad/web/src/core/market/unsupported.test.ts"
+lines = 77
+verdict = "clean"
+note = "Reviewed status/code classification, malformed envelope treatment and preservation of genuine failures."
+
+[file.048]
+path = "apps/launchpad/web/src/core/market/unsupported.ts"
+lines = 98
+verdict = "clean"
+note = "Reviewed explicit capability-not-served markers, signed-out classification and safe action messages."
+
+[file.049]
+path = "apps/launchpad/web/src/core/market/use-candles.ts"
+lines = 49
+verdict = "clean"
+note = "Reviewed half-open UTC ranges, limits, interval/pool/model identity and duplicate bucket refusal."
+
+[file.050]
+path = "apps/launchpad/web/src/core/market/use-feed.ts"
+lines = 49
+verdict = "clean"
+note = "Reviewed discovery feed limits, callout pool identity and real Unsupported handling rather than synthetic rows."
+
+[file.051]
+path = "apps/launchpad/web/src/core/market/use-holders.test.tsx"
+lines = 38
+verdict = "clean"
+note = "Reviewed stats-host routing and absence behavior against the recorded HTTP source."
+
+[file.052]
+path = "apps/launchpad/web/src/core/market/use-holders.ts"
+lines = 89
+verdict = "clean"
+note = "Reviewed canonical transfer coverage, stats-host legacy shares, cursor identity, duplicate and quarantine guards."
+
+[file.053]
+path = "apps/launchpad/web/src/core/market/use-leaderboard.ts"
+lines = 40
+verdict = "clean"
+note = "Reviewed category/window, wallet/rank uniqueness, raw metric bounds and unserved capability handling."
+
+[file.054]
+path = "apps/launchpad/web/src/core/market/use-pool-snapshot.ts"
+lines = 25
+verdict = "clean"
+note = "Reviewed normalized address gating and composition through the served-route pool resolver."
+
+[file.055]
+path = "apps/launchpad/web/src/core/market/use-profile.ts"
+lines = 77
+verdict = "clean"
+note = "Reviewed v3-to-v2 capability fallback, genuine absence caching and refusal to expose owner-only avatar assets publicly."
+
+[file.056]
+path = "apps/launchpad/web/src/core/market/use-rankings.ts"
+lines = 35
+verdict = "clean"
+note = "Reviewed bare first-page requests, explicit pagination refusal, category identity and client-side display limits."
+
+[file.057]
+path = "apps/launchpad/web/src/core/market/use-sparkline.test.ts"
+lines = 38
+verdict = "clean"
+note = "Reviewed timestamp windowing, exact price conversion and preservation of unavailable/error states."
+
+[file.058]
+path = "apps/launchpad/web/src/core/market/use-sparkline.ts"
+lines = 66
+verdict = "clean"
+note = "Reviewed bounded request concurrency, canonical candle conversion and finite sparkline series."
+
+[file.059]
+path = "apps/launchpad/web/src/core/market/use-stats-batch.ts"
+lines = 61
+verdict = "clean"
+note = "Reviewed requested-pool bounds, duplicate/unexpected identity and quarantined row rejection."
+
+[file.060]
+path = "apps/launchpad/web/src/core/market/use-wallet-identities.test.tsx"
+lines = 171
+verdict = "clean"
+note = "Reviewed real HTTP batching, missing profile handling, request coalescing and identity fallback behavior."
+
+[file.061]
+path = "apps/launchpad/web/src/core/market/use-wallet-identities.ts"
+lines = 135
+verdict = "clean"
+note = "Reviewed 50-wallet batch projection, four-request concurrency, shared pending requests and absent-profile behavior."
+
+[file.062]
+path = "apps/launchpad/web/src/core/market/use-watchlist-rows.ts"
+lines = 62
+verdict = "clean"
+note = "Reviewed explicit loadable states, pool identity composition and bounded watchlist rows."
+
+[file.063]
+path = "apps/launchpad/web/src/core/network/abis/FeesRouter.json"
+lines = 707
+verdict = "generated"
+note = "Generated ABI copy of precompiles/launchpad/abi/FeesRouter.json; all 50 entries match the current source JSON."
+
+[file.064]
+path = "apps/launchpad/web/src/core/network/abis/MetaAGQuoter.json"
+lines = 1261
+verdict = "generated"
+note = "Generated Solidity MetaAGQuoter ABI; reviewed function/tuple inventory against the disabled optional quote hooks."
+
+[file.065]
+path = "apps/launchpad/web/src/core/network/abis/MetaAGRouter.json"
+lines = 1252
+verdict = "generated"
+note = "Generated Solidity MetaAGRouter ABI; reviewed adapter/quote/swap tuple inventory; optional deployment remains unavailable."
+
+[file.066]
+path = "apps/launchpad/web/src/core/network/abis/OpticalRegistry.json"
+lines = 596
+verdict = "generated"
+note = "Generated Solidity OpticalRegistry ABI; signatures match the registry read hooks and the retained ERC1967 role."
+
+[file.067]
+path = "apps/launchpad/web/src/core/network/abis/PECOROrders.json"
+lines = 1571
+verdict = "generated"
+note = "Generated Solidity PECOROrders ABI; reviewed limit/stop order tuple inventory and optional capability refusal."
+
+[file.068]
+path = "apps/launchpad/web/src/core/network/abis/Quoter.json"
+lines = 681
+verdict = "generated"
+note = "Generated ABI copy of precompiles/launchpad/abi/Quoter.json; all 44 entries match the current source JSON."
+
+[file.069]
+path = "apps/launchpad/web/src/core/network/abis/Router.json"
+lines = 1074
+verdict = "generated"
+note = "Generated ABI copy of precompiles/launchpad/abi/Router.json; all 55 entries match the current source JSON."
+
+[file.070]
+path = "apps/launchpad/web/src/core/network/abis/feesrouter-abi.test.ts"
+lines = 14
+verdict = "issues"
+note = "Reviewed the complete FeesRouter ABI test and named registration; its set comparison checks top-level identities but omits return types, tuple components and other encoding fields. Current ABI equality was inspected separately; missing shape coverage is reported."
+
+[file.071]
+path = "apps/launchpad/web/src/core/network/abis/quoter-abi.test.ts"
+lines = 14
+verdict = "issues"
+note = "Reviewed the complete Quoter ABI test and named registration; its set comparison checks top-level identities but omits return types, tuple components and other encoding fields. Current ABI equality was inspected separately; missing shape coverage is reported."
+
+[file.072]
+path = "apps/launchpad/web/src/core/network/abis/router-abi.test.ts"
+lines = 20
+verdict = "issues"
+note = "Reviewed the complete Router ABI test and named registration; its set comparison checks top-level identities but omits return types, tuple components and other encoding fields. Current ABI equality was inspected separately; missing shape coverage is reported."
+
+[file.073]
+path = "apps/launchpad/web/src/core/network/chain-dispatch.integration.test.tsx"
+lines = 127
+verdict = "clean"
+note = "Reviewed real local-chain dispatch, portable anvil selection, approval reset and mutation observation."
+
+[file.074]
+path = "apps/launchpad/web/src/core/network/contracts.ts"
+lines = 368
+verdict = "clean"
+note = "Reviewed each ERC20, Router, Quoter, fee-right and OpticalRegistry wrapper against its current ABI and manifest address."
+
+[file.075]
+path = "apps/launchpad/web/src/core/network/deployment.ts"
+lines = 101
+verdict = "issues"
+note = "Generated deployment helper was read in full, including handwritten additions; current role identities are correct but its generator omits live exports and fields."
+
+[file.076]
+path = "apps/launchpad/web/src/core/next-build-config.test.ts"
+lines = 137
+verdict = "clean"
+note = "Reviewed declared dependency list, loopback/default origins, rejected origin syntax and production/development rewrite assertions."
+
+[file.077]
+path = "apps/launchpad/web/src/core/next-build-config.ts"
+lines = 107
+verdict = "clean"
+note = "Reviewed seven transpile dependencies, hostname-only dev origins and required explicit production upstream route ownership."
+
+[file.078]
+path = "apps/launchpad/web/src/core/operation-envelope.test.ts"
+lines = 94
+verdict = "clean"
+note = "Reviewed canonicalization, exact Go-generated statements/signatures and context mismatch refusal assertions."
+
+[file.079]
+path = "apps/launchpad/web/src/core/operation-envelope.ts"
+lines = 181
+verdict = "clean"
+note = "Reviewed Go-compatible JSON/hash and statement encodings, path/query bounds, action context, expiry and signature construction."
+
+[file.080]
+path = "apps/launchpad/web/src/core/policy-block.ts"
+lines = 86
+verdict = "clean"
+note = "Reviewed bounded CSP violation tracking, origin matching and typed policy-blocked failure detection."
+
+[file.081]
+path = "apps/launchpad/web/src/core/post-message-eip1193.ts"
+lines = 250
+verdict = "issues"
+note = "Reviewed every request/response and cleanup path; parent Window identity, outbound origin and pending-promise teardown are insufficiently bound."
+
+[file.082]
+path = "apps/launchpad/web/src/core/query-keys.ts"
+lines = 112
+verdict = "clean"
+note = "Reviewed resource key construction, origin-aware market batches and wallet/session resource identities against callers."
+
+[file.083]
+path = "apps/launchpad/web/src/core/realtime/data-stream.test.ts"
+lines = 197
+verdict = "clean"
+note = "Reviewed full shared-stream lifecycle, topic union limits, snapshot installation, consumer failure and authorization reset assertions."
+
+[file.084]
+path = "apps/launchpad/web/src/core/realtime/data-stream.ts"
+lines = 197
+verdict = "clean"
+note = "Reviewed v2 snapshot/resume wiring, topic multiplexing, consumer isolation, replaceable-state batching and logout disposal."
+
+[file.085]
+path = "apps/launchpad/web/src/core/realtime/raf-batch.test.ts"
+lines = 77
+verdict = "clean"
+note = "Reviewed scheduler cancellation, keyed buffer bounds, eviction and jitter assertions."
+
+[file.086]
+path = "apps/launchpad/web/src/core/realtime/raf-batch.ts"
+lines = 135
+verdict = "clean"
+note = "Reviewed animation-frame scheduling, bounded keyed coalescing and capped reconnect jitter."
+
+[file.087]
+path = "apps/launchpad/web/src/core/realtime/use-data-stream.ts"
+lines = 78
+verdict = "clean"
+note = "Reviewed effect topic identity, callback refs, abort/release ordering and synchronous snapshot consumer binding."
+
+[file.088]
+path = "apps/launchpad/web/src/core/realtime/ws-manager.ts"
+lines = 424
+verdict = "issues"
+note = "Reviewed the complete legacy manager; no current source instantiates it and its sequence-gap path cannot advance after a missing frame."
+
+[file.089]
+path = "apps/launchpad/web/src/core/report-error.ts"
+lines = 57
+verdict = "issues"
+note = "Reviewed Sentry and beacon paths against the real error sink; full page URL and unredacted error/context reach server logs."
+
+[file.090]
+path = "apps/launchpad/web/src/core/rpc.ts"
+lines = 44
+verdict = "issues"
+note = "Reviewed endpoint precedence and merged default root endpoint; validation accepts insecure or retired/mirror/path overrides."
+
+[file.091]
+path = "apps/launchpad/web/src/core/runtime-authority-production.test.ts"
+lines = 104
+verdict = "issues"
+note = "Reviewed every private-profile acceptance/refusal assertion; no positive production authority round-trip covers current surface roles."
+
+[file.092]
+path = "apps/launchpad/web/src/core/runtime-authority.ts"
+lines = 266
+verdict = "issues"
+note = "Reviewed fixture isolation, authority hashes, roles, committed head, expiry and preflight binding; valid surface identities are rejected in production."
+
+[file.093]
+path = "apps/launchpad/web/src/core/sdk-config-exports.test.ts"
+lines = 12
+verdict = "clean"
+note = "Reviewed runtime module export assertions retaining gatewayUrl while removing the retired mediaApiUrl alias."
+
+[file.094]
+path = "apps/launchpad/web/src/core/sdk-config.ts"
+lines = 152
+verdict = "clean"
+note = "Reviewed resolver-backed REST URL joining, social gateway routing, stats optionality and WebSocket conversion."
+
+[file.095]
+path = "apps/launchpad/web/src/core/test-anvil.test.ts"
+lines = 59
+verdict = "clean"
+note = "Reviewed executable fixture/PATH precedence and fail-closed no-candidate assertions."
+
+[file.096]
+path = "apps/launchpad/web/src/core/test-anvil.ts"
+lines = 26
+verdict = "clean"
+note = "Reviewed executable regular-file checks, ANVIL_BIN precedence, PATH resolution and explicit failure."
+
+[file.097]
+path = "apps/launchpad/web/src/core/test-fixtures/livestream-errors/envelopes.json"
+lines = 183
+verdict = "generated"
+note = "Generated recorded HTTP bytes from real livestream writers and gateway failure projection; provenance names the source handlers and capture method."
+
+[file.098]
+path = "apps/launchpad/web/src/core/test-fixtures/market-production/charts-wire.json"
+lines = 106
+verdict = "generated"
+note = "Generated recorded production UDF replies, including explicit retryable 503 history windows; provenance names real handlers and source pool."
+
+[file.099]
+path = "apps/launchpad/web/src/core/test-fixtures/market-production/core-api-wire.json"
+lines = 1720
+verdict = "generated"
+note = "Generated recorded API snapshots, stats, trades, candles and stream frames; provenance records real production writers and the 2.2.0 recapture."
+
+[file.100]
+path = "apps/launchpad/web/src/core/test-fixtures/market-production/v2-reads.ts"
+lines = 86
+verdict = "clean"
+note = "Reviewed bounded local replay server, request matching and source-backed v2 fixture selection; this replay does not substitute for live qualification."
+
+[file.101]
+path = "apps/launchpad/web/src/core/test-fixtures/operation-envelope/go-vectors.json"
+lines = 154
+verdict = "generated"
+note = "Generated Go OperationEnvelope.Statement and go-ethereum test signatures; the public fixture key is test material, not deployed wallet custody."
+
+[file.102]
+path = "apps/launchpad/web/src/core/test-fixtures/operation-envelope/main.go"
+lines = 137
+verdict = "clean"
+note = "Reviewed complete deterministic vector generator using the shared Go statement/hash/signature producer."
+
+[file.103]
+path = "apps/launchpad/web/src/core/transient-retry.test.ts"
+lines = 150
+verdict = "clean"
+note = "Reviewed cancellation, bounded retry budget, HTTP retry hints and non-retryable policy/error assertions."
+
+[file.104]
+path = "apps/launchpad/web/src/core/transient-retry.ts"
+lines = 174
+verdict = "clean"
+note = "Reviewed network/error classification, Retry-After bounds, cancellation cleanup and elapsed retry budget."
+
+[file.105]
+path = "apps/launchpad/web/src/core/user-facing-error.test.ts"
+lines = 99
+verdict = "clean"
+note = "Reviewed refusal/status copy mapping, raw technical-message suppression and cause retention assertions."
+
+[file.106]
+path = "apps/launchpad/web/src/core/user-facing-error.ts"
+lines = 223
+verdict = "clean"
+note = "Reviewed status/code precedence, safe product copy, CSP configuration classification and original-cause preservation."
+
+[file.107]
+path = "apps/launchpad/web/src/core/vitest-env.test.ts"
+lines = 25
+verdict = "clean"
+note = "Reviewed default test environment URL assertions restricting backend hosts to loopback."
+
+[file.108]
+path = "apps/launchpad/web/src/core/wagmi-config.ts"
+lines = 116
+verdict = "clean"
+note = "Reviewed chain-125 transports, optional connector configuration, browser singleton and per-request SSR configuration isolation."
+
+[file.109]
+path = "apps/launchpad/web/src/core/wallet-sdk/assets.ts"
+lines = 48
+verdict = "issues"
+note = "Reviewed exact PAX/USDL amounts and committed code/decimals checks; repeated immutable metadata reads conflict with the qualification budget."
+
+[file.110]
+path = "apps/launchpad/web/src/core/wallet-sdk/auth.ts"
+lines = 328
+verdict = "clean"
+note = "Reviewed real challenge/session envelopes, domain/message validation, access expiry, refresh, session scope and teardown."
+
+[file.111]
+path = "apps/launchpad/web/src/core/wallet-sdk/backend.ts"
+lines = 123
+verdict = "clean"
+note = "Reviewed authority-approved assets, committed head identity, private query ownership and persisted transfer fingerprints/history."
+
+[file.112]
+path = "apps/launchpad/web/src/core/wallet-sdk/client.integration.test.ts"
+lines = 99
+verdict = "clean"
+note = "Reviewed real RPC transaction/receipt path and explicit opt-in for local chain mutation."
+
+[file.113]
+path = "apps/launchpad/web/src/core/wallet-sdk/client.ts"
+lines = 118
+verdict = "clean"
+note = "Reviewed fixed chain-125 public/wallet clients, connector selection and wrong-chain signing refusal."
+
+[file.114]
+path = "apps/launchpad/web/src/core/wallet-sdk/embedded_sdk/embedded/PaxeerProvider.tsx"
+lines = 240
+verdict = "issues"
+note = "Reviewed session hydration, auth UI state and provisioning lifecycle; a changed principal can retain the prior public wallet on read failure."
+
+[file.115]
+path = "apps/launchpad/web/src/core/wallet-sdk/embedded_sdk/embedded/client.ts"
+lines = 77
+verdict = "clean"
+note = "Reviewed browser-only singleton, shared wallet/Supabase origin policy, RPC precedence and redirect resolution."
+
+[file.116]
+path = "apps/launchpad/web/src/core/wallet-sdk/embedded_sdk/embedded/eip1193.ts"
+lines = 323
+verdict = "issues"
+note = "Reviewed all methods and events; signing context, account cache, numeric/message validation and RPC response handling disagree with the maintained provider."
+
+[file.117]
+path = "apps/launchpad/web/src/core/wallet-sdk/embedded_sdk/embedded/index.ts"
+lines = 51
+verdict = "clean"
+note = "Reviewed the complete public barrel and embedded wallet/provider/connector type exports."
+
+[file.118]
+path = "apps/launchpad/web/src/core/wallet-sdk/embedded_sdk/embedded/paxeerConnector.ts"
+lines = 157
+verdict = "clean"
+note = "Reviewed provider event wiring, connector account selection, explicit chain switching and disconnect/session teardown."
+
+[file.119]
+path = "apps/launchpad/web/src/core/wallet-sdk/embedded_sdk/embedded/sdk/index.ts"
+lines = 186
+verdict = "vendored"
+note = "Vendored @paxeer/wallet v0.1.0 REST client; provenance and re-vendoring policy are in sdk/types.ts; current basic wallet REST shapes remain readable."
+
+[file.120]
+path = "apps/launchpad/web/src/core/wallet-sdk/embedded_sdk/embedded/sdk/react.ts"
+lines = 103
+verdict = "vendored"
+note = "Vendored @paxeer/wallet/react v0.1.0 hooks; provenance is explicit and these hooks are not the app's principal-owning PaxeerProvider."
+
+[file.121]
+path = "apps/launchpad/web/src/core/wallet-sdk/embedded_sdk/embedded/sdk/types.ts"
+lines = 75
+verdict = "vendored"
+note = "Vendored @paxeer/wallet v0.1.0 public types; review distinguishes this historical copy from the maintained sdk/wallet contract."
+
+[file.122]
+path = "apps/launchpad/web/src/core/wallet-sdk/funding.integration.test.ts"
+lines = 320
+verdict = "clean"
+note = "Reviewed real local Solidity/native transfers, wrong-chain/account rejection, mined reverts and committed balance verification."
+
+[file.123]
+path = "apps/launchpad/web/src/core/wallet-sdk/index.tsx"
+lines = 7
+verdict = "clean"
+note = "Reviewed the full wallet facade exports of session, assets, client, authentication and runtime APIs."
+
+[file.124]
+path = "apps/launchpad/web/src/core/wallet-sdk/injected-detection.ts"
+lines = 57
+verdict = "clean"
+note = "Reviewed EIP1193 request capability and injected wallet branding normalization without assuming provider identity proves authority."
+
+[file.125]
+path = "apps/launchpad/web/src/core/wallet-sdk/measurement.ts"
+lines = 56
+verdict = "clean"
+note = "Reviewed bounded raw samples, sequence/clock identity, operation outcomes and explicit capture lifecycle."
+
+[file.126]
+path = "apps/launchpad/web/src/core/wallet-sdk/primitives.test.ts"
+lines = 77
+verdict = "clean"
+note = "Reviewed exact amounts, challenge scope and synchronous account/chain epoch invalidation assertions."
+
+[file.127]
+path = "apps/launchpad/web/src/core/wallet-sdk/runtime.integration.test.tsx"
+lines = 118
+verdict = "clean"
+note = "Reviewed explicit admitted source/config hashes and real runtime integration inputs; external qualification remains distinct from this audit."
+
+[file.128]
+path = "apps/launchpad/web/src/core/wallet-sdk/runtime.tsx"
+lines = 109
+verdict = "clean"
+note = "Reviewed private cache cancellation, selected external wallet/session, logout and runtime authority lifecycle."
+
+[file.129]
+path = "apps/launchpad/web/src/core/wallet-sdk/session.ts"
+lines = 137
+verdict = "issues"
+note = "Reviewed synchronous stale-scope abort, account/chain events and refresh batching; repeated cache clears violate the declared burst measurement."
+
+[file.130]
+path = "apps/launchpad/web/src/core/wallet-sdk/test-fixtures/foundry.toml"
+lines = 5
+verdict = "clean"
+note = "Reviewed isolated fixture source/output/cache paths and pinned Solidity compiler selection."
+
+[file.131]
+path = "apps/launchpad/web/src/core/wallet-sdk/test-fixtures/phase4-browser.mjs"
+lines = 110
+verdict = "clean"
+note = "Reviewed actual CDP journeys, source/bundle binding, telemetry capture, screenshots and accessibility failure propagation."
+
+[file.132]
+path = "apps/launchpad/web/src/core/wallet-sdk/test-fixtures/run-l25-check.py"
+lines = 119
+verdict = "clean"
+note = "Reviewed full local-chain build/runner, evidence binding, subprocess timeouts and retained result log paths."
+
+[file.133]
+path = "apps/launchpad/web/src/core/wallet-sdk/test-fixtures/run-l25-phase2-check.py"
+lines = 58
+verdict = "clean"
+note = "Reviewed current web root resolution, task-specific integration command and explicit output/evidence retention."
+
+[file.134]
+path = "apps/launchpad/web/src/core/wallet-sdk/test-fixtures/run-l25-phase4-check.py"
+lines = 248
+verdict = "issues"
+note = "Reviewed every capture, measurement and chain-evidence check; obsolete client/apps paths prevent binding current monorepo sources."
+
+[file.135]
+path = "apps/launchpad/web/src/core/wallet-sdk/test-fixtures/src/FundingToken.sol"
+lines = 17
+verdict = "clean"
+note = "Reviewed private local token transfer, balance event and rejected-native fixture; explicitly not the production USDL implementation."
+
+[file.136]
+path = "apps/launchpad/web/src/core/wallet-sdk/vitest.l25.config.ts"
+lines = 12
+verdict = "clean"
+note = "Reviewed Vitest 4-compatible merge, workspace-local default cache and single-worker lane settings."
+
+[file.137]
+path = "apps/launchpad/web/src/core/workspace-scripts.test.ts"
+lines = 50
+verdict = "clean"
+note = "Reviewed every workspace package/filter assertion and removal of retired bot scripts."
+
+[finding.surface_authority]
+file = "apps/launchpad/web/src/core/runtime-authority.ts"
+line = 181
+class = "interface-mismatch"
+severity = "high"
+observed = "readAuthority requires implementationAddress and implementationHash for every non-USDL production role. sdk/launchpad/shared/config/deployment/attest.go hasImplementation excludes surface roles and omits both fields; current.json and CORE_DEPLOYMENT declare Router, Quoter, PoolRegistry and other roles as surfaces. The valid authority response therefore throws before loadRuntimeAuthority can enable trading or funding."
+expected = "The authority endpoint must round-trip the current manifest's role kinds. A surface is identified by its reviewed forwarding runtime and has no ERC1967 implementation; proxy and beacon roles retain their implementation identity checks."
+proposal = "Update apps/launchpad/web/src/core/runtime-authority.ts to validate each role against CORE_DEPLOYMENT.roleIdentity, enforce its exact runtime/implementation hashes according to kind, and accept reviewed surfaces without proxy fields. Prove current deployment Attest -> authority HTTP -> loadRuntimeAuthority success and a mismatched-runtime refusal."
+owner_domain = 4
+interface = "4.http-api-get-v2-network-authority-authority"
+
+[finding.authority_production_coverage]
+file = "apps/launchpad/web/src/core/runtime-authority-production.test.ts"
+line = 60
+class = "test-gap"
+severity = "medium"
+observed = "The production suite only calls parsePrivateFixtureAuthorityProfileV1 and refuses private inputs; its positive cases use a private direct/proxy fixture outside production. It never feeds the real current surface-role authority envelope into loadRuntimeAuthority, so surface_authority is invisible to these assertions."
+expected = "Requirement 21134.1 and brief check_7 require the actual producer, transport and consumer to agree, including a positive production path and a real identity refusal rather than a third fixture shape."
+proposal = "Extend apps/launchpad/web/src/core/runtime-authority-production.test.ts and the owning real authority integration path to consume the current Go authority producer with surface roles and assert enabled authority plus refusal of a changed runtime or revision. Keep every existing production fixture refusal."
+owner_domain = 4
+interface = "4.http-api-get-v2-network-authority-authority"
+
+[finding.deployment_regeneration]
+file = "apps/launchpad/web/src/core/network/deployment.ts"
+line = 1
+class = "config-drift"
+severity = "medium"
+observed = "The helper contains treasury, launchpadPrecompile, their roleIdentity entries, CORE_TRADE_EXECUTION_ROLES and PRIVATE_FIXTURE_WAGMI_STORAGE_KEY. tools/launchpad/production/interfaces/contracts/client-deployment.cjs deriveDeployment/renderHelper emits none of these additions. checkClient compares the entire file to that rendering; regeneration drops exports imported by app/layout.tsx, app-providers.tsx and trading providers."
+expected = "Requirement 4499 requires a reproducible manifest-derived helper. Regeneration must retain every live declared field/export and all current role identities without handwritten repairs after generation."
+proposal = "Update tools/launchpad/production/interfaces/contracts/client-deployment.cjs to derive the additional reviewed roles and emit both live constants, then regenerate apps/launchpad/web/src/core/network/deployment.ts and prove full helper equality and the actual importing web modules."
+owner_domain = 4
+interface = "4.ts-web-core-deployment-j30"
+
+[finding.embedded_signer_scope]
+file = "apps/launchpad/web/src/core/wallet-sdk/embedded_sdk/embedded/eip1193.ts"
+line = 224
+class = "interface-mismatch"
+severity = "high"
+observed = "The embedded provider forwards transactions without checking tx.from and replaces any supplied tx.chainId with configured chain125; personal_sign and eth_sign also discard the requested account. The gateway signs as the bearer session's wallet, so a request naming another account or chain can authorize a different signer/network rather than reject. sdk/wallet/src/provider.ts explicitly checks these fields."
+expected = "The declared provider signing contract must bind the requested account and chain to the current authenticated wallet before signing; a foreign account or chain is a refusal, and successful results must identify the expected signer."
+proposal = "Replace or reconcile apps/launchpad/web/src/core/wallet-sdk/embedded_sdk/embedded/eip1193.ts with the maintained sdk/wallet provider's account/chain validation. Check both request and gateway response identity, capture the principal epoch across awaits, and prove mismatched-account and mismatched-chain requests never dispatch."
+owner_domain = 4
+interface = "12.rpc-sdk-provider-eth-send-transaction"
+
+[finding.embedded_principal_cache]
+file = "apps/launchpad/web/src/core/wallet-sdk/embedded_sdk/embedded/eip1193.ts"
+line = 81
+class = "security"
+severity = "medium"
+observed = "getAddress returns cachedAddress whenever any non-null session exists; the cache has no session.user.id or generation. A non-null A-to-B Supabase session transition keeps A and emits no accountsChanged, while subsequent REST signing authenticates B. A delayed A wallet lookup can also publish after sign-out or provider destruction."
+expected = "Wallet identity must change atomically with the authenticated principal and stale asynchronous lookups must never repopulate a newer or disconnected provider's account."
+proposal = "In apps/launchpad/web/src/core/wallet-sdk/embedded_sdk/embedded/eip1193.ts key cached identity by principal/session epoch, invalidate before publishing auth changes, and discard stale getWallet completions after sign-out, account replacement or destroy. Exercise direct principal replacement and delayed old responses."
+owner_domain = 4
+interface = "12.evt-sdk-provider-accounts-changed"
+
+[finding.embedded_quantity_validation]
+file = "apps/launchpad/web/src/core/wallet-sdk/embedded_sdk/embedded/eip1193.ts"
+line = 105
+class = "security"
+severity = "medium"
+observed = "toBigIntOrUndef and toIntOrUndef turn malformed values into undefined, and nonce conversion uses Number without a safe-integer bound. For example a nonempty invalid tx.value is omitted by serialize rather than rejected, so the signed transaction no longer carries the supplied request intent."
+expected = "Transaction quantity inputs must be canonical nonnegative bounded integers and preserve value/nonce exactly; invalid provided fields must fail before a wallet signing request."
+proposal = "Implement strict uint256 quantity and safe nonce validation in apps/launchpad/web/src/core/wallet-sdk/embedded_sdk/embedded/eip1193.ts, sharing the maintained provider validators where possible. Reject invalid, negative, fractional, unsafe and out-of-range values and assert no gateway dispatch."
+owner_domain = 4
+interface = "12.rpc-sdk-provider-eth-send-transaction"
+
+[finding.embedded_message_encoding]
+file = "apps/launchpad/web/src/core/wallet-sdk/embedded_sdk/embedded/eip1193.ts"
+line = 154
+class = "interface-mismatch"
+severity = "high"
+observed = "decodeMessage accepts odd-length hex and decodes bytes with TextDecoder fatal:false. personal_sign of 0xff therefore signs the UTF8 replacement character rather than the requested bytes; 0x1 truncates to an empty byte buffer. The maintained provider refuses non-UTF8 text and only recognizes complete byte pairs."
+expected = "The declared personal_sign producer/consumer path must preserve the signable message exactly or explicitly reject unsupported encodings; a signature over substituted or truncated content does not round-trip the caller's message."
+proposal = "Use strict complete-byte hexadecimal and fatal UTF8 validation in apps/launchpad/web/src/core/wallet-sdk/embedded_sdk/embedded/eip1193.ts to match the actual text-only gateway contract, or add an explicitly versioned byte-signing producer. Assert refusal of odd hex and invalid UTF8 before signing plus exact valid-message recovery."
+owner_domain = 4
+interface = "12.rpc-sdk-provider-personal-sign"
+
+[finding.embedded_eth_sign_contract]
+file = "apps/launchpad/web/src/core/wallet-sdk/embedded_sdk/embedded/eip1193.ts"
+line = 261
+class = "interface-mismatch"
+severity = "high"
+observed = "The embedded bridge implements eth_sign by decodeMessage(args[1]) and wallet.signMessage, producing an EIP191 personal-message signature. The maintained sdk/wallet/src/provider.ts eth_sign requires an exact 32-byte digest and complete sponsored_batch or eip7702_authorization construction and calls the sign-digest producer. Its verifier cannot consume the bridge's prefixed-message signature."
+expected = "Registry 12.rpc-sdk-provider-eth-sign must retain the maintained provider's complete construction, exact digest and refusal policy; eth_sign cannot silently alias personal_sign."
+proposal = "Route eth_sign in apps/launchpad/web/src/core/wallet-sdk/embedded_sdk/embedded/eip1193.ts through the maintained SDK construction/digest validation and gateway sign-digest path, or explicitly refuse it with 4200 until that path is admitted. Prove the real construction signature recovers correctly and incomplete requests never sign."
+owner_domain = 4
+interface = "12.rpc-sdk-provider-eth-sign"
+
+[finding.embedded_typed_data]
+file = "apps/launchpad/web/src/core/wallet-sdk/embedded_sdk/embedded/eip1193.ts"
+line = 268
+class = "interface-mismatch"
+severity = "high"
+observed = "The bridge unconditionally returns 4200 for eth_signTypedData_v4 and tells users the embedded API does not support it. The maintained provider implements the method and services/wallet/gateway/src/routes/sign.ts registers POST /v1/wallet/sign-typed-data with a real signer. Applications using the declared typed-data interface cannot obtain a signature from this embedded connector."
+expected = "The declared v4 typed-data provider interface must reach its registered producer with matching account, chain, types and domain, and return the signature; any intentionally unsupported client capability must be represented explicitly to consumers."
+proposal = "Use the maintained typed-data implementation for apps/launchpad/web/src/core/wallet-sdk/embedded_sdk/embedded/eip1193.ts and its local SDK adapter. Bind account/domain chain before forwarding, validate the producer response, and prove real gateway signature verification and foreign-domain refusal."
+owner_domain = 4
+interface = "12.rpc-sdk-provider-eth-sign-typed-data-v4"
+
+[finding.embedded_react_identity]
+file = "apps/launchpad/web/src/core/wallet-sdk/embedded_sdk/embedded/PaxeerProvider.tsx"
+line = 96
+class = "security"
+severity = "medium"
+observed = "The auth callback clears publicWallet only for a null session. For a non-null principal replacement, user/session update immediately while the old publicWallet remains; if the new getWallet fails, the catch leaves that old wallet and isAuthenticated still evaluates true for the new session and previous address."
+expected = "A public wallet belongs to exactly one authenticated principal; principal changes or failed current-principal reads must publish no usable previous-wallet identity."
+proposal = "Bind publicWallet to user.id/session generation in apps/launchpad/web/src/core/wallet-sdk/embedded_sdk/embedded/PaxeerProvider.tsx, clear it before principal replacement, and derive authenticated state only from a matching current identity. Assert the account-switch plus failed-provision/read path."
+owner_domain = 4
+interface = "12.ts-sdk-public-wallet"
+
+[finding.postmessage_sender]
+file = "apps/launchpad/web/src/core/post-message-eip1193.ts"
+line = 176
+class = "security"
+severity = "medium"
+observed = "onMessage checks only event.origin and the target/type marker; it never verifies event.source equals window.parent. Any same-origin window on an admitted wallet origin that can message this frame may inject accountsChanged events or spoof responses as the parent provider."
+expected = "Wallet RPC responses and lifecycle events must be bound to the specific parent Window as well as the admitted origin and validated message shape."
+proposal = "Require event.source === window.parent and the negotiated parent origin in apps/launchpad/web/src/core/post-message-eip1193.ts; validate response IDs and event payloads before dispatch. Cover a same-origin sibling/opener sending a forged response and accountsChanged event."
+owner_domain = 4
+interface = "4.env-web-next-public-wallet-iframe-origin-j30"
+
+[finding.postmessage_outbound_origin]
+file = "apps/launchpad/web/src/core/post-message-eip1193.ts"
+line = 213
+class = "security"
+severity = "medium"
+observed = "getDefaultTargetOrigin returns '*' when more than one parent origin is configured. Requests are sent before any authenticated ready handshake. CSP also permits same-origin framing, so a same-origin parent outside the configured wallet list can receive transaction/signing parameters even though its replies would fail originAllowed."
+expected = "Outgoing wallet requests must be disclosed only to the actual admitted parent origin; an inbound allowlist alone does not protect the request payload."
+proposal = "Negotiate and pin one admitted parent origin before accepting request() in apps/launchpad/web/src/core/post-message-eip1193.ts, use it as exact postMessage targetOrigin and reject conflicting overrides. Exercise multiple allowed origins and same-origin embedding outside that list."
+owner_domain = 4
+interface = "4.env-web-next-public-wallet-iframe-origin-j30"
+
+[finding.postmessage_destroy]
+file = "apps/launchpad/web/src/core/post-message-eip1193.ts"
+line = 110
+class = "runtime-risk"
+severity = "medium"
+observed = "destroy clears every pending request timeout and then clears inflight without rejecting its promises. Requests awaiting a wallet response remain pending forever after provider teardown, so approval/connect UI can stay busy with no timeout or recovery result."
+expected = "Every in-flight wallet request must settle with a defined disconnected/canceled failure when its provider is destroyed, and later requests must fail immediately."
+proposal = "Reject all pending entries with the provider's disconnected error before clearing them in apps/launchpad/web/src/core/post-message-eip1193.ts, track the destroyed state and refuse future requests. Prove teardown during a signing request settles exactly once."
+owner_domain = 4
+interface = "12.err-sdk-provider-disconnected"
+
+[finding.wallet_parent_configuration]
+file = "apps/launchpad/web/src/core/backend-origins.ts"
+line = 181
+class = "config-drift"
+severity = "medium"
+observed = "walletParentOrigins accepts any URL with a non-null origin and silently strips credentials/path or ignores malformed entries; it admits http parents even in production. Other backend endpoint parsing rejects credentials, paths inappropriate to origins and insecure production transport. The result is shared by CSP and the signing bridge."
+expected = "The configured trusted wallet embedding origin must be an explicit valid origin with HTTPS in production; malformed trust configuration must fail visibly rather than weaken or silently replace the trust boundary."
+proposal = "Apply strict origin-only validation and the production HTTPS policy to walletParentOrigins in apps/launchpad/web/src/core/backend-origins.ts. Surface invalid NEXT_PUBLIC_WALLET_IFRAME_ORIGIN as a configuration error and verify CSP and bridge consume exactly the validated origins."
+owner_domain = 4
+interface = "4.env-web-next-public-wallet-iframe-origin-j30"
+
+[finding.metadata_shared_abort]
+file = "apps/launchpad/web/src/core/clients/metadata.ts"
+line = 77
+class = "runtime-risk"
+severity = "medium"
+observed = "The single-token inflight map is keyed only by token address and shares the first caller's fetch signal. A later consumer receives the same promise without its own cancellation; aborting the first consumer cancels the read for all other mounted consumers and aborting a later consumer does not detach it."
+expected = "Coalesced metadata requests must retain independent consumer cancellation and must not let one unmount cancel another live consumer's metadata read."
+proposal = "Give shared metadata work independent cancellation with per-subscriber detach/refcount in apps/launchpad/web/src/core/clients/metadata.ts, or delegate deduplication to the query owner. Prove two consumers of one token survive either consumer's abort without publishing into an aborted subscriber."
+owner_domain = 4
+interface = "4.http-metadata-get-metadata-token-address-legacy-reads"
+
+[finding.search_logo_projection]
+file = "apps/launchpad/web/src/core/app-foundation/search-client.ts"
+line = 54
+class = "wiring-gap"
+severity = "medium"
+observed = "checkedSearchMetadata constructs only token_address, pool_address, name and symbol. searchEntities later reads meta.images.logo, but that field has already been discarded. ProductionLegacyReads assembles the approved 512px logo into Images.Logo, so every search result loses a valid producer image."
+expected = "Search result presentation must preserve validated approved metadata images from the real batch producer while maintaining token/pool identity and media safety checks."
+proposal = "Project and validate the approved image fields in apps/launchpad/web/src/core/app-foundation/search-client.ts, or consume the canonical media projection. Add a real batch-response-to-search-result case with an approved logo and a rejected/unapproved image case."
+owner_domain = 4
+interface = "4.http-metadata-get-metadata-batch-legacy-reads"
+
+[finding.candle_unavailable_zero]
+file = "apps/launchpad/web/src/core/clients/candle-stats.ts"
+line = 34
+class = "runtime-risk"
+severity = "medium"
+observed = "fetchCandleHistory returns null for HTTP errors, malformed envelopes, abort and transport failure; fetchCandleStats maps all those nulls to numeric zero changes/ATH/ATL. The recorded production charts-wire fixture actually supplies retryable 503 windows, and chart-udf-wire.test.ts asserts fabricated zero statistics for them."
+expected = "An unavailable canonical history source is an explicit unavailable/error state, distinct from no_data, a flat market or zero-valued prices. Retryable producer errors must remain observable to consumers."
+proposal = "Return typed unavailable/no-data/error outcomes from apps/launchpad/web/src/core/clients/candle-stats.ts, preserve abort and retry metadata, and have any statistic presentation render unknown values until history is available. Replace the widget assertion of 503-derived zeroes with the real unavailable outcome without dropping coverage."
+owner_domain = 4
+interface = "4.err-trading-charts-dependency-unavailable-j11"
+
+[finding.candle_window_labels]
+file = "apps/launchpad/web/src/core/clients/candle-stats.ts"
+line = 56
+class = "runtime-risk"
+severity = "medium"
+observed = "ATH/ATL scan only the latest 365 daily bars despite being labelled all-time; change1h compares the first and last close in a two-hour request and change5m compares endpoints of a ten-minute request. At ordinary bar boundaries those endpoints can span two hours or ten minutes, rather than the displayed interval."
+expected = "Price statistics must use the baseline timestamp/window named in the product and identify a rolling-year extreme as such; all-time extremes require the whole supported market history or an authoritative aggregate."
+proposal = "In apps/launchpad/web/src/core/clients/candle-stats.ts select baselines by bar timestamps at exact intended windows and derive genuine lifetime extremes from a complete producer aggregate, or change the labels/API to state the actual window. Cover boundary-aligned and older-than-one-year history."
+owner_domain = 4
+interface = "4.http-trading-charts-get-v2-udf-history-udf"
+
+[finding.partial_listing_failures]
+file = "apps/launchpad/web/src/core/market/pool-listings.ts"
+line = 121
+class = "runtime-risk"
+severity = "medium"
+observed = "fetchPoolListings and usePoolDetailListings discard every rejected pool whenever any pool succeeds, including identity disagreement, quarantine, authentication failures and unexpected transport errors. The documented omission rule names only unserved 404/503 pools; a mixed response can therefore look successful while an integrity failure is hidden."
+expected = "Partial listing tolerance must apply only to declared per-pool absence/unavailability. Identity or quarantine failures and unexpected errors must remain visible and must not be represented as ordinary missing rows."
+proposal = "Classify per-pool results in apps/launchpad/web/src/core/market/pool-listings.ts, retain explicit omission status for declared unavailable pools, and propagate integrity/identity/security errors even alongside successful pools. Cover a mixed valid-plus-quarantined and valid-plus-identity-mismatch response."
+owner_domain = 4
+interface = "4.http-api-get-v2-pools-pool-address-compatibility"
+
+[finding.base_path_loss]
+file = "apps/launchpad/web/src/core/market/client.ts"
+line = 9
+class = "config-drift"
+severity = "medium"
+observed = "backend-origins.ts checked explicitly retains configured path prefixes and sdk-config URL builders append routes under them, but browserMarketClient/browserUserClient/browserStatsClient/browserSessionClient pass new URL(...).origin into SdkClient. A configured https://host/prefix base addresses /prefix with direct fetch clients and /v2/... at the root with these SDK consumers."
+expected = "A supported backend base URL must have the same route semantics across the resolver, SDK client and direct consumers; accepted configuration must not silently redirect requests outside its prefix."
+proposal = "Define one base-path policy in apps/launchpad/web/src/core/backend-origins.ts and apps/launchpad/web/src/core/market/client.ts: preserve prefixes through a supported SDK transport or explicitly reject non-root bases. Cover a prefixed configuration through a real served consumer path."
+owner_domain = 4
+interface = "4.env-web-next-public-data-api-url-j30"
+
+[finding.telemetry_redaction]
+file = "apps/launchpad/web/src/core/report-error.ts"
+line = 52
+class = "security"
+severity = "medium"
+observed = "The production beacon serializes full window.location.href, raw error.message/stack and arbitrary extra context. The real app/api/errors/route.ts forwards clientUrl/context to Sentry and console.error. OAuth callback query or fragment credentials and sensitive query state can therefore be copied into error telemetry during a failure."
+expected = "Error reporting must avoid sending credentials, auth URL parameters and unrestricted private state; diagnostic correlation must use an allowlist and nonsecret identifiers."
+proposal = "Apply the allowlist/redaction approach already used by apps/launchpad/web/src/core/app-foundation/redacted-report.ts to core/report-error.ts and its sink. Strip URL query/fragment, restrict context and redact message/stack secrets before either Sentry or beacon, with auth-callback regression coverage."
+owner_domain = 4
+
+[finding.phase4_source_layout]
+file = "apps/launchpad/web/src/core/wallet-sdk/test-fixtures/run-l25-phase4-check.py"
+line = 202
+class = "config-drift"
+severity = "medium"
+observed = "The phase4 runner resolves the monorepo root correctly but enumerates client/apps/web/src/core/wallet-sdk, client/apps/web/src/widgets/funding and wallet-recovery and requires four client/apps/web shell/core files. Those paths do not exist here; admitted digests for actual apps/launchpad/web sources fail the set check or old paths fail digest reads before browser capture."
+expected = "The qualification source manifest must bind every actual owned source in the current monorepo layout before any evidence is attributed to this implementation."
+proposal = "Repoint expected_paths in apps/launchpad/web/src/core/wallet-sdk/test-fixtures/run-l25-phase4-check.py to apps/launchpad/web and the current owned files, preserving exact digest/set checks and all release blockers. Prove current source discovery and rejection of an omitted or changed owned file."
+owner_domain = 4
+interface = "4.env-web-l25-phase4-config-sha256-j30"
+
+[finding.metadata_measurement_budget]
+file = "apps/launchpad/web/src/core/wallet-sdk/assets.ts"
+line = 41
+class = "runtime-risk"
+severity = "medium"
+observed = "assertAssetOnChain rereads ERC20 decimals on every balance/transfer check and records every read as asset.metadata for the same chain/address scope. The phase4 measurement checker rejects more than one such start per scope, so ordinary repeated USDL balance reads cannot satisfy its immutable-metadata budget."
+expected = "The admitted immutable metadata budget must hold on the actual wallet path while code identity, chain and committed balance verification remain mandatory and current."
+proposal = "Cache verified decimals by chain/address and reviewed runtime/deployment identity in apps/launchpad/web/src/core/wallet-sdk/assets.ts, coalesce concurrent reads and invalidate on identity changes. Preserve committed code/balance checks and prove repeated reads meet the existing measurement assertion."
+owner_domain = 4
+
+[finding.session_burst_budget]
+file = "apps/launchpad/web/src/core/wallet-sdk/session.ts"
+line = 42
+class = "runtime-risk"
+severity = "medium"
+observed = "Each accountsChanged and chainChanged calls select/invalidate and emits wallet.cache_clear immediately. Two events in one 50ms burst produce two clears; primitives.test.ts explicitly expects both epoch changes. The phase4 checker permits only one clear and one refresh per burst, while only refresh is currently batched."
+expected = "Every account/chain event must immediately invalidate stale signing scopes while expensive private cache cleanup and refresh meet the declared once-per-burst budget."
+proposal = "Separate immediate scope invalidation from a safely coalesced cache-cleanup operation in apps/launchpad/web/src/core/wallet-sdk/session.ts, keeping old data inaccessible throughout the burst. Prove both epoch changes remain synchronous and raw measurement records at most one cleanup/refresh for the burst."
+owner_domain = 4
+
+[finding.overlapping_dialog_focus]
+file = "apps/launchpad/web/src/core/app-foundation/use-dialog-focus.ts"
+line = 68
+class = "runtime-risk"
+severity = "medium"
+observed = "Every open dialog registers a document focusin containment listener and marks sibling branches inert. Opening a second sibling dialog leaves the first listener active, so it redirects focus back to the first while the second redirects it again; the dialogs can also inert each other's containers. The two-dialog test checks cleanup attributes only."
+expected = "When dialogs overlap, only the topmost dialog may own active focus containment and be interactive; closing it must restore focus to the underlying dialog without leaving either container incorrectly inert."
+proposal = "Introduce a shared dialog stack in apps/launchpad/web/src/core/app-foundation/use-dialog-focus.ts with topmost-only containment and correct branch ownership. Extend use-dialog-focus.test.tsx to assert focus, Tab/Shift-Tab and closure ordering for the existing overlapping-dialog scenario."
+owner_domain = 4
+
+[finding.profile_absence_growth]
+file = "apps/launchpad/web/src/core/market/profile-absence.ts"
+line = 40
+class = "runtime-risk"
+severity = "medium"
+observed = "The absent-profile Set retains every missing wallet for the entire browser session, persists the complete list on each addition and hydrates an unrestricted array from sessionStorage. Long discovery/trading sessions accumulate addresses without a count or time bound, increasing retained memory and repeated serialization work indefinitely."
+expected = "Session caches for unbounded public wallet discovery require explicit capacity and age bounds while preserving genuine profile absence and invalidation when a profile is published."
+proposal = "Bound and age the negative entries in apps/launchpad/web/src/core/market/profile-absence.ts using an LRU/TTL policy, cap persisted input before parsing/hydrating, and test eviction plus profile-save invalidation without changing absence semantics."
+owner_domain = 4
+
+[finding.analytics_delivery]
+file = "apps/launchpad/web/src/core/analytics.ts"
+line = 26
+class = "wiring-gap"
+severity = "low"
+observed = "trackEvent reads NEXT_PUBLIC_ANALYTICS_KEY, but in production every configured event returns after no delivery operation. The only logging is development-only and the capture call is commented out, so configuring the advertised key never produces any analytics."
+expected = "A configured event collector must either deliver the declared event with its approved properties or explicitly report that collection is unavailable."
+proposal = "Implement an admitted analytics transport and property allowlist in apps/launchpad/web/src/core/analytics.ts with matching endpoint/CSP configuration, or retire the inert configuration and callers until collection is supported."
+owner_domain = 4
+interface = "4.env-web-next-public-analytics-key-j30"
+
+[finding.legacy_chat_auth]
+file = "apps/launchpad/web/src/core/clients/chat-auth.ts"
+line = 11
+class = "dead-code"
+severity = "low"
+observed = "The entire sessionStorage Sidiora Auth signature cache is unreferenced by current web code; chat-api.ts uses accountSession bearer authentication and chat-ws.ts uses bound single-use stream tickets. The header still instructs a backend migration to the obsolete reusable signature headers."
+expected = "The launchpad should expose one current session/ticket authentication path and should not retain an unused alternate signing/cache protocol that appears ready for integration."
+proposal = "Remove apps/launchpad/web/src/core/clients/chat-auth.ts and its obsolete migration instructions in an owning cleanup task after confirming there are no external imports; keep the current bearer session and ticket paths."
+owner_domain = 4
+
+[finding.legacy_paxscan]
+file = "apps/launchpad/web/src/core/clients/paxscan.ts"
+line = 10
+class = "dead-code"
+severity = "low"
+observed = "This deprecated client has no current importer and computes supply/share from only one holder page with fixed six decimals, hardcodes a separate explorer host and turns HTTP failures into zero/empty values. Its own header acknowledges the incorrect denominator."
+expected = "Holder presentation must use the active canonical stats-host path and explicit quality/absence rather than a dormant first-page approximation that can be accidentally reintroduced."
+proposal = "Retire apps/launchpad/web/src/core/clients/paxscan.ts in the owning cleanup task and preserve apps/launchpad/web/src/core/market/use-holders.ts as the supported holder path; migrate any external consumer before deletion."
+owner_domain = 4
+
+[finding.legacy_image_helper]
+file = "apps/launchpad/web/src/core/clients/token-image.ts"
+line = 3
+class = "dead-code"
+severity = "low"
+observed = "Neither exported token-image helper has a current web importer. The unused host list hardcodes an old Railway metadata host and treats public IPFS gateways as trusted SVG sources, while current media clients use configured origins and approved content-addressed variants."
+expected = "Token media behavior should have one reachable policy based on approved current media projections and deployment configuration, without an unused competing trusted-host policy."
+proposal = "Remove apps/launchpad/web/src/core/clients/token-image.ts after checking external imports, or consolidate a real caller onto the current approved media validator and resolver; do not preserve the old literal-host trust list as an alternative."
+owner_domain = 4
+
+[finding.legacy_ws_gap]
+file = "apps/launchpad/web/src/core/realtime/ws-manager.ts"
+line = 345
+class = "dead-code"
+severity = "low"
+observed = "No current web source instantiates WsManager; the live market path uses CanonicalDataStream/SnapshotStreamV2 and chat owns its ticket client. In the retained manager a gap calls resync without advancing/resetting lastSeq or exposing a snapshot sequence setter, so a missing frame leaves later sequenced frames repeatedly dropped."
+expected = "Realtime recovery must resume from an admitted snapshot/cursor through the actual transport; a dormant manager that cannot adopt a recovery sequence must not appear to be the shared active backbone."
+proposal = "Retire apps/launchpad/web/src/core/realtime/ws-manager.ts and update its stale cache-policy reference, or before adding a real caller implement an explicit snapshot-sequence adoption lifecycle with gap/reconnect coverage. Keep canonical v2 recovery as the active market path."
+owner_domain = 4
+
+[finding.social_test_comment]
+file = "apps/launchpad/web/src/core/clients/social-gateway.test.ts"
+line = 21
+class = "doc-drift"
+severity = "low"
+observed = "The fixture header says a cross-site ticket-only browser upgrade still receives 401 until the gateway admits tickets alone. The current connected_ws.go lines113-140 expressly accepts a ticket-only upgrade and only authenticates optional bearer/cookie credentials, so the comment describes a failure already repaired."
+expected = "Test documentation must distinguish the behavior it actually replays from the current real gateway authentication contract and must not claim a current blocker contradicted by the producer."
+proposal = "Update apps/launchpad/web/src/core/clients/social-gateway.test.ts to describe the live ticket-only admission and its optional same-site credentials; connect the web case to the gateway's real producer/transport test for valid, mismatched and replayed tickets."
+owner_domain = 4
+interface = "4.http-gateway-post-v2-stream-tickets"
+
+[finding.rpc_override_policy]
+file = "apps/launchpad/web/src/core/rpc.ts"
+line = 17
+class = "config-drift"
+severity = "medium"
+observed = "usable rejects only non-HTTP(S) schemes and one retired hostname. Production overrides containing node.hyperpaxeer.com, /rpc paths, URL credentials/query/fragment or plain HTTP are returned as usable and passed to public/wallet transports and CSP. The default api5 root is correct, but accepted overrides can target the library mirror or retired routing model."
+expected = "Brief network facts require public chain125 JSON-RPC at the merged node root and identify node.hyperpaxeer.com as a library mirror. Production endpoint configuration must not silently admit retired endpoints or insecure credential-bearing URLs."
+proposal = "Validate RPC overrides in apps/launchpad/web/src/core/rpc.ts with a production HTTPS/root-path/no-credentials policy and explicit rejection of the library mirror and retired route forms; preserve separately admitted loopback qualification endpoints. Surface invalid overrides as configuration failures and cover their real transport selection."
+owner_domain = 4
+interface = "4.env-web-next-public-rpc-url-j30"
+
+[finding.client_contract_router_drift]
+file = "spec/layerx-merge/contracts/clients.md"
+line = 19
+class = "doc-drift"
+severity = "medium"
+observed = "The client contract's operations table describes joined reads through the router px_* methods as part of the after-merge client contract. The audit brief defines no router or separate LayerX interface; px_* belongs to the hosted gateway and public node RPC is served at node root URLs."
+expected = "The client contract must distinguish node-root eth/pax reads from the hosted gateway's px_* contract and describe one merged BFT network, without directing integrators to a retired router."
+proposal = "Amend spec/layerx-merge/contracts/clients.md operation Q and related client routing guidance to name hosted gateway px_* explicitly and merged node root RPC, keeping historical switch-off tables clearly historical. Have domain12 reconcile its linked client examples and generated registry prose."
+owner_domain = 12
+
+[finding.service_contract_router_drift]
+file = "spec/layerx-merge/contracts/services.md"
+line = 40
+class = "doc-drift"
+severity = "medium"
+observed = "The after-merge service catalogue says node JSON-RPC is private to the router and lists platform-gateway POST /rpc, GET /rpc/schema and /rpc/ws routes at lines40 and48. Those instructions conflict with the audit brief's public node-root RPC and explicit retirement of a router/unified RPC interface."
+expected = "Operator documentation must describe the single paxd BFT network, public api1..api14/api-mainnet-beta root RPC and the hosted gateway's own declared methods, without presenting retired router paths as the finished topology."
+proposal = "Amend spec/layerx-merge/contracts/services.md catalogue and linked service routing sections to separate historical routes from the finished merged deployment, remove the router dependency and name current public node endpoints. Coordinate the node/domain5 and hosted gateway/domain8 contract owners."
+owner_domain = 5
+
+[finding.feesrouter_abi_shape_coverage]
+file = "apps/launchpad/web/src/core/network/abis/feesrouter-abi.test.ts"
+line = 6
+class = "test-gap"
+severity = "medium"
+observed = "The FeesRouter ABI test compares Sets of type/name/top-level input-type identities only. It discards outputs, tuple components, stateMutability, event indexed flags and duplicate entries. The current copied ABI matches precompiles/launchpad/abi/FeesRouter.json, but a broken return tuple or argument component can pass this declared ABI compatibility gate."
+expected = "The web FeesRouter ABI must retain the complete producer contract for encoding calls and decoding results/events. Its compatibility test must detect changes to nested tuple shapes, output types, mutability and event field encoding as well as method identity."
+proposal = "Change apps/launchpad/web/src/core/network/abis/feesrouter-abi.test.ts to compare the complete canonical ABI with precompiles/launchpad/abi/FeesRouter.json, retaining nested components, outputs, mutability, event indexing and entry multiplicity. Preserve the declared named test and demonstrate that a changed return/component shape is rejected."
+owner_domain = 4
+interface = "4.fmt-web-abi-feesrouter-j30"
+
+[finding.quoter_abi_shape_coverage]
+file = "apps/launchpad/web/src/core/network/abis/quoter-abi.test.ts"
+line = 6
+class = "test-gap"
+severity = "medium"
+observed = "The Quoter ABI test compares Sets of type/name/top-level input-type identities only. It discards outputs, tuple components, stateMutability, event indexed flags and duplicate entries. The current copied ABI matches precompiles/launchpad/abi/Quoter.json, but a broken return tuple or argument component can pass this declared ABI compatibility gate."
+expected = "The web Quoter ABI must retain the complete producer contract for encoding calls and decoding results/events. Its compatibility test must detect changes to nested tuple shapes, output types, mutability and event field encoding as well as method identity."
+proposal = "Change apps/launchpad/web/src/core/network/abis/quoter-abi.test.ts to compare the complete canonical ABI with precompiles/launchpad/abi/Quoter.json, retaining nested components, outputs, mutability, event indexing and entry multiplicity. Preserve the declared named test and demonstrate that a changed return/component shape is rejected."
+owner_domain = 4
+interface = "4.fmt-web-abi-quoter-j30"
+
+[finding.router_abi_shape_coverage]
+file = "apps/launchpad/web/src/core/network/abis/router-abi.test.ts"
+line = 5
+class = "test-gap"
+severity = "medium"
+observed = "The Router ABI test compares Sets of type/name/top-level input-type identities only. It discards outputs, tuple components, stateMutability, event indexed flags and duplicate entries. The current copied ABI matches precompiles/launchpad/abi/Router.json, but a broken return tuple or argument component can pass this declared ABI compatibility gate."
+expected = "The web Router ABI must retain the complete producer contract for encoding calls and decoding results/events. Its compatibility test must detect changes to nested tuple shapes, output types, mutability and event field encoding as well as method identity."
+proposal = "Change apps/launchpad/web/src/core/network/abis/router-abi.test.ts to compare the complete canonical ABI with precompiles/launchpad/abi/Router.json, retaining nested components, outputs, mutability, event indexing and entry multiplicity. Preserve the declared named test and demonstrate that a changed return/component shape is rejected."
+owner_domain = 4
+interface = "4.fmt-web-abi-router-j30"
+
+[doc.client_contract]
+path = "spec/layerx-merge/contracts/clients.md"
+status = "stale"
+notes = "Reviewed client operations, identity and signing, receipt verification and switch-off guidance relevant to this slice. Operation Q at line 19 still sends joined reads through a router; client_contract_router_drift proposes the hosted-gateway/node-root distinction. Historical switch-off caller inventories are treated as baseline history."
+
+[doc.service_contract]
+path = "spec/layerx-merge/contracts/services.md"
+status = "stale"
+notes = "Reviewed service catalogue and launchpad/embedded-wallet service contracts relevant to this slice. Catalogue lines 40 and 48 describe private-to-router node RPC and unified /rpc routes as after-merge service behavior; service_contract_router_drift proposes correction to the finished topology."
+
+[doc.launchpad_contract]
+path = "spec/layerx-merge/contracts/launchpad.md"
+status = "accurate"
+notes = "Reviewed the role identity, contract ABI, authority and launchpad service sections relevant to this slice against the current deployment and producers. The generated historical catalogue explicitly identifies its frozen baseline and planned changes; current surface-role consumer failure is recorded against runtime-authority.ts."
+
+[doc.market_architecture]
+path = "spec/layerx-merge/docs/architecture/markets-and-launchpad.md"
+status = "accurate"
+notes = "Reviewed the architecture narrative and current launchpad surface/authority sections (lines 1-295, especially 191-267). The large generated historical appendix is baseline material. Nine fixed roles, 41-byte CALL forwarding, current role addresses and explicit task-status caveats agree with current producers; surfaces do not use proxy DELEGATECALL."

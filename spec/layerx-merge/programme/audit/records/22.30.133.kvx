@@ -1,0 +1,1459 @@
+# Pre-upgrade audit: product observations and proposals only.
+
+[audit.22.30.133]
+task = "22.30.133"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 165
+findings = 36
+docs_reviewed = 17
+upgrade_ready = false
+blocking = ["native-block-refresh", "hosted-route-admission"]
+review_basis = "Source audit of the recorded base. Vendor exceptions use UPSTREAM.md and byte comparison to import f72f4cee4; local vendor deltas are identified. Proposals repair no product files and claim no runtime gates."
+interface_review = "Reviewed 400 enumerated produced rows and 152 consumed rows, route/config guards and retirement overrides. Package produces_total is 467 but enumerates 400: no coverage claim is made for 67 unenumerated rows. Removed relay/index readers are absent from the current harness; their negative regression assertions are intentional."
+path_review = "Traced native REST routing and archive fallbacks, block notifier through Phoenix to browser cache, multichain context through entities and raw links, advanced-filter serialization, flashblock recovery, interchain row identity and EVM-only local-node history restart/recovery. No extra qualification commands were executed."
+
+[file.1]
+path = "apps/explorer/stubs/ENS.ts"
+lines = 34
+verdict = "clean"
+note = "Read in full: ENS.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.2]
+path = "apps/explorer/stubs/L2.ts"
+lines = 81
+verdict = "clean"
+note = "Read in full: L2.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.3]
+path = "apps/explorer/stubs/RPC.ts"
+lines = 94
+verdict = "clean"
+note = "Read in full: RPC.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.4]
+path = "apps/explorer/stubs/account.ts"
+lines = 98
+verdict = "clean"
+note = "Read in full: account.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.5]
+path = "apps/explorer/stubs/address.ts"
+lines = 130
+verdict = "clean"
+note = "Read in full: address.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.6]
+path = "apps/explorer/stubs/address3rdPartyWidgets.ts"
+lines = 11
+verdict = "clean"
+note = "Read in full: address3rdPartyWidgets.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.7]
+path = "apps/explorer/stubs/addressParams.ts"
+lines = 15
+verdict = "clean"
+note = "Read in full: addressParams.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.8]
+path = "apps/explorer/stubs/advancedFilter.ts"
+lines = 17
+verdict = "clean"
+note = "Read in full: advancedFilter.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.9]
+path = "apps/explorer/stubs/arbitrumL2.ts"
+lines = 52
+verdict = "clean"
+note = "Read in full: arbitrumL2.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.10]
+path = "apps/explorer/stubs/blobs.ts"
+lines = 20
+verdict = "clean"
+note = "Read in full: blobs.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.11]
+path = "apps/explorer/stubs/block.ts"
+lines = 38
+verdict = "clean"
+note = "Read in full: block.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.12]
+path = "apps/explorer/stubs/clusters.ts"
+lines = 12
+verdict = "clean"
+note = "Read in full: clusters.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.13]
+path = "apps/explorer/stubs/contract.ts"
+lines = 126
+verdict = "clean"
+note = "Read in full: contract.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.14]
+path = "apps/explorer/stubs/deposits.ts"
+lines = 18
+verdict = "clean"
+note = "Read in full: deposits.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.15]
+path = "apps/explorer/stubs/epoch.ts"
+lines = 51
+verdict = "clean"
+note = "Read in full: epoch.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.16]
+path = "apps/explorer/stubs/essentialDapps/revoke.ts"
+lines = 19
+verdict = "clean"
+note = "Read in full: essentialDapps/revoke.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.17]
+path = "apps/explorer/stubs/fheOperations.ts"
+lines = 28
+verdict = "clean"
+note = "Read in full: fheOperations.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.18]
+path = "apps/explorer/stubs/homepage.ts"
+lines = 4
+verdict = "clean"
+note = "Read in full: homepage.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.19]
+path = "apps/explorer/stubs/interchainIndexer.ts"
+lines = 91
+verdict = "clean"
+note = "Read in full: interchainIndexer.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.20]
+path = "apps/explorer/stubs/internalTx.ts"
+lines = 19
+verdict = "clean"
+note = "Read in full: internalTx.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.21]
+path = "apps/explorer/stubs/interop.ts"
+lines = 21
+verdict = "clean"
+note = "Read in full: interop.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.22]
+path = "apps/explorer/stubs/log.ts"
+lines = 36
+verdict = "clean"
+note = "Read in full: log.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.23]
+path = "apps/explorer/stubs/marketplace.ts"
+lines = 19
+verdict = "clean"
+note = "Read in full: marketplace.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.24]
+path = "apps/explorer/stubs/mud.ts"
+lines = 24
+verdict = "clean"
+note = "Read in full: mud.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.25]
+path = "apps/explorer/stubs/multichain.ts"
+lines = 106
+verdict = "clean"
+note = "Read in full: multichain.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.26]
+path = "apps/explorer/stubs/noves/NovesTranslate.ts"
+lines = 43
+verdict = "clean"
+note = "Read in full: noves/NovesTranslate.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.27]
+path = "apps/explorer/stubs/operations.ts"
+lines = 38
+verdict = "clean"
+note = "Read in full: operations.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.28]
+path = "apps/explorer/stubs/paxeerXLists.ts"
+lines = 28
+verdict = "clean"
+note = "Read in full: paxeerXLists.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.29]
+path = "apps/explorer/stubs/pools.ts"
+lines = 18
+verdict = "clean"
+note = "Read in full: pools.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.30]
+path = "apps/explorer/stubs/rewards.ts"
+lines = 56
+verdict = "clean"
+note = "Read in full: rewards.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.31]
+path = "apps/explorer/stubs/scrollL2.ts"
+lines = 32
+verdict = "clean"
+note = "Read in full: scrollL2.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.32]
+path = "apps/explorer/stubs/search.ts"
+lines = 32
+verdict = "clean"
+note = "Read in full: search.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.33]
+path = "apps/explorer/stubs/shibarium.ts"
+lines = 20
+verdict = "clean"
+note = "Read in full: shibarium.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.34]
+path = "apps/explorer/stubs/stats.ts"
+lines = 122
+verdict = "clean"
+note = "Read in full: stats.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.35]
+path = "apps/explorer/stubs/token.ts"
+lines = 186
+verdict = "clean"
+note = "Read in full: token.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.36]
+path = "apps/explorer/stubs/tx.ts"
+lines = 79
+verdict = "clean"
+note = "Read in full: tx.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.37]
+path = "apps/explorer/stubs/txInterpretation.ts"
+lines = 34
+verdict = "clean"
+note = "Read in full: txInterpretation.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.38]
+path = "apps/explorer/stubs/txStateChanges.ts"
+lines = 48
+verdict = "clean"
+note = "Read in full: txStateChanges.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.39]
+path = "apps/explorer/stubs/userOps.ts"
+lines = 69
+verdict = "clean"
+note = "Read in full: userOps.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.40]
+path = "apps/explorer/stubs/utils.ts"
+lines = 14
+verdict = "clean"
+note = "Read in full: utils.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.41]
+path = "apps/explorer/stubs/validators.ts"
+lines = 54
+verdict = "clean"
+note = "Read in full: validators.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.42]
+path = "apps/explorer/stubs/withdrawals.ts"
+lines = 12
+verdict = "clean"
+note = "Read in full: withdrawals.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.43]
+path = "apps/explorer/stubs/zetaChainCCTX.ts"
+lines = 94
+verdict = "clean"
+note = "Read in full: zetaChainCCTX.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.44]
+path = "apps/explorer/stubs/zkEvmL2.ts"
+lines = 44
+verdict = "clean"
+note = "Read in full: zkEvmL2.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.45]
+path = "apps/explorer/stubs/zkSyncL2.ts"
+lines = 27
+verdict = "clean"
+note = "Read in full: zkSyncL2.ts supplies typed loading descriptors. Optional external-chain fields and placeholder hashes are not native runtime configuration or producer qualification evidence."
+
+[file.46]
+path = "apps/explorer/ui/advancedFilter/ColumnsButton.tsx"
+lines = 62
+verdict = "clean"
+note = "Read in full: ColumnsButton preserves its local parameter names and rendering path. Shared currency and control round-trip defects are recorded at their owning implementations."
+
+[file.47]
+path = "apps/explorer/ui/advancedFilter/ExportCSV.tsx"
+lines = 99
+verdict = "clean"
+note = "Read in full: ExportCSV preserves its local parameter names and rendering path. Shared currency and control round-trip defects are recorded at their owning implementations."
+
+[file.48]
+path = "apps/explorer/ui/advancedFilter/FilterByColumn.pw.tsx"
+lines = 62
+verdict = "issues"
+note = "Read in full; findings: filter-interaction-coverage."
+
+[file.49]
+path = "apps/explorer/ui/advancedFilter/FilterByColumn.tsx"
+lines = 161
+verdict = "clean"
+note = "Read in full: FilterByColumn preserves its local parameter names and rendering path. Shared currency and control round-trip defects are recorded at their owning implementations."
+
+[file.50]
+path = "apps/explorer/ui/advancedFilter/ItemByColumn.tsx"
+lines = 113
+verdict = "issues"
+note = "Read in full; findings: advanced-filter-native-values."
+
+[file.51]
+path = "apps/explorer/ui/advancedFilter/constants.ts"
+lines = 103
+verdict = "issues"
+note = "Read in full; findings: advanced-filter-native-choice."
+
+[file.52]
+path = "apps/explorer/ui/advancedFilter/filters/AddressFilter.tsx"
+lines = 193
+verdict = "clean"
+note = "Read in full: AddressFilter preserves its local parameter names and rendering path. Shared currency and control round-trip defects are recorded at their owning implementations."
+
+[file.53]
+path = "apps/explorer/ui/advancedFilter/filters/AddressRelationFilter.tsx"
+lines = 42
+verdict = "clean"
+note = "Read in full: AddressRelationFilter preserves its local parameter names and rendering path. Shared currency and control round-trip defects are recorded at their owning implementations."
+
+[file.54]
+path = "apps/explorer/ui/advancedFilter/filters/AgeFilter.tsx"
+lines = 37
+verdict = "issues"
+note = "Read in full; findings: age-filter-roundtrip."
+
+[file.55]
+path = "apps/explorer/ui/advancedFilter/filters/AmountFilter.tsx"
+lines = 103
+verdict = "clean"
+note = "Read in full: AmountFilter preserves its local parameter names and rendering path. Shared currency and control round-trip defects are recorded at their owning implementations."
+
+[file.56]
+path = "apps/explorer/ui/advancedFilter/filters/AssetFilter.tsx"
+lines = 167
+verdict = "issues"
+note = "Read in full; findings: asset-filter-uncheck."
+
+[file.57]
+path = "apps/explorer/ui/advancedFilter/filters/BaseAgeFilter.tsx"
+lines = 196
+verdict = "issues"
+note = "Read in full; findings: age-filter-dirty-state."
+
+[file.58]
+path = "apps/explorer/ui/advancedFilter/filters/MethodFilter.tsx"
+lines = 118
+verdict = "issues"
+note = "Read in full; findings: method-filter-uncheck."
+
+[file.59]
+path = "apps/explorer/ui/advancedFilter/filters/TypeFilter.tsx"
+lines = 78
+verdict = "clean"
+note = "Read in full: TypeFilter preserves its local parameter names and rendering path. Shared currency and control round-trip defects are recorded at their owning implementations."
+
+[file.60]
+path = "apps/explorer/ui/advancedFilter/lib.ts"
+lines = 115
+verdict = "clean"
+note = "Read in full: lib preserves its local parameter names and rendering path. Shared currency and control round-trip defects are recorded at their owning implementations."
+
+[file.61]
+path = "apps/explorer/ui/blocks/BlocksContent.spec.tsx"
+lines = 97
+verdict = "clean"
+note = "Read in full: BlocksContent.spec preserves its local block/flashblock rendering fields. Cache refresh, selected-chain formatting and subscription recovery defects are recorded at their owning implementations."
+
+[file.62]
+path = "apps/explorer/ui/blocks/BlocksContent.tsx"
+lines = 199
+verdict = "issues"
+note = "Read in full; findings: native-block-refresh."
+
+[file.63]
+path = "apps/explorer/ui/blocks/BlocksList.tsx"
+lines = 40
+verdict = "clean"
+note = "Read in full: BlocksList preserves its local block/flashblock rendering fields. Cache refresh, selected-chain formatting and subscription recovery defects are recorded at their owning implementations."
+
+[file.64]
+path = "apps/explorer/ui/blocks/BlocksListItem.spec.tsx"
+lines = 55
+verdict = "clean"
+note = "Read in full: BlocksListItem.spec preserves its local block/flashblock rendering fields. Cache refresh, selected-chain formatting and subscription recovery defects are recorded at their owning implementations."
+
+[file.65]
+path = "apps/explorer/ui/blocks/BlocksListItem.tsx"
+lines = 152
+verdict = "issues"
+note = "Read in full; findings: mobile-block-chain-link."
+
+[file.66]
+path = "apps/explorer/ui/blocks/BlocksTabSlot.spec.tsx"
+lines = 34
+verdict = "clean"
+note = "Read in full: BlocksTabSlot.spec preserves its local block/flashblock rendering fields. Cache refresh, selected-chain formatting and subscription recovery defects are recorded at their owning implementations."
+
+[file.67]
+path = "apps/explorer/ui/blocks/BlocksTabSlot.tsx"
+lines = 47
+verdict = "clean"
+note = "Read in full: BlocksTabSlot preserves its local block/flashblock rendering fields. Cache refresh, selected-chain formatting and subscription recovery defects are recorded at their owning implementations."
+
+[file.68]
+path = "apps/explorer/ui/blocks/BlocksTable.spec.tsx"
+lines = 66
+verdict = "clean"
+note = "Read in full: BlocksTable.spec preserves its local block/flashblock rendering fields. Cache refresh, selected-chain formatting and subscription recovery defects are recorded at their owning implementations."
+
+[file.69]
+path = "apps/explorer/ui/blocks/BlocksTable.tsx"
+lines = 99
+verdict = "issues"
+note = "Read in full; findings: block-table-configuration."
+
+[file.70]
+path = "apps/explorer/ui/blocks/BlocksTableItem.spec.tsx"
+lines = 57
+verdict = "clean"
+note = "Read in full: BlocksTableItem.spec preserves its local block/flashblock rendering fields. Cache refresh, selected-chain formatting and subscription recovery defects are recorded at their owning implementations."
+
+[file.71]
+path = "apps/explorer/ui/blocks/BlocksTableItem.tsx"
+lines = 148
+verdict = "issues"
+note = "Read in full; findings: desktop-block-chain-link, desktop-block-value-scale."
+
+[file.72]
+path = "apps/explorer/ui/blocks/Flashblocks.tsx"
+lines = 72
+verdict = "clean"
+note = "Read in full: Flashblocks preserves its local block/flashblock rendering fields. Cache refresh, selected-chain formatting and subscription recovery defects are recorded at their owning implementations."
+
+[file.73]
+path = "apps/explorer/ui/blocks/flashblocks/FlashblocksList.tsx"
+lines = 38
+verdict = "clean"
+note = "Read in full: FlashblocksList preserves its local block/flashblock rendering fields. Cache refresh, selected-chain formatting and subscription recovery defects are recorded at their owning implementations."
+
+[file.74]
+path = "apps/explorer/ui/blocks/flashblocks/FlashblocksListItem.tsx"
+lines = 56
+verdict = "clean"
+note = "Read in full: FlashblocksListItem preserves its local block/flashblock rendering fields. Cache refresh, selected-chain formatting and subscription recovery defects are recorded at their owning implementations."
+
+[file.75]
+path = "apps/explorer/ui/blocks/flashblocks/FlashblocksStats.tsx"
+lines = 52
+verdict = "clean"
+note = "Read in full: FlashblocksStats preserves its local block/flashblock rendering fields. Cache refresh, selected-chain formatting and subscription recovery defects are recorded at their owning implementations."
+
+[file.76]
+path = "apps/explorer/ui/blocks/flashblocks/FlashblocksTable.tsx"
+lines = 53
+verdict = "clean"
+note = "Read in full: FlashblocksTable preserves its local block/flashblock rendering fields. Cache refresh, selected-chain formatting and subscription recovery defects are recorded at their owning implementations."
+
+[file.77]
+path = "apps/explorer/ui/blocks/flashblocks/FlashblocksTableItem.tsx"
+lines = 53
+verdict = "clean"
+note = "Read in full: FlashblocksTableItem preserves its local block/flashblock rendering fields. Cache refresh, selected-chain formatting and subscription recovery defects are recorded at their owning implementations."
+
+[file.78]
+path = "apps/explorer/ui/blocks/flashblocks/formatFlashblockItem.tsx"
+lines = 32
+verdict = "clean"
+note = "Read in full: formatFlashblockItem preserves its local block/flashblock rendering fields. Cache refresh, selected-chain formatting and subscription recovery defects are recorded at their owning implementations."
+
+[file.79]
+path = "apps/explorer/ui/blocks/flashblocks/parseSocketEventData.tsx"
+lines = 34
+verdict = "issues"
+note = "Read in full; findings: flashblock-text-frame."
+
+[file.80]
+path = "apps/explorer/ui/blocks/flashblocks/useFlashblocksSocketData.ts"
+lines = 146
+verdict = "issues"
+note = "Read in full; findings: flashblock-reconnect, flashblock-tail-flush."
+
+[file.81]
+path = "apps/explorer/ui/crossChain/address/AddressTxsCrossChain.tsx"
+lines = 43
+verdict = "clean"
+note = "Read in full: AddressTxsCrossChain preserves explicit source/destination chains, lifecycle and displayed transfer/message fields. The shared row identity defect is recorded at transfers/utils.ts."
+
+[file.82]
+path = "apps/explorer/ui/crossChain/transfers/TokenTransfersCrossChain.pw.tsx"
+lines = 48
+verdict = "clean"
+note = "Read in full: TokenTransfersCrossChain.pw preserves explicit source/destination chains, lifecycle and displayed transfer/message fields. The shared row identity defect is recorded at transfers/utils.ts."
+
+[file.83]
+path = "apps/explorer/ui/crossChain/transfers/TokenTransfersCrossChain.tsx"
+lines = 45
+verdict = "clean"
+note = "Read in full: TokenTransfersCrossChain preserves explicit source/destination chains, lifecycle and displayed transfer/message fields. The shared row identity defect is recorded at transfers/utils.ts."
+
+[file.84]
+path = "apps/explorer/ui/crossChain/transfers/TokenTransfersCrossChainContent.tsx"
+lines = 64
+verdict = "clean"
+note = "Read in full: TokenTransfersCrossChainContent preserves explicit source/destination chains, lifecycle and displayed transfer/message fields. The shared row identity defect is recorded at transfers/utils.ts."
+
+[file.85]
+path = "apps/explorer/ui/crossChain/transfers/TokenTransfersCrossChainListItem.tsx"
+lines = 135
+verdict = "clean"
+note = "Read in full: TokenTransfersCrossChainListItem preserves explicit source/destination chains, lifecycle and displayed transfer/message fields. The shared row identity defect is recorded at transfers/utils.ts."
+
+[file.86]
+path = "apps/explorer/ui/crossChain/transfers/TokenTransfersCrossChainTable.tsx"
+lines = 58
+verdict = "clean"
+note = "Read in full: TokenTransfersCrossChainTable preserves explicit source/destination chains, lifecycle and displayed transfer/message fields. The shared row identity defect is recorded at transfers/utils.ts."
+
+[file.87]
+path = "apps/explorer/ui/crossChain/transfers/TokenTransfersCrossChainTableItem.tsx"
+lines = 159
+verdict = "clean"
+note = "Read in full: TokenTransfersCrossChainTableItem preserves explicit source/destination chains, lifecycle and displayed transfer/message fields. The shared row identity defect is recorded at transfers/utils.ts."
+
+[file.88]
+path = "apps/explorer/ui/crossChain/transfers/utils.ts"
+lines = 14
+verdict = "issues"
+note = "Read in full; findings: crosschain-transfer-key."
+
+[file.89]
+path = "apps/explorer/ui/crossChain/tx/TxCrossChain.pw.tsx"
+lines = 34
+verdict = "clean"
+note = "Read in full: TxCrossChain.pw preserves explicit source/destination chains, lifecycle and displayed transfer/message fields. The shared row identity defect is recorded at transfers/utils.ts."
+
+[file.90]
+path = "apps/explorer/ui/crossChain/tx/TxCrossChain.tsx"
+lines = 69
+verdict = "clean"
+note = "Read in full: TxCrossChain preserves explicit source/destination chains, lifecycle and displayed transfer/message fields. The shared row identity defect is recorded at transfers/utils.ts."
+
+[file.91]
+path = "apps/explorer/ui/crossChain/tx/TxCrossChainDetails.tsx"
+lines = 119
+verdict = "clean"
+note = "Read in full: TxCrossChainDetails preserves explicit source/destination chains, lifecycle and displayed transfer/message fields. The shared row identity defect is recorded at transfers/utils.ts."
+
+[file.92]
+path = "apps/explorer/ui/crossChain/tx/TxCrossChainDetailsLifecycle.pw.tsx"
+lines = 44
+verdict = "clean"
+note = "Read in full: TxCrossChainDetailsLifecycle.pw preserves explicit source/destination chains, lifecycle and displayed transfer/message fields. The shared row identity defect is recorded at transfers/utils.ts."
+
+[file.93]
+path = "apps/explorer/ui/crossChain/tx/TxCrossChainDetailsLifecycle.tsx"
+lines = 113
+verdict = "clean"
+note = "Read in full: TxCrossChainDetailsLifecycle preserves explicit source/destination chains, lifecycle and displayed transfer/message fields. The shared row identity defect is recorded at transfers/utils.ts."
+
+[file.94]
+path = "apps/explorer/ui/crossChain/tx/TxCrossChainDetailsTransfers.tsx"
+lines = 112
+verdict = "clean"
+note = "Read in full: TxCrossChainDetailsTransfers preserves explicit source/destination chains, lifecycle and displayed transfer/message fields. The shared row identity defect is recorded at transfers/utils.ts."
+
+[file.95]
+path = "apps/explorer/ui/crossChain/tx/TxCrossChainTransfers.tsx"
+lines = 57
+verdict = "clean"
+note = "Read in full: TxCrossChainTransfers preserves explicit source/destination chains, lifecycle and displayed transfer/message fields. The shared row identity defect is recorded at transfers/utils.ts."
+
+[file.96]
+path = "apps/explorer/ui/crossChain/txs/Transactions.tsx"
+lines = 57
+verdict = "clean"
+note = "Read in full: Transactions preserves explicit source/destination chains, lifecycle and displayed transfer/message fields. The shared row identity defect is recorded at transfers/utils.ts."
+
+[file.97]
+path = "apps/explorer/ui/crossChain/txs/TransactionsCrossChain.pw.tsx"
+lines = 44
+verdict = "clean"
+note = "Read in full: TransactionsCrossChain.pw preserves explicit source/destination chains, lifecycle and displayed transfer/message fields. The shared row identity defect is recorded at transfers/utils.ts."
+
+[file.98]
+path = "apps/explorer/ui/crossChain/txs/TransactionsCrossChain.tsx"
+lines = 48
+verdict = "clean"
+note = "Read in full: TransactionsCrossChain preserves explicit source/destination chains, lifecycle and displayed transfer/message fields. The shared row identity defect is recorded at transfers/utils.ts."
+
+[file.99]
+path = "apps/explorer/ui/crossChain/txs/TransactionsCrossChainContent.tsx"
+lines = 67
+verdict = "clean"
+note = "Read in full: TransactionsCrossChainContent preserves explicit source/destination chains, lifecycle and displayed transfer/message fields. The shared row identity defect is recorded at transfers/utils.ts."
+
+[file.100]
+path = "apps/explorer/ui/crossChain/txs/TransactionsCrossChainListItem.tsx"
+lines = 172
+verdict = "clean"
+note = "Read in full: TransactionsCrossChainListItem preserves explicit source/destination chains, lifecycle and displayed transfer/message fields. The shared row identity defect is recorded at transfers/utils.ts."
+
+[file.101]
+path = "apps/explorer/ui/crossChain/txs/TransactionsCrossChainStats.tsx"
+lines = 40
+verdict = "clean"
+note = "Read in full: TransactionsCrossChainStats preserves explicit source/destination chains, lifecycle and displayed transfer/message fields. The shared row identity defect is recorded at transfers/utils.ts."
+
+[file.102]
+path = "apps/explorer/ui/crossChain/txs/TransactionsCrossChainTable.tsx"
+lines = 62
+verdict = "clean"
+note = "Read in full: TransactionsCrossChainTable preserves explicit source/destination chains, lifecycle and displayed transfer/message fields. The shared row identity defect is recorded at transfers/utils.ts."
+
+[file.103]
+path = "apps/explorer/ui/crossChain/txs/TransactionsCrossChainTableItem.tsx"
+lines = 230
+verdict = "clean"
+note = "Read in full: TransactionsCrossChainTableItem preserves explicit source/destination chains, lifecycle and displayed transfer/message fields. The shared row identity defect is recorded at transfers/utils.ts."
+
+[file.104]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/chain.ex"
+lines = 1543
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/block_scout_web/lib/block_scout_web/chain.ex. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.105]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex"
+lines = 188
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.106]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/address_badges_v2_router.ex"
+lines = 56
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/address_badges_v2_router.ex. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.107]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/admin_router.ex"
+lines = 60
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/admin_router.ex. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.108]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/api_key_v2_router.ex"
+lines = 30
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/api_key_v2_router.ex. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.109]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/api_router.ex"
+lines = 607
+verdict = "issues"
+note = "Read in full; findings: hosted-route-admission."
+
+[file.110]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/chain_type_scope.ex"
+lines = 44
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/chain_type_scope.ex. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.111]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/smart_contracts_api_v2_router.ex"
+lines = 83
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/smart_contracts_api_v2_router.ex. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.112]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/tokens_api_v2_router.ex"
+lines = 84
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/tokens_api_v2_router.ex. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.113]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/utils_api_v2_router.ex"
+lines = 32
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/utils_api_v2_router.ex. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.114]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex"
+lines = 452
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.115]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/channels/address_channel_test.exs"
+lines = 260
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/block_scout_web/test/block_scout_web/channels/address_channel_test.exs. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.116]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/channels/block_channel_test.exs"
+lines = 30
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/block_scout_web/test/block_scout_web/channels/block_channel_test.exs. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.117]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/channels/exchange_rate_channel_test.exs"
+lines = 110
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/block_scout_web/test/block_scout_web/channels/exchange_rate_channel_test.exs. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.118]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/channels/reward_channel_test.exs"
+lines = 57
+verdict = "issues"
+note = "Read in full; findings: reward-test-state."
+
+[file.119]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/channels/transaction_channel_test.exs"
+lines = 67
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/block_scout_web/test/block_scout_web/channels/transaction_channel_test.exs. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.120]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/channels/v2/address_channel_test.exs"
+lines = 129
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/block_scout_web/test/block_scout_web/channels/v2/address_channel_test.exs. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.121]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/channels/v2/block_channel_test.exs"
+lines = 41
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/block_scout_web/test/block_scout_web/channels/v2/block_channel_test.exs. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.122]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/channels/v2/exchange_rate_channel_test.exs"
+lines = 126
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/block_scout_web/test/block_scout_web/channels/v2/exchange_rate_channel_test.exs. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.123]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/channels/v2/paxeer_x_feed_channel_test.exs"
+lines = 284
+verdict = "clean"
+note = "Read in full: Phoenix registration, route guards and channel tests preserve current declarations; compatibility sockets are distinct from retired LayerX services."
+
+[file.124]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/channels/v2/reward_channel_test.exs"
+lines = 57
+verdict = "issues"
+note = "Read in full; findings: reward-v2-test-state."
+
+[file.125]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/channels/v2/transaction_channel_test.exs"
+lines = 46
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/block_scout_web/test/block_scout_web/channels/v2/transaction_channel_test.exs. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.126]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/channels/v2/websocket_test.exs"
+lines = 403
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/block_scout_web/test/block_scout_web/channels/v2/websocket_test.exs. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.127]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/celo/account.ex"
+lines = 112
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/explorer/lib/explorer/chain/celo/account.ex. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.128]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/celo/aggregated_election_reward.ex"
+lines = 128
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/explorer/lib/explorer/chain/celo/aggregated_election_reward.ex. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.129]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/celo/election_reward.ex"
+lines = 384
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/explorer/lib/explorer/chain/celo/election_reward.ex. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.130]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/celo/epoch.ex"
+lines = 459
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/explorer/lib/explorer/chain/celo/epoch.ex. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.131]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/celo/epoch_reward.ex"
+lines = 45
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/explorer/lib/explorer/chain/celo/epoch_reward.ex. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.132]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/celo/helper.ex"
+lines = 140
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/explorer/lib/explorer/chain/celo/helper.ex. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.133]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/celo/legacy/accounts.ex"
+lines = 210
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/explorer/lib/explorer/chain/celo/legacy/accounts.ex. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.134]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/celo/legacy/events.ex"
+lines = 161
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/explorer/lib/explorer/chain/celo/legacy/events.ex. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.135]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/celo/pending_account_operation.ex"
+lines = 70
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/explorer/lib/explorer/chain/celo/pending_account_operation.ex. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.136]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/celo/reader/epoch_manager.ex"
+lines = 92
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/explorer/lib/explorer/chain/celo/reader/epoch_manager.ex. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.137]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/celo/validator_group_vote.ex"
+lines = 77
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/explorer/lib/explorer/chain/celo/validator_group_vote.ex. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.138]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/internal_transaction.ex"
+lines = 1264
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/explorer/lib/explorer/chain/internal_transaction.ex. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.139]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/smart_contract.ex"
+lines = 1652
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/explorer/lib/explorer/chain/smart_contract.ex. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.140]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/token.ex"
+lines = 736
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/explorer/lib/explorer/chain/token.ex. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.141]
+path = "services/explorer/backend/apps/explorer/lib/explorer/eth_rpc.ex"
+lines = 1367
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/explorer/lib/explorer/eth_rpc.ex. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.142]
+path = "services/explorer/backend/apps/explorer/lib/explorer/tracer.ex"
+lines = 5
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/explorer/lib/explorer/tracer.ex. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.143]
+path = "services/explorer/backend/apps/explorer/test/explorer/etherscan_test.exs"
+lines = 1806
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/explorer/test/explorer/etherscan_test.exs. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.144]
+path = "services/explorer/backend/apps/explorer/test/explorer/token/balance_reader_test.exs"
+lines = 97
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/explorer/test/explorer/token/balance_reader_test.exs. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.145]
+path = "services/explorer/backend/apps/explorer/test/explorer/token/metadata_retriever_test.exs"
+lines = 1245
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/explorer/test/explorer/token/metadata_retriever_test.exs. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.146]
+path = "services/explorer/backend/apps/explorer/test/support/factory.ex"
+lines = 1805
+verdict = "vendored"
+note = "Imported Blockscout v10.2.6 body; reviewed complete local delta from f72f4cee4: block_number starts beyond configured trace_first_block using Kernel.+. Factory output is not receipt-verification evidence."
+
+[file.147]
+path = "services/explorer/backend/apps/indexer/lib/indexer/buffered_task.ex"
+lines = 1439
+verdict = "vendored"
+note = "Imported Blockscout v10.2.6 body; reviewed complete local delta from f72f4cee4: handle_call(:queue_size) returns Enum.count(bound_queue) for memory monitoring without mutating queue state."
+
+[file.148]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/celo/epoch_block_operations.ex"
+lines = 299
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/indexer/lib/indexer/fetcher/celo/epoch_block_operations.ex. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.149]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/celo/epoch_block_operations/core_contract_version.ex"
+lines = 92
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/indexer/lib/indexer/fetcher/celo/epoch_block_operations/core_contract_version.ex. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.150]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/celo/epoch_block_operations/delegated_payments_prior_l2_migration.ex"
+lines = 178
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/indexer/lib/indexer/fetcher/celo/epoch_block_operations/delegated_payments_prior_l2_migration.ex. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.151]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/celo/epoch_block_operations/distributions.ex"
+lines = 118
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/indexer/lib/indexer/fetcher/celo/epoch_block_operations/distributions.ex. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.152]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/celo/epoch_block_operations/validator_and_group_payments_post_l2_migration.ex"
+lines = 327
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/indexer/lib/indexer/fetcher/celo/epoch_block_operations/validator_and_group_payments_post_l2_migration.ex. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.153]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/celo/epoch_block_operations/validator_and_group_payments_prior_l2_migration.ex"
+lines = 58
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/indexer/lib/indexer/fetcher/celo/epoch_block_operations/validator_and_group_payments_prior_l2_migration.ex. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.154]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/celo/epoch_block_operations/voter_payments.ex"
+lines = 215
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/indexer/lib/indexer/fetcher/celo/epoch_block_operations/voter_payments.ex. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.155]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/celo/epoch_logs.ex"
+lines = 140
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/indexer/lib/indexer/fetcher/celo/epoch_logs.ex. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.156]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/celo/legacy/account.ex"
+lines = 157
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/indexer/lib/indexer/fetcher/celo/legacy/account.ex. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.157]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/celo/legacy/account/reader.ex"
+lines = 267
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/indexer/lib/indexer/fetcher/celo/legacy/account/reader.ex. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.158]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/celo/validator_group_votes.ex"
+lines = 218
+verdict = "vendored"
+note = "Blockscout backend v10.2.6, upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820; byte-identical to repository import f72f4cee4 at explorer/backend/apps/indexer/lib/indexer/fetcher/celo/validator_group_votes.ex. Vendor exception; external Celo/rollup code is not native-network sequencer topology."
+
+[file.159]
+path = "tests/explorer/conftest.py"
+lines = 16
+verdict = "clean"
+note = "Read in full: scoped loader/fixture wiring imports the actual data-boundary module without launching an integration case at import time."
+
+[file.160]
+path = "tests/explorer/gate-test-test.sh"
+lines = 199
+verdict = "clean"
+note = "Read in full: recording stand-ins prove gate orchestration, failure propagation and log handling; they are not claimed as proof of real chain data production."
+
+[file.161]
+path = "tests/explorer/paxeer-x-data-boundary.py"
+lines = 569
+verdict = "issues"
+note = "Read in full; findings: history-env-isolation, harness-registry-inputs, unused-prerequisite-probe."
+
+[file.162]
+path = "tests/explorer/test-ratio-test.sh"
+lines = 312
+verdict = "clean"
+note = "Read in full: disposable git histories assert source/test classification, missing references, valid ratios, argument errors and empty ranges."
+
+[file.163]
+path = "tests/explorer/test_conftest_loader.py"
+lines = 34
+verdict = "clean"
+note = "Read in full: scoped loader/fixture wiring imports the actual data-boundary module without launching an integration case at import time."
+
+[file.164]
+path = "tests/explorer/test_paxeer_x_data_boundary_cases.py"
+lines = 86
+verdict = "clean"
+note = "Read in full: asserts current EVM-only environment, missing-source refusal, loopback node URL parsing and absence of retired index/relay setup."
+
+[file.165]
+path = "tests/explorer/test_paxeer_x_data_boundary_retired_cases.py"
+lines = 64
+verdict = "clean"
+note = "Read in full: asserts the remaining history/pagination case list and refusal of retired cases and binary prerequisites. Retired names appear in negative assertions intentionally."
+
+[finding.native-block-refresh]
+file = "apps/explorer/ui/blocks/BlocksContent.tsx"
+line = 63
+class = "interface-mismatch"
+severity = "high"
+observed = "The blocks:new_block handler returns prevData when any cached block has the incoming height. Notifier.broadcast_price_updates (notifier.ex:710-724) deliberately republishes an existing block after native submissions arrive. BlockView adds those submissions to transactions_count and price_update_count, but this consumer discards the refreshed payload; an already displayed zero-transaction block remains zero until another fetch."
+expected = "The declared block event lifecycle includes refreshed native submission counts as well as new heights. Native activity must reach the visible explorer through the actual notifier, Phoenix channel and browser cache path, including when native indexing finishes after EVM indexing (requirements 181173.1 and 181219.1)."
+proposal = "Update apps/explorer/ui/blocks/BlocksContent.tsx to replace the matching cached canonical block on a refresh and reconcile a changed hash at the same height according to list type. Preserve pagination and overload limits. Extend BlocksContent.spec.tsx with an initial EVM-only block followed by the actual notifier shape carrying native counts, and assert the displayed count changes without a refetch."
+owner_domain = 14
+interface = "14.ws-explorer-push-blocks-new-block-new-block-l720"
+related_interfaces = ["14.ws-explorer-push-blocks-new-block-new-block", "14.ws-explorer-channel-socket-v2-blocks", "14.ws-explorer-join-socket-v2-blocks-common"]
+
+[finding.hosted-route-admission]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/api_router.ex"
+line = 513
+class = "interface-mismatch"
+severity = "high"
+observed = "The router serves advanced-filters, advanced-filters/csv and advanced-filters/methods at lines 512-515 and all four paxeer-x/feed REST routes at lines 279-282. apps/explorer/lib/api/services/general/misc.ts and paxeerXFeed.ts consume those paths. None occurs in the finite ROUTES of services/platform/hosted/gateway/src/explorer_proxy.rs; http_route:272-280 returns 404 explorer_route_not_admitted. ui_proxy.rs also omits the actual /explorer/feed, /explorer/feed/market/[id] and /explorer/feed/update/[hash] page patterns."
+expected = "The declared live explorer routes must reach their consumers through the hosted /explorer/backend transport with unchanged query, payload and error semantics. The native feed pages under apps/explorer/pages/feed must also be reachable through the hosted frontend. Direct-backend success does not establish this product path."
+proposal = "Domain 8 should add the exact advanced-filter and native-feed REST paths to explorer_proxy.rs and the three feed page patterns to ui_proxy.rs, preserving existing header, query, origin, timeout and input bounds. Coordinate with domain 14 to exercise the actual gateway against the backend and frontend for all seven REST routes, error responses and page loads; regenerate tools/paxeer-x/route-catalogue.json and docs/system/routes.md."
+owner_domain = 8
+interface = "14.http-get-api-v2-advanced-filters"
+related_interfaces = ["14.http-get-api-v2-advanced-filters-csv", "14.http-get-api-v2-advanced-filters-methods", "14.http-get-api-v2-paxeer-x-feed-markets", "14.http-get-api-v2-paxeer-x-feed-markets-market-id-updates", "14.http-get-api-v2-paxeer-x-feed-updates", "14.http-get-api-v2-paxeer-x-feed-updates-hash"]
+
+[finding.desktop-block-chain-link]
+file = "apps/explorer/ui/blocks/BlocksTableItem.tsx"
+line = 95
+class = "wiring-gap"
+severity = "medium"
+observed = "The transaction-count link uses nextjs-routes with only height_or_hash and tab, ignoring supplied chainData. Shared BlockEntity and AddressEntity correctly inherit multichain context through distributeEntityProps, but this raw Link bypasses it. Clicking the count for a tenant block opens the default-chain block."
+expected = "Every navigation target in a selected-chain block row must retain that chain identity, including the transaction-count link. Brief fact 5 requires tenancy to remain a parameter through the explorer journey."
+proposal = "Build the count URL in BlocksTableItem.tsx with the chain-aware nextjs/routes helper and selected chainData or context. Extend BlocksTableItem.spec.tsx to assert the actual /chain/<slug>/block/<height>?tab=txs href and distinguish the same block height on the default chain."
+owner_domain = 14
+
+[finding.mobile-block-chain-link]
+file = "apps/explorer/ui/blocks/BlocksListItem.tsx"
+line = 92
+class = "wiring-gap"
+severity = "medium"
+observed = "The mobile transaction-count URL is generated through nextjs-routes without chainData even though the BlockEntity above it explicitly receives the selected chain. Two links in the same row therefore lead to different chain contexts. Native reward and fee formatting also retains global currency units."
+expected = "Mobile block navigation, monetary units and labels must describe the chain producing the displayed row, consistently with its block entity and selected-chain backend endpoint."
+proposal = "Use nextjs/routes with the selected chain for the count URL in BlocksListItem.tsx, and derive currency scale and visibility from that chain configuration. Cover the count href and values with a tenant slug and currency metadata distinct from the default in BlocksListItem.spec.tsx."
+owner_domain = 14
+
+[finding.block-table-configuration]
+file = "apps/explorer/ui/blocks/BlocksTable.tsx"
+line = 33
+class = "config-drift"
+severity = "medium"
+observed = "BlocksTable receives chainData but computes isRollup from the default config at module load. All hiddenFields decisions and reward/burnt-fee headings also use the default config and currencyUnits. A selected chain with different currency or block display rules still gets the default-chain columns and unit labels."
+expected = "The selected chain app_config must supply its currency labels and block field visibility. config.UI.views.block and config.chain.currency must describe the chain being viewed rather than another chain sharing the frontend process."
+proposal = "Resolve effective configuration from chainData.app_config inside BlocksTable.tsx, retaining default behavior when no chain is selected. Pass that configuration through row rendering and cover two chains with distinct hiddenFields and currency metadata in BlocksTable.spec.tsx."
+owner_domain = 14
+interface = "14.cfg-fe-ui-views-block"
+
+[finding.desktop-block-value-scale]
+file = "apps/explorer/ui/blocks/BlocksTableItem.tsx"
+line = 38
+class = "config-drift"
+severity = "medium"
+observed = "The row calls getBlockTotalReward(data), whose WEI divisor is fixed from global config.chain.currency.decimals. NativeCoinValue likewise obtains fee decimals through global ui/shared/value/utils.ts. Supplied chainData never influences the conversions, so a selected chain with different native decimals displays incorrectly scaled amounts."
+expected = "Rewards and fees must use the decimals of the native currency on the chain producing the block. Both labels and numeric scale must follow the selected-chain configuration."
+proposal = "Pass selected-chain currency metadata into reward and native-value formatting from BlocksTableItem.tsx, keeping integer amounts until conversion. Add non-default decimal and symbol assertions to the block-row tests alongside the chain-preserving navigation regression."
+owner_domain = 14
+interface = "14.cfg-fe-chain-currency"
+
+[finding.advanced-filter-native-values]
+file = "apps/explorer/ui/advancedFilter/ItemByColumn.tsx"
+line = 99
+class = "config-drift"
+severity = "medium"
+observed = "ItemByColumn uses chainConfig for transaction type names, but its native asset cell prints config.chain.currency.symbol. Native amount and fee cells use NativeCoinValue with global decimals. A selected chain can therefore show another chain symbol and incorrectly scaled native amounts."
+expected = "The asset label, native amount scale and fee scale must agree with the chainConfig and endpoint that produced the row. Tenant identity must be preserved in monetary presentation as well as request routing."
+proposal = "Derive effective currency from chainConfig in ItemByColumn.tsx and explicitly supply its decimals and symbol to amount/fee formatting. Cover native amount, fee and asset cells with selected-chain metadata different from the default configuration."
+owner_domain = 14
+interface = "14.cfg-fe-chain-currency"
+
+[finding.advanced-filter-native-choice]
+file = "apps/explorer/ui/advancedFilter/constants.ts"
+line = 97
+class = "config-drift"
+severity = "medium"
+observed = "NATIVE_TOKEN is constructed once from global config.chain.currency and reused by AssetFilter and FilterByColumn. Its native sentinel is valid, but its name and symbol do not change when a different chain is selected."
+expected = "The native asset option must identify the currency of the currently selected chain, while preserving the native sentinel understood by the advanced-filter producer."
+proposal = "Replace the singleton display descriptor in constants.ts with a factory taking effective chain currency; update AssetFilter and FilterByColumn to provide it. Assert that switching chains changes the visible native asset and retains the native include/exclude sentinel."
+owner_domain = 14
+interface = "14.cfg-fe-chain-currency"
+
+[finding.age-filter-roundtrip]
+file = "apps/explorer/ui/advancedFilter/filters/AgeFilter.tsx"
+line = 12
+class = "runtime-risk"
+severity = "medium"
+observed = "dateConverter.getCurrentValue returns its incoming ISO timestamp unchanged. BaseAgeFilter passes it to a type=date input requiring YYYY-MM-DD, while onFilter saves custom bounds as full ISO timestamps. Reopening a saved custom range therefore presents blank date controls while the filter is still applied."
+expected = "A saved custom date filter must reopen with the selected calendar dates, and the API must continue receiving the intended ISO start-of-day and end-of-day bounds."
+proposal = "Convert stored timestamps to calendar date strings in AgeFilter.getCurrentValue and keep ISO serialization at the API boundary. Add save, close, reopen and reapply interaction coverage that asserts both visible dates and unchanged request bounds."
+owner_domain = 14
+
+[finding.age-filter-dirty-state]
+file = "apps/explorer/ui/advancedFilter/filters/BaseAgeFilter.tsx"
+line = 155
+class = "runtime-risk"
+severity = "low"
+observed = "For custom bounds isTouched compares currentValue, which includes age, with originalValueAsDates containing only from and to. isEqual reports a change without an edit. DateInput also synchronizes changed props only when the new value is empty, leaving a changed nonempty bound stale."
+expected = "Unchanged custom bounds must remain untouched and externally replaced nonempty date values must be reflected by the displayed input controls."
+proposal = "Compare matching value shapes in BaseAgeFilter.tsx and synchronize DateInput with every controlled value change. Cover opening an unchanged custom range and replacing an existing nonempty range through navigation."
+owner_domain = 14
+
+[finding.asset-filter-uncheck]
+file = "apps/explorer/ui/advancedFilter/filters/AssetFilter.tsx"
+line = 76
+class = "runtime-risk"
+severity = "medium"
+observed = "Search checkboxes invoke onTokenClick on both checking and unchecking. That callback returns the previous state whenever the token is already present, so the user cannot deselect a selected search result; CheckboxGroup restores its check mark."
+expected = "Asset checkboxes must toggle selection. Removing a selected search result must clear its check and omit it from the next applied include/exclude request."
+proposal = "Use the checked state to remove existing assets as well as add new ones in AssetFilter.tsx, retaining explicit include/exclude mode. Cover selecting and deselecting the same result with a nonempty search and assert the applied address list."
+owner_domain = 14
+
+[finding.method-filter-uncheck]
+file = "apps/explorer/ui/advancedFilter/filters/MethodFilter.tsx"
+line = 53
+class = "runtime-risk"
+severity = "medium"
+observed = "methodsList preserves saved selected methods beside the default query results, but handleChange resolves the clicked id only in methodsQuery.data. If a saved selection is absent from the current result, its visible checkbox cannot be unchecked because methodInfo is undefined."
+expected = "Any visible selected method must be removable even when current search results no longer include its metadata. Reopening a filter must preserve the ability to edit its selection."
+proposal = "Remove unchecked ids directly from currentValue and resolve addition metadata from the displayed list or query. Cover a saved method absent from the default search response, uncheck it and assert its id is absent from the applied methods parameter."
+owner_domain = 14
+
+[finding.filter-interaction-coverage]
+file = "apps/explorer/ui/advancedFilter/FilterByColumn.pw.tsx"
+line = 39
+class = "test-gap"
+severity = "medium"
+observed = "The filter cases open each popover and take a screenshot while handleFilterChange is an empty callback. They never toggle selection, apply custom dates or assert serialized request parameters, so the asset, method and date round-trip defects are invisible to this coverage."
+expected = "Filter qualification must exercise user choice through control state and request serialization to the backend accepted parameter shape. Initial-layout screenshots alone do not establish that path."
+proposal = "Keep the screenshots and add interaction assertions in FilterByColumn.pw.tsx for applied parameters and the actual advanced-filter request. Include custom date reopening, asset deselection and removal of a saved method absent from current search results."
+owner_domain = 14
+
+[finding.flashblock-reconnect]
+file = "apps/explorer/ui/blocks/flashblocks/useFlashblocksSocketData.ts"
+line = 113
+class = "restart-recovery"
+severity = "medium"
+observed = "onclose and onerror only set status. connect runs once at mount and resume merely clears the pause flag and notice count. Flashblocks.handleAlertLinkClick uses that resume path, so its error recovery action leaves a closed WebSocket closed and the feed disconnected."
+expected = "An enabled feed must be able to establish a fresh subscription after a transient outage when the user invokes the offered recovery action."
+proposal = "Expose a bounded reconnect action in useFlashblocksSocketData.ts that disposes the old socket and timer, reconnects and confirms subscription. Wire the error action to it and cover close, retry, resubscription and delivery of the next protocol-shaped item."
+owner_domain = 14
+
+[finding.flashblock-tail-flush]
+file = "apps/explorer/ui/blocks/flashblocks/useFlashblocksSocketData.ts"
+line = 66
+class = "runtime-risk"
+severity = "medium"
+observed = "Messages received within QUEUE_TIME_THRESHOLD are queued, but the queue is flushed only when a later message arrives after the threshold. No timer flushes the tail; a final burst followed by silence can leave received items and transaction counts undisplayed indefinitely."
+expected = "Every accepted message must be reflected within the batching interval even if it is the last message before the connection becomes idle."
+proposal = "Schedule one bounded flush when the queue becomes nonempty, cancel it during cleanup and share flush logic with message processing. Cover a short burst followed by silence and assert all queued items and their transaction counts appear without another message."
+owner_domain = 14
+
+[finding.flashblock-text-frame]
+file = "apps/explorer/ui/blocks/flashblocks/parseSocketEventData.tsx"
+line = 7
+class = "runtime-risk"
+severity = "medium"
+observed = "The Optimism parser calls event.data.text() before checking JSON content. Browser WebSocket text frames provide strings rather than Blobs, so a valid JSON text frame throws before parsing and returns undefined. The hook drops that item while its status can remain connected."
+expected = "Supported JSON and compressed binary encodings must be decoded from the actual browser WebSocket data types, and malformed or unsupported frames must produce observable feed errors."
+proposal = "Branch on string versus Blob/ArrayBuffer in parseSocketEventData.tsx, preserve compressed decoding and validate the item before formatting. Cover actual text and binary WebSocket frames and propagate parse failure to feed status."
+owner_domain = 14
+
+[finding.crosschain-transfer-key]
+file = "apps/explorer/ui/crossChain/transfers/utils.ts"
+line = 3
+class = "runtime-risk"
+severity = "medium"
+observed = "getItemKey combines message_id, sender, source token, source amount and source chain but omits recipient and destination identity. Loaded table/list rows do not pass an index. Two same-source transfers in one message to different recipients therefore receive the same React key."
+expected = "Every transfer displayed within a message must have a distinct stable identity so reconciliation cannot reuse another recipient or destination row."
+proposal = "Use a producer transfer id or stable occurrence ordinal; if unavailable, define a complete composite identity with an explicit duplicate discriminator in transfers/utils.ts and its consumers. Cover same-source transfers to different recipients and exact duplicate occurrences."
+owner_domain = 14
+
+[finding.reward-test-state]
+file = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/channels/reward_channel_test.exs"
+line = 25
+class = "test-gap"
+severity = "low"
+observed = "The suite mutates global BlockScoutWeb.Chain has_emission_funds and restores false only after assertions. A failure skips restoration, and a starting value other than false is overwritten; later notification cases can inherit unrelated configuration."
+expected = "Test configuration must be restored to its original value on success and failure so reward-channel qualification does not depend on execution order."
+proposal = "Capture the previous configuration in setup and restore it with on_exit in channels/reward_channel_test.exs. Keep all existing matching-address, other-address and disabled assertions and cover restoration from both starting configurations."
+owner_domain = 14
+
+[finding.reward-v2-test-state]
+file = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/channels/v2/reward_channel_test.exs"
+line = 25
+class = "test-gap"
+severity = "low"
+observed = "The suite mutates global BlockScoutWeb.Chain has_emission_funds and restores false only after assertions. A failure skips restoration, and a starting value other than false is overwritten; later notification cases can inherit unrelated configuration."
+expected = "Test configuration must be restored to its original value on success and failure so reward-channel qualification does not depend on execution order."
+proposal = "Capture the previous configuration in setup and restore it with on_exit in channels/v2/reward_channel_test.exs. Keep all existing matching-address, other-address and disabled assertions and cover restoration from both starting configurations."
+owner_domain = 14
+
+[finding.history-env-isolation]
+file = "tests/explorer/paxeer-x-data-boundary.py"
+line = 114
+class = "runtime-risk"
+severity = "medium"
+observed = "history_readiness allocates unique work and node-home directories but asks every invocation to write TMPDIR/lx-localnode/history-readiness.env. v6120-node.sh copies its environment to that shared path. Concurrent invocations can overwrite it before the RPC URL is read, pairing one run node_home with another run source endpoint."
+expected = "The qualification run must bind its own source process, endpoint and restart identity throughout outage and recovery. Independent runs must not exchange identity through a shared output filename."
+proposal = "Use a unique environment filename beneath TMPDIR/lx-localnode, retaining the node-helper path boundary, and read only that file. Retain it with private evidence and cover concurrent setups that each stop and restart the node they actually probe."
+owner_domain = 14
+
+[finding.harness-registry-inputs]
+file = "tests/explorer/paxeer-x-data-boundary.py"
+line = 60
+class = "config-drift"
+severity = "low"
+observed = "Stable 14.env-test rows still declare readers for CARGO_TARGET_DIR, LAYERX_BUILD_DIR, LAYERX_HISTORY_RELAY_FIXTURE_CONFIG, LAYERX_INDEXER_RELAY_URL, LAYERX_RECEIPT_REFRESH_FIXTURE, LAYERX_RECEIPT_REFRESH_NODE, PAXEER_X_EVIDENCE_DIR and TASK_LOG_DIR. The current harness reads none of these; its history case uses a local EVM node instead."
+expected = "Configuration documentation must describe active readers and mark removed inputs retired. Operators must not be asked for obsolete relay or receipt-refresh settings to qualify the merged EVM path."
+proposal = "Reconcile those 14.env-test rows in spec/layerx-merge/interfaces.kvx and regenerate the configuration contract from current readers. Preserve removal of retired components and document the active local-node prerequisites and private evidence behavior."
+owner_domain = 14
+interface = "14.env-test-layerx-indexer-relay-url"
+related_interfaces = ["14.env-test-cargo-target-dir", "14.env-test-layerx-build-dir", "14.env-test-layerx-history-relay-fixture-config", "14.env-test-layerx-receipt-refresh-fixture", "14.env-test-layerx-receipt-refresh-node", "14.env-test-paxeer-x-evidence-dir", "14.env-test-task-log-dir"]
+
+[finding.unused-prerequisite-probe]
+file = "tests/explorer/paxeer-x-data-boundary.py"
+line = 32
+class = "dead-code"
+severity = "low"
+observed = "prerequisites and its TOOLCHAIN_IMAGE, POSTGRES_IMAGE and KERNEL_ROOT constants remain, but neither supported case calls prerequisites. The Docker and prebuilt umbrella probes therefore do not represent checks executed by either active gate case."
+expected = "The supported cases should expose accurate prerequisites without an unused helper implying that pinned container checks have executed."
+proposal = "Remove the unused helper and exclusive constants if obsolete, or wire the relevant checks into real case entrypoints with accurate prerequisites. Update the source-level harness tests to inspect the executed path instead of an unreachable probe."
+owner_domain = 14
+
+[finding.root-readme-topology]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "The root README describes layerxd as a separate daemon with checkpoint settlement through layerxAnchor. Lines 79 and 181 call the merge a draft and say the kernel runs separately; the build example still directs operators to make layerxd."
+expected = "The product documentation must describe one BFT Paxeer network with an integrated kernel, chain ID 125 and finality at committed receipt, without presenting the retired daemon as a live service."
+proposal = "Rewrite README.md execution-domain, release and build guidance around the merged paxd runtime and supported commands. Distinguish node root JSON-RPC from hosted px_ methods and mark settlement-era material historical."
+owner_domain = 16
+
+[finding.network-guide-topology]
+file = "docs/paxeer-network.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The guide calls Paxeer the settlement/custody layer for LayerX, says ordinary activity stays on LayerX independently of its sequencer and retains separate trust/release boundaries. Lines 38-50 and 82 also preserve the old subtree and separate settlement-contract layouts."
+expected = "The network guide must describe the integrated chain and current repository paths. Tenant chains remain namespaces without extra infrastructure or an independent sequencer boundary."
+proposal = "Update docs/paxeer-network.md topology, contract/module ownership and root build instructions. Preserve its namespace-based virtual-chain description and replace the separate LayerX settlement account with committed-block finality."
+owner_domain = 16
+
+[finding.route-catalogue-topology]
+file = "docs/system/routes.md"
+line = 31
+class = "doc-drift"
+severity = "medium"
+observed = "The generated service table advertises a kernel Sequencer and LayerX settlement against existing Paxeer endpoints. Lines 63-75 list relay /v1/history/batches, /v1/sync/head and /v1/sync/network as live public routes although their registry interfaces are retired. The explorer section omits native feed and advanced-filter REST paths."
+expected = "The hosted catalogue must identify active merged-network services and distinguish frozen archive reads from retired relay ingestion. Admitted live explorer paths must agree with the actual producer and consumers."
+proposal = "Correct service descriptions and retired relay entries in tools/paxeer-x/route-catalogue.json and its owning generator, reconcile hosted explorer admission and regenerate docs/system/routes.md. Keep historical explorer reads under explicit frozen archive paths."
+owner_domain = 8
+related_interfaces = ["8.http-relay-archive-any-v1-history-batches", "8.http-relay-archive-any-v1-sync-head", "8.http-relay-archive-any-v1-sync-network"]
+
+[finding.translation-pt-br]
+file = "docs/readme/README.pt-BR.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 37-41 and 125 describe layerxd as a separate execution domain. The shared diagram at lines 154-224 wires the agent to an LNI sequencer, sealed batches to a guarantor and relay/archive node, and that relay to the indexer. Lines 80-88 retain old agent/, human/, interop/, bridge/ and explorer/ paths."
+expected = "Every supported language must describe the integrated BFT Paxeer network, current apps/services/sdk layout, chain ID 125 and committed-block finality consistently with corrected authoritative documentation."
+proposal = "Rewrite docs/readme/README.pt-BR.md from the corrected English topology and current directory map. Replace the separate layerxd/guarantor/relay diagram with the integrated node and hosted gateway boundaries, preserving root node RPC guidance and tenant namespace semantics."
+owner_domain = 16
+
+[finding.translation-fr]
+file = "docs/readme/README.fr.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 37-41 and 125 describe layerxd as a separate execution domain. The shared diagram at lines 154-224 wires the agent to an LNI sequencer, sealed batches to a guarantor and relay/archive node, and that relay to the indexer. Lines 80-88 retain old agent/, human/, interop/, bridge/ and explorer/ paths."
+expected = "Every supported language must describe the integrated BFT Paxeer network, current apps/services/sdk layout, chain ID 125 and committed-block finality consistently with corrected authoritative documentation."
+proposal = "Rewrite docs/readme/README.fr.md from the corrected English topology and current directory map. Replace the separate layerxd/guarantor/relay diagram with the integrated node and hosted gateway boundaries, preserving root node RPC guidance and tenant namespace semantics."
+owner_domain = 16
+
+[finding.translation-ja]
+file = "docs/readme/README.ja.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 37-41 and 125 describe layerxd as a separate execution domain. The shared diagram at lines 154-224 wires the agent to an LNI sequencer, sealed batches to a guarantor and relay/archive node, and that relay to the indexer. Lines 80-88 retain old agent/, human/, interop/, bridge/ and explorer/ paths."
+expected = "Every supported language must describe the integrated BFT Paxeer network, current apps/services/sdk layout, chain ID 125 and committed-block finality consistently with corrected authoritative documentation."
+proposal = "Rewrite docs/readme/README.ja.md from the corrected English topology and current directory map. Replace the separate layerxd/guarantor/relay diagram with the integrated node and hosted gateway boundaries, preserving root node RPC guidance and tenant namespace semantics."
+owner_domain = 16
+
+[finding.translation-ru]
+file = "docs/readme/README.ru.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 37-41 and 125 describe layerxd as a separate execution domain. The shared diagram at lines 154-224 wires the agent to an LNI sequencer, sealed batches to a guarantor and relay/archive node, and that relay to the indexer. Lines 80-88 retain old agent/, human/, interop/, bridge/ and explorer/ paths."
+expected = "Every supported language must describe the integrated BFT Paxeer network, current apps/services/sdk layout, chain ID 125 and committed-block finality consistently with corrected authoritative documentation."
+proposal = "Rewrite docs/readme/README.ru.md from the corrected English topology and current directory map. Replace the separate layerxd/guarantor/relay diagram with the integrated node and hosted gateway boundaries, preserving root node RPC guidance and tenant namespace semantics."
+owner_domain = 16
+
+[finding.translation-zh-cn]
+file = "docs/readme/README.zh-CN.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 37-41 and 125 describe layerxd as a separate execution domain. The shared diagram at lines 154-224 wires the agent to an LNI sequencer, sealed batches to a guarantor and relay/archive node, and that relay to the indexer. Lines 80-88 retain old agent/, human/, interop/, bridge/ and explorer/ paths."
+expected = "Every supported language must describe the integrated BFT Paxeer network, current apps/services/sdk layout, chain ID 125 and committed-block finality consistently with corrected authoritative documentation."
+proposal = "Rewrite docs/readme/README.zh-CN.md from the corrected English topology and current directory map. Replace the separate layerxd/guarantor/relay diagram with the integrated node and hosted gateway boundaries, preserving root node RPC guidance and tenant namespace semantics."
+owner_domain = 16
+
+[finding.translation-de]
+file = "docs/readme/README.de.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 37-41 and 125 describe layerxd as a separate execution domain. The shared diagram at lines 154-224 wires the agent to an LNI sequencer, sealed batches to a guarantor and relay/archive node, and that relay to the indexer. Lines 80-88 retain old agent/, human/, interop/, bridge/ and explorer/ paths."
+expected = "Every supported language must describe the integrated BFT Paxeer network, current apps/services/sdk layout, chain ID 125 and committed-block finality consistently with corrected authoritative documentation."
+proposal = "Rewrite docs/readme/README.de.md from the corrected English topology and current directory map. Replace the separate layerxd/guarantor/relay diagram with the integrated node and hosted gateway boundaries, preserving root node RPC guidance and tenant namespace semantics."
+owner_domain = 16
+
+[finding.translation-es]
+file = "docs/readme/README.es.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 37-41 and 125 describe layerxd as a separate execution domain. The shared diagram at lines 154-224 wires the agent to an LNI sequencer, sealed batches to a guarantor and relay/archive node, and that relay to the indexer. Lines 80-88 retain old agent/, human/, interop/, bridge/ and explorer/ paths."
+expected = "Every supported language must describe the integrated BFT Paxeer network, current apps/services/sdk layout, chain ID 125 and committed-block finality consistently with corrected authoritative documentation."
+proposal = "Rewrite docs/readme/README.es.md from the corrected English topology and current directory map. Replace the separate layerxd/guarantor/relay diagram with the integrated node and hosted gateway boundaries, preserving root node RPC guidance and tenant namespace semantics."
+owner_domain = 16
+
+[finding.launchpad-governance-summary]
+file = "contracts/launchpad/README.md"
+line = 244
+class = "doc-drift"
+severity = "medium"
+observed = "Deployment Details names SID as Governance Token and a network-owned multisig transitioning to SID-holder governance as Initial Admin. Line 116 instead documents administrator governance by default, no required SID_ADDRESS, explicit token-mode opt-in and deployer authority when GOVERNANCE_ADMIN_ADDRESS is unset."
+expected = "The summary must identify the actual selected governance mode and authority rather than imply token voting or a multisig is installed automatically."
+proposal = "Rewrite Deployment Details in contracts/launchpad/README.md to describe administrator mode, explicit GOVERNANCE_ADMIN_ADDRESS behavior and opt-in token governance. Require inspection of recorded roles before describing a deployment as multisig controlled."
+owner_domain = 4
+
+[finding.explorer-guide-paths]
+file = "services/explorer/README.md"
+line = 25
+class = "doc-drift"
+severity = "medium"
+observed = "The explorer guide still builds/tests the frontend from frontend/ and refers to frontend/configs presets. The frontend now lives in apps/explorer, while backend, deploy and services remain under services/explorer. Those frontend instructions select a nonexistent tree."
+expected = "Build, test and license-boundary guidance must identify current frontend/backend locations and the commands actually executed after the monorepo layout move."
+proposal = "Update services/explorer/README.md tables, frontend commands, gate/preset references and license-boundary paths to apps/explorer and services/explorer. Preserve pinned provenance and disposable-database guidance and resolve every rewritten command path against its current script."
+owner_domain = 14
+
+[finding.backend-guide-api]
+file = "services/explorer/backend/README.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The additions list presents /paxeer-x/anchors and /paxeer-x/receipts as current APIs. api_router.ex now serves those historical reads under /paxeer-x/archive and returns 404 for old paths. The guide also omits the live native feed APIs."
+expected = "The backend guide must distinguish frozen archive reads from native status and price-feed interfaces and list the routes the current backend actually serves."
+proposal = "Replace the retired route list in services/explorer/backend/README.md with explicit archive, native transaction status/signature and feed paths and their lifecycle semantics. Document that the hosted transport must admit the same live interfaces."
+owner_domain = 14
+
+[finding.upstream-current-paths]
+file = "services/explorer/UPSTREAM.md"
+line = 10
+class = "doc-drift"
+severity = "low"
+observed = "The provenance table still lists frontend/ beside backend/ and the import notes refer to frontend/configs/envs and its tracked Vitest file. The frontend moved to apps/explorer; the exact pins remain valid but their current path mapping is stale."
+expected = "The provenance record must preserve immutable imported revisions and map them to current paths so maintainers compare the correct files during upgrades."
+proposal = "Add the current apps/explorer and services/explorer locations to services/explorer/UPSTREAM.md, retaining original import revisions, licenses and exclusions. Distinguish historical import paths from current repository locations."
+owner_domain = 14
+
+[doc.1]
+path = "docs/system/routes.md"
+status = "stale"
+notes = "Generated catalogue read in full with repeated route metadata grouped losslessly. Lines 31, 35 and 63-75 retain retired topology; native feed/advanced-filter transport is omitted. Correct its source and regenerate."
+
+[doc.2]
+path = "contracts/launchpad/README.md"
+status = "stale"
+notes = "Read in full; the administrator default at line 116 contradicts token/multisig implications in Deployment Details at lines 244-245. No separate LayerX endpoint is prescribed."
+
+[doc.3]
+path = "README.md"
+status = "stale"
+notes = "Read in full; pre-merge topology or current interface/path drift is identified with exact rewrite anchors in the corresponding documentation finding."
+
+[doc.4]
+path = "docs/paxeer-network.md"
+status = "stale"
+notes = "Read in full; pre-merge topology or current interface/path drift is identified with exact rewrite anchors in the corresponding documentation finding."
+
+[doc.5]
+path = "docs/site/docs/protocol/sidiora.md"
+status = "accurate"
+notes = "Read in full: six-decimal SID and eighteen-decimal PAX are distinct; governance handover is explicitly proposed, native fees default off and missing sponsorship price data is refused. The one-interface wording does not by itself prescribe a separate running sequencer."
+
+[doc.6]
+path = "docs/readme/README.pt-BR.md"
+status = "stale"
+notes = "Read in full; pre-merge topology or current interface/path drift is identified with exact rewrite anchors in the corresponding documentation finding."
+
+[doc.7]
+path = "docs/readme/README.fr.md"
+status = "stale"
+notes = "Read in full; pre-merge topology or current interface/path drift is identified with exact rewrite anchors in the corresponding documentation finding."
+
+[doc.8]
+path = "docs/readme/README.ja.md"
+status = "stale"
+notes = "Read in full; pre-merge topology or current interface/path drift is identified with exact rewrite anchors in the corresponding documentation finding."
+
+[doc.9]
+path = "docs/readme/README.ru.md"
+status = "stale"
+notes = "Read in full; pre-merge topology or current interface/path drift is identified with exact rewrite anchors in the corresponding documentation finding."
+
+[doc.10]
+path = "docs/readme/README.zh-CN.md"
+status = "stale"
+notes = "Read in full; pre-merge topology or current interface/path drift is identified with exact rewrite anchors in the corresponding documentation finding."
+
+[doc.11]
+path = "docs/readme/README.de.md"
+status = "stale"
+notes = "Read in full; pre-merge topology or current interface/path drift is identified with exact rewrite anchors in the corresponding documentation finding."
+
+[doc.12]
+path = "docs/readme/README.es.md"
+status = "stale"
+notes = "Read in full; pre-merge topology or current interface/path drift is identified with exact rewrite anchors in the corresponding documentation finding."
+
+[doc.13]
+path = "services/explorer/README.md"
+status = "stale"
+notes = "Read in full: frontend build/test paths still use frontend/ after the move to apps/explorer. Disposable database and license guidance remain useful but path mappings require correction."
+
+[doc.14]
+path = "services/explorer/backend/README.md"
+status = "stale"
+notes = "Read in full: lists removed live anchors/receipts paths instead of explicit archive APIs and omits native feed routes."
+
+[doc.15]
+path = "services/explorer/UPSTREAM.md"
+status = "stale"
+notes = "Read in full: exact Blockscout pins establish vendor provenance; frontend paths require a current mapping after the layout move."
+
+[doc.16]
+path = "spec/layerx-merge/programme/audit/BRIEF.kvx"
+status = "accurate"
+notes = "Read in full as the normative baseline: one BFT network, root EVM RPC, hosted px_ methods, tenant namespaces, interface lifecycle checks and audit-only proposals."
+
+[doc.17]
+path = "spec/layerx-merge/contracts/explorer-ws.md"
+status = "accurate"
+notes = "Read in full: generated snapshot lists current socket/topic/event names and chain registration guards. The notifier refresh is lost at the browser consumer as recorded; the contract snapshot itself is not runtime qualification."

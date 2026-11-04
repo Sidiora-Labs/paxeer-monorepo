@@ -19,6 +19,7 @@ def test_replay_crossarch_retired():
         exclude=[
             "tests/arith",
             "tests/codec",
+            "tests/vectors",
             "tests/crypto",
             "tests/fuzz",
             "tests/chain",

@@ -1,0 +1,27 @@
+[repair.22.31.107]
+finding = "evidence-committed-transition-not-durable"
+proving_tests = ["TestRepair_107_CommittedEvidenceSurvivesRestart", "TestRepair_107_FailedMarkerStopsLifecycleAndReplays", "TestRepair_107_ReadErrorsRejectDuplicates", "TestRepair_107_BufferCannotReadmitCommittedEvidence"]
+implementation = "Commit markers and pending deletions use one checked WriteSync batch, including offenses never pending locally; publish in-memory deletion only after success. Serialize admission and commits. Fail the existing void Update lifecycle with the wrapped storage error and refuse proposals/admission after failure. Check committed reads before cached pending evidence on all ingress paths."
+baseline = "Not run: the explicit gate order prohibits verification before complete implementation and allows only hf-build followed by hf-done; no baseline failures are claimed."
+verification = "hf-done records the exact candidate revision, command, exit code and private log in the gate ledger; its final evidence line is reported verbatim."
+wiring_request = "consensus/internal/state/services.go and consensus/internal/state/execution.go; owner fm-cosmos-fork (consensus/state): evolve EvidencePool.Update to return an error and propagate it from ApplyBlock; preserve fatal handling and replay of the saved block before proposal or validation resumes. The scoped repair currently propagates via panic through the existing void interface."
+
+[gotcha.1]
+area = "workflow"
+symptom = "Task step 5 requests an unchanged-tree verify while the explicit gate order prohibits it."
+cause = "Conflicting baseline and bounded qualification instructions."
+do = "Follow the explicit gate order and record that no baseline gate ran; never claim unexecuted evidence."
+
+[qualification.1]
+revision = "910721e5a0c82b409d4e64d1db1e28c0c41ce28e"
+command = "cg spec done 22.31.107 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The new test helper supplied a height to BlockStore.LoadSeenCommit, whose public signature takes no arguments."
+repair = "Use the actual no-argument public API; no assertions or production behavior changed."
+
+[gotcha.2]
+area = "go"
+symptom = "A test helper fails compilation when passing a height to BlockStore.LoadSeenCommit."
+cause = "The public API returns the latest locally seen commit and accepts no height."
+do = "Call LoadSeenCommit() and use LoadBlockCommit(height) only for canonical commits."

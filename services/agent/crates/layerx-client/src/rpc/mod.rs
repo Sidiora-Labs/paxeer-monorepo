@@ -1,5 +1,11 @@
 //! LayerX JSON-RPC client modules.
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Version {
+    pub major: u16,
+    pub minor: u16,
+}
+
 /// Freshness coordinates attached to every head-sensitive result.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Head {

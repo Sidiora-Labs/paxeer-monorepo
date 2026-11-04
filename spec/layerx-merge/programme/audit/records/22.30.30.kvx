@@ -1,0 +1,1567 @@
+[audit.22.30.30]
+task = "22.30.30"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 186
+findings = 33
+docs_reviewed = 20
+upgrade_ready = false
+blocking = ["swap-quote-amount", "reward-claim-route", "legacy-card-link"]
+note = "All 186 members were read in full against the brief, package acceptance criteria, named registry rows and documented transports. Registry matches based solely on generic token names are not treated as real interop consumers. Code and fixtures were not repaired, and no source build, service, browser or inventory repair gate is claimed by this audit."
+
+[file.001]
+path = "api/launchpad/query.proto"
+lines = 435
+verdict = "clean"
+note = "Read all Query messages and GET annotations; checked the seventeen native query operations, decimal-string amounts, paging and address selectors against req.4002 and the generated native query path."
+
+[file.002]
+path = "api/launchpad/tx.proto"
+lines = 48
+verdict = "clean"
+note = "Read Msg and state messages; checked reserved quote_denom compatibility, quote_token identity, role assignments and treasury/parameter message shapes against the native launchpad types."
+
+[file.003]
+path = "apps/launchpad/production_checklist.md"
+lines = 204
+verdict = "clean"
+note = "Read the full checklist as unfulfilled engineering guidance, not a qualification claim; financial UI, recovery, authentication, performance and operational sections remain proposed checks."
+
+[file.004]
+path = "apps/launchpad/web/src/app/api/errors/route.ts"
+lines = 86
+verdict = "issues"
+note = "Read full telemetry handler; byte-budget enforcement issue recorded separately."
+
+[file.005]
+path = "apps/launchpad/web/src/app/api/health/route.ts"
+lines = 7
+verdict = "clean"
+note = "Read full health handler and response policy; this web liveness route makes no backend or chain-readiness claim."
+
+[file.006]
+path = "apps/launchpad/web/src/app/api/og/pnl/[cardId]/route.ts"
+lines = 8
+verdict = "clean"
+note = "Read full OG proxy path; reviewed UUID share identity, public response handling and current v3 publication lifecycle."
+
+[file.007]
+path = "apps/launchpad/web/src/app/auth/callback/page.tsx"
+lines = 56
+verdict = "clean"
+note = "Read the full route component and its delegated widget/import path; checked parameter handling, navigation, loading/error presentation and the currently served client boundary."
+
+[file.008]
+path = "apps/launchpad/web/src/app/bounties/[bountyId]/page.tsx"
+lines = 13
+verdict = "clean"
+note = "Read the full route component and its delegated widget/import path; checked parameter handling, navigation, loading/error presentation and the currently served client boundary."
+
+[file.009]
+path = "apps/launchpad/web/src/app/bounties/new/page.tsx"
+lines = 1
+verdict = "clean"
+note = "Read the full route component and its delegated widget/import path; checked parameter handling, navigation, loading/error presentation and the currently served client boundary."
+
+[file.010]
+path = "apps/launchpad/web/src/app/bounties/page.tsx"
+lines = 1
+verdict = "clean"
+note = "Read the full route component and its delegated widget/import path; checked parameter handling, navigation, loading/error presentation and the currently served client boundary."
+
+[file.011]
+path = "apps/launchpad/web/src/app/breakpoints.test.ts"
+lines = 42
+verdict = "clean"
+note = "Read breakpoint test declarations and real rendered-layout expectations; no gate run in this audit."
+
+[file.012]
+path = "apps/launchpad/web/src/app/chat/[conversationId]/page.tsx"
+lines = 1
+verdict = "clean"
+note = "Read the full route component and its delegated widget/import path; checked parameter handling, navigation, loading/error presentation and the currently served client boundary."
+
+[file.013]
+path = "apps/launchpad/web/src/app/chat/page.tsx"
+lines = 1
+verdict = "clean"
+note = "Read the full route component and its delegated widget/import path; checked parameter handling, navigation, loading/error presentation and the currently served client boundary."
+
+[file.014]
+path = "apps/launchpad/web/src/app/coin/[address]/page.tsx"
+lines = 10
+verdict = "clean"
+note = "Read the full route component and its delegated widget/import path; checked parameter handling, navigation, loading/error presentation and the currently served client boundary."
+
+[file.015]
+path = "apps/launchpad/web/src/app/create/chain/page.tsx"
+lines = 1
+verdict = "clean"
+note = "Read the full route component and its delegated widget/import path; checked parameter handling, navigation, loading/error presentation and the currently served client boundary."
+
+[file.016]
+path = "apps/launchpad/web/src/app/create/loading.tsx"
+lines = 10
+verdict = "clean"
+note = "Read the full route component and its delegated widget/import path; checked parameter handling, navigation, loading/error presentation and the currently served client boundary."
+
+[file.017]
+path = "apps/launchpad/web/src/app/create/page.tsx"
+lines = 1
+verdict = "clean"
+note = "Read the full route component and its delegated widget/import path; checked parameter handling, navigation, loading/error presentation and the currently served client boundary."
+
+[file.018]
+path = "apps/launchpad/web/src/app/error.tsx"
+lines = 64
+verdict = "clean"
+note = "Read the full route component and its delegated widget/import path; checked parameter handling, navigation, loading/error presentation and the currently served client boundary."
+
+[file.019]
+path = "apps/launchpad/web/src/app/explore/page.tsx"
+lines = 1
+verdict = "clean"
+note = "Read the full route component and its delegated widget/import path; checked parameter handling, navigation, loading/error presentation and the currently served client boundary."
+
+[file.020]
+path = "apps/launchpad/web/src/app/holder-rewards/page.tsx"
+lines = 5
+verdict = "clean"
+note = "Read the full route component and its delegated widget/import path; checked parameter handling, navigation, loading/error presentation and the currently served client boundary."
+
+[file.021]
+path = "apps/launchpad/web/src/app/layout.tsx"
+lines = 68
+verdict = "clean"
+note = "Read full root layout and provider composition, including private qualification authority environment handling and browser runtime ownership."
+
+[file.022]
+path = "apps/launchpad/web/src/app/leaderboard/page.tsx"
+lines = 5
+verdict = "clean"
+note = "Read the full route component and its delegated widget/import path; checked parameter handling, navigation, loading/error presentation and the currently served client boundary."
+
+[file.023]
+path = "apps/launchpad/web/src/app/live/all/page.tsx"
+lines = 5
+verdict = "clean"
+note = "Read the full route component and its delegated widget/import path; checked parameter handling, navigation, loading/error presentation and the currently served client boundary."
+
+[file.024]
+path = "apps/launchpad/web/src/app/live/page.tsx"
+lines = 1
+verdict = "clean"
+note = "Read the full route component and its delegated widget/import path; checked parameter handling, navigation, loading/error presentation and the currently served client boundary."
+
+[file.025]
+path = "apps/launchpad/web/src/app/loading.tsx"
+lines = 12
+verdict = "clean"
+note = "Read the full route component and its delegated widget/import path; checked parameter handling, navigation, loading/error presentation and the currently served client boundary."
+
+[file.026]
+path = "apps/launchpad/web/src/app/meta-ag/orders/page.tsx"
+lines = 1
+verdict = "clean"
+note = "Read the full route component and its delegated widget/import path; checked parameter handling, navigation, loading/error presentation and the currently served client boundary."
+
+[file.027]
+path = "apps/launchpad/web/src/app/meta-ag/swap/page.tsx"
+lines = 2
+verdict = "clean"
+note = "Read the full route component and its delegated widget/import path; checked parameter handling, navigation, loading/error presentation and the currently served client boundary."
+
+[file.028]
+path = "apps/launchpad/web/src/app/new/page.tsx"
+lines = 1
+verdict = "clean"
+note = "Read the full route component and its delegated widget/import path; checked parameter handling, navigation, loading/error presentation and the currently served client boundary."
+
+[file.029]
+path = "apps/launchpad/web/src/app/not-found.tsx"
+lines = 36
+verdict = "clean"
+note = "Read the full route component and its delegated widget/import path; checked parameter handling, navigation, loading/error presentation and the currently served client boundary."
+
+[file.030]
+path = "apps/launchpad/web/src/app/page.tsx"
+lines = 1
+verdict = "clean"
+note = "Read the full route component and its delegated widget/import path; checked parameter handling, navigation, loading/error presentation and the currently served client boundary."
+
+[file.031]
+path = "apps/launchpad/web/src/app/pnl/[cardId]/page.tsx"
+lines = 10
+verdict = "clean"
+note = "Read the full route component and its delegated widget/import path; checked parameter handling, navigation, loading/error presentation and the currently served client boundary."
+
+[file.032]
+path = "apps/launchpad/web/src/app/profile/[walletAddress]/page.tsx"
+lines = 34
+verdict = "clean"
+note = "Read the full route component and its delegated widget/import path; checked parameter handling, navigation, loading/error presentation and the currently served client boundary."
+
+[file.033]
+path = "apps/launchpad/web/src/app/profile/page.tsx"
+lines = 1
+verdict = "clean"
+note = "Read the full route component and its delegated widget/import path; checked parameter handling, navigation, loading/error presentation and the currently served client boundary."
+
+[file.034]
+path = "apps/launchpad/web/src/app/r/[shortCode]/page.tsx"
+lines = 36
+verdict = "clean"
+note = "Read the full route component and its delegated widget/import path; checked parameter handling, navigation, loading/error presentation and the currently served client boundary."
+
+[file.035]
+path = "apps/launchpad/web/src/app/rewards/page.tsx"
+lines = 1
+verdict = "clean"
+note = "Read the full route component and its delegated widget/import path; checked parameter handling, navigation, loading/error presentation and the currently served client boundary."
+
+[file.036]
+path = "apps/launchpad/web/src/app/search/page.tsx"
+lines = 8
+verdict = "clean"
+note = "Read the full route component and its delegated widget/import path; checked parameter handling, navigation, loading/error presentation and the currently served client boundary."
+
+[file.037]
+path = "apps/launchpad/web/src/app/swap/page.tsx"
+lines = 1
+verdict = "clean"
+note = "Read the full route component and its delegated widget/import path; checked parameter handling, navigation, loading/error presentation and the currently served client boundary."
+
+[file.038]
+path = "apps/launchpad/web/src/app/terminal/[slug]/page.tsx"
+lines = 12
+verdict = "clean"
+note = "Read the full route component and its delegated widget/import path; checked parameter handling, navigation, loading/error presentation and the currently served client boundary."
+
+[file.039]
+path = "apps/launchpad/web/src/app/terminal/page.tsx"
+lines = 5
+verdict = "clean"
+note = "Read the full route component and its delegated widget/import path; checked parameter handling, navigation, loading/error presentation and the currently served client boundary."
+
+[file.040]
+path = "apps/launchpad/web/src/app/token/[poolAddress]/page.tsx"
+lines = 10
+verdict = "clean"
+note = "Read the full route component and its delegated widget/import path; checked parameter handling, navigation, loading/error presentation and the currently served client boundary."
+
+[file.041]
+path = "apps/launchpad/web/src/app/token/page.tsx"
+lines = 12
+verdict = "clean"
+note = "Read the full route component and its delegated widget/import path; checked parameter handling, navigation, loading/error presentation and the currently served client boundary."
+
+[file.042]
+path = "apps/launchpad/web/src/app/tokens/[tokenAddress]/metadata/page.tsx"
+lines = 35
+verdict = "clean"
+note = "Read the full route component and its delegated widget/import path; checked parameter handling, navigation, loading/error presentation and the currently served client boundary."
+
+[file.043]
+path = "apps/launchpad/web/src/app/watchlist/page.tsx"
+lines = 1
+verdict = "clean"
+note = "Read the full route component and its delegated widget/import path; checked parameter handling, navigation, loading/error presentation and the currently served client boundary."
+
+[file.044]
+path = "apps/launchpad/web/src/features/metadata-media/client.test.ts"
+lines = 12
+verdict = "clean"
+note = "Read metadata client tests against the current operation and committed metadata shapes; test execution is outside the declared audit gates."
+
+[file.045]
+path = "apps/launchpad/web/src/features/metadata-media/editor.test.tsx"
+lines = 6
+verdict = "clean"
+note = "Read editor tests for upload, retry identity and cancellation against editor.tsx behavior."
+
+[file.046]
+path = "apps/launchpad/web/src/features/metadata-media/editor.tsx"
+lines = 28
+verdict = "clean"
+note = "Read both editor components in full, including selected-file bounds, operation reuse, cancellation generation and committed approval checks."
+
+[file.047]
+path = "apps/launchpad/web/src/features/metadata-media/frozen-adapter.test.ts"
+lines = 2
+verdict = "clean"
+note = "Read frozen-adapter tests and exact response/operation identity assertions against the adapter and frozen types."
+
+[file.048]
+path = "apps/launchpad/web/src/features/metadata-media/frozen-adapter.ts"
+lines = 21
+verdict = "clean"
+note = "Read full frozen adapter; checked approved, pending and unavailable outcomes and operation/revision identity before publication."
+
+[file.049]
+path = "apps/launchpad/web/src/features/metadata-media/measure.browser.mjs"
+lines = 162
+verdict = "issues"
+note = "Read full real-browser measurement; current producer selectors and status assertions disagree as recorded."
+
+[file.050]
+path = "apps/launchpad/web/src/features/metadata-media/outcome.test.ts"
+lines = 7
+verdict = "clean"
+note = "Read approved-outcome tests and revision/operation rejection cases against outcome.ts."
+
+[file.051]
+path = "apps/launchpad/web/src/features/metadata-media/outcome.ts"
+lines = 7
+verdict = "clean"
+note = "Read complete approval predicate; checked operation identity, approved state, revision progression and URL requirements."
+
+[file.052]
+path = "apps/launchpad/web/src/features/metadata-media/transport.test.ts"
+lines = 21
+verdict = "clean"
+note = "Read transport tests, cancellation and retry cases against the concrete signed metadata operations."
+
+[file.053]
+path = "apps/launchpad/web/src/features/metadata-media/transport.ts"
+lines = 57
+verdict = "clean"
+note = "Read complete transport and frozen mapping; checked asset operation correlation, polling, signed revision commit and abort propagation."
+
+[file.054]
+path = "apps/launchpad/web/src/features/metadata-media/viewer.test.tsx"
+lines = 20
+verdict = "clean"
+note = "Read viewer tests for authoritative approved images and trading access on metadata failure against viewer.tsx."
+
+[file.055]
+path = "apps/launchpad/web/src/features/metadata-media/viewer.tsx"
+lines = 23
+verdict = "clean"
+note = "Read viewer and creator wiring in full; checked revision-correlated images, safe links and committed cache invalidation."
+
+[file.056]
+path = "apps/launchpad/web/src/proof_launchpad_web_app.test.ts"
+lines = 222
+verdict = "clean"
+note = "Read complete web proof source and its producer/transport/consumer assertions; source review does not claim that this gate ran."
+
+[file.057]
+path = "apps/launchpad/web/src/utils/format.test.ts"
+lines = 262
+verdict = "clean"
+note = "Read formatting boundary examples against the formatting implementation; no numeric money conversion is used to authorize transactions."
+
+[file.058]
+path = "apps/launchpad/web/src/utils/format.ts"
+lines = 315
+verdict = "clean"
+note = "Read full display formatting utilities, amount scales, fallbacks and sign handling in their display-only use."
+
+[file.059]
+path = "apps/launchpad/web/src/utils/stores/alertStore.tsx"
+lines = 9
+verdict = "clean"
+note = "Read the complete small UI store and its update/initialization behavior; it holds transient presentation state, not durable financial or authority evidence."
+
+[file.060]
+path = "apps/launchpad/web/src/utils/stores/buttonShowStore.tsx"
+lines = 9
+verdict = "clean"
+note = "Read the complete small UI store and its update/initialization behavior; it holds transient presentation state, not durable financial or authority evidence."
+
+[file.061]
+path = "apps/launchpad/web/src/utils/stores/quitStore.tsx"
+lines = 15
+verdict = "clean"
+note = "Read the complete small UI store and its update/initialization behavior; it holds transient presentation state, not durable financial or authority evidence."
+
+[file.062]
+path = "apps/launchpad/web/src/utils/units.test.ts"
+lines = 82
+verdict = "clean"
+note = "Read exact-unit conversion tests, canonical decimal strings and precision rejection cases against units.ts."
+
+[file.063]
+path = "apps/launchpad/web/src/utils/units.ts"
+lines = 114
+verdict = "clean"
+note = "Read full integer unit helpers and checked raw/display round trips and invalid precision handling."
+
+[file.064]
+path = "apps/launchpad/web/src/utils/validate-numeric-input.ts"
+lines = 34
+verdict = "clean"
+note = "Read numeric input normalization and validation in full; transaction paths separately use raw integer conversion."
+
+[file.065]
+path = "apps/launchpad/web/src/widgets/community-interactions/interaction-client.ts"
+lines = 75
+verdict = "clean"
+note = "Read the complete community client/widget or test; checked encoded entity IDs, authenticated transport, revisioned safety actions and unavailable/authorization outcomes against the served social routes."
+
+[file.066]
+path = "apps/launchpad/web/src/widgets/community-interactions/interaction-controls.test.tsx"
+lines = 116
+verdict = "clean"
+note = "Read the complete community client/widget or test; checked encoded entity IDs, authenticated transport, revisioned safety actions and unavailable/authorization outcomes against the served social routes."
+
+[file.067]
+path = "apps/launchpad/web/src/widgets/community-interactions/interaction-controls.tsx"
+lines = 125
+verdict = "clean"
+note = "Read the complete community client/widget or test; checked encoded entity IDs, authenticated transport, revisioned safety actions and unavailable/authorization outcomes against the served social routes."
+
+[file.068]
+path = "apps/launchpad/web/src/widgets/community-interactions/plain-content.tsx"
+lines = 22
+verdict = "clean"
+note = "Read the complete community client/widget or test; checked encoded entity IDs, authenticated transport, revisioned safety actions and unavailable/authorization outcomes against the served social routes."
+
+[file.069]
+path = "apps/launchpad/web/src/widgets/community-interactions/privacy-settings.tsx"
+lines = 34
+verdict = "clean"
+note = "Read the complete community client/widget or test; checked encoded entity IDs, authenticated transport, revisioned safety actions and unavailable/authorization outcomes against the served social routes."
+
+[file.070]
+path = "apps/launchpad/web/src/widgets/community-interactions/tsconfig.json"
+lines = 6
+verdict = "clean"
+note = "Read TypeScript include and compiler settings for the community interaction widget scope."
+
+[file.071]
+path = "apps/launchpad/web/src/widgets/community-safety/appeal-status.tsx"
+lines = 32
+verdict = "clean"
+note = "Read the complete community client/widget or test; checked encoded entity IDs, authenticated transport, revisioned safety actions and unavailable/authorization outcomes against the served social routes."
+
+[file.072]
+path = "apps/launchpad/web/src/widgets/community-safety/contracts.ts"
+lines = 48
+verdict = "clean"
+note = "Read the complete community client/widget or test; checked encoded entity IDs, authenticated transport, revisioned safety actions and unavailable/authorization outcomes against the served social routes."
+
+[file.073]
+path = "apps/launchpad/web/src/widgets/community-safety/moderation-case.tsx"
+lines = 65
+verdict = "clean"
+note = "Read the complete community client/widget or test; checked encoded entity IDs, authenticated transport, revisioned safety actions and unavailable/authorization outcomes against the served social routes."
+
+[file.074]
+path = "apps/launchpad/web/src/widgets/community-safety/phase2.test.tsx"
+lines = 43
+verdict = "clean"
+note = "Read the complete community client/widget or test; checked encoded entity IDs, authenticated transport, revisioned safety actions and unavailable/authorization outcomes against the served social routes."
+
+[file.075]
+path = "apps/launchpad/web/src/widgets/community-safety/qualify_widgets.py"
+lines = 55
+verdict = "clean"
+note = "Read complete widget qualification script, source binding and real handler execution requirements; no qualification script run in this audit."
+
+[file.076]
+path = "apps/launchpad/web/src/widgets/community-safety/report-content.tsx"
+lines = 80
+verdict = "clean"
+note = "Read the complete community client/widget or test; checked encoded entity IDs, authenticated transport, revisioned safety actions and unavailable/authorization outcomes against the served social routes."
+
+[file.077]
+path = "apps/launchpad/web/src/widgets/community-safety/safety-client.ts"
+lines = 33
+verdict = "clean"
+note = "Read the complete community client/widget or test; checked encoded entity IDs, authenticated transport, revisioned safety actions and unavailable/authorization outcomes against the served social routes."
+
+[file.078]
+path = "apps/launchpad/web/src/widgets/community-safety/tsconfig.qualify.json"
+lines = 9
+verdict = "clean"
+note = "Read qualification TypeScript source scope and compiler settings."
+
+[file.079]
+path = "apps/launchpad/web/src/widgets/community-safety/widgets.test.tsx"
+lines = 102
+verdict = "clean"
+note = "Read the complete community client/widget or test; checked encoded entity IDs, authenticated transport, revisioned safety actions and unavailable/authorization outcomes against the served social routes."
+
+[file.080]
+path = "apps/launchpad/web/src/widgets/funding/funding-panel.tsx"
+lines = 107
+verdict = "clean"
+note = "Read the complete funding or transfer path; checked exact integer amounts, chain 125, owner/recipient identity, wallet invocation, capability refusals and transaction reconciliation."
+
+[file.081]
+path = "apps/launchpad/web/src/widgets/funding/funding.ts"
+lines = 90
+verdict = "clean"
+note = "Read the complete funding or transfer path; checked exact integer amounts, chain 125, owner/recipient identity, wallet invocation, capability refusals and transaction reconciliation."
+
+[file.082]
+path = "apps/launchpad/web/src/widgets/funding/transfer-panel.tsx"
+lines = 113
+verdict = "clean"
+note = "Read the complete funding or transfer path; checked exact integer amounts, chain 125, owner/recipient identity, wallet invocation, capability refusals and transaction reconciliation."
+
+[file.083]
+path = "apps/launchpad/web/src/widgets/funding/transfer.ts"
+lines = 154
+verdict = "clean"
+note = "Read the complete funding or transfer path; checked exact integer amounts, chain 125, owner/recipient identity, wallet invocation, capability refusals and transaction reconciliation."
+
+[file.084]
+path = "apps/launchpad/web/src/widgets/funding/vendor-gate.ts"
+lines = 10
+verdict = "clean"
+note = "Read complete funding vendor gate and prerequisite refusal behavior against funding/transfer consumers."
+
+[file.085]
+path = "apps/launchpad/web/src/widgets/pnl/pnl-card-landing.tsx"
+lines = 5
+verdict = "clean"
+note = "Read the complete PnL sharing view/disclosure path; checked selected fields, wallet visibility, preview/acknowledgement identity and publication expiry/revocation against the current v3 share transport."
+
+[file.086]
+path = "apps/launchpad/web/src/widgets/pnl/share-disclosure.ts"
+lines = 49
+verdict = "clean"
+note = "Read the complete PnL sharing view/disclosure path; checked selected fields, wallet visibility, preview/acknowledgement identity and publication expiry/revocation against the current v3 share transport."
+
+[file.087]
+path = "apps/launchpad/web/src/widgets/pnl/share-pnl-button.tsx"
+lines = 6
+verdict = "clean"
+note = "Read the complete PnL sharing view/disclosure path; checked selected fields, wallet visibility, preview/acknowledgement identity and publication expiry/revocation against the current v3 share transport."
+
+[file.088]
+path = "apps/launchpad/web/src/widgets/pnl/share-pnl-modal.tsx"
+lines = 9
+verdict = "clean"
+note = "Read the complete PnL sharing view/disclosure path; checked selected fields, wallet visibility, preview/acknowledgement identity and publication expiry/revocation against the current v3 share transport."
+
+[file.089]
+path = "apps/launchpad/web/src/widgets/pnl/share-publication-state.ts"
+lines = 10
+verdict = "clean"
+note = "Read publication state model, identity and uncertain-outcome transitions against the owner share flow."
+
+[file.090]
+path = "apps/launchpad/web/src/widgets/pnl/share-transport.ts"
+lines = 20
+verdict = "clean"
+note = "Read complete share transport, UUID-only public resolution and v3 owner/public endpoint split; legacy producer link mismatch recorded on card.go."
+
+[file.091]
+path = "apps/launchpad/web/src/widgets/pnl/use-card-minter.ts"
+lines = 58
+verdict = "clean"
+note = "Read card minter hook in full; checked authenticated snapshot preview, selected disclosure, idempotent publish and owner acknowledgement identity."
+
+[file.092]
+path = "apps/launchpad/web/src/widgets/rewards/reward-claim-state.ts"
+lines = 21
+verdict = "clean"
+note = "Read exact reward request calldata decoder and chain/from/router/value/nft checks against FeesRouter.claimFees."
+
+[file.093]
+path = "apps/launchpad/web/src/widgets/rewards/reward-disclosure.test.tsx"
+lines = 48
+verdict = "clean"
+note = "Read reward disclosure tests for product status and human-readable amounts against disclosure helpers."
+
+[file.094]
+path = "apps/launchpad/web/src/widgets/rewards/reward-disclosure.ts"
+lines = 40
+verdict = "clean"
+note = "Read reward program disclosure mapping and unsupported prerequisite messages in full."
+
+[file.095]
+path = "apps/launchpad/web/src/widgets/rewards/rewards-view.tsx"
+lines = 57
+verdict = "issues"
+note = "Read full rewards view and traced the registered claim route, wallet request and recovery path; route mismatch and volatile recovery findings recorded."
+
+[file.096]
+path = "apps/launchpad/web/src/widgets/swap/swap-panel.tsx"
+lines = 795
+verdict = "issues"
+note = "Read full swap panel and traced live quote and write hooks; the changed-input stale minimum-output finding is blocking."
+
+[file.097]
+path = "apps/launchpad/web/src/widgets/voice-rooms/qualify-phase4.mjs"
+lines = 184
+verdict = "clean"
+note = "Read full voice phase4 script and real API/provider qualification scenarios, consent and capture assertions; no browser/provider gate executed."
+
+[file.098]
+path = "apps/launchpad/web/src/widgets/voice-rooms/recording-consent.tsx"
+lines = 10
+verdict = "clean"
+note = "Read complete recording consent view; checked authoritative unknown-state messaging, revisioned choices and explicit leave control."
+
+[file.099]
+path = "apps/launchpad/web/src/widgets/voice-rooms/voice-client.ts"
+lines = 42
+verdict = "clean"
+note = "Read full voice client methods and encoded room IDs, ticket flow, moderation, recording revisions and consent request shapes."
+
+[file.100]
+path = "apps/launchpad/web/src/widgets/voice-rooms/voice-room.tsx"
+lines = 55
+verdict = "clean"
+note = "Read full voice room shell and capability-gated actions; its unavailable-audio presentation is separate from the authority-backed recording consent component."
+
+[file.101]
+path = "sdk/launchpad/protocol/generator-inputs/export.py"
+lines = 364
+verdict = "clean"
+note = "Read complete artifact exporter and keccak implementation; checked real compiler/source identity, canonical event/function signatures, optical review and deterministic revision exports."
+
+[file.102]
+path = "sdk/launchpad/protocol/generator-inputs/phase2-inputs.json"
+lines = 91
+verdict = "clean"
+note = "Read the complete reviewed generation-input manifest, chain 125 and raw receipt/log correlation rules; this is reviewed input data rather than generated binding code."
+
+[file.103]
+path = "sdk/launchpad/protocol/generator-inputs/test_export.py"
+lines = 132
+verdict = "issues"
+note = "Read every generator test; recorded the one machine-specific current-artifact root instead of claiming a portable test pass."
+
+[file.104]
+path = "sdk/launchpad/shared/accounting/sourcebootstrap/sourcebootstrap.go"
+lines = 216
+verdict = "clean"
+note = "Read full source bootstrap implementation; checked source identity, projection evidence and checkpoint digests against accounting consumers."
+
+[file.105]
+path = "sdk/launchpad/shared/accounting/sourcebootstrap/sourcebootstrap_test.go"
+lines = 32
+verdict = "clean"
+note = "Read full source bootstrap tests and evidence mismatch refusal cases against sourcebootstrap.go."
+
+[file.106]
+path = "sdk/launchpad/shared/accounting/validate.go"
+lines = 311
+verdict = "clean"
+note = "Read full accounting validation code; checked decimal strings, source positions, evidence, execution policy and versioned fill/enrichment/publication validation."
+
+[file.107]
+path = "sdk/launchpad/shared/accounting/wire.go"
+lines = 358
+verdict = "clean"
+note = "Read complete accounting wire definitions and facet/subject mapping; checked versions, raw integer units and canonical event identity."
+
+[file.108]
+path = "sdk/launchpad/shared/accounting/wire_test.go"
+lines = 220
+verdict = "clean"
+note = "Read wire tests and exact serialization/validation cases against the shared accounting producer types."
+
+[file.109]
+path = "sdk/launchpad/shared/http/apikey.go"
+lines = 57
+verdict = "clean"
+note = "Read full API key middleware, configured-key comparison and optional authentication behavior; legacy error helpers are distinct from frozen v2 envelopes."
+
+[file.110]
+path = "sdk/launchpad/shared/http/client_ip.go"
+lines = 38
+verdict = "clean"
+note = "Read full trusted proxy helper and parsed CIDRs; malformed forwarded candidates originate in server.go and are recorded there."
+
+[file.111]
+path = "sdk/launchpad/shared/http/client_ip_test.go"
+lines = 32
+verdict = "clean"
+note = "Read client-IP tests for trusted and untrusted direct peers and outer limiter identity; missing malformed candidate behavior is recorded on server.go."
+
+[file.112]
+path = "sdk/launchpad/shared/http/envelope_test.go"
+lines = 190
+verdict = "clean"
+note = "Read full frozen error envelope tests, exact seven-field schema and request-body error assertions against WriteErrorEnvelope."
+
+[file.113]
+path = "sdk/launchpad/shared/http/errors.go"
+lines = 144
+verdict = "clean"
+note = "Read all error writers and legacy/v2 distinctions; checked retry timing, explicit field errors and route error statuses."
+
+[file.114]
+path = "sdk/launchpad/shared/http/health.go"
+lines = 157
+verdict = "clean"
+note = "Read full liveness/readiness registration, bounded dependency context and readiness state handling."
+
+[file.115]
+path = "sdk/launchpad/shared/http/http_test.go"
+lines = 440
+verdict = "clean"
+note = "Read all shared HTTP tests for router, CORS, auth and rate limiting; reviewed existing assertions without rerunning gates."
+
+[file.116]
+path = "sdk/launchpad/shared/http/ratelimit.go"
+lines = 159
+verdict = "clean"
+note = "Read rate limiter key derivation, Redis state, retry behavior and cancellation; forwarded-IP validation issue is recorded at its resolver."
+
+[file.117]
+path = "sdk/launchpad/shared/http/server.go"
+lines = 130
+verdict = "issues"
+note = "Read all router middleware and proxy resolution logic; malformed client-identity finding recorded."
+
+[file.118]
+path = "sdk/launchpad/shared/http/virusscan.go"
+lines = 219
+verdict = "clean"
+note = "Read complete scanner transport, context/deadline handling, clamd framing, version identity and verified buffer checks."
+
+[file.119]
+path = "sdk/launchpad/shared/interfaces/v1/persistence.go"
+lines = 329
+verdict = "clean"
+note = "Read complete persistence contracts, canonical payload copies/hashes, effect unit, fences, acknowledgements and transaction ownership."
+
+[file.120]
+path = "sdk/launchpad/shared/interfaces/v1/persistence_test.go"
+lines = 135
+verdict = "clean"
+note = "Read all persistence contract tests, payload mutation and restart/redelivery invariants against persistence.go."
+
+[file.121]
+path = "sdk/launchpad/shared/interfaces/v1/types_test.go"
+lines = 239
+verdict = "clean"
+note = "Read all interface type tests against generated v1 definitions and exact wire shape; generated source outside this member list is not counted as an audited member."
+
+[file.122]
+path = "sdk/launchpad/shared/process/lifecycle.go"
+lines = 259
+verdict = "clean"
+note = "Read full process lifecycle tracker, readiness/draining state and connection/work acquisition accounting."
+
+[file.123]
+path = "sdk/launchpad/shared/process/lifecycle_test.go"
+lines = 113
+verdict = "clean"
+note = "Read lifecycle tests covering work release, draining and cancellation against the tracker implementation."
+
+[file.124]
+path = "sdk/launchpad/shared/redis/cache.go"
+lines = 67
+verdict = "clean"
+note = "Read full Redis cache helpers and serialization/TTL behavior; transient cache failure does not establish chain authority."
+
+[file.125]
+path = "sdk/launchpad/shared/redis/client.go"
+lines = 46
+verdict = "clean"
+note = "Read Redis connection setup and URL/timeout lifecycle in full."
+
+[file.126]
+path = "sdk/launchpad/shared/redis/primitives.go"
+lines = 200
+verdict = "clean"
+note = "Read Redis lease/idempotency/counter primitives and atomic script outcomes against their tests."
+
+[file.127]
+path = "sdk/launchpad/shared/redis/primitives_test.go"
+lines = 186
+verdict = "clean"
+note = "Read complete primitive tests for real Redis semantics, expiry and concurrent lease ownership."
+
+[file.128]
+path = "sdk/launchpad/shared/redis/pubsub.go"
+lines = 110
+verdict = "clean"
+note = "Read full Redis pubsub subscription and shutdown handling; pubsub wakes are not represented as durable chain evidence."
+
+[file.129]
+path = "sdk/launchpad/shared/redis/redis_test.go"
+lines = 276
+verdict = "clean"
+note = "Read all Redis integration tests and fixture requirements; the audit does not claim a Redis test run."
+
+[file.130]
+path = "sdk/launchpad/shared/redis/snapshot_policy.go"
+lines = 179
+verdict = "clean"
+note = "Read snapshot freshness and serving policy in full, including version and unavailable-source behavior."
+
+[file.131]
+path = "sdk/launchpad/shared/redis/snapshot_policy_test.go"
+lines = 111
+verdict = "clean"
+note = "Read full snapshot policy tests and stale/missing/version mismatch cases."
+
+[file.132]
+path = "sdk/launchpad/shared/secrets/manager.go"
+lines = 201
+verdict = "clean"
+note = "Read full secret managers, legacy constructor and checked provider behavior; production startup uses checked resolution rather than relying on the legacy convenience constructor."
+
+[file.133]
+path = "sdk/launchpad/shared/secrets/manager_test.go"
+lines = 169
+verdict = "clean"
+note = "Read manager tests for provider selection, missing values and fail-closed checked startup behavior."
+
+[file.134]
+path = "sdk/launchpad/shared/secrets/rotation.go"
+lines = 230
+verdict = "clean"
+note = "Read full secret rotation state machine, grace periods, validation and failure handling."
+
+[file.135]
+path = "sdk/launchpad/shared/secrets/rotation_test.go"
+lines = 84
+verdict = "clean"
+note = "Read complete rotation tests and active/prior key behavior across failed refreshes."
+
+[file.136]
+path = "sdk/launchpad/shared/secrets/startup.go"
+lines = 51
+verdict = "clean"
+note = "Read full production secret startup, current value validation, refresh readiness and cancellation ownership."
+
+[file.137]
+path = "sdk/launchpad/shared/secrets/startup_test.go"
+lines = 30
+verdict = "clean"
+note = "Read complete startup tests and unsupported provider/rotation readiness failure cases."
+
+[file.138]
+path = "sdk/launchpad/shared/storage/r2.go"
+lines = 248
+verdict = "issues"
+note = "Read complete S3-compatible storage implementation; buffered GetBytes lacks an explicit size budget as recorded."
+
+[file.139]
+path = "sdk/launchpad/shared/storage/r2_test.go"
+lines = 307
+verdict = "clean"
+note = "Read complete storage transport tests for missing objects, body close/error behavior and metadata; bounded read proposal is recorded on r2.go."
+
+[file.140]
+path = "services/launchpad/api/internal/config/config.go"
+lines = 590
+verdict = "issues"
+note = "Read complete API environment and production document/secret wiring; secret-bearing validation errors are recorded."
+
+[file.141]
+path = "services/launchpad/api/internal/config/config_test.go"
+lines = 250
+verdict = "clean"
+note = "Read API configuration tests and defaults, service role, proxy and document binding cases against config.go."
+
+[file.142]
+path = "services/launchpad/api/internal/internaltest/containers.go"
+lines = 334
+verdict = "clean"
+note = "Read full private test container helper, startup readiness, environment bindings and cleanup lifecycle."
+
+[file.143]
+path = "services/launchpad/api/internal/internaltest/frozen_catalog.go"
+lines = 54
+verdict = "clean"
+note = "Read full frozen catalog loader, repository-root discovery and all operation extraction constraints against the 201-operation current SDK."
+
+[file.144]
+path = "services/launchpad/api/internal/internaltest/frozen_catalog_test.go"
+lines = 35
+verdict = "clean"
+note = "Read frozen catalog tests for operation count, methods, paths and malformed catalog rejection."
+
+[file.145]
+path = "services/launchpad/api/internal/internaltest/runtime_database.go"
+lines = 494
+verdict = "clean"
+note = "Read full runtime database helper and the real existing launchpad/spec/production-system/integration/migrations/registry.json binding; no missing-path finding is made for that existing migration fixture."
+
+[file.146]
+path = "services/launchpad/api/internal/sse/authenticated.go"
+lines = 224
+verdict = "clean"
+note = "Read complete authenticated SSE path, stream ticket/session binding, replay, bounded queue and shutdown behavior."
+
+[file.147]
+path = "services/launchpad/api/internal/sse/authenticated_test.go"
+lines = 40
+verdict = "clean"
+note = "Read full authenticated SSE tests against real ticket authority and stream paths, including revocation and recovery cases."
+
+[file.148]
+path = "services/launchpad/api/internal/sse/sse.go"
+lines = 281
+verdict = "clean"
+note = "Read complete legacy SSE hub and broker subscription lifecycle; it is mounted only by the non-production runtime."
+
+[file.149]
+path = "services/launchpad/api/internal/sse/sse_test.go"
+lines = 190
+verdict = "clean"
+note = "Read all legacy SSE tests, connection cleanup and real stream delivery assertions."
+
+[file.150]
+path = "services/launchpad/api/internal/ws/authenticated.go"
+lines = 411
+verdict = "clean"
+note = "Read full authenticated websocket implementation; checked ticket binding, strict frames, frame and queue budgets, replay and session expiry/revocation."
+
+[file.151]
+path = "services/launchpad/api/internal/ws/authenticated_test.go"
+lines = 35
+verdict = "clean"
+note = "Read complete authenticated websocket tests for live transport, malformed messages, ticket/session validation and reconnect behavior."
+
+[file.152]
+path = "services/launchpad/api/internal/ws/ws.go"
+lines = 516
+verdict = "issues"
+note = "Read full legacy websocket hub and actual app registration; unbounded frames and pool accumulation affect the non-production listener as recorded."
+
+[file.153]
+path = "services/launchpad/api/internal/ws/ws_test.go"
+lines = 208
+verdict = "clean"
+note = "Read complete legacy websocket tests and pool/channel routing against the hub implementation."
+
+[file.154]
+path = "services/launchpad/pnl-tracker/internal/card/card.go"
+lines = 354
+verdict = "issues"
+note = "Read full card snapshot/mint/render implementation; legacy landing identity, publication policy and unknown-price presentation were traced to actual consumers."
+
+[file.155]
+path = "services/launchpad/pnl-tracker/internal/card/card_test.go"
+lines = 153
+verdict = "clean"
+note = "Read all card tests and real persisted snapshot/render expectations; no claim is made that unavailable-price zero fallbacks are acceptable."
+
+[file.156]
+path = "services/launchpad/pnl-tracker/internal/config/config.go"
+lines = 470
+verdict = "issues"
+note = "Read complete PNL configuration, runtime documents, secret and broker setup; unvalidated reconciler interval finding recorded."
+
+[file.157]
+path = "services/launchpad/pnl-tracker/internal/config/config_test.go"
+lines = 174
+verdict = "clean"
+note = "Read complete configuration tests; positive override tests do not cover zero, negative or overflowing reconciliation intervals."
+
+[file.158]
+path = "services/launchpad/pnl-tracker/internal/httpapi/cards.go"
+lines = 134
+verdict = "issues"
+note = "Read full legacy card handlers and app registration; owner/publication controls differ from the current v3 flow as recorded."
+
+[file.159]
+path = "services/launchpad/pnl-tracker/internal/httpapi/cards_test.go"
+lines = 122
+verdict = "clean"
+note = "Read card HTTP tests against legacy producer response fields and stored snapshots; current public landing compatibility is recorded separately."
+
+[file.160]
+path = "services/launchpad/pnl-tracker/internal/httpapi/events.go"
+lines = 73
+verdict = "clean"
+note = "Read all referral/event handlers and production registration conditions; legacy referral writes are only mounted outside production."
+
+[file.161]
+path = "services/launchpad/pnl-tracker/internal/httpapi/events_test.go"
+lines = 93
+verdict = "clean"
+note = "Read complete event/referral HTTP tests, authentication assumptions and idempotency cases against their handlers."
+
+[file.162]
+path = "services/launchpad/pnl-tracker/internal/httpapi/httpapi.go"
+lines = 83
+verdict = "clean"
+note = "Read all HTTP helper functions, amount-preserving JSON and cache behavior; reviewed in the context of legacy read and webhook routes."
+
+[file.163]
+path = "services/launchpad/pnl-tracker/internal/httpapi/httpapi_test.go"
+lines = 79
+verdict = "clean"
+note = "Read helper tests for parsing, JSON cache results and error behavior against httpapi.go."
+
+[file.164]
+path = "services/launchpad/pnl-tracker/internal/httpapi/reads.go"
+lines = 108
+verdict = "clean"
+note = "Read all legacy wallet read routes and store calls; public wallet reads are intentional on the corresponding v3 public portfolio path too, so lack of owner authentication alone is not reported as a privacy defect."
+
+[file.165]
+path = "services/launchpad/pnl-tracker/internal/httpapi/reads_test.go"
+lines = 176
+verdict = "clean"
+note = "Read complete legacy position, portfolio and trade HTTP tests and integer-string response expectations."
+
+[file.166]
+path = "services/launchpad/pnl-tracker/internal/httpapi/status.go"
+lines = 60
+verdict = "clean"
+note = "Read full service status producer and DB-backed lag/error reporting against its response consumers."
+
+[file.167]
+path = "services/launchpad/pnl-tracker/internal/httpapi/status_test.go"
+lines = 58
+verdict = "clean"
+note = "Read all status tests and unavailable-store/lag cases against status.go."
+
+[file.168]
+path = "services/launchpad/pnl-tracker/internal/httpapi/webhook.go"
+lines = 136
+verdict = "issues"
+note = "Read complete legacy webhook authentication and dispatch code; pre-auth unbounded body allocation finding is limited to its non-production registration."
+
+[file.169]
+path = "services/launchpad/pnl-tracker/internal/httpapi/webhook_test.go"
+lines = 137
+verdict = "clean"
+note = "Read all webhook tests and authentic HMAC/timestamp, dispatch and partial-error response cases; production durable delivery uses a different path."
+
+[file.170]
+path = "services/launchpad/pnl-tracker/internal/pnlmath/pnlmath.go"
+lines = 250
+verdict = "clean"
+note = "Read exact PNL math in full; checked integer scale, signed profit, holdings valuation and undefined basis refusal behavior."
+
+[file.171]
+path = "services/launchpad/pnl-tracker/internal/pnlmath/pnlmath_test.go"
+lines = 203
+verdict = "clean"
+note = "Read all integer PNL math tests and scale/sign/error boundary examples against pnlmath.go."
+
+[file.172]
+path = "tools/launchpad/production/charts-engine/check.py"
+lines = 11
+verdict = "clean"
+note = "Read full charts-engine qualification wrapper and real database environment requirement; no chart gate executed."
+
+[file.173]
+path = "tools/launchpad/production/charts-engine/phase2.py"
+lines = 17
+verdict = "clean"
+note = "Read complete chart phase2 qualification scenarios, source bindings and evidence claims."
+
+[file.174]
+path = "tools/launchpad/production/charts-engine/phase4.py"
+lines = 310
+verdict = "issues"
+note = "Read complete phase4 release harness, input/source bindings, controller launch, raw metrics and conservation summaries; both controller execution failures are recorded."
+
+[file.175]
+path = "tools/launchpad/production/charts-engine/rebuild.go"
+lines = 33
+verdict = "clean"
+note = "Read full Go rebuild entrypoint and actual source replay/checkpoint processing path."
+
+[file.176]
+path = "tools/launchpad/production/charts-engine/rebuild_test.go"
+lines = 33
+verdict = "clean"
+note = "Read full rebuild tests and source conservation/replay invariants against the rebuild implementation."
+
+[file.177]
+path = "tools/launchpad/production/charts-realtime/build.sh"
+lines = 5
+verdict = "clean"
+note = "Read complete realtime build wrapper and its declared source/module targets."
+
+[file.178]
+path = "tools/launchpad/production/charts-realtime/check.sh"
+lines = 6
+verdict = "clean"
+note = "Read complete realtime check wrapper and bounded command/evidence flow."
+
+[file.179]
+path = "tools/launchpad/production/charts-realtime/phase2-check.sh"
+lines = 5
+verdict = "clean"
+note = "Read complete realtime phase2 wrapper and source-bound test orchestration."
+
+[file.180]
+path = "tools/launchpad/production/charts-realtime/phase4-browser.mjs"
+lines = 114
+verdict = "clean"
+note = "Read full realtime browser runner, actual chart transport observers, keyboard actions, reconnect and latency evidence."
+
+[file.181]
+path = "tools/launchpad/production/charts-realtime/phase4-check.sh"
+lines = 5
+verdict = "clean"
+note = "Read full realtime phase4 environment wrapper and immutable configuration digest requirement."
+
+[file.182]
+path = "tools/launchpad/production/charts-realtime/phase4-config.schema.json"
+lines = 322
+verdict = "clean"
+note = "Read complete phase4 JSON schema, strict properties, identity and resource/measurement bounds."
+
+[file.183]
+path = "tools/launchpad/production/charts-realtime/phase4-run.py"
+lines = 429
+verdict = "clean"
+note = "Read complete realtime phase4 runner, schema/binding validation, actual provider/browser processes and evidence aggregation."
+
+[file.184]
+path = "tools/launchpad/production/charts-realtime/tsconfig.json"
+lines = 21
+verdict = "clean"
+note = "Read all realtime TypeScript compilation inputs and compiler options."
+
+[file.185]
+path = "tools/launchpad/production/qualify.py"
+lines = 716
+verdict = "issues"
+note = "Read complete production qualifier, reviewed registry checks, canonical source/evidence binding and cancellation; missing historical canonical inputs are recorded."
+
+[file.186]
+path = "tools/launchpad/production/serial_gate.py"
+lines = 665
+verdict = "issues"
+note = "Read full serial reconstruction implementation, source ownership, exact patch controls and accepted artifact lifecycle; obsolete control-plane paths are recorded."
+
+[finding.swap-quote-amount]
+file = "apps/launchpad/web/src/widgets/swap/swap-panel.tsx"
+line = 515
+class = "runtime-risk"
+severity = "high"
+observed = "The quote at lines 425-431 uses debouncedParsedAmountIn, while executeSwap sends parsedAmountIn with minAmountOut from that quote. During the 250 ms debounce, changing an already quoted input from 1 to 10 leaves Swap enabled and applies the smaller input quote protection to the larger trade. core/network/contracts.ts forwards both amounts unchanged to swapTokenForToken."
+expected = "A user-approved swap must bind its input tokens, exact raw input amount, minimum output and price-impact disclosure to the same successful quote. The router can only enforce the minAmountOut actually supplied by the client."
+proposal = "In apps/launchpad/web/src/widgets/swap/swap-panel.tsx retain a quote identity containing chain, token pair and exact raw amount; invalidate execution immediately on an input change and require that identity to match at wallet invocation. Cover amount edits during debounce and high-impact confirmation with the real quote and transaction hooks."
+owner_domain = 4
+interface = "4.sol-router-swaptokenfortoken-8ef5184b"
+
+[finding.reward-claim-route]
+file = "apps/launchpad/web/src/widgets/rewards/rewards-view.tsx"
+line = 30
+class = "interface-mismatch"
+severity = "high"
+observed = "RewardsView.prepare posts to /v2/me/rewards/claim. pnlApiUrl joins this path to the PNL service origin without rewriting it. app.registerRewardRoutes instead mounts POST /v2/me/rewards:prepare-claim, and reward_routes_test.go explicitly requires the slash claim path to return 404. A claimable reward therefore never reaches PrepareClaim from this screen."
+expected = "Frozen IF_REWARD_CLAIM and the served registry row require POST /v2/me/rewards:prepare-claim with the frozen rewardIds and recipient request, authenticated owner and Idempotency-Key. The web consumer must reach this exact registered operation."
+proposal = "Change the owning rewards-view.tsx consumer to use IF_REWARD_CLAIM through the generated operation client or its exact canonical path, preserving owner checks, request validation and idempotency. Add a web-to-registered-handler proof so a legacy slash path cannot replace the served operation."
+owner_domain = 4
+interface = "4.http-pnl-tracker-post-v2-me-rewards-prepare-claim-j29"
+
+[finding.legacy-card-link]
+file = "services/launchpad/pnl-tracker/internal/card/card.go"
+line = 86
+class = "interface-mismatch"
+severity = "high"
+observed = "Service.shareURL returns shareOrigin + /pnl/ + a seven-character base62 shortCode for POST /pnl/cards, which remains mounted by app.New. The current app/pnl/[cardId]/page.tsx reads that segment through readPublicShare; share-transport.ts accepts only UUID share IDs and reads /v3/portfolio/shares/{id}. Every newly issued legacy short-code share URL is rejected before a request reaches its legacy card producer."
+expected = "A share URL returned by a mounted card producer must identify an object the public landing page can resolve and render under the same publication lifecycle. Legacy card IDs and short codes are not v3 publication UUIDs."
+proposal = "Reconcile services/launchpad/pnl-tracker/internal/card/card.go and the public web landing path: explicitly retire legacy minting in favor of owner-approved v3 publications, or supply a reviewed legacy resolver and landing contract for authentic existing cards. Prove that a URL emitted by the live mint handler loads its exact persisted disclosure, including expiry and revocation policy."
+owner_domain = 4
+interface = "4.http-pnl-tracker-post-pnl-cards"
+
+[finding.reward-claim-recovery]
+file = "apps/launchpad/web/src/widgets/rewards/rewards-view.tsx"
+line = 27
+class = "restart-recovery"
+severity = "medium"
+observed = "Prepared claim identity and the broadcast transaction hash exist only in component useState. A reload or unmount discards both. reconcile at line 33 requires current.prepared, so even a user who knows the transaction hash cannot use Check transaction after reopening the page; pending and uncertain action blocking also disappears."
+expected = "A wallet-invoked claim must remain recoverable after navigation or browser restart, with its exact chain, owner, target, calldata and transaction identity checked before a final result or another attempt is offered."
+proposal = "In the rewards widget persist an account-scoped recovery record before invoking the wallet, append the returned hash, and restore it only after revalidating the current account and deployment authority. Offer explicit hash reconciliation for an unknown broadcast outcome; verify transaction and committed receipt against the saved request and never automatically rebroadcast."
+owner_domain = 4
+
+[finding.metadata-browser-selectors]
+file = "apps/launchpad/web/src/features/metadata-media/measure.browser.mjs"
+line = 75
+class = "test-gap"
+severity = "medium"
+observed = "The browser measurement waits for region Creator image and button Upload or retry, then Approved at revision and Active revision text. editor.tsx renders Coin image, Upload and Image updated. The viewer selectors at lines 133-150 likewise expect Token metadata, Creator approved token image and outage text that viewer.tsx does not render. The real journey cannot reach its declared assertions."
+expected = "Metadata qualification must exercise the actual editor and viewer while proving retry operation identity, cancellation, committed approval, accessible labels and trading availability during an outage. Assertions must describe the real producer UI."
+proposal = "Update apps/launchpad/web/src/features/metadata-media/measure.browser.mjs to the current accessible labels and capture approval/revision identity from the actual committed operation and viewer response. Preserve every retry, cancellation, identity, accessibility and outage assertion rather than dropping checks when presentation wording changes."
+owner_domain = 4
+
+[finding.generator-machine-path]
+file = "sdk/launchpad/protocol/generator-inputs/test_export.py"
+line = 97
+class = "test-gap"
+severity = "medium"
+observed = "test_signature_hashes_are_verified_against_real_current_artifacts hardcodes /root/mk-falcon/contracts while neighboring tests use repository-derived CONTRACTS_ROOT. On a normal checkout its m.export calls cannot reach the current artifacts and fail for a missing machine-specific directory before the expected signature validation."
+expected = "The protocol generator must verify real current contract artifacts in this repository and remain independent of a previous workstation path, as required by the hermetic real-artifact checks of requirement 4534."
+proposal = "In sdk/launchpad/protocol/generator-inputs/test_export.py use the same repository-derived CONTRACTS_ROOT as the neighboring real-artifact tests. Retain the malformed topic, selector and duplicate-contract assertions against authentic current compiler artifacts; do not substitute synthetic ABI data."
+owner_domain = 4
+
+[finding.chart-controller-timeout]
+file = "tools/launchpad/production/charts-engine/phase4.py"
+line = 83
+class = "runtime-risk"
+severity = "medium"
+observed = "validate_binding calls type(command[timeoutSeconds], plan[maximumCommandLogBytes]) with two arguments. Python type accepts one argument or three arguments, so every otherwise valid release controller entry raises TypeError before its bounded timeout can be validated."
+expected = "The declared chart phase4 release command must validate authentic controller plans and proceed to the workload, replica-loss and checkpoint-replay measurements while enforcing the integer timeout range of 1 through 86400 seconds."
+proposal = "In tools/launchpad/production/charts-engine/phase4.py validate type(command[timeoutSeconds]) with the existing strict integer and range conditions. Add a controller-plan regression that reaches execution with a valid real binding and continues to reject booleans, zero and out-of-range timeouts."
+owner_domain = 4
+interface = "4.cfg-lp-tools-production-charts-engine-phase4-release"
+
+[finding.chart-controller-log-budget]
+file = "tools/launchpad/production/charts-engine/phase4.py"
+line = 242
+class = "wiring-gap"
+severity = "medium"
+observed = "The release controller coroutine calls run_command with argv, environment, output and timeout only, but run_command at line 93 requires a fifth maximum_bytes argument. Once plan validation is repaired, every release controller still raises a missing-argument TypeError instead of launching the actual experiment."
+expected = "The workload, replica-loss and restore/replay controller processes must receive the same explicit bounded log budget as the measurement executable, so release qualification executes and preserves bounded private evidence."
+proposal = "Pass plan[maximumCommandLogBytes] to each controller run_command call in charts-engine/phase4.py. Prove the real subprocess path honors both timeout and log limits for controllers as it does for the measurement process; retain source, executable and input digest checks."
+owner_domain = 4
+interface = "4.cli-lp-tools-production-charts-engine-phase4"
+
+[finding.qualification-missing-inputs]
+file = "tools/launchpad/production/qualify.py"
+line = 589
+class = "config-drift"
+severity = "medium"
+observed = "Future-task qualification requires the canonical spec path launchpad/spec/production-system/spec.kvx, which is absent. Bootstrap tasks 0.2 and 0.3 also unconditionally read launchpad/spec/production-system/integration/contracts/v1/catalog-map.json at line 627, which is absent. Providing --spec cannot make the missing canonical future path or catalog input available."
+expected = "The declared production qualification CLI must bind the reviewed specification and authentic frozen interfaces present in the split repository. Requirement 181182 places restored v1 fixtures under sdk/launchpad/protocol/contracts/v1; absent historical files cannot serve as current evidence."
+proposal = "Migrate tools/launchpad/production/qualify.py and its reviewed registry bindings to the retained specification and actual restored protocol fixture inventory. Re-establish any required semantic catalog from authentic reviewed source with explicit migration approval and digest updates; do not create an empty catalog or bypass canonical-source checks."
+owner_domain = 4
+interface = "4.cli-lp-tools-production-qualify"
+
+[finding.serial-gate-layout]
+file = "tools/launchpad/production/serial_gate.py"
+line = 419
+class = "config-drift"
+severity = "medium"
+observed = "Both serial reconstruction paths insert root/tools/production before importing dispatcher, then require root/spec/production-system/spec.kvx, execution-plan.json and tools/production/bootstrap/check-registry.json. Those tools and spec directories are absent in this checkout; dispatcher and its registry live under tools/launchpad/production. qualify.py uses a different missing launchpad/spec path."
+expected = "Serial qualification must reconstruct the same reviewed graph and control plane as its caller using real current paths, while keeping the exact lane inventory, ownership, source digests and accepted evidence bindings intact."
+proposal = "Migrate tools/launchpad/production/serial_gate.py together with qualify.py canonical control-plane bindings to the split layout and a reviewed retained graph. Resolve dispatcher from tools/launchpad/production and update all source and ownership bindings explicitly, preserving the fifty-lane and exact-patch checks."
+owner_domain = 4
+interface = "4.cli-lp-tools-production-serial-gate"
+
+[finding.error-beacon-byte-limit]
+file = "apps/launchpad/web/src/app/api/errors/route.ts"
+line = 44
+class = "runtime-risk"
+severity = "medium"
+observed = "POST /api/errors awaits request.text() before checking MAX_BODY_BYTES, so the entire unauthenticated request is buffered first. The check uses JavaScript string length rather than UTF-8 byte length, allowing multibyte bodies larger than the stated 64 KiB hard cap and allocating arbitrarily large bodies before rejection."
+expected = "The client telemetry sink must enforce its 64 KiB byte budget while reading the body and before JSON decoding or telemetry forwarding, without allowing an unauthenticated upload to consume an unbounded buffer."
+proposal = "In apps/launchpad/web/src/app/api/errors/route.ts read the request stream with an accumulated byte count, cancel and return 413 once the existing byte cap is crossed, and decode only bounded bytes. Cover chunked and multibyte input while preserving valid beacon delivery and existing response behavior."
+owner_domain = 4
+interface = "4.http-web-api-errors-j30"
+
+[finding.forwarded-ip-validation]
+file = "sdk/launchpad/shared/http/server.go"
+line = 99
+class = "security"
+severity = "medium"
+observed = "resolveClientIP treats any nonempty X-Forwarded-For hop outside trusted prefixes as the client, including strings that netip.ParseAddr rejects; X-Real-IP is returned without parsing at all. A trusted proxy that forwards a malformed value gives rate and connection accounting an arbitrary string identity instead of an IP address."
+expected = "TrustedClientIP and NewRouter must resolve a canonical valid client IP through trusted hops. A malformed forwarded header must not become a new rate-limit or connection-cap identity, even when the immediate peer is trusted."
+proposal = "In sdk/launchpad/shared/http/server.go parse and canonicalize each forwarded candidate with netip, and apply a documented fail-closed policy for invalid chains and X-Real-IP values. Extend the existing real router and outer-limiter tests to malformed hops, equivalent IP encodings and trusted-proxy chains."
+owner_domain = 4
+interface = "4.go-shared-http-trusted-client-ip"
+
+[finding.configuration-secret-errors]
+file = "services/launchpad/api/internal/config/config.go"
+line = 234
+class = "security"
+severity = "medium"
+observed = "requireRedisURL and requireURL include the complete raw connection string using %q in validation errors. A malformed credentialed Redis URL or database URL is therefore returned through config.Load and app.Run to apid main, which logs the error with log.Fatalf, exposing embedded passwords in startup logs."
+expected = "Invalid secret-bearing configuration must identify the failing variable and validation rule without printing the DSN, password or credential bytes. The brief requires secrets never to be logged, including failure paths."
+proposal = "Replace raw DSN interpolation in services/launchpad/api/internal/config/config.go with variable-name and rule-only errors. Exercise malformed credentialed database and Redis URLs and assert that neither the password nor full DSN appears in the error propagated to startup logging."
+owner_domain = 4
+
+[finding.reconciler-interval-validation]
+file = "services/launchpad/pnl-tracker/internal/config/config.go"
+line = 128
+class = "config-drift"
+severity = "medium"
+observed = "Load calls the embedded BaseEnv.Validate but never bounds ReconcileIntervalMS. ReconcileInterval converts any supplied integer directly to time.Duration; the non-accounting runtime passes it into App.loop and time.NewTicker. PNL_RECONCILE_INTERVAL_MS=0 or a negative value panics in that background goroutine, and extreme values can overflow the duration."
+expected = "Configuration accepted by Load must produce a positive, representable scan interval in every supported runtime path, including the non-accounting reconciler, and invalid operator input must fail before background jobs are started."
+proposal = "Add service-owned interval validation in services/launchpad/pnl-tracker/internal/config/config.go before returning Config, with a documented positive maximum that fits time.Duration. Keep valid defaults and overrides and add boundary cases for zero, negative and overflow values."
+owner_domain = 4
+interface = "4.env-pnl-tracker-pnl-reconcile-interval-ms"
+
+[finding.legacy-websocket-bounds]
+file = "services/launchpad/api/internal/ws/ws.go"
+line = 260
+class = "runtime-risk"
+severity = "medium"
+observed = "The legacy wsConn.run calls ReadMessage without SetReadLimit. applySubscribe accepts any nonempty pool string and retains every new value in c.pools without a count bound. app.New mounts these handlers in non-production mode; production uses the separately bounded HandleV2 path, so this finding is limited to the supported legacy/development listener."
+expected = "A mounted development websocket must still bound inbound frame bytes and subscription cardinality so one connection cannot exhaust the server used for real local integration and qualification."
+proposal = "In services/launchpad/api/internal/ws/ws.go apply an explicit read limit before reading frames, validate canonical pool addresses, and enforce an explicit per-connection pool subscription budget. Add real websocket cases for oversized frames and incremental subscription accumulation without changing the authenticated v2 protocol."
+owner_domain = 4
+
+[finding.legacy-webhook-body-bound]
+file = "services/launchpad/pnl-tracker/internal/httpapi/webhook.go"
+line = 125
+class = "runtime-risk"
+severity = "medium"
+observed = "webhookAuth reads all of r.Body before checking the signature and restores it for a second full read in webhookHandler. No MaxBytesReader bounds this route in RegisterWebhook or the shared router. app.New mounts it only outside production, where an unauthenticated oversized request can allocate the complete payload before failing HMAC verification."
+expected = "The development webhook receiver must enforce a byte and event-count budget before authentication parsing and event decoding. HMAC authentication does not provide a memory bound for requests that have not yet been verified."
+proposal = "Bound the request body in services/launchpad/pnl-tracker/internal/httpapi/webhook.go before the first read, reject oversized input explicitly, and cap the decoded event batch. Preserve the authentic raw bytes for HMAC verification and downstream folding, and cover chunked oversized unauthenticated requests."
+owner_domain = 4
+
+[finding.legacy-card-publication-policy]
+file = "services/launchpad/pnl-tracker/internal/httpapi/cards.go"
+line = 45
+class = "security"
+severity = "medium"
+observed = "POST /pnl/cards accepts an arbitrary body.OwnerAddress and persists a public card without authenticating the caller or confirming ownership. app.New mounts it in production alongside the v3 SharesV3 routes, whose preview and publish handlers authenticate the owner and bind selected disclosure fields and expiry. Legacy snapshots include the wallet and the complete position by default."
+expected = "An owner-controlled PnL publication flow must not have a second mounted mint endpoint that can publish a different wallet snapshot without that owner authorization, field selection and lifecycle policy."
+proposal = "Reconcile services/launchpad/pnl-tracker/internal/httpapi/cards.go registration with the v3 publication policy: retire the unauthenticated mutation or require the same authenticated owner, preview intent and disclosure controls. Preserve intentional public reads only through an explicit reviewed compatibility contract."
+owner_domain = 4
+interface = "4.http-pnl-tracker-post-pnl-cards"
+
+[finding.card-unavailable-as-zero]
+file = "services/launchpad/pnl-tracker/internal/card/card.go"
+line = 313
+class = "runtime-risk"
+severity = "medium"
+observed = "Mint allows a missing market price, and formatSignedUsdl returns $0.00 with a positive sign when pnlmath.TotalPnl fails; formatMultiple likewise replaces a HoldingValue error with zero. BuildRenderInput therefore renders an apparently numeric result for a persisted snapshot whose current valuation is unavailable or malformed."
+expected = "The service contract states that a service never reports a state it did not read: an unavailable source must produce a named refusal or an explicitly unavailable figure rather than a zero presented as a calculated financial result."
+proposal = "In services/launchpad/pnl-tracker/internal/card/card.go preserve pricing and basis quality through snapshot and render input. Refuse mint/render when required evidence is absent or render a distinct unavailable state; retain exact integer calculations and exercise missing and malformed marks instead of accepting numeric zero fallbacks."
+owner_domain = 4
+
+[finding.storage-buffer-bound]
+file = "sdk/launchpad/shared/storage/r2.go"
+line = 190
+class = "runtime-risk"
+severity = "medium"
+observed = "Client.GetBytes uses io.ReadAll on the object body without checking Object.Size or enforcing any maximum, despite being documented for small images. It is also called by the account export download path in services/launchpad/user/internal/account/jobs_http.go, so object size is not constrained by this helper to the image budget."
+expected = "A buffered object download must have an explicit caller-approved byte budget and reject oversize data before allocating the entire object, including missing or incorrect object Content-Length values."
+proposal = "Introduce an explicit maximum-size buffered read contract in sdk/launchpad/shared/storage/r2.go, checking known size and enforcing maximum-plus-one while streaming. Migrate image and account-export callers with their own documented budgets, and use the streaming Get API for intentionally larger objects."
+owner_domain = 4
+interface = "4.go-shared-storage-client-get-bytes"
+
+[finding.gateway-doc-site]
+file = "docs/site/docs/platform/hosted-gateway.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 39-52 describe api-mainnet-beta as the only unified eth/lx/px router, sixteen EVM-only RPC names and POST /rpc, /rpc/schema and /rpc/ws. The route table at lines 198-200 repeats the retired paths; later receipt guidance depends on separate authority and sequencer services."
+expected = "The finished network exposes node JSON-RPC at the root of api1 through api14 and api-mainnet-beta, with debug, echo, eth, net, pax, test and txpool namespaces. Hosted px methods have their own gateway contract; there is no unified router or separate LayerX interface."
+proposal = "Rewrite this hosted gateway page and its paired mirror around the root node RPC and the declared services/platform/hosted/gateway/openrpc.json px contract. Separate historical topology from active operation, remove retired /rpc instructions, and explain committed-block finality and current authenticated submission."
+owner_domain = 8
+
+[finding.gateway-doc-wiki]
+file = "docs/wiki/HostedGateway.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 39-52 describe api-mainnet-beta as the only unified eth/lx/px router, sixteen EVM-only RPC names and POST /rpc, /rpc/schema and /rpc/ws. The route table at lines 198-200 repeats the retired paths; later receipt guidance depends on separate authority and sequencer services."
+expected = "The finished network exposes node JSON-RPC at the root of api1 through api14 and api-mainnet-beta, with debug, echo, eth, net, pax, test and txpool namespaces. Hosted px methods have their own gateway contract; there is no unified router or separate LayerX interface."
+proposal = "Rewrite this hosted gateway page and its paired mirror around the root node RPC and the declared services/platform/hosted/gateway/openrpc.json px contract. Separate historical topology from active operation, remove retired /rpc instructions, and explain committed-block finality and current authenticated submission."
+owner_domain = 8
+
+[finding.cluster-doc-site]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The opening inventory describes a separate LayerX daemon, receipt authority, replica and Paxeer relay in addition to paxd. The bring-up guidance includes GuarantorBond and CheckpointRegistry settlement identities and node-boundary services as active operator requirements."
+expected = "The merged beta network is one paxd BFT chain with the kernel hosted inside the node. Separate daemon, relay, authority/replica and checkpoint-settlement provisioning are retired, and receipt finality comes from committed blocks."
+proposal = "Rewrite the beta cluster runbook and mirror for the merged paxd deployment and its retained hosted dependencies. Remove retired process images, secrets, settlement deployments and smoke expectations, and identify any historical pre-merge procedure explicitly rather than presenting it as current bring-up."
+owner_domain = 8
+
+[finding.cluster-doc-wiki]
+file = "docs/wiki/BetaCluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The opening inventory describes a separate LayerX daemon, receipt authority, replica and Paxeer relay in addition to paxd. The bring-up guidance includes GuarantorBond and CheckpointRegistry settlement identities and node-boundary services as active operator requirements."
+expected = "The merged beta network is one paxd BFT chain with the kernel hosted inside the node. Separate daemon, relay, authority/replica and checkpoint-settlement provisioning are retired, and receipt finality comes from committed blocks."
+proposal = "Rewrite the beta cluster runbook and mirror for the merged paxd deployment and its retained hosted dependencies. Remove retired process images, secrets, settlement deployments and smoke expectations, and identify any historical pre-merge procedure explicitly rather than presenting it as current bring-up."
+owner_domain = 8
+
+[finding.readme-merge-topology]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "README lines 44-47 advertise two execution domains with a separately running cmd/layerxd daemon and checkpoint settlement through layerxAnchor. Line 181 says the merge remains a draft and the current kernel settles checkpoints separately."
+expected = "The audit brief specifies one network with the kernel hosted by paxd and finality at block commit; layerxd and anchor settlement are retired. Repository orientation must describe that finished product clearly."
+proposal = "Update README.md network architecture and upgrade wording to the single paxd execution and commit model, with current entrypoints and links. Label any necessary historical description by version and remove separate daemon and checkpoint-settlement startup guidance."
+owner_domain = 17
+
+[finding.boundary-doc-site]
+file = "docs/site/docs/concepts/paxeer-boundary.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The page presents services/platform/hosted/paxeer as the only chain access path, with a paxeer-relay container and custody-boundary client. Its settlement section from line 117 deploys GuarantorBond and CheckpointRegistry and publishes layerx-node-settlement as active topology."
+expected = "The retired-component inventory removes hosted/paxeer and paxeer-relay. The merged network needs no separate chain relay or checkpoint settlement: clients use the declared node root RPC and retained hosted service contracts."
+proposal = "Replace the Paxeer boundary page and mirror with current chain access and trust-boundary guidance. Move any retained historical relay deployment explanation to a versioned archive, and remove active custody, guarantor and checkpoint bootstrap instructions."
+owner_domain = 8
+
+[finding.boundary-doc-wiki]
+file = "docs/wiki/PaxeerBoundary.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The page presents services/platform/hosted/paxeer as the only chain access path, with a paxeer-relay container and custody-boundary client. Its settlement section from line 117 deploys GuarantorBond and CheckpointRegistry and publishes layerx-node-settlement as active topology."
+expected = "The retired-component inventory removes hosted/paxeer and paxeer-relay. The merged network needs no separate chain relay or checkpoint settlement: clients use the declared node root RPC and retained hosted service contracts."
+proposal = "Replace the Paxeer boundary page and mirror with current chain access and trust-boundary guidance. Move any retained historical relay deployment explanation to a versioned archive, and remove active custody, guarantor and checkpoint bootstrap instructions."
+owner_domain = 8
+
+[finding.cli-doc-site]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The CLI page requires global --rpc to end in /rpc and later examples preserve that endpoint convention. It also mixes the implemented wallet/token command summary with later prose describing those command families as unimplemented."
+expected = "Client instructions must use the merged network root RPC endpoint and the actual implemented command surface, distinguishing hosted px operations from node methods without a unified /rpc router."
+proposal = "Rewrite both CLI pages from the current command implementation and hosted OpenRPC contract. Correct endpoint validation and examples as a coordinated owning CLI repair, reconcile the conflicting implemented-command descriptions, and show the current node and hosted authentication boundaries."
+owner_domain = 8
+
+[finding.cli-doc-wiki]
+file = "docs/wiki/Cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The CLI page requires global --rpc to end in /rpc and later examples preserve that endpoint convention. It also mixes the implemented wallet/token command summary with later prose describing those command families as unimplemented."
+expected = "Client instructions must use the merged network root RPC endpoint and the actual implemented command surface, distinguishing hosted px operations from node methods without a unified /rpc router."
+proposal = "Rewrite both CLI pages from the current command implementation and hosted OpenRPC contract. Correct endpoint validation and examples as a coordinated owning CLI repair, reconcile the conflicting implemented-command descriptions, and show the current node and hosted authentication boundaries."
+owner_domain = 8
+
+[finding.registry-doc-site]
+file = "docs/site/docs/platform/registry.md"
+line = 7
+class = "doc-drift"
+severity = "medium"
+observed = "The registry deployment description routes trust through layerx-agent-boundary and layerx-receipt-authority Services on the separate node boundary, and describes that topology as the current deployment and receipt verification authority rather than a historical baseline."
+expected = "Registry documentation must explain program and source verification against the merged chain evidence and current hosted boundaries. Retired receipt-authority and daemon topology cannot remain active operational prerequisites."
+proposal = "Rewrite the registry page and mirror around the retained registrar, source rebuild and committed-chain evidence interfaces. Replace retired node/receipt-authority service and key provisioning instructions with the current producer and verifier path, while preserving durable source and journal verification requirements."
+owner_domain = 8
+
+[finding.registry-doc-wiki]
+file = "docs/wiki/HostedRegistry.md"
+line = 7
+class = "doc-drift"
+severity = "medium"
+observed = "The registry deployment description routes trust through layerx-agent-boundary and layerx-receipt-authority Services on the separate node boundary, and describes that topology as the current deployment and receipt verification authority rather than a historical baseline."
+expected = "Registry documentation must explain program and source verification against the merged chain evidence and current hosted boundaries. Retired receipt-authority and daemon topology cannot remain active operational prerequisites."
+proposal = "Rewrite the registry page and mirror around the retained registrar, source rebuild and committed-chain evidence interfaces. Replace retired node/receipt-authority service and key provisioning instructions with the current producer and verifier path, while preserving durable source and journal verification requirements."
+owner_domain = 8
+
+[finding.precompile-doc-retirement]
+file = "docs/system/precompiles.md"
+line = 1170
+class = "doc-drift"
+severity = "medium"
+observed = "The ABI reference lists layerxanchor at 0x1014, layerxcustody withdrawal/forced-exit methods from line 1285, and layerxverify at 0x1012 from line 1552 without plan-height retirement/refusal annotations. A reader can mistake ABI presence for usable post-upgrade settlement, custody or verification behavior."
+expected = "The retirement inventory says anchor returns ErrModuleRetired, verification and custody methods return LXP_MODULE_DISABLED after activation, funding uses bank sub-accounts and outward transfers use bridgeOut; finality is the committed block."
+proposal = "Amend tools/docs/gen-system-docs.sh and its source metadata to render activation-aware retirement status, exact refusal behavior and the bank, proof, bridge and committed-finality replacements, then regenerate docs/system/precompiles.md rather than manually changing generated ABI listings."
+owner_domain = 6
+
+[finding.client-contract-router]
+file = "spec/layerx-merge/contracts/clients.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "The client operations table describes joined state reads as router px_* methods, while the page title and contract metadata identify this as the after-merge first-party client contract. The reviewed launchpad sections inherit this obsolete global transport description."
+expected = "After-merge client contracts must distinguish node root JSON-RPC from the hosted gateway px contract. The brief rules out a router, unified /rpc and a separate LayerX interface."
+proposal = "Amend the owning clients contract source and regenerate spec/layerx-merge/contracts/clients.md so operation Q and affected launchpad guidance name the real node and hosted transports. Preserve method and evidence requirements while removing the retired router model."
+owner_domain = 17
+
+[finding.service-contract-retired-topology]
+file = "spec/layerx-merge/contracts/services.md"
+line = 41
+class = "doc-drift"
+severity = "medium"
+observed = "The after-merge service catalogue still describes the sequencer as private to a router, platform-gateway at POST /rpc and /rpc/ws, a separate platform-paxeer boundary, and a platform-receipt-authority service as operated dependencies. These global claims conflict with the merged-network audit brief."
+expected = "The service contract for the finished network must use the single paxd BFT commit model and current hosted services. Retired router, chain relay and separate finality authority must not be described as running components."
+proposal = "Amend the service catalogue source and regenerate spec/layerx-merge/contracts/services.md to remove retired runtime rows and transport paths, identify retained hosted dependencies, and bind launchpad reads and receipts to the committed-chain interfaces. Coordinate domain owners instead of maintaining contradictory contract prose."
+owner_domain = 17
+
+[doc.01]
+path = "docs/site/docs/platform/hosted-gateway.md"
+status = "stale"
+notes = "Read in full. finding.gateway-doc-site at line 39. Retired topology and endpoint instructions require a coordinated rewrite."
+
+[doc.02]
+path = "docs/wiki/HostedGateway.md"
+status = "stale"
+notes = "Read in full. finding.gateway-doc-wiki at line 39. Retired topology and endpoint instructions require a coordinated rewrite."
+
+[doc.03]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "stale"
+notes = "Read in full. finding.cluster-doc-site at line 3. Retired topology and endpoint instructions require a coordinated rewrite."
+
+[doc.04]
+path = "README.md"
+status = "stale"
+notes = "Read in full. finding.readme-merge-topology at line 47. Retired topology and endpoint instructions require a coordinated rewrite."
+
+[doc.05]
+path = "docs/site/docs/concepts/paxeer-boundary.md"
+status = "stale"
+notes = "Read in full. finding.boundary-doc-site at line 3. Retired topology and endpoint instructions require a coordinated rewrite."
+
+[doc.06]
+path = "docs/site/docs/platform/cli.md"
+status = "stale"
+notes = "Read in full. finding.cli-doc-site at line 8. Retired topology and endpoint instructions require a coordinated rewrite."
+
+[doc.07]
+path = "docs/site/docs/platform/registry.md"
+status = "stale"
+notes = "Read in full. finding.registry-doc-site at line 7. Retired topology and endpoint instructions require a coordinated rewrite."
+
+[doc.08]
+path = "docs/wiki/PaxeerBoundary.md"
+status = "stale"
+notes = "Read in full. finding.boundary-doc-wiki at line 3. Retired topology and endpoint instructions require a coordinated rewrite."
+
+[doc.09]
+path = "docs/wiki/HostedRegistry.md"
+status = "stale"
+notes = "Read in full. finding.registry-doc-wiki at line 7. Retired topology and endpoint instructions require a coordinated rewrite."
+
+[doc.10]
+path = "docs/wiki/BetaCluster.md"
+status = "stale"
+notes = "Read in full. finding.cluster-doc-wiki at line 3. Retired topology and endpoint instructions require a coordinated rewrite."
+
+[doc.11]
+path = "docs/wiki/Cli.md"
+status = "stale"
+notes = "Read in full. finding.cli-doc-wiki at line 8. Retired topology and endpoint instructions require a coordinated rewrite."
+
+[doc.12]
+path = "docs/system/precompiles.md"
+status = "stale"
+notes = "Read in full. finding.precompile-doc-retirement at line 1170. Retired topology and endpoint instructions require a coordinated rewrite."
+
+[doc.13]
+path = "apps/launchpad/production_checklist.md"
+status = "accurate"
+notes = "Read in full as a proposed production-readiness checklist with unchecked items, not evidence that the listed gates or capacity goals have passed."
+
+[doc.14]
+path = "spec/layerx-merge/contracts/launchpad.md"
+status = "accurate"
+notes = "Reviewed selected registry-linked launchpad tooling, Solidity/event and client/service anchors and their applicable contract rules; this entry does not claim a full review of unrelated generated domain tables."
+
+[doc.15]
+path = "spec/layerx-merge/contracts/clients.md"
+status = "stale"
+notes = "Reviewed selected registry-linked launchpad tooling, Solidity/event and client/service anchors and their applicable contract rules; this entry does not claim a full review of unrelated generated domain tables. The global after-merge router/retired topology statements are stale; see the corresponding contract documentation finding."
+
+[doc.16]
+path = "spec/layerx-merge/contracts/services.md"
+status = "stale"
+notes = "Reviewed selected registry-linked launchpad tooling, Solidity/event and client/service anchors and their applicable contract rules; this entry does not claim a full review of unrelated generated domain tables. The global after-merge router/retired topology statements are stale; see the corresponding contract documentation finding."
+
+[doc.17]
+path = "spec/layerx-merge/contracts/interop-migrate.md"
+status = "accurate"
+notes = "Reviewed the package-linked configuration anchors and pinned status notes. The launchpad caller matches are shared token names (endpoint, url, namespace, provider, threshold, transport and algorithm), not actual calls of these Rust configuration structs; no cross-domain wire mismatch is inferred from lexical matches."
+
+[doc.18]
+path = "spec/layerx-merge/contracts/interop-mirror.md"
+status = "accurate"
+notes = "Reviewed the package-linked configuration anchors and pinned status notes. The launchpad caller matches are shared token names (endpoint, url, namespace, provider, threshold, transport and algorithm), not actual calls of these Rust configuration structs; no cross-domain wire mismatch is inferred from lexical matches."
+
+[doc.19]
+path = "spec/layerx-merge/contracts/interop-bridge-relayer.md"
+status = "accurate"
+notes = "Reviewed the package-linked configuration anchors and pinned status notes. The launchpad caller matches are shared token names (endpoint, url, namespace, provider, threshold, transport and algorithm), not actual calls of these Rust configuration structs; no cross-domain wire mismatch is inferred from lexical matches."
+
+[doc.20]
+path = "spec/layerx-merge/contracts/interop-service.md"
+status = "accurate"
+notes = "Reviewed the package-linked configuration anchors and pinned status notes. The launchpad caller matches are shared token names (endpoint, url, namespace, provider, threshold, transport and algorithm), not actual calls of these Rust configuration structs; no cross-domain wire mismatch is inferred from lexical matches."

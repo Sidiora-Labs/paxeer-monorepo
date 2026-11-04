@@ -1,0 +1,478 @@
+[audit.22.30.3]
+task = "22.30.3"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 31
+findings = 21
+docs_reviewed = 13
+upgrade_ready = false
+blocking = ["host-bound-migration"]
+note = "Read all 31 members in full and compared package requirements, eight produced rows and all 400 explicitly enumerated consumed rows. consumes_total=857 is historical metadata rather than an additional list. Retired DA/handover/guarantor/queue/state-diff rows were treated as historical contracts. Live precompile/host transport, persistence/restoration and documentation were reviewed; source-suite execution is not claimed."
+
+[file.1]
+path = "src/protocol/lxp_activity.c"
+lines = 201
+verdict = "clean"
+note = "Read in full: Canonical tagged envelope, supported versions/network, timestamp shape, bounded spans, payload hash and signature preimage agree with C admission and the host producer. Payment references remain wire fields without restoring a kernel idempotency table."
+
+[file.2]
+path = "src/protocol/lxp_activity_signature.c"
+lines = 19
+verdict = "clean"
+note = "Read in full: Standalone Ed25519 verification checks authority/signature lengths and the canonical preimage. Authenticated binding substitution belongs to the caller; the migration caller disagreement is recorded on lxp_kernel.c."
+
+[file.3]
+path = "src/protocol/lxp_arena.c"
+lines = 67
+verdict = "issues"
+note = "Read in full: Init, exhaustion, marks and zeroing reset reviewed with typed snapshot/module allocations. Offset alignment does not align an arbitrary buffer base; see arena-base-alignment."
+
+[file.4]
+path = "src/protocol/lxp_batch_identity.c"
+lines = 92
+verdict = "clean"
+note = "Read in full: Activity and committed identity preimages, big-endian fields, lengths, domain separation and hash outputs agree with callers. These helpers do not start a separate sequencer service."
+
+[file.5]
+path = "src/protocol/lxp_build_info.c"
+lines = 35
+verdict = "clean"
+note = "Read in full: Compile-time metadata defaults and exported build/ABI information agree with consumers; no runtime configuration reader or retired service is introduced."
+
+[file.6]
+path = "src/protocol/lxp_exec_clock.c"
+lines = 20
+verdict = "clean"
+note = "Read in full: Execution clock measurement remains isolated from deterministic state and fee inputs; platform failure handling and elapsed-time values match host profiling."
+
+[file.7]
+path = "src/protocol/lxp_fee.c"
+lines = 288
+verdict = "clean"
+note = "Read in full: Fee parameter versions, encoding, checked arithmetic, asset fee names, treasury resolution and replay-schedule verification agree with kernel admission and charging; monetary effects remain ledger mediated."
+
+[file.8]
+path = "src/protocol/lxp_fee_policy.c"
+lines = 220
+verdict = "clean"
+note = "Read in full: Submission/ordering/execution transitions, result mapping, sequence consumption and charge/retry policy agree with kernel callers. Compatibility result names do not restore the retired queue journal."
+
+[file.9]
+path = "src/protocol/lxp_genesis.c"
+lines = 1321
+verdict = "issues"
+note = "Read in full: Module plan, reserved web/bridge ids, fresh accounts, native fees, roots/signatures and bootstrap/restart verification reviewed. Mandatory guarantor metadata and obsolete consumer descriptions remain; see legacy-genesis-guarantors."
+
+[file.10]
+path = "src/protocol/lxp_i128.c"
+lines = 87
+verdict = "clean"
+note = "Read in full: Checked signed arithmetic, magnitude conversion and big-endian serialization reviewed with unsigned helpers, including minimum signed value handling and overflow refusals."
+
+[file.11]
+path = "src/protocol/lxp_kernel.c"
+lines = 6988
+verdict = "issues"
+note = "Read in full: Module registration/epoch hooks, authority binding, admission, staged execution, fees, prestate, publication, replay and rollback reviewed. Bound migration authentication and failed registration mutation are recorded separately."
+
+[file.12]
+path = "src/protocol/lxp_kernel_host.c"
+lines = 73
+verdict = "clean"
+note = "Read in full: Host initialization and callback/context lifetimes agree with kernel host types; absent callbacks fail explicitly instead of fabricating state or effects."
+
+[file.13]
+path = "src/protocol/lxp_maintenance.c"
+lines = 223
+verdict = "clean"
+note = "Read in full: Maintenance effect bounds, account snapshots, sequencing and rollback agree with kernel dispatch and module hooks. Internal ledger settlement does not imply retired checkpoint settlement."
+
+[file.14]
+path = "src/protocol/lxp_meter.c"
+lines = 110
+verdict = "clean"
+note = "Read in full: Meter initialization, bounded increments, checked totals and limit refusals agree with fee computation and Programs execution usage units."
+
+[file.15]
+path = "src/protocol/lxp_module_ctx.c"
+lines = 2948
+verdict = "issues"
+note = "Read in full: KV/blob/account staging, authority checks, ledger emissions, allowance persistence, effects and commit/rollback reviewed. Transfer shape validation is too late and count-only savepoints do not restore overwritten staged values."
+
+[file.16]
+path = "src/protocol/lxp_protocol.c"
+lines = 61
+verdict = "clean"
+note = "Read in full: Protocol versions 1/2/3, occupancy selection, nonzero network equality and domain-tag lengths agree with hashing callers. Frozen checkpoint/guarantor hash domains preserve compatibility without wiring retired services."
+
+[file.17]
+path = "src/protocol/lxp_receipt.c"
+lines = 1156
+verdict = "clean"
+note = "Read in full: Canonical receipt/supply and Programs outcome versions, effects, signatures, digest, index and publication checked against modules/lxphost/host.go and layerxproof/codec/receipt.go. Field order, widths, outcome tags and nonzero timestamp refusals agree. Receipt build is a primitive requiring caller-bound execution facts."
+
+[file.18]
+path = "src/protocol/lxp_receipt_verify.c"
+lines = 56
+verdict = "clean"
+note = "Read in full: Argument validation, unsigned canonical digest, Ed25519 verification and arena reset agree with callers. The standalone verifier infers no network authority or unsigned fallback."
+
+[file.19]
+path = "src/protocol/lxp_result.c"
+lines = 100
+verdict = "clean"
+note = "Read in full: Shared result macro registry, numeric domains and fatal classification agree with C callers. Registry row 1.err-c-lxp-err-unknown-fallback explicitly records the C/Go unknown diagnostic spelling; registered numeric transport agrees."
+
+[file.20]
+path = "src/protocol/lxp_u128.c"
+lines = 68
+verdict = "clean"
+note = "Read in full: Checked unsigned add/subtract, comparisons, zero checks and 16-byte big-endian conversions agree with fee/account consumers, including carry, borrow and maximum boundaries."
+
+[file.21]
+path = "src/protocol/lxp_u256.c"
+lines = 98
+verdict = "clean"
+note = "Read in full: Widening, checked arithmetic, limb multiplication/division and overflow refusals agree with fee/rate consumers, without silent narrowing or floating-point conversion."
+
+[file.22]
+path = "src/state/lxp_authority.c"
+lines = 1156
+verdict = "clean"
+note = "Read in full: Grant versions, owner/delegated scope, live/revoked checks, multisig/time/sequence bounds, grant-key binding and persistent debit/fee counters agree with context charging and governance identity refresh. Restart reads committed allowance counters."
+
+[file.23]
+path = "src/state/lxp_identity.c"
+lines = 299
+verdict = "clean"
+note = "Read in full: DID derivation, sorted lookup, owner/delegate resolution, pending rotation and revocation sequences agree with admission and grants. Rejected identities do not acquire authority."
+
+[file.24]
+path = "src/state/lxp_journal.c"
+lines = 887
+verdict = "clean"
+note = "Read in full: Journal prepare/apply/commit/rollback, reservations, account snapshots and failure cleanup agree with kernel publication/ledger consumers. Retired row 1.fmt-queue-disposition-journal is absent as intended."
+
+[file.25]
+path = "src/state/lxp_snapshot.c"
+lines = 1127
+verdict = "clean"
+note = "Read in full: Snapshot sizing/sorting, reserved zero count, module/KV/blob/account records, roots/digest, signed migration and candidate publication reviewed. modules/lxphost/ctx.go uses the same C account codec with key/id binding and index rebuild; host.go also persists/restores blobs. LXS2/LXS3 snapshot store validates digest/sequence/roots. Frozen contract drift is recorded on that page."
+
+[file.26]
+path = "src/state/lxp_state_internal.h"
+lines = 13
+verdict = "clean"
+note = "Read in full: 1.c-lxp-state-module-root-count declaration agrees with lxp_state_root.c and snapshot/root callers, including size_t output and error propagation."
+
+[file.27]
+path = "src/state/lxp_state_proof.c"
+lines = 332
+verdict = "clean"
+note = "Read in full: Witness/proof encoding, bounded depth/value length, canonical key/path/root verification and arena ownership agree with state-root leaves and callers. No unauthenticated replacement root is accepted."
+
+[file.28]
+path = "src/state/lxp_state_root.c"
+lines = 816
+verdict = "clean"
+note = "Read in full: Canonical leaf ordering, account/module/empty roots, bounded allocation, Merkle paths and state commitment agree with snapshot/proof producers and consumers. Restored account roots are recomputed."
+
+[file.29]
+path = "tests/programs/test_lifecycle.c"
+lines = 1995
+verdict = "issues"
+note = "Read in full: Lifecycle, authorization, upgrade/pause, migration/accounting, replay and restart assertions checked against real kernel/receipt producers. Zero-timestamp synthetic receipts and obsolete duplicate result expectations are recorded. This audit executes no source suite."
+
+[file.30]
+path = "tests/programs/test_reference_custody.c"
+lines = 454
+verdict = "clean"
+note = "Read in full: Sandbox custody funding, program value movement, close/revoke, escrow release, duplicate protection and receipt verification agree with ledger/Programs outcomes. Fixture signing keys and internal settlement terms do not create a live separate sequencer."
+
+[file.31]
+path = "tests/programs/test_terminal_v5.c"
+lines = 229
+verdict = "clean"
+note = "Read in full: Terminal success/failure/resource/callback/settlement cases, applied-leg digest, detail tags and roundtrip agree with Programs outcomes. Protocol-3 binding and ABI variants match the producer; fixture signer naming does not create a retired service."
+
+[finding.host-bound-migration]
+file = "src/protocol/lxp_kernel.c"
+line = 377
+class = "interface-mismatch"
+severity = "high"
+observed = "precompiles/layerxprograms/method_upgrade.go calls submit.go, which emits protocol-3 upgrades without Activity.Signature and passes principalOf chain-bound authority. modules/lxphost/host.go accepts that envelope and sets signature_valid and binding_authority. kernel_program_signer_binding accepts it, but lxp_kernel_bind_migration_admission unconditionally calls lxp_activity_verify_signature. Upgrades with payload byte 34 bit 0 set therefore return LXP_ERR_BAD_SIGNATURE before migration dispatch."
+expected = "Migration upgrades authenticated by the chain authority accepted for Programs execution must reach admission with actor, verified key, payload hash, execution context and fee facts bound consistently across precompile, host and kernel."
+proposal = "In src/protocol/lxp_kernel.c honor validated chain authority binding for bound unsigned migration envelopes while retaining actor/principal/key, payload hash, canonical activity id and execution-context checks. Preserve Ed25519 verification for native signed envelopes. Add real precompile -> host -> kernel upgrades in both modes and tampered actor/key/hash refusals."
+owner_domain = 1
+interface = "1.c-lxp-kernel-bind-migration-admission"
+
+[finding.registration-refusal-mutates]
+file = "src/protocol/lxp_kernel.c"
+line = 2190
+class = "runtime-risk"
+severity = "medium"
+observed = "lxp_kernel_register_module changes the active registration disabled_epoch to kernel->epoch before checking module_count against LXP_KERNEL_MAX_MODULE_REGISTRATIONS. At capacity an otherwise valid higher-version registration returns LXP_ERR_ARENA_EXHAUSTED but leaves the previous version disabled; lookup then returns LXP_ERR_MODULE_DISABLED."
+expected = "A refused registration must preserve the active module and registry state so dispatch remains available after a failed upgrade attempt."
+proposal = "Preflight capacity and every version/interface constraint in src/protocol/lxp_kernel.c before mutating registrations, then publish the transition atomically. Add an owning-domain full-capacity case checking refusal, unchanged registry/root and continued dispatch through the prior implementation."
+owner_domain = 1
+interface = "1.c-enum-lxp-kernel-max-module-registrations"
+
+[finding.arena-base-alignment]
+file = "src/protocol/lxp_arena.c"
+line = 43
+class = "runtime-risk"
+severity = "medium"
+observed = "lxp_arena_init accepts arbitrary byte-buffer addresses. lxp_arena_alloc aligns only arena->offset and returns arena->buffer + aligned. An unaligned base stays unaligned for typed _Alignof(size_t) and struct allocations used by snapshot and module context callers, despite a successful result."
+expected = "Successful arena allocation must honor requested power-of-two alignment for every accepted buffer without overflowing address arithmetic or exceeding capacity."
+proposal = "In src/protocol/lxp_arena.c align the checked absolute current address and include base-relative padding in overflow/capacity accounting, preserving reset zeroing. Add an allocator regression with an intentionally offset buffer and production typed alignment requests."
+owner_domain = 1
+interface = "1.c-lxp-arena-alloc"
+
+[finding.legacy-genesis-guarantors]
+file = "src/protocol/lxp_genesis.c"
+line = 522
+class = "retired-reference"
+severity = "medium"
+observed = "validate requires a nonzero guarantor_count and 33-byte guarantor keys for every supported manifest protocol, including state-commitment protocol 3. Lines 49-50 still name daemon and guarantor-runtime consumers; bootstrap helpers retain settlement_anchor/finalised registration requirements. The retired guarantor process has no role in the merged BFT network."
+expected = "Fresh merged-network genesis should describe chain validators, kernel modules and governed state without requiring separate guarantor provisioning or independent checkpoint settlement. Historical committed encodings need an explicit compatibility boundary."
+proposal = "Separate historical decoding/hash compatibility from current-network genesis validation in src/protocol/lxp_genesis.c and its header/builder paths. Remove mandatory retired-guarantor provisioning from the current bootstrap path, replace the obsolete consumer comment and prove fresh genesis and historical import separately while preserving archived hashes."
+owner_domain = 1
+interface = "1.c-lxp-genesis-manifest"
+
+[finding.transfer-shape-before-dereference]
+file = "src/protocol/lxp_module_ctx.c"
+line = 2050
+class = "runtime-risk"
+severity = "medium"
+observed = "emit_transfer_set traverses set->leg_count over fixed legs[LXP_MAX_TRANSFER_SET_LEGS] before downstream kernel/ledger count validation. It also dereferences source_authorities up to source_authority_count before checking pointer/count validity. A malformed module transfer can read outside the array or dereference NULL before the intended refusal."
+expected = "Module transfer emission must reject malformed counts and pointer/count pairs before reading legs/authorities or taking account snapshots, with ledger validation retained."
+proposal = "Validate nonzero/max leg count and source-authority pointer/count bounds at entry to emit_transfer_set in src/protocol/lxp_module_ctx.c using the declared ledger limits. Add oversized-leg and nonzero-count/NULL-authority cases checking explicit refusal and unchanged account snapshots."
+owner_domain = 1
+interface = "1.c-lxp-ctx-emit-monetary-transfer-set"
+
+[finding.savepoint-overwrite-not-restored]
+file = "src/protocol/lxp_module_ctx.c"
+line = 2907
+class = "runtime-risk"
+severity = "medium"
+observed = "lxp_module_savepoint_begin captures counts without before-images. stage_change overwrites an already staged key in place, while discard only restores staged_count. Consequently put(k,A), begin, put(k,B), discard leaves B. Sandbox guest rollback and budget delegated-spend paths use this API, which does not exclude keys staged before begin."
+expected = "Discarding a module savepoint must restore state as it existed at begin, including updated/deleted preexisting staged entries, so failed nested work cannot survive into the enclosing commit."
+proposal = "Journal before-images or use a separate post-savepoint overlay in src/protocol/lxp_module_ctx.c and its savepoint representation, covering KV and mutable blob entries. Preserve gas charging while restoring state/effects. Add nested rollback coverage updating/deleting a pre-staged key and checking the original value at commit."
+owner_domain = 1
+
+[finding.migration-fixture-zero-timestamp]
+file = "tests/programs/test_lifecycle.c"
+line = 1345
+class = "test-gap"
+severity = "medium"
+observed = "migration_attempt starts receipt = {0}, calls lxp_receipt_build, signs and encodes it, then expects lxp_receipt_decode(..., true, ...) to succeed at line 1351. Build clears the receipt and does not set timestamp; no assignment intervenes. src/protocol/lxp_receipt.c rejects timestamp == 0 with LXP_ERR_NON_CANONICAL."
+expected = "Migration lifecycle evidence must use the complete production receipt shape, binding execution timestamp and result/outcome facts before signing, while retaining strict decode and signature assertions."
+proposal = "Use real lxp_kernel_execute_activity receipts in tests/programs/test_lifecycle.c where possible, otherwise bind all production execution facts including the nonzero timestamp before signing. Keep canonical decoding, signature verification and result/effects/root assertions intact."
+owner_domain = 1
+interface = "1.fmt-protocol-receipt"
+
+[finding.migration-duplicate-retired-result]
+file = "tests/programs/test_lifecycle.c"
+line = 1685
+class = "test-gap"
+severity = "medium"
+observed = "The duplicate_no_second_fee restart case expects LXP_ERR_IDEMPOTENT_REPLAY from lxp_kernel_execute_activity. Live kernel admission passes idempotency_key_exists=false and checks identity account sequences. Its sole direct LXP_ERR_IDEMPOTENT_REPLAY return is the unrelated same-epoch transition; the activity idempotency table is retired."
+expected = "Restart duplicate tests must assert the current sequence refusal and still prove no second fee, unchanged accounting and no repeated upgrade. Recorded committed replay is a separate contract from resubmitting a consumed activity."
+proposal = "Update tests/programs/test_lifecycle.c to submit with actual restored identity/authority/account sequence state and assert the declared sequence refusal. Preserve all balance/accounting/root checks and exercise recorded committed receipt replay independently."
+owner_domain = 1
+interface = "1.c-lxp-admit-activity"
+
+[finding.readme-network]
+file = "README.md"
+line = 44
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 44-47 describe two domains, a separate layerxd from cmd/layerxd and checkpoints settled through layerxAnchor. Lines 145-146 still instruct building the daemon."
+expected = "The brief specifies one BFT network in paxd, receipts final at block commit, node RPC at the root and hosted px_* methods on the gateway. layerxd, a separate sequencer service and router /rpc surfaces are retired."
+proposal = "Rewrite README.md architecture and build/run instructions around paxd with its integrated kernel, chain id 125 and finality at BFT block commit; remove current operator steps for the retired daemon/checkpoint connector."
+owner_domain = 17
+
+[finding.qualification-network]
+file = "docs/QUALIFICATION.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 20-24 and 79-82 require DA withholding, guarantor disagreement and sequencer-offline checkpoint exits and link the old task board. Line 100 treats Paxeer and LayerX qualification as independent protocol boundaries."
+expected = "The brief specifies one BFT network in paxd, receipts final at block commit, node RPC at the root and hosted px_* methods on the gateway. layerxd, a separate sequencer service and router /rpc surfaces are retired."
+proposal = "Rewrite docs/QUALIFICATION.md for merged-node, kernel/host and committed-block evidence with crash/restart guarantees. Link current criteria and distinguish historical compatibility suites from release qualification of the one network."
+owner_domain = 17
+
+[finding.paxeer-network]
+file = "docs/paxeer-network.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-9 describe Paxeer as a separate settlement/custody layer while ordinary activity remains on LayerX with periodic checkpoints. Lines 15-20 and 38 repeat retired guarantor/checkpoint roles."
+expected = "The brief specifies one BFT network in paxd, receipts final at block commit, node RPC at the root and hosted px_* methods on the gateway. layerxd, a separate sequencer service and router /rpc surfaces are retired."
+proposal = "Rewrite docs/paxeer-network.md for the kernel inside paxd and shared BFT security/finality. Preserve accurate tenant namespace guidance at lines 24-30 while removing separate-network and guarantor/checkpoint operator claims."
+owner_domain = 17
+
+[finding.site-network]
+file = "docs/site/docs/index.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 11-18 keep ordinary activity inside LayerX, settle checkpoints to Paxeer and retain separate subsystem trust/deployment boundaries."
+expected = "The brief specifies one BFT network in paxd, receipts final at block commit, node RPC at the root and hosted px_* methods on the gateway. layerxd, a separate sequencer service and router /rpc surfaces are retired."
+proposal = "Rewrite docs/site/docs/index.md for one Paxeer mainnet-beta network with integrated kernel and committed-block receipts. Retain accurate module-9/protocol-3 information while distinguishing hosted services from node execution."
+owner_domain = 17
+
+[finding.unified-network]
+file = "docs/site/docs/overview/unified-network.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-19 describe a separate core node/sequencer under cmd/layerxd with precompiles verifying its evidence. Lines 52-88 describe retired custody/anchor roles; lines 126-171 advertise router /rpc, /rpc/ws, /rpc/schema and lx_* methods."
+expected = "The brief specifies one BFT network in paxd, receipts final at block commit, node RPC at the root and hosted px_* methods on the gateway. layerxd, a separate sequencer service and router /rpc surfaces are retired."
+proposal = "Rewrite docs/site/docs/overview/unified-network.md from the paxd -> host -> kernel path. Document node RPC at root, hosted px_* from services/platform/hosted/gateway/openrpc.json, block-commit finality and tenant namespaces. Remove retired connector and router examples."
+owner_domain = 17
+
+[finding.quickstart-network]
+file = "docs/site/docs/overview/quickstart.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "Line 20 advertises public POST /rpc; lines 131-132 configure checkpoint/guarantor precompile 0x1014. Lines 167-215 use /rpc and /rpc/ws with separate sequencer commitment levels; lines 300-302 describe retired custody funding. Lines 497-518 and 596 repeat router submission."
+expected = "The brief specifies one BFT network in paxd, receipts final at block commit, node RPC at the root and hosted px_* methods on the gateway. layerxd, a separate sequencer service and router /rpc surfaces are retired."
+proposal = "Rewrite docs/site/docs/overview/quickstart.md as merged-node onboarding using root node RPC and the separately declared hosted px_* contract. Replace retired settlement environment/precompile steps and sequencer trust levels with supported funding, Programs deployment and committed-block verification. Keep secrets out of command history."
+owner_domain = 17
+
+[finding.getting-started-network]
+file = "docs/site/docs/overview/getting-started.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-10 explicitly use the router at api-mainnet-beta.paxeer.network/rpc. Lines 66-107 submit lx_sendActivity with executed commitment and require a separate sequencer signature; subsequent reads use lx_* methods."
+expected = "The brief specifies one BFT network in paxd, receipts final at block commit, node RPC at the root and hosted px_* methods on the gateway. layerxd, a separate sequencer service and router /rpc surfaces are retired."
+proposal = "Rewrite docs/site/docs/overview/getting-started.md using the supported node or hosted API for each operation, node root endpoints, chain id 125 and block-commit finality. Replace router/lx_* examples with actual supported requests and responses."
+owner_domain = 17
+
+[finding.payments-network]
+file = "docs/site/docs/overview/payments.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 18-21 advertise a published router at /rpc. Lines 33-36 require sequencer_id/key, batch ranges and checkpoint_context_digest; later verification and watches retain executed/batched/finalised/checkpoint semantics."
+expected = "The brief specifies one BFT network in paxd, receipts final at block commit, node RPC at the root and hosted px_* methods on the gateway. layerxd, a separate sequencer service and router /rpc surfaces are retired."
+proposal = "Rewrite docs/site/docs/overview/payments.md for merged-chain payments, node root RPC and the hosted gateway contract. Describe committed-block receipt verification and durable payment references, replacing independent sequencer/checkpoint policy and router commands."
+owner_domain = 17
+
+[finding.translation-zh-cn]
+file = "docs/site/docs/overview/i18n/zh-cn.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The zh-cn introduction at lines 18-20 places ordinary activity on LayerX with periodic Paxeer checkpoint settlement and separate trust boundaries. Line 98 lists layerxd/layerxctl as current native tools and line 104 describes guarantor/checkpoint contracts."
+expected = "The brief specifies one BFT network in paxd, receipts final at block commit, node RPC at the root and hosted px_* methods on the gateway. layerxd, a separate sequencer service and router /rpc surfaces are retired."
+proposal = "Rewrite docs/site/docs/overview/i18n/zh-cn.md from the corrected merged-network source: one paxd process with its kernel, chain id 125, BFT block-commit finality and current client/build paths. Remove obsolete daemon/provisioning and checkpoint trust instructions throughout the translation."
+owner_domain = 17
+
+[finding.translation-ru]
+file = "docs/site/docs/overview/i18n/ru.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The ru introduction at lines 18-20 places ordinary activity on LayerX with periodic Paxeer checkpoint settlement and separate trust boundaries. Line 98 lists layerxd/layerxctl as current native tools and line 104 describes guarantor/checkpoint contracts."
+expected = "The brief specifies one BFT network in paxd, receipts final at block commit, node RPC at the root and hosted px_* methods on the gateway. layerxd, a separate sequencer service and router /rpc surfaces are retired."
+proposal = "Rewrite docs/site/docs/overview/i18n/ru.md from the corrected merged-network source: one paxd process with its kernel, chain id 125, BFT block-commit finality and current client/build paths. Remove obsolete daemon/provisioning and checkpoint trust instructions throughout the translation."
+owner_domain = 17
+
+[finding.translation-es]
+file = "docs/site/docs/overview/i18n/es.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The es introduction at lines 18-20 places ordinary activity on LayerX with periodic Paxeer checkpoint settlement and separate trust boundaries. Line 98 lists layerxd/layerxctl as current native tools and line 104 describes guarantor/checkpoint contracts."
+expected = "The brief specifies one BFT network in paxd, receipts final at block commit, node RPC at the root and hosted px_* methods on the gateway. layerxd, a separate sequencer service and router /rpc surfaces are retired."
+proposal = "Rewrite docs/site/docs/overview/i18n/es.md from the corrected merged-network source: one paxd process with its kernel, chain id 125, BFT block-commit finality and current client/build paths. Remove obsolete daemon/provisioning and checkpoint trust instructions throughout the translation."
+owner_domain = 17
+
+[finding.translation-pt-br]
+file = "docs/site/docs/overview/i18n/pt-br.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The pt-br introduction at lines 18-20 places ordinary activity on LayerX with periodic Paxeer checkpoint settlement and separate trust boundaries. Line 98 lists layerxd/layerxctl as current native tools and line 104 describes guarantor/checkpoint contracts."
+expected = "The brief specifies one BFT network in paxd, receipts final at block commit, node RPC at the root and hosted px_* methods on the gateway. layerxd, a separate sequencer service and router /rpc surfaces are retired."
+proposal = "Rewrite docs/site/docs/overview/i18n/pt-br.md from the corrected merged-network source: one paxd process with its kernel, chain id 125, BFT block-commit finality and current client/build paths. Remove obsolete daemon/provisioning and checkpoint trust instructions throughout the translation."
+owner_domain = 17
+
+[finding.snapshot-contract-reserved-section]
+file = "spec/layerx-merge/contracts/kernel.md"
+line = 668
+class = "doc-drift"
+severity = "medium"
+observed = "The frozen format-state-snapshot table and registry row 1.fmt-state-snapshot describe an idempotency count followed by key_hash/entry records. Current src/state/lxp_snapshot.c:523 writes zero and its loader rejects a nonzero reserved_count. The current zero-only restriction and compatibility boundary are not described."
+expected = "Current snapshot documentation must identify the former idempotency section as reserved zero, with nonzero legacy counts rejected rather than restored to an active kernel table. Historical format descriptions must carry their revision boundary."
+proposal = "Update contract/registry generation inputs for spec/layerx-merge/contracts/kernel.md#format-state-snapshot and 1.fmt-state-snapshot, then regenerate current documentation. State the zero-only count, account/snapshot version selection and migration/import policy without altering archived hashes or weakening validation."
+owner_domain = 17
+interface = "1.fmt-state-snapshot"
+
+[doc.1]
+path = "README.md"
+status = "stale"
+notes = "Read the complete page. Finding readme-network: Lines 44-47 describe two domains, a separate layerxd from cmd/layerxd and checkpoints settled through layerxAnchor. Lines 145-146 still instruct building the daemon."
+
+[doc.2]
+path = "docs/QUALIFICATION.md"
+status = "stale"
+notes = "Read the complete page. Finding qualification-network: Lines 20-24 and 79-82 require DA withholding, guarantor disagreement and sequencer-offline checkpoint exits and link the old task board. Line 100 treats Paxeer and LayerX qualification as independent protocol boundaries."
+
+[doc.3]
+path = "docs/paxeer-network.md"
+status = "stale"
+notes = "Read the complete page. Finding paxeer-network: Lines 3-9 describe Paxeer as a separate settlement/custody layer while ordinary activity remains on LayerX with periodic checkpoints. Lines 15-20 and 38 repeat retired guarantor/checkpoint roles."
+
+[doc.4]
+path = "docs/site/docs/index.md"
+status = "stale"
+notes = "Read the complete page. Finding site-network: Lines 11-18 keep ordinary activity inside LayerX, settle checkpoints to Paxeer and retain separate subsystem trust/deployment boundaries."
+
+[doc.5]
+path = "docs/site/docs/overview/unified-network.md"
+status = "stale"
+notes = "Read the complete page. Finding unified-network: Lines 3-19 describe a separate core node/sequencer under cmd/layerxd with precompiles verifying its evidence. Lines 52-88 describe retired custody/anchor roles; lines 126-171 advertise router /rpc, /rpc/ws, /rpc/schema and lx_* methods."
+
+[doc.6]
+path = "docs/site/docs/overview/quickstart.md"
+status = "stale"
+notes = "Read the complete page. Finding quickstart-network: Line 20 advertises public POST /rpc; lines 131-132 configure checkpoint/guarantor precompile 0x1014. Lines 167-215 use /rpc and /rpc/ws with separate sequencer commitment levels; lines 300-302 describe retired custody funding. Lines 497-518 and 596 repeat router submission."
+
+[doc.7]
+path = "docs/site/docs/overview/getting-started.md"
+status = "stale"
+notes = "Read the complete page. Finding getting-started-network: Lines 3-10 explicitly use the router at api-mainnet-beta.paxeer.network/rpc. Lines 66-107 submit lx_sendActivity with executed commitment and require a separate sequencer signature; subsequent reads use lx_* methods."
+
+[doc.8]
+path = "docs/site/docs/overview/payments.md"
+status = "stale"
+notes = "Read the complete page. Finding payments-network: Lines 18-21 advertise a published router at /rpc. Lines 33-36 require sequencer_id/key, batch ranges and checkpoint_context_digest; later verification and watches retain executed/batched/finalised/checkpoint semantics."
+
+[doc.9]
+path = "docs/site/docs/overview/i18n/zh-cn.md"
+status = "stale"
+notes = "Read the complete page. Finding translation-zh-cn: The zh-cn introduction at lines 18-20 places ordinary activity on LayerX with periodic Paxeer checkpoint settlement and separate trust boundaries. Line 98 lists layerxd/layerxctl as current native tools and line 104 describes guarantor/checkpoint contracts."
+
+[doc.10]
+path = "docs/site/docs/overview/i18n/ru.md"
+status = "stale"
+notes = "Read the complete page. Finding translation-ru: The ru introduction at lines 18-20 places ordinary activity on LayerX with periodic Paxeer checkpoint settlement and separate trust boundaries. Line 98 lists layerxd/layerxctl as current native tools and line 104 describes guarantor/checkpoint contracts."
+
+[doc.11]
+path = "docs/site/docs/overview/i18n/es.md"
+status = "stale"
+notes = "Read the complete page. Finding translation-es: The es introduction at lines 18-20 places ordinary activity on LayerX with periodic Paxeer checkpoint settlement and separate trust boundaries. Line 98 lists layerxd/layerxctl as current native tools and line 104 describes guarantor/checkpoint contracts."
+
+[doc.12]
+path = "docs/site/docs/overview/i18n/pt-br.md"
+status = "stale"
+notes = "Read the complete page. Finding translation-pt-br: The pt-br introduction at lines 18-20 places ordinary activity on LayerX with periodic Paxeer checkpoint settlement and separate trust boundaries. Line 98 lists layerxd/layerxctl as current native tools and line 104 describes guarantor/checkpoint contracts."
+
+[doc.13]
+path = "spec/layerx-merge/contracts/kernel.md"
+status = "stale"
+notes = "Reviewed binding-authority, arena and account/activity/receipt/journal/snapshot format sections for this slice. The frozen contract is pinned to 2a1033aa2; its snapshot description differs from the current zero-only former-idempotency slot. See snapshot-contract-reserved-section. Historical retired tables do not declare missing current endpoints."
