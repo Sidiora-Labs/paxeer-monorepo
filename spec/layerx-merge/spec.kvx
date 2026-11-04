@@ -180044,7 +180044,7 @@ do_8 = "Attempt 2 (continue): all four tests fail because the in-process Redis f
 
 [task.22.33.360]
 title = "Repair audit record 22.30.139 medium findings in services/explorer/services/libs/blockscout-client (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.269", "22.31.383", "22.31.384", "22.31.385", "22.31.386", "22.31.387"]
