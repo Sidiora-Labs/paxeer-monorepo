@@ -15025,3 +15025,18 @@ fix = "The fixtures serve the current exchange sequence; a case that still resol
 title = "A declared runtime module the scripts call was never written"
 symptom = "22.33.761 attempt 3 (2026-11-04 19:27Z) rewrote the upgrade-module shell scripts to exec tests/integration/upgrade_module/scripts/upgrade_runtime.py and made its test import that module, but the module is neither in the change set nor in the attempt's recorded tree; the verify failed at collection."
 fix = "The attempt continues and writes the declared module; a path a change calls must be in the change."
+
+[gotcha.3041]
+title = "A recorded creation bytecode and its recorded metadata JSON came from two different compiler runs"
+symptom = "22.33.750 attempt 2 (2026-11-04 19:3xZ) asserted that the CBOR trailer of the recorded SimpleAccount7702 creation bytecode names the sha256 of the recorded metadata string; the trailer hash 6792d629... matches neither the sha256 of the recorded string with its escaped dash (bcc28015...) nor with the dash as UTF-8 (ad6d4637...), so the two recordings are not one compiler output. The assertion is correct and caught the mismatch."
+fix = "22.33.750 re-records creation bytecode and metadata byte-exact from one solc 0.8.28 cancun optimizer-200 run of the final source at implementation time and keeps the trailer and source-keccak assertions; any recorded compiler pair is produced by one run and checked against itself."
+
+[gotcha.3042]
+title = "A test fixture destructor that panics turns one failed case into a process abort that hides every failure report"
+symptom = "22.33.1336 attempt 6 and 22.31.497 attempt 1 (2026-11-04) each lost their failure report: one case panicked, the fixture's Drop then panicked as well (a join asserted clean, a thread already down), the test binary aborted with SIGABRT and the harness never printed the per-case stdout or the failures list, so only the two panic lines remained in the log."
+fix = "Fixture destructors are best-effort: a Drop never asserts or unwraps; the test body asserts the clean stop it needs. 22.33.1336 attempt 7 and 22.31.497 attempt 2 apply this before anything else so their real reports appear."
+
+[gotcha.3043]
+title = "The repository's own CI python suite carries assertions behind interfaces that later tasks retired or moved"
+symptom = "On main at 2026-11-04 19:00Z eight cases of tests/ci fail for reasons unrelated to any one task: the agent codec corpus test posts to a /rpc path the SDK now refuses (decision 2521); tests/vectors/codec/generate.py raises because the retired budget-pull type is no longer undeclared; the cw20 deploy-script check greps a shell script that now delegates to the Go load-test binary, whose deploy operation still stores the four retired contracts; the retired-reference check flags the weak-symbol absence test and the interface table row that name the retired bridge-credit symbol; and the kernel audit case audit_genesis_historical_import_hashes fails with LXP_ERR_ROOT_MISMATCH."
+fix = "Tasks 22.31.498 to 22.31.502 repair each case from its producer with its own pytest or make target as the verify; an aggregate python gate stays out of task-level qualification (gotcha 3032)."
