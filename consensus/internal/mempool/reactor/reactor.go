@@ -178,7 +178,11 @@ func (r *Reactor) handleMessage(ctx context.Context, m p2p.RecvMsg[*pb.Message])
 // processMempoolCh implements a blocking event loop where we listen for p2p
 // envelope messages from the mempool channel.
 func (r *Reactor) processMempoolCh(ctx context.Context) error {
-	<-r.readyToStart
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-r.readyToStart:
+	}
 	for {
 		m, err := r.channel.Recv(ctx)
 		if err != nil {
