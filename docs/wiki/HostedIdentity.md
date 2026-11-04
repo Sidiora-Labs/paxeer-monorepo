@@ -1,420 +1,326 @@
 # Hosted identity
 
-`layerx-identity` is the hosted principal and session service
-(`services/platform/hosted/identity/Cargo.toml:2`;
-`services/platform/hosted/identity/Cargo.toml:8-10`). The crate is
-`layerx-platform-identity`; the binary path is `src/main.rs`. It
-stores principals and sessions on disk and answers TLS HTTP from
-seven calling services: `gateway`, `webhooks`, `dashboard`, `faucet`,
-`control`, `ramp`, and `provisioning`
-(`services/platform/hosted/identity/src/main.rs:36-66`). Provisioning creates
-principals, mints sessions, and revokes sessions. Introspection is
-permitted for the other six service tokens and refused for
-provisioning
-(`services/platform/hosted/identity/src/main.rs:862-887`;
-`services/platform/hosted/identity/src/main.rs:683`).
+`layerx-identity`, from crate `layerx-platform-identity`, is the hosted
+principal and session service. It stores principals, sessions, publication-key
+bindings and signup state on disk and serves authenticated HTTP over TLS.
+Its contract is implemented in
+[`src/main.rs`](../../services/platform/hosted/identity/src/main.rs) and
+[`src/store.rs`](../../services/platform/hosted/identity/src/store.rs).
 
-The image is `ghcr.io/sidiora-labs/layerx-identity:0.1.0`, user
-`4020:4020`, entrypoint `/usr/local/bin/layerx-identity`
-(`docker/platform-identity/Dockerfile:5-11`;
-`services/platform/hosted/identity/deployment.yaml:16-19`). The Deployment has
-one replica, strategy `Recreate`, listens on `0.0.0.0:9443`, and
-exposes Service port `9443`
-(`services/platform/hosted/identity/deployment.yaml:10-11`;
-`services/platform/hosted/identity/deployment.yaml:21-23`;
-`services/platform/hosted/identity/deployment.yaml:46-48`). Pod label
-`layerx-plane` is `trusted-boundary`
-(`services/platform/hosted/identity/deployment.yaml:14`).
-
-This page covers that binary, its on-disk store, and the tests in
-`services/platform/hosted/identity/`.
-
----
+Paxeer is one BFT network with EVM chain id **125** (`0x7d`); its kernel
+proposes blocks as part of that network. Hosted identity manages application
+credentials, while [hosted authority](HostedAuthority.md) verifies receipt and
+committed-state evidence. A session grants no block finality. Sub-chains are
+tenant domains in the database, and identity binds every principal and session
+to a tenant namespace.
 
 ## Callers
 
-Identity authenticates callers by exact match of a Bearer token to one
-file under `LAYERX_IDENTITY_SERVICE_TOKENS_DIR`. Every name in
-`Service::ALL` must be present, at least 16 bytes, and distinct
-(`services/platform/hosted/identity/src/main.rs:47-55`;
-`services/platform/hosted/identity/src/main.rs:267-304`;
-`services/platform/hosted/identity/src/main.rs:470-483`). A directory entry
-whose name is not one of those seven services refuses boot, except
-names that start with `..`, which are skipped
-(`services/platform/hosted/identity/src/main.rs:274-281`).
+`LAYERX_IDENTITY_SERVICE_TOKENS_DIR` must contain **nine distinct service token
+files**, with exactly these names. Tokens must be 16–4096 bytes after trimming
+trailing CR/LF, nonempty and free of ASCII control characters. Missing files,
+duplicate tokens, or unknown directory entries refuse startup. Kubernetes
+projection entries starting with `..` are ignored.
 
-| Caller | Token file name | Identity route | Response shape |
-| --- | --- | --- | --- |
-| Gateway | `gateway` | `POST /v1/sessions/introspect` (`services/platform/hosted/gateway/src/main.rs:986-993`) | `GatewayShape`: `active`, `sub`, `allowed_signer_public_keys` (`services/platform/hosted/identity/src/main.rs:117-121`; `services/platform/hosted/identity/src/main.rs:604-620`) |
-| Webhooks | `webhooks` | `POST /v1/sessions/introspect` (`services/platform/hosted/webhooks/src/trusted.rs:393-399`) | `DeveloperShape`: `active`, `sub`, `csrf_token` (`services/platform/hosted/identity/src/main.rs:124-128`; `services/platform/hosted/identity/src/main.rs:621-636`) |
-| Dashboard | `dashboard` | `POST /v1/sessions/introspect` via the same `DeveloperIdentity::authenticate` (`services/platform/hosted/webhooks/src/trusted.rs:337-363`; `services/platform/hosted/webhooks/src/trusted.rs:398`) | same `DeveloperShape` (`services/platform/hosted/identity/src/main.rs:621`) |
-| Faucet | `faucet` | `POST` to the path in `LAYERX_IDENTITY_INTROSPECTION_URL` (`services/platform/hosted/faucet/src/main.rs:277-282`; `services/platform/hosted/faucet/src/main.rs:486-493`; `services/platform/hosted/testnet/deployment.yaml:145`) | `SubjectShape`: `active`, `sub` (`services/platform/hosted/identity/src/main.rs:131-134`; `services/platform/hosted/identity/src/main.rs:637-650`) |
-| Control | `testnet` | `GET /readyz` only (`services/platform/hosted/testnet/src/main.rs:823-826`; `services/platform/hosted/testnet/src/main.rs:1097`; `services/platform/hosted/testnet/src/main.rs:1032-1034`) | readiness JSON, not an introspection shape |
-| Ramp | `ramp` | `POST /v1/introspect` with `audience` (`services/platform/hosted/identity/src/main.rs:580-582`; `services/platform/hosted/identity/src/main.rs:651-681`) | `RampShape`: `active`, `principal_id`, `account`, `audience`, `expires_at` (`services/platform/hosted/identity/src/main.rs:137-143`) |
-| Provisioning | `provisioning` | `POST /v1/principals`, `POST /v1/sessions`, `DELETE /v1/sessions/{id}` (`services/platform/hosted/identity/src/main.rs:869-886`; `services/platform/hosted/tests/beta-cluster.sh:1000-1026`) | `PrincipalResponse`, `SessionResponse`, `RevocationResponse` (`services/platform/hosted/identity/src/main.rs:146-167`) |
+| Service/token filename | Introspect sessions | Create/update principals | Mint/revoke sessions | Other admitted routes |
+| --- | --- | --- | --- | --- |
+| `gateway` | Yes | No | No | `GET /internal/readyz` |
+| `webhooks` | Yes | No | No | — |
+| `dashboard` | Yes | No | No | — |
+| `faucet` | Yes | No | No | — |
+| `testnet` | Yes | No | No | — |
+| `ramp` | Yes, with audience | No | No | — |
+| `provisioning` | No | Yes | Yes | Publication-key binding, signup/verification and starter-credit routes |
+| `registrar` | No | Yes | No | — |
+| `registry` | No | No | No | `GET /internal/v1/principal` resolves a publication key |
 
-`services/human/crates` maps `GET /internal/v1/principal` onto schema path
-`/v1/sessions` inside the human HTTP server
-(`services/human/crates/layerx-human-service/src/server/http.rs:141-146`). That
-path is not a request to `layerx-identity`. `services/agent/crates` has no
-`/v1/introspect`, `/v1/sessions`, or `/v1/principals` route to this
-service.
+The control component's credential filename is **`testnet`**. A file called
+`control` is rejected. Registrar can create principals but cannot mint sessions;
+registry's resolver credential cannot introspect or provision principals.
+All nine files are required even if a caller is not deployed.
 
-Bring-up copies `gateway-identity.token` to `identity-tokens/gateway`,
-`developer-identity.token` to `identity-tokens/webhooks`, and
-`identity-client.token` to `identity-tokens/faucet`, then generates
-distinct files for `dashboard`, `control`, `ramp`, and `provisioning`
-(`services/platform/hosted/tests/beta-cluster.sh:524-532`). Webhooks and
-dashboard both mount `identity-token` from
-`layerx-developer-hosted-runtime`, which is `developer-identity.token`
-(`services/platform/hosted/tests/beta-cluster.sh:639`;
-`services/platform/hosted/webhooks/deployment.yaml:31`;
-`services/platform/hosted/webhooks/deployment.yaml:49`;
-`services/platform/hosted/webhooks/deployment.yaml:109`;
-`services/platform/hosted/webhooks/deployment.yaml:164`). That presented token
-is the `webhooks` file. The `dashboard` token file is still required
-at identity boot (`services/platform/hosted/identity/src/main.rs:284-286`).
-Those two token identities differ.
-
-No `services/platform/hosted` binary other than `layerx-identity` and its
-tests presents the `ramp` token. Bring-up still writes
-`identity-tokens/ramp` (`services/platform/hosted/tests/beta-cluster.sh:530-531`).
-Control sets `LAYERX_TESTNET_IDENTITY_URL` and does not set an
-identity service-token env (`services/platform/hosted/testnet/deployment.yaml:92`;
-`services/platform/hosted/testnet/deployment.yaml:83-101`).
-
----
+The cluster bring-up script
+[`beta-cluster.sh`](../../services/platform/hosted/tests/beta-cluster.sh)
+creates `identity-tokens/gateway`, `registry`, `webhooks`, and `faucet` from
+component-specific credentials, then generates distinct `dashboard`, `testnet`,
+`ramp`, `provisioning`, and `registrar` tokens. These files populate Secret
+`layerx-identity-service-tokens`. Use the exact nine-file set for an independent
+installation; merely supplying the six introspection callers is insufficient.
 
 ## Credential and session model
 
-A principal record is `sub`, `allowed_signer_public_keys`, optional
-`account`, and `audiences`
-(`services/platform/hosted/identity/src/store.rs:16-21`). `sub` is 1..=128
-bytes of lowercase ASCII, digits, `-`, `_`, `.`, `:`
-(`services/platform/hosted/identity/src/main.rs:204-211`). Signer keys are at
-most 128 unique 32-byte lowercase hex strings
-(`services/platform/hosted/identity/src/main.rs:26`;
-`services/platform/hosted/identity/src/main.rs:229-236`). `account` is at most
-512 identifier bytes; each audience is at most 128 identifier bytes;
-audiences are at most 32 and unique
-(`services/platform/hosted/identity/src/main.rs:27`;
-`services/platform/hosted/identity/src/main.rs:214-220`;
-`services/platform/hosted/identity/src/main.rs:701-716`). Empty signer-key
-lists are accepted (`services/platform/hosted/identity/src/main.rs:229-236`;
-`services/platform/hosted/identity/src/main.rs:1084`).
+A principal is `{tenant, sub, allowed_signer_public_keys, account, audiences}`.
+Principal provisioning requires `tenant`, `sub`, and `allowed_signer_public_keys`.
+`account` defaults to null and `audiences` defaults to an empty list.
 
-A session token is `ses_{id}.{secret}` with `id` 16 bytes hex and
-`secret` 32 bytes hex (`services/platform/hosted/identity/src/main.rs:29-30`;
-`services/platform/hosted/identity/src/main.rs:485-490`;
-`services/platform/hosted/identity/src/main.rs:791`). The store keeps
-`sha256_hex(secret)` as `token_digest`, not the secret
-(`services/platform/hosted/identity/src/main.rs:770`;
-`services/platform/hosted/identity/src/store.rs:28`). CSRF is 32 random bytes
-hex (`services/platform/hosted/identity/src/main.rs:31`;
-`services/platform/hosted/identity/src/main.rs:760`). The store keeps
-`sha256_hex(csrf)` and a sealed copy
-(`services/platform/hosted/identity/src/main.rs:764-772`;
-`services/platform/hosted/identity/src/store.rs:29-30`). Lookup constant-time
-compares the presented digest, then opens the sealed CSRF and checks
-its digest (`services/platform/hosted/identity/src/main.rs:500-551`).
+- `sub`: 1–128 lowercase ASCII letters, digits, `-`, `_`, `.`, or `:`.
+- `tenant`: the same bound and alphabet, excluding `:`.
+- Signer keys: at most 128 unique 32-byte lowercase hex strings, without `0x`;
+  an empty list is accepted.
+- `account`: optional nonempty identifier of at most 512 ASCII letters, digits,
+  `-`, `_`, `.`, or `:`. Each audience uses that alphabet with a 128-byte bound;
+  there are at most 32 unique audiences.
 
-Default TTL is `LAYERX_IDENTITY_SESSION_TTL_SECONDS` or 86400 seconds.
-Per-session `ttl_seconds` may override. Zero and values above
-`30 * 86400` are refused
-(`services/platform/hosted/identity/src/main.rs:28`;
-`services/platform/hosted/identity/src/main.rs:353-358`;
-`services/platform/hosted/identity/src/main.rs:748-752`). At most 4096 live
-unrevoked sessions exist per principal
-(`services/platform/hosted/identity/src/store.rs:12`;
-`services/platform/hosted/identity/src/store.rs:120-129`). A second revoke
-returns the original `revoked_at`
-(`services/platform/hosted/identity/src/store.rs:143-144`).
+Principals are stored by tenant, then subject. A subject is globally bound to
+one tenant: provisioning that subject in another tenant returns
+**409 `subject_tenant_conflict`**. Updating a principal within its existing
+tenant replaces its keys, account and audiences. Introspection reads the
+current principal rather than a stale copy of those grants.
 
-Unknown, digest-mismatched, revoked, or expired tokens introspect as
-inactive for the caller's shape, not as an HTTP error
-(`services/platform/hosted/identity/src/main.rs:526-532`;
-`services/platform/hosted/identity/src/main.rs:596`). Ramp additionally
-requires a stored `account` and an audience grant matching the
-request; otherwise `active` is false with empty `principal_id` and
-`account` (`services/platform/hosted/identity/src/main.rs:651-680`).
+A session is `ses_{id}.{secret}`: `id` is 16 random bytes as 32 lowercase hex
+characters, and `secret` is 32 random bytes as 64 lowercase hex characters.
+The store keeps the session id, tenant, principal subject, timestamps and
+`sha256_hex(secret)`; it does not persist the bearer secret. CSRF is another
+32 random bytes encoded as hex. The store keeps its digest and a sealed copy,
+which is opened and digest-checked during lookup. Comparisons use constant-time
+digest checks.
 
----
+Session minting accepts `sub`, optional `tenant`, and optional `ttl_seconds`.
+When tenant is omitted the service resolves the subject's bound tenant;
+a supplied tenant must match. Unknown subjects and tenant mismatches both
+return **404 `principal_not_found`**. The response always identifies the tenant.
+Default TTL is 86400 seconds; accepted TTLs are 1–2592000 seconds.
+Limits per tenant/principal are 4096 live unrevoked sessions and 16384 retained
+session records, including expired/revoked history. A second revoke returns
+the original `revoked_at`; revocation uses the global session id, with the
+session's tenant binding retained in storage.
+
+Unknown, malformed, wrong-secret, revoked or expired nonempty session tokens
+produce an inactive introspection shape. Empty or oversized token inputs are
+400 `invalid_argument`. Unavailable/corrupt storage produces a typed error,
+not an inactive success.
 
 ## Request and response contracts
 
-Inbound TLS is rustls. `LAYERX_IDENTITY_TLS_CERT_DER` and
-`LAYERX_IDENTITY_TLS_KEY_DER` are required. When
-`LAYERX_IDENTITY_CLIENT_CA_DER` is set, a presented client certificate
-must chain to it; when unset, the server uses no client authentication
-(`services/platform/hosted/identity/src/main.rs:307-337`). The Deployment does
-not set `LAYERX_IDENTITY_CLIENT_CA_DER`
-(`services/platform/hosted/identity/deployment.yaml:22-29`). Gateway and
-webhooks still present a PKCS#12 client identity on outbound HTTPS
-(`services/platform/hosted/gateway/src/main.rs:494-502`;
-`services/platform/hosted/webhooks/src/trusted.rs:315-326`;
-`services/platform/hosted/webhooks/src/trusted.rs:346-357`). Those two TLS
-client-auth settings differ.
+Service credentials go in `Authorization: Bearer ...`; the end-user session
+token goes in the JSON body of introspection. JSON requests require the exact
+`Content-Type: application/json` and reject unknown fields.
 
-HTTP/1.1 only, `Host` required, no query string, no
-`Transfer-Encoding`, no duplicate headers, body bound 16 KiB, I/O
-timeout 8s, at most 128 live connections
-(`services/platform/hosted/identity/src/main.rs:23-25`;
-`services/platform/hosted/identity/src/main.rs:370-451`;
-`services/platform/hosted/identity/src/main.rs:959-969`). Further accepts are
-dropped without a response
-(`services/platform/hosted/identity/src/main.rs:990-993`). Parse failure is
-`400 invalid_request` (`services/platform/hosted/identity/src/main.rs:948-950`).
-JSON bodies use `#[serde(deny_unknown_fields)]`
-(`services/platform/hosted/identity/src/main.rs:90-114`). Successful JSON is
-HTTP 200 with `Content-Type: application/json`, `Cache-Control:
-no-store`, and `Connection: close`
-(`services/platform/hosted/identity/src/main.rs:559-567`;
-`services/platform/hosted/identity/src/main.rs:917-937`).
-
-Headers `forwarded`, `x-forwarded-for`, `x-real-ip`,
-`x-layerx-client-ip`, and `x-layerx-principal` are refused as
-`400 untrusted_identity_header` before service authentication
-(`services/platform/hosted/identity/src/main.rs:839-846`). Request headers and
-bodies are zeroized on drop
-(`services/platform/hosted/identity/src/main.rs:176-183`).
-
-| Method and path | Inputs | Output |
+| Method and path | Caller/input | Success body |
 | --- | --- | --- |
-| `GET /livez` | none | `{"status":"live","service":"identity"}` (`services/platform/hosted/identity/src/main.rs:833-834`) |
-| `GET /readyz` | none | `{"status":"ready","service":"identity"}` after `probe_writable`, else `503 store_unavailable` (`services/platform/hosted/identity/src/main.rs:822-829`; `services/platform/hosted/identity/src/main.rs:836-837`) |
-| `POST /v1/principals` | Bearer provisioning, `application/json` `PrincipalRequest` (`services/platform/hosted/identity/src/main.rs:99-106`; `services/platform/hosted/identity/src/main.rs:693-737`) | `PrincipalResponse` |
-| `POST /v1/sessions` | Bearer provisioning, `application/json` `SessionRequest` (`services/platform/hosted/identity/src/main.rs:110-114`; `services/platform/hosted/identity/src/main.rs:740-798`) | `SessionResponse` with `token` and `csrf_token` |
-| `DELETE /v1/sessions/{id}` | Bearer provisioning, `id` 16-byte hex (`services/platform/hosted/identity/src/main.rs:801-819`; `services/platform/hosted/identity/src/main.rs:881-886`) | `RevocationResponse` |
-| `POST /v1/sessions/introspect` | Bearer of an introspecting service, `application/json` `{"token"}` and, for ramp only, `audience` (`services/platform/hosted/identity/src/main.rs:91-95`; `services/platform/hosted/identity/src/main.rs:570-596`; `services/platform/hosted/identity/src/main.rs:862-867`) | caller shape |
-| `POST /v1/introspect` | same handler as `/v1/sessions/introspect` (`services/platform/hosted/identity/src/main.rs:847-852`; `services/platform/hosted/identity/src/main.rs:863`) | caller shape |
+| `GET /livez` | No service token | `{"status":"live","service":"identity"}` |
+| `GET /readyz` | No service token | `{"status":"ready","service":"identity"}` after a durable writable-store probe |
+| `GET /internal/readyz` | Gateway, empty body | Same readiness handler |
+| `POST /v1/principals` | Provisioning or registrar; principal model above | `tenant`, `sub`, `allowed_signer_public_keys`, `account`, `audiences` |
+| `POST /v1/sessions` | Provisioning; `sub`, optional `tenant` and `ttl_seconds` | `session_id`, `tenant`, `sub`, `token`, `csrf_token`, `expires_at` |
+| `DELETE /v1/sessions/{id}` | Provisioning; 32-hex id | `session_id`, `revoked: true`, `revoked_at` |
+| `POST /v1/sessions/introspect` | One of the six introspection services; `token`, plus `audience` for ramp | Caller-specific shape below |
+| `POST /v1/introspect` | Same caller/input as above | Same handler and shape |
+| `GET /internal/v1/principal` | Registry bearer and `LayerX-Key` header; empty body | `{"ok":true,"result":{"principal_digest":"..."}}` |
+| `POST /v1/publication-keys` | Provisioning bearer and `LayerX-Key`; body `{sub, revoked}` | `{"ok":true}` |
 
-Faucet is configured with
-`https://layerx-identity.layerx-testnet.svc.cluster.local:9443/v1/introspect`
-(`services/platform/hosted/testnet/deployment.yaml:145`). Gateway is configured
-with origin
-`https://layerx-identity.layerx-testnet.svc.cluster.local:9443` and
-posts `/v1/sessions/introspect`
-(`services/platform/hosted/gateway/deployment.yaml:82`;
-`services/platform/hosted/gateway/src/main.rs:991`). Webhooks and dashboard use
-origin `https://identity.layerx-internal.svc` and post
-`/v1/sessions/introspect`
-(`services/platform/hosted/webhooks/deployment.yaml:9`;
-`services/platform/hosted/webhooks/deployment.yaml:48`;
-`services/platform/hosted/webhooks/src/trusted.rs:398`). Those paths are both
-accepted (`services/platform/hosted/identity/src/main.rs:863`).
+Successful JSON is HTTP **200**, including principal/session creation, with
+`Cache-Control: no-store` and `Connection: close`. Expiry and revocation times
+are Unix seconds. The registry resolver returns SHA-256 of the bound subject
+as `principal_digest`; it does not return a session or signer-key list.
+Publication keys must be 1–4096 graphic ASCII bytes. Binding conflicts return
+409 `publication_key_binding_refused`; unknown/revoked keys resolve as
+404 `principal_not_found`.
 
-Bring-up `identity_request` treats HTTP 201 or 200 as success
-(`services/platform/hosted/tests/beta-cluster.sh:1014-1015`;
-`services/platform/hosted/tests/beta-cluster.sh:1018-1019`;
-`services/platform/hosted/tests/beta-cluster.sh:1023-1024`). `serialize` and
-`ok` emit 200 (`services/platform/hosted/identity/src/main.rs:559-567`;
-`services/platform/hosted/identity/src/main.rs:892-897`). Those accepted status
-sets differ.
+| Introspection caller | Exact response fields |
+| --- | --- |
+| `gateway` | `active`, `sub`, `allowed_signer_public_keys` |
+| `webhooks`, `dashboard` | `active`, `sub`, `csrf_token` |
+| `faucet`, `testnet` | `active`, `sub` |
+| `ramp` | `active`, `principal_id`, `account`, `audience`, `expires_at` |
 
----
+The ramp field is named **`principal_id`**, containing the principal's `sub`.
+Ramp requires a valid audience and a stored account plus an exact audience
+grant. Without those grants it returns `active: false`, empty `principal_id`
+and `account`, the requested audience, and `expires_at: 0`. Other callers must
+omit `audience`. These introspection shapes do not add a tenant field; tenant
+is included in provisioning/session responses and used internally for lookup.
+
+HTTP parsing requires HTTP/1.1 and `Host`, refuses query strings, duplicate
+headers and `Transfer-Encoding`, and bounds request bytes to 16 KiB. I/O timeout
+is eight seconds; at most 128 live connections are admitted across listeners.
+Further connections are dropped. On protected routes, `forwarded`,
+`x-forwarded-for`, `x-real-ip`, `x-layerx-client-ip`, and `x-layerx-principal`
+are refused before service authentication. Request headers and bodies are
+zeroized on drop.
+
+### Tenant-aware provisioning and recovery
+
+Send this body to `POST /v1/principals` with a provisioning or registrar bearer:
+
+```json
+{
+  "tenant": "beta",
+  "sub": "did:key:alpha",
+  "allowed_signer_public_keys": [],
+  "account": "account:alpha",
+  "audiences": ["ramp"]
+}
+```
+
+An empty key list is valid but grants no signer keys to the gateway. For a
+signing principal, supply its actual 32-byte public keys as lowercase hex.
+Mint with the provisioning bearer and body
+`{"tenant":"beta","sub":"did:key:alpha","ttl_seconds":3600}`.
+Retain the returned tenant and session id with the session token and CSRF
+value. After a restart with the same state and seal key, introspect the token
+through an admitted service, then revoke with
+`DELETE /v1/sessions/{session_id}` as provisioning. Repeating revocation
+returns the same timestamp. Minting with `tenant: "other"` returns 404;
+trying to provision the same subject there returns 409 and leaves its
+original tenant binding intact.
+
+### Signup and starter credits
+
+Provisioning also owns `POST /v1/signup`, `/v1/signup/verify`,
+`/v1/starter-credits`, and `/v1/starter-credits/settle`. Signup accepts
+`email`, `client_ip`, `tenant`, `sub`, and `signer_public_key`; it queues an
+email verification token and returns `pending`, `tenant`, `sub`, and
+`expires_at`, without returning that token. Verification takes `token` and
+`sub`, checks the pending subject binding, and returns the session response.
+
+Credit requests take `sub`; settlement additionally requires the 32-hex
+`grant_id`. The response contains `sub`, `grant_id`, `asset`, `amount`,
+`granted_at`, and `settled_at`. The service records the starter-credit grant
+and settlement status; these HTTP responses are not network commit proofs.
+See [`signup.rs`](../../services/platform/hosted/identity/src/signup.rs) for
+verification, quota, duplicate-credit and grant-matching rules.
 
 ## Storage and durability
 
-State lives in `LAYERX_IDENTITY_STATE_DIR`: `snapshot.json`,
-`journal.log`, and `ready.marker`
-(`services/platform/hosted/identity/src/store.rs:8-10`;
-`services/platform/hosted/identity/src/main.rs:345-348`). Open creates the
-directory, loads the snapshot if present, replays the journal, writes
-a new snapshot, and truncates the journal
-(`services/platform/hosted/identity/src/store.rs:61-94`). A torn trailing
-journal line without a newline is discarded
-(`services/platform/hosted/identity/src/store.rs:245-247`). Records are JSON
-lines under 64 KiB (`services/platform/hosted/identity/src/store.rs:11`;
-`services/platform/hosted/identity/src/store.rs:191-193`). Append `write_all`
-then `sync_all`; failure sets `failed` and later writes and readiness
-refuse until process restart
-(`services/platform/hosted/identity/src/store.rs:156-169`;
-`services/platform/hosted/identity/src/store.rs:189-204`). Replacing the
-directory or journal inode also refuses
-(`services/platform/hosted/identity/src/store.rs:164-168`).
+`LAYERX_IDENTITY_STATE_DIR` contains `snapshot.json`, `journal.log`,
+`ready.marker`, and signup audit/outbox material. Opening validates the
+snapshot's tenant/subject and session bindings, replays the journal, writes a
+new generation snapshot, then truncates and syncs the journal. Generation
+tracking prevents an already-snapshotted record from replaying twice after an
+interrupted compaction. A future journal generation, malformed complete record,
+cross-tenant subject claim, or session with no matching principal refuses open.
+Only a torn final record without a newline is discarded. Records are bounded
+to 64 KiB.
 
-CSRF plaintext is sealed with `StoreKey` derived from
-`LAYERX_IDENTITY_STORE_KEY_FILE`: SHA-256 labelled
-`layerx-identity-seal-encryption` and
-`layerx-identity-seal-authentication`, SHA-256 keystream, HMAC-SHA256
-tag, hex encoding (`services/platform/hosted/identity/src/seal.rs:10-41`;
-`services/platform/hosted/identity/src/main.rs:359-364`). Token secrets are not
-written to snapshot or journal
-(`services/platform/hosted/identity/tests/service.rs:836-844`).
+Mutations append and `sync_all` before changing in-memory state. A journal
+write failure poisons later writes and readiness until restart. Replacing
+the state-directory or journal inode also makes availability checks refuse.
+Readiness writes a temporary `ready.marker`, syncs, renames, and syncs the
+directory. `/livez` does not probe storage.
 
-The PVC is `layerx-identity-state`, `ReadWriteOnce`, 5Gi, mounted at
-`/var/lib/layerx/identity`
-(`services/platform/hosted/identity/deployment.yaml:1-4`;
-`services/platform/hosted/identity/deployment.yaml:35`;
-`services/platform/hosted/identity/deployment.yaml:40`). Secrets
-`layerx-identity-server-tls`, `layerx-identity-service-tokens`, and
-`layerx-identity-store-key` are applied by bring-up
-(`services/platform/hosted/tests/beta-cluster.sh:624-626`;
-`services/platform/hosted/identity/deployment.yaml:41-43`).
-
----
+CSRF sealing uses `StoreKey` derived from `LAYERX_IDENTITY_STORE_KEY_FILE`:
+labelled SHA-256 keys, a SHA-256 keystream and HMAC-SHA256 tag
+([`seal.rs`](../../services/platform/hosted/identity/src/seal.rs)). Preserve
+both state and the same seal secret across restart; restoring only the files
+cannot make a session usable under an unrelated seal key. Token secrets and
+CSRF plaintext stay out of the session snapshot/journal. Retained revocations,
+tenant bindings and publication-key bindings survive compaction and restart.
 
 ## Typed refusals
 
-HTTP refusals are `{"error":{"code":…,"retry":"never"|"after"}}` with
-optional `retry_after_seconds` and header `Retry-After`
-(`services/platform/hosted/identity/src/main.rs:900-914`;
-`services/platform/hosted/identity/src/main.rs:927-929`).
+Errors have `{"error":{"code":...,"retry":"never"|"after"}}`.
+Retryable errors include `retry_after_seconds` and `Retry-After`.
 
 | HTTP | Code | Condition |
 | --- | --- | --- |
-| 400 | `invalid_request` | Request framing failed (`services/platform/hosted/identity/src/main.rs:948-950`) |
-| 400 | `untrusted_identity_header` | `forwarded`, `x-forwarded-for`, `x-real-ip`, `x-layerx-client-ip`, or `x-layerx-principal` present (`services/platform/hosted/identity/src/main.rs:839-846`) |
-| 400 | `content_type_required` | JSON route without `application/json` (`services/platform/hosted/identity/src/main.rs:571-572`; `services/platform/hosted/identity/src/main.rs:694-695`; `services/platform/hosted/identity/src/main.rs:741-742`) |
-| 400 | `invalid_argument` | JSON decode failure, unknown field, invalid `sub`/keys/account/audiences/TTL/token bounds, or `audience` on a non-ramp introspect (`services/platform/hosted/identity/src/main.rs:576`; `services/platform/hosted/identity/src/main.rs:584`; `services/platform/hosted/identity/src/main.rs:587`; `services/platform/hosted/identity/src/main.rs:697-718`; `services/platform/hosted/identity/src/main.rs:751-752`) |
-| 400 | `audience_required` | Ramp introspect missing a valid `audience` (`services/platform/hosted/identity/src/main.rs:580-582`) |
-| 401 | `service_token_required` | Missing, empty, oversized, or unmatched Bearer (`services/platform/hosted/identity/src/main.rs:470-482`) |
-| 403 | `service_not_permitted` | Provisioning on introspect, or any other service on principals/sessions/revoke (`services/platform/hosted/identity/src/main.rs:683`; `services/platform/hosted/identity/src/main.rs:864-883`) |
-| 404 | `not_found` | Unknown method/path (`services/platform/hosted/identity/src/main.rs:855-856`; `services/platform/hosted/identity/src/main.rs:888`) |
-| 404 | `principal_not_found` | Session mint for an unknown `sub` (`services/platform/hosted/identity/src/main.rs:780-781`) |
-| 404 | `session_not_found` | Revoke of a missing or non-hex id (`services/platform/hosted/identity/src/main.rs:802-803`; `services/platform/hosted/identity/src/main.rs:817`) |
-| 429 | `session_bound_reached` | Live sessions for the principal at 4096; `Retry-After: 60` (`services/platform/hosted/identity/src/main.rs:784-786`; `services/platform/hosted/identity/src/store.rs:127-129`) |
-| 503 | `store_unavailable` | Mutex poison, journal/directory identity change, journal write failure, CSRF open/digest failure, or readiness probe failure; `Retry-After: 5` (`services/platform/hosted/identity/src/main.rs:502-507`; `services/platform/hosted/identity/src/main.rs:539-550`; `services/platform/hosted/identity/src/main.rs:726-730`; `services/platform/hosted/identity/src/main.rs:823-828`) |
-| 503 | `clock_unavailable` | System clock precedes Unix epoch; `Retry-After: 5` (`services/platform/hosted/identity/src/main.rs:197-201`; `services/platform/hosted/identity/src/main.rs:589-590`; `services/platform/hosted/identity/src/main.rs:754-755`; `services/platform/hosted/identity/src/main.rs:805-806`) |
-| 503 | `encoding_failed` | JSON serialize failure; `Retry-After: 5` (`services/platform/hosted/identity/src/main.rs:559-561`) |
-| 503 | `entropy_unavailable` | `getrandom` or CSRF seal failure; `Retry-After: 5` (`services/platform/hosted/identity/src/main.rs:687-689`; `services/platform/hosted/identity/src/main.rs:757-765`) |
+| 400 | `invalid_request` | Invalid HTTP framing. |
+| 400 | `untrusted_identity_header` | Identity forwarding header on a protected route. |
+| 400 | `content_type_required` | Missing exact JSON content type. |
+| 400 | `invalid_argument` | Invalid/unknown JSON fields, subject, tenant, signer keys, grants, TTL or token bounds; audience supplied by a non-ramp caller. |
+| 400 | `audience_required` | Ramp request lacks a valid audience. |
+| 400 | `publication_key_required` | Missing or invalid `LayerX-Key`. |
+| 401 | `service_token_required` | Missing, oversized or unmatched service bearer. |
+| 403 | `service_not_permitted` | Authenticated caller lacks the route's capability. |
+| 404 | `not_found` | Unknown method/path. |
+| 404 | `principal_not_found` | Unknown subject, mint tenant mismatch, or unresolved publication key. |
+| 404 | `session_not_found` | Unknown/non-hex revocation id. |
+| 409 | `subject_tenant_conflict` | Subject is already bound to another tenant. |
+| 409 | `publication_key_binding_refused` | Refused publication-key reassignment/revival. |
+| 429 | `session_bound_reached` | 4096 live sessions per tenant/principal; retry after 60 seconds. |
+| 429 | `session_history_capacity_reached` | 16384 retained sessions per tenant/principal; no automatic retry hint. |
+| 503 | `store_unavailable` | Store lock, availability, durable write, seal-open/digest, or writable-probe failure; retry after 5 seconds. |
+| 503 | `clock_unavailable` | System time before the Unix epoch; retry after 5 seconds. |
+| 503 | `encoding_failed` | Response serialization failed; retry after 5 seconds. |
+| 503 | `entropy_unavailable` | Randomness or session sealing failed; retry after 5 seconds. |
 
-Unknown HTTP statuses other than 200/400/401/403/404/429 are written
-as `Service Unavailable` (`services/platform/hosted/identity/src/main.rs:918-926`).
-
----
+Signup adds typed verification, email/quota and starter-credit refusals from
+`signup::Refused::status`, including `verification_not_found`,
+`verification_expired`, `verification_required`, and
+`starter_credit_grant_mismatch`.
 
 ## Readiness
 
-`GET /livez` does not touch the store
-(`services/platform/hosted/identity/src/main.rs:833-834`). `GET /readyz` locks
-the store and writes `ready.marker` through a temp file, `sync_all`,
-rename, and directory sync
-(`services/platform/hosted/identity/src/main.rs:822-829`;
-`services/platform/hosted/identity/src/store.rs:172-187`). Process start also
-opens the store and probes writable before listen
-(`services/platform/hosted/identity/src/main.rs:978-987`).
-
-Deployment `readinessProbe` is HTTPS `/readyz` every 5s,
-`failureThreshold` 3; `livenessProbe` is HTTPS `/livez` every 15s
-(`services/platform/hosted/identity/deployment.yaml:30-31`). Control
-probes identity with unauthenticated `GET /readyz` and requires HTTP
-200 (`services/platform/hosted/testnet/src/main.rs:1032-1034`;
-`services/platform/hosted/testnet/src/main.rs:1097`). Gateway `/readyz` probes
-store, agent-boundary, authority, and registry; identity is not among
-those components (`services/platform/hosted/gateway/src/main.rs:2799-2828`).
-
----
+The TLS listener exposes `/livez`, `/readyz` and gateway-only `/internal/readyz`.
+A separate plain HTTP listener exposes **`GET /healthz`**, backed by the same
+durable readiness check. Its default address is `[::]:8080`; the TLS default
+is `[::]:9443`. Startup opens and probes the store before serving.
+The Kubernetes template explicitly binds TLS to `0.0.0.0:9443` and probes HTTPS
+`/readyz` every five seconds and `/livez` every fifteen seconds.
+A successful readiness response proves local storage availability, not that
+an external client possesses a valid session or service token.
 
 ## Config keys
 
-| Key | Role |
+| Key | Meaning/default |
 | --- | --- |
-| `LAYERX_IDENTITY_LISTEN` | Bind address; default `0.0.0.0:9443` (`services/platform/hosted/identity/src/main.rs:341-344`; `services/platform/hosted/identity/deployment.yaml:23`) |
-| `LAYERX_IDENTITY_TLS_CERT_DER` | Inbound server certificate DER (`services/platform/hosted/identity/src/main.rs:311-315`; `services/platform/hosted/identity/deployment.yaml:24`) |
-| `LAYERX_IDENTITY_TLS_KEY_DER` | Inbound PKCS#8 key DER (`services/platform/hosted/identity/src/main.rs:313-318`; `services/platform/hosted/identity/deployment.yaml:25`) |
-| `LAYERX_IDENTITY_CLIENT_CA_DER` | Optional client CA DER; unset means no client authentication (`services/platform/hosted/identity/src/main.rs:320-333`). The Deployment does not set it (`services/platform/hosted/identity/deployment.yaml:22-29`) |
-| `LAYERX_IDENTITY_STATE_DIR` | Required store directory (`services/platform/hosted/identity/src/main.rs:345-348`; `services/platform/hosted/identity/deployment.yaml:26`) |
-| `LAYERX_IDENTITY_SERVICE_TOKENS_DIR` | Required directory of seven service token files (`services/platform/hosted/identity/src/main.rs:349-352`; `services/platform/hosted/identity/deployment.yaml:27`) |
-| `LAYERX_IDENTITY_STORE_KEY_FILE` | Required seal secret file (`services/platform/hosted/identity/src/main.rs:254-257`; `services/platform/hosted/identity/src/main.rs:359`; `services/platform/hosted/identity/deployment.yaml:28`) |
-| `LAYERX_IDENTITY_SESSION_TTL_SECONDS` | Default session TTL; default `86400`; must be `1..=2592000` (`services/platform/hosted/identity/src/main.rs:353-358`; `services/platform/hosted/identity/deployment.yaml:29`) |
+| `LAYERX_IDENTITY_LISTEN` | TLS bind address; default `[::]:9443`. |
+| `LAYERX_IDENTITY_HEALTH_ADDR` | Plain health bind address; default `[::]:8080`. |
+| `LAYERX_IDENTITY_TLS_CERT_DER` | Required server certificate DER file. |
+| `LAYERX_IDENTITY_TLS_KEY_DER` | Required PKCS#8 DER private-key file. |
+| `LAYERX_IDENTITY_CLIENT_CA_DER` | Optional client CA configuration. When set, clients must present a certificate trusted by this CA. Unset means no TLS client authentication. Service bearers remain required. |
+| `LAYERX_IDENTITY_STATE_DIR` | Required persistent state directory. |
+| `LAYERX_IDENTITY_SERVICE_TOKENS_DIR` | Required complete directory of nine distinct tokens named in the callers table. |
+| `LAYERX_IDENTITY_STORE_KEY_FILE` | Required CSRF seal-secret file. |
+| `LAYERX_IDENTITY_SESSION_TTL_SECONDS` | Default session TTL, `86400`; valid range 1–2592000. |
+| `LAYERX_IDENTITY_SIGNUP_PER_IP_PER_HOUR` | Default `5`. |
+| `LAYERX_IDENTITY_SIGNUP_PER_EMAIL_PER_HOUR` | Default `3`. |
+| `LAYERX_IDENTITY_SIGNUP_DAILY_CAP` | Default `1000`. |
+| `LAYERX_IDENTITY_SIGNUP_TOKEN_TTL_SECONDS` | Default `86400`; valid range 1–2592000. |
+| `LAYERX_IDENTITY_DISPOSABLE_DOMAINS_FILE` | Optional line-separated domain list. |
+| `LAYERX_IDENTITY_SIGNUP_OUTBOX_DIR` | Default `signup-outbox` beneath the state directory. |
+| `LAYERX_IDENTITY_SMTP_URL` | Optional SMTP configuration; enables the background outbox drain. |
+| `LAYERX_IDENTITY_SMTP_FROM` | Required sender when SMTP URL is configured. |
 
-Secret files are refused if empty, longer than 4096 bytes, or
-containing ASCII control (`services/platform/hosted/identity/src/main.rs:244-250`).
-
----
+Secret files trim trailing CR/LF, then reject empty values, more than 4096
+bytes, or ASCII controls. Inbound TLS is rustls; configuring the client-CA
+verifier requires client certificates. The checked-in Deployment does not
+set a client CA. These TLS settings do not remove bearer authorization.
 
 ## Cluster apply and admitted edges
 
-`IMAGE_NAMES` includes `layerx-identity`
-(`services/platform/hosted/tests/beta-cluster.sh:89-90`). Image source is
-`ghcr.io/sidiora-labs/layerx-identity:0.1.0` from
-`docker/platform-identity/Dockerfile`
-(`services/platform/hosted/tests/beta-cluster.sh:125`). Render writes
-`services/platform/hosted/identity/deployment.yaml` as `identity.yaml`
-(`services/platform/hosted/tests/beta-cluster.sh:829`).
-`trusted_boundary_apply` applies `paxeer.yaml`, then `identity.yaml`,
-then `node.yaml`, and requires Service `layerx-identity`
-(`services/platform/hosted/tests/beta-cluster.sh:858-865`;
-`services/platform/hosted/tests/beta-cluster.sh:91`). Bring-up waits for
-`app=layerx-identity`, port-forwards `19451:9443`, then
-`identity_provision`
-(`services/platform/hosted/tests/beta-cluster.sh:95`;
-`services/platform/hosted/tests/beta-cluster.sh:1266`;
-`services/platform/hosted/tests/beta-cluster.sh:1274-1276`). Provisioning posts
-principals for the smoke source and destination DIDs and, when
-`LAYERX_BETA_TEST_AUTH_TOKEN_FILE` is unset, mints a source session
-whose token must match `^ses_[0-9a-f]{32}\.[0-9a-f]{64}$`
-(`services/platform/hosted/tests/beta-cluster.sh:29-31`;
-`services/platform/hosted/tests/beta-cluster.sh:1008-1026`). Those principal
-bodies omit `account` and `audiences`
-(`services/platform/hosted/tests/beta-cluster.sh:1012-1013`).
+The [deployment](../../services/platform/hosted/identity/deployment.yaml) uses
+image `ghcr.io/sidiora-labs/layerx-identity:0.1.0`, UID/GID 4020:4020, one
+replica and `Recreate` strategy. The current
+[Dockerfile](../../docker/platform-identity/Dockerfile) ends with an `env-init`
+image whose entrypoint runs `layerx-env-files` and `identity-env-init`.
+The [initializer](../../services/platform/hosted/identity/env-init.sh) expects
+root to prepare the volume, then drops to UID/GID 4020:4020 and executes
+`/usr/local/bin/layerx-identity`. The Kubernetes template's nonroot security
+context does not supply that root initialization step; it must not be treated
+as interchangeable with the image's volume-preparation launch path. Service
+`layerx-identity` exposes TLS port 9443 in namespace `layerx-testnet`.
+PVC `layerx-identity-state` is 5 GiB, ReadWriteOnce, mounted at
+`/var/lib/layerx/identity`. Runtime Secrets are `layerx-identity-server-tls`,
+`layerx-identity-service-tokens`, and `layerx-identity-store-key`.
 
-Server certificate SANs include
-`layerx-identity.layerx-testnet.svc.cluster.local`,
-`identity.layerx-internal.svc.cluster.local`, `localhost`, and
-`127.0.0.1` (`services/platform/hosted/tests/beta-cluster.sh:397-398`).
-
-NetworkPolicy ingress admits TCP 9443 from pods
-`app=layerx-testnet-control`, `app=layerx-faucet`, `app=layerx-gateway`,
-and from namespace `kubernetes.io/metadata.name=layerx-developer`
-(`services/platform/hosted/identity/deployment.yaml:51-58`). Egress is DNS 53
-only (`services/platform/hosted/identity/deployment.yaml:60-68`). Default
-`topology-check.sh` manifests include
-`services/platform/hosted/identity/deployment.yaml`
-(`services/platform/hosted/tests/topology-check.sh:17-25`;
-`services/platform/hosted/tests/topology-check.sh:83-91`).
-
----
+The template's ingress policy admits TCP 9443 from testnet control, faucet and
+gateway pods and from namespace `layerx-developer`; egress allows DNS on 53.
+Network access and token permission are separate requirements: possessing a
+`registrar` or `registry` token does not change that ingress policy.
+Cluster provisioning now sends tenant-bearing principal bodies; see
+`identity_provision` in the bring-up script for the source/destination examples.
 
 ## Tests
 
-Crate unit tests (no cluster):
+Current tests are references to coverage, not gates run by this documentation
+rewrite. [`tests/service.rs`](../../services/platform/hosted/identity/tests/service.rs)
+exercises real TLS, all introspection shapes, unauthorized callers, registrar
+principal creation without session minting, required distinct registrar tokens,
+revocation, expiry, health, store failure, tenant binding and restart, retained
+session capacity, and durable registry publication-key resolution.
 
-| Test | Proves |
-| --- | --- |
-| `service_resolution_is_exact` | Bearer match is exact; truncated, padded, and empty tokens miss (`services/platform/hosted/identity/src/main.rs:1029-1049`) |
-| `session_token_form_is_strict` | `ses_{32hex}.{64hex}` only; missing dot, `tok_` prefix, uppercase hex, and short id miss (`services/platform/hosted/identity/src/main.rs:1051-1068`) |
-| `subject_and_key_validation_matches_the_gateway_rules` | lowercase `sub`; uppercase hex keys, duplicates, and 129 keys refuse; empty key list is valid (`services/platform/hosted/identity/src/main.rs:1071-1085`) |
-| `introspection_shapes_serialize_exactly` | Gateway, developer, subject, and ramp JSON field order (`services/platform/hosted/identity/src/main.rs:1087-1126`) |
-| `refusal_bodies_follow_the_hosted_contract` | `retry` `never`/`after`, `Retry-After`, `Cache-Control: no-store`, `Connection: close` (`services/platform/hosted/identity/src/main.rs:1128-1149`) |
-| `request_parser_rejects_unbounded_and_ambiguous_messages` | Chunked encoding, duplicate `Host`, missing `Host`, query string, and oversized `Content-Length` refuse (`services/platform/hosted/identity/src/main.rs:1151-1172`) |
-| `state_survives_reopen_and_compaction` | Principal, two sessions, idempotent revoke survive reopen; journal length becomes 0 (`services/platform/hosted/identity/src/store.rs:318-381`) |
-| `torn_trailing_record_is_discarded_and_malformed_records_refuse` | Half-line discarded; unknown revoke and non-JSON refuse open (`services/platform/hosted/identity/src/store.rs:383-411`) |
-| `replaced_journal_refuses_readiness_and_writes` | Unlinked-and-replaced journal fails `probe_writable` and `put_principal` (`services/platform/hosted/identity/src/store.rs:414-423`) |
-| `failed_journal_write_requires_restart` | Read-only journal sets failed; restart accepts writes (`services/platform/hosted/identity/src/store.rs:425-441`) |
-| `session_requires_a_known_principal_and_unique_identifier` | Unknown principal and duplicate session id refuse; `ready.marker` exists after probe (`services/platform/hosted/identity/src/store.rs:443-461`) |
-| `seal_round_trips_and_binds_the_key` | Seal/open round-trip; other derived key fails open (`services/platform/hosted/identity/src/seal.rs:152-165`) |
-| `seal_uses_a_fresh_nonce_and_rejects_tampering` | Distinct ciphertexts; flipped ciphertext byte and short/non-hex refuse (`services/platform/hosted/identity/src/seal.rs:167-182`) |
-| `hmac_matches_rfc_4231_case_two` | HMAC-SHA256 tag `5bdcc146…ec3843` (`services/platform/hosted/identity/src/seal.rs:184-196`) |
-| `hex_round_trips` | Lowercase hex only; odd length and uppercase refuse (`services/platform/hosted/identity/src/seal.rs:198-205`) |
-
-Integration tests spawn `CARGO_BIN_EXE_layerx-identity` over real TLS
-(`services/platform/hosted/identity/tests/service.rs:203-227`):
-
-| Test | Proves |
-| --- | --- |
-| `health_routes_answer_without_a_service_token` | `/livez` and `/readyz` 200; unknown path `404 not_found`; `X-Forwarded-For` `400 untrusted_identity_header`; `ready.marker` exists (`services/platform/hosted/identity/tests/service.rs:469-498`) |
-| `readiness_fails_when_the_store_is_not_writable` | Removed or replaced state dir is `503 store_unavailable` with `Retry-After: 5`; restart recovers (`services/platform/hosted/identity/tests/service.rs:501-539`) |
-| `every_introspection_shape_matches_its_consumer` | Active shapes for gateway/webhooks/dashboard/faucet/testnet/ramp; ramp wrong audience is inactive; ramp missing audience is `400 audience_required`; stray audience and unknown field are 400; wrong secret, missing session, and malformed token are inactive (`services/platform/hosted/identity/tests/service.rs:542-600`) |
-| `wrong_service_tokens_are_refused` | Missing/unknown Bearer 401; provisioning introspect 403; non-provisioning principal/session/revoke 403; unknown principal 404; uppercase `sub` and short key 400 (`services/platform/hosted/identity/tests/service.rs:603-701`) |
-| `revoked_sessions_introspect_inactive` | Delete 200 with `revoked_at`; second delete returns the same `revoked_at`; unknown and `../snapshot.json` ids 404 (`services/platform/hosted/identity/tests/service.rs:704-750`) |
-| `expired_sessions_introspect_inactive` | `ttl_seconds: 1` becomes inactive after 2s; `0` and `2592001` are 400 (`services/platform/hosted/identity/tests/service.rs:753-794`) |
-| `state_survives_a_restart` | Active session and CSRF survive restart; revoked session stays inactive; secrets and CSRF plaintext stay out of snapshot/journal; restart truncates the journal (`services/platform/hosted/identity/tests/service.rs:797-870`) |
-
-Gateway local lifecycle starts the same binary and posts
-`/v1/principals` and `/v1/sessions` as 200
-(`services/platform/hosted/gateway/tests/local/lifecycle.rs:111-184`).
-
----
+Unit tests in `main.rs` cover exact token matching, capability separation,
+strict session syntax, tenant validation and tenant-bearing response shapes.
+Store tests cover snapshot/journal replay, tenant-index validation, torn tails,
+idempotent revocation, failed writes and replaced inodes. `seal.rs` tests cover
+key binding, fresh nonces, tamper refusal, HMAC and hex encoding.
 
 ## Make targets
 
-| Target | Identity use |
-| --- | --- |
-| `platform-test-identity` | `cargo test --offline --manifest-path services/platform/Cargo.toml --locked -p layerx-platform-identity` (`services/platform/Makefile.inc:153-154`) |
-| `platform-test-trusted-boundary` | depends on `platform-test-identity` (`services/platform/Makefile.inc:9`; `services/platform/Makefile.inc:159`) |
-| `platform-test` | workspace `cargo test`, including this crate (`services/platform/Makefile.inc:112-113`) |
-| `platform-hosted-topology-check` | `topology-check.sh`; default manifests include identity (`services/platform/Makefile.inc:177-178`; `services/platform/hosted/tests/topology-check.sh:19`; `services/platform/hosted/tests/topology-check.sh:85`) |
+The [platform Makefile](../../services/platform/Makefile.inc) defines
+`platform-test-identity` for the identity crate and
+`platform-test-trusted-boundary`, which depends on it. These developer targets
+are separate from this task's bounded documentation gates.
 
-[Home](Home.md)
+[Hosted authority](HostedAuthority.md) · [Hosted registry](HostedRegistry.md) · [Home](Home.md)
