@@ -9,28 +9,35 @@ export const REQUIRED_SCREEN_STATES = [
   "still-checking",
 ] as const;
 
-export const CURRENT_ROUTES = [
-  "/",
-  "/app",
-  "/app/move",
-  "/app/activity",
-  "/app/activity/[entryId]",
-  "/app/settings",
-  "/app/support",
-  "/app/approvals",
-  "/app/approvals/[approvalId]",
-  "/app/notifications",
-  "/explorer",
-  "/explorer/checkpoints",
-  "/explorer/checkpoints/[checkpointId]",
-  "/explorer/batches",
-  "/explorer/batches/[batchNumber]",
-  "/explorer/receipts/[receiptId]",
-  "/explorer/accounts/[accountId]",
-  "/app/agents",
-  "/app/agents/new",
-  "/app/agents/[agentId]",
-] as const;
+export const STATE_ROUTE_MANIFEST = Object.freeze([
+  ["route.root", "/"],
+  ["route.app", "/app"],
+  ["route.app.move", "/app/move"],
+  ["route.app.activity", "/app/activity"],
+  ["route.app.activity.detail", "/app/activity/[entryId]"],
+  ["route.app.settings", "/app/settings"],
+  ["route.app.settings.devices", "/app/settings/devices"],
+  ["route.app.settings.security", "/app/settings/security"],
+  ["route.app.settings.wallet", "/app/settings/wallet"],
+  ["route.app.security.devices", "/app/security/devices"],
+  ["route.app.security.recovery", "/app/security/recovery"],
+  ["route.app.support", "/app/support"],
+  ["route.app.approvals", "/app/approvals"],
+  ["route.app.approval", "/app/approvals/[approvalId]"],
+  ["route.app.notifications", "/app/notifications"],
+  ["route.app.agents", "/app/agents"],
+  ["route.app.agents.new", "/app/agents/new"],
+  ["route.app.agents.detail", "/app/agents/[agentId]"],
+  ["route.explorer", "/explorer"],
+  ["route.explorer.receipt", "/explorer/receipts/[receiptId]"],
+  ["route.explorer.account", "/explorer/accounts/[accountId]"],
+  ["route.explorer.program", "/explorer/programs/[programId]"],
+  ["route.bridge", "/bridge"],
+  ["route.exchange", "/exchange"],
+  ["route.launchpad", "/launchpad"],
+] as const);
+
+export const CURRENT_ROUTES = Object.freeze(STATE_ROUTE_MANIFEST.map(([, route]) => route));
 export const CURRENT_SHELLS = ["authenticated"] as const;
 
 export type ScreenState = (typeof REQUIRED_SCREEN_STATES)[number];
@@ -90,26 +97,9 @@ const completeStates = (): ScreenStateEntry["states"] => Object.freeze({
 const BOTH_SHELLS: readonly HumanShell[] = Object.freeze(["mobile", "desktop"]);
 
 const currentTargets: readonly ScreenStateEntry[] = Object.freeze([
-  Object.freeze({ id: "route.root", kind: "route", route: "/", shells: BOTH_SHELLS, states: completeStates() }),
-  Object.freeze({ id: "route.app", kind: "route", route: "/app", shells: BOTH_SHELLS, states: completeStates() }),
-  Object.freeze({ id: "route.app.move", kind: "route", route: "/app/move", shells: BOTH_SHELLS, states: completeStates() }),
-  Object.freeze({ id: "route.app.activity", kind: "route", route: "/app/activity", shells: BOTH_SHELLS, states: completeStates() }),
-  Object.freeze({ id: "route.app.activity.detail", kind: "route", route: "/app/activity/[entryId]", shells: BOTH_SHELLS, states: completeStates() }),
-  Object.freeze({ id: "route.app.settings", kind: "route", route: "/app/settings", shells: BOTH_SHELLS, states: completeStates() }),
-  Object.freeze({ id: "route.app.support", kind: "route", route: "/app/support", shells: BOTH_SHELLS, states: completeStates() }),
-  Object.freeze({ id: "route.app.approvals", kind: "route", route: "/app/approvals", shells: BOTH_SHELLS, states: completeStates() }),
-  Object.freeze({ id: "route.app.approval", kind: "route", route: "/app/approvals/[approvalId]", shells: BOTH_SHELLS, states: completeStates() }),
-  Object.freeze({ id: "route.app.notifications", kind: "route", route: "/app/notifications", shells: BOTH_SHELLS, states: completeStates() }),
-  Object.freeze({ id: "route.explorer", kind: "route", route: "/explorer", shells: BOTH_SHELLS, states: completeStates() }),
-  Object.freeze({ id: "route.explorer.checkpoints", kind: "route", route: "/explorer/checkpoints", shells: BOTH_SHELLS, states: completeStates() }),
-  Object.freeze({ id: "route.explorer.checkpoint", kind: "route", route: "/explorer/checkpoints/[checkpointId]", shells: BOTH_SHELLS, states: completeStates() }),
-  Object.freeze({ id: "route.explorer.batches", kind: "route", route: "/explorer/batches", shells: BOTH_SHELLS, states: completeStates() }),
-  Object.freeze({ id: "route.explorer.batch", kind: "route", route: "/explorer/batches/[batchNumber]", shells: BOTH_SHELLS, states: completeStates() }),
-  Object.freeze({ id: "route.explorer.receipt", kind: "route", route: "/explorer/receipts/[receiptId]", shells: BOTH_SHELLS, states: completeStates() }),
-  Object.freeze({ id: "route.explorer.account", kind: "route", route: "/explorer/accounts/[accountId]", shells: BOTH_SHELLS, states: completeStates() }),
-  Object.freeze({ id: "route.app.agents", kind: "route", route: "/app/agents", shells: BOTH_SHELLS, states: completeStates() }),
-  Object.freeze({ id: "route.app.agents.new", kind: "route", route: "/app/agents/new", shells: BOTH_SHELLS, states: completeStates() }),
-  Object.freeze({ id: "route.app.agents.detail", kind: "route", route: "/app/agents/[agentId]", shells: BOTH_SHELLS, states: completeStates() }),
+  ...STATE_ROUTE_MANIFEST.map(([id, route]): ScreenStateEntry => Object.freeze({
+    id, kind: "route", route, shells: BOTH_SHELLS, states: completeStates(),
+  })),
   Object.freeze({ id: "shell.authenticated", kind: "shell", route: "/app", shells: BOTH_SHELLS, states: completeStates() }),
 ]);
 
@@ -133,12 +123,18 @@ export class StateMatrix {
   ): void {
     const registeredRoutes = new Set<string>();
     const registeredShells = new Set<string>();
+    const expectedRoutes = new Set(routes);
+    const expectedShells = new Set(shells);
 
     for (const entry of this.#entries.values()) {
       if (entry.kind === "route") {
+        if (!expectedRoutes.has(entry.route)) throw new Error(`${entry.route} is not a current route`);
+        if (registeredRoutes.has(entry.route)) throw new Error(`${entry.route} has duplicate state registrations`);
         registeredRoutes.add(entry.route);
       } else {
-        registeredShells.add(entry.id.replace(/^shell\./u, ""));
+        const shell = entry.id.replace(/^shell\./u, "");
+        if (!expectedShells.has(shell)) throw new Error(`${shell} is not a current shell`);
+        registeredShells.add(shell);
       }
       if (
         entry.shells.length !== 2

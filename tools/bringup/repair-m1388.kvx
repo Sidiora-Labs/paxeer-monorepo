@@ -1,0 +1,12 @@
+[repair.22.33.1388]
+finding = "value-loop-retired-submission"
+audit = "22.30.76"
+base_revision = "8a5302e1b13ed685ab2cd21b29cd69052c2a8f6a"
+implementation = "Preserve the native probe account preparation and durable signed-transaction journal already installed by prerequisite repairs; bind committed receipt read-back to the retained signed bytes, transaction hash, explicit chain identity and root RPC; check the chain before and after receipt verification and refuse a head preceding inclusion; derive asset identity from the selected chain and report native transaction/block identities."
+proof = ["TestRepairM_1388_NativeSubmissionAndCommittedReceipt", "TestRepairM_1388_RejectUnboundOrUncommittedEvidence", "TestRepairM_1388_ScriptUsesNativeChainEvidence"]
+producer_transport_consumer = "The unchanged committed native RPC recording supplies real signed transaction bytes, receipt bytes, signature and governed key range; the production inspector submits the retained bytes over loopback JSON-RPC and reads the matching canonical block and committed receipt through the production codec and signature verifier; reopening the read with the same bytes repeats verification without resubmission."
+baseline = "Not run: the explicit ordered gate instructions prohibit verification before implementation and invoking verify_cmd by hand; the initial gate ledger is absent, so no baseline failure is claimed."
+build_command = "hf-build: go build ./tools/bringup/..."
+verify_command = "hf-done: cg spec done 22.33.1388 -f layerx-merge --root /work/paxeer-monorepo"
+verified_revision = "The exact candidate revision, command, exit and private log location are recorded by hf-done in /out/run/gates.jsonl and copied verbatim in the task handoff."
+wiring_requests = []

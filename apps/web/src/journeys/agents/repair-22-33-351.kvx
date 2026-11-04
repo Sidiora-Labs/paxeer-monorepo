@@ -1,0 +1,6 @@
+[repair.22.33.351]
+finding = "agent-uncertain-reopen"
+proof = "apps/web/e2e/repair-22-33-351.test.ts: agent_uncertain_reopen_creation_result_real_http, agent_uncertain_reopen_controls_real_http, agent_uncertain_reopen_prepared_authorizations_real_http, agent_uncertain_reopen_principal_isolation, agent_uncertain_reopen_storage_failure_blocks_submission, agent_uncertain_reopen_control_owner"
+baseline = "Not run: the explicit implementation-first order and bounded hf-done-only verification override step 5's unchanged-tree run; no pre-change test failure is claimed."
+qualification = "The runner records the exact candidate revision, command, exit and private log from hf-build and hf-done."
+wiring = "None: the production client, codecs and authenticated account identity are consumed through their existing interfaces; backend peers use committed Human API recordings over loopback HTTP."

@@ -75,6 +75,10 @@ export default function ActivityTab() {
     }
 
     const item = activityQuery.data.items[0];
+    if (!item) {
+      return mdash;
+    }
+
     const startDate = dayjs(item.date).format('MMM D');
     const endDate = dayjs(item.end_date).format('MMM D, YYYY');
 

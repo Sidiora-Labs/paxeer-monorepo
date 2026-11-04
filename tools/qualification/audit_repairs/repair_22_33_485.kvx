@@ -1,0 +1,41 @@
+[repair]
+task = "22.33.485"
+audit = "22.30.150"
+base_revision = "71ea2b5cfcf9fa483db0ed65d0630e08bca86d9f"
+paths = ["services/bridge/deploy/deploy-solana-program.sh", "services/bridge/deploy/solana-run-journal.py", "tools/qualification/audit_repairs/test_repair_22_33_485.py"]
+wiring_requests = []
+
+[finding.006]
+class = "security"
+test = "test_wrong_keypair_refused_before_broadcast"
+source_test = "test_shell_parsed_and_every_writer_guarded"
+repair = "The pinned toolchain's solana-keygen derives the supplied program keypair public key during preflight, and the production identity guard refuses a configured mismatch before the first broadcast. The same check guards generated first-deployment keypairs immediately before persisting deployment intent. Deployment responses remain identity-checked."
+
+[finding.005]
+class = "restart-recovery"
+test = "test_restart_after_confirmed_initialise_and_each_asset"
+additional_tests = ["test_resume_preexisting_accounts_without_reinitialising", "test_unresolved_intent_never_authorizes_a_duplicate_write", "test_deployment_resume_uses_retained_response_and_ambiguous_deploy_stops", "test_conflicting_config_or_asset_stops_before_any_new_intent", "test_all_accounts_are_checked_before_issuing_missing_asset_intent", "test_failed_or_foreign_readback_cannot_advance_phase", "test_resume_binds_every_write_to_original_inputs", "test_partial_checkpoint_cannot_claim_ready"]
+repair = "A record-scoped flock spans the deployment. Atomic private fsynced journal writes retain deployment, initialise and per-mint registration intent before broadcast. Resumes reuse the acknowledged deployment response and recheck program authority, deployed ELF and rooting. The planner derives config and asset PDAs and reads every account in one finalized getMultipleAccounts snapshot, verifies genesis, nondecreasing context, owners, exact layouts, seed bumps, config owner/signers/threshold/policy and asset identity/decimals/caps before authorizing any pending write. Confirmed accounts clear their retained intent without another submission. Ready is published atomically only after all accounts reconcile."
+
+[proof]
+runtime = "The declared pytest module imports the production helper, drives its actual JSON-RPC HTTP producer through a loopback server serving the existing committed services/bridge/deploy/tests/fixtures/rpc/solana.json account readbacks into the production decoder and planner, persists intent, stops and reopens the journal between confirmed initialization and both asset registrations, and checks the recovered actions and final atomic record. It also proves fail-closed behavior for conflicting or unresolved writes and network/readback failures. No external deployment binary, credentials or live endpoint is required."
+source = "The pytest module parses the production shell with bash -n, checks pinned key derivation and identity guards before broadcasts, journal locking and acknowledgement ordering, both guarded admin command argument sets, resume deployment suppression, configured admin input and atomic record publication. PDA results are compared with committed program readbacks and vault vectors; the decoded fields are pinned to contracts/bridge/solana/src/state.rs layout facts."
+review_only = "Actual solana-keygen cryptographic derivation, Solana CLI broadcasts, Rust admin execution and cluster finality are reviewed shell integrations, not executed by this Python-only gate. The wrong-keypair behavior test exercises the production identity consumer on distinct committed public keys, with the pinned keygen producer checked in source. An unresolved deployment response or an admin intent whose account is not finalized stops without resubmission; the original transaction must be reconciled operationally before retry, so no account-absence fallback can duplicate a still-pending write."
+
+[baseline]
+executed = false
+reason = "The task's exact Order forbids all test execution before complete implementation and explicitly forbids running verify_cmd by hand; this overrides Steps.6's contradictory request for an unchanged-tree verify. The test module did not exist at entry and no gate ledger existed; gate.json reported zero build and verification runs. No baseline failing test execution is claimed."
+
+[qualification]
+build_cmd = "bash -n services/bridge/deploy/deploy-solana-program.sh"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_485.py"
+verified_revision_source = "The runner's private /out/run/gates.jsonl records the exact candidate revision, command, exit and private log for hf-build and hf-done; final task evidence copies the last gate's JSON line without changing the qualified tree."
+format = "No Python, shell or KVX formatter is configured for these paths; preserve existing style and .editorconfig LF, final-newline and trailing-whitespace conventions."
+
+[gotcha.baseline-order]
+observed = "Steps.6 requests baseline execution while the exact Order disallows running verify_cmd by hand or running any test before implementation."
+resolution = "Follow the explicit gate order and disclose that baseline execution was not performed; root GOTCHA.kvx is outside scope."
+
+[gotcha.transcript-peer]
+observed = "Existing Solana deployment CLI fixtures predate the current pinned build arguments and do not provide custody account queries."
+resolution = "Use the already committed RPC account transcripts over loopback with the production Python journal; treat external CLI execution as review-only without changing unrelated fixtures."

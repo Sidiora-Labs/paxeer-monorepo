@@ -1,0 +1,18 @@
+[repair.22.33.865]
+audit = "22.30.182"
+finding_ids = ["python-sdk-import-root"]
+source_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+change = "Prepend services/agent/sdk/python to PYTHONPATH; retain ambient suffix, corpus inventory, prerequisite refusal and strict result accounting."
+build_cmd = "bash -n scripts/paxeer-x/verify-sdk-program-python.sh"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_865.py"
+verified_revision = "The successful verify row's revision in the runner's private /out/run/gates.jsonl; hf-build and hf-done bind the same candidate before publication."
+evidence = "Private runner ledger /out/run/gates.jsonl and /out/logs/build-1.log plus /out/logs/verify-1.log; final evidence line is authoritative, including any repair run suffix."
+baseline = "No earlier gate ledger or task implementation existed. The required pre-change verify was not run: the controlling gate order prohibits tests before complete implementation and direct verify invocation. No baseline failure is claimed."
+
+[finding.python-sdk-import-root]
+file = "scripts/paxeer-x/verify-sdk-program-python.sh"
+tests = ["test_python_sdk_import_root_shell_contract", "test_python_sdk_import_root_preserves_prerequisite_refusal", "test_python_sdk_import_root_isolated_http_and_corpus"]
+proves = "bash syntax; exact SDK export and preserved suffix; all five corpus paths and strict runner checks; exit 78 for either missing prerequisite; actual shell path setup from another directory followed by the current Python interpreter with site packages disabled; all five real corpus/HTTP modules import the checkout SDK, every loaded layerx_sdk module originates there, and the two existing native payload/signed-corpus cases pass unchanged."
+isolation = "Fresh environment contains only PATH and the committed tests/agent/sdk/python helper directory in PYTHONPATH; the real shell prefix prepends the SDK. Python -S excludes installed site packages; no install, compiler, credentials, service or native artifact is needed. Shell and the running Python interpreter are the only subprocess runtimes."
+review_only = "The protected full HTTP/native-v5 qualification is not executed by this repair gate; imports and selected local corpus cases do not prove live gateway/node execution or recovery. Existing prerequisite and result guards remain intact."
+wiring_request = "Domain 16 (tools/operations): run scripts/paxeer-x/verify-sdk-program-python.sh with protected genuine gateway/node HTTP and signed native-v5 evidence in the owning qualification environment; no external fixture or artifact is changed here."

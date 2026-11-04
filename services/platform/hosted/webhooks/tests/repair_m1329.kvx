@@ -1,0 +1,39 @@
+[repair.22.33.1329]
+audit = "spec/layerx-merge/programme/audit/records/22.30.71.kvx"
+base = "9e535b4932ba8111a729a5cef10e0ca2370ca435"
+qualification = "Authoritative verified revision, command, exit and private evidence location are recorded by the runner hf-build/hf-done ledger. Both gates must pass on the same candidate; this source record makes no advance claim of qualification."
+proving_target = "services/platform/hosted/webhooks/tests/repair_22_33_1329.rs"
+path_mapping = "The ruling in task do_11/do_12 and gotcha 2984 replaces the generated repair_m1329_test.go path with the native Cargo integration target. ai_finalized_delivery.rs includes that target, preserving its existing repair tests. No Go binding or gate wiring request remains."
+baseline = "Prior attempt 287366e55b0ba66e0aef2b888439afcbe95deee2: cg spec done 22.33.1329 -f layerx-merge --root /work/paxeer-monorepo failed at Go package setup, exit 1. No TestRepairM_1329_ test executed, so no individual pre-change test failure or baseline pass is claimed. The ordered gate-only instructions forbid a manual baseline rerun."
+
+[finding.18]
+test = "repair_m1329::guest_capture_transport_restart_and_membership_refusal"
+implementation = "The real CREATE evaluator and state encoder produce state; pinned guest READ_STATE_CHUNK responses pass through StateCapture and the snapshot binder into CaptureDocument. Loopback HTTP uses production request/reply framing and MarketOutbox::admit_document. The outbox is stopped before reopen and delivery; a repeated source capture returns the exact retained event as a duplicate. Consumer business state, event facts and byte-identical redelivery are checked. A valid signed certificate with membership for the wrong program is refused and leaves no pending event after reopen."
+
+[finding.19]
+test = "repair_m1329::receiver_process_failure_boundaries_and_durable_effect_replay"
+implementation = "The real ConsumerTransaction records a seven-unit credit. The same compiled test executable runs fresh receiver processes terminating before effect preparation, after preparation, after a staged-file creation failure, after a synced staged-file rename failure, and after commit. Reopened receivers check balance, sequence and applied IDs before replay and after duplicate replay; the staged durable business state and ledger are independently read from disk. The child test name is derived from its actual module path so the cases also remain executable through ai_finalized_delivery."
+remaining_boundary_wiring = "Exact interruptions inside write/fsync and between rename/directory fsync require the Store owner interface below; the current tests do not claim those interruption points."
+
+[finding.33]
+test = "fault-injection.sh real receiver observation assertions; repair_m1329::guest_capture_transport_restart_and_membership_refusal proves the production outbox restart and idempotent source replay contract"
+implementation = "Require one exact participant pod and namespace; validate its app, role, readiness and ReplicaSet ownership; delete only that pod, observe its old UID disappear and a new ready webhooks container under the same controller. Reject invalid restart timeouts; cap source-trigger, readiness and restart-observation requests at five seconds or the remaining deadline, whichever is smaller; recompute the budget between public and private probes. Preserve real receiver order and byte-identical redelivery assertions."
+qualification_boundary = "The native gate exercises the durable outbox and consumer without a cluster, external CLI tools or credentials. It does not execute the live shell deployment scenario; that external qualification is requested below."
+
+[wiring.receiver]
+request = "services/platform/hosted/webhooks/src/ai_market.rs Store::commit; owner platform-webhooks: expose deterministic test persistence boundaries for partial write, file sync and rename-before-directory-sync so the native receiver process test can interrupt each exact boundary without copying the store."
+
+[wiring.deployment]
+request = "services/platform hosted deployment qualification harness; owner platform operations: provision an exact WEBHOOK_RESTART_POD and WEBHOOK_RESTART_NAMESPACE and run fault-injection.sh against real public/private readiness and receiver observations; no mocked kubectl, curl or receiver proves this restart."
+
+[gotcha.toolchain]
+observed = "The earlier generated Go gate could not execute the production Rust crate; no baseline behavioral test ran."
+resolution = "The task ruling corrected the gate to the native Cargo target. The bounded runner ledger, rather than the obsolete Go setup failure, determines qualification."
+
+[prior_attempt.qualification.build]
+revision = "1d20577c36b0fe4ccefa2892fd407e6e7f3ab14d"
+command = "cargo build --locked --manifest-path services/platform/hosted/webhooks/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "Cargo stops before compilation because services/platform/Cargo.toml lists services/platform/hosted/paxeer, whose Cargo.toml is absent; the missing workspace member is outside task scope."
+assumption = "Restore the workspace member through its owning platform domain before qualification; no task test ran, hf-done was not run because hf-build did not pass, and no finding is claimed qualified."

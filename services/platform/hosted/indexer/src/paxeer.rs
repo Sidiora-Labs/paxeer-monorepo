@@ -349,6 +349,14 @@ fn chain_activity(
     }))
 }
 
+/// Availability of Comet transaction enrichment after a source observation.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CometObservation {
+    NotConfigured,
+    Ready,
+    IndexDisabled,
+}
+
 /// The transaction a log belongs to.
 struct LogSource<'a> {
     height: u64,
@@ -1000,10 +1008,36 @@ impl PaxeerIngester {
     }
 
     fn block(&self, height: u64) -> Result<Option<Value>, IndexError> {
-        let block = self
+        let mut block = self
             .evm
             .rpc("eth_getBlockByNumber", &json!([to_quantity(height), true]))?;
-        Ok((!block.is_null()).then_some(block))
+        if block.is_null() {
+            return Ok(None);
+        }
+        let block_hash = hash_text(&block, "hash")?;
+        let transactions = block
+            .get_mut("transactions")
+            .and_then(Value::as_array_mut)
+            .ok_or_else(|| IndexError::Decode("full node block has no transactions".to_owned()))?;
+        for transaction in transactions {
+            if transaction.get("chainId").is_none_or(Value::is_null) {
+                let hash = hash_text(transaction, "hash")?;
+                let resolved = self.evm.rpc("eth_getTransactionByHash", &json!([hash]))?;
+                if hash_text(&resolved, "hash")? != hash
+                    || hash_text(&resolved, "blockHash")? != block_hash
+                    || quantity_u64(field_str(&resolved, "blockNumber")?)? != height
+                    || field_str(&resolved, "transactionIndex")?
+                        != field_str(transaction, "transactionIndex")?
+                {
+                    return Err(IndexError::Integrity(
+                        "transaction domain response differs from block".to_owned(),
+                    ));
+                }
+                transaction["chainId"] = Value::String(field_str(&resolved, "chainId")?.to_owned());
+            }
+            quantity_u64(field_str(transaction, "chainId")?)?;
+        }
+        Ok(Some(block))
     }
 
     fn block_hash(&self, height: u64) -> Result<Option<String>, IndexError> {
@@ -1091,21 +1125,14 @@ impl PaxeerIngester {
         group_by_height(&collected)
     }
 
-    pub fn observe_comet(&self, store: &Store) -> Result<(), IndexError> {
+    /// Observe enrichment independently from EVM progress. Only the recognized
+    /// disabled-index status permits the daemon's EVM-only fallback.
+    pub fn observe_comet(&self, store: &Store) -> Result<CometObservation, IndexError> {
         let Some(comet) = &self.comet else {
-            return Ok(());
+            return Ok(CometObservation::NotConfigured);
         };
         let observation = (|| {
             let status = comet.rpc("status", &json!({}))?;
-            if status
-                .pointer("/node_info/other/tx_index")
-                .and_then(Value::as_str)
-                != Some("on")
-            {
-                return Err(IndexError::Source(
-                    "Comet transaction indexing is unavailable".to_owned(),
-                ));
-            }
             let sync = status
                 .get("sync_info")
                 .ok_or_else(|| IndexError::Decode("Comet status has no sync_info".to_owned()))?;
@@ -1118,13 +1145,53 @@ impl PaxeerIngester {
             if sync.get("catching_up").and_then(Value::as_bool) != Some(false) {
                 return Err(IndexError::Source("Comet source is catching up".to_owned()));
             }
-            let indexed = store.cursor(CHAIN)?.map(|cursor| cursor.position);
-            store.record_source_success("comet", Some(head), indexed)
+            match status
+                .pointer("/node_info/other/tx_index")
+                .and_then(Value::as_str)
+            {
+                Some("off") => {
+                    store.record_source_failure("comet", "tx_index_disabled")?;
+                    Ok(CometObservation::IndexDisabled)
+                }
+                Some("on") => {
+                    let indexed = store.cursor(CHAIN)?.map(|cursor| cursor.position);
+                    store.record_source_success("comet", Some(head), indexed)?;
+                    Ok(CometObservation::Ready)
+                }
+                _ => Err(IndexError::Source(
+                    "Comet transaction indexing status is invalid".to_owned(),
+                )),
+            }
         })();
         if observation.is_err() {
             store.record_source_failure("comet", "source_observation_failed")?;
         }
         observation
+    }
+
+    /// The exact daemon callback order, also used by the integration gate.
+    pub fn daemon_step(&self, store: &Store) -> Result<StepOutcome, IndexError> {
+        self.observe_comet(store)?;
+        self.step(store)
+    }
+
+    /// Resolve a database transaction's domain from the trusted node and bind it
+    /// to the database's hash, block height and transaction position.
+    pub fn transaction_domain(
+        &self,
+        row: &crate::blockscout::TransactionRow,
+    ) -> Result<u64, IndexError> {
+        let hash = hex0x(&row.hash);
+        let tx = self.evm.rpc("eth_getTransactionByHash", &json!([hash]))?;
+        if hash_text(&tx, "hash")? != hash
+            || quantity_u64(field_str(&tx, "blockNumber")?)? != row.block_number
+            || quantity_u64(field_str(&tx, "transactionIndex")?)? != row.index
+        {
+            return Err(IndexError::Integrity(
+                "transaction domain response has another position".to_owned(),
+            ));
+        }
+        quantity_u64(field_str(&tx, "chainId")?)
     }
 
     /// Runs one bounded step: confirms the durable head block is still

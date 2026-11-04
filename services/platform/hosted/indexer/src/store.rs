@@ -566,8 +566,7 @@ const POSITION_LOG_INDEX: &str = "(MAX(ordinal, 1) - 1)";
 const HISTORY_ROWS: &str = "
 SELECT id, height_or_seq, chain, kind, direction, account, counterparty, asset, amount, tx_id,
     ordinal, decoded_json,
-    (SELECT document FROM settlement_evidence evidence WHERE evidence.chain = transfers.chain
-     AND evidence.activity_id = transfers.tx_id AND evidence.sequence = transfers.height_or_seq),
+    NULL,
     tx_index, 0 AS source
 FROM transfers WHERE account = ?1 AND (?2 IS NULL OR kind = ?2) AND {filter}
 UNION ALL
@@ -749,9 +748,26 @@ impl Store {
             connection.execute_batch("ALTER TABLE cursors ADD COLUMN stability_depth TEXT")?;
         }
         Self::migrate_positions(&mut connection)?;
+        Self::retire_settlement_documents(&mut connection)?;
         Ok(Self {
             connection: Mutex::new(connection),
         })
+    }
+
+    /// Retain pre-upgrade documents for historical inspection, outside every output query.
+    fn retire_settlement_documents(connection: &mut Connection) -> Result<(), IndexError> {
+        let tx = connection.transaction()?;
+        tx.execute_batch("CREATE TABLE IF NOT EXISTS retired_settlement_evidence(
+            chain TEXT NOT NULL, activity_id TEXT NOT NULL, sequence INTEGER NOT NULL,
+            document TEXT NOT NULL, last_attempt INTEGER NOT NULL,
+            PRIMARY KEY(chain, activity_id, sequence, document));
+            CREATE TABLE IF NOT EXISTS store_migrations(name TEXT PRIMARY KEY);
+            INSERT OR IGNORE INTO retired_settlement_evidence
+                SELECT chain, activity_id, sequence, document, last_attempt FROM settlement_evidence;
+            DELETE FROM settlement_evidence;
+            INSERT OR IGNORE INTO store_migrations(name) VALUES ('retire-settlement-output-v1');")?;
+        tx.commit()?;
+        Ok(())
     }
 
     /// Upgrades a store written before projections were versioned: adds the
@@ -2200,9 +2216,7 @@ impl Store {
                 "source": STABILITY_SOURCE,
                 "finalized_boundary": boundary.map(|boundary| boundary.to_string()),
             },
-            "settlement": row.get::<_, Option<String>>(12)?.map_or_else(
-                || json!({"level": SETTLEMENT_UNVERIFIED, "source": Value::Null, "reason": SETTLEMENT_UNAVAILABLE_REASON}),
-                |document| parse_json(&document)),
+            "settlement": {"level": SETTLEMENT_UNVERIFIED, "source": Value::Null, "reason": SETTLEMENT_UNAVAILABLE_REASON},
             "decoded": parse_json(&decoded),
         }))
     }
@@ -2407,8 +2421,7 @@ impl Store {
         let mut statement = connection.prepare(
             "SELECT id, height_or_seq, chain, kind, direction, account, counterparty, asset, amount,
                 tx_id, ordinal, decoded_json,
-                (SELECT document FROM settlement_evidence evidence WHERE evidence.chain = transfers.chain
-                 AND evidence.activity_id = transfers.tx_id AND evidence.sequence = transfers.height_or_seq),
+                NULL,
                 tx_index
              FROM transfers WHERE chain = ?1 ORDER BY id",
         )?;

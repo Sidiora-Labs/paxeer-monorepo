@@ -11,6 +11,8 @@ pub mod abi;
 pub mod ai_health;
 pub mod ai_market;
 pub mod ai_reputation;
+pub mod ai_runtime;
+pub mod ai_views;
 pub mod api;
 pub mod backfill;
 pub mod blockscout;
