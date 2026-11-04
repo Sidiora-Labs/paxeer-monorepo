@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/paxeer-network/pax-load/stats"
@@ -21,6 +22,8 @@ import (
 var ErrRampTestFailedSLO = errors.New("Ramp Test failed SLO")
 
 func (r *Ramper) FormatRampStats() string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	return fmt.Sprintf(`
 ─────────────────────────────────────────
               RAMP STATISTICS
@@ -35,6 +38,13 @@ func (r *Ramper) FormatRampStats() string {
 }
 
 type Ramper struct {
+	mu                sync.Mutex
+	lastProgress      time.Time
+	lastHeight        uint64
+	baselineHeight    uint64
+	lastUpdate        time.Time
+	noProgressTimeout time.Duration
+
 	sharedLimiter   *rate.Limiter
 	blockCollector  stats.BlockStatsProvider
 	currentTps      float64
@@ -52,15 +62,47 @@ type RampCurve interface {
 func NewRamper(rampCurve RampCurve, blockCollector stats.BlockStatsProvider, sharedLimiter *rate.Limiter) *Ramper {
 	sharedLimiter.SetLimit(rate.Limit(1)) // reset limiter to 1
 	return &Ramper{
-		sharedLimiter:  sharedLimiter,
-		blockCollector: blockCollector,
-		rampCurve:      rampCurve,
+		sharedLimiter:     sharedLimiter,
+		blockCollector:    blockCollector,
+		rampCurve:         rampCurve,
+		noProgressTimeout: 5 * time.Second,
+		lastProgress:      time.Now(),
+		lastUpdate:        time.Now(),
+		lastHeight:        blockCollector.GetBlockStats().MaxBlockNumber,
+		baselineHeight:    blockCollector.GetBlockStats().MaxBlockNumber,
 	}
 }
 
+// BlockProgressEvidence carries both sample coverage and locally observed committed
+// height advancement. A percentile alone cannot establish a healthy chain.
+type BlockProgressEvidence struct {
+	SampleCount         int
+	LastCommittedHeight uint64
+	LastProgress        time.Time
+}
+
+func (r *Ramper) progressEvidence(now time.Time) BlockProgressEvidence {
+	window := r.blockCollector.GetWindowBlockStats()
+	if window.MaxBlockNumber > r.lastHeight {
+		r.lastHeight = window.MaxBlockNumber
+		r.lastProgress = now
+	}
+	return BlockProgressEvidence{window.SampleCount, r.lastHeight, r.lastProgress}
+}
+
 func (r *Ramper) UpdateTPS() {
-	timeSinceStart := time.Since(r.startTime)
-	r.currentTps = r.rampCurve.GetTPS(timeSinceStart)
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	now := time.Now()
+	evidence := r.progressEvidence(now)
+	if evidence.SampleCount < 2 || evidence.LastCommittedHeight <= r.baselineHeight || now.Sub(evidence.LastProgress) >= r.noProgressTimeout {
+		// Freeze the curve as well as the limiter while waiting for fresh evidence.
+		r.startTime = r.startTime.Add(now.Sub(r.lastUpdate))
+		r.currentTps = 1
+	} else {
+		r.currentTps = r.rampCurve.GetTPS(now.Sub(r.startTime))
+	}
+	r.lastUpdate = now
 	r.sharedLimiter.SetLimit(rate.Limit(r.currentTps))
 }
 
@@ -70,70 +112,68 @@ func (r *Ramper) LogFinalStats() {
 
 // WatchSLO will evaluate the chain SLO every 100ms using a 30 second window, and return a channel if the SLO is violated
 func (r *Ramper) WatchSLO(ctx context.Context) <-chan struct{} {
-	ch := make(chan struct{})
+	ch := make(chan struct{}, 1)
+	r.blockCollector.ResetWindowStats()
 	go func() {
 		defer close(ch)
-
-		log.Println("🔍 Ramping watching chain SLO with 30s windows, checking every 100ms")
-
-		// Two separate timers: frequent SLO checks and window resets
-		sloCheckTicker := time.NewTicker(100 * time.Millisecond)
-		windowResetTicker := time.NewTicker(30 * time.Second)
-		defer sloCheckTicker.Stop()
-		defer windowResetTicker.Stop()
-
-		// Reset window stats at the start
-		r.blockCollector.ResetWindowStats()
-
+		checks := time.NewTicker(100 * time.Millisecond)
+		windows := time.NewTicker(30 * time.Second)
+		defer checks.Stop()
+		defer windows.Stop()
 		for {
 			select {
 			case <-ctx.Done():
 				return
-			case <-sloCheckTicker.C:
-				// Check SLO every 100ms
-				p90BlockTime := r.blockCollector.GetWindowBlockTimePercentile(90)
-				if p90BlockTime > 1*time.Second {
-					log.Printf("❌ SLO violated: 90th percentile block time %v exceeds 1s threshold", p90BlockTime)
-					select {
-					case ch <- struct{}{}:
-					case <-ctx.Done():
-					}
+			case now := <-checks.C:
+				r.mu.Lock()
+				evidence := r.progressEvidence(now)
+				stalled := now.Sub(evidence.LastProgress) >= r.noProgressTimeout
+				r.mu.Unlock()
+				p90 := r.blockCollector.GetWindowBlockTimePercentile(90)
+				if stalled || p90 > time.Second {
+					log.Printf("Ramp SLO failed: samples=%d committed_height=%d last_progress=%s p90=%s", evidence.SampleCount, evidence.LastCommittedHeight, evidence.LastProgress, p90)
+					ch <- struct{}{}
 					return
 				}
-			case <-windowResetTicker.C:
-				// Reset window stats every 30 seconds for fresh measurements
-				log.Printf("🔄 Resetting SLO window stats (30s period)")
-				// save last window stats
+			case <-windows.C:
+				r.mu.Lock()
 				r.lastWindowStats = r.blockCollector.GetWindowBlockStats()
 				r.blockCollector.ResetWindowStats()
+				r.mu.Unlock()
 			}
 		}
 	}()
 	return ch
 }
 
-// Start initializes and starts all workers
 func (r *Ramper) Run(ctx context.Context) error {
 	return service.Run(ctx, func(ctx context.Context, s service.Scope) error {
-		// TODO: Implement ramping logic
+		r.mu.Lock()
 		r.startTime = time.Now()
-		sloChan := r.WatchSLO(ctx)
-		tpsUpdateTicker := time.NewTicker(100 * time.Millisecond)
-		for ctx.Err() == nil {
-
+		r.lastProgress = r.startTime
+		r.lastUpdate = r.startTime
+		r.lastHeight = r.blockCollector.GetBlockStats().MaxBlockNumber
+		r.baselineHeight = r.lastHeight
+		r.mu.Unlock()
+		watchCtx, stopWatch := context.WithCancel(ctx)
+		defer stopWatch()
+		sloChan := r.WatchSLO(watchCtx)
+		updates := time.NewTicker(100 * time.Millisecond)
+		defer updates.Stop()
+		defer r.sharedLimiter.SetLimit(1)
+		for {
 			select {
-			case <-sloChan:
-				r.sharedLimiter.SetLimit(rate.Limit(1))
-				log.Printf("❌ Ramping failed to pass SLO, stopping loadtest, failure window blockstats:")
-				log.Println(r.blockCollector.GetWindowBlockStats().FormatBlockStats())
-				return ErrRampTestFailedSLO
-			case <-tpsUpdateTicker.C:
-				r.UpdateTPS()
 			case <-ctx.Done():
 				return ctx.Err()
+			case <-sloChan:
+				if ctx.Err() != nil {
+					return ctx.Err()
+				}
+				return ErrRampTestFailedSLO
+			case <-updates.C:
+				r.UpdateTPS()
 			}
 		}
-		return ctx.Err()
 	})
 }
 

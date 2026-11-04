@@ -62,6 +62,16 @@ flatkv; writes above the boundary stay in memiavl only if the key still exists
 there. New keys go directly to flatkv so new account/log growth cannot extend
 the source tail forever.
 
+The concrete example is
+`TestApplyChangeSets_BrandNewKeysDoNotExtendMigrationTail` in
+[migration_manager_test.go](migration_manager_test.go): source keys `a`, `b`
+migrate with batch size 1 while `z-new-1` and `z-new-2` go directly to flatkv.
+The first new key is readable beyond cursor `a`; migration still completes on
+`b`. `TestRepairM_1120_Partition` repeats this path with real backends, including
+updates and deletes. Validate the logical union and authoritative values at a
+common height against expected state; cursor placement alone cannot prove
+completeness, value correctness or absence of a lost key.
+
 Within a first flush, the manager advances the iterator, stages migrated values
 and source deletions, then overlays caller changes. A caller update/delete of a
 key in the same batch wins over the copied value. Later flushes route caller
@@ -102,6 +112,11 @@ Application of change sets is distinct from durable commit:
   versions by rolling the ahead backend back to the lower version. Fresh flatkv
   migration entry has a separate initial-version seeding path. Explicit-height
   loads do not use the load-latest reconciliation branch.
+  In particular, when either backend is at version zero, `reconcileVersions`
+  returns without rollback. A first-ever interrupted commit, or the first
+  migration commit with fresh flatkv still at zero, is outside the nonzero
+  reconciliation guarantee. Seeding the next flatkv version aligns future
+  commit heights; it cannot reconstruct a lost source row or boundary.
 - The storage handle is rebuilt from loaded metadata; uncommitted cursor state
   and the first-flush gate are reset. `CleanupCrashArtifacts` cleans orphaned
   flatkv working directories; it is not data reconstruction.
@@ -131,6 +146,8 @@ investigating damage. The tools proposed in section 6 are not available repairs.
 - **Self-recoverable?** The composite load-latest path reconciles nonzero version
   mismatches before rebuilding the handle. Recovery can fail; the manager alone
   does not reconstruct missing data.
+  If either backend has never committed (version zero), automatic rollback
+  is skipped. The initial-version seeding path is not first-commit recovery.
 - **Detection signal**: recovery errors/version-reconciliation logs; compare
   logical state to a trusted reference at the recovered height if loss is
   suspected. An internal two-database scan cannot discover a key absent from both
@@ -139,6 +156,9 @@ investigating damage. The tools proposed in section 6 are not available repairs.
   content validation fails, restore a consistent backup or use a compatible
   state-sync source and replay. Do not retry on the failed in-memory manager or
   use raw changelog replay as a substitute for cross-backend recovery.
+  Before recommending any destructive repair, require interruption/reopen
+  evidence at the affected commit boundary, retained WAL/snapshot versions,
+  recovered migration metadata and logical values at a common height.
 
 ### A2 -- Stale memiavl residue
 
@@ -156,6 +176,9 @@ investigating damage. The tools proposed in section 6 are not available repairs.
 - **Recovery path**: retain evidence and restore/replay from a consistent state
   if needed. The source-cleanup tool in T3 is proposed. Deleting source rows can
   change memiavl's root; it is not an automatically safe disk-only repair.
+  Require a reproduced interruption/reopen trace and trusted union/value
+  comparison before classifying duplicates as safe to delete. Neither the
+  cursor nor a successful metadata-only status check authorizes deletion.
 
 ### A3 -- Boundary key corruption
 
@@ -402,6 +425,12 @@ Each stage needs its own implementation and qualification. These proposed checks
 are not evidence that existing databases have been verified.
 
 ## 8. Open Design Questions (deferred to PR-time)
+
+- **Unproven crash boundaries**: which interruption/reopen evidence covers
+  first-commit/version-zero cases, async WAL durability, rollback failure,
+  missing retained history and abrupt host/media failure? The nonzero
+  reconciliation test proves an ordered-commit interruption with synchronous
+  local stores; it does not settle these cases or authorize destructive repair.
 
 - **Snapshot qualification**: which deployment test proves complete two-backend
   export/import at an in-progress height, metadata preservation and resumed

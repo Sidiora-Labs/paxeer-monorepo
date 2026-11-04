@@ -1,0 +1,26 @@
+[repair.22.33.929]
+audit = "22.30.22"
+base_revision = "4299cb15eced23eb9a839162acd11e9a937edd05"
+findings = ["mobile-market-topic-test", "mobile-route-scaffold-drift"]
+tests = ["mobileMarketTopicTest", "mobileRouteScaffoldDrift", "mobileRouteOnchainQuote"]
+baseline = "Not run: the unchanged-tree verification clause conflicts with the explicit implementation-first, hf-build then hf-done order and prohibition on running verify_cmd by hand. No pre-change gate result is claimed; the audit records the existing unhandled unsupported-topic rejection and v1 route mismatch."
+evidence = "The private hf-build/hf-done ledger records the exact verified candidate revision, command, exit code and log path; this task record makes no independent gate-pass claim."
+
+[finding.mobile-market-topic-test]
+test = "mobileMarketTopicTest"
+original_test = "marketSessionUsesV2Snapshots"
+proof = "The unchanged production MarketSession rejects market.pool locally with TypeError, with no HTTP request, state transition or snapshot; supported topics, including market.stats, then traverse the real SDK v2 decoder and loopback transport and install the exact recorded production snapshot and statistics. Both original and repair test registrations call the same proof."
+
+[finding.mobile-route-scaffold-drift]
+tests = ["mobileRouteScaffoldDrift", "mobileRouteOnchainQuote"]
+original_test = "routeModulesPreserveHeadPaths"
+proof = "All eleven current HTTP operations execute through real mobile route modules and SDK Operations, retaining exact method, path, request body, response, CSRF and input-rejection checks and adding credentials, missing session, missing CSRF, idempotency and cancellation assertions. Onchain quoting executes separately through activity.quote, viem HTTP and the chain125 quoteExactInput ABI, with exact block-pinned calldata, decoded output, fee, slippage, identity and watermark assertions plus wrong-chain, missing-authority, cancellation and malformed-result refusal."
+fixtures = "fixtures/repair-22-33-929-v2.json carries exact production core API snapshot, pool-list and pool-detail bodies copied from web/src/core/test-fixtures/market-production/core-api-wire.json and committed SDK chain125 ABI quote vectors; the peer encodes quote results with viem's real ABI codec. The stream response reuses test/fixtures/live-v2-response.json emitted by AdaptV2StreamList. The existing route fixtures retain current producer wire types and are validated by the generated v2 validators before delivery. The quote header is a fixed mined-block boundary fixture; this test does not claim live chain execution."
+gate = "The original suites and the declared repair suite share proof functions; the gate requires no environment variables, credentials, live endpoint, subprocess, native artifact or device."
+
+[wiring.requests]
+requests = []
+
+[gotchas]
+gate_order = "Do not run the unchanged-tree gate by hand or claim it ran; the explicit bounded gate order takes precedence."
+async_validation = "Generated chat operations validate paths asynchronously; preserve invalid-path refusal with rejects.toThrow instead of the retired synchronous toThrow expectation."

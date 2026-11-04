@@ -1,6 +1,7 @@
 package dbcache
 
 import (
+	"bytes"
 	"fmt"
 	"sync"
 
@@ -23,8 +24,8 @@ type cachedKeyValueDB struct {
 
 // Combine a cache and a key-value database into a unified interface.
 //
-// Due to the nature of a Cache, it is not safe to mutate byte slices (keys or values) passed to or received from
-// any of the methods on a cachedKeyValueDB after calling them.
+// Due to the nature of a Cache, keys and values passed to a cachedKeyValueDB must remain immutable.
+// Get and BatchGet return independent value copies that callers may mutate.
 func NewCachedKeyValueDB(db types.KeyValueDB, cache Cache) types.KeyValueDB {
 	read := func(key []byte) ([]byte, bool, error) {
 		val, err := db.Get(key)
@@ -41,8 +42,7 @@ func NewCachedKeyValueDB(db types.KeyValueDB, cache Cache) types.KeyValueDB {
 
 // Get returns the value for the given key, or ErrNotFound if not found.
 //
-// It is not safe to mutate the key slice after calling this method, nor is it safe to mutate the value slice
-// that is returned.
+// It is not safe to mutate the key slice after calling this method. The returned value is a copy.
 func (c *cachedKeyValueDB) Get(key []byte) ([]byte, error) {
 	val, found, err := c.cache.Get(c.read, key, true)
 	if err != nil {
@@ -51,16 +51,19 @@ func (c *cachedKeyValueDB) Get(key []byte) ([]byte, error) {
 	if !found {
 		return nil, errorutils.ErrNotFound
 	}
-	return val, nil
+	return bytes.Clone(val), nil
 }
 
 // BatchGet performs a batch read operation. Given a map of keys to read, performs the reads and updates the
 // map with the results. On cache misses the provided Reader is called to fetch from the backing store.
 //
-// It is not thread safe to read or mutate the map while this method is running. It is also not safe to mutate the
-// key or value slices in the map after calling this method.
+// It is not thread safe to read or mutate the map while this method is running. Returned values are copies.
 func (c *cachedKeyValueDB) BatchGet(keys map[string]types.BatchGetResult) error {
 	err := c.cache.BatchGet(c.read, keys)
+	for key, result := range keys {
+		result.Value = bytes.Clone(result.Value)
+		keys[key] = result
+	}
 	if err != nil {
 		return fmt.Errorf("failed to get values from cache: %w", err)
 	}

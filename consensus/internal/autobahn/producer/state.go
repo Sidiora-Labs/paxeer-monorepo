@@ -3,6 +3,7 @@ package producer
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/autobahn/types"
@@ -42,15 +43,19 @@ type State struct {
 	cfg     *Config
 	mempool utils.Watch[*mempool]
 	// consensus state to which published blocks will be reported.
-	consensus *consensus.State
+	consensus  *consensus.State
+	replayOnce sync.Once
+	replayDone chan struct{}
+	replayErr  error
 }
 
 // NewState constructs a new block producer state.
-// Returns an error if the current node is NOT a producer.
+// After a restart, pending queries and admission wait for Run to replay the
+// retained local lane. Run must be started before serving those requests.
 func NewState(cfg *Config, consensus *consensus.State) *State {
 	lane := consensus.Avail().PublicKey()
 	n := consensus.Avail().NextBlock(lane)
-	return &State{
+	s := &State{
 		cfg: cfg,
 		mempool: utils.NewWatch(&mempool{
 			capacity:  avail.BlocksPerLane,
@@ -61,8 +66,13 @@ func NewState(cfg *Config, consensus *consensus.State) *State {
 			evmNonces: map[common.Address]uint64{},
 			evmTxs:    map[common.Hash]tmtypes.Tx{},
 		}),
-		consensus: consensus,
+		consensus:  consensus,
+		replayDone: make(chan struct{}),
 	}
+	if n == 0 {
+		s.replayOnce.Do(func() { close(s.replayDone) })
+	}
+	return s
 }
 
 // Run runs the background tasks of the producer state:
@@ -72,10 +82,18 @@ func NewState(cfg *Config, consensus *consensus.State) *State {
 // This is needed so that we can track the evm nonces of sequenced txs - mempool admits txs
 // sequentially in the nonce order.
 func (s *State) Run(ctx context.Context) error {
+	s.replayOnce.Do(func() {
+		s.replayErr = s.replayMempool(ctx)
+		close(s.replayDone)
+	})
+	if err := s.waitForReplay(ctx); err != nil {
+		return err
+	}
 	return scope.Run(ctx, func(ctx context.Context, scope scope.Scope) error {
 		availState := s.consensus.Avail()
 		lane := availState.PublicKey()
 		firstBlock := s.mempoolFirst()
+		nextBlock := availState.NextBlock(lane)
 		scope.Spawn(func() error {
 			// Task pruning executed lane blocks from the mempool
 			dataState := s.consensus.Data()
@@ -103,7 +121,7 @@ func (s *State) Run(ctx context.Context) error {
 			}
 			limiter := rate.NewLimiter(limit, burst)
 			lastBlockTime := time.Now()
-			for toProduce := firstBlock; ; toProduce += 1 {
+			for toProduce := nextBlock; ; toProduce += 1 {
 				if err := availState.WaitForLocalCapacity(ctx, toProduce); err != nil {
 					return fmt.Errorf("availState.WaitForLocalCapacity(): %w", err)
 				}

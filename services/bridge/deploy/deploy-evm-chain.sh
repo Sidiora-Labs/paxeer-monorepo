@@ -30,6 +30,7 @@
 #   the variable the configuration names in environment.rpc_url      the endpoint
 #   the variable the configuration names in environment.deploy_key   the deployer key
 #   PAXEER_BRIDGE_DEPLOYMENT_RECORD   where the deployment record is written
+#   PAXEER_BRIDGE_ATTESTOR_MANIFEST   optional approved manifest; attestors.json otherwise
 #   PAXEER_BRIDGE_EVM_CHAINS_ROOT     optional chains root, for a run-local
 #                                     configuration under <root>/<chain>/config.json
 #
@@ -50,6 +51,7 @@
 # on what a valid one looks like; its Go tests assert every committed file. The
 # checks below are the deployment preconditions this script refuses to deploy
 # without, enforced where a deployment happens.
+python3 "${BASH_SOURCE[0]%${BASH_SOURCE[0]##*/}}check-attestor-manifest.py" || exit "$?"
 set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)

@@ -7,6 +7,7 @@ import (
 
 	"github.com/paxeer-network/pax-load/config"
 	"github.com/paxeer-network/pax-load/config/cli"
+	"github.com/paxeer-network/pax-load/profiles"
 	"github.com/paxeer-network/pax-load/stats"
 	"github.com/spf13/cobra"
 )
@@ -18,7 +19,7 @@ var (
 
 func init() {
 	var err error
-	rootCmd, err = cli.NewCommand()
+	rootCmd, err = profiles.NewCommand()
 	if err != nil {
 		log.Fatal(err)
 	}

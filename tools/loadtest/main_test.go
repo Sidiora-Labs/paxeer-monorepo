@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/paxeer-network/pax-load/config"
+	"github.com/paxeer-network/pax-load/config/cli"
 	"github.com/paxeer-network/pax-load/stats"
 	"github.com/stretchr/testify/require"
 )
@@ -61,4 +62,41 @@ func TestEnforceBoundsReturnsErrPerformanceBounds(t *testing.T) {
 			MinTotalTxs:   50,
 		}, finalStats))
 	})
+}
+
+func TestProofPaxloadBoundsShippedProfileMainExit(t *testing.T) {
+	if repair321CLIChild(t) {
+		return
+	}
+	profile, err := cli.LoadConfig("profiles/evm_transfer.json")
+	require.NoError(t, err)
+	require.NotNil(t, profile.Bounds)
+	for _, disable := range []bool{false, true} {
+		name := "profile regression exits one"
+		if disable {
+			name = "explicit zero flags exit zero"
+		}
+		t.Run(name, func(t *testing.T) {
+			args := []string{"--tps=0.1", "--stats-interval=1s"}
+			if disable {
+				args = append(args, "--min-tps=0", "--max-p99-latency=0s", "--min-total-txs=0")
+			}
+			got := repair321RunCLI(t, *profile, args...)
+			require.Less(t, got.stats.OverallPerformance.AverageTPS, profile.Bounds.MinAverageTPS)
+			if disable {
+				require.Equal(t, 0, got.exit, "%s", got.output)
+				require.Zero(t, got.settings.MinTPS)
+				require.Zero(t, got.settings.MaxP99Latency)
+				require.Zero(t, got.settings.MinTotalTxs)
+				require.NotContains(t, got.output, ErrPerformanceBounds.Error())
+			} else {
+				require.Equal(t, 1, got.exit, "%s", got.output)
+				require.Equal(t, profile.Bounds.MinAverageTPS, got.settings.MinTPS)
+				require.Equal(t, config.Duration(time.Duration(profile.Bounds.MaxP99LatencyMs)*time.Millisecond), got.settings.MaxP99Latency)
+				require.Equal(t, profile.Bounds.MinTotalTxs, got.settings.MinTotalTxs)
+				require.Contains(t, got.output, ErrPerformanceBounds.Error())
+				require.ErrorIs(t, enforceBounds(got.settings, got.stats), ErrPerformanceBounds)
+			}
+		})
+	}
 }

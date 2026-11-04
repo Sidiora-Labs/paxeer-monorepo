@@ -116,6 +116,7 @@ func TestDevelopmentCreationMediaFlow(t *testing.T) {
 	redisURL := internaltest.NewRedisURL(t)
 	applyIndexerPools(t, pool)
 	objects := internaltest.NewMinIO(t, "metadata-media")
+	quarantine := internaltest.NewMinIO(t, "metadata-quarantine")
 	clamHost, clamPort := internaltest.NewClamd(t)
 	gateway := internaltest.NewGateway(t, dsn, redisURL, objects, devOrigin)
 	creatorKey, err := crypto.GenerateKey()
@@ -136,7 +137,8 @@ func TestDevelopmentCreationMediaFlow(t *testing.T) {
 
 	cfg := config.Config{
 		NodeEnv: "development", DatabaseURL: dsn, RedisURL: redisURL, RPCURL: chain.url,
-		S3Endpoint: objects.Endpoint, S3Bucket: objects.Bucket, S3AccessKeyID: objects.AccessKeyID, S3SecretAccessKey: objects.SecretAccessKey, S3Region: "us-east-1",
+		QuarantineBucket: quarantine.Bucket,
+		S3Endpoint:       objects.Endpoint, S3Bucket: objects.Bucket, S3AccessKeyID: objects.AccessKeyID, S3SecretAccessKey: objects.SecretAccessKey, S3Region: "us-east-1",
 		LogLevel: "info", Port: 3000, MaxLogoSizeBytes: 2 << 20, MaxBannerSizeBytes: 5 << 20,
 		CORSAllowedOrigins: devOrigin, PublicURL: devPublicOrigin,
 		ClamAVHost: clamHost, ClamAVPort: clamPort,

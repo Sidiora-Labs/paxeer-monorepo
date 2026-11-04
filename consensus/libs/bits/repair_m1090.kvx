@@ -1,0 +1,9 @@
+[repair.22.33.1090]
+baseline_revision = "4299cb15eced23eb9a839162acd11e9a937edd05"
+bitarray-lock-order = "TestRepairM_1090_LockOrder: bounded self and reciprocal Or, And, Sub and Update through production BitArray APIs and protobuf round trips."
+bitarray-or-right-tail = "TestRepairM_1090_OrRightTail: all ordered 1/64/65/129-bit pairs, every union bit, production protobuf inputs and JSON output consumer."
+preserved_contracts = "TestRepairM_1090_UpdateAndNilContracts: unequal-length whole-word Update and nil operands."
+baseline_verify = "Not run: the explicit gate order requires complete implementation before hf-build and hf-done and prohibits running verify_cmd by hand; no prior gate ledger or repair tests existed."
+baseline_observed = "Inspection shows self operations lock the same mutex twice and Or iterates only the smaller word count; no baseline test failure is claimed."
+wiring_requests = "None: both proposals are entirely within consensus/libs/bits."
+qualification_evidence = "The runner's hf-build and hf-done ledger records the candidate revision, exact command, exit code and private log location; the final response copies the last gate record."

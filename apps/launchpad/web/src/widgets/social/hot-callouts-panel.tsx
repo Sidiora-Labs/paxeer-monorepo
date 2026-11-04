@@ -31,12 +31,14 @@ export interface HotCalloutsPanelProps {
   className?: string;
 }
 
-function feedViews(page: Loadable<FeedPage>): Loadable<CalloutView[]> {
-  return page.state === 'ready' ? { state: 'ready', data: (page.data.Entries ?? []).map(feedCardView) } : page;
+interface CalloutPage { callouts: CalloutView[]; cursor: string | null }
+
+function feedViews(page: Loadable<FeedPage>): Loadable<CalloutPage> {
+  return page.state === 'ready' ? { state: 'ready', data: { callouts: (page.data.Entries ?? []).map(feedCardView), cursor: page.data.Cursor || null } } : page;
 }
 
-function poolViews(page: Loadable<CalloutListResponse>): Loadable<CalloutView[]> {
-  return page.state === 'ready' ? { state: 'ready', data: page.data.data.items.map(poolCalloutView) } : page;
+function poolViews(page: Loadable<CalloutListResponse>): Loadable<CalloutPage> {
+  return page.state === 'ready' ? { state: 'ready', data: { callouts: page.data.data.items.map(poolCalloutView), cursor: page.data.nextCursor } } : page;
 }
 
 /** Per-pool live stats resolved from one IF_STATS_BATCH request for every pool the cards reference. */
@@ -65,18 +67,7 @@ export function HotCalloutsPanel({ poolAddress = null, initialFeed, className }:
   const pool = poolAddress && walletPattern.test(poolAddress) ? poolAddress.toLowerCase() : null;
   const [feed, setFeed] = useState<CalloutFeedKind>(initialFeed && (initialFeed !== 'coin' || pool) ? initialFeed : 'hot');
   const [composing, setComposing] = useState(false);
-  const queryClient = useQueryClient();
   const viewer = useViewerWallet();
-  const order = feed === 'latest' ? 'chronological' : 'relevance';
-  const page = useFeed(order);
-  const coin = usePoolCallouts(feed === 'coin' ? pool : null);
-  const source = feed === 'coin' && pool ? poolViews(coin) : feedViews(page);
-  const callouts = useMemo(() => (source.state === 'ready' ? source.data : []), [source]);
-  const statsFor = useCalloutStats(callouts);
-
-  function retry() {
-    void queryClient.invalidateQueries({ queryKey: feed === 'coin' && pool ? queryKeys.poolCallouts(pool, null) : queryKeys.feed(order, null, 50) });
-  }
 
   return (
     <section aria-label={feedTitles[feed]} className={cn('flex min-h-0 flex-col gap-2', className)}>
@@ -96,34 +87,62 @@ export function HotCalloutsPanel({ poolAddress = null, initialFeed, className }:
         <CalloutComposer poolAddress={pool} onPosted={() => { setComposing(false); setFeed('coin'); }} />
       ) : null}
 
-      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
-        {source.state === 'loading' ? (
-          <div aria-busy="true" className="flex flex-col gap-2">
-            <span className="sr-only">Loading callouts</span>
-            <CalloutCardSkeleton /><CalloutCardSkeleton /><CalloutCardSkeleton />
-          </div>
-        ) : source.state === 'unsupported' ? (
-          <div className={noticeFrameClass}>
-            <UnavailableState variant="chip" plural="auto" surface={1} wrap className="self-start" title="Callouts" operation={source.operation} status={source.status} message={source.status === 503 ? 'Check back in a bit' : undefined} onRetry={retry} />
-          </div>
-        ) : source.state === 'error' ? (
-          <div className={noticeFrameClass}>
-            <ErrorState variant="chip" wrap className="self-start" message="Can't load callouts right now" error={source.error} onRetry={source.retry} />
-          </div>
-        ) : callouts.length === 0 ? (
-          <div className="rounded-md bg-surface-1">
-            <EmptyState
-              icon={Megaphone}
-              title="No callouts yet"
-              body={feed === 'coin' ? (viewer ? 'Be the first to call this coin' : 'Sign in to post the first callout') : 'Callouts from traders show up here'}
-              action={pool && viewer && !composing ? <Button variant="secondary" size="sm" icon={<Megaphone />} onClick={() => setComposing(true)}>Post a callout</Button> : null}
-              announce
-            />
-          </div>
-        ) : (
-          callouts.map(callout => <CalloutCard key={`${callout.source}:${callout.id}`} callout={callout} stats={statsFor(callout.poolAddress)} />)
-        )}
-      </div>
+      <CalloutPages key={`${feed}:${pool}`} feed={feed} pool={pool} viewer={viewer} onCompose={pool && viewer && !composing ? () => setComposing(true) : undefined} />
     </section>
+  );
+}
+
+function CalloutPages({ feed, pool, viewer, onCompose }: { feed: CalloutFeedKind; pool: string | null; viewer: string | null; onCompose?: () => void }) {
+  const queryClient = useQueryClient();
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [previous, setPrevious] = useState<CalloutView[]>([]);
+  const order = feed === 'latest' ? 'chronological' : 'relevance';
+  const page = useFeed(order, feed === 'coin' ? null : cursor);
+  const coin = usePoolCallouts(feed === 'coin' ? pool : null, cursor);
+  const source = feed === 'coin' && pool ? poolViews(coin) : feedViews(page);
+  const callouts = useMemo(() => {
+    const distinct = new Map(previous.map(callout => [`${callout.source}:${callout.id}`, callout]));
+    if (source.state === 'ready') {
+      for (const callout of source.data.callouts) distinct.set(`${callout.source}:${callout.id}`, callout);
+    }
+    return [...distinct.values()];
+  }, [previous, source]);
+  const statsFor = useCalloutStats(callouts);
+
+  function retry() {
+    void queryClient.invalidateQueries({ queryKey: feed === 'coin' && pool ? queryKeys.poolCallouts(pool, cursor) : queryKeys.feed(order, cursor, 50) });
+  }
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
+      {callouts.map(callout => <CalloutCard key={`${callout.source}:${callout.id}`} callout={callout} stats={statsFor(callout.poolAddress)} />)}
+      {source.state === 'loading' ? (
+        <div aria-busy="true" className="flex flex-col gap-2">
+          <span className="sr-only">Loading callouts</span>
+          <CalloutCardSkeleton /><CalloutCardSkeleton /><CalloutCardSkeleton />
+        </div>
+      ) : source.state === 'unsupported' ? (
+        <div className={noticeFrameClass}>
+          <UnavailableState variant="chip" plural="auto" surface={1} wrap className="self-start" title="Callouts" operation={source.operation} status={source.status} message={source.status === 503 ? 'Check back in a bit' : undefined} onRetry={retry} />
+        </div>
+      ) : source.state === 'error' ? (
+        <div className={noticeFrameClass}>
+          <ErrorState variant="chip" wrap className="self-start" message="Can't load callouts right now" error={source.error} onRetry={source.retry} />
+        </div>
+      ) : callouts.length === 0 ? (
+        <div className="rounded-md bg-surface-1">
+          <EmptyState
+            icon={Megaphone}
+            title="No callouts yet"
+            body={feed === 'coin' ? (viewer ? 'Be the first to call this coin' : 'Sign in to post the first callout') : 'Callouts from traders show up here'}
+            action={onCompose ? <Button variant="secondary" size="sm" icon={<Megaphone />} onClick={onCompose}>Post a callout</Button> : null}
+            announce
+          />
+        </div>
+      ) : null}
+      {source.state === 'ready' && source.data.cursor ? (
+        <Button variant="secondary" size="sm" onClick={() => { setPrevious(callouts); setCursor(source.data.cursor); }}>Load more callouts</Button>
+      ) : null}
+    </div>
   );
 }

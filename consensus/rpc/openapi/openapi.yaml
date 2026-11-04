@@ -1,11 +1,23 @@
 openapi: 3.0.0
 info:
-  title: Tendermint RPC
+  title: Paxeer consensus diagnostic RPC
   contact:
     name: Tendermint RPC
     url: https://github.com/tendermint/tendermint/issues/new/choose
   description: |
-    Tendermint supports the following RPC protocols:
+    This is the internal consensus diagnostic interface, separate from the
+    public Paxeer node JSON-RPC on EVM chain 125 (0x7d). The public HTTPS and
+    WebSocket endpoint is the root of https://api-mainnet-beta.paxeer.network.
+    See the maintained [public root endpoint and namespace contract](../../../docs/site/docs/reference/public-rpc.md#method-contracts).
+    Public node namespaces are debug, echo, eth, net, pax, test and txpool,
+    subject to node configuration; hosted px_ methods belong to the separate
+    [gateway OpenRPC contract](../../../services/platform/hosted/gateway/openrpc.json).
+    This diagnostic schema does not describe eth_ or px_ methods.
+
+    The maintained [consensus contract](../../internal/rpc/core/consensus_contract.md)
+    covers names, encodings, Autobahn refusals and state recovery.
+
+    The diagnostic RPC supports the following protocols:
 
     * URI over HTTP
     * JSON-RPC 2.0 over HTTP
@@ -17,9 +29,9 @@ info:
     `$TMHOME/config/config.toml` file or by using the `--rpc.X` command-line
     flags.
 
-    Default rpc listen address is `tcp://0.0.0.0:26657`.
+    Default rpc listen address is `tcp://127.0.0.1:26657`.
     To set another address, set the `laddr` config parameter to desired value.
-    CORS (Cross-Origin Resource Sharing) can be enabled by setting
+    CORS allowed origins are empty by default. CORS can be enabled by setting
     `cors_allowed_origins`, `cors_allowed_methods`, `cors_allowed_headers`
     config parameters.
 
@@ -58,11 +70,12 @@ info:
   license:
     name: Apache 2.0
     url: https://github.com/tendermint/tendermint/blob/master/LICENSE
+externalDocs:
+  description: Maintained consensus diagnostic contract, refusals and recovery
+  url: ../../internal/rpc/core/consensus_contract.md
 servers:
-  - url: https://rpc.cosmos.network
-    description: Cosmos mainnet node to interact with the Tendermint RPC
-  - url: http://localhost:26657
-    description: Interact with the Tendermint RPC locally on your device
+  - url: http://127.0.0.1:26657
+    description: Internal consensus diagnostics at the default loopback listener
 tags:
   - name: Websocket
     description: Subscribe/unsubscribe are reserved for websocket events.
@@ -83,7 +96,15 @@ paths:
     post:
       summary: Call registered RPC methods with JSON-RPC envelopes
       operationId: jsonrpc
-      description: One request or a batch of up to 10. Notifications are ignored. A response to a single request is an object; a response to a batch is an array, including a one-item batch. Method results use the corresponding URI success schema.
+      description: |
+        One request or a batch of up to 10. Notifications are ignored. A response
+        to a single request is an object; a response to a batch is an array,
+        including a one-item batch. Method results use the corresponding URI
+        success schema. Autobahn refusals for commit, consensus_state,
+        dump_consensus_state and broadcast_evidence return HTTP 200 with a
+        JSON-RPC error envelope, no result, and the request id. See each
+        operation for its sentinel and diagnostic data; Go error identity is
+        not serialized.
       requestBody:
         required: true
         content:
@@ -1106,17 +1127,36 @@ paths:
       tags:
         - Info
       description: |
-        Get Commit.
+        Autobahn refuses this route with ErrCommitNotAvailable, even when a
+        height is omitted or invalid. Tendermint precommit proofs are not served.
+        Use /block and /header for retained finalized block metadata and
+        /block_results for persisted execution results; these are not signed
+        Tendermint commitments or independently verifiable light-client proofs.
+        No replacement commitment-proof route is exposed by this schema.
+
+        Only a legacy environment with a populated CometBFT BlockStore can
+        return a signed_header. For the latest height its seen commit has
+        canonical=false; a stored commit from the following block has
+        canonical=true. An unavailable legacy commit may return null.
+
+        After successful parameter decoding, the refusal is HTTP 200. URI GET
+        returns a bare RPCError; root JSON-RPC POST returns an error envelope
+        with the request id and no result. The numeric code is -32603,
+        message is "Internal error", and data is "commit is not available under autobahn consensus".
+        In-process callers can use errors.Is with coretypes.ErrCommitNotAvailable;
+        remote callers receive RPCError fields rather than Go sentinel identity.
       responses:
         '200':
-          description: 'Commit results.
-
-
-            canonical switches from false to true for block H once block H+1 has been committed. Until then it''s subjective and only reflects what this node has seen so far.
-
-            ; URI returns the bare result or a structured RPCError.'
+          description: Autobahn returns ErrCommitNotAvailable; the success schema applies only to the configured legacy mode. URI responses are bare results or RPCError objects.
           content:
             application/json:
+              examples:
+                autobahn_refusal:
+                  summary: Autobahn diagnostic refusal (URI GET)
+                  value:
+                    code: -32603
+                    message: Internal error
+                    data: commit is not available under autobahn consensus
               schema:
                 anyOf:
                 - $ref: '#/components/schemas/CommitResponse'
@@ -1260,19 +1300,29 @@ paths:
       tags:
         - Info
       description: |
-        Get consensus state.
+        Autobahn refuses this route with ErrConsensusStateNotAvailable: it has
+        no CometBFT round state. Complete legacy state is available only when
+        both the CometBFT consensus state and reactor are configured.
+        Not safe to call from inside the ABCI application during block execution.
 
-        Not safe to call from inside the ABCI application during a block execution.
+        After successful parameter decoding, the refusal is HTTP 200. URI GET
+        returns a bare RPCError; root JSON-RPC POST returns an error envelope
+        with the request id and no result. The numeric code is -32603,
+        message is "Internal error", and data is "consensus round state is not available under autobahn consensus".
+        In-process callers can use errors.Is with coretypes.ErrConsensusStateNotAvailable;
+        remote callers receive RPCError fields rather than Go sentinel identity.
       responses:
         '200':
-          description: 'Complete consensus state.
-
-
-            See https://pkg.go.dev/github.com/tendermint/tendermint/types?tab=doc#Vote.String for Vote string description.
-
-            ; URI returns the bare result or a structured RPCError.'
+          description: Autobahn returns ErrConsensusStateNotAvailable; the success schema applies only to the configured legacy mode. URI responses are bare results or RPCError objects.
           content:
             application/json:
+              examples:
+                autobahn_refusal:
+                  summary: Autobahn diagnostic refusal (URI GET)
+                  value:
+                    code: -32603
+                    message: Internal error
+                    data: consensus round state is not available under autobahn consensus
               schema:
                 anyOf:
                 - $ref: '#/components/schemas/DumpConsensusResponse'
@@ -1296,14 +1346,29 @@ paths:
       tags:
         - Info
       description: |
-        Get consensus state.
+        Autobahn refuses this route with ErrConsensusStateNotAvailable: it has
+        no CometBFT round state. A concise legacy round state is available only
+        when the CometBFT consensus state is configured.
+        Not safe to call from inside the ABCI application during block execution.
 
-        Not safe to call from inside the ABCI application during a block execution.
+        After successful parameter decoding, the refusal is HTTP 200. URI GET
+        returns a bare RPCError; root JSON-RPC POST returns an error envelope
+        with the request id and no result. The numeric code is -32603,
+        message is "Internal error", and data is "consensus round state is not available under autobahn consensus".
+        In-process callers can use errors.Is with coretypes.ErrConsensusStateNotAvailable;
+        remote callers receive RPCError fields rather than Go sentinel identity.
       responses:
         '200':
-          description: consensus state results.; URI returns the bare result or a structured RPCError.
+          description: Autobahn returns ErrConsensusStateNotAvailable; the success schema applies only to the configured legacy mode. URI responses are bare results or RPCError objects.
           content:
             application/json:
+              examples:
+                autobahn_refusal:
+                  summary: Autobahn diagnostic refusal (URI GET)
+                  value:
+                    code: -32603
+                    message: Internal error
+                    data: consensus round state is not available under autobahn consensus
               schema:
                 anyOf:
                 - $ref: '#/components/schemas/ConsensusStateResponse'
@@ -1715,12 +1780,29 @@ paths:
       tags:
         - Evidence
       description: |
-        Broadcast evidence of the misbehavior.
+        Autobahn refuses this route with ErrEvidenceNotAccepted, including
+        otherwise valid CometBFT evidence; it does not forward evidence to
+        Autobahn. Only a legacy environment with an evidence pool accepts
+        validated CometBFT evidence. Parameter decoding precedes mode dispatch.
+
+        After successful parameter decoding, the refusal is HTTP 200. URI GET
+        returns a bare RPCError; root JSON-RPC POST returns an error envelope
+        with the request id and no result. The numeric code is -32603,
+        message is "Internal error", and data is "evidence is not accepted under autobahn consensus".
+        In-process callers can use errors.Is with coretypes.ErrEvidenceNotAccepted;
+        remote callers receive RPCError fields rather than Go sentinel identity.
       responses:
         '200':
-          description: Broadcast evidence of the misbehavior.; URI returns the bare result or a structured RPCError.
+          description: Autobahn returns ErrEvidenceNotAccepted; the success schema applies only to the configured legacy mode. URI responses are bare results or RPCError objects.
           content:
             application/json:
+              examples:
+                autobahn_refusal:
+                  summary: Autobahn diagnostic refusal (URI GET)
+                  value:
+                    code: -32603
+                    message: Internal error
+                    data: evidence is not accepted under autobahn consensus
               schema:
                 anyOf:
                 - $ref: '#/components/schemas/BroadcastEvidenceResponse'
