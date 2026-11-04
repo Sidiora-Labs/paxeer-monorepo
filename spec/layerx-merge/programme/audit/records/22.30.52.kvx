@@ -1,0 +1,1865 @@
+# Pre-upgrade node-runtime source audit; product findings only.
+
+[audit.22.30.52]
+task = "22.30.52"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 173
+review_method = "Whole-file source review of maintained members, generated-file provenance, requirement and registry declaration/caller comparison, and linked documentation review. Findings propose repairs; this record does not claim runtime tests executed."
+produces_reviewed = 278
+consumes_reviewed = 400
+findings = 63
+docs_reviewed = 29
+upgrade_ready = false
+blocking = ["receipt-single-entry-recovery", "call-omitted-tag-reads-committed", "cached-db-write-publication-order", "evidence-committed-transition-not-durable", "signer-state-rename-not-durable", "pubsub-unsubscribe-ignores-id"]
+
+[file.1]
+path = "consensus/cmd/contract_tests/main.go"
+lines = 34
+verdict = "issues"
+note = "Live contract hooks and runner lifecycle read; endpoint groups are skipped as recorded."
+
+[file.2]
+path = "consensus/cmd/priv_val_server/main.go"
+lines = 173
+verdict = "issues"
+note = "TLS client authentication, signer registration and flags traced; shutdown and metrics findings recorded."
+
+[file.3]
+path = "consensus/cmd/tendermint/commands/completion.go"
+lines = 46
+verdict = "clean"
+note = "Reviewed completion generation and shell selection; no merged-network interface change is hidden here."
+
+[file.4]
+path = "consensus/cmd/tendermint/commands/config.go"
+lines = 25
+verdict = "clean"
+note = "Reviewed config reading, root propagation and command pre-run setup against declared node configuration keys."
+
+[file.5]
+path = "consensus/cmd/tendermint/commands/debug/debug.go"
+lines = 29
+verdict = "clean"
+note = "Reviewed debug command assembly and flag ownership; diagnostics are local operator tools, not public RPC routes."
+
+[file.6]
+path = "consensus/cmd/tendermint/commands/debug/dump.go"
+lines = 167
+verdict = "clean"
+note = "Reviewed periodic dump cancellation, output selection and calls into the diagnostic archive/profile helpers."
+
+[file.7]
+path = "consensus/cmd/tendermint/commands/debug/io.go"
+lines = 114
+verdict = "issues"
+note = "Reviewed file copying and ZIP output finalization; ignored archive-close errors are recorded."
+
+[file.8]
+path = "consensus/cmd/tendermint/commands/debug/kill.go"
+lines = 164
+verdict = "clean"
+note = "Reviewed explicit PID/signal diagnostic flow and propagation of command errors."
+
+[file.9]
+path = "consensus/cmd/tendermint/commands/debug/util.go"
+lines = 82
+verdict = "issues"
+note = "Reviewed RPC state dumps, config/WAL copying and profile transport; unbounded profile fetch recorded."
+
+[file.10]
+path = "consensus/cmd/tendermint/commands/gen_autobahn_config.go"
+lines = 115
+verdict = "issues"
+note = "Reviewed key/address parsing and generated validator config; blank persistence opt-out contradicts the loader."
+
+[file.11]
+path = "consensus/cmd/tendermint/commands/gen_node_key.go"
+lines = 32
+verdict = "clean"
+note = "Reviewed node-key generation, file ownership and command error propagation against the current key API."
+
+[file.12]
+path = "consensus/cmd/tendermint/commands/gen_validator.go"
+lines = 41
+verdict = "clean"
+note = "Reviewed validator key generation/output and supported key type; no retired network component is introduced."
+
+[file.13]
+path = "consensus/cmd/tendermint/commands/inspect.go"
+lines = 57
+verdict = "clean"
+note = "Reviewed inspector construction and Autobahn offline-store refusal before opening CometBFT state."
+
+[file.14]
+path = "consensus/cmd/tendermint/commands/inspect_test.go"
+lines = 22
+verdict = "clean"
+note = "Read offline inspection tests and refusal assertions; fixtures exercise the command/config boundary."
+
+[file.15]
+path = "consensus/cmd/tendermint/commands/key_migrate.go"
+lines = 75
+verdict = "clean"
+note = "Reviewed configured database selection and key/state migration calls; errors remain visible to the command."
+
+[file.16]
+path = "consensus/cmd/tendermint/commands/light.go"
+lines = 229
+verdict = "clean"
+note = "Reviewed trust options, witness selection, proxy startup and configuration defaults against the light-client APIs."
+
+[file.17]
+path = "consensus/cmd/tendermint/commands/reindex_event.go"
+lines = 297
+verdict = "issues"
+note = "Reviewed offline refusal, store/sink loading and replay bounds; normalized heights are discarded by the caller."
+
+[file.18]
+path = "consensus/cmd/tendermint/commands/reindex_event_test.go"
+lines = 228
+verdict = "clean"
+note = "Read height validation and event-sink replay assertions; additional CLI default-bound coverage is proposed with the implementation finding."
+
+[file.19]
+path = "consensus/cmd/tendermint/commands/reset.go"
+lines = 224
+verdict = "issues"
+note = "Reviewed every reset variant and signer/data path; root duplication, partial success and persistence-dir drift are recorded."
+
+[file.20]
+path = "consensus/cmd/tendermint/commands/reset_test.go"
+lines = 219
+verdict = "clean"
+note = "Read path-removal, signer and Autobahn-reset fixtures; current tests use direct paths and do not prove nonempty-home CLI resolution."
+
+[file.21]
+path = "consensus/cmd/tendermint/commands/rollback.go"
+lines = 74
+verdict = "clean"
+note = "Reviewed rollback store loading, target validation and explicit Autobahn rejection before legacy-store access."
+
+[file.22]
+path = "consensus/cmd/tendermint/commands/rollback_test.go"
+lines = 26
+verdict = "clean"
+note = "Read target-height rollback and Autobahn refusal assertions against the exported offline APIs."
+
+[file.23]
+path = "consensus/cmd/tendermint/commands/run_node.go"
+lines = 93
+verdict = "clean"
+note = "Reviewed run command service startup, signal lifecycle and propagated constructor errors."
+
+[file.24]
+path = "consensus/crypto/CHANGELOG.md"
+lines = 154
+verdict = "clean"
+note = "Historical version log read as release history, including obsolete APIs confined to dated entries."
+
+[file.25]
+path = "consensus/crypto/README.md"
+lines = 26
+verdict = "clean"
+note = "Read current Ed25519/hash/Merkle scope, fork import paths and tagged JSON examples; wire tags match key registration."
+
+[file.26]
+path = "consensus/crypto/conv.go"
+lines = 35
+verdict = "clean"
+note = "Reviewed bounded hash/address conversions and protobuf key conversion against fixed-size crypto types."
+
+[file.27]
+path = "consensus/crypto/crypto.go"
+lines = 53
+verdict = "clean"
+note = "Reviewed concrete key/signature aliases, truncated address hash and checksum types against their callers."
+
+[file.28]
+path = "consensus/crypto/crypto_test.go"
+lines = 59
+verdict = "clean"
+note = "Read current checksum, address and key-alias behavior assertions and fixture encodings."
+
+[file.29]
+path = "consensus/crypto/doc.go"
+lines = 38
+verdict = "issues"
+note = "Read package guide in full; obsolete PrivKey/GenPrivKey API examples are recorded."
+
+[file.30]
+path = "consensus/crypto/ed25519/amino.go"
+lines = 28
+verdict = "clean"
+note = "Reviewed explicit legacy secret/public key serialization and validating decode before assignment."
+
+[file.31]
+path = "consensus/crypto/ed25519/bench_test.go"
+lines = 58
+verdict = "clean"
+note = "Read signing/verification benchmarks and setup; benchmark output is not used as a finality or correctness claim."
+
+[file.32]
+path = "consensus/crypto/ed25519/conv.go"
+lines = 71
+verdict = "clean"
+note = "Reviewed public-key/signature protobuf byte conversions and length validation."
+
+[file.33]
+path = "consensus/crypto/ed25519/ed25519.go"
+lines = 216
+verdict = "clean"
+note = "Reviewed key generation, fixed-size validation, signing, verification and batch verification semantics."
+
+[file.34]
+path = "consensus/crypto/ed25519/ed25519_test.go"
+lines = 85
+verdict = "clean"
+note = "Read valid/invalid key and signature assertions against the actual concrete API and serialization."
+
+[file.35]
+path = "consensus/crypto/ed25519/json.go"
+lines = 78
+verdict = "clean"
+note = "Reviewed registered key type tags and JSON decoding through validating fixed-size constructors; secret encoding is explicit persistence compatibility."
+
+[file.36]
+path = "consensus/crypto/ed25519/zip215_vector_test.go"
+lines = 105
+verdict = "clean"
+note = "Read ZIP-215 vector loading and verification assertions; these are crypto compatibility vectors, not mocked network evidence."
+
+[file.37]
+path = "consensus/crypto/merkle/README.md"
+lines = 4
+verdict = "clean"
+note = "Read static-tree scope guidance; intended small deterministic structures agree with the implementation."
+
+[file.38]
+path = "consensus/crypto/merkle/doc.go"
+lines = 30
+verdict = "issues"
+note = "Read tree-shape documentation; obsolete second-preimage warning is recorded against current prefixed hashing."
+
+[file.39]
+path = "consensus/crypto/merkle/hash.go"
+lines = 51
+verdict = "clean"
+note = "Reviewed distinct leaf/inner hash prefixes and SHA-256 digest construction against tree/proof consumers."
+
+[file.40]
+path = "consensus/crypto/merkle/proof.go"
+lines = 241
+verdict = "clean"
+note = "Reviewed proof construction, validation, protobuf conversion and bounded aunt traversal against tree roots."
+
+[file.41]
+path = "consensus/crypto/merkle/proof_key_path.go"
+lines = 110
+verdict = "clean"
+note = "Reviewed URL/hex key-path encoding and inverse parsing consumed by the proof runtime."
+
+[file.42]
+path = "consensus/crypto/merkle/proof_key_path_test.go"
+lines = 44
+verdict = "clean"
+note = "Read key-path round-trip and invalid-format cases against the actual key-path encoder."
+
+[file.43]
+path = "consensus/crypto/merkle/proof_op.go"
+lines = 139
+verdict = "issues"
+note = "Reviewed runtime decoder registration and proof chaining; malformed proof panic at the remote consumer boundary recorded."
+
+[file.44]
+path = "consensus/crypto/merkle/proof_test.go"
+lines = 199
+verdict = "clean"
+note = "Read inclusion proof construction/verification, invalid indexes, aunt counts and protobuf proof assertions."
+
+[file.45]
+path = "consensus/crypto/merkle/proof_value.go"
+lines = 108
+verdict = "clean"
+note = "Reviewed ValueOp decoding, hash construction and input validation against the registered proof operation shape."
+
+[file.46]
+path = "consensus/crypto/merkle/rfc6962_test.go"
+lines = 104
+verdict = "clean"
+note = "Read independent RFC6962 tree/proof vectors and their expected hashes."
+
+[file.47]
+path = "consensus/crypto/merkle/tree.go"
+lines = 112
+verdict = "clean"
+note = "Reviewed iterative/recursive split logic and empty-tree behavior against proof construction."
+
+[file.48]
+path = "consensus/crypto/merkle/tree_test.go"
+lines = 196
+verdict = "clean"
+note = "Read tree hash, split-point, deterministic construction and domain-separation assertions."
+
+[file.49]
+path = "consensus/crypto/merkle/types.go"
+lines = 39
+verdict = "clean"
+note = "Reviewed leaf/inner prefix constants shared by hashing and proof verification."
+
+[file.50]
+path = "consensus/crypto/random.go"
+lines = 21
+verdict = "clean"
+note = "Reviewed cryptographic random-byte helpers and error handling; no deterministic secret default is introduced."
+
+[file.51]
+path = "consensus/crypto/random_test.go"
+lines = 23
+verdict = "clean"
+note = "Read random-byte size and distribution sanity assertions without treating them as cryptographic proof."
+
+[file.52]
+path = "consensus/crypto/tmhash/hash.go"
+lines = 21
+verdict = "clean"
+note = "Reviewed full/truncated SHA-256 sizes and digest constructors against address and Merkle consumers."
+
+[file.53]
+path = "consensus/internal/blocksync/doc.go"
+lines = 27
+verdict = "issues"
+note = "Read active-sync versus serving-channel documentation; contradictory catchup-stop wording is recorded."
+
+[file.54]
+path = "consensus/internal/blocksync/msgs.go"
+lines = 16
+verdict = "clean"
+note = "Reviewed protobuf block/status channel sizing and declared transport message limits."
+
+[file.55]
+path = "consensus/internal/blocksync/pool.go"
+lines = 690
+verdict = "clean"
+note = "Reviewed peer request scheduling, response accounting, cancellation, timeouts and sync-controller state transitions."
+
+[file.56]
+path = "consensus/internal/blocksync/pool_test.go"
+lines = 368
+verdict = "clean"
+note = "Read peer pool behavior, request scheduling and bounded sync fixture assertions."
+
+[file.57]
+path = "consensus/internal/blocksync/reactor.go"
+lines = 698
+verdict = "clean"
+note = "Reviewed generic channel wrap/unwrap, always-on serving, sync-controller handoff and supervised worker shutdown."
+
+[file.58]
+path = "consensus/internal/blocksync/reactor_test.go"
+lines = 844
+verdict = "clean"
+note = "Read live peer/reactor response and synchronization scenarios against real protobuf messages."
+
+[file.59]
+path = "consensus/internal/blocksync/wiring_test.go"
+lines = 23
+verdict = "clean"
+note = "Read fork wiring regressions for controller ownership and serving/shutdown paths."
+
+[file.60]
+path = "consensus/internal/evidence/doc.go"
+lines = 52
+verdict = "issues"
+note = "Read evidence persistence and gossip guide; old Receive/Update lifecycle names are recorded."
+
+[file.61]
+path = "consensus/internal/evidence/metrics.go"
+lines = 20
+verdict = "clean"
+note = "Reviewed evidence gauge declaration and metric ownership against pool updates and registry row."
+
+[file.62]
+path = "consensus/internal/evidence/mocks/block_store.go"
+lines = 85
+verdict = "generated"
+note = "Generated by mockery; provenance is the DO NOT EDIT header. Treated as generated test support rather than maintained product implementation."
+
+[file.63]
+path = "consensus/internal/evidence/pool.go"
+lines = 672
+verdict = "issues"
+note = "Reviewed all pool state, verification, persistence, recovery and pruning paths; startup and durable committed-marker findings recorded."
+
+[file.64]
+path = "consensus/internal/evidence/pool_test.go"
+lines = 622
+verdict = "issues"
+note = "Read complete pool lifecycle/recovery tests; light-client lifecycle fixture bypasses required Start initialization."
+
+[file.65]
+path = "consensus/internal/evidence/reactor.go"
+lines = 274
+verdict = "issues"
+note = "Reviewed per-evidence transport, validation and peer broadcasts; shutdown closes resources before all users are joined."
+
+[file.66]
+path = "consensus/internal/evidence/reactor_test.go"
+lines = 471
+verdict = "clean"
+note = "Read gossip, invalid-evidence and peer lifecycle assertions against the live reactor path."
+
+[file.67]
+path = "consensus/internal/evidence/services.go"
+lines = 13
+verdict = "clean"
+note = "Reviewed state/block-store interfaces needed by evidence validation against implementations and generated mock signatures."
+
+[file.68]
+path = "consensus/internal/evidence/verify.go"
+lines = 280
+verdict = "clean"
+note = "Reviewed duplicate-vote and light-client-attack signature, validator-set, height and trust-period checks."
+
+[file.69]
+path = "consensus/internal/evidence/verify_test.go"
+lines = 634
+verdict = "clean"
+note = "Read valid and malformed duplicate-vote/light-client verification cases and actual cryptographic fixture construction."
+
+[file.70]
+path = "consensus/internal/evidence/wiring_test.go"
+lines = 24
+verdict = "clean"
+note = "Read evidence eventbus/channel fork-wiring assertions and source boundaries."
+
+[file.71]
+path = "consensus/internal/libs/async/async.go"
+lines = 184
+verdict = "clean"
+note = "Reviewed task result channels, panic conversion, early abort and caller-controlled completion semantics."
+
+[file.72]
+path = "consensus/internal/libs/async/async_test.go"
+lines = 160
+verdict = "clean"
+note = "Read parallel return, abort, panic and result collection assertions against real task execution."
+
+[file.73]
+path = "consensus/internal/libs/clist/bench_test.go"
+lines = 28
+verdict = "clean"
+note = "Read list insertion/removal/traversal benchmarks and ownership of constructed lists."
+
+[file.74]
+path = "consensus/internal/libs/clist/clist.go"
+lines = 285
+verdict = "issues"
+note = "Reviewed all concurrent element/list wait and removal operations; zero-value channel initialization defect recorded."
+
+[file.75]
+path = "consensus/internal/libs/clist/clist_property_test.go"
+lines = 72
+verdict = "issues"
+note = "Read complete model and invariants; property runner is commented out and test body executes no assertion."
+
+[file.76]
+path = "consensus/internal/libs/clist/clist_test.go"
+lines = 320
+verdict = "clean"
+note = "Read public insertion, traversal, removal, waiting and clear cases; separate property-runner finding preserves these assertions."
+
+[file.77]
+path = "consensus/internal/libs/flowrate/flowrate.go"
+lines = 289
+verdict = "clean"
+note = "Reviewed transfer accounting, rate limiting and timing windows under the monitor mutex."
+
+[file.78]
+path = "consensus/internal/libs/flowrate/util.go"
+lines = 58
+verdict = "clean"
+note = "Reviewed duration/rounding and rate helper arithmetic used by the monitor."
+
+[file.79]
+path = "consensus/internal/libs/progressbar/progressbar.go"
+lines = 41
+verdict = "clean"
+note = "Reviewed local progress rendering and interval/percentage arithmetic for offline tools."
+
+[file.80]
+path = "consensus/internal/libs/progressbar/progressbar_test.go"
+lines = 41
+verdict = "clean"
+note = "Read bounded progress option and output behavior cases; no network-facing state is modeled here."
+
+[file.81]
+path = "consensus/internal/libs/protoio/io.go"
+lines = 99
+verdict = "clean"
+note = "Reviewed ReadCloser/WriteCloser contracts and byte-count interfaces against delimited implementations."
+
+[file.82]
+path = "consensus/internal/libs/protoio/io_test.go"
+lines = 183
+verdict = "clean"
+note = "Read delimited interface and close behavior tests using real protobuf messages."
+
+[file.83]
+path = "consensus/internal/libs/protoio/reader.go"
+lines = 106
+verdict = "clean"
+note = "Reviewed varint framing, maximum message size, read counts, protobuf decode and underlying close ownership."
+
+[file.84]
+path = "consensus/internal/libs/protoio/writer.go"
+lines = 134
+verdict = "clean"
+note = "Reviewed length-delimited marshal/write handling and underlying writer close behavior."
+
+[file.85]
+path = "consensus/internal/libs/protoio/writer_test.go"
+lines = 89
+verdict = "clean"
+note = "Read delimited marshal/write byte-shape assertions and message round trips."
+
+[file.86]
+path = "consensus/internal/libs/queue/queue.go"
+lines = 232
+verdict = "issues"
+note = "Reviewed quotas, credit, close and condition waits; cancellation and multiple-waiter notification defects recorded."
+
+[file.87]
+path = "consensus/internal/libs/queue/queue_test.go"
+lines = 192
+verdict = "clean"
+note = "Read quota/credit, ordering, close and context cases; coordinated boundary regressions are proposed with queue findings."
+
+[file.88]
+path = "consensus/internal/libs/reservoir/bemchmark_test.go"
+lines = 59
+verdict = "clean"
+note = "Read bounded reservoir insertion/percentile benchmarks and seeded workload setup."
+
+[file.89]
+path = "consensus/internal/libs/reservoir/reservoir.go"
+lines = 133
+verdict = "issues"
+note = "Reviewed sampling probability, percentile cache and mutex lifecycle; dirty flag can discard a prior sample change."
+
+[file.90]
+path = "consensus/internal/libs/reservoir/reservoir_test.go"
+lines = 201
+verdict = "clean"
+note = "Read nearest-rank, bounds, sample size and concurrency assertions; sequential replacement/cache invalidation case is proposed separately."
+
+[file.91]
+path = "consensus/internal/libs/sync/waker.go"
+lines = 30
+verdict = "clean"
+note = "Reviewed notification-channel replacement and mutex-protected wake semantics used by background workers."
+
+[file.92]
+path = "consensus/internal/libs/sync/waker_test.go"
+lines = 47
+verdict = "clean"
+note = "Read notification delivery/coalescing assertions against the public waker API."
+
+[file.93]
+path = "consensus/internal/libs/tempfile/tempfile.go"
+lines = 129
+verdict = "issues"
+note = "Reviewed temporary-file flags, collision bounds, writes and rename; parent-directory durability missing on signer-state path."
+
+[file.94]
+path = "consensus/internal/libs/tempfile/tempfile_test.go"
+lines = 144
+verdict = "clean"
+note = "Read atomic file content, permissions and replacement assertions; power-loss and directory-sync coverage proposed with durability finding."
+
+[file.95]
+path = "consensus/internal/libs/test/mutate.go"
+lines = 29
+verdict = "clean"
+note = "Reviewed test-only byte mutation helper and its input ownership; no runtime trust bypass is introduced."
+
+[file.96]
+path = "consensus/internal/libs/timer/throttle_timer.go"
+lines = 68
+verdict = "clean"
+note = "Reviewed event coalescing, timer reset and stopped-state mutex/channel lifecycle."
+
+[file.97]
+path = "consensus/internal/libs/timer/throttle_timer_test.go"
+lines = 81
+verdict = "clean"
+note = "Read throttle timer fire/reset/stop assertions and bounded wait behavior."
+
+[file.98]
+path = "consensus/internal/libs/wal/log.go"
+lines = 225
+verdict = "issues"
+note = "Reviewed file locking, poisoned-handle behavior, append/flush/search lifecycle; segment reader leak recorded."
+
+[file.99]
+path = "consensus/internal/libs/wal/log_test.go"
+lines = 198
+verdict = "clean"
+note = "Read log append/rotation/corruption/reopen assertions against disk-backed log files."
+
+[file.100]
+path = "consensus/internal/libs/wal/reader.go"
+lines = 79
+verdict = "clean"
+note = "Reviewed length/CRC validation and reader resource API; caller close omission is recorded on log.go."
+
+[file.101]
+path = "consensus/internal/libs/wal/view.go"
+lines = 113
+verdict = "clean"
+note = "Reviewed segment naming, offset lookup, rotation view and pruning boundaries against log callers."
+
+[file.102]
+path = "consensus/internal/libs/wal/writer.go"
+lines = 116
+verdict = "clean"
+note = "Reviewed append framing, CRC, sync, tail recovery and segment rotation behavior."
+
+[file.103]
+path = "consensus/internal/pubsub/example_test.go"
+lines = 31
+verdict = "clean"
+note = "Read example subscription/publication flow through the real pubsub server and query parser."
+
+[file.104]
+path = "consensus/internal/pubsub/pubsub.go"
+lines = 421
+verdict = "issues"
+note = "Reviewed subscription admission, publication, removal and shutdown; ID removal and stopped count-accessor findings recorded."
+
+[file.105]
+path = "consensus/internal/pubsub/pubsub_test.go"
+lines = 454
+verdict = "clean"
+note = "Read subscription/event delivery, capacity, duplicate and removal assertions; selected-ID and post-stop cases proposed separately."
+
+[file.106]
+path = "consensus/internal/pubsub/query/bench_test.go"
+lines = 55
+verdict = "clean"
+note = "Read parser/matcher benchmarks and representative event attributes."
+
+[file.107]
+path = "consensus/internal/pubsub/query/query.go"
+lines = 330
+verdict = "clean"
+note = "Reviewed nil/all query handling, typed comparisons, event conditions and MATCHES execution against syntax output."
+
+[file.108]
+path = "consensus/internal/pubsub/query/query_test.go"
+lines = 271
+verdict = "clean"
+note = "Read compile/match matrices for strings, numbers, times and multi-attribute event conditions."
+
+[file.109]
+path = "consensus/internal/pubsub/query/syntax/doc.go"
+lines = 33
+verdict = "issues"
+note = "Read full EBNF and lexical guide; supported MATCHES operator is absent from the grammar."
+
+[file.110]
+path = "consensus/internal/pubsub/query/syntax/parser.go"
+lines = 215
+verdict = "clean"
+note = "Reviewed comparison parsing, operand type rules and date/time conversion against scanner tokens."
+
+[file.111]
+path = "consensus/internal/pubsub/query/syntax/scanner.go"
+lines = 316
+verdict = "clean"
+note = "Reviewed tokenization, quoted values, operators and bounded lexical error paths for event queries."
+
+[file.112]
+path = "consensus/internal/pubsub/query/syntax/syntax_test.go"
+lines = 193
+verdict = "clean"
+note = "Read scanner/parser valid and invalid query matrices and token positions."
+
+[file.113]
+path = "consensus/internal/pubsub/subindex.go"
+lines = 117
+verdict = "clean"
+note = "Reviewed client/query/ID indexes, subscription identity and insertion/removal consistency; ID selection omission is in the caller finding."
+
+[file.114]
+path = "consensus/internal/pubsub/subscription.go"
+lines = 92
+verdict = "clean"
+note = "Reviewed subscription IDs, message delivery, cancellation and queue-backed Next lifecycle."
+
+[file.115]
+path = "consensus/node/doc.go"
+lines = 6
+verdict = "clean"
+note = "Read embedded consensus-node package scope; it is an internal constructor/service, not a second public network."
+
+[file.116]
+path = "consensus/node/node.go"
+lines = 770
+verdict = "clean"
+note = "Reviewed complete constructor/OnStart/OnStop paths, engine selection, metrics, stores, eventbus, RPC and reactor ownership."
+
+[file.117]
+path = "consensus/node/node_giga_eventbus_test.go"
+lines = 105
+verdict = "clean"
+note = "Read Giga eventbus wiring and nil-bus refusal regressions against the real router constructor."
+
+[file.118]
+path = "consensus/node/node_test.go"
+lines = 1162
+verdict = "clean"
+note = "Read node startup, RPC/listener, shutdown, key/config and store lifecycle fixtures in full."
+
+[file.119]
+path = "consensus/node/public.go"
+lines = 81
+verdict = "clean"
+note = "Reviewed New engine dispatch and shared NewNode config/source arguments against production construction."
+
+[file.120]
+path = "consensus/node/seed.go"
+lines = 223
+verdict = "clean"
+note = "Reviewed seed-mode store/router startup and shutdown responsibilities with no block executor."
+
+[file.121]
+path = "consensus/node/setup.go"
+lines = 591
+verdict = "issues"
+note = "Reviewed stores, genesis, leader source, Autobahn persistence, P2P and signer setup; close helper error semantics recorded."
+
+[file.122]
+path = "consensus/node/setup_test.go"
+lines = 349
+verdict = "clean"
+note = "Read setup/config/leader-source and startup refusal assertions against current interfaces."
+
+[file.123]
+path = "rpc/README.md"
+lines = 187
+verdict = "issues"
+note = "Read entire interface guide; pending identity and deprecated API recommendations contradict current behavior."
+
+[file.124]
+path = "rpc/pending_block_test.go"
+lines = 383
+verdict = "clean"
+note = "Read open/idle pending block and simulation consumer fixtures including header/state identity checks."
+
+[file.125]
+path = "rpc/pending_context_test.go"
+lines = 203
+verdict = "clean"
+note = "Read pending context and nonce behavior across open/idle transitions and snapshots."
+
+[file.126]
+path = "rpc/send.go"
+lines = 535
+verdict = "clean"
+note = "Reviewed signer-free raw send validation, duplicate receipt lookup, sequencer acceptance, bounded reopening retry and forwarding paths."
+
+[file.127]
+path = "rpc/send_pending_test.go"
+lines = 280
+verdict = "clean"
+note = "Read seal-to-open retry, cancellation, single acceptance and accepted-height receipt log assertions."
+
+[file.128]
+path = "rpc/simulate.go"
+lines = 1028
+verdict = "issues"
+note = "Reviewed full backend and simulation paths, state/header snapshots and typed revert encoding; omitted-tag defaults are inconsistent."
+
+[file.129]
+path = "rpc/watermark_manager.go"
+lines = 456
+verdict = "clean"
+note = "Reviewed safe block/state/receipt bounds, pending provider errors, bounded waiting and open/idle snapshot identity."
+
+[file.130]
+path = "storage/db_engine/dbcache/cache.go"
+lines = 111
+verdict = "clean"
+note = "Reviewed immutable cache API, Reader shape, update/delete representation and BuildCache config validation."
+
+[file.131]
+path = "storage/db_engine/dbcache/cache_config.go"
+lines = 43
+verdict = "clean"
+note = "Reviewed cache size/shard/metrics defaults and validation; public direct-constructor gap is recorded elsewhere."
+
+[file.132]
+path = "storage/db_engine/dbcache/cache_impl.go"
+lines = 174
+verdict = "issues"
+note = "Reviewed shard dispatch and work-pool coordination; metrics interval validation missing at direct construction."
+
+[file.133]
+path = "storage/db_engine/dbcache/cache_impl_test.go"
+lines = 725
+verdict = "clean"
+note = "Read cache public operation, batch and configuration tests using real sharded storage behavior."
+
+[file.134]
+path = "storage/db_engine/dbcache/cache_metrics.go"
+lines = 136
+verdict = "clean"
+note = "Reviewed OTel names, cache attributes, nil-safe recording and cancellation; invalid intervals must be refused by constructor."
+
+[file.135]
+path = "storage/db_engine/dbcache/cached_batch.go"
+lines = 58
+verdict = "issues"
+note = "Reviewed backing-batch commit and cache publication; failed enqueue can leave a pending cache mutation."
+
+[file.136]
+path = "storage/db_engine/dbcache/cached_batch_test.go"
+lines = 204
+verdict = "clean"
+note = "Read commit visibility/reset/close cases; concurrent publication and failed enqueue coverage proposed with owning findings."
+
+[file.137]
+path = "storage/db_engine/dbcache/cached_key_value_db.go"
+lines = 118
+verdict = "issues"
+note = "Reviewed every wrapper method; same-key write ordering and returned-value ownership violate backing-engine expectations."
+
+[file.138]
+path = "storage/db_engine/dbcache/lru_queue.go"
+lines = 95
+verdict = "clean"
+note = "Reviewed queue links, duplicate touches, byte accounting and eviction ordering."
+
+[file.139]
+path = "storage/db_engine/dbcache/lru_queue_test.go"
+lines = 310
+verdict = "clean"
+note = "Read queue insertion/touch/removal/eviction cases and size accounting assertions."
+
+[file.140]
+path = "storage/db_engine/dbcache/noop_cache.go"
+lines = 56
+verdict = "clean"
+note = "Reviewed explicit passthrough Reader behavior and no-op writes; this is a declared cache-disabled implementation."
+
+[file.141]
+path = "storage/db_engine/dbcache/noop_cache_test.go"
+lines = 155
+verdict = "clean"
+note = "Read disabled-cache passthrough, batch error and no-op mutation assertions."
+
+[file.142]
+path = "storage/db_engine/dbcache/shard.go"
+lines = 431
+verdict = "clean"
+note = "Reviewed full scheduled/available/deleted state machine, singleflight result delivery, writes, LRU and eviction locking."
+
+[file.143]
+path = "storage/db_engine/dbcache/shard_manager.go"
+lines = 46
+verdict = "clean"
+note = "Reviewed power-of-two shard calculation and deterministic key-to-shard grouping."
+
+[file.144]
+path = "storage/db_engine/dbcache/shard_manager_test.go"
+lines = 271
+verdict = "clean"
+note = "Read invalid shard-count and key distribution/grouping cases against the real hash mapping."
+
+[file.145]
+path = "storage/db_engine/dbcache/shard_test.go"
+lines = 903
+verdict = "clean"
+note = "Read complete state-machine, concurrent read/write, eviction, batch and reader-error tests."
+
+[file.146]
+path = "storage/db_engine/dbcache/unwrap.go"
+lines = 14
+verdict = "clean"
+note = "Reviewed explicit extraction of the underlying engine without recursion or implicit cache-state mutation."
+
+[file.147]
+path = "storage/db_engine/test/storage_bench_suite.go"
+lines = 167
+verdict = "issues"
+note = "Read every reusable storage benchmark; write version reuse and unclosed scan iterators are recorded."
+
+[file.148]
+path = "storage/db_engine/test/storage_test_suite.go"
+lines = 1381
+verdict = "clean"
+note = "Read full versioned storage contract suite: mutation history, raw/forward/reverse iteration, pruning, import and persistence assertions."
+
+[file.149]
+path = "storage/db_engine/test/utils.go"
+lines = 76
+verdict = "clean"
+note = "Reviewed test changeset construction and store/version helpers against StateStore input types."
+
+[file.150]
+path = "storage/ledger_db/block/block_db.go"
+lines = 78
+verdict = "clean"
+note = "Reviewed BlockDB, BinaryBlock/Transaction shapes, context-aware lifecycle and not-found conventions."
+
+[file.151]
+path = "storage/ledger_db/block/block_db_test/block_db_test.go"
+lines = 427
+verdict = "issues"
+note = "Read complete generic block/transaction/prune/reopen suite; memory builder reuses an existing instance for reopen claims."
+
+[file.152]
+path = "storage/ledger_db/block/blocksim/Makefile"
+lines = 14
+verdict = "clean"
+note = "Reviewed local binary targets and module build paths; wrapper failure propagation is recorded on blocksim.sh."
+
+[file.153]
+path = "storage/ledger_db/block/blocksim/block_generator.go"
+lines = 91
+verdict = "clean"
+note = "Reviewed deterministic block/transaction construction, seed use and cancellation-aware staged delivery."
+
+[file.154]
+path = "storage/ledger_db/block/blocksim/blocksim.go"
+lines = 343
+verdict = "issues"
+note = "Reviewed workload ownership, writes, flush, prune, suspension and teardown; retention underflow and success-after-error recorded."
+
+[file.155]
+path = "storage/ledger_db/block/blocksim/blocksim.sh"
+lines = 28
+verdict = "issues"
+note = "Reviewed path resolution, build, logger setup and exec; failed make can launch a stale binary."
+
+[file.156]
+path = "storage/ledger_db/block/blocksim/blocksim_config.go"
+lines = 196
+verdict = "clean"
+note = "Reviewed backend selection, size/interval constraints and default retention settings against simulator use."
+
+[file.157]
+path = "storage/ledger_db/block/blocksim/blocksim_metrics.go"
+lines = 175
+verdict = "clean"
+note = "Reviewed OTel instruments, reported workload counters and phase/directory metrics against simulator calls."
+
+[file.158]
+path = "storage/ledger_db/block/blocksim/cmd/blocksim/main.go"
+lines = 88
+verdict = "clean"
+note = "Reviewed config load, metric setup, signal and benchmark entrypoint; workload errors are lost by the simulator API as recorded there."
+
+[file.159]
+path = "storage/ledger_db/block/blocksim/cmd/configure-logger/main.go"
+lines = 52
+verdict = "clean"
+note = "Reviewed config-to-shell logging export generation, quoting and explicit cleanup flags."
+
+[file.160]
+path = "storage/ledger_db/block/blocksim/config/debug.json"
+lines = 12
+verdict = "clean"
+note = "Read complete memory-benchmark configuration; data/log cleanup is explicit and backend is intentionally ephemeral."
+
+[file.161]
+path = "storage/ledger_db/block/mem_block_db/mem_block_db.go"
+lines = 148
+verdict = "clean"
+note = "Reviewed synchronized block/hash/transaction indexes, pruning bounds and explicitly in-memory close/flush semantics."
+
+[file.162]
+path = "storage/ledger_db/block/mem_block_db/mem_block_db_test.go"
+lines = 108
+verdict = "clean"
+note = "Read direct memory-store overwrite, retrieval, prune and lifecycle assertions; no disk durability is supplied by this backend."
+
+[file.163]
+path = "storage/ledger_db/event/placeholder.go"
+lines = 1
+verdict = "clean"
+note = "Read complete package placeholder; no runtime implementation or declared missing event service is hidden here."
+
+[file.164]
+path = "storage/ledger_db/receipt/export_test.go"
+lines = 17
+verdict = "clean"
+note = "Reviewed test-only recovery helper exposing the real implementation without changing production behavior."
+
+[file.165]
+path = "storage/ledger_db/receipt/receipt_bench_read_test.go"
+lines = 492
+verdict = "clean"
+note = "Read receipt lookup/filter workload setup and correctness prerequisites; runtime cache ownership gaps are recorded separately."
+
+[file.166]
+path = "storage/ledger_db/receipt/receipt_bench_test.go"
+lines = 135
+verdict = "clean"
+note = "Read receipt serialization/write benchmark setup and backend configuration through the real store."
+
+[file.167]
+path = "storage/ledger_db/receipt/receipt_cache.go"
+lines = 307
+verdict = "issues"
+note = "Reviewed all rotating receipt/log cache operations and cloning; no production constructor or owner uses this cache."
+
+[file.168]
+path = "storage/ledger_db/receipt/receipt_store.go"
+lines = 388
+verdict = "issues"
+note = "Reviewed full backend, receipt serialization/fallback, versions, pruning and close; recovery and metrics lifecycle findings recorded."
+
+[file.169]
+path = "storage/ledger_db/receipt/receipt_store_test.go"
+lines = 248
+verdict = "issues"
+note = "Read complete construction/read/write/filter/recovery tests; recovery fixture omits singleton and public restart boundary."
+
+[file.170]
+path = "storage/ledger_db/receipt/test_helpers_test.go"
+lines = 37
+verdict = "clean"
+note = "Reviewed receipt benchmark/test context and keeper fixture helpers against actual receipt record types."
+
+[file.171]
+path = "storage/ledger_db/receipt/tx_hash_index.go"
+lines = 223
+verdict = "clean"
+note = "Reviewed Pebble hash/block prefixes, big-endian heights, synchronous batch indexing/pruning and idempotent close."
+
+[file.172]
+path = "storage/ledger_db/receipt/tx_hash_index_test.go"
+lines = 121
+verdict = "clean"
+note = "Read hash-index persistence, replacement, pruning and close/reopen assertions against the real on-disk index."
+
+[file.173]
+path = "storage/ledger_db/transaction/placeholder.go"
+lines = 1
+verdict = "clean"
+note = "Read complete package placeholder; transaction data lives in the block store rather than this empty package."
+
+[finding.receipt-single-entry-recovery]
+file = "storage/ledger_db/receipt/receipt_store.go"
+line = 317
+class = "restart-recovery"
+severity = "high"
+observed = "recoverReceiptStore sets targetStartOffset to firstOffset for an unapplied store but only replays when targetStartOffset < lastOffset. A WAL with exactly one unapplied receipt entry therefore returns success without applying that entry or advancing the receipt version."
+expected = "Committed EVM receipts must remain readable after restart. storage/wal/wal.go Replay accepts an inclusive start/end range, including a singleton, so the receipt recovery consumer must process every unapplied version."
+proposal = "In storage/ledger_db/receipt/receipt_store.go locate the first genuinely unapplied version and replay it inclusively through lastOffset; add real receipt-store restart cases for zero, one and multiple WAL entries and a fully applied tail."
+owner_domain = 5
+interface = "5.go-storage-ledger-db-receipt-receipt-store"
+
+[finding.receipt-recovery-handle-lifecycle]
+file = "storage/ledger_db/receipt/receipt_store.go"
+line = 282
+class = "restart-recovery"
+severity = "medium"
+observed = "newReceiptBackend opens mvcc.OpenDB, which already owns a changelog WAL and its background worker. recoverReceiptStore opens the same changelog a second time and never closes streamHandler on success, empty-log returns or errors; NewChangelogWAL starts another mainLoop."
+expected = "Receipt recovery must have one controlled owner of the changelog and close every recovery resource before normal writes and pruning proceed; receiptStore.Close must terminate all WAL workers owned by construction."
+proposal = "Move receipt replay onto the existing MVCC WAL owner, or finish a closed recovery phase before starting that owner. Ensure every opened recovery handle is closed on every return and test repeated open/recover/close with live resource accounting."
+owner_domain = 5
+interface = "5.fmt-storage-changelog-wal"
+
+[finding.receipt-recovery-masks-io-errors]
+file = "storage/ledger_db/receipt/receipt_store.go"
+line = 287
+class = "restart-recovery"
+severity = "medium"
+observed = "FirstOffset and LastOffset errors are treated identically to an empty changelog and recoverReceiptStore returns nil. The caller can finish opening a receipt store without establishing whether durable receipt entries need replay."
+expected = "An empty WAL is a successful recovery case, but a failed WAL offset read must prevent the store from advertising successful recovery and preserve the underlying error for the operator."
+proposal = "In storage/ledger_db/receipt/receipt_store.go distinguish a documented empty-log result from errFirst and errLast, propagate I/O errors, and add failure-path coverage that confirms construction refuses unreadable recovery metadata."
+owner_domain = 5
+interface = "5.fmt-storage-changelog-wal"
+
+[finding.receipt-recovery-test-misses-singleton]
+file = "storage/ledger_db/receipt/receipt_store_test.go"
+line = 203
+class = "test-gap"
+severity = "medium"
+observed = "TestRecoverReceiptStoreReplaysChangelog writes two WAL entries, marks version 1 applied, and checks version 2 through the exported helper. It never covers an unapplied singleton or the public constructor reopening a crashed receipt store."
+expected = "Recovery evidence must exercise the real constructor and the smallest crash tail, since a two-entry helper fixture bypasses the targetStartOffset == lastOffset branch that loses an unapplied receipt."
+proposal = "Extend storage/ledger_db/receipt/receipt_store_test.go with disk-backed public-constructor recovery scenarios for a singleton and multi-entry tail, asserting the exact receipt payload and version after close/reopen and repeated recovery."
+owner_domain = 5
+interface = "5.go-storage-ledger-db-receipt-new-receipt-store"
+
+[finding.call-omitted-tag-reads-committed]
+file = "rpc/simulate.go"
+line = 173
+class = "interface-mismatch"
+severity = "high"
+observed = "SimulationAPI.Call replaces an omitted blockNrOrHash with LatestBlockNumber. StateAndHeaderByNumberOrHash only enters pendingStateAndHeader for PendingBlockNumber, so a proposer with an open block answers an omitted-tag call from committed state."
+expected = "Requirement 5104.1 requires eth_call with pending or no block tag on the node holding the open block to use that open state, and requirement 8373.1 requires committed identity only while idle."
+proposal = "In rpc/simulate.go choose the same role-aware default used by defaultEstimateTag for Call. Add a consumer test whose contract result differs between committed and open state and assert omitted, pending and explicit latest before seal and after reopening."
+owner_domain = 7
+interface = "7.rpc-eth-call"
+
+[finding.access-list-omitted-tag-full-node]
+file = "rpc/simulate.go"
+line = 91
+class = "runtime-risk"
+severity = "medium"
+observed = "CreateAccessList unconditionally defaults an omitted tag to PendingBlockNumber, unlike EstimateGas. On a full node without a pending provider this reaches WatermarkManager.pendingSnapshot and returns ErrPendingServedBySequencer, even though committed-state access-list simulation is available."
+expected = "The optional-tag RPC should choose open state on a node holding it and a usable committed default on ordinary nodes; callers should not need an explicit latest tag merely to use a normal full-node simulation endpoint."
+proposal = "Use a shared role-aware simulation default in rpc/simulate.go for CreateAccessList and cover omitted-tag calls on both a full node and an open/idle proposer, preserving refusal for explicitly requested unavailable pending state."
+owner_domain = 7
+interface = "7.rpc-eth-createaccesslist"
+
+[finding.cached-db-write-publication-order]
+file = "storage/db_engine/dbcache/cached_key_value_db.go"
+line = 72
+class = "runtime-risk"
+severity = "high"
+observed = "Set and Delete publish to the backing DB and then the cache without shared serialization. Two same-key writers can interleave A-db, B-db, B-cache, A-cache, leaving Get returning A indefinitely while the DB and iterators contain B; cached batches have the same publication boundary."
+expected = "NewCachedKeyValueDB, consumed by storage/db_engine/pebbledb/db.go, must preserve the underlying database ordering so node state reads, batch reads and iterators agree after completed writes."
+proposal = "Serialize backing writes and cache publication across Set, Delete and cached-batch Commit in storage/db_engine/dbcache, or use generation-based invalidation with equivalent guarantees. Add controlled interleaving tests comparing cached reads with the underlying DB after both writers finish."
+owner_domain = 5
+interface = "5.go-storage-db-engine-dbcache-new-cached-key-value-db"
+
+[finding.cached-db-value-ownership]
+file = "storage/db_engine/dbcache/cached_key_value_db.go"
+line = 44
+class = "runtime-risk"
+severity = "medium"
+observed = "cachedKeyValueDB.Get returns the cache-owned byte slice and its comments forbid mutation. The KeyValueDB interface in storage/db_engine/types/types.go promises a value copy safe to use after the call, and the uncached pebbleDB.Get actually clones it. Enabling the cache therefore changes value ownership."
+expected = "A storage engine wrapper must preserve KeyValueDB value-copy semantics; a consumer retaining or modifying its returned value must not modify later reads or share writable cache memory with another consumer."
+proposal = "Clone values at the KeyValueDB wrapper boundary for Get and BatchGet while retaining the explicit immutable-slice contract inside Cache. Add parity tests that mutate returned buffers and verify subsequent cached and uncached reads remain identical."
+owner_domain = 5
+interface = "5.go-storage-db-engine-dbcache-new-cached-key-value-db"
+
+[finding.cache-constructor-metrics-panic]
+file = "storage/db_engine/dbcache/cache_impl.go"
+line = 71
+class = "config-drift"
+severity = "medium"
+observed = "NewStandardCache checks shard count and size but does not call CacheConfig.Validate. A nonempty MetricsName with a zero or negative MetricsScrapeInterval reaches newCacheMetrics and time.NewTicker in its background goroutine, causing an unrecoverable process panic."
+expected = "CacheConfig.Validate explicitly rejects a nonpositive metrics interval. Every public construction path must apply that contract before allocating workers or starting metrics collection."
+proposal = "Validate the complete CacheConfig at entry to NewStandardCache in storage/db_engine/dbcache/cache_impl.go and add constructor-level invalid-interval cases asserting a returned error without starting a scrape worker."
+owner_domain = 5
+interface = "5.go-storage-db-engine-dbcache-cache-config"
+
+[finding.cached-batch-records-failed-mutations]
+file = "storage/db_engine/dbcache/cached_batch.go"
+line = 24
+class = "runtime-risk"
+severity = "medium"
+observed = "cachedBatch.Set and Delete append a CacheUpdate before asking the inner batch to accept the operation. If the inner operation returns an error and the caller commits the remaining valid batch, the failed mutation is still published to the cache although it was not accepted by the DB batch."
+expected = "The cache must publish precisely the mutations accepted and committed by the backing batch; a failed enqueue must neither alter the committed cache view nor be silently retained for a later Commit."
+proposal = "In storage/db_engine/dbcache/cached_batch.go append each pending cache update only after the corresponding inner operation succeeds, retain original errors, and test a real backend error path followed by valid operations and commit."
+owner_domain = 5
+interface = "5.go-storage-db-engine-dbcache-new-cached-key-value-db"
+
+[finding.reindex-discards-normalized-heights]
+file = "consensus/cmd/tendermint/commands/reindex_event.go"
+line = 71
+class = "runtime-risk"
+severity = "medium"
+observed = "checkValidHeight normalizes startHeight and endHeight on its value-copy checkValidHeightArgs, but MakeReindexEventCommand constructs eventReIndexArgs from the original flag variables. Defaults 0/0 still request block 0; an explicit start with default end can perform no work and report success."
+expected = "The CLI help promises omitted start means the block-store base and omitted end means its latest height. The same validated interval must reach eventReIndex and its persistent event sinks."
+proposal = "Return the resolved interval from checkValidHeight or pass it by pointer in consensus/cmd/tendermint/commands/reindex_event.go, then use it for replay. Add CLI-path tests for both defaults, either omitted bound, and a pruned base."
+owner_domain = 15
+interface = "15.cli-consensus-cmd-tendermint-commands-reindex-event-j57"
+
+[finding.reset-root-applied-twice]
+file = "consensus/cmd/tendermint/commands/reset.go"
+line = 90
+class = "runtime-risk"
+severity = "medium"
+observed = "MakeResetCommand and MakeUnsafeResetAllCommand pass conf.DBDir(), KeyFile() and StateFile(), which are already rooted, along with homeDir. ResetAll joins homeDir to those paths again, targeting a duplicated home path and potentially generating a new validator key below the wrong directory."
+expected = "A reset must operate on the exact configured data and signer paths once. The original configured key must be retained while the explicitly requested unsafe signer state is reset."
+proposal = "In consensus/cmd/tendermint/commands/reset.go define one resolved-path boundary and remove the second home join for resolved arguments. Add command-path tests with absolute and relative homes and assert the actual configured key and data directories are the ones affected."
+owner_domain = 15
+interface = "5.go-consensus-config-base-config-db-dir"
+
+[finding.reset-ignores-custom-autobahn-dir]
+file = "consensus/cmd/tendermint/commands/reset.go"
+line = 143
+class = "config-drift"
+severity = "medium"
+observed = "reset blockchain removes only filepath.Join(conf.DBDir(), autobahn). The generator defaults persistent_state_dir to data/autobahn rooted against the node home, and operators can set any custom path; changing db-dir or persistence-dir leaves the active Autobahn WAL behind after the reset."
+expected = "Reset must remove the selected node consensus data consistently with the actual persistence configuration, so a supposedly fresh node does not replay an old safety/data WAL against reset block and state stores."
+proposal = "Have the reset command load and resolve the configured Autobahn persistence directory through consensus/config/autobahn.go, include it in an explicit reset plan, and test a nondefault DB directory and a custom persistent directory."
+owner_domain = 15
+interface = "5.go-consensus-config-autobahn-file-config-consensus-persistent-state-dir"
+
+[finding.reset-success-after-delete-failure]
+file = "consensus/cmd/tendermint/commands/reset.go"
+line = 114
+class = "runtime-risk"
+severity = "medium"
+observed = "removeIfExists logs RemoveAll failures and returns no error. ResetState consequently returns only EnsureDir, and ResetAll also logs deletion failures before continuing; a permissions or filesystem failure can leave history in place while the CLI exits successfully."
+expected = "An operator reset must report partial failure and preserve the failed path in its error. Directory existence alone does not prove that blockchain and consensus state have been cleared."
+proposal = "Return and propagate removal and recreation errors in consensus/cmd/tendermint/commands/reset.go, stop dependent reset steps after failure, and add permission/I/O failure coverage that checks a nonzero command result without weakening existing reset assertions."
+owner_domain = 15
+interface = "15.cli-consensus-cmd-tendermint-commands-reset-j57"
+
+[finding.autobahn-generator-invalid-opt-out]
+file = "consensus/cmd/tendermint/commands/gen_autobahn_config.go"
+line = 93
+class = "config-drift"
+severity = "medium"
+observed = "The persistent-state-dir help and generator comments advertise an empty flag as disabling persistence. The emitted config simply omits PersistentStateDir and leaves UnsafeTestOnlyDisablePersistence false, which ConsensusPersistentStateDir rejects with ErrPersistentStateDirRequired at startup."
+expected = "Generated Autobahn configuration must round-trip through its real loader, and production consensus must retain the explicit protection against silently running without durable safety state."
+proposal = "In consensus/cmd/tendermint/commands/gen_autobahn_config.go reject an empty production persistence path, or expose the separately named explicit unsafe test-only opt-out consistently with config validation. Test generated JSON through the startup loader."
+owner_domain = 15
+interface = "15.cli-consensus-cmd-tendermint-commands-flag-persistent-state-dir-j57"
+
+[finding.signer-shutdown-handler-unreachable]
+file = "consensus/cmd/priv_val_server/main.go"
+line = 131
+class = "runtime-risk"
+severity = "medium"
+observed = "main calls the blocking gRPC Server.Serve before installing signal.NotifyContext and the goroutine that invokes GracefulStop and HTTP Shutdown. During normal serving those shutdown handlers are unreachable, and the final select also prevents clean return after Serve stops."
+expected = "The remote validator signer must install termination handling before accepting work and drain in-flight signing RPCs and metrics serving within a bounded shutdown lifecycle."
+proposal = "Reorder consensus/cmd/priv_val_server/main.go to install cancellation and shutdown supervision before Serve, handle normal server-stop errors without os.Exit, and join serving and shutdown paths before main returns; cover a live server termination."
+owner_domain = 15
+interface = "15.cli-consensus-cmd-priv-val-server-flag-addr-j57"
+
+[finding.signer-prometheus-registry-unwired]
+file = "consensus/cmd/priv_val_server/main.go"
+line = 157
+class = "wiring-gap"
+severity = "medium"
+observed = "registerPrometheus initializes grpcMetrics but never registers that collector with the private reg served by HandlerFor. The installed UnaryServerInterceptor uses the package default metrics rather than grpcMetrics, so the configured endpoint cannot expose the signer RPC series."
+expected = "Enabling prometheus-addr must expose the metrics collected for actual signer requests through the same registered collector and registry, so operators can observe signing health."
+proposal = "Register grpcMetrics with reg and install its unary interceptor in consensus/cmd/priv_val_server/main.go. Exercise a real signing/public-key RPC and scrape the configured endpoint for its corresponding nonzero metrics."
+owner_domain = 15
+interface = "15.cli-consensus-cmd-priv-val-server-flag-prometheus-addr-j57"
+
+[finding.contract-hooks-skip-live-endpoints]
+file = "consensus/cmd/contract_tests/main.go"
+line = 18
+class = "test-gap"
+severity = "medium"
+observed = "BeforeEach marks every Tx group and the broadcast_evidence, abci_query and tx endpoint groups skipped based on their names. These live node interfaces are excluded from the contract exercise rather than supplied valid evidence, query and transaction inputs."
+expected = "Requirement 22998.1 forbids treating deleted, skipped or weakened cases as qualification. A contract suite should exercise each supported live endpoint with producer-shaped data and assert its declared response."
+proposal = "Replace the name-based skip rules in consensus/cmd/contract_tests/main.go with real setup that submits funded transactions, retains their hashes and builds valid evidence/query requests; retain all assertions and explicitly distinguish unsupported endpoints by asserted errors."
+owner_domain = 15
+
+[finding.debug-profile-unbounded-fetch]
+file = "consensus/cmd/tendermint/commands/debug/util.go"
+line = 70
+class = "runtime-risk"
+severity = "medium"
+observed = "dumpProfile uses http.Get without a timeout or request context, reads the entire response with io.ReadAll, and writes even non-success HTTP bodies as a profile. A stalled or oversized profiling endpoint can hang or exhaust memory during node diagnostics."
+expected = "Operator diagnostics must obey cancellation and finite resource limits and must report an unsuccessful profile fetch instead of packaging an HTTP error page as evidence."
+proposal = "Pass the command context into dumpProfile, use a bounded HTTP client and response size in consensus/cmd/tendermint/commands/debug/util.go, validate the status, and cover cancellation, excessive bodies and unsuccessful statuses."
+owner_domain = 15
+
+[finding.debug-archive-close-errors-lost]
+file = "consensus/cmd/tendermint/commands/debug/io.go"
+line = 25
+class = "runtime-risk"
+severity = "medium"
+observed = "zipDir returns the Walk result while deferring zipWriter.Close and zipFile.Close with their errors discarded. ZIP central-directory writes happen on Close, so disk-full or final-write errors can yield a reported successful but unreadable diagnostic archive."
+expected = "A successful diagnostic archive result must mean its ZIP trailer and output file were finalized successfully; storage errors must remain visible to the operator."
+proposal = "Finalize the ZIP writer and file explicitly in consensus/cmd/tendermint/commands/debug/io.go and combine those errors with traversal errors. Add an output-failure case and validate that successful archives can be reopened and enumerated."
+owner_domain = 15
+
+[finding.merkle-malformed-proof-panics]
+file = "consensus/crypto/merkle/proof_op.go"
+line = 62
+class = "security"
+severity = "medium"
+observed = "ProofOperators.Verify indexes args[0] without validating output arity, and ProofRuntime.DecodeProof dereferences a nil proof. VerifyAbsence supplies nil args, so a zero-operation proof panics; consensus/light/rpc/client.go calls this path on a remote ABCI absence response."
+expected = "Untrusted proof responses must be refused with an error, never panic the light client. A valid proof must leave exactly the required root result and consume its key path."
+proposal = "Validate nil proofs, operation lists and final argument arity in consensus/crypto/merkle/proof_op.go before indexing. Exercise malformed remote absence/value responses through the light RPC consumer and retain existing valid proof vectors."
+owner_domain = 15
+interface = "15.go-consensus-crypto-merkle-proof-runtime-j57"
+
+[finding.evidence-start-guard-never-set]
+file = "consensus/internal/evidence/pool.go"
+line = 263
+class = "restart-recovery"
+severity = "medium"
+observed = "Pool.Start checks isStarted but never sets it. A second Start reloads persisted pending evidence into the existing evidenceList again, while evidenceSize is reset to the database count, so list contents and counters disagree after repeated initialization."
+expected = "Evidence pool startup must either be idempotent or reject a second start, and recovered evidence must appear once in the gossip/proposal list with matching counters."
+proposal = "In consensus/internal/evidence/pool.go guard the startup transition and set isStarted only after successful initialization, with rollback on failure. Add repeated-start and failed-start retry cases using the public Pool lifecycle."
+owner_domain = 15
+interface = "15.go-consensus-internal-evidence-pool-j57"
+
+[finding.evidence-committed-transition-not-durable]
+file = "consensus/internal/evidence/pool.go"
+line = 383
+class = "restart-recovery"
+severity = "high"
+observed = "markEvidenceAsCommitted writes committed markers with separate evidenceStore.Set calls, logs failures, and still commits the batch that deletes pending entries. isCommitted also logs Has errors and returns its boolean. A failed marker can therefore remove the pending record while later duplicate checks treat the committed offense as unseen."
+expected = "Committed evidence must remain recognized across failures and restarts, so a valid already-committed offense cannot be proposed or accepted again merely because its durable marker failed or could not be read."
+proposal = "Make marker insertion and pending deletion one checked synchronous batch in consensus/internal/evidence/pool.go, propagate storage failure through the node commit/lifecycle boundary, and refuse duplicate checks on read errors. Add disk-backed restart and failed-marker scenarios asserting no duplicate admission."
+owner_domain = 15
+interface = "15.go-consensus-internal-evidence-pool-j57"
+
+[finding.evidence-shutdown-does-not-join-users]
+file = "consensus/internal/evidence/reactor.go"
+line = 94
+class = "runtime-risk"
+severity = "medium"
+observed = "Reactor.OnStop closes evpool immediately. BaseService invokes OnStop before waiting for its tracked workers, and processPeerUpdate starts broadcastEvidenceLoop with raw go calls outside that tracking. Stop can close the evidence DB while inbound processing is still using it and return without all peer loops joined."
+expected = "Stopping the evidence reactor must cancel and join every inbound, peer-update and broadcast worker before closing shared pool resources, matching the advertised blocking OnStop lifecycle."
+proposal = "Own all evidence workers in a supervised scope in consensus/internal/evidence/reactor.go and close the pool after their completion. Add shutdown coverage with an in-flight AddEvidence and an active peer broadcast, asserting no work or store use after Stop returns."
+owner_domain = 15
+interface = "15.go-consensus-internal-evidence-reactor-j57"
+
+[finding.evidence-lifecycle-test-omits-start]
+file = "consensus/internal/evidence/pool_test.go"
+line = 405
+class = "test-gap"
+severity = "medium"
+observed = "TestLightClientAttackEvidenceLifecycle constructs NewPool and calls AddEvidence without Pool.Start. NewPool no longer loads state; verification therefore sees a zero state instead of the prepared chain state, while neighboring tests use startPool to initialize it."
+expected = "The light-client evidence test must follow the production pool lifecycle and verify an offense against the same chain identity and consensus state the real pool uses."
+proposal = "Initialize the pool through Start with a complete matching state in consensus/internal/evidence/pool_test.go, then retain every add, duplicate, proposal and committed-refusal assertion. Qualify the unchanged behavioral contract through the actual lifecycle."
+owner_domain = 15
+interface = "15.go-consensus-internal-evidence-pool-j57"
+
+[finding.closer-success-returns-error]
+file = "consensus/node/setup.go"
+line = 59
+class = "runtime-risk"
+severity = "low"
+observed = "makeCloser tests len(errs) >= 0, which is always true, so closing only successful resources returns errors.New with an empty string. combineCloseError then stringifies primary and close errors, losing their errors.Is identity."
+expected = "A successful resource close must return nil, and combining independent cleanup failures must preserve the underlying typed or sentinel errors for startup and shutdown callers."
+proposal = "Use a positive error count and errors.Join in consensus/node/setup.go, and add success, one-failure and combined-failure assertions including errors.Is preservation at the public startup error boundary."
+owner_domain = 5
+
+[finding.queue-cancellation-lost-wakeup]
+file = "consensus/internal/libs/queue/queue.go"
+line = 145
+class = "runtime-risk"
+severity = "medium"
+observed = "Queue.Wait broadcasts cancellation without holding q.mu. Cancellation can occur after the loop selects default but before Cond.Wait registers its waiter, losing the only broadcast and leaving the request blocked until an unrelated item or Close arrives."
+expected = "Wait promises to return a context error when its context ends; pubsub Subscription.Next relies on that guarantee for canceled event consumers and clean shutdown."
+proposal = "Synchronize the cancellation notification with the condition mutex or use an equivalent cancellation-safe queue design in consensus/internal/libs/queue/queue.go. Add a coordinated cancellation-at-wait-boundary test without sleeps or probabilistic polling."
+owner_domain = 15
+interface = "15.go-consensus-internal-libs-queue-queue-j57"
+
+[finding.queue-multiple-waiters-not-woken]
+file = "consensus/internal/libs/queue/queue.go"
+line = 118
+class = "runtime-risk"
+severity = "medium"
+observed = "Queue.Add signals the condition only when queueLen becomes one. If multiple consumers are asleep, two enqueues before the first consumer acquires the mutex wake only one; after that consumer removes one item, the other remains asleep while the queue is still nonempty."
+expected = "The goroutine-safe Queue.Wait contract must release an available item to waiting consumers whenever work remains, rather than depend on a future empty-to-nonempty transition."
+proposal = "Signal for every successful enqueue or hand off a wakeup when items remain in consensus/internal/libs/queue/queue.go. Add a deterministic two-waiter/two-item case asserting both calls finish and each item is returned once."
+owner_domain = 15
+interface = "15.go-consensus-internal-libs-queue-queue-j57"
+
+[finding.reservoir-dirty-state-overwritten]
+file = "consensus/internal/libs/reservoir/reservoir.go"
+line = 71
+class = "runtime-risk"
+severity = "medium"
+observed = "Sampler.Add assigns dirtySinceAdd = replacee != item for each replacement. A changed sample followed by an equal-valued replacement clears an already true dirty flag; Percentile then keeps lastVal after the five-second TTL although samples changed. The mempool uses this sampler for its drop-priority threshold."
+expected = "Once the reservoir differs from the last percentile calculation it must stay dirty until recalculated, so transaction admission/drop policy reflects the retained sample distribution after the cache interval."
+proposal = "Accumulate the dirty condition in consensus/internal/libs/reservoir/reservoir.go instead of overwriting it. Add a seeded replacement sequence and controlled clock boundary showing a changed sample cannot be hidden by a later equal replacement."
+owner_domain = 15
+interface = "15.go-consensus-internal-libs-reservoir-sampler-j57"
+
+[finding.signer-state-rename-not-durable]
+file = "consensus/internal/libs/tempfile/tempfile.go"
+line = 128
+class = "restart-recovery"
+severity = "high"
+observed = "WriteFileAtomic synchronously writes a temporary file but returns after os.Rename without syncing the containing directory and discards the close error. FilePVLastSignState.Save at consensus/privval/file.go:187 uses this function before reporting a signature; a power-loss recovery can lose the renamed watermark."
+expected = "Validator last-sign state must be durable before a signing request succeeds, including the directory entry that selects the new state, so a restart cannot regress height/round/step and permit equivocation."
+proposal = "In consensus/internal/libs/tempfile/tempfile.go check file finalization, rename, then fsync and close the parent directory before returning success. Add durable signer-state crash/restart coverage and propagate file and directory sync failures to the signing caller."
+owner_domain = 15
+interface = "15.go-consensus-internal-libs-tempfile-write-file-atomic-j57"
+
+[finding.clist-zero-value-panics]
+file = "consensus/internal/libs/clist/clist.go"
+line = 226
+class = "runtime-risk"
+severity = "medium"
+observed = "CList documents its zero value as an empty ready-to-use list, but PushBack closes l.waitCh when len is zero. A zero-value CList has a nil waitCh and panics on its first insertion; FrontWait can also wait on an uninitialized channel."
+expected = "The declared zero-value lifecycle must be usable with the same insertion and waiting semantics as New, without requiring consumers to know an undocumented initialization exception."
+proposal = "Initialize the empty-list wait channel safely inside consensus/internal/libs/clist/clist.go before use, and cover a zero-value list through push, wait, remove and clear using public operations."
+owner_domain = 15
+interface = "15.go-consensus-internal-libs-clist-c-list-j57"
+
+[finding.clist-property-test-disabled]
+file = "consensus/internal/libs/clist/clist_property_test.go"
+line = 13
+class = "test-gap"
+severity = "medium"
+observed = "TestCListProperties has an empty body because its only rapid.Check invocation is commented out. The model operations and invariants below it are never executed, so a green test name supplies no linked-list property evidence."
+expected = "Property coverage must actually generate operations and assert public list invariants. Requirement 22998.1 does not allow disabled or weakened tests to stand in for successful qualification."
+proposal = "Restore execution of the complete rapid state-machine model in consensus/internal/libs/clist/clist_property_test.go, adapting it to the current public API while preserving the model assertions, and qualify the test with a reproducible failure seed when needed."
+owner_domain = 15
+
+[finding.consensus-wal-reader-leak]
+file = "consensus/internal/libs/wal/log.go"
+line = 81
+class = "runtime-risk"
+severity = "medium"
+observed = "logInner.ReadFile opens a logReader and returns on EOF or read errors without closing its underlying os.File. The consensus WAL ReadLastHeightMsgs consumer invokes ReadFile while searching log segments, so repeated searches leak descriptors until garbage collection happens to close files."
+expected = "WAL search and replay must release every segment reader deterministically on both success and corruption, so recovery does not depend on finalizers or exhaust the process file limit."
+proposal = "Defer and check reader closure in consensus/internal/libs/wal/log.go immediately after openLogReader succeeds. Add repeated segment-search coverage that checks descriptor/resource release on normal EOF and corrupt entries."
+owner_domain = 15
+interface = "15.go-consensus-internal-libs-wal-log-j57"
+
+[finding.blockdb-reopen-test-reuses-instance]
+file = "storage/ledger_db/block/block_db_test/block_db_test.go"
+line = 29
+class = "test-gap"
+severity = "medium"
+observed = "newMemBlockDBBuilder allocates one in-memory DB outside its builder closure and returns the same object for every path. TestCloseAndReopen and TestCloseAndReopenThenWrite consequently read the original live maps rather than reconstructing a store from durable data."
+expected = "A restart test must close a store and create an independent instance from persisted bytes. An intentionally ephemeral memory backend cannot establish block durability or restart recovery."
+proposal = "Separate explicitly ephemeral memory semantics from durable backend qualification in storage/ledger_db/block/block_db_test/block_db_test.go, retain the reopen assertions for a real persistent implementation, and make each builder construct an independent instance from its declared path."
+owner_domain = 5
+interface = "5.go-storage-ledger-db-block-block-db"
+
+[finding.blocksim-prune-height-underflow]
+file = "storage/ledger_db/block/blocksim/blocksim.go"
+line = 200
+class = "runtime-risk"
+severity = "medium"
+observed = "handleNextBlock subtracts UnprunedBlocks from unsigned blk.Height at each prune interval without checking retention age. Defaults prune at height 1000 while retaining 100000, wrapping lowestToKeep to a huge value and pruning all existing blocks instead of retaining the requested history."
+expected = "A storage benchmark must keep all blocks until the retention window is full, then prune only heights strictly below the oldest retained block, so its data volume and measured workload match configuration."
+proposal = "Guard the subtraction by blk.Height > UnprunedBlocks in storage/ledger_db/block/blocksim/blocksim.go and test heights below, equal to and above the retention window with the configured prune interval."
+owner_domain = 5
+interface = "5.go-storage-ledger-db-block-blocksim-new-block-sim"
+
+[finding.blocksim-errors-exit-success]
+file = "storage/ledger_db/block/blocksim/blocksim.go"
+line = 169
+class = "runtime-risk"
+severity = "medium"
+observed = "WriteBlock, Flush and Prune errors only print and cancel the benchmark. BlockUntilHalted exposes no error, Close also reports no teardown errors, and cmd/blocksim/run returns nil, so automation can record success after a failed storage workload."
+expected = "A failed database operation must cause the benchmark process to exit nonzero and retain its original cause; a canceled run must be distinguishable from successful completion."
+proposal = "Retain the first workload or teardown error in storage/ledger_db/block/blocksim and return it through BlockUntilHalted/Close to cmd/blocksim/main.go. Add a real backend failure case asserting a nonzero CLI result and visible cause."
+owner_domain = 5
+interface = "5.cli-blocksim"
+
+[finding.blocksim-launches-after-failed-build]
+file = "storage/ledger_db/block/blocksim/blocksim.sh"
+line = 16
+class = "runtime-risk"
+severity = "medium"
+observed = "blocksim.sh invokes make build without checking its result and does not enable errexit. If a new build fails but bin/blocksim from an earlier revision exists, the script proceeds to configure logging and exec that stale binary."
+expected = "The benchmark entrypoint must stop when its required build fails so reported results correspond to the requested source revision, rather than a previously built executable."
+proposal = "Propagate the make failure explicitly in storage/ledger_db/block/blocksim/blocksim.sh before running either binary. Cover a failed build with a preexisting executable and assert the stale executable is never launched."
+owner_domain = 5
+interface = "5.cli-blocksim"
+
+[finding.storage-benchmark-reuses-version]
+file = "storage/db_engine/test/storage_bench_suite.go"
+line = 103
+class = "test-gap"
+severity = "low"
+observed = "BenchmarkApplyChangeset passes int64(b.N+1) on every iteration instead of the iteration version. The measured workload repeatedly writes one version rather than progressing through block versions, so it does not represent sustained versioned node storage."
+expected = "A versioned-write benchmark must advance the version for each simulated commit and exercise the corresponding history/metadata work consistently across backend implementations."
+proposal = "Use an increasing per-iteration version in storage/db_engine/test/storage_bench_suite.go and perform untimed end-of-run checks that the final version and representative historical values match the generated workload."
+owner_domain = 5
+interface = "5.go-storage-db-engine-test-storage-bench-suite"
+
+[finding.storage-benchmark-iterator-leak]
+file = "storage/db_engine/test/storage_bench_suite.go"
+line = 154
+class = "runtime-risk"
+severity = "low"
+observed = "BenchmarkIterate creates a new StateStore iterator for every benchmark iteration and never closes it. Backend snapshots and buffers remain retained during the measurement, skewing resource use and potentially exhausting resources in long runs."
+expected = "Every storage iterator must be closed after its scan, including benchmark code, so throughput measurements reflect bounded live iterator resources and proper backend lifecycle."
+proposal = "Close each iterator explicitly after checking its Error in storage/db_engine/test/storage_bench_suite.go and preserve both scan and close failures. Keep closure outside the timed region if setup/teardown is intentionally excluded."
+owner_domain = 5
+interface = "5.go-storage-db-engine-test-storage-bench-suite"
+
+[finding.pubsub-unsubscribe-ignores-id]
+file = "consensus/internal/pubsub/pubsub.go"
+line = 241
+class = "interface-mismatch"
+severity = "high"
+observed = "UnsubscribeArgs includes a server-assigned ID, and consensus/internal/rpc/core/events.go sets it when the websocket unsubscribe argument is a subscription ID. Server.Unsubscribe never reads args.ID; with Query nil it evicts every subscription of the client, including unrelated streams."
+expected = "Unsubscribing by a server-issued subscription ID must remove only that subscription belonging to the requesting client, and an unknown ID must not remove other subscriptions. Producer and websocket consumer must agree on the identifier lifecycle."
+proposal = "Resolve and ownership-check args.ID against subindex in consensus/internal/pubsub/pubsub.go, intersect any query constraint, and reserve all-client removal for UnsubscribeAll. Add a websocket consumer test with two live subscriptions, a selected ID and an unknown ID."
+owner_domain = 15
+interface = "15.go-consensus-internal-pubsub-unsubscribe-args-j57"
+
+[finding.pubsub-counts-panic-after-stop]
+file = "consensus/internal/pubsub/pubsub.go"
+line = 279
+class = "runtime-risk"
+severity = "medium"
+observed = "The pubsub sender shutdown sets s.subs.index to nil. NumClients and NumClientSubscriptions take the lock but dereference that index without a stopped check, unlike Subscribe and Unsubscribe, so a concurrent RPC subscription-limit/statistics read after shutdown can panic."
+expected = "Eventbus count accessors used during RPC subscription admission must have a defined stopped result and remain safe while node shutdown overlaps requests."
+proposal = "Return zero for the stopped index or expose a checked stopped result consistently in consensus/internal/pubsub/pubsub.go. Add lifecycle tests calling both counters while and after the real server shutdown completes."
+owner_domain = 15
+interface = "15.go-consensus-internal-pubsub-server-j57"
+
+[finding.receipt-cache-has-no-production-owner]
+file = "storage/ledger_db/receipt/receipt_cache.go"
+line = 44
+class = "dead-code"
+severity = "low"
+observed = "newLedgerCache and its receipt/log rotation and filtering methods have no production construction call. receiptStore has no cache field and GetReceipt goes directly to StateStore, so these maintained cache paths and clone protections cannot affect live receipt reads."
+expected = "A retained receipt-cache implementation should have an explicit live owner and bounded rotation lifecycle, or be clearly removed as unused code; its presence must not imply that node reads receive caching or filter coverage."
+proposal = "Have the node-runtime owner decide whether to integrate ledgerCache into the actual receipt store with insertion, coverage and rotation rules, or retire this unused implementation and its stale claims in a separate storage task."
+owner_domain = 5
+interface = "5.go-storage-ledger-db-receipt-receipt-store"
+
+[finding.receipt-read-metrics-api-unwired]
+file = "storage/ledger_db/receipt/receipt_store.go"
+line = 94
+class = "wiring-gap"
+severity = "low"
+observed = "NewReceiptStoreWithReadMetrics accepts only config and storeKey and directly calls newReceiptBackend. No production code accepts or invokes ReceiptReadMetrics; the constructor comment promises optional cache/timing metrics that cannot be supplied or observed."
+expected = "A metrics-named public receipt-store constructor must actually connect read metrics to the storage consumer, or accurately expose that no such instrumentation exists."
+proposal = "In storage/ledger_db/receipt/receipt_store.go wire an explicit optional metrics dependency through real reads and log filtering, with a scrape/observer test, or replace the misleading compatibility name and comment through an explicit API migration."
+owner_domain = 5
+interface = "5.go-storage-ledger-db-receipt-new-receipt-store-with-read-metrics"
+
+[finding.rpc-readme-pending-contradiction]
+file = "rpc/README.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction says the chain has no pending blocks and links that policy to rpc/AGENTS.md, while the Pending section and current simulation/watermark code implement an open-block view on proposer-capable nodes and committed fallback while idle."
+expected = "Client guidance must distinguish final committed blocks from the optional open proposal view, specify role-dependent pending behavior, and describe the bounded seal-to-open wait and idle fallback accurately."
+proposal = "Rewrite the introductory pending claim and Pending section in rpc/README.md together with rpc/AGENTS.md so integrators can select latest versus pending correctly; document request cancellation and which full-node reads refuse pending."
+owner_domain = 7
+
+[finding.rpc-readme-recommends-deprecated-api]
+file = "rpc/README.md"
+line = 52
+class = "doc-drift"
+severity = "medium"
+observed = "The Legacy gate section says new integrations should use eth methods and that all pax/pax2 methods are deprecated, but the later Pax Endpoints section recommends those endpoints for applications needing a complete chain view."
+expected = "RPC migration guidance must consistently direct new clients to supported replacements and identify legacy allowlist exceptions without recommending a surface scheduled for removal."
+proposal = "Replace the contradictory recommendation in rpc/README.md with a method-specific migration map and explicit legacy-only limitations, retaining accurate synthetic-transaction visibility notes and deprecation/error behavior."
+owner_domain = 7
+
+[finding.rpc-agents-pending-policy-stale]
+file = "rpc/AGENTS.md"
+line = 7
+class = "doc-drift"
+severity = "medium"
+observed = "The Pending rule says every pending parameter is equivalent to final/safe/latest because there is no pending block concept. The real pending provider and SimulationAPI expose open execution state and a bounded retry lifecycle on the node holding the proposal."
+expected = "Repository RPC instructions must agree with requirements 5104.1 and 8373.1 and the consumer-level pending behavior, so subsequent changes do not restore the obsolete committed-only implementation."
+proposal = "Update rpc/AGENTS.md to define the open/idle distinction, proposer capability and explicit full-node refusal semantics, linking the pending consumer regression coverage instead of claiming universal latest equivalence."
+owner_domain = 7
+
+[finding.crypto-package-doc-old-key-api]
+file = "consensus/crypto/doc.go"
+line = 9
+class = "doc-drift"
+severity = "low"
+observed = "The package guide documents a PrivKey interface with AssertIsPrivKeyInner, PubKey and Wrap and demonstrates ed25519.GenPrivKey returning an error. crypto.go now aliases ed25519.SecretKey and the implementation exposes GenerateSecretKey and Public instead."
+expected = "The crypto package guide should show the actual key generation, public-key and signature APIs exported by this fork, preserving current serialization and secret-handling requirements."
+proposal = "Replace the obsolete interface and example in consensus/crypto/doc.go with the concrete SecretKey/PublicKey API and a compiling usage example owned by the consensus crypto package."
+owner_domain = 15
+
+[finding.merkle-doc-domain-separation-stale]
+file = "consensus/crypto/merkle/doc.go"
+line = 10
+class = "doc-drift"
+severity = "low"
+observed = "The Merkle guide warns that the implementation lacks second-preimage protection and has a TODO to add it. hash.go already uses distinct 0x00 leaf and 0x01 inner-node prefixes, and the tree tests cover the corresponding ambiguity boundary."
+expected = "Security documentation should state the actual domain-separated tree construction and its assumptions, rather than characterize a repaired historical weakness as present in the implementation."
+proposal = "Update consensus/crypto/merkle/doc.go to explain the current prefixed hashing and its RFC6962 coverage, keeping appropriate proof-validation limits and removing only the obsolete historical TODO."
+owner_domain = 15
+
+[finding.query-grammar-omits-matches]
+file = "consensus/internal/pubsub/query/syntax/doc.go"
+line = 11
+class = "doc-drift"
+severity = "low"
+observed = "The published query EBNF lists equal, order, contains and EXISTS comparisons but omits MATCHES. scanner.go declares TMatches and parser/query code accepts and executes that operator for live event subscriptions."
+expected = "The event-query grammar should enumerate every supported comparison and its operand syntax so websocket consumers can construct filters that match the actual parser contract."
+proposal = "Extend consensus/internal/pubsub/query/syntax/doc.go with the MATCHES production, quoting and regex semantics, and link an existing real parser/matcher example rather than documenting a smaller language than the implementation."
+owner_domain = 15
+interface = "15.go-consensus-internal-pubsub-query-syntax-t-matches-j57"
+
+[finding.evidence-package-doc-old-lifecycle]
+file = "consensus/internal/evidence/doc.go"
+line = 11
+class = "doc-drift"
+severity = "low"
+observed = "The guide describes a Receive function taking a list and Update(block, state). The current reactor receives one protobuf Evidence at a time through handleEvidenceMessage, and Pool.Update takes context, state and an evidence list after an explicit Start."
+expected = "Evidence lifecycle documentation must match the actual typed transport, explicit startup state and commit update order used by the running reactor and block executor."
+proposal = "Revise consensus/internal/evidence/doc.go around NewPool, Start, per-evidence P2P decoding and Update(ctx, state, evidence), preserving the pending/committed model and making shutdown ownership explicit."
+owner_domain = 15
+
+[finding.blocksync-doc-serving-after-catchup]
+file = "consensus/internal/blocksync/doc.go"
+line = 10
+class = "doc-drift"
+severity = "low"
+observed = "The opening description says a caught-up node no longer runs the blocksync process, while the later paragraph and reactor implementation keep an always-on inbound BlockRequest and StatusRequest serving path after active synchronization ends."
+expected = "Operators and maintainers must distinguish stopping the active sync controller from continuing to serve historical blocks to peers; a synced validator still needs the shared serving channel."
+proposal = "Clarify consensus/internal/blocksync/doc.go so catchup completion stops active syncing while the reactor continues serving requests until node shutdown, matching the controller/channel split and lifecycle tests."
+owner_domain = 15
+
+[finding.unified-network-retired-topology-site]
+file = "docs/site/docs/overview/unified-network.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "This network overview describes cmd/layerxd as the core node and presents LayerXVerify 0x1012, LayerXCustody 0x1013 and LayerXAnchor 0x1014 as active precompiles, with bonded guarantors and challenge-window finality."
+expected = "The audit brief specifies one paxd BFT network with kernel execution in the proposer and finality at commit. The separate daemon, verification/custody/anchor precompiles and guarantor finality architecture are retired."
+proposal = "Rewrite docs/site/docs/overview/unified-network.md around the merged paxd execution path, current precompile registry and commit-final receipt semantics; replace guarantor/checkpoint operator instructions with native block/header verification and the retained outward bridge."
+owner_domain = 17
+
+[finding.unified-network-retired-topology-wiki]
+file = "docs/wiki/UnifiedNetwork.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "This network overview describes cmd/layerxd as the core node and presents LayerXVerify 0x1012, LayerXCustody 0x1013 and LayerXAnchor 0x1014 as active precompiles, with bonded guarantors and challenge-window finality."
+expected = "The audit brief specifies one paxd BFT network with kernel execution in the proposer and finality at commit. The separate daemon, verification/custody/anchor precompiles and guarantor finality architecture are retired."
+proposal = "Rewrite docs/wiki/UnifiedNetwork.md around the merged paxd execution path, current precompile registry and commit-final receipt semantics; replace guarantor/checkpoint operator instructions with native block/header verification and the retained outward bridge."
+owner_domain = 17
+
+[finding.unified-network-router-url]
+file = "docs/site/docs/overview/unified-network.md"
+line = 129
+class = "doc-drift"
+severity = "medium"
+observed = "The public connection guide calls https://api-mainnet-beta.paxeer.network/rpc the router URL and later advertises GET /rpc/schema. It directs node clients to a retired path and a schema endpoint that the merged node does not serve."
+expected = "The public node serves JSON-RPC at the root of api1 through api14.mainnet-beta.paxeer.network and api-mainnet-beta.paxeer.network; hosted px methods belong to the gateway and there is no unified /rpc router."
+proposal = "Replace the connection and schema sections in docs/site/docs/overview/unified-network.md with root-path node URLs, current HTTP/WS configuration and a separately identified hosted gateway contract; remove the retired router/schema instructions."
+owner_domain = 17
+
+[finding.settlement-evidence-retired-authority-site]
+file = "docs/site/docs/operators/settlement-evidence.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The settlement guide teaches checkpoint publication, deposit registration authority, guarantor certificates and owner exit witnesses as current network operations, including publication-request files and protected guarantor publication directories."
+expected = "The merged network settles native balances at BFT commit and retires the separate guarantor/checkpoint settlement authority and bridge-credit deposit route described by this page."
+proposal = "Rewrite docs/site/docs/operators/settlement-evidence.md as a merged-network evidence guide: identify committed transaction/receipt and block proofs, native bank transfer accounting and outward bridge evidence, and remove retired deposit-root, forced-exit and guarantor procedures."
+owner_domain = 17
+
+[finding.settlement-evidence-retired-authority-wiki]
+file = "docs/wiki/SettlementEvidence.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The settlement guide teaches checkpoint publication, deposit registration authority, guarantor certificates and owner exit witnesses as current network operations, including publication-request files and protected guarantor publication directories."
+expected = "The merged network settles native balances at BFT commit and retires the separate guarantor/checkpoint settlement authority and bridge-credit deposit route described by this page."
+proposal = "Rewrite docs/wiki/SettlementEvidence.md as a merged-network evidence guide: identify committed transaction/receipt and block proofs, native bank transfer accounting and outward bridge evidence, and remove retired deposit-root, forced-exit and guarantor procedures."
+owner_domain = 17
+
+[finding.hosted-core-retired-lni-site]
+file = "docs/site/docs/platform/hosted-core.md"
+line = 6
+class = "doc-drift"
+severity = "medium"
+observed = "The hosted-core guide places platform_core in front of layerxd and documents LAYERX_CORE_LNI_SOCKET, raw LNI handshakes and authority replica fixtures as the live route for activities, receipts and simulation."
+expected = "Hosted services must submit to the merged paxd network and present their hosted gateway API separately from node JSON-RPC. The retired daemon/LNI/replica lifecycle is not an operator deployment prerequisite."
+proposal = "Replace the topology, environment and request-path sections in docs/site/docs/platform/hosted-core.md with the merged node transaction/RPC and gateway paths, their real configuration keys and current authentication/error behavior; regenerate examples from those producers."
+owner_domain = 8
+
+[finding.hosted-core-retired-lni-wiki]
+file = "docs/wiki/HostedCore.md"
+line = 6
+class = "doc-drift"
+severity = "medium"
+observed = "The hosted-core guide places platform_core in front of layerxd and documents LAYERX_CORE_LNI_SOCKET, raw LNI handshakes and authority replica fixtures as the live route for activities, receipts and simulation."
+expected = "Hosted services must submit to the merged paxd network and present their hosted gateway API separately from node JSON-RPC. The retired daemon/LNI/replica lifecycle is not an operator deployment prerequisite."
+proposal = "Replace the topology, environment and request-path sections in docs/wiki/HostedCore.md with the merged node transaction/RPC and gateway paths, their real configuration keys and current authentication/error behavior; regenerate examples from those producers."
+owner_domain = 8
+
+[finding.human-owner-retired-bootstrap-site]
+file = "docs/site/docs/human/owner-registration.md"
+line = 9
+class = "doc-drift"
+severity = "medium"
+observed = "The owner registration guide still relies on custody-credit, protocol-3 daemon identity admission and guarantor checkpoint evidence for positive identity/capability results. The wiki additionally instructs bootstrap against the retired custody precompile at 0x1013."
+expected = "Owner registration in the merged network must use the native account/identity and governed registration path and committed chain evidence, without a separate daemon, custody-credit bridge or guarantor finality authority."
+proposal = "Rewrite docs/site/docs/human/owner-registration.md using the current owner account derivation, native funding, governance registration, recovery policy and committed receipt/key verification; retain secret separation while removing obsolete daemon admission and custody/guarantor prerequisites."
+owner_domain = 10
+
+[finding.human-owner-retired-bootstrap-wiki]
+file = "docs/wiki/HumanOwnerRegistration.md"
+line = 9
+class = "doc-drift"
+severity = "medium"
+observed = "The owner registration guide still relies on custody-credit, protocol-3 daemon identity admission and guarantor checkpoint evidence for positive identity/capability results. The wiki additionally instructs bootstrap against the retired custody precompile at 0x1013."
+expected = "Owner registration in the merged network must use the native account/identity and governed registration path and committed chain evidence, without a separate daemon, custody-credit bridge or guarantor finality authority."
+proposal = "Rewrite docs/wiki/HumanOwnerRegistration.md using the current owner account derivation, native funding, governance registration, recovery policy and committed receipt/key verification; retain secret separation while removing obsolete daemon admission and custody/guarantor prerequisites."
+owner_domain = 10
+
+[finding.program-workspace-retired-gates-site]
+file = "docs/site/docs/programs/workspace.md"
+line = 156
+class = "doc-drift"
+severity = "medium"
+observed = "The workspace gate table describes programs-differential as linking cmd/layerxd/lxp_daemon_batch_wal.c and lists test-replay-golden-local as a current prerequisite. These are retired daemon/batch-WAL paths rather than the merged host qualification route."
+expected = "Program qualification guidance must target the retained kernel and paxd host paths and describe ABI agreement and the 524288-byte deployment limit including the 104-byte envelope, without requiring retired daemon targets."
+proposal = "Update docs/site/docs/programs/workspace.md from the current program/host build graph, replace retired differential/replay prerequisites with real merged-path gates, and document the release guest size and host/guest ABI checks an operator must satisfy."
+owner_domain = 13
+
+[finding.program-workspace-retired-gates-wiki]
+file = "docs/wiki/ProgramsWorkspace.md"
+line = 156
+class = "doc-drift"
+severity = "medium"
+observed = "The workspace gate table describes programs-differential as linking cmd/layerxd/lxp_daemon_batch_wal.c and lists test-replay-golden-local as a current prerequisite. These are retired daemon/batch-WAL paths rather than the merged host qualification route."
+expected = "Program qualification guidance must target the retained kernel and paxd host paths and describe ABI agreement and the 524288-byte deployment limit including the 104-byte envelope, without requiring retired daemon targets."
+proposal = "Update docs/wiki/ProgramsWorkspace.md from the current program/host build graph, replace retired differential/replay prerequisites with real merged-path gates, and document the release guest size and host/guest ABI checks an operator must satisfy."
+owner_domain = 13
+
+[finding.sequencer-contract-premerge-flow]
+file = "spec/layerx-merge/contracts/sequencer.md"
+line = 40
+class = "doc-drift"
+severity = "medium"
+observed = "Although the contract names a pinned baseline revision, its execution diagram still presents WAL GroupSync and standby Ack before a receipt and MsgSequenceBatch at sealing as the contract flow; the node-config section also names the retired layerxd and layerx-guarantor readers."
+expected = "The active merged-network contract must distinguish historical baseline material from binding current behavior: proposer kernel execution and BFT commit, with no separate sequencer service or retired standby/daemon pipeline."
+proposal = "Amend spec/layerx-merge/contracts/sequencer.md through its declared version/change-control process, preserving historical encoding facts as explicitly historical and replacing the active lifecycle and configuration diagrams with the current merged node interfaces."
+owner_domain = 5
+
+[doc.1]
+path = "docs/site/docs/overview/unified-network.md"
+status = "misleading"
+notes = "Read in full: line 11 describes layerxd and lines 17-86 expose retired verification/custody/anchor modules; site additionally advertises /rpc and /rpc/schema."
+
+[doc.2]
+path = "docs/site/docs/operators/settlement-evidence.md"
+status = "misleading"
+notes = "Read in full: checkpoint publication, deposit-root authority and guarantor exit procedures describe retired settlement architecture, not BFT commit evidence."
+
+[doc.3]
+path = "docs/site/docs/platform/hosted-core.md"
+status = "misleading"
+notes = "Read in full: lines 6, 43 and 116 onward present layerxd/LNI/replica transport as current hosted infrastructure; replace with merged node and hosted gateway paths."
+
+[doc.4]
+path = "docs/site/docs/programs/workspace.md"
+status = "stale"
+notes = "Read in full: ABI/vector discussion retained, but gate table at lines 151 and 156 requires retired daemon replay/batch-WAL paths; rewrite for merged host gates and deployment size."
+
+[doc.5]
+path = "docs/site/docs/human/owner-registration.md"
+status = "misleading"
+notes = "Read in full: lines 9-19 and 33 retain daemon admission, custody-credit and guarantor evidence prerequisites; wiki also retains custody 0x1013 and LNI bootstrap instructions."
+
+[doc.6]
+path = "docs/site/docs/interop/portable-receipts.md"
+status = "accurate"
+notes = "Read in full: explicitly scoped portable proof-v1 format, caller-trusted AuthorizedBatch and sequencer-signed assurance; distinguishes pax_sequencerReceipt and does not claim independent commit finality."
+
+[doc.7]
+path = "docs/wiki/HostedCore.md"
+status = "misleading"
+notes = "Read in full: lines 6, 43 and 116 onward present layerxd/LNI/replica transport as current hosted infrastructure; replace with merged node and hosted gateway paths."
+
+[doc.8]
+path = "docs/wiki/SettlementEvidence.md"
+status = "misleading"
+notes = "Read in full: checkpoint publication, deposit-root authority and guarantor exit procedures describe retired settlement architecture, not BFT commit evidence."
+
+[doc.9]
+path = "docs/wiki/UnifiedNetwork.md"
+status = "misleading"
+notes = "Read in full: line 11 describes layerxd and lines 17-86 expose retired verification/custody/anchor modules; site additionally advertises /rpc and /rpc/schema."
+
+[doc.10]
+path = "docs/wiki/PortableVerifier.md"
+status = "accurate"
+notes = "Read in full: explicitly scoped portable proof-v1 format, caller-trusted AuthorizedBatch and sequencer-signed assurance; distinguishes pax_sequencerReceipt and does not claim independent commit finality."
+
+[doc.11]
+path = "docs/wiki/HumanOwnerRegistration.md"
+status = "misleading"
+notes = "Read in full: lines 9-19 and 33 retain daemon admission, custody-credit and guarantor evidence prerequisites; wiki also retains custody 0x1013 and LNI bootstrap instructions."
+
+[doc.12]
+path = "docs/wiki/ProgramsWorkspace.md"
+status = "stale"
+notes = "Read in full: ABI/vector discussion retained, but gate table at lines 151 and 156 requires retired daemon replay/batch-WAL paths; rewrite for merged host gates and deployment size."
+
+[doc.13]
+path = "consensus/crypto/CHANGELOG.md"
+status = "accurate"
+notes = "Historical version log read as release history, including obsolete APIs confined to dated entries."
+
+[doc.14]
+path = "consensus/crypto/README.md"
+status = "accurate"
+notes = "Read current Ed25519/hash/Merkle scope, fork import paths and tagged JSON examples; wire tags match key registration."
+
+[doc.15]
+path = "consensus/crypto/doc.go"
+status = "stale"
+notes = "Read package guide in full; obsolete PrivKey/GenPrivKey API examples are recorded."
+
+[doc.16]
+path = "consensus/crypto/merkle/README.md"
+status = "accurate"
+notes = "Read static-tree scope guidance; intended small deterministic structures agree with the implementation."
+
+[doc.17]
+path = "consensus/crypto/merkle/doc.go"
+status = "stale"
+notes = "Read tree-shape documentation; obsolete second-preimage warning is recorded against current prefixed hashing."
+
+[doc.18]
+path = "consensus/internal/blocksync/doc.go"
+status = "stale"
+notes = "Read active-sync versus serving-channel documentation; contradictory catchup-stop wording is recorded."
+
+[doc.19]
+path = "consensus/internal/evidence/doc.go"
+status = "stale"
+notes = "Read evidence persistence and gossip guide; old Receive/Update lifecycle names are recorded."
+
+[doc.20]
+path = "consensus/internal/pubsub/query/syntax/doc.go"
+status = "stale"
+notes = "Read full EBNF and lexical guide; supported MATCHES operator is absent from the grammar."
+
+[doc.21]
+path = "consensus/node/doc.go"
+status = "accurate"
+notes = "Read embedded consensus-node package scope; it is an internal constructor/service, not a second public network."
+
+[doc.22]
+path = "rpc/README.md"
+status = "stale"
+notes = "Read entire interface guide; pending identity and deprecated API recommendations contradict current behavior."
+
+[doc.23]
+path = "spec/layerx-merge/contracts/evm-rpc.md"
+status = "accurate"
+notes = "Read package-linked interface sections and frozen context/acceptance rows as a pinned historical contract baseline; planned rows and UNRUN qualification are not claims of present gate execution."
+
+[doc.24]
+path = "spec/layerx-merge/contracts/sequencer.md"
+status = "stale"
+notes = "Read linked executor, leader, receipt-store, node-config/storage/ABCI/metrics sections and baseline flow; active lifecycle diagram still teaches retired WAL/standby pipeline and needs a versioned amendment."
+
+[doc.25]
+path = "spec/layerx-merge/contracts/consensus-fork.md"
+status = "accurate"
+notes = "Read package-linked interface sections and frozen context/acceptance rows as a pinned historical contract baseline; planned rows and UNRUN qualification are not claims of present gate execution."
+
+[doc.26]
+path = "spec/layerx-merge/contracts/cosmos-fork.md"
+status = "accurate"
+notes = "Read package-linked interface sections and frozen context/acceptance rows as a pinned historical contract baseline; planned rows and UNRUN qualification are not claims of present gate execution."
+
+[doc.27]
+path = "spec/layerx-merge/contracts/kernel.md"
+status = "accurate"
+notes = "Read package-linked interface sections and frozen context/acceptance rows as a pinned historical contract baseline; planned rows and UNRUN qualification are not claims of present gate execution."
+
+[doc.28]
+path = "rpc/AGENTS.md"
+status = "stale"
+notes = "Read in full: line 7 claims universal pending/latest equivalence, contrary to live open/idle provider semantics; other RPC unsupported/deprecation instructions remain separately scoped."
+
+[doc.29]
+path = "consensus/AGENTS.md"
+status = "accurate"
+notes = "Read in full: fork-wide references, public-API testing, typed errors and supervised concurrency instructions agree with the retained embedded consensus role."

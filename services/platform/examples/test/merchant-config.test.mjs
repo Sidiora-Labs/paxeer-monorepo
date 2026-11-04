@@ -8,7 +8,7 @@ function loadApplicationConfig(application) {
 }
 
 function merchantExampleConfigsUseEip155AndReceiptKeys() {
-  for (const application of ["merchant-checkout", "merchant-shop"]) {
+  for (const application of ["merchant-checkout", "merchant-shop", "marketplace"]) {
     const document = loadApplicationConfig(application);
     assert.equal(document.version, 1, application);
     assert.equal(document.application, application);
@@ -21,7 +21,7 @@ function merchantExampleConfigsUseEip155AndReceiptKeys() {
         config.rpcUrl,
         environment === "emulator"
           ? "http://127.0.0.1:9402/rpc"
-          : "https://api-mainnet-beta.paxeer.network/rpc",
+          : "https://api-mainnet-beta.paxeer.network",
         label,
       );
       assert.equal(
