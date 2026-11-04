@@ -79,6 +79,9 @@ func New(cfg Config) (*Metrics, error) {
 	if numGlobalLables := len(cfg.GlobalLabels); numGlobalLables > 0 {
 		parsedGlobalLabels := make([]metrics.Label, numGlobalLables)
 		for i, gl := range cfg.GlobalLabels {
+			if len(gl) != 2 {
+				return nil, fmt.Errorf("invalid telemetry configuration: global-labels row %d must contain exactly 2 elements", i+1)
+			}
 			parsedGlobalLabels[i] = NewLabel(gl[0], gl[1])
 		}
 
@@ -88,6 +91,7 @@ func New(cfg Config) (*Metrics, error) {
 	metricsConf := metrics.DefaultConfig(cfg.ServiceName)
 	metricsConf.EnableHostname = cfg.EnableHostname
 	metricsConf.EnableHostnameLabel = cfg.EnableHostnameLabel
+	metricsConf.EnableServiceLabel = cfg.EnableServiceLabel
 
 	memSink := metrics.NewInmemSink(10*time.Second, time.Minute)
 	metrics.DefaultInmemSignal(memSink)
