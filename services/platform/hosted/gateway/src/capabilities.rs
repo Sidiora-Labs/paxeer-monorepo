@@ -240,6 +240,7 @@ impl Capabilities {
 pub(super) struct Cache {
     ttl: Duration,
     entry: Mutex<Option<(Instant, Capabilities)>>,
+    pub(super) ai_views: Option<layerx_platform_gateway::ai_views::AiViews>,
 }
 
 impl Cache {
@@ -247,6 +248,7 @@ impl Cache {
         Self {
             ttl,
             entry: Mutex::new(None),
+            ai_views: None,
         }
     }
 
@@ -280,7 +282,9 @@ pub(super) fn configured() -> Result<Cache, String> {
     if !(1..=MAX_TTL_SECONDS).contains(&seconds) {
         return Err("gateway capabilities TTL is outside its bound".to_owned());
     }
-    Ok(Cache::new(Duration::from_secs(seconds)))
+    let mut cache = Cache::new(Duration::from_secs(seconds));
+    cache.ai_views = layerx_platform_gateway::ai_views::configured()?;
+    Ok(cache)
 }
 
 /// Preserve a node origin as `/` and retain explicit domain paths.
@@ -1252,18 +1256,18 @@ mod tests {
     #[test]
     fn capabilities_chain_rpc_preserves_node_root_and_domain_paths() {
         for (configured, path) in [
-            ("https://router.example", "/"),
-            ("https://router.example/", "/"),
-            ("https://router.example/rpc", "/rpc"),
-            ("https://router.example/rpc/", "/rpc"),
-            ("https://router.example:8545/evm", "/evm"),
-            ("https://router.example/chain/125", "/chain/125"),
+            ("https://node.example", "/"),
+            ("https://node.example/", "/"),
+            ("https://node.example/rpc", "/rpc"),
+            ("https://node.example/rpc/", "/rpc"),
+            ("https://node.example:8545/evm", "/evm"),
+            ("https://node.example/chain/125", "/chain/125"),
         ] {
             let endpoint = Endpoint::parse(configured).unwrap_or_else(|e| panic!("{e}"));
             let port = endpoint.port;
             let once = chain_rpc(endpoint);
             assert_eq!(once.base_path, path, "{configured}");
-            assert_eq!(once.host, "router.example");
+            assert_eq!(once.host, "node.example");
             assert_eq!(once.port, port);
             assert_eq!(chain_rpc(once).base_path, path, "{configured} twice");
         }

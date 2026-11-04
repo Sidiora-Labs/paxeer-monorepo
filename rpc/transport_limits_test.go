@@ -1,17 +1,24 @@
 package evmrpc
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/artifacts/cw20"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
 	evmrpcconfig "github.com/Sidiora-Labs/Paxeer-X-Network/rpc/config"
+	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 )
 
 const transportLimitRequest = `{"jsonrpc":"2.0","id":1,"method":"web3_sha3","params":["0x"]}`
@@ -192,5 +199,154 @@ func TestBatchRequestLimitEnforced(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+// RunRepairM1293LegacyBatchLimit is shared with the bounded repair gate.
+func RunRepairM1293LegacyBatchLimit(t *testing.T) {
+	for _, limit := range []int{1, 2, 4} {
+		t.Run(strconv.Itoa(limit), func(t *testing.T) {
+			api := NewTestAPI()
+			server := NewHTTPServer(rpc.DefaultHTTPTimeouts)
+			t.Cleanup(server.Stop)
+			require.NoError(t, server.SetListenAddr("127.0.0.1", 0))
+			config := transportLimitConfig()
+			config.IPRateLimitRPS, config.BatchRequestLimit = 0, limit
+			require.NoError(t, server.EnableRPC([]rpc.API{
+				{Namespace: "test", Service: api}, {Namespace: "web3", Service: &Web3API{}},
+			}, HTTPConfig{Vhosts: []string{"*"}, PaxLegacyAllowlist: BuildPaxLegacyEnabledSet(nil), RPCEndpointConfig: newRPCEndpointConfig(config)}))
+			require.NoError(t, server.Start())
+			state := sdk.Context{}.WithChainID("rpc-repair-test")
+			initial := cw20.CurrentVersion(state)
+			call := `{"jsonrpc":"2.0","id":7,"method":"test_incrementPointerVersion","params":["cw20",5]}`
+			for _, extra := range []string{
+				`{"jsonrpc":"2.0","id":8,"method":"pax_getBlockByNumber","params":["latest",false]}`,
+				`{"jsonrpc":"2.0","method":"pax_getBlockByNumber","params":["latest",false]}`,
+				`17`,
+				`{"jsonrpc":"2.0","id":{},"method":"web3_sha3","params":["0x"]}`,
+			} {
+				entries := []string{call, extra}
+				for len(entries) <= limit {
+					entries = append(entries, `null`)
+				}
+				response := transportLimitPOST(t, server, "["+strings.Join(entries, ",")+"]", "application/json")
+				var messages []transportLimitResponse
+				require.NoError(t, json.NewDecoder(response.Body).Decode(&messages))
+				require.Len(t, messages, 1)
+				require.NotNil(t, messages[0].Error)
+				require.Equal(t, -32600, messages[0].Error.Code)
+				require.Equal(t, "batch too large", messages[0].Error.Message)
+				require.Equal(t, initial, cw20.CurrentVersion(state), "rejected batch executed a forwarded method")
+			}
+			response := transportLimitPOST(t, server, "["+call+"]", "application/json")
+			var messages []json.RawMessage
+			require.NoError(t, json.NewDecoder(response.Body).Decode(&messages))
+			require.Len(t, messages, 1)
+			require.Equal(t, initial+5, cw20.CurrentVersion(state), "in-limit call must execute")
+		})
+	}
+}
+
+func TestLegacyBatchRequestLimitEnforced(t *testing.T) { RunRepairM1293LegacyBatchLimit(t) }
+
+func RepairM1293EnableHTTPAPIsWS(t *testing.T, server *HTTPServer) {
+	t.Helper()
+	require.NoError(t, server.EnableWS(server.apis, WsConfig{
+		Origins: []string{"http://localhost"}, RPCEndpointConfig: server.HTTPConfig.RPCEndpointConfig,
+	}))
+	installTxPoolWSScopes(server)
+}
+
+func RepairM1293Baker(t *testing.T, cache *keeper.TraceDB) (*TraceBaker, <-chan struct{}) {
+	t.Helper()
+	serverTraceBakers.Lock()
+	defer serverTraceBakers.Unlock()
+	baker := serverTraceBakers.owners[cache]
+	require.NotNil(t, baker)
+	t.Cleanup(baker.Stop)
+	joined := make(chan struct{})
+	go func() {
+		<-baker.done
+		baker.wg.Wait()
+		close(joined)
+	}()
+	return baker, joined
+}
+
+func RepairM1293ServerStopped(t *testing.T, server *HTTPServer) func() {
+	t.Helper()
+	server.mu.Lock()
+	done := server.serveDone
+	server.mu.Unlock()
+	require.NotNil(t, done)
+	return func() {
+		t.Helper()
+		select {
+		case <-done:
+		case <-time.After(time.Second):
+			t.Fatal("server listener did not finish shutdown")
+		}
+	}
+}
+
+func RepairM1293SubscriptionStopped(t *testing.T, server *HTTPServer) func() {
+	t.Helper()
+	var subscriptions []*SubscriptionAPI
+	for _, api := range server.wsAPIs {
+		if subscription, ok := api.Service.(*SubscriptionAPI); ok {
+			subscriptions = append(subscriptions, subscription)
+		}
+	}
+	require.Len(t, subscriptions, 1)
+	return func() {
+		for _, api := range subscriptions {
+			require.ErrorIs(t, api.shutdownCtx.Err(), context.Canceled)
+			joined := make(chan struct{})
+			go func() { api.wg.Wait(); close(joined) }()
+			select {
+			case <-joined:
+			case <-time.After(time.Second):
+				t.Fatal("subscription consumers did not join")
+			}
+			api.newHeadListenersMtx.RLock()
+			require.Empty(t, api.newHeadListeners)
+			api.newHeadListenersMtx.RUnlock()
+			api.logSubscriptionsMtx.Lock()
+			require.Empty(t, api.logSubscriptions)
+			api.logSubscriptionsMtx.Unlock()
+			if api.subscriptionManager != nil {
+				api.subscriptionManager.subMu.Lock()
+				require.Empty(t, api.subscriptionManager.SubscriptionInfo)
+				api.subscriptionManager.subMu.Unlock()
+			}
+		}
+	}
+}
+
+func RepairM1293Metrics(t *testing.T) func() map[string]int64 {
+	t.Helper()
+	reader := sdkmetric.NewManualReader()
+	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	previousMeter, previousMetrics := rpcTelemetryMeter, metrics
+	rpcTelemetryMeter = provider.Meter("evmrpc")
+	metrics = newRPCMetrics(rpcTelemetryMeter)
+	t.Cleanup(func() {
+		rpcTelemetryMeter, metrics = previousMeter, previousMetrics
+		require.NoError(t, provider.Shutdown(context.Background()))
+	})
+	return func() map[string]int64 {
+		var data metricdata.ResourceMetrics
+		require.NoError(t, reader.Collect(context.Background(), &data))
+		values := map[string]int64{}
+		for _, scope := range data.ScopeMetrics {
+			for _, instrument := range scope.Metrics {
+				if sum, ok := instrument.Data.(metricdata.Sum[int64]); ok {
+					for _, point := range sum.DataPoints {
+						values[instrument.Name] += point.Value
+					}
+				}
+			}
+		}
+		return values
 	}
 }
