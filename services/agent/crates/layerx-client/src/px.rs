@@ -1,4 +1,4 @@
-//! Paxeer chain reads. Each public read crosses the sequencer JSON-RPC transport
+//! Hosted gateway reads. Each public read crosses the JSON-RPC transport
 //! again; this endpoint retains neither account state nor a cached network head.
 
 use serde_json::{json, Map, Value};
@@ -22,6 +22,7 @@ pub struct PxPaxeerAccount {
     pub address: [u8; 20],
     pub balance: Uint256,
     pub nonce: u64,
+    /// Snapshot served with this balance and nonce; never sampled from a later head.
     pub height: u64,
 }
 
