@@ -612,7 +612,7 @@ function px_network_head_carries_the_commit_finality_and_no_anchor() {
 
 await test(px_network_head_carries_the_commit_finality_and_no_anchor);
 
-async function px_methods_list_is_the_router_px_set() {
+async function px_methods_list_is_the_hosted_gateway_px_set() {
   assert.deepEqual(PX_METHODS, [
     "px_resolveAccount",
     "px_getAccount",
@@ -623,7 +623,7 @@ async function px_methods_list_is_the_router_px_set() {
     "px_getHistory",
     "px_getUnifiedHistory",
   ]);
-  const client = new PxClient({ endpoint: "http://127.0.0.1:1/rpc" });
+  const client = new PxClient({ endpoint: "http://127.0.0.1:1/" });
   const call = Reflect.get(client, "call");
   assert.equal(typeof call, "function");
   for (const method of [
@@ -645,7 +645,7 @@ async function px_methods_list_is_the_router_px_set() {
   }
 }
 
-await test(px_methods_list_is_the_router_px_set);
+await test(px_methods_list_is_the_hosted_gateway_px_set);
 
 const receiptFixture = JSON.parse(
   readFileSync(
@@ -901,6 +901,12 @@ print(json.dumps({"networks": networks, "keys": keys}))
 
 const requests: { readonly method: unknown; readonly params: unknown }[] = [];
 const gateway = http.createServer((request, response) => {
+  if (request.url !== "/") {
+    request.resume();
+    response.writeHead(404);
+    response.end();
+    return;
+  }
   const chunks: Buffer[] = [];
   request.on("data", (chunk: Buffer) => chunks.push(Buffer.from(chunk)));
   request.on("end", () => {
@@ -912,7 +918,7 @@ const gateway = http.createServer((request, response) => {
     };
     assert.equal(request.method, "POST");
     assert.equal(request.headers["content-type"], "application/json");
-    assert.equal(request.url, "/rpc");
+    assert.equal(request.url, "/");
     assert.equal(body.jsonrpc, "2.0");
     requests.push({ method: body.method, params: body.params });
     const answer =
@@ -943,8 +949,13 @@ assert(
   "gateway listener missing",
 );
 try {
+  for (const suffix of ["/rpc", "/rpc/ws"]) {
+    const response: Response = await fetch(`http://127.0.0.1:${address.port}${suffix}`, { method: "POST", body: "{}" });
+    assert.equal(response.status, 404);
+  }
+  assert.equal(requests.length, 0);
   const client = new PxClient({
-    endpoint: `http://127.0.0.1:${address.port}/rpc`,
+    endpoint: `http://127.0.0.1:${address.port}`,
   });
   const table = await client.getBalances(ACCOUNT.toUpperCase());
   assert.equal(table.balances.length, 2);
@@ -1004,17 +1015,17 @@ try {
   await once(gateway, "close");
 }
 
-assert.throws(() => new PxClient({ endpoint: "http://example.com/rpc" }));
+assert.throws(() => new PxClient({ endpoint: "http://example.com/" }));
 assert.throws(
-  () => new PxClient({ endpoint: "https://user:secret@example.com/rpc" }),
+  () => new PxClient({ endpoint: "https://user:secret@example.com/" }),
 );
-assert.throws(() => new PxClient({ endpoint: "wss://example.com/rpc" }));
-assert.throws(() => new PxClient({ endpoint: "https://example.com/rpc#head" }));
+assert.throws(() => new PxClient({ endpoint: "wss://example.com/" }));
+assert.throws(() => new PxClient({ endpoint: "https://example.com/#head" }));
 await assert.rejects(
-  new PxClient({ endpoint: "http://127.0.0.1:1/rpc" }).getNetwork(),
+  new PxClient({ endpoint: "http://127.0.0.1:1/" }).getNetwork(),
 );
 await assert.rejects(
-  new PxClient({ endpoint: "https://example.com/rpc" }).getBalances(
+  new PxClient({ endpoint: "https://example.com/" }).getBalances(
     "not-an-account",
   ),
 );
@@ -1389,6 +1400,12 @@ async function px_history_routes() {
     readonly params: unknown;
   }[] = [];
   const historyGateway = http.createServer((request, response) => {
+    if (request.url !== "/") {
+      request.resume();
+      response.writeHead(404);
+      response.end();
+      return;
+    }
     const chunks: Buffer[] = [];
     request.on("data", (chunk: Buffer) => chunks.push(Buffer.from(chunk)));
     request.on("end", () => {
@@ -1397,6 +1414,9 @@ async function px_history_routes() {
         method: string;
         params: unknown;
       };
+      assert.equal(request.method, "POST");
+      assert.equal(request.url, "/");
+      assert.equal(request.headers["content-type"], "application/json");
       historyRequests.push({ method: body.method, params: body.params });
       const result =
         body.method === "px_getHistory" ? recordedPaxeer : recordedUnified;
@@ -1419,8 +1439,13 @@ async function px_history_routes() {
     "history gateway listener missing",
   );
   try {
+    for (const suffix of ["/rpc", "/rpc/ws"]) {
+      const response: Response = await fetch(`http://127.0.0.1:${historyAddress.port}${suffix}`, { method: "POST", body: "{}" });
+      assert.equal(response.status, 404);
+    }
+    assert.equal(historyRequests.length, 0);
     const px = new PxClient({
-      endpoint: `http://127.0.0.1:${historyAddress.port}/rpc`,
+      endpoint: `http://127.0.0.1:${historyAddress.port}`,
     });
     const unified = await px.getUnifiedHistory(DID.toUpperCase(), { limit: 4 });
     assert.deepEqual(

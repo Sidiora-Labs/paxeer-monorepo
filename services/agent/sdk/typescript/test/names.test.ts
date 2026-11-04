@@ -34,7 +34,7 @@ function addressWord(address: string): string {
   return `0x${address.slice(2).padStart(64, "0")}`;
 }
 
-async function resolveName(): Promise<void> {
+export async function resolveName(): Promise<void> {
   assert.equal(namehash(""), `0x${"00".repeat(32)}`);
   assert.equal(
     namehash("eth"),
@@ -83,6 +83,12 @@ async function resolveName(): Promise<void> {
   );
   let rpcError = false;
   const gateway = http.createServer((request, response) => {
+    if (request.url !== "/") {
+      request.resume();
+      response.writeHead(404);
+      response.end();
+      return;
+    }
     const chunks: Buffer[] = [];
     request.on("data", (chunk: Buffer) => chunks.push(Buffer.from(chunk)));
     request.on("end", () => {
@@ -93,7 +99,7 @@ async function resolveName(): Promise<void> {
         params: [{ to: string; data: string }, string];
       };
       assert.equal(request.method, "POST");
-      assert.equal(request.url, "/rpc");
+      assert.equal(request.url, "/");
       assert.equal(request.headers["content-type"], "application/json");
       assert.equal(body.jsonrpc, "2.0");
       assert.equal(body.method, "eth_call");
@@ -130,7 +136,13 @@ async function resolveName(): Promise<void> {
   const listener = gateway.address();
   assert(listener !== null && typeof listener === "object");
   try {
-    const client = new JsonRpcClient(`http://127.0.0.1:${listener.port}`);
+    const endpoint = `http://127.0.0.1:${listener.port}`;
+    for (const suffix of ["/rpc", "/rpc/ws"]) {
+      const response = await fetch(endpoint + suffix, { method: "POST", body: "{}" });
+      assert.equal(response.status, 404);
+    }
+    assert.equal(requests.length, 0);
+    const client = new JsonRpcClient(endpoint);
     assert.deepEqual(await resolvePaxName(client, contracts, "ExAmPlE.PAX"), {
       node,
       owner: OWNER,

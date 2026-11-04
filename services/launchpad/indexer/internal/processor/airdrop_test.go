@@ -130,7 +130,9 @@ func processDecoded(t *testing.T, p *Processor, ev *decode.Event) {
 // poolCut,epoch,timestamp,blockNumber) event in the humanized shape the decoder
 // hands processEvent (addresses lowercased, uint values as decimal strings).
 // The checked-in protocol/bindings EventEmitter ABI predates FeeFlow, so the
-// mirror cannot yet be ABI-encoded from bindings; the processor route is
+// mirror covers the direct processor unit route only; the native ABI,
+// receipt authority and SQL path are covered by TestAirdropNativeFeeFlowQualified.
+// The processor route is
 // exercised on the decoded event type directly.
 func feeFlowMirror(kind uint8, pool, party string, amount, epoch int64, index uint) *decode.Event {
 	return &decode.Event{
@@ -260,4 +262,8 @@ func TestProofLaunchpadSdkProtocolGoIndexerConsumer(t *testing.T) {
 	if observed, err := decoder.Decode(ethtypes.Log{Topics: []common.Hash{common.HexToHash("0xdeadbeef")}}); err != nil || observed != nil {
 		t.Fatalf("unknown identifier must remain unrecognized: %+v %v", observed, err)
 	}
+}
+
+func TestAirdropNativeFeeFlowQualified(t *testing.T) {
+	repairM1000NativeFeeFlow(t)
 }

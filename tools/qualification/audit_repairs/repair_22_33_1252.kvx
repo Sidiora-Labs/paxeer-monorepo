@@ -1,0 +1,49 @@
+[task.22.33.1252]
+audit = "22.30.61"
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+repair = "Delegate both wasm generator scripts to scripts/protoc.sh, resolve the repository from script locations, and add a root --wasm-swagger mode using Buf v1.58.0 and protoc-gen-swagger v1.16.0 with root workspace import resolution. Keep normal protobuf generation on existing gocosmos v0.3.1, grpc-gateway v1.16.0, monorepo SDK Any mapping and wasm output ownership. Reject unsupported arguments before generation or cleanup. Document supported root commands and staging output in wasm/scripts/README.md."
+source_proof = "Eight offline pytest tests parse each of the three shell scripts separately with bash -n, check exact wrapper delegation and guarded root commands with shlex, parse the inline JSON Buf template and relevant root YAML mapping/list keys, resolve the query imports from committed module roots, check generator pins and Any/output ownership, compare all nine proto RPCs with registered service signatures and gateway GET pattern opcodes, compare all nineteen query-file message wire tags with committed Go structs, and compare every query response field and scalar encoding with both the committed combined Swagger definitions and route response schemas."
+review_only = "Go, Buf and protoc plugins are not executed by this gate. Fresh regeneration, Go compilation, native wasm execution and HTTP/gRPC runtime transport are not proven; source review establishes that both entry points reach the canonical generation commands. Source comparisons use the committed generated Go gateway/types and docs/swagger-ui/swagger.yml as peers; they do not claim newly generated files or an identical fresh Swagger artifact. No restart-recovery or interface-mismatch finding is part of this task. The only external process in pytest is the expressly required bash -n syntax parser; no build toolchain, credential, environment variable, live endpoint, native artifact or device is needed."
+baseline = "No baseline verification was run: initial git status/diff contained only runner-prepared .cgignore and spec task status changes, and gate.json recorded zero build/verify runs with no gates.jsonl present. The ordered implementation-first instructions and exclusive hf-done verification prohibit the older request to run verify_cmd by hand on the unchanged tree. No baseline test failure is claimed; both original scripts visibly contained the audited upstream import/layout drift."
+build_cmd = "bash -n wasm/scripts/protoc-swagger-gen.sh wasm/scripts/protocgen.sh"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1252.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The private hf-done terminal JSON and /out/run/gates.jsonl bind the qualified candidate revision to the exact command, exit code and log path; build and verify must pass on that same candidate. The runner owns commit/publication. Finalize this record before gates because embedding its own content-derived candidate revision would change that revision. No gate pass is claimed before hf-done succeeds."
+wiring_requests = ["wasm/Makefile: chain-modules/build domain (6) must replace the wasm-only Docker proto-gen mount/invocation with the root bash scripts/protoc.sh command; the existing container lacks the parent workspace, so root commands are the supported path until that target is rewired.", "docs/swagger-ui/swagger.yml and docs/swagger/statik.go: root documentation/API domain must integrate build/swagger/wasm/cosmwasm/wasm/v1/query.swagger.json into the combined published Swagger and rebuild the embedded bundle with its pinned publishing pipeline.", "wasm/x/wasm/types: chain-modules/protobuf domain (6) must regenerate and review the Go protobuf/gateway artifacts through bash scripts/protoc.sh, retaining all nine declared query methods and the checked wire fields; generated artifacts are outside this task's scope."]
+
+[finding.wasm-swagger-import-roots]
+audit = "22.30.61"
+file = "wasm/scripts/protoc-swagger-gen.sh"
+class = "config-drift"
+severity = "medium"
+owner_domain = "chain-modules (6)"
+closure = "The wrapper delegates to root-owned --wasm-swagger generation using the pinned plugin and canonical workspace modules instead of nonexistent local include roots. Source proof compares declared and committed generated routes/response shapes with the registered service. Out-of-scope publication is requested above. Qualification depends on the bounded hf-done result."
+tests = ["test_wasm_generator_shell_syntax_and_delegation", "test_wasm_swagger_root_mode_uses_pinned_buf_workspace", "test_wasm_imports_resolve_from_canonical_module_roots", "test_wasm_query_service_and_gateway_retain_all_declared_routes", "test_wasm_committed_swagger_routes_and_response_shapes_match_service", "test_wasm_repair_record_maps_findings_limits_wiring_and_evidence"]
+
+[finding.wasm-protoc-generation-drift]
+audit = "22.30.61"
+file = "wasm/scripts/protocgen.sh"
+class = "config-drift"
+severity = "medium"
+owner_domain = "chain-modules (6)"
+closure = "The wrapper delegates to the canonical root pipeline, removing the local go.mod assumption, @latest plugin installation, upstream Any mapping and CosmWasm copy destination. Root generator pins, monorepo SDK Any mapping and wasm output ownership are checked alongside declared service/message shapes. Out-of-scope Makefile and artifact work is requested above. Qualification depends on the bounded hf-done result."
+tests = ["test_wasm_generator_shell_syntax_and_delegation", "test_wasm_codegen_preserves_root_pins_any_mapping_and_output_owner", "test_wasm_query_service_and_gateway_retain_all_declared_routes", "test_wasm_query_message_wire_fields_match_committed_generated_types", "test_wasm_repair_record_maps_findings_limits_wiring_and_evidence"]
+
+[format]
+policy = "No formatter is configured for these shell, Python or KVX paths; apply the existing .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions to touched files only."
+
+[gotcha.1]
+observed = "The unchanged-tree verify request conflicts with the explicit gate order and prohibition on manual verify_cmd runs."
+resolution = "Reserve pytest for hf-done; record no baseline run or claimed baseline failures."
+
+[gotcha.2]
+observed = "wasm/Makefile invokes sh inside a container that mounts only wasm; the root pipeline cannot be reached from that isolated mount."
+resolution = "Document the supported root command and request Makefile rewiring from the owning build domain without editing the out-of-scope file."
+
+[gotcha.3]
+observed = "bash -n with several positional script names parses only the first script; the declared build alone would not check both wrappers."
+resolution = "Keep the exact declared build and have pytest parse each wrapper and the root script individually with bash -n."
+
+[gotcha.4]
+observed = "Broad context/ledger reads exceeded output limits, several guessed configuration paths do not exist, and apply_patch rejected delete/add operations on the same file in a single patch."
+resolution = "Use bounded named reads and update existing scripts in place; no production changes resulted from the rejected patch. Keep task notes here because GOTCHA.kvx and spec files are outside scope."

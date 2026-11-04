@@ -107,13 +107,25 @@ function openInventory(snapshot: ScanSnapshot | Error, withPlaceholder = false) 
     const placeholderData = withPlaceholder ? { approvals: [ APPROVAL ], isIncomplete: false } : undefined;
     const snapshotQuery = useQuery({ queryKey: QUERY_KEY, queryFn: store.scan, placeholderData });
     const approvalsQuery = useQuery({ queryKey: QUERY_KEY, queryFn: store.scan, placeholderData, select: (scan) => scan.approvals });
+    let coverage: 'pending' | 'incomplete' | 'complete' = 'complete';
+    if (approvalsQuery.isPlaceholderData || approvalsQuery.isPending) coverage = 'pending';
+    else if (approvalsQuery.isError || snapshotQuery.data?.isIncomplete) coverage = 'incomplete';
+
+    const contentApprovalsQuery: React.ComponentProps<typeof Content>['approvalsQuery'] = {
+      ...approvalsQuery,
+      coverage,
+      partialAllowances: snapshotQuery.data?.isIncomplete ? snapshotQuery.data.approvals : undefined,
+      scanIssues: undefined,
+      retry: approvalsQuery.refetch,
+      isIncomplete: snapshotQuery.data?.isIncomplete,
+    };
 
     return React.createElement(Content, {
       searchAddress: ACCOUNT,
       selectedChain: undefined,
       isAddressMatch: false,
       coinBalanceQuery: { isPlaceholderData: false, data: { balance: '0', balanceUsd: '0', symbol: 'ETH', coinImage: undefined } },
-      approvalsQuery: { ...approvalsQuery, isIncomplete: snapshotQuery.data?.isIncomplete },
+      approvalsQuery: contentApprovalsQuery,
     });
   }
 
@@ -128,7 +140,7 @@ function expectNoEmptyInventory(view: ReturnType<typeof openInventory>['view']) 
   expect(view.queryByText(/find any approval/)).toBeNull();
 }
 
-async function approvalsErrorDisplayRetriesFailedScan() {
+test('approvalsErrorDisplayRetriesFailedScan', async function approvalsErrorDisplayRetriesFailedScan() {
   const failure = new Error('Recorded scan RPC failure');
   const { view, client, store } = openInventory(failure, true);
   await waitFor(() => expect(client.getQueryState(QUERY_KEY)?.status).toBe('error'));
@@ -154,9 +166,9 @@ async function approvalsErrorDisplayRetriesFailedScan() {
   expect(view.queryByText('Unavailable')).toBeNull();
   expect(view.getByRole('heading', { name: '0' })).toBeTruthy();
   expect(view.getByRole('heading', { name: '$0' })).toBeTruthy();
-}
+});
 
-async function approvalsErrorDisplayRejectsIncompleteEmptyScan() {
+test('approvalsErrorDisplayRejectsIncompleteEmptyScan', async function approvalsErrorDisplayRejectsIncompleteEmptyScan() {
   const { view, store } = openInventory({ approvals: [], isIncomplete: true });
   await view.findByText('Unable to complete the approval scan. Your account may still have active approvals.');
   expectNoEmptyInventory(view);
@@ -168,9 +180,9 @@ async function approvalsErrorDisplayRejectsIncompleteEmptyScan() {
   await view.findByText('No results');
   expect(store.reads).toBe(2);
   expect(view.queryByText(/Unable to complete/)).toBeNull();
-}
+});
 
-async function approvalsErrorDisplayPreservesPartialApprovals() {
+test('approvalsErrorDisplayPreservesPartialApprovals', async function approvalsErrorDisplayPreservesPartialApprovals() {
   const { view, store } = openInventory({ approvals: [ APPROVAL ], isIncomplete: true });
   await view.findByText('Approval scan is incomplete. Only known approvals are shown; other permissions may still be active.');
   expectNoEmptyInventory(view);
@@ -187,9 +199,9 @@ async function approvalsErrorDisplayPreservesPartialApprovals() {
   expect(view.getByRole('heading', { name: '1' })).toBeTruthy();
   expect(view.getByRole('heading', { name: '$25' })).toBeTruthy();
   expectNoEmptyInventory(view);
-}
+});
 
-async function approvalsErrorDisplayPreservesDataAfterRefetchFailure() {
+test('approvalsErrorDisplayPreservesDataAfterRefetchFailure', async function approvalsErrorDisplayPreservesDataAfterRefetchFailure() {
   const { view, client, store } = openInventory({ approvals: [ APPROVAL ], isIncomplete: false });
   await view.findByRole('heading', { name: '1' });
   store.snapshot = new Error('Recorded refetch failure');
@@ -208,9 +220,4 @@ async function approvalsErrorDisplayPreservesDataAfterRefetchFailure() {
   await waitFor(() => expect(view.queryByText(/Approval scan is incomplete/)).toBeNull());
   expect(store.reads).toBe(3);
   expect(view.getByRole('heading', { name: '1' })).toBeTruthy();
-}
-
-test(approvalsErrorDisplayRetriesFailedScan.name, approvalsErrorDisplayRetriesFailedScan);
-test(approvalsErrorDisplayRejectsIncompleteEmptyScan.name, approvalsErrorDisplayRejectsIncompleteEmptyScan);
-test(approvalsErrorDisplayPreservesPartialApprovals.name, approvalsErrorDisplayPreservesPartialApprovals);
-test(approvalsErrorDisplayPreservesDataAfterRefetchFailure.name, approvalsErrorDisplayPreservesDataAfterRefetchFailure);
+});

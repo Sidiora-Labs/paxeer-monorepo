@@ -17,6 +17,7 @@ use std::fmt::{Display, Formatter};
 use std::io;
 use std::path::{Path, PathBuf};
 
+use crate::session_control::{McpHistoryStats, McpInvocationIndex};
 use protected::ProtectedRoot;
 
 const MAGIC: &[u8; 4] = b"LXAS";
@@ -282,6 +283,9 @@ pub struct Store {
     protection: Option<ProtectedRoot>,
     entries: BTreeMap<TenantKey, StoredValue>,
     mcp_transition: Option<(&'static str, u64)>,
+    pub(crate) mcp_index: McpInvocationIndex,
+    mcp_changed: BTreeSet<TenantKey>,
+    mcp_last_transition_candidates: usize,
     read_only: bool,
 }
 
@@ -307,11 +311,15 @@ impl Store {
         let entries = protection
             .read()?
             .map_or_else(|| Ok(BTreeMap::new()), |bytes| decode(&bytes))?;
+        let mcp_index = Self::restore_mcp_index(&entries)?;
         Ok(Self {
             root: protection.path().to_path_buf(),
             protection: Some(protection),
             entries,
             mcp_transition: None,
+            mcp_index,
+            mcp_changed: BTreeSet::new(),
+            mcp_last_transition_candidates: 0,
             read_only: false,
         })
     }
@@ -322,13 +330,50 @@ impl Store {
             io::Error::new(io::ErrorKind::NotFound, "store snapshot does not exist")
         })?;
         let entries = decode(&bytes)?;
+        let mcp_index = Self::restore_mcp_index(&entries)?;
         Ok(Self {
             root: protection.path().to_path_buf(),
             protection: Some(protection),
             entries,
             mcp_transition: None,
+            mcp_index,
+            mcp_changed: BTreeSet::new(),
+            mcp_last_transition_candidates: 0,
             read_only: true,
         })
+    }
+
+    fn restore_mcp_index(
+        entries: &BTreeMap<TenantKey, StoredValue>,
+    ) -> Result<McpInvocationIndex, StoreError> {
+        let mut index = McpInvocationIndex::default();
+        for (key, value) in entries {
+            if McpInvocationIndex::is_invocation(key) {
+                index.replace(
+                    key.clone(),
+                    McpInvocationIndex::decode_entry(key, Some(value))?,
+                );
+            }
+        }
+        Ok(index)
+    }
+
+    fn insert_entry(&mut self, key: TenantKey, value: StoredValue) -> Option<StoredValue> {
+        self.mcp_changed.insert(key.clone());
+        self.entries.insert(key, value)
+    }
+
+    fn remove_entry(&mut self, key: &TenantKey) -> Option<StoredValue> {
+        self.mcp_changed.insert(key.clone());
+        self.entries.remove(key)
+    }
+
+    /// Reports the live transition working set and logically archived terminal evidence.
+    /// The durable archive remains available for exact idempotent replay and evidence lookup.
+    #[must_use]
+    pub fn mcp_history_stats(&self, tenant: &TenantId) -> McpHistoryStats {
+        self.mcp_index
+            .stats(tenant, self.mcp_last_transition_candidates)
     }
 
     /// Returns the directory this store and its tenant audit logs live under.
@@ -407,7 +452,7 @@ impl Store {
         }
         let before = self.entries.clone();
         for (key, bytes) in updates {
-            self.entries.insert(
+            self.insert_entry(
                 key,
                 StoredValue {
                     class: StorageClass::LocalOnly,
@@ -467,7 +512,7 @@ impl Store {
         }
         let before = self.entries.clone();
         for (key, bytes) in updates {
-            self.entries.insert(
+            self.insert_entry(
                 key,
                 StoredValue {
                     class: StorageClass::LocalOnly,
@@ -476,7 +521,7 @@ impl Store {
             );
         }
         for (key, bytes) in companions {
-            self.entries.insert(
+            self.insert_entry(
                 key,
                 StoredValue {
                     class: StorageClass::LocalOnly,
@@ -520,7 +565,7 @@ impl Store {
         }
         let before = self.entries.clone();
         for (key, bytes) in updates {
-            self.entries.insert(
+            self.insert_entry(
                 key,
                 StoredValue {
                     class: StorageClass::LocalOnly,
@@ -529,7 +574,7 @@ impl Store {
             );
         }
         for key in removals {
-            self.entries.remove(&key);
+            self.remove_entry(&key);
         }
         if let Err(error) = self.persist() {
             self.entries = before;
@@ -556,17 +601,17 @@ impl Store {
     /// one, or the `Io`/`SizeOverflow` from persisting; the value is reinserted either way.
     /// An absent key is `Ok(false)`, not an error.
     pub fn remove_local(&mut self, key: &TenantKey) -> Result<bool, StoreError> {
-        let Some(previous) = self.entries.remove(key) else {
+        let Some(previous) = self.remove_entry(key) else {
             return Ok(false);
         };
         if previous.class != StorageClass::LocalOnly {
-            self.entries.insert(key.clone(), previous);
+            self.insert_entry(key.clone(), previous);
             return Err(StoreError::Corrupt(
                 "attempted to remove core-produced cache",
             ));
         }
         if let Err(error) = self.persist() {
-            self.entries.insert(key.clone(), previous);
+            self.insert_entry(key.clone(), previous);
             return Err(error);
         }
         Ok(true)
@@ -591,8 +636,8 @@ impl Store {
             return Err(StoreError::Corrupt("invalid local record replacement"));
         }
         let before = self.entries.clone();
-        self.entries.remove(previous_key);
-        self.entries.insert(
+        self.remove_entry(previous_key);
+        self.insert_entry(
             replacement_key,
             StoredValue {
                 class: StorageClass::LocalOnly,
@@ -631,15 +676,15 @@ impl Store {
             return Err(StoreError::Corrupt("invalid local record replacement"));
         }
         let before = self.entries.clone();
-        self.entries.remove(previous_key);
-        self.entries.insert(
+        self.remove_entry(previous_key);
+        self.insert_entry(
             replacement_key,
             StoredValue {
                 class: StorageClass::LocalOnly,
                 bytes: replacement_bytes,
             },
         );
-        self.entries.insert(
+        self.insert_entry(
             companion_key,
             StoredValue {
                 class: StorageClass::LocalOnly,
@@ -674,14 +719,14 @@ impl Store {
             return Err(StoreError::Corrupt("invalid local record update"));
         }
         let before = self.entries.clone();
-        self.entries.insert(
+        self.insert_entry(
             key,
             StoredValue {
                 class: StorageClass::LocalOnly,
                 bytes,
             },
         );
-        self.entries.insert(
+        self.insert_entry(
             companion_key,
             StoredValue {
                 class: StorageClass::LocalOnly,
@@ -740,21 +785,21 @@ impl Store {
         let idempotency_record = TenantKey::new(tenant, ObjectKind::Idempotency, idempotency_key)?;
 
         let before = self.entries.clone();
-        self.entries.insert(
+        self.insert_entry(
             prepared_key,
             StoredValue {
                 class: StorageClass::LocalOnly,
                 bytes: signed_bytes,
             },
         );
-        self.entries.insert(
+        self.insert_entry(
             outbox_key,
             StoredValue {
                 class: StorageClass::LocalOnly,
                 bytes: outbox_state,
             },
         );
-        self.entries.insert(
+        self.insert_entry(
             idempotency_record,
             StoredValue {
                 class: StorageClass::LocalOnly,
@@ -762,7 +807,7 @@ impl Store {
             },
         );
         if let Some((index_key, bytes)) = activity_index {
-            self.entries.insert(
+            self.insert_entry(
                 index_key,
                 StoredValue {
                     class: StorageClass::LocalOnly,
@@ -789,7 +834,7 @@ impl Store {
     {
         let before = self.entries.clone();
         for (key, bytes) in entries {
-            self.entries.insert(
+            self.insert_entry(
                 key,
                 StoredValue {
                     class: StorageClass::CoreProducedCache,
@@ -846,7 +891,7 @@ impl Store {
 
         let before = self.entries.clone();
         for key in receipt_keys {
-            self.entries.insert(
+            self.insert_entry(
                 key.clone(),
                 StoredValue {
                     class: StorageClass::CoreProducedCache,
@@ -854,7 +899,7 @@ impl Store {
                 },
             );
         }
-        self.entries.insert(
+        self.insert_entry(
             metadata_key,
             StoredValue {
                 class: StorageClass::LocalOnly,
@@ -912,7 +957,7 @@ impl Store {
         }
         let before = self.entries.clone();
         for key in receipt_keys {
-            self.entries.insert(
+            self.insert_entry(
                 key.clone(),
                 StoredValue {
                     class: StorageClass::CoreProducedCache,
@@ -921,7 +966,7 @@ impl Store {
             );
         }
         for (key, _, bytes) in metadata {
-            self.entries.insert(
+            self.insert_entry(
                 key,
                 StoredValue {
                     class: StorageClass::LocalOnly,
@@ -981,21 +1026,21 @@ impl Store {
         }
 
         let before = self.entries.clone();
-        self.entries.insert(
+        self.insert_entry(
             event_key,
             StoredValue {
                 class: event_class,
                 bytes: event_bytes,
             },
         );
-        self.entries.insert(
+        self.insert_entry(
             metadata_key,
             StoredValue {
                 class: StorageClass::LocalOnly,
                 bytes: metadata,
             },
         );
-        self.entries.insert(
+        self.insert_entry(
             watermark_key,
             StoredValue {
                 class: StorageClass::LocalOnly,
@@ -1048,13 +1093,19 @@ impl Store {
         let deletion_key = TenantKey::new(tenant.clone(), ObjectKind::Audit, deletion_audit_id)?;
         let deletion_bytes = audit(removal)?;
         let before = self.entries.clone();
+        self.mcp_changed.extend(
+            self.entries
+                .keys()
+                .filter(|key| key.tenant() == tenant)
+                .cloned(),
+        );
         self.entries.retain(|key, value| {
             key.tenant() != tenant
                 || (key.kind() == ObjectKind::Audit
                     && retained_audit_ids.contains(key.object_id())
                     && value.class == StorageClass::LocalOnly)
         });
-        self.entries.insert(
+        self.insert_entry(
             deletion_key,
             StoredValue {
                 class: StorageClass::LocalOnly,
@@ -1074,16 +1125,14 @@ impl Store {
         class: StorageClass,
         bytes: Vec<u8>,
     ) -> Result<(), StoreError> {
-        let previous = self
-            .entries
-            .insert(key.clone(), StoredValue { class, bytes });
+        let previous = self.insert_entry(key.clone(), StoredValue { class, bytes });
         if let Err(error) = self.persist() {
             match previous {
                 Some(value) => {
-                    self.entries.insert(key, value);
+                    self.insert_entry(key, value);
                 }
                 None => {
-                    self.entries.remove(&key);
+                    self.remove_entry(&key);
                 }
             }
             return Err(error);
@@ -1111,7 +1160,7 @@ impl Store {
         }
         let before = self.entries.clone();
         for (key, bytes) in records {
-            self.entries.insert(
+            self.insert_entry(
                 key,
                 StoredValue {
                     class: StorageClass::LocalOnly,
@@ -1154,12 +1203,12 @@ impl Store {
                 "read-only store snapshot",
             )));
         }
+        let changed = std::mem::take(&mut self.mcp_changed);
+        let mut candidates = BTreeSet::new();
         let mut projected = None;
-        if self.mcp_transition.is_some()
-            || self.entries.keys().any(|key| {
-                key.kind() == ObjectKind::Idempotency
-                    && key.object_id().starts_with(b"mcp-invocation-v1/")
-            })
+        if self
+            .mcp_index
+            .needs_previous(&changed, self.mcp_transition.is_some())
         {
             let previous = Self {
                 root: self.root.clone(),
@@ -1171,12 +1220,22 @@ impl Store {
                     .read()?
                     .map_or_else(|| Ok(BTreeMap::new()), |bytes| decode(&bytes))?,
                 mcp_transition: None,
+                mcp_index: McpInvocationIndex::default(),
+                mcp_changed: BTreeSet::new(),
+                mcp_last_transition_candidates: 0,
                 read_only: true,
             };
+            candidates = self.mcp_index.transition_candidates(
+                &changed,
+                self.mcp_transition.is_some(),
+                &previous,
+                self,
+            )?;
             let updates = crate::session_control::mcp_transition_updates(
                 &previous,
                 self,
                 self.mcp_transition,
+                &candidates,
             )?;
             if !updates.is_empty() {
                 let mut entries = self.entries.clone();
@@ -1198,7 +1257,19 @@ impl Store {
                 projected = Some(entries);
             }
         }
-        let bytes = encode(projected.as_ref().unwrap_or(&self.entries))?;
+        let final_entries = projected.as_ref().unwrap_or(&self.entries);
+        let index_keys: BTreeSet<_> = changed
+            .iter()
+            .chain(candidates.iter())
+            .filter(|key| McpInvocationIndex::is_invocation(key))
+            .cloned()
+            .collect();
+        let mut index_updates = Vec::with_capacity(index_keys.len());
+        for key in index_keys {
+            let record = McpInvocationIndex::decode_entry(&key, final_entries.get(&key))?;
+            index_updates.push((key, record));
+        }
+        let bytes = encode(final_entries)?;
         self.protection
             .as_ref()
             .ok_or(StoreError::Corrupt("missing store root"))?
@@ -1206,6 +1277,10 @@ impl Store {
         if let Some(entries) = projected {
             self.entries = entries;
         }
+        for (key, record) in index_updates {
+            self.mcp_index.replace(key, record);
+        }
+        self.mcp_last_transition_candidates = candidates.len();
         Ok(())
     }
 }
@@ -1469,7 +1544,7 @@ impl Store {
         }
         let before = self.entries.clone();
         for (key, bytes) in updates.into_iter().chain(inserts) {
-            self.entries.insert(
+            self.insert_entry(
                 key,
                 StoredValue {
                     class: StorageClass::LocalOnly,
@@ -1478,7 +1553,7 @@ impl Store {
             );
         }
         for key in removals {
-            self.entries.remove(&key);
+            self.remove_entry(&key);
         }
         if let Err(error) = self.persist() {
             self.entries = before;
