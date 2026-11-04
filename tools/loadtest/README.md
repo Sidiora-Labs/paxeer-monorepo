@@ -11,17 +11,21 @@ is committed. Public JSON-RPC uses the root URL of
 `https://api-mainnet-beta.paxeer.network`. See the
 [public RPC reference](../../docs/site/docs/reference/public-rpc.md).
 
-The checked-in [profiles](profiles/) use chain ID `713714` for isolated fixtures.
-That value is not the mainnet chain ID. Match `chainId` to the endpoint's
-`eth_chainId` before sending; the CLI has no chain-ID override flag or automatic
-identity check. Multiple endpoints must serve the same chain.
+The checked-in [profiles](profiles/) target operator-owned loopback nodes on chain
+125. Qualification tests use isolated loopback JSON-RPC transcripts; those results
+do not qualify a live chain's throughput. The historical fixture ID `713714` is
+only appropriate for an explicitly isolated node configured with that identity.
+Before any deployment or traffic, the executable calls `eth_chainId` on **every**
+configured endpoint, including entries excluded by `--nodes`, and refuses a
+mismatch. The CLI has no chain-ID override flag. All endpoints must serve the
+configured signing chain.
 
 ## Quick Start
 
 ### 1. Build
 
-From the repository root, enter this directory. Install Go compatible with the
-`go 1.25.0` directive in [go.mod](go.mod), then build:
+From the repository root, enter this directory. Use the pinned Go **1.25.8** toolchain; the nested module keeps its
+`go 1.25.0` language directive in [go.mod](go.mod). Then build:
 
 ```bash
 cd tools/loadtest
@@ -64,8 +68,8 @@ endpoint for your environment. The initial run below simulates sending.
 }
 ```
 
-For the isolated fixture instead, copy `profiles/local.json` and retain its
-fixture chain ID only when the local node uses that ID.
+For an isolated local run, copy `profiles/local.json` and use a node whose
+`eth_chainId` matches its configured chain ID 125.
 
 ### 3. Run
 
@@ -123,7 +127,7 @@ The `settings` column gives the nested JSON key.
 
 ### Basic Load Test
 
-On an isolated fixture configured for chain `713714`, this invocation evaluates
+On an operator-owned chain-125 node, this invocation evaluates
 the existing EVM transfer profile's bounds (minimum 5 TPS, maximum p99 5000 ms),
 adds a minimum total, and writes a JSON report after graceful shutdown:
 
@@ -133,9 +137,28 @@ adds a minimum total, and writes a JSON report after graceful shutdown:
   --report-path fixture-report.json
 ```
 
-It requires the fixture's funding behavior described above. Add `--dry-run` to
-exercise generation and reporting without broadcasting; that result describes
-simulation performance only. Thresholds are examples, not network guarantees.
+It requires the fixture's funding behavior described above. Thresholds are
+examples, not network guarantees.
+
+The following profile invocation is qualified by
+`TestRepairM_817_LoadtestReadme`: the test runs the actual executable against an
+isolated chain-125 loopback transcript, retaining the shipped profile and overriding
+only endpoint addresses in a temporary copy. In your environment, provide the
+profile's local chain-125 RPC node before running:
+
+```bash
+./build/paxload --config profiles/evm_transfer.json --dry-run \
+  --workers 2 --buffer-size 8 --stats-interval 20ms --tps 100 \
+  --min-tps 0 --max-p99-latency 0s --min-total-txs 1 \
+  --report-path fixture-report.json --metricsListenAddr 127.0.0.1:0
+```
+
+After a statistics interval, Ctrl+C yields exit status 0 once at least one
+simulated submission completes. `--min-total-txs 18446744073709551615` produces a
+regression with exit status 1 on shutdown. The signal tests separately qualify
+successful, regressed, and refused live submissions with actual process exit
+codes for SIGINT and SIGTERM. This qualifies CLI generation and reporting;
+`--dry-run` does not measure chain execution performance and still checks identity.
 
 ### High Throughput Test
 
@@ -181,9 +204,10 @@ transactions, and is meaningful only for a controlled workload with that encodin
 
 ### Basic Structure
 
-The complete quick-start JSON shows the structure. The CLI requires non-empty
-`endpoints` and `scenarios`. Provide a positive account count either at the top
-level or within each scenario. `settings` is optional; omitted settings use
+The complete quick-start JSON shows the structure. The CLI admits 1–256 HTTP(S) `endpoints` and 1–256 `scenarios`, a positive
+`chainId`, and known scenario names before constructing generators or services.
+Weights must be nonnegative with a positive total no greater than 2147483647.
+Provide account settings either at the top level or within each scenario. `settings` is optional; omitted settings use
 defaults. [config/config.go](config/config.go) declares the profile fields.
 
 `chainId` controls transaction signing. `paxChainID` is a string label for metrics;
@@ -222,7 +246,9 @@ entries; zero-weight entries still go through setup before selection excludes th
 
 Scenarios share the top-level pool unless they provide their own `accounts` object.
 `newAccountRate` is the probability of generating a new account for a pool request;
-use a value from 0 to 1. New accounts are also unfunded. Prewarming sends
+use a finite value from 0 to 1. Fixed pools require a positive count; a fresh-only
+rate of exactly 1 permits count 0. Combined configured pools are capped at 100000
+accounts. New accounts are also unfunded. Prewarming sends
 self-transactions and does not fund them.
 
 ### Settings
@@ -231,7 +257,12 @@ For each setting, an explicitly supplied CLI flag overrides the nested `settings
 value, which overrides the default. Explicit flags can set `--tps 0` or
 `--dry-run=false`; merely omitting a flag does not override the profile. Zero-valued
 JSON settings are omitted when loaded into Viper and generally fall back to
-defaults. Duration settings use strings such as `"10s"` or `"250ms"`.
+defaults. Duration settings use strings such as `"10s"` or `"250ms"`. The resolved statistics
+interval must be positive. Workers must be in 1–1024 with at most 4096 total
+participants; buffers must be in 1–100000 with at most 1000000 queued transactions
+across endpoints. TPS must be finite and nonnegative. Transaction-file mode
+requires positive `targetGas` and `numBlocksToWrite`. Gas ranges must be positive
+and ordered, and minimum fee caps must cover maximum tip caps before sampling.
 
 ### Performance Bounds and Reports
 
@@ -258,13 +289,15 @@ A zero nested value inherits a nonzero top-level bound. Explicit flags
 `--min-tps 0 --max-p99-latency 0s --min-total-txs 0` disable the respective bounds
 even when the profile sets them.
 
-Reports use **`--report-path` > `settings.reportPath` > no report**. Although
-`LoadConfig` accepts a top-level `reportPath`, the CLI does not consume that field.
+Reports use **`--report-path` > nonempty `settings.reportPath` > top-level
+`reportPath` > no report**. An empty nested value inherits the top-level path.
 An explicit `--report-path=` suppresses the configured report. The parent directory
 must exist; a report overwrites the named file. Report write errors propagate as
 command failures.
 
-After graceful shutdown, the CLI prints final statistics, writes the report when
+On SIGINT or SIGTERM, the CLI stops and joins generation, closes sender queues,
+drains accepted submissions (with a 30-second deadline), and finalizes the writer
+tail atomically. It then prints final statistics, writes the report when
 requested, and checks the bounds. Equality passes. A violation returns exit **1**
 with `performance bounds violated` and the limit and observed value for each
 failed bound (`min_average_tps`, `min_total_txs`, or
@@ -275,8 +308,9 @@ shutdown with satisfied bounds and no run/report error returns exit **0**.
 Total transactions and average TPS count completed **submission attempts, including
 failed sends**. The p99 check uses successful send-call latency samples retained
 per endpoint, not receipt or commit latency, and only checks endpoints present in
-the final endpoint map. Receipt failures are logged; individual send failures are
-also logged and do not alone force a nonzero exit. Inspect errors and sample counts
+the final endpoint map. Receipt failures are logged; submission failures survive draining and cause
+exit status 1, as do metrics startup/serve failures, drain timeouts, writer
+finalization failures, and report write failures. Inspect errors and sample counts
 alongside bounds when judging a live run. Dry-run samples measure simulated sends;
 file-writing mode does not collect sender throughput samples.
 
@@ -351,7 +385,19 @@ make lint
 requires `golangci-lint`. `make clean` removes both `build/` and
 `generator/bindings/`; rebuilding after cleaning requires restoring the committed
 bindings or regenerating them with `make generate` and the Makefile's Solidity and
-`abigen` tools.
+`abigen` tools. `make build` uses `-mod=readonly` and never installs binding tools
+or tidies dependencies; `make tidy` is a separate maintenance operation.
+
+For deliberate regeneration, `make install-tools` installs abigen v1.17.0 and
+SHA-256-verified Solidity 0.8.19 release bytes into private `.tools/`. The historical
+`setup-node` target installs only native solc; no Node or nvm download is needed.
+`make generate` refuses missing or changed tools and records compiler/generator
+versions, tool hashes, and ABI/bytecode/binding hashes in per-binding `.provenance`
+files. It renders scenario constructors with `config.Scenario` and updates the
+factory using the compiled `build/paxload scaffold` commands. Complete each
+explicit contract constructor/transaction TODO before building a new scenario.
+The image uses digest-pinned stages, disables automatic toolchain downloads and
+checks the compiler identity before building.
 
 ## Troubleshooting
 

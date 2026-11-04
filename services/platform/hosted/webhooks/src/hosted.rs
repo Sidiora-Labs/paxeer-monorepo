@@ -9,6 +9,7 @@ use std::env;
 use std::fs;
 use std::io::{Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
+use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use subtle::ConstantTimeEq;
 use zeroize::{Zeroize, Zeroizing};
@@ -16,7 +17,7 @@ use zeroize::{Zeroize, Zeroizing};
 use crate::boundary::{remaining, Client, ClientIdentity, DeadlineTcp, Endpoint, OutboundRequest};
 use crate::deliveries::{AttemptRecord, DeliveryRecord, DeliveryState, FailureKind};
 use crate::encoding::{base64_decode, base64_encode, digest, hex_encode};
-use crate::endpoints::{EndpointHealth, RetryPolicy};
+use crate::endpoints::{EndpointHealth, RetryPolicy, MAXIMUM_ATTEMPTS};
 use crate::error::WebhookError;
 use crate::events::{DeliveryId, EndpointId, EventKind, Principal, ProtocolEvent, Verification};
 use crate::scheme;
@@ -24,7 +25,8 @@ use crate::trusted::TrustedEvent;
 
 const MAX_ENDPOINTS: usize = 32;
 const MAX_EVENTS: usize = 20_000;
-const MAX_ATTEMPTS: usize = 32;
+const MAX_PARTICIPANTS: usize = 100_000;
+pub const MAXIMUM_REPORTED_FAILURES: usize = 256;
 const MAX_SHARD_BYTES: usize = 16 * 1024 * 1024;
 const CAS_ATTEMPTS: usize = 16;
 const REDIS_CONNECT_TIMEOUT: Duration = Duration::from_secs(3);
@@ -265,6 +267,43 @@ pub struct HostedDispatchReport {
     pub retrying: u32,
     pub dead_lettered: u32,
     pub blocked: u32,
+    pub failures: Vec<ParticipantFailure>,
+    pub failure_count: usize,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WorkerStage {
+    Dispatch,
+    Retention,
+    MarketDrain,
+}
+
+/// Identifiers and closed categories only: never include store bytes, URLs or secrets.
+#[derive(Clone, Debug, Serialize)]
+pub struct ParticipantFailure {
+    pub principal_digest: String,
+    pub principal: Option<Principal>,
+    pub stage: WorkerStage,
+    pub category: &'static str,
+}
+
+#[derive(Clone, Debug, Default, Serialize)]
+pub struct WorkerHealth {
+    pub failures: Vec<ParticipantFailure>,
+    pub failure_count: usize,
+}
+
+#[derive(Clone, Debug, Default, Serialize)]
+pub struct HostedRetentionReport {
+    pub released: usize,
+    pub failures: Vec<ParticipantFailure>,
+    pub failure_count: usize,
+}
+
+struct Participant {
+    digest: String,
+    principal: Result<Principal, WebhookError>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -400,31 +439,36 @@ impl RedisRepository {
         Ok(matches!(response, Resp::Integer(value) if value == 1))
     }
 
-    fn principals(&self) -> Result<Vec<Principal>, WebhookError> {
+    fn participants(&self) -> Result<Vec<Participant>, WebhookError> {
         let response = self
             .command(&["SMEMBERS", "webhooks:principals"])
             .map_err(|_| WebhookError::Unavailable)?;
         let Resp::Array(values) = response else {
             return Err(WebhookError::CorruptStore);
         };
-        if values.len() > 100_000 {
+        if values.len() > MAX_PARTICIPANTS {
             return Err(WebhookError::CorruptStore);
         }
-        let mut principals = Vec::with_capacity(values.len());
-        for digest in values.iter().filter_map(resp_text) {
-            let state_key = format!("webhooks:principal:{digest}");
-            let response = self
-                .command(&["HGET", &state_key, "json"])
-                .map_err(|_| WebhookError::Unavailable)?;
-            let bytes = resp_bytes(&response).ok_or(WebhookError::CorruptStore)?;
-            let shard: PrincipalShard =
-                serde_json::from_slice(bytes).map_err(|_| WebhookError::CorruptStore)?;
-            if principal_digest(&shard.principal) != digest {
-                return Err(WebhookError::CorruptStore);
-            }
-            principals.push(shard.principal);
+        let mut participants = Vec::with_capacity(values.len());
+        for value in &values {
+            let digest = resp_text(value)
+                .filter(|v| v.len() == 64 && v.bytes().all(|b| b.is_ascii_hexdigit()))
+                .ok_or(WebhookError::CorruptStore)?;
+            let principal = (|| {
+                let response = self
+                    .command(&["HGET", &format!("webhooks:principal:{digest}"), "json"])
+                    .map_err(|_| WebhookError::Unavailable)?;
+                let bytes = resp_bytes(&response).ok_or(WebhookError::CorruptStore)?;
+                let shard: PrincipalShard =
+                    serde_json::from_slice(bytes).map_err(|_| WebhookError::CorruptStore)?;
+                if principal_digest(&shard.principal) != digest {
+                    return Err(WebhookError::CorruptStore);
+                }
+                Ok(shard.principal)
+            })();
+            participants.push(Participant { digest, principal });
         }
-        Ok(principals)
+        Ok(participants)
     }
 
     fn command(&self, arguments: &[&str]) -> Result<Resp, String> {
@@ -663,11 +707,11 @@ pub struct HostedService {
     repository: RedisRepository,
     kms: KmsClient,
     outbound: Client,
-    outbound_ca: ClientIdentity,
     policy: RetryPolicy,
     instance: String,
     cursor_key: Zeroizing<[u8; 32]>,
     key_overlap_seconds: u64,
+    worker_failures: Mutex<BTreeMap<(String, WorkerStage), ParticipantFailure>>,
 }
 
 pub struct HostedReader {
@@ -681,22 +725,7 @@ impl HostedReader {
     pub fn from_environment() -> Result<Self, String> {
         let ca = Certificate::from_der(&read_required("LAYERX_WEBHOOKS_INTERNAL_CA_DER")?)
             .map_err(|error| error.to_string())?;
-        let policy = RetryPolicy {
-            base_delay_seconds: number("LAYERX_WEBHOOKS_BASE_DELAY_SECONDS", 10)?,
-            maximum_delay_seconds: number("LAYERX_WEBHOOKS_MAXIMUM_DELAY_SECONDS", 3_600)?,
-            maximum_attempts: u32::try_from(number("LAYERX_WEBHOOKS_MAXIMUM_ATTEMPTS", 8)?)
-                .map_err(|_| "maximum webhook attempts is invalid".to_owned())?,
-            spread_percent: u8::try_from(number("LAYERX_WEBHOOKS_SPREAD_PERCENT", 20)?)
-                .map_err(|_| "webhook spread is invalid".to_owned())?,
-            suspend_after_dead_letters: u32::try_from(number(
-                "LAYERX_WEBHOOKS_SUSPEND_AFTER_DEAD_LETTERS",
-                20,
-            )?)
-            .map_err(|_| "webhook suspension threshold is invalid".to_owned())?,
-            in_flight_timeout_seconds: number("LAYERX_WEBHOOKS_LEASE_SECONDS", 120)?,
-        }
-        .validate()
-        .map_err(|_| "webhook retry policy is invalid".to_owned())?;
+        let policy = configured_retry_policy(number)?;
         Ok(Self {
             repository: RedisRepository {
                 endpoint: RedisEndpoint::parse(
@@ -746,22 +775,7 @@ impl HostedService {
             .map_err(|error| error.to_string())?;
         let cursor = read_secret("LAYERX_WEBHOOKS_CURSOR_KEY_FILE")?;
         let cursor_key = Zeroizing::new(parse_hex32(cursor.as_str())?);
-        let policy = RetryPolicy {
-            base_delay_seconds: number("LAYERX_WEBHOOKS_BASE_DELAY_SECONDS", 10)?,
-            maximum_delay_seconds: number("LAYERX_WEBHOOKS_MAXIMUM_DELAY_SECONDS", 3_600)?,
-            maximum_attempts: u32::try_from(number("LAYERX_WEBHOOKS_MAXIMUM_ATTEMPTS", 8)?)
-                .map_err(|_| "maximum webhook attempts is invalid".to_owned())?,
-            spread_percent: u8::try_from(number("LAYERX_WEBHOOKS_SPREAD_PERCENT", 20)?)
-                .map_err(|_| "webhook spread is invalid".to_owned())?,
-            suspend_after_dead_letters: u32::try_from(number(
-                "LAYERX_WEBHOOKS_SUSPEND_AFTER_DEAD_LETTERS",
-                20,
-            )?)
-            .map_err(|_| "webhook suspension threshold is invalid".to_owned())?,
-            in_flight_timeout_seconds: number("LAYERX_WEBHOOKS_LEASE_SECONDS", 120)?,
-        }
-        .validate()
-        .map_err(|_| "webhook retry policy is invalid".to_owned())?;
+        let policy = configured_retry_policy(number)?;
         let kms = KmsClient {
             client: Client::trusted(internal_identity.clone()),
             endpoint: Endpoint::parse(
@@ -787,21 +801,22 @@ impl HostedService {
             },
             kms,
             outbound: Client::public(ClientIdentity::new(public_ca.clone(), None)),
-            outbound_ca: ClientIdentity::new(public_ca, None),
             policy,
             instance,
             cursor_key,
             key_overlap_seconds: number("LAYERX_WEBHOOKS_KEY_OVERLAP_SECONDS", 86_400)?,
+            worker_failures: Mutex::new(BTreeMap::new()),
         })
     }
 
     #[must_use]
     pub fn ready(&self) -> bool {
-        self.repository.ready() && self.kms.ready()
+        self.worker_health().failure_count == 0 && self.repository.ready() && self.kms.ready()
     }
 
     pub fn ready_until(&self, deadline: Instant) -> bool {
-        self.repository.ready_until(deadline)
+        self.worker_health().failure_count == 0
+            && self.repository.ready_until(deadline)
             && self.kms.ready_until(deadline)
             && Instant::now() < deadline
     }
@@ -1130,28 +1145,162 @@ impl HostedService {
         })
     }
 
-    /// # Errors
-    /// Returns [`WebhookError::Unavailable`] or [`WebhookError::CorruptStore`] when principal enumeration or delivery settlement cannot complete.
+    /// Refreshes the caller's epoch with monotonic elapsed time at every boundary.
+    /// Retry calculations remain deterministic functions of settlement time.
     pub fn dispatch(&self, now: u64, budget: u32) -> Result<HostedDispatchReport, WebhookError> {
+        let started = Instant::now();
+        self.dispatch_with_clock(budget, || now.saturating_add(started.elapsed().as_secs()))
+    }
+
+    /// Dispatches with the same clock at preparation, signing and settlement.
+    /// A supplied clock must return Unix seconds and advance monotonically.
+    pub fn dispatch_with_clock(
+        &self,
+        budget: u32,
+        clock: impl Fn() -> u64,
+    ) -> Result<HostedDispatchReport, WebhookError> {
         let mut report = HostedDispatchReport::default();
-        for principal in self.repository.principals()? {
+        for participant in self.participants_for(WorkerStage::Dispatch)? {
+            let principal = match participant.principal {
+                Ok(principal) => principal,
+                Err(error) => {
+                    self.record_worker_failure(
+                        &participant.digest,
+                        None,
+                        WorkerStage::Dispatch,
+                        &error,
+                    );
+                    report.failure_count += 1;
+                    push_failure(
+                        &mut report.failures,
+                        participant.digest,
+                        None,
+                        WorkerStage::Dispatch,
+                        &error,
+                    );
+                    continue;
+                }
+            };
+            let mut failed = false;
             while report.attempted < budget {
-                let Some(prepared) = self.prepare(&principal, now)? else {
-                    break;
-                };
-                report.attempted = report.attempted.saturating_add(1);
-                let started = Instant::now();
-                let outcome = self.send(&prepared);
-                let latency = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
-                self.settle(&prepared, outcome, latency, now, &mut report)?;
+                let outcome = (|| {
+                    let Some(mut prepared) = self.prepare(&principal, &clock)? else {
+                        return Ok(false);
+                    };
+                    report.attempted = report.attempted.saturating_add(1);
+                    let started = Instant::now();
+                    prepared.timestamp = clock();
+                    let outcome = self.send(&prepared);
+                    let latency = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
+                    self.settle(&prepared, outcome, latency, &clock, &mut report)?;
+                    Ok(true)
+                })();
+                match outcome {
+                    Ok(true) => {}
+                    Ok(false) => break,
+                    Err(error) => {
+                        self.record_worker_failure(
+                            &participant.digest,
+                            Some(principal.clone()),
+                            WorkerStage::Dispatch,
+                            &error,
+                        );
+                        report.failure_count += 1;
+                        push_failure(
+                            &mut report.failures,
+                            participant.digest.clone(),
+                            Some(principal.clone()),
+                            WorkerStage::Dispatch,
+                            &error,
+                        );
+                        failed = true;
+                        break;
+                    }
+                }
+            }
+            if !failed && report.attempted < budget {
+                self.clear_worker_failure(&participant.digest, WorkerStage::Dispatch);
             }
         }
         Ok(report)
     }
 
-    fn prepare(&self, principal: &Principal, now: u64) -> Result<Option<Prepared>, WebhookError> {
+    fn participants_for(&self, stage: WorkerStage) -> Result<Vec<Participant>, WebhookError> {
+        match self.repository.participants() {
+            Ok(participants) => {
+                let current: std::collections::BTreeSet<_> =
+                    participants.iter().map(|p| p.digest.as_str()).collect();
+                if let Ok(mut failures) = self.worker_failures.lock() {
+                    failures.retain(|(digest, recorded_stage), _| {
+                        *recorded_stage != stage || current.contains(digest.as_str())
+                    });
+                }
+                self.clear_worker_failure("all", stage);
+                Ok(participants)
+            }
+            Err(error) => {
+                self.record_worker_failure("all", None, stage, &error);
+                Err(error)
+            }
+        }
+    }
+
+    pub fn worker_health(&self) -> WorkerHealth {
+        match self.worker_failures.lock() {
+            Ok(failures) => WorkerHealth {
+                failures: failures
+                    .values()
+                    .take(MAXIMUM_REPORTED_FAILURES)
+                    .cloned()
+                    .collect(),
+                failure_count: failures.len(),
+            },
+            Err(_) => WorkerHealth {
+                failures: vec![ParticipantFailure {
+                    principal_digest: "all".to_owned(),
+                    principal: None,
+                    stage: WorkerStage::Dispatch,
+                    category: "health_state_unavailable",
+                }],
+                failure_count: 1,
+            },
+        }
+    }
+
+    pub(crate) fn record_worker_failure(
+        &self,
+        digest: &str,
+        principal: Option<Principal>,
+        stage: WorkerStage,
+        error: &WebhookError,
+    ) {
+        if let Ok(mut failures) = self.worker_failures.lock() {
+            failures.insert(
+                (digest.to_owned(), stage),
+                ParticipantFailure {
+                    principal_digest: digest.to_owned(),
+                    principal,
+                    stage,
+                    category: worker_category(error),
+                },
+            );
+        }
+    }
+
+    pub(crate) fn clear_worker_failure(&self, digest: &str, stage: WorkerStage) {
+        if let Ok(mut failures) = self.worker_failures.lock() {
+            failures.remove(&(digest.to_owned(), stage));
+        }
+    }
+
+    fn prepare(
+        &self,
+        principal: &Principal,
+        clock: &impl Fn() -> u64,
+    ) -> Result<Option<Prepared>, WebhookError> {
         let lease = random_lease(&self.instance)?;
         self.transact(principal, |shard| {
+            let now = clock();
             let keys: Vec<String> = shard.queues.keys().cloned().collect();
             for queue in keys {
                 while let Some(head) = shard.queues.get(&queue).and_then(VecDeque::front).cloned() {
@@ -1243,7 +1392,6 @@ impl HostedService {
             .sign(&prepared.key, &message)
             .map_err(|_| FailureKind::Unreachable)?;
         let endpoint = Endpoint::parse(&prepared.url).map_err(|_| FailureKind::Protocol)?;
-        let client = Client::public(self.outbound_ca.clone());
         let headers = vec![
             (scheme::ID_HEADER.to_owned(), prepared.event.clone()),
             (
@@ -1277,7 +1425,8 @@ impl HostedService {
                 prepared.endpoint.clone(),
             ),
         ];
-        let response = client
+        let response = self
+            .outbound
             .request(&OutboundRequest {
                 endpoint: &endpoint,
                 method: "POST",
@@ -1305,11 +1454,12 @@ impl HostedService {
         prepared: &Prepared,
         outcome: Result<u16, FailureKind>,
         latency_ms: u64,
-        now: u64,
+        clock: &impl Fn() -> u64,
         report: &mut HostedDispatchReport,
     ) -> Result<(), WebhookError> {
         let policy = self.policy;
         self.transact(&prepared.principal, |shard| {
+            let now = clock();
             let delivery = shard
                 .deliveries
                 .get_mut(&prepared.delivery)
@@ -1328,7 +1478,7 @@ impl HostedService {
                 Ok(value) => (Some(value), Some(FailureKind::Refused)),
                 Err(value) => (None, Some(value)),
             };
-            if delivery.attempts.len() >= MAX_ATTEMPTS {
+            if delivery.attempts.len() >= MAXIMUM_ATTEMPTS as usize {
                 return Err(WebhookError::CorruptStore);
             }
             delivery.attempts.push(AttemptRecord {
@@ -1613,11 +1763,44 @@ impl HostedService {
     /// # Errors
     /// Returns [`WebhookError::Unavailable`] or [`WebhookError::CorruptStore`] when principal enumeration or retention cannot complete.
     pub fn prune_all(&self, retain: usize) -> Result<usize, WebhookError> {
-        let mut released = 0_usize;
-        for principal in self.repository.principals()? {
-            released = released.saturating_add(self.prune(&principal, retain)?);
+        let report = self.prune_all_report(retain)?;
+        if report.failure_count != 0 {
+            return Err(WebhookError::Unavailable);
         }
-        Ok(released)
+        Ok(report.released)
+    }
+
+    /// Applies retention independently per principal; failed stores remain in health
+    /// until a later successful retention transaction proves recovery.
+    pub fn prune_all_report(&self, retain: usize) -> Result<HostedRetentionReport, WebhookError> {
+        let mut report = HostedRetentionReport::default();
+        for participant in self.participants_for(WorkerStage::Retention)? {
+            let principal = participant.principal.as_ref().ok().cloned();
+            let result = participant.principal.and_then(|p| self.prune(&p, retain));
+            match result {
+                Ok(released) => {
+                    report.released = report.released.saturating_add(released);
+                    self.clear_worker_failure(&participant.digest, WorkerStage::Retention);
+                }
+                Err(error) => {
+                    self.record_worker_failure(
+                        &participant.digest,
+                        principal.clone(),
+                        WorkerStage::Retention,
+                        &error,
+                    );
+                    report.failure_count += 1;
+                    push_failure(
+                        &mut report.failures,
+                        participant.digest,
+                        principal,
+                        WorkerStage::Retention,
+                        &error,
+                    );
+                }
+            }
+        }
+        Ok(report)
     }
 }
 
@@ -1804,7 +1987,7 @@ fn decode_cursor(
     let value = cursor
         .strip_prefix(CURSOR_PREFIX)
         .ok_or(WebhookError::InvalidCursor)?;
-    if value.len() != 48 {
+    if value.len() != 48 || !value.bytes().all(|byte| byte.is_ascii_hexdigit()) {
         return Err(WebhookError::InvalidCursor);
     }
     let position =
@@ -2086,4 +2269,60 @@ pub fn subscription_accepts(
     event: &ProtocolEvent,
 ) -> bool {
     (kinds.is_empty() || kinds.contains(&event.kind())) && event.verification().at_least(minimum)
+}
+
+fn worker_category(error: &WebhookError) -> &'static str {
+    match error {
+        WebhookError::CorruptStore => "corrupt_store",
+        WebhookError::Io(_) => "store_io",
+        WebhookError::Unavailable => "dependency_unavailable",
+        WebhookError::Entropy => "entropy_unavailable",
+        _ => "delivery_state_failure",
+    }
+}
+
+pub(crate) fn push_failure(
+    failures: &mut Vec<ParticipantFailure>,
+    digest: String,
+    principal: Option<Principal>,
+    stage: WorkerStage,
+    error: &WebhookError,
+) {
+    if failures.len() < MAXIMUM_REPORTED_FAILURES {
+        failures.push(ParticipantFailure {
+            principal_digest: digest,
+            principal,
+            stage,
+            category: worker_category(error),
+        });
+    }
+}
+
+#[cfg(test)]
+#[path = "repair_22_33_1328_hosted.rs"]
+pub mod repair_support;
+
+/// Decodes the documented environment settings through one validated retry bound.
+/// Environment readers and deterministic configuration consumers use this same path.
+pub fn configured_retry_policy(
+    mut read: impl FnMut(&str, u64) -> Result<u64, String>,
+) -> Result<RetryPolicy, String> {
+    RetryPolicy {
+        base_delay_seconds: read("LAYERX_WEBHOOKS_BASE_DELAY_SECONDS", 10)?,
+        maximum_delay_seconds: read("LAYERX_WEBHOOKS_MAXIMUM_DELAY_SECONDS", 3_600)?,
+        maximum_attempts: u32::try_from(read("LAYERX_WEBHOOKS_MAXIMUM_ATTEMPTS", 8)?)
+            .map_err(|_| "maximum webhook attempts is invalid".to_owned())?,
+        spread_percent: u8::try_from(read("LAYERX_WEBHOOKS_SPREAD_PERCENT", 20)?)
+            .map_err(|_| "webhook spread is invalid".to_owned())?,
+        suspend_after_dead_letters: u32::try_from(read(
+            "LAYERX_WEBHOOKS_SUSPEND_AFTER_DEAD_LETTERS",
+            20,
+        )?)
+        .map_err(|_| "webhook suspension threshold is invalid".to_owned())?,
+        in_flight_timeout_seconds: read("LAYERX_WEBHOOKS_LEASE_SECONDS", 120)?,
+    }
+    .validate()
+    .map_err(|_| {
+        format!("webhook retry policy is invalid (maximum attempts is {MAXIMUM_ATTEMPTS})")
+    })
 }

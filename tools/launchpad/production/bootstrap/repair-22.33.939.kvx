@@ -1,0 +1,35 @@
+[repair.22.33.939]
+audit = "22.30.23"
+base_revision = "e3d7e5828b39e4182e9559fb6bc28d74c2f37e0f"
+test_module = "tools/launchpad/production/bootstrap/tests/test_repair_22_33_939.py"
+build = "hf-build"
+verify = "hf-done"
+evidence = "The runner's private gates.jsonl and final hf-done JSON bind the candidate revision, exact command, exit code and log; this source record makes no gate-pass claim."
+pre_change = "No pre-change verify ran: the explicit implementation-first order and single bounded verify prohibit the contradictory step 8 pre-run; no pre-change failures are claimed."
+prior_observation = "Audit 22.30.23 records the root-level source fixture assertion as failing; the declared repair test executes that same assertion in process after its fixture repair."
+proof_boundary = "These interfaces transport real go.work, pnpm YAML and package JSON through the filesystem into the production inventory readers; committed manifests are copied to isolated roots without replacing any reader, codec or tool executable. No network or restart protocol exists in these repaired interfaces."
+qualification_boundary = "The focused gate proves inventory selection, local dependency validation, CLI instructions and source exclusions; it does not run Go/pnpm verification, the registered bootstrap baseline or production qualification."
+
+[continuation.attempt-2]
+prior_result = "All 36 repair cases passed in attempt 1; qualification was held because Python bytecode changed the candidate between build and verification."
+artifact_policy = "The current root .gitignore excludes __pycache__/ and the runner excludes Python bytecode from candidate revisions; retain the prior implementation and use the bounded gates on one unchanged source candidate."
+publication = "The runner owns candidate commits and publication; no worker commit or out-of-scope ignore-file edit is required."
+
+[finding.bootstrap-instructions-layout]
+tests = ["test_bootstrap_instructions_use_real_qualifier_registry_and_evidence_layout"]
+repair = "Document current CLI options, pinned workspace, canonical seventeen-member Go dependency inventory, monorepo contracts, absent launchpad specification and per-run evidence; distinguish source inventory from executed suites and production readiness."
+
+[finding.baseline-module-inventory]
+tests = ["test_module_inventory_matches_canonical_workspace_and_separates_tools", "test_module_inventory_rejects_missing_members_checksums_and_same_count_drift", "test_module_inventory_rejects_unreviewed_production_members"]
+repair = "Reconcile pinned production/tool membership with services/launchpad/go.work, reject absent members/checksums and verify auxiliary modules separately; retain Go dependency verification and final immutable source hashes."
+
+[finding.baseline-npm-manifest-selector]
+tests = ["test_workspace_inventory_includes_apps_and_moved_sdks_without_mutation", "test_workspace_edges_resolve_and_reject_missing_targets", "test_workspace_inventory_rejects_missing_manifests_and_names"]
+repair = "Read actual pnpm workspace patterns including moved SDKs, validate names and workspace/file/link dependencies in every dependency section, and retain source manifest bytes."
+
+[finding.baseline-source-fixture-layout]
+tests = ["test_source_fixture_uses_launchpad_homes_and_preserves_exclusions"]
+repair = "Execute the original source exclusion assertion in representative apps and services homes, comparing exact relative paths and content hashes while excluding symlinks, secrets, generated output, evidence and unrelated root source."
+
+[wiring.production-system-spec]
+request = "launchpad/spec/production-system/spec.kvx: owning domain 4 (launchpad qualification) must restore or supply the reviewed production-system specification before the documented registered bootstrap command can execute."

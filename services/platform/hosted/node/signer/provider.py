@@ -14,10 +14,16 @@
 #
 # The signer verifies every signature a provider returns against the public
 # key the provider advertised before it answers a client.
+from contextlib import contextmanager
+from contextvars import ContextVar
+import math
 import os
+import selectors
 import shlex
+import signal
 import stat
 import subprocess
+import time
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import serialization
@@ -27,6 +33,8 @@ PKCS8_ED25519_PREFIX = bytes.fromhex('302e020100300506032b657004220420')
 SPKI_ED25519_PREFIX = bytes.fromhex('302a300506032b6570032100')
 MAXIMUM_MATERIAL_BYTES = 4096
 MAXIMUM_COMMAND_OUTPUT_BYTES = 4096
+DEFAULT_OPERATION_TIMEOUT = 10.0
+OPERATION_DEADLINE = ContextVar('treasury_operation_deadline', default=None)
 RECIPIENT_BINDING_DOMAIN = b'LX:SETTLE:RECIPIENT:v1\0'
 RECIPIENT_BINDING_BYTES = 120
 
@@ -35,12 +43,107 @@ class ProviderError(Exception):
     pass
 
 
+class ProviderTimeout(ProviderError):
+    pass
+
+
+@contextmanager
+def operation_deadline(deadline):
+    previous = OPERATION_DEADLINE.get()
+    token = OPERATION_DEADLINE.set(deadline if previous is None else min(previous, deadline))
+    try:
+        yield
+    finally:
+        OPERATION_DEADLINE.reset(token)
+
+
+def remaining_time(deadline=None):
+    if deadline is None:
+        deadline = OPERATION_DEADLINE.get()
+    if deadline is None:
+        return DEFAULT_OPERATION_TIMEOUT
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise ProviderTimeout('the treasury operation deadline expired')
+    return remaining
+
+
+def bounded_process(command, timeout, descriptors=(), stdin=None,
+                    maximum=MAXIMUM_COMMAND_OUTPUT_BYTES):
+    if not math.isfinite(timeout) or timeout <= 0 or maximum < 0:
+        raise ProviderError('provider process bounds must be finite and positive')
+    deadline = time.monotonic() + timeout
+    request_deadline = OPERATION_DEADLINE.get()
+    if request_deadline is not None:
+        deadline = min(deadline, request_deadline)
+    process = None
+    try:
+        remaining_time(deadline)
+        process = subprocess.Popen(command, stdin=subprocess.PIPE if stdin is not None
+                                   else subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE, pass_fds=tuple(descriptors),
+                                   start_new_session=True)
+        output = bytearray()
+        counts = {'stdout': 0, 'stderr': 0}
+        pending = memoryview(stdin) if stdin is not None else None
+        with selectors.DefaultSelector() as selector:
+            for pipe, name in ((process.stdout, 'stdout'), (process.stderr, 'stderr')):
+                os.set_blocking(pipe.fileno(), False)
+                selector.register(pipe, selectors.EVENT_READ, name)
+            if pending:
+                os.set_blocking(process.stdin.fileno(), False)
+                selector.register(process.stdin, selectors.EVENT_WRITE, 'stdin')
+            elif process.stdin is not None:
+                process.stdin.close()
+            while selector.get_map():
+                for key, _ in selector.select(remaining_time(deadline)):
+                    remaining_time(deadline)
+                    if key.data == 'stdin':
+                        try:
+                            written = os.write(key.fd, pending[:4096])
+                            pending = pending[written:]
+                        except BrokenPipeError:
+                            pending = pending[:0]
+                        if not pending:
+                            selector.unregister(key.fileobj)
+                            key.fileobj.close()
+                        continue
+                    limit = maximum if key.data == 'stdout' else MAXIMUM_COMMAND_OUTPUT_BYTES
+                    chunk = os.read(key.fd, min(4096, limit - counts[key.data] + 1))
+                    if not chunk:
+                        selector.unregister(key.fileobj)
+                        key.fileobj.close()
+                        continue
+                    counts[key.data] += len(chunk)
+                    if counts[key.data] > limit:
+                        raise ProviderError('the provider process output exceeds its bound')
+                    if key.data == 'stdout':
+                        output.extend(chunk)
+            process.wait(timeout=remaining_time(deadline))
+        remaining_time(deadline)
+        if process.returncode != 0:
+            raise ProviderError('the provider process refused the request')
+        return bytes(output)
+    except subprocess.TimeoutExpired as error:
+        raise ProviderTimeout('the treasury operation deadline expired') from error
+    except (OSError, subprocess.SubprocessError) as error:
+        raise ProviderError('the provider process did not answer') from error
+    finally:
+        if process is not None:
+            # Kill the session as well: descendants may still hold a pipe open.
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            process.wait()
+            for pipe in (process.stdin, process.stdout, process.stderr):
+                if pipe is not None:
+                    pipe.close()
+
+
 def openssl(arguments, descriptors=(), stdin=None, maximum=MAXIMUM_COMMAND_OUTPUT_BYTES):
-    result = subprocess.run(['openssl'] + arguments, input=stdin, stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE, pass_fds=tuple(descriptors), check=False)
-    if result.returncode != 0 or len(result.stdout) > maximum:
-        raise ProviderError('openssl refused a treasury key operation')
-    return result.stdout
+    return bounded_process(['openssl'] + arguments, DEFAULT_OPERATION_TIMEOUT,
+                           descriptors, stdin, maximum)
 
 
 def memory_file(name, value):
@@ -185,19 +288,12 @@ class CommandProvider(Provider):
         self._command = shlex.split(command)
         if not self._command:
             raise ProviderError('the provider command is empty')
-        if timeout <= 0:
+        if not math.isfinite(timeout) or timeout <= 0:
             raise ProviderError('the provider timeout must be positive')
         self._timeout = timeout
 
     def _run(self, arguments):
-        try:
-            result = subprocess.run(self._command + arguments, stdout=subprocess.PIPE,
-                                    stderr=subprocess.PIPE, timeout=self._timeout, check=False)
-        except (OSError, subprocess.SubprocessError) as error:
-            raise ProviderError('the provider command did not answer') from error
-        if result.returncode != 0 or len(result.stdout) > MAXIMUM_COMMAND_OUTPUT_BYTES:
-            raise ProviderError('the provider command refused the request')
-        return result.stdout.decode('ascii', 'replace')
+        return bounded_process(self._command + arguments, self._timeout).decode('ascii', 'replace')
 
     def public_key(self):
         return parse_hex(self._run(['public-key']), 32)

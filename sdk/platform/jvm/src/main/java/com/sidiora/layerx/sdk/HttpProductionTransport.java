@@ -176,19 +176,18 @@ public final class HttpProductionTransport implements ProductionTransport {
             return CompletableFuture.failedFuture(new PlatformSdkException(
                 PlatformSdkException.Code.INVALID_ARGUMENT, PlatformSdkException.Retry.NEVER, null, null, null));
         }
-        return client.sendAsync(request, HttpResponse.BodyHandlers.ofInputStream())
+        boolean mutating = OperationCatalog.requiresIdempotency(call.operation());
+        return BoundedHttpResponse.send(client, request, MAXIMUM_RESPONSE_BYTES, timeout)
             .handle((response, failure) -> {
-                if (failure != null) throw new CompletionException(new PlatformSdkException(
-                    PlatformSdkException.Code.TRANSPORT_FAILURE, PlatformSdkException.Retry.SAFE, null, null, null));
-                try (var body = response.body()) {
-                    byte[] encoded = body.readNBytes(MAXIMUM_RESPONSE_BYTES + 1);
-                    if (encoded.length > MAXIMUM_RESPONSE_BYTES) throw new PlatformSdkException(
-                        PlatformSdkException.Code.DECODE_FAILURE, PlatformSdkException.Retry.NEVER, null, null, null);
-                    return decode(response.statusCode(), encoded, responseType, call.operation().plane());
-                } catch (IOException error) {
-                    throw new CompletionException(new PlatformSdkException(PlatformSdkException.Code.TRANSPORT_FAILURE,
-                        PlatformSdkException.Retry.SAFE, null, null, null));
+                if (failure != null) {
+                    Throwable cause = failure;
+                    while (cause.getCause() != null) cause = cause.getCause();
+                    if (cause instanceof BoundedHttpResponse.LimitExceeded && !mutating) throw new CompletionException(
+                        new PlatformSdkException(PlatformSdkException.Code.DECODE_FAILURE,
+                            PlatformSdkException.Retry.NEVER, null, null, null));
+                    throw new CompletionException(agentTransportFailure(mutating));
                 }
+                return decode(response.statusCode(), response.body(), responseType, call.operation().plane());
             });
     }
 
@@ -220,9 +219,9 @@ public final class HttpProductionTransport implements ProductionTransport {
         } catch (PlatformSdkException error) {
             return CompletableFuture.failedFuture(error);
         }
-        final CompletableFuture<HttpResponse<java.io.InputStream>> pending;
+        final CompletableFuture<HttpResponse<byte[]>> pending;
         try {
-            pending = client.sendAsync(request, HttpResponse.BodyHandlers.ofInputStream());
+            pending = BoundedHttpResponse.send(client, request, MAXIMUM_RESPONSE_BYTES, timeout);
         } catch (RuntimeException error) {
             java.util.Arrays.fill(envelope, (byte) 0);
             return CompletableFuture.failedFuture(agentTransportFailure(mutating));
@@ -230,21 +229,15 @@ public final class HttpProductionTransport implements ProductionTransport {
         return pending.handle((response, failure) -> {
             java.util.Arrays.fill(envelope, (byte) 0);
             if (failure != null) throw new CompletionException(agentTransportFailure(mutating));
-            try (var body = response.body()) {
-                byte[] encoded = body.readNBytes(MAXIMUM_RESPONSE_BYTES + 1);
-                if (encoded.length > MAXIMUM_RESPONSE_BYTES || !jsonContentType(response)) {
-                    throw new CompletionException(agentTransportFailure(mutating));
+            byte[] encoded = response.body();
+            if (!jsonContentType(response)) throw new CompletionException(agentTransportFailure(mutating));
+            try {
+                return decodeAgentReply(response.statusCode(), encoded, requestId);
+            } catch (PlatformSdkException error) {
+                if (error.code() == PlatformSdkException.Code.DECODE_FAILURE) {
+                    throw new CompletionException(agentUndecodable(response.statusCode(), encoded, mutating));
                 }
-                try {
-                    return decodeAgentReply(response.statusCode(), encoded, requestId);
-                } catch (PlatformSdkException error) {
-                    if (error.code() == PlatformSdkException.Code.DECODE_FAILURE) {
-                        throw new CompletionException(agentUndecodable(response.statusCode(), encoded, mutating));
-                    }
-                    throw error;
-                }
-            } catch (IOException error) {
-                throw new CompletionException(agentTransportFailure(mutating));
+                throw error;
             }
         });
     }
@@ -596,7 +589,7 @@ public final class HttpProductionTransport implements ProductionTransport {
         }
     }
 
-    private static URI requireHttpUri(URI uri) {
+    static URI requireHttpUri(URI uri) {
         Objects.requireNonNull(uri, "uri");
         if (!("http".equalsIgnoreCase(uri.getScheme()) || "https".equalsIgnoreCase(uri.getScheme()))) {
             throw PlatformSdkException.invalidArgument();
@@ -612,7 +605,8 @@ public final class HttpProductionTransport implements ProductionTransport {
     private static boolean isLoopback(String host) {
         String normalized = host.toLowerCase(java.util.Locale.ROOT);
         return normalized.equals("localhost") || normalized.equals("::1") || normalized.equals("[::1]")
-            || normalized.startsWith("127.");
+            || normalized.matches("127(?:\\.(?:0|[1-9][0-9]{0,2})){3}")
+                && java.util.Arrays.stream(normalized.split("\\.")).allMatch(part -> Integer.parseInt(part) <= 255);
     }
     private static URI endpoint(URI base, String path) {
         String prefix = base.toString();

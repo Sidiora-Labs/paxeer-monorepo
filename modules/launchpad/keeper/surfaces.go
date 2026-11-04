@@ -63,6 +63,25 @@ func (k *Keeper) SetSurface(ctx sdk.Context, address common.Address, surface Sur
 	if err != nil {
 		return types.ErrInvalidParams.Wrapf("surface %s: %v", address.Hex(), err)
 	}
+	previous, found, err := k.GetSurface(ctx, address)
+	if err != nil {
+		return err
+	}
+	wasPool := found && previous.Role == types.RolePool
+	if surface.Role == types.RolePool && !wasPool {
+		if err := k.incrementFeeAccountingCount(ctx, feeAccountingPoolCountKey); err != nil {
+			return err
+		}
+	} else if surface.Role != types.RolePool && wasPool {
+		count, err := k.feeAccountingCount(ctx, feeAccountingPoolCountKey)
+		if err != nil {
+			return err
+		}
+		if count == 0 {
+			return types.ErrOverflow.Wrap("fee accounting pool count underflow")
+		}
+		k.setUint64(ctx, feeAccountingPoolCountKey, count-1)
+	}
 	k.store(ctx).Set(types.SurfaceKey(address), bz)
 	return nil
 }

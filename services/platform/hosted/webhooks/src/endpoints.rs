@@ -6,6 +6,9 @@ use serde::{Deserialize, Serialize};
 use crate::error::WebhookError;
 use crate::events::{EventKind, Verification};
 
+/// Maximum retry attempts representable by the durable hosted history.
+pub const MAXIMUM_ATTEMPTS: u32 = 32;
+
 /// Bounded deterministic retry contract for one unreachable endpoint.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct RetryPolicy {
@@ -13,7 +16,7 @@ pub struct RetryPolicy {
     pub base_delay_seconds: u64,
     /// Upper bound on any computed delay, in whole seconds.
     pub maximum_delay_seconds: u64,
-    /// Total attempts before the delivery is dead-lettered.
+    /// Total attempts before dead lettering, from 1 through [`MAXIMUM_ATTEMPTS`].
     pub maximum_attempts: u32,
     /// Deterministic spread applied around the doubled delay, in percent.
     pub spread_percent: u8,
@@ -42,11 +45,13 @@ impl RetryPolicy {
     ///
     /// # Errors
     /// Returns [`WebhookError::InvalidRequest`] when a bound is zero, the
-    /// maximum delay is below the base delay, or the spread exceeds a half.
+    /// maximum delay is below the base delay, attempts exceed [`MAXIMUM_ATTEMPTS`],
+    /// or the spread exceeds a half.
     pub fn validate(self) -> Result<Self, WebhookError> {
         if self.base_delay_seconds == 0
             || self.maximum_delay_seconds < self.base_delay_seconds
             || self.maximum_attempts == 0
+            || self.maximum_attempts > MAXIMUM_ATTEMPTS
             || self.spread_percent > 50
             || self.in_flight_timeout_seconds == 0
         {

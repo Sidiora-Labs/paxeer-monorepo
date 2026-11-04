@@ -1,13 +1,13 @@
 #![forbid(unsafe_code)]
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::io::{Read, Write};
+use std::io::{self, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use layerx_ramp_toolkit::clients::{
     decode_hex, parse_hex32, ComplianceClient, Endpoint, IdentityClient, LayerxClient,
@@ -34,6 +34,7 @@ use subtle::ConstantTimeEq as _;
 const MAX_REQUEST_BYTES: usize = 1024 * 1024;
 const MAX_HEADERS: usize = 32 * 1024;
 const MAX_CONNECTIONS: usize = 128;
+const CONNECTION_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -124,19 +125,66 @@ enum Listener {
     Plain,
 }
 
-trait Transport: Read + Write {
-    fn tcp(&self) -> &TcpStream;
+struct DeadlineStream {
+    stream: TcpStream,
+    deadline: Instant,
 }
 
-impl Transport for TlsStream<TcpStream> {
-    fn tcp(&self) -> &TcpStream {
-        self.get_ref()
+impl DeadlineStream {
+    fn new(stream: TcpStream) -> io::Result<Self> {
+        let bounded = Self {
+            stream,
+            deadline: Instant::now() + CONNECTION_TIMEOUT,
+        };
+        bounded.set_timeouts()?;
+        Ok(bounded)
+    }
+
+    fn set_timeouts(&self) -> io::Result<()> {
+        let remaining = self.deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            return Err(io::Error::new(
+                io::ErrorKind::TimedOut,
+                "connection deadline",
+            ));
+        }
+        self.stream.set_read_timeout(Some(remaining))?;
+        self.stream.set_write_timeout(Some(remaining))
     }
 }
 
-impl Transport for TcpStream {
-    fn tcp(&self) -> &TcpStream {
-        self
+impl Read for DeadlineStream {
+    fn read(&mut self, bytes: &mut [u8]) -> io::Result<usize> {
+        self.set_timeouts()?;
+        self.stream.read(bytes)
+    }
+}
+
+impl Write for DeadlineStream {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        self.set_timeouts()?;
+        self.stream.write(bytes)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.set_timeouts()?;
+        self.stream.flush()
+    }
+}
+
+trait Transport: Read + Write {
+    fn deadline(&self) -> Instant;
+}
+
+impl Transport for DeadlineStream {
+    fn deadline(&self) -> Instant {
+        self.deadline
+    }
+}
+
+impl Transport for TlsStream<DeadlineStream> {
+    fn deadline(&self) -> Instant {
+        self.get_ref().deadline
     }
 }
 
@@ -284,10 +332,12 @@ fn run() -> Result<(), String> {
         eprintln!("ramp journal recovery requires verified external settlement");
     }
     let reconcile_state = Arc::clone(&state);
+    let (reconcile_shutdown, stop_reconcile) = mpsc::channel();
     let cadence = Duration::from_secs(config.reconcile_seconds);
+    let custody_cadence = Duration::from_secs(config.paxeer.poll_cadence_seconds);
     thread::Builder::new()
         .name("ramp-reconciler".to_owned())
-        .spawn(move || reconcile_loop(&reconcile_state, cadence))
+        .spawn(move || reconcile_loop(&reconcile_state, cadence, custody_cadence, &stop_reconcile))
         .map_err(|error| format!("start reconciler: {error}"))?;
     let listener = TcpListener::bind(&config.listen)
         .map_err(|error| format!("bind {}: {error}", config.listen))?;
@@ -319,6 +369,7 @@ fn run() -> Result<(), String> {
             eprintln!("ramp request worker unavailable");
         }
     }
+    drop(reconcile_shutdown);
     Ok(())
 }
 
@@ -594,6 +645,9 @@ fn secret_text(path: &PathBuf) -> Result<String, String> {
 }
 
 fn serve(stream: TcpStream, listener: &Listener, state: &State) {
+    let Ok(stream) = DeadlineStream::new(stream) else {
+        return;
+    };
     match listener {
         Listener::Tls(acceptor) => {
             let Ok(mut tls) = acceptor.accept(stream) else {
@@ -612,8 +666,22 @@ fn exchange<S: Transport>(stream: &mut S, state: &State) {
     let response = read_request(stream)
         .and_then(|request| route(state, &request))
         .unwrap_or_else(|response| response);
-    let _ = stream.write_all(&response.encode());
-    let _ = stream.flush();
+    let _ = write_response(stream, &response);
+}
+
+fn write_response<S: Transport>(stream: &mut S, response: &Response) -> io::Result<()> {
+    let result = stream
+        .write_all(&response.encode())
+        .and_then(|()| stream.flush());
+    result.map_err(|error| {
+        // TLS backends can translate a socket timeout into an EOF error. Keep
+        // the connection's expired deadline explicit while preserving its cause.
+        if Instant::now() >= stream.deadline() {
+            io::Error::new(io::ErrorKind::TimedOut, error)
+        } else {
+            error
+        }
+    })
 }
 
 struct Request {
@@ -653,11 +721,7 @@ impl Response {
     }
 }
 
-fn read_request<S: Transport>(stream: &mut S) -> Result<Request, Response> {
-    stream
-        .tcp()
-        .set_read_timeout(Some(Duration::from_secs(10)))
-        .map_err(|_| error(503, "request_timeout"))?;
+fn read_request<S: Read>(stream: &mut S) -> Result<Request, Response> {
     let mut bytes = Vec::new();
     let mut chunk = [0_u8; 4096];
     let boundary;
@@ -870,6 +934,7 @@ fn create_order(state: &State, request: &Request) -> Result<Response, Response> 
         if existing.order.customer != principal
             || existing.order.quote.quote_id != create.quote_id
             || existing.order.payer_grant != create.payer_grant
+            || existing.order.payer_grant_purpose != create.payer_grant_purpose
         {
             return Err(error(409, "order_id_conflict"));
         }
@@ -1339,79 +1404,112 @@ fn engine<'a>(state: &'a State, journal: &'a mut Journal) -> RampEngine<'a> {
     }
 }
 
-fn reconcile_loop(state: &State, cadence: Duration) {
+fn reconcile_loop(
+    state: &State,
+    cadence: Duration,
+    custody_cadence: Duration,
+    shutdown: &mpsc::Receiver<()>,
+) {
+    let mut next_orders = Instant::now() + cadence;
+    let mut next_custody = Instant::now() + custody_cadence;
     loop {
-        thread::sleep(cadence);
-        let Ok(mut journal) = state.journal.lock() else {
-            continue;
+        let wait = next_orders
+            .min(next_custody)
+            .saturating_duration_since(Instant::now());
+        match shutdown.recv_timeout(wait) {
+            Err(mpsc::RecvTimeoutError::Timeout) => {}
+            Ok(()) | Err(mpsc::RecvTimeoutError::Disconnected) => return,
+        }
+        if Instant::now() >= next_custody {
+            reconcile_custody(state);
+            next_custody = Instant::now() + custody_cadence;
+        }
+        if Instant::now() >= next_orders {
+            reconcile_orders(state);
+            next_orders = Instant::now() + cadence;
+        }
+    }
+}
+
+fn reconcile_custody(state: &State) {
+    let Ok(mut journal) = state.journal.lock() else {
+        return;
+    };
+    if !journal.health().ready {
+        return;
+    }
+    let Ok(mut pending) = state.pending_rebalances.lock() else {
+        return;
+    };
+    pending.retain(|idempotency_key| {
+        let Some(snapshot) = journal.paxeer(idempotency_key).cloned() else {
+            return false;
         };
-        if !journal.health().ready {
+        if snapshot.rung == Some(Rung::Committed) {
+            return false;
+        }
+        let mut rebalancer = InventoryRebalancer {
+            journal: &mut journal,
+            custody: &state.paxeer,
+            layerx: &state.layerx,
+        };
+        let result = match (snapshot.operation_id.as_deref(), snapshot.transaction_hash) {
+            (Some(operation), Some(transaction)) => rebalancer
+                .poll(*idempotency_key, operation, transaction, now())
+                .map(|_| ()),
+            _ => rebalancer.reconcile(*idempotency_key, now()).map(|_| ()),
+        };
+        if result.is_err() {
+            eprintln!("ramp custody reconciliation retained unresolved state");
+        }
+        journal
+            .paxeer(idempotency_key)
+            .is_some_and(|snapshot| snapshot.rung != Some(Rung::Committed))
+    });
+    drop(pending);
+}
+
+fn reconcile_orders(state: &State) {
+    let Ok(mut journal) = state.journal.lock() else {
+        return;
+    };
+    if !journal.health().ready {
+        return;
+    }
+    let due = journal.orders();
+    for snapshot in due {
+        let digest = snapshot.order.order_digest;
+        let observed_at = now();
+        if matches!(
+            snapshot.stage,
+            WorkflowStage::ProviderSubmissionPlanned
+                | WorkflowStage::ProviderSubmittedUnknown
+                | WorkflowStage::ProviderPending
+                | WorkflowStage::LayerxSubmissionPlanned
+                | WorkflowStage::LayerxSubmittedUnknown
+                | WorkflowStage::LayerxPending
+        ) && snapshot
+            .evidence
+            .retry_at
+            .is_some_and(|retry_at| retry_at > observed_at)
+        {
             continue;
         }
-        let Ok(mut pending) = state.pending_rebalances.lock() else {
-            continue;
+        let mut worker = engine(state, &mut journal);
+        let result = match snapshot.stage {
+            WorkflowStage::ProviderSubmissionPlanned
+            | WorkflowStage::ProviderSubmittedUnknown
+            | WorkflowStage::ProviderPending => worker.reconcile_provider(digest, observed_at),
+            WorkflowStage::LayerxSubmissionPlanned
+            | WorkflowStage::LayerxSubmittedUnknown
+            | WorkflowStage::LayerxPending => worker.resolve_layerx(digest, observed_at),
+            WorkflowStage::ProviderSettled | WorkflowStage::LayerxVerified => {
+                worker.finish_if_complete(digest, observed_at)
+            }
+            _ => Ok(()),
         };
-        pending.retain(|idempotency_key| {
-            let Some(snapshot) = journal.paxeer(idempotency_key).cloned() else {
-                return false;
-            };
-            if snapshot.rung == Some(Rung::Committed) {
-                return false;
-            }
-            let mut rebalancer = InventoryRebalancer {
-                journal: &mut journal,
-                custody: &state.paxeer,
-                layerx: &state.layerx,
-            };
-            let result = match (snapshot.operation_id.as_deref(), snapshot.transaction_hash) {
-                (Some(operation), Some(transaction)) => rebalancer
-                    .poll(*idempotency_key, operation, transaction, now())
-                    .map(|_| ()),
-                _ => rebalancer.reconcile(*idempotency_key, now()).map(|_| ()),
-            };
-            if result.is_err() {
-                eprintln!("ramp custody reconciliation retained unresolved state");
-            }
-            journal
-                .paxeer(idempotency_key)
-                .is_some_and(|snapshot| snapshot.rung != Some(Rung::Committed))
-        });
-        drop(pending);
-        let due = journal.orders();
-        for snapshot in due {
-            let digest = snapshot.order.order_digest;
-            let observed_at = now();
-            if matches!(
-                snapshot.stage,
-                WorkflowStage::ProviderSubmissionPlanned
-                    | WorkflowStage::ProviderSubmittedUnknown
-                    | WorkflowStage::ProviderPending
-                    | WorkflowStage::LayerxSubmissionPlanned
-                    | WorkflowStage::LayerxSubmittedUnknown
-                    | WorkflowStage::LayerxPending
-            ) && snapshot
-                .evidence
-                .retry_at
-                .is_some_and(|retry_at| retry_at > observed_at)
-            {
-                continue;
-            }
-            let mut worker = engine(state, &mut journal);
-            let result = match snapshot.stage {
-                WorkflowStage::ProviderSubmissionPlanned
-                | WorkflowStage::ProviderSubmittedUnknown
-                | WorkflowStage::ProviderPending => worker.reconcile_provider(digest, observed_at),
-                WorkflowStage::LayerxSubmissionPlanned
-                | WorkflowStage::LayerxSubmittedUnknown
-                | WorkflowStage::LayerxPending => worker.resolve_layerx(digest, observed_at),
-                WorkflowStage::ProviderSettled | WorkflowStage::LayerxVerified => {
-                    worker.finish_if_complete(digest, observed_at)
-                }
-                _ => Ok(()),
-            };
-            if result.is_err() {
-                eprintln!("ramp reconciliation retained unresolved state");
-            }
+        if result.is_err() {
+            eprintln!("ramp reconciliation retained unresolved state");
         }
     }
 }
@@ -1635,3 +1733,6 @@ pub(crate) fn rebalance_route_test_response(
         serde_json::from_slice(&response.body).expect("route JSON"),
     )
 }
+
+#[cfg(test)]
+pub(crate) mod repair_support;

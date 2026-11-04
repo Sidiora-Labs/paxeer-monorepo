@@ -15,13 +15,13 @@ import useSocketMessage from 'lib/socket/useSocketMessage';
 import DataListDisplay from 'ui/shared/DataListDisplay';
 import Pagination from 'ui/shared/pagination/Pagination';
 import type { QueryWithPagesResult } from 'ui/shared/pagination/useQueryWithPages';
-import { formatScanTableCount, ScanShowRows, ScanTableCard, SCAN_ROWS_PER_PAGE } from 'ui/shared/scan';
+import { ScanShowRows, ScanTableCard, SCAN_ROWS_PER_PAGE } from 'ui/shared/scan';
 import * as SocketNewItemsNotice from 'ui/shared/SocketNewItemsNotice';
 import TokenAdvancedFilterLink from 'ui/token/TokenAdvancedFilterLink';
 import TokenTransferList from 'ui/token/TokenTransfer/TokenTransferList';
 import TokenTransferTable from 'ui/token/TokenTransfer/TokenTransferTable';
 
-const DEFAULT_ROWS_TO_SHOW = 50;
+import useTokenTransferPages, { getTokenTransferTitle } from './useTokenTransferPages';
 
 type Props = {
   transfersQuery: QueryWithPagesResult<'general:token_transfers'> | QueryWithPagesResult<'general:token_instance_transfers'>;
@@ -41,7 +41,7 @@ const TokenTransfer = ({ transfersQuery, tokenId, tokenQuery, tokenInstance, sho
 
   const [ newItemsCount, setNewItemsCount ] = useGradualIncrement(0);
   const [ showSocketErrorAlert, setShowSocketErrorAlert ] = React.useState(false);
-  const [ rowsToShow, setRowsToShow ] = React.useState(DEFAULT_ROWS_TO_SHOW);
+  const { items, rowsToShow, onRowsChange, pagination: displayPagination } = useTokenTransferPages(data?.items, pagination);
 
   const handleNewTransfersMessage: SocketMessage.TokenTransfers['handler'] = (payload) => {
     setNewItemsCount(payload.token_transfer);
@@ -72,7 +72,6 @@ const TokenTransfer = ({ transfersQuery, tokenId, tokenQuery, tokenInstance, sho
   }
 
   const isLoading = isPlaceholderData || isTokenPlaceholderData;
-  const items = data?.items.slice(0, rowsToShow);
 
   const content = items && token ? (
     <>
@@ -104,27 +103,17 @@ const TokenTransfer = ({ transfersQuery, tokenId, tokenQuery, tokenInstance, sho
   ) : null;
 
   const itemsNum = items?.length ?? 0;
-  const title = formatScanTableCount((() => {
-    if (transfersCount !== undefined) {
-      return itemsNum < transfersCount ?
-        { kind: 'latest' as const, value: transfersCount, itemsName: 'token transfers', shownValue: itemsNum } :
-        { kind: 'total' as const, value: transfersCount, itemsName: 'token transfers' };
-    }
-
-    return pagination.hasNextPage ?
-      { kind: 'more_than' as const, value: itemsNum, itemsName: 'token transfers' } :
-      { kind: 'total' as const, value: itemsNum, itemsName: 'token transfers' };
-  })());
+  const title = getTokenTransferTitle(itemsNum, transfersCount);
 
   return (
     <ScanTableCard
       title={ title }
       actions={ !isMobile ? <TokenAdvancedFilterLink token={ token } isLoading={ isLoading }/> : null }
-      pagination={ pagination.isVisible ? <Pagination { ...pagination }/> : null }
+      pagination={ displayPagination.isVisible ? <Pagination { ...displayPagination }/> : null }
       showRows={ (
         <ScanShowRows
           value={ rowsToShow }
-          onValueChange={ setRowsToShow }
+          onValueChange={ onRowsChange }
           options={ SCAN_ROWS_PER_PAGE }
           label="Show"
           suffix="Records"
