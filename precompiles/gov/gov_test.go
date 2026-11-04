@@ -339,6 +339,7 @@ func TestPrecompileExecutor_submitProposal(t *testing.T) {
 		args       args
 		wantErr    bool
 		wantErrMsg string
+		verify     func(t *testing.T, ctx sdk.Context, proposalID uint64)
 	}{
 		{
 			name: "returns proposal id on submit text proposal with valid content",
@@ -384,27 +385,26 @@ func TestPrecompileExecutor_submitProposal(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "returns a text proposal for an explicit empty type",
+			args: args{
+				caller:           callerEvmAddress,
+				callerPaxAddress: callerPaxAddress,
+				proposal:         repairM1267EmptyTypeProposalJSON,
+				value:            big.NewInt(0),
+			},
+			wantErr: false,
+			verify:  assertRepairM1267TextDefault,
+		},
+		{
 			name: "returns proposal id on submit parameter change proposal with multiple changes",
 			args: args{
 				caller:           callerEvmAddress,
 				callerPaxAddress: callerPaxAddress,
-				proposal: `{
-					"title": "Gov Param Change",
-					"description": "Update quorum to 0.45",
-					"changes": [
-						{
-							"subspace": "gov",
-							"key": "tallyparams",
-							"value": {
-								"quorum": "0.45"
-							}
-						}
-					],
-					"is_expedited": false
-				}`,
-				value: big.NewInt(1_000_000_000_000_000_000),
+				proposal:         repairM1267ParameterProposalJSON,
+				value:            big.NewInt(1_000_000_000_000_000_000),
 			},
 			wantErr: false,
+			verify:  assertRepairM1267ParameterChange,
 		},
 		{
 			name: "returns proposal id on submit cancel software upgrade proposal",
@@ -756,6 +756,11 @@ func TestPrecompileExecutor_submitProposal(t *testing.T) {
 				require.Empty(t, gotRet.VmError)
 				require.Nil(t, err)
 				require.Equal(t, []byte{31: expectedProposalID}, gotRet.ReturnData)
+				if tt.verify != nil {
+					values, unpackErr := abi.Methods[gov.SubmitProposalMethod].Outputs.Unpack(gotRet.ReturnData)
+					require.NoError(t, unpackErr)
+					tt.verify(t, ctx, values[0].(uint64))
+				}
 			}
 		})
 	}

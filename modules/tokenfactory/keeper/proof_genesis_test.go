@@ -14,6 +14,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"testing"
+	"time"
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
@@ -209,6 +210,7 @@ func TestProofGenesisListedModuleConsumers(t *testing.T) {
 		field   string
 		value   json.RawMessage
 	}{
+		{"tokenfactory", tokenfactory.NewAppModule(app.TokenFactoryKeeper, app.AccountKeeper, app.BankKeeper), "params", "denom_allowlist_max_size", json.RawMessage(`17`)},
 		{"transfer", transfer.NewAppModule(app.TransferKeeper), "params", "send_enabled", json.RawMessage(`false`)},
 		{"launchpad", launchpad.NewAppModule(app.LaunchpadKeeper), "params", "creation_fee", json.RawMessage(`"1000001"`)},
 		{"anchor", layerxanchor.NewAppModule(app.LayerXAnchorKeeper, app.UpgradeKeeper), "params", "challenge_window_seconds", json.RawMessage(`3`)},
@@ -265,4 +267,81 @@ func TestProofGenesisListedModuleConsumers(t *testing.T) {
 			require.JSONEq(t, string(second), string(tc.module.ExportGenesis(ctx, cdc)))
 		})
 	}
+}
+
+func TestProofGenesisTokenfactoryStreamDiskRecovery(t *testing.T) {
+	dir := t.TempDir()
+	producer := openProofGenesisChain(t, dir)
+	producer.accounts.SetParams(producer.ctx, authtypes.DefaultParams())
+	producer.bank.SetParams(producer.ctx, banktypes.DefaultParams())
+	producer.factory.InitGenesis(producer.ctx, *types.DefaultGenesis())
+	creator := sdk.AccAddress(bytes.Repeat([]byte{0x43}, 20)).String()
+	denom, err := producer.factory.CreateDenom(producer.ctx, creator, "stream")
+	require.NoError(t, err)
+	require.NoError(t, producer.factory.SetIssuerDid(producer.ctx, denom, adminsIssuerDid(0x43)))
+	require.NoError(t, producer.factory.SetDenomPausedByIssuer(producer.ctx, denom, adminsIssuerDid(0x43), true))
+	producer.factory.SetParams(producer.ctx, types.Params{DenomAllowlistMaxSize: 17})
+	expected := producer.factory.ExportGenesis(producer.ctx)
+	first := producer.module.ExportGenesis(producer.ctx, producer.cdc)
+	commit := producer.store.Commit(true)
+	require.NoError(t, producer.store.Close())
+
+	// Reconstruct the actual producer from its committed disk state.
+	producer = openProofGenesisChain(t, dir)
+	closed := false
+	t.Cleanup(func() {
+		if !closed {
+			require.NoError(t, producer.store.Close())
+		}
+	})
+	require.Equal(t, commit, producer.store.LastCommitID())
+	require.Equal(t, expected, producer.factory.ExportGenesis(producer.ctx))
+	stream := producer.module.ExportGenesisStream(producer.ctx, producer.cdc)
+	// Change valid live state before consuming: the channel must retain the
+	// genesis that existed when ExportGenesisStream returned.
+	producer.factory.SetParams(producer.ctx, types.Params{DenomAllowlistMaxSize: 23})
+	later := producer.module.ExportGenesis(producer.ctx, producer.cdc)
+	require.NotEqual(t, string(first), string(later))
+	laterCommit := producer.store.Commit(true)
+	require.NoError(t, producer.store.Close())
+	closed = true
+
+	receive := func() (json.RawMessage, bool) {
+		t.Helper()
+		select {
+		case value, ok := <-stream:
+			return value, ok
+		case <-time.After(5 * time.Second):
+			t.Fatal("tokenfactory genesis stream did not deliver or close after producer shutdown")
+			return nil, false
+		}
+	}
+	captured, ok := receive()
+	require.True(t, ok)
+	_, ok = receive()
+	require.False(t, ok, "producer must close the channel after its one genesis value")
+	// Keep exercising disk recovery and the consumer even when the snapshot
+	// assertion diagnoses a producer outside this task's writable paths.
+	snapshotMatches := json.Valid(captured) && bytes.Equal(first, captured)
+	if !snapshotMatches {
+		t.Errorf("stream snapshot changed before drain: expected %s, received %s", first, captured)
+	}
+	reopened := openProofGenesisChain(t, dir)
+	defer func() { require.NoError(t, reopened.store.Close()) }()
+	require.Equal(t, laterCommit, reopened.store.LastCommitID())
+	require.JSONEq(t, string(later), string(reopened.module.ExportGenesis(reopened.ctx, reopened.cdc)))
+
+	targetDir := t.TempDir()
+	target := openProofGenesisChain(t, targetDir)
+	target.accounts.SetParams(target.ctx, authtypes.DefaultParams())
+	target.bank.SetParams(target.ctx, banktypes.DefaultParams())
+	require.NoError(t, target.module.ValidateGenesis(target.cdc, nil, captured))
+	require.Empty(t, target.module.InitGenesis(target.ctx, target.cdc, captured))
+	consumerCommit := target.store.Commit(true)
+	require.NoError(t, target.store.Close())
+	consumer := openProofGenesisChain(t, targetDir)
+	defer func() { require.NoError(t, consumer.store.Close()) }()
+	require.Equal(t, consumerCommit, consumer.store.LastCommitID())
+	require.Equal(t, expected, consumer.factory.ExportGenesis(consumer.ctx))
+	require.JSONEq(t, string(first), string(consumer.module.ExportGenesis(consumer.ctx, consumer.cdc)))
 }

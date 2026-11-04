@@ -14,14 +14,17 @@ func (k Keeper) MintByIssuer(ctx sdk.Context, callerDid string, amount sdk.Coin,
 	if _, err := sdk.AccAddressFromBech32(to); err != nil {
 		return err
 	}
-	if err := k.mintTo(ctx, amount, to); err != nil {
+	cacheCtx, commit := ctx.CacheContext()
+	if err := k.mintTo(cacheCtx, amount, to); err != nil {
 		return err
 	}
-	ctx.EventManager().EmitEvent(sdk.NewEvent(
+	cacheCtx.EventManager().EmitEvent(sdk.NewEvent(
 		types.TypeMsgMint,
 		sdk.NewAttribute(types.AttributeMintToAddress, to),
 		sdk.NewAttribute(types.AttributeAmount, amount.String()),
 	))
+	commit()
+	ctx.EventManager().EmitEvents(cacheCtx.EventManager().Events())
 	return nil
 }
 
