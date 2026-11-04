@@ -103,12 +103,11 @@ func TestStatusUnderAutobahnReportsLatestBlockHashAndTime(t *testing.T) {
 	require.ErrorIs(t, err, context.Canceled)
 	info, err := env.ABCIInfo(ctx)
 	require.NoError(t, err)
+	require.Equal(t, int64(blocks), info.Response.LastBlockHeight)
 	status, err := env.Status(lookupCtx)
-	require.NoError(t, err)
-	require.Equal(t, int64(blocks), status.SyncInfo.LatestBlockHeight)
-	require.Equal(t, info.Response.LastBlockAppHash, []byte(status.SyncInfo.LatestAppHash))
-	require.Empty(t, status.SyncInfo.LatestBlockHash)
-	require.True(t, status.SyncInfo.LatestBlockTime.Equal(time.Unix(0, 0)))
+	require.ErrorIs(t, err, context.Canceled)
+	require.ErrorContains(t, err, "load latest Autobahn block at height 3")
+	require.Nil(t, status)
 }
 
 func TestStatusUnderAutobahnReportsEarliestRetainedBlock(t *testing.T) {
