@@ -926,3 +926,14 @@ export function explorer(): Readonly<{ publicOnly: true; maximumPageSize: 100 }>
 export function human_web_explorer() {
   return explorer();
 }
+
+export {
+  decodeNativeUnifiedAccount,
+  decodeNativeArchiveReceipt,
+  decodeNativeCursorRefusal,
+  type NativeUnifiedAccount,
+  type NativeActivity,
+  type NativeAsset,
+  type NativeArchiveReceipt,
+  type NativeCursorRefusalReason,
+} from "./native-model.ts";
