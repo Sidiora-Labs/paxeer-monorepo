@@ -1,0 +1,93 @@
+[meta]
+task = "22.33.1529"
+audit = "22.30.94"
+base_revision = "0ba7cfa54c7f07b37201b1f12fcc2f1dd7ed0ed7"
+acceptance = "22998.1"
+verification = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test repair_22_33_1529"
+evidence = "The bounded hf-done ledger records the exact verified revision, command, exit and private log; no gate result is asserted in this source record."
+baseline = "Not run: the explicit allowed-gate order prohibits verification before implementation and reserves the verify run for hf-done. No pre-change failing test is claimed."
+
+[finding.budget_schema_restart_test]
+test = "budget_schema::restart_recovery_reconciles_receipts_and_held_unknowns_against_core_state"
+proof = "Persist receipt plus its signed inclusion evidence and unknown hold; drop producer/verifier/store handles; reopen and reconstruct receipt and hold inventories; rebuild exact consumed 25 and held 15, refuse protocol consumed 41, recover twice with identical accounting and write admission."
+
+[finding.legacy_disclosure_test]
+test = "disclosure::preparation_discloses_semantics_decoded_from_the_bytes; disclosure::mutation_after_disclosure_generation_is_refused"
+proof = "Production prepare_bound and call disclosure decode ledger send ABI into all semantic fields; re-encode exact unsigned type-2 bytes; refuse byte, calldata, sender and disclosed amount mutations. Envelope-only actor/authority/fee/expiry are replaced with the actual call sender, gas fee bound and embedded payload expiry."
+
+[finding.revocation_chain_path_test]
+test = "grant_revocation_on_chain::on_chain_grant_revocation_invalidates_capability_grant_sessions"
+proof = "Resolve identity through the production TLS authority adapter; bind the committed GrantRevoked ABI vector into a signed sequencer transcript, consume through NodeRpc/receipt lookup and the production receipt-to-revocation adapter; reopen Store and SessionRegistry, refusing revoked tokens while preserving different-grant and different-DID sessions."
+fixture = "GrantRevoked record follows the committed session_grants_layerxauth.rs vector and precompiles/layerxauth/abi.json; the signed peer uses production ABI, wire and signature codecs."
+wiring_request = "rpc/sequencer_receipt_vectors_test.go (domain 1, node/RPC): export a keeper-produced revokeGrant transcript alongside the existing real program-call recording so the Rust-only gate can also consume a recorded full keeper execution."
+
+[finding.human_node_key_fixture]
+test = "human_node::human_node_head_and_receipt_keys_come_from_json_rpc; human_node::receipt_keys_refuse_arrays_string_heights_and_zero_heights"
+proof = "Use gateway chain_reads::receipt_keys object shape and positive numeric intervals, transport through loopback JSON-RPC into NodeRpc, retain exact head/key checks and reject bare arrays, string heights and zero first height."
+
+[finding.identity_restart_test]
+test = "identity::restored_binding_is_revalidated_and_freeze_is_observed"
+proof = "Drop pre-restart record, resolver, TLS client and Store; run production startup registration from a new verified authority observation after reopen; assert head 11 and refreshed canonical binding; fresh frozen/unknown responses refuse registration and preserve durable binding bytes."
+
+[finding.operator_socket_test]
+test = "operator_route::authenticated_human_listener_frames_operator_commands_and_reopens_audit; operator_route::human_socket_operator_commands_reach_the_audited_admin_dispatch"
+proof = "A bounded Unix listener authenticates the kernel peer and passes bounded OPERATOR frames through production AcceptedTransport and serve_one to ProductionHumanOperations; inspect succeeds, mutation refuses, reopened outbox remains unknown and the reopened audit chain contains both decisions; retain direct helper cases."
+wiring_request = "services/agent/crates/layerx-agentd/src/human.rs (domain 9, agent): expose bounded listener shutdown so integration tests can join the production process-lifetime serve loop after their final response."
+
+[finding.policy_activation_behavior]
+test = "policy_version::activation_only_changes_requests_received_after_it; policy_version::invalid_activation_preserves_the_previous_version"
+proof = "Production signed activity/receipt codecs produce a complete 20..119 sequence-window transcript; EvidenceAuthority authenticates cumulative amount 25/count 1; the retained v1 request allows and later v2 request explicitly denies, both with deciding-rule and decision-audit assertions; missing context still refuses and invalid activation rolls back."
+
+[finding.protocol2_evidence_test]
+test = "protocol2_restart::protocol2_recovers_identical_signed_program_call_evidence; protocol2_restart::protocol2_gate_reload_requires_fresh_readiness"
+proof = "Load the committed real Go sequencer program-call producer recording, reproduce its ABI through ProgramOperations::call_precompile, authenticate its receipt over loopback NodeRpc, persist receipt/outbox and drop all objects; reopen and compare exact signed type-2 and protocol-2 receipt bytes, transaction identity/status and signature verification. Gate reload refusal and fresh readiness execute separately without environment variables or binaries."
+producer = "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json, V1-layerxprograms-call, emitted by rpc/sequencer_receipt_vectors_test.go"
+
+[gotcha.1]
+symptom = "Shared support::evidence_verifier routes through an environment-dependent readiness fixture with retired receipt-key JSON."
+resolution = "These focused store/accounting proofs use the production pinned EvidenceAuthority and valid signed evidence; the protocol gate test separately exercises Gate and NodeRpc readiness using the gateway object shape and positive numeric heights."
+
+[gotcha.2]
+symptom = "The production TLS identity adapter maps a missing identity HTTP response to Unverified rather than UnknownDid."
+resolution = "The restart proof asserts the actual fail-closed adapter refusal and unchanged durable binding; the original direct UnknownDid refusal test remains."
+
+[gotcha.3]
+symptom = "The first build rejected a client-frame import and hashing an Envelope where the wire hash API requires Activity."
+resolution = "Use human::frame and decode exact signed canonical bytes with the production wire codec before computing activity_id; build evidence is retained in the private hf-build ledger."
+
+[gotcha.4]
+symptom = "The signed revocation peer omitted the mandatory paymentDenom field, so the exact production receipt decoder refused the transcript."
+resolution = "Carry paymentDenom=upax, matching the payment asset hash in the signed receipt; retain all production signature and execution checks."
+
+[gotcha.5]
+symptom = "A supplemental policy assertion expected admission with historical amount/count bounds already exhausted."
+resolution = "Preserve bounds 25/1 and the stricter 24/0 refusal cases and assert denial because evaluation projects the current amount 100 and one use; the unrestricted retained v1 policy still must allow."
+
+[qualification.history_api]
+revision = "963267e46bf6837ef0ddb3456e82ff14eb97b1de"
+command = "cg spec done 22.33.1529 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The unchanged human_history_pages_px_get_history_without_frame_transport test expects block-range paging, but production read/history.rs::history unconditionally returns Sequencer(Unavailable) because the served API requires an account."
+assumption = "This unrelated production API contradiction is outside the eight repairs; preserve the test assertions and record the blocker without changing production or deleting coverage."
+
+[wiring.history_api]
+request = "services/agent/crates/layerx-agentd/src/read/history.rs (domain 9, agent read): reconcile the retired block-range history interface with account-based native history while preserving human_node.rs history assertions."
+
+[continuation.attempt_2]
+prior_result = "Attempt 1 reported 21/24 passing: human_node history paging, signed grant revocation transport and policy activation failed; no duplicate baseline gate is run."
+history = "Retain the paging test and exercise px_getHistory at the loopback node root through the production account-history client using committed indexer producer rows and readiness, exact account/cursor/limit parameters, exact amounts/finality, independent chain/indexed heights and empty continuation. The earlier block-range wiring request is superseded for this test by the served account API (decision 2521)."
+policy = "Open both policy-version sessions through production verified TLS identity registration and session open; authenticate the complete signed activity/receipt window and assert exact cumulative 25/1; compare pure evaluation to production admission for retained-v1 Allow and activated-v2 ExplicitDeny, and require successful decision-audit persistence."
+revocation = "Retain real session registration and reopen refusal; authenticate the generated signed transcript and its exact log commitments before transport, then require the node receipt consumer to bind the signed call hash, nonce, destination, successful status and height to the revocation adapter; assert exact RPC parameters."
+
+[gotcha.6]
+symptom = "The process-lifetime HumanUnixServer retains ProductionHumanOperations and its shared Store, so dropping only the test handle cannot release the exclusive writer lock before Store::open."
+resolution = "Own a real bounded Unix listener, authenticate SO_PEERCRED against the configured principal/tenant map, serve both frames using production AcceptedTransport and serve_one, join the listener owner and assert the last Store reference before drop/reopen; keep every inspect, mutation and durable-audit assertion."
+
+[qualification.attempt_2_first_gate]
+revision = "ca3f84e6affefbb062156f936de65c85b99c00b2"
+command = "cg spec done 22.33.1529 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "23/24 passed; the real operator listener retained the Store writer lock at reopen."
+assumption = "Task-scoped fixture ownership is repaired before the same-revision build and verification rerun; no assertion is relaxed."
