@@ -1,4 +1,5 @@
 import { ethers } from 'ethers';
+import { Endpoints } from '../config/endpoints';
 import { expect } from 'chai';
 import { bothProviders, rawPax, rawGeth, expectJsonRpcError } from '../utils/chainUtils';
 import { readRuntimeState, RuntimeState, claimPool, expectSameError } from '../utils/testUtils';
@@ -24,6 +25,8 @@ import {
     delegateViaPrecompile,
 } from '../utils/logsUtils';
 
+const wasmMode = process.env.RPC_TESTS_WASM_MODE ?? 'enabled';
+
 describe('eth_getLogs', function () {
     this.timeout(180 * 1000);
 
@@ -35,6 +38,33 @@ describe('eth_getLogs', function () {
 
     before(async () => {
         runtime = readRuntimeState();
+        expect(wasmMode, 'RPC_TESTS_WASM_MODE must declare enabled or disabled').to.be.oneOf([
+            'enabled', 'disabled',
+        ]);
+        const readWasmParam = async (key: string) => {
+            const response = await fetch(`${Endpoints.pax.rest}/cosmos/params/v1beta1/params?subspace=wasm&key=${key}`, {
+                signal: AbortSignal.timeout(10_000),
+            });
+            expect(response.ok, `Wasm ${key} capability query succeeded`).to.equal(true);
+            const result = await response.json();
+            return JSON.parse(result.param.value);
+        };
+        const [upload, instantiate] = await Promise.all([
+            readWasmParam('uploadAccess'), readWasmParam('instantiateAccess'),
+        ]);
+        expect(upload.permission, 'upload permission is declared').to.be.oneOf(['Everybody', 'Nobody', 'OnlyAddress']);
+        expect(instantiate, 'instantiate permission is declared').to.be.oneOf(['Everybody', 'Nobody', 'OnlyAddress']);
+        expect(
+            upload.permission === 'Everybody' && instantiate === 'Everybody',
+            'the declared Wasm mode agrees with the chain',
+        ).to.equal(wasmMode === 'enabled');
+        if (wasmMode === 'enabled') {
+            expect(runtime.wasm, 'Wasm-enabled qualification requires bootstrap CW20 fixtures').to.not.equal(undefined);
+            expect(runtime.wasm!.cw20Pointer, 'Wasm-enabled pointer address').to.match(/^0x[0-9a-fA-F]{40}$/);
+            expect(runtime.wasm!.actor.privateKey, 'Wasm-enabled actor key').to.match(/^0x[0-9a-fA-F]{64}$/);
+        } else {
+            expect(runtime.wasm, 'disabled-Wasm qualification has no CW20 fixtures').to.equal(undefined);
+        }
         const [emitter] = claimPool(runtime, pax, 1, 'eth_getLogs');
         const alice = ethers.Wallet.createRandom().address;
         const bob = ethers.Wallet.createRandom().address;
@@ -246,28 +276,38 @@ describe('eth_getLogs', function () {
     });
 
     describe('non-EVM log sources (dual-VM & precompiles)', () => {
-        it('indexes a CW20 ERC20 pointer transfer as a standard Transfer log', async function () {
-            const actor = EvmAccount.fromPrivateKey(runtime.wasm!.actor.privateKey, pax);
-            const pointer = new ethers.Contract(
-                runtime.wasm!.cw20Pointer,
-                ERC20_LOG_IFACE,
-                actor.wallet,
-            );
-            const receipt = await (await pointer.transfer(runtime.funded.admin, 1n)).wait();
+        if (wasmMode === 'enabled') {
+            it('indexes a CW20 ERC20 pointer transfer as a standard Transfer log (Wasm enabled)', async function () {
+                const wasm = runtime.wasm;
+                if (!wasm) throw new Error('Wasm-enabled pointer coverage requires bootstrap CW20 fixtures');
+                const actor = EvmAccount.fromPrivateKey(wasm.actor.privateKey, pax);
+                const pointer = new ethers.Contract(
+                    wasm.cw20Pointer,
+                    ERC20_LOG_IFACE,
+                    actor.wallet,
+                );
+                const receipt = await (await pointer.transfer(runtime.funded.admin, 1n)).wait();
 
-            const logs = await getLogs({
-                address: runtime.wasm!.cw20Pointer,
-                fromBlock: ethers.toQuantity(receipt!.blockNumber),
-                toBlock: ethers.toQuantity(receipt!.blockNumber),
+                const logs = await getLogs({
+                    address: wasm.cw20Pointer,
+                    fromBlock: ethers.toQuantity(receipt!.blockNumber),
+                    toBlock: ethers.toQuantity(receipt!.blockNumber),
+                });
+                const transfer = logs.find((l: any) => l.topics[0] === TRANSFER_TOPIC);
+                expect(transfer, 'pointer emits a Transfer log').to.not.equal(undefined);
+                expectLogShape(transfer, 'pointer transfer');
+                expect(transfer.address).to.equal(wasm.cw20Pointer.toLowerCase());
+                expect(transfer.topics[2], 'recipient is admin').to.equal(
+                    addressTopic(runtime.funded.admin),
+                );
             });
-            const transfer = logs.find((l: any) => l.topics[0] === TRANSFER_TOPIC);
-            expect(transfer, 'pointer emits a Transfer log').to.not.equal(undefined);
-            expectLogShape(transfer, 'pointer transfer');
-            expect(transfer.address).to.equal(runtime.wasm!.cw20Pointer.toLowerCase());
-            expect(transfer.topics[2], 'recipient is admin').to.equal(
-                addressTopic(runtime.funded.admin),
-            );
-        });
+
+        } else {
+            it('qualifies the explicit disabled-Wasm mode without pointer coverage', () => {
+                expect(wasmMode).to.equal('disabled');
+                expect(runtime.wasm).to.equal(undefined);
+            });
+        }
 
         it('indexes a staking-precompile delegate as a Delegate log under the precompile address', async function () {
             const [delegator] = claimPool(runtime, pax, 1, 'eth_getLogs-staking');
@@ -317,12 +357,15 @@ describe('eth_getLogs', function () {
                 fromBlock: ethers.toQuantity(receipt.blockNumber),
                 toBlock: ethers.toQuantity(receipt.blockNumber),
             });
+            const blockLogs = await getLogs({ blockHash: receipt.blockHash });
             const txLogs = logs
                 .filter((l: any) => l.transactionHash === receipt.hash)
                 .sort((a: any, b: any) => Number(a.logIndex) - Number(b.logIndex));
             expect(txLogs.length, 'the delegate tx produced at least one log').to.be.greaterThan(0);
+            const firstIndex = Number(BigInt(txLogs[0].logIndex));
             txLogs.forEach((l: any, i: number) => {
-                expect(Number(l.logIndex), `logIndex is contiguous from 0`).to.equal(i);
+                expect(Number(BigInt(l.logIndex)), 'transaction logIndex is relatively contiguous').to.equal(firstIndex + i);
+                expect(blockLogs[firstIndex + i], 'log occupies its original position in the complete block').to.deep.equal(l);
                 expect(l.blockHash, 'same block hash').to.equal(txLogs[0].blockHash);
                 expect(l.transactionIndex, 'same tx index').to.equal(txLogs[0].transactionIndex);
             });

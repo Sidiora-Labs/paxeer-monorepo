@@ -191,6 +191,12 @@ func NewEVMHTTPServer(
 		WriteTimeout:      config.WriteTimeout,
 		IdleTimeout:       config.IdleTimeout,
 	})
+	configured := false
+	defer func() {
+		if !configured {
+			httpServer.Stop()
+		}
+	}()
 	httpServer.domainResolver = domainResolver
 	methodTimeout := tmutils.Some(httpServer.timeouts.WriteTimeout)
 	if err := httpServer.SetListenAddr(config.HTTPAddress, config.HTTPPort); err != nil {
@@ -246,7 +252,7 @@ func NewEVMHTTPServer(
 	debugAPI := NewDebugAPI(tmClient, k, beginBlockKeepers, ctxProvider, txConfigProvider, simulateConfig, app, antehandler, ConnectionTypeHTTP, config, globalBlockCache, cacheCreationMutex, watermarks)
 	debugAPI.backend.SetTraceContextProvider(traceCtxProvider)
 	if config.TraceBakeEnabled {
-		StartTraceBakerForDebugAPI(debugAPI, TraceBakerConfig{
+		startServerTraceBaker(httpServer, debugAPI, TraceBakerConfig{
 			Workers:      config.TraceBakeWorkers,
 			QueueSize:    config.TraceBakeQueueSize,
 			Tracers:      config.TraceBakeTracers,
@@ -405,6 +411,7 @@ func NewEVMHTTPServer(
 	tracker := stats.InitRPCTracker(ctx.Context(), config.RPCStatsInterval)
 	httpServer.addStopHook(tracker.Stop)
 
+	configured = true
 	return httpServer, nil
 }
 
@@ -477,6 +484,12 @@ func NewEVMWebSocketServer(
 		WriteTimeout:      config.WriteTimeout,
 		IdleTimeout:       config.IdleTimeout,
 	})
+	configured := false
+	defer func() {
+		if !configured {
+			httpServer.Stop()
+		}
+	}()
 	httpServer.domainResolver = domainResolver
 	methodTimeout := tmutils.Some(httpServer.timeouts.WriteTimeout)
 	if err := httpServer.SetListenAddr(config.HTTPAddress, config.WSPort); err != nil {
@@ -531,6 +544,7 @@ func NewEVMWebSocketServer(
 	if err != nil {
 		return nil, err
 	}
+	httpServer.addStopHook(subscriptionAPI.shutdown)
 	if seq != nil {
 		subscriptionAPI.receiptLogs = seq.receiptLogs
 	}
@@ -589,6 +603,10 @@ func NewEVMWebSocketServer(
 			Service:   &domainNetAPI{NetAPI: NewNetAPI(tmClient, k, ctxProvider, ConnectionTypeWS)},
 		},
 		{
+			Namespace: "txpool",
+			Service:   NewTxPoolAPI(tmClient, k, ctxProvider, txConfigProvider, &TxPoolConfig{maxNumTxs: int(config.MaxTxPoolTxs)}, ConnectionTypeWS),
+		},
+		{
 			Namespace: "eth",
 			Service:   subscriptionAPI,
 		},
@@ -612,8 +630,37 @@ func NewEVMWebSocketServer(
 		return nil, err
 	}
 
+	installTxPoolWSScopes(httpServer)
+
 	tracker := stats.InitWSTracker(ctx.Context(), config.RPCStatsInterval)
 	httpServer.addStopHook(tracker.Stop)
 
+	configured = true
 	return httpServer, nil
+}
+
+var serverTraceBakers = struct {
+	sync.Mutex
+	owners map[*keeper.TraceDB]*TraceBaker
+}{owners: make(map[*keeper.TraceDB]*TraceBaker)}
+
+func startServerTraceBaker(server *HTTPServer, api *DebugAPI, config TraceBakerConfig) {
+	serverTraceBakers.Lock()
+	baker := StartTraceBakerForDebugAPI(api, config)
+	if baker == nil {
+		serverTraceBakers.Unlock()
+		return
+	}
+	cache := api.keeper.TraceDB()
+	serverTraceBakers.owners[cache] = baker
+	serverTraceBakers.Unlock()
+	server.addStopHook(func() {
+		serverTraceBakers.Lock()
+		if serverTraceBakers.owners[cache] == baker {
+			cache.SetTraceEnqueuer(nil)
+			delete(serverTraceBakers.owners, cache)
+		}
+		serverTraceBakers.Unlock()
+		baker.Stop()
+	})
 }

@@ -173,6 +173,9 @@ type SequencerReceiptResult struct {
 // The node produces px_getReceiptKeys and the gateway relays its governed
 // keyId/publicKey height ranges; signingKey beside a receipt is never a trust pin.
 func (r *SequencerReceiptResult) Verify(pins ...seqkeeper.ReceiptKeys) error {
+	if r == nil {
+		return mismatch("nil receipt result")
+	}
 	if r.Rung != RungSubmitted && r.SequencerReceiptView == nil {
 		return fmt.Errorf("%w: %s answer has no receipt", ErrSequencerReceiptMismatch, r.Rung)
 	}

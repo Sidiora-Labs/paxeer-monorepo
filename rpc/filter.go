@@ -657,6 +657,9 @@ func NewFilterAPI(
 	globalLogSlicePool *LogSlicePool,
 	watermarks *WatermarkManager,
 ) *FilterAPI {
+	if filterConfig == nil || filterConfig.timeout < evmrpcconfig.MinFilterTimeout {
+		panic("evm.filter_timeout must be at least 2ns so the cleanup ticker interval is positive")
+	}
 	if filterConfig.maxBlock <= 0 {
 		filterConfig.maxBlock = DefaultMaxBlockRange
 	}
@@ -733,11 +736,15 @@ func (a *FilterAPI) cleanupExpiredFilters(timeout time.Duration) {
 	}
 	a.filtersMu.RUnlock()
 
-	// Second pass: remove expired filters (write lock)
+	a.removeExpiredFilters(now, timeout, toRemove)
+}
+
+func (a *FilterAPI) removeExpiredFilters(now time.Time, timeout time.Duration, toRemove []ethrpc.ID) {
+	// Recheck after acquiring the removal lock: a poll may have renewed a candidate.
 	if len(toRemove) > 0 {
 		a.filtersMu.Lock()
 		for _, id := range toRemove {
-			if filter, exists := a.filters[id]; exists {
+			if filter, exists := a.filters[id]; exists && now.Sub(filter.lastAccess) > timeout {
 				delete(a.filters, id)
 				if filter.cancelFunc != nil {
 					filter.cancelFunc()
