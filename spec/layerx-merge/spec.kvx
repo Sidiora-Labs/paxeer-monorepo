@@ -146437,7 +146437,7 @@ do_7 = "If the swap receipt shows status reverted (assertSwap at repair-22-31-43
 
 [task.22.31.39]
 title = "Repair audit record 22.30.27 findings in apps/launchpad/web/src/widgets/create: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -181068,7 +181068,7 @@ do_10 = "The candidate carries only sources under the touches and the test file:
 
 [task.22.31.322]
 title = "Repair audit record 22.30.179 findings in tools/loadtest/config: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183110,7 +183110,7 @@ do_8 = "Verification runs only the TestRepair_178_* functions of repair_178_test
 
 [task.22.31.177]
 title = "Repair audit record 22.30.45 findings in storage/state_db/ss/evm: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -243318,7 +243318,7 @@ do_7 = "Verification runs only the TestRepair_132_* functions of repair_132_test
 
 [task.22.31.131]
 title = "Repair audit record 22.30.7 findings in modules/layerxpay/keeper: interface-mismatch, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286206,7 +286206,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.114]
 title = "Rewrite the programs documentation pages of programs: stale and misleading pages (manifest 22.32.114, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286236,7 +286236,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.113]
 title = "Rewrite the programs documentation pages of docs/wiki: stale and misleading pages (manifest 22.32.113, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286266,7 +286266,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.112]
 title = "Rewrite the programs documentation pages of docs/wiki: stale and misleading pages (manifest 22.32.112, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286296,7 +286296,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.111]
 title = "Rewrite the programs documentation pages of docs/site: stale and misleading pages (manifest 22.32.111, 3 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286326,7 +286326,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.110]
 title = "Rewrite the programs documentation pages of docs/site: stale and misleading pages (manifest 22.32.110, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286356,7 +286356,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.109]
 title = "Rewrite the programs documentation pages of docs/site: stale and misleading pages (manifest 22.32.109, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286386,7 +286386,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.108]
 title = "Rewrite the programs documentation pages of contracts: new pages (manifest 22.32.108, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286416,7 +286416,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.107]
 title = "Rewrite the wallet documentation pages of services/wallet: stale and misleading pages (manifest 22.32.107, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286446,7 +286446,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.106]
 title = "Rewrite the wallet documentation pages of sdk/wallet: stale and misleading pages (manifest 22.32.106, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286476,7 +286476,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.105]
 title = "Rewrite the wallet documentation pages of docs/system: stale and misleading pages (manifest 22.32.105, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286506,7 +286506,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.104]
 title = "Rewrite the wallet documentation pages of docs/site: stale and misleading pages (manifest 22.32.104, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286536,7 +286536,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.103]
 title = "Rewrite the wallet documentation pages of apps/wallet: stale and misleading pages (manifest 22.32.103, 5 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286566,7 +286566,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.102]
 title = "Rewrite the interop documentation pages of services/interop: stale and misleading pages (manifest 22.32.102, 3 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286596,7 +286596,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.101]
 title = "Rewrite the interop documentation pages of services/interop: stale and misleading pages (manifest 22.32.101, 6 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286626,7 +286626,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.100]
 title = "Rewrite the interop documentation pages of docs/wiki: stale and misleading pages (manifest 22.32.100, 4 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -324581,7 +324581,7 @@ do_8 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.401]
 title = "Repair audit record 22.30.151 findings in services/explorer/backend/config: wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -324833,7 +324833,7 @@ do_8 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.394]
 title = "Repair audit record 22.30.143 findings in services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/transaction: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
