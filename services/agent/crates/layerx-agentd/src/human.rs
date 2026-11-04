@@ -3180,12 +3180,12 @@ fn operator_command(
             let expiry_sequence = reader.u64()?;
             let preparation: [u8; 32] = reader.fixed()?;
             let signer_public_key: [u8; 32] = reader.fixed()?;
-            let signature: [u8; 64] = reader.fixed()?;
+            let signature: [u8; 65] = reader.fixed()?;
             if ceiling == 0
                 || expiry_sequence == 0
                 || preparation == [0; 32]
                 || signer_public_key == [0; 32]
-                || signature == [0; 64]
+                || signature == [0; 65]
             {
                 return Err(HumanProtocolError::Malformed);
             }

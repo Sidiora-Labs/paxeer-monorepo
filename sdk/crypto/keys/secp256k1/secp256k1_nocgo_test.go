@@ -4,6 +4,10 @@
 package secp256k1
 
 import (
+	"bytes"
+	"crypto/ecdsa"
+	"crypto/sha256"
+	"math/big"
 	"testing"
 
 	secp256k1 "github.com/btcsuite/btcd/btcec/v2"
@@ -20,6 +24,18 @@ func TestSignatureNonMalleable(t *testing.T) {
 
 		pub := priv.PubKey()
 		require.True(t, pub.VerifySignature(msg, sigStr))
+		parsedPub, err := secp256k1.ParsePubKey(pub.Bytes())
+		require.NoError(t, err)
+		hash := sha256.Sum256(msg)
+		r := new(big.Int).SetBytes(sigStr[:32])
+		s := new(big.Int).SetBytes(sigStr[32:])
+		require.True(t, ecdsa.Verify(parsedPub.ToECDSA(), hash[:], r, s))
+		highS := new(big.Int).Sub(secp256k1.S256().N, s)
+		require.Greater(t, highS.Cmp(new(big.Int).Rsh(new(big.Int).Set(secp256k1.S256().N), 1)), 0)
+		malleated := bytes.Clone(sigStr)
+		highS.FillBytes(malleated[32:])
+		require.True(t, ecdsa.Verify(parsedPub.ToECDSA(), hash[:], r, highS))
+		require.False(t, pub.VerifySignature(msg, malleated))
 
 		// Test with different message should fail
 		require.False(t, pub.VerifySignature([]byte("different message"), sigStr))

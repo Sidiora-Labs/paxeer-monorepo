@@ -56,7 +56,7 @@ func GetConfirmation(prompt string, r *bufio.Reader, w io.Writer) (bool, error) 
 	}
 
 	response = strings.ToLower(response)
-	if response[0] == 'y' {
+	if response == "y" || response == "yes" {
 		return true, nil
 	}
 

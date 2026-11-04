@@ -86,7 +86,7 @@ func TestRepair_309_HistoricalDepositOwner(t *testing.T) {
 		require.NoError(t, err)
 		results = append(results, &abci.TxResultV2{
 			Height: 1, Index: uint32(len(txs)), Tx: encoded,
-			Result: abci.ExecTxResult{Data: result.Data, Events: sdk.MarkEventsToIndex(result.Events, app.IndexEvents)},
+			Result: abci.ExecTxResult{Data: result.Data, Log: result.Log, Events: sdk.MarkEventsToIndex(result.Events, app.IndexEvents)},
 		})
 		txs = append(txs, encoded)
 	}

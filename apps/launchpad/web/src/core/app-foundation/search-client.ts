@@ -37,6 +37,17 @@ async function searchMetadataBatch(tokens: string[], signal: AbortSignal): Promi
   const bytes = new Uint8Array(size); let offset = 0; for (const part of parts) { bytes.set(part, offset); offset += part.length; }
   return checkedSearchMetadata(JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)), tokens);
 }
+function checkedSearchLogo(value: unknown, token: string): string | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== 'string' || value.length > 2048) throw new TypeError('Invalid search logo');
+  let url: URL;
+  try { url = new URL(value); } catch { throw new TypeError('Invalid search logo'); }
+  const expected = new URL(metadataApiUrl(`/logo/${token}.png`));
+  // This producer route rechecks moderation and the approved 512px asset on every read.
+  const immutable = url.protocol === 'https:' && /^\/approved\/[a-f0-9]{64}\/512\/[a-f0-9]{64}\.png$/.test(url.pathname);
+  if ((!immutable && url.href !== expected.href) || value !== url.href || url.username || url.password || url.search || url.hash) throw new TypeError('Unapproved search logo');
+  return value;
+}
 export function checkedSearchMetadata(value: unknown, tokens: string[]): Record<string, TokenMetadata | null> {
   if (tokens.length > 20 || new Set(tokens).size !== tokens.length || tokens.some(token => normalizeAddress(token) !== token)) throw new TypeError('Invalid metadata request identity');
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new TypeError('Invalid search metadata batch');
@@ -51,7 +62,12 @@ export function checkedSearchMetadata(value: unknown, tokens: string[]): Record<
     for (const field of ['name', 'symbol']) if (record[field] != null && (typeof record[field] !== 'string' || (record[field] as string).length > 256)) throw new TypeError('Invalid search display field');
     if (record.pool_address != null && typeof record.pool_address !== 'string') throw new TypeError('Invalid pool identity');
     const pool = typeof record.pool_address === 'string' ? normalizeAddress(record.pool_address) : null;
-    result[token] = { token_address: token, pool_address: pool, name: typeof record.name === 'string' ? record.name : null, symbol: typeof record.symbol === 'string' ? record.symbol : null };
+    const projected: TokenMetadata = { token_address: token, pool_address: pool, name: typeof record.name === 'string' ? record.name : null, symbol: typeof record.symbol === 'string' ? record.symbol : null };
+    if (record.images !== undefined) {
+      if (!record.images || typeof record.images !== 'object' || Array.isArray(record.images)) throw new TypeError('Invalid search images');
+      projected.images = { logo: checkedSearchLogo((record.images as Record<string, unknown>).logo, token) };
+    }
+    result[token] = projected;
   }
   return result;
 }

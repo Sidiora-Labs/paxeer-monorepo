@@ -59,10 +59,18 @@ impl ProtocolProgramStateRead {
         now: u64,
         staleness_limit: u64,
     ) -> Result<Self, ProtocolAdapterError> {
-        registry.replay_protocol_state(program, &bindings, &routes, program_lifecycle, &history)?;
+        let mut candidate = registry.clone();
+        candidate.replay_protocol_state(
+            program,
+            &bindings,
+            &routes,
+            program_lifecycle,
+            &history,
+        )?;
         let journal = ProtocolJournal { head };
         let authority = JournalAccountStateAuthority::new(journal, now, staleness_limit)?;
-        let balances = registry.read_value_accounts(program, &snapshot, &authority)?;
+        let balances = candidate.read_value_accounts(program, &snapshot, &authority)?;
+        *registry = candidate;
         Ok(Self {
             balances,
             snapshot,
@@ -301,10 +309,12 @@ impl ProtocolProgramStateRead {
                 AccountStateError::StaleRead,
             ));
         }
-        registry.replay_protocol_state(program, &bindings, &routes, lifecycle, &history)?;
+        let mut candidate = registry.clone();
+        candidate.replay_protocol_state(program, &bindings, &routes, lifecycle, &history)?;
         let journal = ProtocolJournal { head: current_head };
         let authority = JournalAccountStateAuthority::new(journal, now, staleness_limit)?;
-        let balances = registry.read_value_accounts(program, &snapshot, &authority)?;
+        let balances = candidate.read_value_accounts(program, &snapshot, &authority)?;
+        *registry = candidate;
         Ok(Self {
             balances,
             snapshot,

@@ -1,0 +1,7 @@
+{
+  "provenance": "Domain RPC producer wire results pinned by rpc/domain_scope_test.go: TestRootPathStillServesChain125 and TestChainPathServesTheDerivedChainId; virtual ID is modules/layerxchains/types/domain.go ChainIDOf(1). Loopback replays these peer results through the real SDK transport.",
+  "cases": [
+    {"path": "/", "chain_id": "0x7d"},
+    {"path": "/chain/1", "chain_id": "0x7735941"}
+  ]
+}

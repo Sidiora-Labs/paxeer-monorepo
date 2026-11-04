@@ -1,0 +1,6 @@
+[repair.22.33.1458]
+finding = "confirmation-prefix"
+proof = ["TestRepairM_1458_ExactAffirmatives", "TestRepairM_1458_RejectPrefixLookalikes", "TestRepairM_1458_BlankAndEOF", "TestRepairM_1458_BufferedTranscript"]
+baseline = "Not run: the task's ordered implementation-before-qualification instructions prohibit a pre-change verify run; no pre-change test failure is claimed."
+wiring_requests = []
+evidence = "The hf-build and hf-done private gate records identify the exact qualified revision, commands, exit codes and log paths."

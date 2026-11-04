@@ -28,9 +28,7 @@
   },
   "include": [
     "../../web/src/widgets/profile/account-disclosure.ts",
-    "../../web/src/widgets/profile/account-disclosure-view.tsx",
     "../../web/src/widgets/pnl/share-disclosure.ts",
-    "../../web/src/widgets/pnl/share-disclosure-preview.tsx",
     "../../web/src/widgets/rewards/reward-disclosure.ts",
     "../../web/src/widgets/profile/account-transport.ts",
     "../../web/src/widgets/profile/use-account-session.ts",
@@ -42,7 +40,7 @@
     "../../web/src/widgets/profile/referrals-tab.tsx",
     "../../web/src/widgets/rewards/reward-claim-state.ts",
     "../../web/src/hooks/ui/use-watchlist.ts",
-    "../../web/src/widgets/home/watchlist-grid.tsx",
+    "../../web/src/widgets/home/watchlist-widget.tsx",
     "../../web/src/widgets/pnl/share-publication-state.ts",
     "../../web/src/widgets/pnl/use-card-minter.ts",
     "../../web/src/widgets/pnl/pnl-card-landing.tsx",

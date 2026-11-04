@@ -202,26 +202,37 @@ pub fn graceful(
             durable_state,
         )?;
     }
-    for (index, audit) in lifecycle.pending_audit.iter().enumerate() {
-        let index = u64::try_from(index).map_err(|_| ShutdownError::Arithmetic)?;
-        store.put_local(
+    let mut next_audit = 0_u64;
+    for id in store.list_object_ids(&tenant, ObjectKind::Audit) {
+        if let Some(suffix) = id.strip_prefix(b"shutdown-audit:") {
+            let index = u64::from_be_bytes(suffix.try_into().map_err(|_| {
+                ShutdownError::Store(StoreError::Corrupt("invalid shutdown audit index"))
+            })?);
+            next_audit = next_audit.max(index.checked_add(1).ok_or(ShutdownError::Arithmetic)?);
+        }
+    }
+    let mut records = Vec::with_capacity(lifecycle.pending_audit.len() + 1);
+    for audit in &lifecycle.pending_audit {
+        records.push((
             prefixed_key(
                 tenant.clone(),
                 ObjectKind::Audit,
                 b"shutdown-audit:",
-                &index.to_be_bytes(),
+                &next_audit.to_be_bytes(),
             )?,
             audit.clone(),
-        )?;
+        ));
+        next_audit = next_audit.checked_add(1).ok_or(ShutdownError::Arithmetic)?;
     }
-    store.put_local(
+    records.push((
         TenantKey::new(
             tenant,
             ObjectKind::Configuration,
             b"shutdown-complete".to_vec(),
         )?,
         b"durable".to_vec(),
-    )?;
+    ));
+    store.commit_local_records(records)?;
     let in_flight_recorded = lifecycle.in_flight.len();
     let audit_entries_flushed = lifecycle.pending_audit.len();
     lifecycle.in_flight.clear();

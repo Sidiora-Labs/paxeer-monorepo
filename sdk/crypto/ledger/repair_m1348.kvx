@@ -1,0 +1,10 @@
+[repair.22.33.1348]
+audit = "22.30.73"
+ledger-mock-shape = "TestRepairM_1348_CreateShowAddress; TestRepairM_1348_ShowAddressRefusesMismatchedKey; tagged TestNewPrivKeySecp256k1 directly checks test-device compressed bytes, requested HRP and recorded driver output."
+ledger-der-test-gap = "TestRepairM_1348_DERSigning; TestRepairM_1348_DERConversion; TestRepairM_1348_MalformedDER; TestRepairM_1348_RawCompatibility; tagged TestConvertDERtoBER shares DER and malformed refusal assertions."
+baseline = "Not run: the explicit gate order forbids verification before the complete implementation and forbids running verify_cmd by hand; no earlier gate ledger exists. No baseline failures are claimed."
+fixture = "testdata/repair_m1348.json pins upstream recorded public key/address bytes and an explicitly labeled deterministic RFC6979 signature reproduction from the same public mnemonic; no physical-device DER capture was available."
+wiring_request = "Owner domain 15: record a physical-device DER signature, exact message and HD path alongside the pinned driver device evidence in sdk/testutil/testdata; the default gate needs no attached device."
+qualification = "Exact candidate revision, command, exit and private log are recorded by hf-build/hf-done in the runner gate ledger; this record makes no unrun gate claim."
+qualification_failure = "revision d2c36f19399d7f739a7ff7fafe8c190c9216772b; command cg spec done 22.33.1348 -f layerx-merge --root /work/paxeer-monorepo; exit 1; private log /out/logs/verify-1.log; TestRepairM_1348_MalformedDER/4 exposed the pinned parser accepting trailing bytes."
+repair = "Require an exact, bounded DER sequence length before the pinned parser, retaining 64-byte raw compatibility and every malformed-input refusal assertion."

@@ -1,0 +1,22 @@
+[repair.22.33.1433]
+base_revision = "e3d7e5828b39e4182e9559fb6bc28d74c2f37e0f"
+disposition = "Keep the prerequisite's settlement retirement; advertise the supported inspection/control surface at GET /v1/surface, linked from health discovery, with payments explicitly unsupported and historical imports inspection only."
+baseline = "No baseline test ran: the repair target did not exist on the unchanged tree and the explicit gate order prohibits testing before implementation and hf-build."
+evidence = "Exact verified candidate revision, command, exit code and private evidence path are recorded by the runner in the hf-build/hf-done ledger; this record does not claim a gate passed."
+
+[finding.emulator-settlement-receipt-wiring]
+test = "tools/platform/emulator/tests/repair_22_33_1433.rs::emulator_settlement_receipt_wiring_declares_retirement_after_payment_attempt_and_reopen"
+disposition = "The allowed retirement alternative applies: an actual recorded merged-node payment transaction is refused as unsupported local execution, settlement remains terminal 410, and real state snapshot export, stop, reopen and import preserve that disposition without producing a receipt or claiming finality. No fresh local payment success is promised or claimed."
+
+[finding.emulator-retired-route-registry]
+test = "tools/platform/emulator/tests/repair_22_33_1433.rs::emulator_retired_route_registry_publishes_only_supported_inspection_routes"
+disposition = "The runtime catalogue excludes all retired writers; real HTTP requests preserve their 404 responses for both protocol profiles. Replacement guidance names merged-node eth_sendRawTransaction and pax_sequencerReceipt, with current receipt authority and independent block-commit verification."
+
+[wiring.registry]
+request = "Platform domain 8: retire interface.8.http-emulator-post-v1-activities, post-v1-moves, post-v1-moves-quote and post-v1-programs-{call,deploy,simulate,upgrade} in spec/layerx-merge/interfaces.kvx; migrate their catalogue consumers to merged-node transaction ingress and register GET /v1/surface as inspection discovery."
+
+[wiring.examples]
+request = "Platform domain 8: update spec/layerx-merge/contracts/platform-cli.md and services/platform/examples/*/layerx.example.json plus services/platform/examples/support/merchant-app.mjs to remove emulator settlementUrl promises and use current merged-node receipts with ReceiptPayloadAuthority; preserve independent commitment verification."
+
+[wiring.task_record]
+request = "Programme owner: copy these finding/test mappings, baseline-order conflict and out-of-scope wiring requests into task.22.33.1433; spec files are excluded from this task's scope."

@@ -1,0 +1,6 @@
+[repair.22.33.671]
+finding = "negative-chunks"
+proof = ["TestRepairM_671_NegativeChunks", "TestRepairM_671_WithdrawAllRewards"]
+change = "Reject negative chunk sizes before slicing or generating transactions; preserve zero as unlimited and positive chunking."
+baseline = "Not run: the explicit task order requires complete implementation before hf-build then hf-done and forbids a manual verify run; no baseline test failures are claimed."
+wiring_requests = []

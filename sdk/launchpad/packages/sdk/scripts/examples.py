@@ -3,6 +3,7 @@ import argparse
 import hashlib
 import json
 import pathlib
+import sys
 
 
 def examples_paths(root):
@@ -13,7 +14,22 @@ def examples_paths(root):
 
 def emit(root):
     contracts, output = examples_paths(root)
-    document = json.loads(contracts.read_bytes())
+    manifest_path = contracts.with_name('codegen-manifest.json')
+    try:
+        manifest = json.loads(manifest_path.read_bytes())
+    except FileNotFoundError:
+        raise ValueError(
+            f'Missing codegen manifest: {manifest_path}; requires the complete immutable '
+            'v2 contract bundle (codegen-manifest.json, schema-definitions.json, '
+            'openapi.json, asyncapi.json and pinned generator/validator inputs) from the launchpad owner'
+        ) from None
+    if manifest.get('schemaMajor') != 2:
+        raise ValueError('versioned codegen manifest major mismatch')
+    openapi_bytes = contracts.read_bytes()
+    release = json.loads((root / 'sdk/launchpad/packages/sdk-v2/release-manifest.json').read_bytes())
+    if release['apiMajor'] != 2 or hashlib.sha256(openapi_bytes).hexdigest() != release['inputs']['openapi.json']:
+        raise ValueError('Pinned v2 OpenAPI digest mismatch')
+    document = json.loads(openapi_bytes)
     operations = {operation['operationId'] for methods in document['paths'].values() for method, operation in methods.items() if method in ('get','post','patch','put','delete')}
     required = {'IF_TOPIC_SNAPSHOT_READ','IF_STREAM_TICKET_ISSUE','IF_TRADES'}
     if not required.issubset(operations): raise ValueError('Selected contract lacks required example operations')
@@ -51,8 +67,12 @@ try {
     }
     output.mkdir(parents=True,exist_ok=True)
     for name, source in files.items(): (output / name).write_text(source)
-    return {'openapiSha256': hashlib.sha256(contracts.read_bytes()).hexdigest(), 'outputs': {name:hashlib.sha256(source.encode()).hexdigest() for name,source in files.items()}}
+    return {'openapiSha256': hashlib.sha256(openapi_bytes).hexdigest(), 'outputs': {name:hashlib.sha256(source.encode()).hexdigest() for name,source in files.items()}}
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(); parser.add_argument('--root', type=pathlib.Path, default=pathlib.Path(__file__).resolve().parents[5]); args = parser.parse_args()
-    print(json.dumps(emit(args.root),sort_keys=True))
+    try:
+        print(json.dumps(emit(args.root),sort_keys=True))
+    except (ValueError, OSError, KeyError) as error:
+        print('sdk-examples: ' + str(error), file=sys.stderr)
+        raise SystemExit(1)

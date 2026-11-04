@@ -1,3 +1,4 @@
+import BigNumber from 'bignumber.js';
 import React from 'react';
 
 import config from 'configs/app';
@@ -54,7 +55,7 @@ test('with verified info', async({ render, page, createSocket, mockApiResponse, 
 
   const socket = await createSocket();
   const channel = await socketServer.joinChannel(socket, `tokens:${ hash }`);
-  socketServer.sendMessage(socket, channel, 'total_supply', { total_supply: 10 ** 20 });
+  socket.send(JSON.stringify([ ...channel, 'total_supply', { total_supply: '100000000000000000000' } ]));
   await component.getByText('100 ARIA').waitFor({ state: 'visible', timeout: 10_000 });
 
   await page.getByLabel('Show info').click();
@@ -116,7 +117,7 @@ test.describe('mobile', () => {
     const component = await render(<Token/>, { hooksConfig }, { withSocket: true });
     const socket = await createSocket();
     const channel = await socketServer.joinChannel(socket, `tokens:${ hash }`);
-    socketServer.sendMessage(socket, channel, 'total_supply', { total_supply: 10 ** 20 });
+    socket.send(JSON.stringify([ ...channel, 'total_supply', { total_supply: '100000000000000000000' } ]));
     await component.getByText('100 ARIA').waitFor({ state: 'visible', timeout: 10_000 });
 
     await expect(component).toHaveScreenshot({
@@ -133,7 +134,7 @@ test.describe('mobile', () => {
     const component = await render(<Token/>, { hooksConfig }, { withSocket: true });
     const socket = await createSocket();
     const channel = await socketServer.joinChannel(socket, `tokens:${ hash }`);
-    socketServer.sendMessage(socket, channel, 'total_supply', { total_supply: 10 ** 20 });
+    socket.send(JSON.stringify([ ...channel, 'total_supply', { total_supply: '100000000000000000000' } ]));
     await component.getByText('100 ARIA').waitFor({ state: 'visible', timeout: 10_000 });
 
     await expect(component).toHaveScreenshot({
@@ -141,4 +142,19 @@ test.describe('mobile', () => {
       maskColor: pwConfig.maskColor,
     });
   });
+});
+
+test('decimal string supplies preserve precision and zero', async({ render, page, createSocket }) => {
+  const component = await render(<Token/>, { hooksConfig }, { withSocket: true });
+  const socket = await createSocket();
+  const channel = await socketServer.joinChannel(socket, `tokens:${ hash }`);
+  for (const totalSupply of [ '9007199254740993000000000000000001', '0' ]) {
+    socket.send(JSON.stringify([ ...channel, 'total_supply', { total_supply: totalSupply } ]));
+    const expected = new BigNumber(totalSupply).shiftedBy(-Number(tokenInfo.decimals)).dp(3).toFormat();
+    await expect(component.locator('[data-token-card="Overview"]')).toContainText(`${ expected } ARIA`);
+    if (totalSupply !== '0') {
+      await component.getByText(expected, { exact: true }).hover();
+      await expect(page.getByRole('tooltip')).toContainText(new BigNumber(totalSupply).shiftedBy(-Number(tokenInfo.decimals)).toFormat());
+    }
+  }
 });

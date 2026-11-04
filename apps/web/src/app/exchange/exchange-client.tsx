@@ -2,7 +2,7 @@
 
 import { exchange as perpsVenue } from "@paxeer/wallet";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 
 import {
   perpsCall,
@@ -11,19 +11,18 @@ import {
   perpsDepositCall,
   perpsOpenPositionCall,
   perpsWithdrawCall,
-  waitLaunchpadApproval,
   type PrecompileCall,
   type PerpsOpenPosition,
   type PerpsWrite,
 } from "../../api/sdk";
-import { isPrecompileSendOutcome, sendWalletPrecompileCall, walletFeePreference, walletSendFailure, type PrecompileSendOutcome } from "../../api/wallet";
+import { isPrecompileSendOutcome, sendWalletPrecompileCall, walletFeePreference, walletSendFailure, retainedWalletNativeSubmission, resumeWalletNativeSubmission, type NativeSubmission, type PrecompileSendOutcome } from "../../api/wallet";
 import { windowWalletProvider } from "../../api/provider";
 import { SegmentedControl } from "../../kit/collection";
 import { KitButton } from "../../kit/control";
 import { ExplorerPanel } from "../../kit/explorer";
 import { TextField } from "../../kit/field";
 import { availability } from "../_markets/availability";
-import { WEI_DECIMALS, parseUnits } from "../_markets/format";
+import { WEI_DECIMALS, formatUnits, parseUnits } from "../_markets/format";
 import { ChoiceField } from "../_markets/select";
 import { SendOutcome } from "../_markets/send-outcome";
 import { SPONSORED_APPROVE_UNSUPPORTED } from "../launchpad/launchpad-client";
@@ -32,44 +31,57 @@ import { preflightPerpsWrite } from "./actions";
 export type PerpsCollateral = Readonly<{ token: string; decimals: number; symbol: string }>;
 type Choice = Readonly<{ id: string; label: string }>;
 
-// 0x1015 pulls deposit collateral by transferFrom, so a
-// short allowance gets one approve for the exact amount, mined first. The
-// write is then run against the precompile so its revert reason is shown
-// before the wallet opens.
+export type PerpsSendOutcome = PrecompileSendOutcome & Readonly<{ stage?: "approval" }>;
+
 export async function sendPerpsWrite(
   from: string,
   collateral: PerpsCollateral,
   pull: bigint,
   call: PrecompileCall,
   onApproving: (active: boolean) => void,
-): Promise<PrecompileSendOutcome> {
+  operation?: string,
+  onApproval: (outcome: PrecompileSendOutcome) => void = () => {},
+  isCurrent: () => boolean = () => true,
+): Promise<PerpsSendOutcome> {
   const wallet = windowWalletProvider();
-  if (wallet === undefined) {
-    return { outcome: "unavailable" };
-  }
+  if (wallet === undefined) return { outcome: "unavailable" };
   try {
+    if (!isCurrent()) return { outcome: "rejected" };
+    if (operation !== undefined) {
+      const retained = retainedWalletNativeSubmission(from);
+      if (retained !== undefined) {
+        const recovered = await resumeWalletNativeSubmission(from);
+        if (recovered !== undefined) {
+          if (retained.stage === "write") return recovered;
+          onApproval(recovered);
+          if (!(recovered.outcome === "sent" && recovered.receipt !== undefined))
+            return { ...recovered, stage: "approval" };
+        }
+      }
+    }
     const approve = pull > 0n ? await perpsVenue(wallet).approval(from, collateral.token, pull) : undefined;
     if (approve !== undefined) {
-      if (walletFeePreference().currency === "sidiora") {
+      if (walletFeePreference().currency === "sidiora")
         return { outcome: "failed", detail: SPONSORED_APPROVE_UNSUPPORTED };
-      }
+      if (!isCurrent()) return { outcome: "rejected" };
       onApproving(true);
-      const approved = await sendWalletPrecompileCall(from, () => approve);
-      if (!isPrecompileSendOutcome(approved) || approved.outcome !== "sent") {
-        return approved;
-      }
-      await waitLaunchpadApproval(wallet, approved.transactionHash);
+      const approved = await sendWalletPrecompileCall(from, () => approve, undefined,
+        operation === undefined ? undefined : { operation, stage: "approval" });
+      onApproval(approved);
+      if (!isPrecompileSendOutcome(approved) || approved.outcome !== "sent" || approved.receipt === undefined)
+        return { ...approved, stage: "approval" };
     }
+    if (!isCurrent()) return { outcome: "rejected" };
     const preflight = await preflightPerpsWrite(from, call.data);
-    if (!preflight.ok) {
-      return { outcome: "failed", detail: preflight.detail };
-    }
+    if (!preflight.ok) return { outcome: "failed", detail: preflight.detail };
+    if (!isCurrent()) return { outcome: "rejected" };
+    return await sendWalletPrecompileCall(from, () => call, undefined,
+      operation === undefined ? undefined : { operation, stage: "write" });
   } catch (error) {
     return walletSendFailure(error);
   } finally {
     onApproving(false);
   }
-  return sendWalletPrecompileCall(from, () => call);
 }
 
 export function perpsMarketPositionCall(marketId: bigint, collateral: PerpsCollateral, amount: bigint, leverage: bigint, isLong: boolean): PrecompileCall {
@@ -193,7 +205,9 @@ export function ExchangeOrderControls({
         />
         {field("Trigger price", "triggerPrice")}
         {inputs.orderType === "stop-limit" ? field("Limit price", "limitPrice") : null}
-        {field("Order size", "size")}
+        {field("Order size (USD)", "size")}
+        <p>Size is USD notional, not a base-asset quantity or {collateral.symbol} collateral.</p>
+        {size !== undefined ? <p role="note">Review: order notional {formatUnits(size, WEI_DECIMALS)} USD.</p> : null}
         {field("Order leverage (x)", "leverage")}
         {field(`Order collateral (${collateral.symbol})`, "collateral")}
         {inputs.orderType === "limit"
@@ -222,7 +236,9 @@ export function ExchangeOrderControls({
   const amount = perpsAmount(inputs.positionCollateral, collateral.decimals);
   return (
     <>
-      {field("Close size", "closeSize")}
+      {field("Close size (USD)", "closeSize")}
+      <p>Close size is USD notional, separate from {collateral.symbol} collateral.</p>
+      {closeSize !== undefined ? <p role="note">Review: close notional {formatUnits(closeSize, WEI_DECIMALS)} USD.</p> : null}
       {write("Partially close position", "partialClose(uint256,uint256)",
         position !== undefined && closeSize !== undefined ? [position, closeSize] : undefined)}
       {field("Take-profit price", "takeProfit")}
@@ -242,7 +258,7 @@ export function ExchangeOrderControls({
   );
 }
 
-export function ExchangeActions({
+function AccountExchangeActions({
   account,
   collateral,
   markets,
@@ -258,14 +274,14 @@ export function ExchangeActions({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [approving, setApproving] = useState(false);
-  const [marketId, setMarketId] = useState(markets[0]?.id ?? "");
+  const [marketSelection, setMarketId] = useState(markets[0]?.id ?? "");
   const [side, setSide] = useState("long");
   const [openCollateralText, setOpenCollateralText] = useState("");
   const [leverageText, setLeverageText] = useState("");
   const [openOutcome, setOpenOutcome] = useState<PrecompileSendOutcome | undefined>(undefined);
-  const [positionId, setPositionId] = useState(positions[0]?.id ?? "");
+  const [positionSelection, setPositionId] = useState(positions[0]?.id ?? "");
   const [closeOutcome, setCloseOutcome] = useState<PrecompileSendOutcome | undefined>(undefined);
-  const [orderId, setOrderId] = useState(orders[0]?.id ?? "");
+  const [orderSelection, setOrderId] = useState(orders[0]?.id ?? "");
   const [cancelOutcome, setCancelOutcome] = useState<PrecompileSendOutcome | undefined>(undefined);
   const [marginText, setMarginText] = useState("");
   const [marginOutcome, setMarginOutcome] = useState<PrecompileSendOutcome | undefined>(undefined);
@@ -285,37 +301,119 @@ export function ExchangeActions({
     positionCollateral: "",
   });
   const [orderOutcome, setOrderOutcome] = useState<PrecompileSendOutcome | undefined>(undefined);
+  const select = (value: string, choices: readonly Choice[]) =>
+    choices.some((choice) => choice.id === value) ? value : choices[0]?.id ?? "";
+  const marketId = select(marketSelection, markets);
+  const positionId = select(positionSelection, positions);
+  const orderId = select(orderSelection, orders);
+  const selectedOrderMarket = select(orderInputs.market, markets);
+  if (marketId !== marketSelection) setMarketId(marketId);
+  if (positionId !== positionSelection) setPositionId(positionId);
+  if (orderId !== orderSelection) setOrderId(orderId);
+  if (selectedOrderMarket !== orderInputs.market)
+    setOrderInputs({ ...orderInputs, market: selectedOrderMarket });
+
+  const latest = useRef({ account, markets, positions, orders, mounted: true });
+  latest.current = { account, markets, positions, orders, mounted: true };
+  const sending = useRef(false);
+  const [recovering, setRecovering] = useState(true);
+  const [retained, setRetained] = useState<NativeSubmission | undefined>();
+  const [recoveryError, setRecoveryError] = useState<string | undefined>();
+  const [approvalOutcome, setApprovalOutcome] = useState<PrecompileSendOutcome | undefined>();
+
+  useEffect(() => {
+    let stopped = false;
+    let polling = false;
+    async function reconcile() {
+      if (polling || sending.current || stopped) return;
+      polling = true;
+      try {
+        if (account === undefined) return;
+        const existing = retainedWalletNativeSubmission(account);
+        if (existing === undefined) return;
+        const outcome = await resumeWalletNativeSubmission(account);
+        if (stopped) return;
+        if (existing.stage === "approval") setApprovalOutcome(outcome);
+        else {
+          const records: Record<string, typeof setOpenOutcome> = { open: setOpenOutcome, close: setCloseOutcome, cancel: setCancelOutcome,
+            margin: setMarginOutcome, order: setOrderOutcome };
+          records[existing.operation]?.(outcome);
+        }
+        if (outcome !== undefined && "receipt" in outcome && outcome.receipt !== undefined)
+          router.refresh();
+      } catch (error) {
+        if (!stopped) setRecoveryError(error instanceof Error ? error.message : "Native recovery failed.");
+      } finally {
+        if (!stopped) {
+          try { setRetained(account === undefined ? undefined : retainedWalletNativeSubmission(account)); }
+          catch (error) { setRecoveryError(error instanceof Error ? error.message : "Native recovery failed."); }
+          setRecovering(false);
+        }
+        polling = false;
+      }
+    }
+    void reconcile();
+    const timer = setInterval(() => { void reconcile(); }, 1000);
+    return () => { stopped = true; latest.current.mounted = false; clearInterval(timer); };
+  }, [account, router]);
+
   const changeOrderInput = (key: keyof PerpsOrderInputs, value: string) => {
     setOrderInputs((previous) => ({ ...previous, [key]: value }));
   };
 
   const openCollateral = perpsAmount(openCollateralText, collateral.decimals);
   const leverage = perpsAmount(leverageText, WEI_DECIMALS);
-  const openMarket = perpsId(marketId);
-  const cancelOrder = perpsId(orderId);
+  const openMarket = markets.some((choice) => choice.id === marketId) ? perpsId(marketId) : undefined;
+  const cancelOrder = orders.some((choice) => choice.id === orderId) ? perpsId(orderId) : undefined;
   const margin = parseUnits(marginText, collateral.decimals);
-  const walletReason = account === undefined ? "Connect a wallet first." : undefined;
+  const walletReason = account === undefined ? "Connect a wallet first."
+    : recoveryError !== undefined ? recoveryError
+    : recovering ? "Checking retained transactions."
+    : retained !== undefined ? "An existing transaction is pending reconciliation."
+    : pending ? "A transaction is in progress." : undefined;
 
   const send = (build: () => PrecompileCall | Promise<PrecompileCall>, pull: bigint, record: (outcome: PrecompileSendOutcome) => void) => {
-    if (account === undefined) {
-      return;
-    }
+    if (account === undefined || walletReason !== undefined || sending.current) return;
+    const operation = record === setOpenOutcome ? "open" : record === setCloseOutcome ? "close"
+      : record === setCancelOutcome ? "cancel" : record === setOrderOutcome ? "order" : "margin";
+    const kind = operation === "open" || operation === "order" ? "markets"
+      : operation === "close" ? "positions" : operation === "cancel" ? "orders" : undefined;
+    const id = operation === "open" ? marketId : operation === "order" ? orderInputs.market
+      : operation === "close" ? positionId : orderId;
+    const isCurrent = () => latest.current.mounted && latest.current.account === account &&
+      (kind === undefined || latest.current[kind].some((choice) => choice.id === id));
+    if (!isCurrent()) return;
+    sending.current = true;
     startTransition(async () => {
       try {
         const call = await build();
-        const outcome = await sendPerpsWrite(account, collateral, pull, call, setApproving);
-        record(outcome);
-        if (isPrecompileSendOutcome(outcome) && outcome.outcome === "sent") {
-          router.refresh();
-        }
+        const outcome = await sendPerpsWrite(account, collateral, pull, call, setApproving,
+          operation, setApprovalOutcome, isCurrent);
+        if (!latest.current.mounted) return;
+        if (outcome.stage !== "approval") record(outcome);
+        if (isPrecompileSendOutcome(outcome) && outcome.outcome === "sent" &&
+          outcome.stage !== "approval" && outcome.receipt !== undefined) router.refresh();
       } catch (error) {
-        record(walletSendFailure(error));
+        if (latest.current.mounted) record(walletSendFailure(error));
+      } finally {
+        sending.current = false;
+        if (latest.current.mounted) {
+          try { setRetained(retainedWalletNativeSubmission(account)); }
+          catch (error) { setRecoveryError(error instanceof Error ? error.message : "Native recovery failed."); }
+        }
       }
     });
   };
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
+      {approvalOutcome !== undefined ? <section aria-label="Collateral approval">
+        <h2>Collateral approval</h2>
+        <SendOutcome outcome={approvalOutcome} />
+      </section> : null}
+      {retained !== undefined ? <p role="status">Pending {retained.stage} for {retained.operation}.
+        {retained.transactionHash ?? " Awaiting the wallet transaction identity."}</p> : null}
+      {recoveryError !== undefined ? <p role="alert">{recoveryError}</p> : null}
       <ExplorerPanel title="Open a position">
         <div className="flex flex-col gap-3">
           {markets.length === 0 ? (
@@ -409,9 +507,10 @@ export function ExchangeActions({
             variant="destructive"
             loading={pending}
             onClick={() => {
+              if (walletReason !== undefined || !positions.some((choice) => choice.id === positionId) || perpsId(positionId) === undefined) return;
               send(() => perpsClosePositionCall(BigInt(positionId)), 0n, setCloseOutcome);
             }}
-            {...availability(walletReason, positionId === "" && "Choose a position.")}
+            {...availability(walletReason, (!positions.some((choice) => choice.id === positionId) || perpsId(positionId) === undefined) && "Choose a position.")}
           >
             Close position
           </KitButton>
@@ -500,4 +599,9 @@ export function ExchangeActions({
       </ExplorerPanel>
     </div>
   );
+}
+
+/** Reset account-owned selections, outcomes and in-flight callbacks on a wallet switch. */
+export function ExchangeActions(props: Parameters<typeof AccountExchangeActions>[0]) {
+  return <AccountExchangeActions key={props.account?.toLowerCase() ?? "disconnected"} {...props} />;
 }

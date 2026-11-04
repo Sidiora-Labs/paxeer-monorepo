@@ -179,7 +179,7 @@ function explorerWireObject(value: object): Record<string, unknown> {
 
 async function startExplorerProducer() {
   const state = explorerProducerState();
-  const reads: { path: string; profile: string | undefined }[] = [];
+  const reads: { path: string; profile: string | undefined; }[] = [];
   let corruption: "receipt-id" | "receipt-bytes" | "program" | "account" | "name" | undefined;
   const server = createServer((request, response) => {
     const url = new URL(request.url!, "http://localhost");
@@ -260,7 +260,7 @@ function restoreEnvironment(context: TestContext, key: string, value: string | u
 function explorer_links_and_labels_reach_real_consumers(context: TestContext): void {
   restoreEnvironment(context, "PAXEER_X_EXPLORER_BASE_URL", producer.origin);
   const targets: readonly ExplorerLinkTarget[] = [
-    { kind: "receipt", receiptId: "ab".repeat(32).toUpperCase() },
+    { kind: "receipt", receiptId: "ab".repeat(32).toUpperCase(), transactionHash: `0x${"b".repeat(64)}` },
     { kind: "transaction", transactionHash: `0x${"cd".repeat(32)}` },
     { kind: "address", address: `0x${"ef".repeat(20)}` },
   ];
@@ -284,7 +284,7 @@ function explorer_links_and_labels_reach_real_consumers(context: TestContext): v
   }
   for (const identifier of ["../anchors", "", `${"ab".repeat(32)}?tab=anchors`]) {
     assert.throws(() => components.explorerReceiptPath(identifier), TypeError);
-    assert.throws(() => links.explorerLinkPath({ kind: "receipt", receiptId: identifier }), TypeError);
+    assert.throws(() => links.explorerLinkPath({ kind: "receipt", receiptId: identifier, transactionHash: `0x${"b".repeat(64)}` }), TypeError);
   }
   assert.equal(components.explorerReceiptPath("AB".repeat(32)), `/explorer/receipts/${"ab".repeat(32)}`);
   const levels: readonly [ExplorerVerificationLevel, string][] = [
@@ -356,10 +356,10 @@ async function explorer_real_producers_reach_pages_twice_and_refuse_malformed_re
   assert.ok(model.parseAccountIdentifier(accountId));
   assert.ok(model.validExplorerName(name));
 
-  const observed: { origin: string; path: string }[] = [];
+  const observed: { origin: string; path: string; }[] = [];
   const requests = channel("undici:request:create");
   const observe = (message: unknown): void => {
-    const { request } = message as { request: { origin: string; path: string } };
+    const { request } = message as { request: { origin: string; path: string; }; };
     observed.push({ origin: String(request.origin), path: request.path });
   };
   requests.subscribe(observe);

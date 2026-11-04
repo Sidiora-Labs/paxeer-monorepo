@@ -956,6 +956,10 @@ export class AgentGrantMiddleware implements GrantDrawExecution {
     this.#receiptKeys = copyReceiptKeys(config.receiptKeys);
   }
 
+  public resolveGrant(grantId: string, network: string): ReturnType<GrantDrawExecution["resolveGrant"]> {
+    return this.config.draws.resolveGrant(grantId, network);
+  }
+
   public async execute(request: Parameters<GrantDrawExecution["execute"]>[0]): Promise<SellerSettlementOutcome> {
     const requirements = request.requirements;
     if (requirements.scheme !== "metered" && requirements.scheme !== "subscription") throw new AgentMiddlewareError("invalid-request");

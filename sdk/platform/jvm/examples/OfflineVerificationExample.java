@@ -1,52 +1,41 @@
 package com.sidiora.layerx.sdk.examples;
 
-import com.sidiora.layerx.sdk.*;
+import com.sidiora.layerx.sdk.PlatformSdkException;
+import com.sidiora.layerx.sdk.verify.ConsensusTrust;
 import com.sidiora.layerx.sdk.verify.LocalVerifier;
-import java.math.BigInteger;
-import java.util.HexFormat;
+import com.sidiora.layerx.sdk.verify.PortableReceipt;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.List;
 
-/**
- * Example: Offline receipt verification.
- * 
- * <p>Demonstrates trustless verification of a LayerX receipt without
- * contacting the service.
- */
+/** Verify unmodified portable v2 evidence with independent trust and the retained transaction. */
 public final class OfflineVerificationExample {
-    public static void main(String[] args) {
-        byte[] canonicalReceipt = HexFormat.of().parseHex(
-            args.length > 0 ? args[0] : sampleReceiptHex());
-        
-        byte[] batchId = new byte[32];
-        byte[] asset = new byte[32];
-        byte[] previousStateRoot = new byte[32];
-        byte[] resultingStateRoot = new byte[32];
-        byte[] sequencerPublicKey = new byte[32];
+    private OfflineVerificationExample() {}
 
-        var authorized = new LocalVerifier.AuthorizedReceiptBatch(
-            batchId, asset, previousStateRoot, resultingStateRoot, sequencerPublicKey);
-
-        try {
-            var verified = LocalVerifier.verifyReceiptOutcome(canonicalReceipt, authorized);
-            System.out.println("Verification level: " + verified.level().wire());
-            System.out.println("Activity ID: " + HexFormat.of().formatHex(
-                verified.receipt().activityId()));
-            System.out.println("Result code: " + verified.receipt().resultCode());
-            System.out.println("Amount: " + verified.receipt().amount());
-            System.out.println("Fee charged: " + verified.receipt().feeCharged());
-            
-            if (verified.receipt().resultCode() == 0) {
-                System.out.println("Receipt verification successful");
-            } else {
-                System.out.println("Activity failed with code: " + 
-                    verified.receipt().resultCode());
-            }
-        } catch (PlatformSdkException e) {
-            System.err.println("Verification failed: " + e.getMessage());
-            System.exit(1);
-        }
+    public static PortableReceipt.Verification verify(Path bundle, Path rawTransaction,
+            LocalVerifier.ReceiptKeys pinnedKeys, ConsensusTrust consensusTrust,
+            List<ConsensusTrust.Step> transitions) throws java.io.IOException {
+        byte[] encoded = Files.readAllBytes(bundle);
+        byte[] retained = Files.readAllBytes(rawTransaction);
+        var verified = PortableReceipt.verify(encoded, pinnedKeys, consensusTrust, transitions);
+        byte[] carried = ExampleConfiguration.hex(ExampleConfiguration.JSON.readTree(encoded)
+            .required("rawTransaction"));
+        if (!Arrays.equals(retained, carried)) throw PlatformSdkException.verificationFailure();
+        verified.requireSuccess();
+        return verified;
     }
 
-    private static String sampleReceiptHex() {
-        return "0".repeat(200);
+    public static void main(String[] args) throws Exception {
+        if (args.length < 3 || args.length > 5) {
+            throw new IllegalArgumentException("Usage: OfflineVerificationExample bundle.json transaction.raw "
+                + "independent-pins.json [independent-consensus.json [transitions.json]]");
+        }
+        var trust = args.length >= 4 ? ExampleConfiguration.consensusTrust(Path.of(args[3])) : null;
+        var steps = args.length == 5 ? ExampleConfiguration.transitions(Path.of(args[4])) : List.<ConsensusTrust.Step>of();
+        var verified = verify(Path.of(args[0]), Path.of(args[1]),
+            ExampleConfiguration.receiptKeys(Path.of(args[2])), trust, steps);
+        System.out.println("Receipt verified at " + verified.verificationLevel() + ": 0x"
+            + java.util.HexFormat.of().formatHex(verified.receipted().receipt().activityId()));
     }
 }

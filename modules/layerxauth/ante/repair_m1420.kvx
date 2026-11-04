@@ -1,0 +1,8 @@
+[repair.22.33.1420]
+finding = "auth-integration-replaces-producer-grant"
+tests = ["TestRepairM_1420_ProducerGrantRevokeRegrant", "TestRepairM_1420_ProducerGrantScopeBudgets"]
+proof = "The grantCapability ABI producer, kernel grant, stored SDK scope, signed transaction codec, full ante handler, authz dispatcher and bank consumer execute without installing a replacement authorization; identity, every scope limit, spending, purpose, asset, budgets, validity, kernel revocation and producer regrant are asserted."
+baseline = "Not executed: the explicit gate order requires complete implementation before hf-build and hf-done and forbids running verify_cmd by hand. No pre-change failure is claimed."
+qualification_note = "Candidate 9942c49d254a329a5ec9ceebb1bd82156eb3278b: hf-done exited 1 (/out/logs/verify-1.log); the kernel requires a nonzero capability purpose, so budget probes now issue independent purpose-bound capabilities on isolated store branches."
+wiring_requests = []
+evidence = "The runner hf-done ledger records the exact verified candidate revision, command, exit code and private evidence location."
