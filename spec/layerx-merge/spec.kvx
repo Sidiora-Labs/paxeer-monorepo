@@ -131632,7 +131632,7 @@ do_11 = "Attempt 3 (continue): the mocked provider return data cannot be decoded
 
 [task.22.31.238]
 title = "Repair audit record 22.30.115 findings in sdk/wallet/src: interface-mismatch, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -148764,7 +148764,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.169]
 title = "Repair audit record 22.30.113 findings in services/interop/crates/x-websearch/src: interface-mismatch, restart-recovery, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -149019,7 +149019,7 @@ do_10 = "The candidate carries only sources under the touches and the test file:
 
 [task.22.31.162]
 title = "Repair audit record 22.30.109 findings in services/interop/crates/layerx-gas-station/src: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -161262,7 +161262,7 @@ do_12 = "Attempt 3 (continue): TestRepair_285_SigningInfoHTTPABCI receives code 
 
 [task.22.31.284]
 title = "Repair audit record 22.30.162 findings in sdk/x/slashing/keeper: interface-mismatch, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -161725,7 +161725,7 @@ do_7 = "Verification runs only the TestRepair_210_* functions of repair_210_test
 
 [task.22.31.209]
 title = "Repair audit record 22.30.87 findings in services/platform/perps-data/internal/indexer: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -166159,7 +166159,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.14]
 title = "Repair audit record 22.30.14 findings in modules/perps/keeper: interface-mismatch, restart-recovery, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -221570,7 +221570,7 @@ do_10 = "Verification runs only the TestRepair_197_* functions of repair_197_tes
 
 [task.22.31.195]
 title = "Repair audit record 22.30.8 findings in modules/layerxledger/keeper: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
