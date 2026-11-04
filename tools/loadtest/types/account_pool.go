@@ -1,6 +1,8 @@
 package types
 
 import (
+	"fmt"
+	"math"
 	"math/rand"
 	"sync"
 )
@@ -43,10 +45,27 @@ func (a *accountPool) NextAccount() *Account {
 	return a.Accounts[a.nextIndex()]
 }
 
-// NewAccountPool creates a new account generator from a config.
-func NewAccountPool(cfg *AccountConfig) AccountPool {
-	return &accountPool{
-		Accounts: cfg.Accounts,
-		cfg:      cfg,
+// NewAccountPool creates an account generator or returns a configuration error.
+func NewAccountPool(cfg *AccountConfig) (AccountPool, error) {
+	if cfg == nil {
+		return nil, fmt.Errorf("account pool: configuration must not be nil")
 	}
+	if math.IsNaN(cfg.NewAccountRate) || math.IsInf(cfg.NewAccountRate, 0) ||
+		cfg.NewAccountRate < 0 || cfg.NewAccountRate > 1 {
+		return nil, fmt.Errorf("account pool: new account rate must be finite and between 0 and 1, got %v", cfg.NewAccountRate)
+	}
+	if len(cfg.Accounts) == 0 && cfg.NewAccountRate != 1 {
+		return nil, fmt.Errorf("account pool: fixed accounts must be nonempty unless new account rate is exactly 1")
+	}
+	for i, account := range cfg.Accounts {
+		if account == nil {
+			return nil, fmt.Errorf("account pool: fixed account at index %d must not be nil", i)
+		}
+	}
+	admitted := *cfg
+	admitted.Accounts = append([]*Account(nil), cfg.Accounts...)
+	return &accountPool{
+		Accounts: admitted.Accounts,
+		cfg:      &admitted,
+	}, nil
 }

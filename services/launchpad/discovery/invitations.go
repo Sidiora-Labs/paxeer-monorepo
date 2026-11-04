@@ -29,17 +29,10 @@ func (s Store) ChangeMembership(ctx context.Context, actor, id, account, action 
 		var m Membership
 		switch action {
 		case "invite":
-			m, e = member(ctx, tx, id, account)
-			if e != nil && e != sql.ErrNoRows {
-				return e
-			}
-			if m.Revision != expected {
-				return ErrConflict
-			}
 			if account == "" || account == actor {
 				return ErrInvalid
 			}
-			e = inviteTx(ctx, tx, actor, id, account, uuid.NewString()+uuid.NewString(), time.Now().UTC().Add(24*time.Hour))
+			e = inviteTx(ctx, tx, actor, id, account, uuid.NewString()+uuid.NewString(), expected, time.Now().UTC().Add(24*time.Hour))
 		case "request":
 			if actor != account {
 				return ErrForbidden

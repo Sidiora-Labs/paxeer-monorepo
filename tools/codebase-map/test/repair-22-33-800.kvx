@@ -1,0 +1,24 @@
+[task.22.33.800]
+audit = "spec/layerx-merge/programme/audit/records/22.30.178.kvx"
+base_revision = "0e1d5eb94cabe89e2260279a849b7154911ef8ee"
+acceptance = "22998.1"
+qualification = "The hf-build/hf-done private gate ledger records the exact verified candidate revision, command, exit code and log path; this record does not claim an unrun result."
+baseline = "No baseline verify was run: the explicit gate order forbids pre-implementation tests and invoking verify_cmd by hand; the declared repair test did not exist at the base and no earlier hf-build/hf-done ledger was present. No baseline failures are claimed."
+wiring_requests = ["tools/codebase-map/README.md, owning domain 16 (tools-ops): update the snapshot-check paragraph to describe automatic current-source setup and mandatory snapshot assertions instead of missing-output skips."]
+
+[finding.5]
+tests = ["codebase map qualification", "missingGeneratedSnapshotFailsQualification", "setupRegeneratesFromCurrentGraphAndActiveSpec", "setupRejectsMissingAuthorityAndUnsupportedGraph"]
+repair = "map.test.mjs declares setup that generates a new required snapshot with the production producer from the current graph, Git inventory and configured active spec. All five original tests run, with no missing-output skips. Full spec records and delivery status counts are compared to the active source directly, without a cg subprocess."
+producer = "Live setup reads the actual read-only graph and current Git inputs; the offline gate supplies recorded Git output and real indexed graph rows in the committed schema-14 in-memory store contract through the same production generateSnapshot interface."
+transport = "The production createMapServer serves the generated output over loopback; assertions cover GET path, host, cache policy, status, content type, security header and full response JSON. The browser fetch adapter only resolves relative URLs before forwarding to native fetch and returning its real Response."
+consumer = "The existing app.js first-render and all seven navigation assertions run against the served snapshot using the existing DOM harness; branch and commit fields also identify the snapshot consumed by the browser."
+negative_proof = "Deleting the required output produces ENOENT and HTTP 404, and the real loader rejects it. New setup reflects an added recorded graph symbol and the currently selected spec. Invalid current authority or graph schema fails setup even with prior output present."
+recovery = "This test-gap finding does not concern persisted state or restart recovery."
+
+[gotcha.baseline-order]
+observed = "The audit steps request unchanged-tree verification, but the explicit task order prohibits tests before complete implementation and direct verify_cmd execution."
+action = "Follow the explicit order and record no invented baseline evidence."
+
+[gotcha.live-index-schema]
+observed = "The inherited generator and README require schema 14; the sandbox index uses schema 18, as already recorded by task 22.33.799."
+action = "Preserve the generator schema check; the focused gate uses its documented schema-14 in-memory input contract and does not migrate the out-of-scope generator or live index."

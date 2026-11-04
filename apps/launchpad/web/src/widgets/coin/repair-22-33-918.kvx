@@ -1,0 +1,11 @@
+[repair.22.33.918]
+audit = "22.30.21"
+test_file = "apps/launchpad/web/src/widgets/coin/repair-22-33-918.test.ts"
+holder-page-refresh = "holder_page_refresh_replaces_balances_and_cursor_chain"
+holder-page-retry = "holder_page_retry_click_requests_the_failed_continuation"
+risk-unknown-booleans = "risk_unknown_booleans_preserve_unknown_and_valid_verdicts"
+trade-page-retry = ["trade_page_retry_without_data_preserves_rows_and_retries_cursor", "trade_page_retry_after_cached_refetch_never_advances_cursor"]
+baseline = "Not run: the task's ordered instructions prohibit testing before full implementation and permit verification only through hf-done after hf-build; no before-change failure is claimed."
+wiring_requests = []
+evidence = "The runner's hf-build and hf-done ledger records the qualified candidate revision, exact command, exit code and private log location."
+gotcha = "Vitest accepts a function as the test name but still requires the body as its second argument; test(fn) collects todo cases, while test(fn, fn) executes the named regression."

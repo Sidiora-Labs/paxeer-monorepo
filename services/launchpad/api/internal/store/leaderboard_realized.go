@@ -2,9 +2,13 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"math/big"
+	"sort"
 	"strconv"
+	"strings"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -16,6 +20,7 @@ type traderFill struct {
 	USDLRaw              string
 	Timestamp            int64
 	AttributionAvailable bool
+	BasisUnknown         bool
 }
 
 // traderRealizedRows loads, for every wallet/pool pair with a sell inside
@@ -23,20 +28,219 @@ type traderFill struct {
 // canonical chain order. Earlier buys are needed for the cost basis of the
 // in-window disposals.
 func traderRealizedRows(ctx context.Context, tx pgx.Tx, commits, projectionVersion string, from, windowEnd int64) ([]traderFill, error) {
-	rows, err := tx.Query(ctx, `WITH f AS (SELECT CASE WHEN fill->>'side'='buy' THEN COALESCE(fill->'attribution'->>'recipient',fill->'attribution'->>'trader',fill->'attribution'->>'transactionSender') ELSE COALESCE(fill->'attribution'->>'payer',fill->'attribution'->>'trader',fill->'attribution'->>'transactionSender') END AS wallet,pool,fill->>'side' AS side,fill->>'tokenAmountRaw' AS token,fill->>'paidInputRaw' AS paid,fill->>'usdlAmountRaw' AS usdl,(fill->>'blockTimestampSeconds')::bigint AS ts,(fill->'position'->>'height')::numeric AS h,(fill->'position'->>'transactionIndex')::numeric AS ti,(fill->'position'->>'logIndex')::numeric AS li,fill->'attribution'->>'quality' <> 'unavailable' AS available FROM `+commits+` WHERE projection_version=$1 AND (fill->>'blockTimestampSeconds')::bigint <= $3) SELECT wallet,pool,side,token,paid,usdl,ts,available FROM f WHERE (wallet,pool) IN (SELECT wallet,pool FROM f WHERE side='sell' AND ts > $2) ORDER BY wallet,pool,h,ti,li`, projectionVersion, from, windowEnd)
+	rows, err := tx.Query(ctx, `WITH f AS (SELECT CASE WHEN fill->>'side'='buy' THEN COALESCE(fill->'attribution'->>'recipient',fill->'attribution'->>'trader',fill->'attribution'->>'transactionSender') ELSE COALESCE(fill->'attribution'->>'payer',fill->'attribution'->>'trader',fill->'attribution'->>'transactionSender') END AS wallet,pool,fill,(fill->>'blockTimestampSeconds')::bigint AS ts FROM `+commits+` WHERE projection_version=$1 AND (fill->>'blockTimestampSeconds')::bigint <= $3) SELECT fill FROM f WHERE (wallet,pool) IN (SELECT wallet,pool FROM f WHERE fill->>'side'='sell' AND ts > $2) ORDER BY wallet,pool,(fill->'position'->>'height')::numeric,(fill->'position'->>'transactionIndex')::numeric,(fill->'position'->>'logIndex')::numeric`, projectionVersion, from, windowEnd)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	out := []traderFill{}
+	fills := []accounting.FillV1{}
+	type movementScope struct {
+		Wallet string `json:"wallet"`
+		Token  string `json:"token"`
+		Height int64  `json:"height"`
+	}
+	scopes := map[string]movementScope{}
 	for rows.Next() {
-		var f traderFill
-		if err = rows.Scan(&f.Wallet, &f.Pool, &f.Side, &f.TokenRaw, &f.PaidRaw, &f.USDLRaw, &f.Timestamp, &f.AttributionAvailable); err != nil {
+		var raw []byte
+		if err = rows.Scan(&raw); err != nil {
 			return nil, err
 		}
-		out = append(out, f)
+		fill, decodeErr := accounting.DecodeFillV1(raw)
+		if decodeErr != nil {
+			return nil, ErrDataIntegrity
+		}
+		fills = append(fills, fill)
+		wallet := traderInventoryOwner(fill)
+		height, _ := strconv.ParseInt(fill.Position.Height, 10, 64)
+		key := wallet + "|" + fill.Token.Address
+		if old, ok := scopes[key]; !ok || old.Height < height {
+			scopes[key] = movementScope{wallet, fill.Token.Address, height}
+		}
 	}
-	return out, rows.Err()
+	rows.Close()
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	if len(fills) == 0 {
+		return []traderFill{}, nil
+	}
+	scopeList := make([]movementScope, 0, len(scopes))
+	for _, scope := range scopes {
+		scopeList = append(scopeList, scope)
+	}
+	rawScopes, err := json.Marshal(scopeList)
+	if err != nil {
+		return nil, err
+	}
+	rows, err = tx.Query(ctx, `SELECT DISTINCT m.payload FROM indexer.indexer_token_transfers_v1 m JOIN jsonb_to_recordset($1::jsonb) AS s(wallet text,token text,height bigint) ON m.token=s.token AND (m.from_address=s.wallet OR m.to_address=s.wallet) AND m.height<=s.height WHERE m.chain_id=125`, rawScopes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	movements := []traderTokenTransfer{}
+	for rows.Next() {
+		var raw []byte
+		if err = rows.Scan(&raw); err != nil {
+			return nil, err
+		}
+		var movement traderTokenTransfer
+		if err = json.Unmarshal(raw, &movement); err != nil {
+			return nil, ErrDataIntegrity
+		}
+		movements = append(movements, movement)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	return traderProjectionRows(fills, movements)
+}
+
+// traderTokenTransfer is the canonical indexer TransferFact payload, read from
+// its versioned view in the same repeatable-read transaction as the fills.
+type traderTokenTransfer struct {
+	Token      string                    `json:"token"`
+	From       string                    `json:"from"`
+	To         string                    `json:"to"`
+	AmountRaw  string                    `json:"amountRaw"`
+	Position   accounting.SourcePosition `json:"position"`
+	Provenance accounting.Provenance     `json:"provenance"`
+}
+
+func traderInventoryOwner(f accounting.FillV1) string {
+	owner := f.Attribution.Payer
+	if f.Side == "buy" {
+		owner = f.Attribution.Recipient
+	}
+	if owner != nil {
+		return *owner
+	}
+	if f.Attribution.Trader != nil {
+		return *f.Attribution.Trader
+	}
+	return f.Attribution.TransactionSender
+}
+
+// traderProjectionRows admits basis only when every movement can be tied to a
+// fill's receipt evidence. An unresolved movement permanently excludes that
+// wallet/pool position; later buys cannot establish the unrelated tokens' cost.
+func traderProjectionRows(fills []accounting.FillV1, movements []traderTokenTransfer) ([]traderFill, error) {
+	groups := map[string][]accounting.FillV1{}
+	keys := []string{}
+	byOwner := map[string][]traderTokenTransfer{}
+	identities := map[string]bool{}
+	for _, m := range movements {
+		amount, err := accounting.Uint(m.AmountRaw)
+		if err != nil || accounting.ValidateSourcePosition(m.Position) != nil {
+			return nil, ErrDataIntegrity
+		}
+		if _, err = Address(m.Token); err != nil {
+			return nil, ErrDataIntegrity
+		}
+		for _, a := range []string{m.From, m.To} {
+			if a != "0x"+strings.Repeat("0", 40) {
+				if _, err = Address(a); err != nil {
+					return nil, ErrDataIntegrity
+				}
+			}
+		}
+		id := m.Position.TransactionHash + ":" + m.Position.LogIndex
+		if identities[id] {
+			return nil, ErrDataIntegrity
+		}
+		identities[id] = true
+		if amount.Sign() == 0 || m.From == m.To {
+			continue
+		}
+		byOwner[m.From+"|"+m.Token] = append(byOwner[m.From+"|"+m.Token], m)
+		byOwner[m.To+"|"+m.Token] = append(byOwner[m.To+"|"+m.Token], m)
+	}
+	for _, f := range fills {
+		if accounting.ValidateFillV1(f) != nil {
+			return nil, ErrDataIntegrity
+		}
+		key := traderInventoryOwner(f) + "|" + f.PoolAddress
+		if _, ok := groups[key]; !ok {
+			keys = append(keys, key)
+		}
+		groups[key] = append(groups[key], f)
+	}
+	sort.Strings(keys)
+	out := []traderFill{}
+	for _, key := range keys {
+		history := groups[key]
+		sort.SliceStable(history, func(i, j int) bool {
+			c, _ := accounting.CompareSourcePosition(history[i].Position, history[j].Position)
+			return c < 0
+		})
+		owner := traderInventoryOwner(history[0])
+		moves := append([]traderTokenTransfer(nil), byOwner[owner+"|"+history[0].Token.Address]...)
+		sort.SliceStable(moves, func(i, j int) bool {
+			c, _ := accounting.CompareSourcePosition(moves[i].Position, moves[j].Position)
+			return c < 0
+		})
+		movementByID := map[string]traderTokenTransfer{}
+		for _, m := range moves {
+			movementByID[m.Position.TransactionHash+":"+m.Position.LogIndex] = m
+		}
+		matched := map[string]bool{}
+		proven := map[string]bool{}
+		for _, f := range history {
+			if f.Token.Address != history[0].Token.Address {
+				return nil, ErrDataIntegrity
+			}
+			kind, from, to := "output-transfer", f.PoolAddress, owner
+			if f.Side == "sell" {
+				kind, from, to = "input-transfer", owner, f.PoolAddress
+			}
+			refs := []accounting.EvidenceRef{}
+			for _, ref := range f.Attribution.Evidence {
+				if ref.Kind == kind {
+					refs = append(refs, ref)
+				}
+			}
+			if len(refs) != 1 || refs[0].LogIndex == nil {
+				continue
+			}
+			ref := refs[0]
+			m, found := movementByID[ref.ArtifactID+":"+*ref.LogIndex]
+			if !found || ref.ArtifactID != f.Position.TransactionHash || ref.ArtifactSHA256 != f.Provenance.ReceiptSHA256 {
+				continue
+			}
+			c, err := accounting.CompareSourcePosition(m.Position, f.Position)
+			if err != nil {
+				return nil, ErrDataIntegrity
+			}
+			if c >= 0 || m.Position.Height != f.Position.Height || m.Position.TransactionIndex != f.Position.TransactionIndex || m.Position.BlockHash != f.Position.BlockHash || m.From != from || m.To != to || m.AmountRaw != f.TokenAmountRaw || m.Provenance.ReceiptSHA256 != ref.ArtifactSHA256 {
+				continue
+			}
+			id := m.Position.TransactionHash + ":" + m.Position.LogIndex
+			if matched[id] {
+				return nil, ErrDataIntegrity
+			}
+			matched[id], proven[f.SourceFillID] = true, true
+		}
+		unknown, next := false, 0
+		for _, f := range history {
+			for next < len(moves) {
+				m := moves[next]
+				c, err := accounting.CompareSourcePosition(m.Position, f.Position)
+				if err != nil {
+					return nil, ErrDataIntegrity
+				}
+				if c > 0 {
+					break
+				}
+				if !matched[m.Position.TransactionHash+":"+m.Position.LogIndex] {
+					unknown = true
+				}
+				next++
+			}
+			unknown = unknown || !proven[f.SourceFillID]
+			timestamp, _ := strconv.ParseInt(f.BlockTimestampSeconds, 10, 64)
+			out = append(out, traderFill{Wallet: owner, Pool: f.PoolAddress, Side: f.Side, TokenRaw: f.TokenAmountRaw, PaidRaw: f.PaidInputRaw, USDLRaw: f.USDLAmountRaw, Timestamp: timestamp, AttributionAvailable: f.Attribution.Quality != "unavailable", BasisUnknown: unknown})
+		}
+	}
+	return out, nil
 }
 
 // RealizedTraderPnL ranks wallets by realised PnL on disposals inside
@@ -90,8 +294,8 @@ func RealizedTraderPnL(fills []traderFill, from, windowEnd int64) ([]Leaderboard
 			wallets[address] = w
 			order = append(order, address)
 		}
-		if token.Cmp(p.known) > 0 {
-			// Disposal beyond fill-known inventory: basis unknown.
+		if f.BasisUnknown || token.Cmp(p.known) > 0 {
+			// Unresolved provenance or disposal beyond fill-known inventory.
 			if inWindow {
 				w.unknownBasis = true
 			}

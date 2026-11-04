@@ -192,8 +192,8 @@ func replay(home string, opts appOptions, plan, chainID string, pre *preState) i
 		assertGovernanceRoute(c, a, ctx)
 	} else {
 		assertForkGenesis(c, a, ctx)
-		assertPrecompiles(c, a, ctx, upgradeHeight)
 	}
+	persistedCalls := assertPrecompiles(c, a, ctx, upgradeHeight)
 	persistedOperating := readOperatingState(a, ctx)
 
 	writeBlock()
@@ -243,7 +243,8 @@ func replay(home string, opts appOptions, plan, chainID string, pre *preState) i
 	}
 	c.assert(kept == len(forkModules),
 		"the reopened version map carries all %d fork modules (carries %d)", len(forkModules), kept)
-	assertPrecompilesServed(c, b, reopened, upgradeHeight)
+	reopenedCalls := assertPrecompilesServed(c, b, reopened, upgradeHeight)
+	c.assert(reflect.DeepEqual(persistedCalls, reopenedCalls), "precompile call results and exact retired refusals survive commit and reopen")
 	if plan == app.V610Upgrade {
 		c.assert(reflect.DeepEqual(persistedOperating, readOperatingState(b, reopened)), "v6.10 operating values and all six governance effects survive commit and reopen")
 	}
@@ -333,42 +334,47 @@ func assertForkGenesis(c *checks, a *app.App, ctx sdk.Context) {
 	})
 }
 
-// assertPrecompiles checks that the fork's precompile addresses are reachable
-// through the EVM keeper at the upgrade height and were not reachable at the
-// height before it.
-func assertPrecompiles(c *checks, a *app.App, ctx sdk.Context, upgradeHeight int64) {
-	at := a.EvmKeeper.CustomPrecompiles(ctx)
-	earlier := a.EvmKeeper.CustomPrecompiles(ctx.WithBlockHeight(upgradeHeight - 1))
-	reached := 0
-	for _, precompile := range forkPrecompiles {
-		address := ecommon.HexToAddress(precompile.Address)
-		_, served := at[address]
-		_, servedEarlier := earlier[address]
-		now := c.assert(served, "the %s precompile at %s is served at height %d",
-			precompile.Name, precompile.Address, upgradeHeight)
-		before := c.assert(!servedEarlier, "the %s precompile at %s is not served at height %d",
-			precompile.Name, precompile.Address, upgradeHeight-1)
-		if now && before {
-			reached++
+// assertPrecompiles retains the before-height registration check for the plan
+// that actually activated each address, and exercises its observable calls.
+func assertPrecompiles(c *checks, a *app.App, ctx sdk.Context, upgradeHeight int64) map[string][]byte {
+	for _, entry := range forkPrecompiles {
+		if a.UpgradeKeeper.GetDoneHeight(ctx, entry.Upgrade) != upgradeHeight {
+			continue
 		}
+		earlier := a.EvmKeeper.CustomPrecompiles(ctx.WithBlockHeight(upgradeHeight - 1))
+		_, served := earlier[ecommon.HexToAddress(entry.Address)]
+		c.assert(!served, "the %s precompile is not served below its %s activation at height %d", entry.Name, entry.Upgrade, upgradeHeight)
 	}
-	fmt.Printf("precompile reachability at the fork: %d of %d addresses served at %d and not at %d\n",
-		reached, len(forkPrecompiles), upgradeHeight, upgradeHeight-1)
+	return assertPrecompilesServed(c, a, ctx, upgradeHeight)
 }
 
-// assertPrecompilesServed checks that the fork's precompile addresses are still
-// reachable after the state was committed and reopened.
-func assertPrecompilesServed(c *checks, a *app.App, ctx sdk.Context, height int64) {
+// assertPrecompilesServed checks registration and execution on either side of
+// the close/reopen boundary, using each entry's own activation plan.
+func assertPrecompilesServed(c *checks, a *app.App, ctx sdk.Context, height int64) map[string][]byte {
+	ctx = ctx.WithBlockHeight(height)
 	served := a.EvmKeeper.CustomPrecompiles(ctx)
-	count := 0
-	for _, precompile := range forkPrecompiles {
-		if _, ok := served[ecommon.HexToAddress(precompile.Address)]; ok {
-			count++
+	results := make(map[string][]byte)
+	versions := a.UpgradeKeeper.GetModuleVersionMap(ctx)
+	for _, entry := range forkPrecompiles {
+		done := a.UpgradeKeeper.GetDoneHeight(ctx, entry.Upgrade)
+		expected := done > 0 && height >= done
+		if done == 0 {
+			expected = true
+			for _, name := range entry.Modules {
+				if _, ok := versions[name]; !ok {
+					expected = false
+				}
+			}
 		}
+		contract, ok := served[ecommon.HexToAddress(entry.Address)]
+		if !c.assert(ok == expected, "the %s precompile registration agrees with %s at height %d (served %t, expected %t)", entry.Name, entry.Upgrade, height, ok, expected) || !ok {
+			continue
+		}
+		c.guard("calling "+entry.Name, func() {
+			assertPrecompileOperations(c, a, ctx, entry, contract, results)
+		})
 	}
-	c.assert(count == len(forkPrecompiles),
-		"the reopened state serves all %d fork precompiles at height %d (serves %d)",
-		len(forkPrecompiles), height, count)
+	return results
 }
 
 type operatingState struct {

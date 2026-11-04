@@ -1,0 +1,9 @@
+[repair.22.33.922]
+finding = "22.30.21/live-continuation-refresh"
+tests = ["live_continuation_refresh_manual_removes_ended_stream_with_unchanged_boundary", "live_continuation_refresh_poll_rebuilds_loaded_pages_with_unchanged_boundary"]
+proof = "The real directory and continuation hooks run under QueryClientProvider with a real SDK client and an in-memory directory served over loopback HTTP through getLivePage and its production codec; the rendered consumer removes an ended stream, updates viewers and follows the refreshed continuation cursor across previously loaded pages while the five-page boundary stays unchanged."
+behavior = "Each successful base-directory read invalidates continuation queries; active walks refetch their loaded pages from the server and inactive walks remain invalidated for their next observer. Failed base reads do not invalidate continuations."
+baseline = "Not executed: the explicit implementation-first and hf-build/hf-done-only order prohibits the contradictory baseline verify request. Both regression tests require a continuation refetch that the original infinitely fresh cache never scheduled. No baseline failure is claimed."
+wiring_requests = []
+evidence = "The final hf-done ledger row identifies the verified candidate revision, command, exit code and private log; the runner publishes that revision."
+runner_gotcha = "Vitest 4 registers test(namedFunction) as TODO; use test(namedFunction.name, namedFunction) to execute the declared test functions and assertions."

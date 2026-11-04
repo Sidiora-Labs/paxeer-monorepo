@@ -781,9 +781,9 @@
     "health = \"/healthz\"",
     "order = 2"
    ],
-   "exit": 0,
+   "exit": 1,
    "out": [
-    "pass gateway"
+    "blocked gateway"
    ],
    "calls": [
     {

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -668,6 +669,27 @@ func (s Store) PublicPresentation(ctx context.Context, wallet string) (ProfilePr
 	return out, rows.Err()
 }
 
+func initialPreferences(at time.Time) Preferences {
+	preferences := DefaultPreferences()
+	preferences.UpdatedAt = at.UTC()
+	return preferences
+}
+
+func reconcileProvisionedPreferences(a *state, choices bool, at time.Time) bool {
+	if choices || a.Deleted || a.Revision != 0 || a.Profile.Revision != "0" || a.Profile.UpdatedAt.IsZero() || a.Preferences.UpdatedAt.IsZero() {
+		return false
+	}
+	blank := Profile{PublicProfile: PublicProfile{Wallet: a.Wallet, Revision: "0"}, SchemaVersion: 1, UpdatedAt: a.Profile.UpdatedAt}
+	legacy := initialPreferences(a.Preferences.UpdatedAt)
+	legacy.PrivateActivity = false
+	legacy.QuietHours = QuietHours{Timezone: "UTC", Start: "00:00", End: "00:00"}
+	if !reflect.DeepEqual(a.Profile, blank) || !reflect.DeepEqual(a.Preferences, legacy) {
+		return false
+	}
+	a.Preferences = initialPreferences(at)
+	return true
+}
+
 func (s Store) ensureIdentityAccount(ctx context.Context, resolver sharedauth.PostgresIdentityResolver, gateway sharedauth.Principal) error {
 	tx, e := s.DB.Begin(ctx)
 	if e != nil {
@@ -690,6 +712,23 @@ func (s Store) ensureIdentityAccount(ctx context.Context, resolver sharedauth.Po
 		return e
 	}
 	if exists {
+		a, err := load(ctx, tx, id)
+		if err != nil {
+			return err
+		}
+		var choices bool
+		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM account_outbox WHERE account_id=$1 AND kind IN ('preferences.updated','consent.updated')) OR EXISTS(SELECT 1 FROM account_consent WHERE account_id=$1)`, id).Scan(&choices); err != nil {
+			return err
+		}
+		if reconcileProvisionedPreferences(&a, choices, s.now()) {
+			raw, err := json.Marshal(a.Preferences)
+			if err != nil {
+				return err
+			}
+			if _, err = tx.Exec(ctx, `UPDATE account_state SET preferences=$2,updated_at=$3 WHERE account_id=$1`, id, raw, s.now()); err != nil {
+				return err
+			}
+		}
 		return tx.Commit(ctx)
 	}
 	var wallet string
@@ -700,7 +739,7 @@ func (s Store) ensureIdentityAccount(ctx context.Context, resolver sharedauth.Po
 	if e != nil {
 		return e
 	}
-	preferences, e := json.Marshal(Preferences{SchemaVersion: 1, Revision: "0", UpdatedAt: s.now(), Locale: "en", Timezone: "UTC", Currency: "USD", ChartInterval: "1h", Channels: []string{}, NotificationCategories: map[string]bool{}, QuietHours: QuietHours{Timezone: "UTC", Start: "00:00", End: "00:00"}})
+	preferences, e := json.Marshal(initialPreferences(s.now()))
 	if e != nil {
 		return e
 	}

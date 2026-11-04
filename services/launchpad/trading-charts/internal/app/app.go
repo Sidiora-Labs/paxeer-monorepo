@@ -52,23 +52,25 @@ import (
 
 // App is a fully-wired, ready-to-run trading-charts service.
 type App struct {
-	accounting     *consumer.AccountingConsumer
-	transport      *natsdriver.Consumer
-	chartPublisher *natsdriver.Publisher
-	chartOutbox    chartOutboxConfig
-	chartRelayStop context.CancelFunc
-	chartRelayDone chan struct{}
-	nats           *nats.Conn
-	rpc            *ethclient.Client
-	devRPC         *gethrpc.Client
-	verifiedRPC    *sharedchain.Client
-	exact          *store.ExactStore
-	features       config.ChartRuntimeFeatures
-	secretStop     context.CancelFunc
-	tracker        *sharedprocess.Tracker
-	Router         http.Handler
-	Builder        *engine.Builder
-	Consumer       *consumer.SwapConsumer
+	accounting       *consumer.AccountingConsumer
+	transport        *natsdriver.Consumer
+	chartPublisher   *natsdriver.Publisher
+	chartOutbox      chartOutboxConfig
+	chartRelayStop   context.CancelFunc
+	chartRelayDone   chan struct{}
+	completenessStop context.CancelFunc
+	completenessDone chan struct{}
+	nats             *nats.Conn
+	rpc              *ethclient.Client
+	devRPC           *gethrpc.Client
+	verifiedRPC      *sharedchain.Client
+	exact            *store.ExactStore
+	features         config.ChartRuntimeFeatures
+	secretStop       context.CancelFunc
+	tracker          *sharedprocess.Tracker
+	Router           http.Handler
+	Builder          *engine.Builder
+	Consumer         *consumer.SwapConsumer
 
 	pool  *pgxpool.Pool
 	redis *goredis.Client
@@ -341,6 +343,11 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 
 // Close releases all resources.
 func (a *App) Close() {
+	if a.completenessStop != nil {
+		a.completenessStop()
+		<-a.completenessDone
+	}
+
 	if a.chartRelayStop != nil {
 		a.chartRelayStop()
 		<-a.chartRelayDone
@@ -400,6 +407,22 @@ func Run(parent context.Context) error {
 
 	// Start Redis pub/sub swap consumer.
 	if app.accounting != nil {
+		release, e := app.tracker.Acquire()
+		if e != nil {
+			return e
+		}
+		completenessCtx, stop := context.WithCancel(ctx)
+		app.completenessStop = stop
+		app.completenessDone = make(chan struct{})
+		go func() {
+			defer close(app.completenessDone)
+			defer release()
+			if e := app.accounting.RunCompleteness(completenessCtx, logger); e != nil && !errors.Is(e, context.Canceled) {
+				logger.Error("chart completeness loop failed", slog.Any("err", e))
+				app.tracker.BeginDrain()
+				cancel()
+			}
+		}()
 		go func() {
 			release, e := app.tracker.Acquire()
 			if e != nil {

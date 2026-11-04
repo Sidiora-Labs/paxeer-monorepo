@@ -243,7 +243,9 @@ func (d *DevelopmentV2Reads) chainToken(ctx context.Context, row developmentPool
 	if err != nil {
 		return iface.Token{}, ErrUnrepresentable
 	}
-	d.persistToken(ctx, row, token)
+	if err := d.persistToken(ctx, row, token); err != nil {
+		return iface.Token{}, err
+	}
 	d.remember(row.Token, token)
 	return token, nil
 }

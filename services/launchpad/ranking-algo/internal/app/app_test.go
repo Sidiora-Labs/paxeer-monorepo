@@ -1,4 +1,4 @@
-package app_test
+package app
 
 import (
 	"context"
@@ -29,19 +29,13 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/Sidiora-Technologies/KindleLaunch/core/ranking-algo/internal/app"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/ranking-algo/internal/config"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/ranking-algo/internal/internaltest"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/ranking-algo/internal/ranker"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/config/deployment"
 	shareddb "github.com/Sidiora-Technologies/KindleLaunch/shared/db"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/db/production"
 )
-
-// VisibilityPeerEnv names a JSON document describing a reachable social
-// ranking-visibility mTLS peer (see visibilityPeer). Ranking freezes every
-// universe against that peer's moderation revision and fails closed without
-// it, so publication and readiness are asserted only when it is provided.
-const VisibilityPeerEnv = "RANKING_TEST_VISIBILITY_PEER_FILE"
 
 const (
 	gatewayDNS    = "gateway.railway.internal"
@@ -50,18 +44,6 @@ const (
 	sourceStream  = "chain125-canonical"
 	projection    = "accounting-market-v1"
 )
-
-// visibilityPeer is the operator-supplied social peer: its endpoint, the DNS
-// name and DER sha256 of its server certificate, the CA that issued it, and a
-// client identity it admits for ranking.
-type visibilityPeer struct {
-	Endpoint       string `json:"endpoint"`
-	DNS            string `json:"dns"`
-	CertSHA256     string `json:"certSha256"`
-	CAFile         string `json:"caFile"`
-	ClientCertFile string `json:"clientCertFile"`
-	ClientKeyFile  string `json:"clientKeyFile"`
-}
 
 // testPKI is an ephemeral CA and the leaf identities of the ranking mTLS
 // perimeter, generated with crypto/x509 for this test only.
@@ -227,8 +209,8 @@ func contractEnv(t *testing.T) {
 // admits the pool, the bound ExpectedSchema is checked against the actual
 // catalog as the least-privilege runtime role, the bound runtime document
 // supplies the mTLS perimeter, and the HTTPS listener enforces the pinned
-// gateway identity. Publication and readiness additionally need the social
-// visibility peer named by VisibilityPeerEnv.
+// gateway identity. Publication uses a loopback social visibility transcript
+// served over mutually authenticated TLS.
 func TestNewServesAndRanks(t *testing.T) {
 	db := internaltest.NewRankingRuntimeDatabase(t)
 	redisURL := internaltest.NewRedisURL(t)
@@ -242,37 +224,12 @@ func TestNewServesAndRanks(t *testing.T) {
 	observer := pki.issue(t, "observer.railway.internal", x509.ExtKeyUsageClientAuth)
 	social := pki.issue(t, visibilityDNS, x509.ExtKeyUsageServerAuth)
 
+	peer, authority := repairM934VisibilityPeer(t, pki, social, client, map[string]bool{"0x" + strings.Repeat("a", 40): true})
+	authority.Store(false)
 	caBundle := pki.caPEM
 	clientCert, clientKey := client.certPEM, client.keyPEM
-	// No peer: an https endpoint on a closed loopback port, pinned to an
-	// ephemeral social certificate nothing serves.
-	endpoint := fmt.Sprintf("https://127.0.0.1:%d/internal/v2/social/ranking-visibility", freePort(t))
+	endpoint := peer.URL + "/internal/v2/social/ranking-visibility"
 	peerDNS, peerPin := visibilityDNS, social.pin()
-	peerFile := os.Getenv(VisibilityPeerEnv)
-	if peerFile != "" {
-		raw, err := os.ReadFile(peerFile)
-		if err != nil {
-			t.Fatal(err)
-		}
-		var peer visibilityPeer
-		if err = json.Unmarshal(raw, &peer); err != nil {
-			t.Fatalf("%s: %v", VisibilityPeerEnv, err)
-		}
-		peerCA, err := os.ReadFile(peer.CAFile)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if clientCert, err = os.ReadFile(peer.ClientCertFile); err != nil {
-			t.Fatal(err)
-		}
-		if clientKey, err = os.ReadFile(peer.ClientKeyFile); err != nil {
-			t.Fatal(err)
-		}
-		// One CA file serves both directions: the peer's CA verifies the
-		// visibility server, the ephemeral CA verifies the gateway client.
-		caBundle = append(append([]byte{}, pki.caPEM...), peerCA...)
-		endpoint, peerDNS, peerPin = peer.Endpoint, peer.DNS, peer.CertSHA256
-	}
 
 	files := map[string][]byte{"ca.pem": caBundle, "client.pem": clientCert, "server.pem": server.certPEM}
 	pins := map[string]string{}
@@ -350,19 +307,19 @@ func TestNewServesAndRanks(t *testing.T) {
 			t.Fatalf("config.Load: %v", err)
 		}
 		cfg.ExpectedSchemaSHA256 = strings.Repeat("0", 64)
-		if _, err = app.New(ctx, cfg, quietLogger()); err == nil {
+		if _, err = New(ctx, cfg, quietLogger()); err == nil {
 			t.Fatal("expected-schema pin mismatch admitted")
 		}
 		cfg, _ = config.Load()
 		cfg.RankingRuntimeSHA256 = strings.Repeat("0", 64)
-		if _, err = app.New(ctx, cfg, quietLogger()); err == nil {
+		if _, err = New(ctx, cfg, quietLogger()); err == nil {
 			t.Fatal("runtime document pin mismatch admitted")
 		}
 	})
 
 	runCtx, stop := context.WithCancel(ctx)
 	done := make(chan error, 1)
-	go func() { done <- app.Run(runCtx) }()
+	go func() { done <- Run(runCtx) }()
 	stopped := false
 	shutdown := func() error {
 		if stopped {
@@ -443,7 +400,7 @@ func TestNewServesAndRanks(t *testing.T) {
 		t.Fatalf("metrics status = %d", code)
 	}
 
-	if peerFile == "" {
+	t.Run("refuses without visibility authority", func(t *testing.T) {
 		// Fail closed: without a moderation revision no snapshot is published
 		// or served, and readiness reports unavailable.
 		if code, body := get(gatewayClient, "/rankings/trending"); code != http.StatusServiceUnavailable || !strings.Contains(fmt.Sprint(body), "RANKING_UNAVAILABLE") {
@@ -452,12 +409,13 @@ func TestNewServesAndRanks(t *testing.T) {
 		if code, _ := get(observerClient, "/health/ready"); code != http.StatusServiceUnavailable {
 			t.Fatalf("health/ready without visibility = %d, want 503", code)
 		}
-	}
+	})
 
 	t.Run("publishes and becomes ready", func(t *testing.T) {
-		if peerFile == "" {
-			t.Skipf("%s not set: snapshot publication and readiness need the social ranking-visibility mTLS peer", VisibilityPeerEnv)
+		if peer == nil || peer.URL == "" {
+			t.Fatal("publication qualification requires the loopback social mTLS peer")
 		}
+		authority.Store(true)
 		// Seed a complete canonical source (lease, watermark, completed block,
 		// one canonical creation) and wait for every category to publish and
 		// the instance to report ready.
@@ -486,7 +444,7 @@ func TestNewServesAndRanks(t *testing.T) {
 			}
 			time.Sleep(time.Second)
 		}
-		for _, category := range []string{"trending", "breakout", "volume", "movers", "unusual", "new"} {
+		for _, category := range ranker.Categories {
 			if code, body := get(gatewayClient, "/rankings/"+category); code != http.StatusOK {
 				t.Fatalf("%s = %d %v", category, code, body)
 			}
@@ -521,7 +479,7 @@ func TestNewFailsOnBadRedisURL(t *testing.T) {
 		}
 		return
 	}
-	if _, err := app.New(context.Background(), cfg, quietLogger()); err == nil {
+	if _, err := New(context.Background(), cfg, quietLogger()); err == nil {
 		t.Fatal("app.New: expected error for invalid REDIS_URL")
 	}
 }

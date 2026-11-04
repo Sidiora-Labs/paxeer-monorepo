@@ -35,7 +35,12 @@ var (
 // adapter is supplied by L38, not inferred from client claims.
 type SendPolicy func(context.Context, pgx.Tx, SendInput) error
 
+const DefaultMaxMessageLength = 500 // Unicode code points after sanitization.
+
 type DurableStore struct {
+	MaxMessageLength int
+	// Admission accounts only for new messages, after authorization and deduplication.
+	Admission          SendPolicy
 	Projection         func(context.Context, DurableMessage) (DurableMessage, error)
 	ReadPolicy         func(context.Context, pgx.Tx, string, string) error
 	PendingOutboxLimit int
@@ -68,6 +73,9 @@ func (s *DurableStore) now() time.Time {
 		return s.Clock().UTC()
 	}
 	return time.Now().UTC()
+}
+func (s *DurableStore) messageLimit() int {
+	return orDefault(s.MaxMessageLength, DefaultMaxMessageLength)
 }
 func (s *DurableStore) ready() bool { return s != nil && s.Pool != nil }
 func conversation(in SendInput) string {
@@ -106,7 +114,7 @@ func (s *DurableStore) Send(ctx context.Context, in SendInput) (DurableMessage, 
 		return zero, ErrInvalid
 	}
 	in.Content = common.Sanitize(in.Content)
-	if !common.IsAddr(in.Actor) || !common.IsAddr(in.Target) || in.Actor == in.Target || (in.Kind != "dm" && in.Kind != "pool") || len(in.ClientID) < 1 || len(in.ClientID) > 128 || !utf8.ValidString(in.Content) || utf8.RuneCountInString(in.Content) < 1 || utf8.RuneCountInString(in.Content) > 2000 || len(in.ReplyTo) > 128 {
+	if !common.IsAddr(in.Actor) || !common.IsAddr(in.Target) || in.Actor == in.Target || (in.Kind != "dm" && in.Kind != "pool") || len(in.ClientID) < 1 || len(in.ClientID) > 128 || !utf8.ValidString(in.Content) || utf8.RuneCountInString(in.Content) < 1 || utf8.RuneCountInString(in.Content) > s.messageLimit() || len(in.ReplyTo) > 128 {
 		return zero, ErrInvalid
 	}
 	tx, err := s.Pool.Begin(ctx)
@@ -153,6 +161,11 @@ func (s *DurableStore) Send(ctx context.Context, in SendInput) (DurableMessage, 
 	}
 	if err = s.checkReserve(ctx, tx); err != nil {
 		return zero, err
+	}
+	if s.Admission != nil {
+		if err = s.Admission(ctx, tx, in); err != nil {
+			return zero, err
+		}
 	}
 	var inserted string
 	err = tx.QueryRow(ctx, `INSERT INTO chat_conversations(id,kind) VALUES($1,$2) ON CONFLICT(id) DO NOTHING RETURNING id`, conv, in.Kind).Scan(&inserted)
@@ -517,6 +530,10 @@ func (s *DurableStore) Revise(ctx context.Context, actor, id string, expected in
 	if !common.IsAddr(actor) || expected < 1 || len(content) > 16384 || !utf8.ValidString(content) {
 		return zero, ErrInvalid
 	}
+	content = common.Sanitize(content)
+	if !remove && (utf8.RuneCountInString(content) < 1 || utf8.RuneCountInString(content) > s.messageLimit()) {
+		return zero, ErrInvalid
+	}
 	tx, err := s.Pool.Begin(ctx)
 	if err != nil {
 		return zero, err
@@ -559,10 +576,6 @@ func (s *DurableStore) Revise(ctx context.Context, actor, id string, expected in
 		return zero, err
 	}
 	if !remove && s.now().Unix()-m.CreatedAt > 900 {
-		return zero, ErrInvalid
-	}
-	content = common.Sanitize(content)
-	if !remove && (utf8.RuneCountInString(content) < 1 || utf8.RuneCountInString(content) > 2000) {
 		return zero, ErrInvalid
 	}
 	m.Revision++

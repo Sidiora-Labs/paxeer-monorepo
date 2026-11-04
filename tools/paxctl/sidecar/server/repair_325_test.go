@@ -171,6 +171,7 @@ func repair325Recover(t *testing.T, request sidecar.TaskRequest, consumer engine
 		return nil, ctx.Err()
 	}
 	eng := engine.NewEngine(ctx, map[engine.TaskType]engine.TaskHandler{engine.TaskType(request.Type): handler}, store)
+	eng.Config.Checkpointer = store
 	srv := NewServer("127.0.0.1:0", eng, t.TempDir(), AuthnModeTrustedHeader)
 	httpServer := httptest.NewServer(srv.handler)
 	t.Cleanup(httpServer.Close)

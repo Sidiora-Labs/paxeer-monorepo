@@ -3068,22 +3068,19 @@ def ca_roster():
     expected = {
         'pending-core': ('box:KERNEL_HOST', 'volume', 'layerx-pending-core', 'serverAuth', 'DNS:layerx-pending-core,DNS:localhost,IP:127.0.0.1,DNS:kernel.paxeer.network', 'internal'),
         'pending-core-admin': ('box:KERNEL_HOST', 'volume', 'layerx-pending-core-admin', 'serverAuth', 'DNS:layerx-pending-core-admin,DNS:kernel.paxeer.network', 'internal'),
-        'receipt-authority': ('box:KERNEL_HOST', 'volume', 'layerx-receipt-authority', 'serverAuth', 'DNS:layerx-receipt-authority,DNS:authority,DNS:localhost,IP:127.0.0.1,DNS:kernel.paxeer.network', 'internal'),
         'agent-boundary': ('box:KERNEL_HOST', 'volume', 'layerx-agent-boundary', 'serverAuth', 'DNS:layerx-agent-boundary,DNS:component,DNS:localhost,IP:127.0.0.1,DNS:kernel.paxeer.network', 'internal'),
         'agentd': ('box:KERNEL_HOST', 'volume', 'layerx-agentd', 'serverAuth', 'DNS:layerx-agentd,DNS:localhost,IP:127.0.0.1,DNS:kernel.paxeer.network,DNS:machine.paxeer.network', 'internal'),
         'agentd-client': ('box:KERNEL_HOST', 'volume', 'layerx-agentd-client', 'clientAuth', '-', 'internal'),
         'paxeer-boundary-loopback': ('box:KERNEL_HOST', 'volume', 'paxeer-boundary', 'serverAuth', 'DNS:paxeer-boundary,DNS:paxeer-boundary-loopback,DNS:localhost,IP:127.0.0.1,DNS:kernel.paxeer.network', 'internal'),
         'paxeer-boundary-public': ('box:KERNEL_HOST', 'volume', 'paxeer-observer-boundary', 'serverAuth', 'DNS:paxeer-observer-boundary,DNS:paxeer-boundary-public,DNS:localhost,IP:127.0.0.1,DNS:kernel.paxeer.network', 'internal'),
-        'guarantor': ('box:KERNEL_HOST', 'volume', 'layerx-guarantor', 'serverAuth,clientAuth', 'DNS:localhost,IP:127.0.0.1,DNS:kernel.paxeer.network', 'internal'),
         'human': ('box:KERNEL_HOST', 'volume', 'layerx-human', 'serverAuth', 'DNS:layerx-human,DNS:localhost,IP:127.0.0.1,DNS:kernel.paxeer.network', 'internal'),
         'human-event-client': ('box:KERNEL_HOST', 'volume', 'layerx-human-events', 'clientAuth', 'URI:urn:layerx:webhooks:role:producer', 'internal'),
         'human-attestor-client': ('box:KERNEL_HOST', 'volume', 'layerx-human-components', 'clientAuth', '-', 'attestor'),
         'human-kms': ('box:KERNEL_HOST', 'volume', 'layerx-human-kms', 'serverAuth', 'DNS:layerx-human-kms,DNS:localhost,IP:127.0.0.1,DNS:kernel.paxeer.network', 'internal'),
         'human-kms-client': ('box:KERNEL_HOST', 'volume', 'layerx-human-components', 'clientAuth', '-', 'internal'),
         'human-kms-executor': ('box:KERNEL_HOST', 'volume', 'layerx-human-movement', 'clientAuth', '-', 'internal'),
-        'relay-archive': ('box:KERNEL_HOST', 'volume', 'layerx-relay-archive', 'serverAuth', 'DNS:layerx-relay-archive,DNS:localhost,IP:127.0.0.1,DNS:kernel.paxeer.network', 'internal'),
-        'gateway-redis': ('railway:redis-router', 'REDIS_TLS', 'layerx-gateway-redis', 'serverAuth', 'DNS:layerx-gateway-redis,DNS:localhost,IP:127.0.0.1,DNS:redis-router.railway.internal', 'internal'),
-        'gateway-client': ('railway:router', 'ENDPOINT_CLIENT', 'layerx-gateway', 'clientAuth', 'URI:urn:layerx:webhooks:role:producer', 'internal'),
+        'gateway-redis': ('railway:redis-gateway', 'REDIS_TLS', 'layerx-gateway-redis', 'serverAuth', 'DNS:layerx-gateway-redis,DNS:localhost,IP:127.0.0.1,DNS:redis-gateway.railway.internal', 'internal'),
+        'gateway-client': ('railway:gateway', 'ENDPOINT_CLIENT', 'layerx-gateway', 'clientAuth', 'URI:urn:layerx:webhooks:role:producer', 'internal'),
         'identity': ('railway:identity', 'IDENTITY_TLS', 'layerx-identity', 'serverAuth', 'DNS:layerx-identity,DNS:identity,DNS:localhost,IP:127.0.0.1,DNS:identity.railway.internal', 'internal'),
         'internal-kms': ('railway:internal-kms', 'INTERNAL_TLS', 'kms', 'serverAuth', 'DNS:kms,DNS:localhost,IP:127.0.0.1,DNS:internal-kms.railway.internal', 'internal'),
         'internal-journeys': ('railway:internal-journeys', 'INTERNAL_TLS', 'journeys', 'serverAuth', 'DNS:journeys,DNS:localhost,IP:127.0.0.1,DNS:internal-journeys.railway.internal', 'internal'),
@@ -3352,10 +3349,13 @@ sign "$1" "$5" "$6"
         shutil.copyfile(ROOT / 'tools/bringup/check-live.sh', directory / 'check-live.sh')
         listing = (ROOT / 'tools/bringup/railway-names.env').read_text()
         (directory / 'railway-names.env').write_text(rename(listing) if rename else listing)
-        original = tool.read_text()
+        marker = '\n# IDENTITY_ROSTER_BOUNDARY\n'
+        original = tool.read_text() + marker + tool.with_name('ca-services.tsv').read_text()
         changed = mutate(original)
-        require(changed != original, 'mutation %s left ca.sh unchanged' % label)
-        (directory / 'ca.sh').write_text(changed)
+        require(changed != original, 'mutation %s left issuer and roster unchanged' % label)
+        issuer_source, roster_source = changed.split(marker, 1)
+        (directory / 'ca.sh').write_text(issuer_source)
+        (directory / 'ca-services.tsv').write_text(roster_source)
         return directory / 'ca.sh'
 
     def row_edit(service, edit):

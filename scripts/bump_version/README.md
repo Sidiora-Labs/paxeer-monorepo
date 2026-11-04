@@ -1,16 +1,16 @@
 # bump_version
 
-Precompile version management tool for the merged Paxeer network. The implementation is in [`main.go`](main.go). It runs as the second `go:generate` directive of [`tools/repotest/gen.go`](../../tools/repotest/gen.go), after `./scripts/protoc.sh`. To run just this tool, use `go run ./scripts/bump_version` from the repository root.
+Precompile version management tool for the merged Paxeer network. The implementation is in [`main.go`](main.go) and [`archive.go`](archive.go). It runs as the second `go:generate` directive of [`tools/repotest/gen.go`](../../tools/repotest/gen.go), after `./scripts/protoc.sh`. To run just this tool, use `go run ./scripts/bump_version` from the repository root.
 
 ## What it does
 
 When a new upgrade name is appended to [`node/tags`](../../node/tags), this tool:
 
 1. Uses go-git to select changed directories under `precompiles/`, excluding `common` and `utils`.
-2. Archives selected modules' current files into `precompiles/<module>/legacy/<folder>/` and appends the upgrade name to their `versions` files. Whenever any module is archived, it archives common utilities first.
+2. Stages and validates the complete selected module and common archive set, then publishes it into `precompiles/<module>/legacy/<folder>/` and updates the selected modules' `versions` files. It publishes a completion marker last.
 3. Regenerates eligible modules' `setup.go` files from their `versions` files using [`setup.go.tmpl`](setup.go.tmpl).
 
-Generation writes files in place. It has no transaction, rollback or completion marker; read [Idempotency](#idempotency) before retrying an interrupted run.
+Archive publication uses a durable pending manifest and atomic file replacement. An interruption can still leave partial output visible until recovery finishes; setup generation starts only after the complete archive set has been validated and its completion marker published. Setup generation itself writes files in place. Read [Idempotency](#idempotency) before retrying an interrupted run.
 
 ## Developer workflow
 
@@ -39,7 +39,7 @@ git add node/tags precompiles/
 git commit -m "bump to v7.1"
 ```
 
-`git diff` does not display the contents of untracked archive files; inspect those too. Verify that every selected module has its expected archive files and exactly one new `versions` entry, and that common files and generated setup mappings are consistent. A zero exit status alone does not establish a correct historical baseline or complete archival.
+`git diff` does not display the contents of untracked archive files; inspect those too. Verify that every selected module has its expected archive files and exactly one new `versions` entry, and that common files and generated setup mappings are consistent. The completion marker verifies archive and registration bytes; review still establishes that the intended release sources and historical baseline were selected.
 
 ## Naming conventions
 
@@ -52,7 +52,7 @@ In generated `GetVersioned`, entries before the last line of `versions` become l
 
 ### Input sanitization
 
-The tool trims whitespace, ignores blank lines and checks the shape of the **last** entry in `node/tags`. Earlier tag entries are not rewritten. If that entry's dots-stripped common archive directory already exists, normalization and new-version checks are skipped. Otherwise, it normalizes the new entry before checking for duplicates and forward progress:
+The tool trims whitespace, ignores blank lines and checks the shape of the **last** entry in `node/tags`. Earlier tag entries are not rewritten. A matching completion marker is validated before skipping archival; a pending manifest resumes the recorded snapshot. Directory existence alone never establishes completion. Pre-marker archives without a pending manifest are refused for inspection. Otherwise, the tool normalizes the new entry before checking for duplicates and forward progress:
 
 | Input in `node/tags` | Behavior |
 |---------------------|----------|
@@ -68,28 +68,30 @@ The duplicate and ordering checks compare against earlier tags using semver; the
 
 The tool compares **committed tree hashes**, not the working tree:
 
-1. `gitFindCommit` walks commits touching `node/tags` from HEAD backwards. It selects the oldest commit in the initial contiguous run whose file contents contain the previous version string.
+1. `gitFindCommit` walks commits from HEAD backwards, reading `node/tags` at each commit. It selects the oldest commit in the initial contiguous run containing the previous version as an exact trimmed tag line. Blank lines are ignored. A missing file or nonmatching line ends that run; unreadable objects and traversal errors are fatal.
 2. `gitPathHasChanges` compares each module directory's subtree hash at that baseline and HEAD. This includes any tracked file beneath the directory, including existing archives and `versions`, as well as file modes and additions/removals.
 3. Selected modules are archived from the working tree. Uncommitted edits do not affect selection, but can enter an archive if that module is selected.
 
-The history search uses a substring match, not an exact tag-line match. For example, `v6.4` can match `v6.4.0`. Independently inspect `git log -p -- node/tags` and the reported `comparing against <hash>` revision to confirm the intended introducing commit. Missing or unreadable history must be resolved before accepting the output; see [Error handling](#error-handling).
+The history search distinguishes `v6.4`, `v6.4.0` and `v6.40`. Inspect `git log -p -- node/tags` and the reported `comparing against <hash>` revision to review the intended introducing commit. A shallow boundary reached while the tag is still present cannot prove its introduction and is refused. Missing or unreadable history must be resolved before archiving; see [Error handling](#error-handling).
 
-If `precompiles/common/` changed, all discovered modules are selected. If there is no earlier valid semver tag, all discovered modules are selected without a historical comparison. If no modules changed, archival and version appends are skipped, no common sentinel is created, and setup generation still runs.
+If `precompiles/common/` changed, all discovered modules are selected. If there is no earlier valid semver tag, all discovered modules are selected without a historical comparison. If no modules changed, an empty archive transaction is marked complete without copying common or appending module versions, and setup generation still runs.
 
 ## Idempotency
 
-The existence of `precompiles/common/legacy/<folder>/` is only a skip sentinel. `archiveCommon` creates it **before** copying common files and before any module archival or version append. An error or interruption can leave that directory present with incomplete common files, missing module archives or partially updated `versions`. A subsequent run then skips all archival and regenerates setup files from that partial state. There is no automatic resume or completeness check.
+The common archive directory can exist while module archives or version registrations are still missing. This partial-archive hazard also applies to archives produced before completion markers were introduced. Directory existence alone is never a safe rerun signal.
 
-After an interrupted or failed run:
+The tool first stages all selected Go files, ABIs and final `versions` files beneath `precompiles/common/legacy/.<folder>.pending/`. Its `manifest.json` records the tag, destination paths, SHA-256 digests and prior registration digests. The pending directory becomes visible only after the entire staged set is written and synced. Publication validates all staged files and destinations, copies archives, atomically replaces registrations, validates the published bytes, and publishes `precompiles/common/legacy/<folder>/.complete.json` last. Only then can setup generation advertise the release. This supports recovery from process interruption; concurrent generator runs in the same checkout are unsupported.
 
-1. Preserve the output and inspect `git status --short`, the tracked diff, and all new archive files. Identify the intended upgrade and dots-stripped folder, including any normalization of `node/tags`.
-2. Compare every module in the original changed-module list against its source files and `versions` entry. Check common's `precompiles.go` and `evm_events.go` when present in the source. Directory existence alone proves nothing. If selection stopped before printing the list, establish the expected set from the committed-tree comparison after resolving any history problem.
-3. To restart archival, restore the generator-modified tracked files (`node/tags`, affected `versions` and `setup.go` files, and any overwritten archive files) from the recorded pre-generation revision. Remove only archive files/directories confirmed to have been newly created by that attempt. Preserve unrelated work and earlier archives. Recheck that the intended source changes remain committed and that the checkout matches the saved state before proceeding.
-4. Append the intended new upgrade name again, run the tool from the repository root, and review the complete output as in [Developer workflow](#developer-workflow).
+After an interrupted or failed run (for example `v7.1`, folder `v71`):
 
-Deleting only the common sentinel is insufficient: a module whose `versions` already contains the new tag will fail the duplicate check on another archival attempt. If the saved state or intended baseline cannot be established, stop the release rather than treating a retry as recovery.
+1. Preserve the output and recorded pre-generation revision. Inspect `git status --short`, `git diff -- node/tags precompiles/`, and untracked archive files. Confirm any normalization in `node/tags` and the intended changed-module list.
+2. Inspect `precompiles/common/legacy/.v71.pending/manifest.json` and its `files/` snapshot. If the completion marker exists, inspect `precompiles/common/legacy/v71/.complete.json`. Confirm that the recorded tag and selected files match the intended release. Keep the pending snapshot intact; resume uses its original bytes even if active source files subsequently change.
+3. With an intact pending manifest, rerun `go run ./scripts/bump_version` from the repository root. It reopens the snapshot, validates its digests and registration preconditions, republishes the entire set without duplicating version entries, then writes the completion marker. It refuses corrupt staged files, conflicting destination files and independently changed registrations. No setup files are regenerated on refusal.
+4. Inspect every selected archive, each module's single new `versions` entry and the generated setups. A completed rerun validates the marker's recorded bytes before regenerating setups. If only setup generation failed, fix that input problem and rerun; the completed archives are still validated first.
 
-If inspection confirms that archival and all version appends finished and only setup generation failed, fix the reported setup input problem and rerun to regenerate setup files. The sentinel still does not validate the archives.
+If there is no pending manifest and an archive directory already exists, the tool refuses to infer completion. For these older or damaged attempts, compare every expected file and version registration to the saved release state. Restore only generator-modified tracked files from the recorded pre-generation revision and remove only files confirmed newly created by the failed attempt, preserving unrelated changes and earlier archives. Then reintroduce the intended tag and rerun. Do not delete only the common directory: partially appended module versions would remain inconsistent. If the baseline or saved state cannot be established, stop the release. Never fabricate a completion marker to bypass inspection.
+
+A crash before the pending manifest is published may leave a `.<folder>.staging-*` directory. It is never a resume signal and has not published archives; after inspection it can be removed. A crash immediately after the completion marker is published may leave the pending directory, which a validated completed rerun removes.
 
 ## Testing selective archiving
 
@@ -99,27 +101,32 @@ For a new name `v7.1`, expect bank's archive at `precompiles/bank/legacy/v71/`, 
 
 ## Error handling
 
-Errors returned by `run` terminate the tool through `log.Fatal`. Some Git errors are suppressed or treated as changes, so the tool does **not** guarantee that every Git failure causes a nonzero exit. It also leaves files written before an error in place.
+Errors returned by `run` terminate the tool through `log.Fatal` with a nonzero exit. History selection and complete staging validation happen before any archive or registration is published. An error during publication can leave partial output and an intact pending manifest; setup generation is withheld until publication completes. A normalization write to `node/tags` can remain after an error.
 
 | Failure | Behavior |
 |---------|----------|
-| Repository open, HEAD lookup or initial log creation fails during archival | Returned error; process exits nonzero |
-| History search finds no candidate | Returned error with hint to commit precompile changes |
-| Reading `node/tags` or its contents fails during history traversal | Stops the search; may return the last matching commit instead of an error |
-| Commit iterator fails | Iterator error is discarded; a prior candidate may still be returned |
-| Base tree, HEAD commit or HEAD tree cannot be read during comparison | Returned error |
-| Subtree lookup fails at either baseline or HEAD | Treated as changed for any lookup error, including a missing path |
-| Archive write, version validation/append or setup generation returns an error | Process exits nonzero; earlier writes remain |
+| Repository open, HEAD lookup or log creation fails | Returned error before any archive publication |
+| Exact previous tag is absent, or its introduction crosses a shallow boundary | Refusal; restore readable history before retrying |
+| Tag file/tree/content cannot be read, parsing fails, or commit iteration fails | Returned error; a prior candidate is never accepted as a fallback |
+| A historical tag file is genuinely absent or contains no exact matching line | Ends the contiguous matching run; refuses if no candidate exists |
+| Base tree, HEAD commit/tree or an existing subtree is unreadable | Returned error; only a genuinely absent subtree is treated as changed |
+| Source parsing, ABI reading, or any module registration validation fails during staging | No archive or registration published; fix the reported source input |
+| Staged digest or destination/registration precondition fails | Refusal before publication; inspect the snapshot and saved release state |
+| Archive write, registration replacement or marker publication fails | Nonzero exit; retain the pending snapshot and inspect/resume as above |
+| Completed archive or registration no longer matches the marker | Refusal before setup generation; inspect and restore the intended bytes |
+| Setup generation fails after completion | Nonzero exit; earlier setup writes remain; fix the reported input and rerun |
 
-Do not publish output based on an unverified baseline, even if the tool exits zero. Restore readable history and independently confirm the previous tag's introducing commit and selected modules before restarting from the saved state. The current implementation does not enforce that release check.
+For missing history, preserve the generator output and working tree, restore readable history in the disposable release checkout, and inspect `git log -p -- node/tags` to establish the exact previous tag's introducing commit. Retry only after that baseline can be established. Do not substitute a prefix match, accept a candidate from an unreadable traversal, or publish an unverified baseline. No network fetch is performed by the generator. Pending recovery uses the already validated snapshot rather than selecting a new baseline.
 
 ## Files generated
 
 - `precompiles/<module>/legacy/<folder>/*.go` — top-level Go files excluding tests and `setup.go`; package rewritten to `<folder>`, exact common-package imports redirected to the matching common archive
-- `precompiles/<module>/legacy/<folder>/abi.json` — copied when the source ABI can be statted successfully
+- `precompiles/<module>/legacy/<folder>/abi.json` — copied when present; read errors are fatal
 - `precompiles/common/legacy/<folder>/precompiles.go` and `evm_events.go` — common utilities, when present, with the package name rewritten
 - `precompiles/<module>/setup.go` — regenerated for eligible modules from `versions`
 - `precompiles/<module>/versions` — appended with new version (changed modules only)
+- `precompiles/common/legacy/.<folder>.pending/` — staged snapshot and manifest retained until completion
+- `precompiles/common/legacy/<folder>/.complete.json` — completion marker with archive and registration digests, published last
 - `node/tags` — rewritten with the last tag normalized if a new, unarchived entry had a patch
 
 All generated `.go` files carry a `// Code generated by scripts/bump_version; DO NOT EDIT.` header.

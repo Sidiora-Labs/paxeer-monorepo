@@ -1,0 +1,66 @@
+[task.22.33.705]
+mode = "BUILD"
+status = "awaiting_qualification"
+source_revision = "264615cba89456c37eeb19535cb16b81846f6a68"
+scope = "tools/jev/tests"
+build = "hf-build"
+verify = "hf-done"
+baseline = "Not run: the explicit gate order forbids verification before implementation and forbids running verify_cmd by hand; no previous gate ledger existed. No baseline failure is claimed."
+
+[finding.jev-deps-test-roots]
+test = "test_repair_22_33_705.py::test_jev_deps_test_roots; test_dependency_capture_reaches_client_and_report_with_real_lockfile_anchors"
+repair = "Use services/agent and services/interop in captured inputs and classifications, hash all five live deny files, scan all five manifests, and bind diagnostic and report anchors to real lockfile crate-name lines."
+provenance = "Only the four advisory label line offsets in existing captures were relocated to current crate-name lines; advisory versions, descriptions and dependency graphs remain historical. In particular rustls 0.23.43 is recorded codec/routing input, not a claim against the installed 0.23.46."
+wiring = "tools/jev/checks/deps.py, domain 16 (fm-tools-ops): replace retired agent/human/interop default roots with services/agent, services/human and services/interop; retain services/platform and programs (22.33.704)."
+
+[finding.jev-doc-test-headings]
+test = "test_repair_22_33_705.py::test_jev_doc_test_headings; test_identical_documentation_has_a_complete_clean_response"
+repair = "Pin current English/German headings and levels; retain fenced-heading and missing/extra-section checks; report the actual structural difference; enumerate both maintained translation trees and exercise isolated command, endpoint and link-target drift over loopback HTTP."
+wiring = "tools/jev/checks/docs.py, domain 16 (fm-tools-ops): publish both maintained translation/source catalogs and preserve fenced commands, bare URLs and link targets in comparison inputs (22.33.704)."
+
+[finding.jev-missing-answer-test]
+test = "test_pr.py::BodyFindingTests.test_missing_or_unrelated_answers_fail_at_the_request_boundary (production validation owned by 22.33.706); test_repair_22_33_705.py::test_jev_missing_answer_test_preserves_complete_review_and_certification; test_complete_commit_review_preserves_honesty_and_recorded_commit_anchors"
+repair = "Reject empty, unrelated, partial and surplus answer dictionaries at JevClient.evaluate; a complete supported review produces anchored auto findings and a comment with no review/escalation items; retain production-certification and honesty checks."
+wiring = "tools/jev/client.py, domain 16 (fm-tools-ops): validate each response against the exact requested question names and kinds before returning an Evaluation; reject incomplete or unrelated answers with JevRequestError (22.33.706)."
+
+[fixtures]
+http = "recorded_server.py serves committed response fixtures through real HTTP POST, Authorization and Content-Type headers; assertions bind canonical request bytes and response hashes through the real client and report codecs."
+responses = "Decision-response shapes and values derive from existing Jev unit-test examples, with explicit valid/invalid scenario fixtures; these are loopback-server fixtures, not claims of new live-service captures."
+commit = "fixtures/repair_22_33_705/commit.json captures git show metadata, name-status and stat output for the last non-merge commit touching test_pr.py reachable from source_revision; the gate parses that evidence without invoking git."
+docs = "Operational Markdown fixtures differ in exactly one fenced command, one bare endpoint or one link destination. Both maintained translation trees use README.md as their reference, as their published preambles state."
+
+[gotcha.scope]
+observed = "GOTCHA.kvx and spec task/qualification records are outside the explicit task scope."
+action = "Keep the finding-to-test mapping and wiring requests here; do not edit global records, commit or push."
+
+[qualification.initial]
+revision = "5397d0dc33f64d14badb6381c3e3757c0c8c33b0"
+command = "cg spec done 22.33.705 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "41 tests passed; 14 strict regression cases failed on the existing retired scanner roots, stripped documentation evidence, missing published catalog and accepted incomplete responses."
+assumption = "Domain 16 tasks 22.33.704 and 22.33.706 must implement the recorded wiring requests; no production file or assertion is changed to bypass these failures."
+
+[qualification.continuation]
+base_revision = "caa8b41ee668274ee1e5c1df6691288455c46278"
+ruling = "Task do_10 explicitly excludes sibling production findings from this focused gate; the original regression tests and assertions remain in test_deps.py, test_docs.py and test_pr.py."
+evidence = "The final candidate revision, exact command, exit code and private log are recorded by hf-build/hf-done; no passing result is claimed before those gates run."
+covered_by_22_33_704 = ["DependencyScanTests.test_default_scanner_selects_all_five_live_graphs", "SectionSplitterTests.test_headings_inside_code_fences_are_not_sections (sanitization)", "SanitizeTests.test_preamble_loses_images_and_badges_but_keeps_operational_links", "SanitizeTests.test_code_fence_commands_and_prose_survive", "SanitizeTests.test_tables_keep_paths_and_link_targets", "SanitizeTests.test_command_url_and_target_only_drift_reaches_the_real_client", "QuestionTests.test_check_registers_itself_with_readme_defaults", "test_jev_doc_test_headings_preserves_each_operational_drift[command-drift.md]", "test_jev_doc_test_headings_preserves_each_operational_drift[url-drift.md]", "test_jev_doc_test_headings_preserves_each_operational_drift[link-drift.md]"]
+covered_by_22_33_706 = ["test_jev_missing_answer_test_rejects_incomplete_evaluations[pr-missing.json]", "test_jev_missing_answer_test_rejects_incomplete_evaluations[pr-unrelated.json]", "test_jev_missing_answer_test_rejects_incomplete_evaluations[pr-partial.json]", "test_jev_missing_answer_test_rejects_incomplete_evaluations[pr-extra.json]"]
+retained = "All five explicit live workspace scans, lockfile-line anchors, current README/translation headings, published page enumeration, missing/extra sections and fenced-heading boundaries execute here; real loopback HTTP still exercises dependency triage, faithful documentation, complete valid PR responses, commit honesty and certification routing."
+
+[gotcha.catalog-interface]
+observed = "The previous attempt passed args.translations directly to resolve_translations, but the current catalog interface uses None to select both maintained trees."
+repair = "Keep the catalog assertion in test_docs.py and resolve parser defaults through configured_catalog, asserting both the source mapping and the exact discovered translation set."
+
+[qualification.continuation_first]
+revision = "f8d5230022b7857c28099b21d9ae47cc61f12405"
+command = "cg spec done 22.33.705 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "39 passed and three lockfile-anchor checks failed because the inherited interop capture labels preceded the current crate-name lines by two lines."
+repair = "Relocate only the two interop advisory label offsets and their exact test expectations to paste at 1982 and rustls at 2351; retain the real-line equality assertions and all historical advisory data."
+
+[gotcha.bytecode]
+observed = "The gate candidate enumerator included generated test __pycache__ files, changing the verification revision after the successful build."
+repair = "Remove only gate-generated test bytecode and run the remaining build/verification cycle with PYTHONPYCACHEPREFIX in /tmp; this changes cache placement, not the declared commands or test behavior."

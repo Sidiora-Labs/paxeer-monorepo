@@ -1,0 +1,27 @@
+[repair.22.33.992]
+audit = "22.30.32"
+base_revision = "caa8b41ee668274ee1e5c1df6691288455c46278"
+mode = "BUILD"
+qualification = "hf-build followed by hf-done; exact candidate revision, command, exit and private evidence location are retained by /out/run/gates.jsonl and the final evidence line."
+baseline = "No baseline gate was run: the explicit ordered gate budget forbids verification before complete implementation and requires hf-done as the initial verify; no pre-change failing tests are claimed."
+
+[finding.cache_adapter_unwired]
+implementation = "NewAccountingRuntime composes CanonicalPolicies, the actual PostgreSQL AccountingReadModel and PostgresQueryBudget, NewAdapter, the real REST cursor codec, PublicNetworkScope, pool admission and NewAccountingBindings; Start/Run/Shutdown own the bounded durable market consumer, and mounted runtime routes refuse reads until it runs and after it exits."
+proof = "TestRepairM_992_MountedReplicaAdmission, TestRepairM_992_MountedCodecAndScope, TestRepairM_992_InvalidationAndRestartRefuseOldSnapshot, TestRepairM_992_ConsumerLifecycleRefusal, TestRepairM_992_RejectUnboundAllocations"
+path = "Real REST codec emits retained snapshot fixtures into the real bounded local cache; actual chi bindings over loopback HTTP enforce scope, cursor parsing, schema validation, emergency replica admission and projection provenance; the real invalidation path and a newly constructed runtime refuse invalidated or unverified state when dependencies are unavailable."
+limits = "Replica tests prove the aggregate approved Redis-outage allocation, not healthy Redis/PostgreSQL counters; restart proves refusal of unverified old local state, not durable market replay. No broker acknowledgement, live app integration or baseline qualification is claimed."
+
+[wiring.app]
+request = "services/launchpad/api/internal/app/app.go and services/launchpad/api/internal/config — owning domain 4: replace RegisterAccountingV2WithAdmission with NewAccountingRuntime using reviewed real pool/query/emergency allocations, a bounded context and a distinct durable per replica; Start before serving, supervise Run, Mount routes after trusted-proxy resolution, register Ready and join Shutdown before closing borrowed pools/clients."
+
+[wiring.integration_proof]
+request = "services/launchpad/api/internal/app — owning domain 4: prove healthy shared PostgreSQL/Redis admission and persisted market-producer -> JetStream -> ConsumeMarket -> mounted accounting reads across replica restart using the actual application lifecycle; external services and subprocess brokers are excluded from this task's focused gate."
+
+[workflow.gotcha]
+observed = "The audit's baseline-test step conflicts with the explicit gate order; the app/config wiring and end-to-end durable market replay require paths outside this task's scope."
+resolution = "Follow the explicit gate order, retain assertions, claim no baseline result and record the out-of-path work as domain-4 wiring requests."
+
+[qualification.repair_1]
+observed = "The first hf-done passed four tests and failed the codec test because the malformed cursor expectation was 422, while the real REST parser returned the frozen 400 CURSOR_INVALID contract."
+repair = "Correct the exact expected malformed-cursor status to 400 and additionally require every rejection's exact contract code and non-retryable flag; preserve the rejection, admission and recovery assertions."
+prior_evidence = "revision 96ed5f8a2275a436acf5ede0565a9c994f9f211c; cg spec done 22.33.992 -f layerx-merge --root /work/paxeer-monorepo; exit 1; /out/logs/verify-1.log"

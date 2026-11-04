@@ -27,6 +27,8 @@ lxp_result lxp_arena_alloc(lxp_arena *arena, size_t size, size_t alignment,
 {
     size_t mask;
     size_t aligned;
+    uintptr_t base;
+    uintptr_t current;
 
     if (arena == NULL || allocation == NULL || !alignment_is_valid(alignment)) {
         return LXP_ERR_NON_CANONICAL;
@@ -37,11 +39,18 @@ lxp_result lxp_arena_alloc(lxp_arena *arena, size_t size, size_t alignment,
                LXP_ERR_ARENA_EXHAUSTED;
     }
     mask = alignment - 1U;
-    if (arena->offset > SIZE_MAX - mask) {
+    base = (uintptr_t)arena->buffer;
+    if (arena->offset > arena->capacity ||
+        arena->offset > UINTPTR_MAX - base) {
         return LXP_ERR_ARENA_EXHAUSTED;
     }
-    aligned = (arena->offset + mask) & ~mask;
-    if (aligned > arena->capacity || size > arena->capacity - aligned) {
+    current = base + arena->offset;
+    if (mask > UINTPTR_MAX - current) {
+        return LXP_ERR_ARENA_EXHAUSTED;
+    }
+    aligned = (size_t)(((current + mask) & ~(uintptr_t)mask) - base);
+    if (aligned > arena->capacity || size > arena->capacity - aligned ||
+        size > UINTPTR_MAX - base - aligned) {
         return LXP_ERR_ARENA_EXHAUSTED;
     }
     *allocation = arena->buffer + aligned;

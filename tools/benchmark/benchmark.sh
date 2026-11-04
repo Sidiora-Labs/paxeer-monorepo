@@ -315,13 +315,20 @@ PAXD_ARGS=(start --chain-id pax-chain --home "$PAX_HOME")
 
 if [ -n "$LOG_FILE" ]; then
   # Redirect all output to log file
-  BENCHMARK_CONFIG=$BENCHMARK_CONFIG BENCHMARK_TXS_PER_BATCH=$BENCHMARK_TXS_PER_BATCH "$PAXD" "${PAXD_ARGS[@]}" > "$LOG_FILE" 2>&1
+  BENCHMARK_CONFIG=$BENCHMARK_CONFIG BENCHMARK_TXS_PER_BATCH=$BENCHMARK_TXS_PER_BATCH exec "$PAXD" "${PAXD_ARGS[@]}" > "$LOG_FILE" 2>&1
 elif [ "$DEBUG" = true ]; then
   # Debug mode: print all output
-  BENCHMARK_CONFIG=$BENCHMARK_CONFIG BENCHMARK_TXS_PER_BATCH=$BENCHMARK_TXS_PER_BATCH "$PAXD" "${PAXD_ARGS[@]}"
+  BENCHMARK_CONFIG=$BENCHMARK_CONFIG BENCHMARK_TXS_PER_BATCH=$BENCHMARK_TXS_PER_BATCH exec "$PAXD" "${PAXD_ARGS[@]}"
 else
-  # Normal mode: filter to benchmark-related output only
-  BENCHMARK_CONFIG=$BENCHMARK_CONFIG BENCHMARK_TXS_PER_BATCH=$BENCHMARK_TXS_PER_BATCH "$PAXD" "${PAXD_ARGS[@]}" 2>&1 | grep -E "(benchmark|Benchmark|deployed|transitioning)"
+  # Replace the launcher so the node owns its exit status and receives signals.
+  # Filter in a separate reader; matching output must never mask a node failure.
+  BENCHMARK_CONFIG=$BENCHMARK_CONFIG BENCHMARK_TXS_PER_BATCH=$BENCHMARK_TXS_PER_BATCH exec "$PAXD" "${PAXD_ARGS[@]}" > >(
+    while IFS= read -r line || [ -n "$line" ]; do
+      case "$line" in
+        *benchmark*|*Benchmark*|*deployed*|*transitioning*) printf '%s\n' "$line" ;;
+      esac
+    done
+  ) 2>&1
 fi
 
 fi # end BENCHMARK_PHASE=start

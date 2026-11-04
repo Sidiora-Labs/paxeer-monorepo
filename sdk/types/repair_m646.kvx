@@ -1,0 +1,32 @@
+[repair.22.33.646]
+audit = "22.30.165"
+base_revision = "caa8b41ee668274ee1e5c1df6691288455c46278"
+acceptance = "22998.1"
+build_command = "go build ./sdk/types/..."
+verify_command = "hf-done: cg spec done 22.33.646 -f layerx-merge --root $TASK_ROOT (declared TestRepairM_646_ gate)"
+evidence = "The hf-build/hf-done private ledger records the exact candidate revision, command, exit code and log. Qualification requires both passing gates on the same candidate; no unexecuted gate is claimed."
+baseline = "Continued the five carried paths from attempt 1 at 59e8604b8f6dccaf8c0e17dcb6523aa5d4c92007; its recorded verification exited 1 during test compilation, before any proving test ran. No unchanged-tree verification is claimed: the explicit gate order prohibits running verify_cmd manually before hf-build."
+wiring_request = "None: both repairs and their producer/transport/consumer proofs fit within sdk/types; existing RPC consumers serialize the additive truncation fields through StoreTraceDump or DerivePrestateToJson."
+
+[finding.trace-access-memory]
+tests = ["TestRepairM_646_TraceReplay", "TestRepairM_646_TraceByteRetention", "TestRepairM_646_TraceWireAndLifecycle", "TestRepairM_646_TraceModuleBounds"]
+repair = "Bound the entire tracer to 4096 access events, 1 MiB cloned payload including module names and iterator samples, 64 modules with 256-byte names, and the existing 16 iterators/64 keys per module/iterator. Check capacity before cloning, retain an access prefix, and count operations/timing independently of sample retention."
+wire = "Cap shared materialization to 1024 entries and 2 MiB hex payload before encoding/insertion; bounded framing adds less than 1 MiB. Expose module and aggregate truncation, including iterator record drops, and retain independent exact summary counts."
+proof = "Real in-memory dbadapter/gaskv replay scans in both directions, repeats reads, visits many Has keys, opens excess iterators and reads oversized values. Assert retained bytes/events, no payload-copy allocations after a drop, JSON consumer bounds/metadata/counts, preserved prestate semantics, detached dump stats and Clear/reuse."
+
+[finding.uint-negative-wire]
+tests = ["TestRepairM_646_UintWireRoundTrips", "TestRepairM_646_UintRejectsInvalidWireAtomically", "TestRepairM_646_UintEmptyAndSuccessfulAssignment"]
+repair = "Decode JSON/protobuf into a temporary big.Int, enforce UintOverflow before assignment and use the same checked path for Amino; preserve protobuf/Amino empty-as-zero behavior."
+proof = "Real Uint JSON, protobuf custom-type MarshalTo/Unmarshal and Amino binary/JSON round-trips cover zero, ordinary values and 2^256-1. Negative, over-limit and malformed fixtures fail without changing initialized, shared or nil receiver state; empty behavior and successful assignment also preserve old aliases."
+
+[gotcha.gate-order]
+observed = "The embedded pre-change verification instruction conflicts with the explicit gate order and wrapper prerequisite that a successful build precedes hf-done."
+resolution = "Follow the explicit gate order and retain an honest baseline record without an undeclared verification run; scope prevents editing the root gotcha ledger or spec task record."
+
+[gotcha.internal-store-import-cycle]
+observed = "First hf-done at candidate b8516e3b15ebccc2bd3d145988883581a753a653 exited 1 before tests: an internal types test imported dbadapter, whose cachekv dependency imports types; evidence /out/logs/verify-1.log and /tmp/repair-m646.log."
+resolution = "Move the real store/codec proofs to types_test and retain all private-state assertions through a test-only snapshot helper; no production dependency or assertion changes."
+
+[gotcha.fork-gas-constructor]
+observed = "The carried attempt failed test compilation because store/types does not export NewInfiniteGasMeter; no TestRepairM_646_ test executed in that failed gate."
+resolution = "Use the production NewInfiniteMultiplierGasMeter(1, 1) constructor at every real gaskv fixture call site, preserving gas accounting and every assertion."
