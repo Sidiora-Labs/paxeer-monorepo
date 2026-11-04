@@ -834,3 +834,11 @@ fn assertion_capability_reaches_existing_attestor_admission() -> Result {
     running.stop()?;
     Ok(())
 }
+
+#[path = "support/producer_path.rs"]
+mod producer_path;
+
+#[test]
+fn wallet_gateway_binding_producer_transport_and_reopen() -> producer_path::Result {
+    producer_path::wallet_gateway_binding_producer_transport_and_reopen()
+}
