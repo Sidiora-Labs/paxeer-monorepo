@@ -317,7 +317,7 @@ func (chain *TestChain) SendMsgs(msgs ...sdk.Msg) (*sdk.Result, error) {
 	// ensure the chain has the latest time
 	chain.Coordinator.UpdateTimeForChain(chain)
 
-	_, r, err := simapp.SignAndDeliver(
+	_, r, err := simapp.SignAndDeliverResult(
 		chain.T,
 		chain.TxConfig,
 		chain.App.GetBaseApp(),
@@ -332,22 +332,17 @@ func (chain *TestChain) SendMsgs(msgs ...sdk.Msg) (*sdk.Result, error) {
 		chain.ChainID,
 		[]uint64{chain.SenderAccount.GetAccountNumber()},
 		[]uint64{chain.SenderAccount.GetSequence()},
-		true, true, chain.SenderPrivKey,
+		chain.SenderPrivKey,
 	)
-	if err != nil {
-		return nil, err
-	}
-
-	// SignAndDeliver calls app.Commit()
+	// Delivery commits a block even when a handler refuses the message. Ante
+	// writes (including the sender sequence) can still have been committed.
 	chain.NextBlock()
-
-	// increment sequence for successful transaction execution
-	err = chain.SenderAccount.SetSequence(chain.SenderAccount.GetSequence() + 1)
-	require.NoError(chain.T, err)
-
+	account := chain.GetSimApp().AccountKeeper.GetAccount(chain.GetContext(), chain.SenderAccount.GetAddress())
+	require.NotNil(chain.T, account)
+	require.NoError(chain.T, chain.SenderAccount.SetSequence(account.GetSequence()))
 	chain.Coordinator.IncrementTime()
 
-	return r, nil
+	return r, err
 }
 
 // GetClientState retrieves the client state for the provided clientID. The client is
