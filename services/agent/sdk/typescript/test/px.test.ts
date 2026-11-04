@@ -126,7 +126,25 @@ function px_amounts_decode_up_to_uint256() {
   assert.ok(
     sdkPackage.scripts.test
       .split(" && ")
-      .includes("node dist/test/ai-market.test.js"),
+      .includes("node scripts/run-tests.mjs self-contained"),
+  );
+  const testRunner = readFileSync(
+    new URL("../../scripts/run-tests.mjs", import.meta.url),
+    "utf8",
+  );
+  assert.match(testRunner, /selected = \["ai-market\.test\.ts"\];/u);
+  assert.match(
+    testRunner,
+    /case "self-contained":\s+selected = discovered\.filter\(\(name\) => !special\.includes\(name\)\);/u,
+  );
+  assert.ok(
+    !Object.values(sdkPackage.sdkTestRequirements)
+      .flat()
+      .includes("ai-market.test.ts"),
+  );
+  assert.ok(
+    readFileSync(new URL("../../test/ai-market.test.ts", import.meta.url), "utf8")
+      .length > 0,
   );
   const amounts = [0n, 1n << 128n, 1n << 200n, (1n << 256n) - 1n];
   const accepted = amounts.flatMap((amount) =>

@@ -293,7 +293,7 @@ async function web_unused_authority_refuses_configuration_and_requires_exact_byt
       assert(rpcCalls.every(entry => entry.method === "eth_call"));
 
       mode = "forged-settlement";
-      await assert.rejects(client.fetch(target), webError("settlement-receipt-mismatch"));
+      await assert.rejects(client.fetch(target), webError("receipt-unverified"));
       assert.equal(paidRequests, 2);
       // Exercise the same mandatory verifier directly with the recorded signed producer bytes.
       const verified = await verifyWebSearchPayment(receipt, raw, typedOffer, receiptPins(), payment.idempotencyKey);
