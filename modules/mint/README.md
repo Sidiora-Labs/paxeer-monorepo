@@ -2,146 +2,151 @@
 
 ## Overview
 
-The minting mechanism was designed for creating new tokens according to a predefined schedule. It allows the creation of scheduled token release structures that define the release of tokens over a period of time. The Mint module provides a system for managing token minting, release schedule, and related parameters. Once every scheduled release has been minted, no further tokens are minted.
+The mint module creates `uhpx` according to governed token release schedules on the Paxeer network. It runs inside `paxd`, through the [epoch module](../epoch/README.md), and sends minted coins to the `fee_collector` module account for distribution with transaction fees. Mint state becomes final with the block that commits it.
 
-Minting occurs over a specified period, with a proportion of the total mint amount distributed daily (UTC).
+The module stores one current minter and a list of scheduled releases. The default minter has zero issuance and the default schedule is empty. Once the current release is exhausted, minting resumes only when another scheduled release becomes eligible or governance replaces the minter.
 
 ### Minting Mechanism
 
-The minting mechanism is built on a daily distribution model. The total_mint_amount is a predefined amount of tokens set to be minted within the duration specified by a start and end date. This total amount is evenly distributed over each day of the minting period, ensuring a consistent daily distribution of tokens.
+[GetOrUpdateLatestMinter](keeper/keeper.go) keeps the current minter while its `remaining_mint_amount` is nonzero. Otherwise, it selects the first eligible scheduled release: the epoch start time must be strictly after the scheduled start date at UTC midnight, and that date must be on or after the current minter's end date. An exhausted release with the same start and end dates as the current minter is skipped.
+
+A new minter takes its dates and total from that release, uses `mint_denom`, sets its remaining amount equal to the total, and initializes its last-mint metadata to zero with `last_mint_date: "0001-01-01"`.
 
 ### Daily Mint Calculation
 
-The daily mint amount is derived by dividing the `remaining_mint_amount` by the number of days left in the minting period. This calculation is based on the assumption of a uniform distribution of tokens throughout the period, barring any instances where the chain is down for more than a day.
+[GetReleaseAmountToday](types/minter.go) uses the epoch's `current_epoch_start_time` in UTC:
 
-For example, if the `total_mint_amount` is set to 1,000,000 tokens and the minting period is 100 days, the daily mint amount would be 10,000 tokens. However, if there was a network outage and the chain was down for 1 day, the daily mint amount would be recalculated. If 500,000 tokens had already been distributed in the first 50 days, with 49 days remaining and a `remaining_mint_amount` of 500,000 tokens, the revised daily mint amount would be 10,204 tokens. This adjusted amount would be minted daily until the 100th day, when 10,208 tokens would be minted to achieve the total of 1,000,000 tokens.
+- Before `start_date`, or when `last_mint_date` is already that UTC date, the release amount is zero.
+- Before `end_date`, the amount is `remaining_mint_amount / days_left`, using integer division. `days_left` counts UTC calendar-day boundaries from the current date to the end date.
+- On or after `end_date`, the amount is the entire remaining balance, provided nothing has already been minted on that date.
+
+The calculation runs again at each epoch hook. A zero result does not record a mint. Rounding and missed days therefore affect later calculations; an outage does not trigger one separate mint for every missed day.
+
+For example, with `500000uhpx` remaining and 49 days left, the next mint is `10204uhpx`, leaving `489796uhpx`. The following eligible day uses its new remaining amount and days left. Any balance still remaining on or after the end date is released at the next eligible hook.
 
 ### Minting Process
 
-Minting runs in the epoch module's `AfterEpochEnd` hook. At the first epoch end of each UTC day inside the release period, the daily mint amount is created and sent to the fee_collector account. From here, it's distributed to stakers in the same manner as transaction fees (percentage-based).
+[AfterEpochEnd](keeper/hooks.go) calculates the release amount, mints it into the `mint` module account, and transfers it to `fee_collector`. Only after both bank operations succeed does it decrement the remaining amount, record the mint date, epoch height and amount, and persist the minter. A bank error panics rather than recording a successful mint.
 
 ### Updating the Minting Schedule
 
-The minting schedule, including the start date, end date, and `total_mint_amount`, can be updated through a governance proposal. This feature allows network participants to adjust the minting parameters as necessary in response to the network's needs and conditions.
+Governance provides two distinct updates: an `UpdateMinter` proposal replaces the complete current minter, while a parameter-change proposal updates `MintDenom` or `TokenReleaseSchedule` in the `mint` subspace. Updating the schedule does not replace a minter that still has a remaining balance.
 
-Note: Changes to the `total_mint_amount` or `remaining_mint_amount` after the start date will not impact tokens already minted.
+Replacing the minter changes future issuance; it does not undo coins already minted. The handler does not derive remaining issuance from `total_mint_amount` or preserve omitted fields. An ongoing release must carry forward the intended remaining amount and last-mint metadata explicitly.
 
 ## State
 
 ### Minter
 
-The minter holds the current release information. It can be updated through a governance proposal (see below). Dates use the `YYYY-MM-DD` format.
+The [Minter type](types/mint.pb.go) is persisted under `MinterKey` (`0x00`) in the `mint` store. Dates use `YYYY-MM-DD` in UTC and amounts count base units of `uhpx`.
 
-```go
-type Minter struct {
-    // The day where the mint begins
-    StartDate           string `protobuf:"bytes,1,opt,name=start_date,json=startDate,proto3" json:"start_date,omitempty"`
-    // The day where the mint ends
-    EndDate             string `protobuf:"bytes,2,opt,name=end_date,json=endDate,proto3" json:"end_date,omitempty"`
-    // Denom for the coins minted, defaults to uhpx
-    Denom               string `protobuf:"bytes,3,opt,name=denom,proto3" json:"denom,omitempty"`
-    // Total amount to be minted
-    TotalMintAmount     uint64 `protobuf:"varint,4,opt,name=total_mint_amount,json=totalMintAmount,proto3" json:"total_mint_amount,omitempty"`
-    // Remaining amount to be minted
-    RemainingMintAmount uint64 `protobuf:"varint,5,opt,name=remaining_mint_amount,json=remainingMintAmount,proto3" json:"remaining_mint_amount,omitempty"`
-    // Last amount minted (usually from the day before)
-    LastMintAmount      uint64 `protobuf:"varint,6,opt,name=last_mint_amount,json=lastMintAmount,proto3" json:"last_mint_amount,omitempty"`
-    // Last day minted
-    LastMintDate        string `protobuf:"bytes,7,opt,name=last_mint_date,json=lastMintDate,proto3" json:"last_mint_date,omitempty"`
-    // The height of the last mint
-    LastMintHeight      uint64 `protobuf:"varint,8,opt,name=last_mint_height,json=lastMintHeight,proto3" json:"last_mint_height,omitempty"`
-}
-```
+| JSON field | Go type | Meaning |
+| --- | --- | --- |
+| `start_date` | `string` | First date eligible for minting. |
+| `end_date` | `string` | Date at which any remaining balance can be released. |
+| `denom` | `string` | Minted denomination; must be `uhpx`. |
+| `total_mint_amount` | `uint64` | Total issuance assigned to this release. |
+| `remaining_mint_amount` | `uint64` | Balance still to mint. |
+| `last_mint_amount` | `uint64` | Amount of the most recent successful mint. |
+| `last_mint_date` | `string` | Date of that mint; `0001-01-01` for a fresh minter. |
+| `last_mint_height` | `uint64` | Epoch's `current_epoch_height` recorded by that mint. |
+
+[ValidateMinter](types/minter.go) requires valid start, end and last-mint dates, with the end on or after the start. Total and last-mint amounts must fit in a signed 64-bit integer; remaining must not exceed total; last-mint amount must not exceed `total_mint_amount - remaining_mint_amount`.
 
 ### Params
 
-The mint module stores its params in state, it can be updated with governance or the address with authority.
+The [Params type](types/params.go) uses these parameter-store keys:
 
-```go
-type Params struct {
-    // type of coin to mint
-    MintDenom string `protobuf:"bytes,1,opt,name=mint_denom,json=mintDenom,proto3" json:"mint_denom,omitempty"`
-    // List of token release schedules
-    TokenReleaseSchedule []ScheduledTokenRelease `protobuf:"bytes,2,rep,name=token_release_schedule,json=tokenReleaseSchedule,proto3" json:"token_release_schedule" yaml:"token_release_schedule"`
-}
-...
-type ScheduledTokenRelease struct {
-    // The day where the mint begins
-    StartDate          string `protobuf:"bytes,1,opt,name=start_date,json=startDate,proto3" json:"start_date,omitempty"`
-    // The day where the mint ends
-    EndDate            string `protobuf:"bytes,2,opt,name=end_date,json=endDate,proto3" json:"end_date,omitempty"`
-    // Total amount to be minted
-    TokenReleaseAmount uint64 `protobuf:"varint,3,opt,name=token_release_amount,json=tokenReleaseAmount,proto3" json:"token_release_amount,omitempty"`
-}
+| JSON field | Parameter key | Meaning |
+| --- | --- | --- |
+| `mint_denom` | `MintDenom` | Must equal the default bond denomination, `uhpx`. |
+| `token_release_schedule` | `TokenReleaseSchedule` | List of `ScheduledTokenRelease` values. |
 
-```
+Each scheduled release contains `start_date`, `end_date` and `token_release_amount`. Dates must parse as `YYYY-MM-DD`, the end must be on or after the start, and the amount must fit in a signed 64-bit integer. Validation sorts releases by start date and rejects overlapping periods; one release may start on the previous release's end date.
 
 ### Governance
 
 #### Minter Governance Proposal
-Here is an example of how to submit a governance proposal to update the Minter parameters:
 
-First, prepare a proposal in JSON format, like the minter_prop.json file below:
+Inspect the current state before preparing a proposal:
+
+```bash
+paxd query mint minter
+paxd query mint params
+```
+
+The node registers `update-minter` under `paxd tx gov submit-proposal` via [UpdateMinterHandler](client/cli/tx.go). The module does not expose a standalone `paxd tx mint` command. The proposal is validated by [ValidateBasic](types/gov.go) and, when executed, [HandleUpdateMinterProposal](gov.go) validates and stores the supplied minter unchanged.
+
+For a **fresh release**, save the following complete payload as `minter_prop.json`. The dates and amounts are illustrative; choose them for the intended governance execution date. Protobuf JSON represents the `uint64` amounts and height as decimal strings.
 
 ```json
 {
-  "title": "Test Update Minter",
-  "description": "Updating test minter",
+  "title": "Start a token release",
+  "description": "Release 100000uhpx according to the specified dates",
   "minter": {
-    "start_date": "<YYYY-MM-DD>",
-    "end_date": "<YYYY-MM-DD>",
+    "start_date": "2030-01-01",
+    "end_date": "2030-01-11",
     "denom": "uhpx",
-    "total_mint_amount": 100000
+    "total_mint_amount": "100000",
+    "remaining_mint_amount": "100000",
+    "last_mint_amount": "0",
+    "last_mint_date": "0001-01-01",
+    "last_mint_height": "0"
   }
 }
 ```
 
-Then, submit the proposal with the following command:
+For a configured `paxd` client, set `PROPOSER` to a funded signing key, `DEPOSIT` to an appropriate governance deposit coin string, and `FEES` to a sufficient fee coin string, both denominated in `uhpx`. Submit with:
 
 ```bash
-paxd tx gov submit-proposal update-minter ./minter_prop.json --deposit 20pax --from admin -b block -y --gas 200000 --fees 2000uhpx
+paxd tx gov submit-proposal update-minter ./minter_prop.json \
+  --from "$PROPOSER" --deposit "$DEPOSIT" \
+  --gas auto --gas-adjustment 1.3 --fees "$FEES" --broadcast-mode block
 ```
 
-This command submits a proposal to update the minter. The --deposit flag is used to provide the initial deposit. The proposal is submitted by the address provided with the --from flag.
+Submission does not execute the proposal. After it passes and executes, query `paxd query mint minter` again. Immediately after replacement, before any subsequent mint, its fields match the submitted object: the fresh example has `100000` remaining and `0001-01-01` as its last-mint date. Subsequent epoch hooks can change that state, including releasing the whole balance if the proposal executes after its end date.
 
-Before the proposal, the Minter parameters might look like this:
+For an **ongoing release**, preserve the issuance already made and the latest mint metadata. For example, if the queried state is:
 
-```bash
-> paxd q mint minter
+```yaml
 denom: uhpx
-end_date: "<old end date>"
-last_mint_amount: "333333333333"
-last_mint_date: "<last mint date>"
-last_mint_height: "0"
-remaining_mint_amount: "666666666666"
-start_date: "<old start date>"
-total_mint_amount: "999999999999"
-```
-
-After the proposal is passed, the Minter parameters would be updated as per the proposal:
-
-```bash
-> paxd q mint minter
-denom: uhpx
-end_date: "<new end date>"
-last_mint_amount: "0"
-last_mint_date: ""
-last_mint_height: "0"
-remaining_mint_amount: "0"
-start_date: "<new start date>"
+start_date: "2030-01-01"
+end_date: "2030-01-11"
 total_mint_amount: "100000"
+remaining_mint_amount: "60000"
+last_mint_amount: "10000"
+last_mint_date: "2030-01-04"
+last_mint_height: "12345"
 ```
 
-In this example, start_date and end_date take the values from the proposal and total_mint_amount has been reduced to "100000".
-
-### Params Governance Proposal
-
-Here is an example for updating the params for the mint module
+then `40000uhpx` has already been issued. To raise the release total to `150000` and extend its end date, the proposal's complete `minter` object would be:
 
 ```json
 {
-  "title": "Param Change Proposal",
-  "description": "Proposal to change some parameters",
+  "start_date": "2030-01-01",
+  "end_date": "2030-01-16",
+  "denom": "uhpx",
+  "total_mint_amount": "150000",
+  "remaining_mint_amount": "110000",
+  "last_mint_amount": "10000",
+  "last_mint_date": "2030-01-04",
+  "last_mint_height": "12345"
+}
+```
+
+Immediately after execution, before a further mint, that is the resulting state. Keeping the last-mint date prevents another mint on the same date. Governance stores a snapshot rather than recomputing it at execution: account for mints during the voting period when choosing the replacement values. Resetting an ongoing minter to fresh metadata can permit additional issuance.
+
+Omitting `last_mint_date` supplies an empty date and fails validation. Omitting `remaining_mint_amount` supplies zero, so the proposed minter has no remaining issuance; setting only `total_mint_amount` does not initialize it.
+
+### Params Governance Proposal
+
+Parameter changes use the `mint` subspace and the exact keys `MintDenom` and `TokenReleaseSchedule`. For example, save this as `param_change_prop.json`, adjusting the dates, amounts and deposit to the intended update:
+
+```json
+{
+  "title": "Update the mint release schedule",
+  "description": "Set two future token releases",
+  "deposit": "1000000uhpx",
   "changes": [
     {
       "subspace": "mint",
@@ -153,14 +158,14 @@ Here is an example for updating the params for the mint module
       "key": "TokenReleaseSchedule",
       "value": [
         {
-          "token_release_amount": 500,
-          "start_date": "<YYYY-MM-DD>",
-          "end_date": "<YYYY-MM-DD>"
+          "start_date": "2030-02-01",
+          "end_date": "2030-02-11",
+          "token_release_amount": "500"
         },
         {
-          "token_release_amount": 1000,
-          "start_date": "<YYYY-MM-DD>",
-          "end_date": "<YYYY-MM-DD>"
+          "start_date": "2030-03-01",
+          "end_date": "2030-03-11",
+          "token_release_amount": "1000"
         }
       ]
     }
@@ -168,25 +173,30 @@ Here is an example for updating the params for the mint module
 }
 ```
 
-Submit the proposal
+Unlike `update-minter`, the [param-change CLI](../../sdk/x/params/client/cli/tx.go) reads its initial deposit from the JSON file. Using the same configured client, signing key and fee settings:
 
 ```bash
-paxd tx gov submit-proposal param-change ./param_change_prop.json --from admin -b block -y --gas 200000 --fees 200000uhpx
+paxd tx gov submit-proposal param-change ./param_change_prop.json \
+  --from "$PROPOSER" --gas auto --gas-adjustment 1.3 \
+  --fees "$FEES" --broadcast-mode block
 ```
+
+This replaces the schedule parameter. It does not top up the current minter or restart an exhausted release with the same date pair. Query `paxd query mint params` after execution to inspect the stored schedule.
 
 ## Epoch hook
 
-At the end of each epoch (60s by default), the `AfterEpochEnd` hook picks the active release from the schedule and, if nothing has been minted yet that UTC day, mints that day's share of the remaining amount. On or after the end date, the whole remaining amount is released.
+Epoch duration defaults to 60 seconds in [epoch genesis](../epoch/types/genesis.go). The mint hook uses the ending epoch's `current_epoch_start_time`, rather than the wall clock or the next epoch's start. For a normal ongoing release, only the first successful mint on a UTC date records that day's share; later hooks on the same date return zero. The remaining state and last-mint date persist across restarts.
 
 ### Minting events
 
-#### Type: Mint
+#### Type: mint
 
-- mint_date: date of the mint
-- mint_epoch: epoch of the mint
-- amount: amount minted
+[RecordSuccessfulMint](types/minter.go) emits the lowercase event type `mint` with these string attributes:
 
+- `mint_date`: UTC date recorded for the mint.
+- `mint_epoch`: epoch number, in decimal.
+- `amount`: minted base-unit amount, in decimal without a denomination suffix.
 
 ### Metrics
 
-Each successful mint records the telemetry gauge `pax_mint_coins{denom}` and the OpenTelemetry gauge `mint_coins_minted` (attribute `denom`).
+Each successful mint records the telemetry gauge `pax_mint_coins{denom}` and the OpenTelemetry gauge `mint_coins_minted` with attribute `denom`. These gauges report the latest mint amount, rather than cumulative issuance. See [mint metrics](types/metrics.go) and the [telemetry helper](../../utils/metrics/metrics_util.go).
