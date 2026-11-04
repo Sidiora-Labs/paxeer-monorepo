@@ -553,6 +553,9 @@ func (p PrecompileExecutor) createValidator(ctx sdk.Context, method *abi.Method,
 	if err != nil {
 		return nil, 0, errors.New("invalid public key hex format")
 	}
+	if pcommon.MergePlanActive(ctx, p.evmKeeper) && len(pubKeyBytes) != ed25519.PubKeySize {
+		return nil, 0, errors.New("invalid public key length: expected 32 bytes")
+	}
 
 	// Create ed25519 public key
 	pubKey := &ed25519.PubKey{Key: pubKeyBytes}
