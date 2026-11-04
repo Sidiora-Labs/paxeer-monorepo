@@ -12,6 +12,7 @@ use std::path::PathBuf;
 use zeroize::{Zeroize, Zeroizing};
 
 const MAX_STATE: usize = 8 * 1024 * 1024;
+const MAX_RECORD: usize = 2 * 1024 * 1024;
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Record {
@@ -28,6 +29,8 @@ struct Record {
     send_actions: BTreeMap<String, (crate::send::SendAuthorization, Vec<u8>)>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     recipient_identity: Option<[u8; 32]>,
+    #[serde(default)]
+    send_reservations: BTreeMap<String, [u8; 32]>,
     #[serde(default)]
     self_custodied: bool,
     #[serde(default)]
@@ -105,13 +108,21 @@ struct EvmAttestor {
     address: [u8; 20],
     tenant: String,
     principal: String,
+    assertion_file: PathBuf,
+    assertion_subject: String,
 }
 impl EvmAttestor {
     fn load(chain_id: u64) -> std::result::Result<BTreeMap<String, Self>, String> {
         let Some(path) = std::env::var_os("LAYERX_HUMAN_KMS_ATTESTOR_CONFIG_FILE") else {
             return Ok(BTreeMap::new());
         };
-        let bytes = protected(std::path::Path::new(&path), MAX_STATE, true)?;
+        Self::load_file(chain_id, std::path::Path::new(&path))
+    }
+    fn load_file(
+        chain_id: u64,
+        path: &std::path::Path,
+    ) -> std::result::Result<BTreeMap<String, Self>, String> {
+        let bytes = protected(path, MAX_STATE, true)?;
         let bindings: AttestorBindings = serde_json::from_slice(&bytes)
             .map_err(|_| "principal-bound attestor configuration required")?;
         if bindings.bindings.len() > 4096 {
@@ -144,12 +155,17 @@ impl EvmAttestor {
             signer
                 .set_evm_assertion(assertion.trim())
                 .map_err(|error| error.to_string())?;
+            let assertion_subject = crate::attestor::assertion_claims(assertion.trim())
+                .map_err(|_| "EVM owner assertion claims invalid")?
+                .subject;
             let attestor = Self {
                 signer,
                 key_id: config.evm_key_id,
                 address: config.evm_address,
                 tenant: binding.tenant,
                 principal: binding.principal,
+                assertion_file: binding.assertion_file,
+                assertion_subject,
             };
             if result.insert(hex(&binding.binding), attestor).is_some() {
                 return Err("duplicate attestor binding".into());
@@ -157,11 +173,28 @@ impl EvmAttestor {
         }
         Ok(result)
     }
+    fn refresh(&mut self, now: u64) -> Result<()> {
+        let bytes =
+            protected(&self.assertion_file, 65_536, true).map_err(|_| Error::Unavailable)?;
+        let assertion = std::str::from_utf8(&bytes)
+            .map_err(|_| Error::Integrity)?
+            .trim();
+        let claims = crate::attestor::assertion_claims(assertion).map_err(attestor_error)?;
+        if claims.subject != self.assertion_subject {
+            return Err(Error::Integrity);
+        }
+        claims.check(now).map_err(attestor_error)?;
+        self.signer
+            .set_evm_assertion(assertion)
+            .map_err(attestor_error)
+    }
     fn validate_wallet(&self, wallet: &crate::evm::Wallet) -> Result<()> {
         if wallet.evm_key_id != self.key_id
             || wallet.address != self.address
             || wallet.tenant != self.tenant
             || wallet.principal != self.principal
+            || (!wallet.assertion_subject.is_empty()
+                && wallet.assertion_subject != self.assertion_subject)
         {
             return Err(Error::Integrity);
         }
@@ -175,6 +208,7 @@ pub(crate) struct Store {
     aad: Vec<u8>,
     healthy: bool,
     evm_attestors: BTreeMap<String, EvmAttestor>,
+    durable: Zeroizing<Vec<u8>>,
     _lock: File,
 }
 pub(crate) fn hex(bytes: &[u8]) -> String {
@@ -214,6 +248,12 @@ fn description(record: &Record) -> Result<Vec<u8>> {
 }
 impl Store {
     pub fn open(config: &Config) -> std::result::Result<Self, String> {
+        Self::open_with_attestors(config, None)
+    }
+    pub(crate) fn open_with_attestors(
+        config: &Config,
+        attestors: Option<&std::path::Path>,
+    ) -> std::result::Result<Self, String> {
         if !config.state.is_absolute() {
             return Err("state path must be absolute".into());
         }
@@ -282,7 +322,10 @@ impl Store {
             }
         };
         validate(&state, config)?;
-        let evm_attestors = EvmAttestor::load(config.chain.chain_id)?;
+        let evm_attestors = match attestors {
+            Some(path) => EvmAttestor::load_file(config.chain.chain_id, path)?,
+            None => EvmAttestor::load(config.chain.chain_id)?,
+        };
         for (binding, record) in &state.records {
             if let Some(wallet) = &record.wallet {
                 evm_attestors
@@ -322,6 +365,7 @@ impl Store {
             aad,
             healthy: true,
             evm_attestors,
+            durable: Zeroizing::new(Vec::new()),
             _lock: lock,
         };
         store
@@ -329,18 +373,124 @@ impl Store {
             .map_err(|_| "state durability unavailable")?;
         Ok(store)
     }
+    fn capacity(&self, binding: Option<[u8; 32]>, extra: usize) -> Result<()> {
+        let size =
+            Zeroizing::new(serde_json::to_vec(&self.state).map_err(|_| Error::Integrity)?).len();
+        if size.saturating_add(extra) > MAX_STATE {
+            return Err(Error::Capacity);
+        }
+        for (key, record) in &self.state.records {
+            let size =
+                Zeroizing::new(serde_json::to_vec(record).map_err(|_| Error::Integrity)?).len();
+            let reserve = if binding.is_some_and(|binding| key == &hex(&binding)) {
+                extra
+            } else {
+                0
+            };
+            if size.saturating_add(reserve) > MAX_RECORD {
+                return Err(Error::Capacity);
+            }
+        }
+        Ok(())
+    }
     fn persist(&mut self) -> Result<()> {
+        self.capacity(None, 0)?;
         let result = self.write_state();
         if result.is_err() {
             self.healthy = false;
+        } else {
+            self.durable =
+                Zeroizing::new(serde_json::to_vec(&self.state).map_err(|_| Error::Integrity)?);
         }
         result
+    }
+    fn archive_path(&self, binding: [u8; 32], action: [u8; 32]) -> PathBuf {
+        self.root
+            .join(format!("action-{}-{}.aead", hex(&binding), hex(&action)))
+    }
+    fn archive(&self, binding: [u8; 32], action: &crate::evm_types::EvmAction) -> Result<()> {
+        let mut plain = Zeroizing::new(serde_json::to_vec(action).map_err(|_| Error::Integrity)?);
+        if plain.len() > MAX_RECORD {
+            return Err(Error::Capacity);
+        }
+        let mut nonce = [0; 12];
+        getrandom::fill(&mut nonce).map_err(|_| Error::Unavailable)?;
+        let mut aad = self.aad.clone();
+        aad.extend(binding);
+        aad.extend(action.authorization.action_key);
+        self.key
+            .seal_in_place_append_tag(
+                Nonce::assume_unique_for_key(nonce),
+                Aad::from(&aad),
+                &mut *plain,
+            )
+            .map_err(|_| Error::Unavailable)?;
+        let path = self.archive_path(binding, action.authorization.action_key);
+        let temp = path.with_extension("next");
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .custom_flags(rustix::fs::OFlags::NOFOLLOW.bits() as i32)
+            .mode(0o600)
+            .open(&temp)
+            .map_err(|_| Error::Unavailable)?;
+        file.write_all(&nonce)
+            .and_then(|()| file.write_all(&plain))
+            .and_then(|()| file.sync_all())
+            .map_err(|_| Error::Unavailable)?;
+        fs::rename(temp, path).map_err(|_| Error::Unavailable)?;
+        File::open(&self.root)
+            .and_then(|file| file.sync_all())
+            .map_err(|_| Error::Unavailable)
+    }
+    fn archived(
+        &self,
+        binding: [u8; 32],
+        key: [u8; 32],
+    ) -> Result<Option<crate::evm_types::EvmAction>> {
+        let wallet = self
+            .state
+            .records
+            .get(&hex(&binding))
+            .and_then(|record| record.wallet.as_ref())
+            .ok_or(Error::NotFound)?;
+        let Some(expected) = wallet.archived.get(&hex(&key)) else {
+            return Ok(None);
+        };
+        let mut encrypted = protected(&self.archive_path(binding, key), MAX_RECORD + 28, true)
+            .map_err(|_| Error::Unavailable)?;
+        if encrypted.len() < 28 {
+            return Err(Error::Integrity);
+        }
+        let nonce = encrypted[..12].try_into().map_err(|_| Error::Integrity)?;
+        let mut aad = self.aad.clone();
+        aad.extend(binding);
+        aad.extend(key);
+        let plain = self
+            .key
+            .open_in_place(
+                Nonce::assume_unique_for_key(nonce),
+                Aad::from(&aad),
+                &mut encrypted[12..],
+            )
+            .map_err(|_| Error::Integrity)?;
+        let action: crate::evm_types::EvmAction =
+            serde_json::from_slice(plain).map_err(|_| Error::Integrity)?;
+        if !action.acknowledged
+            || action.authorization.action_key != key
+            || action.authorization.binding_digest != binding
+            || authorization_hash(&action.authorization)? != *expected
+        {
+            return Err(Error::Integrity);
+        }
+        Ok(Some(action))
     }
     fn write_state(&self) -> Result<()> {
         let mut plain =
             Zeroizing::new(serde_json::to_vec(&self.state).map_err(|_| Error::Integrity)?);
         if plain.len() > MAX_STATE {
-            return Err(Error::Unavailable);
+            return Err(Error::Capacity);
         }
         let mut nonce = [0; 12];
         getrandom::fill(&mut nonce).map_err(|_| Error::Unavailable)?;
@@ -371,7 +521,23 @@ impl Store {
         &mut self,
         request: &Request<'_>,
         signing_digest: Option<[u8; 32]>,
+        clock: &dyn layerx_types::clock::Clock,
+        deadline: &mut layerx_types::clock::Deadline,
+    ) -> Result<Vec<u8>> {
+        let now = fresh(clock)?;
+        let result = self.dispatch_inner(request, signing_digest, now, clock, deadline);
+        if result.is_err() && self.healthy && !self.durable.is_empty() {
+            self.state = serde_json::from_slice(&self.durable).map_err(|_| Error::Integrity)?;
+        }
+        result
+    }
+    fn dispatch_inner(
+        &mut self,
+        request: &Request<'_>,
+        signing_digest: Option<[u8; 32]>,
         now: u64,
+        clock: &dyn layerx_types::clock::Clock,
+        deadline: &mut layerx_types::clock::Deadline,
     ) -> Result<Vec<u8>> {
         if !self.healthy {
             return Err(Error::Unavailable);
@@ -394,13 +560,24 @@ impl Store {
             Operation::Create => return self.create(request),
             Operation::Rotate => return Err(Error::Refused),
             Operation::AuthorizeSend => {
-                return self.authorize_send(request, signing_digest.ok_or(Error::Refused)?, now)
+                return self.authorize_send(
+                    request,
+                    signing_digest.ok_or(Error::Refused)?,
+                    now,
+                    clock,
+                    deadline,
+                )
             }
-            Operation::EvmWallet | Operation::Evm => return self.evm(request, now),
+            Operation::EvmWallet | Operation::Evm => return self.evm(request, clock, deadline),
             Operation::ExportPrimary => return self.export_primary(request),
             Operation::AcknowledgeExport => return self.acknowledge_export(request),
             Operation::Sign => {
-                return self.sign_evm(request, signing_digest.ok_or(Error::Refused)?)
+                return self.sign_evm(
+                    request,
+                    signing_digest.ok_or(Error::Refused)?,
+                    clock,
+                    deadline,
+                )
             }
             Operation::Describe | Operation::RotateIfCurrent | Operation::Destroy => {}
         }
@@ -434,7 +611,13 @@ impl Store {
             _ => Err(Error::Refused),
         }
     }
-    fn sign_evm(&mut self, request: &Request<'_>, digest: [u8; 32]) -> Result<Vec<u8>> {
+    fn sign_evm(
+        &mut self,
+        request: &Request<'_>,
+        digest: [u8; 32],
+        clock: &dyn layerx_types::clock::Clock,
+        deadline: &mut layerx_types::clock::Deadline,
+    ) -> Result<Vec<u8>> {
         let record = self
             .state
             .records
@@ -461,6 +644,18 @@ impl Store {
         if call.chain_id != u64::from(self.state.network) || digest != call.signing_hash() {
             return Err(Error::Integrity);
         }
+        self.capacity(
+            Some(request.binding),
+            request
+                .canonical
+                .len()
+                .saturating_mul(4)
+                .saturating_add(2048),
+        )?;
+        self.evm_attestors
+            .get_mut(&hex(&request.binding))
+            .ok_or(Error::Unavailable)?
+            .refresh(fresh(clock)?)?;
         reserve_nonce(
             &mut self.state.nonces,
             request.from,
@@ -473,7 +668,11 @@ impl Store {
             .get(&hex(&request.binding))
             .ok_or(Error::Unavailable)?
             .signer
-            .sign_evm_transaction(request.canonical, call.chain_id)
+            .sign_evm_transaction_bounded(
+                request.canonical,
+                call.chain_id,
+                Some(deadline.remaining(clock).map_err(|_| Error::Unavailable)?),
+            )
             .map(|mut signature| {
                 // LXKP Sign carries r || s || v; the attestor returns parity 0/1.
                 signature[64] += 27;
@@ -555,7 +754,63 @@ impl Store {
         request: &Request<'_>,
         digest: [u8; 32],
         now: u64,
+        clock: &dyn layerx_types::clock::Clock,
+        deadline: &mut layerx_types::clock::Deadline,
     ) -> Result<Vec<u8>> {
+        let authorization: crate::send::SendAuthorization =
+            serde_json::from_slice(request.evm).map_err(|_| Error::Refused)?;
+        let key = hex(&authorization.authorization.action_key);
+        let reservation: [u8; 32] =
+            Sha256::digest(serde_json::to_vec(&authorization).map_err(|_| Error::Integrity)?)
+                .into();
+        if let Some(record) = self.state.records.get(&hex(&request.binding)) {
+            if record.class != request.class || request.reference != record.handle {
+                return Err(Error::Refused);
+            }
+            if record
+                .send_reservations
+                .get(&key)
+                .is_some_and(|previous| *previous != reservation)
+            {
+                return Err(Error::Conflict);
+            }
+            if let Some(action) = record
+                .wallet
+                .as_ref()
+                .and_then(|wallet| wallet.actions.get(&key))
+            {
+                if !action.raw_transaction.is_empty() {
+                    if action.authorization != authorization.authorization {
+                        return Err(Error::Conflict);
+                    }
+                    crate::send::digest(
+                        &authorization,
+                        request.binding,
+                        self.state.network,
+                        3,
+                        now,
+                    )?;
+                    return Ok(action.raw_transaction.clone());
+                }
+            }
+            if let Some(action) =
+                self.archived(request.binding, authorization.authorization.action_key)?
+            {
+                if action.authorization != authorization.authorization {
+                    return Err(Error::Conflict);
+                }
+                crate::send::digest(&authorization, request.binding, self.state.network, 3, now)?;
+                return Ok(action.raw_transaction);
+            }
+        }
+        self.capacity(
+            Some(request.binding),
+            request.evm.len().saturating_mul(3).saturating_add(4096),
+        )?;
+        self.evm_attestors
+            .get_mut(&hex(&request.binding))
+            .ok_or(Error::Unavailable)?
+            .refresh(fresh(clock)?)?;
         let record = self
             .state
             .records
@@ -599,7 +854,7 @@ impl Store {
             self.state.network,
         )?;
         let mut candidate = wallet.clone();
-        candidate.authorize(authorization.authorization.clone(), now)?;
+        candidate.authorize(authorization.authorization.clone(), fresh(clock)?)?;
         let transaction = &authorization.authorization.transaction;
         reserve_nonce(
             &mut self.state.nonces,
@@ -609,6 +864,7 @@ impl Store {
             crate::evm::transaction_digest(transaction),
         )?;
         *wallet = candidate;
+        record.send_reservations.insert(key.clone(), reservation);
         // Commit authorization and the address-wide nonce before the remote signer can act.
         self.persist()?;
         let record = self
@@ -623,18 +879,98 @@ impl Store {
             .ok_or(Error::Unavailable)?;
         let action = wallet.sign(
             &authorization.authorization.action_key,
-            now,
+            clock,
             u64::from(self.state.network),
             &attestor.signer,
+            deadline,
         )?;
-        record
-            .send_actions
-            .insert(key, (authorization, action.raw_transaction.clone()));
+        // The wallet action contains the exact signed bytes; the reservation also binds the disclosure.
         self.persist()?;
         Ok(action.raw_transaction)
     }
-    fn evm(&mut self, request: &Request<'_>, now: u64) -> Result<Vec<u8>> {
+    fn evm(
+        &mut self,
+        request: &Request<'_>,
+        clock: &dyn layerx_types::clock::Clock,
+        deadline: &mut layerx_types::clock::Deadline,
+    ) -> Result<Vec<u8>> {
         use crate::evm_types::{EvmAcknowledgement, EvmPlanAuthorization};
+        let existing = self
+            .state
+            .records
+            .get(&hex(&request.binding))
+            .ok_or(Error::NotFound)?;
+        if existing.class != request.class || request.reference != existing.handle {
+            return Err(Error::Refused);
+        }
+        if existing.self_custodied {
+            return Err(Error::SelfCustodied);
+        }
+        if matches!(request.operation, 7..=10 | 12) {
+            let key = match request.operation {
+                7 => {
+                    serde_json::from_slice::<EvmPlanAuthorization>(request.evm)
+                        .map_err(|_| Error::Refused)?
+                        .action_key
+                }
+                9 => {
+                    serde_json::from_slice::<EvmAcknowledgement>(request.evm)
+                        .map_err(|_| Error::Refused)?
+                        .action_key
+                }
+                12 => {
+                    serde_json::from_slice::<crate::evm_types::EvmExternalSignature>(request.evm)
+                        .map_err(|_| Error::Refused)?
+                        .action_key
+                }
+                _ => serde_json::from_slice(request.evm).map_err(|_| Error::Refused)?,
+            };
+            if let Some(action) = self.archived(request.binding, key)? {
+                if request.operation == 7
+                    && serde_json::from_slice::<EvmPlanAuthorization>(request.evm)
+                        .map_err(|_| Error::Refused)?
+                        != action.authorization
+                {
+                    return Err(Error::Conflict);
+                }
+                if request.operation == 9
+                    && serde_json::from_slice::<EvmAcknowledgement>(request.evm)
+                        .map_err(|_| Error::Refused)?
+                        .transaction_hash
+                        != action.transaction_hash.ok_or(Error::Integrity)?
+                {
+                    return Err(Error::Integrity);
+                }
+                if request.operation == 12 {
+                    let imported: crate::evm_types::EvmExternalSignature =
+                        serde_json::from_slice(request.evm).map_err(|_| Error::Refused)?;
+                    let mut wallet = existing.wallet.as_ref().ok_or(Error::NotFound)?.clone();
+                    wallet.actions.insert(hex(&key), action.clone());
+                    wallet.accept_external_with_clock(&key, &imported.signature, clock)?;
+                }
+                return serde_json::to_vec(&action).map_err(|_| Error::Integrity);
+            }
+        }
+        if request.operation == 8 {
+            let key: [u8; 32] = serde_json::from_slice(request.evm).map_err(|_| Error::Refused)?;
+            let action = existing
+                .wallet
+                .as_ref()
+                .and_then(|wallet| wallet.actions.get(&hex(&key)))
+                .ok_or(Error::NotFound)?;
+            let extra = action
+                .authorization
+                .transaction
+                .calldata
+                .len()
+                .saturating_add(256)
+                .saturating_mul(4);
+            self.capacity(Some(request.binding), extra)?;
+            self.evm_attestors
+                .get_mut(&hex(&request.binding))
+                .ok_or(Error::Unavailable)?
+                .refresh(fresh(clock)?)?;
+        }
         let record = self
             .state
             .records
@@ -658,6 +994,9 @@ impl Store {
                 let mut wallet = crate::evm::Wallet::create(&attestor.key_id, attestor.address)?;
                 wallet.tenant.clone_from(&attestor.tenant);
                 wallet.principal.clone_from(&attestor.principal);
+                wallet
+                    .assertion_subject
+                    .clone_from(&attestor.assertion_subject);
                 record.wallet = Some(wallet);
             }
             let address = record.wallet.as_ref().ok_or(Error::Integrity)?.address;
@@ -681,7 +1020,7 @@ impl Store {
                 )?;
                 let digest = crate::evm::transaction_digest(&authorization.transaction);
                 let mut candidate = wallet.clone();
-                let action = candidate.authorize(authorization, now)?;
+                let action = candidate.authorize(authorization, fresh(clock)?)?;
                 let transaction = &action.authorization.transaction;
                 reserve_nonce(
                     &mut self.state.nonces,
@@ -701,7 +1040,13 @@ impl Store {
                     .get(&hex(&request.binding))
                     .ok_or(Error::Unavailable)?;
                 attestor.validate_wallet(wallet)?;
-                wallet.sign(&key, now, u64::from(self.state.network), &attestor.signer)?
+                wallet.sign(
+                    &key,
+                    clock,
+                    u64::from(self.state.network),
+                    &attestor.signer,
+                    deadline,
+                )?
             }
             9 => {
                 let ack: EvmAcknowledgement =
@@ -728,10 +1073,25 @@ impl Store {
             12 => {
                 let request: crate::evm_types::EvmExternalSignature =
                     serde_json::from_slice(request.evm).map_err(|_| Error::Refused)?;
-                wallet.accept_external(&request.action_key, &request.signature, now)?
+                wallet.accept_external_with_clock(&request.action_key, &request.signature, clock)?
             }
             _ => return Err(Error::Refused),
         };
+        if request.operation == 9 {
+            self.archive(request.binding, &action)?;
+            let record = self
+                .state
+                .records
+                .get_mut(&hex(&request.binding))
+                .ok_or(Error::NotFound)?;
+            let wallet = record.wallet.as_mut().ok_or(Error::NotFound)?;
+            let key = hex(&action.authorization.action_key);
+            wallet
+                .archived
+                .insert(key.clone(), authorization_hash(&action.authorization)?);
+            wallet.actions.remove(&key);
+            record.send_actions.remove(&key);
+        }
         let response = serde_json::to_vec(&action).map_err(|_| Error::Integrity)?;
         self.persist()?;
         Ok(response)
@@ -768,6 +1128,7 @@ impl Store {
             wallet: None,
             send_actions: BTreeMap::new(),
             recipient_identity: None,
+            send_reservations: BTreeMap::new(),
             self_custodied: false,
             export: None,
         };
@@ -875,6 +1236,9 @@ fn validate(state: &State, config: &Config) -> std::result::Result<(), String> {
 
 fn attestor_error(error: crate::attestor::AttestorError) -> Error {
     match error {
+        crate::attestor::AttestorError::Refused { ref code, .. } if code == "assertion.expired" => {
+            Error::Expired
+        }
         crate::attestor::AttestorError::Refused { .. } => Error::Refused,
         crate::attestor::AttestorError::SignatureInvalid { .. }
         | crate::attestor::AttestorError::MalformedResponse { .. } => Error::Integrity,
@@ -895,4 +1259,14 @@ fn validate_authorization(
         return Err(Error::Refused);
     }
     Ok(())
+}
+
+fn fresh(clock: &dyn layerx_types::clock::Clock) -> Result<u64> {
+    clock
+        .sample(std::time::Duration::from_secs(1))
+        .map(|reading| reading.unix_seconds())
+        .map_err(|_| Error::Unavailable)
+}
+fn authorization_hash(authorization: &crate::evm_types::EvmPlanAuthorization) -> Result<[u8; 32]> {
+    Ok(Sha256::digest(serde_json::to_vec(authorization).map_err(|_| Error::Integrity)?).into())
 }
