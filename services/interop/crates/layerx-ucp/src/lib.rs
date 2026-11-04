@@ -1,5 +1,9 @@
 #![forbid(unsafe_code)]
 
+mod config;
+
+pub use config::{ConfiguredUcpPaymentPlane, MerchantCurrencyBinding, UcpServiceConfig};
+
 use std::fmt::{Display, Formatter};
 
 use layerx_interop_gateway::adapter::{AdapterDescriptor, AdapterId, ConformanceSuite, PinnedSpec};
@@ -466,6 +470,7 @@ impl OrderMetadata {
 pub struct UcpPaymentIntent {
     pub checkout_id: String,
     pub currency: [u8; 3],
+    /// Asset atomic units, converted using the merchant's currency binding.
     pub amount: u128,
     pub asset: [u8; 32],
     pub recipient: [u8; 32],
@@ -489,6 +494,11 @@ pub struct ExecutedUcpPayment {
 
 /// Typed `LayerX` payment boundary used by the UCP seller.
 pub trait UcpPaymentPlane {
+    /// Returns deployment-owned payment units. Unconfigured planes refuse checkout.
+    fn service_config(&self) -> Result<UcpServiceConfig, UcpError> {
+        Err(UcpError::CurrencyBindingRequired)
+    }
+
     /// Executes one checkout payment under the supplied stable identity.
     ///
     /// # Errors
@@ -585,12 +595,14 @@ impl UcpAdapter {
     ) -> Result<CheckoutOutcome, Traced<UcpError>> {
         let fail = |error| trace.wrap(error);
         submission.validate().map_err(fail)?;
+        let config = plane.service_config().map_err(fail)?;
+        let amount = config.atomic_amount(submission).map_err(fail)?;
         let key = submission.idempotency_key.gateway_key();
         let request = TranslationRequest::new(
             adapter_id().map_err(fail)?,
             TranslationKind::StateChanging,
             key,
-            request_digest(submission),
+            request_digest(submission, &config),
         )
         .map_err(|error| fail(UcpError::Gateway(error)))?;
         let previously_settled = match gateway
@@ -609,7 +621,7 @@ impl UcpAdapter {
         let intent = UcpPaymentIntent {
             checkout_id: submission.checkout_id.clone(),
             currency: submission.currency,
-            amount: submission.total_minor,
+            amount,
             asset: submission.layerx_asset,
             recipient: submission.layerx_recipient,
             idempotency_key: key,
@@ -637,9 +649,13 @@ impl UcpAdapter {
                 }
                 metadata.validate().map_err(fail)?;
                 verify_order_evidence(&evidence, receipt_keys).map_err(fail)?;
-                let receipt_digest =
-                    verify_sequencer_receipt(submission, &evidence.signed_receipt, receipt_keys)
-                        .map_err(fail)?;
+                let receipt_digest = verify_sequencer_receipt_with_config(
+                    submission,
+                    &evidence.signed_receipt,
+                    receipt_keys,
+                    &config,
+                )
+                .map_err(fail)?;
                 let status = gateway
                     .settle_with_sequencer_evidence(
                         principal,
@@ -684,7 +700,20 @@ impl UcpAdapter {
         stored: &StoredOrder,
         receipt_keys: &[SequencerAuthorization],
     ) -> Result<UcpOrder, UcpError> {
+        Self::read_order_with_config(stored, receipt_keys, &UcpServiceConfig::default())
+    }
+
+    /// Re-verifies an order using the merchant's current deployment binding.
+    ///
+    /// # Errors
+    /// Refuses an unconfigured, changed or mismatched currency/asset binding.
+    pub fn read_order_with_config(
+        stored: &StoredOrder,
+        receipt_keys: &[SequencerAuthorization],
+        config: &UcpServiceConfig,
+    ) -> Result<UcpOrder, UcpError> {
         stored.submission.validate()?;
+        config.atomic_amount(&stored.submission)?;
         if !stored.submission.negotiated.order {
             return Err(UcpError::CapabilityUnavailable);
         }
@@ -696,8 +725,12 @@ impl UcpAdapter {
             rung: stored.rung,
         };
         verify_order_evidence(&evidence, receipt_keys)?;
-        let receipt_digest =
-            verify_sequencer_receipt(&stored.submission, &stored.signed_receipt, receipt_keys)?;
+        let receipt_digest = verify_sequencer_receipt_with_config(
+            &stored.submission,
+            &stored.signed_receipt,
+            receipt_keys,
+            config,
+        )?;
         Ok(order(stored, receipt_digest))
     }
 }
@@ -724,7 +757,26 @@ pub fn verify_sequencer_receipt(
     canonical_receipt: &[u8],
     receipt_keys: &[SequencerAuthorization],
 ) -> Result<[u8; 32], UcpError> {
+    verify_sequencer_receipt_with_config(
+        submission,
+        canonical_receipt,
+        receipt_keys,
+        &UcpServiceConfig::default(),
+    )
+}
+
+/// Verifies native payment evidence against explicitly configured merchant units.
+///
+/// # Errors
+/// Refuses an absent binding, inexact conversion, overflow or receipt mismatch.
+pub fn verify_sequencer_receipt_with_config(
+    submission: &CheckoutSubmission,
+    canonical_receipt: &[u8],
+    receipt_keys: &[SequencerAuthorization],
+    config: &UcpServiceConfig,
+) -> Result<[u8; 32], UcpError> {
     submission.validate()?;
+    let amount = config.atomic_amount(submission)?;
     let verified = verify_sequencer_signature(canonical_receipt, receipt_keys)
         .map_err(|_| UcpError::ReceiptMismatch)?;
     let protocol = verified.protocol().ok_or(UcpError::ReceiptMismatch)?;
@@ -766,7 +818,7 @@ pub fn verify_sequencer_receipt(
     let reference = submission.idempotency_key.gateway_key();
     let mut payment_data = [0; 64];
     payment_data[..32].copy_from_slice(&submission.layerx_asset);
-    payment_data[48..].copy_from_slice(&submission.total_minor.to_be_bytes());
+    payment_data[48..].copy_from_slice(&amount.to_be_bytes());
     let data_digest: [u8; 32] = Sha256::digest(payment_data).into();
     let mut matched = false;
     for (position, effect) in effects.iter().enumerate().skip(1) {
@@ -887,9 +939,10 @@ const fn refused_outcome() -> CheckoutOutcome {
     }
 }
 
-fn request_digest(submission: &CheckoutSubmission) -> [u8; 32] {
+fn request_digest(submission: &CheckoutSubmission, config: &UcpServiceConfig) -> [u8; 32] {
     let mut hash = Sha256::new();
     hash.update(REQUEST_DOMAIN);
+    hash.update(config.digest());
     hash.update(submission.checkout_id.as_bytes());
     hash.update([0]);
     hash.update(submission.currency);
@@ -975,6 +1028,11 @@ pub enum UcpError {
     InvalidIdempotencyKey,
     InvalidCheckout,
     InvalidOrder,
+    CurrencyBindingRequired,
+    InvalidCurrencyBinding,
+    CurrencyBindingMismatch,
+    AmountOverflow,
+    InexactAmount,
     PlaneRefused,
     ReceiptRequired,
     ReceiptMismatch,
@@ -998,6 +1056,19 @@ impl Display for UcpError {
             Self::InvalidIdempotencyKey => formatter.write_str("UCP idempotency key is invalid"),
             Self::InvalidCheckout => formatter.write_str("UCP checkout is invalid"),
             Self::InvalidOrder => formatter.write_str("UCP order metadata is invalid"),
+            Self::CurrencyBindingRequired => {
+                formatter.write_str("merchant currency binding is required")
+            }
+            Self::InvalidCurrencyBinding => {
+                formatter.write_str("merchant currency binding is invalid")
+            }
+            Self::CurrencyBindingMismatch => {
+                formatter.write_str("checkout currency or asset does not match merchant binding")
+            }
+            Self::AmountOverflow => formatter.write_str("checkout atomic amount overflows"),
+            Self::InexactAmount => {
+                formatter.write_str("checkout total cannot be represented in asset atomic units")
+            }
             Self::PlaneRefused => formatter.write_str("checkout payment was refused"),
             Self::ReceiptRequired => formatter.write_str("a verified LayerX receipt is required"),
             Self::ReceiptMismatch => {

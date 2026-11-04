@@ -264,6 +264,42 @@ pub(super) fn journey_list_with(
 }
 
 impl super::ProductionComponents {
+    pub fn managed_receipt_material(
+        id: &str,
+        evidence: &VerifiedLegEvidence,
+    ) -> Result<Value, ApiFailure> {
+        if id.strip_prefix("evd_").and_then(decode_digest) != Some(evidence.receipt_digest)
+            || <[u8; 32]>::from(Sha256::digest(&evidence.canonical_receipt))
+                != evidence.receipt_digest
+            || evidence.canonical_receipt != evidence.signed_receipt
+        {
+            return Err(ApiFailure::upstream_degraded());
+        }
+        let verification = match evidence.rung {
+            Rung::Receipted => "receipt-verified",
+            Rung::Committed => "checkpoint-finalised",
+            Rung::Submitted => return Err(ApiFailure::upstream_degraded()),
+        };
+        let key_entry = layerx_proof::inclusion::SequencerAuthorization::new(
+            evidence.receipt_key.key_id,
+            evidence.receipt_key.public_key,
+            evidence.receipt_key.first_height,
+            evidence.receipt_key.last_height,
+        );
+        let portable = PortableReceiptV2::export(
+            &evidence.signed_receipt,
+            &key_entry,
+            evidence.inclusion_height,
+        )
+        .and_then(|receipt| receipt.to_json())
+        .map_err(|_| ApiFailure::upstream_degraded())?;
+        Ok(
+            json!({"evidence_id":id,"class":"layerx-receipt","verification":verification,
+            "content_type":"application/vnd.layerx.receipt-proof-v2+json","bytes_base64":STANDARD.encode(portable),
+            "rung":evidence.rung.name(),"inclusion_height":evidence.inclusion_height}),
+        )
+    }
+
     pub fn evidence_get(
         scope: &PrincipalScope<'_>,
         request: &ScopedRequest<'_>,
@@ -313,6 +349,40 @@ fn evidence_get(
             "content_type": "application/vnd.layerx.state-proof", "bytes_base64": STANDARD.encode(row.bytes())}),
         ));
     }
+    if let Some(journey) = crate::onboarding::OnboardingJourney::load(scope)
+        .map_err(|_| ApiFailure::upstream_degraded())?
+    {
+        for stage in journey.status().stages() {
+            for pointer in stage.evidence() {
+                if let Some(row) = scope.get(Table::Journeys, pointer.row()) {
+                    if <[u8; 32]>::from(Sha256::digest(row.bytes())) == expected {
+                        let (class, verification, content_type) = match pointer.class() {
+                            crate::onboarding::EvidenceClass::LayerxReceipt => (
+                                "layerx-receipt",
+                                "receipt-verified",
+                                "application/vnd.layerx.receipt",
+                            ),
+                            crate::onboarding::EvidenceClass::SubmissionRecord => (
+                                "submission-record",
+                                "unverified",
+                                "application/vnd.layerx.submission",
+                            ),
+                            crate::onboarding::EvidenceClass::LocalJourneyState
+                            | crate::onboarding::EvidenceClass::CustodyKey => (
+                                "local-journey-state",
+                                "unverified",
+                                "application/octet-stream",
+                            ),
+                        };
+                        return Ok(response(
+                            json!({"evidence_id":id,"class":class,"verification":verification,
+                            "content_type":content_type,"bytes_base64":STANDARD.encode(row.bytes())}),
+                        ));
+                    }
+                }
+            }
+        }
+    }
     if let Some((entry_id, evidence)) = journey_receipt(scope, expected)? {
         let verification = receipt_label(
             scope,
@@ -326,31 +396,8 @@ fn evidence_get(
         if verification != "receipt-verified" {
             return Err(ApiFailure::upstream_degraded());
         }
-        let verification = match evidence.rung {
-            Rung::Receipted => "receipt-verified",
-            Rung::Committed => "checkpoint-finalised",
-            Rung::Submitted => return Err(ApiFailure::upstream_degraded()),
-        };
-        let key_entry = layerx_proof::inclusion::SequencerAuthorization::new(
-            evidence.receipt_key.key_id,
-            evidence.receipt_key.public_key,
-            evidence.receipt_key.first_height,
-            evidence.receipt_key.last_height,
-        );
-        let portable = PortableReceiptV2::export(
-            &evidence.signed_receipt,
-            &key_entry,
-            evidence.inclusion_height,
-        )
-        .and_then(|receipt| receipt.to_json())
-        .map_err(|_| ApiFailure::upstream_degraded())?;
         return Ok(response(
-            json!({"evidence_id": id, "class": "layerx-receipt", "verification": verification,
-            "content_type": "application/vnd.layerx.receipt-proof-v2+json", "bytes_base64": STANDARD.encode(portable),
-            "signed_receipt": STANDARD.encode(evidence.signed_receipt), "tx_hash": hex(&evidence.tx_hash),
-            "rung": evidence.rung.name(), "inclusion_height": evidence.inclusion_height,
-            "receipt_key": {"key_id": hex(&evidence.receipt_key.key_id), "public_key": hex(&evidence.receipt_key.public_key),
-                "first_height": evidence.receipt_key.first_height, "last_height": evidence.receipt_key.last_height}}),
+            super::ProductionComponents::managed_receipt_material(id, &evidence)?,
         ));
     }
     let mut records = Vec::new();
@@ -884,14 +931,13 @@ fn cached_balance_verification(
     bytes: &[u8],
     expected: [u8; 32],
 ) -> Result<(&'static str, &'static str), ApiFailure> {
-    if Sha256::digest(bytes)[..] != expected || bytes.get(..5) != Some(b"LXHB1") {
+    if Sha256::digest(bytes)[..] != expected {
         return Err(ApiFailure::upstream_degraded());
     }
-    match bytes.get(5) {
-        Some(1..=3) => Ok(("layerx-receipt", "receipt-verified")),
-        Some(4) => Ok(("checkpoint-proof", "checkpoint-finalised")),
-        Some(5) => Ok(("checkpoint-proof", "settlement-anchored")),
-        _ => Err(ApiFailure::upstream_degraded()),
+    match super::production_components::AccountBalance::material_rung(bytes)? {
+        None | Some(Rung::Submitted) => Ok(("submission-record", "unverified")),
+        Some(Rung::Receipted) => Ok(("layerx-receipt", "receipt-verified")),
+        Some(Rung::Committed) => Ok(("checkpoint-proof", "checkpoint-finalised")),
     }
 }
 

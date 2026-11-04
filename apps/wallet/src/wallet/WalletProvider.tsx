@@ -198,6 +198,15 @@ function defaultTarget(): EventTarget | undefined {
   return typeof window === 'undefined' ? undefined : window;
 }
 
+function activeWalletChain(mode: CustodyMode | null, configuredChain: number): number {
+  if (mode !== 'embedded') return configuredChain;
+  const preferences = preferencesRepository.read();
+  const active = preferences.networks.find(
+    (network) => network.chainId === preferences.activeChainId
+  );
+  return active?.chainId ?? configuredChain;
+}
+
 export function WalletProvider({
   children,
   config: configProp,
@@ -268,7 +277,7 @@ export function WalletProvider({
       const user = await identity.user();
       custodyChoiceRepository.write('embedded');
       const chain = await wallet.chainId();
-      if (chain !== expectedChain)
+      if (chain !== activeWalletChain('embedded', expectedChain))
         throw new WalletUnavailableError(
           'the embedded wallet chain differs from the configured chain'
         );
@@ -443,12 +452,29 @@ export function WalletProvider({
         invalidate();
       }
     };
+    const onChain = (payload: unknown) => {
+      if (connectionRef.current.wallet !== wallet) return;
+      if (
+        !(wallet.provider instanceof WalletNetworkProvider) ||
+        typeof payload !== 'string' ||
+        !/^0x[0-9a-f]+$/i.test(payload)
+      ) {
+        invalidate();
+        return;
+      }
+      const chainId = Number(BigInt(payload));
+      if (chainId !== activeWalletChain('embedded', expectedRef.current)) {
+        invalidate();
+        return;
+      }
+      setConnection((prev) => ({ ...prev, chainId }));
+    };
     wallet.on('accountsChanged', onAccounts);
-    wallet.on('chainChanged', invalidate);
+    wallet.on('chainChanged', onChain);
     wallet.on('disconnect', invalidate);
     return () => {
       wallet.off('accountsChanged', onAccounts);
-      wallet.off('chainChanged', invalidate);
+      wallet.off('chainChanged', onChain);
       wallet.off('disconnect', invalidate);
       wallet.dispose();
     };
@@ -519,7 +545,11 @@ export function WalletProvider({
 
   const requireWallet = useCallback((action: string): WalletInterface => {
     const current = connectionRef.current;
-    if (current.status !== 'ready' || !current.wallet || current.chainId !== expectedRef.current)
+    if (
+      current.status !== 'ready' ||
+      !current.wallet ||
+      current.chainId !== activeWalletChain(current.mode, expectedRef.current)
+    )
       throw new WalletNotReadyError(action);
     return current.wallet;
   }, []);
@@ -533,13 +563,13 @@ export function WalletProvider({
       throw new WalletNotReadyError('refresh');
     if (
       !address ||
-      chain !== expectedChain ||
+      chain !== activeWalletChain(connectionRef.current.mode, expectedRef.current) ||
       address.toLowerCase() !== connectionRef.current.address?.toLowerCase()
     ) {
       setConnection(signedOut(connectionRef.current.mode));
       throw new WalletUnavailableError('the wallet account or configured chain changed; reconnect');
     }
-  }, [requireWallet, expectedChain, setConnection]);
+  }, [requireWallet, setConnection]);
 
   const signOut = useCallback(async (): Promise<void> => {
     const current = connectionRef.current;
@@ -558,17 +588,25 @@ export function WalletProvider({
   }, [identity]);
 
   const sendTransaction = useCallback(
-    async (tx: WalletTransaction) =>
-      requireWallet('sendTransaction').sendTransaction({
+    async (tx: WalletTransaction) => {
+      const wallet = requireWallet('sendTransaction');
+      const chainId = activeWalletChain(connectionRef.current.mode, expectedRef.current);
+      if (tx.chainId !== undefined && tx.chainId !== chainId)
+        throw new ChainDisconnectedError(tx.chainId, chainId);
+      return wallet.sendTransaction({
         ...tx,
-        chainId: tx.chainId ?? expectedChain,
-      }),
-    [requireWallet, expectedChain]
+        chainId,
+      });
+    },
+    [requireWallet]
   );
   const send = useCallback(
-    async (transfer: TransferRequest) =>
-      requireWallet('send').sendTransaction(transferTransaction(transfer, expectedChain)),
-    [requireWallet, expectedChain]
+    async (transfer: TransferRequest) => {
+      const wallet = requireWallet('send');
+      const chainId = activeWalletChain(connectionRef.current.mode, expectedRef.current);
+      return wallet.sendTransaction(transferTransaction(transfer, chainId));
+    },
+    [requireWallet]
   );
   const signMessage = useCallback(
     async (text: string) => requireWallet('signMessage').signMessage(text),
@@ -590,7 +628,7 @@ export function WalletProvider({
       epochRef.current === epoch &&
       current.address === address &&
       current.chainId === chain &&
-      expectedRef.current === chain
+      activeWalletChain(current.mode, expectedRef.current) === chain
     );
   }, []);
 

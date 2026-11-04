@@ -74,7 +74,7 @@ public final class ProgramsClient {
         public boolean committed() { return false; }
     }
 
-    public static final class Programs {
+    public static final class Programs implements AutoCloseable {
         private final java.net.URI endpoint;
         private final java.net.http.HttpClient http;
         private final com.fasterxml.jackson.databind.ObjectMapper json = new com.fasterxml.jackson.databind.ObjectMapper();
@@ -86,6 +86,8 @@ public final class ProgramsClient {
                     || endpoint.getUserInfo() != null || endpoint.getFragment() != null) invalid();
             this.http = java.net.http.HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
         }
+
+        @Override public void close() { http.close(); }
 
         public CompletionStage<JsonNode> request(String method, ArrayNode params) {
             long id = ids.incrementAndGet();
