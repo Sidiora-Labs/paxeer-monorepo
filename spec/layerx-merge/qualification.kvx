@@ -27715,3 +27715,35 @@ symbol = "repair-22-33-301.spec.ts"
 observed = "Attempt 1: the build stopped on the 299 spec's TS2769 outside this task's paths; no test ran."
 assumption = "A defect published by a neighbouring task, repaired by 22.31.474."
 severity = "low"
+
+[finding.22.33.1206.2]
+task = "22.33.1206"
+file = "interchain/modules/apps/transfer/repair_m1206_test.go"
+symbol = "repair_m1206_test.go"
+observed = "Attempt 3: build passed and five proofs passed; the metrics proof decoded the producer's label object as a list."
+assumption = "A test decoder that did not match the producer's wire shape."
+severity = "low"
+
+[finding.22.33.1400.3]
+task = "22.33.1400"
+file = "services/platform/examples/test/repair-22-33-1400.test.mjs"
+symbol = "repair-22-33-1400.test.mjs"
+observed = "Attempt 3: build passed and 13 cases passed; two merchant cases refused a stale recorded receipt whose purpose did not bind the offer."
+assumption = "A stale test recording the task regenerates with its own signing helper."
+severity = "medium"
+
+[finding.22.33.175.4]
+task = "22.33.175"
+file = "services/wallet/ceremony/internal/testsupport/repair_m175_test.go"
+symbol = "repair_m175_test.go"
+observed = "Attempt 4: the fixture and recovery tests were written; the build stopped on a missing module requirement before compiling."
+assumption = "A module manifest the task must own to compile its fixture."
+severity = "low"
+
+[finding.22.33.302.2]
+task = "22.33.302"
+file = "apps/explorer/ui/multichain/home/repair-22-33-302.spec.ts"
+symbol = "repair-22-33-302.spec.ts"
+observed = "Attempt 3: the SVG geometry setup was added; the build stopped on the 299 spec's TS2769 outside this task's paths; no test ran."
+assumption = "A defect published by a neighbouring task, repaired by 22.31.474."
+severity = "low"
