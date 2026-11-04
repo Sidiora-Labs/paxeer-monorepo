@@ -1,0 +1,29 @@
+[manifest]
+task = "22.32.5"
+domain = 3
+owner_role = "fm-markets"
+pages = 4
+
+[page.1]
+path = "apps/perps/data_api.md"
+status = "stale"
+bytes = 15393
+source_1 = "record 22.30.12 [doc.013] (stale): Lines 132-149 and 388-411 document obsolete funding names and numeric estimates. Rewrite active funding fields, exact string units and nullability from the current record producer and symbol adapter."
+
+[page.2]
+path = "apps/perps/deploy/README.md"
+status = "misleading"
+bytes = 15247
+source_1 = "record 22.30.15 [doc.deployment] (misleading): Read in full as both a member and a documentation page. Lines 59-79, 190, 238-241 and 282 assume an app container absent from compose or promise environment changes from restart; see compose-app-service-absent and runtime-env-restart-instructions."
+
+[page.3]
+path = "apps/perps/src/app/modals/SettingsModal.md"
+status = "stale"
+bytes = 8583
+source_1 = "record 22.30.10 [doc.1] (stale): Entire member page read. Lines 54-75 describe absent settings and lines 203-208 use obsolete imports; settings-guide-drift proposes the rewrite."
+
+[page.4]
+path = "apps/perps/src/components/paxeer/README.md"
+status = "misleading"
+bytes = 6349
+source_1 = "record 22.30.12 [doc.014] (misleading): Line 3 calls unmounted demonstrations production-ready; lines 139-143 promise address, onClick, value, chainId and onConfirm props absent from the implementations. Retire the drop-in claims and point integrators at wired widgets."

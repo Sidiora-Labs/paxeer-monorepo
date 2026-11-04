@@ -1,0 +1,11 @@
+[manifest]
+task = "22.32.66"
+domain = 6
+owner_role = "fm-chain-modules"
+pages = 1
+
+[page.1]
+path = "modules/layerxbridge/ATTESTATION.md"
+status = "stale"
+bytes = 5972
+source_1 = "record 22.30.62 [doc.13] (stale): Lines 85-86 omit the canonical Sidiora usid exception; binary preimages, recipient padding, signatures, nullifiers and named vectors remain consistent with Go and the EVM vault document."

@@ -1,0 +1,23 @@
+[manifest]
+task = "22.32.137"
+domain = 14
+owner_role = "fm-web-explorer-bridge"
+pages = 1
+
+[page.1]
+path = "docs/wiki/Cli.md"
+status = "misleading"
+bytes = 43546
+source_1 = "record 22.30.105 [doc.05] (misleading): Lines 8, 131, 278 and 298 mirror the invalid /rpc requirement and contradictory global-flag account in the site CLI page."
+source_2 = "record 22.30.131 [doc.8] (misleading): Line 8 and 131 require the retired /rpc path; lines 106-138 contradict the preceding implemented wallet/token command inventory."
+source_3 = "record 22.30.145 [doc.05] (misleading): Read the full command reference, installation, transport, error and receipt examples and compared site/wiki copies. Lines 8 and 278-298 require retired /rpc routing; line 106 contradicts the shipped command table above it. Separate findings record endpoint and implementation-status drift."
+source_4 = "record 22.30.146 [doc.003] (misleading): Line 8 requires a /rpc suffix; lines 103-148 contradict the earlier implemented-command table; later daemon and receipt-level guidance retain pre-merge assumptions. Rewrite site and wiki together."
+source_5 = "record 22.30.152 [doc.12] (stale): Lines8,106-139,294-298 and334 retain unified router/authorized-batch workflows and conflicting command availability; see the corresponding CLI documentation finding."
+source_6 = "record 22.30.155 [doc.7] (misleading): The wallet/token command table conflicts with the unimplemented-groups section at lines 105-135, including an obsolete /rpc restriction."
+source_7 = "record 22.30.156 [doc.03] (misleading): Repeats the site /rpc and contradictory wallet/token availability claims at the same lines. Reviewed the site text and complete wiki differences."
+source_8 = "record 22.30.21 [doc.2] (stale): Reviewed the page and its package-facing guidance; exact drift and owner rewrite proposals are recorded in cli-wiki-rpc."
+source_9 = "record 22.30.23 [doc.6] (stale): Lines 8 and 131 require /rpc; lines 277-300 describe gateway /rpc transactions; lines 334-350 retain sequencer receipt/batch authority."
+source_10 = "record 22.30.30 [doc.11] (stale): Read in full. finding.cli-doc-wiki at line 8. Retired topology and endpoint instructions require a coordinated rewrite."
+source_11 = "record 22.30.89 [doc.wiki_cli] (misleading): Read in full. Lines8,44-51,75,110-150,290 and345 need endpoint, command availability, faucet, lifecycle and verification rewrites; the site and wiki describe the same obsolete behavior."
+source_12 = "record 22.30.91 [doc.cli_wiki] (misleading): Read the full command catalogue, headless credential-store instructions, errors and receipt sections. Lines 8, 131, 277-298 retain /rpc routing; lines 106-145 contradict the implemented command table and global options above them. Credential vault documentation is separately consistent with the stated protected-file contract."
+source_13 = "record 22.30.93 [doc.12] (misleading): Read the full page and compared the mirror. Lines 8, 131 and 277-299 require retired /rpc transport; lines 106-138 contradict implemented commands/flags described earlier. Reconcile the inventory and current node/gateway examples."

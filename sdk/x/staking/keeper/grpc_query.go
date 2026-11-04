@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"google.golang.org/grpc/codes"
@@ -389,8 +390,10 @@ func (k Querier) Redelegations(c context.Context, req *types.QueryRedelegationsR
 	store := ctx.KVStore(k.storeKey)
 	switch {
 	case req.DelegatorAddr != "" && req.SrcValidatorAddr != "" && req.DstValidatorAddr != "":
-		redels, err = queryRedelegation(ctx, k, req)
-		pageRes = &query.PageResponse{}
+		_, err = queryRedelegation(ctx, k, req)
+		if err == nil {
+			redels, pageRes, err = queryAllRedelegations(store, k, req)
+		}
 	case req.DelegatorAddr == "" && req.SrcValidatorAddr != "" && req.DstValidatorAddr == "":
 		redels, pageRes, err = queryRedelegationsFromSrcValidator(store, k, req)
 	default:
@@ -523,20 +526,84 @@ func queryRedelegationsFromSrcValidator(store sdk.KVStore, k Querier, req *types
 }
 
 func queryAllRedelegations(store sdk.KVStore, k Querier, req *types.QueryRedelegationsRequest) (redels types.Redelegations, res *query.PageResponse, err error) {
-	delAddr, err := sdk.AccAddressFromBech32(req.DelegatorAddr)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	redStore := prefix.NewStore(store, types.GetREDsKey(delAddr))
-	res, err = query.Paginate(redStore, req.Pagination, func(key []byte, value []byte) error {
-		redelegation, err := types.UnmarshalRED(k.cdc, value)
+	redPrefix := types.RedelegationKey
+	if req.DelegatorAddr != "" {
+		delAddr, err := sdk.AccAddressFromBech32(req.DelegatorAddr)
 		if err != nil {
-			return err
+			return nil, nil, err
 		}
-		redels = append(redels, redelegation)
-		return nil
+		redPrefix = types.GetREDsKey(delAddr)
+	}
+	src, dst := "", ""
+	if req.SrcValidatorAddr != "" {
+		addr, err := sdk.ValAddressFromBech32(req.SrcValidatorAddr)
+		if err != nil {
+			return nil, nil, err
+		}
+		src = addr.String()
+	}
+	if req.DstValidatorAddr != "" {
+		addr, err := sdk.ValAddressFromBech32(req.DstValidatorAddr)
+		if err != nil {
+			return nil, nil, err
+		}
+		dst = addr.String()
+	}
+	redStore := prefix.NewStore(store, redPrefix)
+	matches := func(red types.Redelegation) bool {
+		return (src == "" || red.ValidatorSrcAddress == src) && (dst == "" || red.ValidatorDstAddress == dst)
+	}
+	var nextMatchingKey []byte
+	res, err = query.FilteredPaginate(redStore, req.Pagination, func(key, value []byte, accumulate bool) (bool, error) {
+		red, err := types.UnmarshalRED(k.cdc, value)
+		if err != nil {
+			return false, err
+		}
+		if !matches(red) {
+			return false, nil
+		}
+		if accumulate {
+			redels = append(redels, red)
+		} else if len(redels) > 0 && len(nextMatchingKey) == 0 {
+			// Preserve the first matching record beyond this page even when
+			// total counting continues across later nonmatching records.
+			nextMatchingKey = append([]byte(nil), key...)
+		}
+		return true, nil
 	})
-
-	return redels, res, err
+	if err != nil {
+		return redels, res, err
+	}
+	if req.Pagination == nil || len(req.Pagination.Key) == 0 {
+		res.NextKey = nextMatchingKey
+		return redels, res, nil
+	}
+	if len(res.NextKey) == 0 {
+		return redels, res, nil
+	}
+	// Key pagination may stop at a nonmatching raw record. Resume at the next
+	// match so an exhausted filtered result has no spurious continuation page.
+	var iterator sdk.Iterator
+	if req.Pagination != nil && req.Pagination.Reverse {
+		iterator = redStore.ReverseIterator(nil, sdk.InclusiveEndBytes(res.NextKey))
+	} else {
+		iterator = redStore.Iterator(res.NextKey, nil)
+	}
+	defer iterator.Close()
+	res.NextKey = nil
+	for scanned := uint64(0); iterator.Valid(); iterator.Next() {
+		if scanned >= query.MaxScanLimit {
+			return nil, nil, fmt.Errorf("redelegation filter scan exceeds %d entries", query.MaxScanLimit)
+		}
+		scanned++
+		red, err := types.UnmarshalRED(k.cdc, iterator.Value())
+		if err != nil {
+			return nil, nil, err
+		}
+		if matches(red) {
+			res.NextKey = append([]byte(nil), iterator.Key()...)
+			break
+		}
+	}
+	return redels, res, nil
 }

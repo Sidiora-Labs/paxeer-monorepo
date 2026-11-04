@@ -1,0 +1,11 @@
+[manifest]
+task = "22.32.158"
+domain = 15
+owner_role = "fm-cosmos-fork"
+pages = 1
+
+[page.1]
+path = "sdk/x/upgrade/spec/04_client.md"
+status = "stale"
+bytes = 7742
+source_1 = "record 22.30.162 [doc.042] (stale): The complete page contains interface or lifecycle drift; exact locations and concrete rewrite proposals are recorded in upgrade-plan-shape, upgrade-grpc-service."

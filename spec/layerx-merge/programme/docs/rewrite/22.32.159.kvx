@@ -1,0 +1,11 @@
+[manifest]
+task = "22.32.159"
+domain = 16
+owner_role = "fm-tools-ops"
+pages = 1
+
+[page.1]
+path = "RELEASE.md"
+status = "stale"
+bytes = 12075
+source_1 = "record 22.30.176 [doc.19] (stale): Lines 31, 49 and 188 still prescribe optional layerxd builds and release publication; rewrite from the current paxd packaging manifest."

@@ -1,0 +1,12 @@
+[manifest]
+task = "22.32.96"
+domain = 10
+owner_role = "fm-human"
+pages = 1
+
+[page.1]
+path = "services/platform/hosted/human/README.md"
+status = "stale"
+bytes = 17213
+source_1 = "record 22.30.103 [doc.14] (stale): Read in full. Separate-kernel/LNI, movement-provider and guarantor dependencies and first-batch-only provisioning at lines 113-119 need a merged-chain operator rewrite."
+source_2 = "record 22.30.78 [doc.13] (stale): Complete page read; the finding naming this page identifies stale architecture, endpoint, ABI, transport or provisioning guidance and its rewrite proposal."

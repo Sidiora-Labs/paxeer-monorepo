@@ -1,0 +1,12 @@
+[manifest]
+task = "22.32.27"
+domain = 5
+owner_role = "fm-node-runtime"
+pages = 1
+
+[page.1]
+path = "consensus/README.md"
+status = "misleading"
+bytes = 4517
+source_1 = "record 22.30.43 [doc.014] (stale): Line 16 calls layerxd the other execution domain, contradicting the embedded paxd network; see the corresponding doc-drift finding."
+source_2 = "record 22.30.47 [doc.074] (misleading): Read complete page; rewrite targets: retired-daemon-in-overview at line 16. Concrete owning-domain proposals are recorded above."
