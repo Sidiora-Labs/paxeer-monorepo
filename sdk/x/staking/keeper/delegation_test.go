@@ -207,6 +207,8 @@ func TestDelegation(t *testing.T) {
 	allBonds := app.StakingKeeper.GetAllDelegations(ctx)
 	require.Equal(t, 3, len(allBonds))
 
+	validators[0], _ = app.StakingKeeper.GetValidator(ctx, valAddrs[0])
+
 	// delegate past threshold will fail
 	_, err := app.StakingKeeper.Delegate(ctx, addrDels[1], app.StakingKeeper.TokensFromConsensusPower(ctx, 1000000), types.Unbonded, validators[0], true)
 	_ = staking.EndBlocker(ctx, app.StakingKeeper)
@@ -217,10 +219,11 @@ func TestDelegation(t *testing.T) {
 	_ = staking.EndBlocker(ctx, app.StakingKeeper)
 	require.Nil(t, err)
 
-	// delegate more than total power but less than ratio
+	validators[0], _ = app.StakingKeeper.GetValidator(ctx, valAddrs[0])
+	// Crossing the threshold must reject the actual resulting destination share.
 	_, err = app.StakingKeeper.Delegate(ctx, addrDels[2], app.StakingKeeper.TokensFromConsensusPower(ctx, 100000), types.Unbonded, validators[0], true)
 	_ = staking.EndBlocker(ctx, app.StakingKeeper)
-	require.Nil(t, err)
+	require.Equal(t, types.ErrExceedMaxVotingPowerRatio, err)
 
 	// delegate more than total power exceed ratio
 	_, err = app.StakingKeeper.Delegate(ctx, addrDels[2], app.StakingKeeper.TokensFromConsensusPower(ctx, 900000), types.Unbonded, validators[0], true)
@@ -345,6 +348,17 @@ func TestCompleteUnbondingRefusesBlockedRecipient(t *testing.T) {
 				afterEntry, found = app.StakingKeeper.GetUnbondingDelegation(ctx, delAddr, valAddr)
 				require.True(t, found)
 				require.Equal(t, beforeEntry, afterEntry)
+				require.Len(t, app.StakingKeeper.GetUBDQueueTimeSlice(ctx, completionTime), 1)
+				blocked = false
+				ctx = ctx.WithBlockHeight(3).WithBlockTime(completionTime.Add(time.Second))
+				require.NotPanics(t, func() { staking.EndBlocker(ctx, app.StakingKeeper) })
+				require.Equal(t, poolBefore.Sub(amount), app.BankKeeper.GetAllBalances(ctx, poolAddr))
+				require.Equal(t, delBefore.Add(amount...), app.BankKeeper.GetAllBalances(ctx, delAddr))
+				_, found = app.StakingKeeper.GetUnbondingDelegation(ctx, delAddr, valAddr)
+				require.False(t, found)
+				ctx = ctx.WithBlockHeight(4).WithBlockTime(completionTime.Add(2 * time.Second))
+				require.NotPanics(t, func() { staking.EndBlocker(ctx, app.StakingKeeper) })
+				require.Equal(t, delBefore.Add(amount...), app.BankKeeper.GetAllBalances(ctx, delAddr))
 			} else {
 				require.NoError(t, err)
 				require.Equal(t, amount, balances)
