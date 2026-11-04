@@ -1,3 +1,6 @@
+#[path = "support/gateway_22_33_1546.rs"]
+mod producer_repair;
+
 use std::fmt::Write as _;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpListener;
@@ -67,6 +70,7 @@ fn serve(exchanges: Vec<(&'static str, Value)>) -> (SequencerEndpoint, JoinHandl
 
 #[test]
 fn list_assets_and_get_asset_read_px_list_assets() {
+    producer_repair::assets();
     let result = json!({"assets": [
         {"asset_id": "bank:unavailable", "kind": "bank", "denom": "unavailable",
          "name": null, "symbol": null, "decimals": null, "supply": null},

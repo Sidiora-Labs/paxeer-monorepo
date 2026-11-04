@@ -1,3 +1,6 @@
+#[path = "support/gateway_22_33_1546.rs"]
+mod producer_repair;
+
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpListener;
 use std::thread::JoinHandle;
@@ -70,6 +73,7 @@ fn recorded_freshness() -> Value {
 
 #[test]
 fn history_pages_px_get_history_and_carries_the_next_cursor() {
+    producer_repair::history();
     let account = "0x1212121212121212121212121212121212121212";
     let next = "000000000000abcd0000001200000034";
     let items = vec![
