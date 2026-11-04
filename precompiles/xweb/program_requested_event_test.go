@@ -68,6 +68,8 @@ func TestProgramRequestEmitsXWebProgramRequested(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, found)
 	require.Equal(t, types.KindFetch, record.Kind)
+	require.Equal(t, uint64(23), record.Sequence)
+	require.False(t, record.Fulfilled)
 	require.Equal(t, types.Keccak(input), record.PayloadHash)
 	require.Equal(t, uint64(1), h.keeper.ProgramPendingCount(h.ctx()))
 	logs := h.logs("XWebProgramRequested")

@@ -40,7 +40,7 @@ class MixedWorkloadTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             Bindings("missing", "missing", "missing", "missing")
         with self.assertRaises(ValueError):
-            resolve_routes({})
+            resolve_routes({}, None)
         with self.assertRaises(ValueError):
             subscription_topics([], 0)
         with self.assertRaises(ValueError):

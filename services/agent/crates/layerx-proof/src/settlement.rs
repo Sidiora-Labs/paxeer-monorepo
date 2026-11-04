@@ -1,4 +1,6 @@
-//! Declared settlement configuration consumed by certificate verification.
+//! Deprecated historical settlement configuration retained for compatibility.
+//! These inputs cannot establish chain trust: `checkpoint::verify_certificate`
+//! and `checkpoint::verify_declared_certificate` always refuse them.
 
 use std::sync::OnceLock;
 
@@ -8,11 +10,17 @@ use crate::checkpoint::{GuarantorKey, SettlementDomain};
 
 /// Exact text of the declared checkpoint settlement document embedded from
 /// `contracts/config/checkpoint-settlement.json`.
+#[deprecated(
+    note = "historical settlement configuration cannot establish BFT commitment; checkpoint::verify_declared_certificate returns CheckpointError::RetiredCertificateVerifier; use receipt or inclusion verification"
+)]
 pub const DECLARED_CHECKPOINT_SETTLEMENT: &str =
     include_str!("../../../../../contracts/config/checkpoint-settlement.json");
 
 /// One declared settlement domain resolved into verifier inputs.
 #[derive(Clone, Debug, Eq, PartialEq)]
+#[deprecated(
+    note = "historical settlement configuration cannot establish BFT commitment; checkpoint::verify_declared_certificate returns CheckpointError::RetiredCertificateVerifier; use receipt or inclusion verification"
+)]
 pub struct DeclaredDomain {
     name: String,
     network_id: u32,
@@ -59,6 +67,9 @@ impl DeclaredDomain {
 ///
 /// Returns the validation failure of the embedded document. The result is
 /// computed once and shared.
+#[deprecated(
+    note = "historical settlement configuration cannot establish BFT commitment; checkpoint::verify_declared_certificate returns CheckpointError::RetiredCertificateVerifier; use receipt or inclusion verification"
+)]
 pub fn declared() -> Result<&'static DeclaredCheckpointSettlement, SettlementError> {
     static DECLARED: OnceLock<Result<DeclaredCheckpointSettlement, SettlementError>> =
         OnceLock::new();
@@ -73,6 +84,9 @@ pub fn declared() -> Result<&'static DeclaredCheckpointSettlement, SettlementErr
 /// # Errors
 ///
 /// Returns the validation failure of the embedded document.
+#[deprecated(
+    note = "historical settlement configuration cannot establish BFT commitment; checkpoint::verify_declared_certificate returns CheckpointError::RetiredCertificateVerifier; use receipt or inclusion verification"
+)]
 pub fn maximum_attestation_delay_ms() -> Result<u64, SettlementError> {
     Ok(declared()?.finality_policy().maximum_attestation_delay_ms())
 }
@@ -83,6 +97,9 @@ pub fn maximum_attestation_delay_ms() -> Result<u64, SettlementError> {
 ///
 /// Returns the validation failure of the embedded document or an
 /// unknown-domain error.
+#[deprecated(
+    note = "historical settlement configuration cannot establish BFT commitment; checkpoint::verify_declared_certificate returns CheckpointError::RetiredCertificateVerifier; use receipt or inclusion verification"
+)]
 pub fn declared_domain(name: &str) -> Result<DeclaredDomain, SettlementError> {
     let settlement = declared()?;
     let domain = settlement.domain(name)?;

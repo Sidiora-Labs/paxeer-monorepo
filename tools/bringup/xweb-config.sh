@@ -214,39 +214,15 @@ for sym, asset, price in rows:
 
 # xweb_receipt_keys: retain every height range published by the node producer.
 xweb_receipt_keys() {
-	python3 -c "$xweb_rpc_py"'
-import re
+	local history
+	history="$(python3 -c "$xweb_rpc_py"'
 import sys
-
 result, error = rpc(sys.argv[1], "px_getReceiptKeys", [])
-try:
-    if error or not isinstance(result, dict) or set(result) != {"keys"}:
-        raise ValueError("receipt history unavailable or malformed")
-    entries = result["keys"]
-    if not isinstance(entries, list) or not entries:
-        raise ValueError("receipt history is empty")
-    keys, seen = [], set()
-    for entry in entries:
-        if not isinstance(entry, dict) or set(entry) != {"keyId", "publicKey", "firstHeight", "lastHeight"}:
-            raise ValueError("receipt history entry shape")
-        key = {}
-        for source, target in (("keyId", "key_id"), ("publicKey", "public_key")):
-            value = entry[source]
-            if not isinstance(value, str) or not re.fullmatch(r"0x[0-9a-fA-F]{64}", value) or value[2:] == "00" * 32:
-                raise ValueError("receipt history key")
-            key[target] = value[2:].lower()
-        first, last = entry["firstHeight"], entry["lastHeight"]
-        if type(first) is not int or type(last) is not int or not 0 <= first <= last <= 18446744073709551615:
-            raise ValueError("receipt history range")
-        if key["key_id"] in seen:
-            raise ValueError("duplicate receipt history key")
-        seen.add(key["key_id"])
-        key.update(first_height=first, last_height=last)
-        keys.append(key)
-    print(json.dumps(keys))
-except (KeyError, TypeError, ValueError) as error:
-    sys.exit("xweb-config: " + str(error))
-' "${XWEB_RECEIPT_KEYS_ENDPOINT:-$xweb_evm}"
+if error:
+    sys.exit("xweb-config: receipt history " + error)
+print(json.dumps(result))
+' "${XWEB_RECEIPT_KEYS_ENDPOINT:-$xweb_evm}")" || return 1
+	printf '%s' "$history" | "${BRINGUP_INSPECT_BIN:-bringup-inspect}" xweb-receipt-keys
 }
 
 # xweb_render_serve <directory>: the serving config of every serving RPC name.

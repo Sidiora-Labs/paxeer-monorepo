@@ -5,15 +5,10 @@
 #
 #   value-loop.sh [ASSET=PAX|SID|USDC|USDL]
 #
-# Requires the genesis asset id, the node RPC and trust anchor, the sequencer's
-# LNI socket and the receipt authority answering /readyz on 9445. The sender must
-# already be funded.
-# Sender and recipient seeds are retained under /data/layerx/keys/value-loop.
-# Sends one unit, then reports both balances, the node's committed height and
-# the batch from the receipt authority. A rerun reuses the retained SEND activity.
-# Output lines: account, asset, activity, balance, batch; exits 0 on success,
-# 1 on failure, or 3 when a precondition is absent.
-# Nothing secret is printed.
+# Requires provisioned genesis, an authenticated node RPC and its trust anchor.
+# Sender and recipient seeds and the signed transaction journal survive restart.
+# Inclusion is read from the canonical block and the node's governed signed
+# receipt; only committed evidence is reported as a successful value loop.
 set -euo pipefail
 umask 077
 
@@ -26,11 +21,9 @@ tls=${tls%/}
 keys=$layerx/keys
 genesis=$layerx/genesis
 state=$layerx/value-loop
-lni=$run/node/layerxd.lni.sock
 rpc=${LAYERX_NODE_RPC:-}
 trust_anchor=${LAYERX_NODE_TRUST_ANCHOR_DER:-}
 network_id=${LAYERX_NODE_NETWORK_ID:-125}
-authority=https://127.0.0.1:9445
 
 precondition() {
 	echo "precondition $*"
@@ -42,8 +35,8 @@ failed() {
 	exit 1
 }
 
-# as_lni <command...>: runs the command as the LNI client uid of the pod.
-as_lni() { setpriv --reuid 4021 --regid 4020 --clear-groups -- "$@"; }
+# as_node <command...>: runs the probe as its unprivileged client identity.
+as_node() { setpriv --reuid 4021 --regid 4020 --clear-groups -- "$@"; }
 
 seed_public() {
 	od -An -tx1 "$1" | tr -d ' \n' | python3 -c '
@@ -63,12 +56,12 @@ print(hashlib.sha256(b"LX:ACCOUNT:v1" + len(name).to_bytes(4, "big") + name).hex
 }
 
 handshake_committed() {
-	as_lni layerx-node-probe handshake --rpc "$rpc" --trust-anchor "$trust_anchor" --network-id "$network_id" 2>/dev/null |
+	as_node layerx-node-probe handshake --rpc "$rpc" --trust-anchor "$trust_anchor" --network-id "$network_id" 2>/dev/null |
 		jq -er '.latest_committed_height'
 }
 
 balance() {
-	as_lni layerx-node-probe balance --rpc "$rpc" --trust-anchor "$trust_anchor" --network-id "$network_id" \
+	as_node layerx-node-probe balance --rpc "$rpc" --trust-anchor "$trust_anchor" --network-id "$network_id" \
 		--account "agent:$1:main" --asset "$asset" 2>/dev/null
 }
 
@@ -310,7 +303,7 @@ send_transfer() {
 		if [ "$explicit_asset" = 1 ]; then
 			send_command=write-asset-send
 		fi
-		activity=$(as_lni layerx-node-probe "$send_command" --rpc "$rpc" --trust-anchor "$trust_anchor" --network-id "$network_id" \
+		activity=$(as_node layerx-node-probe "$send_command" --rpc "$rpc" --trust-anchor "$trust_anchor" --network-id "$network_id" \
 			--seed-file "$keys/value-loop/sender.key" --destination-did "${dids[recipient]}" \
 			--asset "$asset" --output "$state/send.bin" 2>/dev/null) || failed "activity write-send refused"
 		send_journal prepare "$activity" >/dev/null || failed "activity journal prepare failed"
@@ -321,8 +314,8 @@ send_transfer() {
 }
 
 main() {
-	local argument file pid bearer="" role seed public did id
-	local answer activity committed_height batch deadline token_files
+	local argument file role seed public did id
+	local answer activity committed_height batch deadline inclusion_height
 	local symbol=PAX explicit_asset=0
 	for argument in "$@"; do
 		case "$argument" in
@@ -338,23 +331,18 @@ main() {
 	if [ "$explicit_asset" = 1 ]; then
 		state="$layerx/value-loop/assets/$symbol"
 	fi
-	[ -S "$lni" ] || precondition kernel-node "$lni absent; the sequencer has not bootstrapped the genesis"
+
 	[ -n "$rpc" ] || precondition custody-rpc "LAYERX_NODE_RPC must be set"
 	[ -n "$trust_anchor" ] || precondition custody-trust-anchor "LAYERX_NODE_TRUST_ANCHOR_DER must be set"
-	for pid in /proc/[0-9]*; do
-		[ "$(basename "$(readlink "$pid/exe" 2>/dev/null)")" = layerx-receipt-authority ] || continue
-		token_files=$(tr '\000' '\n' <"$pid/environ" 2>/dev/null | sed -n 's/^LAYERX_AUTHORITY_TOKEN_FILES=//p' | head -n 1) || true
-		[ -n "$token_files" ] && bearer=$(tr -d '\r\n' <"${token_files%%:*}") && break
-	done
-	[ -n "$bearer" ] || precondition receipt-authority "no layerx-receipt-authority process with a token file; task 2.1 runs it on 9445"
-	[ -s "$tls/receipt-authority/ca.pem" ] ||
-		precondition receipt-authority "$tls/receipt-authority/ca.pem absent; task 2.1 issues its certificate"
-	answer=$(curl -sS -m 10 --cacert "$tls/receipt-authority/ca.pem" "$authority/readyz" 2>/dev/null) || answer=""
-	[ "$(jq -r '.ready' <<<"$answer" 2>/dev/null)" = true ] ||
-		precondition receipt-authority "not answering ready on $authority/readyz: ${answer:-no answer}"
-	for tool in layerx-node-probe layerxctl; do
+	[ -s "$trust_anchor" ] || precondition custody-trust-anchor "trust anchor is absent"
+	for tool in layerx-node-probe "${BRINGUP_INSPECT_BIN:-bringup-inspect}"; do
 		command -v "$tool" >/dev/null || precondition image "$tool is not in the kernel image"
 	done
+	# Both the probe and inspector must authenticate this same RPC origin.
+	SSL_CERT_FILE=$(mktemp)
+	openssl x509 -inform DER -in "$trust_anchor" -out "$SSL_CERT_FILE" || failed "trust anchor is invalid"
+	trap 'rm -f "$SSL_CERT_FILE"' EXIT
+	handshake_committed >/dev/null || precondition kernel-node "committed RPC handshake refused"
 
 	asset=$(printf 'layerx-asset:125:%s' "$symbol" | sha256sum | cut -d' ' -f1)
 	if [ "$symbol" = PAX ]; then
@@ -390,26 +378,24 @@ main() {
 	activity=$(send_transfer) || failed "activity transfer recovery failed"
 	echo "activity id=$activity"
 	deadline=$(($(date +%s) + 120))
-	until as_lni layerxctl read-state --socket "$lni" --network-id "$network_id" --protocol-version 3 \
-		--actor "${dids[sender]}" >/dev/null 2>&1; do
-		[ "$(date +%s)" -lt "$deadline" ] || failed "activity id=$activity sealed=never"
+	while :; do
+		answer=$("${BRINGUP_INSPECT_BIN:-bringup-inspect}" committed-transaction "$rpc" "0x$activity" "$SSL_CERT_FILE" 2>/dev/null) && break
+		[ "$(date +%s)" -lt "$deadline" ] || failed "activity id=$activity committed=never"
 		sleep 1
 	done
+	batch=$(jq -er '.block' <<<"$answer") || failed "committed block unreadable"
+	inclusion_height=$(jq -er '.height' <<<"$answer") || failed "committed height unreadable"
 
 	for role in sender recipient; do
-		answer=$(balance "${dids[$role]}") || answer=""
-		echo "balance $role $(jq -c '{balance, refused}' <<<"$answer" 2>/dev/null || echo none)"
+		answer=$(balance "${dids[$role]}") || failed "balance $role committed read failed"
+		jq -e --arg account "agent:${dids[$role]}:main" --arg asset "$asset" --argjson minimum "$((inclusion_height))" \
+			'.account == $account and .asset == $asset and .achieved == "committed" and .global_sequence >= $minimum and (.balance | type == "string") and (.balance | test("^(0|[1-9][0-9]*)$"))' \
+			<<<"$answer" >/dev/null || failed "balance $role committed evidence refused"
+		echo "balance $role $(jq -c '{balance, achieved, global_sequence}' <<<"$answer")"
 	done
 
-	deadline=$(($(date +%s) + 120))
-	while :; do
-		answer=$(curl -sS -m 15 --cacert "$tls/receipt-authority/ca.pem" -H "Authorization: Bearer $bearer" \
-			"$authority/v1/authorized-batches/by-activity/$activity" 2>/dev/null) || answer=""
-		batch=$(jq -er --arg a "$activity" 'select(.activity_id == $a) | .batch_id' <<<"$answer" 2>/dev/null) && break
-		[ "$(date +%s)" -lt "$deadline" ] || failed "batch activity=$activity authority=${answer:-none}"
-		sleep 2
-	done
 	committed_height=$(handshake_committed) || failed "batch id=$batch committed_height=unreadable"
+	[ "$committed_height" -ge "$((inclusion_height))" ] || failed "committed handshake precedes inclusion"
 	echo "batch id=$batch committed_height=$committed_height"
 }
 

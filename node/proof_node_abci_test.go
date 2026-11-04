@@ -10,11 +10,8 @@
 // Repairs node/abci.go App.CheckTx: a malformed nil request must return an ABCI
 // error rather than panic. NewBlockProcessRequest also preserves finalize metadata
 // for all six direct callers, including the OCC helpers that dropped block time.
-// Outside scope: modules/evm/config/config.go DefaultChainID is 713714, whereas
-// modules/layerxchains/types/domain.go DomainOfChainID recognizes native chain
-// 125. The legacy seqCtxTransfer output is asserted to be refused by
-// node/sequencer/limits.go sequential.admit; this proof configures and signs for
-// the supported native domain rather than changing those production defaults.
+// EVM signing derives chain 125 from the application configuration, including
+// the unmapped sequenced test chain, without overriding the production mapping.
 // node/leader_source_test.go commitLeaderSourceBlock supplies no batch after
 // activation; the proof preserves the resulting ErrInvalidSequenceBatch refusal.
 // Outside scope: sdk/storev2/rootmulti/store.go Store.Restore publishes the
@@ -61,15 +58,7 @@ import (
 )
 
 func TestProofNodeAbci(t *testing.T) {
-	previousChainID, existed := config.ChainIDMapping[sequencedChainID]
-	config.ChainIDMapping[sequencedChainID] = 125
-	t.Cleanup(func() {
-		if existed {
-			config.ChainIDMapping[sequencedChainID] = previousChainID
-		} else {
-			delete(config.ChainIDMapping, sequencedChainID)
-		}
-	})
+	require.Equal(t, int64(125), config.GetEVMChainID(sequencedChainID).Int64())
 	oldOCC := app.EnableOCC
 	t.Cleanup(func() { app.EnableOCC = oldOCC })
 	// Keep the application's directories alive across the producer subtest's
@@ -330,6 +319,16 @@ func newProofNodeAbciProducer(t *testing.T, w *app.TestWrapper) *finalizeSealedH
 	require.NoError(t, err)
 	votes := []abci.VoteInfo{{Validator: abci.Validator{Address: consAddr, Power: 100}, SignedLastBlock: true}}
 	require.NoError(t, w.App.SequencerKeeper.StoreVotes(w.Ctx, 1, votes))
+	// Keep the inactive-domain refusal independent of the root chain default.
+	chainsGenesis := chainstypes.DefaultGenesis()
+	chainsGenesis.Domains = []chainstypes.Domain{{
+		Id: 7, Name: "paused-proof", Status: chainstypes.StatusPaused,
+		GasAllowance: 1_000_000, ByteAllowance: 200_000,
+		TargetGasPerBlock: 500_000, Bond: sdk.ZeroInt(),
+	}}
+	chainsGenesis.NextID = 8
+	chainsGenesis.NextBaseFees[7] = sdk.ZeroDec()
+	require.NoError(t, w.App.LayerXChainsKeeper.InitGenesis(w.Ctx, *chainsGenesis))
 	commitBeforeSequencedProposal(t, w)
 	exec, err := sequencer.NewExecutor(w.App, sequencer.Options{ChainID: sequencedChainID, ProposerAddress: consAddr})
 	require.NoError(t, err)
@@ -349,26 +348,29 @@ func newProofNodeAbciProducer(t *testing.T, w *app.TestWrapper) *finalizeSealedH
 	w.App.SetSequencerSource(source)
 	at := w.Ctx.BlockTime().Add(2 * time.Second).Truncate(time.Millisecond)
 	require.NoError(t, exec.Open(2, at.UnixMilli()))
-	// Preserve the outside-scope finding: the old helper's default-domain tx is refused.
-	refused, err := exec.Accept(seqCtxTransfer(t, sender, 0, recipient, big.NewInt(1)))
+	encodeTransfer := func(chainID *big.Int) []byte {
+		signed, err := ethtypes.SignTx(ethtypes.NewTx(&ethtypes.LegacyTx{
+			Nonce: 0, GasPrice: big.NewInt(seqCtxGasPrice), Gas: seqCtxTransferGas,
+			To: &recipient, Value: big.NewInt(1),
+		}), ethtypes.LatestSignerForChainID(chainID), sender.EvmPrivateKey)
+		require.NoError(t, err)
+		data, err := ethtx.NewTxDataFromTx(signed)
+		require.NoError(t, err)
+		msg, err := evmtypes.NewMsgEVMTransaction(data)
+		require.NoError(t, err)
+		txConfig := w.App.GetTxConfig()
+		builder := txConfig.NewTxBuilder()
+		require.NoError(t, builder.SetMsgs(msg))
+		builder.SetGasLimit(seqCtxTransferGas)
+		tx, err := txConfig.TxEncoder()(builder.GetTx())
+		require.NoError(t, err)
+		return tx
+	}
+	refused, err := exec.Accept(encodeTransfer(chainstypes.ChainIDOf(7)))
 	require.Nil(t, refused)
 	require.ErrorIs(t, err, sequencer.ErrNotAdmitted)
 	require.ErrorIs(t, err, chainstypes.ErrDomainNotActive)
-	signed, err := ethtypes.SignTx(ethtypes.NewTx(&ethtypes.LegacyTx{
-		Nonce: 0, GasPrice: big.NewInt(seqCtxGasPrice), Gas: seqCtxTransferGas,
-		To: &recipient, Value: big.NewInt(1),
-	}), ethtypes.LatestSignerForChainID(big.NewInt(125)), sender.EvmPrivateKey)
-	require.NoError(t, err)
-	data, err := ethtx.NewTxDataFromTx(signed)
-	require.NoError(t, err)
-	msg, err := evmtypes.NewMsgEVMTransaction(data)
-	require.NoError(t, err)
-	txConfig := w.App.GetTxConfig()
-	builder := txConfig.NewTxBuilder()
-	require.NoError(t, builder.SetMsgs(msg))
-	builder.SetGasLimit(seqCtxTransferGas)
-	tx, err := txConfig.TxEncoder()(builder.GetTx())
-	require.NoError(t, err)
+	tx := encodeTransfer(w.App.EvmKeeper.ChainID(w.Ctx))
 	accepted, err := exec.Accept(tx)
 	require.NoError(t, err)
 	require.Zero(t, accepted.Result.Code, accepted.Result.Log)

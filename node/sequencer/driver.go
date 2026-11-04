@@ -65,6 +65,13 @@ func (d *Driver) OnCommit(height int64, appHash []byte) (err error) {
 	if len(appHash) != 32 {
 		return fmt.Errorf("sequencer: driver app hash is %d bytes, want 32", len(appHash))
 	}
+	if err := d.cfg.App.CheckCommittedAppHash(height, appHash); err != nil {
+		return fmt.Errorf("sequencer: driver commit: %w", err)
+	}
+	committedHash, err := d.cfg.App.CommittedAppHash(height)
+	if err != nil {
+		return fmt.Errorf("sequencer: driver commit: %w", err)
+	}
 	if _, snapshotErr := d.cfg.Executor.Snapshot(); !errors.Is(snapshotErr, ErrLayerNotOpen) {
 		if snapshotErr != nil {
 			return fmt.Errorf("sequencer: driver executor snapshot: %w", snapshotErr)
@@ -80,7 +87,7 @@ func (d *Driver) OnCommit(height int64, appHash []byte) (err error) {
 			d.halted = err
 		}
 	}()
-	committed := &wal.Committed{Height: uint64(height), LastSeq: lastSeq, AppHash: [32]byte(appHash)}
+	committed := &wal.Committed{Height: uint64(height), LastSeq: lastSeq, AppHash: [32]byte(committedHash)}
 	if _, err = d.cfg.Replicator.Release(context.Background(), committed); err != nil {
 		return fmt.Errorf("sequencer: driver release committed: %w", err)
 	}
