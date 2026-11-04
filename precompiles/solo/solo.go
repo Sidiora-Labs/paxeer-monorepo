@@ -31,6 +31,13 @@ const (
 
 const SoloAddress = "0x000000000000000000000000000000000000100C"
 
+// Claim-all permits at most 32 smart queries (including the empty terminal
+// page) and 256 tokens per CW721 asset. Larger sets use explicit token denoms.
+const (
+	MaxCW721ClaimPages  = 32
+	MaxCW721ClaimTokens = 256
+)
+
 // Embed abi json file to the executable binary. Needed when importing as dependency.
 //
 //go:embed abi.json
@@ -156,6 +163,8 @@ func (p PrecompileExecutor) Claim(ctx sdk.Context, caller common.Address, method
 }
 
 func (p PrecompileExecutor) ClaimSpecific(ctx sdk.Context, caller common.Address, method *abi.Method, args []interface{}, readOnly bool) (ret []byte, remainingGas uint64, err error) {
+	events := ctx.EventManager()
+	ctx, writeCache := ctx.CacheContext()
 	claimMsg, sender, err := p.validate(ctx, caller, args, readOnly)
 	if err != nil {
 		return nil, 0, err
@@ -199,21 +208,9 @@ func (p PrecompileExecutor) ClaimSpecific(ctx sdk.Context, caller common.Address
 			if token := asset.GetDenom(); token != "" {
 				allTokens = append(allTokens, token)
 			} else {
-				startAfter := ""
-				for {
-					res, err := p.wasmViewKeeper.QuerySmartSafe(ctx, contractAddr, CW721TokensQueryPayload(sender, startAfter))
-					if err != nil {
-						return nil, 0, fmt.Errorf("failed to query CW721 contract %s for all tokens: %w", contractAddr.String(), err)
-					}
-					tokens, err := ParseCW721TokensQueryResponse(res)
-					if err != nil {
-						return nil, 0, fmt.Errorf("failed to parse CW20 contract %s balance response: %w", contractAddr.String(), err)
-					}
-					if len(tokens) == 0 {
-						break
-					}
-					allTokens = append(allTokens, tokens...)
-					startAfter = tokens[len(tokens)-1]
+				allTokens, err = p.cw721ClaimTokens(ctx, contractAddr, sender)
+				if err != nil {
+					return nil, 0, err
 				}
 			}
 			for _, token := range allTokens {
@@ -225,7 +222,46 @@ func (p PrecompileExecutor) ClaimSpecific(ctx sdk.Context, caller common.Address
 		}
 	}
 	bz, err := method.Outputs.Pack(true)
+	if err != nil {
+		return nil, 0, err
+	}
+	writeCache()
+	events.EmitEvents(ctx.EventManager().Events())
 	return bz, pcommon.GetRemainingGas(ctx, p.evmKeeper), err
+}
+
+func (p PrecompileExecutor) cw721ClaimTokens(ctx sdk.Context, contractAddr, sender sdk.AccAddress) ([]string, error) {
+	allTokens := []string{}
+	seen := make(map[string]struct{})
+	startAfter := ""
+	for page := 0; page < MaxCW721ClaimPages; page++ {
+		res, err := p.wasmViewKeeper.QuerySmartSafe(ctx, contractAddr, CW721TokensQueryPayload(sender, startAfter))
+		if err != nil {
+			return nil, fmt.Errorf("failed to query CW721 contract %s for all tokens: %w", contractAddr.String(), err)
+		}
+		tokens, err := ParseCW721TokensQueryResponse(res)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse CW721 contract %s tokens response: %w", contractAddr.String(), err)
+		}
+		if len(tokens) == 0 {
+			return allTokens, nil
+		}
+		if len(tokens) > MaxCW721ClaimTokens-len(allTokens) {
+			return nil, fmt.Errorf("CW721 claim-all exceeds %d tokens; use claimSpecific with a token denom", MaxCW721ClaimTokens)
+		}
+		for _, token := range tokens {
+			if _, exists := seen[token]; exists {
+				return nil, fmt.Errorf("CW721 claim-all contains duplicate token id %q", token)
+			}
+			if token <= startAfter {
+				return nil, fmt.Errorf("CW721 claim-all has nonadvancing token id %q after %q", token, startAfter)
+			}
+			seen[token] = struct{}{}
+			allTokens = append(allTokens, token)
+			startAfter = token
+		}
+	}
+	return nil, fmt.Errorf("CW721 claim-all exceeds %d query pages; use claimSpecific with a token denom", MaxCW721ClaimPages)
 }
 
 func (p PrecompileExecutor) validate(ctx sdk.Context, caller common.Address, args []interface{}, readOnly bool) (claimMsg, sdk.AccAddress, error) {

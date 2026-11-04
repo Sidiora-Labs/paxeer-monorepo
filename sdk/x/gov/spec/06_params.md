@@ -45,10 +45,17 @@ Protobuf JSON uses duration strings such as `"172800s"` instead. The field is
 [`types/params.go`](../types/params.go) validates each complete parameter object.
 Deposit coin sets must be valid, the expedited minimum must not be entirely less
 than or equal to the regular minimum, and the deposit period must be positive.
+Empty coin sets are valid SDK coins, so validation does not impose a separate
+positive amount on every minimum; for the default single-denomination sets,
+`min_expedited_deposit` must be strictly larger than `min_deposit`.
 Both voting periods must be positive, with the expedited period strictly shorter.
 Quorums lie in `[0, 1]`; approval and veto thresholds lie in `(0, 1]`.
 The expedited quorum and approval threshold must each exceed their regular
-counterpart.
+counterpart. Updates validate the complete merged object before writing it:
+zero periods, equal regular/expedited periods, equal regular/expedited quorum or
+approval thresholds, and out-of-range fractions fail without changing stored
+parameters. Quorum zero is allowed, but an expedited quorum must still exceed it;
+threshold one is valid even though a strict Yes comparison cannot exceed one.
 
 The proposal's `is_expedited` value selects its minimum deposit, voting period,
 quorum and approval threshold. In [`keeper/tally.go`](../keeper/tally.go), turnout

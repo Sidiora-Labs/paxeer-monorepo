@@ -1,0 +1,34 @@
+[repair.22.33.1503]
+audit = "22.30.9"
+findings = ["10", "12", "11"]
+baseline = "Not run: the mandatory implementation-first order and bounded hf-build/hf-done gates prohibit pre-change verification; no baseline failure is claimed."
+evidence = "The runner records the candidate revision, exact command, exit code and private evidence path in its hf-done ledger."
+wiring = "SDK domain request for tx.NewFactoryCLI callers in sdk/x/staking/client/cli/tx.go and sdk/x/auth/client/cli/{tx_multisign.go,tx_sign.go,validate_sigs.go} was fulfilled by prerequisite 22.31.463, per the continuation ruling; the historical failure below is retained, and current qualification is recorded by hf-build/hf-done."
+
+[qualification.build]
+revision = "a08a86d49c526ef5b3fd2c0dc64fb053e29503ca"
+command = "make -s paxd-native-libs && CGO_ENABLED=1 go build ./precompiles/layerxauth/..."
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "SDK CLI callers expect one tx.NewFactoryCLI result, but it returns two; hf-done refused before verification because hf-build did not pass."
+assumption = "Existing SDK interface mismatch is outside this task's paths; no verification ran and no finding is claimed qualified."
+
+[qualification.continuation]
+revision = "b31112e645cb883a5c0bedff517f4b87fe07d482"
+command = "cg spec done 22.33.1503 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Lifecycle receipt/log checks passed; both fee-spend tests refused their owner program simulation with LXP_ERR_NON_CANONICAL because the fixture omitted the owner authority hash."
+repair = "Derive the owner hash through lxphost.AuthorityHash, and narrow the charge payload's resource budget to production receipt usage so its signed fee covers the declared ceiling while preserving exact exhausted grant limits."
+
+[finding.10]
+test = "TestRepairM_1503_10_SuccessorSpendSurvivesReopen"
+proof = "The owning grants test obtains fees through a signed native governance proposal, verified real receipt and production schedule stage/activation; real admitted metered execution debits the payer and produces period/total counters. Revocation and replacement consume their resulting commitment across disk-store and host close/reopen, retain the exact budget, and refuse exhausted periods/totals through production native admission."
+
+[finding.12]
+test = "TestRepairM_1503_12_LifecycleReceiptLogs"
+proof = "The owning lifecycle test compares ordered EVM logs with AuthEvents decoded from real registration and recovery receipts, asserting exact event signature, DID topic and ABI body bytes. Malformed, duplicate and invalid recovery calls revert without changing logs or persisted host state."
+
+[finding.11]
+test = "TestRepairM_1503_11_ChargedSuccessorParity"
+proof = "The owning parity test charges an admitted predecessor through the real host and metered program, revokes it and persists/closes/reopens the backing stores and host. A native activity and EVM successor call consume the same recovered commitment and must produce identical grant, summary, complete host state, receipt result/sequence and ordered events; a second reopen retains the result and fee admission limits."
