@@ -15075,3 +15075,48 @@ fix = "Decision 2546: the corpus is generated and stays out of the tree; 22.31.4
 title = "A package-wide verify met producer changes landed in the same package"
 symptom = "22.99.148 attempt 3 (2026-11-04 20:27Z) repaired its own three cases, then the package test run of services/agent/sdk/typescript failed four unrelated cases: the px test asserts the package test script names the ai-market test, but 22.9.10 (cb50180548) routed the script through scripts/run-tests.mjs; two web-search repair tests construct WebSearchClient without receipt keys, which the same commit made mandatory; and the gas-station proof imports sdk/wallet/src/modules/gas-station.ts, whose viem dependency the agent package install does not provide."
 fix = "The package sweep task owns the package: its tests follow the current contracts (the runner selection list, mandatory receipt keys) and its build installs the wallet package with pnpm before the agent package."
+
+[gotcha.3051]
+title = "22.33.1138 made lx_account_open refuse the system reserve and withdrawals accounts the kernel still uses"
+symptom = "src/ledger/lx_account_registry.c (commit b7a6627243, 2026-11-04 19:10Z, task 22.33.1138) returns LXP_ERR_UNAUTHORIZED_DEBIT for every name of kind LX_ACCOUNT_SYSTEM_PAXEER_RESERVE or LX_ACCOUNT_SYSTEM_PAXEER_WITHDRAWALS before the index lookup, on the audit premise (findings 22.30.5.27 and 22.30.5.28) that these are retired custody accounts. The live kernel contradicts the premise: lxp_genesis.c refuses a manifest without the fees, reserve and withdrawals accounts, the bridge withdraw path (src/modules/bridge/lxp_bridge_withdraw.c) and lxp_module_ctx.c target the withdrawals account, and lx_asset_account_open (src/modules/asset/lx_asset_state.c) routes through lx_account_open. The fixtures of tests/modules/test_asset_withdraw.c, the withdrawal routing case of tests/modules/test_asset_registry.c, tests/test_bridge_withdraw.c and tests/test_reserve_reconcile.c open these accounts under GENESIS authority and fail since that commit; 22.33.1236 attempts 3 and 4, 22.33.891 attempt 2 and 22.33.892 attempt 2 failed on it, and the batch-446 instruction to 22.33.1236 to reorder its opens addressed a symptom."
+fix = "22.31.505 restores the admission rule that held before 1138 (decision 2548): module-value names refused unconditionally, system names refused under CREDIT authority and admitted under GENESIS and GOVERNANCE; 1236, 891 and 892 wait for it and re-run their gates before any repair."
+
+[gotcha.3052]
+title = "The Wallet Go tests workflow has never passed on main: no pnpm for the ceremony suite and two attestor cases"
+symptom = "Every run of .github/workflows/wallet-go-test.yml on main in the last 200 runs failed. The Ceremony job runs go test in services/wallet/ceremony, whose internal/testsupport/postgres.go runs pnpm install --frozen-lockfile and pnpm exec tsx in the wallet package found above the test directory, but the job installs only Go: five rehearsal cases fail with pnpm not found. The Attestor job fails TestSnapshotFollowsAddShare (services/wallet/attestor/internal/server/server_test.go line 843: node-1 holds 1 snapshot after keys.addshare, want 2) and TestDescribeReturnsPublicMaterialToTheOperator (line 968: the refreshed generated-evm fields differ from the expected public material)."
+fix = "22.31.506 provisions Node and the pinned pnpm in the Ceremony job the way platform.yml does and repairs the two attestor cases against the real server (decision 2550); the first green run of the workflow on main is the proof it records."
+
+[gotcha.3053]
+title = "The launchpad service images stopped building: a go directive above the pinned toolchain and stale module graphs behind a moved replace target"
+symptom = "Publish off-chain images (.github/workflows/offchain-images.yml) has been red on main since 2026-11-04 01:51Z. deploy/launchpad/Dockerfile.svc builds with golang:1.26.4 under GOTOOLCHAIN=local and checks that go mod download and go mod verify leave go.mod and go.sum unchanged. services/launchpad/api/go.mod declares go 1.27.0 since 22.31.453 (c22a03aa47), so the api image refuses to build (go.mod requires go >= 1.27.0); services/launchpad/notifications/go.mod declares the same since 22.33.958. In indexer, ranking-algo, the stats module, social and user the download step rewrites go.mod and go.sum, because sdk/launchpad/shared, which they take through a replace directive, moved its requirement set in the same commit (go-ethereum 1.17.4, pion dtls v3, stun v3, transport v4) while their own graphs were not regenerated; the 453 gate built each module with the go of the qualification environment and never ran the image step. Six of fifteen images fail on every push."
+fix = "22.31.507 brings every launchpad go directive back under the pinned toolchain and regenerates the six module graphs; its verify runs the Dockerfile step per module under GOTOOLCHAIN=go1.26.4 (decision 2549)."
+
+[gotcha.3054]
+title = "A process-global rate limiter is shared by every gateway unit test carried into one repair binary"
+symptom = "22.33.1336 attempt 8 (2026-11-04 21:03Z): history::tests::unified_history_answer_reads_the_paxeer_node_over_http, a gateway unit test included into the repair binary (gotcha 3047), failed with -32001 public_read_rate_limit while it passes in every other binary; the public read rate limiter is process-global and the sibling tests of that binary exhaust it first."
+fix = "A repair binary skips a carried unit test that depends on process-global state its siblings exhaust; the test keeps running in the gateway's own binary."
+
+[gotcha.3055]
+title = "22.33.1501 made the wallet surface read the web-data payment availability and the surface test double does not answer it"
+symptom = "a4710dac6e (22.33.1501, 2026-11-04 12:35Z) changed apps/wallet/src/surfaces/useSurface.ts and sdk/wallet/src/modules/web-data.ts after 22.33.205 published at 06:32Z: readGrantCaps now calls paymentAvailability (the module's getParams read at the web-data module address) and the GrantChain double in apps/wallet/src/surfaces/test/chain.tsx throws 'no contract answers' for it; three cases of apps/wallet/src/surfaces/repair-22-33-205.test.ts are red on main and failed 22.31.486 attempt 3 at 20:46Z."
+fix = "22.31.508 teaches the double the producer's call; a change that adds a chain read to a surface updates the surface's test doubles in the same change (decision 2554)."
+
+[gotcha.3056]
+title = "The buyer middleware confirms only named payees, and the V4 committed recording pays an asset account"
+symptom = "22.31.492 attempt 3 (2026-11-04 21:03Z): the buyer's prepare checks that the offer's account name hashes under the legacy or native account-id domain to payTo; the V4 recording's payee is ledgerkeeper.AccountID(did, asset), an asset account with no name, so a committed offer carrying that payTo is refused requirements-mismatch at the payee check."
+fix = "The committed-rung regression pays the named V1 payee (decision 2552); whether an offer must be able to name an asset-account payee (a DID and an asset) is recorded as an open question for the owner."
+
+[gotcha.3057]
+title = "Threading time through the approval service has consumers in two other crates"
+symptom = "22.31.495 attempt 2 (2026-11-04 21:07Z): the dependent-crate check compiled services/agent/crates/layerx-mcp/src/catalogue.rs (line 813, E0061: the approval call now takes a time argument) and the layerx-human-service repair test services/human/crates/layerx-human-service/tests/repair_22_33_61.rs (lines 510 and 538, E0063: DecisionRequest initialisers without current_time) against the new interface and stopped before the verify."
+fix = "Both consumers join the task's paths and it fixes them; an interface change lists its consumers in its paths before it launches."
+
+[gotcha.3058]
+title = "The wallet gateway send path times out against the in-process database socket server"
+symptom = "22.33.208 attempt 3 (2026-11-04 21:07Z): with the database opened through the in-process engine's socket server (ten connections) by test/support/node-receipts.ts and the gateway pool at its default size, the send route answered 500 send_failed, connection terminated due to connection timeout, while two other cases of the same file passed against the same database."
+fix = "The test sets DATABASE_POOL_MAX to 1 before the pool opens; a path that needs two connections at once is a defect the task names."
+
+[gotcha.3059]
+title = "The Python SDK web-search receipt digest is a third digest definition"
+symptom = "22.33.18 attempt 2 (2026-11-04 21:40Z): services/agent/sdk/python/layerx_sdk/web_search.py line 395 computes receiptDigest as SHA-256 over the merkle-leaf domain and the signed receipt bytes, pinned by its own test at tests/test_web_search_sequencer.py line 55; the web-search server compares the canonical receipt digest (decision 1103) and the portable receipt digest is the signature digest (decision 2538); the replayed exact exchange of tests/ci/test_repair_22_33_18.py differed from the recording only in receiptDigest."
+fix = "22.31.510 moves the SDK to the digest its own verifier returns and re-checks the recording; 22.33.18 waits for it."

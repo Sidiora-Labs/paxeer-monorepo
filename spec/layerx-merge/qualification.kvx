@@ -30411,3 +30411,83 @@ symbol = "repair_22_31_492.test.mjs"
 observed = "Attempt 2: the build passed; 12 of 13 cases passed; the committed prepare refused the hand-built commitment because the resolver lacked the validator interface and the evidence the production buyer verifies."
 assumption = "Test fixture shape behind a producer change in the buyer; the recorded committed vector is the reference."
 severity = "high"
+
+[finding.22.33.891.2]
+task = "22.33.891"
+file = "tests/test_authority_multisig.c"
+symbol = "test_authority_multisig.c"
+observed = "Attempt 2: five of seven C binaries and the pytest passed; two bridge withdraw cases failed at the GENESIS-authority open of the withdrawals account."
+assumption = "Producer refusal introduced by 22.33.1138, not a defect of the attempt."
+severity = "high"
+
+[finding.22.33.892.2]
+task = "22.33.892"
+file = "tests/test_genesis_reconcile.c"
+symbol = "test_genesis_reconcile.c"
+observed = "Attempt 2: three builds and one verify; two C cases failed and the repaired tree was never verified."
+assumption = "The refusal of 22.33.1138 explains the reserve fixture failures; anything left after 505 belongs to the task."
+severity = "high"
+
+[finding.22.33.1236.4]
+task = "22.33.1236"
+file = "tests/modules/paxeer_x_metered_end_boundary.py"
+symbol = "paxeer_x_metered_end_boundary.py"
+observed = "Attempt 4: the asset, budget and escrow-capture binaries passed after the fixture rewrite; test_escrow_invariants failed at line 368 on the native escrow open submission without printing the outcome; the oracle binary never ran."
+assumption = "The account registry refusal is the producer defect 22.31.505 repairs (decision 2548); the escrow failure at line 368 may share that cause and is re-read after 505."
+severity = "high"
+
+[finding.22.31.486.3]
+task = "22.31.486"
+file = "daemon/committed-fixture"
+symbol = "committed-fixture"
+observed = "Attempt 3: the wallet suite failed 3 cases of repair-22-33-205.test.ts with 'no contract answers 0x5e615a6b' at the web-data module address from the test double; the CLI and explorer gates were not reached."
+assumption = "A producer change outside the task broke a consumer test the task's verify runs (gotcha 3055)."
+severity = "high"
+
+[finding.22.33.208.3]
+task = "22.33.208"
+file = "services/wallet/gateway/test/repair-22-33-208.test.ts"
+symbol = "repair-22-33-208.test.ts"
+observed = "Attempt 3: the type-check passed; 2 of 5 cases passed; the send case timed out on the database connection and the two sponsored cases found no node-recorded set-code execution evidence."
+assumption = "The sponsored evidence is a producer recording the task cannot make inside its paths (decision 2553); the database timeout is a test setup matter until shown otherwise."
+severity = "high"
+
+[finding.22.33.18.2]
+task = "22.33.18"
+file = "services/agent/sdk/python/tests/market_receipt_producer.c"
+symbol = "market_receipt_producer.c"
+observed = "Attempt 2: build passed; 79 cases passed; the replayed exact exchange failed on the payment payload comparison, receiptDigest differing from the recording."
+assumption = "Producer digest defect in the Python SDK outside the task's paths (gotcha 3059)."
+severity = "high"
+
+[finding.22.33.1336.6]
+task = "22.33.1336"
+file = "services/platform/hosted/gateway/tests/repair_22_33_1336.rs"
+symbol = "repair_22_33_1336.rs"
+observed = "Attempt 8: 151 passed, 2 failed: the carried history unit test hit the public read rate limit (-32001 public_read_rate_limit) and the root upgrade case found no handler at /."
+assumption = "Shared process-global state in one test binary and a missing root route; the route belongs to the single network interface at the node root (decision 2521)."
+severity = "high"
+
+[finding.22.31.498.3]
+task = "22.31.498"
+file = "tests/ci/test_agent_codec_corpus.py"
+symbol = "test_agent_codec_corpus.py"
+observed = "Attempt 3: build 1, verify 1; every case passed except the undeclared-activity refusal whose expected text still listed the retired budget pull (196619)."
+assumption = "Stale literal in the task's own test; the generator behaves as specified."
+severity = "low"
+
+[finding.22.31.492.3]
+task = "22.31.492"
+file = "services/platform/middleware/conformance/test/repair_22_31_492.test.mjs"
+symbol = "repair_22_31_492.test.mjs"
+observed = "Attempt 3: the resolver interface and digest fixes passed; the committed-rung case was refused requirements-mismatch at the payee account check because the committed offer named an account that is not the asset account the V4 recording pays."
+assumption = "Asset-account payees are not confirmable from an offer today (gotcha 3056); the named-payee recording keeps the case on the real verifier."
+severity = "high"
+
+[finding.22.31.495.3]
+task = "22.31.495"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_495.rs"
+symbol = "repair_22_31_495.rs"
+observed = "Attempt 2: build passed; the dependent-crate check failed with E0061 in layerx-mcp and E0063 twice in the layerx-human-service repair test; the verify never ran."
+assumption = "Producer interface change with two consumers outside the paths; every interface change proves its consumer path."
+severity = "high"
