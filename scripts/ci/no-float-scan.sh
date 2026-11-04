@@ -2,6 +2,9 @@
 set -eu
 
 build_dir=${1:-build}
+source_only=0
+if [ "$build_dir" = --source-only ]; then source_only=1; fi
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 python3 - <<'PY'
 import pathlib
 import re
@@ -28,32 +31,31 @@ def strip_comment(match):
 
 
 found = False
+inspected = 0
 for directory in ('include/layerx', 'src'):
+    if not pathlib.Path(directory).is_dir():
+        sys.exit('expected consensus source directory is unavailable')
     for path in sorted(pathlib.Path(directory).rglob('*')):
         if not path.is_file() or path.suffix not in ('.c', '.h'):
             continue
+        inspected += 1
         source = re.sub(r'\\\n', '', path.read_text())
         source = tokens.sub(strip_comment, source)
         for number, line in enumerate(source.splitlines(), 1):
             if floating.search(line):
                 print(f'{path}:{number}:{line}')
                 found = True
+if not inspected:
+    sys.exit('consensus source inventory is empty')
 if found:
     print('consensus source contains floating-point syntax', file=sys.stderr)
     sys.exit(1)
 PY
 
-objects=$(find "$build_dir/obj/src" -type f -name '*.o' 2>/dev/null || true)
-if [ -n "$objects" ] && objdump -d $objects | \
-    grep -E '[[:space:]](f(add|sub|mul|div|ld|st|com|ucom|sqrt|sin|cos|tan)|v?(add|sub|mul|div|max|min|sqrt|com|ucom|cvt|round|mov)(ss|sd|ps|pd))[[:space:]]'; then
-    echo "consensus object contains floating-point instructions" >&2
-    exit 1
+printf '%s\n' "consensus source syntax inspection passed"
+if [ "$source_only" -eq 1 ]; then
+    echo "source-only inspection; binary instructions and imports were not inspected"
+    exit 0
 fi
-
-if [ -n "$objects" ] && nm -u $objects | \
-    grep -E '[[:space:]]U[[:space:]]+(acos|asin|atan|atan2|ceil|cos|cosh|exp|fabs|floor|fmod|frexp|ldexp|log|log10|modf|pow|sin|sinh|sqrt|tan|tanh)(f|l)?(@.*)?$'; then
-    echo "consensus object imports a libm floating-point symbol" >&2
-    exit 1
-fi
-
-printf '%s\n' "no floating-point syntax, instructions or libm imports in consensus paths"
+python3 "$script_dir/audit_object_checks.py" float "$build_dir"
+printf '%s\n' "no floating-point syntax, instructions or libm imports in inspected consensus paths"
