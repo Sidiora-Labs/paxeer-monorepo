@@ -1188,9 +1188,16 @@ func uint64ToInt64Clamped(v uint64) int64 {
 
 // addDelta computes the difference between current and prev, updates prev to current,
 // and adds the positive delta to the counter. Used to convert cumulative scraped
-// values into rate/counter increments.
+// values into rate/counter increments. A reset counts the new non-negative
+// snapshot from zero, as in the MVCC collector; negative snapshots are ignored.
 func addDelta(ctx context.Context, counter metric.Int64Counter, current int64, prev *int64, opts ...metric.AddOption) {
-	delta := current - *prev
+	if current < 0 {
+		return
+	}
+	delta := current
+	if current >= *prev && *prev >= 0 {
+		delta = current - *prev
+	}
 	*prev = current
 	if delta > 0 {
 		counter.Add(ctx, delta, opts...)
