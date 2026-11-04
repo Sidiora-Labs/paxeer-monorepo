@@ -1,0 +1,33 @@
+[repair.22.31.82]
+audit = "22.30.46"
+base_revision = "9b3c0edb83db2c918d37d3910bad522f5b067ca3"
+findings = ["7", "34"]
+build = "hf-build"
+verify = "hf-done"
+evidence = "The gate runner records the exact qualified candidate revision, command, exit and private log; the final response copies that evidence."
+baseline = "Not run: the explicit gate order forbids verification before implementation and permits only hf-done after hf-build; repair_82_test.go did not exist on the unchanged tree."
+
+[finding.7]
+test = "TestRepair_82_BigintIdentifiers"
+path = "Real EventSink IndexBlockEvents and IndexTxEvents, database/sql, embedded SQLite sequences, foreign keys, protobuf decode and joined consumer views; first IDs are 4294967296 and MaxInt64-63."
+postgres_test = "TestIndexing/Repair82Postgres runs the same round-trip assertions with real PostgreSQL setval sequences starting above uint32."
+
+[finding.34]
+test = "TestRepair_82_RepeatedKeysSurviveReopen"
+path = "Real block and transaction writers persist repeated keys, identical pairs and original ordinals; Stop, reopen, decode and view queries preserve all indexed attributes and replay stays idempotent."
+migration = "migrate_attributes_ordinal.sql upgrades existing unique-key databases transactionally; old rows receive deterministic positions because the old schema did not store their input order."
+postgres_test = "TestIndexing/Repair82Postgres checks migration row retention, repeated keys and Stop/reopen using the PostgreSQL constructor and driver."
+
+[qualification.boundary]
+observed = "The task requests real PostgreSQL qualification and also requires the repair gate to run without PostgreSQL."
+resolution = "The gate uses actual libsqlite3 through database/sql, translating only BIGSERIAL identity syntax and the reserved index identifier; the existing PostgreSQL integration suite carries the same assertions. PostgreSQL integration is not claimed as executed by the service-free gate."
+wiring_request = "Owning domain 5 (fm-node-runtime): run TestIndexing/Repair82Postgres in the PostgreSQL integration environment and apply consensus/internal/state/indexer/sink/psql/migrate_attributes_ordinal.sql to existing sink databases before deploying the new writer."
+gotcha = "The old package TestMain returned before m.Run when Docker was unavailable; PostgreSQL setup is now lazy so selected repair tests actually execute and selected integration tests still require PostgreSQL."
+requirements = "The embedded gate requires CGO and the system sqlite3 development library; it starts no database service or RPC endpoint."
+
+[qualification.repair1]
+revision = "3980d3ab99c9ee53e590bf7538b757ce121e5820"
+command = "cg spec done 22.31.82 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Splitting schema.sql at semicolons split a SQL comment and prepared an empty statement; hand the full script to the real SQLite parser and reject empty prepared statements."
