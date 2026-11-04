@@ -39,7 +39,7 @@ export interface SideCounts {
   buys: number;
   sells: number;
   source: 'pool-stats' | 'fills';
-  /** Fills only: true when the retained history reaches back to the window's first fill. */
+  /** Fills only: true when unique retained fills account for every complete candle's trades. */
   complete: boolean;
   /** Fills only: the retained fills counted in this window. */
   retained: number;
@@ -66,17 +66,21 @@ export interface WindowStats {
 function countFills(candles: readonly Candle[], fills: readonly Trade[], trades: bigint): SideCounts {
   const base = { source: 'fills' as const, coveredSince: null, oldestHeight: null };
   if (candles.length === 0) return { ...base, buys: 0, sells: 0, complete: true, retained: 0 };
-  const boundary = candles.reduce((oldest, candle) => (comparePositions(candle.firstPosition, oldest) < 0 ? candle.firstPosition : oldest), candles[0].firstPosition);
-  let buys = 0, sells = 0, oldest: Position | null = null, reachesBoundary = false;
+  const seen = new Set<string>();
+  const retainedByCandle = candles.map(() => 0n);
+  let buys = 0, sells = 0, oldest: Position | null = null;
   for (const fill of fills) {
-    const order = comparePositions(fill.position, boundary);
-    if (order <= 0) reachesBoundary = true;
-    if (order < 0) continue;
+    const bucket = candles.findIndex(candle => fill.position.chainId === candle.firstPosition.chainId && comparePositions(fill.position, candle.firstPosition) >= 0 && comparePositions(fill.position, candle.lastPosition) <= 0);
+    if (bucket < 0) continue;
+    const identity = `${fill.position.chainId}:${fill.eventId}`;
+    if (seen.has(identity)) continue;
+    seen.add(identity);
+    retainedByCandle[bucket]++;
     if (fill.side === 'buy') buys++; else sells++;
     if (!oldest || comparePositions(fill.position, oldest) < 0) oldest = fill.position;
   }
   const retained = buys + sells;
-  const complete = reachesBoundary || BigInt(retained) >= trades;
+  const complete = BigInt(retained) === trades && candles.every((candle, index) => candle.coverage === 'complete' && retainedByCandle[index] === BigInt(candle.trades));
   if (complete) return { ...base, buys, sells, complete, retained };
   const holder = oldest ? candles.find(candle => comparePositions(candle.firstPosition, oldest) <= 0 && comparePositions(oldest, candle.lastPosition) <= 0) : undefined;
   return { ...base, buys, sells, complete, retained, coveredSince: holder?.start ?? null, oldestHeight: oldest?.height ?? null };
@@ -86,9 +90,9 @@ function countFills(candles: readonly Candle[], fills: readonly Trade[], trades:
  * Window figures from served data only. USDL volume, buy / sell USDL, trade
  * count and price change come from the window's IF_CANDLES buckets. Side
  * counts come from IF_POOL_STATS for 24h (its own rolling window), and for
- * shorter windows from the retained fills newer than the window's first
- * fill (Candle.firstPosition), with explicit coverage when the retained
- * history does not reach that far back. Nothing is extrapolated.
+ * shorter windows from unique retained fills between each candle's first
+ * and last positions, with explicit partial coverage unless every complete
+ * bucket's trade count is accounted for. Nothing is extrapolated.
  */
 export function deriveWindowStats(window: StatsWindow, candles: readonly Candle[], fills: readonly Trade[], stats: PoolStats | null, from: number): WindowStats {
   const ordered = [...candles].sort((a, b) => a.start.localeCompare(b.start));
