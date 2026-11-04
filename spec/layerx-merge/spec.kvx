@@ -147608,7 +147608,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.448]
 title = "Close the explorer dependency advisories: bigint-buffer, glob, the OpenTelemetry oracledb instrumentation and deepmerge in apps/explorer/yarn.lock"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -152274,7 +152274,7 @@ do_8 = "Attempt 2 (continue): the explorer type-check failed on the ganache impo
 
 [task.22.33.329]
 title = "Repair audit record 22.30.137 medium findings in apps/explorer/ui/shared/pagination (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -152428,7 +152428,7 @@ do_10 = "Attempt 2 (continue): the attempt ran on the gate as it stood before th
 
 [task.22.33.325]
 title = "Repair audit record 22.30.137 medium findings in apps/explorer/ui/shared/entities/address (part 1 of 1): wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -209043,7 +209043,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.745]
 title = "Repair audit record 22.30.172 medium findings in tests/integration/evm_module/ws_test (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.421", "22.31.422", "22.31.423"]
@@ -251368,7 +251368,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.452]
 title = "Close the Spring integration dependency advisories: spring-boot and spring-boot-autoconfigure in sdk/integrations/spring/pom.xml"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -325336,7 +325336,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.731]
 title = "Repair audit record 22.30.171 medium findings in tools/ci (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.315"]
