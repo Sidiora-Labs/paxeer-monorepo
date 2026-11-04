@@ -33,6 +33,8 @@ use layerx_crypto::send::{
 };
 use layerx_crypto::signer::{sign_disclosed_call, KeystoreSigner, LocalSigner, SignError, Signer};
 
+mod support;
+
 type TestResult = Result<(), Box<dyn Error>>;
 
 struct ThreadWake(std::thread::Thread);
@@ -334,12 +336,22 @@ fn proof_crypto_real_keystore_transport_survives_agent_reopen_and_refuses_unknow
     chain[24..].copy_from_slice(&125u64.to_be_bytes());
     let produced = BindMessage::new(chain, [0xa1; 20], 7);
     let canonical = produced.as_bytes();
+    let old = support::signing::old_envelope(public_key);
     let mut prior_signature = None;
     for _ in 0..2 {
         let agent = open_agent(&directory)?;
         let signer = KeystoreSigner::new(&socket, public_key)?.with_timeout(Duration::from_secs(2));
         assert_eq!(signer.public_key(), public_key);
         assert_eq!(signer.evm_address(), None);
+        assert_eq!(
+            complete(layerx_crypto::signer::sign_disclosed(
+                &signer,
+                &old.canonical,
+                &old.disclosure,
+                &old.registry
+            )),
+            Err(SignError::InvalidDisclosure)
+        );
         for _ in 0..2 {
             let consumed = BindMessage::decode(canonical)?;
             assert_eq!(consumed, produced);
@@ -356,6 +368,15 @@ fn proof_crypto_real_keystore_transport_survives_agent_reopen_and_refuses_unknow
             Err(SignError::KeystoreRefused)
         );
         drop(agent);
+        assert_eq!(
+            complete(layerx_crypto::signer::sign_disclosed(
+                &signer,
+                &old.canonical,
+                &old.disclosure,
+                &old.registry
+            )),
+            Err(SignError::InvalidDisclosure)
+        );
         assert_eq!(
             complete(signer.sign_bind_bytes(canonical)),
             Err(SignError::KeystoreUnavailable)

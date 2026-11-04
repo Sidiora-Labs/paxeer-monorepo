@@ -865,8 +865,7 @@ func TestRepairM_879_EVMAcceptedThroughput(t *testing.T) {
 	close(queue)
 	count := new(int64)
 	owner := &LoadTestClient{EvmTxClients: []*EvmTxClient{client}}
-	var wg sync.WaitGroup
-	owner.SendTxs(queue, 0, make(chan struct{}), map[string]*int64{EVM: count}, semaphore.NewWeighted(1), &wg)
+	owner.SendTxs(context.Background(), queue, 0, map[string]*int64{EVM: count}, semaphore.NewWeighted(1))
 	if atomic.LoadInt64(count) != 0 {
 		t.Fatal("refused or stale transactions inflated accepted throughput")
 	}
@@ -874,7 +873,7 @@ func TestRepairM_879_EVMAcceptedThroughput(t *testing.T) {
 	queue = make(chan SignedTx, 1)
 	queue <- SignedTx{EvmTx: next, MsgType: EVM}
 	close(queue)
-	owner.SendTxs(queue, 0, make(chan struct{}), map[string]*int64{EVM: count}, semaphore.NewWeighted(1), &wg)
+	owner.SendTxs(context.Background(), queue, 0, map[string]*int64{EVM: count}, semaphore.NewWeighted(1))
 	if atomic.LoadInt64(count) != 1 {
 		t.Fatal("accepted transaction missing from throughput")
 	}
@@ -893,12 +892,12 @@ func TestRepairM_879_EVMProducerResumesAfterReconciliation(t *testing.T) {
 	}
 	owner := &LoadTestClient{EvmTxClients: []*EvmTxClient{client}, LoadTestConfig: Config{MessageTypes: []string{EVM}}}
 	queue := make(chan SignedTx, 1)
-	done := make(chan struct{})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	joined := make(chan struct{})
-	var wg sync.WaitGroup
 	go func() {
 		defer close(joined)
-		owner.BuildTxs(queue, 0, &wg, done, rate.NewLimiter(rate.Inf, 1), map[string]*int64{EVM: new(int64)})
+		owner.BuildTxs(ctx, queue, 0, rate.NewLimiter(rate.Inf, 1), map[string]*int64{EVM: new(int64)})
 	}()
 	select {
 	case <-queue:
@@ -917,7 +916,7 @@ func TestRepairM_879_EVMProducerResumesAfterReconciliation(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("producer did not resume after acceptance was observed")
 	}
-	close(done)
+	cancel()
 	select {
 	case <-joined:
 	case <-time.After(time.Second):

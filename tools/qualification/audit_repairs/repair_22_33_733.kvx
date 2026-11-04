@@ -1,0 +1,35 @@
+[task.22.33.733]
+mode = "BUILD"
+base_revision = "76c050242a1edcad6212aa52fac15670ecb5612d"
+repair = "Serve each endpoint profile on its own ephemeral loopback listener accepting only POST /, publish those ports alongside the existing service port after every listener is ready, and pass the selected root URL into the real checker. Remove the retired profile/rpc fixture route. Keep every existing endpoint assertion and wrong-chain, unavailable-consensus, malformed-network and account-refusal profile intact. Other service fixtures keep their existing listener and routes."
+source_proof = "The pytest module parses the shell with bash -n and checks the root-only POST guard before body processing, JSON request decode and response envelope, profile-specific port publication, readiness barrier, shell URL construction and exact checker invocation, plus status/output/failure guards. It parses the actual committed JavaScript profile/base literals as data, checks current native network producer fields, and executes the production checker's embedded Python judge in-process with those fixture JSON envelopes for all eight retained endpoint cases, asserting every original expected output and failure count. The root route is checked against rpc/rpcstack.go."
+review_only = "The Node HTTP responder, actual curl transport, full shell suite, native RPC node and deployments are not executed. Source facts prove the fixture wiring; executing the embedded Python consumer proves response judgments, not a complete HTTP exchange. bash -n is the expressly required shell parser and the only subprocess in the pytest module; no build toolchain, credential, live endpoint, environment variable, native artifact or device is needed. No restart-recovery or interface-mismatch finding applies."
+baseline = "No pre-change verification ran: the explicit implementation-first order, wrapper-only allowed gates and ban on running verify_cmd by hand supersede the older baseline clause. No baseline failures are claimed. Initial status/diff showed only runner-prepared .cgignore and spec bookkeeping; both scoped repair artifacts were absent, gate.json had zero builds and verifies, and no gates.jsonl existed."
+build_cmd = "bash -n tests/wallet/check-live.test.sh"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_733.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private gate ledger record the exact content-derived candidate revision, command, exit code and log location. Build and verification must qualify the same candidate. This record is finalized before qualification because embedding its own candidate hash changes that hash. The runner retains the evidence and commits the result; no manual commit or push is performed."
+wiring_request = "scripts/wallet/check-live.sh; owner domain 16: change endpoint help and call() from the retired appended /rpc suffix to the supplied root URL; the current out-of-scope checker still appends /rpc and will fail the repaired root-only fixture until its owning task repairs it."
+
+[finding.015]
+audit = "22.30.171"
+file = "tests/wallet/check-live.test.sh"
+line = 331
+class = "retired-reference"
+tests = ["test_015_shell_syntax_and_guarded_root_transport", "test_015_network_fixture_matches_retained_producer_and_consumer", "test_015_existing_endpoint_cases_reach_real_embedded_consumer"]
+closure_basis = "The fixture and caller now specify root URLs and retain the original negative coverage. Full shell runtime qualification remains dependent on the explicit out-of-path checker wiring request."
+
+[format]
+policy = "No Python, shell or KVX formatter is configured for these paths; apply .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions, preserving shell tabs and embedded JavaScript indentation."
+
+[gotcha.1]
+observed = "The baseline verification clause conflicts with the explicit implementation-first, wrapper-only gate order."
+resolution = "Follow the explicit order; claim no baseline result. Record here because GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.2]
+observed = "The production checker still appends the retired /rpc suffix, outside the authorized paths."
+resolution = "Record the exact path and owning domain as a wiring request; preserve the root-only fixture guard and all existing assertions."
+
+[gotcha.3]
+observed = "Broad ledger/Codify reads overflow tool output limits; adjacent numbered repair artifacts are not necessarily present."
+resolution = "Read bounded sections and exact existing paths. No extra gates were run."

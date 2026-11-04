@@ -1,0 +1,217 @@
+[repair.22.33.1076]
+mode = "BUILD"
+base_revision = "76c050242a1edcad6212aa52fac15670ecb5612d"
+scope = "tests/daemon"
+build_cmd = "python3 -m py_compile tests/daemon/test_handover_chain_no_read_consumer.py tests/daemon/test_protocol_owner_binds_state_feed.py tests/daemon/test_serve_commits_programs_call.py tests/daemon/test_serve_startup_without_anchor_bind.py"
+verify_cmd = "python3 -m pytest -q tests/daemon/test_repair_22_33_1076.py"
+baseline = "The supplied previous-attempt result reports 16 passed and two failed: test_repair_f018_programs_call_executes_and_commits and test_repair_f019_startup_and_reopen_without_anchor_store both lack the node-produced programs-commit-reopen.json. The current /out/run/gates.jsonl is absent; no new unchanged-tree verification was run because the ordered gate instructions prohibit manual pytest and pre-implementation testing."
+evidence = "The runner's private /out/run/gates.jsonl records candidate revision, command, exit and log for hf-build and hf-done; the final response copies the last bounded gate result."
+closure = "The four retired references use retained production paths; qualification requires the node-produced commitment/reopen recording and the declared Python replay proof. A receipted execution vector is not commitment or restart evidence."
+
+[finding.f016]
+test = "test_repair_f016_retained_handover_needs_no_read_consumer"
+implementation = "Import the existing cmd/retirement handover inventory instead of executing the removed handover-chain.py; require absent retired paths and prohibit the read-consumer binary and environment selector in the retained harness and build entry point."
+proof = "The production Python transaction codec, JSON-RPC client and program receipt verifier also consume the unmodified node-produced embedded-program execution vector through loopback."
+
+[finding.f017]
+test = "test_repair_f017_embedded_runtime_owns_and_binds_state"
+implementation = "Check retained embedded host ownership and ordered restore, account and asset binding, metering and occupancy resolver contexts, programs binding, execution and branch/blob persistence; preserve the prohibition on generic kernel feed binding."
+proof = "The production client receives and verifies the embedded-program call's actual signed execution result, output/log bindings and sequence roots from rpc/sequencer_receipt_vectors_test.go."
+limit = "Source assembly checks and recorded runtime execution do not independently execute the Go/cgo host in the Python gate."
+
+[finding.f018]
+test = "test_repair_f018_programs_call_executes_and_commits"
+implementation = "Submit the retained signed EVM programs call through PaymentRpc to a transcript server, require committed receipt and successful transaction status in the same block, verify signer, chain, native call, signed output, logs and state read at that committed height; retain guest ABI 1 and response capacity 16."
+additional_tests = ["test_original_programs_call_admission_payload_keeps_every_bound", "test_recorded_embedded_program_execution_uses_real_codec_and_rpc", "test_program_execution_refuses_tampered_transport_evidence", "test_program_receipt_refuses_untrusted_or_expired_credentials", "test_native_program_admission_refuses_foreign_network_and_forged_signature", "test_receipted_vector_cannot_stand_in_for_original_call"]
+proof = "The separate programs-commit-reopen recording captures the original capacity-16 call through production admission, execution, commitment and getProgram at the committed height."
+
+[finding.f019]
+test = "test_repair_f019_startup_and_reopen_without_anchor_store"
+implementation = "Check current embedded startup and store-loader ordering and the separate anchor-store deletion upgrade, then require identical authenticated receipt, committed block and program state observations from before and after a real node close/reopen across deletion."
+proof = "The recorder stops and reopens the persisted App, consensus service and sequencer WAL around the anchor-store deletion, then records recovered committed receipt, status and program state without resubmission."
+
+[recording.production]
+generator = "tests/daemon/recorder/main.go"
+command = "go run ./tests/daemon/recorder"
+output = "tests/daemon/fixtures/programs-commit-reopen.json"
+implementation = "Persistent embedded App and real local consensus with the production sequencer, WAL, HTTP RPC, programs precompile and sandbox; apply the merge handler, submit the original ABI-1 capacity-16 call, commit, stop the node, apply the anchor deletion store loader, reopen and consume the recovered receipt and program state without a second submission."
+qualification = "Generate once during implementation; the declared Python gate only consumes the committed transcript."
+outcome = "Attempt 6 produces programs-commit-reopen.json on the base containing 22.31.475: the height-three consensus handshake accepts the unchanged persisted application hash, anchor deletion commits at height four, and the original receipt, transaction status and program state are recovered without resubmission."
+
+[gotcha.gate_order]
+observed = "The task requests an unchanged-tree verify in step 8 while explicitly forbidding pre-implementation tests and manual pytest runs."
+resolution = "Use only the ordered hf-build/hf-done gates and disclose the absent baseline; strict scope places this note and wiring requests here rather than editing spec files or GOTCHA.kvx."
+
+[gotcha.evidence_level]
+observed = "The available programs vector comes from a real EVM call on an embedded host, but its JSON explicitly says receipted and carries no node reopen or committed program-state observation."
+resolution = "Keep commitment and recovery assertions strict; never relabel this vector committed, manufacture state, or use replay-listener restart as node recovery."
+
+[gotcha.python_cache]
+observed = "The runner candidate walks every file in the allowed directory, including generated bytecode."
+resolution = "The current runner explicitly excludes __pycache__, .pyc and .pyo build outputs from its candidate, keeping the build and verification on the same source candidate."
+
+[qualification.first_verify]
+revision = "1fa79d921e9fd80cc6ad12239db89f00a532f3b1"
+command = "cg spec done 22.33.1076 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "14 passed and 3 failed: commitment and reopen lack node-produced evidence; the status-tamper assertion expected ValueError where PaymentRpc correctly raises a typed decode failure before receipt verification."
+
+[gotcha.status_refusal]
+observed = "PaymentRpc interprets status 0 as a revert and refuses a successful ABI output presented as revert data with DECODE_FAILURE before the authenticated receipt binder runs."
+resolution = "Assert the exact typed client error and separately retain the ValueError assertion for the authenticated receipt status binding; no exception check is removed or broadened."
+
+[continuation.capacity_binding]
+implementation = "Bind the decoded programs call to explicit response capacity 64 for the existing execution corpus and 16 for committed/reopened evidence, preserving ABI 1, calldata, capabilities, access declaration and all seven resource budgets."
+test = "test_receipted_vector_cannot_stand_in_for_original_call"
+proof = "The real decoder and receipt client consume the original signed transaction and production receipt over loopback, and reject this capacity-64 receipted vector when a capacity-16 commitment call is required."
+
+[gotcha.recording_dependency]
+observed = "The only committed local-chain vector records ledger payExact, while the programs-call vector records receipted execution; neither includes committed programs state or actual node reopen across anchor-store deletion."
+resolution = "The continuation explicitly authorizes native recording at implementation time. Generate a distinct original-call transcript using tests/daemon/recorder/main.go and retain all Python commitment and recovery assertions."
+
+[gotcha.retired_runtime_fixture]
+observed = "The ruling names tests/daemon/paxeer_x_runtime_fixture.py, but cmd/retirement/test_daemon_tests_runtime_fixture.py requires that legacy file to remain absent."
+resolution = "Use the retained node/sequencer runtime and consensus/rpc/test lifecycle in an in-scope recorder; keep the retired fixture absent."
+
+[gotcha.recorder_testing_entry]
+observed = "Calling testing.RunTests directly from the recording executable ran zero cases because the testing runtime was not initialized."
+resolution = "Use testing.Main to execute the real recording lifecycle and its assertions."
+
+[gotcha.genesis_branch]
+observed = "Flushing the entire genesis state twice violated the bank supply invariant; context.KVStore also wraps the underlying cache in a gas store without Write."
+resolution = "Publish only fixture kernel, binding and upgrade branches through MultiStore().GetKVStore; leave bank genesis and its production supply invariant on the normal path."
+
+[gotcha.recorder_startup]
+observed = "An assertion in a consensus callback hid the sequencer startup error; the enabled sequencer requires explicit positive nonce queue bounds."
+resolution = "Return startup errors to Commit and the recording goroutine, and set fixture queue bounds to four per sender and eight total."
+
+[gotcha.upgrade_boundary]
+observed = "Scheduling anchor deletion in genesis triggered the production major-upgrade early-binary refusal before the call could commit."
+resolution = "Supply the named upgrade file only after stopping at the preceding height, then let the retained store loader and BeginBlock upgrade handler perform deletion on reopen."
+
+[gotcha.deleted_store_descriptor]
+observed = "StoreKeys retains a deleted store's descriptor after the loader removes its commit store."
+resolution = "Assert GetCommitKVStore(layerxanchor) is nil and record only descriptors whose commit stores remain mounted."
+
+[gotcha.bootstrap_source]
+observed = "Consensus captures the sequencer source at construction, before the fixture can start the sequencer from committed bootstrap state."
+resolution = "The fixture exposes a stable SequencerSource interface that delegates admission, admission acknowledgements and sealing directly to the production source installed after block one."
+
+[gotcha.validator_genesis]
+observed = "A fixture genesis with a bonded validator but no slashing SigningInfos committed deployment and then correctly refused its next vote-bearing block."
+resolution = "Include that validator's normal signing metadata in slashing genesis, preserving vote processing and all production invariants."
+
+[gotcha.consensus_persistence]
+observed = "The RPC test helper defaults to memdb, losing consensus block and state history even when the application and sequencer WAL persist."
+resolution = "Select the production goleveldb consensus backend in the recording fixture so reopen handshakes against the actual committed chain history."
+
+[qualification.native_sc_reopen]
+revision = "9d1a06c7f3635f5556023760af7a75ee9755efdd"
+command = "go run -p 4 ./tests/daemon/recorder"
+exit = 1
+log = "/out/logs/programs-recording-12.log"
+observed = "Starting the sequencer execution layer before the restarted consensus handshake exposed an app hash differing from the persisted consensus app hash."
+assumption = "Let consensus finish its handshake before opening the next sequencer layer; preserve SC and all production hash checks, since IAVL is explicitly retired."
+
+[gotcha.retired_iavl]
+observed = "SetupPaxDB explicitly refuses a configuration with SC disabled because IAVL has been fully deprecated."
+resolution = "Keep SC enabled; do not replace or bypass its production checks."
+
+[qualification.native_reopen_blocker]
+revision = "9d1a06c7f3635f5556023760af7a75ee9755efdd"
+command = "go run -p 4 ./tests/daemon/recorder"
+exit = 1
+log = "/out/logs/programs-recording-14.log"
+observed = "The production restart handshake rejects reopened height three: app hash 6869C4E57274EF62B9E7049396550A9C3FF66681D7DB5E47ACAA75045F368D59 differs from consensus 997A6D6A11195C23E9CD168CAAE1F164D2D955C18BA1BA354DDA859BB6E02CCC, even before starting the new sequencer layer."
+assumption = "The mandatory real restart cannot be recorded through this production path within tests/daemon-only scope; retain both failing proofs and every hash check, do not fabricate recovery evidence, and do not change production store or consensus code."
+
+[continuation.current_base]
+base_revision = "a1ae360874f9260f704cf62f7a49c3d32b62b896"
+inherited = "Continue all nine supplied implementation paths; the earlier private gate ledger and native logs are not present in this sandbox."
+recording_command = "go run -p 4 ./tests/daemon/recorder"
+recording_log = "/out/logs/programs-recording-current.log"
+implementation = "Generate the missing transcript against the supplied current production revision, retaining the persisted consensus handshake, SC app-hash checks, original capacity-16 call and every recovery assertion."
+
+[qualification.current_native_compile]
+revision = "a1ae360874f9260f704cf62f7a49c3d32b62b896"
+command = "go run -p 4 ./tests/daemon/recorder"
+exit = 1
+log = "/out/logs/programs-recording-current.log"
+observed = "Production compilation fails in sdk/x/staking/client/cli/tx.go:62, sdk/x/auth/client/cli/{tx_multisign.go,tx_sign.go,validate_sigs.go} and modules/tokenfactory/client/cli/tx.go because NewFactoryCLI returns two values but those callers consume one."
+assumption = "These pre-existing production callers are outside tests/daemon scope; preserve the missing-recording failures and all production checks, do not change those callers or manufacture the transcript."
+
+[recording.native_dependencies]
+kernel_command = "make -j4 build/liblayerx.a"
+kernel_exit = 0
+kernel_log = "/out/logs/programs-recording-kernel-build.log"
+sandbox_command = "cargo build --locked -p layerx-programs-sandbox --features host-ffi"
+sandbox_directory = "programs"
+sandbox_exit = 0
+sandbox_log = "/out/logs/programs-recording-sandbox-build.log"
+purpose = "Build only the native production libraries needed to generate the recording; no native test gate was run and the declared Python verification has no native artifact dependency."
+
+[continuation.attempt5]
+base_revision = "ca3015b61333a7ebcaedf0914337d4460107fe1a"
+inherited = "Preserve the supplied nine paths and the sixteen passing cases; the current sandbox has no gates.jsonl before this continuation."
+recording_command = "go run -p 4 ./tests/daemon/recorder"
+recording_log = "/out/logs/programs-recording-attempt5.log"
+construction = "Both opens use the same persisted home, application goleveldb, SC directory, pebbledb state store, genesis bytes, encoding, programs configuration and sequencer WAL; log their committed height and application hash."
+diagnostic = "First reopen the stopped application without scheduling deletion and require the exact committed height and hash; then close it and reopen with the production anchor deletion store loader before the consensus handshake."
+
+[qualification.attempt5_native_reopen]
+revision = "ca3015b61333a7ebcaedf0914337d4460107fe1a"
+command = "go run -p 4 ./tests/daemon/recorder"
+exit = 1
+log = "/out/logs/programs-recording-attempt5.log"
+observed = "At height 3 the stopped App, plain reopen and deletion-loader reopen all report 23C00DDC24900B87E6DED6C82918D25B9CE1B5D056C1532E1C7A3104EB2CA9F5, but consensus rejects it against F04BC065AFEBDEB89C2C58C7A3BEB8C462102409716E7B693A71F6026197D44B."
+assumption = "The shared home, genesis digest, persisted application backend, SC directory, SS backend and programs configuration exclude a recorder reset; obey continuation step 12 and stop rather than changing production code or manufacturing a recording."
+
+[finding.node_runtime_reopen]
+owner = "node runtime"
+height = 3
+application_hash = "23C00DDC24900B87E6DED6C82918D25B9CE1B5D056C1532E1C7A3104EB2CA9F5"
+consensus_hash = "F04BC065AFEBDEB89C2C58C7A3BEB8C462102409716E7B693A71F6026197D44B"
+observed = "Production startup refuses the committed programs-call chain with state.AppHash does not match AppHash after replay; appHeight, storeHeight and stateHeight all equal 3, and the application hash survives both reopen checks unchanged."
+disposition = "Resolved by production repair 22.31.475: attempt 6 records the accepted height-three handshake and subsequent anchor-deletion recovery; retain the original failure hashes as historical evidence."
+
+[gotcha.reopen_diagnosis]
+observed = "The previous recorder scheduled deletion before its only reopen, leaving persistence and deletion loading indistinguishable in its failure evidence."
+resolution = "The recorder now checks ordinary persisted height/hash recovery before scheduling deletion, checks identical genesis bytes at every open, and logs each open's construction and committed identity."
+
+[continuation.attempt6]
+base_revision = "76c050242a1edcad6212aa52fac15670ecb5612d"
+inherited = "Keep all nine attempt-5 paths and all eighteen verification cases; the initial working tree has no current gate ledger."
+baseline = "The supplied attempt-5 evidence is sixteen passed and two missing-recording failures; do not run a manual or pre-implementation verification in conflict with the ordered gates."
+recording_command = "go run -p 4 ./tests/daemon/recorder"
+recording_log = "/out/logs/programs-recording-attempt6.log"
+construction = "Retain identical persisted application, consensus, genesis, programs configuration and sequencer WAL across plain reopen and anchor-deletion reopen; production repair 22.31.475 is present on this base."
+kernel_command = "make -j4 build/liblayerx.a"
+kernel_log = "/out/logs/programs-recording-attempt6-kernel.log"
+sandbox_command = "cd programs && cargo build --locked -p layerx-programs-sandbox --features host-ffi"
+sandbox_log = "/out/logs/programs-recording-attempt6-sandbox.log"
+
+[qualification.attempt6_native_reopen]
+revision = "76c050242a1edcad6212aa52fac15670ecb5612d"
+command = "go run -p 4 ./tests/daemon/recorder"
+exit = 0
+log = "/out/logs/programs-recording-attempt6.log"
+observed = "The stopped App, plain reopen, deletion-loader reopen and accepted ABCI handshake share height 3 hash 4E5E9AABD0A55B48062ECCA3E97808EE24CE75A71546EF2C1A12874F84DF5FFE; anchor deletion commits at height 4 and the recorder emits the recovered receipt, committed transaction status and program state."
+assumption = "The emitted transcript is production evidence for f018 and f019; hf-build and hf-done alone qualify the final Python replay candidate, with exact candidate revision and private log in the runner ledger."
+
+[recording.attempt6_dependencies]
+kernel_exit = 0
+sandbox_exit = 0
+purpose = "Native libraries were generated only to run the preserved production recorder; the Python verification requires no native artifact, subprocess toolchain, live endpoint or environment selector."
+
+[qualification.attempt6_first_verify]
+revision = "e3e57f51f031c97a3e9230fdaaffa7695bf8b3d1"
+command = "cg spec done 22.33.1076 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Sixteen cases pass; both commitment/reopen cases reach program-state encoding but the replay helper passes a hex selector to encode_call, whose production interface expects a Solidity function name."
+repair = "Use encode_call with getProgram and the bytes32 argument, preserving the exact calldata equality against the node-produced transcript and every commitment/recovery assertion."
+
+[gotcha.abi_encoder_name]
+observed = "The Python SDK encode_call parameter named selector takes a Solidity function name and derives its selector from the declared types."
+resolution = "Pass getProgram with bytes32 rather than a precomputed four-byte selector; use the production encoder for the full recorded request binding."

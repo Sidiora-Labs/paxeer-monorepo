@@ -606,6 +606,7 @@ type App struct {
 	adminConfig           admin.Config
 	adminServer           *grpc.Server
 	lightInvarianceConfig LightInvarianceConfig
+	lightInvarianceErr    error
 
 	genesisImportConfig genesistypes.GenesisImportConfig
 
@@ -2018,7 +2019,9 @@ func (app *App) FinalizeBlocker(ctx sdk.Context, req *abci.RequestFinalizeBlock)
 			}
 			consensusParamUpdates := app.GetConsensusParamsForStateToCommit()
 			cms := app.WriteState()
-			app.LightInvarianceChecks(ctx.Context(), cms, app.lightInvarianceConfig)
+			if err := app.LightInvarianceChecks(ctx.Context(), cms, app.lightInvarianceConfig); err != nil {
+				return nil, err
+			}
 			resp := app.getFinalizeBlockResponse(app.GetWorkingHash(), sealed.Events, sealed.Results, sealed.EndBlock, consensusParamUpdates)
 			if hasHeadNotifier {
 				if err := app.stashBlockHeader(headNotifier, req, &resp); err != nil {
@@ -2049,7 +2052,9 @@ func (app *App) FinalizeBlocker(ctx sdk.Context, req *abci.RequestFinalizeBlock)
 			}
 			consensusParamUpdates := app.GetConsensusParamsForStateToCommit()
 			cms := app.WriteState()
-			app.LightInvarianceChecks(ctx.Context(), cms, app.lightInvarianceConfig)
+			if err := app.LightInvarianceChecks(ctx.Context(), cms, app.lightInvarianceConfig); err != nil {
+				return nil, err
+			}
 			appHash := app.GetWorkingHash()
 			resp := app.getFinalizeBlockResponse(appHash, events, txRes, endBlockResp, consensusParamUpdates)
 			if hasHeadNotifier {
@@ -2077,7 +2082,9 @@ func (app *App) FinalizeBlocker(ctx sdk.Context, req *abci.RequestFinalizeBlock)
 	}
 	consensusParamUpdates := app.GetConsensusParamsForStateToCommit()
 	cms := app.WriteState()
-	app.LightInvarianceChecks(ctx.Context(), cms, app.lightInvarianceConfig)
+	if err := app.LightInvarianceChecks(ctx.Context(), cms, app.lightInvarianceConfig); err != nil {
+		return nil, err
+	}
 	appHash := app.GetWorkingHash()
 	resp := app.getFinalizeBlockResponse(appHash, events, txResults, endBlockResp, consensusParamUpdates)
 	if hasHeadNotifier {

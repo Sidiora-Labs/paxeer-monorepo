@@ -1,0 +1,206 @@
+{
+  "basis": "Committed protocol fixtures for the source-defined finalized Block/BlockResults and Wasm query JSON contracts. These are deterministic wire examples, not a claim of a captured live-chain run.",
+  "context": {
+    "height": 41,
+    "chain_id": "receipt-fixture"
+  },
+  "submissions": {
+    "failed": {
+      "height": "0",
+      "code": 0,
+      "txhash": "B80419AFF4DF4C10D296ED2AC41B5F07289F00DA59EB8C78283B8D734B5F7E27"
+    },
+    "bank": {
+      "height": "0",
+      "code": 0,
+      "txhash": "57E8CB42C8A882E303468A090084FC895201892B0DEC79AEF7D4436E8041FA9A"
+    },
+    "store": {
+      "height": "0",
+      "code": 0,
+      "txhash": "163485B7793EEF429A910CE335F9653F493B32E1BF6EF68070471448F5987608"
+    },
+    "instantiate": {
+      "height": "0",
+      "code": 0,
+      "txhash": "C9AD3115E6F1BBEDCC4849622BABF841AFDA0DA4C4719D6B94D3D437CADC692C"
+    }
+  },
+  "blocks": {
+    "42": {
+      "block": {
+        "header": {
+          "chain_id": "receipt-fixture",
+          "height": "42"
+        },
+        "data": {
+          "txs": [
+            "CgZmYWlsZWQ=",
+            "CgRiYW5r",
+            "CgVzdG9yZQ==",
+            "CgRpbml0"
+          ]
+        }
+      }
+    },
+    "43": {
+      "block": {
+        "header": {
+          "chain_id": "receipt-fixture",
+          "height": "43"
+        },
+        "data": {
+          "txs": [
+            "CgVvdGhlcg=="
+          ]
+        }
+      }
+    }
+  },
+  "results": {
+    "42": {
+      "height": "42",
+      "txs_results": [
+        {
+          "code": 9,
+          "log": "message execution rejected",
+          "gas_used": "19"
+        },
+        {
+          "gas_used": "20"
+        },
+        {
+          "gas_used": "21",
+          "events": [
+            {
+              "type": "store_code",
+              "attributes": [
+                {
+                  "key": "Y29kZV9pZA==",
+                  "value": "Nw==",
+                  "index": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "gas_used": "22",
+          "events": [
+            {
+              "type": "instantiate",
+              "attributes": [
+                {
+                  "key": "X2NvbnRyYWN0X2FkZHJlc3M=",
+                  "value": "cGF4MW93bmNvbnRyYWN0",
+                  "index": true
+                },
+                {
+                  "key": "Y29kZV9pZA==",
+                  "value": "Nw==",
+                  "index": true
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "43": {
+      "height": "43",
+      "txs_results": [
+        {
+          "events": [
+            {
+              "type": "store_code",
+              "attributes": [
+                {
+                  "key": "Y29kZV9pZA==",
+                  "value": "OTk5",
+                  "index": true
+                }
+              ]
+            },
+            {
+              "type": "instantiate",
+              "attributes": [
+                {
+                  "key": "X2NvbnRyYWN0X2FkZHJlc3M=",
+                  "value": "cGF4MW90aGVyY29udHJhY3Q=",
+                  "index": true
+                },
+                {
+                  "key": "Y29kZV9pZA==",
+                  "value": "Nw==",
+                  "index": true
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "wasm_hex": "0061736d01000000",
+  "creator": "pax1creator",
+  "label": "own-contract",
+  "init_msg": {
+    "owner": "pax1creator",
+    "count": 7
+  },
+  "queries": [
+    {
+      "command": [
+        "wasm",
+        "code-info",
+        "7"
+      ],
+      "height": 42,
+      "response": {
+        "code_id": "7",
+        "creator": "pax1creator",
+        "data_hash": "93A44BBB96C751218E4C00D479E4C14358122A389ACCA16205B1E4D0DC5F9476"
+      }
+    },
+    {
+      "command": [
+        "wasm",
+        "contract",
+        "pax1owncontract"
+      ],
+      "height": 42,
+      "response": {
+        "address": "pax1owncontract",
+        "contract_info": {
+          "code_id": "7",
+          "creator": "pax1creator",
+          "label": "own-contract"
+        }
+      }
+    },
+    {
+      "command": [
+        "wasm",
+        "contract-history",
+        "pax1owncontract"
+      ],
+      "height": 42,
+      "response": {
+        "entries": [
+          {
+            "operation": "CONTRACT_CODE_HISTORY_OPERATION_TYPE_INIT",
+            "code_id": "7",
+            "msg": {
+              "owner": "pax1creator",
+              "count": 7
+            }
+          }
+        ],
+        "pagination": {
+          "next_key": null,
+          "total": "1"
+        }
+      }
+    }
+  ]
+}

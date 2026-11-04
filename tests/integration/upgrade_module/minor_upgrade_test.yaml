@@ -22,7 +22,7 @@
 # 6. Final State:
 #    - All nodes, whether upgraded before or after the target block height, are running the minor release without any issues.
 
-- name: Test Minor Release Upgrade
+- name: Historical v1.0.3 Minor Release Upgrade
   inputs:
     - cmd: echo "v1.0.3"
       env: VERSION

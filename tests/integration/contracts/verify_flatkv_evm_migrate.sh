@@ -612,6 +612,8 @@ for i in $(seq 0 $((NODE_COUNT - 1))); do
   ensure_paxdb "pax-node-$i"
 done
 
+declare -A completion_heights=()
+max_completion_height=0
 elapsed=0
 all_done=false
 while [ "$elapsed" -lt "$COMPLETION_TIMEOUT" ]; do
@@ -633,8 +635,19 @@ while [ "$elapsed" -lt "$COMPLETION_TIMEOUT" ]; do
     version_at=$(echo "$status_json" | jq -r '.version_at // 0' 2>/dev/null || echo 0)
     height=$(node_height "$node")
     status_summary="$status_summary ${node}=${complete}@v${version_at}/h${height}"
-    if [ "$complete" != "true" ]; then
+    if [ "$complete" != "true" ] || ! [[ "$height" =~ ^[1-9][0-9]*$ ]] || ! [[ "$version_at" =~ ^[1-9][0-9]*$ ]]; then
       all_done=false
+    elif [ -z "${completion_heights[$node]:-}" ]; then
+      # Observation height is an upper bound on the committed completion block.
+      completion_height=$height
+      if [ "$version_at" -gt "$completion_height" ]; then
+        completion_height=$version_at
+      fi
+      completion_heights[$node]=$completion_height
+      if [ "$completion_height" -gt "$max_completion_height" ]; then
+        max_completion_height=$completion_height
+      fi
+      echo "Recorded migration completion: $node height=$completion_height"
     fi
     if [ "$i" -eq 0 ] && [ $((elapsed % 30)) -eq 0 ]; then
       echo "migrate-evm-status raw ${node}: ${raw_status}"
@@ -683,16 +696,12 @@ print_migration_summaries
 # If consensus is healthy AND migration is deterministic, all 4 digests
 # must match. Either flavor of failure manifests as a mismatch here.
 
-elapsed=0
-while [ "$elapsed" -lt 60 ]; do
-  base=$(node_height "pax-node-0")
-  if [ "$base" -ge "$MIN_HEIGHT_AFTER" ]; then
-    break
-  fi
-  echo "Waiting for post-migration chain progress (h=$base, want >= $MIN_HEIGHT_AFTER)"
-  sleep 2
-  elapsed=$((elapsed + 2))
-done
+comparison_boundary=$((max_completion_height + COMPARE_BUFFER))
+progress_target=$((comparison_boundary + COMPARE_BUFFER + 1))
+if [ "$MIN_HEIGHT_AFTER" -gt "$progress_target" ]; then
+  progress_target=$MIN_HEIGHT_AFTER
+fi
+wait_for_cluster_height_sync "$progress_target" "$COMPLETION_TIMEOUT"
 
 pick_compare_height() {
   local min=""
@@ -711,6 +720,10 @@ pick_compare_height() {
 }
 
 COMPARE_VERSION=$(pick_compare_height)
+if [ "$COMPARE_VERSION" -le "$comparison_boundary" ]; then
+  echo "ERROR: comparison version $COMPARE_VERSION must exceed completion boundary $comparison_boundary" >&2
+  exit 1
+fi
 echo "Comparing FlatKV digests across $NODE_COUNT validators at chain height $COMPARE_VERSION"
 
 flatkv_dump_digest() {

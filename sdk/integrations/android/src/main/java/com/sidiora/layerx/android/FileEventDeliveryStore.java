@@ -161,6 +161,9 @@ public final class FileEventDeliveryStore implements EventDeliveryStore {
                 throw failure();
             }
             setFilePermissions(ledgerPath);
+            try (FileChannel directory = FileChannel.open(ledgerPath.getParent(), StandardOpenOption.READ)) {
+                directory.force(true);
+            }
         } finally {
             Files.deleteIfExists(temporary);
         }

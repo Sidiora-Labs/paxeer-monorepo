@@ -197,6 +197,16 @@ if docker exec "$VICTIM_NODE" pgrep -f "paxd start" >/dev/null 2>&1; then
   exit 1
 fi
 
+# The stopped log records the final committed version after any stop race.
+logfile="/pax-protocol/pax-chain/build/generated/logs/paxd-${VICTIM_INDEX}.log"
+deleted_version=$(docker exec "$VICTIM_NODE" grep 'msg="committed state"' "$logfile" \
+  | tail -1 | sed -n 's/.* height=\([0-9][0-9]*\).*/\1/p')
+if ! [[ "$deleted_version" =~ ^[1-9][0-9]*$ ]]; then
+  echo "ERROR: cannot attribute deleted FlatKV state to a committed version" >&2
+  exit 1
+fi
+docker exec "$VICTIM_NODE" bash -lc "cp '$logfile' '$logfile.before-partial-loss' && : > '$logfile'"
+
 echo "Deleting only $FLATKV_DIR on $VICTIM_NODE"
 docker exec "$VICTIM_NODE" bash -lc "rm -rf '$FLATKV_DIR'"
 
@@ -206,8 +216,10 @@ sleep "$RESTART_OBSERVE_SECS"
 
 if ! docker exec "$VICTIM_NODE" pgrep -f "paxd start" >/dev/null 2>&1; then
   echo "$VICTIM_NODE exited after FlatKV-only loss; checking for a clear startup error"
-  if docker exec "$VICTIM_NODE" bash -lc \
-    "grep -Eiq 'flatkv|version|missing|LoadVersion|reconcile|state_commit' /pax-protocol/pax-chain/build/generated/logs/paxd-${VICTIM_INDEX}.log"; then
+  evidence_dir=$(mktemp -d /tmp/flatkv-partial-loss-evidence.XXXXXX)
+  docker exec "$VICTIM_NODE" cat "$logfile" > "$evidence_dir/startup.log"
+  checks="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/flatkv_contract_checks.py"
+  if python3 "$checks" missing "$evidence_dir/startup.log" "$deleted_version"; then
     echo "PASS: $VICTIM_NODE failed loudly after FlatKV-only loss"
     exit 0
   fi
