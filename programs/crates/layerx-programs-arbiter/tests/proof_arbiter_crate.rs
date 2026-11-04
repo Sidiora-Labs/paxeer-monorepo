@@ -1343,7 +1343,9 @@ pub fn repair_unknown_abi_refusal() {
 }
 
 pub fn repair_executor_payer_replay() {
-    authenticated_producer_crosses_authority_and_bounded_replay_consumers_twice();
+    for abi in [2, 5] {
+        assert_authenticated_payer_replay(abi);
+    }
 }
 
 pub fn repair_authenticated_execution_refusals() {
@@ -1433,14 +1435,31 @@ pub fn repair_authenticated_execution_refusals() {
 
 #[test]
 fn authenticated_producer_crosses_authority_and_bounded_replay_consumers_twice() {
-    let corpus = Corpus::produce(false);
+    assert_authenticated_payer_replay(2);
+}
+
+fn assert_authenticated_payer_replay(abi: u16) {
+    let corpus = Corpus::produce_versioned(false, abi, abi, CapabilitySet::empty())
+        .expect("authenticated payer-bound producer");
     for _ in 0..2 {
         let (receipt, admission, header, commit, host_proof) = corpus.consume();
         let authority =
             VerifiedReplayAuthority::derive(&receipt, &admission, &header, &commit).unwrap();
         assert_eq!(authority.principal(), corpus.principal);
         assert_eq!(authority.activity_binding(), corpus.activity_id);
+        let payer_key = corpus.host.proofs.keys().find(|key| key[0] == 6).unwrap();
+        let payer: [u8; 32] = payer_key[1..].try_into().unwrap();
+        assert_eq!(authority.payer(), payer);
+        assert_ne!(authority.payer(), authority.principal());
         authority.verify_native(&corpus.authority).unwrap();
+        let mut wrong_payer = corpus.authority.clone();
+        let payer_offset = wrong_payer.len() - 240;
+        assert_eq!(&wrong_payer[payer_offset..payer_offset + 32], &payer);
+        wrong_payer[payer_offset..payer_offset + 32].copy_from_slice(&authority.principal());
+        assert_eq!(
+            authority.verify_native(&wrong_payer),
+            Err(ReplayError::Authority)
+        );
         let mut malformed = corpus.authority.clone();
         malformed.push(0);
         assert_eq!(
@@ -1485,7 +1504,12 @@ fn authenticated_producer_crosses_authority_and_bounded_replay_consumers_twice()
             }
         };
         for with_batch in [false, true] {
+            assert!(matches!(
+                verify(with_batch, &wrong_payer),
+                Err(ReplayError::Authority)
+            ));
             let replay = verify(with_batch, &corpus.authority).unwrap();
+            assert_eq!(replay.metadata().abi_version, abi);
             assert_eq!(
                 replay.metadata().boundary_root,
                 corpus.record.boundary_root()
@@ -1527,6 +1551,12 @@ fn authenticated_producer_crosses_authority_and_bounded_replay_consumers_twice()
             verify(true, &malformed),
             Err(ReplayError::Authority)
         ));
+        let mut bad_receipt = corpus.receipt.clone();
+        *bad_receipt.last_mut().unwrap() ^= 1;
+        assert_eq!(
+            commit.verify_receipt_bytes(&bad_receipt),
+            Err(ReplayError::Receipt)
+        );
         let mut wrong = commit.clone();
         wrong.receipt_proof.value[0] ^= 1;
         assert!(matches!(
