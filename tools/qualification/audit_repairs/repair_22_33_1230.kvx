@@ -1,0 +1,39 @@
+[repair]
+task = "22.33.1230"
+audit = "22.30.59"
+acceptance = "22998.1"
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+verified_revision = "Recorded by hf-build and hf-done in their private gate ledger; both must identify the same candidate revision."
+build = "bash -n wasm/contrib/relayer-tests/init_two_chainz_relayer.sh wasm/contrib/relayer-tests/one_chain.sh wasm/contrib/relayer-tests/test_ibc_transfer.sh"
+verify = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1230.py"
+evidence = "The hf-done final evidence line records exact revision, cg spec done command, exit code and private log location; no gate is claimed before it runs."
+evidence_ledger = "/out/run/gates.jsonl"
+baseline = "not run: the unchanged tree has no test module; the task order forbids verification before full implementation and forbids running pytest by hand before hf-done. No baseline test failure is claimed."
+wiring_requests = "None: every proposed implementation step is within wasm/contrib/relayer-tests."
+review_only = "No wasmd or rly build toolchain or live chains are used by the gate. Live upstream CLI compatibility, consensus startup, macOS ps/sed execution and a real IBC transfer require upstream integration review; source contracts and helper tests do not claim that live gate. The helper requires Python 3.11 or later."
+producer_transport_consumer = "Shell entrypoints call the real harness.py implementation. Tests parse shell syntax and check setup/home/launch/query/receipt wiring, exercise TOML and balance parsing, and reopen persisted ownership records to stop real local processes. Receipt source contracts are checked against the committed IBC event producer's field names. No fabricated chain transcript or mocked binary is treated as end-to-end evidence."
+
+[finding.15]
+tests = ["test_finding_15_scoped_lifecycle_source", "test_finding_15_real_process_ownership_and_reopen", "test_finding_15_wrong_home_and_stale_record", "test_home_cleanup_refuses_symlinks"]
+repair = "Remove killall; one_chain records direct node PID, birth token, executable, exact argv and canonical home under data/pids. Cleanup validates all ownership fields before signaling, waits for stopped processes, and uses traps to stop nodes and reap direct children on failure. Restarted cleanup reads persisted records and refuses changed or unrelated identities."
+proven = "Real local process stop/reopen, unrelated-process survival, changed birth/binary/home refusals, stale record removal, explicit direct-child waits and failure traps. The local process is the generic lifecycle component's subject, not a replacement wasmd."
+
+[finding.14]
+tests = ["test_finding_14_shared_home_and_all_relayer_calls", "test_home_cleanup_refuses_symlinks"]
+repair = "Setup and transfer share script-relative .relayer; every shell rly invocation and the Python relayer transport supplies --home. Removal is restricted to the harness data and relayer homes and refuses symlink homes."
+proven = "All setup configuration/key/light calls and transfer link/path/query/relay/transfer calls route through the shared explicit home; source command construction and cleanup guards are checked."
+
+[finding.13]
+tests = ["test_finding_13_both_platforms_and_generated_ports", "test_repaired_shell_syntax"]
+repair = "Both sed branches use PROFPORT. Validate distinct in-range ports before initialization, set the generated gRPC port consistently with the launch override, and parse generated RPC/peer/profiling/gRPC listeners before starting. Preserve intentional upstream ibc-0/ibc-1 identities."
+proven = "Both platform rewrites and launch ordering are checked as source facts; real TOML parsing rejects mismatched profiling/gRPC and colliding or invalid requested ports."
+
+[finding.16]
+tests = ["test_finding_16_reject_empty_or_unparseable_balance", "test_finding_16_ics20_denom_and_strict_amounts", "test_finding_16_producer_fields_packet_identity_poll_and_evidence"]
+repair = "Snapshot source/destination balances and source transaction identities, send on the linked demo path, identify the unique new packet by path, sequence and full payload, compute destination ICS20 trace hash, relay packets and acknowledgements, and poll within one finite deadline for successful matching write acknowledgement, source acknowledgement event, exact voucher credit and exact native source debit. Retain commands/stdout/stderr, packet and final receipt under data."
+proven = "Strict SDK Coins parsing, destination-channel trace hashing, rejected empty/truncated transaction responses, missing-ack rejection, and source facts covering complete packet identity, exact balances, successful ICS20 acknowledgement, bounded subprocess/poll deadlines and retained refusals. Legacy rly query txs returns a raw Tendermint ResultTx array with base64 event attributes; balance --ibc-denoms retains the hash rather than expanded traces. Live delivery is review_only."
+
+[implementation_notes]
+gotcha = "apply_patch refuses delete-and-add operations for the same path in one patch; no files changed in the refused call, and the scoped files were subsequently written directly."
+contract = "Upstream cosmos/relayer v0.9.3 cmd/query.go, helpers/query.go, relayer/query.go, relayer/path.go and cmd/tx.go were inspected read-only during implementation to preserve the legacy light/config workflow and use actual transaction, path, denom flag and relay-acknowledgements interfaces. No external code is imported by the gate."
+format = "No Python, shell or KVX formatter is configured for these paths; apply the repository .editorconfig UTF-8, LF, trailing-whitespace and final-newline conventions to the touched files after implementation."

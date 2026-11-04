@@ -19,10 +19,15 @@ use serde_aux::prelude::*;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize, derive_new::new)]
 pub struct HealthCheckResponse {
-    pub error: Option<models::health_check_response_metadata::HealthError>,
+    pub healthy: bool,
     #[serde(default)]
-    pub healthy: Option<bool>,
+    pub error: Option<models::HealthCheckError>,
 
     #[serde(default)]
     pub metadata: Option<models::HealthCheckResponseMetadata>,
+
+    /// Empty object returned in standalone media worker mode.
+
+    #[serde(default)]
+    pub data: Option<models::HealthCheckResponseData>,
 }

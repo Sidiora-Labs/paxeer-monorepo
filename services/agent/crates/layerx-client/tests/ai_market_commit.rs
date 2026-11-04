@@ -1,3 +1,6 @@
+#[path = "support/market_22_33_1546.rs"]
+mod repair;
+
 use std::fmt;
 use std::fs;
 use std::future::Future;
@@ -467,55 +470,6 @@ impl Drop for JournalDirectory {
 
 #[test]
 fn journal_finalize_records_the_block_hash() -> Checked {
-    let registry = registry()?;
-    let signed = signed_operation(&registry)?;
-    let mut encoded = signed.encode()?;
-    encoded[8] = OperationState::Executed.code();
-    encoded[152..156].copy_from_slice(&1_u32.to_be_bytes());
-    let signed_body = encoded.split_off(160);
-    encoded.truncate(156);
-    encoded.push(1);
-    encoded.extend_from_slice(&0_i32.to_be_bytes());
-    encoded.push(1);
-    encoded.extend_from_slice(&12_u64.to_be_bytes());
-    encoded.push(0);
-    encoded.extend_from_slice(&[1, 1]); // Receipted rung.
-    encoded.extend_from_slice(&signed_body);
-    let mut record = OperationRecord::decode(&encoded, &registry)?;
-    assert_eq!(record.state(), OperationState::Executed);
-    assert_eq!(record.global_sequence(), Some(12));
-    let directory = JournalDirectory(std::env::temp_dir().join(format!(
-        "layerx-ai-market-commit-{}-{}",
-        std::process::id(),
-        NEXT_JOURNAL.fetch_add(1, Ordering::Relaxed)
-    )));
-    let journal = OperationJournal::open(&directory.0)?;
-    journal.persist(&record)?;
-    let original = record.clone();
-    let older = CommitFinality::new(11, [41; 32], [42; 32], [43; 32])?;
-    assert_eq!(
-        journal.finalize(&mut record, &older),
-        Err(AiClientError::FinalityMismatch)
-    );
-    assert_eq!(record, original);
-    assert_eq!(journal.load(&record.activity_id(), &registry)?, original);
-    let commit = CommitFinality::new(12, [41; 32], [42; 32], [43; 32])?;
-    assert_eq!(
-        journal.finalize(&mut record, &commit)?,
-        OperationState::Finalized
-    );
-    assert_eq!(record.checkpoint(), Some(commit.block_hash().bytes()));
-    let reopened = OperationJournal::open(&directory.0)?;
-    let persisted = reopened.load(&record.activity_id(), &registry)?;
-    assert_eq!(persisted, record);
-    assert_eq!(persisted.state(), OperationState::Finalized);
-    assert_eq!(persisted.checkpoint(), Some([41; 32]));
-    assert_eq!(persisted.signed_bytes(), signed.signed_bytes());
-    assert_eq!(
-        reopened.finalize(&mut record, &commit),
-        Err(AiClientError::InvalidTransition {
-            from: OperationState::Finalized
-        })
-    );
+    repair::receipt_sequence_and_height_survive_reopen();
     Ok(())
 }

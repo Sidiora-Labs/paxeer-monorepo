@@ -88,6 +88,7 @@ async function referenceOutcomesCarryVerifiedReceiptFields() {
       assert.deepEqual(merchant, {
         application: "merchant-shop", environment: "emulator", state: "paid", orderId: "verified-order",
         receiptDigest: outcome.receiptDigest, rung: "receipted", transactionHash: vector.receiptJson.txHash,
+        resultCode: verified.receipt.resultCode,
       });
       assert.equal(Object.hasOwn(merchant, "verification"), false);
       const committed = merchantCheckoutOutcome("beta", "verified-order", outcome.receiptDigest, {

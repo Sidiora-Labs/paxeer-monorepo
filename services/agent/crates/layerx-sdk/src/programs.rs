@@ -1,7 +1,6 @@
 //! Receipt-verified Programs operations for direct-node and hosted transports.
 
 pub use layerx_agent_api::error::{ErrorClass as AgentErrorClass, Retriability};
-use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
 use layerx_proof::program::{
     verify_authorized_program_execution_with_payers, AuthorizedProgramExecutionExpectation,
     VerifiedProgramExecution,
@@ -26,7 +25,12 @@ pub use crate::program_lifecycle::{
     NativeProgramLifecycleRequest, NativeProgramUpgradeRequest, NativeProgramWindDownRequest,
     ProgramLifecycleSubmission,
 };
-pub use http::{HttpProgramTransport, LayerXKeyCredential};
+pub use http::{
+    decode_discovery as verify_signed_discovery, HttpProgramTransport, LayerXKeyCredential,
+};
+#[path = "program_node.rs"]
+mod node;
+pub use node::{verify_node_program_execution, NodeProgramExecution, NodeProgramRead};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ProgramCallRequest {
@@ -49,21 +53,16 @@ impl ProgramCallRequest {
         call: ProgramCall,
         signed_activity: &[u8],
     ) -> Result<Self, ProgramOperationError> {
-        if signed_activity.is_empty() || signed_activity.len() > MAX_SIGNED_ACTIVITY_BYTES {
-            return Err(ProgramOperationError::Bounds);
-        }
-        let (transaction, signature) =
-            decode_signed(signed_activity).map_err(|_| ProgramOperationError::Decode)?;
-        recover_sender(&transaction, &signature).map_err(|_| ProgramOperationError::Decode)?;
-        if transaction.to != PROGRAMS_PRECOMPILE || transaction.data != call.canonical_payload() {
-            return Err(ProgramOperationError::IdentityMismatch);
-        }
-        let bound_activity_id = transaction_hash(signed_activity);
+        let transaction = http::signed_program_transaction(signed_activity)?;
+        let (native, fee_limit) =
+            layerx_crypto::disclosure::call::decode_program_call(&transaction.data)
+                .map_err(|_| ProgramOperationError::Decode)?;
+        http::validate_public_call(&call, &native, fee_limit)?;
         Ok(Self {
             call,
             signed_activity: signed_activity.to_vec(),
-            activity_id: bound_activity_id,
-            idempotency_key: bound_activity_id,
+            activity_id: transaction.activity_id,
+            idempotency_key: transaction.idempotency_key,
         })
     }
 
@@ -115,32 +114,7 @@ impl NativeProgramCallRequest {
         fee_limit: u128,
         signed_activity: &[u8],
     ) -> Result<Self, ProgramOperationError> {
-        if signed_activity.is_empty() || signed_activity.len() > MAX_SIGNED_ACTIVITY_BYTES {
-            return Err(ProgramOperationError::Bounds);
-        }
-        if call.resources.0[0] == 0 {
-            return Err(ProgramOperationError::Bounds);
-        }
-        let payload = call.encode().map_err(|_| ProgramOperationError::Decode)?;
-        let (transaction, signature) =
-            decode_signed(signed_activity).map_err(|_| ProgramOperationError::Decode)?;
-        recover_sender(&transaction, &signature).map_err(|_| ProgramOperationError::Decode)?;
-        if transaction.to != PROGRAMS_PRECOMPILE
-            || u128::from(transaction.gas_limit).checked_mul(transaction.max_fee_per_gas)
-                != Some(fee_limit)
-            || transaction.data != payload
-        {
-            return Err(ProgramOperationError::IdentityMismatch);
-        }
-        let bound_activity_id = transaction_hash(signed_activity);
-        Ok(Self {
-            payload,
-            fee_limit,
-            program_id: call.program_id.bytes(),
-            signed_activity: signed_activity.to_vec(),
-            activity_id: bound_activity_id,
-            idempotency_key: bound_activity_id,
-        })
+        Self::from_signed_transaction(call, fee_limit, signed_activity)
     }
 
     #[must_use]
@@ -249,6 +223,10 @@ pub enum ProgramOperationError {
     Verification,
     IdentityMismatch,
     UnknownOutcome,
+    MissingNodeReadAuthority,
+    NodeRpc {
+        code: i64,
+    },
     Service(ProgramServiceError),
     Boundary {
         status: u16,
@@ -414,6 +392,13 @@ pub struct ProgramExecutionEvidence {
 }
 
 pub enum ProgramSubmission {
+    Submitted {
+        activity_id: [u8; 32],
+        idempotency_key: [u8; 32],
+        retained_signed_activity: Vec<u8>,
+    },
+    /// A node summary authenticates EVM effects; it is distinct from a kernel proof.
+    Receipted(NodeProgramExecution),
     Refused(VerifiedProgramExecution),
     Unknown {
         activity_id: [u8; 32],

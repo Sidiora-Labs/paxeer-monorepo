@@ -1,10 +1,8 @@
-use std::fmt::Write as _;
 use std::future::Future;
 use std::io::{Read as _, Write as _};
 use std::net::TcpListener;
 use std::pin::pin;
-use std::process::{Command, Stdio};
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::task::{Context, Poll, Wake, Waker};
 use std::thread::{self, JoinHandle};
@@ -14,10 +12,9 @@ mod support;
 
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_crypto::remote::RemoteSigner;
-use layerx_crypto::signer::{SignError, Signer};
+use layerx_crypto::signer::{BindSigner, SignError, Signer};
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod, SslVerifyMode};
-
-static FIXTURE_SEQUENCE: AtomicU64 = AtomicU64::new(1);
+use support::signing::{binding, Certificates};
 
 struct NoopWake;
 
@@ -33,87 +30,6 @@ fn ready<F: Future>(future: F) -> F::Output {
         Poll::Ready(value) => value,
         Poll::Pending => panic!("remote signer future unexpectedly blocked"),
     }
-}
-
-struct Certificates {
-    directory: std::path::PathBuf,
-}
-
-impl Certificates {
-    fn create() -> Self {
-        let sequence = FIXTURE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
-        let directory = std::env::temp_dir().join(format!(
-            "layerx-remote-signer-{}-{sequence}",
-            std::process::id()
-        ));
-        let _ = std::fs::remove_dir_all(&directory);
-        assert!(std::fs::create_dir(&directory).is_ok());
-        let ca_key = directory.join("ca.key");
-        let ca_cert = directory.join("ca.pem");
-        run(Command::new("openssl")
-            .args(["req", "-x509", "-newkey", "rsa:2048", "-nodes", "-sha256"])
-            .args(["-days", "1", "-subj", "/CN=LayerX Test CA", "-keyout"])
-            .arg(&ca_key)
-            .arg("-out")
-            .arg(&ca_cert));
-        issue_certificate(&directory, "server", "serverAuth", Some("DNS:localhost"));
-        issue_certificate(&directory, "client", "clientAuth", None);
-        Self { directory }
-    }
-
-    fn path(&self, name: &str) -> std::path::PathBuf {
-        self.directory.join(name)
-    }
-}
-
-impl Drop for Certificates {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.directory);
-    }
-}
-
-fn run(command: &mut Command) {
-    let status = command
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status();
-    assert!(status.is_ok_and(|value| value.success()));
-}
-
-fn issue_certificate(
-    directory: &std::path::Path,
-    name: &str,
-    usage: &str,
-    subject_alt_name: Option<&str>,
-) {
-    let key = directory.join(format!("{name}.key"));
-    let request = directory.join(format!("{name}.csr"));
-    let certificate = directory.join(format!("{name}.pem"));
-    let extensions = directory.join(format!("{name}.ext"));
-    let mut extension_text = format!("extendedKeyUsage={usage}\n");
-    if let Some(subject_alt_name) = subject_alt_name {
-        assert!(writeln!(extension_text, "subjectAltName={subject_alt_name}").is_ok());
-    }
-    assert!(std::fs::write(&extensions, extension_text).is_ok());
-    run(Command::new("openssl")
-        .args(["req", "-newkey", "rsa:2048", "-nodes", "-sha256"])
-        .args(["-subj", &format!("/CN={name}"), "-keyout"])
-        .arg(&key)
-        .arg("-out")
-        .arg(&request));
-    run(Command::new("openssl")
-        .args(["x509", "-req", "-sha256", "-days", "1", "-in"])
-        .arg(&request)
-        .arg("-CA")
-        .arg(directory.join("ca.pem"))
-        .arg("-CAkey")
-        .arg(directory.join("ca.key"))
-        .arg("-CAcreateserial")
-        .arg("-extfile")
-        .arg(&extensions)
-        .arg("-out")
-        .arg(&certificate));
 }
 
 #[derive(Clone, Copy)]
@@ -174,7 +90,7 @@ fn spawn_server(
             return;
         }
         observed.fetch_add(1, Ordering::SeqCst);
-        let Some(digest) = parse_request(&request) else {
+        let Some(message) = parse_request(&request) else {
             return;
         };
         if matches!(behavior, Behavior::Drop) {
@@ -192,7 +108,7 @@ fn spawn_server(
                 response
             }
             Behavior::Sign | Behavior::Slow => {
-                let signature = SigningKey::from_bytes(&[0x67; 32]).sign(&digest);
+                let signature = SigningKey::from_bytes(&[0x67; 32]).sign(&message);
                 let mut response = vec![0, 0, 0, 65, 0];
                 response.extend_from_slice(&signature.to_bytes());
                 response
@@ -205,30 +121,51 @@ fn spawn_server(
     (address, attempts, handle)
 }
 
-fn parse_request(request: &[u8]) -> Option<[u8; 32]> {
-    if request.get(..4)? != b"LXRS" || request.get(4..6)? != 1_u16.to_be_bytes() {
+fn parse_request(request: &[u8]) -> Option<Vec<u8>> {
+    if request.get(..6)? == b"LXRS\0\x02" {
+        let message = layerx_crypto::remote::decode_bind_request(request).ok()?;
+        if message != binding() {
+            return None;
+        }
+        return Some(message.as_bytes().to_vec());
+    }
+    if request.get(..6)? != b"LXRS\0\x01" {
         return None;
     }
     let digest: [u8; 32] = request.get(12..44)?.try_into().ok()?;
     let canonical_length =
         usize::try_from(u32::from_be_bytes(request.get(44..48)?.try_into().ok()?)).ok()?;
     let canonical_end = 48_usize.checked_add(canonical_length)?;
-    if canonical_length == 0 || canonical_end > request.len() {
+    let canonical = request.get(48..canonical_end)?;
+    let debit = support::debit(25);
+    if canonical != debit.authorization_message().ok()? {
+        return None;
+    }
+    let message = layerx_crypto::SignatureMessage::new(
+        layerx_wire::hash::Domain::SignaturePreimage,
+        debit.protocol_version,
+        debit.network_id,
+        canonical,
+    )
+    .ok()?;
+    if request.get(6..8)? != debit.protocol_version.to_be_bytes()
+        || request.get(8..12)? != debit.network_id.to_be_bytes()
+        || digest != message.digest()
+    {
         return None;
     }
     let disclosure_length = usize::try_from(u32::from_be_bytes(
         request
-            .get(canonical_end..canonical_end + 4)?
+            .get(canonical_end..canonical_end.checked_add(4)?)?
             .try_into()
             .ok()?,
     ))
     .ok()?;
     let disclosure_start = canonical_end.checked_add(4)?;
-    let disclosure_end = disclosure_start.checked_add(disclosure_length)?;
-    if disclosure_length == 0 || disclosure_end != request.len() {
+    if disclosure_length == 0 || disclosure_start.checked_add(disclosure_length)? != request.len() {
         return None;
     }
-    Some(digest)
+    Some(digest.to_vec())
 }
 
 fn remote(
@@ -276,12 +213,7 @@ fn remote_with_name(
 }
 
 fn sign(signer: &RemoteSigner) -> Result<layerx_crypto::signer::DidSignature, SignError> {
-    let debit = support::debit(25);
-    let canonical = debit.authorization_message().expect("native payer message");
-    let request = debit
-        .signing_request(&canonical)
-        .expect("typed payer request");
-    ready(signer.sign(request))
+    ready(signer.sign_bind(&binding()))
 }
 
 #[test]
@@ -385,4 +317,27 @@ fn handshake_exceeding_the_deadline_is_a_timeout_not_an_authentication_refusal()
     let signer = remote(&certificates, address, Duration::from_millis(100));
     assert_eq!(sign(&signer), Err(SignError::RemoteTimeout));
     assert!(handle.join().is_ok());
+}
+
+#[test]
+fn mutually_authenticated_remote_signer_preserves_native_payer_authorization() {
+    let certificates = Certificates::create();
+    let (address, attempts, handle) = spawn_server(&certificates, Behavior::Sign);
+    let signer = remote(&certificates, address, Duration::from_secs(2));
+    let debit = support::debit(25);
+    let canonical = debit.authorization_message().expect("native payer message");
+    let request = debit
+        .signing_request(&canonical)
+        .expect("typed payer request");
+    let signature = ready(signer.sign(request)).expect("native payer over mutual TLS");
+    assert_eq!(
+        layerx_crypto::ed25519::verify(
+            &signer.public_key(),
+            signature.as_bytes(),
+            request.message().expect("payer domain")
+        ),
+        Ok(())
+    );
+    assert!(handle.join().is_ok());
+    assert_eq!(attempts.load(Ordering::SeqCst), 1);
 }

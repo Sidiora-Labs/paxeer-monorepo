@@ -1,0 +1,39 @@
+# Explicit root-context recipe; the inherited Dockerfile remains withdrawn.
+# docker build -f sdk/contrib/rosetta/node/Dockerfile.paxd .
+FROM golang:1.25.8-bookworm AS go-dist
+FROM rust:1.91.1-bookworm AS build
+
+COPY --from=go-dist /usr/local/go /usr/local/go
+ENV PATH=/usr/local/go/bin:/usr/local/cargo/bin:$PATH
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential pkg-config libssl-dev git ca-certificates && rm -rf /var/lib/apt/lists/*
+WORKDIR /src
+COPY . .
+RUN make -f chain.mk build LEDGER_ENABLED=false
+
+FROM debian:bookworm-slim AS runtime
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates libssl3 libgcc-s1 && rm -rf /var/lib/apt/lists/*
+RUN groupadd --gid 10001 rosetta && useradd --uid 10001 --gid rosetta --home-dir /home/rosetta --no-create-home rosetta && install -d -o rosetta -g rosetta -m 0700 /home/rosetta /home/rosetta/.pax
+COPY --from=build /src/build/paxd /usr/local/bin/paxd
+COPY --from=build /src/wasm/x/wasm/artifacts/v152/api/libwasmvm152.*.so /usr/local/lib/
+COPY --from=build /src/wasm/x/wasm/artifacts/v155/api/libwasmvm155.*.so /usr/local/lib/
+ENV LD_LIBRARY_PATH=/usr/local/lib
+COPY sdk/contrib/rosetta/configuration/rosetta.json sdk/contrib/rosetta/configuration/bootstrap.json sdk/contrib/rosetta/configuration/fixture.json sdk/contrib/rosetta/configuration/transfer.ros /opt/rosetta/configuration/
+LABEL org.paxeer.rosetta.usage="Local Rosetta testing only; provision a fresh compatible paxd test home."
+# paxd start mounts Rosetta through server config; no rosetta CLI is registered.
+ENV PAXD_ROSETTA_ENABLE=true PAXD_ROSETTA_ADDRESS=:8080 PAXD_ROSETTA_BLOCKCHAIN=app PAXD_ROSETTA_NETWORK=network PAXD_ROSETTA_OFFLINE=false PAXD_ROSETTA_RETRIES=5
+ENV PAXD_GRPC_ENABLE=true PAXD_GRPC_ADDRESS=127.0.0.1:9090
+USER 10001:10001
+WORKDIR /home/rosetta
+EXPOSE 8080
+STOPSIGNAL SIGTERM
+ENTRYPOINT ["/usr/local/bin/paxd"]
+CMD ["start", "--home", "/home/rosetta/.pax", "--pruning", "nothing"]
+
+# Optional inspection target only. Public archived signing keys are TEST ONLY.
+# Never restore this simd state into paxd or use its keys on a public network.
+FROM runtime AS archived-fixture
+LABEL org.paxeer.rosetta.archive="TEST ONLY: public archived simd keys; incompatible with a fresh paxd home."
+COPY --chmod=0400 sdk/contrib/rosetta/node/data.tar.gz /opt/rosetta/archived/data.tar.gz
+
+# Default image excludes the archive and all archived signing keys.
+FROM runtime AS paxd

@@ -23,6 +23,13 @@
 
 set -euo pipefail
 
+# The native scenario owns paxd and the sidecars and never uses Front or anvil.
+# Its bundle contains an isolated native home and funded, genesis-registered keys.
+if [ "${1-}" = --paxd ]; then
+    [ "$#" -eq 2 ] || { echo 'usage: dry-run-check.sh --paxd BUNDLE.json' >&2; exit 2; }
+    exec python3 "$(dirname "$0")/paxd-check.py" "$2"
+fi
+
 MODE=live
 case "${1-}" in
     "") ;;
@@ -157,7 +164,7 @@ LINE
 require_tools python3
 require_modules eth_keys eth_utils cryptography
 require_files "$ABI" "$REPO_ROOT/$CONSUMER" "$SITE/index.html" "$SITE/guide.html" \
-    "$SITE/notes.txt" "$SITE/robots.txt" "$REPO_ROOT/agent/sdk/python/layerx_sdk/xweb_api.py"
+    "$SITE/notes.txt" "$SITE/robots.txt" "$REPO_ROOT/services/agent/sdk/python/layerx_sdk/xweb_api.py"
 
 trap cleanup EXIT
 WORK=$(mktemp -d)
@@ -225,7 +232,7 @@ def opener():
 
 
 def sdk(root):
-    path = os.path.join(root, "agent", "sdk", "python")
+    path = os.path.join(root, "services", "agent", "sdk", "python")
     if path not in sys.path:
         sys.path.insert(0, path)
     import layerx_sdk.xweb_api as api
@@ -1245,9 +1252,21 @@ def replay(fixture_path, root, site):
 # --- setup ------------------------------------------------------------------
 
 
+def receipt_windows(root=None):
+    # Native bootstrap fixture: public genesis pins, never a generated trust pair.
+    import base64
+    if root is None:
+        root = os.environ["DRY_REPO_ROOT"]
+    path = os.path.join(root, "services/platform/hosted/node/tests/fixtures/repair_22_31_355/genesis.json")
+    with open(path, encoding="utf-8") as handle:
+        pins = json.load(handle)["app_state"]["sequencer"]["receipt_keys"]
+    return [{"key_id": base64.b64decode(pin["key_id"], validate=True).hex(),
+             "public_key": base64.b64decode(pin["public_key"], validate=True).hex(),
+             "first_height": int(pin["first_height"]), "last_height": int(pin["last_height"])}
+            for pin in pins]
+
+
 def keygen(out_path):
-    from cryptography.hazmat.primitives import serialization
-    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
     from eth_keys import keys
 
     def secp():
@@ -1265,11 +1284,8 @@ def keygen(out_path):
         "deployer": secp(),
         "receivers": [secrets.token_bytes(32).hex() for _ in range(3)],
         "credential": "bearer " + secrets.token_hex(24),
-        "sequencer_id": secrets.token_hex(32),
-        "sequencer_public_key": Ed25519PrivateKey.generate()
-        .public_key()
-        .public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
-        .hex(),
+        # Use the native receipt producer's committed public key windows.
+        "receipt_keys": receipt_windows(),
     }
     with open(out_path, "w", encoding="utf-8") as handle:
         json.dump(material, handle, indent=2)
@@ -1313,8 +1329,7 @@ def build_context(keys_path, out_path):
         "recording": os.environ["DRY_RECORDING"],
         "credential_header": "authorization",
         "credential_value": keys["credential"],
-        "sequencer_id": keys["sequencer_id"],
-        "sequencer_public_key": keys["sequencer_public_key"],
+        "receipt_keys": keys["receipt_keys"],
         "attestors": [
             {
                 "signer": entry["address"],
@@ -1383,8 +1398,7 @@ def config(ctx_path, index, out_path):
         },
         "gateway": {
             "endpoint": ctx["front_url"] + "/gateway",
-            "sequencer_id": ctx["sequencer_id"],
-            "sequencer_public_key": ctx["sequencer_public_key"],
+            "receipt_keys": ctx["receipt_keys"],
         },
         "evm": {"endpoint": ctx["front_url"], "chain_id": ctx["chain_id"], "confirmations": 1},
         "kernel_network_id": 1,
@@ -1536,6 +1550,7 @@ openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj '/CN=127.0.0.1' \
     { cat "$WORK/openssl.log" >&2; fail "the api server certificate could not be made"; }
 chmod 0600 "$WORK/api.key"
 
+export DRY_REPO_ROOT=$REPO_ROOT
 python3 "$HARNESS" keygen "$WORK/keys.json"
 
 ANVIL_PORT=$(free_port)

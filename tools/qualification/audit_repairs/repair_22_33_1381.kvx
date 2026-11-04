@@ -1,0 +1,51 @@
+[task.22.33.1381]
+base_revision = "b664b08b724ec5b190920b99ba70b283c8a796c9"
+initial_state = "The base already contains the correct beta root rpcUrl. Initial git status/diff contained only runner-prepared .cgignore and spec task-start changes; no task implementation existed. The gate configuration reported zero build and verify runs, two repair cycles remaining and no prior gates.jsonl. Preserve the inherited URL and all unrelated setup."
+repair = "Retain the correct beta node root URL and document the separate legacy local emulator adapter in merchant-checkout/README.md. Add focused regression assertions of the JSON configuration and actual application, transport, receipt producer and verification source connections. No runtime behavior or unrelated configuration is changed."
+source_proof = "Five pytest tests parse the real application JSON and package manifest, assert beta root HTTPS on chain 125 and emulator-only /rpc, check documented adapter requirements, follow the actual launcher/config loader/endpoint override/TransactionReceipts/SequencerReceiptClient/boundedJsonRequest source path, and check raw-transaction hash binding, matching receipt hash, pending/refusal handling, pinned-key verification before proof return and the node producer method/rungs. The repair record is parsed and compared with the original finding and all declared test functions."
+review_only = "JavaScript execution, an actual transaction receipt read using the configured beta transport, cryptographic verification and deployed endpoint availability are not executed by this Python-only gate. Source assertions are not runtime evidence. The shared receipt-read test is outside the allowed paths; its extension is requested below. No interface-mismatch or restart-recovery finding is assigned here. No shell script, unit file or build manifest changes require additional parsing; package.json is parsed. The gate uses only Python standard-library source inspection plus pytest, with no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device."
+baseline = "No pre-change verification was run: the explicit implementation-first order and exclusive hf-done gate prohibit step 5's older request to run verify_cmd on the unchanged tree. No baseline failure is claimed; the inspected base already satisfies the beta URL assertion."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1381.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The last hf-done JSON and private /out/run/gates.jsonl name the exact verified content-derived candidate revision, command, exit code and log path. Build and verification must pass on the same candidate revision. This record is finalized before qualification; embedding its own candidate hash would change that revision. The runner retains the evidence and commits; no manual commit or push and no edit after passing hf-done."
+wiring_requests = ["beta_receipt_read"]
+
+[finding.merchant-node-url]
+audit = "22.30.75"
+file = "services/platform/examples/merchant-checkout/layerx.example.json"
+line = 25
+class = "config-drift"
+severity = "medium"
+observed = "The beta rpcUrl appends /rpc to a public mainnet-beta node. loadApplicationConfig passes it unchanged into the merchant application's TransactionReceipts and SequencerReceiptClient transport."
+expected = "Brief facts 2 and 3 declare public node JSON-RPC only at the root path; the old unified node /rpc route is retired."
+proposal = "In services/platform/examples/merchant-checkout/layerx.example.json use the node root URL for beta and document any separate local emulator adapter explicitly; exercise a real transaction receipt read with the configured beta transport."
+owner_domain = 8
+interface = "8.cfg-examples-merchant-checkout-environments-beta-rpcurl-j41"
+tests = ["test_merchant_node_url_beta_uses_public_node_root", "test_merchant_node_url_emulator_adapter_is_explicit", "test_merchant_node_url_profile_reaches_receipt_transport_unchanged", "test_merchant_node_url_real_receipt_source_path_checks_evidence", "test_merchant_node_url_record_maps_proof_limits_and_runtime_wiring"]
+closure = "Configuration source facts covered; runtime receipt-read qualification delegated to the shared test owner below, not claimed as executed."
+
+[wiring.beta_receipt_read]
+path = "services/platform/examples/test/merchant-app.test.mjs"
+owner_domain = 8
+request = "services/platform/examples/test/merchant-app.test.mjs -> domain 8: extend the shared production merchant checkout receipt-read test to select the configured beta profile, rebase only its origin to a loopback peer, reject /rpc, produce a native chain-125 transaction and signed receipt with the committed conformance producer, and assert eth_getRawTransactionByHash then pax_sequencerReceipt at the root and the verified consumer result; execute under the owning Node gate."
+status = "requested; not executed by this gate"
+
+[gotcha.1]
+observed = "The audit's unchanged-tree baseline clause conflicts with the explicit implementation-first and hf-done-only order."
+resolution = "Follow the explicit order; record that no baseline ran and claim no baseline failures."
+
+[gotcha.2]
+observed = "The proposal requests a real JavaScript receipt read, while the declared Python gate explicitly excludes external binaries, subprocess toolchains and native artifacts; the production runtime and shared integration test are outside scope."
+resolution = "Prove the real source connections without a Python reimplementation, mock or fake; explicitly separate runtime review limits and request the shared Node test extension from domain 8."
+
+[gotcha.3]
+observed = "GOTCHA.kvx and spec qualification files are outside the user's exact scope."
+resolution = "Record task-local gotchas here and preserve the runner-owned setup changes; do not modify global workflow files."
+
+[gotcha.4]
+observed = "Broad Codify survey and combined source reads exceeded output budgets, and an assumed support/config.mjs path did not exist."
+resolution = "Use bounded file reads; runtime.mjs owns loadApplicationConfig. No task state or gate result is inferred from truncated survey output."
+
+[format]
+policy = "No configured Python, Markdown or KVX formatter exists for these paths. Apply UTF-8, LF, no trailing whitespace and a final newline only to the three touched files after implementation is complete."

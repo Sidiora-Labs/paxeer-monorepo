@@ -524,6 +524,13 @@ def recipe(path, task):
     return commands, reqs
 
 
+def new_run_directory(base, identifier):
+    need(re.fullmatch('[0-9a-f]{32}', identifier), 'invalid run identity')
+    directory = base / identifier
+    directory.mkdir(mode=0o700)  # Exclusive: never reuse a previous execution.
+    return directory, directory / 'command.log', directory / 'source-evidence.json'
+
+
 def run(args, root, base):
     expected, reqs = recipe(args.spec, args.task)
     commands = args.commands
@@ -536,10 +543,7 @@ def run(args, root, base):
         need(re.fullmatch(r'make(?: [A-Za-z0-9_-]+)+', command), 'expected plain make targets')
         argv = shlex.split(command)
         identifier = uuid.uuid4().hex
-        directory = base / identifier
-        directory.mkdir(mode=0o700)
-        log = directory / 'command.log' if args.evidence_kind == 'directory' else base / (identifier + '.log')
-        sidecar = directory / 'source-evidence.json' if args.evidence_kind == 'directory' else base / (identifier + '.log.source.json')
+        directory, log, sidecar = new_run_directory(base, identifier)
         evidence = str(directory if args.evidence_kind == 'directory' else log)
         monitor = Monitor(root)
         start = snapshot(root)

@@ -5,8 +5,11 @@ import (
 	"testing"
 	"time"
 
+	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/benchmark"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
+	"math/big"
 )
 
 func TestBenchmarkHelperMethods(t *testing.T) {
@@ -107,18 +110,44 @@ func TestInitBenchmark_Success(t *testing.T) {
 	// Verify we can get the proposal channel
 	require.NotNil(t, app.benchmarkManager.ProposalChannel(), "proposal channel should be available")
 
-	// Consume a proposal to verify the channel is working
+	for range benchmark.WarmupBlocks {
+		app.RecordBenchmarkCommitTime(time.Millisecond)
+	}
 	select {
 	case proposal, ok := <-app.benchmarkManager.ProposalChannel():
-		if ok {
-			require.NotNil(t, proposal, "Proposal should not be nil")
-			// EVMTransfer scenario doesn't need deployment, so should get load txs immediately
-			t.Logf("Received proposal with %d txs", len(proposal))
+		require.True(t, ok, "proposal channel closed before producing transactions")
+		require.NotEmpty(t, proposal)
+		for _, wire := range proposal {
+			tx, err := app.GetTxConfig().TxDecoder()(wire)
+			require.NoError(t, err)
+			require.Len(t, tx.GetMsgs(), 1)
+			msg, ok := tx.GetMsgs()[0].(*evmtypes.MsgEVMTransaction)
+			require.True(t, ok)
+			require.NoError(t, msg.ValidateBasic())
+			eth, data := msg.AsTransaction()
+			require.NotNil(t, eth)
+			require.NotNil(t, data)
+			require.Equal(t, big.NewInt(evmChainID), eth.ChainId())
+			require.NotNil(t, eth.To())
+			require.Empty(t, eth.Data())
+			require.Positive(t, eth.Gas())
+			_, err = types.Sender(types.LatestSignerForChainID(eth.ChainId()), eth)
+			require.NoError(t, err)
 		}
 	case <-time.After(5 * time.Second):
-		t.Log("Timeout waiting for proposal (may be in setup phase)")
+		t.Fatal("benchmark did not produce a proposal")
 	}
-
-	// Cancel context to stop the generator
 	cancel()
+	timer := time.NewTimer(5 * time.Second)
+	defer timer.Stop()
+	for {
+		select {
+		case _, ok := <-app.benchmarkManager.ProposalChannel():
+			if !ok {
+				return
+			}
+		case <-timer.C:
+			t.Fatal("benchmark generator did not stop after cancellation")
+		}
+	}
 }

@@ -1,0 +1,41 @@
+[repair]
+task = "22.33.1541"
+audit = "22.30.96"
+requirement = "22998.1"
+status = "implemented; qualification is determined only by hf-build and hf-done evidence"
+evidence = "The private bounded gate ledger records the exact verified candidate revision, command, exit code and log path."
+baseline = "No baseline verify executed: explicit user gate order requires implementation first and hf-done alone runs verification. The new test target did not exist at the start. Existing code already retains account height and removes the lni export; no baseline failures are claimed."
+
+[finding.f11]
+tests = ["journal_concurrent_opens_and_stale_writes", "journal_recovers_only_after_process_owner_stops"]
+repair = "Permanent per-operation OS lock inodes serialize all journal operations across opens and processes, including the complete network side effect. Exclusive unique temporary files are synced and renamed. SHA-256 fingerprints of the exact loaded durable generation reject stale writes, and an explicit lifecycle transition check prevents regression. Repeated signed registration preserves later states and refuses conflicting intent or expiry. Submitting recovery requires ownership."
+proof = "A child running this already-built integration test owns the real journal while a loopback server withholds the real submission acknowledgment. Concurrent opens cannot recover or write. The parent terminates and reaps the owner, reopens the store, observes durable Unknown and resends identical signed EIP-1559 bytes through the real HTTP client."
+
+[finding.f18]
+test = "retired_interface_uses_generic_frame_boundary"
+repair = "The starting tree already removed public lni and migrated callers. Crate documentation now distinguishes merged paxd node JSON-RPC, hosted gateway joins and generic frame codec/transport; a real TCP codec round trip proves the generic boundary."
+
+[finding.f10]
+tests = ["gateway_account_keeps_served_height_after_later_head", "gateway_account_rejects_missing_or_invalid_height"]
+repair = "The starting tree already carries the required u64 paxeer.height through PxAccountJoin. Preserve it and document its snapshot meaning; prove the current committed gateway producer contract over loopback HTTP into the public account API, then independently advance the node head without changing the account coordinate."
+producer = "sdk/wallet/test/fixtures/endpoint/merged-contract.json records the current gateway tests/one_source_reads.rs producer contract examples; this is a committed contract fixture, not a fresh live capture. Invalid-height cases mutate only negative fixtures."
+
+[finding.f47]
+tests = ["subscription_control_traffic_cannot_extend_subscribe_deadline", "subscription_control_traffic_cannot_extend_next_deadline", "subscription_control_and_notifications_share_close_deadline", "subscription_wait_can_be_cancelled_during_control_traffic_or_idle"]
+repair = "One absolute operation deadline covers subscribe, next and unsubscribe, all response reads, queued notifications, control-frame flushes and close flushing. The TCP adapter reapplies remaining time to each underlying read/write, including TLS and handshake I/O. WaitOptions exposes a finite timeout and optional shared cancellation flag with 50ms idle polling; cancellation/expiry retain the existing typed Unavailable refusal."
+
+[wiring.account_capture]
+owner = "domain 8 hosted gateway"
+request = "services/platform/hosted/gateway/tests/fixtures: publish a fresh px_getAccount transport capture alongside the existing committed one_source_reads.rs contract example, retaining its served height; no gateway files change in this task."
+
+[gotcha.gate_order]
+observed = "The inherited baseline-verify step conflicts with the explicit implementation-first, hf-done-only gate order; root GOTCHA and spec records are outside this task scope."
+action = "Honor the explicit gate order and retain the finding/test mapping, baseline limitation and local gotchas in this in-scope task record."
+
+[gotcha.tooling]
+observed = "The Rust registry cache is absent before the initial build; shell reads must check a file type before inspecting a tool path because cargo resolves to a binary."
+action = "Do not read binary executables as source; let the authorized build acquire dependencies."
+
+[gotcha.public_rpc]
+observed = "The first bounded build rejected the integration test's call to crate-private SequencerEndpoint::call_raw (E0624)."
+action = "Use the public block_number method to prove that a later head cannot replace the account's served snapshot height; build-1.log retains the failed candidate evidence."

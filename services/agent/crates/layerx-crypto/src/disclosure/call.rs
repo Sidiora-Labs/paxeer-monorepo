@@ -80,6 +80,8 @@ pub enum ConstructMethod {
         budget: [u8; 32],
         amount: u128,
     },
+    /// Canonical governance payload. Ordinal 8 is submitted through
+    /// grantCapability(bytes); lifecycle ordinals use recordLifecycle.
     AuthLifecycle {
         payload: Vec<u8>,
         idempotency_key: [u8; 32],
@@ -117,6 +119,8 @@ impl ConstructMethod {
             Self::AuthSession { .. } => "grantSession(bytes,uint64,bytes32)",
             Self::PayBudgetFund { .. } => "budgetFund(bytes32,uint128)",
             Self::PayBudgetDefund { .. } => "budgetDefund(bytes32,uint128)",
+            Self::AuthLifecycle { payload, .. }
+                if matches!(payload.as_slice(), [0x71, 8, 1, 1, ..]) => "grantCapability(bytes)",
             Self::AuthLifecycle { .. } => "recordLifecycle(bytes,bytes32)",
             Self::PointerTransfer { .. } => "transfer(address,uint256)",
             Self::BankSend { .. } => "send(address,address,string,uint256)",
@@ -520,6 +524,19 @@ pub fn encode_payment_call(payment: &Payment, actor: &[u8]) -> Result<Vec<u8>, D
     Ok([ledger_selector(signature).to_vec(), args].concat())
 }
 
+/// Encodes the merged authorization precompile's raw kernel grant body.
+pub fn encode_authority_grant_call(grant: &AuthorityGrant) -> Result<Vec<u8>, DisclosureError> {
+    let body = grant
+        .encode()
+        .map_err(|_| DisclosureError::MalformedPayload)?;
+    Ok([
+        ledger_selector("grantCapability(bytes)").to_vec(),
+        abi_word(32).to_vec(),
+        abi_tail(&body),
+    ]
+    .concat())
+}
+
 fn target(address: &[u8; 20], suffix: [u8; 2]) -> bool {
     address[..18] == [0; 18] && address[18..] == suffix
 }
@@ -752,6 +769,16 @@ pub(super) fn decode_method(call: &Eip1559Call) -> Result<ConstructMethod, Discl
         };
     }
     if target(&call.to, [0x10, 0x1c]) {
+        if selector == ledger_selector("grantCapability(bytes)") {
+            let grant = AuthorityGrant::decode(dynamic(args, 1, 0)?)
+                .map_err(|_| DisclosureError::MalformedPayload)?;
+            return Ok(ConstructMethod::AuthLifecycle {
+                payload: grant
+                    .payload()
+                    .map_err(|_| DisclosureError::MalformedPayload)?,
+                idempotency_key: [0; 32],
+            });
+        }
         if selector == ledger_selector("grantSession(bytes,uint64,bytes32)") {
             let grant = decode_session_key(dynamic(args, 3, 0)?)
                 .map_err(|_| DisclosureError::MalformedPayload)?;
@@ -1046,9 +1073,36 @@ pub(super) fn fields(
             disclose_amount(&mut fields.amounts, AmountRole::Transfer, amount);
         }
         ConstructMethod::AuthLifecycle {
-            idempotency_key, ..
+            payload,
+            idempotency_key,
         } => {
             fields.idempotency_key = idempotency_key;
+            if payload.starts_with(&[0x71, 8, 1, 1]) {
+                let grant = AuthorityGrant::from_payload(&payload)
+                    .map_err(|_| DisclosureError::MalformedPayload)?;
+                fields.asset = grant.scope.asset;
+                fields.expiry = Expiry {
+                    not_before: grant.not_before,
+                    not_after: grant.not_after,
+                    payload_expires_at: grant.not_after,
+                };
+                disclose_party(
+                    &mut fields.counterparties,
+                    CounterpartyRole::Payer,
+                    grant.grantor,
+                );
+                disclose_amount(
+                    &mut fields.amounts,
+                    AmountRole::PerDrawMaximum,
+                    grant.scope.maximum_per_activity,
+                );
+                disclose_amount(
+                    &mut fields.amounts,
+                    AmountRole::GrantAllowance,
+                    grant.scope.maximum_total,
+                );
+                fields.authority_grant = Some(grant);
+            }
         }
         ConstructMethod::PointerTransfer { to, amount, .. } => {
             let mut recipient = [0; 32];

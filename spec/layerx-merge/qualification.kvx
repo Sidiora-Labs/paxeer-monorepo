@@ -27923,3 +27923,203 @@ symbol = "repair_22_33_1321.rs"
 observed = "Attempt 1: the gates passed; publication was held on a lock file outside the declared paths."
 assumption = "A declared-paths gap for a lock the task's manifest change regenerates."
 severity = "low"
+
+[finding.22.31.447.3]
+task = "22.31.447"
+file = "services/wallet/gateway/src/db/repair-22-31-447.test.ts"
+symbol = "repair-22-31-447.test.ts"
+observed = "Attempt 3: every gate passed; the publication was rejected for apps/perps/node_modules/.bin/webpack changing outside the declared paths."
+assumption = "A tracked install artefact rewritten by the install, not a product change (gotcha 2997)."
+severity = "low"
+
+[finding.22.31.474.1]
+task = "22.31.474"
+file = "apps/explorer/ui/marketplace/essentialDapps/revoke/components/repair-22-33-299.spec.ts"
+symbol = "repair-22-33-299.spec.ts"
+observed = "Attempt 1: type-check and scoped lint passed and 45 of 46 tests passed; the signature replay case expected 10 to be 1000."
+assumption = "The literal height in the consumer spec went stale when the producer fixture was regenerated at height 10."
+severity = "high"
+
+[finding.22.33.1400.4]
+task = "22.33.1400"
+file = "services/platform/examples/test/repair-22-33-1400.test.mjs"
+symbol = "repair-22-33-1400.test.mjs"
+observed = "Attempt 4: the build passed; the verify failed at npm ci before any test ran."
+assumption = "Blocked by the root lock, not by the task's own change."
+severity = "low"
+
+[finding.22.31.269.6]
+task = "22.31.269"
+file = "services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_269.rs"
+symbol = "repair_22_31_269.rs"
+observed = "Attempt 6: cargo build --tests exit 101 on six outdated field accesses in the dependent test repair_22_33_430.rs."
+assumption = "A consumer test of the regenerated client that the task's paths excluded."
+severity = "high"
+
+[finding.22.33.1537.1]
+task = "22.33.1537"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1537.rs"
+symbol = "repair_22_33_1537.rs"
+observed = "Attempt 1: the build passed; 30 of 32 cases passed; the two outbox_recover restart cases failed on the inventory results."
+assumption = "The restart and recovery path is only proven when the inventory producer is repaired alongside its tests."
+severity = "high"
+
+[finding.22.33.1550.1]
+task = "22.33.1550"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1550.rs"
+symbol = "repair_22_33_1550.rs"
+observed = "Attempt 1: the final build passed; verification recorded 6 of 7 cases before the fixture correction."
+assumption = "The corrected fixture is unverified, not wrong."
+severity = "low"
+
+[finding.22.99.77.12]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 10: 16 of 17 f03 cases passed (status -3 on the schedule-capacity case) and 12 routed operations exceeded the CPU fuel cap by at most 47 units."
+assumption = "Per-operation fuel grows with the state size; the cap is the protocol's and does not move."
+severity = "high"
+
+[finding.22.33.1244.1]
+task = "22.33.1244"
+file = "modules/evm/repair_m1244_test.go"
+symbol = "repair_m1244_test.go"
+observed = "Attempt 1: the repair and the pipeline documentation were implemented; go test failed to compile on the undefined GenPrivKey."
+assumption = "A wrong helper name in the test, not a product defect."
+severity = "low"
+
+[finding.22.33.458.1]
+task = "22.33.458"
+file = "services/explorer/services/libs/blockscout-service-launcher/tests/repair_22_33_458.rs"
+symbol = "repair_22_33_458.rs"
+observed = "Attempt 1: URL component encoding and five integration tests were implemented; cargo build --tests exit 101 on the unresolved database import."
+assumption = "A gate wiring gap: the feature the repair needs was not enabled."
+severity = "low"
+
+[finding.22.31.465.1]
+task = "22.31.465"
+file = "services/platform/hosted/paxeer"
+symbol = "paxeer"
+observed = "Attempt 1: cargo metadata and the webhooks build passed; four 1319 Go tests failed on the deployment manifest facts."
+assumption = "The four failures belong to the manifest crossing (gotcha 2998), reconciled by 22.31.481."
+severity = "low"
+
+[finding.22.33.1000.3]
+task = "22.33.1000"
+file = "services/launchpad/indexer/internal/processor/repair_m1000_test.go"
+symbol = "repair_m1000_test.go"
+observed = "Attempt 3: the build and five repair tests passed; the generation case failed on one absent committed response (decimals of the pool token)."
+assumption = "One producer response is missing from the committed fixtures; the replay design is right."
+severity = "low"
+
+[finding.22.33.213.3]
+task = "22.33.213"
+file = "precompiles/layerxprograms/repair_m213_test.go"
+symbol = "repair_m213_test.go"
+observed = "Attempt 3: six of seven repair cases passed; the storage-environment response case failed on a fixture prefix length and a non-canonical lease-state record; the gate output showed only binary-file-matches lines."
+assumption = "The remaining failure is in the test fixture, and the gate output was hidden by binary bytes in the log."
+severity = "low"
+
+[finding.22.33.123.2]
+task = "22.33.123"
+file = "apps/wallet/src/lib/repair-22-33-123.test.ts"
+symbol = "repair-22-33-123.test.ts"
+observed = "Attempt 2: the wallet type-check reported five unresolved @ethereumjs modules and one implicit any in the swap fixture; the task's own tests did not run."
+assumption = "The 22.33.121 fixture carries its own install root (gotcha 2999); cleared by 22.31.482."
+severity = "low"
+
+[finding.22.31.447.4]
+task = "22.31.447"
+file = "services/wallet/gateway/src/db/repair-22-31-447.test.ts"
+symbol = "repair-22-31-447.test.ts"
+observed = "Attempt 4: the gates passed; the scope check refused apps/perps/node_modules/.bin/webpack, rewritten by the install."
+assumption = "Tracked install output (gotcha 2997); clears when 22.31.480 lands."
+severity = "low"
+
+[finding.22.33.946.2]
+task = "22.33.946"
+file = "modules/launchpad/types/repair_m946_test.go"
+symbol = "repair_m946_test.go"
+observed = "Attempt 2: the build passed; the verify stopped on NewFactoryCLI return-value mismatches in three packages outside the task's paths."
+assumption = "Stale base: the callers were carried by 22.31.463 minutes after this attempt began."
+severity = "low"
+
+[finding.22.33.560.4]
+task = "22.33.560"
+file = "services/explorer/backend/apps/indexer/test/repair/repair_22_33_560_test.exs"
+symbol = "repair_22_33_560_test.exs"
+observed = "Attempt 4: 3 tests, 1 failure: the migrator process did not exit with reason :normal within the assert_receive window."
+assumption = "Timer-driven completion in the migrator, not a database defect."
+severity = "high"
+
+[finding.22.31.282.2]
+task = "22.31.282"
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_31_282.rs"
+symbol = "repair_22_31_282.rs"
+observed = "Attempt 2: all gates passed; the scope check refused the regenerated swagger document."
+assumption = "Generator-version drift of a build output, not a change by the task."
+severity = "low"
+
+[finding.22.33.412.2]
+task = "22.33.412"
+file = "services/explorer/services/smart-contract-verifier/verification-common/tests/repair_22_33_412.rs"
+symbol = "repair_22_33_412.rs"
+observed = "Attempt 1: all gates passed; the scope check refused the regenerated swagger document."
+assumption = "Generator-version drift of a build output, not a change by the task."
+severity = "low"
+
+[finding.22.31.281.2]
+task = "22.31.281"
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_31_281.rs"
+symbol = "repair_22_31_281.rs"
+observed = "Attempt 2: the build passed; 4 of 8 repair tests failed because the production handlers do not forward post_actions, which the attempt believed to be outside its paths."
+assumption = "The handler file was always in scope; the second handler is added now."
+severity = "high"
+
+[finding.22.33.266.3]
+task = "22.33.266"
+file = "apps/bridge/src/test/repair-22-33-266.spec.ts"
+symbol = "repair-22-33-266.spec.ts"
+observed = "Attempt 2: the bridge type-check failed on the generated LayoutProps type before this task's tests ran."
+assumption = "Gate command of the earlier spec; the current gates generate the type first."
+severity = "low"
+
+[finding.22.31.439.2]
+task = "22.31.439"
+file = "services/human/crates/layerx-explorer-index"
+symbol = "layerx-explorer-index"
+observed = "Attempt 1: the build named a package that no longer exists and no file changed; the directory with one orphaned test file is still present."
+assumption = "The verify asked for a repository-wide absence that the retirement tests themselves contradict."
+severity = "low"
+
+[finding.22.33.1302.2]
+task = "22.33.1302"
+file = "modules/layerxpay/types/repair_m1302_test.go"
+symbol = "repair_m1302_test.go"
+observed = "Attempt 1: the escrow case passed; the genesis fixture correction was never verified because the repair budget was spent."
+assumption = "Unverified final revision, not a known defect."
+severity = "low"
+
+[finding.22.33.1528.1]
+task = "22.33.1528"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1528.rs"
+symbol = "repair_22_33_1528.rs"
+observed = "Attempt 1: the build passed; 16 of 17 cases passed, the failure being a re-included existing signing test that panics with KeyMismatch."
+assumption = "The repair binary pulled an unrelated test file into its own gate; whether evm_signing fails on main is a separate check."
+severity = "high"
+
+[finding.22.33.1539.1]
+task = "22.33.1539"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1539.rs"
+symbol = "repair_22_33_1539.rs"
+observed = "Attempt 2: 3 of 5 cases failed on the store-root permission and the Store expiry fixtures, both corrected after the only verify run."
+assumption = "Unverified final revision, not a known defect."
+severity = "low"
+
+[finding.22.95.1.4]
+task = "22.95.1"
+file = "services/agent/crates/layerx-agentd/tests/human_node.rs"
+symbol = "human_node.rs"
+observed = "Attempt 6: handshake_gate passed; one human_node case panicked with Sequencer(Unavailable) because the fixture node served no px_getHistory. Attempts 7 to 9 produced no evidence."
+assumption = "Fixture gap, not a decoder defect; the attempt-6 tree is the base."
+severity = "high"

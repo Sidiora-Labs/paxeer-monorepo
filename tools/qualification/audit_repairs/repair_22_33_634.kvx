@@ -1,0 +1,20 @@
+[task.22.33.634]
+inspected_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+repair = "Rewrite only openrpc.json info.description for the maintained merged Paxeer network: chain 125, root public node RPC, operator-provided hosted gateway coordinates, hosted px_* and pax_sequencerReceipt inventory, JSON-RPC POST / and authenticated GET /v1/routes discovery, retired /rpc, native transaction execution and committed-block finality. The obsolete servers entry was already absent at the inspected revision; preserve its absence and all existing method schemas."
+source_proof = "The pytest module proves parsed production OpenRPC source facts: no root or method server alias, root-only public node URLs, a unique hosted px_* plus pax_sequencerReceipt inventory, and the corrected introductory transport, deployment and finality statements. It compares OpenRPC discovery constants with route-locations.json and traces source connections from that production location producer through catalogue assembly to authenticated HTTP discovery and the JSON-RPC dispatcher, including root POST dispatch and the earlier /rpc subtree refusal. The record test checks finding coverage and evidence limits."
+review_only = "Rust builds, gateway startup, real HTTP/RPC requests, upstream availability, authentication execution, transaction execution, cryptographic receipt verification and BFT finality are not executed by this offline documentation gate. Source connections prove documentation consistency, not runtime certification. No interface-mismatch or restart-recovery finding is repaired here; no persistent state, shell script, unit, manifest or build file changes. The gate uses only Python standard-library parsing and pytest, without environment variables, credentials, live endpoints, external binaries, subprocess toolchains, native artifacts or devices."
+baseline = "No pre-change verification was run: the explicit implementation-first order and mandatory hf-build then hf-done gates supersede the older unchanged-tree baseline clause. The test module and repair record were absent, so no baseline test failures are claimed. Initial git status/diff showed only runner-prepared .cgignore and spec task status changes; neither was edited here. /out/run/gates.jsonl was absent, with no prior gate evidence to repeat. The obsolete servers metadata was already absent; the stale introductory dual-interface description remained."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_634.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private evidence_ledger identify the exact verified revision, command, exit and log. Both gates must pass at the same candidate revision; the runner's content-derived revision covers this record without embedding a circular self-hash. No success is claimed until that evidence exists."
+wiring_requests = []
+
+[finding.openrpc-retired-server-alias]
+audit = "22.30.164"
+file = "services/platform/hosted/gateway/openrpc.json"
+class = "doc-drift"
+severity = "medium"
+owner_domain = 8
+tests = ["test_openrpc_retired_server_alias_is_not_advertised", "test_openrpc_introduction_describes_merged_hosted_namespace_contract", "test_openrpc_locations_match_production_catalogue_and_transport_source", "test_openrpc_repair_record_maps_finding_and_proof_limits"]
+closure = "Remove obsolete alias advertising and align the introduction with the maintained merged-network node and hosted gateway contracts. Existing absent servers metadata remains absent; only the stale introduction needs a source edit. No proposal step requires an out-of-path change."

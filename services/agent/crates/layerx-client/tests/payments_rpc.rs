@@ -1,10 +1,13 @@
+#[path = "support/gateway_22_33_1546.rs"]
+mod producer_repair;
+
 use std::fmt::Write as _;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpListener;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
-use layerx_client::px::{PxAssetEntry, PxAssetTable, PxCustodyAsset, PxEndpoint};
+use layerx_client::px::{PxAssetEntry, PxAssetTable, PxEndpoint, Uint256};
 use layerx_client::rpc::payments::{
     estimate_fee, get_asset, list_assets, CallRequest, FeeEstimate,
 };
@@ -67,22 +70,17 @@ fn serve(exchanges: Vec<(&'static str, Value)>) -> (SequencerEndpoint, JoinHandl
 
 #[test]
 fn list_assets_and_get_asset_read_px_list_assets() {
-    let metadata = json!({
-        "asset_id": "ab".repeat(32), "name": "Paxeer", "symbol": "PAX",
-        "decimals": 18, "supply": "123456789", "metadata": {"tags": ["native"]}
-    });
+    producer_repair::assets();
     let result = json!({"assets": [
-        {"asset_id": "11".repeat(32), "layerx": null, "paxeer": null},
-        {"asset_id": "ab".repeat(32), "layerx": metadata, "paxeer": {
-            "asset_id": "ab".repeat(32), "denom": "upax",
-            "pointer": hex(&[0xcd; 20]), "enabled": true, "paused": false,
-            "minimum_deposit": "7", "custody_cap": u128::MAX.to_string(),
-            "custodied": "0x10000000000000001", "released": "9", "pending": 10
-        }}
-    ], "joined_limit": "0x10"});
-    let empty = json!({"assets": [], "joined_limit": 16});
+        {"asset_id": "bank:unavailable", "kind": "bank", "denom": "unavailable",
+         "name": null, "symbol": null, "decimals": null, "supply": null},
+        {"asset_id": "bank:upax", "kind": "bank", "denom": "upax",
+         "name": "Paxeer", "symbol": "PAX", "decimals": 18, "supply": "123456789",
+         "paused": false, "verification": "authenticated_committed_snapshot"}
+    ], "height": 150, "joined_limit": 16});
+    let empty = json!({"assets": [], "height": 151, "joined_limit": 16});
     let mut malformed = result.clone();
-    malformed["assets"][1]["asset_id"] = json!("ab");
+    malformed["assets"][1]["asset_id"] = json!("");
     let refusal = RpcRefusal {
         code: -32004,
         message: "assets unavailable".to_owned(),
@@ -106,58 +104,56 @@ fn list_assets_and_get_asset_read_px_list_assets() {
     ]);
     let endpoint = PxEndpoint::from(endpoint);
     let native = PxAssetEntry {
-        asset_id: [0x11; 32],
-        layerx: None,
-        paxeer: None,
+        asset_id: "bank:unavailable".to_owned(),
+        kind: "bank".to_owned(),
+        denom: Some("unavailable".to_owned()),
+        name: None,
+        symbol: None,
+        decimals: None,
+        supply: None,
+        paused: None,
+        verification: None,
     };
     let custody = PxAssetEntry {
-        asset_id: [0xab; 32],
-        layerx: Some(
-            metadata
-                .as_object()
-                .unwrap_or_else(|| panic!("metadata object"))
-                .clone(),
-        ),
-        paxeer: Some(PxCustodyAsset {
-            asset_id: [0xab; 32],
-            denom: "upax".to_owned(),
-            pointer: [0xcd; 20],
-            enabled: true,
-            paused: false,
-            minimum_deposit: 7,
-            custody_cap: u128::MAX,
-            custodied: 0x1_0000_0000_0000_0001,
-            released: 9,
-            pending: 10,
-        }),
+        asset_id: "bank:upax".to_owned(),
+        kind: "bank".to_owned(),
+        denom: Some("upax".to_owned()),
+        name: Some("Paxeer".to_owned()),
+        symbol: Some("PAX".to_owned()),
+        decimals: Some(18),
+        supply: Some(Uint256::from_decimal("123456789").expect("exact supply")),
+        paused: Some(false),
+        verification: Some("authenticated_committed_snapshot".to_owned()),
     };
     assert_eq!(
         must(list_assets(&endpoint)),
         PxAssetTable {
             assets: vec![native.clone(), custody.clone()],
+            height: 150,
             joined_limit: 16
         }
     );
-    assert_eq!(must(get_asset(&endpoint, [0xab; 32])), custody);
-    assert_eq!(must(get_asset(&endpoint, [0x11; 32])), native);
+    assert_eq!(must(get_asset(&endpoint, "bank:upax")), custody);
+    assert_eq!(must(get_asset(&endpoint, "bank:unavailable")), native);
     assert_eq!(
-        get_asset(&endpoint, [0xff; 32]),
+        get_asset(&endpoint, "bank:missing"),
         Err(SequencerError::Unavailable)
     );
     assert_eq!(
         must(list_assets(&endpoint)),
         PxAssetTable {
             assets: vec![],
+            height: 151,
             joined_limit: 16
         }
     );
     assert_eq!(
-        get_asset(&endpoint, [0xab; 32]),
+        get_asset(&endpoint, "bank:upax"),
         Err(SequencerError::Unavailable)
     );
     assert_eq!(list_assets(&endpoint), Err(SequencerError::Malformed));
     assert_eq!(
-        get_asset(&endpoint, [0xab; 32]),
+        get_asset(&endpoint, "bank:upax"),
         Err(SequencerError::Malformed)
     );
     assert_eq!(list_assets(&endpoint), Err(SequencerError::Rpc(refusal)));

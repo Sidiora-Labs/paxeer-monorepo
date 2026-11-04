@@ -23,6 +23,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	typestx "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/tx"
 	stakingtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/staking/types"
+	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"go.opentelemetry.io/otel/attribute"
@@ -32,6 +33,46 @@ import (
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
 )
+
+const maxRetainedEvmTxHashes = 10000
+
+type evmTxHashStore struct {
+	mu       sync.RWMutex
+	hashes   []common.Hash
+	capacity int
+	next     int
+}
+
+func newEvmTxHashStore(capacity int) *evmTxHashStore {
+	if capacity <= 0 {
+		panic("EVM transaction hash capacity must be positive")
+	}
+	return &evmTxHashStore{hashes: make([]common.Hash, 0, capacity), capacity: capacity}
+}
+
+func (s *evmTxHashStore) Add(hash common.Hash) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if len(s.hashes) < s.capacity {
+		s.hashes = append(s.hashes, hash)
+	} else {
+		s.hashes[s.next] = hash
+	}
+	s.next = (s.next + 1) % s.capacity
+}
+
+func (s *evmTxHashStore) Snapshot() []common.Hash {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	hashes := make([]common.Hash, len(s.hashes))
+	if len(s.hashes) < s.capacity {
+		copy(hashes, s.hashes)
+	} else {
+		n := copy(hashes, s.hashes[s.next:])
+		copy(hashes[n:], s.hashes[:s.next])
+	}
+	return hashes
+}
 
 type LoadTestClient struct {
 	LoadTestConfig     Config
@@ -251,23 +292,20 @@ func (c *LoadTestClient) Close() {
 }
 
 func (c *LoadTestClient) BuildTxs(
+	ctx context.Context,
 	txQueue chan SignedTx,
 	keyIndex int,
-	wg *sync.WaitGroup,
-	done <-chan struct{},
 	rateLimiter *rate.Limiter,
 	producedCountPerMsgType map[string]*int64,
-) {
-	wg.Add(1)
-	defer wg.Done()
+) error {
 	config := c.LoadTestConfig
 	for {
 		select {
-		case <-done:
-			return
+		case <-ctx.Done():
+			return ctx.Err()
 		default:
-			if !rateLimiter.Allow() {
-				continue
+			if err := rateLimiter.Wait(ctx); err != nil {
+				return err
 			}
 			// Generate a message type first
 			messageType := c.getRandomMessageType(config.MessageTypes)
@@ -276,23 +314,22 @@ func (c *LoadTestClient) BuildTxs(
 			// Sign EVM and Cosmos TX differently
 			switch messageType {
 			case EVM, ERC20, ERC721:
-				evmTx, err := c.generateSignedEvmTx(keyIndex, messageType)
+				evmTx, err := c.EvmTxClients[keyIndex].getTxForMsgTypeContext(ctx, messageType)
 				if err != nil {
 					fmt.Printf("EVM producer waiting for reconciliation: %v\n", err)
 					select {
-					case <-done:
-						return
+					case <-ctx.Done():
+						return ctx.Err()
 					case <-time.After(100 * time.Millisecond):
 						continue
 					}
 				}
 				signedTx = SignedTx{EvmTx: evmTx, MsgType: messageType}
-				EvmTxHashes = append(EvmTxHashes, signedTx.EvmTx.Hash())
 			default:
 				msgTypeCount := atomic.LoadInt64(producedCountPerMsgType[messageType])
 				txs, err := c.generateSignedCosmosTxs(keyIndex, messageType, msgTypeCount)
 				if err != nil {
-					panic(err)
+					return err
 				}
 				signedTx = SignedTx{TxBytes: txs, MsgType: messageType}
 			}
@@ -300,8 +337,8 @@ func (c *LoadTestClient) BuildTxs(
 			select {
 			case txQueue <- signedTx:
 				atomic.AddInt64(producedCountPerMsgType[messageType], 1)
-			case <-done:
-				return
+			case <-ctx.Done():
+				return ctx.Err()
 			}
 		}
 	}
@@ -334,47 +371,43 @@ func (c *LoadTestClient) generateSignedCosmosTxs(keyIndex int, msgType string, m
 }
 
 func (c *LoadTestClient) SendTxs(
+	ctx context.Context,
 	txQueue chan SignedTx,
 	keyIndex int,
-	done <-chan struct{},
 	sentCountPerMsgType map[string]*int64,
 	semaphore *semaphore.Weighted,
-	wg *sync.WaitGroup,
-) {
-	wg.Add(1)
-	defer wg.Done()
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+) error {
 	for {
 		select {
-		case <-done:
-			return
+		case <-ctx.Done():
+			return ctx.Err()
 		case tx, ok := <-txQueue:
-			loadtestMetrics.consumeCount.Add(context.Background(), 1, otelmetric.WithAttributes(attribute.String("msg_type", tx.MsgType)))
 			if !ok {
-				fmt.Printf("Stopping consumers\n")
-				return
+				return nil
 			}
+			loadtestMetrics.consumeCount.Add(context.Background(), 1, otelmetric.WithAttributes(attribute.String("msg_type", tx.MsgType)))
 			// Acquire a semaphore
 			if err := semaphore.Acquire(ctx, 1); err != nil {
-				fmt.Printf("Failed to acquire semaphore: %v", err)
-				break
+				return fmt.Errorf("acquire consumer semaphore: %w", err)
 			}
+			sendCtx, cancel := context.WithTimeout(ctx, benchmarkRPCTimeout)
 			if len(tx.TxBytes) > 0 {
 				atomic.AddInt64(sentCountPerMsgType[tx.MsgType], 1)
 				// Send Cosmos Transactions
-				if SendTx(ctx, tx.TxBytes, typestx.BroadcastMode_BROADCAST_MODE_BLOCK, *c) {
+				if SendTx(sendCtx, tx.TxBytes, typestx.BroadcastMode_BROADCAST_MODE_BLOCK, *c) {
 					atomic.AddInt64(producedCountPerMsgType[tx.MsgType], 1)
 				}
 			} else if tx.EvmTx != nil {
 				// Send EVM Transactions
-				err := c.EvmTxClients[keyIndex].SendEvmTx(tx.EvmTx, func() {
+				err := c.EvmTxClients[keyIndex].sendEvmTxContext(sendCtx, tx.EvmTx, func() {
+					EvmTxHashes.Add(tx.EvmTx.Hash())
 					atomic.AddInt64(sentCountPerMsgType[tx.MsgType], 1)
 				})
 				if err != nil {
 					fmt.Printf("EVM send: %v\n", err)
 				}
 			}
+			cancel()
 			// Release the semaphore
 			semaphore.Release(1)
 		}

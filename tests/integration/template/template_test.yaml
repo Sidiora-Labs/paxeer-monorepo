@@ -9,8 +9,31 @@
       env: RESULT
   verifiers:
     # Add comments for what should the expected result
+    # Shared eval grammar (Python scripts/runner.py and Go runner/runner.go):
+    # Use a comparison: operand ==, !=, <, <=, > or >= operand.
+    # Separate every token with spaces. Operands are captured names (like RESULT),
+    # canonical decimal numbers (no leading zeroes except 0), or quoted strings.
+    # Use numeric captures for arithmetic; use nonnumeric strings for text checks.
+    # Arithmetic supports +, -, *, /; * and / bind before + and -.
+    # Division produces a floating-point value; never divide by zero.
+    # Boolean comparisons join with and / or; and binds before or.
+    # Operators at the same arithmetic precedence associate left to right.
+    # Shared eval example: 1 == 1 or 2 == 3 and 4 == 5
+    # Shared eval example: 1 == 2 and 2 == 3 or 4 == 4
+    # Shared eval example: 1 == 2 or 2 == 2 and 3 == 4
+    # Shared eval example: 2 + 3 * 4 == 14
+    # Shared eval example: 2 + 3 * 4 == 20
+    # Shared eval example: 8 - 3 - 2 == 3
+    # Shared eval example: 3 / 2 == 1.5
+    # Captured example (RESULT is trimmed stdout "4"): RESULT >= 1 and RESULT <= 4
+    # Replace the comparison below to check your command's captured RESULT.
+    # Keep all names bound and all branches valid: Go OR can accept a true
+    # branch after an evaluation error; Python raises on that error.
+    # Python's AST evaluator also supports not, //, %, parentheses and chained
+    # comparisons; these are outside the shared grammar. Neither runner supports
+    # general Python calls or indexing. Avoid float equality due to rounding.
     - type: eval
-      expr: <Replace with a valid python eval>
+      expr: RESULT == 4
     - type: regex
       result: RESULT
       expr: <Replace with regular expression>

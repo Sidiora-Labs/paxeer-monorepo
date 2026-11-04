@@ -5,6 +5,15 @@ modules:
     http:
       preferred_ip_protocol: ip4
       valid_status_codes: []
+  node_consensus:
+    prober: http
+    timeout: 10s
+    http:
+      preferred_ip_protocol: ip4
+      valid_status_codes: [200]
+      fail_if_body_not_matches_regexp:
+        - '"catching_up"\s*:\s*false'
+        - '"latest_block_height"\s*:\s*"[1-9][0-9]*"'
   tls_cert:
     prober: tcp
     timeout: 10s
