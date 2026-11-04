@@ -148,13 +148,13 @@ func dumpDebugData(ctx context.Context, rpc *rpchttp.HTTP, args dumpDebugDataArg
 
 	if args.profAddr != "" {
 		logger.Info("getting node goroutine profile...")
-		if err := dumpProfile(tmpDir, args.profAddr, "goroutine", 2); err != nil {
+		if err := dumpProfile(ctx, tmpDir, args.profAddr, "goroutine", 2); err != nil {
 			logger.Error("failed to dump goroutine profile", "error", err)
 			return
 		}
 
 		logger.Info("getting node heap profile...")
-		if err := dumpProfile(tmpDir, args.profAddr, "heap", 2); err != nil {
+		if err := dumpProfile(ctx, tmpDir, args.profAddr, "heap", 2); err != nil {
 			logger.Error("failed to dump heap profile", "error", err)
 			return
 		}

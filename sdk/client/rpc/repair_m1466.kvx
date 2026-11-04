@@ -1,0 +1,21 @@
+[task.22.33.1466]
+mode = "BUILD"
+base_revision = "e3d7e5828b39e4182e9559fb6bc28d74c2f37e0f"
+findings = ["block-unverified-claim", "block-negative-height-latest"]
+baseline = "Not executed: the explicit gate order forbids tests before full implementation and permits verification only through hf-done; no pre-change failures are claimed."
+evidence = "The runner records the exact candidate revision, command, exit and private log in /out/run/gates.jsonl; hf-done must pass on the built candidate before qualification."
+trust_input = "--trusted-validator-set is an independently authenticated local BlockTrust JSON file containing chain_id, height as a string, and validator_set, encoded with consensus/libs/json; it authorizes only that chain and exact height, including latest requests."
+legacy_rest = "The legacy /blocks endpoints continue to return unverified node data; command help and getBlock explicitly document this boundary."
+wiring_requests = []
+
+[finding.block-unverified-claim]
+tests = ["TestRepairM_1466_RejectUnauthenticatedBlocks", "TestRepairM_1466_RequireIndependentTrust", "TestRepairM_1466_HeightConventions"]
+repair = "Validate the block and signed header, bind returned block ID and header to the commit, match the independently trusted validator hash, and verify signatures with more than two-thirds voting power before publishing output. Pin commit retrieval to the returned block height."
+
+[finding.block-negative-height-latest]
+tests = ["TestRepairM_1466_HeightConventions"]
+repair = "Reject negative and overflowing heights before any RPC call; document and prove zero/omitted latest and positive historical requests."
+
+[workflow_notes]
+observed = "No previous gate ledger or RPC edits existed; runner-prepared .cgignore and spec status changes were preserved. The gate tools resolve under /out/run/bin, not /usr/local/bin."
+scope = "Root GOTCHA.kvx and spec files are outside the authorized edit scope; task-specific notes are retained here. No commit or push is performed by the worker."

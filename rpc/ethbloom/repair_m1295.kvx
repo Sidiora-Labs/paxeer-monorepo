@@ -1,0 +1,8 @@
+[repair.22.33.1295]
+finding = "wildcard-topic-cardinality"
+implementation = "MatchesCriteria rejects a selector with more topic positions than the emitted log before evaluating wildcards or OR alternatives."
+tests = ["TestRepairM_1295_WildcardTopicCardinality", "TestRepairM_1295_HTTPGetLogs", "TestRepairM_1295_WebSocketLogs"]
+proof = "Real in-memory EVM LOG0 through LOG4 events and reversed-topic LOG2; production criteria decoder and matcher; loopback geth HTTP eth_getLogs and WebSocket eth_subscribe transport peers."
+baseline = "Not run: the task's explicit gate order forbids running verify by hand or before implementation; no baseline failure is claimed."
+evidence = "The hf-build/hf-done private gate ledger records the exact candidate revision, command, exit code and log location."
+wiring_request = "Domain 7 (RPC API), rpc/filter.go and rpc/subscribe.go: expose a native-independent keeper/store-backed handler fixture to extend this focused matcher/transport proof to the full node eth_getLogs and log-subscription consumers; full node handlers are not imported or claimed here."

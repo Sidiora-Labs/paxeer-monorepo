@@ -1,0 +1,31 @@
+[task]
+id = "22.33.1406"
+audit = "22.30.79"
+findings = ["007", "006", "008", "042", "009"]
+baseline = "Not run: the ordered gate instructions require complete implementation before hf-build/hf-done and prohibit invoking verify_cmd by hand. No pre-change failing tests are claimed. The gate ledger had no prior runs."
+evidence = "hf-done records the verified candidate revision, exact command, exit code and private log in the runner ledger; hf-build must identify that same candidate."
+wiring_requests = "None; all proposals are implemented within sdk/cosmovisor."
+
+[finding.007]
+tests = ["TestRepairM_1406_SignalLifetime", "TestRepairM_1406_SignalForwarding"]
+repair = "Stop notification, cancel and join forwarding on every completed launch before upgrading; forward repeatedly while active and report failures through the supervisor, treating an already finished process as a completion race."
+
+[finding.006]
+tests = ["TestRepairM_1406_FinalUpgrade", "TestRepairM_1406_ScannerFailureStopsChild"]
+repair = "Join both scanners before Wait closes their pipes and before reading the result; stop the child on scanner failure and drain logs after upgrades. Prove upgrades immediately preceding successful and failed exits, quiescent writers, and reopened persisted selection."
+
+[finding.008]
+tests = ["TestRepairM_1406_SpacedJSONDownload", "TestRepairM_1406_ScannerCompatibility"]
+repair = "Preserve full text and decode a complete JSON object before discarding structured logger suffixes. Exercise the recorded x/upgrade message format through scanner, URL selection and a loopback binary download."
+
+[finding.042]
+tests = ["TestRepairM_1406_SpacedJSONDownload", "TestRepairM_1406_ScannerCompatibility"]
+repair = "Update TestWaitForInfo to expect the full text and a spaced JSON binary map with a usable URL; prove the parsed URL downloads the actual fixture bytes."
+
+[finding.009]
+tests = ["TestRepairM_1406_DownloadCases"]
+repair = "Run the original seven TestDownloadBinary entries as named subtests; expected failures return only from their own subtest. The focused gate invokes that same table and asserts all checksum, archive and malformed-download results."
+
+[gotcha]
+observed = "The baseline-before-change step conflicts with the explicit ordered gates and implementation-first rule; root GOTCHA.kvx and spec files are outside the allowed write scope."
+resolution = "Follow the ordered gates, record the conflict here, and leave all out-of-scope files untouched."

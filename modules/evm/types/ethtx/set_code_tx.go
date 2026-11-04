@@ -179,20 +179,18 @@ func (tx *SetCodeTx) GetBlobHashes() []common.Hash {
 }
 
 func (tx SetCodeTx) Validate() error {
-	if tx.GasTipCap == nil {
-		return errors.New("gas tip cap cannot nil")
-	}
-
-	if tx.GasFeeCap == nil {
-		return errors.New("gas fee cap cannot nil")
-	}
-
-	if tx.GasTipCap.IsNegative() {
-		return fmt.Errorf("gas tip cap cannot be negative %s", tx.GasTipCap)
-	}
-
-	if tx.GasFeeCap.IsNegative() {
-		return fmt.Errorf("gas fee cap cannot be negative %s", tx.GasFeeCap)
+	for _, field := range []struct {
+		name  string
+		value *sdk.Int
+	}{
+		{"chain ID", tx.ChainID},
+		{"gas tip cap", tx.GasTipCap},
+		{"gas fee cap", tx.GasFeeCap},
+		{"amount", tx.Amount},
+	} {
+		if err := validateRequiredUint256(field.name, field.value); err != nil {
+			return err
+		}
 	}
 
 	if tx.GasFeeCap.LT(*tx.GasTipCap) {
@@ -205,16 +203,8 @@ func (tx SetCodeTx) Validate() error {
 		return errors.New("fee out of bound")
 	}
 
-	amount := tx.GetValue()
-	// Amount can be 0
-	if amount != nil && amount.Sign() == -1 {
-		return fmt.Errorf("amount cannot be negative %s", amount)
-	}
-
-	if tx.To != "" {
-		if err := ValidateAddress(tx.To); err != nil {
-			return errors.New("invalid to address")
-		}
+	if err := ValidateAddress(tx.To); err != nil {
+		return errors.New("invalid to address")
 	}
 
 	if err := validateAccessList(tx.Accesses); err != nil {
@@ -222,6 +212,11 @@ func (tx SetCodeTx) Validate() error {
 	}
 	if err := validateAuthList(tx.AuthList); err != nil {
 		return err
+	}
+	for _, auth := range tx.AuthList {
+		if err := validateRequiredUint256("auth list chain id", auth.ChainID); err != nil {
+			return err
+		}
 	}
 	if err := validateSignatureValue("v", tx.V, 32); err != nil {
 		return err
@@ -231,14 +226,6 @@ func (tx SetCodeTx) Validate() error {
 	}
 	if err := validateSignatureValue("s", tx.S, 32); err != nil {
 		return err
-	}
-
-	chainID := tx.GetChainID()
-
-	if chainID == nil {
-		return errors.New(
-			"chain ID must be present on AccessList txs",
-		)
 	}
 
 	return nil

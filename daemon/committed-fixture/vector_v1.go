@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"net"
 	"path/filepath"
 	"strings"
 	"time"
@@ -63,9 +64,20 @@ type v1Vector struct {
 
 func init() {
 	registerVector(v1Name, recordV1)
+	registerVector(v1ProgramsName, recordV1Programs)
 }
 
 func (n *node) prime() error {
+	if n.standby != nil {
+		if _, port, err := net.SplitHostPort(n.standby.standbyAddress); err != nil || port == "0" {
+			return errors.New("prime requires a running standby with its bound address")
+		}
+		n.standbyAddress = n.standby.standbyAddress
+		if err := editTOML(filepath.Join(n.home, "config", "app.toml"), func(cfg map[string]any) { cfg["sequencer"].(map[string]any)["standby-address"] = n.standbyAddress }); err != nil {
+			return err
+		}
+	}
+
 	params.SetAddressPrefixes()
 	cfg := tmconfig.DefaultConfig().SetRoot(n.home)
 	if _, err := toml.DecodeFile(filepath.Join(n.home, "config", "config.toml"), cfg); err != nil {

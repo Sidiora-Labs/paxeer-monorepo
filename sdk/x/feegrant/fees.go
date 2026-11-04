@@ -20,6 +20,6 @@ type FeeAllowanceI interface {
 	Accept(ctx sdk.Context, fee sdk.Coins, msgs []sdk.Msg) (remove bool, err error)
 
 	// ValidateBasic should evaluate this FeeAllowance for internal consistency.
-	// Don't allow negative amounts, or negative periods for example.
+	// Don't allow negative amounts or nonpositive periods, for example.
 	ValidateBasic() error
 }

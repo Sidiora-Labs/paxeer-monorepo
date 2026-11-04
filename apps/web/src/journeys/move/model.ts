@@ -1,4 +1,4 @@
-import { receiptBacked as activityReceiptBacked } from "../activity/model.ts";
+import { entryStatusKey, receiptBacked as activityReceiptBacked } from "../activity/model.ts";
 import { copyEntry } from "../../../copy/runtime.ts";
 import { formatCopy } from "../../../copy/format.ts";
 import {
@@ -414,7 +414,7 @@ export function moveStages(journey: Journey): readonly MoveStagePresentation[] {
       (stage.state === "done" || stage.state === "done-finalised") &&
       !stage.evidence.some(verifiedOutcomeEvidence)
         ? "processing"
-        : statusKeyFromCopyKey(stage.state),
+        : entryStatusKey(stage.state),
   }));
 }
 
@@ -485,6 +485,15 @@ export function moveResult(journey: Journey): MoveResult {
         stages,
         journeyId,
       };
+    case "closed":
+      return {
+        kind: "refused",
+        status: "refused",
+        message: copyEntry("move.result.checking.body").message,
+        moneyLeftMessage: copyEntry("move.result.checking.body").message,
+        stages,
+        journeyId,
+      };
     case "refused": {
       const refusal = journey.refusal;
       return {
@@ -503,6 +512,7 @@ export function moveResult(journey: Journey): MoveResult {
       };
     }
     case "waiting-for-you":
+    case "awaiting-approval":
       return { kind: "waiting", status: "waiting_for_you", stages, journeyId };
     case "getting-ready":
     case "sending":

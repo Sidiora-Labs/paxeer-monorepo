@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use crate::core::market::{MARKET_COUNT, MarketId};
+use crate::core::market::{MarketId, MARKET_COUNT};
 use crate::core::types::PriceTick;
 use crate::error::PerfDbError;
 use crate::storage::mmap::MmapFile;
@@ -16,8 +16,9 @@ use crate::storage::mmap::MmapFile;
 /// ```
 ///
 /// Each file contains contiguous `PriceTick` records (24 bytes each),
-/// naturally sorted by `timestamp_ns` (ticks arrive in chronological order
-/// from the price feed).
+/// sorted by `timestamp_ns`. Admission rejects timestamps earlier than the
+/// latest tick of the same market; equal timestamps retain arrival order.
+/// Call `validate_tick` before WAL admission while holding the writer lock.
 ///
 /// Concurrency: single writer, multiple readers (via mmap zero-copy).
 pub struct TickStore {
@@ -45,7 +46,9 @@ impl TickStore {
         for mid in 0..MARKET_COUNT as MarketId {
             let path = market_path(&base_dir, mid);
             if path.exists() {
-                files[mid as usize] = Some(MmapFile::open(&path, false)?);
+                let file = MmapFile::open_records::<PriceTick>(&path, false)?;
+                Self::validate_history(file.as_slice::<PriceTick>()?, mid)?;
+                files[mid as usize] = Some(file);
             }
         }
 
@@ -75,11 +78,14 @@ impl TickStore {
             let bytes = count
                 .checked_mul(size_of::<PriceTick>() as u64)
                 .ok_or_else(|| PerfDbError::Corruption("tick recovery count overflow".into()))?;
-            if file
+            let file_len = file
                 .metadata()
                 .map_err(|e| crate::storage::wal::io_error("inspect tick metadata", e))?
-                .len()
-                < bytes.saturating_add(8)
+                .len();
+            if file_len
+                < bytes
+                    .checked_add(8)
+                    .ok_or_else(|| PerfDbError::Corruption("tick prefix length overflow".into()))?
             {
                 return Err(PerfDbError::Corruption(
                     "tick prefix shorter than recovery boundary".into(),
@@ -88,12 +94,22 @@ impl TickStore {
             let mut header = [0; 8];
             file.read_exact(&mut header)
                 .map_err(|e| crate::storage::wal::io_error("inspect tick header", e))?;
+            let logical_len = u64::from_le_bytes(header);
+            if logical_len > file_len - 8
+                || logical_len < bytes
+                || logical_len % size_of::<PriceTick>() as u64 != 0
+            {
+                return Err(PerfDbError::Corruption(
+                    "invalid inspected tick header length".into(),
+                ));
+            }
             let mut record = [0; size_of::<PriceTick>()];
             for _ in 0..count {
                 file.read_exact(&mut record)
                     .map_err(|e| crate::storage::wal::io_error("inspect tick record", e))?;
                 markets[mid].push(bytemuck::pod_read_unaligned(&record));
             }
+            Self::validate_history(&markets[mid], mid as MarketId)?;
         }
         Ok(Self {
             base_dir: base_dir.to_path_buf(),
@@ -134,16 +150,62 @@ impl TickStore {
         Ok(())
     }
 
-    /// Append a tick to the appropriate market file.
-    pub fn append(&mut self, tick: &PriceTick) -> Result<(), PerfDbError> {
-        let mid = tick.market_id as usize;
-        if mid >= MARKET_COUNT {
+    fn validate_history(ticks: &[PriceTick], market_id: MarketId) -> Result<(), PerfDbError> {
+        if ticks.iter().any(|tick| tick.market_id != market_id)
+            || ticks
+                .windows(2)
+                .any(|pair| pair[0].timestamp_ns > pair[1].timestamp_ns)
+        {
+            return Err(PerfDbError::Corruption(
+                "tick history violates market or chronological order".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Refuse late ticks per market, allowing equal timestamps in arrival order.
+    /// The engine must call this before WAL append under its mutation lock.
+    pub fn validate_tick(&self, tick: &PriceTick) -> Result<(), PerfDbError> {
+        if tick.market_id as usize >= MARKET_COUNT {
             return Err(PerfDbError::InvalidArgument(format!(
                 "market_id {} out of range (max {})",
                 tick.market_id,
                 MARKET_COUNT - 1
             )));
         }
+        if self
+            .latest(tick.market_id)
+            .is_some_and(|last| tick.timestamp_ns < last.timestamp_ns)
+        {
+            return Err(PerfDbError::InvalidArgument(format!(
+                "late tick for market {} at {}",
+                tick.market_id, tick.timestamp_ns
+            )));
+        }
+        Ok(())
+    }
+
+    /// Validate before WAL admission, then apply to the mmap projection.
+    /// The caller must keep this store and WAL under one exclusive writer lock.
+    pub fn append_with_wal(
+        &mut self,
+        tick: &PriceTick,
+        wal: &mut crate::storage::wal::WalWriter,
+    ) -> Result<crate::storage::wal::WalPosition, PerfDbError> {
+        self.validate_tick(tick)?;
+        wal.append(&crate::storage::wal::WalEntry::PriceTick {
+            timestamp_ns: tick.timestamp_ns,
+            market_id: tick.market_id,
+            price: tick.price,
+        })?;
+        self.append(tick)?;
+        Ok(wal.position())
+    }
+
+    /// Append only an admitted tick; rejection leaves the store unchanged.
+    pub fn append(&mut self, tick: &PriceTick) -> Result<(), PerfDbError> {
+        self.validate_tick(tick)?;
+        let mid = tick.market_id as usize;
 
         if let Some(markets) = &mut self.inspection {
             markets[mid].push(*tick);
@@ -161,7 +223,9 @@ impl TickStore {
             return markets.get(market_id as usize).map_or(&[], Vec::as_slice);
         }
         match self.files.get(market_id as usize).and_then(|f| f.as_ref()) {
-            Some(file) => file.as_slice::<PriceTick>(),
+            Some(file) => file
+                .as_slice::<PriceTick>()
+                .expect("tick layout validated on open and append"),
             None => &[],
         }
     }
@@ -172,7 +236,9 @@ impl TickStore {
             return self.ticks(market_id).len() as u64;
         }
         match self.files.get(market_id as usize).and_then(|f| f.as_ref()) {
-            Some(file) => file.record_count::<PriceTick>(),
+            Some(file) => file
+                .record_count::<PriceTick>()
+                .expect("tick layout validated on open and append"),
             None => 0,
         }
     }
@@ -205,7 +271,7 @@ impl TickStore {
         let mid = market_id as usize;
         if self.files[mid].is_none() {
             let path = market_path(&self.base_dir, market_id);
-            self.files[mid] = Some(MmapFile::open(&path, true)?);
+            self.files[mid] = Some(MmapFile::open_records::<PriceTick>(&path, true)?);
         }
         Ok(self.files[mid].as_mut().unwrap())
     }

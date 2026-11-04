@@ -40,12 +40,80 @@ def atomic_write(path, raw):
             os.unlink(temporary)
 
 
+def http_client(destination):
+    result = {'authorization': {'type': 'Bearer', 'credentials_file': destination['token_file']}}
+    if destination['ca_file'] is not None:
+        result['tls_config'] = {'ca_file': destination['ca_file']}
+    return result
+
+
 def configuration_files(binding, config):
     root = Path(__file__).resolve().parents[1]
     rules = load(root/'prometheus-rules.json')
+    # Ownership in the admitted inventory also governs the rendered rule labels.
+    alerts = {alert['name']: alert for alert in config['alerts']}
+    for group in rules['groups']:
+        for rule in group['rules']:
+            if 'alert' in rule:
+                declared = alerts[rule['alert']]
+                rule['labels'].update({k: declared[k] for k in ('owner', 'commander', 'severity')})
     scrape_configs = [{'job_name':s['service'], 'metrics_path':'/metrics', 'scheme':urlsplit(s['base_url']).scheme, 'static_configs':[{'targets':[urlsplit(s['base_url']).netloc]}]} for s in binding['services']]
-    prometheus = {'global': {'scrape_interval':'15s', 'evaluation_interval':'15s', 'external_labels':{'deployment_digest':binding['deployment_digest']}}, 'rule_files':['prometheus-rules.json'], 'scrape_configs':scrape_configs}
-    return {'prometheus.json':canonical(prometheus), 'prometheus-rules.json':canonical(rules), 'otel-collector.yaml':(root/'otel-collector.yaml').read_bytes(), 'diagnostics.json':canonical(safe_diagnostics(binding))}
+    synthetic = binding['synthetic']
+    exporter = urlsplit(synthetic['url'])
+    scrape_configs.append({'job_name': 'synthetic-journeys', 'metrics_path': exporter.path,
+                           'scheme': exporter.scheme, 'honor_labels': True,
+                           'static_configs': [{'targets': [exporter.netloc]}],
+                           **http_client(synthetic)})
+    manager = binding['alertmanager']
+    destination = urlsplit(manager['url'])
+    prometheus = {'global': {'scrape_interval':'15s', 'evaluation_interval':'15s', 'external_labels':{'deployment_digest':binding['deployment_digest']}}, 'rule_files':['prometheus-rules.json'], 'scrape_configs':scrape_configs,
+                  'alerting': {'alertmanagers': [{'scheme': destination.scheme,
+                                                'path_prefix': destination.path or '/',
+                                                'api_version': 'v2',
+                                                'static_configs': [{'targets': [destination.netloc]}],
+                                                **http_client(manager)}]}}
+    routes, receivers = [], []
+    for owner, target in sorted(manager['receivers'].items()):
+        responder = binding['responders'][owner]
+        name = owner + '.' + responder
+        routes.append({'matchers': ['owner="' + owner + '"'], 'receiver': name})
+        receivers.append({'name': name, 'webhook_configs': [
+            {'url': target['url'], 'send_resolved': True, 'http_config': http_client(target)}]})
+    alertmanager = {'route': {'receiver': receivers[0]['name'],
+                             'group_by': ['alertname', 'journey', 'environment', 'zone', 'deployment_digest'],
+                             'group_wait': '0s', 'group_interval': '30s', 'repeat_interval': '5m',
+                             'routes': routes}, 'receivers': receivers}
+    mounts = []
+    def mount(component, path, read_only):
+        value = {'component': component, 'path': path, 'read_only': read_only}
+        if value not in mounts:
+            mounts.append(value)
+    mount('probes', synthetic['textfile_directory'], False)
+    mount('synthetic-exporter', synthetic['textfile_directory'], True)
+    for component, target, keys in (
+        ('prometheus', synthetic, ('token_file', 'ca_file')),
+        ('synthetic-exporter', synthetic, ('token_file', 'cert_file', 'key_file')),
+        ('prometheus', manager, ('token_file', 'ca_file')),
+    ):
+        for key in keys:
+            if target[key] is not None:
+                mount(component, target[key], True)
+    for target in manager['receivers'].values():
+        for key in ('token_file', 'ca_file'):
+            if target[key] is not None:
+                mount('alertmanager', target[key], True)
+    transport = {'version': '1.0', 'mounts': mounts,
+                 'probes': {'output': synthetic['textfile_directory'], 'interval_seconds': 30},
+                 'synthetic_exporter': {'configuration': 'synthetic-exporter.json'},
+                 'alertmanager': {'configuration': 'alertmanager.json', 'url': manager['url'],
+                                  'authentication': 'bound-bearer-gateway'},
+                 'responders': {owner: binding['responders'][owner] for owner in manager['receivers']}}
+    return {'prometheus.json':canonical(prometheus), 'prometheus-rules.json':canonical(rules),
+            'alertmanager.json': canonical(alertmanager),
+            'synthetic-exporter.json': canonical(synthetic),
+            'transport.json': canonical(transport),
+            'otel-collector.yaml':(root/'otel-collector.yaml').read_bytes(),
+            'diagnostics.json':canonical(safe_diagnostics(binding))}
 
 
 def render(binding, config, output):
@@ -64,7 +132,7 @@ def verify_bundle(binding, config, target):
     target = safe_directory(target)
     manifest = load(target/'render-manifest.json')
     require(manifest['binding_sha256'] == sha(canonical(binding)) and manifest['configuration_sha256'] == sha(canonical(config)), 'activation bundle identity differs')
-    expected = {'prometheus.json', 'prometheus-rules.json', 'otel-collector.yaml', 'diagnostics.json'}
+    expected = set(configuration_files(binding, config))
     require(set(manifest['files']) == expected and {p.name for p in target.iterdir()} == expected | {'render-manifest.json'}, 'activation bundle inventory differs')
     for name, expected_hash in manifest['files'].items():
         file = target/name

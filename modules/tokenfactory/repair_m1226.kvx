@@ -1,0 +1,15 @@
+[repair.22.33.1226]
+audit = "22.30.59"
+base_revision = "9d1a06c7f3635f5556023760af7a75ee9755efdd"
+baseline = "The initial hf gate ledger had zero builds and verifies and no task implementation existed. No unchanged-tree verify ran: the explicit ordered implementation-first and hf-build/hf-done-only rules prohibit the contradictory baseline request. No baseline test failure is claimed."
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit and private evidence location; the final response copies the final gate evidence line."
+wiring_requests = "None; both repairs and their proofs are within modules/tokenfactory."
+gotcha = "The guide predates the approved empty-admin validation repair already present in types/msgs.go; preserve that policy and prove it through the CLI, transaction codec and registered message handler."
+
+[finding.21]
+tests = ["TestRepairM_1226_DocumentedAuthorityLifecycle"]
+proof = "Real CLI renunciation, SDK transaction decoding, registered message/query routes, REST gateway and wasm queries prove the documented issuer/admin split, pause refusals and module-transfer exemption. Disk-store close/reopen and fresh module genesis import preserve renunciation, issuer binding, creator index and pause state; bank balances remain separate."
+
+[finding.3]
+tests = ["TestRepairM_1226_StreamSnapshotBeforeMutationAndClose", "TestRepairM_1226_StreamEmptyProducerClosed"]
+proof = "Real AppModule and keeper exports synchronously capture exact JSON bytes into a single buffered message. Params, authority, pause and denom mutations precede producer-store closure and stream draining; finite receives prove exactly one message and closure. A fresh module validates and imports the emitted bytes and re-exports the exact original snapshot."

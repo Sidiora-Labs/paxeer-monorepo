@@ -230,6 +230,22 @@ A successful execution and settlement emits `EventJobExecuted`; an execution or 
 | `getStream(uint256 streamId)` | view | `(uint256 id,address payer,address payee,address token,uint256 ratePerSecond,uint256 cap,uint64 startTime,uint64 stopTime,uint256 settled,bool active)` as one tuple |
 | `accrued(uint256 streamId)` | view | `uint256 amount` |
 
+The Go boundary used by the real `PrecompileExecutor` in `precompiles/layerxagent/streams/streams.go` is:
+
+```go
+OpenAgentStream(ctx sdk.Context, payer, payee, token common.Address, ratePerSecond *big.Int, startTime, stopTime uint64, cap *big.Int) (*big.Int, error)
+SettleAgentStream(ctx sdk.Context, caller common.Address, streamID *big.Int) (*big.Int, error)
+CloseAgentStream(ctx sdk.Context, caller common.Address, streamID *big.Int) (finalPaid, refund *big.Int, err error)
+UpdateAgentStreamRate(ctx sdk.Context, caller common.Address, streamID *big.Int, newRate *big.Int) (*big.Int, error)
+AgentStreamView(ctx sdk.Context, streamID *big.Int) (AgentStream, bool, error)
+```
+
+For example, the executor's `open` handler passes the EVM caller as `payer`, ABI-decoded payee/token addresses, rate, start/stop seconds and cap to `OpenAgentStream`, then packs the returned `*big.Int` as `uint256 streamId`. The caller supplies neither a stream identifier nor an idempotency key. `TestRepairM_1304_DeclarationAgentOpen` proves this path through `vm.EVM.Call` at `0x0906` and the kernel record consumer.
+
+The `settle`, `close` and `updateRate` handlers pass the EVM caller address and ABI-decoded `*big.Int` identifier. The keeper accepts only a positive identifier of at most 256 bits, and derives operation keys from the transaction hash, shared pay call ordinal and each method's selector. Failed operations discard their ordinal and state writes. `SettleAgentStream` returns the amount paid in this operation. `CloseAgentStream` returns final paid and refund amounts; the ABI returns final paid while `StreamClosed` carries both. `UpdateAgentStreamRate` settles at the previous rate before changing it and returns that previous rate; the ABI returns no values while `StreamRateUpdated` carries old/new rates. The corresponding `TestRepairM_1304_DeclarationAgentSettle`, `TestRepairM_1304_DeclarationAgentClose` and `TestRepairM_1304_DeclarationAgentRate` tests drive these actual handlers and inspect their persisted operation results and logs.
+
+`AgentStreamView` reads kernel state plus exactly 60 persisted address bytes (payer, payee, token, 20 bytes each). A valid absent identifier returns `(AgentStream{}, false, nil)`; an existing stream with missing or malformed address metadata returns an error. Its `*big.Int` fields preserve uint256 identifiers and uint128 token amounts, and its times are seconds. `TestRepairM_1304_DeclarationAgentView` drives the ABI tuple consumer, stops and reopens the database, and verifies the recovered projection and metadata refusal.
+
 Opening resolves payer and payee authority to kernel accounts and maps the token through custody. Zero token selects the mapped base denomination; unknown mappings return `LXP_AGENT_STREAMS_UNKNOWN_TOKEN`. A payee whose authority cannot be resolved returns `LXP_AGENT_STREAMS_INVALID_PAYEE`. Self-payment is refused both for equal EVM addresses and for equal resolved kernel accounts. Rate and cap must be positive uint128 amounts despite the uint256 ABI; oversized values return `LXP_AGENT_OVERFLOW`.
 
 Start and stop times are ABI seconds, converted to kernel milliseconds with overflow checks; rate uses a 1000-millisecond unit. The cap is also the initial funding. The stream id derives from the EVM transaction hash, pay call ordinal and payer account. The adapter persists payer/payee/token address metadata alongside the kernel stream, rather than keeping a second balance or accrual state.

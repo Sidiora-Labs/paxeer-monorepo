@@ -1,15 +1,29 @@
-use layerx_crypto::disclosure::{bind, AmountRole, CounterpartyRole, DisclosureError};
-use layerx_crypto::payments::Payment;
-use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
-use layerx_wire::{encode::Encoder, hash::Domain};
-use sha2::{Digest as _, Sha256};
+use std::{
+    future::Future,
+    pin::pin,
+    sync::Arc,
+    task::{Context, Poll, Wake, Waker},
+};
 
-const ACTOR: &[u8] = b"did:layerx:alice";
+use layerx_crypto::account_derivation::derive_from_mnemonic;
+use layerx_crypto::disclosure::call::{encode_payment_call, reencode, ConstructMethod};
+use layerx_crypto::disclosure::{AmountRole, CounterpartyRole, DisclosureError};
+use layerx_crypto::evm_transaction::{assemble, decode_signed, recover_sender, Eip1559Call};
+use layerx_crypto::payments::{
+    bind_call, ledger_payment_call, CallOptions, DisclosedCall, Payment,
+};
+use layerx_crypto::signer::{sign_disclosed_call, LocalSigner, SignError, Signer};
+use layerx_types::payload::ModuleId;
+
+const ACTOR: &[u8] = &[
+    0x98, 0x58, 0xef, 0xfd, 0x23, 0x2b, 0x40, 0x33, 0xe4, 0x7d, 0x90, 0x00, 0x3d, 0x41, 0xec, 0x34,
+    0xec, 0xae, 0xda, 0x94,
+];
 const VECTORS: &[(ModuleId, u16, &str)] = &[
     (
         ModuleId::Asset,
         1,
-        include_str!("fixtures/payments/1-1.hex"),
+        include_str!("fixtures/payments/1-1-evm.hex"),
     ),
     (
         ModuleId::Asset,
@@ -79,63 +93,121 @@ fn hex(s: &str) -> Vec<u8> {
         .collect()
 }
 
-fn canonical(
-    module: ModuleId,
-    ordinal: u16,
-    payload: &[u8],
-) -> Result<(Vec<u8>, ModuleRegistry), DisclosureError> {
-    let kind = ActivityType::new(module, ordinal).map_err(|_| DisclosureError::MalformedPayload)?;
-    let registration =
-        ModuleRegistration::new(module, &[kind]).map_err(|_| DisclosureError::MalformedPayload)?;
-    let registry =
-        ModuleRegistry::new(&[registration]).map_err(|_| DisclosureError::MalformedPayload)?;
-    let mut h = Sha256::new();
-    h.update(Domain::PayloadHash.tag());
-    h.update(payload);
-    let digest: [u8; 32] = h.finalize().into();
-    let mut e = Encoder::new(65536);
-    let version = layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION;
-    e.structure_header_version(0x1001, version)?;
-    e.u8(11)?;
-    e.tag(1, 12)?;
-    e.u16(version)?;
-    e.tag(2, 12)?;
-    e.u32(17)?;
-    e.tag(3, 12)?;
-    e.u32(kind.value())?;
-    e.tag(4, 12)?;
-    e.bytes(ACTOR, 255)?;
-    e.tag(5, 12)?;
-    e.bytes(&[9; 32], 524_288)?;
-    e.tag(6, 12)?;
-    e.u64(7)?;
-    e.tag(7, 12)?;
-    e.u64(10)?;
-    e.u64(100)?;
-    e.tag(8, 12)?;
-    e.bytes(&[0x71; 32], 32)?;
-    e.tag(9, 12)?;
-    e.u128(20)?;
-    e.tag(10, 12)?;
-    e.bytes(&digest, 32)?;
-    e.tag(11, 12)?;
-    e.bytes(payload, 524_288)?;
-    Ok((e.finish(), registry))
+struct ThreadWake(std::thread::Thread);
+
+impl Wake for ThreadWake {
+    fn wake(self: Arc<Self>) {
+        self.0.unpark();
+    }
+}
+
+pub(crate) fn complete<F: Future>(future: F) -> F::Output {
+    let mut future = pin!(future);
+    let waker = Waker::from(Arc::new(ThreadWake(std::thread::current())));
+    let mut context = Context::from_waker(&waker);
+    loop {
+        match future.as_mut().poll(&mut context) {
+            Poll::Ready(value) => return value,
+            Poll::Pending => std::thread::park(),
+        }
+    }
+}
+
+pub(crate) fn signer() -> Result<LocalSigner, Box<dyn std::error::Error>> {
+    let account = derive_from_mnemonic(
+        "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+        "",
+        0,
+    )?;
+    assert_eq!(account.evm_address().as_slice(), ACTOR);
+    Ok(LocalSigner::from_derived_account(&account))
+}
+
+pub(crate) fn options(signer: &LocalSigner) -> CallOptions {
+    CallOptions {
+        from: signer.evm_address().expect("derived EVM key"),
+        chain_id: 125,
+        nonce: 7,
+        max_priority_fee_per_gas: 2,
+        max_fee_per_gas: 30,
+        gas_limit: 100_000,
+    }
+}
+
+pub(crate) fn send_fixture(options: &CallOptions) -> Result<DisclosedCall, DisclosureError> {
+    ledger_payment_call(
+        &hex(include_str!("fixtures/payments/native-1-5.hex")),
+        options,
+    )
+}
+
+fn payment_call(
+    payment: &Payment,
+    options: &CallOptions,
+) -> Result<DisclosedCall, DisclosureError> {
+    let mut to = [0; 20];
+    to[18..].copy_from_slice(&0x101a_u16.to_be_bytes());
+    DisclosedCall::from_call(
+        Eip1559Call {
+            chain_id: options.chain_id,
+            nonce: options.nonce,
+            max_priority_fee_per_gas: options.max_priority_fee_per_gas,
+            max_fee_per_gas: options.max_fee_per_gas,
+            gas_limit: options.gas_limit,
+            to,
+            data: encode_payment_call(payment, ACTOR)?,
+        },
+        options.from,
+    )
+}
+
+fn payload_only(payment: &Payment) -> bool {
+    matches!(
+        payment,
+        Payment::Pause { .. }
+            | Payment::Unpause { .. }
+            | Payment::ProgramTransfer { .. }
+            | Payment::ProgramAccount { .. }
+    )
 }
 
 #[test]
 fn fixtures_roundtrip_and_bind_all_fields() -> Result<(), Box<dyn std::error::Error>> {
+    let signer = signer()?;
+    let options = options(&signer);
     for &(module, ordinal, fixture) in VECTORS {
         let payload = hex(fixture);
         let payment = Payment::decode(module, ordinal, &payload, ACTOR)?;
         assert_eq!(payment.encode(ACTOR)?, payload);
-        let (canonical, registry) = canonical(module, ordinal, &payload)?;
-        let mut disclosure = bind(&canonical, &registry)?;
-        assert_eq!(disclosure.payment, Some(payment));
-        assert_eq!(disclosure.reencode()?, canonical);
-        let _ = disclosure.audit_digest()?;
-        disclosure.payment = None;
-        assert!(disclosure.reencode().is_err());
+        if payload_only(&payment) {
+            assert!(payment_call(&payment, &options).is_err());
+        } else {
+            let prepared = payment_call(&payment, &options)?;
+            let mut disclosure = bind_call(&prepared.call, options.from)?;
+            assert_eq!(disclosure, prepared.disclosure);
+            if matches!(payment, Payment::Receive { .. }) {
+                assert!(matches!(
+                    disclosure.construct_method()?,
+                    Some(ConstructMethod::LedgerDraw { .. })
+                ));
+            } else {
+                assert_eq!(disclosure.payment, Some(payment));
+                disclosure.payment = None;
+                assert!(reencode(&disclosure).is_err());
+                disclosure = prepared.disclosure.clone();
+            }
+            assert_eq!(reencode(&disclosure)?, prepared.call.encode_unsigned());
+            let _ = disclosure.audit_digest()?;
+            let signature = complete(sign_disclosed_call(
+                &signer,
+                &prepared.call,
+                &disclosure,
+                options.from,
+            ))?;
+            let (call, signature) = decode_signed(&assemble(&prepared.call, &signature))?;
+            assert_eq!(call, prepared.call);
+            assert_eq!(recover_sender(&call, &signature)?, options.from);
+        }
         for length in 0..payload.len() {
             assert!(Payment::decode(module, ordinal, &payload[..length], ACTOR).is_err());
         }
@@ -149,25 +221,38 @@ fn fixtures_roundtrip_and_bind_all_fields() -> Result<(), Box<dyn std::error::Er
 #[test]
 fn monetary_disclosures_name_every_limit_and_transfer_party(
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let signer = signer()?;
+    let options = options(&signer);
     for &(module, ordinal, fixture) in VECTORS {
-        let payload = hex(fixture);
-        let (canonical, registry) = canonical(module, ordinal, &payload)?;
-        let disclosure = bind(&canonical, &registry)?;
-        match disclosure.payment.as_ref() {
-            Some(Payment::Register(registration)) => assert_eq!(
-                disclosure.amounts,
-                [layerx_crypto::disclosure::DisclosedAmount {
-                    role: AmountRole::SupplyCap,
-                    value: registration.supply_cap,
-                }]
-            ),
-            Some(Payment::Receive {
+        let payment = Payment::decode(module, ordinal, &hex(fixture), ACTOR)?;
+        match &payment {
+            Payment::Register(registration) => {
+                let disclosure = payment_call(&payment, &options)?.disclosure;
+                assert_eq!(
+                    disclosure.amounts,
+                    [layerx_crypto::disclosure::DisclosedAmount {
+                        role: AmountRole::SupplyCap,
+                        value: registration.supply_cap,
+                    }]
+                );
+            }
+            Payment::Receive {
                 from,
                 to,
                 amount,
                 payer_grant,
                 ..
-            }) => {
+            } => {
+                let draw = payment_call(&payment, &options)?.disclosure;
+                assert_eq!(draw.counterparties.len(), 1);
+                assert_eq!(draw.counterparties[0].role, CounterpartyRole::Recipient);
+                assert_eq!(draw.counterparties[0].account, *to);
+                assert_eq!(draw.amounts[0].value, *amount);
+                // The maintained draw ABI carries the grant ID; its limits and payer
+                // are disclosed by the separately encoded and verified grant.
+                let disclosure =
+                    payment_call(&Payment::IssueGrant((**payer_grant).clone()), &options)?
+                        .disclosure;
                 assert_eq!(disclosure.expiry.payload_expires_at, payer_grant.expiration);
                 assert_eq!(disclosure.counterparties.len(), 2);
                 assert_eq!(disclosure.counterparties[0].role, CounterpartyRole::Payer);
@@ -178,15 +263,14 @@ fn monetary_disclosures_name_every_limit_and_transfer_party(
                 );
                 assert_eq!(disclosure.counterparties[1].account, *to);
                 assert_eq!(
-                    disclosure
-                        .amounts
-                        .iter()
-                        .map(|entry| entry.value)
+                    std::iter::once(draw.amounts[0].value)
+                        .chain(disclosure.amounts.iter().map(|entry| entry.value))
                         .collect::<Vec<_>>(),
                     [*amount, payer_grant.per_draw_maximum, payer_grant.allowance]
                 );
             }
-            Some(Payment::IssueGrant(grant)) => {
+            Payment::IssueGrant(grant) => {
+                let disclosure = payment_call(&payment, &options)?.disclosure;
                 assert_eq!(disclosure.expiry.payload_expires_at, grant.expiration);
                 assert_eq!(disclosure.counterparties.len(), 2);
                 assert_eq!(disclosure.counterparties[0].account, grant.from);
@@ -200,13 +284,40 @@ fn monetary_disclosures_name_every_limit_and_transfer_party(
                     [grant.per_draw_maximum, grant.allowance]
                 );
             }
-            Some(Payment::ProgramTransfer { legs, .. }) => {
-                assert_eq!(disclosure.counterparties.len(), legs.len() * 2);
-                assert_eq!(disclosure.amounts.len(), legs.len());
+            Payment::ProgramTransfer { legs, .. } => {
+                assert!(payment_call(&payment, &options).is_err());
+                // Preserve every leg's payer, recipient and amount checks using the
+                // maintained ledger encodings; this does not submit the legacy program.
+                let mut counterparties = Vec::new();
+                let mut amounts = Vec::new();
+                for leg in legs {
+                    let burn = payment_call(
+                        &Payment::Burn {
+                            asset: leg.asset,
+                            from: leg.from,
+                            amount: leg.amount,
+                        },
+                        &options,
+                    )?;
+                    let mint = payment_call(
+                        &Payment::Mint {
+                            asset: leg.asset,
+                            to: leg.to,
+                            amount: leg.amount,
+                        },
+                        &options,
+                    )?;
+                    assert_eq!(burn.disclosure.amounts, mint.disclosure.amounts);
+                    counterparties.extend(burn.disclosure.counterparties);
+                    counterparties.extend(mint.disclosure.counterparties);
+                    amounts.extend(mint.disclosure.amounts);
+                }
+                assert_eq!(counterparties.len(), legs.len() * 2);
+                assert_eq!(amounts.len(), legs.len());
                 for (index, leg) in legs.iter().enumerate() {
-                    assert_eq!(disclosure.counterparties[index * 2].account, leg.from);
-                    assert_eq!(disclosure.counterparties[index * 2 + 1].account, leg.to);
-                    assert_eq!(disclosure.amounts[index].value, leg.amount);
+                    assert_eq!(counterparties[index * 2].account, leg.from);
+                    assert_eq!(counterparties[index * 2 + 1].account, leg.to);
+                    assert_eq!(amounts[index].value, leg.amount);
                 }
             }
             _ => {}
@@ -244,27 +355,38 @@ fn invalid_shapes_are_refused() -> Result<(), Box<dyn std::error::Error>> {
 #[test]
 fn every_accepted_field_mutation_is_refused_at_the_signing_boundary(
 ) -> Result<(), Box<dyn std::error::Error>> {
-    use layerx_crypto::{signer::SigningRequest, SignatureMessage};
+    let signer = signer()?;
+    let options = options(&signer);
     for &(module, ordinal, fixture) in VECTORS {
         let payload = hex(fixture);
-        let (canonical, registry) = canonical(module, ordinal, &payload)?;
-        let disclosure = bind(&canonical, &registry)?;
-        let message = SignatureMessage::new(
-            Domain::SignaturePreimage,
-            layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
-            17,
-            &canonical,
-        )
-        .map_err(|e| format!("{e:?}"))?;
-        assert!(SigningRequest::new(message, &disclosure).is_ok());
+        let payment = Payment::decode(module, ordinal, &payload, ACTOR)?;
+        let prepared = if payload_only(&payment) {
+            assert!(payment_call(&payment, &options).is_err());
+            send_fixture(&options)?
+        } else {
+            payment_call(&payment, &options)?
+        };
+        assert!(complete(sign_disclosed_call(
+            &signer,
+            &prepared.call,
+            &prepared.disclosure,
+            options.from
+        ))
+        .is_ok());
         for offset in 0..payload.len() {
             let mut changed = payload.clone();
             changed[offset] ^= 1;
             if let Ok(payment) = Payment::decode(module, ordinal, &changed, ACTOR) {
-                let mut altered = disclosure.clone();
+                let mut altered = prepared.disclosure.clone();
                 altered.payment = Some(payment);
                 assert!(
-                    SigningRequest::new(message, &altered).is_err(),
+                    complete(sign_disclosed_call(
+                        &signer,
+                        &prepared.call,
+                        &altered,
+                        options.from
+                    ))
+                    .is_err(),
                     "undisclosed field {module:?}/{ordinal} at {offset}"
                 );
             }
@@ -286,9 +408,15 @@ fn pause_and_unpause_share_the_open_account_body_and_stay_distinct(
     for ordinal in [2, 3, 4] {
         let payment = Payment::decode(ModuleId::Asset, ordinal, &pause, ACTOR)?;
         assert_eq!(payment.activity_type(), (ModuleId::Asset, ordinal));
-        let (canonical, registry) = canonical(ModuleId::Asset, ordinal, &pause)?;
-        let disclosure = bind(&canonical, &registry)?;
-        assert_eq!(disclosure.payment.as_ref(), Some(&payment));
+        assert_eq!(payment.encode(ACTOR)?, pause);
+        let signer = signer()?;
+        let options = options(&signer);
+        if ordinal == 4 {
+            let disclosure = payment_call(&payment, &options)?.disclosure;
+            assert_eq!(disclosure.payment.as_ref(), Some(&payment));
+        } else {
+            assert!(payment_call(&payment, &options).is_err());
+        }
         decoded.push(payment);
     }
     assert_ne!(decoded[0], decoded[1]);
@@ -302,11 +430,12 @@ fn receive_discloses_source_sequence_independently() -> Result<(), Box<dyn std::
     let payload = hex(include_str!("fixtures/payments/1-6-source-sequence-23.hex"));
     let payment = Payment::decode(ModuleId::Asset, 6, &payload, ACTOR)?;
     assert_eq!(payment.encode(ACTOR)?, payload);
-    let (bytes, registry) = canonical(ModuleId::Asset, 6, &payload)?;
-    let disclosure = bind(&bytes, &registry)?;
+    let signer = signer()?;
+    let prepared = payment_call(&payment, &options(&signer))?;
+    let disclosure = bind_call(&prepared.call, options(&signer).from)?;
     assert_eq!(disclosure.envelope_sequence(), 7);
     assert_eq!(disclosure.payload_sequence()?, Some(23));
-    assert_eq!(disclosure.reencode()?, bytes);
+    assert_eq!(reencode(&disclosure)?, prepared.call.encode_unsigned());
     Ok(())
 }
 
@@ -462,14 +591,11 @@ fn an_unregistered_activity_names_its_type() {
 
 #[test]
 fn payments_reexports_the_ledger_call_builders() -> Result<(), Box<dyn std::error::Error>> {
-    use ed25519_dalek::{Signer as _, SigningKey};
-    use layerx_crypto::payments::{
-        bind_call, ledger_payment_call, send_context_hash, CallOptions, DisclosedCall, Disclosure,
-        SendCondition, SendDebit,
-    };
-    use layerx_crypto::SignatureMessage;
+    use layerx_crypto::payments::{send_context_hash, Disclosure, SendCondition, SendDebit};
 
-    let mut debit = SendDebit {
+    let signer = signer()?;
+    let options = options(&signer);
+    let debit = SendDebit {
         from: [1; 32],
         to: [2; 32],
         asset: [3; 32],
@@ -477,22 +603,15 @@ fn payments_reexports_the_ledger_call_builders() -> Result<(), Box<dyn std::erro
         source_sequence: 7,
         idempotency_key: [4; 32],
         expires_at: 100,
-        context_hash: [0; 32],
+        context_hash: send_context_hash(&[1; 32], &[2; 32], &[3; 32], 123, &[4; 32]),
         conditions: vec![SendCondition {
             kind: 1,
             timestamp: 10,
         }],
         authorization_kind: 1,
         network_id: 17,
-        protocol_version: layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
+        protocol_version: 3,
     };
-    debit.context_hash = send_context_hash(
-        &debit.from,
-        &debit.to,
-        &debit.asset,
-        debit.amount,
-        &debit.idempotency_key,
-    );
     assert_eq!(
         debit.context_hash,
         layerx_crypto::send::send_context_hash(
@@ -500,41 +619,118 @@ fn payments_reexports_the_ledger_call_builders() -> Result<(), Box<dyn std::erro
             &debit.to,
             &debit.asset,
             debit.amount,
-            &debit.idempotency_key,
+            &debit.idempotency_key
         )
     );
-    let authorization = debit.authorization_message()?;
-    let message = SignatureMessage::new(
-        Domain::SignaturePreimage,
-        debit.protocol_version,
-        debit.network_id,
-        &authorization,
-    )
-    .map_err(|error| format!("{error:?}"))?;
-    let key = SigningKey::from_bytes(&[5; 32]);
-    let payload = debit.encode_signed(
-        key.verifying_key().to_bytes(),
-        key.sign(&message.digest()).to_bytes(),
-    )?;
-    let options = CallOptions {
-        from: [0xa1; 20],
-        chain_id: 125,
-        nonce: 7,
-        max_priority_fee_per_gas: 2,
-        max_fee_per_gas: 30,
-        gas_limit: 100_000,
-    };
+    let payload = complete(debit.sign(&signer))?;
     let exported: DisclosedCall = ledger_payment_call(&payload, &options)?;
     let original = layerx_crypto::send::ledger_payment_call(&payload, &options)?;
     assert_eq!(exported.call.data, original.call.data);
     assert_eq!(exported.call, original.call);
-    assert_eq!(exported.call.sign(&[6; 32])?, original.call.sign(&[6; 32])?);
-
     let exported_disclosure: Disclosure = bind_call(&exported.call, options.from)?;
     let original_disclosure =
         layerx_crypto::disclosure::call::bind_call(&original.call, options.from)?;
     assert_eq!(exported_disclosure, original_disclosure);
     assert_eq!(exported.disclosure, exported_disclosure);
     assert_eq!(original.disclosure, original_disclosure);
+    let exported_signature = complete(sign_disclosed_call(
+        &signer,
+        &exported.call,
+        &exported_disclosure,
+        options.from,
+    ))?;
+    let original_signature = complete(sign_disclosed_call(
+        &signer,
+        &original.call,
+        &original_disclosure,
+        options.from,
+    ))?;
+    assert_eq!(exported_signature, original_signature);
+    let (call, signature) = decode_signed(&assemble(&exported.call, &exported_signature))?;
+    assert_eq!(call, exported.call);
+    assert_eq!(recover_sender(&call, &signature)?, options.from);
+    let mut changed = exported.call.clone();
+    changed.nonce += 1;
+    assert_eq!(
+        complete(sign_disclosed_call(
+            &signer,
+            &changed,
+            &exported_disclosure,
+            options.from
+        )),
+        Err(SignError::DisclosureMismatch("call"))
+    );
+    Ok(())
+}
+
+#[test]
+fn registration_fixtures_bind_their_issuer_and_preserve_legacy_payload_checks(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let signer = signer()?;
+    let options = options(&signer);
+    let prepared = payment_call(
+        &Payment::decode(ModuleId::Asset, 1, &hex(VECTORS[0].2), ACTOR)?,
+        &options,
+    )?;
+    let native_actor = b"did:layerx:alice";
+    let native_payload = hex(include_str!("fixtures/payments/1-1.hex"));
+    let native = Payment::decode(ModuleId::Asset, 1, &native_payload, native_actor)?;
+    assert_eq!(native.encode(native_actor)?, native_payload);
+    assert!(Payment::decode(ModuleId::Asset, 1, &native_payload, ACTOR).is_err());
+    let maintained = Payment::decode(ModuleId::Asset, 1, &hex(VECTORS[0].2), ACTOR)?;
+    let Payment::Register(registration) = &maintained else {
+        return Err("registration fixture decoded to another payment".into());
+    };
+    let issuer = layerx_wire::hash::did_id_for_protocol(
+        &layerx_types::ids::Did::new(ACTOR).map_err(|error| format!("{error:?}"))?,
+        3,
+    )
+    .map_err(|error| format!("{error:?}"))?;
+    assert_eq!(
+        registration.asset,
+        layerx_crypto::payments::asset_id(&issuer, &registration.salt)
+    );
+    let mut produced = native.clone();
+    let Payment::Register(produced_registration) = &mut produced else {
+        return Err("native fixture decoded to another payment".into());
+    };
+    produced_registration.asset =
+        layerx_crypto::payments::asset_id(&issuer, &produced_registration.salt);
+    assert_eq!(produced, maintained);
+    assert_eq!(produced.encode(ACTOR)?, hex(VECTORS[0].2));
+    assert_eq!(prepared.disclosure.actor, options.from);
+    assert_eq!(prepared.disclosure.payment.as_ref(), Some(&produced));
+    let reviewed = bind_call(&prepared.call, options.from)?;
+    assert_eq!(
+        reviewed.audit_digest()?,
+        prepared.disclosure.audit_digest()?
+    );
+    assert_eq!(reencode(&reviewed)?, prepared.call.encode_unsigned());
+    for length in 0..native_payload.len() {
+        assert!(
+            Payment::decode(ModuleId::Asset, 1, &native_payload[..length], native_actor).is_err()
+        );
+    }
+    let mut trailing = native_payload.clone();
+    trailing.push(0);
+    assert!(Payment::decode(ModuleId::Asset, 1, &trailing, native_actor).is_err());
+    for offset in 0..native_payload.len() {
+        let mut changed = native_payload.clone();
+        changed[offset] ^= 1;
+        if let Ok(payment) = Payment::decode(ModuleId::Asset, 1, &changed, native_actor) {
+            let mut altered = prepared.disclosure.clone();
+            altered.payment = Some(payment);
+            assert!(
+                complete(sign_disclosed_call(
+                    &signer,
+                    &prepared.call,
+                    &altered,
+                    options.from
+                ))
+                .is_err(),
+                "legacy registration field at {offset}"
+            );
+        }
+    }
     Ok(())
 }

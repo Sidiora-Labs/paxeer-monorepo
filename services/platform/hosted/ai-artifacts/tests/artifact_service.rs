@@ -19,20 +19,16 @@ mod retention;
 #[allow(dead_code)]
 mod store;
 
+#[path = "support/terminal_head.rs"]
+mod terminal_head;
+
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use chacha20poly1305::{XChaCha20Poly1305, XNonce};
 use crypto::{open_stream, FrameContext, MAX_FRAME_PLAINTEXT};
 use ed25519_dalek::{Signer, SigningKey};
-use layerx_programs_ai_market::codec::{self, derive_market};
-use layerx_programs_ai_market::dispatch;
+use layerx_programs_ai_market::codec::derive_market;
 use layerx_programs_ai_market::evidence::*;
-use layerx_programs_ai_market::policy::{PolicyCommitments, TaskPolicyV1, TASK_POLICY_BYTES};
-use layerx_programs_ai_market::registry::{derive_rewards_account, F01_SECTION_CAP};
-use layerx_programs_ai_market::registry_ops::{self, CallContext, Outcome, PolicySection};
-use layerx_programs_ai_market::state::{self, Section};
-use layerx_programs_ai_market::tasks::{TaskBinding, TaskStatus};
 use layerx_programs_ai_market::types::*;
-use layerx_programs_ai_market::MAX_EVENT_BYTES;
 use retention::{Ledger, PurgeReport};
 use rustls::pki_types::{CertificateDer, ServerName};
 use rustls::{ClientConfig, ClientConnection, RootCertStore, StreamOwned};
@@ -1050,101 +1046,6 @@ fn a13_unsafe_locators_refuse_before_any_request_byte() {
     );
 }
 
-fn encode_shared(shared: &state::SharedState<'_>) -> Vec<u8> {
-    let mut out = vec![0; shared.encoded_len().unwrap()];
-    let mut scratch = vec![0; Section::Control.payload_cap()];
-    let n = state::encode_shared_state(shared, &mut out, &mut scratch).unwrap();
-    out.truncate(n);
-    out
-}
-/// Real F01 CREATE through `registry_ops::apply`, then a task region holding
-/// one canonical CANCELLED record for TASK.
-fn cancelled_task_state() -> Vec<u8> {
-    let (chain, program) = (ctx().chain, ctx().program);
-    let digest = |b: u8| Digest32::new([b; 32]).unwrap();
-    let policy = TaskPolicyV1::bounded_default(
-        1,
-        1,
-        PolicyCommitments {
-            model_artifact: digest(1),
-            dataset_artifact: [2; 32],
-            benchmark_suite: digest(3),
-            rubric: RubricDigest::new([4; 32]).unwrap(),
-            task_schema: digest(5),
-            result_schema: digest(6),
-            service_terms: digest(7),
-        },
-        100,
-        1,
-    )
-    .unwrap();
-    let mut encoded_policy = vec![0; TASK_POLICY_BYTES];
-    policy.encode(&mut encoded_policy).unwrap();
-    let rewards = derive_rewards_account(program, AssetId::new([13; 32]).unwrap()).unwrap();
-    let mut payload = [12; 32].to_vec();
-    payload.extend_from_slice(&[13; 32]);
-    payload.extend_from_slice(rewards.as_bytes());
-    payload.extend_from_slice(&[14; 32]);
-    payload.push(0);
-    payload.extend_from_slice(&encoded_policy);
-    payload.extend_from_slice(&[16; 32]);
-    let owner = PrincipalId::new([12; 32]).unwrap();
-    let envelope = codec::Envelope {
-        operation: dispatch::CREATE,
-        chain,
-        program,
-        market: ctx().market,
-        actor: owner,
-        epoch: 0,
-        config: 1,
-        roster: Presence::Absent,
-        sequence: 1,
-        expiry: 1_000_000,
-        request: RequestId::new([1; 32]).unwrap(),
-        payload: &payload,
-        authentication: Authentication::Native,
-    };
-    let mut encoded = vec![0; 16_384];
-    let n = codec::encode_envelope(&envelope, &mut encoded).unwrap();
-    let validated = codec::decode_envelope(&encoded[..n]).unwrap();
-    let call = CallContext {
-        chain,
-        program,
-        principal: owner,
-        height: 1000,
-    };
-    let mut section = vec![0; F01_SECTION_CAP];
-    let mut event = vec![0; MAX_EVENT_BYTES];
-    let Outcome::Applied { state: created, .. } =
-        registry_ops::apply(&call, None, &validated, &mut section, &mut event).unwrap()
-    else {
-        panic!("fresh create retried");
-    };
-    let binding = TaskBinding {
-        task: TaskId::new(TASK).unwrap(),
-        requester: PrincipalId::new([0x61; 32]).unwrap(),
-        worker: WorkerId::new([0x62; 32]).unwrap(),
-        input: digest(0x67),
-        deadline: 5_000,
-        status: TaskStatus::Cancelled,
-        acknowledgement: None,
-        result: None,
-        admission: digest(0x65),
-    };
-    let mut region = 1u16.to_be_bytes().to_vec();
-    region.push(0);
-    region.extend_from_slice(&binding.encode().unwrap());
-    let mut policy_section =
-        PolicySection::decode(created.section(Section::PolicyLifecycle).unwrap()).unwrap();
-    policy_section.task_region = &region;
-    let mut bytes = vec![0; Section::PolicyLifecycle.payload_cap()];
-    let n = policy_section.encode(&mut bytes).unwrap();
-    encode_shared(
-        &created
-            .replace_section(Section::PolicyLifecycle, &bytes[..n])
-            .unwrap(),
-    )
-}
 /// A rank-4 observation of TASK cancelled, through the observer route; the
 /// ledger's terminal floor it returns is day 0 plus 30 days.
 fn observe_terminal(svc: &Svc, request: &str, root: &str) -> u64 {
@@ -1153,11 +1054,7 @@ fn observe_terminal(svc: &Svc, request: &str, root: &str) -> u64 {
         svc,
         "/v1/retention/terminal",
         TOKEN_O,
-        &json!({"request_id": request, "root": root, "state": hex::encode(cancelled_task_state()),
-                "native_state_root": hex::encode([0x5a; 32]), "observed_sequence": 77,
-                "execution_height": 1010, "batch_id": hex::encode([0xbb; 32]),
-                "checkpoint": hex::encode([0xcc; 32]), "rank": 4,
-                "publication_time_ms": 1_700_000_000_000u64}),
+        &terminal_head::observation(request, root, 4).0,
     );
     assert_eq!(status, 200, "{r}");
     let floor = r["retain_until"].as_u64().unwrap();
@@ -1201,6 +1098,8 @@ fn a17_signed_false_answer_passes_integrity_but_quality_stays_unestablished() {
     assembler.finish().unwrap();
     assert_eq!(fetched, o.plain);
     let floor = observe_terminal(&svc, &rid(0xd3, 1), &root);
+    drop(svc);
+    let svc = start(&dir);
     let (status, t) = post(
         &svc,
         "/v1/tombstone",
@@ -1271,6 +1170,8 @@ fn r15_purge_at_retention_deadline_removes_payload_and_keeps_record() {
         staged.bytes.len() as u64
     );
     let floor = observe_terminal(&svc, &rid(0xf4, 1), &root);
+    drop(svc);
+    let svc = start(&dir);
     let (status, t) = post(
         &svc,
         "/v1/tombstone",

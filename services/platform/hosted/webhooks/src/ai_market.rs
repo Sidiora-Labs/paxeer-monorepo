@@ -58,6 +58,18 @@ pub const MAXIMUM_PAGE_ROWS: usize = 32;
 /// Unpublished rows a market stream holds before capture stops.
 pub const MAXIMUM_UNPUBLISHED_ROWS: usize = 4_096;
 
+/// Durable per-tenant market limit, including revoked streams (their replay floors survive).
+pub const MAXIMUM_MARKETS: usize = 128;
+/// Maximum provisional identities retained per market until finality or rollback.
+pub const MAXIMUM_PROVISIONAL: usize = 256;
+/// Maximum retained admitted identities per market; published history must be pruned.
+pub const MAXIMUM_ADMITTED: usize = 4_096;
+/// Tenant-wide identity/row limit, independent of the number of markets.
+pub const MAXIMUM_RETAINED_IDENTITIES: usize = 8_192;
+/// Public market facts version. Stored v1 events remain byte-identical on replay;
+/// v1's checkpoint_id was a store proof digest, never a checkpoint identity.
+pub const MARKET_FACTS_SCHEMA: &str = "paxai.webhook-facts.v2";
+
 const MAXIMUM_ALERTS: usize = 256;
 const MAXIMUM_APPLIED: usize = 4_096;
 const MAXIMUM_SUBJECTS: usize = 1_024;
@@ -207,6 +219,8 @@ pub struct OperatorAlert {
 pub enum MarketEventError {
     /// A row, cursor or argument violated a declared bound or shape.
     InvalidRequest,
+    /// Capture precedes the durable source replay floor; resume requires resync.
+    HistoryExpired,
     /// The caller does not hold the internal producer role.
     ProducerRoleRequired,
     /// The block commit did not verify against the pinned validator set or
@@ -334,6 +348,8 @@ struct OutboxRow {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct Admitted {
     sequence: u64,
+    #[serde(default)]
+    observed_sequence: Option<u64>,
     identity: [u8; 32],
 }
 
@@ -350,6 +366,10 @@ struct MarketStream {
     last_sequence: u64,
     pruned_through: u64,
     finality_boundary: u64,
+    #[serde(default)]
+    replay_through: Option<u64>,
+    #[serde(default)]
+    pruned_observed_through: Option<u64>,
     latest_snapshot: Option<[u8; 32]>,
     rows: BTreeMap<u64, OutboxRow>,
     admitted: BTreeMap<String, Admitted>,
@@ -620,7 +640,29 @@ impl MarketOutbox {
     ) -> Result<Admission, MarketEventError> {
         let market = hex_encode(row.binding.market.as_bytes());
         self.store.transact(|state: &mut OutboxState| {
-            let stream = state.streams.entry(market.clone()).or_default();
+            if !state.streams.contains_key(&market) {
+                return Err(MarketEventError::Revoked);
+            }
+            let retained: usize = state
+                .streams
+                .values()
+                .map(|s| s.admitted.len() + s.provisional.len())
+                .sum();
+            let stream = state
+                .streams
+                .get_mut(&market)
+                .ok_or(MarketEventError::Revoked)?;
+            if retained >= MAXIMUM_RETAINED_IDENTITIES
+                && !stream.admitted.contains_key(&row.event_id)
+                && !stream.provisional.contains_key(&row.event_id)
+            {
+                return Err(state.stop(
+                    &market,
+                    Some(&row.event_id),
+                    Some(&row.snapshot_id),
+                    Stop::Capacity,
+                ));
+            }
             admit_into(stream, &self.principal, row, examined).map_err(|stop| {
                 state.stop(&market, Some(&row.event_id), Some(&row.snapshot_id), stop)
             })
@@ -674,6 +716,12 @@ impl MarketOutbox {
     fn set_grant(&self, market_id: &[u8; 32], granted: bool) -> Result<(), MarketEventError> {
         let market = hex_encode(market_id);
         self.store.transact(|state: &mut OutboxState| {
+            if !state.streams.contains_key(&market) && state.streams.len() >= MAXIMUM_MARKETS {
+                return Err(state.stop(&market, None, None, Stop::Capacity));
+            }
+            if !granted && !state.streams.contains_key(&market) {
+                return Err(MarketEventError::Revoked);
+            }
             state.streams.entry(market).or_default().granted = granted;
             Ok::<(), MarketEventError>(())
         })
@@ -733,7 +781,10 @@ impl MarketOutbox {
     ) -> Result<usize, MarketEventError> {
         let market = hex_encode(market_id);
         self.store.transact(|state: &mut OutboxState| {
-            let stream = state.streams.entry(market.clone()).or_default();
+            let stream = state
+                .streams
+                .get_mut(&market)
+                .ok_or(MarketEventError::Revoked)?;
             if stream.quarantine.is_some() {
                 return Err(MarketEventError::StreamQuarantined);
             }
@@ -766,6 +817,28 @@ impl MarketOutbox {
             .filter(|row| !row.published)
             .map(|row| row.event.clone())
             .collect())
+    }
+
+    /// Returns only durably admitted, granted and unpublished events for trusted
+    /// delivery adapters; callers cannot promote an arbitrary event this way.
+    pub fn pending_trusted(
+        &self,
+        market_id: &[u8; 32],
+    ) -> Result<Vec<crate::trusted::TrustedEvent>, MarketEventError> {
+        let state: OutboxState = self.store.read()?;
+        let stream = granted(&state, &hex_encode(market_id))?;
+        if stream.quarantine.is_some() {
+            return Err(MarketEventError::StreamQuarantined);
+        }
+        stream
+            .rows
+            .values()
+            .filter(|row| !row.published)
+            .map(|row| {
+                crate::trusted::TrustedEvent::from_market(row.event.clone())
+                    .map_err(MarketEventError::from)
+            })
+            .collect()
     }
 
     /// Records that `event` reached an accepting endpoint.
@@ -818,6 +891,42 @@ impl MarketOutbox {
                 return Err(MarketEventError::InvalidRequest);
             }
             let before = stream.rows.len();
+            // Only a published contiguous subject prefix proves a replay horizon.
+            // Keep the horizon strictly before every retained finalized row,
+            // including unpublished rows admitted out of source order.
+            let removed_through = stream
+                .rows
+                .range(..=sequence)
+                .map(|(_, row)| row.observed_sequence)
+                .chain(stream.pruned_observed_through)
+                .chain((sequence == stream.last_sequence).then_some(stream.finality_boundary))
+                .max();
+            stream.pruned_observed_through = removed_through;
+            let retained_floor = stream
+                .rows
+                .range(sequence.saturating_add(1)..)
+                .map(|(_, row)| row.observed_sequence)
+                .min();
+            let proven = removed_through.and_then(|through| match retained_floor {
+                Some(0) => None,
+                Some(floor) => Some(through.min(floor - 1)),
+                None => Some(through),
+            });
+            if let Some(proven) = proven {
+                let through = stream.replay_through.map_or(proven, |old| old.max(proven));
+                stream.replay_through = Some(through);
+                stream
+                    .provisional
+                    .retain(|_, row| row.observed_sequence > through);
+                stream.admitted.retain(|_, row| {
+                    row.sequence > sequence
+                        || row
+                            .observed_sequence
+                            .map_or(through < stream.finality_boundary, |observed| {
+                                observed > through
+                            })
+                });
+            }
             stream.rows.retain(|position, _| *position > sequence);
             stream.pruned_through = stream.pruned_through.max(sequence);
             Ok(before.saturating_sub(stream.rows.len()))
@@ -1090,6 +1199,9 @@ fn admit_into(
         }
         let event = match stream.rows.get(&admitted.sequence) {
             Some(stored) => stored.event.clone(),
+            None if admitted.observed_sequence.is_none() => {
+                return Err(Stop::Refuse(MarketEventError::HistoryExpired))
+            }
             None => market_event(principal, row, admitted.sequence)
                 .map_err(|error| Stop::Refuse(error.into()))?,
         };
@@ -1099,6 +1211,12 @@ fn admit_into(
         });
     }
     if stream
+        .replay_through
+        .is_some_and(|through| row.binding.observed_sequence <= through)
+    {
+        return Err(Stop::Refuse(MarketEventError::HistoryExpired));
+    }
+    if stream
         .provisional
         .get(&row.event_id)
         .is_some_and(|provisional| provisional.identity != examined.identity)
@@ -1106,6 +1224,11 @@ fn admit_into(
         return Err(Stop::Quarantine(QuarantineCause::EventConflict));
     }
     if !examined.finalized {
+        if !stream.provisional.contains_key(&row.event_id)
+            && stream.provisional.len() >= MAXIMUM_PROVISIONAL
+        {
+            return Err(Stop::Capacity);
+        }
         stream.provisional.insert(
             row.event_id.clone(),
             Provisional {
@@ -1115,13 +1238,7 @@ fn admit_into(
         );
         return Ok(Admission::Delayed);
     }
-    if stream
-        .rows
-        .values()
-        .filter(|stored| !stored.published)
-        .count()
-        >= MAXIMUM_UNPUBLISHED_ROWS
-    {
+    if stream.admitted.len() >= MAXIMUM_ADMITTED || stream.rows.len() >= MAXIMUM_UNPUBLISHED_ROWS {
         return Err(Stop::Capacity);
     }
     let sequence = stream
@@ -1136,6 +1253,7 @@ fn admit_into(
         row.event_id.clone(),
         Admitted {
             sequence,
+            observed_sequence: Some(row.binding.observed_sequence),
             identity: examined.identity,
         },
     );
@@ -1170,6 +1288,7 @@ fn market_event(
         Presence::Absent => "absent".to_owned(),
     };
     let values = [
+        ("facts_schema", MARKET_FACTS_SCHEMA.to_owned()),
         ("ai_action", row.action.clone()),
         ("ai_event_tag", row.ai_event_tag.to_string()),
         ("market_id", hex_encode(binding.market.as_bytes())),
@@ -1189,9 +1308,12 @@ fn market_event(
             hex_encode(binding.native_state_root.as_bytes()),
         ),
         (
-            "checkpoint_id",
+            "store_proof_digest",
             hex_encode(binding.store_proof_digest.as_bytes()),
         ),
+        ("block_height", binding.block_height.to_string()),
+        ("block_hash", hex_encode(binding.block_hash.as_bytes())),
+        ("app_hash", hex_encode(binding.app_hash.as_bytes())),
         ("achieved_rank", binding.rank.to_string()),
     ];
     let facts = values
@@ -1712,11 +1834,63 @@ impl MarketHub {
         service: &crate::HostedService,
         now: u64,
     ) -> Result<usize, MarketEventError> {
-        let registry: TenantRegistry = Store::open(&self.root)?.read()?;
-        let mut count = 0;
-        for principal in registry.principals.values() {
-            count += self.tenant(principal)?.drain(service, now)?;
+        let report = self.drain_report(service, now)?;
+        if report.failure_count > 0 {
+            return Err(WebhookError::Unavailable.into());
         }
-        Ok(count)
+        Ok(report.released)
+    }
+
+    /// Drains each tenant independently and retains failures in delivery readiness.
+    pub fn drain_report(
+        &self,
+        service: &crate::HostedService,
+        now: u64,
+    ) -> Result<crate::hosted::HostedRetentionReport, MarketEventError> {
+        use crate::hosted::{HostedRetentionReport, WorkerStage};
+        let registry: TenantRegistry = match Store::open(&self.root).and_then(|store| store.read())
+        {
+            Ok(registry) => {
+                service.clear_worker_failure("all", WorkerStage::MarketDrain);
+                registry
+            }
+            Err(error) => {
+                service.record_worker_failure("all", None, WorkerStage::MarketDrain, &error);
+                return Err(error.into());
+            }
+        };
+        let mut report = HostedRetentionReport::default();
+        for (id, principal) in registry.principals {
+            match self
+                .tenant(&principal)
+                .and_then(|tenant| tenant.drain(service, now))
+            {
+                Ok(count) => {
+                    report.released += count;
+                    service.clear_worker_failure(&id, WorkerStage::MarketDrain);
+                }
+                Err(error) => {
+                    let error = match error {
+                        MarketEventError::Webhook(e) => e,
+                        _ => WebhookError::Unavailable,
+                    };
+                    service.record_worker_failure(
+                        &id,
+                        Some(principal.clone()),
+                        WorkerStage::MarketDrain,
+                        &error,
+                    );
+                    report.failure_count += 1;
+                    crate::hosted::push_failure(
+                        &mut report.failures,
+                        id,
+                        Some(principal),
+                        WorkerStage::MarketDrain,
+                        &error,
+                    );
+                }
+            }
+        }
+        Ok(report)
     }
 }

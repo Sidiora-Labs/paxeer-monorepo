@@ -205,6 +205,12 @@ func convertDERtoBER(sig []byte) ([]byte, error) {
 		return sig, nil
 	}
 
+	// The pinned parser trims trailing bytes to the sequence length. Require
+	// exactly one complete DER signature before handing it to that parser.
+	if len(sig) < 8 || len(sig) > 72 || int(sig[1])+2 != len(sig) {
+		return nil, fmt.Errorf("failed to parse DER signature: invalid sequence length")
+	}
+
 	parsed, err := ecdsa.ParseDERSignature(sig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse DER signature: %w", err)

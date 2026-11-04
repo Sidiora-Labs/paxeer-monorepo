@@ -47,7 +47,7 @@ const answer = (address: unknown, withUnifiedAccount: boolean) => {
 
     if (pathname === `/api/v2/addresses/${ HASH }/unified`) {
       return withUnifiedAccount ?
-        Promise.resolve(json(paxeerXMock.unifiedAccount)) :
+        Promise.resolve(json(paxeerXMock.nativeUnifiedAccount)) :
         Promise.resolve({ ...json({ message: 'Not found' }), status: 404 });
     }
 
@@ -138,7 +138,10 @@ describe('AddressDetails', () => {
     const unifiedCard = container.querySelector('[data-address-card="Paxeer X account"]') as HTMLElement;
 
     expect(Array.from(unifiedCard.querySelectorAll('[data-identity]')).map((item) => item.getAttribute('data-identity')))
-      .toEqual([ 'evm', 'pax', 'did', 'kernel_account' ]);
+      .toEqual([ 'evm', 'pax', 'did' ]);
+    for (const [ kind, value ] of Object.entries(paxeerXMock.nativeUnifiedAccount.identities)) {
+      expect(unifiedCard.querySelector(`[data-identity="${ kind }"]`)?.textContent).toContain(value);
+    }
     expect(unifiedCard.querySelector('[data-unified-account-link]')?.getAttribute('href'))
       .toBe(`/paxeer-x/account/${ HASH }`);
   });

@@ -889,3 +889,11 @@ fn retired_activity_and_program_routes_answer_not_found() {
     assert_eq!(status, 503, "{document}");
     assert_eq!(document["error"]["code"], "node_unavailable");
 }
+
+#[path = "support/native_funding.rs"]
+mod native_funding;
+
+#[test]
+fn native_funding_transfer_commits_and_recovers_after_response_loss() {
+    native_funding::native_funding_lost_response_reopen_archive_import();
+}

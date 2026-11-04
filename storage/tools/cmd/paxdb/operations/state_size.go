@@ -242,12 +242,7 @@ type ModuleResult struct {
 
 // collectAllModuleData scans all modules and collects statistics in memory
 func collectAllModuleData(module string, db *memiavl.DB) map[string]*ModuleResult {
-	modules := []string{}
-	if module == "" {
-		modules = AllModules
-	} else {
-		modules = append(modules, module)
-	}
+	modules := selectedModules(module, db)
 
 	moduleResults := make(map[string]*ModuleResult)
 

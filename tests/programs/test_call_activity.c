@@ -950,7 +950,8 @@ static lxp_result execute_artifact_fixture_activity(
     size_t mark = lxp_arena_mark(execution->arena);
     lxp_result reset_status;
     lxp_result status;
-    if (activity->protocol_version == LXP_PROTOCOL_VERSION_STATE_COMMITMENT) {
+    if (activity->protocol_version == LXP_PROTOCOL_VERSION_STATE_COMMITMENT &&
+        !(execution->binding_authority && activity->signature.length == 0U)) {
         signed_activity = *activity;
         signed_activity.signature = (lxp_byte_span){signature, sizeof(signature)};
         if (lifecycle_vector_signature(&signed_activity, public_key, signature) != 0)

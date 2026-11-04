@@ -44,25 +44,46 @@ impl MmapFile {
     pub fn open(path: impl AsRef<Path>, create: bool) -> Result<Self, PerfDbError> {
         let path = path.as_ref().to_path_buf();
 
-        let file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(create)
-            .open(&path)
-            .map_err(|e| PerfDbError::Io {
-                context: format!("open mmap file: {}", path.display()),
-                source: e,
-            })?;
-
+        let (file, created) = if create {
+            match OpenOptions::new()
+                .read(true)
+                .write(true)
+                .create_new(true)
+                .open(&path)
+            {
+                Ok(file) => (file, true),
+                Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => (
+                    OpenOptions::new()
+                        .read(true)
+                        .write(true)
+                        .open(&path)
+                        .map_err(|e| crate::storage::wal::io_error("open existing mmap file", e))?,
+                    false,
+                ),
+                Err(e) => return Err(crate::storage::wal::io_error("create mmap file", e)),
+            }
+        } else {
+            (
+                OpenOptions::new()
+                    .read(true)
+                    .write(true)
+                    .open(&path)
+                    .map_err(|e| crate::storage::wal::io_error("open mmap file", e))?,
+                false,
+            )
+        };
         let file_len = file
             .metadata()
-            .map_err(|e| PerfDbError::Io {
-                context: "file metadata".into(),
-                source: e,
-            })?
+            .map_err(|e| crate::storage::wal::io_error("mmap metadata", e))?
             .len();
+        if !created && file_len < HEADER_SIZE {
+            return Err(PerfDbError::Corruption(format!(
+                "mmap header shorter than {HEADER_SIZE} bytes: {}",
+                path.display()
+            )));
+        }
 
-        if file_len == 0 {
+        if created {
             file.set_len(HEADER_SIZE + INITIAL_FILE_SIZE)
                 .map_err(|e| PerfDbError::Io {
                     context: "initial file allocation".into(),
@@ -78,9 +99,10 @@ impl MmapFile {
             })?
             .len();
 
+        let mapping_len = Self::mapping_len(total_len)?;
         let mmap = unsafe {
             MmapOptions::new()
-                .len(total_len as usize)
+                .len(mapping_len)
                 .map_mut(&file)
                 .map_err(|e| PerfDbError::Io {
                     context: "mmap".into(),
@@ -88,7 +110,7 @@ impl MmapFile {
                 })?
         };
 
-        let logical_len = if file_len == 0 {
+        let logical_len = if created {
             0u64
         } else {
             let header_bytes: [u8; 8] = mmap[..8].try_into().unwrap();
@@ -96,6 +118,12 @@ impl MmapFile {
         };
 
         let capacity = total_len - HEADER_SIZE;
+        if logical_len > capacity {
+            return Err(PerfDbError::Corruption(format!(
+                "mmap logical length {logical_len} exceeds capacity {capacity}: {}",
+                path.display()
+            )));
+        }
 
         Ok(Self {
             path,
@@ -138,7 +166,12 @@ impl MmapFile {
         }
 
         let current_len = self.logical_len.load(Ordering::Acquire);
-        let needed = current_len + data_len;
+        let needed = current_len
+            .checked_add(data_len)
+            .ok_or_else(|| PerfDbError::InvalidArgument("mmap append length overflow".into()))?;
+        Self::mapping_len(needed.checked_add(HEADER_SIZE).ok_or_else(|| {
+            PerfDbError::InvalidArgument("mmap allocation length overflow".into())
+        })?)?;
 
         if needed > self.capacity {
             self.grow(needed)?;
@@ -156,6 +189,7 @@ impl MmapFile {
 
     /// Append a typed `repr(C)` record. Returns the offset where it was written.
     pub fn append_record<T: bytemuck::Pod>(&mut self, record: &T) -> Result<u64, PerfDbError> {
+        self.as_slice::<T>()?;
         let offset = self.logical_len.load(Ordering::Acquire);
         let bytes = bytemuck::bytes_of(record);
         self.append(bytes)?;
@@ -167,7 +201,7 @@ impl MmapFile {
     /// Returns `None` if the range is out of bounds.
     pub fn read_at(&self, offset: u64, len: u64) -> Option<&[u8]> {
         let logical_len = self.logical_len.load(Ordering::Acquire);
-        if offset + len > logical_len {
+        if offset.checked_add(len)? > logical_len {
             return None;
         }
         let start = (HEADER_SIZE + offset) as usize;
@@ -178,39 +212,46 @@ impl MmapFile {
     /// Zero-copy read of a typed record at a given offset.
     pub fn read_record<T: bytemuck::Pod>(&self, offset: u64) -> Option<&T> {
         let size = size_of::<T>() as u64;
-        let bytes = self.read_at(offset, size)?;
-        Some(bytemuck::from_bytes(bytes))
-    }
-
-    /// Number of fixed-size records that fit in the current data.
-    pub fn record_count<T: bytemuck::Pod>(&self) -> u64 {
-        self.len() / size_of::<T>() as u64
-    }
-
-    /// Iterate all records of a fixed-size type. Zero-copy.
-    pub fn iter_records<T: bytemuck::Pod>(&self) -> RecordIter<'_, T> {
-        RecordIter {
-            mmap: self,
-            offset: 0,
-            _marker: std::marker::PhantomData,
+        if size == 0 || offset % size != 0 {
+            return None;
         }
+        self.as_slice::<T>().ok()?.get((offset / size) as usize)
     }
 
-    /// Zero-copy typed slice of all records in the file.
-    ///
-    /// Returns `&[T]` backed directly by the mmap. Records must be stored
-    /// contiguously starting from offset 0. Trailing bytes that don't fill
-    /// a complete record are excluded.
-    pub fn as_slice<T: bytemuck::Pod>(&self) -> &[T] {
-        let logical_len = self.logical_len.load(Ordering::Acquire) as usize;
+    /// Validate the complete record layout before a typed store exposes it.
+    pub fn open_records<T: bytemuck::Pod>(
+        path: impl AsRef<Path>,
+        create: bool,
+    ) -> Result<Self, PerfDbError> {
+        let file = Self::open(path, create)?;
+        file.as_slice::<T>()?;
+        Ok(file)
+    }
+
+    pub fn record_count<T: bytemuck::Pod>(&self) -> Result<u64, PerfDbError> {
+        Ok(self.as_slice::<T>()?.len() as u64)
+    }
+
+    /// Iterate complete, aligned records. Invalid layouts are refused.
+    pub fn iter_records<T: bytemuck::Pod>(&self) -> Result<RecordIter<'_, T>, PerfDbError> {
+        Ok(RecordIter {
+            records: self.as_slice::<T>()?.iter(),
+        })
+    }
+
+    /// Zero-copy typed slice. Partial records and misaligned types are errors.
+    pub fn as_slice<T: bytemuck::Pod>(&self) -> Result<&[T], PerfDbError> {
         let record_size = size_of::<T>();
-        if record_size == 0 || logical_len == 0 {
-            return &[];
+        if record_size == 0 {
+            return Err(PerfDbError::InvalidArgument(
+                "zero-sized mmap record".into(),
+            ));
         }
-        let count = logical_len / record_size;
-        let usable = count * record_size;
-        let start = HEADER_SIZE as usize;
-        bytemuck::cast_slice(&self.mmap[start..start + usable])
+        let bytes = self.read_at(0, self.len()).ok_or_else(|| {
+            PerfDbError::Corruption("mmap logical region exceeds allocation".into())
+        })?;
+        bytemuck::try_cast_slice(bytes)
+            .map_err(|e| PerfDbError::Corruption(format!("invalid mmap record layout: {e}")))
     }
 
     /// Overwrite data at a given offset within the logical data region.
@@ -220,7 +261,10 @@ impl MmapFile {
     pub fn write_at(&mut self, offset: u64, data: &[u8]) -> Result<(), PerfDbError> {
         let data_len = data.len() as u64;
         let logical_len = self.logical_len.load(Ordering::Acquire);
-        if offset + data_len > logical_len {
+        if offset
+            .checked_add(data_len)
+            .is_none_or(|end| end > logical_len)
+        {
             return Err(PerfDbError::InvalidArgument(format!(
                 "write_at: offset {} + len {} exceeds logical len {}",
                 offset, data_len, logical_len
@@ -256,14 +300,28 @@ impl MmapFile {
         &self.path
     }
 
+    fn mapping_len(len: u64) -> Result<usize, PerfDbError> {
+        usize::try_from(len)
+            .ok()
+            .filter(|&n| n <= isize::MAX as usize)
+            .ok_or_else(|| {
+                PerfDbError::Corruption("mmap allocation exceeds addressable slice".into())
+            })
+    }
+
     /// Grow the file using double-on-resize strategy.
     fn grow(&mut self, needed: u64) -> Result<(), PerfDbError> {
+        let max_capacity = isize::MAX as u64 - HEADER_SIZE;
         let mut new_capacity = self.capacity;
         while new_capacity < needed {
-            new_capacity = new_capacity.saturating_mul(2).max(INITIAL_FILE_SIZE);
+            new_capacity = new_capacity
+                .saturating_mul(2)
+                .max(INITIAL_FILE_SIZE)
+                .min(max_capacity);
         }
 
         let new_file_size = HEADER_SIZE + new_capacity;
+        let mapping_len = Self::mapping_len(new_file_size)?;
 
         self.mmap.flush().map_err(|e| PerfDbError::Io {
             context: "flush before grow".into(),
@@ -279,7 +337,7 @@ impl MmapFile {
 
         self.mmap = unsafe {
             MmapOptions::new()
-                .len(new_file_size as usize)
+                .len(mapping_len)
                 .map_mut(&self.file)
                 .map_err(|e| PerfDbError::Io {
                     context: "remap after grow".into(),
@@ -301,23 +359,18 @@ impl MmapFile {
 
 /// Zero-copy iterator over fixed-size records in an `MmapFile`.
 pub struct RecordIter<'a, T: bytemuck::Pod> {
-    mmap: &'a MmapFile,
-    offset: u64,
-    _marker: std::marker::PhantomData<T>,
+    records: std::slice::Iter<'a, T>,
 }
 
 impl<'a, T: bytemuck::Pod> Iterator for RecordIter<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let record = self.mmap.read_record::<T>(self.offset)?;
-        self.offset += size_of::<T>() as u64;
-        Some(record)
+        self.records.next()
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let remaining = self.mmap.len().saturating_sub(self.offset) / size_of::<T>() as u64;
-        (remaining as usize, Some(remaining as usize))
+        self.records.size_hint()
     }
 }
 
@@ -399,7 +452,7 @@ mod tests {
         assert_eq!(read_back.market_id, tick.market_id);
         assert_eq!(read_back.price, tick.price);
 
-        assert_eq!(f.record_count::<PriceTick>(), 1);
+        assert_eq!(f.record_count::<PriceTick>().unwrap(), 1);
     }
 
     #[test]
@@ -418,7 +471,7 @@ mod tests {
             f.append_record(&tick).unwrap();
         }
 
-        let slice: &[PriceTick] = f.as_slice();
+        let slice: &[PriceTick] = f.as_slice().unwrap();
         assert_eq!(slice.len(), 10);
         assert_eq!(slice[0].price, 60_000.0);
         assert_eq!(slice[9].price, 60_009.0);
@@ -427,7 +480,7 @@ mod tests {
         updated.price = 99_999.0;
         f.write_at(5 * 24, bytemuck::bytes_of(&updated)).unwrap();
 
-        let slice: &[PriceTick] = f.as_slice();
+        let slice: &[PriceTick] = f.as_slice().unwrap();
         assert_eq!(slice[5].price, 99_999.0);
 
         assert!(f.write_at(f.len(), &[0]).is_err());
@@ -449,9 +502,9 @@ mod tests {
             f.append_record(&tick).unwrap();
         }
 
-        assert_eq!(f.record_count::<PriceTick>(), 100);
+        assert_eq!(f.record_count::<PriceTick>().unwrap(), 100);
 
-        let all: Vec<&PriceTick> = f.iter_records().collect();
+        let all: Vec<&PriceTick> = f.iter_records().unwrap().collect();
         assert_eq!(all.len(), 100);
         assert_eq!(all[0].timestamp_ns, 0);
         assert_eq!(all[99].timestamp_ns, 99 * 1_000_000);

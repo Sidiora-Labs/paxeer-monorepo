@@ -12,10 +12,16 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 )
 
 const maximumHTTPResponseBytes = 8 * 1024 * 1024
+
+// DefaultHTTPRequestTimeout bounds the entire Human and Agent HTTP exchange,
+// including reading the response body. Caller deadlines may shorten it. An
+// explicitly supplied http.Client retains its configured timeout, including zero.
+const DefaultHTTPRequestTimeout = 30 * time.Second
 
 type RequestAuthorizer func(*http.Request) error
 
@@ -34,7 +40,7 @@ func NewHumanHTTPTransport(baseURL string, client *http.Client, authorizer Reque
 		return nil, newSDKError(ErrorInvalidArgument, RetryNever)
 	}
 	if client == nil {
-		client = &http.Client{}
+		client = &http.Client{Timeout: DefaultHTTPRequestTimeout}
 	}
 	boundedClient := *client
 	boundedClient.CheckRedirect = func(_ *http.Request, _ []*http.Request) error {

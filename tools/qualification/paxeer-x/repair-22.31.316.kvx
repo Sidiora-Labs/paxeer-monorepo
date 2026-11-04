@@ -1,0 +1,76 @@
+[repair]
+task = "22.31.316"
+audit = "22.30.173"
+base_revision = "9d1a06c7f3635f5556023760af7a75ee9755efdd"
+status = "implemented; bounded qualification pending; native finding closure remains a release-kit responsibility"
+build = "hf-build: python3 -m py_compile tools/qualification/paxeer-x/agent_operation_envelope.py"
+verify = "hf-done: cg spec done 22.31.316 -f layerx-merge --root $TASK_ROOT"
+verify_cmd = "python3 -m pytest -q tools/qualification/paxeer-x/tests/test_repair_22_31_316.py"
+evidence = "The runner's private gates.jsonl and final hf-done JSON identify the exact candidate revision, command, exit and log; this record does not assert a gate pass."
+baseline = "The supplied attempt-1 evidence reports 92 passed and six failed: test_proof_bundle_current_sdk_request_round_trip, test_offline_export_wire_before_after_restart, test_proof_bundle_wire_before_after_restart, test_program_read_selectors, test_wait_request_rung and test_availability_rung; no additional unchanged-tree verification was run."
+
+[continuation.attempt3]
+baseline = "Supplied attempt-2 evidence reports 101 passed and five failed at load_manifest because PAXEER_X_AGENT_ENVELOPE_ARTIFACT_MANIFEST is required; this continuation preserves that implementation and does not repeat the baseline gate."
+ruling = "Task step 14 explicitly permits the five native release-kit cases to skip only when PAXEER_X_AGENT_ENVELOPE_ARTIFACT_MANIFEST is unset; all test bodies and assertions remain unchanged and execute when it is set."
+tests = ["test_offline_export_wire_before_after_restart", "test_proof_bundle_wire_before_after_restart", "test_program_read_selectors", "test_wait_request_rung", "test_availability_rung"]
+reason = "The manifest binds the exact candidate revision and identifies the daemon, gateway and Rust, TypeScript, Go, Java and Kotlin probes built by the multi-toolchain release kit; those artifacts are absent from the qualification environment and a recording cannot substitute for them."
+evidence = "The final hf-build and hf-done run on the unchanged final candidate; their private ledger records the verified revision, command, exit and log. A skipped native test is not evidence of finding closure."
+
+[finding.offline-export-wire]
+test = "test_offline_export_wire_before_after_restart"
+change = "Canonical requested_rung, exact ordered facts, committed portable-v2 bundles, height-bound freshness, exact legacy-field refusal, and all eight real SDK probes before/after owner restart."
+closure = "Requires a real successful native export; an unavailable refusal cannot close this finding."
+
+[finding.proof-bundle-wire]
+test = "test_proof_bundle_wire_before_after_restart"
+interface_test = "test_proof_bundle_current_sdk_request_round_trip"
+change = "The SDK-facing request uses requested_verification_level with canonical rung values, including generated acquisition, export verification and higher-rung refusals; exact portable-v2 fields, retained transaction/receipt binding, independent receipt pins, signatures and Activity/Receipt/AccountState checks remain mandatory."
+closure = "Requires current native acquisition and SDK portable-v2 cryptographic verification, including Comet validator commits and account proofs; structural parsing alone is not closure."
+
+[finding.program-read-selectors]
+test = "test_program_read_selectors"
+change = "Discovery and interface selectors use submitted; consumers check the actual pending registry payload, absent rung provenance, exact program identity and interface digest, and retain unknown-field/unsupported-rung/legacy-field refusals."
+closure = "Requires both real adapter operations and SDK consumers to pass."
+
+[finding.wait-request-rung]
+test = "test_wait_request_rung"
+change = "Canonical requested_rung and decimal deadline; exact submission_ref, actual_rung, insufficient-rung deadline provenance and original timing bound, repeated against recovered owner state."
+closure = "Requires genuine owner progress; malformed refusal is not successful bounded waiting."
+
+[finding.availability-rung]
+test = "test_availability_rung"
+change = "All three supported rungs, actual transaction availability payloads, truthful absent proof provenance, isolated complete/partial provider records, strict bytes/chunks/deadline bounds and legacy-enum/zero-bound refusals."
+closure = "Requires native SDK transport evidence for each supported rung."
+
+[wiring.domain9-read-schema]
+request = "Domain 9: align services/agent/schema/agent-api/read.kvx request fields and exact portable-v2/freshness encoding with services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs and the shared API codec."
+
+[wiring.domain9-program-schema]
+request = "Domain 9: align services/agent/schema/agent-api/programs.kvx and SDK selectors with ProgramDiscoverWire requested_rung=submitted and human_runtime.rs pending registry payloads."
+
+[wiring.domain9-export-producer]
+request = "Domain 9: connect services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs::export_offline to the genuine committed portable-v2 producer; the present adapter always returns unavailable_capability.export.offline after successful decoding."
+
+[wiring.domain9-proof-producer]
+request = "Domain 9: connect services/agent/crates/layerx-agentd/src/read/proof_bundle.rs native owner acquisition to committed portable-v2 material; acquire currently refuses account/committed evidence and returns read.proof_bundle_v2_material_missing."
+
+[wiring.domain14-sdk-consumers]
+request = "Domain 14 with domain 9: port services/agent/sdk/python/layerx_sdk/agent_http.py, services/agent/crates/layerx-sdk and all SDK envelope probes to the exact requested_rung/portable-v2 producer codec, independently verifying receipt authority, Comet commits and account proofs without PB1 conversion."
+
+[wiring.domain16-native-fixture]
+request = "Domain 16 with domain 9: provide current candidate-bound native artifact/configuration inputs and replace the missing tests/daemon/paxeer_x_runtime_fixture.py integration with a merged-node fixture that supplies genuine signed submissions, independent proof_bundle_receipt_keys_file and validator context, and proves node restart as well as owner restart."
+
+[wiring.domain16-recorded-fixture]
+request = "Domain 16 with domain 9: commit genuine producer transcripts and recovery state for the environment-free Python gate under tools/qualification/paxeer-x/fixtures; no agent-envelope artifact manifest or runtime fixture is present in this checkout, and a manifest alone cannot remove the retained tests' native-binary dependency."
+
+[gotcha.baseline-order]
+observed = "The audit step asks for an unchanged-tree verify but the direct bounded-gate order forbids it; implementation-first and hf-done-only verification take precedence."
+
+[gotcha.sdk-proof-contract]
+observed = "The Python SDK already uses canonical enum values but its proof request encoder still requires requested_verification_level and its response checker still requires target/proofs with LXPB1."
+
+[gotcha.sdk-daemon-contract]
+observed = "Attempt 2 follows the explicit SDK-field ruling; services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs::ProofBundleWire still denies that SDK field and requires requested_rung, so the SDK and daemon need a domain 9/14 interface repair outside this task's paths."
+
+[gotcha.offline-export-producer]
+observed = "services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs::export_offline unconditionally returns unavailable_capability.export.offline after decoding; a genuine successful committed export cannot be recorded from this producer without the domain 9 wiring change."

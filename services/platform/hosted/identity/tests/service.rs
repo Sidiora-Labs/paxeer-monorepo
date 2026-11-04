@@ -1838,3 +1838,26 @@ fn session_capacity_excludes_expired_after_restart() {
     let recovered = create_session(&fixture, &server, &serde_json::json!({"sub": SUB}));
     assert_eq!(recovered.status, 200);
 }
+
+#[path = "support/signup_service.rs"]
+mod signup_service;
+
+#[test]
+fn signup_delivery_session_and_credit_survive_restarts() {
+    signup_service::signup_delivery_session_and_credit_survive_restarts();
+}
+
+#[test]
+fn expired_delivered_token_is_refused_after_restart() {
+    signup_service::expired_delivered_token_is_refused_after_restart();
+}
+
+#[test]
+fn interrupted_smtp_delivery_retries_the_durable_token() {
+    signup_service::interrupted_smtp_delivery_retries_the_durable_token();
+}
+
+#[test]
+fn interrupted_outbox_enqueue_never_verifies_the_subject() {
+    signup_service::interrupted_outbox_enqueue_never_verifies_the_subject();
+}

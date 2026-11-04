@@ -811,17 +811,9 @@ defmodule BlockScoutWeb.API.V2.OptimismController do
   @spec interop_import_internal(non_neg_integer(), binary(), binary(), map(), function(), Plug.Conn.t()) ::
           Plug.Conn.t()
   defp interop_import_internal(remote_chain_id, data_to_verify, signature, params, missed_part_fn, conn) do
-    # we need to know the remote instance API URL to get public key from that
-    public_key =
-      remote_chain_id
-      |> InteropMessage.interop_chain_id_to_instance_api_url()
-      |> interop_fetch_public_key()
+    instance_api_url = InteropMessage.interop_chain_id_to_instance_api_url(remote_chain_id)
 
-    with {:empty_public_key, false} <- {:empty_public_key, is_nil(public_key)},
-         {:wrong_signature, false} <-
-           {:wrong_signature,
-            ExSecp256k1.verify(ExKeccak.hash_256(data_to_verify), signature, public_key) !=
-              :ok},
+    with :ok <- interop_verify_signature(instance_api_url, data_to_verify, signature),
          # the data is verified, so now we can import that to the database
          {:ok, _} <-
            Chain.import(%{optimism_interop_messages: %{params: [params]}, timeout: :infinity}) do
@@ -829,10 +821,10 @@ defmodule BlockScoutWeb.API.V2.OptimismController do
       |> put_status(200)
       |> render(:optimism_interop_response, missed_part_fn.(params.init_chain_id, params.nonce))
     else
-      {:empty_public_key, true} ->
+      :empty_public_key ->
         interop_render_http_error(conn, 500, "Unable to get public key")
 
-      {:wrong_signature, true} ->
+      :wrong_signature ->
         interop_render_http_error(conn, :unauthorized, "Wrong signature")
 
       _ ->
@@ -1060,46 +1052,74 @@ defmodule BlockScoutWeb.API.V2.OptimismController do
     |> render(:message, %{message: error_message})
   end
 
-  # Fetches interop public key from the given instance using `/api/v2/optimism/interop/public-key` HTTP request to that instance.
-  # The successful response is cached in memory until the current instance is down.
-  #
-  # Firstly, it tries to read the public key from cache. If that's not found in cache, the HTTP request is performed.
-  #
-  # ## Parameters
-  # - `instance_api_url`: The instance API URL previously got by the `InteropMessage.interop_chain_id_to_instance_api_url` function.
-  #                       Can be `nil` in case of failure.
-  #
-  # ## Returns
-  # - Public key as binary byte sequence in case of success.
-  # - `nil` in case of fail.
-  @spec interop_fetch_public_key(String.t() | nil) :: binary() | nil
-  defp interop_fetch_public_key(nil), do: nil
+  @interop_public_key_lifetime :timer.minutes(5)
 
-  defp interop_fetch_public_key(instance_api_url) do
-    public_key = ConCache.get(InteropMessage.interop_instance_api_url_to_public_key_cache(), instance_api_url)
+  defp interop_verify_signature(nil, _, _), do: :empty_public_key
 
-    if is_nil(public_key) do
-      env = Application.get_all_env(:indexer)[InteropMessageQueue]
-      url = instance_api_url <> "/api/v2/optimism/interop/public-key"
+  defp interop_verify_signature(instance_api_url, data, signature) do
+    cache = InteropMessage.interop_instance_api_url_to_public_key_cache()
+    digest = ExKeccak.hash_256(data)
 
-      timeout = :timer.seconds(env[:connect_timeout])
-      recv_timeout = :timer.seconds(env[:recv_timeout])
-      client = Tesla.client([{Tesla.Middleware.Timeout, timeout: recv_timeout}], Tesla.Adapter.Mint)
+    # Serialize refresh and verification so an older in-flight fetch cannot restore a retired key.
+    ConCache.isolated(cache, instance_api_url, fn ->
+      now = System.monotonic_time(:millisecond)
 
-      with {:ok, %{body: response_body, status: 200}} <-
-             Tesla.get(client, url, opts: [adapter: [timeout: recv_timeout, transport_opts: [timeout: timeout]]]),
-           {:ok, %{"public_key" => "0x" <> key}} <- Jason.decode(response_body),
-           {:ok, key_binary} <- Base.decode16(key, case: :mixed),
-           true <- byte_size(key_binary) > 0 do
-        ConCache.put(InteropMessage.interop_instance_api_url_to_public_key_cache(), instance_api_url, key_binary)
-        key_binary
-      else
-        reason ->
-          Logger.error("Interop: unable to get public key from #{url}. Reason: #{inspect(reason)}")
-          nil
+      case ConCache.get(cache, instance_api_url) do
+        %{public_key: public_key, key_version: version, expires_at: expires_at}
+        when is_binary(public_key) and is_binary(version) and is_integer(expires_at) and expires_at > now ->
+          if ExSecp256k1.verify(digest, signature, public_key) == :ok do
+            :ok
+          else
+            # A signature failure permits one authenticated refresh, never signature bypass.
+            interop_verify_remote_key(instance_api_url, digest, signature, :wrong_signature)
+          end
+
+        _ ->
+          # Also discards pre-upgrade, unbounded binary cache entries.
+          interop_verify_remote_key(instance_api_url, digest, signature, :empty_public_key)
       end
+    end)
+  end
+
+  defp interop_verify_remote_key(instance_api_url, digest, signature, fetch_error) do
+    case interop_fetch_public_key(instance_api_url) do
+      nil -> fetch_error
+      key -> if ExSecp256k1.verify(digest, signature, key) == :ok, do: :ok, else: :wrong_signature
+    end
+  end
+
+  # The configured instance authenticates its current key through certificate- and
+  # hostname-verified HTTPS. Its fingerprint is the key version; replacements retire
+  # the previous version. Expiry is checked on reads even with ConCache's timer off.
+  @spec interop_fetch_public_key(String.t()) :: binary() | nil
+  defp interop_fetch_public_key(instance_api_url) do
+    cache = InteropMessage.interop_instance_api_url_to_public_key_cache()
+    ConCache.dirty_delete(cache, instance_api_url)
+    env = Application.get_all_env(:indexer)[InteropMessageQueue]
+    url = instance_api_url <> "/api/v2/optimism/interop/public-key"
+    timeout = :timer.seconds(env[:connect_timeout])
+    recv_timeout = :timer.seconds(env[:recv_timeout])
+    client = Tesla.client([{Tesla.Middleware.Timeout, timeout: recv_timeout}], Tesla.Adapter.Mint)
+
+    with %URI{scheme: "https", host: host, userinfo: nil} when is_binary(host) and host != "" <- URI.parse(url),
+         {:ok, %{body: response_body, status: 200}} <-
+           Tesla.get(client, url,
+             opts: [adapter: [timeout: recv_timeout, transport_opts: [timeout: timeout, verify: :verify_peer]]]
+           ),
+         {:ok, %{"public_key" => "0x" <> key}} <- Jason.decode(response_body),
+         {:ok, key_binary} <- Base.decode16(key, case: :mixed),
+         true <- byte_size(key_binary) in [33, 65] do
+      ConCache.dirty_put(cache, instance_api_url, %{
+        public_key: key_binary,
+        key_version: :crypto.hash(:sha256, key_binary),
+        expires_at: System.monotonic_time(:millisecond) + @interop_public_key_lifetime
+      })
+
+      key_binary
     else
-      public_key
+      _ ->
+        Logger.error("Interop: unable to get an authenticated public key")
+        nil
     end
   end
 

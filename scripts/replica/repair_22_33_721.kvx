@@ -1,0 +1,23 @@
+[repair.22.33.721]
+audit = "22.30.170"
+acceptance = "22998.1"
+base_revision = "9d1a06c7f3635f5556023760af7a75ee9755efdd"
+verify = "python3 -m pytest -q scripts/replica/test_repair_22_33_721.py"
+baseline = "Not executed: the ordered gate instructions forbid tests before implementation and forbid running verify_cmd by hand. No prior gate ledger existed; no baseline runtime failures are claimed."
+revision_evidence = "The private hf-build/hf-done ledger records the exact candidate revision, command, exit and log. The final response copies the last gate evidence; no qualification is claimed before that evidence."
+
+[finding.replica_fixture_standalone_retired_activity]
+tests = ["test_replica_fixture_current_declared_activity_corpus", "test_replica_fixture_canonical_cli_producer_transport_consumer", "test_replica_fixture_explicit_compatibility_preserves_recorded_bytes", "test_replica_fixture_cli_explicit_output", "test_replica_fixture_cli_identifies_archival_bytes", "test_replica_fixture_cli_rejects_implicit_legacy_mode"]
+repair = "Default to the 60 declared activities in the six original codec modules, including asset withdraw/mint/burn and excluding retired budget pull; write tests/vectors/codec/replay_corpus.lxb. Explicit --compatibility preserves all 58 historical records, original ordering and boundaries at the historical output path. Fixture bytes do not deploy the retired replica or a batch service."
+proof = "Load the production CLI in an isolated checkout layout, generate its default output, serve that actual file through a loopback HTTP server, read it with the real urllib client and independently validate every envelope field, payload binding, receipt, event, state root, batch root and final digest. Compatibility output must exactly equal the committed historical corpus. No mocks, environment variables, live services or subprocess toolchains."
+limit = "The declared Python-only gate validates the codec bytes and file/HTTP transport; it does not execute the native C or Rust consumers. No native consumer runtime gate is claimed."
+
+[wiring.codec_generator]
+request = "tests/vectors/codec/generate.py — owning domain 16: delegate to the canonical producer main/build and OUTPUT, remove the retired-entry expectation and REPLAY_ACTIVITY_TYPES mutation, retain fail-closed declaration validation, and reconcile dependent wrapper-output assertions; this path is outside the task scope."
+
+[wiring.task_record]
+request = "spec/layerx-merge/spec.kvx — owning programme/spec domain 22: link this finding-to-test record and the private runner revision evidence; spec edits are outside the task scope."
+
+[gotcha.scope_and_baseline]
+observed = "The audit proposal requests an out-of-scope codec wrapper change; the baseline verification instruction conflicts with the explicit gate order."
+handling = "Record the wrapper wiring request here and follow the ordered hf-build/hf-done gates. GOTCHA.kvx and spec files are outside scope and remain untouched by this implementation."
