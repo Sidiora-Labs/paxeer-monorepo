@@ -1,10 +1,10 @@
 'use client';
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { Button, Tooltip } from '@/ui/primitives';
 import { isSignedOutError, type Loadable } from '@/core/market/unsupported';
 import { openAuthModal } from '@/shell/auth-modal-store';
 import { useAccountSession } from '@/widgets/profile/use-account-session';
-import { portfolioIssue, positionValueRaw, usePortfolio, type PortfolioPosition } from '@/widgets/profile/portfolio-transport';
+import { portfolioIssue, positionValueRaw, usePortfolio, usePositionPages, type PortfolioPosition, type PortfolioRead } from '@/widgets/profile/portfolio-transport';
 import { formatUsdl } from '@/utils/format';
 import { cn } from '@/lib/utils';
 import { userFacingMessage } from '@/core/user-facing-error';
@@ -87,23 +87,46 @@ function Tiles({ figures, loading }: { figures: PositionFigures; loading: boolea
 function OwnedSummary({ wallet, tokenAddress }: { wallet: string; tokenAddress: string | null }) {
   const portfolio = usePortfolio(wallet, true);
   const book = portfolio.loadable.state === 'ready' ? portfolio.loadable.data : null;
-  const issue = portfolioIssue(portfolio.loadable, true);
-  const position = book && tokenAddress ? book.data.positions.find(row => row.tokenAddress.toLowerCase() === tokenAddress) ?? null : null;
+  return <OwnedSummaryPage key={book?.data.summary.snapshotId ?? 'unresolved'} wallet={wallet} tokenAddress={tokenAddress} portfolio={portfolio} />;
+}
+
+function OwnedSummaryPage({ wallet, tokenAddress, portfolio }: { wallet: string; tokenAddress: string | null; portfolio: PortfolioRead }) {
+  const book = portfolio.loadable.state === 'ready' ? portfolio.loadable.data : null;
+  const pages = usePositionPages(book, wallet, true);
+  const position = tokenAddress ? pages.positions.find(row => row.tokenAddress.toLowerCase() === tokenAddress.toLowerCase()) ?? null : null;
+  useEffect(() => {
+    if (tokenAddress && !position && pages.hasMore && !pages.loadingMore && !pages.moreError) pages.loadMore();
+  }, [tokenAddress, position, pages.hasMore, pages.loadingMore, pages.moreError, pages.loadMore]);
+  const continuation = pages.moreError ? { state: 'error' as const, error: pages.moreError, retry: pages.loadMore } : null;
+  const issue = portfolioIssue(continuation ?? portfolio.loadable, true);
+  const searching = !!tokenAddress && !position && pages.hasMore && !pages.moreError;
   const reason = !tokenAddress
     ? 'Loading...'
-    : book
-      ? (book.data.next ? 'No position found yet' : 'You don\'t hold this coin')
+    : pages.moreError
+      ? issue?.title ?? `Your position can't load right now. ${userFacingMessage(pages.moreError)}`
+      : book
+      ? (searching ? 'Loading...' : 'You don\'t hold this coin')
       : issue ? issue.title : reasonOf(portfolio.loadable);
   const figures = positionFigures(position, reason);
   return (
     <>
-      <Tiles figures={figures} loading={portfolio.loadable.state === 'loading'} />
+      <Tiles figures={figures} loading={portfolio.loadable.state === 'loading' || searching} />
       {issue?.kind === 'signed-out' || issue?.kind === 'reauth' ? (
         <div className="flex justify-center">
           <Button variant="link" size="sm" onClick={() => openAuthModal('terminal-position')}>{issue.kind === 'reauth' ? 'Sign in again to see your position' : 'Sign in to see your position'}</Button>
         </div>
       ) : issue ? (
-        <p role="status" className="text-center text-2xs text-text-faint">{issue.title}. {issue.body}</p>
+        <div className="flex flex-col items-center">
+          <p role="status" className="text-center text-2xs text-text-faint">{issue.title}. {issue.body}</p>
+          {pages.moreError ? <Button variant="link" size="sm" onClick={portfolio.refetch}>Refresh your portfolio</Button> : null}
+        </div>
+      ) : null}
+      {pages.moreError && !issue ? (
+        <div className="flex flex-col items-center">
+          <p role="status" className="text-center text-2xs text-text-faint">{reason}</p>
+          <Button variant="link" size="sm" onClick={pages.loadMore}>Try loading your position again</Button>
+          <Button variant="link" size="sm" onClick={portfolio.refetch}>Refresh your portfolio</Button>
+        </div>
       ) : null}
     </>
   );
@@ -122,7 +145,7 @@ export function PositionSummary({ tokenAddress }: { poolAddress: string; tokenAd
   const wallet = session?.session.wallet.toLowerCase() ?? null;
   return (
     <section aria-label="Your position" className="flex flex-col gap-1 rounded-md bg-surface-1 px-2 py-2">
-      {wallet ? <OwnedSummary wallet={wallet} tokenAddress={tokenAddress} /> : (
+      {wallet ? <OwnedSummary key={`${wallet}:${session?.epoch}`} wallet={wallet} tokenAddress={tokenAddress} /> : (
         <>
           <Tiles figures={signedOut} loading={false} />
           <div className="flex justify-center">

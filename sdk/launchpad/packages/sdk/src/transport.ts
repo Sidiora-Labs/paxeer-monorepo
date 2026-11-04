@@ -139,6 +139,71 @@ function abortableDelay(ms: number, signal?: AbortSignal): Promise<void> {
     signal?.addEventListener('abort', abort, { once: true });
   });
 }
+const JSON_RESPONSE_MAX_BYTES = 8 * 1024 * 1024;
+const ERROR_RESPONSE_MAX_BYTES = 64 * 1024;
+
+async function readBoundedResponseText(
+  response: Response,
+  maxBytes: number,
+  signal?: AbortSignal,
+): Promise<string> {
+  const tooLarge = () =>
+    new HttpError(response.status, undefined, 'RESPONSE_TOO_LARGE');
+  const length = response.headers.get('Content-Length');
+  const encoding = response.headers.get('Content-Encoding');
+  if (
+    (!encoding || encoding === 'identity') &&
+    length !== null &&
+    /^\d+$/.test(length) &&
+    Number(length) > maxBytes
+  ) {
+    await response.body?.cancel();
+    throw tooLarge();
+  }
+  if (!response.body) return '';
+  const reader = response.body.getReader();
+  let complete = false;
+  let bytes = new Uint8Array(0);
+  let size = 0;
+  try {
+    for (;;) {
+      signal?.throwIfAborted();
+      const { done, value } = await reader.read();
+      signal?.throwIfAborted();
+      if (done) {
+        complete = true;
+        return new TextDecoder().decode(bytes.subarray(0, size));
+      }
+      if (value.byteLength > maxBytes - size) throw tooLarge();
+      const nextSize = size + value.byteLength;
+      if (nextSize > bytes.byteLength) {
+        const next = new Uint8Array(
+          Math.min(maxBytes, Math.max(nextSize, bytes.byteLength * 2, 16384)),
+        );
+        next.set(bytes.subarray(0, size));
+        bytes = next;
+      }
+      bytes.set(value, size);
+      size = nextSize;
+    }
+  } catch (error) {
+    signal?.throwIfAborted();
+    throw error;
+  } finally {
+    try {
+      if (!complete) {
+        try {
+          await reader.cancel();
+        } catch (error) {
+          signal?.throwIfAborted();
+          throw error;
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+  }
+}
 export class SdkClient {
   readonly config: TransportConfig;
   // The default resolves `globalThis.fetch` at call time and invokes it as a
@@ -390,7 +455,12 @@ export class SdkClient {
         );
         continue;
       }
-      options.signal?.throwIfAborted();
+      try {
+        options.signal?.throwIfAborted();
+      } catch (error) {
+        await result.body?.cancel();
+        throw error;
+      }
       // Redirects are never followed. A server that answered with one did
       // answer, so it is an HTTP outcome with its status (0 for the browser's
       // opaque redirect), not a network interruption.
@@ -401,12 +471,24 @@ export class SdkClient {
         await result.body?.cancel();
         throw new HttpError(result.status, undefined, 'UNEXPECTED_REDIRECT');
       }
+      if (result.status === 501 || (result.status === 404 && major === 1)) {
+        await result.body?.cancel();
+        throw new CapabilityUnavailableError(
+          `Unavailable endpoint ${path.split('?')[0]}`,
+          result.status,
+        );
+      }
       let envelope: V2ContractTypes['Error'] | undefined;
       if (!result.ok && major !== 1) {
+        const text = await readBoundedResponseText(
+          result,
+          ERROR_RESPONSE_MAX_BYTES,
+          options.signal,
+        );
         try {
           const decoded = decodeV2Contract(
             'Error',
-            await result.clone().json(),
+            JSON.parse(text) as unknown,
           );
           envelope = {
             code: decoded.code,
@@ -421,8 +503,7 @@ export class SdkClient {
           options.signal?.throwIfAborted();
         }
       }
-      if (result.status === 501 || (result.status === 404 && !envelope)) {
-        await result.body?.cancel();
+      if (result.status === 404 && !envelope) {
         throw new CapabilityUnavailableError(
           `Unavailable endpoint ${path.split('?')[0]}`,
           result.status,
@@ -442,7 +523,7 @@ export class SdkClient {
           : retry
             ? Date.parse(retry) - Date.now()
             : 0;
-        await result.body?.cancel();
+        if (major === 1) await result.body?.cancel();
         await abortableDelay(
           Math.min(
             30000,
@@ -453,12 +534,19 @@ export class SdkClient {
         continue;
       }
       if (!result.ok) {
-        await result.body?.cancel();
+        if (major === 1) await result.body?.cancel();
         throw new HttpError(result.status, envelope);
       }
-      if (result.status === 204) return undefined;
+      if (result.status === 204) {
+        await result.body?.cancel();
+        return undefined;
+      }
       if (options.binaryResponse) return result;
-      const text = await result.text();
+      const text = await readBoundedResponseText(
+        result,
+        JSON_RESPONSE_MAX_BYTES,
+        options.signal,
+      );
       options.signal?.throwIfAborted();
       // A success status with a body that is not JSON (an HTML page, a proxy
       // banner) means the request reached a host that does not serve this

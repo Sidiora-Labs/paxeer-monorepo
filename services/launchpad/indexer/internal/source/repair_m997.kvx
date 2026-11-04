@@ -1,0 +1,20 @@
+[repair.22.33.997]
+finding_archive_capacity_bounds = "archive-capacity-bounds: TestRepairM_997_ArchiveCapacityBounds"
+finding_quarantine_runtime_rejoin = "quarantine-runtime-rejoin: TestRepairM_997_QuarantineRuntimeRejoin, TestRepairM_997_RecoveryRotationAndDeadline, TestRepairM_997_AuthorizedIncidentSelection"
+finding_mixed_rpc_source_selection = "mixed-rpc-source-selection: TestRepairM_997_MixedRPCSourceSelection"
+capacity = "RunSourceCapacity validates aggregate reservations and every endpoint against the actual admitted permit capacities; archive reservations remain independent of the primary process and primary historical-work pools. Real HTTP archive ranges saturate default 48 and configured 24/96 permits while primary head reads continue; excess work times out and over-budget evidence is rejected."
+recovery = "app.New schedules one rotating transient-endpoint probe every five seconds with a total bulk deadline; successful probes call the existing chain-pin and 128-block RejoinEndpoint verifier. Shutdown cancels probes. Canonical disagreement and expired selection quarantine are excluded from automatic recovery, and the incident fence stays intact."
+selection = "The application mounts POST /internal/source-selection when the bound lifecycle sourceSelectionKeys contains at least two distinct operator Ed25519 public keys. Both operators sign the full SourceSelectionAuthorization JSON; its payload hash binds chain 125, canonical stream, endpoint, height and hash. The handler checks both signatures and scope before verified rejoin and ApplySourceSelection, which retains existing incident, expiry and identity checks. Keys contain no signing secrets."
+transport = "The declared gate uses production source constructors, transport, range readers, capacity validator, recovery operation and signed incident handler with loopback JSON-RPC servers and real Ed25519 signatures. It needs no services, environment variables, external tools or credentials. The existing external source tests also compile the application package."
+baseline = "No repair tests or earlier gate entries existed in the initial tree. The explicit implementation-first order and prohibition on running verify_cmd by hand override the contradictory request for an unchanged-tree verification; no baseline failure or baseline pass is claimed."
+evidence = "The runner records exact candidate revision, command, exit code and private evidence log in /out/run/gates.jsonl; the final response copies the last bounded gate record."
+wiring_request = "fm-launchpad (domain 4), services/launchpad/indexer/internal/app/render.go and deployment lifecycle documents: supply independently approved operator public keys in sourceSelectionKeys and have the private operator workflow submit dual-signed incident selections; those out-of-scope files are not changed."
+scope = "The user forbids edits to spec task records and GOTCHA.kvx, so this in-scope record carries the finding-to-test mapping, baseline contradiction and wiring request; runner bookkeeping is preserved."
+
+[qualification.workspace_toolchain]
+revision = "fb1fabb2ebec92e3d0c08c04c6b0ed305c329986"
+command = "cd services/launchpad/indexer && go build ./internal/source/..."
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "The inherited workspace declares Go 1.25 but admits a sibling notifications module requiring Go 1.27; compilation of the task target did not start."
+assumption = "GOWORK=off qualifies the declared nested indexer module with its committed go.mod and relative replacements, without changing or investigating the unrelated workspace."

@@ -188,5 +188,7 @@
     "VMTests": "ANALYZED: 204/595 tests pass. 391 failures",
     "stQuadraticComplexityTest": "TIMED_OUT: needs re-run with longer timeout",
     "stTimeConsuming": "TIMED_OUT: needs re-run with longer timeout"
-  }
+  },
+  "qualification_policy": "Diagnostic exclusions only. The required qualification runner never consumes these exclusions. Only remove an entry after its original active command passes with unchanged expectations and counted revision evidence.",
+  "repair_inventory": "state_repairs.json"
 }

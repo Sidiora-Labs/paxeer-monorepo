@@ -54,6 +54,10 @@ func (app *App) LightInvarianceChecks(ctx context.Context, cms sdk.CommitMultiSt
 	}
 }
 
+// LightInvarianceTotalSupply checks the pending changes in a MemIAVL bank store
+// against its committed state for the configured base denomination and wei only.
+// It does not run keeper.TotalSupply or validate other denominations; see
+// sdk/x/bank/spec/README.md for registration, configuration and error coverage.
 func (app *App) LightInvarianceTotalSupply(ctx context.Context, cms sdk.CommitMultiStore) {
 	invarianceStart := time.Now()
 	defer func() {

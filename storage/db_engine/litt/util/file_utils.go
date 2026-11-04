@@ -428,7 +428,10 @@ func EnsureDirectoryExists(dirPath string, fsync bool) error {
 // are both deleted. This method can delete an empty directory, but will return an error if asked to delete a
 // non-empty directory. For the sake of simplicity, this method does not traverse chain of symlinks. If the symlink
 // points to another symlink, it will only delete original symlink and the symlink that the original symlink points to.
-func DeepDelete(path string) error {
+// Snapshot links in table/segments may only remove regular backing files with
+// the same name in that table's snapshot directory. Optional backing roots
+// further restrict removal to the caller's configured storage volumes.
+func DeepDelete(path string, backingRoots ...string) error {
 	isSymlink, err := IsSymlink(path)
 	if err != nil {
 		return fmt.Errorf("failed to check if path %s is a symlink: %w", path, err)
@@ -439,6 +442,59 @@ func DeepDelete(path string) error {
 		actualFile, err := os.Readlink(path)
 		if err != nil {
 			return fmt.Errorf("failed to read symlink %s: %w", path, err)
+		}
+		if !filepath.IsAbs(actualFile) {
+			actualFile = filepath.Join(filepath.Dir(path), actualFile)
+		}
+		actualFile, err = filepath.Abs(actualFile)
+		if err != nil {
+			return fmt.Errorf("failed to resolve backing file: %w", err)
+		}
+		if filepath.Base(filepath.Dir(path)) == "segments" {
+			table := filepath.Base(filepath.Dir(filepath.Dir(path)))
+			parent := filepath.Dir(actualFile)
+			if filepath.Base(parent) != "snapshot" || filepath.Base(filepath.Dir(parent)) != table || filepath.Base(actualFile) != filepath.Base(path) {
+				return fmt.Errorf("snapshot link %s targets a file outside its table backing tree", path)
+			}
+			resolvedParent, err := filepath.EvalSymlinks(parent)
+			if err != nil {
+				return fmt.Errorf("invalid snapshot backing directory: %w", err)
+			}
+			if resolvedParent != parent {
+				return fmt.Errorf("snapshot backing directory contains a symlink")
+			}
+			info, err := os.Lstat(actualFile)
+			if err != nil {
+				return fmt.Errorf("invalid snapshot backing file: %w", err)
+			}
+			if !info.Mode().IsRegular() {
+				return fmt.Errorf("snapshot backing file must be regular")
+			}
+		}
+		if len(backingRoots) != 0 {
+			allowed := false
+			resolved, err := filepath.EvalSymlinks(actualFile)
+			if err != nil {
+				return fmt.Errorf("failed to resolve backing tree: %w", err)
+			}
+			for _, root := range backingRoots {
+				root, err = filepath.Abs(root)
+				if err != nil {
+					return err
+				}
+				root, err = filepath.EvalSymlinks(root)
+				if err != nil {
+					return err
+				}
+				relative, err := filepath.Rel(root, resolved)
+				if err == nil && filepath.IsLocal(relative) {
+					allowed = true
+					break
+				}
+			}
+			if !allowed {
+				return fmt.Errorf("link target is outside configured backing roots")
+			}
 		}
 		if err := os.Remove(actualFile); err != nil {
 			return fmt.Errorf("failed to remove actual file %s: %w", actualFile, err)
