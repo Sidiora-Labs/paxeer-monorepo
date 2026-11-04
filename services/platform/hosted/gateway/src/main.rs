@@ -1912,6 +1912,45 @@ fn route_with_peer(
     {
         return response(400, "untrusted_identity_header", None);
     }
+    if path.starts_with("/v1/ai/markets/") {
+        let Some(views) = &config.capabilities.ai_views else {
+            return response(503, "ai_views_unavailable", None);
+        };
+        let Ok(now_ms) = (config.state_clock)().and_then(|seconds| {
+            seconds
+                .checked_mul(1000)
+                .ok_or_else(|| "AI clock overflow".to_owned())
+        }) else {
+            return response(503, "readiness_clock_unavailable", None);
+        };
+        // A local projection cannot assert its own freshness. Only a verified live
+        // consensus observation can supply the independent authority height.
+        let height = config.committed_state.as_ref().and_then(|authority| {
+            let id = serde_json::json!("gateway-ai-freshness");
+            let status = chain_reads::consensus(config, "status", &id, serde_json::json!({}))?;
+            let height = status.pointer("/sync_info/latest_block_height")?.as_str()?;
+            let commit = chain_reads::consensus(
+                config,
+                "commit",
+                &id,
+                serde_json::json!({"height": height}),
+            )?;
+            authority
+                .verify(&status, &commit, (config.state_clock)().ok()?)
+                .ok()
+                .map(|state| state.height)
+        });
+        return layerx_platform_gateway::ai_views::respond(
+            views,
+            &config.store,
+            &request.method,
+            &request.path,
+            request.headers.get("authorization").map(String::as_str),
+            height,
+            now_ms,
+        )
+        .unwrap_or_else(|| response(404, "not_found", None));
+    }
     if let Some(result) = routes::route(config, request, peer) {
         return result;
     }
@@ -2223,6 +2262,11 @@ fn readiness(config: &Config) -> Vec<BackendAvailability> {
         },
         paxeer_chain_readiness(config),
         consensus_readiness(config),
+        if config.indexer.is_some() {
+            BackendAvailability::probed("indexer", history::status(config) == "available")
+        } else {
+            BackendAvailability::not_configured("indexer")
+        },
     ];
     backends.retain(|backend| {
         backend.configured || matches!(backend.backend, "paxeer_chain" | "consensus")
