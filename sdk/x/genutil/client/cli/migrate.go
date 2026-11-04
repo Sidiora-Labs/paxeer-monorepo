@@ -22,6 +22,8 @@ import (
 const flagGenesisTime = "genesis-time"
 
 var (
+	// Applications register their own targets; upstream SDK version migrations
+	// are not installed by default in this fork.
 	migrationMap   = types.MigrationMap{}
 	migrationMutex sync.RWMutex
 )
