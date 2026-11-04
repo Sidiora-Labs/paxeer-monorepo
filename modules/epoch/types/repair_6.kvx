@@ -1,0 +1,8 @@
+[repair.22.31.6]
+finding = "negative-epoch-duration"
+implementation = "Epoch.Validate requires EpochDuration > 0 before GenesisState or module JSON/stream admission succeeds."
+tests = ["TestGenesisState_DurationValidation", "TestRepair_6_NonPositiveGenesisRejected", "TestRepair_6_PositiveGenesisBoundedCatchup"]
+proof = "Real codecs, genesis validation and export/import, InitGenesis, KV store and keeper.BeginBlock prove non-positive rejection, unchanged admitted state, strict boundaries and one forward period per block for positive durations."
+baseline = "Not run: the explicit ordered gate instructions prohibit testing before implementation and permit verification only through hf-done after hf-build; no pre-change failures are claimed."
+evidence = "The runner hf-done record and final evidence JSON name the verified candidate revision, exact command, exit code and private log; source files remain unchanged between the build and verification."
+wiring_request = "Domain 3 owns modules/epoch/keeper/epoch.go and modules/epoch/keeper/abci.go: enforce validation at direct persistence/block entry if already-corrupt timing must be rejected independently of genesis admission."
