@@ -75,38 +75,67 @@ def prerequisites():
     explorer = next((service for service in manifest.get('services', []) if service.get('id') == 'explorer'), None)
     require(explorer is not None and re.fullmatch(r'[0-9a-f]{40}', explorer.get('bindings', {}).get('source_revision', '')),
             'candidate must bind an explorer service to a known source revision')
-    for name in ('PAXEER_X_EXPLORER_SEALED_TX', 'PAXEER_X_EXPLORER_FINAL_TX'):
-        require(re.fullmatch(r'0x[0-9a-fA-F]{64}', required(name)), f'{name} must name a real transaction')
+    name = 'PAXEER_X_EXPLORER_COMMITTED_TX'
+    require(re.fullmatch(r'0x[0-9a-fA-F]{64}', required(name)), f'{name} must name a real transaction')
     sender = required('WALLET_TRANSFER_TRUTH_SENDER')
     require(re.fullmatch(r'0x[0-9a-fA-F]{40}', sender), 'controlled chain sender must be an address')
     return anvil, node, playwright, base_url, state, sender
 
 
-def check_bound_evidence():
-    rpc_url = endpoint('PAXEER_X_TRANSFER_FINAL_RPC_URL')
-    explorer = endpoint('PAXEER_X_EXPLORER_STATUS_URL')
-    require(int(rpc(rpc_url, 'eth_chainId'), 16) == CHAIN_ID, 'bound evidence RPC is not Paxeer chain 125')
-    for rung, name in (('sealed', 'PAXEER_X_EXPLORER_SEALED_TX'), ('final', 'PAXEER_X_EXPLORER_FINAL_TX')):
-        transaction = required(name)
-        submitted = rpc(rpc_url, 'eth_getTransactionByHash', [transaction])
-        require(isinstance(submitted, dict) and submitted.get('from', '').lower() == required('WALLET_TRANSFER_TRUTH_SENDER').lower() and
-                isinstance(submitted.get('to'), str) and submitted.get('input') == '0x' and int(submitted.get('value', '0x0'), 16) > 0,
-                f'{rung} evidence must be a native transfer by the authenticated controlled wallet')
-        receipt = rpc(rpc_url, 'eth_getTransactionReceipt', [transaction])
-        require(isinstance(receipt, dict) and receipt.get('transactionHash', '').lower() == transaction.lower() and
-                receipt.get('status') == '0x1', f'{rung} evidence has no matching successful receipt')
-        block = rpc(rpc_url, 'eth_getBlockByNumber', [receipt['blockNumber'], False])
-        require(isinstance(block, dict) and block.get('hash') == receipt.get('blockHash') and
-                transaction.lower() in [item.lower() for item in block.get('transactions', []) if isinstance(item, str)],
-                f'{rung} receipt is not canonical')
-        request = urllib.request.Request(f'{explorer}/api/v2/transactions/{transaction}/status', headers={'accept': 'application/json'})
-        with urllib.request.urlopen(request, timeout=10) as response:
-            status = json.load(response)
-        require(status.get('rung') == rung and status.get('block_number') == int(receipt['blockNumber'], 16) and
-                status.get('sealed_batch_number') is not None and re.fullmatch(r'0x[0-9a-f]{64}', status.get('checkpoint_id') or ''),
-                f'{rung} explorer evidence does not bind the canonical receipt')
-        if rung == 'final':
-            require(status.get('finalized_batch_number') is not None, 'finalized checkpoint evidence is absent')
+def hex_quantity(value, label):
+    require(isinstance(value, str) and re.fullmatch(r'0x(?:0|[1-9a-fA-F][0-9a-fA-F]*)', value),
+            f'{label} must be an RPC quantity')
+    return int(value, 16)
+
+
+def check_bound_evidence(rpc_url=None, explorer=None, transaction=None, sender=None):
+    rpc_url = endpoint('PAXEER_X_TRANSFER_FINAL_RPC_URL') if rpc_url is None else rpc_url
+    explorer = endpoint('PAXEER_X_EXPLORER_STATUS_URL') if explorer is None else explorer
+    transaction = required('PAXEER_X_EXPLORER_COMMITTED_TX') if transaction is None else transaction
+    sender = required('WALLET_TRANSFER_TRUTH_SENDER') if sender is None else sender
+    require(isinstance(transaction, str) and re.fullmatch(r'0x[0-9a-fA-F]{64}', transaction),
+            'committed evidence must name a real transaction')
+    require(isinstance(sender, str) and re.fullmatch(r'0x[0-9a-fA-F]{40}', sender),
+            'controlled chain sender must be an address')
+    require(hex_quantity(rpc(rpc_url, 'eth_chainId'), 'chain id') == CHAIN_ID,
+            'bound evidence RPC is not Paxeer chain 125')
+    submitted = rpc(rpc_url, 'eth_getTransactionByHash', [transaction])
+    require(isinstance(submitted, dict) and
+            isinstance(submitted.get('hash'), str) and submitted['hash'].lower() == transaction.lower() and
+            isinstance(submitted.get('from'), str) and submitted['from'].lower() == sender.lower() and
+            isinstance(submitted.get('to'), str) and re.fullmatch(r'0x[0-9a-fA-F]{40}', submitted['to']) and
+            submitted.get('input') == '0x',
+            'committed evidence must be a native transfer by the authenticated controlled wallet')
+    require(hex_quantity(submitted.get('value'), 'transfer value') > 0,
+            'committed evidence must transfer native value')
+    receipt = rpc(rpc_url, 'eth_getTransactionReceipt', [transaction])
+    require(isinstance(receipt, dict) and isinstance(receipt.get('transactionHash'), str) and
+            receipt['transactionHash'].lower() == transaction.lower() and receipt.get('status') == '0x1',
+            'committed evidence has no matching successful receipt')
+    number = hex_quantity(receipt.get('blockNumber'), 'receipt block number')
+    block_hash = receipt.get('blockHash')
+    require(isinstance(block_hash, str) and re.fullmatch(r'0x[0-9a-fA-F]{64}', block_hash),
+            'committed receipt has no block hash')
+    require(submitted.get('blockNumber') == receipt['blockNumber'] and
+            isinstance(submitted.get('blockHash'), str) and submitted['blockHash'].lower() == block_hash.lower(),
+            'committed transaction does not identify the receipt block')
+    block = rpc(rpc_url, 'eth_getBlockByNumber', [receipt['blockNumber'], False])
+    require(isinstance(block, dict) and isinstance(block.get('hash'), str) and
+            block['hash'].lower() == block_hash.lower() and
+            hex_quantity(block.get('number'), 'canonical block number') == number and
+            isinstance(block.get('transactions'), list) and
+            transaction.lower() in [item.lower() for item in block['transactions'] if isinstance(item, str)],
+            'committed receipt is not canonical')
+    request = urllib.request.Request(f'{explorer}/api/v2/transactions/{transaction}/status',
+                                     headers={'accept': 'application/json'})
+    with urllib.request.urlopen(request, timeout=10) as response:
+        status = json.load(response)
+    require(isinstance(status, dict) and status.get('rung') == 'committed' and
+            type(status.get('block_number')) is int and status['block_number'] == number and
+            type(status.get('committed_height')) is int and status['committed_height'] >= number,
+            'committed explorer evidence does not bind the canonical receipt')
+    return {'transaction_hash': transaction.lower(), 'rung': 'committed',
+            'block_number': number, 'block_hash': block_hash.lower()}
 
 
 def main():
