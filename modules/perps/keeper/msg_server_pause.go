@@ -13,6 +13,9 @@ func (s *msgServer) SetPaused(goCtx context.Context, msg *types.MsgSetPaused) (*
 	if msg == nil {
 		return nil, sdkerrors.ErrInvalidRequest.Wrap("missing message")
 	}
+	if err := s.keeper.checkGovernanceAuthority(msg.Authority); err != nil {
+		return nil, err
+	}
 	ctx := sdk.UnwrapSDKContext(goCtx)
 	cacheCtx, write := ctx.CacheContext()
 	before, err := s.keeper.GetParams(ctx)
