@@ -14,14 +14,10 @@ import {
   ethCall,
   ethQuantity,
   LEDGER_PRECOMPILE,
-  ledgerLogFloor,
-  listHolderRecords,
-  type HolderRecords,
-  type WalletCapsHistory,
   type WalletCapsState,
   type WalletCapsSnapshot,
-  type WalletGrantCap,
   type WebPayerGrant,
+  type WebDataPaymentAvailability,
   feeToken,
   type FeeChoiceId,
   type ModuleProvider,
@@ -693,7 +689,6 @@ export function useFeeSelection(
 
 const GRANT_LOOKUP_ABI = parseAbi([
   'function getLayerXDid(address addr) view returns (bytes32 didPublicKey, string did)',
-  'function accountId(bytes32 didPublicKey, bytes32 assetId) view returns (bytes32)',
 ]);
 const PAYER_GRANT_ISSUED = toEventSelector('PayerGrantIssued(bytes32)');
 const ZERO_WORD: Hex = `0x${'0'.repeat(64)}`;
@@ -705,7 +700,6 @@ const NO_FINALISED_CHECKPOINT = {
   state: 'unavailable',
   reason: 'consensus_unavailable',
 } satisfies WalletCapsState;
-const NO_GRANT_EXPIRY = ((1n << 64n) - 1n).toString();
 export const GRANT_LOG_WINDOW = 10_000n;
 export const GRANT_LOG_BATCH = 8;
 // At most 1024 windows (10.24M blocks above the floor, 128 sequential batches); a longer history is reported unavailable, never partial.
@@ -763,26 +757,6 @@ export async function boundDid(provider: ModuleProvider, address: string): Promi
   return did;
 }
 
-async function issuedGrants(
-  provider: ModuleProvider,
-  fromBlock: bigint,
-  toBlock: bigint
-): Promise<(readonly [string, string])[]> {
-  const logs = await provider.request({
-    method: 'eth_getLogs',
-    params: [
-      {
-        address: LEDGER_PRECOMPILE,
-        topics: [PAYER_GRANT_ISSUED],
-        fromBlock: `0x${fromBlock.toString(16)}`,
-        toBlock: `0x${toBlock.toString(16)}`,
-      },
-    ],
-  });
-  if (!Array.isArray(logs)) throw new TypeError('invalid grant logs');
-  return logs.map(decodePayerGrantIssued);
-}
-
 export function decodePayerGrantIssued(log: unknown): readonly [string, string] {
   const hash: unknown = isRecord(log) ? log.transactionHash : undefined;
   if (!isLog(log) || typeof hash !== 'string' || !HASH.test(hash))
@@ -800,51 +774,6 @@ export function decodePayerGrantIssued(log: unknown): readonly [string, string] 
   return [grantId.toLowerCase(), hash.toLowerCase()] as const;
 }
 
-// The ledger precompile indexes PayerGrantIssued by grant id only and has no per-account grant view, so a grant is
-// attributed to the account by its issuing transaction, which the bound address sends or a sponsor sends to it.
-async function issuedBy(provider: ModuleProvider, hash: string, address: string): Promise<boolean> {
-  const tx = await provider.request({ method: 'eth_getTransactionByHash', params: [hash] });
-  if (!isRecord(tx) || typeof tx.from !== 'string' || (tx.to !== null && typeof tx.to !== 'string'))
-    throw new TypeError('invalid grant transaction');
-  return tx.from.toLowerCase() === address || tx.to?.toLowerCase() === address;
-}
-
-const holderRecordsServed = new WeakMap<ModuleProvider, boolean>();
-const RECORD_ID = /^(?:0x)?([0-9a-fA-F]{64})$/u;
-
-// The account's grant records from px_listHolderRecords when the endpoint serves it. The first read per provider is the
-// probe: a -32601 answer marks the method as not served and returns null so the bounded chain scan is used instead.
-async function indexedGrants(
-  provider: ModuleProvider,
-  address: string
-): Promise<HolderRecords | null> {
-  if (holderRecordsServed.get(provider) === false) return null;
-  try {
-    const records = await listHolderRecords(provider, address, 'grant');
-    holderRecordsServed.set(provider, true);
-    return records;
-  } catch (cause) {
-    if (!holderRecordsServed.has(provider) && isRecord(cause) && cause.code === -32601) {
-      holderRecordsServed.set(provider, false);
-      return null;
-    }
-    throw cause;
-  }
-}
-
-function grantRecordId(record: Readonly<Record<string, unknown>>): string {
-  const match = typeof record.record_id === 'string' ? RECORD_ID.exec(record.record_id) : null;
-  if (!match) throw new TypeError('invalid holder record');
-  return `0x${match[1]!.toLowerCase()}`;
-}
-
-async function inBatches<T, R>(items: readonly T[], read: (item: T) => Promise<R>): Promise<R[]> {
-  const out: R[] = [];
-  for (let start = 0; start < items.length; start += GRANT_LOG_BATCH)
-    out.push(...(await Promise.all(items.slice(start, start + GRANT_LOG_BATCH).map(read))));
-  return out;
-}
-
 export interface SurfaceCapsSnapshot extends WalletCapsSnapshot {
   readonly budgetAvailability: 'available' | 'unavailable';
 }
@@ -857,6 +786,18 @@ export type SurfaceCapsState =
       readonly reason: 'Grant discovery has not covered the finalized block.';
       readonly indexedHeight: string | null;
       readonly finalizedHeight: string;
+    }
+  | {
+      readonly state: 'retired';
+      readonly reason: string;
+      readonly payment: WebDataPaymentAvailability;
+      readonly did: string;
+      readonly network_id: number;
+      readonly observation: {
+        readonly rung: 'committed';
+        readonly block_number: string;
+        readonly state_root: string;
+      };
     };
 
 export async function readGrantCaps(
@@ -886,109 +827,20 @@ export async function readGrantCaps(
   };
   const [didPublicKey, did] = await layerXDid(observedProvider, address);
   if (didPublicKey === ZERO_WORD) return REFUSED_CAPS;
-  const account = decodeFunctionResult({
-    abi: GRANT_LOOKUP_ABI,
-    functionName: 'accountId',
-    data: await view(
-      observedProvider,
-      LEDGER_PRECOMPILE,
-      encodeFunctionData({
-        abi: GRANT_LOOKUP_ABI,
-        functionName: 'accountId',
-        args: [didPublicKey, ZERO_WORD],
-      })
-    ),
-  }).toLowerCase();
-  const finalised = BigInt(head.number);
-  const height = finalised.toString();
-  const indexed = await indexedGrants(provider, address);
-  let ids: string[];
-  let history: WalletCapsHistory;
-  if (indexed !== null) {
-    if (indexed.indexedHeight === null || indexed.indexedHeight < finalised)
-      return {
-        state: 'incomplete',
-        reason: 'Grant discovery has not covered the finalized block.',
-        indexedHeight: indexed.indexedHeight?.toString() ?? null,
-        finalizedHeight: height,
-      };
-    ids = [...new Set(indexed.items.map(grantRecordId))];
-    history = {
-      source: 'indexer',
-      indexed_height: indexed.indexedHeight?.toString() ?? null,
-      chain_height: indexed.chainHeight.toString(),
-    };
-  } else {
-    const floor = ledgerLogFloor(Number(chainId));
-    if (floor === undefined)
-      return {
-        state: 'unavailable',
-        reason: 'consensus_unavailable',
-      };
-    const count = finalised < floor ? 0n : (finalised - floor) / GRANT_LOG_WINDOW + 1n;
-    if (count > GRANT_LOG_WINDOW_CEILING)
-      return {
-        state: 'unavailable',
-        reason: 'consensus_unavailable',
-      };
-    const windows: (readonly [bigint, bigint])[] = [];
-    for (let to = finalised; to >= floor; to -= GRANT_LOG_WINDOW)
-      windows.push([to - floor >= GRANT_LOG_WINDOW ? to - GRANT_LOG_WINDOW + 1n : floor, to]);
-    const issued = (
-      await inBatches(windows, ([from, to]) => issuedGrants(provider, from, to))
-    ).flat();
-    const self = address.toLowerCase();
-    const hashes = [...new Set(issued.map(([, hash]) => hash))];
-    const sent = await inBatches(hashes, (hash) => issuedBy(provider, hash, self));
-    const mine = new Set(hashes.filter((_, index) => sent[index]));
-    ids = [...new Set(issued.filter(([, hash]) => mine.has(hash)).map(([id]) => id))];
-    history = { source: 'chain_scan', floor: floor.toString(), head: height };
-  }
-  const owned =
-    ids.length === 0
-      ? []
-      : (await webData(observedProvider).caps(ids)).grants.filter(
-          (grant) => grant.from === account
-        );
-  const expires = earliestLiveExpiry(owned, BigInt(Math.floor(Date.now() / 1000)));
+  const payment = await webData(observedProvider).paymentAvailability();
   return {
-    state: owned.length === 0 ? 'empty' : 'ready',
+    state: 'retired',
+    reason: payment.available
+      ? `Payer grants are retired. Web requests are available and pay ${payment.fee} wei as transaction value.`
+      : 'Payer grants are retired. Web requests are currently paused.',
+    payment,
     did,
-    account_id: account.slice(2),
     network_id: Number(chainId),
-    context: {
-      principal: did,
-      session_id: '',
-      address: address.toLowerCase(),
-      chain_id: Number(chainId),
-      expires_at: expires === null ? NO_GRANT_EXPIRY : expires.toString(),
-    },
     observation: {
       rung: 'committed',
-      block_number: height,
+      block_number: BigInt(head.number).toString(),
       state_root: head.stateRoot.slice(2).toLowerCase(),
     },
-    history,
-    budgetAvailability: 'unavailable',
-    budgets: [],
-    grants: owned.map((grant): WalletGrantCap => ({
-      id: grant.grantId.slice(2),
-      owner: grant.from.slice(2),
-      recipient: grant.recipient.slice(2),
-      asset: grant.asset.slice(2),
-      per_draw_maximum: grant.perDrawMaximum.toString(),
-      allowance: grant.allowance.toString(),
-      drawn_total: grant.drawnTotal.toString(),
-      drawn_this_period: grant.drawnThisPeriod.toString(),
-      recurring: grant.recurring,
-      window_length: grant.windowLength.toString(),
-      window_start: grant.windowStart.toString(),
-      expiration: grant.expiration.toString(),
-      revocation_height: grant.revocationSequence.toString(),
-      revoked_at_height: grant.revokedAt.toString(),
-      revoked: grant.revoked,
-      invoice_settled: grant.invoiceSettled,
-    })),
   };
 }
 
@@ -1015,7 +867,10 @@ export function useWebDataCaps(): {
       if (!provider || !address) {
         setRetained({
           key,
-          value: { state: 'refused', reason: 'Connect an authenticated wallet to read its caps.' },
+          value: {
+            state: 'refused',
+            reason: 'Connect an authenticated wallet to read web payment availability.',
+          },
         });
         return;
       }
