@@ -5,9 +5,16 @@ on:
   push:
     branches: [main]
     paths:
-      - "src/**"
-      - "benches/**"
-      - "Cargo.toml"
+      - "services/platform/perf-db/src/**"
+      - "services/platform/perf-db/benches/**"
+      - "services/platform/perf-db/Cargo.toml"
+      - "services/platform/perf-db/Cargo.lock"
+      - "services/platform/perf-db/.github/workflows/benchmark.yml"
+      - ".github/workflows/perf-db-benchmark.yml"
+
+defaults:
+  run:
+    working-directory: services/platform/perf-db
 
 jobs:
   bench:
@@ -16,4 +23,6 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "services/platform/perf-db -> target"
       - run: cargo bench --no-fail-fast

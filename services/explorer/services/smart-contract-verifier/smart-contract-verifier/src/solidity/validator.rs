@@ -7,23 +7,35 @@ use std::path::Path;
 #[derive(Default, Copy, Clone)]
 pub struct SolcValidator {}
 
-#[async_trait]
-impl<Ver: Version> FileValidator<Ver> for SolcValidator {
-    async fn validate(&self, ver: &Ver, path: &Path) -> Result<(), Error> {
-        let solc = Solc::new(path).context("could not get compiler version")?;
-        let solc_ver = solc.version;
-        // ignore build and pre metadata
+impl SolcValidator {
+    /// Checks a decoded compiler version using the same major/minor/patch identity
+    /// on both sides. Prerelease and build metadata are intentionally ignored.
+    pub fn validate_version<Ver: Version>(
+        &self,
+        ver: &Ver,
+        solc_ver: &semver::Version,
+    ) -> Result<(), Error> {
         let solc_ver = semver::Version::new(solc_ver.major, solc_ver.minor, solc_ver.patch);
+        let expected = ver.to_semver();
+        let expected = semver::Version::new(expected.major, expected.minor, expected.patch);
 
-        if &solc_ver != ver.to_semver() {
+        if solc_ver != expected {
             Err(anyhow::anyhow!(
                 "versions don't match: expected={}, got={}",
-                ver.to_semver(),
+                expected,
                 solc_ver
             ))
         } else {
             Ok(())
         }
+    }
+}
+
+#[async_trait]
+impl<Ver: Version> FileValidator<Ver> for SolcValidator {
+    async fn validate(&self, ver: &Ver, path: &Path) -> Result<(), Error> {
+        let solc = Solc::new(path).context("could not get compiler version")?;
+        self.validate_version(ver, &solc.version)
     }
 }
 

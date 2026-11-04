@@ -20,8 +20,9 @@ pub struct PxResolvedIdentities {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PxPaxeerAccount {
     pub address: [u8; 20],
-    pub balance: u128,
+    pub balance: Uint256,
     pub nonce: u64,
+    pub height: u64,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -31,52 +32,95 @@ pub struct PxAccountJoin {
     pub layerx: Option<Map<String, Value>>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct PxCustodyAsset {
-    pub asset_id: [u8; 32],
-    pub denom: String,
-    pub pointer: [u8; 20],
-    pub enabled: bool,
-    pub paused: bool,
-    pub minimum_deposit: u128,
-    pub custody_cap: u128,
-    pub custodied: u128,
-    pub released: u128,
-    pub pending: u128,
+/// An exact unsigned on-chain quantity. Construction rejects overflow and noncanonical input.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Uint256([u8; 32]);
+
+impl std::fmt::Display for Uint256 {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.pad_integral(true, "", &self.decimal())
+    }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct PxPaxeerAssetBalance {
-    pub denom: String,
-    pub amount: u128,
+impl Uint256 {
+    pub const fn bytes(self) -> [u8; 32] {
+        self.0
+    }
+
+    pub fn decimal(self) -> String {
+        let mut value = self.0;
+        let mut digits = Vec::new();
+        while value != [0; 32] {
+            let mut remainder = 0_u16;
+            for byte in &mut value {
+                let part = remainder * 256 + u16::from(*byte);
+                *byte = (part / 10) as u8;
+                remainder = part % 10;
+            }
+            digits.push((b'0' + remainder as u8) as char);
+        }
+        if digits.is_empty() {
+            return "0".to_owned();
+        }
+        digits.into_iter().rev().collect()
+    }
+
+    pub fn from_decimal(text: &str) -> Option<Self> {
+        if text.is_empty()
+            || text.len() > 78
+            || (text.len() > 1 && text.starts_with('0'))
+            || !text.bytes().all(|b| b.is_ascii_digit())
+        {
+            return None;
+        }
+        let mut out = [0_u8; 32];
+        for digit in text.bytes() {
+            let mut carry = u16::from(digit - b'0');
+            for byte in out.iter_mut().rev() {
+                let part = u16::from(*byte) * 10 + carry;
+                *byte = part as u8;
+                carry = part >> 8;
+            }
+            if carry != 0 {
+                return None;
+            }
+        }
+        Some(Self(out))
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PxAssetBalance {
-    pub asset_id: [u8; 32],
-    pub denom: Option<String>,
-    pub custody: Option<PxCustodyAsset>,
-    pub paxeer: Option<PxPaxeerAssetBalance>,
-    pub layerx: Option<Map<String, Value>>,
+    pub denom: String,
+    pub amount: Uint256,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PxAccountBalances {
     pub account: PxResolvedIdentities,
+    pub height: u64,
     pub balances: Vec<PxAssetBalance>,
-    pub joined_limit: u64,
 }
 
+/// Flat metadata returned by the gateway. Optional metadata remains explicitly absent.
+/// `verification` is the producer's label, not a client-verified proof.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PxAssetEntry {
-    pub asset_id: [u8; 32],
-    pub layerx: Option<Map<String, Value>>,
-    pub paxeer: Option<PxCustodyAsset>,
+    pub asset_id: String,
+    pub kind: String,
+    pub denom: Option<String>,
+    pub name: Option<String>,
+    pub symbol: Option<String>,
+    pub decimals: Option<u8>,
+    pub supply: Option<Uint256>,
+    pub paused: Option<bool>,
+    pub verification: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PxAssetTable {
     pub assets: Vec<PxAssetEntry>,
+    pub height: u64,
     pub joined_limit: u64,
 }
 
@@ -163,27 +207,32 @@ fn asset_id(value: &Value) -> Option<[u8; 32]> {
     fixed(value.as_str()?)
 }
 
-fn quantity(value: &Value) -> Option<u128> {
-    if let Some(number) = value.as_u64() {
-        return Some(u128::from(number));
-    }
+fn quantity(value: &Value) -> Option<Uint256> {
     let text = value.as_str()?;
     if let Some(hex) = text.strip_prefix("0x") {
-        if hex.is_empty() || hex.len() > 32 || !hex.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        if hex.is_empty()
+            || hex.len() > 64
+            || (hex.len() > 1 && hex.starts_with('0'))
+            || !hex.bytes().all(|b| b.is_ascii_hexdigit())
+        {
             return None;
         }
-        u128::from_str_radix(hex, 16).ok()
-    } else if text == "0"
-        || (!text.starts_with('0') && !text.is_empty() && text.bytes().all(|b| b.is_ascii_digit()))
-    {
-        text.parse().ok()
+        let padded = format!("{hex:0>64}");
+        fixed(&padded).map(Uint256)
     } else {
-        None
+        Uint256::from_decimal(text)
     }
 }
 
 fn count(value: &Value) -> Option<u64> {
-    u64::try_from(quantity(value)?).ok()
+    if let Some(number) = value.as_u64() {
+        return Some(number);
+    }
+    let bytes = quantity(value)?.bytes();
+    if bytes[..24] != [0; 24] {
+        return None;
+    }
+    Some(u64::from_be_bytes(bytes[24..].try_into().ok()?))
 }
 
 fn object(value: &Value) -> Option<Map<String, Value>> {
@@ -215,27 +264,13 @@ fn decode_account(value: &Value) -> Option<PxAccountJoin> {
                 address: address(half.get("address")?)?,
                 balance: quantity(half.get("balance")?)?,
                 nonce: count(half.get("nonce")?)?,
+                height: half.get("height")?.as_u64()?,
             })
         })?,
         layerx: match fields.get("layerx") {
             None => None,
             Some(value) => nullable(value, object)?,
         },
-    })
-}
-
-fn custody(value: &Value) -> Option<PxCustodyAsset> {
-    Some(PxCustodyAsset {
-        asset_id: asset_id(value.get("asset_id")?)?,
-        denom: text(value.get("denom")?)?,
-        pointer: address(value.get("pointer")?)?,
-        enabled: value.get("enabled")?.as_bool()?,
-        paused: value.get("paused")?.as_bool()?,
-        minimum_deposit: quantity(value.get("minimum_deposit")?)?,
-        custody_cap: quantity(value.get("custody_cap")?)?,
-        custodied: quantity(value.get("custodied")?)?,
-        released: quantity(value.get("released")?)?,
-        pending: quantity(value.get("pending")?)?,
     })
 }
 
@@ -248,24 +283,22 @@ fn decode_balances(value: &Value) -> Option<PxAccountBalances> {
     let balances = rows(value, "balances")?
         .iter()
         .map(|row| {
+            if row.as_object()?.len() != 2 {
+                return None;
+            }
             Some(PxAssetBalance {
-                asset_id: asset_id(row.get("asset_id")?)?,
-                denom: nullable(row.get("denom")?, text)?,
-                custody: nullable(row.get("custody")?, custody)?,
-                paxeer: nullable(row.get("paxeer")?, |half| {
-                    Some(PxPaxeerAssetBalance {
-                        denom: text(half.get("denom")?)?,
-                        amount: quantity(half.get("amount")?)?,
-                    })
-                })?,
-                layerx: nullable(row.get("layerx")?, object)?,
+                denom: text(row.get("denom")?)?,
+                amount: Uint256::from_decimal(row.get("amount")?.as_str()?)?,
             })
         })
         .collect::<Option<Vec<_>>>()?;
+    if balances.len() > 256 {
+        return None;
+    }
     Some(PxAccountBalances {
         account: identities(value.get("account")?)?,
+        height: value.get("height")?.as_u64()?,
         balances,
-        joined_limit: count(value.get("joined_limit")?)?,
     })
 }
 
@@ -274,16 +307,45 @@ fn decode_assets(value: &Value) -> Option<PxAssetTable> {
         .iter()
         .map(|entry| {
             Some(PxAssetEntry {
-                asset_id: asset_id(entry.get("asset_id")?)?,
-                layerx: nullable(entry.get("layerx")?, object)?,
-                paxeer: nullable(entry.get("paxeer")?, custody)?,
+                asset_id: text(entry.get("asset_id")?)?,
+                kind: text(entry.get("kind")?)?,
+                denom: nullable(entry.get("denom")?, text)?,
+                name: nullable(entry.get("name")?, |v| v.as_str().map(str::to_owned))?,
+                symbol: nullable(entry.get("symbol")?, |v| v.as_str().map(str::to_owned))?,
+                decimals: nullable(entry.get("decimals")?, |v| u8::try_from(v.as_u64()?).ok())?,
+                supply: nullable(entry.get("supply")?, |v| Uint256::from_decimal(v.as_str()?))?,
+                paused: entry.get("paused").map(Value::as_bool).transpose_option()?,
+                verification: entry
+                    .get("verification")
+                    .map(|v| {
+                        (v.as_str()? == "authenticated_committed_snapshot")
+                            .then(|| "authenticated_committed_snapshot".to_owned())
+                    })
+                    .transpose_option()?,
             })
         })
         .collect::<Option<Vec<_>>>()?;
+    let joined_limit = value.get("joined_limit")?.as_u64()?;
+    if joined_limit != 16 || assets.len() > 16 {
+        return None;
+    }
     Some(PxAssetTable {
         assets,
-        joined_limit: count(value.get("joined_limit")?)?,
+        height: value.get("height")?.as_u64()?,
+        joined_limit,
     })
+}
+
+trait TransposeOption<T> {
+    fn transpose_option(self) -> Option<Option<T>>;
+}
+impl<T> TransposeOption<T> for Option<Option<T>> {
+    fn transpose_option(self) -> Option<Option<T>> {
+        match self {
+            None => Some(None),
+            Some(value) => value.map(Some),
+        }
+    }
 }
 
 fn decode_network(value: &Value) -> Option<PxNetworkHead> {

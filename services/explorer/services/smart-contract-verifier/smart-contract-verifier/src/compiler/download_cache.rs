@@ -5,12 +5,14 @@ use tracing::Instrument;
 
 pub struct DownloadCache<T> {
     cache: parking_lot::Mutex<HashMap<T, Arc<tokio::sync::RwLock<Option<PathBuf>>>>>,
+    recovered: parking_lot::Mutex<HashMap<T, PathBuf>>,
 }
 
 impl<T> Default for DownloadCache<T> {
     fn default() -> Self {
         Self {
             cache: parking_lot::Mutex::new(HashMap::new()),
+            recovered: parking_lot::Mutex::new(HashMap::new()),
         }
     }
 }
@@ -65,6 +67,20 @@ impl<Ver: Version> DownloadCache<Ver> {
             Some(file) => Ok(file.clone()),
             None => {
                 tracing::info!(target: "compiler_cache", "installing file version {}", ver);
+                let recovered = self.recovered.lock().remove(ver);
+                if let Some(file) = recovered {
+                    match fetcher.validate_cached(ver, &file).await {
+                        Ok(()) => {
+                            *entry = Some(file.clone());
+                            return Ok(file);
+                        }
+                        Err(error) => tracing::warn!(
+                            "rejecting recovered compiler {}: {}; downloading verified replacement",
+                            ver,
+                            error
+                        ),
+                    }
+                }
                 let file = fetcher.fetch(ver).await?;
                 *entry = Some(file.clone());
                 Ok(file)
@@ -73,6 +89,12 @@ impl<Ver: Version> DownloadCache<Ver> {
     }
 
     pub async fn load_from_dir(&self, dir: &PathBuf) -> std::io::Result<()> {
+        if !std::fs::symlink_metadata(dir)?.is_dir() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::PermissionDenied,
+                "cache root is not a real directory",
+            ));
+        }
         let paths = read_dir_paths(dir)?;
         let versions = filter_versions(paths);
         self.add_versions(versions).await;
@@ -82,19 +104,18 @@ impl<Ver: Version> DownloadCache<Ver> {
     async fn add_versions(&self, versions: HashMap<Ver, PathBuf>) {
         for (version, path) in versions {
             let solc_path = path.join("solc");
-            if solc_path.exists() {
-                tracing::info!("found local compiler version {}", version);
-                let lock = {
-                    let mut cache = self.cache.lock();
-                    Arc::clone(cache.entry(version.clone()).or_default())
-                };
-                *lock.write().await = Some(solc_path);
+            let safe_directory = std::fs::symlink_metadata(&path)
+                .map(|metadata| metadata.is_dir())
+                .unwrap_or(false);
+            let safe_file = std::fs::symlink_metadata(&solc_path)
+                .map(|metadata| metadata.is_file())
+                .unwrap_or(false);
+            if safe_directory && safe_file {
+                // Discovery is not admission. The fetcher authenticates this candidate using its
+                // trusted version/checksum metadata on first use, under the per-version lock.
+                self.recovered.lock().insert(version, solc_path);
             } else {
-                tracing::warn!(
-                    "found verions {} but file {:?} doesn't exists",
-                    version,
-                    solc_path
-                );
+                tracing::warn!("rejecting unsafe or missing cached compiler {}", version);
             }
         }
     }
@@ -126,7 +147,7 @@ mod tests {
     use async_trait::async_trait;
     use futures::{executor::block_on, join, pin_mut};
     use pretty_assertions::assert_eq;
-    use std::{collections::HashSet, env::temp_dir, str::FromStr, time::Duration};
+    use std::{collections::HashSet, str::FromStr, time::Duration};
     use tokio::{spawn, task::yield_now, time::timeout};
 
     fn new_version(major: u64) -> evm_version::DetailedVersion {
@@ -278,12 +299,13 @@ mod tests {
     #[tokio::test]
     async fn load_downloaded_compiler() {
         let ver = evm_version::DetailedVersion::from_str("0.7.0+commit.9e61f92b").unwrap();
-        let dir = temp_dir();
+        let directory = tempfile::tempdir().unwrap();
+        let dir = directory.path().to_path_buf();
 
         let url = DEFAULT_SOLIDITY_COMPILER_LIST
             .try_into()
             .expect("Getting url");
-        let fetcher = ListFetcher::new(url, temp_dir(), None, None)
+        let fetcher = ListFetcher::new(url, dir.clone(), None, None)
             .await
             .expect("Fetch releases");
         fetcher.fetch(&ver).await.expect("download should complete");
@@ -295,9 +317,9 @@ mod tests {
             .expect("cannot load compilers");
 
         let path = cache
-            .try_get(&ver)
+            .get(&fetcher, &ver)
             .await
-            .expect("version should appear in cache");
+            .expect("version must be authenticated before appearing in cache");
         assert!(path.exists(), "solc compiler file should exists");
     }
 }

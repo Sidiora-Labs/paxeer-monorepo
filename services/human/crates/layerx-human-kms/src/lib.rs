@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 pub mod attestor;
+pub use attestor::call;
 mod config;
 mod evm;
 mod evm_types;

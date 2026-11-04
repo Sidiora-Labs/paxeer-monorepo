@@ -1,0 +1,44 @@
+[task."22.33.498"]
+audit_record = "spec/layerx-merge/programme/audit/records/22.30.151.kvx"
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+baseline = "Initial git status/diff contained only runner changes to .cgignore and spec task status; gate.json had zero build and verify runs and gates.jsonl was absent. The repair module did not exist. No pre-change verify ran: the explicit implementation-first and hf-done-only order supersedes the conflicting audit step asking for a baseline run; no baseline failures are claimed."
+precedence = "Existing deployment/preset environment values, including explicitly empty values, win over packaged defaults. collect_envs.sh keeps its existing raw NAME=value snapshot used by Next.js; make_envs_script.sh reads public default assignments literally and exports only unset keys. Preset selection remains the existing entrypoint policy."
+source_proofs = "Pytest parses all four touched shell scripts with bash -n, checks explicit copy/download/generated-write failure guards and failure aggregation, checks generation refusal before application exec, and checks the complete public-only Object.fromEntries/JSON.stringify object transport plus same-directory temporary-file/write/rename/cleanup and nonzero error contract."
+behavior_proofs = "Real download_assets.sh copies a local committed-in-test fixture, reports both a missing required copy and a blocked generated write while processing later assets, prepares inline JSON successfully, and rejects an invalid directory. The actual collect_envs.sh produces .env consumed by the unmodified extracted production load_defaults function; an injected endpoint and empty value survive conflicting defaults while an unset default is filled. Quotes, backslashes, CRLF, multiline text, equals, Unicode and shell metacharacters survive default loading byte-for-byte. The actual entrypoint guard calls the actual generator on a missing output directory and refuses application exec with the path in stderr."
+review_only = "Node/browser execution and atomic rename visibility are source/API review proofs only, not executed gate claims. Node JSON.stringify preserves complete string values and escapes quotes, backslashes and control characters; no per-value rewriting remains. Atomic replacement uses an exclusive temporary file in a unique directory beside the destination, then renameSync, leaving existing output intact on pre-rename failure. The existing production image supplies Node 22 and copies these scripts. No container build, browser, Node subprocess, network download or live deployment is claimed. The existing raw build snapshot is line-based; arbitrary multiline runtime values are supplied through the deployment environment, not reconstructed from that snapshot."
+wiring_requests = []
+build_cmd = "bash -n apps/explorer/deploy/scripts/download_assets.sh apps/explorer/deploy/scripts/entrypoint.sh apps/explorer/deploy/scripts/make_envs_script.sh"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_498.py"
+verified_revision = "The final hf-done JSON receipt and private /out/run/gates.jsonl ledger name the exact verified candidate revision, command, exit code and private evidence log; this record is finalized before gates to keep build and verify on the same revision. The runner publishes the candidate."
+
+[finding.asset-copy-failure-hidden]
+path = "apps/explorer/deploy/scripts/download_assets.sh"
+repair = "Guard directory creation, each copy, download, content preparation and generated write; collect every failed configured asset and return nonzero with the full list. Unset optional assets remain skipped."
+tests = ["test_asset_copy_and_write_failures_are_guarded_and_collected", "test_asset_failures_report_all_required_assets_and_keep_processing", "test_asset_success_and_directory_creation_failure"]
+
+[finding.entrypoint-env-failure]
+path = "apps/explorer/deploy/scripts/entrypoint.sh"
+repair = "Pass the declared output path to the generator and exit with that path in stderr before later startup work or application exec if generation fails."
+tests = ["test_entrypoint_env_failure_reports_path_before_application_exec"]
+
+[finding.runtime-env-precedence]
+path = "apps/explorer/deploy/scripts/make_envs_script.sh"
+repair = "Load only unset public keys from the real collect_envs snapshot without sourcing executable values; document deployment/preset-over-default precedence in both producer and consumer."
+tests = ["test_runtime_precedence_uses_real_collected_defaults", "test_runtime_quotes_backslashes_and_multiline_survive_default_loading"]
+
+[finding.runtime-env-js-encoding]
+path = "apps/explorer/deploy/scripts/make_envs_script.sh"
+repair = "Encode the complete filtered process environment object with JSON.stringify, write an exclusive same-directory temporary file, and rename it into place only after a successful write; errors return nonzero and temporary state is removed."
+tests = ["test_runtime_env_js_encoding_and_atomic_publish_source_contract", "test_runtime_quotes_backslashes_and_multiline_survive_default_loading"]
+
+[gotcha.1]
+observed = "The audit step requests a pre-change verify but the explicit bounded gate order forbids verification before implementation and forbids invoking pytest by hand."
+resolution = "Follow the explicit bounded gate order and disclose that no baseline tests ran; record gotchas here because GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.2]
+observed = "collect_envs.sh produces the same .env used by the Next.js build and shipped for runtime defaults."
+resolution = "Retain that raw snapshot format and read default values literally; Bash-escaped assignments would change the Next.js dotenv interface."
+
+[gotcha.3]
+observed = "Broad combined reads of repository ledgers and the full audit record exceeded tool output limits."
+resolution = "Use focused finding/task/source sections for implementation; no missing output is treated as evidence."

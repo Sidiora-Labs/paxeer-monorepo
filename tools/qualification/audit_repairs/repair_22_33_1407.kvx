@@ -1,0 +1,25 @@
+[repair]
+task = "22.33.1407"
+audit = "22.30.79"
+requirement = "22998.1"
+input_revision = "b664b08b724ec5b190920b99ba70b283c8a796c9"
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1407.py"
+baseline = "No pre-change verification was run: Order 1 requires complete implementation before testing and Order 4 allows verification only through hf-done after hf-build. The initial runner ledger had no prior runs. No baseline test failures are claimed. Source review found the receipt test absent from npm test, its loopback listener still requiring /rpc, and the local profile targeting the inspection-only emulator on port 9402."
+source_proof = "The Python gate parses both JSON manifests, checks root URLs and chain 125, compares the local RPC port to the node default and inspection emulator routes, checks all existing package test commands plus receipt registration, and follows source wiring from index through raw transaction lookup, receipt resolution, signature verification and outcome fields. It checks both committed Go producer transcripts, their status/resultCode, transaction hash field, pinned key fields and height range, and recomputes canonical signing digests from their signed bytes in-process."
+review_only = "JavaScript tests, HTTP exchanges, transaction Keccak hashing and Ed25519 verification are not executed by this Python-only gate. Source checks preserve the real producer-transcript loopback tests, success and reverted outcomes, wrong key ID and wrong public key refusals, exact requests and cleanup; runtime behavior and live node availability remain review-only here. No shell, unit or build file is repaired, so no shell parser or external toolchain is needed. These findings carry no restart/recovery change."
+verified_revision = "The final passing hf-done row in /out/run/gates.jsonl names the verified revision; hf-build and hf-done must record the same candidate revision, which the runner publishes unchanged."
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "Private build and verify logs are named by the gate ledger with exact revision, command, exit and log. The final response copies the last hf-done evidence line."
+
+[finding.021]
+path = "services/platform/examples/marketplace/layerx.example.json"
+tests = ["test_config_targets_root_chain_rpc", "test_local_profile_matches_merged_node_instead_of_inspection_emulator"]
+repair = "Retain beta's already-correct root RPC URL and chain 125. The historical emulator profile name is retained for CLI compatibility, but its endpoint and rpcUrl now target the local merged node root on port 8545, matching rpc/config/config.go; port 9402 serves inspection/control routes and refuses root JSON-RPC."
+wiring_request = "tools/platform/emulator/src/main.rs — owning domain 8 (platform tooling): provide chain-125 root JSON-RPC execution and receipt methods before using port 9402 for marketplace calls; until then run a local merged node on 8545 and bind the CLI emulator profile to that endpoint and chain 125."
+
+[finding.024]
+path = "services/platform/examples/marketplace/package.json"
+tests = ["test_package_runs_receipt_regressions_after_existing_checks", "test_receipt_regressions_replay_producer_shape_over_root_transport", "test_recorded_receipts_bind_outcome_to_canonical_producer_bytes", "test_receipt_tests_keep_success_failure_and_unpinned_key_assertions", "test_production_receipt_path_authenticates_before_reporting_outcome"]
+repair = "Append node test/receipt-outcome.test.mjs after the unchanged syntax and deployment checks. Require the loopback root path and strengthen producer-shape assertions for success/revert status, transaction hash, key ID and signing key; preserve canonical signing digest, exact completed/refused fields and unpinned-key refusal assertions. The base already replays complete receiptJson producer objects with pinnedKey height fields; none are replaced by hand-built receipts."
+wiring_requests = []

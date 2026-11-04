@@ -24,7 +24,7 @@ case "$#" in
         ;;
 esac
 
-banned='^(bindgen|sqlx-sqlite|layerx-core|layerx-protocol-core|ctor|inventory)$'
+banned='^(bindgen|sqlx-sqlite|layerx-core|layerx-protocol-core|layerx-paxeer-client|ctor|inventory)$'
 banned_packages=$(jq -r --arg banned "$banned" \
     '[.packages[].name | select(test($banned))] | join("\n")' "$metadata_file")
 if [ -n "$banned_packages" ]; then
@@ -58,58 +58,105 @@ if [ -n "$forbidden_ramp_dependencies" ]; then
     exit 1
 fi
 
-allowlisted_license_token() {
-    case "$1" in
-        Apache-2.0|BSD-1-Clause|BSD-2-Clause|BSD-3-Clause|CC0-1.0|ISC|MIT|Unicode-3.0|Zlib|LLVM-exception)
-            return 0
-            ;;
-        *)
-            return 1
-            ;;
-    esac
-}
-
 jq -r '.packages[] | select(.source != null) | [.name, (.license // "")] | @tsv' \
     "$metadata_file" >"$license_file"
-while IFS="$(printf '\t')" read -r package license; do
-    if [ -z "$license" ]; then
-        echo "platform dependency policy: $package has no SPDX license" >&2
-        exit 1
-    fi
-    case "$license" in
-        *" AND "*)
-            tokens=$(printf '%s\n' "$license" | sed 's/[()]/ /g; s|/| |g; s/ AND / /g; s/ OR / /g; s/ WITH / /g')
-            for token in $tokens; do
-                if ! allowlisted_license_token "$token"; then
-                    echo "platform dependency policy: $package uses non-allowlisted license $license" >&2
-                    exit 1
-                fi
-            done
-            ;;
-        *)
-            alternatives=$(printf '%s\n' "$license" | sed 's/[()]//g; s|/|\n|g; s/ OR /\n/g')
-            satisfied=0
-            while IFS= read -r alternative; do
-                [ -n "$alternative" ] || continue
-                alternative_ok=1
-                for token in $(printf '%s\n' "$alternative" | sed 's/ WITH / /g'); do
-                    if ! allowlisted_license_token "$token"; then
-                        alternative_ok=0
-                    fi
-                done
-                if [ "$alternative_ok" -eq 1 ]; then
-                    satisfied=1
-                fi
-            done <<LICENSE_ALTERNATIVES
-$alternatives
-LICENSE_ALTERNATIVES
-            if [ "$satisfied" -ne 1 ]; then
-                echo "platform dependency policy: $package uses non-allowlisted license $license" >&2
-                exit 1
-            fi
-            ;;
-    esac
-done <"$license_file"
+python3 - "$license_file" <<'SPDX_POLICY'
+import csv
+import re
+import sys
+
+
+ALLOWED_LICENSES = frozenset({
+    "Apache-2.0", "BSD-1-Clause", "BSD-2-Clause", "BSD-3-Clause", "CC0-1.0",
+    "ISC", "MIT", "Unicode-3.0", "Zlib",
+})
+ALLOWED_EXCEPTIONS = frozenset({"LLVM-exception"})
+
+
+class LicenseExpression:
+    def __init__(self, expression):
+        self.tokens = re.findall(r"[A-Za-z0-9][A-Za-z0-9.+-]*|[()/]|\S", expression)
+        self.position = 0
+
+    def peek(self):
+        if self.position < len(self.tokens):
+            return self.tokens[self.position]
+        return None
+
+    def identifier(self):
+        token = self.peek()
+        if token in (None, "AND", "OR", "WITH") or not re.fullmatch(
+            r"[A-Za-z0-9][A-Za-z0-9.+-]*", token
+        ):
+            raise ValueError("expected SPDX identifier")
+        self.position += 1
+        return token
+
+    def primary(self):
+        if self.peek() == "(":
+            self.position += 1
+            value = self.disjunction()
+            if self.peek() != ")":
+                raise ValueError("unclosed SPDX group")
+            self.position += 1
+            return value
+        license_id = self.identifier()
+        value = license_id in ALLOWED_LICENSES
+        if self.peek() == "WITH":
+            self.position += 1
+            exception_id = self.identifier()
+            value = value and exception_id in ALLOWED_EXCEPTIONS
+        return value
+
+    def conjunction(self):
+        value = self.primary()
+        while self.peek() == "AND":
+            self.position += 1
+            right = self.primary()
+            value = value and right
+        return value
+
+    def disjunction(self):
+        value = self.conjunction()
+        # Cargo also accepts the legacy slash spelling of license alternatives.
+        while self.peek() in ("OR", "/"):
+            self.position += 1
+            right = self.conjunction()
+            value = value or right
+        return value
+
+    def allowed(self):
+        value = self.disjunction()
+        if self.peek() is not None:
+            raise ValueError("unexpected SPDX token")
+        return value
+
+
+def check_licenses(path):
+    with open(path, encoding="utf-8", newline="") as source:
+        for package, expression in csv.reader(source, delimiter="\t", quoting=csv.QUOTE_NONE):
+            if not expression.strip():
+                print(
+                    f"platform dependency policy: {package} has no SPDX license",
+                    file=sys.stderr,
+                )
+                return 1
+            try:
+                allowed = LicenseExpression(expression).allowed()
+            except (ValueError, RecursionError):
+                allowed = False
+            if not allowed:
+                print(
+                    f"platform dependency policy: {package} uses non-allowlisted license {expression}",
+                    file=sys.stderr,
+                )
+                return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(check_licenses(sys.argv[1]))
+SPDX_POLICY
 
 if command -v rg >/dev/null 2>&1; then
     unsafe_hits=$(rg -n --glob '*.rs' '\bunsafe\s+(fn|trait|impl|extern)|\bunsafe\s*\{' "$repo_root/tools/platform/cli" "$repo_root/sdk/platform" "$repo_root/tools/platform/release" "$repo_root/services/platform/tools" || true)

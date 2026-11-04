@@ -47,12 +47,12 @@ revision `271ee38980699115508eb90a0dd01deeb750a94b`.
 packages and Python dependencies are not fully pinned, and a successful image
 build alone establishes no proof result.
 
-The historical entry point is `check_proofs.sh`, invoked by the
-`tendermint-proof` Compose service. **Its exit code is insufficient evidence of
-success:** each checker is piped through `tee` and `tail` without preserving all
-pipeline exit statuses, and the script tests only whether the last stdout line
-is `OK`. A checker error or logging failure can be hidden by that pipeline.
-This documentation does not repair the harness.
+The entry point is `check_proofs.sh`, invoked by the `tendermint-proof` Compose
+service. It preserves each checker and `tee` exit status, captures stdout and
+stderr in a unique private directory under `output`, and requires a successful
+log read with a final line of `OK`. All three proofs run; any checker, logging
+or result failure makes the script exit nonzero. Output-directory creation
+failure stops the run before any checker starts.
 
 For a research rerun in a provisioned environment, execute each checker directly,
 capture stderr as well as stdout, and require both a successful exit and its

@@ -1,0 +1,58 @@
+[repair]
+task = "22.33.1488"
+audit = "22.30.88"
+base = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+mode = "BUILD"
+baseline = "No pre-change verification was run: the explicit gate order permits verification only through hf-done after the completed implementation and hf-build. The initial tree had no repair test or gate ledger. No baseline failures are claimed. Existing .cgignore and spec task-start changes were left untouched."
+evidence = "hf-build and hf-done bind this record and its source tree to an exact deterministic candidate revision, command, exit and private /out/logs evidence; the final response copies the final gate JSON. Embedding that candidate's own hash in its tree would be self-referential. The runner owns publication."
+scope = "Only the eight listed findings are repaired. The audit's malformed storage environment-journey.sh task path resolves to sandbox-journey.sh in finding.journey-retired-verifier. Journey order-request and inventory-confirmation-vocabulary findings belong to part 2 and remain separate."
+
+[finding.runbook-signer]
+test = "test_runbook_signer_matches_production_kms_consumer_and_rotation"
+change = "Runbook binds a non-exporting secp256k1 handle to a base64 EIP-1559 prehash, compact signature64 plus recovery_id 0/1, independently authenticated operator address and height-bounded receipt-key rotation; source proof checks the actual strict response decoder and sender recovery."
+
+[finding.runbook-work-sequence]
+test = "test_runbook_work_sequence_examples_match_strict_handler_and_customer_authority"
+change = "Worker examples use null or omitted on-ramp account_sequence, node pending nonce selection and transaction-hash resolution. The maintained customer-owned budgetSpend contract replaces legacy grant instructions. Off-ramp HTTP activation stays closed pending the authenticated customer-signed-byte integration."
+
+[finding.runbook-finality]
+test = "test_runbook_finality_matches_transaction_recovery_and_bft_refusals"
+change = "Runbook preserves transaction hash and exact signed bytes, treats committed inclusion as BFT finality and refuses contradictory transaction/block/height or regressing rungs; independent external-custody disclosure remains mandatory. This is documentation source proof, not a new restart-recovery implementation."
+
+[finding.readme-missing-purpose]
+test = "test_readme_missing_purpose_examples_and_conflict_bind_real_order_schema"
+change = "Published canonical customer_budget_id and customer_budget_purpose, real JSON request examples, authenticated identity binding, missing/zero/duplicate/unknown field refusals and exact order_id replay/conflict behavior; tests compare the production CreateOrder, digest and HTTP producer."
+
+[finding.readme-payment-path]
+test = "test_readme_payment_path_matches_native_compiler_transport_and_receipt_verifier"
+change = "Guide matches chain 125 native payExact/budgetSpend transactions, transaction-hash reconciliation, pinned receipt keys and actual secp256k1 KMS response. It explicitly gates off-ramp enablement on customer-signed submission wiring. Existing prerequisite repairs are retained."
+
+[finding.example-retired-endpoint]
+test = "test_example_retired_endpoint_aligns_pinned_merged_tls_relay_and_secret_mount"
+change = "Kubernetes config selects the merged root RPC through the maintained gateway TLS relay, with explicit 9443 private boundary endpoints and the DER certificate pin projected through the existing private Secret mount. Railway compatibility variable and DER pin materialization are explained separately."
+
+[finding.deployment-egress-disagreement]
+test = "test_deployment_egress_disagreement_private_services_select_actual_ports_in_both_directions"
+additional_test = "test_merged_relay_producer_route_and_native_service_are_documented_without_public_provider_egress"
+change = "The layerx-testnet profile defines four owner boundary Services and pairs namespace/app selectors on all egress peers and upstream ingress. Service 443 forwards to gateway pod 9443; other configured Services and their target pods use 9443. Tests resolve the actual YAML Service/container ports, match both policy directions, and deny other namespace/app/port tuples. No ipBlock or public provider route is allowed. Owner deployment and gateway upstream wiring remain explicit activation prerequisites."
+
+[finding.journey-retired-verifier]
+test = "test_journey_retired_verifier_current_config_and_cli_producer_consumer_contract"
+additional_test = "test_journey_cli_result_checks_exact_identity_height_and_committed_rung"
+change = "Both journey branches invoke the current protected ramp-verify-receipt CLI with --transaction-hash and exclusive per-transaction output files. The full branch drops authority lookup/SDK fallback and retired config pins, checks strict chain-125 receipt pins and binds transaction hash, order, receipt digest, positive height, pin range, source identity, custody and committed rung. The CLI consumer preserves its complete-leg equality check and independently requires receipt-level execution plus authenticated committed inclusion before projecting the checked leg to committed."
+
+[proof]
+source = "The sole pytest module parses production JSON, YAML, TOML manifests, JSON documentation examples, shell CLI argv with shlex and embedded journey Python with ast. It compares real KMS/client, order/compiler/worker, node/CLI/journey and Service/NetworkPolicy contracts without fake peers, skipped tests, live services, environment inputs or native subprocess builds. The declared hf-build runs bash -n once; pytest does not repeat it. No unit or build file in the findings is omitted."
+review_only = "Actual native node-to-CLI-to-journey execution, live Kubernetes connectivity and Service selectors against owner pods, TLS certificate/DER provenance, KMS address ceremony, receipt-key rotation and production journal restart remain owner qualification. Source assertions do not prove signatures, running peer reachability or process recovery. None of these eight findings changes restart storage; prerequisite 22.31.211 owns journal restart proofs."
+consumer_boundary = "Review found the CLI compared a newly verified receipted leg with a committed resolver leg, which necessarily differed in rung. The repair retains full equality, requires the expected two rungs, then applies only the commitment already independently authenticated by resolve_with_evidence. No receipt, transaction, order, hash, height or commitment check is removed."
+
+[wiring]
+gateway = "Domain 8: services/platform/hosted/gateway/deployment.yaml must configure LAYERX_GATEWAY_PAXEER_RPC_URLS to real merged node roots including http://layerx-native-chain.layerx-testnet.svc:8545 instead of the shipped paxeer-boundary coordinate, retaining its configured multi-node admission policy; qualify gateway-to-node egress before activating this private template."
+owner_boundaries = "Domain 8: tools/bringup owner deployment inputs must provision compliance-boundary, provider-egress, kms-boundary and paxeer-custody pods in layerx-testnet with matching app labels and TLS 9443 listeners, supported service contracts, protected credentials and externally qualified provider egress."
+certificates = "Domain 8: tools/bringup/ca.sh and Secret materialization must cover layerx-gateway.layerx-testnet.svc.cluster.local in the relay TLS certificate and project its independently verified DER root as paxeer-rpc-ca.der in layerx-reference-ramp-layerx."
+railway = "Domain 8: docker/ramps/files.tsv and Railway owner variables must continue materializing RAMP_RPC_TRUST_ANCHOR_DER to paxeer-rpc-ca.der and provide their own private merged RPC TLS root; Kubernetes service DNS is not a Railway endpoint."
+native_evidence = "Domain 2 with domain 8: tools/qualification/paxeer-x must supply real node receipt fixtures and execute the built ramp-verify-receipt plus sandbox-journey.sh boundary against committed chain-125 payment transactions; the Python-only source gate cannot execute a native artifact and makes no such runtime claim."
+
+[followup]
+journey_part_2 = "Audit journey-order-request and journey-confirmation-vocabulary remain in sandbox-journey.sh outside this task's eight finding IDs; the full two-leg journey cannot qualify on the current reference HTTP off-ramp surface until the maintained customer submission integration and part-2 repairs land. No obsolete authority fallback is retained to conceal that prerequisite."
+gotcha = "The explicit gate order forbids the task text's baseline verification request; record unknown baseline failures rather than running an undeclared gate. bash syntax validation is the one declared build, while embedded Python and guarded CLI contracts are parsed by the declared verify."

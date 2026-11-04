@@ -1,0 +1,36 @@
+[repair]
+task = "22.33.22"
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_22.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "hf-build and hf-done record the exact same candidate revision, command, exit code and private log in /out/run/gates.jsonl; the final response copies the last hf-done evidence line. The record does not invent a successful revision before the gates execute."
+implementation = "Replace the incomplete explicit chain with recursive source-based test discovery, a complete manifest classification of Anvil/private suites, separately documented probe commands and a CI command that includes every non-private suite. Validate source entries and compiled artifacts before execution; run each suite in its own real Node process, continue through failures, and propagate any launch error, signal or nonzero exit. No existing test or assertion is changed."
+source_proof = "Pytest parses package.json and tsconfig.json, inventories all maintained test sources, checks all previous entries remain runnable, asserts previously omitted interface/proof/recovery suites enter the default command, and checks recursive discovery, source-to-compiled mapping, subprocess invocation, failure propagation, guarded probe inputs, documentation and finding-to-test mapping against the actual files."
+review_only = "The JavaScript runner, TypeScript compiler, TypeScript assertions, live node, Anvil, cross-language programs, private case harness and CI workflow jobs are not executed by this Python-only source qualification. Existing recovery suites are inventoried and their registered production-path tests checked, not run here. CI execution requires the separately owned wiring below; this task does not claim a green npm test, a live restart proof or deployed CI coverage."
+
+[baseline]
+verification_run = false
+reason = "The explicit task order requires complete implementation before formatting/build/testing and forbids invoking verify_cmd by hand before hf-done. This overrides the embedded request for an unchanged-tree verify; no baseline failure is claimed."
+observed_failing_tests = []
+initial_state = "Only runner-prepared .cgignore and spec task-start changes existed; both repair deliverables were absent. gate.json reported zero build and verify runs, and /out/run/gates.jsonl was absent. Preserve runner changes without editing them."
+previous_test_inventory = ["launchpad-approval.test.ts", "integration.test.ts", "retired-kernel-receipts.test.ts", "receipt-fixture.test.ts", "agent-http.test.ts", "program-lifecycle.test.ts", "native-capabilities.test.ts", "program-executed-v3.test.ts", "rpc.test.ts", "account-bound-call.test.ts", "intent.test.ts", "px.test.ts", "ai-market.test.ts", "account-derivation.test.ts", "trading-payload.test.ts", "binding-preflight.test.ts", "precompile-calls.test.ts", "gas-station.test.ts", "web-search.test.ts", "xweb-api.test.ts", "native-abi5.test.ts", "revert.test.ts", "abi-tuple-width.test.ts", "agent-envelope-bootstrap-credential.test.ts", "names.test.ts", "chains.test.ts"]
+source_observation = "The baseline npm test chain lists 26 compiled test files and omits the finding's maintained offline suites. rpc-node is a loopback suite, not a live-node probe. gas-station and exchange-v2 require Anvil; account-derivation, ai-market and px contain existing Python subprocess checks. No unrelated failures were investigated or altered."
+
+[finding.test-discovery]
+audit = "22.30.101"
+file = "services/agent/sdk/typescript/package.json"
+class = "test-gap"
+severity = "medium"
+repair = "Default source discovery includes all offline maintained suites and new .test.ts files, while manifest entries account for both Anvil suites and the private envelope probe. Named commands preserve existing programs proof and optional native-effect case consumers with required-input guards. test:ci executes every discovered non-private file and returns failure for any failed suite."
+tests = ["test_test_discovery_manifest_covers_maintained_and_previous_suites", "test_test_discovery_recurses_sources_and_requires_compiled_consumers", "test_test_discovery_executes_each_file_and_propagates_all_failures", "test_test_discovery_keeps_real_interface_and_recovery_suites_in_default", "test_test_discovery_documents_and_guards_external_probe_commands", "test_test_discovery_record_maps_finding_and_states_evidence_limits"]
+
+[wiring]
+requests = ["Domain 9 / CI: .github/workflows/xweb-test.yml and scripts/ci/xweb-workflow-check.sh must replace the single SDK web-search invocation and its exact command guard with npm run test:ci after locked dependency installation, provision Node >=24.11, Python 3 with cryptography and Anvil, and fail the job on any suite failure.", "Domain 3 / application proof owner: precompiles/layerxprograms/proof_layerxprograms_0x101d_test.go must retain and supply its real complete programs proof JSON to npm run test:external-node -- /absolute/path/programs-proof.json, failing the producer lane on refusal.", "Domain 9 / hosted qualification owner: services/agent/qualification must provision the real private agent envelope case and native-effect producer request for test:case-file and test:native-effect-case, migrate the envelope probe's retired daemon cases, and fail its harness lane on probe failures."]
+
+[format]
+policy = "No formatter is configured for these package JavaScript, Python or KVX paths. After implementation, apply the existing .editorconfig UTF-8, LF, final newline and trailing whitespace conventions to touched files; JSON uses two-space indentation."
+
+[gotcha]
+observed = "The generic cg brief/next points to unrelated task 22.9.10; the assigned task and bounded gate config remain authoritative. The initial wrapper lookup under /usr/local/bin was absent; command -v located /out/run/bin. Broad context reads exceeded output limits, so targeted source facts were read separately. The embedded baseline-verification request conflicts with the explicit gate order."
+handling = "No changes outside scope: record these observations here instead of editing GOTCHA.kvx or spec qualification files; no baseline test run, additional gate, commit or push is performed."

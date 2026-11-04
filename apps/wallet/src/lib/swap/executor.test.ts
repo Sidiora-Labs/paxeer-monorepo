@@ -273,6 +273,9 @@ async function sidioraMarkets() {
   }
   await (await nft.grantRole(ethers.id('MINTER_ROLE'), await factory.getAddress())).wait();
   await (await factory.grantRole(ethers.id('ROUTER_ROLE'), CONTRACTS.Router)).wait();
+  await (
+    await treasury.grantRole(ethers.id('DEPOSITOR_ROLE'), await accumulator.getAddress())
+  ).wait();
   await (await output.deposit({ value: ethers.parseEther('1') })).wait();
   await (await output.approve(CONTRACTS.Router, ethers.MaxUint256)).wait();
   const markets = [];
@@ -363,43 +366,70 @@ async function sidiora_multihop_min_out_uses_confirmed_quote() {
     amountIn: amountIn.toString(),
     amountOut: confirmed.amountOut.toString(),
   };
-  await (await router.buy(second.pool, ethers.parseUnits('1', 6), 0, ethers.MaxUint256)).wait();
+  const swapParams = {
+    ...params,
+    tokenIn: first.token,
+    tokenOut: second.token,
+    amountIn: amountIn.toString(),
+    slippageBps,
+  };
+  const tokenAbi = artifact('core/SidioraERC20.sol/SidioraERC20.json').abi;
+  const inputToken = new ethers.Contract(first.token.address, tokenAbi, signer);
+  const outputToken = new ethers.Contract(second.token.address, tokenAbi, signer);
+  const beforeIn: bigint = await inputToken.balanceOf(params.recipient);
+  const beforeOut: bigint = await outputToken.balanceOf(params.recipient);
+  const result = await executeSwap(signer, confirmedQuote, swapParams);
+  expect(result.receipt.status).toBe(1);
+  expect(await inputToken.balanceOf(params.recipient)).toBe(beforeIn - amountIn);
+  expect(await outputToken.balanceOf(params.recipient)).toBe(beforeOut + confirmed.amountOut);
+  const transaction = await signer.provider.getTransaction(result.hash);
+  const call = new ethers.Interface(SIDIORA_ROUTER_ABI).parseTransaction({
+    data: transaction!.data,
+  });
+  const expectedMinOut = (confirmed.amountOut * BigInt(10000 - slippageBps)) / 10000n;
+  expect(call?.name).toBe('swapTokenForToken');
+  expect(call?.args[0]).toBe(first.token.address);
+  expect(call?.args[1]).toBe(second.token.address);
+  expect(call?.args[2]).toBe(amountIn);
+  expect(call?.args[3]).toBe(expectedMinOut);
+
+  const next = await quoteMultihop(
+    first.token.address,
+    second.token.address,
+    amountIn,
+    signer.provider
+  );
+  const nextQuote = { ...confirmedQuote, amountOut: next.amountOut.toString() };
+  await (await router.buy(second.pool, ethers.parseUnits('10000', 6), 0, ethers.MaxUint256)).wait();
   const moved = await quoteMultihop(
     first.token.address,
     second.token.address,
     amountIn,
     signer.provider
   );
-  expect(moved.amountOut).not.toBe(confirmed.amountOut);
-  const expectedMinOut = (BigInt(confirmedQuote.amountOut) * BigInt(10000 - slippageBps)) / 10000n;
-  expect((moved.amountOut * BigInt(10000 - slippageBps)) / 10000n).not.toBe(expectedMinOut);
-  let failure: unknown;
-  try {
-    await executeSwap(signer, confirmedQuote, {
-      ...params,
-      tokenIn: confirmedQuote.tokenIn,
-      tokenOut: confirmedQuote.tokenOut,
-      amountIn: confirmedQuote.amountIn,
-      slippageBps,
-    });
-  } catch (error) {
-    failure = error;
-  }
-  expect(ethers.isError(failure, 'CALL_EXCEPTION')).toBe(true);
-  if (!ethers.isError(failure, 'CALL_EXCEPTION')) throw failure;
-  expect(failure.action).toBe('estimateGas');
-  expect(failure.transaction.to).toBe(CONTRACTS.Router);
-  const call = new ethers.Interface(SIDIORA_ROUTER_ABI).parseTransaction({
-    data: failure.transaction.data,
+  const nextMinimum = (next.amountOut * BigInt(10000 - slippageBps)) / 10000n;
+  expect(moved.amountOut).toBeLessThan(nextMinimum);
+  expect(moved.amountOut).not.toBe(next.amountOut);
+  expect((moved.amountOut * BigInt(10000 - slippageBps)) / 10000n).not.toBe(nextMinimum);
+  const protectedIn = await inputToken.balanceOf(params.recipient);
+  const protectedOut = await outputToken.balanceOf(params.recipient);
+  await expect(executeSwap(signer, nextQuote, swapParams)).rejects.toMatchObject({
+    code: 'CALL_EXCEPTION',
+    data: ethers.id('SlippageExceeded()').slice(0, 10),
   });
-  expect(call?.name).toBe('swapTokenToToken');
-  expect(call?.args[0]).toBe(first.token.address);
-  expect(call?.args[1]).toBe(second.token.address);
-  expect(call?.args[2]).toBe(amountIn);
-  expect(call?.args[3]).toBe(expectedMinOut);
+  expect(await inputToken.balanceOf(params.recipient)).toBe(protectedIn);
+  expect(await outputToken.balanceOf(params.recipient)).toBe(protectedOut);
 }
 
-test(execute_swap_returns_after_the_receipt);
-test(execute_swap_refuses_a_reverted_swap);
-test(sidiora_swap_min_out_uses_confirmed_quote, { timeout: 15000 });
-test(sidiora_multihop_min_out_uses_confirmed_quote, { timeout: 15000 });
+test(execute_swap_returns_after_the_receipt.name, execute_swap_returns_after_the_receipt);
+test(execute_swap_refuses_a_reverted_swap.name, execute_swap_refuses_a_reverted_swap);
+test(
+  sidiora_swap_min_out_uses_confirmed_quote.name,
+  sidiora_swap_min_out_uses_confirmed_quote,
+  15000
+);
+test(
+  sidiora_multihop_min_out_uses_confirmed_quote.name,
+  sidiora_multihop_min_out_uses_confirmed_quote,
+  15000
+);
