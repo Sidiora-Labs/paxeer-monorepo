@@ -48,6 +48,9 @@ causes a panic; the keeper does not substitute zero-valued signing info.
 `ValidatorMissedBlockArray` contains the consensus `Address`, the persisted
 `WindowSize` and `MissedBlocks`, an array of packed `uint64` words. Each validator
 has a single bitmap key, with no slot index appended to it.
+The whole record is replaced on each ordinary vote write; neither a slot update
+nor a resize adds per-slot keys. A restart reads the same protobuf through
+`GetValidatorMissedBlocks` and resumes at the persisted signing-info offset.
 
 For window size `W`, the array contains `(W + 63) / 64` words. Slot `i` is bit
 `i % 64` of word `i / 64`, counted from the least significant bit. A bit of `1`

@@ -1,0 +1,11 @@
+[repair.22.33.695]
+audit = "22.30.168"
+staking-cli-config = "TestRepairM_695_StakingCLIConfig"
+wrong-validator-cli-query = "TestRepairM_695_WrongValidatorCLIQuery"
+cli-params-fixture = "TestRepairM_695_CLIParamsFixture"
+baseline = "Continuation baseline before this repair: cg spec done 22.33.695 -f layerx-merge --root /work/paxeer-monorepo at 76177109dd0b82564b39b7dbe7ab3f286cbaaf46 exited 1; TestRepairM_695_WrongValidatorCLIQuery failed at suite.go:505, while TestRepairM_695_StakingCLIConfig and TestRepairM_695_CLIParamsFixture passed; private evidence /out/logs/verify-1.log. No original pre-implementation baseline is claimed."
+repair = "The account-query expectation now uses the production response field's []types.DelegationResponse type; exact equality retains the same delegator, validator, shares and balance, and the validator-query multi-delegator and pagination assertions remain intact."
+gotcha = "require.Equal distinguishes the named types.DelegationResponses slice from []types.DelegationResponse even when every delegation matches; construct expectations with the declared response field type."
+proof = "Real staking, bank and account keepers on an in-memory store serve the production CLI through the production JSON-RPC server/client and protobuf query router; the repaired suite methods execute directly."
+wiring_request = "Domain 15 (fm-cosmos-fork): qualify sdk/x/staking/client/testutil/cli_test.go's owning norace integration suite in its integration qualification gate; the declared repair gates do not select that tag."
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit code and private log location."

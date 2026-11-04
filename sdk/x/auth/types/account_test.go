@@ -97,6 +97,26 @@ func TestGenesisAccountValidate(t *testing.T) {
 			false,
 		},
 		{
+			"valid base account without public key",
+			types.NewBaseAccount(addr, nil, 0, 0),
+			false,
+		},
+		{
+			"empty address without public key",
+			&types.BaseAccount{},
+			true,
+		},
+		{
+			"malformed address without public key",
+			&types.BaseAccount{Address: "not-bech32"},
+			true,
+		},
+		{
+			"empty address with public key",
+			types.NewBaseAccount(nil, pubkey, 0, 0),
+			true,
+		},
+		{
 			"invalid base valid account",
 			types.NewBaseAccount(addr, secp256k1.GenPrivKey().PubKey(), 0, 0),
 			true,

@@ -1,0 +1,11 @@
+[repair.22.33.409]
+finding = "secondary-price-label"
+test = "repair-22-33-409.spec.ts:secondaryPriceLabelUsesConfiguredSecondarySymbol"
+proof = "Real config loader reads a committed browser configuration with PAX primary and USDC secondary; getChartData must emit PAX price and USDC price respectively, retaining secondary prices and dollar formatting."
+baseline = "Not executed: the task's explicit implementation-first order and prohibition on manual verify runs supersede the embedded baseline-run step. The original secondary label reads the PAX primary symbol, contradicting the USDC assertion."
+wiring_requests = "None; the proposal is wholly inside the task scope."
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit and private log location."
+previous_attempt_qualification_observation = "The installed pnpm refuses commands because the root declares npm and the explorer declares Yarn; changing those declarations is outside this task's scope, and the package-manager check is retained."
+previous_attempt_formatting_observation = "Repository ESLint could not start while the dependency install was incomplete; private setup and formatter logs are /out/logs/explorer-deps.log and /out/logs/format-22-33-409-now.log."
+continuation = "Retain the original implementation and regression assertions; qualify with the declared corepack Yarn install, TypeScript build and focused Vitest gate on the current candidate. Exact verified revision and private evidence are recorded by hf-done."
+formatting_observation = "Repository ESLint --fix ran on chart.ts and repair-22-33-409.spec.ts; exit 1 reports vitest/expect-expect on the named callback registration despite its nine assertions. No formatting errors were reported; retain the named test and assertions. Private log: /out/logs/format-22-33-409.log."

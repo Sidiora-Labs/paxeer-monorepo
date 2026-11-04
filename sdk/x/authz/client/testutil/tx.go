@@ -131,6 +131,7 @@ func (s *IntegrationTestSuite) TestCLITxGrantAuthorization() {
 				fmt.Sprintf("--%s=true", flags.FlagSkipConfirmation),
 				fmt.Sprintf("--%s=%s", flags.FlagBroadcastMode, flags.BroadcastBlock),
 				fmt.Sprintf("--%s=%d", cli.FlagExpiration, pastHour),
+				fmt.Sprintf("--%s=%s", flags.FlagFees, sdk.NewCoins(sdk.NewCoin(s.cfg.BondDenom, sdk.NewInt(10))).String()),
 			},
 			authz.ErrInvalidExpirationTime.ABCICode(),
 			false,
@@ -295,10 +296,31 @@ func (s *IntegrationTestSuite) TestCLITxGrantAuthorization() {
 				s.Require().NoError(clientCtx.Codec.UnmarshalAsJSON(out.Bytes(), &txResp), out.String())
 				s.Require().Equal(tc.expectedCode, txResp.Code, out.String())
 				if tc.name == "Invalid expiration time" {
-					s.Require().Equal(authz.ModuleName, txResp.Codespace, out.String())
+					queryOut, err := clitestutil.ExecTestCLICmd(clientCtx, cli.GetCmdQueryGrants(), []string{
+						val.Address.String(), grantee.String(), "--output=json",
+					})
+					s.Require().NoError(err, queryOut.String())
+					var grants authz.QueryGrantsResponse
+					s.Require().NoError(clientCtx.Codec.UnmarshalAsJSON(queryOut.Bytes(), &grants), queryOut.String())
+					s.assertExpiredGrantRejected(&txResp, &grants)
 				}
 			}
 		})
+	}
+}
+
+func (s *IntegrationTestSuite) assertExpiredGrantRejected(txResp *sdk.TxResponse, grants *authz.QueryGrantsResponse) {
+	s.Require().Equal(authz.ErrInvalidExpirationTime.ABCICode(), txResp.Code)
+	s.Require().Equal(authz.ErrInvalidExpirationTime.Codespace(), txResp.Codespace)
+	s.Require().Empty(grants.Grants, "a rejected grant must not be stored")
+	grantEvent := proto.MessageName(&authz.EventGrant{})
+	for _, event := range txResp.Events {
+		s.Require().NotEqual(grantEvent, event.Type, "a rejected grant must not emit EventGrant")
+	}
+	for _, log := range txResp.Logs {
+		for _, event := range log.Events {
+			s.Require().NotEqual(grantEvent, event.Type, "a rejected grant must not log EventGrant")
+		}
 	}
 }
 

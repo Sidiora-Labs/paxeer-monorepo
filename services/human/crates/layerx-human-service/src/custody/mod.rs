@@ -22,8 +22,9 @@ pub use sessions::{
     ManagedAgentState, PlainTime, ProtocolIdentitySnapshot, ProvisionEvidence, RenewalOutcome,
     RevocationEvidence, RevocationOutcome, RevocationReason, RotationEvidence, RotationJourney,
     RotationJourneyState, RotationObservation, RotationSubject, RotationSubmission,
-    SessionEntropySource, SessionKeyEntropy, SessionKeyError, SessionKeyProvisioner, SessionLease,
-    SessionLeaseState, SessionPolicy, SessionTarget, SuspensionEvidence,
+    SessionAuthorityObservation, SessionEntropySource, SessionKeyEntropy, SessionKeyError,
+    SessionKeyProvisioner, SessionLease, SessionLeaseState, SessionLifecycleDriver,
+    SessionMaintainedComponents, SessionPolicy, SessionTarget, SuspensionEvidence,
 };
 
 pub(crate) use signer::attach_call_signature;
@@ -56,6 +57,7 @@ const KEY_FILE_SUFFIX: &str = ".key";
 const TEMP_FILE_SUFFIX: &str = ".key.tmp";
 const IDENTIFIER_LIMIT: usize = 128;
 const KEY_REFERENCE_LIMIT: usize = 256;
+const MAX_RECORD_BYTES: usize = 4 + 1 + 1 + 32 + 32 + 4 + 4096 + 1;
 const KMS_SECRET_MINIMUM: usize = 32;
 const KMS_SECRET_MAXIMUM: usize = 4096;
 
@@ -619,11 +621,13 @@ impl Keystore {
         fs::create_dir_all(&root)?;
         require_directory(&root, "custody root is not a directory")?;
         verify_custody_tree(&root)?;
-        Ok(Self {
+        let store = Self {
             root,
             network_id,
             provider,
-        })
+        };
+        store.recover_temporary_records()?;
+        Ok(store)
     }
 
     /// Returns the network every held key is bound to.
@@ -1068,25 +1072,107 @@ impl Keystore {
 
     fn read_record(&self, principal: &PrincipalId, key: &KeyId) -> Result<KeyRecord, CustodyError> {
         let path = self.key_path(principal, key);
-        let metadata = match fs::symlink_metadata(&path) {
-            Ok(metadata) if metadata.file_type().is_file() => metadata,
-            Ok(_) => return Err(CustodyError::CorruptRecord("foreign key entry")),
-            Err(error) if error.kind() == io::ErrorKind::NotFound => {
-                return Err(CustodyError::KeyNotFound);
-            }
-            Err(error) => return Err(CustodyError::Io(error)),
-        };
-        if metadata.len() == 0 {
-            return Err(CustodyError::CorruptRecord("empty key record"));
-        }
-        let bytes = match fs::read(path) {
-            Ok(bytes) => bytes,
-            Err(error) if error.kind() == io::ErrorKind::NotFound => {
-                return Err(CustodyError::KeyNotFound)
-            }
-            Err(error) => return Err(CustodyError::Io(error)),
-        };
+        let (bytes, _) = read_protected_record(&path, false)?;
         decode_record(&bytes)
+    }
+
+    fn recover_temporary_records(&self) -> Result<(), CustodyError> {
+        let principals = self.root.join(PRINCIPALS_DIR);
+        if !principals.try_exists()? {
+            return Ok(());
+        }
+        for entry in fs::read_dir(principals)? {
+            let entry = entry?;
+            let principal = PrincipalId::new(entry.file_name().to_string_lossy().as_ref())
+                .map_err(|_| CustodyError::CorruptRecord("foreign principal"))?;
+            for temporary in fs::read_dir(entry.path())? {
+                let temporary = temporary?;
+                let name = temporary.file_name();
+                let Some(stem) = name
+                    .to_str()
+                    .and_then(|name| name.strip_suffix(TEMP_FILE_SUFFIX))
+                else {
+                    continue;
+                };
+                let key = KeyId::new(stem)?;
+                let temp_path = temporary.path();
+                let (bytes, metadata) = read_protected_record(&temp_path, true)?;
+                let final_path = self.key_path(&principal, &key);
+                use std::os::unix::fs::MetadataExt as _;
+                if let Ok(committed) = fs::symlink_metadata(&final_path) {
+                    if metadata.dev() == committed.dev() && metadata.ino() == committed.ino() {
+                        let record = decode_record(&bytes)?;
+                        let binding = self.binding(&principal, &key, record.class)?;
+                        Self::require_record_binding(&binding, &record)?;
+                        let description = self
+                            .provider
+                            .describe_key(&binding, &record.provider_reference)?;
+                        require_description(
+                            &binding,
+                            record.class,
+                            Some(record.public_key),
+                            &description,
+                        )?;
+                        remove_verified_temp(&temp_path, &metadata)?;
+                        fs::File::open(entry.path())?.sync_all()?;
+                        continue;
+                    }
+                }
+                if metadata.nlink() != 1 {
+                    return Err(CustodyError::CorruptRecord("linked temporary record"));
+                }
+                let record = match decode_record(&bytes) {
+                    Ok(record) => record,
+                    Err(_) => {
+                        // A crash during the bounded write left no publishable record.
+                        remove_verified_temp(&temp_path, &metadata)?;
+                        fs::File::open(entry.path())?.sync_all()?;
+                        continue;
+                    }
+                };
+                let binding = self.binding(&principal, &key, record.class)?;
+                Self::require_record_binding(&binding, &record)?;
+                match self
+                    .provider
+                    .describe_key(&binding, &record.provider_reference)
+                {
+                    Ok(description) => {
+                        require_description(
+                            &binding,
+                            record.class,
+                            Some(record.public_key),
+                            &description,
+                        )?;
+                        if description.reference() != &record.provider_reference {
+                            return Err(KmsError::Integrity.into());
+                        }
+                        match self.read_record(&principal, &key) {
+                            Ok(committed) => {
+                                Self::require_record_binding(&binding, &committed)?;
+                                if committed.class != record.class {
+                                    return Err(KmsError::Integrity.into());
+                                }
+                                verify_temp_inode(&temp_path, &metadata)?;
+                                fs::rename(&temp_path, &final_path)?;
+                            }
+                            Err(CustodyError::KeyNotFound) => {
+                                verify_temp_inode(&temp_path, &metadata)?;
+                                fs::hard_link(&temp_path, &final_path)?;
+                                remove_verified_temp(&temp_path, &metadata)?;
+                            }
+                            Err(error) => return Err(error),
+                        }
+                    }
+                    Err(KmsError::KeyNotFound) => {
+                        // The provider proves that this exact pending handle has no authority.
+                        remove_verified_temp(&temp_path, &metadata)?;
+                    }
+                    Err(error) => return Err(error.into()),
+                }
+                fs::File::open(entry.path())?.sync_all()?;
+            }
+        }
+        Ok(())
     }
 
     fn create_principal_directory(&self, principal: &PrincipalId) -> Result<PathBuf, CustodyError> {
@@ -1338,10 +1424,12 @@ fn write_atomic(
     bytes: &[u8],
 ) -> Result<(), CustodyError> {
     use std::io::Write as _;
+    use std::os::unix::fs::OpenOptionsExt as _;
 
     let temp_path = directory.join(temp_name);
     let mut file = fs::OpenOptions::new()
         .create_new(true)
+        .mode(0o600)
         .write(true)
         .open(&temp_path)?;
     if let Err(error) = file.write_all(bytes).and_then(|()| file.sync_all()) {
@@ -1371,10 +1459,12 @@ fn replace_atomic(
     bytes: &[u8],
 ) -> Result<(), CustodyError> {
     use std::io::Write as _;
+    use std::os::unix::fs::OpenOptionsExt as _;
 
     let temp_path = directory.join(temp_name);
     let mut file = fs::OpenOptions::new()
         .create_new(true)
+        .mode(0o600)
         .write(true)
         .open(&temp_path)?;
     if let Err(error) = file.write_all(bytes).and_then(|()| file.sync_all()) {
@@ -1388,5 +1478,68 @@ fn replace_atomic(
         return Err(CustodyError::Io(error));
     }
     fs::File::open(directory)?.sync_all()?;
+    Ok(())
+}
+
+fn read_protected_record(
+    path: &Path,
+    recovery: bool,
+) -> Result<(Vec<u8>, fs::Metadata), CustodyError> {
+    use rustix::fs::{Mode, OFlags};
+    use std::os::unix::fs::MetadataExt as _;
+    let descriptor = rustix::fs::open(
+        path,
+        OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::CLOEXEC,
+        Mode::empty(),
+    )
+    .map_err(|error| {
+        if error == rustix::io::Errno::NOENT {
+            CustodyError::KeyNotFound
+        } else {
+            CustodyError::CorruptRecord("key descriptor refused")
+        }
+    })?;
+    let mut file = fs::File::from(descriptor);
+    let metadata = file.metadata()?;
+    if !metadata.is_file()
+        || metadata.uid() != rustix::process::geteuid().as_raw()
+        || metadata.mode() & 0o077 != 0
+        || metadata.nlink() == 0
+        || metadata.nlink() > if recovery { 2 } else { 1 }
+    {
+        return Err(CustodyError::CorruptRecord(
+            "key ownership, permissions or links",
+        ));
+    }
+    if metadata.len() > MAX_RECORD_BYTES as u64 || (!recovery && metadata.len() == 0) {
+        return Err(CustodyError::CorruptRecord("key record size"));
+    }
+    let mut bytes = Vec::new();
+    file.by_ref()
+        .take(MAX_RECORD_BYTES as u64 + 1)
+        .read_to_end(&mut bytes)?;
+    if bytes.len() > MAX_RECORD_BYTES {
+        return Err(CustodyError::CorruptRecord("key record size"));
+    }
+    Ok((bytes, metadata))
+}
+
+fn verify_temp_inode(path: &Path, expected: &fs::Metadata) -> Result<(), CustodyError> {
+    use std::os::unix::fs::MetadataExt as _;
+    let observed = fs::symlink_metadata(path)?;
+    if !observed.is_file()
+        || observed.dev() != expected.dev()
+        || observed.ino() != expected.ino()
+        || observed.uid() != expected.uid()
+        || observed.mode() != expected.mode()
+    {
+        return Err(CustodyError::CorruptRecord("temporary inode changed"));
+    }
+    Ok(())
+}
+
+fn remove_verified_temp(path: &Path, expected: &fs::Metadata) -> Result<(), CustodyError> {
+    verify_temp_inode(path, expected)?;
+    fs::remove_file(path)?;
     Ok(())
 }

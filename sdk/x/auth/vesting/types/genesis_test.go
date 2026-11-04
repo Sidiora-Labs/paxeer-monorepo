@@ -37,6 +37,13 @@ func TestValidateGenesisInvalidAccounts(t *testing.T) {
 	baseVestingAcc.DelegatedVesting = acc1Balance
 	genAccs[0] = baseVestingAcc
 	require.NoError(t, authtypes.ValidateGenAccounts(genAccs))
+	// Cancellation markers are reserved, even for otherwise valid accounts.
+	baseVestingAcc.CancelledTime = 1
+	require.ErrorContains(t, authtypes.ValidateGenAccounts(genAccs), "cancelled_time must be zero")
+	baseVestingAcc.CancelledTime = -1
+	require.ErrorContains(t, authtypes.ValidateGenAccounts(genAccs), "cancelled_time must be zero")
+	baseVestingAcc.CancelledTime = 0
+	require.NoError(t, authtypes.ValidateGenAccounts(genAccs))
 	// invalid start time
 	genAccs[0] = NewContinuousVestingAccountRaw(baseVestingAcc, 1548888000)
 	require.Error(t, authtypes.ValidateGenAccounts(genAccs))
