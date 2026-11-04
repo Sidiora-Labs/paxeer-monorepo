@@ -63,17 +63,34 @@ it before capability operations:
 1. At genesis, `InitGenesis` installs the next index and persisted owner sets,
    then calls `InitMemStore`. Default genesis has index `1` and no owners.
 2. On restart, `BeginBlocker` calls `InitMemStore` to reconstruct references and
-   mappings from persistent owners. The node invokes capability initialization
-   before downstream IBC begin-block processing in
+   mappings from persistent owners loaded from the committed store. Recreate the
+   keeper and module scopes, then initialize memory before using those scopes;
+   do not reimport genesis into an already initialized persistent store. The node
+   invokes capability initialization before downstream IBC begin-block processing in
    [legacyabci/begin_block.go](../../../../node/legacyabci/begin_block.go).
 3. Later calls return without reconstructing state once the memory store's
    initialization flag is present.
 
-`ExportGenesis` emits the next index and nonempty owner sets, preserving their
-capability indices. It does not export process-local references. Basic genesis
-validation checks index bounds and nonblank identities but does not establish
-sorted, unique owner mappings; importers must respect the constraints described
-in [State](02_state.md#capabilityowners).
+`ExportGenesis` emits `GenesisState{Index, Owners}`: the next allocation index and
+nonempty `GenesisOwners{Index, IndexOwners}` records. Each owner is a persisted
+`Owner{Module, Name}` identity. Export preserves capability indices and gaps left
+by released capabilities; it exports neither memory mappings nor process-local
+references. Importing the exported state through `AppModule.InitGenesis` decodes
+the JSON with the application codec and delegates to `InitGenesis` above.
+
+`AppModuleBasic.ValidateGenesis` decodes the JSON and calls `GenesisState.Validate`.
+Validation requires a nonzero next index, nonempty owner sets, unique capability
+indices in `[1, Index)`, nonblank module/name identities, unique module/name
+bindings across all indices, and owners strictly ordered by `Owner.Key()`.
+`InitGenesis` itself does not call validation: validate external genesis before
+importing it, since `SetOwners` stores the supplied lists directly.
+
+After import or restart, modules must use `ScopedKeeper.GetCapability` to obtain
+the reconstructed canonical `*Capability`. Owners of the same index receive the
+same pointer in that keeper. An old pointer or a newly allocated `Capability`
+with the same index does not carry the reconstructed forward mapping and cannot
+authenticate in place of that reference. Durable identity is the index and owner
+tuple; pointer addresses belong only to the running keeper.
 
 ## Contents
 

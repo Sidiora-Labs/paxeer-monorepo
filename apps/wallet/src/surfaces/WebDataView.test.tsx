@@ -9,7 +9,6 @@ import {
   WEB_DATA_KIND_SEARCH,
   ledgerLogFloor,
   webData,
-  type WalletCapsSnapshot,
   type WalletCapsState,
 } from '@paxeer/wallet';
 import {
@@ -23,6 +22,7 @@ import {
 } from 'viem';
 import { WebDataView, buildWebDataRequest } from './WebDataView';
 import {
+  type SurfaceCapsSnapshot,
   GRANT_LOG_BATCH,
   GRANT_LOG_WINDOW,
   GRANT_LOG_WINDOW_CEILING,
@@ -60,7 +60,8 @@ afterEach(async () => {
 
 const BUDGET_ID = 'b1'.repeat(32);
 const GRANT_ID = 'a1'.repeat(32);
-const CAPS: WalletCapsSnapshot = {
+const CAPS: SurfaceCapsSnapshot = {
+  budgetAvailability: 'available',
   state: 'ready',
   did: 'did:layerx:caps-fixture',
   account_id: 'c3'.repeat(32),
@@ -120,187 +121,25 @@ const UNAVAILABLE: WalletCapsState = { state: 'unavailable', reason: 'consensus_
 const send = (container: HTMLElement) =>
   container.querySelector<HTMLButtonElement>('[data-action="send"]');
 
-const DID_PUBLIC_KEY: Hex = `0x${'5d'.repeat(32)}`;
-const DID = `did:layerx:${'5d'.repeat(32)}`;
-const ACCOUNT_ID: Hex = `0x${'c3'.repeat(32)}`;
-const FOREIGN_ACCOUNT_ID: Hex = `0x${'c4'.repeat(32)}`;
-const FLOOR = ledgerLogFloor(125)!;
-const FOREIGN_ADDRESS = `0x${'f1'.repeat(20)}`;
-const SPONSOR_ADDRESS = `0x${'5e'.repeat(20)}`;
-const HEAD = { number: toHex(FLOOR + 42n), stateRoot: `0x${'e5'.repeat(32)}` };
-const GET_LAYERX_DID = abiSelector('getLayerXDid(address)');
-const ACCOUNT_ID_SELECTOR = abiSelector('accountId(bytes32,bytes32)');
-const GET_PAYER_GRANT = abiSelector('getPayerGrant(bytes32)');
-const PAYER_GRANT_ISSUED = keccak256(toHex('PayerGrantIssued(bytes32)'));
-
-interface IssuedGrant {
-  readonly grantId: Hex;
-  readonly from: Hex;
-  readonly drawnThisPeriod: bigint;
-  readonly block: bigint;
-  readonly expiration?: bigint;
-  readonly sponsored?: boolean;
-}
-
-const issuingTx = (grant: IssuedGrant): Hex => keccak256(grant.grantId);
-
-const OWNED_GRANT: IssuedGrant = {
-  grantId: `0x${GRANT_ID}`,
-  from: ACCOUNT_ID,
-  drawnThisPeriod: 250n,
-  block: FLOOR + 1n,
-};
-const FOREIGN_GRANT: IssuedGrant = {
-  grantId: `0x${'a2'.repeat(32)}`,
-  from: FOREIGN_ACCOUNT_ID,
-  drawnThisPeriod: 0n,
-  block: FLOOR + 1n,
-};
-
-function payerGrantAnswer(grant: IssuedGrant): Hex {
-  const wire = encodePacked(
-    [
-      'bytes32',
-      'bytes32',
-      'bytes32',
-      'bytes32',
-      'uint128',
-      'uint128',
-      'bool',
-      'uint64',
-      'uint64',
-      'bytes32',
-      'bool',
-      'bytes32',
-      'uint64',
-      'bytes32',
-      'bytes',
-    ],
-    [
-      grant.grantId,
-      grant.from,
-      `0x${'f6'.repeat(32)}`,
-      `0x${'d4'.repeat(32)}`,
-      1000n,
-      50000n,
-      true,
-      86400n,
-      grant.expiration ?? 1_900_000_000n,
-      `0x${'77'.repeat(32)}`,
-      false,
-      `0x${'00'.repeat(32)}`,
-      0n,
-      DID_PUBLIC_KEY,
-      `0x${'99'.repeat(64)}`,
-    ]
-  );
-  if (size(wire) !== PAYER_GRANT_BYTES) throw new Error(`payer grant wire is ${size(wire)} bytes`);
-  return encodeAbiParameters(
-    parseAbiParameters('bytes, uint128, uint128, uint64, uint64, bool, bool'),
-    [wire, 1250n, grant.drawnThisPeriod, 1_800_000_000n, 0n, false, false]
-  );
-}
-
-class GrantChain extends SurfaceChain {
-  didPublicKey: Hex = DID_PUBLIC_KEY;
-  finalised: typeof HEAD | null = HEAD;
-  issued: readonly IssuedGrant[] = [];
-  readonly logQueries: { fromBlock: string; toBlock: string }[] = [];
-  readonly blockQueries: unknown[] = [];
-  readonly callBlocks: unknown[] = [];
-  failLogsFrom: bigint | null = null;
-  capsChainId = 125;
-  readonly txQueries: string[] = [];
-  inFlight = 0;
-  peakInFlight = 0;
-  holderRecords: ((params: readonly unknown[]) => unknown) | null = null;
-  readonly holderQueries: (readonly unknown[])[] = [];
-
-  override async request(args: {
-    method: string;
-    params?: readonly unknown[] | object;
-  }): Promise<unknown> {
-    const params = Array.isArray(args.params) ? (args.params as readonly unknown[]) : [];
-    if (args.method === 'eth_getBlockByNumber') {
-      this.methods.push(args.method);
-      this.blockQueries.push(params[0]);
-      if (params[0] !== 'finalized') throw new Error('only the finalised block is served');
-      return this.finalised === null ? null : { ...this.finalised, hash: `0x${'b7'.repeat(32)}` };
-    }
-    if (args.method === 'eth_chainId') return toHex(this.capsChainId);
-    if (args.method === 'px_listHolderRecords') {
-      this.methods.push(args.method);
-      this.holderQueries.push(params);
-      if (this.holderRecords === null)
-        throw Object.assign(new Error('method not found'), { code: -32601 });
-      return this.holderRecords(params);
-    }
-    if (args.method === 'eth_getTransactionByHash') {
-      this.methods.push(args.method);
-      this.txQueries.push(params[0] as string);
-      const grant = this.issued.find((candidate) => issuingTx(candidate) === params[0]);
-      if (!grant) return null;
-      const own = grant.from === ACCOUNT_ID;
-      if (grant.sponsored)
-        return { hash: params[0], from: SPONSOR_ADDRESS, to: own ? this.address : FOREIGN_ADDRESS };
-      return { hash: params[0], from: own ? this.address : FOREIGN_ADDRESS, to: LEDGER_PRECOMPILE };
-    }
-    if (args.method === 'eth_getLogs') {
-      this.methods.push(args.method);
-      const query = params[0] as { fromBlock: string; toBlock: string };
-      this.logQueries.push(query);
-      this.inFlight += 1;
-      this.peakInFlight = Math.max(this.peakInFlight, this.inFlight);
-      await new Promise((resolve) => setTimeout(resolve, 0));
-      this.inFlight -= 1;
-      if (this.failLogsFrom !== null && BigInt(query.fromBlock) === this.failLogsFrom)
-        throw new Error('log range unavailable');
-      return this.issued
-        .filter(
-          (grant) => grant.block >= BigInt(query.fromBlock) && grant.block <= BigInt(query.toBlock)
-        )
-        .map((grant) => ({
-          address: LEDGER_PRECOMPILE,
-          topics: [PAYER_GRANT_ISSUED, grant.grantId],
-          data: '0x',
-          transactionHash: issuingTx(grant),
-        }));
-    }
-    if (args.method === 'eth_call') {
-      this.callBlocks.push(params[1]);
-      const call = params[0] as { to: string; data: string };
-      const to = call.to.toLowerCase();
-      const data = call.data.toLowerCase();
-      const answer = this.grantView(to, data);
-      if (answer !== null) {
-        this.methods.push(args.method);
-        this.calls.push({ to, data });
-        return answer;
-      }
-    }
-    return super.request(args);
-  }
-
-  private grantView(to: string, data: string): Hex | null {
-    if (
-      to === ADDR_PRECOMPILE_ADDRESS &&
-      data === `${GET_LAYERX_DID}${this.address.slice(2).padStart(64, '0')}`
-    ) {
-      return encodeAbiParameters(parseAbiParameters('bytes32, string'), [this.didPublicKey, DID]);
-    }
-    if (
-      to === LEDGER_PRECOMPILE &&
-      data === `${ACCOUNT_ID_SELECTOR}${this.didPublicKey.slice(2)}${'00'.repeat(32)}`
-    ) {
-      return encodeAbiParameters(parseAbiParameters('bytes32'), [ACCOUNT_ID]);
-    }
-    const grant = this.issued.find(
-      (candidate) =>
-        to === LEDGER_PRECOMPILE && data === `${GET_PAYER_GRANT}${candidate.grantId.slice(2)}`
-    );
-    return grant ? payerGrantAnswer(grant) : null;
-  }
-}
+import {
+  DID_PUBLIC_KEY,
+  DID,
+  ACCOUNT_ID,
+  FOREIGN_ACCOUNT_ID,
+  FLOOR,
+  FOREIGN_ADDRESS,
+  SPONSOR_ADDRESS,
+  HEAD,
+  GET_LAYERX_DID,
+  ACCOUNT_ID_SELECTOR,
+  GET_PAYER_GRANT,
+  PAYER_GRANT_ISSUED,
+  OWNED_GRANT,
+  FOREIGN_GRANT,
+  issuingTx,
+  GrantChain,
+  type IssuedGrant,
+} from './test/grants';
 
 function GrantSurface() {
   const { caps, refreshCaps } = useWebDataCaps();
@@ -548,7 +387,7 @@ describe('WebDataView', () => {
 
     await until(() => container.querySelector('[data-caps-state="empty"]') !== null, 'caps empty');
     expect(text(container, '[data-role="caps-empty"]')).toBe(
-      'No budgets or grants at this verified observation.'
+      'No grants at this verified observation.'
     );
     expect(text(container, '[data-role="caps-account"]')).toBe(`Account ${'c3'.repeat(32)}`);
     expect(text(container, '[data-role="caps-principal"]')).toBe(`Principal ${DID}`);
@@ -787,10 +626,15 @@ describe('WebDataView', () => {
         ? {
             items: [record(OWNED_GRANT), record(FOREIGN_GRANT)],
             next_cursor: cursor,
-            indexedHeight: 990,
-            chainHeight: 1000,
+            indexedHeight: Number(FLOOR + 42n),
+            chainHeight: Number(FLOOR + 50n),
           }
-        : { items: [record(second)], next_cursor: null, indexedHeight: 995, chainHeight: 1001 };
+        : {
+            items: [record(second)],
+            next_cursor: null,
+            indexedHeight: Number(FLOOR + 45n),
+            chainHeight: Number(FLOOR + 51n),
+          };
     mounted = await mountSurface(grants, <GrantSurface />);
     const { container } = mounted;
 
@@ -799,7 +643,7 @@ describe('WebDataView', () => {
     expect(container.querySelector(`[data-grant="${'a2'.repeat(32)}"]`)).toBeNull();
     expect(text(container, '[data-role="caps-expiry"]')).toBe('Earliest grant expiry 1850000000');
     expect(text(container, '[data-role="caps-history"]')).toBe(
-      'Grants from the indexer · indexed height 990 · chain height 1001'
+      `Grants from the indexer · indexed height ${FLOOR + 42n} · chain height ${FLOOR + 51n}`
     );
     expect(container.querySelector('[data-history-source="indexer"]')).not.toBeNull();
     expect(grants.holderQueries.slice(0, 2)).toEqual([
@@ -836,7 +680,26 @@ describe('WebDataView', () => {
       if (fail) throw Object.assign(new Error('History unavailable'), { code: -32001 });
       return { items: [], next_cursor: null, indexedHeight: 40, chainHeight: 42 };
     };
-    expect((await readGrantCaps(grants, grants.address)).state).toBe('empty');
+    expect(await readGrantCaps(grants, grants.address)).toEqual({
+      state: 'incomplete',
+      reason: 'Grant discovery has not covered the finalized block.',
+      indexedHeight: '40',
+      finalizedHeight: (FLOOR + 42n).toString(),
+    });
+    grants.holderRecords = () => {
+      if (fail) throw Object.assign(new Error('History unavailable'), { code: -32001 });
+      return {
+        items: [{ kind: 'grant', holder: grants.address, record_id: GRANT_ID }],
+        next_cursor: null,
+        indexedHeight: Number(FLOOR + 42n),
+        chainHeight: Number(FLOOR + 42n),
+      };
+    };
+    const recovered = await readGrantCaps(grants, grants.address);
+    expect(recovered.state).toBe('ready');
+    if (recovered.state !== 'ready')
+      throw new Error('expected the issued grant after index catch-up');
+    expect(recovered.grants.map((grant) => grant.id)).toEqual([GRANT_ID]);
     fail = true;
     await expect(readGrantCaps(grants, grants.address)).rejects.toMatchObject({ code: -32001 });
     grants.holderRecords = null;

@@ -25,6 +25,7 @@ type DeductFeeDecorator struct {
 	txFeeChecker   TxFeeChecker
 }
 
+// NewDeductFeeDecorator requires the concrete params keeper consumed by TxFeeChecker.
 func NewDeductFeeDecorator(
 	ak AccountKeeper,
 	bk types.BankKeeper,

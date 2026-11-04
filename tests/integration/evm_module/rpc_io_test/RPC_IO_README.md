@@ -1,6 +1,6 @@
 # EVM RPC .io / .iox tests
 
-Integration tests for `paxd` EVM JSON-RPC response kinds and explicit fixture directives. The suite discovers `.io` and `.iox` files recursively under [`testdata/`](testdata/) and runs them as named subtests against a live endpoint. See the [integration overview](../../README.md) for the merged network and the [TypeScript RPC suite](../../rpc_tests/README.md) for value, schema and geth error comparisons.
+Integration tests for `paxd` EVM JSON-RPC method-aware schemas, deterministic expectations and explicit fixture directives. The suite discovers `.io` and `.iox` files recursively under [`testdata/`](testdata/) and runs them as named subtests against a live endpoint. See the [integration overview](../../README.md) for the merged network and the [TypeScript RPC suite](../../rpc_tests/README.md) for value, schema and geth error comparisons.
 
 ## `.io` vs `.iox`
 
@@ -15,7 +15,7 @@ Integration tests for `paxd` EVM JSON-RPC response kinds and explicit fixture di
    ./tests/integration/evm_module/scripts/evm_rpc_tests.sh
    ```
 
-Before `go test`, the [script](../scripts/evm_rpc_tests.sh) uses `docker exec` to attempt sender association, send one EVM transfer and attempt two deployments (a minimal contract and a reverter). Successful receipt lookups export the seed bindings described below. Deployment failures can leave bindings unset and fixtures skipped; inspect the named outcomes. The script runs this package with `PAX_EVM_IO_RUN_INTEGRATION=1`, then, only if that command succeeds, runs the sibling WebSocket package with `PAX_EVM_WS_RUN_INTEGRATION=1`. The CLI submissions use the local Cosmos chain ID `pax`. Use a disposable cluster with a funded signing key.
+Before `go test`, the [script](../scripts/evm_rpc_tests.sh) uses `docker exec` to attempt sender association, send one EVM transfer and attempt two deployments (a minimal contract and a reverter). Successful receipt lookups export the seed bindings described below. Deployment failures can leave required bindings unset; an enabled run fails those cases and reports their identities. The script runs this package with `PAX_EVM_IO_RUN_INTEGRATION=1`, then, only if that command succeeds, runs the sibling WebSocket package with `PAX_EVM_WS_RUN_INTEGRATION=1`. The CLI submissions use the local Cosmos chain ID `pax`. Use a disposable cluster with a funded signing key.
 
 Script knobs:
 
@@ -31,7 +31,7 @@ Script knobs:
 
 The RPC URL must reach the same chain from both the host Go process and the container CLI/receipt queries. The Go package alone defaults to `http://127.0.0.1:8545`; the script uses `http://localhost:8545`.
 
-For extra `[DEBUG]` output, set `PAX_EVM_IO_DEBUG_FILES` to comma-separated fixture paths relative to `testdata/`, such as `eth_call/call-contract.io`. Matching names restrict execution; if none match, the runner retains the full discovered list. An unset `PAX_EVM_IO_RUN_INTEGRATION` causes the integration test to skip when invoking the Go package directly.
+For extra `[DEBUG]` output, set `PAX_EVM_IO_DEBUG_FILES` to comma-separated fixture paths relative to `testdata/`, such as `eth_call/call-contract.io`. Every selected name must exist; unknown or duplicate names fail. Matching names restrict execution to an explicitly declared debug subset, which is not full-suite qualification. The full fixture inventory is validated before selection. An unset `PAX_EVM_IO_RUN_INTEGRATION` causes the integration test to skip when invoking the Go package directly.
 
 ### Legacy `pax_*` gating
 
@@ -50,7 +50,7 @@ Directives used by these fixtures:
 
 ### Comparing legacy vs giga (RPC parity)
 
-Use this suite to compare per-fixture response kinds and directives under different local executor configurations. It cannot establish full RPC or execution parity.
+Use this suite to compare per-case outcomes, method-aware schemas, deterministic values and directives under different local executor configurations. It cannot establish full RPC or execution parity.
 
 The suite does not detect which executor a node uses. It only sends JSON-RPC to `PAX_EVM_RPC_URL`, so you choose the executor by how you start the node or which URL you pass.
 
@@ -88,9 +88,9 @@ select a matching seed container for each invocation. Then:
    ```bash
    PAX_EVM_RPC_URL="$GIGA_RPC_URL" ./tests/integration/evm_module/scripts/evm_rpc_tests.sh
    ```
-3. Match each `TestEVMRPCSpec/<fixture-path>` subtest by name, including its PASS, FAIL or SKIP status and pair-level diagnostics. Equal Total, Passed, Failed and Skipped counts can hide different failing or skipped fixtures and **do not prove parity**. Investigate every identity or outcome difference; skips leave coverage unproven.
+3. Match every `<fixture-path>#pair-N` identity from `case_inventory.json`, the named `TestEVMRPCSpec/<fixture-path>` outcomes, and pair-level diagnostics. Require the same executed identities and successful assertions on both endpoints. Compare the declared method schemas, exact deterministic fields and error codes as well as directives; kind-only checking cannot establish conformance. Equal Total, Passed, Failed and Skipped counts can hide different failing or skipped fixtures and **do not prove parity**. Investigate every identity or outcome difference; skips leave coverage unproven.
 
-Use equivalent genesis, configuration and fixture state. Each script invocation sends new transactions and may choose different seed/deployment blocks, so retain the seed inputs from the setup/DEBUG output when interpreting a comparison. `PAX_EVM_IO_TX_CONTAINER` must seed the chain actually queried by its RPC URL. Even identical per-fixture passes establish only the assertions this harness makes, not equal return values, error envelopes or execution results.
+Use equivalent genesis, configuration and fixture state. Each script invocation sends new transactions and may choose different seed/deployment blocks, so retain the seed inputs from the setup/DEBUG output when interpreting a comparison. `PAX_EVM_IO_TX_CONTAINER` must seed the chain actually queried by its RPC URL. Even identical per-case passes establish only the assertions declared by the fixtures. Empty expected result objects request schema validation and do not establish equality of dynamic fields. Additional endpoint-to-endpoint comparisons are needed to claim equality of those values or full execution results.
 
 ## Test mix
 
@@ -99,8 +99,11 @@ Use equivalent genesis, configuration and fixture state. Each script invocation 
 | `.io` | Request/response fixtures curated from [ethereum/execution-apis](https://github.com/ethereum/execution-apis), plus Paxeer additions. |
 | `.iox` | Fixtures using bindings, placeholders and directives, including unsupported-method and legacy-deprecation cases. |
 
-The file list is discovered at runtime; the summary counts files, not individual
-request/response pairs, and its pass rate excludes skipped files. See
+The file list is discovered at runtime and checked against the committed
+`case_inventory.json`, which declares every fixture/pair identity (one-based
+`#pair-N`). Update that inventory deliberately when adding or removing pairs.
+The summary counts files; the executed inventory tracks individual pairs.
+An enabled run must execute every selected identity exactly once without skips. See
 [`testdata/README.md`](testdata/README.md) and the
 [unsupported-method reference](../../../../docs/evm_jsonrpc_unsupported.md).
 
@@ -117,10 +120,22 @@ Some execution-apis fixtures depended on contracts at fixed addresses that only 
 
 ## What is checked
 
-For an ordinary expected response, `specOnly` checks the presence of `result`
-and `error` against the fixture and requires a `jsonrpc` field. It does not
-compare result values, error codes/messages/data, the ID, or the value of the
-`jsonrpc` field. Every call must return HTTP 200 and valid JSON.
+`specOnly` and the runner use the same method-aware validator. Ordinary
+responses must have `jsonrpc: "2.0"`, an ID equal to the request ID, and exactly
+one of `result` and `error`. Method schemas check result types, canonical hex
+quantities (zero is `0x0`, with no leading zeroes), even-length hex data, fixed
+hash/address sizes, and required object fields. Fee history also checks fee and
+ratio lengths, ratios in [0, 1], and requested reward widths. Unknown success
+methods fail until a schema is declared.
+
+All scalar, null and array expectations remain exact. Every populated object
+field is compared recursively, including deterministic nested values. An empty
+expected result object permits dynamic object contents only after the method's
+required schema passes. It is not a wildcard for arbitrary result types.
+Errors need an integer JSON-RPC code and a nonempty message; code 3 and its hex
+revert data are accepted only for execution methods. Error fixtures must declare
+an exact code. Declared messages and data also compare exactly. An empty error
+object is incomplete evidence and fails. Every call must return HTTP 200.
 
 Extensions add specific assertions:
 
@@ -131,16 +146,19 @@ Extensions add specific assertions:
 - `@ expect_body_contains text` checks a raw response-body substring.
 - `@ expect_response_header Header-Name` checks header presence, not its value.
 
-A pair with no expected response accepts an object containing `result` or
-`error`. A nonempty batch response in that branch requires a body or header
-directive. Merely expecting an error does not assert a particular error code;
-use the fixture's explicit directives to understand the actual coverage.
+A bare `<<` still ends a pair. For a single response it requires the same
+method schema and envelope validation, but declares no deterministic values.
+A nonempty batch response requires explicit body or header directives; those
+substring/header assertions alone do not prove each batch element's schema or
+values. Use explicit per-method cases for conformance claims. Every request
+marker must have exactly one response marker; overwritten requests, unmatched
+requests at EOF, and orphan response markers fail parsing.
 
 ## Outcomes
 
-- **Pass** - all pairs and declared directives in the file pass.
-- **Skip** - the file has no pairs, a required `${binding}` is missing, or it uses `__REVERTER__` without `PAX_EVM_IO_REVERTER_ADDRESS`. A skip can occur after earlier pairs ran.
-- **Fail** - a parse, transport, HTTP status, response-kind, reference or directive check fails. On a response-kind mismatch the runner logs the actual `error.code` and `error.message` (or a short `result` snippet), which tells apart not implemented (`-32601`), invalid params (`-32602`), a disabled endpoint, or another spec mismatch.
+- **Pass** - every selected pair, declared expectation, binding and directive passes, and executed identities match the declared inventory exactly.
+- **Skip** - only the integration opt-in is unset. An enabled qualification never skips missing fixtures, empty files, required bindings or reverter setup.
+- **Fail** - inventory, setup, parsing, transport, HTTP status, schema, deterministic-value, reference or directive checks fail. Pair identities and the actual response accompany comparison failures.
 
 ### What "seed" means here
 

@@ -1,0 +1,10 @@
+[task.22.33.805]
+audit = "22.30.178"
+finding_27 = "test_repair_22_33_805.py::test_finding_27_readonly_builds_all_four_nested_modules"
+finding_28 = "test_repair_22_33_805.py::test_finding_28_readonly_builds_both_database_modules_and_keeps_imports"
+preserved_guards = "test_repair_22_33_805.py::test_findings_27_28_keep_checksum_and_exact_manifest_guards"
+proof = "AST assertions inspect the real integration-test command loops, readonly environments, successful-exit assertions, dependency/import checks and byte-exact finally guards; the repair gate invokes no external toolchain or test doubles."
+limitation = "Actual Go compilation is performed by the repaired integration tests, not by the Python-only repair gate; no Go build result is claimed here."
+baseline = "Not run: the explicit gate order forbids verification before the complete implementation and forbids invoking verify_cmd by hand; the repair test module did not exist on the starting tree."
+wiring_requests = "None: both proposals are wholly within tools/deps/tests."
+evidence = "The runner hf-done evidence ledger records the exact verified candidate revision, command, exit code and private log location."

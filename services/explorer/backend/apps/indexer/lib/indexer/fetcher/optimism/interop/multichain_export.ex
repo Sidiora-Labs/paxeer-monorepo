@@ -252,9 +252,16 @@ defmodule Indexer.Fetcher.Optimism.Interop.MultichainExport do
       {:ok, %{status: 200}} ->
         true
 
-      reason ->
-        Logger.error("Cannot post HTTP request to #{url}. Reason: #{inspect(reason)}. Body: #{inspect(json_body)}")
+      result ->
+        Logger.error(
+          "Multichain export failed: chain_id=#{body.chain_id} items=#{length(body.interop_messages)} status=#{export_status(result)}"
+        )
+
         false
     end
   end
+
+  defp export_status({:ok, %{status: status}}) when is_integer(status), do: "http_#{status}"
+  defp export_status({:error, _}), do: "transport_error"
+  defp export_status(_), do: "unexpected_response"
 end
