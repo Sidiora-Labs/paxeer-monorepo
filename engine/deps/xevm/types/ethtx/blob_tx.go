@@ -191,6 +191,41 @@ func (tx *BlobTx) SetSignatureValues(chainID, v, r, s *big.Int) {
 }
 
 func (tx BlobTx) Validate() error {
+	if tx.BlobFeeCap == nil || tx.BlobFeeCap.IsNil() {
+		return errors.New("blob fee cap must be initialized")
+	}
+	if tx.BlobFeeCap.IsNegative() {
+		return errors.New("blob fee cap cannot be negative")
+	}
+	if len(tx.BlobHashes) == 0 {
+		return errors.New("blob hashes cannot be empty")
+	}
+	for i, hash := range tx.BlobHashes {
+		if len(hash) != common.HashLength {
+			return fmt.Errorf("blob hash %d must have length %d", i, common.HashLength)
+		}
+		if hash[0] != 0x01 {
+			return fmt.Errorf("blob hash %d has invalid version", i)
+		}
+	}
+	if tx.Sidecar != nil {
+		count := len(tx.BlobHashes)
+		if len(tx.Sidecar.Blobs) != count || len(tx.Sidecar.Commitments) != count || len(tx.Sidecar.Proofs) != count {
+			return errors.New("blob sidecar counts must match blob hashes")
+		}
+		for i := 0; i < count; i++ {
+			if len(tx.Sidecar.Blobs[i]) != len(kzg4844.Blob{}) {
+				return fmt.Errorf("blob %d has invalid length", i)
+			}
+			if len(tx.Sidecar.Commitments[i]) != len(kzg4844.Commitment{}) {
+				return fmt.Errorf("blob commitment %d has invalid length", i)
+			}
+			if len(tx.Sidecar.Proofs[i]) != len(kzg4844.Proof{}) {
+				return fmt.Errorf("blob proof %d has invalid length", i)
+			}
+		}
+	}
+
 	if tx.GasTipCap == nil {
 		return errors.New("gas tip cap cannot nil")
 	}

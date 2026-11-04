@@ -39,17 +39,35 @@ func NewTxsWriter(gasPerBlock uint64, txsDir string, startHeight uint64, numBloc
 	}
 }
 
+var ErrWriterComplete = errors.New("transaction writer completed requested blocks")
+
 func (w *TxsWriter) Send(ctx context.Context, tx *types.LoadTx) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if tx == nil || tx.EthTx == nil {
+		return errors.New("transaction is missing its Ethereum payload")
+	}
+	gas := tx.EthTx.Gas()
+	if gas > w.gasPerBlock {
+		return fmt.Errorf("transaction gas %d exceeds block gas limit %d", gas, w.gasPerBlock)
+	}
 	if err := w.resume(); err != nil {
 		return err
 	}
-	if w.bufferGas+tx.EthTx.Gas() > w.gasPerBlock {
+	if w.blocksGenerated >= w.numBlocks {
+		return ErrWriterComplete
+	}
+	if gas > w.gasPerBlock-w.bufferGas {
 		if err := w.Flush(); err != nil {
 			return err
 		}
+		if w.blocksGenerated >= w.numBlocks {
+			return ErrWriterComplete
+		}
 	}
 	w.txBuffer = append(w.txBuffer, tx)
-	w.bufferGas += tx.EthTx.Gas()
+	w.bufferGas += gas
 	return nil
 }
 
@@ -222,6 +240,9 @@ func (w *TxsWriter) resume() error {
 		ordered = append(ordered, height)
 	}
 	sort.Slice(ordered, func(i, j int) bool { return ordered[i] < ordered[j] })
+	if uint64(len(ordered)) > w.numBlocks {
+		return fmt.Errorf("recovered batches exceed requested block count %d", w.numBlocks)
+	}
 	next := w.startHeight
 	for _, height := range ordered {
 		if height != next {
@@ -259,6 +280,12 @@ func (w *TxsWriter) Flush() error {
 	if err := w.resume(); err != nil {
 		return err
 	}
+	if len(w.txBuffer) == 0 {
+		return nil
+	}
+	if w.blocksGenerated >= w.numBlocks {
+		return ErrWriterComplete
+	}
 	txData := TxWriteData{TxPayloads: make([][]byte, 0, len(w.txBuffer))}
 	for _, tx := range w.txBuffer {
 		txData.TxPayloads = append(txData.TxPayloads, tx.Payload)
@@ -283,13 +310,9 @@ func (w *TxsWriter) Flush() error {
 		return err
 	}
 	log.Printf("Flushed %d transactions to %s", len(w.txBuffer), w.batchPath(w.nextHeight))
-	limitReached := w.blocksGenerated >= w.numBlocks
 	w.txBuffer = make([]*types.LoadTx, 0)
 	w.bufferGas = 0
 	w.nextHeight++
 	w.blocksGenerated++
-	if limitReached {
-		return fmt.Errorf("reached max number of blocks: %d", w.numBlocks)
-	}
 	return nil
 }

@@ -8,22 +8,31 @@
 // uint64 transaction bounds that Viper's float64 JSON decoding used to round.
 // The CLI now calls MergeBounds before LoadSettings/ResolveSettings.
 // TestProofPaxloadBoundsCallerGap retains the historical missing-merge
-// characterization; repair_321_test.go proves the actual CLI wiring.
+// characterization and also drives the shipped profile through the real CLI.
 package config_test
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"math"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"regexp"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
 	"github.com/paxeer-network/pax-load/config"
+	"github.com/paxeer-network/pax-load/config/cli"
+	"github.com/paxeer-network/pax-load/generator/scenarios"
+	"github.com/paxeer-network/pax-load/stats"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
@@ -249,4 +258,128 @@ func TestProofPaxloadBoundsCallerGap(t *testing.T) {
 	require.Equal(t, float64(400), observed.MinTPS)
 	require.Equal(t, 250*time.Millisecond, observed.MaxP99Latency.ToDuration())
 	require.Equal(t, uint64(5000), observed.MinTotalTxs)
+	t.Run("shipped profile fails after real collection", func(t *testing.T) { proofBoundsRunProfileCLI(t, false) })
+	t.Run("explicit zero flags exit successfully", func(t *testing.T) { proofBoundsRunProfileCLI(t, true) })
+}
+
+const proofBoundsCLIMarker = "profile_cli_result="
+
+type proofBoundsCLIResult struct {
+	Settings          config.Settings `json:"settings"`
+	PerformanceBounds bool            `json:"performanceBounds"`
+}
+
+// The existing test executable supplies process isolation without a Go subprocess
+// toolchain. The handler is the same production Cobra command used by main.
+func proofBoundsCLIChild(t *testing.T) bool {
+	t.Helper()
+	for i, arg := range os.Args {
+		if arg != "--" {
+			continue
+		}
+		cmd, err := cli.NewCommand()
+		require.NoError(t, err)
+		cmd.SetArgs(os.Args[i+1:])
+		handler := cmd.RunE
+		cmd.RunE = func(command *cobra.Command, args []string) error {
+			err := handler(command, args)
+			encoded, encodeErr := json.Marshal(proofBoundsCLIResult{config.ResolveSettings(), errors.Is(err, cli.ErrPerformanceBounds)})
+			require.NoError(t, encodeErr)
+			fmt.Printf("%s%s\n", proofBoundsCLIMarker, encoded)
+			return err
+		}
+		if err := cmd.Execute(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+	return false
+}
+
+func proofBoundsRunProfileCLI(t *testing.T, disable bool) {
+	t.Helper()
+	profilePath := filepath.Join("..", "profiles", "evm_transfer.json")
+	profile, err := cli.LoadConfig(profilePath)
+	require.NoError(t, err)
+	require.NotNil(t, profile.Bounds)
+	require.Positive(t, profile.Bounds.MinAverageTPS)
+	reportPath := filepath.Join(t.TempDir(), "report.json")
+	binary, err := os.Executable()
+	require.NoError(t, err)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	args := []string{"-test.run=^TestRepairM_816_ProfileCLI$", "--", "--config", profilePath,
+		"--dry-run", "--tps=0.1", "--stats-interval=1s", "--metricsListenAddr=127.0.0.1:0", "--report-path", reportPath}
+	if disable {
+		args = append(args, "--min-tps=0", "--max-p99-latency=0s", "--min-total-txs=0")
+	}
+	cmd := exec.CommandContext(ctx, binary, args...)
+	pipe, err := cmd.StdoutPipe()
+	require.NoError(t, err)
+	cmd.Stderr = cmd.Stdout
+	require.NoError(t, cmd.Start())
+	defer func() {
+		if cmd.ProcessState == nil {
+			_ = cmd.Process.Kill()
+			_ = cmd.Wait()
+		}
+	}()
+	var output bytes.Buffer
+	ready, stopped, observed := false, false, false
+	var result proofBoundsCLIResult
+	completed := regexp.MustCompile(`throughput tps=[^,]+, txs=[1-9][0-9]*,`)
+	scanner := bufio.NewScanner(pipe)
+	for scanner.Scan() {
+		line := scanner.Text()
+		fmt.Fprintln(&output, line)
+		if strings.Contains(line, "Dry-run mode: Simulating requests") {
+			ready = true
+		}
+		if ready && !stopped && completed.MatchString(line) {
+			require.NoError(t, cmd.Process.Signal(syscall.SIGTERM))
+			stopped = true
+		}
+		if strings.HasPrefix(line, proofBoundsCLIMarker) {
+			require.NoError(t, json.Unmarshal([]byte(strings.TrimPrefix(line, proofBoundsCLIMarker)), &result))
+			observed = true
+		}
+	}
+	waitErr := cmd.Wait()
+	require.NoError(t, scanner.Err(), "%s", output.String())
+	require.NoError(t, ctx.Err(), "CLI timed out: %s", output.String())
+	require.True(t, ready, "%s", output.String())
+	require.True(t, stopped, "no completed transactions: %s", output.String())
+	require.True(t, observed, "production handler did not return: %s", output.String())
+	data, err := os.ReadFile(reportPath)
+	require.NoError(t, err, "%s", output.String())
+	var report stats.FinalStats
+	require.NoError(t, json.Unmarshal(data, &report))
+	require.Positive(t, report.OverallPerformance.TotalTransactions)
+	require.Positive(t, report.OverallPerformance.AverageTPS)
+	require.Equal(t, report.LoadTestStatistics.TotalTxs, report.OverallPerformance.TotalTransactions)
+	require.Equal(t, report.OverallPerformance.TotalTransactions, report.ScenarioDistribution[scenarios.EVMTransfer])
+	require.Positive(t, report.EndpointPerformance[profile.Endpoints[0]].SampleCount)
+	require.Less(t, report.OverallPerformance.AverageTPS, profile.Bounds.MinAverageTPS)
+	require.NotContains(t, output.String(), "Failed to send transaction")
+	require.Contains(t, output.String(), "Received shutdown signal, stopping gracefully")
+	if disable {
+		require.NoError(t, waitErr, "%s", output.String())
+		require.Equal(t, 0, cmd.ProcessState.ExitCode())
+		require.False(t, result.PerformanceBounds)
+		require.Zero(t, result.Settings.MinTPS)
+		require.Zero(t, result.Settings.MaxP99Latency)
+		require.Zero(t, result.Settings.MinTotalTxs)
+		require.NotContains(t, output.String(), cli.ErrPerformanceBounds.Error())
+	} else {
+		var exitErr *exec.ExitError
+		require.ErrorAs(t, waitErr, &exitErr, "%s", output.String())
+		require.Equal(t, 1, exitErr.ExitCode())
+		require.True(t, result.PerformanceBounds, "handler must return ErrPerformanceBounds")
+		require.Equal(t, profile.Bounds.MinAverageTPS, result.Settings.MinTPS)
+		require.Equal(t, config.Duration(time.Duration(profile.Bounds.MaxP99LatencyMs)*time.Millisecond), result.Settings.MaxP99Latency)
+		require.Equal(t, profile.Bounds.MinTotalTxs, result.Settings.MinTotalTxs)
+		require.Contains(t, output.String(), cli.ErrPerformanceBounds.Error())
+		require.Contains(t, output.String(), "min_average_tps: limit=5 observed=")
+	}
 }

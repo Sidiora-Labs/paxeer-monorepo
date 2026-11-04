@@ -866,6 +866,19 @@ pub(super) fn step_up_digest(
     body: &Value,
     idempotency_key: Option<&str>,
 ) -> Result<OperationDigest, ProductionAuthError> {
+    if matches!(
+        operation.name.as_str(),
+        "security.key-export.begin" | "security.key-export.finish"
+    ) {
+        // The key-export schema binds the fresh ceremony to principal + export action.
+        // The execution capability separately binds the full destination and request body.
+        return crate::security::security_action_digest(
+            principal,
+            crate::security::SecurityAction::ExportPrimaryKey,
+            None,
+        )
+        .map_err(|_| ProductionAuthError::InvalidDisclosure);
+    }
     let mut disclosed = body.clone();
     if let Some(object) = disclosed.as_object_mut() {
         object.remove("step_up");

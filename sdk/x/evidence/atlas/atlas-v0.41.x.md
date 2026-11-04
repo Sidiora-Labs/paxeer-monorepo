@@ -6,8 +6,9 @@ through the staking and slashing keepers. Valid actionable equivocation can
 slash, jail and tombstone a validator. Evidence is persisted by its hash and can
 be queried individually or with pagination.
 
-This filename and [atlas manifest](manifest.toml) retain the Cosmos SDK v0.41
-provenance. The integration details below describe the local fork used by
+**Upstream provenance:** this filename and [atlas manifest](manifest.toml)
+retain the Cosmos SDK v0.41 origin; the manifest links identify upstream sources.
+The integration details below describe the local fork used by
 `paxd`. Paxeer is one BFT network, with EVM chain ID `125`; its kernel participates
 in proposing blocks. These evidence operations belong to that node's SDK
 application.
@@ -70,12 +71,11 @@ The module depends on the [staking and slashing interfaces](../types/expected_ke
    `Evidence.Route()` and registration of its protobuf implementation. Registering
    `Equivocation` in the interface registry alone does not install a handler.
 
-   **Current node limitation:** `node/app.go` constructs and copies the keeper
-   without calling `SetRouter`. Consequently, it has no initialized dispatch
-   table for transaction submissions; a new submission can reach a nil table.
-   Do not assume that `MsgSubmitEvidence` is usable merely because its service
-   definition exists. Consensus evidence processing and stored-evidence queries
-   use separate keeper paths.
+   **Current node policy:** `node/app.go` explicitly installs an empty sealed
+   router before copying the keeper. The constructor also defaults to a sealed
+   empty router. New transaction submissions return `ErrNoEvidenceHandlerExists`
+   until an embedding application registers a handler. Consensus equivocation
+   processing and stored-evidence queries use separate keeper paths.
 
 6. Add `evidence.NewAppModule(app.EvidenceKeeper)` to `module.NewManager(...)`.
    Its `RegisterServices` registers the evidence Query server and SDK Msg server.
@@ -147,7 +147,7 @@ The fork's executable is `paxd`:
 
 ```sh
 paxd query evidence
-paxd query evidence DF0C23E8634E480F84B9D5674A7CDC9816466DEC28A3358F73260F68D28D7660
+paxd query evidence 6DE180E498DA2745F6E8243AEB9837A93A36056C8D2788BE51A08DF973583CB4
 ```
 
 A single positional hash selects one record; no positional hash selects the

@@ -47,19 +47,21 @@ type Implementation interface {
 type baseService struct {
 	// This is the context that (structured concurrency) service tasks will be executed with.
 	// It is canceled when outer context is canceled or when the service is stopped.
-	ctx    context.Context
-	cancel context.CancelFunc
-	wg     sync.WaitGroup
-	done   chan struct{}
+	ctx       context.Context
+	cancel    context.CancelFunc
+	wg        sync.WaitGroup
+	done      chan struct{}
+	startDone chan struct{}
+	startErr  error
 }
 
 /*
 Classical-inheritance-style service declarations. Services can be started, then
 stopped, but cannot be restarted.
 
-Users must implement OnStart/OnStop methods. In the absence of errors, these
-methods are guaranteed to be called at most once. If OnStart returns an error,
-service won't be marked as started, so the user can call Start again.
+Users must implement OnStart/OnStop methods. These methods are guaranteed to be
+called at most once. If OnStart returns an error, the service cleans up partially
+started work and remains stopped. Subsequent Start calls return the startup error.
 
 The BaseService implementation ensures that the OnStop method is
 called after the context passed to Start is canceled.
@@ -104,32 +106,43 @@ func NewBaseService(name string, impl Implementation) *BaseService {
 }
 
 // Start starts the Service and calls its OnStart method. An error
-// will be returned if the service is stopped, but not if it is
-// already running.
+// from OnStart is returned after cleanup, including on subsequent calls.
+// Concurrent calls wait for the initial startup result.
 func (bs *BaseService) Start(ctx context.Context) error {
 	sCtx, cancel := context.WithCancel(ctx)
-	inner := &baseService{sCtx, cancel, sync.WaitGroup{}, make(chan struct{})}
+	inner := &baseService{
+		ctx: sCtx, cancel: cancel,
+		done: make(chan struct{}), startDone: make(chan struct{}),
+	}
 	if !bs.inner.CompareAndSwap(nil, inner) {
 		cancel() // free the context.
-		return nil
+		inner = bs.inner.Load()
+		<-inner.startDone
+		return inner.startErr
 	}
+	defer close(inner.startDone)
 
-	logger.Debug("starting service", "service", bs.name, "impl", bs.name)
-	// Currently pax-tendermint services (and tests) rely on the fact that OnStart is called with
-	// exactly the same context as Start.
-	if err := bs.impl.OnStart(ctx); err != nil {
-		cancel() // free the context.
-		return err
-	}
-
-	go func() {
-		<-inner.ctx.Done()
+	stop := func() {
 		inner.cancel() // free the context.
 		logger.Debug("stopping service", "service", bs.name)
 		bs.impl.OnStop()
 		inner.wg.Wait() // wait for all spawned tasks to finish
 		logger.Info("stopped service", "service", bs.name)
 		close(inner.done)
+	}
+
+	logger.Debug("starting service", "service", bs.name, "impl", bs.name)
+	// Currently pax-tendermint services (and tests) rely on the fact that OnStart is called with
+	// exactly the same context as Start.
+	if err := bs.impl.OnStart(ctx); err != nil {
+		inner.startErr = err
+		stop()
+		return err
+	}
+
+	go func() {
+		<-inner.ctx.Done()
+		stop()
 	}()
 	return nil
 }

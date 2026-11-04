@@ -1,0 +1,21 @@
+[repair.22.33.1154]
+mode = "BUILD"
+base = "4299cb15eced23eb9a839162acd11e9a937edd05"
+qualification = "hf-build followed by hf-done; the runner records the verified candidate revision and private log in its gate ledger."
+baseline = "Not run: the task's ordered implementation/build/hf-done instructions prohibit running verify_cmd by hand or before implementation; no pre-change test failure is claimed."
+wiring_requests = []
+
+[finding.evidence-start-guard-never-set]
+tests = ["TestRepairM_1154_RepeatedStartAndRestart", "TestRepairM_1154_FailedStartRetry", "TestRepairM_1154_ExpiredRecovery"]
+repair = "Serialize startup with store users; stage recovery and pruning before publishing state, counters, gossip entries or isStarted, so failed initialization can retry and concurrent/repeated starts cannot duplicate recovered evidence."
+proof = "Real consensus votes produce offenses transported through the protobuf codec into the real pool and disk store; close/reopen, concurrent starts and persisted-record corruption/retry assert matching proposals, gossip entries and counters."
+
+[finding.evidence-lifecycle-test-omits-start]
+tests = ["TestRepairM_1154_LightClientLifecycle"]
+repair = "Start TestLightClientAttackEvidenceLifecycle with the matching chain identity and complete validator state, retaining every existing admission, duplicate, proposal, update and committed-refusal assertion."
+proof = "The declared test executes the repaired original light-client lifecycle test through the production pool and evidence verifier."
+
+[finding.evidence-shutdown-does-not-join-users]
+tests = ["TestRepairM_1154_ShutdownJoinsUsers"]
+repair = "A supervised scope owns inbound, peer-update and peer-broadcast workers; OnStop joins the scope before closing the pool."
+proof = "Real loopback routers broadcast a produced offense, then hold a second inbound AddEvidence in the production verification mutex while Stop or parent cancellation joins the peer; assert the disk store stays open until admission finishes, all workers end, and post-stop messages remain unconsumed while the reopened store retains both offenses."

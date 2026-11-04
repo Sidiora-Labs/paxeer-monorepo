@@ -36,6 +36,9 @@ func NewStandardCache(
 	readPool threading.Pool,
 	miscPool threading.Pool,
 ) (Cache, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid cache config: %w", err)
+	}
 	if cfg.ShardCount == 0 || (cfg.ShardCount&(cfg.ShardCount-1)) != 0 {
 		return nil, ErrNumShardsNotPowerOfTwo
 	}

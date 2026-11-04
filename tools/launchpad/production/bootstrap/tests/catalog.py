@@ -11,8 +11,12 @@ import sys
 
 MODULES = ('sdk/launchpad/shared', 'sdk/launchpad/protocol', 'services/launchpad/api', 'services/launchpad/indexer', 'services/launchpad/pnl-tracker', 'services/launchpad/ranking-algo',
            'services/launchpad/stats-workers', 'services/launchpad/trading-charts', 'services/launchpad/gateway', 'services/launchpad/livestream',
-           'services/launchpad/metadata', 'services/launchpad/social', 'services/launchpad/user')
+           'services/launchpad/metadata', 'services/launchpad/social', 'services/launchpad/user',
+           'services/launchpad/discovery', 'services/launchpad/notifications',
+           'services/launchpad/security', 'services/launchpad/security/control')
 ROOT = Path(__file__).resolve().parents[5]
+WORKSPACE = 'services/launchpad/go.work'
+MODULE_HOMES = ('sdk/launchpad', 'services/launchpad')
 GO_TEST = re.compile(r'^func\s+(Test\w+|Example\w*|Fuzz\w+)\s*\(', re.M)
 WEB_TEST = re.compile(r'\b(?:test|it)\s*(?:\.(?:skip|todo|only))?\s*\(\s*([\'"`])(.+?)\1', re.S)
 SKIP = re.compile(r'\.(?:Skip(?:f|Now)?|skip|todo|only)\b')
@@ -22,9 +26,63 @@ def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def workspace_inventory(root):
+    workspace = root / WORKSPACE
+    result = {'path': WORKSPACE, 'modules': [], 'issues': []}
+    try:
+        source = workspace.read_text()
+        result['sha256'] = sha(workspace)
+        tokens = re.findall(r'"(?:\\.|[^"\\])*"|`[^`]*`|//[^\n]*|[()]|[^\s()]+', source)
+        tokens = [token for token in tokens if not token.startswith('//')]
+        paths = []
+        index = 0
+        while index < len(tokens):
+            token = tokens[index]
+            index += 1
+            if token != 'use':
+                continue
+            if index == len(tokens):
+                raise ValueError('use requires a module path')
+            if tokens[index] == '(':
+                index += 1
+                while index < len(tokens) and tokens[index] != ')':
+                    paths.append(tokens[index])
+                    index += 1
+                if index == len(tokens):
+                    raise ValueError('unterminated use block')
+            else:
+                paths.append(tokens[index])
+            index += 1
+        seen = set()
+        for path in paths:
+            if path.startswith('"'):
+                path = json.loads(path)
+            elif path.startswith('`'):
+                path = path[1:-1]
+            directory = (workspace.parent / path).resolve()
+            if not directory.is_relative_to(root.resolve()):
+                raise ValueError('module path escapes repository: ' + path)
+            name = directory.relative_to(root.resolve()).as_posix()
+            if name in seen:
+                raise ValueError('duplicate module path: ' + name)
+            seen.add(name)
+            if any(name == home or name.startswith(home + '/') for home in MODULE_HOMES):
+                result['modules'].append(name)
+        result['modules'].sort()
+        wanted, actual = set(result['modules']), set(MODULES)
+        if not wanted or wanted != actual or len(MODULES) != len(actual):
+            raise ValueError('module coverage mismatch: missing=' + repr(sorted(wanted - actual)) +
+                             '; unlisted=' + repr(sorted(actual - wanted)))
+    except (OSError, ValueError) as error:
+        result['issues'].append('workspace ' + str(error))
+    return result
+
+
 def inventory(root):
     result = {'schema_version': 1, 'evidence_level': 'source_inventory_only',
               'go_modules': [], 'web_files': [], 'issues': [], 'testing_gaps': []}
+    result['workspace'] = workspace_inventory(root)
+    result['issues'].extend(result['workspace']['issues'])
     for name in MODULES:
         directory = root / name
         manifest = directory / 'go.mod'
@@ -41,6 +99,12 @@ def inventory(root):
             else:
                 item['module_import'] = match.group(1)
         for path in sorted(directory.rglob('*_test.go')):
+            # A standalone Go runner does not enter a nested module.
+            if any((parent / 'go.mod').is_file() for parent in path.parent.parents
+                   if parent != directory and directory in parent.parents):
+                continue
+            if path.parent != directory and (path.parent / 'go.mod').is_file():
+                continue
             source = path.read_text()
             declarations = [{'name': m.group(1), 'line': source.count('\n', 0, m.start()) + 1}
                             for m in GO_TEST.finditer(source)]
@@ -154,7 +218,7 @@ def validate_vitest(report, root, expected_files):
     return {'executed_assertions': assertions, 'executed_files': len(seen)}
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('mode', choices=('inventory', 'discover', 'verify-go-json', 'verify-vitest-json', 'run-go', 'run-vitest'))
     parser.add_argument('--root', type=Path, default=ROOT)
@@ -162,11 +226,13 @@ def main():
     parser.add_argument('--input', type=Path)
     parser.add_argument('--timeout', type=int, default=120)
     parser.add_argument('--log', type=Path, help='Required native stdout log for explicit run modes')
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     root = args.root.resolve()
     result = {'schema_version': 1, 'status': 'failed', 'mode': args.mode}
     try:
         catalog = inventory(root)
+        if args.mode != 'inventory' and catalog['workspace']['issues']:
+            raise ValueError('; '.join(catalog['workspace']['issues']))
         if args.mode == 'inventory':
             # Inventory is observation only: issues intentionally make the gate fail.
             result.update(catalog)

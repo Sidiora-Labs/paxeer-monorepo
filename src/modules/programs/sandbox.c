@@ -711,6 +711,20 @@ lxp_result layerx_programs_call_sandbox_usage_result_occupancy(
     return LXP_OK;
 }
 
+extern int32_t layerx_programs_sandbox_namespace(
+    const uint8_t host[32], const uint8_t lease[32], uint8_t out[32]);
+
+lxp_result layerx_programs_call_sandbox_execution_principal(
+    uint64_t call_token, const uint8_t program[32], uint8_t principal[32])
+{
+    const programs_sandbox_activity *value = sandbox_for_call(call_token);
+    if (value == NULL) return LXP_ERR_UNKNOWN_FIELD;
+    if (value->operation != SANDBOX_EXECUTE || program == NULL || principal == NULL)
+        return LXP_ERR_NON_CANONICAL;
+    return layerx_programs_sandbox_namespace(program, value->lease_id, principal) == 0 ?
+        LXP_OK : LXP_ERR_NON_CANONICAL;
+}
+
 lxp_result layerx_programs_call_sandbox_context(uint64_t call_token)
 {
     return sandbox_for_call(call_token) == NULL ? LXP_ERR_UNKNOWN_FIELD : LXP_OK;

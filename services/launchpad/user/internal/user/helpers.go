@@ -18,17 +18,10 @@ func normalizeAddr(s string) string {
 	return strings.ToLower(strings.TrimSpace(s))
 }
 
-// baseURL returns the configured PublicURL when set, else builds an origin from
-// the request (scheme + host), matching the TS fallback.
-func baseURL(publicURL string, r *http.Request) string {
-	if publicURL != "" {
-		return publicURL
-	}
-	scheme := "http"
-	if r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {
-		scheme = "https"
-	}
-	return scheme + "://" + r.Host
+// baseURL uses only operator configuration. With no canonical origin, relative
+// links remain safe across hosts and proxy headers sharing a wallet cache.
+func baseURL(publicURL string, _ *http.Request) string {
+	return strings.TrimRight(publicURL, "/")
 }
 
 // buildImages resolves avatar/banner absolute URLs from the stored image rows.

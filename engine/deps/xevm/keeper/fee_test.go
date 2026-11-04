@@ -179,18 +179,21 @@ func TestAdjustBaseFeePerGas(t *testing.T) {
 }
 
 func TestGetDynamicBaseFeePerGasWithNilMinFee(t *testing.T) {
-	k, ctx := testkeeper.MockEVMKeeper(t)
+	k, ctx := newRepairM1130Keeper(t)
 
-	// Test case 1: When dynamic base fee doesn't exist and minimum fee is nil
-	store := ctx.GigaKVStore(k.GetStoreKey())
-	store.Delete(types.BaseFeePerGasPrefix)
+	// Remove the actual next-fee key and minimum parameter read by the keeper.
+	k.SetCurrBaseFeePerGas(ctx, sdk.NewDec(777))
+	k.SetNextBaseFeePerGas(ctx, sdk.NewDec(888))
+	store := k.GetKVStore(ctx)
+	store.Delete(types.NextBaseFeePerGasPrefix)
+	clearRepairM1130MinimumFee(t, k, ctx)
+	require.Nil(t, store.Get(types.NextBaseFeePerGasPrefix))
 
-	// Clear the dynamic base fee from store
 	fee := k.GetNextBaseFeePerGas(ctx)
 	require.Equal(t, types.DefaultParams().MinimumFeePerGas, fee)
 	require.False(t, fee.IsNil())
 
-	// Test case 2: When dynamic base fee exists
+	// A stored next fee takes precedence even with a missing minimum parameter.
 	expectedFee := sdk.NewDec(100)
 	k.SetNextBaseFeePerGas(ctx, expectedFee)
 
@@ -200,13 +203,15 @@ func TestGetDynamicBaseFeePerGasWithNilMinFee(t *testing.T) {
 }
 
 func TestGetPrevBlockBaseFeePerGasWithNilMinFee(t *testing.T) {
-	k, ctx := testkeeper.MockEVMKeeper(t)
+	k, ctx := newRepairM1130Keeper(t)
 
-	// Test case 1: When dynamic base fee doesn't exist and minimum fee is nil
-	store := ctx.GigaKVStore(k.GetStoreKey())
-	store.Delete(types.BaseFeePerGasPrefix)
+	k.SetCurrBaseFeePerGas(ctx, sdk.NewDec(777))
+	k.SetNextBaseFeePerGas(ctx, sdk.NewDec(888))
+	store := k.GetKVStore(ctx)
+	store.Delete(types.NextBaseFeePerGasPrefix)
+	clearRepairM1130MinimumFee(t, k, ctx)
+	require.Nil(t, store.Get(types.NextBaseFeePerGasPrefix))
 
-	// Clear the dynamic base fee from store
 	fee := k.GetNextBaseFeePerGas(ctx)
 	require.Equal(t, types.DefaultParams().MinimumFeePerGas, fee)
 	require.False(t, fee.IsNil())
