@@ -151981,7 +151981,7 @@ do_9 = "Attempt 2 (continue): the explorer type-check failed on the ganache impo
 
 [task.22.33.341]
 title = "Repair audit record 22.30.138 medium findings in apps/explorer/ui/snippets/navigation/vertical (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.268"]
@@ -152016,7 +152016,7 @@ do_8 = "Attempt 2 (continue): the explorer type-check failed on the ganache impo
 
 [task.22.33.340]
 title = "Repair audit record 22.30.138 medium findings in apps/explorer/ui/snippets/navigation/horizontal (part 1 of 1): retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.268"]
@@ -152201,7 +152201,7 @@ do_8 = "Attempt 2 (continue): the explorer type-check failed on the ganache impo
 
 [task.22.33.331]
 title = "Repair audit record 22.30.137 medium findings in apps/explorer/ui/shared/statusLadder (part 1 of 1): retired-reference, test-gap, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -152352,7 +152352,7 @@ do_15 = "Attempt 2 (continue): the explorer type-check failed on the ganache imp
 
 [task.22.33.327]
 title = "Repair audit record 22.30.137 medium findings in apps/explorer/ui/shared/monaco/utils (part 1 of 1): runtime-risk, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -152534,7 +152534,7 @@ do_9 = "Attempt 3 (continue): the explorer type-check failed on the ganache impo
 
 [task.22.33.322]
 title = "Repair audit record 22.30.137 medium findings in apps/explorer/ui/shared/Utilization (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -153212,7 +153212,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.289]
 title = "Repair audit record 22.30.134 medium findings in apps/explorer/lib/api/services/general (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.379", "22.31.380"]
@@ -153247,7 +153247,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.285]
 title = "Repair audit record 22.30.133 medium findings in apps/explorer/ui/crossChain/transfers (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.377", "22.31.378"]
@@ -153683,7 +153683,7 @@ do_11 = "Attempt 3 (continue): the attempt ran on the gate as it stood before th
 
 [task.22.33.268]
 title = "Repair audit record 22.30.131 medium findings in apps/bridge/src/components/trading (part 1 of 1): interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.376"]
@@ -153872,7 +153872,7 @@ do_15 = "Attempt 2 (continue): the type-check failed only because the framework'
 
 [task.22.33.263]
 title = "Repair audit record 22.30.131 medium findings in apps/bridge/src/components/bridge (part 1 of 1): restart-recovery, runtime-risk, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.376"]
@@ -156794,7 +156794,7 @@ do_14 = "Attempt 2 (continue): the type-check failed only because sdk/wallet and
 
 [task.22.33.11]
 title = "Repair audit record 22.30.10 medium findings in apps/perps/src/app/modals (part 2 of 2): doc-drift, restart-recovery, runtime-risk, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.2"]
@@ -157204,7 +157204,7 @@ do_9 = "Attempt 1: apps/explorer is pinned to yarn (packageManager in its packag
 
 [task.22.31.405]
 title = "Repair audit record 22.30.153 findings in apps/explorer/ui/tx: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.440"]
@@ -335006,7 +335006,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.432]
 title = "Repair audit record 22.30.182 findings in tools/qualification/paxeer-x: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
