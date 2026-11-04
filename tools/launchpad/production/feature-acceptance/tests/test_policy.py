@@ -60,7 +60,8 @@ class PolicyTests(unittest.TestCase):
  def test_exact_inventory_and_reproducible_spec_materialization(self):
   mapping=p.validate_inventory(self.inventory);self.assertEqual(set(mapping),p.FEATURES)
   gs=importlib.util.spec_from_file_location('inventory_generator',DIR/'build_inventory.py');g=importlib.util.module_from_spec(gs);gs.loader.exec_module(g)
-  self.assertEqual(self.inventory,g.build())
+  self.assertEqual(g.SPEC,DIR.parents[3]/'spec/layerx-merge/spec.kvx')
+  self.assertEqual(self.inventory,g.build(g.SPEC))
  def test_valid_real_crypto_policy_fixture_not_release(self):
   result=self.run_policy();self.assertTrue(result['qualified']);self.assertFalse(result['release_qualified'])
  def test_unknown_and_absent_gate(self):

@@ -1,0 +1,43 @@
+[repair.22.33.1082]
+audit = "22.30.44"
+acceptance = "22998.1"
+mode = "BUILD"
+baseline = "Inherited attempt at revision 652e0af32990c64c2790e6f7dbb3537c75f2f18a: TestRepairM_1082_Equivocation and TestRepairM_1082_InvalidPrecommit passed; TestRepairM_1082_MemoryLimit panicked while signing Total=102 above the 101-part bound, before reactor delivery. Later tests did not execute. No unchanged-tree rerun is claimed; Order 1/4 requires completing implementation before the bounded gates."
+evidence = "Exact candidate revision, build and verify commands, exits and private evidence paths are recorded by the runner's hf-build/hf-done ledger. This record makes no unrun-gate claim."
+
+[gotcha.memory-limit-signing]
+observed = "ProposalSignBytes validates BlockID before encoding and panics on a deliberately oversized part count."
+repair = "Canonicalize a real valid producer proposal, prove its encoding matches ProposalSignBytes, then encode and sign the hostile count with the production canonical protobuf codec; leave every consumer bound and signature check enabled."
+
+[finding.equivocation-test-commented]
+test = "TestRepairM_1082_Equivocation"
+path = "byzantine_test.go TestByzantinePrevoteEquivocation invokes the same executable scenario. Two honest validator reactors receive cryptographically valid conflicting prevotes over loopback routers; an accepted future-round vote orders the transcript before releasing the quorum. Both nodes commit the same block with a valid quorum and the real evidence pools retain duplicate-vote evidence with the committed timestamp."
+
+[finding.invalid-precommit-test-skipped]
+test = "TestRepairM_1082_InvalidPrecommit"
+path = "invalid_test.go TestReactorInvalidPrecommit invokes the connected reactor scenario without a skip. An altered signed timestamp invalidates the precommit; a same-channel future-round vote orders rejection, all current precommit slots remain empty, the original valid vote is accepted, and honest votes commit a verified block."
+
+[finding.step-latency-baseline]
+test = "TestRepairM_1082_StepLatency"
+path = "MarkStepLatency initializes the first sample without adding epoch time. ClearStepMetrics establishes the height boundary baseline. A real Prometheus gauge/registry collects exact virtual elapsed intervals at startup and two State.updateHeight transitions, excluding the preceding height's idle time."
+
+[finding.wal-test-zero-time]
+test = "TestRepairM_1082_WALReceiveTime"
+path = "msgs_test.go tests the actual signed producer msgInfo and distinguishes the inner Msg/PeerID protobuf from the timed WAL envelope. Append/Sync/Close/reopen preserves the nonzero receive clock. replay_test.go stops and reopens the state and FilePV, replays the WAL, and verifies timely/late decisions and identical signed prevotes. TestWALMsgProto and TestWALTimedProposalRecovery use the same checks."
+wiring_request = "consensus/proto/tendermint/consensus/wal.proto, owning domain 5 (fm-node-runtime): expose the existing field-3 receive_time Timestamp adapter in the generated TimedWALMessage codec as already requested by repair 22.31.80; no out-of-scope protobuf change is made here."
+
+[finding.memory-coverage-test-inert]
+test = "TestRepairM_1082_MemoryLimit"
+path = "reactor_test.go TestReactorMemoryLimitCoverage invokes the real loopback reactor scenario. A correctly signed encoded over-limit proposal is rejected by the decoder, the offending peer is evicted, no peer bitarray or proposal/block state is retained, and another connected peer delivers a valid signed proposal and bounded parts. Existing limits and signature verification remain active."
+
+[finding.nonzero-proposer-timeout]
+test = "TestRepairM_1082_NonzeroProposerTimeout"
+path = "handleTimeout resumes enterPropose at ti.Round. pbts_test.go drives an active two-leader pin's local standby at round 1 with future LastBlockTime, waits on the production TimeoutTicker, asserts the fired and subsequent propose timeout retain round 1, and consumes the real signed proposal/parts into a valid prevote."
+
+[finding.legacy-proposer-test-shape]
+test = "TestRepairM_1082_LeaderSelection"
+path = "state_test.go TestStateProposerSelection0 and TestStateProposerSelection2 use RoundState.Leader, unequal voting power, active/disabled pins and activation at height 2. Actual NewRound leader events, signed production proposals, encoded message consumption and verified commits span heights 1/2 and rounds 0/1 or 2/3 without GetProposer expectations."
+
+[finding.assembled-block-source-assertion]
+test = "TestRepairM_1082_AssembledBlock"
+path = "wiring_test.go retains channel/schema checks and replaces source matching with the real block encoder, Merkle parts producer, message codec, public state queue and running receive routine. A signed commit quorum installs the header; over-bound nested commit signatures fail with ErrInvalidBlockWire and leave no proposal block or committed height. A within-bound production block assembles and commits with a verified quorum. The sentinel identifies scanner rejection without matching human-readable errors."

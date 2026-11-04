@@ -12,6 +12,9 @@ import (
 // Sign creates an ECDSA signature on curve Secp256k1, using SHA256 on the msg.
 // The returned signature will be of the form R || S (in lower-S form).
 func (pk *PrivKey) Sign(msg []byte) ([]byte, error) {
+	if err := validatePrivKey(pk.Key); err != nil {
+		return nil, err
+	}
 	priv, _ := secp256k1.PrivKeyFromBytes(pk.Key)
 	hash := cosmoscrypto.Sha256(msg)
 	// SignCompact returns [recovery_id][R][S] - note: newer btcec versions only return 1 value

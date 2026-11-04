@@ -193,7 +193,7 @@ defmodule Explorer.Chain.Hash do
   end
 
   defp byte_count_to_max_integer(byte_count) do
-    (1 <<< (byte_count * @bits_per_byte + 1)) - 1
+    (1 <<< (byte_count * @bits_per_byte)) - 1
   end
 
   defp cast_hexadecimal_digits(hexadecimal_digits, byte_count) when is_binary(hexadecimal_digits) do

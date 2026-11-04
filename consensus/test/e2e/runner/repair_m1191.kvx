@@ -1,0 +1,42 @@
+[repair.22.33.1191]
+audit = "22.30.55"
+baseline = "Not run: the explicit ordered gate instructions require complete implementation before testing and forbid invoking verify_cmd by hand; no pre-change test failure is claimed."
+evidence = "The hf-build and hf-done private ledger supplies the exact candidate revision, command, exit code and log location."
+wiring_request = "None; all three proposals and their proofs are contained in consensus/test/e2e/runner (domain 15)."
+
+[continuation.attempt_2]
+prior_result = "The supplied attempt-1 ruling reports cleanup and height tests passing and both load-rejection subtests failing because hash equality compared different slice types."
+repair = "Compare both hashes as byte slices, preserving exact byte equality and every acceptance, rejection, mempool and retry assertion; retain all three production repairs."
+qualification = "Run hf-build followed by hf-done on the unchanged final candidate; their private ledger records the verified revision and evidence."
+
+[finding.cleanup-network-isolation]
+test = "TestRepairM_1191_CleanupNetworkIsolation"
+path = "Cleanup -> cleanupDocker(testnet, real HTTP client) -> Engine HTTP label-filtered container/network list and removal; execCompose and execComposeVerbose explicitly select the same normalized project."
+proof = "Two projects create networks through the real HTTP client against a loopback Engine lifecycle fixture; cleanup removes only the selected project's E2E containers/network, preserves the other project and unlabelled resources, and rejects an empty project identity."
+
+[finding.load-rejection-count]
+test = "TestRepairM_1191_LoadRejectionCount"
+path = "Real E2E ABCI Application -> proxy -> TxMempool -> core.Environment.BroadcastTxSync -> registered JSON-RPC server -> HTTP client -> loadProcess -> success count."
+proof = "All-rejected and mixed traffic assert CheckTx codes, transaction hashes and diagnostics from the real producer, exact accepted success counts and real mempool contents. Rejections log code, codespace, log and hash."
+
+[finding.height-block-retry]
+test = "TestRepairM_1191_HeightBlockRetry"
+additional_test = "TestRepairM_1191_HeightBlockCancellation"
+path = "Loopback registered JSON-RPC status/block peer -> real node HTTP client -> waitForHeight."
+proof = "After status convergence both a transient RPC failure and an empty block response require a second target-block fetch without another status query; persistent retrieval failure remains cancellable and preserves context cancellation identity."
+
+[qualification.build_repair]
+revision = "e73eadfcbc273eaf436d9e2b6a9daa952797a6ec"
+command = "go build ./consensus/test/e2e/runner/..."
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "Importing the existing indirect Moby client requires a root go.mod update, outside task scope."
+repair = "Use the stable Docker Engine JSON API through the standard HTTP client, with Unix/TCP/TLS connection support and the same loopback lifecycle proof, without adding module dependencies."
+
+[qualification.rpc_fixture_repair]
+revision = "e76d2c21e44845913b7839a36bdbaef576ac282d"
+command = "cg spec done 22.33.1191 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Cleanup isolation passed; the real HTTP Status decoder rejects the fixture's empty NodeInfo.Network before load submission or block retrieval, causing the remaining proofs to fail."
+repair = "Give each status fixture the chain identity required by the real decoder; retain every count, response, retry, deadline and cancellation assertion."

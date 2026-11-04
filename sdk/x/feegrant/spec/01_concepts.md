@@ -25,7 +25,10 @@ The [protobuf definitions](../../../proto/cosmos/feegrant/v1beta1/feegrant.proto
 and [FeeAllowanceI interface](../fees.go) define the stored types. `Accept` checks
 the requested fee, block time, and transaction messages, and returns a removal
 flag and an error. The [keeper](../keeper/keeper.go) saves accepted allowance
-updates or removes a consumed allowance.
+updates or removes a consumed allowance. A removal flag of `true` removes the
+stored grant even when `Accept` also returns an error, including expiration.
+This describes the keeper's store changes; transaction caching determines
+whether those changes commit when a transaction is rejected.
 
 ## Fee Allowance types
 
@@ -57,7 +60,9 @@ use; it is not a periodic cleanup process.
 
 - `basic` is an embedded `BasicAllowance` value, containing the optional lifetime
   spending limit and expiration. It is not an optional pointer in the Go type.
-- `period` is the duration between budget resets.
+- `period` is the strictly positive duration between budget resets. Validation
+  rejects zero and negative durations with `ErrInvalidDuration`. Fee consumption
+  also rejects a stored nonpositive duration without resetting or spending it.
 - `period_spend_limit` is the maximum budget for a period.
 - `period_can_spend` is the remaining budget for the current period.
 - `period_reset` is the next reset timestamp.
@@ -83,6 +88,9 @@ in the transaction must be allowed. For example, allowing
 The wrapper requires a non-empty list and a valid embedded allowance. A message
 outside the list returns `ErrMessageNotAllowed`; accepted messages are then
 checked against the embedded allowance's amount and time limits. The
+wrapper preserves the embedded allowance's removal flag even on error, so
+expiration removes the entire wrapper from the keeper's store, and exhausting
+the embedded lifetime limit also removes it. The
 [feegrant CLI](../client/cli/tx.go) wraps the selected basic or periodic allowance
 when `--allowed-messages` is supplied, for example:
 

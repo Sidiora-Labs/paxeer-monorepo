@@ -84,8 +84,11 @@ func (mock LedgerSECP256K1Mock) GetAddressPubKeySECP256K1(derivationPath []uint3
 
 	// Generate the bech32 addr using existing tmcrypto/etc.
 	pub := &csecp256k1.PubKey{Key: compressedPublicKey}
-	addr := sdk.AccAddress(pub.Address()).String()
-	return pk, addr, err
+	addr, err := sdk.Bech32ifyAddressBytes(hrp, pub.Address())
+	if err != nil {
+		return nil, "", err
+	}
+	return compressedPublicKey, addr, nil
 }
 
 func (mock LedgerSECP256K1Mock) SignSECP256K1(derivationPath []uint32, message []byte, _ byte) ([]byte, error) {
@@ -106,10 +109,7 @@ func (mock LedgerSECP256K1Mock) SignSECP256K1(derivationPath []uint32, message [
 
 	// Use single SHA256 to match the secp256k1.VerifySignature expectations
 	hash := cosmoscrypto.Sha256(message)
-	sig := ecdsa.SignCompact(privKey, hash, true) // true=compressed pubkey
-
-	// Return 64-byte R||S format (remove recovery id)
-	return sig[1:], nil
+	return ecdsa.Sign(privKey, hash).Serialize(), nil
 }
 
 // ShowAddressSECP256K1 shows the address for the corresponding bip32 derivation path

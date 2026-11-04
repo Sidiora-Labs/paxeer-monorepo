@@ -267,6 +267,7 @@ static int dispatch(lxp_kernel *kernel, lxp_state_journal *journal,
     lxp_activity activity;
     const lxp_module_registration *registration;
     lxp_result module_result = LXP_OK;
+    lxp_result status = LXP_OK;
     (void)journal;
     (void)memset(&activity, 0, sizeof(activity));
     activity.activity_type = ((uint32_t)LXP_MODULE_PROGRAMS << 16U) | ordinal;
@@ -276,20 +277,32 @@ static int dispatch(lxp_kernel *kernel, lxp_state_journal *journal,
                                        &registration) != LXP_OK ||
         lxp_module_ctx_init(&ctx, kernel, LXP_MODULE_PROGRAMS, 1U, 0U,
                             ordinal, 1000000U, &arena, false) != LXP_OK)
-        return 1;
+        return fprintf(stderr, "original_lifecycle:%d failed\n", __LINE__), 1;
     ctx.protocol_version = LXP_PROTOCOL_VERSION;
     ctx.batch_number = 1U;
     if (lxp_effect_buffer_init(&effects) != LXP_OK ||
         lxp_module_ctx_bind_effects(&ctx, &effects) != LXP_OK ||
-        lxp_kernel_dispatch(registration, &ctx, &activity, authority,
-                            &effects, &module_result) != LXP_OK ||
-        module_result != expected)
-        return 1;
+        (status = lxp_kernel_dispatch(registration, &ctx, &activity, authority,
+                                      &effects, &module_result)) != LXP_OK ||
+        module_result != expected) {
+        (void)fprintf(stderr,
+            "original_lifecycle dispatch: ordinal=%u program=%02x flags=%u "
+            "status=%d result=%d expected=%d\n",
+            ordinal, payload[0], payload[34], status, module_result, expected);
+        return fprintf(stderr, "original_lifecycle:%d failed\n", __LINE__), 1;
+    }
     if (module_result == LXP_OK)
         return lxp_module_ctx_commit(&ctx) == LXP_OK ? 0 : 1;
     lxp_module_ctx_rollback(&ctx);
     return 0;
 }
+
+static int lifecycle_environment(lxp_kernel **kernel,
+                                  lxp_authority_resolved *authority);
+static int lifecycle_execute(lxp_kernel *kernel, uint16_t ordinal,
+                              uint8_t *payload, size_t length,
+                              lxp_result expected);
+static lxp_result lifecycle_close(lxp_kernel *kernel);
 
 static int original_lifecycle(void)
 {
@@ -323,20 +336,19 @@ static int original_lifecycle(void)
     size_t upgrade_interface_length;
     size_t deploy_length;
     size_t upgrade_length;
-    lxp_state_store store;
-    lxp_state_journal journal;
-    lxp_kernel kernel;
-    lxp_state_store sandbox_store;
-    lxp_state_journal sandbox_journal;
-    lxp_kernel sandbox_kernel;
+    lxp_kernel *kernel;
+    static lxp_state_store sandbox_store;
+    static lxp_state_journal sandbox_journal;
+    static lxp_kernel sandbox_kernel;
     lxp_authority_resolved authority;
     uint64_t parameters = 1U;
     (void)memset(&authority, 0, sizeof(authority));
-    (void)memset(authority.principal, 0x42, sizeof(authority.principal));
+    if (lifecycle_environment(&kernel, &authority) != 0)
+        return fprintf(stderr, "original_lifecycle:%d setup failed\n", __LINE__), 1;
     if (lxp_hash_sha256(wasm, sizeof(wasm), old_hash) != LXP_OK ||
         lxp_hash_sha256(migration_wasm, sizeof(migration_wasm), new_hash) !=
             LXP_OK)
-        return 1;
+        return fprintf(stderr, "original_lifecycle:%d failed\n", __LINE__), 1;
     (void)memset(deploy, 0x31, 32U);
     write_u16(deploy + 32U, 1U);
     deploy[34] = 1U;
@@ -360,15 +372,11 @@ static int original_lifecycle(void)
     (void)memcpy(upgrade + 117U + upgrade_interface_length, migration_wasm,
                  sizeof(migration_wasm));
     upgrade_length = 117U + upgrade_interface_length + sizeof(migration_wasm);
-    if (lxp_state_store_init(&store, 0U) != LXP_OK ||
-        lxp_kernel_create(&kernel, &store, &journal, &parameters, 0U) != LXP_OK ||
-        project_metering_genesis(&kernel) != 0 ||
-        lxp_kernel_register_module(&kernel, programs_module_registration()) != LXP_OK ||
-        dispatch(&kernel, &journal, &authority, 1U, deploy, deploy_length,
-                 LXP_OK) != 0 || kernel.blob_count != 1U ||
-        blob_matches(&kernel, old_hash, wasm, sizeof(wasm)) != 0 ||
-        interface_state_matches(&kernel, deploy, old_hash, 1U) != 0)
-        return 1;
+    if (lifecycle_execute(kernel, 1U, deploy, deploy_length,
+                 LXP_OK) != 0 || kernel->blob_count != 1U ||
+        blob_matches(kernel, old_hash, wasm, sizeof(wasm)) != 0 ||
+        interface_state_matches(kernel, deploy, old_hash, 1U) != 0)
+        return fprintf(stderr, "original_lifecycle:%d failed\n", __LINE__), 1;
     (void)memset(legacy_program, 0x32, sizeof(legacy_program));
     (void)memcpy(legacy_deploy, legacy_program, 32U);
     write_u16(legacy_deploy + 32U, 1U);
@@ -385,13 +393,13 @@ static int original_lifecycle(void)
     write_u32(legacy_upgrade + 102U, sizeof(migration_wasm));
     (void)memcpy(legacy_upgrade + 106U, migration_wasm,
                  sizeof(migration_wasm));
-    if (dispatch(&kernel, &journal, &authority, 1U, legacy_deploy,
+    if (lifecycle_execute(kernel, 1U, legacy_deploy,
                  104U + sizeof(wasm), LXP_OK) != 0 ||
-        interface_state_absent(&kernel, legacy_program) != 0 ||
-        dispatch(&kernel, &journal, &authority, 2U, legacy_upgrade,
+        interface_state_absent(kernel, legacy_program) != 0 ||
+        lifecycle_execute(kernel, 2U, legacy_upgrade,
                  106U + sizeof(migration_wasm), LXP_OK) != 0 ||
-        interface_state_absent(&kernel, legacy_program) != 0)
-        return 1;
+        interface_state_absent(kernel, legacy_program) != 0)
+        return fprintf(stderr, "original_lifecycle:%d failed\n", __LINE__), 1;
     (void)memcpy(establish, legacy_program, 32U);
     write_u16(establish + 32U, 1U);
     (void)memcpy(establish + 36U, new_hash, 32U);
@@ -405,35 +413,35 @@ static int original_lifecycle(void)
                  wasm, sizeof(wasm));
     establish_length = 110U + establish_interface_length +
                        sizeof(wasm);
-    if (dispatch(&kernel, &journal, &authority, 2U, establish,
+    if (lifecycle_execute(kernel, 2U, establish,
                  establish_length, LXP_ERR_UNKNOWN_FIELD) != 0)
-        return 1;
+        return fprintf(stderr, "original_lifecycle:%d failed\n", __LINE__), 1;
     establish[34] = 2U;
-    if (dispatch(&kernel, &journal, &authority, 2U, establish,
+    if (lifecycle_execute(kernel, 2U, establish,
                  establish_length, LXP_OK) != 0 ||
-        interface_state_matches(&kernel, legacy_program, old_hash, 3U) != 0 ||
-        dispatch(&kernel, &journal, &authority, 2U, legacy_upgrade,
+        interface_state_matches(kernel, legacy_program, old_hash, 3U) != 0 ||
+        lifecycle_execute(kernel, 2U, legacy_upgrade,
                  106U + sizeof(migration_wasm),
                  LXP_ERR_CONTEXT_MISMATCH) != 0)
-        return 1;
+        return fprintf(stderr, "original_lifecycle:%d failed\n", __LINE__), 1;
     upgrade[110] = (uint8_t)'x';
-    if (dispatch(&kernel, &journal, &authority, 2U, upgrade, upgrade_length,
-                 LXP_ERR_UNKNOWN_ACTIVITY) != 0 || kernel.blob_count != 2U ||
-        blob_matches(&kernel, old_hash, wasm, sizeof(wasm)) != 0)
-        return 1;
+    if (lifecycle_execute(kernel, 2U, upgrade, upgrade_length,
+                 LXP_ERR_UNKNOWN_ACTIVITY) != 0 || kernel->blob_count != 2U ||
+        blob_matches(kernel, old_hash, wasm, sizeof(wasm)) != 0)
+        return fprintf(stderr, "original_lifecycle:%d failed\n", __LINE__), 1;
     upgrade[110] = (uint8_t)'m';
-    if (dispatch(&kernel, &journal, &authority, 2U, upgrade, upgrade_length,
-                 LXP_OK) != 0 || kernel.blob_count != 2U ||
-        blob_matches(&kernel, old_hash, wasm, sizeof(wasm)) != 0 ||
-        blob_matches(&kernel, new_hash, migration_wasm,
+    if (lifecycle_execute(kernel, 2U, upgrade, upgrade_length,
+                 LXP_OK) != 0 || kernel->blob_count != 2U ||
+        blob_matches(kernel, old_hash, wasm, sizeof(wasm)) != 0 ||
+        blob_matches(kernel, new_hash, migration_wasm,
                      sizeof(migration_wasm)) != 0 ||
-        interface_state_matches(&kernel, upgrade, new_hash, 2U) != 0)
-        return 1;
+        interface_state_matches(kernel, upgrade, new_hash, 2U) != 0)
+        return fprintf(stderr, "original_lifecycle:%d failed\n", __LINE__), 1;
     upgrade[32] = 0U;
     upgrade[33] = 2U;
-    if (dispatch(&kernel, &journal, &authority, 2U, upgrade, upgrade_length,
+    if (lifecycle_execute(kernel, 2U, upgrade, upgrade_length,
                  LXP_ERR_CONTEXT_MISMATCH) != 0)
-        return 1;
+        return fprintf(stderr, "original_lifecycle:%d failed\n", __LINE__), 1;
     upgrade[32] = 0U;
     upgrade[33] = 1U;
     (void)memcpy(remove_interface, deploy, 32U);
@@ -444,16 +452,29 @@ static int original_lifecycle(void)
     write_u32(remove_interface + 102U, sizeof(wasm));
     write_u32(remove_interface + 106U, 0U);
     (void)memcpy(remove_interface + 110U, wasm, sizeof(wasm));
-    if (dispatch(&kernel, &journal, &authority, 2U, remove_interface,
+    if (lifecycle_execute(kernel, 2U, remove_interface,
                  110U + sizeof(wasm), LXP_ERR_NON_CANONICAL) != 0 ||
-        interface_state_matches(&kernel, upgrade, new_hash, 2U) != 0)
-        return 1;
+        interface_state_matches(kernel, upgrade, new_hash, 2U) != 0)
+        return fprintf(stderr, "original_lifecycle:%d failed\n", __LINE__), 1;
     remove_interface[34] = 2U;
-    if (dispatch(&kernel, &journal, &authority, 2U, remove_interface,
+    if (lifecycle_execute(kernel, 2U, remove_interface,
                  110U + sizeof(wasm), LXP_OK) != 0 ||
-        interface_state_absent(&kernel, deploy) != 0)
-        return 1;
+        interface_state_absent(kernel, deploy) != 0)
+        return fprintf(stderr, "original_lifecycle:%d failed\n", __LINE__), 1;
     (void)memset(deploy, 0x33, 32U);
+    if (lxp_state_store_init(&sandbox_store, 0U) != LXP_OK ||
+        lxp_kernel_create(&sandbox_kernel, &sandbox_store, &sandbox_journal,
+                          &parameters, 0U) != LXP_OK ||
+        project_metering_genesis(&sandbox_kernel) != 0 ||
+        lxp_kernel_register_module(&sandbox_kernel,
+                                   programs_module_registration()) != LXP_OK ||
+        dispatch(&sandbox_kernel, &sandbox_journal, &authority, 1U, deploy,
+                 deploy_length, LXP_OK) != 0)
+        return fprintf(stderr, "original_lifecycle:%d failed\n", __LINE__), 1;
+    while (sandbox_kernel.blob_count != 0U)
+        free(sandbox_kernel.blobs[--sandbox_kernel.blob_count].bytes);
+    if (lxp_state_store_destroy(&sandbox_store) != LXP_OK)
+        return fprintf(stderr, "original_lifecycle:%d failed\n", __LINE__), 1;
     if (lxp_state_store_init(&sandbox_store, 0U) != LXP_OK ||
         lxp_kernel_create(&sandbox_kernel, &sandbox_store, &sandbox_journal,
                           &parameters, 0U) != LXP_OK ||
@@ -464,8 +485,13 @@ static int original_lifecycle(void)
         dispatch(&sandbox_kernel, &sandbox_journal, &authority, 1U, deploy,
                  deploy_length, LXP_OK) != 0 ||
         lxp_state_store_destroy(&sandbox_store) != LXP_OK)
-        return 1;
-    return lxp_state_store_destroy(&store) == LXP_OK ? 0 : 1;
+        return fprintf(stderr, "original_lifecycle:%d failed\n", __LINE__), 1;
+    while (sandbox_kernel.blob_count != 0U)
+        free(sandbox_kernel.blobs[--sandbox_kernel.blob_count].bytes);
+    if (lifecycle_close(kernel) != LXP_OK)
+        return fprintf(stderr, "original_lifecycle:%d close failed\n", __LINE__), 1;
+    (void)puts("original_lifecycle: passed");
+    return 0;
 }
 
 
@@ -1089,7 +1115,7 @@ static void migration_execution(lxp_kernel *kernel, lxp_kernel_execution *execut
 
 static int migration_activate(lxp_kernel *kernel, const uint8_t seed[32],
                                 lxp_identity_store *identities,
-                                lxp_identity *owner, lxp_identity *governor)
+                                lxp_identity *governor)
 {
     static uint8_t arena_bytes[4U * LXP_MAX_ACTIVITY_BYTES];
     uint8_t proposal[81], intake[LXP_MAX_ACTIVITY_BYTES], signature[64], public_key[32];
@@ -1150,18 +1176,17 @@ static int migration_activate(lxp_kernel *kernel, const uint8_t seed[32],
         receipt_authority.block_height != 1U ||
         receipt_authority.module_id != LXP_MODULE_GOVERNANCE ||
         lxp_verified_receipt_index_validate(&index) != LXP_OK ||
-        lxp_arena_reset(&arena, 0U) != LXP_OK ||
-        migration_actor(kernel, &activity, owner, seed, signature,
-            LX_PROGRAMS_FEE_GOVERNANCE, intake, intake_length, 100000000U,
-            0x72U, &grant, &authority) != 0) return 1;
-    migration_execution(kernel, &execution, identities, &authority, &fees,
-        &arena, seed, LX_PROGRAMS_SANDBOX_DESTROY_ABI_VERSION);
-    execution.verified_receipts = &index;
-    if (lxp_kernel_execute_activity(kernel, &activity, &execution, &receipt) != LXP_OK ||
-        receipt.result_code != LXP_OK ||
+        lxp_arena_reset(&arena, 0U) != LXP_OK) return 1;
+    lxp_module_ctx ctx;
+    if (lxp_module_ctx_init(&ctx, kernel, LXP_MODULE_PROGRAMS, 10U, 0U,
+            kernel->state->next_sequence, 1000000U, &arena, true) != LXP_OK)
+        return 1;
+    ctx.protocol_version = LXP_PROTOCOL_VERSION_STATE_COMMITMENT;
+    ctx.verified_receipts = &index;
+    if (lxp_programs_migration_profile_stage(&ctx, &profile, &receipt) != LXP_OK ||
+        lxp_module_ctx_commit(&ctx) != LXP_OK ||
         lxp_arena_reset(&arena, 0U) != LXP_OK)
         return 1;
-    lxp_module_ctx ctx;
     lxp_effect_buffer effects;
     lxp_result module_result;
     const lxp_module_registration *registration;
@@ -1374,7 +1399,7 @@ static int migration_attempt(lxp_kernel *kernel, lxp_identity_store *identities,
     return 0;
 }
 
-static void migration_destroy(lxp_kernel *kernel, lxp_state_store *store)
+static lxp_result migration_destroy(lxp_kernel *kernel, lxp_state_store *store)
 {
     lx_programs_transfer_runtime *runtime = kernel->module_runtime[LXP_MODULE_PROGRAMS];
     while (kernel->blob_count != 0U) free(kernel->blobs[--kernel->blob_count].bytes);
@@ -1384,7 +1409,7 @@ static void migration_destroy(lxp_kernel *kernel, lxp_state_store *store)
         free(runtime->accounts);
         free(runtime);
     }
-    (void)lxp_state_store_destroy(store);
+    return lxp_state_store_destroy(store);
 }
 
 static lx_account *migration_account(lxp_kernel *kernel, const char *name)
@@ -1482,7 +1507,7 @@ static int migration_accounting(const uint8_t seed[32])
                 project_metering_genesis_with(&kernel, seed, 1) != 0 ||
                 lxp_kernel_register_module(&kernel, programs_module_registration_v4()) != LXP_OK ||
                 migration_runtime(&kernel) != 0) return 1;
-            if (index != 8U && migration_activate(&kernel, seed, &identities, owner, governor) != 0)
+            if (index != 8U && migration_activate(&kernel, seed, &identities, governor) != 0)
                 return 1;
             size_t old_length = migration_module(old_wasm, abi, 4U);
             size_t wasm_length = migration_module(wasm, abi, index == 1U ? 1U : index == 2U ? 2U : 0U);
@@ -1951,7 +1976,7 @@ static int native_migration(void)
                 lxp_kernel_create(&kernel, &store, &journal, &parameters, 0U) != LXP_OK ||
                 project_metering_genesis_with(&kernel, seed, 1) != 0 ||
                 lxp_kernel_register_module(&kernel, programs_module_registration_v4()) != LXP_OK ||
-                migration_activate(&kernel, seed, &identities, owner, governor) != 0 ||
+                migration_activate(&kernel, seed, &identities, governor) != 0 ||
                 migration_activity(&kernel, &activity, owner, seed, signature, deploy,
                     104U + old_length, 1U, &grant, &authority) != 0 ||
                 migration_deploy(&kernel, &activity, &authority) != 0) return 1;
@@ -1984,6 +2009,76 @@ static int native_migration(void)
     return printf("NATIVE_MIGRATION_SUMMARY {\"cases\":%u,\"skipped\":0,\"authority_provisioned\":true,\"incompatible_schedule_refused\":true,\"snapshot_verified\":true}\n", cases) < 0;
 }
 
+#include "audit_22_30_2.h"
+
+static audit_fixture lifecycle_fixture;
+static lxp_identity *lifecycle_owner;
+
+static int lifecycle_environment(lxp_kernel **kernel,
+                                  lxp_authority_resolved *authority)
+{
+    audit_fixture *f = &lifecycle_fixture;
+    lxp_identity *governor;
+    uint8_t public_key[32];
+    AUDIT_CHECK(audit_init(f) == 0);
+    AUDIT_CHECK(public_key_for(audit_owner_seed, public_key) == 0);
+    AUDIT_RESULT(lxp_identity_register(&f->identities,
+        (const uint8_t *)"did:lxp:native-migration-owner", 30U,
+        public_key, &lifecycle_owner), LXP_OK);
+    AUDIT_CHECK(public_key_for(audit_governor_seed, public_key) == 0);
+    AUDIT_RESULT(lxp_identity_register(&f->identities,
+        (const uint8_t *)"did:lxp:native-migration-governor", 33U,
+        public_key, &governor), LXP_OK);
+    AUDIT_CHECK(audit_activate_migration(f, governor) == 0);
+    authority->kind = LXP_AUTHORITY_OWNER;
+    (void)memcpy(authority->principal, lifecycle_owner->did_id, 32U);
+    *kernel = &f->kernel;
+    return 0;
+}
+
+static int lifecycle_execute(lxp_kernel *kernel, uint16_t ordinal,
+                              uint8_t *payload, size_t length,
+                              lxp_result expected)
+{
+    audit_fixture *f = &lifecycle_fixture;
+    lxp_activity activity;
+    lxp_authority_grant grant;
+    lxp_authority_resolved authority;
+    lxp_kernel_execution execution;
+    lxp_fee_params fees = {0};
+    lxp_receipt receipt;
+    uint8_t signature[64];
+    AUDIT_CHECK(kernel == &f->kernel);
+    AUDIT_RESULT(lxp_arena_reset(&f->arena, 0U), LXP_OK);
+    fees.version = 1U;
+    fees.multiplier_basis_points = 10000U;
+    AUDIT_CHECK(migration_actor(kernel, &activity, lifecycle_owner,
+        audit_owner_seed, signature,
+        ((uint32_t)LXP_MODULE_PROGRAMS << 16U) | ordinal, payload, length,
+        100000000U, (uint8_t)kernel->state->next_sequence,
+        &grant, &authority) == 0);
+    migration_execution(kernel, &execution, &f->identities, &authority,
+        &fees, &f->arena, audit_owner_seed,
+        LX_PROGRAMS_SANDBOX_DESTROY_ABI_VERSION);
+    AUDIT_RESULT(lxp_state_root(kernel, kernel->current_state_root), LXP_OK);
+    AUDIT_RESULT(lxp_kernel_execute_activity(kernel, &activity, &execution,
+        &receipt), LXP_OK);
+    if (receipt.result_code != expected) {
+        (void)fprintf(stderr,
+            "original_lifecycle: ordinal=%u program=%02x flags=%u "
+            "result=%d expected=%d\n", ordinal, payload[0], payload[34],
+            receipt.result_code, expected);
+        return 1;
+    }
+    return 0;
+}
+
+static lxp_result lifecycle_close(lxp_kernel *kernel)
+{
+    if (kernel != &lifecycle_fixture.kernel) return LXP_ERR_CONTEXT_MISMATCH;
+    return migration_destroy(kernel, &lifecycle_fixture.state);
+}
+
 int main(int argc, char **argv)
 {
     if (argc == 2 && strcmp(argv[1], "--native-migration") == 0)
@@ -1991,5 +2086,11 @@ int main(int argc, char **argv)
     if (argc == 2 && strcmp(argv[1], "--all-form-validation") == 0)
         return all_form_validation();
     if (argc != 1) return 2;
-    return original_lifecycle();
+    int failed = original_lifecycle();
+    failed |= audit_migration_abi5_bound_authority_recovery();
+    failed |= audit_storage_environment_live_blob_references();
+    failed |= audit_storage_environment_cleanup_delete_budget();
+    failed |= audit_storage_environment_staged_blob_references();
+    failed |= audit_maintenance_boundary_recovery();
+    return failed;
 }

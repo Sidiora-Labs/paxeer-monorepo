@@ -1,0 +1,15 @@
+[repair.22.33.681]
+finding = "gov-rest-test-config"
+change = "Pass the active suite testing handle to network.DefaultConfig; retain every existing gateway assertion."
+tests = ["TestRepairM_681_NetworkConfig", "TestRepairM_681_GovernanceGateway"]
+proof = "AST regression covers the norace suite constructor; real governance submission, bank deposits and votes feed in-memory stores, the protobuf query router, generated HTTP gateway and client codec."
+baseline = "Not run: the explicit gate order forbids testing before implementation and manual verify runs; no earlier gate ledger or baseline log exists."
+wiring_requests = []
+evidence = "The runner records the candidate revision, exact command, exit and private log through hf-build and hf-done."
+qualification_repair = "The first verification reached the real gateway but the test comparison panicked in generated QueryProposalResponse.String on an Any cache; compare the full production-codec binary encodings instead."
+
+[qualification.first]
+revision = "f223cddbd5bb891180728b686594634c4abcee83"
+command = "cg spec done 22.33.681 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"

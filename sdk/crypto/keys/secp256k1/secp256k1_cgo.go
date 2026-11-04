@@ -10,6 +10,9 @@ import (
 
 // Sign creates an ECDSA signature on curve Secp256k1, using SHA256 on the msg.
 func (privKey *PrivKey) Sign(msg []byte) ([]byte, error) {
+	if err := validatePrivKey(privKey.Key); err != nil {
+		return nil, err
+	}
 	rsv, err := secp256k1.Sign(cosmoscrypto.Sha256(msg), privKey.Key)
 	if err != nil {
 		return nil, err

@@ -1,0 +1,58 @@
+[repair.22.31.252]
+audit = "22.30.121"
+base_revision = "5c06a9cfa23f88d328fc7e91545e90609e8cd0c0"
+status = "Both repairs implemented; qualification is recorded by the final bounded gate ledger"
+baseline = "Attempt 1 reported abi_v5_authority_crosses_admission_and_replay and the genuine-adjacent-step proof failing; no baseline rerun is allowed before implementation or outside hf-done."
+evidence = "The bounded hf-build/hf-done ledger identifies the candidate revision, exact command, exit code and private log; no verified revision is claimed here."
+
+[finding.abi-v5-authority]
+repair = "Use runtime abi_policy::capability_encoding to select V1 or V2 decoding, admitting V5 and refusing unsupported versions."
+tests = ["abi_v5_authority_crosses_admission_and_replay", "abi_v5_authority_retains_unknown_version_refusals"]
+path = "Real Executor V5 budget admission and execution, signed call and receipt, committed IAVL/multistore admission proofs, authority derivation, VerifiedReplay construction and every genuine adjacent boundary pair."
+
+[finding.executor-payer-replay]
+status = "Authenticated runtime entry point validates the independently carried payer against the admission token before binding payment metadata and capturing replay boundaries."
+tests = ["executor_payer_replay_accepts_genuine_adjacent_steps", "authenticated_executor_refuses_mismatched_payer_activity_and_context"]
+repair = "Executor::execute_authorized_authenticated consumes the admitted budget, checks payer/activity/schedule/maximum bindings, authenticates sequence and batch, and binds the validated payer with the private AuthorizationContext API before the production execution path captures state; the arbiter producer uses it for V2 and V5."
+wiring_requests = []
+constraint = "Payment binding and captured replay authority stay crate-private; replay independently derives its payer from authenticated receipt/admission evidence and consumes unchanged genuine Executor leaves."
+
+[qualification.first_attempt]
+revision = "f3cc7fcf1c0c5796a1038861a21f82c0cd7a6b39"
+command = "cg spec done 22.31.252 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "V5 fixture exhausted CPU while capturing unused linear memory; genuine V2 Executor steps failed with Runtime because payment metadata is absent."
+repair = "Use zero initial/maximum memory pages for the integer-only guest with empty calldata for both ABIs, retaining all resource ceilings and assertions."
+
+[repair.continuation]
+change = "The integer-only, empty-calldata guest uses zero initial/maximum memory pages for both ABIs, avoiding metered snapshots of unused linear memory."
+assertions = "Every original adjacent-step assertion and negative mutation remains; the producer additionally checks the unchanged 1000000 CPU ceiling, bounded CPU usage and zero guest memory usage."
+external_interface = "Public V2 and budgeted V5 Executor entry points still never bind AuthorizationContext payment metadata; only runtime-owned code can call with_payment_account, so the positive payer-replay test remains the qualification requirement."
+
+[repair.attempt_3]
+producer = "Preserve every genuine Executor leaf and derive native authority through VerifiedReplayAuthority::derive from the signed receipt, transported admission proofs and authenticated batch; no hand-built authority bytes or rewritten boundary pairs."
+diagnostic = "On a failed arbiter step, runtime_pair_result reconstructs production authority and the authenticated catalogue, decodes the original pair with PortableBoundary::decode_untrusted and prints the exact replay_portable_step error in the panic."
+coverage = "The V5 test now requires every adjacent Executor step to verify, including activity identity and both indices, as the V2 proof already requires."
+scope_conflict = "The requested public runtime execution entry point is absent: AuthorizationContext::with_payment_account and CapturedAbiReplayAuthority are crate-private; runtime/src is outside the task scope, so its owning domain must provide the previously requested wiring."
+gotcha = "Deriving correct native authority after execution cannot retroactively bind payment metadata before capture; replay authority and producer authorization are distinct interfaces."
+
+[qualification.attempt_3_initial]
+revision = "2db06afcd89c12c89694de0aaf4e3fccd0084e0d"
+command = "cg spec done 22.31.252 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "V2 genuine pairs failed with Witness(Binding); V5 failed with Witness(StateUnavailable) because its declared balance grant had no transported oracle refusal."
+assumption = "Runtime must bind the independently verified payer before capture; V5 must also transport the actual production oracle result without weakening the capability grant."
+
+[repair.attempt_3_cycle_1]
+change = "Encode the real UnavailableReceiptOracle balance refusal with the production wire Encoder and bind that transcript into native metadata; retain the BalanceView grant, every step assertion and all original bounds."
+gotcha = "Replay requires a transported result for every declared BalanceView grant even when the guest never invokes balance_read; the production oracle's evidence-unavailable refusal is part of captured state."
+
+[repair.attempt_4]
+base_revision = "9d1a06c7f3635f5556023760af7a75ee9755efdd"
+baseline = "Attempt 3 ran the unchanged verify gate: four cases passed and abi_v5_authority_crosses_admission_and_replay, executor_payer_replay_accepts_genuine_adjacent_steps and producer::authenticated_producer_crosses_authority_and_bounded_replay_consumers_twice failed with Witness(Binding); this continuation does not rerun that recorded finding."
+implementation = "Runtime src is now in scope; the authenticated execution entry point completes the prior wiring request and both producer ABIs consume it. All positive adjacent-step assertions, negative mutations, canonical capability checks, unsupported-version refusals and the 1000000 CPU ceiling remain."
+negative_proof = "Real V2 and V5 execution requests reject a payer or activity differing from the admitted token, and zero sequence or batch, before storage changes."
+gotcha = "Binding the native replay authority after execution cannot repair the payment metadata captured by the producer; bind the validated admission payer before host state capture."
+verified_revision = "The final hf-done ledger names the exact candidate revision, command, exit code and private evidence location; sources remain unchanged after that gate."

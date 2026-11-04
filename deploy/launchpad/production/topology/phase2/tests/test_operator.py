@@ -15,7 +15,62 @@ sys.path.insert(0, str(TOPOLOGY))
 from phase2 import v1
 from phase2.attestations import SignatureVerifier, regular_bytes
 from phase2.operator import Journal
-from phase2.providers import safe_diagnostics
+from phase2.providers import connected_plan, safe_diagnostics, validate_connected_plan
+from phase2.tests.test_repair_22_31_313 import actual_adapter, connected_inputs
+
+
+def assert_connected_runtime_bindings(plan, config, documents):
+    adapters = actual_adapter()
+    owners = {role: binding[2] for role, binding in adapters.ROLES.items()}
+    assert len(owners) == 12
+    assert owners == v1.RUNTIME_ROLES
+    assert plan['runtimeOwners'] == owners
+    assert set(documents) == set(owners)
+    expected_bindings = {
+        role: {kind: reference['sha256'] for kind, reference in bindings.items()}
+        for role, bindings in documents.items()}
+    assert plan['documentBindings'] == expected_bindings
+    deployments = [item for item in plan['resources']['items']
+                   if item['kind'] == 'Deployment']
+    assert len(deployments) == len(owners)
+    assert {item['metadata']['name'] for item in deployments} == set(owners)
+    for deployment in deployments:
+        role = deployment['metadata']['name']
+        pod = deployment['spec']['template']
+        annotations = pod['metadata']['annotations']
+        assert annotations['kindle.io/runtime-role'] == owners[role]
+        assert annotations['kindle.io/runtime-documents-sha256'] == v1.digest(expected_bindings[role])
+        assert annotations['kindle.io/chain-manifest-sha256'] == plan['chainManifestDigest']
+        assert pod['spec']['serviceAccountName'] == role
+        container, = pod['spec']['containers']
+        assert container['image'] == config['images'][role]
+        mounts = [mount for mount in container['volumeMounts']
+                  if mount['name'] == 'runtime-evidence']
+        assert mounts == [{'name': 'runtime-evidence', 'mountPath': '/run/kindle', 'readOnly': True}]
+        volumes = [volume for volume in pod['spec']['volumes']
+                   if volume['name'] == 'runtime-evidence']
+        assert volumes == [{'name': 'runtime-evidence',
+                            'secret': {'secretName': config['secretRefs']['runtime'][role]}}]
+        env = {item['name']: item['value'] for item in container['env'] if 'value' in item}
+        assert len({item['name'] for item in container['env']}) == len(container['env'])
+        for kind, reference in documents[role].items():
+            body, observed = adapters.document_binding(reference['path'])
+            assert body == v1.load(reference['path'])
+            assert observed == reference['sha256']
+            path_env, sha_env = adapters.DOCUMENT_ENV[kind]
+            assert env[path_env] == mounts[0]['mountPath'] + '/' + kind + '.json'
+            assert env[sha_env] == observed
+        assert env['DB_BUDGET_SHA256'] == config['runtimeDocuments'][role]['budgetSHA256']
+        assert env['EXPECTED_SCHEMA_SHA256'] == config['runtimeDocuments'][role]['expectedSchemaSHA256']
+    assert validate_connected_plan(plan, config) is True
+
+
+def test_connected_render_binds_every_runtime_role(connected_inputs):
+    config, _, _, documents, _, chain_sha = connected_inputs
+    plan = connected_plan(*connected_inputs)
+    assert plan['chainManifestDigest'] == chain_sha
+    assert plan['chainId'] == 125
+    assert_connected_runtime_bindings(plan, config, documents)
 
 
 class JournalTests(unittest.TestCase):

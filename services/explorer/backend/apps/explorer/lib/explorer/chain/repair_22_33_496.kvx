@@ -1,0 +1,11 @@
+[repair.22.33.496]
+audit = "22.30.151"
+acceptance = "22998.1"
+finding = "hash-integer-truncation"
+repair = "Bound integer casts to 2^(8*byte_count)-1, the exact width written by cast_integer; reject every negative or overflowing integer before bitstring encoding."
+proof = "Explorer.Repair.Repair2233496Test: recorded RPC block reaches the real schema and hash codecs; zero and the encoded maximum survive schema cast dump load and JSON; both ends of the former truncation range and their neighbors are rejected; an extra leading bit cannot alias a recorded chain identifier. All four cases carry the hash-integer-truncation prefix."
+path = "Committed Paxeer X consecutive_blocks.json -> EthereumJSONRPC.Block.to_elixir/elixir_to_params -> Explorer.Chain.Block.changeset -> Ecto.Type.dump/load -> Jason and Poison hash codecs. Integer boundary inputs exercise the same schema fields for 32-byte block/parent hashes, 20-byte miner hashes and 8-byte nonces."
+baseline = "No earlier implementation or gate ledger existed; builds_used and verify_runs_used were zero. No unchanged-tree verification ran because the explicit ordered qualification instructions require implementation first and verification only via hf-done. No pre-change test failure is claimed."
+qualification_repair = "The initial verification ran all four tests with one assertion failure: Ecto.Changeset.apply_action annotates a rejected changeset with action :insert. Assert the entire expected annotated changeset; retain every boundary, cast rejection and error assertion. Initial candidate ee1e09565e91f24bdc27c6af295a9bfbd61592b0, cg spec done 22.33.496 -f layerx-merge --root /work/paxeer-monorepo, exit 1, /out/logs/verify-1.log."
+wiring = "None: the complete repair and its task record are within the chain directory; the declared test consumes an existing committed recording without changing its owning domain."
+evidence = "Exact candidate revision, command, exit and private log location are recorded by the runner in /out/run/gates.jsonl and the final hf-done result; completion requires that declared gate to pass."
