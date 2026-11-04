@@ -1,0 +1,36 @@
+[task]
+id = "22.33.76"
+audit = "22.30.11"
+acceptance = "22998.1"
+verified_revision_source = "The bounded runner records the exact candidate revision, command, exit and private evidence log in /out/run/gates.jsonl."
+baseline = "Not run: the explicit implementation-first order and bounded hf-done gate prohibit the contradictory pre-change verify instruction; no pre-change failure is claimed."
+
+[finding.iframe-pending-requests]
+tests = ["iframePendingRequestsExpireAndRecover", "iframeParentReloadAndUnmountRecover"]
+path = "apps/perps/tests/repair-22-33-76.test.ts"
+repair = "Bound every request to 30 seconds, clear its timer on every settlement or send failure, reject pending operations on parent connect/disconnect and frame pagehide/unmount, and remount the retained installed provider on restoration."
+proof = "Drive the installed production provider over native in-process MessageChannels with committed origin-bound window peer fixtures; lose a response, wait the real deadline, retry, reject in-flight operations across peer reload and frame teardown, reopen, and ignore replies from the previous session."
+out_of_path_steps = "None required; existing iframe installation callers retain their interface."
+
+[finding.iframe-peer-binding]
+test = "iframeOnlyParentCanDeliverValidatedResponsesAndEvents"
+path = "apps/perps/tests/repair-22-33-76.test.ts"
+repair = "Require the configured origin and window.parent source, exactly one result or valid error, nonempty string response ids, and known EIP-1193 event payload shapes."
+proof = "Send the production accounts producer through native MessageChannel delivery into the installed consumer; distinguish equally originated parent and sibling connections, reject foreign origins even with the current parent source, reject malformed envelopes without settlement or account mutation, and preserve real parent results, errors and valid events."
+out_of_path_steps = "None required by the proposal."
+
+[gotcha.baseline-order]
+observed = "The copied audit steps request pre-change verification while the explicit ordered gates prohibit testing before full implementation and running verify by hand."
+resolution = "Follow the explicit gate order and record the absent baseline without claiming it ran."
+
+[gotcha.package-manager-cwd]
+observed = "A root pnpm metadata query refused the repository's npm package-manager pin."
+resolution = "Use npm for root package metadata; run the declared pnpm gates with their explicit apps/perps directory."
+
+[qualification.initial-build]
+revision = "839eeaf5c978bb65015a7a96957259021877c442"
+command = "pnpm --dir apps/perps exec tsc --noEmit"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "The fixture used Node's MessagePort declaration where DOM MessageEvent expects its DOM declaration; pre-existing SDK/gateway dependencies were also absent from the sandbox."
+repair = "Use the native global MessageChannel with DOM EventTarget listeners and start both ports; install the existing SDK and wallet workspace frozen lockfiles without scripts or source edits."

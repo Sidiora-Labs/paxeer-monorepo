@@ -76,5 +76,9 @@ func Handover(ctx context.Context, cfg HandoverConfig) (HandoverResult, error) {
 	if err := cfg.Standby.TakeLease(lease); err != nil {
 		return HandoverResult{}, err
 	}
-	return HandoverResult{Lease: lease, LastSeq: ack.LastSeq}, nil
+	lastSeq := cfg.Standby.LastSeq()
+	if lastSeq != ack.LastSeq {
+		return HandoverResult{}, fmt.Errorf("%w: promoted sequence %d differs from acknowledged sequence %d", ErrNoAck, lastSeq, ack.LastSeq)
+	}
+	return HandoverResult{Lease: lease, LastSeq: lastSeq}, nil
 }

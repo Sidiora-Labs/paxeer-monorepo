@@ -1,0 +1,10 @@
+[repair.22.33.142]
+finding = "settings-nonce-parser"
+source = "spec/layerx-merge/programme/audit/records/22.30.115.kvx"
+base_revision = "2b502183a86af3a2498748de6572b1bde20e4768"
+proof = "repair-22-33-142.test.ts: settings_nonce_parser_preserves_exact_safe_decimal_values; settings_nonce_parser_clears_stale_selection_for_every_invalid_edit; settings_nonce_parser_does_not_restore_invalid_selection_after_reopen; settings_nonce_parser_clears_selection_on_empty_input_and_auto_mode; settings_nonce_parser_clears_unsafe_previously_saved_values"
+path = "SettingsWidget input event -> exact decimal and safe-integer validation -> preferencesRepository codec -> browser storage -> repository read and reopened SettingsWidget"
+baseline = "Not run: the ordered task instructions prohibit verification before implementation and prohibit running verify_cmd by hand; no pre-change test failure is claimed."
+wiring_requests = []
+evidence = "The bounded hf-build and hf-done results record the qualified candidate revision, command, exit code and private log in /out/run/gates.jsonl."
+registration_repair = "The initial hf-done exited zero but reported five todo tests: Vitest requires test(function.name, function) to execute these named test functions; no executable pre-change failure is claimed."

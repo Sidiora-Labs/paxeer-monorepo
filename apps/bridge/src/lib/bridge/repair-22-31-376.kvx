@@ -1,0 +1,40 @@
+[repair.22.31.376]
+audit = "22.30.131"
+withdrawal-vault = "withdrawalVaultSubmissionReloadNonceAndVerifiedRelease"
+settlement-broadcast = "settlementBroadcastRestartsReconcilesAndRetries, settlementClaimBroadcastRecoversAfterReload"
+solana-outstanding = "solanaCustodyLimitsReachTheActualCard, solanaInvalidCustodyAccountsAreRefused"
+baseline = "Not run: the explicit implementation-first order and hf-build/hf-done-only gate budget prohibit the earlier baseline verify requested by step 7; the new tests exercise each observed failure."
+wiring_request = "Domain 14: spec/layerx-merge/spec.kvx req.14492.2 must state that the submitted row omits vault and release consumers resolve and validate the registered Paxeer vault on reload."
+evidence = "The runner records the verified revision, command, exit and private log in /out/run/gates.jsonl."
+
+[qualification.layout-props]
+revision = "eb05000bd625f9930a5a79d1de1508a2ba4d8085"
+command = "pnpm --dir apps/bridge exec tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "Out-of-scope apps/bridge/src/app/layout.tsx:36 cannot resolve the generated Next.js LayoutProps type; this task cannot qualify until the owning application provides that interface."
+resolution = "Attempt 2 supplies next typegen before tsc in both prescribed gates; retain the repair and qualify it with hf-build followed by hf-done."
+
+[qualification.test-registration]
+revision = "b8f86f16e11191bd3fe8239984d792c605affced"
+command = "cg spec done 22.31.376 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 0
+log = "/out/logs/verify-1.log"
+observed = "Vitest treated test(function) as a todo declaration: five tests were registered but none executed, so exit zero did not qualify the repair."
+resolution = "Register each declared named function as test(function.name, function), preserving its assertions and graph symbol while supplying the executable callback required by Vitest."
+
+[qualification.component-harness]
+revision = "ed8ac38b1d14146cb5061c3acf5663f7a6ad4afb"
+command = "cg spec done 22.31.376 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Wagmi hydration cleared the test connection before the transfer queries, and the Solana selector omitted its accessible icon text."
+resolution = "Connect the in-memory wallet after provider hydration and select the actual accessible route name; retain every settlement and custody assertion."
+
+[qualification.claim-retry-render]
+revision = "70c98488a85f83f90ab66edb49128dbf9e50038b"
+command = "cg spec done 22.31.376 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-2.log"
+observed = "The reverted status rendered before the asynchronous attestation-dependent retry button on claim recovery; four tests passed."
+resolution = "Wait for the unchanged reverted-status and retry-button assertions together with the original waitFor timeout."

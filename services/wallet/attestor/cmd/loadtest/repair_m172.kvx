@@ -1,0 +1,14 @@
+[repair.22.33.172]
+acceptance = "22998.1"
+baseline_revision = "2b502183a86af3a2498748de6572b1bde20e4768"
+baseline = "Not run: the explicit implementation-first gate order prohibits the conflicting pre-change verification step; no baseline test failure is claimed."
+evidence = "The runner's private gates.jsonl and final hf-done evidence bind the verified candidate revision, command, exit code and log; no qualification is claimed before that gate passes."
+wiring_requests = []
+
+[finding.loadtest-helper-bypasses-cli]
+proof = "TestRepairM_172_HelperUsesCLI"
+repair = "runTool invokes run for export, denied pre-admission generation, approved generation and signing; original identity, signature, per-curve throughput, latency and forged-token refusal assertions remain."
+
+[finding.loadtest-inventory-lifecycle]
+proof = "TestRepairM_172_InventoryLifecycle"
+repair = "The CLI exports stable key IDs and pinned members, persists generated public keys in a private manifest, pauses for owner-signed inventory publication and resumes signing with existing keys and fresh sessions; real inventory refuses unapproved generation and signing."

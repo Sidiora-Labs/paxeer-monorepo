@@ -261,7 +261,7 @@ export function Onboarding({
     return api.sessionOpen(
       {
         assertion_id: completed.assertion_id,
-        device: { label: "LayerX web app", platform: "web" },
+        device: { label: copyEntry("application.name").message, platform: "web" },
       },
       `session-open:${completed.assertion_id}`,
     );

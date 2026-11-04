@@ -1,3 +1,6 @@
+#[path = "support/active_inputs.rs"]
+mod active_inputs;
+
 use layerx_platform_gateway::http;
 use openssl::asn1::Asn1Time;
 use openssl::ec::{EcGroup, EcKey};
@@ -97,11 +100,6 @@ impl Fixture {
             ("identity-password", "interop-test-password".to_owned()),
             ("redis-username", "interop".to_owned()),
             ("redis-password", "interop-test-redis-password".to_owned()),
-            ("authority-token", "interop-test-authority-token".to_owned()),
-            ("sequencer-public-key", public_key.clone()),
-            ("sequencer-id", "11".repeat(32)),
-            ("sequencer-first-batch", "1".to_owned()),
-            ("sequencer-last-batch", "100".to_owned()),
             (
                 "registry.json",
                 r#"{"modules":[{"module":1,"ordinals":[1]}]}"#.to_owned(),
@@ -145,21 +143,14 @@ impl Fixture {
             ("CLIENT_IDENTITY_PASSWORD_FILE", "identity-password"),
             ("REDIS_USERNAME_FILE", "redis-username"),
             ("REDIS_PASSWORD_FILE", "redis-password"),
-            ("SEQUENCER_PUBLIC_KEY_FILE", "sequencer-public-key"),
-            ("SEQUENCER_ID_FILE", "sequencer-id"),
-            ("SEQUENCER_FIRST_BATCH_FILE", "sequencer-first-batch"),
-            ("SEQUENCER_LAST_BATCH_FILE", "sequencer-last-batch"),
             ("RECEIPT_KEYS_FILE", "receipt-keys.json"),
             ("MODULE_REGISTRY_FILE", "registry.json"),
-            ("RECEIPT_AUTHORITY_TOKEN_FILE", "authority-token"),
         ] {
             command.env(format!("LAYERX_INTEROP_{variable}"), self.dir.join(file));
         }
         for (variable, value) in [
             ("LISTENER", "plain"),
             ("REDIS_URL", "rediss://localhost:1"),
-            ("HOSTED_GATEWAY_URL", "https://localhost:2"),
-            ("RECEIPT_AUTHORITY_URL", "https://localhost:3"),
             ("NETWORK_ID", "eip155-125"),
             ("WIRE_VERSION", "3"),
             ("PROTOCOL_NETWORK_ID", "402"),
@@ -184,6 +175,7 @@ impl Fixture {
             )
             .stdout(Stdio::null())
             .stderr(Stdio::piped());
+        active_inputs::assert_command(&command, &self.dir);
         Ok(command)
     }
 }

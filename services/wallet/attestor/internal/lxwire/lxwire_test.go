@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -12,6 +13,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
@@ -511,42 +513,109 @@ func TestAccountIDsMatchRustAndChain(t *testing.T) {
 			t.Fatalf("%s: %x, chain derives %x (%v)", account.Name, got, chain, err)
 		}
 	}
-	for _, key := range [][32]byte{{}, {0x01}, {0xff, 0xee, 0xdd}} {
-		did := DIDFromKey(key)
-		for _, name := range []string{
-			MainAccountName(did),
-			"agent:" + did + ":budget:weekly",
-			"agent:" + did + ":escrow:e1",
-			"agent:" + did + ":stream:s1",
-			"agent:" + did + ":margin:p9",
-		} {
-			got, err := AccountID([]byte(name))
-			if err != nil {
-				t.Fatalf("%s: %v", name, err)
+	seen := [15]bool{}
+	refusals := 0
+	for _, v := range AccountParityVectors() {
+		t.Run(v.Name, func(t *testing.T) {
+			name := []byte(v.Name)
+			got, wireErr := AccountID(name)
+			chain, chainErr := codec.DeriveAccountID(name)
+			kind, accepted := codec.AccountKind(name)
+			if v.Kind == 0 {
+				refusals++
+				if accepted || kind != 0 || !errors.Is(wireErr, ErrAccountName) ||
+					!errors.Is(chainErr, codec.ErrAccountIdentity) || got != ([32]byte{}) || chain != ([32]byte{}) {
+					t.Fatalf("rejected name: wire=%x/%v chain=%x/%v kind=%d/%v", got, wireErr, chain, chainErr, kind, accepted)
+				}
+				return
 			}
-			chain, err := codec.DeriveAccountID([]byte(name))
-			if err != nil || chain != got {
-				t.Fatalf("%s: %x, chain derives %x (%v)", name, got, chain, err)
+			seen[v.Kind] = true
+			preimage := append([]byte("LX:ACCOUNT:v1"), binary.BigEndian.AppendUint32(nil, uint32(len(name)))...)
+			want := sha256.Sum256(append(preimage, name...))
+			if v.Direct {
+				want = mustHex32(t, v.Name[len(v.Name)-64:])
 			}
+			if !accepted || kind != v.Kind || wireErr != nil || chainErr != nil || got != want || chain != want {
+				t.Fatalf("account parity: wire=%x/%v chain=%x/%v kind=%d/%v; want kind=%d id=%x", got, wireErr, chain, chainErr, kind, accepted, v.Kind, want)
+			}
+		})
+	}
+	for kind := 1; kind < len(seen); kind++ {
+		if !seen[kind] {
+			t.Errorf("account kind %d has no parity vector", kind)
 		}
+	}
+	if refusals == 0 {
+		t.Fatal("account parity table has no rejected inputs")
+	}
+}
+
+type AccountParityVector struct {
+	Name   string
+	Kind   uint8
+	Direct bool
+}
+
+func AccountParityVectors() []AccountParityVector {
+	id := strings.Repeat("0123456789abcdef", 4)
+	vectors := []AccountParityVector{
+		{"agent:did:layerx:alice:main", 1, false},
+		{"agent:did:layerx:alice:budget:b1", 2, false},
+		{"agent:did:layerx:alice:escrow:e1", 3, false},
+		{"agent:did:layerx:alice:stream:s1", 4, false},
+		{"agent:did:layerx:alice:margin:m1", 5, false},
+		{"agent:did:layerx:alice:asset:" + id, 14, false},
+		{"system:liquidity:btc-usd", 6, false},
+		{"system:funding:btc-usd:long", 7, false},
+		{"system:funding:btc-usd:short", 8, false},
+		{"system:insurance", 9, false},
+		{"system:fees", 10, false},
+		{"system:paxeer-reserve", 11, false},
+		{"system:paxeer-withdrawals", 12, false},
+		{"module:asset:value:" + id, 13, true},
+		{"module:" + strings.Repeat("a", 31) + ":value:" + id, 13, true},
+		{"module:perps-2:value:" + strings.Repeat("0", 64), 13, true},
+		{"asset:" + id + ":issuance", 13, false},
+		{"agent:did:layerx:alice:stream:nested:stream:s1", 4, false},
+		{"agent:did:layerx:alice:budget:nested:budget:b1", 2, false},
+		{"agent:did:layerx:alice:escrow:nested:escrow:e1", 3, false},
+		{"agent:did:layerx:alice:margin:nested:margin:m1", 5, false},
+		{"agent:did:asset:x:asset:" + id, 14, false},
+		{"agent:" + strings.Repeat("a", 256) + ":main", 1, false},
+		{"agent:" + strings.Repeat("a", 501) + ":main", 1, false},
+	}
+	for _, asset := range []string{"pax", "sid", "usdc", "usdl"} {
+		vectors = append(vectors, AccountParityVector{"system:paxeer-reserve:" + asset, 11, false})
 	}
 	for _, name := range []string{
-		"",
-		"agent:did:layerx:Alice:main",
-		"agent::main",
-		"agent:did:layerx:alice:unknown:x",
-		"agent:did:layerx:alice:budget:a:b",
-		"agent:did::alice:main",
-		"system:liquidity:",
-		"system:liquidity:a:b",
-		"system:other",
-		"agent:did:layerx:alice:asset:" + string(bytes.Repeat([]byte("AB"), 32)),
-		"agent:" + string(bytes.Repeat([]byte("a"), MaxAccountNameBytes)) + ":main",
+		"", ":system:fees", "system:fees:", "system::fees", "system:Fees", "system:fees\x00", "system:other",
+		"agent::main", "agent:did:layerx:Alice:main", "agent:did::alice:main",
+		"agent:did:layerx:alice:unknown:x", "agent:did:layerx:alice:budget:a:b",
+		"agent:did:layerx:alice:asset:" + strings.Repeat("AB", 32),
+		"agent:" + strings.Repeat("a", MaxAccountNameBytes) + ":main", "agent:alice:stream:", "agent:alice:stream:s1:extra", "agent:alice:unknown:s1",
+		"agent:alice:asset:" + id[:63], "agent:alice:asset:" + id + "0", "agent:alice:asset:" + strings.ToUpper(id),
+		"agent:" + strings.Repeat("a", 502) + ":main", "agent:álîce:main",
+		"system:liquidity:", "system:liquidity:a:b", "system:funding::long", "system:funding:a:b:long",
+		"system:funding:btc:LONG", "system:funding:btc:long:x", "system:funding:btc:sideways",
+		"system:paxeer-reserve:other", "system:paxeer-reserve:pax:extra",
+		"module::value:" + id, "module:a_b:value:" + id, "module:a.b:value:" + id,
+		"module:a:b:value:" + id, "module:" + strings.Repeat("a", 32) + ":value:" + id,
+		"module:asset:value:" + id[:63], "module:asset:value:" + id + "0", "module:asset:value:" + strings.ToUpper(id),
+		"module:asset:values:" + id, "asset:" + strings.ToUpper(id) + ":issuance", "asset:" + id + ":issuance:x",
 	} {
-		if _, err := AccountID([]byte(name)); !errors.Is(err, ErrAccountName) {
-			t.Fatalf("%q: accepted or wrong error %v", name, err)
-		}
+		vectors = append(vectors, AccountParityVector{Name: name})
 	}
+	for _, key := range [][32]byte{{}, {0x01}, {0xff, 0xee, 0xdd}} {
+		did := DIDFromKey(key)
+		vectors = append(vectors,
+			AccountParityVector{MainAccountName(did), 1, false},
+			AccountParityVector{"agent:" + did + ":budget:weekly", 2, false},
+			AccountParityVector{"agent:" + did + ":escrow:e1", 3, false},
+			AccountParityVector{"agent:" + did + ":stream:s1", 4, false},
+			AccountParityVector{"agent:" + did + ":margin:p9", 5, false},
+		)
+	}
+	return vectors
 }
 
 func TestDIDAndAccountNames(t *testing.T) {
