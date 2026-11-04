@@ -28,7 +28,9 @@ Where the rest of the system fits:
   (`0x7d`). The kernel runs inside `paxd` and participates in block proposal and
   execution. A receipt is final when its block is committed; a signed execution receipt
   before commitment is execution evidence, not finality. Programs do not require
-  periodic checkpoint settlement or a separate settlement deployment.
+  periodic checkpoint settlement or a separate settlement deployment. The kernel runs
+  inside the node;
+  programs do not wait for settlement on another chain.
 - **Network access** uses public node JSON-RPC at the root URL, for example
   `https://api1.mainnet-beta.paxeer.network` or
   `https://api-mainnet-beta.paxeer.network`. The numbered nodes are `api1` through
@@ -54,7 +56,7 @@ profile: `unsafe_code` is denied by default, Clippy `all` and `pedantic` are den
 | Path | Purpose |
 | --- | --- |
 | `crates/layerx-programs-runtime` | Deterministic WASM runtime: validation, metering, the ABI/capability boundary, cross-program calls, transfers, occupancy accounting, replay, and the FFI bridge into the C kernel |
-| `crates/layerx-programs-registry` | Receipt-bound registry: deployment journal, program interfaces, program value-account bindings, real-balance proofs, wind-down/deprecation, and the reference-program interface generators |
+| `crates/layerx-programs-registry` | Receipt-bound registry: deployment journal, program interfaces, program value-account bindings, real-balance proofs, wind-down/deprecation, and the reference-program interface generators. Chain-proof read bridge for the mounted `lxphost` store |
 | `../precompiles/layerxprograms` | Live Programs deploy, call and query interface at `0x101D`; registry chain-proof reads verify evidence against committed chain state |
 | `crates/layerx-programs-interpreter` | A bounded deterministic scripting program: scripts are submitted as canonical bytes and fully validated before any effect is staged |
 | `crates/layerx-programs-market` | Compute-lease market program: usage claims with a challenge window, provider stake and slashing, attester policy, and on-chain bisection disputes |
@@ -68,7 +70,7 @@ profile: `unsafe_code` is denied by default, Clippy `all` and `pedantic` are den
 | `fixtures/pay5` | Token, merchant and swap artifacts, interfaces and registry values, account-authorization vectors, and native activity/receipt fixtures |
 | `../scripts/programs` | Dependency policy, immutable ABI-vector generation, and reference-fixture build scripts |
 | `../tests/programs` | Native C tests, ABI-drift and runtime module-boundary checks |
-| `tests` | Cross-implementation vectors, the hostile-program `gauntlet`, conservation and parallel-differential checks, and calldata fixtures |
+| `tests` | Cross-implementation vectors, the hostile-program `gauntlet`, conservation and parallel-differential checks, calldata fixtures, and the root package's registered registry-read integration test |
 | `vendor` | Vendored, pinned dependencies for a hermetic build |
 
 Cargo promotes path dependencies below the workspace root into workspace members.
@@ -115,6 +117,8 @@ lifecycle and state evidence against chain commitments. `VerifiedProgramCatalog`
 [`resolver.rs`](crates/layerx-programs-registry/src/resolver.rs) admits executable
 programs from verified bundles. The former protocol-adapter crate is retired.
 Any retained adapter sources are historical, not a deployed read interface.
+The former `layerx-programs-protocol-adapter` crate is retired. Current integration
+uses the registry chain-proof APIs below; do not add the retired adapter as a dependency.
 
 Callers obtain program balances through node-root JSON-RPC `eth_call` to the Programs
 precompile at `0x101D` (`0x000000000000000000000000000000000000101D`). ABI-encode
@@ -125,6 +129,28 @@ and `bool frozen`; the boolean is a freeze flag, not an existence flag. An absen
 account returns `(0, false)`, so that pair alone does not prove registration. The
 precompile reads the kernel account state; registry chain-proof verification supplies
 authenticated evidence rather than trusting an adapter's bookkeeping balance.
+
+### Registry reads from mounted chain state
+
+The read bridge is **`layerx-programs-registry`**, within the same chain-125 network
+that executes programs inside `paxd`. The node mounts the kernel state in the
+`lxphost` store ([store keys](../storage/common/keys/store_keys.go),
+[node wiring](../node/app.go)); there is no separate settlement chain.
+
+Use the registry's [`chain_evidence`](crates/layerx-programs-registry/src/chain_evidence.rs)
+and [`chain_proof`](crates/layerx-programs-registry/src/chain_proof.rs) APIs for reads:
+
+1. Decode the canonical `LXCP` commitment bundle with `decode_commitment_proof`.
+2. Authenticate its chain header and CometBFT commit with `ChainProofVerifier`
+   against trusted chain identity and validator information. A validator set supplied
+   in an untrusted bundle alone does not establish trust.
+3. Verify the `ics23:iavl` key/value proof and the `ics23:simple` multistore proof
+   for `lxphost` against the authenticated header's `app_hash`. State at height `H`
+   is authenticated by the header at `H + 1`; `verify_state` returns `H`.
+   `verify_absent` authenticates non-membership through the same store root.
+4. Let `protocol_evidence` bind the verified state, deployment or lifecycle evidence
+   before `VerifiedProgramCatalog` admits executable programs. A decoded bundle or
+   an execution receipt alone is insufficient evidence of committed state.
 
 ---
 
