@@ -172,12 +172,64 @@ finished:
     return result;
 }
 
+static int paid_counter_event(const lxp_receipt *receipt, const language_fixture *f,
+    const uint8_t note[8])
+{
+    static const char domain[] = "LayerX/programs/events/v1";
+    static const char topic[] = "layerx.quickstart.noted";
+    lxp_byte_span envelope = receipt->program_outcome.event_envelope_payload;
+    language_reader reader = {envelope.bytes, envelope.length, sizeof(domain)};
+    lxp_byte_span emitted_topic, data;
+    const uint8_t *bytes;
+    LANG_CHECK(language_domain(envelope, domain));
+    LANG_CHECK(language_take(&reader, 4U, &bytes) == 0 && language_u32(bytes) == 1U);
+    LANG_CHECK(language_take(&reader, 32U, &bytes) == 0 && memcmp(bytes, f->program_id, 32U) == 0);
+    LANG_CHECK(language_take(&reader, 32U, &bytes) == 0 && memcmp(bytes, f->authority.principal, 32U) == 0);
+    LANG_CHECK(language_take(&reader, 9U, &bytes) == 0);
+    LANG_CHECK(language_blob(&reader, 4U, &emitted_topic) == 0);
+    LANG_CHECK(emitted_topic.length == sizeof(topic) - 1U &&
+        memcmp(emitted_topic.bytes, topic, sizeof(topic) - 1U) == 0);
+    LANG_CHECK(language_blob(&reader, 4U, &data) == 0 && reader.offset == reader.length);
+    LANG_CHECK(data.length == 16U && language_u64(data.bytes) == 0U &&
+        memcmp(data.bytes + 8U, note, 8U) == 0);
+    return 0;
+}
+
+static int test_repair_245_paid_counter_kernel(void)
+{
+    static const uint8_t access[] = "LayerX/programs/access-declaration/v1\0";
+    static const uint8_t caps[] = {0U, 2U, 1U, 3U};
+    static const uint8_t note[8] = {0U, 0U, 0U, 0U, 0U, 0U, 0U, 42U};
+    language_fixture *f = calloc(1U, sizeof(*f));
+    lxp_receipt receipt;
+    size_t length;
+    int result = 1;
+    if (f == NULL || language_setup(f) != 0 ||
+        language_deploy(f, "programs/sdk/c/examples/paid-counter/build/paid-counter.wasm") != 0)
+        goto finished;
+    length = call_payload_with_data(f->payload, f->program_id, caps, sizeof(caps),
+        access, sizeof(access), note, sizeof(note));
+    write_u16(f->payload + 32U, 4U);
+    write_u32(f->payload + 46U, 4096U);
+    if (language_execute(f, LX_PROGRAMS_CALL, length, 0x60U, &receipt) != 0 ||
+        receipt.result_code != LXP_OK || receipt.program_outcome.cpu_fuel == 0U ||
+        paid_counter_event(&receipt, f, note) != 0) goto finished;
+    puts("PASS test_repair_245_paid_counter_kernel");
+    result = 0;
+finished:
+    if (result != 0) fprintf(stderr, "paid-counter kernel regression failed\n");
+    if (f != NULL && f->state_ready) (void)lxp_state_store_destroy(&f->state);
+    free(f);
+    return result;
+}
+
 int main(int argc, char **argv)
 {
     uint8_t baseline[6][64] = {{0U}};
     size_t baseline_length[6] = {0U};
     size_t language;
     LANG_CHECK(argc == 4);
+    LANG_CHECK(test_repair_245_paid_counter_kernel() == 0);
     for (language = 0U; language < 3U; ++language)
         LANG_CHECK(test_repair_374_signature_terminal(argv[language + 1U],
             language, baseline, baseline_length) == 0);
