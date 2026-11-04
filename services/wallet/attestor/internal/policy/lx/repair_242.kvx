@@ -1,0 +1,18 @@
+[repair.22.31.242]
+audit = "22.30.117"
+finding = "1"
+status = "policy-side-implemented-production-wiring-required"
+tests = ["TestRepair_242_AuthorizationAndSignatureDoNotDebit", "TestRepair_242_RejectsUnboundOrInvalidSends", "TestRepair_242_DebitIdentityAndDurableLedgerReplay"]
+proof = "Real Ed25519 signing and canonical lxwire encoding feed the debit decoder; real encrypted SpendLedger stores deduplicate the derived identity, reopen, and enforce the daily cap. This is binding and storage evidence, not production receipt-ingestion or quorum-replication evidence."
+baseline = "No unchanged-tree gate ran: explicit gate order forbids verify before implementation and hf-build; repair_242_test.go did not exist in the supplied tree and the gate ledger was absent."
+revision = "The exact candidate revision, command, exit and private log are recorded by hf-build/hf-done; no gate has been claimed here."
+wiring_server = "services/wallet/attestor/internal/server (owning domain 12): mount authenticated committed-receipt ingestion, load held SendDebitBinding and original authorization, verify successful committed execution binds the actual transaction identity to the exact decoded envelope, persist/recover pending replication and require durable acknowledgements before cap-sensitive signing; the durability helper remains explicit test injection."
+wiring_store = "services/wallet/attestor/internal/store (owning domain 12): atomically persist the committed transaction/cursor, held binding, debit replay identity, original commit timestamp and replication progress with ledger updates, retaining deduplication across restart and window expiry."
+constraint = "Server production sources, store sources and spec task records are outside the permitted scope; these requests are recorded here instead of editing those paths. Finding 1 remains open until those production paths are wired and proven."
+
+[qualification.initial]
+revision = "13e2f6d2ef1df32d45e353bab3b4dacfc0e11caf"
+command = "cg spec done 22.31.242 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "A test retained a request view on the closed pre-restart database; recreate the same request identity on the reopened ledger before asserting the recovered daily cap."
