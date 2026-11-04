@@ -1,0 +1,35 @@
+[task]
+id = "22.33.1040"
+audit = "22.30.40"
+acceptance = "22998.1"
+baseline = "No pre-change verification was run: the explicit ordered gate instructions prohibit testing before the complete implementation and prohibit invoking verify_cmd by hand; no baseline failures are claimed."
+evidence = "The runner's final hf-build/hf-done ledger identifies the verified candidate revision, exact command, exit code and private evidence path; the runner publishes that candidate."
+
+[proof]
+webhook_failed_ack = "TestRepairM_1040_WebhookFailedAck: recorded ABI-decoded buy/sell batch is signed with production shared auth and sent through loopback HTTP to RegisterWebhook; the committed database peer refuses the sell holder write after projection writes; 503/ok=false preserves whole-batch retry, the buy stays applied once and the sell rolls back; stop/reopen listener, consumers, pgx pool and file-backed tables, retry identical bytes, restore the database peer and recover exactly two inbox rows, one buy/sell, volume 147278912 and balance 4803406952560."
+webhook_failed_ack_commit = "TestRepairM_1040_CommitAckLost: execute the SQL commit, disconnect before its acknowledgement, return 503, reopen all receiver components and retry the same signed payload without duplicating inbox, volume or holder effects."
+webhook_failed_ack_cache = "TestRepairM_1040_PostCommitCacheFailure: a closed real Redis client causes post-commit failure; 503 remains explicit over restart/retry while the committed swap and holder effects occur once."
+webhook_body_bound = "TestRepairM_1040_WebhookBodyBound, TestRepairM_1040_UnsignedStreamingBody and TestRepairM_1040_WebhookEventBound: registered handler refuses declared oversize without reading, caps unknown/false-length streams at 1 MiB plus one detection byte, rejects missing signature/timestamp without waiting for pipe bytes, accepts exact byte/event maxima, refuses event overflow before any consumer effect, rejects malformed envelopes, and preserves timestamp/raw Unicode/whitespace HMAC bytes with both signature headers."
+
+[contract]
+acknowledgement = "HTTP 200 and ok=true mean every recognized event has succeeded; any consumer failure gives HTTP 503, ok=false and Retry-After: 1 with processed/error counts. Senders must retry the unchanged whole batch on non-2xx; txHash/logIndex deduplication covers swap stats and holder deltas in the existing ProcessWebhookEvent transaction. Unknown events retain the existing no-op success semantics."
+limits = "Maximum wire body 1048576 bytes including whitespace; maximum batch 1000 events. MaxBytesReader is installed before ReadAll; missing authentication headers are rejected before reading; the exact authenticated bytes travel via request context to a bounded incremental decoder, with no body restoration or second ReadAll."
+fixtures = "The repaired handler, ABI decoder, HMAC signer/verifier, consumers, Store, pgx wire codec, SQL generation and holder/volume arithmetic are production implementations. The committed table peer speaks PostgreSQL wire protocol and persists transaction snapshots to a private temporary file; immutable-row conflicts and rollback operate on its tables. It is not PostgreSQL SQL-execution, locking or query-plan evidence. The sender peer retains and retries the production-encoded signed payload over a real HTTP client; indexer process lifecycle is outside the receiver proof."
+
+[wiring]
+sender = "services/launchpad/indexer/internal/publisher/publisher.go, launchpad indexer domain: retain existing non-2xx whole-batch retry with stable txHash/logIndex and qualify pending-batch retention across sender-process restart in the sender-owned task; no producer change is in this receiver scope."
+
+[gotcha]
+order = "The baseline request conflicts with the explicit implementation-first gate order; only hf-build then hf-done run after all implementation and tests are written."
+scope = "Task closure mappings and gotchas are recorded here because this task forbids editing spec files and the root GOTCHA.kvx."
+peer = "The existing consumer already provides ProcessWebhookEvent; calling ProcessEvent then ProcessSwap bypasses their shared transaction and repeats holder effects on retry."
+
+[qualification_environment]
+first_build = "revision 6a77ed223b8ccc31ee78bd5ef4fda5a02d4422e0; command cd services/launchpad/stats-* && go build ./internal/httpapi/...; exit 1; private log /out/logs/build-1.log."
+observed = "Inherited go.work declares Go 1.25 but includes notifications requiring Go 1.27, so compilation never started."
+assumption = "Use GOWORK=off for the scoped module's existing standalone replacements; do not edit or investigate the unrelated workspace modules."
+
+[qualification_repair]
+first_verify = "revision eb93aa72f68e8cc14b897fdadf288c3ceb9e9a8b; command cg spec done 22.33.1040 -f layerx-merge --root /work/paxeer-monorepo; exit 1; private log /out/logs/verify-1.log and /tmp/repair-m1040.log."
+observed = "The initial SQLite peer import required a go.mod update outside task scope; no tests executed."
+repair = "Replace the SQLite peer with a committed file-backed table peer over existing pgx dependencies; retain every repair test, exact recovery amount, event/body bound and failure assertion."

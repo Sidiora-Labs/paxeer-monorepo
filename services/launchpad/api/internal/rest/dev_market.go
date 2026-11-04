@@ -38,6 +38,9 @@ type DevelopmentMarketOptions struct {
 	// requires a chain watermark unavailable (503) and the nullable envelope
 	// watermarks null.
 	ChainRPCURL string
+	// BindChainReadiness gives the application its readiness check. Reads also
+	// refresh admission, so a changed endpoint cannot reuse cached positions.
+	BindChainReadiness func(func(context.Context) error)
 }
 
 // developmentRankingKeys maps contract ranking categories onto the Redis
@@ -76,12 +79,30 @@ func RegisterDevelopmentMarketReads(ctx context.Context, r chi.Router, o Develop
 	if err != nil {
 		return err
 	}
+	if o.BindChainReadiness != nil {
+		o.BindChainReadiness(chain.checkChain)
+	}
 	d := &developmentMarket{st: o.Store, chain: chain}
 	register := func(method, path string, class AdmissionClass, h http.HandlerFunc) {
 		if o.Store == nil {
 			// Without the development store the routes still exist and
 			// answer the non-retryable v2 dependency error instead of 404.
 			h = WriteV2NotConfiguredError
+		}
+		read := h
+		h = func(w http.ResponseWriter, req *http.Request) {
+			if path == "/v2/rankings/{category}" {
+				if _, ok := rankingsRequest(w, req); !ok {
+					return
+				}
+			}
+			if chain.client != nil {
+				if err := chain.checkChain(req.Context()); err != nil {
+					WriteV2APIError(w, req, 503, "DEPENDENCY_UNAVAILABLE")
+					return
+				}
+			}
+			read(w, req)
 		}
 		var handler http.Handler = h
 		if o.Admission != nil {
@@ -505,11 +526,6 @@ func developmentScore(score float64) string {
 func (d *developmentMarket) rankings(w http.ResponseWriter, r *http.Request) {
 	category, ok := rankingsRequest(w, r)
 	if !ok {
-		return
-	}
-	if r.URL.Query().Get("cursor") != "" {
-		// Development snapshots fit one page and never issue a cursor.
-		WriteV2APIError(w, r, 400, "CURSOR_INVALID")
 		return
 	}
 	limit := rankingsLimit(r)
