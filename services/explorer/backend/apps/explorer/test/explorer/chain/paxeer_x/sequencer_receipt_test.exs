@@ -1,5 +1,7 @@
+Code.require_file("repair_gateway.exs", __DIR__)
+
 defmodule Explorer.Chain.PaxeerX.SequencerReceiptTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   alias Explorer.Chain.PaxeerX.SequencerReceipt
 
@@ -247,6 +249,10 @@ defmodule Explorer.Chain.PaxeerX.SequencerReceiptTest do
 
       assert verify_case(test_case, nil, uncovered) == {:error, :r7}
     end
+  end
+
+  test "receipt_gateway_transport_proof" do
+    Explorer.Chain.PaxeerX.Repair2233523.Gateway.receipt_gateway_transport_proof()
   end
 
   describe "router reads" do
