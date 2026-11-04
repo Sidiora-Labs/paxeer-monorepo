@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"text/template"
+	"unicode/utf8"
 
+	"github.com/BurntSushi/toml"
 	tmcli "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/cli"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client/flags"
 	"github.com/spf13/viper"
@@ -19,16 +20,6 @@ const defaultConfigTemplate = `# This is a TOML config file.
 ###                           Client Configuration                            ###
 ###############################################################################
 
-# The network chain ID
-chain-id = "{{ .ChainID }}"
-# The keyring's backend, where the keys are stored (os|file|kwallet|pass|test|memory)
-keyring-backend = "{{ .KeyringBackend }}"
-# CLI output format (text|json)
-output = "{{ .Output }}"
-# <host>:<port> to Tendermint RPC interface for this chain
-node = "{{ .Node }}"
-# Transaction broadcasting mode (sync|async|block)
-broadcast-mode = "{{ .BroadcastMode }}"
 `
 
 func SetClientConfig(key string, value string, configPath string, config *ClientConfig) error {
@@ -54,22 +45,80 @@ func SetClientConfig(key string, value string, configPath string, config *Client
 	return nil
 }
 
-// writeConfigToFile parses defaultConfigTemplate, renders config using the template and writes it to
-// configFilePath.
+// writeConfigToFile encodes and validates config before atomically replacing configFilePath.
 func writeConfigToFile(configFilePath string, config *ClientConfig) error {
+	if config == nil {
+		return fmt.Errorf("client config is nil")
+	}
+
 	var buffer bytes.Buffer
+	buffer.WriteString(defaultConfigTemplate)
+	encoder := toml.NewEncoder(&buffer)
+	fields := []struct {
+		key, value, comment string
+	}{
+		{flags.FlagChainID, config.ChainID, "# The network chain ID"},
+		{flags.FlagKeyringBackend, config.KeyringBackend, "# The keyring's backend, where the keys are stored (os|file|kwallet|pass|test|memory)"},
+		{tmcli.OutputFlag, config.Output, "# CLI output format (text|json)"},
+		{flags.FlagNode, config.Node, "# <host>:<port> to Tendermint RPC interface for this chain"},
+		{flags.FlagBroadcastMode, config.BroadcastMode, "# Transaction broadcasting mode (sync|async|block)"},
+	}
+	for _, field := range fields {
+		if !utf8.ValidString(field.value) {
+			return fmt.Errorf("client config %s is not valid UTF-8", field.key)
+		}
+		buffer.WriteString(field.comment + "\n")
+		if err := encoder.Encode(map[string]string{field.key: field.value}); err != nil {
+			return fmt.Errorf("could not encode client config: %w", err)
+		}
+	}
 
-	tmpl := template.New("clientConfigFileTemplate")
-	configTemplate, err := tmpl.Parse(defaultConfigTemplate)
+	v := viper.New()
+	v.SetConfigType("toml")
+	if err := v.ReadConfig(bytes.NewReader(buffer.Bytes())); err != nil {
+		return fmt.Errorf("could not validate client config: %w", err)
+	}
+	var decoded ClientConfig
+	if err := v.Unmarshal(&decoded); err != nil {
+		return fmt.Errorf("could not decode client config: %w", err)
+	}
+	if decoded != *config {
+		return fmt.Errorf("client config does not round-trip through TOML")
+	}
+
+	directory, err := os.Open(filepath.Dir(configFilePath))
 	if err != nil {
-		return err
+		return fmt.Errorf("could not open client config directory: %w", err)
+	}
+	defer directory.Close()
+
+	temporary, err := os.CreateTemp(filepath.Dir(configFilePath), ".client.toml-*")
+	if err != nil {
+		return fmt.Errorf("could not create temporary client config: %w", err)
+	}
+	defer os.Remove(temporary.Name())
+	defer temporary.Close()
+
+	if err := temporary.Chmod(0600); err != nil {
+		return fmt.Errorf("could not secure temporary client config: %w", err)
+	}
+	if _, err := temporary.Write(buffer.Bytes()); err != nil {
+		return fmt.Errorf("could not write temporary client config: %w", err)
+	}
+	if err := temporary.Sync(); err != nil {
+		return fmt.Errorf("could not sync temporary client config: %w", err)
+	}
+	if err := temporary.Close(); err != nil {
+		return fmt.Errorf("could not close temporary client config: %w", err)
+	}
+	if err := os.Rename(temporary.Name(), configFilePath); err != nil {
+		return fmt.Errorf("could not replace client config: %w", err)
+	}
+	if err := directory.Sync(); err != nil {
+		return fmt.Errorf("could not sync client config directory: %w", err)
 	}
 
-	if err := configTemplate.Execute(&buffer, config); err != nil {
-		return err
-	}
-
-	return os.WriteFile(configFilePath, buffer.Bytes(), 0600)
+	return nil
 }
 
 // ensureConfigPath creates a directory configPath if it does not exist

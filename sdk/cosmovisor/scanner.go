@@ -2,7 +2,9 @@ package cosmovisor
 
 import (
 	"bufio"
+	"encoding/json"
 	"regexp"
+	"strings"
 )
 
 // Trim off whitespace around the info - match least greedy, grab as much space on both sides
@@ -16,7 +18,7 @@ import (
 //	  return fmt.Sprintf("time: %s", p.Time.UTC().Format(time.RFC3339))
 //	}
 //	return fmt.Sprintf("height: %d", p.Height)
-var upgradeRegex = regexp.MustCompile(`UPGRADE "(.*)" NEEDED at ((height): (\d+)|(time): (\S+)):\s+(\S*)`)
+var upgradeRegex = regexp.MustCompile(`UPGRADE "(.*?)" NEEDED at ((height): (\d+)|(time): (\S+)):[ \t]*(.*)`)
 
 // UpgradeInfo is the details from the regexp
 type UpgradeInfo struct {
@@ -35,10 +37,25 @@ func WaitForUpdate(scanner *bufio.Scanner) (*UpgradeInfo, error) {
 			subs := upgradeRegex.FindStringSubmatch(line)
 			info := UpgradeInfo{
 				Name: subs[1],
-				Info: subs[7],
+				Info: upgradeLogInfo(subs[7]),
 			}
 			return &info, nil
 		}
 	}
 	return nil, scanner.Err()
+}
+
+func upgradeLogInfo(text string) string {
+	text = strings.TrimSpace(text)
+	decoder := json.NewDecoder(strings.NewReader(text))
+	var value json.RawMessage
+	if err := decoder.Decode(&value); strings.HasPrefix(text, "{") && err == nil {
+		return string(value)
+	}
+	// Reference URLs cannot contain spaces; structured loggers append fields.
+	if fields := strings.Fields(text); len(fields) > 1 &&
+		(strings.Contains(fields[0], "://") || strings.HasPrefix(fields[0], "/") || strings.HasPrefix(fields[0], "./") || strings.HasPrefix(fields[0], "../")) {
+		return fields[0]
+	}
+	return text
 }

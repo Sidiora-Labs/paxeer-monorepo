@@ -36,8 +36,8 @@ type Factory struct {
 	simulateAndExecute bool
 }
 
-// NewFactoryCLI creates a new Factory.
-func NewFactoryCLI(clientCtx client.Context, flagSet *pflag.FlagSet) Factory {
+// NewFactoryCLI creates a new Factory, returning an error for invalid transaction flags.
+func NewFactoryCLI(clientCtx client.Context, flagSet *pflag.FlagSet) (Factory, error) {
 	signModeStr := clientCtx.SignModeStr
 
 	signMode := signing.SignMode_SIGN_MODE_UNSPECIFIED
@@ -52,12 +52,40 @@ func NewFactoryCLI(clientCtx client.Context, flagSet *pflag.FlagSet) Factory {
 
 	accNum, _ := flagSet.GetUint64(flags.FlagAccountNumber)
 	accSeq, _ := flagSet.GetUint64(flags.FlagSequence)
-	gasAdj, _ := flagSet.GetFloat64(flags.FlagGasAdjustment)
+	gasAdj, err := flagSet.GetFloat64(flags.FlagGasAdjustment)
+	if err != nil {
+		return Factory{}, fmt.Errorf("invalid --%s: %w", flags.FlagGasAdjustment, err)
+	}
+	if err := validateGasAdjustment(gasAdj); err != nil {
+		return Factory{}, fmt.Errorf("invalid --%s: %w", flags.FlagGasAdjustment, err)
+	}
 	memo, _ := flagSet.GetString(flags.FlagNote)
 	timeoutHeight, _ := flagSet.GetUint64(flags.FlagTimeoutHeight)
 
-	gasStr, _ := flagSet.GetString(flags.FlagGas)
-	gasSetting, _ := flags.ParseGasSetting(gasStr)
+	gasStr, err := flagSet.GetString(flags.FlagGas)
+	if err != nil {
+		return Factory{}, fmt.Errorf("invalid --%s: %w", flags.FlagGas, err)
+	}
+	gasSetting, err := flags.ParseGasSetting(gasStr)
+	if err != nil {
+		return Factory{}, fmt.Errorf("invalid --%s: %w", flags.FlagGas, err)
+	}
+	feesStr, err := flagSet.GetString(flags.FlagFees)
+	if err != nil {
+		return Factory{}, fmt.Errorf("invalid --%s: %w", flags.FlagFees, err)
+	}
+	fees, err := sdk.ParseCoinsNormalized(feesStr)
+	if err != nil {
+		return Factory{}, fmt.Errorf("invalid --%s: %w", flags.FlagFees, err)
+	}
+	gasPricesStr, err := flagSet.GetString(flags.FlagGasPrices)
+	if err != nil {
+		return Factory{}, fmt.Errorf("invalid --%s: %w", flags.FlagGasPrices, err)
+	}
+	gasPrices, err := sdk.ParseDecCoins(gasPricesStr)
+	if err != nil {
+		return Factory{}, fmt.Errorf("invalid --%s: %w", flags.FlagGasPrices, err)
+	}
 
 	f := Factory{
 		txConfig:           clientCtx.TxConfig,
@@ -70,17 +98,13 @@ func NewFactoryCLI(clientCtx client.Context, flagSet *pflag.FlagSet) Factory {
 		sequence:           accSeq,
 		timeoutHeight:      timeoutHeight,
 		gasAdjustment:      gasAdj,
+		fees:               fees,
+		gasPrices:          gasPrices,
 		memo:               memo,
 		signMode:           signMode,
 	}
 
-	feesStr, _ := flagSet.GetString(flags.FlagFees)
-	f = f.WithFees(feesStr)
-
-	gasPricesStr, _ := flagSet.GetString(flags.FlagGasPrices)
-	f = f.WithGasPrices(gasPricesStr)
-
-	return f
+	return f, nil
 }
 
 func (f Factory) AccountNumber() uint64                     { return f.accountNumber }
