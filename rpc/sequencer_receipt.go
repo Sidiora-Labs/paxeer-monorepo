@@ -17,6 +17,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/verify"
 	evmkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
 	seqkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/keeper"
+	seqtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/ethereum/go-ethereum/common"
@@ -77,16 +78,6 @@ func (errSequencerReceiptNotServed) Error() string {
 func (errSequencerReceiptNotServed) ErrorCode() int { return sequencerNotServedCode }
 
 var _ rpc.Error = errSequencerReceiptNotServed{}
-
-type errReceiptKeysNotServed struct{}
-
-func (errReceiptKeysNotServed) Error() string {
-	return ReceiptKeysMethod + " served by sequencer"
-}
-
-func (errReceiptKeysNotServed) ErrorCode() int { return sequencerNotServedCode }
-
-var _ rpc.Error = errReceiptKeysNotServed{}
 
 // SequencerSend is the sequencer's record of one sent transaction.
 type SequencerSend struct {
@@ -270,6 +261,16 @@ func newSequencerReceiptAPI(tmClient client.LocalClient, ctxProvider func(int64)
 	if err := option.validate(); err != nil {
 		return nil, err
 	}
+	// Ordinary nodes own the same governed sequencer store as the proposer.
+	if option.Keeper == nil {
+		for _, key := range ctxProvider(LatestCtxHeight).MultiStore().StoreKeys() {
+			if key.Name() == seqtypes.StoreKey {
+				keeper := seqkeeper.NewKeeper(key)
+				option.Keeper = &keeper
+				break
+			}
+		}
+	}
 	return &SequencerReceiptAPI{tmClient: tmClient, ctxProvider: ctxProvider, option: option, connectionType: connectionType}, nil
 }
 
@@ -332,7 +333,21 @@ func (a *SequencerReceiptAPI) SequencerReceipt(ctx context.Context, txHash commo
 }
 
 func (a *SequencerReceiptAPI) receiptKeys() (seqkeeper.ReceiptKeys, error) {
-	pinned, err := a.option.Keeper.ReceiptKeys(a.ctxProvider(LatestCtxHeight))
+	if a.option.Keeper == nil {
+		return nil, pxChainUnavailable("receipt_keys_unavailable")
+	}
+	ctx := a.ctxProvider(LatestCtxHeight)
+	configured := false
+	for _, key := range ctx.MultiStore().StoreKeys() {
+		if key.Name() == seqtypes.StoreKey {
+			configured = ctx.KVStore(key).Has(seqtypes.ReceiptKeysKey)
+			break
+		}
+	}
+	if !configured {
+		return nil, pxChainUnavailable("receipt_keys_unavailable")
+	}
+	pinned, err := a.option.Keeper.ReceiptKeys(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -342,6 +357,9 @@ func (a *SequencerReceiptAPI) receiptKeys() (seqkeeper.ReceiptKeys, error) {
 			KeyId: bytes.Clone(pin.KeyId[:]), PublicKey: bytes.Clone(pin.PublicKey[:]),
 			FirstHeight: pin.FirstHeight, LastHeight: pin.LastHeight,
 		}
+	}
+	if err := keys.Validate(); err != nil {
+		return nil, pxChainUnavailable("receipt_keys_unavailable")
 	}
 	return keys, nil
 }
@@ -369,24 +387,9 @@ func (a *receiptKeysAPI) GetReceiptKeys(ctx context.Context) (result *ReceiptKey
 	defer func() {
 		recordMetricsWithError(ctx, ReceiptKeysMethod, a.receipts.connectionType, startTime, returnErr, recover())
 	}()
-	if a.receipts.option.Source == nil {
-		if a.receipts.option.ForwardURL == nil {
-			return nil, errReceiptKeysNotServed{}
-		}
-		recordRedirectedRequest(ctx, ReceiptKeysMethod, string(a.receipts.connectionType))
-		c, err := rpc.DialContext(ctx, a.receipts.option.ForwardURL.String())
-		if err != nil {
-			return nil, fmt.Errorf("rpc.DialContext(%q): %w", a.receipts.option.ForwardURL.String(), err)
-		}
-		defer c.Close()
-		if err := c.CallContext(ctx, &result, ReceiptKeysMethod); err != nil {
-			return nil, err
-		}
-		return result, nil
-	}
 	keys, err := a.receipts.receiptKeys()
 	if err != nil {
-		return nil, err
+		return nil, pxChainUnavailable("receipt_keys_unavailable")
 	}
 	result = &ReceiptKeysResult{Keys: make([]ReceiptKey, len(keys))}
 	for i, key := range keys {
