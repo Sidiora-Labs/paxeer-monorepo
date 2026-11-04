@@ -16,9 +16,6 @@
   "dependencies": {
     "@sidiora/layerx-sdk": "0.1.0"
   },
-  "devDependencies": {
-    "ganache": "7.9.2"
-  },
   "engines": {
     "node": ">=22"
   }
