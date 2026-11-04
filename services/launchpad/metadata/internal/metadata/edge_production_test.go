@@ -285,7 +285,11 @@ func TestProductionLegacyReadsFromCanonicalStore(t *testing.T) {
 	}
 	client, objects := edgeObjects(t, "metadata-approved")
 	origin := "https://metadata.example"
-	media := ConnectedMedia{Metadata: V2ContractHandlers{Store: store, Canonical: PostgresCanonicalSource{Schema: indexerSchema, CanonicalStreamID: stream}}, Objects: S3AssetObjects{Client: client, PublicBucket: objects.Bucket, QuarantineBucket: objects.Bucket + "-quarantine", PublicOrigin: origin}}
+	visibilitySchema := edgeSchema(t, pool, "edge_legacy_visibility")
+	if _, e = pool.Exec(ctx, "CREATE TABLE "+pgx.Identifier{visibilitySchema, "safety_visibility"}.Sanitize()+"(target_type text NOT NULL,target_id text NOT NULL,status text NOT NULL,revision bigint NOT NULL,PRIMARY KEY(target_type,target_id)); CREATE VIEW "+pgx.Identifier{visibilitySchema, "safety_visibility_v2"}.Sanitize()+" AS SELECT target_type,target_id,status,revision FROM "+pgx.Identifier{visibilitySchema, "safety_visibility"}.Sanitize()); e != nil {
+		t.Fatal(e)
+	}
+	media := ConnectedMedia{Metadata: V2ContractHandlers{Store: store, Canonical: PostgresCanonicalSource{Schema: indexerSchema, CanonicalStreamID: stream}}, Objects: S3AssetObjects{Client: client, PublicBucket: objects.Bucket, QuarantineBucket: objects.Bucket + "-quarantine", PublicOrigin: origin}, Moderation: PostgresVisibilityAuthority{Pool: pool, Schema: visibilitySchema}}
 	router := chi.NewRouter()
 	NewProductionLegacyReads(media, origin).RegisterRoutes(router)
 	media.RegisterApprovedObjects(router)
@@ -294,7 +298,7 @@ func TestProductionLegacyReadsFromCanonicalStore(t *testing.T) {
 	read := func(token string) types.PublicMetadata {
 		t.Helper()
 		status, header, body := getBody(t, server.URL+"/metadata/"+token)
-		if status != 200 || header.Get("Cache-Control") != "public, max-age=60" {
+		if status != 200 || header.Get("Cache-Control") != "no-store" {
 			t.Fatalf("GET /metadata/%s: %d %s", token, status, body)
 		}
 		var out types.PublicMetadata
@@ -381,7 +385,7 @@ func TestProductionLegacyReadsFromCanonicalStore(t *testing.T) {
 	}
 
 	// 4. Moderation removal hides creator content and the logo.
-	if _, e = pool.Exec(ctx, "INSERT INTO "+store.table("documents")+"(pool,moderation_revision,blocked) VALUES($1,3,true)", f.Pool); e != nil {
+	if _, e = pool.Exec(ctx, "INSERT INTO "+store.table("documents")+"(pool,moderation_revision,blocked) VALUES($1,3,true) ON CONFLICT(pool) DO UPDATE SET moderation_revision=3,blocked=true", f.Pool); e != nil {
 		t.Fatal(e)
 	}
 	got = read(f.Token)

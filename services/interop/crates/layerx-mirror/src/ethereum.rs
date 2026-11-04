@@ -762,7 +762,7 @@ impl EthereumArchiveClient {
         )?;
         let event_signature = match stage {
             PublicationStage::Manifest => {
-                "ManifestOpened(bytes32,uint32,uint64,uint64,uint32,bytes32)"
+                "ManifestOpened(bytes32,uint32,uint64,bytes32,uint64,uint32,bytes32)"
             }
             PublicationStage::Chunk(_) => "ChunkStored(bytes32,uint32,bytes32,uint32)",
             PublicationStage::Finalize => "ArchiveFinalized(bytes32,bytes32)",
