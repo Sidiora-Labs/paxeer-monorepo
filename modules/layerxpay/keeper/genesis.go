@@ -38,6 +38,9 @@ func ValidateOwnedGenesis(gs types.GenesisState) error {
 	if err := gs.Validate(); err != nil {
 		return err
 	}
+	if err := validateEscrowRecords(gs.KernelRecords); err != nil {
+		return types.ErrInvalidGenesis.Wrap(err.Error())
+	}
 	if err := validateServiceRecords(gs.KernelRecords); err != nil {
 		return types.ErrInvalidGenesis.Wrap(err.Error())
 	}
@@ -157,6 +160,9 @@ func (g RecoveryGenesis) Validate() error {
 	}
 	if metadata > types.MaxKernelRecords {
 		return types.ErrInvalidGenesis.Wrapf("agent stream metadata count %d exceeds %d", metadata, types.MaxKernelRecords)
+	}
+	if err := validateEscrowRecords(owned); err != nil {
+		return types.ErrInvalidGenesis.Wrap(err.Error())
 	}
 	if err := validateServiceRecords(owned); err != nil {
 		return types.ErrInvalidGenesis.Wrap(err.Error())
