@@ -868,6 +868,8 @@ dependencies = [
 name = "layerx-program-sdk"
 version = "0.1.0"
 dependencies = [
+ "layerx-programs-registry",
+ "layerx-programs-runtime",
  "serde_json",
  "sha2",
 ]
