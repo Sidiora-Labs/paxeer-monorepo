@@ -9,6 +9,8 @@ use std::time::Duration;
 
 use super::{hex_decode, hex_encode, parse_node_url, refusal, NodeEndpoint, Response};
 
+pub(super) const DEPLOYMENT_CHAIN_ID: u64 = 125;
+
 pub(super) const LAYERX_CORE_CHAIN_RPC_URL: &str = "LAYERX_CORE_CHAIN_RPC_URL";
 pub(super) const LAYERX_CORE_FUNDING_SENDER_KEY_FILE: &str = "LAYERX_CORE_FUNDING_SENDER_KEY_FILE";
 pub(super) const LAYERX_CORE_FUNDING_SENDER_KMS_KEY_ID: &str =
@@ -145,7 +147,7 @@ impl NativeTransfer {
     pub(super) fn validate(&self, key: [u8; 32]) -> Result<(), String> {
         let (chain_id, recipient, amount) = transfer_fields(&self.signed)?;
         if self.version != 2
-            || self.chain_id != 125
+            || self.chain_id != DEPLOYMENT_CHAIN_ID
             || chain_id != self.chain_id
             || recipient != self.recipient
             || amount != self.amount
@@ -285,29 +287,19 @@ impl ChainFunding {
 
     pub(super) fn from_env() -> Result<Self, &'static str> {
         let FundingEnvironment { endpoint, sender } = FundingEnvironment::from_env()?;
-        Ok(Self::from_sender(endpoint, sender, 0))
+        Ok(Self::from_sender(endpoint, sender, DEPLOYMENT_CHAIN_ID))
     }
 
     fn connect(&self) -> Result<Self, &'static str> {
-        let chain_id = quantity(
-            &self
-                .rpc("eth_chainId", json!([]))
-                .map_err(|_| "chain_unavailable")?,
-        )
-        .map_err(|_| "chain_unavailable")?
-        .try_into()
-        .map_err(|_| "chain_unavailable")?;
-        if chain_id == 0 {
-            return Err("chain_unavailable");
-        }
+        self.validate_network()?;
         Ok(Self {
             endpoint: self.endpoint.clone(),
             sender: Arc::clone(&self.sender),
-            chain_id,
+            chain_id: DEPLOYMENT_CHAIN_ID,
         })
     }
 
-    pub(super) fn readiness(&self) -> Result<Value, &'static str> {
+    fn validate_network(&self) -> Result<(), &'static str> {
         let chain_id: u64 = quantity(
             &self
                 .rpc("eth_chainId", json!([]))
@@ -316,9 +308,14 @@ impl ChainFunding {
         .map_err(|_| "chain_unavailable")?
         .try_into()
         .map_err(|_| "chain_unavailable")?;
-        if chain_id != self.chain_id {
+        if chain_id != DEPLOYMENT_CHAIN_ID || self.chain_id != DEPLOYMENT_CHAIN_ID {
             return Err("chain_unavailable");
         }
+        Ok(())
+    }
+
+    pub(super) fn readiness(&self) -> Result<Value, &'static str> {
+        self.validate_network()?;
         let latest_block: u64 = quantity(
             &self
                 .rpc("eth_blockNumber", json!([]))
@@ -329,7 +326,7 @@ impl ChainFunding {
         .map_err(|_| "chain_unavailable")?;
         Ok(json!({
             "ready": true,
-            "chain_id": chain_id,
+            "chain_id": DEPLOYMENT_CHAIN_ID,
             "latest_block": latest_block,
             "sender": format!("0x{}", hex_encode(&self.sender.address())),
         }))
@@ -507,7 +504,7 @@ impl ChainFunding {
         max_fee: u128,
     ) -> Result<SignedFunding, Response> {
         let unavailable = || refusal(503, "treasury_unavailable", Some(5));
-        if self.chain_id != 125
+        if self.chain_id != DEPLOYMENT_CHAIN_ID
             || to == [0; 20]
             || amount == 0
             || gas_limit == 0
@@ -515,6 +512,7 @@ impl ChainFunding {
         {
             return Err(unavailable());
         }
+        self.validate_network().map_err(|_| unavailable())?;
         let call = Eip1559Call {
             chain_id: self.chain_id,
             nonce,

@@ -1,0 +1,10 @@
+[repair.22.33.1432]
+finding = "identity-signup-service-coverage"
+producer_transport_consumer = "Production identity TLS connection handler and router -> durable signup outbox -> production Smtp::drain over a loopback SMTP transcript -> delivered token through the TLS verification listener -> durable session and introspection -> starter-credit reservation and settlement listeners."
+restart = "Each boundary drops the listener thread, Shared, Desk and Store before opening the same state directory; persisted pending signup, session, signer, CSRF, unsettled grant and settled grant are asserted after reopening."
+tests = ["repair_22_33_1432_signup_delivery_session_and_credit_survive_restarts", "repair_22_33_1432_expired_delivered_token_is_refused_after_restart", "repair_22_33_1432_interrupted_smtp_delivery_retries_the_durable_token", "repair_22_33_1432_interrupted_outbox_enqueue_never_verifies_the_subject"]
+service_suite = "service.rs registers the same four behavioral cases through support/signup_service.rs, which includes the production listener source rather than copying its implementation."
+fixtures = "fixtures/signup-tls/{ca.der,server.der,server-key.der} are test-only CA, localhost certificate and private key; verification uses normal TLS certificate validation, real entropy and the production wall clock."
+baseline = "No earlier build or verification ledger existed; no unchanged-tree test was run because the explicit bounded gate order requires complete implementation, hf-build, then hf-done and forbids running verify_cmd by hand."
+wiring_requests = "None: the producer, transport and consumer paths needed by this finding can be exercised within the tests scope."
+evidence = "The final hf-done JSON ledger entry records the exact verified candidate revision, command, exit and private log; gate metadata remains outside the candidate to avoid a self-referential revision."

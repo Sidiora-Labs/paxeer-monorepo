@@ -3,7 +3,7 @@
 import importlib.util
 import json
 import threading
-from datetime import datetime
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -63,12 +63,12 @@ def test_benchmark_rpc_envelope_populated_block(consensus_http):
 
     assert metrics.get_block_info(POPULATED_HEIGHT) == {
         "height": POPULATED_HEIGHT,
-        "timestamp": datetime(2026, 11, 4, 2, 47, 17, 920941),
+        "timestamp": datetime(2026, 11, 4, 2, 47, 17, 920941, tzinfo=timezone.utc),
         "number_of_txs": 2,
     }
     assert metrics.get_transaction_breakdown(POPULATED_HEIGHT) == {"staking": 1, "bank": 1}
     assert metrics.get_block_time(POPULATED_HEIGHT) == datetime(
-        2026, 11, 4, 2, 47, 17, 920941
+        2026, 11, 4, 2, 47, 17, 920941, tzinfo=timezone.utc
     )
     assert received == [("GET", path)] * 3
 
@@ -86,7 +86,7 @@ def test_benchmark_rpc_envelope_empty_block(consensus_http, null_txs):
 
     info = metrics.get_block_info(EMPTY_HEIGHT)
     assert info["height"] == EMPTY_HEIGHT
-    assert info["timestamp"] == datetime(2026, 11, 4, 2, 47, 16, 51308)
+    assert info["timestamp"] == datetime(2026, 11, 4, 2, 47, 16, 51308, tzinfo=timezone.utc)
     assert info["number_of_txs"] == 0
     assert metrics.get_transaction_breakdown(EMPTY_HEIGHT) == {}
     assert received == [("GET", path)] * 2
@@ -100,7 +100,7 @@ def test_benchmark_rpc_envelope_block_statistics(consensus_http):
     routes[next_path] = (200, transcript("populated"))
 
     block = metrics.get_block_info(EMPTY_HEIGHT)
-    assert metrics.get_best_block_stats([block]) == (0, EMPTY_HEIGHT, 1869)
+    assert metrics.get_best_block_stats([block]) == (0, EMPTY_HEIGHT, 1869.63371)
     assert received == [("GET", empty_path), ("GET", next_path)]
 
 

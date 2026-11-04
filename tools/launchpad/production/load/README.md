@@ -1,8 +1,12 @@
 # L48 workload primitives
 
-Run commands from the repository root. Install the pinned Python dependencies in
-[requirements.txt](requirements.txt) in the qualification environment; frozen
-schema validation uses `jsonschema==4.25.1`.
+Run commands from the repository root. Install the pinned Python dependencies
+from the hashed [requirements.lock](requirements.lock) in the qualification
+environment; frozen schema validation uses `jsonschema==4.25.1`:
+
+```sh
+python3 -m pip install --require-hashes -r tools/launchpad/production/load/requirements.lock
+```
 
 ## Local workload tests
 

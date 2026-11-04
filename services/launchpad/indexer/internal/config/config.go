@@ -94,10 +94,11 @@ type Config struct {
 	WebhookHMACSecret  string   `env:"WEBHOOK_HMAC_SECRET"`
 	WebhookHMACSecrets []string `env:"WEBHOOK_HMAC_SECRETS" envSeparator:","`
 
-	// Backfill configuration.
+	// Backfill configuration. The default fits the production receipt-qualified
+	// limit of 64 blocks, including when switching from live mode.
 	IndexerMode         string `env:"INDEXER_MODE" envDefault:"live"`
 	BackfillFromBlock   *int64 `env:"BACKFILL_FROM_BLOCK"`
-	BackfillBatchSize   int    `env:"BACKFILL_BATCH_SIZE" envDefault:"2000"`
+	BackfillBatchSize   int    `env:"BACKFILL_BATCH_SIZE" envDefault:"64"`
 	BackfillConcurrency int    `env:"BACKFILL_CONCURRENCY" envDefault:"20"`
 	BackfillOnly        bool   `env:"BACKFILL_ONLY" envDefault:"false"`
 

@@ -1,0 +1,49 @@
+[repair.22.33.859]
+audit = "22.30.182"
+requirement = "22998.1"
+implementation = "The existing loadtest executable exposes benchmark-ops; all five affected script entry points delegate to this production Go implementation. The existing build-loadtest target produces the executable; PAX_LOADTEST_OPS can select an explicit executable path. No Go/Python/shell compiler or external executable is invoked by the focused Go gate."
+baseline = "Not run: the explicit implementation-first order and hf-done-only verification prohibit the unchanged-tree verify requested by step 11. No pre-change failing test or gate is claimed."
+qualification = "The final hf-done evidence row in the runner's private gates.jsonl is the authoritative verified candidate revision, exact command, exit code and private log; the final task response copies that row. No successful gate is claimed before that row exists."
+wiring_requests = []
+
+[finding.dex-deploy-retired]
+proving_test = "TestRepairM_859_DexDeployRetired"
+repair = "deploy_ten_contracts.sh invokes native spot_vault registerToken and spot_orders placeLimitBuy scenarios through paxd tx evm call-precompile, with exact ERC20 approval cover. CLI failure, missing transaction hash, RPC error, reverted receipt or uncommitted receipt leaves contract_distribution unchanged. All thirteen operations must have matching successful committed receipts before atomic config publication."
+proof = "Real current CLI BuildPrecompileCall -> native ABI encoding and decoding -> real signed EVM transaction hash -> loopback JSON-RPC with real serialized Ethereum Receipt -> production receipt consumer -> published config. Includes pending receipts and rejected submissions."
+usage = "Build the existing loadtest executable, then deploy_ten_contracts.sh --scenario <JSON containing stablecoin, token, amount, target_price and expires_at decimal strings> --from <funded vault owner key> --chain-id <chain> --evm-rpc <endpoint>. Assets must already exist as funded native token pointers; ten orders replace the retired ten Wasm contract setup."
+
+[finding.bindings-generator-exit]
+proving_test = "TestRepairM_859_BindingsGeneratorExit"
+repair = "Resolve contracts/evm/bindings relative to the entry script. Stage each abigen result in a fresh adjacent directory, check its exit and regular nonempty parsed Go output/package, and refuse an ABI modified during generation. Never publish a failed, missing or stale pre-existing output."
+proof = "Production CLI and binding publisher consume the committed ERC20 ABI and real generated binding through the generator file transport; failure transcripts preserve the old file and remove staging files."
+
+[finding.benchmark-metric-deadlines]
+proving_test = "TestRepairM_859_BenchmarkMetricDeadlines"
+additional_test = "TestRepairM_859_MetricEnvelopePreserved"
+repair = "Every REST/RPC request has a five-second deadline, HTTP status and JSON-RPC errors remain explicit, complete RFC3339Nano timestamps retain offsets and nanoseconds, positive submillisecond durations retain precision, and nonpositive durations report null measurements. The Python compatibility API preserves its readers and error types; earlier timestamp/statistic assertions are updated to UTC-aware values and fractional milliseconds."
+proof = "Recorded consensus HTTP bodies and loopback deadline endpoints -> production HTTP client and envelope decoder -> timestamp parser, throughput and summary consumers. The earlier full block/error/null-array paths remain asserted in the Go gate."
+
+[finding.genesis-mnemonic-permissions]
+proving_test = "TestRepairM_859_GenesisMnemonicPermissions"
+repair = "Require an owner-owned mode-0700 dedicated directory opened without following symlinks. Persist seeds with directory-relative O_EXCL/O_NOFOLLOW mode-0600 files and fsync before admitting accounts to the funding inventory. Existing files, symlinks, shared directories and traversal fail explicitly."
+proof = "Real in-memory SDK keyring and KeyOutput serialization -> production account persistence -> actual file metadata and genesis funding publication boundary. Unsafe persistence leaves genesis byte-for-byte unchanged."
+
+[finding.genesis-account-count]
+proving_test = "TestRepairM_859_GenesisAccountCount"
+repair = "Clamp the final worker slice, collect every participant failure, require exact contiguous unique account inventory, preserve existing state and atomically publish genesis only after every seed is durable."
+proof = "Real SDK keyring -> serialized keys -> bounded concurrent production generation -> private seed files -> ordered bank/auth genesis arrays, at 0/1/63/64/65/129 accounts. Participant failures, duplicate addresses and pre-existing seed files leave genesis unchanged."
+
+[finding.validator-fault-commands]
+proving_test = "TestRepairM_859_ValidatorFaultCommands"
+repair = "Use structured SSH/paxd argv without a shell or hardcoded passphrase, decode exactly one admin key, page through actual delegation lists, partition bounded host slices and validator quarters, confirm a new active systemd invocation or committed staking transaction plus exact observed balance, and restore added delegation. Preserve full uint256 coin precision."
+proof = "Committed systemd protocol fixtures and real SDK KeyOutput/staking/TxResponse serializers -> production command planning and confirmation consumer. Tests cover odd restart batches, unchanged invocation refusal, invalid SSH hosts, pagination, rejected/unconfirmed staking changes, large balances and retained delegation recovery."
+
+[finding.validator-fault-cleanup]
+proving_test = "TestRepairM_859_ValidatorFaultCleanup"
+additional_test = "TestRepairM_859_ValidatorFaultCommands"
+repair = "Persist private exclusive recovery records before applying changes, mark successful applications, use finally cleanup and the production SIGINT/SIGTERM context, attempt every restoration even when one fails, and retain only unresolved actions with an explicit --recover command. Reopened recovery verifies current state before inverse operations."
+proof = "Production controller -> durable filesystem journal -> bounded SSH transcript peer -> actual SIGTERM -> cleanup, partial failure, stopped/discarded controller -> newly opened journal consumer -> restored state and journal removal. Delegation recovery also reopens from disk."
+
+[gotcha.22.33.859]
+observed = "The task simultaneously requests an unchanged-tree verify and forbids testing before complete implementation or running verify outside hf-done; its scoped file list also forbids editing the spec and repository gotcha ledgers."
+resolution = "Follow the explicit gate order; record the contradiction here without editing out-of-scope files. Existing runner changes in .cgignore and spec are preserved."

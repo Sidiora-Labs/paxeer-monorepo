@@ -1,0 +1,56 @@
+[repair.22.33.1389]
+audit = "22.30.77"
+base_revision = "72c91077cb966f1c4c640ded61b4b259f41cad90"
+mode = "BUILD"
+scope = "JVM SDK production package and Repair22331389Test.java only"
+qualification = "Only hf-build followed by hf-done; the runner ledger binds the final candidate revision, exact command, exit code and private evidence log."
+verified_revision_record = "/out/run/gates.jsonl final verify row; reproduced in the task handoff JSON"
+baseline = "No baseline gate ran: the task's ordered gate instructions prohibit verification before implementation and prohibit invoking verify_cmd by hand. No pre-change test failures are claimed."
+producer_proof = "Committed native Programs payload/calldata vectors and signed sequencer receipts traverse production JVM encoders, EIP-1559 signing/binding, real loopback HTTP/TLS, the local verifier and portable receipt decoder. Go/C runtime execution is outside this self-contained JVM gate."
+
+[finding.program-read-metadata]
+test = "Repair22331389Test.programReadMetadataFollowsRetainedTransactions"
+repair = "Receipt metadata names pax_sequencerReceipt(retainedTransactionHash), activity metadata names eth_getTransactionByHash(retainedTransactionHash); neither advertises a precompile log target. Human verification vocabulary is preserved."
+
+[finding.http-body-deadline]
+test = "Repair22331389Test.productionBodyDeadlineCoversBothPlanesAndMutationUncertainty"
+repair = "Both planes use a bounded subscriber with a cancellable deadline spanning headers and the entire body; incomplete mutation responses retain unknown-outcome semantics."
+
+[finding.native-call-total-bound]
+test = "Repair22331389Test.nativeCallTotalBoundIncludesEveryFieldBeforeEvmPreparation"
+additional_test = "Repair22331389Test.individualCallBoundsRemainEnforced"
+repair = "The 106-byte frame, entrypoint, calldata, capabilities and access declaration share the 524288-byte protocol budget before output allocation and EVM encoding; wire decoders refuse oversized input before field allocation."
+
+[finding.deploy-total-bound]
+test = "Repair22331389Test.deployTotalBoundIncludesOptionalInterfaceFraming"
+repair = "Constructor and encoder count the 104-byte frame plus optional interface length framing, interface and Wasm using long arithmetic before cloning or allocating; decoder enforces the same ceiling."
+
+[finding.upgrade-total-bound]
+test = "Repair22331389Test.upgradeTotalBoundIncludesHookInterfaceAndClearFrame"
+repair = "Constructor, encoder and decoder enforce the 106/110-byte frame, migration hook, optional or cleared interface and Wasm against the same ceiling, with overflow-safe long sums and existing field limits intact."
+
+[finding.telemetry-outcome]
+test = "Repair22331389Test.throwingTelemetryPreservesSuccessfulMutationAndOriginalServiceFailure"
+repair = "Telemetry observes the original stage without replacing it. Delivery failures receive one saturating per-client count, no retries, retained exceptions, recursive reporting or operation-result changes."
+
+[finding.program-plaintext-origin]
+test = "Repair22331389Test.programPlaintextOriginsAreLoopbackOnly"
+additional_test = "Repair22331389Test.authenticatedHttpsDeliversRecordedReceiptAndRejectsUntrustedPeer"
+repair = "Programs and production transport share HTTPS/loopback validation, reject loopback-looking DNS names, and disable redirects. Explicit loopback development origins and custom certificate trust are documented on the constructor."
+
+[finding.program-response-bound]
+test = "Repair22331389Test.programStreamingResponseOverflowCancelsBeforeReadingWholeEntity"
+additional_tests = ["Repair22331389Test.programResponseExactByteLimitIsAcceptedAndDeclaredOverflowRefused", "Repair22331389Test.programBodyDeadlineIncludesStalledBodyAndPreservesMutationUncertainty"]
+repair = "Programs bounds streamed JSON-RPC bodies at 8 MiB before JSON decoding; declared or streamed overflow cancels the subscription and surfaces a typed decode refusal, and stalled bodies time out with mutation uncertainty preserved."
+
+[wiring.generator]
+request = "Domain 8 (platform SDK): update sdk/platform/generators/generate_jvm.py PROGRAM_CALLS/rendering for retained transaction reads, update services/agent/schema/agent-api/programs.kvx with its owning Agent domain, regenerate GeneratedSchema.java and reseal sdk/platform/pipeline.kvx; preserve Human verification labels. These canonical sources and lock are outside this task's allowed paths."
+
+[wiring.catalogue_test]
+request = "Domain 8 (platform SDK): reconcile sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueProgramsTest.java programOperationsNameLayerxprogramsCalls with retained transaction read metadata; its inspected legacy assertions still require eth_getLogs/ProgramCallOutcome. It is outside scope and was not run or weakened."
+
+[wiring.precompile_admission]
+request = "Native Programs/precompile owning domain: exercise the JVM boundary calldata at precompiles/layerxprograms and the include/layerx/lxp_protocol.h admission boundary in that domain's gate; this JVM-only gate deliberately invokes no Go/C subprocess or native artifact."
+
+[gotcha.task_record_scope]
+observed = "The task requests spec/GOTCHA records while explicitly forbidding edits there; findings, wiring requests and the baseline-gate conflict are recorded here in the allowed production directory, and qualification evidence remains in the runner ledger."

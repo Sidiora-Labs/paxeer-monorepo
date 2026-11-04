@@ -34,3 +34,9 @@ func CreateScenario(s config.Scenario) TxGenerator {
 	}
 	return factory(s)
 }
+
+// HasScenario permits configuration admission before constructing scenarios.
+func HasScenario(name string) bool {
+	_, ok := scenarioFactories[strings.ToLower(name)]
+	return ok
+}

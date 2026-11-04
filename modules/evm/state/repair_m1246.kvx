@@ -1,0 +1,23 @@
+[repair.22.33.1246]
+audit = "22.30.60"
+acceptance = "22998.1"
+base_revision = "72c91077cb966f1c4c640ded61b4b259f41cad90"
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit code and private log; no qualification is claimed before those gates pass."
+baseline = "Not run: the explicit ordered instructions require complete implementation before hf-build/hf-done and prohibit running verify_cmd by hand; no pre-change test failure is claimed."
+
+[finding.024]
+tests = ["TestRepairM_1246_LiveChainMintingBoundary", "TestRepairM_1246_DisposableChainTopOff"]
+repair = "Live-chain policy guards both real balance hooks and the mint boundary before account or supply writes; normal and tagged constructors select the same implementation using a private build-selected flag, also preserved by Copy."
+wiring_request = "Makefile and .github/workflows/ (node release/packaging domain 5): reject the mock_balances tag in every production build and packaging path."
+
+[finding.029]
+test = "TestRepairM_1246_AssociatedDestruction"
+repair = "Keep the resolved association until the debit succeeds; prove mapped and cast balances, returned amount, historical tracing execution, and state after closing and reopening the committed store."
+
+[finding.030]
+test = "TestRepairM_1246_AssociatedDestructionAssertions"
+repair = "Run the strengthened TestSelfDestructAssociated, asserting funding and debit in Ctx(), the destruction amount, and mapped/cast balances after a physical store reopen."
+
+[finding.031]
+test = "TestRepairM_1246_ResidualSettlementAtomic"
+repair = "Settle residual funds inside a snapshot; stop on the first debit or credit error and roll back settlement before clearing account state or flushing caches and events; prove real vesting-lock and recipient-policy rejection with unchanged parent and reopened stores."

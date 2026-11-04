@@ -62,26 +62,21 @@ func encodeVarintProto(l int) []byte {
 // you must validate that all other embedded ExistenceProofs commit to the same root.
 // This can be done with the Verify method
 func (p *CommitmentProof) Calculate() (CommitmentRoot, error) {
-	switch v := p.Proof.(type) {
+	proof, err := Decompress(p)
+	if err != nil {
+		return nil, err
+	}
+	switch v := proof.Proof.(type) {
 	case *CommitmentProof_Exist:
 		return v.Exist.Calculate()
 	case *CommitmentProof_Nonexist:
 		return v.Nonexist.Calculate()
 	case *CommitmentProof_Batch:
-		if len(v.Batch.GetEntries()) == 0 || v.Batch.GetEntries()[0] == nil {
-			return nil, errors.New("batch proof has empty entry")
-		}
-		if e := v.Batch.GetEntries()[0].GetExist(); e != nil {
+		entry := v.Batch.Entries[0]
+		if e := entry.GetExist(); e != nil {
 			return e.Calculate()
 		}
-		if n := v.Batch.GetEntries()[0].GetNonexist(); n != nil {
-			return n.Calculate()
-		}
-	case *CommitmentProof_Compressed:
-		proof := Decompress(p)
-		return proof.Calculate()
-	default:
-		return nil, errors.New("unrecognized proof type")
+		return entry.GetNonexist().Calculate()
 	}
 	return nil, errors.New("unrecognized proof type")
 }
@@ -119,6 +114,14 @@ func (p *ExistenceProof) Calculate() (CommitmentRoot, error) {
 }
 
 func (p *ExistenceProof) calculate(spec *ProofSpec) (CommitmentRoot, error) {
+	if err := validateExistence(p); err != nil {
+		return nil, err
+	}
+	if spec != nil {
+		if err := validateSpec(spec); err != nil {
+			return nil, err
+		}
+	}
 	if p.GetLeaf() == nil {
 		return nil, errors.New("Existence Proof needs defined LeafOp")
 	}
@@ -137,38 +140,53 @@ func (p *ExistenceProof) calculate(spec *ProofSpec) (CommitmentRoot, error) {
 		}
 		if spec != nil {
 			if len(res) > int(spec.InnerSpec.ChildSize) && int(spec.InnerSpec.ChildSize) >= 32 {
-				return nil, errors.WithMessage(err, "inner")
+				return nil, errors.Errorf("inner hash length %d exceeds child size %d", len(res), spec.InnerSpec.ChildSize)
 			}
 		}
 	}
 	return res, nil
 }
 
-func decompressEntry(entry *CompressedBatchEntry, lookup []*InnerOp) *BatchEntry {
-	if exist := entry.GetExist(); exist != nil {
-		return &BatchEntry{
-			Proof: &BatchEntry_Exist{
-				Exist: decompressExist(exist, lookup),
-			},
+func decompressEntry(entry *CompressedBatchEntry, lookup []*InnerOp) (*BatchEntry, error) {
+	switch p := entry.GetProof().(type) {
+	case *CompressedBatchEntry_Exist:
+		if p == nil || p.Exist == nil {
+			break
 		}
+		exist, err := decompressExist(p.Exist, lookup)
+		if err != nil {
+			return nil, err
+		}
+		return &BatchEntry{Proof: &BatchEntry_Exist{Exist: exist}}, nil
+	case *CompressedBatchEntry_Nonexist:
+		if p == nil || p.Nonexist == nil {
+			break
+		}
+		non := p.Nonexist
+		left, err := decompressExist(non.Left, lookup)
+		if err != nil {
+			return nil, err
+		}
+		right, err := decompressExist(non.Right, lookup)
+		if err != nil {
+			return nil, err
+		}
+		proof := &NonExistenceProof{Key: non.Key, Left: left, Right: right}
+		if err := validateNonExistence(proof); err != nil {
+			return nil, err
+		}
+		return &BatchEntry{Proof: &BatchEntry_Nonexist{Nonexist: proof}}, nil
 	}
-
-	non := entry.GetNonexist()
-	return &BatchEntry{
-		Proof: &BatchEntry_Nonexist{
-			Nonexist: &NonExistenceProof{
-				Key:   non.Key,
-				Left:  decompressExist(non.Left, lookup),
-				Right: decompressExist(non.Right, lookup),
-			},
-		},
-	}
+	return nil, errors.New("missing compressed entry variant")
 }
 
 // Calculate determines the root hash that matches the given nonexistence rpoog.
 // You must validate the result is what you have in a header.
 // Returns error if the calculations cannot be performed.
 func (p *NonExistenceProof) Calculate() (CommitmentRoot, error) {
+	if err := validateNonExistence(p); err != nil {
+		return nil, err
+	}
 	// A Nonexist proof may have left or right proof nil
 	switch {
 	case p.Left != nil:
@@ -182,6 +200,12 @@ func (p *NonExistenceProof) Calculate() (CommitmentRoot, error) {
 
 // CheckAgainstSpec will verify the leaf and all path steps are in the format defined in spec
 func (p *ExistenceProof) CheckAgainstSpec(spec *ProofSpec) error {
+	if err := validateSpec(spec); err != nil {
+		return err
+	}
+	if err := validateExistence(p); err != nil {
+		return err
+	}
 	if p.GetLeaf() == nil {
 		return errors.New("Existence Proof needs defined LeafOp")
 	}
@@ -210,6 +234,12 @@ func (p *ExistenceProof) CheckAgainstSpec(spec *ProofSpec) error {
 // Verify does all checks to ensure the proof has valid non-existence proofs,
 // and they ensure the given key is not in the CommitmentState
 func (p *NonExistenceProof) Verify(spec *ProofSpec, root CommitmentRoot, key []byte) error {
+	if err := validateSpec(spec); err != nil {
+		return err
+	}
+	if err := validateNonExistence(p); err != nil {
+		return err
+	}
 	// ensure the existence proofs are valid
 	var leftKey, rightKey []byte
 	if p.Left != nil {
@@ -260,10 +290,16 @@ func (p *NonExistenceProof) Verify(spec *ProofSpec, root CommitmentRoot, key []b
 
 // IsLeftMost returns true if this is the left-most path in the tree, excluding placeholder (empty child) nodes
 func IsLeftMost(spec *InnerSpec, path []*InnerOp) bool {
+	if validateInnerSpec(spec) != nil {
+		return false
+	}
 	minPrefix, maxPrefix, suffix := getPadding(spec, 0)
 
 	// ensure every step has a prefix and suffix defined to be leftmost, unless it is a placeholder node
 	for _, step := range path {
+		if step == nil {
+			return false
+		}
 		if !hasPadding(step, minPrefix, maxPrefix, suffix) && !leftBranchesAreEmpty(spec, step) {
 			return false
 		}
@@ -273,11 +309,17 @@ func IsLeftMost(spec *InnerSpec, path []*InnerOp) bool {
 
 // IsRightMost returns true if this is the left-most path in the tree, excluding placeholder (empty child) nodes
 func IsRightMost(spec *InnerSpec, path []*InnerOp) bool {
+	if validateInnerSpec(spec) != nil {
+		return false
+	}
 	last := len(spec.ChildOrder) - 1
 	minPrefix, maxPrefix, suffix := getPadding(spec, int32(last))
 
 	// ensure every step has a prefix and suffix defined to be rightmost, unless it is a placeholder node
 	for _, step := range path {
+		if step == nil {
+			return false
+		}
 		if !hasPadding(step, minPrefix, maxPrefix, suffix) && !rightBranchesAreEmpty(spec, step) {
 			return false
 		}
@@ -292,12 +334,26 @@ func IsRightMost(spec *InnerSpec, path []*InnerOp) bool {
 //	For step in LPath[0..len-1], validate step is right-most node
 //	For step in RPath[0..len-1], validate step is left-most node
 func IsLeftNeighbor(spec *InnerSpec, left []*InnerOp, right []*InnerOp) bool {
-	// count common tail (from end, near root)
-	left, topleft := left[:len(left)-1], left[len(left)-1]
-	right, topright := right[:len(right)-1], right[len(right)-1]
-	for bytes.Equal(topleft.Prefix, topright.Prefix) && bytes.Equal(topleft.Suffix, topright.Suffix) {
-		left, topleft = left[:len(left)-1], left[len(left)-1]
-		right, topright = right[:len(right)-1], right[len(right)-1]
+	if validateInnerSpec(spec) != nil || len(left) == 0 || len(right) == 0 {
+		return false
+	}
+	// Strip common ancestors only while both paths still have a step.
+	var topleft, topright *InnerOp
+	for {
+		if len(left) == 0 || len(right) == 0 {
+			return false
+		}
+		topleft, topright = left[len(left)-1], right[len(right)-1]
+		if topleft == nil || topright == nil {
+			return false
+		}
+		left, right = left[:len(left)-1], right[:len(right)-1]
+		if topleft.Hash != topright.Hash || !bytes.Equal(topleft.Prefix, topright.Prefix) || !bytes.Equal(topleft.Suffix, topright.Suffix) {
+			break
+		}
+		if _, err := orderFromPadding(spec, topleft); err != nil {
+			return false
+		}
 	}
 
 	// now topleft and topright are the first divergent nodes
@@ -322,11 +378,11 @@ func IsLeftNeighbor(spec *InnerSpec, left []*InnerOp, right []*InnerOp) bool {
 func isLeftStep(spec *InnerSpec, left *InnerOp, right *InnerOp) bool {
 	leftidx, err := orderFromPadding(spec, left)
 	if err != nil {
-		panic(err)
+		return false
 	}
 	rightidx, err := orderFromPadding(spec, right)
 	if err != nil {
-		panic(err)
+		return false
 	}
 
 	// TODO: is it possible there are empty (nil) children???
@@ -335,6 +391,9 @@ func isLeftStep(spec *InnerSpec, left *InnerOp, right *InnerOp) bool {
 
 // checks if an op has the expected padding
 func hasPadding(op *InnerOp, minPrefix, maxPrefix, suffix int) bool {
+	if op == nil || minPrefix < 0 || maxPrefix < minPrefix || suffix < 0 {
+		return false
+	}
 	if len(op.Prefix) < minPrefix {
 		return false
 	}
@@ -378,6 +437,9 @@ func leftBranchesAreEmpty(spec *InnerSpec, op *InnerOp) bool {
 	for i := 0; i < leftBranches; i++ {
 		idx := getPosition(spec.ChildOrder, int32(i))
 		from := actualPrefix + idx*int(spec.ChildSize)
+		if from < 0 || from+int(spec.ChildSize) > len(op.Prefix) {
+			return false
+		}
 		if !bytes.Equal(spec.EmptyChild, op.Prefix[from:from+int(spec.ChildSize)]) {
 			return false
 		}
@@ -402,8 +464,11 @@ func rightBranchesAreEmpty(spec *InnerSpec, op *InnerOp) bool {
 		return false // sanity check
 	}
 	for i := 0; i < rightBranches; i++ {
-		idx := getPosition(spec.ChildOrder, int32(i))
-		from := idx * int(spec.ChildSize)
+		position := getPosition(spec.ChildOrder, int32(i))
+		from := position * int(spec.ChildSize)
+		if from < 0 || from+int(spec.ChildSize) > len(op.Suffix) {
+			return false
+		}
 		if !bytes.Equal(spec.EmptyChild, op.Suffix[from:from+int(spec.ChildSize)]) {
 			return false
 		}
@@ -428,6 +493,12 @@ func getPosition(order []int32, branch int32) int {
 // This will look at the proof and determine which order it is...
 // So we can see if it is branch 0, 1, 2 etc... to determine neighbors
 func orderFromPadding(spec *InnerSpec, inner *InnerOp) (int32, error) {
+	if err := validateInnerSpec(spec); err != nil {
+		return 0, err
+	}
+	if inner == nil {
+		return 0, errors.New("nil inner operation")
+	}
 	maxbranch := int32(len(spec.ChildOrder))
 	for branch := int32(0); branch < maxbranch; branch++ {
 		minp, maxp, suffix := getPadding(spec, branch)
@@ -440,6 +511,9 @@ func orderFromPadding(spec *InnerSpec, inner *InnerOp) (int32, error) {
 
 // over-declares equality, which we cosnider fine for now.
 func (p *ProofSpec) SpecEquals(spec *ProofSpec) bool {
+	if p == nil || spec == nil || p.LeafSpec == nil || spec.LeafSpec == nil || p.InnerSpec == nil || spec.InnerSpec == nil {
+		return false
+	}
 	return p.LeafSpec.Hash == spec.LeafSpec.Hash &&
 		p.LeafSpec.PrehashKey == spec.LeafSpec.PrehashKey &&
 		p.LeafSpec.PrehashValue == spec.LeafSpec.PrehashValue &&

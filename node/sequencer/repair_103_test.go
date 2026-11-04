@@ -486,7 +486,7 @@ func TestRepair_103_PromotionDrainsAcknowledgedTail(t *testing.T) {
 				seq uint64
 				err error
 			}, 1)
-			key := &ReceiptKey{private: p.cfg.ReceiptKey, public: [32]byte(p.cfg.ReceiptKey.Public().(ed25519.PublicKey))}
+			key := &ReceiptKey{receiptKeyState: &receiptKeyState{private: p.cfg.ReceiptKey, public: [32]byte(p.cfg.ReceiptKey.Public().(ed25519.PublicKey))}}
 			id := sha256.Sum256(key.public[:])
 			require.NoError(t, key.SetPins([]verify.SequencerAuthorization{{SequencerID: id, PublicKey: key.public, FirstBatchNumber: 1, LastBatchNumber: 100}}))
 			go func() {

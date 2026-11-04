@@ -32,7 +32,18 @@ The replacement supplies the SDK locally; Go downloads its declared dependencies
 Keep `sdk "chainflow-data-gateway"` and `"chainflow-data-gateway/option"` in
 imports. The local `v0.0.0` requirement does not claim a published SDK release.
 Save the usage example as `main.go` in the consumer module. A local replacement
-must also be available to other developers or CI using that consumer.
+must also be available to other developers or CI using that consumer. After saving
+`main.go`, resolve dependencies and compile the new consumer:
+
+```sh
+go mod tidy
+go build ./...
+```
+
+The regression fixture in `testdata/repair_m1306_consumer` is a separate consumer
+module with the same requirement, imports and local replacement. The SDK
+workspace links it for the focused tests without adding consumer dependencies
+to the SDK module.
 
 ## Client setup and authentication
 

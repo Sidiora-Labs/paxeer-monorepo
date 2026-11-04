@@ -25787,3 +25787,107 @@ symbol = "programs"
 observed = "Attempt 6: all audit cases pass; the real mixed program authority case fails in its registration and commit sequence at line 859 with no receipt."
 assumption = "An in-scope registration or commit refusal under the state-commitment protocol version, or a fixture authority defect; the attempt decides from the code."
 severity = "high"
+
+[finding.22.33.1302.1]
+task = "22.33.1302"
+file = "modules/layerxpay/types/repair_m1302_test.go"
+symbol = "repair_m1302_test.go"
+observed = "Attempt 1: the escrow case passed; the genesis fixture was corrected after the only verify run and the repair budget was exhausted before a rerun."
+assumption = "Unverified final revision, not a known defect."
+severity = "low"
+
+[finding.22.33.1329.1]
+task = "22.33.1329"
+file = "services/platform/hosted/webhooks/tests/repair_m1329_test.go"
+symbol = "repair_m1329_test.go"
+observed = "Attempt 1: the go test gate found no Go sources in the webhooks tests directory and the attempt filed the repair as a wiring request."
+assumption = "A generated gate naming the wrong toolchain (gotcha 2984); the gate is corrected and the repair is in scope."
+severity = "medium"
+
+[finding.22.33.1334.1]
+task = "22.33.1334"
+file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1334.rs"
+symbol = "repair_22_33_1334.rs"
+observed = "Attempt 1: the final revision fails to compile on an error conversion in the payments test and the round-trip case lacks its malformed-payload fixture; constructor gaps were filed as out of scope."
+assumption = "An in-scope compile defect plus in-domain constructor gaps; the scope is widened to the crypto crate's sources."
+severity = "medium"
+
+[finding.22.33.1364.1]
+task = "22.33.1364"
+file = "services/platform/examples/test/repair-22-33-1364.test.mjs"
+symbol = "repair-22-33-1364.test.mjs"
+observed = "Attempt 1: the example test copied modules into a temporary directory where viem's hashes dependency was missing."
+assumption = "A test resolving dependencies outside the installed workspace, not a missing dependency; the gate installs the root workspace."
+severity = "medium"
+
+[finding.22.33.1366.1]
+task = "22.33.1366"
+file = "services/platform/tests/repair_22_33_1366.rs"
+symbol = "repair_22_33_1366.rs"
+observed = "Attempt 1: cargo refused the --test target because the workspace root manifest is virtual."
+assumption = "A generated gate through a virtual workspace root (gotcha 2984); the gate is corrected."
+severity = "medium"
+
+[finding.22.33.1374.1]
+task = "22.33.1374"
+file = "services/platform/perf-db/tests/repair_22_33_1374.rs"
+symbol = "repair_22_33_1374.rs"
+observed = "Attempt 1: twenty-seven accounting cases fail and the attempt filed the production side as requests to another domain."
+assumption = "In-domain accounting disagreements; the scope is widened to the perf-db sources."
+severity = "medium"
+
+[finding.22.33.1391.1]
+task = "22.33.1391"
+file = "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/Repair22331391Test.java"
+symbol = "Repair22331391Test.java"
+observed = "Attempt 1: the fee-token vector lacks a recorded receipt and the SDK metadata names a different retrieval method than the contract."
+assumption = "A missing committed recording and an in-domain metadata drift from the contract."
+severity = "medium"
+
+[finding.22.33.1400.1]
+task = "22.33.1400"
+file = "services/platform/examples/test/repair-22-33-1400.test.mjs"
+symbol = "repair-22-33-1400.test.mjs"
+observed = "Attempt 1: three cases fail in the seller middleware's receipt digest verification against the SDK's v2 digest."
+assumption = "A producer-to-consumer digest break carried by 22.31.457, repaired in domain if any remains."
+severity = "medium"
+
+[finding.22.33.314.1]
+task = "22.33.314"
+file = "apps/explorer/ui/pages/repair-22-33-314.spec.ts"
+symbol = "repair-22-33-314.spec.ts"
+observed = "Attempt 1: seventeen of thirty-eight cases failed; the fixture repairs that followed were not verified."
+assumption = "Unverified final revision, not a known defect."
+severity = "low"
+
+[finding.22.33.44.1]
+task = "22.33.44"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_44.rs"
+symbol = "repair_22_33_44.rs"
+observed = "Attempt 1: seven cases fail on renderer digest and nonce-hold behaviour the attempt filed as out of scope."
+assumption = "In-domain producer and route defects; the scope is widened to the human service sources."
+severity = "high"
+
+[finding.22.31.147.5]
+task = "22.31.147"
+file = "tests/agent/sdk/python/test_repair_22_31_147.py"
+symbol = "test_repair_22_31_147.py"
+observed = "Attempt 5: seventeen cases pass; the recorded event's context hash disagrees with its calldata because the recording came from a consumer crate's fixture, not from the ledger precompile."
+assumption = "A recording of the wrong producer; the ledger precompile is the producer and the SDK adopts its definition."
+severity = "medium"
+
+[finding.22.31.267.4]
+task = "22.31.267"
+file = "services/explorer/services/sig-provider/sig-provider/tests/repair_22_31_267.rs"
+symbol = "repair_22_31_267.rs"
+observed = "Attempt 5: the HTTP events case exposes a guessed layout beside the exact producer metadata; the aggregator was outside the scope."
+assumption = "An in-domain aggregator defect; the scope is widened to the provider's sources."
+severity = "medium"
+
+[finding.22.33.552.3]
+task = "22.33.552"
+file = "services/explorer/backend/apps/indexer/test/repair/repair_22_33_552_test.exs"
+symbol = "repair_22_33_552_test.exs"
+observed = "Attempt 3: seven of eight cases read a nil call type on the imported internal transactions; the single-block case passed."
+assumption = "An incomplete recording or an in-domain trace transform defect; the attempt decides from the imported record."
+severity = "medium"

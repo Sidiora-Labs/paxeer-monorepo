@@ -2,6 +2,8 @@ package flatkv
 
 import (
 	"encoding/binary"
+	"maps"
+	"slices"
 	"testing"
 	"time"
 
@@ -1650,30 +1652,121 @@ func TestApplyChangeSetsInvalidAddressLength(t *testing.T) {
 
 func TestApplyChangeSetsErrorRecoveryPartialState(t *testing.T) {
 	s := setupTestStore(t)
-	defer s.Close()
+	defer func() { require.NoError(t, s.Close()) }()
+	s.config.SnapshotInterval = 0
+	addr, fresh, slot := addrN(0xBB), addrN(0xBC), slotN(1)
+	storageKey := evmStorageKey(addr, slot)
+	bank := func(key, value string) *proto.NamedChangeSet {
+		return &proto.NamedChangeSet{Name: "bank", Changeset: proto.ChangeSet{Pairs: []*proto.KVPair{
+			{Key: []byte(key), Value: []byte(value)},
+		}}}
+	}
+	require.NoError(t, s.ApplyChangeSets([]*proto.NamedChangeSet{
+		namedCS(noncePair(addr, 3), storagePair(addr, slot, []byte{0x11}), codePair(addr, []byte("initial"))),
+		bank("balance", "initial"),
+	}))
+	require.Equal(t, int64(1), commitAndCheck(t, s))
 
-	addr := addrN(0xBB)
-	slot := slotN(0x01)
-	storageKey := keys.BuildEVMKey(keys.EVMKeyStorage, ktype.StorageKey(addr, slot))
-
-	// First pair: valid storage write
-	// Second pair: invalid nonce length (triggers error)
-	cs := &proto.NamedChangeSet{
-		Name: "evm",
-		Changeset: proto.ChangeSet{Pairs: []*proto.KVPair{
-			{Key: storageKey, Value: padLeft32(0xAA)},
-			{Key: keys.BuildEVMKey(keys.EVMKeyNonce, addr[:]), Value: []byte{0x01, 0x02}}, // wrong length
-		}},
+	// Keep accepted work pending in every lane while rejecting later calls.
+	require.NoError(t, s.ApplyChangeSets([]*proto.NamedChangeSet{
+		namedCS(noncePair(addr, 7), storagePair(addr, slot, []byte{0x22}), codePair(addr, []byte("pending"))),
+		bank("balance", "pending"),
+	}))
+	accounts, storage := maps.Clone(s.accountWrites), maps.Clone(s.storageWrites)
+	code, legacy := maps.Clone(s.codeWrites), maps.Clone(s.legacyWrites)
+	pending := slices.Clone(s.pendingChangeSets)
+	working, committed := s.workingLtHash.Clone(), s.committedLtHash.Clone()
+	perDB := newPerDBLtHashMap()
+	for dir, hash := range s.perDBWorkingLtHash {
+		perDB[dir] = hash.Clone()
+	}
+	offset, err := s.changelog.LastOffset()
+	require.NoError(t, err)
+	rows := repair124Rows(t, s)
+	assertUnchanged := func() {
+		t.Helper()
+		require.Equal(t, accounts, s.accountWrites)
+		require.Equal(t, storage, s.storageWrites)
+		require.Equal(t, code, s.codeWrites)
+		require.Equal(t, legacy, s.legacyWrites)
+		require.Equal(t, pending, s.pendingChangeSets)
+		require.True(t, working.Equal(s.workingLtHash))
+		require.True(t, committed.Equal(s.committedLtHash))
+		for dir, hash := range perDB {
+			require.True(t, hash.Equal(s.perDBWorkingLtHash[dir]), dir)
+		}
+		after, err := s.changelog.LastOffset()
+		require.NoError(t, err)
+		require.Equal(t, offset, after)
+		require.Equal(t, int64(1), s.Version())
+		require.Equal(t, rows, repair124Rows(t, s))
+		value, found := s.Get(keys.EVMStoreKey, noncePair(addr, 0).Key)
+		require.True(t, found)
+		require.Equal(t, nonceBytes(7), value)
+		value, found = s.Get(keys.EVMStoreKey, storageKey)
+		require.True(t, found)
+		require.Equal(t, padLeft32(0x22), value)
+		require.False(t, s.Has(keys.EVMStoreKey, noncePair(fresh, 0).Key))
+		require.False(t, s.Has("bank", []byte("rejected")))
 	}
 
-	err := s.ApplyChangeSets([]*proto.NamedChangeSet{cs})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "invalid nonce value length")
+	// Retain the original early account-validation failure coverage.
+	err = s.ApplyChangeSets([]*proto.NamedChangeSet{namedCS(
+		storagePair(addr, slot, []byte{0xAA}),
+		&proto.KVPair{Key: noncePair(addr, 0).Key, Value: []byte{1, 2}},
+	)})
+	require.ErrorContains(t, err, "invalid nonce value length")
+	assertUnchanged()
 
-	// The storage write may have been buffered before the error.
-	// Verify the store doesn't panic and can still accept new operations.
-	validCS := makeChangeSet(storageKey, padLeft32(0xBB), false)
-	require.NoError(t, s.ApplyChangeSets([]*proto.NamedChangeSet{validCS}))
+	// Account preparation succeeds before storage validation fails. None of
+	// the prepared account, code, storage or legacy changes may be published.
+	err = s.ApplyChangeSets([]*proto.NamedChangeSet{
+		namedCS(noncePair(addr, 999), noncePair(fresh, 999), codePair(addr, []byte("rejected")),
+			&proto.KVPair{Key: storageKey, Value: []byte{1, 2}}),
+		bank("rejected", "rejected"),
+	})
+	require.ErrorContains(t, err, "failed to parse storage")
+	assertUnchanged()
+
+	unrelatedKey := evmStorageKey(addrN(0xDD), slotN(2))
+	require.NoError(t, s.ApplyChangeSets([]*proto.NamedChangeSet{makeChangeSet(unrelatedKey, padLeft32(0x33), false)}))
+	require.Equal(t, int64(2), commitAndCheck(t, s))
+	require.NoError(t, VerifyLtHash(s))
+	verifyPerDBLtHash(t, s)
+	rows, root := repair124Rows(t, s), s.CommittedRootHash()
+	cfg := s.config
+	require.NoError(t, s.Close())
+
+	// An isolated reopen reconstructs from the committed snapshot plus the real
+	// WAL, so rejected changes must also be absent from replay, not just memory.
+	parent, err := NewCommitStore(t.Context(), &cfg)
+	require.NoError(t, err)
+	defer func() { require.NoError(t, parent.Close()) }()
+	view, err := parent.LoadVersion(0, true)
+	require.NoError(t, err)
+	reopened := view.(*CommitStore)
+	defer func() { require.NoError(t, reopened.Close()) }()
+	require.Equal(t, int64(2), reopened.Version())
+	require.Equal(t, root, reopened.CommittedRootHash())
+	require.Equal(t, rows, repair124Rows(t, reopened))
+	for _, row := range []struct {
+		module     string
+		key, value []byte
+	}{
+		{keys.EVMStoreKey, noncePair(addr, 0).Key, nonceBytes(7)},
+		{keys.EVMStoreKey, storageKey, padLeft32(0x22)},
+		{keys.EVMStoreKey, codePair(addr, nil).Key, []byte("pending")},
+		{keys.EVMStoreKey, unrelatedKey, padLeft32(0x33)},
+		{"bank", []byte("balance"), []byte("pending")},
+	} {
+		value, found := reopened.Get(row.module, row.key)
+		require.True(t, found)
+		require.Equal(t, row.value, value)
+	}
+	require.False(t, reopened.Has(keys.EVMStoreKey, noncePair(fresh, 0).Key))
+	require.False(t, reopened.Has("bank", []byte("rejected")))
+	require.NoError(t, VerifyLtHash(reopened))
+	verifyPerDBLtHash(t, reopened)
 }
 
 func TestApplyChangeSetsEVMKeyEmptySkipped(t *testing.T) {

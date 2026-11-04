@@ -1,0 +1,9 @@
+[task]
+id = "22.33.1424"
+finding = "chain-genesis-proof-omits-accounting"
+proving_test = "TestRepairM_1424_GenesisAccountingRestartRecovery"
+implementation = "TestGenesisExportImportRoundTrip also executes the focused accounting recovery proof: production keeper writes at three heights for two domains, JSON genesis transport, fresh committed LevelDB import, actual close/reopen, every ordered membership and gas total, registry/name/base-fee equality, and continued accounting followed by another reopen. Existing registry round-trip assertions remain intact."
+baseline = "Not run: the explicit ordered gate instructions prohibit tests before complete implementation and require hf-build before hf-done; no pre-change failures were measured. The initial private gate ledger had no build or verify runs."
+wiring_request = "modules/layerxchains/module.go (domain 2, fm-ledger-auth-pay): retain the prerequisite repair_196.kvx request to decode/validate keeper.GenesisState and route module import/export through InitGenesisWithHistory/ExportGenesisWithHistory; the legacy module decoder omits domain_history."
+evidence = "The private /out/run/gates.jsonl ledger names the exact built and verified candidate revision, command, exit code and log; the final response copies the last gate evidence."
+gotcha = "The legacy module genesis API cannot carry accounting history; exercise the keeper history-aware producer/consumer in scope and retain the owning-domain wiring request rather than weakening assertions or editing the module."
