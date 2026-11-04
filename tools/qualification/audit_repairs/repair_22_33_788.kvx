@@ -1,0 +1,67 @@
+[task]
+id = "22.33.788"
+audit = "22.30.176"
+mode = "BUILD"
+base_revision = "2a8418f3ce46275830d68ea57514c30466a3493f"
+implementation = "Repair only the scoped guest build, stale kernel test link inputs, orphan archive target, merged release builder and their documentation; preserve the README architecture already corrected by 22.31.470 and the RELEASE verification/recovery procedures. No spec files, registry entries, native consumers, workflows or unrelated recipes are edited."
+baseline = "Initial git status/diff showed only the runner's .cgignore filter and in-progress spec task, no scoped implementation. /out/run/gate.json recorded zero builds and zero verifies and no gates.jsonl existed. Baseline verification was not run: the explicit implementation-first Order and hf-done-only verification override the older do_9 baseline instruction. No pre-change failing tests are claimed; source inspection confirmed the three Makefile defects and the release opt-in branch, while README architecture and RELEASE recovery guidance were already corrected."
+source_proof = "The pytest module parses production Makefile target prerequisites and logical recipes, Cargo profile and release JSON keys, compares the README precompile table to the actual constructor inventory, parses the release shell script with bash -n, and checks fail-fast guards, optimized-byte size/deployment/manifest order, chain-domain binding, retained admission assertions, artifact names, checksum commands, verification and forward recovery documentation. The real Rust manifest consumer and C deployment producer are read directly, not replaced with fixtures."
+review_only = "Make, native C/Go/Rust builds, Binaryen optimization, native admission execution, guest deployment and the 106-byte upgrade envelope, runtime restart/recovery, node consensus, release reproducibility, publication and operational rollback are not executed by this offline source gate. The recipe now invokes the real native harness to deploy and upgrade the optimized bytes before publishing the manifest; execution of that production recipe and native refusal assertions requires the owning native qualification environment. These config/documentation/retirement changes introduce no runtime wire format or restart-recovery implementation. Bash is used only for the required syntax parse."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_788.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision = "Use the exact content-derived candidate revision, command, exit and private log in the final hf-done entry of /out/run/gates.jsonl; it must match hf-build. Embedding the candidate's own hash in this file would change the candidate."
+evidence_policy = "Finalize scoped sources and this record before hf-build and hf-done; claim qualification only on their recorded matching candidate and passing result. The runner commits and publishes; this task does neither."
+wiring_requests = ["spec/layerx-merge/interfaces.kvx — domain 16 (tools/operations), with domain 5 for historical archive producers: remove interface.16.mk-layerx-archive-codec and interface.16.mk-builddir-bin-layerx-archive-codec, refresh the two retained native test signatures, and route any retained archive consumer to the current paxd-backed committed-history producer rather than restoring the deleted daemon/codec.", ".github/workflows/paxeer-release-check.yml and .github/workflows/paxeer-release-publish.yml — domain 16 (release tooling): remove PAXD_RELEASE_LAYERXD from the release environment; the builder explicitly refuses the stale opt-in before toolchains or output replacement.", "tools/release/tests/build.test.sh — domain 16 (release tooling): replace the stale PAXD_RELEASE_LAYERXD=1 caller and expected layerxd asset with the merged artifact inventory and assert explicit rejection of the retired option.", "tests/programs/test_blob_admission.c, tests/programs/test_paxai_native_gaps.c, tests/programs/test_ai_host_boundary.c and programs/crates/layerx-programs-ai-market/tests/host_boundary.rs — owning native Programs/kernel domain: qualify the already retained-kernel consumers and each admission refusal with the corrected Makefile linkage and final optimized artifact; preserve the configured chain-domain assertion and both deployment and upgrade checks."]
+rollback = "Revert the runner's task commit."
+
+[finding.7]
+audit = "22.30.176"
+file = "Makefile"
+class = "config-drift"
+owner_domain = 16
+resolution = "Invalidate any old manifest; require wasm-opt; keep the configurable canonical chain domain and its validation; override the guest release profile to opt-level z; apply wasm-opt -Oz --strip-debug --strip-producers; reject final bytes above 524184 (524288 minus the 104-byte deployment envelope); run the real native deployment/upgrade harness on those same bytes before publishing their absolute path and unchanged chain binding. Any failing line stops Make before the manifest is written."
+tests = ["test_finding_7_guest_size_profile_and_required_binaryen_pass", "test_finding_7_final_bytes_are_bounded_deployed_and_then_published"]
+
+[finding.6]
+audit = "22.30.176"
+file = "Makefile"
+class = "retired-reference"
+owner_domain = 16
+resolution = "Both existing C consumers already use retained lxp_kernel/module contexts and real native Programs APIs. Link them directly to LIBRARY and PROGRAMS_RUNTIME_LIB with their existing libraries; remove only undefined LAYERXD_SOURCES and -Icmd/layerxd. Source checks retain the full-store admission refusal and unchanged-state check plus auth-scope, truncated and not-yet-valid native-gap refusals and module pin cases. Native execution is review-only here."
+tests = ["test_finding_6_retained_kernel_linkage_preserves_consumers"]
+
+[finding.5]
+audit = "22.30.176"
+file = "Makefile"
+class = "retired-reference"
+owner_domain = 16
+resolution = "Remove the orphan archive-codec source/object/dependency declarations, phony alias and binary link recipe, retaining the neighboring registry and current build includes. Registry deletion and any remaining archive consumer migration are explicit out-of-scope wiring requests, not claimed as implemented."
+tests = ["test_finding_5_orphan_archive_build_surface_is_removed"]
+
+[finding.23]
+audit = "22.30.176"
+file = "README.md"
+class = "doc-drift"
+owner_domain = 17
+resolution = "Preserve the corrected one-chain-125 embedded paxd architecture, root node RPC, committed receipt finality, producer-derived thirteen-entry precompile table and retired refusal explanations. Extend the existing merged build example with the real release builder, linked archive/packaged artifact distinction and release verification/recovery reference."
+tests = ["test_finding_23_readme_matches_embedded_network_and_precompile_producer"]
+
+[finding.22]
+audit = "22.30.176"
+file = "RELEASE.md"
+class = "doc-drift"
+owner_domain = 16
+resolution = "Remove the builder's optional daemon build/copy branch, refuse nonzero stale opt-in callers explicitly, and describe the actual merged artifact set, environment inputs and direct build/reproducibility commands. Keep the version-specific activation caveat, merged node checksum verification, committed finality and signing-state-preserving forward recovery; identify stale release workflows/build test as wiring requests."
+tests = ["test_finding_22_release_script_syntax_guards_and_merged_artifacts", "test_finding_22_guide_matches_builder_verification_and_recovery"]
+
+[format]
+policy = "No Python, shell, Makefile or KVX formatter is configured for these paths; retain repository style and apply .editorconfig UTF-8, LF, final-newline and trailing-whitespace rules only to touched files after implementation. Preserve Markdown whitespace."
+
+[gotcha.1]
+observed = "Root GOTCHA.kvx and spec files are outside task scope; broad combined context reads exceeded output limits and guessed legacy paths were absent."
+resolution = "Keep scoped observations here, use bounded source sections and current consumer paths, preserve runner bookkeeping and run only hf-build then hf-done."
+
+[gotcha.2]
+observed = "Release workflows and the existing build shell test still request the retired optional daemon even though their paths are outside scope."
+resolution = "Refuse that option before build/output side effects, document the exact owning-domain wiring requests and do not claim those callers were repaired or qualified here."

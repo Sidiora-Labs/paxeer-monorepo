@@ -1,0 +1,57 @@
+{
+  "provenance": {
+    "status": "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_controller_test.exs: native status response assertions for committed and submitted transactions",
+    "blocks": "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/block_view.ex: blocks.json and prepare_block height projection; only the consumed height field is retained",
+    "receipt": "apps/web/e2e/gateway-receipt.test.ts: committed eth_getTransactionReceipt wire contract",
+    "boundary": "Committed native contract fixtures replayed over loopback HTTP; this is web consumer proof, not a run of Phoenix or the consensus node."
+  },
+  "transactionHash": "0xabababababababababababababababababababababababababababababababab",
+  "missingHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "committed": {
+    "rung": "committed",
+    "block_number": 100,
+    "committed_height": 100
+  },
+  "olderCommitted": {
+    "rung": "committed",
+    "block_number": 99,
+    "committed_height": 100
+  },
+  "submitted": {
+    "rung": "submitted",
+    "block_number": null,
+    "committed_height": null
+  },
+  "blocks": {
+    "items": [
+      {
+        "height": 100
+      },
+      {
+        "height": 99
+      }
+    ],
+    "next_page_params": null
+  },
+  "staleBlocks": {
+    "items": [
+      {
+        "height": 99
+      }
+    ],
+    "next_page_params": null
+  },
+  "emptyBlocks": {
+    "items": [],
+    "next_page_params": null
+  },
+  "receipt": {
+    "transactionHash": "0xabababababababababababababababababababababababababababababababab",
+    "blockNumber": "0x64",
+    "status": "0x1",
+    "logs": []
+  },
+  "notFound": {
+    "message": "Not found"
+  }
+}

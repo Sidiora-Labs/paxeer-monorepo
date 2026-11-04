@@ -1,0 +1,47 @@
+[repair.22.33.798]
+audit = "22.30.177"
+base_revision = "9fda5aafcf8b4dba3d79ad6d650ea1272c960511"
+mode = "BUILD"
+scope = "tools/bringup"
+build = "hf-build: go build ./tools/bringup/..."
+verify = "hf-done: cg spec done 22.33.798 -f layerx-merge --root /work/paxeer-monorepo"
+verified_revision = "The final /out/run/gates.jsonl entry and final response evidence identify the exact candidate revision, command, exit and private log; no gate is claimed before execution. The runner publishes the candidate."
+baseline = "Initial git status/diff contained only runner-owned .cgignore and in_progress task setup; gate.json reported builds_used=0 and verify_runs_used=0, with no prior gates.jsonl. Step 7's unchanged-tree verify conflicts with the explicit implementation-first order and prohibition on running verify manually. No baseline test failure or baseline execution is claimed."
+qualification = "Only TestRepairM_798_* runs: actual installed inspector dispatch, durable state store, /proc executable/stat reads, canonical RPC decoder, hosted asset/pricing/registration/config producer, receipt-history codec and actual signed-receipt verifier. Peers are systemd transcript fixtures, native RPC recordings replayed over loopback HTTP and an in-memory hosted principal/asset store. No environment, credential, live endpoint, subprocess, native toolchain or device is required by the Go gate."
+integration = "sync-fleet.test.sh preserves every original named upgrade assertion and now uses actual executable process inodes and independent per-unit recorded RPC peers, with exact backup/once-per-unit checks. test_xweb_config.py renders both kinds and invokes config::load via the existing Rust adapter, asserting trust ranges, endpoints and legacy/weak-key/unsupported-field refusals. These external-tool integration paths are updated but are not gates claimed to run here."
+
+[finding.upgrade-active-state-not-enforced]
+test = "TestRepairM_798_UpgradeActiveState, TestRepairM_798_UpgradeBoundedCommittedRecovery"
+repair = "Require exact active state, live MainPID/start identity, matching installed and running target SHA, stable executable across readiness, chain 125, non-catching-up consensus, matching canonical commit and height beyond both the halt and baseline. Persist a bounded recovery deadline before mutation, retain the failed observation and reason, and block all later units on failure. Shell SSH, restart and observation commands are independently bounded and failures stop watch processing."
+proof = "Actual systemd peer transcript -> installed upgrade-observe -> real /proc and recorded root node/Comet HTTP responses -> JSON transport -> installed upgrade-state -> protected fsynced journal. Inactive, failed, wrong running generation, unreachable, wrong chain, catching-up, noncanonical, mismatched and stalled evidence all fail within the configured bound, survive close/reopen and block another unit."
+
+[finding.upgrade-hash-only-recovery]
+test = "TestRepairM_798_UpgradeHashOnlyRestartRecovery, TestRepairM_798_UpgradeSharedBinaryPerUnit, TestRepairM_798_UpgradeJournalRefusals"
+repair = "Persist per-unit waiting/installing/restarting/recovering/checking/current/failed phases before mv or restart and acknowledge mutations separately. Reopen binds the exact plan/inventory, reconciles actual disk and running executable, active state and canonical progress, resumes incomplete actions, and avoids restarting an already active target. Completed units require fresh progress on a new watch invocation. Units sharing a binary retain independent process, RPC and recovery records; duplicate per-host RPC assignments are refused."
+proof = "Stop/reopen before mv, after actual atomic file replacement and before restart, after activation before acknowledgement, and during recovery. Actual target process observations recover without another restart, while a stopped shared-path sibling still requires its own restart. Success, failure evidence and unit identities survive journal reopen; foreign plans, foreign inventories, malformed/public journals and cross-unit evidence are refused."
+
+[finding.xweb-default-retired-route]
+test = "TestRepairM_798_XwebHostedAndNodeTransports, TestRepairM_798_XwebRegistration, TestRepairM_798_XwebRetiredRouteAndMetadataRefusals"
+repair = "Retain the explicit operator-deployed hosted gateway with no invented public default, consume its declared path verbatim, and document the separate node root defaults. Pricing, registration and configuration production now use the same installed Go transport exercised by the gate. Hosted px_listAssets consumes the actual flat committed metadata contract, px_register signs and verifies the beta binding, receipt history uses the node root, and inventory eth_call reads use the node instead of the hosted gateway."
+proof = "Actual environment-options decoder (explicit input map) -> hosted HTTP metadata -> exact rational approved prices -> on-disk serve/attestor renderer output -> loaded endpoint HTTP calls and actual native signed-receipt trust consumer. Registration goes through real Ed25519 signing, HTTP, peer signature verification/principal persistence and result validation, with idempotence and custody refusals. Missing/retired/unprotected/node-path routes and paused, duplicate, wrong, unverified or legacy nested assets refuse publication with no fallback."
+
+[wiring.installed_inspector]
+request = "Operator fleet packages and docker/kernel/Dockerfile — domain 16: install the current bringup-inspect locally and on each upgrade host (including upgrade-observe/upgrade-state/xweb-config); preserve /var/lib/paxeer-bringup on operator restart and declare each unit's independent node/Comet root ports in UPGRADE_UNITS. Missing installation or stale inventory remains an explicit refusal."
+
+[wiring.native_loader]
+request = "services/interop/crates/x-websearch/src/config.rs — domain 11: build tools/bringup/tests/xweb-loader and supply XWEB_CONFIG_LOADER for the existing native renderer integration test; config::load remains the actual sidecar parser and its execution cannot be claimed by a Go-only gate that forbids external binaries/toolchains."
+
+[wiring.gateway_deployment]
+request = "services/platform/hosted/gateway deployment and operator host map — domain 16: supply the actual deployed hosted JSON-RPC URL as XWEB_GATEWAY_ENDPOINT and node root URLs as XWEB_EVM_ENDPOINT/XWEB_RECEIPT_KEYS_ENDPOINT; no public origin or unified router is inferred from a node name."
+
+[gotcha.scope]
+observed = "GOTCHA.kvx and spec task/qualification files are outside the exclusive user scope; finding mappings, wiring requests and gotchas are retained in this in-scope task record. No commit or push is made by the worker."
+
+[gotcha.baseline_order]
+observed = "The requested unchanged-tree verification conflicts with the explicit no-test-before-implementation and hf-build/hf-done-only order; the later gate order is followed and no unexecuted baseline is reported."
+
+[gotcha.actual_asset_wire]
+observed = "The actual hosted gateway joins custody metadata directly into each px_listAssets row; the previous Python renderer expected a nonexistent layerx nested record. The common transport now consumes only the actual flat authenticated committed contract, and the native integration peer was updated accordingly."
+
+[gotcha.native_loader]
+observed = "The actual Rust sidecar loader cannot run in-process under the declared Go-only/no-native-binary gate. The existing real-loader integration path is preserved and updated; the Go proof claims transport, emitted configuration, loaded endpoint calls and governed receipt consumption, not execution of Rust config::load."

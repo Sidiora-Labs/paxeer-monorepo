@@ -25,7 +25,9 @@ pub use crate::program_lifecycle::{
     NativeProgramLifecycleRequest, NativeProgramUpgradeRequest, NativeProgramWindDownRequest,
     ProgramLifecycleSubmission,
 };
-pub use http::{HttpProgramTransport, LayerXKeyCredential};
+pub use http::{
+    decode_discovery as verify_signed_discovery, HttpProgramTransport, LayerXKeyCredential,
+};
 #[path = "program_node.rs"]
 mod node;
 pub use node::{verify_node_program_execution, NodeProgramExecution, NodeProgramRead};

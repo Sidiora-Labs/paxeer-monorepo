@@ -105,6 +105,19 @@ def committed_block(rpc, tag):
     return {"number": quantity(block.get("number")), "hash": hex_bytes(block.get("hash"), 32)}
 
 
+def migration_block(rpc, height):
+    """Select a requested migration height only after it is committed."""
+    finalized = committed_block(rpc, "finalized")
+    if height is None:
+        return finalized
+    if height < 0 or height > finalized["number"]:
+        sys.exit("migration height must be nonnegative and already finalized")
+    block = committed_block(rpc, hex(height))
+    if block["number"] != height:
+        sys.exit("RPC returned a different migration height")
+    return block
+
+
 def token_uint(rpc, data, block):
     result = rpc_call(rpc, "eth_call", [{"to": SID, "data": data},
                                       {"blockHash": block["hash"], "requireCanonical": True}])
@@ -153,10 +166,12 @@ def main(argv=None):
     ap.add_argument("--source", action="append", required=True,
                     help="explorer Postgres DSN or CSV path (repeat for the old paxscan copy)")
     ap.add_argument("--rpc", required=True, help="archive JSON-RPC URL with finalized blocks and EIP-1898 support")
+    ap.add_argument("--block", type=int,
+                    help="committed migration height; reuse this height for reproducible release exports")
     ap.add_argument("--out", required=True, help="holder list JSON path; evidence is written beside it")
     args = ap.parse_args(argv)
 
-    block = committed_block(args.rpc, "finalized")
+    block = migration_block(args.rpc, args.block)
     chain_id = quantity(rpc_call(args.rpc, "eth_chainId", []))
     held, history = balances(args.source, block["number"])
     canonical = chain_transfers(args.rpc, block)

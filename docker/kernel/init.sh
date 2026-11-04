@@ -8,7 +8,10 @@ case "${LAYERX_KERNEL_PROFILE:-full}" in
     full|native) ;;
     *) printf 'kernel-init: LAYERX_KERNEL_PROFILE must be full or native\n' >&2; exit 1 ;;
 esac
-[ "${LAYERX_NODE_NETWORK_ID:-125}" = 125 ] || {
+# Domain policy never selects the EVM signing chain. The runtime repeats this
+# check before opening the native home, including for direct invocation.
+[ "${LAYERX_NODE_EVM_CHAIN_ID-125}" = 125 ] && \
+    [ "${LAYERX_NODE_PAXEER_CHAIN_ID-125}" = 125 ] || {
     printf 'kernel-init: the merged kernel requires EVM chain 125\n' >&2
     exit 1
 }
@@ -20,6 +23,8 @@ case "$node_home" in
 esac
 
 # The runtime validates all provisioned paths before starting the node. It
-# refuses an old daemon volume instead of deleting or migrating its state.
+# refuses an old daemon home instead of deleting or migrating its state.
+# Preserve the old volume offline; provision the native home separately and
+# qualify its genesis and recovered chain state before switching the mount.
 exec setpriv --reuid=4020 --regid=4020 --clear-groups --no-new-privs \
     python3 /opt/layerx/kernel_runtime.py --home "$node_home"

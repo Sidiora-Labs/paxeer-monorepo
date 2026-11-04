@@ -1,0 +1,66 @@
+[repair]
+task = "22.33.30"
+base_revision = "5fc0c55eaaa6d43868c4a2872366299b8b7e2007"
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_30.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "hf-build and hf-done retain the exact content-derived candidate revision, command, exit and private log in the gate ledger. Build and verify must use the same candidate revision. The final response copies the final hf-done evidence line; the runner commits. This record is fixed before qualification because embedding its own candidate hash would change that hash."
+implementation = "Replace the active plan pair with a human-to-agent bank send: SHA-256 denomination asset, authoritative observation context, chain 125, pending nonce 19, exact bank calldata, zero value, gas/fee fields, canonical plan digest and derived signing requirements. Replace the active journey with the current committed bank-send record projection, whose wire evidence reference remains receipt-verified as production requires. Preserve the original request byte-for-byte in negative/ and both original response payloads byte-for-byte in historical/. Extract the existing endpoint guard without changing its position or refusal behavior so both wallet directions exercise exactly the production UnsupportedPlan rule. Add Rust round trips beside the production code and source qualification of every affected example."
+source_proof = "Pytest parses the committed JSON, checks actual KVX type fields and retained/retired variants, checks the producer/transport/consumer source links, authoritative balance/freshness checks and pending nonce adapter, decodes every bank ABI argument, checks every EIP-1559 field and fee bound, independently checks canonical wire digest/signing derivation, checks route projection field and evidence mappings and the committed receipt verifier before verified=true, fingerprints the preserved historical bytes, and checks all four declared native tests and finding mappings. The independent canonical-byte consumer is not a replacement planner. No existing test or assertion is removed or weakened."
+review_only = "Rust compilation and Rust test execution are not executed by this Python-only gate. The new native tests parse the request with ProductionComponents::intent_from_request, invoke journeys::plan, use bank_send_calldata and intent_plan_json, round-trip the real EIP-1559 encoder/decoder and signing disclosure, and compare the route's intent_journey_json result exactly. Native execution and an authenticated full-route production capture remain review-only here; source-derived goldens are pinned by those native assertions rather than claimed as observed runtime captures. producer/journey.get.record.json is a projection input with opaque example transaction/receipt references, not a cryptographic receipt, portable proof, verified export or evidence of a real transfer. Pytest does not authenticate these hashes or execute a Rust route. Generic historical JSON decoding plus schema variant membership is checked; generated typed consumer decoding needs the wiring request. No restart-recovery or interface-mismatch finding applies. No shell script, unit file, manifest or build file changes. No environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device is needed by pytest."
+
+[baseline]
+verification_run = false
+observed_failing_tests = []
+reason = "The explicit ordered instructions forbid testing before complete implementation, require hf-build before hf-done and forbid a manual verify_cmd run. They take precedence over the embedded unchanged-tree baseline clause. No baseline failure or runtime capture is claimed. Initial git status/diff showed only runner-prepared .cgignore and spec task-start bookkeeping; gate.json reported zero build and verify runs and no gates.jsonl existed. These existing changes were preserved."
+
+[baseline.preserved_sha256]
+"negative/intent.plan.paxeer-wallet.request.json" = "70fc35b72d30201b7533315a1ca414896e486aa66f1f6565f74444a763abb851"
+"historical/intent.plan.response.json" = "a4a7198b80c7602e9f6fa64f5b4b05479c070ca9e243dcc44caee8e8c55c2102"
+"historical/journey.get.response.json" = "32787fdfde92ee9435f76c279ee04f6be1ec31be6ab83e3ab55935507752ee89"
+
+[finding.intent-request-retired-path]
+audit = "22.30.102"
+file = "services/human/schema/human-api/golden/intent.plan.request.json"
+class = "retired-reference"
+severity = "medium"
+repair = "The primary request uses supported human and agent endpoints with an observable bank asset and sufficient balance/fee cap. The original PaxeerWallet shape remains an explicit refusal fixture; the actual production guard and both endpoint directions are covered."
+tests = ["test_supported_request_uses_authoritative_bank_producer_path", "test_retired_wallet_fixture_reaches_typed_unsupported_plan", "test_repair_record_maps_all_findings_and_declares_evidence_limits"]
+native_test = "intent_bank_golden_retired_wallet_is_unsupported_in_both_directions"
+
+[finding.intent-response-retired-path]
+audit = "22.30.102"
+file = "services/human/schema/human-api/golden/intent.plan.response.json"
+class = "test-gap"
+severity = "medium"
+repair = "The supported plan contains one send on chain 125 and every production EIP-1559 and signing field; native round-trip assertions tie the request, real planner, bank-call encoder, wire projection, decoder and signing disclosure together. Historical deposit response decoding stays separate."
+tests = ["test_plan_contains_every_transaction_field_and_exact_bank_call", "test_plan_digest_and_every_signing_requirement_bind_canonical_contract", "test_historical_payloads_preserve_baseline_bytes_and_decode_vocabulary", "test_repair_record_maps_all_findings_and_declares_evidence_limits"]
+native_test = "intent_bank_golden_request_produces_exact_eip1559_response"
+
+[finding."journey.get-retired-evidence"]
+audit = "22.30.102"
+file = "services/human/schema/human-api/golden/journey.get.response.json"
+class = "test-gap"
+severity = "medium"
+repair = "The active success illustrates the current bank-send route projection with layerx-receipt/receipt-verified evidence, stage nonce and transaction reference. Native assertions compare the route's actual projection and cover submitted, verified and refused evidence branches and invalid receipt hashes. Old deposit/finality decoding is isolated and preserved."
+tests = ["test_current_journey_matches_route_projection_and_never_uses_retired_finality", "test_historical_payloads_preserve_baseline_bytes_and_decode_vocabulary", "test_repair_record_maps_all_findings_and_declares_evidence_limits"]
+native_test = "intent_bank_golden_journey_uses_the_route_projection"
+historical_native_test = "intent_bank_golden_historical_payloads_still_decode_separately"
+
+[wiring]
+requests = ["Domain 10 / Human schema: tools/schema-check/tests/intent_bank_goldens.rs and the generated human-api typed consumers must round-trip the current plan pair and separately identified historical/negative fixtures without promoting historical deposit/finality variants into executable requests; tools/schema-check is outside this task's paths and absent from this checkout.", "Domain 10 / Human service qualification: services/human/crates/layerx-human-service/tests/intent_plan_evm.rs and tests/support/production_fixture.rs must drive the authenticated full route with the pinned bank observation, compare all fields with this golden pair and capture actual receipt material for the journey projection; execute the four intent_bank_golden native tests in the toolchain-owning lane. This Python-only gate does not certify native runtime captures or receipt cryptography."]
+
+[format]
+policy = "After implementation, run the repository's rustfmt with edition 2021 and skip_children, retaining formatting changes only in the touched guard/helper/test regions. JSON uses two spaces. No Python or KVX formatter is configured here; follow .editorconfig UTF-8, LF, final newline and trailing whitespace conventions."
+
+[gotcha.1]
+observed = "The embedded pre-change verify clause conflicts with the explicit wrapper-only implementation-first order."
+handling = "No baseline gate was run and no pre-change failing tests are claimed. Record the conflict here because GOTCHA.kvx and spec qualification files are outside scope."
+
+[gotcha.2]
+observed = "Codify brief/survey reports unrelated stale tasks and broad outputs exceed the response limit; some generic tool, fixture, schema-check and formatter-config lookup paths are absent."
+handling = "Use the assigned task block, targeted source reads, actual git status/diff and /out/run gate ledger. Resolve the gate wrappers through PATH and use the existing Rust formatter."
+
+[gotcha.3]
+observed = "KVX allows a scalar key beside dotted metadata, such as settlement_domain and settlement_domain.retired, so the full schema is not TOML."
+handling = "Read exact KVX type sections and parse their JSON array values; the new repair record uses TOML-compatible quoted dotted finding/path keys so pytest can parse it strictly."

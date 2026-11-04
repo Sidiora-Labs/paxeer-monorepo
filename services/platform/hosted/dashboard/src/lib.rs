@@ -15,6 +15,7 @@
 pub mod error;
 pub mod gateway;
 pub mod model;
+pub mod receipts;
 pub mod service;
 
 pub use error::DashboardError;
@@ -23,6 +24,7 @@ pub use model::{
     DeliverySummary, KeyView, Overview, PaymentView, ReceiptView, RequestOutcome, RequestRecord,
     RequestSummary, UsageSummary,
 };
+pub use receipts::ReceiptReader;
 pub use service::Dashboard;
 
 #[must_use]

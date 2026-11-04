@@ -1,0 +1,50 @@
+[repair.22.33.1567]
+acceptance = "22998.1"
+findings = ["payload-fuzz-coverage", "fuzz-module-registry"]
+repair = "Read the production genesis module table and its selected interface activity arrays and header constants, including sparse sets and selected ABI versions; share the actual fuzz decode path with integration tests and exercise the available production payment, Programs, perps and spot codecs."
+baseline = "No baseline gate ran: the explicit ordered instructions require complete implementation before qualification and prohibit direct verify_cmd invocation. The initial gate ledger had zero builds and zero verifications; no pre-change failure is claimed."
+evidence = "The runner hf-build/hf-done ledger names the exact built and verified candidate revision, command, exit and private log; qualification requires hf-done passing on the built revision."
+wiring_requests = ["services/agent/fuzz/corpus/payload_decode: agent domain owns wiring the in-scope fuzz_targets/payload_corpus seeds into the default cargo-fuzz corpus location."]
+
+[finding.payload-fuzz-coverage]
+proving_tests = ["payload_fuzz_coverage_canonical_producer_corpus", "payload_fuzz_coverage_real_trading_codecs", "payload_fuzz_coverage_native_program_producers", "payload_fuzz_coverage_native_kernel_codec_fixtures", "payload_fuzz_coverage_refuses_invalid_tags_lengths_and_trailing_bytes"]
+proof = "Committed codec-producer transcripts traverse the real signed envelope decoder, production bounded-byte encoder and shared fuzz payload consumer for all 78 registered activities in nine modules; kernel-produced trading and native Programs vectors additionally run the real typed decoders and re-encoders."
+limits = "The replay transcripts prove the generic tagged-payload boundary, whose payload bytes are opaque; they do not claim module execution or signature verification. Typed module round-trips are asserted separately with their genuine producer vectors."
+
+[finding.fuzz-module-registry]
+proving_tests = ["fuzz_module_registry_matches_current_production_registrations", "fuzz_module_registry_later_asset_and_programs_producers"]
+proof = "Compare every nonzero ordinal in every closed module against the full committed production-registration corpus, including absent Bridge/Web and sparse Asset/Programs sets; real Mint, Burn, ProgramTransfer and ProgramAccount producers match their recorded fixtures and reach the real consumer with exact field assertions."
+
+[fixtures.codec]
+producer = "scripts/replica/lxp_replay_fixture.py:activity"
+transcripts = "payload_producers.lxv retains complete unmodified codec-producer envelopes for the 78 current registrations, using monotonically increasing fixture sequence numbers."
+seeds = "payload_corpus/codec-*: the activity type and payload extracted from those envelopes, encoded as u32 activity type plus canonical length-prefixed bytes."
+
+[fixtures.typed]
+producers = ["services/agent/crates/layerx-crypto/tests/fixtures/payments/{1-10,1-11,9-5,9-6}.hex", "tests/modules/dump_trading_vectors.c via tests/fixtures/trading-payloads/vectors.json", "tests/programs/test_call_activity.c via sdk/platform/conformance/fixtures/native-program-*-v3.json"]
+seeds = "payload_corpus contains 106 executable hex: inputs: 78 boundary seeds, four later payment/Programs seeds, 17 trading seeds and seven native Programs codec seeds."
+
+[gotcha.production_definitions]
+observed = "The Spot activity header packs module identifiers with a shift/OR expression, and Programs ordinals have a reserved gap; assuming only hexadecimal literals or contiguous ordinals loses current registration fidelity."
+resolution = "Resolve the expression from the production module constant and consume the selected interface array rather than synthesizing ordinal ranges."
+
+[gotcha.scope_and_order]
+observed = "The baseline-run and task/spec-ledger instructions conflict with the explicit implementation-first gate order and the prohibition on out-of-scope spec edits."
+resolution = "Record baseline as unrun and retain repair/proving-test/wiring details here inside the allowed task paths; leave spec edits and publication to the runner."
+
+[qualification.repair_1]
+revision = "8c5e932343d9c401c437607835131fe5f45f1e8f"
+command = "cargo build --locked --manifest-path services/agent/fuzz/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The scoped fuzz lockfile retained a removed spin dependency edge in layerx-program-native, so --locked refused before compilation."
+repair = "Refresh only workspace lock resolution with cargo update --offline --workspace; dependency versions remain pinned."
+
+
+[qualification.repair_2]
+revision = "15ecbbba6c6aa124d9b3857689da32d59f7ec3a7"
+command = "cargo build --locked --manifest-path services/agent/fuzz/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-2.log"
+observed = "The new typed dispatcher supplied u32 to PerpsPayload::decode, which requires ActivityType."
+repair = "Pass the existing typed activity directly to the perps decoder; keep the spot decoder's declared u32 interface and all assertions."

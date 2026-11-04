@@ -1,0 +1,66 @@
+[task.22.33.96]
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+repair = "Add recorded native payer journeys, explicit profile-free and foreign-profile refusals, and opaque-payment refusal expectations to HTTP role fixtures without changing existing cross-transport compatibility documents."
+source_proof = "Parse every HTTP role record and seven nested semantic cases; distinguish model acceptance from payment acceptance; bind native account derivation and all six payExact ABI words to unchanged committed signed payer bytes and recorded PaymentExact logs. Check base64/JSON representation, production semantic validation on encode/decode, matching facilitator requirements, mounted router/dispatch/refusal call sites, chain-id/target/signature recovery calls, expiry/reference/amount/asset/payee checks and raw-byte relay submission."
+review_only = "The Python gate does not compile or execute Rust, verify EVM signatures or receipt signatures, run mounted ingress, authenticate a request, start the relay, settle funds, restart a component, or prove recovery. Source assertions and byte inspection are not a replacement validator or HTTP implementation. Positive ingress and settlement expectations require the owning domain's runtime qualification at the recorded pre-expiry time. No shell script, unit file, manifest or build file is changed. Tests use only in-process Python standard-library readers and pytest, with no environment variable, credential, endpoint, external binary, subprocess toolchain or native artifact."
+baseline = "Initial git status/diff showed only existing runner changes to .cgignore and spec task bookkeeping, no scoped repair files, and no prior gates.jsonl; gate.json recorded zero builds and verifies. No pre-change verify ran and no baseline failing tests are claimed. The controlling implementation-first order and exclusive hf-done verification supersede do_5's contradictory pre-change run."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_96.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "hf-build and hf-done record the exact content-derived candidate revision, command, exit and private log. The last hf-done JSON is copied into the final task evidence; both gates must pass at the same revision. This record is finalized before the gates because embedding its own candidate revision would alter that revision. The runner publishes the qualified candidate; no manual commit or push is performed."
+closure_boundary = "Scoped fixture/source proof only. The audit's profile-free acceptance proposal contradicts current production semantics; profile-free payment acceptance and mounted runtime coverage remain pending out-of-path wiring, not claimed closed by this gate."
+
+[finding.http_profile_fixture]
+audit = "22.30.110"
+file = "services/interop/specs/conformance/transport-http/role-messages.json"
+line = 23
+class = "test-gap"
+severity = "medium"
+owner_domain = 11
+observed = "The audit classified accepted eip155:125 plus extra.layerx documents as envelope-only because the then-observed model refused that profile; opaque authorization payloads also did not prove a payable journey."
+current = "Current model.rs declares LAYERX_NETWORK=eip155:125 and requires its account/currency profile; transport.rs calls validate on encode and decode. Existing account-bound profiles are currently valid, profile-free offers yield ProfileMissing, and a foreign network with the profile yields ProfileMismatch."
+repair = "Keep original role documents and identities; add semantic metadata and nested recorded_native_* journeys with matching committed payer bytes, profile_free_* refusals, foreign_network_layerx_profile refusal, explicit opaque-payment refusal, and mounted ingress contracts."
+tests = ["test_http_profile_fixture_preserves_roles_and_marks_envelope_only_payments", "test_http_profile_fixture_native_offer_matches_real_producer_and_consumer_facts", "test_http_profile_fixture_profile_free_and_foreign_cases_have_explicit_refusals", "test_http_profile_fixture_header_and_json_paths_reach_semantic_validation", "test_http_profile_fixture_settlement_uses_unchanged_signed_payer_bytes", "test_http_profile_fixture_mounted_ingress_contract_and_proof_boundaries"]
+
+[wiring.profile_free]
+path = "services/interop/crates/layerx-x402/src/model.rs"
+owner_domain = 11
+status = "pending"
+request = "Domain 11: reconcile the requested profile-free eip155:125 acceptance with current LAYERX_NETWORK and mandatory layerx_terms (currently ProfileMissing), including facilitator.rs and seller.rs consumers, before promoting profile_free_* cases to accepted payments."
+
+[wiring.mounted_ingress]
+path = "services/interop/crates/layerx-interop-service/src/server.rs"
+owner_domain = 11
+status = "pending"
+request = "Domain 11: consume role-messages.json semantic_cases through production seller/verify/settle dispatch with authenticated ingress, recorded pre-expiry time, committed payer bytes and a loopback relay transcript; assert valid and refused observable results without claiming source assertions executed HTTP or settlement."
+
+[wiring.role_reader]
+path = "services/interop/crates/layerx-x402/tests/transports.rs"
+owner_domain = 11
+status = "pending"
+request = "Domain 11: extend the real Rust role harness and repair_22_33_107.rs to execute semantic_cases and separate model/payment refusal expectations while preserving existing seven-role coverage, the representation refusal, and cross-transport identity assertions."
+
+[wiring.generated_manifest]
+path = "services/interop/deploy/gateway/render.py"
+owner_domain = 11
+status = "pending"
+request = "Domain 11: regenerate deployed gateway conformance digests for the changed HTTP role-messages.json using the owning renderer; generated deployment configuration is outside this task's paths."
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. Apply .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions; JSON uses two-space indentation."
+
+[gotcha.1]
+observed = "do_5 requests baseline verification, while the controlling order prohibits testing before complete implementation and permits verify only through hf-done after hf-build."
+resolution = "Follow the explicit gate order; claim no baseline execution or failing tests. GOTCHA.kvx and spec files are out of scope, so record the conflict here."
+
+[gotcha.2]
+observed = "The audit's profile-free acceptance proposal is stale relative to current production LAYERX_NETWORK=eip155:125, mandatory layerx_terms and semantic transport validation."
+resolution = "Do not weaken the real validator or falsely label profile-free cases accepted. Preserve ProfileMissing expectations and request owning domain 11 wiring for the incompatible out-of-path proposal."
+
+[gotcha.3]
+observed = "Existing Rust consumers require exactly one refused top-level representation and compare original facilitator identities across HTTP, MCP and A2A."
+resolution = "Keep the eight original role documents unchanged and add nested semantic_cases with explicit independent expectations; consuming these cases at runtime is an out-of-scope wiring request."
+
+[gotcha.4]
+observed = "Recorded payer evidence expires before current wall-clock time; verifying or settling it now would correctly refuse activity_time_window_refused."
+resolution = "Carry its original observed_at_ms and expiry without editing or resigning bytes; ask the runtime owner to use a controlled clock when qualifying the committed transcript."

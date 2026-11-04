@@ -47724,7 +47724,7 @@ title = "Repair audit record 22.30.148 medium findings in services/explorer/serv
 reqs = ["22998.1"]
 touches = ["services/explorer/services/libs/blockscout-service-launcher/src"]
 tests = ["services/explorer/services/libs/blockscout-service-launcher/tests/repair_22_33_458.rs"]
-verification_contract = "cargo test --locked --manifest-path services/explorer/services/libs/blockscout-service-launcher/Cargo.toml --features database --test repair_22_33_458"
+verification_contract = "cargo test --locked --manifest-path services/explorer/services/libs/blockscout-service-launcher/Cargo.toml --features database,database-1 --test repair_22_33_458"
 do_1 = "Audit record 22.30.148 (spec/layerx-merge/programme/audit/records/22.30.148.kvx) holds 1 medium finding(s) in services/explorer/services/libs/blockscout-service-launcher/src that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: postgres-component-encoding. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -49038,7 +49038,7 @@ title = "Repair audit record 22.30.135 medium findings in services/explorer/serv
 reqs = ["22998.1"]
 touches = ["services/explorer/services/sig-provider"]
 tests = ["services/explorer/services/sig-provider/tests/repair_22_33_312.rs"]
-verification_contract = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_312.py"
+verification_contract = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_312.py && cargo test --locked --manifest-path services/explorer/services/sig-provider/Cargo.toml -p sig-provider-server --test repair_22_33_312"
 do_1 = "Audit record 22.30.135 (spec/layerx-merge/programme/audit/records/22.30.135.kvx) holds 1 medium finding(s) in services/explorer/services/sig-provider that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: sig-provider-precompile-doc. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -49632,7 +49632,7 @@ title = "Repair audit record 22.30.129 medium findings in programs/sdk/assemblys
 reqs = ["22998.1"]
 touches = ["programs/sdk/assemblyscript", "tools/qualification/audit_repairs"]
 tests = ["tools/qualification/audit_repairs/test_repair_22_33_246.py"]
-verification_contract = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_246.py"
+verification_contract = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_246.py && node --test programs/sdk/assemblyscript/tests/packed-package.test.mjs"
 do_1 = "Audit record 22.30.129 (spec/layerx-merge/programme/audit/records/22.30.129.kvx) holds 1 medium finding(s) in programs/sdk/assemblyscript that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: 014. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -146847,7 +146847,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.482]
 title = "Fold the swap fixture's nested install root into the wallet application manifest (gotcha 2999)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -147096,7 +147096,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1481]
 title = "Repair audit record 22.30.86 medium findings in services/platform/middleware/conformance/src (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.359", "22.31.360", "22.31.361", "22.31.362", "22.31.434", "22.31.435", "22.31.436", "22.31.457", "22.31.477"]
@@ -147172,7 +147172,7 @@ do_11 = "Attempt 4 (continue after 22.31.477 and 22.31.479): attempt 3 implement
 
 [task.22.33.1479]
 title = "Repair audit record 22.30.86 medium findings in services/platform/middleware/conformance/pay6 (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.359", "22.31.360", "22.31.361", "22.31.362", "22.31.434", "22.31.435", "22.31.436", "22.31.477", "22.31.479"]
@@ -147514,6 +147514,7 @@ do_12 = "Attempt 2 (continue, after 22.31.457 lands): three cases fail because t
 do_13 = "Attempt 3 (continue): the attempt-1 ruling stands (after 22.31.457); the remaining merchant payment-purpose mismatch means the recorded fixture must be regenerated from the producer path in services/platform/middleware/seller/src, which is in this task's paths; do not edit the recorded purpose by hand."
 do_14 = "Attempt 5 (continue): 13 of 15 cases pass; merchantCheckoutOfferUsesReceiptedRung and merchantWebhookRefusesTransactionMismatch (merchant-app.test.mjs lines 260 and 261) refuse an inherited recording whose purpose does not match the offer. Regenerate that recording in the examples test support with the test-side signer the merchant test already uses (the secp256k1 signing helper in services/platform/examples/test), binding the purpose hash to the checkout offer; the production seller package gets no signer. Verify the restart coverage added last time; finish on one commit."
 do_15 = "Attempt 5 (continue after 22.31.479): attempt 4 implemented the checkout-bound receipt regeneration with the restart and refusal assertions and the build passed; the verify stopped at npm ci on the stale root lock (gotcha 2994), which 22.31.479 regenerates. Rerun the verify on current main first; if the two merchant cases still reject the recording, regenerate it with the checkout-bound receipt the way the committed example does, then stop."
+do_16 = "Attempt 6 (continue): 14 of 16 cases pass. merchantCheckoutOfferUsesReceiptedRung fails at merchant-app.test.mjs line 238: after app.restart() the replayed checkout settles the already fulfilled order a second time (settlements 2, expected 1); the restarted merchant must find the stored fulfillment under merchant-checkout/state/fulfillments and answer the replay from it without a new settlement or node request. merchantWebhookRefusesTransactionMismatch fails at line 262: after a delivery whose transaction mismatches is refused with 400 invalid-webhook, the matching delivery for the same order is also refused; a refused delivery must leave the order awaiting-payment with its proof unconsumed so the matching delivery processes to paid-verified."
 
 [task.22.33.1365]
 title = "Repair audit record 22.30.74 medium findings in services/platform/examples (part 1 of 1): runtime-risk"
@@ -149827,7 +149828,7 @@ do_5 = "Prove each repair with a node test sdk/integrations/next/example/test/re
 do_6 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command above is the whole gate (gotcha 2962)."
 do_7 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["sdk/integrations/next/example/test", "sdk/integrations/next/example", "sdk/integrations/next"]
+touches = ["sdk/integrations/next/example/test", "sdk/integrations/next/example", "sdk/integrations/next", "sdk/integrations/next/package-lock.json", "sdk/integrations/next/example/package-lock.json"]
 tests = ["sdk/integrations/next/example/test/repair-22-33-619.test.mjs"]
 planned_paths = ["sdk/integrations/next/example/test/repair-22-33-619.test.mjs"]
 build_cmd = "npm --prefix sdk/integrations/next ci --ignore-scripts && npm --prefix sdk/integrations/next run build && npm --prefix sdk/integrations/next/example install --no-audit --no-fund"
@@ -149850,6 +149851,7 @@ do_11 = "Attempt 5 (continue, after 22.31.457 landed): the example install build
 do_12 = "Attempt 6 (continue): the buyer middleware TS2345 error in src/index.ts resolveValidators that stopped the build was repaired and published by 22.33.1477; rerun the task on current main and repair only what its own tests report."
 do_13 = "Attempt 7 (requalify): all six tests pass and the done command exited 0 in attempt 6, but qualification was withheld because the verify command reinstalled the example's dependencies and changed the tree between build and verification; six attempts ended the same way. The verify command is now the test alone; the build command still performs the installs. Take the current head, run the build and verify once, and finish on one commit."
 do_14 = "Attempt 8 (continue after 22.31.479): the build command npm --prefix sdk/integrations/next ci --ignore-scripts resolves the root workspace lock because sdk/integrations/next is a root workspace member, and that lock is stale (gotcha 2994), repaired by 22.31.479, which this task now requires. Take the current main head, keep the implementation and rerun the gates once."
+do_15 = "Attempt 9 (continue): all six tests and the done gate passed; the result was refused because .cgignore changed outside the paths, the two lock files sdk/integrations/next/package-lock.json and sdk/integrations/next/example/package-lock.json were not declared (they are now), and the build ran at an earlier revision than the verify. Revert .cgignore (gotcha 3001), keep the restored lock files, and run build and verify at the same final revision."
 
 [task.22.33.612]
 title = "Repair audit record 22.30.163 medium findings in sdk/integrations/agents/test (part 1 of 1): test-gap"
@@ -151301,7 +151303,7 @@ do_10 = "Attempt 2 (continue): the attempt ran on the gate as it stood before th
 
 [task.22.33.453]
 title = "Repair audit record 22.30.148 medium findings in apps/explorer/ui/rewards/login/steps (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.275", "22.31.276", "22.31.474"]
@@ -151336,7 +151338,7 @@ do_8 = "Decision 2528: before qualifying, run yarn eslint on every spec file thi
 
 [task.22.33.452]
 title = "Repair audit record 22.30.148 medium findings in apps/explorer/ui/rewards/dashboard/tabs (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.275", "22.31.276", "22.31.474"]
@@ -151657,7 +151659,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.407]
 title = "Repair audit record 22.30.143 medium findings in apps/explorer/ui/home/fallbacks (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.392", "22.31.393", "22.31.394", "22.31.395", "22.31.474"]
@@ -152050,7 +152052,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.357]
 title = "Repair audit record 22.30.139 medium findings in apps/web/src/support (part 1 of 1): restart-recovery, test-gap, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.269", "22.31.383", "22.31.384", "22.31.385", "22.31.386", "22.31.387"]
@@ -152087,7 +152089,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.356]
 title = "Repair audit record 22.30.139 medium findings in apps/web/src/settings/security (part 1 of 1): retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.269", "22.31.383", "22.31.384", "22.31.385", "22.31.386", "22.31.387"]
@@ -152121,7 +152123,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.355]
 title = "Repair audit record 22.30.139 medium findings in apps/web/src/states (part 1 of 1): security, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.269", "22.31.383", "22.31.384", "22.31.385", "22.31.386", "22.31.387"]
@@ -152156,7 +152158,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.354]
 title = "Repair audit record 22.30.139 medium findings in apps/web/src/perf (part 1 of 1): wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.269", "22.31.383", "22.31.384", "22.31.385", "22.31.386", "22.31.387"]
@@ -152190,7 +152192,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.353]
 title = "Repair audit record 22.30.139 medium findings in apps/web/src/journeys/activity (part 1 of 1): runtime-risk, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.269", "22.31.383", "22.31.384", "22.31.385", "22.31.386", "22.31.387"]
@@ -152226,7 +152228,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.352]
 title = "Repair audit record 22.30.139 medium findings in apps/web/src/journeys/move (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.269", "22.31.383", "22.31.384", "22.31.385", "22.31.386", "22.31.387"]
@@ -152260,7 +152262,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.351]
 title = "Repair audit record 22.30.139 medium findings in apps/web/src/journeys/agents (part 1 of 1): restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.269", "22.31.383", "22.31.384", "22.31.385", "22.31.386", "22.31.387"]
@@ -152294,7 +152296,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.350]
 title = "Repair audit record 22.30.139 medium findings in apps/web/src/app/launchpad (part 1 of 1): wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.269", "22.31.383", "22.31.384", "22.31.385", "22.31.386", "22.31.387"]
@@ -152328,7 +152330,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.349]
 title = "Repair audit record 22.30.139 medium findings in apps/web/src/api (part 1 of 1): restart-recovery, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.269", "22.31.383", "22.31.384", "22.31.385", "22.31.386", "22.31.387"]
@@ -152399,7 +152401,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.347]
 title = "Repair audit record 22.30.139 medium findings in apps/web/src/explorer (part 1 of 1): retired-reference, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.269", "22.31.383", "22.31.384", "22.31.385", "22.31.386", "22.31.387"]
@@ -152505,7 +152507,7 @@ do_8 = "Attempt 2 (continue): besides the explorer environment blockers (fixed; 
 
 [task.22.33.344]
 title = "Repair audit record 22.30.138 medium findings in apps/explorer/ui/snippets/topBar/settings (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.268", "22.31.474"]
@@ -152755,6 +152757,7 @@ do_12 = "Attempt 1: the build failed on the unchanged tree because the wallet SD
 do_13 = "Attempt 2 (continue): the web application's type-check failed in sdk/wallet/src/receipt.ts (the optional signal shape the exact-optional type-check refuses), repaired by task 22.31.456, which has landed. Take the current head, run the type-check and the task's tests once, repair only what that run reports in scope, and finish on one commit with the build and the verify run once on it."
 do_14 = "Attempt 5 (continue after 22.31.469): the apps/web type check failed on apps/web/e2e/repair-22-33-897.test.ts importing happy-dom from a nested package's node_modules; 22.31.469 declares the dependency; rerun once it is on main."
 do_15 = "Attempt 6 (continue): three cases fail. sponsored_retired_transport_reopens_recovery (repair-22-33-338.test.ts line 203) expects outcome sent but the production submission path reports unconfirmed because the loopback root node origin the test starts never answers the receipt poll; make the loopback node origin serve eth_getTransactionReceipt for the submitted hash so the production path reaches its confirmed outcome, and assert that outcome. receipt_consumer_proof_retired_target and kit_separate_layerx_finality fail on strict equality of link and copy text: compare against the committed producer (apps/web/src/explorer/links.ts and the copy catalogue under apps/web/copy on main) and, where the catalogue still carries the retired finality wording, change the catalogue entry under apps/web/copy (this task's component) instead of recording a wiring request."
+do_16 = "Attempt 7 (continue): three cases fail. (1) receipt_env_proof_retired_target and receipt_consumer_proof_retired_target serve the committed receipt of daemon/committed-fixture/vectors/vector-v4-committed.json (settlement.receipt) together with the raw transaction and key pin of a different recording, sdk/platform/conformance/fixtures/vector-v4-committed.json (positive), so authenticateSequencerReceipt refuses the pair as 'transaction or receipt layout'. Serve one recording only: the daemon vector's settlement.raw_transaction with its settlement.receipt and the pin that recording was signed under, the way sdk/wallet/test/support/receipt-recordings.ts and apps/wallet/src/surfaces/test/recordedReceipts.ts pair them. If the daemon's own committed pair is then still refused, record the refusing field in the finding file and stop; that is a producer drift to rule separately. (2) sponsored_retired_transport_reopens_recovery still reports 'unconfirmed' instead of 'sent': the loopback root-node origin the test starts must answer pax_sequencerReceipt for HASH with the committed receipt once session.receiptStatus is 0x1, so the production submission path reaches 'sent' with the receipt; keep the four-poll assertion."
 
 [task.22.33.337]
 title = "Repair audit record 22.30.138 medium findings in apps/web/e2e (part 1 of 2): retired-reference, test-gap"
@@ -153138,7 +153141,7 @@ do_10 = "Attempt 2 (continue): the explorer type-check failed on the ganache imp
 
 [task.22.33.323]
 title = "Repair audit record 22.30.137 medium findings in apps/explorer/ui/shared/gas (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.474"]
@@ -153425,7 +153428,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.302]
 title = "Repair audit record 22.30.135 medium findings in apps/explorer/ui/multichain/home (part 1 of 1): config-drift, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.267", "22.31.381", "22.31.474"]
@@ -153501,7 +153504,7 @@ do_10 = "Attempt 2 (continue after 22.31.474): the type check failed on TS2769 i
 
 [task.22.33.300]
 title = "Repair audit record 22.30.135 medium findings in apps/explorer/ui/marketplace/essentialDapps/revoke/lib (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.267", "22.31.381", "22.31.474"]
@@ -153571,7 +153574,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.298]
 title = "Repair audit record 22.30.135 medium findings in apps/explorer/ui/marketplace/essentialDapps/revoke/hooks (part 2 of 2): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.267", "22.31.381", "22.31.474"]
@@ -153682,7 +153685,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.294]
 title = "Repair audit record 22.30.134 medium findings in apps/explorer/ui/address/details (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.379", "22.31.380", "22.31.474"]
@@ -154047,7 +154050,7 @@ do_10 = "Attempt 3 (continue): four of five cases fail for two reasons. First, t
 
 [task.22.33.281]
 title = "Repair audit record 22.30.133 medium findings in apps/explorer/ui/blocks (part 1 of 1): config-drift, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.377", "22.31.378", "22.31.474"]
@@ -156592,6 +156595,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "Attempt 2 (requalify after 22.31.482): attempt 1 implemented both repairs and nine regression tests in apps/wallet/src/lib/swap/sdk; the wallet type-check failed only on the @ethereumjs imports of the swap fixture (gotcha 2999). Requalify the attempt-1 tree once 22.31.482 is on main."
 
 [task.22.33.132]
 title = "Repair audit record 22.30.114 medium findings in apps/wallet/src/lib/data/hooks (part 1 of 1): runtime-risk"
@@ -156813,7 +156817,7 @@ do_11 = "Attempt 3 (continue): the two network-isolation cases fail in the test'
 
 [task.22.33.123]
 title = "Repair audit record 22.30.114 medium findings in apps/wallet/src/lib (part 2 of 2): restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.234", "22.31.235", "22.31.236", "22.31.237", "22.31.482"]
@@ -173325,7 +173329,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1576]
 title = "Repair audit record 22.30.99 medium findings in services/agent/tests/qualify/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.227", "22.31.228", "22.31.229", "22.31.230"]
@@ -173393,6 +173397,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_11 = "Attempt 2 (continue): 10 of 12 cases pass. hostile_certificate_unchecked_reaches_real_quorum_consumer and hostile_certificate_unchecked_records_only_independently_rejected_attacks expect the sub-threshold certificate to reach the commit-verifier's quorum check and be refused Proof(InsufficientPower); instead the verifier refuses it earlier with Proof(Mismatch), so the fabricated certificate's proof no longer matches the header it signs. Run the verify first (the timestamp fix was applied after the only run); if the two cases still fail, make the sub-threshold mutation keep the inclusion proof and header digest intact and remove only enough signatures to fall under the quorum threshold, so the real consumer rejects it for power, not for proof shape."
 
 [task.22.33.1574]
 title = "Repair audit record 22.30.99 medium findings in services/agent/tools/policy-harness/src (part 1 of 1): test-gap"
@@ -173496,6 +173501,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_8 = "Attempt 2 (continue): the final tree does not build. services/agent/tests/parity/src/lib.rs imports Key from layerx_agent_api::idempotency, a module the API crate does not have; layerx-agent-api exports Key and RequestId from its error module (error.rs line 185) and nothing outside services/agent/tests/parity may change. Import Key from layerx_agent_api::error, fix the four E0599 constructor errors in the parity integration tests against the constructors the API crate actually exposes, and run the build on the final revision before the verify."
 
 [task.22.33.1571]
 title = "Repair audit record 22.30.99 medium findings in services/agent/tests/limits (part 1 of 1): test-gap"
@@ -173534,7 +173540,7 @@ do_8 = "The gate of this task is corrected (gotcha 2984): the generated command 
 
 [task.22.33.1570]
 title = "Repair audit record 22.30.99 medium findings in services/agent/tests/isolation/src (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.227", "22.31.228", "22.31.229", "22.31.230"]
@@ -173602,7 +173608,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1567]
 title = "Repair audit record 22.30.99 medium findings in services/agent/fuzz/fuzz_targets (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.227", "22.31.228", "22.31.229", "22.31.230"]
@@ -173637,7 +173643,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1566]
 title = "Repair audit record 22.30.99 medium findings in services/agent/crates/layerx-sdk/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.227", "22.31.228", "22.31.229", "22.31.230", "22.31.443"]
@@ -173678,7 +173684,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1564]
 title = "Repair audit record 22.30.99 medium findings in services/agent/crates/layerx-sdk/src (part 1 of 1): config-drift, retired-reference, runtime-risk, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.227", "22.31.228", "22.31.229", "22.31.230", "22.31.443"]
@@ -174202,7 +174208,7 @@ do_11 = "Attempt 2 (requalify): attempt 1 passed 6 of 7 cases; the failing fixtu
 
 [task.22.33.1548]
 title = "Repair audit record 22.30.96 medium findings in services/agent/crates/layerx-types/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.221", "22.31.222", "22.31.443"]
@@ -174274,7 +174280,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1546]
 title = "Repair audit record 22.30.96 medium findings in services/agent/crates/layerx-client/tests (part 1 of 2): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.221", "22.31.222", "22.31.443"]
@@ -174429,7 +174435,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1542]
 title = "Repair audit record 22.30.96 medium findings in services/agent/crates/layerx-types/src (part 1 of 1): doc-drift, retired-reference, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.221", "22.31.222", "22.31.443"]
@@ -174468,7 +174474,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1541]
 title = "Repair audit record 22.30.96 medium findings in services/agent/crates/layerx-client/src (part 1 of 1): interface-mismatch, restart-recovery, retired-reference, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.221", "22.31.222", "22.31.443"]
@@ -174880,7 +174886,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1529]
 title = "Repair audit record 22.30.94 medium findings in services/agent/crates/layerx-agentd/tests (part 1 of 2): retired-reference, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.220", "22.31.443"]
@@ -176020,7 +176026,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1490]
 title = "Repair audit record 22.30.88 medium findings in services/platform/ramps/toolkit/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.211", "22.31.465"]
@@ -176381,7 +176387,7 @@ do_9 = "Attempt 3 (continue after 22.31.465): the build could not load the platf
 
 [task.22.33.1464]
 title = "Repair audit record 22.30.84 medium findings in services/platform/hosted/paxai-w*/src (part 1 of 1): runtime-risk, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.203", "22.31.204", "22.31.205", "22.31.465"]
@@ -177152,7 +177158,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1418]
 title = "Repair audit record 22.30.79 medium findings in services/platform/tools/workspace-gate/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.189", "22.31.190", "22.31.191", "22.31.349", "22.31.465"]
@@ -177257,7 +177263,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1413]
 title = "Repair audit record 22.30.79 medium findings in services/platform/hosted/feeder/src (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.189", "22.31.190", "22.31.191", "22.31.349", "22.31.465"]
@@ -177327,7 +177333,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1410]
 title = "Repair audit record 22.30.79 medium findings in services/platform/hosted/dashboard/src (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.189", "22.31.190", "22.31.191", "22.31.349", "22.31.465"]
@@ -177948,7 +177954,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1322]
 title = "Repair audit record 22.30.70 medium findings in services/platform/hosted/paxeer/src (part 1 of 1): retired-reference, runtime-risk, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.186", "22.31.187", "22.31.465"]
@@ -177989,7 +177995,7 @@ do_14 = "Attempt 3 (continue after 22.31.465): cargo could not load the manifest
 
 [task.22.33.1318]
 title = "Repair audit record 22.30.70 medium findings in services/platform/examples (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.186", "22.31.187"]
@@ -178535,7 +178541,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.584]
 title = "Repair audit record 22.30.160 medium findings in services/explorer/services/smart-contract-verifier/smart-contract-verifier/src (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.280", "22.31.413"]
@@ -178868,8 +178874,8 @@ symbols = []
 touches = ["services/explorer/services/libs/blockscout-service-launcher/src"]
 tests = ["services/explorer/services/libs/blockscout-service-launcher/tests/repair_22_33_458.rs"]
 planned_paths = ["services/explorer/services/libs/blockscout-service-launcher/tests/repair_22_33_458.rs", "services/explorer/services/libs/Cargo.lock"]
-build_cmd = "cargo build --locked --manifest-path services/explorer/services/libs/blockscout-service-launcher/Cargo.toml --features database --tests"
-verify_cmd = "cargo test --locked --manifest-path services/explorer/services/libs/blockscout-service-launcher/Cargo.toml --features database --test repair_22_33_458"
+build_cmd = "cargo build --locked --manifest-path services/explorer/services/libs/blockscout-service-launcher/Cargo.toml --features database,database-1 --tests"
+verify_cmd = "cargo test --locked --manifest-path services/explorer/services/libs/blockscout-service-launcher/Cargo.toml --features database,database-1 --test repair_22_33_458"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-web-explorer-bridge"
@@ -178882,6 +178888,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_8 = "Attempt 2 (continue): the launcher crate exposes its database module behind the database feature, and the task's gates did not enable it, so the build failed on the unresolved import blockscout_service_launcher::database. The gates now pass --features database. Rerun the build and the verify on the current tree and stop."
+do_9 = "Attempt 3 (requalify): the build failed because the database feature of blockscout-service-launcher only compiles together with a driver feature (database-1 selects sea-orm 1.1.14); the build and verify now enable database,database-1. Re-run the gates on the attempt-2 tree and fix inside the paths only what still fails."
 
 [task.22.33.430]
 title = "Repair audit record 22.30.146 medium findings in services/explorer/services/libs/blockscout-client (part 1 of 1): doc-drift"
@@ -179062,7 +179069,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.412]
 title = "Repair audit record 22.30.143 medium findings in services/explorer/services/smart-contract-verifier/verification-common/src/verifier_alliance (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.392", "22.31.393", "22.31.394", "22.31.395"]
@@ -179272,7 +179279,7 @@ do_8 = "The gate of this task is corrected (gotcha 2984): the generated command 
 
 [task.22.33.312]
 title = "Repair audit record 22.30.135 medium findings in services/explorer/services/sig-provider (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.267", "22.31.381"]
@@ -179287,11 +179294,11 @@ do_5 = "Prove each repair with an integration test services/explorer/services/si
 do_6 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command above is the whole gate (gotcha 2962)."
 do_7 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["services/explorer/services/sig-provider", "tools/qualification/audit_repairs/test_repair_22_33_312.py", "tools/qualification/audit_repairs/repair_22_33_312.kvx"]
+touches = ["services/explorer/services/sig-provider", "tools/qualification/audit_repairs/test_repair_22_33_312.py", "tools/qualification/audit_repairs/repair_22_33_312.kvx", "services/explorer/services/sig-provider/sig-provider/src/sources/precompiles.json"]
 tests = ["tools/qualification/audit_repairs/test_repair_22_33_312.py"]
 planned_paths = ["services/explorer/services/sig-provider/tests/repair_22_33_312.rs", "services/explorer/services/sig-provider/Cargo.lock"]
-build_cmd = "python3 -m py_compile tools/qualification/audit_repairs/test_repair_22_33_312.py"
-verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_312.py"
+build_cmd = "python3 -m py_compile tools/qualification/audit_repairs/test_repair_22_33_312.py && cargo build --locked --manifest-path services/explorer/services/sig-provider/Cargo.toml -p sig-provider-server --tests"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_312.py && cargo test --locked --manifest-path services/explorer/services/sig-provider/Cargo.toml -p sig-provider-server --test repair_22_33_312"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-web-explorer-bridge"
@@ -179304,6 +179311,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_8 = "The gate of this task is corrected (gotcha 2984): the generated command named a toolchain the touched path does not use. The proving test is tools/qualification/audit_repairs/test_repair_22_33_312.py and the verify command is python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_312.py; nothing else of the task changes."
+do_9 = "Attempt 2 (continue): five of six checks passed. The equality check fails because the embedded inventory services/explorer/services/sig-provider/sig-provider/src/sources/precompiles.json has drifted from the production generator (gotcha 3000): regenerate that file with the real generator in this change and keep the assertion as written. Register the Rust integration cases of tests/repair_22_33_312.rs as a test target of sig-provider-server so the verify runs them; they must pass."
 
 [task.22.33.307]
 title = "Repair audit record 22.30.135 medium findings in services/explorer/services/sig-provider/sig-provider-server/tests (part 1 of 1): test-gap"
@@ -179701,7 +179709,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.244]
 title = "Repair audit record 22.30.129 medium findings in programs/sdk/rust/src (part 1 of 1): doc-drift, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.264", "22.31.265", "22.31.374", "22.31.375", "22.31.443"]
@@ -180457,7 +180465,7 @@ do_8 = "Attempt 2 (continue): the build or the dependent-crate check failed befo
 
 [task.22.33.221]
 title = "Repair audit record 22.30.124 medium findings in programs/crates/layerx-programs-registry/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.256", "22.31.257", "22.31.258", "22.31.443"]
@@ -180498,7 +180506,7 @@ do_14 = "Attempt 2 (continue): the first attempt failed before its own verify be
 
 [task.22.33.220]
 title = "Repair audit record 22.30.124 medium findings in programs/crates/layerx-programs-registry/src (part 1 of 1): runtime-risk, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.256", "22.31.257", "22.31.258", "22.31.443"]
@@ -180791,7 +180799,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.117]
 title = "Repair audit record 22.30.112 medium findings in services/interop/crates/layerx-portable (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.167", "22.31.168", "22.31.232", "22.31.233", "22.31.443"]
@@ -181121,7 +181129,7 @@ do_15 = "Attempt 4 (requalify): eight of nine cases pass and the reopened-transc
 
 [task.22.33.104]
 title = "Repair audit record 22.30.111 medium findings in services/interop/crates/layerx-mirror/tests/support (part 1 of 1): retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.165", "22.31.166", "22.31.443"]
@@ -181266,7 +181274,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.100]
 title = "Repair audit record 22.30.111 medium findings in services/interop/crates/layerx-mirror/src (part 1 of 2): config-drift, interface-mismatch, retired-reference, runtime-risk, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.165", "22.31.166", "22.31.443"]
@@ -182030,7 +182038,7 @@ do_9 = "Attempt 2 (continue): the first attempt failed before its own verify bec
 
 [task.22.33.61]
 title = "Repair audit record 22.30.107 medium findings in services/human/crates/layerx-human-service/src/approvals (part 1 of 1): interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.157", "22.31.158", "22.31.159", "22.31.443"]
@@ -182066,7 +182074,7 @@ do_9 = "Attempt 2 (continue): the first attempt failed before its own verify bec
 
 [task.22.33.60]
 title = "Repair audit record 22.30.107 medium findings in services/human/crates/layerx-human-service/src/audit (part 1 of 1): runtime-risk, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.157", "22.31.158", "22.31.159", "22.31.443"]
@@ -182102,7 +182110,7 @@ do_9 = "Attempt 2 (continue): the first attempt failed before its own verify bec
 
 [task.22.33.59]
 title = "Repair audit record 22.30.107 medium findings in services/human/crates/layerx-human-service/src/notify (part 1 of 1): restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.157", "22.31.158", "22.31.159", "22.31.443"]
@@ -182138,7 +182146,7 @@ do_9 = "Attempt 2 (continue): the first attempt failed before its own verify bec
 
 [task.22.33.58]
 title = "Repair audit record 22.30.107 medium findings in services/human/crates/layerx-human-service/src/store (part 1 of 1): restart-recovery, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.157", "22.31.158", "22.31.159", "22.31.443"]
@@ -182174,7 +182182,7 @@ do_9 = "Attempt 2 (continue): the first attempt failed before its own verify bec
 
 [task.22.33.57]
 title = "Repair audit record 22.30.107 medium findings in services/human/crates/layerx-network-gateway/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.157", "22.31.158", "22.31.159", "22.31.443"]
@@ -182211,7 +182219,7 @@ do_10 = "Attempt 2 (continue): the first attempt failed before its own verify be
 
 [task.22.33.56]
 title = "Repair audit record 22.30.107 medium findings in services/human/crates/layerx-network-gateway/src (part 1 of 1): config-drift, interface-mismatch, runtime-risk, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.157", "22.31.158", "22.31.159", "22.31.443"]
@@ -182532,7 +182540,7 @@ do_9 = "Attempt 3 (continue): the dependency check failed only in the human-serv
 
 [task.22.33.47]
 title = "Repair audit record 22.30.106 medium findings in services/human/crates/layerx-human-security-provider/tests/support (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.155", "22.31.156", "22.31.443", "22.31.475"]
@@ -182676,6 +182684,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_13 = "Attempt 2 (continue): seven of ten cases fail, among them the renderer digest and the nonce-hold cases, which the attempt filed as out of scope. The human service is this domain's: its sources at services/human/crates/layerx-human-service/src are now in scope, so repair the producer and the route the cases exercise there, keep the assertions, and run the build and the verify once on the final revision with no commit after the pass."
+do_14 = "Attempt 3 (requalify): 14 of 15 cases passed; authenticated_routes_preserve_reopened_producer_rungs failed because the real runtime clock socket path exceeded the Unix socket path limit (SUN_LEN) at projection_rungs.rs line 350, and the shorter socket path was applied after the only verify run. Re-run the gates on the attempt-2 tree; the socket path must stay short under the qualification environment's temporary directory."
 
 [task.22.33.43]
 title = "Repair audit record 22.30.105 medium findings in services/human/crates/layerx-human-service/src (part 1 of 1): doc-drift, restart-recovery, runtime-risk"
@@ -183154,7 +183163,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.26]
 title = "Repair audit record 22.30.102 medium findings in services/human/crates/layerx-human-kms/src (part 2 of 2): config-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.150", "22.31.443"]
@@ -183303,7 +183312,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.439]
 title = "Remove the orphaned test directory of the deleted explorer index crate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184059,7 +184068,7 @@ do_12 = "Attempt 3 (requalify): attempt 2 passed the build, both integration tes
 
 [task.22.31.281]
 title = "Repair audit record 22.30.161 findings in services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/types: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184135,7 +184144,7 @@ do_11 = "Attempt 3 (continue): the attempt was refused for changing the regenera
 
 [task.22.31.279]
 title = "Repair audit record 22.30.159 findings in services/explorer/services/libs/blockscout-client/crate/tests: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.445"]
@@ -184470,7 +184479,7 @@ do_10 = "Attempt 3 (continue): the session optionality tests require BLOCKSCOUT_
 
 [task.22.31.269]
 title = "Repair audit record 22.30.139 findings in services/explorer/services/libs/blockscout-client/swaggers/overrides: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.445"]
@@ -197261,7 +197270,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.31.481]
 title = "Reconcile the four 22.33.1319 deployment tests with the maintained node manifest (decision 2532)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.465"]
@@ -198354,7 +198363,7 @@ do_17 = "The gate correction of gotcha 2984 is withdrawn for this task: attempt 
 
 [task.22.33.1388]
 title = "Repair audit record 22.30.76 medium findings in tools/bringup (part 1 of 1): retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.141", "22.31.142", "22.31.143"]
@@ -207630,7 +207639,7 @@ do_10 = "Attempt 2 (continue): the three runtime proofs fail only because no exe
 
 [task.22.33.946]
 title = "Repair audit record 22.30.24 medium findings in modules/launchpad/types (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.34", "22.31.35", "22.31.463"]
@@ -209784,7 +209793,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.798]
 title = "Repair audit record 22.30.177 medium findings in tools/bringup (part 7 of 7): restart-recovery, retired-reference, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.319"]
@@ -210359,7 +210368,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.766]
 title = "Repair audit record 22.30.173 medium findings in tools/benchmark/loadtest (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.316", "22.31.463"]
@@ -278821,7 +278830,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1211]
 title = "Repair audit record 22.30.57 medium findings in precompiles/staking/legacy/v640 (part 1 of 1): runtime-risk, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.126"]
@@ -280966,6 +280975,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_15 = "Attempt 2 (continue after 22.31.463): the Go build or test binary could not compile because sdk/x/auth/client/cli, sdk/x/staking/client/cli and modules/tokenfactory/client/cli called tx.NewFactoryCLI as a single value after the sdk/client/tx repair 22.33.1462 changed its return; 22.31.463 repaired those callers and is on main; rerun the task on current main and repair only what its own tests report."
 do_16 = "Attempt 3 (continue): the simulation parity and response-oracle cases fail only on an empty byte argument decoded as an empty slice where the expectation holds nil; build the expectation through the same decoder or compare byte arguments by content. TestRepairM_213_StorageEnvironmentResponse fails because the storage-environment execute call refuses the hand-assembled lease-state record as LXP_ERR_NON_CANONICAL; produce the lease state through the production encoder (the v3 lease-state codec) instead of assembling bytes. Keep assertions strict."
 do_17 = "Attempt 4 (continue): attempt 3 passed six repair tests; TestRepairM_213_StorageEnvironmentResponse fails on the fixture-prefix length the attempt introduced and on the storage-environment execute call refusing the hand-assembled lease-state record as LXP_ERR_NON_CANONICAL. Fix the prefix length, produce the lease state through the production encoder as do_16 states, and rerun. The verify now greps the Go log with -a: the guest output contains bytes that made grep report a binary match and hide every result line."
+do_18 = "Attempt 5 (continue): six cases pass, two fail. TestRepairM_213_StorageEnvironmentResponse: the ABI-v3 payload settles through the registered call handler, but the independent native submission of the same request through Submit with selector 0x00090009 is refused LXP_ERR_NON_CANONICAL; compare byte for byte the request the registered handler decodes with the payload handed to Submit (the version bytes, the lease digest and the escrow account must match the lease state in the reference context) and submit exactly what the handler path accepts. TestRepairM_213_StorageEnvironmentRecordedConsumer: DecodeProgramExecutionResult refuses the recorded bytes as an invalid programs execution result; record the consumer fixture with the production encoder (the call outputs packed as status, kind and terminal frame with the frame domain and the applied-legs root), never hand-assembled bytes. Keep the six passing cases."
 
 [task.22.33.212]
 title = "Repair audit record 22.30.121 medium findings in precompiles/layerxprograms (part 1 of 2): interface-mismatch, retired-reference, test-gap"
@@ -320196,7 +320206,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.1489]
 title = "Repair audit record 22.30.88 medium findings in services/platform/ramps (part 2 of 2): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.211"]
@@ -320933,7 +320943,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.1395]
 title = "Repair audit record 22.30.77 medium findings in services/platform/hosted/gateway (part 1 of 1): retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.343", "22.31.344", "22.31.345"]
@@ -321418,7 +321428,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1354]
 title = "Repair audit record 22.30.74 medium findings in sdk/contrib (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.342"]
@@ -323210,7 +323220,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1016]
 title = "Repair audit record 22.30.36 medium findings in services/launchpad (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.60", "22.31.61"]
@@ -323957,7 +323967,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.898]
 title = "Repair audit record 22.30.185 medium findings in docker/web (part 1 of 1): wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.433"]
@@ -323991,7 +324001,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.895]
 title = "Repair audit record 22.30.185 medium findings in (part 1 of 1): retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.433"]
@@ -324169,7 +324179,7 @@ do_12 = "Attempt 6 (continue): 48 of 51 cases pass; the copy checker reports sdk
 
 [task.22.33.885]
 title = "Repair audit record 22.30.183 medium findings in docker/gas-station (part 1 of 1): retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.330"]
@@ -324312,7 +324322,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.874]
 title = "Repair audit record 22.30.183 medium findings in docker/monitornode/scripts (part 1 of 1): security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.330"]
@@ -324346,7 +324356,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.873]
 title = "Repair audit record 22.30.183 medium findings in tests/oracle (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.330"]
@@ -324380,7 +324390,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.871]
 title = "Repair audit record 22.30.183 medium findings in scripts/workspace (part 1 of 1): wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.330"]
@@ -324414,7 +324424,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.870]
 title = "Repair audit record 22.30.183 medium findings in docker/platform-node (part 1 of 1): retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.330"]
@@ -324483,7 +324493,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.865]
 title = "Repair audit record 22.30.182 medium findings in scripts/paxeer-x (part 1 of 1): wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.430", "22.31.431", "22.31.432"]
@@ -324705,7 +324715,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.857]
 title = "Repair audit record 22.30.182 medium findings in docker/platform-registry (part 1 of 1): retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.430", "22.31.431", "22.31.432"]
@@ -325003,7 +325013,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.847]
 title = "Repair audit record 22.30.181 medium findings in tools/paxeer-x/gates (part 1 of 5): runtime-risk, test-gap, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.428", "22.31.429"]
@@ -325044,7 +325054,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.846]
 title = "Repair audit record 22.30.181 medium findings in tools/paxeer-x/sid-snapshot (part 1 of 1): doc-drift, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.428", "22.31.429"]
@@ -325079,7 +325089,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.845]
 title = "Repair audit record 22.30.181 medium findings in tools/paxeer-x/gov/templates (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.428", "22.31.429"]
@@ -325254,7 +325264,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.815]
 title = "Repair audit record 22.30.179 medium findings in launchpad/spec/production-system/integration/migrations (part 1 of 1): config-drift, restart-recovery, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.321", "22.31.322", "22.31.323", "22.31.324", "22.31.427"]
@@ -325291,7 +325301,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.814]
 title = "Repair audit record 22.30.179 medium findings in docker/kernel (part 1 of 1): config-drift, retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.321", "22.31.322", "22.31.323", "22.31.324", "22.31.427"]
@@ -325364,7 +325374,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.812]
 title = "Repair audit record 22.30.178 medium findings in scripts/wallet (part 1 of 1): retired-reference, security, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.320"]
@@ -325511,7 +325521,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.806]
 title = "Repair audit record 22.30.178 medium findings in tools/hpx (part 1 of 1): config-drift, doc-drift, restart-recovery, runtime-risk, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.320"]
@@ -325624,7 +325634,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.801]
 title = "Repair audit record 22.30.178 medium findings in docker/localnode/scripts (part 1 of 1): runtime-risk, security, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.320"]
@@ -325697,7 +325707,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.789]
 title = "Repair audit record 22.30.176 medium findings in scripts/ci (part 1 of 1): retired-reference, security, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.317", "22.31.318", "22.31.426"]
@@ -325738,7 +325748,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.788]
 title = "Repair audit record 22.30.176 medium findings in (part 1 of 1): config-drift, doc-drift, retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.317", "22.31.318", "22.31.426"]
@@ -325992,7 +326002,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.777]
 title = "Repair audit record 22.30.174 medium findings in tools/ops/monitoring (part 1 of 1): retired-reference, test-gap, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.424", "22.31.425"]
@@ -326065,7 +326075,7 @@ do_8 = "Attempt 2 (requalify): all eleven tests passed, but the verified revisio
 
 [task.22.33.772]
 title = "Repair audit record 22.30.174 medium findings in scripts/explorer (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.424", "22.31.425"]
@@ -326099,7 +326109,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.771]
 title = "Repair audit record 22.30.174 medium findings in docker/rpcnode/scripts (part 1 of 1): config-drift, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.424", "22.31.425"]
@@ -326135,7 +326145,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.770]
 title = "Repair audit record 22.30.174 medium findings in docker/rpcnode/config (part 1 of 1): config-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.424", "22.31.425"]
@@ -326203,7 +326213,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.768]
 title = "Repair audit record 22.30.174 medium findings in tools/ops/backup (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.424", "22.31.425"]
@@ -326343,7 +326353,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.762]
 title = "Repair audit record 22.30.172 medium findings in tests/integration/utils (part 1 of 1): runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.421", "22.31.422", "22.31.423"]
@@ -326420,7 +326430,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.760]
 title = "Repair audit record 22.30.172 medium findings in tests/integration/upgrade_module (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.421", "22.31.422", "22.31.423"]
@@ -326455,7 +326465,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.759]
 title = "Repair audit record 22.30.172 medium findings in tests/integration/template (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.421", "22.31.422", "22.31.423"]
@@ -326524,7 +326534,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.747]
 title = "Repair audit record 22.30.172 medium findings in tests/integration/oracle_module (part 1 of 1): runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.421", "22.31.422", "22.31.423"]
@@ -326664,7 +326674,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.741]
 title = "Repair audit record 22.30.172 medium findings in tests/integration/contracts (part 2 of 2): restart-recovery, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.421", "22.31.422", "22.31.423"]
@@ -326702,7 +326712,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.740]
 title = "Repair audit record 22.30.172 medium findings in tests/integration/contracts (part 1 of 2): restart-recovery, retired-reference, runtime-risk, security, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.421", "22.31.422", "22.31.423"]
@@ -326743,7 +326753,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.739]
 title = "Repair audit record 22.30.172 medium findings in tests/integration/chain_operation (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.421", "22.31.422", "22.31.423"]
@@ -327735,7 +327745,7 @@ do_15 = "Attempt 2 (continue): fourteen cases fail, most of them by asserting th
 
 [task.22.33.700]
 title = "Repair audit record 22.30.169 medium findings in .github/workflows (part 2 of 2): retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.312"]
@@ -328783,7 +328793,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.482]
 title = "Repair audit record 22.30.15 medium findings in apps/perps/deploy (part 1 of 1): config-drift, doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.17"]
@@ -328992,7 +329002,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.421]
 title = "Repair audit record 22.30.145 medium findings in services/explorer/deploy (part 1 of 1): security, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -329027,7 +329037,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.420]
 title = "Repair audit record 22.30.145 medium findings in services/bridge/deploy (part 1 of 1): retired-reference, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -329132,7 +329142,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.406]
 title = "Repair audit record 22.30.143 medium findings in services/bridge/deploy (part 1 of 1): config-drift, restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.392", "22.31.393", "22.31.394", "22.31.395"]
@@ -329343,7 +329353,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.359]
 title = "Repair audit record 22.30.139 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.269", "22.31.383", "22.31.384", "22.31.385", "22.31.386", "22.31.387", "22.31.470"]
@@ -329378,7 +329388,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.358]
 title = "Repair audit record 22.30.139 medium findings in services/explorer/services/libs/blockscout-client/swaggers/overrides (part 1 of 1): config-drift, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.269", "22.31.383", "22.31.384", "22.31.385", "22.31.386", "22.31.387"]
@@ -329762,7 +329772,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.262]
 title = "Repair audit record 22.30.130 medium findings in programs/tests/ai-market (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.266"]
@@ -329865,7 +329875,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.246]
 title = "Repair audit record 22.30.129 medium findings in programs/sdk/assemblyscript (part 1 of 1): wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.264", "22.31.265", "22.31.374", "22.31.375"]
@@ -329883,8 +329893,8 @@ symbols = []
 touches = ["programs/sdk/assemblyscript", "tools/qualification/audit_repairs/test_repair_22_33_246.py", "tools/qualification/audit_repairs/repair_22_33_246.kvx"]
 tests = ["tools/qualification/audit_repairs/test_repair_22_33_246.py"]
 planned_paths = ["tools/qualification/audit_repairs/test_repair_22_33_246.py"]
-build_cmd = "python3 --version"
-verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_246.py"
+build_cmd = "npm --prefix programs/sdk/assemblyscript ci --ignore-scripts"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_246.py && node --test programs/sdk/assemblyscript/tests/packed-package.test.mjs"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-programs"
@@ -329896,6 +329906,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_8 = "Attempt 2 (continue): the five tests passed but the result did not qualify: .cgignore changed outside the paths, 122 files under programs/sdk/assemblyscript/node_modules entered the change set (gotcha 3001), and the build ran at an earlier revision than the verify. Revert .cgignore, drop the install root from the change, keep abi-manifest.tsv, package.json, the packed-package fixture and test and the determinism lint, then run build and verify on the same final revision. The build now installs the package from its lock and the verify also runs tests/packed-package.test.mjs, so the packed-consumer regression executes."
 
 [task.22.33.237]
 title = "Repair audit record 22.30.128 medium findings in (part 1 of 1): doc-drift"
@@ -330394,7 +330405,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.98]
 title = "Repair audit record 22.30.110 medium findings in services/interop/specs/conformance/transport-a2a (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.164", "22.31.231"]
@@ -330428,7 +330439,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.97]
 title = "Repair audit record 22.30.110 medium findings in services/interop/specs/conformance/transport-mcp (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.164", "22.31.231"]
@@ -330462,7 +330473,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.96]
 title = "Repair audit record 22.30.110 medium findings in services/interop/specs/conformance/transport-http (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.164", "22.31.231"]
@@ -330530,7 +330541,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.93]
 title = "Repair audit record 22.30.110 medium findings in services/interop/specs/conformance/ucp (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.164", "22.31.231"]
@@ -330599,7 +330610,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.84]
 title = "Repair audit record 22.30.11 medium findings in apps/perps (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.4", "22.31.5", "22.31.6"]
@@ -330806,7 +330817,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.29]
 title = "Repair audit record 22.30.102 medium findings in services/human/schema/human-api/golden (part 1 of 2): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.150"]
@@ -330996,7 +331007,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.15]
 title = "Repair audit record 22.30.100 medium findings in services/agent/sdk/python/examples (part 1 of 1): wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.147"]

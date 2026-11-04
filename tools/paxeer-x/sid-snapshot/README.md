@@ -24,10 +24,13 @@ python3 tools/paxeer-x/sid-snapshot/snapshot.py \
   --source "$EXPLORER_DSN" \
   --source "$OLD_PAXSCAN_DSN_OR_CSV" \
   --rpc "$PAXEER_RPC_URL" \
+  --block "$MIGRATION_HEIGHT" \
   --out sid-holders.json
 ```
 
-`--source` may be repeated; `--rpc` and `--out` are required. Set
+`--source` may be repeated; `--rpc` and `--out` are required. For release,
+agree on one committed migration height, set `MIGRATION_HEIGHT` to its decimal
+block number, and reuse `--block` for every export and review of that release. Set
 `PAXEER_RPC_URL` to an archive node serving Paxeer EVM chain ID `125` (`0x7d`).
 The [public node JSON-RPC URLs](../../../docs/site/docs/reference/public-rpc.md)
 use the root path, for example `https://api1.mainnet-beta.paxeer.network`.
@@ -41,11 +44,14 @@ that value before accepting the artifact.
 - `--rpc` is required. Use an archive RPC supporting `finalized`, canonical
   block-hash selectors (EIP-1898) for `eth_call`, and complete `eth_getLogs`
   history. Unsupported or unavailable historical state stops the export.
-- The exporter selects the finalized block once. All `balanceOf` and
+- `--block` selects one committed migration height, after checking that it is
+  at or below the RPC's finalized height. Negative and uncommitted heights are
+  refused. Omitting it selects the finalized block once for exploratory exports;
+  release exports must specify the agreed height. All `balanceOf` and
   `totalSupply` calls use that block's hash. Source queries and canonical
   Transfer log queries stop at its height; the hash is checked again before
-  writing output. There is no height override: a later invocation may select a
-  different finalized block.
+  writing output. Repeating `--block` preserves the selected state even when the
+  chain advances; retain its hash in the evidence for comparison across runs.
 - `--source` takes a Postgres DSN (Blockscout `token_transfers` table, needs
   `psycopg2`) or a CSV with columns
   `transaction_hash,log_index,from_address,to_address,amount,block_number`.
@@ -53,7 +59,8 @@ that value before accepting the artifact.
   sources; duplicate `(transaction_hash, log_index)` entries must agree.
   SQL selects canonical transfers through the pinned height; future CSV rows
   are excluded. Old CSVs without block numbers must be re-exported.
-- The merged source must contain every canonical SID Transfer from genesis
+- Complete indexed history is required before release: the merged source must
+  contain every canonical SID Transfer from genesis
   through the pinned height. The exporter checks it against RPC logs queried in
   ranges of at most 2000 blocks, comparing the transfer address, amount and
   height fields keyed by transaction hash and log index.
@@ -76,7 +83,10 @@ that value before accepting the artifact.
 - The run prints `holders <count> sum <total>` only after validation succeeds.
 
 Review the evidence's chain ID, token, block number/hash and holder-file digest
-before handing off the artifact. The exporter writes only to `--out` and its
+before handing off the artifact. Release requires complete indexed history,
+all holder candidates reconciled at the same committed height, and exact
+`totalSupply` equality for both emitted balances and mint-minus-burn history.
+The exporter writes only to `--out` and its
 evidence sidecar; it does not replace the embedded release snapshot. Retain the
 qualified pair together so the snapshot block can be identified later.
 
@@ -90,12 +100,44 @@ until the upgrade or discover holders added after the snapshot. The evidence
 sidecar is retained for review and is not consumed by the upgrade handler.
 See the [governance window kit](../gov/README.md) for the `v6.12.0` plan renderer.
 
-## Existing tests
+## Tests
 
 [`test_repair_22_31_429.py`](test_repair_22_31_429.py) exercises the current
 exporter with CSVs and an in-process JSON-RPC server. Its focused command from
 the repository root is
 `python3 -m pytest -q tools/paxeer-x/sid-snapshot/test_repair_22_31_429.py`.
-[`test.sh`](test.sh) is a legacy smoke test for the earlier unpinned interface:
-its invocations omit required RPC and block-number inputs and do not qualify
-the current exporter.
+
+[`test.sh`](test.sh) runs [`contract_test.py`](contract_test.py) against the real
+SID contract at the fixed address, on a disposable loopback paxd chain with chain
+ID 125 and full indexed history. It submits `transfer(address,uint256)` through
+`eth_sendTransaction`, waits for successful receipts in canonical committed
+blocks, and derives CSV inputs from the contract's actual Transfer logs.
+Provide two unlocked accounts: a funded holder with at least four SID base units
+and a zero-balance recipient. A third address must have no prior SID Transfer
+history. All accounts need gas for their submitted transactions. The node must
+serve archive state, `finalized`, EIP-1898 and complete logs from genesis.
+
+```sh
+bash tools/paxeer-x/sid-snapshot/test.sh \
+  --rpc http://127.0.0.1:8545 \
+  --holder "$FUNDED_HOLDER" \
+  --recipient "$UNLOCKED_RECIPIENT" \
+  --new-holder "$UNUSED_ADDRESS"
+```
+
+This integration test moves real SID and accepts only a loopback IP root RPC.
+Run it on an isolated disposable chain initialized with SID, without concurrent
+transactions. It first empties the holder, then returns funds to that previously
+zero-history candidate and funds the new address. It fixes a committed block,
+moves balances again, and proves the export still matches that fixed state,
+including the full supply, the sorted JSON and its evidence digest. It also
+refuses stale and conflicting history; it never accepts a supply drop.
+
+The offline audit gate is
+`python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_846.py`.
+It checks documentation and integration source facts and exercises the production
+CSV/RPC/export path with the committed in-memory event-store peer from the
+prerequisite tests. The declared build parses `test.sh` with `bash -n`.
+The offline gate does not execute an EVM or the real-contract integration;
+contract execution and BFT commitment require runtime qualification by the node
+domain. Neither test regenerates the embedded release holder file.

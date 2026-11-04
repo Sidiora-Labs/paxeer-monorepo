@@ -1,10 +1,8 @@
 use std::collections::BTreeSet;
 use std::fmt::{Display, Formatter};
-use std::fs;
 use std::io;
-use std::path::Path;
 
-use super::codec::{self, CodecError, Decoder};
+use super::codec::{self, CodecError, Decoder, Directory};
 use super::{PrincipalId, RowKey, PRINCIPALS_DIR, STORE_FILE, STORE_MAGIC};
 
 const VERSION_FILE: &str = "store.version";
@@ -70,7 +68,7 @@ impl From<CodecError> for MigrationError {
     }
 }
 
-pub(crate) fn prepare(root: &Path) -> Result<u32, MigrationError> {
+pub(crate) fn prepare(root: &Directory) -> Result<u32, MigrationError> {
     let versions = declared_versions()?;
     let current = u32::try_from(versions.len()).map_err(|_| MigrationError::SizeOverflow)?;
     for from in 1..current {
@@ -169,39 +167,36 @@ fn transform_from(version: u32) -> Option<Transform> {
     }
 }
 
-fn apply_step(root: &Path, from: u32) -> Result<(), MigrationError> {
+fn apply_step(root: &Directory, from: u32) -> Result<(), MigrationError> {
     let Some(transform) = transform_from(from) else {
         return Err(MigrationError::UnknownVersion(from));
     };
-    let principals = root.join(PRINCIPALS_DIR);
-    if !principals.is_dir() {
-        return Ok(());
-    }
-    for entry in fs::read_dir(&principals)? {
-        let entry = entry?;
-        let directory = entry.path();
-        let name = entry.file_name();
-        let name = name
+    let principals = match root.child(PRINCIPALS_DIR, false) {
+        Ok(directory) => directory,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => return Err(error.into()),
+    };
+    for name in principals.entries()? {
+        let text = name
             .to_str()
             .ok_or(MigrationError::CorruptStore("foreign principals entry"))?;
-        if PrincipalId::new(name).is_err() || !directory.is_dir() {
+        if PrincipalId::new(text).is_err() {
             return Err(MigrationError::CorruptStore("foreign principals entry"));
         }
+        let directory = principals.child(&name, false)?;
         migrate_principal_file(&directory, from, transform)?;
     }
     Ok(())
 }
 
 fn migrate_principal_file(
-    directory: &Path,
+    directory: &Directory,
     from: u32,
     transform: Transform,
 ) -> Result<(), MigrationError> {
-    let path = directory.join(STORE_FILE);
-    if !path.exists() {
+    let Some(bytes) = directory.read(STORE_FILE)? else {
         return Ok(());
-    }
-    let bytes = fs::read(&path)?;
+    };
     let found = header_version(&bytes)?;
     let target = from.checked_add(1).ok_or(MigrationError::SizeOverflow)?;
     if found == target {
@@ -304,12 +299,10 @@ fn encode_v2(
     Ok(output)
 }
 
-fn read_version_file(root: &Path) -> Result<Option<u32>, MigrationError> {
-    let path = root.join(VERSION_FILE);
-    if !path.exists() {
+fn read_version_file(root: &Directory) -> Result<Option<u32>, MigrationError> {
+    let Some(bytes) = root.read(VERSION_FILE)? else {
         return Ok(None);
-    }
-    let bytes = fs::read(&path)?;
+    };
     if bytes.len() != 8 || bytes.get(..4) != Some(VERSION_MAGIC.as_slice()) {
         return Err(MigrationError::InvalidVersionFile);
     }
@@ -318,7 +311,7 @@ fn read_version_file(root: &Path) -> Result<Option<u32>, MigrationError> {
     Ok(Some(u32::from_be_bytes(encoded)))
 }
 
-fn write_version_file(root: &Path, version: u32) -> Result<(), MigrationError> {
+fn write_version_file(root: &Directory, version: u32) -> Result<(), MigrationError> {
     let mut bytes = Vec::with_capacity(8);
     bytes.extend_from_slice(VERSION_MAGIC);
     bytes.extend_from_slice(&version.to_be_bytes());

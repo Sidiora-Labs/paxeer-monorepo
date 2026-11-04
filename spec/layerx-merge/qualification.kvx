@@ -28123,3 +28123,91 @@ symbol = "human_node.rs"
 observed = "Attempt 6: handshake_gate passed; one human_node case panicked with Sequencer(Unavailable) because the fixture node served no px_getHistory. Attempts 7 to 9 produced no evidence."
 assumption = "Fixture gap, not a decoder defect; the attempt-6 tree is the base."
 severity = "high"
+
+[finding.22.33.133.1]
+task = "22.33.133"
+file = "apps/wallet/src/lib/swap/sdk/repair-22-33-133.test.ts"
+symbol = "repair-22-33-133.test.ts"
+observed = "Attempt 1: the wallet type-check reported five unresolved @ethereumjs modules and four implicit any bindings in the swap fixture; the task's own tests did not run."
+assumption = "The 22.33.121 fixture carries its own install root (gotcha 2999); cleared by 22.31.482."
+severity = "low"
+
+[finding.22.33.312.1]
+task = "22.33.312"
+file = "tools/qualification/audit_repairs/test_repair_22_33_312.py"
+symbol = "test_repair_22_33_312.py"
+observed = "Attempt 1: 5 of 6 documentation checks passed; the generated inventory differs from the embedded precompiles.json, and the Rust cases were written but never executed."
+assumption = "Producer drift of an embedded artefact (gotcha 3000); the task owns the file."
+severity = "high"
+
+[finding.22.33.338.5]
+task = "22.33.338"
+file = "apps/web/e2e/repair-22-33-338.test.ts"
+symbol = "repair-22-33-338.test.ts"
+observed = "Attempt 6: the build passed; 3 of 7 cases failed: two receipt proofs mixed two recordings and were refused on the transaction or receipt layout, and the sponsored submission still ended unconfirmed."
+assumption = "Test-fixture pairing and a loopback node that never answers the receipt poll; not an SDK defect as far as the evidence shows."
+severity = "high"
+
+[finding.22.33.44.2]
+task = "22.33.44"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_44.rs"
+symbol = "repair_22_33_44.rs"
+observed = "Attempt 2: 14 of 15 cases passed; the failing case panicked on a Unix socket path longer than SUN_LEN; the fix was unverified when the repair budget ran out."
+assumption = "Unverified final revision; socket path length, not a service defect."
+severity = "low"
+
+[finding.22.33.458.2]
+task = "22.33.458"
+file = "services/explorer/services/libs/blockscout-service-launcher/tests/repair_22_33_458.rs"
+symbol = "repair_22_33_458.rs"
+observed = "Attempt 2: the build failed with unresolved sea_orm and MigratorTrait because the database feature was enabled without its driver feature."
+assumption = "Gate feature set, not a change by the task."
+severity = "low"
+
+[finding.22.33.1400.5]
+task = "22.33.1400"
+file = "services/platform/examples/test/repair-22-33-1400.test.mjs"
+symbol = "repair-22-33-1400.test.mjs"
+observed = "Attempt 5: 14 of 16 cases passed; the restart replay settled twice and a matching webhook after a refused mismatch was refused as well."
+assumption = "Restart recovery and refusal state in the merchant example, both inside the paths."
+severity = "high"
+
+[finding.22.33.213.4]
+task = "22.33.213"
+file = "precompiles/layerxprograms/repair_m213_test.go"
+symbol = "repair_m213_test.go"
+observed = "Attempt 4: the build passed; 6 of 8 cases passed; the native storage-environment submission was refused as non-canonical and the recorded execution result did not decode."
+assumption = "Request encoding on the independent path and a hand-assembled recording; the production encoders are the reference."
+severity = "high"
+
+[finding.22.33.246.1]
+task = "22.33.246"
+file = "tools/qualification/audit_repairs/test_repair_22_33_246.py"
+symbol = "test_repair_22_33_246.py"
+observed = "Attempt 1: 5 of 5 tests passed; the result was refused because .cgignore and 122 install-root files lay outside the paths and the build revision differed from the verified one."
+assumption = "Change-set hygiene and gate ordering, not a defect in the repair."
+severity = "low"
+
+[finding.22.33.1572.1]
+task = "22.33.1572"
+file = "services/agent/tests/parity/tests/repair_22_33_1572.rs"
+symbol = "repair_22_33_1572.rs"
+observed = "Attempt 1: the build failed on an unresolved import in the parity library (Key taken from a module that does not exist); the verify never ran."
+assumption = "Import against a module the API crate does not export; the API crate is outside the paths."
+severity = "high"
+
+[finding.22.33.1575.1]
+task = "22.33.1575"
+file = "services/agent/tests/qualify/tests/repair_22_33_1575.rs"
+symbol = "repair_22_33_1575.rs"
+observed = "Attempt 1: 10 of 12 cases passed; two hostile-certificate cases were refused with Proof(Mismatch) before the quorum check they target; a timestamp fix was never verified."
+assumption = "Attack fixture shape, not a verifier defect; the attempt-1 tree is the base."
+severity = "high"
+
+[finding.22.33.619.8]
+task = "22.33.619"
+file = "sdk/integrations/next/example/test/repair-22-33-619.test.mjs"
+symbol = "repair-22-33-619.test.mjs"
+observed = "Attempt 8: 6 of 6 tests passed; .cgignore and two undeclared lock files lay outside the paths and the build revision differed from the verified one."
+assumption = "Change-set hygiene and gate ordering, not a defect in the repair."
+severity = "low"

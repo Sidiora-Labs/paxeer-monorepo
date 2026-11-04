@@ -9,8 +9,29 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "agent/sdk/python")
 from layerx_sdk.x402 import payment_commitment, verify_payment_receipt
 from layerx_sdk.verifier import ReceiptKey, verify_sequencer_receipt
 from layerx_sdk.production import PlatformSdkError
+from layerx_sdk.account_derivation import keccak256
 
-FIXTURE = json.loads(Path(__file__).with_name("evm-receipt.json").read_text())
+_ROOT = Path(__file__).resolve().parents[5]
+_VECTORS = json.loads((_ROOT / "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json").read_text())
+_NODE = next(row for row in _VECTORS["cases"] if row["id"] == "V1-layerxledger-pay-exact")
+_LOG = _NODE["receiptJson"]["logs"][0]
+_PIN = _NODE["pinnedKey"]
+FIXTURE = {
+    "receipt": {
+        "format": "layerx-receipt-proof-v2", "verificationLevel": "receipted",
+        "rawTransaction": _NODE["rawTransaction"], "signedReceipt": _NODE["signedReceipt"],
+        "receiptDigest": "0x" + keccak256(bytes.fromhex(_NODE["signedReceipt"][2:])).hex(),
+        "receiptKey": {**_PIN, "firstHeight": hex(_PIN["firstHeight"]), "lastHeight": hex(_PIN["lastHeight"])},
+    },
+    "txHash": _NODE["receiptJson"]["txHash"],
+    "payer": "0x" + _NODE["receiptJson"]["from"][2:].zfill(64),
+    "rpcResult": _NODE["receiptJson"],
+    "offer": {
+        "scheme": "exact", "network": "eip155:125", "amount": str(int(_LOG["data"][66:], 16)),
+        "asset": _LOG["data"][:66], "payTo": _LOG["topics"][3], "maxTimeoutSeconds": 120,
+        "extra": {"layerx": {"commitment": "receipted", "payer": _LOG["topics"][2][2:], "purposeHash": _LOG["topics"][1][2:]}},
+    },
+}
 
 
 class CommitmentTests(unittest.TestCase):
@@ -29,8 +50,8 @@ class CommitmentTests(unittest.TestCase):
         )
         self.offer = dict(
             amount=FIXTURE["offer"]["amount"],
-            asset=FIXTURE["offer"]["asset"],
-            pay_to=FIXTURE["offer"]["payTo"],
+            asset=FIXTURE["offer"]["asset"][2:],
+            pay_to=FIXTURE["offer"]["payTo"][2:],
         )
 
     def verify(self, **changes):
@@ -86,6 +107,7 @@ class CommitmentTests(unittest.TestCase):
         self.verify()
         for commitment in (
             "committed",
+            "submitted",
             "executed",
             "batched",
             "finalised",
@@ -98,11 +120,11 @@ class CommitmentTests(unittest.TestCase):
                 self.verify(commitment=commitment)
         self.assertEqual(payment_commitment(), "receipted")
         self.assertEqual(payment_commitment({}), "receipted")
-        for rung in ("submitted", "receipted", "committed"):
+        for rung in ("receipted", "committed"):
             self.assertEqual(payment_commitment({"layerx": {"commitment": rung}}), rung)
-        for rung in ("submitted", "receipted"):
+        for rung in ("receipted",):
             self.assertEqual(self.verify(commitment=rung).canonical_bytes, self.wire)
-        for retired in ("executed", "batched", "finalised"):
+        for retired in ("submitted", "executed", "batched", "finalised"):
             with self.assertRaisesRegex(PlatformSdkError, "rung ladder.*submitted.*receipted.*committed"):
                 payment_commitment({"layerx": {"commitment": retired}})
         for value in (None, [], {}, "executed"):

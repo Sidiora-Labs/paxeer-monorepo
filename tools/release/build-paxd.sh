@@ -21,6 +21,12 @@ case "$#:${1-}" in
     ;;
 esac
 
+# Refuse stale release callers before invoking toolchains or replacing output.
+if [ "${PAXD_RELEASE_LAYERXD:-0}" != 0 ]; then
+  echo "build-paxd: PAXD_RELEASE_LAYERXD is retired; release the merged paxd package" >&2
+  exit 2
+fi
+
 if [ -d /usr/local/go/bin ]; then PATH="/usr/local/go/bin:$PATH"; fi
 if [ -d "$HOME/.cargo/bin" ]; then PATH="$HOME/.cargo/bin:$PATH"; fi
 

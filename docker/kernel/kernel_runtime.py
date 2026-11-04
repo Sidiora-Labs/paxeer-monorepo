@@ -36,6 +36,13 @@ NODE = {
 MAXIMUM_COMMIT_AGE = 60
 
 
+def validate_chain_environment(environment):
+    """Domain policy never selects the native EVM signing chain."""
+    for name in ('LAYERX_NODE_EVM_CHAIN_ID', 'LAYERX_NODE_PAXEER_CHAIN_ID'):
+        if environment.get(name, str(EVM_CHAIN_ID)) != str(EVM_CHAIN_ID):
+            raise ValueError(name + ' must be 125 for the merged kernel')
+
+
 def private_directory(path):
     path = Path(path).absolute()
     if path.resolve() != path:
@@ -56,6 +63,14 @@ def private_file(path, maximum=4096):
 
 def validate_home(home):
     home = private_directory(home)
+    # Migration is an offline owner operation, never an entrypoint side effect.
+    # Archived sibling volumes may remain, but legacy state cannot be launched
+    # from a native home, even after it has been partly provisioned.
+    for name in ('metadata.lxgb', 'settlement.env', 'guarantor-1',
+                 'guarantor-2', 'guarantor-submitter'):
+        if os.path.lexists(home / name):
+            raise ValueError('legacy kernel state requires offline migration; '
+                             'preserve the old volume and provision a separate native home')
     for name in ('config', 'data'):
         private_directory(home / name)
     genesis_raw = native.read_regular(home / 'config/genesis.json')
@@ -237,6 +252,7 @@ def main():
     parser.add_argument('--home', required=True, type=Path)
     args = parser.parse_args()
     try:
+        validate_chain_environment(os.environ)
         return supervise(args.home)
     except (OSError, ValueError, KeyError, TypeError, StoreError, subprocess.SubprocessError) as error:
         print('kernel-init: ' + str(error), file=sys.stderr)

@@ -1,0 +1,40 @@
+[task]
+id = "22.33.870"
+requirement = "22998.1"
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+repair = "Delete docker/platform-node/Dockerfile as proposed by audit 22.30.183/f001; preserve the merged paxd producer and consumer recipes byte for byte. No replacement image or runtime is introduced."
+source_proof = "Pytest asserts the retired Dockerfile and any replacement link are absent and the retired directory is empty or absent. Parse the retained Docker instructions, native-library and cgo build stages, paxd executable COPY transport and runtime ENTRYPOINTs, then parse the committed image catalogue names and recipe mappings to verify the producer and consumer remain registered and the retired image is unregistered. Verify both retained recipe digests against the starting tree."
+review_only = "The Python-only gate does not run Docker, Bash, Go, Rust or Make, build or launch images, publish a registry artifact, deploy a node, or establish native runtime state/restart recovery. The retained build and image wiring are source facts. No shell script is changed; bash -n would require an extra external binary/gate and is not claimed. No stateful or runtime interface is changed, so restart and interface execution are not claimed."
+baseline_tests_run = false
+baseline = "Initial git status/diff showed only runner-owned .cgignore and task-start spec bookkeeping; neither scoped proof file existed. /out/run/gate.json recorded zero builds and zero verifies and /out/run/gates.jsonl was absent. The explicit implementation-first order and hf-done-only verification supersede step 5's pre-change run request. No pre-change failing test result is claimed. Inspection of the unchanged Dockerfile showed the retired make targets and COPY statements, so the removal assertion would reject that source tree."
+baseline_retired_recipe_sha256 = "6178ee6238225c466014a184f69feefc15c8ff6261b4342c750ec1dc679c0791"
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_870.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision = "The final hf-done JSON and private /out/run/gates.jsonl name the exact content-derived candidate revision, command, exit code and private log for this record and its proofs. Embedding the candidate hash here changes that hash; the external ledger binds the verified revision."
+qualification = "Run hf-build then hf-done on the same unchanged candidate; only a passing hf-done closes qualification. No result is claimed before execution. The runner owns publication; no manual commit or push is performed."
+catalogue_review = "services/platform/hosted/tests/beta-images.sh already omits platform-node and registers paxd-node and paxd against docker/paxeer/Dockerfile.paxd-node and Dockerfile.paxd; publish-images.sh consumes image_source from that catalogue. No catalogue or deployment changes are authorized in this task."
+wiring_requests = ["tools/containers/check.sh and tools/containers/test_out_of_scope_list.py — tools-ops domain 16: remove the obsolete docker/platform-node/Dockerfile row from OUT_OF_SCOPE and its exact-list expectation in the owning retirement task; retain the platform-node refusal and all paxd packaging/catalogue entries."]
+format = "No Python or KVX formatter is configured for these paths; apply .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions after implementation."
+
+[finding.f001]
+audit = "22.30.183"
+file = "docker/platform-node/Dockerfile"
+audit_line = 12
+class = "retired-reference"
+severity = "medium"
+owner_domain = 16
+resolution = "Remove the complete retired image recipe, including standalone layerxd/handover/guarantor compilation, runtime binaries, history-index migration and checkpoint-settlement configuration. Preserve paxd packaging; source-prove the existing native producer, executable transport, runtime entrypoint and catalogue consumer. The out-of-scope container-inventory row is delegated above."
+tests = ["test_f001_standalone_image_recipe_is_removed", "test_f001_retains_real_paxd_producer_and_runtime_consumer", "test_f001_catalogue_routes_only_to_retained_paxd_recipes", "test_f001_record_binds_proofs_preserved_packaging_and_wiring_request"]
+
+[preserved_packaging]
+"docker/paxeer/Dockerfile.paxd" = "6138436b068673ad9149440ab90cec88e0dbcffa74327cc38e544aa9a5ef1ac4"
+"docker/paxeer/Dockerfile.paxd-node" = "e1d77c0df1bdcaa540ab85b48ac6faa110967699be95669c736d9f94bdb2e339"
+
+[gotcha.scope_and_order]
+observed = "The older step asks for baseline verification and the workflow asks for global ledger edits/publication, but the explicit task order forbids an early verify, out-of-scope edits, manual commits and pushes."
+resolution = "Record the baseline limitation and gotchas here, retain runner-prepared changes, use only hf-build/hf-done and leave publication to the runner."
+
+[gotcha.context]
+observed = "Combined broad context reads exceeded output limits, and cg brief reported graph paths that differ from git status because graph auto-sync is disabled."
+resolution = "Use bounded exact finding/source reads and git status/diff as working-tree evidence; do not infer gate success or source facts from truncated graph context."

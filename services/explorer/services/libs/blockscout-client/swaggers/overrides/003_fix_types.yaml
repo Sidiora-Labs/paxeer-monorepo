@@ -1,9 +1,9 @@
 components:
   schemas:
     AddressParam:
-      required: [hash, private_tags, public_tags, watchlist_names, ~,~,~,~,~]
+      required: [hash, private_tags, public_tags, watchlist_names]
     Block:
-      required: [hash, parent_hash, height,~,~,~,~,~,~,~,~,~,~,~,~,~,~,~,~,~,~,~,~,~,~,~,~]
+      required: [hash, parent_hash, height]
       properties:
         priority_fee:
           type: number
@@ -92,20 +92,20 @@ components:
           format: int64
 
     TokenInfoDetailed:
-      required: [address, ~,~,~,~,~,~,~,~,~]
+      required: [address_hash]
       properties:
         total_supply:
           type: string
     TokenInfo:
-      required: [address, ~,~,~,~,~,~,~,~,~]
+      required: [address_hash]
       properties:
         total_supply:
           type: string
 
     TotalERC20:
-      required: [~,~]
+      required: '__REMOVE__'
     TotalERC1155:
-      required: [token_id, ~,~]
+      required: [token_id]
     Log:
       properties:
         topics:
@@ -113,41 +113,35 @@ components:
             nullable: true
 
     TokenBalance:
-      required: [~,~,~]
+      required: '__REMOVE__'
 
     NFTInstance:
-      required: [id,~,~,~]
+      required: [id]
 
     StatsResponse:
-      required: [~,~,~,~,~,~,~,~,~,~,~,~]
+      required: '__REMOVE__'
 
     AddressNFTInstance:
-      required: [token_type, id, ~,~,~,~]
+      required: [token_type, id]
 
 
     Token:
-      required: [address,~,~,~,~,~,~,~]
+      required: [address_hash]
 
     AddressNFTInstanceCollection:
-      required: [token_type, id, ~,~,~,~,~,~,~]
+      required: [token_type, id]
 
     SearchResultToken:
-      required: [address,address_url,~,~,~,~,~,~,~]
+      required: [address_hash, address_url]
     SearchResultAddressOrContract:
-      required: [address,url]
+      required: [address_hash, url]
     SearchResultBlock:
-      required: [block_hash,timestamp,url,~,~]
+      required: [block_hash, timestamp, url]
     SearchResultTransaction:
-      required: [timestamp,transaction_hash,url,~,~]
-    
+      required: [timestamp, transaction_hash, url]
+
 
   parameters:
     id:
       schema:
         type: string
-
-        
-
-        
-
-      

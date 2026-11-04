@@ -7,8 +7,9 @@ use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
-use std::time::Duration;
+use std::sync::{mpsc, Arc, Mutex};
+use std::thread;
+use std::time::{Duration, Instant};
 
 use rustls::pki_types::{CertificateDer, ServerName};
 use rustls::{ClientConfig, ClientConnection, RootCertStore, StreamOwned};
@@ -61,8 +62,60 @@ pub enum BroadcastResult {
     Unknown,
 }
 
+/// Address lookup provider. The transport bounds even a blocking resolver by
+/// the same request deadline, with at most one outstanding lookup per endpoint.
+pub trait RpcResolver: Send + Sync + 'static {
+    fn resolve(&self, host: &str, port: u16) -> std::io::Result<Vec<SocketAddr>>;
+}
+
+struct SystemResolver;
+impl RpcResolver for SystemResolver {
+    fn resolve(&self, host: &str, port: u16) -> std::io::Result<Vec<SocketAddr>> {
+        (host, port)
+            .to_socket_addrs()
+            .map(|addresses| addresses.take(8).collect())
+    }
+}
+
+type Lookup = mpsc::Receiver<std::io::Result<Vec<SocketAddr>>>;
+
+struct DeadlineTcp {
+    tcp: TcpStream,
+    deadline: Instant,
+}
+
+impl DeadlineTcp {
+    fn remaining(&self) -> std::io::Result<Duration> {
+        self.deadline
+            .checked_duration_since(Instant::now())
+            .filter(|duration| !duration.is_zero())
+            .ok_or_else(|| {
+                std::io::Error::new(std::io::ErrorKind::TimedOut, "RPC request deadline")
+            })
+    }
+}
+
+impl Read for DeadlineTcp {
+    fn read(&mut self, bytes: &mut [u8]) -> std::io::Result<usize> {
+        self.tcp.set_read_timeout(Some(self.remaining()?))?;
+        self.tcp.read(bytes)
+    }
+}
+impl Write for DeadlineTcp {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.tcp.set_write_timeout(Some(self.remaining()?))?;
+        self.tcp.write(bytes)
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.remaining()?;
+        self.tcp.flush()
+    }
+}
+
 struct Endpoint {
     host: String,
+    resolver: Arc<dyn RpcResolver>,
+    lookup: Mutex<Option<Lookup>>,
     port: u16,
     path: String,
     backend: String,
@@ -85,6 +138,14 @@ impl RpcCluster {
     /// # Errors
     /// Returns an error for invalid bounds, duplicate endpoints or invalid endpoint TLS configuration.
     pub fn new(config: &RpcQuorumConfig) -> Result<Self, RpcError> {
+        Self::with_resolver(config, Arc::new(SystemResolver))
+    }
+
+    /// Uses an operator-provided resolver under the normal request deadline.
+    pub fn with_resolver(
+        config: &RpcQuorumConfig,
+        resolver: Arc<dyn RpcResolver>,
+    ) -> Result<Self, RpcError> {
         if config.endpoints.len() < 2
             || config.endpoints.len() > MAX_ENDPOINTS
             || config.quorum < 2
@@ -99,7 +160,7 @@ impl RpcCluster {
         let endpoints = config
             .endpoints
             .iter()
-            .map(Endpoint::new)
+            .map(|config| Endpoint::new(config, Arc::clone(&resolver)))
             .collect::<Result<Vec<_>, _>>()?;
         let network_identities: BTreeSet<_> = endpoints
             .iter()
@@ -135,14 +196,8 @@ impl RpcCluster {
         let mut rate_limit = None;
         let mut responses = 0_usize;
         let mut malformed = 0_usize;
-        for endpoint in &self.endpoints {
-            match endpoint.request(
-                &body,
-                self.connect_timeout,
-                self.request_timeout,
-                self.maximum_response_bytes,
-                request_id,
-            ) {
+        for response in self.read_responses(&body, request_id) {
+            match response {
                 Ok(value) => {
                     responses = responses.saturating_add(1);
                     let canonical = canonical_json(&value)?;
@@ -178,6 +233,29 @@ impl RpcCluster {
             });
         }
         Err(RpcError::Unavailable)
+    }
+
+    /// Independent reads run concurrently so a bounded slow endpoint cannot
+    /// serialize the healthy quorum's connection and response budgets.
+    fn read_responses(&self, body: &[u8], request_id: u64) -> Vec<Result<Value, RpcError>> {
+        thread::scope(|scope| {
+            let (send, receive) = mpsc::sync_channel(MAX_ENDPOINTS);
+            for endpoint in &self.endpoints {
+                let send = send.clone();
+                scope.spawn(move || {
+                    let result = endpoint.request(
+                        body,
+                        self.connect_timeout,
+                        self.request_timeout,
+                        self.maximum_response_bytes,
+                        request_id,
+                    );
+                    let _ = send.send(result);
+                });
+            }
+            drop(send);
+            receive.into_iter().collect()
+        })
     }
 
     /// Broadcasts already signed immutable bytes to every independent endpoint.
@@ -277,7 +355,7 @@ fn canonical_json(value: &Value) -> Result<Vec<u8>, RpcError> {
 }
 
 impl Endpoint {
-    fn new(config: &RpcEndpointConfig) -> Result<Self, RpcError> {
+    fn new(config: &RpcEndpointConfig, resolver: Arc<dyn RpcResolver>) -> Result<Self, RpcError> {
         if !config.ca_certificate_der.is_absolute() || !config.bearer_token_file.is_absolute() {
             return Err(RpcError::Configuration);
         }
@@ -320,6 +398,8 @@ impl Endpoint {
             .with_root_certificates(roots)
             .with_no_client_auth();
         Ok(Self {
+            resolver,
+            lookup: Mutex::new(None),
             host,
             port,
             path,
@@ -337,21 +417,50 @@ impl Endpoint {
         maximum_response_bytes: usize,
         request_id: u64,
     ) -> Result<Value, RpcError> {
-        let addresses: Vec<SocketAddr> = (self.host.as_str(), self.port)
-            .to_socket_addrs()
-            .map_err(|_| RpcError::Unavailable)?
-            .take(8)
-            .collect();
-        if addresses.is_empty() {
-            return Err(RpcError::Unavailable);
-        }
-        for address in addresses {
-            let Ok(tcp) = TcpStream::connect_timeout(&address, connect_timeout) else {
+        let deadline = Instant::now() + request_timeout;
+        let remaining = || {
+            deadline
+                .checked_duration_since(Instant::now())
+                .filter(|duration| !duration.is_zero())
+                .ok_or(RpcError::Unavailable)
+        };
+        let addresses = {
+            let mut lookup = self.lookup.try_lock().map_err(|_| RpcError::Unavailable)?;
+            if lookup.is_none() {
+                let (send, receive) = mpsc::sync_channel(1);
+                let resolver = Arc::clone(&self.resolver);
+                let host = self.host.clone();
+                let port = self.port;
+                thread::Builder::new()
+                    .name("mirror-dns".into())
+                    .spawn(move || {
+                        let _ = send.send(resolver.resolve(&host, port));
+                    })
+                    .map_err(|_| RpcError::Unavailable)?;
+                *lookup = Some(receive);
+            }
+            match lookup
+                .as_ref()
+                .ok_or(RpcError::Unavailable)?
+                .recv_timeout(remaining()?)
+            {
+                Ok(result) => {
+                    *lookup = None;
+                    result.map_err(|_| RpcError::Unavailable)?
+                }
+                Err(mpsc::RecvTimeoutError::Timeout) => return Err(RpcError::Unavailable),
+                Err(mpsc::RecvTimeoutError::Disconnected) => {
+                    *lookup = None;
+                    return Err(RpcError::Unavailable);
+                }
+            }
+        };
+        for address in addresses.into_iter().take(8) {
+            let Ok(tcp) = TcpStream::connect_timeout(&address, connect_timeout.min(remaining()?))
+            else {
                 continue;
             };
-            tcp.set_read_timeout(Some(request_timeout))
-                .and_then(|()| tcp.set_write_timeout(Some(request_timeout)))
-                .map_err(|_| RpcError::Unavailable)?;
+            let tcp = DeadlineTcp { tcp, deadline };
             let server_name =
                 ServerName::try_from(self.host.clone()).map_err(|_| RpcError::Configuration)?;
             let connection = ClientConnection::new(Arc::clone(&self.tls), server_name)
@@ -370,7 +479,9 @@ impl Endpoint {
                 .write_all(body)
                 .and_then(|()| stream.flush())
                 .map_err(|_| RpcError::Unavailable)?;
-            return read_json_rpc(&mut stream, maximum_response_bytes, request_id);
+            let response = read_json_rpc(&mut stream, maximum_response_bytes, request_id)?;
+            remaining()?;
+            return Ok(response);
         }
         Err(RpcError::Unavailable)
     }

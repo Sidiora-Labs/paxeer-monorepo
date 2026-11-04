@@ -3,7 +3,7 @@
   "height": "@HEIGHT@",
   "info": "@UPGRADE_INFO@",
   "title": "Paxeer X Network v6.12.0",
-  "description": "Upgrade the chain to paxd v6.12.0 at the plan height. The v6.12.0 plan activates the custody governance route and its messages. The release asset and its SHA-256 are named in the plan info.",
+  "description": "Upgrade the chain to paxd v6.12.0 at the plan height. This is the pre-merge v6.12.0 plan; the merged-network upgrade uses a separate plan. After the merge, the custody executor is retained only to refuse custody governance messages. The release asset and its SHA-256 are named in the plan info.",
   "deposit": "@DEPOSIT@",
   "is_expedited": false
 }

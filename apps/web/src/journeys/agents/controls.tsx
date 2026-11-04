@@ -98,6 +98,7 @@ function BoundAgentControls({
   const [errorSentence, setErrorSentence] = useState<string | undefined>(undefined);
   const [lastJourney, setLastJourney] = useState<JourneyProgress | undefined>(undefined);
   const [challenge, setChallenge] = useState<KeyChallengePresentation | undefined>(undefined);
+  const [reopening, setReopening] = useState(true);
   const [unknownControl, setUnknownControl] = useState<OpenControl | undefined>(undefined);
 
   const controls = controlsFor(agent, ownerAccount === undefined ? {} : { ownerAccount });
@@ -106,7 +107,7 @@ function BoundAgentControls({
     && !lastJourney.complete
     && lastJourney.statusKey !== "refused"
     && lastJourney.refusalSentence === undefined;
-  const outcomeUnknown = unknownControl !== undefined;
+  const outcomeUnknown = reopening || unknownControl !== undefined;
   const controlsLocked = busy || journeyPending || outcomeUnknown;
 
   useEffect(() => {
@@ -146,93 +147,38 @@ function BoundAgentControls({
   }, [agents, journeyPending, lastJourney, onChanged]);
 
   const lookupUnknownOutcome = useCallback(async (): Promise<"pending" | "resolved"> => {
-    if (unknownControl === undefined) {
-      return "resolved";
-    }
-    if (busyRef.current) {
-      return "pending";
-    }
+    if (busyRef.current) return "pending";
     busyRef.current = true;
     setBusy(true);
     const generation = lifecycle.current;
-    const currentResult = async <T,>(operation: Promise<T>): Promise<T> => {
-      const result = await operation;
-      if (generation !== lifecycle.current) {
-        throw new Error("Agent selection changed");
-      }
-      return result;
-    };
     try {
-      if (unknownControl.id === "pause") {
-        onAgent(await currentResult(agents.pause(agent.agent_id)));
-      } else if (unknownControl.id === "resume") {
-        onAgent(await currentResult(agents.resume(agent.agent_id)));
-      } else if (unknownControl.id === "limit") {
-        const money = parseMonthlyLimit(unknownControl.input, AGENT_CURRENCY);
-        if (money === undefined) {
-          setErrorSentence(copyEntry("error.agent.limit-invalid").message);
-          setUnknownControl(undefined);
-          return "resolved";
-        }
-        onAgent(await currentResult(agents.changeLimit(agent.agent_id, money)));
-      } else if (unknownControl.id === "reclaim") {
-        const money = parseMonthlyLimit(unknownControl.input, AGENT_CURRENCY);
-        if (money === undefined) {
-          setErrorSentence(copyEntry("error.agent.limit-invalid").message);
-          setUnknownControl(undefined);
-          return "resolved";
-        }
-        setLastJourney(journeyProgress(await currentResult(agents.reclaim(agent.agent_id, money))));
-        onChanged();
-      } else if (unknownControl.id === "fund") {
-        if (unknownControl.quote === undefined) {
-          setErrorSentence(copyEntry("state.error.body").message);
-          setUnknownControl(undefined);
-          return "resolved";
-        }
-        setLastJourney(journeyProgress(await currentResult(agents.fundCommit(unknownControl.quote))));
-        onChanged();
-      } else if (unknownControl.id === "archive") {
-        if (unknownControl.phase !== "confirm") {
-          setErrorSentence(copyEntry("state.error.body").message);
-          setUnknownControl(undefined);
-          return "resolved";
-        }
-        setLastJourney(journeyProgress(
-          await currentResult(agents.archive(agent.agent_id, unknownControl.typed)),
-        ));
-        onChanged();
-      } else if (unknownControl.id === "rotate") {
-        const timing = parseRotationTiming(unknownControl.delay, unknownControl.window);
-        if (timing === undefined) {
-          setErrorSentence(copyEntry("error.agent.rotation-timing").message);
-          setUnknownControl(undefined);
-          return "resolved";
-        }
-        setChallenge(keyChallengePresentation(await currentResult(agents.startRotation(agent.agent_id, timing)), AGENT_LOCALE));
-      } else {
-        setChallenge(keyChallengePresentation(await currentResult(agents.recover(agent.agent_id)), AGENT_LOCALE));
+      const recovered = await agents.recoverPending(agent.agent_id);
+      if (generation !== lifecycle.current) return "resolved";
+      if (recovered?.kind === "agent") onAgent(recovered.value);
+      if (recovered?.kind === "journey") {
+        const progress = journeyProgress(recovered.value);
+        setLastJourney(progress);
+        if (progress.complete || progress.refusalSentence !== undefined) onChanged();
       }
+      if (recovered?.kind === "challenge") {
+        setChallenge(keyChallengePresentation(recovered.value, AGENT_LOCALE));
+      }
+      setReopening(false);
       setUnknownControl(undefined);
       setErrorSentence(undefined);
       return "resolved";
     } catch (error) {
-      if (generation !== lifecycle.current) {
-        return "resolved";
-      }
-      if (mutationOutcomeUnknown(error)) {
-        return "pending";
-      }
+      if (generation !== lifecycle.current) return "resolved";
+      if (mutationOutcomeUnknown(error)) return "pending";
+      setReopening(false);
       setUnknownControl(undefined);
       setErrorSentence(apiErrorSentence(error));
       return "resolved";
     } finally {
       busyRef.current = false;
-      if (generation === lifecycle.current) {
-        setBusy(false);
-      }
+      if (generation === lifecycle.current) setBusy(false);
     }
-  }, [agent.agent_id, agents, onAgent, onChanged, unknownControl]);
+  }, [agent.agent_id, agents, onAgent, onChanged]);
 
   const unknownOutcomeResolved = useCallback(() => {
     setUnknownControl(undefined);
@@ -240,6 +186,7 @@ function BoundAgentControls({
 
   if (
     controls.length === 0
+    && !outcomeUnknown
     && lastJourney === undefined
     && challenge === undefined
     && errorSentence === undefined
@@ -326,7 +273,7 @@ function BoundAgentControls({
             setOpen({ id: "fund", input: open.input, quote });
           }
         } else {
-          setLastJourney(journeyProgress(await currentResult(agents.fundCommit(open.quote))));
+          setLastJourney(journeyProgress(await currentResult(agents.fundCommit(open.quote, agent.agent_id))));
           close(true);
           onChanged();
         }
@@ -460,7 +407,7 @@ function BoundAgentControls({
           </div>
         </>
       )}
-      {unknownControl === undefined ? (
+      {!outcomeUnknown ? (
         open === undefined && errorSentence !== undefined ? (
           <InlineNotice tone="danger" role="alert">
             {errorSentence}
