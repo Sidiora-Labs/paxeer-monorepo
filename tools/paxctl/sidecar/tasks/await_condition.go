@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/sei-protocol/seictl/sidecar/actions"
 	"github.com/sei-protocol/seictl/sidecar/engine"
 	"github.com/sei-protocol/seictl/sidecar/rpc"
 	"github.com/sei-protocol/seilog"
@@ -31,15 +30,16 @@ type AwaitConditionRequest struct {
 // ConditionWaiter polls a local node until a condition is met, then
 // optionally executes a post-condition action.
 type ConditionWaiter struct {
-	rpc *rpc.StatusClient
+	rpc     *rpc.StatusClient
+	process NodeProcessConfig
 }
 
 // NewConditionWaiter creates a ConditionWaiter. Pass nil for the default RPC client.
-func NewConditionWaiter(rpcClient *rpc.StatusClient) *ConditionWaiter {
+func NewConditionWaiter(rpcClient *rpc.StatusClient, config ...NodeProcessConfig) *ConditionWaiter {
 	if rpcClient == nil {
-		rpcClient = rpc.NewStatusClient("", nil)
+		rpcClient = rpc.NewStatusClient(processConfig(config).RPCEndpoint, nil)
 	}
-	return &ConditionWaiter{rpc: rpcClient}
+	return &ConditionWaiter{rpc: rpcClient, process: processConfig(config)}
 }
 
 // Handler returns an engine.TaskHandler for the await-condition task type.
@@ -156,7 +156,7 @@ func (w *ConditionWaiter) awaitCaughtUp(ctx context.Context) error {
 func (w *ConditionWaiter) executeAction(ctx context.Context, action string) error {
 	switch action {
 	case actionSIGTERM:
-		return actions.GracefulStop(ctx, nil, "seid", actions.DefaultGracePeriod)
+		return NewStopSeider(w.process).stopper.stop(ctx)
 	default:
 		return fmt.Errorf("unknown action %q", action)
 	}

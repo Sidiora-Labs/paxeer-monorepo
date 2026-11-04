@@ -10,13 +10,16 @@
 package tasks
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
+	authsigning "github.com/sei-protocol/sei-chain/sei-cosmos/x/auth/signing"
 	"os"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 
@@ -33,12 +36,6 @@ import (
 
 var signTxLog = seilog.NewLogger("seictl", "task", "sign-tx")
 
-// feeDenom is the only fee denom the sidecar will sign for. seienv
-// historically used "sei" (e.g., `--fees 20sei` in vote.go:15) which
-// seid rejects at parse time — we make the rejection explicit and
-// chain-confusion-proof. 1 SEI = 1_000_000 usei.
-const feeDenom = "usei"
-
 // Var (not const) so tests can shorten without a deadline context.
 var (
 	inclusionPollTimeout  = 60 * time.Second
@@ -52,7 +49,7 @@ type SignAndBroadcastInput struct {
 	KeyName string
 	Msg     sdk.Msg
 
-	// Fees is a coin-string in usei. Non-usei denoms are rejected Terminal.
+	// Fees is a coin-string in uhpx. Non-uhpx denoms are rejected Terminal.
 	Fees string
 
 	Gas  uint64
@@ -160,6 +157,9 @@ func SignAndBroadcast(ctx context.Context, cfg engine.ExecutionConfig, in SignAn
 // reach this through SignAndBroadcast which wires the production txClient;
 // tests call it directly with a fake.
 func signAndBroadcast(ctx context.Context, cfg engine.ExecutionConfig, tc txClient, in SignAndBroadcastInput, fromAddr sdk.AccAddress) (*SignAndBroadcastResult, error) {
+	lockIndex := sha256.Sum256([]byte(in.TaskID))
+	taskSigningLocks[lockIndex[0]].Lock()
+	defer taskSigningLocks[lockIndex[0]].Unlock()
 	// Reject caller-supplied "taskID=" before appending so on-chain
 	// audit greps never see a forged tag preceding the genuine one.
 	if strings.Contains(in.Memo, taskIDMemoPrefix) {
@@ -174,20 +174,26 @@ func signAndBroadcast(ctx context.Context, cfg engine.ExecutionConfig, tc txClie
 	if err := checkFeesDenom(in.Fees); err != nil {
 		return nil, Terminal(err)
 	}
-	if err := guardChainID(ctx, cfg.RPC, in.ChainID); err != nil {
-		return nil, err
-	}
-
-	// Adopt an in-flight tx from a prior crashed run instead of signing anew.
-	if cfg.Checkpointer != nil && in.TaskID != "" {
-		marker, err := cfg.Checkpointer.GetTxMarker(in.TaskID)
+	var marker *engine.TxMarker
+	if cfg.Checkpointer != nil {
+		var err error
+		marker, err = cfg.Checkpointer.GetTxMarker(in.TaskID)
 		if err != nil {
 			return nil, fmt.Errorf("read tx marker: %w", err)
 		}
 		if marker != nil {
-			signTxLog.Info("adopting in-flight tx from marker", "taskId", in.TaskID, "txHash", marker.TxHash)
-			return adoptMarker(ctx, tc, marker)
+			if err := verifyMarkerRequest(cfg, marker, in, fromAddr); err != nil {
+				return nil, Terminal(err)
+			}
 		}
+	} else {
+		return nil, Terminal(fmt.Errorf("durable transaction checkpointer required"))
+	}
+	if err := guardChainID(ctx, cfg.RPC, in.ChainID); err != nil {
+		return nil, err
+	}
+	if marker != nil {
+		return adoptMarker(ctx, tc, marker)
 	}
 
 	accNum, seq, err := tc.AccountNumberSequence(ctx, fromAddr)
@@ -195,30 +201,9 @@ func signAndBroadcast(ctx context.Context, cfg engine.ExecutionConfig, tc txClie
 		return nil, fmt.Errorf("account retrieve %s: %w", fromAddr.String(), err)
 	}
 
-	// WithFees panics on parse error; checkFeesDenom already ran.
-	_, _, txCfg := makeSignTxCodec()
-	factory := tx.Factory{}.
-		WithChainID(in.ChainID).
-		WithKeybase(cfg.Keyring).
-		WithTxConfig(txCfg).
-		WithAccountRetriever(authtypes.AccountRetriever{}).
-		WithAccountNumber(accNum).
-		WithSequence(seq).
-		WithGas(in.Gas).
-		WithFees(in.Fees).
-		WithMemo(in.Memo).
-		WithSignMode(signingtypes.SignMode_SIGN_MODE_DIRECT)
-
-	builder, err := tx.BuildUnsignedTx(factory, in.Msg)
+	txBytes, err := signTransaction(cfg, in, accNum, seq)
 	if err != nil {
-		return nil, Terminal(fmt.Errorf("build unsigned tx: %w", err))
-	}
-	if err := tx.Sign(factory, in.KeyName, builder, true); err != nil {
-		return nil, fmt.Errorf("sign tx: %w", err)
-	}
-	txBytes, err := txCfg.TxEncoder()(builder.GetTx())
-	if err != nil {
-		return nil, fmt.Errorf("encode tx: %w", err)
+		return nil, err
 	}
 
 	txHash := fmt.Sprintf("%X", sha256.Sum256(txBytes))
@@ -235,9 +220,6 @@ func signAndBroadcast(ctx context.Context, cfg engine.ExecutionConfig, tc txClie
 		}); err != nil {
 			return nil, fmt.Errorf("persist tx marker: %w", err)
 		}
-	} else {
-		signTxLog.Warn("no checkpointer configured; broadcasting without crash-idempotency marker",
-			"taskId", in.TaskID)
 	}
 
 	signTxLog.Info("broadcasting tx",
@@ -393,7 +375,7 @@ func validateMemo(memo string) error {
 	return nil
 }
 
-// checkFeesDenom rejects any coin string whose denom is not "usei".
+// checkFeesDenom rejects any coin string whose denom is not "uhpx".
 // Guards the seienv `--fees 20sei` latent bug before the SDK's
 // Factory.WithFees panics deep inside.
 func checkFeesDenom(fees string) error {
@@ -401,7 +383,7 @@ func checkFeesDenom(fees string) error {
 	if err != nil {
 		return fmt.Errorf("parse fees %q: %w", fees, err)
 	}
-	// ParseCoinsNormalized filters zero-amount entries; "0usei" and
+	// ParseCoinsNormalized filters zero-amount entries; "0uhpx" and
 	// non-positive sums normalize to empty Coins.
 	if len(coins) == 0 {
 		return fmt.Errorf("fees %q resolves to zero or empty coins", fees)
@@ -513,4 +495,144 @@ func resultFromTxResponse(resp *sdk.TxResponse, accNum, seq uint64, chainID stri
 		IncludedAt:    includedAt,
 		ProposalID:    parseProposalID(resp),
 	}
+}
+
+var taskSigningLocks [256]sync.Mutex
+
+type transactionIdentity struct {
+	ChainID     string          `json:"chainId"`
+	Signer      []byte          `json:"signer"`
+	PublicKey   []byte          `json:"publicKey"`
+	MessageType string          `json:"messageType"`
+	Message     json.RawMessage `json:"message"`
+	Fees        string          `json:"fees"`
+	Gas         uint64          `json:"gas"`
+	Memo        string          `json:"memo"`
+}
+
+func transactionFingerprint(in SignAndBroadcastInput, signer sdk.AccAddress, pub []byte) ([32]byte, error) {
+	_, cdc, _ := makeSignTxCodec()
+	msg, err := cdc.MarshalAsJSON(in.Msg)
+	if err != nil {
+		return [32]byte{}, err
+	}
+	// Canonical JSON also makes object-key ordering irrelevant to proposal params.
+	var canonical any
+	decoder := json.NewDecoder(bytes.NewReader(msg))
+	decoder.UseNumber()
+	if err := decoder.Decode(&canonical); err != nil {
+		return [32]byte{}, err
+	}
+	msg, err = json.Marshal(canonical)
+	if err != nil {
+		return [32]byte{}, err
+	}
+	fees, err := sdk.ParseCoinsNormalized(in.Fees)
+	if err != nil {
+		return [32]byte{}, err
+	}
+	data, err := json.Marshal(transactionIdentity{ChainID: in.ChainID, Signer: signer, PublicKey: pub, MessageType: sdk.MsgTypeURL(in.Msg), Message: msg, Fees: fees.String(), Gas: in.Gas, Memo: in.Memo})
+	if err != nil {
+		return [32]byte{}, err
+	}
+	return sha256.Sum256(data), nil
+}
+
+// The signed bytes are the durable request tombstone, even after task deletion.
+// Never infer request identity from a UUID or a transaction hash alone.
+func verifyMarkerRequest(cfg engine.ExecutionConfig, marker *engine.TxMarker, in SignAndBroadcastInput, signer sdk.AccAddress) error {
+	if marker.TaskID != in.TaskID || marker.ChainID != in.ChainID || marker.TxHash != fmt.Sprintf("%X", sha256.Sum256(marker.TxBytes)) {
+		return fmt.Errorf("transaction marker identity conflicts with request")
+	}
+	_, _, codec := makeSignTxCodec()
+	decoded, err := codec.TxDecoder()(marker.TxBytes)
+	if err != nil {
+		return fmt.Errorf("decode recorded transaction: %w", err)
+	}
+	signed, ok := decoded.(authsigning.SigVerifiableTx)
+	if !ok {
+		return fmt.Errorf("recorded transaction has no signer identity")
+	}
+	sigs, err := signed.GetSignaturesV2()
+	if err != nil {
+		return err
+	}
+	if len(sigs) != 1 || sigs[0].PubKey == nil || sigs[0].Sequence != marker.Sequence {
+		return fmt.Errorf("recorded transaction signer/sequence mismatch")
+	}
+	if !bytes.Equal(sigs[0].PubKey.Address(), signer) {
+		return fmt.Errorf("recorded transaction belongs to a different signer")
+	}
+	if err := authsigning.VerifySignature(sigs[0].PubKey, authsigning.SignerData{
+		ChainID: marker.ChainID, AccountNumber: marker.AccountNumber, Sequence: marker.Sequence,
+	}, sigs[0].Data, codec.SignModeHandler(), decoded); err != nil {
+		return fmt.Errorf("recorded transaction signature does not bind marker identity: %w", err)
+	}
+	if cfg.Keyring == nil {
+		return fmt.Errorf("keyring required to verify recorded signer")
+	}
+	key, err := cfg.Keyring.Key(in.KeyName)
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(key.GetPubKey().Bytes(), sigs[0].PubKey.Bytes()) {
+		return fmt.Errorf("recorded signing key differs from current key")
+	}
+	msgs := decoded.GetMsgs()
+	if len(msgs) != 1 {
+		return fmt.Errorf("recorded transaction must contain exactly one message")
+	}
+	feeTx, ok := decoded.(sdk.FeeTx)
+	if !ok {
+		return fmt.Errorf("recorded transaction has no fees")
+	}
+	memoTx, ok := decoded.(interface{ GetMemo() string })
+	if !ok {
+		return fmt.Errorf("recorded transaction has no memo")
+	}
+	if !bytes.Equal(feeTx.FeePayer(), signer) || len(feeTx.FeeGranter()) != 0 {
+		return fmt.Errorf("recorded fee identity differs from signer")
+	}
+	expected, err := transactionFingerprint(in, signer, key.GetPubKey().Bytes())
+	if err != nil {
+		return err
+	}
+	actual, err := transactionFingerprint(SignAndBroadcastInput{ChainID: marker.ChainID, Msg: msgs[0], Fees: feeTx.GetFee().String(), Gas: feeTx.GetGas(), Memo: memoTx.GetMemo()}, signer, sigs[0].PubKey.Bytes())
+	if err != nil {
+		return err
+	}
+	if expected != actual {
+		return fmt.Errorf("task UUID already binds a different governance request")
+	}
+	return nil
+}
+
+func signTransaction(cfg engine.ExecutionConfig, in SignAndBroadcastInput, accNum, seq uint64) ([]byte, error) {
+	// WithFees panics on parse error; checkFeesDenom already ran.
+	_, _, txCfg := makeSignTxCodec()
+	factory := tx.Factory{}.
+		WithChainID(in.ChainID).
+		WithKeybase(cfg.Keyring).
+		WithTxConfig(txCfg).
+		WithAccountRetriever(authtypes.AccountRetriever{}).
+		WithAccountNumber(accNum).
+		WithSequence(seq).
+		WithGas(in.Gas).
+		WithFees(in.Fees).
+		WithMemo(in.Memo).
+		WithSignMode(signingtypes.SignMode_SIGN_MODE_DIRECT)
+
+	builder, err := tx.BuildUnsignedTx(factory, in.Msg)
+	if err != nil {
+		return nil, Terminal(fmt.Errorf("build unsigned tx: %w", err))
+	}
+	if err := tx.Sign(factory, in.KeyName, builder, true); err != nil {
+		return nil, fmt.Errorf("sign tx: %w", err)
+	}
+	txBytes, err := txCfg.TxEncoder()(builder.GetTx())
+	if err != nil {
+		return nil, fmt.Errorf("encode tx: %w", err)
+	}
+
+	return txBytes, nil
 }

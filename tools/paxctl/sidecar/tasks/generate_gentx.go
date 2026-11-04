@@ -446,13 +446,3 @@ func makeCodec() (codec.Codec, client.TxConfig) {
 	txConfig := authtx.NewTxConfig(cdc, authtx.DefaultSignModes)
 	return cdc, txConfig
 }
-
-// ensureBech32 sets the Sei bech32 address prefixes if not already set.
-func ensureBech32() {
-	cfg := sdk.GetConfig()
-	if cfg.GetBech32AccountAddrPrefix() != "sei" {
-		cfg.SetBech32PrefixForAccount("sei", "seipub")
-		cfg.SetBech32PrefixForValidator("seivaloper", "seivaloperpub")
-		cfg.SetBech32PrefixForConsensusNode("seivalcons", "seivalconspub")
-	}
-}

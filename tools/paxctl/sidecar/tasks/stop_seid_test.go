@@ -2,7 +2,6 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"syscall"
 	"testing"
@@ -50,7 +49,7 @@ func TestStopSeider_GraceTimeoutFailsWithoutSIGKILL(t *testing.T) {
 }
 
 func TestStopSeider_NotFoundRPCDownIsSuccess(t *testing.T) {
-	sig := &fakeSignaler{findErr: fmt.Errorf("process \"seid\" not found in /proc")}
+	sig := &fakeSignaler{findErr: errNodeProcessAbsent}
 
 	if _, err := newStopSeider(sig, neverUp, time.Second).Handler()(context.Background(), nil); err != nil {
 		t.Fatalf("expected success when seid absent and RPC down, got %v", err)
@@ -61,7 +60,7 @@ func TestStopSeider_NotFoundRPCDownIsSuccess(t *testing.T) {
 }
 
 func TestStopSeider_NotFoundRPCUpRefuses(t *testing.T) {
-	sig := &fakeSignaler{findErr: fmt.Errorf("process \"seid\" not found in /proc")}
+	sig := &fakeSignaler{findErr: errNodeProcessAbsent}
 
 	_, err := newStopSeider(sig, upAfter(0), time.Second).Handler()(context.Background(), nil)
 	if err == nil {
