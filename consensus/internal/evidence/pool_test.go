@@ -383,9 +383,15 @@ func TestLightClientAttackEvidenceLifecycle(t *testing.T) {
 		10, 5, 5, defaultEvidenceTime, defaultEvidenceTime.Add(1*time.Hour))
 
 	state := sm.State{
-		LastBlockTime:   defaultEvidenceTime.Add(2 * time.Hour),
-		LastBlockHeight: 110,
-		ConsensusParams: *types.DefaultConsensusParams(),
+		ChainID:                     evidenceChainID,
+		InitialHeight:               1,
+		Validators:                  trusted.ValidatorSet,
+		NextValidators:              trusted.ValidatorSet.CopyIncrementProposerPriority(1),
+		LastValidators:              trusted.ValidatorSet,
+		LastHeightValidatorsChanged: 1,
+		LastBlockTime:               defaultEvidenceTime.Add(2 * time.Hour),
+		LastBlockHeight:             110,
+		ConsensusParams:             *types.DefaultConsensusParams(),
 	}
 
 	stateStore := &smmocks.Store{}
@@ -403,6 +409,8 @@ func TestLightClientAttackEvidenceLifecycle(t *testing.T) {
 	require.NoError(t, eventBus.Start(ctx))
 
 	pool := evidence.NewPool(dbm.NewMemDB(), stateStore, blockStore, evidence.NopMetrics(), eventBus)
+	startPool(t, pool, stateStore)
+	t.Cleanup(func() { require.NoError(t, pool.Close()) })
 
 	hash := ev.Hash()
 
