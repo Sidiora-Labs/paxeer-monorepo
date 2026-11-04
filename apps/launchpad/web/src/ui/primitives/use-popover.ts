@@ -35,8 +35,20 @@ export function usePopoverPosition(
     if (layerHeight && top + layerHeight > viewportH - 8 && rect.top - offset - layerHeight > 8) {
       top = rect.top - offset - layerHeight;
     }
-    setPosition({ top, left, minWidth: rect.width });
+    setPosition(current => current?.top === top && current.left === left && current.minWidth === rect.width
+      ? current
+      : { top, left, minWidth: rect.width });
   }, [anchorRef, layerRef, align, offset]);
+
+  useIsoLayoutEffect(() => {
+    if (!open) return;
+    measure();
+    const layer = layerRef.current;
+    if (!layer || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => measure());
+    observer.observe(layer);
+    return () => observer.disconnect();
+  });
 
   useIsoLayoutEffect(() => {
     if (!open) {

@@ -24547,3 +24547,91 @@ symbol = "repair_m653_test.go"
 observed = "Attempt 1: the missing-basic-fields case fails because a gentx without a commission is accepted."
 assumption = "The commission is not among the basic fields the collect validation checks."
 severity = "low"
+
+[finding.22.33.826.1]
+task = "22.33.826"
+file = "services/platform/perps-data/internal/replay/repair_m826_test.go"
+symbol = "repair_m826_test.go"
+observed = "Attempt 1: the build passed; the store-backed cases failed in setup because the attempt ran the verify with the database variable unset although the qualification environment had provided it."
+assumption = "The database the qualification environment provides is the fixture; the no-environment clause does not apply to this package."
+severity = "medium"
+
+[finding.22.33.827.1]
+task = "22.33.827"
+file = "services/platform/perps-data/internal/store/repair_m827_test.go"
+symbol = "repair_m827_test.go"
+observed = "Attempt 1: the build passed; the store-backed cases failed in setup because the attempt ran the verify with the database variable unset although the qualification environment had provided it."
+assumption = "The database the qualification environment provides is the fixture; the no-environment clause does not apply to this package."
+severity = "medium"
+
+[finding.22.9.10.18]
+task = "22.9.10"
+file = "services/agent/sdk/typescript/src/ai_market.ts"
+symbol = "ai_market.ts"
+observed = "Attempt 31: the build fails with six TS2554 errors on the journal open calls of the 22.33.20 test because the attempt's conflict resolution dropped the receipt-key parameter."
+assumption = "A conflict resolution that regressed a published producer contract."
+severity = "medium"
+
+[finding.22.33.729.2]
+task = "22.33.729"
+file = "tools/rollout/repair_m729_test.go"
+symbol = "repair_m729_test.go"
+observed = "Attempt 2: the build passed and verification was again left pending on a runtime clarification."
+assumption = "The attempt predates the recorded ruling."
+severity = "low"
+
+[finding.22.33.732.1]
+task = "22.33.732"
+file = "tools/ci/tests/test_repair_22_33_732.py"
+symbol = "test_repair_22_33_732.py"
+observed = "Attempt 1: 21 cases pass; the two failing cases assert production fixes the attempt recorded as wiring requests, one inside this domain's tools/ci and one in a script owned by 22.34.6."
+assumption = "An in-domain fix written as a wiring request, and a sibling task's finding kept in the gate."
+severity = "medium"
+
+[finding.22.33.811.1]
+task = "22.33.811"
+file = "tools/chain/upgrade-replay/repair_m811_test.go"
+symbol = "repair_m811_test.go"
+observed = "Attempt 1: the source-home cases pass; the precompile-calls-survive-reopen case fails on historical precompile registration state the fixture does not carry."
+assumption = "A fixture built by hand instead of through the upgrade handlers."
+severity = "medium"
+
+[finding.22.33.223.1]
+task = "22.33.223"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.rs"
+symbol = "repair_22_33_223.rs"
+observed = "Attempt 2: nine cases pass; the fuel-cap case fails on a compiled FUND at 1,000,015 fuel and three journeys are refused with application errors 1 and 22."
+assumption = "An in-domain fuel defect and fixture encodings behind the current version."
+severity = "medium"
+
+[finding.22.33.328.3]
+task = "22.33.328"
+file = "apps/explorer/ui/shared/nft/repair-22-33-328.spec.ts"
+symbol = "repair-22-33-328.spec.ts"
+observed = "Attempt 3: six of eight cases pass; both IPFS cases fail with a read-only name assignment while the verified-fetch dependency loads."
+assumption = "A dependency load failure in the test environment, not a defect of the component."
+severity = "low"
+
+[finding.22.33.37.1]
+task = "22.33.37"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_37.rs"
+symbol = "repair_22_33_37.rs"
+observed = "Attempt 2: two of four cases pass; both reopen cases fail with a receipt-binding mismatch and an evidence-pinned refusal."
+assumption = "In-domain recovery defects written as wiring requests."
+severity = "medium"
+
+[finding.22.33.703.1]
+task = "22.33.703"
+file = "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py"
+symbol = "test_repair_22_33_703.py"
+observed = "Attempt 1: 38 cases pass; the two committed-receipt cases fail because the recorded receipt reference differs from the reference recomputed over the verified canonical bytes."
+assumption = "A recording whose reference was not produced by the real producer, or a derivation over the signed bytes."
+severity = "medium"
+
+[finding.22.33.837.1]
+task = "22.33.837"
+file = "tools/paxctl/sidecar/shadow/repair_m837_test.go"
+symbol = "repair_m837_test.go"
+observed = "Attempt 1: the verify ran zero tests because the test imports need manifest entries in the tool's own Go module, which the attempt treated as out of scope."
+assumption = "A module manifest of the same domain and a capture that is recorded at implementation time."
+severity = "medium"

@@ -1,0 +1,7 @@
+[task.22.33.986]
+finding_chat_qualification_paths = "chat-qualification-paths: chat_qualification_paths_bind_actual_checkout and chat_qualification_paths_reject_drift_and_escape drive the shared production manifest producer, JSON transport and source validator against the checkout."
+finding_chat_read_timer_stuck = "chat-read-timer-stuck: chat_read_timer_switches_pool_conversations, chat_read_timer_switches_dm_conversations and chat_read_timer_switches_wallets drive the real hook, Wagmi connection store, HTTP history codec and read endpoint."
+baseline = "Not run: the explicit implementation-first order and hf-build/hf-done-only gate budget supersede step 6's unchanged-tree verify; no baseline test failures are claimed."
+manifest_producer = "qualification-sources.mjs --manifest emits the canonical source_files object; the Python qualifier invokes the same module with --validate, requiring Node alongside its existing operational dependencies."
+wiring_request = "tools/launchpad/production/bootstrap/check-registry.json (launchpad delivery/qualification domain): regenerate obsolete client/apps/web and media/social inventory identities and have connected-chat manifest producers consume qualification-sources.mjs --manifest."
+evidence = "The runner records the qualified revision, exact command, exit code and private log in its hf-done ledger; no gate success is claimed by this source record."

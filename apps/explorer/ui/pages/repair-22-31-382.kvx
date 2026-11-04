@@ -1,0 +1,51 @@
+[repair.22.31.382]
+status = "API implementation with frontend wiring requests; full gateway runtime qualification pending"
+implementation = "Admit exactly three GET feed endpoints in explorer_proxy.rs; constrain feed market ids to bounded ASCII digits and update hashes to 32-byte 0x-prefixed hex, preserving all existing transport checks."
+fixture = "Committed mocks/paxeerX/feed.ts FeedView contract peers; the pagination peer splits its committed history at the backend's block_number/index cursor. These are response fixtures, not a simulated gateway or evidence of executing the Elixir producer."
+coverage = "The Node gate checks production Rust declarations against production TypeScript resource definitions and the Elixir router, then drives useApiFetch over loopback HTTP into the production market table, history table and update details renderers. Rust handler execution is not claimed."
+baseline = "No unchanged-tree verify ran: the explicit ordered implementation-first gates prohibit it. All three finding tests and feedGatewayDeclaresOnlyTheThreeRequiredReadRoutes assert missing base-tree feed Route declarations and would fail on the base source; no baseline execution evidence is claimed."
+qualification = "The runner's private gate ledger records the exact candidate revision, command, exit and log; no source is changed after the final hf-done."
+
+[finding.feed-overview-gateway]
+test = "feedOverviewGatewayContractAndConsumer"
+result = "API declaration repaired; real fetch and market renderer covered; frontend page admission and Rust runtime proof remain wiring requests."
+
+[finding.feed-market-gateway]
+test = "feedMarketGatewayContractAndCursorConsumer"
+result = "API declaration repaired; real fetch, both block_number/index cursor values, history rendering and detail links covered; frontend admission and Rust runtime proof remain wiring requests."
+
+[finding.feed-update-gateway]
+test = "feedUpdateGatewayContractAndNativeSubmissionConsumer"
+result = "API declaration repaired; real fetch and native detail rendering preserve every submission field, observation acceptance and decimal strings; frontend admission and Rust runtime proof remain wiring requests."
+
+[wiring.ui]
+request = "Domain 8 gateway: services/platform/hosted/gateway/src/ui_proxy.rs must admit only /explorer/feed, /explorer/feed/market/[id] and /explorer/feed/update/[hash], including constrained Next data routes; this file is outside task scope."
+
+[wiring.catalogue]
+request = "Domain 8 gateway: regenerate tools/paxeer-x/route-catalogue.json after page admission; this generated artifact is outside task scope."
+
+[wiring.backend_admission]
+request = "Domain 14 explorer backend: reconcile services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/hosted_route_admission.json with the three newly admitted feed APIs; this artifact is outside task scope."
+
+[wiring.runtime]
+request = "Domain 8 gateway and domain 14 explorer backend: provide an admitted integration gate for services/platform/hosted/gateway/src/{explorer_proxy,ui_proxy}.rs through FeedController/FeedView; the declared Node-only gate cannot execute either server without a forbidden subprocess toolchain or native artifact."
+rust_test = "explorer_feed_routes_preserve_admission_bounds exercises the production selector for valid routes, malformed ids and hashes, excessive segment lengths, unlisted routes and methods; it is supplied in explorer_proxy.rs for the owning Rust gate and is not executed by this task's Node gate."
+
+[notes]
+formatting = "rustfmt and the explorer ESLint layout fixer formatted the touched sources. ESLint reports only valid-title and expect-expect at the four task-required test(namedFunction) registrations; the functions contain real assertions, and neither lint rule is disabled."
+gotcha = "The sandbox initially has no explorer node_modules; install the frozen dependencies before invoking its repository formatter."
+
+[repair.registration]
+observed = "The first hf-done returned zero but Vitest 4.1.11 interpreted test(function) as four TODO registrations: no assertions executed, so that result does not qualify the task."
+revision = "20170f052a1781cd7f170f434bcdcb5ec86a920e"
+command = "cg spec done 22.31.382 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 0
+log = "/out/logs/verify-1.log"
+repair = "Register each declared named function with test(function.name, function), the executable Vitest 4 API; retain every test and assertion. Rebuild and rerun hf-done on the corrected candidate."
+gotcha = "Repository-root paths must be resolved from the repository root; an initial repair script run from apps/explorer found no target and changed no source."
+
+[repair.fetch_lifecycle]
+observed = "The previous attempt executed all four tests successfully but failed suite teardown with normalizeRequest reading undefined.toString."
+cause = "vitest-fetch-mock enableMocks and disableMocks return the callable fetch mock; returning that value from beforeAll registers it as a Vitest cleanup callback, which calls fetch without a request."
+repair = "Use block-bodied lifecycle callbacks with no return value so the real loopback transport is restored without registering fetch as cleanup; every test and assertion remains intact."
+gotcha = "Vitest lifecycle callbacks may return cleanup functions; never implicitly return fluent API results from setup hooks."

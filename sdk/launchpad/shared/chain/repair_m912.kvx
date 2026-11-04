@@ -1,0 +1,18 @@
+[repair.22.33.912]
+audit = "22.30.20"
+implementation = "The shared RPC responder and both contract-routing responders decode and echo the incoming JSON-RPC ID without converting it through a floating-point number; method lookup uses the decoded method."
+baseline = "No pre-change test failure was measured: the explicit task order requires complete implementation before hf-build and hf-done and prohibits running verify_cmd by hand; it takes precedence over audit step 6."
+wiring = "None: both proposals are wholly inside sdk/launchpad/shared/chain."
+qualification = "The runner records the exact candidate revision, command, exit and private evidence log in /out/run/gates.jsonl; the qualified revision is the final passing hf-done record."
+
+[finding.rpc-fixture-correlation]
+tests = ["TestRepairM_912_RPCFixtureCorrelation", "TestRepairM_912_RPCFixtureIDTypes"]
+proof = "The production Client emits consecutive IDs through loopback HTTP proxies into the shared fixture and consumes correlated chain ID, block number and method-error responses, including repeated failover calls; direct HTTP checks preserve numeric, large numeric and string IDs for successes and errors. Existing success, failover and wrong-chain assertions also execute."
+
+[finding.contract-fixture-correlation]
+tests = ["TestRepairM_912_ContractFixtureCorrelation"]
+proof = "The original routing tests execute CreateContracts, generated ABI bindings, HTTP JSON-RPC and result decoding. The precompile Swap filter and distinct PoolBeacon destination assertions remain intact, with explicit consecutive IDs for the filter and beacon requests."
+
+[gotcha.baseline_order]
+observed = "The audit-derived pre-change verification step conflicts with the explicit implementation-first gate order and bounded verification allowance."
+action = "Follow the explicit gate order and report the absence of pre-change execution; the root gotcha ledger is outside this task's scope."

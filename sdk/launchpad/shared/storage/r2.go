@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -30,6 +31,13 @@ import (
 
 // ErrNotFound is returned by Get/GetBytes/Head when the key is absent.
 var ErrNotFound = errors.New("storage: object not found")
+
+// ErrObjectTooLarge means a buffered download exceeded its caller's byte budget.
+var ErrObjectTooLarge = errors.New("storage: object exceeds buffered read limit")
+
+// ErrInvalidBufferLimit means the budget is negative or cannot accommodate the
+// extra byte used to detect an oversized stream.
+var ErrInvalidBufferLimit = errors.New("storage: invalid buffered read limit")
 
 // Config configures a Client. All fields are required except Region, which
 // defaults to "auto" (R2's region token). Field names mirror the TS S3_* env
@@ -59,7 +67,7 @@ type Uploader interface {
 // Reader is the read surface of Client.
 type Reader interface {
 	Get(ctx context.Context, key string) (*Object, error)
-	GetBytes(ctx context.Context, key string) ([]byte, string, error)
+	GetBytes(ctx context.Context, key string, maxBytes int64) ([]byte, string, error)
 	Head(ctx context.Context, key string) (*ObjectInfo, error)
 }
 
@@ -67,7 +75,7 @@ type Reader interface {
 type Object struct {
 	Body        io.ReadCloser
 	ContentType string
-	Size        int64
+	Size        int64 // -1 when Content-Length is unknown
 	ETag        string
 }
 
@@ -171,23 +179,44 @@ func (c *Client) Get(ctx context.Context, key string) (*Object, error) {
 		}
 		return nil, fmt.Errorf("storage: get %q: %w", key, err)
 	}
+	size := int64(-1)
+	if out.ContentLength != nil {
+		size = *out.ContentLength
+	}
 	return &Object{
 		Body:        out.Body,
 		ContentType: aws.ToString(out.ContentType),
-		Size:        aws.ToInt64(out.ContentLength),
+		Size:        size,
 		ETag:        strings.Trim(aws.ToString(out.ETag), `"`),
 	}, nil
 }
 
-// GetBytes reads the entire object at key into memory (intended for small image
-// assets). A missing key yields ErrNotFound.
-func (c *Client) GetBytes(ctx context.Context, key string) (content []byte, contentType string, err error) {
+// GetBytes buffers an object within an explicit caller-approved byte budget.
+// maxBytes must be in [0, math.MaxInt64-1]; zero permits only empty objects.
+// Known oversize objects are rejected before reading; all other bodies are read
+// through a maxBytes+1 limit, even when metadata understates the size. Failure
+// returns no partial content or content type. GetBytes always closes the body.
+// Use Get and close its Body for intentionally larger streaming downloads.
+func (c *Client) GetBytes(ctx context.Context, key string, maxBytes int64) (content []byte, contentType string, err error) {
+	if maxBytes < 0 || maxBytes == math.MaxInt64 {
+		return nil, "", ErrInvalidBufferLimit
+	}
 	obj, err := c.Get(ctx, key)
 	if err != nil {
 		return nil, "", err
 	}
+	return readBufferedObject(key, obj, maxBytes)
+}
+
+func readBufferedObject(key string, obj *Object, maxBytes int64) ([]byte, string, error) {
 	defer obj.Body.Close()
-	data, err := io.ReadAll(obj.Body)
+	if obj.Size > maxBytes {
+		return nil, "", fmt.Errorf("storage: read %q (limit %d bytes): %w", key, maxBytes, ErrObjectTooLarge)
+	}
+	data, err := io.ReadAll(io.LimitReader(obj.Body, maxBytes+1))
+	if int64(len(data)) > maxBytes {
+		return nil, "", fmt.Errorf("storage: read %q (limit %d bytes): %w", key, maxBytes, ErrObjectTooLarge)
+	}
 	if err != nil {
 		return nil, "", fmt.Errorf("storage: read %q: %w", key, err)
 	}

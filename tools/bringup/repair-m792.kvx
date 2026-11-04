@@ -1,0 +1,72 @@
+[repair.22.33.792]
+audit = "22.30.177"
+base_revision = "79d99a9cd334a5da02f3a4aac2a324549c9a0d5e"
+mode = "BUILD"
+scope = "tools/bringup"
+build = "hf-build: go build ./tools/bringup/..."
+verify = "hf-done: cg spec done 22.33.792 -f layerx-merge --root /work/paxeer-monorepo"
+revision_record = "The last build and verify entries in /out/run/gates.jsonl name the exact candidate revision, command, exit code and private log; both entries must bind the same candidate."
+baseline = "No bringup changes or earlier gate ledger were present at session start. The base has no TestRepairM_792_ test functions. The explicit gate order forbids an unchanged-tree verify or a manual verify_cmd run, so no baseline test failure is claimed."
+qualification = "Only the prescribed focused Go gate is run; native foundation, deployment and aggregate shell qualification are not claimed."
+
+[finding.foundation-wrapper-retired-target]
+test = "TestRepairM_792_FoundationWrapperRetiredTarget"
+repair = "Explicit merged-runtime v2 bundle of integrated paxd, attestor and bringup-inspect; no standalone daemon, native-genesis or module-registry executable. Source closure includes the native host, Rust runtime, geth replacement and current operational validator."
+proof = "Installed plan producer -> JSON transport -> real plan decoder; Python build and its imported downstream validator share runtime-bundle.json. Output ownership, executable identity, source-tree/dependency bindings, runtime-library checksums and compiler/build provenance remain mandatory."
+limitation = "The independent foundation-fixture-retired-producers and foundation-provenance-shape findings in this audit remain separate tasks; this focused gate does not claim to run their native fixture."
+
+[finding.ca-retired-authority-and-router]
+test = "TestRepairM_792_CARetiredAuthorityAndRouter"
+repair = "Thirty exact live rows, with receipt-authority removed and surviving gateway credentials owned by gateway and redis-gateway; names and independent qualification expectations updated together."
+proof = "Production roster -> installed CLI codec -> real roster consumer, exact names-file bijection and unchanged role/prefix assertions."
+wiring = "spec/layerx-merge/interfaces.kvx — domain 16: reconcile removed authority/old guarantor/archive rows and gateway/redis-gateway ownership with ca-services.tsv."
+
+[finding.ca-expired-renewal-refused]
+test = "TestRepairM_792_CAExpiredRenewalRecovery"
+repair = "Issuer signature and authority identity are independent of leaf validity; expired leaves retain an explicit renewable state. Foreign, unreadable, partial and inconsistent material never authorizes issuance. An expired CA is refused."
+proof = "ca.sh sign + derive_cmd recordings -> protected custody -> public inventory report -> real renewal decision; close and reopen custody, store the actual renewed generation, reopen again and assert the same authority/key and recovered reusable identity. A genuinely foreign CA remains refused."
+
+[finding.ca-bundle-consistency-unchecked]
+test = "TestRepairM_792_CABundleConsistency"
+repair = "Protected no-symlink/no-hardlink box reads and in-memory Railway variable decoding compare PEM/DER certificates, key public identities, issuer, authenticated PKCS12 certificate/key/chain and retained password. Inconsistent and partial identities are refused without replacement."
+proof = "Production box and Railway codecs emit the same public report for the real ca.sh-generated bundle and every changed encoding/password; the inventory consumer and renewal decision refuse inconsistent material. No private bytes appear in reports or diagnostics."
+
+[finding.rpc-roster-sixteen]
+test = "TestRepairM_792_RPCRoster"
+repair = "Read the maintained public RPC table: fourteen numbered roots and the canonical node root. Fleet counts, placement membership, archive/explorer comparisons, remote boundary loop counts and serving-name discovery consume that inventory."
+proof = "Repository endpoint declaration -> production inventory decoder -> installed CLI transport and pool consumers; reject api15, api16, duplicates and retired /rpc routes. Canonical chain/head checks accompany numbered fleet checks."
+
+[finding.gas-rpc-route-drift]
+test = "TestRepairM_792_GasRPCRoute"
+repair = "Default to the inventory canonical root, validate the complete configured pool and any explicit RPC selection, and retain the existing chain/token/rate/quote/batch/EIP7702/submit/SID-transfer receipt journey."
+proof = "Real gas config consumer and rejection cases; the production gas_rpc transport submits real signed bytes to geth's HTTP API, executes the transfer and decodes its actual committed receipt. The unchanged sponsorship journey remains in the shell consumer."
+
+[finding.wallet-deleted-spec]
+test = "TestRepairM_792_WalletDeletedSpec"
+repair = "Read spec/layerx-merge/spec.kvx and contract_context.108.decision.public_names through the production parser. Missing/duplicate/invalid wallet names are explicit failures, while the deployed wallet-gateway check is retained."
+proof = "Read the actual repository declaration, not an invented old spec. This revision has no wallet_endpoint in that section: the real parser and CLI both refuse it explicitly without silently inventing a name."
+wiring = "spec/layerx-merge/spec.kvx — domain 16: add the actual deployed wallet_endpoint to contract_context.108.decision.public_names and reconcile its stale router/sixteen-node descriptions; this task does not edit the spec."
+
+[finding.router-retired-protocol]
+test = "TestRepairM_792_RouterRetiredProtocol"
+repair = "Node eth_chainId uses the canonical root; px_getNetwork and px_getAccount use the explicit CHECK_LIVE_GATEWAY_RPC URL and its credential. No synthesized /rpc, lx_ method or separate router lookup; the protected registry-bootstrap activation prerequisite remains mandatory. Validate gateway readiness and wallet pool node ownership."
+proof = "Production routed checker -> distinct loopback node/hosted transports -> OpenRPC-shaped results; assert exact paths/methods/account selector and credential isolation, refuse catching-up consensus, stale readiness and a hosted-first wallet pool."
+wiring = "deploy/rollout.kvx — domain 16: migrate the hosted gateway and Redis service rows from router/redis-router to gateway/redis-gateway; retain the actual deployment ownership in the rollout inventory."
+
+[wiring.hosted_gateway]
+request = "services/platform/hosted/gateway/railway.env.example — domain 10: migrate the surviving hosted gateway and Redis ownership and remove retired authority/router upstream declarations."
+
+[wiring.inspector_installation]
+request = "docker/paxeer/Dockerfile.paxd-node and tools/qualification/paxeer_x_release.py — domain 16: install the source-bound bringup-inspect artifact from the merged runtime bundle in the operator and box PATH before issuing or inventorying identities; absence is an explicit refusal."
+
+[gotcha.gate_order]
+observed = "Step 12 requests a baseline verify, but the explicit order and bounded wrappers forbid verification before implementation and hf-build. Follow the explicit gate order; never claim a baseline run."
+
+[gotcha.public_names]
+observed = "The active spec public-name section still describes the retired router/sixteen-node surface and omits wallet_endpoint; use the maintained RPC table and request the missing wallet declaration from its owner."
+
+[gotcha.pkcs12_profile]
+observed = "The production derivation now explicitly pins AES-256-CBC PBES2 and SHA-256 MACs so box and Railway inventory decode the same protected PKCS12 profile without exporting key bytes or launching external tools in the focused gate."
+
+[gotcha.legacy_shell_harness]
+observed = "The aggregate shell harness already uses Fly machine fixtures for Railway production checks; routing expectations are updated here, but its independent fixture-topology finding remains outside this focused qualification."

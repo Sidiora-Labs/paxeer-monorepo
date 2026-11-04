@@ -4,8 +4,8 @@
     "ok": false,
     "error": {
       "code": "operation-retired",
-      "copy_key": "error.session.expired",
-      "retry": "structural"
+      "copy_key": "error.operation.retired",
+      "retry": "final"
     },
     "trace": "trc_01j2h6c3dj6t7v8w9x0y1z2a3b"
   }
