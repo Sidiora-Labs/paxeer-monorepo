@@ -22,6 +22,7 @@ use crate::agent_rpc_wire::*;
 use crate::human::{
     HumanOperationError, HumanOperations, HumanPeer, HumanPrepare, HumanResponse, HumanSubmit,
 };
+use crate::human_receipt_frame::{ReceiptLookupAnswer, ReceiptLookupFrame};
 use crate::human_runtime::{
     prepare_digest, submit_digest, HumanAuthorityBoundary, SharedAgentOwner,
 };
@@ -396,7 +397,7 @@ fn bootstrap_response(
 
 /// `verification` is `Some` only when the decoded owner payload carries a verification level;
 /// payloads without one (head, approval records) report `None` and no level is invented.
-pub(crate) struct Dispatched {
+pub struct Dispatched {
     pub value: Value,
     pub verification: Option<VerificationStatus>,
 }
@@ -899,56 +900,96 @@ pub(crate) fn decode_observation(reader: &mut Reader<'_>) -> Option<(Value, Opti
 }
 
 fn decode_receipt(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
-    let mut out = Map::new();
-    let canonical = reader.bytes()?;
-    let receipt = layerx_wire::receipt::decode(canonical).ok()?;
-    out.insert("tx_hash".into(), hexv(&receipt.protocol()?.activity_id()));
-    out.insert("canonical_bytes".into(), hexv(canonical));
-    let mut batch = Map::new();
-    for name in [
-        "batch_id",
-        "asset",
-        "previous_state_root",
-        "resulting_state_root",
-        "sequencer_public_key",
-    ] {
-        batch.insert(name.into(), hexv(&reader.fixed::<32>()?));
-    }
-    out.insert("authorised_batch".into(), Value::Object(batch));
-    let achieved = match reader.u8()? {
-        0 => return None,
-        value => rung(value)?,
+    let mut decoder =
+        layerx_wire::decode::Decoder::new(reader.bytes.get(reader.offset..)?, MAX_BYTES);
+    let frame = ReceiptLookupFrame::decode_from(&mut decoder).ok()?;
+    reader.offset += decoder.offset();
+    receipt_value(frame)
+}
+
+fn receipt_value(frame: ReceiptLookupFrame) -> Option<(Value, Option<Rung>)> {
+    use sha2::{Digest, Sha256};
+    let receipt = layerx_wire::receipt::decode(&frame.canonical_bytes).ok()?;
+    let protocol = receipt.protocol()?;
+    let batch = frame.authorised_batch;
+    let key = layerx_client::sequencer::ReceiptKeyEntry {
+        key_id: frame.receipt_key_id,
+        public_key: frame.public_key,
+        first_height: frame.first_height,
+        last_height: frame.last_height,
     };
+    let height = protocol.batch_id();
+    if frame.rung < Rung::Receipted
+        || frame.signed_receipt != frame.canonical_bytes
+        || frame.receipt_hash != <[u8; 32]>::from(Sha256::digest(&frame.canonical_bytes))
+        || frame.tx_hash != protocol.activity_id()
+        || frame.block_height == 0
+        || frame.inclusion_height != frame.block_height
+        || height[..24] != [0; 24]
+        || u64::from_be_bytes(height[24..].try_into().ok()?) != frame.block_height
+        || protocol.batch_id() != batch.batch_id()
+        || protocol.asset() != batch.asset()
+        || protocol.previous_state_root() != batch.previous_state_root()
+        || protocol.resulting_state_root() != batch.resulting_state_root()
+        || key.public_key != batch.sequencer_public_key()
+    {
+        return None;
+    }
+    crate::finality::VerifiedReceipt::verify(frame.tx_hash, &frame.canonical_bytes, &[key]).ok()?;
+    let mut out = Map::new();
+    out.insert("tx_hash".into(), hexv(&frame.tx_hash));
+    out.insert("canonical_bytes".into(), hexv(&frame.canonical_bytes));
+    let mut authorised = Map::new();
+    for (name, value) in [
+        ("batch_id", batch.batch_id()),
+        ("asset", batch.asset()),
+        ("previous_state_root", batch.previous_state_root()),
+        ("resulting_state_root", batch.resulting_state_root()),
+        ("sequencer_public_key", batch.sequencer_public_key()),
+    ] {
+        authorised.insert(name.into(), hexv(&value));
+    }
+    out.insert("authorised_batch".into(), Value::Object(authorised));
+    out.insert(
+        "verification_level".into(),
+        dec(frame.verification_level.wire_rank()),
+    );
+    out.insert("receipt_hash".into(), hexv(&frame.receipt_hash));
+    out.insert("block_height".into(), dec(frame.block_height));
+    out.insert("signed_receipt".into(), hexv(&frame.signed_receipt));
+    out.insert("receipt_key_id".into(), hexv(&frame.receipt_key_id));
+    out.insert("public_key".into(), hexv(&frame.public_key));
+    out.insert("first_height".into(), dec(frame.first_height));
+    out.insert("last_height".into(), dec(frame.last_height));
+    out.insert("inclusion_height".into(), dec(frame.inclusion_height));
+    let achieved = frame.rung;
     out.insert("rung".into(), Value::String(rung_name(achieved).into()));
     Some((Value::Object(out), Some(achieved)))
 }
 
 fn decode_receipt_lookup(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
-    match reader.u8()? {
-        0 => {
+    let answer = ReceiptLookupAnswer::decode(reader.bytes.get(reader.offset..)?).ok()?;
+    reader.offset = reader.bytes.len();
+    match answer {
+        ReceiptLookupAnswer::Absent => {
             let mut out = Map::new();
             out.insert("found".into(), Value::Bool(false));
             Some((Value::Object(out), None))
         }
-        1 => {
-            let (receipt, achieved) = decode_receipt(reader)?;
+        ReceiptLookupAnswer::Found(frame) => {
+            let (receipt, achieved) = receipt_value(frame)?;
             let mut out = Map::new();
             out.insert("found".into(), Value::Bool(true));
             out.insert("receipt".into(), receipt);
             Some((Value::Object(out), achieved))
         }
-        2 => {
-            let tx_hash = reader.fixed::<32>()?;
-            let nonce = reader.u64()?;
-            Some((
-                serde_json::json!({
-                    "found": false,
-                    "submitted": {"tx_hash": format!("0x{}", lower_hex(&tx_hash)), "nonce": dec(nonce)},
-                }),
-                Some(Rung::Submitted),
-            ))
-        }
-        _ => None,
+        ReceiptLookupAnswer::Submitted { tx_hash, nonce } => Some((
+            serde_json::json!({
+                "found": false,
+                "submitted": {"tx_hash": format!("0x{}", lower_hex(&tx_hash)), "nonce": dec(nonce)},
+            }),
+            Some(Rung::Submitted),
+        )),
     }
 }
 
@@ -2115,7 +2156,7 @@ pub(crate) fn dispatch_operation<A: HumanAuthorityBoundary>(
     }
 }
 
-fn dispatch_program_receipt(
+pub fn dispatch_program_receipt(
     request: &Map<String, Value>,
     id: RequestId,
     lookup: impl FnOnce([u8; 32], [u8; 32]) -> Result<HumanResponse, HumanOperationError>,
@@ -2126,6 +2167,13 @@ fn dispatch_program_receipt(
     let activity = hex32(&request.expected_activity_id, id)?;
     let mut receipt = dispatched(id, lookup(key, activity), decode_receipt_lookup)?;
     if receipt.value.get("found") == Some(&Value::Bool(true)) {
+        if receipt.value["receipt"]["tx_hash"] != hexv(&activity) {
+            return Err(rejection(
+                ErrorClass::InternalFault,
+                id,
+                "owner.response_malformed",
+            ));
+        }
         if let Some(VerificationStatus::Achieved(achieved)) = receipt.verification {
             if achieved < requested {
                 receipt.verification = Some(VerificationStatus::Below {

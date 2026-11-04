@@ -3,7 +3,7 @@ name = "journeys"
 contract_major = 1
 compatibility = "additive_only"
 spine = "Every operation on this contract speaks in journeys, stages, states and evidence references. Raw protocol structures never cross this boundary."
-network = "Journeys describe one merged Paxeer network, whose kernel participates in the network and proposes blocks. A receipt establishes the verified execution outcome; that outcome is final once its block is committed. The rung and verification labels below describe evidence on this same network."
+network = "Journeys describe one merged Paxeer network, whose kernel participates in the network and proposes blocks. A receipt establishes the verified execution outcome; that outcome is final once its block is committed. The current rungs are submitted, receipted and committed on this same network; committed is final, with no later settlement or checkpoint rung."
 intent_progress = "Plans and signed submissions are described in intent.kvx. Poll journey.get for the resulting journey_id and use evidence.get to retrieve the material behind its evidence references."
 
 [type.JourneyKind]
@@ -14,8 +14,8 @@ boundary = "Current kinds are onboarding, move, agent-create, agent-fund, agent-
 [type.JourneyState]
 variants = ["getting-ready","sending","processing","done","done-finalised","still-checking","refused","waiting-for-you","closed","awaiting-approval"]
 table = "This vocabulary is the normative status translation table. A state outside it on a default surface is a build failure."
-done.semantics = "A verified receipt backs the exact outcome of every completed leg. The production EVM intent path requires committed receipt material before rendering done. Other receipt-backed projections may render done at receipted; use evidence verification and rung to distinguish execution evidence from block commitment. No independent settlement step follows a committed block."
-done-finalised.semantics = "The receipt-backed outcome has committed evidence on the same network, represented by checkpoint-finalised verification. This retained status label is not required for every committed journey: the EVM intent and native journey projections render done and expose evidence separately."
+done.semantics = "A verified receipt backs the exact outcome of every completed leg. The production EVM intent path requires committed receipt material before rendering done. Other receipt-backed projections may render done at receipted; use evidence.get and its authenticated material, verification and rung to distinguish execution evidence from block commitment; the done label alone is not a finality proof. No independent settlement step follows a committed block."
+done-finalised.semantics = "The receipt-backed outcome has committed evidence on the same network, represented by checkpoint-finalised verification. checkpoint-finalised names the committed rung rather than an additional proof to await after commitment. This retained status label is not required for every committed journey: the EVM intent and native journey projections render done and expose evidence separately."
 still-checking.semantics = "The outcome is unknown. Reconciliation tracks the original action or transaction and looks up its receipt without creating a second economic effect; every duplicate-capable control stays locked while it lasts."
 refused.semantics = "A typed refusal backs this state and always states whether any money left the account."
 waiting-for-you.semantics = "A policy hold with deterministic expiry awaits the user's approval decision."
@@ -25,7 +25,7 @@ closed.semantics = "Retained wallet-binding, deposit, withdraw and exit history 
 [type.EvidenceClass]
 variants = ["local-journey-state","submission-record","layerx-receipt","checkpoint-proof","paxeer-finality","typed-refusal","approval-hold","wallet-ack"]
 retired_variants = ["paxeer-finality"]
-meaning = "layerx-receipt is the retained wire class for a receipt on the merged network. checkpoint-proof describes commitment evidence on that network. paxeer-finality is retired legacy vocabulary, not another finality source for new journeys."
+meaning = "layerx-receipt is the retained wire class for a receipt on the merged network. checkpoint-proof describes commitment evidence on that network. paxeer-finality is retired legacy vocabulary, not another finality source for new journeys. Legacy evidence classes remain decodable but never authorize a new execution or promote a current journey to final."
 
 [type.VerificationLevel]
 variants = ["unverified","receipt-verified","checkpoint-finalised","paxeer-finalised","settlement-anchored"]

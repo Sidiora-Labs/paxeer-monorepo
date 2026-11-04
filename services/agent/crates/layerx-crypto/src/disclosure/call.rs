@@ -97,6 +97,253 @@ pub enum ConstructMethod {
     },
 }
 
+impl ConstructMethod {
+    /// Canonical ABI signature for every supported constructor. Registry consumers
+    /// must retain all variants, including bank and pointer transfers.
+    #[must_use]
+    pub const fn abi_signature(&self) -> &'static str {
+        match self {
+            Self::ProgramCall { .. } => "call(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128)",
+            Self::LedgerOpenAccount { .. } => "openAccount(bytes32)",
+            Self::LedgerRegister { .. } => "register(bytes32,bytes32,string,string,uint8,uint128,uint8,bytes)",
+            Self::LedgerMint { .. } => "mint(bytes32,bytes32,uint128)",
+            Self::LedgerBurn { .. } => "burn(bytes32,bytes32,uint128)",
+            Self::LedgerSend { .. } => "send(bytes)",
+            Self::LedgerIssueGrant { .. } => "issueGrant(bytes)",
+            Self::LedgerDraw { .. } => "draw(bytes32,bytes32,uint128,bytes32,uint64,bytes32,bytes32)",
+            Self::LedgerRevokeGrant { .. } => "revokeGrant(bytes32,uint64)",
+            Self::PayBudgetCreate { .. } => "budgetCreate(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8)",
+            Self::PayBudgetCreateNative { .. } => "budgetCreateNative(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8,bytes32,uint64)",
+            Self::AuthSession { .. } => "grantSession(bytes,uint64,bytes32)",
+            Self::PayBudgetFund { .. } => "budgetFund(bytes32,uint128)",
+            Self::PayBudgetDefund { .. } => "budgetDefund(bytes32,uint128)",
+            Self::AuthLifecycle { .. } => "recordLifecycle(bytes,bytes32)",
+            Self::PointerTransfer { .. } => "transfer(address,uint256)",
+            Self::BankSend { .. } => "send(address,address,string,uint256)",
+        }
+    }
+}
+
+/// Amounts in the approval/policy view of a call. Consumers must explicitly
+/// distinguish bank uint256 denomination units from protocol uint128 units.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum CallMonetaryAmount {
+    Protocol {
+        role: AmountRole,
+        asset: [u8; 32],
+        value: u128,
+    },
+    Bank {
+        role: AmountRole,
+        denom: String,
+        /// Unsigned 256-bit integer in canonical big-endian order.
+        value: [u8; 32],
+    },
+    Pointer {
+        role: AmountRole,
+        pointer: [u8; 20],
+        value: u128,
+    },
+}
+
+fn uint256_decimal(mut value: [u8; 32]) -> String {
+    if value == [0; 32] {
+        return "0".to_owned();
+    }
+    let mut digits = Vec::with_capacity(78);
+    while value != [0; 32] {
+        let mut remainder = 0_u16;
+        for byte in &mut value {
+            let dividend = (remainder << 8) | u16::from(*byte);
+            *byte = (dividend / 10) as u8;
+            remainder = dividend % 10;
+        }
+        digits.push(char::from(b'0' + remainder as u8));
+    }
+    digits.into_iter().rev().collect()
+}
+
+impl fmt::Display for CallMonetaryAmount {
+    fn fmt(&self, out: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Bank { role, denom, value } => {
+                // Escape control characters in an untrusted denomination.
+                write!(
+                    out,
+                    "{role:?}: {} base units of {denom:?}",
+                    uint256_decimal(*value)
+                )
+            }
+            Self::Protocol { role, asset, value } => {
+                write!(out, "{role:?}: {value} base units of protocol asset 0x")?;
+                for byte in asset {
+                    write!(out, "{byte:02x}")?;
+                }
+                Ok(())
+            }
+            Self::Pointer {
+                role,
+                pointer,
+                value,
+            } => {
+                write!(out, "{role:?}: {value} base units of pointer 0x")?;
+                for byte in pointer {
+                    write!(out, "{byte:02x}")?;
+                }
+                Ok(())
+            }
+        }
+    }
+}
+
+/// Execution fee assets are not encoded in the call ABI. Preparation must supply
+/// the asset from its verified program fee schedule; it is never inferred from gas.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CallFeeContext {
+    GasOnly,
+    ProgramExecution { fee_asset: [u8; 32] },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct GasFeeBound {
+    /// The chain's native EVM currency, in wei (gas * max_fee_per_gas).
+    pub chain_id: u64,
+    pub amount_wei: u128,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ExecutionFeeBound {
+    pub asset: [u8; 32],
+    pub amount_base_units: u128,
+}
+
+/// Complete monetary projection for call preparation, human approval and policy.
+/// The legacy `Disclosure.amounts` and `fee_limit` fields are ledger/gas views;
+/// they cannot represent bank amounts or a program's separate execution bound.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CallMonetaryDisclosure {
+    pub amounts: Vec<CallMonetaryAmount>,
+    pub gas_fee_bound: GasFeeBound,
+    pub execution_fee_bound: Option<ExecutionFeeBound>,
+}
+
+impl fmt::Display for CallMonetaryDisclosure {
+    fn fmt(&self, out: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for amount in &self.amounts {
+            writeln!(out, "{amount}")?;
+        }
+        writeln!(
+            out,
+            "Gas fee bound: {} wei of chain {} native currency",
+            self.gas_fee_bound.amount_wei, self.gas_fee_bound.chain_id
+        )?;
+        if let Some(execution) = self.execution_fee_bound {
+            write!(
+                out,
+                "Execution fee bound: {} base units of protocol asset 0x",
+                execution.amount_base_units
+            )?;
+            for byte in execution.asset {
+                write!(out, "{byte:02x}")?;
+            }
+            writeln!(out)?;
+        }
+        Ok(())
+    }
+}
+
+impl Disclosure {
+    /// Derives the complete monetary view from validated producer bytes.
+    ///
+    /// # Errors
+    /// Refuses altered disclosures, non-call sources, and missing or inapplicable
+    /// execution fee context. The caller must authenticate the fee schedule asset.
+    pub fn call_monetary(
+        &self,
+        context: CallFeeContext,
+    ) -> Result<CallMonetaryDisclosure, DisclosureError> {
+        self.validate()?;
+        let Source::Call(call) = &self.source else {
+            return Err(DisclosureError::FieldMismatch("source"));
+        };
+        let method = decode_method(call)?;
+        let execution_fee_bound = match (&method, context) {
+            (
+                ConstructMethod::ProgramCall { fee_limit, .. },
+                CallFeeContext::ProgramExecution { fee_asset },
+            ) if fee_asset != [0; 32] => Some(ExecutionFeeBound {
+                asset: fee_asset,
+                amount_base_units: *fee_limit,
+            }),
+            (ConstructMethod::ProgramCall { .. }, _)
+            | (_, CallFeeContext::ProgramExecution { .. }) => {
+                return Err(DisclosureError::FieldMismatch("execution_fee_asset"));
+            }
+            (_, CallFeeContext::GasOnly) => None,
+        };
+        let amounts = match method {
+            ConstructMethod::BankSend { denom, amount, .. } => vec![CallMonetaryAmount::Bank {
+                role: AmountRole::Transfer,
+                denom,
+                value: amount,
+            }],
+            ConstructMethod::PointerTransfer {
+                pointer, amount, ..
+            } => vec![CallMonetaryAmount::Pointer {
+                role: AmountRole::Transfer,
+                pointer,
+                value: u128::from_be_bytes(uint(amount)?),
+            }],
+            ConstructMethod::ProgramCall { .. }
+            | ConstructMethod::LedgerOpenAccount { .. }
+            | ConstructMethod::LedgerRegister { .. }
+            | ConstructMethod::LedgerMint { .. }
+            | ConstructMethod::LedgerBurn { .. }
+            | ConstructMethod::LedgerSend { .. }
+            | ConstructMethod::LedgerIssueGrant { .. }
+            | ConstructMethod::LedgerDraw { .. }
+            | ConstructMethod::LedgerRevokeGrant { .. }
+            | ConstructMethod::PayBudgetCreate { .. }
+            | ConstructMethod::PayBudgetCreateNative { .. }
+            | ConstructMethod::AuthSession { .. }
+            | ConstructMethod::PayBudgetFund { .. }
+            | ConstructMethod::PayBudgetDefund { .. }
+            | ConstructMethod::AuthLifecycle { .. } => self
+                .amounts
+                .iter()
+                .map(|amount| CallMonetaryAmount::Protocol {
+                    role: amount.role,
+                    asset: self.asset,
+                    value: amount.value,
+                })
+                .collect(),
+        };
+        Ok(CallMonetaryDisclosure {
+            amounts,
+            gas_fee_bound: GasFeeBound {
+                chain_id: call.chain_id,
+                amount_wei: self.fee_limit,
+            },
+            execution_fee_bound,
+        })
+    }
+}
+
+/// Encodes bank denomination units without narrowing the bank's uint256 amount.
+#[must_use]
+pub fn encode_bank_send(from: [u8; 20], to: [u8; 20], denom: &str, amount: [u8; 32]) -> Vec<u8> {
+    let mut from_word = [0; 32];
+    from_word[12..].copy_from_slice(&from);
+    let mut to_word = [0; 32];
+    to_word[12..].copy_from_slice(&to);
+    [
+        ledger_selector("send(address,address,string,uint256)").to_vec(),
+        [from_word, to_word, abi_word(128), amount].concat(),
+        abi_tail(denom.as_bytes()),
+    ]
+    .concat()
+}
+
 pub(super) fn word(args: &[u8], index: usize) -> Result<[u8; 32], DisclosureError> {
     args.get(index * 32..(index + 1) * 32)
         .ok_or(DisclosureError::MalformedPayload)?
