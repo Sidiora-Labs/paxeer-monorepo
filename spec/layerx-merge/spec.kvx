@@ -173774,7 +173774,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.504]
 title = "Repair the two gateway unit tests broken on main: the route-count assertion and the dropped description sentences"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -179296,7 +179296,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.593]
 title = "Repair audit record 22.30.161 medium findings in services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services (part 1 of 1): config-drift, restart-recovery, runtime-risk, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.281", "22.31.282"]
