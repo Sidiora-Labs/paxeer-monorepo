@@ -174934,7 +174934,7 @@ do_13 = "Next attempt (requalify after 22.31.485): the tree of attempt 1 stands;
 
 [task.22.33.1543]
 title = "Repair audit record 22.30.96 medium findings in services/agent/crates/layerx-agentd/src/prepare (part 1 of 1): retired-reference, runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.221", "22.31.222", "22.31.443", "22.31.483"]
@@ -176689,7 +176689,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1473]
 title = "Repair audit record 22.30.85 medium findings in services/platform/hosted/authority (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.206", "22.31.207", "22.31.208", "22.31.358"]
@@ -176723,7 +176723,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1472]
 title = "Repair audit record 22.30.85 medium findings in services/platform/hosted/authority/tests/support (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.206", "22.31.207", "22.31.208", "22.31.358"]
@@ -176866,7 +176866,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1467]
 title = "Repair audit record 22.30.85 medium findings in services/platform/hosted/authority/src (part 1 of 1): restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.206", "22.31.207", "22.31.208", "22.31.358"]
@@ -281410,7 +281410,7 @@ do_9 = "Attempt 2 (continue): two cases fail because they compare zero-valued bi
 
 [task.22.34.4]
 title = "Serve the px commit, validator, receipt key and sequence batch methods and the pax_sequencerReceipt alias at the node root, and decide px_register and px_requestFunds as the design states"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.34.1", "22.31.463"]
