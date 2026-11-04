@@ -1,0 +1,28 @@
+[repair.22.31.8]
+audit = "22.30.12"
+base_revision = "7a46d90eecc4435aea1d78bdd9590421997ccc7e"
+findings = ["f036", "f037"]
+test_file = "apps/perps/tests/repair-22-31-8.test.ts"
+evidence = "hf-build and hf-done retain the candidate revision, exact command, exit code and private log path in the runner gate ledger; no unexecuted gate is claimed here."
+baseline = "Not run: the explicit ordered gate instructions prohibit testing before implementation and prohibit running verify_cmd outside hf-done. No before-change failure is claimed."
+
+[finding.f036]
+proving_test = "f036_signedFundingCrossesSettlementQueryAndRows"
+repair = "Negate signed fundingPaidUsd once at the USD display edge in the chart and rows; credits are positive and green, payments negative and red, and zero neutral."
+proof = "Real ABI PackEvent -> decode.Registry -> store.WriteBlock -> GraphQL resolver and HTTP -> application settlement query -> chart values and rendered row cells, for positive, negative and zero funding."
+
+[finding.f037]
+proving_test = "f037_nativePayoutResolvesPositionCollateralThroughGraphQL"
+repair = "Query each settlement position by ID and join collateralToken to collateralTokens.decimals; format exact native units with token identity, without assigning a USD valuation."
+proof = "The real producer emits 119000000, 119000001 and zero USDL base units; GraphQL preserves them and the position token, and rows display 119 USDL, 119.000001 USDL and 0 USDL with the full address. Missing metadata remains explicit."
+wiring = "No out-of-scope wiring required for the current USDL contract: existing position and collateralTokens GraphQL fields supply identity and native decimals; the producer exposes no separate payout USD valuation."
+
+[test_runtime]
+requirements = "Go toolchain and PostgreSQL server binaries under /usr/lib/postgresql; the declared Node test owns a temporary isolated database and Go overlay, without editing any producer source."
+
+[qualification.repair1]
+revision = "ddfcfa08f94a1de68dce6eba508db981ce942ee2"
+command = "cg spec done 22.31.8 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+repair = "Use the market already seeded by real migrations; align PositionOpened driver arguments with the current leaf ABI, which has no collateralUsd argument. No assertion changed."
