@@ -65,8 +65,7 @@ func (s Store) Create(ctx context.Context, id uuid.UUID, wallet string) error {
 		return e
 	}
 	p, _ := json.Marshal(Profile{PublicProfile: PublicProfile{Wallet: w, Revision: "0"}, SchemaVersion: 1, UpdatedAt: s.now()})
-	preferences := DefaultPreferences()
-	preferences.UpdatedAt = s.now()
+	preferences := initialPreferences(s.now())
 	q, _ := json.Marshal(preferences)
 	_, e = s.DB.Exec(ctx, `INSERT INTO account_state(account_id,wallet,profile,preferences) VALUES($1,$2,$3,$4)`, id, w, p, q)
 	return e
