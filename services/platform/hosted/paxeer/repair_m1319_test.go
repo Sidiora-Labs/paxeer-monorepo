@@ -209,7 +209,7 @@ func TestRepairM_1319_RelayWorkspaceRetirement(t *testing.T) {
 }
 
 func TestRepairM_1319_CustodyGenesisRetirement(t *testing.T) {
-	repair1319Absent(t, "custody-genesis.py")
+	repair467Restored(t, "custody-genesis.py")
 	p := repair1319Profile(t)
 	if p.Node.Bootstrap != "../node/bootstrap.sh" {
 		t.Fatalf("wrong genesis owner: %s", p.Node.Bootstrap)
@@ -237,7 +237,7 @@ func TestRepairM_1319_CustodyGenesisRetirement(t *testing.T) {
 }
 
 func TestRepairM_1319_RelayDeployerRetirement(t *testing.T) {
-	repair1319Absent(t, "deploy-contracts.sh")
+	repair467Restored(t, "deploy-contracts.sh")
 	for _, phase := range []string{"deploy", "permissions", "activate", "bond", "finalize", "bootstrap", "authority-schedule", "authority-execute", "status", "check-profile"} {
 		var output bytes.Buffer
 		err := RunDeployment([]string{phase, "this-profile-does-not-exist"}, &output)
@@ -255,7 +255,7 @@ func TestRepairM_1319_RelayDeployerRetirement(t *testing.T) {
 }
 
 func TestRepairM_1319_DeploymentKeyArgv(t *testing.T) {
-	repair1319Absent(t, "deploy-contracts.sh", "evm.py")
+	repair467Restored(t, "deploy-contracts.sh", "evm.py")
 	secret := strings.Repeat("ac", 32)
 	for _, args := range [][]string{
 		{"manifest", "deployment-profile.json", "--private-key", secret},
@@ -297,7 +297,7 @@ func TestRepairM_1319_DeploymentKeyArgv(t *testing.T) {
 }
 
 func TestRepairM_1319_DeploymentPhaseRecovery(t *testing.T) {
-	// The old runner is removed, rather than retained with a replacement journal.
+	// The native handoff remains read-only beside the restored compatibility runner.
 	// Reopen the real handoff beside recorded chain effects: no phase or legacy
 	// record may be inferred or published on either side of this restart.
 	root := t.TempDir()
@@ -393,7 +393,7 @@ func TestRepairM_1319_DeploymentPhaseRecovery(t *testing.T) {
 }
 
 func TestRepairM_1319_SettlementInputRetirement(t *testing.T) {
-	repair1319Absent(t, "deployment-input.beta.json")
+	repair467Restored(t, "deployment-input.beta.json")
 	p := repair1319Profile(t)
 	var encoded bytes.Buffer
 	if err := WriteProfile(&encoded, p); err != nil {
@@ -430,7 +430,7 @@ func TestRepairM_1319_SettlementInputRetirement(t *testing.T) {
 }
 
 func TestRepairM_1319_NativeDeployment(t *testing.T) {
-	repair1319Absent(t, "deployment.yaml")
+	repair467Restored(t, "deployment.yaml")
 	documents := repair1319Documents(t)
 	service := repair1319Resource(t, documents, "Service", "layerx-native-chain")
 	spec := repair1319Object(t, service["spec"])
@@ -533,10 +533,10 @@ func TestRepairM_1319_NativeDeployment(t *testing.T) {
 }
 
 func TestRepairM_1319_EVMToolRetirement(t *testing.T) {
-	repair1319Absent(t, "evm.py")
+	repair467Restored(t, "evm.py")
 	helper := repair1319Read(t, "settlement-domain.py")
 	if bytes.Contains(helper, []byte("from evm import")) || !bytes.Contains(helper, []byte("from layerx_sdk.account_derivation import keccak256 as keccak")) {
-		t.Fatal("historical public-data helper still depends on the retired signer")
+		t.Fatal("historical public-data helper no longer uses the maintained SDK Keccak")
 	}
 	for _, action := range []string{"address", "public-key", "calldata", "chain-id", "balance", "call", "send"} {
 		var output bytes.Buffer

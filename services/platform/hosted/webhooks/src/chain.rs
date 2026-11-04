@@ -9,6 +9,18 @@ use crate::encoding::digest;
 use crate::error::WebhookError;
 
 type Result<T> = std::result::Result<T, WebhookError>;
+
+/// Receipt versions published by node/sequencer/receipt.go and rpc/sequencer_receipt.go.
+pub const NODE_RECEIPT_PROTOCOL_VERSION: u16 = 2;
+pub const NODE_RECEIPT_LAYOUT_VERSION: u32 = 1;
+pub const NODE_RECEIPT_PARAMETER_VERSION: u32 = 0;
+
+struct SequenceReceipt {
+    sequence: u64,
+    previous_state_root: [u8; 32],
+    resulting_state_root: [u8; 32],
+}
+
 fn rejected<T>() -> Result<T> {
     Err(WebhookError::VerificationRequired)
 }
@@ -292,6 +304,17 @@ impl CommitCertificate {
                 .collect(),
         })
     }
+    pub(crate) fn height(&self) -> Result<u64> {
+        let field = self
+            .header_fields
+            .get(2)
+            .ok_or(WebhookError::VerificationRequired)?;
+        let height = one_number(field, 1)?;
+        if height == 0 || height > i64::MAX as u64 {
+            return rejected();
+        }
+        Ok(height)
+    }
     pub fn verify(&self, policy: &ChainPolicy, store_proof: &[u8]) -> Result<VerifiedCommit> {
         policy.validate()?;
         if self.header_fields.len() != 14
@@ -310,10 +333,7 @@ impl CommitCertificate {
         {
             return rejected();
         }
-        let height = one_number(&f[2], 1)?;
-        if height == 0 || height > i64::MAX as u64 {
-            return rejected();
-        }
+        let height = self.height()?;
         let app_hash = one_bytes(&f[10], 1)?
             .try_into()
             .map_err(|_| WebhookError::VerificationRequired)?;
@@ -648,9 +668,9 @@ impl NodeReceiptEvidence {
                 .try_into()
                 .map_err(|_| WebhookError::VerificationRequired)?,
         );
-        if protocol.protocol_version() != 2
-            || protocol.module_version() != 1
-            || protocol.parameter_version() != 0
+        if protocol.protocol_version() != NODE_RECEIPT_PROTOCOL_VERSION
+            || protocol.module_version() != NODE_RECEIPT_LAYOUT_VERSION
+            || protocol.parameter_version() != NODE_RECEIPT_PARAMETER_VERSION
             || protocol.activity_id() != activity
             || receipt_height != committed.height
         {
@@ -666,7 +686,17 @@ impl NodeReceiptEvidence {
         if one_bytes(&self.commit.header_fields[6], 1)? != data {
             return rejected();
         }
-        self.verify_batch(&keys, committed.height, protocol, activity, policy)?;
+        self.verify_batch(
+            &keys,
+            committed.height,
+            &SequenceReceipt {
+                sequence: protocol.global_sequence(),
+                previous_state_root: protocol.previous_state_root(),
+                resulting_state_root: protocol.resulting_state_root(),
+            },
+            activity,
+            policy,
+        )?;
         layerx_platform_gateway::verify_live_receipt(
             &self.receipt,
             layerx_platform_gateway::AuthorityFacts::new(
@@ -686,7 +716,7 @@ impl NodeReceiptEvidence {
         &self,
         keys: &layerx_platform_gateway::ReceiptKeyList,
         height: u64,
-        receipt: &layerx_wire::receipt::ProtocolReceipt,
+        receipt: &SequenceReceipt,
         activity: [u8; 32],
         policy: &ChainPolicy,
     ) -> Result<()> {
@@ -703,7 +733,7 @@ impl NodeReceiptEvidence {
                     .map_err(|_| WebhookError::VerificationRequired)?,
             ))
         };
-        let sequence = receipt.global_sequence();
+        let sequence = receipt.sequence;
         let from = at(8)?;
         let to = at(16)?;
         if at(0)? != height
@@ -732,8 +762,7 @@ impl NodeReceiptEvidence {
                 .concat(),
             );
             if position == sequence
-                && (previous != receipt.previous_state_root()
-                    || next != receipt.resulting_state_root())
+                && (previous != receipt.previous_state_root || next != receipt.resulting_state_root)
             {
                 return rejected();
             }

@@ -1,0 +1,177 @@
+[repair]
+task = "22.33.1400"
+base_revision = "5fc0c55eaaa6d43868c4a2872366299b8b7e2007"
+record = "spec/layerx-merge/programme/audit/records/22.30.78.kvx"
+qualification = "hf-build and hf-done retain the exact candidate revision, command, exit and private log in /out/run/gates.jsonl; no manual gate or baseline run is claimed."
+baseline = "Not run: the ordered instructions prohibit testing before complete implementation and require the sole verify command to run through hf-done after hf-build; the new repair test does not exist at the base."
+
+[finding.walkthrough-test-receipt]
+tests = ["walkthroughVerifiesActualSequencerReceipt", "walkthroughKeepsWrongPinsAndPendingReceiptsUnknown"]
+producer = "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json#V1-layerxprograms-call; rpc/sequencer_receipt_vectors_test.go executes the real program precompile and signs the node receipt."
+consumer = "Real verify-receipt.mjs entrypoint and verifyCalledReceipt through a loopback node; submissionResult preserves unknown-fate after untrusted evidence."
+remaining = "The shell walkthrough's called output and daemon discovery envelope encoder cannot be qualified by a Node-only gate without an in-process interface or a recorded CLI/discovery transcript."
+
+[finding.buyer-config-test-rpc]
+tests = ["buyerAgentExampleConfigHasNoReceiptAuthority", "buyerAgentRefusesLayerxNetworkConfig", "buyerAgentUsesHostedHumanPaymentRoute"]
+producer = "Recorded node ledger payment and human API golden quote, journey and evidence envelopes; quote expiry is relocated relative to the test clock."
+consumer = "runBuyerAgent, LayerXPaymentHttpTransport, BuyerMiddleware and SellerMiddleware over separate loopback human/resource/node origins; paid assertions are retained."
+baseline_inspection = "Beta node root URL was already correct at the base; no prior execution result is asserted."
+
+[finding.merchant-proof-test-shape]
+tests = ["merchantCheckoutOfferUsesReceiptedRung", "merchantWebhookRefusesTransactionMismatch", "merchantWebhookRefusesInvalidSignature"]
+producer = "Test support regenerates the node ledger transaction and receipt for the checkout URL using the public conformance keys, secp256k1 transaction signing, canonical SDK receipt encoding and protocol-domain receipt signing; runtime resolves complete JSON over root RPC before strict portable import and settlement."
+consumer = "Real merchant-checkout entrypoint, receipt consumer, file orders and fulfillments; paid state, persisted proof and restart assertions remain mandatory."
+binding = "Each checkout offer hashes its authenticated resource URL into both signed calldata and the PaymentExact log; the generic recording's purpose is explicitly refused."
+
+[finding.merchant-config-test-rpc]
+tests = ["merchantExampleConfigsUseEip155AndReceiptKeys", "merchantConfigTransportsNodeReceiptWithRequiredPins"]
+consumer = "All three merchant configurations require beta root RPC and receipt key bindings; missing and empty pins refuse, configured pins transport actual node evidence."
+baseline_inspection = "Owning merchant configurations already use beta node root RPC at the base."
+
+[finding.runtime-proof-test-shape]
+tests = ["sequencerReceiptClientReturnsVerifiedReceipt", "sequencerReceiptClientReportsSubmittedAsPending", "runtimeProofMatchesCrossSdkPortableFixture"]
+producer = "Unmodified node/sequencer corpus including signed summary effects and the protocol sequence domain."
+consumer = "SequencerReceiptClient returns the SDK-verified domain-separated digest and receiptJson; its output matches the shared portable fixture accepted by other SDKs."
+remaining = "Fixture equivalence is covered; executing another language SDK's portable importer requires an external runtime prohibited by this gate, and the TypeScript SDK exposes no portable import API."
+
+[wiring.seller]
+request = "services/platform/middleware/{buyer,agent}/src — middleware domain: migrate the six-field portable constructors to required receiptJson before replacing the legacy PortableReceiptV2 type; this task adds the strict PortableNodeReceiptV2 importer and preserves authenticated node JSON through seller settlement and stored fulfillment."
+
+[wiring.buyer]
+request = "services/platform/middleware/buyer/src/index.ts — middleware domain: retain and verify receiptJson and protocol digest through evidence import, payment headers and settlement capture."
+
+[wiring.merchant]
+resolved = "The continuation ruling authorizes test-side regeneration in services/platform/examples/test/support/merchant-receipt.mjs; no node-domain change or production seller signer is needed for checkout-specific receipts."
+
+[wiring.walkthrough]
+request = "services/platform/examples/agent-program-call/walkthrough.sh, tools/platform and services/agent/crates/layerx-agentd — example/CLI/daemon domains: expose a Node-callable walkthrough result and actual discovery envelope recording compatible with the real submitted transaction; the focused gate cannot build native CLI or run shell/jq."
+
+[wiring.portable]
+request = "services/agent/sdk/typescript/src — SDK domain: expose shared portable v2 import/export with JSON/summary/log/sequence checks so the examples can exercise an actual portable import within the Node-only gate."
+
+[qualification.middleware]
+revision = "b584f37bdd826812009734c23811f9d913b00e02"
+command = "cg spec done 22.33.1400 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Buyer paid-path and both merchant success-path tests refuse the correct protocol digest in the existing middleware verifier."
+assumption = "The out-of-scope middleware owners must implement the wiring requests; the success assertions and exact consumer checks remain mandatory."
+
+[gotcha.loader-stderr]
+observed = "Node source transformation emits an experimental feature diagnostic on child stderr."
+resolution = "The buyer subprocess suppresses that specific Node diagnostic; its empty application stderr assertion remains unchanged."
+
+[gotcha.recorded-pin-range]
+observed = "A producer fixture's first authorised height is higher than a negative test's old upper bound."
+resolution = "Use a valid one-height pin range below the producer height so the verifier, rather than key configuration validation, proves refusal."
+
+[gotcha.marketplace-emulator-root]
+observed = "Marketplace's emulator configuration already uses root RPC while merchant checkout and shop use the local emulator's RPC route."
+resolution = "Assert each owning configuration's exact declared local route and require root for every beta node."
+
+[gotcha.beta-network-refusal]
+observed = "The beta human-origin boundary runs before unsupported payment network validation."
+resolution = "Supply a valid dedicated HTTPS human origin in the beta unsupported-network test so it reaches payment validation while the observed resource endpoint still receives no connection."
+
+[continuation.seller-digest]
+tests = ["sellerVerifiesProducerReceiptDigest", "buyerAgentUsesHostedHumanPaymentRoute"]
+implementation = "ReceiptPayloadAuthority and verifyPaymentReceipt compare the carried digest with the SDK's authenticated protocol digest; verifyRpcPayment produces the same digest after pinned signature verification."
+refusals = "The node-backed regression retains wrong-pin, signature, amount and transaction checks, and explicitly refuses the legacy signed-byte keccak digest and an all-zero digest."
+prerequisite = "22.31.457 is present at the base and widens committed inclusion; it does not migrate the buyer or agent portable receipt producers."
+remaining = "Required receiptJson cannot be added to the seller PortableReceiptV2 interface alone: services/platform/middleware/buyer/src/index.ts and services/platform/middleware/agent/src still construct the six-field shape, outside this task's scope."
+
+[qualification.continuation-first]
+revision = "e6cb2749af009c9d0f9eb8159e805f85a6ebe1d3"
+command = "cg spec done 22.33.1400 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All builds and the buyer payment route pass; two merchant cases hit the previously recorded payment-purpose mismatch, and the added RPC regression supplied the ledger account instead of the transaction sender."
+assumption = "Correct the regression input and retain a wrong-sender refusal; the merchant recording requires the node-domain wiring already recorded above, without weakening its purpose check."
+
+[gotcha.rpc-sender]
+observed = "verifyRpcPayment binds expectedPayer to the EVM transaction sender, while the PaymentExact indexed payer is a distinct ledger account ID."
+resolution = "Use the producer's left-padded receiptJson.from as the RPC sender and assert that substituting the ledger account is refused."
+
+[qualification.continuation-authentication]
+revision = "51786c2e6e76794c5a2cb16c1993212181be6d62"
+command = "cg spec done 22.33.1400 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All builds and twelve tests passed; three merchant tests failed at startup because the current application requires a customerCredentialsEnvironment binding missing from the inherited harness."
+assumption = "Supply real MerchantCredentials configuration and authenticated checkout/order requests in the test harness, preserving the production authentication boundary and every existing payment assertion."
+
+[gotcha.merchant-customer-binding]
+observed = "Merchant checkout now authenticates customer credentials and scopes order identities by tenant and principal."
+resolution = "Bind a dedicated customer credential list and send its bearer token on checkout and order reads; do not bypass MerchantCredentials or trust the JSON principal."
+
+[qualification.continuation-authentication-repair]
+revision = "5119e92827f95a274fcb00545fad92f95921cf81"
+command = "cg spec done 22.33.1400 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-2.log"
+observed = "All builds and thirteen tests passed, including the merchant signature refusal; merchant checkout and transaction-mismatch cases still refuse the generic recording's payment reference at the exact purpose check."
+assumption = "The recorded purpose must remain unchanged until the actual node producer emits a merchant-bound recording; no receipt signer or node execution producer exists in seller/src."
+
+[continuation.portable-node-evidence]
+tests = ["sellerRetainsPortableNodeReceiptAcrossRestart", "sellerVerifiesProducerReceiptDigest"]
+implementation = "The required seven-field PortableNodeReceiptV2 importer retains receiptJson, checks its complete node response against signed receipt summary and log effects, and propagates it through RPC proof production, settlement headers and durable fulfillment without widening the existing six-field producer type."
+proof = "The runtime fetches committed node evidence over loopback RPC; the strict seller import, real ReceiptPayloadAuthority and SellerMiddleware transport the proof over HTTP, persist every portable field, and replay it after the seller and file store reopen without releasing twice."
+refusals = "Missing required receiptJson and unknown portable fields refuse; altered node transaction, signature bytes, signing key, height, status, nonce, gas, fee, denominations, return data, log data, topics, index and unknown JSON fields refuse against the unchanged signed producer recording."
+continuation = "The checkout-specific recording is regenerated by test support under the continuation ruling; the merchant paid state, strict proof preservation and process restart replay assertions remain intact."
+
+[continuation.checkout-purpose]
+tests = ["merchantCheckoutOfferUsesReceiptedRung", "merchantWebhookRefusesTransactionMismatch", "merchantWebhookRefusesInvalidSignature", "sellerRetainsPortableNodeReceiptAcrossRestart"]
+implementation = "Regenerate signed calldata, transaction hash, PaymentExact effect, domain-separated sequence root and canonical signed receipt for each authenticated checkout offer; independently verify it with pinned SDK keys before transporting the seven-field portable document."
+recovery = "The merchant process stops and reopens orders and fulfillments, returning the identical settlement without another RPC or settlement call; the separate seller test stops its HTTP server and reopens FileFulfillments, preserving all portable fields and releasing once."
+evidence = "hf-build and hf-done record the matching candidate revision, command, exit and private evidence log in /out/run/gates.jsonl; the runner publishes that verified revision."
+
+[gotcha.checkout-recording-purpose]
+observed = "An otherwise valid generic payment recording fails the merchant's checkout URL purpose binding."
+resolution = "Regenerate both the signed transaction and signed log effect with the test-side conformance keys and canonical codec; never change a recorded purpose without regenerating its signatures and protocol digest."
+
+[gotcha.source-loader-linking]
+observed = "Static production imports are linked before the source-loader hook evaluates, so a clean install refuses the unbuilt merchant middleware dist entrypoint before tests start."
+resolution = "Dynamically import production modules after the source-loader registration, exercising committed sources without depending on generated merchant bundles."
+
+[qualification.continuation-lockfile]
+revision = "8527d0aa22e31fcb854d173758317edc3795dd2a"
+command = "cg spec done 22.33.1400 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "hf-build passed on this revision; hf-done stopped at npm ci with EUSAGE because the inherited root lockfile lacks @supabase/supabase-js, viem and transitive dependencies, before any package build or test executed."
+assumption = "The root workspace dependency owner must synchronize its manifests and lockfile; the unrelated failure is recorded without changing dependencies or rerunning the unchanged gate."
+
+[continuation.transaction-recovery]
+tests = ["merchantCheckoutOfferUsesReceiptedRung", "sellerRetainsPortableNodeReceiptAcrossRestart"]
+implementation = "Seller fulfillment lookup uses the verified transaction hash for new records, including transaction-only headers, and still reads legacy receipt-keyed records; stored proofs are reverified before release and a different request cannot reuse the transaction."
+prior_attempt = "The supplied attempt-5 evidence reports duplicate settlement after merchant restart and invalid-webhook on a matching delivery; this continuation does not rerun the old candidate."
+
+[wiring.merchant-webhook-digest]
+resolved = "The continuation brings merchant/src into scope: bind the event transaction to the raw transaction before receipt verification, compare the event digest with the authenticated protocol digest and mark paid only after both checks succeed."
+
+[gotcha.transaction-only-replay]
+observed = "A transaction-only header has no receiptDigest, so receipt-key-only lookup contacts settlement again after restart despite an existing fulfillment."
+resolution = "Use a transaction-derived key across portable and transaction-only payments, bind authority output to the hinted transaction, retain legacy receipt lookup and verify the persisted proof on replay."
+
+[gotcha.merchant-webhook-digest]
+observed = "The merchant webhook consumer still compares the retired signed-byte keccak digest, rejecting the correct protocol digest even after the transaction matches."
+resolution = "Compare verified.receiptDigest after checking transaction binding; keep valid-delivery assertions and protocol digest unchanged, and refuse the retired signed-byte digest."
+
+[qualification.continuation-recovery]
+revision = "1cbb0025422f9b1fedf05874f121c0ae1fa1bd8a"
+command = "cg spec done 22.33.1400 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All builds and fourteen cases pass, including merchant process restart and cross-principal receipt reuse refusal; the merchant webhook digest mismatch and inherited emulator endpoint expectations fail."
+assumption = "Align exact endpoint expectations with the maintained merchant-shop root RPC and marketplace port 8545; retain the webhook assertion and its merchant-domain wiring request."
+
+[gotcha.emulator-endpoint-drift]
+observed = "The carried-over endpoint test expects merchant-shop /rpc and marketplace port 9402, while their current owning configurations declare root RPC at ports 9402 and 8545 respectively."
+resolution = "Assert each application's explicit current emulator URL without changing the owning configurations or beta root RPC checks."
+
+[continuation.merchant-webhook]
+tests = ["merchantWebhookRefusesTransactionMismatch", "merchantMiddlewareKeepsProofAfterRefusedWebhook"]
+prior_attempt = "The supplied attempt-6 evidence reports fifteen passing cases and a matching delivery rejected after a transaction-mismatch refusal; the old candidate is not rerun."
+implementation = "MerchantSettlementWebhooks checks the raw transaction hash before verifying the proof, then checks the authenticated protocol digest and verified transaction before changing the order."
+proof = "The middleware-owned regression in merchant/src uses real node evidence over loopback RPC, signed webhook envelopes, file-backed orders and an in-memory delivery store; wrong transactions, wrong digests and legacy digests leave the order awaiting-payment and release the delivery claim, then the same delivery id succeeds and replays without resolving proof again."
+evidence = "The bounded hf-build and hf-done ledger records the final candidate revision, command, exit code and private log; the runner publishes the verified revision."

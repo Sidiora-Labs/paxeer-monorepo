@@ -1,0 +1,34 @@
+[repair.22.33.51]
+audit = "22.30.106"
+finding = "13"
+base_revision = "aefa91aa13a43dff9d0a27098f8280d43fd1ed42"
+proof = "repair_22_33_51::finding13_node_heights_multiple_transactions_and_authenticated_roots; repair_22_33_51::finding13_node_evidence_survives_store_restart_and_transport_replay; repair_22_33_51::finding13_unrecorded_transactions_cannot_receive_fabricated_commitment; repair_22_33_51::finding13_rpc_height_mutation_is_rejected_by_the_production_reader; repair_22_33_51::finding13_receipt_key_identity_and_authority_are_required; repair_22_33_51::finding13_corrupted_node_signature_is_rejected_over_transport"
+source = "daemon/committed-fixture/vectors/vector-v4-committed.json::settlement (actual paxd signed receipt, raw EVM transaction, both Comet block transactions, execution and successor headers, commits, and inclusion proofs)"
+transport = "Recorded node bytes over loopback HTTP into layerx-client authenticated lookup, then human EvidenceBundle consensus verification, Feed projection and PrincipalStore reopen/replay."
+roots = "The two transactions are the node's tx-zero sequence batch and EVM payment. Comet data_hash, successor last_results_hash and app_hash are retained verbatim; no Ethereum trie roots or replacement signatures are generated."
+unchanged_tree = "Not run: the explicit task order prohibits testing before implementation and requires hf-build followed by hf-done; the new integration test did not exist on the base. No baseline failure is claimed."
+evidence = "The exact verified candidate revision, command, exit and private log are recorded by hf-build/hf-done in the runner gate ledger and final evidence line; this record is written before qualification."
+wiring_1 = "Domain 10 (human): services/human/crates/layerx-human-service/tests/receipt_evidence_v2.rs and tests/move_commit_bank_send.rs must use matching node-emitted transaction transcripts for their committed journey scenarios; dynamic admission no longer fabricates commitment."
+wiring_2 = "Node RPC domain: daemon/committed-fixture/vector_v4.go must retain eth_getBlockByNumber(true) output if an Ethereum full-block decoder proof is required; this recording supplies authentic Comet blocks and roots, never invented Ethereum transactionsRoot/receiptsRoot."
+
+[continuation.attempt_3]
+base_revision = "57000844c90cca6b33229318d195f087a30c1998"
+prior_failure = "Attempt 2 verify failed in finding13_node_heights_multiple_transactions_and_authenticated_roots and finding13_node_evidence_survives_store_restart_and_transport_replay with SequencerSignature; four other cases passed, per the runner's continuation record."
+observed = "The inclusion-envelope authorization uses the public key as SequencerID, while the node receipt context_hash and MsgSequenceBatch KeyId use SHA256(public key); replaying the inclusion identifier as a receipt key id prevents the production verifier from selecting the already-correct signing key."
+repair = "Publish the recorded node's SHA256(public key) receipt identity with the independently recorded public key and height range; assert its agreement with the signed receipt and batch, and reject wrong identities, wrong public keys, uncovered heights and corrupted signatures."
+signing = "The unchanged settlement receipt is the output of node/sequencer/receiptkey.go::ReceiptKey.SignReceipt, collected and verified by daemon/committed-fixture/vector_v4.go::v4WaitCommitted; production lookup re-encodes it with layerx_wire::receipt::encode_unsigned and verifies its receipt_digest under the matching pin. No signature, execution field, root or committed byte is replaced."
+
+[qualification.verify_1]
+revision = "d808e085865aaa1a89f5c0f7a5572a99c3dd104f"
+command = "cg spec done 22.33.51 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Seven of eight cases passed, including both previously failing paths; the strengthened height-refusal assertion expected FieldMismatch for height 88, but the RPC decoder rejects height greater than blockNumber first as Malformed; retain height 88 with that exact refusal and add height 9 to assert signed-height FieldMismatch."
+
+[qualification.build_1]
+revision = "e7350e59f0403be352fdb40d7403ee151931805e"
+command = "cargo build --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "Pre-existing out-of-scope tests/observed_balances_denom.rs has six E0308 errors at lines 33, 37, 46, 47, 51 and 55: integer/u128/Amount values conflict with Quantity; hf-done requires a successful build and was not run."
+assumption = "The owner of observed_balances_denom.rs must migrate its existing expectations to Quantity; no unrelated repair or unchanged gate rerun is permitted here."
