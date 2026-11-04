@@ -35,10 +35,12 @@ def _ancestors(path):
 def _reserved(path):
     name = PurePosixPath(path).name
     # Reviewed lane-owned leaf artifacts; these never bypass ownership checks.
-    owned_manifest = path in {'client/packages/sdk/package.json', 'client/apps/mobile/package.json'}
-    owned_generated = path == 'client/packages/sdk/src/types.gen.ts'
-    lane_handoff = re.fullmatch(r'spec/production-system/handoffs/L(?:0[1-9]|[1-4][0-9]|50)/.+', path) is not None
+    owned_manifest = path in {'sdk/launchpad/packages/sdk/package.json', 'apps/launchpad/mobile/package.json'}
+    owned_generated = path == 'sdk/launchpad/packages/sdk/src/types.gen.ts'
+    lane_handoff = re.fullmatch(r'launchpad/spec/production-system/handoffs/L(?:0[1-9]|[1-4][0-9]|50)/.+', path) is not None
     return (path == 'spec' or (path.startswith('spec/') and not lane_handoff) or
+            path == 'launchpad/spec' or (path.startswith('launchpad/spec/') and not lane_handoff) or
+            any(path == root or path.startswith(root + '/') for root in ('sdk/launchpad/shared/interfaces', 'sdk/launchpad/packages/production-contracts')) or
             path.startswith('shared/interfaces/') or path.startswith('client/packages/production-contracts/') or
             (name == 'package.json' and not owned_manifest) or
             name in { 'pnpm-lock.yaml', 'package-lock.json', 'yarn.lock', 'go.mod', 'go.sum', 'Cargo.lock', 'Cargo.toml', 'requirements.txt', 'uv.lock', 'pyproject.toml', 'go.work', 'go.work.sum', 'pnpm-workspace.yaml', 'sqlc.yaml', 'AGENTS.md', 'GOTCHA.kvx'} or
