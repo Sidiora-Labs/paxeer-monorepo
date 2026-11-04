@@ -11,10 +11,11 @@ import (
 )
 
 const (
-	rootName    = "cosmovisor"
-	genesisDir  = "genesis"
-	upgradesDir = "upgrades"
-	currentLink = "current"
+	rootName        = "cosmovisor"
+	genesisDir      = "genesis"
+	upgradesDir     = "upgrades"
+	currentLink     = "current"
+	initializedFile = ".initialized"
 )
 
 // Config is the information passed in to control the daemon
@@ -52,34 +53,58 @@ func (cfg *Config) SymLinkToGenesis() (string, error) {
 	genesis := filepath.Join(cfg.Root(), genesisDir)
 	link := filepath.Join(cfg.Root(), currentLink)
 
+	// A missing link is only safe on the first start. In particular, retain
+	// compatibility with upgrade state written before the marker existed.
+	for _, path := range []string{
+		filepath.Join(cfg.Root(), initializedFile),
+		filepath.Join(cfg.Home, "data", "upgrade-info.json"),
+	} {
+		if _, err := os.Lstat(path); err == nil {
+			return "", fmt.Errorf("current symlink missing with existing state at %s; restore the selected binary before restarting", path)
+		} else if !os.IsNotExist(err) {
+			return "", fmt.Errorf("checking initialization state: %w", err)
+		}
+	}
+	if err := EnsureBinary(cfg.GenesisBin()); err != nil {
+		return "", err
+	}
+	if err := cfg.markInitialized(); err != nil {
+		return "", err
+	}
 	if err := os.Symlink(genesis, link); err != nil {
+		return "", err
+	}
+	if err := syncDirectory(cfg.Root()); err != nil {
 		return "", err
 	}
 	// and return the genesis binary
 	return cfg.GenesisBin(), nil
 }
 
-// CurrentBin is the path to the currently selected binary (genesis if no link is set)
+// CurrentBin is the path to the currently selected binary (genesis on first initialization).
 // This will resolve the symlink to the underlying directory to make it easier to debug
 func (cfg *Config) CurrentBin() (string, error) {
 	cur := filepath.Join(cfg.Root(), currentLink)
-	// if nothing here, fallback to genesis
 	info, err := os.Lstat(cur)
 	if err != nil {
-		//Create symlink to the genesis
-		return cfg.SymLinkToGenesis()
+		if os.IsNotExist(err) {
+			return cfg.SymLinkToGenesis()
+		}
+		return "", fmt.Errorf("reading current symlink: %w", err)
 	}
 	// if it is there, ensure it is a symlink
 	if info.Mode()&os.ModeSymlink == 0 {
-		//Create symlink to the genesis
-		return cfg.SymLinkToGenesis()
+		return "", fmt.Errorf("%s is not a symlink", cur)
 	}
 
 	// resolve it
-	dest, err := os.Readlink(cur)
+	dest, err := filepath.EvalSymlinks(cur)
 	if err != nil {
-		//Create symlink to the genesis
-		return cfg.SymLinkToGenesis()
+		return "", fmt.Errorf("resolving current symlink: %w", err)
+	}
+	// Adopt existing installations before allowing their selected node to run.
+	if err := cfg.markInitialized(); err != nil {
+		return "", err
 	}
 
 	// and return the binary

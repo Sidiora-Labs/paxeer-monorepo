@@ -1,0 +1,12 @@
+[repair.22.31.23]
+audit = "22.30.19"
+embedded_signer_scope = "embedded_signer_scope; embedded_gateway_identity_and_signature; embedded_principal_epoch; embedded_request_snapshot"
+embedded_message_encoding = "embedded_message_encoding; embedded_gateway_identity_and_signature"
+embedded_eth_sign_contract = "embedded_eth_sign_contract: explicit 4200 refusal for all eth_sign requests until construction/digest custody is admitted"
+embedded_typed_data = "embedded_typed_data; embedded_gateway_identity_and_signature; embedded_request_snapshot"
+baseline = "Not executed: task order prohibits tests before implementation and standalone verification; no baseline failures are claimed."
+wiring_request = "Domain 12 owns sdk/wallet/src/provider.ts and services/wallet/gateway/src/routes/sign.ts: admit the embedded construction/digest custody adapter before enabling eth_sign; the embedded connector explicitly refuses it with 4200."
+qualification = "hf-build and hf-done retain candidate revision, command, exit code and private log in the runner gate ledger; this record makes no unexecuted gate claim."
+test_runtime = "Production embedded provider and SDK over loopback HTTP to committed viem signing peers, authenticated fixture JWTs, in-memory transaction and signature stores, and real Supabase browser session storage; no environment configuration, external binaries, subprocesses, database or live services."
+
+previous_attempt = "7563cb3c71539946aaad907999fe609dd618a9e6: verification exited 1 before seven tests could run because dynamic gateway fixture imports failed; inherited setup also required prohibited PostgreSQL and Anvil subprocesses. Repaired only the peer fixture setup and retained all seven tests and their behavior assertions."
