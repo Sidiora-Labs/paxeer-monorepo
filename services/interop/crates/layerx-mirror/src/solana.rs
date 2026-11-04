@@ -386,8 +386,13 @@ impl SolanaArchiveClient {
                 Some(record) if record.phase == PublicationPhase::PermanentRefusal => {
                     return Ok(self.progress(&record));
                 }
-                Some(record) if record.phase == PublicationPhase::PreBroadcastFailure => {
-                    return self.prepare_and_broadcast(archive, &stage);
+                Some(record)
+                    if matches!(
+                        record.phase,
+                        PublicationPhase::Prepared | PublicationPhase::PreBroadcastFailure
+                    ) =>
+                {
+                    return self.resume_prepared(archive, &stage, record);
                 }
                 Some(record) => return self.observe_stage(archive, &stage, record),
             }
@@ -486,12 +491,31 @@ impl SolanaArchiveClient {
             transaction: TransactionIdentity::None,
             position: FinalityPosition::None,
         };
-        if self
-            .journal
-            .record(archive.commitment(), stage.stage)
-            .is_none()
+        self.journal.append(base.clone())?;
+        self.resume_prepared(archive, stage, base)
+    }
+
+    fn resume_prepared(
+        &mut self,
+        archive: &Archive,
+        stage: &StageInstruction,
+        base: PublicationRecord,
+    ) -> Result<SolanaProgress, SolanaError> {
+        let digest: [u8; 32] = Sha256::digest(&stage.data).into();
+        if base.batch_number != archive.data().batch_number
+            || base.commitment != archive.commitment()
+            || base.committed != archive.data().committed_coordinate()
+            || base.stage != stage.stage
+            || base.stage_payload_digest != digest
+            || !matches!(
+                base.phase,
+                PublicationPhase::Prepared | PublicationPhase::PreBroadcastFailure
+            )
+            || !base.signed_payload.is_empty()
+            || base.transaction != TransactionIdentity::None
+            || base.position != FinalityPosition::None
         {
-            self.journal.append(base.clone())?;
+            return Err(SolanaError::Transaction);
         }
         let signed = match self.sign_transaction(stage) {
             Ok(value) => value,
