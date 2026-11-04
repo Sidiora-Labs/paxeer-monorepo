@@ -46,6 +46,7 @@ impl TryFrom<VerifySolidityMultiPartRequest> for solidity::multi_part::Verificat
     type Error = RequestParseError;
 
     fn try_from(request: VerifySolidityMultiPartRequest) -> Result<Self, Self::Error> {
+        validate_solidity_post_actions(&request.post_actions)?;
         let contract =
             build_on_chain_contract(&request.bytecode, request.bytecode_type(), request.metadata)?;
         let compiler_version = helpers::decode_compiler_version(&request.compiler_version)?;
@@ -67,6 +68,7 @@ impl TryFrom<VerifySolidityStandardJsonRequest> for solidity::standard_json::Ver
     type Error = RequestParseError;
 
     fn try_from(request: VerifySolidityStandardJsonRequest) -> Result<Self, Self::Error> {
+        validate_solidity_post_actions(&request.post_actions)?;
         let contract =
             build_on_chain_contract(&request.bytecode, request.bytecode_type(), request.metadata)?;
         let compiler_version = helpers::decode_compiler_version(&request.compiler_version)?;
@@ -78,6 +80,33 @@ impl TryFrom<VerifySolidityStandardJsonRequest> for solidity::standard_json::Ver
             content,
         })
     }
+}
+
+impl solidity::multi_part::VerificationRequest {
+    pub fn try_from_with_post_actions(
+        request: VerifySolidityMultiPartRequest,
+    ) -> Result<(Self, Vec<String>), RequestParseError> {
+        let post_actions = request.post_actions.clone();
+        Ok((Self::try_from(request)?, post_actions))
+    }
+}
+
+impl solidity::standard_json::VerificationRequest {
+    pub fn try_from_with_post_actions(
+        request: VerifySolidityStandardJsonRequest,
+    ) -> Result<(Self, Vec<String>), RequestParseError> {
+        let post_actions = request.post_actions.clone();
+        Ok((Self::try_from(request)?, post_actions))
+    }
+}
+
+fn validate_solidity_post_actions(post_actions: &[String]) -> Result<(), RequestParseError> {
+    for action in post_actions {
+        if action != "lookup-methods" {
+            return Err(anyhow::anyhow!("unsupported post-action: {action}").into());
+        }
+    }
+    Ok(())
 }
 
 impl TryFrom<BatchVerifySolidityMultiPartRequest>

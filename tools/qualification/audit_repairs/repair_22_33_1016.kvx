@@ -1,0 +1,37 @@
+[task]
+id = "22.33.1016"
+audit = "22.30.36"
+source_revision = "0ba7cfa54c7f07b37201b1f12fcc2f1dd7ed0ed7"
+repair = "Capture go list output in pkgs and immediately propagate its failure status before inspecting output. Keep discovery stderr visible. All six workspace module loops call the shared guard before an empty-scaffold skip or their real command."
+source_proof = "The Python-only gate parses the actual Makefile macro, target recipes, module assignment and go.work use block; asserts status capture and nonzero exit before the empty-output check for build, vet, lint, test, race and cover; checks each unchanged downstream command and failure guard; parses the real workspace regression AST and committed mixed-package fixture, asserting actual Go discovery and Make invocation and the error/no-skip and successful-empty assertions."
+review_only = "Make, Bash and Go are not executed by this qualification gate. The added workspace regression is not executed here: in the existing workspace suite it copies the production Makefile and committed fixture into a temporary workspace, proves real go list failure from conflicting packages in listed module discovery, then proves make build fails without skipping or building it; a second regression proves successful empty discovery still skips. Runtime shell expansion, actual Go diagnostics and toolchain execution remain review/owning-workspace-gate proof, not a claimed result of this source-only Python gate. No standalone shell script, service unit or manifest is repaired; no external binary, environment variable, endpoint, credential, native artifact or device is needed by the declared verify command."
+baseline = "Initial git status/diff showed only runner-prepared .cgignore and spec task-status changes; scoped repair files were absent, gate counters were zero and /out/run/gates.jsonl did not exist. No pre-change verification ran and no baseline test failure is claimed: the explicit implementation-first order and hf-done-only rule prohibit the contradictory pre-change verify step. Static inspection confirmed that all six loops checked only stdout and suppressed discovery stderr."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1016.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private evidence ledger name the verified content-derived candidate revision, exact command, exit code and log path; build and verification must pass at the same candidate revision. The runner retains this declared evidence and publishes the task. Embedding the final candidate hash in this record would itself change that hash."
+wiring_requests = []
+
+[finding.make-package-discovery]
+file = "services/launchpad/Makefile"
+class = "runtime-risk"
+severity = "medium"
+owner_domain = 4
+resolution = "Only successful empty discovery may skip a listed module; errors terminate the requested gate with the discovery status and diagnostic."
+tests = ["test_discovery_captures_status_before_inspecting_output", "test_each_workspace_gate_requires_successful_discovery", "test_discovery_regression_uses_a_listed_workspace_module", "test_workspace_regression_drives_real_discovery_and_make"]
+workspace_tests = ["test_package_discovery_error_fails_workspace_build", "test_successful_empty_discovery_still_skips_workspace_build"]
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. Preserve existing Python style and apply .editorconfig LF, final newline and no trailing whitespace; Makefile recipes retain tabs. Fixture suffixes keep intentionally conflicting package declarations out of actual workspace package discovery."
+
+[gotcha.1]
+observed = "The requested baseline verify conflicts with the explicit implementation-first and hf-done-only gate order."
+resolution = "Do not run pytest by hand or claim baseline execution. Record static baseline facts and qualify once after the full implementation."
+
+[gotcha.2]
+observed = "The requested real-Go workspace regression needs a toolchain, while the declared Python repair gate forbids external tools."
+resolution = "Add the real regression to the existing workspace suite and prove its source wiring and fixture in the offline gate; distinguish source proof from unexecuted runtime proof."
+
+[gotcha.3]
+observed = "Broad combined workflow reads exceeded tool output limits, and the gate wrappers reside in /out/run/bin rather than /usr/local/bin."
+resolution = "Use bounded task-specific source reads and command -v for gate paths. Keep task notes here because GOTCHA.kvx and spec files are outside scope."

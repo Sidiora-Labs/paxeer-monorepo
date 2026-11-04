@@ -1,0 +1,47 @@
+[repair.22.33.1354]
+task = "22.33.1354"
+audit = "22.30.74"
+base_revision = "cfe99ca0f6e389c490375eed57c49af7d14b30b8"
+finding_ids = ["liveness-request-deadline", "liveness-empty-container-set"]
+changed_source = "sdk/contrib/localnet_liveness.sh"
+build_cmd = "bash -n sdk/contrib/localnet_liveness.sh"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1354.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision_source = "The successful hf-done verify row names the immutable candidate including this record; build and verify must record the same revision. The final receipt supplies the exact command, exit code and private log path without a self-referential revision edit."
+qualification = "hf-build parses the entire shell script with bash -n; pytest reads production shell commands, their guards and real maintained Compose/chain.mk consumers without invoking Docker, curl, jq or a subprocess toolchain."
+review_only = "Live Docker discovery/restarts, HTTP transport timing, jq execution and a chain reaching the target height are not executed by this source-only gate. Runtime scheduling and installed-tool behavior remain review-only; no live localnet or historical inventory execution success is claimed."
+wiring_requests = []
+wiring_basis = "Both proposals are fully inside sdk/contrib/localnet_liveness.sh; the maintained docker/docker-compose.yml and chain.mk are read as consumer/discovery evidence and require no edits."
+
+[finding.liveness-request-deadline]
+file = "sdk/contrib/localnet_liveness.sh"
+tests = ["test_liveness_request_deadline", "test_liveness_http_json_validation", "test_liveness_bounded_failure_path"]
+repair = "Bound curl connection establishment to 2 seconds and the entire response to 5 seconds with a 1 MiB response cap; require HTTP 200, exactly one JSON object without an RPC error and a canonical decimal string height before success. Invalid transport/status/JSON consumes an iteration."
+source_proof = "Parse curl argv, status/body separation, jq slurp/exit-status/type/error/height guards and the only exit-zero path; exercise the literal height grammar and prove all observations reach the single counter increment unless successful. Both Docker operations have 5-second TERM plus 1-second KILL bounds and no background restart survives the iteration."
+bound = "For validated ITER=N and SLEEP=S the external wait budget is at most 6 seconds discovery plus 5*N seconds curl plus 6*ceil(N/10) seconds restart plus (N-1)*S seconds sleep, excluding bounded-body parsing, process startup and OS scheduling. All-failure observations end with exit 1; failed discovery ends with exit 2."
+
+[finding.liveness-empty-container-set]
+file = "sdk/contrib/localnet_liveness.sh"
+tests = ["test_liveness_numeric_arguments", "test_liveness_empty_container_set", "test_liveness_maintained_container_names"]
+repair = "Reject invalid numeric/address/filter arguments and failed or empty discovery with actionable exit-2 diagnostics before polling or modulo; preserve one-name-per-line array entries. Default discovery includes maintained pax-node-N names and inherited simd names, with an explicit optional fifth Docker name filter."
+source_proof = "Read and check canonical numeric input guards before Docker, bounded discovery argv, failure and empty-output guards before mapfile/polling/random selection, quoted restart selection and real maintained Compose container names against the production default filter."
+
+[baseline]
+gate_ledger = "No /out/run/gates.jsonl existed at initial inspection; both task repair files were absent, and the script had no pre-existing edits. Only runner setup changes to .cgignore and spec status were present and left intact."
+unchanged_verify = "Baseline verification not run: the unchanged-tree request conflicts with the explicit implementation-first, hf-build-then-hf-done-only order and single-run budget. No pre-change failed test is claimed."
+source_observation = "The unchanged script issued curl without deadlines or HTTP/JSON validation, filtered only simd containers and computed RANDOM modulo the discovered length without an empty-set guard. This is inspection, not a baseline test result."
+
+[format]
+policy = "No formatter is configured for these shell, Python or KVX paths; apply .editorconfig UTF-8, LF, final-newline and trailing-whitespace rules only."
+
+[gotcha.1]
+observed = "The requested unchanged-tree verify conflicts with the later explicit gate order and exclusive hf-done invocation."
+resolution = "Record the baseline as unrun, use only the ordered bounded gates and make no pre-change test claim."
+
+[gotcha.2]
+observed = "The source-fact shell proof asks for bash -n, while the verify must need no external binary or subprocess toolchain."
+resolution = "The declared hf-build performs bash -n once; pytest checks the production guarded source facts in-process and explicitly identifies runtime behavior as review-only."
+
+[gotcha.3]
+observed = "Codify context has no indexed SDK script and broad context output was truncated; maintained containers are named pax-node-N rather than paxd or simd."
+resolution = "Read exact finding sections and production files directly; derive discovery compatibility from docker/docker-compose.yml. Scope excludes GOTCHA.kvx and spec edits, so task observations stay in this record."
