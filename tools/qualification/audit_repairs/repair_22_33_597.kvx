@@ -1,0 +1,38 @@
+[repair]
+task = "22.33.597"
+acceptance = "22998.1"
+base_revision = "fc1fd79bc567e21edd911f2476ee708dad5be4d8"
+implementation = "Remove only the obsolete signature-provider extension examples from config/base.toml and config/base.env; retain all supported active settings and optional fetcher examples. No replacement integration is offered."
+source_proof = "Parse the production TOML, optional S3 example, environment example paths and values, server/workspace manifests and resolved launcher lock entry. Compare server-owned tables and fetchers with actual Settings field declarations, check deny_unknown_fields and service prefix, and trace main's Settings::build result through run into the existing constructors and launcher settings. Both published files are checked for obsolete examples, including commented examples."
+review_only = "The Python gate does not execute Rust Settings::build, serde deserialization, the linked registry launcher configuration loader or network initialization. Imported ServerSettings, MetricsSettings and JaegerSettings fields are reviewed against the audited supported examples, not an unlinked local launcher crate. Runtime loading and typed constructor execution remain review-only here because the allowed gate has no Rust toolchain. This removal changes no interface or persistent state; interface-driving and restart/recovery tests do not apply."
+baseline = "No baseline verification was run: the explicit implementation-first order and exclusive hf-done gate take precedence over do_5's request to verify before changing the tree. No pre-change test failures are claimed. Initial git status/diff showed only pre-existing .cgignore and spec/layerx-merge/spec.kvx changes, both repair files were absent, and /out/run/gates.jsonl had no earlier runs."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_597.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private /out/run/gates.jsonl record the exact content-derived verified revision, command, exit code and log path. Build and verification must pass at the same candidate revision. This record is finalized before qualification; embedding its own candidate hash would change the candidate. Only a passing hf-done entry qualifies the repair. The runner publishes; no manual commit or push."
+wiring_requests = ["services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/config.rs | domain 14 (explorer): qualify config/base.toml and each supported base.env override through the linked 0.17.0 ConfigSettings::build in an isolated Rust test when the owning domain's Rust gate is available; no Rust runtime proof is claimed by this offline source gate."]
+
+[finding.obsolete-extension-config]
+audit = "22.30.161"
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/config/base.toml"
+related_file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/config/base.env"
+class = "config-drift"
+severity = "medium"
+status = "pending_qualification"
+resolution = "The published examples no longer advertise unsupported extensions.solidity.sig_provider, extensions.vyper.sig_provider or extensions.sourcify.sig_provider settings. Existing Settings strictness and constructor behavior are preserved."
+tests = ["test_obsolete_extension_examples_removed", "test_published_toml_uses_supported_settings", "test_commented_toml_examples_use_supported_fetcher_fields", "test_environment_examples_match_supported_toml_paths_and_values", "test_settings_build_and_constructor_source_path"]
+
+[format]
+policy = "No Python, TOML, ENV or KVX formatter is configured for these paths. Apply the repository .editorconfig and pre-commit text conventions: UTF-8, LF, final newline and no trailing whitespace."
+
+[gotcha.scope]
+observed = "Generic workflow instructions request GOTCHA/spec updates and manual publication outside this task's authorized paths."
+resolution = "Keep task notes here, preserve existing changes, and let hf-done and the runner own qualification bookkeeping and publication."
+
+[gotcha.context]
+observed = "Broad combined context output exceeded tool limits, cg brief reported stale unrelated graph changes, and root/Python qualification pyproject.toml files were absent."
+resolution = "Use bounded task/finding and source sections, git status/diff and the private gate ledger; apply the actual .editorconfig and pre-commit conventions."
+
+[gotcha.env_parser]
+observed = "First hf-done at revision 0af75fb6b77ccf3b917a1df8682ebf936ee2c663 exited 1 (/out/logs/verify-1.log): six checks passed, but the environment example parser rejected the digit in the existing S3 variable names."
+resolution = "Recognize uppercase environment identifiers beginning with a letter and containing letters, digits or underscores; retain all exact supported-path, value and completeness assertions. Rerun hf-build and hf-done on the repaired candidate."
