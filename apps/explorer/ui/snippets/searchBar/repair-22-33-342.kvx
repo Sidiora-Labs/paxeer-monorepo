@@ -1,0 +1,46 @@
+[repair.22.33.342]
+audit = "spec/layerx-merge/programme/audit/records/22.30.138.kvx"
+test_file = "apps/explorer/ui/snippets/searchBar/repair-22-33-342.spec.ts"
+baseline = "Not run: the task's ordered bounded-gate protocol forbids testing before complete implementation and requires hf-build before hf-done; no baseline failure is claimed."
+evidence = "The runner's final hf-done ledger row records the verified candidate revision, command, exit and private log; this record is part of that candidate."
+wiring_requests = []
+
+[finding.cluster-errors-hidden]
+tests = ["clusterUnavailableRemainsTypedAfterRetries", "clusterUnauthorizedIsRefusedWithoutRetry", "clusterUnknownNameIsAnEmptySuccess", "clusterOtherNotFoundResponsesRemainErrors", "clusterNetworkFailureIsRetriedAndPropagated", "clusterQueryFunctionPreservesAbortRejection"]
+repair = "Only HTTP 404 with the tRPC NOT_FOUND code for names.get maps to null; all other rejections, including aborts, propagate unchanged."
+
+[finding.cluster-error-test-shape]
+tests = ["clusterUnavailableRemainsTypedAfterRetries", "clusterUnauthorizedIsRefusedWithoutRetry", "clusterUnknownNameIsAnEmptySuccess", "clusterRetryRecoversThroughTheRealSelector", "clusterCancellationAbortsTransportWithoutCachingEmptiness", "clusterQueryFunctionPreservesAbortRejection"]
+repair = "A loopback HTTP producer drives the production hook, URL encoding, useApiFetch, useFetch, QueryClient retry policy and selector; no useQuery result or transport is replaced. Existing tests remain intact."
+
+[gotcha.baseline-order]
+observed = "Task step 6 requests an unchanged-tree verify while the ordered gate instructions require implementation before testing."
+resolution = "Follow the explicit gate order and record that no baseline was executed; do not consume a gate on an incomplete candidate."
+
+[gotcha.dependency-setup]
+observed = "The environment's initial dependency bootstrap failed: npm ci saw an unrelated root lock mismatch and pnpm refused the explorer's yarn package-manager pin."
+resolution = "Install explorer dependencies with its declared Yarn manager before formatting and qualification."
+
+[gotcha.gate-launcher]
+observed = "The sandbox pnpm launcher enforces the root npm pin before executing a command inside the Yarn application."
+resolution = "Use pnpm 10 with package-manager launcher selection disabled for gate execution; the declared TypeScript and Vitest commands and every test check stay intact."
+
+[gotcha.test-registration-lint]
+observed = "The existing ESLint Vitest plugin rejects test(functionReference), although the task explicitly requires that registration and the installed Vitest supports it."
+resolution = "Keep the required named-function registrations and all assertions through a typed registration adapter that passes the function name and body to Vitest. No lint rule is disabled."
+
+[qualification.build]
+revision = "353a204d3253f68a43aabfe081d209476cc90a4f"
+command = "pnpm --dir apps/explorer exec tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "Unrelated marketplace test ui/marketplace/essentialDapps/revoke/hooks/repair-22-31-381.spec.ts:2 cannot resolve ganache (TS2307); no searchBar errors were reported."
+assumption = "The pre-existing dependency failure is outside this repair; record it without investigation or rerun. hf-done has not run and neither finding is claimed qualified."
+
+[continuation]
+review = "Preserved the previous production repair and all eight named tests; extended clusterOtherNotFoundResponsesRemainErrors with a names.get 404 carrying a different error code."
+qualification = "The continuation task explicitly requests fresh hf-build and hf-done evidence; the historical build failure above is not current qualification."
+
+[gotcha.named-test-registration]
+observed = "The installed Vitest treats test(functionReference) as a todo without executing its body; the first continuation hf-done returned zero with eight todo cases and therefore supplies no behavioral proof."
+resolution = "The local test(proof) adapter registers vitestTest(proof.name, proof), preserving each named function and every assertion while making all eight cases executable. Requalify the repaired candidate through hf-build and hf-done."

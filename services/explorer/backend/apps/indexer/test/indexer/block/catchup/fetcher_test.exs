@@ -1,3 +1,5 @@
+Code.require_file("test_config.exs", __DIR__)
+
 defmodule Indexer.Block.Catchup.FetcherTest do
   use EthereumJSONRPC.Case, async: false
   use Explorer.DataCase
@@ -14,7 +16,6 @@ defmodule Indexer.Block.Catchup.FetcherTest do
   alias Indexer.Block.Catchup.MissingRangesCollector
   alias Indexer.Fetcher.CoinBalance.Catchup, as: CoinBalanceCatchup
   alias Indexer.Fetcher.{BlockReward, InternalTransaction, Token, UncleBlock}
-  alias Indexer.Fetcher.OnDemand.ContractCreator, as: ContractCreatorOnDemand
   alias Indexer.Fetcher.TokenBalance.Current, as: TokenBalanceCurrent
   alias Indexer.Fetcher.TokenBalance.Historical, as: TokenBalanceHistorical
 
@@ -40,15 +41,7 @@ defmodule Indexer.Block.Catchup.FetcherTest do
 
   describe "import/1" do
     setup do
-      configuration = Application.get_env(:indexer, :last_block)
-      Application.put_env(:indexer, :last_block, 0)
-      Application.put_env(:indexer, Indexer.Fetcher.Celo.EpochBlockOperations.Supervisor, disabled?: true)
-
-      {:ok, _pid} = ContractCreatorOnDemand.start_link([[], []])
-
-      on_exit(fn ->
-        Application.put_env(:indexer, :last_block, configuration)
-      end)
+      Indexer.Block.Catchup.TestConfig.setup_fetcher_import()
     end
 
     test "fetches uncles asynchronously", %{json_rpc_named_arguments: json_rpc_named_arguments} do
@@ -152,31 +145,7 @@ defmodule Indexer.Block.Catchup.FetcherTest do
 
   describe "task/1" do
     setup do
-      initial_env = Application.get_env(:indexer, :block_ranges)
-      on_exit(fn -> Application.put_env(:indexer, :block_ranges, initial_env) end)
-      Application.put_env(:indexer, Indexer.Fetcher.Celo.EpochBlockOperations.Supervisor, disabled?: true)
-
-      Application.put_env(:explorer, Explorer.Chain.Cache.CeloCoreContracts,
-        contracts: %{
-          "addresses" => %{
-            "Accounts" => [],
-            "Election" => [],
-            "EpochRewards" => [],
-            "FeeHandler" => [],
-            "GasPriceMinimum" => [],
-            "GoldToken" => [],
-            "Governance" => [],
-            "LockedGold" => [],
-            "Reserve" => [],
-            "StableToken" => [],
-            "Validators" => []
-          }
-        }
-      )
-
-      on_exit(fn ->
-        Application.put_env(:explorer, Explorer.Chain.Cache.CeloCoreContracts, contracts: %{})
-      end)
+      Indexer.Block.Catchup.TestConfig.setup_fetcher_task()
     end
 
     test "ignores fetched beneficiaries with different hash for same number", %{

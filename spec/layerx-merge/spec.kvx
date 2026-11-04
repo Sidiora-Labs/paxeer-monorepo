@@ -40902,7 +40902,7 @@ title = "Make apps/perps declare the wallet SDK and wallet gateway modules it im
 reqs = ["22998.1"]
 touches = ["apps/perps/package.json", "apps/perps/pnpm-lock.yaml", "apps/perps/pnpm-workspace.yaml", "apps/perps/tsconfig.json", "apps/perps/src/core/wallet/embedded/sdk", "apps/perps/src/core/wallet/gateway", "apps/perps/tests", "sdk/wallet/package.json", "services/wallet/gateway/package.json", "services/wallet/pnpm-lock.yaml", "services/wallet/pnpm-workspace.yaml"]
 tests = ["apps/perps/tests/repair-22-31-444.test.ts"]
-verification_contract = "pnpm --dir apps/perps install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-31-444.test.ts"
+verification_contract = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-31-444.test.ts"
 do_1 = "apps/perps/src/core/wallet/embedded/sdk/index.ts imports sdk/wallet/src/provider by a relative path that leaves the package, and other perps modules import services/wallet/gateway/src/schemas by the same means (published by 22.31.4); the type-check of apps/perps therefore depends on sdk/wallet and the gateway having been installed from the services/wallet workspace, which no install of apps/perps performs (gotcha 2976)."
 symbols = []
 
@@ -41127,7 +41127,7 @@ title = "Repair audit record 22.30.16 medium findings in apps/perps/src/page-mod
 reqs = ["22998.1"]
 touches = ["apps/perps/src/page-modules/legal"]
 tests = ["apps/perps/tests/repair-22-33-580.test.ts"]
-verification_contract = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-580.test.ts"
+verification_contract = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-580.test.ts"
 do_1 = "Audit record 22.30.16 (spec/layerx-merge/programme/audit/records/22.30.16.kvx) holds 3 medium finding(s) in apps/perps/src/page-modules/legal that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: cookie-error-consent, privacy-offchain-records, terms-native-venue. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -41136,7 +41136,7 @@ title = "Repair audit record 22.30.16 medium findings in apps/perps/src/page-mod
 reqs = ["22998.1"]
 touches = ["apps/perps/src/page-modules/perps"]
 tests = ["apps/perps/tests/repair-22-33-579.test.ts"]
-verification_contract = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-579.test.ts"
+verification_contract = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-579.test.ts"
 do_1 = "Audit record 22.30.16 (spec/layerx-merge/programme/audit/records/22.30.16.kvx) holds 1 medium finding(s) in apps/perps/src/page-modules/perps that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: perps-default-disabled. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -41145,7 +41145,7 @@ title = "Repair audit record 22.30.16 medium findings in apps/perps/src/page-mod
 reqs = ["22998.1"]
 touches = ["apps/perps/src/page-modules/portfolio"]
 tests = ["apps/perps/tests/repair-22-33-578.test.ts"]
-verification_contract = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-578.test.ts"
+verification_contract = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-578.test.ts"
 do_1 = "Audit record 22.30.16 (spec/layerx-merge/programme/audit/records/22.30.16.kvx) holds 2 medium finding(s) in apps/perps/src/page-modules/portfolio that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: portfolio-rpc-zero, portfolio-orders-diamond. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -41154,7 +41154,7 @@ title = "Repair audit record 22.30.16 medium findings in apps/perps/src/page-mod
 reqs = ["22998.1"]
 touches = ["apps/perps/src/page-modules/explorer"]
 tests = ["apps/perps/tests/repair-22-33-577.test.ts"]
-verification_contract = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-577.test.ts"
+verification_contract = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-577.test.ts"
 do_1 = "Audit record 22.30.16 (spec/layerx-merge/programme/audit/records/22.30.16.kvx) holds 1 medium finding(s) in apps/perps/src/page-modules/explorer that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: explorer-query-consumer. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -41163,7 +41163,7 @@ title = "Repair audit record 22.30.16 medium findings in apps/perps/src/page-mod
 reqs = ["22998.1"]
 touches = ["apps/perps/src/page-modules/tx-detail"]
 tests = ["apps/perps/tests/repair-22-33-576.test.ts"]
-verification_contract = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-576.test.ts"
+verification_contract = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-576.test.ts"
 do_1 = "Audit record 22.30.16 (spec/layerx-merge/programme/audit/records/22.30.16.kvx) holds 1 medium finding(s) in apps/perps/src/page-modules/tx-detail that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: tx-deep-link. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -41172,7 +41172,7 @@ title = "Repair audit record 22.30.16 medium findings in apps/perps/src/page-mod
 reqs = ["22998.1"]
 touches = ["apps/perps/src/page-modules/block-detail"]
 tests = ["apps/perps/tests/repair-22-33-575.test.ts"]
-verification_contract = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-575.test.ts"
+verification_contract = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-575.test.ts"
 do_1 = "Audit record 22.30.16 (spec/layerx-merge/programme/audit/records/22.30.16.kvx) holds 1 medium finding(s) in apps/perps/src/page-modules/block-detail that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: block-deep-link. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -44070,7 +44070,7 @@ title = "Repair audit record 22.30.13 medium findings in apps/perps/tests (part 
 reqs = ["22998.1"]
 touches = ["apps/perps/tests", "apps/perps/src/core/rpc.ts", "apps/perps/src/hooks/perps/useMarketsStream.ts"]
 tests = ["apps/perps/tests/repair-22-33-253.test.ts"]
-verification_contract = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-253.test.ts"
+verification_contract = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-253.test.ts"
 do_1 = "Audit record 22.30.13 (spec/layerx-merge/programme/audit/records/22.30.13.kvx) holds 6 medium finding(s) in apps/perps/tests that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: 023, 024, 008, 007, 021, 022. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -44538,7 +44538,7 @@ title = "Repair audit record 22.30.12 medium findings in apps/perps/src/widgets/
 reqs = ["22998.1"]
 touches = ["apps/perps/src/widgets/mobile"]
 tests = ["apps/perps/tests/repair-22-33-201.test.ts"]
-verification_contract = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-201.test.ts"
+verification_contract = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-201.test.ts"
 do_1 = "Audit record 22.30.12 (spec/layerx-merge/programme/audit/records/22.30.12.kvx) holds 2 medium finding(s) in apps/perps/src/widgets/mobile that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: f046, f047. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -44547,7 +44547,7 @@ title = "Repair audit record 22.30.12 medium findings in apps/perps/src/widgets/
 reqs = ["22998.1"]
 touches = ["apps/perps/src/widgets/network-pill"]
 tests = ["apps/perps/tests/repair-22-33-200.test.ts"]
-verification_contract = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-200.test.ts"
+verification_contract = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-200.test.ts"
 do_1 = "Audit record 22.30.12 (spec/layerx-merge/programme/audit/records/22.30.12.kvx) holds 1 medium finding(s) in apps/perps/src/widgets/network-pill that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: f043. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -44556,7 +44556,7 @@ title = "Repair audit record 22.30.12 medium findings in apps/perps/src/widgets/
 reqs = ["22998.1"]
 touches = ["apps/perps/src/widgets/errors"]
 tests = ["apps/perps/tests/repair-22-33-199.test.ts"]
-verification_contract = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-199.test.ts"
+verification_contract = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-199.test.ts"
 do_1 = "Audit record 22.30.12 (spec/layerx-merge/programme/audit/records/22.30.12.kvx) holds 1 medium finding(s) in apps/perps/src/widgets/errors that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: f042. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -44565,7 +44565,7 @@ title = "Repair audit record 22.30.12 medium findings in apps/perps/src/widgets/
 reqs = ["22998.1"]
 touches = ["apps/perps/src/widgets/portfolio"]
 tests = ["apps/perps/tests/repair-22-33-198.test.ts"]
-verification_contract = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-198.test.ts"
+verification_contract = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-198.test.ts"
 do_1 = "Audit record 22.30.12 (spec/layerx-merge/programme/audit/records/22.30.12.kvx) holds 5 medium finding(s) in apps/perps/src/widgets/portfolio that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: f022, f019, f020, f021, f040. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -44574,7 +44574,7 @@ title = "Repair audit record 22.30.12 medium findings in apps/perps/src/widgets/
 reqs = ["22998.1"]
 touches = ["apps/perps/src/widgets/trading"]
 tests = ["apps/perps/tests/repair-22-33-197.test.ts"]
-verification_contract = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-197.test.ts"
+verification_contract = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-197.test.ts"
 do_1 = "Audit record 22.30.12 (spec/layerx-merge/programme/audit/records/22.30.12.kvx) holds 3 medium finding(s) in apps/perps/src/widgets/trading that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: f034, f035, f018. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -44583,7 +44583,7 @@ title = "Repair audit record 22.30.12 medium findings in apps/perps/src/widgets/
 reqs = ["22998.1"]
 touches = ["apps/perps/src/widgets/trading"]
 tests = ["apps/perps/tests/repair-22-33-196.test.ts"]
-verification_contract = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-196.test.ts"
+verification_contract = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-196.test.ts"
 do_1 = "Audit record 22.30.12 (spec/layerx-merge/programme/audit/records/22.30.12.kvx) holds 8 medium finding(s) in apps/perps/src/widgets/trading that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: f045, f028, f030, f025, f029, f033, f032, f031. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -44592,7 +44592,7 @@ title = "Repair audit record 22.30.12 medium findings in apps/perps/src/widgets/
 reqs = ["22998.1"]
 touches = ["apps/perps/src/widgets/trading/modals"]
 tests = ["apps/perps/tests/repair-22-33-195.test.ts"]
-verification_contract = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-195.test.ts"
+verification_contract = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-195.test.ts"
 do_1 = "Audit record 22.30.12 (spec/layerx-merge/programme/audit/records/22.30.12.kvx) holds 1 medium finding(s) in apps/perps/src/widgets/trading/modals that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: f017. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -44601,7 +44601,7 @@ title = "Repair audit record 22.30.12 medium findings in apps/perps/src/widgets/
 reqs = ["22998.1"]
 touches = ["apps/perps/src/widgets/spot", "apps/perps/src/widgets/mobile/MobileSpotBalancePanel.tsx"]
 tests = ["apps/perps/tests/repair-22-33-194.test.ts"]
-verification_contract = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-194.test.ts"
+verification_contract = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-194.test.ts"
 do_1 = "Audit record 22.30.12 (spec/layerx-merge/programme/audit/records/22.30.12.kvx) holds 8 medium finding(s) in apps/perps/src/widgets/spot that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: f023, f014, f015, f016, f039, f024, f027, f026. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -44610,7 +44610,7 @@ title = "Repair audit record 22.30.12 medium findings in apps/perps/src/widgets/
 reqs = ["22998.1"]
 touches = ["apps/perps/src/widgets/explorer"]
 tests = ["apps/perps/tests/repair-22-33-193.test.ts"]
-verification_contract = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-193.test.ts"
+verification_contract = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-193.test.ts"
 do_1 = "Audit record 22.30.12 (spec/layerx-merge/programme/audit/records/22.30.12.kvx) holds 3 medium finding(s) in apps/perps/src/widgets/explorer that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: f011, f012, f013. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -44619,7 +44619,7 @@ title = "Repair audit record 22.30.12 medium findings in apps/perps/src/widgets/
 reqs = ["22998.1"]
 touches = ["apps/perps/src/widgets/analytics"]
 tests = ["apps/perps/tests/repair-22-33-192.test.ts"]
-verification_contract = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-192.test.ts"
+verification_contract = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-192.test.ts"
 do_1 = "Audit record 22.30.12 (spec/layerx-merge/programme/audit/records/22.30.12.kvx) holds 3 medium finding(s) in apps/perps/src/widgets/analytics that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: f008, f009, f010. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -44637,7 +44637,7 @@ title = "Repair audit record 22.30.12 medium findings in apps/perps/src/pages/ap
 reqs = ["22998.1"]
 touches = ["apps/perps/src/pages/api"]
 tests = ["apps/perps/tests/repair-22-33-190.test.ts"]
-verification_contract = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-190.test.ts"
+verification_contract = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-190.test.ts"
 do_1 = "Audit record 22.30.12 (spec/layerx-merge/programme/audit/records/22.30.12.kvx) holds 2 medium finding(s) in apps/perps/src/pages/api that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: f005, f006. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -44655,7 +44655,7 @@ title = "Repair audit record 22.30.12 medium findings in apps/perps (part 1 of 1
 reqs = ["22998.1"]
 touches = ["apps/perps", "services/platform/perps-data/internal/records/records.go"]
 tests = ["apps/perps/tests/repair-22-33-188.test.ts"]
-verification_contract = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-188.test.ts"
+verification_contract = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-188.test.ts"
 do_1 = "Audit record 22.30.12 (spec/layerx-merge/programme/audit/records/22.30.12.kvx) holds 3 medium finding(s) in apps/perps that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: f044, f001, f002. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -45600,7 +45600,7 @@ title = "Repair audit record 22.30.11 medium findings in apps/perps/src/ui/atoms
 reqs = ["22998.1"]
 touches = ["apps/perps/src/ui/atoms"]
 tests = ["apps/perps/tests/repair-22-33-83.test.ts"]
-verification_contract = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-83.test.ts"
+verification_contract = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-83.test.ts"
 do_1 = "Audit record 22.30.11 (spec/layerx-merge/programme/audit/records/22.30.11.kvx) holds 1 medium finding(s) in apps/perps/src/ui/atoms that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: resize-unmount-state. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -45609,7 +45609,7 @@ title = "Repair audit record 22.30.11 medium findings in apps/perps/src/core/pax
 reqs = ["22998.1"]
 touches = ["apps/perps/src/core/paxscan/socket"]
 tests = ["apps/perps/tests/repair-22-33-82.test.ts"]
-verification_contract = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-82.test.ts"
+verification_contract = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-82.test.ts"
 do_1 = "Audit record 22.30.11 (spec/layerx-merge/programme/audit/records/22.30.11.kvx) holds 2 medium finding(s) in apps/perps/src/core/paxscan/socket that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: shared-channel-leave, channel-join-params. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -45618,7 +45618,7 @@ title = "Repair audit record 22.30.11 medium findings in apps/perps/src/core/per
 reqs = ["22998.1"]
 touches = ["apps/perps/src/core/perps"]
 tests = ["apps/perps/tests/repair-22-33-81.test.ts"]
-verification_contract = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-81.test.ts"
+verification_contract = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-81.test.ts"
 do_1 = "Audit record 22.30.11 (spec/layerx-merge/programme/audit/records/22.30.11.kvx) holds 2 medium finding(s) in apps/perps/src/core/perps that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: scaled-order-protection, cross-margin-health. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -45627,7 +45627,7 @@ title = "Repair audit record 22.30.11 medium findings in apps/perps/src/core/err
 reqs = ["22998.1"]
 touches = ["apps/perps/src/core/errors"]
 tests = ["apps/perps/tests/repair-22-33-80.test.ts"]
-verification_contract = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-80.test.ts"
+verification_contract = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-80.test.ts"
 do_1 = "Audit record 22.30.11 (spec/layerx-merge/programme/audit/records/22.30.11.kvx) holds 3 medium finding(s) in apps/perps/src/core/errors that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: fetch-error-classification, perps-refusal-guidance, sentry-initialization-race. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -45636,7 +45636,7 @@ title = "Repair audit record 22.30.11 medium findings in apps/perps/src/core/dat
 reqs = ["22998.1"]
 touches = ["apps/perps/src/core/datafeed"]
 tests = ["apps/perps/tests/repair-22-33-79.test.ts"]
-verification_contract = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-79.test.ts"
+verification_contract = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-79.test.ts"
 do_1 = "Audit record 22.30.11 (spec/layerx-merge/programme/audit/records/22.30.11.kvx) holds 1 medium finding(s) in apps/perps/src/core/datafeed that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: chart-resolution-cache. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -45645,7 +45645,7 @@ title = "Repair audit record 22.30.11 medium findings in apps/perps/src/core (pa
 reqs = ["22998.1"]
 touches = ["apps/perps/src/core"]
 tests = ["apps/perps/tests/repair-22-33-78.test.ts"]
-verification_contract = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-78.test.ts"
+verification_contract = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-78.test.ts"
 do_1 = "Audit record 22.30.11 (spec/layerx-merge/programme/audit/records/22.30.11.kvx) holds 2 medium finding(s) in apps/perps/src/core that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: dynamic-candle-symbols, public-rpc-defaults. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -45654,7 +45654,7 @@ title = "Repair audit record 22.30.11 medium findings in apps/perps/src/core/gra
 reqs = ["22998.1"]
 touches = ["apps/perps/src/core/graphql"]
 tests = ["apps/perps/tests/repair-22-33-77.test.ts"]
-verification_contract = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-77.test.ts"
+verification_contract = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-77.test.ts"
 do_1 = "Audit record 22.30.11 (spec/layerx-merge/programme/audit/records/22.30.11.kvx) holds 1 medium finding(s) in apps/perps/src/core/graphql that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: graphql-auth-cache. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -46239,7 +46239,7 @@ title = "Repair audit record 22.30.10 medium findings in apps/perps/src/app/shel
 reqs = ["22998.1"]
 touches = ["apps/perps/src/app/shell"]
 tests = ["apps/perps/tests/repair-22-33-12.test.ts"]
-verification_contract = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-12.test.ts"
+verification_contract = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-12.test.ts"
 do_1 = "Audit record 22.30.10 (spec/layerx-merge/programme/audit/records/22.30.10.kvx) holds 6 medium finding(s) in apps/perps/src/app/shell that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: status-assumes-health, withdraw-entry-opens-deposit, mobile-navigation-focus, mobile-disabled-market-selection, mobile-rwa-category, splash-hydration-divergence. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -46248,7 +46248,7 @@ title = "Repair audit record 22.30.10 medium findings in apps/perps/src/app/moda
 reqs = ["22998.1"]
 touches = ["apps/perps/src/app/modals"]
 tests = ["apps/perps/tests/repair-22-33-11.test.ts"]
-verification_contract = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-11.test.ts"
+verification_contract = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-11.test.ts"
 do_1 = "Audit record 22.30.10 (spec/layerx-merge/programme/audit/records/22.30.10.kvx) holds 6 medium finding(s) in apps/perps/src/app/modals that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: collateral-dialog-access, settings-guide-drift, settings-without-consumers, settings-dialog-access, settings-save-promise, wallet-panel-identity-label. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -143173,8 +143173,8 @@ symbols = []
 touches = ["apps/perps/package.json", "apps/perps/pnpm-lock.yaml", "apps/perps/pnpm-workspace.yaml", "apps/perps/tsconfig.json", "apps/perps/src/core/wallet/embedded/sdk", "apps/perps/src/core/wallet/gateway", "apps/perps/tests", "sdk/wallet/package.json", "services/wallet/gateway/package.json", "services/wallet/pnpm-lock.yaml", "services/wallet/pnpm-workspace.yaml"]
 tests = ["apps/perps/tests/repair-22-31-444.test.ts"]
 planned_paths = ["apps/perps/package.json", "apps/perps/pnpm-lock.yaml", "apps/perps/src/core/wallet/embedded/sdk/index.ts", "apps/perps/tests/repair-22-31-444.test.ts"]
-build_cmd = "pnpm --dir apps/perps install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
-verify_cmd = "pnpm --dir apps/perps install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-31-444.test.ts"
+build_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
+verify_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-31-444.test.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-markets"
@@ -143309,8 +143309,8 @@ symbols = []
 touches = ["apps/perps/src/page-modules/legal"]
 tests = ["apps/perps/tests/repair-22-33-580.test.ts"]
 planned_paths = ["apps/perps/tests/repair-22-33-580.test.ts"]
-build_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
-verify_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-580.test.ts"
+build_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
+verify_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-580.test.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-markets"
@@ -143322,6 +143322,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_11 = "Attempt 2 (continue): the perps type-check reports viem and the agent SDK browser entry unresolved under sdk/wallet because the gate installed only the wallet workspace (gotcha 2976); the build and verify commands now install the root workspace, build the agent SDK and install the wallet workspace first. Keep the implementation and re-run both commands on the current tree."
 
 [task.22.33.579]
 title = "Repair audit record 22.30.16 medium findings in apps/perps/src/page-modules/perps (part 1 of 1): runtime-risk"
@@ -143344,8 +143345,8 @@ symbols = []
 touches = ["apps/perps/src/page-modules/perps"]
 tests = ["apps/perps/tests/repair-22-33-579.test.ts"]
 planned_paths = ["apps/perps/tests/repair-22-33-579.test.ts"]
-build_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
-verify_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-579.test.ts"
+build_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
+verify_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-579.test.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-markets"
@@ -143357,6 +143358,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "Attempt 2 (continue): the perps type-check reports viem and the agent SDK browser entry unresolved under sdk/wallet because the gate installed only the wallet workspace (gotcha 2976); the build and verify commands now install the root workspace, build the agent SDK and install the wallet workspace first. Keep the implementation and re-run both commands on the current tree."
 
 [task.22.33.578]
 title = "Repair audit record 22.30.16 medium findings in apps/perps/src/page-modules/portfolio (part 1 of 1): runtime-risk, wiring-gap"
@@ -143380,8 +143382,8 @@ symbols = []
 touches = ["apps/perps/src/page-modules/portfolio"]
 tests = ["apps/perps/tests/repair-22-33-578.test.ts"]
 planned_paths = ["apps/perps/tests/repair-22-33-578.test.ts"]
-build_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
-verify_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-578.test.ts"
+build_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
+verify_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-578.test.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-markets"
@@ -143415,8 +143417,8 @@ symbols = []
 touches = ["apps/perps/src/page-modules/explorer"]
 tests = ["apps/perps/tests/repair-22-33-577.test.ts"]
 planned_paths = ["apps/perps/tests/repair-22-33-577.test.ts"]
-build_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
-verify_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-577.test.ts"
+build_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
+verify_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-577.test.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-markets"
@@ -143428,6 +143430,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "Attempt 2 (continue): the perps type-check reports viem and the agent SDK browser entry unresolved under sdk/wallet because the gate installed only the wallet workspace (gotcha 2976); the build and verify commands now install the root workspace, build the agent SDK and install the wallet workspace first. Keep the implementation and re-run both commands on the current tree."
 
 [task.22.33.576]
 title = "Repair audit record 22.30.16 medium findings in apps/perps/src/page-modules/tx-detail (part 1 of 1): wiring-gap"
@@ -143450,8 +143453,8 @@ symbols = []
 touches = ["apps/perps/src/page-modules/tx-detail"]
 tests = ["apps/perps/tests/repair-22-33-576.test.ts"]
 planned_paths = ["apps/perps/tests/repair-22-33-576.test.ts"]
-build_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
-verify_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-576.test.ts"
+build_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
+verify_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-576.test.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-markets"
@@ -143485,8 +143488,8 @@ symbols = []
 touches = ["apps/perps/src/page-modules/block-detail"]
 tests = ["apps/perps/tests/repair-22-33-575.test.ts"]
 planned_paths = ["apps/perps/tests/repair-22-33-575.test.ts"]
-build_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
-verify_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-575.test.ts"
+build_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
+verify_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-575.test.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-markets"
@@ -143498,6 +143501,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "Attempt 2 (continue): the perps type-check reports viem and the agent SDK browser entry unresolved under sdk/wallet because the gate installed only the wallet workspace (gotcha 2976); the build and verify commands now install the root workspace, build the agent SDK and install the wallet workspace first. Keep the implementation and re-run both commands on the current tree."
 
 [task.22.33.543]
 title = "Repair audit record 22.30.157 medium findings in apps/explorer/nextjs/utils (part 1 of 1): runtime-risk"
@@ -143601,6 +143605,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_8 = "Attempt 2 (requalify): four of five cases passed and the fifth (the telemetry payload carried the loopback host and port of the test server instead of the request host explorer.test) was repaired after the last verify, so the final revision is unverified. Re-run the build and the verify command once on the final revision; if the case still fails, take the hostname from the incoming request headers the production handler reads, not from the fixture server's address, then verify again and make no commit after the pass."
 
 [task.22.33.540]
 title = "Repair audit record 22.30.157 medium findings in apps/explorer/nextjs/middlewares (part 1 of 1): security"
@@ -144405,6 +144410,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_9 = "Attempt 2 (continue): the explorer type-check failed on the ganache import of the 22.31.381 test, repaired by 22.31.440 (published), or on the package manager mismatch of apps/explorer, which pins yarn; the build and verify commands now install and type-check through corepack yarn. Keep the implementation and re-run both commands on the current tree."
+do_10 = "Attempt 3 (continue): the attempt ran on the gate as it stood before the explorer type-check moved to corepack yarn (the pnpm and yarn mismatch); the current build and verify commands install and type-check through yarn. Keep the implementation and re-run both commands on the current tree."
 
 [task.22.33.465]
 title = "Repair audit record 22.30.149 medium findings in apps/explorer/ui/tokenInstance (part 1 of 1): runtime-risk, wiring-gap"
@@ -144935,6 +144941,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_8 = "Attempt 2 (continue): the attempt ran on the gate as it stood before the explorer type-check moved to corepack yarn (the pnpm and yarn mismatch); the current build and verify commands install and type-check through yarn. Keep the implementation and re-run both commands on the current tree."
 
 [task.22.33.370]
 title = "Repair audit record 22.30.140 medium findings in apps/explorer/ui/zetaChain (part 1 of 1): wiring-gap"
@@ -145706,7 +145713,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.342]
 title = "Repair audit record 22.30.138 medium findings in apps/explorer/ui/snippets/searchBar (part 1 of 1): runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.268"]
@@ -145923,10 +145930,11 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_15 = "Attempt 2 (requalify): the build passed and the verification loader error was repaired after the repair budget was spent; re-run the build and the verify on the final tree and finish on one commit."
+do_16 = "Attempt 3 (continue): both attempts fail the same way: the e2e suite imports a module that imports a Next.js runtime entry (next/link through src/kit/explorer.tsx, next/navigation through the onboarding journey), which the Node ESM resolver cannot load under node --test (gotcha 2978). Move the behaviour under test into pure modules (the kit's data and formatting helpers and the explorer selectors), import only those and the copy catalog in e2e/repair-22-33-337.test.ts as the committed suites do, keep the component wiring in the component, and finish on one commit."
 
 [task.22.33.332]
 title = "Repair audit record 22.30.137 medium findings in apps/explorer/ui/shared/web3/providers (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -145998,7 +146006,7 @@ do_10 = "Attempt 2 (continue): the explorer type-check failed on the ganache imp
 
 [task.22.33.330]
 title = "Repair audit record 22.30.137 medium findings in apps/explorer/ui/shared/reCaptcha (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -146066,6 +146074,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_9 = "Attempt 2 (continue): the explorer type-check failed on the ganache import of the 22.31.381 test, repaired by 22.31.440 (published), or on the package manager mismatch of apps/explorer, which pins yarn; the build and verify commands now install and type-check through corepack yarn. Keep the implementation and re-run both commands on the current tree."
+do_10 = "Attempt 3 (continue): the attempt ran on the gate as it stood before the explorer type-check moved to corepack yarn (the pnpm and yarn mismatch); the current build and verify commands install and type-check through yarn. Keep the implementation and re-run both commands on the current tree."
 
 [task.22.33.328]
 title = "Repair audit record 22.30.137 medium findings in apps/explorer/ui/shared/nft (part 1 of 1): runtime-risk, test-gap, wiring-gap"
@@ -147040,7 +147049,7 @@ do_8 = "Attempt 2 (continue): the explorer type-check failed on the ganache impo
 
 [task.22.33.284]
 title = "Repair audit record 22.30.133 medium findings in apps/explorer/ui/blocks/flashblocks (part 1 of 1): restart-recovery, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.377", "22.31.378"]
@@ -147507,6 +147516,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_8 = "Attempt 2 (continue): the attempt ran on the gate as it stood before the bridge type-check moved to the package typecheck script (gotcha 2977); the current build and verify commands generate the framework types first. Keep the implementation and re-run both commands on the current tree."
 
 [task.22.33.266]
 title = "Repair audit record 22.30.131 medium findings in apps/bridge/src/test (part 1 of 1): test-gap"
@@ -147548,6 +147558,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_14 = "Attempt 2 (continue): the type-check failed only because the framework's generated LayoutProps type was absent without the typegen step (gotcha 2977); the build and verify commands now run the package typecheck script. Keep the implementation and re-run both commands on the current tree."
+do_15 = "Attempt 3 (continue): the attempt ran on the gate as it stood before the bridge type-check moved to the package typecheck script (gotcha 2977); the current build and verify commands generate the framework types first. Keep the implementation and re-run both commands on the current tree."
 
 [task.22.33.265]
 title = "Repair audit record 22.30.131 medium findings in apps/bridge/src/lib/bridge (part 2 of 2): test-gap"
@@ -147586,7 +147597,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.264]
 title = "Repair audit record 22.30.131 medium findings in apps/bridge/src/lib/bridge (part 1 of 2): config-drift, interface-mismatch, restart-recovery, runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.376"]
@@ -147690,8 +147701,8 @@ symbols = []
 touches = ["apps/perps/tests", "apps/perps/src/core/rpc.ts", "apps/perps/src/hooks/perps/useMarketsStream.ts"]
 tests = ["apps/perps/tests/repair-22-33-253.test.ts"]
 planned_paths = ["apps/perps/tests/repair-22-33-253.test.ts"]
-build_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
-verify_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-253.test.ts"
+build_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
+verify_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-253.test.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-markets"
@@ -147890,6 +147901,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "Attempt 2 (requalify): five of six cases passed and the sixth (the precompile ABI refusing the calldata value) was repaired after the last verify, so the final revision is unverified. Re-run the build and the verify command once on the final revision; if the calldata case still fails, encode the calldata through the perps package's precompile ABI encoder rather than a hand-written hex string, then verify again and make no commit after the pass."
 
 [task.22.33.205]
 title = "Repair audit record 22.30.120 medium findings in apps/wallet/src/surfaces (part 1 of 1): runtime-risk, test-gap, wiring-gap"
@@ -148023,8 +148035,8 @@ symbols = []
 touches = ["apps/perps/src/widgets/mobile"]
 tests = ["apps/perps/tests/repair-22-33-201.test.ts"]
 planned_paths = ["apps/perps/tests/repair-22-33-201.test.ts"]
-build_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
-verify_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-201.test.ts"
+build_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
+verify_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-201.test.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-markets"
@@ -148059,8 +148071,8 @@ symbols = []
 touches = ["apps/perps/src/widgets/network-pill"]
 tests = ["apps/perps/tests/repair-22-33-200.test.ts"]
 planned_paths = ["apps/perps/tests/repair-22-33-200.test.ts"]
-build_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
-verify_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-200.test.ts"
+build_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
+verify_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-200.test.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-markets"
@@ -148095,8 +148107,8 @@ symbols = []
 touches = ["apps/perps/src/widgets/errors"]
 tests = ["apps/perps/tests/repair-22-33-199.test.ts"]
 planned_paths = ["apps/perps/tests/repair-22-33-199.test.ts"]
-build_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
-verify_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-199.test.ts"
+build_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
+verify_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-199.test.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-markets"
@@ -148135,8 +148147,8 @@ symbols = []
 touches = ["apps/perps/src/widgets/portfolio"]
 tests = ["apps/perps/tests/repair-22-33-198.test.ts"]
 planned_paths = ["apps/perps/tests/repair-22-33-198.test.ts"]
-build_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
-verify_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-198.test.ts"
+build_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
+verify_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-198.test.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-markets"
@@ -148173,8 +148185,8 @@ symbols = []
 touches = ["apps/perps/src/widgets/trading"]
 tests = ["apps/perps/tests/repair-22-33-197.test.ts"]
 planned_paths = ["apps/perps/tests/repair-22-33-197.test.ts"]
-build_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
-verify_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-197.test.ts"
+build_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
+verify_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-197.test.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-markets"
@@ -148215,8 +148227,8 @@ symbols = []
 touches = ["apps/perps/src/widgets/trading"]
 tests = ["apps/perps/tests/repair-22-33-196.test.ts"]
 planned_paths = ["apps/perps/tests/repair-22-33-196.test.ts"]
-build_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
-verify_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-196.test.ts"
+build_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
+verify_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-196.test.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-markets"
@@ -148251,8 +148263,8 @@ symbols = []
 touches = ["apps/perps/src/widgets/trading/modals"]
 tests = ["apps/perps/tests/repair-22-33-195.test.ts"]
 planned_paths = ["apps/perps/tests/repair-22-33-195.test.ts"]
-build_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
-verify_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-195.test.ts"
+build_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
+verify_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-195.test.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-markets"
@@ -148294,8 +148306,8 @@ symbols = []
 touches = ["apps/perps/src/widgets/spot", "apps/perps/src/widgets/mobile/MobileSpotBalancePanel.tsx"]
 tests = ["apps/perps/tests/repair-22-33-194.test.ts"]
 planned_paths = ["apps/perps/tests/repair-22-33-194.test.ts"]
-build_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
-verify_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-194.test.ts"
+build_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
+verify_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-194.test.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-markets"
@@ -148331,8 +148343,8 @@ symbols = []
 touches = ["apps/perps/src/widgets/explorer"]
 tests = ["apps/perps/tests/repair-22-33-193.test.ts"]
 planned_paths = ["apps/perps/tests/repair-22-33-193.test.ts"]
-build_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
-verify_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-193.test.ts"
+build_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
+verify_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-193.test.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-markets"
@@ -148370,8 +148382,8 @@ symbols = []
 touches = ["apps/perps/src/widgets/analytics"]
 tests = ["apps/perps/tests/repair-22-33-192.test.ts"]
 planned_paths = ["apps/perps/tests/repair-22-33-192.test.ts"]
-build_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
-verify_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-192.test.ts"
+build_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
+verify_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-192.test.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-markets"
@@ -148442,8 +148454,8 @@ symbols = []
 touches = ["apps/perps/src/pages/api"]
 tests = ["apps/perps/tests/repair-22-33-190.test.ts"]
 planned_paths = ["apps/perps/tests/repair-22-33-190.test.ts"]
-build_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
-verify_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-190.test.ts"
+build_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
+verify_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-190.test.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-markets"
@@ -148516,8 +148528,8 @@ symbols = []
 touches = ["apps/perps", "services/platform/perps-data/internal/records/records.go"]
 tests = ["apps/perps/tests/repair-22-33-188.test.ts"]
 planned_paths = ["apps/perps/tests/repair-22-33-188.test.ts"]
-build_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
-verify_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-188.test.ts"
+build_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
+verify_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-188.test.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-markets"
@@ -149024,7 +149036,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.163]
 title = "Repair audit record 22.30.118 medium findings in apps/wallet/src/app/api/wallet/[...path] (part 1 of 1): interface-mismatch, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.245", "22.31.246", "22.31.247", "22.31.369"]
@@ -150028,8 +150040,8 @@ symbols = []
 touches = ["apps/perps/src/ui/atoms"]
 tests = ["apps/perps/tests/repair-22-33-83.test.ts"]
 planned_paths = ["apps/perps/tests/repair-22-33-83.test.ts"]
-build_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
-verify_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-83.test.ts"
+build_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
+verify_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-83.test.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-markets"
@@ -150065,8 +150077,8 @@ symbols = []
 touches = ["apps/perps/src/core/paxscan/socket"]
 tests = ["apps/perps/tests/repair-22-33-82.test.ts"]
 planned_paths = ["apps/perps/tests/repair-22-33-82.test.ts"]
-build_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
-verify_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-82.test.ts"
+build_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
+verify_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-82.test.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-markets"
@@ -150102,8 +150114,8 @@ symbols = []
 touches = ["apps/perps/src/core/perps"]
 tests = ["apps/perps/tests/repair-22-33-81.test.ts"]
 planned_paths = ["apps/perps/tests/repair-22-33-81.test.ts"]
-build_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
-verify_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-81.test.ts"
+build_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
+verify_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-81.test.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-markets"
@@ -150140,8 +150152,8 @@ symbols = []
 touches = ["apps/perps/src/core/errors"]
 tests = ["apps/perps/tests/repair-22-33-80.test.ts"]
 planned_paths = ["apps/perps/tests/repair-22-33-80.test.ts"]
-build_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
-verify_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-80.test.ts"
+build_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
+verify_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-80.test.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-markets"
@@ -150176,8 +150188,8 @@ symbols = []
 touches = ["apps/perps/src/core/datafeed"]
 tests = ["apps/perps/tests/repair-22-33-79.test.ts"]
 planned_paths = ["apps/perps/tests/repair-22-33-79.test.ts"]
-build_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
-verify_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-79.test.ts"
+build_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
+verify_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-79.test.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-markets"
@@ -150213,8 +150225,8 @@ symbols = []
 touches = ["apps/perps/src/core"]
 tests = ["apps/perps/tests/repair-22-33-78.test.ts"]
 planned_paths = ["apps/perps/tests/repair-22-33-78.test.ts"]
-build_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
-verify_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-78.test.ts"
+build_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
+verify_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-78.test.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-markets"
@@ -150249,8 +150261,8 @@ symbols = []
 touches = ["apps/perps/src/core/graphql"]
 tests = ["apps/perps/tests/repair-22-33-77.test.ts"]
 planned_paths = ["apps/perps/tests/repair-22-33-77.test.ts"]
-build_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
-verify_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-77.test.ts"
+build_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
+verify_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-77.test.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-markets"
@@ -150524,8 +150536,8 @@ symbols = []
 touches = ["apps/perps/src/app/shell"]
 tests = ["apps/perps/tests/repair-22-33-12.test.ts"]
 planned_paths = ["apps/perps/tests/repair-22-33-12.test.ts"]
-build_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
-verify_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-12.test.ts"
+build_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
+verify_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-12.test.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-markets"
@@ -150565,8 +150577,8 @@ symbols = []
 touches = ["apps/perps/src/app/modals"]
 tests = ["apps/perps/tests/repair-22-33-11.test.ts"]
 planned_paths = ["apps/perps/tests/repair-22-33-11.test.ts"]
-build_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
-verify_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-11.test.ts"
+build_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
+verify_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-11.test.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-markets"
@@ -159376,7 +159388,7 @@ do_8 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.415]
 title = "Repair audit record 22.30.163 findings in sdk/integrations/ios/Sources/LayerXMobileSampleKit: wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -172136,6 +172148,7 @@ do_14 = "Real means the component under repair is the production code; its peers
 do_15 = "The candidate carries only sources under the touches and the test file: no helper project of another toolchain, no compiled cache, no .cgignore edit (gotcha 2966); the verify command runs last on the final tree and nothing changes after it (gotcha 2967)."
 do_16 = "Attempt 2 (continue): the tests prove that the decoders drop the checksummed holder identity, the ERC1155 variants, the log emitter origin and the typed ABI, but the touches covered tests only. Repair the decoders in the client crate sources so those facts are preserved end to end."
 do_17 = "Attempt 4 (continue): the crate does not build with --tests because tests/repair_22_31_273.rs matches on a type the models module no longer exports (gotcha 2974); 22.31.445 repairs that test and this task now requires it. Keep the implementation and re-run both commands when it has published."
+do_18 = "Attempt 5 (continue): the build fails in the 22.31.273 test of the blockscout-client crate, which still matches TransactionFeedItem against FeedItem (gotcha 2975); 22.31.445 repairs that test and this task requires it, so the next attempt starts after 22.31.445 publishes. Keep the implementation and re-run both commands then."
 
 [task.22.31.278]
 title = "Repair audit record 22.30.159 findings in services/explorer/services/libs/blockscout-client/crate/tests/recorded/eth_blockscout_com: interface-mismatch"
@@ -192658,7 +192671,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.363]
 title = "Repair audit record 22.30.14 medium findings in modules/perps/keeper (part 1 of 1): config-drift, security, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.14", "22.31.15", "22.31.16"]
@@ -192811,7 +192824,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.255]
 title = "Repair audit record 22.30.13 medium findings in modules/oracle/client/rest (part 1 of 1): wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.10", "22.31.11", "22.31.12", "22.31.13"]
@@ -301692,7 +301705,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.286]
 title = "Repair audit record 22.30.133 medium findings in tests/explorer (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.377", "22.31.378"]
@@ -342912,7 +342925,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.381]
 title = "Repair audit record 22.30.140 medium findings in services/explorer/backend/apps/explorer/lib/explorer/market (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.270"]
@@ -342946,7 +342959,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.379]
 title = "Repair audit record 22.30.140 medium findings in services/explorer/backend/apps/explorer/test/explorer (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.270"]
@@ -343504,7 +343517,7 @@ do_9 = "Attempt 1: seven tests receive -32000 transaction indexing is in progres
 
 [task.22.31.411]
 title = "Repair audit record 22.30.156 findings in services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x: test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
