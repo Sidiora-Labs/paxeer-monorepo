@@ -122,3 +122,25 @@ movements of `2uhpx` when the base denomination is `uhpx`. The value transferred
 is `2000000000005` wei. Do not count `transfer` and its corresponding spent and
 received events as separate movements. See the [bank overview](README.md#total-supply)
 for supply accounting.
+
+With Alice initially holding `5uhpx` and Bob holding zero, that `amt = 2`,
+`wei = 5` example emits the following keeper events in order (address names
+stand for their Bech32 strings):
+
+| Type | Attributes |
+| --- | --- |
+| wei_spent | `spender=Alice`, `amount=5` |
+| wei_received | `receiver=Bob`, `amount=5` |
+| wei_transfer | `recipient=Bob`, `sender=Alice`, `amount=5` |
+| coin_spent | `spender=Alice`, `amount=2uhpx` |
+| coin_received | `receiver=Bob`, `amount=2uhpx` |
+| transfer | `recipient=Bob`, `sender=Alice`, `amount=2uhpx` |
+| message | `sender=Alice` |
+
+Alice finishes with `2uhpx` plus `999999999995` wei, and Bob with `2uhpx` plus
+`5` wei. Alice's borrow does not add a separate coin-spent event. Independently,
+subtracting `5` wei from `2uhpx` and then adding `5` back emits only
+`wei_spent(amount=5)` and `wei_received(amount=5)`, even though both operations
+write whole balances. `TestRepairM_669_WeiEvents` in
+[repair_m669_test.go](../repair_m669_test.go) checks these exact event streams,
+the balances, zero amounts, and atomic failure without published events.

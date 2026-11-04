@@ -244,3 +244,11 @@ all ordinary balances. Iterator callbacks returning true stop iteration.
 `LockedCoins` reads vesting locks at the context's block time, and
 `SpendableCoins` subtracts locked amounts from ordinary balances. Ordinary balance
 queries do not include fractional wei or pending deferred module credits.
+
+The interface blocks above are checked against their source declarations by
+`TestRepairM_669_KeeperCapabilities` in
+[repair_m669_test.go](../repair_m669_test.go). Its keeper examples also demonstrate
+that `SubUnlockedCoins` with `checkNeg = false` can persist a negative balance,
+and that `AddCoins` with `checkNeg = true` rejects a still-negative result. Neither
+flag disables input validation, recipient checkers, or balance-change hooks.
+Do not use the unsafe path as an alternative to normal transfer validation.

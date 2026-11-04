@@ -103,3 +103,17 @@ recovery ledger or a second supply. They are not exported in bank genesis or
 restored as committed state after restart; their credits must be applied through
 the block completion path before commit. See [Keepers](02_keepers.md) for the APIs
 that read or modify each kind of balance.
+
+For example, deferring `2uhpx` and `1uhpx` to the same module at transaction
+indices 0 and 1 creates two pending entries. The sender loses `3uhpx` immediately;
+the module's ordinary balance is unchanged until `WriteDeferredBalances` credits
+`3uhpx` and deletes both entries. Committing after that flush and reopening the
+store recovers the credited module balance, fractional balances, and allowlists,
+with no deferred credits to replay. The `TotalSupply` helper includes pending
+credits before the flush and ordinary module balances afterwards.
+
+The executable recovery example is
+`TestRepairM_669_StateStoresRecovery` in [repair_m669_test.go](../repair_m669_test.go).
+It closes and reopens the production commitment store and also round-trips the
+extended genesis JSON. Even an explicitly stored empty allowlist makes legacy
+genesis export panic: unrestricted policy does not mean the entry is absent.
