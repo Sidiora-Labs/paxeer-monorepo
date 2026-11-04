@@ -5,14 +5,29 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
+[lib]
+name = "paxeer_native"
+path = "src/native.rs"
+
+[[bin]]
+name = "paxeer-native-tool"
+path = "src/native_main.rs"
+
+# Retained source targets compile until the platform owner removes the historical
+# workspace member and qualification recipes; deployment uses the native node.
 [[bin]]
 name = "layerx-paxeer-boundary"
 path = "src/main.rs"
 
 [dependencies]
+k256 = { version = "=0.13.4", default-features = false, features = ["ecdsa", "std"] }
+rustix.workspace = true
 rustls.workspace = true
 serde.workspace = true
 serde_json = { workspace = true, features = ["raw_value"] }
+sha2.workspace = true
+sha3 = "=0.10.8"
+ureq.workspace = true
 zeroize.workspace = true
 
 [dev-dependencies]

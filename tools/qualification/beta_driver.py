@@ -1380,10 +1380,10 @@ def lost_response_after_successful_commit(ctx: CaseContext) -> None:
 
 
 CRASH_POINTS: dict[str, tuple[str, tuple[str, ...], tuple[str, ...]]] = {
-    "real-node/crash-before-batch-wal": (
+    "real-node/crash-before-node-wal": (
         "./node/sequencer/wal", ("TestWALGroupSyncBeforeRelease", "TestWALCorruptTailStopsReplay"), (),
     ),
-    "real-node/crash-after-batch-wal": (
+    "real-node/crash-after-node-wal": (
         "./node/sequencer/wal", ("TestWALReplayReproducesReceipts",), (),
     ),
     "real-node/crash-before-state-mutation": (
@@ -1391,6 +1391,12 @@ CRASH_POINTS: dict[str, tuple[str, tuple[str, ...], tuple[str, ...]]] = {
     ),
     "real-node/crash-after-state-mutation": (
         "./node", ("TestRepair475_CommitHashesSurviveEveryRestart", "TestRepair475_RejectCorruptedCommittedHash"), (),
+    ),
+    "real-node/crash-before-block-commit": (
+        "./node/sequencer", ("TestCrashAfterReceiptReplaysIdenticalReceipt",), (),
+    ),
+    "real-node/crash-after-block-commit": (
+        "./node", ("TestRepair475_ReconcileSealAfterCommitCrash", "TestRepair475_CommitHashesSurviveEveryRestart"), (),
     ),
     "real-node/crash-before-receipt-publication": (
         "./node/sequencer", ("TestProofSequencerExecutorTransportRecovery",), (),

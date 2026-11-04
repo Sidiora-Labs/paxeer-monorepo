@@ -35,11 +35,23 @@ impl TryFrom<VerifySourcifyRequestWrapper> for VerificationRequest {
 
     fn try_from(request: VerifySourcifyRequestWrapper) -> Result<Self, Self::Error> {
         let request = request.into_inner();
+        super::evm_address::EvmAddress::parse(&request.address)?;
+        // The protobuf int32 range defines the accepted indices: 0..=i32::MAX.
+        let chosen_contract = request
+            .chosen_contract
+            .map(|index| {
+                usize::try_from(index).map_err(|_| {
+                    tonic::Status::invalid_argument(
+                        "chosen_contract must be between 0 and 2147483647",
+                    )
+                })
+            })
+            .transpose()?;
         Ok(Self {
             address: request.address,
             chain: request.chain,
             files: request.files,
-            chosen_contract: request.chosen_contract.map(|i| i as usize),
+            chosen_contract,
         })
     }
 }
@@ -53,7 +65,7 @@ mod tests {
     #[test]
     fn try_into_verification_request() {
         let request = VerifySourcifyRequest {
-            address: "0x0123456789abcdef".to_string(),
+            address: "0x0123456789abcdef0123456789abcdef01234567".to_string(),
             chain: "77".to_string(),
             files: BTreeMap::from([("metadata".into(), "metadata_content".into())]),
             chosen_contract: Some(2),
@@ -65,7 +77,7 @@ mod tests {
                 .expect("Try_into verification request failed");
 
         let expected = VerificationRequest {
-            address: "0x0123456789abcdef".to_string(),
+            address: "0x0123456789abcdef0123456789abcdef01234567".to_string(),
             chain: "77".to_string(),
             files: BTreeMap::from([("metadata".into(), "metadata_content".into())]),
             chosen_contract: Some(2),

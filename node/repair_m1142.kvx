@@ -1,0 +1,43 @@
+[repair.22.33.1142]
+audit = "22.30.50"
+source_revision = "039e5adc21d328c5a1b7275e9649076c7d444e31"
+continued_candidate = "5435051f9b5f638f658acbf2531d6de192e5c557"
+acceptance = "22998.1"
+build_cmd = "make -s paxd-native-libs && CGO_ENABLED=1 go build ./node/..."
+verify_cmd = "make -s paxd-native-libs && CGO_ENABLED=1 go test -count=1 ./node/ -run '^TestRepairM_1142'"
+qualification = "hf-build and hf-done record the exact candidate revision, command, exit code and private log location in /out/run/gates.jsonl; completion requires both gates to pass at the same revision."
+baseline = "The supplied prior-attempt result records TestRepairM_1142_ActivationDependencies failing before this continuation on big.Int representation equality; no other failing test is reported in that result. The already-recorded unchanged verification is not rerun."
+prior_failure = "The prior attempt also recorded precompile-instance comparison failure (gotcha 3009) and ordinary/tracing ABI selection differences at 0x1015; the continued tests preserve address-set, instance-identity and real selected-ABI checks."
+wiring_requests = []
+
+[finding.activation-test-requires-retired-anchor-module]
+test = "TestRepairM_1142_RetainedAnchorLifecycle"
+proof = "Real retained anchor keeper and bank produce bonded and unbonding state; activation preserves it without active module membership, merge refunds bonds and returns typed retirement reverts, and the subsequent upgrade store loader deletes the committed anchor store without changing the refund."
+
+[finding.activation-test-rejects-live-retirement-dependency]
+test = "TestRepairM_1142_ActivationDependencies"
+proof = "Exact per-address module dependencies include upgrade for 0x1014; real activation and merge paths prove height and tracing visibility, preserved contract identity, restored contract addresses and ABI calls, oracle activation and typed anchor retirement. ABI integers compare numerically with Cmp."
+
+[finding.merge-gate-test-expects-missing-production-constructors]
+test = "TestRepairM_1142_RegisteredMergeConstructors"
+proof = "Production constructors permit a valid merge in a real cache context; deliberately omitting each merge address or the complete set refuses atomically with unchanged stores, versions and activation state."
+
+[finding.merge-name-test-assumes-last-plan]
+test = "TestRepairM_1142_MergePlanOrder"
+proof = "Exact shared v7.0 identity and complete known-plan order place merge before anchor-store deletion; the real deletion upgrade test proves the ordered store lifecycle."
+
+[finding.merge-stores-test-omits-layerxchains]
+test = "TestRepairM_1142_MergeStoresIncludeChains"
+proof = "The exact eight-store list includes layerxchains; real mounted stores, migration, exported default chains genesis and consensus version are checked alongside preservation of unrelated stores."
+
+[finding.sequencer-upgrade-test-obsolete-store-contract]
+test = "TestRepairM_1142_CompleteSequencerUpgrade"
+proof = "The real merge initializes the complete store and module set, preserves balances, nonce and code, pins leaders and receipt keys for the first sequenced height, refuses invalid genesis atomically and refuses replay without changing state."
+
+[finding.fee-upgrade-test-stale-tag-tail]
+test = "TestRepairM_1142_HistoricalFeeTokenMigration"
+proof = "Current v7.0 tag tail is separate from historical v6.7/v6.8 order; real remote-asset registration and the historical fee-token handler prove every migrated parameter, module version and preserved denomination metadata."
+
+[finding.v610-test-stale-current-upgrade-metadata]
+test = "TestRepairM_1142_CurrentV610Metadata"
+proof = "Exact current metadata includes merge followed by anchor-store deletion; the real v6.10 begin-block handler preserves store and module versions while applying supplied attestors, chain identifiers and voting periods and refusing repeated application."

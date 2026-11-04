@@ -1,6 +1,7 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include "layerx/lxp_ledger.h"
+#include "layerx/lxp_snapshot.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,7 +25,10 @@ static const vector vectors[] = {
     { "system:funding:btc-usd:long", LX_ACCOUNT_SYSTEM_FUNDING_LONG, "fb75d9a061bf420ddf370b14d320d78b972d448959f6b4b46bb00b0a6b6d5869" },
     { "system:funding:btc-usd:short", LX_ACCOUNT_SYSTEM_FUNDING_SHORT, "db2afd847c8e447f9cdab3034072e2ff8bf8b2c49e65dccaede6906b0d94bbe3" },
     { "system:insurance", LX_ACCOUNT_SYSTEM_INSURANCE, "4c16a537b274bd21ce39ebc501c464f4c7ac6a60d7eb4d396948570cbb764568" },
-    { "system:fees", LX_ACCOUNT_SYSTEM_FEES, "dbf940aa4c1f587b73f3b65da0dec92760e0bd0187f1f33c659ea043caebdcdf" },
+    { "system:fees", LX_ACCOUNT_SYSTEM_FEES, "dbf940aa4c1f587b73f3b65da0dec92760e0bd0187f1f33c659ea043caebdcdf" }
+};
+
+static const vector historical_vectors[] = {
     { "system:paxeer-reserve", LX_ACCOUNT_SYSTEM_PAXEER_RESERVE, "6e0e5cca5cfaa1b20ddd1c6174321eeaf00dd74bce2adcd78b61e15aa9e26f7c" },
     { "system:paxeer-withdrawals", LX_ACCOUNT_SYSTEM_PAXEER_WITHDRAWALS, "36e5bfab4a0143c723aaac6a61d6eae554e684f94cfff2a24f5fdf0574c468f7" }
 };
@@ -41,6 +45,123 @@ static void decode_hex(const char *hex, uint8_t out[32])
     for (i = 0U; i < 32U; ++i)
         out[i] = (uint8_t)((nibble(hex[i * 2U]) << 4) |
                            nibble(hex[i * 2U + 1U]));
+}
+
+static int retired_namespace_compatibility(void)
+{
+    lx_account_registry registry;
+    uint8_t asset_id[32] = { 3U };
+    size_t i;
+    int failed = 1;
+
+    if (lx_account_registry_init(&registry) != LXP_OK) return 1;
+    for (i = 0U; i < sizeof(historical_vectors) /
+                         sizeof(historical_vectors[0]); ++i) {
+        const vector *historical = &historical_vectors[i];
+        lx_account record = {0};
+        lx_account restored;
+        lx_account *found = NULL;
+        uint8_t expected[32];
+        uint8_t encoded[1024];
+        size_t length;
+        size_t slot;
+
+        decode_hex(historical->identifier, expected);
+        record.name_length = (uint16_t)strlen(historical->name);
+        (void)memcpy(record.name, historical->name, record.name_length);
+        if (lx_account_id_from_string(record.name, record.name_length,
+                                      record.id) != LXP_OK ||
+            memcmp(record.id, expected, sizeof(expected)) != 0 ||
+            lx_account_kind_of(record.name, record.name_length,
+                               &record.kind) != LXP_OK ||
+            record.kind != historical->kind) goto done;
+        (void)memcpy(record.asset_id, asset_id, sizeof(asset_id));
+        record.has_asset = true;
+        record.balance = (lxp_u128){ 0U, 17U };
+        record.next_sequence = 42U;
+        record.created_at_sequence = 7U;
+        record.frozen = true;
+        record.has_open_reference = true;
+        if (lx_account_record_encode(&record, encoded, sizeof(encoded),
+                                      &length) != LXP_OK ||
+            lx_account_record_decode(encoded, length, &restored) != LXP_OK ||
+            restored.name_length != record.name_length ||
+            memcmp(restored.name, record.name, record.name_length) != 0 ||
+            memcmp(restored.id, expected, sizeof(expected)) != 0 ||
+            restored.kind != historical->kind ||
+            !restored.has_asset ||
+            memcmp(restored.asset_id, asset_id, sizeof(asset_id)) != 0 ||
+            restored.balance.hi != 0U || restored.balance.lo != 17U ||
+            restored.next_sequence != 42U ||
+            restored.created_at_sequence != 7U || !restored.frozen ||
+            !restored.has_open_reference ||
+            lx_account_registry_slot_insert(&registry, &restored,
+                                             &slot) != LXP_OK ||
+            lx_account_lookup(&registry, record.name, record.name_length,
+                               expected, &found) != LXP_OK ||
+            found != &registry.accounts[slot] ||
+            found->balance.hi != 0U || found->balance.lo != 17U ||
+            found->next_sequence != 42U) goto done;
+    }
+    failed = 0;
+done:
+    lx_account_registry_release(&registry);
+    return failed;
+}
+
+static int retired_namespace_admission(lx_account_registry *registry,
+                                        lxp_log *log)
+{
+    static const char *names[] = {
+        "system:paxeer-reserve",
+        "system:paxeer-reserve:pax",
+        "system:paxeer-reserve:sid",
+        "system:paxeer-reserve:usdc",
+        "system:paxeer-reserve:usdl",
+        "system:paxeer-withdrawals"
+    };
+    static const lx_account_open_authority authorities[] = {
+        LX_ACCOUNT_OPEN_CREDIT, LX_ACCOUNT_OPEN_GENESIS,
+        LX_ACCOUNT_OPEN_GOVERNANCE
+    };
+    size_t i;
+    size_t j;
+
+    for (i = 0U; i < sizeof(names) / sizeof(names[0]); ++i) {
+        uint8_t id[32];
+        if (lx_account_id_from_string((const uint8_t *)names[i],
+                                      strlen(names[i]), id) != LXP_OK)
+            return 1;
+        for (j = 0U; j < sizeof(authorities) / sizeof(authorities[0]); ++j) {
+            lx_account *account = NULL;
+            uint8_t before[32];
+            uint8_t after[32];
+            size_t count = registry->count;
+            uint64_t write_offset = log->write_offset;
+            uint64_t next_sequence = log->next_sequence;
+            lxp_result status;
+
+            if (lx_account_registry_root(registry, before) != LXP_OK) return 1;
+            status = lx_account_open(registry, (const uint8_t *)names[i],
+                                      strlen(names[i]), id, 9U,
+                                      authorities[j], log, &account);
+            if (status == LXP_OK || account != NULL ||
+                registry->count != count || log->write_offset != write_offset ||
+                log->next_sequence != next_sequence ||
+                lx_account_registry_root(registry, after) != LXP_OK ||
+                memcmp(before, after, sizeof(before)) != 0 ||
+                lx_account_lookup(registry, (const uint8_t *)names[i],
+                                   strlen(names[i]), id, &account) !=
+                    LXP_ERR_UNKNOWN_ACCOUNT_NAMESPACE || account != NULL) {
+                (void)fprintf(stderr,
+                    "22.30.5.27: retired_namespace_admission: %s authority %d "
+                    "returned %d or changed registry/log state\n",
+                    names[i], (int)authorities[j], (int)status);
+                return 1;
+            }
+        }
+    }
+    return 0;
 }
 
 static int retired_issuance_migration(void)
@@ -124,6 +245,7 @@ int main(void)
     const char *system = "system:fees";
 
     if (retired_issuance_migration() != 0) return 1;
+    if (retired_namespace_compatibility() != 0) return 1;
     for (i = 0U; i < sizeof(vectors) / sizeof(vectors[0]); ++i) {
         lx_account_kind kind;
         decode_hex(vectors[i].identifier, expected);
@@ -170,6 +292,7 @@ int main(void)
         lx_account_open(&registry, (const uint8_t *)system, strlen(system), actual,
                         8U, LX_ACCOUNT_OPEN_GENESIS, NULL, &account) != LXP_OK)
         return 1;
+    if (retired_namespace_admission(&registry, &log) != 0) return 1;
     if (lxp_log_close(&log) != LXP_OK || unlink(path) != 0 ||
         rmdir(directory) != 0) return 1;
     return 0;

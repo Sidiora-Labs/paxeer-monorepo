@@ -260,8 +260,19 @@ defmodule Indexer.Fetcher.OnDemand.InternalTransaction do
 
     index_internal_transaction_desc_order = Keyword.get(options, :index_internal_transaction_desc_order, true)
 
+    eligible = fn transactions ->
+      transactions
+      |> Enum.map(&serialize/1)
+      |> filter_by_address(address_hash, direction)
+      |> different_from_parent_transaction()
+      |> page_internal_transaction(paging_options, %{
+        index_internal_transaction_desc_order: index_internal_transaction_desc_order
+      })
+      |> Enum.count()
+    end
+
     address_id
-    |> do_fetch_for_address(max_block_number, from_block, paging_options.page_size, sum_mode, sort_direction)
+    |> do_fetch_for_address(max_block_number, from_block, paging_options.page_size, sum_mode, sort_direction, eligible)
     |> Enum.map(&serialize/1)
     |> filter_by_address(address_hash, direction)
     |> different_from_parent_transaction()
@@ -276,34 +287,30 @@ defmodule Indexer.Fetcher.OnDemand.InternalTransaction do
     |> InternalTransaction.preload_error()
   end
 
-  defp do_fetch_for_address(address_id, to_block, from_block, limit, sum_mode, sort_direction, acc \\ [])
+  defp do_fetch_for_address(address_id, to_block, from_block, limit, sum_mode, sort_direction, eligible, acc \\ [])
 
-  defp do_fetch_for_address(_, to_block, from_block, _, _, _, acc)
-       when is_integer(from_block) and is_integer(to_block) and from_block >= to_block, do: acc
+  defp do_fetch_for_address(_, to_block, from_block, _, _, _, _, acc)
+       when is_integer(from_block) and is_integer(to_block) and from_block > to_block, do: acc
 
-  defp do_fetch_for_address(address_id, to_block, from_block, limit, sum_mode, sort_direction, acc) do
-    internal_transactions =
-      address_id
-      |> get_block_numbers_for_address(to_block, from_block, limit, sum_mode, sort_direction)
-      |> fetch_block_internal_transactions()
+  defp do_fetch_for_address(address_id, to_block, from_block, limit, sum_mode, sort_direction, eligible, acc) do
+    block_numbers = get_block_numbers_for_address(address_id, to_block, from_block, limit, sum_mode, sort_direction)
+    internal_transactions = fetch_block_internal_transactions(block_numbers)
 
     result = Enum.concat(internal_transactions, acc)
 
-    count =
-      internal_transactions
-      |> different_from_parent_transaction()
-      |> Enum.count()
+    count = eligible.(internal_transactions)
 
-    if count > 0 and count < limit do
+    if block_numbers != [] and count < limit do
       case sort_direction do
         :desc ->
           do_fetch_for_address(
             address_id,
-            List.last(internal_transactions).block_number - 1,
+            Enum.min(block_numbers) - 1,
             from_block,
             limit - count,
             sum_mode,
             sort_direction,
+            eligible,
             result
           )
 
@@ -311,10 +318,11 @@ defmodule Indexer.Fetcher.OnDemand.InternalTransaction do
           do_fetch_for_address(
             address_id,
             to_block,
-            List.last(internal_transactions).block_number + 1,
+            Enum.max(block_numbers) + 1,
             limit - count,
             sum_mode,
             sort_direction,
+            eligible,
             result
           )
       end
