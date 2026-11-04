@@ -37144,6 +37144,15 @@ verification_contract = "cargo test --locked --manifest-path services/agent/Carg
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
 
+[capability.22.31.456]
+title = "Make the wallet SDK's receipt wait pass its optional abort signal in an exact-optional-safe shape so consumers compiled with exactOptionalPropertyTypes type-check"
+reqs = ["22998.1"]
+touches = ["sdk/wallet/src"]
+tests = []
+verification_contract = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir sdk/wallet exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/web exec tsc --noEmit"
+do_1 = "The repair published for audit record 22.30.115 (sdk/wallet/src/receipt.ts, the sequencer receipt wait loop around line 690) passes the request options as an object literal whose signal member may be undefined; apps/web compiles the wallet SDK source through its tsconfig path mapping with exactOptionalPropertyTypes, so any web test or module that reaches that file fails type-checking with TS2379 (22.33.338 attempt 1 hit it on the unchanged tree)."
+symbols = []
+
 [capability.22.33.1578]
 title = "Repair audit record 22.30.99 medium findings in (part 1 of 1): doc-drift"
 reqs = ["22998.1"]
@@ -45852,7 +45861,7 @@ title = "Repair audit record 22.30.163 medium findings in sdk/integrations/next/
 reqs = ["22998.1"]
 touches = ["sdk/integrations/next/example/test"]
 tests = ["sdk/integrations/next/example/test/repair-22-33-619.test.mjs"]
-verification_contract = "npm --prefix sdk/integrations/next/example install --no-audit --no-fund && node --test sdk/integrations/next/example/test/repair-22-33-619.test.mjs"
+verification_contract = "npm --prefix sdk/integrations/next ci --ignore-scripts && npm --prefix sdk/integrations/next run build && npm --prefix sdk/integrations/next/example install --no-audit --no-fund && node --test sdk/integrations/next/example/test/repair-22-33-619.test.mjs"
 do_1 = "Audit record 22.30.163 (spec/layerx-merge/programme/audit/records/22.30.163.kvx) holds 1 medium finding(s) in sdk/integrations/next/example/test that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: 023. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -146548,6 +146557,37 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.31.456]
+title = "Make the wallet SDK's receipt wait pass its optional abort signal in an exact-optional-safe shape so consumers compiled with exactOptionalPropertyTypes type-check"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.456"]
+interfaces = []
+do_1 = "The repair published for audit record 22.30.115 (sdk/wallet/src/receipt.ts, the sequencer receipt wait loop around line 690) passes the request options as an object literal whose signal member may be undefined; apps/web compiles the wallet SDK source through its tsconfig path mapping with exactOptionalPropertyTypes, so any web test or module that reaches that file fails type-checking with TS2379 (22.33.338 attempt 1 hit it on the unchanged tree)."
+do_2 = "Pass the signal only when it is defined (a conditional spread or a narrowed options object built once before the loop), keep the JsonRpcRequestOptions type as it is, and make the same change at every other call in sdk/wallet/src that passes an optional signal the same way; no behaviour changes."
+do_3 = "Prove it by type-checking both ends: the wallet SDK with its own tsconfig and apps/web with its tsconfig, each with no diagnostics; the task record names the lines changed."
+do_4 = "The task record lists each call site changed and states that no consumer type was widened."
+symbols = []
+touches = ["sdk/wallet/src"]
+tests = []
+planned_paths = ["sdk/wallet/src/receipt.ts"]
+build_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir sdk/wallet exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir sdk/wallet exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/web exec tsc --noEmit"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 45
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.33.1481]
 title = "Repair audit record 22.30.86 medium findings in services/platform/middleware/conformance/src (part 1 of 1): test-gap"
 status = "pending"
@@ -149234,11 +149274,11 @@ do_5 = "Prove each repair with a node test sdk/integrations/next/example/test/re
 do_6 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command above is the whole gate (gotcha 2962)."
 do_7 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["sdk/integrations/next/example/test"]
+touches = ["sdk/integrations/next/example/test", "sdk/integrations/next/example"]
 tests = ["sdk/integrations/next/example/test/repair-22-33-619.test.mjs"]
 planned_paths = ["sdk/integrations/next/example/test/repair-22-33-619.test.mjs"]
-build_cmd = "npm --prefix sdk/integrations/next/example install --no-audit --no-fund && node --check sdk/integrations/next/example/test/fulfillment.test.mjs"
-verify_cmd = "npm --prefix sdk/integrations/next/example install --no-audit --no-fund && node --test sdk/integrations/next/example/test/repair-22-33-619.test.mjs"
+build_cmd = "npm --prefix sdk/integrations/next ci --ignore-scripts && npm --prefix sdk/integrations/next run build && npm --prefix sdk/integrations/next/example install --no-audit --no-fund"
+verify_cmd = "npm --prefix sdk/integrations/next ci --ignore-scripts && npm --prefix sdk/integrations/next run build && npm --prefix sdk/integrations/next/example install --no-audit --no-fund && node --test sdk/integrations/next/example/test/repair-22-33-619.test.mjs"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-cosmos-fork"
@@ -149250,6 +149290,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_8 = "Attempt 2 (continue): the example's install fails because its manifest asks the public registry for the integration package at version 0.1.0, which is never published; the package is the sibling directory sdk/integrations/next. Point the example's dependency at that directory (a file reference to the parent package), with the example directory now in touches; the build and verify commands now build the integration package first and then install the example. Finish on one commit."
 
 [task.22.33.612]
 title = "Repair audit record 22.30.163 medium findings in sdk/integrations/agents/test (part 1 of 1): test-gap"
@@ -149552,6 +149593,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_11 = "Attempt 2 (continue): the perps type-check reports viem and the agent SDK browser entry unresolved under sdk/wallet because the gate installed only the wallet workspace (gotcha 2976); the build and verify commands now install the root workspace, build the agent SDK and install the wallet workspace first. Keep the implementation and re-run both commands on the current tree."
+do_12 = "Attempt 3 (continue): the consent case fails because the test reads a consent category from a module whose runtime export is missing under the node test runner (a type-only or const-enum import), so the value is undefined. Import the runtime value from the module of apps/perps/src/page-modules/legal that defines it, or compare against the literal the operational capture carries, re-run the verify command and finish on one commit."
 
 [task.22.33.579]
 title = "Repair audit record 22.30.16 medium findings in apps/perps/src/page-modules/perps (part 1 of 1): runtime-risk"
@@ -150395,6 +150437,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_9 = "Attempt 2 (continue): the attempt ran on the gate as it stood before the batch that moved the explorer type-check to corepack yarn (the pnpm and yarn mismatch); the current build and verify commands install and type-check through yarn. Keep the implementation and re-run both commands on the current tree."
+do_10 = "Attempt 3 (continue): two of three cases pass; the loading case expects the copy control inside the anchor identifier skeleton to carry a loading marker it does not render. If the finding asks that the copy control follow the skeleton's loading state, add the marker in the anchors component (within apps/explorer/ui/paxeerX/anchors); otherwise assert the skeleton the component actually renders. Finish on one commit."
 
 [task.22.33.502]
 title = "Repair audit record 22.30.151 medium findings in apps/explorer/ui/paxeerX/account (part 1 of 1): test-gap"
@@ -151314,6 +151357,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "Attempt 2 (continue): both chain-scoping cases fail only because the suite fails in teardown because the global fetch mock receives a request the component built from unset configuration (gotcha 2979). Disable the global mock for the suite, serve the recorded responses from a loopback node:http server the test starts, re-enable the mock in afterAll as the published repairs 22.31.379 and 22.31.380 do, keep the passing cases, and finish on one commit. The teardown correction the attempt wrote after its last verify is unverified; re-run the verify command on the final revision."
 
 [task.22.33.366]
 title = "Repair audit record 22.30.140 medium findings in apps/explorer/ui/block/details (part 1 of 1): runtime-risk, test-gap"
@@ -152089,7 +152133,7 @@ title = "Repair audit record 22.30.138 medium findings in apps/web/e2e (part 2 o
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.268"]
+requires = ["22.31.268", "22.31.456"]
 reqs = ["22998.1"]
 capabilities = ["22.33.338"]
 interfaces = []
@@ -152121,6 +152165,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_12 = "Attempt 1: the build failed on the unchanged tree because the wallet SDK's receipt wait passes an optional signal in a shape apps/web's exact-optional type-check refuses; that producer defect is repaired by task 22.31.456, which this task now requires. The scoped changes stand."
 
 [task.22.33.337]
 title = "Repair audit record 22.30.138 medium findings in apps/web/e2e (part 1 of 2): retired-reference, test-gap"
@@ -153211,6 +153256,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_15 = "Attempt 2 (requalify): the build passes and the NFT selector repair was made after the last verify, so the final revision is unverified. Re-run the build and the verify command once on the final revision; repair only what that run reports, verify again, and make no commit after the pass."
 
 [task.22.33.289]
 title = "Repair audit record 22.30.134 medium findings in apps/explorer/lib/api/services/general (part 1 of 1): test-gap"
@@ -153683,6 +153729,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_10 = "Attempt 2 (continue): the explorer type-check failed on the ganache import of the 22.31.381 test, repaired by 22.31.440 (published), or on the package manager mismatch of apps/explorer, which pins yarn; the build and verify commands now install and type-check through corepack yarn. Keep the implementation and re-run both commands on the current tree."
 do_11 = "Attempt 3 (continue): the attempt ran on the gate as it stood before the batch that moved the explorer type-check to corepack yarn and after 22.31.440 removed the ganache import; the current build and verify commands install and type-check through yarn. Keep the implementation and re-run both commands on the current tree."
+do_12 = "Attempt 4 (continue): five of six cases pass; the controlled-value case shows the select wrapper in apps/explorer/toolkit/chakra keeping the native element on its previous option when the controlled value is cleared. That is the finding: make the wrapper write the cleared value through to the native select (an empty controlled value selects the placeholder option), keep the other cases, re-run the verify command and finish on one commit."
 
 [task.22.33.268]
 title = "Repair audit record 22.30.131 medium findings in apps/bridge/src/components/trading (part 1 of 1): interface-mismatch"
@@ -155387,6 +155434,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_13 = "Attempt 4 (continue): twenty-one cases pass and the eight status-ladder cases fail because the receipt and transaction fixture pair is hand-built and the SDK's receipt authentication refuses it, so the ladder never climbs. Take both halves from the committed conformance vector sdk/platform/conformance/fixtures/vector-v1-receipted-positive.json (and its committed sibling for the committed rung), derive the expected rungs from that recorded evidence, keep the twenty-one passing cases, and finish on one commit."
+do_14 = "Attempt 5 (continue): twenty-seven of twenty-nine cases pass. The submitted-evidence case expects a three-rung list that differs from what the ladder emits for the recorded evidence at the RPC root; derive the expected rungs from the ladder's documented order for that evidence rather than a hand-written list. The pending-receipts case waits past its bound; feed it a recorded receipt sequence that ends in commitment (the committed conformance vector's sibling) so the ladder observes the commitment. Finish on one commit and make no commit after the pass."
 
 [task.22.33.158]
 title = "Repair audit record 22.30.117 medium findings in apps/wallet/src/providers (part 1 of 1): wiring-gap"
@@ -157467,6 +157515,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_9 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command is the whole gate (gotcha 2962)."
 do_10 = "The candidate carries only sources under the touches and the test file: no helper project of another toolchain, no compiled cache, no .cgignore edit (gotcha 2966); the verify command runs last on the final tree and nothing changes after it (gotcha 2967)."
+do_11 = "Attempt 2 (continue): the three routes and four cases pass and the suite fails in teardown because the global fetch mock receives a request the component built from unset configuration (gotcha 2979). Disable the global mock for the suite, serve the recorded responses from a loopback node:http server the test starts, re-enable the mock in afterAll as the published repairs 22.31.379 and 22.31.380 do, keep the passing cases, and finish on one commit."
 
 [task.22.31.381]
 title = "Repair audit record 22.30.135 findings in apps/explorer/ui/marketplace/essentialDapps/revoke/hooks: interface-mismatch"
@@ -164861,6 +164910,7 @@ do_9 = "Attempt 9 (requalify after 1.23.7): keep every attempt-9 change, includi
 do_10 = "Attempt 10: creating the AI market reverts with LXP_VERSION_UNSUPPORTED because the hosted kernel registers the programs module at ABI 4 while the guest is ABI 5 (decision 2516); this task now requires 5.99.1 and runs after it lands. No change to the test for that reason."
 do_11 = "Attempt 11 (continue): the AI market creation reverted with LXP_VERSION_UNSUPPORTED because the candidate was built before the ABI-5 guest (5.99.1) and the ABI-5 host registration (1.23.7) were both on main; both are published now. Rebase the candidate onto current main and rerun; if the revert persists, the receipt vectors test must create the market with the ABI version the host registration constant declares instead of a literal."
 do_12 = "Attempt 12 (continue): npm ci at the workspace root passes again since 22.31.441 published the root lockfile repair; re-run the build and the verify on the current tree and keep the implementation."
+do_13 = "Attempt 13 (continue): the receipt vector case reaches the fund step and the committed runtime fixture reverts with the LXP gas-exhausted code. Give the fund call the gas the production client uses (read the fund gas allowance from the agent SDK's AI-market module, the same value its transfer-authority path sends) instead of the vector's smaller allowance, keep the corrected chain domain, re-run the verify command and finish on one commit. If the kernel's metering refuses even the production allowance, record the measured gas as a finding against the fixture, not a wiring request."
 
 [task.18.1561.1]
 title = "Issue #1561: Prepare the codec replay corpus before agent vector tests"
@@ -209150,6 +209200,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_10 = "Attempt 2 (continue): the build passes and the tests were never run because the attempt waited for a clarification that the task text already gives: the gate exercises the rollout tool's own Go code with in-process fixtures, and where a finding concerns a shell script the test parses the script (a syntax check through the shell's no-execute flag counts as parsing) and asserts on its text; it never needs the scripts to run deployments. Write the cases that way, run the verify command, and finish on one commit without awaiting any clarification."
 
 [task.22.33.718]
 title = "Repair audit record 22.30.170 medium findings in deploy/launchpad/production/recovery (part 1 of 1): config-drift, doc-drift, runtime-risk"
@@ -209330,6 +209381,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_11 = "Attempt 2 (continue): the wrong-validator case fails on a type mismatch between the typed delegation-response collection and a plain slice of the same element type; compare through the typed collection (convert the slice once) or element by element, keep the two passing proofs, re-run the verify command and finish on one commit."
 
 [task.22.33.694]
 title = "Repair audit record 22.30.168 medium findings in sdk/x/authz/client/rest (part 1 of 1): test-gap"
@@ -209557,6 +209609,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_13 = "Attempt 2 (requalify): the build passes and the corrections to the three keeper cases was made after the last verify, so the final revision is unverified. Re-run the build and the verify command once on the final revision; repair only what that run reports, verify again, and make no commit after the pass."
 
 [task.22.33.688]
 title = "Repair audit record 22.30.168 medium findings in sdk/x/staking/types (part 1 of 1): runtime-risk, security, test-gap"
@@ -210405,6 +210458,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_11 = "Attempt 2 (continue): the metadata suite fails against the genesis entries the fixture sets up, and the paginated legacy-supply case queries a historical height the in-memory store does not keep. Take the expected metadata from the fixture's genesis state rather than upstream constants, and run the pagination case at the current height (or against a versioned snapshot the store does keep); the historical-query limit of the legacy store is not a reason to leave the case failing. Re-run the verify command and finish on one commit."
 
 [task.22.33.664]
 title = "Repair audit record 22.30.166 medium findings in sdk/x/bank/client/rest (part 1 of 1): test-gap"
@@ -210622,6 +210676,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "Attempt 2 (continue): the round-trip case fails because it compares the codec's private caches, which no public contract keeps equal. Compare what the finding is about, the derived address bytes and their string form against the public key, through the public API, keep the invalid-address and funded nil-key cases, re-run the verify command and finish on one commit."
 
 [task.22.33.658]
 title = "Repair audit record 22.30.166 medium findings in sdk/x/auth/vesting (part 1 of 1): runtime-risk"
@@ -211564,6 +211619,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_16 = "Attempt 2 (requalify): the build passes and the two fixture corrections was made after the last verify, so the final revision is unverified. Re-run the build and the verify command once on the final revision; repair only what that run reports, verify again, and make no commit after the pass."
 
 [task.22.33.631]
 title = "Repair audit record 22.30.164 medium findings in sdk/tasks (part 1 of 1): runtime-risk, test-gap"
@@ -279236,6 +279292,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "Attempt 2 (continue): two cases fail because they compare zero-valued big integers structurally, where a nil and an empty internal word slice differ although both are zero. Compare big integers by value (their comparison or sign methods, or their decimal strings), keep the snapshot and unsupported-selector cases, re-run the verify command and finish on one commit."
 
 [task.22.34.4]
 title = "Serve the px commit, validator, receipt key and sequence batch methods and the pax_sequencerReceipt alias at the node root, and decide px_register and px_requestFunds as the design states"
@@ -279435,6 +279492,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_8 = "Attempt 2 (continue): the suite does not compile because the registration test the attempt added names the retired fee-governance activity constant, which no header defines (tests/codec/lxp_test_programs_retired.c lists it among retired names). Use the live fee activity constant the programs module registers today, or drop that case, keep the rollback-error propagation and its regressions, re-run make -s programs-core-test and finish on one commit."
 
 [task.22.33.213]
 title = "Repair audit record 22.30.121 medium findings in precompiles/layerxprograms (part 2 of 2): retired-reference, test-gap"
@@ -325401,6 +325459,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_8 = "Attempt 2 (requalify): the build and the verify command passed (all eleven tests passed) and the task stayed unpublished only because a commit landed after the verified revision, so the final revision has no verify record. Re-run the build and the verify command once on the final revision and make no commit after the pass."
 
 [task.22.33.727]
 title = "Repair audit record 22.30.171 medium findings in tests/ci (part 1 of 1): retired-reference, test-gap"
@@ -325920,6 +325979,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_11 = "Attempt 2 (requalify): the build and the verify command passed (all thirty-two tests passed) and the task stayed unpublished only because a commit landed after the verified revision, so the final revision has no verify record. Re-run the build and the verify command once on the final revision and make no commit after the pass."
 
 [task.22.33.703]
 title = "Repair audit record 22.30.169 medium findings in tools/qualification/paxeer-x (part 1 of 1): test-gap"
@@ -326381,6 +326441,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "Attempt 2 (continue): five of seven cases pass; both HTTP proofs fail because the mounted offer is not the one the recorded receipt was issued for, so the server answers verification-failure. Mount the offer with the parameters the recorded receipt carries (its purpose, amount and requirements come from the committed conformance vector), keep the refusal cases, re-run the verify command and finish on one commit; the mismatch is a fixture choice, not a wiring request."
 
 [task.22.33.615]
 title = "Repair audit record 22.30.163 medium findings in sdk/integrations/android/src/sample/java/com/sidiora/layerx/android/sample (part 1 of 1): security"
@@ -335263,6 +335324,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_8 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command is the whole gate (gotcha 2962)."
 do_9 = "The candidate carries only sources under the touches and the test file: no helper project of another toolchain, no compiled cache, no .cgignore edit (gotcha 2966); the verify command runs last on the final tree and nothing changes after it (gotcha 2967)."
+do_10 = "Attempt 3 (requalify): the build passed and all thirty-six tests passed, and the task stayed unpublished only because a commit landed after the verified revision, so the final revision has no verify record. Re-run the build and the verify command once on the final revision, repair only what that run reports, and make no commit after the pass."
 
 [task.22.31.424]
 title = "Repair audit record 22.30.174 findings in tools/ops/backup: restart-recovery"
