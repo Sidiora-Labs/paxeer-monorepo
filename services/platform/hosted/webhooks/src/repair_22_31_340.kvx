@@ -1,0 +1,38 @@
+[repair.22.31.340]
+audit = "spec/layerx-merge/programme/audit/records/22.30.71.kvx"
+base = "61b2c3c98c61e72d831e1ce948a0bde6d218c980"
+qualification = "The runner's hf-build and hf-done ledger records the verified candidate revision, exact command, exit code and private log location; no gate result is claimed in advance."
+baseline = "Not run: the explicit ordered gate instructions forbid builds or tests before implementation and forbid running verify_cmd manually; no baseline failure is claimed."
+
+[finding.3]
+tests = ["finding_3_network_is_sourced_from_the_merged_authority_deployment", "finding_3_authority_receipt_is_accepted_and_a_foreign_network_is_refused"]
+repair = "The checked-in webhook network matches layerx-node-config/network-name. The production deployment::bind_network renderer reads that authoritative value from the merged node manifest, requires the authority to reference it and binds the webhook ConfigMap without changing other configuration; invalid or ambiguous identities fail closed. Exact foreign-network refusal remains enforced by AuthorityReceiptVerifier."
+proof = "The test drives the real authority replica decoder and authorized_batch_by_activity producer, compares all retained envelope facts to its result, transports the committed maintained transcript through mutually authenticated loopback HTTPS, then calls the production AuthorityReceiptVerifier::verify client and response decoder; successful receipt and three foreign-network refusals are asserted. TLS keys are generated in-process with rcgen, with no subprocess, environment, external binary or live endpoint."
+proof_limit = "The retained signed receipt has its original protocol network; the test varies the unsigned deployment network name independently. The authority peer replays a committed producer transcript; the test exercises the real cryptographic producer, HTTPS transport and consumer adapter, without claiming a running Kubernetes cluster or authority HTTP server."
+
+[wiring.deployment]
+request = "services/platform/hosted/tests/beta-cluster.sh manifests_render; owner platform deployment: invoke layerx-webhooks-render-network --node-manifest node.yaml --webhooks-manifest developer.yaml against the merged deployment manifests before applying developer.yaml, preserving the node ConfigMap as the only network-name source across namespaces."
+
+[wiring.authority]
+request = "services/platform/hosted/authority integration harness; owner authority: drive the real HTTP by-activity response through AuthorityReceiptVerifier using the rendered deployment inputs and the live chain receipt producer, for successful receipt and foreign-network refusal."
+
+[gotcha.network_projection]
+observed = "Kubernetes configMapKeyRef cannot cross namespaces; node configuration lives in layerx-testnet and webhooks in layerx-developer."
+action = "Copy the authoritative network scalar during manifest rendering rather than referencing the node ConfigMap directly from the developer namespace."
+
+[gotcha.renderer_dependencies]
+observed = "The seeded integration test required Python and OpenSSL subprocesses despite the self-contained Rust gate contract."
+action = "The renderer now lives in the production Rust crate with the existing pinned serde_yaml parser; the integration tests call the same renderer directly and generate TLS material in process."
+
+[gotcha.receipt_and_batch_roots]
+observed = "A maintained batch's final state root follows its maintenance receipt, while a verified activity response returns that individual activity receipt's resulting state root."
+action = "Assert the activity response against the canonical activity receipt and the authority's batch root against the signed batch header; do not equate the two roots."
+
+[previous_attempt]
+revision = "afbb39fb980ddcfc5de47f5f758642a151715dda"
+observed = "The supplied previous-attempt verification ran both tests: finding_3_network_is_sourced_from_the_merged_authority_deployment passed; finding_3_authority_receipt_is_accepted_and_a_foreign_network_is_refused failed by comparing an activity state root to its later maintained batch root. The seeded correction is retained and additionally proves the two roots differ."
+
+[gotcha.tls_issuer_identity]
+observed = "The first candidate used rcgen's identical default CA and leaf subject names; the native TLS client refused the chain with UnknownCA before receipt verification."
+action = "Use distinct CA and localhost leaf subjects, certificate-signing CA usage, and explicit server/client authentication leaf usages; retain mutual TLS and all verification assertions."
+evidence = "revision f9761539d98d5ad271d671f211f70682406ff1b6; command cg spec done 22.31.340 -f layerx-merge --root /work/paxeer-monorepo; exit 1; private log /out/logs/verify-1.log"
