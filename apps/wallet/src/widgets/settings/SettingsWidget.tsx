@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useWalletState } from '@/providers/WalletProvider';
 import { useWallet } from '@/wallet/WalletProvider';
 import { shortenAddress } from '@/lib/format';
@@ -455,6 +455,12 @@ function NetworkView({ onBack }: { onBack: () => void }) {
   );
 }
 
+function parseCustomNonce(value: string): number | null {
+  if (value === '' || /[^0-9]/.test(value)) return null;
+  const nonce = Number(value);
+  return Number.isSafeInteger(nonce) ? nonce : null;
+}
+
 function AdvancedView({ onBack }: { onBack: () => void }) {
   const { t } = useLocale();
   const initial = preferencesRepository.read();
@@ -465,6 +471,12 @@ function AdvancedView({ onBack }: { onBack: () => void }) {
     storedNonce !== null ? 'manual' : 'auto'
   );
   const [customNonce, setCustomNonce] = useState(storedNonce !== null ? String(storedNonce) : '');
+  const nonceInvalid = customNonce !== '' && parseCustomNonce(customNonce) === null;
+  useEffect(() => {
+    if (storedNonce !== null && parseCustomNonce(String(storedNonce)) === null) {
+      preferencesRepository.update((current) => ({ ...current, customNonce: null }));
+    }
+  }, [storedNonce]);
   const [feeMode, setFeeMode] = useState(initial.feeMode);
   const [maxFee, setMaxFee] = useState(initial.customMaxFeeGwei ?? '');
   const [priorityFee, setPriorityFee] = useState(initial.customPriorityFeeGwei ?? '');
@@ -479,12 +491,10 @@ function AdvancedView({ onBack }: { onBack: () => void }) {
 
   const handleNonceChange = (value: string) => {
     setCustomNonce(value);
-    const parsed = parseInt(value, 10);
-    if (!isNaN(parsed) && parsed >= 0) {
-      preferencesRepository.update((current) => ({ ...current, customNonce: parsed }));
-    } else if (value === '') {
-      preferencesRepository.update((current) => ({ ...current, customNonce: null }));
-    }
+    preferencesRepository.update((current) => ({
+      ...current,
+      customNonce: parseCustomNonce(value),
+    }));
   };
 
   const handleFeeMode = (mode: typeof feeMode) => {
@@ -601,13 +611,23 @@ function AdvancedView({ onBack }: { onBack: () => void }) {
             {nonceMode === 'manual' && (
               <>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  aria-label={t.settings.customNonce}
+                  aria-invalid={nonceInvalid}
+                  aria-describedby={nonceInvalid ? 'custom-nonce-error' : undefined}
                   value={customNonce}
                   onChange={(e) => handleNonceChange(e.target.value)}
                   placeholder={t.settings.customNoncePlaceholder}
-                  min={0}
                   className="w-full px-3 py-2.5 rounded-xl bg-white/[0.06]   text-sm outline-none  placeholder:text-white/20"
                 />
+                {nonceInvalid && (
+                  <p id="custom-nonce-error" role="alert" className="text-[11px] text-amber-400">
+                    Enter a whole number from 0 to 9007199254740991. Automatic nonce selection is
+                    used until a valid value is entered.
+                  </p>
+                )}
                 <p className="flex items-start gap-2 text-[11px] text-amber-400/80">
                   <TriangleAlert aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                   <span>{t.settings.customNonceWarning}</span>

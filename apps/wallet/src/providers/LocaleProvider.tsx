@@ -32,15 +32,13 @@ import {
 } from '@/lib/locale/formatters';
 import { preferencesRepository } from '@/platform/storage/repositories';
 import { CURRENCY_RATES_EVENT } from '@/lib/currency';
-import {
-  getPriorityMessages,
-  type PriorityMessages,
-} from '@/lib/locale/priority-messages';
+import { getPriorityMessages, type PriorityMessages } from '@/lib/locale/priority-messages';
 
 export type { Locale, MessageCatalog };
 
 interface LocaleContextValue {
   readonly locale: Locale;
+  readonly currencyRevision: number;
   readonly messages: MessageCatalog;
   readonly t: MessageCatalog;
   readonly p: PriorityMessages;
@@ -58,7 +56,7 @@ interface LocaleContextValue {
   readonly formatPercent: (value: number, fractionDigits?: number) => string;
   readonly plural: (
     count: number,
-    forms: { zero?: string; one: string; two?: string; few?: string; many?: string; other: string },
+    forms: { zero?: string; one: string; two?: string; few?: string; many?: string; other: string }
   ) => string;
 }
 
@@ -75,7 +73,7 @@ function readInitialLocale(): Locale {
 
 export function LocaleProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>(readInitialLocale);
-  const [, setCurrencyRevision] = useState(0);
+  const [currencyRevision, setCurrencyRevision] = useState(0);
 
   const dir = isRtlLocale(locale) ? 'rtl' : 'ltr';
 
@@ -111,6 +109,7 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     const tag = locale;
     return {
       locale,
+      currencyRevision,
       messages,
       t: messages,
       p: getPriorityMessages(locale),
@@ -129,7 +128,7 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
       formatPercent: (value, fractionDigits) => formatPercent(value, tag, fractionDigits),
       plural: (count, forms) => plural(count, tag, forms),
     };
-  }, [locale, dir, setLocale]);
+  }, [locale, currencyRevision, dir, setLocale]);
 
   return <LocaleContext.Provider value={ctx}>{children}</LocaleContext.Provider>;
 }

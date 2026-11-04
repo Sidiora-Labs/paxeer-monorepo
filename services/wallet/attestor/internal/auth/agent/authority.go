@@ -584,20 +584,26 @@ func (a *Authority) Evaluate(keyID, subject, requestID, kind string, view any) e
 		if raw != nil && strictJSON(raw, &entries) != nil {
 			return nil, ErrAuthority
 		}
-		kept := make([]policyReservation, 0, len(entries)+1)
-		spent, _ := amount256(p.LegacySpent)
-		requests := p.LegacyRecent
-		unaccounted := map[string]*big.Int{}
 		already := false
 		for _, e := range entries {
 			if e.Request == requestID && e.Digest != digest {
 				return nil, ErrAuthority
 			}
 			if e.Digest == digest {
+				if e.Value != value.String() {
+					return nil, ErrAuthority
+				}
 				already = true
-				kept = append(kept, e)
-				continue
 			}
+		}
+		if already {
+			return append([]byte(nil), raw...), nil
+		}
+		kept := make([]policyReservation, 0, len(entries)+1)
+		spent, _ := amount256(p.LegacySpent)
+		requests := p.LegacyRecent
+		unaccounted := map[string]*big.Int{}
+		for _, e := range entries {
 			if e.At < now.Add(-24*time.Hour).Unix() {
 				continue
 			}
@@ -651,9 +657,6 @@ func (a *Authority) Evaluate(keyID, subject, requestID, kind string, view any) e
 			if budgetID == "" {
 				return nil, ErrAuthority
 			}
-		}
-		if already {
-			return append([]byte(nil), raw...), nil
 		}
 		kept = append(kept, policyReservation{Request: requestID, Digest: digest, At: now.Unix(), Value: value.String(), Budget: budgetID, Reservation: reservationID})
 		return json.Marshal(kept)

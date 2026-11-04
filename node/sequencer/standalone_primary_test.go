@@ -221,6 +221,7 @@ func TestNodeStartsPrimaryWithoutStandbyAddress(t *testing.T) {
 			if !standalone {
 				l := listen(t)
 				cfg.StandbyAddress = l.Addr().String()
+				cfg.ReplicationTLS, _ = sequencer.Repair103TLSFixture(t)
 				require.NoError(t, l.Close())
 				cfg.ReplicationTimeout = replicationTimeout
 			}

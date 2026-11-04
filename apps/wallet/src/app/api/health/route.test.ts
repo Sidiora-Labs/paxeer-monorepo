@@ -1,6 +1,7 @@
 import { createServer } from 'node:http';
 import { once } from 'node:events';
 import { expect, test } from 'vitest';
+import { assertHealthRpcChainReadiness } from './health-test-fixture';
 
 async function health_route_checks_the_gateway_healthz() {
   let gatewayStatus = 200;
@@ -90,3 +91,9 @@ async function health_route_checks_the_gateway_healthz() {
 }
 
 test(health_route_checks_the_gateway_healthz, health_route_checks_the_gateway_healthz);
+
+async function health_route_rejects_a_healthy_foreign_chain() {
+  await assertHealthRpcChainReadiness([{ chainId: '0x1', status: 'degraded' }]);
+}
+
+test(health_route_rejects_a_healthy_foreign_chain, health_route_rejects_a_healthy_foreign_chain);
