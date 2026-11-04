@@ -1,105 +1,201 @@
-# Settlement evidence publication
+# Settlement evidence
 
-Both publication contracts expose `EVIDENCE_VERSION() == 2`; deployment finalization requires 2. Existing deployed contracts require the normal redeployment process. Guarantor checkpoint certificates retain their existing signature scheme and all certificate checks.
+Current settlement evidence belongs to Paxeer's committed BFT chain, EVM chain
+id `125` (`0x7d`). The kernel runs inside the network. A successful transaction
+settles when its block is committed; a later custody checkpoint or guarantor
+certificate is not required. See [Paxeer settlement](../concepts/paxeer-settlement.md)
+for the receipt lifecycle and the merchant verifier.
 
-## Authority and publication
+This page separates current block/state evidence from historical native witness
+and publication formats. Archive decoding does not enable a retired payout path.
 
-`registerCheckpoint` records its proposer. Only that proposer can call `publishCheckpointWitnesses(bytes32,bytes,bytes)` once for a canonical checkpoint. Version-2 publications validate native inclusion, signed recipient bindings, the exact recorded certificate, and request-anchor ancestry before recording `SHA256(abi.encode(checkpointHash,uint16(2),withdrawals,balances))`. The event carries version 2. Legacy version-1 publication and proof paths remain available for their existing consumers; envelopes cannot mix versions.
+## Collect evidence at a committed height
 
-The vault's governance configures `setDepositRootAuthority(bytes32)` with the independently provisioned Ed25519 checkpoint authority public key. The deployment script grants this selector through the existing timelock. Run `authority-schedule <ed25519-public-key>` after permissions, then `authority-execute <ed25519-public-key>` after the recorded delay; the explicit nonzero key and operation nonce are recorded and must match on execution. Finalization refuses an absent or mismatched authority before broadcasting. There is no default authority. An absent key refuses registration. `registerDepositRoot(bytes,bytes,bytes32[])` requires the recorded proposer and canonical root/network/protocol, then verifies the Ed25519 signature over the exact registration bytes. Its digest is `SHA256(abi.encode(uint16(2),registration,signature,leafOrdering))`. Ordering is positional, contains 1–4096 leaves, and consumers reconstruct the deposit root with the existing Merkle codec.
+Use a node endpoint at its root path, for example
+`https://api1.mainnet-beta.paxeer.network/`, and check `eth_chainId` is `0x7d`.
+The public node set is `api1` through `api14.mainnet-beta.paxeer.network` and
+`api-mainnet-beta.paxeer.network`. `node.hyperpaxeer.com` is a library mirror,
+not an RPC endpoint. Hosted `px_` methods are gateway methods and are not
+implied by a public node's method catalogue.
 
-`contracts/crypto/Ed25519.sol` implements SHA-512 and the cofactorless RFC 8032 verification equation with canonical point/scalar decoding and small-order refusals. Constructor-installed verifier helper contracts with no replacement setters keep this code outside the settlement contracts' runtime size. No EVM address is derived from an Ed25519 key.
+For a native bank or ledger movement:
 
-## Version-2 publication encoding
+1. Retain the signed transaction and its transaction hash, expected asset or
+   denom, base-unit amount, sender, recipient and application request binding.
+2. Fetch `pax_sequencerReceipt`. Verify its canonical receipt with the pinned
+   receipt key valid at its signed height. A `submitted` or `receipted` rung
+   is not committed evidence. Keep unavailable evidence pending.
+3. Once the rung is `committed`, fetch `eth_getTransactionReceipt`. Match its
+   transaction hash, block number and hash, execution status and logs to the
+   signed execution. A committed failure is not a successful payment.
+4. For bank's context-hash send overload, verify the `LayerXReceipt` event from
+   bank `0x0000000000000000000000000000000000001001`, including sender,
+   recipient, denom, amount and context hash. For ledger operations, use the
+   served ledger ABI and its actual events. Do not infer transfers from labels.
+5. Read balances and metadata at an explicit block height. Hosted
+   `px_getBalances` and `px_listAssets` return a height and pin their chain reads
+   to it; their JSON alone does not prove membership in a committed state root.
 
-All integers are unsigned big-endian. Vector framing is `tag || count:u32 || (item_length:u32 || item)*`.
+The bank/ledger mapping and distinction between bank supply and ledger issued
+units are in [Assets and tokens](../concepts/assets.md). A pointer view is a
+lookup of a token interface, not custody or balance evidence.
 
-| Tag | Item |
-| --- | --- |
-| `LXP/Paxeer/withdrawal-witnesses/v2\0` | withdrawal_id32, semantic withdrawal_leaf32, checkpoint proof |
-| `LXP/Paxeer/balance-witnesses/v2\0` | account32, asset32, amount:u128, recipient20, checkpoint proof |
+## Authenticate a block independently
 
-Checkpoint proof wire is `0x02 0x02 || inclusion_checkpoint32 || state_root32 || epoch:u64 || batch:u64 || data_availability_root32 || leaf_index:u64=0 || sibling_count:u16=0 || attestation_count:u32 || packed_attestations || native_evidence`. Attestations retain the existing 18 fields and canonical widths.
+The hosted gateway's `src/chain_reads.rs` implements `px_getCommit`,
+`px_getValidators`, `px_getSequenceBatch` and `px_getReceiptKeys`; its
+`openrpc.json` declares their request and result shapes. The first three take
+a positional height; `px_getReceiptKeys` takes an empty parameter array and
+returns `{keys:[{keyId,publicKey,firstHeight,lastHeight}]}`. The receipt key's
+inclusive height interval is part of its authorization.
 
-Native evidence is `request_anchor32 || inclusion_checkpoint32 || network_id:u32 || witness_length:u32 || witness || signature_length:u16 || signature`. Withdrawal signatures are empty because the committed native request already authenticates its recipient. Balance signatures are exactly 64 bytes. All native witnesses must reproduce the registered composite root. An empty balance publication is refused; an empty list cannot substitute for evidence of accounts in replayed state.
+The verifier in `services/interop/crates/layerx-committed-proof/src/lib.rs`
+provides two distinct steps:
 
-Recipient authorization signs `"LX:SETTLE:RECIPIENT:v1" || 0x00 || network_id:u32 || account32 || asset32 || recipient20 || request_anchor32` using the authority committed in the account leaf. The signature, native witness and both checkpoint identities persist through Human exit/withdrawal plans. Version-2 claim ABIs carry the inclusion checkpoint separately while retaining the request anchor in the existing nullifier domain. Both exit paths also consume the account/asset/inclusion balance once, so different valid signed anchors cannot spend that same proven balance twice.
+- `verify_receipted` binds raw transaction bytes, canonical receipt, the JSON
+  execution view and the previous sequence hash to an authorized Ed25519 key.
+- `committed::verify_committed` authenticates sequence-batch inclusion under a
+  BFT commit. It checks the validator-set hash and more than two-thirds voting
+  power, the expected consensus chain id, block links and transaction inclusion.
 
-Deposit registration signing bytes remain `"LX:PAXEER:DEPOSIT:ROOT:v1" || checkpoint_id32 || checkpoint_state_root32 || deposit_root32 || custody_reference32 || network_id:u32 || protocol_version:u16`, with no terminating zero in that domain.
+The committed proof includes an execution header at height H and a signed
+successor header at H+1. The latter authenticates the execution block through
+`LastBlockID` and the validator-set transition. It then proves the sequence
+batch at transaction index zero, the activity list, and the receipt's position
+in that batch. Preserve the exact transaction bytes, aunts and ordered activity
+ids. Do not substitute an EVM transaction hash for the consensus transaction
+leaf or use an unauthenticated validator list as a trust anchor.
 
-## Consumer sequence
+EVM chain id `125` and the consensus header's textual chain id are different
+fields. Pin the expected network and authenticate the validator set under the
+consumer's trust policy. Fetching a commit and validator set from one server
+without establishing trust in that set is not independent network authentication.
 
-1. Independently replay native state and construct account/withdrawal witnesses and actual deposit ordering.
-2. Obtain each account's recipient-binding signature and the configured checkpoint authority's deposit registration signature. A guarantor signing key cannot substitute for either authority.
-3. Register the inclusion checkpoint with its full guarantor certificate. Require the request anchor to be a recorded canonical ancestor or equal.
-4. Publish the version-2 vectors and register the signed deposit root.
-5. Fetch through `PublishedDepositProof::fetch_published`, `CheckpointProof::fetch_published` and `ExitEvidence::fetch_published`. These verify transaction/receipt/block consistency, confirmation depth, proposer, canonical ABI, event version, digest and native proof. Endpoint TLS and chain identity checks remain required.
-6. Apply the existing custody, committed-debit, certificate, nullifier, recipient and exit-eligibility boundaries before payout. Publication alone is not payout authorization.
+## Prove committed state with ICS23
 
-The autonomous producer still needs the actual account-signed bindings and checkpoint-authority registration material; native replay cannot manufacture those signatures. Source support and focused contract tests are separate from a qualified end-to-end producer publication run.
+SDK state uses the chain application hash. A native kernel composite root and
+the application hash are different commitments. To verify a value in a module
+store, retain the exact store name, key bytes, value bytes, query height and
+both proof operations:
+
+1. Verify the IAVL membership proof for the key/value against the store root
+   using `ics23.IavlSpec`.
+2. Verify the multistore proof for `(store_name, store_root)` against the
+   committed application hash using `ics23.TendermintSpec`.
+3. Bind that application hash to an authenticated consensus header. Account for
+   the consensus header's state-height relationship; do not assume a query
+   height and a block's post-execution state are interchangeable.
+
+`modules/sequencer/keeper/ics23_vector_test.go` produces receipt-key proofs
+using an ABCI query with `Path: "/sequencer/key"`, the exact `ReceiptKeysKey`,
+`Height: commit.Version` and `Prove: true`.
+`modules/sequencer/keeper/ics23_module_catalogue_vector_test.go` does the same
+for program metadata and blobs under `Path: "/lxphost/key"`. Both verify the
+inner and outer proof. These are ABCI store query paths, not public HTTP routes.
+
+The shared vectors are `programs/tests/vectors/ics23-receipt-keys-app-hash.json`
+and `programs/tests/vectors/ics23-module-catalogue-app-hash.json`. Decode exact
+producer bytes and reject substituted keys, values, roots or heights. A present
+value's membership proof cannot establish an unrelated value's absence.
+
+## Receipts, ownership, and recovery
+
+A valid receipt proves only the execution it binds. Verify the expected asset,
+amount, owner or payer authority, recipient and application context before
+releasing goods or recording a payment. A signature over a different recipient
+or network cannot be reused. The merchant verifier additionally compares the
+committed receipt with the EVM transaction receipt; see
+[Paxeer settlement](../concepts/paxeer-settlement.md#merchant-verification).
+
+Retain canonical evidence, verification outcomes and durable request/transaction
+bindings so a restart can resume lookup instead of issuing a second payment.
+Missing evidence is pending or unavailable, never a zero balance or fabricated
+success. The [Agent boundary](../platform/agent-boundary.md) serves validated
+receipt bytes but does not independently establish a BFT commit.
 
 ## Native state witness version 2
 
-The native witness codec is independent of the publication envelope and the checkpoint protocol version. All integers are big-endian:
+The retained native witness codec proves a kernel key/value to a kernel
+composite root. It is useful for replay and archive verification. It is not an
+ICS23 application-hash proof, a receipt signature or a payout authorization.
+Its producer and verifier are `src/state/lxp_state_proof.c` and
+`include/layerx/lxp_state_proof.h`; the Go codec is `layerxproof/codec/state.go`.
+All integers are unsigned big-endian:
 
-```
+```text
 version:u16=2 || module_id:u16 || key_len:u32 || key || value_len:u32 || value
 || [account_index:u32 || account_count:u32 || account_depth:u8 || account_siblings[32]*]
 || leaf_index_a:u32 || leaf_count_a:u32 || depth_a:u8 || siblings_a[32]*
 || leaf_count_b:u32 || depth_b:u8 || siblings_b[32]*
 ```
 
-The leaf hash is SHA256(`LXP/v1/state-leaf\0 || key_len:u32 || value_len:u32 || key || value`). Note that both lengths precede the key in the hash preimage, whereas each length precedes its bytes on the wire. Each path hashes SHA256(`LXP/v1/state-node\0 || left[32] || right[32]`) in native positional order. At odd widths the last node duplicates itself; the proof must carry that exact sibling. Counts, indices, depths and trailing bytes are checked strictly. The layer-B index is `module_id` and its leaf is SHA256(`LXP/v1/state-leaf\0 || u32(2) || u32(32) || module_id:u16 || module_subtree_root[32]`). The current native module count is 9 or 10, including empty module subtrees.
+The leaf preimage is
+`"LXP/v1/state-leaf\0" || key_len:u32 || value_len:u32 || key || value`.
+Both lengths precede the key in the hash preimage; on the wire, each length
+precedes its own bytes. Internal nodes hash
+`"LXP/v1/state-node\0" || left32 || right32` with SHA-256. At odd widths the
+last node duplicates itself and the witness must supply that exact sibling.
+Counts, indices, depths and trailing bytes are validated strictly.
 
-`lxp_state_proof_build` composes the existing native subtree and root constructors and verifies the result before returning it. `lxp_state_proof_encode`, `lxp_state_proof_decode` and `lxp_state_proof_verify` share that representation. Allocate `lxp_state_witness` on the heap: it owns up to one MiB of blob value material. `gp_runtime_state_proof` exposes the same constructor over the guarantor's independently replayed kernel. Rust `state_proof::StateWitness` and Solidity `NativeStateProof` verify the identical bytes. `build/tests/lxp_test_state_proof --vectors` emits the shared fixtures under `contracts/config/native-state-proofs.json` and the paxeer-client test vectors directory.
+The optional account segment appears exactly for module `0`, a 33-byte key and
+first key byte `0x04`. It proves the canonical account leaf into the account
+registry. That root becomes the value of `account-tree` (12 bytes); layer A
+proves this binding in module zero. Other leaves omit the segment.
 
-The account segment is present exactly when `module_id == 0`, `key_len == 33`
-and the first key byte is `04`. It proves the canonical account record into the
-account registry; layer A then proves the `account-tree` binding, and layer B
-proves the preserved module wrapper under the composite root. All other leaves
-omit that segment. The shared C vectors include three real account balances.
+Layer B uses index `module_id` and the module wrapper leaf
+`SHA256("LXP/v1/state-leaf\0" || u32(2) || u32(32) || module_id:u16 || subtree_root32)`.
+The codec accepts 9 through 12 module leaves, bounded by
+`LXP_MODULE_RESERVED_COUNT == 11`; the actual tree extends through its highest
+registered module. Do not hard-code the former 9/10-leaf assumption.
 
-For module zero and a 33-byte key beginning with `04`, version 2 carries the
-canonical account leaf from `lx_account_state_leaf_material`. Immediately after
-`value`, the encoding adds `account_index:u32 || account_count:u32 ||
-account_depth:u8 || account_siblings[32]*`. Other keys have no account segment.
-The account path hashes to the account registry root. That root is the value of
-`account-tree` (12 bytes), hashed with the native state-leaf domain and both
-lengths. Layer A proves this registry binding in module zero; the unchanged
-module wrapper and layer B then prove inclusion under the composite root.
-Balances, asset identity and account authority remain bound by the existing
-canonical account record; this extension does not change native root semantics.
+`lxp_state_proof_build` verifies the constructed proof before returning it;
+`lxp_state_proof_encode`, `decode` and `verify` share the representation. Heap
+allocate `lxp_state_witness`, which includes up to one MiB of value storage.
+The canonical account value still binds account identity, asset, balance and
+authority; a caller-supplied recipient cannot override those bindings.
 
-The native asset request stages an immutable withdrawal fact under
-`withdrawal:` (11 ASCII bytes) followed by its existing 32-byte nullifier.
-The exact 182-byte value is `version:u16=2 || network_id:u32 ||
-withdrawal_id:32 || account_id:32 || asset_id:32 || amount:u128 ||
-payout_recipient:32 || checkpoint_id:32`, all integers big-endian.
-`lx_withdrawal_state_decode` validates the complete encoding and recomputes
-its key from the real request type. Module-context commit persists the fact;
-a failed transfer rolls the staged fact back. The runtime withdrawal store
-retains its existing lookup and settlement behavior. The fact records request
-creation, not subsequent settlement status.
+## Historical publication formats
 
-The request checkpoint and inclusion checkpoint are separate settlement fields:
-`request_anchor` is the record's existing `checkpoint_id` and remains in the
-nullifier domain; `inclusion_checkpoint` selects the registered root proving
-that record. `CheckpointRegistry::isRecordedAncestor(requestAnchor,
-inclusionCheckpoint)` requires both checkpoints to remain canonical and checks
-their recorded batch order. Registration already enforces consecutive batches,
-sequence continuity and state-root continuity. Unknown, future and invalidated
-anchors or inclusion checkpoints are refused. Version-2 consumers carry both fields and enforce this predicate together with `isFinalised` for the inclusion root.
+The pre-merge checkpoint/custody publication lifecycle is retired. The following
+information is only for interpreting retained version-2 artifacts, not for
+provisioning a producer, deploying contracts, registering roots or making claims.
 
-The guarantor exports account witnesses only for asset-bearing agent-main accounts, the balance leaf kind accepted by the native settlement verifier. System reserves and withdrawal custody accounts are not owner exit balances. Withdrawal and custody-credit records are enumerated from their committed module KV keys and independently proved against the replayed checkpoint root. A checkpoint with no owner balance, withdrawal or custody-credit facts produces a `no_native_settlement_facts` evidence inventory; it does not submit an empty balance vector to the registry. Any nonempty settlement publication requires its complete owner balance bindings.
+Historical vectors used big-endian framing
+`tag || count:u32 || (item_length:u32 || item)*`:
 
-After registration, the producer writes `<checkpoint-id>.publication-request.json` in its state directory. The independently operated account owners and checkpoint authority deliver `<checkpoint-id>.json` into `LAYERX_GUARANTOR_PUBLICATION_INPUTS_DIR`. The file contains `version: 2`, `checkpoint_id`, `recipient_bindings` (account, asset, recipient, request_anchor and the account-owner Ed25519 signature), and `deposit_registration` (vault, custody_reference and the separately configured deposit-root-authority Ed25519 signature), or null exactly when replay contains no deposits. The producer never acquires these authorities' signing keys. The producer waits up to thirty seconds for the file to appear and then reports the checkpoint's publication as pending rather than refused: the registration stands, nothing is published, and the guarantor asks again on its next pass instead of terminating the run. A single-batch run gives up after five minutes with the same message. Invalid inputs still fail closed, and no path publishes without both signatures.
+| Tag | Archived item |
+| --- | --- |
+| `LXP/Paxeer/withdrawal-witnesses/v2\0` | `withdrawal_id32`, semantic withdrawal leaf and checkpoint proof |
+| `LXP/Paxeer/balance-witnesses/v2\0` | `account32`, `asset32`, `amount:u128`, `recipient20` and checkpoint proof |
 
-The producer derives deposit leaves from committed custody credits, sorts them by deposit ID, computes the ordered Merkle root, verifies the registration signature against the vault's configured authority, and verifies every owner signature against its proven account key. It checks recorded checkpoint ancestry before publishing. A withdrawal whose `request_anchor` is not a recorded ancestor of the checkpoint is left out of the withdrawal vector and listed under `refused_withdrawals` in the evidence file; the rest of the checkpoint is still published, and `withdrawal_count` counts only the published withdrawals. It submits the withdrawal/balance vectors and deposit registration using the checkpoint proposer, checks the resulting on-chain digests, and atomically records the complete vectors, ordering, signatures and transaction references in `<checkpoint-id>.evidence.json`. Retries compare existing publication digests and refuse conflicting content without resubmitting matching publications.
+A checkpoint publication digest bound
+`SHA256(abi.encode(checkpointHash,uint16(2),withdrawals,balances))`; a deposit
+publication digest bound
+`SHA256(abi.encode(uint16(2),registration,signature,leafOrdering))`. The
+publication envelope version, native witness version and checkpoint ordering
+version were separate fields, even where each happened to equal 2.
 
-## Checkpoint ordering contract version 2
+The archived owner authorization preimage was:
 
-`CheckpointRegistry.CHECKPOINT_ORDER_VERSION()` is 2. A rollout must deploy the new registry and its bound settlement suite; finalization refuses a registry with the prior ordering policy and records the ordering version. The native witness encoding and `EVIDENCE_VERSION` remain 2 because their bytes have not changed.
+```text
+"LX:SETTLE:RECIPIENT:v1" || 0x00 || network_id:u32 || account32 || asset32
+|| recipient20 || request_anchor32
+```
 
-Epoch identifies an authority lifecycle, not a checkpoint counter. Native header production uses `process->kernel.epoch`; `lxp_kernel_set_epoch` permits equality and refuses regression, and `lxp_kernel_epoch_transition` advances the kernel through the module epoch hooks inside one state journal, consuming one global sequence and recomputing the state root. Running replicas pin their authenticated sequencer term and refuse a different header epoch; signed batch maintenance drives deadline processing without changing that term. Multiple real batches can therefore share an epoch. Registration requires a nonzero epoch greater than or equal to `finalisedEpoch`, and the checkpoint sequence (`header.batchNumber`) must equal `finalisedBatchNumber + 1`. Activity ranges must also start at `finalisedLastSequence + 1`; state-root continuity, increasing timestamps, signatures, membership, freshness and invalidation checks remain mandatory.
+It required the account owner's Ed25519 signature. The archived deposit-root
+signature used a separately provisioned Ed25519 authority and this preimage,
+without a terminating zero after its domain:
 
-The strict sequence prevents replay even when epochs are equal: a previously accepted batch can never occupy the next sequence, and a skipped batch is refused. Increasing the epoch cannot bypass either sequence check. Native checkpoint-log recovery already enforces non-decreasing epochs and consecutive batches and activity ranges. The former registry already required consecutive sequences. This rollout preserves those replay checks while aligning epoch progression with the native authority lifecycle.
+```text
+"LX:PAXEER:DEPOSIT:ROOT:v1" || checkpoint_id32 || checkpoint_state_root32
+|| deposit_root32 || custody_reference32 || network_id:u32 || protocol_version:u16
+```
+
+Replay cannot manufacture either authority's signature. Preserve both the
+request anchor and inclusion checkpoint when decoding: one bound the request
+and nullifier, while the other selected the proving root. Archived ancestry,
+recipient, canonical encoding and replay/nullifier checks remain necessary to
+interpret an old claim. Confirmation-depth and publication-contract procedures
+from those artifacts do not define current BFT settlement.
+
+[Home](../index.md)

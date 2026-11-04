@@ -4,320 +4,228 @@ order: 3
 
 # Proposer Selection Procedure
 
-This document specifies the Proposer Selection Procedure that is used in Tendermint to choose a round proposer.
-As Tendermint is “leader-based protocol”, the proposer selection is critical for its correct functioning.
-
-At a given block height, the proposer selection algorithm runs with the same validator set at each round .
-Between heights, an updated validator set may be specified by the application as part of the ABCIResponses' EndBlock.
+Paxeer runs this consensus engine inside `paxd`. The kernel participates in the
+same network and proposes blocks; a receipt is final once its block is committed.
+The proposer rule depends on the engine mode and the active on-chain leader
+schedule. The presence of proposer-priority fields alone does not identify the
+rule used to accept proposals.
 
 ## Requirements for Proposer Selection
 
-This sections covers the requirements with Rx being mandatory and Ox optional requirements.
-The following requirements must be met by the Proposer Selection procedure:
-
 ### R1: Determinism
 
-Given a validator set `V`, and two honest validators `p` and `q`, for each height `h` and each round `r` the following must hold:
-
-  `proposer_p(h,r) = proposer_q(h,r)`
-
-where `proposer_p(h,r)` is the proposer returned by the Proposer Selection Procedure at process `p`, at height `h` and round `r`.
+Honest validators with the same consensus inputs must select the same proposer
+for a height and round (classic consensus), or road index and view number
+(Autobahn). Validator ordering, weights, chain context and any active leader pin
+are part of those inputs.
 
 ### R2: Fairness
 
-Given a validator set with total voting power P and a sequence S of elections. In any sub-sequence of S with length C*P, a validator v must be elected as proposer P/VP(v) times, i.e. with frequency:
+Hash-based weighted selection gives each validator an interval proportional to
+its voting power. It does not promise an exact number of elections in any finite
+window. An active leader pin instead follows its ordered primary/standby list;
+it does not provide voting-power-proportional proposer rotation.
 
- f(v) ~ VP(v) / P
-
-where C is a tolerance factor for validator set changes with following values:
-
-- C == 1 if there are no validator set changes
-- C ~ k when there are validator changes
-
-*[this needs more work]*
+The weighted round-robin priority calculation retained below has different
+fairness properties. Its examples must not be used to predict live round leaders.
 
 ## Basic Algorithm
 
-At its core, the proposer selection procedure uses a weighted round-robin algorithm.
+### Classic round leaders
 
-A model that gives a good intuition on how/ why the selection algorithm works and it is fair is that of a priority queue. The validators move ahead in this queue according to their voting power (the higher the voting power the faster a validator moves towards the head of the queue). When the algorithm runs the following happens:
+The authoritative implementation is
+[`RoundState.Leader`](../../internal/consensus/types/round_state.go), called by
+proposal production and verification in
+[`State`](../../internal/consensus/state.go).
 
-- all validators move "ahead" according to their powers: for each validator, increase the priority by the voting power
-- first in the queue becomes the proposer: select the validator with highest priority
-- move the proposer back in the queue: decrease the proposer's priority by the total voting power
+Without an applicable pin, the selection is:
 
-Notation:
-
-- vset - the validator set
-- n - the number of validators
-- VP(i) - voting power of validator i
-- A(i) - accumulated priority for validator i
-- P - total voting power of set
-- avg - average of all validator priorities
-- prop - proposer
-
-Simple view at the Selection Algorithm:
-
-```md
-    def ProposerSelection (vset):
-
-        // compute priorities and elect proposer
-        for each validator i in vset:
-            A(i) += VP(i)
-        prop = max(A)
-        A(prop) -= P
+```text
+material = fixed 32-byte leaderElectionSeed
+           || big-endian uint64(height) || big-endian uint64(round)
+pos = integer(SHA256(material)) mod totalVotingPower
+for validator in Validators.Ordered():
+    pos -= validator.VotingPower
+    if pos < 0:
+        return validator.PubKey
 ```
 
-## Stable Set
+[`ValidatorSet.Ordered`](../../types/validator_set.go) supplies the deterministic
+validator order. This is a deterministic weighted draw for each `(height, round)`;
+it does not choose `ValidatorSet.GetProposer()` from the priority queue.
 
-Consider the validator set:
+### Pinned primary and standby leaders
 
-Validator | p1 | p2
-----------|----|---
-VP        | 1  | 3
+`LeaderPin` in the same round-state source contains an activation height and an
+ordered list `L` of consensus public keys. At and above activation:
 
-Assuming no validator changes, the following table shows the proposer priority computation over a few runs. Four runs of the selection procedure are shown, starting with the 5th the same values are computed.
-Each row shows the priority queue and the process place in it. The proposer is the closest to the head, the rightmost validator. As priorities are updated, the validators move right in the queue. The proposer moves left as its priority is reduced after election.
+```text
+leader(height, round) = L[round mod len(L)]
+```
 
-| Priority   Run | -2 | -1 | 0     | 1  | 2     | 3  | 4  | 5  | Alg step         |
-|----------------|----|----|-------|----|-------|----|----|----|------------------|
-|                |    |    | p1,p2 |    |       |    |    |    | Initialized to 0 |
-| run 1          |    |    |       | p1 |       | p2 |    |    | A(i)+=VP(i)      |
-|                |    | p2 |       | p1 |       |    |    |    | A(p2)-= P        |
-| run 2          |    |    |       |    | p1,p2 |    |    |    | A(i)+=VP(i)      |
-|                | p1 |    |       |    | p2    |    |    |    | A(p1)-= P        |
-| run 3          |    | p1 |       |    |       |    |    | p2 | A(i)+=VP(i)      |
-|                |    | p1 |       | p2 |       |    |    |    | A(p2)-= P        |
-| run 4          |    |    | p1    |    |       |    | p2 |    | A(i)+=VP(i)      |
-|                |    |    | p1,p2 |    |       |    |    |    | A(p2)-= P        |
+Round zero therefore chooses the primary at every height. Subsequent rounds
+choose standbys and wrap around the list. Below activation, or without a pin,
+the hash-based choice applies. `NewLeaderPin` rejects a non-positive activation
+height, an empty list, zero keys and duplicate keys.
 
-It can be shown that:
+`State` refreshes the schedule through its leader-schedule provider. The list
+comes from the on-chain `sequencer` module; the name denotes an integrated
+runtime capability. Pinned leaders must also belong to the validator set:
+proposal construction and vote signing look up the selected consensus key there.
+The `[consensus.sequencer]` settings control the associated timing policy.
+They do not define an additional network component.
 
-- At the end of each run k+1 the sum of the priorities is the same as at end of run k. If a new set's priorities are initialized to 0 then the sum of priorities will be 0 at each run while there are no changes.
-- The max distance between priorites is (n-1) *P.*[formal proof not finished]*
+### Autobahn leaders
+
+A non-empty top-level `autobahn-config-file` selects optional Autobahn operation;
+an empty value disables it. [`Config.ValidateBasic`](../../config/config.go)
+rejects enabling `[consensus.sequencer].enable` together with that file.
+
+[`Committee.Leader`](../../autobahn/types/committee.go) uses this separate rule:
+
+```text
+material = "pax/autobahn/leader/v1\x00" || committeeDomain
+           || big-endian uint64(view.Index) || big-endian uint64(view.Number)
+pos = integer(SHA256(material)) mod totalWeight
+select the public key whose cumulative weight interval contains pos
+```
+
+`view.Index` identifies the road consensus instance; `view.Number` identifies a
+view within that instance. The committee domain binds the chain ID, first global
+block number, genesis timestamp, and the sorted public keys with their weights.
+`NewCommittee` sorts keys with `PublicKey.Compare`, removes zero-weight members,
+and rejects zero total weight, overflow and more than `MaxCommitteeSize` (16)
+replicas.
+
+Despite its name, `NewRoundRobinElection` constructs an equal-weight committee
+and uses this hash-based `Leader` method. Node assembly in
+[`NewGigaRouter`](../../internal/p2p/giga_router.go) calls that constructor with
+the configured validator keys and the genesis chain ID, initial height and time.
+It does not import classic proposer priorities or genesis voting-power ratios
+into Autobahn leader election. Lane production by committee members is distinct
+from selecting the road leader that proposes certified lane ranges.
+
+`FullProposal.VerifyAt` checks the selected leader's signature and view context;
+see [validator signing](signing.md#autobahn-signatures-and-certificates).
 
 ## Validator Set Changes
 
-Between proposer selection runs the validator set may change. Some changes have implications on the proposer election.
+### Classic lifecycle
+
+The validator set is fixed during the rounds at a height. Application updates
+come from `ResponseFinalizeBlock.ValidatorUpdates` through
+[`BlockExecutor`](../../internal/state/execution.go), rather than the inherited
+`EndBlock` lifecycle. Updates returned at height `h` modify `NextValidators` and
+become the active validator set at `h + 2`. Existing validators retain their
+priority on a power change; additions and removals also update priority
+normalization as described below.
+
+An on-chain leader pin and the active validator set must agree. Updating the
+validator set does not turn a pinned non-member into a validator.
+
+### Autobahn lifecycle
+
+Node startup constructs one immutable committee from the Autobahn configuration
+and genesis context. Availability queues are initialized once for its lanes in
+[`avail/inner.go`](../../internal/autobahn/avail/inner.go). Dynamic committee
+changes are not implemented. Classic `FinalizeBlock` validator updates must not
+be interpreted as an Autobahn membership-change mechanism.
+
+Changing the committee changes both leader selection and the signature domain.
+Editing the configuration and reusing old safety state is not a supported
+committee transition. Restart uses the same committee context and restores the
+certificates and votes described in [WAL recovery](wal.md#autobahn-persistence).
+
+## Proposer Priority Reference
+
+The remainder explains the inherited weighted round-robin bookkeeping still
+implemented by [`ValidatorSet`](../../types/validator_set.go). Classic state
+execution advances these priorities, but `RoundState.Leader` determines the
+actual round leader.
+
+Let `A(i)` be a validator's priority, `VP(i)` its voting power, and `P` the total
+voting power. `IncrementProposerPriority(times)` first rescales and centers the
+priorities, then performs `times` elections:
+
+```text
+if max(A) - min(A) > 2 * P:
+    ratio = ceil((max(A) - min(A)) / (2 * P))
+    A(i) = A(i) / ratio  for each validator (integer division)
+avg = floor(sum(A) / numberOfValidators)
+A(i) -= avg             for each validator
+repeat times:
+    A(i) += VP(i)       for each validator (clipped addition)
+    prop = validator with greatest A(i)
+    A(prop) -= P        (clipped subtraction)
+```
+
+Equal priorities are resolved by the lexicographically smaller validator
+address in [`CompareProposerPriority`](../../types/validator.go).
+`IncrementProposerPriority` requires a non-empty set and a positive `times`.
+
+### Stable Set
+
+For weights 1 and 3, starting at priorities zero and choosing `p1` on the tie,
+the bookkeeping proceeds as follows:
+
+| Election | Priorities after adding power `(p1, p2)` | Selected | Priorities after subtracting `P` |
+| --- | --- | --- | --- |
+| 1 | `(1, 3)` | p2 | `(1, -1)` |
+| 2 | `(2, 2)` | p1 | `(-2, 2)` |
+| 3 | `(-1, 5)` | p2 | `(-1, 1)` |
+| 4 | `(0, 4)` | p2 | `(0, 0)` |
+
+Adding all voting powers and subtracting their sum preserves the priority sum
+within an election. Integer centering can leave a small remainder. This example
+illustrates the priority algorithm, not the runtime's hash-based leader sequence.
 
 ### Voting Power Change
 
-Consider again the earlier example and assume that the voting power of p1 is changed to 4:
-
-Validator | p1 | p2
-----------|----|---
-VP        | 4  | 3
-
-Let's also assume that before this change the proposer priorites were as shown in first row (last run). As it can be seen, the selection could run again, without changes, as before.
-
-| Priority   Run | -2 | -1 | 0 | 1  | 2  | Comment           |
-|----------------|----|----|---|----|----|-------------------|
-| last run       |    | p2 |   | p1 |    | __update VP(p1)__ |
-| next run       |    |    |   |    | p2 | A(i)+=VP(i)       |
-|                | p1 |    |   |    | p2 | A(p1)-= P         |
-
-However, when a validator changes power from a high to a low value, some other validator remain far back in the queue for a long time. This scenario is considered again in the Proposer Priority Range section.
-
-As before:
-
-- At the end of each run k+1 the sum of the priorities is the same as at run k.
-- The max distance between priorites is (n-1) * P.
+A power update preserves an existing validator's priority. A large power
+reduction can therefore leave a priority spread that needs rescaling.
 
 ### Validator Removal
 
-Consider a new example with set:
-
-Validator | p1 | p2 | p3
-----------|----|----|---
-VP        | 1  | 2  | 3
-
-Let's assume that after the last run the proposer priorities were as shown in first row with their sum being 0. After p2 is removed, at the end of next proposer selection run (penultimate row) the sum of priorities is -2 (minus the priority of the removed process).
-
-The procedure could continue without modifications. However, after a sufficiently large number of modifications in validator set, the priority values would migrate towards maximum or minimum allowed values causing truncations due to overflow detection.
-For this reason, the selection procedure adds another __new step__ that centers the current priority values such that the priority sum remains close to 0.
-
-| Priority   Run | -3 | -2 | -1 | 0 | 1  | 2  | 4 | Comment               |
-|----------------|----|----|----|---|----|----|---|-----------------------|
-| last run       | p3 |    |    |   | p1 | p2 |   | __remove p2__         |
-| nextrun        |    |    |    |   |    |    |   |                       |
-| __new step__   |    | p3 |    |   |    | p1 |   | A(i) -= avg, avg = -1 |
-|                |    |    |    |   | p3 | p1 |   | A(i)+=VP(i)           |
-|                |    |    | p1 |   | p3 |    |   | A(p1)-= P             |
-
-The modified selection algorithm is:
-
-```md
-    def ProposerSelection (vset):
-
-        // center priorities around zero
-        avg = sum(A(i) for i in vset)/len(vset)
-        for each validator i in vset:
-            A(i) -= avg
-
-        // compute priorities and elect proposer
-        for each validator i in vset:
-            A(i) += VP(i)
-        prop = max(A)
-        A(prop) -= P
-```
-
-Observations:
-
-- The sum of priorities is now close to 0. Due to integer division the sum is an integer in (-n, n), where n is the number of validators.
+Removing a validator removes its priority from the sum. Centering the remaining
+priorities prevents repeated set changes from moving the whole queue toward
+integer limits.
 
 ### New Validator
 
-When a new validator is added, same problem as the one described for removal appears, the sum of priorities in the new set is not zero. This is fixed with the centering step introduced above.
+A newly added validator starts with priority `-(P + (P >> 3))`, using total
+power after additions and power changes but before removals. The penalty limits
+the advantage of leaving and rejoining the queue. Integer truncation matters:
+for total power 12 the initial priority is `-13`, not a floating-point value.
 
-One other issue that needs to be addressed is the following. A validator V that has just been elected is moved to the end of the queue. If the validator set is large and/ or other validators have significantly higher power, V will have to wait many runs to be elected. If V removes and re-adds itself to the set, it would make a significant (albeit unfair) "jump" ahead in the queue.
+### Proposer Priority Range
 
-In order to prevent this, when a new validator is added, its initial priority is set to:
-
-```md
-    A(V) = -1.125 *  P
-```
-
-where P is the total voting power of the set including V.
-
-Curent implementation uses the penalty factor of 1.125 because it provides a small punishment that is efficient to calculate. See [here](https://github.com/tendermint/tendermint/pull/2785#discussion_r235038971) for more details.
-
-If we consider the validator set where p3 has just been added:
-
-Validator | p1 | p2 | p3
-----------|----|----|---
-VP        | 1  | 3  | 8
-
-then p3 will start with proposer priority:
-
-```md
-    A(p3) = -1.125 * (1 + 3 + 8) ~ -13
-```
-
-Note that since current computation uses integer division there is penalty loss when sum of the voting power is less than 8.
-
-In the next run, p3 will still be ahead in the queue, elected as proposer and moved back in the queue.
-
-| Priority   Run | -13 | -9 | -5 | -2 | -1 | 0 | 1 | 2  | 5  | 6  | 7  | Alg step              |
-|----------------|-----|----|----|----|----|---|---|----|----|----|----|-----------------------|
-| last run       |     |    |    | p2 |    |   |   | p1 |    |    |    | __add p3__            |
-|                | p3  |    |    | p2 |    |   |   | p1 |    |    |    | A(p3) = -4            |
-| next run       |     | p3 |    |    |    |   |   | p2 |    | p1 |    | A(i) -= avg, avg = -4 |
-|                |     |    |    |    | p3 |   |   |    | p2 |    | p1 | A(i)+=VP(i)           |
-|                |     |    | p1 |    | p3 |   |   |    | p2 |    |    | A(p1)-=P              |
-
-## Proposer Priority Range
-
-With the introduction of centering, some interesting cases occur. Low power validators that bind early in a set that includes high power validator(s) benefit from subsequent additions to the set. This is because these early validators run through more right shift operations during centering, operations that increase their priority.
-
-As an example, consider the set where p2 is added after p1, with priority -1.125 * 80k = -90k. After the selection procedure runs once:
-
-Validator | p1   | p2   | Comment
-----------|------|------|------------------
-VP        | 80k  | 10   |
-A         | 0    | -90k | __added p2__
-A         | -45k | 45k  | __run selection__
-
-Then execute the following steps:
-
-1. Add a new validator p3:
-
-    Validator | p1  | p2 | p3
-    ----------|-----|----|---
-    VP        | 80k | 10 | 10
-
-2. Run selection once. The notation '..p'/'p..' means very small deviations compared to column priority.
-
-    | Priority  Run | -90k.. | -60k | -45k | -15k | 0 | 45k | 75k | 155k | Comment      |
-    |---------------|--------|------|------|------|---|-----|-----|------|--------------|
-    | last run      | p3     |      | p2   |      |   | p1  |     |      | __added p3__ |
-    | next run
-    | *right_shift*|       |  p3  |        |  p2 |   |     |  p1  |        | A(i) -= avg,avg=-30k
-    |              |       |  ..p3|        | ..p2|   |     |      |  p1    | A(i)+=VP(i)
-    |              |       |  ..p3|        | ..p2|   |     | p1.. |        | A(p1)-=P, P=80k+20
-
-3. Remove p1 and run selection once:
-
-    Validator | p3     | p2    | Comment
-    ----------|--------|-------|------------------
-    VP        | 10     | 10    |
-    A         | -60k   | -15k  |
-    A         | -22.5k | 22.5k | __run selection__
-
-At this point, while the total voting power is 20, the distance between priorities is 45k. It will take 4500 runs for p3 to catch up with p2.
-
-In order to prevent these types of scenarios, the selection algorithm performs scaling of priorities such that the difference between min and max values is smaller than two times the total voting power.
-
-The modified selection algorithm is:
-
-```md
-    def ProposerSelection (vset):
-
-        // scale the priority values
-        diff = max(A)-min(A)
-        threshold = 2 * P
-     if  diff > threshold:
-            scale = diff/threshold
-            for each validator i in vset:
-          A(i) = A(i)/scale
-
-        // center priorities around zero
-        avg = sum(A(i) for i in vset)/len(vset)
-        for each validator i in vset:
-            A(i) -= avg
-
-        // compute priorities and elect proposer
-        for each validator i in vset:
-            A(i) += VP(i)
-        prop = max(A)
-        A(prop) -= P
-```
-
-Observations:
-
-- With this modification, the maximum distance between priorites becomes 2 * P.
-
-Note also that even during steady state the priority range may increase beyond 2 * P. The scaling introduced here  helps to keep the range bounded.
+A large power reduction can leave a small validator set with a large priority
+spread. Rescaling divides priorities by the ceiling of `spread / (2 * P)`
+before centering and election. The election itself can increase the spread
+again; `2 * P` is the rescaling threshold, not a post-election invariant.
 
 ## Wrinkles
 
 ### Validator Power Overflow Conditions
 
-The validator voting power is a positive number stored as an int64. When a validator is added the `1.125 * P` computation must not overflow. As a consequence the code handling validator updates (add and update) checks for overflow conditions making sure the total voting power is never larger than the largest int64 `MAX`, with the property that `1.125 * MAX` is still in the bounds of int64. Fatal error is return when overflow condition is detected.
+`MaxTotalVotingPower` is `math.MaxInt64 / 8`. Validator-set updates reject
+negative powers, duplicate updates, invalid removals and a total above that
+limit. A zero power in an update means removal.
 
-### Proposer Priority Overflow/ Underflow Handling
+### Proposer Priority Overflow/Underflow Handling
 
-The proposer priority is stored as an int64. The selection algorithm performs additions and subtractions to these values and in the case of overflows and underflows it limits the values to:
-
-```go
-    MaxInt64  =  1 << 63 - 1
-    MinInt64  = -1 << 63
-```
+Priority arithmetic uses signed 64-bit integers. The priority implementation
+clips overflowing additions and subtractions to `MaxInt64` or `MinInt64`.
+This bookkeeping protection does not change the active leader-selection rule.
 
 ## Requirement Fulfillment Claims
 
-__[R1]__
+Determinism is conditional on all validators having identical consensus inputs.
+The classic hash draw, active pin and Autobahn committee draw described above
+are separate rules. Weighted round-robin examples establish no finite-window
+fairness guarantee for any of those live selection paths.
 
-The proposer algorithm is deterministic giving consistent results across executions with same transactions and validator set modifications.
-[WIP - needs more detail]
-
-__[R2]__
-
-Given a set of processes with the total voting power P, during a sequence of elections of length P, the number of times any process is selected as proposer is equal to its voting power. The sequence of the P proposers then repeats. If we consider the validator set:
-
-Validator | p1 | p2
-----------|----|---
-VP        | 1  | 3
-
-With no other changes to the validator set, the current implementation of proposer selection generates the sequence:
-`p2, p1, p2, p2, p2, p1, p2, p2,...` or [`p2, p1, p2, p2`]*
-A sequence that starts with any circular permutation of the [`p2, p1, p2, p2`] sub-sequence would also provide the same degree of fairness. In fact these circular permutations show in the sliding window (over the generated sequence) of size equal to the length of the sub-sequence.
-
-Assigning priorities to each validator based on the voting power and updating them at each run ensures the fairness of the proposer selection. In addition, every time a validator is elected as proposer its priority is decreased with the total voting power.
-
-Intuitively, a process v jumps ahead in the queue at most (max(A) - min(A))/VP(v) times until it reaches the head and is elected. The frequency is then:
-
-```md
-    f(v) ~ VP(v)/(max(A)-min(A)) = 1/k * VP(v)/P
-```
-
-For current implementation, this means v should be proposer at least VP(v) times out of k * P runs, with scaling factor k=2.
+Timestamp validation is described in the
+[PBTS applicability and draft](proposer-based-timestamp/v1/pbts_001_draft.md).
+Signature reuse and restart safety are described in [signing](signing.md) and
+[WAL recovery](wal.md).

@@ -5,98 +5,140 @@ title: Client and Server
 
 # Client and Server
 
-This section is for those looking to implement their own ABCI Server, perhaps in
-a new programming language.
+The consensus engine and application run in the same Go process in this fork.
+An integrator implements the
+[`Application` interface](../../abci/types/application.go) and supplies it to
+[`node.New`](../../node/public.go). The node wraps it with
+[`internal/proxy.Proxy`](../../internal/proxy/proxy.go), which forwards calls
+and records method timings. There is no application network listener to start.
 
-You are expected to have read all previous sections of ABCI++ specification, namely
-[Basic Concepts](./abci%2B%2B_basic_concepts_002_draft.md),
-[Methods](./abci%2B%2B_methods_002_draft.md),
-[Application Requirements](./abci%2B%2B_app_requirements_002_draft.md), and
-[Expected Behavior](./abci%2B%2B_tmint_expected_behavior_002_draft.md).
+Read [Overview and basic concepts](./abci++_basic_concepts_002_draft.md) for the
+current methods, result codes, determinism requirements, and consensus-mode
+boundaries. This page retains its upstream draft filename and front matter for
+existing site links. The sibling [Methods](./abci++_methods_002_draft.md),
+[Application Requirements](./abci++_app_requirements_002_draft.md), and
+[Expected Behavior](./abci++_tmint_expected_behavior_002_draft.md) pages contain
+inherited draft material; they do not add methods or transports to the Go API.
 
 ## Message Protocol and Synchrony
 
-The message protocol consists of pairs of requests and responses defined in the
-[protobuf file](../../proto/tendermint/abci/types.proto).
+The current interface is a Go method contract, not a serialized stream of
+request/response envelopes. Its declarations are split across:
 
-Some messages have no fields, while others may include byte-arrays, strings, integers,
-or custom protobuf types.
+- [`application.go`](../../abci/types/application.go): the complete method set.
+- [`plain_types.go`](../../abci/types/plain_types.go): request structures,
+  proposal status, snapshot metadata, and other plain Go types.
+- [`types.go`](../../abci/types/types.go): extended transaction request and
+  response types and deterministic result encoding.
+- [`types.proto`](../../proto/tendermint/abci/types.proto): protobuf response,
+  event, validator, and execution-result structures.
 
-For more details on protobuf, see the [documentation](https://developers.google.com/protocol-buffers/docs/overview).
+Generating code from `types.proto` alone does not implement the interface.
+For example, `ResponseCheckTxV2` embeds `*ResponseCheckTx` and adds Go-only
+fields, including EVM hashes, addresses, and `uint256.Int` balance information.
 
-As of v0.36 requests are synchronous. For each of ABCI++'s four connections (see
-[Connections](./abci%2B%2B_app_requirements_002_draft.md)), when Tendermint issues a request to the
-Application, it will wait for the response before continuing execution. As a side effect,
-requests and responses are ordered for each connection, but not necessarily across connections.
+Calls return synchronously to their caller. The proxy does not turn the
+consensus, mempool, query, and snapshot method groups into four connections,
+nor does it place a global lock around the application. Separate callers can
+execute concurrently; application state and speculative execution must be
+synchronized appropriately. Respect the context supplied to methods that take
+one, and keep committed, admission, and speculative state consistent with the
+lifecycle below.
 
 ## Server Implementations
 
-To use ABCI in your programming language of choice, there must be an ABCI
-server in that language. Tendermint supports four implementations of the ABCI server:
-
-- in Tendermint's repository:
-    - In-process
-    - ABCI-socket
-    - GRPC
-- [tendermint-rs](https://github.com/informalsystems/tendermint-rs)
-- [tower-abci](https://github.com/penumbra-zone/tower-abci)
-
-The implementations in Tendermint's repository can be tested using `abci-cli` by setting
-the `--abci` flag appropriately.
-
-See examples, in various stages of maintenance, in
-[Go](https://github.com/tendermint/tendermint/tree/master/abci/server),
-[JavaScript](https://github.com/tendermint/js-abci),
-[C++](https://github.com/mdyring/cpp-tmsp), and
-[Java](https://github.com/jTendermint/jabci).
-
 ### In Process
 
-The simplest implementation uses function calls in Golang.
-This means ABCI applications written in Golang can be linked with Tendermint Core and run as a single binary.
+Implement all methods declared by `Application`, including `GetValidators`,
+`GetTxPriorityHint`, `EvmNonce`, and `EvmBalance` as well as block processing,
+queries, transaction checks, and snapshots. `CheckTx` returns
+`*ResponseCheckTxV2` directly; most request-based methods return a response and
+a Go `error`. Use the declared signatures rather than the upstream draft's
+method list.
+
+[`BaseApplication`](../../abci/types/application.go) supplies default behavior
+and demonstrates the interface shape. The
+[`kvstore` example](../../abci/example/kvstore/kvstore.go) embeds it and implements
+a small application. Defaults do not implement a production application's
+validation, persistence, or snapshot policy. The network application uses
+[`BaseApp`](../../../sdk/baseapp/abci.go) and
+[node-specific handlers](../../../node/app.go).
 
 ### GRPC
 
-If you are not using Golang,
-but [GRPC](https://grpc.io/) is available in your language, this is the easiest approach,
-though it will have significant performance overhead.
-
-Please check GRPC's documentation to know to set up the Application as an
-ABCI GRPC server.
+The upstream gRPC ABCI transport is not implemented in this fork. Running a
+gRPC server generated from the response protobuf definitions does not connect
+an application to this engine. There is no supported `abci-cli --abci grpc`
+integration recipe here.
 
 ### Socket
 
-Tendermint's socket-based ABCI interface is an asynchronous,
-raw socket server which provides ordered message passing over unix or tcp.
-Messages are serialized using Protobuf3 and length-prefixed with a [signed Varint](https://developers.google.com/protocol-buffers/docs/encoding?csw=1#signed-integers).
+The upstream ABCI socket client and server are not implemented in this fork.
+There is no supported `abci-cli --abci socket` integration recipe. The earlier
+draft's conflicting length-prefix descriptions and byte examples do not define
+a wire protocol for this runtime. TCP and Unix socket framing are therefore
+not application integration steps; use the in-process interface above.
 
-If GRPC is not available in your language, your application requires higher
-performance, or otherwise enjoy programming, you may implement your own
-ABCI server using the Tendermint's socket-based ABCI interface.
-The first step is to auto-generate the relevant data
-types and codec in your language using `protoc`.
-In addition to being proto3 encoded, messages coming over
-the socket are length-prefixed. proto3 doesn't have an
-official length-prefix standard, so we use our own. The first byte in
-the prefix represents the length of the Big Endian encoded length. The
-remaining bytes in the prefix are the Big Endian encoded length.
+## Execution and recovery
 
-For example, if the proto3 encoded ABCI message is `0xDEADBEEF` (4
-bytes long), the length-prefixed message is `0x0104DEADBEEF` (`01` byte for encoding the length `04` of the message). If the proto3
-encoded ABCI message is 65535 bytes long, the length-prefixed message
-would start with 0x02FFFF.
+The configured consensus mode determines which code calls the shared interface.
+The full method inventory and response semantics are in
+[Methods overview](./abci++_basic_concepts_002_draft.md#methods-overview).
 
-Note that this length-prefixing scheme does not apply for GRPC.
+### Classic consensus
 
-Note that your ABCI server must be able to support multiple connections, as
-Tendermint uses four connections.
+The [handshaker](../../internal/consensus/replay.go) begins with `Info` and uses
+`LastBlockHeight` and `LastBlockAppHash` to reconcile the application with stored
+blocks and consensus state. It initializes genesis with `InitChain` for a fresh
+chain and replays blocks as needed on recovery.
+
+During consensus, [`BlockExecutor`](../../internal/state/execution.go) calls
+`ProcessProposal` to obtain an accept/reject status. After a block is decided,
+`ApplyBlock` calls `FinalizeBlock`, saves its response, validates updates, then
+calls `Commit` under the mempool lock. It updates the mempool against the
+committed state and saves the resulting consensus state. Return the state hash
+in `ResponseFinalizeBlock.AppHash`; `ResponseCommit.RetainHeight` controls
+pruning and is not a hash response.
+
+`FinalizeBlock` returns one `ExecTxResult` per transaction, preserving the input
+order. Failed transactions still need results. Local `CheckTx` admission does
+not replace execution-time validation, and speculative proposal work must not
+commit a proposal that is later abandoned.
+
+### Autobahn
+
+A non-empty `autobahn-config-file` setting selects Autobahn in
+[`node/node.go`](../../node/node.go). The JSON configuration is defined by
+[`AutobahnFileConfig`](../../config/autobahn.go); this is a consensus mode within
+the embedded node.
+
+[`GigaRouter.runExecute`](../../internal/p2p/giga_router.go) calls `Info`, invokes
+`InitChain` when the committed application height is zero, and otherwise resumes
+after the last committed height. It reads ordered global blocks. For each block,
+`executeBlock` calls `FinalizeBlock`, persists the finalization response, calls
+`Commit`, and records `ResponseFinalizeBlock.AppHash` in Autobahn's data layer.
+It uses `ResponseCommit.RetainHeight` when pruning.
+
+This loop does not call `ProcessProposal`, and supplies an empty
+`DecidedLastCommit` and no `ByzantineValidators`. The request hash identifies the
+Autobahn header. Do not impose classic Tendermint vote, evidence, header, WAL,
+or state-sync assumptions on this path. Durable restart requires both accurate
+application height/hash reporting and Autobahn persistence; the configuration
+requires `persistent_state_dir` unless the explicit test-only persistence
+opt-out is used. Consensus persistence alone does not persist application state.
 
 ## Client
 
-There are currently two use-cases for an ABCI client. One is testing
-tools that allow ABCI requests to be sent to the actual application via
-command line. An example of this is `abci-cli`, which accepts CLI commands
-to send corresponding ABCI requests.
-The other is a consensus engine, such as Tendermint Core,
-which makes ABCI requests to the application as prescribed by the consensus
-algorithm used.
+The engine is the caller of `Application`. Queries and transaction submissions
+from external users enter node APIs; users do not establish ABCI connections or
+send `RequestFinalizeBlock` to an application server.
+
+For Paxeer mainnet-beta, the public EVM JSON-RPC uses HTTPS at the root path of
+`api1.mainnet-beta.paxeer.network` through
+`api14.mainnet-beta.paxeer.network`, and
+`api-mainnet-beta.paxeer.network`, with chain ID 125 (`0x7d`). For example, the
+HTTP endpoint is `https://api1.mainnet-beta.paxeer.network`.
+The node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test`, and `txpool`.
+The `px_` methods belong to the hosted gateway, whose contract is
+[`openrpc.json`](../../../services/platform/hosted/gateway/openrpc.json).
+These public APIs are separate from the internal Go application contract.
