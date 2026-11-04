@@ -1,0 +1,25 @@
+[task]
+id = "22.33.1105"
+audit_record = "22.30.46"
+baseline_revision = "9d1a06c7f3635f5556023760af7a75ee9755efdd"
+baseline = "Not run: the explicit gate order requires complete implementation before hf-build and hf-done, and forbids running verify_cmd by hand; no pre-change test failure is claimed."
+wiring_requests = "None; both finding proposals are implemented inside consensus/internal/inspect."
+evidence = "The runner's /out/run/gates.jsonl ledger names the verified candidate revision, exact command, exit code and private log location; hf-done is the sole qualification authority."
+
+[finding.37]
+repair = "Both package examples use the full node configuration and two-result constructor, handle construction and Run errors, and show cancellation with a shutdown wait."
+tests = ["TestRepairM_1105_DocumentedExamples"]
+proof = "Parse both published snippets as Go function bodies, check configuration and error handling, query real persisted state and transactions through the configured inspector routes, loopback HTTP and production RPC client, and drive asynchronous Run through cancellation with disk-store reopen checks."
+
+[finding.21]
+repair = "Run owns a child context, cancels before waiting on every return path and closes constructor-owned databases; construction failures release all opened databases, with idempotent closure shared with the indexer."
+tests = ["TestRepairM_1105_OccupiedListenAddress", "TestRepairM_1105_ConstructorFailureClosesDatabases", "TestRepairM_1105_CallerRetainsStoreOwnership", "TestRepairM_1105_DocumentedExamples"]
+proof = "Real HTTP and HTTPS bind attempts against occupied loopback addresses return the exact originating inspector listener error promptly without caller cancellation; real LevelDB state and transaction producers retain their persisted output after failure or cancellation and reopening, while caller-supplied disk stores remain usable."
+
+[gotcha.test_compilation]
+observed = "The first hf-done failed to compile the new tests: the Go documentation block type is comment.Code, and transaction hash arrays must be sliced for the client and sink APIs."
+repair = "Use the actual documentation AST type and slice the real transaction hashes; compare the full original listener error because the shared out-of-scope listener helper flattens the network error type, and retain the unwrapped original error when cleanup succeeds."
+revision = "4775cd29381a57206c9c10322053c0cf8bfaed65"
+command = "cg spec done 22.33.1105 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; /tmp/repair-m1105.log"

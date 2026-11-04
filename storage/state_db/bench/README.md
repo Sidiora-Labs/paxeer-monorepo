@@ -17,62 +17,87 @@ go test ./storage/state_db/bench -run '^$' \
   -bench '^BenchmarkMemIAVLWriteWithDifferentBlockSize$' -benchmem -benchtime=1x
 ```
 
-Each Go benchmark iteration creates a new temporary database and executes a whole
-scenario. `-benchtime=1x` requests one iteration per selected sub-benchmark; it does
-not mean one block. The command above is a usage example, not a recorded
-performance result. Do not use `-bench .` as a supported backend comparison: some
-registered cases fail during construction in the current tree.
+Each Go benchmark iteration creates a new temporary database and executes all
+`NumBlocks` generated blocks. `-benchtime=1x` requests one complete scenario per
+selected sub-benchmark. Construction and snapshot import are outside the timer;
+generation, commit work and the final close/flush are timed. The command above
+is a usage example, not a recorded performance result.
 
-### Backend configuration limits
+### Backend configuration
 
-`runBenchmark` calls `wrappers.NewDBImpl` with an untyped `nil` configuration.
-[The factory](wrappers/db_implementations.go) handles that argument as follows:
+`runBenchmark` uses `TestScenario.OpenDB` in [helper.go](helper.go), which supplies
+concrete configurations to [the factory](wrappers/db_implementations.go).
+Unsupported configuration types and typed nil pointers return explicit errors.
 
-| `TestScenario.Backend` | Behavior with the helper's `nil` argument |
+| `TestScenario.Backend` | Configuration supplied by the helper |
 |---|---|
-| `wrappers.MemIAVL` | Constructs memiavl using the factory's benchmark configuration. |
-| `wrappers.CompositeCosmos` | Constructs a composite store in `MemiavlOnly` mode. |
-| `wrappers.CompositeSplit` | Constructs a composite store in `EVMMigrated` mode. |
-| `wrappers.CompositeDual` | Constructs a composite store in `TestOnlyDualWrite` mode; this mode is for tests only. |
-| `wrappers.NoOp` | Constructs the no-op wrapper; this does not measure storage I/O. |
-| `wrappers.FlatKV` | Panics at the `*flatkv/config.Config` type assertion before the constructor's default handling. |
-| `wrappers.SSComposite` | Panics at the `*config.StateStoreConfig` type assertion. |
-| `wrappers.SSHistoricalOffload` | Panics at the `*wrappers.HistoricalOffloadConfig` type assertion. |
-| `wrappers.CompositeDual_SSComposite` | Panics at the `*config.StateStoreConfig` type assertion. |
+| `wrappers.MemIAVL` | Factory benchmark defaults, including asynchronous commits. |
+| `wrappers.FlatKV` | `flatkv/config.DefaultConfig()` with the iteration's temporary data directory. |
+| `wrappers.CompositeCosmos` | Composite `MemiavlOnly` mode. |
+| `wrappers.CompositeSplit` | Composite `EVMMigrated` mode. |
+| `wrappers.CompositeDual` | Composite `TestOnlyDualWrite` mode; for tests only. |
+| `wrappers.SSComposite` | `DefaultBenchStateStoreConfig()`: default state store with the benchmark async write buffer and EVM split enabled. |
+| `wrappers.CompositeDual_SSComposite` | The same state store configuration plus composite dual-write SC. |
+| `wrappers.NoOp` | No-op wrapper; measures harness overhead without storage I/O. |
+| `wrappers.SSHistoricalOffload` | Requires explicit `TestScenario.HistoricalOffloadConfig` with Kafka brokers and topic; no local default. |
 
-`TestScenario` has no backend-configuration field. Selecting a backend enum alone
-cannot supply these configurations. The SS cases registered in
-[bench_ss_test.go](bench_ss_test.go) are `BenchmarkSSCompositeWrite`,
-`BenchmarkSSHistoricalOffloadWrite`, and
-`BenchmarkCombinedCompositeDualSSCompositeWrite`; their presence does not make
-them runnable through the current helper. Cryptosim has a separate configuration
-path that supplies the appropriate configuration object.
+`BenchmarkSSCompositeWrite` and
+`BenchmarkCombinedCompositeDualSSCompositeWrite` use local stores and receive
+the concrete defaults above. `BenchmarkSSHistoricalOffloadWrite` currently omits
+its required destination and returns a configuration error: set that scenario's
+`HistoricalOffloadConfig` and provision Kafka before selecting it. Do not use
+`-bench .` for a local backend comparison; select the intended benchmark.
 
 ### Workload and result interpretation
 
-[bench_sc_test.go](bench_sc_test.go) registers block-size and distribution cases.
-The MemIAVL and FlatKV cases named `even_distribution`, `bursty_distribution`,
-`normal_distribution`, and `ramp_distribution` all leave `Distribution` unset, so
-all four use `EvenDistribution`. Only the composite distribution cases explicitly
-wire the bursty, normal, and ramp functions. A sub-benchmark name alone is not
-evidence of a distinct workload.
+Both MemIAVL and FlatKV distribution comparisons in
+[bench_sc_test.go](bench_sc_test.go) use the shared `keyDistributionScenarios`
+builder. The named workloads are explicitly wired as follows:
 
-The generator produces `NumBlocks` change sets, but the consumer loops from block
-`1` while `block < NumBlocks`: one iteration commits **`NumBlocks - 1` blocks**
-for a positive block count. With the even distribution it attempts
-`(NumBlocks - 1) * floor(TotalKeys / NumBlocks)` key/value writes. For example,
-`100_keys_per_block` with `TotalKeys=100000` and `NumBlocks=1000` commits 999
-blocks and attempts 99,900 writes. Duplicate keys reduce unique-key growth.
-Other distributions need their consumed per-block counts summed; `TotalKeys` is
-an input to the distribution, not an enforced write quota.
+| Scenario | Distribution | Representative counts for 1,000 nominal keys / 10 blocks |
+|---|---|---|
+| `even_distribution` | `EvenDistribution` | 100 in every block. |
+| `bursty_distribution` | `BurstyDistribution(1, 10, 5, 3)` | First block 497–503; other nine blocks 97–103. |
+| `normal_distribution` | `NormalDistribution(1, 0.2)` | First block 75; seeded normal samples around mean 100, sigma 20. |
+| `ramp_distribution` | `RampDistribution(0.5, 1.5)` | First block 50, fifth 94, last 150. |
 
-The custom `keys/sec` metric divides configured `TotalKeys` by the accumulated
-benchmark elapsed time, rather than counting writes actually consumed. Progress
-block counts are inferred from the even rate, and the final progress line counts
-attempted pairs, not distinct keys. Record the revision, exact invocation,
-backend, explicit distribution, completed block count, attempted writes, duplicate
-ratio and elapsed time before comparing results. No benchmark execution is
-claimed by this documentation rewrite.
+The regression gate asserts these representative counts and commits each
+workload through the real backends. `TotalKeys` is a nominal distribution input,
+not a write quota: even counts use integer division, burst and normal counts
+vary, and ramp counts are rounded down per block. Duplicate keys reduce unique
+key growth. The reported `keys` metric counts committed key/value pairs,
+including updates, and `blocks` counts completed commits. Both metrics sum all
+`b.N` iterations. `seconds` is total timed work and `keys/sec` is committed pairs
+divided by that same elapsed time. Progress reports use actual completed block
+and pair counts. Every producer is canceled and joined when its consumer exits.
+
+The bounded gate fixtures in [repair_m1194_test.go](repair_m1194_test.go) assert
+these completed counts for **each** of MemIAVL and FlatKV, then close and reopen
+the store and check every generated key and the recovered version:
+
+| Workload | Nominal keys | Completed blocks | Committed pairs |
+|---|---:|---:|---:|
+| Even, one block | 4 | 1 | 4 |
+| Even | 12 | 3 | 12 |
+| Even, integer remainder | 10 | 3 | 9 |
+| Bursty `(1, 2, 3, 0)` | 8 | 4 | 16 |
+| Empty blocks | 0 | 3 | 0 |
+
+Qualification uses `hf-build` followed by `hf-done` from the repository root.
+`hf-done` runs `cg spec done 22.33.1194 -f layerx-merge --root "$TASK_ROOT"`;
+its focused test invocation is:
+
+```bash
+go test -count=1 -v -run '^TestRepairM_1194_' ./storage/state_db/bench/
+```
+
+The gate captures test output in `/tmp/repair-m1194.log` and records the exact
+candidate revision, command, exit status and private evidence location. The
+multi-iteration fixture also asserts 16 committed pairs and four blocks per
+iteration, and checks throughput against the aggregate elapsed time. These are
+correctness fixtures, not qualified performance comparisons. For performance
+evidence, record the revision, exact invocation, backend, explicit distribution,
+completed blocks/pairs, duplicate ratio and elapsed time from the selected run.
 
 ## Long running benchmark
 
@@ -88,8 +113,7 @@ go test ./storage/state_db/bench -run '^$' \
 The configured scenario is enormous (one billion blocks, one trillion nominal
 writes, duplicate ratio 0.5). `-benchtime` controls repetition/calibration; it
 does not bound the duration of one scenario. An interrupted run is partial
-measurement. The FlatKV long-running variants have the configuration failure
-listed above.
+measurement. The FlatKV long-running variants receive the local default configuration too.
 
 ### With snapshot pre-population
 
@@ -110,8 +134,8 @@ SNAPSHOT_PATH=/path/to/node/data/snapshots/12345/1 \
 The helper filters for the `evm` store and IAVL snapshot nodes. This is not a
 full composite snapshot restore: other stores, including the physical `flatkv`
 snapshot section, are skipped. Use a compatible EVM/IAVL snapshot.
-`BenchmarkFlatKVLongRunningWriteWithInitialState` is also registered but cannot
-reach import through the current helper's configuration path.
+`BenchmarkFlatKVLongRunningWriteWithInitialState` uses the same helper and
+imports through the FlatKV wrapper's native importer.
 
 ## Define new scenarios
 
@@ -119,10 +143,11 @@ reach import through the current helper's configuration path.
 
 - `Name`: sub-benchmark label.
 - `TotalKeys`: nominal input for the distribution.
-- `NumBlocks`: generator block count; see the consumer limit above.
+- `NumBlocks`: generated and consumed block count.
 - `DuplicateRatio`: requested update fraction, clamped to `[0, 1]`; updates
   select previously generated keys when any exist.
-- `Backend`: factory selector; see the configuration limits above.
+- `Backend`: factory selector; see the configurations above.
+- `HistoricalOffloadConfig`: required explicit Kafka destination for historical offload.
 - `Distribution`: per-block count function; `nil` means even.
 - `SnapshotPath`: optional compatible snapshot chunk directory.
 

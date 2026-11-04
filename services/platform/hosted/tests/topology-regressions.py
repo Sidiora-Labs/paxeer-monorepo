@@ -149,6 +149,96 @@ def producer_edges():
             print('PASS producer ingress refusal:', parser, policy_name)
     paths[:] = original
 
+def short_dns_refusals():
+    # Both actual YAML parsers feed the production resolver and policy checker.
+    fixture = """
+apiVersion: v1
+kind: Service
+metadata:
+  name: native
+  namespace: beta
+spec:
+  selector:
+    app: native
+  ports:
+    - port: 8545
+      targetPort: rpc
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: native
+  namespace: beta
+spec:
+  template:
+    metadata:
+      labels:
+        app: native
+    spec:
+      containers:
+        - name: paxd
+          ports:
+            - name: rpc
+              containerPort: 8545
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: caller
+  namespace: beta
+spec:
+  template:
+    metadata:
+      labels:
+        app: caller
+    spec:
+      containers:
+        - name: client
+          env:
+            - name: RPC
+              value: http://native:8545
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: native-deny
+  namespace: beta
+spec:
+  podSelector:
+    matchLabels:
+      app: native
+  policyTypes:
+    - Ingress
+  ingress: []
+"""
+    outcomes = []
+    for parser in ('load_pyyaml', 'load_builtin'):
+        topology = module['Topology']()
+        for document in module[parser](fixture):
+            topology.add(document, 'short-dns-fixture.yaml', 'incorrect-default')
+        for host in ('native', 'native.beta', 'native.beta.svc', 'native.beta.svc.cluster.local.'):
+            changed = copy.deepcopy(topology)
+            caller = next(workload for workload in changed.workloads if workload['name'] == 'caller')
+            caller['env'] = [('RPC', 'http://%s:8545' % host)]
+            refused = failures(changed)
+            assert len(refused) == 1 and 'ingress NetworkPolicy' in refused[0][2], (parser, host, refused)
+            changed.policies = []
+            assert not failures(changed), (parser, host, failures(changed))
+            changed.policies = [dict(name='caller-deny', ns='beta',
+                                     selector={'matchLabels': {'app': 'caller'}},
+                                     types=['Egress'], ingress=[], egress=[])]
+            assert 'egress NetworkPolicy' in failures(changed)[0][2], (parser, host)
+            changed.policies[0]['egress'] = [{'ports': [{'port': 8545, 'protocol': 'TCP'}]}]
+            assert 'does not admit DNS' in failures(changed)[0][2], (parser, host)
+            changed.policies[0]['egress'].append({'ports': [{'port': 53, 'protocol': 'UDP'}]})
+            assert not failures(changed), (parser, host, failures(changed))
+        outcomes.append(module['check'](topology))
+        print('PASS short Service DNS ingress, egress and DNS refusals:', parser)
+    assert outcomes[0] == outcomes[1], outcomes
+
+
+short_dns_refusals()
+
 producer_edges()
 
 base = load('load_pyyaml')

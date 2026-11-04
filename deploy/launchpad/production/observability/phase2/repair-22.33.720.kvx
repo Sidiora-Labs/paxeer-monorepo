@@ -1,0 +1,12 @@
+[repair]
+task = "22.33.720"
+audit = "22.30.170"
+finding = "observability_synthetic_transport"
+base_revision = "9d1a06c7f3635f5556023760af7a75ee9755efdd"
+implementation = "Require bound synthetic ingestion and Alertmanager transports; render authenticated scrape, responder routes, TLS references and component mounts into the immutable admitted bundle; serve the real probe exposition through the authenticated exporter."
+proving_test = "tests/test_repair_22_33_720.py::test_observability_synthetic_transport_failed_journey_reaches_rule_and_responder"
+additional_tests = "test_bundle_binds_mounts_authentication_destinations_and_identity; test_synthetic_ingestion_authentication_and_bound_output_fail_closed; test_incomplete_or_insecure_transport_cannot_be_admitted; test_https_bundle_carries_trust_and_exporter_server_mounts"
+proof_boundary = "Production probe HTTP/WebSocket clients, exposition codec, bound writer, metrics exporter, binding validation and bundle renderer run unchanged against loopback origin and alert protocol peers; the in-process rule peer evaluates the entire emitted synthetic expression and for-duration, and the Alertmanager peer consumes emitted owner routes and sends the webhook over HTTP. This is not native Prometheus/Alertmanager binary qualification."
+baseline = "No prior implementation or gate ledger existed. The declared test module was absent. No pre-change verify was run: the task's explicit gate order and one-run limit prohibit running verify before implementation and hf-build. No baseline test failure is claimed."
+evidence = "The runner's private /out/run/gates.jsonl identifies the exact candidate revision, command, exit and log; qualification requires an exit-zero hf-done verify record at the same revision as hf-build. The final response copies that record verbatim."
+wiring_request = "deploy/launchpad/production/topology/phase2 (domain 16, platform deployment): consume the admitted transport.json mounts and configurations, run the probes and synthetic.py exporter with the admitted binding/config, and provision the bound TLS/Bearer Alertmanager gateway and responder destination before activation."

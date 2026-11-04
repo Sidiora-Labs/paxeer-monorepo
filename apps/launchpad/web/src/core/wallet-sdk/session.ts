@@ -15,8 +15,8 @@ export class StaleWalletSessionError extends Error {
   constructor() { super('Wallet changed; review and authorize again'); this.name = 'StaleWalletSessionError'; }
 }
 
-/** Own one controller per mounted wallet adapter. Invalidations are synchronous,
- * refresh work is batched; public market queries must not use this private scope. */
+/** Own one controller per mounted wallet adapter. Invalidations are synchronous;
+ * private work waits for batched cleanup. Public market queries use no private scope. */
 export class WalletSessionController {
   private epoch = 0;
   private disconnectEpoch = 0;
@@ -27,8 +27,11 @@ export class WalletSessionController {
   private refreshTimer?: ReturnType<typeof setTimeout>;
   private cleanup?: () => void;
   private providerBinding = 0;
-  constructor(private readonly clearPrivateCache: (previous?: Readonly<WalletSession>) => void, private readonly refreshPrivateCache: () => void = () => {}) {}
+  private providerEvent = false;
+  private pendingCleanup?: Map<string, Readonly<WalletSession>>;
+  constructor(private readonly clearPrivateCache: (previous?: Readonly<WalletSession>, invalidated?: readonly Readonly<WalletSession>[]) => void, private readonly refreshPrivateCache: () => void = () => {}) {}
   get current() { return this.session; }
+  get cacheReady() { return this.pendingCleanup === undefined; }
   get sessionEpoch() { return this.epoch; }
   get cancellationEpoch() { return this.disconnectEpoch; }
   subscribe(listener: () => void) { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; }
@@ -39,13 +42,28 @@ export class WalletSessionController {
     this.abort.abort();
     this.abort = new AbortController();
     this.session = null;
-    recordWalletEvent('wallet.cache_clear', `epoch:${this.epoch}`);
-    this.clearPrivateCache(previous ?? undefined);
+    if (this.providerEvent || this.pendingCleanup) {
+      this.pendingCleanup ??= new Map();
+      if (previous) this.pendingCleanup.set(`${previous.account}:${previous.chainId}`, previous);
+      this.scheduleRefresh();
+    } else {
+      recordWalletEvent('wallet.cache_clear', `epoch:${this.epoch}`);
+      this.clearPrivateCache(previous ?? undefined);
+    }
   }
   private notify() { for (const listener of this.listeners) listener(); }
+  private flushCleanup() {
+    if (!this.pendingCleanup) return;
+    const invalidated = [...this.pendingCleanup.values()];
+    recordWalletEvent('wallet.cache_clear', `epoch:${this.epoch}`);
+    this.clearPrivateCache(invalidated[0], invalidated);
+    this.pendingCleanup = undefined;
+    if (this.session) this.session = Object.freeze({ ...this.session });
+    this.notify();
+  }
   private scheduleRefresh() {
     clearTimeout(this.refreshTimer);
-    this.refreshTimer = setTimeout(() => { if (this.session) { recordWalletEvent('wallet.refresh_batch', `epoch:${this.epoch}`); this.refreshPrivateCache(); } }, 50);
+    this.refreshTimer = setTimeout(() => { this.refreshTimer = undefined; this.flushCleanup(); if (this.session) { recordWalletEvent('wallet.refresh_batch', `epoch:${this.epoch}`); this.refreshPrivateCache(); } }, 50);
   }
   select(connectorId: string, providerKind: WalletSession['providerKind'], account: string, chainId: number, registeredIds: readonly string[]) {
     if (!registeredIds.includes(connectorId) || !connectorId || !Number.isSafeInteger(chainId) || chainId < 1) throw new Error('Unregistered connector or invalid chain');
@@ -74,18 +92,25 @@ export class WalletSessionController {
   assertCurrent(scope: AccountScope, writes = false) {
     if (scope.signal.aborted || !this.session || scope.sessionEpoch !== this.epoch || scope.account !== this.session.account || scope.chainId !== this.session.chainId) { recordWalletEvent('wallet.epoch_discard', `epoch:${scope.sessionEpoch}`); throw new StaleWalletSessionError(); }
     if (writes && scope.chainId !== 125) throw new Error('Switch to chain 125 before signing');
+    if (!this.cacheReady) throw new StaleWalletSessionError();
   }
   async run<T>(work: (scope: AccountScope) => Promise<T>): Promise<T> {
     const scope = this.capture();
+    this.assertCurrent(scope);
     const result = await work(scope);
     this.assertCurrent(scope);
     return result;
   }
-  disconnect() { this.disconnectEpoch++; this.invalidate(); clearTimeout(this.refreshTimer); this.notify(); }
+  disconnect() { this.disconnectEpoch++; this.invalidate(); if (!this.pendingCleanup) clearTimeout(this.refreshTimer); this.notify(); }
   bind(provider: EIP1193Provider) {
     this.cleanup?.();
     const binding = ++this.providerBinding;
-    const accountsChanged = (accounts: string[]) => {
+    const duringProviderEvent = <T,>(handler: (value: T) => void) => (value: T) => {
+      const previous = this.providerEvent;
+      this.providerEvent = true;
+      try { handler(value); } finally { this.providerEvent = previous; }
+    };
+    const accountsChanged = duringProviderEvent((accounts: string[]) => {
       if (binding !== this.providerBinding) return;
       recordWalletEvent('wallet.event', `epoch:${this.epoch}`);
       if (!Array.isArray(accounts) || accounts.some(account => typeof account !== 'string')) { this.disconnect(); return; }
@@ -103,8 +128,8 @@ export class WalletSessionController {
         return;
       }
       try { this.select(previous.connectorId, previous.providerKind, accounts[0]!, previous.chainId, [previous.connectorId]); } catch { this.disconnect(); }
-    };
-    const chainChanged = (chain: string) => {
+    });
+    const chainChanged = duringProviderEvent((chain: string) => {
       if (binding !== this.providerBinding) return;
       recordWalletEvent('wallet.event', `epoch:${this.epoch}`);
       if (typeof chain !== 'string' || !/^0x[0-9a-fA-F]+$/.test(chain)) { this.disconnect(); return; }
@@ -119,8 +144,8 @@ export class WalletSessionController {
         return;
       }
       try { this.select(previous.connectorId, previous.providerKind, previous.account, Number(chain), [previous.connectorId]); } catch { this.disconnect(); }
-    };
-    const disconnected = () => { if (binding === this.providerBinding) this.disconnect(); };
+    });
+    const disconnected = duringProviderEvent(() => { if (binding === this.providerBinding) this.disconnect(); });
     provider.on('accountsChanged', accountsChanged);
     provider.on('chainChanged', chainChanged);
     provider.on('disconnect', disconnected);
@@ -133,5 +158,5 @@ export class WalletSessionController {
     this.cleanup = detach;
     return () => { detach(); if (this.cleanup === detach) { this.cleanup = undefined; this.disconnect(); } };
   }
-  dispose() { this.cleanup?.(); this.cleanup = undefined; this.disconnect(); this.listeners.clear(); }
+  dispose() { this.cleanup?.(); this.cleanup = undefined; this.disconnect(); clearTimeout(this.refreshTimer); this.flushCleanup(); this.listeners.clear(); }
 }

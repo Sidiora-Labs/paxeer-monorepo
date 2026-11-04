@@ -1,0 +1,7 @@
+{
+  "network": "eip155:125",
+  "chainId": "paxeer-test-consensus",
+  "height": 1000,
+  "validatorSeed": "5151515151515151515151515151515151515151515151515151515151515151",
+  "dataHash": "e4ca1c78e49c6fc2c3c920f2089b325e12cac788e09b57782179af893bddf8e1"
+}

@@ -416,5 +416,5 @@ func TestRepair_142_RefusesMalformedReceiptKeys(t *testing.T) {
 
 func TestRepair_142_WebhookContract(t *testing.T) {
 	output := repair142Command(t, "python3", "-m", "pytest", "-q", "-p", "no:cacheprovider", "test_sequencer_pins.py")
-	require.Contains(t, string(output), "18 passed", "all original trust-history cases and the webhook projection must execute")
+	require.Contains(t, string(output), "19 passed", "all original trust-history cases and the webhook projection must execute")
 }

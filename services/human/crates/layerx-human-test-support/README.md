@@ -3,8 +3,9 @@
 Development helpers shared by the [Human service](../layerx-human-service/README.md)
 integration suites. This is a library, not a production listener. It provides
 principal and tenant store setup, retention helpers, a deterministic `StepClock`,
-signed receipt/state evidence builders and shared receive vectors. Callers keep
-their independent Cargo integration target names.
+signed receipt/state evidence builders, shared receive vectors and an HTTP
+JSON-RPC fixture for durable admission with Submitted-only receipt replies and
+journal recovery. Callers keep their independent Cargo integration target names.
 
 ## HTTP admission and readiness
 
@@ -45,6 +46,16 @@ keys, evidence builders and `StepClock` are test utilities, not production trust
 or clock authorities. Tests requiring `Committed` evidence must use actual chain
 headers, commits and inclusion proofs through the production verifier. A stored
 admission record or a synthetically signed receipt is insufficient.
+
+The separate real-node proof is
+[`proof_human_test_support_real_committed_receipt_recovers_after_human_restart`](tests/proof_human_test_support.rs),
+using [the committed-evidence helper](tests/support/committed_evidence.rs) to pass
+a recorded `paxd` receipt through `NodeRpc`, verify its chain headers, consensus
+commit and inclusion proofs, and reopen the human evidence store. Its committed
+recording is independent of `EvidenceNode`; this HTTP admission fixture cannot
+produce `Committed` evidence. The [crate-owned recording](tests/fixtures/committed/README.md)
+and its derived vector are checked together by source SHA-256 and receipt
+identity, and the proof runs offline against those bytes.
 
 See the [security provider](../layerx-human-security-provider/README.md) for the
 recovery-evidence decoder and the [workspace guide](../../README.md) for Cargo

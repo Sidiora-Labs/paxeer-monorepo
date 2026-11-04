@@ -1,0 +1,8 @@
+[repair.22.33.716]
+audit = "spec/layerx-merge/programme/audit/records/22.30.170.kvx"
+finding = "topology_connected_test_gap"
+proving_tests = ["test_operator.py::test_connected_render_binds_every_runtime_role", "test_repair_22_33_716.py::test_topology_connected_test_gap_real_client_to_operator_journal"]
+coverage = "Real digest-pinned adapter and committed role documents render all twelve owners, read-only secret mounts, document paths and hashes; real LocalHTTP transports canonical compiler output into Journal, which is closed and reopened to check the complete recovered plan."
+baseline = "Not run: the ordered implementation-first and hf-build then hf-done rules prohibit the unchanged-tree verify requested by do_5; no baseline failures are claimed."
+qualification = "The runner's private gates.jsonl records the exact candidate revision, command, exit code and log; the final response copies the last hf-done evidence line."
+wiring_request = "spec/layerx-merge/spec.kvx — fm-tools-ops: record topology_connected_test_gap against the proving_tests above; task status and qualified revision evidence remain runner-owned because spec edits are outside scope."

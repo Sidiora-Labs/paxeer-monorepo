@@ -1,0 +1,162 @@
+[task]
+id = "22.31.24"
+audit = "22.30.2"
+mode = "BUILD"
+verify = "make -s programs-core-test via hf-done"
+evidence = "Runner-private gates.jsonl and the final hf-done evidence line bind the exact candidate revision, command, exit and log."
+baseline = "No earlier gate ledger existed. No baseline test was run: the explicit gate order prohibits testing before implementation and prohibits invoking verify_cmd by hand. Existing tests remain registered with their original assertions."
+
+[finding.migration-accounting-version]
+repair = "Use the canonical ABI transition policy in the stable LXMA1 reader, retaining all other canonical checks."
+test = "audit_migration_abi5_bound_authority_recovery"
+proof = "A real governance receipt stages and activates the historical migration profile; a deployed ABI 5 program executes its migration through the kernel, emits LXMA1, closes storage and recovers all 613 accounting bytes unchanged."
+
+[finding.bound-migration-signature]
+repair = "Apply the existing native Programs signer binding to authenticated unsigned state-commitment migrations; signed envelopes retain Ed25519 verification, and payload, envelope and activity binding checks remain mandatory."
+test = "audit_migration_abi5_bound_authority_recovery"
+proof = "Execute the authenticated unsigned migration through the kernel, rejecting forged principal, altered payload, missing binding and an invalid signed envelope before accepting and recovering the accounting record."
+wiring = "Domain 1: modules/lxphost and precompiles/layerxprograms must run this migration through the actual Go Programs precompile after the host fee-transaction and ABI-registration wiring repairs; this task's C gate cannot execute that out-of-scope integration."
+
+[finding.storage-environment-live-blob-references]
+audit_id = "sandbox-live-blob-references"
+repair = "Use the journal-aware Programs iterator to scan shared, principal and snapshot storage heads and other direct Programs blob roots before reclamation."
+test = "audit_storage_environment_live_blob_references; audit_storage_environment_staged_blob_references"
+proof = "Create funded lease state through dispatch and canonical namespaces through the storage producer, transport its head to the snapshot namespace, destroy the lease through dispatch, close/reopen between phases and import every surviving shared cell and its identical manifest. Repeat with a shared head created only in the destroying activity's journal."
+
+[finding.storage-environment-cleanup-delete-budget]
+audit_id = "sandbox-cleanup-delete-budget"
+repair = "Persist phase 2 after snapshot value reclamation, remove both heads and unreferenced manifests in phase 2, then persist phase 3 before settlement when deletions consumed blob slots; reserve all four slots for the canonical archives published atomically with final occupancy, refund and terminal state."
+test = "audit_storage_environment_cleanup_delete_budget"
+proof = "Reclaim a namespace and a different snapshot containing three unique final values; commit and close/reopen each of four phases, assert the four-blob kernel limit, durable cursor, deferred refund, absence of both reclaimed heads and manifests before settlement, terminal replay protection and exact recovered escrow refund. Recover and hash-validate all four canonical archive blobs against producer and terminal digests; only the four archives and any live shared blobs remain."
+
+[finding.native-block-maintenance]
+status = "requires out-of-scope native wiring"
+test = "audit_maintenance_boundary_recovery"
+proof = "An actual storage-writing guest creates a governed occupancy position; the C block-boundary finalizer advances lease expiry, charges occupancy, observes demand, refuses repeated boundaries and continues after closing and reopening storage. This is C boundary evidence, not an actual native node block proof."
+wiring = "Domain 1: modules/lxphost/host.go and modules/lxphost/module.go plus the owning native node block lifecycle must restore authoritative committed accounts, records and blobs, invoke lxp_programs_finalize_occupancy_batch_selected once per committed block, publish all records/blobs/transfer legs atomically, and prove node advancement, charging, expiry, replay refusal and restart continuation."
+
+[notes]
+snapshot = "The existing C storage producer admits principal/shared namespaces; the test transports its emitted canonical head into the existing snapshot-head shape. No manifest or value bytes are fabricated."
+
+[qualification.verify-1]
+revision = "4929a857153c50de87cbbbd05bc2c63f6ff45063"
+command = "cg spec done 22.31.24 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The declared make -s programs-core-test exits 2 compiling unchanged tests/programs/test_registration.c:80: LX_PROGRAMS_FEE_GOVERNANCE is undeclared; no new regression executed. This is a pre-existing retired-interface mismatch and is recorded without repair or rerun."
+
+[qualification.attempt-1-state]
+status = "implemented-not-qualified"
+build = "make -s all passed at 4929a857153c50de87cbbbd05bc2c63f6ff45063; /out/logs/build-1.log"
+after-gate = "Corrected the new profile test to name STATE_COMMITMENT (protocol 3), as required by the historical profile staging reader. This test-only correction and this evidence entry are later than the recorded gates and remain unqualified."
+external = "Native node maintenance and actual Go precompile integration remain the explicit domain-1 wiring requests above."
+
+[continuation]
+attempt = 2
+registration = "Update the registration contract to the current exact ABI activity lists after req.1057 removed fee governance; keep all activity membership, count and dispatch checks."
+lifecycle = "The same retired ordinal remained in the lifecycle fixture; stage its real verified governance receipt through lxp_programs_migration_profile_stage, preserving proposal, authority, duplicate and activation checks."
+kernel = "Keep the current kernel signer-binding implementation and integrate the seed by rejecting missing identity stores before binding migration admission."
+cleanup = "A shared head staged in the destroying activity may fill all four blob slots; referenced values still advance without deletion, and unreferenced values persist their cursor until space is available."
+qualification = "Run hf-build followed by hf-done on the final candidate; the runner-private gate ledger provides the verified revision and evidence without changing this record after verification."
+
+[gotcha.continuation]
+symptom = "The inherited registration and lifecycle tests referenced the removed fee-governance activity; staged shared roots also consume the full blob budget."
+resolution = "Use the current exact registration list and receipt-backed profile staging API; charge the deletion budget only when a value actually needs deletion."
+
+[continuation.attempt-3]
+prior-result = "The supplied attempt-2 gate output reports noncanonical storage-destroy results, a staged-root dispatch failure and an occupancy-finalizer refusal; the ABI 5 migration proof passed. The current runner ledger starts empty, so no duplicate baseline gate is run."
+occupancy = "Use consecutive batches 1 through 4 from genesis and a lease expiring at batch 2, selecting the current fee schedule and the next authoritative global sequence; keep state-commitment protocol and every charging, replay, demand and recovery assertion. Print returned statuses on dispatch and finalizer failures."
+settlement = "Bind the authoritative Programs runtime asset registry and batch clock to destruction's occupancy-charge and refund transfer contexts, so the real ledger validates settlement against the same assets as lease funding."
+staged-root = "Exercise the production expiry maintenance consumer with a shared root already staged by the real storage producer in the open journal; ordinary activity dispatch correctly requires an unstaged context before validation."
+scope = "Preserve the inherited .cgignore and spec status bookkeeping without editing either; only the declared task paths are changed by this continuation."
+
+[qualification.attempt-3-verify-1]
+revision = "96c0e7b17f6e8672011d75a83401b3e9f8fa4a66"
+command = "cg spec done 22.31.24 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Initial occupancy finalization passes; final destruction's missing asset registry prevents refunds, and staged-root setup violates the dispatch validation precondition."
+repair = "Bind settlement assets in production and exercise staged roots through the production maintenance entry point; preserve every accounting, deletion-budget, refund, recovery and replay assertion."
+
+[qualification.attempt-2-verify-1]
+revision = "bc137675934c4f13a88a21b5272cf5f2868c4c8e"
+command = "cg spec done 22.31.24 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Registration compiles and passes; the lifecycle executable exceeds its 8 MiB process stack in original_lifecycle, whose compiled entry reserves 0x938688 bytes before any audit case runs."
+repair = "Move the lifecycle state stores, journals and kernels to static fixture storage, as other large lifecycle fixtures already do, preserving every test and assertion; qualify the revised candidate through hf-build and hf-done."
+
+[continuation.attempt-4]
+prior-result = "All five audit cases passed in attempt 3; original_lifecycle returned failure without a diagnostic and prevented the declared target from passing."
+diagnostics = "Report the exact original lifecycle assertion line and dispatch ordinal, program, flags, transport status, module result and expected result; retain every lifecycle assertion and all audit cases."
+wiring = "The domain-1 native node maintenance and Go precompile integration requests above remain outside this task scope."
+
+[qualification.attempt-4-verify-1]
+revision = "e516eba077a1970c3c81fcbc967cd7ef17300270"
+command = "cg spec done 22.31.24 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "original_lifecycle's migration returns NON_CANONICAL before hook lookup because bare dispatch has no migration admission; final cleanup also exceeds the four-blob staging budget when two manifest deletions precede Rust's four canonical archive writes."
+repair = "Use signed kernel execution with real funded accounts and receipt-backed profile activation for every original lifecycle operation, retaining all expected outcomes and historical v1/v3 deployment coverage; persist manifest reclamation before the atomic archive and refund transaction."
+
+[gotcha.attempt-4]
+lifecycle = "Migration hooks require authenticated activity binding, active budget profile and funded fee coverage; low-level interface fixtures must not bypass admission or replace successful migration assertions with refusal."
+archives = "The canonical destroy publisher writes four retained archive blobs, so deletion budgeting must include archive puts as well as value and manifest deletions. Exact post-destruction counts include verified archives and exclude reclaimed storage."
+header = "The lifecycle Makefile target names its C source but not the included audit header; keep the source changed with header repairs so the permitted verification recompiles the candidate's cases."
+qualification = "The final runner-private hf-build/hf-done ledger names the exact verified repair revision. No source or task record is edited after the final verification."
+
+[qualification.attempt-5-verify-1]
+revision = "002f9d54d9f9b19a34d1b71eb1b60dda20652199"
+command = "cg spec done 22.31.24 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The build, original lifecycle and all five audit cases pass; programs_monetary_law faults in main's entry stack probe before any module or maintenance code executes."
+repair = "The isolated gdb run (/out/logs/monetary-crash.log) shows main reserving 0xa88e78 bytes against an 8 MiB stack; keep both independently initialized kernel fixtures in static storage, preserving all production paths, cases and assertions."
+
+[gotcha.attempt-5]
+monetary = "The monetary-law executable has no case-filter interface and its compiler inlines the real mixed-authority case into main; two automatic kernel fixtures exhaust the process stack before any test diagnostic."
+resolution = "Use static kernel fixture storage, matching the existing lifecycle and call fixtures; do not alter module behavior to accommodate a failure that occurs before module entry."
+qualification = "Run hf-build and then hf-done on the same final candidate; the runner-private ledger supplies the final exact revision and evidence without any edit after verification."
+wiring = "The domain-1 native node maintenance and Go precompile wiring requests above remain outstanding outside this scope."
+
+
+[qualification.attempt-6-verify-1]
+revision = "92233f22aa6f80e6a6eeb5fa0298207569672834"
+command = "cg spec done 22.31.24 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The funded mixed transfer succeeds at sequence 3; sequence 4 deliberately removes its program-spend grant and produces canonical Unauthorized authority-refusal/v1 tag 5 inside PROGRAM_REFUSED, whereas the fixture expects NON_CANONICAL."
+
+[continuation.attempt-6]
+authority = "Deploy and call the mixed-transfer guest with ABI 5 registration and verified unsigned native authority; preserve its DID principal, verified primary key, canonical principal payment account and identical program-account derivation seed across guest memory, account registration and capability encoding. The shared execution helper preserves this unsigned envelope only when native binding is explicitly supplied; signed paths retain Ed25519 signing and verification."
+refusal = "The inherited standalone program-owned-spend case already requires PROGRAM_REFUSED for missing and undersized grants. Match that exact runtime envelope in the mixed case and additionally assert its canonical ABI-5 failure suffix: exact program, Unauthorized class, authority-refusal tag 5 and the call graph bound to the same principal, with zero applied legs."
+monetary = "Preserve every balance, fee, sequence, rollback, transfer-root and sole-writer assertion. For exhausted funds, retain the primitive's exact INSUFFICIENT_BALANCE assertion on the real accounts and additionally require the runtime's exact PROGRAM_REFUSED envelope with settlement-failure kernel-refused tag 7; the runtime wraps kernel settlement refusals in that terminal contract."
+qualification = "Qualify the final sources and this record with hf-build followed by hf-done on one unchanged candidate; the runner-private ledger and final evidence line bind its exact verified revision. No source edits follow that verification."
+wiring = "The domain-1 native node maintenance and Go precompile wiring requests above remain outside this scope."
+
+[gotcha.attempt-6]
+symptom = "A generic runtime refusal code hides whether a successful transfer or an intentionally unauthorized call failed; stale mixed-case assertions expected raw bridge statuses instead of the canonical terminal envelope."
+resolution = "Print the full authenticated terminal payload with the failing sequence, then assert both the exact envelope and its typed authority or kernel-settlement detail while preserving all monetary invariants."
+
+[continuation.attempt-7]
+prior-result = "The supplied attempt-6 result passed every audit case but failed the mixed-authority fixture's registration sequence before any call. The current runner ledger starts with no gates used."
+diagnostics = "Name each registration and prepare/journal/context commit step with its returned status; also name profile opt-in and ABI upgrade execution and receipt failures."
+fixture = "The ABI 5 account contract requires a persisted profile-2 binding to the program owner; direct ABI 5 deployment had no such record. Deploy ABI 2, opt in through an authenticated LXPA2 account activity, then upgrade through authenticated kernel execution to ABI 5 before registering the distinct spend account. Assert the recorded ABI, profile version and exact owner principal; preserve all monetary-law assertions."
+qualification = "Run hf-build and hf-done on the unchanged candidate; the runner-private final evidence binds its revision, command, exit and log. Do not edit sources or this record after a passing verify."
+wiring = "Domain-1 native block maintenance and Go precompile integration remain the out-of-scope wiring requests recorded above."
+
+[gotcha.attempt-7]
+symptom = "Registering an account for a directly deployed ABI 5 program returns VERSION_UNSUPPORTED when the owner has never opted into account profile 2."
+resolution = "Use the production ABI-2 LXPA2 opt-in before upgrading to ABI 5; the profile cannot be silently invented or bypassed by signer-binding changes."
+
+[qualification.attempt-7-verify-1]
+revision = "31d8566cd2948e4778340f6326120f496e89fddc"
+command = "cg spec done 22.31.24 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Every audit and monetary-law case passes; programs_accounts segfaults on entering registration_law, whose disassembled stack probe reserves 0xc85c48 bytes against the 8 MiB process stack."
+repair = "Move registration_law's live and recovered kernel fixtures to static storage, retaining independent initialization, snapshot recovery and every account assertion; rebuild and verify the unchanged repair candidate."
+
+[gotcha.attempt-7-accounts]
+symptom = "Two automatic kernel fixtures in registration_law reserve over 12 MiB before its registration or snapshot assertions execute."
+resolution = "Keep both independently initialized kernels in static fixture storage, as in the lifecycle and monetary cases; leave every production check and test assertion intact."

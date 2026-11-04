@@ -1,0 +1,7 @@
+[repair.22.33.1341]
+finding = "sr25519-string-secret"
+implementation = "privkey.go: PrivKey.String returns a constant redacted sr25519 type label."
+tests = ["TestRepairM_1341_StringRedactsSecret", "TestRepairM_1341_FormattingRedactsSecret"]
+baseline = "Not run: the task's explicit order prohibits testing before complete implementation and requires verification through hf-done only; no pre-change test failure is claimed."
+wiring = "None: the finding proposal is entirely inside the task scope."
+evidence = "The runner gate ledger records the verified candidate revision, exact command, exit code and private evidence location."
