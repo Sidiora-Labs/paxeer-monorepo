@@ -1,0 +1,11 @@
+[manifest]
+task = "22.32.3"
+domain = 2
+owner_role = "fm-ledger-auth-pay"
+pages = 1
+
+[page.1]
+path = "docs/wiki/SdkQuickstartTypeScript.md"
+status = "stale"
+bytes = 3669
+source_1 = "record 22.30.7 [doc.6] (stale): Full page read; lines 92-110 explain legacy sequencer-key verification without the merged committed-block inclusion/finality trust model."

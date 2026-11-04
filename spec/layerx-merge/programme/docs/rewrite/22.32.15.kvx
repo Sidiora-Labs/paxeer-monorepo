@@ -1,0 +1,31 @@
+[manifest]
+task = "22.32.15"
+domain = 4
+owner_role = "fm-launchpad"
+pages = 3
+
+[page.1]
+path = "contracts/clients.md"
+status = "missing"
+bytes = 0
+source_1 = "record 22.30.29 [doc.15] (missing): The interface registry links this contract page, but the page is absent in the audited checkout; the linked source declarations were used to trace actual producer and consumer contracts."
+source_2 = "record 22.30.31 [doc.014] (missing): Referenced by web environment and SDK operation registry anchors; this page is absent, leaving the declared client contract documentation destinations unresolved."
+source_3 = "record 22.30.38 [doc.018] (missing): Attempted registered contract target; absent at this revision. Restore or retarget to an authoritative owning page; see registry-contract-pages-missing."
+
+[page.2]
+path = "contracts/launchpad.md"
+status = "missing"
+bytes = 0
+source_1 = "record 22.30.140 [doc.025] (missing): The package's interface registry references this contract page and anchors, but the page is absent from the audited tree. Rebind active contracts to maintained documentation and retire obsolete references."
+source_2 = "record 22.30.29 [doc.14] (missing): The interface registry links this contract page, but the page is absent in the audited checkout; the linked source declarations were used to trace actual producer and consumer contracts."
+source_3 = "record 22.30.38 [doc.020] (missing): Attempted registered contract target; absent at this revision. Restore or retarget to an authoritative owning page; see registry-contract-pages-missing."
+
+[page.3]
+path = "contracts/services.md"
+status = "missing"
+bytes = 0
+source_1 = "record 22.30.29 [doc.16] (missing): The interface registry links this contract page, but the page is absent in the audited checkout; the linked source declarations were used to trace actual producer and consumer contracts."
+source_2 = "record 22.30.31 [doc.013] (missing): Referenced by discovery/API registry contract anchors; this page is absent, so producer lifecycle, errors and transport cannot be followed through that declared documentation link."
+source_3 = "record 22.30.35 [doc.13] (missing): Missing registry authority for launchpad-api and launchpad-metadata, including search and legacy metadata/logo route rows. Finding 12 proposes restoration or a maintained replacement contract page."
+source_4 = "record 22.30.38 [doc.017] (missing): Attempted registered contract target; absent at this revision. Restore or retarget to an authoritative owning page; see registry-contract-pages-missing."
+source_5 = "record 22.30.42 [doc.14] (missing): User adapter registry rows link #launchpad-user here, but this file is absent; adapter signature findings propose authoritative contract pointers."

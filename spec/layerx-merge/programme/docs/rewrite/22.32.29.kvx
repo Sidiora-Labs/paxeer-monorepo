@@ -1,0 +1,17 @@
+[manifest]
+task = "22.32.29"
+domain = 5
+owner_role = "fm-node-runtime"
+pages = 2
+
+[page.1]
+path = "consensus/spec/README.md"
+status = "stale"
+bytes = 4096
+source_1 = "record 22.30.47 [doc.001] (stale): Read complete page; rewrite targets: missing-autobahn-spec-map at line 17. Concrete owning-domain proposals are recorded above."
+
+[page.2]
+path = "consensus/spec/abci++/abci++_app_requirements_002_draft.md"
+status = "stale"
+bytes = 53059
+source_1 = "record 22.30.47 [doc.003] (stale): Vendored upstream ABCI++ draft abci++_app_requirements_002_draft.md. The fork's in-process Application API and FinalizeBlock lifecycle are authoritative; no current-network conformance is asserted for the archival draft. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."

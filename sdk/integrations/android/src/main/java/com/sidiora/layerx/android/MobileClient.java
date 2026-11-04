@@ -86,6 +86,12 @@ public final class MobileClient {
             new ProductionClient.Options(null, Map.of("journey_id", value))));
     }
 
+    public CompletionStage<JsonNode> evidence(String evidenceId) {
+        String value = pathValue(evidenceId);
+        return authorized(() -> client.human("evidence.get", null, JsonNode.class,
+            new ProductionClient.Options(null, Map.of("evidence_id", value))));
+    }
+
     public CompletionStage<HumanOperations.JourneyGetResponse> journeyTyped(String journeyId) {
         String value = pathValue(journeyId);
         return authorized(() -> client.human(HumanOperations.JOURNEY_GET,

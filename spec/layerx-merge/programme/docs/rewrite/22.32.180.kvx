@@ -1,0 +1,12 @@
+[manifest]
+task = "22.32.180"
+domain = 17
+owner_role = "fm-programme"
+pages = 1
+
+[page.1]
+path = "spec/layerx-merge/contracts/agent-functions.md"
+status = "stale"
+bytes = 85185
+source_1 = "record 22.30.8 [doc.11] (stale): Read in full: integer helper contracts, gas/error framing, typed scheduler outcomes, attestor-signed TEE format and stream authority rules distinguish intended behavior from defects. Package and constructor availability statements are historical."
+source_2 = "record 22.30.9 [doc.14] (stale): Reviewed framework through decisions: opening and planned scheduler/module path tables lag actual imports/constructors. Typed end-block events and once-only deposit invariant remain the intended contract."

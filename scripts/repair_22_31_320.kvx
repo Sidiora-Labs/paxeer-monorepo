@@ -1,0 +1,66 @@
+[task.22.31.320]
+audit = "22.30.178"
+base_revision = "7f80bc77d69d432a30797265253debe7936b8dfb"
+continued_revision = "b1ef6926b3c51492059dcc9859f35ed5f7188eea"
+qualification = "Only hf-build followed by hf-done; the task-keyed private /out/run/gates.jsonl ledger records the verified candidate revision, exact commands, exits and private evidence logs. The final evidence line copies the last gate receipt."
+baseline = "The supplied previous-attempt evidence reports all five original tests failing with missing jsonrpc on the native GET response. No unchanged-tree rerun: the explicit allowed-gates order forbids running verify_cmd by hand or before complete implementation."
+
+[finding.19]
+proof = "test_finding_19_offline_snapshot_restores_and_reopens_native_node; test_finding_19_restart_occurs_only_after_restoration_verification; test_finding_19_failed_restart_leaves_service_stopped; test_finding_19_private_identity_in_data_is_never_published"
+repair = "Stop and check all writers; retain original durable signing state byte-for-byte; archive data and wasm without private identity; extract and verify every archived file before publishing or restarting. Reopen the restored SQLite store, append and reopen again, preserving signing height, nonzero round, step, signature and signbytes."
+
+[finding.20]
+proof = "test_findings_20_21_native_state_sync_roundtrip_restart_and_private_backup; test_finding_20_failed_start_rolls_back_complete_home; test_finding_20_invalid_trust_does_not_replace_state; test_finding_20_killed_recovery_reopens_journal_and_rolls_back; test_finding_20_rollback_refuses_unsafe_signing_state; test_findings_20_21_invalid_inputs_preserve_complete_home"
+repair = "Stop writers; validate explicit trust inputs against two distinct RPCs and genesis identity; fsync and verify a complete mode-0700 private backup; journal replacement; retain configuration, genesis, private keys, local signing state and unrelated home contents; verify startup identity and height; retain the backup. Rollback reopens the durable journal, stops writers and preserves the highest signed height/round/step including signature bytes, refusing regression, conflicting signatures and corrupt backups."
+
+[finding.21]
+proof = "test_findings_20_21_native_state_sync_roundtrip_restart_and_private_backup; test_finding_21_rejects_native_decoder_disagreement_before_replacing_data; test_findings_20_21_invalid_inputs_preserve_complete_home; test_shell_entrypoints_delegate_to_the_tested_production_module"
+repair = "Write canonical hyphenated keys in statesync and p2p, retaining unrelated settings and comments; require a native decoder command to validate and return its JSON contract, and compare every requested value before replacing data or starting. The Python gate parses real produced TOML against the current native mapstructure tags, and tests decoder disagreement; it does not claim to execute Viper."
+wiring_request = "Domain 5: expose a packaged read-only native config decoder under consensus/cmd/tendermint/commands using consensus/config/config.go, Viper, config.ValidateBasic, GenesisDocFromFile and LoadNodeKey; accept HOME, return the operation.loader_contract JSON on stdout, and retain registry rows 5.cfg-config-toml-statesync-rpc-servers, 5.cfg-config-toml-statesync-trust-height, 5.cfg-config-toml-statesync-trust-hash and 5.cfg-config-toml-p2p-persistent-peers."
+wiring_request_signer = "Domain 5: consensus/privval/file_test.go owns cryptographic FilePV signing regression and native database reopen proofs; exercise these script-produced archives/configs in its native integration gate without adding a Go producer to the Python gate."
+
+[operation]
+loader = "Supply the domain-5 packaged native decoder executable through --config-loader; absence or invalid output is an error, with no Python decoder fallback in production."
+loader_contract = "JSON object: rpc_servers string array; trust_height int64; trust_hash string; enable bool; use_p2p bool; trust_period seconds number; persistent_peers string; node_id lowercase 40-hex string; chain_id string; genesis, node_key, validator_key, sign_state and db_dir absolute paths resolved from native config; remote_signer native listen address."
+controller = "Default scripts/paxd-service.sh uses PAXD_SERVICE (default paxd.service). A custom --controller receives stop|start|check-stopped|check-running HOME and must own all writers and suppress external restarts. Python callers can supply the same controller and config-loader protocols in process."
+snapshot = "bash scripts/snapshot.sh --home /node/home --config-loader /private/tooling/native-config-decoder --output /distribution/new-snapshot [--restart --local-rpc http://127.0.0.1:26657]"
+recovery = "bash scripts/state_sync.sh --home /node/home --config-loader /private/tooling/native-config-decoder --rpc-server http://first:26657 --rpc-server http://second:26657 --peer NODEID@peer:26656 --trust-height HEIGHT --trust-hash HASH --local-rpc http://127.0.0.1:26657"
+rollback = "Use state_sync.sh with the same home/controller/config-loader and --rollback to restore a stopped home from the durable journal; private backups remain retained for operator review."
+limits = "Local signing, regular home entries and standard data directory only; symlinks, external identity paths and remote signers are refused. No production service or network is contacted by the gate. Native decoder packaging remains the explicit domain-5 wiring request."
+
+[fixtures]
+rpc = "scripts/fixtures/repair_22_31_320/block.json and status.json retain recorded Result payloads from consensus/spec/rpc/README.md; the loopback server uses native URI framing from consensus/rpc/jsonrpc/server/http_server.go and real application/json headers."
+store = "The committed Python peer uses real SQLite backup/open/integrity-check and durable private-validator JSON; maintenance itself is always scripts/node_maintenance.py, including CLI parsing, lock, journal, fsync, replacement, rollback and RPC reads. SIGKILL stops the actual Python recovery process, then a fresh entry point reopens its journal."
+previous_harness = "Removed the first attempt's Go helper projects and external builds because gotchas 2962/2966 explicitly forbid them. All five original test functions remain, with environment-free peer proofs; native consensus and FilePV execution are explicitly assigned to domain 5."
+
+[qualification.previous_attempt]
+revision = "b1ef6926b3c51492059dcc9859f35ed5f7188eea"
+command = "python3 -m pytest -q scripts/test_repair_22_31_320.py (reported inside the supplied earlier hf-done result)"
+exit = 1
+log = "Previous attempt private evidence supplied in the task prompt; not present in this sandbox and not rerun."
+observed = "All five original tests failed because native URI GET returns the result object directly, while both clients required a JSON-RPC envelope."
+
+[gotcha.1]
+symptom = "Generic repository workflow asks to modify spec/GOTCHA and commit/push, but this task explicitly forbids those actions."
+resolution = "Keep task evidence, finding/proof mappings and wiring requests in this in-scope record; publishing and spec bookkeeping belong to the runner. Existing runner-owned .cgignore/spec modifications were inspected and left untouched."
+
+[gotcha.2]
+symptom = "py_compile and Python imports can create bytecode in a directory included verbatim in the candidate."
+resolution = "Run both allowed gates with PYTHONPYCACHEPREFIX outside the checkout and PYTHONDONTWRITEBYTECODE=1, leaving only sources and committed fixtures in scripts."
+
+[gotcha.3]
+symptom = "A native GET response has no jsonrpc or result wrapper; accepting an envelope would mask the original interface mismatch."
+resolution = "The production URI reader requires the native direct payload and application/json, rejects error or envelope objects, and consumes recorded payloads through real HTTP."
+
+[gotcha.4]
+symptom = "A single apply_patch request cannot delete and add the same path."
+resolution = "Replace the existing test module directly while retaining its five original test function names and safety criteria."
+
+[gotcha.5]
+symptom = "The first attempt treated native consensus RPC GET and POST response framing as interchangeable."
+resolution = "Current result type declarations are under consensus/rpc/coretypes/responses.go; inspect the URI writer as well as the JSON-RPC envelope type before selecting a transport codec."
+
+[proof.boundaries]
+reopened_rollback = "test_finding_20_reopened_rollback_preserves_latest_signature_and_rejects_regression verifies idempotent rollback and refuses a live state older than the retained failed-home signature."
+config_preservation = "test_finding_21_config_editor_retains_unrelated_multiline_values proves that a line-oriented edit cannot silently change unrelated TOML values; parse the final document and compare its entire semantic tree before writing."
+rpc_failure = "test_native_uri_reader_rejects_errors_envelopes_and_wrong_headers consumes real HTTP replies for native error objects, envelope-shaped replies, incomplete results and incorrect Content-Type."

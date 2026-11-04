@@ -70,6 +70,8 @@ func (s *ERC20ConflictScenario) Attach(config *config.LoadConfig, address common
 
 // CreateContractTransaction implements ContractDeployer interface - creates ERC20Conflict transaction
 func (s *ERC20ConflictScenario) CreateContractTransaction(auth *bind.TransactOpts, scenario *types.TxScenario) (*ethtypes.Transaction, error) {
-	auth.GasLimit = 22460
+	if s.scenarioConfig.GasPicker == nil {
+		auth.GasLimit = 22460
+	}
 	return s.contract.Transfer(auth, scenario.Receiver, bigOne)
 }

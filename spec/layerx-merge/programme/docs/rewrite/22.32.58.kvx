@@ -1,0 +1,22 @@
+[manifest]
+task = "22.32.58"
+domain = 6
+owner_role = "fm-chain-modules"
+pages = 2
+
+[page.1]
+path = "docs/site/docs/protocol/data-availability.md"
+status = "stale"
+bytes = 4438
+source_1 = "record 22.30.64 [doc.06] (stale): Read in full. Standalone daemon tag-18/tag-19 transport and checkpoint-candidate retrieval are presented as current protocol rather than historical implementation details."
+
+[page.2]
+path = "docs/site/docs/protocol/sidiora.md"
+status = "misleading"
+bytes = 14316
+source_1 = "record 22.30.109 [doc.003] (misleading): Full page read. Lines 65,71 misstate account-bound digest and governed rate source; line 124 incorrectly says a served rate source is missing. See sidiora-rate-doc."
+source_2 = "record 22.30.167 [doc.05] (stale): Line 5 retains chain/kernel domains behind one interface; describe embedded execution and distinguish node RPC from hosted gateway methods."
+source_3 = "record 22.30.27 [doc.009] (stale): Stale line 5: separate kernel-domain/interface explanation; the token and gas sections do not justify retaining that network topology."
+source_4 = "record 22.30.57 [doc.05] (stale): Line 5 architecture/interface link is stale; detailed SID and fee-path content was read without treating it as authorization to change token policy."
+source_5 = "record 22.30.62 [doc.03] (misleading): Canonical usid creator/admin, SID decimals and proposed native ERC20 administration agree with the bridge; line 21 conflates six-decimal bank uhpx with eighteen-decimal EVM value units."
+source_6 = "record 22.30.64 [doc.07] (stale): Read in full. Native preference switch, allowlist, fee conversion and governance behavior agree with the current feetoken surface; line 21 confuses native uhpx and EVM unit scales."

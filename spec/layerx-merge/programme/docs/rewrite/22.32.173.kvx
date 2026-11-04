@@ -1,0 +1,11 @@
+[manifest]
+task = "22.32.173"
+domain = 16
+owner_role = "fm-tools-ops"
+pages = 1
+
+[page.1]
+path = "tools/hpx/README.md"
+status = "stale"
+bytes = 4952
+source_1 = "record 22.30.178 [doc.15] (stale): Artifact mirror and node role are correct, but repository command paths and release identity instructions disagree with the publisher."

@@ -13,7 +13,7 @@ import (
 
 func TestTxsWriter_Flush(t *testing.T) {
 	// two evm transfer txs
-	writer := NewTxsWriter(42000, "/tmp", 1, 1)
+	writer := NewTxsWriter(42000, t.TempDir(), 1, 1)
 
 	loadConfig := &config.LoadConfig{
 		ChainID: 7777,

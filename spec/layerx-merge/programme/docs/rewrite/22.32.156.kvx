@@ -1,0 +1,41 @@
+[manifest]
+task = "22.32.156"
+domain = 15
+owner_role = "fm-cosmos-fork"
+pages = 6
+
+[page.1]
+path = "sdk/x/slashing/spec/07_tombstone.md"
+status = "stale"
+bytes = 7025
+source_1 = "record 22.30.162 [doc.034] (stale): The complete page contains interface or lifecycle drift; exact locations and concrete rewrite proposals are recorded in slashing-tombstone-doc."
+
+[page.2]
+path = "sdk/x/staking/spec/01_state.md"
+status = "stale"
+bytes = 10620
+source_1 = "record 22.30.168 [doc.11] (stale): Full page read; queue framing, historical order and validator versus delegator unbonding prose disagree; production default 10^6 power reduction itself is correct."
+
+[page.3]
+path = "sdk/x/staking/spec/02_state_transitions.md"
+status = "stale"
+bytes = 8447
+source_1 = "record 22.30.168 [doc.12] (stale): Full page read; line 87 promises immediate unbonded-validator refunds but Undelegate always creates a full-period queue entry."
+
+[page.4]
+path = "sdk/x/staking/spec/03_messages.md"
+status = "stale"
+bytes = 7846
+source_1 = "record 22.30.168 [doc.13] (stale): Full page read; lines 112-113 give wrong unbonding/unbonded completion timelines relative to Keeper.Undelegate."
+
+[page.5]
+path = "sdk/x/staking/spec/06_hooks.md"
+status = "stale"
+bytes = 1122
+source_1 = "record 22.30.168 [doc.16] (stale): Full page read; AfterDelegationModified and BeforeValidatorSlashed are missing from the advertised callback list."
+
+[page.6]
+path = "sdk/x/staking/spec/08_params.md"
+status = "stale"
+bytes = 681
+source_1 = "record 22.30.168 [doc.18] (stale): Full page read; uint16 widths and PowerReduction on-chain classification are wrong, and both voting-power controls are absent."

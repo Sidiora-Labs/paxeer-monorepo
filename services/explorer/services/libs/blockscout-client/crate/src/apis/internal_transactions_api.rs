@@ -26,6 +26,12 @@ use std::sync::Arc;
 #[cfg_attr(feature = "mockall", automock)]
 #[async_trait]
 pub trait InternalTransactionsApi: Send + Sync {
+    /// Scope subsequent paginated calls to the producer's validated next-page cursor.
+    fn with_cursor(
+        &self,
+        cursor: super::pagination::PageCursor,
+    ) -> Box<dyn InternalTransactionsApi>;
+
     /// GET /api/v2/internal-transactions
     ///
     ///
@@ -36,16 +42,30 @@ pub trait InternalTransactionsApi: Send + Sync {
 
 pub struct InternalTransactionsApiClient {
     configuration: Arc<configuration::Configuration>,
+    cursor: Option<super::pagination::PageCursor>,
 }
 
 impl InternalTransactionsApiClient {
     pub fn new(configuration: Arc<configuration::Configuration>) -> Self {
-        Self { configuration }
+        Self {
+            configuration,
+            cursor: None,
+        }
     }
 }
 
 #[async_trait]
 impl InternalTransactionsApi for InternalTransactionsApiClient {
+    fn with_cursor(
+        &self,
+        cursor: super::pagination::PageCursor,
+    ) -> Box<dyn InternalTransactionsApi> {
+        Box::new(Self {
+            configuration: self.configuration.clone(),
+            cursor: Some(cursor),
+        })
+    }
+
     async fn get_internal_transactions(
         &self,
     ) -> Result<ResponseContent<GetInternalTransactionsSuccess>, Error<GetInternalTransactionsError>>
@@ -66,7 +86,10 @@ impl InternalTransactionsApi for InternalTransactionsApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder.build()?;
+        if let Some(cursor) = &self.cursor {
+            cursor.apply(&mut local_var_req)?;
+        }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();

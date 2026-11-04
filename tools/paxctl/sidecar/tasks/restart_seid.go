@@ -2,8 +2,10 @@ package tasks
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -19,7 +21,7 @@ var restartSeidLog = seilog.NewLogger("seictl", "task", "restart-seid")
 
 const (
 	// restartSeidProcess is the comm/argv[0] of the validator process.
-	restartSeidProcess = "seid"
+	restartSeidProcess = "paxd"
 
 	// restartSeidGracePeriod bounds the SIGTERM→exit window. A loaded validator's
 	// graceful shutdown (consensus WAL flush + PebbleDB/IAVL close, possibly
@@ -51,55 +53,109 @@ const (
 // It implements actions.ProcessSignaler so stopSeid can SIGTERM + poll it;
 // FindPID ignores the name argument (the corroboration is baked in) and Signal
 // / Alive delegate to the real syscall-backed package functions.
-type seidStartFinder struct{}
+// NodeProcessConfig identifies the deployed node; task identifiers remain stable.
+type NodeProcessConfig struct {
+	Name        string
+	HomeDir     string
+	RPCEndpoint string
+}
 
-func (seidStartFinder) FindPID(string) (int, error) {
+func processConfig(config []NodeProcessConfig) NodeProcessConfig {
+	c := NodeProcessConfig{Name: restartSeidProcess}
+	if len(config) > 0 {
+		c = config[0]
+		if c.Name == "" {
+			c.Name = restartSeidProcess
+		}
+	}
+	return c
+}
+
+var errNodeProcessAbsent = errors.New("node process not found in /proc")
+
+type seidStartFinder struct{ config NodeProcessConfig }
+
+func (f seidStartFinder) FindPID(_ string) (int, error) {
+	c := processConfig([]NodeProcessConfig{f.config})
+	if !plainFilename(c.Name) || len(c.Name) > 15 {
+		return 0, fmt.Errorf("invalid node process name %q", c.Name)
+	}
 	entries, err := os.ReadDir("/proc")
 	if err != nil {
 		return 0, fmt.Errorf("reading /proc: %w", err)
 	}
+	found := 0
 	for _, e := range entries {
-		if !e.IsDir() {
-			continue
-		}
 		pid, err := strconv.Atoi(e.Name())
 		if err != nil {
 			continue
 		}
 		comm, err := os.ReadFile(fmt.Sprintf("/proc/%d/comm", pid))
-		if err != nil || strings.TrimSpace(string(comm)) != restartSeidProcess {
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
+			return 0, err
+		}
+		if strings.TrimSpace(string(comm)) != c.Name {
 			continue
 		}
 		cmdline, err := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", pid))
-		if err != nil {
+		if os.IsNotExist(err) {
 			continue
 		}
-		if isSeidStart(cmdline) {
-			return pid, nil
+		if err != nil {
+			return 0, err
 		}
+		if !isNodeStart(cmdline, c) {
+			continue
+		}
+		if found != 0 {
+			return 0, fmt.Errorf("multiple %s start processes; configure a node home", c.Name)
+		}
+		found = pid
 	}
-	return 0, fmt.Errorf("process %q not found in /proc", restartSeidProcess)
+	if found == 0 {
+		return 0, fmt.Errorf("%s: %w", c.Name, errNodeProcessAbsent)
+	}
+	return found, nil
 }
 
 func (seidStartFinder) Signal(pid int, sig syscall.Signal) error { return actions.SignalPID(pid, sig) }
-
-func (seidStartFinder) Alive(pid int) bool { return actions.PIDAlive(pid) }
-
-// isSeidStart reports whether a null-delimited /proc cmdline is `seid start ...`,
-// matching both a bare "seid" and an absolute path ending in "/seid".
-func isSeidStart(cmdline []byte) bool {
-	args := strings.Split(strings.TrimRight(string(cmdline), "\x00"), "\x00")
-	if len(args) < 2 {
-		return false
+func (seidStartFinder) Alive(pid int) bool {
+	data, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid))
+	if err == nil {
+		if i := strings.LastIndex(string(data), ") "); i >= 0 && len(data) > i+2 && data[i+2] == 'Z' {
+			return false
+		}
 	}
-	exe := args[0]
-	if exe != restartSeidProcess && !strings.HasSuffix(exe, "/"+restartSeidProcess) {
-		return false
-	}
-	return args[1] == "start"
+	return actions.PIDAlive(pid)
 }
 
-// RestartSeider restarts the co-located seid process in place: it SIGTERMs seid
+func isSeidStart(cmdline []byte) bool {
+	return isNodeStart(cmdline, NodeProcessConfig{Name: restartSeidProcess})
+}
+
+func isNodeStart(cmdline []byte, c NodeProcessConfig) bool {
+	args := strings.Split(strings.TrimRight(string(cmdline), "\x00"), "\x00")
+	if len(args) < 2 || filepath.Base(args[0]) != c.Name || args[1] != "start" {
+		return false
+	}
+	if c.HomeDir == "" {
+		return true
+	}
+	for i, arg := range args[2:] {
+		if arg == "--home" && i+3 < len(args) {
+			return filepath.Clean(args[i+3]) == filepath.Clean(c.HomeDir)
+		}
+		if strings.HasPrefix(arg, "--home=") {
+			return filepath.Clean(strings.TrimPrefix(arg, "--home=")) == filepath.Clean(c.HomeDir)
+		}
+	}
+	return false
+}
+
+// RestartSeider restarts the co-located paxd process in place: it SIGTERMs seid
 // and waits for it to exit gracefully (the kubelet restarts the container), then
 // waits for seid's local RPC to serve again. seid re-reads config.toml on this
 // restart without bouncing the sidecar. The handler never starts seid and never
@@ -129,10 +185,10 @@ type RestartSeider struct {
 
 // NewRestartSeider builds a RestartSeider with the real /proc + syscall +
 // local-RPC implementations.
-func NewRestartSeider() *RestartSeider {
-	statusClient := rpc.NewStatusClient("", nil)
+func NewRestartSeider(config ...NodeProcessConfig) *RestartSeider {
+	statusClient := rpc.NewStatusClient(processConfig(config).RPCEndpoint, nil)
 	return &RestartSeider{
-		signaler:    seidStartFinder{},
+		signaler:    seidStartFinder{config: processConfig(config)},
 		probeUp:     func(ctx context.Context) bool { return seidRPCUp(ctx, statusClient) },
 		gracePeriod: restartSeidGracePeriod,
 		upTimeout:   restartSeidUpTimeout,
@@ -182,10 +238,10 @@ func (r *RestartSeider) waitForUp(ctx context.Context) error {
 	ticker := time.NewTicker(r.upInterval)
 	defer ticker.Stop()
 
-	restartSeidLog.Info("waiting for seid RPC to come back up", "timeout", r.upTimeout)
+	restartSeidLog.Info("waiting for paxd RPC to come back up", "timeout", r.upTimeout)
 	for {
 		if r.probeUp(ctx) {
-			restartSeidLog.Info("seid RPC is up; restart complete")
+			restartSeidLog.Info("paxd RPC is up; restart complete")
 			return nil
 		}
 		select {
@@ -193,7 +249,7 @@ func (r *RestartSeider) waitForUp(ctx context.Context) error {
 			return ctx.Err()
 		case <-ticker.C:
 			if time.Now().After(deadline) {
-				return fmt.Errorf("seid RPC did not come up within %s after restart", r.upTimeout)
+				return fmt.Errorf("paxd RPC did not come up within %s after restart", r.upTimeout)
 			}
 		}
 	}
