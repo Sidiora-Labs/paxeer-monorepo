@@ -385,7 +385,7 @@ var (
 		// this line is used by starport scaffolding # stargate/app/storeKey
 	}
 
-	// WasmProposalsEnabled enables all x/wasm proposals when it's value is "true"
+	// WasmProposalsEnabled selects all ten x/wasm proposal kinds when its value is "true"
 	// and EnableSpecificWasmProposals is empty. Otherwise, all x/wasm proposals
 	// are disabled.
 	// Used as a flag to turn it on and off
@@ -435,7 +435,8 @@ func init() {
 
 // GetWasmEnabledProposals parses the WasmProposalsEnabled and
 // EnableSpecificWasmProposals values to produce a list of enabled proposals to
-// pass into the application.
+// pass into the application. Callers must pass this result to honor the build
+// overrides; passing wasm.EnableAllProposals directly bypasses this selection.
 func GetWasmEnabledProposals() []wasm.ProposalType {
 	if EnableSpecificWasmProposals == "" {
 		if WasmProposalsEnabled == "true" {

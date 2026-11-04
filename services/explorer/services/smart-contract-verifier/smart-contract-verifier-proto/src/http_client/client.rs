@@ -43,7 +43,8 @@ impl Client {
 
     fn build_url_with_query(&self, path: &str, query: Option<&str>) -> url::Url {
         let mut url = self.base_url.clone();
-        url.set_path(path);
+        let path = format!("{}{}", url.path().trim_end_matches('/'), path);
+        url.set_path(&path);
         url.set_query(query);
         url
     }

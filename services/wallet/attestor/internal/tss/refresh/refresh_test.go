@@ -21,7 +21,7 @@ import (
 	"github.com/getamis/alice/crypto/tss/eddsa/frost/signer"
 	"github.com/getamis/alice/types"
 
-	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/dealer"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/dealershare"
 )
 
 const (

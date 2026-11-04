@@ -25,6 +25,9 @@ func RunInspector(ctx context.Context, args []string, input io.Reader, output io
 	if handled, err := runM795Inspector(ctx, args, input, output); handled {
 		return err
 	}
+	if handled, err := runFoundationInspector(ctx, args, input, output); handled {
+		return err
+	}
 	if handled, err := runRepairInspector(ctx, args, input, output); handled {
 		return err
 	}

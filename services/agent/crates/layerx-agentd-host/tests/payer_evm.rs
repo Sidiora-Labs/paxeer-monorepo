@@ -662,3 +662,12 @@ fn web_grant_submits_a_signed_ledger_issue_grant_call() -> Result<()> {
         Ok(())
     })
 }
+
+
+#[path = "support/payer_audit.rs"]
+mod payer_audit;
+
+#[test]
+fn payer_binding_bypass_publishes_loads_and_checks_exact_and_draw_receipts() {
+    payer_audit::payer_binding_bypass();
+}
