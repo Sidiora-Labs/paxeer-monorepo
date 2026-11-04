@@ -4,12 +4,13 @@
 // for malformed runtime input. Bank refusal.lxpError now constructs its reason
 // directly through common.LXPError instead of an encode/decode fallback.
 // Ledger, tokenfactory and bank share the same exported asset-pause code.
-// The precompile has no private persistent state. Each invocation constructs a
-// fresh precompile and StateDB; successful writes are finalized before reopening.
+// Each invocation is followed by an application commit, close and reopen of the
+// same persistent database before balances or ABI results are consumed.
 package bank_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -19,7 +20,11 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
+	tmcfg "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/config"
+	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/state"
 	ledgertypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/types"
 	tfkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/tokenfactory/keeper"
@@ -28,7 +33,6 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/bank"
 	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
-	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -43,12 +47,49 @@ type proofBankReason struct {
 	Retryable bool    `json:"retryable"`
 }
 
-func TestProof0x1001Bank(t *testing.T) {
-	a := testkeeper.EVMTestApp
+type proofBankTranscript struct {
+	Reasons   []proofBankReason `json:"reasons"`
+	Malformed []string          `json:"malformed"`
+	Successes []string          `json:"successes"`
+}
+
+func proofBankOpenApp(t *testing.T, dir string, restarting bool) (*app.App, sdk.Context) {
+	t.Helper()
+	db, err := sdk.NewLevelDB("bank-proof", dir)
+	require.NoError(t, err)
+	encoding := app.MakeEncodingConfig()
+	a := app.New(db, nil, true, map[int64]bool{}, dir, 1, true,
+		tmcfg.DefaultConfig().SetRoot(dir), encoding, nil, app.TestAppOpts{}, app.EmptyWasmOpts, nil)
+	if !restarting {
+		genesis, marshalErr := json.Marshal(app.NewDefaultGenesisState(encoding.Marshaler))
+		require.NoError(t, marshalErr)
+		_, err = a.InitChain(context.Background(), &abci.RequestInitChain{
+			Time: time.Unix(1_800_000_000, 0).UTC(), ChainId: "pax-test",
+			ConsensusParams: app.DefaultConsensusParams, AppStateBytes: genesis,
+		})
+		require.NoError(t, err)
+	}
+	header := tmproto.Header{ChainID: "pax-test", Height: a.LastBlockHeight() + 1, Time: time.Unix(1_800_000_000, 0).UTC()}
+	var ctx sdk.Context
+	if restarting {
+		ctx, _ = a.NewUncachedContext(false, header).CacheContext()
+	} else {
+		ctx = a.NewContext(false, header)
+	}
+	return a, ctx.WithGasMeter(sdk.NewInfiniteGasMeter(1, 1))
+}
+
+func proofBankDurablePath(t *testing.T) proofBankTranscript {
+	t.Helper()
+	dir := t.TempDir()
+	a, ctx := proofBankOpenApp(t, dir, false)
+	t.Cleanup(func() {
+		if a != nil {
+			require.NoError(t, a.Close())
+		}
+	})
 	k := &a.EvmKeeper
-	ctx, _ := a.GetContextForDeliverTx(nil).CacheContext()
-	ctx = ctx.WithBlockHeight(100).WithGasMeter(sdk.NewInfiniteGasMeter(1, 1))
-	k.UpgradeKeeper().SetDone(ctx, pcommon.MergeUpgrade)
+	k.UpgradeKeeper().SetDone(ctx.WithBlockHeight(100), pcommon.MergeUpgrade)
 	k.UpgradeKeeper().SetDone(ctx.WithBlockHeight(200), bank.V6120Upgrade)
 	require.Equal(t, app.V6120Upgrade, bank.V6120Upgrade)
 	require.Equal(t, "v6.12.0", bank.V6120Upgrade)
@@ -65,6 +106,22 @@ func TestProof0x1001Bank(t *testing.T) {
 	_, err = tf.Mint(sdk.WrapSDKContext(ctx), tftypes.NewMsgMint(from.String(), sdk.NewInt64Coin(denom, 25)))
 	require.NoError(t, err)
 	require.NoError(t, k.SetERC20NativePointer(ctx, denom, pointer))
+
+	restart := func() {
+		t.Helper()
+		require.NoError(t, a.SetSealedStateToCommit(ctx, ctx.MultiStore().(sdk.CacheMultiStore)))
+		_, commitErr := a.Commit(context.Background())
+		require.NoError(t, commitErr)
+		committed := a.LastCommitID()
+		require.Positive(t, committed.Version)
+		require.NotEmpty(t, committed.Hash)
+		require.NoError(t, a.Close())
+		a = nil
+		a, ctx = proofBankOpenApp(t, dir, true)
+		require.Equal(t, committed, a.LastCommitID(), "recover the committed application, without genesis or state reseeding")
+		k = &a.EvmKeeper
+		tf = tfkeeper.NewMsgServerImpl(a.TokenFactoryKeeper)
+	}
 
 	bankABI := bank.GetABI()
 	pack := func(name string, args ...interface{}) []byte {
@@ -87,11 +144,13 @@ func TestProof0x1001Bank(t *testing.T) {
 			require.ErrorIs(t, runErr, vm.ErrExecutionReverted)
 			require.Empty(t, db.GetAllLogs())
 		}
+		db.Cleanup()
+		restart()
 		return out, runErr
 	}
 	assertBalances := func(sender, receiver int64) {
 		t.Helper()
-		// Reopen after the previous StateDB has been finalized and cleaned up.
+		// Read only through the new application and keeper recovered from disk.
 		db := state.NewDBImpl(ctx, k, false)
 		defer db.Cleanup()
 		require.Equal(t, sdk.NewInt(sender), a.BankKeeper.GetBalance(db.Ctx(), from, denom).Amount)
@@ -122,6 +181,8 @@ func TestProof0x1001Bank(t *testing.T) {
 	require.False(t, a.TokenFactoryKeeper.IsDenomPaused(ctx, denom))
 	_, err = tf.SetDenomPaused(sdk.WrapSDKContext(ctx), tftypes.NewMsgSetDenomPaused(from.String(), denom, true))
 	require.NoError(t, err)
+	restart()
+	require.True(t, a.TokenFactoryKeeper.IsDenomPaused(ctx, denom), "recover the real producer's pause flag")
 	_, mintErr := tf.Mint(sdk.WrapSDKContext(ctx), tftypes.NewMsgMint(from.String(), sdk.NewInt64Coin(denom, 1)))
 	require.ErrorIs(t, mintErr, tftypes.ErrDenomPaused)
 	require.EqualError(t, mintErr, tftypes.DenomPausedReason)
@@ -192,6 +253,8 @@ func TestProof0x1001Bank(t *testing.T) {
 
 	_, err = tf.SetDenomPaused(sdk.WrapSDKContext(ctx), tftypes.NewMsgSetDenomPaused(from.String(), denom, false))
 	require.NoError(t, err)
+	restart()
+	require.False(t, a.TokenFactoryKeeper.IsDenomPaused(ctx, denom), "recover the real producer's unpause")
 	tooMuch := pack(bank.SendMethod, fromEVM, toEVM, denom, big.NewInt(26))
 	out, runErr := call(199, pointer, tooMuch, nil, false, false)
 	require.ErrorIs(t, runErr, vm.ErrExecutionReverted)
@@ -208,11 +271,11 @@ func TestProof0x1001Bank(t *testing.T) {
 		assertBalances(15, 10)
 	}
 
-	input, err := json.Marshal(struct {
-		Reasons   []proofBankReason `json:"reasons"`
-		Malformed []string          `json:"malformed"`
-		Successes []string          `json:"successes"`
-	}{reasons, malformed, successes})
+	return proofBankTranscript{reasons, malformed, successes}
+}
+
+func TestProof0x1001Bank(t *testing.T) {
+	input, err := json.Marshal(proofBankDurablePath(t))
 	require.NoError(t, err)
 	root, err := filepath.Abs("../..")
 	require.NoError(t, err)
