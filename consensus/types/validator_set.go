@@ -876,6 +876,13 @@ func ValidatorSetFromProto(vp *tmproto.ValidatorSet) (*ValidatorSet, error) {
 		if err != nil {
 			return nil, err
 		}
+		if err := v.ValidateBasic(); err != nil {
+			return nil, fmt.Errorf("invalid validator #%d: %w", i, err)
+		}
+		if v.VotingPower > MaxTotalVotingPower-vals.totalVotingPower {
+			return nil, ErrTotalVotingPowerOverflow
+		}
+		vals.totalVotingPower += v.VotingPower
 		valsProto[i] = v
 	}
 	vals.Validators = valsProto
@@ -892,7 +899,7 @@ func ValidatorSetFromProto(vp *tmproto.ValidatorSet) (*ValidatorSet, error) {
 	// power hence we need to recompute it.
 	// FIXME: We should look to remove TotalVotingPower from proto or add it in the validators hash
 	// so we don't have to do this
-	vals.TotalVotingPower()
+	// The bounded sum above validates peer input without the local invariant panic.
 
 	return vals, vals.ValidateBasic()
 }
