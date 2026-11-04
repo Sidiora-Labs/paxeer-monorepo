@@ -12,6 +12,7 @@
    ══════════════════════════════════════════════════════════════════════ */
 
 import * as Sentry from "@sentry/nextjs";
+import { sanitizeSentryEvent } from "./src/core/errors/sentrySanitizer";
 
 const DSN = process.env.NEXT_PUBLIC_SENTRY_DSN;
 const ENV = process.env.NEXT_PUBLIC_SENTRY_ENV || process.env.NODE_ENV || "production";
@@ -45,35 +46,6 @@ if (DSN) {
       "UserRejectedRequestError",
     ],
 
-    beforeSend(event, hint) {
-      // Strip anything that looks like a hex secret from the message.
-      // Belt-and-braces — our app code shouldn't be passing these
-      // through `reportError` anyway, but a leak here would be loud.
-      if (event.message) {
-        event.message = redactSecrets(event.message);
-      }
-      if (event.exception?.values) {
-        for (const ex of event.exception.values) {
-          if (ex.value) ex.value = redactSecrets(ex.value);
-        }
-      }
-
-      // AbortError can still reach `captureException` from third-party
-      // libraries that don't normalise their own throws. Drop them.
-      const original = hint?.originalException as { name?: string } | undefined;
-      if (original?.name === "AbortError") return null;
-
-      return event;
-    },
+    beforeSend: sanitizeSentryEvent,
   });
-}
-
-function redactSecrets(input: string): string {
-  // 64-hex private keys + 12/24-word mnemonic guards (best-effort).
-  let out = input.replace(/\b[0-9a-fA-F]{64}\b/g, "[redacted-hex]");
-  out = out.replace(
-    /\b(?:[a-z]{3,8}\s+){11,23}[a-z]{3,8}\b/gi,
-    "[redacted-mnemonic]",
-  );
-  return out;
 }

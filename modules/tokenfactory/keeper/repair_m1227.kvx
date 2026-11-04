@@ -1,0 +1,29 @@
+[repair.22.33.1227]
+audit = "spec/layerx-merge/programme/audit/records/22.30.59.kvx"
+acceptance = "22998.1"
+base_revision = "ca3015b61333a7ebcaedf0914337d4460107fe1a"
+attempt_1_base_revision = "5f6b5f0aad35a415da93671f70183d5e5688bda0"
+continuation = "Attempt 1 could not compile the keeper test binary because CLI callers used the fallible tx.NewFactoryCLI constructor as a single value; no behavior-test failure was observed. Attempt 2 retains all six attempt-1 paths on the base containing the qualified 22.31.463 callers and reruns only the declared gates."
+baseline = "No earlier gate ledger exists; baseline verification was not run because the explicit gate order requires complete implementation followed by hf-build and hf-done and forbids manually running verify_cmd. No baseline test failure is claimed."
+evidence = "The runner's hf-build/hf-done ledger records the candidate revision, exact command, exit code and private log location."
+
+[finding.9]
+test = "TestRepairM_1227_ChangeAdminSignedTransaction"
+implementation = "Retain keeper assertions and add production CLI-generated transactions signed with real account keys, encoded and decoded by the app codec, and delivered through app stateless checks, signature verification and message routing; assert authorized transfer and renunciation, unauthorized refusal, retained DID, balances and supply."
+
+[finding.4]
+test = "TestRepairM_1227_MintBlockedDestinationAtomic"
+implementation = "Cache mintTo and mint event emission; commit state and merge bank/tokenfactory events only on success. The real app BankKeeper refuses the valid blocked gov destination without changing existing supply, module/recipient balances or caller events; a subsequent valid mint commits its state and event."
+
+[finding.12]
+test = "TestRepairM_1227_TokenfactoryGenesisStreamRecovery"
+implementation = "Add tokenfactory AppModule to the listed stream cases and a disk-backed producer stop/reopen, parameter mutation before drain, close-before-consume, channel closure, consumer import and restart proof."
+wiring_request = "modules/tokenfactory/module.go, domain 6 (fm-chain-modules): ExportGenesisStream must synchronously capture genesis before returning and deliver only those captured bytes after producer mutation/shutdown; fulfilled on this continuation base by synchronous capture and a buffered, closed channel; no out-of-scope producer change is made here."
+
+[gotcha.gate_order]
+observed = "The task's baseline instruction conflicts with its mandatory implement-format-build-verify order and run-once gate limits."
+resolution = "Follow the explicit Order and report no pre-change gate result."
+
+[gotcha.scope]
+observed = "Attempt 1 found a deferred ExportGenesisStream producer in modules/tokenfactory/module.go, outside the allowed keeper directory; the continuation base now captures the snapshot synchronously."
+resolution = "Retain the real regression assertions and the fulfilled owning-domain wiring request; exercise the base producer without changing or replacing it."

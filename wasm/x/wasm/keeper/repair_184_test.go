@@ -244,6 +244,8 @@ type repair184BoundaryGas struct {
 	Method                                     string
 	SDKBefore, SDKAfter, WasmBefore, WasmAfter uint64
 	Charges                                    []repair184GasCharge
+	Limit, Used                                uint64
+	RuntimeChargeIndex                         int
 }
 
 type repair184ObservedEngine struct {
@@ -252,43 +254,45 @@ type repair184ObservedEngine struct {
 	Calls []repair184BoundaryGas
 }
 
-func (e *repair184ObservedEngine) begin(method string, meter wasmvm.GasMeter) func() {
-	call := repair184BoundaryGas{Method: method, SDKBefore: e.Meter.GasConsumed(), WasmBefore: meter.GasConsumed()}
+func (e *repair184ObservedEngine) begin(method string, meter wasmvm.GasMeter, limit uint64, used *uint64) func() {
+	call := repair184BoundaryGas{Limit: limit, Method: method, SDKBefore: e.Meter.GasConsumed(), WasmBefore: meter.GasConsumed()}
 	start := len(e.Meter.Charges)
 	return func() {
 		call.SDKAfter, call.WasmAfter = e.Meter.GasConsumed(), meter.GasConsumed()
+		call.Used = *used
+		call.RuntimeChargeIndex = len(e.Meter.Charges)
 		call.Charges = append([]repair184GasCharge(nil), e.Meter.Charges[start:]...)
 		e.Calls = append(e.Calls, call)
 	}
 }
 
-func (e *repair184ObservedEngine) IBCChannelOpen(checksum wasmvm.Checksum, env vmtypes.Env, msg vmtypes.IBCChannelOpenMsg, store wasmvm.KVStore, api wasmvm.GoAPI, q wasmvm.Querier, meter wasmvm.GasMeter, limit uint64, cost vmtypes.UFraction) (*vmtypes.IBC3ChannelOpenResponse, uint64, error) {
-	defer e.begin("IBCChannelOpen", meter)()
+func (e *repair184ObservedEngine) IBCChannelOpen(checksum wasmvm.Checksum, env vmtypes.Env, msg vmtypes.IBCChannelOpenMsg, store wasmvm.KVStore, api wasmvm.GoAPI, q wasmvm.Querier, meter wasmvm.GasMeter, limit uint64, cost vmtypes.UFraction) (response *vmtypes.IBC3ChannelOpenResponse, used uint64, err error) {
+	defer e.begin("IBCChannelOpen", meter, limit, &used)()
 	return e.WasmerEngine.IBCChannelOpen(checksum, env, msg, store, api, q, meter, limit, cost)
 }
 
-func (e *repair184ObservedEngine) IBCChannelConnect(checksum wasmvm.Checksum, env vmtypes.Env, msg vmtypes.IBCChannelConnectMsg, store wasmvm.KVStore, api wasmvm.GoAPI, q wasmvm.Querier, meter wasmvm.GasMeter, limit uint64, cost vmtypes.UFraction) (*vmtypes.IBCBasicResponse, uint64, error) {
-	defer e.begin("IBCChannelConnect", meter)()
+func (e *repair184ObservedEngine) IBCChannelConnect(checksum wasmvm.Checksum, env vmtypes.Env, msg vmtypes.IBCChannelConnectMsg, store wasmvm.KVStore, api wasmvm.GoAPI, q wasmvm.Querier, meter wasmvm.GasMeter, limit uint64, cost vmtypes.UFraction) (response *vmtypes.IBCBasicResponse, used uint64, err error) {
+	defer e.begin("IBCChannelConnect", meter, limit, &used)()
 	return e.WasmerEngine.IBCChannelConnect(checksum, env, msg, store, api, q, meter, limit, cost)
 }
 
-func (e *repair184ObservedEngine) IBCChannelClose(checksum wasmvm.Checksum, env vmtypes.Env, msg vmtypes.IBCChannelCloseMsg, store wasmvm.KVStore, api wasmvm.GoAPI, q wasmvm.Querier, meter wasmvm.GasMeter, limit uint64, cost vmtypes.UFraction) (*vmtypes.IBCBasicResponse, uint64, error) {
-	defer e.begin("IBCChannelClose", meter)()
+func (e *repair184ObservedEngine) IBCChannelClose(checksum wasmvm.Checksum, env vmtypes.Env, msg vmtypes.IBCChannelCloseMsg, store wasmvm.KVStore, api wasmvm.GoAPI, q wasmvm.Querier, meter wasmvm.GasMeter, limit uint64, cost vmtypes.UFraction) (response *vmtypes.IBCBasicResponse, used uint64, err error) {
+	defer e.begin("IBCChannelClose", meter, limit, &used)()
 	return e.WasmerEngine.IBCChannelClose(checksum, env, msg, store, api, q, meter, limit, cost)
 }
 
-func (e *repair184ObservedEngine) IBCPacketReceive(checksum wasmvm.Checksum, env vmtypes.Env, msg vmtypes.IBCPacketReceiveMsg, store wasmvm.KVStore, api wasmvm.GoAPI, q wasmvm.Querier, meter wasmvm.GasMeter, limit uint64, cost vmtypes.UFraction) (*vmtypes.IBCReceiveResult, uint64, error) {
-	defer e.begin("IBCPacketReceive", meter)()
+func (e *repair184ObservedEngine) IBCPacketReceive(checksum wasmvm.Checksum, env vmtypes.Env, msg vmtypes.IBCPacketReceiveMsg, store wasmvm.KVStore, api wasmvm.GoAPI, q wasmvm.Querier, meter wasmvm.GasMeter, limit uint64, cost vmtypes.UFraction) (response *vmtypes.IBCReceiveResult, used uint64, err error) {
+	defer e.begin("IBCPacketReceive", meter, limit, &used)()
 	return e.WasmerEngine.IBCPacketReceive(checksum, env, msg, store, api, q, meter, limit, cost)
 }
 
-func (e *repair184ObservedEngine) IBCPacketAck(checksum wasmvm.Checksum, env vmtypes.Env, msg vmtypes.IBCPacketAckMsg, store wasmvm.KVStore, api wasmvm.GoAPI, q wasmvm.Querier, meter wasmvm.GasMeter, limit uint64, cost vmtypes.UFraction) (*vmtypes.IBCBasicResponse, uint64, error) {
-	defer e.begin("IBCPacketAck", meter)()
+func (e *repair184ObservedEngine) IBCPacketAck(checksum wasmvm.Checksum, env vmtypes.Env, msg vmtypes.IBCPacketAckMsg, store wasmvm.KVStore, api wasmvm.GoAPI, q wasmvm.Querier, meter wasmvm.GasMeter, limit uint64, cost vmtypes.UFraction) (response *vmtypes.IBCBasicResponse, used uint64, err error) {
+	defer e.begin("IBCPacketAck", meter, limit, &used)()
 	return e.WasmerEngine.IBCPacketAck(checksum, env, msg, store, api, q, meter, limit, cost)
 }
 
-func (e *repair184ObservedEngine) IBCPacketTimeout(checksum wasmvm.Checksum, env vmtypes.Env, msg vmtypes.IBCPacketTimeoutMsg, store wasmvm.KVStore, api wasmvm.GoAPI, q wasmvm.Querier, meter wasmvm.GasMeter, limit uint64, cost vmtypes.UFraction) (*vmtypes.IBCBasicResponse, uint64, error) {
-	defer e.begin("IBCPacketTimeout", meter)()
+func (e *repair184ObservedEngine) IBCPacketTimeout(checksum wasmvm.Checksum, env vmtypes.Env, msg vmtypes.IBCPacketTimeoutMsg, store wasmvm.KVStore, api wasmvm.GoAPI, q wasmvm.Querier, meter wasmvm.GasMeter, limit uint64, cost vmtypes.UFraction) (response *vmtypes.IBCBasicResponse, used uint64, err error) {
+	defer e.begin("IBCPacketTimeout", meter, limit, &used)()
 	return e.WasmerEngine.IBCPacketTimeout(checksum, env, msg, store, api, q, meter, limit, cost)
 }
 
@@ -371,6 +375,12 @@ func TestRepair_184_IBCGasUnits(t *testing.T) {
 			for _, call := range engine.Calls {
 				methods[call.Method] = true
 				require.Positive(t, call.SDKBefore)
+				require.Equal(t, (meter.Limit()-call.SDKBefore)*multiplier, call.Limit, call.Method)
+				require.Positive(t, call.Used, call.Method)
+				require.LessOrEqual(t, call.Used+(call.WasmAfter-call.WasmBefore), call.Limit, call.Method)
+				require.Less(t, call.RuntimeChargeIndex, len(meter.Charges))
+				require.Equal(t, "wasm contract", meter.Charges[call.RuntimeChargeIndex].Descriptor, call.Method)
+				require.Equal(t, call.Used/multiplier, meter.Charges[call.RuntimeChargeIndex].Amount, call.Method)
 				require.Equal(t, call.SDKBefore*multiplier, call.WasmBefore, call.Method)
 				require.Equal(t, call.SDKAfter*multiplier, call.WasmAfter, call.Method)
 				require.Equal(t, (call.SDKAfter-call.SDKBefore)*multiplier, call.WasmAfter-call.WasmBefore, call.Method)

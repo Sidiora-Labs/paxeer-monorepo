@@ -3,8 +3,13 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
+	"errors"
 	"fmt"
 	"math/rand"
+	"net"
+	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -49,12 +54,16 @@ type LoadTestClient struct {
 	// Messages that has to be sent from the admin account
 	isAdminMessageMapping map[string]bool
 	mtx                   *sync.RWMutex
+	monitors              *grpcMonitorGroup
 }
 
-func NewLoadTestClient(config Config) *LoadTestClient {
+func NewLoadTestClient(config Config) (*LoadTestClient, error) {
+	txClients, grpcConns, err := BuildGrpcClients(&config)
+	if err != nil {
+		return nil, err
+	}
 	signerClient := NewSignerClient(config.NodeURI)
 	keys := signerClient.GetTestAccountsKeys(int(config.MaxAccounts)) //nolint:gosec
-	txClients, grpcConns := BuildGrpcClients(&config)
 	var evmTxClients []*EvmTxClient
 	if config.EvmRpcEndpoints != "" {
 		if config.ContainsAnyMessageTypes(EVM, ERC20, ERC721) {
@@ -69,7 +78,7 @@ func NewLoadTestClient(config Config) *LoadTestClient {
 		prevSentCounterPerMsgType[messageType] = new(int64)
 	}
 
-	return &LoadTestClient{
+	client := &LoadTestClient{
 		LoadTestConfig:                config,
 		AccountKeys:                   keys,
 		TestConfig:                    TestConfig,
@@ -85,6 +94,8 @@ func NewLoadTestClient(config Config) *LoadTestClient {
 		isAdminMessageMapping:         map[string]bool{CollectRewards: true, DistributeRewards: true},
 		mtx:                           &sync.RWMutex{},
 	}
+	client.startGrpcMonitors()
+	return client, nil
 }
 
 func (c *LoadTestClient) SetValidators() {
@@ -97,43 +108,98 @@ func (c *LoadTestClient) SetValidators() {
 	}
 }
 
-// BuildGrpcClients build a list of grpc clients
-func BuildGrpcClients(config *Config) ([]typestx.ServiceClient, []*grpc.ClientConn) {
-	grpcEndpoints := strings.Split(config.GrpcEndpoints, ",")
-	txClients := make([]typestx.ServiceClient, len(grpcEndpoints))
-	grpcConns := make([]*grpc.ClientConn, len(grpcEndpoints))
-	var dialOptions []grpc.DialOption
-	dialOptions = append(dialOptions, grpc.WithDefaultCallOptions(
-		grpc.MaxCallRecvMsgSize(20*1024*1024),
-		grpc.MaxCallSendMsgSize(20*1024*1024)),
-	)
-	dialOptions = append(dialOptions, grpc.WithBlock())
-	if config.TLS {
-		dialOptions = append(dialOptions, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{InsecureSkipVerify: true}))) //nolint:gosec // Use insecure skip verify.
-	} else {
-		dialOptions = append(dialOptions, grpc.WithTransportCredentials(insecure.NewCredentials()))
+const grpcStartupTimeout = 5 * time.Second
+
+// BuildGrpcClients bounds the entire startup and closes partial connections on error.
+func BuildGrpcClients(config *Config) ([]typestx.ServiceClient, []*grpc.ClientConn, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), grpcStartupTimeout)
+	defer cancel()
+	return buildGrpcClients(ctx, config)
+}
+
+func buildGrpcClients(ctx context.Context, config *Config) ([]typestx.ServiceClient, []*grpc.ClientConn, error) {
+	var clients []typestx.ServiceClient
+	var conns []*grpc.ClientConn
+	fail := func(err error) ([]typestx.ServiceClient, []*grpc.ClientConn, error) {
+		for _, conn := range conns {
+			_ = conn.Close()
+		}
+		return nil, nil, err
 	}
-	for i, endpoint := range grpcEndpoints {
-		grpcConn, _ := grpc.Dial(
-			endpoint,
-			dialOptions...)
-		txClients[i] = typestx.NewServiceClient(grpcConn)
-		grpcConns[i] = grpcConn
-		// spin up goroutine for monitoring and reconnect purposes
-		go func() {
-			for {
-				state := grpcConn.GetState()
-				if state == connectivity.TransientFailure || state == connectivity.Shutdown {
-					fmt.Println("GRPC Connection lost, attempting to reconnect...")
-					for !grpcConn.WaitForStateChange(context.Background(), state) {
-						time.Sleep(10 * time.Second)
-					}
+	var roots *x509.CertPool
+	if config.TLS && config.TLSCAFile != "" {
+		raw, err := os.ReadFile(config.TLSCAFile)
+		if err != nil {
+			return fail(err)
+		}
+		roots = x509.NewCertPool()
+		if !roots.AppendCertsFromPEM(raw) {
+			return fail(errors.New("TLS CA file contains no certificates"))
+		}
+	}
+	for _, value := range strings.Split(config.GrpcEndpoints, ",") {
+		endpoint := strings.TrimSpace(value)
+		if endpoint == "" {
+			return fail(errors.New("empty gRPC endpoint"))
+		}
+		options := []grpc.DialOption{grpc.WithBlock(), grpc.WithReturnConnectionError(), grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(20*1024*1024), grpc.MaxCallSendMsgSize(20*1024*1024))}
+		if config.TLS {
+			target := endpoint
+			if strings.Contains(target, "://") {
+				parsed, err := url.Parse(target)
+				if err != nil {
+					return fail(err)
 				}
-				time.Sleep(10 * time.Second)
+				target = strings.TrimPrefix(parsed.Path, "/")
+				if target == "" {
+					target = parsed.Host
+				}
 			}
-		}()
+			host, _, err := net.SplitHostPort(target)
+			if err != nil || host == "" {
+				return fail(fmt.Errorf("TLS endpoint requires host:port: %q", endpoint))
+			}
+			options = append(options, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{MinVersion: tls.VersionTLS12, RootCAs: roots, ServerName: host})))
+		} else {
+			options = append(options, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		}
+		conn, err := grpc.DialContext(ctx, endpoint, options...)
+		if err != nil {
+			return fail(fmt.Errorf("gRPC dial %s: %w", endpoint, err))
+		}
+		clients = append(clients, typestx.NewServiceClient(conn))
+		conns = append(conns, conn)
 	}
-	return txClients, grpcConns
+	return clients, conns, nil
+}
+
+type grpcMonitorGroup struct {
+	cancel context.CancelFunc
+	wg     sync.WaitGroup
+	once   sync.Once
+}
+
+func (c *LoadTestClient) startGrpcMonitors() {
+	ctx, cancel := context.WithCancel(context.Background())
+	c.monitors = &grpcMonitorGroup{cancel: cancel}
+	for _, conn := range c.GrpcConns {
+		c.monitors.wg.Add(1)
+		go func(conn *grpc.ClientConn) {
+			defer c.monitors.wg.Done()
+			for {
+				state := conn.GetState()
+				if state == connectivity.Shutdown || ctx.Err() != nil {
+					return
+				}
+				if state == connectivity.Idle {
+					conn.Connect()
+				}
+				if !conn.WaitForStateChange(ctx, state) {
+					return
+				}
+			}
+		}(conn)
+	}
 }
 
 // BuildEvmTxClients build a list of EvmTxClients with a list of go-ethereum client
@@ -169,9 +235,19 @@ func BuildEvmTxClients(config *Config, keys []cryptotypes.PrivKey) []*EvmTxClien
 }
 
 func (c *LoadTestClient) Close() {
-	for _, grpcConn := range c.GrpcConns {
-		_ = grpcConn.Close()
+	if c.monitors == nil {
+		for _, conn := range c.GrpcConns {
+			_ = conn.Close()
+		}
+		return
 	}
+	c.monitors.once.Do(func() {
+		c.monitors.cancel()
+		for _, conn := range c.GrpcConns {
+			_ = conn.Close()
+		}
+		c.monitors.wg.Wait()
+	})
 }
 
 func (c *LoadTestClient) BuildTxs(
@@ -200,7 +276,17 @@ func (c *LoadTestClient) BuildTxs(
 			// Sign EVM and Cosmos TX differently
 			switch messageType {
 			case EVM, ERC20, ERC721:
-				signedTx = SignedTx{EvmTx: c.generateSignedEvmTx(keyIndex, messageType), MsgType: messageType}
+				evmTx, err := c.generateSignedEvmTx(keyIndex, messageType)
+				if err != nil {
+					fmt.Printf("EVM producer waiting for reconciliation: %v\n", err)
+					select {
+					case <-done:
+						return
+					case <-time.After(100 * time.Millisecond):
+						continue
+					}
+				}
+				signedTx = SignedTx{EvmTx: evmTx, MsgType: messageType}
 				EvmTxHashes = append(EvmTxHashes, signedTx.EvmTx.Hash())
 			default:
 				msgTypeCount := atomic.LoadInt64(producedCountPerMsgType[messageType])
@@ -221,7 +307,7 @@ func (c *LoadTestClient) BuildTxs(
 	}
 }
 
-func (c *LoadTestClient) generateSignedEvmTx(keyIndex int, msgType string) *ethtypes.Transaction {
+func (c *LoadTestClient) generateSignedEvmTx(keyIndex int, msgType string) (*ethtypes.Transaction, error) {
 	return c.EvmTxClients[keyIndex].GetTxForMsgType(msgType)
 }
 
@@ -264,7 +350,6 @@ func (c *LoadTestClient) SendTxs(
 		case <-done:
 			return
 		case tx, ok := <-txQueue:
-			atomic.AddInt64(sentCountPerMsgType[tx.MsgType], 1)
 			loadtestMetrics.consumeCount.Add(context.Background(), 1, otelmetric.WithAttributes(attribute.String("msg_type", tx.MsgType)))
 			if !ok {
 				fmt.Printf("Stopping consumers\n")
@@ -276,15 +361,19 @@ func (c *LoadTestClient) SendTxs(
 				break
 			}
 			if len(tx.TxBytes) > 0 {
+				atomic.AddInt64(sentCountPerMsgType[tx.MsgType], 1)
 				// Send Cosmos Transactions
 				if SendTx(ctx, tx.TxBytes, typestx.BroadcastMode_BROADCAST_MODE_BLOCK, *c) {
 					atomic.AddInt64(producedCountPerMsgType[tx.MsgType], 1)
 				}
 			} else if tx.EvmTx != nil {
 				// Send EVM Transactions
-				c.EvmTxClients[keyIndex].SendEvmTx(tx.EvmTx, func() {
-					atomic.AddInt64(producedCountPerMsgType[tx.MsgType], 1)
+				err := c.EvmTxClients[keyIndex].SendEvmTx(tx.EvmTx, func() {
+					atomic.AddInt64(sentCountPerMsgType[tx.MsgType], 1)
 				})
+				if err != nil {
+					fmt.Printf("EVM send: %v\n", err)
+				}
 			}
 			// Release the semaphore
 			semaphore.Release(1)

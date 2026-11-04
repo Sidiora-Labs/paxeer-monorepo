@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"crypto/ecdsa"
 	"crypto/rand"
 	"encoding/json"
@@ -47,11 +48,11 @@ func TestGetChainId(t *testing.T) {
 			defer rpcServer.Close()
 
 			if test.hasURL {
-				chainId, err := getChainId(rpcServer.URL)
+				chainId, err := getChainId(context.Background(), rpcServer.URL)
 				require.NoError(t, err)
 				require.Equal(t, *big.NewInt(test.chainId), *chainId)
 			} else {
-				_, err := getChainId("")
+				_, err := getChainId(context.Background(), "")
 				require.Error(t, err)
 			}
 		})
@@ -81,7 +82,7 @@ func TestGetNonce(t *testing.T) {
 			rpcServer := getRPCServer(t, test.nonceHex)
 			defer rpcServer.Close()
 
-			nonce, err := getNonce(rpcServer.URL, test.publicKey)
+			nonce, err := getNonce(context.Background(), rpcServer.URL, test.publicKey)
 			require.NoError(t, err)
 			require.Equal(t, nonce, test.nonce)
 		})

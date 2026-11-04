@@ -204,7 +204,12 @@ func IBCQuerier(wasm contractMetaDataSource, channelKeeper types.ChannelKeeper) 
 		if request.PortID != nil {
 			contractInfo := wasm.GetContractInfo(ctx, caller)
 			res := wasmvmtypes.PortIDResponse{
-				PortID: contractInfo.IBCPortID,
+				// Metadata and port binding are installed only after instantiate returns.
+				// Before binding, port_id is empty and default-port channel is absent.
+				PortID: "",
+			}
+			if contractInfo != nil {
+				res.PortID = contractInfo.IBCPortID
 			}
 			return json.Marshal(res)
 		}
@@ -241,6 +246,9 @@ func IBCQuerier(wasm contractMetaDataSource, channelKeeper types.ChannelKeeper) 
 			portID := request.Channel.PortID
 			if portID == "" {
 				contractInfo := wasm.GetContractInfo(ctx, caller)
+				if contractInfo == nil || contractInfo.IBCPortID == "" {
+					return json.Marshal(wasmvmtypes.ChannelResponse{})
+				}
 				portID = contractInfo.IBCPortID
 			}
 			got, found := channelKeeper.GetChannel(ctx, portID, channelID)

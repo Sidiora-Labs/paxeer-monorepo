@@ -44,7 +44,7 @@ func programGenesis(pending, committed int) *types.GenesisState {
 		}
 		g.ProgramPending = append(g.ProgramPending, entry)
 	}
-	if committed > 0 {
+	if pending+committed > 0 {
 		g.ProgramFeeDenoms = []types.ProgramFeeDenomEntry{{Asset: asset, Denom: types.ProgramFeeDenomPAX}}
 	}
 	return g

@@ -1,0 +1,66 @@
+[repair.22.33.879]
+audit = "22.30.183"
+requirement = "22998.1"
+implementation = "Existing deployment shell and parser Python entry points delegate to the existing benchmark-ops executable, preserving complete response bytes and structured argv. The production Go operations and gRPC/EVM clients are exercised in-process by the declared gate without credentials, environment variables, external executables or native artifacts."
+baseline = "Not run: the explicit implementation-first order and hf-done-only verification prohibit the unchanged-tree verify requested by step 12. No pre-change failing test or gate is claimed."
+qualification = "The final hf-done evidence row in the runner's private gates.jsonl names the authoritative verified candidate revision, exact command, exit code and private log; the final response copies that row. No successful gate is claimed before that row exists."
+wiring_requests = []
+
+[finding.f028]
+proving_test = "TestRepairM_879_WasmDeployment"
+repair = "Quote every script argument; use structured Go command argv and JSON serialization for all subsequent paths and payloads. Validate each response and identifier immediately, including delegation, registration, pair registration and unbond; stop before subsequent commands on any failure. Preserve original fees, gas settings, contract order and production settlement interval."
+proof = "SDK TxResponse producer and real nested event JSON -> transcript command transport -> production deployment and strict identifier consumers; paths, key names and response attributes contain spaces and escaping. Every failed command and refused transaction stops the workflow, and malformed IDs never reach instantiation."
+
+[finding.f029]
+proving_test = "TestRepairM_879_TransactionParser"
+repair = "The Python compatibility API and CLI delegate complete response bytes to the shared production parser. Decode raw_log exactly once with no content rewriting. Refused or absent transaction codes, absent events, malformed JSON, invalid Bech32 addresses and nonpositive, noncanonical or overflowing uint64 identifiers return errors and no identifier output."
+proof = "Real SDK response/event serializers -> benchmark-ops parse-transaction stdin -> decoder -> observed output/error, including quoted strings, backslashes and spaces."
+
+[finding.f030]
+proving_test = "TestRepairM_879_ERC20Deployment"
+additional_tests = ["TestRepairM_879_DeploymentFundingReceipt", "TestRepairM_879_DeploymentConsumer"]
+repair = "Propagate setup, account discovery, balance, funding and forge failures. Require a successful committed funding receipt when funding is necessary and exactly one nonzero 20-byte deployedTo address before returning to load generation."
+proof = "Committed forge transcript and actual signed transaction/receipt serializers -> structured deployment commands and loopback JSON-RPC -> production address and funding consumers. Failed forge cannot be masked by jq; malformed deployment results never publish an address."
+
+[finding.f031]
+proving_test = "TestRepairM_879_ERC721Deployment"
+additional_tests = ["TestRepairM_879_DeploymentFundingReceipt", "TestRepairM_879_DeploymentConsumer"]
+repair = "Use the same fail-closed deployment path for ERC721; verify the already committed dependency trees rather than mutating submodules, propagate each setup/forge failure and validate deployedTo before returning."
+proof = "Real ERC721 production deployment planner consumes the committed forge transcript and refuses every command failure, missing/zero/malformed address, invalid balance and refused funding."
+
+[finding.f032]
+proving_test = "TestRepairM_879_CompleteABI"
+repair = "The Python source-to-binding test delegates canonicalization to the shared production comparator. Sort complete serialized ABI entries while preserving all fields, duplicate entries, parameter order, tuple components, overloads, outputs, state mutability, indexed/anonymous flags and constructors. Add the Python changed-parameter negative test."
+proof = "Committed ABI JSON and generated Go metadata -> canonical-abi stdin -> canonical complete-entry output; altered parameters, outputs, mutability, event flags, overloads and constructors all differ while top-level ordering does not."
+observation = "Static inspection shows existing ERC721 source mint/burn parameter names tokenId differ from binding metadata id; the stricter Python predicate retains those names and exposes that drift. No Solidity compiler gate or binding regeneration was run under this task's Go-only gates."
+
+[finding.f043]
+proving_test = "TestRepairM_879_EVMRefusalReconcilesQueue"
+additional_tests = ["TestRepairM_879_EVMUncertainSend", "TestRepairM_879_EVMReconciliationFailure", "TestRepairM_879_EVMTransientLookupFailure", "TestRepairM_879_EVMProducerResumesAfterReconciliation", "TestRepairM_879_EVMMessageNoncePaths", "TestRepairM_879_EVMAcceptedThroughput"]
+repair = "Serialize generation and submission per account. Bound send/hash/pending-nonce calls, distinguish RPC refusal from uncertain transport outcomes, reconcile actual hash acceptance and pending nonce, invalidate all stale queued work and reuse only a reconciled nonce. Block and retry the producer while acceptance is unresolved, with cancellation; resume after authoritative recovery. Count accepted submissions exactly once, including recovered uncertain acceptance."
+proof = "Production native/ERC20/ERC721 signed transaction producers -> real HTTP JSON-RPC transport -> decoding node peer -> production acceptance, queue and nonce consumers. Includes legacy/EIP-1559, refused send, lost accepted response, unknown acceptance, nonce/lookup outages, producer pause/resume and real SendTxs throughput."
+
+[finding.f024]
+proving_test = "TestRepairM_879_TLSAuthenticatesEndpoint"
+repair = "Use verified system roots by default or an explicit tls_ca_file, TLS 1.2 minimum and the endpoint hostname; reject invalid root files and preserve authentication errors."
+proof = "Real X.509 CA/server certificate producer -> loopback TLS gRPC -> production dialer -> actual health service. An unrelated issuer, unrelated hostname and private CA absent from system roots are rejected; matching explicit trust succeeds."
+
+[finding.f025]
+proving_test = "TestRepairM_879_GRPCDeadlineAndClose"
+repair = "Bound complete blocking startup with DialContext, propagate errors through NewLoadTestClient and close partially connected endpoints. Give connection monitors a cancellation context and WaitGroup; Close cancels, closes and joins once, and Shutdown ends monitoring."
+proof = "Real unresponsive loopback listener -> public constructor deadline/error; actual gRPC health endpoints -> production connections/monitors -> idempotent Close and externally triggered Shutdown -> observed monitor completion and closed connections."
+
+[gotcha.22.33.879]
+observed = "The task simultaneously requests an unchanged-tree verify and forbids testing before complete implementation or outside hf-done; scope also forbids editing the spec and root gotcha ledgers."
+resolution = "Follow the explicit gate order and record the contradiction here; preserve the runner's existing .cgignore/spec edits and leave all out-of-scope files untouched."
+
+[qualification.attempt_1_blocker]
+revision = "de12fb21baf9e2dfff996899dca08685047cd499"
+command = "go build ./tools/benchmark/loadtest/..."
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "Inherited SDK auth/staking CLI and tokenfactory CLI callers treat tx.NewFactoryCLI as returning one value although its interface now returns (Factory, error); hf-build fails before loadtest can compile and hf-done requires a passing build."
+assumption = "Historical attempt-1 blocker in the SDK and tokenfactory domains; task 22.31.463 supplies the caller repair on the attempt-2 base. Preserve the implementation and qualify through hf-build followed by hf-done; no passing result is claimed here."
+
+[wiring.build-interface]
+request = "sdk/x/auth/client/cli/{tx_multisign.go,tx_sign.go,validate_sigs.go} and sdk/x/staking/client/cli/tx.go (SDK domain), modules/tokenfactory/client/cli/tx.go (tokenfactory domain): consume and propagate the new tx.NewFactoryCLI error so the declared loadtest gates can compile."
