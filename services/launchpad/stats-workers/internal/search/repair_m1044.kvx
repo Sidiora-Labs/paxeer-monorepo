@@ -1,0 +1,21 @@
+[task]
+id = "22.33.1044"
+audit = "22.30.40"
+finding = "public_search_fixture_disconnect"
+proof = ["TestRepairM_1044_CanonicalDeliveryGenerationAndPublicDTO", "TestRepairM_1044_RestartCursorContinuityAndVisibilityWithdrawal", "TestRepairM_1044_RedeliveryAfterRestartDoesNotChangeSnapshot"]
+implementation = "The bounded tests drive delivery.Store.Produce and its durable outbox through the production envelope codec, Projection consumers, BeginGeneration/GenerationDigest/ActivateGeneration, Store.Search and RegisterCanonicalSearch over loopback HTTP; the caller validates the frozen SearchResponse. Existing database coverage now writes via applyChangeTx and reads the same v2 generation, document and authority relations."
+fixture_boundary = "An in-process, transactionally snapshotted relational persistence peer speaks the PostgreSQL protocol to real pgx pools; it accepts production SQL writes, holds canonical source facts, and derives query rows from those writes. It is not PostgreSQL and does not qualify PostgreSQL SQL execution, locking or durability. No second search schema or search result rows are seeded. Source authority inputs and delivery acknowledgements are in-process peers; the upstream indexer, NATS driver, app startup and core-api proxy are outside this bounded proof."
+restart = "Close the HTTP server and PostgreSQL client pool, discard and reconstruct the production handler, delivery store and Projection against retained peer state; continue an existing cursor, deduplicate a stored canonical creation, and preserve visibility withdrawal through a new activated generation."
+baseline = "No baseline gate ran: the explicit ordered instructions permit only hf-build then hf-done after completed implementation; no pre-change failing tests are claimed."
+evidence = "The runner hf-build/hf-done ledger records the exact candidate revision, command, exit code and private evidence log; the final response copies its final evidence line."
+
+[wiring]
+app = "services/launchpad/stats-workers/internal/app (domain 4 launchpad stats owner): drive configured canonical creation, metadata and moderation subscriptions through app startup, then query its registered public /v2/search route with the same restart and generation scenarios."
+proxy = "services/launchpad/api/internal/rest (domain 4 core-api owner): extend RegisterV2SearchProxy integration coverage through the stats route and frozen caller DTO after restart, metadata changes, visibility withdrawal and cursor continuation."
+producer = "services/launchpad/indexer/internal and metadata/moderation source owners (domain 4): emit committed creation and authorized metadata/moderation source facts into the shared durable delivery integration, replacing the source peer inputs with producer-owned transcripts."
+
+[gotcha]
+legacy_fixture = "TestPostgresCanonicalSearch seeded legacy generation/documents/visibility although Store.Search reads v2; its fixture now uses production applyChangeTx writes and its lock and snapshot checks target v2."
+protocol_boundary = "The dependency-free in-process peer checks production protocol and SQL relation wiring; real PostgreSQL and broker qualification remain with the existing integration suite and must not be inferred from this gate."
+
+qualification_repair = "The initial verify failed compiling the loopback persistence peer because pgx v5.10 BackendKeyData.SecretKey is []byte; the repair uses four key bytes and decodes Exec-mode untyped text parameters explicitly. Exact failed and repaired revisions remain in the private gate ledger."
