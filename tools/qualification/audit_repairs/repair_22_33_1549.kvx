@@ -1,0 +1,42 @@
+[task.22.33.1549]
+base_revision = "76c050242a1edcad6212aa52fac15670ecb5612d"
+checkout_revision = "d88e0c35a3dbe0f06d5750634a4b57a3238b3b5b"
+readme_owner_task = "22.31.470"
+readme_revision = "38801bb427090ac96d47c86a026a63ec05e67315"
+repair = "Qualify audit 22.30.96 finding f59 against the production README already rewritten by 22.31.470: one paxd BFT network with an embedded block-proposing kernel, EVM chain 125, verified block-commit finality, root public JSON-RPC, current node/client entrypoints and retired custody/checkpoint executors. README.md remains unchanged under decision 2525."
+source_proof = "Eight pytest tests assert README source facts, parse its curl command and JSON request in-process, validate HTTPS root URLs, and connect documented transaction production to rpc/send.go acceptance/forwarding, node/sequencer/accepter.go durable receipt publication and rpc/sequencer_receipt.go committed block coverage. They check host/consensus declarations, topology and sequence diagrams, retirement gates, current node build/start and client paths, hosted OpenRPC versus native px registrations, and the audit-to-test mapping. No shell script, unit file, manifest or build file is repaired by f59; build targets are checked as source declarations only."
+review_only = "Native Go/C/Rust builds and execution, node provisioning/startup, cryptographic verification, live endpoint availability, actual BFT commitment and WAL restart/recovery are not executed by this offline documentation gate. Source facts establish documented producer/transport/consumer connections, not runtime certification. No stateful component or interface changes; no restart-recovery or interface-mismatch proof is claimed."
+baseline = "Initial git status/diff showed inherited .cgignore and spec task-status bookkeeping only; both scoped files were absent. gate.json recorded zero builds and verifies and no gates.jsonl existed. No pre-change verification was run: explicit implementation-first ordering and the exclusive hf-done verification gate supersede the older step 5 baseline request. No pre-change failing test is claimed."
+wiring_requests = []
+wiring_policy = "README.md belongs to domain 16, task 22.31.470, under decision 2525; its f59 expected facts are present at readme_revision, so no missing-fact request remains. Any missing README fact must be a one-line wiring request naming README.md and owning domain 16/task 22.31.470 rather than an out-of-scope edit."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1549.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The last hf-done JSON and private evidence ledger name the exact verified candidate revision, command, exit code and log path. Build and verification must pass on the same candidate revision. This record is finalized before qualification because embedding its own candidate hash would change the verified content; readme_revision identifies the source being checked. Completion is conditional on hf-done passing; the runner retains evidence and publishes, without manual commit or push."
+
+[finding.f59]
+audit = "22.30.96"
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+expected = "The finished network is one paxd BFT chain, EVM chain id 125, final at verified block commitment. Public node JSON-RPC uses root URLs; px_ joins belong to the hosted gateway, with no standalone LayerX router or guarantor finality."
+proposal = "Update the architecture and quick-start to one paxd network with an embedded kernel and block-commit finality. Replace standalone layerxd build/run guidance with current node and client entrypoints and root public JSON-RPC URLs."
+resolution = "The owning task's README satisfies the proposal. The tests assert its integrated architecture, root host range and chain probe, real submission/receipt source connections, committed proof trust, retired executors and current node/client guidance without editing README.md."
+tests = ["test_f59_integrated_network_and_merge_status", "test_f59_root_rpc_hosts_and_chain_probe", "test_f59_transaction_to_committed_receipt_source_path", "test_f59_diagrams_keep_execution_and_finality_in_one_network", "test_f59_retired_executors_and_historical_daemon_only", "test_f59_current_node_and_client_entrypoints", "test_f59_hosted_contract_is_distinct_from_public_node_rpc", "test_f59_record_identifies_finding_proofs_and_qualification_limits"]
+
+[reconciliation.px_methods]
+observed = "The audit expectation reserves px_ joins to the hosted gateway; it must not imply that every px_ method is absent from the public node."
+authority = "rpc/server.go registers native px account/history and receipt-key services; services/platform/hosted/gateway/openrpc.json declares hosted methods."
+resolution = "Assert the README's explicit server-contract distinction and hosted operator-provided URL; preserve the native px subset rather than impose a false blanket namespace exclusion."
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. After complete implementation, apply .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions only."
+
+[gotcha.1]
+observed = "Broad combined context reads can exceed output limits, and Codify brief can report unrelated tasks or more changes than Git status; guessed sibling files or manifests can be absent."
+resolution = "Use bounded source sections, actual Git status/diff and the private gate ledger. Keep task notes here because GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.2]
+observed = "The older audit step requests a baseline verify although the explicit task order prohibits verification before full implementation and permits only hf-done."
+resolution = "Follow the explicit gate order, disclose the absent baseline and claim only the bounded evidence actually produced."

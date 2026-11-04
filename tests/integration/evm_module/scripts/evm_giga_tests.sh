@@ -18,7 +18,7 @@ cd contracts
 
 # Clean install - remove cached modules to avoid version conflicts
 rm -rf node_modules/.cache
-npm ci --prefer-offline || npm install
+npm ci --prefer-offline
 
 # Run the GIGA-specific tests
 npx hardhat test --network paxlocal test/EVMGigaTest.js

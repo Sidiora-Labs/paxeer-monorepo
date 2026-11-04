@@ -1,0 +1,52 @@
+[repair]
+id = "22.33.760"
+requirement = "22998.1"
+base_revision = "76c050242a1edcad6212aa52fac15670ecb5612d"
+implementation = "Keep every historical v2.0.0/v1.0.3 command and verifier unchanged and label their case names Historical. Add separate current_major_upgrade_test.yaml and current_minor_upgrade_test.yaml entry points, and merge_upgrade_proof.py to own real paxd processes on a disposable prepared home. No historical UPGRADE_VERSION_LIST binary simulation is used for the new scenarios."
+source_proof = "Pytest parses both historical and both current YAML suites, hashes the complete historical fixtures after undoing only their name changes, checks every new runner argument and success verifier, and parses the native scenario with Python AST. It asserts two distinct source/SHA-256 artifact pins, independent release-kit digest, native ELF/version checks, scheduled/applied production governance CLI shapes, fixed-height kernel balance/sequence/Programs state-head ABI reads, EVM balance/storage, chain-125 signed transaction consumers, committed receipt verification, binary replacement and stop/reopen state/receipt/block checks. It reads the real submission, transport, signed receipt verifier, committed receipt and upgrade-handler producers. Direct execution covers the real scenario's state-loss rejection in all five domains and artifact tamper/non-ELF refusal. No shell script, unit, manifest or build file is modified; there is no bash -n subprocess in this offline gate."
+review_only = "Native compilation, publication/provenance of the release kit, supported artifact availability, governance execution, state-producing signed transactions, running paxd, receipt signature execution, actual binary transition and recovery are not executed by this Python-only gate. The added native scenario requires real pinned binaries and a disposable prepared chain on a native qualification host; source assertions are not runtime evidence and do not certify a deployed network. These are test-gap findings, not a claim of an executed restart-recovery or interface-mismatch repair."
+activation_limit = "The major scenario deliberately requires pre-merge kernel/work and committed receipt baselines as the proposal requests, and fails rather than inventing them. Current node/upgrades.go activates sequencer genesis at v7.0 with last_seq zero, while merged precompile reads are gated by merge activation; this checkout supplies no supported pre-merge state/receipt fixture or artifact pair demonstrating that baseline. The owning domains must resolve this native rehearsal prerequisite and supply the supported transition; this record does not claim that native activation readiness is proven."
+baseline = "No pre-change verification was run: the explicit Order forbids testing until the entire implementation is complete, requires hf-build before hf-done, and forbids verify_cmd by hand. No already-failing baseline tests are claimed. Initial gate.json showed builds_used=0 and verify_runs_used=0, and /out/run/gates.jsonl did not exist."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_760.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The last hf-done JSON and private /out/run/gates.jsonl name the verified revision, exact command, exit and private log. Build and verify must use the same candidate revision. This record is finalized before qualification: embedding its own content-derived candidate hash would change that hash; the evidence ledger and final response carry the exact verified revision. The runner commits; no commit or push is performed here."
+wiring_request = "tools/release and tools/qualification/paxeer-x/fixtures | owner domain 16 (integration/qualification), coordinated with the node/kernel release owners | Supply and independently pin old/new native paxd binaries and source provenance, mount major.json/minor.json and their independently recorded SHA-256 pins at /run/upgrade-proof in isolated pax-node-0 containers, stage disposable-upgrade-home with the passed real plan and authorized local signers/receipt-key pins, supply real signed kernel/work/EVM producers and exact before/after expectations, resolve the pre-merge baseline prerequisite, and run each current YAML scenario once with the native production node; preserve its private evidence JSON."
+format = "No Python/KVX formatter is configured for these paths; apply repository EditorConfig UTF-8, LF, final newline and trailing-whitespace rules. YAML follows the repository's two-space indentation."
+closure = "The source-coverage repair is qualified only by the declared hf-done result. Native transition/recovery evidence and the major baseline prerequisite remain the explicit owning-domain wiring request; no runtime closure is inferred from a source-only gate."
+
+[finding.major-merge-state-coverage]
+audit = "22.30.172"
+file = "tests/integration/upgrade_module/major_upgrade_test.yaml"
+line = 27
+class = "test-gap"
+severity = "medium"
+observed = "The v2.0.0 major fixture checks version/halt behavior without establishing merged-kernel state, work, committed receipts or cross-VM balances before/after upgrade."
+expected = "Merged-network readiness needs the actual supported artifact transition and proof committed application state survives it."
+scenario = "tests/integration/upgrade_module/current_major_upgrade_test.yaml"
+tests = ["test_major_merge_state_coverage", "test_historical_fixtures_retain_every_command_and_assertion", "test_digest_pins_governance_and_owned_process_lifecycle", "test_kernel_evm_state_reads_use_real_abi_at_one_committed_height", "test_receipts_prove_real_producer_transport_and_commit_consumer_path", "test_restart_reopens_same_home_and_rechecks_state_blocks_and_receipts", "test_state_validator_rejects_loss_in_every_preserved_domain", "test_artifact_guard_refuses_changed_bytes_and_non_native_artifacts", "test_repair_record_maps_both_findings_and_distinguishes_source_from_runtime_proof"]
+proof = "Source contract and actual Python validator execution; native v7.0 transition is review-only with the activation prerequisite recorded above."
+
+[finding.minor-merge-state-coverage]
+audit = "22.30.172"
+file = "tests/integration/upgrade_module/minor_upgrade_test.yaml"
+line = 27
+class = "test-gap"
+severity = "medium"
+observed = "The v1.0.3 minor fixture checks process/version lifecycle without validating merged-kernel or EVM data preservation."
+expected = "Current upgrade readiness requires the supported artifact transition with committed state and receipt checks across restart."
+scenario = "tests/integration/upgrade_module/current_minor_upgrade_test.yaml"
+tests = ["test_minor_merge_state_coverage", "test_historical_fixtures_retain_every_command_and_assertion", "test_digest_pins_governance_and_owned_process_lifecycle", "test_kernel_evm_state_reads_use_real_abi_at_one_committed_height", "test_receipts_prove_real_producer_transport_and_commit_consumer_path", "test_restart_reopens_same_home_and_rechecks_state_blocks_and_receipts", "test_state_validator_rejects_loss_in_every_preserved_domain", "test_artifact_guard_refuses_changed_bytes_and_non_native_artifacts", "test_repair_record_maps_both_findings_and_distinguishes_source_from_runtime_proof"]
+proof = "Source contract and actual Python validator execution; supported post-merge minor artifact pair and native preservation/restart execution are review-only and requested from the owning domain."
+
+[gotcha.baseline_order]
+observed = "The unchanged-tree baseline step contradicts the explicit implementation-first, hf-build-then-hf-done, wrapper-only Order."
+resolution = "Follow the explicit Order and claim no baseline execution; GOTCHA.kvx and spec files are outside this task's permitted paths."
+
+[gotcha.stale_graph]
+observed = "cg brief/survey reports unrelated graph paths and an unrelated next task, while Git shows only runner-prepared bookkeeping before implementation."
+resolution = "Use the assigned task block, Git diff and private gate ledger; preserve runner-prepared .cgignore and spec status edits."
+
+[gotcha.applied_cli_shape]
+observed = "The production upgrade applied CLI prints the first BlockMeta rather than the AppliedPlan gRPC response."
+resolution = "Read its header.height and assert the production MarshalJSONIndent(headers.BlockMetas[0]) producer in the offline test."

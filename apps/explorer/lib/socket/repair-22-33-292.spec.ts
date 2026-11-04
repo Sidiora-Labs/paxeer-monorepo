@@ -141,7 +141,7 @@ function setVisibility(state: 'hidden' | 'visible') {
   document.dispatchEvent(new Event('visibilitychange'));
 }
 
-async function socketBufferBoundsTheEntireHiddenBurst() {
+test('socketBufferBoundsTheEntireHiddenBurst', async function socketBufferBoundsTheEntireHiddenBurst() {
   const flushes: Array<{ items: Array<number>; overflowed: boolean }> = [];
   const mounted = renderHook(() => useSocketBuffer<number>({
     onFlush: (items, status) => flushes.push({ items, overflowed: status.overflowed }),
@@ -168,9 +168,9 @@ async function socketBufferBoundsTheEntireHiddenBurst() {
     mounted.unmount();
     setVisibility('visible');
   }
-}
+});
 
-async function socketCountBufferAccumulatesWithoutGrowingWhileHeld() {
+test('socketCountBufferAccumulatesWithoutGrowingWhileHeld', async function socketCountBufferAccumulatesWithoutGrowingWhileHeld() {
   const flushes: Array<number> = [];
   const mounted = renderHook(({ paused }) => useSocketCountBuffer({
     onFlush: (count) => flushes.push(count), isPaused: paused, intervalMs: 20,
@@ -195,9 +195,9 @@ async function socketCountBufferAccumulatesWithoutGrowingWhileHeld() {
   mounted.result.current.push(Number.MAX_SAFE_INTEGER);
   expect(() => mounted.result.current.push(1)).toThrow(RangeError);
   expect(mounted.result.current.size).toBe(1);
-}
+});
 
-async function socketBufferHonorsReducedLimitsAndCurrentRecoveryCallbacks() {
+test('socketBufferHonorsReducedLimitsAndCurrentRecoveryCallbacks', async function socketBufferHonorsReducedLimitsAndCurrentRecoveryCallbacks() {
   const flushes: Array<Array<number>> = [];
   const recoveries: Array<string> = [];
   const mounted = renderHook(({ limit, marker, paused }) => useSocketBuffer<number>({
@@ -219,9 +219,9 @@ async function socketBufferHonorsReducedLimitsAndCurrentRecoveryCallbacks() {
   expect(flushes).toEqual([]);
   mounted.result.current.push(8);
   await waitFor(() => expect(flushes).toEqual([ [ 8 ] ]));
-}
+});
 
-async function socketRowsRefetchTheFirstPageAfterAPausedOverflow() {
+test('socketRowsRefetchTheFirstPageAfterAPausedOverflow', async function socketRowsRefetchTheFirstPageAfterAPausedOverflow() {
   const peer = new SocketPeer();
   await peer.open();
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity, gcTime: Infinity } } });
@@ -284,9 +284,9 @@ async function socketRowsRefetchTheFirstPageAfterAPausedOverflow() {
     client.clear();
     await peer.stop();
   }
-}
+});
 
-async function sharedChannelReleasesOneOwnerAndRejoinsEveryRemainingSubscriber() {
+test('sharedChannelReleasesOneOwnerAndRejoinsEveryRemainingSubscriber', async function sharedChannelReleasesOneOwnerAndRejoinsEveryRemainingSubscriber() {
   const peer = new SocketPeer();
   await peer.open();
   const seen = {
@@ -357,9 +357,9 @@ async function sharedChannelReleasesOneOwnerAndRejoinsEveryRemainingSubscriber()
     mounted.unmount();
     await peer.stop();
   }
-}
+});
 
-async function socketStreamReconcilesMissedRowsAfterPeerAndConsumerRestart() {
+test('socketStreamReconcilesMissedRowsAfterPeerAndConsumerRestart', async function socketStreamReconcilesMissedRowsAfterPeerAndConsumerRestart() {
   const peer = new SocketPeer();
   await peer.open();
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity, gcTime: Infinity } } });
@@ -426,9 +426,9 @@ async function socketStreamReconcilesMissedRowsAfterPeerAndConsumerRestart() {
     client.clear();
     await peer.stop();
   }
-}
+});
 
-function socketReplayContractsMatchTheCommittedNotifierAndGateway() {
+test('socketReplayContractsMatchTheCommittedNotifierAndGateway', function socketReplayContractsMatchTheCommittedNotifierAndGateway() {
   const backend = 'services/explorer/backend/apps/block_scout_web';
   const notifier = readFileSync(resolve(ROOT, backend, 'lib/block_scout_web/notifier.ex'), 'utf8');
   const channel = readFileSync(resolve(ROOT, backend, 'lib/block_scout_web/channels/v2/transaction_channel.ex'), 'utf8');
@@ -445,12 +445,4 @@ function socketReplayContractsMatchTheCommittedNotifierAndGateway() {
   expect(gateway).toContain('Some(ws::serve_explorer(');
   expect(gateway).toContain('path: "/api/v2/transactions",');
   expect(recordedRows.length).toBeGreaterThanOrEqual(40);
-}
-
-test(socketBufferBoundsTheEntireHiddenBurst.name, socketBufferBoundsTheEntireHiddenBurst);
-test(socketCountBufferAccumulatesWithoutGrowingWhileHeld.name, socketCountBufferAccumulatesWithoutGrowingWhileHeld);
-test(socketBufferHonorsReducedLimitsAndCurrentRecoveryCallbacks.name, socketBufferHonorsReducedLimitsAndCurrentRecoveryCallbacks);
-test(socketRowsRefetchTheFirstPageAfterAPausedOverflow.name, socketRowsRefetchTheFirstPageAfterAPausedOverflow);
-test(sharedChannelReleasesOneOwnerAndRejoinsEveryRemainingSubscriber.name, sharedChannelReleasesOneOwnerAndRejoinsEveryRemainingSubscriber);
-test(socketStreamReconcilesMissedRowsAfterPeerAndConsumerRestart.name, socketStreamReconcilesMissedRowsAfterPeerAndConsumerRestart);
-test(socketReplayContractsMatchTheCommittedNotifierAndGateway.name, socketReplayContractsMatchTheCommittedNotifierAndGateway);
+});

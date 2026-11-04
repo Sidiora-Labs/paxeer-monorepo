@@ -1,0 +1,44 @@
+[repair]
+task = "22.33.1379"
+base_revision = "76c050242a1edcad6212aa52fac15670ecb5612d"
+implementation = "Move the perf-db Cargo update policy to repository-root .github/dependabot.yml, target /services/platform/perf-db, and retain the weekly schedule, limit of 10 open pull requests and dependencies group matching all packages. Merge its weekly repository-root GitHub Actions policy with the existing weekly root entry, retaining that entry's limit of 5. Remove the inactive nested dependabot.yml; all nine pre-existing root policies and all nested workflow files remain unchanged."
+baseline = "Pre-change verification was not run: the mandatory implementation-first order and exclusive hf-done verification gate supersede step 5's baseline request. No test is claimed to have failed before the change. Initial status/diff contained only runner-prepared .cgignore and spec task-start changes; no task repair files existed. /out/run/gate.json recorded zero build and verify runs and two repair cycles available; /out/run/gates.jsonl did not exist. Preserve the runner-prepared changes."
+source_proof = "Four offline tests parse the production root Dependabot YAML with PyYAML, the actual crate Cargo.toml and Cargo.lock with tomllib, and this repair record with tomllib. They prove root discovery placement, removal of nested configuration, the exact Cargo target, weekly schedule, open-PR limit and wildcard dependency group; preservation of every existing root update policy and one merged GitHub Actions policy; and resolution of the configured Cargo directory to the real perfdb manifest, its locked dependencies and their group coverage."
+review_only = "GitHub configuration discovery and hosted Dependabot scheduling, dependency resolution and pull-request creation are reviewed from the configuration, not executed by this source gate. No Cargo build toolchain runs. This config-drift repair changes no runtime interface or persistent state; restart-recovery and interface-driving tests do not apply. No shell script or unit file changes. Tests require no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device."
+wiring_requests = []
+scope = [".github/dependabot.yml", "services/platform/perf-db/.github", "tools/qualification/audit_repairs/repair_22_33_1379.kvx", "tools/qualification/audit_repairs/test_repair_22_33_1379.py"]
+
+[finding.perf-dependabot-location]
+audit = "22.30.75"
+file = "services/platform/perf-db/.github/dependabot.yml"
+line = 3
+class = "config-drift"
+severity = "medium"
+observed = "The Dependabot configuration is nested under the crate's .github directory and its Cargo directory is /. GitHub discovers only repository-root configuration, and no Cargo.toml exists at this configured root."
+expected = "The database dependency policy must target its actual manifest from the monorepo's active dependency automation configuration."
+proposal = "Move or merge these entries into repository-root .github/dependabot.yml and target /services/platform/perf-db for Cargo updates, preserving the intended schedule and grouping."
+owner_domain = 8
+resolution = "The Cargo policy now resides in the active root config and targets the actual crate; the nested Actions policy is merged into the existing root Actions entry. The full proposal is within the explicitly allowed paths, so no external wiring is required."
+tests = ["test_perf_dependabot_location", "test_existing_dependabot_updates_preserved", "test_perf_dependabot_policy_reaches_manifest_dependencies"]
+
+[evidence]
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1379.py"
+gate_cmd = "cg spec done 22.33.1379 -f layerx-merge --root /work/paxeer-monorepo"
+private_ledger = "/out/run/gates.jsonl"
+verified_revision_source = "The successful hf-done entry in the private ledger and its final JSON line record the exact candidate revision, command, exit code and private log path; build and verify must name the same candidate revision."
+
+[gotcha.baseline_order]
+observed = "Step 5 requests a pre-change verify, but the explicit gate order forbids tests before the whole implementation and direct execution of verify_cmd."
+resolution = "Follow the explicit gate order and document that baseline verification did not run; never fabricate baseline failures."
+
+[gotcha.scope]
+observed = "Inherited instructions request appending GOTCHA.kvx and editing spec files, which are outside this task's explicit scope."
+resolution = "Record gotchas here and leave out-of-scope files untouched; hf-done owns completion bookkeeping and the runner owns commits."
+
+[gotcha.read_budget]
+observed = "Broad combined context reads exceeded the output budget."
+resolution = "Read the exact finding, task block, gate state and relevant configuration in bounded calls."
+
+[format]
+policy = "No Python, YAML or KVX formatter is configured for these paths. Follow .editorconfig and pre-commit whitespace/final-newline conventions on touched files only, retaining YAML two-space indentation."

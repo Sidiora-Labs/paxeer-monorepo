@@ -7,8 +7,8 @@ env_file=${1:?usage: render.sh <hosts.env> <out-dir>}
 out=${2:?usage: render.sh <hosts.env> <out-dir>}
 here=$(cd "$(dirname "$0")" && pwd)
 
-HOSTS="" COMET_METRICS_PORT=26660 NODE_EXPORTER_PORT=9100 EDGE_CERT_URLS=""
-SEQUENCER_PRIMARY_READYZ_URLS="" SEQUENCER_STANDBY_READYZ_URLS="" AUTHORITY_METRICS_URLS=""
+HOSTS="" COMET_METRICS_PORT=26660 COMET_RPC_PORT=26657 NODE_EXPORTER_PORT=9100 EDGE_CERT_URLS=""
+AUTHORITY_METRICS_URLS=""
 KEEPER_METRICS_URLS="" FEEDER_METRICS_URLS="" PAXAI_WORKER_METRICS_URLS="" AI_EVALUATOR_METRICS_URLS=""
 X_WEBSEARCH_METRICS_URLS="" WALLET_ATTESTOR_METRICS_URLS="" EXPLORER_INDEX_HEAD_URLS="" STREAM_METER_PROVIDER_URLS=""
 ALERT_WEBHOOK_URL="" ALERT_EMAIL_TO="" ALERT_EMAIL_FROM="" ALERT_SMTP_SMARTHOST="" ALERT_SMTP_USERNAME="" ALERT_SMTP_PASSWORD=""
@@ -62,8 +62,7 @@ url_targets() { # list strip-scheme
 
 host_targets "$COMET_METRICS_PORT" >"$out/targets/cometbft.json"
 host_targets "$NODE_EXPORTER_PORT" >"$out/targets/node.json"
-url_targets "$SEQUENCER_PRIMARY_READYZ_URLS" keep primary >"$out/targets/sequencer-primary-readyz.json"
-url_targets "$SEQUENCER_STANDBY_READYZ_URLS" keep standby >"$out/targets/sequencer-standby-readyz.json"
+python3 "$here/readiness.py" targets "$HOSTS" "$COMET_RPC_PORT" "$out/targets"
 url_targets "$AUTHORITY_METRICS_URLS" keep >"$out/targets/authority-metrics.json"
 url_targets "$KEEPER_METRICS_URLS" keep >"$out/targets/keeper-metrics.json"
 url_targets "$FEEDER_METRICS_URLS" keep >"$out/targets/feeder-metrics.json"
