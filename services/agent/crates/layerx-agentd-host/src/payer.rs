@@ -481,7 +481,7 @@ pub fn receipt(
         || protocol.timestamp() != execution.timestamp
         || protocol.context_hash() != execution.key_id
         || protocol.parameter_version() != 0
-        || protocol.asset() != <[u8; 32]>::from(Sha256::digest(execution.fee_denom.as_bytes()))
+        || protocol.asset() != <[u8; 32]>::from(Sha256::digest(execution.payment_denom.as_bytes()))
         || execution.fee_amount != fee
         || summary.gas_used() != execution.gas_used
         || summary.cumulative_gas_used() != execution.cumulative_gas_used
