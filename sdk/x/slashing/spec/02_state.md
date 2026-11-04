@@ -6,46 +6,80 @@ order: 2
 
 ## Signing Info (Liveness)
 
-Every block includes a set of precommits by the validators for the previous block,
-known as the `LastCommitInfo` provided by Tendermint. A `LastCommitInfo` is valid so
-long as it contains precommits from +2/3 of total voting power.
+The slashing module consumes votes for the previous block's commit through
+`VoteInfo.SignedLastBlock`. It tracks missed signatures over a sliding window
+and can slash and jail validators that fail its liveness threshold. Fee rewards
+are handled separately by [distribution](../../distribution/spec/03_begin_block.md).
 
-Proposers are incentivized to include precommits from all validators in the Tendermint `LastCommitInfo`
-by receiving additional fees proportional to the difference between the voting
-power included in the `LastCommitInfo` and +2/3 (see [fee distribution](x/distribution/spec/03_begin_block.md)).
+The current key constructors are in [`types/keys.go`](../types/keys.go);
+[`keeper/signing_info.go`](../keeper/signing_info.go) marshals the records.
+All addresses below are consensus-address bytes, prefixed by their one-byte
+length, rather than validator operator addresses.
 
-```
-type LastCommitInfo struct {
-	Round int32
-	Votes []VoteInfo
-}
-```
+| Key in the `slashing` store | Persisted value |
+| --- | --- |
+| `0x01 \| ConsAddrLen \| ConsAddress` | Protobuf `ValidatorSigningInfo` |
+| `0x02 \| ConsAddrLen \| ConsAddress` | Protobuf `ValidatorMissedBlockArray` |
+| `0x03 \| ConsAddrLen \| ConsAddress` | Interface-encoded consensus public key |
 
-Validators are penalized for failing to be included in the `LastCommitInfo` for some
-number of blocks by being automatically jailed, potentially slashed, and unbonded.
+The public-key relation is managed by [`keeper/keeper.go`](../keeper/keeper.go).
+The message definitions are in the local
+[slashing protobuf schema](../../../proto/cosmos/slashing/v1beta1/slashing.proto).
 
-Information about validator's liveness activity is tracked through `ValidatorSigningInfo`.
-It is indexed in the store as follows:
+`ValidatorSigningInfo` contains:
 
-- ValidatorSigningInfo: `0x01 | ConsAddrLen (1 byte) | ConsAddress -> ProtocolBuffer(ValSigningInfo)`
-- MissedBlocksBitArray: `0x02 | ConsAddrLen (1 byte) | ConsAddress | LittleEndianUint64(signArrayIndex) -> VarInt(didMiss)` (varint is a number encoding format)
+| Field | Purpose |
+| --- | --- |
+| `Address` | Bech32 consensus address |
+| `StartHeight` | Height used to calculate the initial liveness grace period |
+| `IndexOffset` | Next slot to overwrite in the circular bitmap |
+| `JailedUntil` | Earliest block time at which downtime unjailing is allowed |
+| `Tombstoned` | Permanent exclusion checked by the unjail path |
+| `MissedBlocksCounter` | Number of missed slots in the active window |
 
-The first mapping allows us to easily lookup the recent signing info for a
-validator based on the validator's consensus address.
+[`AfterValidatorBonded`](../keeper/hooks.go) creates a missing signing record with
+the current height, zero offset and counter, Unix epoch jail time and no
+tombstone. It leaves an existing record unchanged. A missing signing record or
+public-key relation during signature processing is an invariant failure and
+causes a panic; the keeper does not substitute zero-valued signing info.
 
-The second mapping (`MissedBlocksBitArray`) acts
-as a bit-array of size `SignedBlocksWindow` that tells us if the validator missed
-the block for a given index in the bit-array. The index in the bit-array is given
-as little endian uint64.
-The result is a `varint` that takes on `0` or `1`, where `0` indicates the
-validator did not miss (did sign) the corresponding block, and `1` indicates
-they missed the block (did not sign).
+## Packed missed-block window
 
-Note that the `MissedBlocksBitArray` is not explicitly initialized up-front. Keys
-are added as we progress through the first `SignedBlocksWindow` blocks for a newly
-bonded validator. The `SignedBlocksWindow` parameter defines the size
-(number of blocks) of the sliding window used to track validator liveness.
+`ValidatorMissedBlockArray` contains the consensus `Address`, the persisted
+`WindowSize` and `MissedBlocks`, an array of packed `uint64` words. Each validator
+has a single bitmap key, with no slot index appended to it.
 
-The information stored for tracking validator liveness is as follows:
+For window size `W`, the array contains `(W + 63) / 64` words. Slot `i` is bit
+`i % 64` of word `i / 64`, counted from the least significant bit. A bit of `1`
+means missed; `0` means no miss. Unused bits beyond the last active slot are
+excluded from the window. For example, a 65-slot window needs two words, using
+only bit zero of the second word.
 
-+++ https://github.com/cosmos/cosmos-sdk/blob/v0.40.0/proto/cosmos/slashing/v1beta1/slashing.proto#L11-L33
+When the bitmap is absent, the signature handler allocates the complete
+zero-filled array. BeginBlock persists the returned array unless the validator
+is being punished for downtime. Normal updates maintain the invariant that
+`MissedBlocksCounter` equals the number of set bits among the `WindowSize` active
+slots. The next index remains in `[0, W)` by advancing modulo `W`.
+
+A changed `SignedBlocksWindow` is detected by comparing it to the stored
+`WindowSize`, even if both sizes require the same number of words. Expansion
+inserts clear slots at the next write index while preserving all old slots and
+the missed counter. Shrinkage clears the window, counter and offset. The
+[BeginBlock algorithm](04_begin_block.md) then processes the current vote using
+the resized window.
+
+`SetValidatorMissedBlocks` writes the complete protobuf record.
+`ClearValidatorMissedBlockBitArray` deletes that one key when downtime punishment
+resets the counter and offset. A later vote can allocate a fresh window. These
+records reside in the persistent KV store, so committed liveness state survives
+restart.
+
+## Legacy migration input
+
+Older per-slot keys appended a little-endian `uint64` index to the `0x02` address
+key and stored a protobuf boolean wrapper. They are inputs to `Migrate2to3`,
+which collects missed heights into `ValidatorMissedBlockArrayLegacyMissedHeights`
+and deletes the old per-slot keys. `Migrate3to4` converts those height lists to
+the packed `ValidatorMissedBlockArray` and restores a circular offset in signing
+info. These legacy encodings are not the layout read by today's signature
+handler. See [`keeper/migrations.go`](../keeper/migrations.go).

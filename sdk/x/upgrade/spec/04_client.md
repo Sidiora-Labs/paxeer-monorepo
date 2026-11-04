@@ -4,164 +4,114 @@ order: 4
 
 # Client
 
+The `upgrade` module exposes the scheduled plan, applied upgrade heights and
+stored module consensus versions for the Paxeer node. These queries read the
+state of the same network that executes transactions and commits blocks. See the
+[upgrade overview](README.md) and [state layout](02_state.md) for context.
+
+The examples below use a local `paxd` node. The CLI uses its configured consensus
+RPC connection; REST requires the node's SDK API server, and gRPC requires its
+gRPC server. The local REST and gRPC addresses shown here are examples, not public
+mainnet endpoints. In `app.toml`, the relevant settings are `api.enable`,
+`api.address`, `grpc.enable` and `grpc.address`.
+
+Public Ethereum JSON-RPC is available at the root of the mainnet node URLs, such
+as `https://api1.mainnet-beta.paxeer.network`, with EVM chain ID `125` (`0x7d`).
+The Cosmos REST paths and gRPC service names below belong to the SDK query
+interfaces; configure an SDK query connection to use them.
+
+All outputs below are illustrative, not a snapshot of deployed upgrade state.
+The plan examples assume a scheduled plan named `test-upgrade` at height `130`
+with empty `info`. The applied-plan examples assume that name was already applied
+at height `30` in a separate example. Version examples assume a stored `upgrade`
+module consensus version of `1`; query the node for its actual version map.
+
 ## CLI
 
-A user can query and interact with the `upgrade` module using the CLI.
+Use `paxd query upgrade` to inspect the module:
+
+```bash
+paxd query upgrade --help
+```
 
 ### Query
 
-The `query` commands allow users to query `upgrade` state.
-
-```bash
-simd query upgrade --help
-```
-
 #### applied
 
-The `applied` command allows users to query the block header for height at which a completed upgrade was applied.
+The `applied` command looks up the named upgrade's recorded height and then
+fetches the block metadata at that height using the configured consensus RPC
+node:
 
 ```bash
-simd query upgrade applied [upgrade-name] [flags]
+paxd query upgrade applied test-upgrade
 ```
 
-If upgrade-name was previously executed on the chain, this returns the header for the block at which it was applied.
-This helps a client determine which binary was valid over a given range of blocks, as well as more context to understand past migrations.
+The output is JSON block metadata, including `block_id`, `block_size`, `header`
+and `num_txs`. It is not the height-only response returned by REST and gRPC. The
+header describes the block in which the upgrade was applied, which helps locate
+past migrations. Retrieving it also requires the node to retain that block's
+metadata.
 
-Example:
-
-```bash
-simd query upgrade applied "test-upgrade"
-```
-
-Example Output:
-
-```bash
-"block_id": {
-    "hash": "A769136351786B9034A5F196DC53F7E50FCEB53B48FA0786E1BFC45A0BB646B5",
-    "parts": {
-      "total": 1,
-      "hash": "B13CBD23011C7480E6F11BE4594EE316548648E6A666B3575409F8F16EC6939E"
-    }
-  },
-  "block_size": "7213",
-  "header": {
-    "version": {
-      "block": "11"
-    },
-    "chain_id": "testnet-2",
-    "height": "455200",
-    "time": "2021-04-10T04:37:57.085493838Z",
-    "last_block_id": {
-      "hash": "0E8AD9309C2DC411DF98217AF59E044A0E1CCEAE7C0338417A70338DF50F4783",
-      "parts": {
-        "total": 1,
-        "hash": "8FE572A48CD10BC2CBB02653CA04CA247A0F6830FF19DC972F64D339A355E77D"
-      }
-    },
-    "last_commit_hash": "DE890239416A19E6164C2076B837CC1D7F7822FC214F305616725F11D2533140",
-    "data_hash": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
-    "validators_hash": "A31047ADE54AE9072EE2A12FF260A8990BA4C39F903EAF5636B50D58DBA72582",
-    "next_validators_hash": "A31047ADE54AE9072EE2A12FF260A8990BA4C39F903EAF5636B50D58DBA72582",
-    "consensus_hash": "048091BC7DDC283F77BFBF91D73C44DA58C3DF8A9CBC867405D8B7F3DAADA22F",
-    "app_hash": "28ECC486AFC332BA6CC976706DBDE87E7D32441375E3F10FD084CD4BAF0DA021",
-    "last_results_hash": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
-    "evidence_hash": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
-    "proposer_address": "2ABC4854B1A1C5AA8403C4EA853A81ACA901CC76"
-  },
-  "num_txs": "0"
-}
-```
+If the module has no recorded applied height for that name, the CLI returns
+`no upgrade found`. If the block lookup returns no metadata, it returns
+`no headers returned for height <height>`; connection and lookup errors are also
+returned to the caller.
 
 #### module versions
 
-The `module_versions` command gets a list of module names and their respective consensus versions.
-
-Following the command with a specific module name will return only
-that module's information.
-
-```bash
-simd query upgrade module_versions [optional module_name] [flags]
-```
-
-Example:
+The `module_versions` command returns the stored module names and their consensus
+versions. With no argument it returns all stored entries; with a module name it
+returns only that entry:
 
 ```bash
-simd query upgrade module_versions
+paxd query upgrade module_versions --output json
+paxd query upgrade module_versions upgrade --output json
 ```
 
-Example Output:
+Illustrative output for the second command:
 
-```bash
-module_versions:
-- name: auth
-  version: "2"
-- name: authz
-  version: "1"
-- name: bank
-  version: "2"
-- name: capability
-  version: "1"
-- name: crisis
-  version: "1"
-- name: distribution
-  version: "2"
-- name: evidence
-  version: "1"
-- name: feegrant
-  version: "1"
-- name: genutil
-  version: "1"
-- name: gov
-  version: "2"
-- name: ibc
-  version: "2"
-- name: mint
-  version: "1"
-- name: params
-  version: "1"
-- name: slashing
-  version: "2"
-- name: staking
-  version: "2"
-- name: transfer
-  version: "1"
-- name: upgrade
-  version: "1"
-- name: vesting
-  version: "1"
+```json
+{
+  "module_versions": [
+    {
+      "name": "upgrade",
+      "version": "1"
+    }
+  ]
+}
 ```
 
-Example:
-
-```bash
-regen query upgrade module_versions ibc
-```
-
-Example Output:
-
-```bash
-module_versions:
-- name: ibc
-  version: "2"
-```
+These are module consensus versions, not node software release versions. An
+unknown module name returns a not-found error rather than an empty matching
+entry.
 
 #### plan
 
-The `plan` command gets the currently scheduled upgrade plan, if one exists.
+The `plan` command returns the currently scheduled plan:
 
 ```bash
-regen query upgrade plan [flags]
+paxd query upgrade plan --output json
 ```
 
-Example:
+Unlike REST and gRPC, the CLI prints the `Plan` directly, without a `plan` wrapper:
 
-```bash
-simd query upgrade plan
+```json
+{
+  "name": "test-upgrade",
+  "time": "0001-01-01T00:00:00Z",
+  "height": "130",
+  "info": "",
+  "upgraded_client_state": null
+}
 ```
 
-Example Output:
+For text output, the CLI converts the protobuf JSON to YAML:
 
 ```bash
+paxd query upgrade plan --output text
+```
+
+```yaml
 height: "130"
 info: ""
 name: test-upgrade
@@ -169,291 +119,205 @@ time: "0001-01-01T00:00:00Z"
 upgraded_client_state: null
 ```
 
+A plan has a nonempty `name`, a positive `height` and application-specific `info`.
+The `time` and `upgraded_client_state` fields remain in the wire format for
+compatibility, but time-based upgrades and setting an upgraded client state on
+this plan are rejected by `Plan.ValidateBasic`. The zero timestamp and null
+client state above are unset values, not scheduling instructions.
+
+When no plan is scheduled, the CLI exits with `no upgrade scheduled`. It does not
+print an empty plan or a bare upgrade name.
+
 ## REST
 
-A user can query the `upgrade` module using REST endpoints.
+These GET routes are registered through the SDK gRPC gateway. The examples assume
+the SDK API server is enabled at `http://localhost:1317`. Its marshaler uses
+protobuf field names such as `module_versions` and emits default values. Protobuf
+64-bit integer fields, including heights and versions, are JSON strings.
 
 ### Applied Plan
 
-`AppliedPlan` queries a previously applied upgrade plan by its name.
+`AppliedPlan` queries the recorded height for an upgrade name:
 
-```bash
+```text
 /cosmos/upgrade/v1beta1/applied_plan/{name}
 ```
 
-Example:
-
 ```bash
-curl -X GET "http://localhost:1317/cosmos/upgrade/v1beta1/applied_plan/v2.0-upgrade" -H "accept: application/json"
+curl --fail --silent --show-error \
+  'http://localhost:1317/cosmos/upgrade/v1beta1/applied_plan/test-upgrade'
 ```
 
-Example Output:
-
-```bash
+```json
 {
   "height": "30"
 }
 ```
 
+An unknown or unapplied name is a successful query with `{"height":"0"}`. This
+endpoint does not fetch a block header.
+
 ### Current Plan
 
-`CurrentPlan` queries the current upgrade plan.
+`CurrentPlan` returns an object containing the scheduled `Plan`:
 
-```bash
+```text
 /cosmos/upgrade/v1beta1/current_plan
 ```
 
-Example:
-
 ```bash
-curl -X GET "http://localhost:1317/cosmos/upgrade/v1beta1/current_plan" -H "accept: application/json"
+curl --fail --silent --show-error \
+  'http://localhost:1317/cosmos/upgrade/v1beta1/current_plan'
 ```
 
-Example Output:
-
-```bash
+```json
 {
-  "plan": "v2.1-upgrade"
+  "plan": {
+    "name": "test-upgrade",
+    "time": "0001-01-01T00:00:00Z",
+    "height": "130",
+    "info": "",
+    "upgraded_client_state": null
+  }
+}
+```
+
+When no plan is scheduled, the keeper returns a successful response with no
+`Plan`. With the node's default gateway marshaler, this is:
+
+```json
+{
+  "plan": null
 }
 ```
 
 ### Module versions
 
-`ModuleVersions` queries the list of module versions from state.
+`ModuleVersions` returns stored module consensus versions. An optional
+`module_name` query parameter selects a single module:
 
-```bash
+```text
 /cosmos/upgrade/v1beta1/module_versions
 ```
 
-Example:
-
 ```bash
-curl -X GET "http://localhost:1317/cosmos/upgrade/v1beta1/module_versions" -H "accept: application/json"
+curl --fail --silent --show-error \
+  'http://localhost:1317/cosmos/upgrade/v1beta1/module_versions'
+curl --fail --silent --show-error \
+  'http://localhost:1317/cosmos/upgrade/v1beta1/module_versions?module_name=upgrade'
 ```
 
-Example Output:
+Illustrative output for the filtered request:
 
-```bash
+```json
 {
   "module_versions": [
     {
-      "name": "auth",
-      "version": "2"
-    },
-    {
-      "name": "authz",
-      "version": "1"
-    },
-    {
-      "name": "bank",
-      "version": "2"
-    },
-    {
-      "name": "capability",
-      "version": "1"
-    },
-    {
-      "name": "crisis",
-      "version": "1"
-    },
-    {
-      "name": "distribution",
-      "version": "2"
-    },
-    {
-      "name": "evidence",
-      "version": "1"
-    },
-    {
-      "name": "feegrant",
-      "version": "1"
-    },
-    {
-      "name": "genutil",
-      "version": "1"
-    },
-    {
-      "name": "gov",
-      "version": "2"
-    },
-    {
-      "name": "ibc",
-      "version": "2"
-    },
-    {
-      "name": "mint",
-      "version": "1"
-    },
-    {
-      "name": "params",
-      "version": "1"
-    },
-    {
-      "name": "slashing",
-      "version": "2"
-    },
-    {
-      "name": "staking",
-      "version": "2"
-    },
-    {
-      "name": "transfer",
-      "version": "1"
-    },
-    {
       "name": "upgrade",
-      "version": "1"
-    },
-    {
-      "name": "vesting",
       "version": "1"
     }
   ]
 }
 ```
 
+If a requested module is absent, the keeper returns a not-found error containing
+`x/upgrade: QueryModuleVersions module <name> not found`. An unfiltered query
+returns the complete stored list, which can be empty.
+
 ## gRPC
 
-A user can query the `upgrade` module using gRPC endpoints.
+The service is `cosmos.upgrade.v1beta1.Query`, registered by the upgrade module.
+The commands below assume a local plaintext gRPC server at `localhost:9090` with
+reflection available. Use the transport and address configured for your node.
+
+`grpcurl` renders protobuf JSON with lower camel case field names by default,
+whereas the REST gateway uses the original snake case names. The commands below
+use `-emit-defaults` to make unset fields visible. Heights and versions remain
+JSON strings.
 
 ### Applied Plan
 
-`AppliedPlan` queries a previously applied upgrade plan by its name.
-
-```bash
+```text
 cosmos.upgrade.v1beta1.Query/AppliedPlan
 ```
 
-Example:
-
 ```bash
-grpcurl -plaintext \
-    -d '{"name":"v2.0-upgrade"}' \
-    localhost:9090 \
-    cosmos.upgrade.v1beta1.Query/AppliedPlan
+grpcurl -plaintext -emit-defaults \
+  -d '{"name":"test-upgrade"}' \
+  localhost:9090 cosmos.upgrade.v1beta1.Query/AppliedPlan
 ```
 
-Example Output:
-
-```bash
+```json
 {
   "height": "30"
 }
 ```
 
+As with REST, an unapplied name returns height `"0"` successfully; this method
+returns no block metadata.
+
 ### Current Plan
 
-`CurrentPlan` queries the current upgrade plan.
-
-```bash
+```text
 cosmos.upgrade.v1beta1.Query/CurrentPlan
 ```
 
-Example:
-
 ```bash
-grpcurl -plaintext localhost:9090 cosmos.slashing.v1beta1.Query/CurrentPlan
+grpcurl -plaintext -emit-defaults -d '{}' \
+  localhost:9090 cosmos.upgrade.v1beta1.Query/CurrentPlan
 ```
 
-Example Output:
-
-```bash
+```json
 {
-  "plan": "v2.1-upgrade"
+  "plan": {
+    "name": "test-upgrade",
+    "time": "0001-01-01T00:00:00Z",
+    "height": "130",
+    "info": "",
+    "upgradedClientState": null
+  }
 }
 ```
 
+When no plan is scheduled, the RPC succeeds with an unset `plan` field. With
+`-emit-defaults`, `grpcurl` renders `{"plan":null}`; without that option it omits
+the field and renders `{}`. The CLI translates this same absence into its
+`no upgrade scheduled` error.
+
 ### Module versions
 
-`ModuleVersions` queries the list of module versions from state.
-
-```bash
+```text
 cosmos.upgrade.v1beta1.Query/ModuleVersions
 ```
 
-Example:
+Query all stored modules with an empty request, or supply `module_name` to filter:
 
 ```bash
-grpcurl -plaintext localhost:9090 cosmos.slashing.v1beta1.Query/ModuleVersions
+grpcurl -plaintext -emit-defaults -d '{}' \
+  localhost:9090 cosmos.upgrade.v1beta1.Query/ModuleVersions
+grpcurl -plaintext -emit-defaults -d '{"module_name":"upgrade"}' \
+  localhost:9090 cosmos.upgrade.v1beta1.Query/ModuleVersions
 ```
 
-Example Output:
+Illustrative output for the filtered request:
 
-```bash
+```json
 {
-  "module_versions": [
-    {
-      "name": "auth",
-      "version": "2"
-    },
-    {
-      "name": "authz",
-      "version": "1"
-    },
-    {
-      "name": "bank",
-      "version": "2"
-    },
-    {
-      "name": "capability",
-      "version": "1"
-    },
-    {
-      "name": "crisis",
-      "version": "1"
-    },
-    {
-      "name": "distribution",
-      "version": "2"
-    },
-    {
-      "name": "evidence",
-      "version": "1"
-    },
-    {
-      "name": "feegrant",
-      "version": "1"
-    },
-    {
-      "name": "genutil",
-      "version": "1"
-    },
-    {
-      "name": "gov",
-      "version": "2"
-    },
-    {
-      "name": "ibc",
-      "version": "2"
-    },
-    {
-      "name": "mint",
-      "version": "1"
-    },
-    {
-      "name": "params",
-      "version": "1"
-    },
-    {
-      "name": "slashing",
-      "version": "2"
-    },
-    {
-      "name": "staking",
-      "version": "2"
-    },
-    {
-      "name": "transfer",
-      "version": "1"
-    },
+  "moduleVersions": [
     {
       "name": "upgrade",
-      "version": "1"
-    },
-    {
-      "name": "vesting",
       "version": "1"
     }
   ]
 }
 ```
+
+A missing requested module returns the same keeper not-found error described
+above. An unfiltered query with no stored versions succeeds with an empty list.
+
+The wire contracts are defined in
+[`query.proto`](../../../proto/cosmos/upgrade/v1beta1/query.proto) and
+[`upgrade.proto`](../../../proto/cosmos/upgrade/v1beta1/upgrade.proto).
+[`grpc_query.go`](../keeper/grpc_query.go) implements the state queries,
+[`query.go`](../client/cli/query.go) defines the CLI's additional behavior, and
+[`module.go`](../module.go) registers the query service and gateway routes.

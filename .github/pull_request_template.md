@@ -9,17 +9,20 @@ Describe the change, the affected trust boundary, and why it is necessary.
 
 ## Test evidence
 
-List every command run and its exact outcome. Explain any gate not run.
+List every command run, the verified revision, and its exact outcome. Explain any gate not run.
+Keep raw qualification records in access-controlled storage; include only reviewed technical evidence here.
 
 ```
+revision:
 command:
 exit code:
+private evidence location:
 ```
 
 ## Checklist
 
 - [ ] I changed KVX/source documents rather than generated specification mirrors.
-- [ ] I preserved canonical encoding, deterministic replay, and 402LXP sole-writer invariants.
+- [ ] I preserved canonical encoding, deterministic replay, and the merged chain-125 paxd ledger's committed-state authority and native bank invariants.
 - [ ] I added real positive, negative, and adversarial coverage appropriate to the change.
 - [ ] I introduced no credentials, local artifacts, private infrastructure identifiers, mocks, stubs, or placeholders.
 - [ ] I am not representing local verification as production certification or deployment authorization.

@@ -37120,6 +37120,15 @@ verification_contract = "cargo test --locked --manifest-path services/agent/Carg
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
 
+[capability.22.31.440]
+title = "Replace the undeclared ganache import in the revoke hooks repair test of apps/explorer with an in-process JSON-RPC fixture so the explorer type-check passes again"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/repair-22-31-381.spec.ts"]
+tests = ["apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/repair-22-31-381.spec.ts"]
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run ui/marketplace/essentialDapps/revoke/hooks/repair-22-31-381.spec.ts"
+do_1 = "apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/repair-22-31-381.spec.ts (published by 22.31.381) imports ganache, which apps/explorer/package.json does not declare; yarn tsc --noEmit -p tsconfig.json therefore fails for every task that type-checks the explorer. The test is rewritten to drive the real revoke hooks against an in-process JSON-RPC fixture: a loopback HTTP server started by the test, or a custom viem transport, answering from the recorded eth_call, eth_getLogs and eth_getCode results the 22.31.381 repair captured. No dependency is added to package.json and the lockfile does not change."
+symbols = []
+
 [capability.22.33.600]
 title = "Repair audit record 22.30.162 medium findings in sdk/x/slashing (part 1 of 1): doc-drift, runtime-risk"
 reqs = ["22998.1"]
@@ -44730,7 +44739,7 @@ title = "Repair audit record 22.30.136 findings in apps/explorer/ui/pages: inter
 reqs = ["22998.1"]
 touches = ["apps/explorer/ui/pages", "services/platform/hosted/gateway/src/explorer_proxy.rs", "docs/system/routes.md"]
 tests = ["apps/explorer/ui/pages/repair-22-31-382.spec.ts"]
-verification_contract = "pnpm --dir apps/explorer exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/explorer exec vitest run ui/pages/repair-22-31-382.spec.ts"
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run ui/pages/repair-22-31-382.spec.ts"
 do_1 = "Audit record 22.30.136 (spec/layerx-merge/programme/audit/records/22.30.136.kvx) holds 3 high finding(s) in apps/explorer/ui/pages that block the upgrade (decision 2515); this task closes them: feed-overview-gateway, feed-market-gateway, feed-update-gateway. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -44748,7 +44757,7 @@ title = "Repair audit record 22.30.134 findings in apps/explorer/lib/api/service
 reqs = ["22998.1"]
 touches = ["apps/explorer/lib/api/services/general", "services/platform/hosted/gateway/src/explorer_proxy.rs"]
 tests = ["apps/explorer/lib/api/services/general/repair-22-31-380.spec.ts"]
-verification_contract = "pnpm --dir apps/explorer exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/explorer exec vitest run lib/api/services/general/repair-22-31-380.spec.ts"
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run lib/api/services/general/repair-22-31-380.spec.ts"
 do_1 = "Audit record 22.30.134 (spec/layerx-merge/programme/audit/records/22.30.134.kvx) holds 1 high finding(s) in apps/explorer/lib/api/services/general that block the upgrade (decision 2515); this task closes them: signature_gateway_route. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -137524,6 +137533,39 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.31.440]
+title = "Replace the undeclared ganache import in the revoke hooks repair test of apps/explorer with an in-process JSON-RPC fixture so the explorer type-check passes again"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.440"]
+interfaces = []
+do_1 = "apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/repair-22-31-381.spec.ts (published by 22.31.381) imports ganache, which apps/explorer/package.json does not declare; yarn tsc --noEmit -p tsconfig.json therefore fails for every task that type-checks the explorer. The test is rewritten to drive the real revoke hooks against an in-process JSON-RPC fixture: a loopback HTTP server started by the test, or a custom viem transport, answering from the recorded eth_call, eth_getLogs and eth_getCode results the 22.31.381 repair captured. No dependency is added to package.json and the lockfile does not change."
+do_2 = "Every assertion of the 22.31.381 repair test keeps its meaning: the same approvals, the same refusals, the same recorded shapes; only the provider behind the hooks changes."
+do_3 = "The task record names the fixture source and lists the assertions kept."
+do_4 = "Rewrite the spec so that it no longer imports ganache and instead serves the recorded JSON-RPC results from an in-process fixture the test starts and stops; keep the file name so the 22.31.381 ledger entry stays valid."
+do_5 = "Real means the hooks under test are the production hooks of ui/marketplace/essentialDapps/revoke; their peer, the RPC provider, is the committed fixture. The gate needs no environment variable, credential, live endpoint, external binary or device (gotcha 2962)."
+do_6 = "Run the verify on the unchanged tree first and note in the task record that the type-check fails before the change."
+symbols = []
+touches = ["apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/repair-22-31-381.spec.ts"]
+tests = ["apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/repair-22-31-381.spec.ts"]
+planned_paths = ["apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/repair-22-31-381.spec.ts"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run ui/marketplace/essentialDapps/revoke/hooks/repair-22-31-381.spec.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.33.580]
 title = "Repair audit record 22.30.16 medium findings in apps/perps/src/page-modules/legal (part 1 of 1): doc-drift"
 status = "pending"
@@ -145110,7 +145152,7 @@ title = "Repair audit record 22.30.153 findings in apps/explorer/ui/tx: interfac
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.31.440"]
 reqs = ["22998.1"]
 capabilities = ["22.31.405"]
 interfaces = []
@@ -145141,6 +145183,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_8 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command is the whole gate (gotcha 2962)."
 do_9 = "The candidate carries only sources under the touches and the test file: no helper project of another toolchain, no compiled cache, no .cgignore edit (gotcha 2966); the verify command runs last on the final tree and nothing changes after it (gotcha 2967)."
 do_10 = "Attempt 1: apps/explorer is pinned to yarn (packageManager in its package.json) so the pnpm build refused to run; the build and verify now install with yarn through corepack and run tsc and vitest with yarn (gotcha 2969). Keep the repair and rerun."
+do_11 = "Attempt 4 (continue): the build failed before any test ran because the explorer type-check now fails on apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/repair-22-31-381.spec.ts, a test another repair published that imports ganache without declaring it. Task 22.31.440 repairs that file and this task now requires it; once it lands, run the build and verify as they stand and finish the ui/tx repair, which is retained."
 
 [task.22.31.387]
 title = "Repair audit record 22.30.139 findings in apps/web/src/states: interface-mismatch"
@@ -145331,7 +145374,7 @@ title = "Repair audit record 22.30.136 findings in apps/explorer/ui/pages: inter
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.31.440"]
 reqs = ["22998.1"]
 capabilities = ["22.31.382"]
 interfaces = []
@@ -145347,8 +145390,8 @@ symbols = []
 touches = ["apps/explorer/ui/pages", "services/platform/hosted/gateway/src/explorer_proxy.rs", "docs/system/routes.md"]
 tests = ["apps/explorer/ui/pages/repair-22-31-382.spec.ts"]
 planned_paths = ["apps/explorer/ui/pages/repair-22-31-382.spec.ts"]
-build_cmd = "pnpm --dir apps/explorer exec tsc --noEmit -p tsconfig.json"
-verify_cmd = "pnpm --dir apps/explorer exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/explorer exec vitest run ui/pages/repair-22-31-382.spec.ts"
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run ui/pages/repair-22-31-382.spec.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-platform"
@@ -145404,7 +145447,7 @@ title = "Repair audit record 22.30.134 findings in apps/explorer/lib/api/service
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.31.440"]
 reqs = ["22998.1"]
 capabilities = ["22.31.380"]
 interfaces = []
@@ -145418,8 +145461,8 @@ symbols = []
 touches = ["apps/explorer/lib/api/services/general", "services/platform/hosted/gateway/src/explorer_proxy.rs"]
 tests = ["apps/explorer/lib/api/services/general/repair-22-31-380.spec.ts"]
 planned_paths = ["apps/explorer/lib/api/services/general/repair-22-31-380.spec.ts"]
-build_cmd = "pnpm --dir apps/explorer exec tsc --noEmit -p tsconfig.json"
-verify_cmd = "pnpm --dir apps/explorer exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/explorer exec vitest run lib/api/services/general/repair-22-31-380.spec.ts"
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run lib/api/services/general/repair-22-31-380.spec.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-platform"
@@ -145433,6 +145476,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_7 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command is the whole gate (gotcha 2962)."
 do_8 = "The candidate carries only sources under the touches and the test file: no helper project of another toolchain, no compiled cache, no .cgignore edit (gotcha 2966); the verify command runs last on the final tree and nothing changes after it (gotcha 2967)."
+do_9 = "Attempt 2 (continue): the build never reached the type-check because apps/explorer pins yarn as its package manager and the pnpm invocation is refused before it runs anything. The build and verify now use corepack yarn as the other explorer front-end tasks do, and this task now requires 22.31.440, which repairs the undeclared test import that breaks the shared type-check. The signature GET admission work and its regression tests are retained; when the build is green, finish by proving the real path, the explorer general service calling the hosted gateway explorer proxy, with the committed fixtures the tests already hold."
 
 [task.22.31.379]
 title = "Repair audit record 22.30.134 findings in apps/explorer/lib/api: wiring-gap"
@@ -166266,10 +166310,10 @@ do_4 = "Finding health-response-shape (interface-mismatch, high) on services/exp
 do_5 = "Prove each repair with an integration test services/explorer/services/libs/tests/repair_22_31_269.rs whose cases exercise the real crate path (real server, store, codec or relay client, not a mock of the component under repair); run the verify once on the unchanged tree first and note in the task record which tests already failed before the change."
 do_6 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["services/explorer/services/libs/blockscout-client/swaggers/overrides", "services/explorer/services/libs/blockscout-client/crate/tests"]
+touches = ["services/explorer/services/libs/blockscout-client/swaggers/overrides", "services/explorer/services/libs/blockscout-client/crate/tests", "services/explorer/services/libs/blockscout-client/crate/src"]
 tests = ["services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_269.rs"]
-planned_paths = ["services/explorer/services/libs/tests/repair_22_31_269.rs", "services/explorer/services/libs/Cargo.lock"]
-build_cmd = "cargo build --locked --manifest-path services/explorer/services/libs/Cargo.toml --tests"
+planned_paths = ["services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_269.rs", "services/explorer/services/libs/Cargo.lock"]
+build_cmd = "cargo build --locked --manifest-path services/explorer/services/libs/blockscout-client/crate/Cargo.toml --tests"
 verify_cmd = "cargo test --locked --manifest-path services/explorer/services/libs/blockscout-client/crate/Cargo.toml --test repair_22_31_269"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -166286,6 +166330,7 @@ do_7 = "Attempt 2 (continue): services/explorer/services/libs/Cargo.toml is a wo
 do_8 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command is the whole gate (gotcha 2962)."
 do_9 = "The candidate carries only sources under the touches and the test file: no helper project of another toolchain, no compiled cache, no .cgignore edit (gotcha 2966); the verify command runs last on the final tree and nothing changes after it (gotcha 2967)."
 do_10 = "Attempt 3 (continue): the generated client still drops the metadata.blocks object fields and the media data field of the health response and has no typed HTTP 500 model. Declare those schemas in the swagger override for the health route (object with its fields, and a 500 response schema), regenerate the client crate from the override, and run the test against the regenerated models."
+do_11 = "Attempt 4 (continue): the build targeted the whole libs workspace and failed in services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_273.rs (lines 747 and 761), a test of the published 22.31.273 repair that reads models the swagger override change regenerates. That test directory is already in scope, so the test is updated to the regenerated model shapes in the same change, and the regenerated client sources under services/explorer/services/libs/blockscout-client/crate/src are now in scope as well. The build and the test live in the blockscout-client crate, not the workspace root: the build now targets the crate manifest and the test file is services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_269.rs."
 
 [task.22.31.267]
 title = "Repair audit record 22.30.135 findings in services/explorer/services/sig-provider/sig-provider/src/sources: interface-mismatch"
@@ -166988,7 +167033,7 @@ do_11 = "Attempt 4: the qualification pay2 crate fails to compile on the names H
 
 [task.22.31.228]
 title = "Repair audit record 22.30.99 findings in services/agent/crates/layerx-sdk/src/bin: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -167265,7 +167310,7 @@ do_9 = "Finding f09 (interface-mismatch, high) on services/agent/crates/layerx-c
 do_10 = "Prove each repair with an integration test services/agent/crates/layerx-client/tests/repair_22_31_221.rs whose cases exercise the real crate path (real server, store, codec or relay client, not a mock of the component under repair); run the verify once on the unchanged tree first and note in the task record which tests already failed before the change."
 do_11 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["services/agent/crates/layerx-client/src", "services/agent/crates/layerx-client/tests"]
+touches = ["services/agent/crates/layerx-client/src", "services/agent/crates/layerx-client/tests", "services/agent/crates/layerx-agentd/tests/repair_22_31_218.rs", "services/platform/hosted/authority/src/human/budget_state.rs"]
 tests = ["services/agent/crates/layerx-client/tests/repair_22_31_221.rs"]
 planned_paths = ["services/agent/crates/layerx-client/tests/repair_22_31_221.rs", "services/agent/Cargo.lock"]
 build_cmd = "cargo build --locked --manifest-path services/agent/crates/layerx-client/Cargo.toml --tests"
@@ -167284,6 +167329,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_12 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command is the whole gate (gotcha 2962)."
 do_13 = "The candidate carries only sources under the touches and the test file: no helper project of another toolchain, no compiled cache, no .cgignore edit (gotcha 2966); the verify command runs last on the final tree and nothing changes after it (gotcha 2967)."
 do_14 = "Attempt 2 (continue): the HistoryPage shape gained account and freshness and the crate's own integration tests in services/agent/crates/layerx-client/tests (px_reads.rs, proof_client.rs, history_rpc.rs) still construct the old shape, so the test build fails. An interface change carries its consumers: the tests directory is now in scope; update those tests to the new shape through the real producer, weakening no assertion."
+do_15 = "Attempt 3 (continue): the client build passed and the dependent-crate check failed on two consumers of the changed client types: the agent daemon test services/agent/crates/layerx-agentd/tests/repair_22_31_218.rs (lines 165 and 1002 read HistoryPage.account and freshness, the fields the closed RPC schema declares for the history page) and services/platform/hosted/authority/src/human/budget_state.rs (lines 48, 143 and 148 use the Uint256 Display implementation and the retired balance fields). An interface change carries its consumers: HistoryPage keeps account and freshness as the schema declares them, the Display implementation stays, and budget_state.rs is migrated to the current balance shape in the same change. Both consumer files are now in scope."
 
 [task.22.31.220]
 title = "Repair audit record 22.30.94 findings in services/agent/crates/layerx-agentd/src: interface-mismatch"
@@ -168539,7 +168585,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.157]
 title = "Repair audit record 22.30.107 findings in services/human/crates/layerx-network-gateway/src: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183503,7 +183549,7 @@ do_15 = "Attempt 2: three failures: the agent envelope probe needs PAXEER_X_AGEN
 
 [task.22.31.140]
 title = "Repair audit record 22.30.75 findings in services/platform/perf-db/src: restart-recovery, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -185737,7 +185783,7 @@ do_9 = "Attempt 2: fixtures_test.go TestMain (:20, exec at :149) starts an Anvil
 
 [task.22.31.64]
 title = "Repair audit record 22.30.37 findings in services/launchpad/pnl-tracker/internal/production/l17: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -187269,6 +187315,7 @@ do_9 = "Attempt 2: this crate is Rust (gotcha 2964). The proof is the cargo inte
 do_10 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command is the whole gate (gotcha 2962)."
 do_11 = "The candidate carries only sources under the touches and the test file: no helper project of another toolchain, no compiled cache, no .cgignore edit (gotcha 2966); the verify command runs last on the final tree and nothing changes after it (gotcha 2967)."
 do_12 = "Attempt 2 (continue): the Rust test does not compile: pass a reference where the API takes a Path (expected &Path, found PathBuf) and coerce the clock to the trait object the function returns (Result<Arc<dyn Clock>, _> versus Result<Arc<RuntimeClock>, ClockError>, write Arc<dyn Clock> on the binding). The Go wrapper that shells out to cargo is not the gate; the verify command is the cargo test of the human service crate, which must compile and pass."
+do_13 = "Attempt 3 (continue): the two export tests failed with WouldBlock because they opened the same store directory concurrently; the previous attempt repaired the store fixture (one temporary directory per test) after the repair budget ran out. Run the verify against the repaired tests and finish."
 
 [task.22.31.1]
 title = "Repair audit record 22.30.1 findings in layerxproof/codec: interface-mismatch"
@@ -242769,7 +242816,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.423]
 title = "Repair audit record 22.30.172 findings in rpc: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -243547,7 +243594,7 @@ do_17 = "Attempt 2 (continue): TestRepair_103_MicrobatchAdmission bytes and doma
 
 [task.22.31.102]
 title = "Repair audit record 22.30.50 findings in node: interface-mismatch, restart-recovery, runtime-risk, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -243869,6 +243916,7 @@ do_12 = "Real means the component under repair is the production code; its peers
 do_13 = "The candidate carries only sources under the touches and the test file: no helper project of another toolchain, no compiled cache, no .cgignore edit (gotcha 2966); the verify command runs last on the final tree and nothing changes after it (gotcha 2967)."
 do_14 = "Attempt 2: tests/programs/test_registration.c references the retired fee-governance constant that survives only in the retired codec tests; the registration test uses the current registration constants and never the retired one."
 do_15 = "Attempt 3 (continue): audit_create_occupancy fails because lxp_programs_finalize_occupancy_batch_selected does not return LXP_OK for the fixture arguments under the current kernel (the ABI-5 registration of 1.23.7 is on main now). Print the returned status in the assertion, then align the fixture call (protocol version, selection bounds, sequence) with the current finalize contract the kernel enforces; the kernel is not changed to accept the fixture (gotcha 2968)."
+do_16 = "Attempt 4 (continue): all five audit cases pass and the programs-core-test target still fails on the inherited original_lifecycle case, which the verify runs and which therefore belongs to this task (gotcha 2971): print its diagnostic, find which step of the lifecycle the repairs changed (activation, execution, funding or retirement ordering), and fix the kernel path or update the case to the repaired behaviour with the reason recorded. The native node maintenance wiring stays a recorded wiring request to the node domain."
 
 [task.22.31.19]
 title = "Repair audit record 22.30.17 findings in precompiles/spot/abi: interface-mismatch"
@@ -284466,7 +284514,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.172]
 title = "Rewrite the tools-ops documentation pages of tools/codebase-map: stale and misleading pages (manifest 22.32.172, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284496,7 +284544,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.171]
 title = "Rewrite the tools-ops documentation pages of tools/benchmark: stale and misleading pages (manifest 22.32.171, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284526,7 +284574,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.170]
 title = "Rewrite the tools-ops documentation pages of tests/integration: stale and misleading pages (manifest 22.32.170, 5 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284556,7 +284604,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.169]
 title = "Rewrite the tools-ops documentation pages of scripts/bump_version: stale and misleading pages (manifest 22.32.169, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284586,7 +284634,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.168]
 title = "Rewrite the tools-ops documentation pages of migrations: stale and misleading pages (manifest 22.32.168, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284616,7 +284664,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.167]
 title = "Rewrite the tools-ops documentation pages of docs/site: stale and misleading pages (manifest 22.32.167, 3 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284646,7 +284694,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.166]
 title = "Rewrite the tools-ops documentation pages of docs/site: stale and misleading pages (manifest 22.32.166, 6 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284676,7 +284724,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.165]
 title = "Rewrite the tools-ops documentation pages of docs: stale and misleading pages (manifest 22.32.165, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284706,7 +284754,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.164]
 title = "Rewrite the tools-ops documentation pages of deploy/launchpad: stale and misleading pages (manifest 22.32.164, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284736,7 +284784,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.163]
 title = "Rewrite the tools-ops documentation pages of deploy/launchpad: stale and misleading pages (manifest 22.32.163, 6 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284766,7 +284814,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.162]
 title = "Rewrite the tools-ops documentation pages of contracts: stale and misleading pages (manifest 22.32.162, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284796,7 +284844,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.161]
 title = "Rewrite the tools-ops documentation pages of .github: stale and misleading pages (manifest 22.32.161, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284826,7 +284874,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.160]
 title = "Rewrite the tools-ops documentation pages of .codify: stale and misleading pages (manifest 22.32.160, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284856,7 +284904,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.159]
 title = "Rewrite the tools-ops documentation pages of .: stale and misleading pages (manifest 22.32.159, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284886,7 +284934,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.158]
 title = "Rewrite the cosmos-fork documentation pages of sdk/x: stale and misleading pages (manifest 22.32.158, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284916,7 +284964,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.157]
 title = "Rewrite the cosmos-fork documentation pages of sdk/x: stale and misleading pages (manifest 22.32.157, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284946,7 +284994,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.156]
 title = "Rewrite the cosmos-fork documentation pages of sdk/x: stale and misleading pages (manifest 22.32.156, 6 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284976,7 +285024,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.155]
 title = "Rewrite the cosmos-fork documentation pages of sdk/x: stale and misleading pages (manifest 22.32.155, 6 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285006,7 +285054,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.154]
 title = "Rewrite the cosmos-fork documentation pages of sdk/x: stale and misleading pages (manifest 22.32.154, 6 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285036,7 +285084,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.153]
 title = "Rewrite the cosmos-fork documentation pages of sdk/x: stale and misleading pages (manifest 22.32.153, 6 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285066,7 +285114,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.152]
 title = "Rewrite the cosmos-fork documentation pages of sdk/x: stale and misleading pages (manifest 22.32.152, 6 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285096,7 +285144,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.151]
 title = "Rewrite the cosmos-fork documentation pages of sdk/x: stale and misleading pages (manifest 22.32.151, 6 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285126,7 +285174,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.150]
 title = "Rewrite the cosmos-fork documentation pages of sdk/x: stale and misleading pages (manifest 22.32.150, 6 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285156,7 +285204,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.149]
 title = "Rewrite the cosmos-fork documentation pages of docs/wiki: stale and misleading pages (manifest 22.32.149, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285186,7 +285234,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.148]
 title = "Rewrite the cosmos-fork documentation pages of docs/site: stale and misleading pages (manifest 22.32.148, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285216,7 +285264,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.147]
 title = "Rewrite the cosmos-fork documentation pages of docs: stale and misleading pages (manifest 22.32.147, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285246,7 +285294,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.146]
 title = "Rewrite the cosmos-fork documentation pages of contracts: new pages (manifest 22.32.146, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285276,7 +285324,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.145]
 title = "Rewrite the web-explorer-bridge documentation pages of services/explorer: stale and misleading pages (manifest 22.32.145, 3 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285306,7 +285354,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.144]
 title = "Rewrite the web-explorer-bridge documentation pages of services/explorer: stale and misleading pages (manifest 22.32.144, 5 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285336,7 +285384,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.143]
 title = "Rewrite the web-explorer-bridge documentation pages of services/explorer: stale and misleading pages (manifest 22.32.143, 4 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285366,7 +285414,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.142]
 title = "Rewrite the web-explorer-bridge documentation pages of sdk/js: stale and misleading pages (manifest 22.32.142, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285396,7 +285444,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.141]
 title = "Rewrite the web-explorer-bridge documentation pages of docs/wiki: stale and misleading pages (manifest 22.32.141, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285426,7 +285474,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.140]
 title = "Rewrite the web-explorer-bridge documentation pages of docs/wiki: stale and misleading pages (manifest 22.32.140, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285456,7 +285504,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.139]
 title = "Rewrite the web-explorer-bridge documentation pages of docs/wiki: stale and misleading pages (manifest 22.32.139, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285486,7 +285534,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.138]
 title = "Rewrite the web-explorer-bridge documentation pages of docs/wiki: stale and misleading pages (manifest 22.32.138, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285516,7 +285564,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.137]
 title = "Rewrite the web-explorer-bridge documentation pages of docs/wiki: stale and misleading pages (manifest 22.32.137, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285546,7 +285594,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.136]
 title = "Rewrite the web-explorer-bridge documentation pages of docs/wiki: stale and misleading pages (manifest 22.32.136, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285576,7 +285624,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.135]
 title = "Rewrite the web-explorer-bridge documentation pages of docs/system: stale and misleading pages (manifest 22.32.135, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285606,7 +285654,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.134]
 title = "Rewrite the web-explorer-bridge documentation pages of docs/site: stale and misleading pages (manifest 22.32.134, 3 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285636,7 +285684,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.133]
 title = "Rewrite the web-explorer-bridge documentation pages of docs/site: stale and misleading pages (manifest 22.32.133, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285666,7 +285714,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.132]
 title = "Rewrite the web-explorer-bridge documentation pages of docs/site: stale and misleading pages (manifest 22.32.132, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285696,7 +285744,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.131]
 title = "Rewrite the web-explorer-bridge documentation pages of docs/site: stale and misleading pages (manifest 22.32.131, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285726,7 +285774,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.130]
 title = "Rewrite the web-explorer-bridge documentation pages of docs/site: stale and misleading pages (manifest 22.32.130, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285756,7 +285804,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.129]
 title = "Rewrite the web-explorer-bridge documentation pages of docs/site: stale and misleading pages (manifest 22.32.129, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285786,7 +285834,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.128]
 title = "Rewrite the web-explorer-bridge documentation pages of docs/readme: stale and misleading pages (manifest 22.32.128, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285816,7 +285864,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.127]
 title = "Rewrite the web-explorer-bridge documentation pages of docs: stale and misleading pages (manifest 22.32.127, 3 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285846,7 +285894,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.126]
 title = "Rewrite the web-explorer-bridge documentation pages of contracts/launchpad: stale and misleading pages (manifest 22.32.126, 3 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285876,7 +285924,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.125]
 title = "Rewrite the web-explorer-bridge documentation pages of contracts/bridge: stale and misleading pages (manifest 22.32.125, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285906,7 +285954,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.124]
 title = "Rewrite the web-explorer-bridge documentation pages of contracts: new pages (manifest 22.32.124, 3 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285936,7 +285984,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.123]
 title = "Rewrite the web-explorer-bridge documentation pages of contracts: new pages (manifest 22.32.123, 6 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285966,7 +286014,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.122]
 title = "Rewrite the web-explorer-bridge documentation pages of contracts: new pages (manifest 22.32.122, 6 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285996,7 +286044,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.121]
 title = "Rewrite the web-explorer-bridge documentation pages of contracts: new pages (manifest 22.32.121, 6 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286026,7 +286074,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.120]
 title = "Rewrite the web-explorer-bridge documentation pages of apps/explorer: stale and misleading pages (manifest 22.32.120, 3 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286056,7 +286104,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.119]
 title = "Rewrite the web-explorer-bridge documentation pages of apps/bridge: stale and misleading pages (manifest 22.32.119, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286086,7 +286134,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.118]
 title = "Rewrite the web-explorer-bridge documentation pages of .: stale and misleading pages (manifest 22.32.118, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286116,7 +286164,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.117]
 title = "Rewrite the programs documentation pages of programs/sdk: stale and misleading pages (manifest 22.32.117, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286146,7 +286194,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.116]
 title = "Rewrite the programs documentation pages of programs/porting: stale and misleading pages (manifest 22.32.116, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286176,7 +286224,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.115]
 title = "Rewrite the programs documentation pages of programs/porting: stale and misleading pages (manifest 22.32.115, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286686,7 +286734,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.98]
 title = "Rewrite the interop documentation pages of docs/site: stale and misleading pages (manifest 22.32.98, 6 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286716,7 +286764,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.97]
 title = "Rewrite the interop documentation pages of contracts/bridge: stale and misleading pages (manifest 22.32.97, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286746,7 +286794,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.96]
 title = "Rewrite the human documentation pages of services/platform: stale and misleading pages (manifest 22.32.96, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286776,7 +286824,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.95]
 title = "Rewrite the human documentation pages of services/human: stale and misleading pages (manifest 22.32.95, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286806,7 +286854,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.94]
 title = "Rewrite the human documentation pages of services/human: stale and misleading pages (manifest 22.32.94, 6 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286836,7 +286884,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.93]
 title = "Rewrite the human documentation pages of docs/wiki: stale and misleading pages (manifest 22.32.93, 3 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286866,7 +286914,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.92]
 title = "Rewrite the human documentation pages of docs/site: stale and misleading pages (manifest 22.32.92, 4 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286896,7 +286944,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.91]
 title = "Rewrite the human documentation pages of docs/readme: stale and misleading pages (manifest 22.32.91, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286956,7 +287004,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.89]
 title = "Rewrite the agent documentation pages of docs/wiki: stale and misleading pages (manifest 22.32.89, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286986,7 +287034,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.88]
 title = "Rewrite the agent documentation pages of docs/wiki: stale and misleading pages (manifest 22.32.88, 3 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -287016,7 +287064,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.87]
 title = "Rewrite the agent documentation pages of docs/site: stale and misleading pages (manifest 22.32.87, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -287046,7 +287094,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.86]
 title = "Rewrite the agent documentation pages of docs/site: stale and misleading pages (manifest 22.32.86, 3 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -287076,7 +287124,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.85]
 title = "Rewrite the agent documentation pages of contracts: new pages (manifest 22.32.85, 5 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -287106,7 +287154,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.84]
 title = "Rewrite the platform documentation pages of tools/platform: stale and misleading pages (manifest 22.32.84, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -287136,7 +287184,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.83]
 title = "Rewrite the platform documentation pages of services/platform: stale and misleading pages (manifest 22.32.83, 6 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -287166,7 +287214,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.82]
 title = "Rewrite the platform documentation pages of sdk/platform: stale and misleading pages (manifest 22.32.82, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -287196,7 +287244,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.81]
 title = "Rewrite the platform documentation pages of sdk/crypto: stale and misleading pages (manifest 22.32.81, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -324345,7 +324393,7 @@ do_4 = "Finding committed_without_inclusion (test-gap, high) on services/explore
 do_5 = "Prove each repair with an ExUnit module services/explorer/backend/apps/explorer/test/repair/repair_22_31_411_test.exs whose cases drive the real controller, channel, schema or import runner with recorded chain data (real request and response shapes, not a mock of the component under repair); run the verify once on the unchanged tree first and note in the task record which tests already failed before the change."
 do_6 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x"]
+touches = ["services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x", "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2"]
 tests = ["services/explorer/backend/apps/explorer/test/repair/repair_22_31_411_test.exs"]
 planned_paths = ["services/explorer/backend/apps/explorer/test/repair/repair_22_31_411_test.exs"]
 build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
@@ -324364,6 +324412,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_7 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command is the whole gate (gotcha 2962)."
 do_8 = "The candidate carries only sources under the touches and the test file: no helper project of another toolchain, no compiled cache, no .cgignore edit (gotcha 2966); the verify command runs last on the final tree and nothing changes after it (gotcha 2967)."
 do_9 = "Attempt 2 (continue): verifying a reconstructed receipt without receiptInclusion returns :committed instead of {:error, :r8}; the six failures are the same missing refusal. The verifier must require the inclusion witness (rule r8) and the matching header, transaction and result witnesses before promoting to committed; refuse with the rule code on each missing or changed witness."
+do_10 = "Attempt 3 (continue): seven failures show the production committed-without-inclusion verifier accepting altered witnesses, wrong execution block identity and missing receiptInclusion evidence (:committed or :r7 where :r8 is expected) and the controller answering not_found for authenticated evidence. The verifier modules under services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x and the API v2 controllers under services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2 are now in scope: repair the verifier so each witness is required and bound (r8 for changed or missing witnesses, r7 for altered covering ranges) and the controller so it serves authenticated evidence; keep the recorded fixtures and the strict assertions."
 
 [task.22.31.410]
 title = "Repair audit record 22.30.155 findings in services/explorer/backend/apps/explorer/test/explorer/migrator: test-gap"
@@ -324381,7 +324430,7 @@ do_4 = "Finding selfdestruct-rule (test-gap, high) on services/explorer/backend/
 do_5 = "Prove each repair with an ExUnit module services/explorer/backend/apps/explorer/test/repair/repair_22_31_410_test.exs whose cases drive the real controller, channel, schema or import runner with recorded chain data (real request and response shapes, not a mock of the component under repair); run the verify once on the unchanged tree first and note in the task record which tests already failed before the change."
 do_6 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["services/explorer/backend/apps/explorer/test/explorer/migrator"]
+touches = ["services/explorer/backend/apps/explorer/test/explorer/migrator", "services/explorer/backend/apps/explorer/lib/explorer/migrator/empty_bytecode_for_selfdestructed_smart_contracts.ex"]
 tests = ["services/explorer/backend/apps/explorer/test/repair/repair_22_31_410_test.exs"]
 planned_paths = ["services/explorer/backend/apps/explorer/test/repair/repair_22_31_410_test.exs"]
 build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
@@ -324400,10 +324449,11 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_7 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command is the whole gate (gotcha 2962)."
 do_8 = "The candidate carries only sources under the touches and the test file: no helper project of another toolchain, no compiled cache, no .cgignore edit (gotcha 2966); the verify command runs last on the final tree and nothing changes after it (gotcha 2967)."
 do_9 = "Attempt 2 (continue): the migrator leaves bytecode 0x33ff on a contract created and destroyed in the same pre-Cancun transaction, and the ten failures (the existing migrator test and the repair test) share that rule. Implement the selection in the migrator: pre-Cancun SELFDESTRUCT deletes code including same-transaction CREATE and CREATE2, post-Cancun SELFDESTRUCT preserves live code unless created in the same transaction; the tests are not changed to match the current behaviour."
+do_10 = "Attempt 3 (continue): ten failures all show the migrator in services/explorer/backend/apps/explorer/lib/explorer/migrator/empty_bytecode_for_selfdestructed_smart_contracts.ex applying the wrong rule: it keeps code that a pre-Cancun SELFDESTRUCT or a same-transaction CREATE plus SELFDESTRUCT deleted, and empties code a post-Cancun SELFDESTRUCT (EIP-6780) preserved. That migrator is now in scope: make update_batch apply the fork rule the committed eth_getCode recordings prove (pre-Cancun: delete; post-Cancun: delete only when created in the same transaction), and keep both the repair tests and the migrator's existing tests passing; every test the verify runs belongs to this task (gotcha 2971)."
 
 [task.22.31.409]
 title = "Repair audit record 22.30.155 findings in services/explorer/backend/apps/explorer/lib/explorer/chain: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -324453,7 +324503,7 @@ do_4 = "Finding launchpad_code_probe (interface-mismatch, high) on services/expl
 do_5 = "Prove each repair with an ExUnit module services/explorer/backend/apps/explorer/test/repair/repair_22_31_407_test.exs whose cases drive the real controller, channel, schema or import runner with recorded chain data (real request and response shapes, not a mock of the component under repair); run the verify once on the unchanged tree first and note in the task record which tests already failed before the change."
 do_6 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x"]
+touches = ["services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x", "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/capabilities.ex"]
 tests = ["services/explorer/backend/apps/explorer/test/repair/repair_22_31_407_test.exs"]
 planned_paths = ["services/explorer/backend/apps/explorer/test/repair/repair_22_31_407_test.exs"]
 build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
@@ -324472,6 +324522,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_7 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command is the whole gate (gotcha 2962)."
 do_8 = "The candidate carries only sources under the touches and the test file: no helper project of another toolchain, no compiled cache, no .cgignore edit (gotcha 2966); the verify command runs last on the final tree and nothing changes after it (gotcha 2967)."
 do_9 = "Attempt 2 (continue): the three probe tests demand PAXEER_X_LAUNCHPAD_*_RPC_URL real nodes; a gate reads no environment variable (gotcha 2963). Commit the recorded node responses for the LIVE, MALFORMED and REFUSED states under the test fixture directory, replay them through a loopback server the test starts, and keep the live URL as an optional extra mode that skips when unset. Real means the component under repair is the production code and its peers are committed fixtures or loopback servers the test starts; a gate reads no environment variable and reaches no network (gotchas 2962, 2963)."
+do_10 = "Attempt 3 (continue): all three tests fail because the production probe in services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/capabilities.ex still issues eth_getCode for the launchpad capability while the tests, following the finding, expect the probe the finding names. The capabilities module is the consumer along the real path and is now in scope: change the probe as the finding prescribes, keep the committed RPC fixtures and the loopback replay tests, and record nothing as out of scope."
 
 [task.22.31.406]
 title = "Repair audit record 22.30.153 findings in services/explorer/backend/apps/explorer/priv/repo/migrations: restart-recovery"
