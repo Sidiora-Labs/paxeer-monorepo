@@ -11,13 +11,13 @@ defmodule Indexer.Fetcher.TokenInstance.HelperTest do
 
   setup :verify_on_exit!
   setup :set_mox_global
+  setup :preserve_configuration
 
   setup do
     bypass = Bypass.open()
 
     on_exit(fn ->
       Bypass.down(bypass)
-      Application.put_env(:tesla, :adapter, Explorer.Mock.TeslaAdapter)
     end)
 
     {:ok, bypass: bypass}
@@ -183,8 +183,6 @@ defmodule Indexer.Fetcher.TokenInstance.HelperTest do
                }
              ] =
                Helper.batch_fetch_instances([{token.contract_address_hash, 5_710_384_980_761_197_878}])
-
-      Application.put_env(:indexer, Indexer.Fetcher.TokenInstance.Helper, base_uri_retry?: false)
     end
 
     # https://github.com/blockscout/blockscout/issues/9696
@@ -325,7 +323,6 @@ defmodule Indexer.Fetcher.TokenInstance.HelperTest do
 
       refute String.contains?(img_url, "secret_key") || String.contains?(img_url, "secret_value")
       assert img_url == "ipfs://" <> "bafybeig6nlmyzui7llhauc52j2xo5hoy4lzp6442lkve5wysdvjkizxonu"
-      Application.put_env(:indexer, :ipfs, old_env)
     end
   end
 
@@ -356,7 +353,7 @@ defmodule Indexer.Fetcher.TokenInstance.HelperTest do
       [instance] = Repo.all(Instance)
 
       assert instance.retries_count == 0
-      assert DateTime.diff(refetch_after, instance.refetch_after) < 1
+      assert_refetch_after(refetch_after, instance.refetch_after)
       assert !is_nil(instance.error)
       assert not instance.is_banned
     end
@@ -392,7 +389,7 @@ defmodule Indexer.Fetcher.TokenInstance.HelperTest do
       [instance] = Repo.all(Instance)
 
       assert instance.retries_count == 1
-      assert DateTime.diff(refetch_after, instance.refetch_after) < 1
+      assert_refetch_after(refetch_after, instance.refetch_after)
       assert !is_nil(instance.error)
       assert not instance.is_banned
     end
@@ -435,7 +432,7 @@ defmodule Indexer.Fetcher.TokenInstance.HelperTest do
       [instance] = Repo.all(Instance)
 
       assert instance.retries_count == 1
-      assert DateTime.diff(refetch_after, instance.refetch_after) < 1
+      assert_refetch_after(refetch_after, instance.refetch_after)
       assert !is_nil(instance.error)
       assert not instance.is_banned
 
@@ -611,11 +608,35 @@ defmodule Indexer.Fetcher.TokenInstance.HelperTest do
         )
 
       [instance] = Repo.all(Instance)
-      assert DateTime.diff(refetch_after, instance.refetch_after) < 1
+      assert_refetch_after(refetch_after, instance.refetch_after)
       assert instance.error =~ "request error: 429"
       assert instance.retries_count == 1001
       assert not instance.is_banned
     end
+  end
+
+  @doc false
+  def preserve_configuration(_context) do
+    configuration =
+      for {application, key} <- [{:indexer, Helper}, {:indexer, :ipfs}, {:tesla, :adapter}] do
+        {application, key, Application.fetch_env(application, key)}
+      end
+
+    on_exit(fn ->
+      for {application, key, value} <- configuration do
+        case value do
+          {:ok, original} -> Application.put_env(application, key, original)
+          :error -> Application.delete_env(application, key)
+        end
+      end
+    end)
+
+    :ok
+  end
+
+  @doc false
+  def assert_refetch_after(expected, actual) do
+    assert abs(DateTime.diff(expected, actual, :microsecond)) < 1_000_000
   end
 
   defp success_eth_call_expectation(data, to, result) do
