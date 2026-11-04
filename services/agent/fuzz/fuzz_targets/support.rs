@@ -1,6 +1,10 @@
 use std::borrow::Cow;
 
-use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
+use layerx_types::payload::ModuleRegistry;
+use std::sync::OnceLock;
+
+#[path = "registry.rs"]
+mod production_registry;
 
 pub const MAX_FUZZ_INPUT: usize = 1_048_576;
 
@@ -29,25 +33,7 @@ fn nibble(value: u8) -> Option<u8> {
 }
 
 #[allow(dead_code)]
-pub fn registry() -> Option<ModuleRegistry> {
-    let module_maximums = [
-        (ModuleId::Asset, 8),
-        (ModuleId::Escrow, 7),
-        (ModuleId::Budget, 7),
-        (ModuleId::Stream, 7),
-        (ModuleId::Service, 13),
-        (ModuleId::Perps, 11),
-        (ModuleId::Governance, 1),
-        (ModuleId::Bridge, 1),
-    ];
-    let registrations: Option<Vec<_>> = module_maximums
-        .into_iter()
-        .map(|(module, maximum)| {
-            let activity_types: Option<Vec<_>> = (1..=maximum)
-                .map(|ordinal| ActivityType::new(module, ordinal).ok())
-                .collect();
-            ModuleRegistration::new(module, &activity_types?).ok()
-        })
-        .collect();
-    ModuleRegistry::new(&registrations?).ok()
+pub fn registry() -> &'static ModuleRegistry {
+    static REGISTRY: OnceLock<ModuleRegistry> = OnceLock::new();
+    REGISTRY.get_or_init(production_registry::production_registry)
 }

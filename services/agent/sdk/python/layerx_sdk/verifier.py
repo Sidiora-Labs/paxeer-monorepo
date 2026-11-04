@@ -359,6 +359,12 @@ def verify_sequencer_receipt(
     raw_transaction: bytes,
     receipt_keys: tuple[ReceiptKey, ...] | list[ReceiptKey],
 ) -> SequencerReceiptVerification:
+    """Verify a receipt signature and its binding to a raw signed EVM transaction.
+
+    Receipt keys are caller-pinned trust inputs: the signed key ID must match
+    a pin whose inclusive height range contains the receipt's landing height.
+    This sequencer-signed result does not establish committed finality.
+    """
     InvalidSignature, Ed25519PublicKey = _ed25519()
 
     canonical_bytes = bytes(signed_receipt)

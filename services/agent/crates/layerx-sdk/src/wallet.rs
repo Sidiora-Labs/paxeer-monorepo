@@ -187,6 +187,8 @@ impl<'Wallet> Wallet<'Wallet> {
     }
     /// # Errors
     /// Returns pending or refuses any missing or invalid commitment evidence.
+    /// Uses the RPC client's injected clock and bounded deadline for the entire wait;
+    /// an unavailable or regressing clock is an error, including during polling.
     pub fn wait_for(
         &self,
         activity: [u8; 32],

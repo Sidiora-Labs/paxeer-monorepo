@@ -5,14 +5,12 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use layerx_agentd::store::{ObjectKind, StorageClass, Store, TenantId, TenantKey};
 use layerx_agentd::tenant::{
-    delete_tenant_data, normalize_error, record_legal_audit, require_owner, AuthorizationError,
-    BoundedMetrics, InternalError, LegalAuditClass, LegalAuditRecord, LegalRetention, ObjectOwner,
-    Surface,
+    delete_tenant_data, record_legal_audit, LegalAuditClass, LegalAuditRecord, LegalRetention,
 };
 use layerx_mcp::untrusted::{
     validate, BoundAuthority, ToolArguments, ValidatedArguments, ValidationError,
 };
-use layerx_types::ids::Did;
+mod owner_routes;
 
 static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(1);
 
@@ -20,6 +18,7 @@ static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(1);
 pub struct IsolationReport {
     pub surfaces_checked: usize,
     pub mcp_injection_cases: usize,
+    pub mcp_transport_requests: usize,
     pub tenant_values_removed: usize,
     pub legal_audits_retained: usize,
     pub retained_protocol_values: usize,
@@ -56,55 +55,14 @@ impl Drop for Workspace {
 pub fn agent_isolation_suite() -> Result<IsolationReport, IsolationFailure> {
     let alpha = tenant("alpha")?;
     let beta = tenant("beta")?;
-    let agent = Did::new(b"did:layerx:alpha-agent")
-        .map_err(|error| fail(format!("agent DID: {error:?}")))?;
-    let owner = ObjectOwner {
-        tenant: beta.clone(),
-        agent: None,
-    };
-    let surfaces = [
-        Surface::Contract,
-        Surface::RustSdk,
-        Surface::TypeScriptSdk,
-        Surface::PythonSdk,
-        Surface::Mcp,
-        Surface::Subscription,
-        Surface::Export,
-    ];
-    for surface in surfaces {
-        if require_owner(&alpha, &agent, &owner) != Err(AuthorizationError::NotAuthorized) {
-            return Err(fail(format!("{surface:?} cross-tenant owner escaped")));
-        }
-        let cross =
-            InternalError::not_authorized("beta-secret", b"existing-foreign-object".to_vec());
-        let missing = InternalError::missing(b"missing-object".to_vec());
-        let mut cross_observability = BoundedMetrics::default();
-        let mut missing_observability = BoundedMetrics::default();
-        let cross_response = normalize_error(&cross, &alpha, surface, &mut cross_observability);
-        let missing_response =
-            normalize_error(&missing, &alpha, surface, &mut missing_observability);
-        if cross_response != missing_response
-            || cross_observability.counters() != missing_observability.counters()
-            || cross_observability.traces() != missing_observability.traces()
-        {
-            return Err(fail(format!(
-                "{surface:?} leaked existence through shape or timing work"
-            )));
-        }
-        let rendered = format!(
-            "{cross_response:?} {:?} {:?}",
-            cross_observability.counters(),
-            cross_observability.traces()
-        );
-        if rendered.contains("beta-secret") || rendered.contains("existing-foreign-object") {
-            return Err(fail(format!("{surface:?} leaked foreign context")));
-        }
-    }
+    let surfaces_checked = owner_routes::agent_owner_route_suite()?;
+    let mcp_transport_requests = owner_routes::agent_mcp_transport_suite()?;
 
     let mcp_injection_cases = agent_mcp_untrusted_input_suite()?;
     let deletion = tenant_deletion_suite(&alpha, &beta)?;
     Ok(IsolationReport {
-        surfaces_checked: surfaces.len(),
+        surfaces_checked,
+        mcp_transport_requests,
         mcp_injection_cases,
         tenant_values_removed: deletion.0,
         legal_audits_retained: deletion.1,
@@ -223,7 +181,7 @@ fn require_bound_authority(arguments: &ValidatedArguments) -> Result<(), Isolati
     }
 }
 
-fn tenant_deletion_suite(
+pub fn tenant_deletion_suite(
     alpha: &TenantId,
     beta: &TenantId,
 ) -> Result<(usize, usize, usize), IsolationFailure> {
@@ -264,6 +222,18 @@ fn tenant_deletion_suite(
             }
         }
     }
+    let beta_values: Vec<_> = kinds
+        .iter()
+        .enumerate()
+        .map(|(index, kind)| {
+            let key = TenantKey::new(beta.clone(), *kind, vec![index as u8 + 1])
+                .map_err(|error| fail(format!("beta snapshot key: {error}")))?;
+            let value = store
+                .get(&key)
+                .ok_or_else(|| fail("missing provisioned beta object"))?;
+            Ok((key, value.class(), value.bytes().to_vec()))
+        })
+        .collect::<Result<_, IsolationFailure>>()?;
     let retained_id = b"legal-active".to_vec();
     let expired_id = b"legal-expired".to_vec();
     record_legal_audit(
@@ -282,6 +252,14 @@ fn tenant_deletion_suite(
             .map_err(|error| fail(format!("expired legal audit: {error:?}")))?,
     )
     .map_err(|error| fail(format!("record expired legal audit: {error:?}")))?;
+
+    let legal_key = TenantKey::new(alpha.clone(), ObjectKind::Audit, retained_id.clone())
+        .map_err(|error| fail(format!("legal snapshot key: {error}")))?;
+    let legal_bytes = store
+        .get(&legal_key)
+        .ok_or_else(|| fail("missing legal record"))?
+        .bytes()
+        .to_vec();
 
     let report = delete_tenant_data(
         &mut store,
@@ -318,13 +296,60 @@ fn tenant_deletion_suite(
             return Err(fail(format!("tenant deletion retained alpha {kind:?}")));
         }
     }
+    let deletion_key = TenantKey::new(
+        alpha.clone(),
+        ObjectKind::Audit,
+        report.deletion_audit_id.clone(),
+    )
+    .map_err(|error| fail(format!("deletion audit key: {error}")))?;
+    let deletion_bytes = store
+        .get(&deletion_key)
+        .ok_or_else(|| fail("missing deletion audit"))?
+        .bytes()
+        .to_vec();
+    if report.local_removed + report.core_cache_removed != 14 {
+        return Err(fail(
+            "tenant deletion did not remove every ordinary and expired object",
+        ));
+    }
     drop(store);
     let reopened = Store::open(&workspace.0)
         .map_err(|error| fail(format!("reopen deleted tenant store: {error}")))?;
-    if reopened.list_object_ids(alpha, ObjectKind::Receipt).len() != 0
-        || reopened.list_object_ids(alpha, ObjectKind::Audit).len() != 2
-    {
-        return Err(fail("tenant deletion was not durable"));
+    for kind in kinds {
+        let expected = if kind == ObjectKind::Audit {
+            HashSet::from([retained_id.clone(), report.deletion_audit_id.clone()])
+        } else {
+            HashSet::new()
+        };
+        if reopened
+            .list_object_ids(alpha, kind)
+            .into_iter()
+            .collect::<HashSet<_>>()
+            != expected
+        {
+            return Err(fail(format!("reopened deletion retained alpha {kind:?}")));
+        }
+    }
+    for (key, class, bytes) in beta_values {
+        let value = reopened
+            .get(&key)
+            .ok_or_else(|| fail("reopened deletion lost beta data"))?;
+        if value.class() != class || value.bytes() != bytes {
+            return Err(fail("reopened deletion altered beta data or storage class"));
+        }
+        if reopened.list_object_ids(beta, key.kind()).len() != 1 {
+            return Err(fail("reopened deletion changed beta object inventory"));
+        }
+    }
+    for (key, bytes) in [(legal_key, legal_bytes), (deletion_key, deletion_bytes)] {
+        let value = reopened
+            .get(&key)
+            .ok_or_else(|| fail("reopened deletion lost retained metadata"))?;
+        if value.class() != StorageClass::LocalOnly || value.bytes() != bytes {
+            return Err(fail(
+                "reopened deletion altered retained legal or deletion metadata",
+            ));
+        }
     }
     Ok((
         report.local_removed + report.core_cache_removed,
@@ -365,6 +390,7 @@ mod tests {
             .unwrap_or_else(|error| panic!("agent isolation suite: {error}"));
         assert_eq!(report.surfaces_checked, 7);
         assert_eq!(report.mcp_injection_cases, 10);
+        assert_eq!(report.mcp_transport_requests, 5);
         assert!(report.tenant_values_removed >= 13);
         assert_eq!(report.legal_audits_retained, 1);
         assert_eq!(report.retained_protocol_values, 0);
