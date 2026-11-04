@@ -214,6 +214,15 @@ impl ApiSchema {
             ));
         }
         let types = embedded_types(&all_sections)?;
+        let closed = serde_json::to_value(crate::journeys::JourneyState::Closed)
+            .map_err(|_| SchemaError::new("closed journey state cannot be encoded"))?;
+        if !matches!(types.get("JourneyState"), Some(TypeDeclaration::Variants(states))
+            if closed.as_str().is_some_and(|state| states.contains(state)))
+        {
+            return Err(SchemaError::new(
+                "JourneyState must declare the engine's retained closed history state",
+            ));
+        }
         let mut operations = Vec::new();
         for (file, sections) in &all_sections {
             for (section, values) in sections {

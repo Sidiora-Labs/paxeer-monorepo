@@ -60,6 +60,8 @@ type Decision struct {
 	Reason  string
 	Code    string
 	Spends  []Spend
+	// ReviewedBlock binds state-dependent accounting to the reader's block.
+	ReviewedBlock common.Hash
 }
 
 type Cap struct {
@@ -340,10 +342,11 @@ type Request struct {
 }
 
 type Context struct {
-	ChainID            *big.Int
-	Account            common.Address
-	ConstructState     *ConstructState
-	readConstructState func() (*ConstructState, error)
+	ChainID             *big.Int
+	Account             common.Address
+	ConstructState      *ConstructState
+	readConstructState  func() (*ConstructState, error)
+	readPerpsCollateral func(*big.Int) (*PerpsCollateralState, error)
 }
 
 type Destination struct {
@@ -383,8 +386,9 @@ type Inspection struct {
 	Destinations []Destination
 	Spends       []Spend
 	// Delegates are the EIP-7702 delegation targets the request signs.
-	Delegates []common.Address
-	Transfers []ConstructTransfer
+	Delegates     []common.Address
+	Transfers     []ConstructTransfer
+	ReviewedBlock common.Hash
 }
 
 type Inspector func(ctx Context, view any) (Inspection, error)
@@ -403,9 +407,10 @@ func refuse(code, format string, args ...any) *Refusal {
 type Policy struct {
 	doc *Document
 
-	mu              sync.RWMutex
-	kinds           map[string]Inspector
-	constructReader func(Context) (*ConstructState, error)
+	mu                    sync.RWMutex
+	kinds                 map[string]Inspector
+	constructReader       func(Context) (*ConstructState, error)
+	perpsCollateralReader func(Context, *big.Int) (*PerpsCollateralState, error)
 }
 
 func New(doc *Document) *Policy {
@@ -491,7 +496,25 @@ func (p *Policy) Evaluate(account string, req Request, ledger Ledger) Decision {
 	ctx := Context{ChainID: new(big.Int).Set(effective.chainID), Account: common.HexToAddress(account)}
 	p.mu.RLock()
 	reader := p.constructReader
+	perpsReader := p.perpsCollateralReader
 	p.mu.RUnlock()
+	if perpsReader != nil {
+		var pin *PerpsCollateralState
+		ctx.readPerpsCollateral = func(position *big.Int) (*PerpsCollateralState, error) {
+			state, err := perpsReader(ctx, new(big.Int).Set(position))
+			if err != nil {
+				return nil, err
+			}
+			if state == nil {
+				return nil, errors.New("perps collateral reader returned no state")
+			}
+			if pin != nil && (pin.pin != state.pin || pin.token != state.token) {
+				return nil, errors.New("perps collateral configuration changed within the reviewed request")
+			}
+			pin = state
+			return state, nil
+		}
+	}
 	if reader != nil {
 		var state *ConstructState
 		var readErr error
@@ -601,7 +624,7 @@ func (p *Policy) Evaluate(account string, req Request, ledger Ledger) Decision {
 	if spends == nil {
 		spends = []Spend{}
 	}
-	return Decision{Allowed: true, Code: CodeAllowed, Reason: "request satisfies the account policy", Spends: spends}
+	return Decision{Allowed: true, Code: CodeAllowed, Reason: "request satisfies the account policy", Spends: spends, ReviewedBlock: inspection.ReviewedBlock}
 }
 
 func checkDestination(effective *compiled, destination Destination) (Decision, bool) {
@@ -741,9 +764,16 @@ func inspectCallContext(ctx Context, to common.Address, value *big.Int, data []b
 		if !ok {
 			return Inspection{}, refuse(CodeDecodeError, "perps.addCollateral amount is malformed")
 		}
-		out.Spends = append(out.Spends, Spend{
-			Asset: TokenAsset(common.HexToAddress("0x85FcD13735F4309833A503EE804ea32395851479")), Amount: amount,
-		})
+		position, ok := call.Args["positionId"].(*big.Int)
+		if !ok {
+			return Inspection{}, refuse(CodeDecodeError, "perps.addCollateral positionId is malformed")
+		}
+		state, stateErr := ctx.perpsCollateral(position)
+		if stateErr != nil {
+			return Inspection{}, stateErr
+		}
+		out.ReviewedBlock = state.pin.BlockHash
+		out.Spends = append(out.Spends, Spend{Asset: TokenAsset(state.token), Amount: amount})
 	case call.Destination == "launchpad" && call.Method == "swapTokenForTokenWithPermit":
 		asset, ok := call.Args["tokenIn"].(common.Address)
 		if !ok {
@@ -1072,6 +1102,12 @@ func inspectSponsoredBatch(ctx Context, view any) (Inspection, error) {
 		out.Destinations = append(out.Destinations, inspection.Destinations...)
 		out.Spends = append(out.Spends, inspection.Spends...)
 		out.Transfers = append(out.Transfers, inspection.Transfers...)
+		if inspection.ReviewedBlock != (common.Hash{}) {
+			if out.ReviewedBlock != (common.Hash{}) && out.ReviewedBlock != inspection.ReviewedBlock {
+				return Inspection{}, refuse(CodeMissingField, "batch reviewed state blocks disagree")
+			}
+			out.ReviewedBlock = inspection.ReviewedBlock
+		}
 	}
 	quote := claim.Batch.Quote
 	out.Destinations = append(out.Destinations, Destination{Address: quote.Sponsor, Precompile: evm.IsPrecompile(quote.Sponsor), Counterparty: true})

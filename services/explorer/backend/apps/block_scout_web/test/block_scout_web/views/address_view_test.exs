@@ -1,8 +1,22 @@
 defmodule BlockScoutWeb.AddressViewTest do
-  use BlockScoutWeb.ConnCase, async: true
+  use BlockScoutWeb.ConnCase, async: false
 
   alias Explorer.Chain.{Address, Hash, Transaction}
   alias BlockScoutWeb.{AddressView, Endpoint}
+
+  setup do
+    settings =
+      for {app, key} <- [{:block_scout_web, :show_percentage}, {:explorer, :supply}] do
+        {app, key, Application.fetch_env(app, key)}
+      end
+
+    on_exit(fn ->
+      Enum.each(settings, fn
+        {app, key, {:ok, value}} -> Application.put_env(app, key, value)
+        {app, key, :error} -> Application.delete_env(app, key)
+      end)
+    end)
+  end
 
   describe "address_partial_selector/4" do
     test "for a pending transaction contract creation to address" do

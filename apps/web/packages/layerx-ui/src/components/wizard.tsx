@@ -52,8 +52,22 @@ export function Wizard({
   className?: string;
 }) {
   const resolved = usePlatform(platform);
-  const [index, setIndex] = React.useState(0);
+  const [storedIndex, setIndex] = React.useState(0);
+  const index = Math.max(0, Math.min(storedIndex, steps.length - 1));
+  if (index !== storedIndex) setIndex(index);
   const step = steps[index];
+
+  if (!step) {
+    return (
+      <div className={cn("flex flex-1 flex-col items-center justify-center gap-4 p-4", className)}>
+        <p role="status">No steps available.</p>
+        {onCancel && (
+          <Button variant="secondary" onClick={onCancel}>Cancel</Button>
+        )}
+      </div>
+    );
+  }
+
   const isLast = index === steps.length - 1;
   const canContinue = step.canContinue ? step.canContinue() : true;
 

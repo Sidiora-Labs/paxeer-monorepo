@@ -1,0 +1,8 @@
+[repair.22.33.183]
+acceptance = "22998.1"
+precompile-reads-hide-outage = "repair-22-33-183.test.ts:precompileCapabilityOutageIsReadFailed, schedulerReadsPreserveProducerEvidence, streamReadsPreserveProducerEvidence"
+readiness-internal-disclosure = "repair-22-33-183.test.ts:readinessPublicAndOperatorDisclosureBoundary, readinessUsesStableIdentityReasonCodes"
+baseline = "No unchanged-tree verification ran: the explicit implementation-first order and allowed gate budget prohibit it; no pre-change test failure is claimed."
+evidence = "The hf-done receipt names the verified candidate revision, exact command, exit code and private evidence location."
+qualification_1 = "revision=c851c7bf5b44d83d08a9507760dea6505fe50834; command=cg spec done 22.33.183 -f layerx-merge --root /work/paxeer-monorepo; exit=1; log=/out/logs/verify-1.log; all three precompile tests passed; readiness SQL-error fixture lost its database connection, so the repair uses a separately connected and stopped real Pool to isolate the outage from subsequent checks."
+wiring_dependencies = "Wallet gateway domain: services/wallet/gateway/package.json must declare the existing src/db/testDatabase.ts imports @electric-sql/pglite and @electric-sql/pglite-socket so a clean gateway install resolves the committed in-memory PostgreSQL support."

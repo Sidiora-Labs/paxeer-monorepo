@@ -14,7 +14,7 @@ use layerx_programs_runtime::{hash_bytes, HashAlgorithm};
 
 use crate::{
     sandbox_state_key, AuthenticatedUsageReceipt, Lease, LeaseActivity, LeaseId, LeaseState,
-    UsageReceipt, MAX_USAGE_STATE_VALUE_BYTES,
+    UsageLedger, MAX_USAGE_STATE_VALUE_BYTES,
 };
 
 pub const PROGRAMS_SANDBOX_ACTIVITY_TYPE: u32 = 0x0009_0009;
@@ -25,10 +25,9 @@ const OP_ACTIVATE: u8 = 3;
 const FIXED_BYTES: usize = 236;
 const CALL_FIXED_BYTES: usize = 106;
 const LEASE_STORAGE_CAPABILITIES: &[u8] = &[0, 2, 1, 2];
-const PROGRAMS_ACCOUNT_ABI_VERSION: u16 = 2;
-const OCCUPANCY_PROTOCOL_VERSION: u16 = 2;
-const SANDBOX_PROGRAMS_REGISTRATION_ABI: u16 = 3;
-const SANDBOX_USAGE_MAGIC: &[u8; 4] = b"LXUR";
+const OCCUPANCY_GUEST_ABI_VERSION: u16 = layerx_programs_runtime::ABI_V2_VERSION;
+const OCCUPANCY_PROTOCOL_VERSION: u16 = 3;
+const SANDBOX_PROGRAMS_REGISTRATION_ABI: u16 = 4;
 const SANDBOX_STATE_STORE: &str = "lxphost";
 pub const MAX_CANONICAL_CALL_BYTES: usize = 1_056_000;
 
@@ -143,7 +142,7 @@ impl SandboxSubmission {
         payload: &[u8],
         protocol: SandboxProtocolContext,
     ) -> Result<Self, SandboxActivityRefusal> {
-        if payload.len() < 4
+        if payload.len() < 36
             || payload[0] != PAYLOAD_VERSION
             || !matches!(payload[1], OP_EXECUTE | OP_FUND | OP_ACTIVATE)
             || payload[2..4] != [0, 0]
@@ -239,6 +238,37 @@ pub fn canonical_fund(
     lease: &Lease,
     canonical_programs_transfer: &[u8],
 ) -> Result<SandboxSubmission, SandboxActivityRefusal> {
+    canonical_fund_from_account(
+        protocol,
+        lease,
+        lease.tenant().bytes(),
+        canonical_programs_transfer,
+    )
+}
+
+/// Constructs funding from the exact native DID asset account. The DID key must
+/// derive the lease tenant; the source account remains fixed by that identity.
+/// # Errors
+/// Refuses a foreign tenant, source account, asset, destination, or amount.
+pub fn canonical_fund_for_did(
+    protocol: SandboxProtocolContext,
+    lease: &Lease,
+    did_key: [u8; 32],
+    canonical_programs_transfer: &[u8],
+) -> Result<SandboxSubmission, SandboxActivityRefusal> {
+    let (tenant, source) = crate::invocation::funding_identity(did_key, lease.escrow_asset())?;
+    if tenant != lease.tenant() {
+        return Err(SandboxActivityRefusal::CallMismatch);
+    }
+    canonical_fund_from_account(protocol, lease, source, canonical_programs_transfer)
+}
+
+fn canonical_fund_from_account(
+    protocol: SandboxProtocolContext,
+    lease: &Lease,
+    source: [u8; 32],
+    canonical_programs_transfer: &[u8],
+) -> Result<SandboxSubmission, SandboxActivityRefusal> {
     if lease.state() != LeaseState::Requested || canonical_programs_transfer.len() < 146 {
         return Err(SandboxActivityRefusal::CallMismatch);
     }
@@ -250,7 +280,7 @@ pub fn canonical_fund(
     if canonical_programs_transfer[..32] != lease.host_program().bytes()
         || leg_count != 1
         || canonical_programs_transfer.len() != 146
-        || canonical_programs_transfer[34..66] != lease.tenant().bytes()
+        || canonical_programs_transfer[34..66] != source
         || canonical_programs_transfer[66..98] != lease.escrow_asset()
         || canonical_programs_transfer[98..130] != lease.escrow_account()
         || u128::from_be_bytes(
@@ -356,15 +386,18 @@ impl SandboxSubmissionReceipt {
     /// # Errors
     ///
     /// Returns a refusal when protocol-head verification or receipt binding fails.
-    pub fn verify(
+    pub fn verify<E: Into<crate::invocation::SandboxReceiptProof>>(
         verifier: &ChainProofVerifier,
         submission: &SandboxSubmission,
-        evidence: SandboxReceiptEvidence,
+        evidence: E,
         now_ms: u64,
     ) -> Result<Self, SandboxActivityRefusal> {
-        if evidence.tx != submission.payload() {
+        let crate::invocation::SandboxReceiptProof::Authenticated(evidence) = evidence.into()
+        else {
             return Err(SandboxActivityRefusal::InvalidReceipt);
-        }
+        };
+        let invocation = evidence.invocation;
+        let evidence = evidence.chain;
         let invalid = |_| SandboxActivityRefusal::InvalidReceipt;
         let current = verifier
             .verify_head(&evidence.tx_proof.header, &evidence.tx_proof.commit)
@@ -387,12 +420,17 @@ impl SandboxSubmissionReceipt {
         {
             return Err(SandboxActivityRefusal::InvalidReceipt);
         }
-        let activity_id =
-            verify_tx(&current, &evidence.tx, &evidence.tx_proof.proof).map_err(invalid)?;
+        verify_tx(&current, &evidence.tx, &evidence.tx_proof.proof).map_err(invalid)?;
+        let binding = invocation.verify(&current, submission, &evidence.tx, &evidence.tx_result)?;
+        let activity_id = binding.activity_id;
         verify_tx_result(&next, &evidence.tx_result, &evidence.result_proof.proof)
             .map_err(invalid)?;
         let funding = submission.payload.get(1) == Some(&OP_FUND);
-        let key = sandbox_state_key(if funding { 0 } else { 1 }, submission.lease.bytes())?;
+        let activation = submission.payload.get(1) == Some(&OP_ACTIVATE);
+        let key = sandbox_state_key(
+            if funding || activation { 0 } else { 2 },
+            submission.lease.bytes(),
+        )?;
         let value = evidence
             .commitment
             .value
@@ -421,8 +459,29 @@ impl SandboxSubmissionReceipt {
         };
         if funding {
             funded_lease_record(submission, activity_id, &receipt.canonical_receipt)?;
+        } else if activation {
+            binding
+                .previous_lease
+                .as_ref()
+                .ok_or(SandboxActivityRefusal::InvalidReceipt)?
+                .verify_native_activation(activity_id, &receipt.canonical_receipt)
+                .map_err(|_| SandboxActivityRefusal::InvalidReceipt)?;
         } else {
-            receipt.authenticated_usage_receipt()?;
+            let usage = receipt.authenticated_usage_receipt()?;
+            let previous = binding
+                .previous_lease
+                .as_ref()
+                .ok_or(SandboxActivityRefusal::InvalidReceipt)?;
+            if usage.receipt().lease_terms_digest()
+                != previous
+                    .request_binding_digest()
+                    .map_err(|_| SandboxActivityRefusal::InvalidReceipt)?
+                || usage.receipt().fee_destination() != previous.fee_destination()
+                || usage.receipt().prices()
+                    != crate::UsagePrices::from_schedule(previous.fee_schedule())
+            {
+                return Err(SandboxActivityRefusal::InvalidReceipt);
+            }
         }
         Ok(receipt)
     }
@@ -448,27 +507,19 @@ impl SandboxSubmissionReceipt {
         self.expected_lease_digest
     }
 
-    /// Recovers the LXUR usage record from the authenticated lease ledger value.
+    /// Recovers the latest receipt from the authenticated kind-2 usage ledger.
     /// # Errors
     ///
     /// Returns a refusal when usage encoding or submission bindings are invalid.
     pub fn authenticated_usage_receipt(
         &self,
     ) -> Result<AuthenticatedUsageReceipt, SandboxActivityRefusal> {
-        let value = &self.canonical_receipt;
-        if self.expected_usage_sequence == 0
-            || value.len() <= SANDBOX_USAGE_MAGIC.len() + 32
-            || value.len() > MAX_USAGE_STATE_VALUE_BYTES
-            || !value.starts_with(SANDBOX_USAGE_MAGIC)
-        {
-            return Err(SandboxActivityRefusal::InvalidReceipt);
-        }
-        let end = value.len() - 32;
-        let digest = value[end..]
-            .try_into()
+        let ledger = UsageLedger::decode_canonical(&self.canonical_receipt)
             .map_err(|_| SandboxActivityRefusal::InvalidReceipt)?;
-        let usage = UsageReceipt::decode(&value[SANDBOX_USAGE_MAGIC.len()..end], digest)
-            .map_err(|_| SandboxActivityRefusal::InvalidReceipt)?;
+        let usage = ledger
+            .latest()
+            .cloned()
+            .ok_or(SandboxActivityRefusal::InvalidReceipt)?;
         if usage.activity_id() != self.activity_id
             || usage.lease() != self.lease
             || usage.sequence() != self.expected_usage_sequence
@@ -477,6 +528,38 @@ impl SandboxSubmissionReceipt {
             return Err(SandboxActivityRefusal::InvalidReceipt);
         }
         Ok(AuthenticatedUsageReceipt::new(usage))
+    }
+    /// Checks native LXUR event fragments against the authenticated stored receipt.
+    /// # Errors
+    /// Returns a refusal for incomplete, reordered or mismatched native event framing.
+    pub fn verify_native_usage_frames(
+        &self,
+        frames: &[Vec<u8>],
+    ) -> Result<(), SandboxActivityRefusal> {
+        let receipt = self.authenticated_usage_receipt()?;
+        let mut canonical = receipt.receipt().canonical_bytes();
+        canonical.extend_from_slice(&receipt.receipt().digest());
+        if canonical.is_empty()
+            || canonical.len() > 4096
+            || frames.len() != canonical.len().div_ceil(204)
+        {
+            return Err(SandboxActivityRefusal::InvalidReceipt);
+        }
+        for (index, frame) in frames.iter().enumerate() {
+            let chunk = &canonical[index * 204..canonical.len().min((index + 1) * 204)];
+            if frame.len() != 52 + chunk.len()
+                || frame[..4] != *b"LXUR"
+                || frame[4..36] != self.activity_id
+                || frame[36..44] != self.expected_usage_sequence.to_be_bytes()
+                || frame[44..46] != (index as u16).to_be_bytes()
+                || frame[46..48] != (frames.len() as u16).to_be_bytes()
+                || frame[48..52] != (canonical.len() as u32).to_be_bytes()
+                || frame[52..] != *chunk
+            {
+                return Err(SandboxActivityRefusal::InvalidReceipt);
+            }
+        }
+        Ok(())
     }
 }
 
@@ -545,7 +628,7 @@ pub trait SandboxActivityPlane {
     fn submit_sandbox(
         &mut self,
         submission: SandboxSubmission,
-    ) -> Result<SandboxReceiptEvidence, Self::Error>;
+    ) -> Result<crate::invocation::AuthenticatedSandboxReceiptEvidence, Self::Error>;
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -721,9 +804,9 @@ fn validate_call_structure(
             .try_into()
             .map_err(|_| SandboxActivityRefusal::NonCanonical)?,
     );
-    if abi_version > protocol.active_programs_abi
-        || abi_version > PROGRAMS_ACCOUNT_ABI_VERSION
-        || (abi_version == PROGRAMS_ACCOUNT_ABI_VERSION
+    if layerx_programs_runtime::abi_policy::admit_abi_version(abi_version).is_err()
+        || abi_version > protocol.active_programs_abi
+        || (abi_version >= OCCUPANCY_GUEST_ABI_VERSION
             && protocol.protocol_version != OCCUPANCY_PROTOCOL_VERSION)
     {
         return Err(SandboxActivityRefusal::ProtocolMismatch);

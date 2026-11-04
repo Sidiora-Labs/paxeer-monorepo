@@ -1,8 +1,8 @@
 import path from 'node:path';
+import { ECDH } from 'node:crypto';
 import { AtomicJsonStore } from './atomic-json-store';
 
-const DATA_DIR =
-  process.env.PUSH_DATA_DIR ?? '/data/paxport/push';
+const DATA_DIR = process.env.PUSH_DATA_DIR ?? '/data/paxport/push';
 
 export interface StoredSubscription {
   endpoint: string;
@@ -41,17 +41,8 @@ function isRecord(input: unknown): input is Record<string, unknown> {
   return typeof input === 'object' && input !== null && !Array.isArray(input);
 }
 
-function boundedString(
-  input: unknown,
-  name: string,
-  minimum: number,
-  maximum: number,
-): string {
-  if (
-    typeof input !== 'string' ||
-    input.length < minimum ||
-    input.length > maximum
-  ) {
+function boundedString(input: unknown, name: string, minimum: number, maximum: number): string {
+  if (typeof input !== 'string' || input.length < minimum || input.length > maximum) {
     throw new TypeError(`${name} is invalid`);
   }
   return input;
@@ -61,7 +52,7 @@ function parseStringArray(
   input: unknown,
   name: string,
   maximumItems: number,
-  maximumLength: number,
+  maximumLength: number
 ): string[] | undefined {
   if (input === undefined) return undefined;
   if (!Array.isArray(input) || input.length > maximumItems) {
@@ -71,14 +62,38 @@ function parseStringArray(
 }
 
 function parseTimestamp(input: unknown, name: string): number {
-  if (
-    typeof input !== 'number' ||
-    !Number.isSafeInteger(input) ||
-    input < 0
-  ) {
+  if (typeof input !== 'number' || !Number.isSafeInteger(input) || input < 0) {
     throw new TypeError(`${name} is invalid`);
   }
   return input;
+}
+
+// Exact provider origins keep subscriber-controlled hosts and DNS out of egress.
+const PUSH_ORIGINS = new Set([
+  'https://fcm.googleapis.com',
+  'https://updates.push.services.mozilla.com',
+  'https://web.push.apple.com',
+]);
+
+function parsePushKey(input: unknown, name: string, bytes: number): string {
+  const value = boundedString(input, name, 1, 256);
+  const decoded = Buffer.from(value, 'base64url');
+  if (
+    !/^[A-Za-z0-9_-]+$/.test(value) ||
+    decoded.length !== bytes ||
+    decoded.toString('base64url') !== value
+  ) {
+    throw new TypeError(`${name} is invalid`);
+  }
+  if (bytes === 65) {
+    if (decoded[0] !== 4) throw new TypeError(`${name} is invalid`);
+    try {
+      ECDH.convertKey(decoded, 'prime256v1', undefined, undefined, 'uncompressed');
+    } catch {
+      throw new TypeError(`${name} is invalid`);
+    }
+  }
+  return value;
 }
 
 export function parseStoredSubscription(input: unknown): StoredSubscription {
@@ -87,23 +102,25 @@ export function parseStoredSubscription(input: unknown): StoredSubscription {
   }
   const endpoint = boundedString(input.endpoint, 'endpoint', 12, 2048);
   const parsedEndpoint = new URL(endpoint);
-  if (parsedEndpoint.protocol !== 'https:') {
+  if (
+    !PUSH_ORIGINS.has(parsedEndpoint.origin) ||
+    parsedEndpoint.username !== '' ||
+    parsedEndpoint.password !== '' ||
+    parsedEndpoint.hash !== '' ||
+    endpoint !== parsedEndpoint.href ||
+    /[\\\s]/.test(endpoint)
+  ) {
     throw new TypeError('endpoint is invalid');
   }
-  const walletAddress = boundedString(
-    input.walletAddress,
-    'walletAddress',
-    42,
-    42,
-  ).toLowerCase();
+  const walletAddress = boundedString(input.walletAddress, 'walletAddress', 42, 42).toLowerCase();
   if (!/^0x[0-9a-f]{40}$/.test(walletAddress)) {
     throw new TypeError('walletAddress is invalid');
   }
   return {
     endpoint,
     keys: {
-      p256dh: boundedString(input.keys.p256dh, 'keys.p256dh', 16, 256),
-      auth: boundedString(input.keys.auth, 'keys.auth', 8, 128),
+      p256dh: parsePushKey(input.keys.p256dh, 'keys.p256dh', 65),
+      auth: parsePushKey(input.keys.auth, 'keys.auth', 16),
     },
     walletAddress,
     userAgent:
@@ -122,11 +139,7 @@ export function parseStoredSubscription(input: unknown): StoredSubscription {
 
 export function parseCampaign(input: unknown): Campaign {
   if (!isRecord(input)) throw new TypeError('Campaign is invalid');
-  const optionalString = (
-    value: unknown,
-    name: string,
-    maximum: number,
-  ): string | undefined =>
+  const optionalString = (value: unknown, name: string, maximum: number): string | undefined =>
     value === undefined ? undefined : boundedString(value, name, 1, maximum);
   return {
     id: boundedString(input.id, 'id', 1, 128),
@@ -137,24 +150,14 @@ export function parseCampaign(input: unknown): Campaign {
     image: optionalString(input.image, 'image', 512),
     tag: optionalString(input.tag, 'tag', 128),
     targetTags: parseStringArray(input.targetTags, 'targetTags', 32, 64),
-    targetAddresses: parseStringArray(
-      input.targetAddresses,
-      'targetAddresses',
-      500,
-      42,
-    ),
+    targetAddresses: parseStringArray(input.targetAddresses, 'targetAddresses', 500, 42),
     scheduledAt:
       input.scheduledAt === undefined
         ? undefined
         : parseTimestamp(input.scheduledAt, 'scheduledAt'),
-    sentAt:
-      input.sentAt === undefined
-        ? undefined
-        : parseTimestamp(input.sentAt, 'sentAt'),
+    sentAt: input.sentAt === undefined ? undefined : parseTimestamp(input.sentAt, 'sentAt'),
     sentCount:
-      input.sentCount === undefined
-        ? undefined
-        : parseTimestamp(input.sentCount, 'sentCount'),
+      input.sentCount === undefined ? undefined : parseTimestamp(input.sentCount, 'sentCount'),
     failedCount:
       input.failedCount === undefined
         ? undefined
@@ -163,14 +166,10 @@ export function parseCampaign(input: unknown): Campaign {
 }
 
 function envelopeParser<T>(
-  itemParser: (input: unknown) => T,
+  itemParser: (input: unknown) => T
 ): (input: unknown) => StoreEnvelope<T> {
   return (input) => {
-    if (
-      !isRecord(input) ||
-      input.version !== 1 ||
-      !Array.isArray(input.records)
-    ) {
+    if (!isRecord(input) || input.version !== 1 || !Array.isArray(input.records)) {
       throw new TypeError('Store envelope is invalid');
     }
     return {
@@ -182,7 +181,7 @@ function envelopeParser<T>(
 }
 
 function legacyMigration<T>(
-  itemParser: (input: unknown) => T,
+  itemParser: (input: unknown) => T
 ): (input: unknown) => StoreEnvelope<T> {
   return (input) => {
     if (!Array.isArray(input)) throw new TypeError('Legacy store is invalid');
@@ -208,25 +207,30 @@ const campaigns = new AtomicJsonStore<StoreEnvelope<Campaign>>({
   migrate: legacyMigration(parseCampaign),
 });
 
-export async function upsertSubscription(
-  input: StoredSubscription,
-): Promise<void> {
+export async function upsertSubscription(input: StoredSubscription): Promise<void> {
   const subscription = parseStoredSubscription(input);
   await subscriptions.update((store) => {
     const existing = store.records.find(
-      (candidate) => candidate.endpoint === subscription.endpoint,
+      (candidate) => candidate.endpoint === subscription.endpoint
     );
+    if (existing && existing.walletAddress !== subscription.walletAddress) {
+      throw new TypeError('Subscription owner cannot change');
+    }
+    const now = Date.now();
     return {
       version: 1,
       updatedAt: Date.now(),
       records: [
-        ...store.records.filter(
-          (candidate) => candidate.endpoint !== subscription.endpoint,
-        ),
+        ...store.records.filter((candidate) => candidate.endpoint !== subscription.endpoint),
         {
-          ...subscription,
-          createdAt: existing?.createdAt ?? subscription.createdAt,
-          lastActiveAt: Date.now(),
+          ...(existing ?? {
+            endpoint: subscription.endpoint,
+            walletAddress: subscription.walletAddress,
+            createdAt: now,
+          }),
+          keys: subscription.keys,
+          userAgent: subscription.userAgent,
+          lastActiveAt: now,
         },
       ],
     };
@@ -243,24 +247,20 @@ export async function removeSubscription(endpoint: string): Promise<boolean> {
   return removed;
 }
 
-export async function getSubscription(
-  endpoint: string,
-): Promise<StoredSubscription | null> {
+export async function getSubscription(endpoint: string): Promise<StoredSubscription | null> {
   const store = await subscriptions.read();
   return store.records.find((item) => item.endpoint === endpoint) ?? null;
 }
 
 export async function getSubscriptionsByWallet(
-  walletAddress: string,
+  walletAddress: string
 ): Promise<StoredSubscription[]> {
   const store = await subscriptions.read();
   const normalized = walletAddress.toLowerCase();
   return store.records.filter((item) => item.walletAddress === normalized);
 }
 
-export async function getSubscriptionsByTag(
-  tag: string,
-): Promise<StoredSubscription[]> {
+export async function getSubscriptionsByTag(tag: string): Promise<StoredSubscription[]> {
   const store = await subscriptions.read();
   return store.records.filter((item) => item.tags?.includes(tag));
 }
@@ -279,17 +279,12 @@ export async function updateLastNotified(endpoints: string[]): Promise<void> {
     version: 1,
     updatedAt: Date.now(),
     records: store.records.map((item) =>
-      targets.has(item.endpoint)
-        ? { ...item, lastNotifiedAt: Date.now() }
-        : item,
+      targets.has(item.endpoint) ? { ...item, lastNotifiedAt: Date.now() } : item
     ),
   }));
 }
 
-export async function addTagToWallet(
-  walletAddress: string,
-  tag: string,
-): Promise<number> {
+export async function addTagToWallet(walletAddress: string, tag: string): Promise<number> {
   let count = 0;
   const normalized = walletAddress.toLowerCase();
   await subscriptions.update((store) => ({
@@ -304,13 +299,9 @@ export async function addTagToWallet(
   return count;
 }
 
-export async function getInactiveSubscriptions(
-  thresholdMs: number,
-): Promise<StoredSubscription[]> {
+export async function getInactiveSubscriptions(thresholdMs: number): Promise<StoredSubscription[]> {
   const cutoff = Date.now() - thresholdMs;
-  return (await subscriptions.read()).records.filter(
-    (item) => item.lastActiveAt < cutoff,
-  );
+  return (await subscriptions.read()).records.filter((item) => item.lastActiveAt < cutoff);
 }
 
 export async function addCampaign(input: Campaign): Promise<void> {
@@ -334,22 +325,20 @@ export async function getCampaign(id: string): Promise<Campaign | null> {
 export async function getPendingCampaigns(): Promise<Campaign[]> {
   const now = Date.now();
   return (await campaigns.read()).records.filter(
-    (item) => !item.sentAt && (!item.scheduledAt || item.scheduledAt <= now),
+    (item) => !item.sentAt && (!item.scheduledAt || item.scheduledAt <= now)
   );
 }
 
 export async function markCampaignSent(
   id: string,
   sentCount: number,
-  failedCount: number,
+  failedCount: number
 ): Promise<void> {
   await campaigns.update((store) => ({
     version: 1,
     updatedAt: Date.now(),
     records: store.records.map((item) =>
-      item.id === id
-        ? { ...item, sentAt: Date.now(), sentCount, failedCount }
-        : item,
+      item.id === id ? { ...item, sentAt: Date.now(), sentCount, failedCount } : item
     ),
   }));
 }

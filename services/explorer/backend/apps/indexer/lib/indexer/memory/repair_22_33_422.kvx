@@ -1,0 +1,18 @@
+[repair.22.33.422]
+audit_record = "22.30.145"
+finding = "participant (audit id: memory-monitor-worker-race)"
+test_file = "services/explorer/backend/apps/indexer/test/repair/repair_22_33_422_test.exs"
+proving_tests = ["participant: surviving queue is serviced when a participant exits before queue inspection", "participant: surviving queue is serviced when a participant exits between inspection and shrink", "participant: surviving queue is serviced when a participant exits after shrink before queue inspection", "participant: normal and supervised shutdowns are reported by both queue operations", "participant: a dead PID with zero memory is removed before division", "participant: reaching minimum size still advances to the next queue", "participant: unexpected participant faults remain visible", "participant: an unresponsive live queue still reports a timeout"]
+producer_transport_consumer = "Recorded Paxeer X block numbers enter the production BufferedTask initialization runner; Monitor calls the production Shrinkable interface over GenServer transport; surviving BufferedTask queues shed entries, dispatch the next recorded batch, and expand when pressure clears."
+lifecycle = "Kill a production BufferedTask at each monitor call boundary using OTP debug synchronization; separately terminate suspended production participants with normal and supervised shutdown reasons while real calls are pending."
+baseline = "Not run: the explicit implementation-first order and hf-done-only verification budget override the contradictory baseline step; no pre-change test failure is claimed."
+wiring_requests = []
+qualification = "The runner's hf-build/hf-done gate ledger records the exact candidate revision, command, exit code and private log; the final evidence line identifies the verified revision."
+
+[qualification.initial]
+revision = "ad7c38bbdbf0e9c5ea5975e231d774cc39c7b62d"
+command = "cg spec done 22.33.422 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Eight tests ran; the three call-boundary tests and zero-memory test exposed a dead-PID MatchError in the imported logging helper."
+repair = "Use one Process.info snapshot in the monitor's PID formatter so logging a participant exit is safe without changing the out-of-scope shared logger or weakening any assertion."

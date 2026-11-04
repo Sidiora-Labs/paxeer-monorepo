@@ -3,7 +3,7 @@ defmodule Explorer.Market.Source.CoinMarketCap do
   Adapter for fetching exchange rates from https://coinmarketcap.com/api/
   """
 
-  alias Explorer.Market
+  alias Explorer.Market.Fetcher.Coin
   alias Explorer.Market.{Source, Token}
 
   @behaviour Source
@@ -87,7 +87,7 @@ defmodule Explorer.Market.Source.CoinMarketCap do
 
   defp do_fetch_coin(coin_id, coin_id_not_specified_error) do
     convert_id =
-      if Application.get_env(:explorer, Market)[:fetch_btc_value],
+      if Application.get_env(:explorer, Coin, [])[:fetch_btc_value],
         do: "1,#{config(:currency_id)}",
         else: config(:currency_id)
 

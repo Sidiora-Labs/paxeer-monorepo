@@ -1240,32 +1240,12 @@ fn a_draw_receipt_without_a_matching_payment_drawn_log_is_refused() -> Outcome {
     Ok(())
 }
 
+#[path = "support/payment_repair.rs"]
+mod payment_repair;
+
 #[test]
-fn metered_draws_settle_in_each_asset() -> Outcome {
-    let harness = Harness::start("metered", &["metered.json"])?;
-    for currency in CURRENCIES {
-        let grant = harness.grant(&format!("/grants/{currency}"))?;
-        let reply = harness.metered(
-            &format!("/search?q={currency}"),
-            currency,
-            &grant,
-            &format!("metered-{currency}"),
-        )?;
-        assert_settled(&reply)?;
-        let response = reply.decoded(PAYMENT_RESPONSE)?;
-        assert_eq!(response.get("network"), Some(&json!("eip155:125")));
-        assert_eq!(
-            response.pointer("/extensions/layerx/purposeHash"),
-            Some(&json!(hex(&purpose_hash(&receiver_public_key()?))))
-        );
-        let asset = accepted(currency)?;
-        let payer = payer_account(&asset)?;
-        assert_eq!(response.get("payer"), Some(&json!(hex(&payer))));
-        assert_eq!(reply.body.get("query"), Some(&json!(currency)));
-    }
-    assert_eq!(harness.served(), 4);
-    assert_eq!(harness.gateway.calls("eth_sendRawTransaction"), 4);
-    Ok(())
+fn supported_exact_offers_settle_in_each_asset_and_retired_metered_offers_are_refused() -> Outcome {
+    payment_repair::supported_offers_refusals_and_recovery()
 }
 
 #[test]
@@ -2898,7 +2878,7 @@ fn fixture_word(value: &Value, pointer: &str) -> Outcome<[u8; 32]> {
 }
 
 #[test]
-fn draw_calldata_matches_the_ledger_draw_selector_and_layout() -> Outcome {
+fn legacy_draw_calldata_matches_the_ledger_draw_selector_and_layout() -> Outcome {
     let native_abi: Value = serde_json::from_str(include_str!(
         "../../../../../precompiles/layerxledger/abi.json"
     ))?;
@@ -2945,7 +2925,7 @@ fn draw_calldata_matches_the_ledger_draw_selector_and_layout() -> Outcome {
 }
 
 #[test]
-fn the_payer_grant_is_read_from_the_ledger_precompile() -> Outcome {
+fn legacy_payer_grant_codec_replays_historical_ledger_responses() -> Outcome {
     let recording = read_json(&fixtures().join("gateway/metered.json"))?;
     let gateway = Gateway::start(&["metered.json"])?;
     let rpc = SettlementRpc::new(&format!("http://{}/rpc", gateway.address), 125)?;
@@ -3464,7 +3444,7 @@ fn pretty(value: &Value) -> Outcome<String> {
 }
 
 #[test]
-fn the_gateway_recording_is_reproduced_by_the_real_signers() -> Outcome {
+fn legacy_gateway_recording_is_reproduced_by_the_real_signers() -> Outcome {
     let recording = gateway_recording()?;
     let recorded = std::env::var_os(RECORD_VARIABLE).is_some();
     for (name, value) in &recording {

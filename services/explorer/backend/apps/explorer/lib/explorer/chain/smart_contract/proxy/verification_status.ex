@@ -37,10 +37,12 @@ defmodule Explorer.Chain.SmartContract.Proxy.VerificationStatus do
     struct
     |> cast(params, @required_fields)
     |> validate_required(@required_fields)
+    |> unique_constraint(:uid, name: :proxy_smart_contract_verification_statuses_pkey)
   end
 
   @doc """
-    Inserts verification status
+    Inserts verification status. A duplicate uid returns an error changeset without
+    overwriting the existing attempt or aborting the caller's transaction.
   """
   @spec insert_status(String.t(), status(), Hash.Address.t() | String.t()) :: any()
   def insert_status(uid, status, address_hash) do
@@ -48,7 +50,7 @@ defmodule Explorer.Chain.SmartContract.Proxy.VerificationStatus do
 
     %__MODULE__{}
     |> changeset(%{uid: uid, status: status, contract_address_hash: hash})
-    |> Repo.insert()
+    |> Repo.insert(mode: :savepoint)
   end
 
   @doc """
@@ -78,30 +80,33 @@ defmodule Explorer.Chain.SmartContract.Proxy.VerificationStatus do
   end
 
   @doc """
-    Generates uid based on address hash and timestamp
+    Generates a 256-bit random attempt identifier within the 64-character database limit.
   """
   @spec generate_uid(Explorer.Chain.Hash.t()) :: String.t()
-  def generate_uid(%Hash{byte_count: 20, bytes: address_hash}) do
-    address_encoded = Base.encode16(address_hash, case: :lower)
-    timestamp = DateTime.utc_now() |> DateTime.to_unix() |> Integer.to_string(16) |> String.downcase()
-    address_encoded <> timestamp
+  def generate_uid(%Hash{byte_count: 20}) do
+    32 |> :crypto.strong_rand_bytes() |> Base.encode16(case: :lower)
   end
 
   @doc """
     Validates uid
   """
-  @spec validate_uid(String.t()) :: :error | {:ok, <<_::64, _::_*8>>}
-  def validate_uid(<<_address::binary-size(40), timestamp_hex::binary>> = uid) do
-    case Integer.parse(timestamp_hex, 16) do
-      {timestamp, ""} ->
-        if DateTime.utc_now() |> DateTime.to_unix() >= timestamp do
-          {:ok, uid}
-        else
-          :error
-        end
+  @spec validate_uid(term()) :: :error | {:ok, String.t()}
+  def validate_uid(<<_::binary-size(64)>> = uid) do
+    case Base.decode16(uid, case: :lower) do
+      {:ok, _} -> {:ok, uid}
+      :error -> :error
+    end
+  end
 
-      _ ->
-        :error
+  # Keep previously issued address/timestamp identifiers pollable.
+  def validate_uid(<<address::binary-size(40), timestamp_hex::binary>> = uid) when byte_size(uid) < 64 do
+    with {:ok, _} <- Base.decode16(address, case: :lower),
+         {timestamp, ""} when timestamp >= 0 <- Integer.parse(timestamp_hex, 16),
+         true <- timestamp_hex == String.downcase(Integer.to_string(timestamp, 16)),
+         true <- DateTime.to_unix(DateTime.utc_now()) >= timestamp do
+      {:ok, uid}
+    else
+      _ -> :error
     end
   end
 
@@ -115,3 +120,4 @@ defmodule Explorer.Chain.SmartContract.Proxy.VerificationStatus do
 
   def set_proxy_verification_result(_empty_or_error, uid), do: update_status(uid, :fail)
 end
+
