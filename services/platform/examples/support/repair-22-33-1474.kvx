@@ -1,0 +1,47 @@
+[repair.22.33.1474]
+audit = "22.30.86"
+mode = "BUILD"
+baseline = "Not run: the explicit implementation-first order and prohibition on manually running verify_cmd take precedence over the contradictory baseline instruction; no before-change failure is claimed."
+verification = "hf-build then hf-done; the runner ledger records the candidate revision, exact command, exit code and private evidence log."
+fixture = "The Node gate loads committed SDK and merchant/seller TypeScript through Node module hooks, without generating dist or invoking a compiler. Cryptographically signed loopback receipts use the real SDK transaction decoder and receipt encoder; the real HTTP application and its receipt verifier consume them. No external environment, credential, service, binary or native artifact is required."
+
+[finding.merchant-transport-unbounded]
+tests = ["merchantTransportUnbounded"]
+implementation = "Transaction lookup and settlement reuse boundedJsonRequest: a complete-operation deadline, streamed and declared-length response limits, strict UTF-8/JSON decoding, redirect refusal, and cancellation. Transport failure is unknown; retry after application restart retains the same authenticated principal, order and settlement idempotency key."
+
+[finding.order-file-crash-window]
+tests = ["orderFileCrashWindow", "orderTerminalCrashRecovery"]
+implementation = "Write a private pending file, fsync complete JSON, publish its immutable name with exclusive hard-link creation, and fsync its directory. Unpublished partial pending files are ignored on reopen and creation can resume by retry; published pending-payment orders are complete. Readers sync observed records before acknowledging recovery after a publisher died before directory sync."
+crash_proof = "The real application publishes diagnostics at temporary creation, write, file sync, exclusive publication and directory sync. Tests stop the actual process at each boundary, inspect the actual files, kill it, reopen the HTTP application and assert the complete unchanged order and exclusive winning inode. A second proof interrupts terminal publication before directory sync and recovers the paid receipt."
+
+[finding.order-cross-process-transitions]
+tests = ["orderCrossProcessCreation", "orderCrossProcessPaidRefused", "orderCrossProcessWinningReceipt", "orderTerminalCrashRecovery"]
+implementation = "FileCompareAndSet gives both stores shared per-record transactions: version zero is immutable creation and each immutable successor name is the exclusive CAS slot for its predecessor. Conflicting simultaneous paid/refused or paid/paid updates cannot replace a winner; all retries verify its state and receipt binding. No process-local lock or stale-lock recovery is needed."
+proof = "Two separate HTTP application processes share storage and are stopped immediately before competing publications, then resumed together. Real checkout/settlement/receipt paths produce the contenders; reopening preserves the sole winning order and receipt."
+
+[finding.webhook-cross-process-claim]
+tests = ["webhookCrossProcessClaim", "webhookCrossProcessReleaseFencing", "webhookSameProcessLeaseFencing", "webhookCrossProcessRestart", "webhookOwnedReleaseRecovery"]
+implementation = "Shared CAS stores a random ownership token with each lease generation. AsyncLocalStorage binds that token to the individual verified request; complete and release compare payload, active lease, processing state, token and predecessor version. Stale contexts cannot overwrite a reclaimed lease, even when one server handles both generations."
+proof = "Signed webhook requests race two HTTP application processes against a held real node request. Tests wait for real lease expiry, reclaim it, exercise stale completion and stale release, kill/restart an owner, and reopen completed delivery state; duplicate and conflicting replay requests do not reapply receipts."
+
+[finding.merchant-order-read-auth]
+tests = ["merchantOrderReadAuth"]
+implementation = "Require an independently configured customer bearer credential before order lookup, derive tenant/principal from its configured identity, and return missing for another identity's order. Test paid evidence isolation for other principals, the same principal in another tenant, unauthenticated callers and reopened applications."
+
+[finding.merchant-checkout-principal-auth]
+tests = ["merchantCheckoutPrincipalAuth"]
+implementation = "Authenticate checkout from customer credentials, reject conflicting body identity claims before creating state, hash tenant/principal/key together for checkout isolation, persist ownership, and send a canonical tenant/principal pair to settlement. Identity-mismatched payment replay cannot enter settlement."
+
+[finding.receipt-transport-unbounded]
+tests = ["receiptTransportUnbounded", "merchantTransportUnbounded"]
+implementation = "SequencerReceiptClient shares boundedJsonRequest with both merchant transports. Headers, streamed/decompressed body bytes and decoding are bounded under one abort deadline; all redirects are refused. Cancellation is observed by the loopback producer, and typed pending/refused/unknown errors and successful signed proof recovery are asserted."
+
+[wiring.application-config-and-callers]
+request = "services/platform/examples/{merchant-checkout,merchant-shop}/layerx.example.json and their buyer/walkthrough/test callers (platform examples, domain 8): configure customerCredentialsEnvironment with separate customer bearer tokens bound to tenant/principal; send Authorization on checkout and order reads and use the returned scoped order ID. The outbound settlement token is not a customer credential; existing orders without authenticated ownership remain undisclosed."
+
+[wiring.webhook-interface]
+request = "services/platform/middleware/seller/src/index.ts WebhookDeliveryStore (platform middleware, domain 8): expose an explicit lease ownership token in claim/complete/release when revising that interface; the scoped example currently carries the token safely in per-request AsyncLocalStorage around the unchanged verifier interface."
+
+[gotcha.source-only-gate]
+observed = "The SDK and middleware dist entry points are absent in this checkout and the declared gate performs syntax checks only."
+action = "The repair test loads the committed production TypeScript sources with the existing Node module-hook pattern; no out-of-scope build or generated artifact is required."
