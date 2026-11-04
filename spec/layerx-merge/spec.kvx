@@ -131327,7 +131327,7 @@ do_12 = "The candidate carries only sources under the touches and the test file:
 
 [task.22.31.369]
 title = "Repair audit record 22.30.118 findings in services/wallet/ceremony/legacy-import/src: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -131501,7 +131501,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.248]
 title = "Repair audit record 22.30.119 findings in apps/wallet/src/wallet: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -146089,7 +146089,7 @@ do_8 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.356]
 title = "Repair audit record 22.30.83 findings in services/platform/hosted/internal/src: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -147391,7 +147391,7 @@ do_8 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.253]
 title = "Repair audit record 22.30.122 findings in programs/crates/layerx-programs-ai-market/src: config-drift, interface-mismatch, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -147649,7 +147649,7 @@ do_18 = "The candidate carries only sources under the touches and the test file:
 
 [task.22.31.226]
 title = "Repair audit record 22.30.98 findings in services/agent/crates/layerx-proof/src: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -159606,7 +159606,7 @@ do_9 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.338]
 title = "Repair audit record 22.30.59 findings in modules/layerxcustody/keeper: interface-mismatch, restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -159987,7 +159987,7 @@ do_20 = "The candidate carries only sources under the touches and the test file:
 
 [task.22.31.325]
 title = "Repair audit record 22.30.180 findings in tools/paxctl/sidecar/server: interface-mismatch, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -162745,7 +162745,7 @@ do_7 = "Verification runs only the TestRepair_135_* functions of repair_135_test
 
 [task.22.31.134]
 title = "Repair audit record 22.30.73 findings in sdk/crypto/keyring: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -164946,7 +164946,7 @@ do_11 = "The candidate carries only sources under the touches and the test file:
 
 [task.22.31.58]
 title = "Repair audit record 22.30.35 findings in services/launchpad/api/internal/rest: interface-mismatch, restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -165208,7 +165208,7 @@ do_7 = "Verification runs only the TestRepair_52_* functions of repair_52_test.g
 
 [task.22.31.51]
 title = "Repair audit record 22.30.32 findings in services/launchpad/gateway/internal/storage: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -165282,7 +165282,7 @@ do_8 = "Verification runs go test -v, keeps its log and requires a PASS line for
 
 [task.22.31.49]
 title = "Repair audit record 22.30.32 findings in services/launchpad/gateway/internal/auth: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -222431,7 +222431,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.23.7]
 title = "Register the programs module at guest ABI 5 on the hosted kernel and in the genesis module plan behind an enable parameter"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.13.6"]
@@ -260166,7 +260166,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.359]
 title = "Repair audit record 22.30.86 findings in sdk/platform/generators: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -260788,7 +260788,7 @@ do_12 = "The candidate carries only sources under the touches and the test file:
 
 [task.22.31.233]
 title = "Repair audit record 22.30.112 findings in services/interop/deploy/mirror: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -260825,7 +260825,7 @@ do_10 = "The candidate carries only sources under the touches and the test file:
 
 [task.22.31.232]
 title = "Repair audit record 22.30.112 findings in services/interop/deploy/gateway: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
