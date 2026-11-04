@@ -1,0 +1,9 @@
+[repair.22.33.1344]
+finding = "ed25519-import-consistency"
+tests = ["TestRepairM_1344_RejectInconsistentImports", "TestRepairM_1344_ImportSignVerify", "TestRepairM_1344_ImportOwnsValidatedBytes", "TestRepairM_1344_RejectInvalidLengths"]
+implementation = "Derive the canonical Ed25519 private key from the supplied seed, compare the public suffix in constant time, reject inconsistencies without changing the receiver, and retain the validated canonical allocation."
+proof = "Real Amino binary and JSON codecs transport generated keys and an RFC 8032 fixture into the production decoder and signer; SDK and standard-library verification agree, and every suffix byte mutation, a substituted public key, a zero suffix and a seed mutation are refused."
+baseline = "Not run: the explicit gate order requires complete implementation before qualification and prohibits running verify_cmd by hand; no baseline failure is claimed."
+qualification_repair = "The first verification rejected every malformed key correctly but the receiver-preservation assertion compared a []byte snapshot with the named crypto/ed25519.PrivateKey field; preserve the field's exact type in the snapshot and retain the full equality assertion."
+wiring_requests = []
+evidence = "The runner's hf-build and hf-done ledger records the exact qualified candidate revision, commands, exits and private log locations."
