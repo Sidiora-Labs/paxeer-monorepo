@@ -2,45 +2,62 @@ package image
 
 import (
 	"context"
-	"errors"
+	"os"
 	"time"
 )
 
-// InProcessWorker decodes and re-encodes rasters inside the calling process.
-// It exists for development deployments (Railway) where ProcessWorker's
-// cgroup v2 delegation is unavailable. It applies the same decoder
-// (ReencodeSupported), the same 6 MiB input, 8192x8192 and 20 MP limits, the
-// same five-second wall deadline and the same output validation as
-// ProcessWorker; it lacks only the separate address space and the 256 MiB
-// memory / 32 pid cgroup ceilings. Production wiring never uses it.
+// InProcessWorker is the legacy development-worker entry point. It now
+// re-executes this binary using ProcessWorker's rlimit isolation: synchronous
+// codecs cannot be safely interrupted inside the serving process. Admission
+// permits at most two live workers across all instances. The five-second
+// deadline includes admission, decoding, encoding and result transport.
 type InProcessWorker struct{}
 
-func (InProcessWorker) Ready() error { return nil }
+const developmentRasterWall = 5 * time.Second
+
+var developmentRasterSlots = make(chan struct{}, 2)
+
+func developmentRasterWorker() (ProcessWorker, error) {
+	executable, err := os.Executable()
+	if err != nil {
+		return ProcessWorker{}, ErrUnavailable
+	}
+	return ProcessWorker{Executable: executable, Isolation: RlimitIsolation}, nil
+}
+
+func (InProcessWorker) Ready() error {
+	worker, err := developmentRasterWorker()
+	if err != nil {
+		return err
+	}
+	return worker.Ready()
+}
 
 func (InProcessWorker) Decode(ctx context.Context, body []byte) (Raster, error) {
 	if len(body) > MaxBytes {
 		return Raster{}, ErrLimit
 	}
-	bounded, cancel := context.WithTimeout(ctx, 5*time.Second)
+	bounded, cancel := context.WithTimeout(ctx, developmentRasterWall)
 	defer cancel()
-	result, e := ReencodeSupported(bounded, body)
-	if e != nil {
-		if ctx.Err() != nil {
-			return Raster{}, ctx.Err()
-		}
-		if errors.Is(e, context.DeadlineExceeded) {
-			return Raster{}, ErrLimit
-		}
-		return Raster{}, e
+	if err := ctx.Err(); err != nil {
+		return Raster{}, err
 	}
-	if result.MIME != "image/png" || result.Width < 1 || result.Height < 1 || result.Width > 8192 || result.Height > 8192 || int64(result.Width)*int64(result.Height) > 20000000 || len(result.Variants) != 3 {
-		return Raster{}, ErrInvalid
+	select {
+	case developmentRasterSlots <- struct{}{}:
+		defer func() { <-developmentRasterSlots }()
+	default:
+		return Raster{}, ErrLimit
 	}
-	for _, n := range []int{256, 512, 1024} {
-		b := result.Variants[n]
-		if len(b) == 0 || len(b) > MaxBytes {
-			return Raster{}, ErrInvalid
-		}
+	worker, err := developmentRasterWorker()
+	if err != nil {
+		return Raster{}, err
 	}
-	return result, nil
+	result, err := worker.Decode(bounded, body)
+	if ctx.Err() != nil {
+		return Raster{}, ctx.Err()
+	}
+	if bounded.Err() != nil {
+		return Raster{}, ErrLimit
+	}
+	return result, err
 }

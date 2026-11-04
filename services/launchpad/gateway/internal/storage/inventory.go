@@ -29,35 +29,66 @@ type InventoryReport struct {
 	GeneratedAt time.Time `json:"generatedAt"`
 }
 
+type InventoryStore interface {
+	BeginInventory(context.Context, string, string) (InventoryPass, error)
+}
+
+type InventoryPass interface {
+	Cursor(context.Context) (string, error)
+	Lineage(context.Context, string) (string, string, error)
+	Advance(context.Context, string) error
+	Commit(context.Context) error
+	Rollback(context.Context) error
+}
+
 func (a *Authority) ReconcileInventory(ctx context.Context, client *s3.Client, bucket, prefix string, limit int) (InventoryReport, error) {
+	return ReconcileInventory(ctx, postgresInventory{authority: a}, client, bucket, prefix, limit)
+}
+
+func ReconcileInventory(ctx context.Context, store InventoryStore, client *s3.Client, bucket, prefix string, limit int) (InventoryReport, error) {
 	report := InventoryReport{Orphans: []string{}, GeneratedAt: time.Now().UTC()}
-	if client == nil || bucket == "" || limit < 1 || limit > 100000 || (prefix != "approved/" && prefix != "private/" && prefix != "quarantine/" && prefix != "temporary/") {
+	if store == nil || client == nil || bucket == "" || limit < 1 || limit > 100000 || (prefix != "approved/" && prefix != "private/" && prefix != "quarantine/" && prefix != "temporary/") {
 		return report, ErrConflict
 	}
-	pages := s3.NewListObjectsV2Paginator(client, &s3.ListObjectsV2Input{Bucket: aws.String(bucket), Prefix: aws.String(prefix), MaxKeys: aws.Int32(1000)})
-	for pages.HasMorePages() {
-		page, e := pages.NextPage(ctx)
-		if e != nil {
+	pass, err := store.BeginInventory(ctx, bucket, prefix)
+	if err != nil {
+		return report, ErrUnavailable
+	}
+	defer pass.Rollback(context.WithoutCancel(ctx))
+	token, err := pass.Cursor(ctx)
+	if err != nil {
+		return report, ErrUnavailable
+	}
+	for report.Checked < limit {
+		maxKeys := min(1000, limit-report.Checked)
+		input := &s3.ListObjectsV2Input{Bucket: aws.String(bucket), Prefix: aws.String(prefix), MaxKeys: aws.Int32(int32(maxKeys))}
+		if token != "" {
+			input.ContinuationToken = aws.String(token)
+		}
+		page, err := client.ListObjectsV2(ctx, input)
+		if err != nil {
 			return report, ErrUnavailable
 		}
+		if page == nil || len(page.Contents) > maxKeys {
+			return report, ErrConflict
+		}
+		next := aws.ToString(page.NextContinuationToken)
+		truncated := aws.ToBool(page.IsTruncated)
+		if truncated && (len(page.Contents) == 0 || next == "" || next == token) {
+			return report, ErrConflict
+		}
 		for _, object := range page.Contents {
-			if report.Checked >= limit {
-				report.Truncated = true
-				return report, nil
-			}
 			key := aws.ToString(object.Key)
 			report.Checked++
 			if !strings.HasPrefix(key, prefix) {
 				return report, ErrConflict
 			}
-			var hash, kind string
-			query := "SELECT hash,kind FROM " + a.table("lineage") + " WHERE object_key=$1 AND removed_at IS NULL ORDER BY hash LIMIT 1"
-			e = a.Pool.QueryRow(ctx, query, key).Scan(&hash, &kind)
-			if errors.Is(e, pgx.ErrNoRows) {
+			hash, kind, err := pass.Lineage(ctx, key)
+			if errors.Is(err, pgx.ErrNoRows) {
 				report.Orphans = append(report.Orphans, key)
 				continue
 			}
-			if e != nil {
+			if err != nil {
 				return report, ErrUnavailable
 			}
 			if kind == "variant" || kind == "original" {
@@ -69,19 +100,74 @@ func (a *Authority) ReconcileInventory(ctx context.Context, client *s3.Client, b
 					expected = strings.TrimSuffix(strings.Split(key, "/")[3], ".png")
 				}
 				bounded, cancel := context.WithTimeout(ctx, 3*time.Second)
-				e = verifyInventoryHash(bounded, client, bucket, key, expected)
+				err = verifyInventoryHash(bounded, client, bucket, key, expected)
 				cancel()
-				if e != nil {
-					return report, e
+				if err != nil {
+					return report, err
 				}
 			}
 		}
+		token = next
+		report.Truncated = truncated
+		if !truncated {
+			token = ""
+			break
+		}
+	}
+	if err = pass.Advance(ctx, token); err != nil {
+		return report, ErrUnavailable
+	}
+	if err = pass.Commit(ctx); err != nil {
+		return report, ErrUnavailable
 	}
 	return report, nil
 }
 
+type postgresInventory struct{ authority *Authority }
+type postgresInventoryPass struct {
+	authority      *Authority
+	bucket, prefix string
+	pgx.Tx
+}
+
+func (s postgresInventory) BeginInventory(ctx context.Context, bucket, prefix string) (InventoryPass, error) {
+	tx, err := s.authority.Pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if _, err = tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtextextended($1,0))", fmt.Sprintf("media-inventory:%d:%s:%s", len(bucket), bucket, prefix)); err != nil {
+		_ = tx.Rollback(context.WithoutCancel(ctx))
+		return nil, err
+	}
+	return &postgresInventoryPass{s.authority, bucket, prefix, tx}, nil
+}
+
+func (p *postgresInventoryPass) Cursor(ctx context.Context) (string, error) {
+	var token string
+	err := p.QueryRow(ctx, "SELECT continuation FROM "+p.authority.table("inventory_cursors")+" WHERE bucket=$1 AND prefix=$2", p.bucket, p.prefix).Scan(&token)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil
+	}
+	return token, err
+}
+
+func (p *postgresInventoryPass) Lineage(ctx context.Context, key string) (string, string, error) {
+	var hash, kind string
+	err := p.QueryRow(ctx, "SELECT hash,kind FROM "+p.authority.table("lineage")+" WHERE object_key=$1 AND removed_at IS NULL ORDER BY hash LIMIT 1", key).Scan(&hash, &kind)
+	return hash, kind, err
+}
+
+func (p *postgresInventoryPass) Advance(ctx context.Context, token string) error {
+	_, err := p.Exec(ctx, "INSERT INTO "+p.authority.table("inventory_cursors")+"(bucket,prefix,continuation) VALUES($1,$2,$3) ON CONFLICT(bucket,prefix) DO UPDATE SET continuation=EXCLUDED.continuation", p.bucket, p.prefix, token)
+	return err
+}
+
 func (a *Authority) InventoryReportSchemaDDL() string {
-	return "CREATE TABLE " + a.table("inventory_reports") + "(id uuid PRIMARY KEY,bucket text NOT NULL,prefix text NOT NULL,checked integer NOT NULL CHECK(checked>=0),orphans jsonb NOT NULL,truncated boolean NOT NULL,generated_at timestamptz NOT NULL);"
+	return "CREATE TABLE " + a.table("inventory_reports") + "(id uuid PRIMARY KEY,bucket text NOT NULL,prefix text NOT NULL,checked integer NOT NULL CHECK(checked>=0),orphans jsonb NOT NULL,truncated boolean NOT NULL,generated_at timestamptz NOT NULL);" + a.InventoryCursorSchemaDDL()
+}
+
+func (a *Authority) InventoryCursorSchemaDDL() string {
+	return "CREATE TABLE " + a.table("inventory_cursors") + "(bucket text NOT NULL,prefix text NOT NULL,continuation text NOT NULL,PRIMARY KEY(bucket,prefix));"
 }
 
 func NewScopedObjectClient(ctx context.Context, config sharedstorage.Config) (*sharedstorage.Client, *s3.Client, error) {

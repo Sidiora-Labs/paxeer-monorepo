@@ -1,0 +1,11 @@
+{
+  "input": "services/launchpad/pnl-tracker/internal/production/l16/testdata/indexer_real_market/traded.json",
+  "producer": "core/indexer: decode.Decoder -\u003e processor.Processor.ProcessBatch -\u003e store.Store -\u003e publisher.Publisher.PublishBatch",
+  "revision": "caa8b41ee668274ee1e5c1df6691288455c46278",
+  "sha256": {
+    "buy.json": "0166f57b6f105adad122bd5e5bf1b9bf2e242530b5b787f275dca064cae3b76d",
+    "sell.json": "120d9adea96f23f9b1e2bac58a1f73da44fe58ec0723d31b7cb9b1abf5b4de93"
+  },
+  "source": "Historical EventEmitter ABI encoding of the committed market's buy/sell identities and exact amounts; these legacy ABI logs are fixture inputs, not claims of historical EventEmitter emissions for these transactions.",
+  "transport": "HMAC-signed HTTP webhook, raw request bodies captured on loopback"
+}

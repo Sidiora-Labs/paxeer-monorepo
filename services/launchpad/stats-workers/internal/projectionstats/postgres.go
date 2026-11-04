@@ -63,6 +63,8 @@ CREATE TABLE %[1]s.accounting_inventory_facets (
  publication_id text PRIMARY KEY,source_fill_id text NOT NULL,source_fact_digest text NOT NULL,
  projection_version text NOT NULL,partition_key text NOT NULL,position jsonb NOT NULL,payload jsonb NOT NULL);`
 
+const publicStreamSchema = "api_stream"
+
 var schemaName = regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`)
 
 type Repository struct {
@@ -364,7 +366,7 @@ func (r *Repository) RecordMarketPublicationTx(ctx context.Context, tx pgx.Tx, p
 	if err != nil {
 		return err
 	}
-	return (delivery.StreamWriter{Schema: "api_stream"}).AppendTx(ctx, tx, update)
+	return (delivery.StreamWriter{Schema: publicStreamSchema}).AppendTx(ctx, tx, update)
 }
 
 func (r *Repository) RecordInventoryPublicationTx(ctx context.Context, tx pgx.Tx, p accounting.PublicationV1) error {

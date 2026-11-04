@@ -9,10 +9,68 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	v2 "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
+	"github.com/google/uuid"
 )
+
+// assertSquadTextBoundaries drives the same Unicode boundary through the frozen
+// request validator and the production SQL store, including the former fixtures.
+func assertSquadTextBoundaries(t *testing.T, s Store) {
+	t.Helper()
+	for _, tc := range []struct {
+		name, description string
+		valid             bool
+	}{
+		{"former ASCII fixture", strings.Repeat("a", 281), true},
+		{"former accented fixture", strings.Repeat("é", 141), true},
+		{"ASCII maximum", strings.Repeat("a", 500), true},
+		{"accented maximum", strings.Repeat("é", 500), true},
+		{"astral maximum", strings.Repeat("🛰", 500), true},
+		{"ASCII over limit", strings.Repeat("a", 501), false},
+		{"accented over limit", strings.Repeat("é", 501), false},
+		{"astral over limit", strings.Repeat("🛰", 501), false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			input := v2.SquadCreateBody{Name: "Boundary", Description: tc.description, Visibility: "private", JoinPolicy: "request"}
+			raw, err := json.Marshal(input)
+			if err != nil {
+				t.Fatal(err)
+			}
+			schemaErr := v2.ValidateJSON("SquadCreateBody", raw)
+			q := Squad{ID: uuid.NewString(), OwnerAccountID: uuid.NewString(), Name: input.Name, Description: tc.description, Visibility: input.Visibility, Policy: input.JoinPolicy, Revision: 1}
+			storeErr := s.CreateSquad(context.Background(), q.OwnerAccountID, q)
+			if tc.valid {
+				if schemaErr != nil || storeErr != nil {
+					t.Fatalf("canonical text rejected: schema=%v store=%v", schemaErr, storeErr)
+				}
+				got, err := s.Squad(context.Background(), q.ID)
+				if err != nil || got != q {
+					t.Fatalf("persisted boundary: %+v %v", got, err)
+				}
+			} else {
+				if schemaErr == nil || !errors.Is(storeErr, ErrInvalid) {
+					t.Fatalf("over-limit text admitted: schema=%v store=%v", schemaErr, storeErr)
+				}
+				if _, err := s.Squad(context.Background(), q.ID); !errors.Is(err, sql.ErrNoRows) {
+					t.Fatalf("invalid write left a row: %v", err)
+				}
+			}
+			t.Cleanup(func() {
+				if _, err := s.DB.Exec(`DELETE FROM narrative_discovery.members WHERE squad_id=$1`, q.ID); err != nil {
+					t.Error(err)
+				}
+				if _, err := s.DB.Exec(`DELETE FROM narrative_discovery.squads WHERE id=$1`, q.ID); err != nil {
+					t.Error(err)
+				}
+			})
+		})
+	}
+}
 
 func TestPostgresSquadRoleChangeAndJoinRequest(t *testing.T) {
 	s, id := realStore(t)
+	assertSquadTextBoundaries(t, s)
 	ctx := context.Background()
 	owner, moderator, applicant := id+"owner", id+"moderator", id+"applicant"
 	q := Squad{ID: id, OwnerAccountID: owner, Name: "Research", Policy: "request", Description: strings.Repeat("a", 500), Visibility: "public", Revision: 1}

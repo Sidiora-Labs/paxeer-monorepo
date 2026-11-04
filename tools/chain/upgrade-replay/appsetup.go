@@ -61,24 +61,30 @@ var forkModules = []string{
 	xwebtypes.ModuleName,
 }
 
-// forkPrecompile is one of the eight addresses the fork brings online.
+// forkPrecompile distinguishes historical registration from merged operations.
 type forkPrecompile struct {
-	Name    string
-	Address string
+	Name       string
+	Address    string
+	Upgrade    string
+	Modules    []string
+	Operations []string
 }
 
-// forkPrecompiles are the eight custom precompile addresses whose reachability
-// the activation decides, in address order.
+// The v6.9 entries retain their historical activation checks. At v7.0 verify
+// and custody refuse every operation, and anchor refuses writes (its views
+// retire at the separate store-delete plan). Ledger and pay start at v7.0;
+// their supported accountId and progressHighWater calls are checked below.
 var forkPrecompiles = []forkPrecompile{
-	{"layerxverify", verifyprecompile.LayerXVerifyAddress},
-	{"layerxcustody", custodyprecompile.LayerXCustodyAddress},
-	{"layerxanchor", anchorprecompile.LayerXAnchorAddress},
-	{"layerxexchange", exchangeprecompile.ExchangeAddress},
-	{"layerxbridge", bridgeprecompile.BridgeAddress},
-	{"launchpad", launchpadprecompile.LaunchpadAddress},
-	{"feetoken", feetokenprecompile.FeeTokenAddress},
-	{"xweb", xwebprecompile.XWebAddress},
-	{"layerxpay", "0x000000000000000000000000000000000000101B"},
+	{"layerxverify", verifyprecompile.LayerXVerifyAddress, app.ActivationUpgrade, []string{"upgrade"}, []string{verifyprecompile.VerifyEd25519Method}},
+	{"layerxcustody", custodyprecompile.LayerXCustodyAddress, app.ActivationUpgrade, []string{layerxcustodytypes.ModuleName}, []string{custodyprecompile.DepositCountMethod}},
+	{"layerxanchor", anchorprecompile.LayerXAnchorAddress, app.ActivationUpgrade, []string{"upgrade"}, []string{anchorprecompile.ThresholdMethod}},
+	{"layerxexchange", exchangeprecompile.ExchangeAddress, app.ActivationUpgrade, []string{layerxexchangetypes.ModuleName}, nil},
+	{"layerxbridge", bridgeprecompile.BridgeAddress, app.ActivationUpgrade, []string{layerxbridgetypes.ModuleName}, nil},
+	{"launchpad", launchpadprecompile.LaunchpadAddress, app.ActivationUpgrade, []string{launchpadtypes.ModuleName}, nil},
+	{"feetoken", feetokenprecompile.FeeTokenAddress, app.ActivationUpgrade, []string{layerxbridgetypes.ModuleName}, nil},
+	{"xweb", xwebprecompile.XWebAddress, app.ActivationUpgrade, []string{xwebtypes.ModuleName}, nil},
+	{"layerxledger", "0x000000000000000000000000000000000000101A", app.MergeUpgrade, []string{"layerxledger"}, []string{"accountId"}},
+	{"layerxpay", "0x000000000000000000000000000000000000101B", app.MergeUpgrade, []string{"layerxpay"}, []string{"progressHighWater"}},
 }
 
 // allStoreKeys is the canonical, sorted mount list of module KV stores, the

@@ -1,11 +1,16 @@
 package policy
 
 import (
+	"bufio"
 	"context"
+	"fmt"
 	"github.com/jackc/pgx/v5"
+	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -112,5 +117,129 @@ func TestAcceptedMutationPreservesAbsentDefaults(t *testing.T) {
 	}
 	if dst.Name != "default" || len(dst.Values) != 1 || dst.Values[0] != 2 {
 		t.Fatal("accepted patch changed absent defaults", dst)
+	}
+}
+
+func TestRepairNestedMutationCaseAliases(t *testing.T) {
+	var callbacks atomic.Int64
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		dst := struct {
+			Items []struct {
+				Role string `json:"role"`
+			} `json:"items"`
+		}{}
+		if err := DecodeMutationSchema(r, &dst, MutationSchema{BodyBytes: 65536, Arrays: map[string]int{"/items": 2}}); err != nil {
+			w.WriteHeader(MutationStatus(err))
+			return
+		}
+		callbacks.Add(1)
+		w.WriteHeader(http.StatusNoContent)
+	})
+	server := httptest.NewServer(handler)
+	defer server.Close()
+	for _, body := range []string{
+		`{"items":[{"role":"reader","Role":"admin"}]}`,
+		`{"items":[{"role":"reader","\u0052ole":"admin"}]}`,
+		`{"items":[{"role":"reader","\u0072ole":"admin"}]}`,
+		`{"items":[],"Items":[{"role":"admin"}]}`,
+	} {
+		response, err := server.Client().Post(server.URL, "application/json", strings.NewReader(body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		response.Body.Close()
+		if response.StatusCode != http.StatusBadRequest || callbacks.Load() != 0 {
+			t.Fatal("case/escaped alias reached mutation callback", body, response.StatusCode, callbacks.Load())
+		}
+	}
+	response, err := server.Client().Post(server.URL, "application/json", strings.NewReader(`{"items":[{"role":"reader"}]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	response.Body.Close()
+	if response.StatusCode != http.StatusNoContent || callbacks.Load() != 1 {
+		t.Fatal("canonical mutation did not reach callback exactly once", response.StatusCode, callbacks.Load())
+	}
+	type Embedded struct {
+		Scope string `json:"scope"`
+	}
+	var canonical struct {
+		Embedded
+		Labels map[string]string `json:"labels"`
+	}
+	if err := DecodeMutation(httptest.NewRequest("POST", "/", strings.NewReader(`{"scope":"read","labels":{"role":"reader","Role":"label"}}`)), &canonical, 1024); err != nil || canonical.Scope != "read" || len(canonical.Labels) != 2 {
+		t.Fatal("canonical embedded field or distinct map keys rejected", canonical, err)
+	}
+	for _, body := range []string{`{"Scope":"write"}`, `{"\u017fcope":"write"}`, `{"scope":"read","\u0053cope":"write"}`} {
+		if err := DecodeMutation(httptest.NewRequest("POST", "/", strings.NewReader(body)), &canonical, 1024); err == nil || canonical.Scope != "read" {
+			t.Fatal("noncanonical destination alias accepted or changed state", body, canonical, err)
+		}
+	}
+}
+
+func TestRepairActiveBodyDeadlinePreservesReadStreams(t *testing.T) {
+	var callbacks atomic.Int64
+	released := make(chan struct{}, 1)
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			w.Header().Set("Content-Type", "text/event-stream")
+			fmt.Fprint(w, "data: open\n\n")
+			w.(http.Flusher).Flush()
+			time.Sleep(MutationRequestTimeout + 200*time.Millisecond)
+			fmt.Fprint(w, "data: alive\n\n")
+			return
+		}
+		defer func() { released <- struct{}{} }()
+		var dst struct{ Role string }
+		if err := DecodeMutation(r, &dst, 1024); err != nil {
+			w.WriteHeader(http.StatusRequestTimeout)
+			return
+		}
+		callbacks.Add(1)
+	})
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := ProductionServer(listener.Addr().String(), handler)
+	defer server.Close()
+	go server.Serve(listener)
+	client := &http.Client{Timeout: MutationRequestTimeout + 4*time.Second}
+	stream, err := client.Get("http://" + listener.Addr().String() + "/events")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stream.Body.Close()
+	connection, err := net.Dial("tcp", listener.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer connection.Close()
+	started := time.Now()
+	if _, err := fmt.Fprint(connection, "POST /mutate HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: 100\r\n\r\n{\"Role\":"); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-released:
+	case <-time.After(MutationRequestTimeout + 2*time.Second):
+		t.Fatal("slow body retained its handler past the mutation deadline")
+	}
+	if callbacks.Load() != 0 || time.Since(started) > MutationRequestTimeout+2*time.Second {
+		t.Fatal("slow body reached mutation or exceeded request bound")
+	}
+	if err := connection.SetReadDeadline(time.Now().Add(2 * time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	response, err := http.ReadResponse(bufio.NewReader(connection), &http.Request{Method: http.MethodPost})
+	if err != nil {
+		t.Fatal("bounded timeout response absent", err)
+	}
+	response.Body.Close()
+	if response.StatusCode != http.StatusRequestTimeout && response.StatusCode != http.StatusServiceUnavailable {
+		t.Fatal("slow body did not receive a timeout", response.StatusCode)
+	}
+	body, err := io.ReadAll(stream.Body)
+	if err != nil || string(body) != "data: open\n\ndata: alive\n\n" {
+		t.Fatal("read stream was cut off by the mutation deadline", string(body), err)
 	}
 }

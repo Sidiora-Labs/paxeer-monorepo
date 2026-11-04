@@ -389,12 +389,13 @@ func (h HTTP) Handler() http.Handler {
 		var in struct {
 			Account, Token string
 			Expires        time.Time
+			Expected       uint64
 		}
 		if e = decode(w, r, &in); e != nil {
 			writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST")
 			return
 		}
-		e = h.Store.Invite(r.Context(), actor, r.PathValue("id"), in.Account, in.Token, in.Expires)
+		e = h.Store.Invite(r.Context(), actor, r.PathValue("id"), in.Account, in.Token, in.Expected, in.Expires)
 		reply(w, r, map[string]bool{"invited": e == nil}, e)
 	})
 	mux.HandleFunc("POST /v2/discovery/squads/{id}/accept", func(w http.ResponseWriter, r *http.Request) {

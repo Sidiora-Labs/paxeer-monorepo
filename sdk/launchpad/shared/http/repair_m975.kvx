@@ -1,0 +1,9 @@
+[repair.22.33.975]
+audit = "22.30.30"
+finding = "forwarded-ip-validation"
+base_revision = "0e1d5eb94cabe89e2260279a849b7154911ef8ee"
+proving_tests = ["TestRepairM_975_RouterForwardedValidation", "TestRepairM_975_OuterLimiterIdentity", "TestRepairM_975_UntrustedPeer", "TestRepairM_975_MappedConnectionPeer"]
+policy = "Validate every hop across all X-Forwarded-For fields; malformed, empty or all-trusted chains preserve the connection peer without X-Real-IP fallback. Only absent X-Forwarded-For permits one valid X-Real-IP. Reject ports and zones; canonicalize IP literals and unmap IPv4-mapped IPv6 for identity and proxy trust."
+baseline = "Not executed: the explicit ordered gate instructions prohibit testing before the entire implementation and reserve verification for hf-done; no baseline failures are claimed."
+wiring_requests = []
+evidence = "The runner's hf-build and hf-done receipts bind the verified candidate revision, exact commands, exit codes and private logs; this record makes no independent gate claim."

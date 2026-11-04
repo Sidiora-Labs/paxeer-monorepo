@@ -1,0 +1,17 @@
+[task.22.33.872]
+audit = "22.30.183"
+base_revision = "caa8b41ee668274ee1e5c1df6691288455c46278"
+qualification = "The runner-owned private /out/run/gates.jsonl ledger names the exact candidate revision, command, exit code and evidence log for hf-build and hf-done; the final task receipt copies that record. No qualification is claimed until hf-done passes on the built candidate."
+baseline = "No previous gate ledger or source changes were present. The explicit implementation-first order and prohibition on hand-running verify_cmd take precedence over do_5's contradictory unchanged-tree run; no baseline failures were measured or claimed."
+
+[finding.f005]
+proof = "TestRepairM_872_F005_SubmissionAccountingAndReasons; TestRepairM_872_F005_SendTimeoutReleasesWorkers; TestRepairM_872_F005_ParentCancellation; TestRepairM_872_F005_BalanceRPCTimeoutAndRecovery; TestRepairM_872_F005_BalanceCancellation"
+repair = "The production workers report attempted, RPC-accepted and refused counts, identify every failed transaction and its refusal reason, and label failed runs degraded. Dial, balance reads and submissions use cancellable timeouts; interrupt/termination cancellation also interrupts the rate limiter and balance retry delay."
+fixture = "Loopback HTTP JSON-RPC servers decode the production signed transfer and contract-storage transactions using the real RPC server, transaction codec and sender recovery. They return success/refusal responses or hold calls until transport cancellation; no external service or binary is required."
+
+[wiring]
+requests = "None: the repair and its production-path tests are entirely inside scripts/evm_stress."
+
+[gotcha.1]
+symptom = "Generic workflow requests spec/GOTCHA edits and publication, while this task forbids those paths and leaves commits to the runner."
+resolution = "Preserve the runner-prepared .cgignore/spec changes and retain the proof mapping and workflow conflict in this in-scope task record."

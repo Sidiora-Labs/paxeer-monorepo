@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 )
@@ -15,25 +16,38 @@ import (
 const (
 	maxStoreTraceIterators    = 16
 	maxStoreTraceIteratorKeys = 64
+	maxStoreTraceModules      = 64
+	maxStoreTraceModuleBytes  = 256
+	maxStoreTraceAccesses     = 4096
+	maxStoreTraceBytes        = 1 << 20
+	maxStoreTraceWireEntries  = 1024
+	maxStoreTraceWireBytes    = 2 << 20
 )
 
-// StoreTracer collects every KVStore access (Get/Has/Set/Delete/iterator)
+// StoreTracer collects bounded KVStore access samples (Get/Has/Set/Delete/iterator)
 // performed under a debug_traceTransactionProfile call, grouped by module.
 // One tracer is attached to the sdk.Context for the duration of the traced
 // tx; callers must treat it as single-tx-scoped. All methods are safe for
 // concurrent use.
 type StoreTracer struct {
-	Modules        map[string]*ModuleTrace
-	nextIteratorID int
-	mu             *sync.Mutex
+	Modules          map[string]*ModuleTrace
+	nextIteratorID   int
+	retainedAccesses int
+	retainedBytes    int
+	accessStopped    bool
+	truncated        bool
+	stats            map[string]OperationSummary
+	mu               *sync.Mutex
 }
 
-// ModuleTrace holds every access event for a single module within a trace,
+// ModuleTrace holds a bounded prefix of access events for a module within a trace,
 // plus a per-iterator roll-up.
 type ModuleTrace struct {
 	Accesses        []Access
 	Iterators       []*IteratorTrace
 	iteratorIndexBy map[int]int
+	stats           map[string]OperationSummary
+	Truncated       bool
 }
 
 // IteratorTrace aggregates one opened iterator: its bounds, direction, the
@@ -97,6 +111,7 @@ func (o OpType) String() string {
 func NewStoreTracer() *StoreTracer {
 	return &StoreTracer{
 		Modules: map[string]*ModuleTrace{},
+		stats:   map[string]OperationSummary{},
 		mu:      &sync.Mutex{},
 	}
 }
@@ -104,8 +119,8 @@ func NewStoreTracer() *StoreTracer {
 func (st *StoreTracer) Get(key []byte, value []byte, module string, duration time.Duration) {
 	st.recordAccess(module, Access{
 		Op:            Get,
-		Key:           slices.Clone(key),
-		Value:         slices.Clone(value),
+		Key:           key,
+		Value:         value,
 		DurationNanos: duration.Nanoseconds(),
 	})
 }
@@ -113,8 +128,8 @@ func (st *StoreTracer) Get(key []byte, value []byte, module string, duration tim
 func (st *StoreTracer) Set(key []byte, value []byte, module string, duration time.Duration) {
 	st.recordAccess(module, Access{
 		Op:            Set,
-		Key:           slices.Clone(key),
-		Value:         slices.Clone(value),
+		Key:           key,
+		Value:         value,
 		DurationNanos: duration.Nanoseconds(),
 	})
 }
@@ -122,7 +137,7 @@ func (st *StoreTracer) Set(key []byte, value []byte, module string, duration tim
 func (st *StoreTracer) Has(key []byte, module string, duration time.Duration) {
 	st.recordAccess(module, Access{
 		Op:            Has,
-		Key:           slices.Clone(key),
+		Key:           key,
 		DurationNanos: duration.Nanoseconds(),
 	})
 }
@@ -130,7 +145,7 @@ func (st *StoreTracer) Has(key []byte, module string, duration time.Duration) {
 func (st *StoreTracer) Delete(key []byte, module string, duration time.Duration) {
 	st.recordAccess(module, Access{
 		Op:            Delete,
-		Key:           slices.Clone(key),
+		Key:           key,
 		DurationNanos: duration.Nanoseconds(),
 	})
 }
@@ -138,8 +153,8 @@ func (st *StoreTracer) Delete(key []byte, module string, duration time.Duration)
 // StartIterator records the opening of an iterator over [start, end) and
 // allocates a tracer-scoped iteratorID the caller uses to tag subsequent
 // Next/Value events. Past maxStoreTraceIterators the IteratorTrace record is
-// dropped (the access-log event is still recorded) and the returned ID lets
-// later calls no-op gracefully.
+// dropped and truncation is exposed. The returned ID lets later calls keep
+// updating operation totals without retaining an iterator.
 func (st *StoreTracer) StartIterator(start, end []byte, ascending bool, module string, duration time.Duration) int {
 	st.mu.Lock()
 	defer st.mu.Unlock()
@@ -148,14 +163,14 @@ func (st *StoreTracer) StartIterator(start, end []byte, ascending bool, module s
 	st.nextIteratorID++
 	iteratorID := st.nextIteratorID
 
-	mt.Accesses = append(mt.Accesses, Access{
-		Op:            IteratorOpen,
-		Key:           slices.Clone(start),
-		Value:         slices.Clone(end),
-		DurationNanos: duration.Nanoseconds(),
+	st.recordAccessLocked(mt, Access{
+		Op: IteratorOpen, Key: start, Value: end, DurationNanos: duration.Nanoseconds(),
 	})
-
-	if len(mt.Iterators) >= maxStoreTraceIterators {
+	if mt == nil {
+		return iteratorID
+	}
+	if len(mt.Iterators) >= maxStoreTraceIterators || !st.retainBytes(len(start), len(end)) {
+		st.markTruncated(mt)
 		return iteratorID
 	}
 
@@ -173,25 +188,24 @@ func (st *StoreTracer) StartIterator(start, end []byte, ascending bool, module s
 // RecordIteratorValue records that the tx read the current key/value from
 // the iterator identified by iteratorID. Beyond maxStoreTraceIteratorKeys the
 // iterator is flagged Truncated and further keys are dropped from the
-// per-iterator sample (the access-log event is still recorded).
+// per-iterator sample. Operation totals continue after retention fills.
 func (st *StoreTracer) RecordIteratorValue(iteratorID int, key []byte, value []byte, module string) {
 	st.mu.Lock()
 	defer st.mu.Unlock()
 
 	mt := st.getOrSetModuleTrace(module)
-	mt.Accesses = append(mt.Accesses, Access{
-		Op:    IteratorValue,
-		Key:   slices.Clone(key),
-		Value: slices.Clone(value),
-	})
-
+	st.recordAccessLocked(mt, Access{Op: IteratorValue, Key: key, Value: value})
+	if mt == nil {
+		return
+	}
 	idx, ok := mt.iteratorIndexBy[iteratorID]
 	if !ok {
 		return
 	}
 	it := mt.Iterators[idx]
-	if len(it.Keys) >= maxStoreTraceIteratorKeys {
+	if len(it.Keys) >= maxStoreTraceIteratorKeys || !st.retainBytes(len(key), 0) {
 		it.Truncated = true
+		st.markTruncated(mt)
 		return
 	}
 	it.Keys = append(it.Keys, slices.Clone(key))
@@ -204,11 +218,12 @@ func (st *StoreTracer) RecordIteratorNext(iteratorID int, module string, duratio
 	defer st.mu.Unlock()
 
 	mt := st.getOrSetModuleTrace(module)
-	mt.Accesses = append(mt.Accesses, Access{
-		Op:            IteratorNext,
-		DurationNanos: duration.Nanoseconds(),
+	st.recordAccessLocked(mt, Access{
+		Op: IteratorNext, DurationNanos: duration.Nanoseconds(),
 	})
-
+	if mt == nil {
+		return
+	}
 	idx, ok := mt.iteratorIndexBy[iteratorID]
 	if !ok {
 		return
@@ -218,25 +233,68 @@ func (st *StoreTracer) RecordIteratorNext(iteratorID int, module string, duratio
 	it.DurationNanos += duration.Nanoseconds()
 }
 
-func (st *StoreTracer) getOrSetModuleTrace(module string) (mt *ModuleTrace) {
-	if _, ok := st.Modules[module]; !ok {
-		mt = &ModuleTrace{
-			Accesses:        []Access{},
-			Iterators:       []*IteratorTrace{},
-			iteratorIndexBy: map[int]int{},
-		}
-		st.Modules[module] = mt
-	} else {
-		mt = st.Modules[module]
+func (st *StoreTracer) getOrSetModuleTrace(module string) *ModuleTrace {
+	if len(module) > maxStoreTraceModuleBytes {
+		st.truncated = true
+		return nil
 	}
-	return
+	if mt, ok := st.Modules[module]; ok {
+		return mt
+	}
+	if len(st.Modules) >= maxStoreTraceModules || !st.retainBytes(len(module), 0) {
+		st.truncated = true
+		return nil
+	}
+	mt := &ModuleTrace{
+		Accesses: []Access{}, Iterators: []*IteratorTrace{},
+		iteratorIndexBy: map[int]int{}, stats: map[string]OperationSummary{},
+	}
+	st.Modules[strings.Clone(module)] = mt
+	return mt
+}
+
+func (st *StoreTracer) markTruncated(mt *ModuleTrace) {
+	st.truncated = true
+	if mt != nil {
+		mt.Truncated = true
+	}
+}
+
+// retainBytes reserves all payload bytes before any cloning, including
+// iterator samples and module names. Subtractions avoid length overflow.
+func (st *StoreTracer) retainBytes(keyBytes, valueBytes int) bool {
+	remaining := maxStoreTraceBytes - st.retainedBytes
+	if keyBytes > remaining || valueBytes > remaining-keyBytes {
+		return false
+	}
+	st.retainedBytes += keyBytes + valueBytes
+	return true
+}
+
+func (st *StoreTracer) recordAccessLocked(mt *ModuleTrace, access Access) {
+	updateSummary(st.stats, access.Op, access.DurationNanos)
+	if mt == nil {
+		return
+	}
+	updateSummary(mt.stats, access.Op, access.DurationNanos)
+	if st.accessStopped || st.retainedAccesses >= maxStoreTraceAccesses ||
+		!st.retainBytes(len(access.Key), len(access.Value)) {
+		// Retain a prefix: resuming after an omitted write could mislabel a
+		// later read of that key as prestate.
+		st.accessStopped = true
+		st.markTruncated(mt)
+		return
+	}
+	access.Key = slices.Clone(access.Key)
+	access.Value = slices.Clone(access.Value)
+	mt.Accesses = append(mt.Accesses, access)
+	st.retainedAccesses++
 }
 
 func (st *StoreTracer) recordAccess(module string, access Access) {
 	st.mu.Lock()
 	defer st.mu.Unlock()
-	mt := st.getOrSetModuleTrace(module)
-	mt.Accesses = append(mt.Accesses, access)
+	st.recordAccessLocked(st.getOrSetModuleTrace(module), access)
 }
 
 // Clear resets the tracer to its empty state so a single StoreTracer can be
@@ -246,6 +304,11 @@ func (st *StoreTracer) Clear() {
 	defer st.mu.Unlock()
 	st.Modules = map[string]*ModuleTrace{}
 	st.nextIteratorID = 0
+	st.retainedAccesses = 0
+	st.retainedBytes = 0
+	st.accessStopped = false
+	st.truncated = false
+	st.stats = map[string]OperationSummary{}
 }
 
 type OperationSummary struct {
@@ -254,11 +317,13 @@ type OperationSummary struct {
 }
 
 type StoreTraceDump struct {
-	Modules map[string]ModuleTraceDump  `json:"modules"`
-	Stats   map[string]OperationSummary `json:"stats,omitempty"`
+	Truncated bool                        `json:"truncated,omitempty"`
+	Modules   map[string]ModuleTraceDump  `json:"modules"`
+	Stats     map[string]OperationSummary `json:"stats,omitempty"`
 }
 
 type ModuleTraceDump struct {
+	Truncated bool                        `json:"truncated,omitempty"`
 	Reads     map[string]string           `json:"reads"`
 	Has       []string                    `json:"has"`
 	Stats     map[string]OperationSummary `json:"stats,omitempty"`
@@ -285,36 +350,68 @@ func (st *StoreTracer) Dump() StoreTraceDump {
 	return st.dumpLocked()
 }
 
+// traceWireBudget bounds materialization before hex encoding or map insertion.
+// The payload cap plus fixed caps on modules, entries and iterator records also
+// bounds JSON framing and escaping independently of transaction size.
+type traceWireBudget struct {
+	entries int
+	bytes   int
+}
+
+func (b *traceWireBudget) take(keyBytes, valueBytes int) bool {
+	remaining := (maxStoreTraceWireBytes - b.bytes) / 2
+	if b.entries >= maxStoreTraceWireEntries || keyBytes > remaining || valueBytes > remaining-keyBytes {
+		return false
+	}
+	b.entries++
+	b.bytes += 2 * (keyBytes + valueBytes)
+	return true
+}
+
+func cloneTraceStats(stats map[string]OperationSummary) map[string]OperationSummary {
+	result := make(map[string]OperationSummary, len(stats))
+	for op, summary := range stats {
+		result[op] = summary
+	}
+	return result
+}
+
 func (st *StoreTracer) dumpLocked() StoreTraceDump {
 	d := StoreTraceDump{
 		Modules: make(map[string]ModuleTraceDump, len(st.Modules)),
-		Stats:   map[string]OperationSummary{},
+		Stats:   cloneTraceStats(st.stats), Truncated: st.truncated,
 	}
-	for name, module := range st.Modules {
+	budget := traceWireBudget{}
+	// Stable selection when the shared response budget fills.
+	names := make([]string, 0, len(st.Modules))
+	for name := range st.Modules {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	for _, name := range names {
+		module := st.Modules[name]
 		mtd := ModuleTraceDump{
-			Reads:     make(map[string]string),
-			Has:       []string{},
-			Stats:     map[string]OperationSummary{},
+			Reads: make(map[string]string), Has: []string{},
+			Stats: cloneTraceStats(module.stats), Truncated: module.Truncated,
 			Iterators: make([]IteratorTraceDump, 0, len(module.Iterators)),
 		}
-		// any read for key XYZ after a Set/Delete to XYZ is discarded
-		// because the result doesn't represent prestate.
 		writtenKey := map[string]struct{}{}
 		hasMap := map[string]struct{}{}
 		for _, a := range module.Accesses {
-			updateSummary(d.Stats, a.Op, a.DurationNanos)
-			updateSummary(mtd.Stats, a.Op, a.DurationNanos)
 			switch a.Op {
-			case Get, IteratorValue:
+			case Get, IteratorValue, Has:
 				if _, ok := writtenKey[string(a.Key)]; ok {
 					continue
 				}
-				mtd.Reads[hex.EncodeToString(a.Key)] = hex.EncodeToString(a.Value)
-			case Has:
-				if _, ok := writtenKey[string(a.Key)]; ok {
+				if !budget.take(len(a.Key), len(a.Value)) {
+					mtd.Truncated = true
 					continue
 				}
-				hasMap[hex.EncodeToString(a.Key)] = struct{}{}
+				if a.Op == Has {
+					hasMap[hex.EncodeToString(a.Key)] = struct{}{}
+				} else {
+					mtd.Reads[hex.EncodeToString(a.Key)] = hex.EncodeToString(a.Value)
+				}
 			case Set, Delete:
 				writtenKey[string(a.Key)] = struct{}{}
 			}
@@ -322,20 +419,29 @@ func (st *StoreTracer) dumpLocked() StoreTraceDump {
 		for k := range hasMap {
 			mtd.Has = append(mtd.Has, k)
 		}
+		slices.Sort(mtd.Has)
 		for _, it := range module.Iterators {
-			keys := make([]string, 0, len(it.Keys))
-			for _, key := range it.Keys {
-				keys = append(keys, hex.EncodeToString(key))
+			if !budget.take(len(it.Start), len(it.End)) {
+				mtd.Truncated = true
+				continue
 			}
-			mtd.Iterators = append(mtd.Iterators, IteratorTraceDump{
-				Start:      hex.EncodeToString(it.Start),
-				End:        hex.EncodeToString(it.End),
-				Ascending:  it.Ascending,
-				Keys:       keys,
-				NextCount:  it.NextCount,
-				TotalNanos: it.DurationNanos,
-				Truncated:  it.Truncated,
-			})
+			itd := IteratorTraceDump{
+				Start: hex.EncodeToString(it.Start), End: hex.EncodeToString(it.End),
+				Ascending: it.Ascending, NextCount: it.NextCount,
+				TotalNanos: it.DurationNanos, Truncated: it.Truncated,
+			}
+			for _, key := range it.Keys {
+				if !budget.take(len(key), 0) {
+					itd.Truncated = true
+					mtd.Truncated = true
+					break
+				}
+				itd.Keys = append(itd.Keys, hex.EncodeToString(key))
+			}
+			mtd.Iterators = append(mtd.Iterators, itd)
+		}
+		if mtd.Truncated {
+			d.Truncated = true
 		}
 		d.Modules[name] = mtd
 	}

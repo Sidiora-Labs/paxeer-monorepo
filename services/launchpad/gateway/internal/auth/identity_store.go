@@ -725,6 +725,9 @@ func (s *Identity) IssueLoginIdempotent(ctx context.Context, r ChallengeRequest,
 	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, wallet+":"+key); err != nil {
 		return Challenge{}, unavailable()
 	}
+	if _, err = tx.Exec(ctx, `DELETE FROM identity_challenge_requests WHERE wallet=$1 AND request_id=$2 AND retain_until<=clock_timestamp()`, wallet, key); err != nil {
+		return Challenge{}, unavailable()
+	}
 	var prior, raw []byte
 	err = tx.QueryRow(ctx, `SELECT body_hash,response FROM identity_challenge_requests WHERE wallet=$1 AND request_id=$2`, wallet, key).Scan(&prior, &raw)
 	if err == nil {

@@ -70,9 +70,10 @@ type goldenFrame struct {
 }
 
 type goldenLog struct {
-	Address common.Address `json:"address"`
-	Topics  []common.Hash  `json:"topics"`
-	Data    hexutil.Bytes  `json:"data"`
+	Address  common.Address `json:"address"`
+	Topics   []common.Hash  `json:"topics"`
+	Data     hexutil.Bytes  `json:"data"`
+	Position hexutil.Uint   `json:"position"`
 }
 
 type goldenTrace struct {
@@ -341,7 +342,8 @@ type goldenTranslation struct {
 	reserves  map[common.Address][2]*big.Int
 	effective map[common.Address][2]*big.Int
 	// elapsed is the H+1 block time less the golden timestamp.
-	elapsed int64
+	elapsed     int64
+	heightDelta int64
 	// snapshots is the golden snapshotIndex and snapshotCount of each pool.
 	snapshots map[common.Address][2]uint64
 	// nextTokenID is the golden nextTokenId of the generation 2 collection.
@@ -355,7 +357,8 @@ func translation(h *harness, g goldenRecord) goldenTranslation {
 		factory:  h.keeper.Generation2().SidioraFactory, legacy: map[string]*goldenCall{},
 		liabilities: new(big.Int), reserves: map[common.Address][2]*big.Int{},
 		effective: map[common.Address][2]*big.Int{}, elapsed: h.ctx().BlockTime().Unix() - int64(g.Timestamp),
-		snapshots: map[common.Address][2]uint64{}, nextTokenID: new(big.Int)}
+		snapshots: map[common.Address][2]uint64{}, nextTokenID: new(big.Int),
+		heightDelta: h.ctx().BlockHeight() - int64(g.Height)}
 	roles := map[int]map[string]common.Address{}
 	pools := map[int][]common.Address{}
 	for _, gen := range g.Generations {
@@ -726,19 +729,85 @@ func (tr goldenTranslation) balanceChanges(logs []goldenLog) map[string]string {
 	return out
 }
 
-// events are the logs other than the ERC20 Transfer and Approval logs of the
-// token contracts, whose effect balanceChanges compares, as address and
-// topics, sorted; golden logs are read at their H+1 emitter with moved topic
-// words.
-func (tr goldenTranslation) events(logs []goldenLog, golden bool) []string {
+var goldenEventABIs struct {
+	once   sync.Once
+	events []abi.Event
+	err    error
+}
+
+func goldenEvents() ([]abi.Event, error) {
+	goldenEventABIs.once.Do(func() {
+		paths, err := filepath.Glob("abi/*.json")
+		if err != nil {
+			goldenEventABIs.err = err
+			return
+		}
+		for _, path := range append(paths, "abi.json") {
+			raw, err := os.ReadFile(path)
+			if err != nil {
+				goldenEventABIs.err = err
+				return
+			}
+			parsed, err := abi.JSON(bytes.NewReader(raw))
+			if err != nil {
+				goldenEventABIs.err = err
+				return
+			}
+			for _, event := range parsed.Events {
+				goldenEventABIs.events = append(goldenEventABIs.events, event)
+			}
+		}
+	})
+	return goldenEventABIs.events, goldenEventABIs.err
+}
+
+// events compares canonical ABI encodings, preserving log order and every
+// nonindexed field. Only address-typed fields and named block/time fields
+// receive the explicit H-to-H+1 translation.
+func (tr goldenTranslation) events(logs []goldenLog, golden bool) ([]string, error) {
 	transfer := crypto.Keccak256Hash([]byte("Transfer(address,address,uint256)"))
 	approval := crypto.Keccak256Hash([]byte("Approval(address,address,uint256)"))
+	catalog, err := goldenEvents()
+	if err != nil {
+		return nil, err
+	}
 	out := []string{}
 	for _, log := range logs {
 		if len(log.Topics) > 0 && tr.tokens[log.Address] && (log.Topics[0] == transfer || log.Topics[0] == approval) {
 			continue
 		}
-		address, topics := log.Address, log.Topics
+		var event *abi.Event
+		var values []interface{}
+		for i := range catalog {
+			candidate := &catalog[i]
+			if len(log.Topics) == 0 || candidate.ID != log.Topics[0] {
+				continue
+			}
+			indexed := 0
+			for _, input := range candidate.Inputs {
+				if input.Indexed {
+					indexed++
+				}
+			}
+			if len(log.Topics) != indexed+1 {
+				continue
+			}
+			decoded, decodeErr := candidate.Inputs.NonIndexed().Unpack(log.Data)
+			if decodeErr != nil {
+				continue
+			}
+			packed, packErr := candidate.Inputs.NonIndexed().Pack(decoded...)
+			if packErr != nil || !bytes.Equal(packed, log.Data) {
+				continue
+			}
+			event, values = candidate, decoded
+			break
+		}
+		if event == nil {
+			return nil, fmt.Errorf("unknown or malformed event at %s: %v data %x", log.Address, log.Topics, log.Data)
+		}
+		address := log.Address
+		topics := append([]common.Hash(nil), log.Topics...)
 		if golden {
 			if to, ok := tr.moves[address]; ok {
 				address = to
@@ -746,19 +815,56 @@ func (tr goldenTranslation) events(logs []goldenLog, golden bool) []string {
 			if tr.emitters[address] || tr.emitters[log.Address] {
 				address = precompile
 			}
-			topics = make([]common.Hash, len(log.Topics))
-			for i, topic := range log.Topics {
-				topics[i] = common.BytesToHash(tr.movedWords(topic.Bytes()))
+		}
+		topicIndex, dataIndex := 1, 0
+		for _, input := range event.Inputs {
+			if input.Indexed {
+				if input.Type.T == abi.AddressTy {
+					word := topics[topicIndex].Bytes()
+					if !bytes.Equal(word[:12], make([]byte, 12)) {
+						return nil, fmt.Errorf("invalid address topic for %s", event.Sig)
+					}
+					if golden {
+						if to, ok := tr.moves[common.BytesToAddress(word)]; ok {
+							topics[topicIndex] = common.BytesToHash(to.Bytes())
+						}
+					}
+				}
+				topicIndex++
+				continue
 			}
+			if golden {
+				if input.Type.T == abi.AddressTy {
+					if to, ok := tr.moves[values[dataIndex].(common.Address)]; ok {
+						values[dataIndex] = to
+					}
+				}
+				if input.Type.T == abi.UintTy && input.Type.Size == 256 {
+					delta := int64(0)
+					switch input.Name {
+					case "timestamp":
+						delta = tr.elapsed
+					case "blockNumber":
+						delta = tr.heightDelta
+					}
+					if delta != 0 {
+						values[dataIndex] = new(big.Int).Add(values[dataIndex].(*big.Int), big.NewInt(delta))
+					}
+				}
+			}
+			dataIndex++
+		}
+		data, err := event.Inputs.NonIndexed().Pack(values...)
+		if err != nil {
+			return nil, err
 		}
 		entry := address.Hex()
 		for _, topic := range topics {
 			entry += " " + topic.Hex()
 		}
-		out = append(out, entry)
+		out = append(out, entry+" "+hexutil.Encode(data))
 	}
-	sort.Strings(out)
-	return out
+	return out, nil
 }
 
 // replayGolden replays every halt-height call and trace the golden record
@@ -854,7 +960,11 @@ func (h *harness) replayTrace(tr goldenTranslation, role string, generation int,
 		got = append(got, goldenLog{Address: log.Address, Topics: log.Topics, Data: log.Data})
 	}
 	assert.Equal(t, tr.balanceChanges(golden), tr.balanceChanges(got), "%s trace %s balance changes", role, trace.Key)
-	assert.Equal(t, tr.events(golden, true), tr.events(got, false), "%s trace %s logs", role, trace.Key)
+	wantEvents, err := tr.events(golden, true)
+	require.NoError(t, err)
+	gotEvents, err := tr.events(got, false)
+	require.NoError(t, err)
+	assert.Equal(t, wantEvents, gotEvents, "%s trace %s logs", role, trace.Key)
 }
 
 // collectLogs appends the logs of frame and of its calls that did not fail.
@@ -862,10 +972,20 @@ func collectLogs(frame goldenFrame, out *[]goldenLog) {
 	if frame.Error != "" {
 		return
 	}
-	*out = append(*out, frame.Logs...)
-	for _, sub := range frame.Calls {
-		collectLogs(sub, out)
+	next := 0
+	for i := 0; i <= len(frame.Calls); i++ {
+		for next < len(frame.Logs) && uint64(frame.Logs[next].Position) == uint64(i) {
+			*out = append(*out, frame.Logs[next])
+			next++
+		}
+		if i < len(frame.Calls) {
+			collectLogs(frame.Calls[i], out)
+		}
 	}
+	if next != len(frame.Logs) {
+		panic("golden trace contains an invalid log position")
+	}
+
 }
 
 // view32 is the single 32-byte word role.name returns at at.

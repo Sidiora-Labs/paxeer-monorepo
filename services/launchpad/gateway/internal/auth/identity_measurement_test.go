@@ -294,16 +294,18 @@ func TestSerialIdentityPhase4ConfiguredWorkload(t *testing.T) {
 			Origin   string `json:"origin"`
 			SourceIP string `json:"sourceIp"`
 		} `json:"clients"`
-		Phases                  []IdentityMeasurementPhase `json:"phases"`
-		Workers                 int                        `json:"workers"`
-		QueueCapacity           int                        `json:"queueCapacity"`
-		MaxAcknowledgements     int                        `json:"maxAcknowledgements"`
-		RefreshesPerLogin       int                        `json:"refreshesPerLogin"`
-		RequestTimeoutNS        int64                      `json:"requestTimeoutNs"`
-		SourceRoot              string                     `json:"sourceRoot"`
-		EvidenceDirectory       string                     `json:"evidenceDirectory"`
-		DatabaseSecretReference string                     `json:"databaseSecretReference"`
-		Schema                  string                     `json:"schema"`
+		Phases                   []IdentityMeasurementPhase `json:"phases"`
+		Workers                  int                        `json:"workers"`
+		QueueCapacity            int                        `json:"queueCapacity"`
+		MaxAcknowledgements      int                        `json:"maxAcknowledgements"`
+		RefreshesPerLogin        int                        `json:"refreshesPerLogin"`
+		RequestTimeoutNS         int64                      `json:"requestTimeoutNs"`
+		SourceRoot               string                     `json:"sourceRoot"`
+		EvidenceDirectory        string                     `json:"evidenceDirectory"`
+		DatabaseSecretReference  string                     `json:"databaseSecretReference"`
+		Schema                   string                     `json:"schema"`
+		RuntimeEvidenceDirectory string                     `json:"runtimeEvidenceDirectory"`
+		FinalEvidencePath        string                     `json:"finalEvidencePath"`
 	}
 	decoder := json.NewDecoder(io.LimitReader(file, 1024*1024))
 	decoder.DisallowUnknownFields()
@@ -313,6 +315,9 @@ func TestSerialIdentityPhase4ConfiguredWorkload(t *testing.T) {
 	var extra any
 	if decoder.Decode(&extra) != io.EOF {
 		t.Fatal("serial identity input trailing data")
+	}
+	if input.RuntimeEvidenceDirectory == "" || input.FinalEvidencePath == "" {
+		t.Fatal("owning-process runtime archive and actual serial final evidence required")
 	}
 	if input.DatabaseSecretReference == "" {
 		t.Fatal("explicit read-role database secret reference required")
@@ -347,7 +352,7 @@ func TestSerialIdentityPhase4ConfiguredWorkload(t *testing.T) {
 		t.Cleanup(transport.CloseIdleConnections)
 		clients = append(clients, IdentityMeasurementClient{BaseURL: client.BaseURL, Origin: client.Origin, Client: &http.Client{Transport: transport, Timeout: time.Duration(input.RequestTimeoutNS), CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}})
 	}
-	cfg := IdentityMeasurementConfig{Binding: input.Binding, Clients: clients, Phases: input.Phases, Workers: input.Workers, QueueCapacity: input.QueueCapacity, MaxAcknowledgements: input.MaxAcknowledgements, RefreshesPerLogin: input.RefreshesPerLogin, SourceRoot: input.SourceRoot, RequestTimeout: time.Duration(input.RequestTimeoutNS), EvidenceDirectory: input.EvidenceDirectory, Pool: pool, Schema: input.Schema}
+	cfg := IdentityMeasurementConfig{Binding: input.Binding, Clients: clients, Phases: input.Phases, Workers: input.Workers, QueueCapacity: input.QueueCapacity, MaxAcknowledgements: input.MaxAcknowledgements, RefreshesPerLogin: input.RefreshesPerLogin, SourceRoot: input.SourceRoot, RequestTimeout: time.Duration(input.RequestTimeoutNS), EvidenceDirectory: input.EvidenceDirectory, Pool: pool, Schema: input.Schema, RuntimeArchive: &IdentityRuntimeArchive{Directory: input.RuntimeEvidenceDirectory, Binding: input.Binding}, FinalEvidence: AwaitIdentityFinalEvidence(input.FinalEvidencePath, filepath.Join(input.EvidenceDirectory, "checkpoint.json"))}
 	summary, err := RunIdentityMeasurement(ctx, cfg)
 	if err != nil {
 		t.Fatalf("serial identity measurement failed; captured assertions remain failures: %s", summary.String())

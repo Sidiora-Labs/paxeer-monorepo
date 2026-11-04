@@ -30,35 +30,28 @@ export function amountErrorText(code: string, decimals: number): string {
 
 function pow10(n: number): bigint { return 10n ** BigInt(n); }
 
-function decimalToScaled(text: string, scale: number): bigint | null {
-  if (!/^\d+(?:\.\d+)?$/.test(text)) return null;
+function decimalRatio(text: string): { raw: bigint; scale: number } | null {
+  if (text.length > 80 || !/^\d+(?:\.\d+)?$/.test(text)) return null;
   const [whole, fraction = ''] = text.split('.');
-  const digits = fraction.length > scale ? fraction.slice(0, scale) : fraction.padEnd(scale, '0');
-  return BigInt(whole + digits);
+  return { raw: BigInt(whole + fraction), scale: fraction.length };
 }
 
 function scaledToDecimal(value: bigint, scale: number): string {
+  if (scale === 0) return value.toString();
   const text = value.toString().padStart(scale + 1, '0');
-  const whole = text.slice(0, text.length - scale) || '0';
-  const fraction = scale === 0 ? '' : text.slice(text.length - scale).replace(/0+$/, '');
+  const whole = text.slice(0, text.length - scale);
+  const fraction = text.slice(text.length - scale).replace(/0+$/, '');
   return fraction ? `${whole}.${fraction}` : whole;
 }
 
-/**
- * Convert between USDL and token amounts using a last-observed price (USDL per token,
- * decimal string). Exact integer arithmetic; floors to `outDecimals`. Returns null when
- * the inputs are not plain decimals or the price is zero.
- */
+/** Exact rational conversion, rounded down only once at the asset's declared scale. */
 export function convertByPrice(value: string, price: string, from: 'usdl' | 'token', outDecimals: number): string | null {
-  const priceDigits = (price.split('.')[1] ?? '').length;
-  const priceScaled = decimalToScaled(price, priceDigits);
-  if (priceScaled === null || priceScaled <= 0n) return null;
-  const work = 36;
-  if (!Number.isInteger(outDecimals) || outDecimals < 0 || outDecimals > work) return null;
-  const scaled = decimalToScaled(value, work);
-  if (scaled === null) return null;
-  const converted = from === 'token' ? (scaled * priceScaled) / pow10(priceDigits) : (scaled * pow10(priceDigits)) / priceScaled;
-  return scaledToDecimal(converted / pow10(work - outDecimals), outDecimals);
+  if (!Number.isInteger(outDecimals) || outDecimals < 0 || outDecimals > 77) return null;
+  const input = decimalRatio(value), rate = decimalRatio(price);
+  if (!input || !rate || rate.raw === 0n) return null;
+  const numerator = from === 'token' ? input.raw * rate.raw * pow10(outDecimals) : input.raw * pow10(rate.scale + outDecimals);
+  const denominator = from === 'token' ? pow10(input.scale + rate.scale) : pow10(input.scale) * rate.raw;
+  return scaledToDecimal(numerator / denominator, outDecimals);
 }
 
 // Buy / Sell header

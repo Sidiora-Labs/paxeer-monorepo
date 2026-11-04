@@ -50,7 +50,9 @@ unless `FeeGranter()` is set. A distinct granter must authorize the payer throug
 `DeferredSendCoinsFromAccountToModule` moves fees to `fee_collector`;
 insufficient funds return `ErrInsufficientFunds`. Successful deduction emits
 `tx` event attributes `fee` and `fee_payer` and passes the priority through the
-context. See [`ante/fee.go`](../ante/fee.go).
+context. See [`ante/fee.go`](../ante/fee.go). As with other ante mutations, the
+caller must discard the cached state if a later decorator rejects the transaction;
+fee deduction precedes signature verification in this SDK chain.
 
 ### Signatures and sequences
 

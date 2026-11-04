@@ -1,0 +1,36 @@
+[repair.22.33.966]
+mode = "BUILD"
+scope = ["src/protocol", "tests/protocol"]
+audit = "spec/layerx-merge/programme/audit/records/22.30.3.kvx"
+acceptance = "22998.1"
+verify_cmd = "make -s test-kernel test-protocol"
+baseline = "Not run: the explicit ordered instructions prohibit tests until implementation is complete and prohibit invoking verify_cmd outside hf-done. The initial working tree had only runner-provided .cgignore and spec task-status changes; gate.json recorded zero build and verify runs, and no gates.jsonl existed. No baseline failures are claimed."
+evidence = "The qualified candidate revision, command, exit code and private log are emitted by hf-build/hf-done and copied verbatim to the final handoff; no unexecuted gate is claimed."
+
+[finding.arena-base-alignment]
+tests = ["audit_arena_base_alignment", "audit_genesis_fresh_merged_bootstrap"]
+proof = "Offset-buffer allocations through the real kernel module context assert production typed alignments, base-relative padding, capacity/address-overflow refusals and complete reset zeroing. The real genesis builder and snapshot consumer also run with an offset arena."
+gotcha = "The older standalone arena test compares relative offsets and whole buffers; its equivalence fixtures now declare matching base alignment while the new regression deliberately offsets its base. All existing assertions remain intact."
+
+[finding.legacy-genesis-guarantors]
+tests = ["audit_genesis_fresh_merged_bootstrap", "audit_genesis_historical_import_hashes"]
+proof = "The committed production builder emits and signs protocol-3 genesis with zero guarantors; codec, kernel snapshot load, bootstrap and stop/reopen initialized verification accept it without settlement registration. Wrong network, nonempty bootstrap, snapshot root and signature still refuse. Both committed public-testnet archives retain pinned SHA-256 bytes, byte-exact re-encoding, signatures, state roots and historical registration checks."
+policy = "NULL registration explicitly selects current protocol-3 bootstrap with zero guarantors; non-NULL registration selects historical validation. Legacy protocol encoding still requires its guarantor metadata. Historical guarantors are validated and hashed without being provisioned for fresh merged-network genesis."
+wiring_request_1 = "Domain 1: document the NULL-registration current-network boundary and historical-only guarantor/settlement fields in include/layerx/lxp_genesis.h and include/layerx/lxp_genesis_builder.h; these public headers are outside task scope."
+wiring_request_2 = "Domain 1: cmd/layerx-genesis/lxp_genesis_build_cli.c must accept a zero guarantor count for current protocol-3 requests and stop requiring retired settlement artifacts for merged-network bootstrap; cmd/layerx-genesis/lxp_genesis_builder.c already produces the tested zero-guarantor manifest through its in-process API."
+
+[finding.registration-refusal-mutates]
+tests = ["audit_registration_refusal_atomic"]
+proof = "Fill all 32 registrations with versions of the real Programs interface, refuse an upgrade at capacity, and compare the complete registry and canonical root. Invalid interface and version also refuse without mutation. Codec-produced activity bytes still route through the prior production implementation and emit its expected event and gas charge."
+
+[finding.transfer-shape-before-dereference]
+tests = ["audit_transfer_shape_refusals"]
+proof = "Real registry accounts and the canonical ledger refuse zero, oversized and SIZE_MAX leg counts, NULL authorities and zero, excess and SIZE_MAX authority counts before changing snapshots, balances, receipt, effects or canonical state. A valid transfer still applies and enclosing rollback restores both accounts."
+
+[finding.savepoint-overwrite-not-restored]
+tests = ["audit_savepoint_nested_before_images", "audit_savepoint_capacity_refusal"]
+proof = "Nested discard and accepted-inner/discarded-outer work restore overwritten and deleted pre-staged KV entries, deep blob bytes and reordered blob slots, effects and ordinals. Gas stays charged. Commit and a new module context observe the original values; a second case preserves preexisting committed-blob deletion markers. Savepoint capacity refusal leaves the arena and original overlay intact."
+representation = "Private before-images are activity-arena-owned and located from the existing public savepoint mark; no header change, global registry, leaked heap backup or blob alias survives rollback. Restored blob heap allocations are all prepared before changing the live overlay."
+wiring_request = "None: the existing include/layerx/lxp_module.h savepoint representation remains ABI-compatible; private state is owned inside src/protocol/lxp_module_ctx.c."
+
+gotcha = "The allowed gate links only lxp_test_kernel.c and lxp_test_protocol.c as C test mains; the repair cases are registered with the committed C harness included in the kernel executable, together with the real committed genesis builder. No Makefile change or subprocess test is required."

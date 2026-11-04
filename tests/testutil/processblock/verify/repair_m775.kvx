@@ -1,0 +1,14 @@
+[repair.22.33.775]
+finding = "22.30.174/bank-narrowing"
+tests = ["TestRepairM_775_Send", "TestRepairM_775_MultiSend", "TestRepairM_775_Fees"]
+path = "SDK transaction builder -> protobuf encoder/decoder -> real bank message server and keeper/store -> Balance verifier."
+baseline = "Not run: the task's mandatory gate order prohibits verification before implementation and permits verification only through hf-done."
+wiring = "None; the owning processblock regression tests are inside the declared verify directory."
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit code and private log location."
+
+[qualification.first_attempt]
+revision = "72e67054c43784e01b5a46da870c212fed44e463"
+command = "cg spec done 22.33.775 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Test compilation rejected an overflowing uint64 constant and SetFeePayer on the restricted TxBuilder interface; construct the large amount through sdk.Int arithmetic and assert the real builder's fee-payer setter interface."
