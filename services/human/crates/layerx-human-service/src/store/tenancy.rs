@@ -1,12 +1,11 @@
 use std::collections::BTreeMap;
 use std::fmt::{Display, Formatter};
-use std::fs;
 use std::io;
 use std::path::Path;
 
 use layerx_proof::merkle::leaf_hash;
 
-use super::codec::{self, CodecError, Decoder};
+use super::codec::{self, CodecError, Decoder, Directory};
 use super::{PrincipalId, StoreError};
 
 const TENANCY_MAGIC: &[u8; 4] = b"LXHT";
@@ -182,17 +181,19 @@ impl TenancyMap {
     /// Returns an encoding, hashing or I/O failure.
     pub fn install(&self, root: &Path) -> Result<TenancyDigest, TenancyError> {
         let sealed = self.seal()?;
-        codec::write_atomic(root, TENANCY_FILE, TENANCY_TEMP_FILE, &sealed)?;
+        codec::write_atomic(
+            &Directory::open(root)?,
+            TENANCY_FILE,
+            TENANCY_TEMP_FILE,
+            &sealed,
+        )?;
         self.digest()
     }
 }
 
-pub(crate) fn load_installed(root: &Path) -> Result<TenancyMap, TenancyError> {
-    let path = root.join(TENANCY_FILE);
-    if !path.exists() {
-        return Err(TenancyError::Missing);
-    }
-    TenancyMap::load(&fs::read(path)?)
+pub(crate) fn load_installed(root: &Directory) -> Result<TenancyMap, TenancyError> {
+    let bytes = root.read(TENANCY_FILE)?.ok_or(TenancyError::Missing)?;
+    TenancyMap::load(&bytes)
 }
 
 /// Tenancy configuration failures.
