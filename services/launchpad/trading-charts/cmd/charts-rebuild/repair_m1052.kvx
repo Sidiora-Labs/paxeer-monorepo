@@ -1,0 +1,7 @@
+[task.22.33.1052]
+finding = "22.30.41/23"
+proof = "TestRepairM_1052_DefaultTargetsProductionTables; TestRepairM_1052_RejectMismatchedBindingsBeforeManifest; TestRepairM_1052_AdmittedProfilesReachManifest; TestRepairM_1052_RuntimeReadinessPrecedesReconstruction"
+implementation = "The rebuild defaults to candles, admits only production runtime profiles with matching digest-bound delivery and expected-schema documents, and checks the actual database readiness contract before reconstruction or promotion."
+baseline = "Not run: the explicit ordered gate instructions prohibit verification before implementation and reserve the single verification run for hf-done; no pre-change failure is claimed."
+evidence = "Runner-owned /out/run/gates.jsonl records the verified candidate revision, command, exit and private log; the final response copies the last bounded gate evidence."
+wiring_request = "None: the existing charts runtime configuration and schema-readiness contracts are reused without out-of-path changes."
