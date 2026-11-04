@@ -58,13 +58,14 @@ the current native account, transaction and feed APIs.
 | `/paxeer-x/feed/updates` | Paginated native submissions, optionally filtered by feeder or market |
 | `/paxeer-x/feed/updates/:hash` | One native submission |
 
-Historical archive APIs are separate from current transaction status (full paths):
+Historical archive APIs serve frozen items with no live settlement status
+(paths relative to `/api/v2`):
 
 | Path | Purpose |
 | --- | --- |
-| `/api/v2/paxeer-x/archive/anchors` | Frozen historical anchor checkpoints |
-| `/api/v2/paxeer-x/archive/receipts` | Frozen historical receipts |
-| `/api/v2/paxeer-x/archive/receipts/:id` | One frozen receipt by its full hash |
+| `/paxeer-x/archive/anchors` | Frozen historical anchor checkpoints |
+| `/paxeer-x/archive/receipts` | Frozen historical receipts |
+| `/paxeer-x/archive/receipts/:id` | One frozen receipt by its full hash |
 
 ### Frontend integration
 
