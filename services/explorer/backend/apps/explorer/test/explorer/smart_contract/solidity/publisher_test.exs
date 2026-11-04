@@ -1,13 +1,21 @@
+Code.require_file("chain_coverage_cases.exs", __DIR__)
+
 defmodule Explorer.SmartContract.Solidity.PublisherTest do
   use ExUnit.Case, async: true
   use Explorer.DataCase
 
   use Utils.CompileTimeEnvHelper, chain_type: [:explorer, :chain_type]
 
-  if @chain_type == :default do
+  if @chain_type in [:default, :paxeer_x] do
     doctest Explorer.SmartContract.Solidity.Publisher
 
     @moduletag timeout: :infinity
+
+    require Explorer.SmartContract.Solidity.ChainCoverageCases
+
+    describe "recorded chain publisher coverage" do
+      Explorer.SmartContract.Solidity.ChainCoverageCases.publisher_cases()
+    end
 
     alias Explorer.Chain.{Data, ContractMethod, SmartContract}
     alias Explorer.{Factory, Repo}

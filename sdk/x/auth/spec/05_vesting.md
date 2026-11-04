@@ -44,13 +44,17 @@ must parse and identify an existing account. The sender signs the message.
 With `delayed = false`, the handler sets the continuous schedule's `start_time`
 to the current block's Unix time. With `delayed = true`, it creates a delayed
 account. Choose an end time after creation for a useful future schedule; the
-message's basic validation checks positivity, not that the end lies in the
-future. Periodic and permanently locked types exist, but this message service
-and CLI do not create them.
+message's basic validation checks positivity, while the handler rejects a
+continuous end time at or before the creation block. A delayed account may have
+an already elapsed positive end time and is immediately vested in that case.
+Periodic and permanently locked types exist, but this message service and CLI
+do not create them.
 
 The fork's schema includes `BaseVestingAccount.Admin` (`admin`) and
 `CancelledTime` (`cancelled_time`). Creation stores `admin`; `cancelled_time`
-defaults to zero. There is no registered cancellation message or implemented
+must be zero: account validation rejects nonzero markers, including genesis
+imports. `Admin` is reserved metadata without cancellation authority. There is
+no registered cancellation message or implemented
 administrator cancellation lifecycle, and the vesting calculations do not read
 these fields. Their presence in the schema does not grant an active ability to
 cancel, claw back or stop a schedule.
@@ -356,5 +360,6 @@ This illustrates the account type's schedule, not a live periodic-creation CLI.
 - `DelayedVestingAccount`: full release at the end time.
 - `PeriodicVestingAccount`: release in sequential tranches.
 - `PermanentLockedAccount`: no scheduled release of the original allocation.
-- `Admin` and `CancelledTime`: persisted schema fields without an implemented
-  cancellation lifecycle in the current module.
+- `Admin`: reserved metadata without cancellation authority.
+- `CancelledTime`: reserved persisted field that must be zero; cancellation is
+  unsupported and nonzero markers fail account validation.

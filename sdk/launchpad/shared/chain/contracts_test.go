@@ -3,9 +3,9 @@ package chain
 import (
 	"context"
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -156,12 +156,16 @@ func TestCreateContractsRouting(t *testing.T) {
 	want := protocol.PaxeerMainnet.Impl["EventEmitter"] // any non-zero return value
 	var gotTo string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body, _ := io.ReadAll(r.Body)
 		var req struct {
+			ID     json.RawMessage   `json:"id"`
 			Method string            `json:"method"`
 			Params []json.RawMessage `json:"params"`
 		}
-		_ = json.Unmarshal(body, &req)
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Error(err)
+			http.Error(w, "invalid JSON-RPC request", http.StatusBadRequest)
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		if req.Method == "eth_call" {
 			var call struct {
@@ -172,10 +176,14 @@ func TestCreateContractsRouting(t *testing.T) {
 			}
 			gotTo = call.To
 			ret := common.Bytes2Hex(common.LeftPadBytes(want.Bytes(), 32))
-			_, _ = io.WriteString(w, `{"jsonrpc":"2.0","id":1,"result":"0x`+ret+`"}`)
+			if err := json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": req.ID, "result": "0x" + ret}); err != nil {
+				t.Error(err)
+			}
 			return
 		}
-		_, _ = io.WriteString(w, `{"jsonrpc":"2.0","id":1,"result":"0x"}`)
+		if err := json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": req.ID, "result": "0x"}); err != nil {
+			t.Error(err)
+		}
 	}))
 	t.Cleanup(srv.Close)
 
@@ -221,16 +229,22 @@ func TestRolesBindToPrecompile(t *testing.T) {
 	var mu sync.Mutex
 	var callTo string
 	var logAddrs []string
+	var requestIDs []json.RawMessage
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body, _ := io.ReadAll(r.Body)
 		var req struct {
+			ID     json.RawMessage   `json:"id"`
 			Method string            `json:"method"`
 			Params []json.RawMessage `json:"params"`
 		}
-		_ = json.Unmarshal(body, &req)
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Error(err)
+			http.Error(w, "invalid JSON-RPC request", http.StatusBadRequest)
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		mu.Lock()
 		defer mu.Unlock()
+		requestIDs = append(requestIDs, req.ID)
 		switch req.Method {
 		case "eth_call":
 			var call struct {
@@ -241,7 +255,9 @@ func TestRolesBindToPrecompile(t *testing.T) {
 			}
 			callTo = call.To
 			ret := common.Bytes2Hex(common.LeftPadBytes(impl.Bytes(), 32))
-			_, _ = io.WriteString(w, `{"jsonrpc":"2.0","id":1,"result":"0x`+ret+`"}`)
+			if err := json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": req.ID, "result": "0x" + ret}); err != nil {
+				t.Error(err)
+			}
 		case "eth_getLogs":
 			var q struct {
 				Address []string `json:"address"`
@@ -250,9 +266,13 @@ func TestRolesBindToPrecompile(t *testing.T) {
 				_ = json.Unmarshal(req.Params[0], &q)
 			}
 			logAddrs = q.Address
-			_, _ = io.WriteString(w, `{"jsonrpc":"2.0","id":1,"result":[]}`)
+			if err := json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": req.ID, "result": []any{}}); err != nil {
+				t.Error(err)
+			}
 		default:
-			_, _ = io.WriteString(w, `{"jsonrpc":"2.0","id":1,"result":"0x7d"}`)
+			if err := json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": req.ID, "result": "0x7d"}); err != nil {
+				t.Error(err)
+			}
 		}
 	}))
 	t.Cleanup(srv.Close)
@@ -325,6 +345,14 @@ func TestRolesBindToPrecompile(t *testing.T) {
 
 	mu.Lock()
 	defer mu.Unlock()
+	if len(requestIDs) != 2 {
+		t.Fatalf("request IDs = %s, want log filter and beacon call", requestIDs)
+	}
+	first, firstErr := strconv.ParseUint(string(requestIDs[0]), 10, 64)
+	second, secondErr := strconv.ParseUint(string(requestIDs[1]), 10, 64)
+	if firstErr != nil || secondErr != nil || first == 0 || second != first+1 {
+		t.Errorf("consecutive request IDs = %s", requestIDs)
+	}
 	if len(logAddrs) != 1 || !strings.EqualFold(logAddrs[0], p) {
 		t.Errorf("Swap logs queried at %v, want [%s]", logAddrs, p)
 	}

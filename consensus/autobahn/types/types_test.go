@@ -1,7 +1,9 @@
 package types
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
@@ -244,5 +246,82 @@ func TestTimeoutQCVerify_HighestPrepareQCSelected(t *testing.T) {
 	}
 	if err := tqc.Verify(committee, utils.None[*CommitQC]()); err != nil {
 		t.Fatalf("Verify: %v", err)
+	}
+}
+
+func TestConvProductionBounds(t *testing.T) {
+	for _, size := range []int{4, MaxCommitteeSize} {
+		t.Run(fmt.Sprintf("committee_%d", size), func(t *testing.T) {
+			committee, keys := GenCommittee(utils.TestRng(), size)
+			lanes := map[LaneID]*LaneQC{}
+			blocks := map[LaneID][]*Block{}
+			perLane := MaxFullCommitQCHeaders / size
+			for lane := range committee.Lanes().All() {
+				var parent BlockHeaderHash
+				for i := range perLane {
+					payload, err := (PayloadBuilder{CreatedAt: time.Now(), Txs: [][]byte{[]byte("producer codec input")}}).Build()
+					if err != nil {
+						t.Fatal(err)
+					}
+					block := NewBlock(lane, BlockNumber(i), parent, payload)
+					blocks[lane] = append(blocks[lane], block)
+					parent = block.Header().Hash()
+				}
+				var votes []*Signed[*LaneVote]
+				for _, key := range keys {
+					votes = append(votes, Sign(key, NewLaneVote(blocks[lane][perLane-1].Header())))
+				}
+				lanes[lane] = NewLaneQC(votes)
+			}
+			proposal, err := NewProposal(leaderKey(committee, keys, View{}), committee, ViewSpec{}, time.Now(), lanes, utils.None[*AppQC]())
+			if err != nil {
+				t.Fatal(err)
+			}
+			transported, err := ConsensusReqConv.Unmarshal(ConsensusReqConv.Marshal(proposal))
+			if err != nil {
+				t.Fatal(err)
+			}
+			received, ok := transported.(*FullProposal)
+			if !ok {
+				t.Fatalf("unexpected consensus message %T", transported)
+			}
+			if err := received.Verify(committee, ViewSpec{}); err != nil {
+				t.Fatal(err)
+			}
+			var headers []*BlockHeader
+			for lane := range committee.Lanes().All() {
+				lr := received.Proposal().Msg().LaneRange(lane)
+				for _, block := range blocks[lane][:int(lr.Len())] {
+					replayed, err := BlockConv.Unmarshal(BlockConv.Marshal(block))
+					if err != nil {
+						t.Fatal(err)
+					}
+					if err := replayed.Verify(committee); err != nil {
+						t.Fatal(err)
+					}
+					if replayed.Header().Hash() != block.Header().Hash() {
+						t.Fatal("block codec changed committed header")
+					}
+					headers = append(headers, replayed.Header())
+				}
+			}
+			if size == 4 && len(headers) != MaxFullCommitQCHeaders {
+				t.Fatalf("header boundary not covered: %d", len(headers))
+			}
+			if len(headers) == 0 {
+				t.Fatal("busy committee finalized no blocks")
+			}
+			full := NewFullCommitQC(makeCommitQC(keys, received), headers)
+			recovered, err := FullCommitQCConv.Unmarshal(FullCommitQCConv.Marshal(full))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := recovered.Verify(committee); err != nil {
+				t.Fatal(err)
+			}
+			if !bytes.Equal(FullCommitQCConv.Marshal(full), FullCommitQCConv.Marshal(recovered)) {
+				t.Fatal("full certificate codec changed committed history")
+			}
+		})
 	}
 }

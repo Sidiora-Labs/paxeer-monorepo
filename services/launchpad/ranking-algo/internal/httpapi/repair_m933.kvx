@@ -1,0 +1,8 @@
+[repair.22.33.933]
+finding = "22.30.23/snapshot-test-rejects-frozen-categories"
+implementation = "TestSnapshotQueryBoundsAndCanonicalCategories accepts all eight frozen categories and top_volume canonicalization, refuses genuinely unknown names separately, and retains every existing malformed-limit and actual-dependency assertion."
+proof = ["TestRepairM_933_SnapshotQueryContract", "TestRepairM_933_FrozenCategoryRouting", "TestRepairM_933_UnknownCategoryGuidance"]
+producer_transport_consumer = "The production snapshotCategory and frozen SDK category contract are checked directly; RegisterSnapshots serves a loopback HTTP server and the Go HTTP client decodes production error envelopes, proving every frozen category reaches subsequent pagination/snapshot-ID validation on both routes and unknown names receive INVALID_CATEGORY with the complete frozen list. No persistence or visibility substitute is used because request validation precedes those dependencies."
+baseline = "No prior hf-build/hf-done ledger exists for this attempt. repair_33.kvx records TestSnapshotQueryBoundsAndCanonicalCategories as a prior failing test, consistent with its stale gainers/losers assertions; no fresh baseline ran because the explicit gate order requires complete implementation before hf-build and hf-done, and forbids running verify_cmd by hand."
+evidence = "The runner's private hf-build/hf-done ledger and final evidence line name the verified candidate revision, exact command, exit code and log location; no unexecuted gate is claimed."
+wiring_requests = []

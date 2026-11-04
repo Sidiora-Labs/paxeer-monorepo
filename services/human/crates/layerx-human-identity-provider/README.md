@@ -26,8 +26,8 @@ command:
 | `probe` | Sends operation 0 to the running listener |
 | `bind-device` | Imports one trusted device enrollment (below) |
 | `provision-owner` | Runs operation 1 against the exclusively held state from at most 16384 bytes of JSON on stdin and prints the provisioned fields as JSON |
-| `provision-account` | Compatibility helper: derives a protocol-3 account id from an exported DID; does not submit a transaction or prove a current chain binding |
-| `validate-account-head` | Compatibility validator for a first-batch protocol-3 account head; not a merged-chain commitment verifier |
+| `provision-account` | Derives the main account id from an exported DID using the retained protocol-3 canonical account domain; does not register an account or derive the asset account used for owner limits |
+| `validate-account-head` | Reads authenticated committed-chain account observations and emits `layerx.human.account-head.v1` only for a bound owner asset account with no debit history |
 
 Required environment for `serve`:
 
@@ -42,11 +42,46 @@ Required environment for `serve`:
 | `LAYERX_RUNTIME_CLOCK_PID` | Required nonzero decimal supervisor PID, checked against SO_PEERCRED. |
 | `LAYERX_RUNTIME_CLOCK_UID` | Required decimal supervisor UID, checked against socket ownership and SO_PEERCRED. |
 
-The listener connects to the clock before opening its state. Missing clock
-configuration or an unavailable or mismatched clock peer refuses startup.
-The administrative commands and `probe` do not attach to that clock.
-For local development the [workspace guide](../../README.md) shows the supervisor
-wrapper; direct production launches must inherit all three clock bindings.
+Launch in this order:
+
+1. Create the protected state/socket parent directories and recovery policy file
+   as the provider UID, then set the provider variables above.
+2. Start the runtime-clock supervisor as that same UID. It creates a private
+   0700 generation directory and a 0600 clock socket, and injects all three
+   `LAYERX_RUNTIME_CLOCK_*` bindings into its child. The PID identifies the
+   supervisor, not the provider. The client checks directory/socket ownership
+   and permissions and the supervisor's Linux SO_PEERCRED PID and UID on every
+   connection; the supervisor also refuses clients of another UID.
+3. Let the supervisor launch `serve`. The listener connects to the clock before
+   opening and replaying its state and publishing the identity socket. Missing
+   bindings, an unavailable clock or a mismatched peer refuses startup. Restart
+   the provider with fresh bindings when replacing the supervisor.
+4. Run `probe` against the published socket before starting dependent clients.
+   It sends LXIP operation 0 and exits zero only on the exact empty success
+   response; absent, stopped, refusing or unresponsive listeners fail within
+   `LAYERX_HUMAN_IDENTITY_PROVIDER_DEADLINE_SECONDS` (default 5, range 1–60).
+   Run it as the socket owner, which must also be the configured
+   `LAYERX_HUMAN_IDENTITY_PROVIDER_ALLOWED_UID`: the probe checks socket owner
+   and world permissions, and the listener enforces its allowed UID. A deployment
+   using a different client UID must account for this built-in probe constraint.
+
+For example, after setting the provider variables, the repository wrapper
+starts the supervisor and its provider child:
+
+```sh
+sh tools/runtime/run-with-clock.sh services/human/target/debug/layerx-human-identity-provider serve
+```
+
+From another shell with the same provider socket and deadline settings and UID:
+
+```sh
+services/human/target/debug/layerx-human-identity-provider probe
+```
+
+The administrative commands and `probe` do not attach to the clock themselves;
+readiness still requires the serving provider's clock to answer. Direct
+production launches must inherit all three bindings from the live supervisor.
+The [workspace guide](../../README.md) also describes the wrapper.
 
 The recovery file has `root` (array of 32 byte integers), `threshold` (nonzero
 u16), and `delay_seconds` (nonzero u64). The operator supplies an established,
@@ -81,20 +116,93 @@ exclusive state lock as the listener, and accepts `email`, `display_name`,
 `recovery_root`, `recovery_threshold` and `recovery_delay_seconds`. Stop the
 listener before using this command.
 
-`provision-account` accepts at most 16384 bytes of JSON with only `did`. The
-suffix of `did:layerx:` must be exactly 64 lowercase hex characters and nonzero.
-It returns `{"account":"<hex>"}` using the retained protocol-3 derivation of
-`agent:<did>:main`. It performs no account registration.
+Example `owner-request.json` for local identity creation:
 
-`validate-account-head` remains a compatibility command in
-[provision_head.rs](src/provision_head.rs). Its input is bounded to 1 MiB and
-contains `head`, `network_id`, `sequencer_id` and `public_key`. It requires
-`head.current`, protocol 3 and **batch number 1**, checks the receipt digest,
-state root and observed sequence, and prints `{"consumed":0}` on success.
-It refuses later retained batches and does not establish current committed
-chain state. Do not use this helper to initialize limits from an arbitrary
-current head or treat its successful output as merged-chain onboarding evidence.
-The receipt/binding path belongs to the Human service and its chain adapters.
+```json
+{"email":"owner@example.com","display_name":"Owner","idempotency_key":"owner-install-1","now":1700000000}
+```
+
+Run the administrative command as the state owner while the listener is stopped:
+
+```sh
+services/human/target/debug/layerx-human-identity-provider provision-owner < owner-request.json > owner-result.json
+```
+
+This creates a local principal and directory DID. Merged registration binds that
+principal to the exported signing authority DID; do not pass the local directory
+DID as an exported chain authority. `provision-account` accepts at most 16384
+bytes of JSON with only `did`, whose `did:layerx:` suffix must be exactly 64
+lowercase hex characters and nonzero. It returns `{"account":"<hex>"}` for
+`agent:<did>:main`. Owner limits instead use the distinct asset account derived
+from `agent:<did>:asset:<asset_id>`. Neither derivation registers an account.
+
+The committed-chain producer is the configured hosted gateway's `px_getAccount`
+join ([gateway account producer](../../../platform/hosted/gateway/src/paxeer.rs)),
+together with its merged-node `eth_*` transport. Public node RPC alone need not
+serve `px_getAccount`. In
+[hosted provisioning](../../../platform/hosted/human/provision.sh), owner
+identity creation precedes `--produce-owner-registration`, then
+`--validate-owner-registration`, then `human_account_head_observe`. That last
+step invokes the current [validator](src/provision_head.rs), after registration,
+before publishing limits or an owner configuration.
+
+Example `account-observation-request.json` (replace the endpoint, CA and identity
+fields with the protected deployment inputs; these identities match the
+committed integration fixture):
+
+```json
+{
+  "rpc_url": "https://gateway.example.test/",
+  "rpc_ca_der_hex": ["<lowercase DER CA certificate hex>"],
+  "chain_id": 125,
+  "owner_did": "did:layerx:6161616161616161616161616161616161616161616161616161616161616161",
+  "owner_account": "d3513012c0fe14fbbbfe2fd1e506a56b90d58ae19c70f6e7acebde2c3047706c",
+  "asset_id": "3333333333333333333333333333333333333333333333333333333333333333",
+  "maximum_age_seconds": 60
+}
+```
+
+```sh
+services/human/target/debug/layerx-human-identity-provider validate-account-head < account-observation-request.json > account-observation.json
+```
+
+The input is bounded to 1 MiB and rejects unknown fields. Production transport
+requires HTTPS with explicit DER CA trust anchors; HTTP is restricted to a local
+loopback node. The configured endpoint authenticates the observations: this is
+not an offline consensus proof verifier. `chain_id` must match the deployment
+(125 on the merged network); `maximum_age_seconds` is 1–300. The CLI supplies
+the host's current wall time, so that clock must be accurate; callers cannot
+override it with a request timestamp.
+
+Before publishing an owner configuration, require all of these observations:
+
+- A nonzero committed height, block hash and state root; the block timestamp
+  must be nonzero, no later than the trusted current time, and within the age
+  limit. The endpoint must still report the same head, block and root when
+  validation finishes.
+- A bound `px_getAccount` join with the exact exported owner DID, canonical main
+  account id and a nonzero EVM address matching the Paxeer account. The join
+  must be unchanged on reread.
+- At that committed height, address precompile `getEvmAddrByLayerX` must match
+  the join, and ledger precompile `accountId` and `accountOwner` must match the
+  requested asset account and canonical owner DID id. `balanceOf` must fit u128,
+  and `nextSequence` must be zero.
+
+Success emits the exact fields `schema` (`layerx.human.account-head.v1`),
+`chain_id`, `owner_did`, `account`, `asset_id`, `committed_height`, `block_hash`,
+`state_root`, `observed_at` (Unix milliseconds), `balance` (decimal string) and
+`consumed` (zero). The hosted consumer retains the full observation, binds it
+to the registration/deployment inputs and projects the verified `consumed`
+value into its existing assembler input. Retain the full evidence when
+publishing configuration; local provisioning or a submitted registration
+transaction alone is insufficient.
+
+Later committed heights are supported, including after restart. A nonzero debit
+sequence is unsupported history and refuses without output: a later height or
+current balance cannot establish unused limits. The retired protocol-3 signed
+first-batch receipt envelope (`head`, `network_id`, `sequencer_id`, `public_key`)
+is rejected by this command. Protocol-3 canonical account/DID domains remain in
+use; historical receipt compatibility elsewhere cannot provision a current owner.
 
 ## LXIP v1 wire contract
 

@@ -7,23 +7,9 @@
 //! a typed [`ObservationError`] naming the source, and no absent reading is
 //! ever substituted with a zero, an empty table or a default.
 //!
-//! The snapshot has three kinds of source, each read from the one place that
-//! is authoritative for it:
-//!
-//! * **The bound wallet and its Paxeer balances** come from the Paxeer X
-//!   Network gateway's `px_*` joins, through the shared
-//!   [`layerx_network_gateway`] client. The gateway is the only party that sees
-//!   both domains, and its answers stay tagged as gateway-reported.
-//! * **The LayerX-side spendable balances, the allowance inventory and the
-//!   budget bindings** come from the service's own authoritative records — the
-//!   agent runtime's balance and budget reads and the journeys resolver's
-//!   route inputs. They are never taken from the caller's request: a request
-//!   states an intent, never the headroom that would authorise it.
-//! * **The fee schedule and limits** come from the same component configuration
-//!   that move, deposit and withdraw already take them from.
-//!
-//! [`ObservedStateBuilder`] refuses to build until every one of those sources
-//! has answered, so a partially observed state cannot reach the planner.
+//! Current routes declare their own endpoint/asset requirements and bind reads
+//! to the authenticated principal and tenant. Bank reads use the pending chain
+//! bank contract directly. The joined wallet adapter is retained for history.
 
 use std::collections::BTreeSet;
 use std::fmt::{Display, Formatter};
@@ -38,8 +24,8 @@ use layerx_types::intent::{EvmAddress, TimestampSeconds};
 use sha2::{Digest as _, Sha256};
 
 use super::{
-    BalanceEntry, BudgetBinding, CustodyContext, Endpoint, FeeSchedule, ObservedState, Refusal,
-    SignedAllowance,
+    BalanceEntry, BudgetBinding, CustodyContext, Endpoint, FeeSchedule, MovementExecutionIdentity,
+    ObservedState, Refusal, Relationship, RouteRequest, SignedAllowance,
 };
 
 /// A source that could not answer, or an answer that cannot be planned on.
@@ -66,6 +52,12 @@ pub enum ObservationError {
         /// The asset whose wallet holding could not be observed.
         asset: AssetId,
     },
+    /// The authenticated chain bank read failed or returned invalid material.
+    ChainReadUnavailable,
+    /// A chain amount cannot be represented by the planner's business amount.
+    BankBalanceOutOfRange,
+    /// The route's denomination does not identify the requested asset.
+    DenominationMismatch,
     /// The service's own spendable-balance read has not answered.
     LedgerBalancesUnavailable,
     /// The service's own allowance records have not answered.
@@ -103,6 +95,15 @@ impl Display for ObservationError {
                 "the wallet holding of asset {} is unknown",
                 hex(&asset.bytes())
             ),
+            Self::ChainReadUnavailable => {
+                formatter.write_str("the pending bank observation is unavailable")
+            }
+            Self::BankBalanceOutOfRange => {
+                formatter.write_str("the bank amount exceeds the planner amount range")
+            }
+            Self::DenominationMismatch => {
+                formatter.write_str("the bank denomination does not identify the route asset")
+            }
             Self::LedgerBalancesUnavailable => {
                 formatter.write_str("spendable balances are unavailable")
             }
@@ -248,8 +249,10 @@ impl NetworkObservation {
 pub struct ObservedStateBuilder {
     observed_at: TimestampSeconds,
     owner: AccountId,
-    reserve: AccountId,
-    withdrawals: AccountId,
+    historical_custody: Option<(AccountId, AccountId)>,
+    binding: Option<MovementExecutionIdentity>,
+    bank_nonce: Option<u64>,
+    required_balances: Vec<(Endpoint, AssetId)>,
     network: Option<NetworkObservation>,
     ledger: Option<Vec<BalanceEntry>>,
     allowances: Option<Vec<SignedAllowance>>,
@@ -273,8 +276,10 @@ impl ObservedStateBuilder {
         Self {
             observed_at,
             owner,
-            reserve,
-            withdrawals,
+            historical_custody: Some((reserve, withdrawals)),
+            binding: None,
+            bank_nonce: None,
+            required_balances: Vec::new(),
             network: None,
             ledger: None,
             allowances: None,
@@ -282,6 +287,125 @@ impl ObservedStateBuilder {
             fees: None,
             required: BTreeSet::new(),
         }
+    }
+
+    /// Starts a current route from authenticated service identity. No retired
+    /// custody accounts or joined wallet record are needed for a ledger route.
+    pub fn for_route(
+        scope: &crate::store::PrincipalScope<'_>,
+        identity: &MovementExecutionIdentity,
+        owner: AccountId,
+        observed_at: TimestampSeconds,
+        route: &RouteRequest,
+    ) -> Result<Self, ObservationError> {
+        if scope.principal() != &identity.principal
+            || scope.tenant() != &identity.tenant
+            || layerx_intents::canonical::account_id_for_protocol(&owner, 3).ok()
+                != Some(identity.account)
+        {
+            return Err(ObservationError::IdentityMismatch);
+        }
+        let bank_nonce = match &route.relationship {
+            Relationship::BankTransfer {
+                from,
+                route: send,
+                denom,
+                ..
+            } => {
+                if *from != identity.wallet {
+                    return Err(ObservationError::IdentityMismatch);
+                }
+                if <[u8; 32]>::from(Sha256::digest(denom.as_bytes())) != route.asset.bytes() {
+                    return Err(ObservationError::DenominationMismatch);
+                }
+                Some(send.pending_nonce())
+            }
+            _ => None,
+        };
+        let required_balances = vec![(route.source.clone(), route.asset)];
+        Ok(Self {
+            observed_at,
+            owner,
+            historical_custody: None,
+            binding: Some(identity.clone()),
+            bank_nonce,
+            required_balances,
+            network: None,
+            ledger: None,
+            allowances: None,
+            budgets: None,
+            fees: None,
+            required: BTreeSet::new(),
+        })
+    }
+
+    /// Reads the canonical bank balance and verifies the route's pending nonce
+    /// on both sides of the read. An RPC absence or malformed word is unknown.
+    pub fn read_pending_bank_balance(
+        mut self,
+        endpoint: &layerx_client::sequencer::SequencerEndpoint,
+        denom: &str,
+    ) -> Result<Self, ObservationError> {
+        let binding = self
+            .binding
+            .as_ref()
+            .ok_or(ObservationError::IdentityMismatch)?;
+        let asset = AssetId::new(Sha256::digest(denom.as_bytes()).into());
+        if !self
+            .required_balances
+            .contains(&(Endpoint::PaxeerWallet, asset))
+        {
+            return Err(ObservationError::DenominationMismatch);
+        }
+        let expected_nonce = self.bank_nonce.ok_or(ObservationError::IdentityMismatch)?;
+        let nonce = || {
+            endpoint
+                .pending_nonce(&binding.wallet.bytes())
+                .map_err(|_| ObservationError::ChainReadUnavailable)
+        };
+        if nonce()? != expected_nonce {
+            return Err(ObservationError::ChainReadUnavailable);
+        }
+        let mut data =
+            layerx_crypto::disclosure::call::ledger_selector("balance(address,string)").to_vec();
+        data.extend([0; 12]);
+        data.extend(binding.wallet.bytes());
+        data.extend(super::resolver::abi_word(64));
+        data.extend(super::resolver::abi_word(denom.len() as u128));
+        data.extend(denom.as_bytes());
+        data.resize(4 + (data.len() - 4).div_ceil(32) * 32, 0);
+        let answer = endpoint
+            .call_pending(&super::BANK_ADDRESS, &data)
+            .map_err(|_| ObservationError::ChainReadUnavailable)?;
+        if answer.len() != 32 || nonce()? != expected_nonce {
+            return Err(ObservationError::ChainReadUnavailable);
+        }
+        if answer[..16] != [0; 16] {
+            return Err(ObservationError::BankBalanceOutOfRange);
+        }
+        let amount = u128::from_be_bytes(
+            answer[16..]
+                .try_into()
+                .map_err(|_| ObservationError::ChainReadUnavailable)?,
+        );
+        self.ledger
+            .get_or_insert_with(Vec::new)
+            .push(BalanceEntry::new(
+                Endpoint::PaxeerWallet,
+                asset,
+                Amount::from_u128(amount),
+            ));
+        Ok(self)
+    }
+
+    /// Requires another endpoint/asset that a candidate can use, including an
+    /// allowance's top-up origin. The builder never fills absent ledger rows.
+    #[must_use]
+    pub fn requiring_balance(mut self, endpoint: Endpoint, asset: AssetId) -> Self {
+        if !self.required_balances.contains(&(endpoint.clone(), asset)) {
+            self.required_balances.push((endpoint, asset));
+        }
+        self
     }
 
     /// Records what the gateway reported about the binding and wallet balances.
@@ -339,7 +463,15 @@ impl ObservedStateBuilder {
     /// whose wallet holding is unobserved, a duplicate observation of one
     /// endpoint and asset, and any snapshot the router itself refuses.
     pub fn build(self) -> Result<ObservedState, ObservationError> {
-        let network = self.network.ok_or(ObservationError::WalletNotBound)?;
+        let network = self.network;
+        if self.historical_custody.is_some() && network.is_none() {
+            return Err(ObservationError::WalletNotBound);
+        }
+        if let (Some(binding), Some(network)) = (&self.binding, &network) {
+            if network.wallet() != binding.wallet {
+                return Err(ObservationError::IdentityMismatch);
+            }
+        }
         let ledger = self
             .ledger
             .ok_or(ObservationError::LedgerBalancesUnavailable)?;
@@ -351,11 +483,12 @@ impl ObservedStateBuilder {
             .ok_or(ObservationError::BudgetInventoryUnavailable)?;
         let fees = self.fees.ok_or(ObservationError::FeeScheduleUnavailable)?;
 
-        let custody = CustodyContext::new(
-            network.wallet(),
-            self.reserve.clone(),
-            self.withdrawals.clone(),
-        )?;
+        let custody = match (self.historical_custody, network.as_ref()) {
+            (Some((reserve, withdrawals)), Some(network)) => {
+                Some(CustodyContext::new(network.wallet(), reserve, withdrawals)?)
+            }
+            _ => None,
+        };
 
         let mut balances = ledger;
         let mut seen = BTreeSet::new();
@@ -367,23 +500,30 @@ impl ObservedStateBuilder {
             }
         }
         for asset in self.required.iter().copied().map(AssetId::new) {
-            let available = network.wallet_balance(asset)?;
+            let available = network
+                .as_ref()
+                .ok_or(ObservationError::WalletNotBound)?
+                .wallet_balance(asset)?;
             if !seen.insert((endpoint_key(&Endpoint::PaxeerWallet), asset.bytes())) {
                 return Err(ObservationError::DuplicateObservation { asset });
             }
             balances.push(BalanceEntry::new(Endpoint::PaxeerWallet, asset, available));
         }
 
-        ObservedState::new(
+        let observed = ObservedState::new(
             self.observed_at,
             self.owner,
-            Some(custody),
+            custody,
             balances,
             allowances,
             budgets,
             fees,
         )
-        .map_err(ObservationError::Invalid)
+        .map_err(ObservationError::Invalid)?;
+        for (endpoint, asset) in self.required_balances {
+            observed.available(&endpoint, asset).require()?;
+        }
+        Ok(observed)
     }
 }
 

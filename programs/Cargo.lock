@@ -839,7 +839,9 @@ dependencies = [
 name = "layerx-porting-solana"
 version = "0.1.0"
 dependencies = [
+ "k256",
  "layerx-porting-solana-guest",
+ "layerx-program-sdk",
  "layerx-programs-registry",
  "layerx-programs-runtime",
 ]

@@ -23,20 +23,31 @@ func RegisterCrossTokenSwaps(r chi.Router, st *store.Store) {
 func crossSwapsByWallet(st *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		wallet := chi.URLParam(r, "wallet")
-		q := r.URL.Query()
-		limit := parseIntDefault(q.Get("limit"), 50)
-		offset := parseIntDefault(q.Get("offset"), 0)
+		scope := "cross-wallet:" + strings.ToLower(wallet)
+		page, err := boundedPage(r.URL.Query(), 50, legacyPageMaximum, 1, scope)
+		if err != nil {
+			sharedhttp.WriteError(w, 400, "Bad Request", err.Error())
+			return
+		}
+		limit, offset := page.Limit, page.Offset
 
-		swaps, err := st.ListCrossTokenSwapsByWallet(r.Context(), strings.ToLower(wallet), limit, offset)
+		swaps, err := st.CrossTokenSwapPage(r.Context(), strings.ToLower(wallet), false, limit+1, offset, page.After)
 		if err != nil {
 			sharedhttp.WriteError(w, http.StatusInternalServerError, "Internal Server Error", "cross-token swaps lookup failed")
 			return
 		}
+		var next any
+		if len(swaps) > limit {
+			swaps = swaps[:limit]
+			last := swaps[len(swaps)-1]
+			next = nextHistoryCursor(scope, store.HistoryPosition{Timestamp: last.BlockTimestamp, ID: last.ID}, nil)
+		}
 		sharedhttp.WriteJSON(w, http.StatusOK, map[string]any{
-			"wallet": wallet,
-			"swaps":  swaps,
-			"limit":  limit,
-			"offset": offset,
+			"nextCursor": next,
+			"wallet":     wallet,
+			"swaps":      swaps,
+			"limit":      limit,
+			"offset":     offset,
 		})
 	}
 }
@@ -45,16 +56,27 @@ func crossSwapsByWallet(st *store.Store) http.HandlerFunc {
 func crossSwapsByToken(st *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		tokenAddress := chi.URLParam(r, "tokenAddress")
-		q := r.URL.Query()
-		limit := parseIntDefault(q.Get("limit"), 50)
-		offset := parseIntDefault(q.Get("offset"), 0)
+		scope := "cross-token:" + strings.ToLower(tokenAddress)
+		page, err := boundedPage(r.URL.Query(), 50, legacyPageMaximum, 1, scope)
+		if err != nil {
+			sharedhttp.WriteError(w, 400, "Bad Request", err.Error())
+			return
+		}
+		limit, offset := page.Limit, page.Offset
 
-		swaps, err := st.ListCrossTokenSwapsByToken(r.Context(), strings.ToLower(tokenAddress), limit, offset)
+		swaps, err := st.CrossTokenSwapPage(r.Context(), strings.ToLower(tokenAddress), true, limit+1, offset, page.After)
 		if err != nil {
 			sharedhttp.WriteError(w, http.StatusInternalServerError, "Internal Server Error", "cross-token swaps lookup failed")
 			return
 		}
+		var next any
+		if len(swaps) > limit {
+			swaps = swaps[:limit]
+			last := swaps[len(swaps)-1]
+			next = nextHistoryCursor(scope, store.HistoryPosition{Timestamp: last.BlockTimestamp, ID: last.ID}, nil)
+		}
 		sharedhttp.WriteJSON(w, http.StatusOK, map[string]any{
+			"nextCursor":   next,
 			"tokenAddress": tokenAddress,
 			"swaps":        swaps,
 			"limit":        limit,

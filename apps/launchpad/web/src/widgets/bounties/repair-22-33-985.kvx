@@ -1,0 +1,36 @@
+[repair.22.33.985]
+audit = "22.30.31"
+mode = "BUILD"
+baseline = "Not run: task order 1 prohibits tests before complete implementation and order 4 prohibits manually running verify_cmd; this conflicts with step 9. No pre-change failure or baseline gate is claimed."
+qualification = "The final hf-done ledger row is the exact candidate revision, command, exit and private evidence location; the runner records and publishes it."
+wiring_request = "Launchpad domain (fm-launchpad): publish the bounty escrow ABI/deployment in sdk/launchpad/protocol/contracts/v1/chain/abi-catalog.json and apps/launchpad/web/src/core/runtime-authority.ts; wire services/launchpad/social/internal/devsocial/bounties.go to produce bountyId/asset/budget/submission/winner-bound requests. Existing null requests and refusal of token-only calls remain enforced."
+interface_limit = "No real positive bounty preparation exists in the current producer. Fee and durable broadcast adapter proofs use the deployed ERC20 codec and committed loopback RPC transcripts at their production boundary; no escrow authority is invented, and preparation refuses these token-only calls before fee estimation or wallet access."
+format = "The web package has no configured source formatter; touched sources retain the existing TypeScript/TSX style and root EditorConfig whitespace rules."
+gotcha = "Vitest named functions must be registered as test(function.name, function); test(function) alone does not execute their assertions in this repository's version."
+
+[qualification.repair_1]
+revision = "460e4597eae084040651255d6ab14495613ca15a"
+command = "pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "Loopback EIP1193 provider lacked the required event API; a real EventEmitter now provides on/removeListener without weakening the provider type."
+
+[finding.revert-fee-message]
+tests = ["revert_fee_message_and_bounty_broadcast_recover_reverted_receipt"]
+proof = "The real recovery hook reads a reverted receipt over viem HTTP after reopening; the production status component explains gas charges and retains the original hash and bounty recovery link."
+
+[finding.prepared-call-tests-no-intent]
+tests = ["prepared_call_tests_no_intent_refuse_deployed_calls_before_wallet"]
+proof = "The updated prepared-transaction suite is imported by the focused repair gate. Deployed ABI calldata is decoded, JSON-transported and passed through the same prepareBountyReview validator as the signing hook; changed spender, asset, target, amount, winner and operation all refuse before any wallet RPC. An exact transfer is also refused pending the real escrow interface."
+
+[finding.evidence-crosses-session]
+tests = ["evidence_crosses_session_clears_previews_approvals_and_pending_uploads", "evidence_crosses_session_fences_moderation_refresh_and_same_wallet_relogin"]
+proof = "Real account-session changes interrupt the production upload and moderation GET through an in-memory HTTP asset service; old previews are revoked, attachments cleared and prior responses cannot attach to another account or a new session of the same account."
+
+[finding.reviewed-fee-not-enforced]
+tests = ["reviewed_fee_not_enforced_refuses_every_changed_or_omitted_signing_field", "reviewed_fee_not_enforced_sends_exact_estimated_caps_when_prepared_fields_are_null"]
+proof = "The production fee review freezes all fields, refuses gas/fee/value/from/to/data mutations before wallet RPC and sends the exact gas, maximum fee and priority cap through the real viem wallet codec, including when the prepared request omits fee fields."
+
+[finding.bounty-broadcast-not-persisted]
+tests = ["bounty_broadcast_not_persisted_recovers_success_after_reload_and_timeout", "revert_fee_message_and_bounty_broadcast_recover_reverted_receipt", "bounty_broadcast_not_persisted_saves_hash_even_when_component_closes_during_wallet_prompt", "bounty_broadcast_not_persisted_storage_failure_preserves_hash_and_blocks_resubmission"]
+proof = "The production broadcast adapter persists account/chain/intent/hash in PendingAttemptStore with a validated transaction snapshot; the recovery hook is unmounted and reopened through receipt timeout and terminal success/revert, preserving exactly one broadcast. A component closed during the prompt still persists the eventual hash; browser storage failure retains a visible uncertain hash and blocks another submission."

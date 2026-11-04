@@ -12,6 +12,44 @@ export class StatsHttpError extends Error {
 export class StatsResponseError extends Error {
   constructor(message: string) { super(message); this.name = 'StatsResponseError'; }
 }
+export class StatsResponseTooLargeError extends StatsResponseError {
+  readonly status: number;
+  readonly limitBytes: number;
+  constructor(status: number, limitBytes: number) {
+    super(`Stats API response exceeds ${limitBytes} bytes (HTTP ${status})`);
+    this.name = 'StatsResponseTooLargeError';
+    this.status = status;
+    this.limitBytes = limitBytes;
+  }
+}
+const maxPoolStatsBytes = 64 * 1024;
+const maxBatchStatsBytes = 1024 * 1024;
+const maxErrorBytes = 16 * 1024;
+
+async function readBoundedResponse(response: Response, limitBytes: number): Promise<string> {
+  if (!response.body) return '';
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  const parts: string[] = [];
+  let bytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bytes += value.byteLength;
+      if (bytes > limitBytes) {
+        const error = new StatsResponseTooLargeError(response.status, limitBytes);
+        await reader.cancel(error);
+        throw error;
+      }
+      parts.push(decoder.decode(value, { stream: true }));
+    }
+    parts.push(decoder.decode());
+    return parts.join('');
+  } finally {
+    reader.releaseLock();
+  }
+}
 function object(value: unknown): Record<string, unknown> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) throw new StatsResponseError('Expected an object');
   return value as Record<string, unknown>;
@@ -41,7 +79,7 @@ export class StatsHttpClient {
     if (!Number.isFinite(timeoutMs) || timeoutMs < 1 || timeoutMs > 120_000) throw new TypeError('timeoutMs must be between 1 and 120000');
     this.config = { ...config, baseUrl: config.baseUrl.replace(/\/+$/, ''), timeoutMs };
   }
-  private async get(path: string, options: RequestOptions): Promise<unknown> {
+  private async get(path: string, options: RequestOptions, successLimitBytes = maxPoolStatsBytes): Promise<unknown> {
     const config = this.config;
     if (!config) throw new Error('Stats HTTP client is not configured');
     const controller = new AbortController();
@@ -51,7 +89,7 @@ export class StatsHttpClient {
     const timer = setTimeout(() => controller.abort(new DOMException('Stats request timed out', 'TimeoutError')), config.timeoutMs);
     try {
       const response = await (config.fetch ?? globalThis.fetch)(config.baseUrl + path, { signal: controller.signal, headers: { Accept: 'application/json' } });
-      const text = await response.text();
+      const text = await readBoundedResponse(response, response.ok ? successLimitBytes : maxErrorBytes);
       if (!response.ok) throw new StatsHttpError(response.status, text);
       try { return JSON.parse(text) as unknown; }
       catch { throw new StatsResponseError('Stats API returned invalid JSON'); }
@@ -65,7 +103,7 @@ export class StatsHttpClient {
   async getPoolStatsBatch(pools: readonly string[], options: RequestOptions = {}): Promise<Record<string, PoolStats>> {
     if (!pools.length) throw new TypeError('At least one pool is required');
     pools.forEach(address);
-    const raw = object(await this.get('/stats/batch?' + new URLSearchParams({ pools: pools.join(',') }), options));
+    const raw = object(await this.get('/stats/batch?' + new URLSearchParams({ pools: pools.join(',') }), options, maxBatchStatsBytes));
     return Object.fromEntries(Object.entries(raw).map(([key, value]) => [key, parsePoolStats(value)]));
   }
 }

@@ -1,0 +1,41 @@
+[repair.22.33.663]
+finding = "bank-cli-network-signature"
+test = "TestRepairM_663_BankCLINetworkSignature"
+implementation = "The norace entry point forwards t to network.DefaultConfig; the focused regression checks that tagged entry point and executes every existing case of the integration suite against its real in-process network, codecs and bank handlers."
+baseline = "Not run: the explicit ordered gate instructions prohibit verification before implementation and prohibit invoking verify_cmd by hand; no pre-change runtime failures are claimed."
+evidence = "The runner records the candidate revision, exact command, exit code and private evidence path in /out/run/gates.jsonl."
+wiring_requests = []
+
+[qualification.22.33.663]
+revision = "30f0409cb862f4f903d3bb926e96d2819f4cdfbb"
+command = "cg spec done 22.33.663 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; full test output: /tmp/repair-m663.log"
+observed = "The repaired entry-point check passed and the real network ran; unchanged suite assertions failed on an additional ueth metadata entry, supply 500000000 versus expected 500000010, and transaction code 13 versus expected 0."
+assumption = "These existing suite disagreements are independent of forwarding the testing handle; no unrelated repair, assertion change or unchanged gate rerun is authorized."
+
+[continuation.22.33.663]
+implementation = "Read the generated validator genesis file; derive supply from its balances and wei, complete bank metadata with the oracle genesis whitelist registrations, and size valid transaction fees from its global and validator gas prices. Preserve DefaultConfig(t), the norace tag, every network-backed case, exact response assertions and negative transaction codes."
+prior_failures = "Attempt 1 recorded denomination metadata, total supply and valid-transaction fee failures; the balance cases passed. No unchanged baseline rerun was performed."
+gotcha = "Oracle InitGenesis adds whitelisted-denom metadata missing from bank genesis, and the fork genesis imposes a global gas-price floor in addition to validator prices."
+evidence = "The final verified revision and exact bounded gate result are recorded by hf-done in /out/run/gates.jsonl and the final /out/logs/verify-<n>.log."
+
+[qualification.continuation.22.33.663]
+revision = "b18d4ee8881732d9185ceb1a3acd264d1b91f7e6"
+command = "cg spec done 22.33.663 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; full test output: /tmp/repair-m663.log"
+observed = "All genesis metadata values, supply, balances and transaction codes passed; the all-metadata case expected a count without requesting --count-total."
+repair = "Request --count-total for the existing exact-count assertion and add an exact full-response case for default pagination."
+
+[qualification.continuation.22.33.663.metadata_cli]
+revision = "6359884b0f0c94488347e4c384d320d173fa7585"
+command = "cg spec done 22.33.663 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; full test output: /tmp/repair-m663.log"
+observed = "The added --count-total flag is unsupported by the production metadata CLI; every other network-backed case passed."
+repair = "Preserve exact metadata and pagination assertions for the CLI's unpaginated request, and exercise the exact genesis-derived total-count assertion through the real query client with CountTotal enabled at height 1."
+
+[continuation.22.33.663.metadata_cli]
+gotcha = "GetCmdDenomsMetadata exposes no pagination flags and sends an empty QueryDenomsMetadataRequest; total-count coverage must explicitly request CountTotal through the real query client."
+wiring_request = "sdk/x/bank/client/cli/query.go (owner domain 15): expose and forward pagination flags in GetCmdDenomsMetadata if CLI total-count selection is required; no production CLI change belongs to this task."

@@ -53,7 +53,8 @@ function keepPreviousPage<Resource extends PaginatedResourceName>(
 }
 
 function getPageFromQuery(query: Route['query']) {
-  return query?.page && !Array.isArray(query.page) ? Number(query.page) : 1;
+  const page = typeof query?.page === 'string' ? Number(query.page) : NaN;
+  return Number.isSafeInteger(page) && page > 0 ? page : 1;
 }
 
 function getPaginationParamsFromQuery(queryString: string | Array<string> | undefined) {
@@ -105,12 +106,14 @@ export default function useQueryWithPages<Resource extends PaginatedResourceName
 
   const [ page, setPage ] = React.useState<number>(getPageFromQuery(router.query));
   const [ pageParams, setPageParams ] = React.useState<Record<number, NextPageParams>>({
-    [page]: getPaginationParamsFromQuery(router.query.next_page_params),
+    [page]: page > 1 ? getPaginationParamsFromQuery(router.query.next_page_params) : {},
   });
   const [ hasPages, setHasPages ] = React.useState(page > 1);
+  const chainIdFromQuery = hasChainValue ? getChainValueFromQuery(router.query, chainIds) : undefined;
   const [ chainValue, setChainValue ] = React.useState<Array<string> | undefined>(
-    hasChainValue ? [ getChainValueFromQuery(router.query, chainIds) ].filter(Boolean) : undefined,
+    hasChainValue ? [ chainIdFromQuery ].filter(Boolean) : undefined,
   );
+  const cursorChainId = React.useRef(chainIdFromQuery);
 
   const selectedChain = React.useMemo(() => {
     if (!hasChainValue) {
@@ -152,14 +155,12 @@ export default function useQueryWithPages<Resource extends PaginatedResourceName
 
   React.useEffect(() => {
     if (hasChainValue) {
-      setChainValue([ getChainValueFromQuery(router.query, chainIds) ].filter(Boolean));
+      setChainValue([ chainIdFromQuery ].filter(Boolean));
     }
-  // don't trigger the hook on query change
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ chainIds, hasChainValue ]);
+  }, [ chainIdFromQuery, hasChainValue ]);
 
   const onNextPageClick = useCallback(() => {
-    if (!nextPageParams) {
+    if (!nextPageParams || !Number.isSafeInteger(page + 1)) {
       // we hide next page button if no next_page_params
       return;
     }
@@ -182,6 +183,10 @@ export default function useQueryWithPages<Resource extends PaginatedResourceName
   }, [ nextPageParams, page, router, scrollToTop ]);
 
   const onPrevPageClick = useCallback(() => {
+    if (page <= 1) {
+      return;
+    }
+
     // returning to the first page
     // we don't have pagination params for the first page
     let nextPageQuery: typeof router.query = { ...router.query };
@@ -327,15 +332,17 @@ export default function useQueryWithPages<Resource extends PaginatedResourceName
 
   React.useEffect(() => {
     const pageFromQuery = getPageFromQuery(router.query);
-    const nextPageParamsFromQuery = getPaginationParamsFromQuery(router.query.next_page_params);
+    const nextPageParamsFromQuery = pageFromQuery > 1 ? getPaginationParamsFromQuery(router.query.next_page_params) : {};
+    const chainChanged = cursorChainId.current !== chainIdFromQuery;
+    cursorChainId.current = chainIdFromQuery;
 
     setPage(pageFromQuery);
     setPageParams(prev => ({
-      ...prev,
+      ...(chainChanged ? {} : prev),
       [pageFromQuery]: nextPageParamsFromQuery,
     }));
     setHasPages(pageFromQuery > 1);
-  }, [ router.query, hasChainValue ]);
+  }, [ router.query, hasChainValue, chainIdFromQuery ]);
 
   return { ...queryResult, pagination, onFilterChange, onSortingChange, chainValue, onChainValueChange };
 }

@@ -124,7 +124,7 @@ const (
 var templateFiles embed.FS
 
 // Pages renders the portal pages from the gateway REST and GraphQL at
-// gatewayURL, linking transactions under explorerTxBase.
+// gatewayURL, linking transactions when explorerTxBase is configured.
 type Pages struct {
 	gateway  string
 	explorer string
@@ -139,7 +139,11 @@ func NewPages(gatewayURL, explorerTxBase string, client *http.Client) (*Pages, e
 	if client == nil {
 		return nil, errors.New("portal_http_client_required")
 	}
-	for _, raw := range []string{gatewayURL, explorerTxBase} {
+	urls := []string{gatewayURL}
+	if explorerTxBase != "" {
+		urls = append(urls, explorerTxBase)
+	}
+	for _, raw := range urls {
 		u, err := url.Parse(raw)
 		if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
 			return nil, errors.New("portal_page_url_needs_http_or_https")
@@ -147,9 +151,12 @@ func NewPages(gatewayURL, explorerTxBase string, client *http.Client) (*Pages, e
 	}
 	p := &Pages{
 		gateway:  strings.TrimRight(gatewayURL, "/"),
-		explorer: strings.TrimRight(explorerTxBase, "/") + "/",
+		explorer: explorerTxBase,
 		client:   client,
 		now:      time.Now,
+	}
+	if p.explorer != "" {
+		p.explorer = strings.TrimRight(p.explorer, "/") + "/"
 	}
 	tmpl, err := template.New("pages").Funcs(template.FuncMap{
 		"usd":     func(raw string) string { return fixed(raw, usdDecimals) },
@@ -369,8 +376,8 @@ type accountPage struct {
 
 // Account is the page of the lower-case address: open positions, active
 // orders, fills, funding payments, liquidations and collateral events, each
-// row linking its transaction to the explorer. An address without activity
-// renders the empty sections.
+// row linking its transaction when an explorer is configured. An address
+// without activity renders the empty sections.
 func (p *Pages) Account(ctx context.Context, w io.Writer, address string) error {
 	page := accountPage{Title: "Account " + address, Address: address}
 	var positions struct {
@@ -630,8 +637,13 @@ func (p *Pages) do(req *http.Request, out any) error {
 	return nil
 }
 
-// txURL is the explorer page of transaction hash.
-func (p *Pages) txURL(hash string) string { return p.explorer + url.PathEscape(hash) }
+// txURL is the explorer page of transaction hash, or empty when links are disabled.
+func (p *Pages) txURL(hash string) string {
+	if p.explorer == "" {
+		return ""
+	}
+	return p.explorer + url.PathEscape(hash)
+}
 
 // fixed renders the signed integer string raw scaled down by 10^decimals
 // without trailing zeros; a value that is not an integer renders as given.

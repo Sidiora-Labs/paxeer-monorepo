@@ -1,0 +1,10 @@
+[repair.22.33.1126]
+audit = "22.30.49"
+finding = "008"
+implementation = "genesis.go validates each decoded wei address, rejects uninitialized and negative amounts before summing, and rejects duplicate decoded addresses; coin and wei balances may share an address."
+proof = ["TestRepairM_1126_InvalidEntriesBeforeInitGenesis", "TestRepairM_1126_AcceptedTotalsPreserveSupply", "TestRepairM_1126_SupplyChecksRemainEnforced"]
+path = "NewGenesisState -> ProtoCodec JSON -> GetGenesisStateFromAppState -> GenesisState.Validate -> Giga BaseKeeper.InitGenesis -> real Giga cache stores and supply reads; the uninitialized in-memory amount is validated directly because serialization initializes nil Int values."
+baseline = "Not run: explicit implementation-before-qualification ordering and bounded gates prohibit the contradictory unchanged-tree verification step; no baseline failure is claimed."
+wiring_requests = []
+evidence = "The runner hf-build/hf-done ledger records the exact candidate revision, command, exit code and private log path."
+qualification_repair = "Initial verification at c0757fa10c716ec08116cb7efb96e9873645823e exited 1 (/out/logs/verify-1.log): the Giga cache rejects Iterator; use its production GetAllKeyStrsInRange API to assert the same empty-state condition."

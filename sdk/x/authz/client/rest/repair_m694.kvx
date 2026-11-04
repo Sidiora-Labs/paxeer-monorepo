@@ -1,0 +1,14 @@
+[task.22.33.694]
+mode = "BUILD"
+acceptance = "22998.1"
+findings = ["authz-rest-config", "authz-rest-address-fixture"]
+authz-rest-config = "TestRepairM_694_Config: calls the suite's configuration constructor with the current testing context; consumes its real codec and interface registry through keeper storage, protobuf queries, HTTP gateway and JSON decoding."
+authz-rest-address-fixture = "TestRepairM_694_AddressFixture: keyring-produced complete addresses, four asymmetric persisted authorizations, exact participants and authorization payloads on both list routes, empty lists, pagination and invalid/truncated/single-byte address failures."
+qualification = "hf-build then hf-done; runner retains candidate revision, exact command, exit code and private evidence location."
+tagged_suite = "Removed the norace compilation restriction so the declared gate compiles every original integration assertion; updated codec calls to the declared UnmarshalAsJSON API without changing their assertions. The bounded filter executes only TestRepairM_694_*; the full network/CLI suite is not claimed as executed."
+baseline = "Not executed: ordered instructions prohibit testing before full implementation and prohibit running verify_cmd manually; no TestRepairM_694_* tests existed on the starting tree, and no prior gate ledger existed. No baseline failures are claimed."
+wiring = "None: both proposed code repairs and their in-process proof are inside sdk/x/authz/client/rest."
+
+[gotcha.typed-response-any]
+observed = "The first focused qualification exposed a nil cached authorization in the typed query response; JSON response decoding does not unpack every nested Any."
+repair = "Explicitly call Grant.UnpackInterfaces with the real configured codec before checking exact authorization equality; use a deterministic Bech32 byte for the single-byte invalid-address regression."

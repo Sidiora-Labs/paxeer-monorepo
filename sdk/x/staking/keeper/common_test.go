@@ -23,7 +23,7 @@ func init() {
 
 // createTestInput Returns a simapp with custom StakingKeeper
 // to avoid messing with the hooks.
-func createTestInput(t *testing.T) (*codec.LegacyAmino, *paxapp.App, sdk.Context) {
+func createTestInput(t testing.TB) (*codec.LegacyAmino, *paxapp.App, sdk.Context) {
 	app := paxapp.Setup(t, false, false, false)
 	ctx := app.BaseApp.NewContext(false, tmproto.Header{})
 

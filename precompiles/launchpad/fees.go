@@ -683,6 +683,9 @@ func feeSupportsAirdrop(p PrecompileExecutor, c *call, pool common.Address) (boo
 	}
 	nested, accumulator := c.nested, p.keeper.Generation2().FeeAccumulator
 	ret, err := nested.StaticCall(c.ctx, accumulator, pool, feeTokenAddressCall)
+	if nestedAborted(err) {
+		return false, err
+	}
 	if err != nil || len(ret) != 32 {
 		return false, nil
 	}
@@ -703,6 +706,9 @@ func feeSupportsAirdrop(p PrecompileExecutor, c *call, pool common.Address) (boo
 			return false, err
 		}
 		ret, err := nested.StaticCall(c.ctx, accumulator, token, append(common.CopyBytes(probe.method.ID), packed...))
+		if nestedAborted(err) {
+			return false, err
+		}
 		if err != nil || len(ret) != 32 {
 			return false, nil
 		}

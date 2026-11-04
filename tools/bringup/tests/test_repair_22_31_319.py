@@ -344,7 +344,7 @@ def https_proxy(target_port):
 
 def test_search_front_roundtrip_primary_backup_and_refusals(material):
     directory, env, certificate = material
-    primary, backup, validator = "api1.paxeer.network", "api2.paxeer.network", "api3.paxeer.network"
+    primary, backup, validator = "api1.mainnet-beta.paxeer.network", "api2.mainnet-beta.paxeer.network", "api3.mainnet-beta.paxeer.network"
     state = {primary: "ready", backup: "ready"}
     calls = []
 

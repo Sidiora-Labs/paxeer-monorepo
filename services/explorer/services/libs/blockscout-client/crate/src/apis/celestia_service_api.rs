@@ -110,8 +110,10 @@ impl CelestiaServiceApi for CelestiaServiceApiClient {
 
         let local_var_client = &local_var_configuration.client;
 
-        let local_var_uri_str =
-            format!("{}/api/v1/celestia/blob", local_var_configuration.base_path);
+        let local_var_uri_str = format!(
+            "{}/api/v1/celestia/blob",
+            local_var_configuration.rest_origin()?
+        );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
@@ -135,11 +137,14 @@ impl CelestiaServiceApi for CelestiaServiceApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             let local_var_entity: Option<CelestiaServiceGetBlobSuccess> =
@@ -181,7 +186,7 @@ impl CelestiaServiceApi for CelestiaServiceApiClient {
 
         let local_var_uri_str = format!(
             "{}/api/v1/celestia/l2BatchMetadata",
-            local_var_configuration.base_path
+            local_var_configuration.rest_origin()?
         );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
@@ -206,11 +211,14 @@ impl CelestiaServiceApi for CelestiaServiceApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             let local_var_entity: Option<CelestiaServiceGetL2BatchMetadataSuccess> =
@@ -243,7 +251,7 @@ impl CelestiaServiceApi for CelestiaServiceApiClient {
 
         let local_var_client = &local_var_configuration.client;
 
-        let local_var_uri_str = format!("{}/api/v2/health", local_var_configuration.base_path);
+        let local_var_uri_str = format!("{}/api/v2/health", local_var_configuration.rest_origin()?);
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
@@ -257,11 +265,14 @@ impl CelestiaServiceApi for CelestiaServiceApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             let local_var_entity: Option<HealthCheckSuccess> =

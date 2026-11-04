@@ -394,6 +394,12 @@ func TestResolveClientIP(t *testing.T) {
 		{"trusted peer, all hops trusted -> empty", "10.0.0.1:9000", "10.1.1.1, 192.168.0.9", "", trusted, ""},
 		{"trusted peer, no headers -> empty", "10.0.0.1:9000", "", "", trusted, ""},
 		{"bare host (no port) trusted peer", "10.0.0.2", "1.2.3.4", "", trusted, "1.2.3.4"},
+		{"invalid chain does not use X-Real-IP", "10.0.0.1:9000", "invalid, 1.2.3.4", "203.0.113.9", trusted, ""},
+		{"empty hop rejects chain", "10.0.0.1:9000", "1.2.3.4,,10.1.1.1", "", trusted, ""},
+		{"all trusted chain does not use X-Real-IP", "10.0.0.1:9000", "10.1.1.1", "203.0.113.9", trusted, ""},
+		{"invalid X-Real-IP", "10.0.0.1:9000", "", "not-an-ip", trusted, ""},
+		{"canonical IPv6", "10.0.0.1:9000", "2001:0DB8:0:0:0:0:0:1", "", trusted, "2001:db8::1"},
+		{"mapped trusted hop", "10.0.0.1:9000", "::ffff:1.2.3.4, ::ffff:10.1.1.1", "", trusted, "1.2.3.4"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

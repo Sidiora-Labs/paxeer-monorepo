@@ -49,7 +49,8 @@ type opts struct {
 }
 
 func (o *opts) Get(k string) interface{} {
-	if k == "evm.batch_request_limit" ||
+	if k == "evm.px_indexer_url" ||
+		k == "evm.batch_request_limit" ||
 		k == "evm.batch_response_max_size" ||
 		k == "evm.send_raw_tx_sync_timeout" ||
 		k == "evm.max_subscriptions_logs" {

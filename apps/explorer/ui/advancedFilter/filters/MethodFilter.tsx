@@ -49,17 +49,18 @@ const MethodFilter = ({ value = [], handleFilterChange }: Props) => {
     if (id === RESET_VALUE) {
       setCurrentValue([]);
       setMethodsList(methodsQuery.data || []);
+    } else if (!checked) {
+      setCurrentValue(prev => prev.filter(method => method.method_id !== id));
     } else {
-      const methodInfo = methodsQuery.data?.find(m => m.method_id === id);
+      const displayedMethods = searchTerm ? methodsQuery.data : methodsList;
+      const methodInfo = displayedMethods?.find(method => method.method_id === id) || methodsQuery.data?.find(method => method.method_id === id);
       if (methodInfo) {
-        setCurrentValue(prev => {
-          return checked ? [ ...prev, methodInfo ] : prev.filter(i => i.method_id !== id);
-        });
-        searchTerm && checked &&
+        setCurrentValue(prev => prev.some(method => method.method_id === id) ? prev : [ ...prev, methodInfo ]);
+        searchTerm &&
         setMethodsList(prev => [ methodInfo, ...(prev.filter(m => m.method_id !== id) || []) ]);
       }
     }
-  }, [ methodsQuery.data, searchTerm ]);
+  }, [ methodsQuery.data, methodsList, searchTerm ]);
 
   const onReset = React.useCallback(() => setCurrentValue([]), []);
 

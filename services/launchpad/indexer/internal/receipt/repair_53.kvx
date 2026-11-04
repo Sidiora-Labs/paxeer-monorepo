@@ -1,0 +1,157 @@
+[repair.22.31.53]
+audit = "22.30.33"
+base_revision = "7fc896febbb27d599c34aa9b6e0a81d4a7905759"
+initial_state = "Continued attempt 2 and retained the inherited production repairs; the runner-owned .cgignore and spec task-start changes remain untouched; this continuation initially had no gate ledger."
+baseline = "The supplied attempt-1 evidence at bb99e7a0df3715e7437df52a098d137e32429d9b records all three finding tests failing for missing INDEXER_REPAIR53_INPUT, and unrelated package tests failing for absent Anvil; the conflicting unchanged-tree verification was not repeated."
+evidence = "The bounded hf-build/hf-done ledger owns the exact candidate revision, command, exit and private log; a test mapping is not a claim of qualification."
+
+[finding.native-swap-qualification]
+test = "TestRepair_53_native_swap_qualification"
+repair = "Admit primary economic Swap at the approved native address, retain receipt/code/market proof, and bind the fill to the actual native emitter code epoch; require recorded migrated-keeper root-RPC receipts through the production authority and delivery/accounting codecs, then reopen receipt authority and the local durable fixture transport."
+
+[finding.approved-history-rehydration]
+test = "TestRepair_53_approved_history_rehydration"
+repair = "Load original canonical creation coordinates and provenance, authenticate the original receipt against the approved generation, retain the original code epoch until activation, attest the current discovery template and current PoolRegistry binding after activation, and preserve the original market generation and historical code digests."
+supporting_test = "TestRepair_53_history_epoch_transition covers real epoch construction, activation boundary and provenance digests; TestRepair_53_historical_archive_restart qualifies the authentic archived creation through RPCQualification, closes and reopens SQLite and the receipt client, then re-proves the unchanged source and market binding; neither substitutes for missing post-activation traffic."
+
+[finding.tenant-transaction-qualification]
+test = "TestRepair_53_tenant_transaction_qualification"
+repair = "Recover the sender using the admitted signing domain, validate parent registry state plus preceding committed same-block lifecycle events, and retain Paxeer125 block/accounting identity through durable publication and restart."
+
+[wiring.boot]
+request = "services/launchpad/indexer/internal/app/anchor.go, owner domain 22 launchpad: replace the four-column persistedMarkets projection with receipt.ReadDiscoveredMarkets so durable creation hashes, log index and provenance reach Rehydrate."
+
+[wiring.history]
+request = "services/launchpad/indexer/internal/runtimedocs/runtimedocs.go and internal/app/app.go, owner domain 22 launchpad: carry approved historical RPCGeneration entries (ActivationHeight, Epochs, Discovery) in the current receipt runtime document; retain the historical catalog ABI revisions."
+
+[wiring.consumers]
+request = "sdk/launchpad/shared/accounting/wire.go and shared delivery consumers, owner domain 22 launchpad: coordinate any future signed-domain field using QualifiedReceipt.SignedChainID; SourcePosition.ChainID and delivery ChainID remain 125."
+
+[wiring.durable-proof]
+request = "services/launchpad/indexer/internal/publisher/durable.go and sdk/launchpad/shared/delivery/store.go, owner domain 22 launchpad: provide an in-process durable-broker integration harness for actual transactional StagePublication/Claim and natsdriver consumers; the scoped fixture transport exercises production wire codecs but does not certify the production outbox or broker."
+
+[continuation]
+status = "qualification_pending"
+baseline = "Attempt 2 at e351b22abf3758b88e935499db278a48f37b4c5b already failed all three finding tests because proofproducer was excluded from the launchpad Go workspace; the unchanged gate is not repeated."
+producer = "The prohibited subprocess helper module was removed. Tests require testdata/repair53-producer.json, an immutable packet of actual producer RPC replies; the inherited tree did not contain that transcript. No native receipt or committed registry state is manufactured; attempt 5 records the missing packet from the production keeper and EVM."
+recovery = "SQLite now runs in-process through the existing goose dependency graph. Each call closes its database; reopening scans the unchanged canonical columns through canonicalMarketRow.decode before the production receipt authority reattests them."
+transport = "The fixture transport stores exact production delivery envelopes in a real SQLite file, closes and reopens it, then invokes production delivery.Decode and accounting.DecodePublicationV1; this does not claim NATS or transactional-outbox qualification."
+gotcha_workspace = "The enclosing launchpad Go workspace excludes the inherited producer module; running a Go subprocess would violate this task's revised in-process gate even if its workspace were corrected."
+gotcha_decoder = "Registry.DecodeTransactionReceipt independently requires signing chain 125; admitting a tenant in receipt coordinates cannot overcome that out-of-scope consumer guard."
+gotcha_fixture = "The committed historical RPC archive covers heights around 33963716, below current activation 37220320, and contains no native or tenant-signed swap transcript; it cannot establish post-upgrade native execution."
+
+[wiring.producer-transcript]
+request = "precompiles/launchpad/pool.go and node fixture capture, owner domain 8 merged node: supply an authentic packet for receipt/testdata/repair53-producer.json containing native/root and registry-admitted tenant swaps, parent registry state, approved historical creation and all pinned code/metadata reads across activation 37220320; the receipt gate may only replay this committed capture."
+
+[wiring.actor-decoder]
+request = "services/launchpad/indexer/internal/decode/correlation.go:269, owner domain 22 launchpad: parameterize DecodeTransactionReceipt with an authority-admitted signed domain and recover with that signer while preserving parent chain 125 raw identities; retain all actor binding and receipt checks."
+
+[test.inputs]
+packet = "testdata/repair53-producer.json must contain actual producer RPC replies and approved runtime options. Its absence is a hard test failure, never a skip, synthetic substitute, live-RPC fallback or subprocess invocation."
+history = "The expected real archived creation at height 33963716 retains its qualified provenance and must resume trading after activation 37220320 under root and tenant signatures."
+missing_read = "The loopback RPC server serves only the exact committed producer replies and fails closed on every unrecorded read."
+
+[qualification.first-pass]
+revision = "43ea0e5d67c4572996fc28efcbe9cb19194a6966"
+command = "cg spec done 22.31.53 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The four inherited supporting tests pass; the three finding tests require the absent native/tenant capture; the new historical archive test refused authority setup because a no-argument RPC call was keyed as null instead of the archive's canonical empty array."
+repair = "Normalize omitted RPC params to the archive's empty argument list and index unchanged captured full blocks under their recorded hash as well as height, so restart can re-read the original block without manufacturing an RPC answer."
+
+[continuation.attempt-4]
+base_revision = "5c06a9cfa23f88d328fc7e91545e90609e8cd0c0"
+inherited = "The runner supplied eight receipt source paths from attempt 3; no current gate ledger existed at inspection. Existing .cgignore and spec changes remain untouched."
+fixture = "testdata/repair53-historical.jsonl.gz is a byte-for-byte copy of internal/internaltest/chainfixture/testdata/paxeer125-market.jsonl.gz; no signed transaction, receipt, emitter, runtime, or block was altered. The archive restart test now reads the scoped capture."
+native_capture = "At attempt-4 inspection the inherited tree contained no actual native/root or tenant producer packet. The public chain-125 endpoint returned no 0x1017 or 0x101e logs over blocks 42520010 through 42522009; that observation is not evidence that such traffic never existed. No producer receipt was fabricated and testdata/repair53-producer.json remained required for attempt 5."
+historical_authority = "The authentic creation at 33963716 contains a known-signature log from Treasury 0xBb82d74E071e03d8E68F1d78Fae9EFe8b6b7A723. The approved historical manifest at activation 32226215 has no Treasury role, and NewRPCQualification rejects extra roles; the current manifest's Treasury cannot establish historical authorization."
+scope_limit = "The three end-to-end tests and the archive restart test retain all assertions. Missing producer capture, historical Treasury authority, and the chain125-only actor decoder are external interfaces; bypassing those checks would weaken qualification."
+
+[wiring.historical-treasury]
+request = "sdk/launchpad/shared/config/deployment/history/paxeer125-a35ff7c6f532d2f9.json and approved deployment history, owner domain 4 shared deployment authority: supply the reviewed historical Treasury identity/code epoch at creation 33963716 so the original signed receipt can be qualified unchanged; do not substitute the current native Treasury surface."
+
+[continuation.attempt-5]
+base_revision = "4edaf4fff3f943e154c8337c0bcc16fe4dd9dd3c"
+inherited = "All inherited receipt repairs and assertions retained; runner-owned spec and ignore changes left untouched; gate ledger was absent with builds_used=0 and verify_runs_used=0."
+historical_authority = "The exact 54463-byte contracts deployment source hashes to the approved historical SourceManifestSHA256 a35ff7c6f532d2f92e4ca59e4ef2cf0a105d551ae9ac3eba68b95f79a355df4a; its confirmed Treasury proxy/implementation records supply the missing historical emitter epoch with independent pinned code attestation."
+actor_interface = "The root actor decoder retains its chain125 contract; the receipt authority now explicitly consumes admitted tenant envelopes with the same actor binding, comparison bound, unique output-transfer and original sender checks, without synthesizing a replacement root-signed transaction."
+producer_recording = "Implementation-time Go capture imports the real node EVM, launchpad migration and keeper, concrete virtual-chain registry, precompile and receipt codecs; only the resulting committed packet is replayed by the gate; no helper module or subprocess remains in the candidate."
+gotcha_source = "The normalized historical manifest omitted Treasury even though its exact approved deployment source contains confirmed Treasury proxy and implementation identities; a successor surface identity cannot authenticate that earlier runtime."
+
+[capture.attempt-5]
+root_transaction = "0x54b068cfc507b07aa6c26babb1c9d59a2ac1c56d09ef75ef15798f7c5a323d31"
+tenant_transaction = "0xd53104d4eb0555b591caaa62165394d908ebdf132b5aef78c3f49532c8753a9c"
+producer = "The real MigrateV6120 keeper over node/testdata/v6120-halt-export.json funded a signed fixture account through TreasuryWithdraw; real Router.buy executions produced seven logs each through precompiles/launchpad/pool.go at 0x1017; the concrete layerxchains Keeper.Create and precompile getChain encoder produced tenant 1 admission."
+historical_state = "The historical receipts and original capture remain unchanged; repair53-history-state.json completes omitted Treasury/NFT/fee-contract identity reads from the immutable real node export, with Treasury proxy/implementation hashes and slot checked against the exact approved deployment source before recording."
+gotcha_prepaid = "SidioraPool.swap consumes prepaid input; the recorder uses the real Router.buy funding path so ERC20 transfers and native economic emission are produced together."
+gotcha_funding = "Migration sweeps contract-held quote balances into booked custody; fixture funding must use the production TreasuryWithdraw path rather than transferring a depleted pre-migration fee-contract balance."
+
+[qualification.attempt-5]
+status = "implementation_complete_qualification_pending"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence_logs = "/out/logs/build-1.log and /out/logs/verify-1.log; a repair rerun increments the corresponding suffix"
+recorded_packet = "testdata/repair53-producer.json contains 611 exact RPC reply entries plus approved current/historical runtime documents and the creation provenance issued by the production RPCQualification API; the packet recorder was removed before qualification."
+gate_policy = "Only hf-build and hf-done qualify this candidate; the final gate ledger and final response record the exact verified candidate revision, command, exit and private log. No source changes follow a passing hf-done."
+
+[qualification.attempt-5.first-pass]
+revision = "dee199fe2f7f3a8e5a78faa0f9249e7022f12f1c"
+command = "cg spec done 22.31.53 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All supporting checks passed; each historical proof refused a factory provenance paired with router MarketCreated log 14 instead of the authentic factory MarketCreated log 13."
+repair = "Select the source envelope by the attested SidioraFactory role and exact factory address, and derive the packet's creation log index from that original producer receipt; no provenance, receipt, decoder, or rejection assertion was relaxed."
+
+[continuation.attempt-6]
+base_revision = "f945549b95baf4ec2b0d6bb05148010091c762a2"
+baseline = "The supplied attempt-5 gate failed TestRepair_53_native_swap_qualification, TestRepair_53_tenant_transaction_qualification and TestRepair_53_approved_history_rehydration; that unchanged gate is not repeated. This attempt began with no gates.jsonl and zero build/verify runs used."
+repair = "Approved historical creations retain their original receipt, generation and code epoch below current activation, then bind to the exact nonpayable keeper.SurfaceRuntime installed by MigrateV6120. Historical receipt/code/provenance and current registry checks remain mandatory; other creations retain the generation activation-height rule."
+gotcha_runtime = "The producer packet's migrated pool code hashes to e67f4b121cfa00710e9a74cd027b8d56f7ca67d14ebe357a8c080f8c2e819993, whereas the inherited current discovery template names the older 6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f surface; selecting the exact migrated epoch avoids rewriting or weakening the committed capture."
+tests = "The three finding tests exercise authentic captured receipts, durable transport and restart; TestRepair_53_history_epoch_transition additionally asserts the exact migrated runtime identity and refuses missing provenance, unapproved historical heights and unproven current-generation admission."
+evidence = "The final hf-build/hf-done entries in /out/run/gates.jsonl record the unchanged candidate revision, exact command, exit and private log; no candidate edits follow a passing hf-done."
+
+[wiring.current-pool-template]
+request = "services/launchpad/indexer/internal/runtimedocs/runtimedocs.go and current deployment runtime documents, owner domain 22 launchpad: publish the exact nonpayable keeper.SurfaceRuntime identity for new native pools as well as migrated historical pools; retain the prior surface as a separate code epoch where applicable."
+
+[qualification.attempt-6.first-pass]
+revision = "5c067cab14476148c66913a26ed19b7ef1ab71ee"
+command = "cg spec done 22.31.53 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The scoped build and six supporting tests passed; the three finding tests still refused Rehydrate without a specific reason after the migrated runtime mismatch was repaired."
+repair = "Preserve each admission check and add failure context for historical authority, original creation, market epochs, current factory and registry bindings so the remaining bounded gate identifies the exact failed proof."
+
+[continuation.attempt-7]
+base_revision = "79d99a9cd334a5da02f3a4aac2a324549c9a0d5e"
+baseline = "The supplied attempt-6 gate passed six supporting cases and failed the three finding tests on recorded eth_call requests differing only by an explicit zero-address sender; this attempt began with no gate ledger and zero build/verify runs used, and does not repeat the unchanged failing gate."
+repair = "Canonicalize recorded and incoming request keys identically: omitted and zero-address eth_call senders are equivalent, while target, input, block and all other arguments remain exact; refuse conflicting captured replies instead of selecting one. Production RPC client and captured chain-125 responses remain unchanged."
+test = "TestRepair_53_recorded_read_matching proves the equivalent sender encodings match and changed target, input, block or nonzero sender do not; the three finding tests retain their complete qualification, accounting transport and restart assertions."
+gotcha_replay = "Exact JSON matching must account for ethclient's explicit zero-address from field on eth_call even when the original recorder omitted it; applying the same normalization on both sides preserves the recorded response and pinned execution identity."
+evidence = "The final hf-build/hf-done ledger in /out/run/gates.jsonl records the candidate revision, exact command, exit and private evidence log. No source edits follow a passing hf-done; the runner publishes the candidate."
+
+[qualification.attempt-7.first-pass]
+revision = "a7ba36587a154da5f9c1e7b70cc95d4b3291c63b"
+command = "cg spec done 22.31.53 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The replay regression and six supporting cases passed; the three finding tests advanced beyond Rehydrate but failed receipt qualification because native pool metadata still attested the retired EventEmitter contract, whose captured code at the native block is empty."
+repair = "For exactly attested native surface pools, retain the configured EventEmitter binding check but use the approved LaunchpadPrecompile role for economic emitter ABI/code attestation; historical proxy pools keep their original emitter code proof. The native finding test additionally checks metadata and fill against actual precompile provenance and confirms the recorded retired emitter has no code."
+gotcha_native_emitter = "A migrated market retains its eventEmitter() configuration even though emitFamily issues economic logs at 0x1017; metadata must resolve the actual economic emitter from the attested pool execution epoch instead of requiring code at a retired contract."
+
+[continuation.attempt-8]
+base_revision = "caa8b41ee668274ee1e5c1df6691288455c46278"
+baseline = "The supplied attempt-7 gate passed the recorded-read regression and supporting cases but failed all three finding cases during receipt qualification; this continuation began with builds_used=0, verify_runs_used=0 and no gates.jsonl, and does not repeat the unchanged failed gate."
+repair = "Retain the native surface metadata branch and require its economic emitter epoch to equal the approved LaunchpadPrecompile identity at 0x1017. Precompile attestation uses its registered identity without a bytecode read; historical proxy emitters retain code attestation, and pool configuration and registry bindings remain mandatory."
+diagnostics = "All three finding tests assert decoded producer envelopes with status and FailureReason and report transaction/height at qualification failure; fill and metadata errors identify the refused family, binding, code epoch or execution-policy stage."
+gotcha = "The producer packet uses lowercase deployment/identity JSON tags for RPCCodeEpoch; inspect the real serialized tags when reading fixture epochs."
+evidence = "The last hf-done line and /out/run/gates.jsonl own the exact revision, command, exit and private log. The candidate is unchanged after successful verification and the runner commits it."
+
+[qualification.attempt-8.first-pass]
+revision = "346fb0e3011e73b1a712f0caa7d5c34ff4dd16e3"
+command = "cg spec done 22.31.53 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Seven supporting cases passed; three finding cases failed before fill construction because captured migrated role surfaces use the nonpayable runtime while configured role epochs retained the older manifest template."
+repair = "Derive exact execution epochs for the approved v6.12.0 migration role addresses after validating the original manifest and epochs, using the same installed nonpayable runtime as migrated markets; require exact code attestation and add TestRepair_53_migrated_role_epochs proving every configured role and refusal of the obsolete or altered identity."
+
+[wiring.migrated-role-template]
+request = "sdk/launchpad/shared/config/deployment/generate.py and current.json plus services/launchpad/indexer/internal/runtimedocs, owner domain 4 shared deployment authority and domain 22 launchpad: publish the exact nonpayable modules/launchpad/keeper/surfaces.go InstallRoleSurfaces runtime in the v6.12.0 role execution epochs; the approved manifest remains unchanged in this scoped repair."

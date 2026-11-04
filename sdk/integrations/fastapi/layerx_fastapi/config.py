@@ -103,7 +103,9 @@ def assert_no_published_secrets(environment: Mapping[str, str]) -> None:
             raise IntegrationError(IntegrationErrorCode.CLIENT_RUNTIME_REFUSED)
 
 
-def read_declared_config(environment: Mapping[str, str] | None = None) -> DeclaredConfig:
+def read_declared_config(
+    environment: Mapping[str, str] | None = None, *, purpose_hash: str | None = None
+) -> DeclaredConfig:
     values = dict(environ if environment is None else environment)
     assert_no_published_secrets(values)
     scheme = _required(values, "LAYERX_X402_SCHEME")
@@ -118,7 +120,9 @@ def read_declared_config(environment: Mapping[str, str] | None = None) -> Declar
         max_timeout_seconds=_positive_integer(_required(values, "LAYERX_PAYMENT_TIMEOUT_SECONDS")),
         extra={"layerx": {
             "commitment": "receipted",
-            "purposeHash": offer_purpose_hash(resource_url),
+            "purposeHash": (
+                offer_purpose_hash(resource_url) if purpose_hash is None else _hex32(purpose_hash).hex()
+            ),
         }},
         has_extra=True,
     )

@@ -1,0 +1,19 @@
+[task]
+id = "22.33.1108"
+audit = "22.30.46"
+acceptance = "22998.1"
+baseline = "Not run: the explicit gate order forbids testing before complete implementation and forbids running verify_cmd by hand; no pre-change failure is claimed."
+evidence = "The runner records the exact candidate revision, command, exit code and private log in the hf-build/hf-done ledger; only a passing hf-done qualifies this repair."
+wiring_requests = "None; both proposals are wholly inside the allowed directory."
+
+[finding.27]
+tests = ["TestRepairM_1108_TypedTransports", "TestRepairM_1108_TransportContracts", "TestRepairM_1108_TypedRefusals"]
+repair = "HelloWorld accepts context plus a typed request pointer; the real example server handles URI and JSON-RPC requests and its client decodes results and typed refusals."
+
+[finding.28]
+tests = ["TestRepairM_1108_TransportContracts", "TestRepairM_1108_TypedRefusals"]
+repair = "The shell compares parsed JSON under each transport contract, checks typed error codes and runs the real example process with EXIT/INT/TERM cleanup of its own process and temporary binary."
+proof_boundary = "The Go gate uses the example's real serving function and route map over an ephemeral loopback listener, including cancellation cleanup; it does not invoke the shell, an external binary or a subprocess toolchain."
+
+[gotcha.1]
+observed = "URI decoding accepts unquoted strings; an unquoted name is a success case, while a hex string in num is a typed invalid-parameters error."

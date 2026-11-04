@@ -67,6 +67,21 @@ type IdentityMeasurementConfig struct {
 	Pool                *pgxpool.Pool
 	Schema              string
 	Runtime             *Identity
+	RuntimeArchive      *IdentityRuntimeArchive
+	FinalEvidence       func(context.Context, IdentityDurabilityCheckpoint) (IdentityFinalEvidence, error)
+}
+type IdentityPhaseWindow struct {
+	StartedAt                      time.Time `json:"startedAt"`
+	WindowEndedAt                  time.Time `json:"windowEndedAt"`
+	SchedulingCompletedAt          time.Time `json:"schedulingCompletedAt"`
+	DrainStartedAt                 time.Time `json:"drainStartedAt"`
+	WorkersCompletedAt             time.Time `json:"workersCompletedAt"`
+	SamplingStoppedAt              time.Time `json:"samplingStoppedAt"`
+	OfferedJourneys                int64     `json:"offeredJourneys"`
+	EnqueuedJourneys               int64     `json:"enqueuedJourneys"`
+	CompletedSignInRefreshInWindow int64     `json:"completedSignInRefreshInWindow"`
+	CompletedSignInRefreshInDrain  int64     `json:"completedSignInRefreshInDrain"`
+	DrainNS                        int64     `json:"drainNs"`
 }
 type IdentityRequestMeasurement struct {
 	RequestID          string    `json:"requestId"`
@@ -118,39 +133,40 @@ func (s *Identity) CaptureRuntimeMeasurement() (IdentityRuntimeMeasurement, erro
 }
 
 type IdentityMeasurementSummary struct {
-	Binding                     IdentityMeasurementBinding    `json:"binding"`
-	StartedAt                   time.Time                     `json:"startedAt"`
-	CompletedAt                 time.Time                     `json:"completedAt"`
-	Phases                      []IdentityMeasurementPhase    `json:"phases"`
-	PhaseElapsedNS              map[string]int64              `json:"phaseElapsedNs"`
-	PhaseActualSignInRefreshRPS map[string]float64            `json:"phaseActualSignInRefreshRps"`
-	Requests                    int64                         `json:"requests"`
-	SuccessfulRequests          int64                         `json:"successfulRequests"`
-	SuccessfulSignInRefresh     int64                         `json:"successfulSignInRefresh"`
-	Admission429                int64                         `json:"admission429"`
-	Dependency503               int64                         `json:"dependency503"`
-	UnexpectedFailures          int64                         `json:"unexpectedFailures"`
-	GeneratorRejected           int64                         `json:"generatorRejected"`
-	P95NS                       int64                         `json:"p95Ns"`
-	P99NS                       int64                         `json:"p99Ns"`
-	CorrectedP95NS              int64                         `json:"correctedP95Ns"`
-	CorrectedP99NS              int64                         `json:"correctedP99Ns"`
-	GeneratorQueueCapacity      int                           `json:"generatorQueueCapacity"`
-	GeneratorMaxQueueDepth      int                           `json:"generatorMaxQueueDepth"`
-	RawFile                     string                        `json:"rawFile"`
-	RawSHA256                   string                        `json:"rawSha256"`
-	SourceSHA256                string                        `json:"sourceSha256"`
-	SourceFiles                 map[string]string             `json:"sourceFiles"`
-	CPUPerEOAProcessNS          *float64                      `json:"cpuPerEoaProcessNs"`
-	SignatureWallMeanNS         *float64                      `json:"signatureWallMeanNs"`
-	PoolAcquireMeanNS           *float64                      `json:"poolAcquireMeanNs"`
-	CPUAttribution              string                        `json:"cpuAttribution"`
-	RuntimeSnapshots            []IdentityRuntimeMeasurement  `json:"runtimeSnapshots"`
-	Checkpoint                  *IdentityDurabilityCheckpoint `json:"checkpoint"`
-	Assertions                  map[string]bool               `json:"assertions"`
-	Failures                    []string                      `json:"failures"`
-	FinalAcceptance             bool                          `json:"finalAcceptance"`
-	FinalSharedGate             string                        `json:"finalSharedGate"`
+	Binding                     IdentityMeasurementBinding      `json:"binding"`
+	StartedAt                   time.Time                       `json:"startedAt"`
+	CompletedAt                 time.Time                       `json:"completedAt"`
+	Phases                      []IdentityMeasurementPhase      `json:"phases"`
+	PhaseWindows                map[string]*IdentityPhaseWindow `json:"phaseWindows"`
+	PhaseElapsedNS              map[string]int64                `json:"phaseElapsedNs"`
+	PhaseActualSignInRefreshRPS map[string]float64              `json:"phaseActualSignInRefreshRps"`
+	Requests                    int64                           `json:"requests"`
+	SuccessfulRequests          int64                           `json:"successfulRequests"`
+	SuccessfulSignInRefresh     int64                           `json:"successfulSignInRefresh"`
+	Admission429                int64                           `json:"admission429"`
+	Dependency503               int64                           `json:"dependency503"`
+	UnexpectedFailures          int64                           `json:"unexpectedFailures"`
+	GeneratorRejected           int64                           `json:"generatorRejected"`
+	P95NS                       int64                           `json:"p95Ns"`
+	P99NS                       int64                           `json:"p99Ns"`
+	CorrectedP95NS              int64                           `json:"correctedP95Ns"`
+	CorrectedP99NS              int64                           `json:"correctedP99Ns"`
+	GeneratorQueueCapacity      int                             `json:"generatorQueueCapacity"`
+	GeneratorMaxQueueDepth      int                             `json:"generatorMaxQueueDepth"`
+	RawFile                     string                          `json:"rawFile"`
+	RawSHA256                   string                          `json:"rawSha256"`
+	SourceSHA256                string                          `json:"sourceSha256"`
+	SourceFiles                 map[string]string               `json:"sourceFiles"`
+	CPUPerEOAProcessNS          *float64                        `json:"cpuPerEoaProcessNs"`
+	SignatureWallMeanNS         *float64                        `json:"signatureWallMeanNs"`
+	PoolAcquireMeanNS           *float64                        `json:"poolAcquireMeanNs"`
+	CPUAttribution              string                          `json:"cpuAttribution"`
+	RuntimeSnapshots            []IdentityRuntimeMeasurement    `json:"runtimeSnapshots"`
+	Checkpoint                  *IdentityDurabilityCheckpoint   `json:"checkpoint"`
+	Assertions                  map[string]bool                 `json:"assertions"`
+	Failures                    []string                        `json:"failures"`
+	FinalAcceptance             bool                            `json:"finalAcceptance"`
+	FinalSharedGate             string                          `json:"finalSharedGate"`
 }
 type IdentityMeasurementRecorder struct {
 	mu                  sync.Mutex
@@ -193,6 +209,13 @@ func (r *IdentityMeasurementRecorder) append(sample IdentityRequestMeasurement) 
 		if sample.Operation == "login" || sample.Operation == "refresh" {
 			r.summary.SuccessfulSignInRefresh++
 			r.phaseSuccessful[sample.Phase]++
+			if window := r.summary.PhaseWindows[sample.Phase]; window != nil {
+				if !sample.CompletedAt.Before(window.StartedAt) && !sample.CompletedAt.After(window.WindowEndedAt) {
+					window.CompletedSignInRefreshInWindow++
+				} else {
+					window.CompletedSignInRefreshInDrain++
+				}
+			}
 		}
 		r.latencies.add(sample.LatencyNS)
 		r.corrected.add(sample.CorrectedLatencyNS)
@@ -374,6 +397,9 @@ func (r *IdentityMeasurementRecorder) recordFailure(phase IdentityMeasurementPha
 	}
 }
 func validateIdentityMeasurement(c IdentityMeasurementConfig) error {
+	if c.Runtime != nil && c.RuntimeArchive != nil {
+		return errors.New("identity measurement: ambiguous runtime provider")
+	}
 	for _, v := range []string{c.Binding.CandidateSHA256, c.Binding.InterfaceSHA256, c.Binding.TopologySHA256} {
 		b, e := hex.DecodeString(v)
 		if e != nil || len(b) != 32 || strings.ToLower(v) != v {
@@ -386,7 +412,7 @@ func validateIdentityMeasurement(c IdentityMeasurementConfig) error {
 	names := map[string]bool{}
 	var acknowledgedBound int64
 	for _, p := range c.Phases {
-		if p.Name == "" || names[p.Name] || p.Duration <= 0 || p.Duration > 24*time.Hour || p.SignInRefreshRPS < 2 || p.SignInRefreshRPS > 3000 || p.SignInRefreshRPS%(c.RefreshesPerLogin+1) != 0 || p.DynamicBudgetRPS < p.SignInRefreshRPS*(c.RefreshesPerLogin+3)/(c.RefreshesPerLogin+1) || p.WriteBudgetRPS < p.SignInRefreshRPS*(c.RefreshesPerLogin+3)/(c.RefreshesPerLogin+1) || p.DynamicBudgetRPS > 20000 {
+		if p.Name == "" || names[p.Name] || int64(p.Duration)*int64(p.SignInRefreshRPS)%(int64(time.Second)*int64(c.RefreshesPerLogin+1)) != 0 || p.Duration <= 0 || p.Duration > 24*time.Hour || p.SignInRefreshRPS < 2 || p.SignInRefreshRPS > 3000 || p.SignInRefreshRPS%(c.RefreshesPerLogin+1) != 0 || p.DynamicBudgetRPS < p.SignInRefreshRPS*(c.RefreshesPerLogin+3)/(c.RefreshesPerLogin+1) || p.WriteBudgetRPS < p.SignInRefreshRPS*(c.RefreshesPerLogin+3)/(c.RefreshesPerLogin+1) || p.DynamicBudgetRPS > 20000 {
 			return errors.New("identity measurement: invalid workload or additive request budget")
 		}
 		names[p.Name] = true
@@ -420,9 +446,9 @@ func RunIdentityMeasurement(ctx context.Context, c IdentityMeasurementConfig) (I
 		return IdentityMeasurementSummary{}, errors.New("identity measurement: immutable raw capture already exists or unavailable")
 	}
 	defer file.Close()
-	r := &IdentityMeasurementRecorder{file: file, digest: sha256.New(), summary: IdentityMeasurementSummary{Binding: c.Binding, StartedAt: time.Now().UTC(), Phases: append([]IdentityMeasurementPhase(nil), c.Phases...), GeneratorQueueCapacity: c.QueueCapacity, RawFile: "requests.jsonl", Assertions: map[string]bool{}, Failures: []string{}, FinalSharedGate: "9.1", PhaseElapsedNS: map[string]int64{}, PhaseActualSignInRefreshRPS: map[string]float64{}, SourceSHA256: sourceSHA, SourceFiles: sourceFiles, CPUAttribution: "Whole owning-process CPU delta per EOA verification; includes other process work and is not exclusive signature CPU."}, phaseSuccessful: map[string]int64{}, phaseRequests: map[string]int64{}, phaseFailures: map[string]int64{}, refreshesPerLogin: c.RefreshesPerLogin, maxAcknowledgements: c.MaxAcknowledgements}
-	if c.Runtime != nil {
-		if snapshot, e := c.Runtime.CaptureRuntimeMeasurement(); e == nil {
+	r := &IdentityMeasurementRecorder{file: file, digest: sha256.New(), summary: IdentityMeasurementSummary{Binding: c.Binding, StartedAt: time.Now().UTC(), Phases: append([]IdentityMeasurementPhase(nil), c.Phases...), GeneratorQueueCapacity: c.QueueCapacity, RawFile: "requests.jsonl", Assertions: map[string]bool{}, Failures: []string{}, FinalSharedGate: "9.1", PhaseWindows: map[string]*IdentityPhaseWindow{}, PhaseElapsedNS: map[string]int64{}, PhaseActualSignInRefreshRPS: map[string]float64{}, SourceSHA256: sourceSHA, SourceFiles: sourceFiles, CPUAttribution: "Whole owning-process CPU delta per EOA verification; includes other process work and is not exclusive signature CPU."}, phaseSuccessful: map[string]int64{}, phaseRequests: map[string]int64{}, phaseFailures: map[string]int64{}, refreshesPerLogin: c.RefreshesPerLogin, maxAcknowledgements: c.MaxAcknowledgements}
+	if c.Runtime != nil || c.RuntimeArchive != nil {
+		if snapshot, e := c.captureRuntimeMeasurement(); e == nil {
 			r.summary.RuntimeSnapshots = append(r.summary.RuntimeSnapshots, snapshot)
 		} else {
 			r.summary.Failures = append(r.summary.Failures, "runtime_measurement_unavailable")
@@ -440,8 +466,8 @@ func RunIdentityMeasurement(ctx context.Context, c IdentityMeasurementConfig) (I
 				case <-stopSampling:
 					return
 				case <-ticker.C:
-					if c.Runtime != nil {
-						snapshot, e := c.Runtime.CaptureRuntimeMeasurement()
+					if c.Runtime != nil || c.RuntimeArchive != nil {
+						snapshot, e := c.captureRuntimeMeasurement()
 						r.mu.Lock()
 						if e != nil {
 							r.summary.Failures = append(r.summary.Failures, "runtime_measurement_unavailable")
@@ -471,7 +497,10 @@ func RunIdentityMeasurement(ctx context.Context, c IdentityMeasurementConfig) (I
 			}()
 		}
 		start := time.Now()
+		window := &IdentityPhaseWindow{StartedAt: start.UTC(), WindowEndedAt: start.Add(phase.Duration).UTC()}
+		r.summary.PhaseWindows[phase.Name] = window
 		count := int64(phase.Duration) * int64(phase.SignInRefreshRPS) / (int64(time.Second) * int64(c.RefreshesPerLogin+1))
+		window.OfferedJourneys = count
 		for index := int64(0); index < count; index++ {
 			due := start.Add(time.Duration(index) * time.Second * time.Duration(c.RefreshesPerLogin+1) / time.Duration(phase.SignInRefreshRPS))
 			timer := time.NewTimer(max(time.Duration(0), time.Until(due)))
@@ -486,6 +515,7 @@ func RunIdentityMeasurement(ctx context.Context, c IdentityMeasurementConfig) (I
 			select {
 			case jobs <- work{due, int(index % int64(len(c.Clients)))}:
 				r.mu.Lock()
+				window.EnqueuedJourneys++
 				r.summary.GeneratorMaxQueueDepth = max(r.summary.GeneratorMaxQueueDepth, len(jobs))
 				r.mu.Unlock()
 			default:
@@ -493,6 +523,7 @@ func RunIdentityMeasurement(ctx context.Context, c IdentityMeasurementConfig) (I
 				r.append(IdentityRequestMeasurement{RequestID: uuid.NewString(), Phase: phase.Name, Operation: "generator_admission", ScheduledAt: due.UTC(), StartedAt: now, CompletedAt: now, QueueDelayNS: max(int64(0), now.Sub(due).Nanoseconds()), Failure: "generator_queue_full", Warmup: phase.Warmup})
 			}
 		}
+		window.SchedulingCompletedAt = time.Now().UTC()
 		if remaining := time.Until(start.Add(phase.Duration)); remaining > 0 && ctx.Err() == nil {
 			timer := time.NewTimer(remaining)
 			select {
@@ -501,18 +532,22 @@ func RunIdentityMeasurement(ctx context.Context, c IdentityMeasurementConfig) (I
 				timer.Stop()
 			}
 		}
+		window.DrainStartedAt = time.Now().UTC()
 		close(jobs)
 		wg.Wait()
+		window.WorkersCompletedAt = time.Now().UTC()
+		window.DrainNS = window.WorkersCompletedAt.Sub(window.DrainStartedAt).Nanoseconds()
 		close(stopSampling)
 		<-samplingDone
-		r.summary.PhaseElapsedNS[phase.Name] = time.Since(start).Nanoseconds()
+		window.SamplingStoppedAt = time.Now().UTC()
+		r.summary.PhaseElapsedNS[phase.Name] = phase.Duration.Nanoseconds()
 		if ctx.Err() != nil {
 			break
 		}
 	}
 	r.summary.CompletedAt = time.Now().UTC()
-	if c.Runtime != nil {
-		if snapshot, e := c.Runtime.CaptureRuntimeMeasurement(); e == nil {
+	if c.Runtime != nil || c.RuntimeArchive != nil {
+		if snapshot, e := c.captureRuntimeMeasurement(); e == nil {
 			r.summary.RuntimeSnapshots = append(r.summary.RuntimeSnapshots, snapshot)
 		} else {
 			r.summary.Failures = append(r.summary.Failures, "runtime_measurement_unavailable")
@@ -534,10 +569,16 @@ func RunIdentityMeasurement(ctx context.Context, c IdentityMeasurementConfig) (I
 		if phase.Warmup {
 			continue
 		}
-		achieved := float64(r.phaseSuccessful[phase.Name]) / (float64(r.summary.PhaseElapsedNS[phase.Name]) / float64(time.Second))
+		window := r.summary.PhaseWindows[phase.Name]
+		if window == nil {
+			r.summary.Assertions["achieved_load_"+phase.Name] = false
+			r.summary.Assertions["offered_load_"+phase.Name] = false
+			continue
+		}
+		achieved := float64(window.CompletedSignInRefreshInWindow) / phase.Duration.Seconds()
 		r.summary.PhaseActualSignInRefreshRPS[phase.Name] = achieved
 		r.summary.Assertions["achieved_load_"+phase.Name] = achieved >= float64(phase.SignInRefreshRPS)
-		r.summary.Assertions["offered_load_"+phase.Name] = r.phaseSuccessful[phase.Name] == int64(phase.Duration)*int64(phase.SignInRefreshRPS)/int64(time.Second) && r.phaseFailures[phase.Name] == 0
+		r.summary.Assertions["offered_load_"+phase.Name] = r.phaseSuccessful[phase.Name] == int64(phase.Duration)*int64(phase.SignInRefreshRPS)/int64(time.Second) && r.phaseFailures[phase.Name] == 0 && window.EnqueuedJourneys == window.OfferedJourneys
 		if phase.SignInRefreshRPS == 1000 && phase.DynamicBudgetRPS == 10000 && phase.WriteBudgetRPS == 2000 {
 			fullSteady = true
 		}
@@ -546,13 +587,15 @@ func RunIdentityMeasurement(ctx context.Context, c IdentityMeasurementConfig) (I
 		}
 	}
 	r.summary.Assertions["configured_D11_AUTH_PROFILE"] = fullSteady && fullBurst
+	r.summary.Assertions["final_shared_acceptance"] = false
 	r.summary.Assertions["AZ_loss_recovery"] = false
 	r.summary.Assertions["event_replay_integrity"] = false
 	r.summary.Assertions["private_socket_revocation_p99"] = false
 	r.summary.Assertions["runtime_telemetry_present"] = len(r.summary.RuntimeSnapshots) >= 2
 	if len(r.summary.RuntimeSnapshots) >= 2 {
 		a, b := r.summary.RuntimeSnapshots[0], r.summary.RuntimeSnapshots[len(r.summary.RuntimeSnapshots)-1]
-		if a.ProcessID == b.ProcessID && b.EOAVerifications > a.EOAVerifications && b.ProcessCPUNS >= a.ProcessCPUNS && b.ContractVerifications == a.ContractVerifications {
+		r.summary.Assertions["runtime_telemetry_present"] = a.ProcessID > 0 && a.ProcessID == b.ProcessID && !a.CapturedAt.After(r.summary.StartedAt.Add(time.Second)) && !b.CapturedAt.Before(r.summary.CompletedAt.Add(-time.Second)) && b.CapturedAt.After(a.CapturedAt) && b.EOAVerifications > a.EOAVerifications && b.EOAVerificationWallNS >= a.EOAVerificationWallNS && b.ProcessCPUNS >= a.ProcessCPUNS && b.ContractVerifications == a.ContractVerifications && a.AdmissionCapacity > 0 && b.AdmissionCapacity == a.AdmissionCapacity && b.PoolMax > 0 && b.PoolAcquireCount > a.PoolAcquireCount && b.PoolAcquireNS >= a.PoolAcquireNS
+		if r.summary.Assertions["runtime_telemetry_present"] {
 			value := float64(b.ProcessCPUNS-a.ProcessCPUNS) / float64(b.EOAVerifications-a.EOAVerifications)
 			r.summary.CPUPerEOAProcessNS = &value
 			wall := float64(b.EOAVerificationWallNS-a.EOAVerificationWallNS) / float64(b.EOAVerifications-a.EOAVerifications)
@@ -565,6 +608,7 @@ func RunIdentityMeasurement(ctx context.Context, c IdentityMeasurementConfig) (I
 	}
 	_, sourceAfter, sourceErr := identityMeasurementSources(c.SourceRoot)
 	r.summary.Assertions["source_unchanged"] = sourceErr == nil && sourceAfter == sourceSHA
+	r.summary.Assertions["candidate_matches_source"] = c.Binding.CandidateSHA256 == sourceSHA
 	checkpoint, e := CaptureIdentityDurability(ctx, c.Pool, c.Schema, c.Binding, r.acknowledged)
 	if e != nil {
 		r.summary.Failures = append(r.summary.Failures, "acknowledged_mutation_checkpoint_unavailable")
@@ -572,6 +616,17 @@ func RunIdentityMeasurement(ctx context.Context, c IdentityMeasurementConfig) (I
 		r.summary.Checkpoint = &checkpoint
 	}
 	r.summary.Assertions["acknowledged_rows_durable"] = e == nil && len(r.acknowledged) > 0
+	if e == nil && c.FinalEvidence != nil {
+		if err := writeIdentityImmutableJSON(filepath.Join(c.EvidenceDirectory, "workload.json"), r.summary); err != nil {
+			return r.summary, err
+		}
+		evidence, evidenceErr := c.FinalEvidence(ctx, checkpoint)
+		if evidenceErr != nil {
+			r.summary.Failures = append(r.summary.Failures, "final_evidence_unavailable")
+		} else {
+			applyIdentityFinalEvidence(&r.summary, evidence)
+		}
+	}
 	for assertion, passed := range r.summary.Assertions {
 		if !passed {
 			r.summary.Failures = append(r.summary.Failures, assertion)
@@ -580,6 +635,7 @@ func RunIdentityMeasurement(ctx context.Context, c IdentityMeasurementConfig) (I
 	if r.failure != nil {
 		r.summary.Failures = append(r.summary.Failures, "raw_capture_incomplete")
 	}
+	r.summary.FinalAcceptance = len(r.summary.Failures) == 0
 	if err := writeIdentityImmutableJSON(filepath.Join(c.EvidenceDirectory, "summary.json"), r.summary); err != nil {
 		return r.summary, err
 	}
@@ -781,13 +837,14 @@ type IdentityReplayMeasurement struct {
 	CompletedAt time.Time                  `json:"completedAt"`
 	Fetched     int                        `json:"fetched"`
 	Committed   int                        `json:"committed"`
+	Expected    int                        `json:"expected"`
 	InboxCount  int64                      `json:"inboxCount"`
 	InboxSHA256 string                     `json:"inboxSha256"`
 	Failure     string                     `json:"failure"`
 }
 
 func (s *Identity) MeasureIdentityReplay(ctx context.Context, nc *nats.Conn, cfg natsdriver.ConsumerConfig, projection, generation string, expected int, binding IdentityMeasurementBinding) (IdentityReplayMeasurement, error) {
-	out := IdentityReplayMeasurement{Binding: binding, StartedAt: time.Now().UTC()}
+	out := IdentityReplayMeasurement{Binding: binding, StartedAt: time.Now().UTC(), Expected: expected}
 	if s == nil || s.events == nil || nc == nil || expected < 1 || expected > 1000000 || projection == "" || generation == "" || cfg.Subject != IdentityRevisionSubject {
 		return out, errors.New("identity replay measurement: explicit real broker and owned projection required")
 	}
@@ -857,16 +914,10 @@ func WriteIdentityRecoveryEvidence(path string, before, after IdentityDurability
 		return errors.New("identity recovery: fault receipt digest mismatch")
 	}
 	failure := CompareIdentityRecovery(before, after)
-	result := struct {
-		Before             IdentityDurabilityCheckpoint `json:"before"`
-		After              IdentityDurabilityCheckpoint `json:"after"`
-		FaultReceiptSHA256 string                       `json:"faultReceiptSha256"`
-		FaultStarted       time.Time                    `json:"faultStarted"`
-		FaultEnded         time.Time                    `json:"faultEnded"`
-		DurabilityPassed   bool                         `json:"durabilityPassed"`
-		AZLossAcceptance   bool                         `json:"azLossAcceptance"`
-		Failure            string                       `json:"failure"`
-	}{before, after, faultAuthoritySHA256, faultStarted, faultEnded, failure == nil, false, ""}
+	if !validIdentityFaultReceipt(receipt, before.Binding, faultStarted, faultEnded) {
+		return errors.New("identity recovery: AZ-loss receipt binding invalid")
+	}
+	result := IdentityRecoveryEvidence{before, after, faultAuthoritySHA256, faultStarted, faultEnded, failure == nil, failure == nil, ""}
 	if failure != nil {
 		result.Failure = "durability_or_environment_mismatch"
 	}

@@ -1,0 +1,10 @@
+[repair.22.33.945]
+audit = "22.30.24"
+finding = "f16"
+proof = "TestRepairM_945_HasRoleHelp"
+path = "Production paxd NewRootCmd and server/cmd.Execute with a temporary home -> registered launchpad CmdQueryHasRole -> Cobra --help and help rendering -> captured operator output; the published example resolves through the same root, preserves the contract, role and account strings, parses --output json and enforces three arguments."
+baseline = "Not run: the explicit implementation-first order and single verify gate prohibit the contradictory unchanged-tree verify requested by step 5; no pre-change test failure is claimed."
+existing_test = "TestProofModuleCli now requires has-role help to omit the retired daemon; assertions for other findings remain unchanged."
+evidence = "The private hf-build/hf-done ledger at /out/run/gates.jsonl names the exact candidate revision, commands, exit codes and qualification log locations; no qualification is claimed before those gates pass."
+qualification_repair = "The first verify exposed harness errors: Cobra prints examples without added indentation, and help requires the client/server context supplied by the production server/cmd.Execute launcher; the proof uses that launcher and asserts the exact emitted example."
+wiring = "Domain 4 (launchpad): update spec/layerx-merge/interfaces.kvx interface.4.cli-launchpad-query-has-role-j28 signature and notes, and spec/layerx-merge/contracts/launchpad.md cli-launchpad-query-has-role-j28 to paxd query launchpad has-role [contract] [role] [account], preserving the operands; these declarations are outside this task's scope."

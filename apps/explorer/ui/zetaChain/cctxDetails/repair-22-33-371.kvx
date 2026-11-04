@@ -1,0 +1,10 @@
+[repair.22.33.371]
+finding = "zeta-outbound-gas"
+tests = ["outboundMinedGasUnits", "revertedGasUnits"]
+test_path = "apps/explorer/ui/zetaChain/cctxDetails/repair-22-33-371.spec.ts"
+path = "Production lifecycle component rendered with the real Chakra and query providers, committed transaction and chain-config fixtures, and an in-memory query cache; assert mined and reverted gas counts, zero, safe-integer maximum, and destination link/config selection."
+baseline = "Not run: the explicit gate order requires complete implementation before hf-build and hf-done and forbids running verify_cmd by hand; the former decimal division contradicts the nonzero integer expectations in both proving tests."
+wiring = "None: this component displays gas counts and transferred amounts, with no destination transaction fee display requiring separate fee metadata."
+evidence = "The runner's hf-done ledger records the exact candidate revision, command, exit code and private log location."
+previous_attempt = "Revision 82dd76e301716ad022d007850e231e8b5265c74e could not qualify because pnpm refused this Yarn project (ERR_PNPM_OTHER_PM_EXPECTED); attempt 2 preserves the repair and uses the declared Corepack Yarn gates."
+viewport = "The jsdom fixture evaluates min/max-width queries against window.innerWidth using the browser initial 16px font size, dispatches change events on resize, rejects unsupported queries, and disposes listeners after each production render; no constant matchMedia response is used."

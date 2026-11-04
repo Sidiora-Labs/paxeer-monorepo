@@ -1,3 +1,6 @@
+#[path = "support/source_receipt.rs"]
+mod source_receipt;
+
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
 use layerx_ap2::{
@@ -107,91 +110,14 @@ fn recorded_payment(case: &Value) -> ExecutedPayment {
     }
 }
 
-struct IntentKey {
-    directory: std::path::PathBuf,
-    public_key: [u8; 32],
-}
+use source_receipt::IntentKey;
 
-impl IntentKey {
-    fn new() -> Self {
-        let directory =
-            std::env::temp_dir().join(format!("ap2-mandate-intent-{}", std::process::id()));
-        std::fs::create_dir(&directory).expect("intent key directory");
-        let mut der =
-            hex::decode("302e020100300506032b657004220420").expect("Ed25519 PKCS8 prefix");
-        der.extend_from_slice(&[0x35; 32]);
-        std::fs::write(directory.join("key.der"), der).expect("intent signing key");
-        let output = std::process::Command::new("openssl")
-            .args(["pkey", "-inform", "DER", "-in"])
-            .arg(directory.join("key.der"))
-            .args(["-pubout", "-outform", "DER"])
-            .output()
-            .expect("Ed25519 public key command");
-        assert!(
-            output.status.success(),
-            "{}",
-            String::from_utf8_lossy(&output.stderr)
-        );
-        assert_eq!(output.stdout.len(), 44);
-        Self {
-            directory,
-            public_key: output.stdout[12..].try_into().expect("Ed25519 public key"),
-        }
-    }
-
-    fn sign(&self, message: &[u8]) -> [u8; 64] {
-        std::fs::write(self.directory.join("message"), message).expect("intent signing input");
-        let output = std::process::Command::new("openssl")
-            .args(["pkeyutl", "-sign", "-rawin", "-keyform", "DER", "-inkey"])
-            .arg(self.directory.join("key.der"))
-            .arg("-in")
-            .arg(self.directory.join("message"))
-            .output()
-            .expect("Ed25519 intent signer");
-        assert!(
-            output.status.success(),
-            "{}",
-            String::from_utf8_lossy(&output.stderr)
-        );
-        output.stdout.try_into().expect("Ed25519 intent signature")
-    }
-}
-
-impl Drop for IntentKey {
-    fn drop(&mut self) {
-        std::fs::remove_dir_all(&self.directory).expect("remove intent key directory");
-    }
-}
-
-fn sign_payment_reference(
+fn assert_payment_reference(
     case: &Value,
-    evidence: &mut SequencerEvidence,
+    evidence: &SequencerEvidence,
     payment: &AuthorizedPayment,
-    key: &IntentKey,
 ) -> [u8; 32] {
-    assert_eq!(evidence.logs.len(), 1, "one recorded PaymentExact log");
-    let log = &evidence.logs[0];
-    let [_, payer, payee] = recorded_payment_topics(case);
-    let old_topics = log.topics()[1..].concat();
-    let topics = vec![log.topics()[0], payment.idempotency_key(), payer, payee];
-    let positions: Vec<_> = evidence
-        .signed_receipt
-        .windows(old_topics.len())
-        .enumerate()
-        .filter_map(|(index, bytes)| (bytes == old_topics).then_some(index))
-        .collect();
-    assert_eq!(positions.len(), 1, "one signed PaymentExact indexed tuple");
-    evidence.signed_receipt[positions[0]..positions[0] + old_topics.len()]
-        .copy_from_slice(&topics[1..].concat());
-    evidence.logs[0] = SequencerLog::new(log.address(), topics, log.data().to_vec(), 0);
-    let unsigned_end = evidence.signed_receipt.len() - 69;
-    let mut hash = Sha256::new();
-    hash.update(b"LXP/v1/receipt\0");
-    hash.update(&evidence.signed_receipt[..unsigned_end]);
-    hash.update([0]);
-    let digest: [u8; 32] = hash.finalize().into();
-    evidence.signed_receipt[unsigned_end + 5..].copy_from_slice(&key.sign(&digest));
-    digest
+    source_receipt::assert_mandate_reference(case, evidence, payment)
 }
 
 struct RecordedPaymentPlane {
@@ -243,7 +169,7 @@ impl LayerXIntentPlane for RecordedPaymentPlane {
             compiled.activity_type(),
             ActivityType::new(ModuleId::Asset, 5).expect("send")
         );
-        let log = &self.executed.evidence.logs[0];
+        let log = source_receipt::payment_log(&self.executed.evidence);
         assert_eq!(payment.idempotency_key(), log.topics()[1]);
         assert_eq!(payment.payer_receipt_account(), log.topics()[2]);
         assert_eq!(payment.payee_receipt_account(), log.topics()[3]);
@@ -666,17 +592,15 @@ fn unsupported_algorithm_is_refused_before_key_resolution() {
 
 #[test]
 fn mandate_payment_reference_is_the_recorded_digest() {
-    let fixture: Value = serde_json::from_str(include_str!(
-        "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
-    ))
-    .expect("recorded sequencer receipt vectors");
+    let fixture: Value = serde_json::from_str(include_str!("fixtures/ap2-mandate-pay-exact.json"))
+        .expect("recorded sequencer receipt vectors");
     let case = fixture["cases"]
         .as_array()
         .expect("recorded cases")
         .iter()
-        .find(|case| case["id"] == "V1-layerxledger-pay-exact")
+        .find(|case| case["id"] == "mandates")
         .expect("recorded payExact receipt");
-    let mut executed = recorded_payment(case);
+    let executed = recorded_payment(case);
     let digest: [u8; 32] = recorded_array(&case["receiptDigest"]);
     assert_eq!(
         canonical_receipt_digest(&executed.evidence.signed_receipt),
@@ -699,7 +623,7 @@ fn mandate_payment_reference_is_the_recorded_digest() {
     let protocol = receipt.protocol().expect("recorded protocol receipt");
     assert_eq!(protocol.result_code(), 0);
     assert_eq!(protocol.activity_id(), executed.evidence.transaction_hash);
-    let log = &executed.evidence.logs[0];
+    let log = source_receipt::payment_log(&executed.evidence);
     let amount = u128::from_be_bytes(log.data()[48..].try_into().expect("recorded amount"));
     let binding = LayerXAssetBinding {
         currency: "USD".into(),
@@ -719,16 +643,16 @@ fn mandate_payment_reference_is_the_recorded_digest() {
     let principal = PrincipalId::new("buyer").expect("principal");
     let authorized = layerx_ap2::authorize_payment(&principal, &verified, &verification, &binding)
         .expect("authorized recorded payment");
-    let receipt_key = IntentKey::new();
-    let digest = sign_payment_reference(case, &mut executed.evidence, &authorized, &receipt_key);
+    let digest = assert_payment_reference(case, &executed.evidence, &authorized);
+    let receipt_key = IntentKey::new(case);
     assert_eq!(
         canonical_receipt_digest(&executed.evidence.signed_receipt),
         Ok(digest)
     );
-    assert_ne!(digest, recorded_array::<32>(&case["receiptDigest"]));
+    assert_eq!(digest, recorded_array::<32>(&case["receiptDigest"]));
     let pins = [SequencerAuthorization::new(
         recorded_array(&key["keyId"]),
-        receipt_key.public_key,
+        recorded_array(&key["publicKey"]),
         key["firstHeight"].as_u64().expect("first signing height"),
         key["lastHeight"].as_u64().expect("last signing height"),
     )];
@@ -743,10 +667,7 @@ fn mandate_payment_reference_is_the_recorded_digest() {
         AdapterId::new("ap2-mandate-receipt-vectors").expect("suite ID"),
         u64::try_from(fixture["cases"].as_array().expect("recorded cases").len())
             .expect("vector count"),
-        Sha256::digest(include_bytes!(
-            "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
-        ))
-        .into(),
+        Sha256::digest(include_bytes!("fixtures/ap2-mandate-pay-exact.json")).into(),
     )
     .expect("conformance suite");
     let mut gateway = GatewayCore::new();

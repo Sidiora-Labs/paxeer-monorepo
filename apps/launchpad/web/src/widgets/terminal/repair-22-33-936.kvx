@@ -1,0 +1,9 @@
+[repair.22.33.936]
+finding = "preset-storage-fallback"
+implementation = "presets-store.ts tracks the observed storage baseline separately from active in-memory presets and advances it to serialized state only after setItem succeeds."
+tests = ["preset_storage_fallback_keeps_edits_when_first_write_exceeds_quota", "preset_storage_fallback_preserves_baseline_and_resumes_successful_persistence", "preset_storage_fallback_keeps_edits_when_storage_access_is_blocked"]
+test_file = "apps/launchpad/web/src/widgets/terminal/repair-22-33-936.test.ts"
+baseline = "Not run: the ordered task instructions prohibit testing before implementation and allow verification only through hf-done after hf-build; no baseline test failure is claimed."
+fixtures = "Real jsdom localStorage with zero quota, an existing value at quota, writable storage and an opaque origin; the production hook is mounted, edited, rendered, stopped and reopened."
+wiring_requests = []
+evidence = "The runner's hf-build/hf-done ledger records the verified candidate revision, exact command, exit code and private log location."

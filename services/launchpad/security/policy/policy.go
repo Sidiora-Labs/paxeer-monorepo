@@ -20,6 +20,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 	"unicode/utf8"
 )
 
@@ -265,6 +266,19 @@ func decodeDestination(d *json.Decoder, dst any) error {
 	if !v.IsValid() || v.Kind() != reflect.Pointer || v.IsNil() {
 		return ErrDenied
 	}
+	var raw json.RawMessage
+	if err := d.Decode(&raw); err != nil {
+		return err
+	}
+	shapeDecoder := json.NewDecoder(bytes.NewReader(raw))
+	shapeDecoder.UseNumber()
+	var shape any
+	if err := shapeDecoder.Decode(&shape); err != nil {
+		return err
+	}
+	if err := canonicalMutationFields(shape, v.Elem().Type()); err != nil {
+		return err
+	}
 	candidate := reflect.New(v.Elem().Type())
 	snapshot, err := json.Marshal(dst)
 	if err != nil {
@@ -273,10 +287,139 @@ func decodeDestination(d *json.Decoder, dst any) error {
 	if err = json.Unmarshal(snapshot, candidate.Interface()); err != nil {
 		return ErrDenied
 	}
-	if err := d.Decode(candidate.Interface()); err != nil {
+	destinationDecoder := json.NewDecoder(bytes.NewReader(raw))
+	destinationDecoder.DisallowUnknownFields()
+	if err := destinationDecoder.Decode(candidate.Interface()); err != nil {
 		return err
 	}
 	v.Elem().Set(candidate.Elem())
+	return nil
+}
+
+// Resolve the same embedded-field dominance as encoding/json, but admit only
+// exact canonical names. Map keys retain their distinct, case-sensitive meaning.
+func mutationFields(t reflect.Type) map[string]reflect.Type {
+	type field struct {
+		typ    reflect.Type
+		depth  int
+		tagged bool
+	}
+	candidates := map[string][]field{}
+	var collect func(reflect.Type, int, map[reflect.Type]bool)
+	collect = func(current reflect.Type, depth int, parents map[reflect.Type]bool) {
+		for current.Kind() == reflect.Pointer {
+			current = current.Elem()
+		}
+		if current.Kind() != reflect.Struct || parents[current] {
+			return
+		}
+		parents[current] = true
+		defer delete(parents, current)
+		for i := 0; i < current.NumField(); i++ {
+			f := current.Field(i)
+			if f.PkgPath != "" && !f.Anonymous {
+				continue
+			}
+			tag := f.Tag.Get("json")
+			if tag == "-" {
+				continue
+			}
+			name := strings.Split(tag, ",")[0]
+			for _, c := range name {
+				if !unicode.IsLetter(c) && !unicode.IsDigit(c) && !strings.ContainsRune("!#$%&()*+-./:;<=>?@[]^_{|}~ ", c) {
+					name = ""
+					break
+				}
+			}
+			base := f.Type
+			for base.Kind() == reflect.Pointer {
+				base = base.Elem()
+			}
+			if f.Anonymous && name == "" && base.Kind() == reflect.Struct {
+				collect(base, depth+1, parents)
+				continue
+			}
+			if f.PkgPath != "" {
+				continue
+			}
+			tagged := name != ""
+			if name == "" {
+				name = f.Name
+			}
+			candidates[name] = append(candidates[name], field{f.Type, depth, tagged})
+		}
+	}
+	collect(t, 0, map[reflect.Type]bool{})
+	fields := map[string]reflect.Type{}
+	for name, options := range candidates {
+		depth := options[0].depth
+		for _, option := range options {
+			if option.depth < depth {
+				depth = option.depth
+			}
+		}
+		var best []field
+		for _, option := range options {
+			if option.depth == depth {
+				best = append(best, option)
+			}
+		}
+		var tagged []field
+		for _, option := range best {
+			if option.tagged {
+				tagged = append(tagged, option)
+			}
+		}
+		if len(tagged) != 0 {
+			best = tagged
+		}
+		if len(best) == 1 {
+			fields[name] = best[0].typ
+		}
+	}
+	return fields
+}
+
+func canonicalMutationFields(value any, destination reflect.Type) error {
+	for destination.Kind() == reflect.Pointer {
+		destination = destination.Elem()
+	}
+	if value == nil {
+		return nil
+	}
+	switch destination.Kind() {
+	case reflect.Struct:
+		object, ok := value.(map[string]any)
+		if !ok {
+			return nil
+		} // The destination decoder owns type validation.
+		fields := mutationFields(destination)
+		for name, child := range object {
+			typ, exists := fields[name]
+			if !exists {
+				return ErrDenied
+			}
+			if err := canonicalMutationFields(child, typ); err != nil {
+				return err
+			}
+		}
+	case reflect.Map:
+		if object, ok := value.(map[string]any); ok {
+			for _, child := range object {
+				if err := canonicalMutationFields(child, destination.Elem()); err != nil {
+					return err
+				}
+			}
+		}
+	case reflect.Slice, reflect.Array:
+		if array, ok := value.([]any); ok {
+			for _, child := range array {
+				if err := canonicalMutationFields(child, destination.Elem()); err != nil {
+					return err
+				}
+			}
+		}
+	}
 	return nil
 }
 

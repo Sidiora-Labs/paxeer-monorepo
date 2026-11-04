@@ -1,0 +1,7 @@
+[repair.22.33.881]
+audit = "22.30.183"
+f034 = "TestRepairM_881_F034InvalidThroughput"
+f033 = "TestRepairM_881_F033CanonicalIndexComparison; TestRepairM_881_F033LaterPageError"
+baseline = "Not run: the task's explicit gate order forbids testing before complete implementation and requires verification only through hf-done after hf-build; no baseline failure is claimed."
+evidence = "The final hf-done JSON receipt records the verified candidate revision, command, exit code and private log location."
+wiring_requests = "None; both repairs are contained in tools/tx-scanner/cmd."

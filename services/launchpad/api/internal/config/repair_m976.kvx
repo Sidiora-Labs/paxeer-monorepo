@@ -1,0 +1,8 @@
+[repair.22.33.976]
+finding = "configuration-secret-errors"
+implementation = "URL validation errors identify only the environment variable and validation rule; parser errors and raw DSNs are not propagated."
+tests = ["TestRepairM_976_CredentialedURLErrors", "TestRepairM_976_JoinedCredentialErrors", "TestRepairM_976_ValidCredentialedURLs"]
+path = "Environment -> config.Load -> app.Run -> standard startup log formatting; malformed credentials require no external services."
+baseline = "Not run: the explicit task order requires complete implementation before hf-build and hf-done and forbids running verify_cmd by hand. No pre-change test failure is claimed."
+wiring = "None; the repair is entirely inside the config package."
+evidence = "The runner's hf-build and hf-done ledger records the exact qualified candidate revision, command, exit code and private log path."

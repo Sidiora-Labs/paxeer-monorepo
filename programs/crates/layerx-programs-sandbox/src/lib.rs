@@ -1,6 +1,7 @@
 //! Protocol-state models for bounded, ephemeral program sandboxes.
 
 #![deny(unsafe_code)]
+#![doc = include_str!("programs_contract.md")]
 
 pub mod activity;
 pub mod chain_keys;

@@ -24,6 +24,7 @@ import (
 )
 
 type phase2Environment struct {
+	setupSchema string
 	store       *Store
 	identity    *PostgresIdentity
 	credentials map[string]string
@@ -33,6 +34,7 @@ type phase2Environment struct {
 
 func phase2EnvironmentFor(t *testing.T) *phase2Environment {
 	t.Helper()
+	ensureControlFixtures(t)
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, fixtureDSN)
 	must(t, err)
@@ -47,6 +49,7 @@ func phase2EnvironmentFor(t *testing.T) *phase2Environment {
 	store, err := New(pool, schema, identity, nil)
 	must(t, err)
 	must(t, store.Install(ctx))
+	store.replay = repairM1020ReplayProvider(t, nil)
 	t.Cleanup(func() {
 		_, _ = pool.Exec(context.Background(), "DROP SCHEMA "+pgx.Identifier{schema}.Sanitize()+" CASCADE")
 		pool.Close()
@@ -67,7 +70,7 @@ func phase2EnvironmentFor(t *testing.T) *phase2Environment {
 	_, err = tx.Exec(ctx, strings.Replace(string(migrationBytes), `SET LOCAL search_path = "users", pg_catalog;`, `SET LOCAL search_path = `+pgx.Identifier{schema}.Sanitize()+`, pg_catalog;`, 1))
 	must(t, err)
 	must(t, tx.Commit(ctx))
-	env := &phase2Environment{store: store, identity: identity, credentials: map[string]string{}, actors: map[string]string{}}
+	env := &phase2Environment{setupSchema: schema, store: store, identity: identity, credentials: map[string]string{}, actors: map[string]string{}}
 	for _, role := range []string{"infrastructure", "operator2", "finance", "moderator", "support", "user"} {
 		token := strings.ReplaceAll(id()+id(), "-", "")
 		actor := id()
@@ -510,4 +513,198 @@ func TestPhase3PayoutConnectionLossCannotConfirmSettlement(t *testing.T) {
 	e := phase2EnvironmentFor(t)
 	_, err = NewSettlementWorker(e.store, provider)
 	is(t, err, Unavailable)
+}
+
+// phase2ProductionEnvironmentFor keeps setup on its owner connection, installs
+// the actual control migrations and gives NewRuntime separate non-owner logins.
+// The owner-view inputs are committed fixture rows, including real operator MFA
+// sessions. This native integration proof is separate from the local repair gate.
+func phase2ProductionEnvironmentFor(t *testing.T) (*phase2Environment, *Runtime, *pgxpool.Pool) {
+	t.Helper()
+	e := phase2EnvironmentFor(t)
+	ctx := context.Background()
+	admin := e.store.pool
+	controlSchema := "l47_prod_" + strings.ReplaceAll(id(), "-", "")[:12]
+	control := pgx.Identifier{controlSchema}.Sanitize()
+	root, err := filepath.Abs("../../../..")
+	must(t, err)
+	if configured := os.Getenv("L47_SOURCE_ROOT"); configured != "" {
+		root = configured
+	}
+	for _, number := range []string{"470000", "470001"} {
+		raw, err := os.ReadFile(filepath.Join(root, "launchpad/spec/production-system/integration/migrations", number+".sql"))
+		must(t, err)
+		if number == "470001" {
+			_, err = admin.Exec(ctx, "CREATE VIEW "+e.store.schema+".identity_sessions_v2 AS SELECT * FROM "+e.store.schema+".identity_sessions; CREATE VIEW "+e.store.schema+".identity_accounts_v2 AS SELECT * FROM "+e.store.schema+".identity_accounts; CREATE VIEW "+e.store.schema+".identity_wallet_links_v2 AS SELECT * FROM "+e.store.schema+".identity_wallet_links; CREATE TABLE "+e.store.schema+".operator_sessions_v2(session_id text PRIMARY KEY,actor text NOT NULL,audience text NOT NULL,issued_at timestamptz NOT NULL,expires_at timestamptz NOT NULL,mfa_expires_at timestamptz NOT NULL,revoked boolean NOT NULL)")
+			must(t, err)
+		}
+		query := strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(string(raw), `"pnl"`, control), "pnl.", control+"."), "users.", e.store.schema+".")
+		query = strings.ReplaceAll(query, "security.", e.store.schema+".")
+		tx, err := admin.Begin(ctx)
+		must(t, err)
+		_, err = tx.Exec(ctx, query)
+		must(t, err)
+		must(t, tx.Commit(ctx))
+	}
+	t.Cleanup(func() {
+		_, err := admin.Exec(context.Background(), "DROP SCHEMA "+control+" CASCADE")
+		if err != nil {
+			t.Error(err)
+		}
+	})
+	_, err = admin.Exec(ctx, "INSERT INTO "+control+".authority_credentials SELECT * FROM "+e.store.schema+".authority_credentials")
+	must(t, err)
+	for role, token := range e.credentials {
+		if role == "user" {
+			continue
+		}
+		hash := sha256.Sum256([]byte(token))
+		session := id()
+		_, err = admin.Exec(ctx, "UPDATE "+control+".authority_credentials SET session_id=$1 WHERE token_hash=$2", session, hash[:])
+		must(t, err)
+		_, err = admin.Exec(ctx, "INSERT INTO "+e.store.schema+".operator_sessions_v2 VALUES($1,$2,'control',clock_timestamp(),clock_timestamp()+interval '14 minutes',clock_timestamp()+interval '4 minutes',false)", session, e.actors[role])
+		must(t, err)
+	}
+	passwords := map[string]string{}
+	for _, role := range []string{"control_runtime", "identity_runtime"} {
+		password := readySecret(t)
+		passwords[role] = password
+		quoted := pgx.Identifier{role}.Sanitize()
+		_, err = admin.Exec(ctx, "CREATE ROLE "+quoted+" LOGIN PASSWORD '"+password+"' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS")
+		must(t, err)
+		t.Cleanup(func() {
+			_, err := admin.Exec(context.Background(), "DROP OWNED BY "+quoted+"; DROP ROLE "+quoted)
+			if err != nil {
+				t.Error(err)
+			}
+		})
+		_, err = admin.Exec(ctx, "GRANT USAGE ON SCHEMA "+control+" TO "+quoted)
+		must(t, err)
+	}
+	raw, err := os.ReadFile(filepath.Join(root, "launchpad/spec/production-system/integration/migrations/grants.json"))
+	must(t, err)
+	// Apply the manifest's actual control tables, owner views and audit
+	// sequence. The stale objects_seq_seq row has no 470000 producer; its
+	// correction is an explicit owning-domain wiring request in the record.
+	var entries map[string]json.RawMessage
+	must(t, json.Unmarshal(raw, &entries))
+	var roleRows []struct {
+		RuntimeRole string `json:"runtime_role"`
+		Grants      []struct {
+			Schema              string `json:"schema"`
+			Object              string `json:"object"`
+			ObjectKind          string `json:"object_kind"`
+			Privileges, Columns []string
+		} `json:"grants"`
+	}
+	must(t, json.Unmarshal(entries["roles"], &roleRows))
+	for _, role := range roleRows {
+		if _, ok := passwords[role.RuntimeRole]; !ok {
+			continue
+		}
+		for _, grant := range role.Grants {
+			if grant.Schema != "pnl" || (grant.ObjectKind != "table" && grant.ObjectKind != "view" && grant.Object != "audit_seq_seq") {
+				continue
+			}
+			privileges := strings.Join(grant.Privileges, ",")
+			if len(grant.Columns) > 0 {
+				columns := []string{}
+				for _, column := range grant.Columns {
+					columns = append(columns, pgx.Identifier{column}.Sanitize())
+				}
+				privileges += " (" + strings.Join(columns, ",") + ")"
+			}
+			on := "TABLE "
+			if grant.ObjectKind == "sequence" {
+				on = "SEQUENCE "
+			}
+			_, err = admin.Exec(ctx, "GRANT "+privileges+" ON "+on+control+"."+pgx.Identifier{grant.Object}.Sanitize()+" TO "+pgx.Identifier{role.RuntimeRole}.Sanitize())
+			must(t, err)
+		}
+	}
+	controlPool := readyPool(t, ctx, "control_runtime", passwords["control_runtime"])
+	identityPool := readyPool(t, ctx, "identity_runtime", passwords["identity_runtime"])
+	runtime, err := NewRuntime(RuntimeConfig{ControlPool: controlPool, IdentityPool: identityPool, ControlSchema: controlSchema, AuthoritySchema: controlSchema, Observe: func(string, error) {}})
+	must(t, err)
+	must(t, runtime.Ready(ctx))
+	e.server.Close()
+	e.store = runtime.Store
+	e.identity = runtime.Identity
+	e.server = httptest.NewServer(runtime.Handler())
+	t.Cleanup(e.server.Close)
+	return e, runtime, admin
+}
+
+func TestPhase3ProductionRolesDetectRecoverAndRestart(t *testing.T) {
+	e, runtime, admin := phase2ProductionEnvironmentFor(t)
+	ctx := context.Background()
+	original := e.credentials["finance"]
+	status, raw := e.post(t, "infrastructure", "incidents", IncidentRequest{Scope: "service", Key: "production-recovery", Reason: "authenticated compromise detection", Identity: e.actors["finance"], Evidence: "retained detection"})
+	if status != 200 {
+		t.Fatalf("detection %d %s", status, raw)
+	}
+	is(t, e.store.Access(ctx, original, "platform", "quarantined", "finance_liabilities", "", false), Denied)
+	payload := map[string]string{"incident": "production-recovery", "rotation": "rotation.production-recovery", "integrity": "integrity.production-recovery"}
+	action, err := e.store.Propose(ctx, e.credentials["infrastructure"], "production-approval", "incident_recovery", "service", "review owner proof", digest(payload), time.Now().Add(time.Hour))
+	must(t, err)
+	_, err = e.store.Transition(ctx, e.credentials["operator2"], "production-approval", "service", "independent approval", "approved", action.Revision)
+	must(t, err)
+	endpoint := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var request struct{ Incident, Identity string }
+		must(t, json.NewDecoder(r.Body).Decode(&request))
+		must(t, json.NewEncoder(w).Encode(RevocationAcknowledgement{request.Incident, request.Identity, payload["rotation"], payload["integrity"], true, true}))
+	}))
+	defer endpoint.Close()
+	provider, err := NewRevocationProvider(endpoint.URL, strings.Repeat("v", 32), repairM1020Transport(endpoint))
+	must(t, err)
+	must(t, (IncidentWorker{Store: e.store, Identity: e.identity, Revocation: provider, Credential: e.credentials["infrastructure"], Observe: func(string, error) {}}).Drain(ctx))
+	_, err = e.identity.Resolve(ctx, original)
+	is(t, err, Denied)
+	replacement := readySecret(t)
+	hash := sha256.Sum256([]byte(replacement))
+	session := id()
+	// Rotation is performed only on the setup/owner connection. The runtime
+	// roles are unable to issue credentials or change operator sessions.
+	identitySchema := strings.Trim(runtime.config.ControlSchema, "\"")
+	operatorSchema := e.setupSchema
+	_, err = admin.Exec(ctx, "INSERT INTO "+pgx.Identifier{operatorSchema}.Sanitize()+".operator_sessions_v2 VALUES($1,$2,'control',clock_timestamp(),clock_timestamp()+interval '14 minutes',clock_timestamp()+interval '4 minutes',false)", session, e.actors["finance"])
+	must(t, err)
+	_, err = admin.Exec(ctx, "INSERT INTO "+e.store.schema+".authority_credentials(credential_id,actor_id,role,scopes,token_hash,session_id,expires_at) VALUES($1,$2,'finance',$3,$4,$5,clock_timestamp()+interval '14 minutes')", id(), e.actors["finance"], []string{"platform", "service"}, hash[:], session)
+	must(t, err)
+	is(t, e.store.Access(ctx, replacement, "platform", "rotation alone is insufficient", "finance_liabilities", "", false), Denied)
+	revision := uint64(1)
+	request := IncidentRecoveryRequest{TransitionRequest: TransitionRequest{Key: "production-recovery", Scope: "service", Reason: "verified recovery", Expected: &revision}, ApprovalKey: "production-approval", Rotation: payload["rotation"], Integrity: payload["integrity"]}
+	status, raw = e.post(t, "infrastructure", "recover-incident", request)
+	if status != 200 {
+		t.Fatalf("recovery %d %s", status, raw)
+	}
+	// Close both runtime connections, reauthenticate and construct NewRuntime
+	// again from the same migrated database and production-shaped credentials.
+	controlConfig := runtime.config.ControlPool.Config()
+	identityConfig := runtime.config.IdentityPool.Config()
+	runtime.config.ControlPool.Close()
+	runtime.config.IdentityPool.Close()
+	controlPool, err := pgxpool.NewWithConfig(ctx, controlConfig)
+	must(t, err)
+	defer controlPool.Close()
+	identityPool, err := pgxpool.NewWithConfig(ctx, identityConfig)
+	must(t, err)
+	defer identityPool.Close()
+	runtime, err = NewRuntime(RuntimeConfig{ControlPool: controlPool, IdentityPool: identityPool, ControlSchema: identitySchema, AuthoritySchema: identitySchema, Observe: func(string, error) {}})
+	must(t, err)
+	must(t, runtime.Ready(ctx))
+	must(t, runtime.Store.Access(ctx, replacement, "platform", "restored after restart", "finance_liabilities", "", false))
+	_, err = runtime.Identity.Resolve(ctx, original)
+	is(t, err, Denied)
+	for _, statement := range []string{"DELETE FROM " + e.store.schema + ".objects", "UPDATE " + e.store.schema + ".objects SET id='forbidden'", "UPDATE " + e.store.schema + ".authority_credentials SET role='infrastructure'", "INSERT INTO " + e.store.schema + ".authority_credentials(credential_id) VALUES('00000000-0000-4000-8000-000000000099')"} {
+		_, err = controlPool.Exec(ctx, statement)
+		if err == nil {
+			t.Fatal("unrelated runtime write admitted", statement)
+		}
+	}
+	_, err = identityPool.Exec(ctx, "UPDATE "+e.store.schema+".objects SET body='{}'")
+	if err == nil {
+		t.Fatal("identity role changed control state")
+	}
+	is(t, runtime.Store.Access(ctx, e.credentials["support"], "platform", "unrelated scope denial", "finance_liabilities", "", false), Denied)
 }

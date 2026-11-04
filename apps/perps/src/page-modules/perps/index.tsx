@@ -44,10 +44,40 @@ const PerpsPositionsPanel = dynamic(
 );
 
 export function tradingMarket<T extends MarketCatalogEntry>(
-  symbol: string,
+  symbol: string | string[] | undefined,
   catalog: readonly T[],
 ): T | undefined {
+  if (symbol === undefined) {
+    return catalog.find((market) => market.symbol === "PAX" && market.enabled)
+      ?? catalog.find((market) => market.enabled);
+  }
+  if (typeof symbol !== "string") return undefined;
   return catalog.find((market) => market.symbol === symbol.toUpperCase() && market.enabled);
+}
+
+export function UnavailablePerpsMarket() {
+  const { tradeable } = usePerpsMarkets();
+
+  return (
+    <section className="p-4 space-y-4">
+      <div role="alert">The selected market is unavailable.</div>
+      {tradeable.length === 0 ? (
+        <div role="status">No markets are currently available to trade.</div>
+      ) : (
+        <nav aria-label="Select an available market" className="flex flex-wrap gap-2">
+          {tradeable.map((market) => (
+            <a
+              key={market.marketId}
+              href={`/perps?market=${encodeURIComponent(market.symbol)}`}
+              className="rounded px-3 py-2 bg-surface-1 hover:bg-muted/30"
+            >
+              {market.symbol}/USD
+            </a>
+          ))}
+        </nav>
+      )}
+    </section>
+  );
 }
 
 const WATCHLIST_MIN = 160;
@@ -111,7 +141,7 @@ export default function TradingInterface() {
   const { presets, activePreset, activeId, applyPreset } = useLayoutPresets();
   const [layoutMenuOpen, setLayoutMenuOpen] = useState(false);
 
-  const selectedSymbol = typeof router.query.market === "string" ? router.query.market.toUpperCase() : "PAX";
+  const selectedSymbol = router.query.market;
   const selectedMarket = useMemo(
     () =>
       tradingMarket(selectedSymbol, tradeable),
@@ -197,7 +227,7 @@ export default function TradingInterface() {
   if (isLoading) return <div role="status">Loading markets…</div>;
   if (error) return <div role="alert">Unable to load markets: {error.message}</div>;
   if (!selectedMarket) {
-    return <div role="alert">The selected market is unavailable.</div>;
+    return <UnavailablePerpsMarket />;
   }
 
   // ═══════════════════ MOBILE ═══════════════════
