@@ -7,7 +7,8 @@
     "start": "node index.mjs"
   },
   "dependencies": {
-    "@sidiora/layerx-express": "0.1.0",
+    "@sidiora/layerx-express": "file:..",
+    "@sidiora/layerx-seller-middleware": "file:../../../../services/platform/middleware/seller",
     "express": "5.2.1"
   },
   "engines": {
