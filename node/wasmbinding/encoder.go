@@ -1,10 +1,12 @@
 package wasmbinding
 
 import (
+	"bytes"
 	"encoding/json"
 
 	evmwasm "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/client/wasm"
 	tokenfactorywasm "github.com/Sidiora-Labs/Paxeer-X-Network/modules/tokenfactory/client/wasm"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/node/wasmbinding/bindings"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	wasmvmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/wasm-runtime/types"
@@ -26,6 +28,23 @@ func CustomEncoder(sender sdk.AccAddress, msg json.RawMessage, info wasmvmtypes.
 	var parsedMessage PaxWasmMessage
 	if err := json.Unmarshal(msg, &parsedMessage); err != nil {
 		return []sdk.Msg{}, sdkerrors.Wrap(err, "Error parsing Pax Wasm Message")
+	}
+	variants := 0
+	for _, variant := range []*json.RawMessage{
+		&parsedMessage.CreateDenom, &parsedMessage.MintTokens,
+		&parsedMessage.BurnTokens, &parsedMessage.ChangeAdmin,
+		&parsedMessage.SetMetadata, &parsedMessage.SetDenomPaused,
+		&parsedMessage.CallEVM, &parsedMessage.DelegateCallEVM,
+	} {
+		if bytes.Equal(bytes.TrimSpace(*variant), []byte("null")) {
+			*variant = nil
+		}
+		if *variant != nil {
+			variants++
+		}
+	}
+	if variants > 1 {
+		return []sdk.Msg{}, bindings.ErrParsingPaxWasmMsg.Wrap("expected exactly one message variant")
 	}
 	switch {
 	case parsedMessage.CreateDenom != nil:
