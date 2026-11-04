@@ -1,0 +1,367 @@
+{
+  "provenance": {
+    "market": {
+      "pool": "0xce20da50f92d21d8bee497910c782e9aa25b6263",
+      "producers": "core/stats-workers RecordMarketPublicationTx (market.trades via api_stream.append_market_trade) and PublicStatsProjector.RefreshOnce (market.stats/market.price via append_market_stats/append_market_price) over core/stats-workers/internal/projectionstats/testdata/real_pool_125.json (real Paxeer chain-125 receipts), plus the production test's follow-on buy 25h later",
+      "servers": "core/api production handlers: rest.RegisterProductionReads (GET /v2/snapshots, GET /v2/pools/{p}/stats), ws.Hub.HandleV2 (WS /v2/stream), rest.RegisterAccountingV2WithAdmission (GET /v2/pools/{p}/trades, /candles)",
+      "recordedWith": "go test -overlay (scratch test files, no source changes) against the container-free Postgres fixture; see agent report",
+      "candleAggregate": "chart_exact 1m row aggregated from the two committed fills; every price re-derived and checked by core/api canonicalPrice",
+      "interfaceVersion": "2.2.0",
+      "rerecorded": "2.2.0 re-record of snapshot, stats, subscribe, replayFrames and liveFrames: the same two go test -overlay scratch recorders (projectionstats TestWebDumpProductionMarketFrames -> core/api rest TestWebDumpProductionStreamWire, no source changes) re-run against the kindle-bootstrap-local Postgres after the 2.2.0 PublicStatsProjector change; the market.stats payloads now carry the 2.2.0 fields. trades, tradesFirstPage, candles and heartbeat are the previous recording unchanged (their producers did not change)."
+    },
+    "poolReads": {
+      "servers": "core/api production handlers rest.RegisterProductionReads: GET /v2/rankings/{category} (projectionRankings), POST /v2/pools/stats:batch (projectionStatsBatch), GET /v2/pools/{p} (poolDetail), GET /v2/pools (poolList), GET /v2/platform/metrics (platformMetricsV2)",
+      "state": "container-free Postgres/Redis fixture of core/api/internal/rest (productionReadsFixture + migrations 80001/80002/100000/130000): registry rows via insertRegistryPool/insertPoolState/insertQualifiedFill, ranking frames via appendRankingFrame. The real chain-125 pool 0xce20da50f92d21d8bee497910c782e9aa25b6263 (token 0x0f92fdd087c96dd3413ef98646b94d0d986192fa, core/stats-workers projectionstats testdata/real_pool_125.json) carries the interface 2.2.0 PublicStatsProjector market.stats payload (core/stats-workers projectionstats production projector over testdata/real_pool_125.json; watermark observedAt kept from the payload recorded above in `stats`, which predates 2.2.0); 0x1111111111111111111111111111111111111111 carries the frozen IF_STATS example stats; 0x5555555555555555555555555555555555555555 has a registry row but no reserves or stats projection. Redis platform:metrics holds the stats-workers platform aggregate shape (totalMarketCap 10098226981 = the real pool total-supply valuation and newTokens24h 1, as TestCanonicalLegacyBridgeReplaysRealPaxeerPool derives from the same receipts).",
+      "recordedWith": "go test -overlay (one scratch _test.go in package rest_test, no source changes) TestRecordV2LegacyMigrationWire against CORE_API_TEST_POSTGRES_URL / CORE_API_TEST_REDIS_URL (kindle-bootstrap-local stack)",
+      "interfaceVersion": "2.2.0",
+      "rerecorded": "2.2.0 re-record: responses whose bytes changed (platform24h, poolDetailReal, statsBatch, statsBatchReal) keep their previous requestId/X-Request-ID/generatedAt values; every other response is the previous recording unchanged."
+    },
+    "quote": "Committed ABI read vectors for precompiles/launchpad/views.go and pool.go using modules/launchpad/types/params.go defaults and keeper/market.go initial pool state; two block snapshots include a funded buy. These vectors qualify the SDK boundary, not execution of chain transactions.",
+    "quoteSource": "sdk/launchpad/shared/config/capabilities/testdata/repair38-rpc.json: epochs.historical.pool and snapshots[0].quote; encoded with viem using the production quoteExactInput ABI. The fixed mined header is a loopback boundary fixture, not a live-chain execution claim."
+  },
+  "snapshot": {
+    "data": {
+      "snapshot": {
+        "generatedAt": "2026-10-13T09:45:51.205Z",
+        "resumeCursor": "eyJmb3JtYXRWZXJzaW9uIjoxLCJzY29wZSI6eyJjaGFpbiI6IjEyNSIsInN1YmplY3QiOiJhbm9ueW1vdXMiLCJzZXNzaW9uSWQiOiJwdWJsaWMiLCJwZXJtaXNzaW9uRXBvY2giOiIwIiwicHJvamVjdGlvbkVwb2NoIjoiMmJhMmMwMTItZjJlNi00MzllLWE0YWYtYTcwMmZiMDY3MzZlIiwic2NoZW1hTWFqb3IiOjIsImZpbHRlckhhc2giOiJiM2E3M2U0MGI2NmJlNmU4NDg3ZTM2NmJlMDI4NTVhNTczNDdjODk0MTk0ZTdmZWFkM2MyYmUxMGVjZWE0NjhjIiwic25hcHNob3RJZCI6IjRlNzE5YTZkLWNjODEtNGUwOC1iOWI0LWNkYWY4MjJjOTJmMyJ9LCJvZmZzZXRzIjp7IjEiOiIyIiwiMyI6IjEiLCI0IjoiMSJ9LCJpc3N1ZWRBdCI6MTc5MTg4NDc1MSwiZXhwaXJlc0F0IjoxNzkyMTQzOTUxfQ.h1jyUURN0g6QC7nl0yLieRzlbdaXcNXgJGkrwmO0P9U",
+        "snapshotId": "4e719a6d-cc81-4e08-b9b4-cdaf822c92f3",
+        "topics": [
+          {
+            "payload": {
+              "source": {
+                "kind": "gross_execution",
+                "position": {
+                  "height": "33963749",
+                  "chainId": "125",
+                  "logIndex": "2",
+                  "blockHash": "0x1cd6b450aa87745be16a8760a928a2e7ddd1097e872bdcd99b31ff66f77c2945",
+                  "transactionHash": "0xf5f9ed1136e71f03ffd44ae7f80ee192998b80fccd96ad3f75824fa9ef3c2845",
+                  "transactionIndex": "0"
+                },
+                "observedAt": "2026-10-13T07:12:36.000Z",
+                "providerId": null,
+                "amountBasis": "paid_input",
+                "sourceEventId": "125:0xf5f9ed1136e71f03ffd44ae7f80ee192998b80fccd96ad3f75824fa9ef3c2845:2",
+                "sourceReference": null
+              },
+              "baseAsset": {
+                "kind": "erc20",
+                "address": "0x0f92fdd087c96dd3413ef98646b94d0d986192fa",
+                "chainId": "125",
+                "decimals": 6,
+                "currencyCode": null
+              },
+              "numerator": "2954932",
+              "quoteAsset": {
+                "kind": "erc20",
+                "address": "0x85fcd13735f4309833a503ee804ea32395851479",
+                "chainId": "125",
+                "decimals": 6,
+                "currencyCode": null
+              },
+              "denominator": "300212934535"
+            },
+            "revision": "2",
+            "sequence": "1",
+            "topic": "market.price.0xce20da50f92d21d8bee497910c782e9aa25b6263",
+            "watermark": {
+              "height": "33963749",
+              "chainId": "125",
+              "blockHash": "0x1cd6b450aa87745be16a8760a928a2e7ddd1097e872bdcd99b31ff66f77c2945",
+              "integrity": "healthy",
+              "observedAt": "2026-10-13T09:45:17.376Z",
+              "projectionRevision": "2"
+            }
+          },
+          {
+            "payload": {
+              "buys24h": "1",
+              "sells24h": "1",
+              "watermark": {
+                "height": "33963749",
+                "chainId": "125",
+                "blockHash": "0x1cd6b450aa87745be16a8760a928a2e7ddd1097e872bdcd99b31ff66f77c2945",
+                "integrity": "healthy",
+                "observedAt": "2026-10-13T09:45:17.376Z",
+                "projectionRevision": "1"
+              },
+              "windowEnd": "2026-10-13T07:12:37.000Z",
+              "txCount24h": "2",
+              "holderCount": "2",
+              "poolAddress": "0xce20da50f92d21d8bee497910c782e9aa25b6263",
+              "windowStart": "2026-10-12T07:12:37.000Z",
+              "spotPriceWad": "10098226981692",
+              "volume24hRaw": "147278912",
+              "totalSupplyRaw": "1000000000000000",
+              "valuationMethod": null,
+              "circulationModel": "supply_minus_pool_reserve_v1",
+              "priceChangeBps1h": null,
+              "priceChangeBps5m": null,
+              "priceChangeBps6h": null,
+              "spotPriceUsdlRaw": "10",
+              "uniqueTraders24h": "1",
+              "priceChangeBps24h": null,
+              "realUsdlBalanceRaw": "49721088",
+              "sourceUpperPosition": {
+                "height": "33963749",
+                "chainId": "125",
+                "logIndex": "2",
+                "blockHash": "0x1cd6b450aa87745be16a8760a928a2e7ddd1097e872bdcd99b31ff66f77c2945",
+                "transactionHash": "0xf5f9ed1136e71f03ffd44ae7f80ee192998b80fccd96ad3f75824fa9ef3c2845",
+                "transactionIndex": "0"
+              },
+              "top10HolderShareBps": 10000,
+              "circulatingSupplyRaw": "4803406952560",
+              "indicativeTvlUsdlRaw": null,
+              "changeBaselineQuality": "insufficient_history",
+              "creatorHoldingShareBps": 10000,
+              "supplyValuationQuality": "verified",
+              "valuationChangeUsdlRaw": null,
+              "changeBaselineQuality1h": "insufficient_history",
+              "changeBaselineQuality5m": "insufficient_history",
+              "changeBaselineQuality6h": "insufficient_history",
+              "circulatingMarketCapUsdlRaw": "48505893",
+              "totalSupplyValuationUsdlRaw": "10098226981"
+            },
+            "revision": "1",
+            "sequence": "1",
+            "topic": "market.stats.0xce20da50f92d21d8bee497910c782e9aa25b6263",
+            "watermark": {
+              "height": "33963749",
+              "chainId": "125",
+              "blockHash": "0x1cd6b450aa87745be16a8760a928a2e7ddd1097e872bdcd99b31ff66f77c2945",
+              "integrity": "healthy",
+              "observedAt": "2026-10-13T09:45:17.376Z",
+              "projectionRevision": "1"
+            }
+          },
+          {
+            "payload": {
+              "side": "sell",
+              "feeRaw": "144102208576",
+              "sender": "0x1dae78b53c9f39930a2ff2b6b7aac12ec75fb154",
+              "eventId": "47f8bdfc0cd9e1338b40bd87ecc1df50c262aba35c98f060303ef7867677ffbf",
+              "position": {
+                "height": "33963749",
+                "chainId": "125",
+                "logIndex": "2",
+                "blockHash": "0x1cd6b450aa87745be16a8760a928a2e7ddd1097e872bdcd99b31ff66f77c2945",
+                "transactionHash": "0xf5f9ed1136e71f03ffd44ae7f80ee192998b80fccd96ad3f75824fa9ef3c2845",
+                "transactionIndex": "0"
+              },
+              "codeEpoch": "event-emitter-1",
+              "recipient": null,
+              "poolAddress": "0xce20da50f92d21d8bee497910c782e9aa25b6263",
+              "paidInputRaw": "4803406952560",
+              "usdlAmountRaw": "47278912",
+              "feeDisposition": "retained_token_reserve",
+              "pricedInputRaw": null,
+              "tokenAmountRaw": "4803406952560",
+              "feeAssetAddress": "0x0f92fdd087c96dd3413ef98646b94d0d986192fa",
+              "emittingContract": "0x622e1bb90e0e2b6e6e5e9e2dbe1555389e8a3ef6",
+              "feeAssetDecimals": 6,
+              "ammInputAfterFeeRaw": null,
+              "recipientAttribution": "unavailable",
+              "recipientEvidenceRefs": [],
+              "inputDerivationQuality": "receipt_incomplete"
+            },
+            "revision": "2",
+            "sequence": "2",
+            "topic": "market.trades.0xce20da50f92d21d8bee497910c782e9aa25b6263",
+            "watermark": {
+              "height": "33963749",
+              "chainId": "125",
+              "blockHash": "0x1cd6b450aa87745be16a8760a928a2e7ddd1097e872bdcd99b31ff66f77c2945",
+              "integrity": "healthy",
+              "observedAt": "2026-10-13T09:45:17.317Z",
+              "projectionRevision": "2"
+            }
+          }
+        ]
+      }
+    },
+    "generatedAt": "2026-10-13T09:45:51.363Z",
+    "nextCursor": null,
+    "quality": "partial",
+    "requestId": "21a011cb-0a3c-49b9-b96f-f6b07b378d55",
+    "revision": null,
+    "watermark": null
+  },
+  "poolList": {
+    "data": {
+      "items": [
+        {
+          "chainId": "125",
+          "createdAt": "2025-10-09T08:53:20.000Z",
+          "createdPosition": {
+            "blockHash": "0xcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+            "chainId": "125",
+            "height": "14",
+            "logIndex": "14",
+            "transactionHash": "0xcececececececececececececececececececececececececececececececece",
+            "transactionIndex": "3"
+          },
+          "creator": "0xa1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0",
+          "effectivePricingUsdlReserveRaw": "1250000000",
+          "feeBps": 100,
+          "poolAddress": "0xce20da50f92d21d8bee497910c782e9aa25b6263",
+          "quoteAssetAddress": "0x85fcd13735f4309833a503ee804ea32395851479",
+          "quoteAssetDecimals": 6,
+          "realUsdlBalanceRaw": "250000000",
+          "tokenAddress": "0x0f92fdd087c96dd3413ef98646b94d0d986192fa",
+          "tokenReserveRaw": "800000000000000000000000000",
+          "virtualUsdlReserveRaw": "1000000000"
+        },
+        {
+          "chainId": "125",
+          "createdAt": "2025-10-09T08:53:20.000Z",
+          "createdPosition": {
+            "blockHash": "0xcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+            "chainId": "125",
+            "height": "11",
+            "logIndex": "11",
+            "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+            "transactionIndex": "3"
+          },
+          "creator": "0xa1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0",
+          "effectivePricingUsdlReserveRaw": "1250000000",
+          "feeBps": 100,
+          "poolAddress": "0x1111111111111111111111111111111111111111",
+          "quoteAssetAddress": "0x85fcd13735f4309833a503ee804ea32395851479",
+          "quoteAssetDecimals": 6,
+          "realUsdlBalanceRaw": "250000000",
+          "tokenAddress": "0x3333333333333333333333333333333333333333",
+          "tokenReserveRaw": "800000000000000000000000000",
+          "virtualUsdlReserveRaw": "1000000000"
+        }
+      ]
+    },
+    "generatedAt": "2026-10-12T00:00:00.000Z",
+    "nextCursor": null,
+    "quality": "partial",
+    "requestId": "418994d9-3efe-4b1e-a8f4-6c23ca5aa2af",
+    "revision": "1",
+    "watermark": {
+      "chainId": "125",
+      "height": "1",
+      "blockHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+      "projectionRevision": "1",
+      "observedAt": "2026-10-09T00:00:00.000Z",
+      "integrity": "healthy"
+    }
+  },
+  "poolDetail": {
+    "data": {
+      "pool": {
+        "chainId": "125",
+        "createdAt": "2025-10-09T08:53:20.000Z",
+        "createdPosition": {
+          "blockHash": "0xcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+          "chainId": "125",
+          "height": "14",
+          "logIndex": "14",
+          "transactionHash": "0xcececececececececececececececececececececececececececececececece",
+          "transactionIndex": "3"
+        },
+        "creator": "0xa1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0",
+        "effectivePricingUsdlReserveRaw": "1250000000",
+        "feeBps": 100,
+        "poolAddress": "0xce20da50f92d21d8bee497910c782e9aa25b6263",
+        "quoteAssetAddress": "0x85fcd13735f4309833a503ee804ea32395851479",
+        "quoteAssetDecimals": 6,
+        "realUsdlBalanceRaw": "250000000",
+        "tokenAddress": "0x0f92fdd087c96dd3413ef98646b94d0d986192fa",
+        "tokenReserveRaw": "800000000000000000000000000",
+        "virtualUsdlReserveRaw": "1000000000"
+      },
+      "stats": {
+        "buys24h": "1",
+        "sells24h": "1",
+        "watermark": {
+          "height": "33963749",
+          "chainId": "125",
+          "blockHash": "0x1cd6b450aa87745be16a8760a928a2e7ddd1097e872bdcd99b31ff66f77c2945",
+          "integrity": "healthy",
+          "observedAt": "2026-10-13T08:17:31.628Z",
+          "projectionRevision": "1"
+        },
+        "windowEnd": "2026-10-13T07:12:37.000Z",
+        "txCount24h": "2",
+        "holderCount": "2",
+        "poolAddress": "0xce20da50f92d21d8bee497910c782e9aa25b6263",
+        "windowStart": "2026-10-12T07:12:37.000Z",
+        "spotPriceWad": "10098226981692",
+        "volume24hRaw": "147278912",
+        "totalSupplyRaw": "1000000000000000",
+        "valuationMethod": null,
+        "circulationModel": "supply_minus_pool_reserve_v1",
+        "priceChangeBps1h": null,
+        "priceChangeBps5m": null,
+        "priceChangeBps6h": null,
+        "spotPriceUsdlRaw": "10",
+        "uniqueTraders24h": "1",
+        "priceChangeBps24h": null,
+        "realUsdlBalanceRaw": "49721088",
+        "sourceUpperPosition": {
+          "height": "33963749",
+          "chainId": "125",
+          "logIndex": "2",
+          "blockHash": "0x1cd6b450aa87745be16a8760a928a2e7ddd1097e872bdcd99b31ff66f77c2945",
+          "transactionHash": "0xf5f9ed1136e71f03ffd44ae7f80ee192998b80fccd96ad3f75824fa9ef3c2845",
+          "transactionIndex": "0"
+        },
+        "top10HolderShareBps": 10000,
+        "circulatingSupplyRaw": "4803406952560",
+        "indicativeTvlUsdlRaw": null,
+        "changeBaselineQuality": "insufficient_history",
+        "creatorHoldingShareBps": 10000,
+        "supplyValuationQuality": "verified",
+        "valuationChangeUsdlRaw": null,
+        "changeBaselineQuality1h": "insufficient_history",
+        "changeBaselineQuality5m": "insufficient_history",
+        "changeBaselineQuality6h": "insufficient_history",
+        "circulatingMarketCapUsdlRaw": "48505893",
+        "totalSupplyValuationUsdlRaw": "10098226981"
+      },
+      "token": {
+        "address": "0x0f92fdd087c96dd3413ef98646b94d0d986192fa",
+        "decimals": 18,
+        "decimalsQuality": "verified",
+        "logoAssetId": null,
+        "metadataRevision": "0",
+        "name": "Sidiora Fixture",
+        "sourcePosition": {
+          "blockHash": "0xcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+          "chainId": "125",
+          "height": "14",
+          "logIndex": "14",
+          "transactionHash": "0xcececececececececececececececececececececececececececececececece",
+          "transactionIndex": "3"
+        },
+        "supplyQuality": "verified",
+        "symbol": "SIDF",
+        "totalSupplyRaw": "1000000000000000000000000000"
+      }
+    },
+    "generatedAt": "2026-10-13T07:12:36.000Z",
+    "nextCursor": null,
+    "quality": "partial",
+    "requestId": "d554e06e-b6e9-4ccf-8825-54362f624c71",
+    "revision": "1",
+    "watermark": {
+      "height": "33963749",
+      "chainId": "125",
+      "blockHash": "0x1cd6b450aa87745be16a8760a928a2e7ddd1097e872bdcd99b31ff66f77c2945",
+      "integrity": "healthy",
+      "observedAt": "2026-10-13T08:17:31.628Z",
+      "projectionRevision": "1"
+    }
+  },
+  "chainQuote": {
+    "chainId": "0x7d",
+    "pool": "0x1111111111111111111111111111111111111138",
+    "inputRaw": "1000000",
+    "side": "buy",
+    "result": ["99690060900", "3000", "1"]
+  }
+}
