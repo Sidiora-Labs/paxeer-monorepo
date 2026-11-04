@@ -4,6 +4,10 @@ use crate::verify::Rung;
 use crate::write_contract::{PreparationRef, SignatureBytes};
 use crate::{Amount, BudgetLimit, Sequence, TimestampSeconds};
 
+#[path = "native_send.rs"]
+mod native_send;
+pub use native_send::{NativeSendPurposeV2, SignedNativeSendPurposeV2};
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TenantRecoveryReason {
     RecoveryPending,
@@ -401,47 +405,9 @@ impl NativeSendPurposeV1 {
     }
 
     fn validate_fields(&self) -> Result<(), ContractError> {
-        let tenant = self.tenant.as_str().as_bytes();
-        if tenant.is_empty() || tenant.len() > 255 || tenant.contains(&0) {
-            return Err(ContractError::Malformed("tenant"));
-        }
-        for did in [&self.agent_did, &self.owner_did] {
-            if did.as_str().as_bytes().contains(&0) {
-                return Err(ContractError::Malformed("native_send.did"));
-            }
-            layerx_types::ids::Did::new(did.as_str().as_bytes())
-                .map_err(|_| ContractError::Malformed("native_send.did"))?;
-        }
-        let expected_owner = format!(
-            "did:layerx:{}",
-            native_purpose_hex32(&self.owner_public_key)
-        );
-        if self.owner_public_key == [0; 32] || self.owner_did.as_str() != expected_owner {
-            return Err(ContractError::Mismatch("native_send.owner"));
-        }
-        self.session_id.to_bytes()?;
-        self.capability_id.to_bytes()?;
-        if self.generation == 0 || self.expires_at_ms == 0 {
-            return Err(ContractError::Zero("native_send.lifetime"));
-        }
-        if self.protocol_version != 3
-            || self.network_id == 0
-            || self.activity != NativeActivity::new(1, 5)?
-        {
-            return Err(ContractError::Mismatch("native_send.domain"));
-        }
-        for (name, value) in [
-            ("preparation_id", self.preparation_id),
-            ("canonical_digest", self.canonical_digest),
-            ("economic_action", self.economic_action),
-            ("idempotency_key", self.idempotency_key),
-            ("commitment", self.commitment),
-        ] {
-            if value == [0; 32] {
-                return Err(ContractError::Zero(name));
-            }
-        }
-        Ok(())
+        // This legacy record cannot bind an EVM sender or a rotated owner.
+        // Keep its shape for explicit refusal at existing wire boundaries.
+        Err(ContractError::Mismatch("native_send.legacy_version"))
     }
 
     pub fn canonical_bytes(&self) -> Result<Vec<u8>, ContractError> {

@@ -197,12 +197,15 @@ func (s *CommittedPaxscanSource) Head(ctx context.Context) (int64, error) {
 	return *head, nil
 }
 func (s *CommittedPaxscanSource) FetchLogs(ctx context.Context, o FetchOptions) (FetchResult, error) {
-	return s.fetchLogs(ctx, o, false)
+	return s.FetchCommitted(ctx, o, nil)
+}
+func (s *CommittedPaxscanSource) FetchCommitted(ctx context.Context, o FetchOptions, discoveries []AddressEpoch) (FetchResult, error) {
+	return s.fetchLogs(ctx, o, false, discoveries)
 }
 func (s *CommittedPaxscanSource) FetchParityLogs(ctx context.Context, o FetchOptions) (FetchResult, error) {
-	return s.fetchLogs(ctx, o, true)
+	return s.fetchLogs(ctx, o, true, nil)
 }
-func (s *CommittedPaxscanSource) fetchLogs(ctx context.Context, o FetchOptions, diagnostic bool) (FetchResult, error) {
+func (s *CommittedPaxscanSource) fetchLogs(ctx context.Context, o FetchOptions, diagnostic bool, discoveries []AddressEpoch) (FetchResult, error) {
 	var empty FetchResult
 	if s.lifecycle != nil {
 		var done func()
@@ -215,6 +218,10 @@ func (s *CommittedPaxscanSource) fetchLogs(ctx context.Context, o FetchOptions, 
 	}
 	if o.FromBlock < 0 || o.ToBlock < o.FromBlock || o.ToBlock-o.FromBlock >= 2000 {
 		return empty, sourceError(InvalidError, s.Name(), nil)
+	}
+	filter, err := newExplorerEpochFilter(s.options, o, discoveries)
+	if err != nil {
+		return empty, err
 	}
 	if s.options.RPC.lifecycle != nil {
 		var done func()
@@ -316,16 +323,7 @@ func (s *CommittedPaxscanSource) fetchLogs(ctx context.Context, o FetchOptions, 
 	if err != nil {
 		return empty, sourceError(IncompleteError, s.Name(), nil)
 	}
-	addresses := []string{}
-	seenAddresses := map[string]bool{}
-	for _, epoch := range s.options.Epochs {
-		address := strings.ToLower(epoch.Address)
-		if epoch.ActivationHeight <= uint64(o.ToBlock) && (epoch.RetirementHeight == nil || *epoch.RetirementHeight > uint64(o.FromBlock)) && !seenAddresses[address] {
-			seenAddresses[address] = true
-			addresses = append(addresses, address)
-		}
-	}
-	sort.Strings(addresses)
+	addresses := filter.addresses
 	identities := map[string]bool{}
 	used := 0
 	for start := 0; start < len(addresses); start += 256 {
@@ -358,15 +356,9 @@ func (s *CommittedPaxscanSource) fetchLogs(ctx context.Context, o FetchOptions, 
 				topics = append(topics, common.BytesToHash(topic))
 			}
 			log := ethtypes.Log{Address: common.BytesToAddress(address), Topics: topics, Data: append([]byte{}, data...), BlockNumber: uint64(height), BlockHash: common.BytesToHash(block), TxHash: common.BytesToHash(hash), TxIndex: uint(txIndex), Index: uint(index)}
-			active := false
-			for _, epoch := range s.options.Epochs {
-				if strings.EqualFold(epoch.Address, log.Address.Hex()) && log.BlockNumber >= epoch.ActivationHeight && (epoch.RetirementHeight == nil || log.BlockNumber < *epoch.RetirementHeight) && (log.BlockNumber != epoch.ActivationHeight || log.TxIndex >= epoch.CreationTxIndex) {
-					active = true
-				}
-			}
 			origin, ok := origins[log.TxHash]
 			key := fmt.Sprintf("%s/%s/%d", log.BlockHash, log.TxHash, log.Index)
-			if !active || !ok || origin.block != log.BlockHash || origin.index != log.TxIndex || result.Blocks[log.BlockNumber].Hash != log.BlockHash || (identities[key] && !diagnostic) {
+			if !filter.active(log) || !ok || origin.block != log.BlockHash || origin.index != log.TxIndex || result.Blocks[log.BlockNumber].Hash != log.BlockHash || (identities[key] && !diagnostic) {
 				rows.Close()
 				return empty, sourceError(IntegrityError, s.Name(), nil)
 			}
@@ -423,4 +415,38 @@ func (s *CommittedPaxscanSource) fetchLogs(ctx context.Context, o FetchOptions, 
 	result.Complete = true
 	result.CoveredRanges = []CoveredRange{{uint64(o.FromBlock), uint64(o.ToBlock)}}
 	return result, nil
+}
+
+// explorerEpochFilter binds both query addresses and row admission to the same
+// request-local, coordinator-approved epochs.
+type explorerEpochFilter struct {
+	epochs    []AddressEpoch
+	addresses []string
+}
+
+func newExplorerEpochFilter(options CommittedPaxscanOptions, o FetchOptions, discoveries []AddressEpoch) (explorerEpochFilter, error) {
+	epochs := append(cloneEpochs(options.Epochs), cloneEpochs(discoveries)...)
+	if err := validateEpochs(epochs, options.ManifestDigest); err != nil {
+		return explorerEpochFilter{}, err
+	}
+	addresses := []string{}
+	seenAddresses := map[string]bool{}
+	for _, epoch := range epochs {
+		address := strings.ToLower(epoch.Address)
+		if epoch.ActivationHeight <= uint64(o.ToBlock) && (epoch.RetirementHeight == nil || *epoch.RetirementHeight > uint64(o.FromBlock)) && !seenAddresses[address] {
+			seenAddresses[address] = true
+			addresses = append(addresses, address)
+		}
+	}
+	sort.Strings(addresses)
+	return explorerEpochFilter{epochs: epochs, addresses: addresses}, nil
+}
+
+func (f explorerEpochFilter) active(log ethtypes.Log) bool {
+	for _, epoch := range f.epochs {
+		if strings.EqualFold(epoch.Address, log.Address.Hex()) && log.BlockNumber >= epoch.ActivationHeight && (epoch.RetirementHeight == nil || log.BlockNumber < *epoch.RetirementHeight) && (log.BlockNumber != epoch.ActivationHeight || log.TxIndex >= epoch.CreationTxIndex) {
+			return true
+		}
+	}
+	return false
 }
