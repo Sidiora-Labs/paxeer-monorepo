@@ -19,9 +19,7 @@ use serde_aux::prelude::*;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize, derive_new::new)]
 pub struct LatestBlockDb {
-    #[serde(default)]
-    pub timestamp: Option<String>,
-
-    #[serde(default)]
-    pub number: Option<String>,
+    /// UTC timestamp, or an empty string when no database block exists.
+    pub timestamp: String,
+    pub number: String,
 }
