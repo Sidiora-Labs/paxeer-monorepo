@@ -1,5 +1,7 @@
 #include "layerx/program.h"
 
+enum { LXP_PROGRAM_ERR_VERIFY_FAILED = -6 };
+
 /*
  * Byte-for-byte the frozen manifest the runtime publishes as
  * layerx_programs_runtime::ABI_MANIFEST. Every authoring language ships the
@@ -29,6 +31,7 @@ const char *lxp_program_status_name(lxp_program_status status)
     case (value): return #name;
         LXP_PROGRAM_STATUS_LIST(LXP_PROGRAM_STATUS_NAME)
 #undef LXP_PROGRAM_STATUS_NAME
+    case LXP_PROGRAM_ERR_VERIFY_FAILED: return "LXP_PROGRAM_ERR_VERIFY_FAILED";
     default: return "LXP_PROGRAM_ERR_UNKNOWN";
     }
 }
@@ -48,6 +51,7 @@ lxp_program_status lxp_program_status_abi(lxp_program_status status)
     case LXP_PROGRAM_ERR_BOUNDS:
     case LXP_PROGRAM_ERR_METER:
     case LXP_PROGRAM_ERR_EVIDENCE:
+    case LXP_PROGRAM_ERR_VERIFY_FAILED:
         return status;
     case LXP_PROGRAM_ERR_EMPTY_KEY:
     case LXP_PROGRAM_ERR_KEY_TOO_LARGE:

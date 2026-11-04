@@ -1,7 +1,29 @@
 #include "layerx/program.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+
+#include "../src/abi.c"
+
+static int test_repair_374_host_status_classification(void)
+{
+    int32_t status;
+    for (status = -6; status <= 0; ++status) {
+        if (lxp_program_status_abi(status) != status ||
+            lxp_program_status_abi(lxp_program_status_abi(status)) != status)
+            return 1;
+    }
+    if (strcmp(lxp_program_status_name(-6), "LXP_PROGRAM_ERR_VERIFY_FAILED") != 0 ||
+        strcmp(lxp_program_status_name(-2), "LXP_PROGRAM_ERR_INVALID") != 0 ||
+        lxp_program_status_abi(-7) != LXP_PROGRAM_ERR_INVALID ||
+        lxp_program_status_abi(INT32_MIN) != LXP_PROGRAM_ERR_INVALID ||
+        lxp_program_status_abi(INT32_MAX) != LXP_PROGRAM_ERR_INVALID ||
+        lxp_program_status_abi(LXP_PROGRAM_ERR_NULL_ARGUMENT) != LXP_PROGRAM_ERR_INVALID ||
+        lxp_program_status_abi(LXP_PROGRAM_ERR_BUFFER_TOO_SMALL) != LXP_PROGRAM_ERR_BOUNDS)
+        return 1;
+    return 0;
+}
 
 static int hex_digit(int byte)
 {
@@ -76,5 +98,6 @@ int main(void)
         actual_length != expected_length ||
         memcmp(actual, expected, actual_length) != 0)
         return 1;
-    return 0;
+    if (test_repair_374_host_status_classification() != 0) return 1;
+    return system("python3 programs/sdk/c/tests/signature_status.py") == 0 ? 0 : 1;
 }

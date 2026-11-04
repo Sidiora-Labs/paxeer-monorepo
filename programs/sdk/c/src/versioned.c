@@ -1,4 +1,5 @@
 #include "layerx/program.h"
+#define LXP_PROGRAM_SELECTED_ABI 4
 #include "host.h"
 
 static inline lxp_program_status lxp_program_v_span(const void *pointer, size_t length)
