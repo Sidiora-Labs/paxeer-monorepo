@@ -26,9 +26,10 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/server/api"
 	serverconfig "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/server/config"
 	servertypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/server/types"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/rootmulti"
 	storetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/storev2/rootmulti"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	paxdbconfig "github.com/Sidiora-Labs/Paxeer-X-Network/storage/config"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gogo/protobuf/grpc"
 	"github.com/golang/protobuf/proto"
@@ -124,13 +125,16 @@ func (m *mockApplication) InplaceTestnetInitialize(cryptotypes.PubKey)          
 // setupTestApp creates a test application with a CommitMultiStore at a specific height
 func setupTestApp(t *testing.T, height int64) (*mockApplication, string) {
 	tempDir := t.TempDir()
-	db, err := dbm.NewDB("test", dbm.MemDBBackend, tempDir)
-	require.NoError(t, err)
-
-	cms := rootmulti.NewStore(db)
+	sc := paxdbconfig.DefaultStateCommitConfig()
+	sc.WriteMode = paxdbconfig.MemiavlOnly
+	sc.MemIAVLConfig.SnapshotInterval = 1
+	sc.MemIAVLConfig.SnapshotKeepRecent = 100
+	sc.MemIAVLConfig.SnapshotMinTimeInterval = 0
+	sc.MemIAVLConfig.AsyncCommitBuffer = 0
+	cms := rootmulti.NewStore(filepath.Join(tempDir, "application"), sc, paxdbconfig.StateStoreConfig{}, nil)
 	key := storetypes.NewKVStoreKey("test")
-	cms.MountStoreWithDB(key, storetypes.StoreTypeIAVL, db)
-	err = cms.LoadLatestVersion()
+	cms.MountStoreWithDB(key, storetypes.StoreTypeIAVL, nil)
+	err := cms.LoadLatestVersion()
 	require.NoError(t, err)
 
 	// Commit to the desired height
