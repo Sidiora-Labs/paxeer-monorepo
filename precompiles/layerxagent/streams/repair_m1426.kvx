@@ -1,0 +1,9 @@
+[repair.22.33.1426]
+finding = "streams-proof-reopens-only-precompile"
+test = "TestRepairM_1426_StreamsPersistAcrossDatabaseReopen"
+repair = "The stream proof now commits and closes its PaxDB stores and native host, reconstructs the pay keeper, both precompiles and EVM from the reopened database, and retains emitted receipt logs across the restart. The focused Go proof checks metadata and shared kernel records through both addresses, settlement replay, rate changes, caps, end time and refunds across three restarts."
+baseline = "Not run: the task's explicit gate order prohibits testing before implementation and permits verification only through hf-done; no baseline failures are claimed."
+previous_qualification = "Attempt 3 could not compile the test binary because SDK CLI callers used the old tx.NewFactoryCLI signature; prerequisite 22.31.463 repaired those callers on the current base. No TestRepairM_1426_ case executed in that attempt."
+wiring_requests = []
+qualification_repair = "The first current-base verification reached all four recovery cases and found structurally different big.Int zero representations; payment assertions now compare the exact ABI-encoded result, retaining the zero-payment and refund checks."
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit code and private log location; no qualification is claimed in this source record."
