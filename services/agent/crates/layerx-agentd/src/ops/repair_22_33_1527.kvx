@@ -1,0 +1,17 @@
+[repair.22.33.1527]
+acceptance = "22998.1"
+finding = "program-hex-unicode-panic"
+proving_tests = ["program_hex_unicode_panic_simulation_fields_refuse_and_owner_remains_available", "program_hex_simulation_bounds_are_enforced_before_decoding", "program_hex_unicode_panic_node_reverts_refuse_and_owner_remains_available"]
+repair = "Validate byte length against the existing wire message bound and reject all non-ASCII hex before allocating output; decode byte pairs without str slicing, bound fixed fields by their type width and decode revert data directly without a JSON copy."
+baseline = "No baseline gate ran: the ordered instructions require complete implementation before qualification and prohibit direct verify_cmd invocation. The initial gate ledger had zero builds and zero verifications; no pre-change failure is claimed."
+proof = "Real EmulatorProgramSimulationTransport and NodeProgramSimulationTransport consume loopback responses; the committed native-call producer fixture is encoded and signed through the production EVM path, and both estimate-gas and pending-call revert paths recover on the same owner."
+wiring_requests = []
+evidence = "The runner hf-build/hf-done ledger records the exact candidate revision, command, exit and private log; the repair is qualified only when hf-done passes on the built revision."
+
+[qualification.repair_1]
+revision = "66bfc1d81f1d0f08c1a33810312ff17bac09902e"
+command = "cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The new test moved its expected ProgramOperationError into the lowercase case before reusing it for the uppercase case."
+repair = "Clone the expected error for the first case while retaining both assertions."

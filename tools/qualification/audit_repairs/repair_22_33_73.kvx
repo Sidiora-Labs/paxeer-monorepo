@@ -1,0 +1,30 @@
+[task.22.33.73]
+mode = "BUILD"
+base_revision = "33e39ac9e249303769aad2d7f4de272148932e12"
+repair = "Render BRIDGE_SIGNER_KEYS from each selected relayer manifest, binding the app, attestor index, key environment and secret mount; keep all other signer policies intact. The public source inventory now agrees with instance 1. Startup also rejects an attestor mount inconsistent with the selected index before accepting the inventory."
+scope = ["docker/bridge-relayer/entrypoint.sh", "services/interop/deploy/bridge-relayer", "tools/qualification/audit_repairs"]
+source_proof = "The pytest module runs the production Python renderer and CLI in-process for all five actual TOML deployments, decodes the emitted Fly secret-import line and checks its mounted destination, exact attestor path, all eleven policies and every key mount. Drift cases reject mismatched app, index, threshold, environment, inventory destination and missing/duplicate/wrong key mounts. A Python audit hook records actual renderer file opens and proves only public TOML/JSON are read. bash -n parses the real entrypoint; source assertions check fail-closed index/path and jq inventory equality guards before signer startup, image inventory wiring and the Rust signer's default inventory path and schema."
+review_only = "The Rust signer, jq inventory evaluation, Fly secret injection, private-key loading and live deployments are not executed. Source facts establish the production configuration contract, not runtime signing or deployment certification. bash -n is the explicitly requested shell syntax parser and is the only subprocess; no build toolchain, environment variable, credential, live endpoint, native artifact or device is needed. No restart-recovery or interface-mismatch finding applies."
+baseline = "No unchanged-tree verification ran: the explicit implementation-first order and exclusive hf-build/hf-done sequence prohibit the older step requesting a baseline verify. No baseline test failures are claimed. Initial status showed only runner-prepared .cgignore and spec bookkeeping, no scoped implementation; gate.json recorded zero builds and verifies and no gates.jsonl existed."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_73.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private ledger record the exact verified candidate revision, command, exit and log. Build and verify must name the same revision. This record is finalized before qualification because embedding its own content-derived revision would change that revision. The runner commits the result; no manual commit or push is performed."
+wiring_requests = []
+
+[finding.attestor-inventory-path]
+audit = "22.30.109"
+file = "services/interop/deploy/bridge-relayer/signer-keys.json"
+class = "config-drift"
+tests = ["test_attestor_inventory_path_rendered_secret_matches_deployment", "test_attestor_inventory_path_entrypoint_guards_and_signer_consumer", "test_attestor_inventory_path_refuses_environment_drift", "test_attestor_inventory_path_refuses_mount_drift", "test_attestor_inventory_path_refuses_missing_duplicate_and_cross_instance_mounts", "test_attestor_inventory_path_refuses_invalid_instance", "test_attestor_inventory_path_reads_public_files_only", "test_attestor_inventory_path_cli_requires_explicit_instance"]
+
+[format]
+policy = "No Python, shell or KVX formatter is configured in these paths. Apply .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions; preserve existing shell tabs and two-space JSON."
+
+[gotcha.1]
+observed = "The unchanged-tree baseline clause conflicts with the explicit implementation-first wrapper-only gate order."
+resolution = "Follow the explicit order and claim no baseline result; record here because GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.2]
+observed = "Broad Codify and combined source reads exceed output budgets; a guessed renderer path and crate glob did not exist."
+resolution = "Use bounded task and source reads and actual file paths; no additional gate was run."

@@ -1,50 +1,24 @@
 package keeper_test
 
 import (
-	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/hex"
 	"testing"
 
-	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	ledgerkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	banktypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
 
 func payExactFixture(t *testing.T) (*mirrorFixture, ledgerkeeper.Actor, types.PayExactArgs) {
 	t.Helper()
-	f := newMirrorFixture(t, nil)
-	f.ctx = f.ctx.WithChainID("hyperpax_125-1")
-	registered := f.register(t, sdk.NewInt(1000))
-	require.NoError(t, f.keeper.Mirror(f.ctx, 0x00010001, registered))
-	_, from, err := lxphost.AssetAccountID(f.actor.key, f.asset)
-	require.NoError(t, err)
-	recipient := newLedgerViewActor(t, 102)
-	_, to, err := lxphost.AssetAccountID(recipient.key, f.asset)
-	require.NoError(t, err)
-	f.execute(t, f.actor, 0x00010004, 1, types.EncodeOpenAccountPayload(f.asset))
-	f.execute(t, recipient, 0x00010004, 0, types.EncodeOpenAccountPayload(f.asset))
-	mint, err := types.EncodeSupplyPayload(f.asset, from, sdk.NewInt(25))
-	require.NoError(t, err)
-	minted := f.execute(t, f.actor, 0x0001000a, 2, mint)
-	require.NoError(t, f.keeper.Mirror(f.ctx, 0x0001000a, minted))
-
-	app := testkeeper.EVMTestApp
-	caller := common.HexToAddress("0x2450000000000000000000000000000000000001")
-	message, err := evmtypes.LayerXBindMessage(app.EvmKeeper.ChainID(f.ctx), caller, 0)
-	require.NoError(t, err)
-	var signature [ed25519.SignatureSize]byte
-	copy(signature[:], ed25519.Sign(f.actor.private, message))
-	_, err = app.EvmKeeper.BindLayerX(f.ctx, caller, f.actor.key, signature)
-	require.NoError(t, err)
-	actor, err := f.keeper.Actor(f.ctx, caller)
-	require.NoError(t, err)
+	fixture := newFundedSendFixture(t, 25)
+	f, actor := fixture.mirrorFixture, fixture.actor
+	from, to := fixture.from, fixture.to
 	return f, actor, types.PayExactArgs{
 		From: from, To: to, Asset: f.asset, Amount: sdk.NewInt(3),
 		ExpiresAt:        uint64(f.ctx.BlockTime().UnixMilli()) + 1000,
@@ -77,7 +51,7 @@ func TestPayExact(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, lxphost.Code(0), result.Receipt.ResultCode)
 		require.Equal(t, result.Receipt.Events, result.Events)
-		require.Equal(t, uint64(5)+i, result.Receipt.GlobalSequence)
+		require.Equal(t, f.global+1+i, result.Receipt.GlobalSequence)
 		require.Len(t, result.Receipt.Transfers, 1)
 		require.Equal(t, lxphost.TransferLeg{Asset: args.Asset, From: args.From, To: args.To, Amount: args.Amount}, result.Receipt.Transfers[0])
 		material := append([]byte("LXP/v1/context-hash\x00"), args.From[:]...)
@@ -197,5 +171,43 @@ func TestPayExactExpired(t *testing.T) {
 		to, err := f.keeper.BalanceOf(f.ctx, args.To, args.Asset)
 		require.NoError(t, err)
 		require.True(t, to.IsZero())
+	}
+}
+
+func TestPayExactNextSequenceKeyReuse(t *testing.T) {
+	f, actor, args := payExactFixture(t)
+	first, err := f.keeper.PayExact(f.ctx, actor, args)
+	require.NoError(t, err)
+	sequence, err := f.keeper.NextSequenceByAccountID(f.ctx, args.From, args.Asset)
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), sequence)
+	hostBefore := ledgerViewStore(t, f.ctx, f.hostKey)
+	bankKey := testkeeper.EVMTestApp.GetKey(banktypes.StoreKey)
+	bankBefore := ledgerViewStore(t, f.ctx, bankKey)
+	eventsBefore := len(f.ctx.EventManager().Events())
+	second, err := f.keeper.PayExact(f.ctx, actor, args)
+	require.ErrorIs(t, err, types.ErrIdempotentReplay)
+	require.Equal(t, ledgerkeeper.Result{}, second)
+	require.Equal(t, hostBefore, ledgerViewStore(t, f.ctx, f.hostKey))
+	require.Equal(t, bankBefore, ledgerViewStore(t, f.ctx, bankKey))
+	require.Len(t, f.ctx.EventManager().Events(), eventsBefore)
+	sequence, err = f.keeper.NextSequenceByAccountID(f.ctx, args.From, args.Asset)
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), sequence)
+	args.PaymentReference = sha256.Sum256([]byte("next-sequence-payment-reference"))
+	second, err = f.keeper.PayExact(f.ctx, actor, args)
+	require.NoError(t, err)
+	require.Equal(t, first.Receipt.GlobalSequence+1, second.Receipt.GlobalSequence)
+	sequence, err = f.keeper.NextSequenceByAccountID(f.ctx, args.From, args.Asset)
+	require.NoError(t, err)
+	require.Equal(t, uint64(2), sequence)
+	for _, item := range []struct {
+		id     [32]byte
+		amount int64
+	}{{args.From, 19}, {args.To, 6}} {
+		balance, err := f.keeper.BalanceOf(f.ctx, item.id, args.Asset)
+		require.NoError(t, err)
+		require.Equal(t, sdk.NewInt(item.amount), balance)
+		require.Equal(t, balance, f.bank.GetBalance(f.ctx, lxphost.BankAddress(item.id), types.MirrorDenom(args.Asset)).Amount)
 	}
 }

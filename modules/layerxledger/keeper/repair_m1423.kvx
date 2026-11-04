@@ -1,0 +1,37 @@
+[repair.22.33.1423]
+audit = "22.30.8"
+acceptance = "22998.1"
+base = "9fda5aafcf8b4dba3d79ad6d650ea1272c960511"
+baseline = "The supplied attempt-1 qualification failed TestRepairM_1423_SendNextSequenceKeyReuse and TestRepairM_1423_PayExactNextSequenceKeyReuse because they expected a consumed payment reference to succeed. Its exact revision and private log were not supplied; no unchanged-tree rerun is claimed. Attempt 2 revision 3181cdf6d86f47833f55a572a659579bef509450 could not compile the test binary because three CLI callers used the old tx.NewFactoryCLI return shape; no test assertion ran and no private log path was supplied. Task 22.31.463 repaired those callers on the current base. This continuation has no local gate ledger, and its controlling order permits verification only through hf-done after implementation and hf-build."
+evidence = "The runner retains exact revision, command, exit and private log in the hf-build/hf-done ledger; the final response copies the last gate record."
+wiring_requests = ["spec/layerx-merge/contracts/ledger-auth.md: domain 2/ledger contract owner should document the continuation ruling that decision 2337 refuses a consumed payment reference and requires a fresh key at the next source sequence; modules/lxphost/ctx.go remains unchanged."]
+
+[finding.issuer-binding-not-exported]
+tests = ["TestRepairM_1423_IssuerBindingRecovery", "TestRepairM_1423_IssuerBindingRejectsInconsistentGenesis"]
+repair = "Ledger InitGenesis deterministically derives module-owned asset/denom bindings from imported tokenfactory state and validates canonical encoding, kernel asset existence, issuer DID and pause agreement before writing any binding. The real source app registers and pauses through signed node-built 0x101A transactions, commits, exports JSON, closes, and a fresh app imports and consumes the restored map for unpause/pause. Inconsistent issuer, pause, unknown asset and noncanonical denom imports refuse without ledger writes."
+
+[finding.issuer-binding-unwired]
+test = "TestRepairM_1423_IssuerBindingNode"
+repair = "Issuer binding is installed on the concrete Keeper shared by module and precompile at both node construction sites, including host ABI replacement. The compatibility wrapper configures the same implementation. Signed EVM transactions through node-built 0x101A register and mirror pause/unpause into real tokenfactory state; kernel, tokenfactory query and ledger binding agree."
+
+[finding.send-test-invents-main-account]
+tests = ["TestRepairM_1423_PublicAccountSend", "TestRepairM_1423_EVMNonceAndConsumedSequence"]
+repair = "Replace raw main-account serialization with public AccountID, RegisterAsset, OpenAccount and Mint. The original balance, event, supply, sequence and rollback assertions remain, and signed real EVM transactions prove nonce replay refusal, fresh-nonce consumed-source refusal and advancement of the actual source account."
+
+[finding.send-test-retired-idempotency]
+tests = ["TestRepairM_1423_SendNextSequenceKeyReuse", "TestRepairM_1423_EVMNonceAndConsumedSequence"]
+status = "implemented"
+repair = "The public keeper refuses reuse of a consumed reference with ErrIdempotentReplay, empty result, unchanged host/bank state, events and source sequence, then accepts a fresh key at the next sequence with exact balances and receipt sequence. Signed node-built EVM transactions additionally prove nonce replay refusal, consumed-source-sequence refusal, consumed-reference refusal and acceptance with a fresh reference. Existing replay and rollback checks remain."
+
+[finding.payexact-test-retired-idempotency]
+tests = ["TestRepairM_1423_PayExactNextSequenceKeyReuse", "TestRepairM_1423_PayExactBalancesAndRollback", "TestRepairM_1423_EVMNonceAndConsumedSequence", "TestRepairM_1423_PayExactEVMReferenceReplay"]
+status = "implemented"
+repair = "Use public producer fixtures, preserve exact balance, context hash, event, expiry and atomic mirror-failure assertions, and prove consumed-reference refusal without state, event or source-sequence changes followed by fresh-reference acceptance at the next source sequence. Signed node-built PayExact transactions prove consumed EVM nonce refusal, fresh-nonce consumed-reference refusal with unchanged host and mirrored balances, and fresh-reference success with exact balances and sequence."
+
+[gotcha.scope]
+observed = "Task scope prohibits spec and root gotcha writes while repository workflow requests those records."
+resolution = "Keep finding mappings, wiring requests and workflow conflicts in this scoped repair record; the runner owns spec bookkeeping and publication."
+
+[gotcha.contract]
+observed = "Audit 22.30.8 assumes no successful-SEND reference table, but the base has decision 2337 and checkPaymentReference/commitPaymentReference persisting global host prefix 0x04."
+resolution = "The continuation ruling explicitly retains decision 2337: assert refusal of consumed references and success with a fresh next-sequence key. Correct the two erroneous success expectations and preserve the host check and all balance, rollback and replay coverage."

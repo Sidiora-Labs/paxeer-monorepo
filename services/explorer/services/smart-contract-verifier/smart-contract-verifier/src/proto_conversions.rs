@@ -1,6 +1,6 @@
 use crate::{
     solidity,
-    verify::{SolcInput, VyperInput},
+    verify::{validate_source_name, SolcInput, VyperInput},
     vyper, OnChainCode, OnChainContract, RequestParseError,
 };
 use anyhow::Context;
@@ -172,6 +172,9 @@ fn build_solidity_multi_part_content(
     evm_version: Option<String>,
     optimization_runs: Option<u32>,
 ) -> Result<solidity::multi_part::Content, RequestParseError> {
+    for name in sources.keys() {
+        validate_source_name(std::path::Path::new(name)).map_err(anyhow::Error::new)?;
+    }
     let sources: BTreeMap<PathBuf, String> = sources
         .into_iter()
         .map(|(name, content)| (PathBuf::from(name), content))
@@ -196,7 +199,11 @@ fn build_solidity_standard_json_content(
     solc_input: String,
 ) -> Result<SolcInput, RequestParseError> {
     let deserializer = &mut serde_json::Deserializer::from_str(&solc_input);
-    Ok(serde_path_to_error::deserialize(deserializer)?)
+    let input: SolcInput = serde_path_to_error::deserialize(deserializer)?;
+    for name in input.0.sources.0.keys() {
+        validate_source_name(name).map_err(anyhow::Error::new)?;
+    }
+    Ok(input)
 }
 
 fn build_vyper_multi_part_content(

@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Declared service integration target: repair_m796_test.go,
+# TestRepairM_796_FleetTransportDeadlines and
+# TestRepairM_796_FleetInterruptionRecovery. Those cases use the real owner,
+# SSH transport, durable journal and disposable loopback service lifecycles;
+# this historical command harness is not interruption/recovery evidence.
+
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 syncer="$root/tools/bringup/sync-fleet.sh"
 work="$(mktemp -d)"
