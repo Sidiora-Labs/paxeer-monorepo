@@ -1,0 +1,25 @@
+[repair.22.33.345]
+finding = "dynamic-email-rejection"
+tests = ["dynamicEmailSuccessPreservesProfileFields", "dynamicEmailCancellationIsNotAProviderError", "dynamicEmailProviderRejectionsAreHandledAndRetryable", "dynamicEmailRejectionDoesNotCreateAProfile"]
+path = "apps/explorer/ui/snippets/auth/linkEmail/repair-22-33-345.spec.ts"
+proof = "Production hook passes the SDK update promise to applyLinkEmailUpdate; the tests replay committed SDK result contracts through this production completion path into the real QueryClient and Chakra toaster store."
+contract = "SDK 4.74.1 useUpdateUserWithModal resolves UserFields, rejects validation/verification strings; UserFieldEditorModal rejects the exact string User cancelled on unmount. provider-results.json retains these result values."
+baseline = "Not run: the numbered gate order requires full implementation before hf-build and hf-done and forbids running verify_cmd by hand; this takes precedence over step 5's contradictory unchanged-tree run. No pre-change failure is claimed."
+wiring_requests = []
+evidence = "The runner's hf-done gate ledger records the exact qualified candidate revision, command, exit code and private log location."
+
+[gotcha.dependency_setup]
+observed = "Runner dependency setup failed before implementation; explorer dependencies were absent and the installed pnpm rejected a different packageManager."
+action = "Use the declared corepack yarn gates to install explorer dependencies without changing manifests."
+
+[gotcha.named_tests]
+observed = "ESLint's non-layout Vitest rules reject named-function-only test registration required by the task; layout formatting completed without disabling those checks."
+action = "Retain the task-mandated named functions and registration; qualification uses only hf-build and hf-done."
+
+[repair.tooltip_listener]
+path = "apps/explorer/toolkit/components/charts/parts/tooltip/pointerTracker.ts"
+change = "The touchstart listener accepts TouchEvent; untrack and Pointer.sourceEvent carry the actual PointerEvent or TouchEvent without changing multi-touch cancellation or pointer capture behavior."
+
+[gotcha.vitest_registration]
+observed = "Vitest 4 treats test(namedFunction) as a todo without executing its body; the first hf-done exited zero with four todos, which does not qualify the repair."
+action = "Register each declared function with test(namedFunction.name, namedFunction) so all four regression bodies execute with their original assertions and names."
