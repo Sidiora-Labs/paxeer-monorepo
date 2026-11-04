@@ -123,7 +123,8 @@ Run the benchmark with exactly one JSON configuration filename:
 litt benchmark /path/to/benchmark.json
 ```
 
-This example matches the fields in [basic-config.json](../benchmark/config/basic-config.json):
+This complete JSON example matches [basic-config.json](../benchmark/config/basic-config.json)
+and can be saved unchanged as the benchmark configuration:
 
 ```json
 {
@@ -195,11 +196,13 @@ litt push --no-gc --src /backup1 --src /backup2 --src /backup3 \
 ```
 
 `--no-gc` is required because a received archive contains ordinary segment files, not snapshot
-symlinks. It also preserves the archive during restoration. The source database must likewise be
+symlinks. It also preserves every archive source file during restoration; target TTL or later target
+garbage collection does not prune this retained archive. The source database must likewise be
 stopped if restoring from ordinary database roots rather than an archive.
 
-After a successful transfer, configure the target application with `Config.Paths` containing
-`/restore0` and `/restore1`, then open the restored tables with their intended `TableConfig` values.
+Keep the target stopped until the transfer succeeds. Then configure the target application with
+`Config.Paths` containing `/restore0` and `/restore1`, and open the restored tables with their intended
+`TableConfig` values.
 TTL, cache sizes and other per-table runtime settings are not recovered from the archive. Reopening
 rebuilds a missing keymap from the transferred segment key files. A snapshot backup contains only
 published sealed segments; it does not include writes still in the mutable segment.
