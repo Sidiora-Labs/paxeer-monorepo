@@ -1,0 +1,30 @@
+[repair.22.31.77]
+audit = "22.30.42"
+acceptance = "22998.1"
+scope = "services/launchpad/user/internal/app"
+qualification = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit code and private evidence location; completion requires hf-done passing on the build revision."
+baseline = "No pre-change tests ran: the explicit implementation-first gate order prohibits the unchanged-tree verify requested by task step 6; no baseline failures are claimed."
+
+[finding.notification-session-revocation]
+test = "TestRepair_77_notification_session_revocation"
+repair = "Target list/read/resolve apply the identity/session/installation eligibility conditions from account.Store.EndpointEligible, including verified chain-125 wallet, epoch, expiry, revocation, binding and freshness."
+proof = "Real account HTTP authority over verified mutual TLS feeds notifications.AccountClient, RecipientConsumer and PostgreSQL outbox/Worker.Once; queued deliveries are suppressed as target_revoked and stale target resolution is refused before and after closing/reopening the authority and database pools."
+wiring_request = "Domain 4 (account): services/launchpad/user/internal/account/devices_http.go must export the session-only EndpointEligible predicate for both account and app to call without duplicating SQL; this out-of-scope extraction is deferred."
+
+[finding.notification-channel-optout]
+test = "TestRepair_77_notification_channel_optout"
+repair = "The delivery-preference response carries saved global Channels and intersects each persisted category consent with its global channel before populating CategoryChannels/Categories."
+proof = "Real v1/v2/v3 HTTP preferences PATCH disables push while all six category consent rows remain enabled; notifications.AccountClient and Worker.Once persist opted_out refusal before and after reopening, with email/inapp consent preserved."
+wiring_request = "Domain 4 (notifications): services/launchpad/notifications/model.go must require global Channels[channel] as well as CategoryChannels[category][channel] in Decide, and update its direct model tests; the app wire now provides their intersection so the existing real participant refuses delivery."
+
+[gotcha.repair_77_scope]
+observed = "The two proposals include account/notifications edits and task-record updates outside the allowed app path."
+resolution = "Keep the repair record in app/repair_77.kvx, record the out-of-scope wiring requests there, and leave root/spec files untouched."
+
+[gotcha.repair_77_modules]
+observed = "The user module does not depend on notifications, and its go.mod is outside the task scope."
+resolution = "The integration test invokes the tracked consumer harness in the notifications module with go run -mod=readonly; this executes real consumer code inside the declared verify_cmd without editing module manifests."
+
+[gotcha.repair_77_wallet_fixture]
+observed = "Verification at 93fe92424752a4181eb0f71493e6e250765d9cf6 exited 1 because revoking the only verified wallet triggers consent_unavailable before target_revoked; evidence is /out/logs/verify-1.log."
+resolution = "Retain a second verified wallet and revoke only the session's wallet, preserving all assertions while isolating the target's authoritative session-wallet binding."
