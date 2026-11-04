@@ -1,0 +1,50 @@
+[task."22.33.219"]
+audit = "22.30.123"
+requirement = "22998.1"
+base_revision = "dc1290e182c7bb1dab76d275c6f31350538c0f93"
+repair = "Add the AI package release opt-level z override; preserve and clarify merged paxd commit finality; document the live Programs precompile and registry chain-proof reads, including eth_call balances at 0x101D."
+source_proof = "The pytest module parses the production workspace/package manifests and Cargo configuration, traces the Makefile release build into wasm-opt, its fail-closed size guard and the identical harness/manifest artifact, checks the cap against the C decoder's 104-byte envelope, and checks README facts/links against the published JSON ABI, fixed precompile address, real account-read handler and registry sources. No replacement implementation, generated WASM, fabricated transport or external process is used."
+review_only = "The Python-only gate does not compile Rust/C/Go, execute make/wasm-opt/the native harness, measure an emitted WASM artifact, contact node/gateway RPC, authenticate chain proofs, run BFT consensus or prove native restart recovery. Source inspection proves configuration and documented interface agreement, not artifact size, deployment admission or runtime correctness. These config/doc findings do not change a runtime interface or stateful component."
+baseline_tests_run = false
+baseline_failed_tests = "Unknown; no baseline verification was run."
+baseline = "Initial git status/diff showed only inherited .cgignore and spec task-start bookkeeping. No private gate ledger existed; gate.json recorded zero builds/verifies and two repair cycles left. README already described chain 125, committed-block finality and the retired adapter, while the existing Makefile already selected z and bounded optimized guest bytes at 524184. The workspace lacked the package override and README lacked the precompile/balance path. The explicit implementation-first, hf-build then hf-done order supersedes the conflicting unchanged-tree verify request; no baseline failure or success is invented."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_219.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision_source = "The revision field of the final kind=verify entry in /out/run/gates.jsonl, copied verbatim with command, exit and private log into the final hf-done JSON; qualification requires exit zero and the same build/verify revision."
+evidence = "The runner retains the exact content-derived verified revision and private gate logs. This record is part of that revision; editing it after verification to insert its own hash would invalidate the evidence. No gate is claimed before it runs."
+wiring_requests = ["Makefile:paxai-host-boundary-build — owning programs/build domains: retain the existing release profile selection, wasm-opt -Oz output and 524184-byte fail-closed guard; native owning-domain qualification must build and measure the real artifact with its 104-byte envelope and execute the host harness, which this source-only gate cannot prove.", "services/agent/crates/layerx-agentd/src/ops/program.rs:value_accounts_at — owning agent domain: reconcile the pre-existing interpretation of getValueAccount's second ABI word as exists with the production precompile's frozen flag; the README describes the published balance/frozen contract and this task does not modify that consumer."]
+
+[finding."005"]
+path = "programs/Cargo.toml"
+class = "config-drift"
+tests = ["test_005_ai_release_override_matches_real_guest_package", "test_005_production_build_consumes_release_profile", "test_005_optimized_payload_guard_includes_real_envelope", "test_005_packaging_docs_use_canonical_override_and_envelope"]
+closure_boundary = "Canonical package override repaired; existing production build/post-processing/size-check source wiring proven. Actual emitted artifact size and native host admission remain unexecuted owning-domain qualification, explicitly requested above. No out-of-path build edit is necessary because the real recipe already supplies z and reserves 104 bytes."
+
+[finding."007"]
+path = "programs/README.md"
+class = "doc-drift"
+tests = ["test_007_committed_paxd_finality_and_rpc_ownership"]
+closure_boundary = "README explicitly places the kernel inside paxd, distinguishes pre-commit evidence from finality on committed blocks in chain 125, assigns root JSON-RPC to nodes and px methods to the hosted gateway, and rejects a periodic checkpoint deployment."
+
+[finding."008"]
+path = "programs/README.md"
+class = "doc-drift"
+tests = ["test_008_live_precompile_and_registry_chain_proof_guidance", "test_008_documented_balance_read_matches_published_abi_and_host"]
+closure_boundary = "Workspace table and core-crate guidance identify precompiles/layerxprograms, registry chain-proof sources and historical adapter status; the documented eth_call method, arguments, outputs, fixed address and absent-account semantics agree with production source. No live RPC/interface execution is claimed."
+
+[gotcha.baseline_order]
+observed = "The audit step asks for unchanged-tree verification but the explicit task order forbids tests before full implementation or outside hf-done."
+resolution = "Follow the explicit order and record baseline tests as unrun; GOTCHA.kvx and spec qualification files are outside the user-authorized scope."
+
+[gotcha.graph_context]
+observed = "cg brief reports graph-relative uncommitted paths and cg context has no Cargo.toml symbols; those are not git working-tree changes."
+resolution = "Use the inspected git status/diff and actual task-owned sources; preserve runner-prepared bookkeeping and rely on hf-done for graph checks."
+
+[gotcha.inspection]
+observed = "Broad ledger/source reads were truncated, req.22998.1 is stored under req.22998 as ac_1, and optional lookups for abi.go and domains.kvx found no files."
+resolution = "Read bounded relevant sections and actual abi.json/view_accounts.go sources; no baseline or extra gate is inferred from inspection errors."
+
+[gotcha.balance_consumer]
+observed = "The existing agent value_accounts_at code treats the ABI frozen word as exists, unlike abi.json and the production getValueAccountHandler."
+resolution = "Record the unrelated mismatch once as the agent-domain wiring request above; do not edit, execute or re-investigate that out-of-scope consumer."
