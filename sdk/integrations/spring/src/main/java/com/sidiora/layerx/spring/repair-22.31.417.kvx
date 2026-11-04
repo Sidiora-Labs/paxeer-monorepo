@@ -1,0 +1,34 @@
+[repair.22.31.417]
+audit = "22.30.163"
+acceptance = "22998.1"
+test_class = "com.sidiora.layerx.spring.Repair2231417Test"
+evidence = "The bounded hf-build and hf-done ledger names the exact candidate revision, command, exit and private evidence log; this record makes no independent qualification claim."
+baseline = "Not run: the explicit implementation-first order and ban on running verify_cmd by hand take precedence over the contradictory baseline instruction; the repair test did not exist on the base."
+fixture = "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json#V1-layerxledger-pay-exact is the unmodified node recording also consumed by services/platform/middleware/buyer/test/portable-receipts.test.mjs; portable payment proofs use the producer's six v2 fields and keccak256(signedReceipt), distinct from the JVM signature digest."
+transport = "The JUnit loopback HTTP server adapts real HTTP exchanges to Servlet interfaces and runs the production payment filter, receipt authority, SDK signature decoder, native payment verifier, fulfillment store and resource handler."
+
+[finding.024]
+tests = ["finding024RecordedBuyerPaymentCrossesFilterWithEip155ChainBinding", "finding024FilterAndNativeDecoderRefuseWrongChain"]
+proof = "A recorded chain-125 typed transaction crosses offer and payment headers into the filter; unsupported networks and independently altered transaction chain ids refuse before resource release."
+
+[finding.025]
+tests = ["finding025VersionedProducerEvidenceSurvivesBothPaymentHeaders", "finding025FilterRefusesMissingUnknownOrMalformedPortableFields"]
+proof = "The six-field v2 payment evidence survives request and settlement headers unchanged, including the strict format marker, key quantities and canonical receipt digest; missing, retired and extra fields refuse."
+
+[finding.026]
+tests = ["finding026ExactMeteredAndSubscriptionVerifyNativeEffects", "finding026FilterRefusesWrongAssetPayeeAmountPayerPurposeSchemeAndCommitment", "finding026RecordedRevertNonpaymentAndTamperedEvidenceNeverRelease", "finding026NativeVerifierBindsCalldataToAuthenticatedEffect", "finding026ConfiguredMeteredPurposeReachesRealFilter"]
+proof = "Real payExact calldata and its signed native payment effect bind asset, recipient, amount, payer and purpose for all three supported schemes; zero outer transaction value is accepted, incorrect terms and stronger unproven commitment refuse, and configured purpose reaches the filter."
+
+[finding.027]
+tests = ["finding027UnmodifiedFilterResponseRoundTripsThroughReceiptConsumer", "finding027CompletionGuardRejectsSyntheticHashAndAlteredProof"]
+proof = "The untouched filter response carries the actual recorded 0x transaction hash and unchanged portable evidence through the real header decoder and receipt verifier; the completion guard rejects synthetic identifiers and changed hashes, amounts, payers and evidence."
+
+[wiring]
+shared_native_api = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify — owning domain 8 (platform SDK): expose the merged native-payment verification API; this checkout has only LocalVerifier and PortableReceipt, so Spring currently binds the SDK-verified receipt to native calldata and effects in its scoped adapter."
+buyer_cross_language = "services/platform/middleware/buyer/test/portable-receipts.test.mjs — owning domain 15 (platform middleware): capture the Spring response in the existing BuyerMiddleware.captureSettlement shared-recording proof; this JVM-only gate executes the real JVM decoder/verifier boundary and cannot execute the TypeScript buyer without the prohibited subprocess toolchain."
+legacy_tests = "sdk/integrations/spring/src/test/java/com/sidiora/layerx/spring/SellerReceiptsTest.java and ReceiptKeysConfigTest.java — owning domain 15 (integrations): migrate legacy layerx:mainnet, outer-transfer and lxp: expectations to the native chain-125 payment contract; these tests are outside the repair's authorized test path."
+task_record = "spec/layerx-merge/spec.kvx — owning domain 15: copy this finding-to-test mapping, baseline-order conflict and wiring requests into the task record; the worker may not edit spec files."
+
+[gotcha.portable-payment-digest]
+observed = "The current TypeScript middleware payment proof uses keccak256(signedReceipt), while LocalVerifier.receiptDigest is the SHA-256 digest used to authenticate the sequencer signature."
+action = "Retain the SDK signature verifier and calculate the portable payment digest over the exact canonical signed bytes; never substitute one digest for the other."

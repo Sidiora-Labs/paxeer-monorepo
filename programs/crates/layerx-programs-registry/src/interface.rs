@@ -9,7 +9,7 @@ use layerx_programs_runtime::{
     ABI_V3_VERSION, ABI_V4_VERSION,
 };
 
-use crate::account_state::{verify_state_membership, StateProof};
+use crate::account_state::StateProof;
 use crate::chain_evidence::{programs_state_key, HOST_STORE_NAME};
 use crate::chain_proof::{
     decode::ProofOp,
@@ -196,10 +196,10 @@ impl VerifiedInterfaceRead {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct InterfaceStateWitness {
+pub struct InterfaceStateWitness<P = StateProof> {
     pub key: Vec<u8>,
     pub value: Vec<u8>,
-    pub proof: StateProof,
+    pub proof: P,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -254,6 +254,9 @@ impl ProgramInterface {
         let interface = Self::bind(deployment.module(), deployment.abi_version(), entries)?;
         if interface.code_hash != deployment.code_hash() {
             return Err(InterfaceRefusal::CodeHashMismatch);
+        }
+        if deployment.interface() != Some(&interface) {
+            return Err(InterfaceRefusal::Invalid);
         }
         Ok(interface)
     }
@@ -637,18 +640,35 @@ pub fn interface_state_value(
 /// # Errors
 ///
 /// Refuses invalid state proofs, malformed interfaces and program, version or code-hash mismatches.
-pub fn verify_interface_read(
+/// Chain witnesses carry ICS23 IAVL and multistore operations. The old kernel
+/// proof type remains source-compatible but is explicitly refused.
+pub trait InterfaceReadProof {
+    fn chain_ops(&self) -> Result<&[ProofOp], InterfaceRefusal>;
+}
+impl InterfaceReadProof for Vec<ProofOp> {
+    fn chain_ops(&self) -> Result<&[ProofOp], InterfaceRefusal> {
+        Ok(self)
+    }
+}
+impl InterfaceReadProof for StateProof {
+    fn chain_ops(&self) -> Result<&[ProofOp], InterfaceRefusal> {
+        Err(InterfaceRefusal::StateProof)
+    }
+}
+
+pub fn verify_interface_read<P: InterfaceReadProof>(
     head: &VerifiedProgramHead,
-    witness: &InterfaceStateWitness,
+    witness: &InterfaceStateWitness<P>,
 ) -> Result<VerifiedInterfaceRead, InterfaceRefusal> {
     if witness.key != interface_state_key(head.program()) {
         return Err(InterfaceRefusal::ProgramMismatch);
     }
-    verify_state_membership(
-        &witness.key,
+    verify_state(
+        head.chain_header(),
+        HOST_STORE_NAME,
+        &programs_state_key(&witness.key),
         &witness.value,
-        &witness.proof,
-        head.programs_root(),
+        witness.proof.chain_ops()?,
     )
     .map_err(|_| InterfaceRefusal::StateProof)?;
     decode_interface_read(
@@ -741,12 +761,12 @@ pub fn verify_interface_read_at_head(
     )
 }
 
-fn decode_interface_read(
+fn decode_interface_read<P>(
     expected_program: ProgramId,
     expected_version: u32,
     expected_code_hash: [u8; 32],
     expected_abi_version: u16,
-    witness: &InterfaceStateWitness,
+    witness: &InterfaceStateWitness<P>,
     receipt_digest: [u8; 32],
     state_root: [u8; 32],
     freshness: crate::ReadFreshness,

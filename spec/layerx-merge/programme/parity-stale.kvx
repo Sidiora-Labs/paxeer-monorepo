@@ -1,0 +1,1094 @@
+# Stale parity acceptance selectors (task 17.4.5 attempt 2): each entry is decided by task 22.31.438.
+
+[meta]
+feature = "layerx-merge"
+source = "17.4.5 attempt 2 parity check"
+count = 136
+
+[stale.1]
+acceptance = "acceptance.2.20.2"
+file = "modules/layerxledger/keeper/execute_test.go"
+test = "TestExecuteIdempotentReplay"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.2]
+acceptance = "acceptance.2.35.1"
+file = "modules/layerxauth/keeper/execute_test.go"
+test = "TestAuthExecuteIdempotentReplay"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.3]
+acceptance = "acceptance.2.58.4"
+file = "precompiles/layerxauth/surface_test.go"
+test = "TestPrecompileSurface"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.4]
+acceptance = "acceptance.5.45.2"
+file = "node/commit_listener_test.go"
+test = "TestCommitSurvivesPanickingListener"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.5]
+acceptance = "acceptance.5.483.1"
+file = "storage/common/keys/store_keys_test.go"
+test = "TestAnchorStoreKeyIsNotMounted"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.6]
+acceptance = "acceptance.8.113.1"
+file = "services/platform/hosted/authority/tests/chain_receipts.rs"
+test = "authority_starts_without_an_lni_socket"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.7]
+acceptance = "acceptance.8.145.1"
+file = "services/platform/hosted/webhooks/src/events.rs"
+test = "block_committed_orders_between_receipt_and_checkpoint"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.8]
+acceptance = "acceptance.8.182.2"
+file = "services/platform/hosted/indexer/src/config.rs"
+test = "environment_builds_both_sources"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.9]
+acceptance = "acceptance.8.220.1"
+file = "services/platform/hosted/human/test_provision.py"
+test = "test_provisioning_makes_no_custody_deposit"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.10]
+acceptance = "acceptance.8.274.1"
+file = "services/platform/ramps/reference/tests/config_validation.rs"
+test = "reference_ramp_refuses_retired_paxeer_rpc_fields (planned, task 8.31.2)"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.11]
+acceptance = "acceptance.8.294.1"
+file = "services/platform/middleware/conformance/test/service-account.test.mjs"
+test = "serviceOfferParsesOnEip155ReceiptedRung"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.12]
+acceptance = "acceptance.8.294.2"
+file = "services/platform/middleware/conformance/test/service-account.test.mjs"
+test = "serviceOfferOnLayerxNetworkIsRefused"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.13]
+acceptance = "acceptance.8.484.1"
+file = "sdk/platform/go/agent_envelope_major2_test.go"
+test = "TestAgentEnvelopeEncodesVersionTwo"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.14]
+acceptance = "acceptance.8.484.2"
+file = "sdk/platform/go/agent_envelope_major2_test.go"
+test = "TestAgentEnvelopeRefusesVersionOneResponse"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.15]
+acceptance = "acceptance.8.502.1"
+file = "sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift"
+test = "testAgentEnvelopeEncodesVersionTwo"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.16]
+acceptance = "acceptance.8.502.2"
+file = "sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift"
+test = "testAgentEnvelopeRefusesVersionOneResponse"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.17]
+acceptance = "acceptance.9.1.2"
+file = "services/agent/crates/layerx-agent-api/tests/rung.rs"
+test = "legacy_level_maps_onto_rungs_by_decision"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.18]
+acceptance = "acceptance.9.52.2"
+file = "services/agent/crates/layerx-mcp/tests/alias_precompiles.rs"
+test = "grant_draw_targets_the_pay_precompile"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.19]
+acceptance = "acceptance.9.308.1"
+file = "services/agent/crates/layerx-proof/tests/withdrawal.rs"
+test = "paid_withdrawal_receipt_verifies_without_the_signed_activity"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.20]
+acceptance = "acceptance.9.308.2"
+file = "services/agent/crates/layerx-proof/tests/native_owner_outcome.rs"
+test = "native_owner_receipt_verifies_through_verify_outcome"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.21]
+acceptance = "acceptance.9.309.1"
+file = "services/agent/crates/layerx-proof/tests/export_complete.rs"
+test = "complete_export_decoder_refuses_checkpoint_and_activity_records"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.22]
+acceptance = "acceptance.9.310.1"
+file = "services/agent/crates/layerx-proof/tests/inclusion.rs"
+test = "proof_evidence_never_reaches_the_committed_rung"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.23]
+acceptance = "acceptance.9.311.1"
+file = "services/agent/crates/layerx-types/tests/vectors.rs"
+test = "checkpoint_vectors_load_without_the_settlement_document"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.24]
+acceptance = "acceptance.9.312.1"
+file = "services/agent/crates/layerx-wire/tests/structures.rs"
+test = "every_published_receipt_round_trips_exactly"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.25]
+acceptance = "acceptance.9.341.1"
+file = "services/agent/crates/layerx-crypto/tests/signer.rs"
+test = "keystore_signer_refuses_activity_preimages_and_signs_the_bind_message"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.26]
+acceptance = "acceptance.9.372.1"
+file = "services/agent/sdk/typescript/test/receipt-fixture.test.ts"
+test = "verifyReceipt_reports_the_submitted_rung_under_an_authority_key"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.27]
+acceptance = "acceptance.10.33.2"
+file = "services/human/crates/layerx-human-service/tests/intent_nonces.rs"
+test = "intent_legs_reusing_a_nonce_are_refused"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.28]
+acceptance = "acceptance.12.294.1"
+file = "apps/wallet/e2e/send.spec.ts"
+test = "send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.29]
+acceptance = "acceptance.12.295.1"
+file = "apps/wallet/e2e/send.spec.ts"
+test = "send_reaches_committed_only_with_a_matching_explorer_answer"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.30]
+acceptance = "acceptance.13.264.2"
+file = "precompiles/layerxprograms/method_account_test.go"
+test = "TestProgramsRegisterAccountDuplicateReverts"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.31]
+acceptance = "acceptance.15.247.1"
+file = "consensus/test/maketargets/consensus_makefile_test.go"
+test = "TestMakeRetiredDockerTargets"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.32]
+acceptance = "acceptance.15.248.1"
+file = "consensus/test/maketargets/consensus_makefile_test.go"
+test = "TestMakeRetiredDistributionTargets"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.33]
+acceptance = "acceptance.16.1.1"
+file = "scripts/gates/test_run_gate.py"
+test = "RunGateTest.test_records_evidence_line_for_passing_command"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.34]
+acceptance = "acceptance.16.1.2"
+file = "scripts/gates/test_run_gate.py"
+test = "RunGateTest.test_nonzero_exit_is_recorded_and_returned"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.35]
+acceptance = "acceptance.16.2.1"
+file = "scripts/gates/test_wave_0.py"
+test = "Wave0GateTest.test_list_names_runnable_commands"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.36]
+acceptance = "acceptance.16.3.1"
+file = "scripts/gates/test_wave_1.py"
+test = "Wave1GateTest.test_list_names_runnable_commands"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.37]
+acceptance = "acceptance.16.4.1"
+file = "scripts/gates/test_wave_2.py"
+test = "Wave2GateTest.test_list_names_runnable_commands"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.38]
+acceptance = "acceptance.16.5.1"
+file = "scripts/gates/test_wave_3.py"
+test = "Wave3GateTest.test_list_names_runnable_commands"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.39]
+acceptance = "acceptance.16.6.1"
+file = "scripts/gates/test_wave_4.py"
+test = "Wave4GateTest.test_list_names_runnable_commands"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.40]
+acceptance = "acceptance.16.7.1"
+file = "scripts/gates/test_wave_5.py"
+test = "Wave5GateTest.test_list_names_runnable_commands"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.41]
+acceptance = "acceptance.16.8.1"
+file = "scripts/gates/test_wave_6.py"
+test = "Wave6GateTest.test_list_names_runnable_commands"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.42]
+acceptance = "acceptance.16.9.1"
+file = "scripts/gates/test_wave_programme.py"
+test = "WaveProgrammeGateTest.test_list_names_runnable_commands"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.43]
+acceptance = "acceptance.16.10.1"
+file = "tools/ci/tests/test_makefile_exchange_native.py"
+test = "ExchangeNativeAggregateTest.test_aggregate_runs_every_member"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.44]
+acceptance = "acceptance.16.11.1"
+file = "tools/ci/tests/test_makefile_wave1.py"
+test = "MakefileWaveOneTest.test_retired_targets_have_no_rule"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.45]
+acceptance = "acceptance.16.11.2"
+file = "tools/ci/tests/test_makefile_wave1.py"
+test = "MakefileWaveOneTest.test_aggregates_dry_run_clean"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.46]
+acceptance = "acceptance.16.12.1"
+file = "tools/ci/tests/test_makefile_wave2.py"
+test = "MakefileWaveTwoTest.test_retired_targets_have_no_rule"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.47]
+acceptance = "acceptance.16.12.2"
+file = "tools/ci/tests/test_makefile_wave2.py"
+test = "MakefileWaveTwoTest.test_aggregates_dry_run_clean"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.48]
+acceptance = "acceptance.16.13.1"
+file = "tools/ci/tests/test_makefile_wave3.py"
+test = "MakefileWaveThreeTest.test_retired_targets_have_no_rule"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.49]
+acceptance = "acceptance.16.13.2"
+file = "tools/ci/tests/test_makefile_wave3.py"
+test = "MakefileWaveThreeTest.test_aggregates_dry_run_clean"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.50]
+acceptance = "acceptance.16.14.1"
+file = "tools/ci/tests/test_makefile_wave4.py"
+test = "MakefileWaveFourTest.test_retired_targets_have_no_rule"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.51]
+acceptance = "acceptance.16.14.2"
+file = "tools/ci/tests/test_makefile_wave4.py"
+test = "MakefileWaveFourTest.test_aggregates_dry_run_clean"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.52]
+acceptance = "acceptance.16.15.1"
+file = "tools/ci/tests/test_makefile_wave5.py"
+test = "MakefileWaveFiveTest.test_retired_targets_have_no_rule"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.53]
+acceptance = "acceptance.16.15.2"
+file = "tools/ci/tests/test_makefile_wave5.py"
+test = "MakefileWaveFiveTest.test_aggregates_dry_run_clean"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.54]
+acceptance = "acceptance.16.16.1"
+file = "tools/ci/tests/test_makefile_wave6.py"
+test = "MakefileWaveSixTest.test_retired_targets_have_no_rule"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.55]
+acceptance = "acceptance.16.16.2"
+file = "tools/ci/tests/test_makefile_wave6.py"
+test = "MakefileWaveSixTest.test_aggregates_dry_run_clean"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.56]
+acceptance = "acceptance.16.17.1"
+file = "tools/containers/test_retired_images.py"
+test = "RetiredImagesTest.test_container_layout_passes_without_retired_images"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.57]
+acceptance = "acceptance.16.18.1"
+file = "tools/containers/test_kernel_image.py"
+test = "KernelImageTest.test_kernel_dockerfile_passes_build_check"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.58]
+acceptance = "acceptance.16.19.1"
+file = "tools/containers/test_kernel_init.py"
+test = "KernelInitTest.test_init_lists_no_retired_service"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.59]
+acceptance = "acceptance.16.20.1"
+file = "tools/containers/test_platform_node_retired.py"
+test = "PlatformNodeRetiredTest.test_check_refuses_retired_service_name"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.60]
+acceptance = "acceptance.16.21.1"
+file = "tools/containers/test_paxd_images.py"
+test = "PaxdImagesTest.test_layerx_and_paxeer_images_pass_build_check"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.61]
+acceptance = "acceptance.16.22.1"
+file = "tools/ci/tests/test_xweb_workflow.py"
+test = "XwebWorkflowTest.test_workflow_has_no_kernel_web_job"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.62]
+acceptance = "acceptance.16.23.1"
+file = "tools/ci/tests/test_wire_codec_ci.py"
+test = "WireCodecCiTest.test_ci_names_no_wire_crate"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.63]
+acceptance = "acceptance.16.24.1"
+file = "tools/ci/tests/test_human_workflow.py"
+test = "HumanWorkflowTest.test_workflow_builds_no_retired_binary"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.64]
+acceptance = "acceptance.16.25.1"
+file = "tools/ci/tests/test_node_build_workflow.py"
+test = "NodeBuildWorkflowTest.test_workflow_tests_no_custody_module"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.65]
+acceptance = "acceptance.16.26.1"
+file = "tools/ci/tests/test_beta_ledger_paths.py"
+test = "BetaLedgerPathsTest.test_ledger_check_reads_layerx_merge_ledger"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.66]
+acceptance = "acceptance.16.27.1"
+file = "tools/ci/tests/test_xweb_workflow_check.py"
+test = "XwebWorkflowCheckTest.test_check_passes_against_head_tree"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.67]
+acceptance = "acceptance.16.28.1"
+file = "tools/ci/tests/test_solidity_state_surface.py"
+test = "SolidityStateSurfaceTest.test_surface_check_passes_on_kept_contracts"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.68]
+acceptance = "acceptance.16.29.1"
+file = "tools/ci/tests/test_wallet_check_live.py"
+test = "WalletCheckLiveTest.test_check_live_names_no_lx_method"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.69]
+acceptance = "acceptance.16.30.1"
+file = "tools/ci/tests/test_program_http_producer.py"
+test = "ProgramHttpProducerTest.test_producer_uses_no_lni"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.70]
+acceptance = "acceptance.16.31.1"
+file = "tools/ci/tests/test_beta_deploy_retired.py"
+test = "BetaDeployRetiredTest.test_root_forge_build_without_beta_script"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.71]
+acceptance = "acceptance.16.32.1"
+file = "tools/bringup/tests/test_spec_paths.py"
+test = "BringupSpecPathsTest.test_docs_names_reads_existing_spec"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.72]
+acceptance = "acceptance.16.33.1"
+file = "tools/bringup/tests/test_kernel_genesis_retired.py"
+test = "KernelGenesisRetiredTest.test_bringup_names_no_guarantor_or_custody_proof"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.73]
+acceptance = "acceptance.16.34.1"
+file = "tools/bringup/tests/test_bringup_fixtures_retired.py"
+test = "BringupFixturesRetiredTest.test_fixtures_name_no_retired_daemon"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.74]
+acceptance = "acceptance.16.35.1"
+file = "tools/bringup/tests/test_xweb_config.py"
+test = "XwebConfigTest.test_render_emits_no_lx_route"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.75]
+acceptance = "acceptance.16.36.1"
+file = "tools/paxeer-x/tests/test_gates_guarantor_retired.py"
+test = "GatesGuarantorRetiredTest.test_gates_name_no_retired_daemon"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.76]
+acceptance = "acceptance.16.37.1"
+file = "tools/paxeer-x/tests/test_gates_layerxd_retired.py"
+test = "GatesLayerxdRetiredTest.test_gates_name_no_layerxd_or_replica"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.77]
+acceptance = "acceptance.16.38.1"
+file = "tools/paxeer-x/tests/test_gates_custody_retired.py"
+test = "GatesCustodyRetiredTest.test_gates_name_no_root_contract_or_credit"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.78]
+acceptance = "acceptance.16.39.1"
+file = "tools/paxeer-x/tests/test_gates_wire_fee_retired.py"
+test = "GatesWireFeeRetiredTest.test_gates_name_no_wire_codec_or_fee_relay"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.79]
+acceptance = "acceptance.16.40.1"
+file = "tools/paxeer-x/tests/test_gov_templates.py"
+test = "GovTemplatesTest.test_gov_suite_passes_without_retired_templates"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.80]
+acceptance = "acceptance.16.41.1"
+file = "tools/paxeer-x/tests/test_gate_registry.py"
+test = "GateRegistryTest.test_every_gate_is_registered_and_dispatches"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.81]
+acceptance = "acceptance.16.42.1"
+file = "tools/paxeer-x/tests/test_service_catalogue.py"
+test = "ServiceCatalogueTest.test_catalogue_reads_layerx_merge_services"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.82]
+acceptance = "acceptance.16.43.1"
+file = "tools/paxeer-x/tests/test_route_catalogue_lx.py"
+test = "RouteCatalogueLxTest.test_catalogue_lists_no_lx_method"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.83]
+acceptance = "acceptance.16.44.1"
+file = "tools/paxeer-x/tests/test_retired_catalogue_deleted.py"
+test = "RetiredCatalogueDeletedTest.test_deleted_trees_absent_and_catalogue_valid"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.84]
+acceptance = "acceptance.16.45.1"
+file = "tools/qualification/test_service_catalogue_1.py"
+test = "ServiceCatalogueReaders1Test.test_producers_load_existing_catalogue"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.85]
+acceptance = "acceptance.16.46.1"
+file = "tools/qualification/test_service_catalogue_2.py"
+test = "ServiceCatalogueReaders2Test.test_producers_load_existing_catalogue"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.86]
+acceptance = "acceptance.16.47.1"
+file = "tools/qualification/test_service_catalogue_3.py"
+test = "ServiceCatalogueReaders3Test.test_producers_load_existing_catalogue"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.87]
+acceptance = "acceptance.16.48.1"
+file = "tools/qualification/test_retired_callers_1.py"
+test = "RetiredCallers1Test.test_producers_name_no_retired_construct"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.88]
+acceptance = "acceptance.16.49.1"
+file = "tools/qualification/test_retired_callers_2.py"
+test = "RetiredCallers2Test.test_producers_name_no_retired_construct"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.89]
+acceptance = "acceptance.16.50.1"
+file = "tools/qualification/test_retired_callers_3.py"
+test = "RetiredCallers3Test.test_producers_name_no_retired_construct"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.90]
+acceptance = "acceptance.16.51.1"
+file = "tools/qualification/test_retired_callers_4.py"
+test = "RetiredCallers4Test.test_producers_name_no_retired_construct"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.91]
+acceptance = "acceptance.16.52.1"
+file = "tools/qualification/test_retired_callers_5.py"
+test = "RetiredCallers5Test.test_producers_name_no_retired_construct"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.92]
+acceptance = "acceptance.16.53.1"
+file = "tools/qualification/test_retired_callers_6.py"
+test = "RetiredCallers6Test.test_producers_name_no_retired_construct"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.93]
+acceptance = "acceptance.16.54.1"
+file = "tools/qualification/test_retired_callers_7.py"
+test = "RetiredCallers7Test.test_producers_name_no_retired_construct"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.94]
+acceptance = "acceptance.16.55.1"
+file = "tools/qualification/test_retired_callers_8.py"
+test = "RetiredCallers8Test.test_producers_name_no_retired_construct"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.95]
+acceptance = "acceptance.16.56.1"
+file = "tools/qualification/test_retired_callers_9.py"
+test = "RetiredCallers9Test.test_producers_name_no_retired_construct"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.96]
+acceptance = "acceptance.16.57.1"
+file = "tools/qualification/test_retired_callers_10.py"
+test = "RetiredCallers10Test.test_producers_name_no_retired_construct"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.97]
+acceptance = "acceptance.16.58.1"
+file = "tools/qualification/test_retired_callers_11.py"
+test = "RetiredCallers11Test.test_producers_name_no_retired_construct"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.98]
+acceptance = "acceptance.16.59.1"
+file = "tools/qualification/test_retired_callers_12.py"
+test = "RetiredCallers12Test.test_producers_name_no_retired_construct"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.99]
+acceptance = "acceptance.16.60.1"
+file = "tools/qualification/test_retired_callers_13.py"
+test = "RetiredCallers13Test.test_producers_name_no_retired_construct"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.100]
+acceptance = "acceptance.16.61.1"
+file = "tools/qualification/test_retired_callers_14.py"
+test = "RetiredCallers14Test.test_producers_name_no_retired_construct"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.101]
+acceptance = "acceptance.16.62.1"
+file = "tools/qualification/test_retired_callers_15.py"
+test = "RetiredCallers15Test.test_producers_name_no_retired_construct"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.102]
+acceptance = "acceptance.16.63.1"
+file = "tools/qualification/test_retired_callers_16.py"
+test = "RetiredCallers16Test.test_producers_name_no_retired_construct"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.103]
+acceptance = "acceptance.16.64.1"
+file = "tools/qualification/test_retired_callers_17.py"
+test = "RetiredCallers17Test.test_producers_name_no_retired_construct"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.104]
+acceptance = "acceptance.16.65.1"
+file = "tools/qualification/test_retired_callers_18.py"
+test = "RetiredCallers18Test.test_producers_name_no_retired_construct"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.105]
+acceptance = "acceptance.16.67.1"
+file = "tools/ci/tests/test_ci_loadtest_job.py"
+test = "CiLoadtestJobTest.test_root_workflow_runs_loadtest_module"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.106]
+acceptance = "acceptance.16.68.1"
+file = "tools/ci/tests/test_replay_golden_ci.py"
+test = "ReplayGoldenCiTest.test_core_gates_and_routing_pass_without_replay_golden"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.107]
+acceptance = "acceptance.16.69.1"
+file = "tools/containers/test_human_service_image.py"
+test = "HumanServiceImageTest.test_movement_role_refused_and_image_checks"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.108]
+acceptance = "acceptance.16.70.1"
+file = "tools/paxeer-x/tests/test_gates_deleted_sources.py"
+test = "GatesDeletedSourcesTest.test_gates_name_no_deleted_source"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.109]
+acceptance = "acceptance.16.966.4"
+file = "tests/ci/test_requested_suites_absent.py"
+test = "test_bridge_credit_suites_absent"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.110]
+acceptance = "acceptance.17.6.3"
+file = "scripts/gates/test_run_gate.py"
+test = "RunGateTest.test_echoes_failing_step_log_tail"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.111]
+acceptance = "acceptance.18.890.1"
+file = "docs/wiki/Porting.md"
+test = "lxt20-in-tree"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.112]
+acceptance = "acceptance.18.800.1"
+file = "services/wallet/gateway/test/precompiles.test.ts"
+test = "probes the chain for code before serving a linked agent precompile"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.113]
+acceptance = "acceptance.18.877.1"
+file = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs"
+test = "scanned watermark compaction deletes scanned rows re-inserted at or below the watermark"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.114]
+acceptance = "acceptance.18.877.2"
+file = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs"
+test = "delete_expired_updates/2 retention keeps the newest submission of every market"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.115]
+acceptance = "acceptance.18.783.1"
+file = "docs/wiki/PublicRpc.md"
+test = "px_method_rows"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.116]
+acceptance = "acceptance.18.814.1"
+file = "modules/layerxanchor/keeper/keeper_test.go"
+test = "TestResubmittedCheckpointKeepsChallengeWindow"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.117]
+acceptance = "acceptance.18.974.1"
+file = "services/human/crates/layerx-human-service/tests/detail_rungs.rs"
+test = "checkpoint_evidence_level_follows_the_finality_rung"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.118]
+acceptance = "acceptance.18.804.1"
+file = "services/wallet/gateway/test/precompiles.test.ts"
+test = "lists every 0x09xx route while no node package links a layerxagent precompile"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.119]
+acceptance = "acceptance.18.869.1"
+file = "docker/paxeer/Dockerfile.paxd-node"
+test = "paxd_node_runtime_has_libssl3t64"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.120]
+acceptance = "acceptance.18.869.2"
+file = "docker/paxeer/Dockerfile.paxd-node"
+test = "paxd_node_runtime_has_libssl3t64"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.121]
+acceptance = "acceptance.18.915.1"
+file = "docs/wiki/UnifiedNetwork.md"
+test = "exit_checkpoint_documented"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.122]
+acceptance = "acceptance.18.957.1"
+file = "docs/readme/README.es.md"
+test = "perps_at_0x1015"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.123]
+acceptance = "acceptance.18.939.1"
+file = "docs/wiki/UnifiedNetwork.md"
+test = "PerpsSection"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.124]
+acceptance = "acceptance.18.791.1"
+file = "docs/wiki/Quickstart.md"
+test = "bringup_citations_current"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.125]
+acceptance = "acceptance.18.791.2"
+file = "README.md"
+test = "merge_precompiles_listed"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.126]
+acceptance = "acceptance.18.846.1"
+file = "docs/wiki/UnifiedNetwork.md"
+test = "launchpad_section_matches_abi"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.127]
+acceptance = "acceptance.18.874.1"
+file = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs"
+test = "scanned watermark a stale compaction write never moves the watermark back"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.128]
+acceptance = "acceptance.18.889.1"
+file = "docs/wiki/HostedWebhooks.md"
+test = "deployment_cites_existing_files"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.129]
+acceptance = "acceptance.18.1006.1"
+file = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/unified_account_controller_test.exs"
+test = "GET /api/v2/addresses/:address_hash_param/un"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.130]
+acceptance = "acceptance.18.745.1"
+file = "services/wallet/README.md"
+test = "retired-settings-grep"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.131]
+acceptance = "acceptance.18.1081.1"
+file = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/openapi_spec_test.exs"
+test = "reject an anchors page that lost a field"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.132]
+acceptance = "acceptance.18.1043.1"
+file = "rpc/http_ws_parity_test.go"
+test = "TestHTTPAppliesDenyListMixedBatches"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.133]
+acceptance = "acceptance.18.1265.1"
+file = "docs/wiki/Cli.md"
+test = "wallet-estimate-fee"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.134]
+acceptance = "acceptance.18.1259.1"
+file = "docs/wiki/Quickstart.md"
+test = "activity-submit"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.135]
+acceptance = "acceptance.18.1232.1"
+file = "SECURITY.md"
+test = "bug_bounty_section"
+disposition = "pending"
+replacement = ""
+reason = ""
+
+[stale.136]
+acceptance = "acceptance.18.1264.1"
+file = "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift"
+test = "testProgramReceiptCarriesIdempotencyResult"
+disposition = "pending"
+replacement = ""
+reason = ""

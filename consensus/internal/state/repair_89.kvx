@@ -1,0 +1,19 @@
+[repair.22.31.89]
+audit = "22.30.46"
+findings = ["32"]
+proofs = ["TestRepair_89_FatalAdmissionRestart", "TestRepair_89_PartialReplicationRestart", "TestRepair_89_SealedRetryAndNextHeightRestart", "TestRepair_89_IndividualRefusalAndAdmission", "TestRepair_89_ReplayedAcceptanceIsNotRefused", "TestRepair_89_CancelledAdmissionRetainsTransactions", "TestRepair_89_PendingSealRetryRetainsTransactions", "TestRepair_89_AcknowledgementWriteFailureRestart"]
+implementation = "Reap without removal, persist the pending transactions in the state database, acknowledge only the admitted or individually logged refusal prefix, and drain the mempool only when every ready transaction has an acknowledged outcome; recover pending transactions without peer resubmission. Admission and sealing serialize, sealed proposals are reusable, and WAL-replayed acceptances are recognized by the restored receipt source."
+baseline = "Not run: the explicit implementation/build/verification order prohibits a baseline verify run or running verify_cmd by hand; no pre-change test failure is claimed."
+qualification = "The private hf-build and hf-done receipts record the exact candidate revision, command, exit code and evidence log; final task evidence names the verified revision."
+wiring_request = "node/sequencer/consensus_source_test.go, owning domain 5 (node runtime): update the final repeated-Seal assertion in TestConsensusSourceRetriesSealBatchFailure to require the identical cached block instead of ErrLayerNotOpen."
+
+[finding.32]
+tests = ["TestRepair_89_FatalAdmissionRestart", "TestRepair_89_PartialReplicationRestart", "TestRepair_89_SealedRetryAndNextHeightRestart", "TestRepair_89_IndividualRefusalAndAdmission", "TestRepair_89_ReplayedAcceptanceIsNotRefused", "TestRepair_89_CancelledAdmissionRetainsTransactions", "TestRepair_89_PendingSealRetryRetainsTransactions", "TestRepair_89_AcknowledgementWriteFailureRestart"]
+path = "consensus/internal/state/repair_89_test.go"
+producer = "Signed bank sends accepted by the real application's CheckTx into TxMempool, reaped by BlockExecutor.CreateProposalBlock."
+consumer = "Real ConsensusSource, Accepter, Receipter, Executor, Replicator, WAL and state database; application FinalizeBlock and Commit prove recipient balances, sender sequences, unchanged transaction hashes and verified signed receipts."
+restart = "Stop the block executor and sequencer node, close and reopen the on-disk state database and WAL, reconstruct the sequencer over committed application state, and propose from an empty fresh mempool without resubmitting transactions."
+partial = "Close the real WAL from its production sync observer after the first durable ACCEPT; the following send fails replication, its unacknowledged suffix survives reopening, and the first acceptance retains its original sequence position."
+gotcha = "TxMempool.ReapTxs groups EVM transactions after selection; reaping a processed count can remove different transactions, so this repair drains only a fully acknowledged ready snapshot and retains an acknowledged prefix until it can be removed safely."
+boundary = "Recovery here covers an interrupted open admission and a closed-height retry whose block is subsequently committed; node_start.go's refusal to restart an uncommitted sealed WAL height is a separate existing lifecycle boundary outside this task's paths."
+acknowledgement_write = "Close the real state database after the first durable acceptance; the acknowledgement write fails, reopening restores the original pending work, and replayed signed receipts acknowledge it without duplicating execution or recording a false refusal."
