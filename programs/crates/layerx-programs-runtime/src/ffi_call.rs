@@ -83,50 +83,25 @@ unsafe fn schedule_span<'a>(span: ScheduleByteSpan) -> Result<&'a [u8], i32> {
 }
 
 fn schedule_descriptor_spans_bound(call: &CallScheduleDescriptor) -> bool {
-    const CALL_FIXED_BYTES: usize = 32 + 2 + 2 + 4 + 2 + 4 + 4 + 7 * 8;
     if call.canonical_payload.bytes.is_null()
         || call.capabilities.bytes.is_null()
         || call.access_declaration.bytes.is_null()
     {
         return false;
     }
-    let payload = call.canonical_payload.bytes as usize;
-    let capabilities = call.capabilities.bytes as usize;
-    let declaration = call.access_declaration.bytes as usize;
-    let Some(payload_end) = payload.checked_add(call.canonical_payload.length) else {
+    let payload = unsafe {
+        core::slice::from_raw_parts(call.canonical_payload.bytes, call.canonical_payload.length)
+    };
+    let Some(layout) = crate::native_contract::call_payload_layout(payload) else {
         return false;
     };
-    let Some(capabilities_end) = capabilities.checked_add(call.capabilities.length) else {
-        return false;
-    };
-    let Some(declaration_end) = declaration.checked_add(call.access_declaration.length) else {
-        return false;
-    };
-    if call.canonical_payload.length < CALL_FIXED_BYTES {
-        return false;
-    }
-    let header =
-        unsafe { std::slice::from_raw_parts(call.canonical_payload.bytes, CALL_FIXED_BYTES) };
-    let entrypoint_length = usize::from(u16::from_be_bytes([header[34], header[35]]));
-    let calldata_length =
-        u32::from_be_bytes([header[36], header[37], header[38], header[39]]) as usize;
-    let capabilities_length = usize::from(u16::from_be_bytes([header[40], header[41]]));
-    let access_declaration_length =
-        u32::from_be_bytes([header[42], header[43], header[44], header[45]]) as usize;
-    let Some(expected_capabilities) = payload
-        .checked_add(CALL_FIXED_BYTES)
-        .and_then(|offset| offset.checked_add(entrypoint_length))
-        .and_then(|offset| offset.checked_add(calldata_length))
-    else {
-        return false;
-    };
-    payload <= capabilities
-        && header[..32] == call.program_id
-        && capabilities == expected_capabilities
-        && call.capabilities.length == capabilities_length
-        && call.access_declaration.length == access_declaration_length
-        && capabilities_end == declaration
-        && declaration_end == payload_end
+    let start = call.canonical_payload.bytes as usize;
+    payload[layout.call_offset..layout.call_offset + 32] == call.program_id
+        && start.checked_add(layout.capabilities_offset) == Some(call.capabilities.bytes as usize)
+        && call.capabilities.length == layout.capabilities_length
+        && start.checked_add(layout.declaration_offset)
+            == Some(call.access_declaration.bytes as usize)
+        && call.access_declaration.length == layout.declaration_length
 }
 
 fn validate_schedule_owners(call: &CallScheduleDescriptor) -> Result<usize, i32> {
@@ -414,6 +389,7 @@ const PROGRAM_REFUSED: i32 = -736;
 
 #[derive(Debug, Default)]
 struct CachedProgramResolver {
+    token: u64,
     modules: BTreeMap<ProgramId, Arc<CompiledModule>>,
     interfaces: BTreeMap<ProgramId, Vec<u8>>,
 }
@@ -432,7 +408,97 @@ impl CachedProgramResolver {
     }
 }
 
+extern "C" {
+    fn layerx_programs_call_dispute_artifact_open(
+        token: u64,
+        program: *const u8,
+        hash: *const u8,
+        wasm: *mut *const u8,
+        length: *mut usize,
+    ) -> i32;
+    fn layerx_programs_call_dispute_schedule(
+        token: u64,
+        kind: u16,
+        version: u32,
+        output: *mut u8,
+    ) -> i32;
+}
+
 impl ProgramResolver for CachedProgramResolver {
+    fn dispute_artifact(
+        &self,
+        program: ProgramId,
+        hash: [u8; 32],
+        abi: u16,
+        metering: u32,
+    ) -> Option<Arc<CompiledModule>> {
+        let mut wasm = core::ptr::null();
+        let mut length = 0;
+        let mut schedule = [0u8; 76];
+        if unsafe {
+            layerx_programs_call_dispute_artifact_open(
+                self.token,
+                program.bytes().as_ptr(),
+                hash.as_ptr(),
+                &mut wasm,
+                &mut length,
+            )
+        } != OK
+            || unsafe {
+                layerx_programs_call_dispute_schedule(
+                    self.token,
+                    1,
+                    metering,
+                    schedule.as_mut_ptr(),
+                )
+            } != OK
+            || wasm.is_null()
+            || length == 0
+            || length > 16 * 1024 * 1024
+        {
+            return None;
+        }
+        let schedule = crate::FuelSchedule::from_protocol_bytes(&schedule).ok()?;
+        let wasm = unsafe { core::slice::from_raw_parts(wasm, length) };
+        let key = ModuleCacheKey::for_wasm_with_schedule(
+            hash,
+            crate::RUNTIME_VERSION,
+            abi,
+            wasm,
+            schedule,
+        )
+        .ok()?;
+        compiled_module(key, wasm).ok()
+    }
+
+    fn dispute_fee_schedule(&self, version: u32) -> Option<crate::FeeSchedule> {
+        let mut bytes = [0u8; 60];
+        if unsafe {
+            layerx_programs_call_dispute_schedule(self.token, 0, version, bytes.as_mut_ptr())
+        } != OK
+        {
+            return None;
+        }
+        let coefficient = |index: usize| {
+            u64::from_be_bytes(
+                bytes[4 + index * 8..12 + index * 8]
+                    .try_into()
+                    .unwrap_or([0; 8]),
+            )
+        };
+        let schedule = crate::FeeSchedule::new_complete(crate::FeeScheduleParameters {
+            version: u32::from_be_bytes(bytes[..4].try_into().ok()?),
+            fee_units_per_cpu_fuel: coefficient(0),
+            fee_units_per_memory_byte: coefficient(1),
+            fee_units_per_storage_read_byte: coefficient(2),
+            fee_units_per_storage_write_byte: coefficient(3),
+            fee_units_per_output_value: coefficient(4),
+            fee_units_per_output_byte: coefficient(5),
+            fee_units_per_occupancy_byte_batch: coefficient(6),
+        });
+        (schedule.is_valid() && schedule.version() == version).then_some(schedule)
+    }
+
     fn authorize_interface_call(
         &self,
         program: ProgramId,
@@ -929,12 +995,7 @@ fn derive_sandbox_execution_principal(
     host_program: ProgramId,
     lease_id: [u8; 32],
 ) -> Result<PrincipalId, i32> {
-    let mut preimage = b"LayerX/programs/sandbox/namespace/v1\0".to_vec();
-    preimage.extend_from_slice(&host_program.bytes());
-    preimage.extend_from_slice(&lease_id);
-    let principal =
-        crate::hash_bytes(crate::HashAlgorithm::Sha256, &preimage).map_err(|_| NON_CANONICAL)?;
-    PrincipalId::new(principal).map_err(|_| NON_CANONICAL)
+    crate::native_contract::sandbox_execution_principal(host_program, lease_id).ok_or(NON_CANONICAL)
 }
 
 struct SandboxCallSettlement {
@@ -2375,37 +2436,12 @@ fn execution_with_sandbox_receipt(
     receipt: &[u8],
     transfer_root: [u8; 32],
 ) -> Result<(), i32> {
-    const DOMAIN: &[u8] = b"LXP/programs/sandbox-settlement/v1\0";
-    let execution_length = execution.len();
-    let prefix = DOMAIN.len() + 4;
-    let added = prefix
-        .checked_add(4)
-        .and_then(|value| value.checked_add(receipt.len()))
-        .and_then(|value| value.checked_add(32))
-        .ok_or(LENGTH_LIMIT)?;
-    let final_length = execution_length.checked_add(added).ok_or(LENGTH_LIMIT)?;
-    if final_length > execution.capacity() {
+    let added = crate::terminal::SANDBOX_SETTLEMENT_DOMAIN.len() + 4 + 4 + receipt.len() + 32;
+    if execution.len().checked_add(added).ok_or(LENGTH_LIMIT)? > execution.capacity() {
         return Err(FATAL_INVARIANT);
     }
-    execution.resize(final_length, 0);
-    execution.copy_within(0..execution_length, prefix);
-    execution[..DOMAIN.len()].copy_from_slice(DOMAIN);
-    execution[DOMAIN.len()..prefix].copy_from_slice(
-        &u32::try_from(execution_length)
-            .map_err(|_| LENGTH_LIMIT)?
-            .to_be_bytes(),
-    );
-    let mut offset = prefix + execution_length;
-    execution[offset..offset + 4].copy_from_slice(
-        &u32::try_from(receipt.len())
-            .map_err(|_| LENGTH_LIMIT)?
-            .to_be_bytes(),
-    );
-    offset += 4;
-    execution[offset..offset + receipt.len()].copy_from_slice(receipt);
-    offset += receipt.len();
-    execution[offset..offset + 32].copy_from_slice(&transfer_root);
-    Ok(())
+    crate::terminal::attach_sandbox_settlement(execution, receipt, transfer_root)
+        .map_err(|_| NON_CANONICAL)
 }
 
 #[no_mangle]
@@ -2663,7 +2699,10 @@ pub extern "C" fn layerx_programs_call_begin(
             |offset| unsafe { layerx_programs_call_activity_byte(token, WASM, offset) },
         )?;
         let count = c_count(unsafe { layerx_programs_call_catalog_count(token) })?;
-        let mut catalog = CachedProgramResolver::default();
+        let mut catalog = CachedProgramResolver {
+            token,
+            ..CachedProgramResolver::default()
+        };
         let mut root_module = None;
         let mut entries = Vec::with_capacity(usize::try_from(count).map_err(|_| LENGTH_LIMIT)?);
         let mut program_owners = BTreeMap::new();
