@@ -149686,7 +149686,7 @@ do_11 = "Attempt 4 (continue): the tracking tool does not refuse untrusted pins,
 
 [task.22.33.611]
 title = "Repair audit record 22.30.163 medium findings in sdk/integrations/agents/src (part 1 of 1): restart-recovery, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.287", "22.31.414", "22.31.415", "22.31.416", "22.31.417", "22.31.418", "22.31.419", "22.31.420", "22.31.457"]
@@ -173649,7 +173649,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1558]
 title = "Repair audit record 22.30.98 medium findings in services/agent/crates/layerx-crypto/src (part 1 of 1): doc-drift, retired-reference, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.226", "22.31.443"]
@@ -173691,7 +173691,7 @@ do_15 = "Attempt 3 (continue): keep disclosure::bind in layerx-crypto; services/
 
 [task.22.33.1557]
 title = "Repair audit record 22.30.98 medium findings in services/agent/crates/layerx-proof/src (part 1 of 1): doc-drift, retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.226", "22.31.443"]
@@ -197461,7 +197461,7 @@ do_9 = "Attempt 2 (continue): the qualification environment provisions PostgreSQ
 
 [task.22.33.1483]
 title = "Repair audit record 22.30.87 medium findings in services/platform/perps-data/internal/source (part 1 of 1): security, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.209", "22.31.210", "22.31.468"]
@@ -199050,7 +199050,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1313]
 title = "Repair audit record 22.30.70 medium findings in sdk/server/rosetta/lib/internal/service (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.186", "22.31.187", "22.31.463"]
@@ -199347,7 +199347,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1301]
 title = "Repair audit record 22.30.69 medium findings in rpc/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.185", "22.31.463"]
@@ -208932,7 +208932,7 @@ do_12 = "Attempt 2 (continue): the qualification environment provides a PostgreS
 
 [task.22.33.827]
 title = "Repair audit record 22.30.18 medium findings in services/platform/perps-data/internal/store (part 1 of 1): runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.21", "22.31.468"]
@@ -211178,7 +211178,7 @@ do_9 = "Attempt 2 (continue after 22.31.463): the Go build or test binary could 
 
 [task.22.33.673]
 title = "Repair audit record 22.30.167 medium findings in sdk/x/distribution/client/testutil (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.305", "22.31.306", "22.31.307", "22.31.308", "22.31.309", "22.31.463"]
@@ -276818,7 +276818,7 @@ do_11 = "Attempt 3 (continue after 22.31.463): the Go build or test binary could
 
 [task.22.33.1501]
 title = "Repair audit record 22.30.9 medium findings in precompiles/layerxledger (part 1 of 1): interface-mismatch, test-gap, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.144", "22.31.145", "22.31.146", "22.31.463"]
@@ -277998,7 +277998,7 @@ do_10 = "Attempt 3 (continue after 22.31.463): the test binary of precompiles/di
 
 [task.22.33.1260]
 title = "Repair audit record 22.30.62 medium findings in precompiles/distribution/legacy/v630 (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.182", "22.31.183", "22.31.463"]
@@ -319438,7 +319438,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.31.470]
 title = "Rewrite the root README for every root-readme finding of the medium wave"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
