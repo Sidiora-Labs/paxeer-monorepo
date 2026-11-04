@@ -147096,7 +147096,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1481]
 title = "Repair audit record 22.30.86 medium findings in services/platform/middleware/conformance/src (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.359", "22.31.360", "22.31.361", "22.31.362", "22.31.434", "22.31.435", "22.31.436", "22.31.457", "22.31.477"]
@@ -173534,7 +173534,7 @@ do_8 = "The gate of this task is corrected (gotcha 2984): the generated command 
 
 [task.22.33.1570]
 title = "Repair audit record 22.30.99 medium findings in services/agent/tests/isolation/src (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.227", "22.31.228", "22.31.229", "22.31.230"]
@@ -173602,7 +173602,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1567]
 title = "Repair audit record 22.30.99 medium findings in services/agent/fuzz/fuzz_targets (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.227", "22.31.228", "22.31.229", "22.31.230"]
@@ -173678,7 +173678,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1564]
 title = "Repair audit record 22.30.99 medium findings in services/agent/crates/layerx-sdk/src (part 1 of 1): config-drift, retired-reference, runtime-risk, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.227", "22.31.228", "22.31.229", "22.31.230", "22.31.443"]
@@ -174202,7 +174202,7 @@ do_11 = "Attempt 2 (requalify): attempt 1 passed 6 of 7 cases; the failing fixtu
 
 [task.22.33.1548]
 title = "Repair audit record 22.30.96 medium findings in services/agent/crates/layerx-types/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.221", "22.31.222", "22.31.443"]
@@ -174274,7 +174274,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1546]
 title = "Repair audit record 22.30.96 medium findings in services/agent/crates/layerx-client/tests (part 1 of 2): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.221", "22.31.222", "22.31.443"]
@@ -174429,7 +174429,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1542]
 title = "Repair audit record 22.30.96 medium findings in services/agent/crates/layerx-types/src (part 1 of 1): doc-drift, retired-reference, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.221", "22.31.222", "22.31.443"]
@@ -174468,7 +174468,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1541]
 title = "Repair audit record 22.30.96 medium findings in services/agent/crates/layerx-client/src (part 1 of 1): interface-mismatch, restart-recovery, retired-reference, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.221", "22.31.222", "22.31.443"]
@@ -179701,7 +179701,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.244]
 title = "Repair audit record 22.30.129 medium findings in programs/sdk/rust/src (part 1 of 1): doc-drift, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.264", "22.31.265", "22.31.374", "22.31.375", "22.31.443"]
@@ -320196,7 +320196,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.1489]
 title = "Repair audit record 22.30.88 medium findings in services/platform/ramps (part 2 of 2): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.211"]
@@ -330996,7 +330996,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.15]
 title = "Repair audit record 22.30.100 medium findings in services/agent/sdk/python/examples (part 1 of 1): wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.147"]
