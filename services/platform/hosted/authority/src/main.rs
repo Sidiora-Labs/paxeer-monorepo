@@ -64,7 +64,7 @@ Environment:
   LAYERX_AUTHORITY_REPLICA_BEARER_TOKEN_FILE bearer token the replica requires
   LAYERX_AUTHORITY_EVIDENCE_READ_TOKEN_FILE  optional protected file; its distinct bearer may read only /v1/batches/{batch_id}/receipt-authority
   LAYERX_AUTHORITY_REPLICA_ID                64-hex replica identity every evidence document must carry
-  LAYERX_AUTHORITY_CHAIN_RPC_URL             loopback http://host:port endpoint serving pax_sequencerReceipt
+  LAYERX_AUTHORITY_CHAIN_RPC_URL             loopback http://host:port serving committed headers, pax_sequencerReceipt, pinned eth_call and /comet native-store proofs
   LAYERX_AUTHORITY_RECEIPT_KEYS_FILE         protected ReceiptKeyList JSON with pinned keys and height ranges
   LAYERX_AUTHORITY_PROTOCOL_NETWORK_ID       numeric protocol network id expected in signed receipt evidence
   LAYERX_AUTHORITY_NETWORK_ID                deployment network identifier echoed in every answer
@@ -1141,7 +1141,6 @@ mod chain_readiness_tests {
     use std::io::{BufRead as _, BufReader};
     use std::os::unix::fs::PermissionsExt as _;
     use std::path::Path;
-    use std::process::Command;
     use std::sync::Mutex;
 
     pub(super) fn must<T, E: std::fmt::Debug>(value: Result<T, E>) -> T {
@@ -1338,46 +1337,14 @@ mod chain_readiness_tests {
 
             let key_file = directory.join("tls-key.der");
             let cert_file = directory.join("tls-cert.der");
-            let output = must(
-                Command::new("openssl")
-                    .args([
-                        "req",
-                        "-x509",
-                        "-newkey",
-                        "ed25519",
-                        "-nodes",
-                        "-subj",
-                        "/CN=localhost",
-                        "-keyout",
-                        directory.join("tls-key.pem").to_str().unwrap(),
-                        "-outform",
-                        "DER",
-                        "-out",
-                        cert_file.to_str().unwrap(),
-                    ])
-                    .output(),
-            );
-            assert!(
-                output.status.success(),
-                "{}",
-                String::from_utf8_lossy(&output.stderr)
-            );
-            let output = must(
-                Command::new("openssl")
-                    .args([
-                        "pkcs8",
-                        "-topk8",
-                        "-nocrypt",
-                        "-in",
-                        directory.join("tls-key.pem").to_str().unwrap(),
-                        "-outform",
-                        "DER",
-                        "-out",
-                        key_file.to_str().unwrap(),
-                    ])
-                    .output(),
-            );
-            assert!(output.status.success());
+            must(fs::write(
+                &cert_file,
+                include_bytes!("human/fixtures/server.der"),
+            ));
+            must(fs::write(
+                &key_file,
+                include_bytes!("human/fixtures/server-key.der"),
+            ));
             let _ = rustls::crypto::ring::default_provider().install_default();
             let tls = must(
                 ServerConfig::builder()
