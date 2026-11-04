@@ -1,0 +1,13 @@
+[repair.22.33.1127]
+audit = "22.30.49"
+finding_012 = "TestRepairM_1127_012_EmptyCodeReloadGasAndHash"
+finding_013 = "TestRepairM_1127_013_RefuseRealChainsBeforeFunding; TestRepairM_1127_013_DisposableChainFunding; TestRepairM_1127_013_OrdinaryBuildDoesNotFund"
+baseline = "Not run: the explicit implementation-first gate order prohibits pre-change verification and permits verify only through hf-done after hf-build; no baseline failures are claimed."
+wiring_request = "Release tooling owner (domain 17): tools/release/build-paxd.sh and .github/workflows/paxeer-release-publish.yml must reject mock_balances in effective Go build tags and artifact build metadata before packaging or publishing; outside this task's scope."
+evidence = "The runner's private gates.jsonl records the candidate revision, command, exit code and log; qualification requires passing hf-build and hf-done at the same candidate revision."
+
+[gotcha.1]
+area = "test"
+symptom = "The ordinary verify command excludes files constrained by the mock_balances tag."
+cause = "The gate cannot rebuild or spawn a toolchain to test another tag selection."
+do = "Keep the guarded production funding bodies shared, select them only from tagged hooks, and expose their method values through a test-only bridge to exercise real keepers in process."

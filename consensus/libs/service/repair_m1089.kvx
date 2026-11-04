@@ -1,0 +1,8 @@
+[repair.22.33.1089]
+finding = "service-failed-start-state"
+proof = "TestRepairM_1089_FailedStartState"
+regression = "TestRepairM_1089_SuccessfulStartupStillStops"
+transition = "Failed OnStart cancels owned work, invokes OnStop once, waits for owned work, closes completion, and preserves the startup error for subsequent Start calls."
+baseline = "Not run: the task's explicit gate order prohibits verification before full implementation and prohibits running verify_cmd manually. No baseline failures are claimed."
+wiring_requests = []
+evidence = "The hf-build and hf-done runner ledger records the exact candidate revision, commands, exit codes and private log locations; the final task report copies the hf-done evidence."

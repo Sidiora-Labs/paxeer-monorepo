@@ -227,8 +227,10 @@ type Report struct {
 	// Live counts the sockets on a guarded live stream when the run ended.
 	Live int `json:"live"`
 
-	Frames    int64 `json:"frames"`
-	Snapshots int64 `json:"snapshots"`
+	Frames        int64 `json:"frames"`
+	Snapshots     int64 `json:"snapshots"`
+	TradeFrames   int64 `json:"trade_frames"`
+	InvalidTrades int64 `json:"invalid_trades"`
 	// Gaps are frames the sequence rule refused; each is followed by a
 	// resubscribe, and Resynced counts the snapshots that resolved one.
 	// UnresolvedGaps were still open when the run ended.
@@ -273,6 +275,9 @@ func (r *Report) Err() error {
 	}
 	if r.Live != p.Sockets {
 		fail("%d of %d sockets live at the end", r.Live, p.Sockets)
+	}
+	if r.InvalidTrades != 0 {
+		fail("%d invalid production trade frames", r.InvalidTrades)
 	}
 	if r.Frames == 0 {
 		fail("no data frame")
@@ -386,6 +391,7 @@ type runner struct {
 	maxRecovery                  atomic.Int64
 
 	frames, snapshots, gaps, resynced                   atomic.Int64
+	tradeFrames, invalidTrades                          atomic.Int64
 	bookFrames, bookRate, bookLevels                    atomic.Int64
 	checksums, mismatches, late                         atomic.Int64
 	errorFrames, serverCloses, closes1013, noRetryAfter atomic.Int64
@@ -413,6 +419,7 @@ func (r *runner) finish(end time.Time) {
 	rep.Welcomed, rep.Guarded = int(r.welcomed.Load()), int(r.guarded.Load())
 	rep.Recovered = int(r.recovered.Load())
 	rep.MaxRecovery = time.Duration(r.maxRecovery.Load())
+	rep.TradeFrames, rep.InvalidTrades = r.tradeFrames.Load(), r.invalidTrades.Load()
 	rep.Frames, rep.Snapshots = r.frames.Load(), r.snapshots.Load()
 	rep.Gaps, rep.Resynced = r.gaps.Load(), r.resynced.Load()
 	rep.BookFrames, rep.BookRateViolations, rep.BookLevelViolations = r.bookFrames.Load(), r.bookRate.Load(), r.bookLevels.Load()
@@ -655,6 +662,23 @@ func (s *socket) read(conn *websocket.Conn) readResult {
 			if s.gaps[f.Topic] {
 				delete(s.gaps, f.Topic)
 				r.resynced.Add(1)
+			}
+		}
+		if !f.Snapshot && strings.HasSuffix(f.Topic, tradeKind) {
+			r.tradeFrames.Add(1)
+			var trade struct {
+				ID          string   `json:"id"`
+				Symbol      string   `json:"symbol"`
+				Side        string   `json:"side"`
+				Price       *float64 `json:"price"`
+				Contracts   *float64 `json:"contracts"`
+				Notional    *float64 `json:"notional"`
+				TradeTime   *int64   `json:"trade_time"`
+				Liquidation *bool    `json:"liquidation"`
+			}
+			if err := json.Unmarshal(f.Data, &trade); err != nil || trade.ID == "" || trade.Symbol+tradeKind != f.Topic ||
+				(trade.Side != "BUY" && trade.Side != "SELL") || trade.Price == nil || trade.Contracts == nil || trade.Notional == nil || trade.TradeTime == nil || trade.Liquidation == nil {
+				r.invalidTrades.Add(1)
 			}
 		}
 		if strings.HasSuffix(f.Topic, bookKind) {

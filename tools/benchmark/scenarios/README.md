@@ -4,7 +4,7 @@ This folder contains scenario configurations for benchmarking the merged Paxeer 
 
 ## Usage
 
-Run these commands from the repository root:
+All commands below assume the repository root is the working directory:
 
 ```bash
 # Use the default scenario (evm.json, EVMTransfer)
