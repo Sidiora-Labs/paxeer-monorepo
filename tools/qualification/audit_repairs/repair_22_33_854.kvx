@@ -1,0 +1,44 @@
+[task.22.33.854]
+base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+inspection_revision = "d420353bba6678b03571e0351763afe52ecab769"
+repair = "Qualify audit 22.30.181/f048 against the README already rewritten by prerequisite 22.31.470. Assert one chain-125 paxd network, the embedded block-proposing kernel, root node RPC, transaction and committed receipt flows, retained native build targets and authenticated commitment trust boundaries. Assert custody/checkpoint executor retirement and absence of separate daemon or settlement deployment guidance. Only this record and its focused test module are created; README.md is outside scope."
+source_proof = "The module proves README source facts and checks their real producer, transport and consumer connections in committed production sources: node host and consensus wiring; raw transaction acceptance/forwarding; WAL acknowledgement before receipt publication; RPC submitted/receipted/committed coverage; signed receipt production and verification; authenticated header, transaction and state-proof consumers. It parses the curl argument vector and JSON payload without running curl, checks root URLs and chain 125, reads Makefile target prerequisites and recipes, checks chain.mk output and daemon command registration, and checks actual retirement guards. All finding facts are asserted against README.md itself, with no duplicated documentation fixture or runtime substitute."
+review_only = "Native Go/C/Rust builds, node startup, transaction execution, cryptographic verification, actual WAL durability and restart recovery, BFT commitment and endpoint availability are not executed by this gate. These source assertions qualify documentation consistency, not runtime or deployment behavior. No production interface or stateful component is changed, so no interface-driving or restart proof is claimed. No shell script, service unit or manifest is changed; the gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device."
+baseline = "No pre-change verification was run: the explicit implementation-first order and exclusive hf-done gate prohibit the older step-5 standalone baseline run. No baseline failures are claimed. Initial status/diff showed only runner-prepared .cgignore and spec bookkeeping, no scoped files existed, gate.json showed zero builds and verifies and two repair cycles remaining, and /out/run/gates.jsonl was absent. The checked-out revision includes the runner's merge of prerequisite 22.31.470; its README corrections are retained."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_854.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The last hf-done JSON and private /out/run/gates.jsonl name the exact verified content-derived candidate revision, command, exit code and log path. Build and verification must pass on the same candidate revision. This record is finalized before qualification because embedding the candidate hash in its own content would change that hash. The runner retains the evidence and publishes the candidate; no manual commit or push is performed."
+wiring_requests = []
+
+[finding.f048]
+audit = "22.30.181"
+file = "README.md"
+class = "doc-drift"
+severity = "medium"
+owner_domain = 16
+expected = "Brief facts 1-3 define one paxd chain with an embedded kernel, committed-block finality and root RPC; documentation must describe the retained network and current source paths."
+proposal = "Rewrite README.md's architecture, build example and trust-boundary explanation for paxd and its embedded kernel; use the retained commands and committed-block finality, removing separate settlement instructions."
+tests = ["test_f048_architecture_is_one_paxd_network_with_embedded_kernel", "test_f048_root_rpc_chain_probe_and_mirror_boundary", "test_f048_transaction_transport_and_committed_receipt_flow", "test_f048_trust_boundary_requires_authenticated_block_commitment", "test_f048_build_example_retains_linked_native_paxd_targets", "test_f048_retired_executors_supply_no_current_settlement_step", "test_f048_record_maps_audit_finding_to_declared_tests_and_limits"]
+
+[wiring.readme]
+path = "README.md"
+owner_domain = "16 / tools-ops"
+owner_task = "22.31.470"
+request = "README.md — domain 16 tools-ops, task 22.31.470: own the architecture, root RPC, paxd build and committed-finality rewrite for f048; the inherited rewrite already supplies every expected fact and no open wiring request was found during source inspection."
+status = "satisfied_by_prerequisite"
+
+[gotcha.1]
+observed = "The older baseline-verification step conflicts with the explicit implementation-first gate order."
+resolution = "Follow the explicit order; run verification only through hf-done and claim no baseline execution or failures."
+
+[gotcha.2]
+observed = "The checked-out revision includes a prerequisite merge above the advertised base, and the runner has already changed .cgignore and spec task statuses."
+resolution = "Record both revisions, preserve all inherited work and runner bookkeeping, and edit only the two scoped repair files."
+
+[gotcha.3]
+observed = "Combined broad repository reads exceeded tool output limits, and Codify survey returned a large unrelated inventory."
+resolution = "Use bounded reads of the task, finding, README sections and production source contracts; record task notes here because GOTCHA.kvx and spec files are outside scope."
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. After complete implementation, apply the repository's .editorconfig UTF-8, LF, trailing-whitespace and final-newline conventions to these two files only."
