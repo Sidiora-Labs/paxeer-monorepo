@@ -1138,3 +1138,11 @@ fn block_commit_rejects_malformed_headers_and_empty_store_proofs() -> Checked {
     );
     Ok(())
 }
+
+#[path = "support/repair_22_33_1446.rs"]
+mod repair_paths;
+
+#[test]
+fn snapshot_membership_archive_transport_and_restart() -> Result<(), Box<dyn std::error::Error>> {
+    Ok(repair_paths::snapshot_membership_archive_transport_and_restart()?)
+}

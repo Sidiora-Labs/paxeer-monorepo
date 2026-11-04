@@ -363,6 +363,7 @@ fn backfill_blockscout_rows_convert_to_the_live_rpc_shapes() {
                 "to",
                 "value",
                 "input",
+                "chainId",
             ] {
                 assert_eq!(ours[field], theirs[field], "block {height} tx {field}");
             }
@@ -590,4 +591,19 @@ fn backfill_reads_the_live_paxscan_database() {
     assert!(converted
         .keys()
         .all(|height| (1_000_000..=1_000_099).contains(height)));
+}
+
+#[path = "support/repair_22_33_1446.rs"]
+mod repair_paths;
+
+#[test]
+fn tenant_backfill_preserves_chain_id_history_events_and_summary(
+) -> Result<(), Box<dyn std::error::Error>> {
+    Ok(repair_paths::tenant_backfill_preserves_chain_id_history_events_and_summary()?)
+}
+
+#[test]
+fn daemon_observation_order_allows_disabled_index_evm_fallback(
+) -> Result<(), Box<dyn std::error::Error>> {
+    Ok(repair_paths::daemon_observation_order_allows_disabled_index_evm_fallback()?)
 }

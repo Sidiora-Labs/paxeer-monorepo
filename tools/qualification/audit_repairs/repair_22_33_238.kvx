@@ -1,0 +1,34 @@
+[task.22.33.238]
+base_revision = "e17e9d0ab04b95ee1c18eb85444220f992e70ff1"
+repair = "Document the registry as the chain-proof read bridge for the mounted lxphost store on the merged chain-125 node; explain trusted header/commit verification, the two ICS23 proofs and H+1 state authentication, and retain the old adapter only as an explicit retirement warning."
+baseline = "Initial git status/diff contained only runner-prepared .cgignore and spec task-status changes; all four new task artifacts were absent, gate.json reported zero gate runs and gates.jsonl was absent. No pre-change verify ran and no pre-change test failure is claimed: the explicit implementation-first order and exclusive hf-done verification supersede the older do_5 baseline instruction. The inherited README already described one-chain finality, current crates and adapter retirement; mounted-store read instructions were missing."
+proof_scope = "The Python gate reads the real README, Cargo manifests/lock, production node mount, store key, registry verifier and sandbox consumer sources in-process; it checks documentation against those sources and records. It does not execute Rust, cryptographic verification, a node or a live endpoint. No restart or production interface is changed by this documentation finding."
+rust_companion = "programs/tests/repair_22_33_238.rs is registered in a non-publishable root test package, with the exact new package dependency entry in Cargo.lock. It uses the committed ChainFixture peer and production registry key encoder, LXCP codec, trust-step decoder, header/commit verifier and membership/non-membership consumers, including forged value/store/header refusals. The corrected Python gate does not compile or execute this companion and no such runtime qualification is claimed."
+build_cmd = "python3 -m py_compile tools/qualification/audit_repairs/test_repair_22_33_238.py"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_238.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The private hf-build/hf-done ledger and final hf-done JSON name the exact candidate revision, command, exit code and log path, with build and verify on the same revision. This record is finalized before qualification because embedding its own candidate revision would change that revision. The runner publishes the qualified candidate; no manual commit or push is performed."
+wiring_requests = []
+
+[finding.programs-readme-retired]
+audit = "22.30.128"
+file = "programs/README.md"
+line = 28
+class = "doc-drift"
+severity = "medium"
+owner_domain = 13
+observed = "The workspace README still says periodic checkpoints settle execution on a separate chain and lists layerx-programs-protocol-adapter as the live read bridge at lines 47 and 99."
+expected = "The workspace overview must describe one chain with mounted lxphost proofs and current crates, consistent with the sandbox dependency retirement requirement 13058."
+tests = ["test_programs_readme_merged_node", "test_programs_readme_mounted_registry_proof_path", "test_programs_readme_inventory_matches_crates", "test_programs_readme_adapter_is_retired", "test_programs_readme_proof_links_resolve"]
+rust_tests = ["repair_22_33_238_registry_read_bridge", "repair_22_33_238_registry_absent_read"]
+
+[format]
+policy = "Use rustfmt on the touched Rust file with skip_children to preserve its committed fixture module; apply .editorconfig conventions to the other task files, which have no configured formatter."
+
+[gotcha.1]
+observed = "The corrected documentation gate is Python; the legacy task still requires a Rust integration test at the workspace root, whose base manifest is virtual."
+resolution = "Register the required Rust test in a minimal non-publishable root test package with existing dependencies; qualify only through the declared Python gates and distinguish source proof from unexecuted Rust runtime proof."
+
+[gotcha.2]
+observed = "Some exploratory source reads named nonexistent mod.rs, verifier.rs and modules/storekeys paths, and broad combined reads exceeded tool output limits."
+resolution = "Use the actual chain_proof.rs, head_verify.rs and storage/common/keys/store_keys.go sources with bounded reads; preserve this note here because the root gotcha ledger is outside scope."

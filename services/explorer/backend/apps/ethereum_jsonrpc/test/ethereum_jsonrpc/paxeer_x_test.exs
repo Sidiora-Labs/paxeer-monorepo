@@ -1,3 +1,5 @@
+Code.require_file("paxeer_x_capture.exs", __DIR__)
+
 defmodule EthereumJSONRPC.PaxeerXTest do
   @moduledoc """
   Fixtures under `test/support/fixture/paxeer_x`:
@@ -306,14 +308,27 @@ defmodule EthereumJSONRPC.PaxeerXTest do
   end
 
   describe "eth_syncing" do
-    test "the node's -32000 refusal is reported as synced", %{
+    test "current recorded false response reaches the adapter through HTTP" do
+      EthereumJSONRPC.PaxeerXCapture.assert_recorded_syncing("synced")
+    end
+
+    test "current recorded progress response reaches the adapter through HTTP" do
+      EthereumJSONRPC.PaxeerXCapture.assert_recorded_syncing("syncing")
+    end
+
+    test "current HTTP failure is an error instead of a synced state" do
+      EthereumJSONRPC.PaxeerXCapture.assert_syncing_transport_error()
+    end
+
+    test "legacy refusal v1 before InfoAPI.Syncing progress support remains an error", %{
       json_rpc_named_arguments: json_rpc_named_arguments
     } do
       expect(EthereumJSONRPC.Mox, :json_rpc, fn %{method: "eth_syncing", params: []}, _ ->
         {:error, %{"code" => -32_000, "message" => "eth_syncing is not supported on Pax EVM RPC"}}
       end)
 
-      assert {:ok, :synced} = PaxeerX.fetch_syncing_status(json_rpc_named_arguments)
+      assert {:error, %{"code" => -32_000, "message" => "eth_syncing is not supported on Pax EVM RPC"}} =
+               PaxeerX.fetch_syncing_status(json_rpc_named_arguments)
     end
 
     test "a node that answers false is synced", %{json_rpc_named_arguments: json_rpc_named_arguments} do

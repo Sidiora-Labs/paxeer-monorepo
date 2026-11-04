@@ -50,18 +50,25 @@ defmodule Indexer.Migrator.RecoveryWETHTokenTransfers do
           MigrationStatus.update_meta(@migration_name, state)
         end
 
-        schedule_batch_migration(0)
-        {:noreply, state}
+        {:noreply, state, {:continue, :migrate_batch}}
     end
   end
 
+  def handle_continue(:migrate_batch, state), do: handle_info(:migrate_batch, state)
+
   @impl true
   def handle_info(:migrate_batch, state) do
-    case last_unprocessed_identifiers(state) do
+    migrate_batch(state, last_unprocessed_identifiers(state))
+  end
+
+  defp migrate_batch(state, identifiers) do
+    case identifiers do
       [] ->
         if state["block_number"] == state["min_block_number"] do
-          MigrationStatus.set_status(migration_name(), "completed")
-          MigrationStatus.set_meta(migration_name(), nil)
+          migration_name()
+          |> MigrationStatus.fetch()
+          |> MigrationStatus.changeset(%{status: "completed", meta: nil})
+          |> Repo.update!()
 
           {:stop, :normal, state}
         else
@@ -74,9 +81,7 @@ defmodule Indexer.Migrator.RecoveryWETHTokenTransfers do
                   (state["max_block_number"] - state["min_block_number"]) * 100
           }
 
-          schedule_batch_migration()
-
-          {:noreply, new_state}
+          migrate_batch(new_state, last_unprocessed_identifiers(new_state))
         end
 
       identifiers ->
@@ -91,9 +96,20 @@ defmodule Indexer.Migrator.RecoveryWETHTokenTransfers do
         new_state = %{state | "transaction_hash" => last_transaction_hash}
         MigrationStatus.update_meta(migration_name(), new_state)
 
-        schedule_batch_migration()
+        case last_unprocessed_identifiers(new_state) do
+          [] ->
+            migrate_batch(new_state, [])
 
-        {:noreply, new_state}
+          _identifiers ->
+            case Application.get_env(:indexer, __MODULE__)[:timeout] do
+              0 ->
+                {:noreply, new_state, {:continue, :migrate_batch}}
+
+              timeout ->
+                schedule_batch_migration(timeout)
+                {:noreply, new_state}
+            end
+        end
     end
   end
 
@@ -161,10 +177,11 @@ defmodule Indexer.Migrator.RecoveryWETHTokenTransfers do
       end)
       |> TokenTransfers.parse(true)
 
-    Chain.import(%{
-      token_transfers: %{params: token_transfers},
-      timeout: :infinity
-    })
+    {:ok, _} =
+      Chain.import(%{
+        token_transfers: %{params: token_transfers},
+        timeout: :infinity
+      })
 
     if high_verbosity?() do
       token_transfers
@@ -175,8 +192,8 @@ defmodule Indexer.Migrator.RecoveryWETHTokenTransfers do
     end
   end
 
-  defp schedule_batch_migration(timeout \\ nil) do
-    Process.send_after(self(), :migrate_batch, timeout || Application.get_env(:indexer, __MODULE__)[:timeout])
+  defp schedule_batch_migration(timeout) do
+    Process.send_after(self(), :migrate_batch, timeout)
   end
 
   def migration_name, do: @migration_name

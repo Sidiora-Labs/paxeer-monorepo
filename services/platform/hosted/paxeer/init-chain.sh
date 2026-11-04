@@ -18,4 +18,4 @@ for argument in "$@"; do
             exit 2 ;;
     esac
 done
-exec "$SCRIPT_DIR/../node/bootstrap.sh" "$@"
+exec paxeer-native-tool bootstrap --bootstrap-script "$SCRIPT_DIR/../node/bootstrap.sh" "$@"
