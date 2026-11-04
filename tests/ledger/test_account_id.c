@@ -30,6 +30,10 @@ static const vector vectors[] = {
 
 static const vector historical_vectors[] = {
     { "system:paxeer-reserve", LX_ACCOUNT_SYSTEM_PAXEER_RESERVE, "6e0e5cca5cfaa1b20ddd1c6174321eeaf00dd74bce2adcd78b61e15aa9e26f7c" },
+    { "system:paxeer-reserve:pax", LX_ACCOUNT_SYSTEM_PAXEER_RESERVE, "04ba1d325fb30dc367049d7f37e5b6f469434c80a3069720e6180d85e79d5fdf" },
+    { "system:paxeer-reserve:sid", LX_ACCOUNT_SYSTEM_PAXEER_RESERVE, "9bd50e03a1896ab96e835eab6a5e91586044229ebc570b88696ce3703f90657b" },
+    { "system:paxeer-reserve:usdc", LX_ACCOUNT_SYSTEM_PAXEER_RESERVE, "bd1f9b66077bfe2db4f0e99804f39f71068097b904b725707abe90233a2c1d01" },
+    { "system:paxeer-reserve:usdl", LX_ACCOUNT_SYSTEM_PAXEER_RESERVE, "3e77ef390aa0e20d691eca432f710bc5fb43d7ea46982112696c84f29b1a9532" },
     { "system:paxeer-withdrawals", LX_ACCOUNT_SYSTEM_PAXEER_WITHDRAWALS, "36e5bfab4a0143c723aaac6a61d6eae554e684f94cfff2a24f5fdf0574c468f7" }
 };
 
