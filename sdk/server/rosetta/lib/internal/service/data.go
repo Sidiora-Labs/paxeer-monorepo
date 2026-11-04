@@ -19,7 +19,7 @@ func (on OnlineNetwork) AccountBalance(ctx context.Context, request *types.Accou
 	)
 
 	switch {
-	case request.BlockIdentifier == nil:
+	case request.BlockIdentifier == nil || (request.BlockIdentifier.Hash == nil && (request.BlockIdentifier.Index == nil || *request.BlockIdentifier.Index == 0)):
 		block, err = on.client.BlockByHeight(ctx, nil)
 		if err != nil {
 			return nil, errors.ToRosetta(err)
@@ -29,7 +29,6 @@ func (on OnlineNetwork) AccountBalance(ctx context.Context, request *types.Accou
 		if err != nil {
 			return nil, errors.ToRosetta(err)
 		}
-		height = block.Block.Index
 	case request.BlockIdentifier.Index != nil:
 		height = *request.BlockIdentifier.Index
 		block, err = on.client.BlockByHeight(ctx, &height)
@@ -37,6 +36,7 @@ func (on OnlineNetwork) AccountBalance(ctx context.Context, request *types.Accou
 			return nil, errors.ToRosetta(err)
 		}
 	}
+	height = block.Block.Index
 
 	accountCoins, err := on.client.Balances(ctx, request.AccountIdentifier.Address, &height)
 	if err != nil {
@@ -86,17 +86,21 @@ func (on OnlineNetwork) Block(ctx context.Context, request *types.BlockRequest) 
 	}, nil
 }
 
-// BlockTransaction gets the given transaction in the specified block, we do not need to check the block itself too
-// due to the fact that tendermint achieves instant finality
+// BlockTransaction gets the given transaction in the specified block.
 func (on OnlineNetwork) BlockTransaction(ctx context.Context, request *types.BlockTransactionRequest) (*types.BlockTransactionResponse, *types.Error) {
-	tx, err := on.client.GetTx(ctx, request.TransactionIdentifier.Hash)
+	block, err := on.client.BlockTransactionsByHash(ctx, request.BlockIdentifier.Hash)
 	if err != nil {
 		return nil, errors.ToRosetta(err)
 	}
-
-	return &types.BlockTransactionResponse{
-		Transaction: tx,
-	}, nil
+	if block.Block.Hash != request.BlockIdentifier.Hash || block.Block.Index != request.BlockIdentifier.Index {
+		return nil, errors.ToRosetta(errors.ErrNotFound)
+	}
+	for _, tx := range block.Transactions {
+		if tx.TransactionIdentifier.Hash == request.TransactionIdentifier.Hash {
+			return &types.BlockTransactionResponse{Transaction: tx}, nil
+		}
+	}
+	return nil, errors.ToRosetta(errors.ErrNotFound)
 }
 
 // Mempool fetches the transactions contained in the mempool

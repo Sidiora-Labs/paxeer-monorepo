@@ -51,6 +51,10 @@ const (
 	seqVecFixture         = "../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
 	seqVecFeeTokenFixture = "../sdk/platform/conformance/fixtures/sequencer-receipt-fee-token-v1.json"
 	seqVecFeeTokenCommand = "go test -count=1 ./rpc/ -run '^TestSequencerReceiptFeeTokenVector$' -update"
+	seqVecUCPFixture      = "../sdk/platform/conformance/fixtures/ucp-checkout-receipt-v1.json"
+	seqVecUCPCommand      = "go test -count=1 ./rpc/ -run '^TestRepairM_466_UCPCheckoutReceiptVector$' -update"
+	seqVecUCPDomain       = "LayerX/interop/ucp/idempotency/v1\x00"
+	seqVecUCPIdempotency  = "123e4567-e89b-12d3-a456-426614174000"
 	seqVecGenerator       = "rpc/sequencer_receipt_vectors_test.go"
 	seqVecCommand         = "go test -count=1 ./rpc/ -run TestSequencerReceiptVectors -update"
 	seqVecChainID         = 125
@@ -412,7 +416,11 @@ func seqVecLedgerPay(t *testing.T) seqVecPayExact {
 // seqVecLedgerPayment is a layerxledger payExact with its PaymentExact log.
 func seqVecLedgerPayment(t *testing.T, nonce uint64) seqVecTx {
 	t.Helper()
-	pay := seqVecLedgerPay(t)
+	return seqVecLedgerPaymentFor(t, nonce, seqVecLedgerPay(t))
+}
+
+func seqVecLedgerPaymentFor(t *testing.T, nonce uint64, pay seqVecPayExact) seqVecTx {
+	t.Helper()
 	data, err := seqVecArgs(t, "bytes32", "uint128").Pack([32]byte(pay.asset), pay.amount)
 	require.NoError(t, err)
 	topic := crypto.Keccak256Hash([]byte("PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)"))
@@ -940,6 +948,115 @@ func seqVecWriteFixture(t *testing.T, path, command string, file seqVecFile) {
 	stored, err := os.ReadFile(path)
 	require.NoError(t, err, "run %s to write the fixture", command)
 	require.Equal(t, string(stored), string(rendered), "the fixture differs from the node signer output; run %s", command)
+}
+
+func seqVecUCPGatewayKey(t *testing.T) common.Hash {
+	t.Helper()
+	key, err := hex.DecodeString(strings.ReplaceAll(seqVecUCPIdempotency, "-", ""))
+	require.NoError(t, err)
+	require.Len(t, key, 16)
+	return common.Hash(sha256.Sum256(append([]byte(seqVecUCPDomain), key...)))
+}
+
+func TestRepairM_466_UCPCheckoutReceiptVector(t *testing.T) {
+	public := [32]byte(ed25519.NewKeyFromSeed(seqVecReceiptSeed).Public().(ed25519.PublicKey))
+	pin := seqVecPin{KeyID: seqVecKeyID, PublicKey: public[:], FirstHeight: seqVecFirstHeight, LastHeight: seqVecLastHeight}
+	key := loadSeqVecKey(t, t.TempDir(), verify.SequencerAuthorization{
+		SequencerID: seqVecKeyID, PublicKey: public, FirstBatchNumber: seqVecFirstHeight, LastBatchNumber: seqVecLastHeight,
+	})
+	chain := newSeqReceiptChain9005(t)
+	installSeqVecReceiptKey(t, chain, pin)
+	source := &seqVecSource{sends: map[common.Hash]*evmrpc.SequencerSend{}}
+	port := startSeqReceiptServer9005(t, app.Setup(t, false, false, false), chain.ctxProvider,
+		evmrpc.SequencerReceiptOption{Source: source, Keeper: &chain.keeper})
+	b := newSeqVecBuilder(t)
+	pay := seqVecLedgerPay(t)
+	pay.reference = seqVecUCPGatewayKey(t)
+	tx := seqVecLedgerPaymentFor(t, 0, pay)
+	signed := b.receipt(key, seqVecKeyID, b.signTx(tx), tx, seqVecSlot{seq: 1, height: seqVecFirstHeight, index: 1}, true)
+	answer := seqVecServe(t, port, source, signed)
+	c := seqVecCaseOf("V1-ucp-checkout-pay-exact", "V1",
+		"layerxledger payExact with the UCP gateway key of idempotency key "+seqVecUCPIdempotency,
+		signed, signed.raw, answer, [32]byte{}, pin)
+	c.Expected = seqVecExpected{Rung: string(evmrpc.RungReceipted), Verifier: "accepts"}
+	seqVecAssertUCPCheckout(t, c)
+	file := seqVecFile{
+		Name:       "ucp-checkout-receipt-v1",
+		Provenance: seqVecProvenance{Generator: seqVecGenerator, Command: seqVecUCPCommand},
+		ChainID:    seqVecChainID, ModuleID: seqVecModuleID, FeeDenom: evmkeeper.BaseDenom,
+		Cases: []seqVecCase{c},
+	}
+	seqVecWriteFixture(t, seqVecUCPFixture, seqVecUCPCommand, file)
+}
+
+func seqVecReadUCPCheckout(t *testing.T) seqVecCase {
+	t.Helper()
+	stored, err := os.ReadFile(seqVecUCPFixture)
+	require.NoError(t, err)
+	var file seqVecFile
+	require.NoError(t, json.Unmarshal(stored, &file))
+	require.Equal(t, "ucp-checkout-receipt-v1", file.Name)
+	require.Equal(t, seqVecProvenance{Generator: seqVecGenerator, Command: seqVecUCPCommand}, file.Provenance)
+	require.Equal(t, uint64(seqVecChainID), file.ChainID)
+	require.Equal(t, uint16(seqVecModuleID), file.ModuleID)
+	require.Equal(t, evmkeeper.BaseDenom, file.FeeDenom)
+	require.Len(t, file.Cases, 1)
+	return file.Cases[0]
+}
+
+func seqVecAssertUCPCheckout(t *testing.T, c seqVecCase) {
+	t.Helper()
+	require.Equal(t, "V1-ucp-checkout-pay-exact", c.ID)
+	require.Equal(t, "V1", c.Vector)
+	require.Equal(t, seqVecExpected{Rung: string(evmrpc.RungReceipted), Verifier: "accepts"}, c.Expected)
+	public := ed25519.NewKeyFromSeed(seqVecReceiptSeed).Public().(ed25519.PublicKey)
+	require.Equal(t, seqVecPin{KeyID: seqVecKeyID, PublicKey: []byte(public), FirstHeight: seqVecFirstHeight, LastHeight: seqVecLastHeight}, c.PinnedKey)
+	check, err := seqVecClientCheck(c.RawTransaction, c.ReceiptJSON, c.PrevSeqHash, c.PinnedKey)
+	require.NoError(t, err, check)
+	require.Empty(t, check)
+	verified, err := verify.ReceiptSignature(c.SignedReceipt, [32]byte(public))
+	require.NoError(t, err)
+	require.Equal(t, c.ReceiptDigest, common.Hash(verified.Digest))
+	require.Equal(t, seqVecKeyID, verified.Receipt.ContextHash)
+	require.Zero(t, verified.Receipt.ResultCode)
+	var result evmrpc.SequencerReceiptResult
+	require.NoError(t, json.Unmarshal(c.ReceiptJSON, &result))
+	require.Equal(t, c.SignedReceipt, result.Receipt)
+	require.Equal(t, uint64(ethtypes.ReceiptStatusSuccessful), uint64(result.Status))
+	require.Len(t, result.Logs, 1)
+	pay := seqVecLedgerPay(t)
+	pay.reference = seqVecUCPGatewayKey(t)
+	log := result.Logs[0]
+	require.Equal(t, seqVecLedger, log.Address)
+	require.Equal(t, []common.Hash{
+		crypto.Keccak256Hash([]byte("PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)")),
+		pay.reference, pay.from, pay.to,
+	}, log.Topics)
+	data, err := seqVecArgs(t, "bytes32", "uint128").Pack([32]byte(pay.asset), pay.amount)
+	require.NoError(t, err)
+	require.Equal(t, data, []byte(log.Data))
+	tx := new(ethtypes.Transaction)
+	require.NoError(t, tx.UnmarshalBinary(c.RawTransaction))
+	require.Equal(t, big.NewInt(seqVecChainID), tx.ChainId())
+	require.Equal(t, seqVecLedger, *tx.To())
+	require.Equal(t, seqVecPayExactCall(t, pay), tx.Data())
+}
+
+func TestRepairM_466_UCPCheckoutGatewayKey(t *testing.T) {
+	key := []byte{0x12, 0x3e, 0x45, 0x67, 0xe8, 0x9b, 0x12, 0xd3, 0xa4, 0x56, 0x42, 0x66, 0x14, 0x17, 0x40, 0x00}
+	material := append([]byte("LayerX/interop/ucp/idempotency/v1"), 0)
+	expected := common.Hash(sha256.Sum256(append(material, key...)))
+	require.Equal(t, expected, seqVecUCPGatewayKey(t))
+	c := seqVecReadUCPCheckout(t)
+	seqVecAssertUCPCheckout(t, c)
+	var result evmrpc.SequencerReceiptResult
+	require.NoError(t, json.Unmarshal(c.ReceiptJSON, &result))
+	require.Equal(t, expected, result.Logs[0].Topics[1])
+	require.NotEqual(t, seqVecLedgerPay(t).reference, expected)
+}
+
+func TestRepairM_466_UCPCheckoutPinnedReceipt(t *testing.T) {
+	seqVecAssertUCPCheckout(t, seqVecReadUCPCheckout(t))
 }
 
 func TestSequencerReceiptFeeTokenVector(t *testing.T) {

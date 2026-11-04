@@ -32,7 +32,7 @@ SCHEMA = 'paxeer-x.human-movement-kms-assembly.v1'
 MANIFEST = Path(os.environ.get('PAXEER_X_MOVEMENT_KMS_ASSEMBLY_MANIFEST',
                                ROOT / 'services/human/target/paxeer-x/human-movement-kms-assembly.json'))
 SOURCES = ['services/human/Cargo.toml', 'services/human/Cargo.lock', 'services/human/crates', 'services/agent/crates',
-           'services/platform/Cargo.toml', 'services/platform/Cargo.lock', 'platform/crates', 'services/platform/hosted/runtime-clock',
+           'services/platform/Cargo.toml', 'services/platform/Cargo.lock', 'services/platform/crates', 'services/platform/hosted/runtime-clock',
            'docker/kernel/init.sh', 'docker/human-service/entrypoint.sh', 'tools/bringup/ca.sh',
            'services/platform/hosted/human/material.py', 'tests/fixtures/custody/native-credit-receipt/profile',
            'tools/qualification/paxeer-x/human-movement-kms-assembly.py']
@@ -66,10 +66,38 @@ def git(*args):
     return subprocess.check_output(['git', '-C', str(ROOT), *args], text=True).strip()
 
 
+def source_snapshot(root, revision):
+    root = Path(root)
+    paths = {}
+    for name in SOURCES:
+        path = root / name
+        require(path.exists() and not path.is_symlink(), 'missing provenance path: ' + name)
+        files = [path] if path.is_file() else sorted(path.rglob('*'))
+        require(files, 'empty provenance path: ' + name)
+        for item in files:
+            require(not item.is_symlink(), 'provenance symlink refused: ' + str(item))
+            if item.is_file():
+                paths[str(item.relative_to(root))] = digest(item)
+    return {'revision': revision, 'files': paths}
+
+
+def verify_provenance(document, revision, root=ROOT):
+    require(document.get('revision') == revision,
+            'artifact provenance revision differs from the candidate')
+    require(document.get('sources') == source_snapshot(root, revision),
+            'artifact provenance paths differ from the candidate')
+
+
 def source():
-    if git('status', '--porcelain', '--untracked-files=no', '--', *SOURCES):
+    revision = git('rev-parse', 'HEAD')
+    snapshot = source_snapshot(ROOT, revision)
+    if git('status', '--porcelain', '--untracked-files=all', '--', *SOURCES):
         refuse('the qualified sources have uncommitted changes')
-    return git('rev-parse', 'HEAD')
+    for name in snapshot['files']:
+        committed = subprocess.check_output(['git', '-C', str(ROOT), 'show', revision + ':' + name])
+        require(hashlib.sha256(committed).hexdigest() == snapshot['files'][name],
+                'source differs from artifact revision: ' + name)
+    return revision
 
 
 def artifacts(argv, wanted):
@@ -114,13 +142,14 @@ def build():
     temporary = MANIFEST.with_suffix('.next')
     fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, 'w') as stream:
-        json.dump({'schema': SCHEMA, 'revision': revision, 'artifacts': built}, stream, indent=2)
+        json.dump({'schema': SCHEMA, 'revision': revision, 'sources': source_snapshot(ROOT, revision), 'artifacts': built}, stream, indent=2)
         stream.write('\n')
     os.replace(temporary, MANIFEST)
     print('PAXEER_X_BUILD manifest=%s revision=%s' % (MANIFEST, revision))
 
 
 def prerequisites():
+    revision = source()
     require(os.geteuid() == 0, 'the role uids, mount and network namespaces require root')
     for tool in ['openssl', 'socat', 'git', 'unshare', 'nsenter', 'setpriv', 'ip', 'mount', 'flock', 'cmp', 'install']:
         if not shutil.which(tool):
@@ -133,7 +162,7 @@ def prerequisites():
     if info.st_uid != os.geteuid() or info.st_mode & 0o077:
         refuse('the build manifest must be private and owned by the gate user')
     data = json.loads(MANIFEST.read_text())
-    revision = source()
+    verify_provenance(data, revision)
     if data.get('schema') != SCHEMA or data.get('revision') != revision:
         refuse('the prebuilt executables were not built from this revision; run --build')
     built = data['artifacts']
