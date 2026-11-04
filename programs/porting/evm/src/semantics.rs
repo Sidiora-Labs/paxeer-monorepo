@@ -21,16 +21,50 @@ fn parameter_count(signature: &str) -> Result<usize, PortRefusal> {
     if !signature.ends_with(')') || open == 0 || signature.len() > MAX_SIGNATURE_BYTES {
         return Err(PortRefusal::InvalidSignature);
     }
-    let inner = signature
-        .get(open + 1..signature.len() - 1)
-        .ok_or(PortRefusal::InvalidSignature)?;
+    let name = &signature.as_bytes()[..open];
+    if !(name[0].is_ascii_alphabetic() || matches!(name[0], b'_' | b'$'))
+        || !name
+            .iter()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'$'))
+    {
+        return Err(PortRefusal::InvalidSignature);
+    }
+    let inner = &signature[open + 1..signature.len() - 1];
     if inner.is_empty() {
         return Ok(0);
     }
-    if inner.split(',').any(str::is_empty) {
-        return Err(PortRefusal::InvalidSignature);
+    let mut count = 0;
+    for parameter in inner.split(',') {
+        if !supported_scalar(parameter) {
+            return Err(PortRefusal::InvalidSignature);
+        }
+        count += 1;
     }
-    Ok(inner.split(',').count())
+    Ok(count)
+}
+
+fn supported_scalar(parameter: &str) -> bool {
+    if matches!(parameter, "address" | "bool") {
+        return true;
+    }
+    let (digits, maximum, step) = if let Some(digits) = parameter.strip_prefix("uint") {
+        (digits, 256, 8)
+    } else if let Some(digits) = parameter.strip_prefix("int") {
+        (digits, 256, 8)
+    } else if let Some(digits) = parameter.strip_prefix("bytes") {
+        (digits, 32, 1)
+    } else {
+        return false;
+    };
+    if digits.is_empty()
+        || digits.starts_with('0')
+        || !digits.bytes().all(|byte| byte.is_ascii_digit())
+    {
+        return false;
+    }
+    digits
+        .parse::<u16>()
+        .is_ok_and(|width| width > 0 && width <= maximum && width % step == 0)
 }
 
 /// A Solidity event carried onto the program ABI's single-topic event shape.

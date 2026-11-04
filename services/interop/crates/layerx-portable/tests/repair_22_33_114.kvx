@@ -1,0 +1,7 @@
+[repair.22.33.114]
+finding = "portable_external_path"
+tests = ["portable_external_path", "portable_external_path_rejects_mandate_signature_tampering", "portable_external_path_rejects_merchant_signature_tampering", "portable_external_path_requires_purpose_scoped_trust"]
+baseline = "Not run: the explicit gate order forbids running verify_cmd by hand or before implementation; repair_22_33_114.rs did not exist on base 2b502183a86af3a2498748de6572b1bde20e4768. No baseline failure is claimed."
+wiring_request = "None: decision 2511 expands scope to the crate manifest and workspace lockfile; layerx-ap2 and p256 dev-dependencies are declared with the existing workspace versions."
+previous_attempt = "Attempt 1 failed to compile external_verification because layerx-ap2 and p256 were undeclared; no behavioral test failure was observed."
+evidence = "The bounded gate ledger records the exact candidate revision, command, exit code and private log location; no successful gate is claimed before it runs."

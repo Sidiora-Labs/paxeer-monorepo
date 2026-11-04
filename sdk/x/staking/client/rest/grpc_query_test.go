@@ -34,7 +34,7 @@ type IntegrationTestSuite struct {
 func (s *IntegrationTestSuite) SetupSuite() {
 	s.T().Log("setting up integration test suite")
 
-	cfg := network.DefaultConfig()
+	cfg := network.DefaultConfig(s.T())
 	cfg.NumValidators = 2
 
 	s.cfg = cfg
@@ -545,6 +545,10 @@ func (s *IntegrationTestSuite) TestQueryDelegatorUnbondingDelegationsGRPC() {
 }
 
 func (s *IntegrationTestSuite) TestQueryRedelegationsGRPC() {
+	s.Run("competing records on every filtered page", func() {
+		testRedelegationFilterPages(s.T())
+	})
+
 	val := s.network.Validators[0]
 	val2 := s.network.Validators[1]
 	baseURL := val.APIAddress
