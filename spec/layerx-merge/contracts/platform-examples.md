@@ -1,103 +1,112 @@
 # Platform examples contract
 
-Source revision: `2a1033aa2`. This contract freezes the cited interface and acceptance blocks of the specification. Statuses include the specification overrides. A source marked planned has line 0; a positive source line is verified in the pinned revision.
+This page describes the current [platform examples](../../../services/platform/examples), replacing the historical interface snapshot at `2a1033aa2`. Paths below identify implementations, not planned exports or evidence of qualification.
 
-The context and decision tables reproduce the rules linked by interface identifiers. An anchor without a linked context gains no additional storage, gas, activation or pause rule here. Acceptance qualification remains UNRUN until its declared gate succeeds.
+The examples use one Paxeer network: `paxd` is the BFT node, its integrated kernel proposes blocks, and the EVM chain ID is `125` (`0x7d`, payment network `eip155:125`). A receipt is final when its block commits. Sub-chains are tenant domains in the database, not additional execution or settlement infrastructure.
+
+Node JSON-RPC uses the root path, for example `https://api-mainnet-beta.paxeer.network/`, or the numbered hosts `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`. Hosted `px_` methods have their own [gateway OpenRPC contract](../../../services/platform/hosted/gateway/openrpc.json); their presence on a public node must not be assumed. `node.hyperpaxeer.com` is the library mirror, not an RPC endpoint.
+
+The explorer's [verifier HTTP contract](verifier-http.md) describes source compilation and bytecode comparison. It does not replace the signed transaction receipt verification described here.
 
 ## examples-config
 
-| Interface | Kind | Status | Source at pinned revision | Signature |
-|---|---|---|---|---|
-| <code>interface.8.cfg-examples-buyer-agent-environments-beta-receiptkeysenvironment-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/examples/buyer-agent/layerx.example.json</code> (planned) | <code>environments.beta."receiptKeysEnvironment": name of the variable holding the pinned receipt key entries</code> |
-| <code>interface.8.cfg-examples-buyer-agent-environments-beta-rpcurl-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/examples/buyer-agent/layerx.example.json</code> (planned) | <code>environments.beta."rpcUrl": JSON-RPC endpoint serving eth_sendRawTransaction and pax_sequencerReceipt</code> |
-| <code>interface.8.cfg-examples-buyer-agent-environments-emulator-receiptkeysenvironment-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/examples/buyer-agent/layerx.example.json</code> (planned) | <code>environments.emulator."receiptKeysEnvironment": name of the variable holding the pinned receipt key entries</code> |
-| <code>interface.8.cfg-examples-buyer-agent-environments-emulator-rpcurl-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/examples/buyer-agent/layerx.example.json</code> (planned) | <code>environments.emulator."rpcUrl": JSON-RPC endpoint serving eth_sendRawTransaction and pax_sequencerReceipt</code> |
-| <code>interface.8.cfg-examples-marketplace-environments-beta-receiptkeysenvironment-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/examples/marketplace/layerx.example.json</code> (planned) | <code>environments.beta."receiptKeysEnvironment": name of the variable holding the pinned receipt key entries</code> |
-| <code>interface.8.cfg-examples-marketplace-environments-beta-rpcurl-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/examples/marketplace/layerx.example.json</code> (planned) | <code>environments.beta."rpcUrl": JSON-RPC endpoint serving eth_sendRawTransaction and pax_sequencerReceipt</code> |
-| <code>interface.8.cfg-examples-marketplace-environments-emulator-receiptkeysenvironment-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/examples/marketplace/layerx.example.json</code> (planned) | <code>environments.emulator."receiptKeysEnvironment": name of the variable holding the pinned receipt key entries</code> |
-| <code>interface.8.cfg-examples-marketplace-environments-emulator-rpcurl-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/examples/marketplace/layerx.example.json</code> (planned) | <code>environments.emulator."rpcUrl": JSON-RPC endpoint serving eth_sendRawTransaction and pax_sequencerReceipt</code> |
-| <code>interface.8.cfg-examples-merchant-checkout-environments-beta-receiptkeysenvironment-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/examples/merchant-checkout/layerx.example.json</code> (planned) | <code>environments.beta."receiptKeysEnvironment": name of the variable holding the pinned receipt key entries</code> |
-| <code>interface.8.cfg-examples-merchant-checkout-environments-beta-rpcurl-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/examples/merchant-checkout/layerx.example.json</code> (planned) | <code>environments.beta."rpcUrl": JSON-RPC endpoint serving eth_sendRawTransaction and pax_sequencerReceipt</code> |
-| <code>interface.8.cfg-examples-merchant-checkout-environments-emulator-receiptkeysenvironment-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/examples/merchant-checkout/layerx.example.json</code> (planned) | <code>environments.emulator."receiptKeysEnvironment": name of the variable holding the pinned receipt key entries</code> |
-| <code>interface.8.cfg-examples-merchant-checkout-environments-emulator-rpcurl-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/examples/merchant-checkout/layerx.example.json</code> (planned) | <code>environments.emulator."rpcUrl": JSON-RPC endpoint serving eth_sendRawTransaction and pax_sequencerReceipt</code> |
-| <code>interface.8.cfg-examples-merchant-shop-environments-beta-receiptkeysenvironment-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/examples/merchant-shop/layerx.example.json</code> (planned) | <code>environments.beta."receiptKeysEnvironment": name of the variable holding the pinned receipt key entries</code> |
-| <code>interface.8.cfg-examples-merchant-shop-environments-beta-rpcurl-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/examples/merchant-shop/layerx.example.json</code> (planned) | <code>environments.beta."rpcUrl": JSON-RPC endpoint serving eth_sendRawTransaction and pax_sequencerReceipt</code> |
-| <code>interface.8.cfg-examples-merchant-shop-environments-emulator-receiptkeysenvironment-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/examples/merchant-shop/layerx.example.json</code> (planned) | <code>environments.emulator."receiptKeysEnvironment": name of the variable holding the pinned receipt key entries</code> |
-| <code>interface.8.cfg-examples-merchant-shop-environments-emulator-rpcurl-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/examples/merchant-shop/layerx.example.json</code> (planned) | <code>environments.emulator."rpcUrl": JSON-RPC endpoint serving eth_sendRawTransaction and pax_sequencerReceipt</code> |
-| <code>interface.8.cfg-examples-paid-api-environments-beta-receiptkeysenvironment-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/examples/paid-api/layerx.example.json</code> (planned) | <code>environments.beta."receiptKeysEnvironment": name of the variable holding the pinned receipt key entries</code> |
-| <code>interface.8.cfg-examples-paid-api-environments-beta-rpcurl-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/examples/paid-api/layerx.example.json</code> (planned) | <code>environments.beta."rpcUrl": JSON-RPC endpoint serving eth_sendRawTransaction and pax_sequencerReceipt</code> |
-| <code>interface.8.cfg-examples-paid-api-environments-emulator-receiptkeysenvironment-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/examples/paid-api/layerx.example.json</code> (planned) | <code>environments.emulator."receiptKeysEnvironment": name of the variable holding the pinned receipt key entries</code> |
-| <code>interface.8.cfg-examples-paid-api-environments-emulator-rpcurl-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/examples/paid-api/layerx.example.json</code> (planned) | <code>environments.emulator."rpcUrl": JSON-RPC endpoint serving eth_sendRawTransaction and pax_sequencerReceipt</code> |
+Each application has a `layerx.example.json` with `version: 1`, its `application` name, and `environments.emulator` and `environments.beta`. [loadApplicationConfig](../../../services/platform/examples/support/runtime.mjs) checks the version and application, then selects the environment from `--environment emulator` or `--environment beta`. Optional `--action` accepts `deploy`, `list` or `buy`; otherwise the action is `run`.
 
-| Citing block | Field | Frozen criterion or rule |
+| Application config | Receipt-key variable for emulator | Receipt-key variable for beta |
 |---|---|---|
-| <code>acceptance.8.289.1</code> | req | 8289.1 |
-| <code>acceptance.8.289.1</code> | scenario | Given both merchant example configs, when their four environment objects are read, then each satisfies the network, present-key and absent-key conditions. |
-| <code>acceptance.8.289.1</code> | test | services/platform/examples/test/merchant-config.test.mjs::merchantExampleConfigsUseEip155AndReceiptKeys (planned) |
-| <code>acceptance.8.289.1</code> | qualification | UNRUN |
-| <code>req.8289</code> | ac_1 | Every environment of merchant-checkout and merchant-shop layerx.example.json names network eip155:125, rpcUrl and receiptKeysEnvironment and neither receiptAuthorityUrl nor protocolVersion. |
-| <code>capability.8.34.5</code> | title | Ship merchant example configurations for eip155 and receipt keys |
-| <code>capability.8.34.5</code> | reqs | 8289.1 |
+| [buyer-agent](../../../services/platform/examples/buyer-agent/layerx.example.json) | `LAYERX_EMULATOR_RECEIPT_KEYS_JSON` | `LAYERX_TESTNET_RECEIPT_KEYS_JSON` |
+| [marketplace](../../../services/platform/examples/marketplace/layerx.example.json) | `LAYERX_EMULATOR_RECEIPT_KEYS_JSON` | `LAYERX_TESTNET_RECEIPT_KEYS_JSON` |
+| [merchant-checkout](../../../services/platform/examples/merchant-checkout/layerx.example.json) | `LAYERX_EMULATOR_RECEIPT_KEYS_JSON` | `LAYERX_TESTNET_RECEIPT_KEYS_JSON` |
+| [merchant-shop](../../../services/platform/examples/merchant-shop/layerx.example.json) | `LAYERX_EMULATOR_RECEIPT_KEYS_JSON` | `LAYERX_TESTNET_RECEIPT_KEYS_JSON` |
+| [paid-api](../../../services/platform/examples/paid-api/layerx.example.json) | `LAYERX_RECEIPT_KEYS_JSON` | `LAYERX_RECEIPT_KEYS_JSON` |
+
+All five configs name `network: "eip155:125"`, use the public node origin for beta `rpcUrl`, and supply `receiptKeysEnvironment`. None has `receiptAuthorityUrl` or `protocolVersion`. The merchant requirement `8289.1` remains useful: require the network, RPC URL and pinned-key binding in each merchant environment, and exclude those removed fields. [merchant-config.test.mjs](../../../services/platform/examples/test/merchant-config.test.mjs) contains `merchantExampleConfigsUseEip155AndReceiptKeys`; its existence is not evidence that it ran for this rewrite.
+
+The old emulator `/rpc` path still present in buyer and merchant configs is retired network guidance; select a configuration pointing to the actual local node root. Marketplace currently uses `http://127.0.0.1:9402` for emulator RPC and paid-api uses `http://127.0.0.1:8545`. These values do not establish that a matching service is running.
+
+`rpcUrl` must support the methods used by the application. `SequencerReceiptClient` calls `pax_sequencerReceipt`; transaction submission elsewhere uses `eth_sendRawTransaction`, and the marketplace and merchant hash adapters need `eth_getRawTransactionByHash`. A node's chain ID alone does not prove those receipt methods are available.
+
+The buyer's `humanUrl` is a hosted payment API origin, distinct from `rpcUrl`. [buyerHumanUrl(config)](../../../services/platform/examples/buyer-agent/index.mjs) requires HTTPS at the root path for beta and refuses public node hostnames or the node's origin. Set the configured `humanUrlEnvironment` (`LAYERX_TESTNET_HUMAN_URL`) for the deployed hosted API. Merchant `settlementUrl` is an application payment endpoint, not another chain or a later consensus-finality step; merchant-shop beta uses `settlementUrlEnvironment` (`LAYERX_TESTNET_SETTLEMENT_URL`). A checked-in URL does not prove endpoint deployment.
 
 ## examples-environment
 
-| Interface | Kind | Status | Source at pinned revision | Signature |
-|---|---|---|---|---|
-| <code>interface.8.env-examples-agent-spend-layerx-protocol-version-j41</code> | <code>env_var</code> | <code>retire</code> | <code>services/platform/examples/agent-spend/index.mjs:17</code> | <code>env.LAYERX_PROTOCOL_VERSION read by the agent spend example</code> |
+The shared [runtime](../../../services/platform/examples/support/runtime.mjs) reads these bindings:
 
-| Interface | Field | Value |
-|---|---|---|
-| <code>interface.8.env-examples-agent-spend-layerx-protocol-version-j41</code> | notes | read only by services/platform/examples/agent-spend/index.mjs:17-18 |
+| Binding | Behavior |
+|---|---|
+| `LAYERX_EXAMPLE_CONFIG` | Optional config filename, resolved relative to the application directory. |
+| `LAYERX_EXAMPLE_ENDPOINT` | Optional beta endpoint base. `applyEndpointOverride(environment, config)` rebases existing `humanUrl`, `rpcUrl`, `settlementUrl` and `endpoint` fields while preserving their paths. Emulator configs are unchanged. |
+| `LAYERX_EXAMPLE_STATE_ROOT` | Optional root for application state, partitioned by `config.application`. Otherwise state resolves under the application directory. |
+| The name in `receiptKeysEnvironment` | Required JSON array of pinned receipt keys, decoded by `receiptKeysFromEnvironment(name)`. |
+
+An endpoint override does not discover hosted services, remove legacy paths, or rewrite variable-supplied endpoints. For the buyer, an override without a dedicated hosted human URL is refused. Use a complete config for the deployed topology.
+
+`requiredEnvironment(name)` rejects invalid binding names and missing or empty values; `optionalEnvironment(name)` returns `undefined` for absent or empty values. Names must match `^[A-Z][A-Z0-9_]{0,127}$`. Receipt key entries contain 32-byte hex `keyId` and `publicKey`, plus inclusive `firstHeight` and `lastHeight`. Heights accept nonnegative safe integer numbers, canonical decimal strings or canonical lowercase hex strings, bounded by unsigned 64-bit range. Inverted ranges fail with `invalid_receipt_key_range`. The decoder produces `Uint8Array` keys and bigint `first_height`/`last_height` values for the SDK.
+
+`secureUrl(value)` rejects credentials, query strings and fragments. It accepts HTTPS and permits HTTP for the implementation's loopback allowlist; use `127.0.0.1` for local examples. `applicationStatePath(config, relative)` rejects empty, absolute and parent-traversing relative paths. `diagnosticText(value, secrets, limit)` defaults to 1024 characters and redacts supplied secrets of at least eight characters.
+
+`LAYERX_PROTOCOL_VERSION`, `applicationProtocolVersion`, `SELECTABLE_PROTOCOL_VERSIONS` and the old `ReceiptAuthorityClient` are retired example interfaces. The shared runtime uses pinned receipt keys and signed raw transactions rather than a protocol-version selector or receipt-authority URL.
 
 ## examples-js-exports
 
-| Interface | Kind | Status | Source at pinned revision | Signature |
-|---|---|---|---|---|
-| <code>interface.8.ts-examples-agent-spend-services-createagentservices-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/agent-spend/services.mjs:123</code> | <code>export async function createAgentServices(environment)</code> |
-| <code>interface.8.ts-examples-agent-spend-services-ownerwallethandoff-j41</code> | <code>ts_export</code> | <code>change</code> | <code>services/platform/examples/agent-spend/services.mjs:119</code> | <code>export function ownerWalletHandoff()</code> |
-| <code>interface.8.ts-examples-agent-spend-services-preparedtransactionreference-j41</code> | <code>ts_export</code> | <code>new</code> | <code>services/platform/examples/agent-spend/services.mjs</code> (planned) | <code>export function preparedTransactionReference(prepared): string</code> |
-| <code>interface.8.ts-examples-buyer-agent-index-platform-ref-buyer-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/buyer-agent/index.mjs:10</code> | <code>export function platform_ref_buyer()</code> |
-| <code>interface.8.ts-examples-marketplace-deploy-payload-accountnamefordid-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/marketplace/deploy-payload.mjs:52</code> | <code>export function accountNameForDid(did)</code> |
-| <code>interface.8.ts-examples-marketplace-deploy-payload-buy-operation-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/marketplace/deploy-payload.mjs:178</code> | <code>export const BUY_OPERATION = 2;</code> |
-| <code>interface.8.ts-examples-marketplace-deploy-payload-canonicalnativeprogramdeploy-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/marketplace/deploy-payload.mjs:18</code> | <code>export function canonicalNativeProgramDeploy(</code> |
-| <code>interface.8.ts-examples-marketplace-deploy-payload-identity-sequence-selector-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/marketplace/deploy-payload.mjs:62</code> | <code>export const IDENTITY_SEQUENCE_SELECTOR = "pending";</code> |
-| <code>interface.8.ts-examples-marketplace-deploy-payload-immutable-policy-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/marketplace/deploy-payload.mjs:13</code> | <code>export const IMMUTABLE_POLICY = 0;</code> |
-| <code>interface.8.ts-examples-marketplace-deploy-payload-lifecycle-window-ms-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/marketplace/deploy-payload.mjs:14</code> | <code>export const LIFECYCLE_WINDOW_MS = 300_000n;</code> |
-| <code>interface.8.ts-examples-marketplace-deploy-payload-list-operation-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/marketplace/deploy-payload.mjs:177</code> | <code>export const LIST_OPERATION = 1;</code> |
-| <code>interface.8.ts-examples-marketplace-deploy-payload-marketplacecallrequest-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/marketplace/deploy-payload.mjs:180</code> | <code>export function marketplaceCallRequest(</code> |
-| <code>interface.8.ts-examples-marketplace-deploy-payload-readlifecycleanchor-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/marketplace/deploy-payload.mjs:64</code> | <code>export async function readLifecycleAnchor(</code> |
-| <code>interface.8.ts-examples-marketplace-deploy-payload-u128-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/marketplace/deploy-payload.mjs:228</code> | <code>export function u128(value)</code> |
-| <code>interface.8.ts-examples-marketplace-index-platform-ref-marketplace-j41</code> | <code>ts_export</code> | <code>change</code> | <code>services/platform/examples/marketplace/index.mjs:25</code> | <code>export function platform_ref_marketplace()</code> |
-| <code>interface.8.ts-examples-marketplace-receipt-outcome-verifyprogramoutcome-j41</code> | <code>ts_export</code> | <code>new</code> | <code>services/platform/examples/marketplace/receipt-outcome.mjs</code> (planned) | <code>export async function verifyProgramOutcome(output, receipts): Promise&lt;ProgramOutcome&gt;</code> |
-| <code>interface.8.ts-examples-paid-api-index-platform-ref-seller-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/paid-api/index.mjs:20</code> | <code>export function platform_ref_seller()</code> |
-| <code>interface.8.ts-examples-support-artifacts-referenceartifacts-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/support/artifacts.mjs:6</code> | <code>export async function referenceArtifacts(path, root)</code> |
-| <code>interface.8.ts-examples-support-merchant-app-platform-ref-merchant-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/support/merchant-app.mjs:22</code> | <code>export function platform_ref_merchant()</code> |
-| <code>interface.8.ts-examples-support-merchant-app-runmerchantapplication-j41</code> | <code>ts_export</code> | <code>change</code> | <code>services/platform/examples/support/merchant-app.mjs:338</code> | <code>export async function runMerchantApplication(moduleUrl, application)</code> |
-| <code>interface.8.ts-examples-support-runtime-applicationprotocolversion-j41</code> | <code>ts_export</code> | <code>retire</code> | <code>services/platform/examples/support/runtime.mjs:61</code> | <code>export function applicationProtocolVersion(config)</code> |
-| <code>interface.8.ts-examples-support-runtime-applicationstatepath-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/support/runtime.mjs:46</code> | <code>export function applicationStatePath(config, relative)</code> |
-| <code>interface.8.ts-examples-support-runtime-applyendpointoverride-j41</code> | <code>ts_export</code> | <code>change</code> | <code>services/platform/examples/support/runtime.mjs:69</code> | <code>export function applyEndpointOverride(environment, config)</code> |
-| <code>interface.8.ts-examples-support-runtime-commandpath-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/support/runtime.mjs:143</code> | <code>export function commandPath(arguments_)</code> |
-| <code>interface.8.ts-examples-support-runtime-diagnostictext-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/support/runtime.mjs:132</code> | <code>export function diagnosticText(value, secrets = [], limit = DIAGNOSTIC_LIMIT)</code> |
-| <code>interface.8.ts-examples-support-runtime-equalbytes-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/support/runtime.mjs:179</code> | <code>export function equalBytes(left, right)</code> |
-| <code>interface.8.ts-examples-support-runtime-exactobject-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/support/runtime.mjs:152</code> | <code>export function exactObject(value)</code> |
-| <code>interface.8.ts-examples-support-runtime-hex32-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/support/runtime.mjs:173</code> | <code>export function hex32(value)</code> |
-| <code>interface.8.ts-examples-support-runtime-layerxapplicationstateerror-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/support/runtime.mjs:7</code> | <code>export class LayerXApplicationStateError extends Error</code> |
-| <code>interface.8.ts-examples-support-runtime-loadapplicationconfig-j41</code> | <code>ts_export</code> | <code>change</code> | <code>services/platform/examples/support/runtime.mjs:29</code> | <code>export async function loadApplicationConfig(moduleUrl, application)</code> |
-| <code>interface.8.ts-examples-support-runtime-optionalenvironment-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/support/runtime.mjs:22</code> | <code>export const optionalEnvironment = (name) =&gt;</code> |
-| <code>interface.8.ts-examples-support-runtime-receiptauthorityclient-j41</code> | <code>ts_export</code> | <code>retire</code> | <code>services/platform/examples/support/runtime.mjs:84</code> | <code>export class ReceiptAuthorityClient</code> |
-| <code>interface.8.ts-examples-support-runtime-receiptkeysfromenvironment-j41</code> | <code>ts_export</code> | <code>new</code> | <code>services/platform/examples/support/runtime.mjs</code> (planned) | <code>export function receiptKeysFromEnvironment(name): readonly ReceiptKeyEntry[]</code> |
-| <code>interface.8.ts-examples-support-runtime-requiredenvironment-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/support/runtime.mjs:15</code> | <code>export const requiredEnvironment = (name) =&gt;</code> |
-| <code>interface.8.ts-examples-support-runtime-securebaseurl-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/support/runtime.mjs:157</code> | <code>export function secureBaseUrl(value)</code> |
-| <code>interface.8.ts-examples-support-runtime-secureurl-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/support/runtime.mjs:162</code> | <code>export function secureUrl(value)</code> |
-| <code>interface.8.ts-examples-support-runtime-selectable-protocol-versions-j41</code> | <code>ts_export</code> | <code>retire</code> | <code>services/platform/examples/support/runtime.mjs:59</code> | <code>export const SELECTABLE_PROTOCOL_VERSIONS = Object.freeze([2, 3]);</code> |
-| <code>interface.8.ts-examples-support-runtime-sequencerreceiptclient-j41</code> | <code>ts_export</code> | <code>new</code> | <code>services/platform/examples/support/runtime.mjs</code> (planned) | <code>export class SequencerReceiptClient { constructor(rpcUrl, receiptKeys); resolve(transactionHash): Promise&lt;PortableReceiptV2&gt; }</code> |
+| Module | Implemented exports and purpose |
+|---|---|
+| [support/runtime.mjs](../../../services/platform/examples/support/runtime.mjs) | `LayerXApplicationStateError(state, detail)`; `requiredEnvironment`, `optionalEnvironment`, `loadApplicationConfig`, `applicationStatePath`, `applyEndpointOverride`; `SequencerReceiptClient`, `receiptKeysFromEnvironment`; `secureUrl`, `secureBaseUrl`, `exactObject`, `hex32`, `equalBytes`, `diagnosticText`, `commandPath`. |
+| [buyer-agent/index.mjs](../../../services/platform/examples/buyer-agent/index.mjs) | `platform_ref_buyer()`, `buyerHumanUrl(config)`, `runBuyerAgent(config)`. |
+| [paid-api/index.mjs](../../../services/platform/examples/paid-api/index.mjs) | `platform_ref_seller()`, `FileFulfillmentRepository`, `createPaidApiServer(middleware, resourceBody)`, `runPaidApiApplication()`. |
+| [support/merchant-app.mjs](../../../services/platform/examples/support/merchant-app.mjs) | `platform_ref_merchant()`, `MerchantCheckout`, `DeclaredCatalog`, `FileOrders`, `FileFulfillments`, `createMerchantApplicationServer(config)`, `runMerchantApplication(moduleUrl, application)`. |
+| [marketplace/index.mjs](../../../services/platform/examples/marketplace/index.mjs) | `platform_ref_marketplace()`; the module also loads config and runs the selected application action. |
+| [marketplace/receipt-outcome.mjs](../../../services/platform/examples/marketplace/receipt-outcome.mjs) | `verifyProgramOutcome(output, client)`, `programReceiptOutcome(output, verified, rung)`. |
+| [marketplace/deploy-payload.mjs](../../../services/platform/examples/marketplace/deploy-payload.mjs) | `canonicalNativeProgramDeploy({ programId, abiVersion, codeHash, wasm })`, `accountNameForDid(did)`, `readLifecycleAnchor({...})`, `marketplaceCallRequest({...})`, `u128(value)`. Constants: `IMMUTABLE_POLICY = 0`, `LIFECYCLE_WINDOW_MS = 300_000n`, `IDENTITY_SEQUENCE_SELECTOR = "pending"`, `LIST_OPERATION = 1`, `BUY_OPERATION = 2`. |
+| [agent-spend/services.mjs](../../../services/platform/examples/agent-spend/services.mjs) | `createAgentServices(environment)`, `ownerWalletHandoff()`, `preparedTransactionReference(prepared)`. The last binds the preparation reference to serialized unsigned EIP-1559 bytes. |
+| [support/artifacts.mjs](../../../services/platform/examples/support/artifacts.mjs) | `referenceArtifacts(path, root)` validates the private artifact manifest, source revision and artifact hashes. |
 
-| Interface | Field | Value |
-|---|---|---|
-| <code>interface.8.ts-examples-agent-spend-services-createagentservices-j41</code> | notes | public item of its package; no in-repo caller outside the defining line found at HEAD |
-| <code>interface.8.ts-examples-buyer-agent-index-platform-ref-buyer-j41</code> | notes | public item of its package; no in-repo caller outside the defining line found at HEAD |
-| <code>interface.8.ts-examples-marketplace-index-platform-ref-marketplace-j41</code> | notes | public item of its package; no in-repo caller outside the defining line found at HEAD |
-| <code>interface.8.ts-examples-marketplace-receipt-outcome-verifyprogramoutcome-j41</code> | notes | planned extraction of verifyOutcome at services/platform/examples/marketplace/index.mjs:133 |
-| <code>interface.8.ts-examples-paid-api-index-platform-ref-seller-j41</code> | notes | public item of its package; no in-repo caller outside the defining line found at HEAD |
-| <code>interface.8.ts-examples-support-merchant-app-platform-ref-merchant-j41</code> | notes | public item of its package; no in-repo caller outside the defining line found at HEAD |
-| <code>interface.8.ts-examples-support-runtime-sequencerreceiptclient-j41</code> | notes | planned replacement for ReceiptAuthorityClient at services/platform/examples/support/runtime.mjs:84 |
+### Raw transaction receipt contract
+
+The implemented signature is `new SequencerReceiptClient(rpcUrl, receiptKeys).resolve(rawTransaction)`. The historical planned `resolve(transactionHash)` signature is obsolete: signed transaction bytes are required to verify the receipt's binding. Input is a nonempty `Uint8Array` or a lowercase `0x`-prefixed, even-length hex string; the string decoder allows at most 1,048,576 decoded bytes.
+
+The client computes `keccak256(rawTransaction)`, posts `pax_sequencerReceipt` with that hash as its sole parameter, checks the JSON-RPC version, ID and matching `result.txHash`, then calls `verifySequencerReceipt` with the original bytes and pinned keys. Keys are copied on construction. A transaction hash alone cannot substitute for signed bytes.
+
+| Receipt response or failure | Observable result |
+|---|---|
+| `rung: "submitted"` | State `pending`, detail `sequencer_receipt_submitted`. |
+| `rung: "receipted"` or `"committed"`, valid signature and raw binding | Proof with `format: "layerx-receipt-proof-v2"` and `verificationLevel: "receipted"`. |
+| JSON-RPC error | State `refused`, detail `sequencer_receipt_refused`. |
+| No pinned key verifies | State `refused`, detail `sequencer_receipt_verification_failed`. |
+| Fetch or JSON decode failure | State `unknown`, detail `sequencer_receipt_unreachable`. |
+| Transaction hash mismatch | State `unknown`, detail `sequencer_receipt_mismatch`. |
+| Other rung | State `unknown`, detail `invalid_sequencer_receipt_rung`. |
+
+Failure states are carried by `LayerXApplicationStateError`. A proof also contains `rawTransaction`, `signedReceipt`, `receiptDigest` (Keccak-256 of signed receipt bytes), and the verifying `receiptKey` with hex `keyId`, `publicKey`, `firstHeight` and `lastHeight`. Even for a server response of `committed`, this helper reports `receipted`; it does not independently prove block commitment.
+
+For a lookup using an actual signed transaction and independently pinned keys, run an ES module from the repository root after installing/building the example dependencies. Supply `LAYERX_SIGNED_TRANSACTION` with the exact signed transaction hex and `LAYERX_TESTNET_RECEIPT_KEYS_JSON` with the trusted key array. This example only reads a receipt:
+
+```js
+import assert from "node:assert/strict";
+import { verifySequencerReceipt } from "@sidiora/layerx-sdk";
+import {
+  SequencerReceiptClient,
+  receiptKeysFromEnvironment,
+  requiredEnvironment,
+} from "./services/platform/examples/support/runtime.mjs";
+
+const keys = receiptKeysFromEnvironment("LAYERX_TESTNET_RECEIPT_KEYS_JSON");
+const raw = requiredEnvironment("LAYERX_SIGNED_TRANSACTION");
+const client = new SequencerReceiptClient(
+  "https://api-mainnet-beta.paxeer.network/",
+  keys,
+);
+const proof = await client.resolve(raw);
+const bytes = (hex) => Uint8Array.from(Buffer.from(hex.slice(2), "hex"));
+await verifySequencerReceipt(bytes(proof.signedReceipt), bytes(raw), keys);
+assert.equal(proof.rawTransaction, raw);
+assert.equal(proof.verificationLevel, "receipted");
+```
+
+The existing [runtime tests](../../../services/platform/examples/test/runtime.test.mjs) cover raw-byte and hex inputs, key and height-range refusals, corrupt receipts, mismatches, and submitted/committed rungs. They use a local HTTP listener and constructed signed receipt data; they do not establish a live node producer round trip or deployed endpoint availability, and were not run as part of this documentation gate.
+
+### Marketplace receipt and lifecycle adapters
+
+`verifyProgramOutcome(output, client)` finds a transaction hash in CLI output, retrieves raw bytes with `eth_getRawTransactionByHash`, checks their Keccak-256 hash, and calls `client.resolve(raw)`. It verifies the proof again before interpreting `resultCode`: `0` becomes `completed`, `1` becomes `refused`, and other codes fail as `program_receipt_invalid_status`. Without a hash it preserves explicit `pending`, `unknown` or `refused` output, otherwise it raises `program_response_omitted_transaction_hash` with state `unknown`.
+
+`canonicalNativeProgramDeploy` accepts guest ABI versions `1`, `2` and `3`, uses immutable policy and zero authority, and round-trips through the SDK native deployment encoder/decoder. `readLifecycleAnchor` reads the latest block's `stateRoot` and timestamp and `eth_getTransactionCount(evmAddress, "pending")`, converts seconds to milliseconds and adds the 300,000 ms lifecycle window. These are reads of the same chain. `marketplaceCallRequest` encodes list/buy operations and their required capabilities; `u128` requires a positive decimal price within unsigned 128-bit range.
