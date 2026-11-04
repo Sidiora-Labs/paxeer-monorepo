@@ -6,7 +6,7 @@ use std::fs::File;
 use std::io::Read;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
-use zeroize::{Zeroize, Zeroizing};
+use zeroize::Zeroizing;
 
 /// Largest accepted secret, in bytes.
 pub const MAX_SECRET_BYTES: usize = 4096;
@@ -19,24 +19,33 @@ pub const MIN_TOKEN_BYTES: usize = 16;
 /// Returns a description when the file is unreadable, empty, oversized or
 /// carries control bytes.
 pub fn read_secret_file(path: &Path) -> Result<Zeroizing<String>, String> {
-    let mut value = String::new();
+    // One maximum-sized secret plus a terminal CRLF and one overflow byte.
+    let mut raw = Zeroizing::new(Vec::new());
     File::open(path)
-        .and_then(|file| file.take(4097).read_to_string(&mut value))
+        .and_then(|file| {
+            file.take((MAX_SECRET_BYTES + 3) as u64)
+                .read_to_end(&mut raw)
+        })
         .map_err(|error| format!("{}: {error}", path.display()))?;
-    while matches!(value.as_bytes().last(), Some(b'\n' | b'\r')) {
-        value.pop();
-    }
-    if value.is_empty()
-        || value.len() > MAX_SECRET_BYTES
-        || value.bytes().any(|byte| byte.is_ascii_control())
-    {
-        value.zeroize();
+    if raw.len() > MAX_SECRET_BYTES + 2 {
         return Err(format!(
             "{} does not contain a bounded secret",
             path.display()
         ));
     }
-    Ok(Zeroizing::new(value))
+    let value = std::str::from_utf8(&raw)
+        .map_err(|_| format!("{} does not contain a UTF-8 secret", path.display()))?
+        .trim_end_matches(['\r', '\n']);
+    if value.is_empty()
+        || value.len() > MAX_SECRET_BYTES
+        || value.bytes().any(|byte| byte.is_ascii_control())
+    {
+        return Err(format!(
+            "{} does not contain a bounded secret",
+            path.display()
+        ));
+    }
+    Ok(Zeroizing::new(value.to_owned()))
 }
 
 /// Reads the secret at the path named by an environment variable.
