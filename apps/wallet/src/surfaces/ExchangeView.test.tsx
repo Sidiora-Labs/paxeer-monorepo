@@ -14,6 +14,12 @@ import { exchange } from '@paxeer/wallet';
 import { ethers } from 'ethers';
 import { FIXTURE_KEY } from '@/wallet/test/gateway';
 import { ExchangeView, USDL } from './ExchangeView';
+import { PerpsConfiguration } from './test/perpsConfiguration';
+import {
+  buildPerpsPosition,
+  perpsCollateralApproval,
+  readPerpsCollateral,
+} from './perpsCollateral';
 import {
   SurfaceChain,
   click,
@@ -40,15 +46,19 @@ const perpsAbi = new ethers.Interface(
 );
 
 let chain: SurfaceChain;
+let configuration: PerpsConfiguration;
 let mounted: Mounted | null = null;
 
-beforeEach(() => {
+beforeEach(async () => {
   chain = new ExchangeChain();
+  configuration = new PerpsConfiguration();
+  await configuration.open();
 });
 
 afterEach(async () => {
   await mounted?.unmount();
   mounted = null;
+  await configuration.close();
 });
 
 function sendButton(container: HTMLElement): HTMLButtonElement {
@@ -67,11 +77,13 @@ async function exchange_view_opens_a_perps_position_through_the_precompile_call_
   const vector = eventVectors('exchange').find((candidate) => candidate.event === 'OrderPlaced');
   if (!vector) throw new Error('no OrderPlaced vector');
   chain.logsFor = () => [vectorLog(PERPS_PRECOMPILE, PERPS_EVENTS, vector)];
-  mounted = await mountSurface(chain, <ExchangeView sidRate={null} />);
+  mounted = await mountSurface(
+    chain,
+    <ExchangeView sidRate={null} collateralEndpoint={configuration.endpoint} />
+  );
   const { container } = mounted;
 
   await typeInto(container, 'marketId', '3');
-  await typeInto(container, 'collateralToken', usdl);
   await typeInto(container, 'collateralAmount', '50.123456');
   await typeInto(container, 'leverage', '5');
   await until(() => !sendButton(container).disabled, 'send enabled');
@@ -164,7 +176,10 @@ async function exchange_view_opens_a_perps_position_through_the_precompile_call_
 async function exchange_view_opens_without_approval_when_allowance_covers_collateral() {
   const amount = 50_123_456n;
   chain.allowances.set(`${usdl.toLowerCase()}:${allowance(chain.address).slice(10)}`, amount);
-  mounted = await mountSurface(chain, <ExchangeView sidRate={null} />);
+  mounted = await mountSurface(
+    chain,
+    <ExchangeView sidRate={null} collateralEndpoint={configuration.endpoint} />
+  );
   const { container } = mounted;
 
   await typeInto(container, 'marketId', '3');
@@ -189,57 +204,79 @@ async function exchange_view_opens_without_approval_when_allowance_covers_collat
 
 async function exchange_view_approves_the_selected_collateral_and_keeps_deposits_in_usdl() {
   const token = `0x${'a1'.repeat(20)}`;
-  mounted = await mountSurface(chain, <ExchangeView sidRate={null} />);
+  mounted = await mountSurface(
+    chain,
+    <ExchangeView sidRate={null} collateralEndpoint={configuration.endpoint} />
+  );
   const { container } = mounted;
-
+  await until(
+    () =>
+      container.querySelector<HTMLSelectElement>('select[name="collateralToken"]')?.value ===
+      usdl.toLowerCase(),
+    'served collateral selected'
+  );
+  const options = Array.from(
+    container.querySelectorAll<HTMLOptionElement>('select[name="collateralToken"] option')
+  );
+  expect(options.map((option) => option.value)).toEqual([usdl.toLowerCase()]);
+  expect(options.some((option) => option.value === token)).toBe(false);
+  const tokens = await readPerpsCollateral(configuration.endpoint);
+  const module = exchange(chain);
+  const supported = buildPerpsPosition(module, tokens, {
+    marketId: '3',
+    collateralToken: usdl,
+    collateralAmount: '1',
+    leverage: '5',
+    isLong: true,
+  });
+  expect(supported.tx.data).toBe(
+    perpsAbi.encodeFunctionData('openPosition', [3n, usdl, 1_000_000n, 5n * 10n ** 18n, true])
+  );
+  await expect(
+    perpsCollateralApproval(
+      module,
+      chain,
+      configuration.endpoint,
+      chain.address,
+      module.openPosition({
+        marketId: 3n,
+        collateralToken: token,
+        collateralAmount: 1_000_000n,
+        leverage: 5n * 10n ** 18n,
+        isLong: true,
+      }),
+      tokens[0]!
+    )
+  ).rejects.toThrow('Unsupported perps collateral.');
+  expect(chain.sent).toEqual([]);
+  expect(
+    chain.calls.filter((call) => call.data.startsWith(abiSelector('allowance(address,address)')))
+  ).toEqual([]);
+  const approval = await perpsCollateralApproval(
+    module,
+    chain,
+    configuration.endpoint,
+    chain.address,
+    supported.tx,
+    tokens[0]!
+  );
+  expect(approval).toEqual({ to: usdl.toLowerCase(), data: approve(1_000_000n), value: 0n });
+  expect(
+    chain.calls.filter((call) => call.data.startsWith(abiSelector('allowance(address,address)')))
+  ).toEqual([{ to: usdl.toLowerCase(), data: allowance(chain.address) }]);
   await typeInto(container, 'marketId', '3');
-  await typeInto(container, 'collateralToken', token);
   await typeInto(container, 'collateralAmount', '1');
   await typeInto(container, 'leverage', '5');
-  await until(() => !sendButton(container).disabled, 'send enabled');
-  await click(sendButton(container), 'send open');
-  await until(() => text(container, '[data-role="status"]') === 'confirmed', 'open receipt');
-
-  expect(
-    chain.calls.filter((call) => call.data.startsWith(abiSelector('allowance(address,address)')))
-  ).toEqual([{ to: token, data: allowance(chain.address) }]);
-  expect(chain.sent).toEqual([
-    { from: chain.address, to: token, data: approve(1_000_000n), value: '0x0' },
-    {
-      from: chain.address,
-      to: PERPS_PRECOMPILE,
-      data: perpsAbi.encodeFunctionData('openPosition', [
-        3n,
-        token,
-        1_000_000n,
-        5n * 10n ** 18n,
-        true,
-      ]),
-      value: '0x0',
-    },
-  ]);
-
+  await until(() => !sendButton(container).disabled, 'supported send enabled');
+  expect(container.textContent).toContain('Collateral amount (USDL)');
   await click(radio(container, 'Exchange action', 'Deposit'), 'deposit action');
   await typeInto(container, 'amount', '1');
-  await until(() => !sendButton(container).disabled, 'send enabled');
-  await click(sendButton(container), 'send deposit');
-  await until(() => text(container, '[data-role="status"]') === 'confirmed', 'deposit receipt');
-
-  expect(
-    chain.calls.filter((call) => call.data.startsWith(abiSelector('allowance(address,address)')))
-  ).toEqual([
-    { to: token, data: allowance(chain.address) },
-    { to: usdl.toLowerCase(), data: allowance(chain.address) },
-  ]);
-  expect(chain.sent.slice(2)).toEqual([
-    { from: chain.address, to: usdl.toLowerCase(), data: approve(1_000_000n), value: '0x0' },
-    {
-      from: chain.address,
-      to: PERPS_PRECOMPILE,
-      data: perpsDepositCall(usdl, 1_000_000n).data,
-      value: '0x0',
-    },
-  ]);
+  await until(() => !sendButton(container).disabled, 'deposit enabled');
+  expect(text(container, '[data-role="preview"]')).toContain(
+    abiSelector('deposit(address,uint256)')
+  );
+  expect(container.textContent).toContain('Amount (USDL)');
+  expect(chain.sent).toEqual([]);
 }
 
 describe('ExchangeView', () => {
@@ -257,7 +294,10 @@ describe('ExchangeView', () => {
   );
 
   it('exchange_view_cancels_an_order_through_the_precompile_call', async () => {
-    mounted = await mountSurface(chain, <ExchangeView sidRate={null} />);
+    mounted = await mountSurface(
+      chain,
+      <ExchangeView sidRate={null} collateralEndpoint={configuration.endpoint} />
+    );
     const { container } = mounted;
 
     await click(radio(container, 'Exchange action', 'Cancel'), 'cancel action');
@@ -281,7 +321,10 @@ describe('ExchangeView', () => {
   });
 
   it('exchange_view_deposits_usdl_without_native_value', async () => {
-    mounted = await mountSurface(chain, <ExchangeView sidRate={null} />);
+    mounted = await mountSurface(
+      chain,
+      <ExchangeView sidRate={null} collateralEndpoint={configuration.endpoint} />
+    );
     const { container } = mounted;
 
     await click(radio(container, 'Exchange action', 'Deposit'), 'deposit action');

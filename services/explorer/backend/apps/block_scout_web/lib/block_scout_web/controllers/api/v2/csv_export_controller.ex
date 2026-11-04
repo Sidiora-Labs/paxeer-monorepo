@@ -100,6 +100,7 @@ defmodule BlockScoutWeb.API.V2.CsvExportController do
        )
        when is_binary(address_hash_string) do
     with {:ok, address_hash} <- Chain.string_to_address_hash(address_hash_string),
+         {:ok, false} <- RestrictedAccessHelper.restricted_access?(address_hash_string, params),
          {:address_exists, true} <- {:address_exists, Address.address_exists?(address_hash)} do
       filter_type = Map.get(params, :filter_type)
       filter_value = Map.get(params, :filter_value)
@@ -121,6 +122,9 @@ defmodule BlockScoutWeb.API.V2.CsvExportController do
 
       {:address_exists, false} ->
         not_found(conn)
+
+      {:restricted_access, true} = error ->
+        error
     end
   end
 

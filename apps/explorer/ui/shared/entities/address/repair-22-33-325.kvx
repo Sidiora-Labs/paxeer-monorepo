@@ -1,0 +1,16 @@
+[repair.22.33.325]
+audit = "22.30.137"
+finding = "address_chain_context"
+test_file = "apps/explorer/ui/shared/entities/address/repair-22-33-325.spec.ts"
+proving_test = "selectedChainTransferRowsKeepAddressLinks"
+compatibility_tests = ["explicitAddressChainOverridesSelectedChain", "addressWithoutSelectedChainKeepsLocalLink", "explicitAddressHrefAndNoLinkArePreserved"]
+path = "Committed ERC-20 transfer fixture -> production table and list rows -> AddressFromTo -> AddressEntity -> useMultichainContext -> distributeEntityProps -> production route and anchor; production context provider carries committed chain fixtures."
+baseline = "Not run: the explicit gate order requires complete implementation before hf-build and hf-done, and prohibits running verify_cmd by hand; no pre-repair failure is claimed. Without the repair, the selected-chain address URL assertions receive local /address/ URLs."
+evidence = "The bounded hf-build and hf-done gate ledger records the exact candidate revision, command, exit code and private log location; the final task response copies the last gate record."
+previous_attempt = "Candidate d65f32dc861f3f144b1ddc7404d5c737006ef5ad failed its build before TypeScript ran: pnpm rejected the app Yarn pin with ERR_PNPM_OTHER_PM_EXPECTED; no verification result was produced."
+toolchain_preparation = "Historical attempt used Yarn 1.22.22 for dependencies and pnpm 8.15.9 for its former exec commands; the current declared gates use the app's pinned Yarn throughout, without manifest or check configuration changes."
+wiring_requests = []
+qualification_repair = "First verification at f0087dce207b104124ce24604e2b839d0af123f9 reached all four tests but JSDOM lacked matchMedia (exit 1, /out/logs/verify-1.log); a test-local viewport media-query adapter evaluates dimensions and dispatches changes, with unsupported queries rejected, and the production transfer rows are checked at mobile and desktop widths."
+qualification_types = "Rebuild at 265526a9c21ffbbcb864a17c954447c552f86711 reported six TS7006 diagnostics for overloaded listener parameters (exit 2, /out/logs/build-2.log); the adapter now declares the exact DOM listener and option types. The gate ledger counts each rerun separately, leaving the final build run but no subsequent verification run within the two-rerun budget; no passing verification is claimed."
+continuation = "Preserved the seeded production fix, all four tests and the typed viewport adapter; qualification for this continuation uses hf-build followed by hf-done on the same candidate. Historical failures above describe previous attempts only."
+setup_note = "Corepack resolves the packageManager from its working directory before --cwd; run Yarn inside apps/explorer because the repository root pins npm. Dependency preparation for the existing ESLint formatter is logged privately at /out/logs/explorer-formatter-deps.log."

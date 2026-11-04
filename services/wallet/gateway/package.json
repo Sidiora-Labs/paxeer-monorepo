@@ -6,7 +6,11 @@
   "description": "Paxeer Embedded Wallet API \u2014 Fastify backend signs and broadcasts on Paxeer. Zero runtime dependency on Supabase.",
   "main": "dist/index.js",
   "exports": {
-    ".": "./dist/index.js"
+    ".": "./dist/index.js",
+    "./schemas/tx": {
+      "types": "./src/schemas/tx.ts",
+      "default": "./src/schemas/tx.ts"
+    }
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",

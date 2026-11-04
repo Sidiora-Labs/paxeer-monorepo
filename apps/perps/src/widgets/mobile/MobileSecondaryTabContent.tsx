@@ -3,7 +3,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { buildGetMarginTiers } from "@/core/perps/calls";
 import { getPublicClient } from "@/core/viem/clients";
-import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
+import { fetchWithPolicy } from "@/core/net/fetch";
 import { usePerpsMarkets } from "@/hooks/perps/usePerpsMarkets";
 import { marketLabel } from "@/core/perps/marketLabel";
 import { ExternalLink, Clock, TrendingUp, TrendingDown } from "lucide-react";
@@ -15,7 +16,6 @@ import { useTradeSettlements } from "@/hooks/perps/useAnalytics";
 import { useRealtimePrices } from "@/hooks/perps/useRealtimePrices";
 import { computePositionPnl, formatPnlPercent, formatWadFixed, markPriceWad, parsePositionRow, wadToDecimal } from "@/core/perps/pnlHelpers";
 import {
-  subgraphQuery,
   ORDERS_QUERY,
   TRADES_QUERY,
 } from "@/hooks/perps/useSubgraph";
@@ -23,6 +23,7 @@ import {
   coinLogoUrl,
   EXPLORER_URL,
   COLLATERAL_TOKENS,
+  INDEXER_GRAPHQL,
 } from "@/core/perps/config";
 import {
   fmtUsd,
@@ -136,6 +137,66 @@ function LoadingState() {
       />
     </div>
   );
+}
+
+function WalletRowsError({ text, retry }: { text: string; retry: () => void }) {
+  return (
+    <div role="alert" className="flex flex-col items-center gap-3 py-10" style={LABEL}>
+      <span>{text}</span>
+      <button type="button" onClick={retry}>Retry</button>
+    </div>
+  );
+}
+
+function useMobileWalletRows(address: string, kind: "orders" | "trades") {
+  const generation = useRef(0);
+  const [attempt, setAttempt] = useState(0);
+  const [state, setState] = useState<{
+    address: string;
+    rows: any[];
+    status: "loading" | "success" | "error";
+  }>({ address, rows: [], status: "loading" });
+  const retry = useCallback(() => setAttempt((value) => value + 1), []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const request = ++generation.current;
+    const isCurrent = () => !controller.signal.aborted && generation.current === request;
+    setState({ address, rows: [], status: "loading" });
+    async function load() {
+      try {
+        const response = await fetchWithPolicy(INDEXER_GRAPHQL.url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
+          body: JSON.stringify({
+            query: kind === "orders" ? ORDERS_QUERY : TRADES_QUERY,
+            variables: kind === "orders"
+              ? { userAddress: address, status: "active" }
+              : { userAddress: address, limit: 50 },
+          }),
+        });
+        const result = await response.json();
+        if (result?.errors?.length || !Array.isArray(result?.data?.[kind])) {
+          throw new Error("Invalid wallet history response");
+        }
+        if (isCurrent()) setState({ address, rows: result.data[kind], status: "success" });
+      } catch {
+        if (isCurrent()) setState({ address, rows: [], status: "error" });
+      }
+    }
+    void load();
+    return () => {
+      ++generation.current;
+      controller.abort();
+    };
+  }, [address, kind, attempt]);
+
+  return {
+    rows: state.address === address ? state.rows : [],
+    status: state.address === address ? state.status : "loading",
+    retry,
+  };
 }
 
 function TxLink({ hash }: { hash: string }) {
@@ -471,27 +532,10 @@ function OutcomeRow({ s }: { s: TradeSettlement }) {
    ═══════════════════════════════════════════════════════════════ */
 
 function OpenOrdersTab({ address }: { address: string }) {
-  const [orders, setOrders] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { rows: orders, status, retry } = useMobileWalletRows(address, "orders");
 
-  const fetchOrders = useCallback(async () => {
-    try {
-      setLoading(true);
-      const res = await subgraphQuery<{ orders: any[] }>(ORDERS_QUERY, {
-        userAddress: address,
-        status: "active",
-      });
-      setOrders(res.orders ?? []);
-    } catch {
-      setOrders([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [address]);
-
-  useEffect(() => { fetchOrders(); }, [fetchOrders]);
-
-  if (loading) return <LoadingState />;
+  if (status === "loading") return <LoadingState />;
+  if (status === "error") return <WalletRowsError text="Failed to load open orders" retry={retry} />;
   if (orders.length === 0) return <EmptyState text="No open orders" />;
 
   return (
@@ -590,27 +634,10 @@ function TwapTab() {
    ═══════════════════════════════════════════════════════════════ */
 
 function TradeHistoryTab({ address }: { address: string }) {
-  const [trades, setTrades] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { rows: trades, status, retry } = useMobileWalletRows(address, "trades");
 
-  const fetchTrades = useCallback(async () => {
-    try {
-      setLoading(true);
-      const res = await subgraphQuery<{ trades: any[] }>(TRADES_QUERY, {
-        userAddress: address,
-        limit: 50,
-      });
-      setTrades(res.trades ?? []);
-    } catch {
-      setTrades([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [address]);
-
-  useEffect(() => { fetchTrades(); }, [fetchTrades]);
-
-  if (loading) return <LoadingState />;
+  if (status === "loading") return <LoadingState />;
+  if (status === "error") return <WalletRowsError text="Failed to load trade history" retry={retry} />;
   if (trades.length === 0) return <EmptyState text="No trade history" />;
 
   return (

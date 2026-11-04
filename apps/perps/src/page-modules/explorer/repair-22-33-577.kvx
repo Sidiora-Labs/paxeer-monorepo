@@ -1,0 +1,8 @@
+[repair.22.33.577]
+finding = "explorer-query-consumer"
+proof = "apps/perps/tests/repair-22-33-577.test.ts: explorerQueryConsumerResolvesLegacyDetailsAndRefusesInvalidSelections"
+path = "Legacy block/transaction redirect -> HTTP Location -> Next search parameters -> explorer query -> loopback Paxscan HTTP -> validated detail -> production page rendering."
+coverage = "Height/hash blocks, transaction and pending details, refresh, loading, missing records, malformed/mismatched responses, repeated/conflicting/invalid selectors and retained live lists."
+baseline = "No pre-change gate ran: the explicit ordered gate instructions prohibit testing before full implementation and running verify_cmd by hand; the original page had no selector input or detail query."
+wiring_requests = []
+verification = "The bounded runner records the exact verified candidate revision, command, exit code and private log; this record makes no unrun gate claim."

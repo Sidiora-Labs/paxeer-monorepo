@@ -20,7 +20,7 @@ use serde_aux::prelude::*;
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize, derive_new::new)]
 pub struct HealthCheckResponseMetadata {
     pub blocks: Option<HealthBlocks>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub latest_block: Option<models::LatestBlock>,
 }
 

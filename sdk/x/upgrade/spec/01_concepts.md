@@ -82,6 +82,9 @@ height. The node calls it through
 processing runs first, then upgrade, capability, distribution, slashing,
 evidence, staking, IBC client and EVM begin-block processing. This is the node's
 explicit call order, rather than a module-manager `EndBlock` upgrade hook.
+The halt/restart/commit sequence below is exercised against the real keeper and
+reopened store by `TestRepairM_610_BeginBlockRestart` in
+[repair_m610_test.go](../repair_m610_test.go).
 
 `Plan.ShouldExecute` becomes true when the current block height is at least the
 plan height. For a normal scheduled upgrade at height `H`:
