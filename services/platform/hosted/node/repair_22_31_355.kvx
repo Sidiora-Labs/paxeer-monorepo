@@ -1,0 +1,73 @@
+[task]
+id = "22.31.355"
+audit = "22.30.83"
+acceptance = "22998.1"
+status = "implementation-complete-evidence-in-private-gate-ledger"
+revision_source = "/out/run/gates.jsonl: each hf-build/hf-done row retains the exact candidate revision, command, exit and private log"
+baseline = "Attempt 1 verification reported 11 passed and 5 errors: test_bootstrap_retired_prerequisites_empty_native_data, test_deployment_retired_topology_native_committed_reads, test_supervisor_retired_launch_reopens_native_process, test_reset_retired_readiness_interrupted_recovery and test_funding_deployment_inputs_readiness_and_transfer all required LAYERX_NODE_TEST_CONFIG; this continuation preserves the implementation and replaces external qualification inputs with committed peers under the explicit implementation-first gate order."
+fixture = "tests/fixtures/repair_22_31_355/native_configuration.json is loaded relative to the test, with native genesis/configuration, public test signing material, exact command exchanges and chain RPC payloads; no qualification configuration comes from the environment."
+proof_boundary = "The production node owner, bootstrap, descriptor producer/broker/consumer, signer and reset/activation paths run unchanged against explicit native command transcripts and loopback HTTP/TLS peers; this gate does not certify an out-of-scope paxd/core binary or container image."
+
+[finding.core-startup-inputs]
+test = "test_core_startup_inputs_real_descriptor_handoff"
+integration = "test_funding_deployment_inputs_readiness_and_transfer"
+repair = "Native version-2 producer/broker/client publishes authenticated gateway origin, retained DER trust, loopback chain RPC and protected signer inputs; descriptors are materialized for the real child."
+
+[finding.funding-deployment-inputs]
+test = "test_funding_deployment_inputs_readiness_and_transfer"
+projection_test = "test_funding_key_projection_is_private_to_core"
+repair = "Deploy exactly one native secp256k1 file sender in a private memory volume owned by core; consume the real generation descriptors and protected key, verify authenticated gateway and committed-chain readiness, and submit a production-codec-signed transfer against the persistent loopback chain peer before and after owner/broker/consumer restart."
+
+[finding.bootstrap-retired-prerequisites]
+test = "test_bootstrap_retired_prerequisites_empty_native_data"
+repair = "Use native init and validate-genesis command contracts with native bank/merged-kernel genesis, validator configuration and a genesis-pinned receipt key; the committed command peer admits only exact fixtures and the real bootstrap publishes an fsynced prepared generation."
+
+[finding.deployment-retired-topology]
+test = "test_deployment_retired_topology_native_committed_reads"
+contract_test = "test_deployment_retired_topology_contract"
+repair = "Replace standalone daemon, replica and relay with one native paxd; chain and consensus RPC are exposed to the owning gateway under a restricted Service/NetworkPolicy; exercise the deployed health entrypoint against a recorded native peer and verify no old listeners."
+
+[finding.supervisor-retired-launch]
+test = "test_supervisor_retired_launch_reopens_native_process"
+repair = "Supervise native paxd and durable reset/generation services with exclusive persistent ownership, parent-death cleanup and retained process identity; no legacy role, fixture seed or handover lifecycle."
+
+[finding.treasury-projected-secret]
+test = "test_treasury_projected_secret_startup"
+repair = "Execute projected_secret.py from the actual init command against a Kubernetes AtomicWriter symlink layout, then start the real no-symlink FileProvider, Signer and socket server and verify its signature; in-process Ed25519 uses the image cryptography dependency rather than requiring an external crypto executable."
+
+[finding.reset-retired-readiness]
+test = "test_reset_retired_readiness_interrupted_recovery"
+refusal_test = "test_reset_refuses_unpublished_or_uncommitted_generation"
+committed_refusal_test = "test_native_committed_readiness_refuses_divergent_peer"
+repair = "Complete only for the selected native marker and durable activation receipt, matching retained process start/inode/generation, caught-up BFT canonical commit and matching native EVM committed block; persist the original response before returning it."
+
+[finding.activation-rename-durability]
+test = "test_activation_rename_durability_reopen"
+repair = "Fsync both changed parents after the real exchange; propagate failures, publish a separate fsynced activation receipt only afterward, and repeat the barriers when reconciling an interrupted exchange."
+
+[wiring.image]
+request = "docker/kernel/Dockerfile and docker/kernel/init.sh — container/image domain: package native_runtime.py, projected_secret.py, data_directory.py, reset_state.py, generation_transport.py and generation_client.py in the native lifecycle, node init/signer and core images with python3-cryptography for FileProvider; publish the finished layerx-kernel image with /usr/local/bin/paxd and native entrypoint, replacing retired image tooling."
+
+[wiring.genesis]
+request = "services/platform/hosted/paxeer and chain genesis provisioning — native chain domain: provision layerx-node-native-genesis (genesis.json, config.toml, app.toml) and layerx-node-native-keys (priv_validator_key.json, receipt.key), with validator membership, native bank balances/merged-kernel state and a matching pinned receipt key; provide new reset genesis/signing authority when rotating the network."
+
+[wiring.funding]
+request = "services/platform/hosted/paxeer native bank provisioning — native chain domain: provision layerx-node-native-funding/sender.key as a funded secp256k1 scalar and establish the qualification recipient DID/address binding using the native owning transaction interface."
+
+[wiring.gateway]
+request = "services/platform/hosted/gateway/deployment.yaml and gateway/src/paxeer.rs — hosted gateway domain: admit the protected private HTTP native RPC transport (http::Endpoint currently accepts HTTPS only), route root eth_* and hosted px_* to layerx-native-chain:8545 and consensus to layerx-native-chain:26657 with authenticated TLS gateway identity; current endpoint loader requires two distinct URLs, so reconcile that contract with the single native chain without adding a second chain or a forwarding relay."
+
+[wiring.core]
+request = "services/platform/hosted/core/src/main.rs readiness/node_get and authority/agent consumers — hosted core/authority domain: replace retired program and replica HTTP routes with native committed RPC; deployment supplies the native loopback origin, but current core readiness still requires /v1/batches/.../receipt-authority and cannot qualify the finished topology until the owning consumer migrates."
+
+[wiring.qualification]
+request = "docker/kernel, docker/platform-node and docker/platform-core — image/native-chain/hosted-core domains: certify container startup, native genesis validation and actual core funded transfer using the packaged owning binaries after the image, genesis and core wiring requests land; this node gate uses committed fixtures and loopback peers and needs no environment, credentials, native artifact, Docker or subprocess toolchain."
+
+[gotcha.fixture]
+observed = "An environment path cannot make native binaries, Docker and live services available to a repair gate; commit configuration, key/certificate test material and exact native command/RPC peer contracts beside the test and exercise the production node owner against those peers."
+
+[gotcha.activation]
+observed = "A selected directory marker after exchange does not prove either parent directory entry is persistent; a durable receipt must follow both barriers, and a retry must repeat both barriers before success."
+
+[gotcha.process]
+observed = "The reset owner descriptor must cross the exec-daemon wrapper via pass_fds so that the wrapper can close it; inheritable alone does not survive Python Popen close_fds."
