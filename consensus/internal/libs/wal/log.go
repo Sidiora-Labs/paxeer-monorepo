@@ -67,7 +67,7 @@ type logInner struct {
 }
 
 // ReadFile reads the whole log file at a given offset.
-func (i *logInner) ReadFile(fileOffset int) ([][]byte, error) {
+func (i *logInner) ReadFile(fileOffset int) (res [][]byte, resErr error) {
 	path, err := i.view.PathByOffset(fileOffset)
 	if err != nil {
 		return nil, err
@@ -82,6 +82,12 @@ func (i *logInner) ReadFile(fileOffset int) ([][]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("openLogReader(): %w", err)
 	}
+	defer func() {
+		if err := r.Close(); err != nil {
+			res = nil
+			resErr = errors.Join(resErr, fmt.Errorf("r.Close(): %w", err))
+		}
+	}()
 	var entries [][]byte
 	for {
 		entry, err := r.ReadEntry()
