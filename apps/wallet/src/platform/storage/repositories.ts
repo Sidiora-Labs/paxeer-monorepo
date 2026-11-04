@@ -1,5 +1,5 @@
 import { reportBackgroundFailure } from '@/platform/status/background-failures';
-import { defineStorageRepository } from './registry';
+import { defineStorageRepository, type StorageMigration, type StorageReader } from './registry';
 import { migrateLocale, type Locale } from '@/lib/locale';
 import { isVirtualChainId, type Network } from '@/lib/networks';
 
@@ -15,6 +15,15 @@ const PROHIBITED = [
   'push secret',
   'authentication credential',
 ] as const;
+
+function collectLegacyValue(
+  storage: StorageReader,
+  key: string,
+  decode: (raw: string) => unknown = (raw) => raw
+): StorageMigration | undefined {
+  const raw = storage.getItem(key);
+  return raw === null ? undefined : { value: decode(raw), sourceKeys: [key] };
+}
 
 function record(input: unknown): Record<string, unknown> {
   if (typeof input !== 'object' || input === null || Array.isArray(input)) {
@@ -102,7 +111,7 @@ export const custodyChoiceRepository = defineStorageRepository({
   fallback: () => null,
   parse: parseCustodyChoice,
   legacyKeys: ['paxeer:wallet-kind'],
-  migrateLegacy: (storage) => storage.getItem('paxeer:wallet-kind') ?? undefined,
+  migrateLegacy: (storage) => collectLegacyValue(storage, 'paxeer:wallet-kind'),
 });
 
 export interface ContactRecord {
@@ -164,10 +173,7 @@ export const contactsRepository = defineStorageRepository({
   fallback: () => [],
   parse: parseContacts,
   legacyKeys: ['paxeer_contacts'],
-  migrateLegacy: (storage) => {
-    const raw = storage.getItem('paxeer_contacts');
-    return raw === null ? undefined : JSON.parse(raw);
-  },
+  migrateLegacy: (storage) => collectLegacyValue(storage, 'paxeer_contacts', JSON.parse),
 });
 
 export interface RecentRecipientRecord {
@@ -210,10 +216,7 @@ export const recentRecipientsRepository = defineStorageRepository({
   fallback: () => [],
   parse: parseRecentRecipients,
   legacyKeys: ['paxeer_recent_recipients'],
-  migrateLegacy: (storage) => {
-    const raw = storage.getItem('paxeer_recent_recipients');
-    return raw === null ? undefined : JSON.parse(raw);
-  },
+  migrateLegacy: (storage) => collectLegacyValue(storage, 'paxeer_recent_recipients', JSON.parse),
 });
 
 export interface AppPreferences {
@@ -407,13 +410,16 @@ export const preferencesRepository = defineStorageRepository({
     const defaults = defaultPreferences();
     const rawNotifications = storage.getItem('paxeer_notif_prefs');
     return {
-      currency: storage.getItem('paxeer_currency') ?? defaults.currency,
-      language: storage.getItem('paxeer_language') ?? defaults.language,
-      customRpc: storage.getItem('paxeer_custom_rpc'),
-      developerMode: storage.getItem('paxeer_dev_mode') === 'true',
-      showHexData: storage.getItem('paxeer_hex_data') === 'true',
-      notifications:
-        rawNotifications === null ? defaults.notifications : JSON.parse(rawNotifications),
+      sourceKeys: keys,
+      value: {
+        currency: storage.getItem('paxeer_currency') ?? defaults.currency,
+        language: storage.getItem('paxeer_language') ?? defaults.language,
+        customRpc: storage.getItem('paxeer_custom_rpc'),
+        developerMode: storage.getItem('paxeer_dev_mode') === 'true',
+        showHexData: storage.getItem('paxeer_hex_data') === 'true',
+        notifications:
+          rawNotifications === null ? defaults.notifications : JSON.parse(rawNotifications),
+      },
     };
   },
 });
@@ -512,8 +518,11 @@ export const portfolioFiltersRepository = defineStorageRepository({
     const hidden = storage.getItem('paxeer_hidden_tokens');
     if (dust === null && hidden === null) return undefined;
     return {
-      hideDust: dust === 'true',
-      hiddenTokens: hidden === null ? [] : JSON.parse(hidden),
+      sourceKeys: ['paxeer_hide_dust', 'paxeer_hidden_tokens'],
+      value: {
+        hideDust: dust === 'true',
+        hiddenTokens: hidden === null ? [] : JSON.parse(hidden),
+      },
     };
   },
 });
@@ -554,8 +563,11 @@ export const pwaDismissalsRepository = defineStorageRepository({
     const notification = storage.getItem('pwa-notif-dismissed');
     if (install === null && notification === null) return undefined;
     return {
-      installAt: install === null ? null : Number(install),
-      notificationAt: notification === null ? null : Number(notification),
+      sourceKeys: ['pwa-install-dismissed', 'pwa-notif-dismissed'],
+      value: {
+        installAt: install === null ? null : Number(install),
+        notificationAt: notification === null ? null : Number(notification),
+      },
     };
   },
 });
@@ -603,9 +615,16 @@ export const notificationStateRepository = defineStorageRepository({
     const features = storage.getItem('paxeer_notif_seen_features');
     if (tx === null && active === null && features === null) return undefined;
     return {
-      lastTxCount: tx === null ? null : Number(tx),
-      lastActive: active === null ? null : Number(active),
-      seenFeatures: features === null ? 0 : Number(features),
+      sourceKeys: [
+        'paxeer_notif_last_tx_count',
+        'paxeer_notif_last_active',
+        'paxeer_notif_seen_features',
+      ],
+      value: {
+        lastTxCount: tx === null ? null : Number(tx),
+        lastActive: active === null ? null : Number(active),
+        seenFeatures: features === null ? 0 : Number(features),
+      },
     };
   },
 });
@@ -649,19 +668,37 @@ export const metadataCacheRepository = defineStorageRepository<MetadataCache>({
   fallback: () => ({}),
   parse: parseMetadataCache,
   migrateLegacy: (storage) => {
-    const migrated: MetadataCache = {};
+    const migrated: [string, MetadataCacheEntry][] = [];
     const keys: string[] = [];
     for (let index = 0; index < storage.length; index += 1) {
       const key = storage.key(index);
       if (key?.startsWith('pax:meta:')) keys.push(key);
     }
     if (keys.length === 0) return undefined;
-    for (const key of keys.slice(0, 200)) {
+    const sourceKeys = keys.slice(0, 200);
+    let skipped = 0;
+    for (const key of sourceKeys) {
       const raw = storage.getItem(key);
-      if (raw !== null) migrated[key.slice('pax:meta:'.length)] = JSON.parse(raw);
-      storage.removeItem(key);
+      if (raw === null) continue;
+      try {
+        const entry = parseMetadataCache(
+          Object.fromEntries([[key.slice('pax:meta:'.length), JSON.parse(raw)]])
+        );
+        migrated.push(...Object.entries(entry));
+      } catch {
+        skipped += 1;
+      }
     }
-    return migrated;
+    if (skipped > 0) {
+      reportBackgroundFailure({
+        domain: 'storage',
+        kind: 'corrupt',
+        code: 'STORAGE_LEGACY_ENTRY_SKIPPED',
+        message: `${skipped} saved metadata entries could not be read and were skipped.`,
+        retryable: false,
+      });
+    }
+    return { value: Object.fromEntries(migrated), sourceKeys };
   },
 });
 
@@ -728,10 +765,7 @@ export const pendingSendRepository = defineStorageRepository({
   fallback: () => null,
   parse: parsePendingSend,
   legacyKeys: ['paxeer_pending_send'],
-  migrateLegacy: (storage) => {
-    const raw = storage.getItem('paxeer_pending_send');
-    return raw === null ? undefined : JSON.parse(raw);
-  },
+  migrateLegacy: (storage) => collectLegacyValue(storage, 'paxeer_pending_send', JSON.parse),
 });
 
 function parseAnnouncementVersion(input: unknown): string | null {
@@ -760,7 +794,7 @@ export const announcementRepository = defineStorageRepository({
   fallback: () => null,
   parse: parseAnnouncementVersion,
   legacyKeys: ['paxeer_whats_new_seen'],
-  migrateLegacy: (storage) => storage.getItem('paxeer_whats_new_seen') ?? undefined,
+  migrateLegacy: (storage) => collectLegacyValue(storage, 'paxeer_whats_new_seen'),
 });
 
 export type TransferRecords = Record<string, JsonValue>;
@@ -774,9 +808,9 @@ function parseTransferRecords(input: unknown): TransferRecords {
 }
 
 function collectLegacyTransferRecords(
-  storage: Storage,
+  storage: StorageReader,
   prefix: string
-): TransferRecords | undefined {
+): StorageMigration | undefined {
   const keys: string[] = [];
   for (let index = 0; index < storage.length; index += 1) {
     const key = storage.key(index);
@@ -808,7 +842,6 @@ function collectLegacyTransferRecords(
   const migrated: TransferRecords = Object.fromEntries(
     parsed.sort((x, y) => age(x) - age(y) || 0).slice(-100)
   );
-  for (const key of keys) storage.removeItem(key);
   if (skipped > 0) {
     reportBackgroundFailure({
       domain: 'storage',
@@ -818,7 +851,7 @@ function collectLegacyTransferRecords(
       retryable: false,
     });
   }
-  return migrated;
+  return { value: migrated, sourceKeys: keys };
 }
 
 export function putTransferRecord(
