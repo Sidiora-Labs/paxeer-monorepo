@@ -37,8 +37,12 @@ pub const RECORD_BYTES: usize = GRANT_BYTES + LAST_REQUEST_BYTES + REKEY_BYTES +
 pub const FROZEN_BYTES: usize = 152;
 /// Record count, snapshot presence, snapshot epoch and frozen count.
 pub const REGION_FRAMING_BYTES: usize = 11;
-pub const REGION_MAX_BYTES: usize =
+pub const EVALUATOR_REGION_MAX_BYTES: usize =
     REGION_FRAMING_BYTES + MAX_EVALUATORS * (RECORD_BYTES + FROZEN_BYTES);
+/// Tag-2 snapshots append one bounded canonical worker list to the evaluator region.
+/// The shared identity section cap and each participant count bound are unchanged.
+pub const REGION_MAX_BYTES: usize =
+    EVALUATOR_REGION_MAX_BYTES + 1 + MAX_WORKERS * codec::WORKER_ROSTER_BYTES;
 pub const SCHEDULE_PAYLOAD_BYTES: usize = 160;
 pub const ROTATE_PAYLOAD_BYTES: usize = 88;
 pub const REVOKE_PAYLOAD_BYTES: usize = 74;
@@ -48,7 +52,11 @@ pub const REVOKE_EVENT_BYTES: usize = 75;
 /// Caller scratch: one identity section payload plus one control payload.
 pub const SCRATCH_BYTES: usize =
     Section::IdentityRoster.payload_cap() + Section::Control.payload_cap();
-const _: () = assert!(RECORD_BYTES == 356 && REGION_MAX_BYTES <= 4_288);
+const _: () = assert!(RECORD_BYTES == 356 && EVALUATOR_REGION_MAX_BYTES <= 4_288);
+const _: () = assert!(
+    REGION_MAX_BYTES + crate::workers::WORKER_TABLE_MAX_BYTES
+        <= Section::IdentityRoster.payload_cap()
+);
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
@@ -258,11 +266,15 @@ pub struct Snapshot {
     pub epoch: u64,
     entries: [Option<FrozenEvaluator>; MAX_EVALUATORS],
     count: usize,
+    workers: [Option<WorkerRosterEntry>; MAX_WORKERS],
+    worker_count: usize,
 }
 impl Snapshot {
     const fn new(epoch: u64) -> Self {
         Self {
             epoch,
+            workers: [None; MAX_WORKERS],
+            worker_count: 0,
             entries: [None; MAX_EVALUATORS],
             count: 0,
         }
@@ -283,6 +295,25 @@ impl Snapshot {
         self.entries()
             .find(|f| f.entry.evaluator == evaluator)
             .copied()
+    }
+    /// Immutable worker values committed by the opening, in worker ID order.
+    pub fn workers(&self) -> impl Iterator<Item = &WorkerRosterEntry> {
+        self.workers[..self.worker_count].iter().flatten()
+    }
+    fn push_worker(&mut self, entry: WorkerRosterEntry) -> CodecResult<()> {
+        if self.worker_count == MAX_WORKERS {
+            return Err(CAPACITY);
+        }
+        if self
+            .workers()
+            .last()
+            .is_some_and(|p| p.worker >= entry.worker)
+        {
+            return Err(NON_CANONICAL);
+        }
+        self.workers[self.worker_count] = Some(entry);
+        self.worker_count += 1;
+        Ok(())
     }
     fn push(&mut self, value: FrozenEvaluator) -> CodecResult<()> {
         if self.count >= MAX_EVALUATORS {
@@ -471,10 +502,14 @@ impl EvaluatorRegion {
         if self.count == 0 && self.snapshot.is_none() {
             return 0;
         }
-        let frozen = self
-            .snapshot
-            .as_ref()
-            .map_or(0, |s| 9 + s.len() * FROZEN_BYTES);
+        let frozen = self.snapshot.as_ref().map_or(0, |s| {
+            9 + s.len() * FROZEN_BYTES
+                + if s.worker_count == 0 {
+                    0
+                } else {
+                    1 + s.worker_count * codec::WORKER_ROSTER_BYTES
+                }
+        });
         2 + self.count * RECORD_BYTES + frozen
     }
     /// An empty region (no record, no snapshot) encodes as zero bytes.
@@ -496,11 +531,19 @@ impl EvaluatorRegion {
         }
         match &self.snapshot {
             Some(snapshot) => {
-                w.u8(1)?;
+                w.u8(if snapshot.worker_count == 0 { 1 } else { 2 })?;
                 w.u64(snapshot.epoch)?;
                 w.u8(u8::try_from(snapshot.len()).map_err(|_| ARITHMETIC)?)?;
                 for frozen in snapshot.entries() {
                     frozen.write(&mut w)?;
+                }
+                if snapshot.worker_count > 0 {
+                    w.u8(u8::try_from(snapshot.worker_count).map_err(|_| ARITHMETIC)?)?;
+                    for entry in snapshot.workers() {
+                        let mut bytes = [0; codec::WORKER_ROSTER_BYTES];
+                        codec::encode_worker_roster(entry, &mut bytes)?;
+                        w.put(&bytes)?;
+                    }
                 }
             }
             None => w.u8(0)?,
@@ -534,7 +577,8 @@ impl EvaluatorRegion {
             }
             region.insert(&record)?;
         }
-        if r.boolean()? {
+        let snapshot_format = r.u8()?;
+        if snapshot_format == 1 || snapshot_format == 2 {
             let mut snapshot = Snapshot::new(r.u64()?);
             let frozen = usize::from(r.u8()?);
             if frozen > MAX_EVALUATORS {
@@ -543,8 +587,19 @@ impl EvaluatorRegion {
             for _ in 0..frozen {
                 snapshot.push(FrozenEvaluator::read(&mut r)?)?;
             }
+            if snapshot_format == 2 {
+                let count = usize::from(r.u8()?);
+                if count == 0 || count > MAX_WORKERS {
+                    return Err(NON_CANONICAL);
+                }
+                for _ in 0..count {
+                    snapshot.push_worker(codec::decode_worker_roster(
+                        r.take(codec::WORKER_ROSTER_BYTES)?,
+                    )?)?;
+                }
+            }
             region.snapshot = Some(snapshot);
-        } else if count == 0 {
+        } else if snapshot_format != 0 || count == 0 {
             return Err(NON_CANONICAL);
         }
         r.finish()?;
@@ -1065,6 +1120,9 @@ pub fn open_epoch(
     }
     let mut opened = EvaluatorRegion::new();
     let mut snapshot = Snapshot::new(ctx.epoch);
+    for entry in ctx.workers {
+        snapshot.push_worker(*entry)?;
+    }
     let mut counts = OpenedSnapshot::default();
     for current in region.records() {
         if !live(current.grant.status) {
