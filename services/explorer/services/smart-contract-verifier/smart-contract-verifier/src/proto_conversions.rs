@@ -53,7 +53,10 @@ impl TryFrom<VerifySolidityMultiPartRequest> for solidity::multi_part::Verificat
         let content = build_solidity_multi_part_content(
             request.source_files,
             request.evm_version,
-            request.optimization_runs.map(|value| value as u32),
+            request
+                .optimization_runs
+                .map(|value| u32::try_from(value).context("optimization_runs must not be negative"))
+                .transpose()?,
         )?;
 
         Ok(Self {
@@ -196,11 +199,28 @@ impl TryFrom<VerifyVyperStandardJsonRequest> for vyper::standard_json::Verificat
     }
 }
 
+// Public compilation requests are limited to one million optimizer runs. This admits
+// common high-run deployments while preventing accidental multi-billion-run requests.
+// Apply the same ceiling to signed multipart, unsigned batch and native JSON settings.
+const MAX_OPTIMIZATION_RUNS: u64 = 1_000_000;
+
+fn validate_optimization_runs(runs: u64) -> Result<(), RequestParseError> {
+    if runs > MAX_OPTIMIZATION_RUNS {
+        return Err(
+            anyhow::anyhow!("optimization_runs must not exceed {MAX_OPTIMIZATION_RUNS}").into(),
+        );
+    }
+    Ok(())
+}
+
 fn build_solidity_multi_part_content(
     sources: BTreeMap<String, String>,
     evm_version: Option<String>,
     optimization_runs: Option<u32>,
 ) -> Result<solidity::multi_part::Content, RequestParseError> {
+    if let Some(runs) = optimization_runs {
+        validate_optimization_runs(u64::from(runs))?;
+    }
     for name in sources.keys() {
         validate_source_name(std::path::Path::new(name)).map_err(anyhow::Error::new)?;
     }
@@ -229,6 +249,9 @@ fn build_solidity_standard_json_content(
 ) -> Result<SolcInput, RequestParseError> {
     let deserializer = &mut serde_json::Deserializer::from_str(&solc_input);
     let input: SolcInput = serde_path_to_error::deserialize(deserializer)?;
+    if let Some(runs) = input.0.settings.optimizer.runs {
+        validate_optimization_runs(u64::try_from(runs).context("invalid optimization_runs")?)?;
+    }
     for name in input.0.sources.0.keys() {
         validate_source_name(name).map_err(anyhow::Error::new)?;
     }
