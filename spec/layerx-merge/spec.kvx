@@ -148968,7 +148968,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.154]
 title = "Repair audit record 22.30.104 findings in services/human/crates/layerx-human-service/src/server: interface-mismatch, restart-recovery, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -159458,7 +159458,7 @@ do_8 = "Verification runs go test -v, keeps its log and requires a PASS line for
 
 [task.22.31.335]
 title = "Repair audit record 22.30.58 findings in interchain/modules/core/02-client/client/cli: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -160074,7 +160074,7 @@ do_8 = "Verification runs go test -v, keeps its log and requires a PASS line for
 
 [task.22.31.307]
 title = "Repair audit record 22.30.167 findings in sdk/x/feegrant: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -160145,7 +160145,7 @@ do_8 = "Verification runs go test -v, keeps its log and requires a PASS line for
 
 [task.22.31.305]
 title = "Repair audit record 22.30.167 findings in sdk/x/gov: runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -161623,7 +161623,7 @@ do_13 = "Verification runs go test -v, keeps its log and requires a PASS line fo
 
 [task.22.31.182]
 title = "Repair audit record 22.30.62 findings in modules/layerxbridge/keeper: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -162301,7 +162301,7 @@ do_13 = "Attempt 3: no .NET toolchain exists in the qualification environment; t
 
 [task.22.31.137]
 title = "Repair audit record 22.30.73 findings in services/platform/hosted/interop: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -164620,7 +164620,7 @@ do_10 = "Verification runs go test -v, keeps its log and requires a PASS line fo
 
 [task.22.31.57]
 title = "Repair audit record 22.30.34 findings in services/launchpad/livestream/internal/streams: interface-mismatch, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -221729,7 +221729,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.99]
 title = "Repair audit record 22.30.5 findings in src/modules/budget: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -259674,7 +259674,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.361]
 title = "Repair audit record 22.30.86 findings in services/platform/middleware/examples: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -259920,7 +259920,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.331]
 title = "Repair audit record 22.30.184 findings in tools/release: interface-mismatch, restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
