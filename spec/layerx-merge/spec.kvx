@@ -131182,7 +131182,7 @@ do_8 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.373]
 title = "Repair audit record 22.30.119 findings in services/wallet/gateway/src/rpc: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -146308,7 +146308,7 @@ do_8 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.345]
 title = "Repair audit record 22.30.77 findings in services/platform/hosted/gateway: wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -149181,7 +149181,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.155]
 title = "Repair audit record 22.30.106 findings in services/human/crates/layerx-human-security-provider/src: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -161442,7 +161442,7 @@ do_11 = "The candidate carries only sources under the touches and the test file:
 
 [task.22.31.243]
 title = "Repair audit record 22.30.117 findings in services/wallet/attestor/internal/server: restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -162024,7 +162024,7 @@ do_10 = "The candidate carries only sources under the touches and the test file:
 
 [task.22.31.180]
 title = "Repair audit record 22.30.60 findings in modules/evm/keeper: runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -162851,7 +162851,7 @@ do_8 = "Verification runs go test -v, keeps its log and requires a PASS line for
 
 [task.22.31.128]
 title = "Repair audit record 22.30.61 findings in modules/xweb/keeper: interface-mismatch, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -164872,7 +164872,7 @@ do_14 = "The candidate carries only sources under the touches and the test file:
 
 [task.22.31.61]
 title = "Repair audit record 22.30.36 findings in sdk/launchpad/protocol: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -164908,7 +164908,7 @@ do_9 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.59]
 title = "Repair audit record 22.30.35 findings in services/launchpad/metadata/internal/metadata: security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -244434,7 +244434,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.231]
 title = "Repair audit record 22.30.110 findings in services/interop/contracts/ethereum-mirror: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
