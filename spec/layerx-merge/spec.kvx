@@ -175375,7 +175375,7 @@ do_13 = "Attempt 2 (requalify): attempt 1 built; the dependent-crate check faile
 
 [task.22.33.1532]
 title = "Repair audit record 22.30.94 medium findings in services/agent/crates/layerx-agentd (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.220", "22.31.443", "22.31.483"]
@@ -175522,7 +175522,7 @@ do_15 = "Attempt 2 (continue): 21 of 24 cases pass; the three failing cases (hum
 
 [task.22.33.1528]
 title = "Repair audit record 22.30.93 medium findings in services/agent/crates/layerx-agentd/tests/support (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.219", "22.31.443", "22.31.483"]
@@ -175633,7 +175633,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1525]
 title = "Repair audit record 22.30.93 medium findings in services/agent/crates/layerx-agentd/src (part 1 of 1): config-drift, restart-recovery, runtime-risk, security, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.219", "22.31.443", "22.31.483"]
@@ -176842,7 +176842,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1470]
 title = "Repair audit record 22.30.85 medium findings in services/platform/hosted/registry/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.206", "22.31.207", "22.31.208", "22.31.358"]
@@ -176879,7 +176879,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1468]
 title = "Repair audit record 22.30.85 medium findings in services/platform/hosted/registry/src (part 1 of 1): interface-mismatch, restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.206", "22.31.207", "22.31.208", "22.31.358"]
@@ -177326,7 +177326,7 @@ do_16 = "Attempt 4 (continue after 22.31.465): cargo could not load the manifest
 
 [task.22.33.1441]
 title = "Repair audit record 22.30.81 medium findings in services/platform/hosted/gateway/src (part 3 of 3): retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.202"]
@@ -178298,7 +178298,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1366]
 title = "Repair audit record 22.30.74 medium findings in services/platform/tests/support (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.342", "22.31.465", "22.31.485"]
