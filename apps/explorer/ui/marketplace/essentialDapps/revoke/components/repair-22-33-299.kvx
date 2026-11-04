@@ -1,0 +1,26 @@
+[repair.22.33.299]
+audit = "22.30.135"
+finding = "approvals-error-display"
+proof = "repair-22-33-299.spec.ts: approvalsErrorDisplayRetriesFailedScan, approvalsErrorDisplayRejectsIncompleteEmptyScan, approvalsErrorDisplayPreservesPartialApprovals and approvalsErrorDisplayPreservesDataAfterRefetchFailure drive real React Query observers into production Content, Approvals and DataListDisplay and retry the in-memory inventory store."
+baseline = "Not run: the explicit implementation-first gate order forbids the unchanged-tree verify requested by step 5; no pre-change failure is claimed. The original Content discards error and coverage state and Approvals forces isError=false."
+wiring_request = "Domain 14: apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/useApprovalsQuery.tsx must propagate terminal scan errors instead of returning [], and expose isIncomplete when any scanner returns incomplete coverage; Content now accepts and forwards both states."
+evidence = "The runner-owned hf-build and hf-done ledger records identify the candidate revision, exact command, exit code and private log; no post-qualification candidate edits are made."
+
+[gotcha.scope]
+observed = "The inherited .cgignore and task status changes are runner-owned; no earlier build or verify ledger exists. Several guessed component/helper paths do not exist; imports identify the actual files."
+handling = "Preserve inherited changes, use the declared gates, and keep this repair record inside the allowed components directory because spec/ and GOTCHA.kvx edits are forbidden."
+
+[gotcha.formatter]
+observed = "The repository formatter also reports non-layout Vitest lint diagnostics because the required named proof functions are registered as callbacks and the lint rule only recognizes inline assertions."
+handling = "Apply layout fixes without disabling rules or replacing the executable named proof callbacks; hf-build and hf-done remain the declared qualification gates."
+
+[qualification.runtime]
+revision = "defc3fa31c30d512c22c394bf5b9cf66634bac55"
+command = "cg spec done 22.33.299 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All four tests execute but encounter React is not defined when Vitest's classic JSX transform renders production AddressEntity; the harness now supplies the actual React runtime and restores the original global afterward."
+
+[gotcha.retry]
+observed = "React Query clears the initial terminal-error status during retry and can reintroduce placeholder records; the display must retain the failure indication and suppress those records until recovery."
+handling = "Use the retained error timestamp during a fetch with no real data, and assert that retry continues showing unavailable totals with no placeholder approval rows."
