@@ -21,8 +21,8 @@ ed25519-dalek.workspace = true
 getrandom.workspace = true
 layerx-indexer = { path = "../indexer" }
 layerx-platform-gateway = { path = "../gateway" }
+layerx-proof.workspace = true
 layerx-programs-ai-market = { path = "../../../../programs/crates/layerx-programs-ai-market" }
-layerx-wire = { path = "../../../../services/agent/crates/layerx-wire" }
 native-tls.workspace = true
 rustls.workspace = true
 serde.workspace = true

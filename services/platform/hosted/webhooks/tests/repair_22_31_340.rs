@@ -227,7 +227,12 @@ fn finding_3_authority_receipt_is_accepted_and_a_foreign_network_is_refused() {
         &evidence,
         &pin,
     ));
-    let header = must(layerx_wire::receipt::decode_batch_header(&evidence.header));
+    let verified_header = must(layerx_proof::inclusion::verify_header(
+        &evidence.header,
+        &evidence.header_signature,
+        &pin,
+    ));
+    let header = verified_header.header();
     let protocol_network = header.network_id();
     let component = must(serde_json::to_string(
         &json!({"activity_id": activity, "receipt": fixture["receipt_hex"]}),
@@ -281,7 +286,10 @@ fn finding_3_authority_receipt_is_accepted_and_a_foreign_network_is_refused() {
     let operation = must(verifier.verify(activity));
     assert_eq!(operation.activity_id(), facts.activity_id);
     assert_eq!(operation.receipt(), receipt);
-    let decoded = must(layerx_wire::receipt::decode(&receipt));
+    let decoded = must(layerx_proof::receipt::verify_sequencer_signature(
+        &receipt,
+        layerx_platform_gateway::ReceiptKeys::HistoricalKernel(pin.public_key()),
+    ));
     let protocol = decoded.protocol().unwrap();
     let result: Value = must(serde_json::from_slice(operation.response()));
     assert_eq!(result["batch_id"], hex_encode(&facts.batch_id));

@@ -47,9 +47,8 @@ pub fn authority_path() {
             };
             let receipt = field("receipt_hex");
             let header = field("header_hex");
-            let decoded = must(layerx_wire::receipt::decode_batch_header(&header));
             let pin = layerx_platform_gateway::SequencerAuthorization::new(
-                decoded.sequencer_id(),
+                must(field("sequencer_id_hex").try_into()),
                 must(field("sequencer_public_key_hex").try_into()),
                 1,
                 u64::MAX,
@@ -68,15 +67,22 @@ pub fn authority_path() {
             };
             (receipt, evidence, pin)
         };
-        let activity = must(layerx_wire::receipt::decode(&receipt))
-            .protocol()
-            .expect("protocol")
-            .activity_id();
+        let activity = must(layerx_proof::receipt::verify_sequencer_signature(
+            &receipt,
+            layerx_platform_gateway::ReceiptKeys::HistoricalKernel(pin.public_key()),
+        ))
+        .protocol()
+        .expect("protocol")
+        .activity_id();
         let facts = must(authorized_batch_by_activity(
             activity, &receipt, &evidence, &pin,
         ));
-        let network =
-            must(layerx_wire::receipt::decode_batch_header(&evidence.header)).network_id();
+        let verified_header = must(layerx_proof::inclusion::verify_header(
+            &evidence.header,
+            &evidence.header_signature,
+            &pin,
+        ));
+        let network = verified_header.header().network_id();
         // Serialize the actual verified producer facts, retaining the full HTTP
         // contract (receipt and numeric network included), never a shape-only object.
         let mut response = json!({
