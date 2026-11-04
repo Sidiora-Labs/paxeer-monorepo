@@ -99,7 +99,29 @@ fn decode_signed(value: &Value, operation: Operation) -> Result<SignedObservatio
 }
 
 impl AgentEnvelopeTransport {
-    /// Attaches an externally produced 64-byte signature to a retained preparation.
+    /// Sends the current API signature carrier without dropping its recovery byte.
+    pub fn sign_request(
+        &self,
+        request_id: RequestId,
+        key: Key,
+        credential: &EnvelopeCredential,
+        request: &layerx_agent_api::submit::SignRequest,
+    ) -> Result<SignedObservation, EnvelopeError> {
+        let signature: &[u8; 65] = request
+            .signature
+            .as_bytes()
+            .try_into()
+            .map_err(|_| EnvelopeError::InvalidRequest)?;
+        self.sign(
+            request_id,
+            key,
+            credential,
+            request.preparation_ref.as_str(),
+            signature,
+        )
+    }
+
+    /// Attaches an externally produced 65-byte recoverable EVM signature to a retained preparation.
     ///
     /// # Errors
     ///
@@ -111,7 +133,7 @@ impl AgentEnvelopeTransport {
         key: Key,
         credential: &EnvelopeCredential,
         preparation_ref: &str,
-        signature: &[u8; 64],
+        signature: &[u8; 65],
     ) -> Result<SignedObservation, EnvelopeError> {
         let operation = Operation::Sign;
         let success = self.send_operation(

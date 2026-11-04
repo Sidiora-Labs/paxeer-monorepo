@@ -124,13 +124,14 @@ type liveIngestor struct {
 // PostgreSQL with the production schema.
 func newLiveIngestor(t *testing.T, ctx context.Context, pool *pgxpool.Pool, primary, historical string, anchor receipt.BlockAnchor) liveIngestor {
 	t.Helper()
-	inputs := realReceiptInputs(t)
-	inputs.Manifest = deployment.Current()
-	inputs.Anchor = anchor
-	options, _, err := runtimedocs.ReceiptOptions(inputs)
+	inputs := repair54ReceiptInputs(t)
+	var err error
+	inputs.Manifest, err = liveManifestAt(anchor.Height)
 	if err != nil {
 		t.Fatal(err)
 	}
+	inputs.Anchor = anchor
+	options := repairM1000ReceiptOptions(t, inputs)
 	tuning := liveArchiveTuning(t)
 	client, closeClient, err := receipt.NewBoundedRPCClientWithArchive(ctx, primary, historical, receipt.ArchiveOptions{Concurrency: tuning.Concurrency, AttemptTimeout: tuning.AttemptTimeout})
 	if err != nil {
@@ -187,7 +188,7 @@ func newLiveIngestor(t *testing.T, ctx context.Context, pool *pgxpool.Pool, prim
 		err := pool.QueryRow(c, `SELECT block_hash FROM indexer.indexer_block_completeness WHERE chain_id=125 AND stream_id=$1 AND height=$2`, realStream, int64(h)).Scan(&hash)
 		return common.HexToHash(hash), err
 	}}
-	p := New(Deps{Store: st, Decoder: decode.NewDecoder(), EventEmitterAddress: deployment.Current().Roles["EventEmitter"].Address, ChainID: 125, QualifiedBatchSource: live, CanonicalStreamID: realStream, CanonicalOwner: "indexer-live-test", AccountingPartitions: partitions, Durable: stager, AccountingProjectionVersion: "accounting-market-v1", LegacyProjection: true, Reserves: authority})
+	p := New(Deps{Store: st, Decoder: decode.NewDecoder(), EventEmitterAddress: inputs.Manifest.Roles["EventEmitter"].Address, ChainID: 125, QualifiedBatchSource: live, CanonicalStreamID: realStream, CanonicalOwner: "indexer-live-test", AccountingPartitions: partitions, Durable: stager, AccountingProjectionVersion: "accounting-market-v1", LegacyProjection: true, Reserves: authority})
 	return liveIngestor{processor: p, durable: height, authority: authority, source: rpcSource, store: st}
 }
 
@@ -266,8 +267,7 @@ func TestLiveProductionIngestFromCreationPostgres(t *testing.T) {
 	_, pool := canonicaltest.New(t)
 	applyProductionSchema(t, ctx, pool)
 	seedWatermark(t, ctx, pool, anchor.Height)
-	l := newLiveIngestor(t, ctx, pool, primary, historical, anchor)
-	elapsed, retries := l.ingest(t, ctx, from, to)
+	l, elapsed, retries := ingestLiveGenerations(t, ctx, pool, primary, historical, from, to)
 	t.Logf("BACKFILL %d..%d: %d blocks in %s (%.1f blocks/s, %d retried batches)", from, to, to-from+1, elapsed.Round(time.Second), float64(to-from+1)/elapsed.Seconds(), retries)
 	l.logArchiveCounters(t)
 	if from > 33963716 || to < 33963733 {
@@ -307,8 +307,7 @@ func TestLiveArchiveFailoverAcrossPrimaryFloorPostgres(t *testing.T) {
 	_, pool := canonicaltest.New(t)
 	applyProductionSchema(t, ctx, pool)
 	seedWatermark(t, ctx, pool, anchor.Height)
-	l := newLiveIngestor(t, ctx, pool, primary, historical, anchor)
-	elapsed, _ := l.ingest(t, ctx, from, to)
+	l, elapsed, _ := ingestLiveGenerations(t, ctx, pool, primary, historical, from, to)
 	t.Logf("ingested %d blocks across primary floor %d in %s (%.1f blocks/s)", to-from+1, floor, elapsed.Round(time.Millisecond), float64(to-from+1)/elapsed.Seconds())
 	l.logArchiveCounters(t)
 	for _, h := range []uint64{from, floor - 1, to} {
@@ -368,4 +367,76 @@ func receiptHeaderHash(ctx context.Context, url string, height uint64) (common.H
 		return common.Hash{}, err
 	}
 	return envelope.Result.Hash(), nil
+}
+
+// Every generation is selected from approved history, including the activation
+// block. Its own block hash can pin admission while the durable prior hash
+// still fences the first canonical commit to the preceding generation.
+func liveManifestAt(height uint64) (deployment.Manifest, error) {
+	var selected deployment.Manifest
+	for activation, ok := deployment.NextActivationHeight(0); ok && activation <= height; activation, ok = deployment.NextActivationHeight(activation) {
+		manifest, approved := deployment.Approved(activation)
+		if !approved {
+			return selected, fmt.Errorf("unapproved activation %d", activation)
+		}
+		selected = manifest
+	}
+	if selected.ActivationHeight == 0 {
+		return selected, fmt.Errorf("no approved deployment at %d", height)
+	}
+	return selected, nil
+}
+
+type liveGenerationRange struct {
+	From, To uint64
+	Manifest deployment.Manifest
+}
+
+func liveGenerationRanges(from, to uint64) ([]liveGenerationRange, error) {
+	if from == 0 || to < from {
+		return nil, fmt.Errorf("invalid live range %d..%d", from, to)
+	}
+	var out []liveGenerationRange
+	for next := from; next <= to; {
+		manifest, err := liveManifestAt(next)
+		if err != nil {
+			return nil, err
+		}
+		end := to
+		if activation, ok := deployment.NextActivationHeight(manifest.ActivationHeight); ok && activation <= to {
+			end = activation - 1
+		}
+		out = append(out, liveGenerationRange{From: next, To: end, Manifest: manifest})
+		if end == to {
+			break
+		}
+		next = end + 1
+	}
+	return out, nil
+}
+func ingestLiveGenerations(t *testing.T, ctx context.Context, pool *pgxpool.Pool, primary, historical string, from, to uint64) (liveIngestor, time.Duration, int) {
+	t.Helper()
+	ranges, err := liveGenerationRanges(from, to)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var last liveIngestor
+	var elapsed time.Duration
+	var retries int
+	for _, segment := range ranges {
+		anchorHeight := max(segment.From-1, segment.Manifest.ActivationHeight)
+		anchor := receipt.BlockAnchor{Height: anchorHeight, Hash: reportedHash(t, ctx, historical, anchorHeight)}
+		if last.processor != nil {
+			if err := last.processor.deps.Store.ReleaseLease(ctx, 125, realStream, last.processor.deps.CanonicalOwner, last.processor.canonicalFence); err != nil {
+				t.Fatal(err)
+			}
+		}
+		last = newLiveIngestor(t, ctx, pool, primary, historical, anchor)
+		last.durable.Store(segment.From - 1)
+		duration, attempts := last.ingest(t, ctx, segment.From, segment.To)
+		elapsed += duration
+		retries += attempts
+		last.logArchiveCounters(t)
+	}
+	return last, elapsed, retries
 }

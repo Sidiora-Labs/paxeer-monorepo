@@ -247,6 +247,13 @@ fn approval_get_tool_reports_tx_hash_and_rung() {
         &tx_hash,
         Rung::Submitted.name(),
     );
+    session_transport::approval_result_over_transport(
+        &service,
+        &context.tenant,
+        &submissions,
+        &arguments,
+        &facts,
+    );
     assert_eq!(facts["state"], "Approved");
     assert_eq!(facts["actor"], prepared.disclosure.actor.as_str());
     assert_eq!(facts["amounts"][0]["amount"], "101");
@@ -260,4 +267,14 @@ fn approval_get_tool_reports_tx_hash_and_rung() {
     drop(service);
     drop(expiry);
     std::fs::remove_dir_all(root).expect("remove approval decision store");
+}
+
+#[path = "support/session_transport.rs"]
+mod session_transport;
+
+#[test]
+fn session_transport_preserves_cursor_triples_and_reopened_approval_shapes() {
+    session_transport::session_tools_authenticated_daemon_codec();
+    session_transport::session_tools_bind_describe_and_acknowledge();
+    session_transport::all_session_tools_through_daemon_and_mcp();
 }

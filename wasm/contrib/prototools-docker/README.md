@@ -3,11 +3,14 @@ Prototool Docker Helper
 
 This is a historical upstream protobuf helper, based on the
 [prototool-docker](https://github.com/charithe/prototool-docker) project.
-It is not the toolchain for generating the merged repository's protobuf code.
+The [Dockerfile](Dockerfile) is retired from supported repository generation
+and retained only as a historical upstream reference. Use the root workflow
+below for all current protobuf generation, including `wasm/proto`.
 
 ## Current repository generation
 
-From the repository root, use the existing generation script:
+From the repository root, with the Go toolchain declared in the root
+[`go.mod`](../../../go.mod) (currently Go `1.25.8`), run:
 
 ```sh
 bash scripts/protoc.sh
@@ -20,9 +23,16 @@ then invokes Buf v1.58.0 through `go run`. It uses the root
 both with configuration version `v2`, plus the consensus internal templates.
 The root configuration includes `wasm/proto`, uses the local
 `build/proto/gocosmos/protoc-gen-gocosmos` generator, and maps SDK types to this
-repository's fork. The script copies generated output back into the source
-trees and removes `build/proto`; its `go get` step can update module metadata.
-Use the Go toolchain declared in the root [`go.mod`](../../../go.mod).
+repository's fork, including `google/protobuf/any.proto` to
+`github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec/types`. The root workspace
+includes the local [`sdk/proto`](../../../sdk/proto) and
+[`sdk/third_party/proto`](../../../sdk/third_party/proto) inputs; no external
+Cosmos SDK checkout or `COSMOS_SDK_DIR` mount is needed.
+
+The script copies generated output back into the source trees, including
+`sdk/`, `wasm/` and `consensus/`, and removes `build/proto`. Its `go get` step can
+update module metadata. It requires dependency downloads and overwrites
+generated files, so review the resulting source and module changes.
 
 ## Historical image contents
 
@@ -46,26 +56,8 @@ The final image also installs Alpine's `protoc` package. Buf 0.30.0 cannot read
 the root v2 configuration, and the image's generator versions differ from the
 root workflow. Mounting the current sources does not resolve those differences.
 
-### Build and inspect the historical helper
-
-For historical tooling work, run these commands from the repository root.
-The build depends on the old base images, repositories, and package sources
-remaining available; it is not a qualification of current protobuf generation.
-
-```sh
-docker build -t cosmwasm/prototools-docker -f wasm/contrib/prototools-docker/Dockerfile .
-docker run --rm -it \
-  -v "$PWD:/workspace" \
-  -v "$PWD/sdk:/workspace/cosmos_sdk_dir" \
-  --workdir /workspace \
-  --env COSMOS_SDK_DIR=/workspace/cosmos_sdk_dir \
-  cosmwasm/prototools-docker sh
-```
-
-Both commands use the same image tag. The SDK mount comes from this checkout's
-[`sdk/`](../../../sdk), and `COSMOS_SDK_DIR` names that exact container path.
-The Dockerfile itself does not consume that variable; it is available to
-commands run inside the shell. Use the root script above for current generation.
+There are no supported build or run instructions for this retired image.
+Use `bash scripts/protoc.sh` from the repository root instead.
 
 See also the [devtools notes](../devtools/README.md) and
 [upstream local examples](../local/README.md).

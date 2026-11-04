@@ -12,8 +12,8 @@ exporter configuration can add prefixes or counter suffixes.
 
 | Legacy telemetry name | OpenTelemetry instrument | Meaning | OpenTelemetry unit | Type |
 |-----------------------|--------------------------|---------|--------------------|------|
-| `tx_msg_ibc_transfer` | `ibc_transfer_tx_msg` | Last successfully sent packet amount for the label set | `{token}` | Gauge (`Int64Gauge` in OpenTelemetry) |
-| `ibc_transfer_packet_receive` | `ibc_transfer_packet_receive` | Last successfully received packet amount for the label set | `{token}` | Gauge (`Int64Gauge` in OpenTelemetry) |
+| `tx_msg_ibc_transfer` | `ibc_transfer_tx_msg` | Last representable successfully sent packet amount for the label set | `{token}` | Gauge (`Int64Gauge` in OpenTelemetry) |
+| `ibc_transfer_packet_receive` | `ibc_transfer_packet_receive` | Last representable successfully received packet amount for the label set | `{token}` | Gauge (`Int64Gauge` in OpenTelemetry) |
 | `ibc_transfer_send` | `ibc_transfer_send` | Number of successful packet sends | `{count}` | Counter (`Int64Counter` in OpenTelemetry) |
 | `ibc_transfer_receive` | `ibc_transfer_receive` | Number of successful packet receives | `{count}` | Counter (`Int64Counter` in OpenTelemetry) |
 
@@ -24,7 +24,8 @@ observations, not cumulative token volume or balances. They cover both
 escrow/burn sends and mint/unescrow receives. Both telemetry implementations
 record a gauge only when `Amount.IsInt64()` is true: a valid positive amount
 larger than `9223372036854775807` produces no gauge observation, but the transfer
-counter still increments. Legacy gauges convert the amount to `float32`, which
+counter still increments. An oversized packet leaves the preceding representable
+gauge observation unchanged; it does not reset it to zero. Legacy gauges convert the amount to `float32`, which
 can lose integer precision; OpenTelemetry records an `int64`.
 
 Legacy amount gauges use a `denom` label. For sends its value is the expanded
@@ -38,6 +39,9 @@ strings: `uhpx` for exactly `uhpx`, `ibc` for an `ibc/` prefix, `factory` for a
 `transfer/channel-0/` therefore falls into `other`, even though its bank
 representation is an IBC voucher. The last observation is per class, so it
 cannot be used to calculate per-denomination totals.
+
+`TestRepairM_1206_Metrics` collects the real legacy and OpenTelemetry series
+after sends and receives, including amounts on both sides of the int64 boundary.
 
 ## Transfer counters
 

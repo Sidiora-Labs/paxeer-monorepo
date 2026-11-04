@@ -17,7 +17,7 @@ from phase2_feeder import PostgresObserver, feed_real_transactions, owned_comman
 from phase2_http import HTTP, HTTPFailure
 from phase2_receivers import connect_receiver, WebSocket, HandshakeDenied, ReceiverState, ReconciliationError
 from phase2_runner import dependency_probe, resolve_routes, route_category
-from phase2_types import Artifacts, Bindings, bound_document, canonical, digest, source_digest, validate_v2
+from phase2_types import Artifacts, Bindings, ContractAuthority, bound_document, canonical, digest, source_digest, validate_v2
 from scheduler import Sample
 from workload import MIX, VERSION, ledger
 
@@ -44,7 +44,7 @@ def skew_topics(pools, index):
 class SkewReceiverState(ReceiverState):
     def receive(self, value):
         if "op" in value:
-            validate_v2("StreamControl", value)
+            validate_v2("StreamControl", value, self.authority)
             self.controls += 1
             if value["op"] in ("error", "resnapshot_required", "integrity_incident", "subscription_closed"):
                 raise ReconciliationError("explicit server control: " + value["op"])
@@ -54,7 +54,7 @@ class SkewReceiverState(ReceiverState):
                 self.cursor = value["cursor"]
                 self.checkpoint_count += 1
             return False
-        validate_v2("StreamEvent", value)
+        validate_v2("StreamEvent", value, self.authority)
         topic = value["topic"]
         if topic not in self.sequence:
             raise ReconciliationError("event outside accepted scope")
@@ -229,7 +229,7 @@ class Telemetry:
 
 
 async def stress_http(config, http, accounts, signer, output, start_ns):
-    routes = resolve_routes(config["routes"])
+    routes = resolve_routes(config["routes"], http.authority)
     maximum = config.get("http_max_inflight", 128)
     if type(maximum) is not int or not 1 <= maximum <= 4096:
         raise ValueError("bounded inflight limit required")
@@ -263,7 +263,7 @@ async def stress_http(config, http, accounts, signer, output, start_ns):
             if route.get("signature") == "metadata_v2":
                 headers.update(await metadata_headers(signer, account, route["method"], path, body, config["metadata_audience"]))
             if route.get("request_schema"):
-                validate_v2(route["request_schema"], body)
+                validate_v2(route["request_schema"], body, http.authority)
             await http.call(route["method"], path, body, bearer=account.access_token if route["authenticated"] else None, headers=headers, schema=route["response_schema"])
             sample.status = "received"
         except TimeoutError:
@@ -359,8 +359,8 @@ async def authorization_probe(config, http, owner, foreign):
     body = {"schemaMajor": 2, "topics": topics, "filterDigest": digest(canonical(topics)), "origin": http.application_origin, "endpoint": "/v2/stream"}
     response = await http.call("POST", "/v2/stream/tickets", body, bearer=owner.access_token, schema="StreamTicketIssueResponse")
     ticket = response["data"]["ticket"]
-    first = WebSocket(config["stream_origin"], http.application_origin, ca_file=config.get("ca_file"), owned_local=config.get("owned_local", False))
-    second = WebSocket(config["stream_origin"], http.application_origin, ca_file=config.get("ca_file"), owned_local=config.get("owned_local", False))
+    first = WebSocket(config["stream_origin"], http.application_origin, authority=http.authority, ca_file=config.get("ca_file"), owned_local=config.get("owned_local", False))
+    second = WebSocket(config["stream_origin"], http.application_origin, authority=http.authority, ca_file=config.get("ca_file"), owned_local=config.get("owned_local", False))
     try:
         await first.connect(ticket)
         try:
@@ -376,6 +376,7 @@ async def authorization_probe(config, http, owner, foreign):
 
 async def run(config, artifacts):
     bindings = Bindings(**config["bindings"])
+    contracts = ContractAuthority(config, bindings)
     pool_for(0, config["pools"])
     if bindings.generator != source_digest() or type(config["host_index"]) is not int or config["host_index"] not in range(4) or len(set(config["generator_hosts"])) != 4 or config["generator_hosts"][config["host_index"]] != config["host_id"]:
         raise ValueError("four external current source-bound generator identities required")
@@ -383,7 +384,7 @@ async def run(config, artifacts):
     calibration = evaluate(reports, candidate=bindings.candidate, topology=bindings.topology, generator=bindings.generator)
     if not calibration["generator_calibrated"] or {r["host_id"] for r in reports} != set(config["generator_hosts"]):
         raise ValueError("current four-host calibration required")
-    http = HTTP(config["api_origin"], config["application_origin"], ca_file=config.get("ca_file"), owned_local=config.get("owned_local", False))
+    http = HTTP(config["api_origin"], config["application_origin"], authority=contracts, ca_file=config.get("ca_file"), owned_local=config.get("owned_local", False))
     observer = PostgresObserver(**config["postgres"], pools=config["pools"])
     telemetry = Telemetry(config["telemetry"], config["application_origin"], config["pools"])
     controller = IsolatedFaultControl(config["fault_control"]) if config["host_index"] == 0 else None
@@ -433,7 +434,7 @@ async def run(config, artifacts):
             topics = skew_topics(config["pools"], index)
             account = accounts[index % 12500] if index % 2 == 0 else None
             snapshot = (await http.call("GET", "/v2/snapshots?topics=" + quote(",".join(topics), safe=""), bearer=None if account is None else account.access_token, schema="TopicSnapshotReadResponse"))["data"]["snapshot"]
-            state = SkewReceiverState(topics, snapshot, retain_fills=index % 200 == 0)
+            state = SkewReceiverState(topics, snapshot, authority=http.authority, retain_fills=index % 200 == 0)
             socket, state = await connect_receiver(http, config["stream_origin"], topics, account, ca_file=config.get("ca_file"), owned_local=config.get("owned_local", False), state=state, retain_fills=index % 200 == 0)
             sockets[index] = socket
             states[index] = {"state": state, "topics": topics, "initial": dict(state.sequence)}

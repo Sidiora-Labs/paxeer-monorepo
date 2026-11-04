@@ -1,6 +1,6 @@
 //! Proof-gated daemon read surfaces.
 
-mod abci_result;
+pub(crate) mod abci_result;
 #[path = "availability.rs"]
 mod available;
 #[path = "balance.rs"]
@@ -62,3 +62,6 @@ pub fn checkpoint(
     )
 }
 pub use history_impl::{history, Cursor, HistoryLimits, HistoryPage, HistoryReadError};
+
+pub mod checkpoint_request;
+pub use checkpoint_request::CheckpointRequest;

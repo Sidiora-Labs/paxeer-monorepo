@@ -72,6 +72,16 @@ func (s *IntegrationTestSuite) SetupSuite() {
 	s.addedGrantee = grantee
 }
 
+func (s *IntegrationTestSuite) fixtureAddress(name string) sdk.AccAddress {
+	kb := s.network.Validators[0].ClientCtx.Keyring
+	algorithms, _ := kb.SupportedAlgorithms()
+	algo, err := keyring.NewSigningAlgoFromString(s.cfg.SigningAlgo, algorithms)
+	s.Require().NoError(err)
+	info, _, err := kb.NewMnemonic(s.T().Name()+"/"+name, keyring.English, sdk.FullFundraiserPath, keyring.DefaultBIP39Passphrase, algo)
+	s.Require().NoError(err)
+	return sdk.AccAddress(info.GetPubKey().Address())
+}
+
 // createGrant creates a new basic allowance fee grant from granter to grantee.
 func (s *IntegrationTestSuite) createGrant(granter, grantee sdk.Address) {
 	val := s.network.Validators[0]
@@ -110,6 +120,8 @@ func (s *IntegrationTestSuite) TearDownSuite() {
 }
 
 func (s *IntegrationTestSuite) TestCmdGetFeeGrant() {
+	missingGranter := s.fixtureAddress("missingGranter")
+
 	val := s.network.Validators[0]
 	granter := val.Address
 	grantee := s.addedGrantee
@@ -146,7 +158,7 @@ func (s *IntegrationTestSuite) TestCmdGetFeeGrant() {
 		{
 			"non existed grant",
 			[]string{
-				"cosmos1nph3cfzk6trsmfxkeu943nvach5qw4vwstnvkl",
+				missingGranter.String(),
 				grantee.String(),
 				fmt.Sprintf("--%s=json", tmcli.OutputFlag),
 			},
@@ -180,8 +192,8 @@ func (s *IntegrationTestSuite) TestCmdGetFeeGrant() {
 			} else {
 				s.Require().NoError(err)
 				s.Require().NoError(clientCtx.Codec.UnmarshalAsJSON(out.Bytes(), tc.respType), out.String())
-				s.Require().Equal(tc.respType.Grantee, tc.respType.Grantee)
-				s.Require().Equal(tc.respType.Granter, tc.respType.Granter)
+				s.Require().Equal(tc.resp.Grantee, tc.respType.Grantee)
+				s.Require().Equal(tc.resp.Granter, tc.respType.Granter)
 				grant, err := tc.respType.GetGrant()
 				s.Require().NoError(err)
 				grant1, err1 := tc.resp.GetGrant()
@@ -196,6 +208,8 @@ func (s *IntegrationTestSuite) TestCmdGetFeeGrant() {
 }
 
 func (s *IntegrationTestSuite) TestCmdGetFeeGrantsByGrantee() {
+	missingGrantee := s.fixtureAddress("missingGrantee")
+
 	val := s.network.Validators[0]
 	grantee := s.addedGrantee
 	clientCtx := val.ClientCtx
@@ -218,7 +232,7 @@ func (s *IntegrationTestSuite) TestCmdGetFeeGrantsByGrantee() {
 		{
 			"non existent grantee",
 			[]string{
-				"cosmos1nph3cfzk6trsmfxkeu943nvach5qw4vwstnvkl",
+				missingGrantee.String(),
 				fmt.Sprintf("--%s=json", tmcli.OutputFlag),
 			},
 			false, &feegrant.QueryAllowancesResponse{}, 0,
@@ -246,12 +260,18 @@ func (s *IntegrationTestSuite) TestCmdGetFeeGrantsByGrantee() {
 				s.Require().NoError(err)
 				s.Require().NoError(clientCtx.Codec.UnmarshalAsJSON(out.Bytes(), tc.resp), out.String())
 				s.Require().Len(tc.resp.Allowances, tc.expectLength)
+				for _, grant := range tc.resp.Allowances {
+					s.Require().Equal(s.addedGranter.String(), grant.Granter)
+					s.Require().Equal(grantee.String(), grant.Grantee)
+				}
 			}
 		})
 	}
 }
 
 func (s *IntegrationTestSuite) TestCmdGetFeeGrantsByGranter() {
+	missingGranter := s.fixtureAddress("missingGranter")
+
 	val := s.network.Validators[0]
 	granter := s.addedGranter
 	clientCtx := val.ClientCtx
@@ -274,7 +294,7 @@ func (s *IntegrationTestSuite) TestCmdGetFeeGrantsByGranter() {
 		{
 			"non existent grantee",
 			[]string{
-				"cosmos1nph3cfzk6trsmfxkeu943nvach5qw4vwstnvkl",
+				missingGranter.String(),
 				fmt.Sprintf("--%s=json", tmcli.OutputFlag),
 			},
 			false, &feegrant.QueryAllowancesByGranterResponse{}, 0,
@@ -302,12 +322,27 @@ func (s *IntegrationTestSuite) TestCmdGetFeeGrantsByGranter() {
 				s.Require().NoError(err)
 				s.Require().NoError(clientCtx.Codec.UnmarshalAsJSON(out.Bytes(), tc.resp), out.String())
 				s.Require().Len(tc.resp.Allowances, tc.expectLength)
+				for _, grant := range tc.resp.Allowances {
+					s.Require().Equal(granter.String(), grant.Granter)
+					s.Require().Equal(s.addedGrantee.String(), grant.Grantee)
+				}
 			}
 		})
 	}
 }
 
 func (s *IntegrationTestSuite) TestNewCmdFeeGrant() {
+	basicGrantee := s.fixtureAddress("basicGrantee")
+	keyNameGrantee := s.fixtureAddress("keyNameGrantee")
+	aminoGrantee := s.fixtureAddress("aminoGrantee")
+	unlimitedGrantee := s.fixtureAddress("unlimitedGrantee")
+	noExpirationGrantee := s.fixtureAddress("noExpirationGrantee")
+	unlimitedNoExpirationGrantee := s.fixtureAddress("unlimitedNoExpirationGrantee")
+	periodicGrantee := s.fixtureAddress("periodicGrantee")
+	periodicUnlimitedGrantee := s.fixtureAddress("periodicUnlimitedGrantee")
+	periodicNoExpirationGrantee := s.fixtureAddress("periodicNoExpirationGrantee")
+	periodicUnlimitedNoExpirationGrantee := s.fixtureAddress("periodicUnlimitedNoExpirationGrantee")
+
 	val := s.network.Validators[0]
 	granter := val.Address
 	alreadyExistedGrantee := s.addedGrantee
@@ -335,7 +370,7 @@ func (s *IntegrationTestSuite) TestNewCmdFeeGrant() {
 			append(
 				[]string{
 					"wrong_granter",
-					"cosmos1nph3cfzk6trsmfxkeu943nvach5qw4vwstnvkl",
+					basicGrantee.String(),
 					fmt.Sprintf("--%s=%s", cli.FlagSpendLimit, "100uhpx"),
 					fmt.Sprintf("--%s=%s", flags.FlagFrom, granter),
 				},
@@ -361,7 +396,7 @@ func (s *IntegrationTestSuite) TestNewCmdFeeGrant() {
 			append(
 				[]string{
 					"invalid_granter",
-					"cosmos16dun6ehcc86e03wreqqww89ey569wuj4em572w",
+					keyNameGrantee.String(),
 					fmt.Sprintf("--%s=%s", cli.FlagSpendLimit, "100uhpx"),
 					fmt.Sprintf("--%s=%s", flags.FlagFrom, granter),
 				},
@@ -374,7 +409,7 @@ func (s *IntegrationTestSuite) TestNewCmdFeeGrant() {
 			append(
 				[]string{
 					granter.String(),
-					"cosmos1nph3cfzk6trsmfxkeu943nvach5qw4vwstnvkl",
+					basicGrantee.String(),
 					fmt.Sprintf("--%s=%s", cli.FlagSpendLimit, "100uhpx"),
 					fmt.Sprintf("--%s=%s", flags.FlagFrom, granter),
 				},
@@ -387,7 +422,7 @@ func (s *IntegrationTestSuite) TestNewCmdFeeGrant() {
 			append(
 				[]string{
 					fromName,
-					"cosmos16dun6ehcc86e03wreqqww89ey569wuj4em572w",
+					keyNameGrantee.String(),
 					fmt.Sprintf("--%s=%s", cli.FlagSpendLimit, "100uhpx"),
 					fmt.Sprintf("--%s=%s", flags.FlagFrom, fromName),
 				},
@@ -400,7 +435,7 @@ func (s *IntegrationTestSuite) TestNewCmdFeeGrant() {
 			append(
 				[]string{
 					granter.String(),
-					"cosmos1v57fx2l2rt6ehujuu99u2fw05779m5e2ux4z2h",
+					aminoGrantee.String(),
 					fmt.Sprintf("--%s=%s", cli.FlagSpendLimit, "100uhpx"),
 					fmt.Sprintf("--%s=%s", flags.FlagFrom, granter),
 					fmt.Sprintf("--%s=%s", flags.FlagSignMode, flags.SignModeLegacyAminoJSON),
@@ -414,7 +449,7 @@ func (s *IntegrationTestSuite) TestNewCmdFeeGrant() {
 			append(
 				[]string{
 					granter.String(),
-					"cosmos17h5lzptx3ghvsuhk7wx4c4hnl7rsswxjer97em",
+					unlimitedGrantee.String(),
 					fmt.Sprintf("--%s=%s", flags.FlagFrom, granter),
 				},
 				commonFlags...,
@@ -426,7 +461,7 @@ func (s *IntegrationTestSuite) TestNewCmdFeeGrant() {
 			append(
 				[]string{
 					granter.String(),
-					"cosmos16dlc38dcqt0uralyd8hksxyrny6kaeqfjvjwp5",
+					noExpirationGrantee.String(),
 					fmt.Sprintf("--%s=%s", cli.FlagSpendLimit, "100uhpx"),
 					fmt.Sprintf("--%s=%s", flags.FlagFrom, granter),
 				},
@@ -439,7 +474,7 @@ func (s *IntegrationTestSuite) TestNewCmdFeeGrant() {
 			append(
 				[]string{
 					granter.String(),
-					"cosmos1ku40qup9vwag4wtf8cls9mkszxfthaklxkp3c8",
+					unlimitedNoExpirationGrantee.String(),
 					fmt.Sprintf("--%s=%s", flags.FlagFrom, granter),
 				},
 				commonFlags...,
@@ -464,7 +499,7 @@ func (s *IntegrationTestSuite) TestNewCmdFeeGrant() {
 			append(
 				[]string{
 					granter.String(),
-					"cosmos1nph3cfzk6trsmfxkeu943nvach5qw4vwstnvkl",
+					basicGrantee.String(),
 					fmt.Sprintf("--%s=%s", cli.FlagSpendLimit, "100uhpx"),
 					fmt.Sprintf("--%s=%s", cli.FlagPeriodLimit, "10uhpx"),
 					fmt.Sprintf("--%s=%s", flags.FlagFrom, granter),
@@ -479,7 +514,7 @@ func (s *IntegrationTestSuite) TestNewCmdFeeGrant() {
 			append(
 				[]string{
 					granter.String(),
-					"cosmos1nph3cfzk6trsmfxkeu943nvach5qw4vwstnvkl",
+					basicGrantee.String(),
 					fmt.Sprintf("--%s=%s", cli.FlagSpendLimit, "100uhpx"),
 					fmt.Sprintf("--%s=%d", cli.FlagPeriod, tenHours),
 					fmt.Sprintf("--%s=%s", flags.FlagFrom, granter),
@@ -494,7 +529,7 @@ func (s *IntegrationTestSuite) TestNewCmdFeeGrant() {
 			append(
 				[]string{
 					granter.String(),
-					"cosmos1nph3cfzk6trsmfxkeu943nvach5qw4vwstnvkl",
+					basicGrantee.String(),
 					fmt.Sprintf("--%s=%s", cli.FlagSpendLimit, "100uhpx"),
 					fmt.Sprintf("--%s=%d", cli.FlagPeriod, tenHours),
 					fmt.Sprintf("--%s=%s", cli.FlagPeriodLimit, "10uhpx"),
@@ -510,7 +545,7 @@ func (s *IntegrationTestSuite) TestNewCmdFeeGrant() {
 			append(
 				[]string{
 					granter.String(),
-					"cosmos1w55kgcf3ltaqdy4ww49nge3klxmrdavrr6frmp",
+					periodicGrantee.String(),
 					fmt.Sprintf("--%s=%s", cli.FlagSpendLimit, "100uhpx"),
 					fmt.Sprintf("--%s=%d", cli.FlagPeriod, oneHour),
 					fmt.Sprintf("--%s=%s", cli.FlagPeriodLimit, "10uhpx"),
@@ -526,7 +561,7 @@ func (s *IntegrationTestSuite) TestNewCmdFeeGrant() {
 			append(
 				[]string{
 					granter.String(),
-					"cosmos1vevyks8pthkscvgazc97qyfjt40m6g9xe85ry8",
+					periodicUnlimitedGrantee.String(),
 					fmt.Sprintf("--%s=%d", cli.FlagPeriod, oneHour),
 					fmt.Sprintf("--%s=%s", cli.FlagPeriodLimit, "10uhpx"),
 					fmt.Sprintf("--%s=%s", flags.FlagFrom, granter),
@@ -541,7 +576,7 @@ func (s *IntegrationTestSuite) TestNewCmdFeeGrant() {
 			append(
 				[]string{
 					granter.String(),
-					"cosmos14cm33pvnrv2497tyt8sp9yavhmw83nwej3m0e8",
+					periodicNoExpirationGrantee.String(),
 					fmt.Sprintf("--%s=%s", cli.FlagSpendLimit, "100uhpx"),
 					fmt.Sprintf("--%s=%d", cli.FlagPeriod, oneHour),
 					fmt.Sprintf("--%s=%s", cli.FlagPeriodLimit, "10uhpx"),
@@ -556,7 +591,7 @@ func (s *IntegrationTestSuite) TestNewCmdFeeGrant() {
 			append(
 				[]string{
 					granter.String(),
-					"cosmos12nyk4pcf4arshznkpz882e4l4ts0lt0ap8ce54",
+					periodicUnlimitedNoExpirationGrantee.String(),
 					fmt.Sprintf("--%s=%d", cli.FlagPeriod, oneHour),
 					fmt.Sprintf("--%s=%s", cli.FlagPeriodLimit, "10uhpx"),
 					fmt.Sprintf("--%s=%s", flags.FlagFrom, granter),
@@ -570,7 +605,7 @@ func (s *IntegrationTestSuite) TestNewCmdFeeGrant() {
 			append(
 				[]string{
 					granter.String(),
-					"cosmos1vevyks8pthkscvgazc97qyfjt40m6g9xe85ry8",
+					periodicUnlimitedGrantee.String(),
 					fmt.Sprintf("--%s=%d", cli.FlagPeriod, oneHour),
 					fmt.Sprintf("--%s=%s", cli.FlagPeriodLimit, "10uhpx"),
 					fmt.Sprintf("--%s=%s", flags.FlagFrom, granter),
@@ -603,6 +638,8 @@ func (s *IntegrationTestSuite) TestNewCmdFeeGrant() {
 }
 
 func (s *IntegrationTestSuite) TestNewCmdRevokeFeegrant() {
+	missingGrantee := s.fixtureAddress("missingGrantee")
+
 	val := s.network.Validators[0]
 	granter := s.addedGranter
 	grantee := s.addedGrantee
@@ -615,8 +652,7 @@ func (s *IntegrationTestSuite) TestNewCmdRevokeFeegrant() {
 	}
 
 	// Create new fee grant specifically to test amino.
-	aminoGrantee, err := sdk.AccAddressFromBech32("cosmos16ydaqh0fcnh4qt7a3jme4mmztm2qel5axcpw00")
-	s.Require().NoError(err)
+	aminoGrantee := s.fixtureAddress("amino-grantee")
 	s.createGrant(granter, aminoGrantee)
 
 	testCases := []struct {
@@ -655,7 +691,7 @@ func (s *IntegrationTestSuite) TestNewCmdRevokeFeegrant() {
 			append(
 				[]string{
 					granter.String(),
-					"cosmos1aeuqja06474dfrj7uqsvukm6rael982kk89mqr",
+					missingGrantee.String(),
 					fmt.Sprintf("--%s=%s", flags.FlagFrom, granter),
 				},
 				commonFlags...,
@@ -759,6 +795,9 @@ func (s *IntegrationTestSuite) TestTxWithFeeGrant() {
 }
 
 func (s *IntegrationTestSuite) TestFilteredFeeAllowance() {
+	invalidGranterPeer := s.fixtureAddress("invalidGranterPeer")
+	unauthorizedGrantee := s.fixtureAddress("unauthorizedGrantee")
+
 	val := s.network.Validators[0]
 
 	granter := val.Address
@@ -789,7 +828,7 @@ func (s *IntegrationTestSuite) TestFilteredFeeAllowance() {
 			append(
 				[]string{
 					"not an address",
-					"cosmos1nph3cfzk6trsmfxkeu943nvach5qw4vwstnvkl",
+					invalidGranterPeer.String(),
 					fmt.Sprintf("--%s=%s", cli.FlagAllowedMsgs, allowMsgs),
 					fmt.Sprintf("--%s=%s", cli.FlagSpendLimit, spendLimit.String()),
 					fmt.Sprintf("--%s=%s", flags.FlagFrom, granter),
@@ -861,8 +900,8 @@ func (s *IntegrationTestSuite) TestFilteredFeeAllowance() {
 	resp := &feegrant.Grant{}
 
 	s.Require().NoError(clientCtx.Codec.UnmarshalAsJSON(out.Bytes(), resp), out.String())
-	s.Require().Equal(resp.Grantee, resp.Grantee)
-	s.Require().Equal(resp.Granter, resp.Granter)
+	s.Require().Equal(grantee.String(), resp.Grantee)
+	s.Require().Equal(granter.String(), resp.Granter)
 
 	grant, err := resp.GetGrant()
 	s.Require().NoError(err)
@@ -909,7 +948,7 @@ func (s *IntegrationTestSuite) TestFilteredFeeAllowance() {
 				args := append(
 					[]string{
 						grantee.String(),
-						"cosmos14cm33pvnrv2497tyt8sp9yavhmw83nwej3m0e8",
+						unauthorizedGrantee.String(),
 						fmt.Sprintf("--%s=%s", cli.FlagSpendLimit, "100uhpx"),
 						fmt.Sprintf("--%s=%s", flags.FlagFeeAccount, granter),
 					},

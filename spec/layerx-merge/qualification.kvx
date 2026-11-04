@@ -27587,3 +27587,435 @@ symbol = "repair_m1275_test.go"
 observed = "Attempt 4: three regressions passed; the delegatecall tests hit a selector mismatch in pointer artifacts outside the attempt's paths."
 assumption = "A producer artifact drift that this task must own to prove its path."
 severity = "high"
+
+[finding.22.31.471.1]
+task = "22.31.471"
+file = "services/launchpad/user/internal/account"
+symbol = "account"
+observed = "Attempt 1: the implementation was written; the build stopped with directory prefix services/launchpad/user does not contain main module; no test ran."
+assumption = "A gate defect, not an implementation defect."
+severity = "low"
+
+[finding.22.33.1479.3]
+task = "22.33.1479"
+file = "services/platform/middleware/conformance/test/repair-22-33-1479.test.mjs"
+symbol = "repair-22-33-1479.test.mjs"
+observed = "Attempt 3: the pay6 fixtures and tests were written; the conformance package build stopped on the union-type property read; no test ran."
+assumption = "A consumer compile break owned by 22.31.477."
+severity = "medium"
+
+[finding.22.33.1481.4]
+task = "22.33.1481"
+file = "services/platform/middleware/conformance/test/repair-22-33-1481.test.mjs"
+symbol = "repair-22-33-1481.test.mjs"
+observed = "Attempt 4: the repair was preserved; the conformance build stopped on the union-type property read; no verification ran."
+assumption = "A consumer compile break owned by 22.31.477."
+severity = "low"
+
+[finding.22.33.1282.2]
+task = "22.33.1282"
+file = "precompiles/xweb/repair_m1282_test.go"
+symbol = "repair_m1282_test.go"
+observed = "Attempt 2: build and three repair tests passed; the parity test found the Solidity interface naming fields differently from the precompile ABI."
+assumption = "A producer and consumer interface drift the task must own."
+severity = "high"
+
+[finding.22.33.1425.2]
+task = "22.33.1425"
+file = "precompiles/layerxagent/oracle/repair_m1425_test.go"
+symbol = "repair_m1425_test.go"
+observed = "Attempt 3: build and the production-node proof passed; the reopen proof panicked because the fixture's commit bypassed the path that records the committed block identity."
+assumption = "A test fixture that bypassed the production commit path."
+severity = "medium"
+
+[finding.22.33.1478.2]
+task = "22.33.1478"
+file = "services/platform/middleware/seller/test/repair-22-33-1478.test.mjs"
+symbol = "repair-22-33-1478.test.mjs"
+observed = "Attempt 4: build passed; four grant tests failed in the test's own payload encoding and the exports proof found a missing re-export in the package index."
+assumption = "A fixture encoding error plus a producer export gap."
+severity = "medium"
+
+[finding.22.33.1553.3]
+task = "22.33.1553"
+file = "services/agent/crates/layerx-mcp/tests/repair_22_33_1553.rs"
+symbol = "repair_22_33_1553.rs"
+observed = "Attempt 4: build passed and 61 cases passed; two cases expected refusal variants the production code does not produce."
+assumption = "Test expectations corrected to the production refusal contract by decision 2531."
+severity = "medium"
+
+[finding.22.33.213.2]
+task = "22.33.213"
+file = "precompiles/layerxprograms/repair_m213_test.go"
+symbol = "repair_m213_test.go"
+observed = "Attempt 2: build passed; nil-versus-empty calldata broke two simulation cases and a hand-built lease record was refused as non-canonical."
+assumption = "Two fixture defects inside the task's paths."
+severity = "medium"
+
+[finding.22.33.909.2]
+task = "22.33.909"
+file = "modules/lxphost/repair_m909_test.go"
+symbol = "repair_m909_test.go"
+observed = "Attempt 2: build passed; four cases returned non-canonical refusals for hand-assembled records."
+assumption = "Fixture records that bypassed the production encoders."
+severity = "medium"
+
+[finding.22.33.886.5]
+task = "22.33.886"
+file = "tests/conformance/test_repair_22_33_886.py"
+symbol = "test_repair_22_33_886.py"
+observed = "Attempt 5: build passed and the explorer regeneration was byte-identical; one fixture copy outside the attempt's paths differed from its source."
+assumption = "A stale copy the task must own to prove its checker."
+severity = "medium"
+
+[finding.22.33.1265.2]
+task = "22.33.1265"
+file = "precompiles/ibc/repair_m1265_test.go"
+symbol = "repair_m1265_test.go"
+observed = "Attempt 4: build passed; the verification compile failed on a codec method call in the task's own decoder."
+assumption = "An in-scope compile error."
+severity = "low"
+
+[finding.22.33.619.6]
+task = "22.33.619"
+file = "sdk/integrations/next/example/test/repair-22-33-619.test.mjs"
+symbol = "repair-22-33-619.test.mjs"
+observed = "Attempt 6: six tests passed; the gate refused because the candidate changed between build and verification."
+assumption = "A gate defect, not an implementation defect."
+severity = "low"
+
+[finding.22.33.1140.2]
+task = "22.33.1140"
+file = "node/repair_m1140_test.go"
+symbol = "repair_m1140_test.go"
+observed = "Attempt 2: build passed; hash parity and activation-set cases failed at height 1 alongside EVM reverts in the parity cases."
+assumption = "Producer defects owned by 22.31.475 and 22.31.476 plus hand-built expectations."
+severity = "medium"
+
+[finding.18.1562.1.9]
+task = "18.1562.1"
+file = "rpc/sequencer_receipt_vectors_test.go::TestAiMarketTransferAuthorityReceipt"
+symbol = "sequencer_receipt_vectors_test.go::TestAiMarketTransferAuthorityReceipt"
+observed = "Attempt 15: build passed; the receipt vector test reverted in the Fund fixture on kernel gas exhaustion."
+assumption = "A producer defect owned by 22.31.478."
+severity = "high"
+
+[finding.22.33.1529.1]
+task = "22.33.1529"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1529.rs"
+symbol = "repair_22_33_1529.rs"
+observed = "Attempt 1: build passed; three cases failed and the gate also found the tree changed between build and verification."
+assumption = "In-scope test defects."
+severity = "medium"
+
+[finding.22.33.301.1]
+task = "22.33.301"
+file = "apps/explorer/ui/marketplace/repair-22-33-301.spec.ts"
+symbol = "repair-22-33-301.spec.ts"
+observed = "Attempt 1: the build stopped on the 299 spec's TS2769 outside this task's paths; no test ran."
+assumption = "A defect published by a neighbouring task, repaired by 22.31.474."
+severity = "low"
+
+[finding.22.33.1206.2]
+task = "22.33.1206"
+file = "interchain/modules/apps/transfer/repair_m1206_test.go"
+symbol = "repair_m1206_test.go"
+observed = "Attempt 3: build passed and five proofs passed; the metrics proof decoded the producer's label object as a list."
+assumption = "A test decoder that did not match the producer's wire shape."
+severity = "low"
+
+[finding.22.33.1400.3]
+task = "22.33.1400"
+file = "services/platform/examples/test/repair-22-33-1400.test.mjs"
+symbol = "repair-22-33-1400.test.mjs"
+observed = "Attempt 3: build passed and 13 cases passed; two merchant cases refused a stale recorded receipt whose purpose did not bind the offer."
+assumption = "A stale test recording the task regenerates with its own signing helper."
+severity = "medium"
+
+[finding.22.33.175.4]
+task = "22.33.175"
+file = "services/wallet/ceremony/internal/testsupport/repair_m175_test.go"
+symbol = "repair_m175_test.go"
+observed = "Attempt 4: the fixture and recovery tests were written; the build stopped on a missing module requirement before compiling."
+assumption = "A module manifest the task must own to compile its fixture."
+severity = "low"
+
+[finding.22.33.302.2]
+task = "22.33.302"
+file = "apps/explorer/ui/multichain/home/repair-22-33-302.spec.ts"
+symbol = "repair-22-33-302.spec.ts"
+observed = "Attempt 3: the SVG geometry setup was added; the build stopped on the 299 spec's TS2769 outside this task's paths; no test ran."
+assumption = "A defect published by a neighbouring task, repaired by 22.31.474."
+severity = "low"
+
+[finding.22.31.477.1]
+task = "22.31.477"
+file = "services/platform/middleware/conformance/src"
+symbol = "src"
+observed = "Attempt 1: the implementation was written; the build failed on the stale root lockfile before compiling; no test ran."
+assumption = "A lockfile defect published by a neighbouring task, repaired by 22.31.479."
+severity = "low"
+
+[finding.22.33.1480.3]
+task = "22.33.1480"
+file = "services/platform/middleware/conformance/test/repair-22-33-1480.test.mjs"
+symbol = "repair-22-33-1480.test.mjs"
+observed = "Attempt 3: the implementation was written; the build failed on the stale root lockfile before compiling; no test ran."
+assumption = "A lockfile defect published by a neighbouring task, repaired by 22.31.479."
+severity = "low"
+
+[finding.22.33.1478.3]
+task = "22.33.1478"
+file = "services/platform/middleware/seller/test/repair-22-33-1478.test.mjs"
+symbol = "repair-22-33-1478.test.mjs"
+observed = "Attempt 5: the implementation was written; the build failed on the stale root lockfile before compiling; no test ran."
+assumption = "A lockfile defect published by a neighbouring task, repaired by 22.31.479."
+severity = "low"
+
+[finding.22.33.612.4]
+task = "22.33.612"
+file = "sdk/integrations/agents/test/repair-22-33-612.test.mjs"
+symbol = "repair-22-33-612.test.mjs"
+observed = "Attempt 4: the implementation was written; the build failed on the stale root lockfile before compiling; no test ran."
+assumption = "A lockfile defect published by a neighbouring task, repaired by 22.31.479."
+severity = "low"
+
+[finding.22.33.619.7]
+task = "22.33.619"
+file = "sdk/integrations/next/example/test/repair-22-33-619.test.mjs"
+symbol = "repair-22-33-619.test.mjs"
+observed = "Attempt 7: the build failed with EUSAGE on the stale root lockfile before compiling; no test ran."
+assumption = "A lockfile defect published by a neighbouring task, repaired by 22.31.479."
+severity = "low"
+
+[finding.22.31.227.4]
+task = "22.31.227"
+file = "services/agent/crates/layerx-sdk/tests/repair_22_31_227.rs"
+symbol = "repair_22_31_227.rs"
+observed = "Attempt 3: build passed; the dependent-crate check failed on a human-service test that main had already repaired after the attempt's base; the verify never ran."
+assumption = "A dependent defect already repaired on main."
+severity = "low"
+
+[finding.22.33.1425.3]
+task = "22.33.1425"
+file = "precompiles/layerxagent/oracle/repair_m1425_test.go"
+symbol = "repair_m1425_test.go"
+observed = "Attempt 4: build passed; the verify failed because the test package did not compile (pointer versus value mismatch at repair_m1425_test.go line 353)."
+assumption = "A one-line type mismatch inside the task's own test."
+severity = "low"
+
+[finding.22.33.23.6]
+task = "22.33.23"
+file = "services/agent/sdk/typescript/test/repair-22-33-23.test.ts"
+symbol = "repair-22-33-23.test.ts"
+observed = "Attempt 6: build passed; 19 of 20 cases passed; the remaining case asserted a handler gap that the handler on main does not have."
+assumption = "A test assertion contradicting the committed producer."
+severity = "medium"
+
+[finding.22.33.1265.3]
+task = "22.33.1265"
+file = "precompiles/ibc/repair_m1265_test.go"
+symbol = "repair_m1265_test.go"
+observed = "Attempt 5: build passed; the two timeout subtests failed on a missing counterparty consensus state at the proof height."
+assumption = "A fixture gap inside the task's own test."
+severity = "medium"
+
+[finding.22.33.338.4]
+task = "22.33.338"
+file = "apps/web/e2e/repair-22-33-338.test.ts"
+symbol = "repair-22-33-338.test.ts"
+observed = "Attempt 5: build passed; one of five cases passed; the sponsored case asserted an outcome the fixture could not produce and two cases compared against text the task was meant to change."
+assumption = "Fixture and expectation defects inside the task's own component."
+severity = "medium"
+
+[finding.22.34.4.2]
+task = "22.34.4"
+file = "rpc/px_node_root_kernel_test.go"
+symbol = "px_node_root_kernel_test.go"
+observed = "Attempt 3: build passed; three tests failed on a chain-id mismatch between the fixture's context and its uninitialised application."
+assumption = "A fixture initialisation gap inside the task's own test."
+severity = "medium"
+
+[finding.22.31.475.1]
+task = "22.31.475"
+file = "node/sequencer"
+symbol = "sequencer"
+observed = "Attempt 1: build passed; the tests failed on a fixture header without the block protocol version."
+assumption = "A fixture header defect inside the task's own test."
+severity = "low"
+
+[finding.22.33.1000.2]
+task = "22.33.1000"
+file = "services/launchpad/indexer/internal/processor/repair_m1000_test.go"
+symbol = "repair_m1000_test.go"
+observed = "Attempt 2: build passed; two tests failed because they replayed against a public node whose history is pruned instead of committed fixtures."
+assumption = "Tests that depended on a live endpoint against the task's own rule."
+severity = "medium"
+
+[finding.22.31.147.7]
+task = "22.31.147"
+file = "tests/agent/sdk/python/test_repair_22_31_147.py"
+symbol = "test_repair_22_31_147.py"
+observed = "Attempt 7: the gates passed; publication stopped on a merge conflict in services/agent/sdk/python/layerx_sdk/web_search.py."
+assumption = "A publication-order conflict with a neighbouring task."
+severity = "low"
+
+[finding.22.33.123.1]
+task = "22.33.123"
+file = "apps/wallet/src/lib/repair-22-33-123.test.ts"
+symbol = "repair-22-33-123.test.ts"
+observed = "Attempt 1: the gates passed; publication stopped on a merge conflict in apps/wallet/src/lib/push.ts."
+assumption = "A publication-order conflict with a neighbouring task."
+severity = "low"
+
+[finding.22.33.43.1]
+task = "22.33.43"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_43.rs"
+symbol = "repair_22_33_43.rs"
+observed = "Attempt 1: the gates passed; publication stopped on a merge conflict in README.md."
+assumption = "A publication-order conflict with a neighbouring task."
+severity = "low"
+
+[finding.22.33.1540.2]
+task = "22.33.1540"
+file = "services/human/crates/layerx-human-kms/tests/repair_22_33_1540.rs"
+symbol = "repair_22_33_1540.rs"
+observed = "Attempt 3: the gates passed; publication stopped on a merge conflict in README.md."
+assumption = "A publication-order conflict with a neighbouring task."
+severity = "low"
+
+[finding.22.33.766.2]
+task = "22.33.766"
+file = "tools/benchmark/loadtest/repair_m766_test.go"
+symbol = "repair_m766_test.go"
+observed = "Attempt 2: the gates passed; publication stopped on a merge conflict in tools/benchmark/loadtest/evm.go."
+assumption = "A publication-order conflict with a neighbouring task."
+severity = "low"
+
+[finding.22.33.1208.2]
+task = "22.33.1208"
+file = "precompiles/staking/legacy/v614/repair_m1208_test.go"
+symbol = "repair_m1208_test.go"
+observed = "Attempt 3: the gates passed; publication stopped on a merge conflict in precompiles/staking/staking.go."
+assumption = "A publication-order conflict with a neighbouring task."
+severity = "low"
+
+[finding.22.33.1278.2]
+task = "22.33.1278"
+file = "interchain/testing/simapp/repair_m1278_test.go"
+symbol = "repair_m1278_test.go"
+observed = "Attempt 3: the gates passed; publication stopped on a merge conflict in interchain/testing/simapp/test_helpers.go."
+assumption = "A publication-order conflict with a neighbouring task."
+severity = "low"
+
+[finding.22.33.714.2]
+task = "22.33.714"
+file = "precompiles/spot/abi/repair_m714_test.go"
+symbol = "repair_m714_test.go"
+observed = "Attempt 2: the gates passed; publication stopped on a merge conflict in contracts/perps-client.md."
+assumption = "A publication-order conflict with a neighbouring task."
+severity = "low"
+
+[finding.22.33.1321.1]
+task = "22.33.1321"
+file = "services/platform/hosted/paxeer/tests/repair_22_33_1321.rs"
+symbol = "repair_22_33_1321.rs"
+observed = "Attempt 1: the gates passed; publication was held on a lock file outside the declared paths."
+assumption = "A declared-paths gap for a lock the task's manifest change regenerates."
+severity = "low"
+
+[finding.22.31.447.3]
+task = "22.31.447"
+file = "services/wallet/gateway/src/db/repair-22-31-447.test.ts"
+symbol = "repair-22-31-447.test.ts"
+observed = "Attempt 3: every gate passed; the publication was rejected for apps/perps/node_modules/.bin/webpack changing outside the declared paths."
+assumption = "A tracked install artefact rewritten by the install, not a product change (gotcha 2997)."
+severity = "low"
+
+[finding.22.31.474.1]
+task = "22.31.474"
+file = "apps/explorer/ui/marketplace/essentialDapps/revoke/components/repair-22-33-299.spec.ts"
+symbol = "repair-22-33-299.spec.ts"
+observed = "Attempt 1: type-check and scoped lint passed and 45 of 46 tests passed; the signature replay case expected 10 to be 1000."
+assumption = "The literal height in the consumer spec went stale when the producer fixture was regenerated at height 10."
+severity = "high"
+
+[finding.22.33.1400.4]
+task = "22.33.1400"
+file = "services/platform/examples/test/repair-22-33-1400.test.mjs"
+symbol = "repair-22-33-1400.test.mjs"
+observed = "Attempt 4: the build passed; the verify failed at npm ci before any test ran."
+assumption = "Blocked by the root lock, not by the task's own change."
+severity = "low"
+
+[finding.22.31.269.6]
+task = "22.31.269"
+file = "services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_269.rs"
+symbol = "repair_22_31_269.rs"
+observed = "Attempt 6: cargo build --tests exit 101 on six outdated field accesses in the dependent test repair_22_33_430.rs."
+assumption = "A consumer test of the regenerated client that the task's paths excluded."
+severity = "high"
+
+[finding.22.33.1537.1]
+task = "22.33.1537"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1537.rs"
+symbol = "repair_22_33_1537.rs"
+observed = "Attempt 1: the build passed; 30 of 32 cases passed; the two outbox_recover restart cases failed on the inventory results."
+assumption = "The restart and recovery path is only proven when the inventory producer is repaired alongside its tests."
+severity = "high"
+
+[finding.22.33.1550.1]
+task = "22.33.1550"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1550.rs"
+symbol = "repair_22_33_1550.rs"
+observed = "Attempt 1: the final build passed; verification recorded 6 of 7 cases before the fixture correction."
+assumption = "The corrected fixture is unverified, not wrong."
+severity = "low"
+
+[finding.22.99.77.12]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 10: 16 of 17 f03 cases passed (status -3 on the schedule-capacity case) and 12 routed operations exceeded the CPU fuel cap by at most 47 units."
+assumption = "Per-operation fuel grows with the state size; the cap is the protocol's and does not move."
+severity = "high"
+
+[finding.22.33.1244.1]
+task = "22.33.1244"
+file = "modules/evm/repair_m1244_test.go"
+symbol = "repair_m1244_test.go"
+observed = "Attempt 1: the repair and the pipeline documentation were implemented; go test failed to compile on the undefined GenPrivKey."
+assumption = "A wrong helper name in the test, not a product defect."
+severity = "low"
+
+[finding.22.33.458.1]
+task = "22.33.458"
+file = "services/explorer/services/libs/blockscout-service-launcher/tests/repair_22_33_458.rs"
+symbol = "repair_22_33_458.rs"
+observed = "Attempt 1: URL component encoding and five integration tests were implemented; cargo build --tests exit 101 on the unresolved database import."
+assumption = "A gate wiring gap: the feature the repair needs was not enabled."
+severity = "low"
+
+[finding.22.31.465.1]
+task = "22.31.465"
+file = "services/platform/hosted/paxeer"
+symbol = "paxeer"
+observed = "Attempt 1: cargo metadata and the webhooks build passed; four 1319 Go tests failed on the deployment manifest facts."
+assumption = "The four failures belong to the manifest crossing (gotcha 2998), reconciled by 22.31.481."
+severity = "low"
+
+[finding.22.33.1000.3]
+task = "22.33.1000"
+file = "services/launchpad/indexer/internal/processor/repair_m1000_test.go"
+symbol = "repair_m1000_test.go"
+observed = "Attempt 3: the build and five repair tests passed; the generation case failed on one absent committed response (decimals of the pool token)."
+assumption = "One producer response is missing from the committed fixtures; the replay design is right."
+severity = "low"
+
+[finding.22.33.213.3]
+task = "22.33.213"
+file = "precompiles/layerxprograms/repair_m213_test.go"
+symbol = "repair_m213_test.go"
+observed = "Attempt 3: six of seven repair cases passed; the storage-environment response case failed on a fixture prefix length and a non-canonical lease-state record; the gate output showed only binary-file-matches lines."
+assumption = "The remaining failure is in the test fixture, and the gate output was hidden by binary bytes in the log."
+severity = "low"

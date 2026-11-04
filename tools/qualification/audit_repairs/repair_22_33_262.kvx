@@ -1,0 +1,44 @@
+[task.22.33.262]
+mode = "BUILD"
+base_revision = "0ba7cfa54c7f07b37201b1f12fcc2f1dd7ed0ed7"
+scope = ["programs/tests/ai-market", "tools/qualification/audit_repairs/repair_22_33_262.kvx", "tools/qualification/audit_repairs/test_repair_22_33_262.py"]
+repair = "Require the native ProcessAggregation fuel-refusal result in the existing full f05_aggregation_runtime invocation alongside all 23 existing acceptance clauses. Remove the unconditional NOT_RUN result and exit 2; reach exit 0 only after every named case has an exact Rust ok line and cargo itself succeeded. Missing cases and command failures retain exit 1."
+source_proof = "Five offline pytest tests assert the complete case inventory, the real Cargo package/target and runtime dependency, immediate command status capture, anchored per-case log consumption, accumulated missing/failed-case refusal, cleanup and final conjunctive success guard. Existing case names resolve to declared Rust test functions and the suite invokes production aggregation::apply. No substitute runner or fabricated successful transcript is used. Shell syntax is parsed separately by the declared bash -n build gate, not by a subprocess inside pytest."
+review_only = "The Rust suite, WASM guest, native C harness and shell command execution are not executed by this source-only qualification gate. Native fuel exhaustion, persisted cursor/state, reward balances, event atomicity and exactly-once retry still require the out-of-path domain-13 producer extension below. The required native test is absent at task entry, so the real CLI will deliberately fail its missing-case check until that wiring is supplied; no end-to-end main-line success or native finding closure is claimed."
+baseline = "No pre-change verification was run: the explicit implementation-first order, hf-build before hf-done and prohibition on manually running verify_cmd supersede step 5's unchanged-tree clause. No baseline failures are claimed. Initial git status/diff contained only runner-prepared .cgignore and feature-spec bookkeeping; both repair files and /out/run/gates.jsonl were absent, and gate.json reported zero builds/verifies used."
+build_cmd = "bash -n programs/tests/ai-market/run-aggregation-runtime.sh"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_262.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private gate ledger record the exact content-derived candidate revision, command, exit code and private log location. This record is part of that candidate; embedding its own hash would change the revision. Build and verify must qualify the same candidate. The runner commits; no manual commit or push is performed."
+wiring_requests = ["programs/crates/layerx-programs-ai-market/tests/f05_aggregation_runtime.rs and tests/programs/test_ai_host_boundary.c | domain 13 | implement f05_a16_native_fuel_refusal_keeps_committed_progress through the deployed real guest and exhausted native meter, assert unchanged persisted state/cursor/reward balances/events, then retry with sufficient fuel and prove exactly one transition."]
+
+[finding.aggregation-runner-incomplete]
+audit = "22.30.130"
+file = "programs/tests/ai-market/run-aggregation-runtime.sh"
+line = 51
+class = "test-gap"
+severity = "medium"
+disposition = "Runner control flow repaired and covered by source proofs; complete native execution evidence remains dependent on the explicit domain-13 wiring request. Missing native evidence remains nonzero rather than being treated as success."
+tests = ["test_required_matrix_retains_every_existing_clause_and_requires_native_fuel", "test_command_executes_the_real_suite_and_captures_its_status_immediately", "test_result_consumer_requires_each_named_ok_and_accumulates_missing_or_failed_cases", "test_exit_zero_is_reachable_only_after_the_complete_matrix_and_both_guards", "test_record_maps_finding_to_source_proofs_and_names_the_external_producer"]
+
+[wiring.native-fuel]
+owner_domain = 13
+paths = ["programs/crates/layerx-programs-ai-market/tests/f05_aggregation_runtime.rs", "tests/programs/test_ai_host_boundary.c"]
+symbol = "f05_a16_native_fuel_refusal_keeps_committed_progress"
+status = "required_external_interface_absent"
+request = "Implement the native-fuel producer scenario named by the runner in the existing Rust suite using the production-linked C harness, preserving real enrollment and all rollback/retry assertions; do not supply a print-only or process-local buffer substitute."
+
+[format]
+policy = "No Python, shell or KVX formatter is configured for these paths; apply repository .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions after implementation."
+
+[gotcha.1]
+observed = "The baseline-run clause conflicts with the explicit ordered gates and implementation-first restriction."
+resolution = "Follow the explicit order, record no invented baseline failures, and run verification only through hf-done."
+
+[gotcha.2]
+observed = "The native-fuel scenario is absent from the existing f05 suite and C harness, whose paths are outside scope."
+resolution = "Record domain-13 wiring with an exact symbol and keep missing result evidence nonzero; source qualification does not prove native execution."
+
+[gotcha.3]
+observed = "Broad ledger reads exceed tool output limits and a guessed layerx-programs-host crate does not exist."
+resolution = "Use the audit's exact Rust/C harness paths and targeted source sections; retain gotchas here because GOTCHA.kvx and spec files are outside scope."

@@ -105,7 +105,7 @@ func (a *BaselineAuthority) table(name string) string { return a.schema + "." + 
 func (a *BaselineAuthority) sourceLease(ctx context.Context, tx pgx.Tx) (string, int64, error) {
 	var owner string
 	var epoch int64
-	err := tx.QueryRow(ctx, `SELECT owner_instance,fence_token FROM indexer.indexer_ingest_leases_v1 WHERE chain_id=125 AND stream_id=$1 AND expires_at>clock_timestamp()`, a.sourceStream).Scan(&owner, &epoch)
+	err := tx.QueryRow(ctx, `SELECT owner_instance,fence_token FROM indexer.indexer_ingest_leases_v1 WHERE chain_id=125 AND stream_id=$1 AND expires_at>clock_timestamp() FOR SHARE`, a.sourceStream).Scan(&owner, &epoch)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", 0, delivery.ErrLease
 	}

@@ -1,0 +1,47 @@
+[repair]
+task = "22.33.1360"
+requirement = "22998.1"
+input_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+scope = ["sdk/scripts", "tools/qualification/audit_repairs/repair_22_33_1360.kvx", "tools/qualification/audit_repairs/test_repair_22_33_1360.py"]
+implementation = "Remove path-only GIT_DIFF selection and run every discovered nested go.mod except ./go.mod, preserving the Go flags and package pattern. Collect NUL-delimited paths before testing, guard module-directory entry and continue testing remaining modules after failures. Initialize one atomic-mode header in a fresh staging directory, remove the previous temporary module profile before each producer invocation, reject missing or mismatched headers, append only rows after each header, and publish by same-filesystem rename only when every test and append succeeded. Preserve the previous published profile on failure; clean staging on exit. Update the script README to describe these behaviors."
+source_proof = "The pytest module reads production shell and documentation, tokenizes shell quoting and continuations in-process and checks the discovery-to-invocation-to-profile-to-publication source path. It requires unconditional complete module discovery, NUL-delimited input, guarded cd, the unchanged real Go command, fresh staging and exactly one header initializer, missing/mismatched header rejection, header-stripping append with failure propagation, sticky failure aggregation, and publication guarded by all-success. It parses this KVX record and the audit record and checks exact finding coverage by declared tests. The separate hf-build gate parses the entire repaired shell with bash -n; pytest does not rerun that build command."
+review_only = "Go test execution, actual dependent-module tests, generated Go coverage rows, runtime coverage-consumer acceptance, filesystem permission failures, signals and atomic-rename behavior are not executed by this source-fact gate. They are reviewed from the production shell control flow, not runtime-qualified. No fake Go runner, substitute profile producer, external binary, subprocess toolchain, environment variable, credential, endpoint, native artifact or device is needed by pytest. No restart-recovery or interface-mismatch finding applies."
+baseline = "No pre-change verification was run: the explicit implementation-first order and exclusive hf-done verification supersede the generic unchanged-tree baseline clause. No pre-existing test failures are claimed. Initial git status/diff showed only runner-prepared .cgignore and spec task status changes, preserved without edits; the scoped repair/test files did not exist. gate.json recorded zero builds and verifications with two repair cycles available, and gates.jsonl did not exist."
+wiring_requests = []
+build_cmd = "bash -n sdk/scripts/module-tests.sh"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1360.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private /out/run/gates.jsonl name the exact verified content-derived revision, command, exit code and log. Build and verification must pass on the same candidate revision. This record is finalized before qualification; embedding its own content-derived revision would change that revision. The runner retains private evidence and commits the result."
+
+[finding.module-dependent-tests]
+audit = "22.30.74"
+file = "sdk/scripts/module-tests.sh"
+original_line = 17
+class = "test-gap"
+severity = "medium"
+owner_domain = 15
+expected = "Change selection must cover affected dependent modules or conservatively execute the declared module set when impact is unknown."
+resolution = "Remove the optimization and test every discovered nested module, independent of GIT_DIFF; do not alter flags, tags, timeout or the ./... package set."
+tests = ["test_module_dependent_tests_always_discovers_and_runs_all_nested_modules", "test_module_test_command_preserves_all_flags_and_guards_working_directory", "test_module_runner_documentation_matches_selection_and_publication"]
+
+[finding.module-coverage-profile]
+audit = "22.30.74"
+file = "sdk/scripts/module-tests.sh"
+original_line = 29
+class = "runtime-risk"
+severity = "medium"
+owner_domain = 15
+expected = "A Go aggregate coverage profile must contain one mode header and only current-run rows from the selected modules."
+resolution = "Initialize a fresh staged aggregate once, validate each successful producer's atomic-mode header, append from line two, latch test/append failures and rename to the published path only after the whole selected module set succeeds."
+tests = ["test_module_coverage_profile_initializes_one_fresh_staged_header", "test_module_coverage_profile_rejects_missing_and_mismatched_headers", "test_module_coverage_profile_test_and_append_failures_prevent_publication", "test_module_runner_documentation_matches_selection_and_publication"]
+
+[gotcha.baseline_order]
+observed = "The generic pre-change verify clause conflicts with the explicit implementation-first, wrapper-only gate order."
+resolution = "Follow the explicit gate order and claim no unrun baseline; keep this note in the scoped repair record because GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.patch_application]
+observed = "The first patch attempted Delete and Add operations on the same existing shell path and apply_patch rejected the entire patch before writing files."
+resolution = "Use one Update operation for the existing shell file and Add operations only for new files; no partial change was lost."
+
+[format]
+policy = "No Python, shell or KVX formatter is configured for these paths. After implementation, follow .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions on touched files; preserve Markdown table formatting."

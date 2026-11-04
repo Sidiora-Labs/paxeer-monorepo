@@ -51,6 +51,46 @@ Import registries and converters from `/encoding`; there are no public
 `/encoding/amino` or `/encoding/registry` subpaths, aggregate `/types` entry,
 or package-root entry.
 
+## Package
+
+This is the maintained package contract for interface-registry consumers.
+The [manifest](./package.json) selects these shipped targets; `*` is the
+module path, for example `cosmos/bank/v1beta1` or `evm`.
+
+| Export | ESM import | CommonJS require | Type declarations |
+| --- | --- | --- | --- |
+| `./types/*` | `./dist/esm/types/*/index.js` | `./dist/cjs/types/*/index.js` | `./dist/types/types/*/index.d.ts` |
+| `./rest` | `./dist/esm/rest/index.js` | `./dist/cjs/rest/index.js` | `./dist/types/rest/index.d.ts` |
+| `./encoding` | `./dist/esm/encoding/index.js` | `./dist/cjs/encoding/index.js` | `./dist/types/encoding/index.d.ts` |
+
+`typesVersions` maps `types/*`, `rest` and `encoding` to the same declaration
+files. Runtime imports use the CJS or ESM trees, never the declaration tree.
+The retired `main` and `module` fields do not provide a root entry.
+`VENDOR.kvx` and its `ref`, `sha` and `url` fields are retired; ownership and
+the retained upstream tag are described in [Provenance](#provenance).
+
+## Integration contracts
+
+- [Encoding and signing](#pax-jscosmosencoding) documents message fields,
+  Protobuf bytes, type URLs, registries and transaction failures.
+- [Cosmos REST](#pax-jscosmosrest) documents the base URL, query route,
+  response shape, HTTP failures and cancellation.
+- [Bridge interface contracts](../../contracts/bridge/README.md#interface-contracts)
+  link deployment, attestation encodings, vectors and operator recovery.
+- [Explorer HTTP schema](../../apps/explorer/public/openapi.yaml) describes
+  explorer HTTP routes and response/error schemas; the backend also serves
+  its schema at `/api/v2/openapi`.
+- [Explorer WebSocket payload types](../../apps/explorer/lib/socket/types.ts)
+  describe Phoenix channel events and payloads. The
+  [socket declarations](../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/endpoint.ex)
+  define `/socket` and `/socket/v2`; the
+  [frontend socket lifecycle](../../apps/explorer/lib/socket/useSocketChannel.tsx)
+  handles channel joining and cleanup.
+
+Explorer HTTP and Phoenix WebSocket APIs are separate from Cosmos REST,
+Cosmos signing RPC and the node's EVM JSON-RPC. Select the transport for the
+operation; an explorer URL is not a signing endpoint.
+
 ## `@pax-js/cosmos/types`
 
 Module subpaths provide transaction, query and response types. Use type-only
@@ -150,7 +190,7 @@ transaction.
 `paxProtoRegistry` contains type URL/codec pairs for `Registry`;
 `aminoConverters` supplies the converter map for `AminoTypes`. Both exports
 come from `/encoding`. Import `AminoTypes` explicitly from `@cosmjs/stargate`.
-The package depends on CosmJS `^0.32.4`; use compatible versions in your
+The package depends on CosmJS `^0.39.0`; use compatible versions in your
 application.
 
 This helper takes a wallet-provided `OfflineSigner`, a compatible Cosmos RPC
@@ -282,3 +322,7 @@ The tests exercise the package's exported CommonJS entries, declarations,
 codecs, registries and REST routes, and check its provenance. The package has
 no build script; its maintained runtime files and declarations live in
 `dist/cjs`, `dist/esm` and `dist/types`.
+
+The README example test compiles every TypeScript code block independently
+against this package's public subpaths with TypeScript's compiler API. It
+does not connect to a node, obtain a signer or broadcast a transaction.

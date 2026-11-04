@@ -813,6 +813,9 @@ fn encode_bucket<T>(
 
 impl CompleteOfflineArtifact {
     /// Decodes every bucket with the strict grammar and canonical record codecs.
+    /// The certificate bucket is retained only to refuse historical artifacts:
+    /// every nonempty bucket returns a `certificates` record error with `Tag`.
+    /// Receipt and state records carry no checkpoint or availability-chunk codec.
     ///
     /// # Errors
     ///

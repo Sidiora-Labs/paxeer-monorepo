@@ -1,0 +1,47 @@
+[repair.22.33.124]
+audit = "22.30.114"
+base_revision = "9fda5aafcf8b4dba3d79ad6d650ea1272c960511"
+test_file = "apps/wallet/src/lib/queries/repair-22-33-124.test.ts"
+qualification = "The runner hf-build/hf-done ledger records the exact qualified candidate revision, commands, exits and private evidence paths."
+baseline = "Not run: the explicit ordered gate rules require complete implementation before either gate and prohibit a separate verify_cmd invocation; no pre-change test failures are claimed."
+
+[finding.10]
+repair = "All query hooks scope keys, including caller-supplied keys, to selected chain, network kind and RPC identity; network events cancel old reads, late results cannot publish, and reconciliation captures its original scope. Rankings no longer carry placeholder data across networks."
+tests = ["finding_10_isolates_equal_addresses_and_cancels_old_reads", "finding_10_reconcile_cannot_publish_across_a_switch"]
+wiring_1 = "Domain 12: apps/wallet/src/widgets/portfolio/useApplyPendingSend.ts must capture getWalletQueryScope at mutation start and pass that scope to every delayed cache update/invalidation."
+wiring_2 = "Domain 12: apps/wallet/src/lib/data/client.ts and apps/wallet/src/lib/api.ts must bind HTTP reads to the captured chain/tenant and accept/forward AbortSignal; query cancellation already prevents stale publication, while these out-of-scope transports currently finish their HTTP work."
+wiring_3 = "Domain 12: apps/wallet/src/widgets/tokenDetail/detailQueries.ts must adopt the same selected-network query scope for its independently declared market/history queries and invalidation callers."
+
+[finding.44]
+repair = "Only authoritative HTTP 404 is negative metadata; transport and malformed discovery metadata fail the query, retaining successful cached data and refetch. Negative freshness is 30 seconds, metadata GC is five minutes, and mount/focus/reconnect can recover discovery."
+tests = ["finding_44_transport_and_decode_failures_retry_and_retain_metadata", "finding_44_not_found_expires_and_rediscovers_on_remount"]
+wiring_1 = "Domain 12: apps/wallet/src/widgets/tokenDetail/TokenDetailWidget.tsx must render tokenMetaQuery.error beside retained metadata and expose tokenMetaQuery.refetch."
+wiring_2 = "Domain 12: apps/wallet/src/lib/api.ts should expose a typed HTTP status error from fetchTokenMetadataPublic; the query currently recognizes its exact 404 status-message prefix."
+
+[finding.13]
+repair = "History normalizes typed facade transactions/transfers, preserves zero decimal precision, validates uint8 precision, and accepts only unsigned integer amount_raw/value_raw without falling back to a formatted amount."
+tests = ["finding_13_zero_decimal_raw_transfer_reaches_history_view", "finding_13_invalid_precision_is_an_error_and_zero_raw_is_preserved"]
+wiring_requests = []
+
+[finding.45]
+repair = "The transfer producer has a separate query, typed pending/complete/unavailable status and transferError. Failed refreshes preserve last known transfers; refetchTransfers retries the panel without reading the transaction again. Existing detail consumers also receive the transfer failure through error/isError."
+tests = ["finding_45_partial_transfer_failure_preserves_data_and_retries_independently"]
+wiring_1 = "Domain 12: apps/wallet/src/widgets/txDetail/TxDetailWidget.tsx must render transferStatus/transferError and connect the transfer-panel retry to refetchTransfers; transfer invalidations must use queryKeys.txTransfers."
+
+[qualification.registration]
+observed = "The first hf-done exited zero but Vitest interpreted test(function) as seven TODOs, so that result does not establish qualification."
+repair = "Register each declared function as test(function.name, function), retaining every assertion and executing all seven proofs."
+revision = "14eba45626ff63b694f55e37cdb6f7790071bc14"
+command = "cg spec done 22.33.124 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 0
+log = "/out/logs/verify-1.log"
+
+[evidence.fixture]
+producer = "Committed loopback explorer/metadata HTTP peer; ERC-20 transfer amounts and addresses are emitted through the real ethers ABI event codec."
+transport = "Native fetch and real BlockscoutClient, facade, api and TanStack Query hooks; relative URLs receive browser-origin resolution in the Node fixture. No endpoint or production module is mocked."
+consumer = "Mounted React query consumers and the production TransactionRow prove observed cache isolation, cancellation, metadata recovery, raw integer history display and independent transfer retry."
+
+[qualification.continuation]
+fixture = "Tenant preferences use absolute HTTPS URLs without credentials and retain each virtual chain RPC path; loopback responses use the real wallet-read parser and response-header producer required by the landed client contract."
+merge = "Retained transaction-history limit identity and reconciliation chain capture while integrating tenant-scoped keys, cancellation and switch guards; all seven tests and their assertions remain registered."
+prior_result = "Attempt 2 executed seven tests: five passed and two network-isolation cases failed while saving invalid fixture URLs; no production storage validation is relaxed."

@@ -1,0 +1,24 @@
+[task]
+id = "22.33.1448"
+base_revision = "9fda5aafcf8b4dba3d79ad6d650ea1272c960511"
+verify_cmd = "node --test services/platform/examples/test/repair-22-33-1448.test.mjs"
+baseline = "Not run: explicit Order 1 prohibits testing before full implementation and Order 4 prohibits running verify_cmd by hand before hf-done; the inherited tree has no gate ledger, so no baseline failures are claimed."
+evidence = "The runner's private gates.jsonl records the exact candidate revision, command, exit and log; hf-build and hf-done must qualify the same candidate."
+
+[finding.merchant-result-code]
+tests = ["merchantResultCodeReachesQualifier", "merchantResultCodePreservesVerifiedFailure"]
+proof = "Production BuyerMiddleware.fetch performs the real HTTP checkout, Human quote/commit/evidence and verified settlement exchange against a loopback server using committed Go producer receipts and the real SellerMiddleware, receipt resolver and fulfillment store; paidMerchantOutcome exposes the verified resultCode and qualifyReferenceAppOutcomes requires numeric zero in both environments."
+failure = "The committed reverted receipt is refused by BuyerMiddleware before a paid retry or resource release; merchantCheckoutOutcome preserves its verified nonzero resultCode and the real qualifier rejects it, missing codes, wrong types and legacy status substitution."
+wiring_requests = []
+
+[gotcha.production_sources]
+observed = "The declared gate checks script syntax only, so SDK and middleware dist files need not exist."
+resolution = "The regression test loads unmodified production TypeScript sources in-process with Node module hooks and resolves their normal runtime dependencies from the example test location."
+
+[gotcha.dependencies]
+observed = "The runner's initial npm ci failed because the repository lockfile is out of sync with unrelated workspace manifests."
+resolution = "Install only the SDK runtime dependencies without changing manifests or lockfiles, then keep them in private temporary storage linked under examples; do not repair the unrelated workspace lockfile."
+
+[gotcha.gate_candidate]
+observed = "The first build's candidate collector included ignored node_modules under the directory scope."
+resolution = "Stop hf-done before it runs verification, relocate installed packages to private temporary storage, link them for normal module resolution, and rebuild the clean candidate before hf-done."

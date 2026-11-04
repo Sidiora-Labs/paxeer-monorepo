@@ -71,24 +71,38 @@ func (k *Keeper) GetReceiptFromReceiptStore(ctx sdk.Context, txHash common.Hash)
 	return k.receiptStore.GetReceiptFromStore(ctx, txHash)
 }
 
-// GetReceiptWithRetry attempts to get a receipt with retries to handle race conditions
-// where the receipt might not be immediately available after the transaction.
+// GetReceiptWithRetry makes at most maxRetries total lookup attempts, including
+// the initial lookup. The budget must be positive. Cancellation interrupts both
+// lookups and the delay between attempts; there is no delay after the last attempt.
 func (k *Keeper) GetReceiptWithRetry(ctx sdk.Context, txHash common.Hash, maxRetries int) (*types.Receipt, error) {
+	if maxRetries <= 0 {
+		return nil, fmt.Errorf("receipt lookup attempts must be positive: %d", maxRetries)
+	}
 	var lastErr error
 	for i := 0; i < maxRetries; i++ {
+		if err := ctx.Context().Err(); err != nil {
+			return nil, err
+		}
 		rcpt, err := k.GetReceipt(ctx, txHash)
 		if err == nil {
+			if rcpt == nil {
+				return nil, errors.New("receipt lookup returned no receipt")
+			}
 			return rcpt, nil
 		}
-
-		// If it's not a "not found" error, return immediately
 		if !errors.Is(err, receipt.ErrNotFound) {
 			return nil, err
 		}
-
-		// Wait before retrying, with increasing delay, 200ms, 400ms, 600ms, etc.
-		time.Sleep(time.Millisecond * 200 * time.Duration(i+1))
 		lastErr = err
+		if i+1 < maxRetries {
+			timer := time.NewTimer(time.Millisecond * 200 * time.Duration(i+1))
+			select {
+			case <-ctx.Context().Done():
+				timer.Stop()
+				return nil, ctx.Context().Err()
+			case <-timer.C:
+			}
+		}
 	}
 	return nil, lastErr
 }

@@ -16,11 +16,12 @@ import (
 
 func TestGetBlockByHash(t *testing.T) {
 	txBz := signAndEncodeTx(send(0), mnemonic1)
-	SetupTestServer(t, [][][]byte{{txBz}}, mnemonicInitializer(mnemonic1)).Run(
+	ts := SetupTestServer(t, [][][]byte{{txBz}}, mnemonicInitializer(mnemonic1))
+	ts.Run(
 		func(port int) {
-			res := sendRequestWithNamespace("eth", port, "getBlockByHash", common.HexToHash("0x6f2168eb453152b1f68874fe32cea6fcb199bfd63836acb72a8eb33e666613fe").Hex(), true)
+			res := sendRequestWithNamespace("eth", port, "getBlockByHash", common.BytesToHash(ts.mockClient.headers[1].Hash()).Hex(), true)
 			blockHash := res["result"].(map[string]interface{})["hash"]
-			require.Equal(t, "0x6f2168eb453152b1f68874fe32cea6fcb199bfd63836acb72a8eb33e666613fe", blockHash.(string))
+			require.Equal(t, common.BytesToHash(ts.mockClient.headers[1].Hash()).Hex(), blockHash.(string))
 		},
 	)
 }
@@ -30,9 +31,10 @@ func TestGetPaxBlockByHash(t *testing.T) {
 	tx1 := signAndEncodeTx(registerCW20Pointer(0, cw20), mnemonic1)
 	initializers := []func(sdk.Context, *app.App){mnemonicInitializer(mnemonic1), cw20Initializer(mnemonic1, true)}
 	tx2 := signAndEncodeCosmosTx(transferCW20Msg(mnemonic1, cw20), mnemonic1, accountNumberAfterInit(t, mnemonic1, initializers...), 0)
-	SetupTestServer(t, [][][]byte{{tx1}, {tx2}}, initializers...).Run(
+	ts := SetupTestServer(t, [][][]byte{{tx1}, {tx2}}, initializers...)
+	ts.Run(
 		func(port int) {
-			res := sendRequestWithNamespace("pax", port, "getBlockByHash", common.HexToHash("0x9dd3e6c427b6936f973b240cd5780b8ee4bf8fab0c8d281afb28089db51bb4af").Hex(), true)
+			res := sendRequestWithNamespace("pax", port, "getBlockByHash", common.BytesToHash(ts.mockClient.headers[2].Hash()).Hex(), true)
 			txs := res["result"].(map[string]interface{})["transactions"]
 			require.Len(t, txs.([]interface{}), 1)
 		},
@@ -43,24 +45,26 @@ func TestGetBlockByNumber(t *testing.T) {
 	txBz1 := signAndEncodeTx(send(0), mnemonic1)
 	txBz2 := signAndEncodeTx(send(1), mnemonic1)
 	txBz3 := signAndEncodeTx(send(2), mnemonic1)
-	SetupTestServer(t, [][][]byte{{txBz1}, {txBz2}, {txBz3}}, mnemonicInitializer(mnemonic1)).Run(
+	ts := SetupTestServer(t, [][][]byte{{txBz1}, {txBz2}, {txBz3}}, mnemonicInitializer(mnemonic1))
+	ts.Run(
 		func(port int) {
 			res := sendRequestWithNamespace("eth", port, "getBlockByNumber", "earliest", true)
 			earliestBlock := res["result"].(map[string]interface{})
 			blockHash := earliestBlock["hash"]
 			require.NotEqual(t, common.Hash{}.Hex(), blockHash.(string))
-			require.NotEqual(t, common.Hash{}.Hex(), earliestBlock["stateRoot"].(string))
+			require.Equal(t, common.BytesToHash(ts.mockClient.headers[0].AppHash).Hex(), earliestBlock["stateRoot"].(string))
 			require.NotEqual(t, common.Hash{}.Hex(), earliestBlock["transactionsRoot"].(string))
 			require.NotEqual(t, common.Hash{}.Hex(), earliestBlock["receiptsRoot"].(string))
 			res = sendRequestWithNamespace("eth", port, "getBlockByNumber", "safe", true)
+			require.NotEqual(t, common.Hash{}.Hex(), res["result"].(map[string]interface{})["stateRoot"].(string))
 			blockHash = res["result"].(map[string]interface{})["hash"]
-			require.Equal(t, "0x8ace0b4e9ced0ef792034128d37eb19b9b2b06bf016d51d533216a9afd7c0e8f", blockHash.(string))
+			require.Equal(t, common.BytesToHash(ts.mockClient.headers[3].Hash()).Hex(), blockHash.(string))
 			res = sendRequestWithNamespace("eth", port, "getBlockByNumber", "latest", true)
 			blockHash = res["result"].(map[string]interface{})["hash"]
-			require.Equal(t, "0x8ace0b4e9ced0ef792034128d37eb19b9b2b06bf016d51d533216a9afd7c0e8f", blockHash.(string))
+			require.Equal(t, common.BytesToHash(ts.mockClient.headers[3].Hash()).Hex(), blockHash.(string))
 			res = sendRequestWithNamespace("eth", port, "getBlockByNumber", "finalized", true)
 			blockHash = res["result"].(map[string]interface{})["hash"]
-			require.Equal(t, "0x8ace0b4e9ced0ef792034128d37eb19b9b2b06bf016d51d533216a9afd7c0e8f", blockHash.(string))
+			require.Equal(t, common.BytesToHash(ts.mockClient.headers[3].Hash()).Hex(), blockHash.(string))
 			res = sendRequestWithNamespace("eth", port, "getBlockByNumber", "pending", true)
 			errObj, ok := res["error"].(map[string]interface{})
 			require.True(t, ok)
@@ -69,7 +73,7 @@ func TestGetBlockByNumber(t *testing.T) {
 			require.NotContains(t, res, "result")
 			res = sendRequestWithNamespace("eth", port, "getBlockByNumber", "0x2", true)
 			blockHash = res["result"].(map[string]interface{})["hash"]
-			require.Equal(t, "0x6f2168eb453152b1f68874fe32cea6fcb199bfd63836acb72a8eb33e666613fe", blockHash.(string))
+			require.Equal(t, common.BytesToHash(ts.mockClient.headers[1].Hash()).Hex(), blockHash.(string))
 		},
 	)
 }
@@ -79,9 +83,10 @@ func TestGetBlockSkipTxIndex(t *testing.T) {
 	acctN := accountNumberAfterInit(t, mnemonic1, initializers...)
 	tx1 := signAndEncodeCosmosTx(bankSendMsg(mnemonic1), mnemonic1, acctN, 0)
 	tx2 := signAndEncodeTx(send(0), mnemonic1)
-	SetupTestServer(t, [][][]byte{{tx1, tx2}}, initializers...).Run(
+	ts := SetupTestServer(t, [][][]byte{{tx1, tx2}}, initializers...)
+	ts.Run(
 		func(port int) {
-			res := sendRequestWithNamespace("eth", port, "getBlockByHash", common.HexToHash("0x6f2168eb453152b1f68874fe32cea6fcb199bfd63836acb72a8eb33e666613fe").Hex(), true)
+			res := sendRequestWithNamespace("eth", port, "getBlockByHash", common.BytesToHash(ts.mockClient.headers[1].Hash()).Hex(), true)
 			txs := res["result"].(map[string]any)["transactions"].([]any)
 			require.Len(t, txs, 1)
 			require.Equal(t, "0x0", txs[0].(map[string]any)["transactionIndex"].(string))
@@ -92,16 +97,18 @@ func TestGetBlockSkipTxIndex(t *testing.T) {
 func TestAnteFailureNonce(t *testing.T) {
 	txBz := signAndEncodeTx(send(1), mnemonic1) // wrong nonce
 	// incorrect nonce should always be excluded
-	SetupTestServer(t, [][][]byte{{txBz}}, mnemonicInitializer(mnemonic1), mockUpgrade("v5.8.0", 0)).Run(
+	ts := SetupTestServer(t, [][][]byte{{txBz}}, mnemonicInitializer(mnemonic1), mockUpgrade("v5.8.0", 0))
+	ts.Run(
 		func(port int) {
-			res := sendRequestWithNamespace("eth", port, "getBlockByHash", common.HexToHash("0x6f2168eb453152b1f68874fe32cea6fcb199bfd63836acb72a8eb33e666613fe").Hex(), true)
+			res := sendRequestWithNamespace("eth", port, "getBlockByHash", common.BytesToHash(ts.mockClient.headers[1].Hash()).Hex(), true)
 			txs := res["result"].(map[string]interface{})["transactions"].([]interface{})
 			require.Len(t, txs, 0)
 		},
 	)
-	SetupTestServer(t, [][][]byte{{txBz}}, mnemonicInitializer(mnemonic1), mockUpgrade("v5.5.5", 0)).Run(
+	ts = SetupTestServer(t, [][][]byte{{txBz}}, mnemonicInitializer(mnemonic1), mockUpgrade("v5.5.5", 0))
+	ts.Run(
 		func(port int) {
-			res := sendRequestWithNamespace("eth", port, "getBlockByHash", common.HexToHash("0x6f2168eb453152b1f68874fe32cea6fcb199bfd63836acb72a8eb33e666613fe").Hex(), true)
+			res := sendRequestWithNamespace("eth", port, "getBlockByHash", common.BytesToHash(ts.mockClient.headers[1].Hash()).Hex(), true)
 			txs := res["result"].(map[string]interface{})["transactions"].([]interface{})
 			require.Len(t, txs, 0)
 		},
@@ -111,17 +118,19 @@ func TestAnteFailureNonce(t *testing.T) {
 func TestAnteFailureOthers(t *testing.T) {
 	txBz := signAndEncodeTx(send(0), mnemonic1)
 	// insufficient fund should be included post v5.8.0
-	SetupTestServer(t, [][][]byte{{txBz}}, mockUpgrade("v5.8.0", 0)).Run(
+	ts := SetupTestServer(t, [][][]byte{{txBz}}, mockUpgrade("v5.8.0", 0))
+	ts.Run(
 		func(port int) {
-			res := sendRequestWithNamespace("eth", port, "getBlockByHash", common.HexToHash("0x6f2168eb453152b1f68874fe32cea6fcb199bfd63836acb72a8eb33e666613fe").Hex(), true)
+			res := sendRequestWithNamespace("eth", port, "getBlockByHash", common.BytesToHash(ts.mockClient.headers[1].Hash()).Hex(), true)
 			txs := res["result"].(map[string]interface{})["transactions"].([]interface{})
 			require.Len(t, txs, 1)
 		},
 	)
 	// insufficient fund should not be included pre v5.8.0
-	SetupTestServer(t, [][][]byte{{txBz}}, mockUpgrade("v5.5.5", 0)).Run(
+	ts = SetupTestServer(t, [][][]byte{{txBz}}, mockUpgrade("v5.5.5", 0))
+	ts.Run(
 		func(port int) {
-			res := sendRequestWithNamespace("eth", port, "getBlockByHash", common.HexToHash("0x6f2168eb453152b1f68874fe32cea6fcb199bfd63836acb72a8eb33e666613fe").Hex(), true)
+			res := sendRequestWithNamespace("eth", port, "getBlockByHash", common.BytesToHash(ts.mockClient.headers[1].Hash()).Hex(), true)
 			txs := res["result"].(map[string]interface{})["transactions"].([]interface{})
 			require.Len(t, txs, 0)
 		},
@@ -134,15 +143,16 @@ func TestAnteFailureOthers(t *testing.T) {
 // them — the tx bumped its nonce in ante but never reached the VM.
 func TestGetBlockByHashExcludeTraceFail_AnteStub(t *testing.T) {
 	stubTxBz := signAndEncodeTx(sendInsufficientFunds(0), mnemonic1)
-	SetupTestServer(t, [][][]byte{{stubTxBz}}, mnemonicInitializer(mnemonic1)).Run(
+	ts := SetupTestServer(t, [][][]byte{{stubTxBz}}, mnemonicInitializer(mnemonic1))
+	ts.Run(
 		func(port int) {
 			// Confirm the stub flows through the regular endpoint (PR #2343 baseline).
-			res := sendRequestWithNamespace("eth", port, "getBlockByHash", common.HexToHash("0x6f2168eb453152b1f68874fe32cea6fcb199bfd63836acb72a8eb33e666613fe").Hex(), true)
+			res := sendRequestWithNamespace("eth", port, "getBlockByHash", common.BytesToHash(ts.mockClient.headers[1].Hash()).Hex(), true)
 			txs := res["result"].(map[string]interface{})["transactions"].([]interface{})
 			require.Len(t, txs, 1, "regular eth_getBlockByHash should keep the insufficient-funds tx, got %v", txs)
 
 			// The *ExcludeTraceFail variant must drop it.
-			res = sendRequestWithNamespace("pax", port, "getBlockByHashExcludeTraceFail", common.HexToHash("0x6f2168eb453152b1f68874fe32cea6fcb199bfd63836acb72a8eb33e666613fe").Hex(), true)
+			res = sendRequestWithNamespace("pax", port, "getBlockByHashExcludeTraceFail", common.BytesToHash(ts.mockClient.headers[1].Hash()).Hex(), true)
 			txs = res["result"].(map[string]interface{})["transactions"].([]interface{})
 			require.Len(t, txs, 0, "pax_getBlockByHashExcludeTraceFail should drop the insufficient-funds stub, got %v", txs)
 		},
@@ -152,9 +162,10 @@ func TestGetBlockByHashExcludeTraceFail_AnteStub(t *testing.T) {
 func TestGetBlockReceipts(t *testing.T) {
 	txBz1 := signAndEncodeTx(send(0), mnemonic1)
 	txBz2 := signAndEncodeTx(send(1), mnemonic1)
-	SetupTestServer(t, [][][]byte{{txBz1, txBz2}}, mnemonicInitializer(mnemonic1)).Run(
+	ts := SetupTestServer(t, [][][]byte{{txBz1, txBz2}}, mnemonicInitializer(mnemonic1))
+	ts.Run(
 		func(port int) {
-			res := sendRequestWithNamespace("eth", port, "getBlockReceipts", common.HexToHash("0x6f2168eb453152b1f68874fe32cea6fcb199bfd63836acb72a8eb33e666613fe").Hex())
+			res := sendRequestWithNamespace("eth", port, "getBlockReceipts", common.BytesToHash(ts.mockClient.headers[1].Hash()).Hex())
 			require.Len(t, res["result"], 2)
 		},
 	)

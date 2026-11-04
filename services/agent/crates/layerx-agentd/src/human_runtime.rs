@@ -10321,13 +10321,15 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
             .store
             .lock()
             .map_err(|_| HumanOperationError::Unavailable)?;
-        managed_agent::finalize_control(
+        managed_agent::apply_lifecycle_request(
             &mut store,
             &tenant,
-            agent_id,
-            resume,
-            session_observation,
-            evidence.into(),
+            crate::human::HumanRequest::AgentControl {
+                agent_id: agent_id.to_owned(),
+                resume,
+                session_observation,
+                evidence,
+            },
         )
     }
     fn agent_limit(
@@ -10345,14 +10347,16 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
             .store
             .lock()
             .map_err(|_| HumanOperationError::Unavailable)?;
-        managed_agent::finalize_limit(
+        managed_agent::apply_lifecycle_request(
             &mut store,
             &tenant,
-            agent_id,
-            monthly_limit,
-            currency,
-            replacement_budget_id,
-            evidence.into(),
+            crate::human::HumanRequest::AgentLimit {
+                agent_id: agent_id.to_owned(),
+                monthly_limit,
+                currency: currency.to_owned(),
+                replacement_budget_id,
+                evidence,
+            },
         )
     }
     fn agent_journey(
@@ -10473,13 +10477,17 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
             .store
             .lock()
             .map_err(|_| HumanOperationError::Unavailable)?;
-        managed_agent::finalize_archive(
+        managed_agent::apply_lifecycle_request(
             &mut store,
             &tenant,
-            agent_id,
-            confirm_name,
-            (pre_observation, post_observation, session_observation),
-            evidence.into(),
+            crate::human::HumanRequest::AgentArchive {
+                agent_id: agent_id.to_owned(),
+                confirm_name: confirm_name.to_owned(),
+                pre_observation,
+                post_observation,
+                session_observation,
+                evidence,
+            },
         )
     }
     fn capability_install(
@@ -10626,33 +10634,13 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
             .lock_operations()?
             .authority
             .budget_state(peer, active_budget_id)?;
-        let mut out = Encoder::new();
-        out.fixed(&active_budget_id);
-        out.u64(state.revocation_sequence);
-        out.u64(state.observed_head_sequence);
-        out.u8(state.verification);
-        out.fixed(&state.evidence_digest);
-        out.fixed(&state.receipt_digest);
-        out.fixed(&state.checkpoint_digest);
-        out.u64(state.age_sequences);
-        out.u64(state.maximum_age_sequences);
-        out.u128(state.remaining);
-        out.fixed(&state.asset);
-        let response = out.finish()?;
         let tenant =
             TenantId::new(peer.tenant.clone()).map_err(|_| HumanOperationError::Refused)?;
         let mut store = self
             .store
             .lock()
             .map_err(|_| HumanOperationError::Unavailable)?;
-        managed_agent::record_observation(
-            &mut store,
-            &tenant,
-            1,
-            state.evidence_digest,
-            response.bytes().to_vec(),
-        )?;
-        Ok(response)
+        managed_agent::record_budget_snapshot(&mut store, &tenant, active_budget_id, &state)
     }
     fn agent_key_policy(
         &mut self,
@@ -10668,34 +10656,13 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
                 .authority
                 .key_rotation_policy(&bound, &did, recovery)?
         };
-        let mut out = Encoder::new();
-        out.text(agent_did)?;
-        out.u8(u8::from(recovery));
-        out.u64(state.policy_revision);
-        out.u64(state.required_delay_seconds);
-        out.u64(state.maximum_delay_seconds);
-        out.u64(state.effective_sequence);
-        out.u64(state.observed_head_sequence);
-        out.u8(state.verification);
-        out.fixed(&state.evidence_digest);
-        out.fixed(&state.checkpoint_digest);
-        out.u64(state.age_sequences);
-        out.u64(state.maximum_age_sequences);
-        let response = out.finish()?;
         let tenant =
             TenantId::new(peer.tenant.clone()).map_err(|_| HumanOperationError::Refused)?;
         let mut store = self
             .store
             .lock()
             .map_err(|_| HumanOperationError::Unavailable)?;
-        managed_agent::record_observation(
-            &mut store,
-            &tenant,
-            2,
-            state.evidence_digest,
-            response.bytes().to_vec(),
-        )?;
-        Ok(response)
+        managed_agent::record_key_policy_snapshot(&mut store, &tenant, agent_did, recovery, &state)
     }
     fn agent_session_snapshot(
         &mut self,
@@ -10750,29 +10717,14 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
             .store
             .lock()
             .map_err(|_| HumanOperationError::Unavailable)?;
-        let (_, session_id, _, _) = managed_agent::session_coordinates(&store, &tenant, agent_id)?;
         let grant = managed_agent::protocol_grant(&store, &tenant, agent_id)?;
-        let was_open = sessions
-            .get(&tenant, SessionId(session_id))
-            .map(|record| record.open)
-            .ok_or(HumanOperationError::Refused)?;
-        if !was_open {
-            return managed_agent::record_session_observation(
-                &mut store, &tenant, agent_id, action_key, false, false,
-            );
-        }
-        let (response, key, bytes) = managed_agent::prepare_session_observation(
-            &store, &tenant, agent_id, action_key, false,
-        )?;
-        session::close_with_companion(
+        let response = managed_agent::suspend_session(
             &mut store,
             &mut sessions,
             &tenant,
-            SessionId(session_id),
-            key,
-            bytes,
-        )
-        .map_err(|_| HumanOperationError::Unavailable)?;
+            agent_id,
+            action_key,
+        )?;
         drop(store);
         drop(sessions);
         self.session_keys
@@ -13436,11 +13388,59 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                     .map_err(|_| HumanOperationError::Unavailable)?;
             }
         }
+        let native_commit = if committed.is_some() {
+            let trust = &self
+                .export_trust
+                .as_ref()
+                .ok_or(HumanOperationError::Unavailable)?
+                .0;
+            let url = std::env::var("LAYERX_AGENT_NODE_COMET_RPC_URL")
+                .map_err(|_| HumanOperationError::Unavailable)?;
+            let source = crate::read::NativeResultSource::connect(&url, None)
+                .map_err(|_| HumanOperationError::Unavailable)?;
+            let checkpoint = source
+                .checkpoint(
+                    execution
+                        .height
+                        .checked_add(1)
+                        .ok_or(HumanOperationError::Refused)?,
+                    &chain_id.to_string(),
+                    trust.validator_set(),
+                )
+                .map_err(|_| HumanOperationError::Refused)?;
+            if checkpoint.header.last_block_id.map(|id| id.hash) != committed.map(|(_, hash)| hash)
+            {
+                return Err(HumanOperationError::Refused);
+            }
+            let inclusion = source
+                .acquire(execution.height, execution.index)
+                .map_err(|_| HumanOperationError::Refused)?;
+            let layerx_client::rpc::receipt::Lookup::Verified(authenticated) =
+                layerx_client::rpc::receipt::lookup_authenticated(
+                    &self.node,
+                    served.metadata.activity_id,
+                    layerx_client::rpc::receipt::LookupContext {
+                        receipt_keys: &keys,
+                    },
+                )
+                .map_err(|_| HumanOperationError::Refused)?
+            else {
+                return Err(HumanOperationError::Refused);
+            };
+            Some((
+                checkpoint,
+                inclusion,
+                authenticated,
+                trust.validator_set().to_vec(),
+            ))
+        } else {
+            None
+        };
         let mut store = self
             .store
             .lock()
             .map_err(|_| HumanOperationError::Unavailable)?;
-        let evidence = crate::finality::augment_verified(
+        let mut evidence = crate::finality::augment_verified(
             &mut store,
             tenant.clone(),
             idempotency_key,
@@ -13463,7 +13463,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
             .map_err(|_| HumanOperationError::Unavailable)?;
         if let Some(material) = commit_material {
             let key = TenantKey::new(
-                tenant,
+                tenant.clone(),
                 ObjectKind::Configuration,
                 [
                     b"human-receipt-commit-material:".as_slice(),
@@ -13478,6 +13478,30 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                     serde_json::to_vec(&material).map_err(|_| HumanOperationError::Refused)?,
                 )
                 .map_err(|_| HumanOperationError::Unavailable)?;
+        }
+        let mut served = served;
+        if let Some((checkpoint, inclusion, authenticated, validators)) = native_commit {
+            crate::receipt::persist_committed_native_receipt(
+                &mut store,
+                tenant.clone(),
+                &authenticated,
+                &inclusion,
+                &checkpoint,
+                &chain_id.to_string(),
+                &validators,
+                &keys,
+            )
+            .map_err(|_| HumanOperationError::Refused)?;
+            served.metadata = crate::receipt::raise_verification_level(
+                &mut store,
+                tenant,
+                idempotency_key,
+                &served.canonical_bytes,
+                VerificationLevel::CHECKPOINT_FINALISED,
+            )
+            .map_err(|_| HumanOperationError::Refused)?;
+            // The v2 transaction receipt store retains this native result/commit proof.
+            evidence.rung = layerx_types::rung::Rung::Committed;
         }
         Ok((served, evidence))
     }
@@ -13777,7 +13801,12 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
             history.entries,
             history.observed,
         )
-        .authenticate_history(actor, window_seconds, history.first_covered)
+        .authenticate_history(
+            actor,
+            window_seconds,
+            history.first_covered,
+            &history.coverage,
+        )
         .map_err(|_| HumanOperationError::Refused)
     }
 
@@ -13812,7 +13841,12 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
             first: core_sequence.saturating_sub(width.saturating_sub(1)).max(1),
             last: core_sequence,
         }
-        .authenticate_history(actor, &history.checkpoint, &history.entries)
+        .authenticate_history(
+            actor,
+            &history.checkpoint,
+            &history.entries,
+            &history.coverage,
+        )
         .map_err(|_| HumanOperationError::Refused)
     }
 
@@ -21929,18 +21963,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
     }
 }
 
-#[derive(Clone, Copy)]
-enum PolicyHistoryWindow {
-    Time { head: u64, seconds: u64 },
-    Sequence { core: u64, width: u64 },
-}
-
-struct PolicyUsageHistory {
-    entries: Vec<crate::protocol_evidence::HistoryActivityEvidence>,
-    checkpoint: crate::read::ServedCheckpoint,
-    observed: crate::protocol_evidence::AuthenticatedCoreTime,
-    first_covered: u64,
-}
+use crate::policy_history::{PolicyHistoryWindow, PolicyUsageHistory};
 
 fn policy_history_refusal(error: crate::read::HistoryReadError) -> HumanOperationError {
     match error {
@@ -21957,161 +21980,15 @@ fn read_policy_history(
     trust: &crate::export::ExportTrustSource,
     window: PolicyHistoryWindow,
 ) -> Result<PolicyUsageHistory, crate::read::HistoryReadError> {
-    use crate::protocol_evidence::{admit_bytes, HistoryActivityEvidence, PolicyHistorySource};
-    use crate::read::{HistoryLimits, HistoryReadError};
-    const MAX_SEQUENCES: usize = 4096;
-    const MAX_BYTES: usize = 16 * 1024 * 1024;
-    match window {
-        PolicyHistoryWindow::Time { head, seconds }
-            if head == 0 || seconds == 0 || seconds.checked_mul(1000).is_none() =>
-        {
-            return Err(HistoryReadError::InvalidRange)
-        }
-        PolicyHistoryWindow::Sequence { core, width }
-            if core == 0 || width == 0 || width > MAX_SEQUENCES as u64 =>
-        {
-            return Err(HistoryReadError::InvalidRange)
-        }
-        _ => {}
-    }
-    let source = PolicyHistorySource::new(config)?;
-    let did = std::str::from_utf8(actor.as_bytes()).map_err(|_| HistoryReadError::Malformed)?;
-    let key = did
-        .strip_prefix("did:layerx:")
-        .ok_or(HistoryReadError::Malformed)?;
-    let public: [u8; 32] = layerx_programs::hex::decode(key)
-        .map_err(|_| HistoryReadError::Malformed)?
-        .try_into()
-        .map_err(|_| HistoryReadError::Malformed)?;
-    let address = source
-        .endpoint
-        .bound_address(&public)
-        .map_err(HistoryReadError::Sequencer)?
-        .ok_or(HistoryReadError::Malformed)?;
-    let account = rpc_hex(&address);
-    let mut expected_source = [0; 32];
-    expected_source[12..].copy_from_slice(&address);
-    let limits = HistoryLimits {
-        maximum_items: 256,
-        maximum_response_bytes: MAX_BYTES,
-    };
-    let mut page = source.page(&account, None, limits)?;
-    let head = source
-        .endpoint
-        .block_by_number(page.height)
-        .map_err(HistoryReadError::Sequencer)?
-        .ok_or(HistoryReadError::InvalidRange)?;
-    match window {
-        PolicyHistoryWindow::Time { head: expected, .. } if expected != head.number => {
-            return Err(HistoryReadError::InvalidRange)
-        }
-        PolicyHistoryWindow::Sequence { core, .. } if core > head.number => {
-            return Err(HistoryReadError::InvalidRange)
-        }
-        _ => {}
-    }
-    let checkpoint = crate::read::ServedCheckpoint::acquire_at_committed_block(
-        &source.endpoint,
-        head.number,
-        Some(head.hash),
-        &config.chain_id.to_string(),
+    let result_url = std::env::var("LAYERX_AGENT_NODE_COMET_RPC_URL")
+        .map_err(|_| crate::read::HistoryReadError::ItemUnproven)?;
+    crate::policy_history::read_policy_history_from_sources(
+        config,
+        &result_url,
+        actor,
+        trust,
+        window,
     )
-    .map_err(|_| HistoryReadError::ItemUnproven)?;
-    if checkpoint.validators != trust.validator_set() {
-        return Err(HistoryReadError::ItemUnproven);
-    }
-    let receipt_key = trust
-        .receipt_keys()
-        .first()
-        .ok_or(HistoryReadError::ItemUnproven)?;
-    let authority = EvidenceAuthority::pinned_to_handshake(
-        layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
-        u32::try_from(config.chain_id).map_err(|_| HistoryReadError::InvalidRange)?,
-        receipt_key.public_key,
-    )
-    .map_err(|_| HistoryReadError::ItemUnproven)?
-    .pin_committed_validators(config.chain_id.to_string(), trust.validator_set().to_vec())
-    .map_err(|_| HistoryReadError::ItemUnproven)?;
-    let observed = authority
-        .authenticate_committed_time(&checkpoint)
-        .map_err(|_| HistoryReadError::ItemUnproven)?;
-    let mut entries = Vec::new();
-    let mut bytes = 0;
-    let mut items = 0usize;
-    let mut first_covered = head.number;
-    let mut previous_timestamp = head.timestamp;
-    let mut seen = std::collections::BTreeSet::new();
-    loop {
-        if page.height != checkpoint.height {
-            return Err(HistoryReadError::InvalidRange);
-        }
-        admit_bytes(&mut bytes, page.response_bytes)?;
-        items = items
-            .checked_add(page.items.len())
-            .filter(|n| *n <= MAX_SEQUENCES)
-            .ok_or(HistoryReadError::Oversized)?;
-        let mut boundary = false;
-        for item in &page.items {
-            if item.kind != layerx_client::rpc::history::HistoryKind::Receipt {
-                continue;
-            }
-            let receipt = source.prove(
-                &item.canonical,
-                item.position,
-                &checkpoint,
-                trust.receipt_keys(),
-                &mut bytes,
-            )?;
-            if receipt.timestamp > previous_timestamp {
-                return Err(HistoryReadError::ItemUnproven);
-            }
-            previous_timestamp = receipt.timestamp;
-            first_covered = receipt.position.block_height;
-            let decoded = layerx_wire::receipt::decode(&receipt.canonical)
-                .map_err(|_| HistoryReadError::ItemUnproven)?;
-            let protocol = decoded.protocol().ok_or(HistoryReadError::ItemUnproven)?;
-            if !seen.insert(protocol.activity_id()) {
-                return Err(HistoryReadError::ItemUnproven);
-            }
-            let include = match window {
-                PolicyHistoryWindow::Time { seconds, .. } => {
-                    boundary = receipt.timestamp <= head.timestamp.saturating_sub(seconds);
-                    !boundary
-                }
-                PolicyHistoryWindow::Sequence { core, width } => {
-                    let first = core.saturating_sub(width - 1).max(1);
-                    boundary = receipt.position.block_height < first;
-                    (first..=core).contains(&receipt.position.block_height)
-                }
-            };
-            let entry =
-                HistoryActivityEvidence::from_committed_history(actor, expected_source, receipt)
-                    .map_err(|_| HistoryReadError::ItemUnproven)?;
-            if include {
-                entries.push(entry);
-            }
-            if boundary {
-                break;
-            }
-        }
-        if boundary || page.next_cursor.is_none() {
-            break;
-        }
-        page = source.page(
-            &account,
-            page.next_cursor,
-            HistoryLimits {
-                maximum_response_bytes: MAX_BYTES - bytes,
-                ..limits
-            },
-        )?;
-    }
-    Ok(PolicyUsageHistory {
-        entries,
-        checkpoint,
-        observed,
-        first_covered: first_covered.max(1),
-    })
 }
 
 #[cfg(test)]
@@ -22575,7 +22452,7 @@ mod tests {
                 history.entries,
                 history.observed,
             )
-            .authenticate_history(&actor, 10, history.first_covered),
+            .authenticate_history(&actor, 10, history.first_covered, &history.coverage),
         );
         assert_eq!(time.count(), 2);
         assert_eq!(time.successful_count(), 2);
@@ -22595,7 +22472,12 @@ mod tests {
         ));
         let total = must(
             crate::protocol_evidence::CumulativeUseWindow { first: 7, last: 8 }
-                .authenticate_history(&actor, &history.checkpoint, &history.entries),
+                .authenticate_history(
+                    &actor,
+                    &history.checkpoint,
+                    &history.entries,
+                    &history.coverage,
+                ),
         );
         assert_eq!(total.amount(), 18);
         assert_eq!(total.count(), 2);
@@ -23489,5 +23371,30 @@ mod retained_settlement_tests {
         assert!(!fixture.settlement_recorded());
         assert_eq!(fixture.budgets.held_exposure(fixture.limit), Ok(10));
         fixture.assert_retained_height();
+    }
+}
+
+impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
+    pub fn rpc_read_checkpoint(
+        &mut self,
+        context: &crate::agent_rpc_peer::RpcOwnerContext<'_>,
+        request: crate::read::CheckpointRequest,
+    ) -> Result<serde_json::Value, HumanOperationError> {
+        let mut operations = self.lock_operations()?;
+        operations.authority.authorize_subject(context.peer())?;
+        let trust = &operations
+            .export_trust
+            .as_ref()
+            .ok_or(HumanOperationError::Unavailable)?
+            .0;
+        let config = read_rpc_config()?;
+        let endpoint = read_rpc_endpoint(&config)?;
+        request
+            .acquire(
+                &endpoint,
+                &config.chain_id.to_string(),
+                trust.validator_set(),
+            )
+            .map_err(|_| HumanOperationError::Refused)
     }
 }

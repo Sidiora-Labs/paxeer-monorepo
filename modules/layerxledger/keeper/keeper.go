@@ -8,16 +8,28 @@ import (
 )
 
 type Keeper struct {
-	cdc        codec.BinaryCodec
-	storeKey   sdk.StoreKey
-	host       *lxphost.Host
-	bankKeeper types.BankKeeper
-	evmKeeper  types.EVMKeeper
-	authority  string
+	cdc          codec.BinaryCodec
+	storeKey     sdk.StoreKey
+	host         *lxphost.Host
+	bankKeeper   types.BankKeeper
+	evmKeeper    types.EVMKeeper
+	authority    string
+	issuerKeeper types.IssuerKeeper
 }
 
 func NewKeeper(cdc codec.BinaryCodec, storeKey sdk.StoreKey, host *lxphost.Host, bank types.BankKeeper, evm types.EVMKeeper, authority string) *Keeper {
 	return &Keeper{cdc: cdc, storeKey: storeKey, host: host, bankKeeper: bank, evmKeeper: evm, authority: authority}
+}
+
+// NewKeeperWithIssuer installs issuer binding on the concrete keeper consumed by
+// the module and precompile, including after the host is rebound on upgrade.
+func NewKeeperWithIssuer(cdc codec.BinaryCodec, storeKey sdk.StoreKey, host *lxphost.Host, bank types.BankKeeper, evm types.EVMKeeper, authority string, issuer types.IssuerKeeper) *Keeper {
+	k := NewKeeper(cdc, storeKey, host, bank, evm, authority)
+	if issuer == nil {
+		panic("layerxledger: nil issuer keeper")
+	}
+	k.issuerKeeper = issuer
+	return k
 }
 
 func (k *Keeper) store(ctx sdk.Context) sdk.KVStore { return ctx.KVStore(k.storeKey) }

@@ -11,7 +11,7 @@
     "list:beta": "node index.mjs --environment beta --action list",
     "buy:emulator": "node index.mjs --environment emulator --action buy",
     "buy:beta": "node index.mjs --environment beta --action buy",
-    "test": "node --check index.mjs && node test/deploy-payload.test.mjs"
+    "test": "node --check index.mjs && node test/deploy-payload.test.mjs && node test/receipt-outcome.test.mjs"
   },
   "dependencies": {
     "@sidiora/layerx-sdk": "0.1.0"

@@ -1,0 +1,12 @@
+[repair.22.31.469]
+mode = "BUILD"
+base = "13531a9e95bc34a9b21e00a3e375a215261f2bd6"
+manifest = "apps/web/package.json"
+lockfile = "apps/web/package-lock.json"
+dependency = "happy-dom"
+version = "21.0.4"
+change = "Declare happy-dom as an exact web devDependency and lock its dependency graph; import Window from happy-dom instead of another package's node_modules."
+proof = "apps/web/e2e/repair-22-33-897.test.ts"
+test = "happy_dom_resolves_from_web_manifest"
+assertions = "Resolve happy-dom from the web package manifest, require the declared and installed version to be 21.0.4, and require the bare import to resolve to that package's declared entry point; preserve every existing exchange behavior assertion."
+evidence = "The private /out/run/gates.jsonl verify row records the exact verified revision, command, exit code and log; qualification requires hf-done to pass."

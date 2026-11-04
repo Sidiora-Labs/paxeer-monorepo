@@ -89,47 +89,55 @@ def run(args):
     ).stdout
 
 
+def build_contract():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "paid_candidate_build", Path(__file__).with_name("candidate_build.py")
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+BUILD = build_contract()
+
+
 def source_identity():
-    revision = run(["git", "rev-parse", "HEAD"]).decode().strip()
-    files = run(["git", "ls-files", "-z"]).decode().split("\0")
-    files = sorted(
-        name
-        for name in files
-        if name
-        and (
-            name.endswith((".rs", ".c", ".h", ".cpp", ".proto"))
-            or Path(name).name in ("Cargo.toml", "Cargo.lock", "build.rs")
-        )
-    )
-    require(files, "compiler source inventory absent")
-    value = hashlib.sha256()
-    for name in files:
-        path = ROOT / name
-        require(
-            path.is_file() and not path.is_symlink(),
-            "compiler source missing or symlink",
-        )
-        value.update(name.encode() + b"\0" + digest(path).encode() + b"\n")
-    return revision, value.hexdigest()
+    source = BUILD.source_identity(ROOT)
+    return source["candidate"]["revision"], BUILD.source_digest(source)
 
 
-def artifact(row, revision, source):
-    path = Path(row["path"])
-    require(
-        path.is_absolute()
-        and path.is_file()
-        and not path.is_symlink()
-        and os.access(path, os.X_OK),
-        "candidate executable absent",
-    )
-    require(
-        row["source_revision"] == revision
-        and row["source_digest"] == source
-        and row["build_exit"] == 0
-        and digest(path) == row["sha256"],
-        "candidate build/source binding mismatch",
-    )
+def artifact(row, revision, source, root=None):
+    try:
+        path = BUILD.admit(row, revision, source, ROOT if root is None else root)
+    except ValueError as error:
+        raise Refusal(str(error)) from error
+    require(os.access(path, os.X_OK), "candidate executable absent")
     return path
+
+
+def bound_build_rows(value):
+    if isinstance(value, dict):
+        if {"path", "build_exit", "source_revision"} <= value.keys():
+            yield value
+        else:
+            for child in value.values():
+                yield from bound_build_rows(child)
+    elif isinstance(value, list):
+        for child in value:
+            yield from bound_build_rows(child)
+
+
+def unchanged_source(harness):
+    require(source_identity() == harness.qualification_source,
+            "actual checkout is dirty or changed before qualification evidence")
+    manifests = [harness.m]
+    if isinstance(harness, ReadinessHarness):
+        manifests.append(harness.paid.m)
+    for manifest in manifests:
+        for row in bound_build_rows(manifest):
+            BUILD.admit(row, *harness.qualification_source, ROOT)
 
 
 def endpoint(value):
@@ -589,6 +597,7 @@ class Harness:
             "paid gate requires candidate manifest",
         )
         self.revision, source = source_identity()
+        self.qualification_source = (self.revision, source)
         require(
             candidate["source"]["revision"] == self.revision
             and not candidate["source"]["dirty"],
@@ -608,7 +617,9 @@ class Harness:
             and self.m["source_digest"] == source,
             "manifest source identity mismatch",
         )
-        self.binary = artifact(self.m["artifacts"]["websearch"], self.revision, source)
+        admitted = {name: artifact(row, self.revision, source)
+                    for name, row in self.m["artifacts"].items()}
+        self.binary = admitted["websearch"]
         self.isolated = private(self.m["isolated_root"], True).resolve()
         self.evidence = private(self.m["evidence_dir"], True).resolve()
         require(
@@ -759,6 +770,7 @@ class Harness:
         self.count = 0
         self.refusals = []
         self.candidate = Candidate(self)
+        unchanged_source(self)
         self.journal = (self.evidence / "assertions.jsonl").open("x")
 
     def reference(self, value):
@@ -796,11 +808,13 @@ class Harness:
         return rpc(self.gateway, method, params, self.gateway_headers())
 
     def record(self, name):
+        unchanged_source(self)
         self.count += 1
         self.journal.write(
             json.dumps(
                 {
                     "revision": self.revision,
+                    "source_digest": self.qualification_source[1],
                     "case": name,
                     "passed": True,
                     "refusals": self.refusals,
@@ -1152,6 +1166,7 @@ class Harness:
         self.record(name)
 
     def run(self):
+        unchanged_source(self)
         self.candidate.start()
         before, state = self.sequences(), self.snapshot()
         with (self.evidence / "payment-owner-refusal.log").open("x") as log:
@@ -1547,6 +1562,7 @@ class KernelHarness:
             "kernel gate requires candidate manifest",
         )
         self.revision, source = source_identity()
+        self.qualification_source = (self.revision, source)
         require(
             candidate["source"]["revision"] == self.revision
             and not candidate["source"]["dirty"],
@@ -1595,7 +1611,6 @@ class KernelHarness:
         self.processes = []
         self.configs = []
         self.count = 0
-        self.journal = (self.evidence / "kernel-assertions.jsonl").open("x")
         for ordinal, row in enumerate(self.m["relays"]):
             config_path = private(row["config"]["path"])
             require(
@@ -1751,11 +1766,14 @@ class KernelHarness:
             and digest(wasm_path) == wasm["sha256"],
             "built reference program source binding absent",
         )
+        BUILD.admit(wasm, self.revision, source, ROOT)
         self.wasm = wasm_path.read_bytes()
         require(
             self.wasm.startswith(b"\0asm\1\0\0\0"), "reference artifact is not wasm"
         )
         self.deployment = bytes.fromhex(self.m["deployment_activity"])
+        unchanged_source(self)
+        self.journal = (self.evidence / "kernel-assertions.jsonl").open("x")
 
     def headers(self):
         path = private(self.authorization_file)
@@ -1810,9 +1828,10 @@ class KernelHarness:
         return str(source) + ":" + str(lines[0])
 
     def record(self, name):
+        unchanged_source(self)
         self.count += 1
         self.journal.write(
-            json.dumps({"revision": self.revision, "case": name, "passed": True}) + "\n"
+            json.dumps({"revision": self.revision, "source_digest": self.qualification_source[1], "case": name, "passed": True}) + "\n"
         )
         self.journal.flush()
         os.fsync(self.journal.fileno())
@@ -2063,6 +2082,7 @@ class KernelHarness:
         self.record("real-reference-deployment")
 
     def run(self):
+        unchanged_source(self)
         self.adapter_vector()
         self.reference_deployment()
         initial = self.balances()
@@ -2392,6 +2412,7 @@ class ReadinessHarness:
         )
         self.revision = self.paid.revision
         _, self.source = source_identity()
+        self.qualification_source = (self.revision, self.source)
         require(
             self.m["source_revision"] == self.revision
             and self.m["source_digest"] == self.source,
@@ -2620,9 +2641,10 @@ class ReadinessHarness:
         return pid, binary
 
     def record(self, name):
+        unchanged_source(self)
         self.count += 1
         self.journal.write(
-            json.dumps({"revision": self.revision, "case": name, "passed": True}) + "\n"
+            json.dumps({"revision": self.revision, "source_digest": self.qualification_source[1], "case": name, "passed": True}) + "\n"
         )
         self.journal.flush()
         os.fsync(self.journal.fileno())
@@ -3066,6 +3088,7 @@ class ReadinessHarness:
         return exchange(front["url"], case["target"], headers)
 
     def run(self):
+        unchanged_source(self)
         for service in self.services:
             service[4].start()
         expected = 0
@@ -3351,6 +3374,7 @@ class OperationalHarness(Harness):
             "operational gate requires candidate manifest",
         )
         self.revision, source = source_identity()
+        self.qualification_source = (self.revision, source)
         require(
             candidate["source"]["revision"] == self.revision
             and not candidate["source"]["dirty"],
@@ -3368,7 +3392,9 @@ class OperationalHarness(Harness):
             and self.m["source_digest"] == source,
             "operational metadata source identity mismatch",
         )
-        self.binary = artifact(self.m["artifacts"]["websearch"], self.revision, source)
+        admitted = {name: artifact(row, self.revision, source)
+                    for name, row in self.m["artifacts"].items()}
+        self.binary = admitted["websearch"]
         self.isolated = private(self.m["isolated_root"], True).resolve()
         self.evidence = private(self.m["evidence_dir"], True).resolve()
         require(
@@ -3524,6 +3550,7 @@ class OperationalHarness(Harness):
         self.count = 0
         self.refusals = []
         self.candidate = Candidate(self)
+        unchanged_source(self)
         self.journal = (self.evidence / "operational-assertions.jsonl").open("x")
 
     def process(self, row, url, source):
@@ -3783,6 +3810,7 @@ class OperationalHarness(Harness):
         return after
 
     def run(self):
+        unchanged_source(self)
         self.pricing()
         readback = self.inventory()
         self.candidate.start()

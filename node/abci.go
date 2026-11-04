@@ -14,6 +14,7 @@ import (
 	otelmetrics "go.opentelemetry.io/otel/metric"
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
+	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
 	seqkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/keeper"
 	seqtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/legacyabci"
@@ -24,6 +25,7 @@ import (
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/legacytm"
+	upgradetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade/types"
 	utilmetrics "github.com/Sidiora-Labs/Paxeer-X-Network/utils/metrics"
 )
 
@@ -281,6 +283,31 @@ func (app *App) DeliverTxBatch(ctx sdk.Context, req sdk.DeliverTxBatchRequest) (
 	return sdk.DeliverTxBatchResponse{Results: responses}
 }
 
+// FinalizeBlock includes the committed block identity in the hash consensus
+// records. HandlePreCommit writes the same identity during Commit; introducing
+// that key only there would change the state after FinalizeBlock published it.
+func (app *App) FinalizeBlock(ctx context.Context, req *abci.RequestFinalizeBlock) (*abci.ResponseFinalizeBlock, error) {
+	res, err := app.BaseApp.FinalizeBlock(ctx, req)
+	if err != nil {
+		return res, err
+	}
+	if app.EvmKeeper.EthReplayConfig.Enabled || app.EvmKeeper.EthBlockTestConfig.Enabled {
+		return res, nil
+	}
+	id := tmproto.BlockID{Hash: bytes.Clone(req.Hash)}
+	bz, err := id.Marshal()
+	if err != nil {
+		return nil, fmt.Errorf("finalize committed block identity: %w", err)
+	}
+	// FinalizeBlocker has already written the selected sealed, optimistic or
+	// deliver branch to the root. Include the commit-only marker before hashing
+	// that root, without publishing LastBlockID before Commit succeeds.
+	state := app.NewUncachedContext(false, *req.Header)
+	state.KVStore(app.GetKey(upgradetypes.StoreKey)).Set(committedBlockIdentityKey, bz)
+	res.AppHash = app.GetWorkingHash()
+	return res, nil
+}
+
 func (app *App) Commit(ctx context.Context) (res *abci.ResponseCommit, err error) {
 	_, span := app.GetBaseApp().TracingInfo.StartWithContext("Commit", ctx)
 	defer span.End()
@@ -318,15 +345,20 @@ func (app *App) Commit(ctx context.Context) (res *abci.ResponseCommit, err error
 	// After a successful Commit, publish the pending eth_newHeads event
 	// stashed by FinalizeBlocker. Subscribers see only committed state.
 	if err == nil {
+		height := app.LastBlockHeight()
+		appHash, hashErr := app.CommittedAppHash(height)
+		if hashErr != nil {
+			return res, hashErr
+		}
 		if n, ok := app.blockHeaderNotifier.Get(); ok {
 			if app.pendingBlockHeader != nil {
-				app.pendingBlockHeader.AppHash = bytes.Clone(app.LastCommitID().Hash)
+				app.pendingBlockHeader.AppHash = bytes.Clone(appHash)
 				n.PublishStashed()
 				app.pendingBlockHeader = nil
 			}
 		}
 		if app.commitListener != nil {
-			err = commitListener(app, app.LastBlockHeight(), app.LastCommitID().Hash)
+			err = commitListener(app, height, appHash)
 		}
 	}
 	return res, err

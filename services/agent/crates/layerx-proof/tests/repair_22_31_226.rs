@@ -1,25 +1,14 @@
 //! Task 22.31.226: guarantor-evidence-reaches-committed is covered by
 //! guarantor_only_success_cannot_yield_committed and native_evidence_stops_at_receipted.
-//! Baseline verification was not run: the task's gate order permits verification only
-//! through hf-done after the complete implementation and hf-build.
-//! Wiring request (domain 9): migrate services/agent/crates/layerx-proof/tests/checkpoint.rs
-//! from the retired certificate verifiers to refusal and receipted-evidence assertions.
-//! Wiring request (domain 9): remove the ThresholdReport cache consumer in
-//! services/agent/crates/layerx-agentd/src/cache.rs; use receipt/inclusion evidence.
-//! Wiring request (domain 9): reconcile the retired certificate-verifier, ThresholdReport
-//! and checkpoint-evidence rows in spec/layerx-merge/interfaces.kvx.
-//! Continuation: the prior build failed because checkpoint.rs still imports both
-//! verifier names; the retained interfaces now explicitly refuse every certificate.
-//! ThresholdReport is uninhabited and has no Evidence path; the legacy checkpoint
-//! success assertions still require migration by domain 9 outside this task's scope.
+//! Task 22.33.1557 migrates retired API calls to the retained certificate-bucket
+//! refusal while preserving recorded signature checks and receipt/inclusion coverage.
+
+#[path = "support/historical_checkpoint.rs"]
+mod historical;
 
 use std::collections::BTreeSet;
-use std::path::Path;
 
 use layerx_crypto::secp256k1;
-use layerx_proof::checkpoint::{
-    checkpoint_id, Attestation, Certificate, Checkpoint, CheckpointError,
-};
 use layerx_proof::evidence::Evidence;
 use layerx_proof::export_codec::{
     ArtifactDecodeError, CompleteOfflineArtifact, ExportCodecError, FactSelector, HeaderRecord,
@@ -31,14 +20,11 @@ use layerx_proof::inclusion::{
 use layerx_proof::level::{achieved, achieved_rung};
 use layerx_proof::merkle::{build_proof, Proof};
 use layerx_proof::receipt::{verify_outcome, AuthorizedBatch};
-use layerx_proof::settlement::{declared_domain, maximum_attestation_delay_ms};
 use layerx_types::json::parse;
 use layerx_types::rung::Rung;
-use layerx_types::vectors::checkpoint::{
-    checkpoint_vector_path, load_checkpoint_vector, CheckpointOutcome,
-};
+use layerx_types::vectors::checkpoint::{checkpoint_vector_path, CheckpointOutcome};
 use layerx_types::verify::VerificationLevel;
-use layerx_wire::hash::{batch_header_digest, checkpoint_attestation_digest};
+use layerx_wire::hash::{batch_header_digest, checkpoint_attestation_digest, checkpoint_id};
 use layerx_wire::receipt::{decode, decode_batch_header, decode_merkle_proof};
 
 const RECEIPT: &[u8] =
@@ -68,15 +54,17 @@ fn assert_rung(evidence: &Evidence, expected: Rung) {
 
 #[test]
 fn guarantor_only_success_cannot_yield_committed() {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../..");
+    let root = historical::repository_root();
     let path = checkpoint_vector_path(&root, "fresh");
-    let vector = must(load_checkpoint_vector(&path, "fresh"));
+    let vector = historical::fresh();
     assert_eq!(vector.outcome, CheckpointOutcome::Accept);
-    let domain = must(declared_domain(&vector.settlement_domain));
-    let checkpoint = Checkpoint::new(vector.header.bytes.clone(), vector.validity_proof.clone());
-    assert_eq!(must(checkpoint_id(&checkpoint)), vector.expected_digest);
+    let configuration = historical::configuration();
+    let domain = must(configuration.domain(&vector.settlement_domain));
+    assert_eq!(
+        must(checkpoint_id(&vector.header.bytes, &vector.validity_proof)),
+        vector.expected_digest
+    );
     let mut signers = BTreeSet::new();
-    let mut attestations = Vec::new();
     for signed in &vector.attestations {
         assert!(signers.insert(signed.guarantor_id));
         let key = domain
@@ -84,27 +72,24 @@ fn guarantor_only_success_cannot_yield_committed() {
             .iter()
             .find(|key| key.guarantor_id() == signed.guarantor_id)
             .unwrap_or_else(|| panic!("published guarantor must be bonded"));
-        assert!(key.bonded());
-        let attestation = Attestation::new(
-            vector.header.protocol_version,
-            vector.header.network_id,
-            domain.settlement().paxeer_chain_id(),
-            domain.settlement().settlement_contract(),
-            vector.header.epoch,
-            vector.expected_digest,
-            vector.expected_digest,
-            signed.guarantor_id,
-            vector.header.batch_number,
-            vector.header.data_availability_root,
-            signed.replayed,
-            signed.data_possessed,
+        let mut statement = Vec::new();
+        statement.extend_from_slice(&vector.header.protocol_version.to_be_bytes());
+        statement.extend_from_slice(&vector.header.network_id.to_be_bytes());
+        statement.extend_from_slice(&domain.paxeer_chain_id().to_be_bytes());
+        statement.extend_from_slice(&domain.settlement_contract());
+        statement.extend_from_slice(&vector.header.epoch.to_be_bytes());
+        statement.extend_from_slice(&vector.expected_digest);
+        statement.extend_from_slice(&vector.expected_digest);
+        statement.extend_from_slice(&signed.guarantor_id);
+        statement.extend_from_slice(&vector.header.batch_number.to_be_bytes());
+        statement.extend_from_slice(&vector.header.data_availability_root);
+        statement.extend_from_slice(&[
+            u8::from(signed.replayed),
+            u8::from(signed.data_possessed),
             signed.availability_class_mask,
-            signed.attested_at_ms,
-            signed.signer,
-            signed.signature,
-            signed.signature_v,
-        );
-        assert_eq!(attestation.canonical_statement(), signed.message);
+        ]);
+        statement.extend_from_slice(&signed.attested_at_ms.to_be_bytes());
+        assert_eq!(statement, signed.message);
         assert_eq!(
             must(checkpoint_attestation_digest(&signed.message)),
             signed.digest
@@ -124,41 +109,22 @@ fn guarantor_only_success_cannot_yield_committed() {
         assert!(signed.attested_at_ms >= vector.header.timestamp_ms);
         assert!(
             signed.attested_at_ms - vector.header.timestamp_ms
-                <= must(maximum_attestation_delay_ms())
+                <= configuration
+                    .finality_policy()
+                    .maximum_attestation_delay_ms()
         );
-        attestations.push(attestation);
     }
     assert_eq!(signers.len(), 3);
-    assert_eq!(vector.threshold, domain.certificate_threshold());
+    assert_eq!(
+        vector.threshold,
+        configuration.finality_policy().certificate_threshold()
+    );
     assert!(signers.len() >= vector.threshold);
 
-    for reference in [None, Some(b"registered-checkpoint".to_vec())] {
-        let certificate = Certificate::new(
-            checkpoint.clone(),
-            attestations.clone(),
-            vector.threshold,
-            reference,
-        );
-        // Drive the actual legacy consumers with the authenticated producer's
-        // complete certificate, both with and without a matching registration.
-        assert_eq!(
-            layerx_proof::checkpoint::verify_certificate(
-                &certificate,
-                domain.guarantor_set(),
-                &vector.expected_digest,
-                domain.settlement(),
-                certificate.settlement_reference(),
-            ),
-            Err(CheckpointError::RetiredCertificateVerifier),
-        );
-        assert_eq!(
-            layerx_proof::checkpoint::verify_declared_certificate(
-                &certificate,
-                &vector.settlement_domain,
-                &vector.expected_digest,
-                certificate.settlement_reference(),
-            ),
-            Err(CheckpointError::RetiredCertificateVerifier),
+    for reference in [None, Some(b"registered-checkpoint".as_slice())] {
+        historical::assert_refused(
+            historical::certificate_record(&vector, reference),
+            vector.expected_digest,
         );
         let authorization = SequencerAuthorization::new(
             vector.header.sequencer_id,
@@ -166,13 +132,9 @@ fn guarantor_only_success_cannot_yield_committed() {
             vector.header.batch_number,
             vector.header.batch_number,
         );
-        for attestation in certificate.attestations() {
+        for attestation in &vector.attestations {
             assert_eq!(
-                verify_header(
-                    certificate.checkpoint().header_bytes(),
-                    &attestation.signature(),
-                    &authorization,
-                ),
+                verify_header(&vector.header.bytes, &attestation.signature, &authorization),
                 Err(InclusionError::HeaderSignature),
             );
         }
