@@ -1,14 +1,13 @@
+"""Reusable maintained gateway TLS workload; no service process is launched here."""
+
 import concurrent.futures
 import json
 import socket
 import ssl
 import sys
 
-context = ssl.create_default_context(cafile=sys.argv[2])
-port = int(sys.argv[1])
 
-
-def probe(identifier):
+def probe(identifier, port, context):
     try:
         with socket.create_connection(('127.0.0.1', port), timeout=10) as tcp:
             with context.wrap_socket(tcp, server_hostname='localhost') as tls:
@@ -43,11 +42,19 @@ def probe(identifier):
         return type(error).__name__ + ': ' + str(error)
 
 
-with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
-    results = list(pool.map(probe, range(1000)))
-errors = [error for error in results if error]
-print(json.dumps({
-    'requests': len(results), 'passed': len(results) - len(errors),
-    'errors': errors[:20],
-}, indent=2))
-sys.exit(bool(errors))
+def qualify(port, ca_file):
+    context = ssl.create_default_context(cafile=ca_file)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+        results = list(pool.map(lambda identifier: probe(identifier, port, context), range(1000)))
+    errors = [error for error in results if error]
+    report = {
+        'requests': len(results), 'passed': len(results) - len(errors),
+        'errors': errors[:20],
+    }
+    print(json.dumps(report, indent=2))
+    assert len(results) == 1000 and not errors, report
+    return report
+
+
+if __name__ == '__main__':
+    qualify(int(sys.argv[1]), sys.argv[2])

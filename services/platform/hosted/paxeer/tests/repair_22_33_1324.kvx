@@ -1,0 +1,25 @@
+[repair.22.33.1324]
+audit = "22.30.70"
+base_revision = "00614466646b07799a236d2742211fd5eb2d85c5"
+verify_cmd = "cargo test --locked --manifest-path services/platform/hosted/paxeer/Cargo.toml --test repair_22_33_1324"
+evidence = "The runner's private hf-build/hf-done ledger records the candidate revision, exact command, exit and log; this record makes no unrun gate claim."
+baseline = "No baseline gate ran: the ordered instructions prohibit testing before implementation and prohibit running verify_cmd by hand; the declared integration target did not exist on the base, so no pre-change test failures are claimed."
+
+[finding.relay-retirement-26]
+tests = ["relay_retirement_26_chain_height_and_validator_set_evidence", "relay_retirement_26_migration_v1_preserves_archive_without_finality"]
+repair = "Current evidence exercises production BlockReference encode/decode over real Rustls sockets and ValidatorSetTrust pins for chain 125, hyperpax_125-1, height 23869863 and the recorded validator-set hash; wrong chain, covering height, validator set and historical-domain trust refuse. Historical Python domain/signature assertions move intact to migrations/v1/settlement_domains.py; Rust archive compatibility asserts exact exported statements and refuses retired finality."
+limits = "BlockReference and ValidatorSetTrust establish transport provenance and pin consistency only; these codecs do not authenticate BFT signatures or establish Committed."
+
+[finding.relay-retirement-27]
+tests = ["relay_retirement_27_listener_address_and_tls_identity", "tls_listen::tls_listen_reported_address"]
+repair = "The original listener test now shares the maintained node-facing TLS qualification assertions and committed identities instead of tls_boundary::qualify, which launches the retired relay, OpenSSL and test subprocesses; address retention, trusted TLS, wrong DNS and IP identities, unrelated and empty roots, missing CA files and CA-as-server rejection are asserted through real sockets and Rustls."
+wiring_request = "Domain 8: services/platform/hosted/gateway/src/main.rs and services/platform/hosted/gateway/tests: expose the maintained gateway's bound listener and connection handler to the reusable node-facing TLS cases; the in-scope loopback peer qualifies production TLS and chain codecs, not gateway routing or lifecycle."
+
+[finding.relay-retirement-28]
+tests = ["relay_retirement_28_bounded_tls_shutdown_and_resource_release"]
+repair = "The focused Rust target retains 1000 successful TLS requests across eight clients, exact body framing, bidirectional close_notify, the one-second shutdown bound, joined workers, released TLS configurations and immediate listener-port reuse; it needs no relay process or Python toolchain. The Python endpoint probe now exposes qualify(port, ca_file) for the maintained service owner, and the legacy caller invokes it directly instead of starting a separate test subprocess; every original response/id/result/unwrap assertion remains."
+wiring_request = "Domain 8: services/platform/hosted/gateway/src/main.rs and services/platform/hosted/gateway/tests: adopt the bounded close_notify/resource-release assertions in the maintained gateway's real connection lifecycle; retirement of services/platform/hosted/paxeer/Cargo.toml and external relay launch targets belongs to their owner, outside this task's paths."
+
+[fixtures]
+identity = "ca.der, server.der, unrelated-ca.der and their required public test keys were generated once as committed P-256 fixtures for this task, valid through 2126. Server SAN is localhost only; CA-as-server uses ca-key.der. These keys are public fixture material, never deployment credentials; no certificate tool runs in the gate."
+provenance = "commit.json is the committed node-interface exchange from hosted/node/tests/fixtures/repair_22_31_355/native_configuration.json; chain-trust-v1.json freezes its chain and validator-set pin independently of historical guarantor domains. The transcript is a codec fixture, not a claim of authenticated chain history."
