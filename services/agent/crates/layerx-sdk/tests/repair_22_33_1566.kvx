@@ -1,0 +1,68 @@
+[repair.22.33.1566]
+audit = "22.30.99"
+base_revision = "76c050242a1edcad6212aa52fac15670ecb5612d"
+acceptance = "22998.1"
+verification = "cargo test --locked --manifest-path services/agent/crates/layerx-sdk/Cargo.toml --test repair_22_33_1566"
+baseline = "Not run: the explicit gate order forbids verification before implementation and reserves verification for hf-done; no baseline failure is claimed."
+evidence = "The runner's private hf-build/hf-done ledger records the exact candidate revision, command, exit and evidence location; no gate result is asserted by this record."
+peers = "Shared committed loopback protocol fixtures; production HTTP/TLS transport, transaction and receipt codecs, SDK wallet/program consumers and unchanged binary action code."
+binary = "The production binary source is compiled into the integration target and its action invoked in-process through a JSON round trip; its existing subprocess framing regressions remain separate."
+recovery = "Stop the loopback peer, serialize and drop its store, reopen the retained transactions and signed receipts, then use fresh SDK and binary consumers."
+
+[finding.signed-prepare-fixture]
+test = "signed_prepare_fixture"
+proof = "Provisioned owner purpose and unsigned preview cross authenticated prepare/disclose; external signing precedes sign/submit; signed-envelope decoding is a separate post-sign assertion."
+
+[finding.bootstrap-probe-credentials]
+test = "bootstrap_probe_credentials"
+proof = "Actual binding consent and issued session grant cross authenticated registration/session HTTP envelopes; exact distinct owner values, verification status and correlation are asserted; anonymous calls never reach the peer."
+
+[finding.program-constructor-test-gap]
+test = "program_constructor_test_gap"
+proof = "C producer ABI and public new bind identical fees and idempotency; the public request crosses real HTTP submit/receipt and restart recovery; malformed payload and fee mismatch refusals remain."
+
+[finding.bridge-proof-positive-gap]
+test = "bridge_proof_positive_gap"
+proof = "Production binary actions return exact native/token ledger balances and a verified version-2 summary from the reopened peer; protocol, key, height-range and selector refusals remain separate."
+
+[finding.proof-sdk-positive-gap]
+test = "proof_sdk_positive_gap"
+proof = "Wallet create/open/mint and native/token balances succeed with pinned version-2 summary evidence; wait returns the identical canonical receipt after reopen; evidence tampering, asset/denomination and key/range refusals remain."
+
+[finding.rpc-route-fixture]
+test = "rpc_route_fixture"
+proof = "The explicit direct-node API sends POST / and eth_getBalance with exact pending-address parameters and returns the served quantity."
+
+[finding.wallet-route-fixture]
+test = "wallet_route_fixture"
+proof = "The public wallet reads the mapped account and asset balance over POST / with exact precompile selectors and parameters."
+
+[finding.binary-route-fixture]
+test = "binary_route_fixture"
+proof = "Production binary balance action with rpc_route=node sends POST / for the committed height and actual ledger balance method; the exact account/asset/amount is returned."
+
+[negative.route-refusals]
+test = "route_refusals_preserve_endpoint_framing_and_deadline_bounds"
+proof = "Malformed endpoints, malformed JSON, correlation mismatch, absent result, truncated HTTP and stalled RPC/wallet/binary reads refuse within their bounded deadlines."
+
+[wiring.owner-probe]
+request = "tools/qualification/paxeer-x/agent_operation_envelope.py (domain 9, agent qualification): provision signed registration/session inputs, an exact expected_outcome record per operation and the independently resolved evm_sender for native preparation; retire the obsolete ruled bootstrap refusals."
+
+[wiring.default-route]
+request = "services/agent/crates/layerx-sdk/src/rpc.rs and src/bin/layerx-wallet-rpc.rs (domain 9, SDK transport): ordinary connect/default binary configuration still select gateway routing; change defaults in the owning source task, retaining explicit gateway support; this task qualifies connect_node/rpc_route=node."
+
+[wiring.release-node]
+request = "tools/qualification/localnode/v6120-node.sh and rpc/sequencer_receipt.go (node/qualification owners): retain the external real-node release proof separately; this task's entire focused gate uses committed peers and requires no node executable or subprocess toolchain."
+
+[gotcha.scope]
+observed = "The general workflow asks for spec/GOTCHA edits and commits, but this task explicitly forbids them; task notes remain here and publication belongs to the runner."
+
+[qualification.initial-build]
+revision = "a0612eda71a0ad49e941171d7cc5b1dc1bf0c0b9"
+command = "cargo build --locked --manifest-path services/agent/crates/layerx-sdk/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The new purpose signature assertion used ? on VerifyError, which does not implement std::error::Error; repair maps that diagnostic explicitly."
+
+[gotcha.signature-error]
+observed = "layerx_crypto::VerifyError needs an explicit diagnostic conversion in a test returning Box<dyn std::error::Error>."
