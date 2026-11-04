@@ -1,0 +1,89 @@
+[repair.22.31.54]
+audit = "22.30.33"
+base_revision = "4edaf4fff3f943e154c8337c0bcc16fe4dd9dd3c"
+qualification = "Exact candidate revision, command, exit and private log are emitted by the bounded hf-build and hf-done gates and retained in their private ledger."
+baseline = "No baseline gate ran: the explicit ordered implementation-first instructions prohibit running verify_cmd by hand or consuming an unchanged-tree verification before hf-build. No pre-change test failures are claimed."
+
+[finding.native-read-model-projection]
+test = "TestRepair_54_NativeReadModelProjection"
+repair = "Project receipt-authenticated family envelopes for attested historical EventEmitter roles and verified native roles at 0x1017; preserve raw transaction/log keys and canonical SQL transaction boundaries."
+proof = "Native ABI codec to approved registry to real transaction-bound projection handlers and generated sqlc/HTTP status consumers over the in-memory persistence peer; final-write rollback, exact amounts and keys, immutable replay and untrusted-emitter refusal. The separately named PostgreSQL integration case retains its original assertions."
+limitation = "This codec/store proof does not claim native receipt qualification or native keeper execution; native economic receipt admission is owned by repair 22.31.53."
+wiring_request = "services/launchpad/indexer/internal/receipt/qualified.go — domain 4: close native-swap-qualification in repair 22.31.53 and run native keeper output through receipt authority and this canonical producer."
+api_wiring_request = "services/launchpad/api — domain 4: exercise the public market/pool read endpoints against these committed native rows; cross-service API module wiring is outside this task's processor paths."
+
+[finding.ambiguous-commit-live-recovery]
+test = "TestRepair_54_AmbiguousCommitLiveRecovery"
+repair = "Retain and reconcile the original immutable canonical batch before another head observation or source fetch; advance Run only from the reconciled batch, without shrinking its identity."
+proof = "Recorded chain receipts through CommittedSource, RPCQualification and LiveQualifiedSource into the real canonical producer, accounting validation, delivery partition writer and durable publisher. The in-memory store commits then loses acknowledgement, temporarily refuses reconciliation, and Run advances exactly once before processor/source/authority restart on that same store. The original PostgreSQL lost-COMMIT transport proof remains as an integration case."
+wiring_request = "services/launchpad/indexer/internal/app/app.go — domain 4: run this lost-response case with the private canonicalRuntimeHead type; processor tests use real CommittedSource.Head and reload the same durable watermark at LiveQualifiedSource admission, because importing app from processor would form an import cycle."
+
+[qualification.inputs]
+external_artifact = "Existing realReceiptInputs depends on contracts/launchpad/artifacts/contracts/core/SidioraERC20.sol/SidioraERC20.json, absent in this checkout; new repair coverage reads the genuine recorded token runtime and the production immutable mask instead."
+recorded_metadata = "Fresh receipt authorities requalify the genuine creation receipt at its recorded block after rehydration, proving the factory facts and warming epoch-scoped token metadata without synthesizing missing later-block RPC responses."
+
+[qualification.constraints]
+standalone_conflict = "The inherited proving tests require actual PostgreSQL for SQL rollback, durable effects and lost-COMMIT transport; preserving those assertions without a stub, mock or fake conflicts with the requested PostgreSQL-free gate."
+resolution = "Preserve all inherited assertions and report unavailable database proof as unqualified; TestRepair_54_RecordedLiveQualification separately proves recorded source, authentic receipt qualification, source reopen and two accounting fills without a database or fabricated RPC responses."
+prior_attempt = "The supplied prior attempt failed TestRepair_54_AmbiguousCommitLiveRecovery on an unrecorded decimals() RPC read before exercising live recovery; its unrelated replay SQL parameter typing failures remain outside this task."
+
+[qualification.continuation]
+missing_interface = "There is no in-process store implementation in this checkout: internal/store.Store wraps SQL DBTX, CanonicalEpochGuarded requires its private canonicalEpochDB with a nonnil PostgreSQL pool, and ProcessQualifiedCanonicalBatch requires that authority plus concrete durable publisher and partition stores."
+store_wiring_request = "services/launchpad/indexer/internal/store, services/launchpad/indexer/internal/publisher and sdk/launchpad/shared/delivery — domain 4: provide an actual in-process transaction and recovery-epoch backend compatible with the canonical producer before its database-free Run and SQL-consumer proof can be implemented without weakening checks."
+fixture_wiring_request = "services/launchpad/indexer/internal/internaltest/chainfixture/chainfixture.go — domain 4: this path is outside SCOPE; extend the recording only with authenticated missing decimals responses, never synthesized results."
+baseline = "The supplied attempt-2 evidence records both original TestRepair_54 functions failing on missing L06_POSTGRES_DSN; no unchanged baseline is rerun by hand."
+
+[gotcha.recorded-metadata]
+symptom = "Rehydration restores discovered code epochs without restoring the token decimals cache, so later swap qualification can request RPC calls absent from the finite recording."
+resolution = "Qualify the actual recorded creation receipt through the real authority before the live lost-COMMIT case; retain all recovery and exactly-once assertions."
+
+[gotcha.rollback-range]
+symptom = "Retaining every failed canonical candidate suppresses range reduction even when reconciliation definitively proves the transaction did not commit."
+resolution = "Reduce the next range only after reconciliation returns an uncommitted result; preserve the immutable original range while the outcome remains unknown."
+
+[qualification.preexisting]
+revision = "3dc92f061e01a9e8b5edf0997fc6c85134397376"
+command = "cg spec done 22.31.54 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Unchanged tests fail on missing SidioraERC20 artifact, FK-protected TRUNCATE, disallowing connections to the current database, and replay SQL parameter $10 typing; these are recorded without repair or reinvestigation."
+assumption = "The bounded rerun is required to qualify the task-scoped recorded-head transport repair; it does not authorize chasing these inherited failures."
+
+[qualification.attempt4]
+seed_revision = "249d10ada316e72a964fa26ab05f1e5170ce87b1"
+ledger = "The current runner starts with zero build and verification runs; no current gates.jsonl exists before qualification."
+prior_failure = "The supplied attempt-3 evidence records TestRepair_54_NativeReadModelProjection and TestRepair_54_AmbiguousCommitLiveRecovery failing because canonicaltest.New requires L06_POSTGRES_DSN; no additional baseline gate is run."
+blocked_interface = "The requested package in-process store does not exist: internal/store/store.go defines only the SQL-backed Store, and internal/store/canonical.go:CanonicalEpochGuarded requires its private canonicalEpochDB and nonnil pgxpool.Pool; concrete delivery.PartitionStore and publisher.DurableStager are also required by ProcessQualifiedCanonicalBatch."
+scope_boundary = "The explicit processor-only scope excludes internal/store, internal/publisher, sdk/launchpad/shared/delivery and internal/internaltest/chainfixture/chainfixture.go; none is modified and no replacement, fallback, weakened guard or SQL test double is introduced."
+result_policy = "Preserve the inherited production repairs and every assertion; report implemented-not-qualified if the bounded verification confirms the missing interface. The PostgreSQL-free closure requested by the ruling remains unimplemented."
+
+[qualification.attempt5]
+supplemental_tests = ["TestRepair_54_NativeProjectionIdentityGuards", "TestRepair_54_PendingBatchRetainedOnReconciliationCancellation"]
+native_proof = "The production ABI and approved registry supply native envelopes to the production role and identity guards; duplicate identities, missing timestamps and changed canonical positions are rejected before any write. This is supplemental coverage, not a SQL or HTTP projection proof."
+recovery_proof = "Real Store.ReconcileCanonicalCommit and pgx cancellation retain the original multi-block candidate through identical and smaller ProcessBatch retries without acquiring a database connection. This is supplemental coverage, not a successful-commit or restart proof."
+missing_interface = "The requested existing in-process canonical store remains absent; the two complete inherited proving tests still require PostgreSQL. Their assertions remain intact rather than substituting the narrower supplemental tests for closure."
+evidence = "The final bounded hf-build and hf-done output and private gate ledger name the exact candidate revision, command, exit and log; no task-completion claim is made unless the declared verification passes."
+
+[qualification.attempt6]
+ruling = "The explicit continuation authorizes an in-memory persistence peer and separate PostgreSQL integration names which skip without L06_POSTGRES_DSN; this supersedes the missing-interface conclusions of prior attempts."
+implementation = "Deps.Store now names ProcessorStore, satisfied by the unchanged production PostgreSQL Store; the in-memory implementation exists only in repair_54_test.go and enforces immutable source, transaction rollback, lease and watermark rules. Existing production epoch and dependency checks remain intact."
+peer_boundary = "The persistence peer supplies transactional DBTX/pgx operations to unchanged production handlers, canonical fact validators, partition sequencing and durable publisher; unsupported operations fail explicitly. A closed non-connected pool supplies the existing delivery constructors; accidental database access fails."
+recovery = "TestRepair_54_AmbiguousCommitLiveRecovery runs real committed RPC and receipt qualification over loopback recorded transcripts, models canonicalRuntimeHead checkpoint reload, loses one persisted commit response and one reconciliation response, checks the original 17-block batch and exactly two swaps/fills/market frames, then restarts the processor and receipt/source components on the same store and rechecks effects."
+baseline = "The supplied attempt-5 evidence records NativeReadModelProjection and AmbiguousCommitLiveRecovery failing on missing L06_POSTGRES_DSN; those PostgreSQL cases retain every assertion under TestRepair54Postgres_* and the TestRepair_54_* replacements execute without that variable. No extra baseline gate is run."
+evidence = "The private bounded gate ledger records the exact final source revision; hf-done runs last with no subsequent source edit. No completed-gate claim is made in advance."
+
+[gotcha.peer-contract]
+symptom = "Deps.Store was concrete despite the continuation describing an interface; SQL-backed canonical transaction callbacks also expose concrete Store and pgx.Tx."
+resolution = "Declare the processor-local persistence interface without changing production implementations, and provide its in-memory peer plus transaction-bound DBTX inside the authorized test file."
+
+[gotcha.cursor-sql-type]
+symptom = "The HTTP cursor was null because the in-memory row supplied time.Time for sqlc's pgtype.Timestamp UpdatedAt column."
+resolution = "Supply the generated cursor column's exact pgtype.Timestamp type; retain the asserted HTTP checkpoint and all projection assertions."
+
+[qualification.attempt6-repair]
+revision = "c81448c92c06b0efe79c592ebc072377c9358ca0"
+command = "cg spec done 22.31.54 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All recovery and identity tests passed; NativeReadModelProjection failed its HTTP checkpoint assertion on the peer cursor timestamp type."
+assumption = "A task-scoped peer type repair and bounded rebuild/reverification preserve the original assertion."
