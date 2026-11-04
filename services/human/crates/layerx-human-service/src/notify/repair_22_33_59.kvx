@@ -1,0 +1,14 @@
+[repair.22.33.59]
+audit = "22.30.107"
+baseline = "Attempt 1 never reached this task's verify because observed_balances_denom.rs failed to build against Quantity (gotcha 2974); no baseline test failure is claimed. Attempt 2 starts with no carried notification implementation. The ordered bounded gates prohibit a separate baseline verify."
+state = "Notification consumer choices and read acknowledgements use namespaced rows in the existing durable EventOutbox table, independently of expiring notification history; atomic compatibility writes retain the existing Notifications rows. No audit entries or evidence rows are rewritten."
+migration = "Dispatcher::migrate_retained_state transactionally validates and copies surviving legacy preferences and read markers for visible in-app deliveries; dispatch and mark_read invoke it, including deduplicated dispatch. Already-expired legacy state cannot be reconstructed."
+wiring_request = "services/human/crates/layerx-human-service/src/store/retention.rs and src/store/mod.rs, owning domain fm-human: invoke Dispatcher::migrate_retained_state with propagated errors before every principal retention sweep so dormant legacy accounts migrate before their first sweep; a future dedicated durable notification-state table can replace the existing durable consumer namespace."
+
+[finding.notification-read-state-expires]
+tests = ["notification_read_state_survives_sweep_and_reopen_without_changing_evidence", "legacy_notification_state_migrates_on_dispatch_before_sweep_and_reopen", "legacy_migration_refuses_corruption_without_partially_saving_choices"]
+proof = "Real dispatch, channel codec, audit chain and principal store; mark-read, zero-period sweep, repeated store reopen, idempotent read, unread counts, principal isolation, and byte-for-byte audit export and immutable delivery/batch preservation."
+
+[finding.notification-preferences-expire]
+tests = ["notification_preferences_survive_sweep_reopen_and_explicit_replacement", "legacy_notification_state_migrates_on_dispatch_before_sweep_and_reopen", "legacy_migration_refuses_corruption_without_partially_saving_choices"]
+proof = "Real preferences, dispatch and principal store; channel and class opt-outs, Full and Minimal detail, explicit replacement, suppression and critical-security behavior survive sweep and reopen; legacy migration is atomic and corrupt choices are refused."
