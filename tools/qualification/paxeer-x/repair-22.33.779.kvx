@@ -1,0 +1,45 @@
+[repair]
+task = "22.33.779"
+audit = "spec/layerx-merge/programme/audit/records/22.30.174.kvx"
+base = "13531a9e95bc34a9b21e00a3e375a215261f2bd6"
+tests = "tools/qualification/paxeer-x/tests/test_repair_22_33_779.py"
+verified_revision = "The exact candidate revision, command, exit and private evidence location are recorded by hf-build and hf-done in /out/run/gates.jsonl; only a passing hf-done at the built revision qualifies this repair."
+baseline = "Not run: the explicit implementation-first, hf-done-only gate order forbids the contradictory unchanged-tree verification in step 8; no baseline failures are claimed."
+proof = "Production qualification clients traverse loopback HTTP with the production native lifecycle and ABI codecs, original signed node conformance receipts, pinned signature verification, and a persistent in-process node/gateway/custody peer; the test stops and reopens peers and reconstructs consumers to prove recovery."
+boundary = "This focused gate needs no environment, credentials, live endpoint, external binary, subprocess toolchain, native artifact or device; it does not claim live paxd/SDK/browser/ceremony assembly was run."
+format = "The repository has no Python formatter configured for these paths; retain existing four-space and newline conventions."
+
+[finding.typed-programs-daemon]
+tests = ["test_typed_programs_deploy_native_producer_and_current_evm_interface", "test_typed_programs_discovery_preserves_every_target_refusal", "test_typed_programs_call_simulation_and_committed_recovery", "test_typed_programs_exact_registration_refusals_and_unchanged_state", "test_typed_case_inventory_keeps_all_abis_refusals_and_languages"]
+repair = "Own a source-bound paxd and its reopened private home, replace the standalone execution/CLI lifecycle with Programs 0x101D deploy/upgrade/call/simulateCall/getProgram/getInterface/getStateHead, require exact committed signed actions and preserve ABI 1-4, all five language-consumer refusal checks, all 64 language/version consumers and untyped-interface refusals."
+
+[finding.router-readiness-retired]
+tests = ["test_router_current_producer_transport_consumer_and_restart", "test_router_each_current_backend_outage_and_recovery", "test_router_configured_roster_omission_is_never_healthy", "test_router_wrong_network_missing_consensus_and_chain_only_refusals", "test_router_never_accepts_uncommitted_or_substituted_receipt"]
+repair = "Use root node RPC and separate root hosted gateway RPC, current durable-store/node/consensus readiness and exact committed receipt projections; retain unavailable-backend, missing-configuration, wrong-network, omission, startup and retained-state restart cases without an independent router or sequencer lifecycle."
+
+[finding.wallet-caps-retired]
+tests = ["test_wallet_current_capabilities_budget_grant_fee_and_empty_reads", "test_wallet_mutation_revocation_and_reopen_keep_fresh_verified_state", "test_wallet_preserves_identity_bounds_and_unavailable_refusals", "test_wallet_payment_binds_custody_action_fee_and_committed_receipt", "test_wallet_custody_refusals_never_sign_or_change_cap_state"]
+repair = "Provision merged paxd, discover px_getCapabilities through the hosted gateway, enumerate committed budget/grant issuance events and read getBudget/budgetRemaining/getPayerGrant/fee at the same finalized block; retain exact owned records, foreign filtering, confirmed-empty versus unavailable, custody refusals, fee, signed payment, mutation/revocation, recovery and the full 23-case SDK/UI inventory."
+
+[finding.ceremony-artifact-revision]
+tests = ["test_ceremony_manifest_current_revision_and_digest_survive_reopen", "test_ceremony_rejects_valid_old_revision_even_with_matching_binary_digest", "test_ceremony_refuses_substitution_before_any_launch"]
+repair = "Require the fixture, source manifest, every executable artifact and every manifest digest binding to name the current qualified revision; recheck the protected executable path, revision and digest before every initial/restart/resume launch and direct psql query, and retain those bindings in private ceremony evidence."
+
+[wiring]
+programs = "precompiles/layerxprograms and sdk/platform — Programs/SDK domains: emit source-bound v2 typed case inputs and all 64 current EVM consumer assemblies, including signed deploy/call/upgrade actions and simulation expectations; publish a hashed private paxd seed using the existing merged-winddown fixture contract."
+gateway = "services/platform/hosted/gateway and tools/release — platform/release domains: publish v2 readiness inputs binding paxd EVM and consensus root listeners, gateway TLS and current compiled artifacts without standalone execution/sequencer configuration."
+wallet = "services/wallet and sdk/wallet — wallet domain: publish v2 source-bound current service, signed mutation/payment, custody refusal and SDK/browser consumer assemblies retaining all declared case assertions; map historical kernel-selector refusal labels to the current wallet signing boundary."
+wallet_ui = "apps/wallet/src/surfaces/useSurface.ts — wallet UI domain: expose current getBudget/budgetRemaining data for the retained budget UI assertions; the current UI explicitly reports budgetAvailability unavailable, and this task does not fabricate budget UI success."
+ceremony = "services/wallet/ceremony — wallet domain: publish source manifests with source_revision, complete files and per-artifact source_revision/sha256 records matching the current qualification revision before launching the resume runner."
+
+[gotcha.1]
+observed = "The explicit single-gate order conflicts with the embedded baseline instruction; no verification can run before implementation or outside hf-done."
+
+[gotcha.2]
+observed = "Dynamic imports of merged_chain create distinct RpcError classes; shared qualification clients bind the owned paxd fixture to the same loaded transport module."
+
+[gotcha.3]
+observed = "The current gateway roster is durable_store, paxeer_chain and consensus, with event_producer only when configured; legacy kernel backends are no longer readiness requirements."
+
+[gotcha.4]
+observed = "Current wallet capability reads are public EVM views; custody/session refusals belong at the authenticated wallet signing boundary, not an invented replacement lx_ method."
