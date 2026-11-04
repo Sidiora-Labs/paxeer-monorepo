@@ -16,6 +16,7 @@ defmodule Indexer.Fetcher.Arbitrum.Workers.NewL1Executions do
     thereby enriching the lifecycle transaction data.
   """
 
+  import Ecto.Query
   import EthereumJSONRPC, only: [quantity_to_integer: 1]
   alias EthereumJSONRPC.Arbitrum.Constants.Events, as: ArbitrumEvents
 
@@ -32,8 +33,9 @@ defmodule Indexer.Fetcher.Arbitrum.Workers.NewL1Executions do
   alias Indexer.Fetcher.Arbitrum.Workers.Confirmations.Tasks, as: ConfirmationsTasks
   alias Indexer.Helper, as: IndexerHelper
 
-  alias Explorer.Chain
   alias Explorer.Chain.Arbitrum
+  alias Explorer.Repo
+  alias Explorer.Chain.Import.Runner.Arbitrum.{L1Executions, LifecycleTransactions, Messages}
 
   require Logger
 
@@ -107,19 +109,135 @@ defmodule Indexer.Fetcher.Arbitrum.Workers.NewL1Executions do
         Rpc.get_resend_attempts()
       )
 
+    window = Map.get(l1_rpc_config, :execution_reorg_depth, l1_rpc_config.logs_block_range)
+    first_block = max(state.config.l1_rollup_init_block, min(start_block, latest_block + 1) - window)
     end_block = min(start_block + l1_rpc_config.logs_block_range - 1, latest_block)
 
-    if start_block <= end_block do
-      log_info("Block range for new l2-to-l1 messages executions discovery: #{start_block}..#{end_block}")
-
-      discover(outbox_address, start_block, end_block, l1_rpc_config)
-
-      # The next iteration will start from the next block after the last processed block
-      {:ok, ArbitrumHelper.update_fetcher_task_data(state, :new_executions, %{start_block: end_block + 1})}
+    if first_block <= end_block do
+      with {:ok, identities} <- reconcile_executions(outbox_address, first_block, end_block, start_block, l1_rpc_config) do
+        {:ok,
+         ArbitrumHelper.update_fetcher_task_data(state, :new_executions, %{
+           start_block: end_block + 1,
+           observed_blocks: identities
+         })}
+      end
     else
-      # No new blocks on L1 produced from the last iteration of the new executions discovery
       {:ok, state}
     end
+  end
+
+  defp reconcile_executions(outbox, first, last, cursor, rpc) do
+    with {:ok, blocks} <- execution_blocks(first, last, rpc),
+         logs <- get_logs_for_new_executions(first, last, outbox, rpc.json_rpc_named_arguments),
+         true <- canonical_execution_logs?(logs, blocks),
+         {:ok, ^blocks} <- execution_blocks(first, last, rpc) do
+      upper = max(last, min(cursor - 1, last + Map.get(rpc, :execution_reorg_depth, rpc.logs_block_range)))
+
+      case Repo.transaction(fn ->
+             # Serializes executions and revocations across new/historical worker runs.
+             Repo.query!("SELECT pg_advisory_xact_lock(2233546)")
+             {transactions, executions} = get_executions_from_logs(logs, rpc, blocks)
+             revoke_executions(first, upper, Enum.map(executions, & &1.message_id))
+             now = DateTime.utc_now()
+             options = %{timeout: :infinity, timestamps: %{inserted_at: now, updated_at: now}}
+             {:ok, _} = import_execution_records(LifecycleTransactions, transactions, options)
+             {:ok, _} = import_execution_records(L1Executions, executions, options)
+             {:ok, _} = import_execution_records(Messages, get_relayed_messages(), options)
+           end) do
+        {:ok, _} -> {:ok, Map.new(blocks, fn {number, block} -> {number, block["hash"]} end)}
+        {:error, reason} -> {:error, reason}
+      end
+    else
+      {:error, reason} -> {:error, reason}
+      _ -> {:error, :inconsistent_execution_blocks}
+    end
+  end
+
+  defp import_execution_records(runner, params, options) do
+    schema = runner.ecto_schema_module()
+
+    changes =
+      Enum.map(params, fn attrs ->
+        changeset = schema.changeset(struct(schema), attrs)
+
+        if changeset.valid? do
+          changeset.changes
+        else
+          Repo.rollback({:invalid_execution_record, changeset})
+        end
+      end)
+
+    runner.insert(Repo, changes, options)
+  end
+
+  defp execution_blocks(first, last, rpc) do
+    first..last
+    |> Enum.chunk_every(rpc.chunk_size)
+    |> Enum.reduce_while({:ok, %{}}, fn numbers, {:ok, acc} ->
+      requests = Enum.map(numbers, &BlockByNumber.request(%{id: &1, number: &1}, false))
+
+      with {:ok, responses} <- EthereumJSONRPC.json_rpc(requests, rpc.json_rpc_named_arguments),
+           true <- Enum.sort(Enum.map(responses, & &1.id)) == numbers,
+           true <- Enum.all?(responses, &valid_execution_block?/1) do
+        blocks = Map.new(responses, fn %{id: number, result: block} -> {number, block} end)
+        {:cont, {:ok, Map.merge(acc, blocks)}}
+      else
+        {:error, reason} -> {:halt, {:error, reason}}
+        _ -> {:halt, {:error, :incomplete_execution_blocks}}
+      end
+    end)
+    |> case do
+      {:ok, blocks} ->
+        if Enum.all?(first..last, fn number ->
+             number == first or blocks[number]["parentHash"] == blocks[number - 1]["hash"]
+           end) do
+          {:ok, blocks}
+        else
+          {:error, :inconsistent_execution_blocks}
+        end
+
+      error ->
+        error
+    end
+  end
+
+  defp valid_execution_block?(%{id: number, result: %{"number" => raw, "hash" => hash, "timestamp" => timestamp}}) do
+    quantity_to_integer(raw) == number and is_binary(hash) and is_binary(timestamp)
+  end
+
+  defp valid_execution_block?(_), do: false
+
+  defp canonical_execution_logs?(logs, blocks) do
+    Enum.all?(logs, fn log ->
+      block = blocks[quantity_to_integer(log["blockNumber"])]
+      not is_nil(block) and log["removed"] != true and log["blockHash"] == block["hash"]
+    end)
+  end
+
+  defp revoke_executions(first, last, incoming_ids) do
+    previous =
+      Repo.all(
+        from(e in Arbitrum.L1Execution,
+          join: tx in Arbitrum.LifecycleTransaction,
+          on: tx.id == e.execution_id,
+          where: (tx.block_number >= ^first and tx.block_number <= ^last) or e.message_id in ^incoming_ids,
+          order_by: e.message_id,
+          select: {e.message_id, tx.hash},
+          lock: fragment("FOR UPDATE OF ?", e)
+        )
+      )
+
+    Enum.each(previous, fn {id, hash} ->
+      Repo.update_all(
+        from(m in Arbitrum.Message,
+          where: m.direction == :from_l2 and m.message_id == ^id and m.completion_transaction_hash == ^hash
+        ),
+        set: [status: :confirmed, completion_transaction_hash: nil, updated_at: DateTime.utc_now()]
+      )
+    end)
+
+    ids = Enum.map(previous, &elem(&1, 0))
+    Repo.delete_all(from(e in Arbitrum.L1Execution, where: e.message_id in ^ids))
   end
 
   @doc """
@@ -235,43 +353,8 @@ defmodule Indexer.Fetcher.Arbitrum.Workers.NewL1Executions do
   # ## Returns
   # - N/A
   defp discover(outbox_address, start_block, end_block, l1_rpc_config) do
-    logs =
-      get_logs_for_new_executions(
-        start_block,
-        end_block,
-        outbox_address,
-        l1_rpc_config.json_rpc_named_arguments
-      )
-
-    {lifecycle_transactions, executions} = get_executions_from_logs(logs, l1_rpc_config)
-
-    if executions != [] do
-      log_info("Executions for #{length(executions)} L2 messages will be imported")
-
-      {:ok, _} =
-        Chain.import(%{
-          arbitrum_lifecycle_transactions: %{params: lifecycle_transactions},
-          arbitrum_l1_executions: %{params: executions},
-          timeout: :infinity
-        })
-    end
-
-    # Inspects all unexecuted messages to potentially mark them as completed,
-    # addressing the scenario where found executions may correspond to messages
-    # that have not yet been indexed. This ensures that as soon as a new unexecuted
-    # message is added to the database, it can be marked as relayed, considering
-    # the execution transactions that have already been indexed.
-    messages = get_relayed_messages()
-
-    if messages != [] do
-      log_info("Marking #{length(messages)} l2-to-l1 messages as completed")
-
-      {:ok, _} =
-        Chain.import(%{
-          arbitrum_messages: %{params: messages},
-          timeout: :infinity
-        })
-    end
+    {:ok, _} =
+      reconcile_executions(outbox_address, start_block, end_block, end_block + 1, l1_rpc_config)
   end
 
   # Retrieves logs representing `OutBoxTransactionExecuted` events between the specified blocks.
@@ -314,30 +397,19 @@ defmodule Indexer.Fetcher.Arbitrum.Workers.NewL1Executions do
   #     statuses, and unique identifiers.
   #   - A list of detailed execution information for L2-to-L1 messages.
   # Both lists are prepared for database importation.
-  @spec get_executions_from_logs(
-          [%{String.t() => any()}],
-          %{
-            :json_rpc_named_arguments => EthereumJSONRPC.json_rpc_named_arguments(),
-            :chunk_size => non_neg_integer(),
-            :track_finalization => boolean(),
-            optional(any()) => any()
-          }
-        ) :: {[Arbitrum.LifecycleTransaction.to_import()], [Arbitrum.L1Execution.to_import()]}
-  defp get_executions_from_logs(logs, l1_rpc_config)
+  @spec get_executions_from_logs([%{String.t() => any()}], map(), map()) ::
+          {[Arbitrum.LifecycleTransaction.to_import()], [Arbitrum.L1Execution.to_import()]}
+  defp get_executions_from_logs(logs, l1_rpc_config, blocks)
 
-  defp get_executions_from_logs([], _), do: {[], []}
+  defp get_executions_from_logs([], _, _), do: {[], []}
 
-  defp get_executions_from_logs(
-         logs,
-         %{
-           json_rpc_named_arguments: json_rpc_named_arguments,
-           chunk_size: chunk_size,
-           track_finalization: track_finalization?
-         } = _l1_rpc_config
-       ) do
-    {basics_executions, basic_lifecycle_transactions, blocks_requests} = parse_logs_for_new_executions(logs)
+  defp get_executions_from_logs(logs, %{track_finalization: track_finalization?}, blocks) do
+    {basics_executions, basic_lifecycle_transactions, _blocks_requests} = parse_logs_for_new_executions(logs)
 
-    blocks_to_ts = Rpc.execute_blocks_requests_and_get_ts(blocks_requests, json_rpc_named_arguments, chunk_size)
+    blocks_to_ts =
+      Map.new(blocks, fn {number, block} ->
+        {number, EthereumJSONRPC.timestamp_to_datetime(block["timestamp"])}
+      end)
 
     lifecycle_transactions =
       basic_lifecycle_transactions

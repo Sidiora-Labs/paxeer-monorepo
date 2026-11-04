@@ -1,0 +1,10 @@
+{
+  "block_number": "0x2a",
+  "block_timestamp": "0x6553f100",
+  "gas_used": "0xa410",
+  "index": "0x1",
+  "mini_block_number": 420,
+  "mini_block_timestamp": "0x60a24181e4000",
+  "receipts": [],
+  "transactions": ["0x02f86a", "0x02f86b"]
+}

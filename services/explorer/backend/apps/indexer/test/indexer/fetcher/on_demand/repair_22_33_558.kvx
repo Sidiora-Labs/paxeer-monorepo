@@ -1,0 +1,36 @@
+[repair.22.33.558]
+audit = "22.30.158"
+base_revision = "de8ab245609a7e0707cc32c502b6dcbe17ce3aca"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/indexer/test/repair/repair_22_33_558_test.exs"
+evidence = "The runner gate ledger /out/run/gates.jsonl records the qualified candidate revision, command, exit and private log; this record makes no pre-gate success claim."
+baseline = "Not run: the explicit gate order forbids verification before complete implementation and a manual verify run; no pre-change failures are claimed."
+wiring_requests = []
+
+[finding.031]
+tests = ["031: complete AverageBlockTime settings survive an on-demand test exit", "031: an originally absent AverageBlockTime setting stays absent"]
+proof = "The shared ExUnit restoration callback restores all settings; recorded block responses pass through the real block converter, Chain.import and AverageBlockTime consumer."
+
+[finding.032]
+tests = ["032: complete AverageBlockTime settings survive an on-demand test exit", "032: an originally absent AverageBlockTime setting stays absent"]
+proof = "The token-balance setup uses the same restoration callback, preserving the complete configured block window and deleting an override when the original key was absent."
+
+[finding.054]
+tests = ["054: a failed bytecode assertion restores the whole configuration before the next fetch", "054: absent and explicitly nil ContractCode settings are restored even after an early exit"]
+proof = "An early assertion failure after a real HTTP bytecode fetch still runs the registered cleanup; the next real fetch observes the original cooldown and preserves the attempt count."
+
+[finding.014]
+tests = ["014: raw success metadata and a failing refresh reach real subscribers without a false success"]
+proof = "The real fetcher reads ABI tokenURI responses over loopback HTTP, persists successful raw metadata, records failed refresh attempts and delivers real Registry notifications without a false success for the failure."
+
+[fixtures]
+blocks = "services/explorer/backend/apps/explorer/test/support/fixture/vcr_cassettes/{block_importer_download_block_1_downloads_the_block,block_importer_import_1_pending}.json"
+rpc = "repair_22_33_558_transcript.json"
+rpc_source = "The retained eth_getCode and ERC-721 tokenURI request/response shapes from the on-demand tests, with a data URI carrying their Super Token metadata and an invalid-base64 failure variant."
+
+[qualification.repair_1]
+revision = "b38c50a29a4894af85eaff42e000305aac33fb3d"
+command = "cg spec done 22.33.558 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Seven cases executed; the two block-average proofs selected equal timestamps and the metadata proof omitted the token factory address association."
+repair = "Use two existing recorded blocks with distinct timestamps and their real height gap; set the token address association and hash together without changing assertions."

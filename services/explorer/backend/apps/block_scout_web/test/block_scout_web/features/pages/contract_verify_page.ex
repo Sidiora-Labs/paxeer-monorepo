@@ -6,7 +6,7 @@ defmodule BlockScoutWeb.ContractVerifyPage do
   import Wallaby.Query
 
   def visit_page(session, address_hash) do
-    visit(session, "/address/#{address_hash}/verify-via-flattened-code/new")
+    visit(session, "/address/#{Explorer.Chain.Address.checksum(address_hash)}/verify-via-flattened-code/new")
   end
 
   def fill_form(session, %{
@@ -16,26 +16,30 @@ defmodule BlockScoutWeb.ContractVerifyPage do
         source_code: source_code,
         evm_version: evm_version
       }) do
+    if current_path(session) =~ "/contract_verifications/new" do
+      click(session, css("#verify_via_flattened_code_button"))
+    end
+
     session
     |> fill_in(css("[data-test='contract_name']"), with: contract_name)
     |> fill_in(text_field("Enter the Solidity Contract Code"), with: source_code)
 
     case version do
       nil -> nil
-      _ -> click(session, option(version))
+      _ -> session |> find(select("Compiler")) |> click(option(version))
     end
 
     case evm_version do
       nil -> nil
-      _ -> click(session, option(evm_version))
+      _ -> session |> find(select("EVM Version")) |> click(option(evm_version))
     end
 
     case optimization do
       true ->
-        click(session, radio_button("Yes"))
+        click(session, css("label[for='smart_contract_optimization_true']"))
 
       false ->
-        click(session, radio_button("No"))
+        click(session, css("label[for='smart_contract_optimization_false']"))
 
       _ ->
         nil
@@ -49,7 +53,7 @@ defmodule BlockScoutWeb.ContractVerifyPage do
   end
 
   def has_message?(session, message) do
-    String.contains?(page_source(session), message)
+    has_text?(session, message)
   end
 
   def verify_and_publish(session) do

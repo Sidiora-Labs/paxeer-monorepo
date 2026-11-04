@@ -1,0 +1,9 @@
+[repair.22.33.471]
+finding = "production-database-peer-verification"
+source_revision = "081dc08ced37d64df4d676e4b2a2d07ef444115a"
+proving_module = "Explorer.Repair.Repair2233471Test"
+proving_tests = ["production-database-peer-verification: every production repo inherits authenticated TLS", "production-database-peer-verification: runtime CA selection overrides the build configuration", "production-database-peer-verification: a trusted TLS database stores and returns a recorded block schema", "production-database-peer-verification: an untrusted database is rejected before startup data", "production-database-peer-verification: a trusted certificate for another hostname is rejected"]
+baseline = "Not run: the task's explicit ordered gates require complete implementation before any test and prohibit running verify_cmd by hand; no pre-change failures are claimed."
+wiring_requests = []
+runtime_wiring = "Existing services/explorer/backend/config/runtime.exs loads apps/*/config/runtime/prod.exs after the umbrella runtime database configuration; no out-of-scope change is needed."
+evidence = "The external hf-build/hf-done ledger records the exact candidate revision, command, exit and private log location; no qualification is claimed before those gates pass."

@@ -1,4 +1,5 @@
 import ts from 'typescript';
+import { committedReceipt, nodeVector } from './support/receipt-recordings.js';
 import { expect, expectTypeOf, test } from 'vitest';
 import type {
   AssetPage,
@@ -12,6 +13,7 @@ import type {
   Hex,
   HistoryItem,
   SequencerReceiptAnswer,
+  SequencerReceiptView,
   SequencerRung,
   SendTxResponse,
   UnifiedAccountDocument,
@@ -74,36 +76,16 @@ function merged_types_type_every_merged_read_and_the_sequencer_receipt() {
   };
   const history: ChainHistoryPage = { account: 'pax1account', items: [item], next_cursor: 'c2' };
   const emptyHistory: ChainHistoryPage = { account: 'pax1account', items: [], next_cursor: null };
-  const submitted: SequencerReceiptAnswer = { rung: 'submitted', txHash: '0xabcd', nonce: '0x2' };
-  const receipted: SequencerReceiptAnswer = {
-    ...submitted,
-    rung: 'receipted',
-    seq: '0x1',
-    height: '0x4d',
-    index: '0x0',
-    timestamp: '0x1234',
-    status: '0x1',
-    returnData: '0x',
-    logs: [{ address: '0x1234', topics: ['0xabcd'], data: '0x0102', logIndex: '0x0' }],
-    gasUsed: '0x5208',
-    cumulativeGasUsed: '0x5208',
-    effectiveGasPrice: '0x1',
-    feeDenom: 'apax',
-    feeAmount: '0x5208',
-    sponsor: '0x0000000000000000000000000000000000000000',
-    from: '0x1234',
-    to: '0x5678',
-    contractAddress: '0x0000000000000000000000000000000000000000',
-    vmError: '',
-    keyId: '0xabcd',
-    receipt: '0x0102',
+  const receipted = nodeVector('V1-pax-transfer').receiptJson as Extract<
+    SequencerReceiptAnswer,
+    { rung: 'receipted' }
+  >;
+  const submitted: SequencerReceiptAnswer = {
+    rung: 'submitted',
+    txHash: receipted.txHash,
+    nonce: receipted.nonce,
   };
-  const committed: SequencerReceiptAnswer = {
-    ...receipted,
-    rung: 'committed',
-    blockNumber: '0x4d',
-    blockHash: '0x5678',
-  };
+  const committed = committedReceipt as Extract<SequencerReceiptAnswer, { rung: 'committed' }>;
   const hashOnly: SendTxResponse = { tx_hash: submitted.txHash, address: '0x1234', chain_id: 125 };
   const withReceipt: SendTxResponse = { ...hashOnly, receipt: receipted };
 
@@ -119,12 +101,12 @@ function merged_types_type_every_merged_read_and_the_sequencer_receipt() {
   }>();
   expectTypeOf<BankAsset>().toEqualTypeOf<{
     asset_id: string;
-    denom: string;
+    denom: string | null;
     kind: string;
-    name: string;
-    symbol: string;
-    decimals: number;
-    supply: string;
+    name: string | null;
+    symbol: string | null;
+    decimals: number | null;
+    supply: string | null;
   }>();
   expectTypeOf<AssetPage>().toEqualTypeOf<{
     height: string;
@@ -144,32 +126,49 @@ function merged_types_type_every_merged_read_and_the_sequencer_receipt() {
     next_cursor: string | null;
   }>();
   expectTypeOf<SequencerRung>().toEqualTypeOf<'submitted' | 'receipted' | 'committed'>();
-  expectTypeOf<SequencerReceiptAnswer>().toEqualTypeOf<{
-    rung: SequencerRung;
-    txHash: Hex;
-    nonce: Hex;
-    blockNumber?: Hex;
-    blockHash?: Hex;
-    seq?: Hex;
-    height?: Hex;
-    index?: Hex;
-    timestamp?: Hex;
-    status?: Hex;
-    returnData?: Hex;
-    logs?: { address: Hex; topics: Hex[]; data: Hex; logIndex: Hex }[];
-    gasUsed?: Hex;
-    cumulativeGasUsed?: Hex;
-    effectiveGasPrice?: Hex;
-    feeDenom?: string;
-    feeAmount?: Hex;
-    sponsor?: Hex;
-    from?: Hex;
-    to?: Hex;
-    contractAddress?: Hex;
-    vmError?: string;
-    keyId?: Hex;
-    receipt?: Hex;
+  expectTypeOf<SequencerReceiptView>().toEqualTypeOf<{
+    seq: Hex;
+    height: Hex;
+    index: Hex;
+    timestamp: Hex;
+    status: Hex;
+    returnData: Hex;
+    logs: { address: Hex; topics: Hex[]; data: Hex; logIndex: Hex }[];
+    gasUsed: Hex;
+    cumulativeGasUsed: Hex;
+    effectiveGasPrice: Hex;
+    paymentDenom: string;
+    feeDenom: string;
+    feeAmount: Hex;
+    sponsor: Hex;
+    from: Hex;
+    to: Hex;
+    contractAddress: Hex;
+    vmError: string;
+    keyId: Hex;
+    signingKey: Hex;
+    receipt: Hex;
   }>();
+  expectTypeOf<
+    Extract<SequencerReceiptAnswer, { rung: 'submitted' }>['seq']
+  >().toEqualTypeOf<undefined>();
+  expectTypeOf<
+    Extract<SequencerReceiptAnswer, { rung: 'submitted' }>['blockNumber']
+  >().toEqualTypeOf<undefined>();
+  expectTypeOf<Extract<SequencerReceiptAnswer, { rung: 'receipted' }>>().toEqualTypeOf<
+    { txHash: Hex; nonce: Hex } & SequencerReceiptView & {
+        rung: 'receipted';
+        blockNumber?: never;
+        blockHash?: never;
+      }
+  >();
+  expectTypeOf<Extract<SequencerReceiptAnswer, { rung: 'committed' }>>().toEqualTypeOf<
+    { txHash: Hex; nonce: Hex } & SequencerReceiptView & {
+        rung: 'committed';
+        blockNumber: Hex;
+        blockHash: Hex;
+      }
+  >();
   expectTypeOf<SendTxResponse['receipt']>().toEqualTypeOf<SequencerReceiptAnswer | undefined>();
   expectTypeOf<SendTxResponse['tx_hash']>().toEqualTypeOf<Hex>();
   expectTypeOf<ChainAccount['account']>().not.toEqualTypeOf<string>();
@@ -195,9 +194,9 @@ function merged_types_type_every_merged_read_and_the_sequencer_receipt() {
   ]);
   expect(submitted).not.toHaveProperty('seq');
   expect(receipted).not.toHaveProperty('blockNumber');
-  expect(committed.blockNumber).toBe('0x4d');
-  expect(committed.logs).toEqual(receipted.logs);
-  expect(committed.receipt).toBe('0x0102');
+  expect(committed.blockNumber).toBe(committedReceipt.blockNumber);
+  expect(committed.logs).toEqual(committedReceipt.logs);
+  expect(committed.receipt).toBe(committedReceipt.receipt);
   expect(hashOnly.tx_hash).toBe(withReceipt.tx_hash);
   expect(hashOnly.receipt).toBeUndefined();
   expect(withReceipt.receipt).toEqual(receipted);
@@ -208,13 +207,13 @@ function merged_types_type_every_merged_read_and_the_sequencer_receipt() {
   expect(testSource).toBeDefined();
   const diagnostics = [...parsed.errors, ...ts.getPreEmitDiagnostics(program, testSource)];
   expect(
-    diagnostics.map((diagnostic) => ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n')),
+    diagnostics.map((diagnostic) => ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'))
   ).toEqual([]);
 }
 
 test(
   merged_types_type_every_merged_read_and_the_sequencer_receipt,
-  merged_types_type_every_merged_read_and_the_sequencer_receipt,
+  merged_types_type_every_merged_read_and_the_sequencer_receipt
 );
 
 function merged_types_export_no_joined_anchor_or_custody_type() {
@@ -251,5 +250,5 @@ function merged_types_export_no_joined_anchor_or_custody_type() {
 
 test(
   merged_types_export_no_joined_anchor_or_custody_type,
-  merged_types_export_no_joined_anchor_or_custody_type,
+  merged_types_export_no_joined_anchor_or_custody_type
 );

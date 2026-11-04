@@ -1,10 +1,8 @@
 import { Box, Flex, Grid, Text } from '@chakra-ui/react';
-import { useQuery } from '@tanstack/react-query';
 import React from 'react';
 
 import config from 'configs/app';
 import paxeerX from 'configs/app/features/paxeerX';
-import useApiFetch from 'lib/api/useApiFetch';
 import useApiQuery from 'lib/api/useApiQuery';
 import { Button } from 'toolkit/chakra/button';
 import { Link } from 'toolkit/chakra/link';
@@ -24,33 +22,23 @@ function isTransfer(item: ChainTransfer | ChainEvent): item is ChainTransfer {
 }
 
 function ActivityFeed({ id, kind }: { id: number; kind: ActivityKind }) {
-  const apiFetch = useApiFetch();
   const resource = kind === 'transfers' ? 'general:paxeer_x_chain_transfers' : 'general:paxeer_x_chain_events';
-  const query = useQuery({
-    queryKey: [ resource, 'recent', id ],
-    enabled: paxeerX.isEnabled,
-    queryFn: async({ signal }) => {
-      let cursor: string | undefined;
-      let items: Array<ChainTransfer | ChainEvent> = [];
-      const seen = new Set<string>();
-      do {
-        const json = await apiFetch(resource, {
-          pathParams: { id: String(id) },
-          queryParams: { limit: 100, cursor },
-          fetchParams: { signal },
-        });
-        const page = parseActivityPage(json, kind, id);
-        items = [ ...items, ...page.items ].slice(-20);
-        cursor = page.next_cursor ?? undefined;
-        if (cursor && seen.has(cursor)) {
-          throw new Error('Activity pagination did not advance');
-        }
-        if (cursor) {
-          seen.add(cursor);
-        }
-      } while (cursor);
-      return items.reverse();
-    },
+  const selectRecent = React.useCallback((json: unknown) => {
+    const page = parseActivityPage(json, kind, id);
+    if (page.items.length > 20) {
+      throw new Error('Recent activity exceeds the requested window');
+    }
+    for (let index = 1; index < page.items.length; index++) {
+      if (BigInt(page.items[index - 1].id) <= BigInt(page.items[index].id)) {
+        throw new Error('Recent activity must be ordered by descending row ID');
+      }
+    }
+    return page.items;
+  }, [ kind, id ]);
+  const query = useApiQuery(resource, {
+    pathParams: { id: String(id) },
+    queryParams: { limit: 20, order: 'desc' },
+    queryOptions: { select: selectRecent, enabled: paxeerX.isEnabled },
   });
 
   return (

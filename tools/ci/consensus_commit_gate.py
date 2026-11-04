@@ -18,6 +18,16 @@ CONSENSUS_PATHS = (
     "programs/crates/layerx-programs-market/src/",
 )
 DEFAULT_LIST = "docs/release/consensus-commits.md"
+HISTORY_ARGS = (
+    "log",
+    "--format=%H",
+    "--raw",
+    "--no-abbrev",
+    "--root",
+    "--no-renames",
+    "-c",
+    "-z",
+)
 
 
 def _table_commits(document):
@@ -47,28 +57,46 @@ def _git(repo, *args):
     ).stdout
 
 
-def consensus_paths_touched(repo, sha):
-    paths = _git(
-        repo,
-        "diff-tree",
-        "-r",
-        "--root",
-        "--no-commit-id",
-        "--name-only",
-        "--no-renames",
-        "-z",
-        sha,
-        "--",
-    ).split("\0")
-    return [
-        path
-        for path in paths
-        if not path.endswith("_test.go")
-        and any(
+def consensus_changes_from_history(history):
+    changes = {}
+    sha = None
+    fields = iter(history.split("\0"))
+    for field in fields:
+        header = field.lstrip("\n")
+        if not header:
+            continue
+        if re.fullmatch(r"[0-9a-f]{40}", header):
+            sha = header
+            changes[sha] = []
+            continue
+        if sha is None or not header.startswith(":"):
+            raise ValueError("Invalid raw consensus history header")
+        path = next(fields, None)
+        if not path:
+            raise ValueError("Missing raw consensus history path")
+        if not path.endswith("_test.go") and any(
             path.startswith(prefix) if prefix.endswith("/") else path == prefix
             for prefix in CONSENSUS_PATHS
-        )
-    ]
+        ):
+            changes[sha].append(path)
+    return changes
+
+
+def consensus_paths_touched(repo, sha):
+    history = _git(repo, *HISTORY_ARGS, "--max-count=1", sha, "--")
+    changes = consensus_changes_from_history(history)
+    if len(changes) != 1:
+        raise ValueError("Expected exactly one consensus history revision")
+    return next(iter(changes.values()))
+
+
+def unlisted_from_history(document, history):
+    listed = _table_commits(document)
+    return {
+        sha: paths
+        for sha, paths in consensus_changes_from_history(history).items()
+        if paths and sha not in listed
+    }
 
 
 def unlisted_consensus_commits(repo, base, head, list_path):
@@ -78,14 +106,9 @@ def unlisted_consensus_commits(repo, base, head, list_path):
         path = path.relative_to(repo)
     head_sha = _git(repo, "rev-parse", "--verify", f"{head}^{{commit}}").strip()
     base_sha = _git(repo, "rev-parse", "--verify", f"{base}^{{commit}}").strip()
-    listed = _table_commits(_git(repo, "show", f"{head_sha}:{path.as_posix()}"))
-    commits = _git(repo, "rev-list", "--no-merges", f"{base_sha}..{head_sha}")
-    unlisted = {}
-    for sha in commits.splitlines():
-        paths = consensus_paths_touched(repo, sha)
-        if paths and sha not in listed:
-            unlisted[sha] = paths
-    return unlisted
+    document = _git(repo, "show", f"{head_sha}:{path.as_posix()}")
+    history = _git(repo, *HISTORY_ARGS, f"{base_sha}..{head_sha}", "--")
+    return unlisted_from_history(document, history)
 
 
 def main(argv=None):

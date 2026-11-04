@@ -5,10 +5,6 @@
 // Repairs msg_server.go: msgServer.UpdateParams must reject a non-governance
 // authority before decoding stored params, including when those bytes are corrupt.
 // pause.go: Keeper.SetPaused shares that authorization check before reading state.
-// Outside scope, msg_server_pause.go: msgServer.SetPaused currently returns
-// ErrInvalidParams for corrupt stored params before checking a wrong authority;
-// the expected governance contract is ErrUnauthorized. The regression below
-// records that current behavior rather than changing the out-of-scope handler.
 package keeper_test
 
 import (
@@ -228,9 +224,8 @@ func TestProofPerpsGovernanceMalformedAndAuthorization(t *testing.T) {
 		result, err = e.deliver(t, &types.MsgUpdateParams{Authority: e.k.Authority(), Params: types.DefaultParams()})
 		require.ErrorIs(t, err, types.ErrInvalidParams)
 		require.Nil(t, result)
-		// Current out-of-scope msg_server_pause.go behavior, documented above.
 		result, err = e.deliver(t, &types.MsgSetPaused{Authority: wrong, Paused: true})
-		require.ErrorIs(t, err, types.ErrInvalidParams)
+		requireRefused(t, err, types.ErrUnauthorized, types.ErrUnauthorized.ABCICode())
 		require.Nil(t, result)
 		require.Equal(t, corrupt, e.ctx.KVStore(e.key).Get(types.ParamsKey))
 		require.Empty(t, e.ctx.EventManager().Events())

@@ -173,7 +173,7 @@ func TestRepair_290_VisibleVersionPrecedence(t *testing.T) {
 	store.InvalidateWriteset(0, 1)
 	aborts := make(chan occ.Abort, 1)
 	iter = store.newMVSValidationIterator(2, nil, nil, items, true, nil, parent, aborts)
-	iter.Value()
+	require.PanicsWithValue(t, occ.NewEstimateAbort(0), func() { iter.Value() })
 	require.Equal(t, 0, (<-aborts).DependentTxIdx)
 	require.NoError(t, iter.Close())
 }

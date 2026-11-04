@@ -255,7 +255,7 @@ defmodule Explorer.Chain.SmartContract.Proxy do
 
   ## Returns
   - `{:ok, [{any(), ResolverBehaviour.fetched_values()}]}` if all of the values are fetched successfully,
-    map can contain nil values for failed/reverted eth_call requests.
+    map can contain nil values for reverted eth_call requests.
   - `:error` if the prefetching failed.
   """
   @spec prefetch_values([{any(), ResolverBehaviour.fetch_requirements()}], Hash.Address.t()) ::
@@ -288,7 +288,7 @@ defmodule Explorer.Chain.SmartContract.Proxy do
 
   ## Returns
   - `{:ok, prefetched_values()}` if all of the values are fetched successfully,
-    map can contain nil values for failed/reverted eth_call requests.
+    map can contain nil values for reverted eth_call requests.
   - `:error` if the prefetching failed.
   """
   @spec fetch_values([ResolverBehaviour.fetch_requirement()], Hash.Address.t()) ::
@@ -322,7 +322,7 @@ defmodule Explorer.Chain.SmartContract.Proxy do
   @doc """
   Fetches value for the given eth_getStorageAt or eth_call request for a given address hash.
 
-  The eth_call request is allowed to fail/revert, nil will be returned in such case.
+  A reverted eth_call request returns nil. Transport and provider failures return :error.
 
   ## Parameters
   - `req`: The eth_getStorageAt or eth_call request to fetch the value for.
@@ -350,8 +350,16 @@ defmodule Explorer.Chain.SmartContract.Proxy do
 
   defp handle_response({:storage, _}, %{result: result}) when is_binary(result), do: {:ok, result}
   defp handle_response({:call, _}, %{result: result}) when is_binary(result), do: {:ok, result}
-  # TODO: it'll be better to return nil only for the revert-related errors
-  defp handle_response({:call, _}, %{error: _}), do: {:ok, nil}
+
+  defp handle_response({:call, _}, %{error: %{code: code, message: message}})
+       when code in [3, -32000, -32015] and is_binary(message) do
+    if Regex.match?(~r/^(execution reverted(?:$|:)|VM Exception while processing transaction: revert(?:$| ))/i, message) do
+      {:ok, nil}
+    else
+      :error
+    end
+  end
+
   defp handle_response(_, _), do: :error
 
   @doc """

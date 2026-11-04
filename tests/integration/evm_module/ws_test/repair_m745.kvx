@@ -1,0 +1,8 @@
+[repair.22.33.745]
+finding = "22.30.172/go-ws-header-proof"
+proof = ["TestRepairM_745_CommittedHeader", "TestRepairM_745_RejectsCommittedMismatch", "TestRepairM_745_RejectsMissingFields", "TestRepairM_745_RejectsMalformedEncoding"]
+path = "The live test and offline proofs share readNewHead and checkCommittedHead; production geth header codecs and JSON-RPC handlers carry encoded fixture headers through loopback WebSocket and HTTP transports."
+baseline_revision = "264615cba89456c37eeb19535cb16b81846f6a68"
+baseline = "No repair tests existed before this change; no baseline gate was run because the task's explicit implementation/build/verification order forbids it."
+wiring_requests = []
+evidence = "The runner's final hf-done ledger records the verified candidate revision, exact command, exit code and private log location."

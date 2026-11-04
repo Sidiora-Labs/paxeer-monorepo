@@ -5,10 +5,12 @@ import { expect, test, type Page, type Locator, type TestInfo } from '@playwrigh
 import { formatEther } from 'ethers';
 import type { TransferObservation } from '@paxeer/wallet';
 import { readSequencerReceipt } from '../../../sdk/wallet/src/receipt';
+import { readExplorerStatus } from '../../../sdk/wallet/src/ladder';
 import { createWalletClient, http, type Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { bottomTab, signIn } from './wallet';
 import { APP_ENV } from './environment';
+import { waitForIndexedCommit } from './explorer-proof';
 
 test.describe('send', () => {
   test.beforeEach(async ({ page }) => {
@@ -68,12 +70,12 @@ async function submit(tx: Record<string, string>): Promise<string> {
   ]);
 }
 
-async function observe(page: Page, hash: string): Promise<void> {
-  let transaction = await rpcAt(observationRpc, 'eth_getTransactionByHash', [hash]);
+async function observe(page: Page, hash: string, rpcUrl = observationRpc): Promise<void> {
+  let transaction = await rpcAt(rpcUrl, 'eth_getTransactionByHash', [hash]);
   await expect
     .poll(
       async () => {
-        transaction = await rpcAt(observationRpc, 'eth_getTransactionByHash', [hash]);
+        transaction = await rpcAt(rpcUrl, 'eth_getTransactionByHash', [hash]);
         return transaction;
       },
       { intervals: [50], timeout: 60_000 }
@@ -136,6 +138,146 @@ test(
   send_reaches_committed_only_with_a_matching_explorer_answer.name,
   send_reaches_committed_only_with_a_matching_explorer_answer
 );
+
+test(
+  send_observes_the_configured_explorer_commit_reload_and_refusal.name,
+  send_observes_the_configured_explorer_commit_reload_and_refusal
+);
+
+async function send_observes_the_configured_explorer_commit_reload_and_refusal({
+  page,
+  baseURL,
+}: {
+  page: Page;
+  baseURL: string | undefined;
+}): Promise<void> {
+  const key = process.env.WALLET_TRANSFER_TRUTH_SEQUENCER_KEY;
+  if (!baseURL || !SEQUENCER_RPC || !key || !/^0x[0-9a-fA-F]{64}$/.test(key))
+    throw new Error('The configured app, chain RPC and funded signing key are required');
+  const account = privateKeyToAccount(key as Hex);
+  expect(account.address.toLowerCase()).toBe(ANVIL_SENDER.toLowerCase());
+  expect(await rpcAt(SEQUENCER_RPC, 'eth_chainId')).toBe('0x7d');
+  const wallet = createWalletClient({ account, transport: http(SEQUENCER_RPC) });
+  await page.exposeBinding(
+    'configuredExplorerWalletRequest',
+    async (_source, request: { method: string; params?: readonly unknown[] }) => {
+      if (request.method === 'eth_accounts' || request.method === 'eth_requestAccounts')
+        return wallet.getAddresses();
+      return rpcAt(SEQUENCER_RPC, request.method, request.params);
+    }
+  );
+  await page.addInitScript(() => {
+    if (!sessionStorage.getItem('configured-explorer-session')) {
+      localStorage.removeItem('paxport:v1:custody-choice');
+      localStorage.removeItem('paxeer:wallet-kind');
+      for (const key of Object.keys(localStorage)) {
+        if (/^sb-.*-auth-token$/.test(key)) localStorage.removeItem(key);
+      }
+      sessionStorage.setItem('configured-explorer-session', 'true');
+    }
+    const events = new EventTarget();
+    const detail = {
+      info: {
+        uuid: crypto.randomUUID(),
+        name: 'Configured explorer signer',
+        icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>',
+        rdns: 'local.configured.explorer',
+      },
+      provider: {
+        request: (request: { method: string; params?: readonly unknown[] }) =>
+          (
+            window as unknown as {
+              configuredExplorerWalletRequest: (request: {
+                method: string;
+                params?: readonly unknown[];
+              }) => Promise<unknown>;
+            }
+          ).configuredExplorerWalletRequest(request),
+        on: (event: string, listener: EventListener) => events.addEventListener(event, listener),
+        removeListener: (event: string, listener: EventListener) =>
+          events.removeEventListener(event, listener),
+      },
+    };
+    const announce = () =>
+      window.dispatchEvent(new CustomEvent('eip6963:announceProvider', { detail }));
+    window.addEventListener('eip6963:requestProvider', announce);
+    announce();
+  });
+  const explorerResponses: { url: string; status: number; body: unknown }[] = [];
+  const responseReads: Promise<void>[] = [];
+  page.on('response', (response) => {
+    if (!/\/api\/v2\/transactions\/0x[0-9a-fA-F]{64}\/status$/.test(response.url())) return;
+    responseReads.push(
+      response.body().then((body) => {
+        explorerResponses.push({
+          url: response.url(),
+          status: response.status(),
+          body: JSON.parse(body.toString()) as unknown,
+        });
+      })
+    );
+  });
+  await page.goto('./');
+  await page.evaluate(() => window.dispatchEvent(new Event('eip6963:requestProvider')));
+  await page.getByRole('button', { name: /Configured explorer signer/ }).click();
+  await expect(bottomTab(page, 'Settings')).toBeVisible();
+
+  const hash = await wallet.sendTransaction({ chain: null, to: RECIPIENT, value: 1n });
+  await observe(page, hash, SEQUENCER_RPC);
+  await expect
+    .poll(() => explorerResponses.find((response) => response.url.includes(hash))?.url, {
+      timeout: 60_000,
+    })
+    .toBeDefined();
+  const statusUrl = explorerResponses.find((response) => response.url.includes(hash))!.url;
+  const explorerUrl = statusUrl.slice(0, -`/api/v2/transactions/${hash}/status`.length);
+  const committed = await waitForIndexedCommit(
+    { rpcUrl: SEQUENCER_RPC, explorerUrl },
+    { hash, chainId: 125 }
+  );
+  const evidence = `committed:${committed.blockHash}`;
+  const assertWalletCommit = async () => {
+    await expect(title(page)).toHaveText('Transfer Completed');
+    await expect(page.locator('li[data-rung="committed"]')).toHaveAttribute(
+      'data-source',
+      'explorer'
+    );
+    await expect(page.locator('li[data-rung="committed"]')).toHaveAttribute(
+      'data-evidence',
+      evidence
+    );
+    await expect
+      .poll(() =>
+        page.evaluate((key) => {
+          const stored = localStorage.getItem('paxport:v1:transfer-observations');
+          return stored ? JSON.parse(stored).value[key] : null;
+        }, `125:${hash.toLowerCase()}`)
+      )
+      .toMatchObject({
+        identity: { hash, chainId: 125 },
+        blockNumber: committed.blockNumber,
+        blockHash: committed.blockHash,
+        steps: expect.arrayContaining([{ rung: 'committed', source: 'explorer', state: evidence }]),
+      });
+  };
+  await assertWalletCommit();
+  await page.reload();
+  await assertWalletCommit();
+  await Promise.all(responseReads);
+  expect(explorerResponses).toContainEqual({
+    url: statusUrl,
+    status: 200,
+    body: expect.objectContaining({ rung: 'committed', block_number: committed.blockNumber }),
+  });
+
+  const missingHash = `0x${'00'.repeat(32)}`;
+  const refused = await fetch(`${explorerUrl}/api/v2/transactions/${missingHash}/status`);
+  expect(refused.status).toBe(404);
+  await expect(readExplorerStatus(explorerUrl, missingHash)).rejects.toThrow(
+    'explorer status answered HTTP 404'
+  );
+  await assertWalletCommit();
+}
 
 test.describe('send transfer truth', () => {
   test.beforeAll(async () => {

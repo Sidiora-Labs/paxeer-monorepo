@@ -3,6 +3,9 @@
 //! These tests prove that external protocol evidence is bound to exact
 //! presentation bytes, pinned specifications, and conformance suite digests.
 
+#[path = "support/ap2_external.rs"]
+mod ap2_external;
+
 use layerx_interop_gateway::adapter::{
     AdapterDescriptor, AdapterId, ConformanceSuite, PinnedSpec, SpecVersion,
 };
@@ -437,4 +440,172 @@ fn verified_external_evidence_binds_all_inputs() {
         verified.conformance_suite_digest(),
         evidence_checker.descriptor().conformance().suite_digest()
     );
+}
+
+fn ap2_presentation(payload: &[u8]) -> ExternalPresentation<'_> {
+    ExternalPresentation::new(
+        "ap2",
+        "ap2",
+        "1.0.0",
+        ExternalEvidenceKind::Mandate,
+        layerx_ap2::AP2_MANDATE_PAIR_MEDIA_TYPE,
+        payload,
+    )
+    .unwrap_or_else(|error| panic!("AP2 presentation: {error:?}"))
+}
+
+#[test]
+fn portable_external_path() {
+    use layerx_ap2::{Ap2ExternalMandateVerifier, MandateMode, AP2_SPEC_SHA256};
+
+    let fixture = ap2_external::MandateFixture::direct(false);
+    let keys = ap2_external::MandateKeys::pinned();
+    let suite = ap2_external::suite();
+    let verifier = Ap2ExternalMandateVerifier::new(&keys, suite.clone())
+        .unwrap_or_else(|error| panic!("production AP2 verifier: {error:?}"));
+    let payload = fixture.payload();
+    let presentation = ap2_presentation(&payload);
+    let verified = verify_external_evidence(&verifier, &presentation, &ap2_external::context())
+        .unwrap_or_else(|error| panic!("signed AP2 pair verifies: {error:?}"));
+    assert_eq!(verified.adapter(), "ap2");
+    assert_eq!(verified.protocol(), "ap2");
+    assert_eq!(verified.spec_version(), "1.0.0");
+    assert_eq!(verified.kind(), ExternalEvidenceKind::Mandate);
+    assert_eq!(
+        verified.media_type(),
+        layerx_ap2::AP2_MANDATE_PAIR_MEDIA_TYPE
+    );
+    assert_eq!(verified.spec_document_digest(), AP2_SPEC_SHA256);
+    assert_eq!(verified.conformance_suite(), suite.suite().as_str());
+    assert_eq!(verified.conformance_vector_count(), suite.vector_count());
+    assert_eq!(verified.conformance_suite_digest(), suite.suite_digest());
+    let mandates = verified.verified();
+    assert_eq!(mandates.mode(), MandateMode::Direct);
+    assert_eq!(
+        mandates.checkout_id(),
+        fixture.expected["checkout_id"]
+            .as_str()
+            .unwrap_or_else(|| panic!("checkout id"))
+    );
+    assert_eq!(mandates.transaction_id(), fixture.transaction_id);
+    assert_eq!(
+        mandates.payee().id(),
+        fixture.expected["payee_id"]
+            .as_str()
+            .unwrap_or_else(|| panic!("payee id"))
+    );
+    assert_eq!(mandates.amount().minor_units(), 10_000);
+    assert_eq!(mandates.amount().currency(), "USD");
+    assert_eq!(mandates.execution_at(), ap2_external::NOW);
+    assert_eq!(mandates.payment_instrument().id(), "card-001");
+
+    let mut spaced_payload = payload.clone();
+    spaced_payload.push(b'\n');
+    let spaced = verify_external_evidence(
+        &verifier,
+        &ap2_presentation(&spaced_payload),
+        &ap2_external::context(),
+    )
+    .unwrap_or_else(|error| panic!("same signed tokens with JSON whitespace: {error:?}"));
+    assert_eq!(
+        spaced.verified().transaction_id(),
+        mandates.transaction_id()
+    );
+    assert_eq!(
+        spaced.verified().checkout_receipt_reference(),
+        mandates.checkout_receipt_reference()
+    );
+    assert_eq!(
+        spaced.verified().payment_receipt_reference(),
+        mandates.payment_receipt_reference()
+    );
+    assert_ne!(
+        spaced.evidence_digest(),
+        verified.evidence_digest(),
+        "binding includes exact transported bytes"
+    );
+}
+
+#[test]
+fn portable_external_path_rejects_mandate_signature_tampering() {
+    let keys = ap2_external::MandateKeys::pinned();
+    let verifier = layerx_ap2::Ap2ExternalMandateVerifier::new(&keys, ap2_external::suite())
+        .unwrap_or_else(|error| panic!("production AP2 verifier: {error:?}"));
+    for tamper_checkout in [true, false] {
+        let mut fixture = ap2_external::MandateFixture::direct(false);
+        let token = if tamper_checkout {
+            &mut fixture.checkout
+        } else {
+            &mut fixture.payment
+        };
+        *token = ap2_external::corrupt_signature(token);
+        let payload = fixture.payload();
+        assert!(
+            matches!(
+                verify_external_evidence(
+                    &verifier,
+                    &ap2_presentation(&payload),
+                    &ap2_external::context()
+                ),
+                Err(ExternalVerificationError::Adapter(
+                    layerx_ap2::Ap2Error::InvalidSignature
+                ))
+            ),
+            "tampered {} signature must be refused",
+            if tamper_checkout {
+                "checkout"
+            } else {
+                "payment"
+            }
+        );
+    }
+}
+
+#[test]
+fn portable_external_path_rejects_merchant_signature_tampering() {
+    let keys = ap2_external::MandateKeys::pinned();
+    let verifier = layerx_ap2::Ap2ExternalMandateVerifier::new(&keys, ap2_external::suite())
+        .unwrap_or_else(|error| panic!("production AP2 verifier: {error:?}"));
+    // Both issuer signatures and checkout hashes bind the altered merchant JWS,
+    // so only production verification of the nested merchant signature refuses it.
+    let payload = ap2_external::MandateFixture::direct(true).payload();
+    assert!(matches!(
+        verify_external_evidence(
+            &verifier,
+            &ap2_presentation(&payload),
+            &ap2_external::context()
+        ),
+        Err(ExternalVerificationError::Adapter(
+            layerx_ap2::Ap2Error::InvalidSignature
+        ))
+    ));
+}
+
+#[test]
+fn portable_external_path_requires_purpose_scoped_trust() {
+    for missing_purpose in [
+        layerx_ap2::KeyUse::CheckoutMandateIssuer,
+        layerx_ap2::KeyUse::PaymentMandateIssuer,
+        layerx_ap2::KeyUse::MerchantCheckout,
+    ] {
+        let mut keys = ap2_external::MandateKeys::pinned();
+        keys.pins
+            .retain(|(purpose, _, _)| *purpose != missing_purpose);
+        let verifier = layerx_ap2::Ap2ExternalMandateVerifier::new(&keys, ap2_external::suite())
+            .unwrap_or_else(|error| panic!("production AP2 verifier: {error:?}"));
+        let payload = ap2_external::MandateFixture::direct(false).payload();
+        assert!(
+            matches!(
+                verify_external_evidence(
+                    &verifier,
+                    &ap2_presentation(&payload),
+                    &ap2_external::context()
+                ),
+                Err(ExternalVerificationError::Adapter(
+                    layerx_ap2::Ap2Error::KeyResolution
+                ))
+            ),
+            "missing {missing_purpose:?} pin must be refused"
+        );
+    }
 }

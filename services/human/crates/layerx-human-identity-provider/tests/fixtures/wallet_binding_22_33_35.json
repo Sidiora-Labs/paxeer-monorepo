@@ -1,0 +1,66 @@
+{
+  "producer": "services/wallet/gateway/src/provision/state.ts:produceIdentityBinding",
+  "peer": "committed TestChain and in-memory SQL rows; production issuer, RpcPool and readUnifiedAccount are unchanged",
+  "sources": {
+    "services/wallet/gateway/src/provision/state.ts": "76ac57500f1bd79b7afea423d5548f0fbf8cc54e8f45a86e4b554bf19b5858af",
+    "services/wallet/gateway/src/provision/bind.ts": "6c0062399baab3c1322725163e62fd05e27535b5cb385969106a77defca63b45",
+    "services/wallet/gateway/src/rpc/pool.ts": "2fbdead20e49ca1a74dfbcca0634c23b3ebf456bf8cde71d378c9e6dc2ac3e7d",
+    "services/wallet/gateway/test/support/chain.ts": "ed31d9a66fd217108aeeeaa25fb19e9bf93707f2f2b22b1790b6b030acb64348"
+  },
+  "issuer": "https://identity.example.test/auth/v1",
+  "subject": "supabase-user-a",
+  "tenant": "human-provider",
+  "did": "did:layerx:3f1c0a9e5b7d2468ace013579bdf2468ace013579bdf2468ace013579bdf2468",
+  "address": "0x1111111111111111111111111111111111111111",
+  "mainAccountId": "167194996f62f02469532e70fb866daf3b51f3243de624f74f29dbcf78dde1c1",
+  "publicKey": "0456bd52cc96768842e2a9fb9c59c47d1875f8f370e03c74be65b676036a3067bb7eea0ffe0bac9e47563b4e106ed2a66b567109853183e30eec2442c43f895555",
+  "binding": "eyJhbGciOiJFUzI1NiIsInR5cCI6ImxheWVyeC13YWxsZXQtYmluZGluZytqd3QifQ.eyJpc3MiOiJodHRwczovL2lkZW50aXR5LmV4YW1wbGUudGVzdC9hdXRoL3YxIiwic3ViIjoic3VwYWJhc2UtdXNlci1hIiwiZGlkIjoiZGlkOmxheWVyeDozZjFjMGE5ZTViN2QyNDY4YWNlMDEzNTc5YmRmMjQ2OGFjZTAxMzU3OWJkZjI0NjhhY2UwMTM1NzliZGYyNDY4IiwidGVuYW50IjoiaHVtYW4tcHJvdmlkZXIifQ.nQf3N_ZVsu2CuSmuAkYs1YOj0uDyRlnq-gy1oToGCPRpwLF4YLMtfKCIHCOxHYOwoG-h6rfFMuDEKqt0GGXe0A",
+  "crossTenant": "eyJhbGciOiJFUzI1NiIsInR5cCI6ImxheWVyeC13YWxsZXQtYmluZGluZytqd3QifQ.eyJpc3MiOiJodHRwczovL2lkZW50aXR5LmV4YW1wbGUudGVzdC9hdXRoL3YxIiwic3ViIjoic3VwYWJhc2UtdXNlci1hIiwiZGlkIjoiZGlkOmxheWVyeDozZjFjMGE5ZTViN2QyNDY4YWNlMDEzNTc5YmRmMjQ2OGFjZTAxMzU3OWJkZjI0NjhhY2UwMTM1NzliZGYyNDY4IiwidGVuYW50Ijoib3RoZXItdGVuYW50In0.bMPPfL9j9QQZgdUjrHsf4ThVyD57xGT0vQ98ptxeIkyzShd_Nbdo6beM6rtSFe7At2fOH5qpXwiqV142Zpw29Q",
+  "account": {
+    "calldata": "0x357feed60000000000000000000000001111111111111111111111111111111111111111",
+    "observations": [
+      {
+        "height": 37,
+        "params": [
+          {
+            "to": "0x0000000000000000000000000000000000001004",
+            "data": "0x357feed60000000000000000000000001111111111111111111111111111111111111111"
+          },
+          "0x25"
+        ],
+        "result": "0x000000000000000000000000111111111111111111111111111111111111111100000000000000000000000000000000000000000000000000000000000000803f1c0a9e5b7d2468ace013579bdf2468ace013579bdf2468ace013579bdf2468167194996f62f02469532e70fb866daf3b51f3243de624f74f29dbcf78dde1c10000000000000000000000000000000000000000000000000000000000000000"
+      },
+      {
+        "height": 38,
+        "params": [
+          {
+            "to": "0x0000000000000000000000000000000000001004",
+            "data": "0x357feed60000000000000000000000001111111111111111111111111111111111111111"
+          },
+          "0x26"
+        ],
+        "result": "0x000000000000000000000000111111111111111111111111111111111111111100000000000000000000000000000000000000000000000000000000000000803f1c0a9e5b7d2468ace013579bdf2468ace013579bdf2468ace013579bdf2468167194996f62f02469532e70fb866daf3b51f3243de624f74f29dbcf78dde1c10000000000000000000000000000000000000000000000000000000000000000"
+      }
+    ]
+  },
+  "sql": [
+    {
+      "query": "select p.ed_public_key from account_provisioning p join wallets w on w.id = p.wallet_id\n      where p.user_id = $1 and p.kind = 'standard' and p.wallet_id = $2\n        and p.state = 'active' and p.did = $3 and w.user_id = $1 and w.kind = 'standard'\n        and w.did = p.did and w.binding_state = 'bound' and w.archived_at is null\n        and w.is_disabled = false and lower(w.address) = lower($4)",
+      "params": [
+        "supabase-user-a",
+        "wallet-recorded",
+        "did:layerx:3f1c0a9e5b7d2468ace013579bdf2468ace013579bdf2468ace013579bdf2468",
+        "0x1111111111111111111111111111111111111111"
+      ]
+    },
+    {
+      "query": "select p.ed_public_key from account_provisioning p join wallets w on w.id = p.wallet_id\n      where p.user_id = $1 and p.kind = 'standard' and p.wallet_id = $2\n        and p.state = 'active' and p.did = $3 and w.user_id = $1 and w.kind = 'standard'\n        and w.did = p.did and w.binding_state = 'bound' and w.archived_at is null\n        and w.is_disabled = false and lower(w.address) = lower($4)",
+      "params": [
+        "supabase-user-a",
+        "wallet-recorded",
+        "did:layerx:3f1c0a9e5b7d2468ace013579bdf2468ace013579bdf2468ace013579bdf2468",
+        "0x1111111111111111111111111111111111111111"
+      ]
+    }
+  ]
+}

@@ -1,3 +1,5 @@
+//go:build ignore
+
 #include "layerx/lxp_kernel.h"
 #include "layerx/lxp_transfer.h"
 #include "layerx/programs.h"

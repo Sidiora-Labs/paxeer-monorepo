@@ -1,0 +1,30 @@
+[task.22.33.543]
+finding = "http-errors-as-payloads"
+proof = "apps/explorer/nextjs/utils/repair-22-33-543.spec.ts:httpErrorsAsPayloads"
+path = "Loopback HTTP server -> node-fetch -> fetchApi -> stats getServerSideProps -> metadata generator; 400/404/500/503 JSON refusals return undefined and metadata stays unenriched; 200/201 preserve resource data and enhanced metadata."
+baseline = "Not executed: the ordered gate instructions require complete implementation before any test and prohibit running verify_cmd by hand; the undefined assertions fail against the original unconditional response.json return."
+wiring_requests = []
+
+[qualification.previous_attempt]
+revision = "f81e98838b4fcc0c13a52c81cfc2a126c79d4b91"
+command = "pnpm --dir apps/explorer exec tsc --noEmit -p tsconfig.json"
+observed = "The prior attempt failed before compilation with ERR_PNPM_OTHER_PM_EXPECTED because explorer pins Yarn; the current declared gates use Yarn."
+
+[qualification.evidence]
+revision_source = "/out/run/gates.jsonl: revision on the final verify row, matching the successful build row"
+build_log = "/out/logs/build-2.log"
+verify_log = "/out/logs/verify-1.log"
+
+[qualification.formatter]
+command = "cd apps/explorer && yarn eslint --fix nextjs/utils/fetchApi.ts nextjs/utils/repair-22-33-543.spec.ts"
+exit = 1
+log = "/out/logs/codex.jsonl"
+observed = "Formatting ran, but vitest/expect-expect and vitest/valid-title reject the task-required test(httpErrorsAsPayloads) named-function registration."
+assumption = "Keep the required test registration and assertions intact; qualification uses the declared build and verify gates."
+
+[qualification.build_1]
+revision = "f8227ac01faa4cb80c617dc14468090880fa7362"
+command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "TS18048: the stats fixture metadata is optional in its declared type; an explicit fixture-presence check now narrows it before the existing assertions."

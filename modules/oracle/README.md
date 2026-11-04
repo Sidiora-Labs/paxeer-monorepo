@@ -6,6 +6,8 @@ The `oracle` module stores validator-voted asset exchange rates in Paxeer's chai
 
 The legacy EVM oracle precompile at `0x0000000000000000000000000000000000001008` is retired. Its `getExchangeRates` and `getOracleTwaps` methods reject otherwise valid calls with `ErrOraclePrecompileRetired`: `oracle precompile is retired; oracle data queries are disabled`. See [`precompiles/oracle/oracle.go`](../../precompiles/oracle/oracle.go); it is not a current contract interface for reading this module's prices.
 
+Native Cosmos queries remain available through the oracle query service (CLI, gRPC and REST), and the wasm bindings retain exchange-rate and TWAP queries. Current EVM price consumers use the supported [PriceFeed contract](../../precompiles/pricefeed/PriceFeed.sol) at `0x0000000000000000000000000000000000001020`, backed by `modules/pricefeed`; that interface has its own market identifiers and observation policy and is not the retired oracle ABI.
+
 Voting is a single step: each bonded validator, or its delegated feeder, submits a `MsgAggregateExchangeRateVote` with rates for the current vote targets. On the last block of each vote period, `MidBlocker` tallies ballots using validator voting power. The node calls this hook in `CompleteBlock`, after transaction execution and before EndBlock. See [the block lifecycle](spec/03_end_block.md).
 
 Each validator has success, abstain, and miss counters. EndBlock evaluates them at the end of each slash window and can slash and jail a bonded, unjailed validator whose valid vote rate is below `MinValidPerWindow`. The default minimum and slash fraction are both zero, so the defaults do not penalize non-participation. Query live parameters before assuming a penalty policy.

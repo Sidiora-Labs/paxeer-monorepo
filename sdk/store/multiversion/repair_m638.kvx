@@ -1,0 +1,9 @@
+[repair.22.33.638]
+mode = "BUILD"
+findings = ["multiversion-iterator-error", "multiversion-nil-set", "participant"]
+multiversion-iterator-error = "TestRepairM_638_IteratorErrors: real version-indexed scans preserve empty/exhausted semantics and errors from a closed GoLevelDB; both merge inputs propagate errors."
+multiversion-nil-set = "TestRepairM_638_NilSet: rejected nil writes preserve read/write sets and committed values; explicit Delete publishes and commits a tombstone."
+participant = "Audit finding validation-abort-worker; TestRepairM_638_ParticipantAbort and TestRepairM_638_TerminalEstimate prove terminal estimates, repeated aborts in both directions, iterator closure and participant joining."
+baseline = "Not run: the explicit bounded gate order requires complete implementation before hf-build and hf-done and forbids a manual verify run. No baseline failures are claimed."
+wiring_requests = []
+evidence = "The runner's hf-done record supplies the exact verified candidate revision, command, exit code and private log location."

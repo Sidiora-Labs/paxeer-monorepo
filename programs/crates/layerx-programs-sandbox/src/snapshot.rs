@@ -614,10 +614,12 @@ pub fn restore(
         layerx_programs_runtime::AbiRevision::V4 => layerx_programs_runtime::ABI_V4_VERSION,
         layerx_programs_runtime::AbiRevision::V5 => layerx_programs_runtime::ABI_V5_VERSION,
     };
+    let capabilities =
+        crate::LeaseCapabilities::derive(&candidate).map_err(SnapshotRefusal::Authority)?;
     let abi = Abi::new(
         abi_version,
-        target.host_program(),
-        authorization,
+        candidate.host_program(),
+        capabilities.authorization(),
         candidate_storage,
         &UnavailableReceiptOracle,
     )
@@ -886,6 +888,7 @@ pub enum SnapshotRefusal {
     Storage(StorageError),
     Runtime(ExecutionFault),
     Abi(layerx_programs_runtime::AbiError),
+    Authority(crate::SandboxRefusal),
 }
 
 impl Display for SnapshotRefusal {

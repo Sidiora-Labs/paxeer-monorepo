@@ -1,0 +1,11 @@
+[repair.22.33.640]
+audit = "22.30.165"
+finding = "legacy-rollback-metadata-only"
+base_revision = "26bb0fe1436e9a72a6260976b19c445841ae7af0"
+implementation = "Legacy RollbackToVersion rejects every positive target with RollbackUnsupportedError before accessing or mutating stores or commit metadata; existing nonpositive target validation is preserved. The typed error unwraps to ErrVersionedStateUnsupported and directs operators to sdk/storev2/rootmulti for recovery."
+proving_tests = ["TestRepairM_640_RollbackRestartRecovery", "TestRepairM_640_RollbackRejectedBeforeLoad"]
+coverage = "Real CommitMultiStore API, cached writes, DB and IAVL legacy mounts backed by disk GoLevelDB, two persistent substores and a transient store; rollback from height three to height one and other valid/invalid targets; unchanged values, insertions/deletions, full persisted database and commit identity before and after close/reopen; subsequent commit and second reopen; refusal before load."
+baseline = "UNRUN: explicit task Order 1 and 4 prohibit testing before the entire implementation and running verify_cmd by hand; no baseline failures are claimed."
+qualification = "Runner hf-build and hf-done ledger binds the verified candidate revision, command, exit code and private log location; no gate pass is claimed by this record."
+wiring_request = "sdk/server/ and sdk/baseapp/ (owning domain 15, fm-cosmos-fork): direct operator rollback tools that install legacy rootmulti to the supported sdk/storev2/rootmulti recovery path; node/paxdb.go already installs storev2."
+gotcha = "Legacy DB adapters cannot restore per-version values, and invoking commitStores during rollback also clears pending transient state; rollback refusal must precede all store commits and metadata writes."

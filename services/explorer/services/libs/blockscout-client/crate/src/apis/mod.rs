@@ -16,11 +16,44 @@ pub enum Error<T> {
     Serde(serde_json::Error),
     Io(std::io::Error),
     ResponseError(ResponseContent<T>),
+    Configuration(&'static str),
+    UnsupportedCapability(&'static str),
+    ResponseTooLarge {
+        status: reqwest::StatusCode,
+        content: Vec<u8>,
+        limit: usize,
+    },
+    Decode {
+        route: &'static str,
+        status: reqwest::StatusCode,
+        content: String,
+        source: serde_json::Error,
+    },
 }
 
 impl<T> fmt::Display for Error<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let (module, e) = match self {
+            Error::Configuration(message) => ("configuration", message.to_string()),
+            Error::UnsupportedCapability(message) => ("capability", message.to_string()),
+            Error::ResponseTooLarge { status, limit, .. } => (
+                "response",
+                format!("status {status}, body exceeds {limit} bytes"),
+            ),
+            Error::Decode {
+                route,
+                status,
+                source,
+                ..
+            } => (
+                "decode",
+                format!(
+                    "{route}: status {status}: {:?} at line {}, column {}",
+                    source.classify(),
+                    source.line(),
+                    source.column()
+                ),
+            ),
             Error::Reqwest(e) => ("reqwest", e.to_string()),
 
             Error::ReqwestMiddleware(e) => ("reqwest-middleware", e.to_string()),
@@ -42,7 +75,11 @@ impl<T: fmt::Debug> error::Error for Error<T> {
 
             Error::Serde(e) => e,
             Error::Io(e) => e,
-            Error::ResponseError(_) => return None,
+            Error::Decode { source, .. } => source,
+            Error::ResponseError(_)
+            | Error::Configuration(_)
+            | Error::UnsupportedCapability(_)
+            | Error::ResponseTooLarge { .. } => return None,
         })
     }
 }
@@ -75,34 +112,83 @@ pub fn urlencode<T: AsRef<str>>(s: T) -> String {
     ::url::form_urlencoded::byte_serialize(s.as_ref().as_bytes()).collect()
 }
 
+/// Encode bracketed keys and indexed arrays, including scalar and null leaves.
 pub fn parse_deep_object(prefix: &str, value: &serde_json::Value) -> Vec<(String, String)> {
-    if let serde_json::Value::Object(object) = value {
-        let mut params = vec![];
-
-        for (key, value) in object {
-            match value {
-                serde_json::Value::Object(_) => {
-                    params.append(&mut parse_deep_object(&format!("{prefix}[{key}]"), value))
+    let mut pending = vec![(prefix.to_owned(), value)];
+    let mut params = Vec::new();
+    while let Some((key, value)) = pending.pop() {
+        match value {
+            serde_json::Value::Object(object) => {
+                for (name, value) in object.iter().rev() {
+                    pending.push((format!("{key}[{name}]"), value));
                 }
-                serde_json::Value::Array(array) => {
-                    for (i, value) in array.iter().enumerate() {
-                        params.append(&mut parse_deep_object(
-                            &format!("{prefix}[{key}][{i}]"),
-                            value,
-                        ));
-                    }
-                }
-                serde_json::Value::String(s) => {
-                    params.push((format!("{prefix}[{key}]"), s.clone()))
-                }
-                _ => params.push((format!("{prefix}[{key}]"), value.to_string())),
             }
+            serde_json::Value::Array(array) => {
+                for (i, value) in array.iter().enumerate().rev() {
+                    pending.push((format!("{key}[{i}]"), value));
+                }
+            }
+            serde_json::Value::String(value) => params.push((key, value.clone())),
+            _ => params.push((key, value.to_string())),
         }
-
-        return params;
     }
+    params
+}
 
-    unimplemented!("Only objects are supported with style=deepObject")
+/// Preserve at most `limit` response bytes, including error evidence. Request
+/// deadlines remain attached to the reqwest response while its body is read.
+pub(crate) async fn read_bounded<T>(
+    mut response: reqwest::Response,
+    limit: usize,
+) -> Result<String, Error<T>> {
+    let status = response.status();
+    let mut body = Vec::new();
+    while let Some(chunk) = response.chunk().await? {
+        let remaining = limit.saturating_sub(body.len());
+        body.extend_from_slice(&chunk[..chunk.len().min(remaining)]);
+        if chunk.len() > remaining {
+            return Err(Error::ResponseTooLarge {
+                status,
+                content: body,
+                limit,
+            });
+        }
+    }
+    String::from_utf8(body)
+        .map_err(|error| Error::Io(std::io::Error::new(std::io::ErrorKind::InvalidData, error)))
+}
+
+/// Decode only the declared HTTP 200 model; raw body and status remain available
+/// in ResponseError / Decode for callers that need to inspect transport evidence.
+pub(crate) fn decode_success<M, S, E>(
+    status: reqwest::StatusCode,
+    content: String,
+    route: &'static str,
+    wrap: impl FnOnce(Box<M>) -> S,
+) -> Result<ResponseContent<S>, Error<E>>
+where
+    M: serde::de::DeserializeOwned,
+    E: serde::de::DeserializeOwned,
+{
+    if status != reqwest::StatusCode::OK {
+        let entity = serde_json::from_str(&content).ok();
+        return Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }));
+    }
+    let model = serde_json::from_str::<M>(&content).map_err(|source| Error::Decode {
+        route,
+        status,
+        content: content.clone(),
+        source,
+    })?;
+    Ok(ResponseContent {
+        status,
+        content,
+        entity: Some(wrap(Box::new(model))),
+    })
 }
 
 pub mod addresses_api;

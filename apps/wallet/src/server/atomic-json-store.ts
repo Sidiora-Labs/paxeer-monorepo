@@ -1,15 +1,19 @@
 import { randomUUID } from 'node:crypto';
-import { copyFile, mkdir, open, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, open, readFile, readdir, rename, rmdir, stat, unlink } from 'node:fs/promises';
 import path from 'node:path';
 
 const queues = new Map<string, Promise<unknown>>();
 
 export class DurableStoreCorruptError extends Error {
-  constructor(readonly storePath: string) {
+  readonly storePath: string;
+  constructor(storePath: string) {
     super('Durable store is corrupt');
     this.name = 'DurableStoreCorruptError';
+    this.storePath = storePath;
   }
 }
+
+export type StorePublicationPhase = 'temporary-synced' | 'backup-published' | 'primary-published';
 
 export interface AtomicJsonStoreOptions<T> {
   readonly filePath: string;
@@ -17,6 +21,7 @@ export interface AtomicJsonStoreOptions<T> {
   readonly parse: (input: unknown) => T;
   readonly migrate?: (input: unknown) => T;
   readonly maxBytes?: number;
+  readonly onPublication?: (phase: StorePublicationPhase) => Promise<void>;
 }
 
 function enqueue<T>(key: string, operation: () => Promise<T>): Promise<T> {
@@ -35,6 +40,7 @@ async function wait(milliseconds: number): Promise<void> {
 }
 
 export class AtomicJsonStore<T> {
+  #ownerName?: string;
   readonly #filePath: string;
   readonly #lockPath: string;
   readonly #corruptionPath: string;
@@ -42,6 +48,7 @@ export class AtomicJsonStore<T> {
   readonly #parse: (input: unknown) => T;
   readonly #migrate?: (input: unknown) => T;
   readonly #maxBytes: number;
+  readonly #onPublication?: AtomicJsonStoreOptions<T>['onPublication'];
 
   constructor(options: AtomicJsonStoreOptions<T>) {
     this.#filePath = options.filePath;
@@ -51,6 +58,7 @@ export class AtomicJsonStore<T> {
     this.#parse = options.parse;
     this.#migrate = options.migrate;
     this.#maxBytes = options.maxBytes ?? 5_242_880;
+    this.#onPublication = options.onPublication;
   }
 
   async read(): Promise<T> {
@@ -88,6 +96,7 @@ export class AtomicJsonStore<T> {
         // Keep both the marker and the verified backup until the primary is published.
         await this.#writeUnlocked(recovered, true);
         await unlink(this.#corruptionPath);
+        await this.#syncDirectory();
         return recovered;
       })
     );
@@ -143,61 +152,205 @@ export class AtomicJsonStore<T> {
   }
 
   async #writeUnlocked(value: T, recovering = false): Promise<void> {
+    await this.#assertOwnership();
     if (!recovering) await this.#assertAvailable();
     const serialized = JSON.stringify(value);
     if (Buffer.byteLength(serialized) > this.#maxBytes) {
       throw new RangeError('Durable store exceeds its size limit');
     }
     await mkdir(path.dirname(this.#filePath), { recursive: true });
-    const temporary = `${this.#filePath}.${process.pid}.${randomUUID()}.tmp`;
+    // Publish a synced previous generation before replacing the primary. Recovery
+    // never rotates the backup: the marker remains until the restored primary is durable.
+    const temporary = await this.#syncedTemporary(serialized);
     try {
-      await writeFile(temporary, serialized, { encoding: 'utf8', mode: 0o600 });
+      await this.#onPublication?.('temporary-synced');
       if (!recovering) {
+        let previous: string | undefined;
         try {
-          await copyFile(this.#filePath, `${this.#filePath}.bak`);
+          const input: unknown = JSON.parse(await readFile(this.#filePath, 'utf8'));
+          try {
+            previous = JSON.stringify(this.#parse(input));
+          } catch {
+            if (!this.#migrate) throw new Error('No backup migration');
+            previous = JSON.stringify(this.#parse(this.#migrate(input)));
+          }
         } catch (error) {
-          if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) {
-            throw error;
+          if (!hasCode(error, 'ENOENT')) throw error;
+        }
+        if (previous !== undefined) {
+          const backupTemporary = await this.#syncedTemporary(previous);
+          try {
+            await this.#assertOwnership();
+            await rename(backupTemporary, `${this.#filePath}.bak`);
+            await this.#syncDirectory();
+          } finally {
+            await unlink(backupTemporary).catch((error) => {
+              if (!hasCode(error, 'ENOENT')) throw error;
+            });
           }
         }
       }
+      await this.#onPublication?.('backup-published');
+      await this.#assertOwnership();
       await rename(temporary, this.#filePath);
+      await this.#syncDirectory();
+      await this.#onPublication?.('primary-published');
     } finally {
-      await unlink(temporary).catch(() => undefined);
+      await unlink(temporary).catch((error) => {
+        if (!hasCode(error, 'ENOENT')) throw error;
+      });
+    }
+  }
+
+  async #syncedTemporary(contents: string): Promise<string> {
+    const temporary = `${this.#filePath}.${process.pid}.${randomUUID()}.tmp`;
+    const handle = await open(temporary, 'wx', 0o600);
+    try {
+      await handle.writeFile(contents, 'utf8');
+      await handle.sync();
+    } finally {
+      await handle.close();
+    }
+    return temporary;
+  }
+
+  async #syncDirectory(): Promise<void> {
+    const directory = await open(path.dirname(this.#filePath), 'r');
+    try {
+      await directory.sync();
+    } finally {
+      await directory.close();
+    }
+  }
+
+  async #assertOwnership(): Promise<void> {
+    if (!this.#ownerName) throw new Error('Durable store lock lost');
+    try {
+      await stat(path.join(this.#lockPath, this.#ownerName));
+    } catch {
+      throw new Error('Durable store lock lost');
     }
   }
 
   async #quarantine(): Promise<void> {
+    await this.#assertOwnership();
     const marker = await open(this.#corruptionPath, 'wx', 0o600);
     try {
       await marker.writeFile('Durable store requires verified backup recovery\n');
       await marker.sync();
+      await this.#syncDirectory();
     } finally {
       await marker.close();
     }
     const target = `${this.#filePath}.corrupt-${randomUUID()}`;
     await rename(this.#filePath, target);
+    await this.#syncDirectory();
   }
 
   async #acquireFileLock(): Promise<() => Promise<void>> {
-    for (let attempt = 0; attempt < 100; attempt += 1) {
-      try {
-        const handle = await open(this.#lockPath, 'wx', 0o600);
-        return async () => {
-          await handle.close();
-          await unlink(this.#lockPath).catch(() => undefined);
-        };
-      } catch (error) {
-        if (!(error instanceof Error && 'code' in error && error.code === 'EEXIST')) {
+    // A prepared, nonempty directory is published atomically. Reapers and late
+    // releasers remove only their observed owner entry; rmdir cannot remove a
+    // nonempty successor, even if it was published between unlink and rmdir.
+    const token = randomUUID();
+    const candidate = `${this.#lockPath}.${token}`;
+    const ownerName = `owner-${token}`;
+    await mkdir(candidate, { mode: 0o700 });
+    const owner = await open(path.join(candidate, ownerName), 'wx', 0o600);
+    try {
+      await owner.writeFile(
+        JSON.stringify({ pid: process.pid, start: await processIdentity(process.pid) })
+      );
+      await owner.sync();
+    } finally {
+      await owner.close();
+    }
+    const prepared = await open(candidate, 'r');
+    try {
+      await prepared.sync();
+    } finally {
+      await prepared.close();
+    }
+    try {
+      for (let attempt = 0; attempt < 100; attempt += 1) {
+        try {
+          await rename(candidate, this.#lockPath);
+          this.#ownerName = ownerName;
+          return async () => {
+            this.#ownerName = undefined;
+            await unlink(path.join(this.#lockPath, ownerName)).catch((error) => {
+              if (!hasCode(error, 'ENOENT')) throw error;
+            });
+            await removeEmptyLock(this.#lockPath);
+          };
+        } catch (error) {
+          if (!['EEXIST', 'ENOTEMPTY', 'ENOTDIR'].some((code) => hasCode(error, code))) throw error;
+        }
+        let names: string[];
+        try {
+          names = await readdir(this.#lockPath);
+        } catch (error) {
+          if (hasCode(error, 'ENOENT')) continue;
+          if (hasCode(error, 'ENOTDIR'))
+            throw new Error('Unowned legacy durable store lock requires operator recovery');
           throw error;
         }
-        const lockStat = await stat(this.#lockPath).catch(() => null);
-        if (lockStat && Date.now() - lockStat.mtimeMs > 30_000) {
-          await unlink(this.#lockPath).catch(() => undefined);
+        for (const name of names) {
+          if (!name.startsWith('owner-')) throw new Error('Invalid durable store lock');
+          const ownerPath = path.join(this.#lockPath, name);
+          let owner: { pid: number; start: string };
+          try {
+            owner = JSON.parse(await readFile(ownerPath, 'utf8'));
+          } catch (error) {
+            if (hasCode(error, 'ENOENT')) continue;
+            throw error;
+          }
+          if (
+            !Number.isSafeInteger(owner.pid) ||
+            owner.pid <= 0 ||
+            typeof owner.start !== 'string'
+          ) {
+            throw new Error('Invalid durable store lock owner');
+          }
+          if (!(await ownerIsAlive(owner))) {
+            await unlink(ownerPath).catch((error) => {
+              if (!hasCode(error, 'ENOENT')) throw error;
+            });
+          }
         }
+        await removeEmptyLock(this.#lockPath);
         await wait(10 + attempt * 2);
       }
+      throw new Error('Timed out acquiring durable store lock');
+    } finally {
+      await unlink(path.join(candidate, ownerName)).catch((error) => {
+        if (!hasCode(error, 'ENOENT')) throw error;
+      });
+      await removeEmptyLock(candidate);
     }
-    throw new Error('Timed out acquiring durable store lock');
+  }
+}
+
+function hasCode(error: unknown, code: string): boolean {
+  return error instanceof Error && 'code' in error && error.code === code;
+}
+
+async function removeEmptyLock(lockPath: string): Promise<void> {
+  await rmdir(lockPath).catch((error) => {
+    if (!['ENOENT', 'ENOTEMPTY', 'EEXIST'].some((code) => hasCode(error, code))) throw error;
+  });
+}
+
+async function processIdentity(pid: number): Promise<string> {
+  // Linux start ticks prevent PID reuse from preserving an abandoned lock.
+  const status = await readFile(`/proc/${pid}/stat`, 'utf8');
+  return status.slice(status.lastIndexOf(')') + 2).split(' ')[19];
+}
+
+async function ownerIsAlive(owner: { pid: number; start: string }): Promise<boolean> {
+  try {
+    return (await processIdentity(owner.pid)) === owner.start;
+  } catch (error) {
+    if (hasCode(error, 'ENOENT') || hasCode(error, 'ESRCH')) return false;
+    throw error;
   }
 }

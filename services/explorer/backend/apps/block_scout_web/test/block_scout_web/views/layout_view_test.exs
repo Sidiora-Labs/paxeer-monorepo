@@ -1,5 +1,5 @@
 defmodule BlockScoutWeb.LayoutViewTest do
-  use BlockScoutWeb.ConnCase
+  use BlockScoutWeb.ConnCase, async: false
 
   alias BlockScoutWeb.LayoutView
 
@@ -8,9 +8,19 @@ defmodule BlockScoutWeb.LayoutViewTest do
   end
 
   setup do
+    settings =
+      for key <- [BlockScoutWeb.Chain, :blockscout_version, :release_link, :other_networks] do
+        {key, Application.fetch_env(:block_scout_web, key)}
+      end
+
     on_exit(fn ->
-      Application.put_env(:block_scout_web, BlockScoutWeb.Chain, [])
+      Enum.each(settings, fn
+        {key, {:ok, value}} -> Application.put_env(:block_scout_web, key, value)
+        {key, :error} -> Application.delete_env(:block_scout_web, key)
+      end)
     end)
+
+    Application.put_env(:block_scout_web, BlockScoutWeb.Chain, [])
   end
 
   describe "logo/0" do

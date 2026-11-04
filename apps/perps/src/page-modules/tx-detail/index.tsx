@@ -1,5 +1,11 @@
 import type { GetServerSideProps } from "next";
 
+export {
+  TransactionQueryDetail,
+  selectTransaction,
+  transactionDetailOptions,
+} from "./query-detail";
+
 /**
  * Legacy `/tx/[hash]` route — kept per Supervisor DECISION 017 as a ~10 LOC
  * redirect shell to `/explorer?tx=<hash>`. Server-side redirect avoids any
