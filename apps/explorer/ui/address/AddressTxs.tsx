@@ -105,7 +105,7 @@ const AddressTxs = ({ shouldRender = true, isQueryEnabled = true, txsCount }: Pr
       { txsLocalFilter }
       <AddressCsvExportLink
         address={ hash }
-        label="Download Page Data"
+        label="Export CSV by date range"
         params={{ type: 'transactions', filterType: 'address', filterValue: localQuery.filterValue }}
         isLoading={ localQuery.query.pagination.isLoading }
       />

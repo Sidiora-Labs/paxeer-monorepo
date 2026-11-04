@@ -188,7 +188,10 @@ func newRepair58Chain(t *testing.T) *repair58Chain {
 	}
 	port := listener.Addr().(*net.TCPAddr).Port
 	_ = listener.Close()
-	backend := simulated.NewBackend(types.GenesisAlloc{crypto.PubkeyToAddress(key.PublicKey): {Balance: new(big.Int).Exp(big.NewInt(10), big.NewInt(21), nil)}}, func(n *node.Config, _ *ethconfig.Config) {
+	backend := simulated.NewBackend(types.GenesisAlloc{crypto.PubkeyToAddress(key.PublicKey): {Balance: new(big.Int).Exp(big.NewInt(10), big.NewInt(21), nil)}}, func(n *node.Config, eth *ethconfig.Config) {
+		chainConfig := *eth.Genesis.Config
+		chainConfig.ChainID = big.NewInt(125)
+		eth.Genesis.Config = &chainConfig
 		n.HTTPHost, n.HTTPPort, n.HTTPModules = "127.0.0.1", port, []string{"eth"}
 	})
 	t.Cleanup(func() { _ = backend.Close() })
@@ -212,8 +215,8 @@ func (c *repair58Chain) send(t *testing.T, to *common.Address, data []byte) *typ
 		t.Fatal(err)
 	}
 	fee := new(big.Int).Add(tip, new(big.Int).Mul(head.BaseFee, big.NewInt(2)))
-	tx := types.NewTx(&types.DynamicFeeTx{ChainID: big.NewInt(1337), Nonce: c.nonce, GasTipCap: tip, GasFeeCap: fee, Gas: 300000, To: to, Data: data})
-	signed, err := types.SignTx(tx, types.LatestSignerForChainID(big.NewInt(1337)), c.key)
+	tx := types.NewTx(&types.DynamicFeeTx{ChainID: big.NewInt(125), Nonce: c.nonce, GasTipCap: tip, GasFeeCap: fee, Gas: 300000, To: to, Data: data})
+	signed, err := types.SignTx(tx, types.LatestSignerForChainID(big.NewInt(125)), c.key)
 	if err != nil {
 		t.Fatal(err)
 	}

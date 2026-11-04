@@ -149,63 +149,9 @@ def sign_payment(evm_chain_id, nonce, gas_price, gas, value, data, key, source):
     raise AssertionError("payment signer recovery failed")
 
 
-def parse_args(argv=None):
-    parser = argparse.ArgumentParser()
-    for name in ["gateway", "did", "destination", "asset", "amount", "sequencer-key"]:
-        parser.add_argument("--" + name, required=True)
-    for name in ["ca", "auth-config", "signer", "output"]:
-        parser.add_argument("--" + name, type=Path, required=True)
-    parser.add_argument("--source-auth-config", type=Path)
-    parser.add_argument("--destination-auth-config", type=Path)
-    parser.add_argument("--evm-chain-id", type=int, choices=[EVM_CHAIN_ID], required=True)
-    return parser.parse_args(argv)
-
-
-def main():
-    args = parse_args()
-    assert args.gateway.startswith("https://")
-    assert args.asset == NATIVE_DENOM, "native bank denomination required"
-    assert args.did.startswith("did:layerx:") and args.destination.startswith("did:layerx:")
-    public_key = fixed(args.did.removeprefix("did:layerx:"))
-    destination_public_key = fixed(args.destination.removeprefix("did:layerx:"))
-    sequencer = fixed(args.sequencer_key)
-    amount = int(args.amount)
-    assert 0 < amount < 2**128 // NATIVE_SCALE and str(amount) == args.amount
-    seed = protected(args.signer)
-    key = (
-        ec.derive_private_key(int.from_bytes(seed, "big"), ec.SECP256K1())
-        if len(seed) == 32
-        else load_pem_private_key(seed, password=None)
-    )
-    assert isinstance(key, ec.EllipticCurvePrivateKey) and isinstance(
-        key.curve, ec.SECP256K1
-    )
-    public = key.public_key().public_numbers()
-    source = "0x" + keccak256(
-        public.x.to_bytes(32, "big") + public.y.to_bytes(32, "big")
-    )[-20:].hex()
-    source_auth = (
-        args.source_auth_config
-        if args.source_auth_config is not None
-        else args.auth_config.with_name("source.curl")
-    )
-    destination_auth = (
-        args.destination_auth_config
-        if args.destination_auth_config is not None
-        else args.auth_config.with_name("destination.curl")
-    )
-    protected(source_auth)
-    protected(destination_auth)
-    args.output.mkdir(mode=0o700, parents=True, exist_ok=True)
-    client = JourneyRpc(args.gateway, args.ca, args.auth_config, args.output)
-    evm_chain_id = validate_evm_chain_id(
-        args.evm_chain_id, client.rpc("eth_chainId", [])
-    )
+def fund_accounts(client, accounts):
     funding = []
-    for did, public, auth in [
-        (args.did, public_key, source_auth),
-        (args.destination, destination_public_key, destination_auth),
-    ]:
+    for did, public, auth in accounts:
         deadline = time.monotonic() + 120
         while True:
             try:
@@ -225,6 +171,91 @@ def main():
         )
         assert int(funded["amount"]) > 0
         funding.append(funded)
+
+    return funding
+
+
+def load_payment_signer(path):
+    seed = protected(path)
+    key = (
+        ec.derive_private_key(int.from_bytes(seed, "big"), ec.SECP256K1())
+        if len(seed) == 32
+        else load_pem_private_key(seed, password=None)
+    )
+    assert isinstance(key, ec.EllipticCurvePrivateKey) and isinstance(
+        key.curve, ec.SECP256K1
+    )
+    public = key.public_key().public_numbers()
+    source = "0x" + keccak256(
+        public.x.to_bytes(32, "big") + public.y.to_bytes(32, "big")
+    )[-20:].hex()
+    return key, source
+
+
+def validate_payment_accounts(path, did, destination, source, asset, evm_chain_id):
+    document = json.loads(protected(path))
+    assert document["evm_chain_id"] == evm_chain_id == EVM_CHAIN_ID
+    assert document["denomination"] == asset == NATIVE_DENOM
+    accounts = document["accounts"]
+    assert accounts["source"]["did"] == did
+    assert accounts["destination"]["did"] == destination
+    assert accounts["source"]["evm_address"] == source
+    assert accounts["destination"]["evm_address"] != source
+    return accounts
+
+
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser()
+    for name in ["gateway", "did", "destination", "asset", "amount", "sequencer-key"]:
+        parser.add_argument("--" + name, required=True)
+    for name in ["ca", "auth-config", "signer", "accounts", "output"]:
+        parser.add_argument("--" + name, type=Path, required=True)
+    parser.add_argument("--node", required=True)
+    parser.add_argument("--node-auth-config", type=Path)
+    parser.add_argument("--source-auth-config", type=Path)
+    parser.add_argument("--destination-auth-config", type=Path)
+    parser.add_argument("--evm-chain-id", type=int, choices=[EVM_CHAIN_ID], required=True)
+    return parser.parse_args(argv)
+
+
+def main(argv=None):
+    args = parse_args(argv)
+    assert args.gateway.startswith("https://")
+    assert args.asset == NATIVE_DENOM, "native bank denomination required"
+    assert args.did.startswith("did:layerx:") and args.destination.startswith("did:layerx:")
+    public_key = fixed(args.did.removeprefix("did:layerx:"))
+    destination_public_key = fixed(args.destination.removeprefix("did:layerx:"))
+    sequencer = fixed(args.sequencer_key)
+    amount = int(args.amount)
+    assert 0 < amount < 2**128 // NATIVE_SCALE and str(amount) == args.amount
+    key, source = load_payment_signer(args.signer)
+    accounts = validate_payment_accounts(
+        args.accounts, args.did, args.destination, source, args.asset, args.evm_chain_id
+    )
+    source_auth = (
+        args.source_auth_config
+        if args.source_auth_config is not None
+        else args.auth_config.with_name("source.curl")
+    )
+    destination_auth = (
+        args.destination_auth_config
+        if args.destination_auth_config is not None
+        else args.auth_config.with_name("destination.curl")
+    )
+    protected(source_auth)
+    protected(destination_auth)
+    args.output.mkdir(mode=0o700, parents=True, exist_ok=True)
+    client = JourneyRpc(
+        args.gateway, args.ca, args.auth_config, args.output,
+        node=args.node, node_auth_config=args.node_auth_config,
+    )
+    evm_chain_id = validate_evm_chain_id(
+        args.evm_chain_id, client.rpc("eth_chainId", [])
+    )
+    funding = fund_accounts(client, [
+        (args.did, public_key, source_auth),
+        (args.destination, destination_public_key, destination_auth),
+    ])
 
     def account(did):
         snapshot = client.rpc("px_getBalances", [did])
@@ -247,6 +278,7 @@ def main():
     source_before, before = account(args.did), account(args.destination)
     assert source_before["account"]["evm_address"].lower() == source
     destination = before["account"]["evm_address"]
+    assert destination.lower() == accounts["destination"]["evm_address"]
     assert destination.lower() != source
     source_wei_before = quantity(client.rpc("eth_getBalance", [source, "latest"]))
     destination_wei_before = quantity(client.rpc("eth_getBalance", [destination, "latest"]))

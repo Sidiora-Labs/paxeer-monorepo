@@ -104,11 +104,12 @@
   "command_contracts": {
     "base_backup": [
       "pg_basebackup",
-      "--format=tar",
+      "--format=plain",
       "--wal-method=stream",
       "--checkpoint=spread",
       "--manifest-checksums=SHA256",
-      "--no-password"
+      "--no-password",
+      "--pgdata=<isolated-owned-backup-directory>"
     ],
     "verify_base": [
       "pg_verifybackup",
@@ -119,6 +120,8 @@
       "pg_ctl",
       "--pgdata=<isolated-owned-data-directory>",
       "--wait",
+      "--timeout=60",
+      "--log=<isolated-owned-data-directory>/recovery.log",
       "start"
     ],
     "secrets": "External secret references and service-specific identities only; no passwords in argv/manifests."
