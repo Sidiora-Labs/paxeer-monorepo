@@ -1,0 +1,19 @@
+[repair.22.33.153]
+audit = "22.30.116"
+acceptance = "22998.1"
+revision_evidence = "The bounded hf-build and hf-done receipts identify the candidate revision, exact command, exit code and private log; the final task response copies the last receipt."
+baseline = "Not run: the explicit gate order forbids verification before the full implementation; no pre-change failing result is claimed. The prior null-payload dereference and missing durable renewal protocol are directly exercised by the proving tests."
+
+[finding.push-payload-shape]
+test = "apps/wallet/src/pwa/repair-22-33-153.test.ts::pushPayloadShape"
+repair = "Validate JSON objects, field types, title/body/tag and URL bounds; restrict assets and navigation to the wallet origin; show bounded defaults for malformed payloads."
+
+[finding.push-renewal-delivery]
+tests = ["apps/wallet/src/pwa/repair-22-33-153.test.ts::pushRenewalDelivery", "apps/wallet/src/pwa/repair-22-33-153.test.ts::renewalAcknowledgementRace", "apps/wallet/src/pwa/repair-22-33-153.test.ts::renewalSessionEligibility"]
+repair = "Persist renewal before notifying windows in an unversioned cache preserved by activation; recover through a wallet-scoped MessageChannel; sign and send the real registration request on session open; compare renewal ids before acknowledgement deletion."
+proof = "Windowless renewal, worker stop/reopen and activation, real registration route failure from unavailable durable storage, retry after reopening, server persistence, acknowledgement recovery, concurrent replacement and wallet changes during signing."
+wiring_request = "Domain 12 (wallet), apps/wallet/src/lib/push.ts: call openPushRenewalSession from setWalletAddressForPush with the current address/signer and identity guard, serviceWorker container, wallet origin, visible error reporting and online/visibility lifecycle; dispose it from clearWalletAddressForPush and on wallet replacement."
+
+[gotcha.gate-order]
+observed = "The task's baseline-run step conflicts with its explicit implementation-before-gates order and gate budget."
+action = "Follow the explicit order; record no baseline failure without a permitted pre-change run."
