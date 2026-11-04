@@ -8,6 +8,7 @@ import (
 	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
 
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/perps/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/perps/types"
 )
 
@@ -26,10 +27,9 @@ func e18(value uint64) uint256.Int {
 	return out
 }
 
-// validGenesis holds a resting limit order with a cloid and an expiry, an
-// untriggered reduce-only stop-loss attached to a long position with its indexes and the volume
-// buckets of its account.
-func validGenesis() types.GenesisState {
+// genesisReferenceFixture retains the malformed-reference cases and their IDs.
+// Positive recovery fixtures come from the matched-fill producer below.
+func genesisReferenceFixture() types.GenesisState {
 	gs := *types.DefaultGenesis()
 	gs.Markets = []types.Market{btcMarket(), paxMarket()}
 	gs.MarketStates = []types.MarketState{{MarketID: 0, IndexPrice: e18(60_000), MarkPrice: e18(60_000), Fresh: true,
@@ -78,9 +78,170 @@ func validGenesis() types.GenesisState {
 	return gs
 }
 
+func validGenesis(t *testing.T) types.GenesisState {
+	t.Helper()
+	source := newProofPerpsStore(t)
+	feeder := source.registerFeeder(t)
+	source.producePrice(t, feeder, 1, 1000)
+	require.NoError(t, keeper.SeedV6120(source.ctx, *source.perps))
+	_, err := source.perps.UpdatePrices(source.ctx)
+	require.NoError(t, err)
+	for _, address := range []common.Address{holderA, holderB} {
+		_, err := source.perps.Deposit(source.ctx, address, word(1_000_000_000))
+		require.NoError(t, err)
+	}
+	maker, err := source.perps.PlaceOrder(source.ctx, holderB, keeper.OrderParams{
+		MarketID: 0, IsLong: false, OrderType: uint8(types.OrderTypeLimit),
+		TimeInForce: uint8(types.TimeInForceGTC), LimitPrice: e18(1000), SizeUsd: e18(2000),
+		Leverage: e18(10), Cloid: cloidA, Deadline: uint64(source.ctx.BlockTime().Unix()) + 100,
+	})
+	require.NoError(t, err)
+	taker, err := source.perps.PlaceOrder(source.ctx, holderA, keeper.OrderParams{
+		MarketID: 0, IsLong: true, OrderType: uint8(types.OrderTypeMarket),
+		TimeInForce: uint8(types.TimeInForceIOC), SizeUsd: e18(1000), Leverage: e18(10),
+	})
+	require.NoError(t, err)
+	filled, err := source.perps.GetOrder(source.ctx, taker.OrderID)
+	require.NoError(t, err)
+	require.Equal(t, types.OrderStatusFilled, filled.Status)
+	require.Equal(t, e18(1), filled.FilledBase)
+	resting, err := source.perps.GetOrder(source.ctx, maker.OrderID)
+	require.NoError(t, err)
+	require.Equal(t, types.OrderStatusResting, resting.Status)
+	require.Equal(t, e18(1), resting.FilledBase)
+	_, err = source.perps.PlaceOrder(source.ctx, holderA, keeper.OrderParams{
+		MarketID: 0, IsLong: true, OrderType: uint8(types.OrderTypeStopMarket),
+		TimeInForce: uint8(types.TimeInForceIOC), TriggerPrice: e18(1100), SizeUsd: e18(100), Leverage: e18(10),
+	})
+	require.NoError(t, err)
+	exported := source.perps.ExportGenesis(source.ctx)
+	require.Len(t, exported.Positions, 2)
+	require.Len(t, exported.AccountOrders, 2)
+	require.Len(t, exported.AccountMarketPositions, 2)
+	require.NoError(t, types.ValidateGenesis(*exported))
+	return *exported
+}
+
 func TestGenesisValidateAccepts(t *testing.T) {
 	require.NoError(t, types.ValidateGenesis(*types.DefaultGenesis()))
-	require.NoError(t, types.ValidateGenesis(validGenesis()))
+	gs := validGenesis(t)
+	require.NoError(t, types.ValidateGenesis(gs))
+	var long, short uint256.Int
+	for _, position := range gs.Positions {
+		require.Equal(t, uint64(0), position.MarketID)
+		if position.IsLong {
+			long.Add(&long, &position.SizeBase)
+		} else {
+			short.Add(&short, &position.SizeBase)
+		}
+	}
+	require.Equal(t, e18(1), long)
+	require.Equal(t, long, short)
+	for _, state := range gs.MarketStates {
+		if state.MarketID == 0 {
+			require.Equal(t, long, state.LongOpenInterest)
+			require.Equal(t, short, state.ShortOpenInterest)
+		}
+	}
+	received := repair15Clone(t, &gs)
+	require.NoError(t, keeper.ValidateGenesis(received))
+	target := newProofPerpsStore(t)
+	target.perps.InitGenesis(target.ctx, received)
+	require.Equal(t, &gs, target.perps.ExportGenesis(target.ctx))
+	target.restart(t)
+	require.Equal(t, &gs, target.perps.ExportGenesis(target.ctx))
+}
+
+func TestGenesisValidateRejectsProducedState(t *testing.T) {
+	gs := validGenesis(t)
+	cases := []struct {
+		name, reason string
+		mutate       func(*types.GenesisState)
+	}{
+		{"long_oi", "open interest disagrees", func(gs *types.GenesisState) {
+			gs.MarketStates[0].LongOpenInterest.AddUint64(&gs.MarketStates[0].LongOpenInterest, 1)
+		}},
+		{"short_oi", "open interest disagrees", func(gs *types.GenesisState) {
+			gs.MarketStates[0].ShortOpenInterest.Clear()
+		}},
+		{"balanced_but_wrong_oi", "open interest disagrees", func(gs *types.GenesisState) {
+			gs.MarketStates[0].LongOpenInterest.Clear()
+			gs.MarketStates[0].ShortOpenInterest.Clear()
+		}},
+		{"open_order_count_low", "open order count", func(gs *types.GenesisState) {
+			for i := range gs.Accounts {
+				if gs.Accounts[i].Address == holderA {
+					gs.Accounts[i].OpenOrderCount--
+				}
+			}
+		}},
+		{"open_order_count_high", "open order count", func(gs *types.GenesisState) {
+			for i := range gs.Accounts {
+				if gs.Accounts[i].Address == holderA {
+					gs.Accounts[i].OpenOrderCount++
+				}
+			}
+		}},
+		{"position_count_low", "position count", func(gs *types.GenesisState) {
+			for i := range gs.Accounts {
+				if gs.Accounts[i].Address == holderA {
+					gs.Accounts[i].PositionCount--
+				}
+			}
+		}},
+		{"position_count_high", "position count", func(gs *types.GenesisState) {
+			for i := range gs.Accounts {
+				if gs.Accounts[i].Address == holderA {
+					gs.Accounts[i].PositionCount++
+				}
+			}
+		}},
+		{"missing_order_ownership", "without an account order entry", func(gs *types.GenesisState) {
+			gs.AccountOrders = gs.AccountOrders[1:]
+		}},
+		{"wrong_order_owner", "account order entry disagrees", func(gs *types.GenesisState) {
+			if gs.AccountOrders[0].Account == holderA {
+				gs.AccountOrders[0].Account = holderB
+			} else {
+				gs.AccountOrders[0].Account = holderA
+			}
+		}},
+		{"missing_position_ownership", "without an account market entry", func(gs *types.GenesisState) {
+			gs.AccountMarketPositions = gs.AccountMarketPositions[1:]
+		}},
+		{"wrong_position_owner", "account market entry disagrees", func(gs *types.GenesisState) {
+			if gs.AccountMarketPositions[0].Account == holderA {
+				gs.AccountMarketPositions[0].Account = holderB
+			} else {
+				gs.AccountMarketPositions[0].Account = holderA
+			}
+		}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			corrupted := repair15Clone(t, &gs)
+			tc.mutate(&corrupted)
+			received := repair15Clone(t, &corrupted)
+			err := types.ValidateGenesis(received)
+			require.ErrorIs(t, err, types.ErrInvalidGenesis)
+			require.Contains(t, err.Error(), tc.reason)
+			proofPerpsTransport(t, err, types.ErrInvalidGenesis)
+			importErr := keeper.ValidateGenesis(received)
+			require.ErrorIs(t, importErr, types.ErrInvalidGenesis)
+			require.Contains(t, importErr.Error(), tc.reason)
+			target := newProofPerpsStore(t)
+			store := target.ctx.KVStore(target.keys[types.StoreKey])
+			store.Set([]byte("existing-state"), []byte("preserve-on-refusal"))
+			require.PanicsWithError(t, importErr.Error(), func() { target.perps.InitGenesis(target.ctx, received) })
+			iterator := store.Iterator(nil, nil)
+			defer iterator.Close()
+			require.True(t, iterator.Valid())
+			require.Equal(t, []byte("existing-state"), iterator.Key())
+			require.Equal(t, []byte("preserve-on-refusal"), iterator.Value())
+			iterator.Next()
+			require.False(t, iterator.Valid(), "invalid import wrote perps state")
+		})
+	}
 }
 
 func TestGenesisValidateRejects(t *testing.T) {
@@ -269,7 +430,7 @@ func TestGenesisValidateRejects(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			gs := validGenesis()
+			gs := genesisReferenceFixture()
 			tc.mutate(&gs)
 			err := types.ValidateGenesis(gs)
 			require.ErrorIs(t, err, types.ErrInvalidGenesis)
@@ -279,7 +440,7 @@ func TestGenesisValidateRejects(t *testing.T) {
 }
 
 func TestGenesisValidateRecordsRoundTrip(t *testing.T) {
-	gs := validGenesis()
+	gs := validGenesis(t)
 	var negative uint256.Int
 	negative.Neg(uint256.NewInt(750_000_000_000_000_000))
 	gs.Positions[0].FundingBasis = negative

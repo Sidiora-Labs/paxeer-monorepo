@@ -4,9 +4,14 @@ import { cn } from "@/ui/utils/cn";
 import { Button } from "@/ui/atoms/button";
 import { X, Loader2, AlertTriangle, Check, ArrowDownToLine, ArrowUpFromLine } from "lucide-react";
 import { usePerpsWallet } from "@/hooks/perps/usePerpsWallet";
-import { useAccount, CollateralSessionChangedError, type CollateralIdentity } from "@/hooks/perps/useAccount";
+import {
+  useAccount,
+  CollateralSessionChangedError,
+  type CollateralIdentity,
+} from "@/hooks/perps/useAccount";
 import { CollateralOperationIdentity } from "./CollateralOperationIdentity";
-import type { AccountView } from "@/core/perps/accountView";
+import { useCollateralBalances } from "./useCollateralBalances";
+import { useCollateralRecovery } from "./useCollateralRecovery";
 import { safeParseUnits } from "@/core/perps/amounts";
 import { toast } from "@/ui/atoms/use-toast";
 import { toastError } from "@/widgets/errors";
@@ -30,24 +35,41 @@ interface DepositWithdrawModalProps {
 
 export function DepositWithdrawModal({ isOpen, onClose }: DepositWithdrawModalProps) {
   const { isConnected, address, chainId, connect } = usePerpsWallet();
-  const { getAccount, getWalletBalance, deposit, withdraw, withdrawAll } = useAccount();
+  const { deposit, withdraw, withdrawAll } = useAccount();
 
   const [action, setAction] = useState<"deposit" | "withdraw">("deposit");
   const [amount, setAmount] = useState("");
 
-  const [walletBalance, setWalletBalance] = useState<bigint>(0n);
-  const [account, setAccount] = useState<AccountView | null>(null);
-  const [isLoadingBalances, setIsLoadingBalances] = useState(false);
-
+  const balances = useCollateralBalances(address, chainId, isConnected, isOpen);
+  const refreshBalances = balances.refresh;
+  const refreshAfterRecovery = useCallback(() => {
+    void refreshBalances();
+  }, [refreshBalances]);
+  const recovery = useCollateralRecovery(refreshAfterRecovery);
+  const walletBalance = balances.wallet.status === "available" ? balances.wallet.value : 0n;
+  const account = balances.account.status === "available" ? balances.account.value : null;
+  const requiredRead = action === "deposit" ? balances.wallet : balances.account;
+  const requiredAvailable = requiredRead.status === "available";
   const [isProcessing, setIsProcessing] = useState(false);
   const [txStep, setTxStep] = useState<"idle" | "approving" | "executing" | "confirming">("idle");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isWithdrawingAll, setIsWithdrawingAll] = useState(false);
   const operationBusy = useRef(false);
+  const operationGeneration = useRef(0);
+  const renderedSession = `${isConnected}:${chainId}:${address?.toLowerCase() ?? ""}`;
+  const lastRenderedSession = useRef(renderedSession);
+  if (lastRenderedSession.current !== renderedSession) {
+    lastRenderedSession.current = renderedSession;
+    operationGeneration.current += 1;
+  }
+  useEffect(
+    () => () => {
+      operationGeneration.current += 1;
+    },
+    [],
+  );
   const [operationIdentity, setOperationIdentity] = useState<CollateralIdentity | null>(null);
-  const currentIdentity = useRef({ address, chainId });
-  currentIdentity.current = { address, chainId };
 
   const withdrawable = account?.withdrawable ?? 0n;
   const amountUnits = useMemo(() => safeParseUnits(amount, USDL.decimals), [amount]);
@@ -56,6 +78,7 @@ export function DepositWithdrawModal({ isOpen, onClose }: DepositWithdrawModalPr
   //    success/error banners never leak into the next open.
   useEffect(() => {
     if (isOpen) return;
+    operationGeneration.current += 1;
     setAmount("");
     setError(null);
     setSuccess(null);
@@ -65,25 +88,6 @@ export function DepositWithdrawModal({ isOpen, onClose }: DepositWithdrawModalPr
     }
   }, [isOpen]);
 
-  // Reads the wallet USDL balance and getAccount(account) at 0x1015.
-  const refreshBalances = useCallback(async (isCancelled: () => boolean = () => false) => {
-    if (!address) return;
-    const [wb, acc] = await Promise.allSettled([getWalletBalance(address), getAccount(address)]);
-    if (isCancelled() || currentIdentity.current.address !== address || currentIdentity.current.chainId !== chainId) return;
-    setWalletBalance(wb.status === "fulfilled" ? wb.value : 0n);
-    setAccount(acc.status === "fulfilled" ? acc.value : null);
-  }, [address, chainId, getWalletBalance, getAccount]);
-
-  useEffect(() => {
-    if (!isOpen || !isConnected || !address) return;
-    let cancelled = false;
-    setIsLoadingBalances(true);
-    void refreshBalances(() => cancelled).finally(() => {
-      if (!cancelled) setIsLoadingBalances(false);
-    });
-    return () => { cancelled = true; };
-  }, [isOpen, isConnected, address, refreshBalances]);
-
   const maxUnits = action === "deposit" ? walletBalance : withdrawable;
 
   const marginRatio = useMemo(() => {
@@ -91,25 +95,57 @@ export function DepositWithdrawModal({ isOpen, onClose }: DepositWithdrawModalPr
     return (Number(account.maintenanceMarginUsd) / Number(account.equityUsd)) * 100;
   }, [account]);
 
-  const handleSubmit = useCallback(async () => {
-    if (!address || chainId === null || amountUnits <= 0n || operationBusy.current) return;
+  const handleSubmit = async () => {
+    if (
+      !address ||
+      chainId === null ||
+      amountUnits <= 0n ||
+      amountUnits > maxUnits ||
+      !requiredAvailable ||
+      recovery.busy ||
+      operationBusy.current
+    )
+      return;
+    try {
+      if (!recovery.begin({ address, chainId })) return;
+    } catch (error) {
+      setError(classifyError(error, "account/recovery").message);
+      return;
+    }
+    const generation = operationGeneration.current;
+    const refreshOriginalSession = balances.captureRefresh();
     operationBusy.current = true;
     setOperationIdentity({ address, chainId });
     const shown = formatUnits(amountUnits, USDL.decimals);
-    setIsProcessing(true); setError(null); setSuccess(null);
+    setIsProcessing(true);
+    setError(null);
+    setSuccess(null);
     try {
       if (action === "deposit") {
-        await deposit(address, amountUnits, setTxStep, chainId);
-        setSuccess(`Deposited ${shown} ${USDL.symbol}`);
+        await deposit(
+          address,
+          amountUnits,
+          (step) => {
+            if (generation !== operationGeneration.current)
+              throw new CollateralSessionChangedError({ address, chainId });
+            setTxStep(step);
+          },
+          chainId,
+        );
+        if (generation === operationGeneration.current)
+          setSuccess(`Deposited ${shown} ${USDL.symbol}`);
       } else {
         setTxStep("executing");
         await withdraw(amountUnits, address, chainId);
-        setSuccess(`Withdrew ${shown} ${USDL.symbol}`);
+        if (generation === operationGeneration.current)
+          setSuccess(`Withdrew ${shown} ${USDL.symbol}`);
       }
-      setTxStep("confirming");
-      setAmount("");
+      if (generation === operationGeneration.current) {
+        setTxStep("confirming");
+        setAmount("");
+      }
       // Refresh live balances so the "Max" row and Stats update immediately.
-      await refreshBalances();
+      await refreshOriginalSession();
     } catch (err) {
       if (err instanceof CollateralSessionChangedError) {
         setError(err.message);
@@ -121,20 +157,38 @@ export function DepositWithdrawModal({ isOpen, onClose }: DepositWithdrawModalPr
       void reportError(ufe);
     } finally {
       operationBusy.current = false;
-      setIsProcessing(false); setTxStep("idle");
+      recovery.end();
+      setIsProcessing(false);
+      setTxStep("idle");
       setTimeout(() => setSuccess(null), 4000);
     }
-  }, [address, chainId, amountUnits, action, deposit, withdraw, refreshBalances]);
+  };
 
-  const handleWithdrawAll = useCallback(async () => {
-    if (!address || chainId === null || operationBusy.current) return;
+  const handleWithdrawAll = async () => {
+    if (
+      !address ||
+      chainId === null ||
+      operationBusy.current ||
+      recovery.busy ||
+      balances.account.status !== "available" ||
+      withdrawable <= 0n
+    )
+      return;
+    try {
+      if (!recovery.begin({ address, chainId })) return;
+    } catch (error) {
+      setError(classifyError(error, "account/recovery").message);
+      return;
+    }
+    const refreshOriginalSession = balances.captureRefresh();
     operationBusy.current = true;
     setOperationIdentity({ address, chainId });
-    setIsWithdrawingAll(true); setError(null);
+    setIsWithdrawingAll(true);
+    setError(null);
     try {
       await withdrawAll(address, chainId);
       toast({ title: "Withdrew all available collateral" });
-      await refreshBalances();
+      await refreshOriginalSession();
     } catch (err) {
       if (err instanceof CollateralSessionChangedError) {
         setError(err.message);
@@ -146,9 +200,10 @@ export function DepositWithdrawModal({ isOpen, onClose }: DepositWithdrawModalPr
       });
     } finally {
       operationBusy.current = false;
+      recovery.end();
       setIsWithdrawingAll(false);
     }
-  }, [address, chainId, withdrawAll, refreshBalances]);
+  };
 
   if (!isOpen) return null;
 
@@ -162,7 +217,6 @@ export function DepositWithdrawModal({ isOpen, onClose }: DepositWithdrawModalPr
         withdraw-all block) got clipped off the top of the screen.
       */}
       <div className="relative w-full sm:max-w-md mx-0 sm:mx-0 rounded-t-2xl sm:rounded-2xl border border-[var(--brand-border)] bg-[var(--brand-surface)] shadow-2xl overflow-hidden flex flex-col max-h-[calc(100vh-2rem)] sm:max-h-[90vh]">
-
         {/* ── Header ── */}
         <div className="flex items-center justify-between px-5 pt-5 pb-4 shrink-0 border-b border-[var(--brand-border)]">
           <div>
@@ -170,17 +224,22 @@ export function DepositWithdrawModal({ isOpen, onClose }: DepositWithdrawModalPr
               {action === "deposit" ? "Deposit Collateral" : "Withdraw Collateral"}
             </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {action === "deposit" ? "Move USDL from your wallet into your cross-margin account." : "Move withdrawable USDL from your account back to your wallet."}
+              {action === "deposit"
+                ? "Move USDL from your wallet into your cross-margin account."
+                : "Move withdrawable USDL from your account back to your wallet."}
             </p>
           </div>
-          <button onClick={onClose} className="ml-3 shrink-0 rounded-full p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+          <button
+            onClick={onClose}
+            className="ml-3 shrink-0 rounded-full p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        {operationIdentity && (
+        {(operationIdentity ?? recovery.active) && (
           <div className="px-5 pt-3">
-            <CollateralOperationIdentity identity={operationIdentity} />
+            <CollateralOperationIdentity identity={(operationIdentity ?? recovery.active)!} />
           </div>
         )}
 
@@ -201,18 +260,34 @@ export function DepositWithdrawModal({ isOpen, onClose }: DepositWithdrawModalPr
             <button
               className={cn(
                 "py-2 rounded-md text-sm font-semibold transition-all flex items-center justify-center gap-1.5",
-                action === "deposit" ? "bg-background shadow text-foreground" : "text-muted-foreground"
+                action === "deposit"
+                  ? "bg-background shadow text-foreground"
+                  : "text-muted-foreground",
               )}
-              onClick={() => { setAction("deposit"); setAmount(""); setError(null); }}
+              disabled={recovery.busy}
+              onClick={() => {
+                if (recovery.busy || operationBusy.current) return;
+                setAction("deposit");
+                setAmount("");
+                setError(null);
+              }}
             >
               <ArrowDownToLine className="h-4 w-4" /> Deposit
             </button>
             <button
               className={cn(
                 "py-2 rounded-md text-sm font-semibold transition-all flex items-center justify-center gap-1.5",
-                action === "withdraw" ? "bg-background shadow text-foreground" : "text-muted-foreground"
+                action === "withdraw"
+                  ? "bg-background shadow text-foreground"
+                  : "text-muted-foreground",
               )}
-              onClick={() => { setAction("withdraw"); setAmount(""); setError(null); }}
+              disabled={recovery.busy}
+              onClick={() => {
+                if (recovery.busy || operationBusy.current) return;
+                setAction("withdraw");
+                setAmount("");
+                setError(null);
+              }}
             >
               <ArrowUpFromLine className="h-4 w-4" /> Withdraw
             </button>
@@ -221,19 +296,23 @@ export function DepositWithdrawModal({ isOpen, onClose }: DepositWithdrawModalPr
           {/* Amount input + preset buttons */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Amount ({USDL.symbol})</label>
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Amount ({USDL.symbol})
+              </label>
               <button
                 className="text-[10px] text-primary hover:text-primary/80 font-medium disabled:opacity-50"
                 onClick={() => setAmount(formatUnits(maxUnits, USDL.decimals))}
-                disabled={isLoadingBalances || !isConnected}
+                disabled={recovery.busy || !requiredAvailable || !isConnected}
               >
-                {isLoadingBalances ? (
+                {!requiredAvailable ? (
                   <span className="inline-flex items-center gap-1">
                     <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                    Loading…
+                    {requiredRead.status === "failed" ? "Balance unavailable" : "Loading…"}
                   </span>
                 ) : (
-                  <>Max: {fmtBal(maxUnits)} {USDL.symbol}</>
+                  <>
+                    Max: {fmtBal(maxUnits)} {USDL.symbol}
+                  </>
                 )}
               </button>
             </div>
@@ -244,14 +323,14 @@ export function DepositWithdrawModal({ isOpen, onClose }: DepositWithdrawModalPr
               inputMode="decimal"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              disabled={!isConnected}
+              disabled={!isConnected || recovery.busy || !requiredAvailable}
             />
             <div className="grid grid-cols-4 gap-1 mt-1.5">
               {[25n, 50n, 75n, 100n].map((pct) => (
                 <button
                   key={pct.toString()}
                   className="py-1 rounded text-[10px] font-medium bg-muted/50 text-muted-foreground hover:text-foreground transition-all disabled:opacity-40"
-                  disabled={!isConnected || isLoadingBalances}
+                  disabled={!isConnected || recovery.busy || !requiredAvailable}
                   onClick={() => setAmount(formatUnits((maxUnits * pct) / 100n, USDL.decimals))}
                 >
                   {pct.toString()}%
@@ -264,23 +343,90 @@ export function DepositWithdrawModal({ isOpen, onClose }: DepositWithdrawModalPr
           {isConnected && (
             <div className="grid grid-cols-3 gap-2 rounded-lg bg-surface-1 p-2.5">
               <div className="text-center">
-                <div className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">Collateral</div>
+                <div className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Collateral
+                </div>
                 <div className="text-xs font-mono font-semibold mt-0.5">
-                  {isLoadingBalances ? "…" : account ? fmtBal(account.collateral) : "—"}
+                  {balances.account.status === "loading"
+                    ? "…"
+                    : account
+                      ? fmtBal(account.collateral)
+                      : "—"}
                 </div>
               </div>
               <div className="text-center border-x border-border">
-                <div className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">Withdrawable</div>
+                <div className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Withdrawable
+                </div>
                 <div className="text-xs font-mono font-semibold mt-0.5">
-                  {isLoadingBalances ? "…" : account ? fmtBal(account.withdrawable) : "—"}
+                  {balances.account.status === "loading"
+                    ? "…"
+                    : account
+                      ? fmtBal(account.withdrawable)
+                      : "—"}
                 </div>
               </div>
               <div className="text-center">
-                <div className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">Margin ratio</div>
-                <div className={cn("text-xs font-mono font-semibold mt-0.5", marginRatio === null || marginRatio < 50 ? "text-emerald-500" : marginRatio < 80 ? "text-amber-500" : "text-red-500")}>
-                  {isLoadingBalances ? "…" : marginRatio === null ? "—" : `${marginRatio.toFixed(1)}%`}
+                <div className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Margin ratio
+                </div>
+                <div
+                  className={cn(
+                    "text-xs font-mono font-semibold mt-0.5",
+                    marginRatio === null || marginRatio < 50
+                      ? "text-emerald-500"
+                      : marginRatio < 80
+                        ? "text-amber-500"
+                        : "text-red-500",
+                  )}
+                >
+                  {balances.account.status === "loading"
+                    ? "…"
+                    : marginRatio === null
+                      ? "—"
+                      : `${marginRatio.toFixed(1)}%`}
                 </div>
               </div>
+            </div>
+          )}
+
+          {(["wallet", "account"] as const).map((name) => {
+            const read = balances[name];
+            return (
+              read.status === "failed" && (
+                <div key={name} role="alert" className="text-xs text-red-500">
+                  <p>
+                    {name === "wallet" ? "Wallet balance" : "Account balance"}: {read.message}
+                  </p>
+                  <button
+                    type="button"
+                    disabled={recovery.busy}
+                    onClick={() => {
+                      void refreshBalances(name);
+                    }}
+                  >
+                    Retry {name} balance
+                  </button>
+                </div>
+              )
+            );
+          })}
+          {recovery.pending.length > 0 && (
+            <div role="status" className="text-xs text-muted-foreground">
+              <p>Reconciling pending transactions before another transfer.</p>
+              {recovery.pending.map((record) => (
+                <p key={record.hash}>
+                  Chain {record.chainId} · {record.account ?? "Checking sender"} · {record.hash}
+                </p>
+              ))}
+            </div>
+          )}
+          {recovery.failure && (
+            <div role="alert" className="text-xs text-red-500">
+              <p>{recovery.failure}</p>
+              <button type="button" onClick={recovery.retryRecovery}>
+                Retry pending transactions
+              </button>
             </div>
           )}
 
@@ -289,7 +435,8 @@ export function DepositWithdrawModal({ isOpen, onClose }: DepositWithdrawModalPr
             <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 rounded-lg px-3 py-2">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
               {txStep === "approving" && "Approving token spend..."}
-              {txStep === "executing" && (action === "deposit" ? "Depositing..." : "Withdrawing...")}
+              {txStep === "executing" &&
+                (action === "deposit" ? "Depositing..." : "Withdrawing...")}
               {txStep === "confirming" && "Confirming on-chain..."}
             </div>
           )}
@@ -309,13 +456,26 @@ export function DepositWithdrawModal({ isOpen, onClose }: DepositWithdrawModalPr
 
           {/* Single adaptive CTA: connect → deposit/withdraw */}
           <Button
-            className={cn("w-full font-semibold", action === "deposit" && isConnected ? "bg-emerald-600 hover:bg-emerald-700" : "")}
+            className={cn(
+              "w-full font-semibold",
+              action === "deposit" && isConnected ? "bg-emerald-600 hover:bg-emerald-700" : "",
+            )}
             size="lg"
             disabled={
-              isConnected && (isProcessing || isWithdrawingAll || amountUnits <= 0n || isLoadingBalances)
+              recovery.busy ||
+              (isConnected &&
+                (isProcessing ||
+                  isWithdrawingAll ||
+                  amountUnits <= 0n ||
+                  amountUnits > maxUnits ||
+                  !requiredAvailable))
             }
             onClick={() => {
-              if (!isConnected) { connect(); onClose(); return; }
+              if (!isConnected) {
+                connect();
+                onClose();
+                return;
+              }
               void handleSubmit();
             }}
           >
@@ -348,10 +508,18 @@ export function DepositWithdrawModal({ isOpen, onClose }: DepositWithdrawModalPr
                   "w-full rounded-xl h-9 text-xs font-semibold transition-all",
                   withdrawable > 0n && !isWithdrawingAll
                     ? "bg-muted/50 text-foreground hover:bg-muted"
-                    : "bg-muted/30 text-muted-foreground cursor-not-allowed opacity-50"
+                    : "bg-muted/30 text-muted-foreground cursor-not-allowed opacity-50",
                 )}
-                disabled={withdrawable <= 0n || isWithdrawingAll || isProcessing || isLoadingBalances}
-                onClick={() => { void handleWithdrawAll(); }}
+                disabled={
+                  recovery.busy ||
+                  balances.account.status !== "available" ||
+                  withdrawable <= 0n ||
+                  isWithdrawingAll ||
+                  isProcessing
+                }
+                onClick={() => {
+                  void handleWithdrawAll();
+                }}
               >
                 {isWithdrawingAll
                   ? "Processing..."
