@@ -173961,7 +173961,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1573]
 title = "Repair audit record 22.30.99 medium findings in services/agent/tests/policy (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.227", "22.31.228", "22.31.229", "22.31.230", "22.31.483"]
@@ -175396,7 +175396,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1530]
 title = "Repair audit record 22.30.94 medium findings in services/agent/crates/layerx-agentd/tests (part 2 of 2): retired-reference, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.220", "22.31.443", "22.31.483"]
@@ -183192,7 +183192,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.45]
 title = "Repair audit record 22.30.105 medium findings in services/human/crates/layerx-human-service (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.3", "22.31.443"]
@@ -321002,7 +321002,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.1469]
 title = "Repair audit record 22.30.85 medium findings in services/platform/hosted/registry (part 1 of 1): retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.206", "22.31.207", "22.31.208", "22.31.358"]
@@ -321179,7 +321179,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1442]
 title = "Repair audit record 22.30.81 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.202", "22.31.470"]
@@ -372092,7 +372092,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.288]
 title = "Repair audit record 22.30.133 medium findings in services/explorer/backend (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.377", "22.31.378"]

@@ -291,6 +291,7 @@ func NewEVMHTTPServer(
 	apis := []rpc.API{
 		{Namespace: "px", Service: pxAPI},
 		{Namespace: "px", Service: &pxHistoryAPI{account: pxAPI}},
+		{Namespace: "px", Service: &pxKernelAPI{tmClient: tmClient, chainID: ctx.ChainID(), connectionType: stateAPI.connectionType}},
 		{
 			Namespace: "echo",
 			Service:   NewEchoAPI(),
@@ -533,13 +534,20 @@ func NewEVMWebSocketServer(
 	if seq != nil {
 		subscriptionAPI.receiptLogs = seq.receiptLogs
 	}
+	sequencerReceiptAPI, err := newSequencerReceiptAPI(tmClient, ctxProvider, sequencerReceipts, ConnectionTypeWS)
+	if err != nil {
+		return nil, err
+	}
 	txAPI := NewTransactionAPI(tmClient, k, ctxProvider, txConfigProvider, homeDir, ConnectionTypeWS, methodTimeout, watermarks, globalBlockCache, cacheCreationMutex, config.EnableUnsafeKeyringRPC)
 	stateAPI := NewStateAPI(tmClient, k, ctxProvider, ConnectionTypeWS, watermarks, app.CommitMultiStore().(storetypes.Queryable))
 	simulationAPI := NewSimulationAPI(ctxProvider, k, beginBlockKeepers, txConfigProvider, tmClient, simulateConfig, app, antehandler, ConnectionTypeWS, globalBlockCache, cacheCreationMutex, watermarks)
 	pxAPI := &pxAccountAPI{state: stateAPI, tx: txAPI, simulation: simulationAPI, indexer: pxIndexer, methods: httpServer.WSMethods}
 	apis := []rpc.API{
+		{Namespace: "pax", Service: sequencerReceiptAPI},
+		{Namespace: "px", Service: &receiptKeysAPI{receipts: sequencerReceiptAPI}},
 		{Namespace: "px", Service: pxAPI},
 		{Namespace: "px", Service: &pxHistoryAPI{account: pxAPI}},
+		{Namespace: "px", Service: &pxKernelAPI{tmClient: tmClient, chainID: ctx.ChainID(), connectionType: stateAPI.connectionType}},
 		{
 			Namespace: "echo",
 			Service:   NewEchoAPI(),
