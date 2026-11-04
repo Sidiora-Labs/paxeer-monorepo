@@ -3,6 +3,7 @@ package debug
 import (
 	"archive/zip"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -19,15 +20,17 @@ func zipDir(src, dest string) error {
 	if err != nil {
 		return err
 	}
-	defer func() { _ = zipFile.Close() }()
+	return zipDirToFile(src, dest, zipFile)
+}
 
+// zipDirToFile owns zipFile and finalizes both the archive and its output.
+func zipDirToFile(src, dest string, zipFile *os.File) error {
 	zipWriter := zip.NewWriter(zipFile)
-	defer func() { _ = zipWriter.Close() }()
 
 	dirName := filepath.Base(dest)
 	baseDir := strings.TrimSuffix(dirName, filepath.Ext(dirName))
 
-	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+	walkErr := filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -68,6 +71,9 @@ func zipDir(src, dest string) error {
 		return err
 	})
 
+	zipErr := zipWriter.Close()
+	fileErr := zipFile.Close()
+	return errors.Join(walkErr, zipErr, fileErr)
 }
 
 // copyFile copies a file from src to dest and returns an error upon failure. The
