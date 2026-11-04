@@ -16,10 +16,11 @@ export const SIDIORA_QUOTER_ABI = [
   'function quoteMultihop(address tokenIn, address tokenOut, uint256 amountIn) view returns (tuple(uint256 amountOut, uint256 intermediateUsdl, uint256 sellFeeAmount, uint256 buyFeeAmount, uint256 sellPriceImpactBps, uint256 buyPriceImpactBps, uint256 combinedPriceImpactBps, address poolA, address poolB) result)',
 ] as const;
 
+// Generated from the buy, sell and swapTokenForToken roles in precompiles/launchpad/abi/Router.json.
 export const SIDIORA_ROUTER_ABI = [
   'function buy(address pool, uint256 usdlAmountIn, uint256 minTokensOut, uint256 deadline) external returns (uint256 amountOut)',
   'function sell(address pool, uint256 tokenAmountIn, uint256 minUsdlOut, uint256 deadline) external returns (uint256 amountOut)',
-  'function swapTokenToToken(address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut, uint256 deadline) external returns (uint256 amountOut)',
+  'function swapTokenForToken(address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut, uint256 deadline) external returns (uint256 amountOut, uint256 intermediateUsdl)',
 ] as const;
 
 export const ERC20_ABI = [
