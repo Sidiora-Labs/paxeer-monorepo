@@ -1,0 +1,13 @@
+[repair.22.33.430]
+audit = "22.30.146"
+finding = "docs-client-generation"
+change = "README requires the target local backend OpenAPI snapshot, normalizes its /api server prefix into full generator paths, reviews overrides before generation, labels upstream samples, and specifies actual-producer native/EVM/null/empty/error validation with explicit REST and separate node origins."
+proving_tests = ["docs_client_generation_local_authority_and_validation", "docs_client_generation_explicit_rest_origin", "docs_client_generation_native_evm_and_empty_pages", "docs_client_generation_error_status_and_raw_body"]
+test_path = "services/explorer/services/libs/tests/repair_22_33_430.rs"
+test_registration = "The libs manifest is a virtual workspace; blockscout-client/crate/Cargo.toml registers the specified integration test via ../../tests/repair_22_33_430.rs so the declared workspace verify command executes it."
+proof = "Production ApiClient, reqwest HTTP transport and typed codecs consume committed fixtures over bounded loopback HTTP; checks cover exact request paths, explicit origin rejection, healthy DB/cache/node heights, native and EVM discrimination in both feed consumers, empty terminal pages, HTTP 500 typed/raw errors and malformed-success evidence."
+fixture_provenance = "Existing eth_blockscout_com recordings remain upstream samples. crate/tests/fixtures/repair_22_33_430.json labels the native example copied from repair_22_31_274.rs (FeedView.prepare_update contract) and unhealthy HealthController 5002 example as source-derived, not independently recorded local responses. The gate does not execute Elixir or claim deployment validation."
+baseline = "Not run: the explicit qualification order prohibits builds/tests before implementation and invoking verify_cmd before hf-done; no earlier hf-build/hf-done ledger existed at inspection and no pre-change failing test is claimed."
+verified_revision = "The runner records the exact verified candidate revision with command, exit code and private log in HF_RUN_DIR/gates.jsonl; the final evidence JSON copies the last hf-done receipt. No unrun gate is claimed."
+wiring_request = "Domain 14 (explorer): services/explorer/backend integration owner must run the documented actual-producer matrix against its controlled indexed database and archive sanitized schema/HTTP evidence at the backend revision; no live backend or external process is required by the offline task gate."
+gotcha = "A virtual Cargo workspace does not discover tests/repair_22_33_430.rs automatically: register that exact path as a member crate integration target; baseline and root GOTCHA/spec edits are excluded by the task's explicit gate order and scope."
