@@ -272,6 +272,61 @@ export async function releasedDecision(
   return seller.handle("acct:conformance-seller", encodePaymentPayloadHeader(payload), async () => "the-paid-resource");
 }
 
+export async function assertConcurrentReceiptFulfillment(
+  offer: OfferFixture,
+  receipt: SignedReceipt,
+  resolver: FixedReceiptKeys,
+): Promise<void> {
+  const repository = new InMemoryFulfillmentRepository<string>();
+  const receiptKeys = await resolver.resolve();
+  const seller = new SellerMiddleware<string>({
+    paymentRequired: offer.paymentRequired,
+    receiptKeys,
+    authority: new ReceiptPayloadAuthority(receiptKeys),
+    fulfillments: repository,
+  });
+  const header = encodePaymentPayloadHeader(buyerPayload(offer, receipt, "seller-concurrent"));
+  let entered!: () => void;
+  const started = new Promise<void>((resolve) => { entered = resolve; });
+  let finish!: () => void;
+  const barrier = new Promise<void>((resolve) => { finish = resolve; });
+  let releases = 0;
+  const first = seller.handle("acct:conformance-seller", header, async () => {
+    releases += 1;
+    entered();
+    await barrier;
+    return "the-paid-resource";
+  });
+  await started;
+  const replay = seller.handle("acct:conformance-seller", header, async () => {
+    releases += 1;
+    return "duplicate-resource";
+  });
+  try {
+    for (const [principal, competingHeader] of [
+      ["acct:other-seller", header],
+      ["acct:conformance-seller", encodePaymentPayloadHeader(buyerPayload(offer, receipt, "competing-request"))],
+    ] as const) {
+      const conflict = await seller.handle(principal, competingHeader, async () => {
+        releases += 1;
+        return "conflicting-resource";
+      });
+      assert(conflict.kind === "refused" && conflict.status === 409, "an in-flight receipt reuse must be refused");
+      assert(conflict.kind === "refused" && !conflict.settlement.success && conflict.settlement.errorReason === "receipt_reuse", "the refusal must declare receipt reuse");
+    }
+  } finally {
+    finish();
+    await Promise.all([first, replay]);
+  }
+  const [original, repeated] = await Promise.all([first, replay]);
+  assert(original.kind === "released" && repeated.kind === "released", "matching concurrent requests must release");
+  if (original.kind === "released" && repeated.kind === "released") {
+    assert(original.resource === "the-paid-resource" && repeated.resource === original.resource, "replays must return the claimed resource");
+    assert(original.settlement.transaction === receipt.txHash && repeated.settlement.transaction === receipt.txHash, "both responses must bind the producer transaction");
+  }
+  assert(releases === 1 && repository.releaseCount === 1, "concurrent receipt claims must invoke release once");
+}
+
 export async function runScenarios(): Promise<Suite> {
   const suite = new Suite();
 
@@ -391,6 +446,10 @@ export async function runScenarios(): Promise<Suite> {
     const second = await releasedDecision(offer, payload, resolver, repository);
     assert(first.kind === "released" && second.kind === "released", "both replays must release");
     assert(repository.releaseCount === 1, "the resource must be released only once across replays");
+  });
+
+  await suite.check("seller: concurrent receipt claims release once and refuse competing requests", async () => {
+    await assertConcurrentReceiptFulfillment(offer, receipt, resolver);
   });
 
   await suite.check("buyer: parseOffer selects only a supported requirement", async () => {
