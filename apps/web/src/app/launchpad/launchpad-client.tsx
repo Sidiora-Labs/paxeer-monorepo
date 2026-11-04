@@ -86,7 +86,8 @@ export function LaunchpadActions({
 }>) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [token, setToken] = useState(markets[0]?.token ?? "");
+  const [selectedToken, setToken] = useState(markets[0]?.token ?? "");
+  const token = markets.some((market) => market.token === selectedToken) ? selectedToken : markets[0]?.token ?? "";
   const [side, setSide] = useState<Side>("buy");
   const [amountText, setAmountText] = useState("");
   const [slippageText, setSlippageText] = useState("100");
