@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"flag"
 	"fmt"
 	"net"
@@ -21,20 +22,15 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	tmnet "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/net"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/utils"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/utils/scope"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/privval"
 	grpcprivval "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/privval/grpc"
 	privvalproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/privval"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 )
 
-var (
-	logger = paxlog.NewLogger("tendermint", "cmd", "priv-val-server")
-
-	// Create a metrics registry.
-	reg = prometheus.NewRegistry()
-
-	// Create some standard server metrics.
-	grpcMetrics = grpc_prometheus.NewServerMetrics()
-)
+var logger = paxlog.NewLogger("tendermint", "cmd", "priv-val-server")
 
 func main() {
 	var (
@@ -50,7 +46,7 @@ func main() {
 	)
 	flag.Parse()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
 	logger.Info(
@@ -105,11 +101,6 @@ func main() {
 		logger.Info("SignerServer: You are using an insecure gRPC connection!")
 	}
 
-	// add prometheus metrics for unary RPC calls
-	opts = append(opts, grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor))
-
-	ss := grpcprivval.NewSignerServer(*chainID, pv)
-
 	protocol, address := tmnet.ProtocolAndAddress(*addr)
 
 	lis, err := net.Listen(protocol, address)
@@ -118,56 +109,111 @@ func main() {
 		os.Exit(1)
 	}
 
-	s := grpc.NewServer(opts...)
+	s, reg := newSignerServer(*chainID, pv, opts...)
 
-	privvalproto.RegisterPrivValidatorAPIServer(s, ss)
-
-	var httpSrv *http.Server
+	metrics := utils.None[prometheusServer]()
 	if *prometheusAddr != "" {
-		httpSrv = registerPrometheus(*prometheusAddr, s)
-	}
-
-	logger.Info("SignerServer: Starting grpc server")
-	if err := s.Serve(lis); err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to listen on port %s: %v", *addr, err)
-		os.Exit(1)
-	}
-
-	opctx, opcancel := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
-	defer opcancel()
-	go func() {
-		<-opctx.Done()
-		if *prometheusAddr != "" {
-			ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-			defer cancel()
-			if err := httpSrv.Shutdown(ctx); err != nil {
-				fmt.Fprintf(os.Stderr, "Unable to stop http server: %v", err)
-				os.Exit(1)
-			}
-		}
-		s.GracefulStop()
-	}()
-
-	// Run forever.
-	select {}
-}
-
-func registerPrometheus(addr string, s *grpc.Server) *http.Server {
-	// Initialize all metrics.
-	grpcMetrics.InitializeMetrics(s)
-	// create http server to serve prometheus
-	httpServer := &http.Server{
-		Handler:           promhttp.HandlerFor(reg, promhttp.HandlerOpts{}),
-		Addr:              addr,
-		ReadHeaderTimeout: 5 * time.Second,
-	}
-
-	go func() {
-		if err := httpServer.ListenAndServe(); err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "Unable to start a http server: %v", err)
+		httpSrv, err := registerPrometheus(*prometheusAddr, reg)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Unable to start a http server: %v", err)
 			os.Exit(1)
 		}
-	}()
+		metrics = utils.Some(httpSrv)
+	}
 
-	return httpServer
+	if err := serveSigner(ctx, s, lis, metrics); err != nil {
+		fmt.Fprintf(os.Stderr, "SignerServer: %v", err)
+		os.Exit(1)
+	}
+}
+
+func newSignerServer(chainID string, pv types.PrivValidator, opts ...grpc.ServerOption) (*grpc.Server, *prometheus.Registry) {
+	// Create a metrics registry and standard server metrics for this signer.
+	reg := prometheus.NewRegistry()
+	grpcMetrics := grpc_prometheus.NewServerMetrics()
+	reg.MustRegister(grpcMetrics)
+
+	// add prometheus metrics for unary RPC calls
+	opts = append(opts, grpc.UnaryInterceptor(grpcMetrics.UnaryServerInterceptor()))
+	s := grpc.NewServer(opts...)
+	privvalproto.RegisterPrivValidatorAPIServer(s, grpcprivval.NewSignerServer(chainID, pv))
+	grpcMetrics.InitializeMetrics(s)
+	return s, reg
+}
+
+type prometheusServer struct {
+	server   *http.Server
+	listener net.Listener
+}
+
+func registerPrometheus(addr string, reg *prometheus.Registry) (prometheusServer, error) {
+	lis, err := net.Listen("tcp", addr)
+	if err != nil {
+		return prometheusServer{}, err
+	}
+	// create http server to serve prometheus
+	return prometheusServer{
+		server: &http.Server{
+			Handler:           promhttp.HandlerFor(reg, promhttp.HandlerOpts{}),
+			Addr:              addr,
+			ReadHeaderTimeout: 5 * time.Second,
+		},
+		listener: lis,
+	}, nil
+}
+
+func serveSigner(ctx context.Context, s *grpc.Server, lis net.Listener, metrics utils.Option[prometheusServer]) error {
+	return scope.Run(ctx, func(ctx context.Context, tasks scope.Scope) error {
+		defer tasks.Cancel(nil)
+		// Install shutdown supervision before either server begins accepting work.
+		tasks.SpawnBg(func() error {
+			<-ctx.Done()
+			return stopSigner(context.WithoutCancel(ctx), s, metrics)
+		})
+		if httpSrv, ok := metrics.Get(); ok {
+			tasks.SpawnBg(func() error {
+				defer tasks.Cancel(nil)
+				err := httpSrv.server.Serve(httpSrv.listener)
+				if err != nil && !errors.Is(err, http.ErrServerClosed) {
+					return fmt.Errorf("unable to serve metrics: %w", err)
+				}
+				return nil
+			})
+		}
+		logger.Info("SignerServer: Starting grpc server")
+		if err := s.Serve(lis); err != nil && !errors.Is(err, grpc.ErrServerStopped) {
+			return fmt.Errorf("unable to serve signer: %w", err)
+		}
+		return nil
+	})
+}
+
+func stopSigner(ctx context.Context, s *grpc.Server, metrics utils.Option[prometheusServer]) error {
+	ctx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+	return scope.Run(ctx, func(ctx context.Context, tasks scope.Scope) error {
+		drained := make(chan struct{})
+		tasks.Spawn(func() error {
+			defer close(drained)
+			s.GracefulStop()
+			return nil
+		})
+		tasks.SpawnBg(func() error {
+			select {
+			case <-drained:
+			case <-ctx.Done():
+				s.Stop()
+			}
+			return nil
+		})
+		if httpSrv, ok := metrics.Get(); ok {
+			tasks.Spawn(func() error {
+				if err := httpSrv.server.Shutdown(ctx); err != nil {
+					return errors.Join(fmt.Errorf("unable to stop http server: %w", err), httpSrv.server.Close())
+				}
+				return nil
+			})
+		}
+		return nil
+	})
 }

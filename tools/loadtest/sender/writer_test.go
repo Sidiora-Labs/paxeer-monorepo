@@ -2,6 +2,7 @@ package sender
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
 
 	"github.com/paxeer-network/pax-load/config"
@@ -49,10 +50,18 @@ func TestTxsWriter_Flush(t *testing.T) {
 	require.Equal(t, txs[1], writer.txBuffer[1])
 
 	err = writer.Send(context.Background(), txs[2])
-	require.NoError(t, err)
-	// now should be flushed and have the new tx
+	require.ErrorIs(t, err, ErrWriterComplete)
 	require.Equal(t, uint64(2), writer.nextHeight)
-	require.Equal(t, uint64(21000), writer.bufferGas)
-	require.Len(t, writer.txBuffer, 1)
+	require.Zero(t, writer.bufferGas)
+	require.Empty(t, writer.txBuffer)
+	repair324ReadBatch(t, writer.batchPath(1), txs[0], txs[1])
+	require.NoError(t, writer.Flush())
+	files, err := filepath.Glob(filepath.Join(writer.txsDir, "*_txs.json"))
+	require.NoError(t, err)
+	require.Len(t, files, 1)
+	require.Empty(t, writer.txBuffer)
+}
 
+func TestTxsWriter_DurablePublication(t *testing.T) {
+	TestRepairM_821_WriterDurability(t)
 }

@@ -489,8 +489,8 @@ pub struct ExportedKey {
 /// The step-up ceremony that moves one identity from custodial holding to
 /// self-custody. `begin` offers the single operation digest fresh passkey
 /// evidence must confirm; `finish` consumes evidence bound to exactly that
-/// digest, returns the DID primary key once, records a durable audit event and
-/// leaves the keystore refusing every later signing request for the identity.
+/// digest, durably authorizes one handoff, records the audit event and refuses
+/// later signing. Delivery retries recover that same handoff until acknowledgement.
 pub struct KeyExportCeremony {
     key: KeyId,
     window_seconds: u64,
@@ -514,8 +514,8 @@ impl KeyExportCeremony {
     }
 
     /// Offers the exact digest a fresh passkey ceremony must confirm before the
-    /// key leaves custody. It is the only source of that digest, and it refuses
-    /// an identity that already holds its own key.
+    /// key leaves custody. A pending handoff keeps its retry identity across
+    /// restarts; an acknowledged export cannot start another handoff.
     ///
     /// # Errors
     ///
@@ -527,29 +527,35 @@ impl KeyExportCeremony {
         principal: &PrincipalId,
         now: u64,
     ) -> Result<KeyExportChallenge, SecurityError> {
-        if keystore.self_custodied(principal, &self.key)? {
-            return Err(SecurityError::KeyExported);
-        }
+        let handoff = keystore
+            .begin_primary_export(principal, &self.key, now, self.window_seconds)
+            .map_err(|error| match error {
+                CustodyError::SelfCustodied => SecurityError::KeyExported,
+                other => SecurityError::Custody(other),
+            })?;
         let confirms = security_action_digest(principal, SecurityAction::ExportPrimaryKey, None)?;
-        let expires_at = now
-            .checked_add(self.window_seconds)
-            .ok_or(SecurityError::InvalidTarget)?;
+        let expires_at = if handoff.authorization.is_some() {
+            now.checked_add(self.window_seconds)
+                .ok_or(SecurityError::InvalidTarget)?
+        } else {
+            handoff.expires_at
+        };
         Ok(KeyExportChallenge {
-            export_id: hex(confirms.bytes()),
+            export_id: hex(handoff.id),
             confirms,
             expires_at,
         })
     }
 
-    /// Returns the DID primary key exactly once against evidence bound to the
-    /// one digest `begin` offered, records the durable audit event and leaves
-    /// the identity self-custodied so custody signs nothing for it afterwards.
+    /// Authorizes one durable key handoff against the digest `begin` offered.
+    /// Retries require fresh, principal-scoped evidence and recover the same key
+    /// until delivery acknowledgement; custody signing remains refused.
     ///
     /// # Errors
     ///
     /// Refuses an export identifier that is not the one `begin` offered,
     /// evidence bound to any other operation, evidence outside its validity,
-    /// a second export, and returns the typed custody and audit refusals.
+    /// an acknowledged export, and returns typed custody and audit refusals.
     #[allow(clippy::too_many_arguments)]
     pub fn finish(
         &self,
@@ -560,40 +566,131 @@ impl KeyExportCeremony {
         trace: &TraceId,
         now: u64,
     ) -> Result<ExportedKey, SecurityError> {
+        let id = parse_export_id(export_id)?;
+        Self::validate_evidence(scope, evidence, now)?;
+        let remask_at = now
+            .checked_add(self.window_seconds)
+            .ok_or(SecurityError::InvalidTarget)?;
+        let handoff = keystore.authorize_primary_export(
+            scope.principal(),
+            &self.key,
+            id,
+            ceremony_digest(evidence),
+            now,
+        )?;
+        Self::audit_handoff(
+            scope,
+            &handoff,
+            trace,
+            SecurityChangeKind::KeyExported,
+            handoff
+                .authorization
+                .as_ref()
+                .ok_or(SecurityError::InvalidTarget)?
+                .at,
+        )?;
+        let exported = keystore.recover_primary_export(scope.principal(), &self.key, id)?;
+        let authorization = handoff.authorization.ok_or(SecurityError::InvalidTarget)?;
+        Ok(ExportedKey {
+            public_key: hex(exported.public_key()),
+            secret: TimedSecret::new(hex(*exported.expose()), remask_at, true, now)?,
+            self_custodied_at: authorization.at,
+        })
+    }
+
+    /// Acknowledges delivery only with fresh principal-bound evidence and a proof
+    /// derived from the delivered seed. A lost acknowledgement response is retryable.
+    #[allow(clippy::too_many_arguments)]
+    pub fn acknowledge(
+        &self,
+        keystore: &Keystore,
+        scope: &mut PrincipalScope<'_>,
+        export_id: &str,
+        delivery_token: [u8; 32],
+        evidence: &StepUpEvidence,
+        trace: &TraceId,
+        now: u64,
+    ) -> Result<(), SecurityError> {
+        let id = parse_export_id(export_id)?;
+        Self::validate_evidence(scope, evidence, now)?;
+        let handoff = keystore.verify_primary_export_delivery(
+            scope.principal(),
+            &self.key,
+            id,
+            delivery_token,
+        )?;
+        Self::audit_handoff(
+            scope,
+            &handoff,
+            trace,
+            SecurityChangeKind::KeyExportAcknowledged,
+            now,
+        )?;
+        keystore.acknowledge_primary_handoff(scope.principal(), &self.key, id, delivery_token)?;
+        Ok(())
+    }
+
+    fn validate_evidence(
+        scope: &mut PrincipalScope<'_>,
+        evidence: &StepUpEvidence,
+        now: u64,
+    ) -> Result<(), SecurityError> {
         let confirms =
             security_action_digest(scope.principal(), SecurityAction::ExportPrimaryKey, None)?;
-        if export_id != hex(confirms.bytes()) {
-            return Err(SecurityError::InvalidTarget);
-        }
         if evidence.confirms() != confirms {
             return Err(SecurityError::StepUpMismatch);
         }
         if evidence.completed_at() > now || evidence.expires_at() <= now {
             return Err(SecurityError::StepUpExpired);
         }
-        let exported = keystore.export_primary_once(scope.principal(), &self.key)?;
-        let mut chain = AuditChain::open(scope)?;
-        chain.append(
-            scope,
-            now,
-            trace,
-            &AuditEvent::SecurityChange {
-                change: SecurityChangeKind::KeyExported,
-                step_up: AuditStepUpEvidence::Fresh {
-                    ceremony_digest: ceremony_digest(evidence),
-                },
-            },
-            &[],
-        )?;
-        let remask_at = now
-            .checked_add(self.window_seconds)
-            .ok_or(SecurityError::InvalidTarget)?;
-        Ok(ExportedKey {
-            public_key: hex(exported.public_key()),
-            secret: TimedSecret::new(hex(*exported.expose()), remask_at, true, now)?,
-            self_custodied_at: now,
-        })
+        Passkeys::validate_step_up(scope, evidence, confirms, now)?;
+        Ok(())
     }
+
+    fn audit_handoff(
+        scope: &mut PrincipalScope<'_>,
+        handoff: &crate::custody::ExportHandoff,
+        trace: &TraceId,
+        change: SecurityChangeKind,
+        recorded_at: u64,
+    ) -> Result<(), SecurityError> {
+        let authorization = handoff
+            .authorization
+            .as_ref()
+            .ok_or(SecurityError::InvalidTarget)?;
+        let event = AuditEvent::SecurityChange {
+            change,
+            step_up: AuditStepUpEvidence::Fresh {
+                ceremony_digest: authorization.ceremony_digest,
+            },
+        };
+        let mut chain = AuditChain::open(scope)?;
+        if !chain
+            .entries(scope)?
+            .iter()
+            .any(|entry| entry.event() == &event)
+        {
+            chain.append(scope, recorded_at, trace, &event, &[])?;
+        }
+        Ok(())
+    }
+}
+
+/// Proof the owner computes from the delivered seed before acknowledging it.
+pub fn key_export_delivery_token(
+    seed: &[u8; 32],
+    export_id: &str,
+) -> Result<[u8; 32], SecurityError> {
+    Ok(crate::custody::export_delivery_token(
+        seed,
+        parse_export_id(export_id)?,
+    ))
+}
+
+fn parse_export_id(value: &str) -> Result<[u8; 32], SecurityError> {
+    OperationDigest::parse_schema(&format!("opd_{value}"))
+        .map(OperationDigest::bytes)
+        .map_err(|_| SecurityError::InvalidTarget)
 }
 
 fn ceremony_digest(evidence: &StepUpEvidence) -> [u8; 32] {

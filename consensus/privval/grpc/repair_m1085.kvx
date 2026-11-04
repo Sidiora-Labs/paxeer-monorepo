@@ -1,0 +1,40 @@
+[repair.22.33.1085]
+audit = "22.30.45"
+acceptance = "22998.1"
+baseline = "Not run: the explicit ordered instructions require complete implementation before hf-build and verification only through hf-done; no baseline test failures are claimed."
+evidence = "The runner records the verified candidate revision, exact commands, exit codes and private log paths in its gate ledger; final response copies the last gate evidence."
+wiring_requests = ["consensus/config/toml.go: config domain 5 must expose priv-validator.insecure in the generated configuration template and replace the obsolete automatic-plaintext comment; the in-scope config type already accepts mapstructure key insecure."]
+
+[finding.grpc-close-loses-connection]
+repair = "SignerClient owns its connection and closes it once, retaining the close result for repeated or concurrent cleanup."
+test = "TestRepairM_1085_CloseConnection"
+proof = "Three real TCP connection lifecycles fetch FilePV public keys, close through SignerClient, assert connectivity.Shutdown, repeat cleanup and assert further raw RPC use fails."
+
+[finding.grpc-nil-payload]
+repair = "All handlers reject nil requests; signing handlers also reject missing payloads before accessing FilePV."
+test = "TestRepairM_1085_NilPayload"
+proof = "Direct nil requests and protobuf-encoded empty requests return InvalidArgument without disk changes; valid proposal and vote signing then succeed and verify cryptographically in the same process."
+
+[finding.grpc-tests-no-safety-state]
+repair = "Extend server_test.go with a loopback gRPC and disk FilePV safety-state helper while retaining direct-handler unit tests."
+test = "TestRepairM_1085_SafetyState"
+proof = "Sixteen concurrent conflicting requests per signing method admit exactly one signature; raw RPC chain mismatches preserve disk state; stop and reopen matches HRS, canonical bytes and signature, accepts the winner replay, refuses all conflicts and signs the next height."
+
+[finding.tls-loader-process-exit]
+repair = "GenerateTLS returns credential construction errors; DialRemoteSigner propagates them without terminating the host."
+test = "TestRepairM_1085_TLSLoaderErrors"
+proof = "Missing certificate, key and CA files and invalid PEM at each position return errors and no option/client; a subsequent real mutually authenticated TLS 1.3 gRPC sign succeeds and verifies."
+
+[finding.partial-tls-downgrade]
+repair = "PrivValidatorConfig and top-level validation reject incomplete TLS tuples and TLS plus insecure; dialing enforces validation and explicit insecure opt-in even for unschemed direct callers."
+test = "TestRepairM_1085_TLSSelection"
+proof = "All eight TLS-presence combinations with both insecure settings are validated; all six incomplete tuples are refused through DialRemoteSigner under both settings; explicit plaintext accesses a real FilePV server; complete mTLS is exercised by TLSLoaderErrors."
+
+[finding.grpc-dial-error-swallowed]
+repair = "DialRemoteSigner returns DialContext errors; NewSignerClient rejects nil connections."
+test = "TestRepairM_1085_DialError"
+proof = "The real gRPC DNS resolver rejects an empty endpoint with error and no client; nil connection and nil configuration also return errors without clients."
+
+[gotcha.gate-order]
+observed = "Task step 10 asks for unchanged-tree verification, conflicting with the explicit implementation-first order and hf-done-only gate budget."
+resolution = "Follow the explicit ordered gates and record baseline as unrun; keep all changes and records inside scope and leave spec metadata, GOTCHA.kvx, commits and publication to the runner."

@@ -2,6 +2,8 @@ package grpc
 
 import (
 	"context"
+	"errors"
+	"sync"
 
 	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -16,9 +18,11 @@ import (
 // SignerClient implements PrivValidator.
 // Handles remote validator connections that provide signing services
 type SignerClient struct {
-	client  privvalproto.PrivValidatorAPIClient
-	conn    *grpc.ClientConn
-	chainID string
+	client    privvalproto.PrivValidatorAPIClient
+	conn      *grpc.ClientConn
+	chainID   string
+	closeOnce sync.Once
+	closeErr  error
 }
 
 var _ types.PrivValidator = (*SignerClient)(nil)
@@ -27,8 +31,12 @@ var _ types.PrivValidator = (*SignerClient)(nil)
 // it will start the endpoint (if not already started)
 func NewSignerClient(conn *grpc.ClientConn,
 	chainID string) (*SignerClient, error) {
+	if conn == nil {
+		return nil, errors.New("signer client requires a non-nil connection")
+	}
 
 	sc := &SignerClient{
+		conn:    conn,
 		chainID: chainID,
 		client:  privvalproto.NewPrivValidatorAPIClient(conn), // Create the Private Validator Client
 	}
@@ -39,10 +47,12 @@ func NewSignerClient(conn *grpc.ClientConn,
 // Close closes the underlying connection
 func (sc *SignerClient) Close() error {
 	logger.Info("Stopping service")
-	if sc.conn != nil {
-		return sc.conn.Close()
-	}
-	return nil
+	sc.closeOnce.Do(func() {
+		if sc.conn != nil {
+			sc.closeErr = sc.conn.Close()
+		}
+	})
+	return sc.closeErr
 }
 
 //--------------------------------------------------------

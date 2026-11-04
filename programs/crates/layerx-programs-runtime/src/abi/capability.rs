@@ -159,16 +159,21 @@ impl Capability {
 pub struct CapabilitySet(BTreeMap<CapabilityKey, Capability>);
 
 impl CapabilitySet {
-    #[cfg(feature = "host-ffi")]
-    pub(crate) fn admitted_schedule_accesses(
+    /// Plans the exact capability bytes bound inside an authenticated CALL payload.
+    pub fn admitted_schedule_accesses(
         encoded: &[u8],
         program: ProgramId,
         principal: crate::PrincipalId,
         canonical_payload: &[u8],
     ) -> Result<crate::AccessSet, AbiError> {
-        let abi = canonical_payload
-            .get(32..34)
+        let layout = crate::native_contract::call_payload_layout(canonical_payload)
             .ok_or(AbiError::InvalidEncoding)?;
+        if canonical_payload[layout.call_offset..layout.call_offset + 32] != program.bytes()
+            || canonical_payload[layout.capabilities_offset..layout.declaration_offset] != *encoded
+        {
+            return Err(AbiError::InvalidEncoding);
+        }
+        let abi = &canonical_payload[layout.call_offset + 32..layout.call_offset + 34];
         let decoded =
             match crate::abi_policy::capability_encoding(u16::from_be_bytes([abi[0], abi[1]])) {
                 Ok(crate::abi_policy::CapabilityEncoding::V1) => Self::decode_canonical(encoded),

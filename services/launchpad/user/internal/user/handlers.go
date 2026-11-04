@@ -5,18 +5,21 @@
 // the per-wallet watchlist (list / add / remove, all signature-gated).
 //
 // Storage is BUCKET-PRIMARY (R2): uploads stream to the bucket and reads are
-// served back from it with immutable CDN cache headers. media/user owns its own
+// served back from it with mandatory cache revalidation. media/user owns its own
 // bucket, separate from media/metadata.
 package user
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
+	"mime"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -38,10 +41,8 @@ import (
 const (
 	// jsonCacheTTL is the Redis TTL for cached public profile responses.
 	jsonCacheTTL = 60 * time.Second
-	// multipartMaxMemory bounds in-memory multipart buffering before spilling.
-	multipartMaxMemory = 32 << 20
 
-	cacheKeyPrefix = "user:json:"
+	cacheKeyPrefix = "user:json:v2:"
 )
 
 // addrRe matches a normalized (lowercased) EVM address.
@@ -88,6 +89,12 @@ type Handlers struct {
 
 // New constructs Handlers, applying defaults for optional dependencies.
 func New(d Deps) *Handlers {
+	if d.PublicURL != "" {
+		u, err := url.Parse(d.PublicURL)
+		if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Opaque != "" {
+			panic("user: PublicURL must be a canonical HTTP(S) URL")
+		}
+	}
 	scan := d.Scan
 	if scan == nil {
 		scan = func(ctx context.Context, data []byte) sharedhttp.ScanResult {
@@ -142,7 +149,7 @@ func (h *Handlers) getProfile(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := r.Context()
 
-	cacheKey := cacheKeyPrefix + addr
+	cacheKey := h.profileCacheKey(addr)
 	if cached, found, err := sharedredis.CacheGet[types.PublicProfile](ctx, h.redis, cacheKey); err == nil && found {
 		w.Header().Set("Cache-Control", "public, max-age=60")
 		sharedhttp.WriteJSON(w, http.StatusOK, cached)
@@ -211,17 +218,17 @@ func (h *Handlers) updateProfile(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := r.Context()
 
+	body, ok := readBoundedBody(w, r, maxJSONBody)
+	if !ok {
+		return
+	}
 	var req types.UpdateProfileRequest
-	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&req); err != nil {
+	if _, err := sharedauth.BodyDigest(body); err != nil || json.Unmarshal(body, &req) != nil {
 		sharedhttp.WriteRequestBodyError(w, http.StatusBadRequest, sharedhttp.RuleJSON, "invalid JSON body")
 		return
 	}
-	if req.Signature == "" || req.Message == "" {
-		sharedhttp.WriteError(w, http.StatusBadRequest, "Bad Request", "Missing signature or message")
-		return
-	}
-	if !sharedauth.VerifyWalletSignature(addr, req.Message, req.Signature) {
-		sharedhttp.WriteError(w, http.StatusForbidden, "Forbidden", "Invalid signature")
+	e, ok := h.operationHeaders(w, r, addr, "profile.update")
+	if !ok || !h.consumeOperation(w, r, e, body) {
 		return
 	}
 
@@ -241,7 +248,7 @@ func (h *Handlers) updateProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := sharedredis.CacheInvalidate(ctx, h.redis, cacheKeyPrefix+addr); err != nil {
+	if err := sharedredis.CacheInvalidate(ctx, h.redis, h.profileCacheKey(addr)); err != nil {
 		h.logErr("cache invalidate", err)
 	}
 	sharedhttp.WriteJSON(w, http.StatusOK, types.SuccessResponse{Success: true})
@@ -258,50 +265,56 @@ func (h *Handlers) uploadImage(imageType string) http.HandlerFunc {
 		}
 		ctx := r.Context()
 
-		if err := r.ParseMultipartForm(multipartMaxMemory); err != nil {
-			sharedhttp.WriteRequestBodyError(w, http.StatusBadRequest, sharedhttp.RuleMultipart, "invalid multipart form")
-			return
-		}
-
-		// Auth: form fields take priority, then x-signature/x-message headers.
-		signature := firstNonEmpty(r.FormValue("signature"), r.Header.Get("X-Signature"))
-		message := firstNonEmpty(r.FormValue("message"), r.Header.Get("X-Message"))
-		if signature == "" || message == "" {
-			sharedhttp.WriteError(w, http.StatusBadRequest, "Bad Request", "Missing signature or message")
-			return
-		}
-		if !sharedauth.VerifyWalletSignature(addr, message, signature) {
-			sharedhttp.WriteError(w, http.StatusForbidden, "Forbidden", "Invalid signature")
-			return
-		}
-
 		maxSize := h.maxAvatar
 		if imageType == image.TypeBanner {
 			maxSize = h.maxBanner
 		}
-
-		fh := firstFile(r, imageType, "file")
-		if fh == nil {
+		// Bound the whole request, including unused parts and multipart headers.
+		r.Body = http.MaxBytesReader(w, r.Body, maxSize+multipartOverhead)
+		if r.ContentLength > maxSize+multipartOverhead {
+			sharedhttp.WriteRequestBodyError(w, http.StatusRequestEntityTooLarge, sharedhttp.RuleMaxBytes, "multipart body too large")
+			return
+		}
+		e, ok := h.operationHeaders(w, r, addr, "image."+imageType+".update")
+		if !ok {
+			return
+		}
+		raw, ok := readBoundedBody(w, r, maxSize+multipartOverhead)
+		if !ok {
+			return
+		}
+		if !h.consumeOperation(w, r, e, uploadIntent(r.Header.Get("Content-Type"), raw)) {
+			return
+		}
+		mediaType, params, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+		if err != nil || mediaType != "multipart/form-data" || params["boundary"] == "" {
+			sharedhttp.WriteRequestBodyError(w, http.StatusBadRequest, sharedhttp.RuleMultipart, "invalid multipart form")
+			return
+		}
+		reader := multipart.NewReader(bytes.NewReader(raw), params["boundary"])
+		part, err := reader.NextRawPart()
+		if err != nil {
 			sharedhttp.WriteError(w, http.StatusBadRequest, "Bad Request", "No file uploaded")
 			return
 		}
-		f, err := fh.Open()
-		if err != nil {
-			sharedhttp.WriteError(w, http.StatusBadRequest, "Bad Request", imageType+" could not be read")
+		if (part.FormName() != imageType && part.FormName() != "file") || part.FileName() == "" || len(part.Header) > 2 || part.Header.Get("Content-Transfer-Encoding") != "" {
+			sharedhttp.WriteRequestBodyError(w, http.StatusBadRequest, sharedhttp.RuleMultipart, "expected one image file part")
 			return
 		}
-		defer f.Close()
-		buf, err := io.ReadAll(io.LimitReader(f, maxSize+1))
+		buf, err := io.ReadAll(io.LimitReader(part, maxSize+1))
 		if err != nil {
-			sharedhttp.WriteError(w, http.StatusBadRequest, "Bad Request", imageType+" could not be read")
+			sharedhttp.WriteRequestBodyError(w, http.StatusBadRequest, sharedhttp.RuleMultipart, "image could not be read")
 			return
 		}
 		if int64(len(buf)) > maxSize {
 			sharedhttp.WriteRequestBodyError(w, http.StatusRequestEntityTooLarge, sharedhttp.RuleMaxBytes, imageType+" too large")
 			return
 		}
-
-		mime := fh.Header.Get("Content-Type")
+		if _, err := reader.NextRawPart(); err != io.EOF {
+			sharedhttp.WriteRequestBodyError(w, http.StatusBadRequest, sharedhttp.RuleMultipart, "expected one image file part")
+			return
+		}
+		mime := part.Header.Get("Content-Type")
 		if !image.AllowedMime(mime) {
 			sharedhttp.WriteRequestBodyError(w, http.StatusUnsupportedMediaType, sharedhttp.RuleMediaType,
 				"Unsupported format. Use webp, png, svg, or jpeg.")
@@ -348,7 +361,7 @@ func (h *Handlers) uploadImage(imageType string) http.HandlerFunc {
 			return
 		}
 
-		if err := sharedredis.CacheInvalidate(ctx, h.redis, cacheKeyPrefix+addr); err != nil {
+		if err := sharedredis.CacheInvalidate(ctx, h.redis, h.profileCacheKey(addr)); err != nil {
 			h.logErr("cache invalidate", err)
 		}
 		url := baseURL(h.publicURL, r) + "/users/" + addr + "/" + imageType
@@ -389,8 +402,8 @@ func (h *Handlers) serveImage(imageType string) http.HandlerFunc {
 		defer obj.Body.Close()
 
 		w.Header().Set("Content-Type", img.MimeType)
-		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
-		w.Header().Set("CDN-Cache-Control", "public, max-age=31536000")
+		w.Header().Set("Cache-Control", "public, no-cache, max-age=0, must-revalidate")
+		w.Header().Set("CDN-Cache-Control", "public, no-cache, max-age=0, must-revalidate")
 		w.Header().Set("Vary", "Accept-Encoding")
 		if img.SizeBytes > 0 {
 			w.Header().Set("Content-Length", itoa64(int64(img.SizeBytes)))
@@ -457,8 +470,8 @@ func (h *Handlers) removeWatchlist(w http.ResponseWriter, r *http.Request) {
 	sharedhttp.WriteJSON(w, http.StatusOK, types.SuccessResponse{Success: true})
 }
 
-// watchlistAuth validates the wallet+pool addresses and verifies the EIP-191
-// signature in the request body. It writes the error response itself and
+// watchlistAuth validates the wallet+pool addresses and consumes the signed
+// operation from the bounded header transport. It writes errors itself and
 // returns ok=false on any failure.
 func (h *Handlers) watchlistAuth(w http.ResponseWriter, r *http.Request) (addr, pool string, ok bool) {
 	addr = normalizeAddr(chi.URLParam(r, "walletAddress"))
@@ -471,17 +484,20 @@ func (h *Handlers) watchlistAuth(w http.ResponseWriter, r *http.Request) (addr, 
 		sharedhttp.WriteError(w, http.StatusBadRequest, "Bad Request", "invalid pool address")
 		return "", "", false
 	}
-	var req types.WatchlistMutateRequest
-	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&req); err != nil {
+	body, valid := readBoundedBody(w, r, maxJSONBody)
+	if !valid {
+		return "", "", false
+	}
+	if _, err := sharedauth.BodyDigest(body); err != nil {
 		sharedhttp.WriteRequestBodyError(w, http.StatusBadRequest, sharedhttp.RuleJSON, "invalid JSON body")
 		return "", "", false
 	}
-	if req.Signature == "" || req.Message == "" {
-		sharedhttp.WriteError(w, http.StatusBadRequest, "Bad Request", "Missing signature or message")
-		return "", "", false
+	action := "watchlist.update"
+	if r.Method == http.MethodDelete {
+		action = "watchlist.remove"
 	}
-	if !sharedauth.VerifyWalletSignature(addr, req.Message, req.Signature) {
-		sharedhttp.WriteError(w, http.StatusForbidden, "Forbidden", "Invalid signature")
+	e, valid := h.operationHeaders(w, r, addr, action)
+	if !valid || !h.consumeOperation(w, r, e, body) {
 		return "", "", false
 	}
 	return addr, pool, true
@@ -523,4 +539,8 @@ func (h *Handlers) logErr(op string, err error) {
 	if h.logger != nil {
 		h.logger.Error("user handler error", slog.String("op", op), slog.String("err", err.Error()))
 	}
+}
+
+func (h *Handlers) profileCacheKey(addr string) string {
+	return cacheKeyPrefix + h.publicURL + ":" + addr
 }
