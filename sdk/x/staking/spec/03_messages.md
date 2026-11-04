@@ -60,10 +60,12 @@ does not cap the absolute new rate or the size of a decrease. The handler calls
 `BeforeValidatorModified` before saving a commission change.
 
 A supplied `MinSelfDelegation` must be positive and strictly greater than the
-stored minimum. The current handler compares the requested value with the
-validator's **total `Tokens`**, rejecting a larger value; it does not separately
-check the operator's own delegation in this edit path. When stake is later
-removed, `Unbond` checks the operator's remaining self-delegation and can jail
+stored minimum. The handler compares the requested value with the
+operator's own delegation, converting its current shares to tokens and
+truncating to an integer. A missing self-delegation or insufficient current
+self-backing returns `ErrSelfDelegationBelowMinimum`, even if third-party stake
+makes the validator's total tokens exceed the requested minimum. When stake is
+later removed, `Unbond` checks the operator's remaining self-delegation and can jail
 the validator below that minimum.
 
 The updated validator is stored and an empty `MsgEditValidatorResponse` returned.
@@ -84,8 +86,11 @@ checks `MaxVotingPowerRatio` once the projected selected-set power reaches
 `MaxVotingPowerEnforcementThreshold`, returning `ErrExceedMaxVotingPowerRatio`
 when the proposed destination power exceeds the limit. See
 [voting-power controls](./08_params.md#voting-power-controls) for units and defaults.
-There is no separate module-wide minimum-delegation parameter for an ordinary
-positive delegation.
+The code defaults are a 20% ratio and an enforcement threshold of 1000000
+consensus-power units; creation and commission edits use a 5% minimum
+commission. These are stored parameters, so query the selected node for its
+current values. There is no separate module-wide minimum-delegation parameter
+for an ordinary positive delegation.
 
 A jailed validator can receive a delegation subject to the same checks, but
 remains excluded from the power index until it is unjailed. Delegation cannot
@@ -113,7 +118,9 @@ Every successful request creates a pending unbonding entry and queue item:
 | Unbonding | Current block time plus `UnbondingTime` |
 | Unbonded | Current block time plus `UnbondingTime` |
 
-The response is an earliest maturity time, not confirmation of payment. It does
+The response is an earliest maturity time, not confirmation of payment. With
+the default 21-day period, all three rows mean a fresh 21-day wait; an
+unbonding validator's one-hour remaining deadline cannot shorten that wait. It does
 not reuse the validator's own unbonding deadline or pay an unbonded validator's
 delegator immediately. At maturity EndBlock transfers the entry's remaining
 balance, potentially reduced by eligible slashing, to the delegator account.

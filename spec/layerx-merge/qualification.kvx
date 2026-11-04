@@ -27523,3 +27523,67 @@ symbol = "repair_m1277_test.go"
 observed = "Attempt 2: the restart recovery test found the controller port binding missing after re-import; the repair lies in the controller genesis outside the previous paths."
 assumption = "A genesis export and import omission in the controller module."
 severity = "high"
+
+[finding.22.33.1141.1]
+task = "22.33.1141"
+file = "node/repair_m1141_test.go"
+symbol = "repair_m1141_test.go"
+observed = "Attempt 1: build passed; the delivery, refusal, OCC and rotation cases failed on a signer chain id mismatch (125 versus 713714) and one case on a proof commit-hash mismatch."
+assumption = "Two producer defects owned by 22.31.476 and 22.31.475."
+severity = "high"
+
+[finding.22.33.796.1]
+task = "22.33.796"
+file = "tools/bringup/repair_m796_test.go"
+symbol = "repair_m796_test.go"
+observed = "Attempt 1: seven cases passed; the artifact inventory case failed on a non-existent directory in the computed source closure; the fix was built but never verified."
+assumption = "Budget ended before verification of the repaired candidate."
+severity = "medium"
+
+[finding.22.33.1481.3]
+task = "22.33.1481"
+file = "services/platform/middleware/conformance/test/repair-22-33-1481.test.mjs"
+symbol = "repair-22-33-1481.test.mjs"
+observed = "Attempt 3: the build stopped on a union-type property read in the conformance scenarios; no verification ran."
+assumption = "A consumer that ignored the producer's event union."
+severity = "medium"
+
+[finding.22.33.294.1]
+task = "22.33.294"
+file = "apps/explorer/ui/address/details/repair-22-33-294.spec.ts"
+symbol = "repair-22-33-294.spec.ts"
+observed = "Attempt 2: the reopen test was updated but the build stopped on the 299 spec's TS2769 outside this task's paths; no runtime test ran."
+assumption = "A defect published by a neighbouring task, repaired by 22.31.474."
+severity = "low"
+
+[finding.22.33.1225.3]
+task = "22.33.1225"
+file = "interchain/modules/core/repair_m1225_test.go"
+symbol = "repair_m1225_test.go"
+observed = "Attempt 3: build passed and three suites passed; governance recovery failed to resolve the ClientUpdateProposal type in the test application's registry."
+assumption = "A test application wired with fewer interfaces than production."
+severity = "medium"
+
+[finding.22.33.680.2]
+task = "22.33.680"
+file = "sdk/x/feegrant/client/testutil/repair_m680_test.go"
+symbol = "repair_m680_test.go"
+observed = "Attempt 3: the configuration test passed; the fee grant CLI fixture panicked on an uninitialised params subspace in the test fixture."
+assumption = "A test fixture that bypassed the production keeper wiring."
+severity = "low"
+
+[finding.22.33.973.1]
+task = "22.33.973"
+file = "tools/launchpad/production/tests/test_repair_22_33_973.py"
+symbol = "test_repair_22_33_973.py"
+observed = "Attempt 1: build passed; three serial-gate cases failed on a reviewed-hash mismatch after the binding repairs changed the artifact."
+assumption = "A reviewed fixture hash invalidated by the task's own repair."
+severity = "medium"
+
+[finding.22.33.1275.3]
+task = "22.33.1275"
+file = "precompiles/wasmd/repair_m1275_test.go"
+symbol = "repair_m1275_test.go"
+observed = "Attempt 4: three regressions passed; the delegatecall tests hit a selector mismatch in pointer artifacts outside the attempt's paths."
+assumption = "A producer artifact drift that this task must own to prove its path."
+severity = "high"

@@ -36,9 +36,9 @@ var repair323Scenarios = []struct {
 	method     string
 }{
 	{scenarios.ERC20, 72156, bindings.ERC20MetaData, "transfer"},
-	{scenarios.ERC20Conflict, 22460, bindings.ERC20ConflictMetaData, "transfer"},
+	{scenarios.ERC20Conflict, 100000, bindings.ERC20ConflictMetaData, "transfer"},
 	{scenarios.ERC20Noop, 22460, bindings.ERC20NoopMetaData, "transfer"},
-	{scenarios.ERC721, 22460, bindings.ERC721MetaData, "mint"},
+	{scenarios.ERC721, 100000, bindings.ERC721MetaData, "mint"},
 	{scenarios.Disperse, 200000, bindings.DisperseMetaData, "disperseEtherFixed"},
 	{scenarios.EVMTransfer, 21000, nil, ""},
 	{scenarios.EVMTransferNoop, 21000, nil, ""},
@@ -162,7 +162,7 @@ func TestRepair_323_SignedProfileSelections(t *testing.T) {
 							t.Fatal(err)
 						}
 						if sc.name == scenarios.Disperse {
-							if len(args) != 1 || len(args[0].([]common.Address)) != 100 {
+							if len(args) != 1 || len(args[0].([]common.Address)) != scenarios.DisperseBatchSize {
 								t.Fatalf("disperse recipients were lost: %v", args)
 							}
 							continue
@@ -223,8 +223,8 @@ func TestRepair_323_InvalidSelections(t *testing.T) {
 				t.Run(tc.name, func(t *testing.T) {
 					cfg := repair323Profile(t, sc.name, tc.selections)
 					consumer := scenarios.CreateScenario(cfg.Scenarios[0])
-					if err := consumer.Attach(cfg, common.HexToAddress("0x323")); err != nil {
-						t.Fatal(err)
+					if gen, err := generator.NewConfigBasedGenerator(cfg); gen != nil || err == nil || !strings.Contains(err.Error(), tc.field) {
+						t.Fatalf("invalid construction produced generator %v, error %v; want %s error", gen, err, tc.field)
 					}
 					sender, err := types.NewAccount()
 					if err != nil {
