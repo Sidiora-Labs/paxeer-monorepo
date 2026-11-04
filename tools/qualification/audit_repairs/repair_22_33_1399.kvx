@@ -1,0 +1,25 @@
+[repair]
+task = "22.33.1399"
+base_revision = "b664b08b724ec5b190920b99ba70b283c8a796c9"
+existing_fix_revision = "9f263b5672c70216dbec38b8da87540eaf48b442"
+implementation = "Preserve the node-root beta rpcUrl already published by prerequisite 22.31.347. Strengthen buyerHumanEndpointConfiguration with explicit beta root, emulator /rpc and distinct-origin assertions; add the declared offline pytest regression module. No unrelated buyer behavior changes."
+baseline = "Initial git status/diff showed only runner-prepared .cgignore and task status changes; both scoped qualification artifacts were absent. gate.json recorded zero builds and verifies and gates.jsonl was absent. Beta rpcUrl and the shared configuration check already use the node root at the base. Baseline verification was not run: the explicit implementation-first and hf-done-only order overrides step 5's unchanged-tree verify request. No pre-change test failure is claimed."
+source_proof = "Parse the real buyer JSON and package manifest; assert the exact beta node root, separate loopback emulator /rpc, chain identity and CLI entrypoints. Read the real config loader, endpoint override, buyer Human origin guard, receipt transport and node root route to prove their source wiring preserves the configured path. Check buyer-local and shared configuration assertions agree with the JSON."
+review_only = "JavaScript execution, URL override execution, HTTP requests, cryptographic receipt verification and live deployment are not executed by this Python source-fact gate. Review establishes the meaning of the inspected loader/transport/node source connections. The existing JavaScript payment integration is retained but not claimed as run here. This config-drift repair changes neither an interface nor persisted state, so restart-recovery and interface-driving tests do not apply."
+wiring_requests = []
+wiring_review = "The out-of-scope services/platform/examples/test/buyer-agent.test.mjs configuration consumer already asserts the correct beta root and distinct emulator /rpc; no change or wiring request to domain 8/fm-platform is needed."
+
+[finding.buyer-rpc-path]
+audit = "22.30.78"
+file = "services/platform/examples/buyer-agent/layerx.example.json"
+audit_line = 18
+class = "config-drift"
+severity = "medium"
+proposal = "Use the node root in services/platform/examples/buyer-agent/layerx.example.json and align configuration checks; keep the local emulator endpoint separate from beta node addressing."
+tests = ["test_beta_rpc_is_public_node_root", "test_emulator_retains_separate_local_rpc_service", "test_real_loader_transport_and_node_route_preserve_configured_path", "test_configuration_checks_keep_beta_root_and_emulator_rpc_distinct"]
+
+[evidence]
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1399.py"
+ledger = "/out/run/gates.jsonl"
+verified_revision = "The final hf-done JSON line and its private ledger verify row name the exact verified candidate revision, command, exit and log; build and verify must name the same candidate revision. A candidate hash cannot be embedded into its own content. No passing result is claimed before qualification."

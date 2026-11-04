@@ -27,6 +27,13 @@ spec:
             - {name: LAYERX_IDENTITY_SERVICE_TOKENS_DIR, value: /run/layerx/service-tokens}
             - {name: LAYERX_IDENTITY_STORE_KEY_FILE, value: /run/layerx/store/key}
             - {name: LAYERX_IDENTITY_SESSION_TTL_SECONDS, value: "86400"}
+            - name: LAYERX_IDENTITY_SMTP_URL
+              valueFrom:
+                secretKeyRef: {name: layerx-identity-smtp, key: url, optional: false}
+            - name: LAYERX_IDENTITY_SMTP_FROM
+              valueFrom:
+                configMapKeyRef: {name: layerx-identity-mail, key: from, optional: false}
+            - {name: LAYERX_IDENTITY_SIGNUP_OUTBOX_DIR, value: /var/lib/layerx/identity/signup-outbox}
           readinessProbe: {httpGet: {scheme: HTTPS, path: /readyz, port: https}, periodSeconds: 5, failureThreshold: 3}
           livenessProbe: {httpGet: {scheme: HTTPS, path: /livez, port: https}, periodSeconds: 15}
           resources: {requests: {cpu: 100m, memory: 64Mi}, limits: {cpu: "1", memory: 256Mi}}
@@ -47,6 +54,13 @@ kind: Service
 metadata: {name: layerx-identity, namespace: layerx-testnet}
 spec: {selector: {app: layerx-identity}, ports: [{name: https, port: 9443, targetPort: https}]}
 ---
+apiVersion: v1
+kind: Service
+metadata: {name: layerx-identity-smtp, namespace: layerx-testnet}
+spec:
+  selector: {app: layerx-identity-smtp}
+  ports: [{name: smtps, protocol: TCP, port: 465, targetPort: 465}]
+---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata: {name: layerx-identity-ingress, namespace: layerx-testnet}
@@ -66,3 +80,5 @@ spec:
   egress:
     - to: [{namespaceSelector: {}}]
       ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]
+    - to: [{podSelector: {matchLabels: {app: layerx-identity-smtp}}}]
+      ports: [{protocol: TCP, port: 465}]

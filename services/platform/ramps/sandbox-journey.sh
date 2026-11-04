@@ -6,7 +6,7 @@ Usage: sandbox-journey.sh [--help]
 
 Run on-ramp and off-ramp sandbox orders and verify their transaction receipts.
 Required environment:
-  LAYERX_RAMP_REFERENCE_BIN
+  LAYERX_RAMP_RECEIPT_VERIFIER_BINARY  Built ramp-verify-receipt CLI
   LAYERX_RAMP_RECEIPT_VERIFIER_CONFIG  Protected configuration with receipt keys
   LAYERX_RAMP_URL
   LAYERX_RAMP_CA_PEM
@@ -18,7 +18,7 @@ Required environment:
   LAYERX_RAMP_OFF_GRANT_JSON
   LAYERX_RAMP_OFF_RECEIVER_SEQUENCE    Receiver sequence for draws
 
-The on-ramp send reads its nonce from the sequencer.
+The on-ramp send reads its pending nonce from the merged node.
 PAXEER_X_RAMP_FULL_CONTRACT=1 selects the protected full-contract journey inputs.
 HELP
   exit 0
@@ -42,9 +42,6 @@ from urllib.parse import urlsplit
 
 root = Path(sys.argv[1]).resolve()
 sys.path.insert(0, str(root / "services/agent/sdk/python"))
-from cryptography.exceptions import InvalidSignature
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
-from layerx_sdk.verifier import AuthorizedReceiptBatch, verify_receipt_outcome
 
 LABEL = "External custody: this independent market maker controls the off-platform funds and payout."
 CASE_NAMES = (
@@ -197,7 +194,7 @@ def presentation(snapshot, done=False):
         require(snapshot["stage"] == "done" and value["status"] == "done", "done_status")
         evidence = snapshot["evidence"]
         require(any(octets(evidence["tx_hash"])) and any(octets(evidence["receipt_digest"]))
-                and evidence["rung"] in ("receipted", "committed")
+                and evidence["rung"] == "committed"
                 and value["receipt_digest"] == evidence["receipt_digest"],
                 "done_requires_transaction_receipt")
     else:
@@ -230,93 +227,87 @@ def wait_stage(digest, expected):
     raise RuntimeError("stage_deadline")
 
 
-class Signatures:
-    def verify_ed25519(self, public_key, signature, digest):
-        try:
-            Ed25519PublicKey.from_public_bytes(public_key).verify(signature, digest)
-            return True
-        except InvalidSignature:
-            return False
+def verifier_layerx_config():
+    config = json.loads(read_protected("LAYERX_RAMP_RECEIPT_VERIFIER_CONFIG"))
+    require(set(config) == {"client_tls", "layerx"}, "verifier_config_schema")
+    layerx = config["layerx"]
+    require(set(layerx) == {
+        "rpc_endpoint", "rpc_trust_anchor_der", "chain_id", "operator_address",
+        "receipt_keys", "max_fee_per_gas", "max_priority_fee_per_gas", "gas_limit_cap",
+        "signer_endpoint", "signer_token_file", "actor_did"}, "verifier_layerx_schema")
+    require(type(layerx["chain_id"]) is int and layerx["chain_id"] == 125,
+            "verifier_chain_id")
+    require(isinstance(layerx["receipt_keys"], list) and layerx["receipt_keys"],
+            "independent_receipt_key_pins")
+    for pin in layerx["receipt_keys"]:
+        require(set(pin) == {"keyId", "publicKey", "firstHeight", "lastHeight"},
+                "receipt_key_schema")
+        for field in ("keyId", "publicKey"):
+            require(isinstance(pin[field], str)
+                    and re.fullmatch(r"0x[0-9a-f]{64}", pin[field])
+                    and any(bytes.fromhex(pin[field][2:])), "receipt_key_encoding")
+        integer(pin["firstHeight"])
+        integer(pin["lastHeight"], pin["firstHeight"])
+    return layerx
 
 
-def verify_done(snapshot, terms, operation):
+def validate_cli_receipt(snapshot, verified, layerx):
     view = presentation(snapshot, True)
     require(any(octets(view["provider_evidence_digest"])), "done_requires_provider_evidence")
-    activity = octets(snapshot["evidence"]["tx_hash"])
-    authority = request("authority", "authority", "GET",
-                        "/v1/authorized-batches/by-activity/" + activity.hex())[0]
-    require(authority["activity_id"] == activity.hex()
-            and authority["protocol_network_id"] == inputs["network_id"]
-            and authority["wire_version"] == str(inputs["protocol_version"])
-            and isinstance(authority["network_id"], str) and authority["network_id"]
-            and authority["sequencer_public_key"] == inputs["sequencer_public_key"],
-            "receipt_authority_context")
-    if "batch_evidence" in authority:
-        verifier_config_path = protected_file("LAYERX_RAMP_RECEIPT_VERIFIER_CONFIG")
-        verifier_config = json.loads(read_protected("LAYERX_RAMP_RECEIPT_VERIFIER_CONFIG"))
-        verifier_layerx = verifier_config["layerx"]
-        require(verifier_layerx["network_id"] == inputs["network_id"]
-                and verifier_layerx["protocol_version"] == inputs["protocol_version"]
-                and verifier_layerx["sequencer_public_key"] == inputs["sequencer_public_key"],
-                "independent_verifier_pins")
-        digest = octets(view["order_digest"])
-        bound = read_order(digest)["order"]
-        require(octets(bound["order_digest"]) == digest, "bound_order_identity")
-        order_path = evidence / ("receipt-order-" + activity.hex() + ".json")
-        descriptor = os.open(order_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
-        with os.fdopen(descriptor, "w") as output:
-            json.dump(bound, output, separators=(",", ":"))
-        remaining = min(180, deadline - time.monotonic())
-        require(remaining > 0, "receipt_verifier_deadline")
-        result_path = evidence / ("verified-receipt-" + activity.hex() + ".json")
-        require(not result_path.exists(), "fresh_verifier_output_required")
-        completed = subprocess.run(
-            [env("LAYERX_RAMP_RECEIPT_VERIFIER_BINARY"), "--config-file",
-             str(verifier_config_path), "--order-file", str(order_path),
-             "--activity-id", activity.hex(), "--output-file", str(result_path)],
-            stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            timeout=remaining, check=False)
-        require(completed.returncode == 0 and len(completed.stdout) <= 16384,
-                "maintained_receipt_verification")
-        require(result_path.is_file() and result_path.stat().st_size <= 16384,
-                "bounded_verifier_result")
-        verified = json.loads(result_path.read_text())
-        require(verified["build_revision"] == expected_revision
-                and verified["build_source_digest"] == expected_digest
-                and verified["external_custody_label"] == LABEL,
-                "verifier_source_and_custody_binding")
-        require(verified["verified"] is True and verified["maintained_batch"] is True
-                and verified["order_digest"] == digest.hex()
-                and verified["activity_id"] == activity.hex()
-                and verified["module_id"] == 1 and verified["operation"] == operation
-                and verified["result_code"] == 0
-                and verified["receipt_digest"] == octets(view["receipt_digest"]).hex()
-                and verified["protocol_version"] == inputs["protocol_version"]
-                and verified["network_id"] == inputs["network_id"]
-                and verified["sequencer_public_key"] == inputs["sequencer_public_key"],
-                "maintained_receipt_identity")
-        for field in ("asset", "amount", "from_account", "to_account", "context"):
-            require(verified[field] == str(terms[field]), "maintained_receipt_order_binding:" + field)
-        return dict({key: verified[key] for key in
-                ("order_digest", "activity_id", "receipt_digest", "verification_level")}, maintained_receipt=True)
-    authorized = AuthorizedReceiptBatch(*(hex32(authority[key]) for key in (
-        "batch_id", "asset", "previous_state_root", "resulting_state_root", "sequencer_public_key")))
-    receipt_hex = authority["receipt"]
-    require(isinstance(receipt_hex, str) and len(receipt_hex) <= 2_097_152
-            and re.fullmatch(r"(?:[0-9a-f]{2})+", receipt_hex), "receipt_encoding")
-    verified = verify_receipt_outcome(bytes.fromhex(receipt_hex), authorized, Signatures(),
-                                      protocol_version=inputs["protocol_version"])
-    receipt = verified.receipt
-    require(receipt.activity_id == activity and receipt.module_id == 1
-            and receipt.operation == operation and receipt.result_code == 0
-            and receipt.asset == hex32(terms["asset"])
-            and receipt.amount == int(terms["amount"])
-            and receipt.from_account == hex32(terms["from_account"])
-            and receipt.to_account == hex32(terms["to_account"])
-            and receipt.context_hash == hex32(terms["context"])
-            and verified.receipt_digest == octets(view["receipt_digest"]), "receipt_order_binding")
-    return {"order_digest": octets(view["order_digest"]).hex(), "activity_id": activity.hex(),
-            "receipt_digest": verified.receipt_digest.hex(), "verification_level": verified.level}
+    transaction = "0x" + octets(snapshot["evidence"]["tx_hash"]).hex()
+    digest = octets(view["order_digest"]).hex()
+    require(verified["build_revision"] == expected_revision
+            and verified["build_source_digest"] == expected_digest
+            and verified["external_custody_label"] == LABEL,
+            "verifier_source_and_custody_binding")
+    require(verified["verified"] is True and verified["maintained_batch"] is True
+            and verified["order_digest"] == digest
+            and octets(snapshot["order"]["order_digest"]).hex() == digest
+            and verified["transaction_hash"] == transaction
+            and view["transaction_hash"] == transaction
+            and verified["receipt_digest"] == octets(view["receipt_digest"]).hex()
+            and verified["chain_id"] == layerx["chain_id"] == 125
+            and verified["rung"] == snapshot["evidence"]["rung"] == "committed",
+            "maintained_receipt_identity")
+    height = integer(verified["height"], 1)
+    require(any(pin["firstHeight"] <= height <= pin["lastHeight"]
+                for pin in layerx["receipt_keys"]), "receipt_height_pin_range")
+    return {key: verified[key] for key in
+            ("order_digest", "transaction_hash", "receipt_digest", "height", "rung")}
+
+
+def verify_done(snapshot):
+    layerx = verifier_layerx_config()
+    view = presentation(snapshot, True)
+    transaction = "0x" + octets(snapshot["evidence"]["tx_hash"]).hex()
+    digest = octets(view["order_digest"])
+    bound = read_order(digest)["order"]
+    require(bound == snapshot["order"] and octets(bound["order_digest"]) == digest,
+            "bound_order_identity")
+    order_name = "receipt-order-" + transaction[2:] + ".json"
+    save(order_name, bound)
+    order_path = evidence / order_name
+    result_path = evidence / ("verified-receipt-" + transaction[2:] + ".json")
+    require(not result_path.exists(), "fresh_verifier_output_required")
+    remaining = min(180, deadline - time.monotonic())
+    require(remaining > 0, "receipt_verifier_deadline")
+    completed = subprocess.run(
+        [env("LAYERX_RAMP_RECEIPT_VERIFIER_BINARY"), "--config-file",
+         str(protected_file("LAYERX_RAMP_RECEIPT_VERIFIER_CONFIG")), "--order-file",
+         str(order_path), "--transaction-hash", transaction, "--output-file", str(result_path)],
+        stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        timeout=remaining, check=False)
+    require(completed.returncode == 0 and len(completed.stdout) <= 16384,
+            "maintained_receipt_verification")
+    descriptor = os.open(result_path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(descriptor, "rb") as stream:
+        info = os.fstat(stream.fileno())
+        require(stat.S_ISREG(info.st_mode) and info.st_uid == os.getuid()
+                and stat.S_IMODE(info.st_mode) == 0o600 and info.st_nlink == 1,
+                "protected_verifier_result")
+        encoded = stream.read(16385)
+    require(len(encoded) <= 16384, "bounded_verifier_result")
+    return validate_cli_receipt(snapshot, json.loads(encoded), layerx)
 
 
 def create(terms, grant, body_extra=None, statuses=(201,), error=None):
@@ -340,9 +331,6 @@ try:
             "evidence_permissions")
     evidence = evidence_path
     inputs = json.loads(read_protected("LAYERX_RAMP_INPUTS_FILE"))
-    require(inputs["protocol_version"] == 3, "native_protocol_required")
-    integer(inputs["network_id"], 1, 2**32 - 1)
-    hex32(inputs["sequencer_public_key"])
     for side in ("on", "off"):
         terms = inputs[side]
         require(isinstance(terms["order_id"], str)
@@ -367,7 +355,7 @@ try:
     integer(rebalance["required_confirmations"], 1)
     tokens = {}
     for actor, variable in (("customer", "CUSTOMER"), ("other", "OTHER_CUSTOMER"),
-                            ("operator", "OPERATOR"), ("authority", "AUTHORITY")):
+                            ("operator", "OPERATOR")):
         token = read_protected("LAYERX_RAMP_" + variable + "_TOKEN_FILE").decode("ascii").removesuffix("\n")
         require(re.fullmatch(r"[A-Za-z0-9._~+/=-]{16,4096}", token), "token_encoding")
         tokens[actor] = token
@@ -375,8 +363,7 @@ try:
     context = ssl.create_default_context(cafile=env("LAYERX_RAMP_CA_PEM"))
     context.minimum_version = ssl.TLSVersion.TLSv1_2
     context.load_cert_chain(env("LAYERX_RAMP_CLIENT_CERT_PEM"), str(protected_file("LAYERX_RAMP_CLIENT_KEY_FILE")))
-    origins = {"customer": origin("LAYERX_RAMP_URL"), "operator": origin("LAYERX_RAMP_OPERATOR_URL"),
-               "authority": origin("LAYERX_RAMP_AUTHORITY_URL")}
+    origins = {"customer": origin("LAYERX_RAMP_URL"), "operator": origin("LAYERX_RAMP_OPERATOR_URL")}
     revision = subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip()
     expected_revision = env("LAYERX_RAMP_EXPECTED_REVISION")
     expected_digest = env("LAYERX_RAMP_EXPECTED_SOURCE_DIGEST")
@@ -432,7 +419,7 @@ try:
     wait_stage(on_digest, "provider_settled")
     work(on_digest, "submit_layerx")
     on_done = wait_stage(on_digest, "done")
-    report["on"] = verify_done(on_done, inputs["on"], 5)
+    report["on"] = verify_done(on_done)
     cases["on_ramp_receipt"] = True
     current_step = "off_ramp"
     off_created = create(inputs["off"], grant)
@@ -446,7 +433,7 @@ try:
     wait_stage(off_digest, "layerx_verified")
     work(off_digest, "submit_provider")
     off_done = wait_stage(off_digest, "done")
-    report["off"] = verify_done(off_done, inputs["off"], 6)
+    report["off"] = verify_done(off_done)
     cases["off_ramp_receipt"] = True
     current_step = "order_recovery"
     for side, grant_value, digest, done in (("on", None, on_digest, on_done), ("off", grant, off_digest, off_done)):
@@ -536,7 +523,7 @@ except Exception as failure:
 PY
 fi
 umask 077
-: "${LAYERX_RAMP_REFERENCE_BIN:?}"
+: "${LAYERX_RAMP_RECEIPT_VERIFIER_BINARY:?}"
 : "${LAYERX_RAMP_RECEIPT_VERIFIER_CONFIG:?}"
 journey_directory=$(mktemp -d)
 trap 'rm -rf "$journey_directory"' EXIT HUP INT TERM
@@ -610,25 +597,32 @@ receipt_evidence() {
       all(.[]; type == "number" and . == floor and . >= 0 and . <= 255) and
       any(.[]; . != 0);
     if (.tx_hash | hash32) and (.receipt_digest | hash32) and
-       (.rung == "receipted" or .rung == "committed")
+       .rung == "committed"
     then . else error("transaction receipt evidence required") end'
 }
 
 verify_done() {
   response="$1"
-  printf '%s' "$response" | jq -e '.order' >"$journey_directory/order.json"
   keys=$(printf '%s' "$response" | receipt_evidence)
   tx_hash="0x$(printf '%s' "$keys" | jq -r '.tx_hash[]' | awk '{printf "%02x", $1}')"
-  receipt_digest="0x$(printf '%s' "$keys" | jq -r '.receipt_digest[]' | awk '{printf "%02x", $1}')"
-  "$LAYERX_RAMP_REFERENCE_BIN" --verify-receipt "$LAYERX_RAMP_RECEIPT_VERIFIER_CONFIG" \
-    "$journey_directory/order.json" "$tx_hash" >"$journey_directory/receipt.json"
-  printf '%s' "$response" | jq -e --slurpfile proof "$journey_directory/receipt.json" \
-    --arg tx_hash "$tx_hash" --arg receipt_digest "$receipt_digest" \
+  receipt_digest="$(printf '%s' "$keys" | jq -r '.receipt_digest[]' | awk '{printf "%02x", $1}')"
+  order_digest="$(printf '%s' "$response" | jq -r '.order.order_digest[]' | awk '{printf "%02x", $1}')"
+  # Each CLI output is created exclusively; keep per-transaction protected files.
+  order_file="$journey_directory/order-${tx_hash}.json"
+  result_file="$journey_directory/receipt-${tx_hash}.json"
+  printf '%s' "$response" | jq -e '.order' >"$order_file"
+  "$LAYERX_RAMP_RECEIPT_VERIFIER_BINARY" --config-file "$LAYERX_RAMP_RECEIPT_VERIFIER_CONFIG" \
+    --order-file "$order_file" --transaction-hash "$tx_hash" --output-file "$result_file"
+  printf '%s' "$response" | jq -e --slurpfile proof "$result_file" \
+    --arg tx_hash "$tx_hash" --arg receipt_digest "$receipt_digest" --arg order_digest "$order_digest" \
     '.stage == "done" and .presentation.status == "done" and $proof[0].verified == true and
-     .order.order_digest == $proof[0].order_digest and
+     $proof[0].maintained_batch == true and $proof[0].chain_id == 125 and
+     $proof[0].order_digest == $order_digest and
+     .presentation.transaction_hash == $tx_hash and
      $proof[0].transaction_hash == $tx_hash and
      $proof[0].receipt_digest == $receipt_digest and
-     ($proof[0].rung == "receipted" or $proof[0].rung == "committed") and
+     ($proof[0].height | type == "number" and . == floor and . > 0) and
+     $proof[0].rung == "committed" and .evidence.rung == "committed" and
      .presentation.receipt_digest == .evidence.receipt_digest and
      .presentation.external_custody_label == $proof[0].external_custody_label' >/dev/null
 }
