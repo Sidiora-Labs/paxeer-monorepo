@@ -146847,7 +146847,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.482]
 title = "Fold the swap fixture's nested install root into the wallet application manifest (gotcha 2999)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -152507,7 +152507,7 @@ do_8 = "Attempt 2 (continue): besides the explorer environment blockers (fixed; 
 
 [task.22.33.344]
 title = "Repair audit record 22.30.138 medium findings in apps/explorer/ui/snippets/topBar/settings (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.268", "22.31.474"]
@@ -179069,7 +179069,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.412]
 title = "Repair audit record 22.30.143 medium findings in services/explorer/services/smart-contract-verifier/verification-common/src/verifier_alliance (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.392", "22.31.393", "22.31.394", "22.31.395"]
@@ -179279,7 +179279,7 @@ do_8 = "The gate of this task is corrected (gotcha 2984): the generated command 
 
 [task.22.33.312]
 title = "Repair audit record 22.30.135 medium findings in services/explorer/services/sig-provider (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.267", "22.31.381"]
@@ -181274,7 +181274,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.100]
 title = "Repair audit record 22.30.111 medium findings in services/interop/crates/layerx-mirror/src (part 1 of 2): config-drift, interface-mismatch, retired-reference, runtime-risk, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.165", "22.31.166", "22.31.443"]
@@ -182038,7 +182038,7 @@ do_9 = "Attempt 2 (continue): the first attempt failed before its own verify bec
 
 [task.22.33.61]
 title = "Repair audit record 22.30.107 medium findings in services/human/crates/layerx-human-service/src/approvals (part 1 of 1): interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.157", "22.31.158", "22.31.159", "22.31.443"]
@@ -182074,7 +182074,7 @@ do_9 = "Attempt 2 (continue): the first attempt failed before its own verify bec
 
 [task.22.33.60]
 title = "Repair audit record 22.30.107 medium findings in services/human/crates/layerx-human-service/src/audit (part 1 of 1): runtime-risk, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.157", "22.31.158", "22.31.159", "22.31.443"]
@@ -182110,7 +182110,7 @@ do_9 = "Attempt 2 (continue): the first attempt failed before its own verify bec
 
 [task.22.33.59]
 title = "Repair audit record 22.30.107 medium findings in services/human/crates/layerx-human-service/src/notify (part 1 of 1): restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.157", "22.31.158", "22.31.159", "22.31.443"]
@@ -182146,7 +182146,7 @@ do_9 = "Attempt 2 (continue): the first attempt failed before its own verify bec
 
 [task.22.33.58]
 title = "Repair audit record 22.30.107 medium findings in services/human/crates/layerx-human-service/src/store (part 1 of 1): restart-recovery, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.157", "22.31.158", "22.31.159", "22.31.443"]
@@ -183312,7 +183312,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.439]
 title = "Remove the orphaned test directory of the deleted explorer index crate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -325748,7 +325748,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.788]
 title = "Repair audit record 22.30.176 medium findings in (part 1 of 1): config-drift, doc-drift, retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.317", "22.31.318", "22.31.426"]
@@ -327745,7 +327745,7 @@ do_15 = "Attempt 2 (continue): fourteen cases fail, most of them by asserting th
 
 [task.22.33.700]
 title = "Repair audit record 22.30.169 medium findings in .github/workflows (part 2 of 2): retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.312"]
@@ -329142,7 +329142,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.406]
 title = "Repair audit record 22.30.143 medium findings in services/bridge/deploy (part 1 of 1): config-drift, restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.392", "22.31.393", "22.31.394", "22.31.395"]
@@ -330610,7 +330610,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.84]
 title = "Repair audit record 22.30.11 medium findings in apps/perps (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.4", "22.31.5", "22.31.6"]
@@ -330817,7 +330817,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.29]
 title = "Repair audit record 22.30.102 medium findings in services/human/schema/human-api/golden (part 1 of 2): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.150"]
