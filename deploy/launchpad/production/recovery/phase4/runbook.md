@@ -5,6 +5,14 @@ the [operator runbook](../phase2/runbook.md) for the native scenario receipts
 required here. [Observability](../../observability/README.md) supplies companion
 telemetry tooling. All commands below run from the repository root.
 
+The entry point is `deploy/launchpad/production/recovery/phase4/release.py`.
+Its admitted producer sources are
+[`tools/launchpad/production/qualify.py`](../../../../../tools/launchpad/production/qualify.py)
+for the candidate snapshot and
+[`tools/launchpad/production/load/`](../../../../../tools/launchpad/production/load/)
+for the D16 capture reader, bindings and HTTP transport. Recovery identity and
+provider code live in `deploy/launchpad/production/recovery/phase2/`.
+
 The harness collects real read-only recovery metrics, actual Kubernetes resource allocations and PostgreSQL reconciliation snapshots. Its final evaluator consumes the existing D16 `kindle-shared-capture-v1` manifest. Component measurements prepare the lane; the shared 24-hour load and restore acceptance belongs to gate 9.1. Every result keeps `capacity_qualified` and `monthly_availability_qualified` false. A local pass does not promote a release or activate recovery.
 
 All input configuration and credential references are absolute owned mode 0600 files. Configuration must match its independently admitted SHA256 and [config.schema.json](config.schema.json). It names the exact current source, interface, deployment, resource inventory and D16 candidate/interface/topology/generator bindings. Candidate source is reread through the existing production snapshot function. The runtime realm must be `isolated-recovery-qualification` and the identity

@@ -1,14 +1,13 @@
 package benchmarks
 
 import (
-	"context"
 	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/syndtr/goleveldb/leveldb/opt"
 
-	dbm "github.com/tendermint/tm-db"
+	paxapp "github.com/Sidiora-Labs/Paxeer-X-Network/node"
+	storageconfig "github.com/Sidiora-Labs/Paxeer-X-Network/storage/config"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/secp256k1"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
@@ -17,109 +16,114 @@ import (
 	wasmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/wasm/x/wasm/types"
 )
 
+type txSendingBenchmark struct {
+	db          func(testing.TB) benchmarkDatabase
+	txBuilder   func(*testing.B, *AppInfo) []sdk.Tx
+	blockSize   int
+	numAccounts int
+}
+
+func txSendingBenchmarkCases() map[string]txSendingBenchmark {
+	return map[string]txSendingBenchmark{
+		"basic send - pebbledb": {
+			db:          buildPebbleDB,
+			blockSize:   20,
+			txBuilder:   buildTxFromMsg(bankSendMsg),
+			numAccounts: 50,
+		},
+		"cw20 transfer - pebbledb": {
+			db:          buildPebbleDB,
+			blockSize:   20,
+			txBuilder:   buildTxFromMsg(cw20TransferMsg),
+			numAccounts: 50,
+		},
+		"basic send - pebbledb buffered": {
+			db:          buildBufferedPebbleDB,
+			blockSize:   20,
+			txBuilder:   buildTxFromMsg(bankSendMsg),
+			numAccounts: 50,
+		},
+		"cw20 transfer - pebbledb buffered": {
+			db:          buildBufferedPebbleDB,
+			blockSize:   20,
+			txBuilder:   buildTxFromMsg(cw20TransferMsg),
+			numAccounts: 50,
+		},
+		"basic send - pebbledb buffered - 8k accounts": {
+			db:          buildBufferedPebbleDB,
+			blockSize:   20,
+			txBuilder:   buildTxFromMsg(bankSendMsg),
+			numAccounts: 8000,
+		},
+		"cw20 transfer - pebbledb buffered - 8k accounts": {
+			db:          buildBufferedPebbleDB,
+			blockSize:   20,
+			txBuilder:   buildTxFromMsg(cw20TransferMsg),
+			numAccounts: 8000,
+		},
+		"basic send - pebbledb buffered - 8k accounts - huge blocks": {
+			db:          buildBufferedPebbleDB,
+			blockSize:   1000,
+			txBuilder:   buildTxFromMsg(bankSendMsg),
+			numAccounts: 8000,
+		},
+		"cw20 transfer - pebbledb buffered - 8k accounts - huge blocks": {
+			db:          buildBufferedPebbleDB,
+			blockSize:   1000,
+			txBuilder:   buildTxFromMsg(cw20TransferMsg),
+			numAccounts: 8000,
+		},
+		"basic send - pebbledb buffered - 80k accounts": {
+			db:          buildBufferedPebbleDB,
+			blockSize:   20,
+			txBuilder:   buildTxFromMsg(bankSendMsg),
+			numAccounts: 80000,
+		},
+		"cw20 transfer - pebbledb buffered - 80k accounts": {
+			db:          buildBufferedPebbleDB,
+			blockSize:   20,
+			txBuilder:   buildTxFromMsg(cw20TransferMsg),
+			numAccounts: 80000,
+		},
+	}
+
+}
+
 func BenchmarkTxSending(b *testing.B) {
-	cases := map[string]struct {
-		db          func(*testing.B) dbm.DB
-		txBuilder   func(*testing.B, *AppInfo) []sdk.Tx
-		blockSize   int
-		numAccounts int
-	}{
-		"basic send - memdb": {
-			db:          buildMemDB,
-			blockSize:   20,
-			txBuilder:   buildTxFromMsg(bankSendMsg),
-			numAccounts: 50,
-		},
-		"cw20 transfer - memdb": {
-			db:          buildMemDB,
-			blockSize:   20,
-			txBuilder:   buildTxFromMsg(cw20TransferMsg),
-			numAccounts: 50,
-		},
-		"basic send - leveldb": {
-			db:          buildLevelDB,
-			blockSize:   20,
-			txBuilder:   buildTxFromMsg(bankSendMsg),
-			numAccounts: 50,
-		},
-		"cw20 transfer - leveldb": {
-			db:          buildLevelDB,
-			blockSize:   20,
-			txBuilder:   buildTxFromMsg(cw20TransferMsg),
-			numAccounts: 50,
-		},
-		"basic send - leveldb - 8k accounts": {
-			db:          buildLevelDB,
-			blockSize:   20,
-			txBuilder:   buildTxFromMsg(bankSendMsg),
-			numAccounts: 8000,
-		},
-		"cw20 transfer - leveldb - 8k accounts": {
-			db:          buildLevelDB,
-			blockSize:   20,
-			txBuilder:   buildTxFromMsg(cw20TransferMsg),
-			numAccounts: 8000,
-		},
-		"basic send - leveldb - 8k accounts - huge blocks": {
-			db:          buildLevelDB,
-			blockSize:   1000,
-			txBuilder:   buildTxFromMsg(bankSendMsg),
-			numAccounts: 8000,
-		},
-		"cw20 transfer - leveldb - 8k accounts - huge blocks": {
-			db:          buildLevelDB,
-			blockSize:   1000,
-			txBuilder:   buildTxFromMsg(cw20TransferMsg),
-			numAccounts: 8000,
-		},
-		"basic send - leveldb - 80k accounts": {
-			db:          buildLevelDB,
-			blockSize:   20,
-			txBuilder:   buildTxFromMsg(bankSendMsg),
-			numAccounts: 80000,
-		},
-		"cw20 transfer - leveldb - 80k accounts": {
-			db:          buildLevelDB,
-			blockSize:   20,
-			txBuilder:   buildTxFromMsg(cw20TransferMsg),
-			numAccounts: 80000,
-		},
+	for name, tc := range txSendingBenchmarkCases() {
+		b.Run(name, tc.run)
 	}
+}
 
-	for name, tc := range cases {
-		b.Run(name, func(b *testing.B) {
-			db := tc.db(b)
-			defer db.Close()
-			appInfo := InitializeWasmApp(b, db, tc.numAccounts)
-			txs := tc.txBuilder(b, &appInfo)
+func (tc txSendingBenchmark) run(b *testing.B) {
+	db := tc.db(b)
+	appInfo := InitializeWasmApp(b, db, tc.numAccounts)
+	txs := tc.txBuilder(b, &appInfo)
+	require.Len(b, txs, b.N)
 
-			// number of Tx per block for the benchmarks
-			blockSize := tc.blockSize
-			height := int64(3)
-			txEncoder := appInfo.TxConfig.TxEncoder()
+	b.ResetTimer()
+	delivered := deliverBenchmarkTxs(b, &appInfo, txs, tc.blockSize)
+	b.StopTimer()
+	require.Equal(b, b.N, delivered)
+	b.ReportMetric(float64(delivered), "delivered-txs")
+}
 
-			b.ResetTimer()
-
-			for i := 0; i < b.N/blockSize; i++ {
-
-				for j := 0; j < blockSize; j++ {
-					idx := i*blockSize + j
-
-					_, _, err := appInfo.App.Check(txEncoder, txs[idx])
-					if err != nil {
-						panic("something is broken in checking transaction")
-					}
-					_, _, err = appInfo.App.Deliver(txEncoder, txs[idx])
-					require.NoError(b, err)
-				}
-
-				appInfo.App.EndBlock(appInfo.App.GetContextForDeliverTx([]byte{}), height, 0)
-				appInfo.App.SetDeliverStateToCommit()
-				appInfo.App.Commit(context.Background())
-				height++
-			}
-		})
+func deliverBenchmarkTxs(b testing.TB, info *AppInfo, txs []sdk.Tx, blockSize int) int {
+	b.Helper()
+	require.Positive(b, blockSize)
+	delivered := 0
+	for delivered < len(txs) {
+		end := min(delivered+blockSize, len(txs))
+		batch := txs[delivered:end]
+		for _, tx := range batch {
+			_, _, err := info.App.Check(info.TxConfig.TxEncoder(), tx)
+			require.NoError(b, err)
+		}
+		results := commitBenchmarkBlock(b, info.App, info.TxConfig, batch)
+		delivered += len(results)
 	}
+	require.Equal(b, len(txs), delivered)
+	return delivered
 }
 
 func bankSendMsg(info *AppInfo) ([]sdk.Msg, error) {
@@ -155,12 +159,38 @@ func buildTxFromMsg(builder func(info *AppInfo) ([]sdk.Msg, error)) func(b *test
 	}
 }
 
-func buildMemDB(b *testing.B) dbm.DB {
-	return dbm.NewMemDB()
+type benchmarkDatabase struct {
+	backend     string
+	directory   string
+	writeBuffer int
 }
 
-func buildLevelDB(b *testing.B) dbm.DB {
-	levelDB, err := dbm.NewGoLevelDBWithOpts("testing", b.TempDir(), &opt.Options{BlockCacher: opt.NoCacher})
-	require.NoError(b, err)
-	return levelDB
+type benchmarkAppOptions struct {
+	paxapp.TestAppOpts
+	database benchmarkDatabase
+}
+
+func (o benchmarkAppOptions) Get(key string) interface{} {
+	switch key {
+	case paxapp.FlagSSBackend:
+		return o.database.backend
+	case paxapp.FlagSSDirectory:
+		return o.database.directory
+	case paxapp.FlagSSAsyncWriterBuffer:
+		return o.database.writeBuffer
+	default:
+		return o.TestAppOpts.Get(key)
+	}
+}
+
+func buildPebbleDB(b testing.TB) benchmarkDatabase {
+	b.Helper()
+	return benchmarkDatabase{backend: storageconfig.PebbleDBBackend, directory: b.TempDir()}
+}
+
+func buildBufferedPebbleDB(b testing.TB) benchmarkDatabase {
+	b.Helper()
+	db := buildPebbleDB(b)
+	db.writeBuffer = storageconfig.DefaultSSAsyncBuffer
+	return db
 }

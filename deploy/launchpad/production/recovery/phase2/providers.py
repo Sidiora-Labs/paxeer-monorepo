@@ -6,11 +6,13 @@ import json
 import os
 from pathlib import Path
 import re
+import selectors
 import shlex
 import shutil
 import stat
 import subprocess
 import tempfile
+import time
 from urllib.parse import urlsplit
 
 
@@ -23,6 +25,75 @@ class ProviderFailure(RuntimeError):
         self.operation = operation
         self.exit_code = exit_code
         super().__init__(operation + ' failed; provider output withheld')
+
+
+RECONCILIATION_STREAM = '-- recovery-reconciliation-stream-v1\n'
+RECONCILIATION_STREAMS = (
+    'raw_chain_identities', 'ingest_watermarks', 'inventory_state',
+    'indexer_outbox_identities', 'indexer_inbox_identities',
+    'candle_inbox_identities', 'stats_inbox_identities', 'pnl_inbox_identities',
+)
+MAX_PROVIDER_RESPONSE = 2 * 1024 * 1024
+MAX_RECONCILIATION_BYTES = 16 * 1024 * 1024 * 1024
+
+
+def bounded_lines(chunks):
+    """Decode a complete NDJSON transport without buffering the retained dataset."""
+    pending = bytearray()
+    total = 0
+    for chunk in chunks:
+        total += len(chunk)
+        if total > MAX_RECONCILIATION_BYTES:
+            raise ProviderFailure('reconciliation byte budget exceeded')
+        for part in chunk.splitlines(keepends=True):
+            pending.extend(part)
+            if len(pending) > MAX_PROVIDER_RESPONSE:
+                raise ProviderFailure('reconciliation oversized row')
+            if pending.endswith(b'\n'):
+                yield bytes(pending[:-1])
+                pending.clear()
+    if pending:
+        raise ProviderFailure('reconciliation incomplete row')
+
+
+def reconciliation_document(lines):
+    """Commit exact counts and canonical PostgreSQL JSON text in stream order."""
+    summary = None
+    counts = {name: 0 for name in RECONCILIATION_STREAMS}
+    digests = {name: hashlib.sha256(('recovery-reconciliation-v1\0' + name + '\0').encode())
+               for name in RECONCILIATION_STREAMS}
+    previous = -1
+    for line in lines:
+        row = json.loads(line)
+        if summary is None:
+            if not isinstance(row, dict) or row.get('kind') != 'summary':
+                raise ProviderFailure('reconciliation summary required')
+            summary = dict(row)
+            del summary['kind']
+            for name in RECONCILIATION_STREAMS:
+                count = summary.get(name + '_count')
+                if type(count) is not int or count < 0:
+                    raise ProviderFailure('reconciliation exact count required')
+            continue
+        if not isinstance(row, dict) or set(row) != {'kind', 'stream', 'value'} or row['kind'] != 'identity':
+            raise ProviderFailure('reconciliation identity row required')
+        name = row['stream']
+        if name not in counts or not isinstance(row['value'], str):
+            raise ProviderFailure('reconciliation unknown identity stream')
+        position = RECONCILIATION_STREAMS.index(name)
+        if position < previous:
+            raise ProviderFailure('reconciliation stream order changed')
+        previous = position
+        counts[name] += 1
+        if counts[name] > summary[name + '_count']:
+            raise ProviderFailure('reconciliation excess identity rows')
+        digests[name].update(row['value'].encode('utf-8') + b'\n')
+    if summary is None or any(counts[name] != summary[name + '_count'] for name in counts):
+        raise ProviderFailure('reconciliation missing identity rows')
+    summary['identity_encoding'] = 'sha256-postgresql-jsonb-lines-v1'
+    summary['identity_digests'] = {name: {'count': counts[name], 'sha256': digests[name].hexdigest()}
+                                   for name in counts}
+    return summary
 
 
 def regular(path, maximum=None, private=False):
@@ -90,6 +161,55 @@ class BoundTools:
                 raise ProviderFailure(tool + ': oversized response')
             stdout.seek(0)
             return stdout.read()
+
+    def lines(self, tool, args, *, env=None, data=None, timeout=30):
+        binding = self.tools.get(tool)
+        if not isinstance(binding, dict) or set(binding) != {'path', 'sha256'}:
+            raise Unavailable('pinned executable unavailable: ' + tool)
+        path = regular(binding['path'])
+        if file_sha(path) != binding['sha256'] or not os.access(path, os.X_OK):
+            raise Unavailable('executable identity changed: ' + tool)
+        if (not 0 < timeout <= 1800 or not isinstance(data, bytes) or len(data) > 65536 or
+                not all(isinstance(a, str) and '\x00' not in a for a in args)):
+            raise ValueError('invalid bounded streaming invocation')
+        child_env = {'PATH': '/usr/bin:/bin', 'LANG': 'C.UTF-8', **(env or {})}
+        # A regular input file avoids a pipe-write deadlock. It is bounded above.
+        with tempfile.TemporaryFile() as stdin:
+            stdin.write(data)
+            stdin.seek(0)
+            try:
+                process = subprocess.Popen([str(path), *args], stdin=stdin, stdout=subprocess.PIPE,
+                                           stderr=subprocess.DEVNULL, env=child_env)
+            except OSError as exc:
+                raise ProviderFailure(tool) from exc
+            deadline = time.monotonic() + timeout
+            try:
+                with selectors.DefaultSelector() as selector:
+                    selector.register(process.stdout, selectors.EVENT_READ)
+
+                    def chunks():
+                        while True:
+                            remaining = deadline - time.monotonic()
+                            if remaining <= 0 or not selector.select(remaining):
+                                raise ProviderFailure(tool + ': streaming timeout')
+                            chunk = os.read(process.stdout.fileno(), 65536)
+                            if not chunk:
+                                return
+                            yield chunk
+
+                    yield from bounded_lines(chunks())
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise ProviderFailure(tool + ': streaming timeout')
+                if process.wait(timeout=remaining):
+                    raise ProviderFailure(tool, process.returncode)
+            except subprocess.TimeoutExpired as exc:
+                raise ProviderFailure(tool + ': streaming timeout') from exc
+            finally:
+                if process.poll() is None:
+                    process.kill()
+                process.wait()
+                process.stdout.close()
 
     def denied(self, args, *, env, expected_error, timeout=120):
         """Only an explicit AWS authorization error qualifies as a denial."""
@@ -235,13 +355,24 @@ class PostgreSQL:
                             'PGCONNECT_TIMEOUT': '5', 'PGOPTIONS': '-c statement_timeout=20000 -c lock_timeout=2000'}
 
     def query(self, sql, *, timeout=30):
-        auth = ('DO $identity$ BEGIN IF session_user <> ' + literal(self.role) +
-                ' OR current_user <> session_user THEN RAISE EXCEPTION ' +
-                "'recovery coordinator identity mismatch'; END IF; END $identity$;\n")
+        auth = self.authentication_sql()
         return self.tools.run('psql', ['-X', '--no-password', '-qAt', '-v', 'ON_ERROR_STOP=1'],
                               env=self.environment, data=(auth + sql).encode(), timeout=timeout).decode().strip()
 
+    def authentication_sql(self):
+        return ('DO $identity$ BEGIN IF session_user <> ' + literal(self.role) +
+                ' OR current_user <> session_user THEN RAISE EXCEPTION ' +
+                "'recovery coordinator identity mismatch'; END IF; END $identity$;\n")
+
     def document(self, sql):
+        if sql.startswith(RECONCILIATION_STREAM):
+            lines = self.tools.lines('psql', ['-X', '--no-password', '-qAt', '-v', 'ON_ERROR_STOP=1'],
+                                     env=self.environment,
+                                     data=(self.authentication_sql() + sql).encode(), timeout=30)
+            try:
+                return reconciliation_document(lines)
+            finally:
+                lines.close()
         value = self.query(sql)
         if not value:
             raise ProviderFailure('PostgreSQL missing result')

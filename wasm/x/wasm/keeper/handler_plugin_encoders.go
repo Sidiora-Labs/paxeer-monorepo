@@ -101,7 +101,7 @@ func (e MessageEncoders) Encode(ctx sdk.Context, contractAddr sdk.AccAddress, co
 	case msg.Wasm != nil:
 		return e.Wasm(contractAddr, msg.Wasm)
 	case msg.Gov != nil:
-		return EncodeGovMsg(contractAddr, msg.Gov)
+		return e.Gov(contractAddr, msg.Gov)
 	}
 	return nil, sdkerrors.Wrap(types.ErrUnknownMsg, "unknown variant of Wasm")
 }

@@ -1,0 +1,15 @@
+[repair.22.33.1561]
+audit = "22.30.98"
+finding = "shared-fixtures-produce-retired-ingress"
+tests = ["shared_fixtures_produce_real_evm_ingress", "shared_fixtures_refuse_substituted_call_and_disclosure", "shared_fixtures_refuse_invalid_kernel_signatures_and_abi", "shared_fixtures_preserve_kernel_payloads_separately", "shared_fixtures_bind_consent_to_chain_address_and_nonce"]
+implementation = "Send fixtures use SendDebit and ledger_payment_call, with production type-2 encoding; scoped bind fixtures invoke the maintained client Binding constructor directly. Bridge vectors remain payloads in kernel_payloads.rs, without an activity envelope."
+baseline = "Not run: ordered instructions require complete implementation before tests and hf-done after hf-build; the specified integration target was absent at task start. No pre-change test failure is claimed."
+evidence = "The private hf-build/hf-done ledger /out/run/gates.jsonl names the candidate revision, exact command, exit and log; qualification requires hf-done passing on the built candidate."
+wiring_request = "Domain 9 crypto-test owner: migrate services/agent/crates/layerx-crypto/tests/disclosure.rs from activity bind/sign_disclosed and envelope decoding to send_call, type-2 decoding, bind_call and sign_disclosed_call; keep bridge/withdrawal bytes as kernel-only vectors with explicit retired-ingress refusals."
+wiring_request_signers = "Domain 9 crypto-test owner: migrate services/agent/crates/layerx-crypto/tests/signer.rs and tests/remote.rs from canonical_send plus activity signing to scoped_binding for DID consent; use send_call and sign_disclosed_call only for EVM-capable signers."
+wiring_request_manifest = "Domain 9 crypto manifest owner: add a dev-dependency on layerx-client in services/agent/crates/layerx-crypto/Cargo.toml when scope permits and replace the direct production paxeer_binding.rs module reference with the crate import."
+limits = "Existing canonical bridge/native-withdraw names are deprecated raw-kernel compatibility accessors so out-of-scope consumers still compile; they no longer emit activity ingress. Existing activity-based consumers require the wiring above and are not claimed as passing."
+
+[gotcha.baseline_order_conflict]
+observed = "The proposal asks for baseline verification, while the ordered gate rules prohibit testing before implementation and require hf-build before hf-done."
+resolution = "Follow the explicit ordered gate rules and record no baseline outcome; do not edit out-of-scope GOTCHA.kvx or spec records."
