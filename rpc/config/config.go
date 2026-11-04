@@ -401,8 +401,11 @@ func ReadConfig(opts servertypes.AppOptions) (Config, error) {
 	}
 	if v := opts.Get(flagFilterTimeout); v != nil {
 		if cfg.FilterTimeout, err = cast.ToDurationE(v); err != nil {
-			return cfg, err
+			return cfg, fmt.Errorf("%s: %w", flagFilterTimeout, err)
 		}
+	}
+	if cfg.FilterTimeout < 2*time.Nanosecond {
+		return cfg, fmt.Errorf("%s must be at least 2ns so the cleanup ticker interval is positive", flagFilterTimeout)
 	}
 	if v := opts.Get(flagMaxTxPoolTxs); v != nil {
 		if cfg.MaxTxPoolTxs, err = cast.ToUint64E(v); err != nil {
@@ -476,8 +479,11 @@ func ReadConfig(opts servertypes.AppOptions) (Config, error) {
 	}
 	if v := opts.Get(flagRPCStatsInterval); v != nil {
 		if cfg.RPCStatsInterval, err = cast.ToDurationE(v); err != nil {
-			return cfg, err
+			return cfg, fmt.Errorf("%s: %w", flagRPCStatsInterval, err)
 		}
+	}
+	if cfg.RPCStatsInterval < time.Nanosecond {
+		return cfg, fmt.Errorf("%s must be at least 1ns so the metrics ticker interval is positive", flagRPCStatsInterval)
 	}
 	if v := opts.Get(flagWorkerPoolSize); v != nil {
 		if cfg.WorkerPoolSize, err = cast.ToIntE(v); err != nil {
@@ -610,7 +616,7 @@ cors_origins = "{{ .EVM.CORSOrigins }}"
 # list of WS origins, separated by comma
 ws_origins = "{{ .EVM.WSOrigins }}"
 
-# timeout for filters
+# Timeout for filters. Minimum: 2ns; cleanup runs every half-timeout.
 filter_timeout = "{{ .EVM.FilterTimeout }}"
 
 max_tx_pool_txs = {{ .EVM.MaxTxPoolTxs }}
@@ -707,6 +713,7 @@ trace_timeout = "{{ .EVM.TraceTimeout }}"
 # Enable the parallelized default debug_traceBlock* path.
 enable_parallelized_block_trace = {{ .EVM.EnableParallelizedBlockTrace }}
 
+# Interval for reporting RPC stats. Minimum: 1ns (must be positive).
 rpc_stats_interval = "{{ .EVM.RPCStatsInterval }}"
 
 # WorkerPoolSize defines the number of workers in the worker pool.

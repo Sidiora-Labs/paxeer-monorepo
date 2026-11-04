@@ -2,6 +2,7 @@ package keeper_test
 
 import (
 	"encoding/binary"
+	"strings"
 	"testing"
 	"time"
 
@@ -274,6 +275,83 @@ func (e *env) solvent() {
 	e.t.Helper()
 	message, broken := keeper.SolvencyInvariant(e.k)(e.ctx)
 	require.False(e.t, broken, message)
+}
+
+func TestSetAssetRejectsPointerAliases(t *testing.T) {
+	pointer := common.HexToAddress("0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed")
+	aliases := []struct{ name, value string }{
+		{"lower", strings.ToLower(pointer.Hex())},
+		{"upper", "0x" + strings.ToUpper(pointer.Hex()[2:])},
+		{"EIP55", pointer.Hex()},
+	}
+	require.NotEqual(t, aliases[0].value, aliases[2].value)
+	require.NotEqual(t, aliases[1].value, aliases[2].value)
+	for _, original := range aliases {
+		for _, alias := range aliases {
+			t.Run(original.name+"/"+alias.name, func(t *testing.T) {
+				e := newEnv(t, 0)
+				firstID := vectorArray(t, e.exit, "asset")
+				first, found := e.k.GetAsset(e.ctx, firstID)
+				require.True(t, found)
+				first.Pointer = original.value
+				require.NoError(t, e.k.SetAsset(e.ctx, first))
+				first.Pointer = pointer.Hex()
+				stored, found := e.k.GetAsset(e.ctx, firstID)
+				require.True(t, found)
+				require.Equal(t, first, stored)
+				sameOwner := first
+				sameOwner.Pointer = alias.value
+				require.NoError(t, e.k.SetAsset(e.ctx, sameOwner))
+				stored, found = e.k.GetAsset(e.ctx, firstID)
+				require.True(t, found)
+				require.Equal(t, first, stored)
+				_, found = e.k.GetAssetByPointer(e.ctx, tokenPointer)
+				require.False(t, found, "replacing the first pointer removes its old index")
+
+				secondID := vectorArray(t, e.withdrawal, "asset")
+				second, found := e.k.GetAsset(e.ctx, secondID)
+				require.True(t, found)
+				secondPointer := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
+				second.Pointer = secondPointer.Hex()
+				require.NoError(t, e.k.SetAsset(e.ctx, second))
+				before := e.k.ExportGenesis(e.ctx)
+				store := e.ctx.KVStore(testkeeper.EVMTestApp.GetKey(types.StoreKey))
+				firstBytes := append([]byte(nil), store.Get(types.AssetKey(firstID))...)
+				secondBytes := append([]byte(nil), store.Get(types.AssetKey(secondID))...)
+				eventCount := len(e.ctx.EventManager().Events())
+				for _, create := range []bool{false, true} {
+					candidate := second
+					if create {
+						candidate.AssetId = types.Hash32([32]byte{0xfa})
+						candidate.Denom = "ualias"
+					}
+					candidate.Pointer = alias.value
+					require.NoError(t, candidate.Validate())
+					require.ErrorIs(t, e.k.SetAsset(e.ctx, candidate), types.ErrInvalidAsset)
+					require.Equal(t, before, e.k.ExportGenesis(e.ctx))
+					require.Equal(t, firstBytes, store.Get(types.AssetKey(firstID)))
+					require.Equal(t, secondBytes, store.Get(types.AssetKey(secondID)))
+					require.Equal(t, firstID[:], store.Get(types.AssetPointerKey(pointer)))
+					require.Equal(t, secondID[:], store.Get(types.AssetPointerKey(secondPointer)))
+					for _, expected := range []types.AssetMapping{first, second} {
+						got, found := e.k.GetAssetByPointer(e.ctx, common.HexToAddress(expected.Pointer))
+						require.True(t, found)
+						require.Equal(t, expected, got)
+						got, found = e.k.GetAssetByDenom(e.ctx, expected.Denom)
+						require.True(t, found)
+						require.Equal(t, expected, got)
+					}
+					require.Len(t, e.ctx.EventManager().Events(), eventCount)
+				}
+				second.Pointer = alias.value
+				_, err := keeper.NewMsgServerImpl(e.k).SetAsset(sdk.WrapSDKContext(e.ctx),
+					&types.MsgSetAsset{Authority: e.k.Authority(e.ctx), Asset: second})
+				require.ErrorIs(t, err, types.ErrInvalidAsset)
+				require.Equal(t, before, e.k.ExportGenesis(e.ctx))
+				require.Len(t, e.ctx.EventManager().Events(), eventCount)
+			})
+		}
+	}
 }
 
 func TestDepositMovesFundsIntoTheModuleAccountAndRecords(t *testing.T) {

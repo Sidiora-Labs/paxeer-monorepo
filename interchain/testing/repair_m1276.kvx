@@ -1,0 +1,53 @@
+[meta]
+task = "22.33.1276"
+audit = "22.30.64"
+base_revision = "72c91077cb966f1c4c640ded61b4b259f41cad90"
+qualification = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit and private log; this record makes no unrun gate claim."
+baseline = "Not run: the explicit implementation-first order and hf-build-before-hf-done restriction supersede step 9's unchanged-tree verification; no baseline failures are claimed."
+wiring = "spec/layerx-merge/spec.kvx (fm-cosmos-fork): mirror the finding-to-test mappings from this scoped record; direct spec edits are prohibited in this task."
+
+[finding.testing-readme-identifiers]
+test = "TestRepairM_1276_ReadmeIdentifiers"
+repair = "Retain the already-correct ClientID/ConnectionID/ChannelID example and link its executable coordinator, keeper and packet relay regression."
+
+[finding.testing-readme-callback]
+test = "TestRepairM_1276_ReadmeCallback"
+repair = "Compile the exact current callback assignment in the ICA authentication app, drive the actual controller route and base module using keeper-produced channel state, and document the controller's pre-callback refusal."
+
+[finding.ibc-connection-version]
+test = "TestRepairM_1276_ConnectionVersion"
+repair = "Use the endpoint's open-init proposal, relay committed proposals on open-try and negotiated versions on open-ack; exercise ordered-only, unordered-only, nil and incompatible proposals on both initiator endpoints through signed delivery."
+semantics = "ConnectionConfig.Version configures an endpoint's open-init proposal; the receiving keeper's protocol-supported versions determine negotiation, and subsequent messages must match the counterparty's committed version proof."
+
+[finding.ibc-timeout-destination]
+tests = ["TestRepairM_1276_OrderedTimeoutDestination", "TestRepairM_1276_TimeoutOnCloseDestination"]
+repair = "Read the counterparty receive sequence under packet destination keys; relay a first packet to advance that sequence, then time out the second with distinct ports, distinct channels and a real unrelated channel whose receive sequence differs."
+
+[finding.ibc-integration-skipped]
+tests = ["TestRepairM_1276_IntegrationSignedCommittedQueries", "TestRepairM_1276_IntegrationProposalValidation"]
+repair = "Restore the unskipped integration suite with the current simapp constructor and codec-generated CLI fixtures, retaining legacy REST assertions and adding committed height/hash/result/signature checks over loopback consensus and gRPC-gateway."
+consensus = "Simapp proposal validation decodes transactions, bounds aggregate requested gas and runs the real ante handler on an isolated cache; malformed, replayed, oversize and signature-tampered proposals are rejected without modifying delivery state."
+
+[gotcha.delivery-error]
+symptom = "Signed endpoint delivery asserted success internally and overwrote the handler error with the commit result, preventing real refused-handshake assertions."
+repair = "Extract error-returning signed delivery while retaining the existing helper's success/failure assertions; refresh the sender sequence from committed account state after either outcome."
+
+[gotcha.middleware-flow]
+symptom = "The ICA controller rejects open-try before invoking the authentication app, so overriding that callback cannot change the controller result."
+repair = "Document this flow and exercise both the real middleware refusal and the base callback with keeper-produced arguments."
+
+[gotcha.gas-meter-api]
+symptom = "This SDK exposes WithGasMeter and multiplier-aware gas constructors, not WithBlockGasMeter or a zero-argument NewInfiniteGasMeter."
+repair = "Use NewInfiniteGasMeterWithMultiplier for the isolated proposal cache while explicitly enforcing the block's aggregate gas limit."
+
+[qualification.first_verify]
+revision = "389d98c0b28f2431a41b5f30c85f8b15c34807eb"
+command = "cg spec done 22.33.1276 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Six repair tests passed; the signed CLI suite reached consensus but account queries failed because its constructor still selected legacy rootmulti."
+assumption = "Use current storev2 rootmulti with synchronous Pebble history, as required by the SDK query API, without changing query assertions."
+
+[gotcha.integration-store]
+symptom = "A simapp constructed without a CMS option uses legacy rootmulti, whose versioned account queries explicitly return unsupported even at the committed height."
+repair = "Construct the network fixture with storev2 rootmulti and synchronous state history for signed CLI and committed queries."

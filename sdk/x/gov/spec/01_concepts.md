@@ -122,6 +122,12 @@ status, votes, and deposits, and sets its end time to the original
 `VotingStartTime + VotingParams.VotingPeriod`. It is requeued for a regular tally;
 the extension is not a fresh full voting period from the conversion time.
 
+For example, a delegator holding 6 of 16 bonded tokens can cast a minority Yes
+vote before conversion. Its 37.5% participation misses the default expedited
+quorum (66.7%) but meets the regular quorum (33.4%). If no one changes that vote,
+the regular tally passes. Votes and deposits survive a committed-store restart
+between those tallies; conversion does not require accounts to vote again.
+
 ### Option set
 
 The protobuf `VoteOption` values are:
@@ -196,7 +202,14 @@ Scheduling stores one plan; a new plan replaces the pending plan. A passing
 The [upgrade BeginBlocker](../../upgrade/abci.go) checks the plan at its target
 height. A binary with the matching named handler applies the upgrade. Without
 that handler, the node writes upgrade information to disk and halts so the
-appropriate binary can be installed. Operators must coordinate binary deployment
+appropriate binary can be installed. The pending plan remains available after
+that halt; the installed handler applies it on restart at the scheduled height,
+records completion and clears the plan. A completed name cannot be rescheduled.
+A configured skip height instead clears the pending plan without applying it.
+For a non-minor upgrade, starting a binary with the handler before the scheduled
+height aborts. A plan whose `info` has `"upgradeType":"minor"` permits the new
+binary to start early; application still occurs at the scheduled height.
+Operators must coordinate binary deployment
 for the scheduled height; proposal approval does not download or switch binaries
 through proposal-ID signals in precommits. See the
 [upgrade module](../../upgrade/spec/01_concepts.md) for upgrade operation details.

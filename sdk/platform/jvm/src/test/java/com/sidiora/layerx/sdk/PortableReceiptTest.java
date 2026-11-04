@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.sidiora.layerx.sdk.verify.Committed;
+import com.sidiora.layerx.sdk.verify.ConsensusTrust;
 import com.sidiora.layerx.sdk.verify.LocalVerifier;
 import com.sidiora.layerx.sdk.verify.PortableReceipt;
 import java.io.ByteArrayOutputStream;
@@ -20,6 +21,7 @@ import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters;
 import org.bouncycastle.crypto.signers.Ed25519Signer;
 import org.junit.jupiter.api.Test;
@@ -204,6 +206,8 @@ public final class PortableReceiptTest {
 
         JsonNode original = fixture("daemon/committed-fixture/vectors/vector-v4-committed.json");
         JsonNode settlement = original.required("settlement");
+        // This case intentionally normalizes the recorded node view to reproduce the published V5 bytes.
+        // The independent HTTP transition/restart test below preserves the producer view unchanged.
         ObjectNode view = settlement.required("receipt").deepCopy();
         view.put("rung", "receipted");
         view.remove(List.of("blockNumber", "blockHash"));
@@ -228,10 +232,10 @@ public final class PortableReceiptTest {
         assertArrayEquals(raw, Committed.committedEVMTransaction(inclusion.transaction()));
         byte[] committed = PortableReceipt.export(raw, encode(view), committedKey,
             cometHeader(settlement.required("execution_header")), inclusion,
-            cometCommit(settlement.required("execution_commit")), validators);
+            cometCommit(settlement.required("execution_commit")), validators, committedTrust());
         assertArrayEquals(encode(published.get(1)), committed);
         var committedKeys = new LocalVerifier.ReceiptKeys(List.of(committedKey));
-        var committedVerification = PortableReceipt.verify(committed, committedKeys);
+        var committedVerification = PortableReceipt.verify(committed, committedKeys, committedTrust());
         assertEquals("committed", committedVerification.verificationLevel());
         assertEquals(10, committedVerification.committed().height());
         assertEquals(1, committedVerification.status());
@@ -242,18 +246,18 @@ public final class PortableReceiptTest {
             JsonNode bundle = published.get(index);
             var keys = index == 0 ? receiptedKeys : committedKeys;
             assertEquals(index == 0 ? "receipted" : "committed",
-                PortableReceipt.verify(encode(bundle), keys).verificationLevel());
+                PortableReceipt.verify(encode(bundle), keys, committedTrust()).verificationLevel());
             ObjectNode changedView = bundle.deepCopy();
             ((ObjectNode) changedView.required("receiptJson")).put("gasUsed", "0x0");
-            assertRefused(() -> PortableReceipt.verify(encode(changedView), keys));
+            assertRefused(() -> PortableReceipt.verify(encode(changedView), keys, committedTrust()));
             ObjectNode missingView = bundle.deepCopy();
             missingView.remove("receiptJson");
-            assertRefused(() -> PortableReceipt.verify(encode(missingView), keys));
+            assertRefused(() -> PortableReceipt.verify(encode(missingView), keys, committedTrust()));
             for (String field : List.of("signedReceipt", "receiptDigest", "rawTransaction")) {
                 ObjectNode changed = bundle.deepCopy();
                 byte[] value = bytes(bundle, field); value[value.length - 1] ^= 1;
                 changed.put(field, hex(value));
-                assertRefused(() -> PortableReceipt.verify(encode(changed), keys));
+                assertRefused(() -> PortableReceipt.verify(encode(changed), keys, committedTrust()));
             }
         }
         for (String field : List.of("Transaction", "BatchTransaction")) {
@@ -261,22 +265,109 @@ public final class PortableReceiptTest {
             ObjectNode evidence = (ObjectNode) changed.required("receiptInclusion");
             byte[] value = base64(evidence, field); value[value.length - 1] ^= 1;
             evidence.put(field, Base64.getEncoder().encodeToString(value));
-            assertRefused(() -> PortableReceipt.verify(encode(changed), committedKeys));
+            assertRefused(() -> PortableReceipt.verify(encode(changed), committedKeys, committedTrust()));
         }
         for (String field : List.of("TransactionProof", "BatchProof", "ResultProof")) {
             ObjectNode changed = published.get(1).deepCopy();
             ObjectNode proof = (ObjectNode) changed.required("receiptInclusion").required(field);
             proof.put("Index", field.equals("BatchProof") ? 1 : 0);
-            assertRefused(() -> PortableReceipt.verify(encode(changed), committedKeys));
+            assertRefused(() -> PortableReceipt.verify(encode(changed), committedKeys, committedTrust()));
         }
         ObjectNode executionCommit = published.get(1).deepCopy();
         ((ObjectNode) executionCommit.required("commit").required("Signatures").get(0))
             .put("Signature", Base64.getEncoder().encodeToString(new byte[64]));
-        assertRefused(() -> PortableReceipt.verify(encode(executionCommit), committedKeys));
+        assertRefused(() -> PortableReceipt.verify(encode(executionCommit), committedKeys, committedTrust()));
         ObjectNode successorCommit = published.get(1).deepCopy();
         ((ObjectNode) successorCommit.required("receiptInclusion").required("NextCommit").required("Signatures").get(0))
             .put("Signature", Base64.getEncoder().encodeToString(new byte[64]));
-        assertRefused(() -> PortableReceipt.verify(encode(successorCommit), committedKeys));
+        assertRefused(() -> PortableReceipt.verify(encode(successorCommit), committedKeys, committedTrust()));
+    }
+
+    @Test
+    void portableCommittedNodeResponseSurvivesTransitionAndRestart() throws Exception {
+        JsonNode vector = fixture("sdk/platform/conformance/fixtures/vector-v4-committed.json").required("positive");
+        JsonNode before = vector.required("receiptJson");
+        JsonNode after = fixture("daemon/committed-fixture/vectors/vector-v4-committed.json")
+            .required("settlement").required("receipt");
+        byte[] beforeSnapshot = encode(before), afterSnapshot = encode(after);
+        assertEquals("receipted", before.required("rung").textValue());
+        assertEquals("committed", after.required("rung").textValue());
+        assertFalse(before.has("blockNumber"));
+        assertFalse(before.has("blockHash"));
+        assertEquals(before.required("receipt"), after.required("receipt"));
+        byte[] raw = bytes(vector, "rawTransaction");
+        byte[] hash = ProgramsClient.Programs.transactionHash(raw);
+        byte[] exported;
+        var pin = key(vector);
+        var keys = new LocalVerifier.ReceiptKeys(List.of(pin));
+        var retained = new ProgramsClient.ProgramSubmission(hash, raw, null);
+        try (var archive = new Repair22331391Test.RecordedReceiptArchive(before)) {
+            byte[] initialDigest;
+            try (var connection = new ProgramsClient.Programs(archive.uri())) {
+                var client = Repair22331391Test.client(connection, vector);
+                var initial = client.receipt(retained).toCompletableFuture().get(10, TimeUnit.SECONDS);
+                assertEquals(LocalVerifier.VerificationLevel.RECEIPTED, initial.receipt().level());
+                initialDigest = initial.receipt().receiptDigest();
+                archive.receipt.set(after);
+                var transitioned = client.receipt(retained).toCompletableFuture().get(10, TimeUnit.SECONDS);
+                assertArrayEquals(initialDigest, transitioned.receipt().receiptDigest());
+                assertArrayEquals(raw, transitioned.signedTransaction());
+                assertEquals(LocalVerifier.VerificationLevel.RECEIPTED, transitioned.receipt().level());
+                assertEquals(1, transitioned.receipt().status());
+            }
+            try (var reopened = new ProgramsClient.Programs(archive.uri())) {
+                var recovered = Repair22331391Test.client(reopened, vector).receipt(retained)
+                    .toCompletableFuture().get(10, TimeUnit.SECONDS);
+                assertArrayEquals(initialDigest, recovered.receipt().receiptDigest());
+                assertArrayEquals(bytes(vector, "signedReceipt"), recovered.receipt().canonicalBytes());
+                assertArrayEquals(hash, recovered.transactionHash());
+                assertEquals(1, recovered.receipt().status());
+                JsonNode delivered = reopened.request("pax_sequencerReceipt", JSON.createArrayNode()
+                    .add(after.required("txHash"))).toCompletableFuture().get(10, TimeUnit.SECONDS);
+                assertEquals(after, delivered);
+                exported = PortableReceipt.export(raw, encode(delivered), pin,
+                    Committed.decodeHeader(vector.required("blockHeader")),
+                    Committed.decodeInclusion(vector.required("receiptInclusion")),
+                    Committed.decodeCommit(vector.required("commit")),
+                    Committed.decodeValidators(vector.required("validatorSet")), committedTrust());
+            }
+            archive.assertLookups(4, hash);
+            assertEquals(before, archive.delivered.getFirst());
+            for (JsonNode delivered : archive.delivered.subList(1, 4)) assertEquals(after, delivered);
+        }
+        JsonNode bundle = JSON.readTree(exported);
+        assertEquals(after, bundle.required("receiptJson"));
+        assertEquals("committed", bundle.required("receiptJson").required("rung").textValue());
+        assertEquals(after.required("blockNumber"), bundle.required("receiptJson").required("blockNumber"));
+        assertEquals(after.required("blockHash"), bundle.required("receiptJson").required("blockHash"));
+        var verified = PortableReceipt.verify(exported, keys, committedTrust());
+        assertEquals("committed", verified.verificationLevel());
+        assertEquals(Committed.VerificationLevel.COMMITTED, verified.committed().level());
+        assertEquals(10, verified.committed().height());
+        assertArrayEquals(bytes(after, "blockHash"), verified.committed().blockHash());
+        assertArrayEquals(bytes(vector, "receiptDigest"), verified.receipted().receiptDigest());
+        assertEquals(1, verified.status());
+        assertDoesNotThrow(verified::requireSuccess);
+        assertArrayEquals(exported, PortableReceipt.export(verified));
+        assertArrayEquals(beforeSnapshot, encode(before));
+        assertArrayEquals(afterSnapshot, encode(after));
+
+        for (String field : List.of("rung", "blockNumber", "blockHash")) {
+            ObjectNode missing = bundle.deepCopy();
+            ((ObjectNode) missing.required("receiptJson")).remove(field);
+            assertRefused(() -> PortableReceipt.verify(encode(missing), keys, committedTrust()));
+        }
+        for (String field : List.of("blockNumber", "blockHash")) {
+            ObjectNode changed = bundle.deepCopy();
+            ((ObjectNode) changed.required("receiptJson")).put(field,
+                field.equals("blockNumber") ? "0xb" : "0x" + "01".repeat(32));
+            assertRefused(() -> PortableReceipt.verify(encode(changed), keys, committedTrust()));
+        }
+    }
+
+    private static ConsensusTrust committedTrust() {
+        return new ConsensusTrust("committed-fixture", 10,
+            Base64.getDecoder().decode("Zc6vQFr0ZD2oXZPWyqjKikf4CkF01FQdfT9YQBmBrKI="));
     }
 
     private static Committed.Timestamp cometTime(String value) {

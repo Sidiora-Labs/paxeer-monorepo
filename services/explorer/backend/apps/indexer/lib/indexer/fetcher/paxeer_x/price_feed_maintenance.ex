@@ -6,7 +6,8 @@ defmodule Indexer.Fetcher.PaxeerX.PriceFeedMaintenance do
   it, a bounded batch at a time, so catch-up reads only the heights above the
   watermark. When a retention period is configured it also deletes the submissions older
   than that period, with their observations, oldest first in bounded batches. Without a
-  retention period every submission is kept.
+  retention period every submission is kept. Retention waits while any acceptance
+  replay job is incomplete so the replay cannot lose its source observations.
   """
 
   use GenServer
@@ -67,6 +68,14 @@ defmodule Indexer.Fetcher.PaxeerX.PriceFeedMaintenance do
   defp expire(nil, _batches, deleted), do: deleted
 
   defp expire(retention_days, batches, deleted) do
+    if PriceUpdates.acceptance_backfill_pending?() do
+      deleted
+    else
+      expire_completed(retention_days, batches, deleted)
+    end
+  end
+
+  defp expire_completed(retention_days, batches, deleted) do
     count = PriceFeed.delete_expired_updates(retention_days, @retention_batch_size)
 
     if count == @retention_batch_size and batches > 1,

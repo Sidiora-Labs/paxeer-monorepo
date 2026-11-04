@@ -11,6 +11,10 @@ import (
 
 // InitGenesis initializes the interchain accounts host application state from a provided genesis state
 func InitGenesis(ctx sdk.Context, keeper Keeper, state icatypes.HostGenesisState) {
+	if err := state.Validate(); err != nil {
+		panic(fmt.Sprintf("invalid interchain accounts host genesis: %v", err))
+	}
+
 	if !keeper.IsBound(ctx, state.Port) {
 		cap := keeper.BindPort(ctx, state.Port)
 		if err := keeper.ClaimCapability(ctx, cap, host.PortPath(state.Port)); err != nil {

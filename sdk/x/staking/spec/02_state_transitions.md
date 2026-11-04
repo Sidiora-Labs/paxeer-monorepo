@@ -112,6 +112,10 @@ pair to the unbonding-delegation queue and returns that completion time.
 There is no immediate account payout for an unbonded validator, and no
 inheritance of an unbonding validator's earlier deadline. Those source-status
 shortcuts belong to redelegation's `getBeginInfo`, not to `Undelegate`.
+For example, with a 21-day parameter, an undelegation requested today waits
+21 days even if its validator is already unbonded or finishes unbonding in one
+hour. A partial redelegation from that unbonding validator instead uses the
+one-hour validator deadline; the destination receives the stake immediately.
 
 ### Complete Unbonding
 
@@ -128,8 +132,10 @@ If recipient policy refuses a nonzero payout, completion returns
 cached changes are committed only after the entire completion succeeds, so an
 error preserves balances and entries without a partial payment. EndBlock
 requeues a failed pair with a remaining record at the current block time,
-deduplicating the retry pair in that timeslice. Later blocks retry it, including
-after a restart. A successful completion removes the paid entries, preventing
+deduplicating the retry pair in that timeslice. The retry changes the queue
+work time, preserving each entry's original `CompletionTime`, height and balance.
+The entry record and queue are both committed state. Later blocks retry it,
+including after a restart. A successful completion removes the paid entries, preventing
 them from being paid again, and emits the completion event.
 
 ### Begin Redelegation
