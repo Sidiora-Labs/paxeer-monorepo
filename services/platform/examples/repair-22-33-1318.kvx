@@ -1,0 +1,12 @@
+[repair.22.33.1318]
+finding = "examples-authority-doc"
+acceptance = "22998.1"
+base_revision = "2a8418f3ce46275830d68ea57514c30466a3493f"
+implementation = "Document each application's beta rpcUrl and receiptKeysEnvironment, root-path native RPC, independently pinned receipt keys, distinct pending/unknown/refused outcomes and explicit beta qualification; label the retained emulator workflow as historical."
+proving_tests = ["tools/qualification/audit_repairs/test_repair_22_33_1318.py"]
+supplemental_tests = ["services/platform/examples/test/repair-22-33-1318.test.mjs::examplesAuthorityDocMatchesApplicationProfiles", "services/platform/examples/test/repair-22-33-1318.test.mjs::examplesAuthorityDocProvesRootRpcAndReceiptStates"]
+proof = "The corrected Python gate checks the actual README against per-application profiles, package launch scripts, paid API configuration, receipt resolver and qualification source. See tools/qualification/audit_repairs/repair_22_33_1318.kvx for finding-to-test mapping and evidence provenance."
+proof_limit = "Source-level documentation proof only. The retained Node integration test is not executed by this gate. Attempt 2 withdraws the Rust test and its virtual-workspace wiring requests. No runtime or deployed payment qualification is claimed."
+baseline = "Not run: the explicit implementation-first order and hf-done-only verification prohibit the contradictory unchanged-tree verify step; no pre-change failure is claimed."
+evidence = "The bounded runner ledger /out/run/gates.jsonl records exact candidate revision, command, exit code and private log location; the final response copies the last declared gate evidence."
+wiring_requests = []
