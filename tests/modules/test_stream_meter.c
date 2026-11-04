@@ -870,6 +870,299 @@ static int restart_and_replica(const char *directory)
     return same_roots(nodes, 3U);
 }
 
+static uint64_t payload_seed_next(uint64_t *seed)
+{
+    *seed = *seed * UINT64_C(6364136223846793005) + 1U;
+    return *seed;
+}
+
+#define PAYLOAD_ROUND_TRIP(codec, value, decoded) do { \
+    size_t encoded_length = 0U; \
+    size_t round_length = 0U; \
+    CHECK(lx_stream_##codec##_encode(&(value), bytes, sizeof(bytes), \
+                                     &encoded_length) == LXP_OK); \
+    CHECK(lx_stream_##codec##_decode(bytes, encoded_length, &(decoded)) == \
+          LXP_OK); \
+    CHECK(lx_stream_##codec##_encode(&(decoded), round, sizeof(round), \
+                                     &round_length) == LXP_OK); \
+    CHECK(encoded_length == round_length); \
+    CHECK(memcmp(bytes, round, encoded_length) == 0); \
+} while (0)
+
+#define PAYLOAD_REFUSED(codec, value) do { \
+    size_t refused_length = SIZE_MAX; \
+    (void)memset(bytes, 0xA5, sizeof(bytes)); \
+    (void)memcpy(round, bytes, sizeof(bytes)); \
+    CHECK(lx_stream_##codec##_encode(&(value), bytes, sizeof(bytes), \
+                                     &refused_length) == \
+          LXP_ERR_NON_CANONICAL); \
+    CHECK(refused_length == SIZE_MAX); \
+    CHECK(memcmp(bytes, round, sizeof(bytes)) == 0); \
+} while (0)
+
+static int stream_payload_encode_implies_decode(void)
+{
+    lx_stream_open_payload open;
+    lx_stream_open_payload open_decoded;
+    lx_stream_open_payload invalid_open;
+    lx_stream_amount_payload amount;
+    lx_stream_amount_payload amount_decoded;
+    lx_stream_meter_attestation meter;
+    lx_stream_meter_attestation meter_decoded;
+    lx_stream_keyed_payload keyed_payload;
+    lx_stream_keyed_payload keyed_decoded;
+    lx_stream_id_payload id;
+    lx_stream_id_payload id_decoded;
+    uint8_t bytes[LX_STREAM_OPEN_PAYLOAD_MAX];
+    uint8_t round[LX_STREAM_OPEN_PAYLOAD_MAX];
+    uint64_t seed = UINT64_C(0x2230513);
+    size_t iteration;
+    size_t i;
+    size_t variant;
+
+    for (iteration = 0U; iteration < 1000U; ++iteration) {
+        (void)memset(&open, 0, sizeof(open));
+        (void)memset(&amount, 0, sizeof(amount));
+        (void)memset(&meter, 0, sizeof(meter));
+        (void)memset(&keyed_payload, 0, sizeof(keyed_payload));
+        (void)memset(&id, 0, sizeof(id));
+        for (i = 0U; i < 32U; ++i) {
+            open.record.stream_id[i] =
+                (uint8_t)(payload_seed_next(&seed) >> 56U);
+            open.record.stream_account[i] =
+                (uint8_t)(payload_seed_next(&seed) >> 56U);
+            open.record.recipient[i] =
+                (uint8_t)(payload_seed_next(&seed) >> 56U);
+            open.record.asset_id[i] =
+                (uint8_t)(payload_seed_next(&seed) >> 56U);
+            keyed_payload.idempotency_key[i] =
+                (uint8_t)(payload_seed_next(&seed) >> 56U);
+        }
+        open.record.stream_id[0] = 1U;
+        open.record.stream_account[0] = 2U;
+        open.record.recipient[0] = 3U;
+        open.record.asset_id[0] = 4U;
+        keyed_payload.idempotency_key[0] = 5U;
+        open.record.mode = iteration % 2U == 0U ?
+            LX_STREAM_MODE_TIME : LX_STREAM_MODE_METERED;
+        open.record.rate.hi = payload_seed_next(&seed);
+        open.record.rate.lo = payload_seed_next(&seed) | 1U;
+        open.record.rate_unit = payload_seed_next(&seed) | 1U;
+        open.record.start_timestamp =
+            (payload_seed_next(&seed) >> 1U) | 1U;
+        open.record.end_timestamp = iteration % 3U == 0U ? 0U :
+            open.record.start_timestamp + 1U;
+        open.record.total_cap.hi = payload_seed_next(&seed);
+        open.record.total_cap.lo = payload_seed_next(&seed) | 1U;
+        open.initial_funding.hi = payload_seed_next(&seed);
+        open.initial_funding.lo = payload_seed_next(&seed) | 1U;
+        if (open.record.mode == LX_STREAM_MODE_METERED) {
+            open.record.meter_authority_count =
+                1U + (iteration / 2U) %
+                    (size_t)LX_STREAM_MAX_METER_AUTHORITIES;
+            for (i = 0U; i < open.record.meter_authority_count; ++i) {
+                open.record.meter_authorities[i][0] = (uint8_t)(i + 1U);
+                open.record.meter_authorities[i][31] =
+                    (uint8_t)(payload_seed_next(&seed) >> 56U);
+            }
+        }
+        (void)memcpy(amount.stream_id, open.record.stream_id, 32U);
+        amount.amount = (lxp_u128){ payload_seed_next(&seed) | 1U, 0U };
+        if (iteration == 0U)
+            amount.amount = (lxp_u128){ UINT64_MAX, UINT64_MAX };
+        else if (iteration % 2U != 0U)
+            amount.amount = (lxp_u128){ 0U, payload_seed_next(&seed) | 1U };
+        (void)memcpy(meter.stream_id, open.record.stream_id, 32U);
+        meter.cumulative_reading = iteration == 0U ? 0U :
+            (iteration == 1U ? UINT64_MAX : payload_seed_next(&seed));
+        CHECK(sign_attestation(&meter, meter_seed) == 0);
+        (void)memcpy(keyed_payload.stream_id, open.record.stream_id, 32U);
+        (void)memcpy(id.stream_id, open.record.stream_id, 32U);
+        PAYLOAD_ROUND_TRIP(open, open, open_decoded);
+        PAYLOAD_ROUND_TRIP(amount, amount, amount_decoded);
+        CHECK(amount_decoded.amount.hi == amount.amount.hi &&
+              amount_decoded.amount.lo == amount.amount.lo);
+        PAYLOAD_ROUND_TRIP(meter, meter, meter_decoded);
+        CHECK(meter_decoded.cumulative_reading == meter.cumulative_reading);
+        PAYLOAD_ROUND_TRIP(keyed, keyed_payload, keyed_decoded);
+        PAYLOAD_ROUND_TRIP(id, id, id_decoded);
+
+        for (variant = 0U; variant < 20U; ++variant) {
+            invalid_open = open;
+            switch (variant) {
+            case 0U:
+                (void)memset(invalid_open.record.stream_id, 0, 32U);
+                break;
+            case 1U:
+                (void)memset(invalid_open.record.stream_account, 0, 32U);
+                break;
+            case 2U:
+                (void)memset(invalid_open.record.recipient, 0, 32U);
+                break;
+            case 3U:
+                (void)memset(invalid_open.record.asset_id, 0, 32U);
+                break;
+            case 4U:
+                (void)memcpy(invalid_open.record.recipient,
+                             invalid_open.record.stream_account, 32U);
+                break;
+            case 5U: invalid_open.record.rate = (lxp_u128){ 0U, 0U }; break;
+            case 6U: invalid_open.record.rate_unit = 0U; break;
+            case 7U: invalid_open.record.start_timestamp = 0U; break;
+            case 8U:
+                invalid_open.record.end_timestamp =
+                    invalid_open.record.start_timestamp;
+                break;
+            case 9U:
+                invalid_open.record.end_timestamp =
+                    invalid_open.record.start_timestamp - 1U;
+                /* Keep the lower endpoint nonzero. */
+                if (invalid_open.record.end_timestamp == 0U) {
+                    invalid_open.record.start_timestamp = 2U;
+                    invalid_open.record.end_timestamp = 1U;
+                }
+                break;
+            case 10U:
+                invalid_open.record.total_cap = (lxp_u128){ 0U, 0U };
+                break;
+            case 11U:
+                invalid_open.initial_funding = (lxp_u128){ 0U, 0U };
+                break;
+            case 12U: invalid_open.record.mode = (lx_stream_mode)0; break;
+            case 13U: invalid_open.record.mode = (lx_stream_mode)3; break;
+            case 14U: invalid_open.record.mode = (lx_stream_mode)257; break;
+            case 15U:
+                invalid_open.record.meter_authority_count = SIZE_MAX;
+                break;
+            case 16U:
+                invalid_open.record.mode = LX_STREAM_MODE_METERED;
+                invalid_open.record.meter_authority_count = 0U;
+                break;
+            case 17U:
+                invalid_open.record.mode = LX_STREAM_MODE_TIME;
+                invalid_open.record.meter_authority_count = 1U;
+                break;
+            case 18U:
+                invalid_open.record.mode = LX_STREAM_MODE_METERED;
+                invalid_open.record.meter_authority_count = 1U;
+                (void)memset(invalid_open.record.meter_authorities[0], 0, 32U);
+                break;
+            case 19U:
+                invalid_open.record.mode = LX_STREAM_MODE_METERED;
+                invalid_open.record.meter_authority_count = 2U;
+                (void)memset(invalid_open.record.meter_authorities, 0,
+                             sizeof(invalid_open.record.meter_authorities));
+                invalid_open.record.meter_authorities[0][0] = 2U;
+                invalid_open.record.meter_authorities[1][0] = 1U;
+                break;
+            }
+            PAYLOAD_REFUSED(open, invalid_open);
+        }
+        invalid_open = open;
+        invalid_open.record.mode = LX_STREAM_MODE_METERED;
+        invalid_open.record.meter_authority_count = 2U;
+        (void)memcpy(invalid_open.record.meter_authorities[1],
+                     invalid_open.record.meter_authorities[0], 32U);
+        /* Ensure a duplicate nonzero authority even for a time input. */
+        invalid_open.record.meter_authorities[0][0] = 1U;
+        invalid_open.record.meter_authorities[1][0] = 1U;
+        PAYLOAD_REFUSED(open, invalid_open);
+
+        amount_decoded = amount;
+        (void)memset(amount_decoded.stream_id, 0, 32U);
+        PAYLOAD_REFUSED(amount, amount_decoded);
+        amount_decoded = amount;
+        amount_decoded.amount = (lxp_u128){ 0U, 0U };
+        PAYLOAD_REFUSED(amount, amount_decoded);
+        meter_decoded = meter;
+        (void)memset(meter_decoded.stream_id, 0, 32U);
+        PAYLOAD_REFUSED(meter, meter_decoded);
+        meter_decoded = meter;
+        (void)memset(meter_decoded.authority_key, 0, 32U);
+        PAYLOAD_REFUSED(meter, meter_decoded);
+        meter_decoded = meter;
+        (void)memset(meter_decoded.signature, 0, 64U);
+        PAYLOAD_REFUSED(meter, meter_decoded);
+        keyed_decoded = keyed_payload;
+        (void)memset(keyed_decoded.stream_id, 0, 32U);
+        PAYLOAD_REFUSED(keyed, keyed_decoded);
+        keyed_decoded = keyed_payload;
+        (void)memset(keyed_decoded.idempotency_key, 0, 32U);
+        PAYLOAD_REFUSED(keyed, keyed_decoded);
+        (void)memset(id_decoded.stream_id, 0, 32U);
+        PAYLOAD_REFUSED(id, id_decoded);
+    }
+    return 0;
+}
+
+#undef PAYLOAD_ROUND_TRIP
+#undef PAYLOAD_REFUSED
+
+static int stream_payload_kernel_path(void)
+{
+    static meter_node node;
+    lx_stream_open_payload open_decoded;
+    lx_stream_amount_payload amount = { { 0U }, { 0U, 15U } };
+    lx_stream_amount_payload amount_decoded;
+    lx_stream_meter_attestation meter_decoded;
+    lx_stream_id_payload id = { { 0U } };
+    lx_stream_id_payload id_decoded;
+    lx_stream_keyed_payload keyed_decoded;
+    lx_stream_record record;
+    uint8_t bytes[LX_STREAM_OPEN_PAYLOAD_MAX];
+    uint8_t record_bytes[LX_STREAM_RECORD_BYTES];
+    size_t length;
+    lxp_result result;
+
+    if (node_genesis(&node) != 0) return 1;
+    length = open_payload(0x61U, stream_s_name, (lxp_u128){ 0U, 3U }, 0U,
+                          (lxp_u128){ 0U, 1000U }, 40U, bytes, sizeof(bytes));
+    CHECK(length != 0U);
+    CHECK(lx_stream_open_decode(bytes, length, &open_decoded) == LXP_OK);
+    CHECK(node_run(&node, LX_STREAM_OPEN, bytes, length, payer_name, 1000U,
+                    1U, &result) == LXP_OK);
+    CHECK(result == LXP_OK);
+    CHECK(node_balance(&node, payer_name) == 60U);
+    CHECK(node_balance(&node, stream_s_name) == 40U);
+    amount.stream_id[0] = 0x61U;
+    CHECK(lx_stream_amount_encode(&amount, bytes, sizeof(bytes), &length) ==
+          LXP_OK);
+    CHECK(lx_stream_amount_decode(bytes, length, &amount_decoded) == LXP_OK);
+    CHECK(node_run(&node, LX_STREAM_TOP_UP, bytes, length, payer_name, 1000U,
+                    2U, &result) == LXP_OK);
+    CHECK(result == LXP_OK);
+    CHECK(node_balance(&node, payer_name) == 45U);
+    CHECK(node_balance(&node, stream_s_name) == 55U);
+    length = meter_reading(0x61U, 3U, meter_seed, bytes);
+    CHECK(length == (size_t)LX_STREAM_METER_PAYLOAD_BYTES);
+    CHECK(lx_stream_meter_decode(bytes, length, &meter_decoded) == LXP_OK);
+    CHECK(node_run(&node, LX_STREAM_METER, bytes, length, payer_name, 1000U,
+                    3U, &result) == LXP_OK);
+    CHECK(result == LXP_OK);
+    if (node_record(&node, 0x61U, &record, record_bytes) != 0) return 1;
+    CHECK(record.cumulative_meter == 3U && record.accrued_total.lo == 9U);
+    id.stream_id[0] = 0x61U;
+    CHECK(lx_stream_id_encode(&id, bytes, sizeof(bytes), &length) == LXP_OK);
+    CHECK(lx_stream_id_decode(bytes, length, &id_decoded) == LXP_OK);
+    CHECK(node_run(&node, LX_STREAM_PAUSE, bytes, length, payer_name, 1000U,
+                    4U, &result) == LXP_OK);
+    CHECK(result == LXP_OK);
+    if (node_record(&node, 0x61U, &record, record_bytes) != 0) return 1;
+    CHECK(record.paused);
+    length = keyed(0x61U, 0x71U, bytes);
+    CHECK(length == (size_t)LX_STREAM_KEYED_PAYLOAD_BYTES);
+    CHECK(lx_stream_keyed_decode(bytes, length, &keyed_decoded) == LXP_OK);
+    CHECK(node_run(&node, LX_STREAM_SETTLE, bytes, length, provider_name,
+                    1000U, 5U, &result) == LXP_OK);
+    CHECK(result == LXP_OK);
+    CHECK(node_balance(&node, provider_name) == 9U);
+    CHECK(node_balance(&node, stream_s_name) == 46U);
+    if (node_record(&node, 0x61U, &record, record_bytes) != 0) return 1;
+    CHECK(record.paused && record.settled_total.lo == 9U);
+    CHECK(lxp_state_store_destroy(&node.state) == LXP_OK);
+    return 0;
+}
+
 #define RUN_CASE(name, call) do { \
     if ((call) != 0) { \
         (void)fprintf(stderr, "case %s failed\n", name); \
@@ -888,6 +1181,9 @@ int main(int argc, char **argv)
     RUN_CASE("attestation_preimage", attestation_preimage());
     RUN_CASE("meter_payload", meter_payload());
     RUN_CASE("dispatch_fixture", dispatch_fixture());
+    RUN_CASE("stream_payload_encode_implies_decode",
+             stream_payload_encode_implies_decode());
+    RUN_CASE("stream_payload_kernel_path", stream_payload_kernel_path());
     RUN_CASE("dispatched_window", dispatched_window());
     RUN_CASE("dispatched_refusals", dispatched_refusals());
     RUN_CASE("restart_and_replica", restart_and_replica(directory));

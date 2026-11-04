@@ -14,8 +14,8 @@ import (
 // Key-based pagination is optimized; offset-based pagination lazily walks all records.
 //
 // Iteration is capped at MaxScanLimit entries to prevent unbounded store walks. Use key-based
-// pagination for reliable traversal of sparse datasets, as the nextKey could be nil when the
-// page is full and the scan limit is reached.
+// pagination for reliable traversal of sparse datasets. When a full page's scan window ends,
+// nextKey resumes at the next unprocessed raw key; count_total requests return a limit error.
 func FilteredPaginate(
 	prefixStore types.KVStore,
 	pageRequest *PageRequest,
@@ -112,7 +112,7 @@ func FilteredPaginate(
 		// Phase 2: page complete — cap how far past the page we scan for nextKey/count_total.
 		if pageCompleteIter > MaxScanLimit {
 			if !countTotal {
-				// Page is already assembled; no next hit found within scan window → no next page.
+				nextKey = iterator.Key()
 				break
 			}
 			return nil, status.Errorf(codes.InvalidArgument,
@@ -270,7 +270,7 @@ func GenericFilteredPaginate[T codec.ProtoMarshaler, F codec.ProtoMarshaler](
 		// Phase 2: page complete — cap how far past the page we scan for nextKey/count_total.
 		if pageCompleteIter > MaxScanLimit {
 			if !countTotal {
-				// Page is already assembled; no next hit found within scan window → no next page.
+				nextKey = iterator.Key()
 				break
 			}
 			return nil, nil, status.Errorf(codes.InvalidArgument,

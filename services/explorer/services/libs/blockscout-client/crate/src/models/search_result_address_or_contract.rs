@@ -25,7 +25,7 @@ pub struct SearchResultAddressOrContract {
     #[serde(default)]
     pub is_smart_contract_verified: Option<bool>,
 
-    pub name: String,
+    pub name: Option<String>,
     pub r#type: String,
-    pub url: String,
+    pub url: Option<String>,
 }

@@ -1,4 +1,5 @@
 mod chain_receipt;
+mod committed;
 mod human;
 mod protected;
 mod trust;
@@ -25,7 +26,6 @@ use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 use subtle::ConstantTimeEq;
-use trust::CommittedCheckpoint;
 use zeroize::{Zeroize, Zeroizing};
 
 const MAX_REQUEST_BYTES: usize = 16 * 1024;
@@ -650,75 +650,6 @@ fn lookup_receipt(
     _wait_publication: bool,
 ) -> ReceiptSource {
     config.chain_receipts.lookup(activity_id)
-}
-
-fn checkpoint_header(config: &Config, batch: u64) -> Result<CommittedCheckpoint, ()> {
-    checkpoint_for(config, Some(batch))
-}
-
-fn checkpoint_for(config: &Config, batch: Option<u64>) -> Result<CommittedCheckpoint, ()> {
-    const ANCHOR: [u8; 20] = [
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, 0x14,
-    ];
-    fn word(bytes: &[u8], index: usize) -> Result<[u8; 32], ()> {
-        bytes
-            .get(index * 32..(index + 1) * 32)
-            .ok_or(())?
-            .try_into()
-            .map_err(|_| ())
-    }
-    fn number(bytes: &[u8], index: usize) -> Result<u64, ()> {
-        let value = word(bytes, index)?;
-        if value[..24] != [0; 24] {
-            return Err(());
-        }
-        Ok(u64::from_be_bytes(value[24..].try_into().map_err(|_| ())?))
-    }
-    let sequencer = SequencerEndpoint::new(&config.chain_rpc_url, &[]).map_err(|_| ())?;
-    let committed_height = sequencer.block_number().map_err(|_| ())?;
-    let batch_number = match batch {
-        Some(batch) => batch,
-        None => {
-            let selector = layerx_crypto::evm_transaction::transaction_hash(b"latestFinalized()");
-            let latest = sequencer
-                .call_at(committed_height, &ANCHOR, &selector[..4])
-                .map_err(|_| ())?;
-            if latest.len() != 64 || number(&latest, 1)? != 1 {
-                return Err(());
-            }
-            number(&latest, 0)?
-        }
-    };
-    let mut data =
-        layerx_crypto::evm_transaction::transaction_hash(b"checkpoint(uint64)")[..4].to_vec();
-    data.extend_from_slice(&[0; 24]);
-    data.extend_from_slice(&batch_number.to_be_bytes());
-    let checkpoint_call = sequencer
-        .call_at(committed_height, &ANCHOR, &data)
-        .map_err(|_| ())?;
-    if checkpoint_call.len() != 18 * 32
-        || number(&checkpoint_call, 0)? != batch_number
-        || number(&checkpoint_call, 12)? != 2
-    {
-        return Err(());
-    }
-    let checkpoint_id = word(&checkpoint_call, 1)?;
-    let state_root = word(&checkpoint_call, 7)?;
-    let finalized_height = number(&checkpoint_call, 17)?;
-    if checkpoint_id == [0; 32] || state_root == [0; 32] || finalized_height > committed_height {
-        return Err(());
-    }
-    Ok(CommittedCheckpoint {
-        batch_number,
-        checkpoint_id,
-        header_digest: word(&checkpoint_call, 2)?,
-        last_sequence: number(&checkpoint_call, 5)?,
-        previous_state_root: word(&checkpoint_call, 6)?,
-        state_root,
-        timestamp_ms: number(&checkpoint_call, 11)?,
-        finalized_height,
-        checkpoint_call,
-    })
 }
 
 fn evidence_refusal(refusal_kind: &EvidenceRefusal) -> Response {

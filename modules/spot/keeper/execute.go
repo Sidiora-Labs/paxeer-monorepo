@@ -165,21 +165,44 @@ func (k *Keeper) ExecuteResting(ctx sdk.Context) (RestingExecution, error) {
 
 func (k *Keeper) restingExpiries(ctx sdk.Context, params types.Params, work *RestingExecution) error {
 	var entries []types.OrderExpiry
-	it := sdk.KVStorePrefixIterator(k.store(ctx), types.ExpiryIndexPrefix)
-	for ; it.Valid() && uint64(len(entries)) < params.MaxExpiriesPerBlock; it.Next() {
-		key := it.Key()
-		if len(key) != 17 {
-			it.Close()
-			return fmt.Errorf("spot: invalid expiry index")
-		}
-		expiry := types.OrderExpiry{ExpiresAt: binary.BigEndian.Uint64(key[1:9]), OrderID: binary.BigEndian.Uint64(key[9:])}
-		if expiry.ExpiresAt > uint64(ctx.BlockTime().Unix()) {
-			break
-		}
-		entries = append(entries, expiry)
+	store := k.store(ctx)
+	cursor, err := expiryScanPosition(store)
+	if err != nil {
+		return err
 	}
-	it.Close()
+	scan := func(start, end []byte) error {
+		it := store.Iterator(start, end)
+		defer it.Close()
+		for ; it.Valid() && uint64(len(entries)) < params.MaxExpiriesPerBlock; it.Next() {
+			key := it.Key()
+			if len(key) != len(types.ExpiryIndexPrefix)+16 {
+				return fmt.Errorf("spot: invalid expiry index")
+			}
+			expiry := types.OrderExpiry{ExpiresAt: binary.BigEndian.Uint64(key[1:9]), OrderID: binary.BigEndian.Uint64(key[9:])}
+			if expiry.ExpiresAt > uint64(ctx.BlockTime().Unix()) {
+				break
+			}
+			entries = append(entries, expiry)
+		}
+		return nil
+	}
+	end := sdk.PrefixEndBytes(types.ExpiryIndexPrefix)
+	if len(cursor) != 0 {
+		// Appending zero seeks strictly after the fixed-width cursor key.
+		after := recordKey(types.ExpiryIndexPrefix, cursor, []byte{0})
+		if err := scan(after, end); err != nil {
+			return err
+		}
+		end = after
+	}
+	if uint64(len(entries)) < params.MaxExpiriesPerBlock {
+		if err := scan(types.ExpiryIndexPrefix, end); err != nil {
+			return err
+		}
+	}
 	for _, entry := range entries {
+		store.Set(recordKey(types.CursorPrefix, []byte{expiryCursor}),
+			recordKey(orderIDBytes(entry.ExpiresAt), orderIDBytes(entry.OrderID)))
 		work.ExpiriesExamined++
 		backoff, err := k.FillBackoff(ctx, entry.OrderID)
 		if err != nil {

@@ -268,8 +268,16 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		Health: sharedhttp.HealthDeps{
 			Custom: secretChecks,
 			State:  tracker.Ready,
-			DB:     func(c context.Context) error { return cfg.CheckRuntimeSchema(c, pool) },
-			Redis:  func(c context.Context) error { return rdb.Ping(c).Err() },
+			DB: func(c context.Context) error {
+				if err := cfg.CheckRuntimeSchema(c, pool); err != nil {
+					return err
+				}
+				if journeys != nil {
+					return checkRewardRequestSchema(c, pool, journeys.schema)
+				}
+				return nil
+			},
+			Redis: func(c context.Context) error { return rdb.Ping(c).Err() },
 		},
 	})
 
@@ -788,7 +796,7 @@ func newPnLJourneys(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, 
 	if err != nil {
 		return nil, err
 	}
-	ledger, err := l18.NewRuntimeLedger(pool, runtime.Schema, "pnld", rewardAuthority, guard.Assert)
+	ledger, err := newRewardLedger(ctx, pool, runtime.Schema, "pnld", rewardAuthority, guard.Assert)
 	if err != nil {
 		return nil, err
 	}

@@ -327,7 +327,7 @@ defmodule BlockScoutWeb.Schemas.API.V2.Transaction do
   """
   require OpenApiSpex
 
-  alias BlockScoutWeb.Schemas.API.V2.{Address, General, SignedAuthorization, TokenTransfer}
+  alias BlockScoutWeb.Schemas.API.V2.{Address, AddressNullable, General, SignedAuthorization, TokenTransfer}
   alias BlockScoutWeb.Schemas.API.V2.Transaction.{ChainTypeCustomizations, Fee}
   alias Explorer.Chain.TransactionAction
   alias OpenApiSpex.Schema
@@ -362,7 +362,7 @@ defmodule BlockScoutWeb.Schemas.API.V2.Transaction do
         },
         timestamp: General.TimestampNullable,
         from: Address,
-        to: Address,
+        to: AddressNullable,
         created_contract: %Schema{allOf: [Address], nullable: true},
         confirmations: %Schema{
           type: :integer,

@@ -70,10 +70,8 @@ const PRECOMPILE_ROUTES = {
  * Network-native precompile surface for agents.
  *
  *   Writes (scheduler.*, streams.*) run through executeAgentTransaction, so the
- *   full agent policy applies. Crucially, the withdrawal allowlist is extended
- *   to the EVENTUAL beneficiary: schedule()'s `target` and openStream()'s
- *   `payee` are threaded into intent.tokenRecipient. That closes the obvious
- *   bypass where an agent schedules/streams funds to a non-allowlisted sink.
+ *   full agent policy applies. The shared policy decodes eventual beneficiaries,
+ *   token caps and nested scheduled calls directly from the encoded calldata.
  *
  *   Reads (getJob/pending/getStream/accrued, all of eip712 + teeAttestor) are
  *   pure eth_calls — no signing, no policy gate beyond requireAgent.
@@ -164,14 +162,12 @@ export async function agentPrecompileRoutes(app: FastifyInstance): Promise<void>
         data: call.data,
         value: depositWei ?? 0n,
       };
-      // Thread the eventual call target into the policy so the withdrawal
-      // allowlist + denylist apply to where the scheduled job will ultimately act.
+      // The policy derives the eventual target and nested movements from call.data.
       const intent: AgentTxIntent = {
         kind: 'transaction',
         to: call.to,
         value: depositWei ?? 0n,
         data: call.data,
-        tokenRecipient: target.toLowerCase(),
       };
       const res = await executeAgentTransaction({
         ctx: req.agent!,
@@ -271,15 +267,12 @@ export async function agentPrecompileRoutes(app: FastifyInstance): Promise<void>
         stopTime: stop_time !== undefined ? BigInt(stop_time) : 0n,
         cap: BigInt(cap),
       });
-      // Stream funds flow token→payee up to `cap`: apply token + withdrawal gates.
+      // The same calldata decoder enforces payee/token/cap on helpers and raw sends.
       const intent: AgentTxIntent = {
         kind: 'transaction',
         to: call.to,
         value: 0n,
         data: call.data,
-        tokenContract: token.toLowerCase(),
-        tokenRecipient: payee.toLowerCase(),
-        tokenAmount: BigInt(cap),
       };
       const res = await executeAgentTransaction({
         ctx: req.agent!,
