@@ -61,19 +61,31 @@ func (r *ReplayEngine) Start(ctx context.Context, digest string) error {
 			return err
 		}
 		if active == r.generation {
-			return ErrIntegrity
+			var stored, status string
+			var next, count int64
+			err = tx.QueryRow(ctx, "SELECT b.manifest_digest,b.status,b.next_height,b.raw_count FROM "+r.archive.store.table("delivery_rebuilds")+" b JOIN "+r.archive.store.table("delivery_read_aliases")+" a USING(consumer_id,generation) WHERE b.consumer_id=$1 AND b.generation=$2 FOR UPDATE OF b,a", r.consumer, r.generation).Scan(&stored, &status, &next, &count)
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrIntegrity
+			}
+			if err != nil {
+				return err
+			}
+			if stored != digest || status != "active" || next != m.ToHeight+1 || count != m.RawCount {
+				return ErrIntegrity
+			}
+			return nil
 		}
 		tag, err := tx.Exec(ctx, "INSERT INTO "+r.archive.store.table("delivery_rebuilds")+"(consumer_id,generation,manifest_digest,next_height,status,owner,epoch,lease_until) VALUES($1,$2,$3,$4,'building',$5,1,clock_timestamp()+$6::bigint*interval '1 millisecond') ON CONFLICT DO NOTHING", r.consumer, r.generation, digest, m.FromHeight, r.owner, r.lease.Milliseconds())
 		if err != nil {
 			return err
 		}
 		if tag.RowsAffected() == 0 {
-			var old string
-			err = tx.QueryRow(ctx, "SELECT manifest_digest FROM "+r.archive.store.table("delivery_rebuilds")+" WHERE consumer_id=$1 AND generation=$2", r.consumer, r.generation).Scan(&old)
+			var old, status string
+			err = tx.QueryRow(ctx, "SELECT manifest_digest,status FROM "+r.archive.store.table("delivery_rebuilds")+" WHERE consumer_id=$1 AND generation=$2", r.consumer, r.generation).Scan(&old, &status)
 			if err != nil {
 				return err
 			}
-			if old != digest {
+			if old != digest || status == "active" {
 				return ErrIntegrity
 			}
 		}
@@ -87,6 +99,33 @@ func (r *ReplayEngine) Start(ctx context.Context, digest string) error {
 		return r.archive.store.BindGenerationPathTx(ctx, tx, r.consumer, r.generation, "durable")
 	})
 }
+
+// Rebuild runs the configured startup rebuild, recovering a matching active
+// generation without replaying it or repeating its promotion.
+func (r *ReplayEngine) Rebuild(ctx context.Context, digest string, budget *WorkBudget, promote bool, expectedAliasRevision int64) error {
+	if err := r.Start(ctx, digest); err != nil {
+		return err
+	}
+	for {
+		status, err := r.Status(ctx, 0)
+		if err != nil {
+			return err
+		}
+		if status.Status == "active" {
+			return nil
+		}
+		if status.Status == "verified" {
+			if promote {
+				return r.Promote(ctx, expectedAliasRevision)
+			}
+			return nil
+		}
+		if err = r.RunBlockWithBudget(ctx, budget); err != nil {
+			return err
+		}
+	}
+}
+
 func (r *ReplayEngine) RunBlock(ctx context.Context) error {
 	var digest string
 	var height int64

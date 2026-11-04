@@ -1,0 +1,414 @@
+[audit.22.30.26]
+task = "22.30.26"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 20
+findings = 21
+docs_reviewed = 14
+upgrade_ready = false
+blocking = ["native_family_events", "retained_emitter_v2", "beacon_ownership_handoff"]
+review_basis = "Source audit of the package requirements, registry declarations, canonical ABIs, retained contracts, bound address configuration and actual Go consumers. No Go test, dependency installation or live-network qualification is claimed. Requirement 22998.1 qualification is limited to the declared task gate evidence."
+interface_review = "The eight native role metadata inventories agree with their canonical precompile ABIs. Selector-name collisions in unrelated spot/ERC721 registry caller rows do not establish launchpad calls to those domains. Native family events and retained Solidity emission are separate producer interfaces; their binding gaps are recorded below."
+state_and_security = "These bindings and ABI inventory tests hold no durable application state. Contract and node consumers own persistence and recovery; the beacon handoff is incomplete in the exported interface. Generated calls delegate encoding and transaction authorization to go-ethereum. No additional independent authentication, secret or tenant-state defect was identified in these members."
+
+[file.addresses]
+path = "sdk/launchpad/protocol/addresses.go"
+lines = 220
+verdict = "clean"
+note = "Read the complete address catalogue. It distinguishes retired generation 1 history from v6.12.0 ActiveAddresses. Chain id 125 and all thirteen generation 2 roles agree with shared/config/deployment/current.json and modules/launchpad/keeper/keeper.go. Direct Router calls target 0x1017 while its role has a separate surface. EnvDefaults keys agree with shared/config; historical constants are explicitly retained for decoding."
+
+[file.eventemitter]
+path = "sdk/launchpad/protocol/bindings/eventemitter.go"
+lines = 2706
+verdict = "issues"
+note = "Generated abigen binding with 22 methods and 45 total embedded ABI entries. Current retained EventEmitter v2 and native 0x1017 family emission are distinct producers; neither complete interface is represented by this legacy binding."
+
+[file.feeaccumulator]
+path = "sdk/launchpad/protocol/bindings/feeaccumulator.go"
+lines = 4179
+verdict = "generated"
+note = "Generated abigen binding from precompiles/launchpad/abi/FeeAccumulator.json. All 96 ABI entries agree on wire fields, outputs, indexed arguments, errors and mutability in source inspection. Typed wrappers include migration and legacy accounting methods and use that metadata. No Go gate execution is claimed."
+
+[file.feeaccumulator_test]
+path = "sdk/launchpad/protocol/bindings/feeaccumulator_abi_test.go"
+lines = 71
+verdict = "clean"
+note = "Read in full. TestFeeAccumulatorBindingMatchesRoleABI compares complete method, event and error signature inventories with the real role ABI for 4523.1, reporting missing and unexpected entries without skips. Output and indexed-field shape checks are separately present in assertProofABI."
+
+[file.feesrouter]
+path = "sdk/launchpad/protocol/bindings/feesrouter.go"
+lines = 2480
+verdict = "generated"
+note = "Generated abigen binding from precompiles/launchpad/abi/FeesRouter.json. All 50 ABI entries agree on names, input/output types, indexed fields, errors and mutability in source inspection. Typed calls, sessions and event wrappers forward the embedded metadata; execution was not part of this audit."
+
+[file.feesrouter_test]
+path = "sdk/launchpad/protocol/bindings/feesrouter_abi_test.go"
+lines = 55
+verdict = "clean"
+note = "Read in full. TestFeesRouterBindingMatchesRoleABI compares method, event and error signature sets with the actual FeesRouter role producer for 4524.1. Explicit mismatch assertions remain intact and no tests are skipped."
+
+[file.poolbeacon]
+path = "sdk/launchpad/protocol/bindings/poolbeacon.go"
+lines = 582
+verdict = "issues"
+note = "Generated abigen binding with ten embedded ABI entries. Its four typed methods reflect an older beacon contract and omit the current two-step ownership lifecycle."
+
+[file.poolregistry]
+path = "sdk/launchpad/protocol/bindings/poolregistry.go"
+lines = 1888
+verdict = "generated"
+note = "Generated abigen binding from precompiles/launchpad/abi/PoolRegistry.json. All 47 ABI entries agree in source inspection, including IPoolRegistryPoolMetadata tuple fields, registration inputs, outputs, indexed fields and errors. Its role PoolRegistered differs from the native family event with blockNumber."
+
+[file.poolregistry_test]
+path = "sdk/launchpad/protocol/bindings/poolregistry_abi_test.go"
+lines = 55
+verdict = "clean"
+note = "Read in full. TestPoolRegistryBindingMatchesRoleABI compares actual role method, event and error signature inventories for 4525.1, with explicit mismatch failures and no skipped tests."
+
+[file.proof]
+path = "sdk/launchpad/protocol/bindings/proof_launchpad_sdk_protocol_go_test.go"
+lines = 197
+verdict = "issues"
+note = "Read all 197 lines, including producer selection, assertProofABI and subprocess outcome checks. The proof covers eight metadata producers, fresh codec observations, mutation isolation and malformed-result refusal. Retained bindings and native runtime family emission remain outside that proof."
+
+[file.protocolconfig]
+path = "sdk/launchpad/protocol/bindings/protocolconfig.go"
+lines = 1830
+verdict = "generated"
+note = "Generated abigen binding from precompiles/launchpad/abi/ProtocolConfig.json. All 48 ABI entries agree on names, shapes, indexed flags, outputs, mutability and error inputs in source inspection. Typed setters preserve uint256 inputs through the embedded ABI."
+
+[file.protocolconfig_test]
+path = "sdk/launchpad/protocol/bindings/protocolconfig_abi_test.go"
+lines = 62
+verdict = "clean"
+note = "Read in full. TestProtocolConfigBindingMatchesRoleABI compares the real role producer's method, event and error signatures for 4526.1, reporting additions as well as omissions without weakening assertions."
+
+[file.quoter]
+path = "sdk/launchpad/protocol/bindings/quoter.go"
+lines = 1518
+verdict = "generated"
+note = "Generated abigen binding from precompiles/launchpad/abi/Quoter.json. All 44 ABI entries agree in source inspection, including IQuoterPoolStats and IQuoterQuoteResult tuple layouts and output widths. Typed calls and event wrappers delegate to the same metadata."
+
+[file.quoter_test]
+path = "sdk/launchpad/protocol/bindings/quoter_abi_test.go"
+lines = 54
+verdict = "clean"
+note = "Read in full. TestQuoterBindingMatchesRoleABI compares the actual role method, event and error signature inventories for 4527.1. Output shapes have a separate comparison in assertProofABI; no test is skipped."
+
+[file.router]
+path = "sdk/launchpad/protocol/bindings/router.go"
+lines = 2167
+verdict = "generated"
+note = "Generated abigen binding from precompiles/launchpad/abi/Router.json. All 55 ABI entries agree on wire fields, outputs, indexed flags, errors and mutability in source inspection. Payable transaction wrappers and routing methods use that metadata; no runtime network qualification is claimed."
+
+[file.router_test]
+path = "sdk/launchpad/protocol/bindings/router_abi_test.go"
+lines = 61
+verdict = "clean"
+note = "Read in full. TestRouterBindingMatchesRoleABI compares complete Router method, event and error signature sets with the role ABI for 4528.1 and fails on unexpected as well as missing entries."
+
+[file.sidiorafactory]
+path = "sdk/launchpad/protocol/bindings/sidiorafactory.go"
+lines = 1754
+verdict = "generated"
+note = "Generated abigen binding from precompiles/launchpad/abi/SidioraFactory.json. All 47 ABI entries agree in source inspection, including createMarket/createMarketFor arguments, nonce outputs, indexed fields and errors. Typed methods and event filters share the embedded metadata."
+
+[file.sidiorafactory_test]
+path = "sdk/launchpad/protocol/bindings/sidiorafactory_abi_test.go"
+lines = 61
+verdict = "clean"
+note = "Read in full. TestSidioraFactoryBindingMatchesRoleABI compares methods, events and errors to the actual role ABI for 4529.1, with explicit failures and no retired transport assumptions."
+
+[file.sidioranft]
+path = "sdk/launchpad/protocol/bindings/sidioranft.go"
+lines = 2750
+verdict = "generated"
+note = "Generated abigen binding from precompiles/launchpad/abi/SidioraNFT.json. All 71 ABI entries agree in source inspection on types, overloads, outputs, indexed flags and error arguments. ERC721 Transfer differs from native NftTransfer. Typed wrappers cover every embedded function."
+
+[file.sidioranft_test]
+path = "sdk/launchpad/protocol/bindings/sidioranft_abi_test.go"
+lines = 60
+verdict = "clean"
+note = "Read in full. TestSidioraNFTBindingMatchesRoleABI compares actual role method, event and error signature sets for 4530.1. Overloaded signatures remain separate entries; no tests are skipped or weakened."
+
+[finding.native_family_events]
+file = "sdk/launchpad/protocol/bindings/eventemitter.go"
+line = 33
+class = "interface-mismatch"
+severity = "high"
+observed = "EventEmitterMetaData omits TokenDeployed, NftMint, NftTransfer, PoolRegistered, RouterTrade and FeeFlow with the native signatures in precompiles/launchpad/Launchpad.sol:126-135. emitFamily at precompiles/launchpad/events.go:56 appends timestamp and blockNumber and emits at 0x1017. shared/chain/contracts.go:54 binds the legacy EventEmitter ABI there; protocol/events.go:33 seeds LookupEvent from it and nine other bindings, none supplying those six signatures. decode.Decoder.Decode returns nil for those topics on this bindings-based path."
+expected = "The exported metadata and bound Go consumer at 0x1017 must recognize all twelve native family events with their actual indexed fields, encodings, timestamp and blockNumber. A role PoolRegistered or ERC721 Transfer is not the corresponding native family signature. The separate catalog-based indexer Registry does not supply missing topics to protocol.LookupEvent."
+proposal = "Generate a native launchpad-family binding in sdk/launchpad/protocol/bindings from precompiles/launchpad/abi.json, preserve historical Solidity decoding separately, and wire protocol/events.go plus shared/chain/contracts.go to native metadata at 0x1017. Prove actual native logs pass through the bindings-based decoder with every family field and unknown-topic refusal."
+owner_domain = 4
+interface = "4.go-protocol-bindings-event-emitter-meta-data"
+
+[finding.retained_emitter_v2]
+file = "sdk/launchpad/protocol/bindings/eventemitter.go"
+line = 33
+class = "interface-mismatch"
+severity = "high"
+observed = "The retained EventEmitter binding exposes the legacy 22-method ABI but omits EventLog, EventLog1, EventLog2, VERSION, reinitializeV2, EVENT_EMITTER_ROLE, setTypedEmitter and isTypedEmitter declared by contracts/launchpad/contracts/interfaces/IEventEmitter.sol and implemented by contracts/launchpad/contracts/data/EventEmitter.sol. Typed Go calls and Parse/Filter/Watch consumers cannot exercise that retained v2 interface, even though the catalog-based decoder has separate support."
+expected = "The generation 2 manifest retains EventEmitter as an ERC1967 contract. Its current generic and typed emission interfaces and access-control lifecycle must be representable by the Go binding used at that contract. Authoritative native logs remain independent of optional retained-contract mirroring."
+proposal = "Regenerate sdk/launchpad/protocol/bindings/eventemitter.go from the reviewed current retained EventEmitter artifact, with explicit historical ABI selection for older heights. Add real contract-to-Go coverage of EventLog tuple data, indexed topics, v2 initialization refusal and typed emitter grants; keep native-family metadata separate."
+owner_domain = 4
+interface = "4.sevt-ieventemitter-eventlog-3f5c3dc6"
+
+[finding.beacon_ownership_handoff]
+file = "sdk/launchpad/protocol/bindings/poolbeacon.go"
+line = 33
+class = "interface-mismatch"
+severity = "high"
+observed = "PoolBeaconMetaData exposes implementation, owner, transferOwnership and upgradeTo only. UpgradeableBeacon.sol:48 now sets pendingOwner and emits OwnershipTransferStarted; acceptOwnership at line 54 changes owner and clears pendingOwner. The binding has neither pendingOwner nor acceptOwnership nor the started event, so the exported ownership lifecycle cannot complete or observe the handoff."
+expected = "The retained beacon interface must round-trip current and pending ownership, the start event, acceptance by the pending owner and Unauthorized refusal for another caller. Successful transferOwnership submission starts a handoff and must not be treated as completed ownership transfer."
+proposal = "Regenerate sdk/launchpad/protocol/bindings/poolbeacon.go from the current contracts/launchpad/contracts/base/UpgradeableBeacon.sol artifact. Prove pendingOwner, OwnershipTransferStarted, unauthorized acceptance, successful two-owner acceptance and clearing of pendingOwner through the real contract and Go consumer, including reads from a reopened client."
+owner_domain = 4
+interface = "4.sol-upgradeablebeacon-transferownership-f2fde38b"
+
+[finding.retained_binding_proof_gap]
+file = "sdk/launchpad/protocol/bindings/proof_launchpad_sdk_protocol_go_test.go"
+line = 42
+class = "test-gap"
+severity = "medium"
+observed = "The TestProofLaunchpadSdkProtocolGo producer table lists eight role metadata objects and omits EventEmitterMetaData and PoolBeaconMetaData, although protocol/events.go and shared/chain/contracts.go expose both. Missing retained v2 methods/events and beacon ownership acceptance therefore have no comparison or round-trip assertion in this proof."
+expected = "Brief checks 1 and 7 require every exposed interface in this slice to agree with its producer. The eight role comparisons satisfy their bounded inventory criteria but cannot qualify retained Solidity interfaces that have no matching precompile role ABI."
+proposal = "Extend sdk/launchpad/protocol/bindings/proof_launchpad_sdk_protocol_go_test.go with reviewed artifact-backed retained EventEmitter and PoolBeacon coverage. Invoke real contracts and Go consumers for v2 tuples and two-step ownership, with malformed-data and unauthorized-operation refusals, while retaining all eight existing role producers."
+owner_domain = 4
+
+[finding.runtime_emission_proof_gap]
+file = "sdk/launchpad/protocol/bindings/proof_launchpad_sdk_protocol_go_test.go"
+line = 81
+class = "test-gap"
+severity = "medium"
+observed = "The proof encodes Initialized versions 1 and 2 for every role from metadata and invokes a consumer which locally constructs logs, including Quoter.Initialized at services/launchpad/indexer/internal/processor/airdrop_test.go:228. Native emitAt rejects Initialized except for a new pool. These valid schema codec assertions cannot prove native emitter origins or lifecycle and do not detect the missing family signatures."
+expected = "Brief fact 7 and checks 1 and 7 require runtime safety evidence through the actual producer and consumer. ABI codec inventory is a separate claim. Runtime observations must be logs the native producer can emit, with actual role surfaces or 0x1017 origins and current lifecycle restrictions."
+proposal = "Add executor-to-Go decoder coverage alongside the metadata tests in sdk/launchpad/protocol/bindings/proof_launchpad_sdk_protocol_go_test.go and its owning consumer tests. Obtain logs from actual precompile execution, cover native family events and per-role origins, and assert non-pool Initialized emission is refused instead of treating it as runtime success evidence."
+owner_domain = 4
+
+[finding.overview_retired_topology]
+file = "docs/site/docs/overview/unified-network.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The overview says one network has two execution domains, identifies cmd/layerxd as the node at line 11, and presents LayerXVerify, custody and checkpoint-anchor modules as active authorities. Its Anchor section still requires challenge windows and bonded guarantors to finalize checkpoints."
+expected = "Brief network facts 1 and 2 specify one paxd BFT network whose kernel proposes blocks, with finality at block commit. Retired verify, custody and anchor mechanisms must not be described as active settlement or finality authorities."
+proposal = "Rewrite docs/site/docs/overview/unified-network.md around merged paxd execution and committed-block evidence, identify retired precompile refusals explicitly, and move pre-merge custody and guarantor topology into a clearly dated historical section."
+owner_domain = 5
+
+[finding.overview_rpc_contract]
+file = "docs/site/docs/overview/unified-network.md"
+line = 129
+class = "doc-drift"
+severity = "medium"
+observed = "The single endpoint section advertises api-mainnet-beta.paxeer.network/rpc as the sole unified router, describes sixteen numbered RPC names as EVM-only and combines lx_, eth_ and px_ as a cross-domain contract. Lines 136-148 also advertise web3_* relay and lx_* subscriptions."
+expected = "Brief facts 2 and 3 specify root-path node JSON-RPC at api1 through api14 and api-mainnet-beta, with namespaces debug, echo, eth, net, pax, test and txpool. Hosted px_ methods have a separate declared gateway contract; no unified router or /rpc paths remain."
+proposal = "Replace the endpoint and namespace sections of docs/site/docs/overview/unified-network.md with root node origins and the declared namespaces. Document the hosted px_ gateway separately against services/platform/hosted/gateway/openrpc.json and remove retired router and unified subscription claims."
+owner_domain = 8
+
+[finding.boundary_retired_client]
+file = "docs/site/docs/concepts/paxeer-boundary.md"
+line = 7
+class = "doc-drift"
+severity = "medium"
+observed = "The page presents layerx-paxeer-client as the production custody client and at line 119 instructs deployment of a LayerX vault, guarantor bond, checkpoint registry and withdrawal settlement suite. Retirement component.human-two-domain deletes that client; the settlement architecture is pre-merge."
+expected = "Boundary documentation must match the single paxd chain and supported chain-id-125 transport. Deleted custody clients and retired settlement provisioning cannot be the current launchpad or Human integration path."
+proposal = "Rewrite docs/site/docs/concepts/paxeer-boundary.md around the supported merged-chain client, trust configuration and chain identity checks. Label the removed client and settlement deployment workflow as historical, and link current native bank and committed-block proof paths instead of instructing their deployment."
+owner_domain = 10
+
+[finding.settlement_evidence_retired]
+file = "docs/site/docs/operators/settlement-evidence.md"
+line = 7
+class = "doc-drift"
+severity = "medium"
+observed = "The runbook directs registerCheckpoint, publishCheckpointWitnesses, deposit-root authority scheduling and guarantor certificate publication as active operations. Its proof wire and finalization guidance retain separate checkpoint settlement authority and request-anchor lifecycle."
+expected = "Brief fact 1 makes the BFT committed block final. Retirement components settlement-domain, checkpoint-evidence and finality-authority replace separate settlement publication with chain-id-125 header and commit verification. Historical envelopes need explicit versioned provenance."
+proposal = "Replace the operational procedure in docs/site/docs/operators/settlement-evidence.md with current block-header, validator-commit and native state-proof evidence collection. Preserve old v1/v2 wire formats under an archived compatibility section that cannot be mistaken for upgrade provisioning."
+owner_domain = 9
+
+[finding.beta_retired_daemon]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The cluster is described as Paxeer plus the LayerX Network daemon. Line 50 provisions layerxd --custody-profile, and later sections require an LNI volume and custody/authority infrastructure despite retirement of the separate daemon and LNI transport."
+expected = "Beta bring-up instructions must launch the merged paxd network with current configuration and evidence gates. Retired daemon, custody profile and LNI preparation are not prerequisites for launchpad upgrade qualification."
+proposal = "Update docs/site/docs/operators/beta-cluster.md to merged-chain bring-up and readiness, remove layerxd and LNI preparation steps, and clearly separate any historical cluster fixture from supported upgrade rehearsal. Cite the current node configuration and committed-block gates."
+owner_domain = 16
+
+[finding.cli_retired_transport]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The CLI page requires --rpc URLs ending in /rpc, repeats the restriction at line 131 and sends eth_sendRawTransaction to /rpc at line 298. Lines 294-295 describe Programs lifecycle submission through retired /v1/programs REST routes."
+expected = "Brief facts 2 and 3 require root-path node JSON-RPC and a separate hosted gateway contract. Retirement component.programs-ingress replaces Programs deploy/call/upgrade/wind-down REST submission with EVM transactions to layerxprograms 0x101D."
+proposal = "Rewrite docs/site/docs/platform/cli.md transport examples for root-path node RPC and the hosted contract, and describe Programs submission as transactions to 0x101D. Update required flags and refusal examples from tools/platform/cli rather than retaining router-path restrictions."
+owner_domain = 16
+
+[finding.cli_command_contradiction]
+file = "docs/site/docs/platform/cli.md"
+line = 106
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 25-28 say wallet and token groups exist and all listed commands are implemented. Lines 106-127 describe those same groups as unimplemented; lines 131-134 say global RPC and credential flags have no counterpart, contradicting lines 8-11."
+expected = "The command reference must give one consistent account of shipped commands, flags and unavailable operations so an integrator can distinguish intentional refusal from an unimplemented command."
+proposal = "Reconcile docs/site/docs/platform/cli.md with tools/platform/cli/src/main.rs and wallet.rs, remove the obsolete duplicate intended-surface table, and document each supported command once with actual inputs and refusal behavior."
+owner_domain = 16
+
+[finding.agent_boundary_retired_lni]
+file = "docs/site/docs/platform/agent-boundary.md"
+line = 4
+class = "doc-drift"
+severity = "medium"
+observed = "The page submits signed activities through LNI, specifies an LNI v1.4 handshake and tag protocol, points LAYERX_AGENT_BOUNDARY_LNI_SOCKET at layerxd at line 297, and requires real layerxd sequencer/authority tests at lines 419-420."
+expected = "Brief facts 1 and 2 and retirement component.lni remove the separate daemon and LNI interface. Submission, receipt lookup, readiness and recovery must refer to the merged node and current committed-block evidence."
+proposal = "Rewrite docs/site/docs/platform/agent-boundary.md around current merged-node submission and receipt transports. Remove LNI socket/tag configuration and daemon prerequisites; document readiness, retries and recovery using the replacement producer and actual refusal codes."
+owner_domain = 8
+
+[finding.gateway_unified_router]
+file = "docs/site/docs/platform/hosted-gateway.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "The page calls api-mainnet-beta the only unified router for eth_, lx_ and px_ and describes sixteen EVM-only RPC names. Lines 50-52 and 198-200 publish POST /rpc, GET /rpc/schema and GET /rpc/ws as its public contract."
+expected = "Brief facts 2 and 3 define root-path node RPC on fourteen numbered names plus the main alias, with no unified router or /rpc paths. Hosted px_ methods are a separate product contract defined by gateway/openrpc.json."
+proposal = "Correct endpoint, route and namespace sections of docs/site/docs/platform/hosted-gateway.md against services/platform/hosted/gateway/openrpc.json and the merged node contract. Separate hosted authentication and quotas from node RPC and remove router-only and EVM-only topology claims."
+owner_domain = 8
+
+[finding.gateway_retired_programs_ingress]
+file = "docs/site/docs/platform/hosted-gateway.md"
+line = 205
+class = "doc-drift"
+severity = "medium"
+observed = "The route table advertises /v1/programs/call, /deploy, /upgrade and /wind-down as authenticated gateway routes forwarded to agent-boundary and authorized by the old activity authority. Continuation descriptions still treat those REST routes as Programs submission."
+expected = "Retirement component.programs-ingress removes these REST mappings and preserves payload submission as an EVM transaction to layerxprograms 0x101D. Finality evidence comes from committed blocks rather than a separate authorized-batch authority."
+proposal = "Replace Programs route and continuation sections in docs/site/docs/platform/hosted-gateway.md with the current 0x101D transaction flow, idempotency and receipt/commit lifecycle. State retirement/refusal behavior for removed REST paths rather than advertising them as callable."
+owner_domain = 8
+
+[finding.webhook_tls_contradiction]
+file = "docs/site/docs/platform/webhooks.md"
+line = 249
+class = "doc-drift"
+severity = "medium"
+observed = "The Railway role section at lines 49-55 requires an internal-CA client certificate and webhook role URI SAN for ingress. The trusted-component section says inbound TLS has no client authentication without restricting that statement to the public listener or a historical deployment."
+expected = "Public and internal webhook listeners need unambiguous authentication instructions. An operator must know which client identity and URI SAN are mandatory before configuring a producer for the ingress listener."
+proposal = "Reconcile docs/site/docs/platform/webhooks.md TLS sections with public and ingress implementations under services/platform/hosted/webhooks/src. State each listener's requirements explicitly and replace the unqualified no-client-authentication claim with the current role-specific policy."
+owner_domain = 8
+
+[finding.webhook_retired_authority]
+file = "docs/site/docs/platform/webhooks.md"
+line = 77
+class = "doc-drift"
+severity = "medium"
+observed = "The Railway configuration obtains its network id from router.LAYERX_GATEWAY_NETWORK_ID and matches a separate receipt authority. Lines 269-274 and 495 continue to require activity-authority lookup and readiness as trusted evidence dependencies, mixing current delivery guidance with the retired router/authority architecture."
+expected = "Brief facts 1 and 2 remove the router and separate finality authority. Retirement component.authorized-batch requires receipt verification against the node block header and commit at the receipt height; webhook delivery still needs authenticated producers and durable retry."
+proposal = "Update docs/site/docs/platform/webhooks.md configuration, trust-source and readiness sections for the merged node and independently provisioned network identity. Replace router interpolation and retired activity-authority evidence with receipt-height header/commit verification while retaining delivery signature and durable retry requirements."
+owner_domain = 8
+
+[finding.registry_retired_authority]
+file = "docs/site/docs/platform/registry.md"
+line = 86
+class = "doc-drift"
+severity = "medium"
+observed = "The recovery procedure verifies current heads against a separate receipt authority. Lines 7, 28 and 179 provision layerx-agent-boundary and layerx-receipt-authority endpoints and credentials as current trust sources, retaining the separate authority topology for merged-network recovery."
+expected = "Brief fact 1 and retirement components finality-authority and authorized-batch replace separate authority/batch evidence with receipt-height block headers and validator commits. Restarted registry projections must validate current chain state with that authority before publication."
+proposal = "Update docs/site/docs/platform/registry.md recovery and configuration to merged-node state/proof reads and receipt-height commit verification. Remove retired authority endpoint prerequisites, retain journal/quarantine invariants, and specify how reopened projections obtain fresh chain evidence."
+owner_domain = 8
+
+[finding.programs_retired_adapter]
+file = "docs/site/docs/programs/workspace.md"
+line = 15
+class = "doc-drift"
+severity = "medium"
+observed = "The inventory advertises layerx-programs-protocol-adapter as the current C-to-Rust program-state adapter, includes it in unsafe-policy exceptions and at line 156 cites cmd/layerxd batch-WAL sources in differential qualification. The retirement inventory deletes that adapter and replaces program-state access."
+expected = "Retirement component.protocol-adapter requires Query/ProgramState and Query/ProgramBalances gRPC reads with ICS23 proofs. Workspace and verification guidance must describe merged runtime and current host/guest ABI rather than removed daemon integration."
+proposal = "Rewrite crate, host integration and qualification tables in docs/site/docs/programs/workspace.md against the surviving Programs workspace. Replace the retired adapter with proof-bearing gRPC reads and current merged-node tests, retaining explicit host/guest ABI and payload-limit requirements."
+owner_domain = 13
+
+[finding.clients_test_status]
+file = "spec/layerx-merge/contracts/clients.md"
+line = 722
+class = "doc-drift"
+severity = "low"
+observed = "The launchpad-sdk-protocol-go acceptance matrix labels TestFeeAccumulatorBindingMatchesRoleABI and the seven other role inventory tests as planned at lines 722-729, although all eight functions and their complete signature comparisons exist in this tree."
+expected = "The interface contract must distinguish existing test implementations from future coverage and from recorded passing execution. Planned labels should not hide existing role ABI protection or imply retained binding coverage already exists."
+proposal = "Update the launchpad-sdk-protocol-go acceptance matrix in spec/layerx-merge/contracts/clients.md to identify all eight existing tests. Link passing revision evidence only when available, and add the missing retained EventEmitter/PoolBeacon and native-family coverage requirements."
+owner_domain = 4
+
+[finding.launchpad_event_surface_matrix]
+file = "spec/layerx-merge/contracts/launchpad.md"
+line = 1323
+class = "doc-drift"
+severity = "medium"
+observed = "The matrix lists MirrorFailed, RoleAdminChanged and Upgraded as stable active 0x1017 emissions at lines 1323-1325, followed by Initialized, RoleGranted and RoleRevoked at that address. precompiles/launchpad/events.go:25 rejects the first three, restricts Initialized to new pools and leaves grant/revoke events on role surfaces."
+expected = "The event reference must distinguish historical ABI declarations, native role surface events and twelve family emissions at 0x1017. Integrators need actual emitter addresses and lifecycle restrictions to filter and interpret receipts."
+proposal = "Correct precompile-events in spec/layerx-merge/contracts/launchpad.md and its owning interface-registry source. Mark retired events historical, give pool initialization its actual origin, identify role-event surfaces and publish native family signatures with timestamp and blockNumber."
+owner_domain = 4
+
+[doc.overview]
+path = "docs/site/docs/overview/unified-network.md"
+status = "misleading"
+notes = "Read the complete page. Retired two-domain, daemon, custody/guarantor and unified router claims conflict with the merged network; see overview_retired_topology and overview_rpc_contract."
+
+[doc.bridge]
+path = "contracts/bridge/README.md"
+status = "accurate"
+notes = "Read the complete page. Native threshold bridge at 0x1016, bounded EVM/Solana custody, remote signing and durable relayer recovery are separate from retired LayerX checkpoint settlement. It does not define a launchpad Go ABI or assert a unified RPC path."
+
+[doc.boundary]
+path = "docs/site/docs/concepts/paxeer-boundary.md"
+status = "stale"
+notes = "Read the complete page. Trust and chain-id checks are documented, but the deleted layerx-paxeer-client and settlement suite remain the advertised current integration path; see boundary_retired_client."
+
+[doc.settlement]
+path = "docs/site/docs/operators/settlement-evidence.md"
+status = "stale"
+notes = "Read the complete page. Historical v2 evidence formats are presented as active checkpoint and guarantor publication procedures; see settlement_evidence_retired."
+
+[doc.beta]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "stale"
+notes = "Read the complete page including preparation and readiness. Separate layerxd, custody profile and LNI prerequisites conflict with merged-network bring-up; see beta_retired_daemon."
+
+[doc.sdk_verification]
+path = "docs/site/docs/agents/sdk-verification.md"
+status = "accurate"
+notes = "Read the complete page. It distinguishes signed receipt verification from committed-block verification, uses merged-node eth_/pax_ evidence and independent key pins, and treats historical vectors as provenance. Its verification model does not require a separate sequencer service."
+
+[doc.cli]
+path = "docs/site/docs/platform/cli.md"
+status = "misleading"
+notes = "Read the complete page. Router path and removed Programs ingress guidance are stale; shipped command and global flag claims contradict the duplicate unimplemented section. See cli_retired_transport and cli_command_contradiction."
+
+[doc.agent_boundary]
+path = "docs/site/docs/platform/agent-boundary.md"
+status = "stale"
+notes = "Read the complete page. LNI activity and receipt transport, socket configuration, readiness and layerxd authority prerequisites describe retired components; see agent_boundary_retired_lni."
+
+[doc.gateway]
+path = "docs/site/docs/platform/hosted-gateway.md"
+status = "misleading"
+notes = "Read the complete page including Redis durability and readiness. Unified router and /rpc paths conflate node and hosted contracts; removed Programs REST submission remains advertised. See gateway_unified_router and gateway_retired_programs_ingress."
+
+[doc.webhooks]
+path = "docs/site/docs/platform/webhooks.md"
+status = "misleading"
+notes = "Read the complete page. Railway ingress mTLS requirements contradict an unqualified TLS statement; router configuration and separate authority evidence remain stale. See webhook_tls_contradiction and webhook_retired_authority. Durable delivery and signature requirements remain relevant."
+
+[doc.registry]
+path = "docs/site/docs/platform/registry.md"
+status = "stale"
+notes = "Read the complete page including journal quarantine, isolated rebuilds, refusals and configuration. Separate receipt-authority recovery and trust topology must migrate to merged-node block/commit evidence; see registry_retired_authority."
+
+[doc.programs]
+path = "docs/site/docs/programs/workspace.md"
+status = "stale"
+notes = "Read the complete page. Deleted protocol-adapter and daemon-linked differential qualification are still advertised as current; see programs_retired_adapter."
+
+[doc.clients_contract]
+path = "spec/layerx-merge/contracts/clients.md"
+status = "stale"
+notes = "Read the launchpad-sdk-protocol-go interface and acceptance sections at lines 680-737. Existing role ABI tests are labeled planned; retained binding interfaces need explicit coverage. See clients_test_status."
+
+[doc.launchpad_contract]
+path = "spec/layerx-merge/contracts/launchpad.md"
+status = "stale"
+notes = "Read launchpad precompile and event sections around lines 1260-1345. The matrix assigns retired or role/pool-specific events to active 0x1017 emission; see launchpad_event_surface_matrix."

@@ -17,8 +17,8 @@ func (e *Epoch) Validate() error {
 		return fmt.Errorf("epoch genesis time cannot be zero")
 	}
 
-	if e.GetEpochDuration().Seconds() == 0 {
-		return fmt.Errorf("epoch duration cannot be zero")
+	if e.GetEpochDuration() <= 0 {
+		return fmt.Errorf("epoch duration must be positive")
 	}
 
 	if e.GetGenesisTime().After(e.GetCurrentEpochStartTime()) {

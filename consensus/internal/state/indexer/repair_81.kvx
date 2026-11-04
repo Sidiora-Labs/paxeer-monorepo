@@ -1,0 +1,17 @@
+[repair.22.31.81]
+audit = "22.30.46"
+findings = ["3"]
+proofs = ["TestRepair_81_FailedWriteReopen", "TestRepair_81_CheckpointFailureReopen", "TestRepair_81_LiveGapAndOfflineRecovery", "TestRepair_81_MissingHistoryDoesNotAdvance", "TestRepair_81_ReplayOnlyCommittedHeight"]
+implementation = "Per-chain, per-sink contiguous watermarks are flushed only after successful block and transaction writes; sink and checkpoint failures retry until success or cancellation; startup and live-gap replay read retained blocks and ABCI responses up to committed state height."
+baseline = "Not run: the task's explicit gate order forbids verification before implementation and forbids running verify_cmd by hand; no claim is made about pre-change test results."
+qualification = "The private hf-build and hf-done receipts name the exact candidate revision, command, exit code and evidence log; the final task evidence carries that verified revision."
+wiring_request = "consensus/node/node.go, owning domain 5 (node runtime): pass ServiceArgs.Recovery = utils.Some(indexer.RecoveryArgs{BlockStore: blockStore, StateStore: stateStore, ProgressStore: durableIndexerProgressDB}); retain blocks/responses above the minimum sink watermark, restore progress with its sinks, and close the caller-owned progress DB after stopping the indexer."
+compatibility = "Existing event-only constructors receive an explicit durable-replay-not-configured warning; enabling recovery requires all three stores and initialized committed state."
+
+[finding.3]
+tests = ["TestRepair_81_FailedWriteReopen", "TestRepair_81_CheckpointFailureReopen", "TestRepair_81_LiveGapAndOfflineRecovery", "TestRepair_81_MissingHistoryDoesNotAdvance", "TestRepair_81_ReplayOnlyCommittedHeight"]
+path = "consensus/internal/state/indexer/repair_81_test.go"
+producer = "ABCI KV application's FinalizeBlock and Commit, persisted by the real state and block stores; live events emitted by state.FireEvents."
+consumer = "Real indexer service and KV sink, with transaction and block search assertions after closing and reopening the on-disk stores and sink."
+failed_write = "A closed LevelDB sink refuses writes; startup remains unacknowledged until cancellation, then reopening replays both committed heights."
+partial_write = "A read-only progress database refuses the checkpoint after real block and transaction writes; reopening retries the same height without duplicate search rows."

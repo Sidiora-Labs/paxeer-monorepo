@@ -1,0 +1,8 @@
+[repair.22.31.41]
+finding = "active-rebuild-restart"
+tests = ["TestRepair_41_ActiveRebuildRestart", "TestRepair_41_RejectInconsistentActiveRecovery"]
+proof = "Archive.Capture and real S3/PostgreSQL feed ReplayEngine.Rebuild, the indexer startup path; one process promotes and exits, another recovers identical configuration with an expired lease, preserving readiness, projected bytes, alias revision and cutover history. Inconsistent manifest, status, progress and alias state are refused."
+baseline = "Not run: the explicit bounded-gate order prohibits testing before the complete implementation; no pre-change failing test is claimed."
+fixture = "Private loopback PostgreSQL and MinIO; archive inputs come from the existing recorded chain-125 market RPC capture, not fabricated archive manifests or promotion records."
+wiring_requests = []
+evidence = "The private hf-build/hf-done gate ledger records the verified candidate revision, exact commands, exits and log locations."

@@ -1,0 +1,1423 @@
+[audit.22.30.179]
+task = "22.30.179"
+revision = "9d9e94b1751d89ba849d2d3d0f89b48fabce9756"
+files_reviewed = 95
+findings = 74
+docs_reviewed = 18
+upgrade_ready = false
+blocking = ["kernel-backend", "profile-bounds-unwired", "top-level-report-path", "optional-settings-refused", "contract-gas-pickers", "writer-error-data-loss", "writer-restart-overwrite", "rpc-response-not-decoded"]
+requirements_reviewed = ["181545.1", "21127.1", "21063.1", "89817.1", "22076.1", "21054.1", "16018.1", "16019.1", "16247.1", "16247.2", "16247.3", "16248.1", "16248.2", "16249.1", "16249.2", "16250.1", "16251.1", "16251.2", "16258.1", "16969.1", "16969.2", "16969.3", "16969.4", "18827.1", "18828.1", "181362.1", "181362.2", "18929.1"]
+interface_review = "Inspected the 234 produced registry rows and the 400 ids actually listed in consumes (consumes_total says 1077). Compared real member declarations/calls with current producers/consumers; registry caller lines are stale after layout/retirement and include lexical collisions, such as ID, owner and endpoints, that are not actual runtime dependencies. Solidity event/error catalogue rows outside the member slice are inventory references, not evidence of a live loadtest protocol decoder. Added actual node submission contract 7.rpc-eth-sendrawtransaction when tracing the emitted request."
+qualification_boundary = "Static pre-upgrade review only. No load, container, Go, PostgreSQL, network or workspace gate was run as audit evidence; only the declared hf-build/hf-done task gates qualify this record. The source revision is the audited base, while runner evidence identifies the candidate record revision."
+
+[file.001]
+path = "docker/kernel/Dockerfile"
+lines = 382
+verdict = "issues"
+note = "Read both build/runtime stages, native artifact admission/digest manifests, service binary copies and entrypoints; legacy runtime assembly is recorded above. No container build was performed by this audit."
+
+[file.002]
+path = "docker/kernel/init.sh"
+lines = 1987
+verdict = "issues"
+note = "Read all shell and embedded Python, including permissions, identities, durable reset/projection journals, private namespaces, TLS, service restart loops, mirror config and Human material handoff; startup/retired/config gaps are recorded above. KMS private copies are re-owned by human-entrypoint, so root-owned source material is not itself a KMS ownership defect."
+
+[file.003]
+path = "launchpad/spec/production-system/integration/migrations/grants.json"
+lines = 11594
+verdict = "clean"
+note = "Read all 18 role manifests and every grant/column/function signature, including owner_read_grants and additional schema capabilities; compared with sdk/launchpad/shared/db/production/roles.go validation/rendering. NOLOGIN ownership separation, column-scoped foreign views, function EXECUTE and public revocation semantics agree; this is a policy review, not a PostgreSQL qualification claim."
+
+[file.004]
+path = "launchpad/spec/production-system/integration/migrations/legacy-history-aliases.json"
+lines = 168
+verdict = "issues"
+note = "Read all eight histories and every source/version/checksum/up_bytes/import rule; coordinator maps legacy core/media paths to relocated services while missing approved structural import evidence remains recorded."
+
+[file.005]
+path = "launchpad/spec/production-system/integration/migrations/readiness.json"
+lines = 68
+verdict = "issues"
+note = "Read registry digest, trusted read-only ExpectedSchema mode, recovery bindings, per-role required migration lists and unused api_runtime declaration; stale binding and missing real admission evidence are recorded."
+
+[file.006]
+path = "launchpad/spec/production-system/integration/migrations/registry.json"
+lines = 2579
+verdict = "issues"
+note = "Read all 75 registrations, complete application_order, dependencies, SQL/source digests, legacy predecessors, rollback/backfill/capability fields and extension prerequisites; compared actual file layout and the real coordinator path reader. Null qualification evidence is kept distinct from measured production evidence."
+
+[file.007]
+path = "tools/benchmark/scenarios/README.md"
+lines = 88
+verdict = "issues"
+note = "Read complete usage/format/scenario/phase documentation against node/benchmark/config.go and generator.go; incorrect default command is recorded."
+
+[file.008]
+path = "tools/benchmark/scenarios/default.json"
+lines = 12
+verdict = "clean"
+note = "Read the complete default workload JSON, including account count/newAccountRate and scenario weights; compared with node/benchmark/config.go and generator.go. IDs/endpoints/settings are intentionally omitted because the node overrides chain identity and deploys contracts in-process; these are isolated benchmark fixtures, not merged public RPC profiles."
+
+[file.009]
+path = "tools/benchmark/scenarios/erc20.json"
+lines = 12
+verdict = "clean"
+note = "Read the complete erc20 workload JSON, including account count/newAccountRate and scenario weights; compared with node/benchmark/config.go and generator.go. IDs/endpoints/settings are intentionally omitted because the node overrides chain identity and deploys contracts in-process; these are isolated benchmark fixtures, not merged public RPC profiles."
+
+[file.010]
+path = "tools/benchmark/scenarios/evm.json"
+lines = 12
+verdict = "clean"
+note = "Read the complete evm workload JSON, including account count/newAccountRate and scenario weights; compared with node/benchmark/config.go and generator.go. IDs/endpoints/settings are intentionally omitted because the node overrides chain identity and deploys contracts in-process; these are isolated benchmark fixtures, not merged public RPC profiles."
+
+[file.011]
+path = "tools/benchmark/scenarios/mixed.json"
+lines = 16
+verdict = "clean"
+note = "Read the complete mixed workload JSON, including account count/newAccountRate and scenario weights; compared with node/benchmark/config.go and generator.go. IDs/endpoints/settings are intentionally omitted because the node overrides chain identity and deploys contracts in-process; these are isolated benchmark fixtures, not merged public RPC profiles."
+
+[file.012]
+path = "tools/loadtest/Dockerfile"
+lines = 14
+verdict = "issues"
+note = "Read builder dependency-copy/download/build and distroless runtime entrypoint; toolchain pin mismatch is recorded."
+
+[file.013]
+path = "tools/loadtest/LICENSE.md"
+lines = 201
+verdict = "vendored"
+note = "Vendored Apache 2.0 legal text from the upstream pax-load source identified by VENDOR.kvx; all license sections were read and no generated network behavior is inferred from the license."
+
+[file.014]
+path = "tools/loadtest/Makefile"
+lines = 153
+verdict = "issues"
+note = "Read every target and pattern rule, binding/template/factory pipeline, tool installation, build/test/lint/install/clean commands; tool provenance and implicit manifest mutation are recorded."
+
+[file.015]
+path = "tools/loadtest/README.md"
+lines = 207
+verdict = "issues"
+note = "Read all quick-start, CLI options, profiles, scenario and development instructions against implemented flags, Makefile and merged chain identity; documentation drift is recorded."
+
+[file.016]
+path = "tools/loadtest/config/bounds_config_test.go"
+lines = 90
+verdict = "clean"
+note = "Read all merge and bound JSON assertions; config.MergeBounds behavior agrees with direct API expectations, including preservation of nonzero settings. Actual CLI wiring is separately identified in main.go and the proof suite."
+
+[file.017]
+path = "tools/loadtest/config/config.go"
+lines = 108
+verdict = "issues"
+note = "Read all JSON fields, duration codec, bounds-overflow guard, merger and chain-id helper. Bounds overflow rejection and uint64 representation agree with consumers; unused top-level reportPath is recorded."
+
+[file.018]
+path = "tools/loadtest/config/gas.go"
+lines = 81
+verdict = "issues"
+note = "Read picker dispatch, fixed/random values and JSON shape; inclusive uint64 range overflow is recorded."
+
+[file.019]
+path = "tools/loadtest/config/gas_test.go"
+lines = 38
+verdict = "clean"
+note = "Read all picker JSON/range/error/distribution assertions; these exercise the intended direct API, but do not supply the full uint64 interval implicated by random-gas-overflow."
+
+[file.020]
+path = "tools/loadtest/config/proof_paxload_bounds_test.go"
+lines = 252
+verdict = "issues"
+note = "Read subprocess JSON/Viper precision, malformed input, reload/replacement and precedence proof plus caller-gap characterization; manual merger differs from the shipped CLI and is recorded."
+
+[file.021]
+path = "tools/loadtest/config/settings.go"
+lines = 158
+verdict = "clean"
+note = "Read default values, JSON transport, flag-to-key mapping, InitializeViper, exact uint64 preservation and ResolveSettings. LoadSettings explicitly refuses nil, which its optional-profile CLI caller does not normalize."
+
+[file.022]
+path = "tools/loadtest/config/settings_test.go"
+lines = 220
+verdict = "clean"
+note = "Read all defaults, overrides, duration/error and bound-flag cases; direct configuration assertions agree with the current producer, without proving top-level profile-to-command enforcement."
+
+[file.023]
+path = "tools/loadtest/generator/bindings/Disperse.go"
+lines = 464
+verdict = "generated"
+note = "Generated by abigen from the bundled generator/contracts/Disperse.sol ABI/bytecode; Code generated header and binding metadata inspected. Generated wrappers are exempt from handwritten line-by-line review; regeneration provenance is the pinned pax-load source in VENDOR.kvx plus the Makefile generator policy finding."
+
+[file.024]
+path = "tools/loadtest/generator/bindings/ERC20.go"
+lines = 812
+verdict = "generated"
+note = "Generated by abigen from the bundled generator/contracts/ERC20.sol ABI/bytecode; Code generated header and binding metadata inspected. Generated wrappers are exempt from handwritten line-by-line review; regeneration provenance is the pinned pax-load source in VENDOR.kvx plus the Makefile generator policy finding."
+
+[file.025]
+path = "tools/loadtest/generator/bindings/ERC20Conflict.go"
+lines = 822
+verdict = "generated"
+note = "Generated by abigen from the bundled generator/contracts/ERC20Conflict.sol ABI/bytecode; Code generated header and binding metadata inspected. Generated wrappers are exempt from handwritten line-by-line review; regeneration provenance is the pinned pax-load source in VENDOR.kvx plus the Makefile generator policy finding."
+
+[file.026]
+path = "tools/loadtest/generator/bindings/ERC20Noop.go"
+lines = 791
+verdict = "generated"
+note = "Generated by abigen from the bundled generator/contracts/ERC20Noop.sol ABI/bytecode; Code generated header and binding metadata inspected. Generated wrappers are exempt from handwritten line-by-line review; regeneration provenance is the pinned pax-load source in VENDOR.kvx plus the Makefile generator policy finding."
+
+[file.027]
+path = "tools/loadtest/generator/bindings/ERC721.go"
+lines = 983
+verdict = "generated"
+note = "Generated by abigen from the bundled generator/contracts/ERC721.sol ABI/bytecode; Code generated header and binding metadata inspected. Generated wrappers are exempt from handwritten line-by-line review; regeneration provenance is the pinned pax-load source in VENDOR.kvx plus the Makefile generator policy finding."
+
+[file.028]
+path = "tools/loadtest/generator/contracts/Disperse.sol"
+lines = 84
+verdict = "clean"
+note = "Read the full bundled Disperse Solidity workload contract against its generated ABI and scenario deployment/call arguments. Deliberate permissive mint/default-balance/noop behavior is load-generation policy, not production token authorization; caller value/gas defects are recorded at the scenario producer."
+
+[file.029]
+path = "tools/loadtest/generator/contracts/ERC20.sol"
+lines = 76
+verdict = "clean"
+note = "Read the full bundled ERC20 Solidity workload contract against its generated ABI and scenario deployment/call arguments. Deliberate permissive mint/default-balance/noop behavior is load-generation policy, not production token authorization; caller value/gas defects are recorded at the scenario producer."
+
+[file.030]
+path = "tools/loadtest/generator/contracts/ERC20Conflict.sol"
+lines = 68
+verdict = "clean"
+note = "Read the full bundled ERC20Conflict Solidity workload contract against its generated ABI and scenario deployment/call arguments. Deliberate permissive mint/default-balance/noop behavior is load-generation policy, not production token authorization; caller value/gas defects are recorded at the scenario producer."
+
+[file.031]
+path = "tools/loadtest/generator/contracts/ERC20Noop.sol"
+lines = 43
+verdict = "clean"
+note = "Read the full bundled ERC20Noop Solidity workload contract against its generated ABI and scenario deployment/call arguments. Deliberate permissive mint/default-balance/noop behavior is load-generation policy, not production token authorization; caller value/gas defects are recorded at the scenario producer."
+
+[file.032]
+path = "tools/loadtest/generator/contracts/ERC721.sol"
+lines = 188
+verdict = "clean"
+note = "Read the full bundled ERC721 Solidity workload contract against its generated ABI and scenario deployment/call arguments. Deliberate permissive mint/default-balance/noop behavior is load-generation policy, not production token authorization; caller value/gas defects are recorded at the scenario producer."
+
+[file.033]
+path = "tools/loadtest/generator/generator.go"
+lines = 223
+verdict = "clean"
+note = "Read config-based pools, scenario factory/deployment, MockDeploy branch, weights and generator construction; downstream input/weight/prewarm risks are identified at their owners. This is a workload generator, not a production account keystore."
+
+[file.034]
+path = "tools/loadtest/generator/generator_test.go"
+lines = 57
+verdict = "clean"
+note = "Read complete constructor/mock-deployment cases and scenario selection assertions; they match the selected generator API. Actual deployed scenario success gaps are recorded on the scenario producers."
+
+[file.035]
+path = "tools/loadtest/generator/prewarm.go"
+lines = 110
+verdict = "issues"
+note = "Read finite/fresh-pool iteration, nonce sentinel, weighted pool input and transaction production; termination/coverage and prewarm phase concerns are recorded."
+
+[file.036]
+path = "tools/loadtest/generator/scenario.go"
+lines = 50
+verdict = "clean"
+note = "Read complete sender/receiver account selection, TxScenario naming, synchronization and pool exposure; names and payloads agree with the generator interface, except the separately identified EVMTransferNoop name producer."
+
+[file.037]
+path = "tools/loadtest/generator/scenarios/Disperse.go"
+lines = 82
+verdict = "issues"
+note = "Read constructor, deployment arguments, binding attachment, fresh recipient pool and payable batch-call production against Disperse.sol; guaranteed value/gas failure is recorded."
+
+[file.038]
+path = "tools/loadtest/generator/scenarios/ERC20.go"
+lines = 75
+verdict = "clean"
+note = "Read constructor/config forwarding, deployment, binding attachment and transfer production against bundled ERC20 ABI; workload uses the mock token policy deliberately. Common contract picker omission is recorded at base.go."
+
+[file.039]
+path = "tools/loadtest/generator/scenarios/ERC20Conflict.go"
+lines = 75
+verdict = "issues"
+note = "Read constructor, deployment/attachment, transfer method and fixed gas against counter/balance writes in ERC20Conflict.sol; under-gas behavior is recorded."
+
+[file.040]
+path = "tools/loadtest/generator/scenarios/ERC20Noop.go"
+lines = 75
+verdict = "clean"
+note = "Read constructor, deployment/attachment and no-op transfer generation against ERC20Noop.sol; ABI, address and amount agree, with common picker handling recorded at base.go."
+
+[file.041]
+path = "tools/loadtest/generator/scenarios/ERC721.go"
+lines = 79
+verdict = "issues"
+note = "Read configuration forwarding, mint id atomics, deployment/attachment and gas override against ERC721.sol; under-gas behavior is recorded."
+
+[file.042]
+path = "tools/loadtest/generator/scenarios/EVMTransfer.go"
+lines = 90
+verdict = "issues"
+note = "Read dynamic fee/signing, nonce/value timestamp, gas and fee pickers against typed transaction/RPC payload consumers; unsigned fee conversion is recorded."
+
+[file.043]
+path = "tools/loadtest/generator/scenarios/EVMTransferNoop.go"
+lines = 89
+verdict = "issues"
+note = "Read self-transfer/value-zero/signing and fee controls; incorrect Name identity is recorded. It shares the uint64-to-int64 fee conversion described in fee-cap-sign-conversion."
+
+[file.044]
+path = "tools/loadtest/generator/scenarios/base.go"
+lines = 220
+verdict = "issues"
+note = "Read generator/deployer interfaces, deployment/attachment state, receipt status checks and contract options; configurable controls and startup cancellation/error lifecycle gaps are recorded."
+
+[file.045]
+path = "tools/loadtest/generator/scenarios/factory.go"
+lines = 36
+verdict = "clean"
+note = "Read complete manual/generated constructor registry and case-insensitive selection; registered constructors consume config.Scenario consistently. The template scripts, rather than this checked-in registry, retain obsolete signatures/output syntax."
+
+[file.046]
+path = "tools/loadtest/generator/utils/utils.go"
+lines = 72
+verdict = "issues"
+note = "Read all deployment and transaction-option helpers, nonce/noSend/gas/fee settings; duplicate unused deployment path is recorded, and current shared options underpin contract picker/value findings."
+
+[file.047]
+path = "tools/loadtest/generator/weighted.go"
+lines = 124
+verdict = "issues"
+note = "Read construction, expansion/shuffle, counter selection, cancellation and account-pool enumeration; unsafe weights and repeated pool exposure are recorded."
+
+[file.048]
+path = "tools/loadtest/main.go"
+lines = 385
+verdict = "issues"
+note = "Read complete flag registration, config admission, Viper resolution, generator/services, dry-run/prewarm, file mode, signal shutdown, final reports, bounds and metrics server lifecycle. Multiple real consumer/wiring gaps are recorded; no CLI workload was executed for this audit."
+
+[file.049]
+path = "tools/loadtest/main_test.go"
+lines = 64
+verdict = "clean"
+note = "Read complete enforceBounds matching/wrapped-error assertions, combined violations and disabled-bound cases; they agree with the direct function producer. End-to-end CLI coverage is proposed separately without weakening these tests."
+
+[file.050]
+path = "tools/loadtest/profiles/autobake_evm_transfer.json"
+lines = 35
+verdict = "issues"
+note = "Read every profile field, endpoint, account/scenario setting, optional gas control, report/file destination and positive bounds. Compared with LoadConfig/Settings and the real CLI resolution path; hardcoded chain identity is recorded separately from the shared profile-bound wiring defect."
+
+[file.051]
+path = "tools/loadtest/profiles/conflict.json"
+lines = 34
+verdict = "issues"
+note = "Read every profile field, endpoint, account/scenario setting, optional gas control, report/file destination and positive bounds. Compared with LoadConfig/Settings and the real CLI resolution path; hardcoded chain identity is recorded separately from the shared profile-bound wiring defect."
+
+[file.052]
+path = "tools/loadtest/profiles/evm_transfer.json"
+lines = 34
+verdict = "issues"
+note = "Read every profile field, endpoint, account/scenario setting, optional gas control, report/file destination and positive bounds. Compared with LoadConfig/Settings and the real CLI resolution path; hardcoded chain identity is recorded separately from the shared profile-bound wiring defect."
+
+[file.053]
+path = "tools/loadtest/profiles/evm_transfer_write_file.json"
+lines = 37
+verdict = "issues"
+note = "Read every profile field, endpoint, account/scenario setting, optional gas control, report/file destination and positive bounds. Compared with LoadConfig/Settings and the real CLI resolution path; hardcoded chain identity is recorded separately from the shared profile-bound wiring defect."
+
+[file.054]
+path = "tools/loadtest/profiles/loadtest_default.json"
+lines = 50
+verdict = "issues"
+note = "Read every profile field, endpoint, account/scenario setting, optional gas control, report/file destination and positive bounds. Compared with LoadConfig/Settings and the real CLI resolution path; hardcoded chain identity is recorded separately from the shared profile-bound wiring defect."
+
+[file.055]
+path = "tools/loadtest/profiles/local.json"
+lines = 50
+verdict = "issues"
+note = "Read every profile field, endpoint, account/scenario setting, optional gas control, report/file destination and positive bounds. Compared with LoadConfig/Settings and the real CLI resolution path; hardcoded chain identity is recorded separately from the shared profile-bound wiring defect."
+
+[file.056]
+path = "tools/loadtest/profiles/local_docker.json"
+lines = 37
+verdict = "issues"
+note = "Read every profile field, endpoint, account/scenario setting, optional gas control, report/file destination and positive bounds. Compared with LoadConfig/Settings and the real CLI resolution path; hardcoded chain identity is recorded separately from the shared profile-bound wiring defect."
+
+[file.057]
+path = "tools/loadtest/profiles/profiles_test.go"
+lines = 212
+verdict = "clean"
+note = "Read all shipped-profile discovery and JSON/id/endpoints/scenario/positive-bound validations; these assert static profile shape and do not prove chain-id negotiation, bounds wiring or release-candidate calibration."
+
+[file.058]
+path = "tools/loadtest/scripts/generate_scenario_template.sh"
+lines = 106
+verdict = "issues"
+note = "Read complete heredoc, constructor, deployment/binding/attachment scaffold and explicit operation TODO; obsolete constructor signatures are recorded."
+
+[file.059]
+path = "tools/loadtest/scripts/update_factory.sh"
+lines = 44
+verdict = "clean"
+note = "Read argument capture, marker-preserving sed pipeline, actual-tab entry rendering and replacement; current output entries agree with the configuration-aware factory registry. The separately reviewed template constructor is the generation mismatch."
+
+[file.060]
+path = "tools/loadtest/sender/dispatcher.go"
+lines = 146
+verdict = "clean"
+note = "Read generated transaction loop, sender queueing, debug/collector and prewarm loop; it forwards send/cancellation errors and does not own durable writer finalization or receipt completion."
+
+[file.061]
+path = "tools/loadtest/sender/metrics.go"
+lines = 88
+verdict = "issues"
+note = "Read instruments, units, attributes, observable queue callback and global worker registration; stale registration identity across runs is recorded."
+
+[file.062]
+path = "tools/loadtest/sender/ramper.go"
+lines = 199
+verdict = "issues"
+note = "Read complete ramp curve, limiter changes, background SLO window loop, shutdown and highest-passed summary; absent committed progress is treated as healthy and is recorded."
+
+[file.063]
+path = "tools/loadtest/sender/ramper_test.go"
+lines = 187
+verdict = "issues"
+note = "Read curve/progression/recovery/SLO tests using MockBlockStats; lack of a real committed-block transport path is recorded."
+
+[file.064]
+path = "tools/loadtest/sender/sender.go"
+lines = 10
+verdict = "clean"
+note = "Read Sender interface, sharded sender wrapper, options/setters and run lifecycle; delegation/types agree with dispatcher/worker consumers. Final receipt accounting and intentional cancellation are recorded at worker.go/main.go."
+
+[file.065]
+path = "tools/loadtest/sender/sender_test.go"
+lines = 165
+verdict = "issues"
+note = "Read mock server and shard distribution tests; invalid hash fixture and missing actual node submission/receipt path are recorded."
+
+[file.066]
+path = "tools/loadtest/sender/sharded_sender.go"
+lines = 151
+verdict = "clean"
+note = "Read endpoint worker construction, per-account shard routing, child lifecycle and statistics setters; address modulo routing agrees with types.LoadTx.ShardID and keeps a sender on one endpoint."
+
+[file.067]
+path = "tools/loadtest/sender/worker.go"
+lines = 270
+verdict = "issues"
+note = "Read all queue, request, response, limiter, collector, receipt polling and metrics code; JSON-RPC result loss, tracking loss and busy polling are recorded."
+
+[file.068]
+path = "tools/loadtest/sender/writer.go"
+lines = 98
+verdict = "issues"
+note = "Read gas-bound batching, payload JSON, path construction, deferred state transitions and limits; write failure/restart data loss and off-by-one completion are recorded."
+
+[file.069]
+path = "tools/loadtest/sender/writer_test.go"
+lines = 58
+verdict = "issues"
+note = "Read all three generated sends and buffer assertions; no persisted-byte/restart/failure assertion accompanies the durable writer and this gap is recorded."
+
+[file.070]
+path = "tools/loadtest/stats/block_collector.go"
+lines = 275
+verdict = "issues"
+note = "Read entire WS subscription, headers, metrics, bounded history, cumulative/window summaries, percentiles and resets; recovery and chain-time/sample semantics are recorded."
+
+[file.071]
+path = "tools/loadtest/stats/bounds.go"
+lines = 55
+verdict = "issues"
+note = "Read every bound comparison, deterministic endpoint sorting and exact violation encoding; numerical semantics agree with direct tests but missing sample evidence can pass an enabled latency gate."
+
+[file.072]
+path = "tools/loadtest/stats/bounds_test.go"
+lines = 120
+verdict = "clean"
+note = "Read all exact violations, independent/equality/disabled bounds, deterministic sorting and full uint64 cases; assertions match the direct Bounds.Check producer and remain valuable alongside proposed real evidence tests."
+
+[file.073]
+path = "tools/loadtest/stats/collector.go"
+lines = 446
+verdict = "issues"
+note = "Read counters, success-only latency retention, TPS windows, locking, reset/copies, endpoint and block summaries; failed attempts feed qualification throughput and missing successful samples are recorded."
+
+[file.074]
+path = "tools/loadtest/stats/logger.go"
+lines = 372
+verdict = "clean"
+note = "Read all FinalStats JSON tags, duration fields, distributions, summary calculations, console formatting and report writes; MarshalIndent/report-error behavior satisfies 16248.1-.2. Attempt-count semantics originate in collector.go, and current registry text-report notes are stale."
+
+[file.075]
+path = "tools/loadtest/stats/logger_test.go"
+lines = 78
+verdict = "clean"
+note = "Read all JSON report decoding/write-error assertions; they preserve expected fields and returned errors with a real temporary-file path. They test report serialization rather than proving submitted/committed transaction success."
+
+[file.076]
+path = "tools/loadtest/stats/metrics.go"
+lines = 39
+verdict = "clean"
+note = "Read every instrument, name, unit, histogram boundary and attribute consumer; stats observations use consistent numeric units with blockCollector and sender registration."
+
+[file.077]
+path = "tools/loadtest/stats/mock_block_collector.go"
+lines = 99
+verdict = "clean"
+note = "Read explicit test double implementing BlockStatsProvider and sample percentile/reset behavior; it is a test support implementation rather than production block-finality evidence."
+
+[file.078]
+path = "tools/loadtest/stats/mock_block_collector_test.go"
+lines = 157
+verdict = "clean"
+note = "Read complete synchronization, percentile/window/reset and mock data assertions; they agree with the test-support producer and do not establish the actual WS/node contract."
+
+[file.079]
+path = "tools/loadtest/stats/user_latency_tracker.go"
+lines = 108
+verdict = "issues"
+note = "Read ticker/client lifetime, latest block query, timestamp conversion and quantile logging; attribution and repeated/unrelated sample errors are recorded."
+
+[file.080]
+path = "tools/loadtest/types/account.go"
+lines = 47
+verdict = "clean"
+note = "Read cryptographically random workload key generation, address derivation, atomic nonce operations and private-key setup; this is explicitly a load-generator identity source, and no claim of production-keystore secrecy or funded live-network suitability is made."
+
+[file.081]
+path = "tools/loadtest/types/account_pool.go"
+lines = 52
+verdict = "issues"
+note = "Read pool/new-account probability, index rotation and constructor; an admitted empty fixed pool can panic and is recorded."
+
+[file.082]
+path = "tools/loadtest/types/scenario.go"
+lines = 77
+verdict = "clean"
+note = "Read complete typed LoadTx/TxScenario, binary and JSON-RPC encoding, hex prefix, request id and address-based ShardID; eth_sendRawTransaction request shape agrees with the node API. No environment variable named ID or spot precompile call is made by the coincidentally named fields."
+
+[file.083]
+path = "tools/loadtest/types/types_test.go"
+lines = 499
+verdict = "clean"
+note = "Read all 499 lines of account/key/address, nonce, pool, JSON-RPC/binary, shard and probabilistic assertions; fixtures match request producer shapes, but they do not consume actual node submission responses."
+
+[file.084]
+path = "tools/loadtest/utils/channels.go"
+lines = 74
+verdict = "clean"
+note = "Read full generic send/receive, closed-channel waiting, optional drop and ForEach cancellation behavior; channel transport and error semantics agree with service/worker users. Atomic watch transport is defined in mutex.go."
+
+[file.085]
+path = "tools/loadtest/utils/endpoint.go"
+lines = 18
+verdict = "clean"
+note = "Read full HTTP/HTTPS to WS/WSS conversion and fallback behavior against block subscription usage; root paths and TLS scheme are preserved and no retired /rpc suffix is appended."
+
+[file.086]
+path = "tools/loadtest/utils/mutex.go"
+lines = 234
+verdict = "clean"
+note = "Read entire generic mutex/iterator implementation and unlock lifecycle; synchronization types agree with block collector and generator usage."
+
+[file.087]
+path = "tools/loadtest/utils/option.go"
+lines = 73
+verdict = "clean"
+note = "Read complete generic optional-value API, presence/Get/default/mapping operations and JSON codec behavior; callers use the declared presence/value semantics."
+
+[file.088]
+path = "tools/loadtest/utils/proto.go"
+lines = 143
+verdict = "issues"
+note = "Read full hashing, cloning, equality, conversion and generic helper definitions; unused nondeterministic ProtoHash is recorded, with no claim that it participates in chain consensus."
+
+[file.089]
+path = "tools/loadtest/utils/semaphore.go"
+lines = 24
+verdict = "clean"
+note = "Read full capacity/cancellation acquisition and release accounting; declared permit behavior agrees with its utility scope and no persisted chain state is involved."
+
+[file.090]
+path = "tools/loadtest/utils/service/parallel.go"
+lines = 41
+verdict = "clean"
+note = "Read complete parallel worker/scope helpers and cancellation/result joining; types and propagation agree with service.Run users."
+
+[file.091]
+path = "tools/loadtest/utils/service/parallel_test.go"
+lines = 49
+verdict = "clean"
+note = "Read complete concurrency, error and cancellation assertions; they exercise actual utility goroutines and retain the producer error semantics."
+
+[file.092]
+path = "tools/loadtest/utils/service/start.go"
+lines = 143
+verdict = "clean"
+note = "Read complete Scope/JoinHandle/Spawn/SpawnBg/Run/Run1 error-group and cancellation lifecycles; behavior matches its documented first-error contract. The caller needing graceful signal normalization is identified in main.go."
+
+[file.093]
+path = "tools/loadtest/utils/testonly.go"
+lines = 152
+verdict = "issues"
+note = "Read complete ReadOnly exporter, diff, randomized generators and ProtoConv round-trip helper; exporter marker predicate is broader than its documented opt-in and is recorded."
+
+[file.094]
+path = "tools/loadtest/utils/wait.go"
+lines = 119
+verdict = "clean"
+note = "Read complete cancellation, timeouts, sleeps, WaitFor/WaitForWithTimeout and text duration codec; callers receive declared context errors. Current Go garbage collection does not justify claiming a permanent unreferenced ticker leak."
+
+[file.095]
+path = "tools/loadtest/utils/wait_test.go"
+lines = 19
+verdict = "clean"
+note = "Read all timeout/cancellation/sleep/poll and duration-codec assertions; they agree with the actual helper interface and no retired network route is asserted."
+
+[finding.kernel-backend]
+file = "docker/kernel/init.sh"
+line = 1294
+class = "wiring-gap"
+severity = "high"
+observed = "The core and receipt-authority services wait for run/node/generation.sock and use loopback node/replica ports 9401/9402, but this init script starts neither a generation producer nor a paxd kernel. Both Dockerfile entrypoints run this script. The copied supervisor resolves the retired layerxd binary, which the image no longer supplies."
+expected = "Brief facts 1-2 require the kernel to propose through the single paxd network; live boundaries need a started producer and readiness transport that survives node restart. Registry 16.cli-dock-kernel-init remains marked change."
+proposal = "In docker/kernel/init.sh and docker/kernel/Dockerfile, assemble the merged paxd kernel and its typed in-process boundaries, replace the generation.sock/core.env dependencies with committed-chain readiness, and prove cold start plus restart with the actual node; retire the old supervisor dependencies."
+owner_domain = 16
+interface = "16.cli-dock-kernel-init"
+
+[finding.kernel-retired-state]
+file = "docker/kernel/init.sh"
+line = 61
+class = "retired-reference"
+severity = "medium"
+observed = "The image still provisions settlement.env, guarantor-1/2 and guarantor-submitter storage, hardcodes custody 0x1013 and anchor 0x1014, and builds sequencer trust history for receipt-authority/replica consumers. These are operational state and launch inputs, not merely historical comments."
+expected = "The brief and retired-component inventory remove the separate sequencer, guarantor settlement, deposit/exit escrow and checkpoint anchor from the merged network."
+proposal = "In docker/kernel/init.sh, remove retired launch inputs and service wiring, preserve existing durable volumes under an explicit migration policy, and source identity/finality from committed paxd chain state. Reconcile registry 16.cli-dock-kernel-init and the authority environment rows."
+owner_domain = 16
+interface = "16.cli-dock-kernel-init"
+
+[finding.kernel-image-retired-assembly]
+file = "docker/kernel/Dockerfile"
+line = 323
+class = "retired-reference"
+severity = "medium"
+observed = "The native and full runtime stages package bootstrap.sh, supervisor.sh, generation_client.py and generation_transport.py from the separate-daemon deployment. The image still packages layerx-receipt-authority and the init entrypoint expects that obsolete assembly."
+expected = "Brief facts 1-2 require an image whose runnable components implement the merged paxd kernel, with no layerxd/authority-replica deployment dependency."
+proposal = "In docker/kernel/Dockerfile, build and package the merged kernel entrypoint and its current runtime dependency closure, remove the retired bootstrap/supervisor bundle, and align services/wallet/deploy/human.toml with the resulting image."
+owner_domain = 16
+interface = "16.fmt-dock-kernel-dockerfile"
+
+[finding.kernel-rpc-hosts]
+file = "docker/kernel/init.sh"
+line = 117
+class = "config-drift"
+severity = "medium"
+observed = "The public RPC allowlist accepts api15 and api16.mainnet-beta.paxeer.network and rejects api-mainnet-beta.paxeer.network; its pattern is api[1-9] or api1[0-6]."
+expected = "Brief fact 3 permits api1 through api14 plus api-mainnet-beta.paxeer.network at the root path, while retaining two distinct serving names for quorum."
+proposal = "In docker/kernel/init.sh, validate the exact fourteen numbered names and aggregate name, retain distinct-peer and TLS checks, and update kernel.env.example plus hostname acceptance/refusal coverage."
+owner_domain = 16
+interface = "16.env-dock-kernel-init-layerx-kernel-paxeer-rpc-names"
+
+[finding.kernel-native-network-name]
+file = "docker/kernel/init.sh"
+line = 1226
+class = "config-drift"
+severity = "medium"
+observed = "LAYERX_NODE_NETWORK_NAME is required at startup only for the full profile, but receipt_authority_prepare and agent_boundary_prepare call network_name in both profiles and wait indefinitely when it is unset. kernel.env.example leaves it empty under Full profile only."
+expected = "The declared native profile must either start with its documented inputs or refuse missing required inputs immediately with an actionable error."
+proposal = "In docker/kernel/init.sh and kernel.env.example, remove obsolete boundary name dependencies when merging the kernel, or require any surviving name consistently for both profiles before starting child services; cover the native default input set."
+owner_domain = 16
+
+[finding.kernel-kms-chain-selection]
+file = "docker/kernel/init.sh"
+line = 1848
+class = "config-drift"
+severity = "medium"
+observed = "human_kms_chain_snapshot writes the strict KMS chain_id-only document and refuses any id except 125, but its caller passes LAYERX_NODE_NETWORK_ID rather than LAYERX_NODE_PAXEER_CHAIN_ID, which this script separately fixes to 125. A different domain/network id prevents KMS preparation."
+expected = "The Human KMS registry-file consumer accepts EVM chain_id 125; network/domain identity and EVM signing chain identity must not be selected through interchangeable configuration keys."
+proposal = "In docker/kernel/init.sh, pass the authoritative EVM chain id to human_kms_chain_snapshot while retaining the network id for domain policy material, and prove the projected file is accepted by the real services/human KMS loader with distinct domain and EVM ids."
+owner_domain = 16
+interface = "10.env-layerx-human-kms-registry-file"
+
+[finding.migration-paths]
+file = "launchpad/spec/production-system/integration/migrations/registry.json"
+line = 87
+class = "wiring-gap"
+severity = "medium"
+observed = "All 75 registrations name SQL under spec/production-system/integration/migrations, while the files now live under launchpad/spec/production-system/integration/migrations. coordinatortest reads m.Path from the monorepo root and rewrites only core/ and media/ prefixes, so its first registered SQL read cannot find the declared path. Source-input paths also retain the old layout."
+expected = "Registered migration paths and source provenance must resolve through the real coordinator consumer in the merged repository before service readiness or recovery can be qualified."
+proposal = "In launchpad/spec/production-system/integration/migrations/registry.json and sdk/launchpad/shared/db/production/coordinatortest, adopt one explicit monorepo-relative path convention, carry source_inputs to the relocated owners, preserve verified SQL digests, and prove bootstrap as the real least-privilege runtime roles."
+owner_domain = 16
+
+[finding.migration-admission-unqualified]
+file = "launchpad/spec/production-system/integration/migrations/registry.json"
+line = 3
+class = "wiring-gap"
+severity = "medium"
+observed = "The registry explicitly remains implemented-not-qualified. Every registration has null interface_digest, reader_min_version, estimated_lock_ms and approval_manifest_digest; pg_trgm has no admitted version and existing-database fingerprints are null."
+expected = "The registry itself requires real combined PostgreSQL qualification, reviewed reader versions, frozen output digests, measured locks at most 2000ms and independently approved legacy schema fingerprints before upgrade admission."
+proposal = "For launchpad/spec/production-system/integration/migrations/registry.json, obtain the reviewed deployment inputs and real combined PostgreSQL evidence, publish exact measured versions/digests/lock bounds and approval references, and keep production admission refused until they are present; do not fill nulls with guessed values."
+owner_domain = 16
+
+[finding.readiness-registry-digest]
+file = "launchpad/spec/production-system/integration/migrations/readiness.json"
+line = 3
+class = "config-drift"
+severity = "medium"
+observed = "readiness.json binds registry_sha256 7e62c0cc39e4a11ed85b83c612bf30f2fda486a1fd6d7e5be250ac4f5b4e3101, but the audited registry.json bytes hash to 71cb53f797b20d51c6135bae3c855e9d3de95f0e200bbf4fb6283299f8bd82d7. Catalog fingerprints, reader versions and recovery epoch/region remain null."
+expected = "Readiness evidence must bind the exact reviewed migration registry and the actual deployment schema/recovery epoch, with no stale approval surviving a registry change."
+proposal = "In launchpad/spec/production-system/integration/migrations/readiness.json, reissue the registry binding only after the complete migration set is qualified and bind measured catalog/reader/recovery evidence; keep the trusted ExpectedSchema gate closed while evidence is absent."
+owner_domain = 16
+
+[finding.legacy-import-evidence]
+file = "launchpad/spec/production-system/integration/migrations/legacy-history-aliases.json"
+line = 16
+class = "restart-recovery"
+severity = "medium"
+observed = "Every listed legacy source has an exact checksum and byte count but a null structural_fingerprint; the manifest explicitly says existing_database_import requires an independently approved structural fingerprint and exact history checksums."
+expected = "An existing production database must be admitted from its actual structure and provenance, rather than treating a matching maximum version or a fresh bootstrap as an import proof."
+proposal = "For launchpad/spec/production-system/integration/migrations/legacy-history-aliases.json, collect reviewed structural fingerprints from each real source schema and exercise the coordinator import/restart refusal paths against mismatched histories before approving the upgrade."
+owner_domain = 16
+
+[finding.profile-bounds-unwired]
+file = "tools/loadtest/main.go"
+line = 109
+class = "interface-mismatch"
+severity = "high"
+observed = "runLoadTest loads cfg.Settings then calls ResolveSettings, but never calls config.MergeBounds. Every shipped profile emits a top-level bounds object, so its minAverageTps/maxP99LatencyMs/minTotalTxs never reach enforceBounds; the proof test explicitly documents this caller gap."
+expected = "Requirements 16250.1 and 16251.1 and registry 16.cfg-paxload-loadconfig-bounds-j59 require profile bounds to reach effective settings and cause regression failure without extra flags, with explicit flags retaining precedence."
+proposal = "In tools/loadtest/main.go, merge profile bounds into the profile settings before LoadSettings/ResolveSettings so flag precedence, including explicit zero, remains correct. Add a real CLI profile-to-report-to-exit proof covering violations and successful runs."
+owner_domain = 16
+interface = "16.cfg-paxload-loadconfig-bounds-j59"
+
+[finding.profile-proof-does-not-run-cli]
+file = "tools/loadtest/config/proof_paxload_bounds_test.go"
+line = 230
+class = "test-gap"
+severity = "medium"
+observed = "The subprocess proof manually calls MergeBounds in proofBoundsConsume, while TestProofPaxloadBoundsCallerGap asserts that the actual runLoadTest sequence observes zero bounds. The passing proof therefore exercises a different configuration pipeline from the shipped command."
+expected = "Brief check 7 requires the real producer, transport and consumer path; requirement 16251.1 requires a profile invocation to fail on regression without flags."
+proposal = "In tools/loadtest/config/proof_paxload_bounds_test.go and main_test.go, preserve the configuration precision/precedence assertions and add an actual CLI invocation that loads a shipped profile and observes ErrPerformanceBounds and the resulting process exit after real collection."
+owner_domain = 16
+
+[finding.top-level-report-path]
+file = "tools/loadtest/config/config.go"
+line = 23
+class = "interface-mismatch"
+severity = "high"
+observed = "LoadConfig exposes top-level reportPath as the path to a JSON report, but runLoadTest constructs Logger exclusively with resolved Settings.ReportPath. No production code transfers cfg.ReportPath into settings, so the declared top-level field silently produces no report."
+expected = "Registry 16.cfg-paxload-loadconfig-reportpath promises the top-level reportPath field, and requirement 16248 requires the JSON report path to reach the writer with write failures returned."
+proposal = "In tools/loadtest/main.go and config/config.go, define and implement precedence for top-level reportPath, settings.reportPath and --report-path, or explicitly migrate/deprecate the redundant key with a refusal message; prove file creation through the real CLI."
+owner_domain = 16
+interface = "16.cfg-paxload-loadconfig-reportpath"
+
+[finding.optional-settings-refused]
+file = "tools/loadtest/main.go"
+line = 104
+class = "interface-mismatch"
+severity = "high"
+observed = "LoadConfig.Settings is optional in the declared profile shape, but runLoadTest passes a nil Settings pointer to LoadSettings, which returns config settings are required. A valid minimal profile with endpoints/scenarios and omitted settings fails before defaults can be resolved."
+expected = "Registry 16.cfg-paxload-loadconfig-settings declares settings,omitempty and config.DefaultSettings supplies operational defaults; omitted optional settings must be accepted consistently by the command consumer."
+proposal = "In tools/loadtest/main.go, initialize absent profile settings to a fresh default/zero settings object using the documented precedence before merging bounds and loading Viper, and prove a minimal producer profile reaches actual CLI execution."
+owner_domain = 16
+interface = "16.cfg-paxload-loadconfig-settings"
+
+[finding.configuration-admission]
+file = "tools/loadtest/main.go"
+line = 375
+class = "runtime-risk"
+severity = "medium"
+observed = "loadConfig validates only nonempty endpoints and scenarios. It accepts negative account counts/weights, empty fixed pools, invalid newAccountRate, nonpositive durations and negative block counts; downstream allocation, modulo, ticker and uint64 conversion paths can panic or create enormous unintended workloads."
+expected = "Brief check 4 requires bounded configuration inputs to be refused before allocation or transaction generation with an actionable field error."
+proposal = "In tools/loadtest/main.go and config, validate chain/endpoint identity, bounded account and worker counts, rate in [0,1], positive fixed-pool size, positive enabled durations, nonnegative weights with positive total, gas/fee ranges and positive writer limits before constructing generators or services."
+owner_domain = 16
+
+[finding.empty-account-pool]
+file = "tools/loadtest/types/account_pool.go"
+line = 47
+class = "runtime-risk"
+severity = "medium"
+observed = "NewAccountPool accepts an empty Accounts slice with NewAccountRate below 1. NextAccount then indexes the empty pool through nextIndex, which is reachable from a profile with count 0; the constructor also accepts nil configuration without a diagnostic."
+expected = "A fixed account-pool request must be validated as nonempty before transaction generation, while a deliberately fresh-only pool may have no fixed accounts."
+proposal = "In tools/loadtest/types/account_pool.go, return a descriptive admission error for nil/invalid pool configuration and require a nonempty fixed pool unless the fresh-account rate is exactly 1; thread that error through the real config-based generator."
+owner_domain = 16
+
+[finding.weighted-empty]
+file = "tools/loadtest/generator/weighted.go"
+line = 105
+class = "runtime-risk"
+severity = "medium"
+observed = "NewWeightedGenerator materializes one slice entry per weight without an upper bound and allows zero/negative weights. Multiple nonpositive configurations produce an empty slice that nextGenerator indexes; a single configuration bypasses its weight entirely."
+expected = "Scenario weighting must admit a bounded positive total and preserve the same weight semantics for one or many scenarios, without a panic or unbounded memory amplification."
+proposal = "In tools/loadtest/generator/weighted.go and generator/generator.go, refuse invalid weight sets before construction and select by bounded cumulative weights instead of expanding an attacker-controlled number of slice entries."
+owner_domain = 16
+
+[finding.prewarm-coverage]
+file = "tools/loadtest/generator/prewarm.go"
+line = 56
+class = "runtime-risk"
+severity = "medium"
+observed = "Prewarming infers pool completion from the next selected account nonce and stops the entire operation when two successive pool selections have nonzero nonces. Weighted.GetAccountPools repeats a pool per weight and scenarios can share pools, so later distinct pools are skipped; a fresh-only pool keeps generating nonce-zero accounts forever."
+expected = "Prewarming must visit every finite workload account exactly once and terminate independently of random account selection or duplicated scenario weights, before measured workload traffic begins."
+proposal = "In tools/loadtest/generator/prewarm.go and weighted.go, enumerate and deduplicate the fixed account population explicitly, define the fresh-only behavior, and wait for actual prewarm completion/receipts before resetting measurement counters and beginning the measured phase."
+owner_domain = 16
+
+[finding.contract-gas-pickers]
+file = "tools/loadtest/generator/scenarios/base.go"
+line = 218
+class = "interface-mismatch"
+severity = "high"
+observed = "ContractScenarioBase.CreateTransaction builds hardcoded options through CreateTransactionOpts and never applies scenarioConfig.GasPicker, GasTipCapPicker or GasFeeCapPicker. The EVM transfer scenarios consume those same profile keys, while contract workloads silently ignore them."
+expected = "Registry 16.cfg-paxload-scenario-gaspicker and the two fee-picker rows declare per-Scenario controls; the signed transaction must preserve the selected gas/fee values for every supported scenario."
+proposal = "In tools/loadtest/generator/scenarios/base.go and generator/utils/utils.go, apply validated per-scenario gas/fee selections through the common transaction-options path and define precedence over scenario defaults. Prove the signed transactions through the actual generator and contract consumer."
+owner_domain = 16
+interface = "16.cfg-paxload-scenario-gaspicker"
+
+[finding.disperse-value]
+file = "tools/loadtest/generator/scenarios/Disperse.go"
+line = 81
+class = "runtime-risk"
+severity = "medium"
+observed = "DeployContract sets fixedEtherAmount to 1 and CreateContractTransaction passes 100 recipients to DisperseEtherFixed with auth.Value unset. Disperse.sol requires msg.value == fixedEtherAmount * recipients.length, so every produced call reverts; the shared 200000 gas limit is also too small for 100 fresh-account value transfers."
+expected = "The advertised Disperse workload must execute the batch transfers it measures and fund the exact value and gas required by its own deployed contract."
+proposal = "In tools/loadtest/generator/scenarios/Disperse.go, set the exact payable batch value, choose a bounded batch size with sufficient configured/estimated gas, and prove a generated signed call succeeds against the bundled Solidity contract and produces recipient balances."
+owner_domain = 16
+
+[finding.conflict-under-gas]
+file = "tools/loadtest/generator/scenarios/ERC20Conflict.go"
+line = 73
+class = "runtime-risk"
+severity = "medium"
+observed = "ERC20Conflict fixes GasLimit to 22460 for Transfer. The bundled contract initializes/updates sender and recipient balances and increments counter, so intrinsic gas plus these storage operations exceeds the limit and the intended conflict workload reverts."
+expected = "The conflict scenario must exercise committed conflicting state writes, and its gas limit must admit the contract path used to claim throughput."
+proposal = "In tools/loadtest/generator/scenarios/ERC20Conflict.go, derive a realistic bounded gas default and honor configured overrides; prove counter and balance changes from a generated transaction receipt on the real EVM execution path."
+owner_domain = 16
+
+[finding.nft-under-gas]
+file = "tools/loadtest/generator/scenarios/ERC721.go"
+line = 57
+class = "runtime-risk"
+severity = "medium"
+observed = "ERC721 fixes GasLimit to 22460 for Mint even though the bundled _mint writes owner and balance storage and emits Transfer. The generated NFT workload runs out of gas instead of minting its advertised tokens."
+expected = "The supported ERC721 scenario must produce successful mint receipts and measurable state changes under the actual node gas schedule."
+proposal = "In tools/loadtest/generator/scenarios/ERC721.go, use an admitted mint gas limit and the common configurable options path, then prove generated calls mint the expected owner/balance through real receipts."
+owner_domain = 16
+
+[finding.noop-scenario-name]
+file = "tools/loadtest/generator/scenarios/EVMTransferNoop.go"
+line = 29
+class = "runtime-risk"
+severity = "medium"
+observed = "EVMTransferNoopScenario.Name returns EVMTransfer rather than EVMTransferNoop. scenarioGenerator copies that name into TxScenario, so noop and value-transfer transactions are merged in scenario distributions and metrics."
+expected = "A configured EVMTransferNoop scenario must retain its own identity from factory selection through JSON reports and metric labels."
+proposal = "In tools/loadtest/generator/scenarios/EVMTransferNoop.go, return EVMTransferNoop and verify a mixed real generator preserves distinct noop/value scenario names in the collector and final report."
+owner_domain = 16
+
+[finding.random-gas-overflow]
+file = "tools/loadtest/config/gas.go"
+line = 80
+class = "runtime-risk"
+severity = "medium"
+observed = "RandomGasGenerator accepts Min=0 and Max=18446744073709551615 because Min<Max, but Max-Min+1 wraps to zero and rand.Uint64N(0) panics instead of returning the declared error result."
+expected = "Every admitted uint64 gas range must either generate values within its inclusive bounds or return an explicit validation error without arithmetic overflow."
+proposal = "In tools/loadtest/config/gas.go, validate the inclusive range width before arithmetic or use an overflow-safe full-range sampler, and cover the actual JSON-to-picker-to-transaction boundary at the uint64 endpoints."
+owner_domain = 16
+
+[finding.fee-cap-sign-conversion]
+file = "tools/loadtest/generator/scenarios/EVMTransfer.go"
+line = 72
+class = "runtime-risk"
+severity = "medium"
+observed = "EVMTransfer and EVMTransferNoop convert uint64 gas-tip and fee-picker results through int64 before constructing big.Int. Values above MaxInt64 become negative fee caps and fail signing/encoding or panic through ScenarioBase.Generate."
+expected = "The uint64 picker contract must preserve unsigned fee values in the transaction representation or explicitly refuse values outside a documented admitted range."
+proposal = "In tools/loadtest/generator/scenarios/EVMTransfer.go and EVMTransferNoop.go, construct positive big.Int values with SetUint64 and validate fee-cap/tip-cap relationships before signing; preserve errors through generator construction rather than panicking."
+owner_domain = 16
+
+[finding.deployment-lifecycle]
+file = "tools/loadtest/generator/scenarios/base.go"
+line = 175
+class = "runtime-risk"
+severity = "medium"
+observed = "Contract deployment dials a client without closing it and creates transaction options without an owning context. The 30-second context is created only after DeployContract has already performed RPC; deployment errors panic instead of returning through runLoadTest."
+expected = "Startup RPC work must have a bounded cancellation scope and propagate actionable deployment errors to the CLI, releasing client resources on every exit path."
+proposal = "In tools/loadtest/generator/scenarios/base.go and generator/utils/utils.go, thread the run context/deadline through deployment options and binding calls, close client lifetimes explicitly, and return errors from the real generator setup path."
+owner_domain = 16
+
+[finding.writer-error-data-loss]
+file = "tools/loadtest/sender/writer.go"
+line = 61
+class = "restart-recovery"
+severity = "high"
+observed = "Flush unconditionally defers clearing txBuffer and bufferGas and advancing nextHeight/blocksGenerated. If MkdirAll or WriteFile fails, the buffered transactions are discarded and the writer advances despite producing no valid block file."
+expected = "A failed durable write must preserve the pending transaction batch and height so retry/recovery can publish it exactly once without losing generated data."
+proposal = "In tools/loadtest/sender/writer.go, commit buffer and height changes only after a successful durable file publication, preserve the original error and pending data on failure, and prove recovery from a real filesystem failure followed by retry."
+owner_domain = 16
+
+[finding.writer-restart-overwrite]
+file = "tools/loadtest/sender/writer.go"
+line = 87
+class = "restart-recovery"
+severity = "high"
+observed = "Flush writes directly to <height>_txs.json with os.WriteFile, which truncates an existing file. A repeated run with the same start height overwrites prior data, and interruption during the write can leave a partial JSON file with no resume record or atomic publication."
+expected = "Persisted transaction batches must survive restart and must never be silently replaced by a later workload run using the same output directory."
+proposal = "In tools/loadtest/sender/writer.go, use exclusive/atomic publication with a flushed temporary file and directory durability, refuse conflicting existing batches, and implement an explicit resume manifest or separate per-run directory; prove crash/restart and duplicate-height behavior."
+owner_domain = 16
+
+[finding.writer-block-limit]
+file = "tools/loadtest/sender/writer.go"
+line = 93
+class = "runtime-risk"
+severity = "medium"
+observed = "Flush checks blocksGenerated >= numBlocks before the deferred increment but after writing a file. With numBlocks=1 the first flush returns nil and the second writes a second file before returning the limit error; Send then drops the transaction that triggered that flush."
+expected = "numBlocksToWrite must publish exactly the requested number of nonempty block batches and finish cleanly at that boundary without a surplus file or an unaccounted triggering transaction."
+proposal = "In tools/loadtest/sender/writer.go and dispatcher.go, check capacity before starting another batch and represent normal completion separately from a write failure; cover one-block, final-batch and oversized-transaction cases using actual files."
+owner_domain = 16
+
+[finding.writer-shutdown-tail]
+file = "tools/loadtest/main.go"
+line = 249
+class = "restart-recovery"
+severity = "medium"
+observed = "The file-output writer is scoped inside service setup and passed only as a Sender to Dispatcher. Shutdown never calls Flush, so any final batch that has not exceeded TargetGas disappears when SIGINT/SIGTERM stops generation."
+expected = "A completed file-generation run must publish or explicitly retain its partial final batch during orderly shutdown rather than silently dropping it."
+proposal = "In tools/loadtest/main.go and sender/writer.go, own a writer finalization lifecycle that stops generation, drains the accepted batch and atomically flushes the tail before the final report; return any finalization failure to the process exit."
+owner_domain = 16
+
+[finding.writer-test-durability-gap]
+file = "tools/loadtest/sender/writer_test.go"
+line = 14
+class = "test-gap"
+severity = "medium"
+observed = "TestTxsWriter_Flush writes to shared /tmp at height 1 and asserts only in-memory buffer/height changes. It never reads a generated file, covers a failed filesystem write, checks the requested file count, flushes shutdown tail or restarts the writer."
+expected = "Brief checks 5 and 7 require durable-output claims to be asserted on actual stored bytes through failure, restart and recovery paths."
+proposal = "In tools/loadtest/sender/writer_test.go, retain the transaction/buffer assertions and use a private directory to verify decoded payloads, exact file count, write-error retention, atomic publication and restart conflict handling with real filesystem operations."
+owner_domain = 16
+
+[finding.rpc-response-not-decoded]
+file = "tools/loadtest/sender/worker.go"
+line = 249
+class = "interface-mismatch"
+severity = "high"
+observed = "sendTransaction treats every HTTP 200 as success and discards the JSON body. rpc.SendAPI.SendRawTransaction returns either a 32-byte transaction hash or an error; JSON-RPC errors, malformed results and a mismatched hash all enter the success collector and receipt queue."
+expected = "Registry 7.rpc-eth-sendrawtransaction requires the error/hash result to survive JSON-RPC transport; successful submission must mean a validated response for this signed transaction, not merely an HTTP status."
+proposal = "In tools/loadtest/sender/worker.go, decode a bounded JSON-RPC response, validate version/id/error and exact result hash against tx.EthTx.Hash(), propagate node error codes and mark success only after validation. Prove rejected and accepted submissions through the real node RPC producer."
+owner_domain = 16
+interface = "7.rpc-eth-sendrawtransaction"
+
+[finding.receipt-coverage-loss]
+file = "tools/loadtest/sender/worker.go"
+line = 255
+class = "runtime-risk"
+severity = "medium"
+observed = "The receipt queue uses a nonblocking send with an empty default branch, silently dropping tracking when full. A single watcher waits up to ten seconds per receipt, logs failures without updating final outcome counts, and defers each child cancel until the watcher exits."
+expected = "trackReceipts must account for every admitted transaction with a bounded successful/failed/timed-out result, so a saturated tracker cannot silently present incomplete finality evidence."
+proposal = "In tools/loadtest/sender/worker.go, use bounded concurrent receipt work with explicit backpressure or a visible dropped/unresolved count, cancel per-item contexts promptly, close the client and propagate receipt outcomes into final statistics before shutdown."
+owner_domain = 16
+
+[finding.rate-limit-spin]
+file = "tools/loadtest/sender/worker.go"
+line = 178
+class = "runtime-risk"
+severity = "medium"
+observed = "Each worker busy-spins with continue while the shared rate limiter denies a token. At low TPS or during the ramper recovery interval, many idle worker goroutines consume CPU and distort the same node/load-generator measurements being reported."
+expected = "A rate-limited load generator must wait cancellably for capacity and spend resources on the configured workload rather than on unbounded polling."
+proposal = "In tools/loadtest/sender/worker.go, use the limiter's context-aware wait/reservation path and preserve cancellation and queue ordering; measure behavior at low rates and recovery intervals with actual workers."
+owner_domain = 16
+
+[finding.failed-attempt-throughput]
+file = "tools/loadtest/stats/collector.go"
+line = 87
+class = "runtime-risk"
+severity = "medium"
+observed = "RecordTransaction increments scenario/total counts and TPS for every attempt, even success=false, but records percentile latency only on success. Logger.BuildFinalStats derives bounds inputs from those attempt totals; a run of transport failures can meet minTPS/minTotalTxs and report a zero p99."
+expected = "Qualification output must distinguish attempted, accepted and committed traffic and must not describe missing successful samples as zero-latency throughput evidence."
+proposal = "In tools/loadtest/stats/collector.go, logger.go and bounds.go, carry explicit outcome counts through the report and use its existing sample_count, define which success level each bound measures, and refuse insufficient evidence for enabled success/latency bounds; prove node rejections and connection failures through the real sender."
+owner_domain = 16
+
+[finding.latency-bound-no-evidence]
+file = "tools/loadtest/stats/bounds.go"
+line = 37
+class = "runtime-risk"
+severity = "medium"
+observed = "Bounds.Check iterates only the endpoint map it receives and accepts zero p99 values without a sample requirement. With only MaxP99Latency enabled, an empty report or endpoints with no successful samples returns no violation."
+expected = "An enabled latency qualification needs observable endpoint samples; absent or failed observations must be reported as insufficient evidence rather than a passing latency result."
+proposal = "In tools/loadtest/stats/bounds.go and the final report producer, carry required endpoint membership and enforce the existing sample_count, add an explicit insufficient-samples violation for enabled latency checks, and retain the existing numerical comparison assertions."
+owner_domain = 16
+
+[finding.sender-tests-third-shape]
+file = "tools/loadtest/sender/sender_test.go"
+line = 68
+class = "test-gap"
+severity = "medium"
+observed = "The MockServer returns result 0x1234567890abcdef, which is not a 32-byte Ethereum transaction hash, and the tests focus on shard arithmetic instead of driving response decoding and real receipt outcomes. The fixture cannot prove the node submission contract."
+expected = "Brief check 7 requires fixtures and assertions to agree with the actual producer's hash/error shapes and requires a test on the real sender-to-node path."
+proposal = "In tools/loadtest/sender/sender_test.go, preserve distribution assertions and add actual node-backed submission and receipt coverage using signed transactions and their exact hashes, including HTTP-200 JSON-RPC rejection, malformed response refusal and tracking saturation."
+owner_domain = 16
+
+[finding.signal-exit-cancellation]
+file = "tools/loadtest/main.go"
+line = 325
+class = "runtime-risk"
+severity = "medium"
+observed = "On the documented Ctrl+C shutdown the main service callback returns nil, then service.Run cancels background sender/logger/dispatcher loops. Those loops return context.Canceled and errgroup propagates it; errors.Join returns that cancellation even when all performance bounds pass."
+expected = "The documented graceful stop of a successful load run must return success while preserving real worker, report and performance failures."
+proposal = "In tools/loadtest/main.go and utils/service/start.go, distinguish intentional signal-driven scope cancellation from an operational failure, drain the sender before final stats, and prove actual process exit codes for successful, regressed and failed runs stopped by signal."
+owner_domain = 16
+
+[finding.metrics-server-lifecycle]
+file = "tools/loadtest/main.go"
+line = 354
+class = "runtime-risk"
+severity = "medium"
+observed = "exportPrometheusMetrics returns nil before binding the listener; an address-in-use error is only logged inside a goroutine. It uses the global DefaultServeMux and never shuts down its HTTP server, so repeated in-process CLI runs can panic on duplicate /metrics registration or retain the listener."
+expected = "The declared /metrics route must have observable bind/readiness failure and a lifecycle owned by the run context, including shutdown and a subsequent run."
+proposal = "In tools/loadtest/main.go, create a private mux/server, bind synchronously, return startup/serve errors through the service scope and shut down with the run context; cover a real occupied port and a clean restart."
+owner_domain = 16
+interface = "16.http-paxload-loadtest-main-metrics"
+
+[finding.worker-metrics-stale-pointer]
+file = "tools/loadtest/sender/metrics.go"
+line = 69
+class = "restart-recovery"
+severity = "medium"
+observed = "The global worker observer keys only by workerID and chainID and keeps the first pointer forever. A subsequent run or replacement worker with the same key cannot replace it, so queue metrics continue reading the previous worker and its endpoint; registrations are never removed."
+expected = "Worker queue metrics must describe the active run and endpoint and release old workers when a run ends or restarts."
+proposal = "In tools/loadtest/sender/metrics.go, scope observer registrations to a sender/run, include endpoint identity where necessary, replace/unregister on lifecycle changes and prove a second run exposes only its own live queue."
+owner_domain = 16
+
+[finding.block-subscription-recovery]
+file = "tools/loadtest/stats/block_collector.go"
+line = 67
+class = "restart-recovery"
+severity = "medium"
+observed = "BlockCollector.Run opens one WebSocket subscription and returns its first error, canceling the load scope. It has no reconnect, committed-height backfill or duplicate-header filter, so a transient node restart ends block evidence and cannot resume the measured interval."
+expected = "Brief checks 1 and 5 require node restart/recovery behavior to be defined for stateful observations, with explicit evidence gaps and no duplicate or missing committed blocks hidden in a final report."
+proposal = "In tools/loadtest/stats/block_collector.go, track the last observed committed height, reconnect with bounded backoff and backfill via the actual node, deduplicate heights/hashes and expose unrecoverable gaps as a failed/incomplete run."
+owner_domain = 16
+
+[finding.block-statistics-semantics]
+file = "tools/loadtest/stats/block_collector.go"
+line = 110
+class = "runtime-risk"
+severity = "medium"
+observed = "The reported block-time distributions use local header arrival times instead of committed header timestamps, and arrays described as cumulative retain only the last 1000 samples. Delivery bursts or a long run can therefore change the final SLO result independently of actual block production."
+expected = "Block production latency and subscriber delivery latency must have distinct names, and cumulative final summaries must cover the declared measurement period or state their sampling window."
+proposal = "In tools/loadtest/stats/block_collector.go and logger.go, calculate chain block intervals from ordered committed headers, expose delivery lag separately, and maintain full-run aggregates or label rolling samples explicitly in reports and ramper inputs."
+owner_domain = 16
+
+[finding.ramper-stalled-chain]
+file = "tools/loadtest/sender/ramper.go"
+line = 94
+class = "runtime-risk"
+severity = "medium"
+observed = "The SLO watcher checks only whether the observed p90 exceeds one second. A collector with no blocks returns zero; when the chain stalls or the observation window is empty, the ramper treats the absence of committed progress as healthy and continues increasing load."
+expected = "A throughput ceiling must require enough fresh committed-block observations and must stop on lack of progress, rather than passing an empty distribution."
+proposal = "In tools/loadtest/sender/ramper.go and the BlockStatsProvider contract, include sample count and last committed progress, impose a bounded no-progress deadline and pause/fail ramping until sufficient fresh evidence exists."
+owner_domain = 16
+
+[finding.ramper-tests-live-path]
+file = "tools/loadtest/sender/ramper_test.go"
+line = 75
+class = "test-gap"
+severity = "medium"
+observed = "Ramper progression/SLO tests supply MockBlockStats rather than real committed node headers. They do not prove the empty-window, stalled-node or WebSocket-restart behavior that determines the reported highest passing TPS."
+expected = "Brief check 7 requires the actual block producer, subscription transport, collector and ramper consumer to be exercised before a claimed throughput ceiling is accepted."
+proposal = "In tools/loadtest/sender/ramper_test.go and stats block-collector coverage, retain curve/unit assertions and add a real node-backed path proving progress, SLO breach, stalled evidence and restart recovery without replacing producer headers with a third shape."
+owner_domain = 16
+
+[finding.user-latency-unrelated-transactions]
+file = "tools/loadtest/stats/user_latency_tracker.go"
+line = 73
+class = "runtime-risk"
+severity = "medium"
+observed = "UserLatencyTracker treats every positive transaction value in the latest block as a Unix send timestamp. It does not restrict hashes/senders to this workload, truncates arbitrary big.Int values through Int64 and may sample the same latest block repeatedly; ordinary payments can become meaningless latency observations."
+expected = "Latency evidence must correlate each generated transaction with its actual committed receipt/block and use a bounded explicit send timestamp from this run."
+proposal = "In tools/loadtest/stats/user_latency_tracker.go, correlate by generated transaction hash and retained send time, consume each committed block once, exclude unrelated traffic and report missing receipts/samples explicitly; prove mixed workload and ordinary user payments together."
+owner_domain = 16
+
+[finding.loadtest-toolchain-image]
+file = "tools/loadtest/Dockerfile"
+line = 1
+class = "config-drift"
+severity = "medium"
+observed = "The loadtest builder is pinned to golang:1.24.5-bullseye while its module requires Go 1.25.0 and the repository requirement pins build images to 1.25.8. Default auto-toolchain downloading can hide the mismatch and makes the image's actual compiler differ from its visible pin."
+expected = "Requirement 18929.1 requires every literal Go build-image pin to name 1.25.8, with compilation performed by the declared toolchain."
+proposal = "In tools/loadtest/Dockerfile, use the repository's pinned 1.25.8 builder and its reproducible image policy, verify the actual compiler identity in the image build, and keep the nested module language directive unchanged unless separately required."
+owner_domain = 16
+
+[finding.binding-tool-provenance]
+file = "tools/loadtest/Makefile"
+line = 122
+class = "config-drift"
+severity = "medium"
+observed = "install-tools installs abigen@latest, setup-node executes a downloaded nvm shell script and fetches solc into shared /tmp without a checksum, and build-cli runs go mod tidy before building. The advertised regeneration/build workflow can change bindings/dependencies as upstream tool versions or inputs move."
+expected = "A repeatable pre-upgrade load generator must bind compiler/generator versions and fetched executable bytes and must not change the dependency graph as an implicit normal build action."
+proposal = "In tools/loadtest/Makefile, pin abigen to the reviewed go-ethereum version and solc to verified release bytes in a private tool directory, separate tidy from build, and record tool versions with regenerated binding artifacts; retain normal build failures instead of silently downloading replacements."
+owner_domain = 16
+
+[finding.scenario-template-signature]
+file = "tools/loadtest/scripts/generate_scenario_template.sh"
+line = 51
+class = "config-drift"
+severity = "medium"
+observed = "The scaffold emits New<Contract>Scenario() with no config.Scenario argument and calls NewContractScenarioBase(scenario) with one argument. The current factory expects func(config.Scenario) TxGenerator and the base constructor requires (deployer,cfg), so a newly generated scenario cannot join the current code even after its contract-specific TODOs are implemented."
+expected = "The declared generation command must emit scaffolding with the actual constructor and factory signatures, leaving only explicitly contract-specific implementation work."
+proposal = "In tools/loadtest/scripts/generate_scenario_template.sh, emit a config.Scenario constructor and pass cfg to NewContractScenarioBase; keep required custom contract operations explicit and prove a new real contract scenario registers through the generated factory."
+owner_domain = 16
+interface = "16.cli-paxload-loadtest-scripts-generate-scenario-template"
+
+[finding.unused-deployment-helper]
+file = "tools/loadtest/generator/utils/utils.go"
+line = 19
+class = "dead-code"
+severity = "low"
+observed = "The exported generic Deploy helper has no caller in the loadtest path; actual deployments use ContractScenarioBase.DeployScenario. The unused helper returns immediately after submission without checking a deployment receipt and retains a second panic-based deployment policy."
+expected = "The generator should have one reachable, documented deployment lifecycle with bounded RPC work and checked contract creation results."
+proposal = "In tools/loadtest/generator/utils/utils.go, remove the unused Deploy helper after confirming downstream imports, or route it through the same context-aware confirmed-deployment implementation and cover its actual caller path."
+owner_domain = 16
+
+[finding.unused-proto-hash]
+file = "tools/loadtest/utils/proto.go"
+line = 40
+class = "dead-code"
+severity = "low"
+observed = "ProtoHash has no caller in this workload and explicitly uses nondeterministic proto.Marshal for a purported message hash. A future caller can get different hashes for semantically equal map-bearing messages, while the copied helper currently supplies no loadtest capability."
+expected = "Unused protocol utilities should not appear to offer canonical identity; any retained hash API must state and prove its serialization guarantees."
+proposal = "In tools/loadtest/utils/proto.go, remove the unused helper if it is outside the supported library API, or define deterministic encoding semantics and prove repeated map-bearing producer messages hash consistently before introducing a real consumer."
+owner_domain = 16
+
+[finding.readonly-comparison-marker]
+file = "tools/loadtest/utils/testonly.go"
+line = 27
+class = "test-gap"
+severity = "low"
+observed = "isReadOnly returns true for any anonymous field because the predicate uses f.Anonymous OR f.Type==ReadOnly. cmp.Exporter therefore exposes private fields of structs embedding unrelated types, although the comment promises opt-in via the ReadOnly marker."
+expected = "The test comparison helper must admit private-field comparison only for the exact documented marker, so assertion access does not silently broaden as types gain embeddings."
+proposal = "In tools/loadtest/utils/testonly.go, require an anonymous field of the exact ReadOnly type and cover marked, unmarked and unrelated-embedded structs while preserving existing equality assertions."
+owner_domain = 16
+
+[finding.profile-chain-autobake_evm_transfer]
+file = "tools/loadtest/profiles/autobake_evm_transfer.json"
+line = 2
+class = "config-drift"
+severity = "medium"
+observed = "This shipped CLI profile hardcodes EVM chainId 713714, rather than the merged network's 125, and runLoadTest does not check eth_chainId before signing. Reusing the documented profile against a merged node therefore sends wrong-chain signatures while the HTTP-only sender can still report success."
+expected = "Brief facts 1 and 3 require merged-network profiles to identify chain 125 and root RPC endpoints; isolated local/development profiles must state their distinct chain identity and refuse accidental use against another chain."
+proposal = "In tools/loadtest/profiles/autobake_evm_transfer.json and main.go, distinguish an explicitly isolated development fixture from an intentional chain-125 qualification profile, validate every endpoint's actual chain id before deployment/signing, and document the chosen environment and funded workload-account policy."
+owner_domain = 16
+
+[finding.profile-chain-conflict]
+file = "tools/loadtest/profiles/conflict.json"
+line = 2
+class = "config-drift"
+severity = "medium"
+observed = "This shipped CLI profile hardcodes EVM chainId 713714, rather than the merged network's 125, and runLoadTest does not check eth_chainId before signing. Reusing the documented profile against a merged node therefore sends wrong-chain signatures while the HTTP-only sender can still report success."
+expected = "Brief facts 1 and 3 require merged-network profiles to identify chain 125 and root RPC endpoints; isolated local/development profiles must state their distinct chain identity and refuse accidental use against another chain."
+proposal = "In tools/loadtest/profiles/conflict.json and main.go, distinguish an explicitly isolated development fixture from an intentional chain-125 qualification profile, validate every endpoint's actual chain id before deployment/signing, and document the chosen environment and funded workload-account policy."
+owner_domain = 16
+
+[finding.profile-chain-evm_transfer]
+file = "tools/loadtest/profiles/evm_transfer.json"
+line = 2
+class = "config-drift"
+severity = "medium"
+observed = "This shipped CLI profile hardcodes EVM chainId 713714, rather than the merged network's 125, and runLoadTest does not check eth_chainId before signing. Reusing the documented profile against a merged node therefore sends wrong-chain signatures while the HTTP-only sender can still report success."
+expected = "Brief facts 1 and 3 require merged-network profiles to identify chain 125 and root RPC endpoints; isolated local/development profiles must state their distinct chain identity and refuse accidental use against another chain."
+proposal = "In tools/loadtest/profiles/evm_transfer.json and main.go, distinguish an explicitly isolated development fixture from an intentional chain-125 qualification profile, validate every endpoint's actual chain id before deployment/signing, and document the chosen environment and funded workload-account policy."
+owner_domain = 16
+
+[finding.profile-chain-evm_transfer_write_file]
+file = "tools/loadtest/profiles/evm_transfer_write_file.json"
+line = 2
+class = "config-drift"
+severity = "medium"
+observed = "This shipped CLI profile hardcodes EVM chainId 713714, rather than the merged network's 125, and runLoadTest does not check eth_chainId before signing. Reusing the documented profile against a merged node therefore sends wrong-chain signatures while the HTTP-only sender can still report success."
+expected = "Brief facts 1 and 3 require merged-network profiles to identify chain 125 and root RPC endpoints; isolated local/development profiles must state their distinct chain identity and refuse accidental use against another chain."
+proposal = "In tools/loadtest/profiles/evm_transfer_write_file.json and main.go, distinguish an explicitly isolated development fixture from an intentional chain-125 qualification profile, validate every endpoint's actual chain id before deployment/signing, and document the chosen environment and funded workload-account policy."
+owner_domain = 16
+
+[finding.profile-chain-loadtest_default]
+file = "tools/loadtest/profiles/loadtest_default.json"
+line = 2
+class = "config-drift"
+severity = "medium"
+observed = "This shipped CLI profile hardcodes EVM chainId 713714, rather than the merged network's 125, and runLoadTest does not check eth_chainId before signing. Reusing the documented profile against a merged node therefore sends wrong-chain signatures while the HTTP-only sender can still report success."
+expected = "Brief facts 1 and 3 require merged-network profiles to identify chain 125 and root RPC endpoints; isolated local/development profiles must state their distinct chain identity and refuse accidental use against another chain."
+proposal = "In tools/loadtest/profiles/loadtest_default.json and main.go, distinguish an explicitly isolated development fixture from an intentional chain-125 qualification profile, validate every endpoint's actual chain id before deployment/signing, and document the chosen environment and funded workload-account policy."
+owner_domain = 16
+
+[finding.profile-chain-local]
+file = "tools/loadtest/profiles/local.json"
+line = 2
+class = "config-drift"
+severity = "medium"
+observed = "This shipped CLI profile hardcodes EVM chainId 713714, rather than the merged network's 125, and runLoadTest does not check eth_chainId before signing. Reusing the documented profile against a merged node therefore sends wrong-chain signatures while the HTTP-only sender can still report success."
+expected = "Brief facts 1 and 3 require merged-network profiles to identify chain 125 and root RPC endpoints; isolated local/development profiles must state their distinct chain identity and refuse accidental use against another chain."
+proposal = "In tools/loadtest/profiles/local.json and main.go, distinguish an explicitly isolated development fixture from an intentional chain-125 qualification profile, validate every endpoint's actual chain id before deployment/signing, and document the chosen environment and funded workload-account policy."
+owner_domain = 16
+
+[finding.profile-chain-local_docker]
+file = "tools/loadtest/profiles/local_docker.json"
+line = 2
+class = "config-drift"
+severity = "medium"
+observed = "This shipped CLI profile hardcodes EVM chainId 713714, rather than the merged network's 125, and runLoadTest does not check eth_chainId before signing. Reusing the documented profile against a merged node therefore sends wrong-chain signatures while the HTTP-only sender can still report success."
+expected = "Brief facts 1 and 3 require merged-network profiles to identify chain 125 and root RPC endpoints; isolated local/development profiles must state their distinct chain identity and refuse accidental use against another chain."
+proposal = "In tools/loadtest/profiles/local_docker.json and main.go, distinguish an explicitly isolated development fixture from an intentional chain-125 qualification profile, validate every endpoint's actual chain id before deployment/signing, and document the chosen environment and funded workload-account policy."
+owner_domain = 16
+
+[finding.profile-output-path]
+file = "tools/loadtest/profiles/autobake_evm_transfer.json"
+line = 33
+class = "config-drift"
+severity = "medium"
+observed = "The checked-in autobake EVM transfer profile writes its report to an absolute /home/ubuntu path. Logger does not create its parent directory and returns a report write error, so the documented profile fails in the container or another operator account even if traffic completes."
+expected = "A shipped workload profile must have a usable documented report destination in its supported environments, with report errors remaining visible."
+proposal = "In tools/loadtest/profiles/autobake_evm_transfer.json and README.md, use an operator-selected or portable working-directory report path and document parent-directory requirements; prove the real CLI writes its JSON report in the supported container and local environment."
+owner_domain = 16
+
+[finding.doc-readme]
+file = "README.md"
+line = 45
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 45-50 describe two execution domains and layerxAnchor checkpoints; the layerxd build instructions around line 149 and separate-kernel summary around line 182 remain pre-merge. The page is presented as product/operator guidance for the current repository."
+expected = "Brief facts 1-5 require one paxd BFT network on EVM chain 125, final committed receipts, root public RPC and tenant namespaces, with retired daemon/router/custody/checkpoint guidance removed or clearly historical."
+proposal = "Rewrite README.md against the merged architecture and current repository paths, state active root RPC names and committed finality, preserve accurate tenant/mirror distinctions, and separate historical rehearsal instructions from the current activation and refusal checks."
+owner_domain = 17
+
+[finding.doc-docs-monorepo]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-5 retain layerxd, line 29 retains relay archives, and lines 69-72 describe the old guarantor/custody/exit trust boundary. The page is presented as product/operator guidance for the current repository."
+expected = "Brief facts 1-5 require one paxd BFT network on EVM chain 125, final committed receipts, root public RPC and tenant namespaces, with retired daemon/router/custody/checkpoint guidance removed or clearly historical."
+proposal = "Rewrite docs/MONOREPO.md against the merged architecture and current repository paths, state active root RPC names and committed finality, preserve accurate tenant/mirror distinctions, and separate historical rehearsal instructions from the current activation and refusal checks."
+owner_domain = 17
+
+[finding.doc-docs-paxeer-chain-docs]
+file = "docs/paxeer-chain-docs.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-7 and 19 describe a separate Paxeer settlement/custody domain rather than one merged BFT network. The page is presented as product/operator guidance for the current repository."
+expected = "Brief facts 1-5 require one paxd BFT network on EVM chain 125, final committed receipts, root public RPC and tenant namespaces, with retired daemon/router/custody/checkpoint guidance removed or clearly historical."
+proposal = "Rewrite docs/paxeer-chain-docs.md against the merged architecture and current repository paths, state active root RPC names and committed finality, preserve accurate tenant/mirror distinctions, and separate historical rehearsal instructions from the current activation and refusal checks."
+owner_domain = 17
+
+[finding.doc-docs-qualification]
+file = "docs/QUALIFICATION.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 20-21 still require guarantor-withholding/sequencer-offline exits; lines 78-86 retain settlement-era gates, and the final separate qualification framing is obsolete. The page is presented as product/operator guidance for the current repository."
+expected = "Brief facts 1-5 require one paxd BFT network on EVM chain 125, final committed receipts, root public RPC and tenant namespaces, with retired daemon/router/custody/checkpoint guidance removed or clearly historical."
+proposal = "Rewrite docs/QUALIFICATION.md against the merged architecture and current repository paths, state active root RPC names and committed finality, preserve accurate tenant/mirror distinctions, and separate historical rehearsal instructions from the current activation and refusal checks."
+owner_domain = 17
+
+[finding.doc-docs-paxeer-network]
+file = "docs/paxeer-network.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-11 retain separate checkpoint/custody semantics; lines 17-21 and the layout table retain old LayerX balance/settlement descriptions. The virtual-chain namespace/no-new-infrastructure section is current and should be preserved. The page is presented as product/operator guidance for the current repository."
+expected = "Brief facts 1-5 require one paxd BFT network on EVM chain 125, final committed receipts, root public RPC and tenant namespaces, with retired daemon/router/custody/checkpoint guidance removed or clearly historical."
+proposal = "Rewrite docs/paxeer-network.md against the merged architecture and current repository paths, state active root RPC names and committed finality, preserve accurate tenant/mirror distinctions, and separate historical rehearsal instructions from the current activation and refusal checks."
+owner_domain = 17
+
+[finding.doc-docs-runbooks-paxeer-x-fork]
+file = "docs/runbooks/paxeer-x-fork.md"
+line = 323
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-8, 28 and the older upgrade sections describe the v6.6 rehearsal; the v7.0 section around 240-267 differs, while lines 323-328 still expect successful retired custody/anchor calls. The page is presented as product/operator guidance for the current repository."
+expected = "Brief facts 1-5 require one paxd BFT network on EVM chain 125, final committed receipts, root public RPC and tenant namespaces, with retired daemon/router/custody/checkpoint guidance removed or clearly historical."
+proposal = "Rewrite docs/runbooks/paxeer-x-fork.md against the merged architecture and current repository paths, state active root RPC names and committed finality, preserve accurate tenant/mirror distinctions, and separate historical rehearsal instructions from the current activation and refusal checks."
+owner_domain = 17
+
+[finding.doc-docs-site-docs-overview-monorepo]
+file = "docs/site/docs/overview/monorepo.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-9 and the layout/trust-boundary material around line 29 retain the separate-daemon LayerX assembly and obsolete paths. The page is presented as product/operator guidance for the current repository."
+expected = "Brief facts 1-5 require one paxd BFT network on EVM chain 125, final committed receipts, root public RPC and tenant namespaces, with retired daemon/router/custody/checkpoint guidance removed or clearly historical."
+proposal = "Rewrite docs/site/docs/overview/monorepo.md against the merged architecture and current repository paths, state active root RPC names and committed finality, preserve accurate tenant/mirror distinctions, and separate historical rehearsal instructions from the current activation and refusal checks."
+owner_domain = 17
+
+[finding.doc-docs-site-docs-overview-i18n-zh-cn]
+file = "docs/site/docs/overview/i18n/zh-cn.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 18-20 retain ordinary LayerX activity with periodic Paxeer checkpoints/two systems; lines 99-105 retain the retired daemon and obsolete subtree paths. The translated deployment model needs to follow the merged source page. The page is presented as product/operator guidance for the current repository."
+expected = "Brief facts 1-5 require one paxd BFT network on EVM chain 125, final committed receipts, root public RPC and tenant namespaces, with retired daemon/router/custody/checkpoint guidance removed or clearly historical."
+proposal = "Rewrite docs/site/docs/overview/i18n/zh-cn.md against the merged architecture and current repository paths, state active root RPC names and committed finality, preserve accurate tenant/mirror distinctions, and separate historical rehearsal instructions from the current activation and refusal checks."
+owner_domain = 17
+
+[finding.doc-docs-site-docs-overview-i18n-ru]
+file = "docs/site/docs/overview/i18n/ru.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 18-20 retain ordinary LayerX activity with periodic Paxeer checkpoints/two systems; lines 99-105 retain the retired daemon and obsolete subtree paths. The translated deployment model needs to follow the merged source page. The page is presented as product/operator guidance for the current repository."
+expected = "Brief facts 1-5 require one paxd BFT network on EVM chain 125, final committed receipts, root public RPC and tenant namespaces, with retired daemon/router/custody/checkpoint guidance removed or clearly historical."
+proposal = "Rewrite docs/site/docs/overview/i18n/ru.md against the merged architecture and current repository paths, state active root RPC names and committed finality, preserve accurate tenant/mirror distinctions, and separate historical rehearsal instructions from the current activation and refusal checks."
+owner_domain = 17
+
+[finding.doc-docs-site-docs-overview-i18n-es]
+file = "docs/site/docs/overview/i18n/es.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 18-20 retain ordinary LayerX activity with periodic Paxeer checkpoints/two systems; lines 99-105 retain the retired daemon and obsolete subtree paths. The translated deployment model needs to follow the merged source page. The page is presented as product/operator guidance for the current repository."
+expected = "Brief facts 1-5 require one paxd BFT network on EVM chain 125, final committed receipts, root public RPC and tenant namespaces, with retired daemon/router/custody/checkpoint guidance removed or clearly historical."
+proposal = "Rewrite docs/site/docs/overview/i18n/es.md against the merged architecture and current repository paths, state active root RPC names and committed finality, preserve accurate tenant/mirror distinctions, and separate historical rehearsal instructions from the current activation and refusal checks."
+owner_domain = 17
+
+[finding.doc-docs-site-docs-overview-i18n-pt-br]
+file = "docs/site/docs/overview/i18n/pt-br.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 18-20 retain ordinary LayerX activity with periodic Paxeer checkpoints/two systems; lines 99-105 retain the retired daemon and obsolete subtree paths. The translated deployment model needs to follow the merged source page. The page is presented as product/operator guidance for the current repository."
+expected = "Brief facts 1-5 require one paxd BFT network on EVM chain 125, final committed receipts, root public RPC and tenant namespaces, with retired daemon/router/custody/checkpoint guidance removed or clearly historical."
+proposal = "Rewrite docs/site/docs/overview/i18n/pt-br.md against the merged architecture and current repository paths, state active root RPC names and committed finality, preserve accurate tenant/mirror distinctions, and separate historical rehearsal instructions from the current activation and refusal checks."
+owner_domain = 17
+
+[finding.doc-docs-site-docs-overview-i18n-ja]
+file = "docs/site/docs/overview/i18n/ja.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 18-20 retain ordinary LayerX activity with periodic Paxeer checkpoints/two systems; lines 99-105 retain the retired daemon and obsolete subtree paths. The translated deployment model needs to follow the merged source page. The page is presented as product/operator guidance for the current repository."
+expected = "Brief facts 1-5 require one paxd BFT network on EVM chain 125, final committed receipts, root public RPC and tenant namespaces, with retired daemon/router/custody/checkpoint guidance removed or clearly historical."
+proposal = "Rewrite docs/site/docs/overview/i18n/ja.md against the merged architecture and current repository paths, state active root RPC names and committed finality, preserve accurate tenant/mirror distinctions, and separate historical rehearsal instructions from the current activation and refusal checks."
+owner_domain = 17
+
+[finding.loadtest-readme]
+file = "tools/loadtest/README.md"
+line = 24
+class = "doc-drift"
+severity = "medium"
+observed = "The quick-start builds with make build but invokes ./paxload although Makefile emits build/paxload; examples hardcode chainId 713714 at lines 24 and 97. The options table omits the performance-bound flags, JSON report controls and profile/flag precedence."
+expected = "Loadtest instructions must run the built binary and describe the supported network identity, regression bounds, JSON reports and actual CLI configuration semantics."
+proposal = "In tools/loadtest/README.md, use build/paxload (or document installation), identify isolated fixtures versus chain-125 runs, document min-tps/max-p99-latency/min-total-txs and report precedence, and include an actual qualified profile invocation and expected failure/exit behavior."
+owner_domain = 16
+
+[finding.benchmark-readme-command]
+file = "tools/benchmark/scenarios/README.md"
+line = 9
+class = "doc-drift"
+severity = "medium"
+observed = "The default Usage command is ./benchmark/benchmark.sh, which does not exist at the repository root. The ERC20 and mixed examples correctly use ./tools/benchmark/benchmark.sh; node/benchmark correctly overrides chain ids for these in-process profiles."
+expected = "Every documented scenario invocation should resolve to the same actual root-relative benchmark script and retain the isolated benchmark-only chain admission."
+proposal = "In tools/benchmark/scenarios/README.md, correct the default invocation to ./tools/benchmark/benchmark.sh and state the assumed repository-root working directory; preserve the in-process deployment and chain-id override explanation."
+owner_domain = 16
+
+[finding.operations-contract-drift]
+file = "spec/layerx-merge/contracts/operations.md"
+line = 9679
+class = "doc-drift"
+severity = "medium"
+observed = "The relevant paxload contract sections retain planned/new/UNRUN entries and the report note says LogFinalStats writes text, although stats/logger.go now writes json.MarshalIndent and returns report errors. The bounds table also does not expose the CLI caller gap identified in this audit."
+expected = "Current interface guidance must distinguish historical frozen design criteria from served code and unresolved real-path gaps, so operators do not infer qualification from a generated contract table."
+proposal = "Regenerate the current views in spec/layerx-merge/contracts/operations.md and interfaces.kvx after owner repairs, preserving historical evidence while correcting current report behavior/status and explicitly linking the unresolved profile-bound CLI wiring and its future qualification."
+owner_domain = 17
+
+[doc.001]
+path = "README.md"
+status = "stale"
+notes = "Lines 45-50 describe two execution domains and layerxAnchor checkpoints; the layerxd build instructions around line 149 and separate-kernel summary around line 182 remain pre-merge."
+
+[doc.002]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Lines 3-5 retain layerxd, line 29 retains relay archives, and lines 69-72 describe the old guarantor/custody/exit trust boundary."
+
+[doc.003]
+path = "docs/paxeer-chain-docs.md"
+status = "stale"
+notes = "Lines 3-7 and 19 describe a separate Paxeer settlement/custody domain rather than one merged BFT network."
+
+[doc.004]
+path = "docs/QUALIFICATION.md"
+status = "stale"
+notes = "Lines 20-21 still require guarantor-withholding/sequencer-offline exits; lines 78-86 retain settlement-era gates, and the final separate qualification framing is obsolete."
+
+[doc.005]
+path = "docs/paxeer-network.md"
+status = "stale"
+notes = "Lines 3-11 retain separate checkpoint/custody semantics; lines 17-21 and the layout table retain old LayerX balance/settlement descriptions. The virtual-chain namespace/no-new-infrastructure section is current and should be preserved."
+
+[doc.006]
+path = "docs/runbooks/paxeer-x-fork.md"
+status = "misleading"
+notes = "Lines 3-8, 28 and the older upgrade sections describe the v6.6 rehearsal; the v7.0 section around 240-267 differs, while lines 323-328 still expect successful retired custody/anchor calls."
+
+[doc.007]
+path = "docs/site/docs/overview/monorepo.md"
+status = "stale"
+notes = "Lines 3-9 and the layout/trust-boundary material around line 29 retain the separate-daemon LayerX assembly and obsolete paths."
+
+[doc.008]
+path = "docs/site/docs/overview/i18n/zh-cn.md"
+status = "stale"
+notes = "Lines 18-20 retain ordinary LayerX activity with periodic Paxeer checkpoints/two systems; lines 99-105 retain the retired daemon and obsolete subtree paths. The translated deployment model needs to follow the merged source page."
+
+[doc.009]
+path = "docs/site/docs/overview/i18n/ru.md"
+status = "stale"
+notes = "Lines 18-20 retain ordinary LayerX activity with periodic Paxeer checkpoints/two systems; lines 99-105 retain the retired daemon and obsolete subtree paths. The translated deployment model needs to follow the merged source page."
+
+[doc.010]
+path = "docs/site/docs/overview/i18n/es.md"
+status = "stale"
+notes = "Lines 18-20 retain ordinary LayerX activity with periodic Paxeer checkpoints/two systems; lines 99-105 retain the retired daemon and obsolete subtree paths. The translated deployment model needs to follow the merged source page."
+
+[doc.011]
+path = "docs/site/docs/overview/i18n/pt-br.md"
+status = "stale"
+notes = "Lines 18-20 retain ordinary LayerX activity with periodic Paxeer checkpoints/two systems; lines 99-105 retain the retired daemon and obsolete subtree paths. The translated deployment model needs to follow the merged source page."
+
+[doc.012]
+path = "docs/site/docs/overview/i18n/ja.md"
+status = "stale"
+notes = "Lines 18-20 retain ordinary LayerX activity with periodic Paxeer checkpoints/two systems; lines 99-105 retain the retired daemon and obsolete subtree paths. The translated deployment model needs to follow the merged source page."
+
+[doc.013]
+path = "tools/loadtest/README.md"
+status = "stale"
+notes = "Read in full; lines 11/45 disagree on built binary location, 24/97 use chain 713714, and the options table omits bounds/report/precedence behavior; see loadtest-readme."
+
+[doc.014]
+path = "tools/benchmark/scenarios/README.md"
+status = "stale"
+notes = "Read in full; line 9 has the wrong root-relative default command. node/benchmark/config.go confirms deliberate in-process chain-id overrides and mockDeploy deployment ownership; remaining scenario descriptions agree."
+
+[doc.015]
+path = "spec/layerx-merge/contracts/operations.md"
+status = "stale"
+notes = "Relevant docker CLI/config/environment/formats and paxload bounds/CLI/config/formats/make/metrics/report/routes sections consulted. Lines 9359 onward retain planned states; line 9679 retains the obsolete text-report note. Other domains on this generated page are outside this slice."
+
+[doc.016]
+path = "tools/loadtest/LICENSE.md"
+status = "accurate"
+notes = "Read the full upstream Apache 2.0 license; this is legal provenance for the pinned pax-load component, not a declaration that its workload contracts implement production token policy."
+
+[doc.017]
+path = "tools/loadtest/VENDOR.kvx"
+status = "accurate"
+notes = "Read the provenance declaration: Paxeer-Network/pax-load v0.0.1-pax.1, sha c3b0feb1d27841087049d03b0f4d4614183d8f5d; local modifications were reviewed separately from generated bindings."
+
+[doc.018]
+path = "docker/kernel/kernel.env.example"
+status = "stale"
+notes = "Read the complete configuration documentation while tracing produced registry rows. It labels NETWORK_NAME full-only although native boundary preparation waits for it; retained replica/authority settings need the merged startup rewrite."

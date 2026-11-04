@@ -1,0 +1,9 @@
+[repair.22.31.94]
+audit = "22.30.49"
+finding = "005"
+proposal = "Treat a nil end bound as unbounded when merging cached keys and tombstones."
+tests = ["TestRepair_94_NestedRange", "TestRepair_94_NestedDeleteAll"]
+proof = "Nested engine caches over sdk/store/dbadapter and a real tm-db MemDB; compare range and DeleteAll results with a direct backing store and assert values and isolation before and after each Write."
+baseline = "Not run: the explicit gate order requires implementation before qualification and prohibits invoking verify_cmd manually; no pre-change test failure is claimed."
+wiring_requests = []
+evidence = "The bounded hf-build/hf-done ledger records the verified candidate revision, command, exit code and private log location; the final task response copies the last gate evidence."

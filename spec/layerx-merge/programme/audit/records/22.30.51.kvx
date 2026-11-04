@@ -1,0 +1,1078 @@
+# Pre-upgrade audit of node-runtime: node/sequencer, genesis builder and genesis retirement.
+# Source revision below is the tree reviewed; proposals do not change runtime behavior.
+
+[audit.22.30.51]
+task = "22.30.51"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 102
+findings = 36
+docs_reviewed = 14
+upgrade_ready = false
+blocking = ["microbatch-admission","replication-auth","standby-listener-auth","sealed-tail-restart","promotion-abandons-pending","seal-overtakes-accept-wal","receipt-first-record-after-commit"]
+
+[file.001]
+path = "cmd/layerx-genesis/lxp_genesis_build_cli.c"
+lines = 684
+verdict = "issues"
+note = "Fresh LXGB parsing and exclusive artifact writes retain the retired guarantor and registration bootstrap contract."
+
+[file.002]
+path = "cmd/layerx-genesis/lxp_genesis_builder.c"
+lines = 387
+verdict = "issues"
+note = "Fresh-state materialization and signed historical snapshot migration were checked; failed initialization can enter unsafe cleanup."
+
+[file.003]
+path = "cmd/layerx-genesis/lxp_genesis_cli.c"
+lines = 29
+verdict = "clean"
+note = "The action dispatcher validates BUILD/RECONCILE input and encodes the signed result code and root into the declared LXGN output envelope."
+
+[file.004]
+path = "cmd/layerx-genesis/lxp_genesis_main.c"
+lines = 17
+verdict = "clean"
+note = "The manifest bootstrap wrapper forwards the supplied registration and empty-storage state to the declared acceptance interface."
+
+[file.005]
+path = "cmd/layerx-genesis/lxp_import.c"
+lines = 207
+verdict = "clean"
+note = "Import section ordering, account identifiers, u128 asset totals and overflow refusals agree with the historical snapshot input contract."
+
+[file.006]
+path = "cmd/layerx-genesis/lxp_reconcile.c"
+lines = 176
+verdict = "issues"
+note = "Balance reconciliation still relies on custody attestations and a checkpoint authority instead of merged-chain committed balances."
+
+[file.007]
+path = "cmd/layerx-genesis/main.c"
+lines = 6
+verdict = "clean"
+note = "The executable entry point delegates arguments and exit status to the builder CLI; artifact policy is recorded on that implementation."
+
+[file.008]
+path = "cmd/layerx-genesis/test_builder_cli.py"
+lines = 189
+verdict = "issues"
+note = "Fresh output assertions still require the retired registration and deployment artifacts and guarantor bootstrap inputs."
+
+[file.009]
+path = "cmd/layerx-genesis/test_module_table_conformance.py"
+lines = 218
+verdict = "clean"
+note = "Module-plan comparisons distinguish historical protocol layouts from the current parameterized module table; fixtures are source, not generated files."
+
+[file.010]
+path = "node/genesis/genesis.go"
+lines = 1
+verdict = "clean"
+note = "The package exposes no embedded legacy genesis chain documents; the retirement is deliberate and agrees with retired registry rows."
+
+[file.011]
+path = "node/genesis/genesis_test.go"
+lines = 24
+verdict = "clean"
+note = "Negative assertions prevent embedded legacy chains from returning; retired names in these assertions are intentional regression coverage."
+
+[file.012]
+path = "node/sequencer/accept.go"
+lines = 119
+verdict = "clean"
+note = "Sequential acceptance decodes before admission, reserves block and tenant allowances, rolls back refused execution and records only receipted outcomes."
+
+[file.013]
+path = "node/sequencer/accepter_test.go"
+lines = 617
+verdict = "clean"
+note = "Acceptance tests cover durable publication and fencing; manually controlled seal and release ordering does not establish concurrent production safety."
+
+[file.014]
+path = "node/sequencer/agent_scheduler_parity_test.go"
+lines = 155
+verdict = "clean"
+note = "Agent scheduler scenarios compare execution outcomes and sequence accounting using signed inputs; no distinct shape mismatch found."
+
+[file.015]
+path = "node/sequencer/ante_sequenced_test.go"
+lines = 206
+verdict = "clean"
+note = "Sequenced ante cases distinguish execution reverts from admission refusals and preserve fee and nonce outcomes."
+
+[file.016]
+path = "node/sequencer/commit_release_test.go"
+lines = 233
+verdict = "clean"
+note = "Commit lifecycle tests check replicated COMMITTED and subsequent OPEN ordering and surface standby refusal."
+
+[file.017]
+path = "node/sequencer/completion_gate_test.go"
+lines = 307
+verdict = "clean"
+note = "Negative file, Make-target and Go-symbol checks keep the declared retired runtime surfaces absent; retired strings identify forbidden surfaces."
+
+[file.018]
+path = "node/sequencer/config.go"
+lines = 381
+verdict = "clean"
+note = "Config keys, flags, defaults, role bounds and microbatch durations agree with parsing and validation; missing runtime ownership is recorded on Node."
+
+[file.019]
+path = "node/sequencer/config_bounds_test.go"
+lines = 181
+verdict = "clean"
+note = "Bounds cases exercise role, retention, queue and duration refusals without accepting invalid configuration."
+
+[file.020]
+path = "node/sequencer/config_test.go"
+lines = 355
+verdict = "clean"
+note = "Configuration round-trip and flag parsing assert the declared names, modes and duration units."
+
+[file.021]
+path = "node/sequencer/consensus_source.go"
+lines = 227
+verdict = "issues"
+note = "Batch signing and tx-0 construction agree with the validator message shape, but Seal does not await included ACCEPT durability."
+
+[file.022]
+path = "node/sequencer/consensus_source_admit_test.go"
+lines = 136
+verdict = "clean"
+note = "Mempool admission cases preserve input order and distinguish individual refusals from halted or fenced execution."
+
+[file.023]
+path = "node/sequencer/consensus_source_fence_test.go"
+lines = 256
+verdict = "clean"
+note = "Fencing assertions propagate a newer standby lease into executor refusal rather than releasing a new proposal."
+
+[file.024]
+path = "node/sequencer/consensus_source_test.go"
+lines = 388
+verdict = "clean"
+note = "Sealed-block construction checks signed batch fields, ordered transactions, timestamp and retry behavior."
+
+[file.025]
+path = "node/sequencer/consensus_source_wal_test.go"
+lines = 209
+verdict = "clean"
+note = "WAL seal tests check durable SEAL and proposal retry behavior with ordered calls; concurrent admission ordering is a separate finding."
+
+[file.026]
+path = "node/sequencer/crash_replay_test.go"
+lines = 156
+verdict = "clean"
+note = "Replay scenarios verify deterministic receipts and tail handling; primary startup with an uncommitted SEAL remains a separate recovery finding."
+
+[file.027]
+path = "node/sequencer/dial.go"
+lines = 23
+verdict = "issues"
+note = "Dial timeout and endpoint validation are bounded, but the assembled replication connection uses unauthenticated TCP."
+
+[file.028]
+path = "node/sequencer/dial_test.go"
+lines = 95
+verdict = "clean"
+note = "Dial tests exercise TCP reachability, malformed addresses and timeout bounds; they do not establish authenticated peer identity."
+
+[file.029]
+path = "node/sequencer/driver.go"
+lines = 115
+verdict = "issues"
+note = "COMMITTED, retention and next OPEN are wired, but the next block reuses startup receipt-key pins."
+
+[file.030]
+path = "node/sequencer/driver_test.go"
+lines = 298
+verdict = "clean"
+note = "Commit-driver assertions cover sequencing, refusal and retention using the current DriverConfig constructor."
+
+[file.031]
+path = "node/sequencer/executor.go"
+lines = 378
+verdict = "clean"
+note = "Executor layers, immutable receipt snapshots, sequence hashing and initial header fields match the application host contract."
+
+[file.032]
+path = "node/sequencer/executor_header_test.go"
+lines = 81
+verdict = "clean"
+note = "Header checks use the current committed parent block id and proposer fields; the earlier parent-id disposition is resolved at this revision."
+
+[file.033]
+path = "node/sequencer/executor_pending_tx_test.go"
+lines = 56
+verdict = "clean"
+note = "Pending transaction access preserves accepted order and returns owned byte slices across caller mutation."
+
+[file.034]
+path = "node/sequencer/executor_test.go"
+lines = 709
+verdict = "clean"
+note = "Open, accept, refusal, sequence continuity and seal cases use the declared executor lifecycle and errors."
+
+[file.035]
+path = "node/sequencer/failover.go"
+lines = 78
+verdict = "clean"
+note = "Takeover helper validates fencing inputs and distinct keys; the pending-tail defect is owned by Standby.TakeLease and runtime assembly is separately unwired."
+
+[file.036]
+path = "node/sequencer/failover_rehearsal_test.go"
+lines = 285
+verdict = "clean"
+note = "The rehearsal reconstructs an executor and manually replays the acknowledged tail before new sends; it does not exercise an operator takeover in NewNode."
+
+[file.037]
+path = "node/sequencer/failover_test.go"
+lines = 220
+verdict = "clean"
+note = "Helper cases check lease epochs, refusal and sequence results for already applied standby state."
+
+[file.038]
+path = "node/sequencer/fee.go"
+lines = 154
+verdict = "clean"
+note = "Node fee-floor comparison uses the live fee conversion paths, maintains positive limits and preserves executor refusal semantics."
+
+[file.039]
+path = "node/sequencer/fee_test.go"
+lines = 549
+verdict = "clean"
+note = "Fee-floor tests distinguish local policy from consensus fee rules and retain unchanged state on pre-execution refusal."
+
+[file.040]
+path = "node/sequencer/fee_token_accept_test.go"
+lines = 201
+verdict = "clean"
+note = "Receipt comparisons cover charged fee-token conversion and payment-denom identity separately."
+
+[file.041]
+path = "node/sequencer/fence_test.go"
+lines = 188
+verdict = "clean"
+note = "Executor fence cases refuse later admission and sealing without mutating the accepted sequence."
+
+[file.042]
+path = "node/sequencer/follower.go"
+lines = 24
+verdict = "clean"
+note = "Follower receipt forwarding checks configured origin, method and response fields while preserving upstream errors."
+
+[file.043]
+path = "node/sequencer/follower_test.go"
+lines = 76
+verdict = "clean"
+note = "Forwarding cases cover success, malformed replies and upstream refusal rather than inventing a third receipt shape."
+
+[file.044]
+path = "node/sequencer/handover.go"
+lines = 80
+verdict = "clean"
+note = "The helper drains replication and requires a later durable lease before fencing the old primary; operational installation is recorded on Node."
+
+[file.045]
+path = "node/sequencer/handover_test.go"
+lines = 452
+verdict = "clean"
+note = "Handover cases assert drain, epoch and key separation on the helper path."
+
+[file.046]
+path = "node/sequencer/layers.go"
+lines = 50
+verdict = "clean"
+note = "Layer state permits one open layer and one sealed layer and preserves monotonically increasing accepted sequence."
+
+[file.047]
+path = "node/sequencer/lease.go"
+lines = 81
+verdict = "clean"
+note = "Lease startup restores the previous epoch and records a strictly later durable lease; runtime renewal and expiry fencing are missing in Node."
+
+[file.048]
+path = "node/sequencer/lease_renew.go"
+lines = 30
+verdict = "clean"
+note = "RenewAt extends a started lease at the half-duration threshold and reports replication failure; no background loop invokes it in production."
+
+[file.049]
+path = "node/sequencer/lease_renew_test.go"
+lines = 111
+verdict = "clean"
+note = "Direct renewal cases exercise the threshold and durable lease result; they do not establish a production renewal loop."
+
+[file.050]
+path = "node/sequencer/lease_test.go"
+lines = 119
+verdict = "clean"
+note = "Lease helper cases assert epoch and expiry serialization and refusal without a durable standby acknowledgement."
+
+[file.051]
+path = "node/sequencer/limits.go"
+lines = 120
+verdict = "clean"
+note = "Sequential admission reserves tx-0 resources and accounts block gas, wanted gas, bytes and tenant allowances before execution."
+
+[file.052]
+path = "node/sequencer/limits_test.go"
+lines = 431
+verdict = "clean"
+note = "Boundary assertions cover limits and rollback of admission accounting on refusal in the sequential mode."
+
+[file.053]
+path = "node/sequencer/log_feed.go"
+lines = 28
+verdict = "clean"
+note = "Commit publication reads the current RPC receipt feed and serializes receipt visibility with the feed's own lock."
+
+[file.054]
+path = "node/sequencer/log_feed_test.go"
+lines = 185
+verdict = "clean"
+note = "Log publication cases preserve committed ordering and failure propagation through the declared feed interface."
+
+[file.055]
+path = "node/sequencer/metrics.go"
+lines = 91
+verdict = "clean"
+note = "Metric names, counter types and time units agree with registered sequencer metrics and call sites."
+
+[file.056]
+path = "node/sequencer/metrics_test.go"
+lines = 110
+verdict = "clean"
+note = "Metric assertions check recorded sequence, height and latency instruments against their declared names."
+
+[file.057]
+path = "node/sequencer/microbatch.go"
+lines = 367
+verdict = "issues"
+note = "Grouped execution uses the batch scheduler but omits sequential admission and resource accounting, including for a one-entry group."
+
+[file.058]
+path = "node/sequencer/microbatch_position_test.go"
+lines = 108
+verdict = "clean"
+note = "Grouped position assertions use absolute block positions after tx 0 and compare resulting receipts."
+
+[file.059]
+path = "node/sequencer/microbatch_test.go"
+lines = 252
+verdict = "issues"
+note = "Executor-only grouping assertions bypass the serialized receipt and RPC pipeline."
+
+[file.060]
+path = "node/sequencer/mixed_load_test.go"
+lines = 209
+verdict = "clean"
+note = "Mixed transaction scenarios compare accepted order and state outcomes; executor parity does not prove production grouping."
+
+[file.061]
+path = "node/sequencer/node.go"
+lines = 171
+verdict = "issues"
+note = "Node constructs nonce, replication and receipt helpers, but queue ingress, lease renewal and operational promotion remain disconnected."
+
+[file.062]
+path = "node/sequencer/node_start_test.go"
+lines = 451
+verdict = "clean"
+note = "Startup cases cover key reload, WAL replay, app installation and committed-receipt rebuilding; refusal of an uncommitted SEAL is recorded on replay."
+
+[file.063]
+path = "node/sequencer/node_stop.go"
+lines = 22
+verdict = "clean"
+note = "Shutdown serializes against acceptance, detaches application hooks, closes replication and WAL ownership and surfaces close failures."
+
+[file.064]
+path = "node/sequencer/node_stop_test.go"
+lines = 155
+verdict = "clean"
+note = "Shutdown assertions cover idempotence, resource closure and refusal after the runtime detaches."
+
+[file.065]
+path = "node/sequencer/node_test.go"
+lines = 172
+verdict = "clean"
+note = "Assembly tests assert role-specific dependencies, config validation and independent receipt and consensus keys."
+
+[file.066]
+path = "node/sequencer/nonce_admission.go"
+lines = 43
+verdict = "clean"
+note = "The adapter forwards bounded hold, drain and expiry operations with an explicit lifetime; no production caller installs its Send/Open path."
+
+[file.067]
+path = "node/sequencer/nonce_admission_test.go"
+lines = 158
+verdict = "clean"
+note = "Adapter cases cover sender and total limits, gap draining and lifetime expiry on direct calls."
+
+[file.068]
+path = "node/sequencer/nonce_queue.go"
+lines = 207
+verdict = "issues"
+note = "Queue bounds and expiry are explicit, but the drain loop discards accept failures and can consume later held sends."
+
+[file.069]
+path = "node/sequencer/nonce_queue_test.go"
+lines = 267
+verdict = "clean"
+note = "Queue assertions cover gaps, duplicates and bounds; the execution-advanced-but-publication-failed drain case needs the recorded repair."
+
+[file.070]
+path = "node/sequencer/position_test.go"
+lines = 442
+verdict = "clean"
+note = "Position checks align transaction and EVM receipt indices with the reserved tx-0 slot."
+
+[file.071]
+path = "node/sequencer/precompile_refresh_test.go"
+lines = 104
+verdict = "clean"
+note = "Refresh assertions check the receipt-time precompile context and avoid using stale committed execution state."
+
+[file.072]
+path = "node/sequencer/precompiles.go"
+lines = 46
+verdict = "clean"
+note = "Precompile context refresh follows the active host interface and refuses missing open-layer state."
+
+[file.073]
+path = "node/sequencer/proof_sequencer_config_test.go"
+lines = 259
+verdict = "clean"
+note = "Command-produced app.toml and receipt-key files are reopened and consumed by ReadConfig, LoadReceiptKey and signing, including invalid persisted input."
+
+[file.074]
+path = "node/sequencer/proof_sequencer_executor_test.go"
+lines = 497
+verdict = "clean"
+note = "Proof cases drive real RPC consumers, transport recovery and mixed cumulative gas through the assembled executor and consensus path."
+
+[file.075]
+path = "node/sequencer/proof_sequencer_receipt_test.go"
+lines = 337
+verdict = "clean"
+note = "Signed receipt proof cases check canonical bytes and reject modified execution commitments."
+
+[file.076]
+path = "node/sequencer/proof_sequencer_wal_test.go"
+lines = 329
+verdict = "clean"
+note = "Proof WAL cases compare persisted signed receipts and deterministic replay outcomes rather than accepting a fixture-only format."
+
+[file.077]
+path = "node/sequencer/receipt.go"
+lines = 517
+verdict = "issues"
+note = "Receipt fields bind the accepted execution and payment denom, but the outer mutex prevents concurrent sends from joining a microbatch."
+
+[file.078]
+path = "node/sequencer/receipt_equality_test.go"
+lines = 970
+verdict = "clean"
+note = "Receipt equality cases compare canonical signed outputs and execution summaries across equivalent execution paths."
+
+[file.079]
+path = "node/sequencer/receipt_latency_test.go"
+lines = 223
+verdict = "clean"
+note = "Latency sampling preserves actual acceptance and durability requirements; timing assertions do not prove peer authentication."
+
+[file.080]
+path = "node/sequencer/receipt_source.go"
+lines = 224
+verdict = "issues"
+note = "Owned lookup copies and committed-tail restoration are implemented; a late first insertion can be dropped and uncommitted capacity exhaustion panics."
+
+[file.081]
+path = "node/sequencer/receipt_source_record_test.go"
+lines = 243
+verdict = "clean"
+note = "Record assertions cover signed identity checks, owned copies and retention; concurrent first insertion after commit remains unproven."
+
+[file.082]
+path = "node/sequencer/receipt_source_test.go"
+lines = 171
+verdict = "clean"
+note = "Lookup and eviction cases assert the current bounded retention contract; durable publication races are recorded on the producer."
+
+[file.083]
+path = "node/sequencer/receiptkey.go"
+lines = 149
+verdict = "issues"
+note = "Key loading rejects consensus-key reuse and validates governed pins; unsynchronized pin replacement races signing."
+
+[file.084]
+path = "node/sequencer/receiptkey_pins_test.go"
+lines = 132
+verdict = "clean"
+note = "Pin tests check identity and height coverage and reject invalid replacement; production refresh and concurrent replacement remain separate findings."
+
+[file.085]
+path = "node/sequencer/replay.go"
+lines = 67
+verdict = "issues"
+note = "Replay checks deterministic signed receipts but discards a sealed Batch, leaving startup unable to resume an uncommitted sealed height."
+
+[file.086]
+path = "node/sequencer/replay_test.go"
+lines = 154
+verdict = "clean"
+note = "Replay assertions compare canonical receipts and reject divergence; retaining sealed consensus state is the recorded recovery repair."
+
+[file.087]
+path = "node/sequencer/resolution_test.go"
+lines = 402
+verdict = "clean"
+note = "Resolution cases cover receipt module identity, batch injection, nonce admission, read context, standby replay and activation/proposal-source behavior."
+
+[file.088]
+path = "node/sequencer/rpc_e2e_test.go"
+lines = 341
+verdict = "clean"
+note = "RPC scenarios use signed sends and the assembled receipt interfaces; they do not cover the commit/publication scheduling gap."
+
+[file.089]
+path = "node/sequencer/seal.go"
+lines = 162
+verdict = "clean"
+note = "Sealing retains accepted order, timestamp and hash continuity and closes the open layer only on the declared height."
+
+[file.090]
+path = "node/sequencer/seal_batch_test.go"
+lines = 290
+verdict = "clean"
+note = "Batch tests compare signed tx-0 fields and resulting validator execution with the sealed producer shape."
+
+[file.091]
+path = "node/sequencer/seal_giga_test.go"
+lines = 170
+verdict = "clean"
+note = "Large seal scenarios retain ordered transactions and batch fields without weakening continuity checks."
+
+[file.092]
+path = "node/sequencer/seal_test.go"
+lines = 180
+verdict = "clean"
+note = "Seal lifecycle cases check wrong heights, repeat calls and accepted sequence continuity."
+
+[file.093]
+path = "node/sequencer/seqhash_parity_test.go"
+lines = 75
+verdict = "clean"
+note = "Hash parity binds the same domain separator, previous hash, big-endian sequence and activity id across producer and validator."
+
+[file.094]
+path = "node/sequencer/standby.go"
+lines = 1014
+verdict = "issues"
+note = "Frames and 33-byte epoch acknowledgements agree between endpoints; pending durable entries can be abandoned when TakeLease publishes leadership."
+
+[file.095]
+path = "node/sequencer/standby_role.go"
+lines = 348
+verdict = "issues"
+note = "Role assembly verifies distinct signing keys and receipt authorization, but its TCP listener accepts unauthenticated lifecycle writers."
+
+[file.096]
+path = "node/sequencer/standby_role_test.go"
+lines = 943
+verdict = "clean"
+note = "Standby role assertions cover assembly and replay with distinct primary/local keys; transport identity is a producer finding."
+
+[file.097]
+path = "node/sequencer/standby_test.go"
+lines = 973
+verdict = "clean"
+note = "Replication cases cover gap refill, duplicates, refusals and deterministic replay; queued state at takeover remains the recorded recovery gap."
+
+[file.098]
+path = "node/sequencer/standby_wal_sync_hook_test.go"
+lines = 80
+verdict = "clean"
+note = "Sync-hook assertions measure the durable WAL callback without changing acknowledgement order."
+
+[file.099]
+path = "node/sequencer/tcp_ack_test.go"
+lines = 232
+verdict = "clean"
+note = "Wire tests exercise the real TCP acknowledgement and refusal detail framing; the current endpoints agree on 33-byte epoch ACKs."
+
+[file.100]
+path = "node/sequencer/vote_parity_test.go"
+lines = 149
+verdict = "clean"
+note = "Vote parity scenarios compare sealed and validator execution commitments for the same signed input order."
+
+[file.101]
+path = "node/sequencer/wal/wal.go"
+lines = 845
+verdict = "clean"
+note = "Versioned frames enforce checksums and size bounds, persist execution outputs, replay after the committed tip and retain locked segment ownership."
+
+[file.102]
+path = "node/sequencer/wal/wal_test.go"
+lines = 794
+verdict = "clean"
+note = "WAL assertions cover frame round-trip, corruption, torn-tail recovery, sync, pruning and replay using current encoded entries."
+
+[finding.microbatch-admission]
+file = "node/sequencer/microbatch.go"
+line = 244
+class = "runtime-risk"
+severity = "high"
+observed = "microBatch.execute calls deliverBatch and microRecord without sequential.admit; unlike sequential.Accept, grouped sends do not reserve tx 0 or enforce Block.MaxGas, MaxGasWanted, MaxBytes or per-domain gas and byte allowances."
+expected = "Requirements 5020.1-3 and 20003.1 require every receipted transaction, in either executor mode, to fit the block and tenant allowance that validators enforce."
+proposal = "In node/sequencer/microbatch.go apply the same admission accounting as the sequential path to each candidate in arrival order, retain usage only for accepted entries, and prove over-limit groups cannot receive receipts or produce validator-rejected blocks."
+owner_domain = 5
+interface = "5.go-node-sequencer-new-micro-batch"
+
+[finding.replication-auth]
+file = "node/sequencer/dial.go"
+line = 20
+class = "security"
+severity = "high"
+observed = "DialStandby opens plain TCP and NewNode installs that dialer directly in ReplicatorConfig. ACKs have no signature or authenticated peer identity, although ReplicatorConfig.Dial promises mutual TLS; an impersonated standby can return AckOK without persisting a send."
+expected = "The declared replication transport must authenticate the configured primary and standby before accepting durable state or allowing an AckOK to release a receipt."
+proposal = "Implement authenticated mutual TLS in node/sequencer/dial.go and node/sequencer/standby_role.go with pinned peer identities and configured trust roots; reject unknown peers before reading frames and prove a forged ACK cannot authorize receipt publication."
+owner_domain = 5
+interface = "5.go-node-sequencer-dial-standby-j31"
+
+[finding.migration-uninitialized-cleanup]
+file = "cmd/layerx-genesis/lxp_genesis_builder.c"
+line = 366
+class = "runtime-risk"
+severity = "medium"
+observed = "lxp_genesis_build_snapshot_migration allocates kernel and accounts with malloc even after signature or signer validation fails, skips their initialization on error, then reads kernel->blob_count and calls lx_account_registry_release(accounts). materialize_snapshot also releases an uninitialized accounts allocation if another allocation fails."
+expected = "Invalid manifests, wrong signer keys and allocation failures must produce a deterministic refusal without reading or freeing uninitialized memory."
+proposal = "In cmd/layerx-genesis/lxp_genesis_builder.c initialize ownership-bearing allocations to zero and track successful initialization before traversing blobs or releasing the registry; add invalid-signature, wrong-signer and partial-allocation cleanup cases."
+owner_domain = 5
+interface = "1.c-lxp-genesis-build-snapshot-migration"
+
+[finding.legacy-genesis-registration]
+file = "cmd/layerx-genesis/lxp_genesis_build_cli.c"
+line = 139
+class = "retired-reference"
+severity = "medium"
+observed = "build_artifacts still writes paxeer-registration-request.lxrr and paxeer-deployment-descriptor.lxgd from separate kernel genesis roots; parse_request requires a nonempty guarantor set for every fresh genesis."
+expected = "The merged network initializes the kernel within paxd, retires guarantor provisioning and obtains finality from the committed block, without a separate checkpoint-registration deployment."
+proposal = "Replace the fresh-network artifact contract in cmd/layerx-genesis/lxp_genesis_build_cli.c and its consumers with a paxd-native genesis/import bundle; keep any legacy conversion explicitly offline and versioned, and remove mandatory guarantor input from the merged-network path."
+owner_domain = 5
+interface = "5.cli-layerx-genesis"
+
+[finding.custody-reconciliation-retired]
+file = "cmd/layerx-genesis/lxp_reconcile.c"
+line = 127
+class = "retired-reference"
+severity = "medium"
+observed = "lxp_genesis_reconcile gates accepted balances on lxp_custody_attestation_verify and a separate finalised_state checkpoint and custody state root, using an expected Paxeer attestation public key."
+expected = "The merged chain owns native bank and derived-subaccount balances; retired custody-credit and checkpoint authorities cannot establish current network balances or finality."
+proposal = "In cmd/layerx-genesis/lxp_reconcile.c separate the historical offline import reader from active genesis validation; reconcile imported balances against the committed native bank snapshot and its chain proof with an explicit migration authorization."
+owner_domain = 5
+interface = "1.c-lxp-custody-attestation-verify"
+
+[finding.nonce-drain-error]
+file = "node/sequencer/nonce_queue.go"
+line = 150
+class = "runtime-risk"
+severity = "medium"
+observed = "NonceQueue.Drain documents stopping at the gap after an Accept refusal, but drain removes the held transaction and loops after any non-nil accept error. It discards the error and can continue if the nonce reader advanced despite that error."
+expected = "A refused held send must leave a visible failure and stop draining at that nonce, especially when execution succeeded but receipt replication failed."
+proposal = "In node/sequencer/nonce_queue.go stop immediately on a non-nil accept result and surface or report the held-send refusal through an explicit result/event; test receipt-publication failure and a nonce reader that has already advanced."
+owner_domain = 5
+interface = "5.go-node-sequencer-nonce-queue-drain"
+
+[finding.receipt-key-concurrency]
+file = "node/sequencer/receiptkey.go"
+line = 113
+class = "runtime-risk"
+severity = "medium"
+observed = "ReceiptKey.SetPins replaces k.pins without synchronization while KeyID iterates the same slice and SignReceipt calls KeyID during receipt production. Rotation and signing can access the slice header concurrently."
+expected = "Requirement 5027 permits rotation without restart; the published pin set must remain consistent and race-free for receipt and batch signing."
+proposal = "Publish immutable validated pin snapshots atomically or guard SetPins and KeyID with a shared lock in node/sequencer/receiptkey.go; prove concurrent pin refresh, receipt signing and consensus sealing use valid height-bound keys."
+owner_domain = 5
+interface = "5.go-node-sequencer-receipt-key"
+
+[finding.standby-listener-auth]
+file = "node/sequencer/standby_role.go"
+line = 134
+class = "security"
+severity = "high"
+observed = "StartStandby uses net.Listen on standby-address and passes every connection to Standby.Serve. The primary receipt public key checks ACCEPT receipts but does not authenticate the peer or unsigned OPEN, SEAL, COMMITTED and LEASE control records."
+expected = "Only the authorized primary may append lifecycle and lease records to the standby WAL; the replication link must bind the sender to the configured primary identity."
+proposal = "In node/sequencer/standby_role.go require mutual TLS with the pinned primary identity before reading replication groups, sharing the trust configuration with DialStandby and rejecting unauthorized control records before WAL append."
+owner_domain = 5
+interface = "5.go-node-sequencer-start-standby-j31"
+
+[finding.sealed-tail-restart]
+file = "node/sequencer/replay.go"
+line = 41
+class = "restart-recovery"
+severity = "high"
+observed = "AppReplayer.Apply seals the executor and discards its returned Batch. If the last durable record is SEAL without COMMITTED, node_start.go:97-98 then refuses startup with WAL ends in an uncommitted sealed block; ConsensusSource has no restored pending or prepared batch."
+expected = "A crash after the durable SEAL and before block commit must preserve the receipted transaction order and resume proposing or reconciling that same block, as required by 5009 and 5048."
+proposal = "In node/sequencer/replay.go and node/sequencer/node_start.go restore the sealed batch into ConsensusSource and reconcile it with the committed application tip; prove restart immediately after durable SEAL reproduces every receipt and commits the block."
+owner_domain = 5
+interface = "5.go-node-sequencer-new-app-replayer-j31"
+
+[finding.promotion-abandons-pending]
+file = "node/sequencer/standby.go"
+line = 745
+class = "restart-recovery"
+severity = "high"
+observed = "receive acknowledges cur.lastSeq after syncing records that can remain in pending while a prior height commits. TakeLease sets leader=true without draining them; applyPending exits on leader, LastSeq returns appliedSeq, and Failover returns that potentially older position."
+expected = "A promoted standby must resume every durably acknowledged ACCEPT, including the tail queued behind a local commit, before exposing its new leader sequence or accepting another send."
+proposal = "In node/sequencer/standby.go fence incoming replication first, then reconcile the application height and replay the complete durable tail before publishing leadership. Make Failover and Handover report a position proven equal to the acknowledged tail and test queued ACCEPTs during takeover."
+owner_domain = 5
+interface = "5.go-node-sequencer-standby-take-lease-j32"
+
+[finding.seal-overtakes-accept-wal]
+file = "node/sequencer/consensus_source.go"
+line = 159
+class = "restart-recovery"
+severity = "high"
+observed = "ConsensusSource.Seal locks only its own mutex and can seal after Receipter.exec.Accept changes L_open but before Accepter calls Replicator.Release for that ACCEPT. It can therefore append SEAL before the included ACCEPT; the standby reports a gap and primary replay encounters ACCEPT after closing its layer."
+expected = "The WAL and replication lifecycle must contain every included ACCEPT before SEAL, so a successful execution cannot become an unreplayable tail when consensus seals concurrently with public RPC admission."
+proposal = "Coordinate the admission and seal boundary in node/sequencer/consensus_source.go with Accepter so all included sends complete their WAL release before SEAL is appended. Add a real concurrent send/seal and crash-restart proof with both WALs checked for lifecycle order."
+owner_domain = 5
+interface = "5.go-node-sequencer-consensus-source-seal"
+
+[finding.receipt-first-record-after-commit]
+file = "node/sequencer/receipt_source.go"
+line = 128
+class = "interface-mismatch"
+severity = "high"
+observed = "Record silently ignores a first publication at height <= committed. After ACCEPT release unlocks the replicator, the commit listener can finish Driver.OnCommit and advance ReceiptSource.Committed before the accepter reaches Record, so a returned signed send has no hash lookup entry."
+expected = "Requirements 5022.1 and 5090.1 require the accepted SequencerSend to remain readable before and after commit until capacity evicts it; commit cannot suppress the first insertion of a durable accepted receipt."
+proposal = "In node/sequencer/receipt_source.go distinguish a never-recorded durable send from an evicted duplicate and retain first publication even when commit won the race, or serialize publication with the commit watermark. Prove concurrent acceptance/commit still returns the exact signed receipt by hash."
+owner_domain = 5
+interface = "5.go-node-sequencer-receipt-source-j31"
+
+[finding.receipt-capacity-after-execution]
+file = "node/sequencer/receipt_source.go"
+line = 145
+class = "runtime-risk"
+severity = "medium"
+observed = "ReceiptSource has a fixed default capacity of 65536 and panics when all entries are uncommitted. Accepter calls Record only after execution and durable ACCEPT release, and admission has no receipt-source reservation, so capacity failure happens after the transaction changed state."
+expected = "A public send must be refused before execution when its receipt cannot be retained, or its durable result must remain retrievable without an RPC panic; block gas and byte limits are not a receipt-count reservation."
+proposal = "Reserve receipt-source capacity before execution in node/sequencer/receipt_source.go and the Accepter path, or provide bounded durable lookup for overflow; test a full uncommitted source through the real send path and verify an explicit refusal leaves nonce and state unchanged."
+owner_domain = 5
+interface = "5.go-node-sequencer-receipt-source-j31"
+
+[finding.nonce-queue-not-on-send-path]
+file = "node/sequencer/node.go"
+line = 149
+class = "wiring-gap"
+severity = "medium"
+observed = "NewNode constructs NonceAdmission, but Node.Start installs n.Accepter directly in the RPC option and ConsensusSource also calls that accepter. No production caller invokes NonceAdmission.Send or Open; Driver only clears the queue's receipted set, so future nonces are refused rather than held or expired."
+expected = "Requirement 5038 and the sequencer nonce contract require future nonces to wait at submitted within configured sender and total bounds, drain when the gap fills, and expire at the configured lifetime."
+proposal = "In node/sequencer/node.go connect verified sender/nonce admission to the production RPC send adapter and invoke expiry on each new open block; expose held status to receipt reads and prove n+1 then n through SendAPI reaches the configured queue and drains in nonce order."
+owner_domain = 5
+interface = "5.go-node-sequencer-new-nonce-admission-j31"
+
+[finding.microbatch-serialized-before-grouping]
+file = "node/sequencer/receipt.go"
+line = 330
+class = "wiring-gap"
+severity = "medium"
+observed = "Receipter.Accept holds r.mu while waiting for exec.Accept to complete its microbatch window; Accepter and RPC also serialize synchronous sends above it. Only one production call can reach microBatch.join at a time, so a configured MaxCount greater than one never forms a multi-send group."
+expected = "ModeMicroBatch must group concurrent public sends within its configured window while retaining deterministic pre-state, receipt order and durability; direct executor concurrency alone does not establish that behavior through RPC."
+proposal = "Restructure the admission-to-receipt pipeline in node/sequencer/receipt.go with ordered group ownership and per-entry execution snapshots so concurrent sends can join a batch before receipt assembly serializes them; qualify grouping through the assembled Node and public SendAPI."
+owner_domain = 5
+interface = "5.go-node-sequencer-new-micro-batch"
+
+[finding.governed-pins-not-refreshed]
+file = "node/sequencer/driver.go"
+line = 93
+class = "wiring-gap"
+severity = "medium"
+observed = "Driver.OnCommit opens H+1 without fetching ReceiptKeyPins or calling SetPins. Primary and standby load pins only at construction/start, and SetPins has test callers only; governance changes to key ids or height coverage leave the active signer using its startup snapshot."
+expected = "The receipt-key rotation contract requires the node to refresh governed pins at each Open and honor changed height coverage without restarting, while validators verify the same committed key list."
+proposal = "In node/sequencer/driver.go refresh an immutable validated pin set from the newly committed keeper before opening the next block, and refresh standby replay authorization too; test a governance rotation through commit, next-block receipt publication and validator verification."
+owner_domain = 5
+interface = "5.go-node-sequencer-receipt-key-key-id"
+
+[finding.lease-lifecycle-unwired]
+file = "node/sequencer/node.go"
+line = 82
+class = "wiring-gap"
+severity = "medium"
+observed = "NewNode assembles the Replicator and executor but never constructs or starts LeaseHolder. NewLeaseHolder and RenewAt are called only by tests; the configured lease-duration is used as nonce lifetime, with no production renewal loop or expiry-driven admission fence."
+expected = "The declared sequencer WAL lease lifecycle must start a durable epoch, renew while healthy and stop a primary that cannot retain its lease, rather than leaving expiry as a test-only helper."
+proposal = "In node/sequencer/node.go and its start/stop lifecycle own a LeaseHolder, restore its epoch from WAL, start renewal with cancellation and fence admission on expiry or renewal failure; prove the configured lease duration controls the running primary."
+owner_domain = 5
+interface = "5.go-node-sequencer-lease-holder-j31"
+
+[finding.promotion-runtime-unwired]
+file = "node/sequencer/node.go"
+line = 52
+class = "wiring-gap"
+severity = "medium"
+observed = "The standby branch of NewNode returns after StartStandby and has no production call to Failover, Handover, RecoveryOrder or NewPromotedConsensusSource. The failover rehearsal constructs a new executor at the committed baseline and manually replays the tail in test code."
+expected = "A pinned standby needs an operational takeover path that restores the durable tail and installs the primary RPC, replication and commit lifecycle; constructing helper objects only in tests does not make takeover available in paxd."
+proposal = "Add the authorized takeover lifecycle to node/sequencer/node.go: select and reconcile the WAL, restore receipts under historical primary authorization, install the new primary pipeline and retain distinct keys. Exercise the operator-triggered path through the assembled running node."
+owner_domain = 5
+interface = "5.go-node-sequencer-new-promoted-consensus-source-j31"
+
+[finding.fresh-test-requires-retired-artifacts]
+file = "cmd/layerx-genesis/test_builder_cli.py"
+line = 187
+class = "test-gap"
+severity = "medium"
+observed = "test_fresh_build_writes_no_handover_trust requires fresh output to contain paxeer-registration-request.lxrr and paxeer-deployment-descriptor.lxgd, and its request still includes a guarantor and handover-authority parameter even though these are retired network bootstrap authorities."
+expected = "Fresh merged-network qualification must assert paxd-native genesis/import behavior without requiring separate checkpoint registration, guarantor provisioning or a daemon authority configuration."
+proposal = "Update cmd/layerx-genesis/test_builder_cli.py together with the owning builder repair to qualify the merged genesis contract; retain any historical artifact conversion as an explicitly versioned offline test and prove it cannot enable the retired runtime."
+owner_domain = 5
+interface = "5.cli-layerx-genesis"
+
+[finding.microbatch-test-bypasses-live-serialization]
+file = "node/sequencer/microbatch_test.go"
+line = 109
+class = "test-gap"
+severity = "medium"
+observed = "The grouping test concurrently calls the bare MicroBatch executor through a counting host. It verifies grouped DeliverTxBatch calls, but bypasses Receipter, Accepter and RPC mutexes that admit only one synchronous send into that executor in the assembled node."
+expected = "A test claiming usable microbatch grouping must drive the public producer through the real receipt and replication path and observe more than one transaction in a delivered group."
+proposal = "Extend node/sequencer/microbatch_test.go with concurrent signed sends through a real Node and SendAPI, observing batch membership and matching returned receipts to validator results; keep the existing executor-level checks as focused scheduler coverage."
+owner_domain = 5
+interface = "5.go-node-sequencer-new-micro-batch"
+
+[finding.registry-driver-signature]
+file = "spec/layerx-merge/interfaces.kvx"
+line = 239492
+class = "doc-drift"
+severity = "medium"
+observed = "Registry row 5.go-node-sequencer-new-driver-j31 declares NewDriver(exec, rep, w, cfg, m) returning *Driver, but node/sequencer/driver.go:33 implements NewDriver(DriverConfig) returning (*Driver, error), and NewNode consumes that error-returning form."
+expected = "A served registry row and the sequencer contract must describe the current constructor arguments, required dependencies, validation failures and return shape used by its real caller."
+proposal = "Update spec/layerx-merge/interfaces.kvx row 5.go-node-sequencer-new-driver-j31 and the owning sequencer contract source to declare DriverConfig and the error return, including validation of the application, fee floor, nonce queue and WAL retention."
+owner_domain = 5
+interface = "5.go-node-sequencer-new-driver-j31"
+
+[finding.registry-nonce-signature]
+file = "spec/layerx-merge/interfaces.kvx"
+line = 239563
+class = "doc-drift"
+severity = "medium"
+observed = "Registry row 5.go-node-sequencer-new-nonce-admission-j31 advertises a three-argument constructor. The producer in node/sequencer/nonce_admission.go:13 and its NewNode caller require a fourth time.Duration lifetime argument."
+expected = "The served constructor declaration must state the actual lifetime argument and units, since an integrator following the declared three-argument interface cannot compile a call."
+proposal = "Amend spec/layerx-merge/interfaces.kvx row 5.go-node-sequencer-new-nonce-admission-j31 and the sequencer contract to declare the lifetime duration and its positive bound; align its configured source with the queue expiry lifecycle."
+owner_domain = 5
+interface = "5.go-node-sequencer-new-nonce-admission-j31"
+
+[finding.registry-retired-genesis-env]
+file = "spec/layerx-merge/interfaces.kvx"
+line = 229108
+class = "doc-drift"
+severity = "low"
+observed = "Registry row 5.env-update-genesis-digests remains stable and advertises UPDATE_GENESIS_DIGESTS in node/genesis/genesis_test.go, but that file now only proves embedded legacy chains are absent and never reads the environment switch."
+expected = "A retired embedded-genesis update switch must not remain a served configuration contract after the documents and digest updater have been removed."
+proposal = "Retire 5.env-update-genesis-digests in spec/layerx-merge/interfaces.kvx and remove its active configuration instructions from the owning sequencer contract; preserve the negative retirement test in node/genesis/genesis_test.go."
+owner_domain = 5
+interface = "5.env-update-genesis-digests"
+
+[finding.doc-quickstart-site]
+file = "docs/site/docs/overview/quickstart.md"
+line = 214
+class = "doc-drift"
+severity = "medium"
+observed = "Public examples prescribe https://api-mainnet-beta.paxeer.network/rpc and /rpc/ws, custody-credit funding at 0x1013, checkpoint/batch finality and separate receipt-authority facts; lines 20, 167-168, 214-217, 299-303 and 550-579 retain those instructions."
+expected = "The audit brief specifies one paxd BFT chain with an in-process kernel, chain id 125, root-path public JSON-RPC and finality at block commit; layerxd, LNI, custody credit, checkpoint and guarantor authorities are retired."
+proposal = "Rewrite docs/site/docs/overview/quickstart.md around signed EVM transactions to the root JSON-RPC endpoint on chain 125, native bank funding of derived subaccounts, pax_sequencerReceipt and finality at block commit; replace retired router, custody-credit and authorized-batch examples."
+owner_domain = 17
+
+[finding.doc-quickstart-wiki]
+file = "docs/wiki/Quickstart.md"
+line = 214
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki quickstart still directs public sends to /rpc and /rpc/ws and funds via custody credit at 0x1013; lines 20, 167-168, 214-217, 299-303 and 550-579 also describe retired batch and receipt-authority evidence."
+expected = "The audit brief specifies one paxd BFT chain with an in-process kernel, chain id 125, root-path public JSON-RPC and finality at block commit; layerxd, LNI, custody credit, checkpoint and guarantor authorities are retired."
+proposal = "Rewrite docs/wiki/Quickstart.md around signed EVM transactions to the root JSON-RPC endpoint on chain 125, native bank funding of derived subaccounts, pax_sequencerReceipt and finality at block commit; replace retired router, custody-credit and authorized-batch examples."
+owner_domain = 17
+
+[finding.doc-beta-site]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The topology adds the LayerX daemon to paxd, then provisions GuarantorBond, CheckpointRegistry, LXRR/LXGD artifacts and layerxd --custody-profile; lines 3-5, 25-35 and 43-45 present retired components as current bring-up dependencies."
+expected = "The audit brief specifies one paxd BFT chain with an in-process kernel, chain id 125, root-path public JSON-RPC and finality at block commit; layerxd, LNI, custody credit, checkpoint and guarantor authorities are retired."
+proposal = "Rewrite docs/site/docs/operators/beta-cluster.md to provision paxd with the in-process kernel, distinct consensus/receipt keys, governed pins, WAL and authenticated standby replication; remove layerxd, LNI, guarantor, custody-profile and settlement-contract bring-up requirements."
+owner_domain = 17
+
+[finding.doc-beta-wiki]
+file = "docs/wiki/BetaCluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki cluster procedure runs a separate LayerX daemon and authority service and deploys settlement contracts from LXRR/LXGD artifacts; lines 3-5, 25-35 and 37-43 retain the pre-merge provisioning and custody profile."
+expected = "The audit brief specifies one paxd BFT chain with an in-process kernel, chain id 125, root-path public JSON-RPC and finality at block commit; layerxd, LNI, custody credit, checkpoint and guarantor authorities are retired."
+proposal = "Rewrite docs/wiki/BetaCluster.md to provision paxd with the in-process kernel, distinct consensus/receipt keys, governed pins, WAL and authenticated standby replication; remove layerxd, LNI, guarantor, custody-profile and settlement-contract bring-up requirements."
+owner_domain = 17
+
+[finding.doc-hosted-site]
+file = "docs/site/docs/platform/hosted-node.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The page defines the node as a separate layerxd sequencer pod, requires guarantor processes and registration artifacts, and makes LNI the sole activity ingress; lines 3-12, 39-43, 116-132, 183-247 and 440-488 describe retired runtime boundaries."
+expected = "The audit brief specifies one paxd BFT chain with an in-process kernel, chain id 125, root-path public JSON-RPC and finality at block commit; layerxd, LNI, custody credit, checkpoint and guarantor authorities are retired."
+proposal = "Rewrite docs/site/docs/platform/hosted-node.md to provision paxd with the in-process kernel, distinct consensus/receipt keys, governed pins, WAL and authenticated standby replication; remove layerxd, LNI, guarantor, custody-profile and settlement-contract bring-up requirements."
+owner_domain = 17
+
+[finding.doc-hosted-wiki]
+file = "docs/wiki/HostedNode.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki hosted-node page repeats the layerxd supervisor, authority replica, guarantors, settlement environment and LNI ingress as operational requirements; lines 3-12, 39-43, 183-247 and 440-488 retain the old split-network procedure."
+expected = "The audit brief specifies one paxd BFT chain with an in-process kernel, chain id 125, root-path public JSON-RPC and finality at block commit; layerxd, LNI, custody credit, checkpoint and guarantor authorities are retired."
+proposal = "Rewrite docs/wiki/HostedNode.md to provision paxd with the in-process kernel, distinct consensus/receipt keys, governed pins, WAL and authenticated standby replication; remove layerxd, LNI, guarantor, custody-profile and settlement-contract bring-up requirements."
+owner_domain = 17
+
+[finding.doc-programs-ingress]
+file = "docs/site/docs/programs/index.md"
+line = 119
+class = "doc-drift"
+severity = "medium"
+observed = "The Programs guide describes simulation through lxp_daemon_lni_simulate and submits CALL bytes over LNI at /v1/programs/call and /v1/programs/simulate in lines 119-128; lines 248-249 also recommend native routes or lx_sendActivity for deploy and call."
+expected = "The audit brief specifies one paxd BFT chain with an in-process kernel, chain id 125, root-path public JSON-RPC and finality at block commit; layerxd, LNI, custody credit, checkpoint and guarantor authorities are retired."
+proposal = "Rewrite docs/site/docs/programs/index.md to submit Programs payloads as signed EVM transactions to layerxprograms at 0x101D, simulate through the live chain call surface, and verify results at committed height; remove retired LNI and REST ingress instructions."
+owner_domain = 17
+
+[finding.doc-network-overview]
+file = "docs/paxeer-network.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The overview calls Paxeer the settlement and custody layer for a separate LayerX network and assigns ordinary activity, checkpoints, guarantor bonds, withdrawals and exits to that split design in lines 3-19; its virtual-chain namespace section does not correct those claims."
+expected = "The audit brief specifies one paxd BFT chain with an in-process kernel, chain id 125, root-path public JSON-RPC and finality at block commit; layerxd, LNI, custody credit, checkpoint and guarantor authorities are retired."
+proposal = "Rewrite docs/paxeer-network.md for one paxd BFT network with the kernel proposing blocks, native balances and finality at commit; document root JSON-RPC at api1 through api14.mainnet-beta.paxeer.network and api-mainnet-beta.paxeer.network, and identify px_ as hosted gateway methods."
+owner_domain = 17
+
+[finding.doc-unified-architecture]
+file = "docs/site/docs/overview/unified-network.md"
+line = 10
+class = "doc-drift"
+severity = "medium"
+observed = "The page still runs a C layerxd consensus layer, describes 0x1013 custody and 0x1014 guarantor checkpoint finality, and advertises a single router at /rpc plus /rpc/schema and sixteen EVM-only numbered endpoints in lines 10, 49-89 and 131-177."
+expected = "The audit brief specifies one paxd BFT chain with an in-process kernel, chain id 125, root-path public JSON-RPC and finality at block commit; layerxd, LNI, custody credit, checkpoint and guarantor authorities are retired."
+proposal = "Rewrite docs/site/docs/overview/unified-network.md for one paxd BFT network with the kernel proposing blocks, native balances and finality at commit; document root JSON-RPC at api1 through api14.mainnet-beta.paxeer.network and api-mainnet-beta.paxeer.network, and identify px_ as hosted gateway methods."
+owner_domain = 17
+
+[finding.doc-translation-zh]
+file = "docs/site/docs/overview/i18n/zh-cn.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The Chinese overview says ordinary LayerX activity settles periodically to Paxeer for custody, checkpoint registration, guarantor bonds and exits at line 18, and lists layerxd as the native daemon and settlement contracts as active components at lines 98 and 104."
+expected = "The audit brief specifies one paxd BFT chain with an in-process kernel, chain id 125, root-path public JSON-RPC and finality at block commit; layerxd, LNI, custody credit, checkpoint and guarantor authorities are retired."
+proposal = "Update docs/site/docs/overview/i18n/zh-cn.md from the merged-network facts: one paxd BFT chain, EVM chain 125, kernel execution in the node and finality at block commit. Replace the separate layerxd, custody, checkpoint and guarantor architecture in the introduction and layout."
+owner_domain = 17
+
+[finding.doc-translation-ru]
+file = "docs/site/docs/overview/i18n/ru.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The Russian overview says ordinary LayerX actions need no Paxeer transaction and periodic checkpoints settle custody and guarantor bonds at line 18; lines 98 and 104 still list layerxd and separate settlement contracts as current architecture."
+expected = "The audit brief specifies one paxd BFT chain with an in-process kernel, chain id 125, root-path public JSON-RPC and finality at block commit; layerxd, LNI, custody credit, checkpoint and guarantor authorities are retired."
+proposal = "Update docs/site/docs/overview/i18n/ru.md from the merged-network facts: one paxd BFT chain, EVM chain 125, kernel execution in the node and finality at block commit. Replace the separate layerxd, custody, checkpoint and guarantor architecture in the introduction and layout."
+owner_domain = 17
+
+[finding.doc-translation-es]
+file = "docs/site/docs/overview/i18n/es.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The Spanish overview describes LayerX activity outside Paxeer with periodic custody/checkpoint settlement at line 18, and keeps the layerxd daemon and guarantor settlement-contract layout at lines 98 and 104."
+expected = "The audit brief specifies one paxd BFT chain with an in-process kernel, chain id 125, root-path public JSON-RPC and finality at block commit; layerxd, LNI, custody credit, checkpoint and guarantor authorities are retired."
+proposal = "Update docs/site/docs/overview/i18n/es.md from the merged-network facts: one paxd BFT chain, EVM chain 125, kernel execution in the node and finality at block commit. Replace the separate layerxd, custody, checkpoint and guarantor architecture in the introduction and layout."
+owner_domain = 17
+
+[finding.sequencer-contract-current-wire]
+file = "spec/layerx-merge/contracts/sequencer.md"
+line = 80
+class = "doc-drift"
+severity = "medium"
+observed = "The reviewed receipt, WAL, executor and wiring sections still specify asset=sha256(fee denom) at line 80, a 25-byte ACK at line 272, the old ACCEPT payload at line 262 and no production runtime at line 759. Current producers bind PaymentDenom, emit 33-byte epoch ACKs, persist return/log/error outputs and assemble NewNode."
+expected = "The sequencer contract must describe the exact current receipt asset, WAL ACCEPT fields, ACK framing and operational assembly, including which nonce, lease and recovery hooks remain unwired."
+proposal = "Regenerate spec/layerx-merge/contracts/sequencer.md from amended owning contract sources with the payment-denom identity, complete ACCEPT output payload, epoch/refusal ACK protocol and implemented node startup; explicitly identify the remaining production wiring and recovery gaps recorded in this audit."
+owner_domain = 5
+interface = "5.fmt-sequencer-replication-ack-j32"
+
+[doc.quickstart-site]
+path = "docs/site/docs/overview/quickstart.md"
+status = "stale"
+notes = "Public examples prescribe https://api-mainnet-beta.paxeer.network/rpc and /rpc/ws, custody-credit funding at 0x1013, checkpoint/batch finality and separate receipt-authority facts; lines 20, 167-168, 214-217, 299-303 and 550-579 retain those instructions."
+
+[doc.quickstart-wiki]
+path = "docs/wiki/Quickstart.md"
+status = "stale"
+notes = "The wiki quickstart still directs public sends to /rpc and /rpc/ws and funds via custody credit at 0x1013; lines 20, 167-168, 214-217, 299-303 and 550-579 also describe retired batch and receipt-authority evidence."
+
+[doc.beta-site]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "stale"
+notes = "The topology adds the LayerX daemon to paxd, then provisions GuarantorBond, CheckpointRegistry, LXRR/LXGD artifacts and layerxd --custody-profile; lines 3-5, 25-35 and 43-45 present retired components as current bring-up dependencies."
+
+[doc.beta-wiki]
+path = "docs/wiki/BetaCluster.md"
+status = "stale"
+notes = "The wiki cluster procedure runs a separate LayerX daemon and authority service and deploys settlement contracts from LXRR/LXGD artifacts; lines 3-5, 25-35 and 37-43 retain the pre-merge provisioning and custody profile."
+
+[doc.hosted-site]
+path = "docs/site/docs/platform/hosted-node.md"
+status = "stale"
+notes = "The page defines the node as a separate layerxd sequencer pod, requires guarantor processes and registration artifacts, and makes LNI the sole activity ingress; lines 3-12, 39-43, 116-132, 183-247 and 440-488 describe retired runtime boundaries."
+
+[doc.hosted-wiki]
+path = "docs/wiki/HostedNode.md"
+status = "stale"
+notes = "The wiki hosted-node page repeats the layerxd supervisor, authority replica, guarantors, settlement environment and LNI ingress as operational requirements; lines 3-12, 39-43, 183-247 and 440-488 retain the old split-network procedure."
+
+[doc.programs-ingress]
+path = "docs/site/docs/programs/index.md"
+status = "stale"
+notes = "The Programs guide describes simulation through lxp_daemon_lni_simulate and submits CALL bytes over LNI at /v1/programs/call and /v1/programs/simulate in lines 119-128; lines 248-249 also recommend native routes or lx_sendActivity for deploy and call."
+
+[doc.network-overview]
+path = "docs/paxeer-network.md"
+status = "stale"
+notes = "The overview calls Paxeer the settlement and custody layer for a separate LayerX network and assigns ordinary activity, checkpoints, guarantor bonds, withdrawals and exits to that split design in lines 3-19; its virtual-chain namespace section does not correct those claims."
+
+[doc.unified-architecture]
+path = "docs/site/docs/overview/unified-network.md"
+status = "stale"
+notes = "The page still runs a C layerxd consensus layer, describes 0x1013 custody and 0x1014 guarantor checkpoint finality, and advertises a single router at /rpc plus /rpc/schema and sixteen EVM-only numbered endpoints in lines 10, 49-89 and 131-177."
+
+[doc.translation-zh]
+path = "docs/site/docs/overview/i18n/zh-cn.md"
+status = "stale"
+notes = "The Chinese overview says ordinary LayerX activity settles periodically to Paxeer for custody, checkpoint registration, guarantor bonds and exits at line 18, and lists layerxd as the native daemon and settlement contracts as active components at lines 98 and 104."
+
+[doc.translation-ru]
+path = "docs/site/docs/overview/i18n/ru.md"
+status = "stale"
+notes = "The Russian overview says ordinary LayerX actions need no Paxeer transaction and periodic checkpoints settle custody and guarantor bonds at line 18; lines 98 and 104 still list layerxd and separate settlement contracts as current architecture."
+
+[doc.translation-es]
+path = "docs/site/docs/overview/i18n/es.md"
+status = "stale"
+notes = "The Spanish overview describes LayerX activity outside Paxeer with periodic custody/checkpoint settlement at line 18, and keeps the layerxd daemon and guarantor settlement-contract layout at lines 98 and 104."
+
+[doc.sequencer-contract]
+path = "spec/layerx-merge/contracts/sequencer.md"
+status = "stale"
+notes = "Reviewed the receipt, receipt-key, rung, tx-0, WAL/replication, executor/nonce/fee, config and integration sections relevant to this package; the generated inventory appendix was consulted by registry row. Lines 80, 262, 272 and 759 lag current producer shapes and runtime assembly."
+
+[doc.interface-registry]
+path = "spec/layerx-merge/interfaces.kvx"
+status = "stale"
+notes = "Reviewed the package's 281 produced and 345 consumed registry rows. Driver and nonce-admission constructor signatures and the stable UPDATE_GENESIS_DIGESTS row are stale; retired embedded-genesis rows are correctly marked retire, and the ACK row notes the planned 33-byte epoch extension."
+

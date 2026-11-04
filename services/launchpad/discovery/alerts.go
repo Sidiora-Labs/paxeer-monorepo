@@ -108,9 +108,20 @@ func (s Store) DisableRule(ctx context.Context, actor, id string) error {
 }
 
 func (s Store) EvaluateRule(ctx context.Context, id string, m Metric, now time.Time) (bool, string, error) {
+	var crossed bool
+	var reason string
+	e := s.transaction(ctx, func(tx *sql.Tx) error {
+		var err error
+		crossed, reason, err = evaluateRuleTx(ctx, tx, id, m, now)
+		return err
+	})
+	return crossed, reason, e
+}
+
+func evaluateRuleTx(ctx context.Context, tx *sql.Tx, id string, m Metric, now time.Time) (bool, string, error) {
 	crossed := false
 	reason := ""
-	e := s.transaction(ctx, func(tx *sql.Tx) error {
+	e := func() error {
 		var rb, cb []byte
 		e := tx.QueryRowContext(ctx, `SELECT document,checkpoint FROM narrative_discovery.rules WHERE id=$1 FOR UPDATE`, id).Scan(&rb, &cb)
 		if e != nil {
@@ -141,6 +152,6 @@ func (s Store) EvaluateRule(ctx context.Context, id string, m Metric, now time.T
 		}
 		_, e = tx.ExecContext(ctx, `INSERT INTO narrative_discovery.outbox(id,kind,document)VALUES($1,'threshold-crossing-v2',$2)ON CONFLICT DO NOTHING`, trigger.ID, encode(trigger))
 		return e
-	})
+	}()
 	return crossed, reason, e
 }

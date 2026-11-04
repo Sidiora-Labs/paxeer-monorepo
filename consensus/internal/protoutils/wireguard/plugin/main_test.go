@@ -355,6 +355,7 @@ func TestPlugin_RepeatedMessageWithMaxCountAndDescent(t *testing.T) {
 	require.NotEmpty(t, content)
 	// A.bs has both MaxCount and Nested rules.
 	require.Contains(t, content, `MustFieldNum[A]("bs"): {MaxCount: 7, Nested: `)
+	require.Contains(t, content, "Some(SchemaForB), Repeated: true}")
 	require.Contains(t, content, "Some(SchemaForB)")
 	require.Contains(t, content, `MustFieldNum[B]("ys"): {MaxCount: 11}`)
 }
@@ -549,4 +550,42 @@ func init() {
 	if _, err := protoregistry.GlobalFiles.FindFileByPath("google/protobuf/descriptor.proto"); err != nil {
 		panic("descriptor.proto not registered: " + err.Error())
 	}
+}
+
+func TestRepair_78_PluginDistinguishesRepeatedChildren(t *testing.T) {
+	child := &descriptorpb.DescriptorProto{
+		Name: proto.String("Child"),
+		Field: []*descriptorpb.FieldDescriptorProto{{
+			Name: proto.String("items"), Number: proto.Int32(1),
+			Type:    descriptorpb.FieldDescriptorProto_TYPE_BYTES.Enum(),
+			Label:   descriptorpb.FieldDescriptorProto_LABEL_REPEATED.Enum(),
+			Options: buildFieldOptionsWithMaxCount(3),
+		}},
+	}
+	parent := &descriptorpb.DescriptorProto{
+		Name: proto.String("Parent"),
+		Field: []*descriptorpb.FieldDescriptorProto{
+			{
+				Name: proto.String("singular"), Number: proto.Int32(1),
+				Type: descriptorpb.FieldDescriptorProto_TYPE_MESSAGE.Enum(), TypeName: proto.String(".test.Child"),
+				Label: descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+			},
+			{
+				Name: proto.String("repeated"), Number: proto.Int32(2),
+				Type: descriptorpb.FieldDescriptorProto_TYPE_MESSAGE.Enum(), TypeName: proto.String(".test.Child"),
+				Label: descriptorpb.FieldDescriptorProto_LABEL_REPEATED.Enum(),
+			},
+		},
+	}
+	file := &descriptorpb.FileDescriptorProto{
+		Name: proto.String("test.proto"), Package: proto.String("test"), Syntax: proto.String("proto3"),
+		Dependency:  []string{"wireguard/wireguard.proto"},
+		MessageType: []*descriptorpb.DescriptorProto{child, parent},
+		Options:     &descriptorpb.FileOptions{GoPackage: proto.String("github.com/example/test;testpb")},
+	}
+	out, err := runPlugin(t, []*descriptorpb.FileDescriptorProto{descriptorProtoFDP(t), wireguardFDP(), file}, "test.proto", "module=github.com/example")
+	require.NoError(t, err)
+	content := out["test/test.wireguard.go"]
+	require.Contains(t, content, `MustFieldNum[Parent]("singular"): {Nested: utils.Some(SchemaForChild)}`)
+	require.Contains(t, content, `MustFieldNum[Parent]("repeated"): {Nested: utils.Some(SchemaForChild), Repeated: true}`)
 }

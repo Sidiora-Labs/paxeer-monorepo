@@ -3,8 +3,6 @@ int web_program_path_reference_main(int argc, char **argv);
 #include "programs/test_call_activity.c"
 #undef main
 
-#include "layerx/lx_web.h"
-
 #define PATH_CHECK(condition) do { if (!(condition)) { \
     (void)fprintf(stderr, "web program path check failed at line %d\n", \
                   __LINE__); \
@@ -15,12 +13,13 @@ enum {
     PATH_WASM_CAPACITY = 262144,
     PATH_CALLDATA_BYTES = 512,
     PATH_PENDING_KEY_BYTES = 11 + 32 + 8,
-    PATH_PENDING_RECORD_BYTES = 123,
+    PATH_KIND_FETCH = 1,
     PATH_FEE = 100,
     PATH_OP_REQUEST = 1,
     PATH_OP_READ = 2
 };
 
+static const uint8_t path_request_topic[] = "PAXEERX_WEB_REQUEST_V1";
 static const uint8_t path_response[] = "Paxeer X Network";
 static const uint8_t path_payload[] = "https://paxeer.app/status";
 static const uint64_t path_request = UINT64_C(0x0102030405060708);
@@ -131,12 +130,18 @@ static int path_event_list_request(const lxp_receipt *receipt,
         data_length = path_read_u32(list.bytes + cursor);
         cursor += 4U;
         PATH_CHECK(list.length - cursor >= data_length);
-        if (topic_length == LX_WEB_REQUEST_TOPIC_BYTES &&
-            memcmp(topic, LX_WEB_REQUEST_TOPIC,
-                   LX_WEB_REQUEST_TOPIC_BYTES) == 0) {
-            PATH_CHECK(lx_web_request_record_decode(list.bytes + cursor,
-                                                    data_length, request_id,
-                                                    kind, payload) == LXP_OK);
+        if (topic_length == sizeof(path_request_topic) - 1U &&
+            memcmp(topic, path_request_topic,
+                   sizeof(path_request_topic) - 1U) == 0) {
+            size_t byte;
+            const uint8_t *record = list.bytes + cursor;
+            PATH_CHECK(data_length >= 13U);
+            PATH_CHECK(path_read_u32(record + 9U) == data_length - 13U);
+            *request_id = 0U;
+            for (byte = 0U; byte < 8U; ++byte)
+                *request_id = (*request_id << 8U) | record[byte];
+            *kind = record[8];
+            *payload = (lxp_byte_span){record + 13U, data_length - 13U};
             ++found;
         }
         cursor += data_length;
@@ -181,7 +186,7 @@ static size_t path_request_calldata(uint8_t *out, uint64_t request_id,
     out[cursor++] = PATH_OP_REQUEST;
     write_u64(out + cursor, request_id);
     cursor += 8U;
-    out[cursor++] = LX_WEB_KIND_FETCH;
+    out[cursor++] = PATH_KIND_FETCH;
     (void)memcpy(out + cursor, asset, 32U);
     cursor += 32U;
     (void)memcpy(out + cursor, to, 32U);
@@ -274,7 +279,6 @@ static int web_program_path(const char *wasm_path, bool genesis_fee_account)
     static path_chain chain;
     static uint8_t wasm[PATH_WASM_CAPACITY];
     static uint8_t deploy[104U + PATH_WASM_CAPACITY];
-    static lx_web_store store;
     uint8_t capabilities[128];
     uint8_t calldata[PATH_CALLDATA_BYTES];
     uint8_t program_id[32];
@@ -286,11 +290,9 @@ static int web_program_path(const char *wasm_path, bool genesis_fee_account)
     uint8_t pending_key[PATH_PENDING_KEY_BYTES];
     uint8_t payload_hash[32];
     uint8_t digest[32];
-    uint8_t amount_be[16];
     lx_account *actor;
     lx_account *treasury;
     lx_account *fee_account;
-    const lxp_module_kv_entry *entry;
     lxp_activity activity;
     lxp_receipt receipt;
     lxp_u128 actor_before;
@@ -384,12 +386,6 @@ static int web_program_path(const char *wasm_path, bool genesis_fee_account)
         programs_module_registration_v4()) == LXP_OK);
     PATH_CHECK(lxp_kernel_bind_module_runtime(&chain.kernel,
         LXP_MODULE_PROGRAMS, &chain.runtime) == LXP_OK);
-    PATH_CHECK(lxp_kernel_register_module(&chain.kernel,
-        lx_web_module_iface()) == LXP_OK);
-    (void)memset(&store, 0, sizeof(store));
-    store.network_id = PATH_NETWORK;
-    PATH_CHECK(lxp_kernel_bind_module_runtime(&chain.kernel, LXP_MODULE_WEB,
-                                              &store) == LXP_OK);
     PATH_CHECK(lxp_programs_bind_fee_transaction(&chain.kernel) == LXP_OK);
     PATH_CHECK(lxp_kernel_set_capabilities(&chain.kernel, NULL,
         lxp_kernel_canonical_ledger_apply) == LXP_OK);
@@ -430,14 +426,17 @@ static int web_program_path(const char *wasm_path, bool genesis_fee_account)
     actor = path_account(&chain.accounts, actor_id);
     PATH_CHECK(actor != NULL);
 
-    /* A request whose payment goes anywhere but the web fee account is
-     * refused and records nothing. */
+    /* The retired web intake no longer restricts the event's payment target;
+     * the surviving program transfer still pays the named account. */
     length = path_capabilities(capabilities, fee_asset, treasury_id);
     PATH_CHECK(path_call(&chain, program_id, capabilities, length, calldata,
                          path_request_calldata(calldata, path_unpaid_request,
                                                fee_asset, treasury_id),
                          &receipt) == 0);
-    PATH_CHECK(receipt.result_code == LXP_ERR_PROGRAM_REFUSED);
+    PATH_CHECK(receipt.result_code == LXP_OK);
+    treasury = path_account(&chain.accounts, treasury_id);
+    PATH_CHECK(treasury != NULL && treasury->balance.hi == 0U &&
+               treasury->balance.lo >= PATH_FEE);
     path_pending_key(program_id, path_unpaid_request, pending_key);
     PATH_CHECK(path_committed(&chain.kernel, pending_key,
                               sizeof(pending_key)) == NULL);
@@ -450,8 +449,8 @@ static int web_program_path(const char *wasm_path, bool genesis_fee_account)
                          &receipt) == 0);
     PATH_CHECK(receipt.result_code == LXP_ERR_PROGRAM_REFUSED);
 
-    /* The paid request: transfer_402 into the fee account and the request
-     * record in one call stage the pending record. */
+    /* Payment and the emitted request survive the retirement of the kernel's
+     * pending web store. */
     actor = path_account(&chain.accounts, actor_id);
     PATH_CHECK(actor != NULL);
     actor_before = actor->balance;
@@ -481,20 +480,10 @@ static int web_program_path(const char *wasm_path, bool genesis_fee_account)
     actor = path_account(&chain.accounts, actor_id);
     PATH_CHECK(actor != NULL && actor->balance.lo < actor_before.lo);
     path_pending_key(program_id, path_request, pending_key);
-    entry = path_committed(&chain.kernel, pending_key, sizeof(pending_key));
-    PATH_CHECK(entry != NULL &&
-               entry->value_length == PATH_PENDING_RECORD_BYTES);
-    PATH_CHECK(entry->value[0] == 1U && entry->value[1] == LX_WEB_KIND_FETCH &&
-               memcmp(entry->value + 2U, payload_hash, 32U) == 0 &&
-               memcmp(entry->value + 34U, fee_asset, 32U) == 0 &&
-               memcmp(entry->value + 66U, fee_account_id, 32U) == 0 &&
-               entry->value[122] == 0U);
-    (void)memset(amount_be, 0, sizeof(amount_be));
-    amount_be[15] = PATH_FEE;
-    PATH_CHECK(memcmp(entry->value + 98U, amount_be, 16U) == 0);
+    PATH_CHECK(path_committed(&chain.kernel, pending_key,
+                              sizeof(pending_key)) == NULL);
     {
-        /* The request call's full event list carries the record's raw bytes,
-         * and its payload hashes to the pending request's payload hash. */
+        /* The real call's event list carries the exact request and payload. */
         uint64_t listed_request = 0U;
         uint8_t listed_kind = 0U;
         lxp_byte_span listed_payload = {NULL, 0U};
@@ -503,26 +492,29 @@ static int web_program_path(const char *wasm_path, bool genesis_fee_account)
                                            &listed_kind,
                                            &listed_payload) == 0);
         PATH_CHECK(listed_request == path_request &&
-                   listed_kind == LX_WEB_KIND_FETCH &&
+                   listed_kind == PATH_KIND_FETCH &&
                    listed_payload.length == PATH_PAYLOAD_BYTES &&
                    memcmp(listed_payload.bytes, path_payload,
                           PATH_PAYLOAD_BYTES) == 0);
         PATH_CHECK(lxp_keccak256(listed_payload.bytes, listed_payload.length,
                                  listed_hash) == LXP_OK &&
-                   memcmp(listed_hash, entry->value + 2U, 32U) == 0);
+                   memcmp(listed_hash, payload_hash, 32U) == 0);
     }
 #ifdef LXP_TEST_WEB_REQUEST_OBSERVER
     PATH_CHECK(LXP_TEST_WEB_REQUEST_OBSERVER(&receipt) == 0);
 #endif
 
-    /* The same request id again is refused while it is pending. */
+    /* With kernel intake retired, an event id is no longer a pending key. */
     PATH_CHECK(path_call(&chain, program_id, capabilities, length, calldata,
                          path_request_calldata(calldata, path_request,
                                                fee_asset, fee_account_id),
                          &receipt) == 0);
-    PATH_CHECK(receipt.result_code == LXP_ERR_PROGRAM_REFUSED);
+    PATH_CHECK(receipt.result_code == LXP_OK);
     fee_account = path_account(&chain.accounts, fee_account_id);
-    PATH_CHECK(fee_account != NULL && fee_account->balance.lo == PATH_FEE);
+    PATH_CHECK(fee_account != NULL && fee_account->balance.hi == 0U &&
+               fee_account->balance.lo == 2U * PATH_FEE);
+    PATH_CHECK(path_committed(&chain.kernel, pending_key,
+                              sizeof(pending_key)) == NULL);
 
     PATH_CHECK(lxp_state_store_destroy(&chain.state) == LXP_OK);
     return 0;

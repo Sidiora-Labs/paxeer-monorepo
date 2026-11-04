@@ -5,13 +5,13 @@ pillars on top of the human control plane: the developer platform, LayerX
 Programs, the interoperability gateway, and the multichain surface.
 
 This section covers hosted developer surfaces that exist in
-`services/platform/hosted/` and the public JSON-RPC gateway.
+`services/platform/hosted/` and the operator-deployed JSON-RPC gateway.
 
 ## Hosted surfaces
 
 | Surface | Page |
 | --- | --- |
-| Public JSON-RPC (`POST /rpc`, `GET /rpc/ws`) | [Gateway RPC](gateway-rpc.md) |
+| Operator-deployed gateway JSON-RPC (`POST /rpc`, `GET /rpc/ws`) | [Gateway RPC](gateway-rpc.md) |
 | Hosted gateway binary and `/v1` routes | [Hosted gateway](hosted-gateway.md) |
 | Private-network faucet (no public name) | [Faucet](faucet.md) |
 | Program registry | [Registry](registry.md) |
@@ -24,11 +24,14 @@ This section covers hosted developer surfaces that exist in
 | Public payment transcript | [Public API](public-api.md) |
 | Developer CLI | [CLI](cli.md) |
 
-The public origin named in the wiki is the router,
-`https://api-mainnet-beta.paxeer.network/rpc`; accounts are funded
-through custody credit submitted to it, and there is no public faucet
-([Getting started](../overview/getting-started.md)).
-Access still requires credentials and an independently supplied verification
+The public node JSON-RPC is `https://api-mainnet-beta.paxeer.network` at the
+root path (EVM chain ID `125`), alongside `api1` through
+`api14.mainnet-beta.paxeer.network`. The node names serve the merged network;
+there is no separate public LayerX interface. `lx_*` and `px_*` are hosted
+gateway methods, requiring an operator-provided gateway URL. No public gateway
+endpoint is established by the checked-in deployment configuration. There is
+no public faucet ([Getting started](../overview/getting-started.md)).
+Gateway writes require credentials and an independently supplied verification
 policy.
 
 ## Developer benchmark

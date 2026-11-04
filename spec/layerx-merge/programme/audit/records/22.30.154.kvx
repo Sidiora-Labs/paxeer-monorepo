@@ -1,0 +1,1028 @@
+[audit.22.30.154]
+task = "22.30.154"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 102
+findings = 29
+docs_reviewed = 17
+upgrade_ready = false
+blocking = ["launchpad_code_probe"]
+interfaces_reviewed = 47
+produces_reviewed = 0
+requirements_reviewed = ["22108.1", "14991.1", "14241.1", "14241.2", "14244.1", "14245.1", "14245.2", "14255.1", "14260.1", "14261.1", "14262.3", "14263.1", "14263.2", "14264.1", "18799.1", "18799.2", "18877.1", "18877.2", "18700.1", "18770.1", "18770.2", "18771.1", "18873.1", "18874.1", "181076.1", "181104.1", "181574.1", "22998.1"]
+consumes_reviewed = ["14.cfg-explorer-explorer-chain-block-reward", "14.cfg-explorer-explorer-chain-cache-blocknumber", "14.cfg-explorer-explorer-chain-cache-celocorecontracts", "14.cfg-explorer-explorer-chain-cache-counters-averageblocktime", "14.cfg-explorer-explorer-chain-cache-gaspriceoracle", "14.cfg-explorer-explorer-chain-paxeerx-capabilities", "14.cfg-explorer-explorer-chain-paxeerx-finality", "14.cfg-explorer-explorer-chain-transaction", "14.cfg-explorer-explorer-chain-transaction-history-historian", "14.cfg-explorer-explorer-market-fetcher-token", "14.cfg-explorer-explorer-market-source", "14.cfg-explorer-explorer-microserviceinterfaces-multichainsearch", "14.cfg-explorer-mode", "14.cfg-explorer-proxy", "14.cfg-indexer-block-ranges", "14.cfg-indexer-indexer-fetcher-multichainsearchdb-balancesexportqueue-supervisor", "14.cfg-indexer-indexer-fetcher-multichainsearchdb-countersexportqueue-supervisor", "14.cfg-indexer-indexer-fetcher-multichainsearchdb-mainexportqueue-supervisor", "14.cfg-indexer-indexer-fetcher-multichainsearchdb-tokeninfoexportqueue-supervisor", "14.cfg-indexer-indexer-fetcher-tokenbalance-historical-supervisor", "14.cfg-indexer-trace-block-ranges", "14.cfg-indexer-trace-first-block", "14.cfg-web-show-percentage", "14.cfg-web-web-chain", "14.env-eip-1559-base-fee-lower-bound-wei", "14.met-explorer-missing-archival-token-balances-count", "14.met-explorer-missing-blocks-count", "14.met-explorer-missing-internal-transactions-count", "14.met-explorer-multichain-search-db-export-balances-queue-count", "14.met-explorer-multichain-search-db-export-counters-queue-count", "14.met-explorer-multichain-search-db-export-token-info-queue-count", "14.met-explorer-multichain-search-db-main-export-queue-count", "3.pc-0x1015-evt-orderplaced", "3.pc-0x1015-exchange-evt-margindeposited", "3.pc-0x1015-exchange-evt-marginwithdrawalrequested", "3.pc-0x1015-exchange-evt-ordercancelrequested", "3.pc-0x1015-exchange-evt-orderplaced", "3.pc-0x1015-exchange-evt-settlementrequested", "6.pc-0x1004-evt-layerxbound", "6.pc-0x1004-evt-layerxunbound", "6.pc-0x1004-getunifiedaccount", "6.pc-0x1016-evt-bridgein", "6.pc-0x1016-evt-bridgeout", "6.sol-iaddr-getunifiedaccount-357feed6", "7.rpc-eth-blocknumber", "7.rpc-eth-getbalance", "7.rpc-eth-getcode"]
+review_basis = "Static source audit against the declared requirements, ABI files, runtime configuration, metrics producers, root node RPC and hosted gateway contract. Historical Blockscout files use the brief vendored exception, verified byte-for-byte against the import snapshot; local Paxeer additions and blob behavior are reviewed directly. No runtime test result is inferred from a source verdict."
+registry_notes = "All 47 consumed row ids were compared with their declared source and slice call sites. Config key names and value kinds and all seven metric names agree; the Finality row is a change-marked migration baseline whose old runtime stanza has been removed. Native event and unified-account ABI names, widths, topics and dynamic encodings agree statically; remaining producer/recovery proof gaps and the launchpad liveness mismatch are recorded below."
+
+[file.1]
+path = "apps/explorer/ui/blob/BlobData.pw.tsx"
+lines = 33
+verdict = "issues"
+note = "Read the complete component tests; isolated screenshots omit same-instance navigation and download assertions. See blob_navigation_coverage."
+
+[file.2]
+path = "apps/explorer/ui/blob/BlobData.tsx"
+lines = 149
+verdict = "issues"
+note = "Read the complete component and its datatype/hex/download helpers; valid-format reconciliation is missing on changed blob data. See blob_format_state."
+
+[file.3]
+path = "apps/explorer/ui/blob/BlobDataImage.tsx"
+lines = 31
+verdict = "clean"
+note = "Read in full: renders the supplied data-image source through the shared Image component, with bounded layout and descriptive alt text; no persistent state or retired network dependency."
+
+[file.4]
+path = "apps/explorer/ui/blob/BlobInfo.tsx"
+lines = 106
+verdict = "clean"
+note = "Read in full and compared to types/api/blobs: optional blob/proof/commitment fields and transaction_hashes are consumed consistently, size is hex-byte length and missing data is shown as not indexed."
+
+[file.5]
+path = "apps/explorer/ui/blob/image_with_zeroes.blob.ts"
+lines = 3
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/frontend/ui/blob/image_with_zeroes.blob.ts. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.6]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/address_controller_test.exs"
+lines = 86
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/address_controller_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+interfaces = ["14.cfg-web-show-percentage"]
+
+[file.7]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/address/coin_balance_test.exs"
+lines = 698
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/address/coin_balance_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.8]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/address/current_token_balance_test.exs"
+lines = 230
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/address/current_token_balance_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.9]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/address/token_balance_test.exs"
+lines = 133
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/address/token_balance_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.10]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/address/token_test.exs"
+lines = 339
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/address/token_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.11]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/address_test.exs"
+lines = 221
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/address_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.12]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/beacon/deposit_test.exs"
+lines = 55
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/beacon/deposit_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.13]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/beacon/reader_test.exs"
+lines = 9
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/beacon/reader_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.14]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/block/range_test.exs"
+lines = 110
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/block/range_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.15]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/block/reader/general_test.exs"
+lines = 50
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/block/reader/general_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.16]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/block/second_degree_relation_test.exs"
+lines = 56
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/block/second_degree_relation_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.17]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/block_test.exs"
+lines = 402
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/block_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.18]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/cache/accounts_test.exs"
+lines = 42
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/cache/accounts_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.19]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/cache/block_number_test.exs"
+lines = 73
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/cache/block_number_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+interfaces = ["14.cfg-explorer-explorer-chain-cache-blocknumber"]
+
+[file.20]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/cache/blocks_test.exs"
+lines = 62
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/cache/blocks_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.21]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/cache/celo_core_contracts_test.exs"
+lines = 84
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/cache/celo_core_contracts_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+interfaces = ["14.cfg-explorer-explorer-chain-cache-celocorecontracts"]
+
+[file.22]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/cache/counters/addresses_count_test.exs"
+lines = 16
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/cache/counters/addresses_count_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.23]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/cache/counters/addresses_sum_minus_burnt.exs"
+lines = 58
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/cache/counters/addresses_sum_minus_burnt.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.24]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/cache/counters/addresses_sum_test.exs"
+lines = 57
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/cache/counters/addresses_sum_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.25]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/cache/counters/addresses_tokens_usd_sum_counter_test.exs"
+lines = 34
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/cache/counters/addresses_tokens_usd_sum_counter_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.26]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/cache/counters/average_block_time_test.exs"
+lines = 220
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/cache/counters/average_block_time_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+interfaces = ["14.cfg-explorer-explorer-chain-cache-counters-averageblocktime"]
+
+[file.27]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/cache/counters/blocks_test.exs"
+lines = 56
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/cache/counters/blocks_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.28]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/cache/counters/contracts_test.exs"
+lines = 18
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/cache/counters/contracts_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.29]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/cache/counters/new_contracts_count_test.exs"
+lines = 29
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/cache/counters/new_contracts_count_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.30]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/cache/counters/new_pending_transactions_count_test.exs"
+lines = 27
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/cache/counters/new_pending_transactions_count_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.31]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/cache/counters/new_verified_contracts_count_test.exs"
+lines = 18
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/cache/counters/new_verified_contracts_count_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.32]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/cache/counters/optimism/last_output_root_size_count_test.exs"
+lines = 47
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/cache/counters/optimism/last_output_root_size_count_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.33]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/cache/counters/rootstock/rootstock_locked_btc_count_test.exs"
+lines = 38
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/cache/counters/rootstock/rootstock_locked_btc_count_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+interfaces = ["14.cfg-explorer-explorer-chain-transaction"]
+
+[file.34]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/cache/counters/transactions_24h_count_test.exs"
+lines = 61
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/cache/counters/transactions_24h_count_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.35]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/cache/counters/transactions_test.exs"
+lines = 58
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/cache/counters/transactions_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.36]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/cache/counters/verified_contracts_test.exs"
+lines = 17
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/cache/counters/verified_contracts_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.37]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/cache/gas_price_oracle_test.exs"
+lines = 710
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/cache/gas_price_oracle_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+interfaces = ["14.cfg-explorer-explorer-chain-cache-counters-averageblocktime", "14.cfg-explorer-explorer-chain-cache-gaspriceoracle", "14.env-eip-1559-base-fee-lower-bound-wei"]
+
+[file.38]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/cache/transactions_test.exs"
+lines = 99
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/cache/transactions_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+interfaces = ["14.cfg-explorer-mode"]
+
+[file.39]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/cache/uncles_test.exs"
+lines = 27
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/cache/uncles_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.40]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/celo/helper_test.exs"
+lines = 4
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/celo/helper_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.41]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/csv_export/address/logs_test.exs"
+lines = 132
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/csv_export/address/logs_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.42]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/csv_export/address/token_transfers_test.exs"
+lines = 135
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/csv_export/address/token_transfers_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.43]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/csv_export/address/transactions_test.exs"
+lines = 161
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/csv_export/address/transactions_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.44]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/currency_helper_text.exs"
+lines = 25
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/currency_helper_text.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.45]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/data_test.exs"
+lines = 5
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/data_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.46]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/events/publisher_test.exs"
+lines = 65
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/events/publisher_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.47]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/events/subscriber_test.exs"
+lines = 33
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/events/subscriber_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.48]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/filecoin/native_address_test.exs"
+lines = 211
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/filecoin/native_address_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.49]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/hash/address_test.exs"
+lines = 36
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/hash/address_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.50]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/hash/full_test.exs"
+lines = 17
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/hash/full_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.51]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/hash/nonce_test.exs"
+lines = 5
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/hash/nonce_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.52]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/hash_test.exs"
+lines = 5
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/hash_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.53]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/health/helper_test.exs"
+lines = 44
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/health/helper_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.54]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/import/runner/address/current_token_balances_test.exs"
+lines = 586
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/import/runner/address/current_token_balances_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.55]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/import/runner/address/token_balances_test.exs"
+lines = 273
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/import/runner/address/token_balances_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.56]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/import/runner/addresses_test.exs"
+lines = 69
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/import/runner/addresses_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.57]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/import/runner/blocks_test.exs"
+lines = 1046
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/import/runner/blocks_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+interfaces = ["14.cfg-explorer-explorer-chain-cache-blocknumber"]
+
+[file.58]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/import/runner/internal_transactions_test.exs"
+lines = 643
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/import/runner/internal_transactions_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+interfaces = ["14.cfg-indexer-trace-block-ranges"]
+
+[file.59]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/import/runner/stability/validators_test.exs"
+lines = 178
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/import/runner/stability/validators_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.60]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/import/runner/tokens_test.exs"
+lines = 47
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/import/runner/tokens_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.61]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/import/runner/transactions_test.exs"
+lines = 91
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/import/runner/transactions_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.62]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/import/stage/paxeer_x_runners_test.exs"
+lines = 30
+verdict = "clean"
+note = "Read in full: the stage selects AccountBindings and MarketEvents only and restores chain_type/chain_identity with original absence preserved; agrees with 14260.1."
+
+[file.63]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/import_test.exs"
+lines = 2374
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/import_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.64]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/internal_transaction/call_type_test.exs"
+lines = 5
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/internal_transaction/call_type_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.65]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/internal_transaction/type_test.exs"
+lines = 5
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/internal_transaction/type_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.66]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/internal_transaction_test.exs"
+lines = 1174
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/internal_transaction_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.67]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/log_test.exs"
+lines = 241
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/log_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.68]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/metrics/indexer_metrics_test.exs"
+lines = 459
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/metrics/indexer_metrics_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+interfaces = ["14.cfg-explorer-explorer-microserviceinterfaces-multichainsearch", "14.cfg-indexer-block-ranges", "14.cfg-indexer-indexer-fetcher-multichainsearchdb-balancesexportqueue-supervisor", "14.cfg-indexer-indexer-fetcher-multichainsearchdb-countersexportqueue-supervisor", "14.cfg-indexer-indexer-fetcher-multichainsearchdb-mainexportqueue-supervisor", "14.cfg-indexer-indexer-fetcher-multichainsearchdb-tokeninfoexportqueue-supervisor", "14.cfg-indexer-indexer-fetcher-tokenbalance-historical-supervisor", "14.cfg-indexer-trace-first-block", "14.met-explorer-missing-archival-token-balances-count", "14.met-explorer-missing-blocks-count", "14.met-explorer-missing-internal-transactions-count", "14.met-explorer-multichain-search-db-export-balances-queue-count", "14.met-explorer-multichain-search-db-export-counters-queue-count", "14.met-explorer-multichain-search-db-export-token-info-queue-count", "14.met-explorer-multichain-search-db-main-export-queue-count"]
+
+[file.69]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/account_binding_test.exs"
+lines = 404
+verdict = "issues"
+note = "Read in full: native event field names, indexed positions, uint64 nonce and the exact evm/pax/did/bound maps agree with the ABI and 18700.1. Duplicate and consensus-loss assertions are present; real producer/restart proof is missing."
+interfaces = ["6.pc-0x1004-evt-layerxbound", "6.pc-0x1004-evt-layerxunbound"]
+
+[file.70]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/anchor_test.exs"
+lines = 128
+verdict = "issues"
+note = "Read in full: archive ordering and consensus checks still seed via the absent live Anchors runner; see anchor_archive_runner."
+
+[file.71]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/archive_readonly_test.exs"
+lines = 17
+verdict = "clean"
+note = "Read in full: loads Anchor and Receipt and asserts neither exports changeset/2, matching the read-only archive requirement 14255.1."
+
+[file.72]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/capabilities_boot_test.exs"
+lines = 188
+verdict = "issues"
+note = "Read in full: configuration is restored, startup is bounded and a refused first probe is retried; hand-built responses do not establish native discovery through the real transport."
+interfaces = ["14.cfg-explorer-explorer-chain-paxeerx-capabilities", "7.rpc-eth-blocknumber", "7.rpc-eth-getcode"]
+
+[file.73]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/capabilities_retired_probe_test.exs"
+lines = 24
+verdict = "clean"
+note = "Read in full: exactly four supported surfaces and explicit address rejection for custody and anchor agree with 14241.1/2; the historical names are negative retirement assertions."
+
+[file.74]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/capabilities_test.exs"
+lines = 305
+verdict = "issues"
+note = "Read in full: explicit-height hex quantities, response ids, ABI-word checks and address tuple layout agree statically. Retired field assertions and the launchpad stored-code assumption require the recorded repairs."
+interfaces = ["6.pc-0x1004-getunifiedaccount", "6.sol-iaddr-getunifiedaccount-357feed6", "7.rpc-eth-blocknumber", "7.rpc-eth-getcode"]
+
+[file.75]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/comet_commit_test.exs"
+lines = 67
+verdict = "clean"
+note = "Read in full: recorded Comet commits exercise full-signature success, insufficient voting power, tampered signatures/header/validator power and wrong chain id; no verification bypass or retired service invocation."
+
+[file.76]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/committed_vectors_test.exs"
+lines = 41
+verdict = "clean"
+note = "Read in full: the three committed vectors invoke the real verify/4 decoder and assert committed, R7 and R8 results with exact transaction hashing and key decoding, matching 14244.1."
+
+[file.77]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/finality_heights_test.exs"
+lines = 26
+verdict = "clean"
+note = "Read in full: removed Finality.Anchor is a negative assertion and the highest consensus block, excluding a higher non-consensus block, supplies committed_height; agrees with 14263.1/2."
+
+[file.78]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/identity_test.exs"
+lines = 78
+verdict = "clean"
+note = "Read in full: EVM width/prefix, pax bech32 checksum/HRP, DID and historical kernel-account spellings are parsed or refused explicitly; historical spellings are identity compatibility, not standalone daemon routing."
+
+[file.79]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/import_test.exs"
+lines = 140
+verdict = "clean"
+note = "Read in full: exercises actual Import.all for the kept rows, atomic refusal of an unsupported domain, duplicate idempotency and zero writes to the three retired tables; agrees with 14261.1."
+
+[file.80]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/market_event_test.exs"
+lines = 540
+verdict = "issues"
+note = "Read in full: signatures agree with served current/legacy ABI definitions, uint256 and dynamic strings survive decode/import, and undecoded_log_count is asserted. Real producer transport and restart proof remain missing."
+interfaces = ["3.pc-0x1015-evt-orderplaced", "3.pc-0x1015-exchange-evt-margindeposited", "3.pc-0x1015-exchange-evt-marginwithdrawalrequested", "3.pc-0x1015-exchange-evt-ordercancelrequested", "3.pc-0x1015-exchange-evt-orderplaced", "3.pc-0x1015-exchange-evt-settlementrequested", "6.pc-0x1016-evt-bridgein", "6.pc-0x1016-evt-bridgeout"]
+
+[file.81]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs"
+lines = 663
+verdict = "issues"
+note = "Read in full: real Cosmos REST fixture decoding reaches persistence, accepted/successful filtering, counts, paging, pruning, retention, monotonic counters and compaction are asserted. Concurrent and restarted-consumer behavior remain unproven."
+
+[file.82]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/receipt_test.exs"
+lines = 117
+verdict = "issues"
+note = "Read in full: receipt archive cases still call absent Receipts.run/3; KernelCursor changeset and refusal-code validation remain valid and must be preserved."
+
+[file.83]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/sequencer_receipt_test.exs"
+lines = 290
+verdict = "issues"
+note = "Read in full: all accepted V1/V2 fixture cases are iterated, bytes/digests/signatures and R1-R8 failures are checked. The hosted response shapes are tested only as local values and the section retains obsolete router terminology."
+
+[file.84]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/status_committed_test.exs"
+lines = 90
+verdict = "clean"
+note = "Read in full: producer-generated signed vectors pass through verify/4 into Status.of/3 and rung/3, including unindexed committed promotion and preserved receipted behavior; matches 14245.1/2."
+
+[file.85]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/status_test.exs"
+lines = 393
+verdict = "clean"
+note = "Read in full: submitted/receipted/committed rules, absent/invalid heights, consensus loss, R1-R8 refusal and retired-anchor non-promotion are asserted. Historical rows are seeded by explicit cast, matching 181104.1."
+interfaces = ["14.cfg-explorer-explorer-chain-paxeerx-finality"]
+
+[file.86]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/smart_contract/proxy/clone_with_immutable_arguments_test.exs"
+lines = 156
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/smart_contract/proxy/clone_with_immutable_arguments_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.87]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/smart_contract/proxy/erc_7760_test.exs"
+lines = 235
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/smart_contract/proxy/erc_7760_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.88]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/smart_contract/proxy/models/implementation_test.exs"
+lines = 421
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/smart_contract/proxy/models/implementation_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+interfaces = ["14.cfg-explorer-proxy"]
+
+[file.89]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/smart_contract/proxy_test.exs"
+lines = 447
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/smart_contract/proxy_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+interfaces = ["14.cfg-explorer-proxy"]
+
+[file.90]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/smart_contract_test.exs"
+lines = 432
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/smart_contract_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.91]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/supply/proof_of_authority_test.exs"
+lines = 40
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/supply/proof_of_authority_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.92]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/supply/rsk_test.exs"
+lines = 149
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/supply/rsk_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+interfaces = ["7.rpc-eth-getbalance"]
+
+[file.93]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/token/instance_test.exs"
+lines = 215
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/token/instance_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.94]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/token_test.exs"
+lines = 190
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/token_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+interfaces = ["14.cfg-explorer-explorer-market-fetcher-token", "14.cfg-explorer-explorer-market-source"]
+
+[file.95]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/token_transfer_test.exs"
+lines = 440
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/token_transfer_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.96]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/transaction/fork_test.exs"
+lines = 23
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/transaction/fork_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.97]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/transaction/history/historian_test.exs"
+lines = 157
+verdict = "issues"
+note = "Read in full: price-feed submission counts supplement EVM transactions without adding their gas, and saves are idempotent; the global date/configuration override is not restored."
+interfaces = ["14.cfg-explorer-explorer-chain-transaction-history-historian"]
+
+[file.98]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/transaction/history/transaction_stats_test.exs"
+lines = 30
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/transaction/history/transaction_stats_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.99]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/transaction/status_test.exs"
+lines = 5
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/transaction/status_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.100]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/transaction_test.exs"
+lines = 1031
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/transaction_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+interfaces = ["14.cfg-explorer-explorer-chain-block-reward", "14.cfg-web-web-chain"]
+
+[file.101]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/wei_test.exs"
+lines = 134
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/wei_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[file.102]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain/withdrawal_test.exs"
+lines = 81
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import documented in services/explorer/UPSTREAM.md; byte-identical to repository import f72f4cee4:explorer/backend/apps/explorer/test/explorer/chain/withdrawal_test.exs. Vendored verdict under the brief exception; this is not a claim of native-network behavior qualification."
+
+[finding.launchpad_code_probe]
+file = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/capabilities_test.exs"
+line = 84
+class = "interface-mismatch"
+severity = "high"
+observed = "The live-case matrix requires nonempty @bytecode from eth_getCode(0x1017) before snapshot.launchpad can become true. Capabilities uses @code_surfaces at capabilities.ex:73 and read_code/1 at :316. rpc/state.go:66 delegates to modules/evm/keeper/code.go:17, which reads stored EVM code; native dispatch in node/precompiles_v6120.go:44 works independently. modules/launchpad/keeper/surfaces.go:106 installs forwarding runtime at role addresses, excluding the native 0x1017 address. A working native launchpad can therefore be advertised as unavailable."
+expected = "Registry 7.rpc-eth-getcode returns stored bytecode, not native method availability. The explorer must advertise a launchpad whose native methods answer. Requirement 18771.1 deliberately retains the launchpad code probe, but that retained choice does not establish native liveness under the finished-network model."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/capabilities.ex, probe a supported launchpad view such as getPoolCount() at the same explicit height as the other probes, validating its ABI result. Add a node-to-RPC-to-explorer case with empty stored code and a live launchpad view, plus refused and malformed responses; reconcile requirement 18771.1 with that native-service behavior."
+owner_domain = 14
+interface = "7.rpc-eth-getcode"
+
+[finding.retired_capability_expectations]
+file = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/capabilities_test.exs"
+line = 131
+class = "test-gap"
+severity = "medium"
+observed = "The probe assertions still require custody and anchor fields at lines 131-155, expect a :custody error at line 172, call live?(:custody) at line 239 and address(:custody/:anchor) through @code_addresses at line 245. Capabilities.surfaces/0 contains only unified_account, exchange, bridge and launchpad; address/1 and live?/1 reject the retired names."
+expected = "Requirements 14241.1 and 14241.2 remove custody and anchor discovery. capabilities_retired_probe_test.exs correctly requires exactly four surfaces and FunctionClauseError for the retired addresses."
+proposal = "Update every assertion and the address fixture in services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/capabilities_test.exs to check all four supported values and the correct failing probe surface. Preserve the malformed-response, refused-head and stored-snapshot assertions and add explicit retired-name rejection coverage instead of restoring retired capabilities."
+owner_domain = 14
+interface = "14.cfg-explorer-explorer-chain-paxeerx-capabilities"
+
+[finding.capability_boot_transport_proof]
+file = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/capabilities_boot_test.exs"
+line = 131
+class = "test-gap"
+severity = "medium"
+observed = "silent_node/0 replaces EthereumJSONRPC.json_rpc with Mox responses, and answer/1 always returns arbitrary @bytecode for eth_getCode and a hand-built unified-account tuple. The startup and retry assertions exercise the GenServer but never traverse a node HTTP response; they can pass while launchpad discovery disagrees with native execution."
+expected = "Brief checks 1, 5 and 7 require producer, transport and consumer agreement and recovery evidence. Registry 7.rpc-eth-blocknumber is a hex quantity; 7.rpc-eth-getcode is stored code; 6.pc-0x1004-getunifiedaccount and 6.sol-iaddr-getunifiedaccount-357feed6 return the ABI address/string/bytes32/bytes32 tuple."
+proposal = "Keep the bounded boot and retry checks in services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/capabilities_boot_test.exs and add a real-node integration case that records the supported view responses at one height, starts discovery through the production transport and proves a restarted process re-probes before publishing a current snapshot."
+owner_domain = 14
+interface = "7.rpc-eth-blocknumber"
+
+[finding.anchor_archive_runner]
+file = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/anchor_test.exs"
+line = 5
+class = "test-gap"
+severity = "medium"
+observed = "AnchorTest aliases Explorer.Chain.Import.Runner.PaxeerX.Anchors and run_changes/1 calls Anchors.run/3 at line 122, although that runner is absent. The tests still model live checkpoint submission and finalisation imports to seed archive query cases."
+expected = "Requirement 14255.1 makes Anchor read-only, and 14260.1 permits only AccountBindings and MarketEvents in the Paxeer import stage. Historical archive queries remain useful without a running anchor ingestion path."
+proposal = "Port the seeding and idempotency scenarios in services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/anchor_test.exs to explicit historical-row cast changesets, following status_test.exs:365. Retain all archive ordering, identity and consensus assertions, and assert that the live import stage cannot route anchor writes; do not reinstate Anchors.run/3."
+owner_domain = 14
+
+[finding.receipt_archive_runner]
+file = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/receipt_test.exs"
+line = 5
+class = "test-gap"
+severity = "medium"
+observed = "ReceiptTest aliases the absent Explorer.Chain.Import.Runner.PaxeerX.Receipts and invokes Receipts.run/3 at line 111. Its row and consensus-query tests depend on a retired ingestion API even though Receipt no longer exports changeset/2. The separate KernelCursor validation tests still target an existing changeset."
+expected = "Requirements 14255.1 and 14260.1 preserve read-only receipt archives while excluding the retired receipt runner from live imports. Cursor validation and archive visibility must remain tested with supported interfaces."
+proposal = "In services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/receipt_test.exs, seed historical receipt rows with explicit cast changesets and preserve duplicate-row identity and consensus-filter assertions. Verify refusal of live receipt ingestion through the current stage, and keep the existing KernelCursor refusal-code assertions intact."
+owner_domain = 14
+
+[finding.blob_format_state]
+file = "apps/explorer/ui/blob/BlobData.tsx"
+line = 54
+class = "runtime-risk"
+severity = "medium"
+observed = "The effect sets format to Image when isImage becomes true but never reconciles it when data changes to a non-image. BlobPageContent reuses BlobInfo and BlobData across hash changes. After image-to-text navigation, the selector removes Image while format remains Image, the body says Not an image and Download still applies the image byte filter to the new data."
+expected = "A blob page must display and download the currently selected blob in a format valid for that blob. Changing the route or fetched content must not retain an unavailable selection or apply image-specific byte removal to text."
+proposal = "Reconcile format against the current collection in apps/explorer/ui/blob/BlobData.tsx: reset an unsupported Image selection to Raw when the blob changes, preserve valid explicit selections, and derive downloads from the reconciled format. Cover image-to-text navigation and loading transitions using the same mounted component."
+owner_domain = 14
+
+[finding.blob_navigation_coverage]
+file = "apps/explorer/ui/blob/BlobData.pw.tsx"
+line = 29
+class = "test-gap"
+severity = "medium"
+observed = "The three component cases mount separate text, image and zero-padded-image inputs and assert screenshots. None updates data/hash on the same component or verifies the downloaded body and filename, so the stale Image selection and incorrect download after blob navigation are not detected."
+expected = "Brief checks 4 and 7 require coverage of the UI lifecycle and the observable bytes a user receives, including changed inputs on a reused page component."
+proposal = "Extend apps/explorer/ui/blob/BlobData.pw.tsx with a same-instance image-to-text transition, assert a valid selector value and rendered text, then download and compare bytes and the blob hash filename. Retain the existing screenshot and zero-padding cases."
+owner_domain = 14
+
+[finding.binding_producer_recovery_proof]
+file = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/account_binding_test.exs"
+line = 384
+class = "test-gap"
+severity = "medium"
+observed = "binding_log/5 constructs LayerXBound and LayerXUnbound topics and ABI payloads locally with TypeEncoder. The suite proves decoder, Import.all and identity reads, including duplicate import and consensus loss, but obtains no logs emitted by precompiles/addr and never reconstructs the consumer after persistence."
+expected = "Registry 6.pc-0x1004-evt-layerxbound and 6.pc-0x1004-evt-layerxunbound declare indexed address and bytes32 topics plus a uint64 nonce. Their names, widths and positions agree statically with the test, but brief fact 7 also requires the real producer/transport/consumer and recovery path."
+proposal = "Add a node-emitted bind and unbind integration vector in services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/account_binding_test.exs, ingest its actual eth_getLogs responses through PaxeerXLogs and Import.all, restart the reader and assert the persisted four-field identity view and idempotent replay. Preserve the current malformed-emitter and missing-argument checks."
+owner_domain = 14
+interface = "6.pc-0x1004-evt-layerxbound"
+
+[finding.market_producer_recovery_proof]
+file = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/market_event_test.exs"
+line = 510
+class = "test-gap"
+severity = "medium"
+observed = "market_log/8 and encode_arguments/1 hand-build event signatures, indexed topics and payloads. The fixture signature list covers legacy exchange, native perps, both bridge events and both launchpad generations, and decoder/import assertions agree with the ABI shapes, but no event is produced by a running precompile and no consumer restart is exercised."
+expected = "Brief fact 7 requires real producer, transport and consumer proof. Consumed rows are 3.pc-0x1015-evt-orderplaced, the five 3.pc-0x1015-exchange-evt-* rows and 6.pc-0x1016-evt-bridgein/bridgeout; legacy and current OrderPlaced signatures must remain distinct across activation heights."
+proposal = "Extend services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/market_event_test.exs with node-emitted event fixtures spanning the supported activation versions, fetch them through the production log transport, persist and re-read their exact fields after consumer restart and duplicate delivery. Keep the existing uint256, dynamic-denomination, wrong-emitter and malformed-log assertions."
+owner_domain = 14
+interface = "3.pc-0x1015-evt-orderplaced"
+
+[finding.price_feed_recovery_concurrency]
+file = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs"
+line = 483
+class = "test-gap"
+severity = "medium"
+observed = "The stale-watermark case calls compact_scanned_blocks and advance_scanned_through sequentially inside one DataCase process. The suite checks persisted compaction, retention and scanned_any? values but never runs competing independent compactions or restarts the fetcher before it resumes the stored watermark."
+expected = "Requirements 18874.1 and 18873.1 require a monotonic transaction-locked watermark and a retained discovery signal after compaction. Brief check 5 requires recovery from durable state, not just repeated calls in one process."
+proposal = "Add independently connected concurrent compaction and restarted-fetcher cases to services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs and the owning indexer integration suite. Assert that both completions preserve the maximum watermark, failed heights are retried, compacted rows do not reappear and price_feed discovery remains true after reconstruction."
+owner_domain = 14
+
+[finding.receipt_gateway_transport_proof]
+file = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/sequencer_receipt_test.exs"
+line = 249
+class = "test-gap"
+severity = "medium"
+observed = "The router reads section tests only nil endpoint arguments and decode_receipt_keys/1 on a bare locally built list. Verification cases pass pinned keys, commits and validators straight to verify/4. They never exercise receipt_keys/1, commit/2 or validators/2 against hosted gateway JSON-RPC envelopes and therefore do not prove wrapper extraction or camelCase-to-Comet conversion."
+expected = "Brief checks 1 and 7 require the real transport path. services/platform/hosted/gateway/openrpc.json declares px_getReceiptKeys as an object with keys and px_getCommit/px_getValidators as hosted methods; the explorer must consume those envelopes and preserve key ranges, pubKey, votingPower and signedHeader encodings."
+proposal = "In services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/sequencer_receipt_test.exs, add an integration case against the real hosted gateway producer using receipt_keys/1, commit/2 and validators/2, then pass their outputs into receipt and committed-rung verification. Include malformed and refusal envelopes and restart/key-rotation recovery while retaining all R1-R8 negative vectors."
+owner_domain = 14
+
+[finding.receipt_router_reference]
+file = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/sequencer_receipt_test.exs"
+line = 248
+class = "retired-reference"
+severity = "low"
+observed = "The describe block is named router reads and the nil-configuration case says an unset router URL disables the upgrade. The production setting is still named PAXEER_X_ROUTER_URL, even though these px_ methods belong to the hosted gateway and the network has no separate router."
+expected = "Brief network facts 2 and 3 define one merged network, root-path node RPC and a hosted gateway that owns px_ methods. Endpoint absence is a disabled optional receipt-read feature, not absence of the network upgrade."
+proposal = "Rename the endpoint concept and test descriptions in services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/sequencer_receipt_test.exs and migrate the owned SequencerReceipt configuration and deployment examples to an explicit hosted-gateway endpoint. Document disabled receipt enrichment precisely without implying a router or changing network activation semantics."
+owner_domain = 14
+
+[finding.historian_configuration_leak]
+file = "services/explorer/backend/apps/explorer/test/explorer/chain/transaction/history/historian_test.exs"
+line = 13
+class = "test-gap"
+severity = "medium"
+observed = "setup replaces the entire Historian application environment with utc_today: 1970-01-04 and never restores the previous value. The override survives this non-async suite and discards enabled, init_lag_milliseconds and days_to_compile_at_init; Historian.date_today/0 reads it through HistoryProcess.config_or_default/3."
+expected = "Registry 14.cfg-explorer-explorer-chain-transaction-history-historian declares the runtime Historian configuration. A date-controlled test must restore the full previous configuration so unrelated history consumers do not inherit the test date or lose their startup settings."
+proposal = "In services/explorer/backend/apps/explorer/test/explorer/chain/transaction/history/historian_test.exs, capture Application.fetch_env/2 before overriding utc_today, preserve other keys and restore the exact value or original absence in on_exit. Keep async: false and all transaction, gas, fee and price-feed count assertions."
+owner_domain = 14
+interface = "14.cfg-explorer-explorer-chain-transaction-history-historian"
+
+[finding.readme_split_execution]
+file = "README.md"
+line = 44
+class = "doc-drift"
+severity = "medium"
+observed = "The architecture introduction says the network has two execution domains and describes layerxd as a separately running daemon whose checkpoints settle through layerxAnchor at lines 44-47. The build example still presents make layerxd at line 145 without identifying it as historical tooling."
+expected = "Brief facts 1 and 2 specify a single paxd execution domain with the kernel inside the network and block commit as finality; the standalone daemon and live anchor settlement model are retired."
+proposal = "Rewrite README.md architecture and runnable examples around paxd, native kernel constructs and committed receipts. Identify retained daemon-source tooling as archival or test infrastructure, and replace operational anchor-settlement guidance with the merged activation and archive-read behavior."
+owner_domain = 16
+
+[finding.monorepo_trust_model]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction identifies the kernel with layerxd as a subsystem with its own deployment boundary, and lines 69-72 retain custody/checkpoint/guarantor settlement as the running trust model. That description is not the merged native execution lifecycle."
+expected = "Brief facts 1 and 2 place kernel execution inside paxd, with no separate daemon to deploy and no checkpoint wait after chain commit; retired custody and guarantor writes must not be presented as current services."
+proposal = "Update docs/MONOREPO.md introduction and Trust boundaries section to describe one execution domain, the retained source layout and native chain authority. Distinguish historical custody/anchor data and activation release obligations from current funding and execution interfaces."
+owner_domain = 16
+
+[finding.quickstart_retired_endpoints]
+file = "docs/site/docs/overview/quickstart.md"
+line = 167
+class = "doc-drift"
+severity = "medium"
+observed = "The quickstart directs users to gateway POST /rpc and GET /rpc/ws at lines 167-168 and supplies public /rpc URLs at lines 214-215; later submission and CLI examples repeat that path. These instructions present a unified router as the current public entry point."
+expected = "Brief facts 2 and 3 require root-path node JSON-RPC on chain 125 and separately identified hosted gateway px_ methods. There is no unified /rpc, /rpc/ws or /rpc/schema network surface."
+proposal = "Rewrite the request, subscription and submission examples in docs/site/docs/overview/quickstart.md to use the supported root node transport and the actual hosted gateway contract where a hosted method is needed. State method ownership, chain-id checking and receipt verification without a router."
+owner_domain = 8
+
+[finding.quickstart_retired_funding]
+file = "docs/site/docs/overview/quickstart.md"
+line = 299
+class = "doc-drift"
+severity = "medium"
+observed = "The public account funding instructions still require a deposit into custody precompile 0x1013 and submission to the router at lines 299-304. The environment table at lines 131-132 also binds guarantor and checkpoint settlement to 0x1014."
+expected = "The merged network retires the custody and anchor write paths; ordinary users must receive native-chain funding and must not be directed to a refusing deposit or checkpoint service."
+proposal = "Replace the public funding flow and settlement settings in docs/site/docs/overview/quickstart.md with the supported native account funding instructions. Label any retained 0x1013/0x1014 examples as historical reads or activation-only operations and link the current native receipt lifecycle."
+owner_domain = 8
+
+[finding.boundary_settlement_bootstrap]
+file = "docs/site/docs/concepts/paxeer-boundary.md"
+line = 119
+class = "doc-drift"
+severity = "medium"
+observed = "The boundary page presents deploy-contracts.sh bootstrap of the vault, guarantor bond, checkpoint registry, challenge and emergency-exit suite as the operational settlement deployment and publishes its addresses to layerx-node-settlement. Lines 119-129 do not delimit this as a historical standalone deployment."
+expected = "Brief facts 1 and 2 define native kernel execution in paxd and retire separate checkpoint settlement and standalone custody execution. Historical boundary compatibility must not prescribe those services for merged-network bring-up."
+proposal = "Rewrite docs/site/docs/concepts/paxeer-boundary.md settlement and deployment sections to separate historical compatibility from the active native chain boundary, retaining accurate TLS, chain-id and input-validation guidance and documenting the merged receipt and activation release paths."
+owner_domain = 8
+
+[finding.control_retired_funding]
+file = "docs/site/docs/operators/beta-control.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The operator control page says public accounts are funded through custody credit submitted to the router. That opening instruction depends on both a retired funding mechanism and a retired endpoint concept."
+expected = "Brief facts 1-3 specify one chain and root node RPC, and the merged network no longer accepts the old custody-credit activity through a separate router."
+proposal = "Replace the opening funding guidance in docs/site/docs/operators/beta-control.md with the supported native account funding policy and current control-plane dependencies. Preserve the distinction between private faucet allocations and ordinary public-chain funding."
+owner_domain = 8
+
+[finding.cluster_daemon_bootstrap]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 50
+class = "doc-drift"
+severity = "medium"
+observed = "The cluster page tells operators to mount a custody profile into layerxd --custody-profile at line 50 and describes node-settlement contract bootstrap at line 26. It presents those standalone daemon and checkpoint dependencies as current bring-up requirements."
+expected = "The finished network runs the kernel within paxd and has no standalone layerxd execution service or live checkpoint settlement dependency; receipt finality follows committed blocks."
+proposal = "Rewrite docs/site/docs/operators/beta-cluster.md bring-up topology, custody profile and settlement instructions around the merged paxd node and its supported hosted services. Mark retained standalone fixtures as historical and describe native readiness and committed receipt checks."
+owner_domain = 8
+
+[finding.faucet_retired_funding]
+file = "docs/site/docs/platform/faucet.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The faucet page sends public account holders to custody credit submitted to the router. That fallback remains in the opening paragraph even though the old custody path and unified router are retired."
+expected = "Public funding instructions must use supported native-chain accounts and transfers; any private or approved faucet policy must be stated independently of retired custody and routing mechanisms."
+proposal = "Update docs/site/docs/platform/faucet.md opening guidance to describe the actual supported native funding and approved-allocation policy, and identify the current hosted funding method and typed refusals from the active gateway contract."
+owner_domain = 8
+
+[finding.cli_rpc_path]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The CLI page requires --rpc to end in /rpc and repeats that restriction in its URL configuration and wallet/token submission sections at lines 131 and 278-298. It teaches the retired public gateway routing path as mandatory."
+expected = "Brief facts 2 and 3 remove the unified /rpc path and distinguish root node RPC from hosted gateway methods; a client must use the endpoint that actually owns its chosen method."
+proposal = "Rewrite docs/site/docs/platform/cli.md endpoint validation and command examples around root node JSON-RPC and the separately configured hosted gateway. Specify current method namespaces and preserve HTTPS, chain-id and signature checks while removing the obsolete mandatory /rpc suffix."
+owner_domain = 16
+
+[finding.gateway_unified_router]
+file = "docs/site/docs/platform/hosted-gateway.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "The page calls the router the only unified endpoint for eth_*, lx_* and px_* methods, says the public node names serve a separate EVM domain, and documents POST /rpc, GET /rpc/schema and GET /rpc/ws at lines 39-51 and 198-200."
+expected = "Brief facts 1-3 define one merged execution domain, root-path node RPC with the declared node namespaces and px_ methods owned by the hosted gateway openrpc.json contract. The unified router paths are retired."
+proposal = "Rewrite docs/site/docs/platform/hosted-gateway.md endpoint ownership, route table and examples against services/platform/hosted/gateway/openrpc.json and root-path node RPC. Remove the split-domain and unified-router model and retain method-specific authentication and error behavior."
+owner_domain = 8
+
+[finding.gateway_daemon_module_registry]
+file = "docs/site/docs/platform/hosted-gateway.md"
+line = 621
+class = "doc-drift"
+severity = "medium"
+observed = "The Version-2 module registry section instructs bring-up to link the daemon Asset and Programs interfaces, gate Bridge on a custody profile and read a node LNI preparation snapshot through the standalone node socket. These are described as active gateway and authority dependencies."
+expected = "Brief facts 1 and 2 retire the standalone daemon and custody execution boundary. Published interface discovery for the merged network must reflect the native modules actually registered and served by paxd."
+proposal = "Rewrite the final module-registry section of docs/site/docs/platform/hosted-gateway.md around the active native registration/discovery producer and its gateway consumer, explicitly labeling retained standalone generation tools as historical and documenting compatible host/guest ABI checks."
+owner_domain = 8
+
+[finding.program_examples_exist]
+file = "docs/site/docs/programs/index.md"
+line = 145
+class = "doc-drift"
+severity = "medium"
+observed = "The Programs page says programs/sdk/rust/src/lxt20.rs, programs/sdk/rust/examples/token-lxt20 and programs/fixtures/pay5 are not in this tree; all three paths exist. The introduction at line 18 likewise says LXT-20 request codecs are unavailable here."
+expected = "Brief documentation check 9 requires the page to describe the current tree. Developers must be able to find and use the shipped LXT-20 codec, guest example and fixtures with their actual ABI and deployment constraints."
+proposal = "Replace the unavailable-source claims in docs/site/docs/programs/index.md with links to the existing LXT-20 codec, example and pay5 fixture, describe their current supported build path and ABI, and state the chain-domain and deployment-envelope limits for any AI market guest example."
+owner_domain = 13
+
+[finding.program_daemon_simulation]
+file = "docs/site/docs/programs/index.md"
+line = 120
+class = "doc-drift"
+severity = "medium"
+observed = "The simulation section presents lxp_daemon_lni_simulate and the daemon LNI request path as the Programs simulation interface, citing cmd/layerxd/lxp_daemon_lni.c at line 137 without marking the standalone daemon path as retired."
+expected = "Brief facts 1 and 2 require kernel capabilities to be served as native chain constructs rather than through a separately running layerxd daemon. Retained implementation or replay code does not establish a live public simulation interface."
+proposal = "Rewrite docs/site/docs/programs/index.md simulation instructions to identify the supported native producer and its client method, current ABI, commitment and refusal semantics. Keep useful internal implementation references but label daemon LNI examples as historical tooling."
+owner_domain = 13
+
+[finding.backend_archive_routes]
+file = "services/explorer/backend/README.md"
+line = 35
+class = "doc-drift"
+severity = "medium"
+observed = "The Paxeer additions list advertises /api/v2/paxeer-x/anchors and /receipts paths. services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/api_router.ex:275 mounts /paxeer-x/archive/anchors, /archive/receipts and /archive/receipts/:id instead."
+expected = "Brief check 9 requires exact reachable route names and a clear read-only archive lifecycle. Old paths fall through the Paxeer not-found handler and must not be advertised as live endpoints."
+proposal = "Update services/explorer/backend/README.md route examples to the /api/v2/paxeer-x/archive paths and explain that anchor and old receipt rows are historical read-only data. Link current capability, feed and native transaction-status routes separately."
+owner_domain = 14
+
+[finding.upstream_layout_paths]
+file = "services/explorer/UPSTREAM.md"
+line = 3
+class = "doc-drift"
+severity = "low"
+observed = "The provenance introduction still says the imported trees are under explorer/ and the import notes use frontend/configs and services/LICENSE-MIT relative to that old root. The current frontend is apps/explorer and the service source is under services/explorer."
+expected = "Documentation of imported provenance must retain the pinned upstream tags, commits and licences while naming the paths a reviewer can locate in the current monorepo."
+proposal = "Refresh the path labels and import-layout notes in services/explorer/UPSTREAM.md to distinguish original import destinations from current services/explorer/backend, apps/explorer and services/explorer/services paths; preserve all upstream revision and licence facts."
+owner_domain = 14
+
+[finding.config_router_contract]
+file = "spec/layerx-merge/contracts/explorer-config.md"
+line = 143
+class = "doc-drift"
+severity = "medium"
+observed = "The contract page lists SequencerReceipt [router_url] as a stable configuration interface and PAXEER_X_ROUTER_URL at line 3038. These still match runtime.exs:297, but the page provides no merged-network replacement for the retired router endpoint concept."
+expected = "Brief facts 2 and 3 require explicit node-versus-hosted-gateway method ownership and no separate router. Receipt keys, commits and validators are hosted gateway reads, so their configuration contract must identify that producer."
+proposal = "Update the owned configuration registry source and regenerate spec/layerx-merge/contracts/explorer-config.md after migrating SequencerReceipt to an explicit hosted-gateway endpoint setting. Describe the absent-endpoint behavior and preserve timeout, key verification and error semantics."
+owner_domain = 14
+
+[doc.1]
+path = "README.md"
+status = "stale"
+notes = "Lines 44-47 and 145 describe separate daemon execution and anchor settlement; finding readme_split_execution gives the rewrite."
+
+[doc.2]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Lines 3 and 69-72 retain the standalone daemon and custody/checkpoint deployment model; finding monorepo_trust_model."
+
+[doc.3]
+path = "docs/site/docs/overview/quickstart.md"
+status = "misleading"
+notes = "Lines 20, 131-132, 167-168, 214-215 and 299-304 direct users to retired endpoints and funding; findings quickstart_retired_endpoints and quickstart_retired_funding."
+
+[doc.4]
+path = "docs/site/docs/concepts/paxeer-boundary.md"
+status = "stale"
+notes = "Lines 119-129 present the standalone custody and checkpoint bootstrap as operational. TLS, root HTTP and chain-id descriptions remain relevant; finding boundary_settlement_bootstrap."
+
+[doc.5]
+path = "docs/site/docs/operators/beta-control.md"
+status = "stale"
+notes = "Line 5 directs public funding to retired custody credit through a router; finding control_retired_funding. Preserve accurate control-plane authorization and typed-refusal descriptions."
+
+[doc.6]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "stale"
+notes = "Lines 26 and 50 describe settlement-contract bootstrap and layerxd custody-profile deployment; finding cluster_daemon_bootstrap."
+
+[doc.7]
+path = "docs/site/docs/platform/faucet.md"
+status = "misleading"
+notes = "Line 5 recommends retired custody funding through a router; finding faucet_retired_funding. Private and approved-allocation policies need current native-funding language."
+
+[doc.8]
+path = "docs/site/docs/platform/cli.md"
+status = "stale"
+notes = "Lines 8, 131 and 278-298 require the retired /rpc suffix and teach obsolete submission routing; finding cli_rpc_path."
+
+[doc.9]
+path = "docs/site/docs/platform/hosted-gateway.md"
+status = "misleading"
+notes = "Lines 39-51, 198-200 and 609 repeat unified router paths; lines 617-631 describe daemon/custody module discovery. Findings gateway_unified_router and gateway_daemon_module_registry."
+
+[doc.10]
+path = "docs/site/docs/platform/registry.md"
+status = "accurate"
+notes = "The page describes off-chain registry evidence, authenticated reads, journal reconstruction, rebuild isolation and explicit unavailable/stale results; no conflict with this slice was identified. It explicitly distinguishes TCP liveness from protocol readiness."
+
+[doc.11]
+path = "docs/site/docs/programs/index.md"
+status = "stale"
+notes = "Lines 18 and 145 wrongly say shipped LXT-20 sources are absent; lines 120-137 present daemon simulation as active. Findings program_examples_exist and program_daemon_simulation."
+
+[doc.12]
+path = "docs/site/docs/programs/workspace.md"
+status = "accurate"
+notes = "The workspace, frozen ABI, dependency policy and test-tier inventory describe retained source and qualification tooling. The daemon source named in a C differential harness is a build input, not an instruction to deploy a separate daemon; no slice interface conflict was identified."
+
+[doc.13]
+path = "services/explorer/UPSTREAM.md"
+status = "stale"
+notes = "Pinned Blockscout revisions and byte-identical import provenance remain useful, but line 3 and the path labels predate the monorepo move; finding upstream_layout_paths."
+
+[doc.14]
+path = "services/explorer/backend/README.md"
+status = "stale"
+notes = "Lines 35-36 advertise old archive paths that now return not-found; finding backend_archive_routes. The chain type, RPC variant and umbrella layout match their configuration."
+
+[doc.15]
+path = "apps/explorer/README.md"
+status = "accurate"
+notes = "The Blockscout frontend provenance, backend linkage, chain 125 preset and /explorer base path agree with next.config.js and the tracked presets. Blob navigation behavior requires the source repair recorded separately."
+
+[doc.16]
+path = "spec/layerx-merge/contracts/explorer-config.md"
+status = "stale"
+notes = "The consumed config inventory agrees with upstream declarations; the Finality row is explicitly marked change and the obsolete runtime stanza is gone. Lines 143 and 3038 still present a stable router endpoint setting; finding config_router_contract."
+
+[doc.17]
+path = "spec/layerx-merge/contracts/explorer-metrics.md"
+status = "accurate"
+notes = "The seven consumed default-registry gauge names match Indexer.Prometheus.Instrumenter and the query/export tests: missing blocks, internal transactions, archival token balances and the four multichain export queue counts. No label or unit disagreement was identified."

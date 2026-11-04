@@ -14,8 +14,13 @@ const (
 	MaxStateKeyBytes = 129
 	// MaxStateValueBytes bounds a state witness value.
 	MaxStateValueBytes = 1_048_576
-	// MaxStateModuleID is the highest module with a composite subtree.
-	MaxStateModuleID uint16 = 9
+	// MaxStateModuleID mirrors LXP_MODULE_RESERVED_COUNT in lxp_module.h,
+	// including the retained web module ID used by historical witnesses.
+	MaxStateModuleID uint16 = 11
+	// Native roots retain modules 0 through 8 and extend to the highest
+	// registered module (lxp_state_module_root_count).
+	minStateModuleLeaves = 9
+	maxStateModuleLeaves = uint32(MaxStateModuleID) + 1
 	// MaxAccountNameBytes bounds a canonical account name.
 	MaxAccountNameBytes  = 512
 	minAccountValueBytes = 103
@@ -203,7 +208,8 @@ func foldState(node [32]byte, index, count uint32, siblings [][32]byte) ([32]byt
 
 // Root recomputes the composite state root the witness commits to.
 func (w *StateWitness) Root() ([32]byte, error) {
-	if w.ModuleID > MaxStateModuleID || w.LeafCountB < 9 || w.LeafCountB > 10 {
+	if w.ModuleID > MaxStateModuleID || w.LeafCountB < minStateModuleLeaves ||
+		w.LeafCountB > maxStateModuleLeaves || uint32(w.ModuleID) >= w.LeafCountB {
 		return [32]byte{}, ErrStateModule
 	}
 	if len(w.Key) == 0 || len(w.Key) > MaxStateKeyBytes || len(w.Value) > MaxStateValueBytes {
