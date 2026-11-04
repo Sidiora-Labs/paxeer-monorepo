@@ -1,0 +1,34 @@
+[task.22.33.1313]
+audit = "22.30.70"
+acceptance = "22998.1"
+baseline = "No unchanged-tree baseline ran: the explicit implementation-first gate order forbids running verify_cmd by hand or before implementation. No earlier hf-build/hf-done ledger exists in this task workspace."
+evidence = "The runner records the exact candidate revision, command, exit code and private evidence log through hf-build and hf-done; qualification requires both gates at the same revision."
+wiring_requests = []
+
+[finding.rosetta-balance-height]
+test = "TestRepairM_1313_BalanceHeight"
+proof = "A loopback reverse proxy holds unchanged real-node block-response bytes while a signed bank transfer commits through consensus RPC; the production service/client balance response must retain the captured block's historical balances for latest, empty, hash, height, zero-height and genesis-height identifiers."
+
+[finding.rosetta-block-membership]
+test = "TestRepairM_1313_BlockMembership"
+proof = "Production node, bank transaction, RPC and converter produce ordinary and synthetic begin/end transactions; the production service returns each for its committed block and not-found for a different real block, mismatched hash/index pairs and an absent transaction."
+
+[gotcha.baseline-order]
+observed = "The inherited baseline instruction contradicts the explicit bounded gate order."
+action = "Follow the explicit implementation-first order and record the absence of an unchanged-tree baseline without claiming a baseline failure."
+
+[qualification.preexisting-cli-interface]
+revision = "1f9e45a4e208cae87b1552617c884a0f8695699e"
+command = "cg spec done 22.33.1313 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; compiler diagnostics: /tmp/repair-m1313.log"
+observed = "Build passed; focused verification could not compile the real-node dependency because auth, staking and tokenfactory CLI callers consume one result from the two-result NewFactoryCLI; no repair test executed."
+assumption = "These unchanged out-of-scope CLI call sites require their owning domain's repair; the unrelated failure is recorded without rerunning or weakening the real-node proofs."
+
+[qualification.continuation]
+revision = "facd2654624b685d09f8f536c7ae3d2eba807391"
+command = "cg spec done 22.33.1313 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; test diagnostics: /tmp/repair-m1313.log"
+observed = "The repaired CLI dependencies compile; block membership and five balance cases pass, but the zero-height case receives an RPC error instead of a block."
+repair = "Resolve a zero-height balance selector as latest before block lookup, then pin the bank query to the returned block height; every regression assertion remains intact."

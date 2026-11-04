@@ -42,6 +42,7 @@
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.4",
     "eslint": "10.8.1",
+    "happy-dom": "21.0.4",
     "source-map": "0.7.6",
     "tailwindcss": "4.3.3",
     "tsup": "9.0.0",
