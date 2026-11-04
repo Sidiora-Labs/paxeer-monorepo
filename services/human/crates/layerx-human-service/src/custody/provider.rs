@@ -507,6 +507,12 @@ pub trait KmsProvider: Debug + Send + Sync {
     #[must_use]
     fn deployment(&self) -> ProviderDeployment;
 
+    /// Applies additional admission restrictions before Human exposes its operations.
+    /// Providers with a narrower contract must refuse service startup here.
+    fn admit_human_service(&self) -> Result<(), KmsError> {
+        Ok(())
+    }
+
     /// Probes the authenticated provider boundary.
     ///
     /// # Errors
@@ -601,6 +607,26 @@ pub trait KmsProvider: Debug + Send + Sync {
         Err(KmsError::Refused)
     }
 
+    /// Publishes or recovers the identical recipient-encrypted delivery.
+    fn export_envelope(
+        &self,
+        _binding: &PrincipalKeyBinding,
+        _reference: &ProviderKeyReference,
+        _ceremony: &layerx_human_kms::export::ExportCeremony,
+    ) -> Result<layerx_human_kms::export::ExportEnvelope, KmsError> {
+        Err(KmsError::Refused)
+    }
+
+    /// Retires delivery only after the recipient proves it decrypted the key.
+    fn acknowledge_export(
+        &self,
+        _binding: &PrincipalKeyBinding,
+        _reference: &ProviderKeyReference,
+        _acknowledgement: &layerx_human_kms::export::ExportAcknowledgement,
+    ) -> Result<(), KmsError> {
+        Err(KmsError::Refused)
+    }
+
     /// Destroys a provider key. No key bytes are returned.
     ///
     /// # Errors
@@ -618,7 +644,7 @@ pub trait KmsProvider: Debug + Send + Sync {
         _reference: &'a ProviderKeyReference,
         _request: ProviderNativeSignRequest<'a>,
     ) -> Pin<Box<dyn Future<Output = Result<[u8; 64], CustodyError>> + Send + 'a>> {
-        Box::pin(async { Err(CustodyError::Kms(KmsError::Refused)) })
+        Box::pin(async { Err(CustodyError::Kms(KmsError::UnsupportedNativeConsent)) })
     }
 
     /// Signs only a complete disclosure-bound request and returns only the
@@ -1029,6 +1055,28 @@ impl KmsProvider for RemoteKmsProvider {
         ProviderDeployment::Production
     }
 
+    fn admit_human_service(&self) -> Result<(), KmsError> {
+        Err(KmsError::UnsupportedNativeConsent)
+    }
+
+    fn export_envelope(
+        &self,
+        binding: &PrincipalKeyBinding,
+        reference: &ProviderKeyReference,
+        ceremony: &layerx_human_kms::export::ExportCeremony,
+    ) -> Result<layerx_human_kms::export::ExportEnvelope, KmsError> {
+        RemoteKmsProvider::export_envelope(self, binding, reference, ceremony)
+    }
+
+    fn acknowledge_export(
+        &self,
+        binding: &PrincipalKeyBinding,
+        reference: &ProviderKeyReference,
+        acknowledgement: &layerx_human_kms::export::ExportAcknowledgement,
+    ) -> Result<(), KmsError> {
+        RemoteKmsProvider::acknowledge_export(self, binding, reference, acknowledgement)
+    }
+
     fn probe(&self) -> Result<(), KmsError> {
         let request = encode_header(PROBE, &self.provider_reference)?;
         let response = self.call(PROBE, &request)?;
@@ -1173,6 +1221,52 @@ impl KmsProvider for EnvelopeKms {
         use std::io::{Read as _, Seek as _, Write as _};
         use std::os::unix::fs::OpenOptionsExt as _;
 
+        if operation == 11 {
+            if payload.len() > PROVIDER_FRAME_LIMIT {
+                return Err(KmsError::Refused);
+            }
+            let request: super::evm::EvmSendAuthorization =
+                serde_json::from_slice(payload).map_err(|_| KmsError::Refused)?;
+            let transaction = &request.authorization.transaction;
+            let call = Eip1559Call {
+                chain_id: transaction.chain_id,
+                nonce: transaction.nonce,
+                max_priority_fee_per_gas: transaction.max_priority_fee_per_gas.into(),
+                max_fee_per_gas: transaction.max_fee_per_gas.into(),
+                gas_limit: transaction.gas_limit,
+                to: transaction.to,
+                data: transaction.calldata.clone(),
+            };
+            let disclosure =
+                bind_call(&call, request.authorization.wallet).map_err(|_| KmsError::Refused)?;
+            match disclosure
+                .construct_method()
+                .map_err(|_| KmsError::Refused)?
+            {
+                Some(layerx_crypto::disclosure::call::ConstructMethod::BankSend {
+                    from,
+                    to,
+                    denom,
+                    amount,
+                }) if from == request.authorization.wallet
+                    && to == request.disclosure.recipient
+                    && denom == request.disclosure.denom
+                    && amount == request.disclosure.amount =>
+                {
+                    ()
+                }
+                _ => return Err(KmsError::Refused),
+            }
+            let authorization =
+                serde_json::to_vec(&request.authorization).map_err(|_| KmsError::Refused)?;
+            self.evm_operation(7, binding, reference, &authorization)?;
+            let action = serde_json::to_vec(&request.authorization.action_key)
+                .map_err(|_| KmsError::Refused)?;
+            let signed: super::EvmAction =
+                serde_json::from_slice(&self.evm_operation(8, binding, reference, &action)?)
+                    .map_err(|_| KmsError::Integrity)?;
+            return Ok(signed.raw_transaction);
+        }
         if !matches!(operation, 6..=8) || payload.len() > PROVIDER_FRAME_LIMIT {
             return Err(KmsError::Refused);
         }
