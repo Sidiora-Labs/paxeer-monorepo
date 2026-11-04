@@ -4,11 +4,15 @@ pub mod account;
 pub mod activity;
 pub mod amount;
 pub mod batch;
+pub mod chain;
+/// Archive-only source compatibility; no current finality authority.
+#[deprecated(note = "use historical::checkpoint for archives and chain for current evidence")]
 pub mod checkpoint;
 pub mod clock;
 pub mod clock_protocol;
 pub mod error;
 pub mod guest_abi;
+pub mod historical;
 pub mod ids;
 pub mod intent;
 pub mod json;
@@ -23,6 +27,10 @@ pub mod programs_module_abi;
 pub mod receipt;
 pub mod result;
 pub mod rung;
+/// Archive-only source compatibility; no current trust root.
+#[deprecated(
+    note = "use historical::settlement for archives and chain::ValidatorSetTrust for current trust"
+)]
 pub mod settlement;
 pub mod test_support;
 pub mod vectors;

@@ -1,0 +1,82 @@
+[task]
+id = "22.33.614"
+audit = "22.30.163"
+criterion = "22998.1"
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+repair = "Repair the four assigned Android findings in place: bounded provider-key substring matching and structured-value tokenization with overlap between scan windows; directory fsync following atomic ledger replacement; capacity backpressure with completed-claim retention for the in-memory store lifetime; and numeric, canonical four-octet IPv4 loopback validation without DNS resolution."
+source_proof = "The pytest module reads the actual maintained methods and translates their Java statements and expressions in process. It executes the source scanner producer/archive reader/classifier/CLI path against complete ZIP-packaged APK/AAB/JAR artifacts, checks refusal and secret-free metadata, checks source-defined provider boundaries and streaming overlap, and executes the source loopback predicate on numeric literals and DNS lookalikes. It executes source claim/complete/release/evict bodies with capacity-one overlapping calls. For recovery, a forked process executes the production file-store mutation/read/write bodies using real POSIX locks, temporary files, fsync and atomic replacement, acknowledges completion and immediately exits without shutdown; a new source component reopens the ledger and recovers COMPLETED and CONFLICT states. Source assertions connect the store to VerifiedEventConsumer claim checks, handler, completion and acknowledgement."
+review_only = "JVM compilation, Jackson/JDK serialization implementation, Android API and filesystem support, Ed25519 event verification and end-to-end signed relay delivery are not executed. The in-process Java subset translator executes the selected production bodies, with explicit Python standard-library adapters for Java library primitives; it is source-level execution, not a JVM implementation or a replacement production store. Actual power-loss and device-storage durability are review-only: abrupt process termination plus fsync ordering does not emulate a filesystem or hardware crash. Parent-directory force failures propagate as DELIVERY_STORE_FAILURE; support for opening and forcing directories on a target Android filesystem requires platform qualification. No shell scripts, unit files, manifests or build files are modified, and no interface-mismatch finding is assigned."
+baseline = "No pre-change verification was run and no baseline failures are claimed: the explicit implementation-first order and hf-done-only verification override the contradictory unchanged-tree baseline clause. Initial git status/diff contained only runner-prepared .cgignore and spec task bookkeeping; both scoped qualification artifacts were absent. Initial gate.json recorded zero builds and zero verifies and gates.jsonl was absent. Existing runner setup changes were preserved."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_614.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision = "The exact verified candidate revision, command, exit code and private log location are named by the final hf-done JSON and its private evidence_ledger entry. The record is finalized before qualification because embedding its content-derived revision into itself would change that revision."
+evidence = "hf-build and hf-done must qualify the same candidate revision. The runner retains exact private evidence and publishes the task; no manual commit or push is performed."
+wiring_requests = []
+
+[finding.010]
+audit = "22.30.163"
+file = "sdk/integrations/android/src/main/java/com/sidiora/layerx/android/EmbeddedSecretDetector.java"
+line = 81
+class = "security"
+severity = "medium"
+owner_domain = 15
+expected = "The mobile artifact scanner must reject credential material in the ordinary resource and configuration encodings that applications ship."
+resolution = "Precompiled bounded patterns search inside printable runs, including property values following equals; textual tokens are checked for JWT/entropy with per-value exemptions. Overlapping bounded scan windows preserve credentials crossing a flush boundary. Finding records and CLI output contain only rule, path, offset and length."
+tests = ["test_010_packaged_structured_credentials_refused_without_value", "test_010_provider_bounds_run_overlap_and_token_exemptions"]
+
+[finding.009]
+audit = "22.30.163"
+file = "sdk/integrations/android/src/main/java/com/sidiora/layerx/android/FileEventDeliveryStore.java"
+line = 163
+class = "restart-recovery"
+severity = "medium"
+owner_domain = 15
+expected = "A delivery store advertised as crash-durable must persist both the data and the directory entry before reporting completion."
+resolution = "After forcing the temporary ledger and atomically replacing the target, force the containing directory before returning from the locked mutation. No fallback suppresses a failed directory force. The source-executed completed claim is recovered after immediate process exit and reopening; physical power-loss behavior remains review-only."
+tests = ["test_009_directory_durability_precedes_acknowledgement", "test_009_completed_claim_survives_abrupt_stop_and_reopen"]
+
+[finding.041]
+audit = "22.30.163"
+file = "sdk/integrations/android/src/main/java/com/sidiora/layerx/android/InMemoryEventDeliveryStore.java"
+line = 74
+class = "runtime-risk"
+severity = "medium"
+owner_domain = 15
+expected = "A process-local delivery store must preserve active claims until completion or lease expiry and refuse additional admissions when it cannot retain their replay protection."
+resolution = "Retain live and completed claims and throw typed DELIVERY_STORE_FAILURE when capacity remains occupied after expiry eviction. Completed claims live for the store lifetime, including under admission pressure and release calls; only expired uncompleted claims are evicted. Methods remain synchronized."
+tests = ["test_041_capacity_one_overlap_preserves_live_claim_and_completed_retention", "test_041_only_expired_uncompleted_claims_free_capacity"]
+
+[finding.007]
+audit = "22.30.163"
+file = "sdk/integrations/android/src/main/java/com/sidiora/layerx/android/PublishableConfiguration.java"
+line = 222
+class = "security"
+severity = "medium"
+owner_domain = 15
+expected = "HTTP exceptions for device credentials must apply only to actual loopback IP literals or the explicitly supported localhost name."
+resolution = "Accept localhost and existing IPv6 loopback spellings or exactly four ASCII decimal IPv4 octets with first octet 127 and each octet at most 255. Reject ambiguous leading zeros, suffixes, abbreviated addresses, signed/non-ASCII octets and other address ranges without DNS."
+tests = ["test_007_numeric_loopback_literals_and_dns_lookalikes"]
+
+[format]
+policy = "No Java, Python or KVX formatter is configured for these paths. After implementation, apply the repository .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions only to the six touched task files; preserve surrounding Java and Python style."
+
+[gotcha.baseline]
+observed = "The unchanged-tree baseline clause conflicts with explicit implementation-first and wrapper-only gate ordering."
+resolution = "Follow the explicit order, claim no baseline test result and retain this note here because GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.context]
+observed = "Broad repository ledgers and audits exceed output limits and cg brief reports unrelated graph work."
+resolution = "Use bounded finding and requirement sections, actual git status/diff and the runner ledger; keep notes in this scoped repair record."
+
+[gotcha.runtime]
+observed = "The repair requires recovery and overlapping-claim proofs but the qualification environment has no Java toolchain and forbids a subprocess toolchain or native artifact dependency."
+resolution = "Execute the selected production Java method bodies through an in-process fail-closed statement translator, bridge library primitives to the standard library, and distinguish source execution from JVM and device certification."
+
+[qualification.repair_1]
+revision = "d8ca4dbf7b208df40c46da94ddb709a4ab3c538d"
+command = "cg spec done 22.33.614 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Thirty-two tests passed and two scanner tests failed because the source translator lacked the Java conditional expression in scanArtifact."
+repair = "Translate conditional expressions including nested call arguments while retaining all production calls and assertions; rebuild and verify the changed candidate."

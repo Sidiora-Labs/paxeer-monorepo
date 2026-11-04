@@ -1,0 +1,20 @@
+[repair.22.33.1570]
+acceptance = "22998.1"
+findings = ["isolation-surface-gap"]
+baseline = "The initial runner ledger was absent with zero builds and zero verifications, and the repair integration target did not exist. No unchanged-tree verify ran: the explicit ordered implementation-first, wrapper-only gate instructions prohibit that extra gate; no baseline test failure is claimed."
+evidence = "The hf-build/hf-done runner ledger records the exact candidate revision, command, exit and private log; qualification is claimed only on a passing hf-done at the built revision."
+wiring_requests = ["Domain 9: services/agent/tests/isolation/Cargo.toml needs direct layerx-sdk and layerx-agent-api dependencies to drive the typed subscription and retained-export owner interfaces from this standalone crate; the manifest is outside this task's scope.", "Domain 9: services/agent/sdk/typescript/test and services/agent/sdk/python/tests must connect their real clients to the provisioned daemon owner and publish foreign/absent object transcripts for in-process replay; this Rust-only gate cannot execute cross-language subprocess toolchains."]
+
+[finding.isolation-surface-gap]
+proving_tests = ["isolation_surface_gap_provisions_real_authority_and_drives_the_mcp_sdk_transport", "isolation_surface_gap_reopen_preserves_only_legal_metadata_and_every_other_tenant_value"]
+repair = "Replace the bare require_owner/normalize_error loop with persisted registration, capability and enrolment producers, the real Agent envelope decoder/authorizer for every surface, real tenant-qualified capability consumers with positive own/foreign controls, and the production MCP capability owner. Exercise the MCP stdio client through the actual Rust SDK transport over loopback TLS into the real MCP owner and durable result-release path."
+recovery = "Stop and reopen the deletion store, check all thirteen object kinds, exact retained legal/deletion audit bytes and local-only storage classes, expired audit removal, and the complete surviving tenant inventory and values."
+coverage_limit = "Seven surfaces denote owner-admission checks, not seven executed language clients. MCP and its Rust SDK transport run end to end. Typed subscription/export dispatch and separate TypeScript/Python client execution remain the explicit out-of-scope wiring requests above; no helper invocation is claimed as those client proofs."
+
+[gotcha.scoped-lockfile]
+symptom = "The first declared locked build stopped before compilation because the standalone isolation lockfile lagged its production path dependencies."
+repair = "Refresh only the scoped Cargo.lock with cargo generate-lockfile --offline before retrying the declared locked gate."
+
+[gotcha.decoder-error]
+symptom = "AgentRpcResponse is an error return of decode_mcp_invocation but does not implement Debug."
+repair = "Map its actual HTTP status and normalized response body explicitly; keep the generic checked helper's Debug bound intact."

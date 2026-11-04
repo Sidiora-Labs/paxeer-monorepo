@@ -1,0 +1,49 @@
+[task.22.33.735]
+audit = "22.30.171"
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+repair = "Replace the obsolete expectation that SLEEPING passes wave 5 with a guarded readiness regression invoked by the existing shell suite. Preserve its idempotent rerun, crashed indexer redeployment, unknown-status and redaction checks; their successful rerun fixture now explicitly reports explorer SUCCESS. The dedicated readiness regression supplies the sleeping cases and exercises the production deployer in-process over real loopback HTTP."
+runtime_proof = "The fixture starts with an explorer in wave 5 reporting SLEEPING and a crashed web in wave 6 requiring a real Deploy mutation. An external wake requests the explorer's declared /healthz/ready path. After a 503 the apply must return 1 without any mutation or wave-6 status query. A subsequent 200 lets the in-memory Railway peer confirm SUCCESS; a second real apply must observe that confirmation before issuing the web Deploy mutation and observing wave 6 SUCCESS. Repeated 503 wake attempts and repeated applies remain blocked. A 200 with provider confirmation withheld also remains blocked. Every GraphQL request is emitted by production http_transport and consumed by a strict in-memory peer over loopback HTTP, with IDs, variables and authorization checked. No production function, transport or clock is replaced."
+source_proof = "The pytest module checks the existing shell's set -euo pipefail and unconditional readiness command, checks that the old SLEEPING success assertions are gone, parses every quoted Python heredoc with ast and checks its rerun status values. The runtime fixture loads the real deployment manifest and service configs and compares explorer/web image, order, health path, restart policy and replicas. JSON fixture and KVX record are parsed and the exact audit finding text and proving test names are checked. The declared hf-build performs bash -n parsing of the repaired shell; pytest never launches an external binary or subprocess toolchain."
+review_only = "The deployer deliberately blocks SLEEPING through the shared rollout terminal policy and does not issue a health request itself. Successful wake-up is an external action followed by provider-confirmed SUCCESS and a fresh apply, not automatic waking inside the deployer. The loopback peer's status transition after a successful health request models Railway's health confirmation; actual Railway wake mechanics, remote provider healthcheck enforcement, container builds, live deployment and the full legacy shell suite are not executed or certified. This is a test-gap repair with no interface or restart-recovery change."
+baseline = "No pre-change verification was run: the explicit implementation-first order and exclusive hf-done gate prohibit a manual baseline verify. No baseline failures are claimed. Initial git status/diff showed only runner-prepared .cgignore and spec task-status changes; no scoped repair files or prior /out/run/gates.jsonl existed, and gate.json showed zero build and verify runs with two repair cycles left."
+build_cmd = "bash -n tools/deploy/tests/*-perps-project.test.sh"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_735.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private gate ledger bind the exact content-derived candidate revision, command, exit code and log location. Both gates must pass on the same candidate. This record is finalized before qualification; embedding its own candidate hash would change the hash. The runner publishes the qualified task; no manual commit or push is performed."
+wiring_requests = []
+
+[finding.019]
+file = "tools/deploy/tests/railway-perps-project.test.sh"
+class = "test-gap"
+severity = "medium"
+observed = "The explorer scenario sets SLEEPING and requires the apply to pass wave 5 solely from that deployment status, without a successful health request."
+expected = "Later deployment waves must rely on evidence that their prerequisite services can serve their declared health path, including a sleeping explorer."
+proposal = "Make tools/deploy/tests/railway-perps-project.test.sh cover successful wake-up readiness and refusal on a sleeping service that remains unavailable before later waves proceed."
+tests = ["test_finding_019_successful_wake_readiness_before_later_wave", "test_finding_019_unavailable_sleeping_service_blocks_later_wave", "test_finding_019_health_without_deployment_confirmation_still_blocks", "test_finding_019_shell_registers_guarded_readiness_cases"]
+
+[gotcha.1]
+observed = "The older audit baseline-run instruction conflicts with the explicit implementation-first order and exclusive hf-done gate."
+resolution = "Follow the explicit order, claim no pre-change runs and keep this note here because the root GOTCHA.kvx is outside scope."
+
+[gotcha.2]
+observed = "The shared rollout policy already blocks SLEEPING, while the legacy shell suite still expects SLEEPING to pass; the perps deployer has no automatic wake interface."
+resolution = "Test real refusal and an explicit external health wake followed by provider confirmation and reapply. Never simulate a production probe or declare status alone a successful wake observation."
+
+[gotcha.3]
+observed = "The scoped Codify graph omitted these files and broad context reads exceeded output limits."
+resolution = "Read bounded source sections directly and keep changes in the declared paths; preserve existing runner bookkeeping."
+
+[gotcha.4]
+observed = "tomllib parses the dotted KVX task header into nested keys, so the first qualification failed only the record lookup after all runtime and shell cases passed."
+resolution = "Read task, 22, 33 and 735 as nested keys without changing the record schema or weakening its assertions."
+
+[qualification.attempt_1]
+revision = "4ad50396c4940cfbe7fee5860d9512c105d953e6"
+command = "cg spec done 22.33.735 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Four tests passed; the record-mapping test raised KeyError at its dotted task-header lookup."
+repair = "Correct the test lookup to TOML's nested task keys, then rebuild and reverify the repaired candidate."
+
+[format]
+policy = "No Python, shell or KVX formatter is configured for these paths. Apply .editorconfig UTF-8, LF, trailing-whitespace and final-newline conventions to touched files after the complete implementation; use two-space JSON indentation."

@@ -19,6 +19,13 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(3);
 const IO_TIMEOUT: Duration = Duration::from_secs(8);
 const MAX_RESPONSE: usize = 2 * 1024 * 1024;
 const MAX_KEYS: usize = 128;
+pub const AUDIT_PAGE_SIZE: usize = 64;
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RequestPage {
+    pub records: Vec<RequestRecord>,
+    pub next_cursor: Option<String>,
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Snapshot {
@@ -34,7 +41,7 @@ struct Endpoint {
     port: u16,
 }
 
-enum Resp {
+pub(crate) enum Resp {
     Simple(String),
     Bulk(Option<Vec<u8>>),
     Integer(i64),
@@ -49,6 +56,44 @@ pub struct Store {
 }
 
 impl Store {
+    /// # Errors
+    /// Rejects a noncanonical TLS endpoint or empty or oversized credentials.
+    pub fn new(
+        endpoint: &str,
+        ca: Certificate,
+        username: Zeroizing<String>,
+        password: Zeroizing<String>,
+    ) -> Result<Self, String> {
+        if [username.as_str(), password.as_str()]
+            .iter()
+            .any(|value| value.is_empty() || value.len() > 4096)
+        {
+            return Err("dashboard Redis credential is empty or oversized".to_owned());
+        }
+        Ok(Self {
+            endpoint: parse_endpoint(endpoint)?,
+            ca,
+            username,
+            password,
+        })
+    }
+
+    pub(crate) fn from_webhooks_environment() -> Result<Self, String> {
+        Self::new(
+            &env::var("LAYERX_WEBHOOKS_REDIS_URL").map_err(|_| "webhook Redis URL is required")?,
+            Certificate::from_der(
+                &fs::read(
+                    env::var("LAYERX_WEBHOOKS_INTERNAL_CA_DER")
+                        .map_err(|_| "webhook Redis CA is required")?,
+                )
+                .map_err(|error| error.to_string())?,
+            )
+            .map_err(|error| error.to_string())?,
+            read_secret("LAYERX_WEBHOOKS_REDIS_USERNAME_FILE")?,
+            read_secret("LAYERX_WEBHOOKS_REDIS_PASSWORD_FILE")?,
+        )
+    }
+
     /// # Errors
     /// Returns an error if a required environment variable is missing, the Redis
     /// endpoint is invalid, the CA cannot be read or decoded, or a credential
@@ -152,21 +197,63 @@ impl Store {
         principal: &Principal,
         limit: usize,
     ) -> Result<Vec<RequestRecord>, DashboardError> {
+        let limit = limit.clamp(1, 200);
+        let mut records = Vec::with_capacity(limit);
+        let mut cursor = None;
+        while records.len() < limit {
+            let page = self.requests_page(
+                principal,
+                cursor.as_deref(),
+                (limit - records.len()).min(AUDIT_PAGE_SIZE),
+            )?;
+            records.extend(page.records);
+            cursor = page.next_cursor;
+            if cursor.is_none() {
+                break;
+            }
+        }
+        Ok(records)
+    }
+
+    /// # Errors
+    /// Rejects invalid cursors or page sizes, an uninitialized index, malformed
+    /// entries, foreign principal bindings or a cursor that does not move back.
+    pub fn requests_page(
+        &self,
+        principal: &Principal,
+        before: Option<&str>,
+        limit: usize,
+    ) -> Result<RequestPage, DashboardError> {
+        if !(1..=AUDIT_PAGE_SIZE).contains(&limit) {
+            return Err(DashboardError::InvalidRequest);
+        }
+        let mut previous = before
+            .map(stream_id)
+            .transpose()
+            .map_err(|_| DashboardError::InvalidRequest)?;
         let digest = principal_digest(principal);
-        let count = limit.clamp(1, 200).saturating_mul(8).min(1600);
+        let key = format!("gateway:principal:{digest}:audit");
+        if self
+            .command(&["GET", &format!("{key}:version")])
+            .ok()
+            .and_then(|value| text(&value))
+            .as_deref()
+            != Some("1")
+        {
+            return Err(DashboardError::CorruptStore);
+        }
+        let start = before.map_or_else(|| "+".to_owned(), |cursor| format!("({cursor}"));
         let response = self
-            .command(&[
-                "XREVRANGE",
-                "gateway:audit",
-                "+",
-                "-",
-                "COUNT",
-                &count.to_string(),
-            ])
+            .command(&["XREVRANGE", &key, &start, "-", "COUNT", &limit.to_string()])
             .map_err(|_| DashboardError::CorruptStore)?;
         let Resp::Array(entries) = response else {
             return Err(DashboardError::CorruptStore);
         };
+        if entries.len() > limit {
+            return Err(DashboardError::CorruptStore);
+        }
+        let full = entries.len() == limit;
+        let mut last_id = None;
         let mut records = Vec::new();
         for entry in entries {
             let Resp::Array(parts) = entry else {
@@ -176,10 +263,16 @@ impl Store {
                 return Err(DashboardError::CorruptStore);
             }
             let id = text(&parts[0]).ok_or(DashboardError::CorruptStore)?;
+            let position = stream_id(&id)?;
+            if previous.is_some_and(|value| position >= value) {
+                return Err(DashboardError::CorruptStore);
+            }
+            previous = Some(position);
+            last_id = Some(id);
             let fields = pairs(&parts[1])?;
             let event = fields.get("event").ok_or(DashboardError::CorruptStore)?;
             let Some(operation_digest) = event.strip_prefix(&format!("{digest}:")) else {
-                continue;
+                return Err(DashboardError::CorruptStore);
             };
             let outcome = match fields.get("outcome").map(String::as_str) {
                 Some("rate_limited") => RequestOutcome::RateLimited,
@@ -187,11 +280,7 @@ impl Store {
                 Some("pending") | None => RequestOutcome::Pending,
                 Some(_) => RequestOutcome::Refused,
             };
-            let at = id
-                .split_once('-')
-                .and_then(|(milliseconds, _)| milliseconds.parse::<u64>().ok())
-                .map(|milliseconds| milliseconds / 1_000)
-                .ok_or(DashboardError::CorruptStore)?;
+            let at = position.0 / 1_000;
             records.push(RequestRecord {
                 at,
                 operation: None,
@@ -199,11 +288,11 @@ impl Store {
                 outcome,
                 verification: Verification::Unverified,
             });
-            if records.len() >= limit.clamp(1, 200) {
-                break;
-            }
         }
-        Ok(records)
+        Ok(RequestPage {
+            records,
+            next_cursor: if full { last_id } else { None },
+        })
     }
 
     /// # Errors
@@ -245,7 +334,7 @@ impl Store {
         Ok(ids)
     }
 
-    fn command(&self, arguments: &[&str]) -> Result<Resp, String> {
+    pub(crate) fn command(&self, arguments: &[&str]) -> Result<Resp, String> {
         let mut last = None;
         for address in (self.endpoint.host.as_str(), self.endpoint.port)
             .to_socket_addrs()
@@ -325,8 +414,25 @@ fn request_summary(records: &[RequestRecord]) -> RequestSummary {
     summary
 }
 
-fn principal_digest(principal: &Principal) -> String {
+pub(crate) fn principal_digest(principal: &Principal) -> String {
     hex_encode(&Sha256::digest(principal.as_str().as_bytes()))
+}
+
+fn stream_id(value: &str) -> Result<(u64, u64), DashboardError> {
+    let (milliseconds, sequence) = value.split_once('-').ok_or(DashboardError::CorruptStore)?;
+    if [milliseconds, sequence].iter().any(|part| {
+        part.is_empty()
+            || !part.bytes().all(|byte| byte.is_ascii_digit())
+            || (part.len() > 1 && part.starts_with('0'))
+    }) {
+        return Err(DashboardError::CorruptStore);
+    }
+    Ok((
+        milliseconds
+            .parse()
+            .map_err(|_| DashboardError::CorruptStore)?,
+        sequence.parse().map_err(|_| DashboardError::CorruptStore)?,
+    ))
 }
 
 fn parse_endpoint(value: &str) -> Result<Endpoint, String> {
@@ -391,7 +497,7 @@ fn pairs(value: &Resp) -> Result<BTreeMap<String, String>, DashboardError> {
         .collect()
 }
 
-fn text(value: &Resp) -> Option<String> {
+pub(crate) fn text(value: &Resp) -> Option<String> {
     match value {
         Resp::Simple(value) => Some(value.clone()),
         Resp::Bulk(Some(value)) => String::from_utf8(value.clone()).ok(),

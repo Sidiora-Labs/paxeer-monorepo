@@ -582,7 +582,8 @@ func TestRepairM_797_XwebMissingLoader(t *testing.T) {
 	if e = VerifyCommittedReceipt(m797JSON(t, c.native), altered, c.hash); e == nil {
 		t.Fatal("altered receipt key accepted")
 	}
-	m797Wire(t, "xweb-config.sh", "xweb-receipt-keys", "px_getReceiptKeys")
+	m797Wire(t, "xweb-config.sh", "xweb-config render", "xweb-config prices")
+	m797Wire(t, "xweb_transport.go", "XwebReceiptHistory(raw)", "px_getReceiptKeys", "func XwebPrices(")
 	m797Wire(t, "tests/xweb-loader/src/main.rs", `services/interop/crates/x-websearch/src/config.rs`, "config::load", "key.public_key()", "key.first_batch_number()", "key.last_batch_number()")
 	m797Wire(t, "tests/test_xweb_config.py", "load_config(path)", "load_config(altered, accepted=False)", "px_getReceiptKeys", "render\", \"attestor", "\"history\", \"unsupported\", \"legacy\", \"weak-key\"")
 }

@@ -1,0 +1,48 @@
+[task.22.33.482]
+base_revision = "5fc0c55eaaa6d43868c4a2872366299b8b7e2007"
+model = "Compose-managed Next.js app and nginx on the shared internal bridge; runtime values are interpolated explicitly at container creation."
+source_proof = "The pytest module parses the production Compose YAML with duplicate-key rejection and checks the active app service, app-relative Dockerfile context, exact public build-argument declarations and forwarding, required origin/revision bindings, matching image/build/runtime identity, explicit server environment, bridge membership, private app port, nginx health dependency and inherited Dockerfile health probe. It follows source facts from MARKET_PROXY_ORIGIN in the operator template through Compose environment into the real candle route's parser, missing-value refusal, upstreamOrigin and fetch Origin header; checks the running-container origin/config probe, nginx Docker-DNS upstream example, and tokenized start/build/health/update/rollback/log commands. It also parses this record and the original audit findings and checks every finding-to-test mapping."
+review_only = "Docker image builds, Compose interpolation/container creation, Next.js execution, live candle HTTP/Origin delivery, TLS/nginx startup and replacement recovery are not executed: the qualification environment provides no app build/runtime toolchain. These source checks prove configuration and documentation contracts, not live deployment health. Neither finding is a restart-recovery or interface-mismatch implementation finding; no persisted state or application interface changes, so a synthetic component restart or translated handler would not be a real proof. Operator rollout must run the documented identity, expected-origin, candle UDF and HTTPS checks after start, app recreation and rollback. No shell script or unit file is changed; Markdown shell examples are tokenized in-process and nginx directives parsed as source, without an external bash/Node/Docker binary, subprocess toolchain, credential, environment variable, live endpoint or device in the gate."
+baseline = "No pre-change verification was run: the explicit implementation-first order and exclusive hf-done gate override the older step requesting baseline pytest. No tests are claimed to have failed before the change. Initial git status/diff contained only runner-prepared .cgignore and spec task-status bookkeeping; the deployment assets had no task edits and both repair files were absent. gate.json recorded zero builds and zero verification runs; no gates.jsonl ledger existed. The inherited README already explained why restart preserves environment, but its direct-container lifecycle did not repair the absent Compose app service."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_482.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The last hf-done JSON and private /out/run/gates.jsonl name the exact content-derived verified revision, command, exit code and log. Build and verification must pass on the same candidate revision. This record is finalized before gates; inserting its own candidate revision would change that revision. The runner records qualification and commits the result."
+wiring_requests = ["apps/perps/Dockerfile and apps/perps/package.json — owning fm-markets, domain 3: resolve/qualify image dependency closure for @paxeer/api and @paxeer/wallet workspace dependencies with the Dockerfile's app-local package/lock install; these out-of-scope image assets are unchanged and no Docker build success is claimed."]
+rollout_prerequisites = "The operator supplies deploy/nginx/nginx.conf, deploy/nginx/conf.d TLS servers, certificates, ACME webroot and DH parameters at the existing Compose mounts; apply the README's app:3000 Docker-DNS upstream and verify ingress after app replacement. Keep each prior image and its matching env file for rollback. These deployment-specific assets are not fabricated by this task."
+rollback = "Revert the runner's task commit. For a deployed app, use the documented retained image and matching environment rollback procedure."
+
+[finding.compose-app-service-absent]
+audit = "22.30.15"
+file = "apps/perps/deploy/docker-compose.yml"
+class = "config-drift"
+severity = "medium"
+resolution = "Restore the complete Compose app definition, app-local build context and Dockerfile-declared public args, revision-tagged image, explicit runtime proxy environment, shared nginx bridge and inherited image health check. Require origin and revision before service creation; nginx starts after app health. Align README operations with this service and a Docker-DNS upstream that follows app replacements; retain external image build wiring as an explicit owner request."
+tests = ["test_compose_app_build_context_and_public_inputs", "test_compose_runtime_origin_reaches_production_candle_headers", "test_compose_private_ingress_and_inherited_image_health", "test_readme_start_upgrade_rollback_and_service_commands", "test_repair_record_maps_both_findings_and_evidence_limits"]
+
+[finding.runtime-env-restart-instructions]
+audit = "22.30.15"
+file = "apps/perps/deploy/README.md"
+class = "doc-drift"
+severity = "medium"
+resolution = "Use the same env file and explicit Compose file for every operation. Server-only updates keep the image revision and recreate app with --no-build --pull never --force-recreate --wait; require an expected-origin comparison inside the running container, an actual candle/config request with HTTP/UDF checks, build identity and HTTPS ingress checks. Public NEXT_PUBLIC changes require a rebuild and image replacement. Correct the environment template's conflicting restart and absent deploy.sh comments."
+tests = ["test_runtime_env_update_recreates_same_image_and_checks_proxy_origin", "test_environment_template_matches_compose_lifecycle", "test_readme_start_upgrade_rollback_and_service_commands", "test_compose_runtime_origin_reaches_production_candle_headers", "test_repair_record_maps_both_findings_and_evidence_limits"]
+
+[format]
+policy = "No Python, Markdown, KVX or YAML formatter is configured for these paths; apply repository .editorconfig UTF-8/LF/final-newline rules, preserve Markdown whitespace policy and use two-space YAML indentation after implementation is complete."
+
+[gotcha.1]
+observed = "The baseline-pytest instruction contradicts the explicit implementation-first bounded gate order."
+resolution = "Use hf-build then hf-done only; no manual baseline run or claim of prior failing tests."
+
+[gotcha.2]
+observed = "Root GOTCHA.kvx and spec qualification ledgers are outside the exclusive task scope, and the cached cg brief points to an unrelated task."
+resolution = "Keep gotchas and out-of-scope wiring requests here; use actual Git state, the exact claimed task block and private gate ledger as task authority."
+
+[gotcha.3]
+observed = "An implementation-time Compose edit matched the word services in a header comment before the real YAML services key."
+resolution = "Restore the original header and real services mapping before qualification; parse the actual YAML and assert both declared services in the required tests."
+
+[gotcha.4]
+observed = "The candle endpoint is a pages API route, and broad combined reads of the large gotcha/audit files exceeded output limits."
+resolution = "Follow apps/perps/src/pages/api/candle/[...path].ts and retrieve bounded finding/source sections; missing-path reads made no source change and are not gate results."

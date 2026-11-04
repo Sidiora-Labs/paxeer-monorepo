@@ -1,10 +1,13 @@
 #!/usr/bin/env sh
+set -eu
 
-LOG_DIR="build/generated/logs"
-mkdir -p $LOG_DIR
+command -v paxd >/dev/null 2>&1 || { echo "Missing executable: paxd" >&2; exit 1; }
+for file in app.toml config.toml genesis.json; do
+  [ -s "$HOME/.pax/config/$file" ] && [ -r "$HOME/.pax/config/$file" ] || {
+    echo "Missing readable node configuration: $file" >&2
+    exit 1
+  }
+done
 
-# Starting pax chain
-echo "RPC Node is starting now, check logs under $LOG_DIR"
-
-paxd start --chain-id pax > "$LOG_DIR/rpc-node.log" 2>&1 &
-echo "Done" >> build/generated/rpc-launch.complete
+# The supervisor observes the node's logs, signals and exit status directly.
+exec paxd start --chain-id pax

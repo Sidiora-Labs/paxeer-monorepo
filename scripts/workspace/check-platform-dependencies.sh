@@ -6,7 +6,7 @@ actual=$(mktemp)
 declared=$(mktemp)
 trap 'rm -f "$actual" "$declared"' EXIT HUP INT TERM
 
-find platform -type d \( -name target -o -name node_modules -o -name build -o -name .build \) -prune -o \
+find services/platform -type d \( -name target -o -name node_modules -o -name build -o -name .build \) -prune -o \
     -type f \( -name Cargo.toml -o -name go.mod -o -name package.json -o -name pom.xml \
     -o -name Package.swift -o -name Package.resolved -o -name '*.csproj' -o -name pyproject.toml \
     -o -name requirements.txt -o -name settings.gradle.kts -o -name build.gradle.kts \) \

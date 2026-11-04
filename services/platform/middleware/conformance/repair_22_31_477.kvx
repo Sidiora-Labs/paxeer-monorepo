@@ -1,0 +1,28 @@
+[repair.22.31.477]
+baseline_revision = "26cfba836c16dbbd2337ff9979389d7f9eed537a"
+decision = "2530"
+gotcha = "2993"
+changed_files = ["services/platform/middleware/conformance/src/scenarios.ts", "services/platform/middleware/conformance/test/repair-22-31-477.test.mjs", "services/platform/middleware/conformance/repair_22_31_477.kvx"]
+dependents = ["22.33.1479", "22.33.1480", "22.33.1481"]
+implementation = "The committed-rung scenario constructs its offer through committedRungOffer, which narrows the seller payment union by paymentReference and refuses a drawn event with CommittedRungRequiresExactPaymentError: the committed rung requires an exact payment. Seller types are unchanged."
+proof = "The focused test imports built modules, verifies a signed exact payment from ConformanceSequencer, preserves its payment reference in the committed offer, runs the existing committed-rung scenario, and feeds a production-decoded PaymentDrawn event into the same offer constructor to assert its named refusal. It also asserts nonempty JavaScript and declaration build outputs."
+proof_boundary = "The drawn-event branch tests the event decoder and scenario consumer; it does not claim native grant execution."
+build_cmd = "npm ci --ignore-scripts && npm run build:dependencies -- @sidiora/layerx-middleware-conformance && npm --prefix services/platform/middleware/conformance run build"
+verify_cmd = "node --test services/platform/middleware/conformance/test/repair-22-31-477.test.mjs"
+qualification = "The runner's private hf-build/hf-done gate ledger supplies the verified candidate revision, exact commands, exit codes and log locations; this record alone claims no passing gate."
+
+[qualification.blocker]
+revision = "419b3d1bdeef1265d0fc88699b91f9f8b3e52656"
+command = "npm ci --ignore-scripts && npm run build:dependencies -- @sidiora/layerx-middleware-conformance && npm --prefix services/platform/middleware/conformance run build"
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "npm ci fails before compilation because the root lockfile lacks Supabase, viem and their dependency entries; the environment setup log already records the same failure before this repair."
+assumption = "This inherited install failure is recorded without changing unrelated dependencies or rerunning an unchanged gate; compilation and focused verification remain unqualified."
+
+[qualification.continuation]
+revision = "6b996bfa018c4058549e225ec614a4729a477e5b"
+command = "npm ci --ignore-scripts && npm run build:dependencies -- @sidiora/layerx-middleware-conformance && npm --prefix services/platform/middleware/conformance run build"
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "The prescribed build again fails in npm ci before TypeScript compilation because the root lockfile lacks Supabase, viem and their dependency entries, as recorded by the previous attempt and environment setup."
+assumption = "This pre-existing install failure is recorded without chasing unrelated dependency repairs; no compilation or focused verification pass is claimed."

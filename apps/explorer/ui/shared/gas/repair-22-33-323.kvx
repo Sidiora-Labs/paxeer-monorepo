@@ -1,0 +1,11 @@
+[repair.22.33.323]
+audit = "22.30.137"
+gas_zero_fallback = "repair-22-33-323.spec.ts::gasZeroFallback"
+gas_zero_format = "repair-22-33-323.spec.ts::gasZeroFormat"
+missing_value_regression = "repair-22-33-323.spec.ts::gasMissingPrices"
+baseline = "Not executed: the task's explicit implementation-first gate order prohibits unchanged-tree verification. The original truthiness guards reject numeric zero in both production modules."
+wiring_requests = "apps/explorer/package.json and the task gate configuration — explorer tooling owner: align the pinned Yarn package manager with the mandated pnpm gate commands and prepare the explorer dependencies; both production repair proposals remain inside the gas directory."
+qualification = "The runner-owned hf-build and hf-done evidence records name the exact candidate revision, command, exit code and private log location."
+environment = "Runner dependency preparation failed before this task: pnpm rejects the app's Yarn package-manager pin (ERR_PNPM_OTHER_PM_EXPECTED), leaving no node_modules; the same error prevents the repository's ESLint formatter from starting."
+prior_attempt_revision = "335fa05b8edd61c408cfb653c90e0832c08cfbfa"
+prior_attempt_result = "Build failed with ERR_PNPM_OTHER_PM_EXPECTED before TypeScript or the regression tests executed; no passing verification or baseline test failures are claimed."

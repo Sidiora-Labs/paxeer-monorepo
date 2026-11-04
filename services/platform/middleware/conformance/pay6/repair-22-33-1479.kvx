@@ -1,0 +1,92 @@
+[repair.22.33.1479]
+audit = "22.30.86"
+acceptance = "22998.1"
+base_revision = "5f6b5f0aad35a415da93671f70183d5e5688bda0"
+status = "implemented-with-external-wiring-requests"
+evidence = "hf-build and hf-done retain the exact candidate revision, command, exit and private log; their final JSON line is the verified revision record."
+baseline = "UNRUN: the explicit implementation-first gate order and ban on manual verify_cmd execution override do_12's unchanged-tree run; no pre-change failures are claimed."
+gate = "repair-22-33-1479.test.mjs imports the repaired JS tests and executes the real payment walkthrough with Node source loading, committed node transcripts and loopback servers; no Python runtime, native artifact, credential, environment variable or subprocess is needed."
+python_gate = "The Python conformance assertions are retained and repaired, but the declared Node-only gate cannot execute Python; node_peer.py uses the same real TS peer when the owning Python gate runs. Python qualification is not claimed."
+
+[finding.validator-mismatch-test-masks-hash]
+test = "committedFixtureRefusesValidatorSetMismatch"
+repair = "Replace only the unsigned fourth validator; prove all three original signatures still verify and retain greater-than-two-thirds power before requiring set/header disagreement refusal against an independent anchor."
+positive = "committedFixtureAcceptsThreeOfFourValidators and recordedNodeCommitNeedsAuthenticatedInclusion verify execution and successor Comet headers, execution results and real node sequence-batch membership through root RPC and the production commitment codec, preserving the original quorum bound."
+
+[finding.abi-test-reversed-payment]
+test = "ledgerDrawTransactionBindsGrantTerms, paymentRpcSubmitsLedgerDrawOnce"
+repair = "ABI recipient is payTo, event source comes from the grant, and source, recipient and transaction executor are distinct; submit the real signed calldata once through root node transport."
+limitation = "The event decoder case is explicitly a codec vector, not a successful native draw. Native execution and emitted-event proof remain unqualified until wiring."
+
+[finding.pay6-rpc-root-refused]
+test = "rpcRootAndHostedOrigins, rpcEndpointAndSubmissionBounds, rpcRejectsRedirectsOversizeAndMalformedResponses"
+repair = "Accept secure node root URLs and send/verify recorded node transactions there; independently authenticate hosted px methods at their own /rpc origin, retaining transaction, nonce rejection, redirect, body and envelope bounds."
+
+[finding.python-agent-retired-proof]
+test = "AgentBudgetTests.test_budget_receipt_commit_and_replay, AgentBudgetTests.test_agent_draw_preserves_unknown_reservation"
+node_test = "mergedHttpEnvelopesSurviveReopen"
+repair = "Use the same actual eip155 node receipt/payment terms as TS through the loopback /agent production verifier, compare its Keccak wire identity with reopened SQLite, refuse receipt reuse under a second reservation and retain unknown draw reservations through root RPC polling."
+limitation = "The Python budget currently computes the retired SHA256 identity and validates retired networks outside this scope; its strengthened assertions require the Python owner's repair. A successful native draw is unavailable."
+
+[finding.python-submitted-payment-rung]
+test = "CommitmentTests.test_no_commitment_downgrade, HttpTests.test_submitted_offer_never_releases, AgentBudgetTests.test_submitted_cannot_reserve_or_commit_a_payment"
+node_test = "submittedTracksWithoutPaymentAuthorization"
+repair = "Payment offers and budget reservations refuse submitted; RPC submitted results remain pending with no payment verification, fulfillment or budget commit."
+limitation = "Python payment-term and HTTP enforcement live outside this task's paths and still need the wiring below."
+
+[finding.python-http-retired-proof]
+test = "HttpTests.test_real_receipt_release_retry_and_buyer_capture, HttpTests.test_python_buyer_captures_typescript_seller, HttpTests.test_concurrent_retry_persists_one_resource, HttpTests.test_offer_mismatch_and_invalid_headers"
+node_test = "mergedHttpEnvelopesSurviveReopen"
+repair = "Exchange the actual TS PortableReceiptV2 payload into Python seller/buyer and Python settlement into the real TS buyer; use node root RPC, preserve replay, concurrency, persisted reopen and malformed proof assertions."
+limitation = "Python consumers still require retired receipt envelopes and networks; these tests expose that external mismatch rather than authorizing the legacy contract."
+
+[finding.python-rpc-unproven-commit]
+test = "RpcTests.test_receipt_binding_and_pending"
+node_test = "recordedNodeCommitNeedsAuthenticatedInclusion"
+repair = "Remove acceptance of a relabeled receipt and arbitrary block hash; require refusal at both default and committed payment terms, retaining receipted, pending and binding mutations. The JS verifier verifies the actual node committed evidence and refuses missing/corrupted membership."
+limitation = "Python has no authenticated committed-evidence verifier or resolver interface; positive Python committed verification cannot be implemented inside conformance paths."
+
+[finding.python-rpc-root-refused]
+test = "RpcTests.test_real_node_root_send_and_receipt, RpcTests.test_hosted_gateway_has_its_own_origin, RpcTests.test_endpoints, RpcTests.test_redirect_body_and_envelope_bounds"
+node_test = "rpcRootAndHostedOrigins"
+repair = "Require Python node-root acceptance, actual TS peer send/receipt exchange, separate hosted origin authentication, and unchanged security, canonical nonce and body bounds."
+limitation = "Python PaymentRpc still requires /rpc and exposes hosted px methods on the same transport; the production split is outside scope."
+
+[wiring.python-payment]
+request = "services/agent/sdk/python/layerx_sdk/{x402.py,x402_http.py,x402_agent.py} — Python SDK owner: enforce receipted/committed payment terms on eip155 networks, consume/produce PortableReceiptV2, use Keccak wire budget/replay identity and bind actual PaymentDrawn terms; run the repaired pay6 Python suite."
+
+[wiring.python-rpc]
+request = "services/agent/sdk/python/layerx_sdk/x402_rpc.py — Python SDK owner: split root eth/pax PaymentRpc from hosted /rpc px transport, preserve authentication/nonce/body bounds, and obtain authenticated committed receipt evidence rather than accepting RPC labels."
+
+[wiring.python-commitment]
+request = "services/agent/sdk/python/layerx_sdk/{verifier.py,x402.py,x402_rpc.py} — Python SDK owner: provide the committed receipt verifier and independently trusted validator resolver over the existing vector-v4-committed.json node header, sequence-batch membership and BFT commit, then add positive committed Python consumption."
+
+[wiring.native-grant]
+request = "modules/layerxledger/keeper/{grants.go,draw.go,views.go}, owning kernel grant modules and sdk/platform/conformance/fixtures — ledger/node owners: restore real grant execution and publish a successful distinct-source/recipient PaymentDrawn transcript with restart/replay state; conformance must not fabricate a debit or emitted event while the keeper retires grants."
+
+[wiring.python-gate]
+request = "spec/layerx-merge task qualification and Python SDK test runner — qualification/Python owners: supply a declared Python-capable gate for the repaired pay6 Python tests; the prescribed Node-only command explicitly forbids a Python subprocess or external runtime."
+
+[gotcha.task-local]
+observed = "The prerequisite seller repair requires full Comet headers, sequence-batch inclusion and independent validator anchors, so the old partial committed fixture would fail before reaching the validator-set assertion."
+resolution = "Migrate the in-scope committed fixture to the existing node transcript and re-sign only the four-validator fixture header; retain real node membership and verify the unchanged signatures/quorum explicitly."
+
+[qualification.previous-build]
+revision = "ad2a6cde236e0b808385a06042e928c5acf35f69"
+command = "npm --prefix services/platform/middleware/conformance install --no-audit --no-fund && node --check services/platform/middleware/conformance/pay6/committed-rung.test.mjs services/platform/middleware/conformance/pay6/ledger-draw.test.mjs services/platform/middleware/conformance/pay6/rpc.test.mjs"
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "The unchanged parent manifest requests @sidiora/layerx-agent-integrations@0.1.0 from the public registry, which returns E404 before syntax checking; verification did not run."
+assumption = "The dependency/install owner must wire the existing local workspace packages in a separate scoped task; this unrelated failure is recorded once and is not chased or rerun."
+
+[gotcha.continuation]
+observed = "The prerequisite verifier now requires transaction and execution-result proofs, authenticated execution/successor headers and both commits; the seeded partial batch fixture cannot reach the validator-set criterion."
+resolution = "Reuse the existing recordedCommittedReceipt producer and re-sign both headers with the four-validator test set, retaining every recorded transaction, result, proof and sequence-batch byte."
+
+[qualification.continuation-verify]
+revision = "7054875ce34ff302cc51355c24aecf16f7a9834b"
+command = "cg spec done 22.33.1479 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Nine tests passed; both ledger draw tests failed because the fixture used retired from/assetId/receiverSequence names instead of the production LedgerDraw recipient/purposeHash/sequence interface."
+resolution = "Use the current production field names without changing fixture values, ABI words, signatures, event assertions or root transport assertions."

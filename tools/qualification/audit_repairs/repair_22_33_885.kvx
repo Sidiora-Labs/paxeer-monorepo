@@ -1,0 +1,47 @@
+[meta]
+task = "22.33.885"
+acceptance = "22998.1"
+audit_record = "spec/layerx-merge/programme/audit/records/22.30.183.kvx"
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+scope = ["docker/gas-station", "tools/qualification/audit_repairs/repair_22_33_885.kvx", "tools/qualification/audit_repairs/test_repair_22_33_885.py"]
+
+[finding.f040]
+path = "docker/gas-station/init.sh"
+class = "retired-reference"
+severity = "medium"
+resolution = "Remove hosted px_getReceiptKeys discovery, environment receipt-key pinning and sequencer_receipt_keys rendering. Accept only root HTTPS node URLs for both configurations. Preserve atomic rendering, key isolation, preflight refusal, persistent journals and process supervision. The Docker bootstrap portion is repaired; full publication closure requires the domain 11 wiring below."
+tests = ["test_f040_shell_and_retired_authority_removed", "test_f040_real_renderer_transports_only_node_configuration", "test_f040_hosted_routes_cannot_be_node_rpc", "test_f040_bootstrap_restart_preserves_publisher_inputs", "test_f040_preflight_and_persistent_consumer_commands_remain_guarded"]
+
+[baseline]
+inspection = "git status/diff showed only runner setup changes to .cgignore and the task status in spec/layerx-merge/spec.kvx; both scoped repair files and /out/run/gates.jsonl were absent, and gate.json showed zero builds and verifies used. Preserve setup changes."
+verification = "Pre-change verification was not run: the explicit gate order requires complete implementation before hf-build and hf-done and forbids running verify_cmd by hand. No pre-change test failure is claimed; the requested test module did not exist on the unchanged tree."
+
+[proof]
+source_facts = "pytest parses init.sh with bash -n, executes its exact validation and rendering block in isolated Bash processes, reads the real atomic JSON outputs, checks their keys, root endpoints, mode and secret isolation, rejects hosted routes, and tokenizes the guarded persistent consumer commands with shlex. No curl, network peer, publisher substitute, toolchain build or native artifact is used. Bash and its standard core utilities execute the shell component explicitly named by this task."
+bootstrap_recovery = "A rendering process stops; a second opens the same test volume with a changed cadence. The test reopens retained opaque journal and rate-file bytes, checks inode preservation, and consumes the updated rate configuration. These are persistence sentinels, not invented publication evidence."
+publication_recovery = "Actual rate publication and publisher recovery are not proven by this gate: the Rust binary is outside scope, requires a native build, and still requires sequencer_receipt_keys. This bootstrap's existing check refuses that binary before either child starts. Full producer-to-chain-to-publisher and stop/reopen recovery proof belongs to the interop wiring request; source inspection cannot certify it."
+review_only = "Review establishes that no hosted endpoint is retained or mixed into node RPC, and that runtime preflight preserves failure rather than falling back to a signed-receipt authority. Docker image compilation, on-chain finality, rate event verification and live supervision are not executed."
+
+[wiring.publisher]
+owner_domain = 11
+path = "services/interop/crates/layerx-gas-station/src/rate.rs"
+request = "Domain 11 (interop): migrate PublisherConfig and RatePublisher in services/interop/crates/layerx-gas-station/src/rate.rs and their main.rs/tests consumers off sequencer_receipt_keys and precommit signed-receipt success onto committed node chain receipts; drive actual rate publication through a committed producer transcript and restart/reopen the real journal to prove recovery before deploying this bootstrap."
+
+[qualification]
+build_gate = "hf-build"
+build_cmd = "bash -n docker/gas-station/init.sh"
+verify_gate = "hf-done"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_885.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision = "The final hf-done JSON and the private ledger bind the exact content-derived revision, command, exit and log. Embedding that revision in these inputs would change it; retain the exact evidence externally. Qualification requires matching build and verify revisions and hf-done exit zero; the runner commits."
+
+[format]
+policy = "No Python, shell or KVX formatter is configured for these paths; apply the repository's .editorconfig newline and trailing-whitespace conventions after completing implementation."
+
+[gotcha.scope]
+observed = "The proposal crosses into an interop publisher that still requires the removed field; adding a compatibility key or allowing precommit success would retain the finding."
+resolution = "Keep the existing preflight refusal and record the exact out-of-path wiring request, without claiming runtime publication recovery. GOTCHA.kvx and spec files are outside the task's allowed scope, so task notes remain here."
+
+[gotcha.discovery]
+observed = "cg files/context does not expose the actual nested services/interop/crates/layerx-gas-station path, and broad survey output was truncated."
+resolution = "Use the filesystem's actual crate paths and focused reads for the configuration, confirmation and recovery interfaces; do not modify stale graph configuration."

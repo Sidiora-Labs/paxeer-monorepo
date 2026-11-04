@@ -1,0 +1,31 @@
+[task.22.33.768]
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+repair = "Replace the fake partial-tar success fixture with real production backup.sh/checkpoint.py/restore.sh operations. Capture distinct committed fixture generations using real age encryption, validate isolated recovery, retain three images, reject missing keys and a real unquiesced source writer, verify the entire store byte-for-byte unchanged and reopen the known-good encrypted recovery point after failure. Preserve checksum, permissions, retention and tamper assertions; add actual age authentication rejection after recomputing the outer checksum."
+source_proof = "The pytest module parses test.sh with bash -n and checks required inputs, real tool invocation, changing generations, recovery assertions, retention, failed-capture guards and post-failure recovery. It checks production capture/encryption/upload/readback/decryption/recovery/validation/publication/pruning order and the restore checksum/decryption/recovery order. In-process tests execute production checkpoint.capture and checkpoint.restore with committed file-backed peers: distinct generation snapshots, actual source mutation by a concurrent writer, missing keys/empty signing state, unchanged known-good image bytes, cleanup, reopening recovered generations and truncated-image refusal before extraction. No component implementation is replaced or mocked."
+review_only = "The age-backed shell integration is not executed by the declared gates; actual encryption/authentication, shell store transport, hook lifecycle and retention execution are source-review proof only. The only subprocess in pytest is the explicitly requested bash syntax parser; no subprocess build toolchain, environment variable, credential, live endpoint, native artifact or device is needed. The fixture validator proves its own committed file-store generations and key contents; it does not validate paxd/kernel database semantics or production quiesce hooks. No production interface changes or restart-recovery finding are claimed."
+baseline = "No unchanged-tree verification was run: the explicit Order requires complete implementation before testing, hf-build before hf-done, and forbids manually running verify_cmd first. No baseline test failure is claimed. Initial git status/diff showed only runner-prepared .cgignore and spec task status changes; the scoped repair/test files were absent, gate counters were zero and no prior gates.jsonl existed."
+build_cmd = "bash -n tools/ops/backup/test.sh"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_768.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private evidence ledger name the exact verified candidate revision, command, exit code and log. Build and verification must qualify the same candidate. The revision is recorded externally because embedding a content-derived revision in its own source would change it. No edit follows passing hf-done; the runner commits and publishes."
+wiring_requests = []
+
+[finding.backup-test-contract]
+audit = "22.30.174"
+file = "tools/ops/backup/test.sh"
+class = "test-gap"
+severity = "medium"
+owner_domain = 16
+resolution = "Partial plaintext is never accepted as a recovery point. Test real snapshots, encryption and restore across changing generations; a missing required key and concurrently changing source both fail capture without changing/pruning the known-good store, which is subsequently restored and validated. A real invalid age recipient also proves encryption failure preserves the store. The old partial-tar-success scenario becomes rejection of changing source bytes; hard capture failure, encryption failure, retention, modes and tamper scenarios remain covered with real tools."
+tests = ["test_backup_test_contract_shell_syntax_and_real_tools", "test_backup_test_contract_roundtrip_generations_and_retention", "test_backup_test_contract_failed_capture_preserves_recoverable_bytes", "test_backup_test_contract_tamper_rejected_before_output", "test_production_checkpoint_reopens_distinct_committed_generations", "test_production_incomplete_capture_keeps_known_good_recovery", "test_production_changing_source_rejected_and_good_image_reopens", "test_production_truncated_image_rejected_before_destination"]
+
+[gotcha.1]
+observed = "The unchanged-tree baseline clause conflicts with the explicit implementation-first bounded gate order."
+resolution = "Follow the explicit Order, never run verify_cmd manually and claim no baseline failures. Keep notes here because GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.2]
+observed = "The inherited shell test omits mandatory checkpoint lifecycle inputs and replaces tar even though production capture now uses checkpoint.py."
+resolution = "Use complete committed fixtures and real incomplete/changing sources; never replace capture or encryption tools and require age/age-keygen to be installed instead of downloading them during the test."
+
+[format]
+policy = "No Python, shell or KVX formatter is configured for these paths. Apply repository .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions to the touched files after implementation."

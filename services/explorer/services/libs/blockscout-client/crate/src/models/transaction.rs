@@ -28,7 +28,7 @@ pub struct Transaction {
     pub method: Option<String>,
 
     pub confirmations: Decimal,
-    pub r#type: Decimal,
+    pub r#type: Option<Decimal>,
     pub exchange_rate: Option<String>,
     pub to: Option<models::AddressParam>,
     #[serde(default)]
@@ -39,7 +39,7 @@ pub struct Transaction {
 
     pub result: String,
     pub hash: String,
-    pub gas_price: String,
+    pub gas_price: Option<String>,
     #[serde(default)]
     pub priority_fee: Option<Decimal>,
 
@@ -58,7 +58,7 @@ pub struct Transaction {
     #[serde(default)]
     pub has_error_in_internal_transactions: Option<bool>,
 
-    pub actions: Vec<models::TransactionAction>,
+    pub actions: Option<Vec<models::TransactionAction>>,
     #[serde(default)]
     pub decoded_input: Option<models::DecodedInput>,
 

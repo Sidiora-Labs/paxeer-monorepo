@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { Badge } from "../../kit/collection";
 
 import { GatewayRpcError, GatewayUnavailableError, surfaceCapability } from "../../api/gateway";
@@ -31,6 +33,18 @@ export const dynamic = "force-dynamic";
 const PAGE_SIZE = 50n;
 const FEE_STRATEGIES = ["Claim", "Burn", "Airdrop", "LP rewards"] as const;
 
+function marketPageHref(parameters: MarketSearchParams, page: bigint): string {
+  const query = new URLSearchParams();
+  for (const [name, value] of Object.entries(parameters)) {
+    if (name === "marketPage" || value === undefined) continue;
+    for (const item of typeof value === "string" ? [value] : value) {
+      query.append(name, item);
+    }
+  }
+  query.set("marketPage", page.toString());
+  return `/launchpad?${query.toString()}`;
+}
+
 export default async function LaunchpadPage({ searchParams }: Readonly<{ searchParams: Promise<MarketSearchParams> }>) {
   const parameters = await searchParams;
   const candidate = firstParam(parameters.account)?.toLowerCase();
@@ -59,14 +73,22 @@ export default async function LaunchpadPage({ searchParams }: Readonly<{ searchP
   }
   let config: LaunchpadConfig | undefined;
   let count = 0n;
+  let marketPage = 1n;
+  let pageCount = 1n;
   let markets: readonly LaunchpadMarketRow[] = [];
   let problem: string | undefined;
   try {
-    [config, count, markets] = await Promise.all([
+    [config, count] = await Promise.all([
       launchpadConfig(),
       launchpadMarketCount(),
-      launchpadMarkets(0n, PAGE_SIZE),
     ]);
+    pageCount = count === 0n ? 1n : (count + PAGE_SIZE - 1n) / PAGE_SIZE;
+    const pageParameter = firstParam(parameters.marketPage);
+    const requestedPage = pageParameter !== undefined && /^[1-9][0-9]{0,77}$/u.test(pageParameter)
+      ? BigInt(pageParameter)
+      : 1n;
+    marketPage = requestedPage > pageCount ? pageCount : requestedPage;
+    markets = await launchpadMarkets((marketPage - 1n) * PAGE_SIZE, PAGE_SIZE);
   } catch (error) {
     if (!(error instanceof GatewayUnavailableError || error instanceof GatewayRpcError)) {
       throw error;
@@ -124,6 +146,17 @@ export default async function LaunchpadPage({ searchParams }: Readonly<{ searchP
                   ],
                 })}
           />
+        )}
+        {problem !== undefined || count === 0n ? null : (
+          <nav aria-label="Market pages" className="flex items-center gap-4">
+            {marketPage === 1n ? null : (
+              <Link href={marketPageHref(parameters, marketPage - 1n)} prefetch={false}>Previous markets</Link>
+            )}
+            <span aria-live="polite">Page {marketPage.toString()} of {pageCount.toString()}</span>
+            {marketPage === pageCount ? null : (
+              <Link href={marketPageHref(parameters, marketPage + 1n)} prefetch={false}>Next markets</Link>
+            )}
+          </nav>
         )}
       </ExplorerPanel>
       <LaunchpadActions

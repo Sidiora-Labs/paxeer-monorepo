@@ -11,6 +11,7 @@ import {
   performStepUp,
   type PasskeyAuthenticator,
 } from "../../journeys/approvals/ceremony.ts";
+import { verificationRung } from "../../kit/model.ts";
 
 const RECOVERY_STAGE_COPY_KEY = "onboarding.stage.putting-recovery-in-place";
 
@@ -23,7 +24,7 @@ export function recoveryPresentation(journey: Journey): RecoveryPresentation {
   const stage = journey.stages.find((candidate) => candidate.copy_key === RECOVERY_STAGE_COPY_KEY);
   const receipt = stage?.evidence.find(
     (candidate) => candidate.class === "layerx-receipt"
-      && candidate.verification !== "unverified",
+      && verificationRung(candidate.verification) !== "unverified",
   );
   return {
     ready: receipt !== undefined

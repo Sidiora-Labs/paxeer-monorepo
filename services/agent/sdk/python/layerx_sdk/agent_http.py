@@ -859,6 +859,13 @@ def _decode_envelope(status: int, encoded: bytes, operation: str) -> object:
         raise _decode_failure() from None
     if not isinstance(envelope, dict) or any(not isinstance(key, str) for key in envelope):
         raise _decode_failure()
+    if operation == "program.interface" and status == 200:
+        _exact(envelope, ("program_id", "version", "code_hash", "abi_version", "interface", "interface_digest",
+                          "deployment_receipt_digest", "state_root", "observed_sequence", "observed_at",
+                          "valid_through", "source", "verification"))
+        if envelope.get("verification") != "deployment-interface-and-current-head-verified":
+            raise _decode_failure()
+        return envelope
     if "class" in envelope:
         _exact(envelope, ("class", "protocol_result_code", "retriability", "reason", "request_id"))
         raise _service_error(status, envelope)
