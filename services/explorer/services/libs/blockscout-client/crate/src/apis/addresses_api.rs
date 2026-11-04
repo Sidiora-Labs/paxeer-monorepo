@@ -192,6 +192,9 @@ pub struct GetAddressParams {
 pub struct GetAddressBlocksValidatedParams {
     /// Address hash
     pub address_hash: String,
+
+    /// Continuation returned by this route; overrides the client-scoped cursor.
+    pub cursor: Option<super::pagination::PageCursor>,
 }
 
 /// struct for passing parameters to the method [`get_address_coin_balance_history`]
@@ -200,6 +203,9 @@ pub struct GetAddressBlocksValidatedParams {
 pub struct GetAddressCoinBalanceHistoryParams {
     /// Address hash
     pub address_hash: String,
+
+    /// Continuation returned by this route; overrides the client-scoped cursor.
+    pub cursor: Option<super::pagination::PageCursor>,
 }
 
 /// struct for passing parameters to the method [`get_address_coin_balance_history_by_day`]
@@ -226,6 +232,9 @@ pub struct GetAddressInternalTxsParams {
     pub address_hash: String,
 
     pub filter: Option<String>,
+
+    /// Continuation returned by this route; overrides the client-scoped cursor.
+    pub cursor: Option<super::pagination::PageCursor>,
 }
 
 /// struct for passing parameters to the method [`get_address_logs`]
@@ -234,6 +243,9 @@ pub struct GetAddressInternalTxsParams {
 pub struct GetAddressLogsParams {
     /// Address hash
     pub address_hash: String,
+
+    /// Continuation returned by this route; overrides the client-scoped cursor.
+    pub cursor: Option<super::pagination::PageCursor>,
 }
 
 /// struct for passing parameters to the method [`get_address_nft`]
@@ -244,6 +256,9 @@ pub struct GetAddressNftParams {
     pub address_hash: String,
 
     pub r#type: Option<String>,
+
+    /// Continuation returned by this route; overrides the client-scoped cursor.
+    pub cursor: Option<super::pagination::PageCursor>,
 }
 
 /// struct for passing parameters to the method [`get_address_nft_collections`]
@@ -254,6 +269,9 @@ pub struct GetAddressNftCollectionsParams {
     pub address_hash: String,
 
     pub r#type: Option<String>,
+
+    /// Continuation returned by this route; overrides the client-scoped cursor.
+    pub cursor: Option<super::pagination::PageCursor>,
 }
 
 /// struct for passing parameters to the method [`get_address_token_balances`]
@@ -276,6 +294,9 @@ pub struct GetAddressTokenTransfersParams {
     pub filter: Option<String>,
 
     pub token: Option<String>,
+
+    /// Continuation returned by this route; overrides the client-scoped cursor.
+    pub cursor: Option<super::pagination::PageCursor>,
 }
 
 /// struct for passing parameters to the method [`get_address_tokens`]
@@ -286,6 +307,9 @@ pub struct GetAddressTokensParams {
     pub address_hash: String,
 
     pub r#type: Option<String>,
+
+    /// Continuation returned by this route; overrides the client-scoped cursor.
+    pub cursor: Option<super::pagination::PageCursor>,
 }
 
 /// struct for passing parameters to the method [`get_address_txs`]
@@ -296,6 +320,9 @@ pub struct GetAddressTxsParams {
     pub address_hash: String,
 
     pub filter: Option<String>,
+
+    /// Continuation returned by this route; overrides the client-scoped cursor.
+    pub cursor: Option<super::pagination::PageCursor>,
 }
 
 /// struct for passing parameters to the method [`get_address_withdrawals`]
@@ -304,6 +331,9 @@ pub struct GetAddressTxsParams {
 pub struct GetAddressWithdrawalsParams {
     /// Address hash
     pub address_hash: String,
+
+    /// Continuation returned by this route; overrides the client-scoped cursor.
+    pub cursor: Option<super::pagination::PageCursor>,
 }
 
 #[async_trait]
@@ -375,7 +405,10 @@ impl AddressesApi for AddressesApiClient {
         ResponseContent<GetAddressBlocksValidatedSuccess>,
         Error<GetAddressBlocksValidatedError>,
     > {
-        let GetAddressBlocksValidatedParams { address_hash } = params;
+        let GetAddressBlocksValidatedParams {
+            address_hash,
+            cursor,
+        } = params;
 
         let local_var_configuration = &self.configuration;
 
@@ -397,7 +430,7 @@ impl AddressesApi for AddressesApiClient {
         let mut local_var_req = local_var_req_builder
             .timeout(local_var_configuration.request_timeout)
             .build()?;
-        if let Some(cursor) = &self.cursor {
+        if let Some(cursor) = cursor.as_ref().or(self.cursor.as_ref()) {
             cursor.apply(&mut local_var_req)?;
         }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
@@ -434,7 +467,10 @@ impl AddressesApi for AddressesApiClient {
         ResponseContent<GetAddressCoinBalanceHistorySuccess>,
         Error<GetAddressCoinBalanceHistoryError>,
     > {
-        let GetAddressCoinBalanceHistoryParams { address_hash } = params;
+        let GetAddressCoinBalanceHistoryParams {
+            address_hash,
+            cursor,
+        } = params;
 
         let local_var_configuration = &self.configuration;
 
@@ -456,7 +492,7 @@ impl AddressesApi for AddressesApiClient {
         let mut local_var_req = local_var_req_builder
             .timeout(local_var_configuration.request_timeout)
             .build()?;
-        if let Some(cursor) = &self.cursor {
+        if let Some(cursor) = cursor.as_ref().or(self.cursor.as_ref()) {
             cursor.apply(&mut local_var_req)?;
         }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
@@ -603,6 +639,7 @@ impl AddressesApi for AddressesApiClient {
         let GetAddressInternalTxsParams {
             address_hash,
             filter,
+            cursor,
         } = params;
 
         let local_var_configuration = &self.configuration;
@@ -630,7 +667,7 @@ impl AddressesApi for AddressesApiClient {
         let mut local_var_req = local_var_req_builder
             .timeout(local_var_configuration.request_timeout)
             .build()?;
-        if let Some(cursor) = &self.cursor {
+        if let Some(cursor) = cursor.as_ref().or(self.cursor.as_ref()) {
             cursor.apply(&mut local_var_req)?;
         }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
@@ -664,7 +701,10 @@ impl AddressesApi for AddressesApiClient {
         &self,
         params: GetAddressLogsParams,
     ) -> Result<ResponseContent<GetAddressLogsSuccess>, Error<GetAddressLogsError>> {
-        let GetAddressLogsParams { address_hash } = params;
+        let GetAddressLogsParams {
+            address_hash,
+            cursor,
+        } = params;
 
         let local_var_configuration = &self.configuration;
 
@@ -686,7 +726,7 @@ impl AddressesApi for AddressesApiClient {
         let mut local_var_req = local_var_req_builder
             .timeout(local_var_configuration.request_timeout)
             .build()?;
-        if let Some(cursor) = &self.cursor {
+        if let Some(cursor) = cursor.as_ref().or(self.cursor.as_ref()) {
             cursor.apply(&mut local_var_req)?;
         }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
@@ -723,6 +763,7 @@ impl AddressesApi for AddressesApiClient {
         let GetAddressNftParams {
             address_hash,
             r#type,
+            cursor,
         } = params;
 
         let local_var_configuration = &self.configuration;
@@ -750,7 +791,7 @@ impl AddressesApi for AddressesApiClient {
         let mut local_var_req = local_var_req_builder
             .timeout(local_var_configuration.request_timeout)
             .build()?;
-        if let Some(cursor) = &self.cursor {
+        if let Some(cursor) = cursor.as_ref().or(self.cursor.as_ref()) {
             cursor.apply(&mut local_var_req)?;
         }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
@@ -790,6 +831,7 @@ impl AddressesApi for AddressesApiClient {
         let GetAddressNftCollectionsParams {
             address_hash,
             r#type,
+            cursor,
         } = params;
 
         let local_var_configuration = &self.configuration;
@@ -817,7 +859,7 @@ impl AddressesApi for AddressesApiClient {
         let mut local_var_req = local_var_req_builder
             .timeout(local_var_configuration.request_timeout)
             .build()?;
-        if let Some(cursor) = &self.cursor {
+        if let Some(cursor) = cursor.as_ref().or(self.cursor.as_ref()) {
             cursor.apply(&mut local_var_req)?;
         }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
@@ -913,6 +955,7 @@ impl AddressesApi for AddressesApiClient {
             r#type,
             filter,
             token,
+            cursor,
         } = params;
 
         let local_var_configuration = &self.configuration;
@@ -950,7 +993,7 @@ impl AddressesApi for AddressesApiClient {
         let mut local_var_req = local_var_req_builder
             .timeout(local_var_configuration.request_timeout)
             .build()?;
-        if let Some(cursor) = &self.cursor {
+        if let Some(cursor) = cursor.as_ref().or(self.cursor.as_ref()) {
             cursor.apply(&mut local_var_req)?;
         }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
@@ -987,6 +1030,7 @@ impl AddressesApi for AddressesApiClient {
         let GetAddressTokensParams {
             address_hash,
             r#type,
+            cursor,
         } = params;
 
         let local_var_configuration = &self.configuration;
@@ -1014,7 +1058,7 @@ impl AddressesApi for AddressesApiClient {
         let mut local_var_req = local_var_req_builder
             .timeout(local_var_configuration.request_timeout)
             .build()?;
-        if let Some(cursor) = &self.cursor {
+        if let Some(cursor) = cursor.as_ref().or(self.cursor.as_ref()) {
             cursor.apply(&mut local_var_req)?;
         }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
@@ -1051,6 +1095,7 @@ impl AddressesApi for AddressesApiClient {
         let GetAddressTxsParams {
             address_hash,
             filter,
+            cursor,
         } = params;
 
         let local_var_configuration = &self.configuration;
@@ -1078,7 +1123,7 @@ impl AddressesApi for AddressesApiClient {
         let mut local_var_req = local_var_req_builder
             .timeout(local_var_configuration.request_timeout)
             .build()?;
-        if let Some(cursor) = &self.cursor {
+        if let Some(cursor) = cursor.as_ref().or(self.cursor.as_ref()) {
             cursor.apply(&mut local_var_req)?;
         }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
@@ -1113,7 +1158,10 @@ impl AddressesApi for AddressesApiClient {
         params: GetAddressWithdrawalsParams,
     ) -> Result<ResponseContent<GetAddressWithdrawalsSuccess>, Error<GetAddressWithdrawalsError>>
     {
-        let GetAddressWithdrawalsParams { address_hash } = params;
+        let GetAddressWithdrawalsParams {
+            address_hash,
+            cursor,
+        } = params;
 
         let local_var_configuration = &self.configuration;
 
@@ -1135,7 +1183,7 @@ impl AddressesApi for AddressesApiClient {
         let mut local_var_req = local_var_req_builder
             .timeout(local_var_configuration.request_timeout)
             .build()?;
-        if let Some(cursor) = &self.cursor {
+        if let Some(cursor) = cursor.as_ref().or(self.cursor.as_ref()) {
             cursor.apply(&mut local_var_req)?;
         }
         let local_var_resp = local_var_client.execute(local_var_req).await?;

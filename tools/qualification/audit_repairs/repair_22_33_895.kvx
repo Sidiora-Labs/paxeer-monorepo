@@ -1,0 +1,33 @@
+[task.22.33.895]
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+repair = "Preserve the existing merged-network contributor guidance; explicitly state that the C17 kernel executes inside paxd and the former layerxd daemon is retired, and name both native archives linked through modules/lxphost. No unrelated contributor guidance changes."
+source_proof = "The pytest module reads the production CONTRIBUTING.md: it asserts one network, the embedded C17 execution and block proposal domain, committed-block receipt finality and explicit daemon retirement with no runnable daemon commands; checks retained library boundaries against the real cgo link flags and chain.mk native archive declarations; retains kernel and paxd build/test commands and cgo prerequisites; follows the contributor qualification links into the committed merged-network plan and checks the linked section and release boundary. The record test binds contributor-daemon to its proving tests and evidence limits."
+review_only = "Native compilation/linking, kernel execution, block proposal, receipt finality, runtime transport and restart/recovery are not executed by this documentation gate. Architecture behavior needs the owning domains' runtime qualification and review. No shell script, unit file, manifest or build file is changed, so no subprocess parser or toolchain is needed. The tests require no environment variable, credential, endpoint, external binary, native artifact or device."
+baseline = "No pre-change verification was run: the explicit task order requires complete implementation, then hf-build, then hf-done, and prohibits manual verify_cmd execution. This conflicts with step 5's unchanged-tree clause; no baseline failure is claimed. Initial status/diff showed only existing runner bookkeeping in .cgignore and spec/layerx-merge/spec.kvx, preserved untouched. The two task-specific files were absent, gate.json reported zero build/verify runs and no gates.jsonl existed. The base already described an embedded kernel and linked merged-network qualification."
+baseline_failures_claimed = []
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_895.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision_source = "The final hf-done JSON and private evidence ledger name the exact verified content-derived candidate revision, command, exit code and log. This record is finalized before qualification: embedding its own candidate hash would change that revision. A passing hf-done on the built revision is the sole closure evidence; no gate is claimed here before execution. The runner retains evidence and commits the result."
+wiring_requests = []
+wiring = "The proposal is entirely within CONTRIBUTING.md; no out-of-path implementation or generated artifact is requested. Domain 17 owns the contributor guidance and merged-network qualification plan."
+
+[finding.contributor-daemon]
+audit = "22.30.185"
+file = "CONTRIBUTING.md"
+class = "retired-reference"
+severity = "medium"
+owner_domain = 17
+closure = "Explicitly document the embedded C17 kernel in paxd and retired daemon, retain native library build boundaries and merged-network qualification links; closure requires the declared gate to pass."
+tests = ["test_contributor_daemon_embedded_kernel_and_retirement", "test_contributor_daemon_preserves_native_library_build_boundaries", "test_contributor_daemon_links_merged_network_qualification", "test_contributor_daemon_record_names_proofs_and_evidence_limits"]
+
+[gotcha.1]
+observed = "The unchanged-tree verification clause conflicts with the explicit implementation-first, wrapper-only order."
+resolution = "Follow the explicit order and claim no baseline execution or failures; keep the note here because GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.2]
+observed = "Broad Codify survey and shared-spec searches can exceed tool output budgets; the root has no pyproject.toml and requirement 22998.1 is stored as ac_1 under req.22998."
+resolution = "Use the exact task and requirement sections, task-private gate configuration and bounded source reads; preserve runner bookkeeping and avoid unrelated graph output."
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. Preserve the repository's UTF-8, LF, final-newline and trailing-whitespace conventions; Markdown uses .markdownlint.yaml with no line-length limit."

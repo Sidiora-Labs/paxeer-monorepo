@@ -1,11 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 import { copyEntry } from "../../../copy/runtime";
 import { formatCopy } from "../../../copy/format";
-import { humanApi, type ActivityFilter, type ActivityPage, type ExportArtefact } from "../../api";
+import { humanApi, type ActivityFilter, type ActivityPage } from "../../api";
+import { ACTIVE_ACCOUNT_STORAGE_KEY } from "../../auth/session";
+import { ActivityController } from "./controller";
 import { DesktopActivityFeed, MobileActivityFeed, type ActivityFeedGroup } from "../../kit/activity";
 import { DesktopDetail, MobileDetail } from "../../kit/pattern-detail";
 import { DesktopFilters, MobileFilters } from "../../kit/pattern-filters";
@@ -17,17 +19,11 @@ import { useShellSelection } from "../../shell/app-shell";
 import { PrivateFigure, usePrivacyMode } from "../../settings/privacy";
 import { LoadingSurface, OfflineSurface } from "../../states/surfaces";
 import {
-  activityFailure,
-  agentFilterOptions,
   emptyFilterValues,
   feedFilterDefs,
   feedGroups,
   filterEchoLines,
   formatEntryDate,
-  loadActivity,
-  mergePages,
-  newExportKey,
-  safeExportArtefact,
   sameFilterValues,
   toKitDirection,
   toWireFilter,
@@ -36,18 +32,6 @@ import {
 } from "./model";
 
 const AMOUNT_LOCALE = "en";
-
-type ActivityLoad =
-  | Readonly<{ kind: "loading" }>
-  | Readonly<{ kind: "loaded"; page: ActivityPage; agents: ReturnType<typeof agentFilterOptions> }>
-  | Readonly<{ kind: "offline"; failure: ActivityFailure }>
-  | Readonly<{ kind: "error"; failure: ActivityFailure }>;
-
-type ExportState =
-  | Readonly<{ kind: "idle" }>
-  | Readonly<{ kind: "preparing"; exportKind: "evidence-bundle" | "statement" }>
-  | Readonly<{ kind: "ready"; artefact: ExportArtefact }>
-  | Readonly<{ kind: "failed"; failure: ActivityFailure }>;
 
 export function ActivityErrorSurface({ failure, onRetry }: Readonly<{ failure: ActivityFailure; onRetry: () => void }>) {
   const shell = useShellSelection().shell;
@@ -135,36 +119,69 @@ function groupViews(page: ActivityPage): readonly ActivityFeedGroup[] {
   }));
 }
 
+export function ActivityFilterResults({ page, agents, shell, masked, onSelect }: Readonly<{
+  page: ActivityPage;
+  agents: readonly Readonly<{ value: string; label: string }>[];
+  shell: "mobile" | "desktop";
+  masked: boolean;
+  onSelect: (entryId: string) => void;
+}>) {
+  const echo = filterEchoLines(page.filter, new Map(agents.map((agent) => [agent.value, agent.label])));
+  const groups = groupViews(page);
+  const Feed = shell === "mobile" ? MobileActivityFeed : DesktopActivityFeed;
+  return (
+    <>
+      <div role="status" className="flex flex-col gap-1 text-sm text-foreground-secondary">
+        {echo.map((line) => <p key={line}>{line}</p>)}
+      </div>
+      {groups.length === 0 ? (
+        <StateEmpty title={copyEntry("activity.feed.empty").message} description={echo.join(" ")} />
+      ) : (
+        <Feed
+          groups={groups}
+          onSelect={onSelect}
+          dateLabel={(date) => formatEntryDate(date.toISOString())}
+          columns={{
+            activity: copyEntry("activity.column.activity").message,
+            date: copyEntry("activity.column.date").message,
+            status: copyEntry("activity.column.status").message,
+            amount: copyEntry("activity.column.amount").message,
+          }}
+          amountSortEnabled={!masked}
+        />
+      )}
+    </>
+  );
+}
+
 export function Activity() {
   const router = useRouter();
   const shell = useShellSelection().shell;
   const client = useMemo(() => humanApi(), []);
+  const controller = useMemo(() => new ActivityController(client), [client]);
+  const { load, paging, pagingFailure, exportState, pendingExports } = useSyncExternalStore(
+    controller.subscribe, controller.snapshot, controller.snapshot,
+  );
   const { masked } = usePrivacyMode();
-  const [load, setLoad] = useState<ActivityLoad>({ kind: "loading" });
   const [draft, setDraft] = useState<FeedFilterValues>(() => emptyFilterValues());
   const [applied, setApplied] = useState<ActivityFilter>({});
-  const [paging, setPaging] = useState(false);
-  const [pagingFailure, setPagingFailure] = useState<ActivityFailure | undefined>();
-  const [exportState, setExportState] = useState<ExportState>({ kind: "idle" });
-  const exportKeys = useRef(new Map<"evidence-bundle" | "statement", string>());
-
-  const refresh = useCallback((filter: ActivityFilter) => {
-    setLoad({ kind: "loading" });
-    setPagingFailure(undefined);
-    loadActivity(client, filter)
-      .then((result) => {
-        feedGroups(result.page);
-        setLoad({ kind: "loaded", page: result.page, agents: agentFilterOptions(result.agents) });
-      })
-      .catch((error: unknown) => {
-        const failure = activityFailure(error);
-        setLoad({ kind: failure.kind === "offline" ? "offline" : "error", failure });
-      });
-  }, [client]);
+  const refresh = (filter: ActivityFilter) => { void controller.refresh(filter); };
 
   useEffect(() => {
-    refresh({});
-  }, [refresh]);
+    void controller.refresh({});
+    const accountChanged = (event: StorageEvent) => {
+      if (event.key !== ACTIVE_ACCOUNT_STORAGE_KEY && event.key !== null) return;
+      controller.invalidateAccount();
+      setDraft(emptyFilterValues());
+      setApplied({});
+      void controller.refresh({});
+    };
+    window.addEventListener("storage", accountChanged);
+    return () => {
+      window.removeEventListener("storage", accountChanged);
+      controller.invalidateAccount();
+    };
+  }, [controller]);
 
   const applyFilters = (values: FeedFilterValues) => {
     const filter = toWireFilter(values);
@@ -172,42 +189,8 @@ export function Activity() {
     setApplied(filter);
     refresh(filter);
   };
-
-  const loadMore = () => {
-    if (load.kind !== "loaded" || load.page.next_cursor.length === 0 || paging) {
-      return;
-    }
-    setPaging(true);
-    setPagingFailure(undefined);
-    client.activityQuery({ cursor: load.page.next_cursor, filter: load.page.filter, page_limit: 50 })
-      .then((page) => {
-        const merged = mergePages(load.page, page);
-        feedGroups(merged);
-        setLoad({ ...load, page: merged });
-      })
-      .catch((error: unknown) => { setPagingFailure(activityFailure(error)); })
-      .finally(() => { setPaging(false); });
-  };
-
-  const requestExport = (exportKind: "evidence-bundle" | "statement") => {
-    if (load.kind !== "loaded" || exportState.kind === "preparing") {
-      return;
-    }
-    const key = exportKeys.current.get(exportKind) ?? newExportKey();
-    exportKeys.current.set(exportKind, key);
-    setExportState({ kind: "preparing", exportKind });
-    const request = exportKind === "statement"
-      ? client.activityExportStatement({ filter: load.page.filter }, key)
-      : client.activityExportEvidence({ filter: load.page.filter }, key);
-    request.then((value) => {
-      const artefact = safeExportArtefact(value);
-      if (artefact.kind !== exportKind) {
-        throw new Error("The export kind did not match the request");
-      }
-      exportKeys.current.delete(exportKind);
-      setExportState({ kind: "ready", artefact });
-    }).catch((error: unknown) => { setExportState({ kind: "failed", failure: activityFailure(error) }); });
-  };
+  const requestExport = (kind: "evidence-bundle" | "statement") => { void controller.requestExport(kind); };
+  const loadMore = () => { void controller.loadMore(); };
 
   if (load.kind === "loading") {
     return <LoadingSurface rows={6} />;
@@ -219,12 +202,8 @@ export function Activity() {
     return <ActivityErrorSurface failure={load.failure} onRetry={() => { refresh(applied); }} />;
   }
 
-  const names = new Map(load.agents.map((agent) => [agent.value, agent.label]));
-  const echo = filterEchoLines(load.page.filter, names);
   const filters = feedFilterDefs(load.agents);
-  const Feed = shell === "mobile" ? MobileActivityFeed : DesktopActivityFeed;
   const Filter = shell === "mobile" ? MobileFilters : DesktopFilters;
-  const groups = groupViews(load.page);
 
   return (
     <ScreenCard
@@ -271,9 +250,6 @@ export function Activity() {
             </KitButton>
           ) : null}
         </div>
-        <div role="status" className="flex flex-col gap-1 text-sm text-foreground-secondary">
-          {echo.map((line) => <p key={line}>{line}</p>)}
-        </div>
         <div className="flex flex-wrap gap-3">
           <KitButton
             type="button"
@@ -311,22 +287,23 @@ export function Activity() {
             <span>{formatCopy("error.technical.machine_code", { machineCode: exportState.failure.code })}</span>
           </InlineNotice>
         ) : null}
-        {groups.length === 0 ? (
-          <StateEmpty title={copyEntry("activity.feed.empty").message} description={echo.join(" ")} />
-        ) : (
-          <Feed
-            groups={groups}
-            onSelect={(entryId) => { router.push(`/app/activity/${encodeURIComponent(entryId)}`); }}
-            dateLabel={(date) => formatEntryDate(date.toISOString())}
-            columns={{
-              activity: copyEntry("activity.column.activity").message,
-              date: copyEntry("activity.column.date").message,
-              status: copyEntry("activity.column.status").message,
-              amount: copyEntry("activity.column.amount").message,
-            }}
-            amountSortEnabled={!masked}
-          />
-        )}
+        {pendingExports.map((attempt) => (
+          <div key={attempt.key} className="flex flex-wrap items-center gap-3">
+            <span>{copyEntry(attempt.kind === "statement" ? "activity.export.statement" : "activity.export.evidence").message}: {filterEchoLines(attempt.filter).join(" ")}</span>
+            <KitButton type="button" variant="secondary"
+              {...(exportState.kind === "preparing" ? {
+                disabled: true, disabledReason: copyEntry("activity.export.preparing").message,
+              } : {})}
+              onClick={() => { void controller.retryExport(attempt.key); }}>
+              {copyEntry("action.retry").message}
+            </KitButton>
+          </div>
+        ))}
+        {exportState.kind === "ready" ? (
+          <p className="text-sm text-foreground-secondary">{filterEchoLines(exportState.attempt.filter).join(" ")}</p>
+        ) : null}
+        <ActivityFilterResults page={load.page} agents={load.agents} shell={shell} masked={masked}
+          onSelect={(entryId) => { router.push(`/app/activity/${encodeURIComponent(entryId)}`); }} />
         {pagingFailure === undefined ? null : (
           <InlineNotice tone={pagingFailure.kind === "offline" ? "warning" : "danger"} role="alert">
             {pagingFailure.message}

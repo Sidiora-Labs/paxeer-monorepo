@@ -1,0 +1,42 @@
+[repair.22.31.481]
+decision = "2532: the maintained node deployment.yaml supplies native deployment facts through RunDeployment manifest deployment-profile.json."
+base_revision = "cfe99ca0f6e389c490375eed57c49af7d14b30b8"
+files = ["services/platform/hosted/paxeer/repair_m1319_test.go", "services/platform/hosted/paxeer/repair_m1319.kvx", "services/platform/hosted/node/tests/fixtures/repair_22_31_355/native_configuration.json", "services/platform/hosted/paxeer/repair-22-31-481.kvx"]
+acceptance = "22998.1; retain all relay-removal and exactly-one-maintained-chain assertions and qualify the existing TestRepairM_1319_ target."
+
+[assertion.RelayWorkspaceRetirement]
+test = "TestRepairM_1319_RelayWorkspaceRetirement"
+change = "Assert exactly one kernel container and one StatefulSet, no deployed relay binary, and image equality between the rendered node, its provisioner and the aligned node fixture (ghcr.io/sidiora-labs/kernel:0.1.0)."
+
+[assertion.CustodyGenesisRetirement]
+test = "TestRepairM_1319_CustodyGenesisRetirement"
+change = "Decode the actual provisioning paths assignment from the rendered init-container script; require entries for genesis.json, config.toml, app.toml, priv_validator_key.json and receipt.key. Preserve custody-genesis absence, bootstrap ownership and legacy-mutation checks."
+
+[assertion.DeploymentKeyArgv]
+test = "TestRepairM_1319_DeploymentKeyArgv"
+change = "Inspect both command and optional args for raw signing flags and encoded key material; require receipt.key to map to config/receipt.key instead of requiring --receipt-key-file. Preserve retired-signer absence and refusal/non-disclosure checks."
+
+[assertion.NativeDeployment]
+test = "TestRepairM_1319_NativeDeployment"
+change = "Require rpc, consensus and health services to target the same named container ports (currently 8545, 26657 and 9460), and profile RPC ports to agree. Compare service selectors with rendered node labels, and HTTP /readyz readiness with startup health. Preserve relay-sidecar/wiring absence and native profile/root-origin checks."
+
+[fixture]
+path = "services/platform/hosted/node/tests/fixtures/repair_22_31_355/native_configuration.json"
+consumer = "services/platform/hosted/node/tests/test_repair_22_31_355.py:751 test_deployment_retired_topology_native_committed_reads actively asserts container['image'] == native_configuration['image']; the image is not inert."
+change = "Align only image with the maintained manifest. TestRepairM_1319_RelayWorkspaceRetirement executes the same fixture-to-rendered-node image equality in the allowed Go gate."
+limit = "The Python node suite is not an allowed gate for this task, so no passing Python node-suite result is claimed. Its existing exec readiness expectation also predates the manifest's HTTP readiness contract and is outside scope."
+
+[gates]
+build = "hf-build: go vet ./services/platform/hosted/paxeer/"
+verify = "hf-done: cg spec done 22.31.481 -f layerx-merge --root /work/paxeer-monorepo"
+verify_cmd = "go test -count=1 -run '^TestRepairM_1319_' ./services/platform/hosted/paxeer/"
+evidence = "The runner appends actual gate runs to /out/run/gates.jsonl; each row names the exact candidate revision, command, exit and private log. The final hf-done JSON is the qualification result; this record claims no gate before it runs."
+verified_revision = "Use the revision field of this task's final passing verify row in /out/run/gates.jsonl and the identical final hf-done JSON; the build row must name the same revision."
+
+[gotcha.scope]
+observed = "The root gotcha ledger and spec files are outside this task's explicit scope; record task findings here and leave runner setup changes intact."
+resolution = "Use only the four authorized paths and hf-build/hf-done; the runner publishes the qualified candidate."
+
+[gotcha.lookup]
+observed = "The maintained deployment implementation is profile.go; there is no deployment.go beside the deployment tests."
+resolution = "Read profile.go for the real manifest handler."

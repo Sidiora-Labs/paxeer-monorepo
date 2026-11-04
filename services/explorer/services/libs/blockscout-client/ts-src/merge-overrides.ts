@@ -1,13 +1,57 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { parse, stringify } from 'yaml';
-import { merge } from 'lodash';
+import { mergeWith } from 'lodash';
 
 const OVERRIDES_DIR = path.join(__dirname, '..', 'swaggers', 'overrides');
 const MAIN_SPEC_PATH = path.join(__dirname, '..', 'swaggers', 'blockscout-api-v2.yaml');
 const OUTPUT_PATH = path.join(__dirname, '..', 'swaggers', 'blockscout-api-final.yaml');
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
+function replaceArrays(_target: JsonValue, source: JsonValue): JsonValue | undefined {
+    if (Array.isArray(source)) {
+        return source.slice();
+    }
+    return undefined;
+}
+
+function validateRequiredProperties(schema: JsonValue, location: string): void {
+    if (Array.isArray(schema)) {
+        schema.forEach((item, index) => validateRequiredProperties(item, `${location}/${index}`));
+        return;
+    }
+    if (!schema || typeof schema !== 'object') {
+        return;
+    }
+    const required = schema.required;
+    if (required !== undefined) {
+        if (!Array.isArray(required) || required.length === 0 ||
+            required.some(name => typeof name !== 'string') ||
+            new Set(required).size !== required.length) {
+            throw new Error(`Invalid required property list at ${location}`);
+        }
+        const properties = schema.properties;
+        if (properties && typeof properties === 'object' && !Array.isArray(properties)) {
+            for (const name of required) {
+                if (typeof name === 'string' && !Object.prototype.hasOwnProperty.call(properties, name)) {
+                    throw new Error(`Unknown required property ${name} at ${location}`);
+                }
+            }
+        }
+    }
+    const properties = schema.properties;
+    if (properties && typeof properties === 'object' && !Array.isArray(properties)) {
+        for (const [name, property] of Object.entries(properties)) {
+            validateRequiredProperties(property, `${location}/properties/${name}`);
+        }
+    }
+    for (const keyword of ['items', 'additionalProperties', 'allOf', 'anyOf', 'oneOf', 'not']) {
+        if (schema[keyword] !== undefined) {
+            validateRequiredProperties(schema[keyword], `${location}/${keyword}`);
+        }
+    }
+}
 
 function removeMarkedFields(obj: JsonValue): JsonValue {
     if (Array.isArray(obj)) {
@@ -45,12 +89,16 @@ async function mergeOverrides() {
             const overrideContent = fs.readFileSync(overridePath, 'utf8');
             const overrideSpec = parse(overrideContent);
 
-            // Deep merge the override with the main spec
-            mergedSpec = merge(mergedSpec, overrideSpec);
+            // Replace arrays completely; merging by index retains upstream required fields.
+            mergedSpec = mergeWith(mergedSpec, overrideSpec, replaceArrays);
         }
 
         // Remove marked fields
         mergedSpec = removeMarkedFields(mergedSpec);
+
+        for (const [name, schema] of Object.entries(mergedSpec.components.schemas)) {
+            validateRequiredProperties(schema as JsonValue, `#/components/schemas/${name}`);
+        }
 
         // Write the merged result back to the main spec file
         const mergedYaml = stringify(mergedSpec);
@@ -63,4 +111,4 @@ async function mergeOverrides() {
     }
 }
 
-mergeOverrides(); 
+mergeOverrides();

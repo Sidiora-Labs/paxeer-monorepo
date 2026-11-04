@@ -8,6 +8,10 @@ from .generated.receipt import supports_program_guest_abi
 from .program_wire import DecodedSignedProgramCall, bind_signed_program_lifecycle
 
 
+MAX_DEPLOY_PAYLOAD_BYTES = 524_288
+DEPLOY_ENVELOPE_BYTES = 104
+
+
 @dataclass(frozen=True)
 class NativeProgramLifecycleRequest:
     ordinal: int
@@ -61,12 +65,23 @@ class NativeProgramDeploy:
     interface: bytes | None = None
     policy: int = 0
 
+    @property
+    def wasm_budget(self) -> int:
+        return MAX_DEPLOY_PAYLOAD_BYTES - DEPLOY_ENVELOPE_BYTES - (
+            0 if self.interface is None else 4 + len(self.interface)
+        )
+
     def encode(self) -> bytes:
-        _code(self.program_id, self.guest_abi, self.wasm, self.new_hash)
         if (type(self.policy) is not int or self.policy not in (0, 1)
                 or (self.policy == 0) != (_fixed(self.authority) == bytes(32))
                 or self.interface is not None and not 0 < len(self.interface) <= 952):
             raise ValueError("invalid deploy policy or interface")
+        if len(self.wasm) > self.wasm_budget:
+            raise ValueError(
+                f"deployment payload exceeds {MAX_DEPLOY_PAYLOAD_BYTES} bytes; "
+                f"remaining WASM budget is {self.wasm_budget} bytes after envelope/interface"
+            )
+        _code(self.program_id, self.guest_abi, self.wasm, self.new_hash)
         return (self.program_id + struct.pack(">HBB", self.guest_abi, self.policy, 0)
                 + self.authority + self.new_hash + struct.pack(">I", len(self.wasm))
                 + (b"" if self.interface is None else struct.pack(">I", len(self.interface)) + self.interface) + self.wasm)

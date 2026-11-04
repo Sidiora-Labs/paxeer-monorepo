@@ -1,19 +1,10 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { ed25519 } from "@noble/curves/ed25519.js";
-import { verifySequencerReceipt } from "@sidiora/layerx-sdk";
-import { verifyPaymentReceipt } from "../../seller/dist/index.js";
-import {
-  ConformanceSequencer,
-  buildSignedReceipt as conformanceBuildSignedReceipt,
-  fixedBytes,
-  offerFixture,
-} from "../src/receipts.ts";
+import { cometHeaderHash, cometCommitHash } from "@sidiora/layerx-sdk";
+import { fixedBytes } from "../src/receipts.ts";
+import { recordedCommittedReceipt } from "../../seller/test/committed-fixture.mjs";
 
-const buildSignedReceipt = conformanceBuildSignedReceipt;
 const bytes = (value) => Uint8Array.from(Buffer.from(value.slice(2), "hex"));
 const sha256 = (...values) => createHash("sha256").update(Buffer.concat(values)).digest();
 const chainId = "paxeer-125";
@@ -95,53 +86,41 @@ export function commitSignBytes(header) {
   return Buffer.concat([varint(BigInt(vote.length)), vote]);
 }
 
-export async function committedFixture(context) {
-  const sequencer = await ConformanceSequencer.generate();
-  const facts = {
-    asset: fixedBytes(0x11), payTo: fixedBytes(0x22), amount: 25n,
-    from: fixedBytes(0x33), batchId: fixedBytes(0x44),
-    previousStateRoot: fixedBytes(0x55), resultingStateRoot: fixedBytes(0x66),
-  };
-  const produced = await buildSignedReceipt(sequencer, facts);
-  const directory = await mkdtemp(join(tmpdir(), "pay6-committed-"));
-  context.after(() => rm(directory, { recursive: true, force: true }));
-  const path = join(directory, "receipt.json");
-  await writeFile(path, JSON.stringify(produced));
-  const receipt = JSON.parse(await readFile(path, "utf8"));
-  assert.deepEqual(receipt, produced);
-  const key = sequencer.receiptKey();
-  const pins = [{
-    keyId: key.keyId, publicKey: key.publicKey,
-    first_height: key.firstHeight, last_height: key.lastHeight,
-  }];
-  const requirements = offerFixture(facts.payTo, facts.asset, facts.amount).requirements;
-  const payment = await verifyPaymentReceipt(receipt, requirements, pins);
-  assert.equal(payment.rung, "receipted");
-  assert.equal(payment.payment.amount, facts.amount);
-  const verified = await verifySequencerReceipt(bytes(receipt.signedReceipt), bytes(receipt.rawTransaction), pins);
-  const keys = [1, 2, 3, 4].map((seed) => {
-    const secret = fixedBytes(seed);
-    return { secret, validator: validator(secret) };
-  }).sort((left, right) => Buffer.compare(left.validator.address, right.validator.address));
-  const validatorSet = keys.map((key) => key.validator);
-  const header = blockHeader(verified, bytes(receipt.rawTransaction), validatorSet);
-  const signBytes = commitSignBytes(header);
-  const signatures = keys.slice(0, 3).map(({ secret, validator }) => {
-    const signature = ed25519.sign(signBytes, secret);
-    assert.equal(ed25519.verify(signature, signBytes, validator.publicKey, { zip215: false }), true);
-    return { blockIdFlag: 2, validatorAddress: validator.address, timestamp: { seconds: 1n, nanos: 0 }, signature };
-  });
-  const evidence = {
-    landingBlockHeight: header.height,
-    blockHeader: header,
-    receiptInclusion: {
-      transactionHash: verified.receipt.activityId.slice(),
-      receiptDigest: verified.receiptDigest.slice(),
-      sequence: verified.receipt.globalSequence,
-      leafIndex: 0, leafCount: 1, siblings: [],
-    },
-    commit: { height: header.height, round: 0, blockId: header.blockId, signatures },
-    validatorSet,
-  };
-  return { verified, evidence, receipt, pins, requirements };
+export async function recordedCommittedFixture() {
+  return recordedCommittedReceipt();
+}
+
+export async function committedFixture() {
+  const { verified, evidence } = await recordedCommittedFixture();
+  const keys = [1, 2, 3, 4].map((seed) => ({ secret: fixedBytes(seed), validator: validator(fixedBytes(seed)) }))
+    .sort((left, right) => Buffer.compare(left.validator.address, right.validator.address));
+  evidence.validatorSet = keys.map((key) => key.validator);
+  const inclusion = evidence.receiptInclusion;
+  inclusion.executionValidators = structuredClone(evidence.validatorSet);
+  const execution = inclusion.executionHeader;
+  execution.validatorsHash = Uint8Array.from(validatorSetHash(evidence.validatorSet));
+  execution.nextValidatorsHash = execution.validatorsHash.slice();
+  execution.proposerAddress = evidence.validatorSet[0].address.slice();
+  const executionBlockId = { ...inclusion.executionCommit.blockId, hash: await cometHeaderHash(execution) };
+  const signCommit = (header) => ({ height: header.height, round: 0, blockId: header.blockId,
+    signatures: keys.slice(0, 3).map(({ secret, validator }) => ({ blockIdFlag: 2, validatorAddress: validator.address,
+      timestamp: { seconds: 1n, nanos: 0 }, signature: ed25519.sign(commitSignBytes(header), secret) })) });
+  inclusion.executionCommit = signCommit({ ...execution, blockId: executionBlockId });
+  const header = evidence.blockHeader;
+  header.lastBlockId = structuredClone(executionBlockId);
+  header.lastCommitHash = cometCommitHash(inclusion.executionCommit);
+  header.validatorsHash = Uint8Array.from(validatorSetHash(evidence.validatorSet));
+  header.nextValidatorsHash = header.validatorsHash.slice();
+  header.proposerAddress = evidence.validatorSet[0].address.slice();
+  header.blockId = { ...header.blockId, hash: await cometHeaderHash(header) };
+  evidence.commit = signCommit(header);
+  const { blockId, ...successorHeader } = header;
+  inclusion.successorHeader = structuredClone(successorHeader);
+  const anchor = { chainId: header.chainId, validatorsHash: header.validatorsHash.slice() };
+  const resolver = { async resolve() { return structuredClone(evidence); },
+    async resolveValidators(network, height) {
+      assert.equal(network, "eip155:125"); assert.equal(height, evidence.landingBlockHeight);
+      return structuredClone(anchor);
+    } };
+  return { verified, evidence, resolver };
 }

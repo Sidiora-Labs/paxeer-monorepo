@@ -10,6 +10,8 @@
  */
 // @vitest-environment jsdom
 
+import { solanaRecipientFixtureReopensThroughRpcAndHook } from './repair-22-33-266.proofs';
+
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { createServer } from 'node:http';
@@ -255,3 +257,5 @@ async function proofSolanaRouteProducerTransportConsumer() {
 
 test(proofSolanaRouteRefusesAnUndefinedDestination.name, proofSolanaRouteRefusesAnUndefinedDestination);
 test(proofSolanaRouteProducerTransportConsumer.name, proofSolanaRouteProducerTransportConsumer);
+
+test(solanaRecipientFixtureReopensThroughRpcAndHook.name, solanaRecipientFixtureReopensThroughRpcAndHook);

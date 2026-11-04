@@ -1,6 +1,7 @@
-"""Calldata builders, a wallet send helper and event decoders for the
-LayerXExchange precompile, plus the EVM ABI machinery the bridge and
-launchpad precompile modules share."""
+"""Shared EVM ABI machinery and explicitly historical pre-v6120 exchange APIs.
+
+Current 0x1015 orders and positions use the builders in :mod:`.perps`.
+"""
 
 from __future__ import annotations
 
@@ -11,7 +12,7 @@ from typing import Literal, Union
 
 from .account_derivation import keccak256
 
-LAYERX_EXCHANGE_PRECOMPILE = "0x0000000000000000000000000000000000001015"
+PRE_V6120_EXCHANGE_PRECOMPILE = "0x0000000000000000000000000000000000001015"
 
 AbiType = Literal[
     "address", "bool", "bytes32", "bytes[]", "string", "uint8", "uint64", "uint256"
@@ -343,11 +344,11 @@ def decode_event_from(
 
 def _event(name: str, *inputs: tuple[str, AbiType, bool]) -> EventSpec:
     return EventSpec(
-        name, LAYERX_EXCHANGE_PRECOMPILE, tuple(EventInput(*item) for item in inputs)
+        name, PRE_V6120_EXCHANGE_PRECOMPILE, tuple(EventInput(*item) for item in inputs)
     )
 
 
-EXCHANGE_EVENTS: tuple[EventSpec, ...] = (
+PRE_V6120_EXCHANGE_EVENTS: tuple[EventSpec, ...] = (
     _event(
         "MarginDeposited",
         ("intentId", "bytes32", True),
@@ -395,71 +396,71 @@ EXCHANGE_EVENTS: tuple[EventSpec, ...] = (
 )
 
 
-def decode_exchange_event(
+def decode_pre_v6120_exchange_event(
     address: str, topics: Sequence[str], data: str
 ) -> DecodedEvent:
-    return decode_event_from(EXCHANGE_EVENTS, address, topics, data)
+    return decode_event_from(PRE_V6120_EXCHANGE_EVENTS, address, topics, data)
 
 
-def _call(
+def _pre_v6120_call(
     name: str, types: Sequence[AbiType], values: Sequence[AbiValue], value: int = 0
 ) -> PrecompileCall:
     return PrecompileCall(
-        LAYERX_EXCHANGE_PRECOMPILE, encode_abi_call(name, types, values), value
+        PRE_V6120_EXCHANGE_PRECOMPILE, encode_abi_call(name, types, values), value
     )
 
 
-def exchange_place_order_call(
+def pre_v6120_exchange_place_order_call(
     market_id: str, side: int, price: int, quantity: int, time_in_force: int
 ) -> PrecompileCall:
     """``placeOrder(bytes32,uint8,uint256,uint256,uint8)``."""
-    return _call(
+    return _pre_v6120_call(
         "placeOrder",
         ["bytes32", "uint8", "uint256", "uint256", "uint8"],
         [market_id, side, price, quantity, time_in_force],
     )
 
 
-def exchange_cancel_order_call(order_id: str) -> PrecompileCall:
+def pre_v6120_exchange_cancel_order_call(order_id: str) -> PrecompileCall:
     """``cancelOrder(bytes32)``."""
-    return _call("cancelOrder", ["bytes32"], [order_id])
+    return _pre_v6120_call("cancelOrder", ["bytes32"], [order_id])
 
 
-def exchange_request_settlement_call(position_id: str) -> PrecompileCall:
+def pre_v6120_exchange_request_settlement_call(position_id: str) -> PrecompileCall:
     """``requestSettlement(bytes32)``."""
-    return _call("requestSettlement", ["bytes32"], [position_id])
+    return _pre_v6120_call("requestSettlement", ["bytes32"], [position_id])
 
 
-def exchange_deposit_margin_call(account: str, amount_wei: int) -> PrecompileCall:
+def pre_v6120_exchange_deposit_margin_call(account: str, amount_wei: int) -> PrecompileCall:
     """``depositMargin(bytes32)``, payable with the native amount in wei."""
     if amount_wei <= 0:
         raise PrecompileAbiError("invalid_value", "deposit amount")
-    return _call("depositMargin", ["bytes32"], [account], amount_wei)
+    return _pre_v6120_call("depositMargin", ["bytes32"], [account], amount_wei)
 
 
-def exchange_deposit_margin_token_call(
+def pre_v6120_exchange_deposit_margin_token_call(
     pointer: str, amount: int, account: str
 ) -> PrecompileCall:
     """``depositMarginToken(address,uint256,bytes32)``."""
-    return _call(
+    return _pre_v6120_call(
         "depositMarginToken",
         ["address", "uint256", "bytes32"],
         [pointer, amount, account],
     )
 
 
-def exchange_withdraw_margin_call(
+def pre_v6120_exchange_withdraw_margin_call(
     account: str, asset_id: str, amount: int
 ) -> PrecompileCall:
     """``withdrawMargin(bytes32,bytes32,uint256)``."""
-    return _call(
+    return _pre_v6120_call(
         "withdrawMargin",
         ["bytes32", "bytes32", "uint256"],
         [account, asset_id, amount],
     )
 
 
-def send_exchange_place_order(
+def send_pre_v6120_exchange_place_order(
     request: WalletRequest,
     sender: str,
     market_id: str,
@@ -471,41 +472,41 @@ def send_exchange_place_order(
     return send_precompile_call(
         request,
         sender,
-        exchange_place_order_call(market_id, side, price, quantity, time_in_force),
+        pre_v6120_exchange_place_order_call(market_id, side, price, quantity, time_in_force),
     )
 
 
-def send_exchange_cancel_order(request: WalletRequest, sender: str, order_id: str) -> str:
-    return send_precompile_call(request, sender, exchange_cancel_order_call(order_id))
+def send_pre_v6120_exchange_cancel_order(request: WalletRequest, sender: str, order_id: str) -> str:
+    return send_precompile_call(request, sender, pre_v6120_exchange_cancel_order_call(order_id))
 
 
-def send_exchange_request_settlement(
+def send_pre_v6120_exchange_request_settlement(
     request: WalletRequest, sender: str, position_id: str
 ) -> str:
     return send_precompile_call(
-        request, sender, exchange_request_settlement_call(position_id)
+        request, sender, pre_v6120_exchange_request_settlement_call(position_id)
     )
 
 
-def send_exchange_deposit_margin(
+def send_pre_v6120_exchange_deposit_margin(
     request: WalletRequest, sender: str, account: str, amount_wei: int
 ) -> str:
     return send_precompile_call(
-        request, sender, exchange_deposit_margin_call(account, amount_wei)
+        request, sender, pre_v6120_exchange_deposit_margin_call(account, amount_wei)
     )
 
 
-def send_exchange_deposit_margin_token(
+def send_pre_v6120_exchange_deposit_margin_token(
     request: WalletRequest, sender: str, pointer: str, amount: int, account: str
 ) -> str:
     return send_precompile_call(
-        request, sender, exchange_deposit_margin_token_call(pointer, amount, account)
+        request, sender, pre_v6120_exchange_deposit_margin_token_call(pointer, amount, account)
     )
 
 
-def send_exchange_withdraw_margin(
+def send_pre_v6120_exchange_withdraw_margin(
     request: WalletRequest, sender: str, account: str, asset_id: str, amount: int
 ) -> str:
     return send_precompile_call(
-        request, sender, exchange_withdraw_margin_call(account, asset_id, amount)
+        request, sender, pre_v6120_exchange_withdraw_margin_call(account, asset_id, amount)
     )

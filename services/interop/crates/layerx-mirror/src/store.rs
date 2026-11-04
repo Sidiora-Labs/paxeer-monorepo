@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use sha2::{Digest, Sha256};
 
@@ -414,11 +414,33 @@ pub struct SpooledArchive {
     pub node_head: NodeHead,
 }
 
+#[derive(Clone, Copy, Debug, Default)]
+struct OrderedSpoolIndex {
+    first: Option<u64>,
+    last: u64,
+    count: usize,
+}
+
+impl OrderedSpoolIndex {
+    fn include(&mut self, height: u64) {
+        if self
+            .first
+            .is_some_and(|first| height >= first && height <= self.last)
+        {
+            return;
+        }
+        self.first = Some(self.first.map_or(height, |first| first.min(height)));
+        self.last = self.last.max(height);
+        self.count += 1;
+    }
+}
+
 /// Immutable content-addressed spool shared by independent chain workers.
 #[derive(Clone, Debug)]
 pub struct ArchiveSpool {
     directory: PathBuf,
     _lock: Arc<File>,
+    index: Arc<Mutex<Option<OrderedSpoolIndex>>>,
 }
 
 impl ArchiveSpool {
@@ -439,6 +461,7 @@ impl ArchiveSpool {
         let spool = Self {
             directory,
             _lock: Arc::new(lock),
+            index: Arc::new(Mutex::new(None)),
         };
         for commitment in spool.commitments()? {
             spool.get(commitment)?;
@@ -460,10 +483,32 @@ impl ArchiveSpool {
         if bytes.is_empty() || bytes.len() > MAX_ARCHIVE_BYTES {
             return Err(StoreError::Length);
         }
+        let mut index = self.index.lock().map_err(|_| StoreError::Conflict)?;
+        let height = if let Some(ordered) = index.as_ref() {
+            let height = crate::ArchiveData::decode(bytes)
+                .map_err(|_| StoreError::Corrupt)?
+                .batch_number;
+            if let Some(first) = ordered.first {
+                if height >= first && height <= ordered.last {
+                    if self.read_index_entry(height)? != commitment {
+                        return Err(StoreError::Conflict);
+                    }
+                } else if ordered.last.checked_add(1) != Some(height) {
+                    return Err(StoreError::Conflict);
+                }
+            }
+            Some(height)
+        } else {
+            None
+        };
         let path = self.path(commitment);
         if path.exists() {
             let existing = self.get(commitment)?;
             return if existing.bytes == bytes && existing.node_head == node_head {
+                if let Some(height) = height {
+                    self.write_index_entry(height, commitment)?;
+                    index.as_mut().ok_or(StoreError::Corrupt)?.include(height);
+                }
                 Ok(())
             } else {
                 Err(StoreError::Conflict)
@@ -483,7 +528,211 @@ impl ArchiveSpool {
         file.sync_all().map_err(StoreError::Io)?;
         fs::rename(&temporary, &path).map_err(StoreError::Io)?;
         sync_directory(&self.directory)?;
+        if let Some(height) = height {
+            self.write_index_entry(height, commitment)?;
+            index.as_mut().ok_or(StoreError::Corrupt)?.include(height);
+        }
         Ok(())
+    }
+
+    /// Initializes and reconciles the durable height index once per spool open.
+    /// Missing entries are recovered from immutable objects after an interrupted
+    /// put. Conflicts, missing objects and damaged entries are never discarded.
+    pub fn ordered_bounds(&self) -> Result<Option<(u64, u64, usize)>, StoreError> {
+        self.ensure_index()?;
+        let index = self.index.lock().map_err(|_| StoreError::Conflict)?;
+        let ordered = index.as_ref().ok_or(StoreError::Corrupt)?;
+        Ok(ordered
+            .first
+            .map(|first| (first, ordered.last, ordered.count)))
+    }
+
+    /// Selects a bounded ordered range without loading historical archive bytes.
+    pub fn ordered_range(
+        &self,
+        first: u64,
+        limit: usize,
+    ) -> Result<Vec<(u64, ArchiveCommitment)>, StoreError> {
+        if limit == 0 || limit > 128 {
+            return Err(StoreError::Length);
+        }
+        self.ensure_index()?;
+        let index = self.index.lock().map_err(|_| StoreError::Conflict)?;
+        let ordered = index.as_ref().ok_or(StoreError::Corrupt)?;
+        let Some(origin) = ordered.first else {
+            return Ok(Vec::new());
+        };
+        let start = first.max(origin);
+        if start > ordered.last {
+            return Ok(Vec::new());
+        }
+        let mut entries = Vec::with_capacity(limit);
+        let mut height = start;
+        for _ in 0..limit {
+            entries.push((height, self.read_index_entry(height)?));
+            if height == ordered.last {
+                break;
+            }
+            height = height.checked_add(1).ok_or(StoreError::Corrupt)?;
+        }
+        Ok(entries)
+    }
+
+    /// Retained history belongs to the operator's archival storage policy. The
+    /// runtime never deletes archives or journals; provision and monitor disk,
+    /// and stop acquisition on storage refusal rather than losing history.
+    fn ensure_index(&self) -> Result<(), StoreError> {
+        let mut index = self.index.lock().map_err(|_| StoreError::Conflict)?;
+        if index.is_some() {
+            return Ok(());
+        }
+        let directory = self.directory.join(".order");
+        fs::create_dir_all(&directory).map_err(StoreError::Io)?;
+        let mut ordered = OrderedSpoolIndex::default();
+        for commitment in self.commitments()? {
+            let stored = self.get(commitment)?;
+            let archive = crate::Archive::from_spool(stored.bytes, stored.node_head)
+                .map_err(|_| StoreError::Corrupt)?;
+            let height = archive.data().batch_number;
+            self.write_index_entry(height, commitment)?;
+            ordered.first = Some(ordered.first.map_or(height, |first| first.min(height)));
+            ordered.last = ordered.last.max(height);
+            ordered.count += 1;
+        }
+        let mut entries = 0;
+        for entry in fs::read_dir(&directory).map_err(StoreError::Io)? {
+            let entry = entry.map_err(StoreError::Io)?;
+            let name = entry.file_name();
+            let name = name.to_str().ok_or(StoreError::Corrupt)?;
+            if name.starts_with('.') {
+                continue;
+            }
+            let height: u64 = name.parse().map_err(|_| StoreError::Corrupt)?;
+            if name != format!("{height:020}")
+                || ordered
+                    .first
+                    .is_none_or(|first| height < first || height > ordered.last)
+            {
+                return Err(StoreError::Corrupt);
+            }
+            entries += 1;
+        }
+        if entries != ordered.count
+            || ordered.first.is_some_and(|first| {
+                ordered
+                    .last
+                    .checked_sub(first)
+                    .and_then(|span| span.checked_add(1))
+                    != Some(ordered.count as u64)
+            })
+        {
+            return Err(StoreError::Corrupt);
+        }
+        *index = Some(ordered);
+        Ok(())
+    }
+
+    fn read_index_entry(&self, height: u64) -> Result<ArchiveCommitment, StoreError> {
+        let path = self.directory.join(".order").join(format!("{height:020}"));
+        let bytes = fs::read(path).map_err(StoreError::Io)?;
+        Ok(ArchiveCommitment::from_bytes(
+            bytes.try_into().map_err(|_| StoreError::Corrupt)?,
+        ))
+    }
+
+    fn write_index_entry(
+        &self,
+        height: u64,
+        commitment: ArchiveCommitment,
+    ) -> Result<(), StoreError> {
+        let directory = self.directory.join(".order");
+        fs::create_dir_all(&directory).map_err(StoreError::Io)?;
+        let path = directory.join(format!("{height:020}"));
+        if path.exists() {
+            return if fs::read(path).map_err(StoreError::Io)?.as_slice()
+                == commitment.as_bytes().as_slice()
+            {
+                Ok(())
+            } else {
+                Err(StoreError::Conflict)
+            };
+        }
+        self.atomic_metadata(&directory, &format!("{height:020}"), commitment.as_bytes())
+    }
+
+    fn atomic_metadata(
+        &self,
+        directory: &Path,
+        name: &str,
+        bytes: &[u8],
+    ) -> Result<(), StoreError> {
+        let temporary = directory.join(format!(".{name}.tmp"));
+        let mut file = OpenOptions::new()
+            .create(true)
+            .truncate(true)
+            .write(true)
+            .open(&temporary)
+            .map_err(StoreError::Io)?;
+        file.write_all(bytes).map_err(StoreError::Io)?;
+        file.sync_all().map_err(StoreError::Io)?;
+        fs::rename(temporary, directory.join(name)).map_err(StoreError::Io)?;
+        sync_directory(directory)?;
+        sync_directory(&self.directory)
+    }
+
+    /// Reads a sealed lane cursor; the corresponding immutable archive must exist.
+    pub fn lane_cursor(
+        &self,
+        lane: MirrorChain,
+    ) -> Result<Option<CommittedCoordinate>, StoreError> {
+        let path = self.directory.join(format!(".{}.cursor", lane_name(lane)));
+        let bytes = match fs::read(path) {
+            Ok(bytes) => bytes,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(error) => return Err(StoreError::Io(error)),
+        };
+        if bytes.len() != 72 || &Sha256::digest(&bytes[..40])[..] != &bytes[40..] {
+            return Err(StoreError::Corrupt);
+        }
+        let height = u64::from_be_bytes(bytes[..8].try_into().map_err(|_| StoreError::Corrupt)?);
+        let block_hash = bytes[8..40].try_into().map_err(|_| StoreError::Corrupt)?;
+        let coordinate = CommittedCoordinate { height, block_hash };
+        self.check_cursor(coordinate)?;
+        Ok(Some(coordinate))
+    }
+
+    fn check_cursor(&self, coordinate: CommittedCoordinate) -> Result<(), StoreError> {
+        let (_, commitment) = self
+            .ordered_range(coordinate.height, 1)?
+            .into_iter()
+            .next()
+            .filter(|(height, _)| *height == coordinate.height)
+            .ok_or(StoreError::Corrupt)?;
+        let stored = self.get(commitment)?;
+        let data = crate::ArchiveData::decode(&stored.bytes).map_err(|_| StoreError::Corrupt)?;
+        if data.committed_coordinate() != Some(coordinate) {
+            return Err(StoreError::Conflict);
+        }
+        Ok(())
+    }
+
+    /// Saves only canonical readback-acknowledged progress, independently per lane.
+    /// This is a scheduling cursor, never authority for chain finality on reopen.
+    pub fn save_lane_cursor(
+        &self,
+        lane: MirrorChain,
+        coordinate: CommittedCoordinate,
+    ) -> Result<(), StoreError> {
+        self.check_cursor(coordinate)?;
+        let mut bytes = coordinate.height.to_be_bytes().to_vec();
+        bytes.extend_from_slice(&coordinate.block_hash);
+        let digest = Sha256::digest(&bytes);
+        bytes.extend_from_slice(&digest);
+        self.atomic_metadata(
+            &self.directory,
+            &format!(".{}.cursor", lane_name(lane)),
+            &bytes,
+        )
     }
 
     ///

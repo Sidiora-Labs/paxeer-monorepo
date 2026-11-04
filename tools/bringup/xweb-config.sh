@@ -50,7 +50,7 @@ register  registers the Ed25519 key of XWEB_REGISTER_KEY_FILE (32 hex bytes
 render serve <directory>
           writes <directory>/<apiN name>.json for every serving RPC name that
           XWEB_SERVE_NAMES or search-front.sh names lists: listen 127.0.0.1:8482,
-          gateway.endpoint the configured hosted gateway's /rpc with the
+          gateway.endpoint the exact configured hosted gateway URL with the
           node's complete receipt trust history, the four assets with their prices, evm the node's
           loopback JSON-RPC on chain 125, kernel_network_id 125, peers the
           https names of the other serving RPC names, the crawl seeds of
@@ -60,7 +60,7 @@ render attestor <directory>
           writes <directory>/attestor-<N>.json for the four Fly attestor apps
           of services/interop/deploy/x-websearch/attestor-<N>.toml: listen [::]:8480,
           data_dir /data/state, gateway.endpoint the configured hosted
-          gateway's /rpc with the node's complete receipt trust history, the four assets with their
+          gateway URL with the node's complete receipt trust history, the four assets with their
           prices, evm the https name of a serving RPC name (attestor N takes
           the (N-1)th of the list, wrapping) on chain 125, kernel_network_id
           125, peers the loopback hops http://127.0.0.1:849<M> of the other
@@ -79,8 +79,12 @@ Inputs (all required, none printed but the ids and prices):
   XWEB_SEEDS              the space-separated https URLs the sidecar crawls from
   XWEB_SID_PER_PAX        SID per PAX, default the owner-set 3.114
   XWEB_GATEWAY_ENDPOINT   required operator-deployed hosted gateway JSON-RPC
-                          endpoint for px_* methods; no public node default
-  XWEB_EVM_ENDPOINT       the node's loopback JSON-RPC, default http://127.0.0.1:8545
+                          endpoint for px_listAssets, px_register and px_getAccount;
+                          use the deployed gateway URL verbatim (including its
+                          declared path). No synthesized public router /rpc
+                          default; it must be separate from every node root
+  XWEB_EVM_ENDPOINT       node root JSON-RPC for eth_* methods, default
+                          http://127.0.0.1:8545 (root only, never append /rpc)
   XWEB_PAX_USD_PRICE      when set, must be the approved 13.44
 
 Exits 1 when a destination does not answer, 2 on a usage error or a missing
@@ -137,194 +141,27 @@ def rpc(endpoint, method, params):
     return answer.get("result"), None
 '
 
-# xweb_prices: one "<symbol> <asset id> <price>" line per asset.
+# Pricing, registration and config production share the installed Go transport.
 xweb_prices() {
-	if [ -z "$xweb_gateway" ]; then
-		echo "xweb-config: hosted gateway endpoint is not configured (XWEB_GATEWAY_ENDPOINT)" >&2
-		return 2
-	fi
-	local sym
-	for sym in "${xweb_symbols[@]}"; do
-		xweb_need "XWEB_ASSET_ID_$sym"
-		xweb_need "XWEB_DECIMALS_$sym"
-	done
-	python3 -c "$xweb_rpc_py"'
-import re
-import sys
-from decimal import Decimal, InvalidOperation
-from fractions import Fraction
-
-fail = lambda what, code=2: (print(f"xweb-config: {what}", file=sys.stderr), sys.exit(code))
-USD_PER_REQUEST = Fraction(1, 1000)
-USD_PER_PAX = Fraction(1344, 100)
-PAX_PER_REQUEST = USD_PER_REQUEST / USD_PER_PAX
-assert PAX_PER_REQUEST == Fraction(1, 13440)
-gateway, pax_usd, sid_per_pax, *args = sys.argv[1:]
-if pax_usd:
-    try:
-        if Fraction(Decimal(pax_usd)) != USD_PER_PAX:
-            fail("XWEB_PAX_USD_PRICE differs from the approved 13.44")
-    except (InvalidOperation, ValueError, OverflowError):
-        fail("XWEB_PAX_USD_PRICE is malformed")
-try:
-    sid = Fraction(Decimal(sid_per_pax))
-except (InvalidOperation, ValueError, OverflowError):
-    fail("XWEB_SID_PER_PAX is malformed")
-if sid <= 0:
-    fail("XWEB_SID_PER_PAX is malformed")
-units = {"SID": PAX_PER_REQUEST * sid, "PAX": PAX_PER_REQUEST, "USDC": USD_PER_REQUEST, "USDL": USD_PER_REQUEST}
-rows = []
-for i, sym in enumerate(("SID", "PAX", "USDC", "USDL")):
-    asset, decimals = args[2 * i].lower().removeprefix("0x"), args[2 * i + 1]
-    if not re.fullmatch(r"[0-9a-f]{64}", asset) or len(set(asset)) == 1:
-        fail(f"XWEB_ASSET_ID_{sym} is malformed")
-    if not re.fullmatch(r"[0-9]|[1-3][0-9]", decimals) or int(decimals) > 38:
-        fail(f"XWEB_DECIMALS_{sym} is malformed")
-    result, error = rpc(gateway, "px_listAssets", [])
-    if error:
-        fail(f"px_listAssets {sym} {error}", 1)
-    try:
-        records = result["assets"]
-        if not isinstance(records, list) or any(not isinstance(entry, dict) for entry in records):
-            fail(f"px_listAssets {sym} answer is malformed", 1)
-        matches = [entry for entry in records if entry.get("asset_id") == asset]
-        if len(matches) != 1:
-            fail(f"px_listAssets {sym} must contain exactly one record of that id", 1)
-        record = matches[0]["layerx"]
-        committed = record["verification"] == "authenticated_committed_snapshot"
-        registered = (record["asset_id"], record["symbol"], record["decimals"], record["paused"])
-    except (KeyError, TypeError):
-        fail(f"px_listAssets {sym} answer is malformed", 1)
-    if not committed or registered[0] != asset:
-        fail(f"px_listAssets {sym} is not an authenticated committed record of that id", 1)
-    if registered[1] != sym:
-        fail(f"XWEB_ASSET_ID_{sym} is the registered asset {registered[1]}")
-    if type(registered[2]) is not int or registered[2] != int(decimals):
-        fail(f"XWEB_DECIMALS_{sym} differs from the registered decimals {registered[2]}")
-    if registered[3] is not False:
-        fail(f"XWEB_ASSET_ID_{sym} is a paused asset")
-    scaled = units[sym] * 10 ** int(decimals)
-    rows.append((sym, asset, max(1, -(-scaled.numerator // scaled.denominator))))
-for sym, asset, price in rows:
-    print(sym, asset, price)
-' "$xweb_gateway" "${XWEB_PAX_USD_PRICE:-}" "$xweb_sid_per_pax" \
-		"$XWEB_ASSET_ID_SID" "$XWEB_DECIMALS_SID" "$XWEB_ASSET_ID_PAX" "$XWEB_DECIMALS_PAX" \
-		"$XWEB_ASSET_ID_USDC" "$XWEB_DECIMALS_USDC" "$XWEB_ASSET_ID_USDL" "$XWEB_DECIMALS_USDL"
+ xweb_need XWEB_GATEWAY_ENDPOINT
+ "${BRINGUP_INSPECT_BIN:-bringup-inspect}" xweb-config prices
 }
 
-# xweb_receipt_keys: retain every height range published by the node producer.
-xweb_receipt_keys() {
-	local history
-	history="$(python3 -c "$xweb_rpc_py"'
-import sys
-result, error = rpc(sys.argv[1], "px_getReceiptKeys", [])
-if error:
-    sys.exit("xweb-config: receipt history " + error)
-print(json.dumps(result))
-' "${XWEB_RECEIPT_KEYS_ENDPOINT:-$xweb_evm}")" || return 1
-	printf '%s' "$history" | "${BRINGUP_INSPECT_BIN:-bringup-inspect}" xweb-receipt-keys
+xweb_render() {
+ local kind="$1" directory="$2" listing
+ local -a names=()
+ xweb_need XWEB_GATEWAY_ENDPOINT
+ xweb_need XWEB_SEEDS
+ if [ "${XWEB_SERVE_NAMES+x}" = x ]; then
+  read -r -a names <<<"$XWEB_SERVE_NAMES"
+ else
+  listing="$("$(dirname "${BASH_SOURCE[0]}")/search-front.sh" names)" || return 1
+  mapfile -t names < <(sed -n 's/^serve //p' <<<"$listing")
+ fi
+ "${BRINGUP_INSPECT_BIN:-bringup-inspect}" xweb-config render "$kind" "$directory" "${names[@]}"
 }
-
-# xweb_render_serve <directory>: the serving config of every serving RPC name.
-xweb_render_serve() {
-	local dir="$1" listing prices receipt_keys name
-	local -a names=()
-	xweb_need XWEB_SEEDS
-	prices="$(xweb_prices)"
-	receipt_keys="$(xweb_receipt_keys)" || return 1
-	if [ "${XWEB_SERVE_NAMES+x}" = x ]; then
-		read -r -a names <<<"$XWEB_SERVE_NAMES"
-	else
-		listing="$("$(dirname "${BASH_SOURCE[0]}")/search-front.sh" names)" || return 1
-		mapfile -t names < <(sed -n 's/^serve //p' <<<"$listing")
-	fi
-	if [ "${#names[@]}" -eq 0 ]; then
-		echo "xweb-config: no serving RPC name" >&2
-		return 1
-	fi
-	mkdir -p "$dir"
-	for name in "${names[@]}"; do
-		python3 - "$name" "$xweb_gateway" "$receipt_keys" "$xweb_evm" "$prices" "$XWEB_SEEDS" "${names[@]}" >"$dir/$name.json" <<'PY'
-import json
-import re
-import sys
-
-name, gateway, receipt_keys, evm, prices, seeds, *names = sys.argv[1:]
-assets = {}
-for line in prices.splitlines():
-    sym, asset, price = line.split()
-    assets[sym] = {"asset_id": asset, "price": price}
-config = {
-    "listen": "127.0.0.1:8482",
-    "data_dir": "/var/lib/x-websearch",
-    "seeds": seeds.split(),
-    "crawl": {"pages_per_cycle": 1000, "pages_per_host": 100, "max_depth": 3, "politeness_delay_ms": 1000},
-    "fetch": {"connect_timeout_ms": 3000, "total_timeout_ms": 10000, "max_body_bytes": 2097152, "max_redirects": 3, "allow_loopback": False},
-    "assets": assets,
-    "gateway": {
-        "endpoint": gateway,
-        "receipt_keys": json.loads(receipt_keys),
-    },
-    "evm": {"endpoint": evm, "chain_id": 125, "confirmations": 12},
-    "kernel_network_id": 125,
-    "peers": [f"https://{peer}" for peer in names if peer != name],
-}
-print(json.dumps(config, indent=2))
-PY
-		echo "rendered $name"
-	done
-}
-
-# xweb_render_attestor <directory>: the config of each of the four Fly
-# attestor apps, their peers reached through the machine's loopback hops.
-xweb_render_attestor() {
-	local dir="$1" listing prices receipt_keys n
-	local -a names=()
-	xweb_need XWEB_SEEDS
-	prices="$(xweb_prices)"
-	receipt_keys="$(xweb_receipt_keys)" || return 1
-	if [ "${XWEB_SERVE_NAMES+x}" = x ]; then
-		read -r -a names <<<"$XWEB_SERVE_NAMES"
-	else
-		listing="$("$(dirname "${BASH_SOURCE[0]}")/search-front.sh" names)" || return 1
-		mapfile -t names < <(sed -n 's/^serve //p' <<<"$listing")
-	fi
-	if [ "${#names[@]}" -eq 0 ]; then
-		echo "xweb-config: no serving RPC name" >&2
-		return 1
-	fi
-	mkdir -p "$dir"
-	python3 - "$dir" "$xweb_gateway" "$receipt_keys" "$prices" "$XWEB_SEEDS" "${names[@]}" <<'PY'
-import json
-import re
-import sys
-
-out, gateway, receipt_keys, prices, seeds, *names = sys.argv[1:]
-assets = {}
-for line in prices.splitlines():
-    sym, asset, price = line.split()
-    assets[sym] = {"asset_id": asset, "price": price}
-for n in range(1, 5):
-    config = {
-        "listen": "[::]:8480",
-        "data_dir": "/data/state",
-        "seeds": seeds.split(),
-        "crawl": {"pages_per_cycle": 1000, "pages_per_host": 100, "max_depth": 3, "politeness_delay_ms": 1000},
-        "fetch": {"connect_timeout_ms": 3000, "total_timeout_ms": 10000, "max_body_bytes": 2097152, "max_redirects": 3, "allow_loopback": False},
-        "assets": assets,
-        "gateway": {
-            "endpoint": gateway,
-            "receipt_keys": json.loads(receipt_keys),
-        },
-        "evm": {"endpoint": f"https://{names[(n - 1) % len(names)]}", "chain_id": 125, "confirmations": 12},
-        "kernel_network_id": 125,
-        "peers": [f"http://127.0.0.1:{8490 + m}" for m in range(1, 5) if m != n],
-    }
-    with open(f"{out}/attestor-{n}.json", "w") as handle:
-        print(json.dumps(config, indent=2), file=handle)
-    print(f"rendered attestor-{n}")
-PY
-}
+xweb_render_serve() { xweb_render serve "$1"; }
+xweb_render_attestor() { xweb_render attestor "$1"; }
 
 # xweb_inventory: the read-backs of the receivers, the payer, the kernel
 # submitter and payout DIDs, the web signers and the EVM submitters, one line
@@ -355,7 +192,7 @@ import sys
 import urllib.error
 import urllib.request
 
-gateway, prices, *names = sys.argv[1:]
+gateway, node, prices, *names = sys.argv[1:]
 env = os.environ.get
 failures = 0
 def line(ok, text):
@@ -415,7 +252,7 @@ def balance_line(label, account, sym, minimum):
     if want is None:
         line(False, "%s account=%s balance=asset-unavailable" % (label, account))
         return
-    result, error = rpc(gateway, "eth_call", [{
+    result, error = rpc(node, "eth_call", [{
         "to": "0x" + "00" * 18 + "101a",
         "data": "0xb1ffc03e" + account + want,
     }, "pending"])
@@ -491,57 +328,14 @@ if evm:
         line(minimum_wei is not None and wei >= int(minimum_wei),
              "submitter attestor-%d address=%s balance=%d minimum=%s" % (n, submitter.lower(), wei, minimum_wei or "absent"))
 sys.exit(1 if failures else 0)
-' "$xweb_gateway" "$prices" ${names[@]+"${names[@]}"}
+' "$xweb_gateway" "$xweb_evm" "$prices" ${names[@]+"${names[@]}"}
 }
 
-# xweb_register: registers XWEB_REGISTER_KEY_FILE's key with px_register and
-# checks the answer names exactly it.
+# px_register signs the hosted beta binding; no node root receives identity calls.
 xweb_register() {
-	if [ -z "$xweb_gateway" ]; then
-		echo "xweb-config: hosted gateway endpoint is not configured (XWEB_GATEWAY_ENDPOINT)" >&2
-		return 2
-	fi
-	xweb_need XWEB_REGISTER_KEY_FILE
-	python3 -c "$xweb_rpc_py"'
-import hashlib
-import os
-import re
-import stat
-import sys
-
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
-
-gateway, path = sys.argv[1:]
-fail = lambda what, code=2: (print("xweb-config: " + what, file=sys.stderr), sys.exit(code))
-try:
-    info = os.lstat(path)
-except OSError:
-    fail("XWEB_REGISTER_KEY_FILE is unreadable")
-if not stat.S_ISREG(info.st_mode) or info.st_mode & 0o077 or info.st_uid != os.geteuid() or info.st_size > 256:
-    fail("XWEB_REGISTER_KEY_FILE must be a regular file of its owner, readable by nobody else")
-with open(path, "rb") as handle:
-    text = handle.read().strip()
-if not re.fullmatch(rb"[0-9a-fA-F]{64}", text):
-    fail("XWEB_REGISTER_KEY_FILE does not hold 32 hexadecimal bytes")
-key = Ed25519PrivateKey.from_private_bytes(bytes.fromhex(text.decode()))
-public = key.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
-def tagged(domain):
-    digest = hashlib.sha256()
-    for part in (domain, b"beta", public):
-        digest.update(len(part).to_bytes(8, "big"))
-        digest.update(part)
-    return digest.digest()
-subject = "beta." + tagged(b"layerx-register-subject-v1").hex()[:32]
-signature = key.sign(tagged(b"layerx-register-binding-v1"))
-result, error = rpc(gateway, "px_register", [public.hex(), signature.hex()])
-if error:
-    fail("px_register " + error, 1)
-if (not isinstance(result, dict) or result.get("tenant") != "beta" or result.get("sub") != subject
-        or result.get("allowed_signer_public_keys") != [public.hex()]):
-    fail("px_register answered a principal that is not this key", 1)
-print("registered public_key=%s did=did:layerx:%s sub=%s tenant=beta" % (public.hex(), public.hex(), subject))
-' "$xweb_gateway" "$XWEB_REGISTER_KEY_FILE"
+ xweb_need XWEB_GATEWAY_ENDPOINT
+ xweb_need XWEB_REGISTER_KEY_FILE
+ "${BRINGUP_INSPECT_BIN:-bringup-inspect}" xweb-config register
 }
 
 mode="${1:-}"

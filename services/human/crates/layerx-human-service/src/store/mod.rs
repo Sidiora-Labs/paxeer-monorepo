@@ -1,6 +1,8 @@
 //! Principal-scoped durable storage for the human control plane.
 
 mod codec;
+#[doc(hidden)]
+pub mod crash;
 mod migrate;
 mod provider;
 mod retention;
@@ -17,7 +19,7 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use codec::{CodecError, Decoder};
+use codec::{CodecError, Decoder, Directory};
 
 pub(crate) const STORE_MAGIC: &[u8; 4] = b"LXHP";
 pub(crate) const PRINCIPALS_DIR: &str = "principals";
@@ -359,6 +361,9 @@ impl PrincipalState {
         for (table, rows) in &mut self.tables {
             let period = policy.period(*table);
             rows.retain(|key, row| {
+                if *table == Table::Support && key.as_str() == crate::support::INDEX_KEY {
+                    return true;
+                }
                 if !retention::elapsed(now, row.written_at, period) {
                     return true;
                 }
@@ -380,7 +385,8 @@ impl PrincipalState {
 /// principal, and rows are only reachable through a [`PrincipalScope`].
 #[derive(Debug)]
 pub struct PrincipalStore {
-    root: PathBuf,
+    root: Directory,
+    root_path: PathBuf,
     version: u32,
     retention: RetentionPolicy,
     tenancy: TenancyMap,
@@ -396,6 +402,7 @@ impl PrincipalStore {
     ///
     /// Refuses unknown principal tenancy or unavailable principal state.
     pub fn probe(&self) -> Result<(), StoreError> {
+        self.verify_root()?;
         verify_principals_tree(&self.root)?;
         let installed = tenancy::load_installed(&self.root)?;
         if installed.digest()? != self.tenancy.digest()? {
@@ -418,8 +425,8 @@ impl PrincipalStore {
         retention: RetentionPolicy,
         tenancy_digest: TenancyDigest,
     ) -> Result<Self, StoreError> {
-        let root = root.as_ref().to_path_buf();
-        fs::create_dir_all(&root)?;
+        let root_path = root.as_ref().to_path_buf();
+        let root = Directory::open(&root_path)?;
         let ownership = provider::ownership_lock(&root)?;
         let version = migrate::prepare(&root)?;
         verify_principals_tree(&root)?;
@@ -429,6 +436,7 @@ impl PrincipalStore {
         }
         Ok(Self {
             root,
+            root_path,
             version,
             retention,
             tenancy,
@@ -446,22 +454,43 @@ impl PrincipalStore {
     /// Refuses principals without a tenancy mapping and corrupt or
     /// newer-versioned principal files.
     pub fn principal(&mut self, id: &PrincipalId) -> Result<PrincipalScope<'_>, StoreError> {
-        let tenant = self.resolve_tenant(id)?;
-        let directory = self.root.join(PRINCIPALS_DIR).join(id.as_str());
-        let path = directory.join(STORE_FILE);
-        let state = if path.exists() {
-            decode_state(&fs::read(&path)?, self.version)?
-        } else {
-            PrincipalState::default()
+        self.verify_root()?;
+        if self.provider.is_none() {
+            self.tenancy.tenant_for(id)?;
+        }
+        let directory = self.principal_directory(id)?;
+        let tenant = self.resolve_tenant_in(id, &directory)?;
+        let state = match directory.read(STORE_FILE)? {
+            Some(bytes) => decode_state(&bytes, self.version)?,
+            None => PrincipalState::default(),
         };
-        Ok(PrincipalScope {
+        let mut scope = PrincipalScope {
             store: self,
             principal: id.clone(),
             tenant,
             directory,
             state,
             deferred: false,
-        })
+        };
+        crate::support::initialize_index(&mut scope)?;
+        Ok(scope)
+    }
+
+    fn verify_root(&self) -> Result<(), StoreError> {
+        if !self
+            .root
+            .same_directory(&Directory::open_existing(&self.root_path)?)?
+        {
+            return Err(StoreError::Corrupt("store root replaced"));
+        }
+        Ok(())
+    }
+
+    fn principal_directory(&self, id: &PrincipalId) -> Result<Directory, StoreError> {
+        Ok(self
+            .root
+            .child(PRINCIPALS_DIR, true)?
+            .child(id.as_str(), true)?)
     }
 
     /// Returns the store version this binary declared and enforces.
@@ -483,20 +512,18 @@ impl PrincipalStore {
     }
 }
 
-fn verify_principals_tree(root: &Path) -> Result<(), StoreError> {
-    let principals = root.join(PRINCIPALS_DIR);
-    if !principals.is_dir() {
-        return Ok(());
-    }
-    for entry in fs::read_dir(principals)? {
-        let entry = entry?;
-        let name = entry.file_name();
-        let Some(name) = name.to_str() else {
+fn verify_principals_tree(root: &Directory) -> Result<(), StoreError> {
+    let principals = match root.child(PRINCIPALS_DIR, false) {
+        Ok(directory) => directory,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => return Err(error.into()),
+    };
+    for name in principals.entries()? {
+        let Some(text) = name.to_str() else {
             return Err(StoreError::Corrupt("foreign principals entry"));
         };
-        if PrincipalId::new(name).is_err() || !entry.path().is_dir() {
-            return Err(StoreError::Corrupt("foreign principals entry"));
-        }
+        PrincipalId::new(text)?;
+        principals.child(&name, false)?;
     }
     Ok(())
 }
@@ -508,7 +535,7 @@ pub struct PrincipalScope<'a> {
     store: &'a PrincipalStore,
     principal: PrincipalId,
     tenant: AgentTenantId,
-    directory: PathBuf,
+    directory: Directory,
     state: PrincipalState,
     deferred: bool,
 }
@@ -746,6 +773,11 @@ impl PrincipalScope<'_> {
     fn persist(&self) -> Result<(), StoreError> {
         if self.deferred {
             return Ok(());
+        }
+        self.store.verify_root()?;
+        let current = self.store.principal_directory(&self.principal)?;
+        if !self.directory.same_directory(&current)? {
+            return Err(StoreError::Corrupt("principal directory replaced"));
         }
         let bytes = encode_state(&self.state, self.store.version)?;
         codec::write_atomic(&self.directory, STORE_FILE, TEMP_FILE, &bytes)?;

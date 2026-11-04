@@ -151,6 +151,11 @@ pub struct Archive {
 }
 
 impl Archive {
+    /// Encodes a committed block with the caller's verified native network id
+    /// and independently observed head. The head must cover this block and its
+    /// committed coordinate; it is retained as freshness metadata by the spool,
+    /// while the network id is part of the immutable archive bytes. Runtime
+    /// callers use `RuntimeConfig::committed_network_id` for checked conversion.
     pub fn from_committed(
         block: &CommittedBlock,
         network_id: u32,

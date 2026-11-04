@@ -1,0 +1,33 @@
+[repair.22.33.1490]
+audit = "22.30.88"
+base = "8c4a3e7e0bd8b236f61b0f9e0dd18f3cfc360fce"
+baseline = "Continued attempt 1 at candidate 1ffc67a769e0d799c2949b47c1cacabd3711ecd6; its declared build failed before compiling tests because services/platform/hosted/paxeer/Cargo.toml is missing. No unchanged-tree verify ran: the explicit order permits only hf-build followed by hf-done after implementation; no individual pre-change test failure is claimed."
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit and private log; the final response copies the final gate evidence."
+qualification_scope = "In-process production ramp engine, journal, clients, transaction codec and pinned receipt authentication with committed test TLS credentials, node conformance transcripts and loopback contract peers; no environment variable, external binary, subprocess, native artifact, device or live service is used."
+restart_invariants = "Successful recovery preserves both engine-written payment and provider snapshots; failed provider reconciliation and all terminal custody contradictions preserve the exact persisted v2 journal bytes and leave recovery unready."
+workspace_wiring = "Domain 8: reconcile services/platform/Cargo.toml's hosted/paxeer member with the missing services/platform/hosted/paxeer/Cargo.toml; both manifests are outside this task's scope."
+
+[finding.v2-recovery-test-bypass]
+test = "v2_recovery_engine_writes_and_production_recovery_reads_after_restart"
+change = "RampEngine submits actual customer-signed budget calldata and a provider settlement through the production clients; journal and client stop/reopen, and recover_verified invokes verify_recovery_settlement, checks exact raw transaction/hash/submitted rung, reconciles provider evidence and refuses its changed digest without enabling writes or rebroadcasting. Original pure journal assertions remain."
+wiring = "Domain 2: node/sequencer must publish a successful maintained payment execution transcript including budget state, exact transaction, signed receipt and committed block so the Rust-only gate can additionally qualify terminal payment recovery; the current test qualifies submitted recovery, not successful native execution."
+
+[finding.receipt-test-third-shape]
+test = "receipt_evidence_comes_from_recorded_node_transport_and_rejects_mutations"
+change = "The real sequencer transport decodes an unchanged committed node receipt vector; the production settlement authenticator accepts its signed execution/logs and refuses signature, sender, account, amount, emitter, status, nonce and gas mutations. The ramp order verifier refuses relabelling the unrelated node vector as an order payment. Existing local receipt-format assertions remain narrower coverage."
+wiring = "Domain 2: precompiles/layerxpay and rpc/sequencer_receipt_vectors_test.go must commit a recorded budgetSpend execution with its order inputs, budget ABI, exact signed transaction, emitted BudgetSpent and signed node receipt; no native recording is invented here."
+
+[finding.signer-test-third-shape]
+test = "signer_compact_contract_refuses_third_shape_and_wrong_key"
+change = "The production KMS consumer decodes compact signature plus recovery_id, recovers the actual transaction signer and rejects a wrong key, wrong prehash, 65-byte synthetic response, signature64 alias, missing/null/noncanonical parity and extra fields. This is codec coverage, not hosted KMS enrollment or handler qualification."
+wiring = "Domain 8: services/platform/ramps/toolkit/Cargo.toml must declare a test dependency on layerx-platform-internal to enroll a secp256k1 key in the real hosted KMS and route its response through prepare_payment/submit_prepared over TLS; neither that manifest nor hosted KMS is in scope."
+
+[finding.native-payment-proof-gap]
+test = "maintained_customer_payment_binds_authority_and_refuses_retired_calldata"
+change = "The actual compiler and prepare_customer_payment consumer check customer signature, protocol-three recipient, maintained budget state, owner/asset/purpose/expiry/revocation, exact amount, chain and emitter; customer-signed historical draw calldata is refused. Existing historical encoding/decoding coverage remains. This does not claim execution of the Go native precompile."
+wiring = "Domain 2: precompiles/layerxpay must supply the maintained native execution transcript requested under receipt-test-third-shape, including a native retired-selector refusal; executing its Go harness from the Rust test would violate gotcha 2962."
+
+[finding.recovery-test-node-gateway-double]
+test = "recovery_node_namespace_and_terminal_custody_contradictions"
+change = "Production recovery reads node root eth_chainId/eth_blockNumber and signed sequencer receipts over real HTTP, independently reconciles custody over TLS, and authenticates committed block transaction inclusion after a v2 journal restart. It refuses chain mismatch, receipted/submitted regression, failed execution, conflicting block hash, signature mutation and missing inclusion while preserving the terminal snapshot and disabling writes. Node peers never answer hosted px methods."
+wiring = "Domain 2: node/sequencer must publish a full root-RPC committed transaction/block transcript; the receipt producer recording is retained unchanged, while block inclusion is a loopback peer fixture. Recovery has no configured hosted gateway and must never require px_getNetwork."

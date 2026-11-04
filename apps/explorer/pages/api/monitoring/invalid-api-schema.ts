@@ -5,33 +5,66 @@ import type { ApiName } from 'lib/api/types';
 import { httpLogger } from 'nextjs/utils/logger';
 
 import { RESOURCES } from 'lib/api/resources';
-import getErrorMessage from 'lib/errors/getErrorMessage';
 import metrics from 'lib/monitoring/metrics';
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  try {
-    const payload: { resource?: string; url?: string } = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+export function createInvalidApiSchemaHandler(
+  counter = metrics?.invalidApiSchema,
+  logger = httpLogger.logger,
+) {
+  let diagnosticWindowStart = Date.now();
+  let diagnosticCount = 0;
 
-    if (!payload.resource) {
-      throw new Error('Resource not found');
+  function logDiagnostic(details: { resource?: string; url?: string; errorCategory: 'invalid_response_schema' | 'invalid_report' }) {
+    const now = Date.now();
+    if (now - diagnosticWindowStart >= 60_000) {
+      diagnosticWindowStart = now;
+      diagnosticCount = 0;
     }
 
-    const [ apiName, resourceName ] = payload.resource.split(':');
-    const api = RESOURCES[apiName as ApiName];
-    const resource = api?.[resourceName as keyof typeof api];
-
-    if (!resource) {
-      throw new Error(`Resource not found: ${ payload.resource }`);
+    if (diagnosticCount < 10) {
+      diagnosticCount++;
+      logger.warn({ message: 'Invalid API schema report', ...details });
     }
-
-    const url = payload.url ? new URL(payload.url) : undefined;
-
-    metrics?.invalidApiSchema.inc({
-      resource: payload.resource,
-      url: url?.toString(),
-    });
-  } catch (error) {
-    httpLogger.logger.error({ message: 'Unable to process invalid API schema', error: getErrorMessage(error) || 'Unknown error' });
   }
-  res.status(200).json({ status: 'ok' });
+
+  return async function handler(req: NextApiRequest, res: NextApiResponse) {
+    try {
+      const payload: unknown = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+
+      if (!payload || typeof payload !== 'object' || !('resource' in payload) || typeof payload.resource !== 'string') {
+        throw new Error('Resource not found');
+      }
+
+      const [ apiName, resourceName, extra ] = payload.resource.split(':');
+      const api = Object.prototype.hasOwnProperty.call(RESOURCES, apiName) ? RESOURCES[apiName as ApiName] : undefined;
+
+      if (!api || extra !== undefined || !Object.prototype.hasOwnProperty.call(api, resourceName)) {
+        throw new Error('Resource not found');
+      }
+
+      let diagnosticUrl: string | undefined;
+      if ('url' in payload && payload.url !== undefined && payload.url !== '') {
+        if (typeof payload.url !== 'string') {
+          throw new Error('Invalid diagnostic URL');
+        }
+        const url = new URL(payload.url);
+        if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+          throw new Error('Invalid diagnostic URL');
+        }
+        url.username = '';
+        url.password = '';
+        url.search = '';
+        url.hash = '';
+        diagnosticUrl = url.toString().slice(0, 512);
+      }
+
+      counter?.inc({ resource: payload.resource, url: 'invalid_response_schema' });
+      logDiagnostic({ resource: payload.resource, errorCategory: 'invalid_response_schema', url: diagnosticUrl });
+    } catch {
+      logDiagnostic({ errorCategory: 'invalid_report' });
+    }
+    res.status(200).json({ status: 'ok' });
+  };
 }
+
+export default createInvalidApiSchemaHandler();

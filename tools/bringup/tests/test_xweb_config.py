@@ -55,7 +55,7 @@ class XwebConfigTest(unittest.TestCase):
                     response["result"] = {
                         "height": 1,
                         "assets": [
-                            {"asset_id": asset["asset_id"], "layerx": asset}
+                            asset
                             for asset in reversed(list(assets.values()))
                         ],
                     }
@@ -145,6 +145,8 @@ class XwebConfigTest(unittest.TestCase):
                 for path in files:
                     self.assertNotIn("lx_", path.read_text(encoding="utf-8"), str(path))
                     config = json.loads(path.read_text(encoding="utf-8"))
+                    self.assertEqual(config["gateway"]["endpoint"], env["XWEB_GATEWAY_ENDPOINT"])
+                    self.assertEqual(config["evm"]["endpoint"], "http://127.0.0.1:8545")
                     self.assertEqual(set(config["assets"]), set(assets))
                     for symbol, asset in assets.items():
                         self.assertEqual(

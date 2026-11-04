@@ -1,0 +1,26 @@
+[repair]
+task = "22.31.484"
+criterion = "22998.1"
+base_revision = "f54f0086e13b348e236ca71fe67cf82d702d3951"
+verified_revision = "The candidate revision recorded by hf-done in /out/run/gates.jsonl and /out/logs/verify-1.log; it must equal the hf-build revision."
+producer = "programs/crates/layerx-programs-ai-market/src/reputation_transition.rs: encode_joint emits RP07 reputation, optional HA07 seal, then F08 AdmissionTable bytes."
+registry_producer = "programs/crates/layerx-programs-ai-market/src/registry_ops.rs: CREATE initializes the ReputationAdmission section with encode_joint."
+epoch_producer = "programs/crates/layerx-programs-ai-market/src/epoch.rs: compose and the reputation transitions preserve the F07 region and reassemble the F08 table with encode_joint."
+discovery_consumer = "services/platform/hosted/paxai-worker/src/discovery.rs: FinalizedAuthority::bind splits the joint section before AdmissionTable::decode and exposes decoded membership through membership()."
+membership_consumer = "services/platform/hosted/paxai-worker/src/membership.rs: MembershipObserver::observe splits the joint section before AdmissionTable::decode and exposes decoded membership through current().meta."
+region = "split_joint validates the optional reputation region and seal; these consumers use only F08 membership and do not consume reputation scores."
+continuation = "The checked-out base already split the section at both consumer sites; retain that repair and add observable membership and regression coverage."
+
+[wiring.authority-joint-section]
+request = "22.33.1465 attempt 3: authority-joint-section"
+status = "closed"
+resolution = "Both finalized consumers accept encode_joint output and legacy AdmissionTable bytes; split_joint refusals propagate through the existing ServiceError and MembershipError types without panics."
+proving_tests = ["joint_section_reaches_both_finalized_consumers", "legacy_table_section_reaches_both_finalized_consumers", "rejected_joint_sections_return_typed_errors_and_clear_readiness"]
+dependent_gate = "22.33.1465 retains its own requalification gate; this task verifies the section wiring only."
+
+[verification]
+build = "hf-build: cargo build --locked --manifest-path services/platform/hosted/paxai-w*/Cargo.toml --tests"
+verify = "hf-done: cg spec done 22.31.484 -f layerx-merge --root /work/paxeer-monorepo"
+verify_cmd = "cargo test --locked --manifest-path services/platform/hosted/paxai-w*/Cargo.toml --test repair_22_31_484"
+evidence = "/out/run/gates.jsonl records exact candidate revision, command, exit code and private log location for each bounded gate."
+path = "Real registry CREATE, F08 approval, encode_joint, shared-state encoding, chunked read_state_chunk/StateCapture, FinalizedAuthority::bind and MembershipObserver::observe; the observer is reopened and must bind fresh evidence before recovering readiness."

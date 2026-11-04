@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from hashlib import sha256
-from typing import Literal, NoReturn
+from typing import TYPE_CHECKING, Literal, NoReturn
 
 from . import verifier
 from .account_derivation import keccak256
@@ -12,11 +12,14 @@ from .generated.receipt import ReceiptFailureCode
 from .production import PlatformSdkError, SdkErrorCode
 from .revert import LXP_RETRYABLE, RevertReasonError, decode_revert_reason
 from .verifier import (
-    MerkleProof,
     ReceiptKey,
     ReceiptVerificationError,
     SequencerReceiptVerification,
 )
+
+if TYPE_CHECKING:
+    from .committed import CommitTrust
+
 
 PaymentCommitment = Literal["submitted", "receipted", "committed"]
 PAYMENT_RECEIPT_PROTOCOL_VERSIONS = (2, 3)
@@ -34,20 +37,11 @@ class PaymentCommitmentError(PlatformSdkError):
 
 
 @dataclass(frozen=True)
-class _SequencerAuthorization:
-    sequencer_id: bytes
-    public_key: bytes
-    first_batch_number: int
-    last_batch_number: int
-
-
-@dataclass(frozen=True)
-class PaymentCommitmentEvidence:
-    network_id: int
-    canonical_header: bytes
-    header_signature: bytes
-    authorization: _SequencerAuthorization
-    proof: MerkleProof
+class PaymentEvidence:
+    canonical_receipt: bytes
+    raw_transaction: bytes
+    finality: tuple[CommitTrust, dict] | None = None
+    grant_binding: dict | None = None
 
 
 @dataclass(frozen=True)

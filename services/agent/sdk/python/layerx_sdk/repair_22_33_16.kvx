@@ -1,0 +1,53 @@
+[meta]
+task = "22.33.16"
+audit = "22.30.100"
+acceptance = "22998.1"
+base_revision = "71ea2b5cfcf9fa483db0ed65d0630e08bca86d9f"
+qualification = "Only hf-build and hf-done qualify this task; the runner ledger supplies exact candidate revision, command, exit and private evidence log. The runner owns spec status and publication."
+baseline = "No earlier task gate ledger or task test module existed at inspection. No baseline gate ran: task order 1 forbids testing before complete implementation and order 4 requires verification only through hf-done after hf-build. No baseline failure or passing gate is claimed."
+format = "The repository declares no Python formatter; touched files follow its trailing-whitespace and final-newline hooks."
+
+[findings]
+retired-public-exports = "test_retired_public_exports_preserve_recorded_receipt_path"
+retired-program-routes = "test_retired_program_routes_use_signed_evm_and_hash_recovery; test_program_unknown_outcome_retains_signed_transaction_across_reopen; test_program_call_and_receipt_use_recorded_node_producer_after_reopen; test_program_mutations_refuse_bad_binding_before_transport; test_program_preparation_keeps_session_authenticated_envelope; test_lifecycle_hash_recovery_refuses_receipt_for_other_signed_transaction"
+journal-short-write = "test_journal_short_write_restarts_with_intact_record"
+legacy-exchange-writes = "test_legacy_exchange_writes_are_historical_and_current_calls_use_perps"
+trading-id-whitespace = "test_trading_id_whitespace_refused_in_perps_and_spot_before_send"
+trading-boolean-coercion = "test_trading_flags_refuse_non_booleans_without_transport"
+amount-float-truncation = "test_amount_float_truncation_refused_before_financial_mutation; test_exact_amounts_reach_real_intent_transport_without_loss"
+deployment-size-bound = "test_deployment_complete_payload_bound_exact_and_one_over; test_deployment_bound_is_enforced_on_signed_transport_path"
+
+[implementation]
+receipts = "Remove AuthorizedReceiptBatch, MerkleProof, PaymentCommitmentEvidence and rpc_batch_evidence from package imports and __all__; preserve ReceiptKey, sequencer verification and current payment verification."
+programs = "Locally encoded/reviewed EIP-1559 transactions retain signer, chain 125, 0x101D, zero-value, canonical calldata and hash identity checks; send exact signed bytes through root eth_sendRawTransaction and recover with pax_sequencerReceipt by that same hash. Mempool acknowledgement stays pending; lost, mismatched and already-known responses retain exact bytes as unknown. Authenticated session envelope APIs remain available."
+program_consumer = "ProgramOperations consumes submitted/pending hash responses without claiming receipt verification; lifecycle recovery verifies the native signed receipt and its RPC summary before returning a receipt. Current program calls continue to verify raw transaction, governed key/height pins and all recorded execution metadata."
+journal = "Complete every write before fsync/rename, retry interrupted writes and refuse zero progress; failed partial writes leave the previous durable record untouched. Reopening revalidates signed bytes and recovered state before real HTTP submission."
+exchange = "Every legacy builder, sender, address constant and event decoder is explicitly pre_v6120; current orders and positions use canonical perps builders and ABI signatures. Shared ABI and wallet send helpers remain available."
+validation = "Trading IDs accept exactly 64 lowercase hexadecimal digits and decode to 32 bytes. Writer.flag accepts only bool. ProtocolAmount accepts integer values or canonical u128 decimal strings and refuses floats, nonfinite values and fractional numeric types."
+deployment = "The complete native deployment frame is bounded at 524288 bytes; wasm_budget subtracts the 104-byte envelope and optional four-byte interface length plus interface bytes. Both encoding and decoding enforce the same limit."
+
+[proof]
+peers = "Committed sequencer-receipt-v1.json transcripts, a typed IntentPlan in-process peer, real loopback HTTP, actual EIP-1559 signing/recovery, native lifecycle/trading codecs and in-memory node admission; no subprocess, external binary, credential or endpoint is required."
+storage = "Fault injection wraps only os.write, writes actual partial bytes to the temporary file, and injects interruption, ENOSPC or zero progress. The journal component and persistent filesystem remain production paths; fresh instances reopen and decode the prior or completed record."
+financial_refusal = "Real HumanIntentClient plan and submit entry points refuse invalid amounts before any HTTP request; exact zero, ordinary and u128 maximum integers/strings traverse their actual payload codecs and consumers unchanged."
+limits = "Tests cover all flag-bearing perps layouts with exact true/false round trips; whitespace IDs cover both perps and spot, fixed and variable fields. Deployment tests cover no interface, one-byte and maximum-size interface metadata at the exact bound and one byte over, including signed root RPC transport."
+
+[wiring]
+retirement_test = "services/agent/sdk/python/tests/test_retired_kernel_receipts.py — SDK domain 9: replace expectations that retired package exports remain supported with absence checks and positive ReceiptKey/sequencer verification coverage."
+exchange_consumers = "tests/agent/sdk/python/test_precompile_calls.py and tests/agent/sdk/python/test_xweb_api.py — SDK domain 9: migrate current-network calls to canonical perps builders and explicitly label pre-v6120 fixture imports with the historical API names."
+program_route_consumers = "tests/agent/sdk/python/test_repair_22_31_147.py and tests/agent/sdk/python/test_programs.py — SDK domain 9: migrate old octet-stream program mutation peers to root eth_sendRawTransaction and hash-based pax_sequencerReceipt shapes; preserve transaction, signer and receipt-binding assertions."
+
+[gotchas]
+ordering = "The audit template asks for an unchanged-tree baseline, but the explicit task gate order prohibits it; record the conflict without spending an undeclared verification run."
+scope = "The initial .cgignore and spec task-status changes belong to runner setup and are left intact; GOTCHA.kvx and spec files cannot be edited in this task, so task-specific observations and wiring requests live here."
+
+[qualification.first_verify]
+revision = "1164d6d3f793e39de02fc923d7c76842d6a92ce3"
+command = "cg spec done 22.33.16 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "60 cases passed; six exact-amount cases failed because the shared intent transcript carries payment/routing/resolution fields outside the existing IntentPlan decoder contract."
+repair = "The task test's peer now produces a plan from the SDK's declared IntentPlan, IntentLeg, IntentEndpointRef and IntentMoney types instead of replaying that incompatible transcript; all existing assertions remain and returned monetary amounts are additionally checked. No shared fixture or intent decoder changes."
+
+[wiring.intent_transcript]
+request = "services/agent/sdk/python/layerx_sdk/intent.py and sdk/platform/conformance/fixtures/intent-plan-v1.json — human intent domain: reconcile the richer plan producer's payment, routing and endpoint resolution fields with the Python intent decoder in the owning task; this task leaves both interfaces intact."
