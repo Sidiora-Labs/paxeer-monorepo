@@ -218,7 +218,7 @@ type StateProviderP2P struct {
 	lc                      *light.Client
 	initialHeight           int64
 	paramsSendCh            *p2p.Channel[*pb.Message]
-	paramsRecvCh            chan types.ConsensusParams
+	paramsRecvCh            chan *pb.ParamsResponse
 	verifyLightBlockTimeout time.Duration
 }
 
@@ -248,7 +248,7 @@ func NewP2PStateProvider(
 		lc:                      lc,
 		initialHeight:           initialHeight,
 		paramsSendCh:            paramsSendCh,
-		paramsRecvCh:            make(chan types.ConsensusParams),
+		paramsRecvCh:            make(chan *pb.ParamsResponse),
 		verifyLightBlockTimeout: verifyLightBlockTimeout,
 	}, nil
 }
@@ -345,9 +345,9 @@ func (s *StateProviderP2P) State(ctx context.Context, height uint64) (sm.State, 
 		return sm.State{}, fmt.Errorf("fetching consensus params: %w", err)
 	}
 	// validate the consensus params
-	if !bytes.Equal(nextLightBlock.ConsensusHash, state.ConsensusParams.HashConsensusParams()) {
+	if !bytes.Equal(currentLightBlock.ConsensusHash, state.ConsensusParams.HashConsensusParams()) {
 		return sm.State{}, fmt.Errorf("consensus params hash mismatch at height %d. Expected %v, got %v",
-			currentLightBlock.Height, nextLightBlock.ConsensusHash, state.ConsensusParams.HashConsensusParams())
+			currentLightBlock.Height, currentLightBlock.ConsensusHash, state.ConsensusParams.HashConsensusParams())
 	}
 	// set the last height changed to the current height
 	state.LastHeightConsensusParamsChanged = currentLightBlock.Height
@@ -373,7 +373,7 @@ func (s *StateProviderP2P) Providers() []lightprovider.Provider {
 	return s.lc.Witnesses()
 }
 
-func (s *StateProviderP2P) ParamsRecvCh() chan types.ConsensusParams {
+func (s *StateProviderP2P) ParamsRecvCh() chan *pb.ParamsResponse {
 	return s.paramsRecvCh
 }
 
@@ -408,6 +408,13 @@ func (s *StateProviderP2P) consensusParams(ctx context.Context, height int64) (t
 				}
 			}
 		})
-		return utils.Recv(ctx, s.paramsRecvCh)
+		resp, err := utils.Recv(ctx, s.paramsRecvCh)
+		if err != nil {
+			return types.ConsensusParams{}, err
+		}
+		if resp.GetHeight() != uint64(height) { //nolint:gosec // height is a validated positive block height
+			return types.ConsensusParams{}, fmt.Errorf("consensus params response height mismatch: expected %d, got %d", height, resp.GetHeight())
+		}
+		return types.ConsensusParamsFromProto(resp.GetConsensusParams()), nil
 	})
 }
