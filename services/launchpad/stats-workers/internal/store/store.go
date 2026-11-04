@@ -41,8 +41,9 @@ type dbtx interface {
 // Store wraps a pgxpool for stats persistence. db is the pool itself, or the
 // caller's transaction for a Store returned by WithTx.
 type Store struct {
-	pool *pgxpool.Pool
-	db   dbtx
+	pool                 *pgxpool.Pool
+	db                   dbtx
+	accountingProjection string
 }
 
 // New builds a Store from a pgx pool.
@@ -58,7 +59,7 @@ func (s *Store) WithTx(tx pgx.Tx) *Store {
 	if s == nil || tx == nil {
 		return nil
 	}
-	return &Store{pool: s.pool, db: tx}
+	return &Store{pool: s.pool, db: tx, accountingProjection: s.accountingProjection}
 }
 
 // Pool exposes the underlying pool for health checks and read routes that build
@@ -240,5 +241,15 @@ func (s *Store) withXactLock(ctx context.Context, lockKey string, fn func(pgx.Tx
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("store: commit tx: %w", err)
 	}
+	return nil
+}
+
+// SetAccountingProjection binds compatibility fees to the configured canonical
+// projection before consumers and routes start. An unbound store cannot quote fees.
+func (s *Store) SetAccountingProjection(version string) error {
+	if version == "" || len(version) > 64 {
+		return fmt.Errorf("store: canonical accounting projection required")
+	}
+	s.accountingProjection = version
 	return nil
 }

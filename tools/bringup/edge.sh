@@ -423,8 +423,8 @@ cmd_set() {
 		mv "$state/edge.sh.new" "$state/edge.sh"
 		if [ -s "$rpc_pool" ]; then
 			mkdir -p "$cron_dir"
-			printf '%s\n* * * * * root EDGE_LOCAL=1 EDGE_NGINX_DIR=%q EDGE_CERT_DIR=%q EDGE_RESOLVER=%q flock -n %q %q rpc-health >/dev/null 2>&1\n' \
-				"$marker" "$nginx_dir" "$cert_dir" "$resolver" "$state/rpc-health.lock" "$state/edge.sh" >"$cron_dir/edge-rpc-health"
+			printf '%s\n* * * * * root EDGE_LOCAL=1 EDGE_NGINX_DIR=%q EDGE_CERT_DIR=%q EDGE_RESOLVER=%q %q rpc-health >/dev/null 2>&1\n' \
+				"$marker" "$nginx_dir" "$cert_dir" "$resolver" "$state/edge.sh" >"$cron_dir/edge-rpc-health"
 		fi
 	fi
 	awk 'NF {print "set " $1 " mode=" $5 " upstream=" $3 " sni=" $6 " port=" $4}' <<<"$lines"
@@ -491,6 +491,11 @@ cmd_rpc_health() {
 }
 
 cmd_rerender() {
+	if [ "${1:-}" = --imported ] || [ "${1:-}" = --locked ]; then
+		[ -e /proc/$$/fd/8 ] && [ /proc/$$/fd/8 -ef "$nginx_dir/.edge-operation.lock" ] || die "rerender requires the inherited mutation lock"
+		flock -x 8
+		if [ "$1" = --locked ]; then "${BRINGUP_INSPECT_BIN:-bringup-inspect}" edge-state recover "$nginx_dir"; fi
+	fi
 	if [ "${1:-}" != --imported ] && [ "${1:-}" != --locked ]; then edge_recover; fi
 	[ -r "$manifest" ] || die "no manifest at $manifest"
 	if [ "${1:-}" != --imported ]; then snapshot; fi

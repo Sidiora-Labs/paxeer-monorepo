@@ -97,6 +97,7 @@ const SearchResults = () => {
           queryType={ queryType }
           isLoading={ isLoading }
           searchTerm={ debouncedSearchTerm }
+          chainId={ chainId }
           beforeContent={ isMobile ? chainSelectElement : undefined }
         />
       ),
@@ -113,6 +114,7 @@ const SearchResults = () => {
           queryType={ undefined }
           isLoading={ isLoading }
           searchTerm={ debouncedSearchTerm }
+          chainId={ chainId }
           beforeContent={ isMobile ? chainSelectElement : undefined }
         />
       ),
