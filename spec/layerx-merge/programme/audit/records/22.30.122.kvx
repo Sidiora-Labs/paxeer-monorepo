@@ -1,0 +1,345 @@
+# Pre-upgrade audit. Repairs below are proposals owned by domain 13.
+
+[audit.22.30.122]
+task = "22.30.122"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 33
+findings = 12
+docs_reviewed = 1
+upgrade_ready = false
+blocking = ["header-omits-opened-epoch", "availability-hides-enabled-features", "participant-projection-drops-market-state", "reputation-region-never-created", "aggregation-reconstructs-mutable-roster", "task-admission-uses-next-epoch-attributes", "build-default-targets-chain-229"]
+review_basis = "All 33 source members read in full against package requirements and registry contracts. Expanded the truncated 400-entry package produces list to all 1528 member-owned registry rows, and reviewed the 96 consumed rows against actual SDK/runtime/hosted crossings. Lexical cross-domain error-name matches are not runtime dependencies. No retired router, daemon, checkpoint-finality authority or mirror-as-RPC dependency was found in this slice."
+qualification_boundary = "The audited source revision is the unchanged base above. This record proposes repairs only. The task gates validate the audit record and graph; they do not execute Rust lifecycle tests, deployment size checks or the inventory repair commands and do not establish those tests as passing."
+
+[file.admission]
+path = "programs/crates/layerx-programs-ai-market/src/admission.rs"
+lines = 1754
+verdict = "clean"
+note = "Read all membership, approval, consent, heartbeat, height-prune, staged-exit and replay transitions. Checked role flags, canonical table bounds, principal authorization and F08 transport through the shared section. The public epoch-prune helper and routed height-prune path are distinct; neither depends on a retired service."
+
+[file.aggregation]
+path = "programs/crates/layerx-programs-ai-market/src/aggregation.rs"
+lines = 1327
+verdict = "issues"
+note = "Read all weighting, median, eligibility, sealing, chunk, history and terminal transitions. Bounded fixed-point arithmetic agrees with aggregation_codec and reward_math. The mutable reconstruction of the frozen roster is the blocking exception below."
+
+[file.aggregation-codec]
+path = "programs/crates/layerx-programs-ai-market/src/aggregation_codec.rs"
+lines = 1468
+verdict = "clean"
+note = "Read all current/history/input/output codecs and structural validation. Checked ordered report commitments, cursor/count bounds, generation encoding, nonzero digests and trailing-byte refusal against aggregation and rewards. No retired finality authority is consumed."
+
+[file.closure]
+path = "programs/crates/layerx-programs-ai-market/src/closure.rs"
+lines = 707
+verdict = "clean"
+note = "Read complete wind-down and advance transitions, obligations, bounded receipts and value staging. Settlement effects pass through value_adapter before shared-state publication; retained replay results preserve the original outcome and unresolved obligations prevent premature closure."
+
+[file.codec]
+path = "programs/crates/layerx-programs-ai-market/src/codec.rs"
+lines = 2240
+verdict = "clean"
+note = "Read the complete readers, writers, software/host hashing, envelopes, reports, rosters, results, events, chunks and header codecs. Checked byte order, arithmetic, canonical optionality, zero identities, authenticated preimages and refusal codes against feature codecs and SDK boundaries."
+
+[file.commit-reveal]
+path = "programs/crates/layerx-programs-ai-market/src/commit_reveal.rs"
+lines = 703
+verdict = "clean"
+note = "Read all commit, reveal, recovery and replay paths. Checked binding/window validation, consumed commitments and the real reveal-to-F03 admission call with its sole returned event. There is no alternate direct-report selector bypassing the commitment."
+
+[file.commitment]
+path = "programs/crates/layerx-programs-ai-market/src/commit_reveal/commitment.rs"
+lines = 287
+verdict = "clean"
+note = "Read the entire bounded commitment table, codec, upsert and retry logic. Checked evaluator ordering, epoch matching, digest preservation and commitment consumption through persisted admitted-report rows after state reload."
+
+[file.dispatch]
+path = "programs/crates/layerx-programs-ai-market/src/dispatch.rs"
+lines = 1402
+verdict = "issues"
+note = "Read every operation definition, payload bound, authentication/sequence policy, route, readiness and rebind path. Guest ABI and result/error boundaries agree with the SDK. The evaluator authority route supplies an incorrect seal fact, recorded below."
+
+[file.epoch]
+path = "programs/crates/layerx-programs-ai-market/src/epoch.rs"
+lines = 1535
+verdict = "clean"
+note = "Read complete policy selection, rollover/freeze/reservation, activation, F07 composition, wrappers and history transitions. State/control suffixes survive stripping and rejoining. The optional F07 path requires an initial region; its missing production initializer is recorded against CREATE in registry_ops.rs."
+
+[file.errors]
+path = "programs/crates/layerx-programs-ai-market/src/errors.rs"
+lines = 1141
+verdict = "clean"
+note = "Read every application error, numeric code, mapping and refusal representation. Feature codes remain distinct through host_adapter and SDK transport. No error code assumes a retired daemon or checkpoint authority."
+
+[file.evaluator-admission]
+path = "programs/crates/layerx-programs-ai-market/src/evaluators/admission.rs"
+lines = 1101
+verdict = "clean"
+note = "Read report persistence, reveal admission, membership/signature checks, challenge retention and replay. Checked canonical producer shapes against F04, evidence and evaluator codecs. Worker membership is sourced from the reserved row; task and settlement use of mutable identity attributes is separately recorded against those consumers."
+
+[file.evaluator-authority]
+path = "programs/crates/layerx-programs-ai-market/src/evaluators/authority.rs"
+lines = 1111
+verdict = "clean"
+note = "Read grants, frozen evaluator snapshots, revocations, nomination/rotation and authority transitions. Checked principal restrictions, consent, key reuse and serialized exclusion flags. AuthorityContext requires real seal status; the incorrect caller is recorded in dispatch.rs."
+
+[file.evaluator-codec]
+path = "programs/crates/layerx-programs-ai-market/src/evaluators/codec.rs"
+lines = 503
+verdict = "clean"
+note = "Read consent/report codecs, grant and binding comparisons, score membership checks and native/guest signature verification. Checked exact lengths, score ordering, signed preimages and host-verification refusal propagation; these values do not establish state authority."
+
+[file.evaluator-model]
+path = "programs/crates/layerx-programs-ai-market/src/evaluators/model.rs"
+lines = 231
+verdict = "clean"
+note = "Read all grants, consents, report contexts and verification errors. Checked versions, nonzero keys, bounded grant spans and consent derivation against authority/admission producers. Authoritative state is an explicit caller responsibility."
+
+[file.evidence]
+path = "programs/crates/layerx-programs-ai-market/src/evidence.rs"
+lines = 2454
+verdict = "clean"
+note = "Read registration, task-set sealing, manifest/chunk codecs, conflicts and retention. Checked bounded resources, evaluator/report/rubric bindings, shared section/control suffixes, replay and recovery of encoded evidence seals."
+
+[file.guest-cell]
+path = "programs/crates/layerx-programs-ai-market/src/guest_cell.rs"
+lines = 71
+verdict = "clean"
+note = "Read the full single-instance arena borrow guard and checked the runtime creates a fresh Wasm instance per invocation. Permanent arena borrowing agrees with that lifecycle and cannot alias a second mutable invocation within the instance."
+
+[file.host-adapter]
+path = "programs/crates/layerx-programs-ai-market/src/host_adapter.rs"
+lines = 209
+verdict = "clean"
+note = "Read direct-call authentication, event/result conversion and application-error transport. Executing program, principal and height use real SDK Context accessors. Checked ABI manifest and host refusals against the SDK/runtime without treating guest values as finality authority."
+
+[file.lib]
+path = "programs/crates/layerx-programs-ai-market/src/lib.rs"
+lines = 337
+verdict = "issues"
+note = "Read every export, deployment parser, native test and guest entrypoint. Missing, malformed and zero chain-domain settings refuse. The build default and release profile disagree with the merged-network brief below; the entrypoint uses actual storage, value and event SDK paths."
+
+[file.policy]
+path = "programs/crates/layerx-programs-ai-market/src/policy.rs"
+lines = 411
+verdict = "clean"
+note = "Read complete task-policy commitments, fixed encoding, bounded defaults and validation. Checked version/activation, timeout, capacity and artifact/rubric digests against registry, task and epoch consumers and their policy-digest binding."
+
+[file.queries]
+path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+lines = 1075
+verdict = "issues"
+note = "Read all capture, binding, finalized-head, projection, filter and cursor code. Content identity excludes finality metadata; canonical transport preserves evidence/rank and cursors are bounded/authenticated. Stale projections and the contradictory finality test are recorded below."
+
+[file.registry]
+path = "programs/crates/layerx-programs-ai-market/src/registry.rs"
+lines = 413
+verdict = "clean"
+note = "Read market headers, clock/windows, account derivation and F01 capacity checks. Checked chain/program identity, be64 epoch/height arithmetic and SDK account-registration derivation. No checkpoint or separate sequencer is used as finality authority."
+
+[file.registry-ops]
+path = "programs/crates/layerx-programs-ai-market/src/registry_ops.rs"
+lines = 990
+verdict = "issues"
+note = "Read creation, lifecycle, policy, readiness, role/replay, receipt and result paths. Principal and stale-revision checks precede durable transitions. CREATE leaves F07 absent with no later production initializer, while its lifecycle fixture inserts the region manually."
+
+[file.reputation]
+path = "programs/crates/layerx-programs-ai-market/src/reputation.rs"
+lines = 538
+verdict = "clean"
+note = "Read all record/key/history representations, bounded iterators and validation. Checked segment/generation identity, canonical versions and history status against codec/transition consumers. Creation of the initial region is a composing producer responsibility, recorded separately."
+
+[file.reputation-codec]
+path = "programs/crates/layerx-programs-ai-market/src/reputation_codec.rs"
+lines = 355
+verdict = "clean"
+note = "Read the entire RP07 region and joint F07/F08 codecs, optional seal, ordered records and trailing-byte checks. Verified F08 suffix preservation and consistent epoch-wrapper decoding, with explicit absence when no region exists."
+
+[file.reputation-transition]
+path = "programs/crates/layerx-programs-ai-market/src/reputation_transition.rs"
+lines = 852
+verdict = "clean"
+note = "Read every open, seal, complete, reset, fork and retirement transition. Checked segment/generation conflicts, prospective identity changes, idempotent completion, finalized binding requirements and persisted history bounds against codecs/state."
+
+[file.reward-math]
+path = "programs/crates/layerx-programs-ai-market/src/reward_math.rs"
+lines = 262
+verdict = "clean"
+note = "Read integer apportionment, residual distribution and weighting. Checked u128 overflow refusal, deterministic remainder ordering and exact budget conservation against rewards and aggregation units; payouts do not use floating point."
+
+[file.rewards]
+path = "programs/crates/layerx-programs-ai-market/src/rewards.rs"
+lines = 2457
+verdict = "clean"
+note = "Read funding, reservation, allocation, payout, expiry, refund, closure and dictionary/state codecs. Checked account/asset/recipient binding, durable replay, obligations and real staged transfers. Reserved rows preserve worker/recipient references; consumers needing full immutable identity require the snapshot repair below."
+
+[file.roster]
+path = "programs/crates/layerx-programs-ai-market/src/roster.rs"
+lines = 474
+verdict = "issues"
+note = "Read inactivity selection, health/quorum, rollover and identity/replay-slot cleanup. Checked staged exits and retained obligations before removal. The declared quorum gate has only test callers and is absent from live task admission."
+
+[file.state]
+path = "programs/crates/layerx-programs-ai-market/src/state.rs"
+lines = 742
+verdict = "clean"
+note = "Read shared-section/control/replay codecs, actor slots, receipt retention and settlement suffixes. Checked canonical lengths, ownership, monotonic sequence/revision rules and durable re-delivery against feature writers. Guest state bounds fit SDK storage limits."
+
+[file.tasks]
+path = "programs/crates/layerx-programs-ai-market/src/tasks.rs"
+lines = 1155
+verdict = "issues"
+note = "Read task-set binding, admission, execution acknowledgement/results, cancellation, sealing and terminal codecs. Authorization and object-local retry semantics are checked. Frozen-worker reconstruction reads mutable identity attributes and rejects the opened binding after a next-epoch update."
+
+[file.types]
+path = "programs/crates/layerx-programs-ai-market/src/types.rs"
+lines = 343
+verdict = "clean"
+note = "Read every identity, digest, amount, presence, epoch and roster type and constructor. Checked fixed widths, nonzero invariants and protocol bounds against codec, SDK Amount and shared state. Guest state/event bounds fit the host limits."
+
+[file.value-adapter]
+path = "programs/crates/layerx-programs-ai-market/src/value_adapter.rs"
+lines = 343
+verdict = "clean"
+note = "Read preparation, funding/claim/refund matching, actual deposits/payments and staged effects. Checked LXPA1 registration, asset/amount/recipient shapes and SDK refusal handling against payments/transfer producers. Rewards and closure call the staging boundary."
+
+[file.workers]
+path = "programs/crates/layerx-programs-ai-market/src/workers.rs"
+lines = 1238
+verdict = "clean"
+note = "Read worker/manifest codecs, enrollment, publication, rotation, revocation, expiry and replay. Next-epoch metadata/key publication replaces current identity attributes with an effective_epoch marker; consumers must preserve the opening snapshot. Incorrect live reads are recorded against aggregation.rs and tasks.rs."
+
+[finding.header-omits-opened-epoch]
+file = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 107
+class = "interface-mismatch"
+severity = "high"
+observed = "read_header always returns epoch=Presence::Absent and roster=Presence::Absent, even after epoch::compose persists F08 current_epoch, the F03 evaluator snapshot and F06 reserved row/roster digest. bind_snapshot copies those absences into client/indexer transport, so the opened market cannot round-trip its frozen binding through READ_HEADER."
+expected = "Registry row 13.rs-aim-queries-read-header and the exact-state capture contract require the epoch and roster actually committed by OpenEpoch. Absence is valid before a frozen roster exists; brief checks 1 and 7 require the real opened-state producer to reach consumers."
+proposal = "In programs/crates/layerx-programs-ai-market/src/queries.rs derive epoch/roster from the captured F08/F03/F06 sections and refuse disagreement among their bindings. Exercise routed creation/enrollment/OpenEpoch, capture, client/indexer decoding and persisted-capture reopen, requiring identical present epoch and roster."
+owner_domain = 13
+interface = "13.rs-aim-queries-read-header"
+
+[finding.availability-hides-enabled-features]
+file = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 529
+class = "interface-mismatch"
+severity = "high"
+observed = "feature_availability returns F06=NotEnabled and F03/F04/F05/F07/F08/F09=NotYetProduced regardless of populated regions. Routed epoch, evidence, commitment, aggregation and reward producers already persist those regions. services/platform/hosted/indexer/src/ai_market.rs::observe saves this false availability with its captured market."
+expected = "Registry row 13.rs-aim-queries-feature-availability describes the exact captured state. Produced committed rewards, evidence and evaluator data must remain discoverable through the indexer; supported populated regions cannot be advertised as disabled or never produced."
+proposal = "In programs/crates/layerx-programs-ai-market/src/queries.rs decode each supported region and distinguish absent, produced, unsupported and unavailable content. Prove a real routed lifecycle capture reaches services/platform/hosted/indexer/src/ai_market.rs and retains the same availability after reopening its persisted index."
+owner_domain = 13
+interface = "13.rs-aim-queries-feature-availability"
+
+[finding.participant-projection-drops-market-state]
+file = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 741
+class = "interface-mismatch"
+severity = "high"
+observed = "participant_rows reads live F02 workers, joins evaluators only from an optional external RosterView, and hardcodes score=NotProduced, reward=NotEnabled and history=NotYetProduced. The real indexer rows_of passes None, dropping committed evaluators and reporting every worker outside the frozen roster even when F03/F06 hold an opened roster and settlement data."
+expected = "Registry row 13.rs-aim-queries-participant-rows must project participants and frozen membership from captured producer state. Brief checks 1, 5 and 7 require evaluator membership and produced score/reward/history availability to round-trip into the served view and through restart."
+proposal = "Make programs/crates/layerx-programs-ai-market/src/queries.rs derive frozen membership and produced fields from captured F03/F05/F06/F07/F08 state. Bind optional supplied rosters to that state. Update services/platform/hosted/indexer/src/ai_market.rs to consume the complete projection and test opened/settled captures before and after persisted-index reopen."
+owner_domain = 13
+interface = "13.rs-aim-queries-participant-rows"
+
+[finding.reputation-region-never-created]
+file = "programs/crates/layerx-programs-ai-market/src/registry_ops.rs"
+line = 607
+class = "wiring-gap"
+severity = "high"
+observed = "CREATE initializes feature_sections to policy and four empty slices. No routed transition initializes ReputationState::new for absent RP07: epoch::compose preserves None and with_region simply runs the other producer. History operations refuse F07_UNKNOWN_WORKER. tests/reputation_lifecycle.rs::World::create uses world.edit to insert Region{ReputationState::new(...)} that the real CREATE never emits."
+expected = "The finished market must accumulate durable F07 history through ordinary authorized creation, enrollment, opening and settlement. Brief checks 2, 5 and 7 require the production lifecycle to establish the region without an out-of-band fixture edit."
+proposal = "Initialize empty RP07 in programs/crates/layerx-programs-ai-market/src/registry_ops.rs CREATE, or add an authorized first-region transition in epoch.rs preserving the F08 suffix. Prove routed creation through multiple opened/settled epochs and history reads, including state reopen, without test-only insertion."
+owner_domain = 13
+
+[finding.aggregation-reconstructs-mutable-roster]
+file = "programs/crates/layerx-programs-ai-market/src/aggregation.rs"
+line = 612
+class = "interface-mismatch"
+severity = "high"
+observed = "frozen_roster loads worker/recipient from reserved F06 but owner, generation, key_version, delegate and metadata from live WorkerTable. workers::publish_metadata and rotate_delegate replace those attributes immediately with effective_epoch=next_epoch. BeginAggregation/ProcessAggregation recompute the original digest through AggregationInputView::structural and refuse WRONG_ROSTER after a valid update, preventing terminal settlement of the active reserve."
+expected = "Registry row 13.rs-aim-aggregation-apply consumes the immutable roster committed by OpenEpoch. Next-epoch metadata or delegate changes must not invalidate an opened epoch or stop its reserved funds settling, including after restart."
+proposal = "Persist full immutable WorkerRosterEntry values when programs/crates/layerx-programs-ai-market/src/epoch.rs freezes the roster. Make aggregation.rs load them for begin/process/finalize, keeping current revocation eligibility separate. Test opening, permitted metadata/key updates, state reopen, chunked aggregation and final settlement against the original digest."
+owner_domain = 13
+interface = "13.rs-aim-aggregation-apply"
+
+[finding.task-admission-uses-next-epoch-attributes]
+file = "programs/crates/layerx-programs-ai-market/src/tasks.rs"
+line = 747
+class = "interface-mismatch"
+severity = "high"
+observed = "check_frozen_worker reconstructs every frozen worker entry from live WorkerTable and compares the digest with opened SetBinding.roster. Any frozen worker publishing next-epoch metadata or rotating a delegate changes that digest. New admissions can refuse WRONG_ROSTER for the whole opened roster, including other workers whose identities did not change."
+expected = "Registry row 13.rs-aim-tasks-apply binds work to the opened epoch and frozen metadata. Next-epoch identity publication must preserve admission for eligible current-epoch workers; live revocation checks must not rewrite another worker's frozen binding."
+proposal = "In programs/crates/layerx-programs-ai-market/src/tasks.rs read immutable opening entries from the persisted epoch snapshot, compare requested metadata with that snapshot and check current authority separately. Test publishing/rotating one worker during Work and admitting for another before and after state reload with the original roster binding."
+owner_domain = 13
+interface = "13.rs-aim-tasks-apply"
+
+[finding.authority-route-forgets-aggregate-seal]
+file = "programs/crates/layerx-programs-ai-market/src/dispatch.rs"
+line = 1229
+class = "interface-mismatch"
+severity = "medium"
+observed = "The authority route always sets AuthorityContext.aggregate_sealed=false. authority::revoke persists/emits excludes_frozen_epoch = region.frozen(evaluator) && !ctx.aggregate_sealed. Revocations after F05 sealing are therefore labelled as excluding the sealed epoch, although retained sealed input commitments are not reselected."
+expected = "Registry row 13.rs-aim-evaluators-authority-authoritycontext and aggregation::progress require seal status for the same opened epoch: phase != AggregationPhase::Unsealed. Post-seal revocation must distinguish future authority from the existing sealed input set."
+proposal = "In programs/crates/layerx-programs-ai-market/src/dispatch.rs derive aggregate_sealed from aggregation::progress over the same committed state, handling pre-opening explicitly. Test routed revocation before/after BeginAggregation, serialized flags/events and reopened state, with sealed input commitments unchanged."
+owner_domain = 13
+interface = "13.rs-aim-evaluators-authority-authoritycontext"
+
+[finding.build-default-targets-chain-229]
+file = "programs/crates/layerx-programs-ai-market/src/lib.rs"
+line = 63
+class = "config-drift"
+severity = "high"
+observed = "deployment::CHAIN_DOMAIN treats build-time PAXAI_CHAIN_DOMAIN as authoritative. Makefile:2903 defaults it to b69143b1aa0c360367c299a2a47bbbfe3546ecbdc0a78c640770d49d977f038d, the digest for chain 229; tests/chain_domain.rs:18 pins MERGED_CHAIN_ID=229 and that default. Brief fact 1 specifies chain 125, whose domain is 62b6b14734fa769c3e0fbc94de495a3d038be49a2524b1c071d75d0a4eed71f6."
+expected = "Brief facts 1/6, requirements 13287.1/13287.2 and registry row 13.env-paxai-chain-domain-src-lib-rs require the guest code hash and derived market identities to bind the actual merged chain. A different chain's well-formed domain must not be the deployment build default."
+proposal = "Derive PAXAI_CHAIN_DOMAIN from chain-125 activation configuration in Makefile and Programs packaging; cross-check merged_chain_domain(125) before deployment. Update programs/crates/layerx-programs-ai-market/tests/chain_domain.rs and tests/ci/test_paxai_chain_domain.py to pin the real identity while retaining foreign-domain refusals."
+owner_domain = 13
+interface = "13.env-paxai-chain-domain-src-lib-rs"
+
+[finding.guest-release-profile-differs-from-limit-contract]
+file = "programs/crates/layerx-programs-ai-market/src/lib.rs"
+line = 188
+class = "config-drift"
+severity = "medium"
+observed = "The guest entrypoint is packaged by Makefile:2915 with cargo build --release for wasm32-unknown-unknown, but programs/Cargo.toml:31 sets release opt-level=3 and the command has no z override. The declared build profile disagrees with the brief. This static audit does not establish emitted Wasm size or claim a payload-size gate ran."
+expected = "Brief fact 6, decision 2483 and requirement 13991.1 require release opt-level z and a measured deployment payload of Wasm bytes plus the 104-byte envelope at most 524288 bytes."
+proposal = "Select the required release opt-level z explicitly in programs/Cargo.toml and the AI guest Makefile packaging target. Have the owning deployment qualification measure the actual artifact plus 104 against 524288 and record its revision; retain the payload bound and execution assertions."
+owner_domain = 13
+
+[finding.finality-test-expects-rank-promotion]
+file = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 339
+class = "test-gap"
+severity = "medium"
+observed = "bind_snapshot preserves finality.rank and refuses ranks above FINALIZED_RANK=4. tests/view_binding.rs:510 supplies rank 2 but asserts published.rank=4 and successful require_finalized; its loop expects ranks 0,4,5,255 to yield the same binding. This contradicts the producer and proof_ai_market_guest's real committed-head refusal path. This is a static contradiction, not an executed test result."
+expected = "Requirements 13279.1/13279.2 and 13280.3 require truthful finality evidence and refusal of uncommitted bindings. Tests must prove lower-rank preservation, invalid-rank rejection and actual rank-4 acceptance without manufacturing finality."
+proposal = "In programs/crates/layerx-programs-ai-market/tests/view_binding.rs drive the positive case with committed rank-4 evidence and exact field assertions. Separately assert lower-rank preservation/finalization refusal and invalid-rank rejection, reusing tests/proof_ai_market_guest.rs real capture/transport/reopen path. Do not promote ranks in queries.rs to satisfy the stale fixture."
+owner_domain = 13
+interface = "13.rs-aim-queries-bind-snapshot"
+
+[finding.quorum-gate-has-no-production-caller]
+file = "programs/crates/layerx-programs-ai-market/src/roster.rs"
+line = 83
+class = "wiring-gap"
+severity = "medium"
+observed = "roster::require_quorum is the documented new evaluation-dependent admission gate and refuses below POLICY_V1.score_quorum=3. Its registry callers are tests only. tasks::admit checks windows, worker binding and capacity but never invokes it, so loss of eligible evaluators after opening does not stop new evaluation-dependent work."
+expected = "Registry row 13.rs-aim-roster-require-quorum and F08 health require new evaluation-dependent task admission to respect eligible frozen evaluator quorum. An isolated helper test cannot enforce that rule on the dispatched path."
+proposal = "Wire roster::require_quorum into programs/crates/layerx-programs-ai-market/src/tasks.rs using the same committed F08 table, after exact-retry handling and before new writes. Test routed refusal below three eligible evaluators, unchanged state and the same outcome after persisted-state reopen."
+owner_domain = 13
+interface = "13.rs-aim-roster-require-quorum"
+
+[finding.binding-contract-byte-bound-is-stale]
+file = "spec/layerx-merge/contracts/programs.md"
+line = 1226
+class = "doc-drift"
+severity = "medium"
+observed = "The AI-market contract table and registry row 13.rs-aim-queries-binding-max-bytes declare BINDING_PREFIX_MAX_BYTES + 32 + 33 + 1 + 8 + 8. queries.rs:40 implements prefix + 8 + 32 + 32 + 32 + 1 + 8 + 8 for block-commit finality. Contract lines 1276-1280 and 1868-1869 also label existing view_binding and chain_domain tests as planned."
+expected = "Requirements 13280.1 and 13287.1/13287.2 require the binding layout and chain-domain contract to agree with real producers and tests. Integrators need the current v2 finality section size and accurate qualification references."
+proposal = "Through the owning specification workflow update spec/layerx-merge/contracts/programs.md#ai-market-guest and the matching interfaces.kvx row with current v2 field order/bound. Refresh present test references and their finality/chain-domain semantics, preserving content-prefix identity and strict rank-4 finality."
+owner_domain = 13
+interface = "13.rs-aim-queries-binding-max-bytes"
+
+[doc.programs-contract]
+path = "spec/layerx-merge/contracts/programs.md"
+status = "stale"
+notes = "Reviewed the introduction and applicable AI-market, SDK/runtime, error, configuration and finality acceptance tables. Line 1226 retains the old binding byte bound and lines 1276-1280/1868-1869 mark present tests as planned. The page identifies its historical pinned revision, but these claims need reconciliation for the upgrade. The package lists no pages; this further page was read through registry contract references."
