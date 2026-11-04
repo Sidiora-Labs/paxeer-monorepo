@@ -2,10 +2,16 @@
 //! Proofs: finding_001_packaging_uses_chain_125_and_refuses_foreign_settings;
 //! finding_001_request_state_event_and_header_share_chain_125;
 //! finding_001_foreign_requests_and_state_refuse_without_writes.
-//! Wiring request (domain 13): Makefile PAXAI_CHAIN_DOMAIN must use the chain-125
-//! golden 62b6b14734fa769c3e0fbc94de495a3d038be49a2524b1c071d75d0a4eed71f6.
-//! Wiring request (domain 13): tests/ci/test_paxai_chain_domain.py must derive its
-//! golden from chain 125 and retain the packaging override checks.
+//! Task 22.31.464 wires Makefile PAXAI_CHAIN_DOMAIN and
+//! tests/ci/test_paxai_chain_domain.py to the chain-125 golden
+//! 62b6b14734fa769c3e0fbc94de495a3d038be49a2524b1c071d75d0a4eed71f6,
+//! retaining packaging override checks. It also updates this test record at
+//! programs/crates/layerx-programs-ai-market/tests/repair_22_31_254.rs.
+//! Declared gates: hf-build (Python compilation), then hf-done (CI and graph checks).
+//! Wiring request: reconcile historical chain-229 references in
+//! spec/layerx-merge/spec.kvx,
+//! spec/layerx-merge/programme/audit/records/22.30.122.kvx and
+//! spec/layerx-merge/programme/sweeps/repairs/c-kernel-make.5.kvx.
 //! Wiring request (domain 13): regenerate build/paxai-host-boundary guest/manifest
 //! through the real deployment build after the Makefile domain is wired to 125.
 //! Baseline: base 7fc896febbb27d599c34aa9b6e0a81d4a7905759 already defaults the
@@ -31,7 +37,6 @@ use layerx_programs_ai_market::{
 use sha2::{Digest, Sha256};
 
 const PAXEER_DOMAIN: &str = "62b6b14734fa769c3e0fbc94de495a3d038be49a2524b1c071d75d0a4eed71f6";
-const RETIRED_DOMAIN: &str = "b69143b1aa0c360367c299a2a47bbbfe3546ecbdc0a78c640770d49d977f038d";
 
 fn context(chain: ChainDomain) -> CodecResult<CallContext> {
     Ok(CallContext {
@@ -186,12 +191,19 @@ fn finding_001_packaging_uses_chain_125_and_refuses_foreign_settings() -> CodecR
         deployment_chain_domain_from_setting(Some(PAXEER_DOMAIN))?.bytes(),
         golden
     );
+    let retired_domain = format!(
+        "{:x}",
+        Sha256::new()
+            .chain_update(b"PAXAI/chain-domain/v1")
+            .chain_update(229u64.to_be_bytes())
+            .finalize()
+    );
     assert_eq!(
         merged_chain_domain(229),
-        queries::parse_hex32(RETIRED_DOMAIN)?
+        queries::parse_hex32(&retired_domain)?
     );
     for invalid in [
-        RETIRED_DOMAIN.to_owned(),
+        retired_domain,
         "00".repeat(32),
         "aa".repeat(32),
         String::new(),
