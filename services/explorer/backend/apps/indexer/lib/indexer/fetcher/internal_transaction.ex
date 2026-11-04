@@ -218,7 +218,7 @@ defmodule Indexer.Fetcher.InternalTransaction do
   @spec block_traceable_variants() :: [module()]
   def block_traceable_variants do
     if Application.get_env(:ethereum_jsonrpc, EthereumJSONRPC.Geth)[:block_traceable?] do
-      [EthereumJSONRPC.Geth | @default_block_traceable_variants]
+      [EthereumJSONRPC.Geth, EthereumJSONRPC.PaxeerX | @default_block_traceable_variants]
     else
       @default_block_traceable_variants
     end
