@@ -7,19 +7,19 @@
     "rpc": {
       "endpoints": [
         {
-          "url": "https://paxeer-a.example/rpc",
+          "url": "https://paxeer-a.example/",
           "ca_certificate_der": "/run/secrets/paxeer-a.ca.der",
           "bearer_token_file": "/run/secrets/paxeer-a.token",
           "independent_backend": "paxeer-a"
         },
         {
-          "url": "https://paxeer-b.example/rpc",
+          "url": "https://paxeer-b.example/",
           "ca_certificate_der": "/run/secrets/paxeer-b.ca.der",
           "bearer_token_file": "/run/secrets/paxeer-b.token",
           "independent_backend": "paxeer-b"
         },
         {
-          "url": "https://paxeer-c.example/rpc",
+          "url": "https://paxeer-c.example/",
           "ca_certificate_der": "/run/secrets/paxeer-c.ca.der",
           "bearer_token_file": "/run/secrets/paxeer-c.token",
           "independent_backend": "paxeer-c"
