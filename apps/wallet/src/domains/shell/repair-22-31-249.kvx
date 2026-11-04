@@ -1,0 +1,11 @@
+[repair.22.31.249]
+finding = "send-recipient-roundtrip"
+audit = "spec/layerx-merge/programme/audit/records/22.30.120.kvx"
+base_revision = "9b3c0edb83db2c918d37d3910bad522f5b067ca3"
+change = "Serialize the send route recipient alongside its token; retain validation and normalization through the real route parser and useAppRoute commit."
+tests = ["sendRecipientRoundTripsThroughBothRouteParsers", "sendRecipientSurvivesInitialDeepLinkCommit", "sendRecipientSurvivesNavigationHistoryAndReload", "sendRecipientValidationRejectsInvalidDestinations"]
+test_path = "apps/wallet/src/domains/shell/repair-22-31-249.test.ts"
+baseline = "Not executed: the task's ordered gate instructions prohibit verification before implementation and prohibit invoking verify_cmd by hand; no prior gate ledger exists. The first three tests assert the recipient which the original serializer omits."
+evidence = "hf-done records the verified candidate revision, command, exit code and private log in its final JSON line and /out/run/gates.jsonl."
+qualification_gotcha = "Vitest accepts test(function) as a description without a callback and reports todo; register each declared test with test(function.name, function) so assertions execute. The first verification exited zero with four todos and is not behavioral qualification."
+wiring_request = "Domain 12 (wallet): apps/wallet/src/widgets/shell/ShellWidget.tsx and apps/wallet/src/widgets/send/SendWidget.tsx must wire the retained send route recipient into the send form; these widget paths are outside this task's scope."

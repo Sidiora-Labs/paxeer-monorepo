@@ -593,7 +593,7 @@ fn validate_url(value: &str) -> Result<(), X402Error> {
     Ok(())
 }
 
-fn parse_hex32(value: &str) -> Result<[u8; 32], X402Error> {
+pub(crate) fn parse_hex32(value: &str) -> Result<[u8; 32], X402Error> {
     let digits = value.strip_prefix("0x").unwrap_or(value);
     if digits.len() != 64 || !digits.bytes().all(|byte| byte.is_ascii_hexdigit()) {
         return Err(X402Error::InvalidRequirements);

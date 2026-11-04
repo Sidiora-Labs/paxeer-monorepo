@@ -292,3 +292,45 @@ func TestMoveRefusesAWritableSourceAndMissingConfiguration(t *testing.T) {
 		}
 	}
 }
+
+func TestMoveDeltaRefusesMissingPopulatedTableAfterReopen(t *testing.T) {
+	f := newFixture(t)
+	if _, err := move.Move(ctx(t), f.opts); err != nil {
+		t.Fatalf("move: %v", err)
+	}
+	if n := one(t, f.pg.DB, `select count(*)::text from wallet_signatures`); n != "2" {
+		t.Fatalf("source signatures: %s, want 2", n)
+	}
+	if n := one(t, f.target.DB, `select count(*)::text from _migrations where filename = '006_archive_funded.sql'`); n != "1" {
+		t.Fatal("target has no applied retirement migration")
+	}
+	if _, err := f.target.DB.Exec(`drop table wallet_signatures`); err != nil {
+		t.Fatal(err)
+	}
+	sourceBefore := testsupport.Fingerprint(t, f.pg.DB)
+	targetBefore := testsupport.Fingerprint(t, f.target.DB)
+	for attempt := 0; attempt < 2; attempt++ {
+		if err := f.target.DB.Close(); err != nil {
+			t.Fatal(err)
+		}
+		db, err := sql.Open("postgres", f.target.URL)
+		if err != nil {
+			t.Fatal(err)
+		}
+		f.target.DB = db
+		t.Cleanup(func() { db.Close() })
+		r, err := move.MoveDelta(ctx(t), f.opts)
+		if !errors.Is(err, rehearsal.ErrSchema) {
+			t.Fatalf("attempt %d accepted an unrelated missing table: %+v %v", attempt, r, err)
+		}
+		if len(r.Dropped) != 0 || r.Moved() != 0 {
+			t.Fatalf("refused delta reported retired or moved rows: %+v", r)
+		}
+		if after := testsupport.Fingerprint(t, f.target.DB); !reflect.DeepEqual(targetBefore, after) {
+			t.Fatal("refused delta changed the target after reopen")
+		}
+		if after := testsupport.Fingerprint(t, f.pg.DB); !reflect.DeepEqual(sourceBefore, after) {
+			t.Fatal("refused delta changed the populated source after reopen")
+		}
+	}
+}
