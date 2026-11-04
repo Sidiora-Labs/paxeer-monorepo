@@ -56,7 +56,7 @@ async fn health(#[future] api_client: ApiClient) {
     let success = health.try_as_success().cloned().unwrap_or_else(|| {
         panic!("failed to get health: {:?}", &health.entity);
     });
-    assert_eq!(success.healthy, Some(true));
+    assert_eq!(success.healthy, true);
     let metadata = serde_json::to_value(success.metadata.expect("metadata is None"))
         .expect("Failed to serialize typed health metadata");
     assert!(metadata.get("latest_block").is_none());
@@ -69,6 +69,7 @@ async fn health(#[future] api_client: ApiClient) {
         assert!(number.chars().all(|c| c.is_ascii_digit()));
         assert_eq!(number, "23116935");
     }
+
     let health_v1 = health_api.health_v1().await.expect("Failed to get health");
     let success = health_v1.try_as_success().cloned().unwrap_or_else(|| {
         panic!("failed to get health: {:?}", &health_v1.entity);
