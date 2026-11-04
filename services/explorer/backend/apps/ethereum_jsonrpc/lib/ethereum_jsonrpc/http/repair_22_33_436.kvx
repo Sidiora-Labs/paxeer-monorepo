@@ -1,0 +1,45 @@
+[repair.22.33.436]
+audit = "22.30.147"
+requirement = "22998.1"
+test_module = "EthereumJSONRPC.Repair2233436Test"
+test_path = "services/explorer/backend/apps/ethereum_jsonrpc/test/repair/repair_22_33_436_test.exs"
+baseline = "Not run: the task's ordered gate instructions require complete implementation before hf-build and hf-done, and prohibit invoking verify_cmd directly; no baseline failures are claimed."
+evidence = "The runner records the exact candidate revision, command, exit and private log in hf-build/hf-done's ledger; qualification is asserted only by a passing hf-done."
+
+[finding.http-batch-metrics-40]
+tests = ["HTTPoison attributes mixed reordered batch members and errors by ID", "HTTPoison whole-transport failure charges every attempted batch member"]
+rule = "Count every outgoing member by its method; count JSON-RPC errors by matching response ID, including reordered and repeated-method members; a failed transport counts one error for every attempted member."
+
+[finding.http-gzip-errors-40]
+tests = ["HTTPoison plain and gzip errors have identical accounting and consumer results", "HTTPoison recorded block travels through the import schema over gzip HTTP"]
+rule = "Inflate once before instrumentation and deliver the same inflated body to the HTTP consumer."
+
+[finding.http-batch-metrics-41]
+tests = ["Tesla attributes mixed reordered batch members and errors by ID", "Tesla whole-transport failure charges every attempted batch member"]
+rule = "Use the same per-member accounting and whole-transport rule as HTTPoison."
+
+[finding.http-gzip-errors-41]
+tests = ["Tesla plain and gzip errors have identical accounting and consumer results", "Tesla recorded block travels through the import schema over gzip HTTP"]
+rule = "Inflate once before instrumentation and deliver the same inflated body to the HTTP consumer."
+
+[finding.throttle-admission-unbounded]
+tests = ["sustained node outage bounds admission, expires waiters and rejects overload", "coalesced followers share the bounded queue and disappear at their deadlines", "HTTPoison admission and HTTP execution consume one absolute deadline", "Tesla admission and HTTP execution consume one absolute deadline", "global, trace and archive caps remain independent and allow ordinary work to progress", "rate tokens survive guard reopening and retain per-member batch weight"]
+rule = "max_queue bounds queued and coalesced waiters across all endpoints; request_timeout covers admission plus cancellable HTTP execution; overload, unavailability and deadline exhaustion return typed throttle errors."
+
+[finding.throttle-queue-gauge]
+tests = ["queue and inflight gauges sum two busy endpoints and retain them when a third is idle", "coalesced followers share the bounded queue and disappear at their deadlines"]
+rule = "Class-only queue labels sum all queued and coalesced waiters across all endpoint state; endpoint URLs never become labels."
+
+[finding.throttle-inflight-gauge]
+tests = ["queue and inflight gauges sum two busy endpoints and retain them when a third is idle"]
+rule = "Class-only inflight labels sum actual outstanding admissions across all endpoint state, including recovered work."
+
+[finding.throttle-restart-cap]
+tests = ["terminate_and_reopen recovers actual outstanding work and fences stale completion with coalescing false", "terminate_and_reopen recovers actual outstanding work and fences stale completion with coalescing true", "crash recovers actual outstanding work and fences stale completion with coalescing false", "crash recovers actual outstanding work and fences stale completion with coalescing true", "rate tokens survive guard reopening and retain per-member batch weight"]
+rule = "The ETS heir is the guard's supervising process; recover active worker references and token budgets before admitting new work, and replay a real completion to prove it cannot free a replacement slot."
+
+[wiring.throttle-tests]
+request = "Owning domain 14: services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/http/throttle_test.exs must hold/release the execution worker or loopback connection rather than the caller, and update its restart scenarios to assert recovered outstanding work at max_inflight: 1 while retaining the stale-completion assertion; the scoped repair suite proves this behavior without modifying that out-of-scope test."
+
+[wiring.local-admission-errors]
+request = "Owning domain 14: services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/http.ex should distinguish local {:throttle, reason} errors from node transport failures before incrementing EndpointAvailabilityObserver node-error counts."

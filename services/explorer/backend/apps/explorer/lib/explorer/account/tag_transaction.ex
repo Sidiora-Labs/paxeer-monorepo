@@ -77,7 +77,7 @@ defmodule Explorer.Account.TagTransaction do
       {:ok, %{tag_transaction: tag_transaction}} ->
         {:ok, tag_transaction}
 
-      {:error, :tag_transaction, :not_found, _changes} ->
+      {:error, :acquire_identity, :not_found, _changes} ->
         {:error,
          %__MODULE__{}
          |> changeset(attrs)

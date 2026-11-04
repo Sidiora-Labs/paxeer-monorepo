@@ -11,32 +11,32 @@ defmodule EthereumJSONRPC.WebSocket.Supervisor do
     Supervisor.start_link(__MODULE__, transport_options, name: __MODULE__)
   end
 
-  def start_client(ws_state) do
-    subscribe_named_arguments =
-      Application.get_env(:indexer, :realtime_overrides)[:subscribe_named_arguments] ||
-        Application.get_env(:indexer, :subscribe_named_arguments)
+  def start_client(ws_state, web_socket_module \\ EthereumJSONRPC.WebSocket.WebSocketClient) do
+    name =
+      if Process.whereis(ws_state.web_socket),
+        do: Indexer.Block.Realtime.WebSocketCopy,
+        else: ws_state.web_socket
 
-    web_socket_module =
-      subscribe_named_arguments
-      |> Keyword.fetch!(:transport_options)
-      |> Keyword.fetch!(:web_socket)
-
-    client_spec = client_spec(web_socket_module, Indexer.Block.Realtime.WebSocketCopy, ws_state.url, nil, ws_state)
-
-    Supervisor.start_child(__MODULE__, client_spec)
+    Supervisor.start_child(__MODULE__, client_spec(web_socket_module, name, ws_state.url, nil, ws_state))
   end
 
-  def stop_other_client(pid) do
+  def stop_other_client(pid, name \\ Indexer.Block.Realtime.WebSocket) do
     __MODULE__
     |> Supervisor.which_children()
     |> Enum.reject(fn {child_id, child_pid, _type, _modules} -> child_pid == pid or child_id == RetryWorker end)
-    |> Enum.each(fn {child_id, _child_pid, _type, _modules} ->
-      Supervisor.terminate_child(__MODULE__, child_id)
+    |> Enum.each(fn {child_id, child_pid, _type, _modules} ->
+      if is_pid(child_pid), do: stop_client(child_pid)
       Supervisor.delete_child(__MODULE__, child_id)
-      Process.unregister(Indexer.Block.Realtime.WebSocketCopy)
-      Process.register(pid, Indexer.Block.Realtime.WebSocket)
     end)
+
+    if Process.whereis(Indexer.Block.Realtime.WebSocketCopy) == pid do
+      Process.unregister(Indexer.Block.Realtime.WebSocketCopy)
+      Process.register(pid, name)
+    end
   end
+
+  @doc "Stops a socket through its system callback so subscribers receive the termination envelope."
+  def stop_client(pid) when is_pid(pid), do: :sys.terminate(pid, :shutdown)
 
   def init(%{
         url: url,
@@ -45,21 +45,22 @@ defmodule EthereumJSONRPC.WebSocket.Supervisor do
         web_socket_options: %{web_socket: web_socket}
       }) do
     children = [
-      {RetryWorker, []},
+      {RetryWorker, %{web_socket: web_socket_module, name: web_socket}},
       client_spec(web_socket_module, web_socket, url, fallback_url)
     ]
 
     Supervisor.init(children, strategy: :one_for_one)
   end
 
+  # Keep endpoint credentials out of supervisor child-failure reports, which print the start MFA.
+  def start_client_link(start) when is_function(start, 0), do: start.()
+
   defp client_spec(web_socket_module, name, url, fallback_url, init_state \\ nil) do
     %{
       id: name,
-      start: {
-        web_socket_module,
-        :start_link,
-        [url, [name: name, fallback_url: fallback_url, init_state: init_state]]
-      },
+      start:
+        {__MODULE__, :start_client_link,
+         [fn -> web_socket_module.start_link(url, name: name, fallback_url: fallback_url, init_state: init_state) end]},
       restart: :temporary
     }
   end

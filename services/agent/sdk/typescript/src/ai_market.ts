@@ -1,6 +1,7 @@
 import * as http from "node:http";
 import * as https from "node:https";
-import { mkdir, open, readFile, rename } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { mkdir, open, readFile, rename, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { ed25519 } from "@noble/curves/ed25519.js";
 import { secp256k1 } from "@noble/curves/secp256k1.js";
@@ -2714,6 +2715,8 @@ function signedIntent(signed: Uint8Array): Hex32 {
 }
 
 /** SDK lifecycle of one signed native operation; distinct from the AI domain job status. */
+const recordRevisions = new WeakMap<OperationRecord, Uint8Array>();
+
 export class OperationRecord implements RecordFields {
   public readonly state!: OperationState;
   public readonly domain!: DomainStatus;
@@ -2790,7 +2793,9 @@ export class OperationRecord implements RecordFields {
   ): OperationRecord {
     if (token !== TOKEN)
       throw new TypeError("record transitions are owned by OperationJournal");
-    return new OperationRecord({ ...this.#fields(), ...changes });
+    const next = new OperationRecord({ ...this.#fields(), ...changes });
+    recordRevisions.set(next, this.encode());
+    return next;
   }
 
   public encode(): Uint8Array {
@@ -2864,6 +2869,7 @@ export class OperationRecord implements RecordFields {
       !record.#consistent()
     )
       corrupt();
+    recordRevisions.set(record, record.encode());
     return record;
   }
 
@@ -2998,24 +3004,44 @@ export class OperationJournal {
 
   public async persist(record: OperationRecord): Promise<void> {
     const path = this.recordPath(record.activityId);
-    const partial = `${path}.partial`;
+    const lockPath = `${path}.lock`;
+    const partial = `${path}.${randomUUID()}.partial`;
+    let lock: Awaited<ReturnType<typeof open>> | undefined;
     try {
-      const file = await open(partial, "w");
-      try {
-        await file.writeFile(record.encode());
-        await file.sync();
-      } finally {
-        await file.close();
+      // Exclusive creation also excludes writers in other journal instances/processes.
+      // An abandoned lock fails closed: an operator must reconcile it before removal.
+      for (let attempt = 0; attempt < 100; attempt++) {
+        try { lock = await open(lockPath, "wx", 0o600); break; }
+        catch (cause) {
+          if (errorCode(cause) !== "EEXIST" || attempt === 99) throw cause;
+          await new Promise(resolve => setTimeout(resolve, 10));
+        }
       }
+      let current: Uint8Array | undefined;
+      try { current = await readFile(path); }
+      catch (cause) { if (errorCode(cause) !== "ENOENT") throw cause; }
+      const encoded = record.encode();
+      OperationRecord.decode(encoded);
+      if (current !== undefined && equal(current, encoded)) return;
+      const expected = recordRevisions.get(record);
+      if (current === undefined ? expected !== undefined : expected === undefined || !equal(current, expected))
+        refuse("InvalidTransition", current === undefined ? {} : { from: OperationRecord.decode(current).state });
+      const file = await open(partial, "wx", 0o600);
+      try { await file.writeFile(encoded); await file.sync(); }
+      finally { await file.close(); }
       await rename(partial, path);
       const directory = await open(this.#directory, "r");
-      try {
-        await directory.sync();
-      } finally {
-        await directory.close();
-      }
+      try { await directory.sync(); }
+      finally { await directory.close(); }
     } catch (cause) {
+      if (cause instanceof AiMarketError) throw cause;
       refuse("Journal", { cause });
+    } finally {
+      if (lock !== undefined) {
+        try { await unlink(partial); } catch (cause) { if (errorCode(cause) !== "ENOENT") throw cause; }
+        await lock.close();
+        await unlink(lockPath);
+      }
     }
   }
 
@@ -3031,7 +3057,11 @@ export class OperationJournal {
     if (record.activityId !== activityId) refuse("CorruptRecord");
     if (record.state !== "submitting") return record;
     const recovered = record.with({ state: "unknown" }, TOKEN);
-    await this.persist(recovered);
+    try { await this.persist(recovered); }
+    catch (cause) {
+      if (!(cause instanceof AiMarketError) || cause.code !== "InvalidTransition") throw cause;
+      return this.load(activityId);
+    }
     return recovered;
   }
 
@@ -3054,6 +3084,7 @@ export class OperationJournal {
     operations: Eip1193Requester,
   ): Promise<OperationRecord> {
     requireState(record, ["signed"]);
+    await this.recordSigned(record);
     return await this.#deliver(record, operations);
   }
 

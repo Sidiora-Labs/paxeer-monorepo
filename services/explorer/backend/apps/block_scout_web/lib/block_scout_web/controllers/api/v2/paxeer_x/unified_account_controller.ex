@@ -7,7 +7,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.UnifiedAccountController do
   alias BlockScoutWeb.AccessHelper
   alias Explorer.Chain
   alias Explorer.Chain.{Block, Hash}
-  alias Explorer.Chain.PaxeerX.UnifiedAccount
+  alias Explorer.Chain.PaxeerX.{Identity, UnifiedAccount}
   alias OpenApiSpex.Schema
   alias Phoenix.Token
 
@@ -159,8 +159,9 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.UnifiedAccountController do
 
   @spec unified(Plug.Conn.t(), map()) :: Plug.Conn.t() | {atom(), any()}
   def unified(conn, %{"address_hash_param" => address_hash_string} = params) do
-    with {:format, {:ok, address_hash}} <- {:format, Chain.string_to_address_hash(address_hash_string)},
-         {:ok, false} <- AccessHelper.restricted_access?(address_hash_string, params) do
+    with {:format, {:ok, identity}} <- {:format, Identity.parse(address_hash_string)},
+         {:not_found, {:ok, address_hash}} <- {:not_found, UnifiedAccount.resolve(identity, @api_true)},
+         {:ok, false} <- AccessHelper.restricted_access?(to_string(address_hash), params) do
       identities = UnifiedAccount.identities(address_hash, @api_true)
       native_page(conn, params, address_hash, identities)
     end

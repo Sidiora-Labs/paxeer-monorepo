@@ -1,0 +1,87 @@
+[meta]
+task = "22.31.396"
+audit = "22.30.144"
+status = "implemented-awaiting-bounded-qualification"
+base = "5c06a9cfa23f88d328fc7e91545e90609e8cd0c0"
+baseline = "Not run: the repair gate file did not exist at the base, and the explicit gate order prohibits verification before implementation/build; no pre-change test failure is claimed."
+evidence = "The runner's private /out/run/gates.jsonl records the exact candidate revision, command, exit and log; hf-done is the only verifier and no passing qualification is claimed here."
+recording = "fixtures/vector-v4-committed.json is a byte-exact builder-visible copy of daemon/committed-fixture/vectors/vector-v4-committed.json, sha256 fc3fe1494c91ff8720a8d8fced398ea6c483c7aa70e3b655212e2b68de75eaab; original signed bytes are unchanged."
+
+[qualification.first_attempt]
+revision = "15d12801c65156fed8c9033a8a9190c60d41d93e"
+command = "cg spec done 22.31.396 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "49 tests executed: 18 adapter errors from treating numeric FromSeq/ToSeq as strings, plus 21 assertion failures exposing missing inclusion checks, self-supplied authority and absent native identity; only the adapter error is in scope."
+assumption = "The bounded repair preserves recorded MsgSequenceBatch integer types; production failures remain open under the wiring requests below and are not weakened."
+
+[gotcha.recorded_batch_types]
+symptom = "String.to_integer on recorded MsgSequenceBatch.FromSeq/ToSeq raises before reaching the verifier."
+cause = "MsgSequenceBatch uses JSON numbers, unlike the Comet header heights and proof counters stored as decimal strings."
+resolution = "Pass the original integer sequence fields and assert their recorded types; do not normalize unrelated wire fields or edit the recording."
+
+[finding.status-committed-inclusion]
+status = "regressions-added-production-wiring-required"
+tests = ["recorded_settlement_authenticates_execution_and_successor", "status_committed_inclusion_rejects_*", "status_controller_refuses_*", "signature_controller_refuses_*", "status_answers_committed_for_router_verified_hash", "signature_route_reports_committed_rung"]
+wiring_1 = "domain 14: services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/sequencer_receipt.ex must authenticate settlement batch/transaction/result proofs and signatures/roots against linked execution and successor commits; verification_options carries the unmodified recorded settlement and independent authority."
+wiring_2 = "domain 14: services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/{transaction_status_controller,transaction_signature_controller}.ex must preserve batch bytes/proof and obtain linked transaction/result evidence before promotion."
+wiring_3 = "hosted gateway owning domain: services/platform/hosted/gateway/src/chain_reads.rs must expose transaction and deterministic ExecTxResult inclusion evidence; px_getSequenceBatch currently exposes only the recorded batch tx/proof shape, so no invented RPC method is served by these controller fixtures."
+
+[finding.signature-self-supplied-authority]
+status = "regressions-added-production-wiring-required"
+tests = ["status_rejects_correctly_signed_foreign_chain", "signature_rejects_correctly_signed_foreign_chain", "status_rejects_correctly_signed_unauthorized_validators", "signature_rejects_correctly_signed_unauthorized_validators", "status_does_not_discover_its_own_receipt_authority", "signature_does_not_discover_its_own_receipt_authority", "status_governed_key_rotation_survives_restart", "signature_governed_key_rotation_survives_restart"]
+wiring_1 = "domain 14: services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/sequencer_receipt.ex must consume independently configured chain_id, receipt_keys (including governed validity ranges), and validator_checkpoints instead of treating discovered values as authority."
+wiring_2 = "domain 14: services/explorer/backend/config/runtime.exs and both receipt controllers must load that authority independently of RPC responses and preserve it across endpoint restart; fixture configuration names are the requested wiring contract, not an implemented production interface."
+
+[finding.pax-identity-not-imported]
+status = "import-to-http-regressions-added-production-enrichment-and-recording-required"
+tests = ["a pax bech32 string finds the account it is bound to", "pax_identity_round_trips_import_restart_replay_and_reorg", "pax_identity_replay_enriches_an_existing_unenriched_row"]
+wiring_1 = "domain 14: services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/paxeer_x/account_bindings.ex and chain/paxeer_x/unified_account.ex must enrich/resolve native identities at the indexed height and backfill existing rows on replay without duplicates."
+wiring_2 = "domain 14: services/explorer/backend/apps/indexer/lib/indexer/block/fetcher.ex must transport height-specific addr associations through binding import and canonical reorg handling."
+wiring_3 = "daemon fixture owning domain: daemon/committed-fixture/vector_v4.go must record actual addr association/bind/unbind events and getPaxAddr results; current identity regressions use ABI event inputs through the real transformer/importer, not a claimed chain recording, and cannot close the recorded-association criterion."
+
+[continuation.attempt_2]
+status = "production-repairs-blocked-by-explicit-scope"
+prior_result = "The supplied attempt-1 ruling reports 49 executed tests and 38 failures; it identifies native Pax lookup, discarded batch proofs and self-discovered receipt authority as producer defects. This continuation does not claim a new unchanged-tree baseline."
+constraint = "The only writable paths are the recorded vector, this controller-test directory and the declared repair test. Production source paths are outside that scope; no production replacement, test-time module patch, assertion weakening or recording change is authorized."
+wiring_1 = "domain 14: services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/unified_account.ex must resolve native Pax spellings through canonical bound identity rows; services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/paxeer_x/account_bindings.ex must enrich existing rows idempotently on replay."
+wiring_2 = "domain 14: services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_controller.ex and transaction_status_controller.ex must retain px_getSequenceBatch proof/tx and use authenticated linked execution/result evidence; missing or changed batch proofs must leave a verified receipt at receipted."
+wiring_3 = "domain 14: services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/sequencer_receipt.ex must authenticate discovered receipt keys against independently configured governed pins and refuse both routes when those pins are absent; the discovered answer cannot establish its own authority."
+qualification = "Use only the bounded hf-build then hf-done commands on the final candidate; their private ledger supplies the exact revision, command, exit and log. Findings remain open unless that gate actually passes."
+
+[gotcha.scope_producer_conflict]
+symptom = "A continuation requires fixing three production producers while its explicit writable paths contain only tests and a recorded vector."
+cause = "The task ruling and task scope disagree; test changes cannot repair production controller or identity resolution behavior."
+resolution = "Preserve the assertions and signed recordings, record each out-of-scope production wiring request, and report the bounded gate result without claiming closure."
+
+[qualification.continuation_first_gate]
+revision = "fe884fae2b4eeee4f0ce3b8d0af807b269e5543b"
+command = "cg spec done 22.31.396 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "49 tests executed with 20 failures; the direct positive verifier failed R8 before exercising inclusion because the carried helper omitted supported trust configuration and complete batch inputs."
+assumption = "Supply the independently pinned trusted_validator_hashes and complete recorded gateway batch/activity IDs, install that authority for direct verifier tests, and preserve all assertions and recordings for the bounded repair build/verify pair."
+
+[continuation.attempt_3]
+status = "implemented-awaiting-bounded-qualification"
+baseline = "The supplied attempt-2 evidence reports build passed and 49 tests executed with 36 failures; no new unchanged-tree verification is claimed because the required gate order starts after implementation."
+production = "Both receipt routes retain batch bytes/proofs, load independently governed receipt pins and chain/checkpoint authority, and authenticate transaction/results inclusion against linked signed headers via standard Comet block and block_results transport."
+identity = "Native Pax spellings derive from the bound account bytes on read, including existing null identity rows; no importer enrichment or backfill write is needed, and canonical block joins govern unbind/reorg reads."
+authority = "PAXEER_X_RECEIPT_AUTHORITY_FILE supplies durable operator-controlled chain_id, governed receipt_keys, validator_checkpoints and authenticated validator_history; RPC discovery can neither establish trust nor widen a key validity range."
+status_committed_inclusion = "recorded_settlement_authenticates_execution_and_successor; status_committed_inclusion_rejects_*; *_controller_refuses_*; *_authenticates_native_transport_*; both committed controller suites"
+signature_self_supplied_authority = "*_rejects_correctly_signed_foreign_chain; *_rejects_correctly_signed_unauthorized_validators; *_does_not_discover_its_own_receipt_authority; *_governed_key_rotation_survives_restart; validator_checkpoint_history_is_authenticated_after_restart"
+pax_identity_not_imported = "pax_identity_round_trips_import_restart_replay_and_reorg; pax_identity_replay_enriches_an_existing_unenriched_row; IdentitySearchTest"
+wiring = "daemon fixture owning domain: daemon/committed-fixture/vector_v4.go may additionally record native addr association/bind/unbind transcripts; the identity regressions drive the real ABI transformer and importer, and do not claim those event inputs were recorded by that fixture."
+evidence = "The final private gate ledger /out/run/gates.jsonl names the verified candidate revision, command, exit and log; only a passing hf-done closes qualification."
+
+[gotcha.native_result_height]
+symptom = "A batch proof authenticates transaction zero but cannot authenticate the receipt's EVM transaction or execution output."
+cause = "Comet data_hash covers hashed transaction leaves at H, while deterministic ExecTxResult leaves are committed by last_results_hash at H+1."
+resolution = "Preserve the gateway proof, authenticate both native transaction and result proofs, and verify linked execution/successor commits against configured checkpoint authority."
+
+[qualification.attempt_3_first_gate]
+revision = "1ce57707d090e950fef62407caed54014c5845b0"
+command = "cg spec done 22.31.396 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "60 tests ran with two failures: unified native identity routes returned 422 after search resolved the same bindings; repair routes the controller through Identity.parse and UnifiedAccount.resolve, applying restrictions to the resolved EVM address."
