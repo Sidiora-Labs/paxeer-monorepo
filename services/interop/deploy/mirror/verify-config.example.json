@@ -1,9 +1,13 @@
 {
-  "layerx_network_id": 1,
-  "sequencer_id_hex": "0000000000000000000000000000000000000000000000000000000000000001",
-  "sequencer_public_key_hex": "0000000000000000000000000000000000000000000000000000000000000001",
-  "first_batch_number": 1,
-  "last_batch_number": 18446744073709551615,
+  "layerx_network_id": 125,
+  "receipt_keys": [
+    {
+      "sequencer_id_hex": "6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+      "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+      "first_height": 1000,
+      "last_height": 1999
+    }
+  ],
   "sources": [
     {
       "kind": "ethereum",

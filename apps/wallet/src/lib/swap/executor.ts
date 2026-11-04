@@ -5,14 +5,18 @@ import {
   NATIVE_TOKEN,
   MAX_UINT256,
   PECOR_ABI,
+  PECOR_ROUTER_ABI,
+  ERC20_ABI,
   SIDIORA_ROUTER_ABI,
-  executeSwap as pecorExecuteSwap,
   approveVault,
-  buy as sidioraBuy,
-  sell as sidioraSell,
   approveRouter as sidioraApproveRouter,
 } from '@/lib/swap/sdk';
-import { toCentralSwapAddress, isSidioraToken } from './constants';
+import {
+  toCentralSwapAddress,
+  isSidioraToken,
+  VAULT_ADAPTER_ID,
+  SIDIORA_ADAPTER_ID,
+} from './constants';
 import type { SwapQuote, SwapParams } from './types';
 
 export interface SwapResult {
@@ -183,26 +187,82 @@ async function executeSidioraMultihop(
   return awaitSwapReceipt(tx);
 }
 
-// ── Cross-protocol 2-step swap: Sidiora ↔ PECOR ERC20 (via USDL bridge) ─────
-// Executed as two sequential transactions. Each individual step is proven-working.
-//   ERC20 → Sidiora: PECOR swap (ERC20→USDL)  then  Sidiora buy  (USDL→Token)
-//   Sidiora → ERC20: Sidiora sell (Token→USDL) then  PECOR swap  (USDL→ERC20)
+// ── Atomic Sidiora ↔ PECOR swap via the USDL bridge ────────────────────────
 
-const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+type V4Hop = Readonly<{
+  tokenIn: string;
+  tokenOut: string;
+  adapterId: string;
+  minAmountOut: bigint;
+}>;
 
-function parseUsdlReceived(receipt: ethers.TransactionReceipt, recipient: string): bigint {
-  const toPadded = ('0x000000000000000000000000' + recipient.slice(2)).toLowerCase();
-  const usdlAddr = TOKENS.USDL.address.toLowerCase();
-  for (const log of receipt.logs) {
-    if (
-      log.address.toLowerCase() === usdlAddr &&
-      log.topics[0]?.toLowerCase() === TRANSFER_TOPIC &&
-      log.topics[2]?.toLowerCase() === toPadded
-    ) {
-      return BigInt(log.data);
-    }
+type V4MultihopArguments = [
+  hops: readonly V4Hop[],
+  amountIn: bigint,
+  amountOutMin: bigint,
+  deadline: bigint,
+];
+
+export function prepareV4Multihop(
+  runner: ethers.ContractRunner,
+  quote: SwapQuote,
+  params: SwapParams
+) {
+  const inIsSidiora = isSidioraToken(quote.tokenIn);
+  const outIsSidiora = isSidioraToken(quote.tokenOut);
+  const tokenIn = toCentralSwapAddress(quote.tokenIn);
+  const tokenOut = toCentralSwapAddress(quote.tokenOut);
+  if (
+    quote.protocol !== 'pecor-v4-multihop' ||
+    inIsSidiora === outIsSidiora ||
+    tokenIn === NATIVE_TOKEN.address ||
+    tokenOut === NATIVE_TOKEN.address ||
+    tokenIn.toLowerCase() === TOKENS.USDL.address.toLowerCase() ||
+    tokenOut.toLowerCase() === TOKENS.USDL.address.toLowerCase()
+  ) {
+    throw new Error('Invalid V4 multihop route');
   }
-  return BigInt(0);
+  if (
+    !Number.isInteger(params.slippageBps) ||
+    params.slippageBps < 0 ||
+    params.slippageBps >= 10000
+  ) {
+    throw new Error('Invalid V4 multihop slippage');
+  }
+  const amountIn = BigInt(quote.amountIn);
+  const amountOutMin = (BigInt(quote.amountOut) * BigInt(10000 - params.slippageBps)) / 10000n;
+  if (amountIn <= 0n || amountOutMin <= 0n) {
+    throw new Error('V4 multihop requires positive input and minimum output');
+  }
+  const now = Math.floor(Date.now() / 1000);
+  const expiry = params.deadline ?? now + 300;
+  if (!Number.isSafeInteger(expiry) || expiry <= now) {
+    throw new Error('V4 multihop confirmation has expired or has an invalid expiry');
+  }
+  const hops: readonly V4Hop[] = Object.freeze([
+    Object.freeze({
+      tokenIn,
+      tokenOut: TOKENS.USDL.address,
+      adapterId: inIsSidiora ? SIDIORA_ADAPTER_ID : VAULT_ADAPTER_ID,
+      minAmountOut: 0n,
+    }),
+    Object.freeze({
+      tokenIn: TOKENS.USDL.address,
+      tokenOut,
+      adapterId: inIsSidiora ? VAULT_ADAPTER_ID : SIDIORA_ADAPTER_ID,
+      minAmountOut: amountOutMin,
+    }),
+  ]);
+  const args = Object.freeze([
+    hops,
+    amountIn,
+    amountOutMin,
+    BigInt(expiry),
+  ] satisfies V4MultihopArguments);
+  const router = new ethers.Contract(CONTRACTS.PECORRouter, PECOR_ROUTER_ABI, runner);
+  const method: ethers.ContractMethod<V4MultihopArguments, bigint> =
+    router.getFunction('swapMultiHop');
+  return { router, method, args };
 }
 
 async function executeV4Multihop(
@@ -210,58 +270,16 @@ async function executeV4Multihop(
   quote: SwapQuote,
   params: SwapParams
 ): Promise<SwapResult> {
-  const amountIn = BigInt(quote.amountIn);
-  const slipBps = params.slippageBps;
-  const dl = params.deadline ?? 300;
-  const pool = quote.poolAddress;
-  if (!pool) throw new Error('V4 multihop quote missing pool address');
-
+  const { method, args } = prepareV4Multihop(signer, quote, params);
+  const [hops, amountIn, , expiry] = args;
+  const token = new ethers.Contract(hops[0].tokenIn, ERC20_ABI, signer);
   const owner = await signer.getAddress();
-
-  if (isSidioraToken(quote.tokenIn)) {
-    // Step 1: Sidiora token → USDL
-    const sellReceipt = await sidioraSell(
-      pool,
-      quote.tokenIn.address,
-      amountIn,
-      signer,
-      slipBps,
-      dl
-    );
-    swapResult(sellReceipt);
-    const usdlReceived = parseUsdlReceived(sellReceipt, owner);
-    if (usdlReceived === BigInt(0)) throw new Error('Sidiora sell returned 0 USDL');
-
-    // Step 2: USDL → ERC20
-    const receipt = await pecorExecuteSwap(
-      {
-        tokenIn: TOKENS.USDL.address,
-        tokenOut: toCentralSwapAddress(quote.tokenOut),
-        amountIn: usdlReceived,
-        slippageBps: slipBps,
-        deadlineSeconds: dl,
-      },
-      signer
-    );
-    return swapResult(receipt);
-  } else {
-    // Step 1: ERC20 → USDL
-    const pecorReceipt = await pecorExecuteSwap(
-      {
-        tokenIn: toCentralSwapAddress(quote.tokenIn),
-        tokenOut: TOKENS.USDL.address,
-        amountIn,
-        slippageBps: slipBps,
-        deadlineSeconds: dl,
-      },
-      signer
-    );
-    swapResult(pecorReceipt);
-    const usdlReceived = parseUsdlReceived(pecorReceipt, owner);
-    if (usdlReceived === BigInt(0)) throw new Error('PECOR swap returned 0 USDL');
-
-    // Step 2: USDL → Sidiora token
-    const { receipt } = await sidioraBuy(pool, usdlReceived, signer, slipBps, dl);
-    return swapResult(receipt);
+  const allowance: bigint = await token.allowance(owner, CONTRACTS.PECORRouter);
+  if (allowance < amountIn) {
+    await awaitSwapReceipt(await token.approve(CONTRACTS.PECORRouter, amountIn));
   }
+  if (BigInt(Math.floor(Date.now() / 1000)) > expiry) {
+    throw new Error('V4 multihop confirmation expired during approval');
+  }
+  return awaitSwapReceipt(await method.send(...args));
 }

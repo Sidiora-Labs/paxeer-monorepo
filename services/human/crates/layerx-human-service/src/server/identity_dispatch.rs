@@ -1,6 +1,5 @@
 //! Principal-scoped identity projections used by the production dispatcher.
 
-use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::Digest as _;
@@ -10,16 +9,16 @@ use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use crate::auth::{OperationDigest, StepUpChallenge, StepUpEvidence};
-use crate::onboarding::{
-    EvidenceClass, EvidenceVerification, OnboardingStage, OnboardingState, OnboardingStatus,
-    StageState,
-};
+use crate::auth::OperationDigest;
 use crate::onboarding::{OnboardingStart, RecoveryPolicy};
 use crate::security::{security_action_digest, SecurityAction};
 use crate::store::{PrincipalId, PrincipalScope, RowKey, StoreError, Table};
 use layerx_types::ids::Did;
 use layerx_types::intent::{ApprovalThreshold, RecoveryRoot};
+
+#[path = "identity_projection.rs"]
+mod api_projection;
+pub(crate) use api_projection::{onboarding_status, step_up_challenge, step_up_evidence};
 
 const PROFILE_ROW: &str = "identity-profile";
 const IDENTITY_MAGIC: &[u8; 4] = b"LXIP";
@@ -341,63 +340,12 @@ pub(crate) fn update_profile(
     Ok(profile_json(&profile))
 }
 
-pub(crate) fn step_up_challenge(value: &StepUpChallenge) -> Value {
-    json!({"challenge_id": value.challenge_id, "confirms": digest(value.confirms),
-        "ceremony": value.ceremony, "expires_at": value.expires_at})
-}
-
-pub(crate) fn step_up_evidence(value: &StepUpEvidence) -> Value {
-    json!({"challenge_id": value.challenge_id(), "confirms": digest(value.confirms()),
-        "passkey_id": value.passkey_id(), "completed_at": value.completed_at(),
-        "expires_at": value.expires_at()})
-}
-
-pub(crate) fn onboarding_status(value: &OnboardingStatus) -> Value {
-    let stages = value.stages().iter().map(|stage| json!({
-        "stage": match stage.stage() { OnboardingStage::ApplicationIdentity => "application-identity",
-            OnboardingStage::CustodyKey => "custody-key", OnboardingStage::DidRegistration => "protocol-identity",
-            OnboardingStage::InitialFunding => "initial-funding", OnboardingStage::RecoveryRegistration => "recovery" },
-        "state": stage_state(stage.state()),
-        "evidence": stage.evidence().iter().map(|item| json!({"evidence_id": item.row().as_str(),
-            "class": match item.class() { EvidenceClass::LocalJourneyState => "local-journey-state",
-                EvidenceClass::CustodyKey => "custody-key", EvidenceClass::LayerxReceipt => "layerx-receipt",
-                EvidenceClass::SubmissionRecord => "submission-record" },
-            "verification": match item.verification() { EvidenceVerification::Unverified => "unverified",
-                EvidenceVerification::ReceiptVerified => "receipt-verified" }})).collect::<Vec<_>>()
-    })).collect::<Vec<_>>();
-    json!({"kind":"onboarding", "state": match value.state() { OnboardingState::GettingReady => "getting-ready",
-        OnboardingState::Queued => "queued", OnboardingState::Sending => "sending",
-        OnboardingState::Processing => "processing", OnboardingState::StillChecking => "still-checking",
-        OnboardingState::ActiveRecoveryPending => "active-recovery-pending", OnboardingState::Complete => "complete",
-        OnboardingState::Refused => "refused" }, "account_active": value.account_active(), "stages": stages})
-}
-
-fn digest(value: OperationDigest) -> String {
-    format!(
-        "opd_{}",
-        base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(value.bytes())
-    )
-}
-
 fn profile_json(value: &StoredProfile) -> Value {
     let mut profile = json!({"display_name": value.display_name});
     if let Some(avatar_url) = &value.avatar_url {
         profile["avatar_url"] = json!(avatar_url);
     }
     profile
-}
-
-fn stage_state(value: StageState) -> &'static str {
-    match value {
-        StageState::GettingReady => "getting-ready",
-        StageState::LocalComplete => "local-complete",
-        StageState::Queued { .. } => "queued",
-        StageState::Sending => "sending",
-        StageState::Processing => "processing",
-        StageState::StillChecking => "still-checking",
-        StageState::ReceiptVerified => "receipt-verified",
-        StageState::Refused { .. } => "refused",
-    }
 }
 
 fn provider_text(bytes: &[u8]) -> Result<String, IdentityDispatchError> {

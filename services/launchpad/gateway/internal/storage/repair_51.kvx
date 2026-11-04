@@ -1,0 +1,50 @@
+[repair.22.31.51]
+audit = "22.30.32"
+base_revision = "9b3c0edb83db2c918d37d3910bad522f5b067ca3"
+initial_lineage_visibility = "TestRepair_51_initial_lineage_visibility"
+initial_delivery_visibility = "TestRepair_51_initial_delivery_visibility"
+initial_state = "A positive restriction FK anchor carries initial_visibility=true, representing authoritative moderation revision zero; the first real positive moderation revision clears the marker. Existing positive moderation and tombstone bounds remain unchanged."
+proof = "Actual metadata ProductionStore.CreateConnectedAsset, TransitionAsset and Promote publish immutable variants to disk; actual PostgresVisibilityAuthority reads moderation state; real pgx transport and an embedded WASM SQL engine carry the reviewed cross-service views into gateway ImportApprovedLineage, Allowed and NewConnectedApproved delivery."
+baseline = "Not run: the explicit gate order prohibits verification before full implementation and reserves the sole initial verification for hf-done. No baseline test failure is claimed."
+wiring_request = "launchpad/spec/production-system/integration/migrations/410000.sql; serial migration coordinator / gateway domain 4: add restrictions.initial_visibility boolean NOT NULL DEFAULT false CHECK(NOT initial_visibility OR (revision=1 AND state='approved')) to deployed restriction tables before rolling out this consumer."
+evidence = "The runner's final hf-done record supplies the candidate revision, exact command, exit and private log; no qualification is claimed by this record."
+explicit_denials = "TestRepair_51_initial_explicit_denials"
+fixture = "Repair tests create an isolated PGlite WASM SQL engine and filesystem object store; no installed PostgreSQL, Redis, S3, Anvil or RPC service is used. Node dependencies are pinned by the embedded manifest and lockfile; Go imports the actual metadata module. Metadata and safety schema/view definitions come from the reviewed migrations without unrelated indexer/publication schemas."
+
+[qualification.first_attempt]
+revision = "91e955703fcac897357d4a62e4c421774a35cd0d"
+command = "cg spec done 22.31.51 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Existing TestPhase4MediaProductionEnvelope requires absent L41_ENVELOPE_CONFIG / SHA256, and existing storage integration tests receive empty GATEWAY_TEST_MINIO credentials; neither check is changed or chased."
+repair = "Task fixture now loads only the reviewed media schema and gateway views, including safety_visibility_v2, and starts isolated real MinIO instead of sharing missing service credentials."
+
+[qualification.continuation]
+previous_revision = "43c5ab043a69c8fe60409dbfb411a7e3797cd121"
+previous_failure = "The runner reported package-wide verification failing in TestPhase4MediaProductionEnvelope and four S3-bound inventory/retention tests; that recorded unrelated failure is not rerun or investigated here."
+gate = "The declared focused TestRepair_51_* gate is run only through hf-done after hf-build on the same candidate; no baseline execution or success is claimed."
+replay = "TestRepair_51_initial_lineage_visibility also proves ReplayTombstones clears initial_visibility when recovering a durable tombstone over an initial restriction backup."
+gotcha = "The prior repair fixture depended on external PostgreSQL and MinIO; use the embedded SQL runtime and actual immutable filesystem bytes for this task's service-independent gate."
+
+[qualification.continuation_first_gate]
+revision = "f26ebc4ae6555bc71eb24781b6557928366b64b5"
+command = "cg spec done 22.31.51 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All three repair tests stopped with image codec unavailable when metadata reread the first explicit moderation decision; the first two tests had already asserted initial lineage and delivery."
+repair = "Use pgx simple-query mode for PGlite's shared SQL session, with one connection per pool, and preserve query errors plus stage-specific diagnostics in metadata fixture failures."
+
+[qualification.repair_budget]
+second_build_revision = "b36dd0025489056dc9ebbc6eb283e16f46c63fd3"
+second_build = "cd services/launchpad/gateway && go build ./internal/storage/...; exit 0; /out/logs/build-2.log"
+observed = "Formatting exposed a missing invocation on the metadata helper's diagnostic defer, but the command sequence still started the second build; the embedded helper is not a target of the declared build."
+repair = "Invoke the diagnostic defer and format the helper before the final build; the runner counts that third build as the second repair credit, leaving no verification credit."
+status = "Not qualified unless the runner records a passing hf-done on the final candidate; no passing repair verification is claimed."
+
+[qualification.seed_continuation]
+base_revision = "4273de5e86f58f8212e00898cbfeb995efcb85b5"
+seed_revision = "42e287ac1f4f7a8fbcc14f7c4fbbf2871d1c950f"
+observed = "The inherited simple-query DSN and invoked diagnostic defer are retained; the previous image codec unavailable result predates qualification of those fixes."
+proof = "TestRepair_51_initial_lineage_visibility also asserts that the first real revision-one removal replaces the initial marker with a blocked positive moderation record."
+gotcha = "PostgresVisibilityAuthority maps database read failures to raster.ErrUnavailable (image codec unavailable); fixture SQL error tracing is required to distinguish transport failure from raster decoding failure."
+evidence = "This continuation qualifies only through hf-build followed by hf-done on the same candidate; the final private runner evidence record names the verified revision."
