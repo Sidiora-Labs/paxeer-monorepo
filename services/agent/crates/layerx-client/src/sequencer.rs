@@ -228,6 +228,8 @@ pub struct StorageWitness {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HistoryPage {
+    pub account: String,
+    pub freshness: Value,
     pub items: Vec<Value>,
     pub next_cursor: Option<String>,
     pub indexed_height: Option<u64>,
@@ -354,7 +356,7 @@ impl SequencerEndpoint {
         quantity_u64(&result).ok_or(SequencerError::Malformed)
     }
 
-    /// Reads a fresh history page and then the node head on every invocation.
+    /// Reads the gateway page and preserves its own snapshot coordinates.
     /// The cursor is the gateway's canonical 32-character position cursor.
     pub fn history(
         &self,
@@ -366,10 +368,7 @@ impl SequencerEndpoint {
             return Err(SequencerError::Endpoint);
         }
         let result = self.call("px_getHistory", &json!([account, cursor, limit]))?;
-        let mut page = decode_history_page(&result).ok_or(SequencerError::Malformed)?;
-        // The served history page has no chain height; obtain the node head separately.
-        page.chain_height = Some(self.block_number()?);
-        Ok(page)
+        decode_history_page(&result).ok_or(SequencerError::Malformed)
     }
 
     /// Nonce of `address` at the node's latest committed block.
@@ -854,7 +853,17 @@ fn history_cursor(cursor: &str) -> bool {
 }
 
 fn decode_history_page(value: &Value) -> Option<HistoryPage> {
-    Fields::exact(value, &["items", "next_cursor", "indexedHeight"])?;
+    Fields::exact(
+        value,
+        &[
+            "account",
+            "items",
+            "next_cursor",
+            "indexedHeight",
+            "chainHeight",
+            "freshness",
+        ],
+    )?;
     let indexed_height = match value.get("indexedHeight")? {
         Value::Null => None,
         height => Some(height.as_u64()?),
@@ -864,12 +873,70 @@ fn decode_history_page(value: &Value) -> Option<HistoryPage> {
         Value::String(cursor) if history_cursor(cursor) => Some(cursor.clone()),
         _ => return None,
     };
+    let account = value.get("account")?.as_str()?.to_owned();
+    if account.is_empty() || account.len() > 128 {
+        return None;
+    }
+    let freshness = value.get("freshness")?;
+    validate_history_readiness(freshness)?;
     Some(HistoryPage {
+        account,
+        freshness: freshness.clone(),
         items: value.get("items")?.as_array()?.clone(),
         next_cursor,
         indexed_height,
-        chain_height: None,
+        chain_height: Some(value.get("chainHeight")?.as_u64()?),
     })
+}
+
+// Validate the readiness schema while retaining every served field, including timestamps.
+fn validate_history_readiness(value: &Value) -> Option<()> {
+    if value.get("version")?.as_u64()? != 1 || value.get("database")?.as_str()? != "ok" {
+        return None;
+    }
+    let mut seen = HashSet::new();
+    let sources = value.get("sources")?.as_array()?;
+    let mut rank = if sources.is_empty() { 2 } else { 0 };
+    for source in sources {
+        let name = source.get("source")?.as_str()?;
+        if !matches!(name, "layerx" | "paxeer" | "comet") || !seen.insert(name) {
+            return None;
+        }
+        for field in [
+            "source_head",
+            "indexed_cursor",
+            "finalized_cursor",
+            "last_success_at",
+            "freshness_secs",
+            "last_error_at",
+        ] {
+            let field = source.get(field)?;
+            if !field.is_null() && field.as_u64().is_none() {
+                return None;
+            }
+        }
+        let reconciled = source.get("reconciled")?.as_bool()?;
+        let failures = source.get("consecutive_failures")?.as_u64()?;
+        match source.get("state")?.as_str()? {
+            "ready"
+                if reconciled
+                    && failures == 0
+                    && source.get("last_success_at")?.as_u64().is_some()
+                    && source.get("freshness_secs")?.as_u64().is_some()
+                    && source.get("source_head")? == source.get("indexed_cursor")? => {}
+            "catching_up" | "retrying" | "failing" => {
+                rank = rank.max(1);
+            }
+            "starting" | "stalled" => {
+                rank = 2;
+            }
+            _ => return None,
+        }
+    }
+    match (value.get("status")?.as_str()?, rank) {
+        ("ready", 0) | ("degraded", 1) | ("unavailable", 2) => Some(()),
+        _ => None,
+    }
 }
 
 /// Decodes the gateway's receipt-key result, including numeric height ranges.
