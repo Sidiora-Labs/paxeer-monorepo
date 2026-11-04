@@ -9,7 +9,7 @@ import { CORE_DEPLOYMENT } from '@/core/network/deployment';
 import { BountyReward } from './bounty-reward';
 import { usePreparedTransaction, type SigningState } from './use-bounty-mutations';
 import type { Bounty } from './bounties-contract';
-import type { TransactionRequest } from './prepared-transaction';
+import { createFundingIntent, type BountyTransactionIntent, type TransactionRequest } from './prepared-transaction';
 
 function paxAmount(raw: bigint): string {
   return `${formatTokenAmount(raw, CORE_DEPLOYMENT.nativeDecimals, { maxFraction: 6, compact: false })} ${CORE_DEPLOYMENT.nativeSymbol}`;
@@ -43,6 +43,7 @@ function statusLine(state: SigningState): { tone: 'info' | 'warning' | 'danger' 
 export interface PreparedTransactionReviewProps {
   title: string;
   request: TransactionRequest;
+  intent: BountyTransactionIntent;
   /** Who ends up with the funds (escrow contract when funding, the winner when settling). */
   recipient: { label: string; address: string };
   amount: ReactNode;
@@ -57,8 +58,8 @@ export interface PreparedTransactionReviewProps {
  * (with its deployment role), amount and the PAX gas upper bound. The sign
  * button exists only once all of them are known and validated.
  */
-export function PreparedTransactionReview({ title, request, recipient, amount, actionLabel, confirmedAction, className }: PreparedTransactionReviewProps) {
-  const { state, sign, retry } = usePreparedTransaction(request);
+export function PreparedTransactionReview({ title, request, intent, recipient, amount, actionLabel, confirmedAction, className }: PreparedTransactionReviewProps) {
+  const { state, sign, retry } = usePreparedTransaction(request, intent);
   const tx = 'tx' in state ? state.tx : null;
   const status = statusLine(state);
   const hash = 'hash' in state ? state.hash : null;
@@ -127,6 +128,7 @@ export function FundingStep({ bounty, request, className }: FundingStepProps) {
     <PreparedTransactionReview
       title="Fund your bounty"
       request={request}
+      intent={createFundingIntent(bounty)}
       recipient={{ label: 'Bounty reward', address: request.to }}
       amount={<BountyReward bounty={bounty} />}
       actionLabel="Fund in wallet"
