@@ -2,6 +2,22 @@ import Foundation
 import LayerXMobile
 import LayerXSDK
 
+private struct HumanVersionResponse: Decodable {
+  let service: String
+}
+
+private struct HumanActivityPage: Decodable {
+  struct Group: Decodable {
+    struct Entry: Decodable {
+      let entry_id: String
+    }
+
+    let entries: [Entry]
+  }
+
+  let groups: [Group]
+}
+
 public struct WalletSnapshot: Sendable, Equatable {
   public var serviceVersion: String
   public var displayName: String
@@ -42,13 +58,14 @@ public actor WalletModel {
   @discardableResult
   public func refresh() async -> WalletSnapshot {
     do {
-      let version = try await mobile.client.version()
+      let version = try decode(HumanVersionResponse.self, from: await mobile.client.version())
       let profile = try await mobile.client.profile()
-      let activity = try await mobile.client.activity(.object(["page_limit": .integer(25)]))
-      snapshot.serviceVersion =
-        string(version, "version") ?? string(version, "protocol_version") ?? ""
+      let activity = try decode(
+        HumanActivityPage.self,
+        from: await mobile.client.activity(.object(["page_limit": .integer(25)])))
+      snapshot.serviceVersion = version.service
       snapshot.displayName = string(profile, "display_name") ?? string(profile, "email") ?? ""
-      snapshot.activityCount = entries(activity)
+      snapshot.activityCount = activity.groups.reduce(0) { $0 + $1.entries.count }
       snapshot.refusal = nil
     } catch {
       snapshot.refusal = refusalCode(error)
@@ -136,11 +153,12 @@ public actor WalletModel {
     return text
   }
 
-  private func entries(_ value: JSONValue) -> Int {
-    guard let object = value.objectValue, case let .array(items)? = object["entries"] else {
-      return 0
+  private func decode<Value: Decodable>(_ type: Value.Type, from value: JSONValue) throws -> Value {
+    do {
+      return try JSONDecoder().decode(type, from: JSONEncoder().encode(value))
+    } catch {
+      throw MobileIntegrationError(.decodeFailure)
     }
-    return items.count
   }
 
   private func refusalCode(_ error: Error) -> String {

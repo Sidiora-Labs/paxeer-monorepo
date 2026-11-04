@@ -14,6 +14,7 @@ import (
 	clitestutil "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/testutil/cli"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/testutil/network"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/authz"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/authz/client/cli"
 	banktestutil "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/client/testutil"
 	bank "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
@@ -128,10 +129,11 @@ func (s *IntegrationTestSuite) TestCLITxGrantAuthorization() {
 				fmt.Sprintf("--%s=100steak", cli.FlagSpendLimit),
 				fmt.Sprintf("--%s=%s", flags.FlagFrom, val.Address.String()),
 				fmt.Sprintf("--%s=true", flags.FlagSkipConfirmation),
+				fmt.Sprintf("--%s=%s", flags.FlagBroadcastMode, flags.BroadcastBlock),
 				fmt.Sprintf("--%s=%d", cli.FlagExpiration, pastHour),
 			},
-			0xd,
-			false, // TODO: enable in v0.45
+			authz.ErrInvalidExpirationTime.ABCICode(),
+			false,
 		},
 		{
 			"fail with error invalid msg-type",
@@ -292,6 +294,9 @@ func (s *IntegrationTestSuite) TestCLITxGrantAuthorization() {
 				s.Require().NoError(err)
 				s.Require().NoError(clientCtx.Codec.UnmarshalAsJSON(out.Bytes(), &txResp), out.String())
 				s.Require().Equal(tc.expectedCode, txResp.Code, out.String())
+				if tc.name == "Invalid expiration time" {
+					s.Require().Equal(authz.ModuleName, txResp.Codespace, out.String())
+				}
 			}
 		})
 	}

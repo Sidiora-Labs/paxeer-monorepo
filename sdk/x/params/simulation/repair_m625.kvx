@@ -1,0 +1,9 @@
+[repair.22.33.625]
+audit = "22.30.163"
+finding = "037"
+implementation = "operations.go passes the exclusive upper bound plus one to RandIntBetween; the simultaneous-change limit remains 1000."
+tests = ["TestRepairM_625_SingleEntry", "TestRepairM_625_FullPool", "TestRepairM_625_PoolLimit"]
+proof = "Real weighted proposal generation with seeded math/rand and RandIntBetween, governance interface codec round-trip, and production ValidateBasic; selected entries are distinct members of the original pool."
+baseline = "Not run: the explicit gate order requires complete implementation before hf-build and hf-done and forbids running verify_cmd by hand; no prior gate ledger exists."
+wiring_requests = []
+evidence = "The runner's private hf-build/hf-done ledger records the exact candidate revision, command, exit code and log; this record makes no independent qualification claim."
