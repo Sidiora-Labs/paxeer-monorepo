@@ -230,6 +230,7 @@ func TestRepair_324_RPCProducerTransportConsumer(t *testing.T) {
 			server := httptest.NewServer(rpcServer)
 			t.Cleanup(server.Close)
 			worker := NewWorker(1, "125", server.URL, 4, 1, nil)
+			worker.SetTrackReceipts(true)
 			err := worker.sendTransaction(t.Context(), server.Client(), tx)
 			if reject {
 				var rpcError gethrpc.Error
