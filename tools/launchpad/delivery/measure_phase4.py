@@ -21,6 +21,8 @@ from qualify import snapshot as candidate_snapshot, canonical_hash as candidate_
 
 HEX = re.compile(r'^[0-9a-f]{64}$')
 NAME = re.compile(r'^[A-Za-z0-9_-]{1,63}$')
+SOURCE_COMMIT_AUTHORITY = 'chain_transaction_commit'
+MAX_CLOCK_UNCERTAINTY_NS = 5000000
 
 
 def require(condition, message):
@@ -136,6 +138,7 @@ def validate_ledger(ledger):
         pinned_file(pin)
     for pin in (ledger['postgres_executable'], ledger['archive']['source_time_query'], ledger['hot_replay_query'], ledger['browser_journal_authority']):
         pinned_file(pin)
+    read_clock_calibration(ledger['clock_calibration'])
     require(ledger['archive']['manifest_digests'] and all(HEX.fullmatch(d) for d in ledger['archive']['manifest_digests']), 'actual immutable archive manifests required')
     require(NAME.fullmatch(ledger['archive']['schema']) and NAME.fullmatch(ledger['archive']['consumer']) and NAME.fullmatch(ledger['archive']['original_generation']) and NAME.fullmatch(ledger['archive']['rebuild_generation']) and NAME.fullmatch(ledger['archive']['prefix']) and ledger['archive']['original_generation'] != ledger['archive']['rebuild_generation'], 'separate real archive generation required')
     return ledger
@@ -321,6 +324,71 @@ def sql_file(pin, ids):
     return text.replace('{{event_ids}}', ','.join("'" + value + "'" for value in ids))
 
 
+def create_identity_database(path):
+    db=sqlite3.connect(path)
+    os.chmod(path,0o600)
+    db.executescript('CREATE TABLE receipts(transaction_hash TEXT PRIMARY KEY,block_hash TEXT NOT NULL,profile TEXT NOT NULL,scheduled_ns INTEGER NOT NULL,observed_ns INTEGER NOT NULL,wire_hash TEXT NOT NULL);CREATE TABLE sources(source_id TEXT PRIMARY KEY,profile TEXT NOT NULL,committed_ns INTEGER NOT NULL,latency_ns INTEGER NOT NULL);CREATE TABLE source_receipts(source_id TEXT PRIMARY KEY,transaction_hash TEXT NOT NULL);CREATE TABLE deliveries(event_id TEXT PRIMARY KEY,source_id TEXT NOT NULL,wire_hash TEXT NOT NULL);CREATE INDEX delivery_source ON deliveries(source_id);CREATE TABLE effects(consumer_id TEXT NOT NULL,event_id TEXT NOT NULL,PRIMARY KEY(consumer_id,event_id));CREATE TABLE browser_publications(source_id TEXT PRIMARY KEY,frame_hash TEXT NOT NULL);')
+    return db
+
+
+def read_clock_calibration(pin):
+    clock = json.loads(pinned_file(pin).read_bytes())
+    require(clock['authority'] == 'independently_calibrated_utc', 'independent measured UTC clock authority required')
+    require(all(type(clock[key]) is int for key in ('measured_utc_ns', 'valid_from_utc_ns', 'valid_to_utc_ns', 'source_offset_ns', 'postgres_offset_ns', 'source_uncertainty_ns', 'postgres_uncertainty_ns')), 'exact measured clock calibration required')
+    require(0 < clock['measured_utc_ns'] <= clock['valid_from_utc_ns'] < clock['valid_to_utc_ns'], 'bounded clock calibration validity required')
+    require(all(0 <= clock[key] <= MAX_CLOCK_UNCERTAINTY_NS for key in ('source_uncertainty_ns', 'postgres_uncertainty_ns')), 'measured clock uncertainty exceeds 5ms')
+    require(all(NAME.fullmatch(clock[key]) for key in ('source_clock_id', 'postgres_clock_id')), 'explicit source and database clock identities required')
+    return clock
+
+
+def source_commit_binding(source, clock):
+    require(source['timestamp_authority'] == SOURCE_COMMIT_AUTHORITY and source['clock_id'] == clock['source_clock_id'], 'actual source transaction commit clock authority required')
+    require(all(re.fullmatch(r'0x[0-9a-f]{64}', source[key]) for key in ('transaction_hash', 'block_hash')), 'source commit transaction and block binding required')
+    require(type(source['height']) is int and source['height'] > 0 and type(source['source_commit_utc_ns']) is int, 'exact source commit height and timestamp required')
+    source_ns = source['source_commit_utc_ns'] - clock['source_offset_ns']
+    uncertainty = clock['source_uncertainty_ns']
+    require(clock['valid_from_utc_ns'] <= source_ns - uncertainty and source_ns + uncertainty <= clock['valid_to_utc_ns'], 'source commit outside measured clock validity')
+    return source_ns
+
+
+async def record_workload_receipt(http, transaction_hash, scheduled_utc_ns, source_commit, calibration_pin, output):
+    clock = read_clock_calibration(calibration_pin)
+    source_commit_binding(source_commit, clock)
+    require(transaction_hash == source_commit['transaction_hash'] and type(scheduled_utc_ns) is int and scheduled_utc_ns > 0, 'scheduled transaction differs from source commit authority')
+    deadline = time.monotonic() + 20
+    while True:
+        response = await http.call('POST', '/', {'jsonrpc': '2.0', 'id': 1, 'method': 'eth_getTransactionReceipt', 'params': [transaction_hash]})
+        require(response.get('jsonrpc') == '2.0' and response.get('id') == 1 and 'error' not in response, 'actual chain receipt RPC response required')
+        receipt = response['result']
+        if receipt is not None:
+            break
+        require(time.monotonic() < deadline, 'actual chain receipt deadline exceeded')
+        await asyncio.sleep(.05)
+    require(receipt['status'] == '0x1' and receipt['transactionHash'] == transaction_hash and receipt['blockHash'] == source_commit['block_hash'] and int(receipt['blockNumber'], 16) == source_commit['height'] and receipt['logs'], 'receipt differs from independent source commit identity')
+    require(all(log['transactionHash'] == transaction_hash and log['blockHash'] == receipt['blockHash'] and log['blockNumber'] == receipt['blockNumber'] and log['removed'] is False for log in receipt['logs']), 'receipt log source binding differs')
+    row = dict(transaction_hash=transaction_hash, block_hash=receipt['blockHash'], height=str(source_commit['height']), logs=receipt['logs'], scheduled_utc_ns=scheduled_utc_ns, observed_utc_ns=time.time_ns(), source_commit_sha256=sha(canonical(source_commit)), clock_calibration_sha256=calibration_pin['sha256'])
+    output.write(canonical(row).decode() + '\n')
+    output.flush()
+    return row
+
+
+def read_source_commits(path, calibration_pin, db):
+    require(path.is_file() and not path.is_symlink(), 'independent source commit journal unavailable')
+    clock = read_clock_calibration(calibration_pin)
+    db.execute('CREATE TABLE IF NOT EXISTS source_commits(transaction_hash TEXT PRIMARY KEY,block_hash TEXT NOT NULL,height TEXT NOT NULL,source_ns INTEGER NOT NULL,uncertainty_ns INTEGER NOT NULL,postgres_offset_ns INTEGER NOT NULL,postgres_uncertainty_ns INTEGER NOT NULL,postgres_clock_id TEXT NOT NULL,valid_from_ns INTEGER NOT NULL,valid_to_ns INTEGER NOT NULL,source_hash TEXT NOT NULL,calibration_hash TEXT NOT NULL)')
+    count = 0
+    with path.open() as source:
+        for line in source:
+            require(len(line) <= 65536, 'bounded independent source commit record required')
+            row = json.loads(line)
+            source_ns = source_commit_binding(row, clock)
+            db.execute('INSERT INTO source_commits VALUES(?,?,?,?,?,?,?,?,?,?,?,?)', (row['transaction_hash'], row['block_hash'], str(row['height']), source_ns, clock['source_uncertainty_ns'] + clock['postgres_uncertainty_ns'], clock['postgres_offset_ns'], clock['postgres_uncertainty_ns'], clock['postgres_clock_id'], clock['valid_from_utc_ns'], clock['valid_to_utc_ns'], sha(canonical(row)), calibration_pin['sha256']))
+            count += 1
+    require(count > 0, 'nonempty independent source commit journal required')
+    db.commit()
+    return dict(source_commits=count, source_commit_journal_sha256=sha_file(path), clock_calibration_sha256=calibration_pin['sha256'], timestamp_authority=SOURCE_COMMIT_AUTHORITY, clock=clock)
+
+
 def read_receipts(path, db, profile, rate, seconds, generator_budget):
     require(path.is_file() and not path.is_symlink(), 'real current-profile receipt journal unavailable')
     histogram, first, last, count = {}, None, None, 0
@@ -330,6 +398,8 @@ def read_receipts(path, db, profile, rate, seconds, generator_budget):
             row = json.loads(line)
             scheduled, observed = int(row['scheduled_utc_ns']), int(row['observed_utc_ns'])
             require(scheduled > 0 and observed >= scheduled and re.fullmatch(r'0x[0-9a-f]{64}', row['transaction_hash']) and re.fullmatch(r'0x[0-9a-f]{64}', row['block_hash']), 'actual scheduled committed receipt identity required')
+            authority = db.execute('SELECT height,source_hash,calibration_hash FROM source_commits WHERE transaction_hash=? AND block_hash=?', (row['transaction_hash'], row['block_hash'])).fetchone()
+            require(authority is not None and authority == (row['height'], row['source_commit_sha256'], row['clock_calibration_sha256']), 'receipt lacks matching independent source commit and measured clock binding')
             first = scheduled if first is None else min(first, scheduled)
             last = scheduled if last is None else max(last, scheduled)
             delay = observed - scheduled
@@ -386,6 +456,7 @@ async def run_profile(name, ledger, observer, broker, capture, db, output):
     require(time.monotonic() - started >= config['seconds'], 'actual workload did not sustain its complete duration')
     if name == 'burst':
         require(fault_action and unavailable_seen, 'actual one-AZ loss was not observed during accepted workload')
+    capture.record('source_commit_authority', read_source_commits(output / (name + '-source-commits.jsonl'), ledger['clock_calibration'], db))
     receipts = read_receipts(output / (name + '-receipts.jsonl'), db, name, config['rate'], config['seconds'], ledger['budgets']['generator_delay_p99_ns'])
     capture.record('receipt_journal', receipts)
     deadline = time.monotonic() + ledger['budgets']['drain_seconds']
@@ -421,14 +492,18 @@ async def reconcile_sources(observer, ledger, db, capture, profiles):
             break
         for row in rows:
             cursor = row['event_id']
-            receipt = db.execute('SELECT profile,scheduled_ns,observed_ns FROM receipts WHERE transaction_hash=? AND block_hash=?', (row['transaction_hash'],row['block_hash'])).fetchone()
+            receipt = db.execute('SELECT r.profile,r.scheduled_ns,a.source_ns,a.uncertainty_ns,a.postgres_offset_ns,a.postgres_uncertainty_ns,a.postgres_clock_id,a.valid_from_ns,a.valid_to_ns FROM receipts r JOIN source_commits a ON a.transaction_hash=r.transaction_hash AND a.block_hash=r.block_hash WHERE r.transaction_hash=? AND r.block_hash=? AND a.height=?', (row['transaction_hash'],row['block_hash'],row['height'])).fetchone()
             if receipt is None:
                 continue
-            profile, scheduled, observed = receipt
-            committed = int(row['durable_commit_utc_ns'])
-            require(committed >= observed and row['timestamp_authority']=='postgres_transaction_commit', 'independently observed commit and durable timestamp inconsistent')
-            latency = committed-observed
-            bound=(latency+999999)//1000000*1000000
+            profile, scheduled, source_ns, uncertainty, offset, postgres_uncertainty, postgres_clock_id, valid_from, valid_to = receipt
+            committed = int(row['durable_commit_utc_ns']) - offset
+            require(committed > 0 and row['timestamp_authority']=='postgres_transaction_commit', 'independently observed commit and durable timestamp inconsistent')
+            require(row.get('clock_id') == postgres_clock_id, 'durable commit differs from calibrated database clock identity')
+            require(valid_from <= committed - postgres_uncertainty and committed + postgres_uncertainty <= valid_to, 'durable commit outside measured clock validity')
+            latency = committed - source_ns
+            require(latency >= -uncertainty, 'durable commit precedes source commit beyond measured uncertainty')
+            upper_latency = latency + uncertainty
+            bound=(upper_latency+999999)//1000000*1000000
             histogram[bound] = histogram.get(bound,0)+1
             db.execute('INSERT INTO sources VALUES(?,?,?,?)',(row['event_id'],profile,committed,latency))
             db.execute('INSERT INTO source_receipts VALUES(?,?)',(row['event_id'],row['transaction_hash']))
@@ -438,7 +513,7 @@ async def reconcile_sources(observer, ledger, db, capture, profiles):
             durable_bucket=(committed-start)//10**9
             durable_buckets[(profile,durable_bucket)]=durable_buckets.get((profile,durable_bucket),0)+1
             source_count[profile] = source_count.get(profile,0)+1
-            capture.record('canonical_commit',row)
+            capture.record('canonical_commit',dict(row, source_commit_utc_ns=source_ns, clock_uncertainty_ns=uncertainty, latency_ns=latency, latency_upper_bound_ns=upper_latency))
         db.commit()
     for name in ('sustained','burst'):
         config=ledger[name]
@@ -447,9 +522,10 @@ async def reconcile_sources(observer, ledger, db, capture, profiles):
             require(buckets.get((name,second),0)>=config['rate'],'scheduled relevant-event bucket below frozen target')
         for second in range(1,config['seconds']):
             require(durable_buckets.get((name,second),0)>=config['rate'],'actual durable committed event rate below frozen target')
-    require(percentile(histogram,99)<=ledger['budgets']['ingest_p99_ns'],'observed commit to durable ingest p99 exceeds frozen target')
+    require(ledger['budgets']['ingest_p99_ns'] == 500000000, 'frozen ingest latency target required')
+    require(percentile(histogram,99)<=ledger['budgets']['ingest_p99_ns'],'source commit to durable ingest p99 exceeds frozen target')
     require(db.execute('SELECT count(*) FROM receipts r WHERE NOT EXISTS(SELECT 1 FROM sources s JOIN source_receipts x ON x.source_id=s.source_id WHERE x.transaction_hash=r.transaction_hash)').fetchone()[0]==0,'accepted receipt has no relevant canonical delivery')
-    return dict(committed_sources=source_count,durable_per_second={name:{str(second):count for (profile,second),count in durable_buckets.items() if profile==name} for name in ('sustained','burst')},ingest_p99_ns=percentile(histogram,99),histogram_upper_bounds_ns={str(k):v for k,v in histogram.items()},histogram_resolution_ns=1000000)
+    return dict(committed_sources=source_count,durable_per_second={name:{str(second):count for (profile,second),count in durable_buckets.items() if profile==name} for name in ('sustained','burst')},ingest_p99_ns=percentile(histogram,99),histogram_upper_bounds_ns={str(k):v for k,v in histogram.items()},histogram_resolution_ns=1000000,source_timestamp_authority=SOURCE_COMMIT_AUTHORITY,latency_statistic='upper_bound_including_measured_clock_uncertainty')
 
 
 async def reconcile_delivery(observer, broker, ledger, db, capture):
@@ -590,9 +666,7 @@ async def measure(ledger, output, binding):
     require(not output.exists(),'exclusive private measurement output required')
     output.mkdir(mode=0o700,parents=True)
     capture=Capture(output,binding)
-    db=sqlite3.connect(output/'identities.sqlite3')
-    os.chmod(output/'identities.sqlite3',0o600)
-    db.executescript('CREATE TABLE receipts(transaction_hash TEXT PRIMARY KEY,block_hash TEXT NOT NULL,profile TEXT NOT NULL,scheduled_ns INTEGER NOT NULL,observed_ns INTEGER NOT NULL,wire_hash TEXT NOT NULL);CREATE TABLE sources(source_id TEXT PRIMARY KEY,profile TEXT NOT NULL,committed_ns INTEGER NOT NULL,latency_ns INTEGER NOT NULL);CREATE TABLE source_receipts(source_id TEXT PRIMARY KEY,transaction_hash TEXT NOT NULL);CREATE TABLE deliveries(event_id TEXT PRIMARY KEY,source_id TEXT NOT NULL,wire_hash TEXT NOT NULL);CREATE INDEX delivery_source ON deliveries(source_id);CREATE TABLE effects(consumer_id TEXT NOT NULL,event_id TEXT NOT NULL,PRIMARY KEY(consumer_id,event_id));CREATE TABLE browser_publications(source_id TEXT PRIMARY KEY,frame_hash TEXT NOT NULL);')
+    db=create_identity_database(output/'identities.sqlite3')
     observer=PostgresObserver(str(pinned_file(ledger['postgres_executable'])),ledger['postgres_executable']['sha256'],references(ledger['postgres_environment']),stream_id=ledger['source_stream'],pools=ledger['pools'])
     broker=Broker(ledger['broker'])
     report=dict(task='4.08',**binding,passed=False,lane_measurement_passed=False,full_load_acceptance=False,global_acceptance_owner='serial9.1')
