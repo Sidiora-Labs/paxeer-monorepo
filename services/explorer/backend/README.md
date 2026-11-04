@@ -50,8 +50,8 @@ and the linked controllers define their contracts.
 | --- | --- |
 | `/paxeer-x/capabilities` | Last successful capability probe, plus native feed availability when present |
 | `/addresses/:address_hash_param/unified` | Native identities, balances and cursor-paginated activity |
-| `/transactions/:transaction_hash_param/status` | Observed transaction status and committed height |
-| `/transactions/:transaction_hash_param/signature` | Verified receipt, receipt key and signature when evidence is available |
+| `/transactions/:transaction_hash_param/status` | Live `submitted`, `receipted` or `committed` observation and committed height |
+| `/transactions/:transaction_hash_param/signature` | Verified native receipt, receipt key, signature and evidence-backed rung |
 | `/paxeer-x/feed/markets` | Native price-feed markets and latest observations |
 | `/paxeer-x/feed/markets/:market_id/updates` | Paginated observations for one market |
 | `/paxeer-x/feed/updates` | Paginated native submissions, optionally filtered by feeder or market |
@@ -74,10 +74,16 @@ and a `reason`.
 returns `rung`, `block_number` and `committed_height`. An indexed consensus
 block at or below the indexed committed head gives `committed`. Other observed
 states can be `submitted` or `receipted`; neither establishes finality. A hash
-with neither an indexed transaction nor verified receipt evidence returns
+not yet indexed can also return `committed` when its sequencer receipt and
+native transaction/result inclusion evidence verify against pinned authority.
+Its `block_number` remains null while `committed_height` reports the verified
+height. Receipt signature verification alone establishes only `receipted`.
+A hash with neither an indexed transaction nor verified receipt evidence returns
 HTTP `404`. The
 [signature endpoint](apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_controller.ex)
-returns HTTP `404` when its receipt evidence cannot be verified. These
+returns HTTP `404` when its receipt evidence cannot be verified. Successful
+responses carry `receipt`, `receipt_key`, `signature` and `rung`, with
+`committed_height` added only for a verified committed result. These
 observations do not add another settlement network.
 
 [`CapabilitiesController`](apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/capabilities_controller.ex)
@@ -93,6 +99,13 @@ scanned feed block within 1000 blocks of the indexed head.
 
 The [feed controller](apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/feed_controller.ex)
 reads indexed native `MsgSubmitPrices` transactions from consensus blocks.
+Submission lists return `items` and `next_page_params`, newest first by block
+number and CometBFT index. Follow the returned pagination parameters. Failed
+submissions remain visible with `status: "error"`; each observation carries
+`accepted`. Only accepted observations of successful consensus submissions
+advance the latest market price and market history. A submission whose block
+loses consensus disappears from these reads.
+
 Enabling collection with `PAXEER_X_PRICE_FEED_ENABLED=true` requires
 `PAXEER_X_COSMOS_REST_URLS`, `PAXEER_X_COMETBFT_RPC_URLS` (comma-separated
 HTTP or HTTPS URL lists) and a non-negative `PAXEER_X_PRICE_FEED_START_BLOCK`.
@@ -108,6 +121,25 @@ serves frozen history, not current finality evidence. Lists return `items` and
 unknown receipt ID returns HTTP `404`. The old unprefixed
 `/api/v2/paxeer-x/anchors` and `/api/v2/paxeer-x/receipts` routes were removed
 and return not-found; use the explicit `/archive/` paths above.
+Archive items carry `frozen: true`; their historical verification fields do
+not establish a current transaction's rung. Live native receipts and feed
+submissions do not populate these frozen archives.
+
+### Live delivery and hosted transport
+
+The V2 Phoenix WebSocket uses `/socket/v2/websocket`. Subscribe to
+`paxeer_x_feed:new_update` for native submissions, including failed submissions,
+or `paxeer_x_feed:market:<id>` for accepted observations of one non-negative
+market id. Both topics deliver `new_update` events: the submission payload
+matches its feed detail REST response, and the market payload matches its
+market history item. Reconnect through the REST lists and their pagination
+parameters to recover history; socket delivery is a live notification stream.
+
+The hosted transport must admit the same live interfaces: the status and
+signature GET paths, all four `/api/v2/paxeer-x/feed/` GET paths above, and the
+WebSocket upgrade at `/socket/v2/websocket` with both feed topics. Forward
+query parameters and preserve response status codes, payloads and lifecycle
+semantics. Frozen `/archive/` reads cannot substitute for these live interfaces.
 
 ### Explorer accounts
 
