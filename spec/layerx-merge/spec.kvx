@@ -281506,7 +281506,7 @@ do_15 = "Attempt 3 (continue): two of six cases pass; the four simulation cases 
 
 [task.22.33.892]
 title = "Repair audit record 22.30.184 medium findings in tests (part 2 of 2): retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.331", "22.31.332", "22.31.505"]
