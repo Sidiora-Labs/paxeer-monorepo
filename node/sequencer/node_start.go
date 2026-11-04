@@ -64,15 +64,8 @@ func (n *Node) Start(ctx context.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	if committed := n.WAL.LastCommitted(); committed != nil {
-		lastSeq, err := n.App.SequencerKeeper.LastSeq(state)
-		if err != nil {
-			return err
-		}
-		if committed.Height != uint64(height) || committed.LastSeq != lastSeq ||
-			!bytes.Equal(committed.AppHash[:], n.App.CommitMultiStore().LastCommitID().Hash) {
-			return errors.New("sequencer: WAL committed tip differs from app")
-		}
+	if err := n.reconcileWALTip(ctx, height); err != nil {
+		return err
 	}
 	*n.ReceiptKey = *key
 	defer func() {
@@ -95,31 +88,35 @@ func (n *Node) Start(ctx context.Context) (err error) {
 	}
 	if _, err := n.Executor.Snapshot(); errors.Is(err, ErrLayerNotOpen) {
 		if replayer.sealed {
-			return errors.New("sequencer: WAL ends in an uncommitted sealed block")
-		}
-		openTime := time.Now().UnixMilli()
-		if err := n.Executor.Open(height+1, openTime); err != nil {
-			return err
-		}
-		baseFee, err := n.FeeFloor.BaseFeePerGas()
-		if err != nil {
-			return err
-		}
-		if baseFee.IsNegative() {
-			return errors.New("sequencer: negative open base fee")
-		}
-		fee, overflow := uint256.FromBig(baseFee.TruncateInt().BigInt())
-		if overflow {
-			return errors.New("sequencer: open base fee exceeds uint256")
-		}
-		ack, err := n.Replicator.Release(ctx, &wal.Open{
-			Height: uint64(height + 1), OpenTimeMs: uint64(openTime), BaseFee: fee,
-		})
-		if err != nil {
-			return err
-		}
-		if ack.Status != AckOK {
-			return fmt.Errorf("%w: OPEN status %d", ErrStandbyRefused, ack.Status)
+			if replayer.batch == nil || replayer.batch.Height != height+1 {
+				return errors.New("sequencer: sealed WAL tail differs from application tip")
+			}
+			n.ConsensusSource.pending = replayer.batch
+		} else {
+			openTime := time.Now().UnixMilli()
+			if err := n.Executor.Open(height+1, openTime); err != nil {
+				return err
+			}
+			baseFee, err := n.FeeFloor.BaseFeePerGas()
+			if err != nil {
+				return err
+			}
+			if baseFee.IsNegative() {
+				return errors.New("sequencer: negative open base fee")
+			}
+			fee, overflow := uint256.FromBig(baseFee.TruncateInt().BigInt())
+			if overflow {
+				return errors.New("sequencer: open base fee exceeds uint256")
+			}
+			ack, err := n.Replicator.Release(ctx, &wal.Open{
+				Height: uint64(height + 1), OpenTimeMs: uint64(openTime), BaseFee: fee,
+			})
+			if err != nil {
+				return err
+			}
+			if ack.Status != AckOK {
+				return fmt.Errorf("%w: OPEN status %d", ErrStandbyRefused, ack.Status)
+			}
 		}
 	} else if err != nil {
 		return err
@@ -172,4 +169,54 @@ func (r *nodeStartReplayer) Execute(a *wal.Accept) ([]byte, error) {
 		return nil, err
 	}
 	return r.AppReplayer.Execute(a)
+}
+
+// A crash can leave SEAL durable after the application committed but before
+// Driver wrote COMMITTED. Only the exact sequence/hash tip can reconcile it.
+func (n *Node) reconcileWALTip(ctx context.Context, height int64) error {
+	state := n.App.GetCheckCtx()
+	lastSeq, err := n.App.SequencerKeeper.LastSeq(state)
+	if err != nil {
+		return err
+	}
+	lastHash, err := n.App.SequencerKeeper.LastSeqHash(state)
+	if err != nil {
+		return err
+	}
+	committed := n.WAL.LastCommitted()
+	if committed != nil {
+		if committed.Height > uint64(height) {
+			return errors.New("sequencer: WAL committed tip is ahead of app")
+		}
+		if committed.Height == uint64(height) {
+			if committed.LastSeq != lastSeq || !bytes.Equal(committed.AppHash[:], n.App.CommitMultiStore().LastCommitID().Hash) {
+				return errors.New("sequencer: WAL committed tip differs from app")
+			}
+			return nil
+		}
+	}
+	var seal *wal.Seal
+	if err := n.WAL.Scan(func(e wal.Entry) error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if v, ok := e.(*wal.Seal); ok && v.Height <= uint64(height) {
+			seal = v
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	if seal == nil && committed == nil {
+		return nil
+	}
+	if seal == nil || seal.Height != uint64(height) || seal.ToSeq != lastSeq || seal.LastSeqHash != lastHash {
+		return errors.New("sequencer: sealed WAL tip differs from committed app")
+	}
+	hash := n.App.CommitMultiStore().LastCommitID().Hash
+	if len(hash) != 32 {
+		return errors.New("sequencer: committed app hash is not 32 bytes")
+	}
+	_, err = n.Replicator.Release(ctx, &wal.Committed{Height: uint64(height), LastSeq: lastSeq, AppHash: [32]byte(hash)})
+	return err
 }

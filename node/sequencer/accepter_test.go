@@ -70,6 +70,7 @@ type accepterHarness struct {
 	dir    string
 	sdir   string
 	l      net.Listener
+	auth   sequencer.ReplicationTLSConfig
 	a      *sequencer.Accepter
 	src    *sequencer.ReceiptSource
 	key    *sequencer.ReceiptKey
@@ -157,12 +158,12 @@ func newAccepterHarnessWithExecutor(t *testing.T, configure func(sequencer.Execu
 		CommittedHeight: uint64(committedTip), LastSeq: startSeq,
 	})
 	require.NoError(t, err)
-	l := listen(t)
+	l, auth := listenAuthenticated(t)
 	t.Cleanup(func() { _ = l.Close() })
 	m, reader := newSequencerMetricsReader(t)
 	synced := make(chan struct{}, 32)
 	rep, err := sequencer.NewReplicator(sequencer.ReplicatorConfig{
-		WAL: w, Dial: sequencer.DialStandby(l.Addr().String(), replicationTimeout),
+		WAL: w, Dial: sequencer.DialStandby(l.Addr().String(), replicationTimeout, auth),
 		ReplicationTimeout: replicationTimeout,
 		OnWALSync: func(d time.Duration) {
 			m.ObserveWALSync(d)
@@ -174,7 +175,7 @@ func newAccepterHarnessWithExecutor(t *testing.T, configure func(sequencer.Execu
 	src := sequencer.NewReceiptSource(32)
 	return &accepterHarness{
 		h: h, sh: sh, rep: rep, replay: replay, sb: sb, w: w, sw: sw, dir: dir, sdir: sdir, l: l,
-		a: sequencer.NewAccepter(r, rep, src, m), src: src, key: key, reader: reader, synced: synced,
+		auth: auth, a: sequencer.NewAccepter(r, rep, src, m), src: src, key: key, reader: reader, synced: synced,
 	}
 }
 

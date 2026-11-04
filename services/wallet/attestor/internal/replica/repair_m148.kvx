@@ -1,0 +1,17 @@
+[repair.22.33.148]
+audit = "22.30.116"
+base_revision = "2b502183a86af3a2498748de6572b1bde20e4768"
+qualification = "The runner's hf-build and hf-done gate ledger records the content-addressed verified revision, exact command, exit code and private log; the final response copies that evidence without changing the qualified candidate."
+baseline = "Not run: the explicit Order and allowed-gate budget require complete implementation before hf-build then hf-done, overriding step 6's unchanged-tree verification request; no baseline failure is claimed."
+wiring_requests = []
+
+[finding.replica-ledger-growth]
+tests = ["TestRepairM_148_LedgerLongHistory", "TestRepairM_148_RetirementDurability", "TestRepairM_148_TimeoutConfigAndLegacyLedger"]
+retention = "Retain every acknowledgement in the active index while its local file exists, regardless of age; after a successful snapshot-directory inventory, confirm absence with Lstat and sync local removal before replacing the active index. Missing directories and inspection errors never authorize pruning. The active index is bounded by retained acknowledged local snapshots, not node lifetime."
+archival = "Before removing an active entry, persist its complete acknowledgement in a sharded per-name archive and sync the archive directories. Archives retain evidence indefinitely, are not loaded at startup, and are read only by name for duplicate checks. Archive failure preserves the active acknowledgement; archive-before-index crashes retry idempotently. Preserve last-shipped high-water metadata even when the active index becomes empty."
+proof = "Produce real encrypted store snapshots, ship and read back through loopback SSH/SFTP, run 256 shipments with eight local snapshots retained, reopen shippers repeatedly, check every archived acknowledgement and remote bytes, reject active and archived duplicates and changed reappearances, and recover an interrupted archive/index transition."
+
+[finding.replica-timeout]
+tests = ["TestRepairM_148_StalledPeer", "TestRepairM_148_RunCancellationAndQueuedShip", "TestRepairM_148_TimeoutConfigAndLegacyLedger"]
+operation_deadline = "ATTESTOR_REPLICA_OPERATION_TIMEOUT is optional and defaults to two minutes; supplied values must be positive. One absolute deadline covers a Ship pass including queueing, dialing, SSH negotiation, SFTP channel/subsystem/init, upload, read-back and rename; an earlier caller deadline wins. Context cancellation closes the raw connection, including during negotiation, and teardown closes it before SFTP cleanup."
+proof = "Use real in-process SSH and SFTP servers with a channel fixture that stalls real client packets after authentication while SSH keepalives continue. Assert cancellation, configured timeout and caller deadline at channel setup, subsystem negotiation, SFTP init, stat, upload, read-back and rename; assert raw transport closure, no acknowledgement or final publication, a healthy retry, prompt background-loop shutdown and cancellation of queued Ship calls."

@@ -51,13 +51,14 @@ func newStartHarness(t *testing.T, mode sequencer.Mode, sender utils.TestAcct) *
 	pv, err := privval.GenFilePV(consensus.KeyFile(), consensus.StateFile(), "")
 	require.NoError(t, err)
 	require.NoError(t, pv.Save())
-	l := listen(t)
+	l, auth := listenAuthenticated(t)
 	t.Cleanup(func() { _ = l.Close() })
 	cfg := sequencer.DefaultConfig()
 	cfg.Enable, cfg.Mode = true, mode
 	cfg.WALDir = filepath.Join(t.TempDir(), "wal")
 	cfg.ReceiptKeyFile = writeSeed(t, t.TempDir(), "receipt_key", testKeySeed, 0o600)
 	cfg.StandbyAddress = l.Addr().String()
+	cfg.ReplicationTLS = auth
 	cfg.ReplicationTimeout = replicationTimeout
 	cfg.LeaseDuration = 3 * replicationTimeout
 	cfg.NonceQueueMaxPerSender, cfg.NonceQueueMaxTotal = 4, 8

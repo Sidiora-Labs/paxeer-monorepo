@@ -1,0 +1,14 @@
+[
+  {
+    "keyId": "0x0202020202020202020202020202020202020202020202020202020202020202",
+    "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+    "firstHeight": 1001,
+    "lastHeight": 18446744073709551615
+  },
+  {
+    "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+    "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+    "firstHeight": 0,
+    "lastHeight": 1000
+  }
+]
