@@ -220,8 +220,8 @@ func (s txServer) GetBlockWithTxs(ctx context.Context, req *txtypes.GetBlockWith
 		return nil
 	}
 	if req.Pagination != nil && req.Pagination.Reverse {
-		for i, count := offset, uint64(0); i > 0 && count != limit; i, count = i-1, count+1 {
-			if err = decodeTxAt(i); err != nil {
+		for remaining, count := blockTxsLn-offset, uint64(0); remaining > 0 && count != limit; remaining, count = remaining-1, count+1 {
+			if err = decodeTxAt(remaining - 1); err != nil {
 				return nil, err
 			}
 		}

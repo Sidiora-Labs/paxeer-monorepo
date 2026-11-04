@@ -461,7 +461,7 @@ func (ix *Indexer) rebuild(ctx context.Context, tx *sql.Tx, a source.Affected) e
 	if err := ix.fence(ctx, tx); err != nil {
 		return err
 	}
-	if err := store.Rebuild(ctx, tx, int64(a.From), int64(a.From)); err != nil {
+	if err := rebuildAffected(ctx, tx, a); err != nil {
 		return err
 	}
 	return ix.extend(ctx, tx)

@@ -1,0 +1,11 @@
+[manifest]
+task = "22.32.125"
+domain = 14
+owner_role = "fm-web-explorer-bridge"
+pages = 1
+
+[page.1]
+path = "contracts/bridge/README.md"
+status = "stale"
+bytes = 40191
+source_1 = "record 22.30.140 [doc.006] (stale): Line 150 overstates semantic compatibility and no-output-on-refusal guarantees. Legacy schema generation can disagree on asset binding, and a failure after body publication can leave an incomplete bundle."

@@ -1,6 +1,6 @@
 import { createServer } from "node:http";
 import { keccak256 } from "@sidiora/layerx-sdk";
-import { mkdir, open, readFile, rename } from "node:fs/promises";
+import { link, mkdir, open, readFile, rename, unlink } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { MerchantError, MerchantMiddleware, MerchantSettlementWebhooks } from "@sidiora/layerx-merchant-middleware";
 import {
@@ -106,6 +106,27 @@ const atomicJson = async (path, value) => {
   }
   await rename(temporary, path);
   await syncDirectory(path);
+};
+
+const claimJson = async (path, value) => {
+  const temporary = `${path}.${process.pid}.${crypto.randomUUID()}.tmp`;
+  const file = await open(temporary, "wx", 0o600);
+  try {
+    try {
+      await file.writeFile(JSON.stringify(value), "utf8");
+      await file.sync();
+    } finally {
+      await file.close();
+    }
+    try {
+      await link(temporary, path);
+    } catch (error) {
+      if (error.code !== "EEXIST") throw error;
+    }
+    await syncDirectory(path);
+  } finally {
+    await unlink(temporary);
+  }
 };
 
 export class DeclaredCatalog {
@@ -255,6 +276,10 @@ export class FileFulfillments {
 
   async get(idempotencyKey) {
     const path = join(this.directory, `${safeName(idempotencyKey)}.json`);
+    return this.read(path);
+  }
+
+  async read(path) {
     try {
       const record = exactObject(JSON.parse(await readFile(path, "utf8")));
       return { ...record, ...(record.commitmentEvidence === undefined ? {} : {
@@ -266,35 +291,60 @@ export class FileFulfillments {
     }
   }
 
+  encode(record) {
+    return { ...record, ...(record.commitmentEvidence === undefined ? {} : {
+      commitmentEvidence: encodePaymentCommitmentEvidence(record.commitmentEvidence),
+    }) };
+  }
+
+  requireMatching(stored, proposed) {
+    if (stored.idempotencyKey !== proposed.idempotencyKey
+      || stored.requestDigest !== proposed.requestDigest || stored.txHash !== proposed.txHash
+      || stored.receiptDigest !== proposed.receiptDigest) throw new MiddlewareError("fulfillment-conflict");
+  }
+
+  async completed(proposed, path) {
+    const record = await this.get(proposed.idempotencyKey);
+    if (record === undefined) return undefined;
+    this.requireMatching(record, proposed);
+    try {
+      await unlink(`${path}.pending`);
+    } catch (error) {
+      if (error.code !== "ENOENT") throw error;
+    }
+    await syncDirectory(path);
+    return record;
+  }
+
   async fulfill(proposed, release) {
     await mkdir(this.directory, { recursive: true, mode: 0o700 });
+    await syncDirectory(this.directory);
     const path = join(this.directory, `${safeName(proposed.idempotencyKey)}.json`);
-    const stored = await this.get(proposed.idempotencyKey);
+    const stored = await this.completed(proposed, path);
     if (stored !== undefined) {
-      if (stored.requestDigest !== proposed.requestDigest || stored.txHash !== proposed.txHash
-        || stored.receiptDigest !== proposed.receiptDigest) throw new MiddlewareError("fulfillment-conflict");
       return stored;
     }
-    const resource = await release();
-    const record = { ...proposed, resource };
+    const pendingPath = `${path}.pending`;
+    await claimJson(pendingPath, { state: "pending", fulfillment: this.encode(proposed) });
+    let pending;
     try {
-      const file = await open(path, "wx", 0o600);
-      try {
-        await file.writeFile(JSON.stringify({ ...record,
-          ...(record.commitmentEvidence === undefined ? {} : {
-            commitmentEvidence: encodePaymentCommitmentEvidence(record.commitmentEvidence),
-          }),
-        }), "utf8");
-        await file.sync();
-      } finally {
-        await file.close();
-      }
-      await syncDirectory(path);
-      return { ...proposed, resource };
+      pending = exactObject(JSON.parse(await readFile(pendingPath, "utf8")));
     } catch (error) {
-      if (error.code !== "EEXIST") throw error;
-      return this.fulfill(proposed, release);
+      if (error.code !== "ENOENT") throw error;
+      const result = await this.completed(proposed, path);
+      if (result === undefined) throw error;
+      return result;
     }
+    if (pending.state !== "pending") throw new MiddlewareError("fulfillment-conflict");
+    const claimed = exactObject(pending.fulfillment);
+    this.requireMatching(claimed, proposed);
+    const completed = await this.completed(proposed, path);
+    if (completed !== undefined) {
+      return completed;
+    }
+    const resource = await release(claimed.idempotencyKey);
+    await claimJson(path, { ...claimed, resource });
+    return this.completed(proposed, path);
   }
 }
 

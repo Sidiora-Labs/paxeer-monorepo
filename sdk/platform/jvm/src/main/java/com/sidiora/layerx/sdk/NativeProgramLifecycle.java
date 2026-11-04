@@ -1,5 +1,6 @@
 package com.sidiora.layerx.sdk;
 
+import com.sidiora.layerx.sdk.verify.GeneratedReceiptContract;
 import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -34,7 +35,7 @@ public sealed interface NativeProgramLifecycle permits NativeProgramDeploy, Nati
 
     static void code(byte[] program, int abi, byte[] hash, byte[] wasm) {
         bytes32(program); bytes32(hash);
-        require(!Arrays.equals(program, new byte[32]) && abi >= 1 && abi <= 3
+        require(!Arrays.equals(program, new byte[32]) && GeneratedReceiptContract.supportsProgramGuestAbi(abi)
             && wasm != null && wasm.length >= 8 && wasm.length <= 1048576
             && Arrays.equals(Arrays.copyOf(wasm, 8), new byte[]{0, 97, 115, 109, 1, 0, 0, 0})
             && MessageDigest.isEqual(hash, hash(wasm)));

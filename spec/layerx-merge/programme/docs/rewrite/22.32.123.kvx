@@ -1,0 +1,43 @@
+[manifest]
+task = "22.32.123"
+domain = 14
+owner_role = "fm-web-explorer-bridge"
+pages = 6
+
+[page.1]
+path = "contracts/platform-gateway.md"
+status = "missing"
+bytes = 0
+source_1 = "record 22.30.140 [doc.027] (missing): The package's interface registry references this contract page and anchors, but the page is absent from the audited tree. Rebind active contracts to maintained documentation and retire obsolete references."
+
+[page.2]
+path = "contracts/platform-hosted.md"
+status = "missing"
+bytes = 0
+source_1 = "record 22.30.140 [doc.028] (missing): The package's interface registry references this contract page and anchors, but the page is absent from the audited tree. Rebind active contracts to maintained documentation and retire obsolete references."
+source_2 = "record 22.30.85 [doc.15] (missing): The interface registry references this absent contract page; restore its maintained product contract or repoint and regenerate the owning registry declarations."
+
+[page.3]
+path = "contracts/platform-middleware.md"
+status = "missing"
+bytes = 0
+source_1 = "record 22.30.140 [doc.029] (missing): The package's interface registry references this contract page and anchors, but the page is absent from the audited tree. Rebind active contracts to maintained documentation and retire obsolete references."
+
+[page.4]
+path = "contracts/platform-ramps.md"
+status = "missing"
+bytes = 0
+source_1 = "record 22.30.140 [doc.030] (missing): The package's interface registry references this contract page and anchors, but the page is absent from the audited tree. Rebind active contracts to maintained documentation and retire obsolete references."
+
+[page.5]
+path = "contracts/platform-relay-archive.md"
+status = "missing"
+bytes = 0
+source_1 = "record 22.30.140 [doc.031] (missing): The package's interface registry references this contract page and anchors, but the page is absent from the audited tree. Rebind active contracts to maintained documentation and retire obsolete references."
+
+[page.6]
+path = "contracts/proto-api.md"
+status = "missing"
+bytes = 0
+source_1 = "record 22.30.140 [doc.032] (missing): The package's interface registry references this contract page and anchors, but the page is absent from the audited tree. Rebind active contracts to maintained documentation and retire obsolete references."
+source_2 = "record 22.30.166 [doc.21] (missing): Protobuf and REST contract target referenced by the slice registry is absent; see missing-interface-contract-pages."

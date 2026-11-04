@@ -19,6 +19,21 @@ use serde_aux::prelude::*;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize, derive_new::new)]
 pub struct HealthCheckResponseMetadata {
+    pub blocks: Option<HealthBlocks>,
     #[serde(default)]
     pub latest_block: Option<models::LatestBlock>,
+}
+
+#[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+pub struct HealthBlocks {
+    pub healthy: bool,
+    pub latest_block: models::LatestBlock,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<HealthError>,
+}
+
+#[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+pub struct HealthError {
+    pub code: i64,
+    pub message: String,
 }

@@ -1,7 +1,4 @@
-mod config;
-mod payer_tx;
-mod relay;
-mod server;
+use layerx_interop_service::{config, server};
 
 use layerx_platform_gateway::http;
 use rustls::{ServerConnection, StreamOwned};

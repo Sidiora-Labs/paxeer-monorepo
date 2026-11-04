@@ -1,0 +1,22 @@
+[repair.22.31.328]
+audit = "22.30.180"
+trace-errors-discarded = "TestRepair_328_TraceErrorsDiscarded; TestRepair_328_TraceCoverage; TestRepair_328_PartialTraceFailure"
+diff-trace-coverage = "TestRepair_328_DiffTraceCoverage; TestRepair_328_RecordedTraceContract"
+implementation = "TraceKeySource inventories EVM transaction hashes, pins both trace modes to that block hash, validates every transaction/result/error, and unions full prestate with changed/new poststate; all touched accounts check balance, nonce and code, including empty code."
+consumer = "Tests drive production TraceKeySource and ethclient over loopback HTTP into Comparator.CompareBlock and RenderMarkdown; failed coverage rejects Match and attributes an indeterminate result to Layer 2."
+fixtures = "testdata/repair_328_rpc.json is an explicit peer wire fixture for read-only SLOAD, unchanged code, creation and trace errors; testdata/repair_328_recorded.json additionally copies the native tracer's committed simple full/diff result vectors verbatim, with source paths and input retained."
+baseline = "No unchanged-tree verification is claimed: the task's explicit gate order permits hf-done only after complete implementation and hf-build. The inherited attempt already failed all three original TestRepair_328_ tests at producer startup."
+wiring_requests = "None; full prestate, diff prestate and block-hash tracing already exist in the producer API."
+qualification = "The runner's /out/run/gates.jsonl is the repair qualification record naming the exact candidate revision, command, exit and private evidence log; the final task response copies its last gate evidence."
+
+[repair.22.31.328.previous_attempt]
+revision = "bc47ae63e1168d449bc333e7ebc9996593b95049"
+command = "cg spec done 22.31.328 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/run/gate.json (seed.reason retains the previous verify output)"
+observed = "TestRepair_328_TraceErrorsDiscarded, TestRepair_328_TraceCoverage and TestRepair_328_DiffTraceCoverage failed because the subprocess node selected snap sync with snapshots disabled."
+repair = "Removed the subprocess toolchain and helper module; retained the original exact coverage assertions, and exercised the public comparison verdict with committed HTTP peers."
+
+[repair.22.31.328.gotcha]
+observed = "Importing the full tracing node also requires additions to the CLI's out-of-scope manifest; building a helper module during verification violates the self-contained gate contract."
+resolution = "The gate uses committed peer fixtures and the existing CLI dependency graph, with no TestMain, subprocess, external service or environment configuration."

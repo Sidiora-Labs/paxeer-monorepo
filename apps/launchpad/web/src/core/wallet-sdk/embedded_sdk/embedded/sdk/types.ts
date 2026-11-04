@@ -62,6 +62,24 @@ export interface SignMessageResponse {
   address: `0x${string}`;
 }
 
+export interface TypedDataPayload {
+  domain: Record<string, unknown>;
+  types: Record<string, { name: string; type: string }[]>;
+  primaryType: string;
+  message: Record<string, unknown>;
+}
+
+export interface SignTypedDataResponse {
+  signature: `0x${string}`;
+  address: `0x${string}`;
+}
+
+export interface SigningSession {
+  userId: string;
+  accessToken: string;
+  assertCurrent(): void;
+}
+
 export class PaxeerWalletError extends Error {
   constructor(
     message: string,

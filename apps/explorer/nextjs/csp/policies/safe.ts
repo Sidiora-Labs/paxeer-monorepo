@@ -3,13 +3,14 @@ import type CspDev from 'csp-dev';
 import config from 'configs/app';
 
 export function safe(): CspDev.DirectiveDescriptor {
-  if (!config.features.safe.isEnabled) {
+  const feature = config.features.safe;
+  if (!feature.isEnabled) {
     return {};
   }
 
   return {
     'connect-src': [
-      '*.safe.global',
+      new URL(feature.apiUrl).origin,
     ],
   };
 }

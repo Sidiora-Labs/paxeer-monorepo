@@ -1,0 +1,45 @@
+[repair.22.31.123]
+finding = "22.30.55/runner-protocol"
+producer = "Manifest.Save -> LoadTestnet -> Setup/MakeAppConfig -> config/app.toml"
+consumer = "Shared production node runtime.LoadConfig/Run (also used by the node executable) -> in-process ABCI Application -> committed state and LeaderSource"
+tests = ["TestRepair_123_GeneratedBuiltinConfigBootstrap", "TestRepair_123_UnsupportedTransports", "TestRepair_123_ConsumerRefusesUnsupportedTransports"]
+baseline = "Not run: the task's explicit ordered gate instructions prohibit testing before implementation and prohibit invoking verify_cmd by hand. No pre-change failure is claimed."
+evidence = "The hf-build and hf-done private gate ledger records the exact candidate revision, command, exit code and log location."
+wiring_request = "consensus/test/e2e/pkg/testnet.go and manifest.go: owning domain 15 (fm-cosmos-fork) must restrict ABCI manifest validation/documentation to builtin; runner serialization and the shared node configuration consumer refuse unsupported transports here."
+
+[qualification.22.31.123]
+revision = "d26474a6efbce914f13b0942d3e432c574f04d1f"
+command = "cg spec done 22.31.123 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Both explicit and default builtin bootstrap cases reach node.run/startNode, then panic at consensus/node/public.go:35 because startNode unconditionally passes nil NodeMetrics; the build passed, transport-refusal tests reported no failures, and the bootstrap assertions remain intact."
+wiring_request = "consensus/test/e2e/node/main.go: owning domain 15 (fm-cosmos-fork) must supply real initialized NodeMetrics to node.New; this existing consumer defect cannot be repaired through runner configuration, so qualification remains blocked without rerunning the recorded failure."
+
+[continuation.22.31.123]
+finding = "22.30.55/runner-protocol"
+resolved_wiring = "consensus/test/e2e/node/main.go is now in scope; startNode constructs NodeMetrics with node.DefaultMetricsProvider from the loaded instrumentation config and generated application chain ID before node.New, matching sdk/server/start.go."
+tests = ["TestRepair_123_GeneratedBuiltinConfigBootstrap", "TestRepair_123_UnsupportedTransports", "TestRepair_123_ConsumerRefusesUnsupportedTransports"]
+evidence = "The continuation hf-build and hf-done ledger records the verified revision, command, exit code and private log location; the historical failed attempt above is retained."
+
+[qualification.22.31.123.continuation]
+revision = "02f0e25792979b1409fd800221e41dba2955d3f7"
+command = "cg spec done 22.31.123 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Both builtin bootstrap cases pass node metrics initialization and reach the ABCI handshake, which rejects the test manifest's missing height-zero validator update against its one genesis validator."
+repair = "The test manifest now supplies validator_update.0 for validator01 with the same power 100 as its generated genesis; all commit, state and leader assertions remain intact."
+
+[continuation.22.31.123.in_process]
+finding = "22.30.55/runner-protocol"
+implementation = "The node executable delegates to the importable node/runtime production consumer; startup takes the node home explicitly, resolves generated relative paths there and uses a private Viper instance, so the bootstrap proof needs neither an environment variable nor a subprocess toolchain."
+proof = "Explicit and default builtin manifests must commit a block, preserve initial application state and expose the generated leader schedule; unsupported transports must be refused by both runner generation and node LoadConfig/Run."
+metrics = "Both builtin node constructors initialize metrics with node.DefaultMetricsProvider from instrumentation and chain ID; Run waits for context cancellation and node shutdown before returning."
+gotcha = "The inherited proof invoked go run through a shell wrapper; an importable production consumer is required for the self-contained gate (gotcha 2962)."
+evidence = "Final exact revision, command, exit and private log path are supplied by hf-done and its ledger; no pre-change gate is rerun or newly claimed."
+
+[qualification.22.31.123.in_process_repair]
+revision = "4022567f7aec9d4114afde6f50148d01f2a1baf1"
+command = "cg spec done 22.31.123 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The real node completed its ABCI handshake, then its P2P router rejected the fixture's port zero; the fixture now uses tcp.TestReserveAddr to reserve a real loopback address without relaxing any assertion."

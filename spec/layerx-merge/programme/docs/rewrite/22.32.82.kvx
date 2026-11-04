@@ -1,0 +1,11 @@
+[manifest]
+task = "22.32.82"
+domain = 8
+owner_role = "fm-platform"
+pages = 1
+
+[page.1]
+path = "sdk/platform/jvm/README.md"
+status = "stale"
+bytes = 5544
+source_1 = "record 22.30.77 [doc.13] (stale): Lines 13-14 and 99-107 document retired AuthorizedReceiptBatch and verification rungs; examples advertised at line 92 are unusable as recorded in their individual findings. Typed Human verification labels remain intentionally checkpoint-finalised per decision 2115."

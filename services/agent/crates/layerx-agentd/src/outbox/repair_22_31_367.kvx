@@ -1,0 +1,8 @@
+[repair.22.31.367]
+finding = "outbox_history_roundtrip_bound"
+implementation = "One durable policy retains at most 1024 transitions and 1048576 bytes per cause in admission, encoding and decoding. Admission reserves the longest remaining non-repeating lifecycle path, including restart to Unknown, and rejects excessive transitions atomically without discarding current state, history or receipt evidence."
+test_path = "services/agent/crates/layerx-agentd/tests/repair_22_31_367.rs"
+proving_tests = ["outbox_history_roundtrip_bound_preserves_recovery_and_receipt_evidence", "outbox_history_roundtrip_bound_enforces_cause_bytes_atomically"]
+baseline = "No baseline verification ran: the ordered gate rules prohibit tests before complete implementation and require hf-build before hf-done; the integration target was absent on the starting tree, so no pre-change failing test result is claimed."
+wiring_request = "None; the producer, durable codec, restore and restart-recovery consumer are inside this task's paths."
+evidence = "The runner's private hf-build/hf-done ledger records the verified candidate revision, command, exit and log; the final task report copies the terminating gate evidence."

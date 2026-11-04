@@ -1,7 +1,6 @@
 package types_test
 
 import (
-	"math/rand"
 	"sort"
 	"testing"
 
@@ -28,7 +27,9 @@ func createValidators(t *testing.T) []types.Validator {
 func TestHistoricalInfo(t *testing.T) {
 	validators := createValidators(t)
 	hi := types.NewHistoricalInfo(header, validators, sdk.DefaultPowerReduction)
-	require.True(t, sort.IsSorted(types.Validators(hi.Valset)), "Validators are not sorted")
+	require.True(t, sort.SliceIsSorted(hi.Valset, func(i, j int) bool {
+		return types.ValidatorsByVotingPower(hi.Valset).Less(i, j, sdk.DefaultPowerReduction)
+	}), "Validators are not sorted")
 
 	var value []byte
 	require.NotPanics(t, func() {
@@ -42,7 +43,9 @@ func TestHistoricalInfo(t *testing.T) {
 	for i := range hi.Valset {
 		require.True(t, hi.Valset[i].Equal(&recv.Valset[i]))
 	}
-	require.True(t, sort.IsSorted(types.Validators(hi.Valset)), "Validators are not sorted")
+	require.True(t, sort.SliceIsSorted(hi.Valset, func(i, j int) bool {
+		return types.ValidatorsByVotingPower(hi.Valset).Less(i, j, sdk.DefaultPowerReduction)
+	}), "Validators are not sorted")
 }
 
 func TestValidateBasic(t *testing.T) {
@@ -50,25 +53,21 @@ func TestValidateBasic(t *testing.T) {
 	hi := types.HistoricalInfo{
 		Header: header,
 	}
-	err := types.ValidateBasic(hi)
+	err := types.ValidateBasic(hi, sdk.DefaultPowerReduction)
 	require.Error(t, err, "ValidateBasic passed on nil ValSet")
 
-	// Ensure validators are not sorted
-	for sort.IsSorted(types.Validators(validators)) {
-		rand.Shuffle(len(validators), func(i, j int) {
-			it := validators[i]
-			validators[i] = validators[j]
-			validators[j] = it
-		})
-	}
+	// Reverse the producer's consensus ordering to make an invalid set.
+	validators = types.NewHistoricalInfo(header, validators, sdk.DefaultPowerReduction).Valset
+	validators[0], validators[len(validators)-1] = validators[len(validators)-1], validators[0]
+
 	hi = types.HistoricalInfo{
 		Header: header,
 		Valset: validators,
 	}
-	err = types.ValidateBasic(hi)
+	err = types.ValidateBasic(hi, sdk.DefaultPowerReduction)
 	require.Error(t, err, "ValidateBasic passed on unsorted ValSet")
 
 	hi = types.NewHistoricalInfo(header, validators, sdk.DefaultPowerReduction)
-	err = types.ValidateBasic(hi)
+	err = types.ValidateBasic(hi, sdk.DefaultPowerReduction)
 	require.NoError(t, err, "ValidateBasic failed on valid HistoricalInfo")
 }

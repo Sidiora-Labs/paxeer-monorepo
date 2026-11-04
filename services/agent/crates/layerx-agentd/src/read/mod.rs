@@ -1,5 +1,6 @@
 //! Proof-gated daemon read surfaces.
 
+mod abci_result;
 #[path = "availability.rs"]
 mod available;
 #[path = "balance.rs"]
@@ -10,7 +11,10 @@ pub mod committed;
 #[path = "history.rs"]
 mod history_impl;
 mod native;
+mod result_source;
+pub use abci_result::AbciResultProof;
 pub use committed::{CommittedCaps, CommittedReadError, CommittedReads};
+pub use result_source::NativeResultSource;
 #[path = "program_balances.rs"]
 mod program_balances_impl;
 #[path = "program_node.rs"]
@@ -18,6 +22,7 @@ mod program_node;
 #[path = "proof_bundle.rs"]
 pub(crate) mod proof_bundle_owner;
 pub use native::{NativeReadError, NativeReadRoute};
+pub use proof_bundle_owner::{acquire_native_receipt, NativeProofRequest};
 
 pub use available::{availability, AvailabilityRead, AvailabilityReadError, AvailabilityRequest};
 pub use balances::{balance, BalanceRead, Freshness};

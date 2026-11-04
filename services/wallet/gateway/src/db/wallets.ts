@@ -1,12 +1,25 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import type { Hex, TransactionSerializable, TypedDataDefinition } from 'viem';
-import { AttestorQuorumError, AttestorTokenError, attestorClientFromConfig, attestorSigner, type AttestorClient, type Authorisation, type SignResult } from '../attestor/client.js';
+import {
+  AttestorQuorumError,
+  AttestorTokenError,
+  attestorClientFromConfig,
+  attestorSigner,
+  type AttestorClient,
+  type Authorisation,
+  type SignResult,
+} from '../attestor/client.js';
 import type { PoolClient } from 'pg';
 import { env } from '../env.js';
 import { encrypt, decrypt, loadMasterKey } from '../crypto.js';
 import { getPool, query, withTransaction } from './pool.js';
 import { recordSigningAudit, type AuditKind } from '../audit.js';
+import {
+  reconcileSignature,
+  withSignatureAccounting,
+  type SignatureAccountingContext,
+} from './signatureAccounting.js';
 
 /**
  * Wallet repository — owns the encrypted private-key lifecycle on our local
@@ -108,7 +121,9 @@ export async function loadWalletForSigning(
   userId: string,
   kind: WalletKind = 'standard',
 ): Promise<SigningWallet | null> {
-  const { rows } = await client.query<WalletRow & { migrated_at: string | null; attestor_key_id: string | null }>(
+  const { rows } = await client.query<
+    WalletRow & { migrated_at: string | null; attestor_key_id: string | null }
+  >(
     `select id, user_id, address, encrypted_private_key, key_version, chain_id, kind,
             created_at, last_used_at, is_disabled, disabled_reason, migrated_at, attestor_key_id
        from wallets
@@ -283,6 +298,7 @@ export interface SigningAccount {
 export async function getSigningAccountForUser(
   userId: string,
   kind: WalletKind = 'standard',
+  accountingContext?: SignatureAccountingContext,
 ): Promise<SigningAccount> {
   const wallet = await findWalletByUserId(userId, kind);
   if (!wallet) {
@@ -294,7 +310,7 @@ export async function getSigningAccountForUser(
     );
   }
 
-  return getSigningAccountForRow(wallet);
+  return getSigningAccountForRow(wallet, undefined, accountingContext);
 }
 
 /**
@@ -302,13 +318,19 @@ export async function getSigningAccountForUser(
  * row in hand and want to skip a second lookup.
  */
 export class WalletMigratedError extends Error {
-  constructor(readonly code: 'wallet_migrated' | 'envelope_missing', readonly walletId: string) {
+  constructor(
+    readonly code: 'wallet_migrated' | 'envelope_missing',
+    readonly walletId: string,
+  ) {
     super(`wallet ${walletId} cannot use legacy signing: ${code}`);
     this.name = 'WalletMigratedError';
   }
 }
 
-export function usesAttestorCustody(custody: { migratedAt: string | null; hasEnvelope: boolean }): boolean {
+export function usesAttestorCustody(custody: {
+  migratedAt: string | null;
+  hasEnvelope: boolean;
+}): boolean {
   return custody.migratedAt !== null || !custody.hasEnvelope;
 }
 
@@ -340,81 +362,154 @@ export async function getMigrationAwareSigningAccountForRow(
   auditContext?: CustodyAuditContext,
 ): Promise<CustodySigningAccount> {
   const { rows } = await (connection ?? getPool()).query<{
-    migrated_at: string | null; attestor_key_id: string | null; has_envelope: boolean;
-    is_disabled: boolean; archived_at: string | null; address: string; kind: WalletKind;
-  }>(`select migrated_at, attestor_key_id, encrypted_private_key is not null as has_envelope,
-            is_disabled, archived_at, address, kind from wallets where id = $1`, [wallet.id]);
+    migrated_at: string | null;
+    attestor_key_id: string | null;
+    has_envelope: boolean;
+    is_disabled: boolean;
+    archived_at: string | null;
+    address: string;
+    kind: WalletKind;
+  }>(
+    `select migrated_at, attestor_key_id, encrypted_private_key is not null as has_envelope,
+            is_disabled, archived_at, address, kind from wallets where id = $1`,
+    [wallet.id],
+  );
   const custody = rows[0];
-  if (!custody || custody.archived_at !== null || custody.is_disabled
-    || custody.address.toLowerCase() !== wallet.address.toLowerCase()
-    || custody.kind === 'funded' || custody.kind !== wallet.kind) {
+  if (
+    !custody ||
+    custody.archived_at !== null ||
+    custody.is_disabled ||
+    custody.address.toLowerCase() !== wallet.address.toLowerCase() ||
+    custody.kind === 'funded' ||
+    custody.kind !== wallet.kind
+  ) {
     throw new Error('wallet custody is unavailable');
   }
-  if (!usesAttestorCustody({ migratedAt: custody.migrated_at, hasEnvelope: custody.has_envelope })) {
-    const account = await getSigningAccountForRow(wallet, connection);
+  if (
+    !usesAttestorCustody({ migratedAt: custody.migrated_at, hasEnvelope: custody.has_envelope })
+  ) {
+    const account = await getSigningAccountForRow(wallet, connection, auditContext);
     return { ...account, path: 'envelope', lastAttestorResult: () => null };
   }
   if (!authorisation) {
-    throw new AttestorTokenError('signing_authorisation_required', 'attestor custody requires the owner assertion or an end-to-end agent signing authorization');
+    throw new AttestorTokenError(
+      'signing_authorisation_required',
+      'attestor custody requires the owner assertion or an end-to-end agent signing authorization',
+    );
   }
   const client = configuredAttestors === undefined ? defaultWalletAttestors() : configuredAttestors;
-  if (!client) throw new AttestorQuorumError('attestor_unconfigured', 'wallet attestor custody is unavailable');
-  if (!custody.attestor_key_id) throw new AttestorQuorumError('attestor_key_missing', 'wallet has no attestor key binding');
-  const signer = attestorSigner(client, {
-    keyId: custody.attestor_key_id, address: wallet.address, chainId: wallet.chain_id,
-  }, authorisation);
+  if (!client)
+    throw new AttestorQuorumError(
+      'attestor_unconfigured',
+      'wallet attestor custody is unavailable',
+    );
+  if (!custody.attestor_key_id)
+    throw new AttestorQuorumError('attestor_key_missing', 'wallet has no attestor key binding');
+  const signer = attestorSigner(
+    client,
+    {
+      keyId: custody.attestor_key_id,
+      address: wallet.address,
+      chainId: wallet.chain_id,
+    },
+    authorisation,
+  );
   let last: SignResult | null = null;
   const retain = async (kind: AuditKind, result: SignResult): Promise<void> => {
     last = result;
-    if (auditContext) await recordSigningAudit(getPool(), {
-      requestId: randomUUID(), clientSubject: auditContext.subject, account: wallet.address, walletId: wallet.id,
-      route: auditContext.route, kind, path: 'attestor', decision: 'signed', reasonCode: null,
-      requestHash: auditContext.requestHash, sessionId: result.sessionId, attestorAudit: result.audit,
-      txHash: null, nonce: null,
-    });
+    if (auditContext)
+      await recordSigningAudit(getPool(), {
+        requestId: randomUUID(),
+        clientSubject: auditContext.subject,
+        account: wallet.address,
+        walletId: wallet.id,
+        route: auditContext.route,
+        kind,
+        path: 'attestor',
+        decision: 'signed',
+        reasonCode: null,
+        requestHash: auditContext.requestHash,
+        sessionId: result.sessionId,
+        attestorAudit: result.audit,
+        txHash: null,
+        nonce: null,
+      });
   };
-  return {
-    address: wallet.address,
-    path: 'attestor',
-    lastAttestorResult: () => last,
-    signTransaction: (async (transaction: TransactionSerializable) => {
-      const signed = await signer.signTransaction(transaction);
-      await retain('transaction', signed.result);
-      return signed.value;
-    }) as SigningAccount['signTransaction'],
-    signMessage: async ({ message }) => {
-      if (typeof message !== 'string') throw new Error('wallet message must be text');
-      const signed = await signer.signMessage(message);
-      await retain('message', signed.result);
-      return signed.value;
+  const account = withSignatureAccounting(
+    wallet,
+    {
+      address: wallet.address,
+      signTransaction: (async (transaction: TransactionSerializable) => {
+        const signed = await signer.signTransaction(transaction);
+        await retain('transaction', signed.result);
+        return signed.value;
+      }) as SigningAccount['signTransaction'],
+      signMessage: async ({ message }) => {
+        if (typeof message !== 'string') throw new Error('wallet message must be text');
+        const signed = await signer.signMessage(message);
+        await retain('message', signed.result);
+        return signed.value;
+      },
+      signTypedData: (async (typedData: TypedDataDefinition) => {
+        const signed = await signer.signTypedData(typedData);
+        await retain('typed_data', signed.result);
+        return signed.value;
+      }) as SigningAccount['signTypedData'],
     },
-    signTypedData: (async (typedData: TypedDataDefinition) => {
-      const signed = await signer.signTypedData(typedData);
-      await retain('typed_data', signed.result);
-      return signed.value;
-    }) as SigningAccount['signTypedData'],
-  };
+    auditContext,
+  );
+  return { ...account, path: 'attestor', lastAttestorResult: () => last };
 }
 
-export async function getSigningAccountForRow(wallet: WalletRow, connection?: PoolClient): Promise<SigningAccount> {
+export async function getSigningAccountForRow(
+  wallet: WalletRow,
+  connection?: PoolClient,
+  accountingContext?: SignatureAccountingContext,
+): Promise<SigningAccount> {
   const { rows } = await (connection ?? getPool()).query<{
-    migrated_at: string | null; encrypted_private_key: string | null;
-    is_disabled: boolean; archived_at: string | null; kind: WalletKind;
-  }>('select migrated_at, encrypted_private_key, is_disabled, archived_at, kind from wallets where id = $1', [wallet.id]);
+    migrated_at: string | null;
+    encrypted_private_key: string | null;
+    is_disabled: boolean;
+    archived_at: string | null;
+    kind: WalletKind;
+  }>(
+    'select migrated_at, encrypted_private_key, is_disabled, archived_at, kind from wallets where id = $1',
+    [wallet.id],
+  );
   const current = rows[0];
-  if (!current || current.is_disabled || current.archived_at !== null || current.kind === 'funded' || current.kind !== wallet.kind) {
+  if (
+    !current ||
+    current.is_disabled ||
+    current.archived_at !== null ||
+    current.kind === 'funded' ||
+    current.kind !== wallet.kind
+  ) {
     throw new Error('wallet custody is unavailable');
   }
   if (current.migrated_at !== null) throw new WalletMigratedError('wallet_migrated', wallet.id);
-  if (current.encrypted_private_key === null) throw new WalletMigratedError('envelope_missing', wallet.id);
-  return {
-    address: wallet.address,
-    signTransaction: (async (transaction: TransactionSerializable) =>
-      legacySigningOperation(wallet, (account) => account.signTransaction(transaction), connection)) as SigningAccount['signTransaction'],
-    signMessage: (args) => legacySigningOperation(wallet, (account) => account.signMessage(args), connection),
-    signTypedData: (async (typedData: TypedDataDefinition) =>
-      legacySigningOperation(wallet, (account) => account.signTypedData(typedData), connection)) as SigningAccount['signTypedData'],
-  };
+  if (current.encrypted_private_key === null)
+    throw new WalletMigratedError('envelope_missing', wallet.id);
+  return withSignatureAccounting(
+    wallet,
+    {
+      address: wallet.address,
+      signTransaction: (async (transaction: TransactionSerializable) =>
+        legacySigningOperation(
+          wallet,
+          (account) => account.signTransaction(transaction),
+          connection,
+        )) as SigningAccount['signTransaction'],
+      signMessage: (args) =>
+        legacySigningOperation(wallet, (account) => account.signMessage(args), connection),
+      signTypedData: (async (typedData: TypedDataDefinition) =>
+        legacySigningOperation(
+          wallet,
+          (account) => account.signTypedData(typedData),
+          connection,
+        )) as SigningAccount['signTypedData'],
+    },
+    accountingContext,
+  );
 }
 
 async function legacySigningOperation<T>(
@@ -424,17 +519,31 @@ async function legacySigningOperation<T>(
 ): Promise<T> {
   const sign = async (client: PoolClient): Promise<T> => {
     const { rows } = await client.query<{
-      migrated_at: string | null; encrypted_private_key: string | null;
-      is_disabled: boolean; archived_at: string | null; address: string; kind: WalletKind;
-    }>(`select migrated_at, encrypted_private_key, is_disabled, archived_at, address, kind
-          from wallets where id = $1 for share`, [wallet.id]);
+      migrated_at: string | null;
+      encrypted_private_key: string | null;
+      is_disabled: boolean;
+      archived_at: string | null;
+      address: string;
+      kind: WalletKind;
+    }>(
+      `select migrated_at, encrypted_private_key, is_disabled, archived_at, address, kind
+          from wallets where id = $1 for share`,
+      [wallet.id],
+    );
     const current = rows[0];
-    if (!current || current.is_disabled || current.archived_at !== null || current.kind === 'funded' || current.kind !== wallet.kind
-      || current.address.toLowerCase() !== wallet.address.toLowerCase()) {
+    if (
+      !current ||
+      current.is_disabled ||
+      current.archived_at !== null ||
+      current.kind === 'funded' ||
+      current.kind !== wallet.kind ||
+      current.address.toLowerCase() !== wallet.address.toLowerCase()
+    ) {
       throw new Error('wallet custody is unavailable');
     }
     if (current.migrated_at !== null) throw new WalletMigratedError('wallet_migrated', wallet.id);
-    if (current.encrypted_private_key === null) throw new WalletMigratedError('envelope_missing', wallet.id);
+    if (current.encrypted_private_key === null)
+      throw new WalletMigratedError('envelope_missing', wallet.id);
     const masterKey = loadMasterKey(env.WALLET_MASTER_KEY);
     const plaintext = decrypt(current.encrypted_private_key, masterKey);
     let account: ReturnType<typeof privateKeyToAccount>;
@@ -469,35 +578,7 @@ export interface SignatureLogInput {
 }
 
 export async function logSignature(input: SignatureLogInput): Promise<void> {
-  try {
-    await query(
-      `insert into wallet_signatures
-         (user_id, wallet_id, address, kind, to_address, value_wei, chain_id,
-          request_hash, tx_hash, ip, user_agent, principal_did)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-      [
-        input.user_id,
-        input.wallet_id,
-        input.address,
-        input.kind,
-        input.to_address ?? null,
-        input.value_wei != null ? input.value_wei.toString() : '0',
-        input.chain_id ?? null,
-        input.request_hash,
-        input.tx_hash ?? null,
-        input.ip ?? null,
-        input.user_agent ?? null,
-        input.principal_did ?? null,
-      ],
-    );
-  } catch (err) {
-    // Audit is non-fatal — better to complete the user-visible op and warn,
-    // than to fail signing because the log table hiccupped.
-    // eslint-disable-next-line no-console
-    console.warn(
-      `[wallets] logSignature failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
-    );
-  }
+  await reconcileSignature(input);
 }
 
 function isUniqueViolation(err: unknown): boolean {

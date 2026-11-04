@@ -1,0 +1,23 @@
+[manifest]
+task = "22.32.14"
+domain = 4
+owner_role = "fm-launchpad"
+pages = 3
+
+[page.1]
+path = "apps/launchpad/mobile/ARCHITECTURE.md"
+status = "stale"
+bytes = 4195
+source_1 = "record 22.30.22 [doc.13] (stale): Lines 7-11 predate implemented native boundaries; build working directories at lines 15/25 and signing guidance require correction; see mobile-architecture-doc."
+
+[page.2]
+path = "apps/launchpad/qualification/account-ui/README.md"
+status = "stale"
+bytes = 1075
+source_1 = "record 22.30.38 [doc.015] (stale): Read in full; lines 5 and 7 retain removed client paths. Keep explicit fixture and no-production-evidence caveats when rewriting commands."
+
+[page.3]
+path = "apps/launchpad/qualification/market-ui/README.md"
+status = "stale"
+bytes = 1092
+source_1 = "record 22.30.38 [doc.016] (stale): Read in full; line 3 retains removed client/apps/web and line 8 has superseded phase-one-only framing. Document existing later runners without claiming they qualified release capacity."

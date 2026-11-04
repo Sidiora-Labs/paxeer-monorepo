@@ -1,0 +1,72 @@
+[manifest]
+task = "22.32.1"
+domain = 1
+owner_role = "fm-kernel"
+pages = 4
+
+[page.1]
+path = "docs/site/docs/agents/sdk-verification.md"
+status = "stale"
+bytes = 8257
+source_1 = "record 22.30.4 [doc.007] (stale): The V4 inclusion recipe at lines 93-104 imports BatchHeader and ReceiptInclusion even though current export checks require their removal; retain independent committed-chain evidence and key-pinning checks. Findings: 031."
+source_2 = "record 22.30.45 [doc.001] (stale): Read complete page and mirror; V4 lines 93-104 name removed verification APIs. V1 creation and stored V2 source descriptions are narrower than recorder regeneration requirements; concrete producer findings name the gaps."
+
+[page.2]
+path = "docs/site/docs/concepts/one-account.md"
+status = "misleading"
+bytes = 9117
+source_1 = "record 22.30.1 [doc.12] (stale): Line 5 describes account opening by deposit and line 87 uses chainId 713714 in the signing example. Mainnet-beta is chain ID 125; account-key derivation and consent binding otherwise remain explicit and domain-separated."
+source_2 = "record 22.30.134 [doc.8] (stale): Line 87 gives chainId 713714 in key-derivation typed data despite the product network being chain 125."
+source_3 = "record 22.30.165 [doc.007] (stale): Line 87 uses EIP-712 chainId 713714; the merged network chain ID is 125. Preserve valid derivation-version semantics when rewriting binding examples."
+source_4 = "record 22.30.56 [doc.6] (misleading): Read in full. Line 87 embeds chainId 713714 without a historical-vector label while line 98 binds it to the connected chain; changing derivation domains needs explicit key compatibility guidance."
+source_5 = "record 22.30.73 [doc.05] (stale): Line 87 uses chainId 713714 rather than merged chain 125; line 6 still describes custody deposit opening. The derivation and consent-binding descriptions otherwise remain useful."
+
+[page.3]
+path = "docs/site/docs/overview/getting-started.md"
+status = "misleading"
+bytes = 8901
+source_1 = "record 22.30.117 [doc.12] (misleading): Read in full; line 10 uses the retired public /rpc endpoint and the checklist retains router-era methods and sequencer finality semantics."
+source_2 = "record 22.30.121 [doc.09] (stale): Lines 3-10 publish the router; lines 44-111 submit Ed25519 canonical activities; recovery retains the executed/batched/finalised ladder."
+source_3 = "record 22.30.165 [doc.003] (stale): Lines 3-10 and 43-190 retain router /rpc and lx_sendActivity/batched sequencer receipt instructions instead of native committed transactions."
+source_4 = "record 22.30.3 [doc.7] (stale): Read the complete page. Finding getting-started-network: Lines 3-10 explicitly use the router at api-mainnet-beta.paxeer.network/rpc. Lines 66-107 submit lx_sendActivity with executed commitment and require a separate sequencer signature; subsequent reads use lx_* methods."
+source_5 = "record 22.30.54 [doc.06] (stale): The getting-started guide names the old /rpc URL as the integration endpoint and uses the separate LayerX method flow rather than the merged node and hosted gateway contracts."
+source_6 = "record 22.30.56 [doc.4] (stale): Read in full. Opening router and /rpc setup and later payment/receipt ladder need the merged root-RPC and hosted gateway contracts."
+source_7 = "record 22.30.6 [doc.7] (misleading): Read all 196 lines. Custody retirement guidance coexists with initial /rpc URL and old activity/finality instructions; see getting-started-router."
+source_8 = "record 22.30.72 [doc.10] (stale): Read in full; Line 10: The endpoint exports /rpc; register/open/mint/SEND submits canonical activities through lx_sendActivity, reads lx_getSequence, waits for executed/batched/finalised and trusts sequencer/authorized-batch policy rather than committed-block evidence. See getting-started-retired-rpc."
+
+[page.4]
+path = "docs/site/docs/overview/unified-network.md"
+status = "misleading"
+bytes = 18818
+source_1 = "record 22.30.1 [doc.1] (stale): Lines 3-15 describe two independent execution domains and layerxd; 51-86 and 104-124 describe custody/guarantor finality; 126-166 advertise the removed /rpc router. Rewrite around one paxd network, native funding and root-path node RPC."
+source_2 = "record 22.30.114 [doc.4] (stale): Read in full. Architecture, unified /rpc endpoint, lx_ namespace and finality sections require a coordinated rewrite."
+source_3 = "record 22.30.118 [doc.004] (misleading): Lines 3-11 describe two domains and layerxd; lines 48-121 describe custody/anchor settlement; lines 123-170 publish router /rpc and lx_ reads."
+source_4 = "record 22.30.12 [doc.003] (stale): Lines 3-19, 52-84 and 118-171 describe separate LayerX execution, checkpoint finality, a router and /rpc/schema. Rewrite as one BFT chain with kernel execution in paxd and gateway-owned px methods."
+source_5 = "record 22.30.120 [doc.005] (stale): Read in full. Finding site-unified-architecture records the merged-network documentation drift beginning at line 128."
+source_6 = "record 22.30.121 [doc.07] (misleading): Lines 5-27 and 49-141 describe split execution, custody and checkpoint finality; lines 146-189 publish /rpc, /rpc/schema, sixteen EVM names and old joins."
+source_7 = "record 22.30.126 [doc.7] (misleading): Read in full; lines 5-15, 17-124, 128-164 and later topology/finality material describe the pre-merge system."
+source_8 = "record 22.30.134 [doc.5] (misleading): Lines 5-19, 52-88 and the public RPC sections describe separate execution, retired custody/anchor authorities and router paths."
+source_9 = "record 22.30.149 [doc.04] (stale): Read in full; current operating guidance conflicts with the merged network or with its own command availability statements. Rewrite proposals and exact entry lines: site-overview-router."
+source_10 = "record 22.30.159 [doc.3] (stale): Stale architecture at lines 3-31, 52-88 and 104-124; misleading /rpc, lx_ router/WebSocket and /rpc/schema guidance at lines 128-171; retired explorer-index join at lines 208-211. See the two unified-network findings."
+source_11 = "record 22.30.168 [doc.02] (misleading): Read in full. Lines 19-31, 54-124 and 128-171 advertise retired evidence/custody/finality and /rpc router behavior; see site-network-drift."
+source_12 = "record 22.30.18 [doc.6] (misleading): Full page read. Lines 3-15 describe separate domains and daemon; lines 54-124 make retired custody/anchor settlement live; lines 129-175 prescribe the unified router and /rpc/schema. These conflict with brief facts 1-3."
+source_13 = "record 22.30.26 [doc.overview] (misleading): Read the complete page. Retired two-domain, daemon, custody/guarantor and unified router claims conflict with the merged network; see overview_retired_topology and overview_rpc_contract."
+source_14 = "record 22.30.28 [doc.005] (stale): The overview directs clients to api-mainnet-beta.paxeer.network/rpc through a router and GET /rpc/schema, and describes separate custody deposits, anchor challenges and guarantors at lines 100-124 and 129-171."
+source_15 = "record 22.30.3 [doc.5] (stale): Read the complete page. Finding unified-network: Lines 3-19 describe a separate core node/sequencer under cmd/layerxd with precompiles verifying its evidence. Lines 52-88 describe retired custody/anchor roles; lines 126-171 advertise router /rpc, /rpc/ws, /rpc/schema and lx_* methods."
+source_16 = "record 22.30.39 [doc.4] (misleading): Lines 52-84, 106-171 describe retired custody/finality/router paths and incorrect public host roles; rewrite the network model. Finding 26."
+source_17 = "record 22.30.4 [doc.001] (misleading): Lines 11, 69-86 and 120-171 describe separate daemon/guarantor finality, retired precompiles and a /rpc router/schema; current network endpoints and finality need a rewrite. Findings: 025, 027."
+source_18 = "record 22.30.46 [doc.5] (misleading): Lines 7-17, 52-67, 104-114 and 129 describe two networks, retired precompiles, C daemon and router /rpc; conflicts with the merged embedded-kernel chain."
+source_19 = "record 22.30.5 [doc.02] (misleading): Read all 229 lines. Lines 11-88 and106-171 retain custody/checkpoints, guarantors, router /rpc, sixteen-node and namespace claims."
+source_20 = "record 22.30.52 [doc.1] (misleading): Read in full: line 11 describes layerxd and lines 17-86 expose retired verification/custody/anchor modules; site additionally advertises /rpc and /rpc/schema."
+source_21 = "record 22.30.54 [doc.04] (misleading): This overview describes an active cmd/layerxd sequencer and checkpoint/custody bridge between two runtimes, then at lines 129 onward advertises api-mainnet-beta.paxeer.network/rpc as a router with lx_* methods, /rpc/ws and /rpc/schema. These are presented as the current public integration surface."
+source_22 = "record 22.30.57 [doc.04] (misleading): Separate finality, retired connectors and /rpc router instructions contradict the merge; see the three unified-network findings."
+source_23 = "record 22.30.6 [doc.6] (misleading): Read all 229 lines. Separate network/custody claims and /rpc router/schema instructions at 129-171 are obsolete; see site-separate-network and site-router-endpoint."
+source_24 = "record 22.30.63 [doc.07] (misleading): Lines 11-19, 106-124 and 129-171 retain daemon, proof custody, /rpc router, obsolete custody asset joins and /rpc/schema instructions."
+source_25 = "record 22.30.65 [doc.04] (misleading): Read all 229 lines. Architecture and retired connectors at 11-95, RPC /rpc family around 136, and later custody/finality narrative need the integrated-network rewrite."
+source_26 = "record 22.30.67 [doc.7] (misleading): Read all 229 lines following the public RPC link. Lines 5-123 retain independent daemon, proofs, custody and anchor architecture; 129-171 prescribe the retired router /rpc, lx methods and /rpc/schema. Its funds and endpoint guidance need a merged-network rewrite."
+source_27 = "record 22.30.68 [doc.unified] (misleading): Lines 11, 17, 52, 67, 115-145 and 171 describe retired components/finality and incorrect router/node URLs. See unified-overview-architecture and unified-overview-endpoints."
+source_28 = "record 22.30.72 [doc.08] (stale): Read in full; Line 11: The architecture runs core consensus in cmd/layerxd and describes LayerXVerify 0x1012, custody 0x1013 and anchor 0x1014 as the active connector, with checkpoint, guarantor and forced-exit finality. See architecture-old-consensus. Line 135: The endpoint section designates https://api-mainnet-beta.paxeer.network/rpc as a router, says sixteen numbered nodes serve only EVM, keeps lx_ and lx_subscribe live, advertises /rpc/schema and describes px_ reads as two-domain joins. See architecture-router-contract."
+source_29 = "record 22.30.73 [doc.03] (stale): Lines 5-11 describe two runtimes and running layerxd; 49-125 retain retired custody/anchor finality; 135-171 advertise router /rpc and /rpc/schema with separate lx_ methods."
+source_30 = "record 22.30.85 [doc.04] (misleading): Rewrite lines 3-17, 50-124 and 129-171: two domains, retired precompiles and router/schema URLs."
+source_31 = "record 22.30.92 [doc.11] (misleading): Active retired executors, separate runtimes, the router URL and /rpc/schema are still prescribed."
+source_32 = "record 22.30.96 [doc.d11] (misleading): Lines 129: The overview calls https://api-mainnet-beta.paxeer.network/rpc the router URL, advertises /rpc/schema, and describes a separate C layerxd sequencer/consensus system with checkpoint/guarantor settlement. Replace the topology, endpoint and evidence sections with one paxd BFT chain, root api1-api14/mainnet-beta RPC endpoints, node namespaces and hosted gateway px_ methods. Explain native receipt and state finality through verified committed blocks."

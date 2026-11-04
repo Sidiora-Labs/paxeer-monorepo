@@ -100,7 +100,13 @@ func runLoadTest(ctx context.Context, cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	// Load settings into Viper
+	// Keep optional profile settings fresh; Viper supplies operational defaults.
+	if cfg.Settings == nil {
+		cfg.Settings = &config.Settings{}
+	}
+	config.MergeBounds(cfg, cfg.Settings)
+
+	// Load profile settings before resolving flags, including explicit zeroes.
 	if err := config.LoadSettings(cfg.Settings); err != nil {
 		return fmt.Errorf("failed to load config file: %w", err)
 	}
@@ -159,6 +165,7 @@ func runLoadTest(ctx context.Context, cmd *cobra.Command, args []string) error {
 	logger := stats.NewLogger(collector, settings.StatsInterval.ToDuration(), settings.ReportPath, settings.Debug)
 	var ramper *sender.Ramper
 
+	shutdownRequested := false
 	err = service.Run(ctx, func(ctx context.Context, s service.Scope) error {
 		// Create the generator from the config struct
 		gen, err := generator.NewConfigBasedGenerator(cfg)
@@ -287,6 +294,7 @@ func runLoadTest(ctx context.Context, cmd *cobra.Command, args []string) error {
 		// Set up signal handling for graceful shutdown
 		sigChan := make(chan os.Signal, 1)
 		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+		defer signal.Stop(sigChan)
 
 		log.Printf("📈 Logging statistics every %v (Press Ctrl+C to stop)", settings.StatsInterval.ToDuration())
 		if settings.DryRun {
@@ -310,9 +318,14 @@ func runLoadTest(ctx context.Context, cmd *cobra.Command, args []string) error {
 		if _, err := utils.Recv(ctx, sigChan); err != nil {
 			return err
 		}
+		shutdownRequested = true
 		log.Print("\n🛑 Received shutdown signal, stopping gracefully...")
 		return nil
 	})
+	// A requested shutdown cancels background dispatch; it is not a run failure.
+	if shutdownRequested && ctx.Err() == nil && errors.Is(err, context.Canceled) {
+		err = nil
+	}
 	// Print final statistics
 	finalStats, reportErr := logger.LogFinalStats()
 	if reportErr != nil {

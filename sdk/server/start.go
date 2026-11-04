@@ -4,6 +4,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -330,16 +331,10 @@ func startInProcess(
 		logger.Info("starting node with ABCI Tendermint in-process")
 		var gen *tmtypes.GenesisDoc
 		if config.Genesis.StreamImport {
-			lines := genesistypes.IngestGenesisFileLineByLine(config.Genesis.GenesisStreamFile)
-			for line := range lines {
-				genDoc, err := tmtypes.GenesisDocFromJSON([]byte(line))
-				if err != nil {
-					return err
-				}
-				if gen != nil {
-					return fmt.Errorf("error: multiple genesis docs found in stream")
-				}
-				gen = genDoc
+			var err error
+			gen, err = LoadStreamingGenesisDoc(goCtx, config.Genesis.GenesisStreamFile)
+			if err != nil {
+				return err
 			}
 		}
 		tmNode, err := node.New(
@@ -466,4 +461,44 @@ func startInProcess(
 
 	// wait for signal capture and gracefully return
 	return WaitForQuitSignals(goCtx, restartCh)
+}
+
+// LoadStreamingGenesisDoc waits for the complete export before allowing node
+// startup, even when the genesis document precedes the module records.
+func LoadStreamingGenesisDoc(ctx context.Context, filename string) (*tmtypes.GenesisDoc, error) {
+	stream := genesistypes.IngestGenesisFileLineByLineContext(ctx, filename)
+	var gen *tmtypes.GenesisDoc
+	err := stream.Consume(func(line string) error {
+		var record struct {
+			AppState struct {
+				Module string          `json:"module"`
+				Data   json.RawMessage `json:"data"`
+			} `json:"app_state"`
+		}
+		if err := json.Unmarshal([]byte(line), &record); err != nil {
+			return fmt.Errorf("invalid genesis record: %w", err)
+		}
+		if record.AppState.Module != "" {
+			if len(record.AppState.Data) == 0 || !json.Valid(record.AppState.Data) {
+				return fmt.Errorf("invalid genesis data for module %s", record.AppState.Module)
+			}
+			return nil
+		}
+		doc, err := tmtypes.GenesisDocFromJSON([]byte(line))
+		if err != nil {
+			return err
+		}
+		if gen != nil {
+			return fmt.Errorf("multiple genesis docs found in stream")
+		}
+		gen = doc
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	if gen == nil {
+		return nil, fmt.Errorf("genesis stream is missing a valid genesis header")
+	}
+	return gen, nil
 }

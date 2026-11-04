@@ -548,9 +548,7 @@ pub(super) fn dispatch(
         return budget_state::export_dynamic(config, &bound, &params["budget_id"], &subject.did);
     }
     let mut evidence = human.evidence(config)?;
-    for item in &mut evidence {
-        item.checkpoint = super::super::checkpoint_header(config, item.facts.batch_number).ok();
-    }
+    super::bind_committed(config, &mut evidence)?;
     let latest = evidence
         .last()
         .ok_or_else(|| unavailable("identity_head_evidence_incomplete"))?;

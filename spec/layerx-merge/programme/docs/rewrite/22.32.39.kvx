@@ -1,0 +1,23 @@
+[manifest]
+task = "22.32.39"
+domain = 5
+owner_role = "fm-node-runtime"
+pages = 3
+
+[page.1]
+path = "consensus/spec/light-client/attacks/isolate-attackers_002_reviewed.md"
+status = "stale"
+bytes = 12266
+source_1 = "record 22.30.47 [doc.047] (stale): Vendored upstream light-client research/specification artifact isolate-attackers_002_reviewed.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[page.2]
+path = "consensus/spec/light-client/attacks/notes-on-evidence-handling.md"
+status = "stale"
+bytes = 10635
+source_1 = "record 22.30.47 [doc.048] (stale): Vendored upstream light-client research/specification artifact notes-on-evidence-handling.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[page.3]
+path = "consensus/spec/light-client/detection/detection_001_reviewed.md"
+status = "stale"
+bytes = 29212
+source_1 = "record 22.30.47 [doc.050] (stale): Vendored upstream light-client research/specification artifact detection_001_reviewed.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."

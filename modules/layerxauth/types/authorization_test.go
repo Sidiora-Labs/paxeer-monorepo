@@ -37,7 +37,7 @@ const (
 
 func layerXScopeTestAuthorization() LayerXScopeAuthorization {
 	return LayerXScopeAuthorization{
-		ModuleMask:      0x80,
+		ModuleMask:      1 << BankScopeModule,
 		OrdinalMin:      1,
 		OrdinalMax:      8,
 		AssetId:         bytes.Repeat([]byte{0xa1}, 32),
@@ -57,11 +57,11 @@ func layerXScopeTestAddress(fill byte) sdk.AccAddress {
 }
 
 func layerXScopeTestSend(from sdk.AccAddress) sdk.Msg {
-	return banktypes.NewMsgSend(from, layerXScopeTestAddress(0x0e), sdk.NewCoins(sdk.NewInt64Coin("upax", 1)))
+	return banktypes.NewMsgSend(from, layerXScopeTestAddress(0x0e), sdk.NewCoins(sdk.NewInt64Coin(ledgertypes.MirrorDenom([32]byte(bytes.Repeat([]byte{0xa1}, 32))), 1)))
 }
 
 func layerXScopeTestMultiSend(from sdk.AccAddress) sdk.Msg {
-	coins := sdk.NewCoins(sdk.NewInt64Coin("upax", 1))
+	coins := sdk.NewCoins(sdk.NewInt64Coin(ledgertypes.MirrorDenom([32]byte(bytes.Repeat([]byte{0xa1}, 32))), 1))
 	return banktypes.NewMsgMultiSend(
 		[]banktypes.Input{banktypes.NewInput(from, coins)},
 		[]banktypes.Output{banktypes.NewOutput(layerXScopeTestAddress(0x0e), coins)},
@@ -293,7 +293,7 @@ func TestLayerXScopeValidateBasicKindAndPeriod(t *testing.T) {
 }
 
 func TestLayerXScopeRevocationEpoch(t *testing.T) {
-	ctx := testutil.DefaultContext(sdk.NewKVStoreKey("layerx_scope_revocation"), sdk.NewTransientStoreKey("transient_layerx_scope_revocation"))
+	ctx := testutil.DefaultContext(sdk.NewKVStoreKey("layerx_scope_revocation"), sdk.NewTransientStoreKey("transient_layerx_scope_revocation")).WithBlockTime(time.UnixMilli(150))
 	grantor := layerXScopeTestAddress(0xd1)
 	auth := layerXScopeTestAuthorization()
 	msg := layerXScopeTestSend(grantor)
@@ -302,8 +302,8 @@ func TestLayerXScopeRevocationEpoch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Accept at revocation 4: %v", err)
 	}
-	if !resp.Accept || resp.Delete || resp.Updated != nil {
-		t.Fatalf("Accept at revocation 4 = %+v, want accept without update", resp)
+	if updated, ok := resp.Updated.(*LayerXScopeAuthorization); !resp.Accept || resp.Delete || !ok || updated.SpentTotal != "1" {
+		t.Fatalf("Accept at revocation 4 = %+v, want accept with spending update", resp)
 	}
 
 	cases := []struct {
@@ -367,7 +367,7 @@ func TestLayerXScopeRefusesLedger(t *testing.T) {
 	if err := auth.ValidateBasic(); err != nil {
 		t.Fatalf("every-module scope: %v", err)
 	}
-	ctx := testutil.DefaultContext(sdk.NewKVStoreKey("layerx_scope_ledger"), sdk.NewTransientStoreKey("transient_layerx_scope_ledger"))
+	ctx := testutil.DefaultContext(sdk.NewKVStoreKey("layerx_scope_ledger"), sdk.NewTransientStoreKey("transient_layerx_scope_ledger")).WithBlockTime(time.UnixMilli(150))
 	grantor := layerXScopeTestAddress(0xd3)
 	resp, err := auth.Accept(WithGrantorRevocation(ctx, grantor, auth.RevocationEpoch), layerXScopeTestSend(grantor))
 	if err != nil || !resp.Accept {
@@ -408,7 +408,7 @@ func TestLayerXScopeAcceptScopedActivity(t *testing.T) {
 	auth.OrdinalMax = 6
 	auth.MaxPerActivity = "10"
 	auth.MaxTotal = "15"
-	ctx := testutil.DefaultContext(sdk.NewKVStoreKey("layerx_scope_activity"), sdk.NewTransientStoreKey("transient_layerx_scope_activity"))
+	ctx := testutil.DefaultContext(sdk.NewKVStoreKey("layerx_scope_activity"), sdk.NewTransientStoreKey("transient_layerx_scope_activity")).WithBlockTime(time.UnixMilli(150))
 	ctx = WithGrantorRevocation(ctx, grantor, auth.RevocationEpoch)
 
 	cases := []struct {
@@ -476,7 +476,7 @@ func TestLayerXScopeAcceptSpendsTotal(t *testing.T) {
 	auth.OrdinalMax = 6
 	auth.MaxPerActivity = "10"
 	auth.MaxTotal = "15"
-	ctx := testutil.DefaultContext(sdk.NewKVStoreKey("layerx_scope_spending"), sdk.NewTransientStoreKey("transient_layerx_scope_spending"))
+	ctx := testutil.DefaultContext(sdk.NewKVStoreKey("layerx_scope_spending"), sdk.NewTransientStoreKey("transient_layerx_scope_spending")).WithBlockTime(time.UnixMilli(150))
 	ctx = WithGrantorRevocation(ctx, grantor, auth.RevocationEpoch)
 
 	resp, err := auth.Accept(ctx, layerXScopeTestScopedSend(grantor, sdk.NewInt(10)))
@@ -605,7 +605,7 @@ func TestLayerXScopeGrantAndExec(t *testing.T) {
 
 	granter, grantee := layerXScopeTestAddress(0xd4), layerXScopeTestAddress(0xe4)
 	recipient := layerXScopeTestAddress(0x0e)
-	funds := sdk.NewCoins(sdk.NewInt64Coin("upax", 100))
+	funds := sdk.NewCoins(sdk.NewInt64Coin(ledgertypes.MirrorDenom([32]byte(bytes.Repeat([]byte{0xa1}, 32))), 100))
 	if err := bankKeeper.MintCoins(ctx, fundingModule, funds); err != nil {
 		t.Fatalf("MintCoins: %v", err)
 	}
@@ -614,6 +614,8 @@ func TestLayerXScopeGrantAndExec(t *testing.T) {
 	}
 
 	auth := layerXScopeTestAuthorization()
+	auth.NotBefore = uint64(ctx.BlockTime().UnixMilli())
+	auth.NotAfter = uint64(expiration.UnixMilli())
 	grantMsg, err := authz.NewMsgGrant(granter, grantee, &auth, expiration)
 	if err != nil {
 		t.Fatal(err)
@@ -651,10 +653,10 @@ func TestLayerXScopeGrantAndExec(t *testing.T) {
 	if len(resp.Results) != 1 {
 		t.Fatalf("Exec results = %d, want 1", len(resp.Results))
 	}
-	if got := bankKeeper.GetBalance(ctx, granter, "upax"); !got.IsEqual(sdk.NewInt64Coin("upax", 99)) {
+	if got := bankKeeper.GetBalance(ctx, granter, ledgertypes.MirrorDenom([32]byte(bytes.Repeat([]byte{0xa1}, 32)))); !got.IsEqual(sdk.NewInt64Coin(ledgertypes.MirrorDenom([32]byte(bytes.Repeat([]byte{0xa1}, 32))), 99)) {
 		t.Fatalf("granter balance = %v, want 99upax", got)
 	}
-	if got := bankKeeper.GetBalance(ctx, recipient, "upax"); !got.IsEqual(sdk.NewInt64Coin("upax", 1)) {
+	if got := bankKeeper.GetBalance(ctx, recipient, ledgertypes.MirrorDenom([32]byte(bytes.Repeat([]byte{0xa1}, 32)))); !got.IsEqual(sdk.NewInt64Coin(ledgertypes.MirrorDenom([32]byte(bytes.Repeat([]byte{0xa1}, 32))), 1)) {
 		t.Fatalf("recipient balance = %v, want 1upax", got)
 	}
 
@@ -662,7 +664,7 @@ func TestLayerXScopeGrantAndExec(t *testing.T) {
 	if _, err := keeper.Exec(execCtx, &multiSend); !errors.Is(err, sdkerrors.ErrUnauthorized) || !strings.Contains(err.Error(), "authorization not found") {
 		t.Fatalf("Exec MsgMultiSend under a MsgSend grant = %v, want %v: authorization not found", err, sdkerrors.ErrUnauthorized)
 	}
-	if got := bankKeeper.GetBalance(ctx, granter, "upax"); !got.IsEqual(sdk.NewInt64Coin("upax", 99)) {
+	if got := bankKeeper.GetBalance(ctx, granter, ledgertypes.MirrorDenom([32]byte(bytes.Repeat([]byte{0xa1}, 32)))); !got.IsEqual(sdk.NewInt64Coin(ledgertypes.MirrorDenom([32]byte(bytes.Repeat([]byte{0xa1}, 32))), 99)) {
 		t.Fatalf("granter balance after refused exec = %v, want 99upax", got)
 	}
 }
