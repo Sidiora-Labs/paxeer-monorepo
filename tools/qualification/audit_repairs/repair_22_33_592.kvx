@@ -1,0 +1,37 @@
+[repair]
+task = "22.33.592"
+acceptance = "22998.1"
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+readme_owner_task = "22.31.470"
+readme_sha256 = "689aad1724d426309d059d9a3b0085214078d35f756e19b396142a751f84ba98"
+implementation = "Decision 2525: consume the production README as task 22.31.470 left it. Add the focused offline pytest source checks and this finding-to-test record; do not edit README.md or any production source."
+source_proof = "Read the real README architecture, topology, operator commands and receipt sequence. Parse its root HTTPS URLs and curl JSON-RPC payload, and the linked hosted gateway OpenRPC methods. Check linked production host and consensus wiring, root RPC dispatch, transaction acceptance/forwarding, WAL release before receipt publication, committed receipt coverage, executor retirement guards and Makefile/chain.mk prerequisites and output. No shell script, unit file or manifest is repaired; shell examples are tokenized in process, not executed."
+review_only = "Native Go/C/Rust builds, node startup, transaction execution, endpoint availability, deployment activation, cryptographic validation, BFT commitment and WAL restart/recovery are not executed by this source gate. The module proves documented source facts along producer, transport and consumer connections, not runtime behavior. This documentation finding changes no production interface or stateful component, so restart and interface-driving tests are inapplicable."
+baseline = "No baseline verification was run: the explicit implementation-first order and exclusive hf-done gate take precedence over the older do_5 request to test before implementation. No pre-change test failures are claimed. Initial git status/diff showed only pre-existing .cgignore and spec/layerx-merge/spec.kvx bookkeeping; both scoped files were absent and /out/run/gates.jsonl had no prior runs."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_592.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private /out/run/gates.jsonl name the exact verified content-derived revision, command, exit code and log path. Build and verification must pass on the same candidate revision. This record is finalized before qualification: embedding the candidate revision into its own content would change that revision. The finding is qualified only by a passing hf-done ledger entry; this record does not claim a gate ran. Publication belongs to the runner; no manual commit or push."
+missing_facts = []
+wiring_requests = ["README.md | domain 17 / task 22.31.470: own the architecture and operator-command rewrite for doc-root-readme; already supplied by the inherited README, with no missing expected facts."]
+
+[finding.doc-root-readme]
+audit = "22.30.160"
+file = "README.md"
+line = 44
+class = "doc-drift"
+severity = "medium"
+status = "pending_qualification"
+resolution = "The inherited README supplies one BFT paxd chain with its integrated block-proposing kernel and committed-block finality; chain 125, root api1..api14 JSON-RPC hosts, signed transaction and committed receipt flows, the current hosted gateway OpenRPC contract, and retired custody/checkpoint refusal surfaces. It contains no layerxd, separate sequencer or checkpoint deployment, router or unified /rpc endpoint. The declared gate determines qualification."
+tests = ["test_readme_one_paxd_network_with_embedded_kernel_and_block_finality", "test_readme_chain_125_probe_and_api1_through_api14_use_root_json_rpc", "test_readme_transaction_receipt_path_matches_producer_transport_consumer", "test_readme_custody_and_checkpoint_executors_are_retired_refusal_surfaces", "test_readme_build_and_upgrade_guidance_use_merged_paxd", "test_readme_hosted_px_methods_follow_the_gateway_openrpc_contract", "test_repair_record_maps_finding_to_checks_and_private_revision_evidence"]
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. After implementation apply .editorconfig and pre-commit conventions: UTF-8, LF, final newline and no trailing whitespace."
+
+[gotcha.scope]
+observed = "The generic workflow requests ledger/spec edits and publication and the audit proposal requests README edits, but this task authorizes only its two repair files and delegates publication to the runner."
+resolution = "Keep notes here, leave all pre-existing changes intact, route the README rewrite to domain 17 / task 22.31.470 and do not edit GOTCHA.kvx, spec files or README.md."
+
+[gotcha.context]
+observed = "Broad combined context reads exceeded output limits, and cg brief/context reflected stale graph data and unrelated tasks."
+resolution = "Use bounded task/finding sections, actual git status/diff and the private gate ledger for this task."
