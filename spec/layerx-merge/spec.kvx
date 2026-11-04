@@ -130349,7 +130349,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.44]
 title = "Repair audit record 22.30.30 findings in apps/launchpad/web/src/widgets/rewards: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -160626,7 +160626,7 @@ do_7 = "Verification runs only the TestRepair_136_* functions of repair_136_test
 
 [task.22.31.135]
 title = "Repair audit record 22.30.73 findings in sdk/crypto/types: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -160694,7 +160694,7 @@ do_7 = "Verification runs only the TestRepair_134_* functions of repair_134_test
 
 [task.22.31.133]
 title = "Repair audit record 22.30.72 findings in sdk/chainflow/rust/src: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -160903,7 +160903,7 @@ do_7 = "Verification runs only the TestRepair_123_* functions of repair_123_test
 
 [task.22.31.122]
 title = "Repair audit record 22.30.55 findings in consensus/test/e2e/app: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -160937,7 +160937,7 @@ do_7 = "Verification runs only the TestRepair_122_* functions of repair_122_test
 
 [task.22.31.121]
 title = "Repair audit record 22.30.55 findings in consensus/scripts/scmigrate: restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -161074,7 +161074,7 @@ do_8 = "Verification runs only the TestRepair_118_* functions of repair_118_test
 
 [task.22.31.117]
 title = "Repair audit record 22.30.53 findings in storage/db_engine/litt/metrics: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -161142,7 +161142,7 @@ do_7 = "Verification runs only the TestRepair_116_* functions of repair_116_test
 
 [task.22.31.115]
 title = "Repair audit record 22.30.53 findings in storage/db_engine/litt/littbuilder: runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -161212,7 +161212,7 @@ do_9 = "Verification runs only the TestRepair_114_* functions of repair_114_test
 
 [task.22.31.113]
 title = "Repair audit record 22.30.53 findings in storage/db_engine/litt/dbcache: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -161317,7 +161317,7 @@ do_7 = "Verification runs only the TestRepair_111_* functions of repair_111_test
 
 [task.22.31.110]
 title = "Repair audit record 22.30.53 findings in storage/db_engine/litt/disktable/segment: restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -161352,7 +161352,7 @@ do_8 = "Verification runs only the TestRepair_110_* functions of repair_110_test
 
 [task.22.31.109]
 title = "Repair audit record 22.30.52 findings in consensus/internal/pubsub: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -161420,7 +161420,7 @@ do_7 = "Verification runs only the TestRepair_108_* functions of repair_108_test
 
 [task.22.31.107]
 title = "Repair audit record 22.30.52 findings in consensus/internal/evidence: restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -161454,7 +161454,7 @@ do_7 = "Verification runs only the TestRepair_107_* functions of repair_107_test
 
 [task.22.31.106]
 title = "Repair audit record 22.30.52 findings in storage/db_engine/dbcache: runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -161488,7 +161488,7 @@ do_7 = "Verification runs only the TestRepair_106_* functions of repair_106_test
 
 [task.22.31.104]
 title = "Repair audit record 22.30.52 findings in storage/ledger_db/receipt: restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -161875,7 +161875,7 @@ do_7 = "Verification runs only the TestRepair_88_* functions of repair_88_test.g
 
 [task.22.31.87]
 title = "Repair audit record 22.30.46 findings in consensus/rpc/jsonrpc/client: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -162016,7 +162016,7 @@ do_12 = "Verification runs only the TestRepair_84_* functions of repair_84_test.
 
 [task.22.31.83]
 title = "Repair audit record 22.30.46 findings in consensus/light: restart-recovery, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -162120,7 +162120,7 @@ do_7 = "Verification runs only the TestRepair_81_* functions of repair_81_test.g
 
 [task.22.31.80]
 title = "Repair audit record 22.30.44 findings in consensus/internal/consensus: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -162154,7 +162154,7 @@ do_7 = "Verification runs only the TestRepair_80_* functions of repair_80_test.g
 
 [task.22.31.79]
 title = "Repair audit record 22.30.44 findings in consensus/internal/autobahn: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -162188,7 +162188,7 @@ do_7 = "Verification runs only the TestRepair_79_* functions of repair_79_test.g
 
 [task.22.31.78]
 title = "Repair audit record 22.30.43 findings in consensus/internal/protoutils/wireguard: security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -162294,7 +162294,7 @@ do_10 = "Verification runs only the TestRepair_76_* functions of repair_76_test.
 
 [task.22.31.75]
 title = "Repair audit record 22.30.41 findings in services/launchpad/trading-charts/internal/store: wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -162362,7 +162362,7 @@ do_7 = "Verification runs only the TestRepair_74_* functions of repair_74_test.g
 
 [task.22.31.73]
 title = "Repair audit record 22.30.41 findings in services/launchpad/trading-charts/internal/app: wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -162396,7 +162396,7 @@ do_7 = "Verification runs only the TestRepair_73_* functions of repair_73_test.g
 
 [task.22.31.71]
 title = "Repair audit record 22.30.40 findings in services/launchpad/stats-w*/internal/consumer: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -162430,7 +162430,7 @@ do_7 = "Verification runs only the TestRepair_71_* functions of repair_71_test.g
 
 [task.22.31.70]
 title = "Repair audit record 22.30.40 findings in services/launchpad/stats-w*/internal/app: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -162464,7 +162464,7 @@ do_7 = "Verification runs only the TestRepair_70_* functions of repair_70_test.g
 
 [task.22.31.69]
 title = "Repair audit record 22.30.40 findings in services/launchpad/stats-w*/internal/httpapi: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -163024,7 +163024,7 @@ do_9 = "Verification runs only the TestRepair_53_* functions of repair_53_test.g
 
 [task.22.31.52]
 title = "Repair audit record 22.30.32 findings in services/launchpad/gateway/internal/upload: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -163272,7 +163272,7 @@ do_8 = "Verification runs only the TestRepair_45_* functions of repair_45_test.g
 
 [task.22.31.41]
 title = "Repair audit record 22.30.29 findings in sdk/launchpad/shared/delivery: restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -163375,7 +163375,7 @@ do_8 = "Verification runs only the TestRepair_38_* functions of repair_38_test.g
 
 [task.22.31.37]
 title = "Repair audit record 22.30.26 findings in sdk/launchpad/protocol/bindings: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -163411,7 +163411,7 @@ do_9 = "Verification runs only the TestRepair_37_* functions of repair_37_test.g
 
 [task.22.31.35]
 title = "Repair audit record 22.30.24 findings in modules/launchpad/client/cli: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -219359,7 +219359,7 @@ do_7 = "Verification runs only the TestRepair_174_* functions of repair_174_test
 
 [task.1.23.8]
 title = "Round-trip the final partial batch boundary of the qualification replay corpus"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
