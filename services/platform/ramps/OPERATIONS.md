@@ -16,32 +16,49 @@ handles; do not put private keys in configuration, journals, API messages or
 browser state. Display the external-custody disclosure in [README.md](README.md)
 on every customer surface.
 
-The deployment is in **`layerx-testnet`**. Its NetworkPolicy allows cluster DNS
-and egress to same-namespace pods selected by `layerx-plane=trusted-boundary`,
-`app=layerx-gateway`, or `app=paxeer` on the listed ports. A pod selector without
-a namespace selector selects only that namespace. Names in the example under
-`layerx-platform` or `layerx-ramps` therefore require deployment-specific
-alignment; the shipped policy does not permit those namespaces automatically.
-Terminate external provider traffic at a reachable mTLS boundary. Ingress admits
-the ingress controller namespace and same-namespace `app=layerx-ramp-worker`
-pods on port 8443; API authentication must still protect internal routes.
+The Kubernetes deployment uses **`layerx-testnet`** for the ramp, identity,
+merged-chain TLS relay and private owner boundaries. Identity, compliance,
+provider egress, KMS and custody Services listen on 9443 and select their named
+`app` pods on 9443. The merged node endpoint is
+`https://layerx-gateway.layerx-testnet.svc.cluster.local/`: Service 443 forwards
+to gateway pod 9443. The gateway relays root JSON-RPC to the embedded-kernel
+`paxd` Service `layerx-native-chain` on 8545; it is not another chain.
+The ramp policy pairs an explicit `namespaceSelector` with each `podSelector`
+and permits TCP 9443 to these six peers plus cluster DNS. The upstream ingress
+policy admits only the ramp namespace/app pair on 9443. There is no public
+provider egress; the owner-operated provider-egress boundary owns that hop.
+The four owner boundary Services in the template require matching owner pods
+and TLS listeners; obtain and qualify those deployments before activation.
 
-Set `layerx.rpc_endpoint` to the actual pinned native JSON-RPC endpoint at its
-root, and set `chain_id` to 125. Paxeer is one BFT network; its kernel executes
-inside the node and proposes blocks. The example's legacy service hostname is
-a replacement coordinate, not another network component. Public node names are
-documented in the [gateway guide](../hosted/gateway/README.md). Native RPC trust
-uses `rpc_trust_anchor_der`; the signer and other service calls use the
-configured outbound TLS identity and CA.
+Ingress admits the ingress controller namespace and same-namespace
+`app=layerx-ramp-worker` pods on 8443. API authentication must still protect
+internal routes. Apply the gateway-to-node and owner boundary wiring listed in
+the repair record before claiming a reachable runtime deployment.
+
+Set `layerx.rpc_endpoint` to that pinned merged root JSON-RPC endpoint and
+`chain_id` to 125. Project the DER CA for its TLS certificate as
+`paxeer-rpc-ca.der` in Secret `layerx-reference-ramp-layerx`; the init container
+copies it to the private `/run/secrets/paxeer-rpc-ca.der` mount named by
+`rpc_trust_anchor_der`. The certificate must cover the gateway service DNS
+name. Signer and other service calls use the outbound TLS identity and CA.
+The Railway environment example is a separate deployment profile: its
+`RAMP_SEQUENCER_RPC_ENDPOINT` compatibility variable must name an owner-supplied
+private merged root TLS relay and `RAMP_RPC_TRUST_ANCHOR_DER` supplies the same
+DER pin file. Kubernetes service DNS does not resolve automatically on Railway.
 
 The transaction signer receives the **EIP-1559 signing hash**, 32 bytes encoded
 as standard padded base64, at `POST /v1/signatures`. Its request includes the
 configured `key_handle`, `algorithm: secp256k1` and `message`. It must return
 `signature` as base64 compact 64-byte `(r,s)` and `recovery_id` as 0 or 1. The
-client recovers the EVM address and checks `layerx.operator_address`. This is
+client recovers the EVM address and checks `layerx.operator_address`. Obtain
+that address through an independently authenticated KMS public-key ceremony;
+never copy an address claimed only by a signer response. This is
 distinct from Ed25519 signatures used for receipts, compliance and callbacks.
 Pin `layerx.receipt_keys` with `keyId`, `publicKey`, `firstHeight` and `lastHeight`
-and cover the relevant transaction heights. Do not derive trust from an
+and cover the relevant transaction heights. During receipt-key rotation, verify
+the new key and activation height independently, install its pin before use,
+and retain old pins for historical recovery; do not extend a retired key
+beyond its authorised height interval. Do not derive trust from an
 unverified receipt response.
 
 Keep the quote catalogue operator-owned and immutable for its validity
@@ -61,7 +78,7 @@ it does not submit again. An authenticated worker sends a strict object to
    result is non-terminal.
 2. Use `submit_provider` only when the durable workflow admits the external leg;
    `reconcile_provider` reads the existing provider operation.
-3. For an on-ramp `submit_layerx`, **omit `account_sequence`**. The client reads
+3. For an on-ramp `submit_layerx`, **omit `account_sequence` or send JSON `null`**. The client reads
    the operator's pending EVM nonce, estimates gas and enforces configured gas
    and fee caps before signing the exact native ledger payment.
 4. The HTTP handler requires `account_sequence` for off-ramp `submit_layerx`,
@@ -72,6 +89,25 @@ it does not submit again. An authenticated worker sends a strict object to
    it before enabling off-ramp orders.
 5. Use `resolve_layerx` for the persisted transaction hash. Leave transport loss
    unknown and let reconciliation establish its outcome.
+
+Current request bodies (replace the digest with the bound order's 32-byte array):
+
+```json
+{"order_digest":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],"action":"submit_layerx","account_sequence":null}
+```
+
+```json
+{"order_digest":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],"action":"resolve_layerx"}
+```
+
+For off-ramp order creation use `customer_budget_id` and
+`customer_budget_purpose` as shown in the README. The customer must sign a
+chain-id-125 `budgetSpend` transaction bound to that budget, purpose, asset,
+amount and operator recipient. Call `RampEngine::submit_customer_payment` with
+the exact signed bytes through an authenticated customer integration. There is
+currently no reference HTTP request that submits these bytes: keep off-ramp
+enablement closed until that integration is implemented and qualified. A
+legacy grant identifier or receiver sequence cannot supply this authority.
 
 `account_sequence` on other work actions is rejected with 400 `work_invalid`;
 on-ramp submission with it is also rejected. The operator bearer is distinct
