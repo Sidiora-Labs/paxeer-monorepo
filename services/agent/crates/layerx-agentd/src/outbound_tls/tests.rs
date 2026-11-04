@@ -15,10 +15,46 @@ use openssl::x509::extension::{
 };
 use openssl::x509::{X509NameBuilder, X509};
 
-use crate::human::HumanOperationError;
-use crate::human_runtime::RemoteHumanAuthority;
+use crate::human::{HumanOperationError, HumanPeer};
+use crate::human_runtime::{HumanAuthorityBoundary, RemoteHumanAuthority};
+use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 
 type TestResult<T = ()> = Result<T, Box<dyn Error>>;
+
+fn peer() -> HumanPeer {
+    HumanPeer {
+        uid: 1000,
+        tenant: "tls-tenant".to_owned(),
+        principal: "tls-principal".to_owned(),
+        subject: None,
+    }
+}
+
+fn registry() -> TestResult<ModuleRegistry> {
+    let activity = ActivityType::new(ModuleId::Asset, 1)
+        .map_err(|error| format!("invalid fixture activity: {error:?}"))?;
+    let registration = ModuleRegistration::new(ModuleId::Asset, &[activity])
+        .map_err(|error| format!("invalid fixture registration: {error:?}"))?;
+    Ok(ModuleRegistry::new(&[registration])
+        .map_err(|error| format!("invalid fixture registry: {error:?}"))?)
+}
+
+fn registry_body() -> TestResult<Vec<u8>> {
+    let modules = registry()?
+        .registrations()
+        .iter()
+        .map(|registration| {
+            serde_json::json!({
+                "module_id": registration.module() as u16,
+                "activity_types": registration.activity_types().iter()
+                    .map(|activity| activity.value()).collect::<Vec<_>>()
+            })
+        })
+        .collect::<Vec<_>>();
+    Ok(serde_json::to_vec(
+        &serde_json::json!({"modules": modules}),
+    )?)
+}
 
 fn certificate(issuer: Option<(&X509, &PKey<Private>)>) -> TestResult<(X509, PKey<Private>)> {
     let key = PKey::from_rsa(Rsa::generate(2048)?)?;
@@ -93,11 +129,29 @@ fn exchange(identity: &Identity, ca: &[u8], host: &str) -> TestResult<(bool, boo
             }
             request.push(byte[0]);
         }
-        if !request.starts_with(b"GET / HTTP/1.1\r\n") {
+        if !request.starts_with(
+            b"GET /v1/agent/registry?tenant=tls-tenant&principal=tls-principal HTTP/1.1\r\n",
+        ) {
             return Err("unexpected TLS transport request".to_owned());
         }
-        tls.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 4\r\nConnection: close\r\n\r\ntrue")
-            .map_err(|e| e.to_string())?;
+        let request = String::from_utf8(request).map_err(|e| e.to_string())?;
+        let expected = format!("Bearer {}", "a".repeat(32));
+        if !request.lines().any(|line| {
+            line.split_once(':').is_some_and(|(name, value)| {
+                name.eq_ignore_ascii_case("authorization") && value.trim() == expected
+            })
+        }) {
+            return Err("missing authority bearer over TLS".to_owned());
+        }
+        let body = registry_body().map_err(|e| e.to_string())?;
+        write!(
+            tls,
+            "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+            body.len()
+        )
+        .map_err(|e| e.to_string())?;
+        tls.write_all(&body).map_err(|e| e.to_string())?;
+        tls.flush().map_err(|e| e.to_string())?;
         Ok(true)
     });
     let authority = RemoteHumanAuthority::connect(
@@ -108,9 +162,10 @@ fn exchange(identity: &Identity, ca: &[u8], host: &str) -> TestResult<(bool, boo
         ca,
     )
     .map_err(|_| "invalid authority configuration")?;
+    let expected = registry()?;
     let accepted = authority
-        .get("/")
-        .is_ok_and(|value| value == serde_json::Value::Bool(true));
+        .registry(&peer())
+        .is_ok_and(|value| value == expected);
     let handled = server.join().map_err(|_| "TLS server panicked")??;
     Ok((accepted, handled))
 }
@@ -141,7 +196,6 @@ fn private_ca_is_required_and_hostname_verification_remains_enabled() -> TestRes
 
 #[test]
 fn human_authority_refuses_empty_ca_and_preserves_input_bounds() -> TestResult {
-    assert!(crate::outbound_tls::private_ca(&[]).is_none());
     let result = RemoteHumanAuthority::connect(
         "https://localhost",
         "a".repeat(32),

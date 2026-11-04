@@ -165,6 +165,11 @@ func (p PrecompileExecutor) AddCW20(ctx sdk.Context, method *ethabi.Method, call
 	if err != nil {
 		return nil, 0, err
 	}
+	if pcommon.MergePlanActive(ctx, p.evmKeeper) {
+		if err := pcommon.InstallCWPointerRuntime(evm, contractAddr, "cw20"); err != nil {
+			return nil, 0, err
+		}
+	}
 
 	ret, err = method.Outputs.Pack(contractAddr)
 	remainingGas = pcommon.GetRemainingGas(ctx, p.evmKeeper)
@@ -195,6 +200,11 @@ func (p PrecompileExecutor) AddCW721(ctx sdk.Context, method *ethabi.Method, cal
 	if err != nil {
 		return nil, 0, err
 	}
+	if pcommon.MergePlanActive(ctx, p.evmKeeper) {
+		if err := pcommon.InstallCWPointerRuntime(evm, contractAddr, "cw721"); err != nil {
+			return nil, 0, err
+		}
+	}
 
 	ret, err = method.Outputs.Pack(contractAddr)
 	remainingGas = pcommon.GetRemainingGas(ctx, p.evmKeeper)
@@ -224,6 +234,11 @@ func (p PrecompileExecutor) AddCW1155(ctx sdk.Context, method *ethabi.Method, ca
 	contractAddr, err := p.evmKeeper.UpsertERCCW1155Pointer(ctx, evm, cwAddr, metadata)
 	if err != nil {
 		return nil, 0, err
+	}
+	if pcommon.MergePlanActive(ctx, p.evmKeeper) {
+		if err := pcommon.InstallCWPointerRuntime(evm, contractAddr, "cw1155"); err != nil {
+			return nil, 0, err
+		}
 	}
 
 	ret, err = method.Outputs.Pack(contractAddr)

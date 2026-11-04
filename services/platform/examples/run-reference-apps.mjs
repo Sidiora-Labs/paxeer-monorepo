@@ -487,6 +487,7 @@ export function merchantCheckoutOutcome(environment, orderId, receiptDigest, set
   return {
     application: "merchant-shop", environment, state: "paid", orderId,
     receiptDigest, rung: settlement.verification.rung, transactionHash: settlement.txHash,
+    resultCode: settlement.verification.receipt.resultCode,
   };
 }
 
