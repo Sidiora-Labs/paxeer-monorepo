@@ -1,6 +1,7 @@
 package telemetry
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -87,6 +88,41 @@ func (m *Metrics) RecordCommit(committed bool) error {
 	m.mu.Lock()
 	m.counts[name]["other"]++
 	m.mu.Unlock()
+	return nil
+}
+
+// WithMutation observes one operation through validation, an atomic transaction,
+// and acknowledgement. transact must return nil only after BOTH authoritative
+// state and its outbox have committed; it must roll back on errors and panics.
+// acknowledge must return nil only after the operation's acknowledgement succeeds.
+// Callers keep their existing transaction implementation (for example
+// db.WithTransaction), including its rollback and unknown-commit error handling.
+func (m *Metrics) WithMutation(ctx context.Context, route string, validate, transact, acknowledge func(context.Context) error) error {
+	if m == nil || !routes[route] || ctx == nil || validate == nil || transact == nil || acknowledge == nil {
+		return errors.New("telemetry_invalid_mutation_operation")
+	}
+	validated, committed, acknowledged := false, false, false
+	defer func() {
+		_ = m.RecordMutation(route, validated, committed, committed, acknowledged)
+	}()
+	if err := validate(ctx); err != nil {
+		return err
+	}
+	validated = true
+	if err := func() error {
+		defer func() { _ = m.RecordCommit(committed) }()
+		if err := transact(ctx); err != nil {
+			return err
+		}
+		committed = true
+		return nil
+	}(); err != nil {
+		return err
+	}
+	if err := acknowledge(ctx); err != nil {
+		return err
+	}
+	acknowledged = true
 	return nil
 }
 
