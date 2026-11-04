@@ -116,7 +116,7 @@ pub(super) fn configured_endpoint() -> Result<Option<super::Endpoint>, String> {
 }
 
 pub(super) fn route(config: &Config, request: &super::IncomingRequest) -> Option<OutgoingResponse> {
-    if matches!(request.path.as_str(), "/rpc" | "/rpc/schema") {
+    if matches!(request.path.as_str(), "/" | "/openrpc.json") {
         return Some(super::rpc::route(config, request));
     }
     match target(&request.path) {
