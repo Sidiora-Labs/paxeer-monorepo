@@ -250,3 +250,7 @@ func requireSameAccepted(t *testing.T, want, got *sequencer.Accepted) {
 	require.NotNil(t, want.ReceiptContext.MultiStore())
 	require.NotNil(t, got.ReceiptContext.MultiStore())
 }
+
+func TestMicroBatchConcurrentPublicSends(t *testing.T) {
+	sequencer.RepairM1144LiveSerialization(t)
+}

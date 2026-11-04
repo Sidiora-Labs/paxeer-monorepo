@@ -32,6 +32,16 @@ func (r *AppReplayer) Apply(e wal.Entry) error {
 		if v.Height > math.MaxInt64 || v.OpenTimeMs > math.MaxInt64 {
 			return fmt.Errorf("%w: OPEN height or time exceeds int64", wal.ErrMalformed)
 		}
+		if len(v.ProposerAddress) != 0 {
+			exec := r.exec
+			if floor, ok := exec.(*FeeFloor); ok {
+				exec = floor.Executor
+			}
+			seq := baseSequential(exec)
+			seq.mu.Lock()
+			seq.proposer = append([]byte(nil), v.ProposerAddress...)
+			seq.mu.Unlock()
+		}
 		r.batch = nil
 		return r.exec.Open(int64(v.Height), int64(v.OpenTimeMs))
 	case *wal.Committed:

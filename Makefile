@@ -3101,32 +3101,18 @@ latency-wave-test:
 BRIDGE_PYTHON ?= python3
 PAXEER_GO ?= go
 PAXEER_GO_JOBS ?= 4
+BETA_SPEC ?= spec/layerx-merge/spec.kvx
+BETA_TASK ?=
+BETA_LEDGER ?=
+BETA_EVIDENCE_ROOT ?=
 .PHONY: beta-qualify-focused
 beta-qualify-focused:
-	scripts/ci/beta-qualify.sh \
-		'make build layerx-genesis-build' \
-		'make agent-build' \
-		'make human-build' \
-		'make platform-build' \
-		'make programs-build' \
-		'make interop-build' \
-		'make test-admission agent-test-client-submit-focused agent-test-agentd-handshake-gate agent-test-boundary' \
-		'make agent-test-agentd-session agent-test-agentd-revocation agent-test-agentd-tenant-resolve agent-test-agentd-subscription agent-test-agentd-delivery agent-test-agentd-gaps agent-test-agentd-webhook agent-test-mcp-scope agent-test-mcp-readonly agent-test-mcp-write agent-test-sdk-rust agent-test-contract-schema platform-sdk-check human-test-service' \
-		'make human-test-activity' \
-		'make human-build human-test-unit human-test-component' \
-		'make test-snapshot test-state-root programs-core-test' \
-		'make test-protocol agent-test-proof-checkpoint test-contracts interop-test-mirrors' \
-		'make test-asset-withdraw test-bridge-withdraw test-result' \
-		'make platform-test-registry' \
-		'make interop-test-ramps' \
-		'make platform-test-tooling platform-hosted-topology-check beta-contract-check' \
-		'make platform-test-tooling platform-beta-cluster-up platform-hosted-smoke platform-beta-cluster-down' \
-		'make qualify-faults' \
-		'make qualify-replay' \
-		'make agent-qualify-faults' \
-		'make agent-qualify-fuzz' \
-		'make agent-qualify-boundary' \
-		'make human-qualify-faults'
+	@set -eu; \
+		command=$$(scripts/ci/beta-qualify.sh --print-command "$(BETA_SPEC)" "$(BETA_TASK)"); \
+		scripts/ci/beta-qualify.sh \
+			--spec "$(BETA_SPEC)" --task "$(BETA_TASK)" \
+			--ledger "$(BETA_LEDGER)" --evidence-root "$(BETA_EVIDENCE_ROOT)" \
+			-- "$$command"
 
 .PHONY: test-state-proof
 $(BUILD_DIR)/tests/lxp_test_state_proof: tests/state/lxp_test_state_proof.c \

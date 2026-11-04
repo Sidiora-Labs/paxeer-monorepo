@@ -1026,6 +1026,25 @@ func (c *Client) DescribeCeremony(ctx context.Context, keyID string) ([]Describe
 	return c.describeCeremony(ctx, keyID, true)
 }
 
+func normalizeRecoveryPublicKey(curve dealer.Curve, publicKey string) (string, error) {
+	raw, err := hex.DecodeString(publicKey)
+	if err != nil {
+		return "", ErrPoint
+	}
+	if curve == dealer.Secp256k1 && len(raw) == 65 {
+		pub, err := crypto.UnmarshalPubkey(raw)
+		if err != nil {
+			return "", ErrPoint
+		}
+		publicKey = hex.EncodeToString(crypto.CompressPubkey(pub))
+	}
+	point, err := DecodePoint(curve, publicKey)
+	if err != nil {
+		return "", err
+	}
+	return EncodePoint(point)
+}
+
 func (c *Client) describeCeremony(ctx context.Context, keyID string, equalEpoch bool) ([]DescribeResponse, error) {
 	session, err := NewSessionID()
 	if err != nil {
@@ -1039,11 +1058,23 @@ func (c *Client) describeCeremony(ctx context.Context, keyID string, equalEpoch 
 	if err = c.postAll(ctx, c.nodes, PathDescribe, "", req, func(i int) any { return &out[i] }); err != nil {
 		return nil, err
 	}
+	var firstPublicKey string
 	for i, n := range c.nodes {
 		if out[i].Curve != CurveSecp256k1 && out[i].Curve != CurveEd25519 {
 			return nil, ErrResponse
 		}
-		if i > 0 && (out[i].Curve != out[0].Curve || out[i].PublicKey != out[0].PublicKey || equalEpoch && out[i].Epoch != out[0].Epoch) {
+		publicKey := out[i].PublicKey
+		if !equalEpoch {
+			curve, _ := ParseCurve(out[i].Curve)
+			publicKey, err = normalizeRecoveryPublicKey(curve, publicKey)
+			if err != nil {
+				return nil, ErrDisagree
+			}
+		}
+		if i == 0 {
+			firstPublicKey = publicKey
+		}
+		if i > 0 && (out[i].Curve != out[0].Curve || publicKey != firstPublicKey || equalEpoch && out[i].Epoch != out[0].Epoch) {
 			return nil, ErrDisagree
 		}
 		if out[i].NodeID != n.ID || out[i].KeyID != keyID || out[i].AuditSequence == 0 || !sameMembers(out[i].Participants, c.NodeIDs()) {
@@ -1064,7 +1095,8 @@ func (c *Client) InspectRefreshRecovery(ctx context.Context, ceremonyID, importS
 	if err != nil {
 		return nil, err
 	}
-	if _, err := DecodePoint(parsed, publicKey); err != nil {
+	publicKey, err = normalizeRecoveryPublicKey(parsed, publicKey)
+	if err != nil {
 		return nil, err
 	}
 	nodes, err := c.describeCeremony(ctx, keyID, false)
@@ -1073,7 +1105,8 @@ func (c *Client) InspectRefreshRecovery(ctx context.Context, ceremonyID, importS
 	}
 	aborted, committed, missing := false, false, false
 	for _, node := range nodes {
-		if node.Curve != curve || node.PublicKey != publicKey || node.ImportSessionID != importSession || (node.Epoch != baseEpoch && node.Epoch != baseEpoch+1) {
+		nodePublicKey, err := normalizeRecoveryPublicKey(parsed, node.PublicKey)
+		if err != nil || node.Curve != curve || nodePublicKey != publicKey || node.ImportSessionID != importSession || (node.Epoch != baseEpoch && node.Epoch != baseEpoch+1) {
 			return nil, ErrDisagree
 		}
 		if importSession != "" {
@@ -1092,7 +1125,8 @@ func (c *Client) InspectRefreshRecovery(ctx context.Context, ceremonyID, importS
 			missing = true
 			continue
 		}
-		if state.ExistingKey != (importSession == "") || state.CeremonyID != ceremonyID || state.ImportSessionID != importSession || state.SessionID != refreshSession || node.RefreshSessionID != refreshSession || state.KeyID != keyID || state.BaseEpoch != baseEpoch || state.Curve != curve || state.PublicKey != publicKey || !sameMembers(state.Participants, c.NodeIDs()) {
+		statePublicKey, err := normalizeRecoveryPublicKey(parsed, state.PublicKey)
+		if err != nil || state.ExistingKey != (importSession == "") || state.CeremonyID != ceremonyID || state.ImportSessionID != importSession || state.SessionID != refreshSession || node.RefreshSessionID != refreshSession || state.KeyID != keyID || state.BaseEpoch != baseEpoch || state.Curve != curve || statePublicKey != publicKey || !sameMembers(state.Participants, c.NodeIDs()) {
 			return nil, ErrDisagree
 		}
 		switch node.RefreshState {

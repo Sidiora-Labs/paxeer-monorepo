@@ -1,0 +1,54 @@
+[
+  {
+    "instance": "replica-west",
+    "deployment": "deployment-selected",
+    "region": "europe-west4",
+    "body": {
+      "readiness_version": 1,
+      "service": "layerx-gateway",
+      "status": "ready",
+      "observed_at_ms": 1750000000000,
+      "valid_until_ms": 1750000030000,
+      "backends": {
+        "durable_store": {
+          "state": "ready",
+          "reason": "ready"
+        },
+        "paxeer_chain": {
+          "state": "ready",
+          "reason": "ready"
+        },
+        "consensus": {
+          "state": "ready",
+          "reason": "ready"
+        }
+      }
+    }
+  },
+  {
+    "instance": "replica-east",
+    "deployment": "deployment-selected",
+    "region": "us-east4",
+    "body": {
+      "readiness_version": 1,
+      "service": "layerx-gateway",
+      "status": "ready",
+      "observed_at_ms": 1750000000000,
+      "valid_until_ms": 1750000030000,
+      "backends": {
+        "durable_store": {
+          "state": "ready",
+          "reason": "ready"
+        },
+        "paxeer_chain": {
+          "state": "ready",
+          "reason": "ready"
+        },
+        "consensus": {
+          "state": "ready",
+          "reason": "ready"
+        }
+      }
+    }
+  }
+]

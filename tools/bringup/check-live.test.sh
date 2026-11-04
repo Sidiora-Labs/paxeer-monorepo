@@ -1658,6 +1658,7 @@ unset CHECK_LIVE_TEST_IPS CHECK_LIVE_TEST_AGENT_RPC CHECK_LIVE_TEST_AGENT_RPC_CO
 # the fixture volume and run directories with each row's owner and mode.
 kinit_root="$CHECK_LIVE_TEST_FLY/$kernel/app"
 kinit="$kinit_root/run/layerx/init"
+export CHECK_LIVE_PAXD_HOME=/data/paxd
 kernel_rows="$(bash -c 'source "$1" && kernel_roster' bash "$fx_checker")"
 while read -r _ _ _ material; do
 	[ "$material" != - ] || continue
@@ -1731,16 +1732,16 @@ CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_kernel_app_passing "$wor
 	"pass role human-owner uid=4021 state=running" \
 	"pass role human uid=4020 state=running" \
 	"pass role human-tls uid=4020 state=running" \
-	"pass role layerxd uid=4020 state=running" \
-	"pass roster app=$kernel candidate=$kernel_candidate roles=25 running=25 operational=yes" \
+	"pass role paxd uid=4020 state=running" \
+	"pass roster app=$kernel candidate=$kernel_candidate roles=19 running=19 operational=yes" \
 	"check-live: all checks passed"
 kernel_fixture "$work/kernel-plan-genesis"
 CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_kernel_app_pre_genesis "$work/hosts-good.env" 3 kernel-app -- \
 	"pass role human uid=4020 state=running" \
-	"wait role layerxd uid=4020 state=waiting-genesis candidate=$kernel_candidate" \
+	"pass role paxd uid=4020 state=running" \
 	"wait role human-kms uid=4026 state=waiting-genesis candidate=$kernel_candidate" \
-	"bootstrap app=$kernel candidate=$kernel_candidate state=pre-genesis roles=25 running=7 waiting-genesis=18 operational=no" \
-	"check-live: pre-genesis bootstrap, 18 role(s) waiting on the genesis; not operational"
+	"bootstrap app=$kernel candidate=$kernel_candidate state=pre-genesis roles=19 running=8 waiting-genesis=11 operational=no" \
+	"check-live: pre-genesis bootstrap, 11 role(s) waiting on the genesis; not operational"
 kernel_fixture "$work/kernel-plan-failing"
 chmod 0755 "$kinit_root/run/human-private/movement"
 CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_kernel_app_failing "$work/hosts-good.env" 1 kernel-app -- \
@@ -3601,6 +3602,7 @@ CHECK_LIVE_HUMAN_BASE="$origin/good" CHECK_LIVE_HUMAN_PROBE_EMAIL=probe@example.
 	"pass live http=200 live=true service=layerx-human-service" \
 	"pass preflight http=204 allow-origin=https://paxportwallet.com" \
 	"pass plan http=401 code=unauthenticated trace=present" \
+	"pass human-evidence checks=live,preflight,plan" \
 	"pass readyz http=200 ready=true" \
 	"pass rp-id http=201 rp.id=paxportwallet.com" \
 	"check-live: all checks passed"

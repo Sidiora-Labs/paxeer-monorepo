@@ -1,0 +1,10 @@
+[repair.22.33.578]
+audit = "22.30.16"
+base_revision = "de8ab245609a7e0707cc32c502b6dcbe17ce3aca"
+portfolio-rpc-zero = "portfolioRpcZeroFailedSourcesAndRetry; portfolioRpcZeroAccountSwitchIgnoresInFlightReads; portfolioRpcZeroSupersededRefreshAndTrueZero"
+portfolio-orders-diamond = "portfolioOrdersDiamondAvailabilityMatchesNativeVenue"
+test_file = "apps/perps/tests/repair-22-33-578.test.ts"
+baseline = "Not run: the explicit implementation-first order and hf-build/hf-done-only gate limits take precedence over the baseline-first step; no pre-change test failure is claimed."
+wiring_request = "Domain 3 (markets/perps): apps/perps/src/widgets/portfolio/PortfolioOrdersPanel.tsx needs an owned native order listing/cancellation consumer of apps/perps/src/hooks/perps/usePerpsOrders.ts; Portfolio now states its availability and links to existing trading-page controls."
+qualification = "The bounded hf-done evidence records the exact verified candidate revision, command, exit code and private log location; the final task response copies that evidence."
+qualification_gotcha = "The initial continued gate executed all four assertions successfully but viem RPC ranking timers kept the process alive; repair tests now own the real transport in worker threads and terminate each worker after successful assertions and fixture teardown."
