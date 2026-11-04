@@ -3,6 +3,7 @@ export type Resolution = (typeof supportedResolutions)[number];
 export interface ClientConfiguration { baseUrl: string; timeoutMs?: number }
 export interface RequestOptions { signal?: AbortSignal }
 const maxVendorHistoryBars = 5000;
+const maxResponseBytes = 1024 * 1024;
 export interface HistoryRequest {
   symbol: string;
   resolution: Resolution;
@@ -187,6 +188,37 @@ function validateSymbol(symbol: string): void {
   }
 }
 
+async function readResponseJson(response: Response): Promise<unknown> {
+  const contentLength = response.headers.get('content-length');
+  if (contentLength !== null && /^\d+$/.test(contentLength) && Number(contentLength) > maxResponseBytes) {
+    throw new UdfResponseError(`Candles response exceeds ${maxResponseBytes} bytes`);
+  }
+  if (response.body === null) throw new SyntaxError('Unexpected end of JSON input');
+  const reader = response.body.getReader();
+  let buffer = new Uint8Array(0);
+  let length = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value.byteLength > maxResponseBytes - length) {
+        throw new UdfResponseError(`Candles response exceeds ${maxResponseBytes} bytes`);
+      }
+      const nextLength = length + value.byteLength;
+      if (nextLength > buffer.byteLength) {
+        const next = new Uint8Array(Math.min(maxResponseBytes, Math.max(16384, buffer.byteLength * 2, nextLength)));
+        next.set(buffer.subarray(0, length));
+        buffer = next;
+      }
+      buffer.set(value, length);
+      length = nextLength;
+    }
+    return JSON.parse(new TextDecoder().decode(buffer.subarray(0, length))) as unknown;
+  } finally {
+    reader.releaseLock();
+  }
+}
+
 export class CandlesClient {
   private configuration: Required<ClientConfiguration> | undefined;
 
@@ -222,7 +254,11 @@ export class CandlesClient {
         method: 'GET', signal: controller.signal, headers: { Accept: 'application/json' }, credentials: 'omit',
       });
       if (!response.ok) throw new CandlesHttpError(response.status);
-      return await response.json() as unknown;
+      return await readResponseJson(response);
+    } catch (error) {
+      if (controller.signal.aborted) throw controller.signal.reason;
+      controller.abort(error);
+      throw error;
     } finally {
       clearTimeout(timer);
       options.signal?.removeEventListener('abort', abort);
