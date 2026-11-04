@@ -38,6 +38,9 @@ use sha3::Keccak256;
 use crate::approval::{ApprovalError, ApprovalPolicy};
 use crate::catalogue::{self, ArgumentError};
 
+mod approval_state;
+pub use approval_state::WebApprovalResources;
+
 pub const PAYMENT_REQUIRED: &str = "PAYMENT-REQUIRED";
 pub const PAYMENT_SIGNATURE: &str = "PAYMENT-SIGNATURE";
 pub const PAYMENT_RESPONSE: &str = "PAYMENT-RESPONSE";
@@ -265,7 +268,7 @@ impl WebCall {
         let asset = parse_hex32(&offer.asset).map_err(|_| WebToolError::OfferMismatch("asset"))?;
         let account = payer_account(config, self.currency, asset, view)?;
         let facts = offer_facts(config, self, offer, account)?;
-        let prepared = spend_preparation(
+        let disclosure = spend_disclosure(
             config,
             self,
             &self.operation.target(),
@@ -274,7 +277,7 @@ impl WebCall {
             self.idempotency_key,
             None,
         )?;
-        self.exact_terms_for_disclosure(config, offer, prepared.disclosure, &facts)
+        self.exact_terms_for_disclosure(config, offer, disclosure, &facts)
     }
 
     fn exact_terms_for_disclosure(
@@ -535,6 +538,24 @@ pub enum WebPayerError {
 
 /// The host prepares and submits calls; signing keys stay outside the tool.
 pub trait WebPayer {
+    /// Durable state and limits owned by the authenticated payer's daemon.
+    fn approval_resources(&self) -> Option<WebApprovalResources> {
+        None
+    }
+
+    /// Prepare the transaction once, before approval, against authenticated pending state.
+    fn prepare_transaction(
+        &mut self,
+        _call: &PrecompileCall,
+    ) -> Result<layerx_agentd::prepare::evm::Prepared, WebPayerError> {
+        Err(WebPayerError::Unavailable)
+    }
+
+    /// Sign and submit these exact approved unsigned bytes, without preparing again.
+    fn submit_transaction(&mut self, _prepared: &Prepared) -> Result<ExactPayment, WebPayerError> {
+        Err(WebPayerError::Unavailable)
+    }
+
     fn validate_search_quote(
         &mut self,
         _asset: [u8; 32],
@@ -1013,6 +1034,11 @@ pub fn web_tool(
         approval,
         payer,
         target: &target,
+        resource_commitment: Sha256::digest(
+            serde_json::to_vec(&required)
+                .map_err(|_| WebToolError::Protocol("payment_required_encoding"))?,
+        )
+        .into(),
     };
     let accepted = required
         .accepts
@@ -1289,6 +1315,7 @@ struct WebPlane<'a, 'p> {
     approval: &'a WebApproval<'a>,
     payer: &'p mut dyn WebPayer,
     target: &'a str,
+    resource_commitment: [u8; 32],
 }
 
 impl WebPlane<'_, '_> {
@@ -1298,6 +1325,25 @@ impl WebPlane<'_, '_> {
         facts: &OfferFacts,
         key: [u8; 32],
     ) -> Result<Value, WebToolError> {
+        if facts.amount > self.approval.policy.amount_threshold
+            || self
+                .approval
+                .registry
+                .ticket(key)
+                .map_err(|error| WebToolError::Approval(ApprovalError::Daemon(error)))?
+                .is_some()
+        {
+            return self.authorise_held(offer, facts, key);
+        }
+        // A durable decision can outlive its in-memory registry ticket.
+        if let Some(resources) = self.payer.approval_resources() {
+            if resources
+                .preparation(&self.approval.context.tenant, key)?
+                .is_some()
+            {
+                return self.authorise_held(offer, facts, key);
+            }
+        }
         if matches!(self.call.operation, WebOperation::Search(_))
             && self.call.currency == Currency::Pax
         {
@@ -1403,61 +1449,13 @@ impl WebPlane<'_, '_> {
         if context.agent.as_bytes() != self.config.payer_did.as_bytes() {
             return Err(WebToolError::Configuration("approval_agent"));
         }
-        let ticket = boundary
-            .registry
-            .ticket(key)
-            .map_err(|error| WebToolError::Approval(ApprovalError::Daemon(error)))?;
-        let prepared = spend_preparation(
-            self.config,
-            self.call,
-            self.target,
-            offer,
-            facts,
-            key,
-            ticket.as_ref().map(|ticket| ticket.disclosure.expiry.0),
-        )?;
-        if let Some(ticket) = ticket {
-            if ticket.disclosure.canonical_digest != prepared.disclosure.canonical_digest {
-                return Err(WebToolError::ApprovalChanged);
-            }
-            return match ticket.state {
-                ApprovalState::Approved
-                    if ticket.expires_at_sequence > boundary.current_height()
-                        && ticket.disclosure.expiry.0 > unix_seconds()? =>
-                {
-                    Ok(ticket.disclosure)
-                }
-                ApprovalState::Approved => {
-                    Err(WebToolError::ApprovalRefused(ApprovalState::Expired))
-                }
-                ApprovalState::AwaitingApproval => {
-                    Err(WebToolError::ApprovalPending(Box::new(ticket)))
-                }
-                state => Err(WebToolError::ApprovalRefused(state)),
-            };
-        }
-        if facts.amount <= boundary.policy.amount_threshold {
-            return Ok(prepared.disclosure);
-        }
-        let expires_at_sequence = boundary
-            .current_height()
-            .checked_add(APPROVAL_WINDOW)
-            .ok_or(WebToolError::Configuration("approval_window"))?;
-        let ticket = layerx_agentd::policy::approval::hold(
-            boundary.registry,
-            context,
-            prepared,
-            boundary.current_height(),
-            expires_at_sequence,
-        )
-        .map_err(|error| WebToolError::Approval(ApprovalError::Daemon(error)))?;
-        Err(WebToolError::ApprovalRequired(Box::new(ticket)))
+        spend_disclosure(self.config, self.call, self.target, offer, facts, key, None)
     }
 }
 
 /// The disclosure an approver sees for one web spend. Its canonical bytes
 /// bind the tool, the resource, the whole offer and the idempotency key.
-fn spend_preparation(
+fn spend_disclosure(
     config: &WebConfig,
     call: &WebCall,
     target: &str,
@@ -1465,7 +1463,7 @@ fn spend_preparation(
     facts: &OfferFacts,
     key: [u8; 32],
     approved_expiry: Option<u64>,
-) -> Result<Prepared, WebToolError> {
+) -> Result<Disclosure, WebToolError> {
     let expiry = match approved_expiry {
         Some(expiry) => expiry,
         None => unix_seconds()?
@@ -1485,28 +1483,21 @@ fn spend_preparation(
     .map_err(|_| WebToolError::Configuration("approval_disclosure"))?;
     let digest: [u8; 32] = Sha256::digest(&canonical).into();
     let receiver = AgentDid::new(facts.receiver_did.clone()).map_err(invalid)?;
-    Ok(Prepared {
-        preparation_ref: PreparationRef::new(format!("web-{}", hex(&digest[..8])))
+    Ok(Disclosure {
+        canonical_digest: digest,
+        activity_type: ActivityType(call.scheme.activity_type()),
+        actor: AgentDid::new(config.payer_did.clone()).map_err(invalid)?,
+        authority: AuthorityRef::new(format!("x402:{}:{}", call.scheme.code(), config.network))
             .map_err(invalid)?,
-        unsigned_canonical_bytes: CanonicalBytes::new(canonical).map_err(invalid)?,
-        signing_preimage: SigningPreimage::new(digest.to_vec()).map_err(invalid)?,
-        disclosure: Disclosure {
-            canonical_digest: digest,
-            activity_type: ActivityType(call.scheme.activity_type()),
-            actor: AgentDid::new(config.payer_did.clone()).map_err(invalid)?,
-            authority: AuthorityRef::new(format!("x402:{}:{}", call.scheme.code(), config.network))
-                .map_err(invalid)?,
-            counterparties: ExplicitSet::allow(vec![receiver.clone()]),
-            amounts: ExplicitSet::allow(vec![DisclosedAmount {
-                counterparty: receiver,
-                amount: Amount(facts.amount),
-            }]),
-            asset: Asset::new(call.currency.code()).map_err(invalid)?,
-            fee_limit: Amount(0),
-            expiry: TimestampSeconds(expiry),
-            idempotency_key: IdempotencyRef::new(hex(&key)).map_err(invalid)?,
-        },
+        counterparties: ExplicitSet::allow(vec![receiver.clone()]),
+        amounts: ExplicitSet::allow(vec![DisclosedAmount {
+            counterparty: receiver,
+            amount: Amount(facts.amount),
+        }]),
+        asset: Asset::new(call.currency.code()).map_err(invalid)?,
+        fee_limit: Amount(0),
         expiry: TimestampSeconds(expiry),
+        idempotency_key: IdempotencyRef::new(hex(&key)).map_err(invalid)?,
     })
 }
 
@@ -2559,6 +2550,8 @@ mod tests {
             approval: &approval,
             payer,
             target: "/search?q=paxeer",
+            resource_commitment: Sha256::digest(serde_json::to_vec(offer).expect("offer encoding"))
+                .into(),
         }
         .authorise(offer, &facts, key)
     }
