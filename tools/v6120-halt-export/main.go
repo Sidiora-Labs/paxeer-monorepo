@@ -38,7 +38,7 @@ import (
 )
 
 const (
-	defaultRPC = "https://api-mainnet-beta.paxeer.network/rpc"
+	defaultRPC = "https://api-mainnet-beta.paxeer.network"
 	batchSize  = 100
 	maxRounds  = 1024
 )
