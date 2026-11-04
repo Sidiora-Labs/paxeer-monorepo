@@ -7,14 +7,17 @@ import type { QuoteBody } from '../../../../../../sdk/launchpad/packages/sdk/src
 import { createPublicClient, defineChain, getAddress, http } from 'viem';
 import type { PublicConfiguration } from '../service-client.ts';
 import { onchainQuote } from '../onchain-quote.ts';
+import { validatePublicSnapshot } from '../offline-cache.ts';
 
 export async function streams(sdk: SdkClient, signal: AbortSignal) {
   signal.throwIfAborted();
-  return new Operations(sdk).call(
+  const response = await new Operations(sdk).call(
     'IF_STREAM_LIST',
     { query: { status: 'live', limit: 50 } },
     { signal },
   );
+  validatePublicSnapshot('live', response);
+  return response;
 }
 
 export async function quote(
