@@ -400,8 +400,8 @@ export class BuyerMiddleware {
         const payment = decodePaymentDrawnLog({ address, data: eventData,
           topics: Array.from({ length: count }, (_, i) => body.slice(21 + i * 32, 53 + i * 32)) });
         if (!equalBytes(payment.grantId, data.subarray(4, 36))
-          || !equalBytes(payment.from, data.subarray(36, 68))
-          || `0x${toHex(payment.to)}` !== payload.accepted.payTo
+          || toHex(payment.from) !== payer
+          || !equalBytes(payment.to, data.subarray(36, 68))
           || `0x${toHex(payment.assetId)}` !== payload.accepted.asset
           || payment.amount !== BigInt(payload.accepted.amount)
           || toHex(payment.idempotencyKey) !== payload.payload["idempotencyKey"]
@@ -1032,13 +1032,14 @@ function grantDrawTransaction(accepted: PaymentRequirements, rawTransaction: str
     const grantId = requiredString(grant["grantId"]);
     const asset = requiredString(grant["asset"]);
     const contextHash = requiredString(layerx["contextHash"]);
+    paymentPayer(accepted.extra, true);
     if ((accepted.scheme !== "metered" && accepted.scheme !== "subscription")
       || `0x${toHex(transaction.to)}` !== LAYERX_LEDGER_ADDRESS || transaction.value !== 0n
       || accepted.network !== `eip155:${transaction.chainId}`
       || data.length !== 4 + 7 * 32 || !equalBytes(data.subarray(0, 4), LEDGER_DRAW_SELECTOR)
       || !/^[0-9a-f]{64}$/u.test(grantId) || /^0+$/u.test(grantId)
       || toHex(data.subarray(4, 36)) !== grantId
-      || toHex(data.subarray(36, 68)) !== paymentPayer(accepted.extra, true)
+      || `0x${toHex(data.subarray(36, 68))}` !== accepted.payTo
       || !/^0x[0-9a-f]{64}$/u.test(asset) || asset !== accepted.asset
       || !/^(0|[1-9][0-9]{0,38})$/u.test(accepted.amount)
       || BigInt(`0x${toHex(data.subarray(68, 100))}`) > MAX_U128
