@@ -2,15 +2,27 @@ package ibc_test
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/binary"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"math/big"
 	"reflect"
 	"testing"
 	"time"
 
+	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
+	tmcfg "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/config"
 	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
+	transfer "github.com/Sidiora-Labs/Paxeer-X-Network/interchain/modules/apps/transfer"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/interchain/modules/apps/transfer/types"
 	clienttypes "github.com/Sidiora-Labs/Paxeer-X-Network/interchain/modules/core/02-client/types"
+	connectiontypes "github.com/Sidiora-Labs/Paxeer-X-Network/interchain/modules/core/03-connection/types"
+	channeltypes "github.com/Sidiora-Labs/Paxeer-X-Network/interchain/modules/core/04-channel/types"
+	commitmenttypes "github.com/Sidiora-Labs/Paxeer-X-Network/interchain/modules/core/23-commitment/types"
+	host "github.com/Sidiora-Labs/Paxeer-X-Network/interchain/modules/core/24-host"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/interchain/modules/core/exported"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/state"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node"
@@ -749,4 +761,187 @@ func TestPrecompile_GetAdjustedTimestamp(t *testing.T) {
 			require.Equal(t, tt.want, got)
 		})
 	}
+}
+
+const realIBCAmount = int64(12345)
+const realIBCFunding = int64(1000000)
+const realIBCMemo = "repair-1265: positive transfer"
+
+var realIBCTime = time.Unix(1700000000, 0).UTC()
+
+type realIBCFixture struct {
+	app    *app.App
+	ctx    sdk.Context
+	dir    string
+	caller common.Address
+	sender sdk.AccAddress
+}
+
+func newRealIBCFixture(t *testing.T) *realIBCFixture {
+	t.Helper()
+	f := &realIBCFixture{dir: t.TempDir(), caller: common.HexToAddress("0x1234567890123456789012345678901234567890")}
+	f.sender = sdk.AccAddress(f.caller.Bytes())
+	f.open(t, false)
+	t.Cleanup(func() {
+		if f.app != nil {
+			require.NoError(t, f.app.Close())
+		}
+	})
+	f.app.EvmKeeper.SetAddressMapping(f.ctx, f.sender, f.caller)
+	coins := sdk.NewCoins(sdk.NewInt64Coin("uhpx", realIBCFunding))
+	require.NoError(t, f.app.BankKeeper.MintCoins(f.ctx, "evm", coins))
+	require.NoError(t, f.app.BankKeeper.SendCoinsFromModuleToAccount(f.ctx, "evm", f.sender, coins))
+	return f
+}
+
+func (f *realIBCFixture) open(t *testing.T, restart bool) {
+	t.Helper()
+	db, err := sdk.NewLevelDB("ibc-repair-1265", f.dir)
+	require.NoError(t, err)
+	encoding := app.MakeEncodingConfig()
+	f.app = app.New(db, nil, true, map[int64]bool{}, f.dir, 1, true,
+		tmcfg.DefaultConfig().SetRoot(f.dir), encoding, nil, app.TestAppOpts{}, app.EmptyWasmOpts, nil)
+	if !restart {
+		genesis, err := json.Marshal(app.NewDefaultGenesisState(encoding.Marshaler))
+		require.NoError(t, err)
+		_, err = f.app.InitChain(context.Background(), &abci.RequestInitChain{
+			Time: realIBCTime, ChainId: "pax-test", ConsensusParams: app.DefaultConsensusParams, AppStateBytes: genesis,
+		})
+		require.NoError(t, err)
+	}
+	header := tmtypes.Header{ChainID: "pax-test", Height: 1, Time: realIBCTime}
+	if restart {
+		header.Height = f.app.LastBlockHeight() + 1
+		f.ctx, _ = f.app.NewUncachedContext(false, header).CacheContext()
+	} else {
+		f.ctx = f.app.NewContext(false, header)
+	}
+	f.app.CapabilityKeeper.InitMemStore(f.ctx)
+}
+
+func (f *realIBCFixture) reopen(t *testing.T) {
+	t.Helper()
+	require.NoError(t, f.app.SetSealedStateToCommit(f.ctx, f.ctx.MultiStore().(sdk.CacheMultiStore)))
+	_, err := f.app.Commit(context.Background())
+	require.NoError(t, err)
+	require.NoError(t, f.app.Close())
+	f.app = nil
+	blockTime := f.ctx.BlockTime()
+	f.open(t, true)
+	f.ctx = f.ctx.WithBlockTime(blockTime)
+}
+
+func (f *realIBCFixture) channel(t *testing.T, client exported.ClientState, consensus exported.ConsensusState) string {
+	t.Helper()
+	clientID, err := f.app.IBCKeeper.ClientKeeper.CreateClient(f.ctx, client, consensus)
+	require.NoError(t, err)
+	conn := connectiontypes.NewConnectionEnd(connectiontypes.OPEN, clientID,
+		connectiontypes.NewCounterparty(clientID, "connection-0", commitmenttypes.NewMerklePrefix([]byte(host.StoreKey))),
+		[]*connectiontypes.Version{connectiontypes.DefaultIBCVersion}, 0)
+	require.NoError(t, conn.ValidateBasic())
+	f.app.IBCKeeper.ConnectionKeeper.SetConnection(f.ctx, "connection-0", conn)
+	cap, err := f.app.ScopedIBCKeeper.NewCapability(f.ctx, host.ChannelCapabilityPath("transfer", "channel-0"))
+	require.NoError(t, err)
+	counterparty := channeltypes.NewCounterparty("transfer", "channel-0")
+	require.NoError(t, transfer.NewIBCModule(f.app.TransferKeeper).OnChanOpenInit(f.ctx,
+		channeltypes.UNORDERED, []string{"connection-0"}, "transfer", "channel-0", cap, counterparty, types.Version))
+	f.app.IBCKeeper.ChannelKeeper.SetChannel(f.ctx, "transfer", "channel-0",
+		channeltypes.NewChannel(channeltypes.OPEN, channeltypes.UNORDERED, counterparty, []string{"connection-0"}, types.Version))
+	f.app.IBCKeeper.ChannelKeeper.SetNextSequenceSend(f.ctx, "transfer", "channel-0", 1)
+	f.app.IBCKeeper.ChannelKeeper.SetNextSequenceRecv(f.ctx, "transfer", "channel-0", 1)
+	f.app.IBCKeeper.ChannelKeeper.SetNextSequenceAck(f.ctx, "transfer", "channel-0", 1)
+	return clientID
+}
+
+func realIBCArgs(method, receiver string, revision, height uint64) []interface{} {
+	args := []interface{}{receiver, "transfer", "channel-0", "uhpx", big.NewInt(realIBCAmount)}
+	if method == ibc.TransferMethod {
+		args = append(args, revision, height, uint64(realIBCTime.Add(10*time.Minute).UnixNano()))
+	}
+	return append(args, realIBCMemo)
+}
+
+func realIBCPacket(t *testing.T, events sdk.Events) channeltypes.Packet {
+	t.Helper()
+	var packet channeltypes.Packet
+	count := 0
+	for _, event := range events {
+		if event.Type != channeltypes.EventTypeSendPacket {
+			continue
+		}
+		count++
+		attrs := make(map[string]string)
+		for _, attr := range event.Attributes {
+			attrs[string(attr.Key)] = string(attr.Value)
+		}
+		var err error
+		packet.Data, err = hex.DecodeString(attrs[channeltypes.AttributeKeyDataHex])
+		require.NoError(t, err)
+		_, err = fmt.Sscan(attrs[channeltypes.AttributeKeySequence], &packet.Sequence)
+		require.NoError(t, err)
+		packet.SourcePort = attrs[channeltypes.AttributeKeySrcPort]
+		packet.SourceChannel = attrs[channeltypes.AttributeKeySrcChannel]
+		packet.DestinationPort = attrs[channeltypes.AttributeKeyDstPort]
+		packet.DestinationChannel = attrs[channeltypes.AttributeKeyDstChannel]
+		packet.TimeoutHeight, err = clienttypes.ParseHeight(attrs[channeltypes.AttributeKeyTimeoutHeight])
+		require.NoError(t, err)
+		_, err = fmt.Sscan(attrs[channeltypes.AttributeKeyTimeoutTimestamp], &packet.TimeoutTimestamp)
+		require.NoError(t, err)
+	}
+	require.Equal(t, 1, count, "one real transfer must produce exactly one packet")
+	require.NoError(t, packet.ValidateBasic())
+	return packet
+}
+
+func realIBCCommitment(packet channeltypes.Packet) []byte {
+	dataHash := sha256.Sum256(packet.Data)
+	preimage := make([]byte, 24, 56)
+	binary.BigEndian.PutUint64(preimage[0:8], packet.TimeoutTimestamp)
+	binary.BigEndian.PutUint64(preimage[8:16], packet.TimeoutHeight.RevisionNumber)
+	binary.BigEndian.PutUint64(preimage[16:24], packet.TimeoutHeight.RevisionHeight)
+	sum := sha256.Sum256(append(preimage, dataHash[:]...))
+	return sum[:]
+}
+
+func (f *realIBCFixture) assertSent(t *testing.T, ctx sdk.Context, packet channeltypes.Packet, receiver string) {
+	t.Helper()
+	var data types.FungibleTokenPacketData
+	require.NoError(t, json.Unmarshal(packet.Data, &data))
+	require.Equal(t, types.FungibleTokenPacketData{
+		Denom: "uhpx", Amount: "12345", Sender: f.sender.String(), Receiver: receiver, Memo: realIBCMemo,
+	}, data)
+	require.Equal(t, uint64(1), packet.Sequence)
+	require.Equal(t, "transfer", packet.SourcePort)
+	require.Equal(t, "channel-0", packet.SourceChannel)
+	require.Equal(t, "transfer", packet.DestinationPort)
+	require.Equal(t, "channel-0", packet.DestinationChannel)
+	require.Equal(t, realIBCCommitment(packet), f.app.IBCKeeper.ChannelKeeper.GetPacketCommitment(ctx, "transfer", "channel-0", 1))
+	next, found := f.app.IBCKeeper.ChannelKeeper.GetNextSequenceSend(ctx, "transfer", "channel-0")
+	require.True(t, found)
+	require.Equal(t, uint64(2), next)
+	require.Equal(t, sdk.NewInt(realIBCFunding-realIBCAmount), f.app.BankKeeper.GetBalance(ctx, f.sender, "uhpx").Amount)
+	require.Equal(t, sdk.NewInt(realIBCAmount), f.app.BankKeeper.GetBalance(ctx, types.GetEscrowAddress("transfer", "channel-0"), "uhpx").Amount)
+}
+
+func (f *realIBCFixture) send(t *testing.T, method, receiver string, revision, height uint64) channeltypes.Packet {
+	t.Helper()
+	p, err := ibc.NewPrecompile(f.app.GetPrecompileKeepers())
+	require.NoError(t, err)
+	input, err := p.GetABI().Pack(method, realIBCArgs(method, receiver, revision, height)...)
+	require.NoError(t, err)
+	f.ctx = f.ctx.WithEventManager(sdk.NewEventManager())
+	db := state.NewDBImpl(f.ctx, &f.app.EvmKeeper, false)
+	defer db.Cleanup()
+	output, remaining, err := p.RunAndCalculateGas(&vm.EVM{StateDB: db, TxContext: vm.TxContext{Origin: f.caller}},
+		f.caller, f.caller, input, 1000000, nil, nil, false, false)
+	require.NoError(t, err, "precompile error: %v", db.GetPrecompileError())
+	want, err := p.GetABI().Methods[method].Outputs.Pack(true)
+	require.NoError(t, err)
+	require.Equal(t, want, output)
+	require.Less(t, remaining, uint64(1000000))
+	_, err = db.Finalize()
+	require.NoError(t, err)
+	packet := realIBCPacket(t, f.ctx.EventManager().Events())
+	f.assertSent(t, f.ctx, packet, receiver)
+	return packet
 }

@@ -5,7 +5,7 @@
     "emulator": {
       "publicUrl": "http://127.0.0.1:8082",
       "settlementUrl": "http://127.0.0.1:9402/v1/settle",
-      "rpcUrl": "http://127.0.0.1:9402/rpc",
+      "rpcUrl": "http://127.0.0.1:9402",
       "scheme": "exact",
       "network": "eip155:125",
       "receiptKeysEnvironment": "LAYERX_EMULATOR_RECEIPT_KEYS_JSON",

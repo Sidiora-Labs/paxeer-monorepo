@@ -1,26 +1,14 @@
 #!/bin/bash
 
-set -e
+set -euo pipefail
 
-# Ensure relayer is installed
-if ! [ -x "$(which rly)" ]; then
-  echo "Error: rly is not installed." >&2
+SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+RELAYER_HOME="$SCRIPTDIR/.relayer"
+
+if ! command -v rly >/dev/null || ! command -v python3 >/dev/null; then
+  echo "Error: rly and python3 are required." >&2
   exit 1
 fi
 
-rly tx link demo -d
-
-rly tx transfer ibc-0 ibc-1 1000000test $(rly chains address ibc-1)
-
-sleep 2
-
-EXPECTED_BALANCE="100000000000test"
-CHAIN_1_BALANCE=$(rly q bal ibc-1)
-
-if [[ "$CHAIN_1_BALANCE" == *"$EXPECTED_BALANCE" ]]; then
-    echo "Token not sent correctly"
-    echo "$EXPECTED_BALANCE not found in $CHAIN_1_BALANCE"
-    exit 1
-fi
-
-echo "IBC transfer executed successfully"
+python3 "$SCRIPTDIR/harness.py" homes "$SCRIPTDIR"
+exec python3 "$SCRIPTDIR/harness.py" transfer "$RELAYER_HOME" "$SCRIPTDIR/data"

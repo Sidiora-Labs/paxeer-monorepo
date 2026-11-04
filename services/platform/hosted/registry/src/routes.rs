@@ -789,25 +789,20 @@ impl Registrar {
                 "current native interface differs from verified deployment",
             );
         }
-        Response {
-            status: 200,
-            body: json!({
-                "program_id": hex::encode(&program.bytes()),
-                "version": version.number,
-                "code_hash": hex::encode(&version.code_hash),
-                "abi_version": version.abi_version,
-                "interface": hex::encode(interface.canonical_encoding()),
-                "interface_digest": hex::encode(interface.digest().as_bytes()),
-                "deployment_receipt_digest": hex::encode(&version.deployment_receipt_digest),
-                "state_root": hex::encode(&head.state_root),
-                "observed_sequence": head.freshness.observed_sequence,
-                "observed_at": head.freshness.observed_at,
-                "valid_through": valid_through,
-                "source": source_json(version.source),
-                "verification": "deployment-interface-and-current-head-verified",
-            })
-            .to_string(),
-        }
+        interface_response(
+            hex::encode(&program.bytes()),
+            version.number,
+            hex::encode(&version.code_hash),
+            version.abi_version,
+            hex::encode(interface.canonical_encoding()),
+            hex::encode(interface.digest().as_bytes()),
+            hex::encode(&version.deployment_receipt_digest),
+            hex::encode(&head.state_root),
+            head.freshness.observed_sequence,
+            head.freshness.observed_at,
+            valid_through,
+            source_json(version.source),
+        )
     }
 
     fn verify(
@@ -2027,6 +2022,42 @@ fn deployment_response(evidence: &layerx_programs::VerifiedDeploymentEvidence) -
             "activity_id": hex::encode(&evidence.activity_id()),
             "receipt_digest": hex::encode(&evidence.receipt_digest()),
             "state": "deployed",
+        })
+        .to_string(),
+    }
+}
+
+// Keep the registry producer's field names and numeric freshness in one serializer.
+fn interface_response(
+    program_id: String,
+    version: u32,
+    code_hash: String,
+    abi_version: u16,
+    interface: String,
+    interface_digest: String,
+    deployment_receipt_digest: String,
+    state_root: String,
+    observed_sequence: u64,
+    observed_at: u64,
+    valid_through: u64,
+    source: Value,
+) -> Response {
+    Response {
+        status: 200,
+        body: json!({
+            "program_id": program_id,
+            "version": version,
+            "code_hash": code_hash,
+            "abi_version": abi_version,
+            "interface": interface,
+            "interface_digest": interface_digest,
+            "deployment_receipt_digest": deployment_receipt_digest,
+            "state_root": state_root,
+            "observed_sequence": observed_sequence,
+            "observed_at": observed_at,
+            "valid_through": valid_through,
+            "source": source,
+            "verification": "deployment-interface-and-current-head-verified",
         })
         .to_string(),
     }

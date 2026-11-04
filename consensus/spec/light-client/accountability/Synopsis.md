@@ -83,19 +83,57 @@ instances with one or two faulty processes, lengths zero or one, and
 `--cinit=ConstInit`. Other instance files in the directory are not evidence
 that those instances were included in that report.
 
-The retained [`run.sh`](run.sh) is **not a portable reproduction command**. It
-sets `SCRIPTS_DIR=~/devl/apalache-tests/scripts`, `BUILDS=unstable`,
-`BENCHMARK=001indinv-apalache`, and `RUN_SCRIPT=./run-all.sh`, then loads
-`~/devl/apalache-tests/Makefile.common` with `make -e`. That external harness and
-a pinned Apalache build are not supplied here. An environment override cannot
-replace a value that the script itself exports. There is no documented,
-repository-provided configurable harness path in this version.
+## Reproducing the full experiment
 
-A reproduction must first provision and identify compatible Apalache and
-experiment-harness revisions, then run the full CSV through that harness with
-its actual paths. Preserve the finite constants, initialization predicates,
-invariants and lengths. Record the repository revision, tool and harness
-revisions, exact invocations, exit codes and complete private logs; do not treat
-the historical `unstable` label as a version pin. No model checker was executed
-for this documentation rewrite, and the documentation gate does not reproduce
-these results.
+[`run.sh`](run.sh) accepts actual installation paths and pins
+[informalsystems/apalache-tests](https://github.com/informalsystems/apalache-tests/tree/1b76b8e70549f6cd71a758b4014e7f7682d7fd44)
+at commit `1b76b8e70549f6cd71a758b4014e7f7682d7fd44`. Provision that checkout
+separately; the runner neither downloads nor builds dependencies. It calls that
+revision's `scripts/mk-run.py` and `scripts/parse-logs.py` directly. The external
+`Makefile.common` is intentionally avoided: at this revision it passes `--ini`,
+whereas the generator accepts `--iniFile`.
+
+Provision a built [Apalache](https://github.com/informalsystems/apalache)
+checkout compatible with these historical TLA+ inputs and profiling/log formats.
+Supply its **full lowercase 40-character commit** as `APALACHE_REVISION`;
+`unstable`, branch names and abbreviated hashes are rejected. No known compatible
+Apalache revision can be inferred from the historical `unstable` results. Tool
+compatibility still requires an actual full experiment; the source gate does not
+establish it. The executable `bin/apalache-mc` must be built from the supplied
+revision. The runner checks checkout identity and cleanliness, but cannot prove
+that ignored build artifacts correspond to their source; provisioning must do so.
+
+Required prerequisites are Linux, a POSIX shell, Git, Python 3 (standard library),
+Bash, Java appropriate to the selected Apalache build, GNU `/usr/bin/time`, GNU
+`/usr/bin/timeout` and `mktemp`. Both external checkouts must be clean, including
+untracked files (build outputs must be explicitly ignored). Commit the model and
+runner first so that the recorded repository revision identifies their inputs.
+The archive directory must already exist and be writable. Paths must use only
+letters, digits, underscore, dot, slash, colon or hyphen: the pinned harness
+generates unquoted shell paths. Neither environment credentials nor live
+endpoints are needed. From any working directory, use, for example:
+
+```sh
+APALACHE_TESTS_DIR=/opt/research/apalache-tests \
+APALACHE_DIR=/opt/research/apalache \
+APALACHE_REVISION="$(git -C /opt/research/apalache rev-parse HEAD)" \
+RESULTS_ROOT=/var/tmp/accountability-private \
+sh /path/to/paxeer-monorepo/consensus/spec/light-client/accountability/run.sh
+```
+
+Select and build the intended Apalache commit before capturing its revision.
+Every invocation uses all twelve rows of `001indinv-apalache.csv`, sequentially,
+with unchanged constants, predicates, invariants, timeouts and lengths. The
+[`experiment.py`](experiment.py) validator checks the exact benchmark set before
+generation and requires exactly one `NoError` result for each case afterward;
+batch-shell success alone does not establish successful experiments.
+
+Each run creates a fresh private directory below `RESULTS_ROOT`, tagged with the
+repository, harness and Apalache revisions. It retains `revisions.txt` (revisions,
+paths and final exit code), the input CSV, `runner.log` (expanded invocations and
+tool versions), generated scripts and all per-case raw logs under `runs/`, plus
+the revision-tagged parsed result CSV. Failures retain the same evidence and
+return nonzero. Keep the complete archive; historical files under `results/`
+remain unchanged and are not relabeled as new results. No model checker was
+executed for this repair, and its Python source gate does not reproduce the
+historical results or certify the current node.

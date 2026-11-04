@@ -102,23 +102,23 @@
     "timeout_seconds": 8
   },
   "identity": {
-    "endpoint": "https://identity.layerx-platform.svc.cluster.local",
+    "endpoint": "https://layerx-identity.layerx-testnet.svc.cluster.local:9443",
     "service_token_file": "/run/secrets/identity-token",
     "audience": "layerx-ramp"
   },
   "compliance": {
-    "endpoint": "https://compliance-boundary.layerx-ramps.svc.cluster.local",
+    "endpoint": "https://compliance-boundary.layerx-testnet.svc.cluster.local:9443",
     "service_token_file": "/run/secrets/compliance-token",
     "public_key": "REPLACE_64_HEX_ED25519_PUBLIC_KEY"
   },
   "provider": {
-    "endpoint": "https://provider-egress.layerx-ramps.svc.cluster.local",
+    "endpoint": "https://provider-egress.layerx-testnet.svc.cluster.local:9443",
     "credential_file": "/run/secrets/provider-token",
     "settlement_path": "/layerx-ramp-v1/settlements",
     "status_path": "/layerx-ramp-v1/settlements"
   },
   "layerx": {
-    "rpc_endpoint": "https://sequencer.layerx-platform.svc.cluster.local",
+    "rpc_endpoint": "https://layerx-gateway.layerx-testnet.svc.cluster.local/",
     "rpc_trust_anchor_der": "/run/secrets/paxeer-rpc-ca.der",
     "chain_id": 125,
     "operator_address": "0xREPLACE_40_HEX_OPERATOR_ADDRESS",
@@ -133,12 +133,12 @@
     "max_fee_per_gas": 2000000000,
     "max_priority_fee_per_gas": 1000000000,
     "gas_limit_cap": 1000000,
-    "signer_endpoint": "https://kms-boundary.layerx-ramps.svc.cluster.local",
+    "signer_endpoint": "https://kms-boundary.layerx-testnet.svc.cluster.local:9443",
     "signer_token_file": "/run/secrets/kms-token",
     "actor_did": "did:layerx:market-maker-eu-1"
   },
   "paxeer": {
-    "custody_endpoint": "https://paxeer-custody.layerx-ramps.svc.cluster.local",
+    "custody_endpoint": "https://paxeer-custody.layerx-testnet.svc.cluster.local:9443",
     "custody_credential_file": "/run/secrets/paxeer-custody-token",
     "broadcast_path": "/layerx-paxeer-v1/rebalances",
     "status_path": "/layerx-paxeer-v1/rebalances",

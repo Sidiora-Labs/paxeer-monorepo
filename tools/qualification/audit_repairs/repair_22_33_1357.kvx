@@ -1,0 +1,39 @@
+[repair]
+id = "22.33.1357"
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+mode = "BUILD"
+implementation = "Take the audit proposal's withdrawal option: rename docker-compose.yaml and node/Dockerfile to .historical together, add explicit do-not-execute headers, and document withdrawal in the local README. Preserve the original manifest and image instructions byte-for-byte below those headers; retain all existing tests, configuration and native fixture code. No paxd integration is claimed."
+source_proof = "Parse the historical YAML manifest and Dockerfile instructions, verify original-content hashes, trace the simd image producer to node/API commands and their port wiring, and follow the archived check service's mounted configuration into both existing Rosetta checks. Assert all active Compose discovery paths and the explicit node Dockerfile are absent; verify the README withdrawal and the out-of-scope Makefile caller mapping."
+review_only = "This is source proof of withdrawal, not runtime certification. Docker image builds, Compose startup, node execution, data/construction API compatibility and the historical faucet integration are not executed or certified. No interface or persisted state is changed, so restart/recovery is not claimed. No shell script or unit file is changed; shell syntax subprocess checks do not apply. The gate uses Python, pytest, the environment's YAML parser and committed sources without an external binary, environment variable, credential, endpoint, subprocess toolchain, native artifact or device."
+baseline = "Initial git status/diff showed only runner-prepared .cgignore and spec status changes; scoped repair files and /out/run/gates.jsonl were absent. Gate configuration recorded zero builds and verifies with two repair cycles available. The ordered implementation-first instructions and ban on manual verification supersede the contradictory pre-change verify clause: no baseline run was made and no baseline failure is claimed."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1357.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private gate ledger name the exact verified content-derived revision, command, exit code and log path; build and verification must qualify the same candidate. This source record is finalized before qualification because embedding its own content-derived revision would change that revision. Only the runner publishes and retains qualification evidence."
+
+[finding.rosetta-compose-node-wiring]
+audit = "22.30.74"
+file = "sdk/contrib/rosetta/docker-compose.yaml"
+related_file = "sdk/contrib/rosetta/node/Dockerfile"
+class = "wiring-gap"
+severity = "medium"
+resolution = "withdraw executable target; retain historical example"
+tests = ["test_rosetta_compose_node_wiring_withdraws_both_active_entry_points", "test_rosetta_compose_node_wiring_preserves_historical_transport_and_checks", "test_rosetta_compose_node_wiring_preserves_historical_image_producer", "test_rosetta_compose_node_wiring_record_maps_proof_and_external_callers"]
+closure = "The supported executable entry points are withdrawn together; historical examples remain reviewable with explicit warnings, and no existing test is removed or weakened. Closure depends on the declared hf-done evidence."
+
+[wiring.sdk_makefile]
+path = "sdk/Makefile"
+owner_domain = 15
+targets = ["test-rosetta", "rosetta-data"]
+request = "sdk/Makefile — owning domain 15 (Cosmos SDK fork): remove or explicitly retire test-rosetta and rosetta-data, whose node/Dockerfile and docker-compose.yaml entry points are withdrawn; do not redirect them to .historical examples."
+
+[format]
+policy = "No Python, KVX or historical-example formatter is configured for these paths; apply the repository's UTF-8, LF, final-newline and trailing-whitespace conventions after full implementation, retaining archived source bytes."
+
+[gotcha.scope_and_gate_order]
+observed = "The baseline verify clause conflicts with the explicit implementation-first order and exclusive hf-done gate; root GOTCHA.kvx and spec records are outside scope."
+resolution = "Claim no baseline result; keep the finding mapping, wiring request and gotchas here, and run only hf-build then hf-done."
+
+[gotcha.context]
+observed = "The cached Codify brief reports another task and thousands of changes, unlike git status; broad spec reads exceeded output limits."
+resolution = "Use exact task and finding sections, bounded source reads, the real git diff and runner gate ledger; leave existing runner bookkeeping untouched."
