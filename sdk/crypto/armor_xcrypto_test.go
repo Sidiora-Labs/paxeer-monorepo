@@ -13,6 +13,9 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/secp256k1"
 )
 
+// Required by the root dependency upgrade in task 22.24.16.
+const requiredXCryptoVersion = "v0.53.0"
+
 func TestXCryptoBuildMatchesRequire(t *testing.T) {
 	// Go 1.25 test binaries omit module dependencies from ReadBuildInfo.
 	// Read the runtime metadata of an executable linked against the SDK instead.
@@ -52,8 +55,8 @@ func main() {
 		if dep.Path != "golang.org/x/crypto" {
 			continue
 		}
-		if dep.Version != "v0.47.0" {
-			t.Errorf("golang.org/x/crypto version = %q, want v0.47.0", dep.Version)
+		if dep.Version != requiredXCryptoVersion {
+			t.Errorf("golang.org/x/crypto version = %q, want %s", dep.Version, requiredXCryptoVersion)
 		}
 		if dep.Replace != nil {
 			t.Errorf("golang.org/x/crypto has a replacement: %+v", dep.Replace)

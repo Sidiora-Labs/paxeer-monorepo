@@ -3,6 +3,7 @@ package keeper
 import (
 	"bytes"
 	"fmt"
+	"math"
 	"math/big"
 	"strings"
 
@@ -171,6 +172,12 @@ func (k Keeper) BridgeOut(ctx sdk.Context, sender common.Address, chainID uint64
 		return BridgeOutResult{}, types.ErrCapExceeded.Wrap("over the per-transaction release cap")
 	}
 
+	nonce := k.OutboundNonce(ctx, chainID)
+	if nonce == math.MaxUint64 {
+		return BridgeOutResult{}, types.ErrInvalidRequest.Wrap("outbound nonce exhausted")
+	}
+	nonce++
+
 	cached, write := ctx.CacheContext()
 	coin := sdk.NewCoin(asset.Denom, amount)
 	from := k.evmKeeper.GetPaxAddressOrDefault(cached, sender)
@@ -182,7 +189,6 @@ func (k Keeper) BridgeOut(ctx sdk.Context, sender common.Address, chainID uint64
 		return BridgeOutResult{}, err
 	}
 	k.setInFlight(cached, asset.Denom, inFlight.Sub(amount))
-	nonce := k.OutboundNonce(cached, chainID) + 1
 	k.setOutboundNonce(cached, chainID, nonce)
 	write()
 	ctx.EventManager().EmitEvents(cached.EventManager().Events())

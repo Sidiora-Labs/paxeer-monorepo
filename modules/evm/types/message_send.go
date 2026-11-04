@@ -1,6 +1,7 @@
 package types
 
 import (
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types/ethtx"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	"github.com/ethereum/go-ethereum/common"
@@ -40,6 +41,10 @@ func (msg *MsgSend) ValidateBasic() error {
 	_, err := sdk.AccAddressFromBech32(msg.FromAddress)
 	if err != nil {
 		return sdkerrors.Wrapf(sdkerrors.ErrInvalidAddress, "Invalid sender address (%s)", err)
+	}
+
+	if err := ethtx.ValidateAddress(msg.ToAddress); err != nil {
+		return sdkerrors.Wrapf(sdkerrors.ErrInvalidAddress, "Invalid recipient address (%s)", err)
 	}
 
 	if !msg.Amount.IsValid() {

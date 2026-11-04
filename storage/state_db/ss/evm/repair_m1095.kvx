@@ -1,0 +1,20 @@
+[repair.22.33.1095]
+audit = "22.30.45"
+acceptance = "22998.1"
+baseline = "Not run: the explicit ordered instructions prohibit testing before complete implementation and permit verification only through hf-done; no pre-change failure is claimed."
+evidence = "The hf-build/hf-done runner ledger records the exact candidate revision, command, exit code and private evidence location; the final response copies the last hf-done evidence line."
+wiring_requests = []
+
+[finding.evm-import-filter-leak]
+tests = ["TestRepairM_1095_BackendFailureDrainsAndJoins", "TestRepairM_1095_BackendEarlyReturnDrainsAndJoins", "TestRepairM_1095_UnifiedImportFiltersAndReopens", "TestRepairM_1095_CompositeFlatKVRoundTrip"]
+repair = "When the unified backend returns, cancel filter receives and sends, join the filter, and drain the remaining input before returning the unchanged backend error. No owned forwarding goroutine survives the call, and composite routing can finish and close its input."
+failure_proof = "A real MVCC source writes and traverses 12,000 EVM rows plus 12,000 bank rows. The production unified filter forwards into a closed production EVM StateStore or a production separate EVM importer whose first 10,000-row flush fails real Pebble batch version validation. Unbuffered and 100-node-buffered producers must finish all rows within five seconds, the exact backend error must survive, and leaktest checks complete goroutine cleanup. No component is mocked."
+early_return_proof = "A real zero-worker Pebble importer returns without consuming any input; a snapshot larger than the filter buffer still finishes within five seconds with no goroutine leak, exercising cancellation on early nil returns too. This test proves lifecycle cleanup, not snapshot persistence for that backend configuration."
+success_proof = "One and four real Pebble import workers preserve every EVM value and exact row count, omit all colliding bank namespace rows, retain the imported version, and reopen with identical state. A real FlatKV commit/export additionally drives 1,024 emitted physical rows through composite conversion, routing, the unified EVM filter and both real backends, then reopens the composite and checks every EVM and bank value."
+composite_coordination = "The existing CompositeStateStore.Import already cancels routing on importer errors, drains source input, closes child channels and joins its workers. EVM now joins its own filter and drains its child input, allowing that router to finish; no out-of-path change is needed."
+
+[gotcha.gate-order]
+observed = "The baseline-verification step contradicts the ordered build-then-hf-done-only gate rules; follow the explicit gate order and do not claim a baseline result."
+
+[gotcha.backend-failure-fixture]
+observed = "The direct Pebble Import implementation panics inside its workers for batch errors rather than returning them; use real production StateStore composition to obtain closed-store and real batch-validation errors without a fake backend, external service or subprocess."

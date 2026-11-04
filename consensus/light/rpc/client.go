@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"sync"
 	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/crypto/merkle"
@@ -48,7 +49,20 @@ type Client struct {
 	prt       *merkle.ProofRuntime
 	keyPathFn KeyPathFunc
 
-	closers []func()
+	subscriptionsMu sync.Mutex
+	subscriptions   map[wsSubscriptionKey]*wsSubscription
+	closers         []func()
+	stopped         bool
+}
+
+type wsSubscriptionKey struct {
+	subscriber string
+	query      string
+}
+
+type wsSubscription struct {
+	cancel context.CancelFunc
+	done   chan struct{}
 }
 
 // Option allow you to tweak Client.
@@ -99,6 +113,8 @@ func NewClient(next rpcclient.Client, lc LightClient, opts ...Option) *Client {
 }
 
 func (c *Client) OnStart(ctx context.Context) error {
+	c.subscriptionsMu.Lock()
+	defer c.subscriptionsMu.Unlock()
 	nctx, ncancel := context.WithCancel(ctx)
 	if err := c.next.Start(nctx); err != nil {
 		ncancel()
@@ -110,8 +126,21 @@ func (c *Client) OnStart(ctx context.Context) error {
 }
 
 func (c *Client) OnStop() {
+	c.subscriptionsMu.Lock()
+	c.stopped = true
+	var pending []*wsSubscription
+	for key, sub := range c.subscriptions {
+		sub.cancel()
+		delete(c.subscriptions, key)
+		pending = append(pending, sub)
+	}
 	for _, closer := range c.closers {
 		closer()
+	}
+	c.closers = nil
+	c.subscriptionsMu.Unlock()
+	for _, sub := range pending {
+		<-sub.done
 	}
 }
 
@@ -607,11 +636,25 @@ func (c *Client) Subscribe(ctx context.Context, subscriber, query string,
 }
 
 func (c *Client) Unsubscribe(ctx context.Context, subscriber, query string) error {
-	return c.next.Unsubscribe(ctx, subscriber, query) //nolint:staticcheck
+	c.subscriptionsMu.Lock()
+	err := c.next.Unsubscribe(ctx, subscriber, query) //nolint:staticcheck
+	pending := c.cancelSubscriptionsLocked(subscriber, &query)
+	c.subscriptionsMu.Unlock()
+	for _, sub := range pending {
+		<-sub.done
+	}
+	return err
 }
 
 func (c *Client) UnsubscribeAll(ctx context.Context, subscriber string) error {
-	return c.next.UnsubscribeAll(ctx, subscriber) //nolint:staticcheck
+	c.subscriptionsMu.Lock()
+	err := c.next.UnsubscribeAll(ctx, subscriber) //nolint:staticcheck
+	pending := c.cancelSubscriptionsLocked(subscriber, nil)
+	c.subscriptionsMu.Unlock()
+	for _, sub := range pending {
+		<-sub.done
+	}
+	return err
 }
 
 func (c *Client) updateLightClientIfNeededTo(ctx context.Context, height *int64) (*types.LightBlock, error) {
@@ -638,20 +681,44 @@ func (c *Client) RegisterOpDecoder(typ string, dec merkle.OpDecoder) {
 // a subscriber, but does not verify responses (UNSAFE)!
 // TODO: verify data
 func (c *Client) SubscribeWS(ctx context.Context, query string) (*coretypes.ResultSubscribe, error) {
-	bctx, bcancel := context.WithCancel(context.Background())
-	c.closers = append(c.closers, bcancel)
-
+	c.subscriptionsMu.Lock()
+	defer c.subscriptionsMu.Unlock()
+	if c.stopped {
+		return nil, errors.New("client is stopped")
+	}
 	callInfo := rpctypes.GetCallInfo(ctx)
-	out, err := c.next.Subscribe(bctx, callInfo.RemoteAddr(), query) //nolint:staticcheck
+	key := wsSubscriptionKey{subscriber: callInfo.RemoteAddr(), query: query}
+	if _, exists := c.subscriptions[key]; exists {
+		return nil, fmt.Errorf("already subscribed to %q", query)
+	}
+	bctx, bcancel := context.WithCancel(callInfo.WSConn.Context())
+	out, err := c.next.Subscribe(bctx, key.subscriber, query) //nolint:staticcheck
 	if err != nil {
 		bcancel()
 		return nil, err
 	}
+	sub := &wsSubscription{cancel: bcancel, done: make(chan struct{})}
+	if c.subscriptions == nil {
+		c.subscriptions = make(map[wsSubscriptionKey]*wsSubscription)
+	}
+	c.subscriptions[key] = sub
 
 	go func() {
+		defer func() {
+			bcancel()
+			c.subscriptionsMu.Lock()
+			if c.subscriptions[key] == sub {
+				delete(c.subscriptions, key)
+			}
+			close(sub.done)
+			c.subscriptionsMu.Unlock()
+		}()
 		for {
 			select {
-			case resultEvent := <-out:
+			case resultEvent, ok := <-out:
+				if !ok || bctx.Err() != nil {
+					return
+				}
 				// We should have a switch here that performs a validation
 				// depending on the event's type.
 				callInfo.WSConn.TryWriteRPCResponse(bctx, callInfo.RPCRequest.MakeResponse(resultEvent))
@@ -664,10 +731,24 @@ func (c *Client) SubscribeWS(ctx context.Context, query string) (*coretypes.Resu
 	return &coretypes.ResultSubscribe{}, nil
 }
 
+// cancelSubscriptionsLocked detaches forwarding state while subscription changes
+// are serialized with upstream calls. Callers wait for completion after unlocking.
+func (c *Client) cancelSubscriptionsLocked(subscriber string, query *string) []*wsSubscription {
+	var pending []*wsSubscription
+	for key, sub := range c.subscriptions {
+		if key.subscriber == subscriber && (query == nil || key.query == *query) {
+			sub.cancel()
+			delete(c.subscriptions, key)
+			pending = append(pending, sub)
+		}
+	}
+	return pending
+}
+
 // UnsubscribeWS calls original client's Unsubscribe using remote address as a
 // subscriber.
 func (c *Client) UnsubscribeWS(ctx context.Context, query string) (*coretypes.ResultUnsubscribe, error) {
-	err := c.next.Unsubscribe(context.Background(), rpctypes.GetCallInfo(ctx).RemoteAddr(), query) //nolint:staticcheck
+	err := c.Unsubscribe(ctx, rpctypes.GetCallInfo(ctx).RemoteAddr(), query)
 	if err != nil {
 		return nil, err
 	}
@@ -677,7 +758,7 @@ func (c *Client) UnsubscribeWS(ctx context.Context, query string) (*coretypes.Re
 // UnsubscribeAllWS calls original client's UnsubscribeAll using remote address
 // as a subscriber.
 func (c *Client) UnsubscribeAllWS(ctx context.Context) (*coretypes.ResultUnsubscribe, error) {
-	err := c.next.UnsubscribeAll(context.Background(), rpctypes.GetCallInfo(ctx).RemoteAddr()) //nolint:staticcheck
+	err := c.UnsubscribeAll(ctx, rpctypes.GetCallInfo(ctx).RemoteAddr())
 	if err != nil {
 		return nil, err
 	}

@@ -2810,22 +2810,16 @@ impl V2ActivityReceipt {
             occupancy_fee_units: 0,
             fee_units: u128::from_be_bytes(cursor.array()?),
         };
-        let graph_length = u32::from_be_bytes(cursor.array()?) as usize;
-        if graph_length > Self::MAX_GRAPH_EVIDENCE_BYTES {
-            return Err(Error::Malformed);
-        }
-        let graph_evidence = cursor.take(graph_length)?.to_vec();
+        let graph_evidence = cursor
+            .bounded_bytes(Self::MAX_GRAPH_EVIDENCE_BYTES)?
+            .to_vec();
         let trace_evidence = if legacy_v2 || legacy_v3 {
             None
         } else {
             match cursor.take(1)?[0] {
                 0 => None,
                 1 => {
-                    let length = u32::from_be_bytes(cursor.array()?) as usize;
-                    if length > Self::MAX_TRACE_EVIDENCE_BYTES {
-                        return Err(Error::Malformed);
-                    }
-                    let trace = cursor.take(length)?;
+                    let trace = cursor.bounded_bytes(Self::MAX_TRACE_EVIDENCE_BYTES)?;
                     crate::ExecutionTrace::verify_canonical_arbitration_bytes(trace)
                         .map_err(|_| Error::Malformed)?;
                     Some(trace.to_vec())
@@ -2840,13 +2834,11 @@ impl V2ActivityReceipt {
                 if code < 0 {
                     return Err(Error::Malformed);
                 }
-                let length = u32::from_be_bytes(cursor.array()?) as usize;
-                if length > crate::MAX_CALL_RESPONSE_BYTES {
-                    return Err(Error::Malformed);
-                }
                 V2ReceiptOutcome::Success(CallResponse {
                     code,
-                    bytes: cursor.take(length)?.to_vec(),
+                    bytes: cursor
+                        .bounded_bytes(crate::MAX_CALL_RESPONSE_BYTES)?
+                        .to_vec(),
                 })
             }
             1 => {
@@ -2974,6 +2966,17 @@ impl<'a> ReceiptCursor<'a> {
         self.take(N)?
             .try_into()
             .map_err(|_| crate::fault::FailureEncodingError::Malformed)
+    }
+
+    fn bounded_bytes(
+        &mut self,
+        maximum: usize,
+    ) -> Result<&'a [u8], crate::fault::FailureEncodingError> {
+        let length = u32::from_be_bytes(self.array()?) as usize;
+        if length > maximum {
+            return Err(crate::fault::FailureEncodingError::Malformed);
+        }
+        self.take(length)
     }
 
     const fn is_empty(&self) -> bool {

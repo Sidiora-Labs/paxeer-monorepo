@@ -1,9 +1,12 @@
 package harness
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"encoding/json"
+	"fmt"
+	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -110,10 +113,53 @@ func GetStateTestsPath() (string, error) {
 
 // extractArchive extracts a .tgz archive to the destination directory
 func extractArchive(archivePath, destDir string) error {
-	cmd := exec.Command("tar", "-xzf", archivePath, "-C", destDir)
-	if _, err := cmd.CombinedOutput(); err != nil {
+	file, err := os.Open(filepath.Clean(archivePath))
+	if err != nil {
 		return err
 	}
-
-	return nil
+	defer file.Close()
+	zipped, err := gzip.NewReader(file)
+	if err != nil {
+		return err
+	}
+	defer zipped.Close()
+	archive := tar.NewReader(zipped)
+	for {
+		header, err := archive.Next()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		name := filepath.Clean(header.Name)
+		if filepath.IsAbs(name) || name == ".." || strings.HasPrefix(name, ".."+string(filepath.Separator)) {
+			return fmt.Errorf("unsafe fixture archive path %q", header.Name)
+		}
+		path := filepath.Join(destDir, name)
+		switch header.Typeflag {
+		case tar.TypeDir:
+			if err := os.MkdirAll(path, 0755); err != nil {
+				return err
+			}
+		case tar.TypeReg:
+			if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+				return err
+			}
+			output, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+			if err != nil {
+				return err
+			}
+			_, copyErr := io.CopyN(output, archive, header.Size)
+			closeErr := output.Close()
+			if copyErr != nil {
+				return copyErr
+			}
+			if closeErr != nil {
+				return closeErr
+			}
+		default:
+			return fmt.Errorf("unsupported fixture archive entry %q type %d", header.Name, header.Typeflag)
+		}
+	}
 }

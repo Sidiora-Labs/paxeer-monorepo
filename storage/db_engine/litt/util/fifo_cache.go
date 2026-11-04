@@ -1,6 +1,9 @@
 package util
 
-import "time"
+import (
+	"runtime"
+	"time"
+)
 
 var _ Cache[string, string] = &FIFOCache[string, string]{}
 
@@ -14,6 +17,15 @@ type FIFOCache[K comparable, V any] struct {
 	data          map[K]V
 	evictionQueue *Queue[*insertionRecord]
 	metrics       *CacheMetrics
+	occupancy     *cacheOccupancy
+}
+
+// cacheOccupancy outlives its FIFO just long enough to release the aggregate
+// contribution when the cache is collected. It must never reference the FIFO.
+type cacheOccupancy struct {
+	metrics *CacheMetrics
+	size    int
+	weight  uint64
 }
 
 // insertionRecord is a record of when a key was inserted into the cache, and is used to decide when it should be
@@ -35,13 +47,18 @@ func NewFIFOCache[K comparable, V any](
 		calculator = func(K, V) uint64 { return 1 }
 	}
 
-	return &FIFOCache[K, V]{
+	fifo := &FIFOCache[K, V]{
 		maxWeight:        maxWeight,
 		data:             make(map[K]V),
 		weightCalculator: calculator,
 		evictionQueue:    NewQueue[*insertionRecord](1024),
 		metrics:          metrics,
+		occupancy:        &cacheOccupancy{metrics: metrics},
 	}
+	if metrics != nil {
+		runtime.AddCleanup(fifo, func(state *cacheOccupancy) { state.metrics.reportSizeChange(state.size, state.weight, 0, 0) }, fifo.occupancy)
+	}
+	return fifo
 }
 
 func (f *FIFOCache[K, V]) Get(key K) (V, bool) {
@@ -56,6 +73,7 @@ func (f *FIFOCache[K, V]) Put(key K, value V) {
 		return
 	}
 
+	oldSize, oldWeight := len(f.data), f.currentWeight
 	old, ok := f.data[key]
 	f.currentWeight += weight
 	f.data[key] = value
@@ -74,7 +92,9 @@ func (f *FIFOCache[K, V]) Put(key K, value V) {
 	}
 
 	f.metrics.reportInsertion(weight)
-	f.metrics.reportCurrentSize(len(f.data), f.currentWeight)
+	f.metrics.reportSizeChange(oldSize, oldWeight, len(f.data), f.currentWeight)
+	f.occupancy.size, f.occupancy.weight = len(f.data), f.currentWeight
+	runtime.KeepAlive(f)
 }
 
 func (f *FIFOCache[K, V]) evict() {
@@ -99,6 +119,10 @@ func (f *FIFOCache[K, V]) Weight() uint64 {
 }
 
 func (f *FIFOCache[K, V]) SetMaxWeight(capacity uint64) {
+	oldSize, oldWeight := len(f.data), f.currentWeight
 	f.maxWeight = capacity
 	f.evict()
+	f.metrics.reportSizeChange(oldSize, oldWeight, len(f.data), f.currentWeight)
+	f.occupancy.size, f.occupancy.weight = len(f.data), f.currentWeight
+	runtime.KeepAlive(f)
 }

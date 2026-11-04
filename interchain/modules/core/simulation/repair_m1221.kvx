@@ -1,0 +1,7 @@
+[repair.22.33.1221]
+audit = "22.30.58"
+base_revision = "72c91077cb966f1c4c640ded61b4b259f41cad90"
+allocation-diff-decoder = "TestRepairM_1221_CreationAllocationDiffs: real client, connection and channel creation writes, store snapshots and the AppModule-registered aggregate decoder; unsigned uint64 transitions in both diff directions. TestRepairM_1221_RejectUnknownKeys and TestRepairM_1221_RejectMalformedAllocationValues preserve rejection."
+baseline = "Not run: the explicit task order requires full implementation before gates and forbids running verify_cmd manually; no prior gate ledger existed. No baseline test failure is claimed."
+wiring_requests = []
+evidence = "The runner hf-build/hf-done private gate ledger records the exact candidate revision, command, exit code and log."

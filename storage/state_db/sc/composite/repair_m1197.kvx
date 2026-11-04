@@ -1,0 +1,24 @@
+[repair.22.33.1197]
+acceptance = "22998.1"
+findings = ["rollback-regression-gap", "merge-legacy-mode-coverage"]
+baseline = "No unchanged-tree verification was run: the ordered gate rules prohibit tests before implementation and prohibit invoking verify_cmd before hf-done; no pre-change failures are claimed."
+wiring_requests = []
+evidence = "The runner hf-build/hf-done ledger records the candidate revision, command, exit code and private evidence location; the final response copies the last gate record."
+
+[finding.rollback-regression-gap]
+proof = ["TestRepairM_1197_SteadyStateRollback", "TestRepairM_1197_FirstMigrationRollback", "TestRepairM_1197_PendingCreationRollback"]
+change = "Random scenarios check exact committed/working info, values, iteration and routing before restart. Deterministic fixtures rewind the first migration commit in all three migration modes to the predecessor baseline, compare physical routes and exact info to an independent clean reopen, replay and compare the next AppHash before restart, then reopen and verify recovery. Pending-tree creation is also rewound and recreated."
+
+[finding.merge-legacy-mode-coverage]
+proof = ["TestRepairM_1197_LegacyMergeUpgradeModes"]
+change = "Every mode opens a committed legacy store set without the merge trees, checks absent-store access, applies real tree upgrades, writes, commits and reopens. Later schemas are produced by completed production migrations, never injected metadata."
+unsupported = "The pending empty-view contract is MemiavlOnly. Before ApplyUpgrades, MigrateEVM, EVMMigrated, TestOnlyDualWrite and not-started MigrateAllButBank reject reads/writes to missing memiavl trees; tests require errors and child-view panics, then reopen the untouched commit before upgrading. These combinations do not claim pending-store compatibility."
+flatkv = "AllMigratedButBank, MigrateBank and FlatKVOnly accept a new namespace before tree upgrades and retain those writes. ApplyUpgrades is a no-op in FlatKVOnly; the other modes also create memiavl trees, while values route to FlatKV."
+
+[qualification.fixture_repair]
+revision = "44038a1c4bc43aa0bf3f842346859c80237431d0"
+command = "cg spec done 22.33.1197 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The two FlatKVOnly cases compared the previous MigrateBank commit-info surface with the FlatKVOnly surface. All other mode cases passed."
+repair = "The fixture now completes the mode switch with a real FlatKVOnly commit before capturing its baseline, asserting retained values, lattice continuity, exact version and the single-store commit-info shape. All exact comparisons remain."

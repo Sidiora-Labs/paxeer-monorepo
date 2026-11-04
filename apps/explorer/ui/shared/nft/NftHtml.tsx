@@ -9,7 +9,7 @@ interface Props extends MediaElementProps<'div'> {
   fullscreen?: boolean;
 }
 
-const NFT_HTML_EMBED_PATH = '/nft-html-embed.html';
+const NFT_HTML_EMBED_PATH = `${ config.app.basePath }/nft-html-embed.html`;
 
 const NftHtml = ({ src, transport, onLoad, onError, onClick, fullscreen, ...rest }: Props) => {
   const ref = React.useRef<HTMLIFrameElement>(null);

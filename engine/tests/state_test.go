@@ -176,14 +176,14 @@ func (ts *TestSummary) PrintSummary(t *testing.T) {
 	t.Log(sb.String())
 }
 
-// TestGigaVsV2_StateTests runs state tests comparing Giga vs V2 execution.
-// By default, uses GigaStore (ModeGigaSequential). Set USE_REGULAR_STORE=true to use
-// regular KVStore instead, which isolates whether issues are in the Giga executor
-// logic vs the GigaKVStore layer.
-//
-// Usage: STATE_TEST_DIR=stChainId go test -v -run TestGigaVsV2_StateTests ./engine/tests/...
-// Usage with test name filter: STATE_TEST_DIR=stExample STATE_TEST_NAME=add11 go test -v -run TestGigaVsV2_StateTests ./engine/tests/...
-// Usage with regular store: STATE_TEST_DIR=stChainId USE_REGULAR_STORE=true go test -v -run TestGigaVsV2_StateTests ./engine/tests/...
+// TestGigaVsV2_StateTests qualifies an explicit, counted Cancun selection.
+// Qualification always checks both local executors against explicit fixture state and logs.
+// Paxeer uses a Cosmos store commitment rather than the fixture's Ethereum MPT root;
+// the supported oracle is the explicit account allocation plus RLP logs hash.
+// Transactions are re-signed for pax-test (713714), never the fixture chain ID 1.
+// Public hyperpax_125-1 maps to 125; these local fixtures do not certify mainnet.
+// Paxeer's fork schedule, fee policy and opcode gas costs remain active. Fixtures
+// that depend on a different policy must fail, not have their expectations rewritten.
 func TestGigaVsV2_StateTests(t *testing.T) {
 	mode := ModeGigaSequential
 	modeName := "Giga vs V2"
@@ -191,8 +191,5 @@ func TestGigaVsV2_StateTests(t *testing.T) {
 		mode = ModeGigaWithRegularStore
 		modeName = "Giga with Regular Store"
 	}
-	runStateTestSuite(t, ComparisonConfig{
-		GigaMode:           mode,
-		VerifyEthereumSpec: os.Getenv("VERIFY_ETHEREUM_SPEC") == "true",
-	}, modeName)
+	runStateTestSuite(t, ComparisonConfig{GigaMode: mode, VerifyEthereumSpec: true}, modeName)
 }
