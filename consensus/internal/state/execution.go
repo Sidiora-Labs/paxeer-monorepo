@@ -360,6 +360,17 @@ func (blockExec *BlockExecutor) ValidateBlock(ctx context.Context, state State, 
 	return nil
 }
 
+// TxResultsHash is the canonical LastResultsHash commitment shared by execution
+// and light RPC verification. Only deterministic transaction results are leaves;
+// FinalizeBlock events are not committed by this network.
+func TxResultsHash(results []*abci.ExecTxResult) ([]byte, error) {
+	rs, err := abci.MarshalTxResults(results)
+	if err != nil {
+		return nil, fmt.Errorf("marshaling TxResults: %w", err)
+	}
+	return merkle.HashFromByteSlices(rs), nil
+}
+
 // ApplyBlock validates the block against the state, executes it against the app,
 // fires the relevant events, commits the app, and saves the new state and responses.
 // It returns the new state.
@@ -455,11 +466,10 @@ func (blockExec *BlockExecutor) ApplyBlock(ctx context.Context, state State, blo
 		_, updateStateSpan = tracer.Start(ctx, "cs.state.ApplyBlock.UpdateState")
 		defer updateStateSpan.End()
 	}
-	rs, err := abci.MarshalTxResults(fBlockRes.TxResults)
+	h, err := TxResultsHash(fBlockRes.TxResults)
 	if err != nil {
-		return state, fmt.Errorf("marshaling TxResults: %w", err)
+		return state, err
 	}
-	h := merkle.HashFromByteSlices(rs)
 
 	// Log LastResultsHash computation details for debugging consensus issues
 	if len(fBlockRes.TxResults) > 0 {

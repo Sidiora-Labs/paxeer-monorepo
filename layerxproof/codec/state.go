@@ -309,6 +309,18 @@ func agentAssetShape(name []byte) bool {
 	return true
 }
 
+func assetIssuance(name []byte) bool {
+	if len(name) != 79 || !bytes.HasPrefix(name, []byte("asset:")) || !bytes.HasSuffix(name, []byte(":issuance")) {
+		return false
+	}
+	for _, b := range name[6:70] {
+		if !((b >= '0' && b <= '9') || (b >= 'a' && b <= 'f')) {
+			return false
+		}
+	}
+	return true
+}
+
 func systemFunding(name, suffix []byte) bool {
 	prefix := []byte("system:funding:")
 	return len(name) > len(prefix)+len(suffix) && bytes.HasPrefix(name, prefix) && bytes.HasSuffix(name, suffix) &&
@@ -351,7 +363,9 @@ func AccountKind(name []byte) (uint8, bool) {
 		return 9, true
 	case string(name) == "system:fees":
 		return 10, true
-	case string(name) == "system:paxeer-reserve":
+	case string(name) == "system:paxeer-reserve", string(name) == "system:paxeer-reserve:pax",
+		string(name) == "system:paxeer-reserve:sid", string(name) == "system:paxeer-reserve:usdc",
+		string(name) == "system:paxeer-reserve:usdl":
 		return 11, true
 	case string(name) == "system:paxeer-withdrawals":
 		return 12, true
@@ -373,7 +387,7 @@ func AccountKind(name []byte) (uint8, bool) {
 		return 4, true
 	case agentShape(name, []byte(":margin:")):
 		return 5, true
-	case moduleValue(name):
+	case moduleValue(name), assetIssuance(name):
 		return 13, true
 	}
 	return 0, false
@@ -386,7 +400,7 @@ func DeriveAccountID(name []byte) ([32]byte, error) {
 	if !ok {
 		return out, ErrAccountIdentity
 	}
-	if kind == 13 {
+	if kind == 13 && moduleValue(name) {
 		if _, err := hex.Decode(out[:], name[len(name)-64:]); err != nil {
 			return out, ErrAccountIdentity
 		}

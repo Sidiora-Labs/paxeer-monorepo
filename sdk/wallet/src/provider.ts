@@ -56,7 +56,11 @@ export function ledgerLogFloor(chainId: number): bigint | undefined {
   return LEDGER_PRECOMPILE_LOG_FLOOR[chainId];
 }
 
-export type TokenSupplier = () => string | null | undefined | Promise<string | null | undefined>;
+export type TokenSupplier = () =>
+  | string
+  | null
+  | undefined
+  | Promise<string | null | undefined>;
 
 export interface ConfirmRequest {
   method: string;
@@ -247,7 +251,10 @@ export class PaxeerProvider implements Eip1193Provider {
   private async requestAccounts(): Promise<Hex[]> {
     let me: { wallet: PublicWallet; chain: ChainInfo } | null;
     try {
-      me = await this.gateway<{ wallet: PublicWallet; chain: ChainInfo }>('GET', '/v1/wallet/me');
+      me = await this.gateway<{ wallet: PublicWallet; chain: ChainInfo }>(
+        'GET',
+        '/v1/wallet/me'
+      );
     } catch (error) {
       if (!(error instanceof ProviderRpcError) || !isNoWallet(error)) throw error;
       me = null;
@@ -299,8 +306,15 @@ export class PaxeerProvider implements Eip1193Provider {
 
   private switchChain(params: readonly unknown[]): null {
     const target = params[0];
-    if (!isRecord(target) || typeof target.chainId !== 'string' || !QUANTITY.test(target.chainId)) {
-      throw new InvalidParamsError('chainId', 'wallet_switchEthereumChain requires a hex chainId');
+    if (
+      !isRecord(target) ||
+      typeof target.chainId !== 'string' ||
+      !QUANTITY.test(target.chainId)
+    ) {
+      throw new InvalidParamsError(
+        'chainId',
+        'wallet_switchEthereumChain requires a hex chainId'
+      );
     }
     const requested = Number(BigInt(target.chainId));
     if (requested !== this.chainId) throw new ChainDisconnectedError(requested, this.chainId);
@@ -328,7 +342,9 @@ export class PaxeerProvider implements Eip1193Provider {
       if (chainId !== this.chainId) throw new ChainDisconnectedError(chainId, this.chainId);
       wire.chainId = chainId;
     }
-    const response = await this.gateway<SendTxResponse>('POST', '/v1/wallet/send', { tx: wire });
+    const response = await this.gateway<SendTxResponse>('POST', '/v1/wallet/send', {
+      tx: wire,
+    });
     try {
       assertSendTxResponse(response, { chainId: this.chainId, account });
     } catch (error) {
@@ -392,9 +408,13 @@ export class PaxeerProvider implements Eip1193Provider {
       throw new InvalidParamsError('message', 'personal_sign requires a message');
     this.requireSameAccount(second, account, 'address');
     const message = decodeMessage(first);
-    const response = await this.gateway<SignMessageResponse>('POST', '/v1/wallet/sign-message', {
-      message,
-    });
+    const response = await this.gateway<SignMessageResponse>(
+      'POST',
+      '/v1/wallet/sign-message',
+      {
+        message,
+      }
+    );
     return response.signature;
   }
 
@@ -412,7 +432,10 @@ export class PaxeerProvider implements Eip1193Provider {
     return { ...answer, rung: receipt === null ? null : receipt.rung };
   }
 
-  private async sponsoredGateway(params: readonly unknown[], readOnly: boolean): Promise<unknown> {
+  private async sponsoredGateway(
+    params: readonly unknown[],
+    readOnly: boolean
+  ): Promise<unknown> {
     const account = this.requireAccount();
     const generation = this.capsGeneration;
     const chain = this.chainId;
@@ -531,9 +554,14 @@ export class PaxeerProvider implements Eip1193Provider {
       chain !== this.chainId
     )
       throw new UnauthorizedError('session_changed', 'the wallet session changed');
-    const response = await this.gateway<SignDigestResponse>('POST', '/v1/wallet/sign-digest', {
-      construction: wire,
-    });
+    const response = await this.gateway<SignDigestResponse>(
+      'POST',
+      '/v1/wallet/sign-digest',
+      {
+        construction: wire,
+      },
+      sessionToken
+    );
     if (
       generation !== this.capsGeneration ||
       sessionToken !== (await this.token()) ||
@@ -553,6 +581,13 @@ export class PaxeerProvider implements Eip1193Provider {
       account,
       'signature'
     );
+    if (
+      generation !== this.capsGeneration ||
+      sessionToken !== (await this.token()) ||
+      account !== this.accounts[0] ||
+      chain !== this.chainId
+    )
+      throw new UnauthorizedError('session_changed', 'the wallet session changed');
     return signature;
   }
 
@@ -560,14 +595,18 @@ export class PaxeerProvider implements Eip1193Provider {
     construction: Record<string, unknown>,
     account: Hex
   ): WireDigestConstruction {
-    if (construction.kind !== 'sponsored_batch' && construction.kind !== 'eip7702_authorization') {
+    if (
+      construction.kind !== 'sponsored_batch' &&
+      construction.kind !== 'eip7702_authorization'
+    ) {
       throw new UnauthorizedError(
         'unknown_construction',
         'eth_sign construction must be sponsored_batch or eip7702_authorization'
       );
     }
     const wire = toWireConstruction(construction as unknown as DigestConstruction);
-    if (wire.kind === 'sponsored_batch') this.requireSameAccount(wire.account, account, 'account');
+    if (wire.kind === 'sponsored_batch')
+      this.requireSameAccount(wire.account, account, 'account');
     this.requireChain(wire.chainId);
     return wire;
   }
@@ -609,12 +648,19 @@ export class PaxeerProvider implements Eip1193Provider {
     return payload.result;
   }
 
-  private async gateway<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
+  private async gateway<T>(
+    method: 'GET' | 'POST',
+    path: string,
+    body?: unknown,
+    expectedToken?: string
+  ): Promise<T> {
     const token = await this.token();
     if (!token) {
       this.dropAccounts();
       throw new UnauthorizedError('no_token', 'no signed-in session');
     }
+    if (expectedToken !== undefined && token !== expectedToken)
+      throw new UnauthorizedError('session_changed', 'the wallet session changed');
     const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     let res: Response;
@@ -625,6 +671,13 @@ export class PaxeerProvider implements Eip1193Provider {
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       });
     } catch (error) {
+      if (error instanceof ProviderRpcError) throw error;
+      if (
+        error instanceof Error &&
+        'code' in error &&
+        (error.code === 'SESSION_CHANGED' || error.code === 'NO_SESSION' || error.code === 4100)
+      )
+        throw new UnauthorizedError('session_changed', error.message);
       throw new DisconnectedError('the wallet gateway is unreachable', {
         cause: (error as Error).message,
       });
@@ -650,7 +703,8 @@ export class PaxeerProvider implements Eip1193Provider {
 
   private requireAccount(): Hex {
     const account = this.accounts[0];
-    if (!account) throw new UnauthorizedError('not_connected', 'call eth_requestAccounts first');
+    if (!account)
+      throw new UnauthorizedError('not_connected', 'call eth_requestAccounts first');
     return account;
   }
 
@@ -748,7 +802,9 @@ export function constructionDigest(construction: WireDigestConstruction): Hex {
     : eip7702AuthorizationDigest(construction);
 }
 
-export function wireSponsoredBatch(construction: SponsoredBatchConstruction): WireSponsoredBatch {
+export function wireSponsoredBatch(
+  construction: SponsoredBatchConstruction
+): WireSponsoredBatch {
   exactKeys(
     construction as unknown as Record<string, unknown>,
     ['kind', 'chainId', 'account', 'nonce', 'calls', 'quote'],
@@ -758,7 +814,8 @@ export function wireSponsoredBatch(construction: SponsoredBatchConstruction): Wi
     throw new InvalidParamsError('calls', 'a sponsored batch requires at least one call');
   }
   const quote = construction.quote;
-  if (!isRecord(quote)) throw new InvalidParamsError('quote', 'a sponsored batch requires a quote');
+  if (!isRecord(quote))
+    throw new InvalidParamsError('quote', 'a sponsored batch requires a quote');
   exactKeys(
     quote,
     ['sponsor', 'token', 'maxTokenAmount', 'tokenAmount', 'deadline', 'quoteNonce', 'gasCost'],
@@ -867,7 +924,10 @@ function uintField(value: UintInput | undefined, field: string): bigint {
   let parsed: bigint;
   if (typeof value === 'bigint') parsed = value;
   else if (typeof value === 'number' && Number.isSafeInteger(value)) parsed = BigInt(value);
-  else if (typeof value === 'string' && (QUANTITY.test(value) || /^(0|[1-9][0-9]*)$/.test(value)))
+  else if (
+    typeof value === 'string' &&
+    (QUANTITY.test(value) || /^(0|[1-9][0-9]*)$/.test(value))
+  )
     parsed = BigInt(value);
   else throw new InvalidParamsError(field, `${field} must be an unsigned integer`);
   if (parsed < 0n || parsed > UINT256_MAX)
@@ -882,12 +942,14 @@ function safeInteger(value: bigint, field: string): number {
 }
 
 function decodeMessage(message: string): string {
-  if (!BYTES.test(message) || message.length <= 2) return message;
+  if (!message.startsWith('0x')) return message;
+  if (!BYTES.test(message))
+    throw new InvalidParamsError('message', 'personal_sign requires complete even-length hex');
   const bytes = new Uint8Array((message.length - 2) / 2);
   for (let i = 0; i < bytes.length; i += 1)
     bytes[i] = Number.parseInt(message.slice(2 + i * 2, 4 + i * 2), 16);
   try {
-    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes);
   } catch {
     throw new InvalidParamsError('message', 'personal_sign bytes must be UTF-8 text');
   }
