@@ -1,0 +1,13 @@
+[repair.22.33.200]
+audit = "22.30.12"
+base_revision = "84b6cf09552744359c78f419900ba8fcd9bbeaf5"
+findings = ["f043"]
+test_file = "apps/perps/tests/repair-22-33-200.test.ts"
+baseline = "Not run: the explicit ordered instructions prohibit testing before complete implementation and prohibit invoking verify_cmd outside hf-done. No before-change execution or failure is claimed."
+evidence = "The runner's hf-build/hf-done ledger retains the verified candidate revision, exact command, exit code and private log location; no unexecuted gate is claimed."
+
+[finding.f043]
+proving_tests = ["f043_failedRefreshMarksLastBlockStaleAndRecovers", "f043_closedObservationsExpireBeforeReopen"]
+repair = "The production NetworkStatusMonitor timestamps connected observations, clears latency and labels the retained block stale after transport failure, invalid JSON, chain disconnection or 60 seconds without a connected response. Expiry continues while the popover is closed. Generation checks discard responses from closed polls; only a connected health response restores freshness."
+proof = "An in-process loopback health server drives the production fetchJsonWithPolicy transport, activePoll scheduler, NetworkStatusMonitor consumed by useNetworkStatus and networkBlockLabel consumed by NetworkPill. Tests cover HTTP retry exhaustion, network failure, parse failure, disconnection, close/reopen, late response isolation and real elapsed-time expiry without mocked timers or transport."
+wiring = "None: all producer/transport/consumer changes required by f043 are inside widgets/network-pill; the health response interface is unchanged."
