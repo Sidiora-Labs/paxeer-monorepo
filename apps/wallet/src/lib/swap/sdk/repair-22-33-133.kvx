@@ -1,0 +1,44 @@
+[repair.22.33.133]
+audit = "22.30.114"
+finding_ids = ["51", "53"]
+finding_51_tests = ["finding51_price_binds_data_staleness_errors_and_loading_to_identity", "finding51_reserves_reject_late_asset_provider_and_refresh_results", "finding51_pool_rejects_late_asset_provider_and_refresh_results", "finding51_swap_quote_clears_failed_and_disabled_replacements", "finding51_buy_quote_clears_failed_and_disabled_replacements", "finding51_sell_quote_clears_failed_and_disabled_replacements", "finding51_network_events_invalidate_in_flight_reads_on_the_same_provider"]
+finding_53_tests = ["finding53_real_quote_and_oracle_values_keep_exact_large_display_digits", "finding53_rounds_only_requested_fractional_digits_with_exact_carry_and_sign"]
+proof = "Mounted production React hooks call the production PECOR/Sidiora helpers through real ethers JsonRpcProviders and a loopback JSON-RPC fixture using the committed contract ABIs. The fixture checks target and calldata, controls response ordering and RPC failures, and encodes financial results with the real ABI codec. The rendered consumer proves loading/error/data identity, asset and provider changes, same-provider chain events, refresh ordering, disabled selections, StrictMode cleanup and unmount cancellation. Exact quote/oracle bigints then reach the production formatting functions and rendered swap amount."
+baseline = "Not run: numbered Order 1 requires complete implementation before any test, and Order 4 prohibits running verify_cmd by hand; these override step 6's unchanged-tree verification. No baseline failure is claimed. The original hooks retain or overwrite prior identity data and swallow failures; the original formatters convert exact bigint amounts/prices to Number."
+api = "useVaultReserves now returns { reserves, loading, error, refresh } to expose read failures; no production caller exists in this checkout. The other hooks retain their existing fields and add error/refresh where missing. Every refresh clears prior financial data and errors, and only the latest request in the current mounted identity may publish."
+evidence = "The runner's private /out/run/gates.jsonl ledger and final hf-done line name the verified candidate revision, exact command, exit code and private log. Qualification is claimed only if hf-done passes; no tracked file is edited after that gate."
+
+[wiring.domain12]
+generator = "Domain 12: update scripts/generate-sdk.ts, named by the SDK generated headers but absent from this checkout, to emit the identity-scoped hook state, request/network generation guards, visible failure fields and exact decimal formatting in hooks.ts and utils.ts; preserve these changes during regeneration."
+consumers = "Domain 12: any downstream caller outside this checkout importing useVaultReserves must read its reserves field and render loading/error; callers selecting chains must supply the selected provider, replacing it on endpoint changes or using its ethers network events for chain changes."
+
+[gotcha.scoped]
+area = "workflow"
+symptom = "The unchanged-tree baseline requirement conflicts with the explicit implementation-first gate order; spec files and root GOTCHA.kvx are outside this task's scope."
+do = "Follow the numbered gate order and keep this scoped task record without inventing baseline test failures or editing out-of-scope ledgers."
+
+[gotcha.registration]
+area = "test"
+symptom = "The existing sibling repair record documents that Vitest treats test(function) as a todo declaration without executing assertions."
+do = "Register each named proof with test(proof.name, proof), and require the bounded gate log to show all nine proofs executed."
+
+[gotcha.rpc_failure]
+area = "test"
+symptom = "Rejecting every pool-state RPC also rejects token discovery, whose production fallback probes additional token selectors."
+do = "Reject the first financial read while returning the other planned RPC results, proving the hook exposes the read failure without inventing an unrelated discovery failure."
+
+[gotcha.revert_data]
+area = "test"
+symptom = "Ethers reports missing revert data when an eth_call failure carries only a JSON-RPC message."
+do = "Encode the fixture's Error(string) revert data through the real ABI codec so the asserted reason survives the provider and contract path."
+
+[gotcha.revert_message]
+area = "test"
+symptom = "The prior gate's six hook proofs failed with missing revert data even though the fixture supplied ABI-encoded Error(string) bytes."
+cause = "Ethers JsonRpcProvider only recognizes revert data on an RPC error object whose message contains revert; Recorded upstream failure alone does not match."
+do = "Return execution reverted: Recorded upstream failure alongside the existing encoded reason for every planned failed eth_call, including quote and price selectors; retain the production hooks and all nine proofs."
+
+[gotcha.network_subscription]
+area = "runtime"
+symptom = "StrictMode cleanup can remove an ethers subscription before asynchronous registration finishes, detaching the replacement listener from the provider."
+do = "Remove listeners after registration resolves; the real provider chain-change proof also drains old chain detection before switching the loopback network."
