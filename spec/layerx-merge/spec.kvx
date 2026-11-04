@@ -155113,7 +155113,7 @@ do_11 = "Attempt 5 (requalify): attempt 4 passed its build and verify and was he
 
 [task.22.33.199]
 title = "Repair audit record 22.30.12 medium findings in apps/perps/src/widgets/errors (part 1 of 1): wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.7", "22.31.8", "22.31.9", "22.31.479", "22.31.480"]
@@ -155358,7 +155358,7 @@ do_18 = "Attempt 6 (continue): merge current main first (22.31.480 removed the t
 
 [task.22.33.193]
 title = "Repair audit record 22.30.12 medium findings in apps/perps/src/widgets/explorer (part 1 of 1): restart-recovery, retired-reference, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.7", "22.31.8", "22.31.9", "22.31.479", "22.31.480"]
@@ -155399,7 +155399,7 @@ do_14 = "Attempt 5 (continue): merge current main first (22.31.480 removed the t
 
 [task.22.33.192]
 title = "Repair audit record 22.30.12 medium findings in apps/perps/src/widgets/analytics (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.7", "22.31.8", "22.31.9", "22.31.479", "22.31.480"]
@@ -367747,7 +367747,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.586]
 title = "Repair audit record 22.30.160 medium findings in services/explorer/backend/apps/indexer/lib/indexer/block/catchup (part 1 of 1): restart-recovery, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.280", "22.31.413"]
@@ -369958,7 +369958,7 @@ do_10 = "Attempt 2 (continue): the test file is now in the paths. 5 of 6 cases p
 
 [task.22.33.456]
 title = "Repair audit record 22.30.148 medium findings in services/explorer/backend/apps/indexer/lib/indexer/fetcher/on_demand (part 1 of 1): restart-recovery, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.275", "22.31.276"]
