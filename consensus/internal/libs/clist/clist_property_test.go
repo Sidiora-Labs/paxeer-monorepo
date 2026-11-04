@@ -10,7 +10,11 @@ import (
 )
 
 func TestCListProperties(t *testing.T) {
-	//rapid.Check(t, rapid.Run(&clistModel{}))
+	rapid.Check(t, func(t *rapid.T) {
+		m := &clistModel{}
+		m.init(t)
+		t.Repeat(rapid.StateMachineActions(m))
+	})
 }
 
 // clistModel is used by the rapid state machine testing framework.
@@ -22,10 +26,9 @@ type clistModel struct {
 	model []*clist.CElement[string]
 }
 
-// Init is a method used by the rapid state machine testing library.
-// Init is called when the test starts to initialize the data that will be used
+// init is called when the test starts to initialize the data that will be used
 // in the state machine test.
-func (m *clistModel) Init(t *rapid.T) {
+func (m *clistModel) init(t *rapid.T) {
 	m.clist = clist.New[string]()
 	m.model = []*clist.CElement[string]{}
 }
@@ -50,7 +53,8 @@ func (m *clistModel) Remove(t *rapid.T) {
 	ix := rapid.IntRange(0, len(m.model)-1).Draw(t, "index")
 	value := m.model[ix]
 	m.model = append(m.model[:ix], m.model[ix+1:]...)
-	m.clist.Remove(value)
+	require.Equal(t, value.Value(), m.clist.Remove(value))
+	require.True(t, value.Removed())
 }
 
 // Check is a method required by the rapid state machine testing library.
@@ -59,6 +63,8 @@ func (m *clistModel) Remove(t *rapid.T) {
 func (m *clistModel) Check(t *rapid.T) {
 	require.Equal(t, len(m.model), m.clist.Len())
 	if len(m.model) == 0 {
+		require.Nil(t, m.clist.Front())
+		require.Nil(t, m.clist.Back())
 		return
 	}
 	require.Equal(t, m.model[0], m.clist.Front())
@@ -67,6 +73,15 @@ func (m *clistModel) Check(t *rapid.T) {
 	iter := m.clist.Front()
 	for _, val := range m.model {
 		require.Equal(t, val, iter)
+		require.False(t, iter.Removed())
 		iter = iter.Next()
 	}
+	require.Nil(t, iter)
+
+	iter = m.clist.Back()
+	for i := len(m.model) - 1; i >= 0; i-- {
+		require.Equal(t, m.model[i], iter)
+		iter = iter.Prev()
+	}
+	require.Nil(t, iter)
 }
