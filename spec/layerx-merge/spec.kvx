@@ -173228,7 +173228,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.465]
 title = "Restore the Paxeer boundary crate manifest so the platform workspace loads again under --locked and its Rust gates run"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -173396,7 +173396,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1574]
 title = "Repair audit record 22.30.99 medium findings in services/agent/tools/policy-harness/src (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.227", "22.31.228", "22.31.229", "22.31.230"]
@@ -173820,7 +173820,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1560]
 title = "Repair audit record 22.30.98 medium findings in services/agent/crates/layerx-crypto/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.226", "22.31.443"]
@@ -321316,7 +321316,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1358]
 title = "Repair audit record 22.30.74 medium findings in sdk/contrib/rosetta/node (part 1 of 1): wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.342"]
@@ -322049,7 +322049,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1272]
 title = "Repair audit record 22.30.63 medium findings in wasm (part 1 of 1): config-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -322710,7 +322710,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.1076]
 title = "Repair audit record 22.30.43 medium findings in tests/daemon (part 1 of 1): retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.78", "22.31.463", "22.31.475"]
