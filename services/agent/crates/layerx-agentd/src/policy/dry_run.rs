@@ -3,8 +3,8 @@
 use std::str;
 
 use super::{
-    evaluate, Decision, DecisionReason, EvaluationInput, Explanation, Outcome, PolicyRegistry,
-    PolicySet,
+    evaluate, Decision, DecisionReason, EvaluationInput, Explanation, Outcome, PolicyHistoryError,
+    PolicyRegistry, PolicySet,
 };
 
 pub const LOCAL_ALLOW_NOTICE: &str =
@@ -32,6 +32,7 @@ pub enum ExplanationDecodeError {
 pub struct DryRunResult {
     pub decision: Decision,
     pub explanation: Explanation,
+    pub audit_error: Option<PolicyHistoryError>,
 }
 
 pub(crate) fn evaluate_dry_run(
@@ -40,12 +41,29 @@ pub(crate) fn evaluate_dry_run(
     policy: &PolicySet,
     input: &EvaluationInput<'_>,
 ) -> DryRunResult {
-    let decision = evaluate(policy, input);
+    let evaluated = evaluate(policy, input);
+    let audit_error = if registry
+        .tenant()
+        .is_some_and(|tenant| tenant != &input.session().request.tenant)
+    {
+        Some(PolicyHistoryError::TenantMismatch)
+    } else if registry.retained(&policy.version) != Some(policy) {
+        Some(PolicyHistoryError::PolicyMismatch)
+    } else {
+        registry
+            .record_decision(request_id, evaluated.clone())
+            .err()
+    };
+    let decision = if audit_error.is_some() {
+        Decision::deny(&policy.version, DecisionReason::EvaluationFailure)
+    } else {
+        evaluated
+    };
     let explanation = explain_decision(&decision, EvaluationMode::DryRun);
-    registry.record_decision(request_id, decision.clone());
     DryRunResult {
         decision,
         explanation,
+        audit_error,
     }
 }
 

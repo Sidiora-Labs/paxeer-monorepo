@@ -237,15 +237,19 @@ impl From<RedactionError> for RecordError {
 ///
 /// # Errors
 ///
-/// Returns `Invalid` for an empty, oversized, or evidence-incomplete entry and an
-/// audit error when the chain cannot be verified or appended; the operation does
-/// not run in either case.
+/// Returns a typed audit `TenantMismatch` before encoding a foreign entry,
+/// `Invalid` for an empty, oversized, or evidence-incomplete entry, and an audit
+/// error when the chain cannot be verified or appended. Coverage and the
+/// operation remain untouched on any error.
 pub fn record<T>(
     log: &mut Log,
     coverage: &mut Coverage,
     entry: &Entry,
     operation: impl FnOnce() -> T,
 ) -> Result<(AppendReceipt, T), RecordError> {
+    if !log.owns_tenant(&entry.tenant) {
+        return Err(AuditError::TenantMismatch.into());
+    }
     let encoded = encode_entry(entry)?;
     let output = log.before_committed_operation(&encoded, || {
         coverage.observe(entry.class);

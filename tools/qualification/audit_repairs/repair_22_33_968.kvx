@@ -1,0 +1,36 @@
+[task.22.33.968]
+base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+initial_revision = "6a89e59cf44a9afc71be23e35cb969addcec3095"
+readme_owner = "22.31.470"
+repair = "Consume the root README rewrite supplied by task 22.31.470 under decision 2525, preserving it unchanged. Add focused regression proof for audit 22.30.3/readme-network: one BFT network in paxd with an embedded kernel, chain 125, finality at block commit, root node RPC, gateway contract separation, signed transaction and committed receipt flows, current build/start instructions and retired custody/checkpoint executors."
+source_proof = "The pytest module reads the production README and follows its actual source references through node host initialization and cgo integration, consensus source, root RPC path guard, send/accept forwarding, WAL acknowledgement before receipt release and committed MsgSequenceBatch coverage. It parses the documented curl arguments and JSON request without executing them, parses the gateway OpenRPC JSON methods, checks node px registrations, reads Makefile dependency declarations and the chain.mk binary recipe, and asserts the actual retirement gates. It also checks both architecture diagrams and forbids the old daemon and router instructions."
+review_only = "Native Go/C/Rust execution, builds of paxd and its linked archives, network membership, endpoint availability, transaction execution, durable replication and BFT commitment are not executed by this Python-only gate. Source assertions prove documentation contracts, not runtime or deployment certification. No interface or restart-recovery behavior is changed; no runtime recovery proof is claimed. No shell script, unit file or manifest is modified; the documented shell commands are parsed in-process rather than executed and the gate needs no external binary, subprocess toolchain, environment variable, credential, live endpoint, native artifact or device."
+baseline = "No pre-change verification was run: the explicit implementation-first order requires hf-build before hf-done and prohibits manually running verify_cmd. The new module did not exist on the initial tree, so no baseline failures are claimed. Initial gate configuration recorded zero build and verify runs and no gates.jsonl ledger existed. Initial git status/diff showed only runner-prepared .cgignore and spec changes, which are preserved. README already contains the owning task's corrections; no missing expected fact was found during source inspection."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_968.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision = "Recorded by the final hf-done JSON entry in /out/run/gates.jsonl; this source record is finalized before the gate so it cannot embed its own content-derived candidate revision."
+evidence = "The private ledger and final hf-done JSON record the exact verified revision, command, exit code and log location. Build and verification must pass on the same candidate revision. The runner publishes the qualified candidate; no source edit follows a passing hf-done."
+wiring_requests = []
+ownership = "README.md | domain 17 / task 22.31.470 owns the architecture and operator rewrite; its committed result supplies every expected fact for this finding, so no additional wiring request is needed."
+
+[finding.readme-network]
+audit = "22.30.3"
+file = "README.md"
+line = 44
+class = "doc-drift"
+severity = "medium"
+owner_domain = 17
+resolution = "The owning task's README replaces the separate kernel/checkpoint topology and daemon build instructions; this task qualifies that result without editing the shared file. Closure requires hf-done to pass, not this declaration."
+tests = ["test_readme_network_integrates_kernel_and_bft_finality", "test_readme_network_uses_root_hosts_and_chain_125_probe", "test_readme_network_distinguishes_gateway_and_node_contracts", "test_readme_network_traces_transaction_to_committed_receipt", "test_readme_network_builds_and_runs_paxd", "test_readme_network_retires_custody_and_checkpoint_deployment", "test_readme_network_record_maps_finding_and_qualification_limits"]
+
+[gotcha.1]
+observed = "The task's pre-change verification clause conflicts with its explicit bounded gate order."
+resolution = "Follow the explicit order, run no manual baseline gate and claim no baseline failures. Record notes here because GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.2]
+observed = "Large combined reads exceed tool output limits, Codify searches include indexed neighboring files, and gate wrappers are in /out/run/bin rather than /usr/local/bin."
+resolution = "Use bounded source reads and direct Git state plus the task's private gate configuration as authority; preserve runner setup changes."
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. Apply the repository's .editorconfig UTF-8, LF, final newline and trailing-whitespace rules to the two scoped files after implementation is complete."

@@ -533,22 +533,36 @@ fn decode_hex_json(
         .get(field)
         .and_then(serde_json::Value::as_str)
         .ok_or(ProgramOperationError::UnverifiedReceipt)?;
-    if text.len() % 2 != 0 {
+    decode_program_hex(text, layerx_wire::limits::MAX_MESSAGE_BYTES)
+}
+
+fn decode_program_hex(text: &str, maximum: usize) -> Result<Vec<u8>, ProgramOperationError> {
+    let bytes = text.as_bytes();
+    if bytes.len() % 2 != 0 || bytes.len() / 2 > maximum || !bytes.iter().all(u8::is_ascii_hexdigit)
+    {
         return Err(ProgramOperationError::UnverifiedReceipt);
     }
-    (0..text.len())
-        .step_by(2)
-        .map(|offset| {
-            u8::from_str_radix(&text[offset..offset + 2], 16)
-                .map_err(|_| ProgramOperationError::UnverifiedReceipt)
-        })
-        .collect()
+    let nibble = |byte: u8| {
+        if byte.is_ascii_digit() {
+            byte - b'0'
+        } else {
+            byte.to_ascii_lowercase() - b'a' + 10
+        }
+    };
+    Ok(bytes
+        .chunks_exact(2)
+        .map(|pair| (nibble(pair[0]) << 4) | nibble(pair[1]))
+        .collect())
 }
 fn decode_fixed_json<const N: usize>(
     value: &serde_json::Value,
     field: &str,
 ) -> Result<[u8; N], ProgramOperationError> {
-    decode_hex_json(value, field)?
+    let text = value
+        .get(field)
+        .and_then(serde_json::Value::as_str)
+        .ok_or(ProgramOperationError::UnverifiedReceipt)?;
+    decode_program_hex(text, N)?
         .try_into()
         .map_err(|_| ProgramOperationError::UnverifiedReceipt)
 }
@@ -1594,7 +1608,7 @@ fn program_revert_reason(text: &str) -> Option<String> {
         return Some(text.to_owned());
     }
     let encoded = text.strip_prefix("0x")?;
-    let bytes = decode_hex_json(&serde_json::json!({"data": encoded}), "data").ok()?;
+    let bytes = decode_program_hex(encoded, layerx_wire::limits::MAX_MESSAGE_BYTES).ok()?;
     let bytes = bytes.strip_prefix(&[0x08, 0xc3, 0x79, 0xa0])?;
     if program_uint(bytes.get(..32)?).ok()? != 32 {
         return None;
