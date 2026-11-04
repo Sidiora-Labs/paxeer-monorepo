@@ -52,25 +52,120 @@ export interface IndexerOrder {
   status: string;
   marketId: number;
   orderType: number;
-  remainingSize: string;
-  blockTimestamp: number;
+  remainingSize: string | null;
+  blockTimestamp: string | null;
 }
 
 export interface IndexerTrade {
   positionId: string;
-  userAddress: string;
+  userAddress: string | null;
   sizeUsd: string;
-  executionPrice: string;
+  executionPrice: string | null;
   tradeType: string;
-  blockTimestamp: number;
+  blockTimestamp: string;
 }
 
 export interface IndexerLiquidation {
   positionId: string;
   userAddress: string;
-  sizeUsd: string;
-  executionPrice: string;
-  blockTimestamp: number;
+  sizeUsd: string | null;
+  executionPrice: string | null;
+  blockTimestamp: string;
+}
+
+function eventFields(value: unknown): Record<string, unknown> {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    throw new TypeError("Indexer event must be an object");
+  }
+  return value as Record<string, unknown>;
+}
+
+function eventString(value: unknown, field: string): string {
+  if (typeof value !== "string") {
+    throw new TypeError(`Indexer ${field} must be a string`);
+  }
+  return value;
+}
+
+function eventDecimal(value: unknown, field: string): string {
+  const text = eventString(value, field);
+  if (!/^\d+$/.test(text)) {
+    throw new TypeError(`Indexer ${field} must be an unsigned decimal integer`);
+  }
+  return text;
+}
+
+function eventInt(value: unknown, field: string): number {
+  if (
+    typeof value !== "number" ||
+    !Number.isInteger(value) ||
+    value < 0 ||
+    value > 2147483647
+  ) {
+    throw new TypeError(`Indexer ${field} must be a nonnegative GraphQL Int`);
+  }
+  return value;
+}
+
+function eventTime(value: unknown): string {
+  const text = eventString(value, "blockTimestamp");
+  if (
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/.test(
+      text,
+    ) ||
+    !Number.isFinite(Date.parse(text))
+  ) {
+    throw new TypeError("Indexer blockTimestamp must be an RFC3339 DateTime");
+  }
+  return text;
+}
+
+export function decodeIndexerOrder(value: unknown): IndexerOrder {
+  const row = eventFields(value);
+  return {
+    orderId: eventDecimal(row.orderId, "orderId"),
+    status: eventString(row.status, "status"),
+    marketId: eventInt(row.marketId, "marketId"),
+    orderType: eventInt(row.orderType, "orderType"),
+    remainingSize:
+      row.remainingSize === null
+        ? null
+        : eventDecimal(row.remainingSize, "remainingSize"),
+    blockTimestamp:
+      row.blockTimestamp === null ? null : eventTime(row.blockTimestamp),
+  };
+}
+
+export function decodeIndexerTrade(value: unknown): IndexerTrade {
+  const row = eventFields(value);
+  return {
+    positionId: eventDecimal(row.positionId, "positionId"),
+    userAddress:
+      row.userAddress === null
+        ? null
+        : eventString(row.userAddress, "userAddress"),
+    sizeUsd: eventDecimal(row.sizeUsd, "sizeUsd"),
+    executionPrice:
+      row.executionPrice === null
+        ? null
+        : eventDecimal(row.executionPrice, "executionPrice"),
+    tradeType: eventString(row.tradeType, "tradeType"),
+    blockTimestamp: eventTime(row.blockTimestamp),
+  };
+}
+
+export function decodeIndexerLiquidation(value: unknown): IndexerLiquidation {
+  const row = eventFields(value);
+  return {
+    positionId: eventDecimal(row.positionId, "positionId"),
+    userAddress: eventString(row.userAddress, "userAddress"),
+    sizeUsd: row.sizeUsd === null ? null : eventDecimal(row.sizeUsd, "sizeUsd"),
+    executionPrice:
+      row.executionPrice === null
+        ? null
+        : eventDecimal(row.executionPrice, "executionPrice"),
+    blockTimestamp: eventTime(row.blockTimestamp),
+  };
 }
 
 // ── indexerStatusUpdated ───────────────────────────────────────────────
@@ -174,7 +269,9 @@ const POSITION_CHANGED_SUBSCRIPTION = /* GraphQL */ `
   }
 `;
 
-export function usePositionChangedSubscription(userAddress: string | undefined) {
+export function usePositionChangedSubscription(
+  userAddress: string | undefined,
+) {
   const [positions, setPositions] = useState<IndexerPosition[] | null>(null);
 
   useEffect(() => {
@@ -210,15 +307,22 @@ export function useOrderChangedSubscription(userAddress: string | undefined) {
 
   useEffect(() => {
     if (!userAddress) return;
-    return subscribeStream<{ orderChanged: IndexerOrder }>({
-      endpoint: INDEXER_GRAPHQL,
-      query: ORDER_CHANGED_SUBSCRIPTION,
-      variables: { userAddress },
-      onData: (data) => setLatestOrder(data.orderChanged),
-    });
+    return subscribeIndexerOrder(userAddress, setLatestOrder);
   }, [userAddress]);
 
   return latestOrder;
+}
+
+export function subscribeIndexerOrder(
+  userAddress: string,
+  onOrder: (order: IndexerOrder) => void,
+) {
+  return subscribeStream<{ orderChanged: unknown }>({
+    endpoint: INDEXER_GRAPHQL,
+    query: ORDER_CHANGED_SUBSCRIPTION,
+    variables: { userAddress },
+    onData: (data) => onOrder(decodeIndexerOrder(data.orderChanged)),
+  });
 }
 
 // ── tradeCreated(marketId) ─────────────────────────────────────────────
@@ -241,15 +345,22 @@ export function useTradeCreatedSubscription(marketId: number | undefined) {
 
   useEffect(() => {
     if (marketId === undefined) return;
-    return subscribeStream<{ tradeCreated: IndexerTrade }>({
-      endpoint: INDEXER_GRAPHQL,
-      query: TRADE_CREATED_SUBSCRIPTION,
-      variables: { marketId },
-      onData: (data) => setLatestTrade(data.tradeCreated),
-    });
+    return subscribeIndexerTrade(marketId, setLatestTrade);
   }, [marketId]);
 
   return latestTrade;
+}
+
+export function subscribeIndexerTrade(
+  marketId: number,
+  onTrade: (trade: IndexerTrade) => void,
+) {
+  return subscribeStream<{ tradeCreated: unknown }>({
+    endpoint: INDEXER_GRAPHQL,
+    query: TRADE_CREATED_SUBSCRIPTION,
+    variables: { marketId },
+    onData: (data) => onTrade(decodeIndexerTrade(data.tradeCreated)),
+  });
 }
 
 // ── liquidationCreated(marketId) ───────────────────────────────────────
@@ -267,17 +378,26 @@ const LIQUIDATION_SUBSCRIPTION = /* GraphQL */ `
 `;
 
 export function useLiquidationSubscription(marketId: number | undefined) {
-  const [latestLiquidation, setLatestLiquidation] = useState<IndexerLiquidation | null>(null);
+  const [latestLiquidation, setLatestLiquidation] =
+    useState<IndexerLiquidation | null>(null);
 
   useEffect(() => {
     if (marketId === undefined) return;
-    return subscribeStream<{ liquidationCreated: IndexerLiquidation }>({
-      endpoint: INDEXER_GRAPHQL,
-      query: LIQUIDATION_SUBSCRIPTION,
-      variables: { marketId },
-      onData: (data) => setLatestLiquidation(data.liquidationCreated),
-    });
+    return subscribeIndexerLiquidation(marketId, setLatestLiquidation);
   }, [marketId]);
 
   return latestLiquidation;
+}
+
+export function subscribeIndexerLiquidation(
+  marketId: number,
+  onLiquidation: (liquidation: IndexerLiquidation) => void,
+) {
+  return subscribeStream<{ liquidationCreated: unknown }>({
+    endpoint: INDEXER_GRAPHQL,
+    query: LIQUIDATION_SUBSCRIPTION,
+    variables: { marketId },
+    onData: (data) =>
+      onLiquidation(decodeIndexerLiquidation(data.liquidationCreated)),
+  });
 }

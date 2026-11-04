@@ -1,13 +1,5 @@
-import { useState, useCallback, useMemo } from "react";
-import {
-  Users,
-  Copy,
-  Check,
-  Loader2,
-  Share2,
-  Trophy,
-  Lock,
-} from "lucide-react";
+import { useState, useCallback } from "react";
+import { Users, Copy, Check, Loader2, Share2, Lock } from "lucide-react";
 import { useSignMessage } from "wagmi";
 import { cn } from "@/ui/utils/cn";
 import { Button } from "@/ui/atoms/button";
@@ -15,50 +7,26 @@ import { usePerpsWallet } from "@/hooks/perps/usePerpsWallet";
 import { usePerfdbReferrals } from "@/hooks/perps/usePerfdbReferrals";
 import { usePerfdbAuth } from "@/hooks/perps/usePerfdbAuth";
 import { fmtUsdCompact, parse18 } from "@/ui/utils/format";
+import { ReferralTierStatus } from "./tier-status";
 
 export default function ReferralsPage() {
   const { address, isConnected, connect } = usePerpsWallet();
-  const {
-    data,
-    tiers,
-    isLoading,
-    error,
-    generateCode,
-    applyCode,
-  } = usePerfdbReferrals(address ?? undefined);
+  const { data, tiers, tierView, isLoading, error, generateCode, applyCode } =
+    usePerfdbReferrals(address ?? undefined);
   const auth = usePerfdbAuth();
   const { signMessageAsync } = useSignMessage();
 
   const [copied, setCopied] = useState<boolean>(false);
   const [applyCodeInput, setApplyCodeInput] = useState<string>("");
-  const [applyStatus, setApplyStatus] = useState<
-    { type: "success" | "error"; msg: string } | null
-  >(null);
+  const [applyStatus, setApplyStatus] = useState<{
+    type: "success" | "error";
+    msg: string;
+  } | null>(null);
   const [isApplying, setIsApplying] = useState<boolean>(false);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [genError, setGenError] = useState<string | null>(null);
   const [isSigningIn, setIsSigningIn] = useState<boolean>(false);
   const [signInError, setSignInError] = useState<string | null>(null);
-
-  // ── Derived ────────────────────────────────────────────────────
-  const currentTierIdx = useMemo(() => {
-    if (!data) return -1;
-    const idx = tiers.findIndex(
-      (t) => t.tier.toLowerCase() === data.tier.toLowerCase()
-    );
-    return idx;
-  }, [data, tiers]);
-
-  const nextTier = useMemo(() => {
-    if (currentTierIdx < 0) return null;
-    return tiers[currentTierIdx + 1] ?? null;
-  }, [tiers, currentTierIdx]);
-
-  const progressPct = useMemo(() => {
-    if (!data || !nextTier || nextTier.requiredReferrals <= 0) return 100;
-    const pct = (data.referralCount / nextTier.requiredReferrals) * 100;
-    return Math.min(100, Math.max(0, pct));
-  }, [data, nextTier]);
 
   // ── Handlers ───────────────────────────────────────────────────
   const handleSignIn = useCallback(async (): Promise<void> => {
@@ -67,12 +35,10 @@ export default function ReferralsPage() {
     setSignInError(null);
     try {
       await auth.authenticate(address, async (msg) =>
-        signMessageAsync({ message: msg })
+        signMessageAsync({ message: msg }),
       );
     } catch (err) {
-      setSignInError(
-        err instanceof Error ? err.message : "Failed to sign in"
-      );
+      setSignInError(err instanceof Error ? err.message : "Failed to sign in");
     } finally {
       setIsSigningIn(false);
     }
@@ -96,7 +62,7 @@ export default function ReferralsPage() {
       await generateCode();
     } catch (err) {
       setGenError(
-        err instanceof Error ? err.message : "Failed to generate code"
+        err instanceof Error ? err.message : "Failed to generate code",
       );
     } finally {
       setIsGenerating(false);
@@ -121,7 +87,7 @@ export default function ReferralsPage() {
         setIsApplying(false);
       }
     },
-    [applyCode, applyCodeInput]
+    [applyCode, applyCodeInput],
   );
 
   // ── Render ─────────────────────────────────────────────────────
@@ -135,7 +101,8 @@ export default function ReferralsPage() {
             <h1 className="text-2xl font-bold">Referrals</h1>
           </div>
           <p className="text-sm text-muted-foreground">
-            Earn a share of trading fees when friends you refer trade on HyperPax.
+            Earn a share of trading fees when friends you refer trade on
+            HyperPax.
           </p>
         </div>
 
@@ -146,138 +113,121 @@ export default function ReferralsPage() {
               <Users className="h-5 w-5 text-primary" />
               <div>
                 <p className="text-sm font-semibold">Wallet not connected</p>
-                <p className="text-xs text-muted-foreground">Connect to generate a code and track referral rewards.</p>
+                <p className="text-xs text-muted-foreground">
+                  Connect to generate a code and track referral rewards.
+                </p>
               </div>
             </div>
-            <Button size="sm" onClick={connect}>Connect Wallet</Button>
+            <Button size="sm" onClick={connect}>
+              Connect Wallet
+            </Button>
           </div>
         )}
 
         {/* Code + Tier grid — always rendered so layout is stable */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-            {/* Your Referral Code card */}
-            <div className="rounded-[var(--radius-lg)] bg-surface-1 p-5">
-              <h3 className="text-sm font-semibold mb-3">Your Referral Code</h3>
-              {!isConnected ? (
-                <div className="flex flex-col items-start gap-3">
-                  <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                    <Lock className="h-3.5 w-3.5" /> Connect your wallet to view or generate a code.
-                  </p>
-                  <Button size="sm" onClick={connect}>Connect Wallet</Button>
-                </div>
-              ) : !auth.isAuthenticated ? (
-                <div className="flex flex-col items-start gap-3">
-                  <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                    <Lock className="h-3.5 w-3.5" /> Sign in to view / generate your code.
-                  </p>
-                  <Button size="sm" onClick={handleSignIn} disabled={isSigningIn}>
-                    {isSigningIn ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : null}
-                    Sign In
-                  </Button>
-                  {signInError && (
-                    <p className="text-xs text-red-500">{signInError}</p>
-                  )}
-                </div>
-              ) : data?.referralCode ? (
-                <div className="flex items-center gap-2">
-                  <code className="flex-1 text-lg font-mono font-semibold bg-surface-2 px-3 py-2 rounded-[var(--radius-md)] tracking-widest">
-                    {data.referralCode}
-                  </code>
-                  <button
-                    onClick={handleCopy}
-                    className="h-10 w-10 flex items-center justify-center rounded-[var(--radius-md)] bg-surface-2 hover:bg-white/[0.08] transition-colors"
-                    aria-label="Copy code"
-                  >
-                    {copied ? (
-                      <Check className="h-4 w-4 text-emerald-500" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                  </button>
-                </div>
-              ) : (
-                <div className="flex flex-col items-start gap-3">
-                  <p className="text-sm text-muted-foreground">
-                    You don&apos;t have a code yet. Generate one to start earning.
-                  </p>
-                  <Button
-                    size="sm"
-                    onClick={handleGenerate}
-                    disabled={isGenerating}
-                  >
-                    {isGenerating ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : null}
-                    Generate Code
-                  </Button>
-                  {genError && (
-                    <p className="text-xs text-red-500">{genError}</p>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Your Tier card */}
-            <div className="rounded-[var(--radius-lg)] bg-surface-1 p-5">
-              <h3 className="text-sm font-semibold mb-3">Your Tier</h3>
-              {isLoading && !data ? (
-                <div className="h-24 rounded-md bg-primary/10 animate-pulse" />
-              ) : data ? (
-                <>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Trophy className="h-4 w-4 text-amber-400" />
-                    <span className="text-lg font-semibold capitalize">
-                      {data.tier}
-                    </span>
-                    <span className="text-xs text-muted-foreground ml-auto">
-                      {data.referralCount} referrals
-                    </span>
-                  </div>
-                  {nextTier ? (
-                    <>
-                      <div className="h-2 bg-surface-2 rounded-full overflow-hidden mb-1.5">
-                        <div
-                          className="h-full bg-primary transition-all duration-300"
-                          style={{ width: `${progressPct}%` }}
-                        />
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {data.referralCount} / {nextTier.requiredReferrals}{" "}
-                        referrals to <span className="capitalize">{nextTier.name}</span>
-                      </p>
-                    </>
-                  ) : (
-                    <p className="text-xs text-emerald-400">
-                      Max tier unlocked 🎉
-                    </p>
-                  )}
-                  {data.totalEarned !== null && (
-                    <div className="mt-3 pt-3 border-t border-white/[0.06]">
-                      <p className="text-xs text-muted-foreground">
-                        Total Earned
-                      </p>
-                      <p className="text-lg font-semibold font-mono">
-                        {fmtUsdCompact(parse18(data.totalEarned))}
-                      </p>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  {!isConnected ? "Connect your wallet to see tier progress." : "No tier data available."}
+          {/* Your Referral Code card */}
+          <div className="rounded-[var(--radius-lg)] bg-surface-1 p-5">
+            <h3 className="text-sm font-semibold mb-3">Your Referral Code</h3>
+            {!isConnected ? (
+              <div className="flex flex-col items-start gap-3">
+                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <Lock className="h-3.5 w-3.5" /> Connect your wallet to view
+                  or generate a code.
                 </p>
-              )}
-            </div>
+                <Button size="sm" onClick={connect}>
+                  Connect Wallet
+                </Button>
+              </div>
+            ) : !auth.isAuthenticated ? (
+              <div className="flex flex-col items-start gap-3">
+                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <Lock className="h-3.5 w-3.5" /> Sign in to view / generate
+                  your code.
+                </p>
+                <Button size="sm" onClick={handleSignIn} disabled={isSigningIn}>
+                  {isSigningIn ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : null}
+                  Sign In
+                </Button>
+                {signInError && (
+                  <p className="text-xs text-red-500">{signInError}</p>
+                )}
+              </div>
+            ) : data?.referralCode ? (
+              <div className="flex items-center gap-2">
+                <code className="flex-1 text-lg font-mono font-semibold bg-surface-2 px-3 py-2 rounded-[var(--radius-md)] tracking-widest">
+                  {data.referralCode}
+                </code>
+                <button
+                  onClick={handleCopy}
+                  className="h-10 w-10 flex items-center justify-center rounded-[var(--radius-md)] bg-surface-2 hover:bg-white/[0.08] transition-colors"
+                  aria-label="Copy code"
+                >
+                  {copied ? (
+                    <Check className="h-4 w-4 text-emerald-500" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col items-start gap-3">
+                <p className="text-sm text-muted-foreground">
+                  You don&apos;t have a code yet. Generate one to start earning.
+                </p>
+                <Button
+                  size="sm"
+                  onClick={handleGenerate}
+                  disabled={isGenerating}
+                >
+                  {isGenerating ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : null}
+                  Generate Code
+                </Button>
+                {genError && <p className="text-xs text-red-500">{genError}</p>}
+              </div>
+            )}
           </div>
+
+          {/* Your Tier card */}
+          <div className="rounded-[var(--radius-lg)] bg-surface-1 p-5">
+            <h3 className="text-sm font-semibold mb-3">Your Tier</h3>
+            {isLoading && !data ? (
+              <div className="h-24 rounded-md bg-primary/10 animate-pulse" />
+            ) : data ? (
+              <>
+                <ReferralTierStatus data={data} view={tierView} />
+                {data.totalEarned !== null && (
+                  <div className="mt-3 pt-3 border-t border-white/[0.06]">
+                    <p className="text-xs text-muted-foreground">
+                      Total Earned
+                    </p>
+                    <p className="text-lg font-semibold font-mono">
+                      {fmtUsdCompact(parse18(data.totalEarned))}
+                    </p>
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                {!isConnected
+                  ? "Connect your wallet to see tier progress."
+                  : "No tier data available."}
+              </p>
+            )}
+          </div>
+        </div>
 
         {/* Apply a Code card — always rendered with inline disabled state */}
         <div className="rounded-[var(--radius-lg)] bg-surface-1 p-5 mb-6">
           <h3 className="text-sm font-semibold mb-3">Apply a Code</h3>
           {!isConnected ? (
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Lock className="h-3.5 w-3.5" /> Connect your wallet to apply a code.
+              <Lock className="h-3.5 w-3.5" /> Connect your wallet to apply a
+              code.
             </div>
           ) : !auth.isAuthenticated ? (
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -308,7 +258,7 @@ export default function ReferralsPage() {
                 "text-xs mt-2",
                 applyStatus.type === "success"
                   ? "text-emerald-500"
-                  : "text-red-500"
+                  : "text-red-500",
               )}
             >
               {applyStatus.msg}
@@ -332,7 +282,9 @@ export default function ReferralsPage() {
                   <th className="text-right px-4 py-3 font-medium hidden sm:table-cell">
                     Volume Required
                   </th>
-                  <th className="text-right px-4 py-3 font-medium">Fee Share</th>
+                  <th className="text-right px-4 py-3 font-medium">
+                    Fee Share
+                  </th>
                   <th className="text-right px-4 py-3 font-medium hidden md:table-cell">
                     Fee Discount
                   </th>
@@ -348,27 +300,26 @@ export default function ReferralsPage() {
                       {isLoading
                         ? "Loading tiers…"
                         : error
-                        ? `Failed to load tiers: ${error.message}`
-                        : "No tiers available"}
+                          ? `Failed to load tiers: ${error.message}`
+                          : "No tiers available"}
                     </td>
                   </tr>
                 ) : (
-                  tiers.map((t) => {
-                    const isCurrent =
-                      data?.tier.toLowerCase() === t.tier.toLowerCase();
+                  tiers.map((t, index) => {
+                    const isCurrent = tierView.currentTierIndex === index;
                     return (
                       <tr
                         key={t.tier}
                         className={cn(
                           "border-b border-white/[0.04]",
-                          isCurrent && "bg-primary/5"
+                          isCurrent && "bg-primary/5",
                         )}
                       >
                         <td className="px-4 py-3">
                           <span
                             className={cn(
                               "capitalize font-medium",
-                              isCurrent && "text-primary"
+                              isCurrent && "text-primary",
                             )}
                           >
                             {t.name}
