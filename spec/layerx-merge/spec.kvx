@@ -146871,7 +146871,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1477]
 title = "Repair audit record 22.30.86 medium findings in services/platform/middleware/buyer/test (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.359", "22.31.360", "22.31.361", "22.31.362", "22.31.434", "22.31.435", "22.31.436"]
@@ -146943,7 +146943,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1475]
 title = "Repair audit record 22.30.86 medium findings in services/platform/middleware/seller/src (part 1 of 1): interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.359", "22.31.360", "22.31.361", "22.31.362", "22.31.434", "22.31.435", "22.31.436"]
@@ -146977,7 +146977,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1474]
 title = "Repair audit record 22.30.86 medium findings in services/platform/examples/support (part 1 of 1): restart-recovery, runtime-risk, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.359", "22.31.360", "22.31.361", "22.31.362", "22.31.434", "22.31.435", "22.31.436"]
@@ -148783,7 +148783,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.908]
 title = "Repair audit record 22.30.19 medium findings in apps/launchpad/web/src/core/network/abis (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.22", "22.31.23"]
@@ -148854,7 +148854,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.905]
 title = "Repair audit record 22.30.19 medium findings in apps/launchpad/web/src/core/market (part 1 of 1): config-drift, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.22", "22.31.23"]
@@ -152969,7 +152969,7 @@ do_15 = "Attempt 2 (requalify): twenty-one cases passed and seventeen failed; th
 
 [task.22.33.303]
 title = "Repair audit record 22.30.135 medium findings in apps/explorer/ui/multichain/searchResults (part 1 of 1): runtime-risk, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.267", "22.31.381"]
@@ -153109,7 +153109,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.299]
 title = "Repair audit record 22.30.135 medium findings in apps/explorer/ui/marketplace/essentialDapps/revoke/components (part 1 of 1): wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.267", "22.31.381"]
@@ -153178,7 +153178,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.297]
 title = "Repair audit record 22.30.135 medium findings in apps/explorer/ui/marketplace/essentialDapps/revoke/hooks (part 1 of 2): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.267", "22.31.381"]
@@ -153359,7 +153359,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.291]
 title = "Repair audit record 22.30.134 medium findings in apps/explorer/ui/address (part 2 of 2): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.379", "22.31.380"]
@@ -156197,7 +156197,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.131]
 title = "Repair audit record 22.30.114 medium findings in apps/wallet/src/components/ui (part 1 of 1): runtime-risk, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.234", "22.31.235", "22.31.236", "22.31.237"]
@@ -173322,7 +173322,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1559]
 title = "Repair audit record 22.30.98 medium findings in services/agent/crates/layerx-crypto/src/disclosure (part 1 of 1): doc-drift, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.226", "22.31.443"]
@@ -173549,7 +173549,7 @@ do_15 = "Attempt 2 (continue): (a) 20 cases panic inside the test's own fixture 
 
 [task.22.33.1552]
 title = "Repair audit record 22.30.97 medium findings in services/agent/crates/layerx-mcp/src (part 1 of 1): interface-mismatch, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.223", "22.31.224", "22.31.225", "22.31.443"]
@@ -175871,7 +175871,7 @@ do_14 = "Attempt 2 (continue): the two refused cases (the retention case that pr
 
 [task.22.33.1457]
 title = "Repair audit record 22.30.83 medium findings in services/platform/hosted/node/tests/probe/src (part 1 of 1): retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.353", "22.31.354", "22.31.355", "22.31.356", "22.31.357"]
@@ -176878,7 +176878,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1376]
 title = "Repair audit record 22.30.75 medium findings in services/platform/perf-db/src/relational (part 1 of 1): runtime-risk, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.138", "22.31.139", "22.31.140"]
@@ -177134,7 +177134,7 @@ title = "Repair audit record 22.30.74 medium findings in services/platform/tests
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.342"]
+requires = ["22.31.342", "22.31.465"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1366"]
 interfaces = []
@@ -177163,6 +177163,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_8 = "Attempt 2 (continue): services/platform/Cargo.toml is a virtual workspace root, so a cargo --test target through it never exists (gotcha 2984). The proving test now lives in the hosted internal crate at services/platform/hosted/internal/tests/repair_22_33_1366.rs and the gate runs cargo test --locked through that crate's manifest; the support module under services/platform/tests/support is repaired as the audit record proposes and the test reaches it by path. Run the build and the verify once on the final revision; no commit after the pass."
+do_9 = "Attempt 4 (continue after 22.31.465): the build could not load the platform workspace because 22.33.1319 deleted the paxeer member manifest; 22.31.465 restores it (decision 2524). Keep the attempt-3 tree (the hosted-crate test entry point, the six tests and the supervisor repair) and rerun the gates on a base containing 22.31.465."
 
 [task.22.33.1336]
 title = "Repair audit record 22.30.72 medium findings in services/platform/hosted/gateway/tests (part 2 of 2): restart-recovery, retired-reference"
@@ -178779,7 +178780,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.306]
 title = "Repair audit record 22.30.135 medium findings in services/explorer/services/sig-provider/sig-provider-server/src (part 1 of 1): interface-mismatch, restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.267", "22.31.381"]
@@ -178850,7 +178851,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.304]
 title = "Repair audit record 22.30.135 medium findings in services/explorer/services/sig-provider/sig-provider/src/sources (part 1 of 1): runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.267", "22.31.381"]
@@ -178999,7 +179000,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.258]
 title = "Repair audit record 22.30.130 medium findings in programs/crates/layerx-programs-runtime/src/storage (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.266", "22.31.443"]
@@ -180045,7 +180046,7 @@ do_11 = "Attempt 2 (continue): the dependent-crate check failed before this task
 
 [task.22.33.215]
 title = "Repair audit record 22.30.121 medium findings in programs/crates/layerx-programs-arbiter/src (part 1 of 1): interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.251", "22.31.252", "22.31.443"]
@@ -181930,7 +181931,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.48]
 title = "Repair audit record 22.30.106 medium findings in services/human/crates/layerx-human-service/src/auth (part 1 of 1): security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.155", "22.31.156", "22.31.443"]
@@ -182148,7 +182149,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.42]
 title = "Repair audit record 22.30.104 medium findings in services/human/crates/layerx-human-service/src/server (part 1 of 1): config-drift, retired-reference, runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.154", "22.31.443"]
@@ -182188,7 +182189,7 @@ do_13 = "Attempt 2 (requalify): the build passed on the final revision but that 
 
 [task.22.33.41]
 title = "Repair audit record 22.30.103 medium findings in services/human/schema/human-api (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.151", "22.31.152", "22.31.153", "22.31.443"]
@@ -182621,7 +182622,7 @@ do_8 = "Attempt 2 (continue): the dependent-crate check failed before this task'
 
 [task.22.33.25]
 title = "Repair audit record 22.30.102 medium findings in services/human/crates/layerx-human-kms/src (part 1 of 2): config-drift, restart-recovery, runtime-risk, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.150", "22.31.443"]
@@ -184942,7 +184943,7 @@ do_15 = "Attempt 3 (continue): the client build passed and the dependent-crate c
 
 [task.22.31.220]
 title = "Repair audit record 22.30.94 findings in services/agent/crates/layerx-agentd/src: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.443"]
@@ -196810,7 +196811,7 @@ title = "Serve the account-bearing placeOrder overload of the exchange precompil
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.31.463"]
 reqs = ["22998.1"]
 capabilities = ["22.31.459"]
 interfaces = []
@@ -196835,6 +196836,7 @@ time_limit_minutes = 60
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempt 3 (continue after 22.31.463): the test binary of precompiles/layerxexchange could not build because sdk/x/auth/client/cli, sdk/x/staking/client/cli and modules/tokenfactory/client/cli still call tx.NewFactoryCLI as a single value (sdk/client/tx repair 22.33.1462); 22.31.463 carries the callers along. Keep the attempt-2 tree and rerun the gates on a base containing 22.31.463."
 
 [task.22.33.1568]
 title = "Repair audit record 22.30.99 medium findings in services/agent/qualification/pay2 (part 1 of 1): test-gap, wiring-gap"
@@ -196988,7 +196990,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1484]
 title = "Repair audit record 22.30.87 medium findings in services/platform/perps-data/internal/publish (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.209", "22.31.210"]
@@ -197168,7 +197170,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1461]
 title = "Repair audit record 22.30.84 medium findings in sdk/client (part 1 of 1): runtime-risk, security, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.203", "22.31.204", "22.31.205"]
@@ -197352,7 +197354,7 @@ do_11 = "The gate of this task is corrected (gotcha 2984): the generated command
 
 [task.22.33.1447]
 title = "Repair audit record 22.30.82 medium findings in services/platform/hosted/testnet/tests (part 1 of 1): config-drift, retired-reference, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.350", "22.31.351", "22.31.352"]
@@ -198378,7 +198380,7 @@ title = "Repair audit record 22.30.70 medium findings in services/platform/hoste
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.186", "22.31.187"]
+requires = ["22.31.186", "22.31.187", "22.31.465"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1323"]
 interfaces = []
@@ -198415,6 +198417,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_16 = "The gate of this task is corrected (gotcha 2984): the generated command named a toolchain the touched path does not use. The proving test is services/platform/hosted/paxeer/tests/repair_22_33_1323.rs and the verify command is cargo test --locked --manifest-path services/platform/hosted/paxeer/Cargo.toml --test repair_22_33_1323; nothing else of the task changes."
+do_17 = "Attempt 3 (continue after 22.31.465): this task's crate manifest services/platform/hosted/paxeer/Cargo.toml was deleted by 22.33.1319 and 22.31.465 restores it (decision 2524); the crate stays and its eight findings are repaired in scope as the task says. Rerun the gates on a base containing 22.31.465."
 
 [task.22.33.1321]
 title = "Repair audit record 22.30.70 medium findings in services/platform/hosted/paxeer (part 3 of 3): restart-recovery, retired-reference, security"
@@ -198537,7 +198540,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1315]
 title = "Repair audit record 22.30.70 medium findings in sdk/server/rosetta/lib/types (part 1 of 1): config-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.186", "22.31.187"]
@@ -198572,7 +198575,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1314]
 title = "Repair audit record 22.30.70 medium findings in sdk/server/rosetta/lib/errors (part 1 of 1): interface-mismatch, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.186", "22.31.187"]
@@ -198683,7 +198686,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1311]
 title = "Repair audit record 22.30.70 medium findings in sdk/server/rosetta/lib/server (part 1 of 1): restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.186", "22.31.187"]
@@ -198718,7 +198721,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1310]
 title = "Repair audit record 22.30.70 medium findings in sdk/server/config (part 1 of 1): config-drift, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.186", "22.31.187"]
@@ -198792,6 +198795,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_14 = "Attempt 2 (continue): the rollback recovery case reserves its P2P addresses with the SDK's address reservation helper (TestReserveAddr), never port 0, so concurrent nodes do not collide. The unsupported-app case asserts a legacy hash the current definition no longer produces: rewrite the assertion to the current hash definition or, if sdk/server computes it wrongly, repair the production code there (in scope). Run the build and the verify once on the final revision with no commit after the pass."
+do_15 = "Attempt 4 (continue): the rollback recovery case fails with no blockstore found in <home>/data/tendermint because the case commits heights 1 to 3 through the in-process application only and never writes the consensus state database or the blockstore that sdk/server/rollback.go reads through LoadTendermintState and RollbackStateToTargetHeight. The package's own rollback_test.go already builds them: setupTendermintStateDB (line 152) writes the state at a height and setupBlockstore (line 297) fills the blockstore; use those helpers (or a real started-then-stopped node) so the consensus stores exist at the same height as the application and under the same home directory the rollback command is given, then assert the rollback moves both to the target height and the restarted application reports it. The six passing cases stay. Run the build and the verify once on the final revision; no commit after the pass."
 
 [task.22.33.1308]
 title = "Repair audit record 22.30.70 medium findings in sdk/chainflow/go/internal/testutil (part 1 of 1): test-gap"
@@ -198906,7 +198910,7 @@ title = "Repair audit record 22.30.69 medium findings in rpc/tests (part 1 of 1)
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.185"]
+requires = ["22.31.185", "22.31.463"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1301"]
 interfaces = []
@@ -198935,6 +198939,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "Attempt 3 (continue after 22.31.463): the test binary of rpc/tests could not build because sdk/x/auth/client/cli, sdk/x/staking/client/cli and modules/tokenfactory/client/cli still call tx.NewFactoryCLI as a single value (sdk/client/tx repair 22.33.1462); 22.31.463 carries the callers along. Keep the attempt-2 tree and rerun the gates on a base containing 22.31.463."
 
 [task.22.33.1300]
 title = "Repair audit record 22.30.69 medium findings in api (part 1 of 1): test-gap"
@@ -199821,7 +199826,7 @@ title = "Repair audit record 22.30.60 medium findings in modules/evm/keeper (par
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.179", "22.31.180", "22.31.181"]
+requires = ["22.31.179", "22.31.180", "22.31.181", "22.31.463"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1242"]
 interfaces = []
@@ -199856,6 +199861,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_14 = "Attempt 2 (continue): the fee fixture sets a minimum fee per gas of 1000000001, above the maximum the evm parameter validation admits (modules/evm/types, default maximum 1000 gwei). The fixture uses a fee within the parameter bounds; the bound is not widened to fit a fixture. Run the build and the verify once on the final revision with no commit after the pass."
+do_15 = "Attempt 4 (continue after 22.31.463): the test binary of modules/evm/keeper could not build because sdk/x/auth/client/cli, sdk/x/staking/client/cli and modules/tokenfactory/client/cli still call tx.NewFactoryCLI as a single value (sdk/client/tx repair 22.33.1462); 22.31.463 carries the callers along. Keep the attempt-3 tree and rerun the gates on a base containing 22.31.463."
 
 [task.22.33.1241]
 title = "Repair audit record 22.30.60 medium findings in modules/evm/client/wasm (part 1 of 1): runtime-risk"
@@ -201820,7 +201826,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1166]
 title = "Repair audit record 22.30.53 medium findings in storage/db_engine/litt (part 2 of 2): config-drift, doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.110", "22.31.111", "22.31.112", "22.31.113", "22.31.114", "22.31.115", "22.31.116", "22.31.117", "22.31.118"]
@@ -201897,6 +201903,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_16 = "Attempt 2 (continue): the cache-deletion case asserts that the expired segment files are gone immediately after the write that expires them, but LittDB deletes lazily and segment-wide (storage/db_engine/litt/README.md line 532): a segment file is removed only when all of its data has exceeded the table TTL and the engine's own garbage-collection pass runs. The product behaviour is correct and is not changed. Make the write and read sub-cases observe removal the way the engine completes it: drive the garbage-collection pass through the engine's own entry point where one exists, otherwise wait with a bounded condition (a few seconds, polling the directory) before asserting the files are gone; state in the repaired documentation that deletion is lazy, segment-wide and asynchronous. Keep the seven passing cases and rerun the gate."
 
 [task.22.33.1164]
 title = "Repair audit record 22.30.53 medium findings in storage/db_engine/litt/util (part 1 of 1): runtime-risk, security, test-gap"
@@ -208135,7 +208142,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.839]
 title = "Repair audit record 22.30.180 medium findings in tools/paxctl (part 1 of 1): config-drift, doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.325", "22.31.326", "22.31.327", "22.31.328", "22.31.329"]
@@ -208624,7 +208631,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.822]
 title = "Repair audit record 22.30.179 medium findings in tools/loadtest/stats (part 1 of 1): restart-recovery, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.321", "22.31.322", "22.31.323", "22.31.324", "22.31.427"]
@@ -209135,7 +209142,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.795]
 title = "Repair audit record 22.30.177 medium findings in tools/bringup (part 4 of 7): config-drift, restart-recovery, retired-reference, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.319"]
@@ -213293,7 +213300,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.310]
 title = "Repair audit record 22.30.135 medium findings in services/explorer/deploy/tools (part 1 of 1): restart-recovery, retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.267", "22.31.381"]
@@ -277111,7 +277118,7 @@ title = "Repair audit record 22.30.65 medium findings in precompiles/pointer (pa
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.130"]
+requires = ["22.31.130", "22.31.463"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1283"]
 interfaces = []
@@ -277142,6 +277149,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_11 = "Attempt 3 (continue after 22.31.463): the test binary of precompiles/pointer could not build because sdk/x/auth/client/cli, sdk/x/staking/client/cli and modules/tokenfactory/client/cli still call tx.NewFactoryCLI as a single value (sdk/client/tx repair 22.33.1462); 22.31.463 carries the callers along. Keep the attempt-2 tree and rerun the gates on a base containing 22.31.463."
 
 [task.22.33.1282]
 title = "Repair audit record 22.30.65 medium findings in precompiles/xweb (part 1 of 1): interface-mismatch, test-gap"
@@ -277221,7 +277229,7 @@ title = "Repair audit record 22.30.64 medium findings in precompiles/wasmd (part
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.31.463"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1275"]
 interfaces = []
@@ -277253,13 +277261,14 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_12 = "Attempt 3 (continue after 22.31.463): the test binary of precompiles/wasmd could not build because sdk/x/auth/client/cli, sdk/x/staking/client/cli and modules/tokenfactory/client/cli still call tx.NewFactoryCLI as a single value (sdk/client/tx repair 22.33.1462); 22.31.463 carries the callers along. Keep the attempt-2 tree and rerun the gates on a base containing 22.31.463."
 
 [task.22.33.1267]
 title = "Repair audit record 22.30.62 medium findings in precompiles/gov (part 1 of 1): test-gap"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.182", "22.31.183"]
+requires = ["22.31.182", "22.31.183", "22.31.463"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1267"]
 interfaces = []
@@ -277288,6 +277297,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "Attempt 3 (continue after 22.31.463): the test binary of precompiles/gov could not build because sdk/x/auth/client/cli, sdk/x/staking/client/cli and modules/tokenfactory/client/cli still call tx.NewFactoryCLI as a single value (sdk/client/tx repair 22.33.1462); 22.31.463 carries the callers along. Keep the attempt-2 tree and rerun the gates on a base containing 22.31.463."
 
 [task.22.33.1266]
 title = "Repair audit record 22.30.62 medium findings in precompiles/addr (part 1 of 1): test-gap"
@@ -277329,7 +277339,7 @@ title = "Repair audit record 22.30.62 medium findings in precompiles/ibc (part 1
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.182", "22.31.183"]
+requires = ["22.31.182", "22.31.183", "22.31.463"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1265"]
 interfaces = []
@@ -277359,13 +277369,14 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_10 = "Attempt 3 (continue after 22.31.463): the test binary of precompiles/ibc could not build because sdk/x/auth/client/cli, sdk/x/staking/client/cli and modules/tokenfactory/client/cli still call tx.NewFactoryCLI as a single value (sdk/client/tx repair 22.33.1462); 22.31.463 carries the callers along. Keep the attempt-2 tree and rerun the gates on a base containing 22.31.463."
 
 [task.22.33.1264]
 title = "Repair audit record 22.30.62 medium findings in precompiles/addr/legacy/v575 (part 1 of 1): runtime-risk"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.182", "22.31.183"]
+requires = ["22.31.182", "22.31.183", "22.31.463"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1264"]
 interfaces = []
@@ -277394,13 +277405,14 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "Attempt 3 (continue after 22.31.463): the test binary of precompiles/addr/legacy/v575 could not build because sdk/x/auth/client/cli, sdk/x/staking/client/cli and modules/tokenfactory/client/cli still call tx.NewFactoryCLI as a single value (sdk/client/tx repair 22.33.1462); 22.31.463 carries the callers along. Keep the attempt-2 tree and rerun the gates on a base containing 22.31.463."
 
 [task.22.33.1263]
 title = "Repair audit record 22.30.62 medium findings in precompiles/distribution/legacy/v562 (part 1 of 1): runtime-risk"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.182", "22.31.183"]
+requires = ["22.31.182", "22.31.183", "22.31.463"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1263"]
 interfaces = []
@@ -277429,13 +277441,14 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "Attempt 3 (continue after 22.31.463): the test binary of precompiles/distribution/legacy/v562 could not build because sdk/x/auth/client/cli, sdk/x/staking/client/cli and modules/tokenfactory/client/cli still call tx.NewFactoryCLI as a single value (sdk/client/tx repair 22.33.1462); 22.31.463 carries the callers along. Keep the attempt-2 tree and rerun the gates on a base containing 22.31.463."
 
 [task.22.33.1262]
 title = "Repair audit record 22.30.62 medium findings in precompiles/distribution/legacy/v555 (part 1 of 1): runtime-risk"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.182", "22.31.183"]
+requires = ["22.31.182", "22.31.183", "22.31.463"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1262"]
 interfaces = []
@@ -277464,6 +277477,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "Attempt 3 (continue after 22.31.463): the test binary of precompiles/distribution/legacy/v555 could not build because sdk/x/auth/client/cli, sdk/x/staking/client/cli and modules/tokenfactory/client/cli still call tx.NewFactoryCLI as a single value (sdk/client/tx repair 22.33.1462); 22.31.463 carries the callers along. Keep the attempt-2 tree and rerun the gates on a base containing 22.31.463."
 
 [task.22.33.1261]
 title = "Repair audit record 22.30.62 medium findings in precompiles/distribution/legacy/v640 (part 1 of 1): runtime-risk"
@@ -277507,7 +277521,7 @@ title = "Repair audit record 22.30.62 medium findings in precompiles/distributio
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.182", "22.31.183"]
+requires = ["22.31.182", "22.31.183", "22.31.463"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1260"]
 interfaces = []
@@ -277536,6 +277550,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "Attempt 3 (continue after 22.31.463): the test binary of precompiles/distribution/legacy/v630 could not build because sdk/x/auth/client/cli, sdk/x/staking/client/cli and modules/tokenfactory/client/cli still call tx.NewFactoryCLI as a single value (sdk/client/tx repair 22.33.1462); 22.31.463 carries the callers along. Keep the attempt-2 tree and rerun the gates on a base containing 22.31.463."
 
 [task.22.33.1259]
 title = "Repair audit record 22.30.62 medium findings in precompiles/distribution/legacy/v620 (part 1 of 1): runtime-risk"
@@ -277615,7 +277630,7 @@ title = "Repair audit record 22.30.62 medium findings in precompiles/distributio
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.182", "22.31.183"]
+requires = ["22.31.182", "22.31.183", "22.31.463"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1257"]
 interfaces = []
@@ -277644,13 +277659,14 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "Attempt 3 (continue after 22.31.463): the test binary of precompiles/distribution/legacy/v610 could not build because sdk/x/auth/client/cli, sdk/x/staking/client/cli and modules/tokenfactory/client/cli still call tx.NewFactoryCLI as a single value (sdk/client/tx repair 22.33.1462); 22.31.463 carries the callers along. Keep the attempt-2 tree and rerun the gates on a base containing 22.31.463."
 
 [task.22.33.1256]
 title = "Repair audit record 22.30.62 medium findings in precompiles/distribution/legacy/v606 (part 1 of 1): runtime-risk"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.182", "22.31.183"]
+requires = ["22.31.182", "22.31.183", "22.31.463"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1256"]
 interfaces = []
@@ -277679,13 +277695,14 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "Attempt 3 (continue after 22.31.463): the test binary of precompiles/distribution/legacy/v606 could not build because sdk/x/auth/client/cli, sdk/x/staking/client/cli and modules/tokenfactory/client/cli still call tx.NewFactoryCLI as a single value (sdk/client/tx repair 22.33.1462); 22.31.463 carries the callers along. Keep the attempt-2 tree and rerun the gates on a base containing 22.31.463."
 
 [task.22.33.1255]
 title = "Repair audit record 22.30.62 medium findings in precompiles/distribution/legacy/v605 (part 1 of 1): runtime-risk"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.182", "22.31.183"]
+requires = ["22.31.182", "22.31.183", "22.31.463"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1255"]
 interfaces = []
@@ -277714,6 +277731,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "Attempt 3 (continue after 22.31.463): the test binary of precompiles/distribution/legacy/v605 could not build because sdk/x/auth/client/cli, sdk/x/staking/client/cli and modules/tokenfactory/client/cli still call tx.NewFactoryCLI as a single value (sdk/client/tx repair 22.33.1462); 22.31.463 carries the callers along. Keep the attempt-2 tree and rerun the gates on a base containing 22.31.463."
 
 [task.22.33.1254]
 title = "Repair audit record 22.30.62 medium findings in precompiles/distribution/legacy/v580 (part 1 of 1): runtime-risk"
@@ -278154,7 +278172,7 @@ title = "Repair audit record 22.30.57 medium findings in precompiles/staking (pa
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.126"]
+requires = ["22.31.126", "22.31.463"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1201"]
 interfaces = []
@@ -278186,6 +278204,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_12 = "Attempt 3 (continue after 22.31.463): the test binary of precompiles/staking could not build because sdk/x/auth/client/cli, sdk/x/staking/client/cli and modules/tokenfactory/client/cli still call tx.NewFactoryCLI as a single value (sdk/client/tx repair 22.33.1462); 22.31.463 carries the callers along. Keep the attempt-2 tree and rerun the gates on a base containing 22.31.463."
 
 [task.22.33.1181]
 title = "Repair audit record 22.30.54 medium findings in node/wasmbinding (part 1 of 1): runtime-risk"
@@ -325328,7 +325347,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.765]
 title = "Repair audit record 22.30.173 medium findings in tools/qualification/paxeer-x (part 1 of 1): retired-reference, runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.316"]
@@ -326187,7 +326206,7 @@ do_11 = "Attempt 3 (requalify): the requalification run passed every test, but t
 
 [task.22.33.726]
 title = "Repair audit record 22.30.170 medium findings in deploy/launchpad/production/topology/phase2 (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.313", "22.31.314"]
@@ -326707,7 +326726,7 @@ do_8 = "Attempt 2 (continue): the committed transcript's receipt reference does 
 
 [task.22.33.702]
 title = "Repair audit record 22.30.169 medium findings in tests/agent/sdk/python (part 2 of 2): retired-reference, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.312"]
@@ -330040,7 +330059,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.9]
 title = "Repair audit record 22.30.1 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.1"]
@@ -367464,7 +367483,7 @@ do_8 = "Attempt 2 (continue): the failing case reaches for a PostgreSQL connecti
 
 [task.22.33.512]
 title = "Repair audit record 22.30.152 medium findings in services/explorer/backend/apps/indexer/lib/indexer (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.402", "22.31.403", "22.31.404"]
@@ -367500,7 +367519,7 @@ do_9 = "Attempt 2 (continue): the fixture inserts two consensus blocks with the 
 
 [task.22.33.511]
 title = "Repair audit record 22.30.152 medium findings in services/explorer/backend/apps/explorer/lib/explorer (part 1 of 1): config-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.402", "22.31.403", "22.31.404"]

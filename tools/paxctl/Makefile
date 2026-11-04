@@ -1,6 +1,6 @@
 BIN       := seictl
 BUILD_DIR := ./build
-VERSION   := $(shell jq -r .version version.json)
+VERSION   := $(shell go run ./internal/release version)
 
 # Guard against ldflag injection from a malicious version.json. The
 # value lands inside `-ldflags "-X '...=$(VERSION)'"`; a quote or
@@ -17,8 +17,10 @@ LDFLAGS := -X 'github.com/sei-protocol/seictl/internal/cliutil.Version=$(VERSION
 
 build:
 	go build -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BIN) .
+	go run ./internal/release verify --binary $(BUILD_DIR)/$(BIN)
 
 install:
+	$(MAKE) build
 	go install -ldflags "$(LDFLAGS)" .
 
 run:

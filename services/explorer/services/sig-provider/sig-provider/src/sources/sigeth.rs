@@ -1,9 +1,12 @@
+use super::directory_http;
 use crate::SignatureSource;
+use anyhow::Context;
 use reqwest_middleware::ClientWithMiddleware;
 
 pub struct Source {
     host: url::Url,
     client: ClientWithMiddleware,
+    import_client: reqwest::Client,
 }
 
 impl Source {
@@ -11,13 +14,14 @@ impl Source {
         Source {
             host,
             client: super::new_client(),
+            import_client: directory_http::client(),
         }
     }
 
     async fn fetch(&self, path: &str) -> Result<json::GetResponse, anyhow::Error> {
         let response = self
             .client
-            .get(self.host.join(path).unwrap())
+            .get(self.host.join(path).context("invalid sigeth lookup URL")?)
             .send()
             .await
             .map_err(anyhow::Error::msg)?;
@@ -43,17 +47,47 @@ impl Source {
 #[async_trait::async_trait]
 impl SignatureSource for Source {
     async fn create_signatures(&self, abi: &str) -> Result<(), anyhow::Error> {
-        let abi = serde_json::from_str(abi).map_err(anyhow::Error::msg)?;
-        self.client
-            .post(self.host.join("/api/v1/import").unwrap())
+        directory_http::validate_abi(abi)?;
+        let abi = serde_json::from_str(abi).context("malformed sigeth ABI")?;
+        let request = self
+            .import_client
+            .post(
+                self.host
+                    .join("/api/v1/import")
+                    .context("invalid sigeth import URL")?,
+            )
             .json(&json::CreateRequest {
                 kind: "abi",
                 data: vec![abi],
-            })
-            .send()
-            .await
-            .map(|_| ())
-            .map_err(anyhow::Error::msg)
+            });
+        tokio::time::timeout(directory_http::TOTAL_TIMEOUT, async {
+            let response = directory_http::import(request).await?;
+            let response: json::CreateResponse = response
+                .json()
+                .await
+                .context("malformed sigeth import result; check upstream before retrying")?;
+            anyhow::ensure!(
+                response.ok,
+                "sigeth import rejected by upstream; check ABI before retrying"
+            );
+            let result = response.result.context(
+                "sigeth import acceptance result missing; check upstream before retrying",
+            )?;
+            for result in [result.function, result.event] {
+                anyhow::ensure!(
+                    result.invalid.is_null()
+                        || result.invalid.as_array().is_some_and(Vec::is_empty)
+                        || result
+                            .invalid
+                            .as_object()
+                            .is_some_and(serde_json::Map::is_empty),
+                    "sigeth import rejected invalid signatures; correct ABI before retrying"
+                );
+            }
+            Ok(())
+        })
+        .await
+        .context("sigeth import exceeded total deadline; retry later with backoff")?
     }
 
     async fn get_function_signatures(&self, hex: &str) -> Result<Vec<String>, anyhow::Error> {
@@ -89,6 +123,27 @@ mod json {
         #[serde(rename = "type")]
         pub kind: &'static str,
         pub data: Vec<serde_json::Value>,
+    }
+
+    #[derive(Debug, Deserialize)]
+    pub struct CreateResponse {
+        pub ok: bool,
+        pub result: Option<ImportResult>,
+    }
+
+    #[derive(Debug, Deserialize)]
+    pub struct ImportResult {
+        pub function: ImportSignatures,
+        pub event: ImportSignatures,
+    }
+
+    #[derive(Debug, Deserialize)]
+    pub struct ImportSignatures {
+        #[serde(rename = "imported")]
+        pub _imported: HashMap<String, String>,
+        #[serde(rename = "duplicated")]
+        pub _duplicated: HashMap<String, String>,
+        pub invalid: serde_json::Value,
     }
 
     #[derive(Debug, Deserialize)]

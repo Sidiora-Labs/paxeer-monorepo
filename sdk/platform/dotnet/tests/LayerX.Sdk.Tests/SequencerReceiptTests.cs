@@ -25,7 +25,10 @@ public sealed class SequencerReceiptTests
     {
         using var document = LoadFixture("vector-v1-receipted-positive.json");
         var cases = Cases(document, "V1");
-        Assert.Equal(4, cases.Length);
+        Assert.Equal(new[] { "V1-pax-transfer", "V1-erc20-approve", "V1-layerxledger-pay-exact",
+            "V1-layerxbridge-bridge-out", "V1-layerxprograms-call" },
+            cases.Select(vector => vector.GetProperty("id").GetString()).ToArray());
+        Assert.Equal(5, cases.Length);
         foreach (var vector in cases)
         {
             var keys = Keys(vector);
@@ -43,6 +46,24 @@ public sealed class SequencerReceiptTests
             Assert.Equal(Hex(view, "returnData"), result.ReturnData);
             Assert.Equal(Hex(view, "keyId"), result.Receipt.ContextHash);
             Assert.Null(result.Revert);
+            if (vector.GetProperty("id").GetString() == "V1-layerxprograms-call")
+            {
+                var log = Assert.Single(view.GetProperty("logs").EnumerateArray());
+                Assert.Equal(Programs.AddressValue, log.GetProperty("address").GetString());
+                Assert.Equal("0xcfe5297f03a2951065e463e9e0c2e3686bc0204f727eeec1a52357b5dd4a27a0",
+                    log.GetProperty("topics")[0].GetString());
+                Assert.Equal(2, log.GetProperty("topics").GetArrayLength());
+                var (native, _) = RepairM1369Native.RecordedCall();
+                Assert.Equal(native.ProgramId, Convert.FromHexString(log.GetProperty("topics")[1].GetString()![2..]));
+                Assert.Equal(32, Convert.FromHexString(log.GetProperty("topics")[1].GetString()![2..]).Length);
+                Assert.Equal(13 * 32, Hex(log, "data").Length);
+                Assert.NotEmpty(result.ReturnData);
+                var altered = JsonNode.Parse(view.GetRawText())!.AsObject();
+                var bytes = Hex(log, "data"); bytes[^1] ^= 1;
+                altered["logs"]![0]!["data"] = "0x" + Convert.ToHexString(bytes).ToLowerInvariant();
+                AssertCheck(ReceiptCheck.Logs, () => LocalVerifier.VerifySequencerReceipt(
+                    JsonSerializer.SerializeToUtf8Bytes(altered), raw, keys));
+            }
 
             var primary = keys.Pinned[0];
             var unrelated = primary with { KeyId = SHA256.HashData(primary.KeyId) };

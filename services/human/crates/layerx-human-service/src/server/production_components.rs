@@ -414,6 +414,15 @@ impl ProductionComponentsConfig {
     /// # Errors
     /// Refuses incomplete, invalid, or unsupported production dependency configuration.
     pub fn from_environment() -> Result<Self, String> {
+        let protocol_value = env::var("LAYERX_HUMAN_PROTOCOL_VERSION")
+            .map(Some)
+            .or_else(|error| match error {
+                env::VarError::NotPresent => Ok(None),
+                env::VarError::NotUnicode(_) => {
+                    Err("LAYERX_HUMAN_PROTOCOL_VERSION is invalid".to_owned())
+                }
+            })?;
+        let protocol_version = selected_custody_protocol(protocol_value.as_deref(), false)?;
         let attestor = AttestorCustodyConfig::from_environment()?;
         let attestor_configured = attestor.is_some();
         Ok(Self {
@@ -448,7 +457,7 @@ impl ProductionComponentsConfig {
             },
             attestor,
             network_id: number("LAYERX_HUMAN_NETWORK_ID")?,
-            protocol_version: selected_custody_protocol(None, attestor_configured)?,
+            protocol_version,
             signing_limits: SigningLimits::new(
                 number("LAYERX_HUMAN_SIGNING_RATE_MAXIMUM")?,
                 number("LAYERX_HUMAN_SIGNING_RATE_WINDOW_SECONDS")?,
@@ -675,8 +684,13 @@ impl ProductionComponents {
         require_attestor_custody_protocol(config.attestor.is_some(), config.protocol_version)?;
         let provider = match (config.attestor.take(), config.kms.take()) {
             (Some(attestor), _) => ProductionKms::Attestor(
-                AttestorKms::connect(attestor)
-                    .map_err(|_| "attestor quorum refused startup".to_owned())?,
+                AttestorKms::connect_durable(
+                    attestor,
+                    config.custody_root.join("send-replay"),
+                    config.auth_index_key,
+                    Arc::clone(&clock),
+                )
+                .map_err(|_| "attestor quorum refused startup".to_owned())?,
             ),
             (None, Some(kms)) => {
                 ProductionKms::Remote(production_kms_provider(&kms, Arc::clone(&clock))?)
@@ -3246,16 +3260,15 @@ fn hex_bytes(bytes: &[u8]) -> String {
 }
 
 fn selected_protocol(value: Option<&str>) -> Result<u16, String> {
-    let protocol = value.map_or(Ok(layerx_intents::canonical::PROTOCOL_VERSION), |value| {
-        value
-            .parse::<u16>()
-            .map_err(|_| "LAYERX_HUMAN_PROTOCOL_VERSION is invalid".to_owned())
-    })?;
-    if !matches!(
-        protocol,
-        layerx_intents::canonical::PROTOCOL_VERSION
-            | layerx_intents::canonical::STATE_COMMITMENT_PROTOCOL_VERSION
-    ) {
+    let protocol = value.map_or(
+        Ok(layerx_intents::canonical::STATE_COMMITMENT_PROTOCOL_VERSION),
+        |value| {
+            value
+                .parse::<u16>()
+                .map_err(|_| "LAYERX_HUMAN_PROTOCOL_VERSION is invalid".to_owned())
+        },
+    )?;
+    if protocol != layerx_intents::canonical::STATE_COMMITMENT_PROTOCOL_VERSION {
         return Err("LAYERX_HUMAN_PROTOCOL_VERSION is unsupported".to_owned());
     }
     Ok(protocol)
@@ -3266,8 +3279,8 @@ mod protocol_tests {
     use super::selected_protocol;
     #[test]
     fn explicit_beta_protocol_preserves_legacy_default_and_refuses_unknown_versions() {
-        assert_eq!(selected_protocol(None), Ok(2));
-        assert_eq!(selected_protocol(Some("2")), Ok(2));
+        assert_eq!(selected_protocol(None), Ok(3));
+        assert!(selected_protocol(Some("2")).is_err());
         assert_eq!(selected_protocol(Some("3")), Ok(3));
         for invalid in ["", "0", "1", "4", "65536", "three"] {
             assert!(selected_protocol(Some(invalid)).is_err());
@@ -3334,7 +3347,7 @@ mod attestor_custody_protocol {
 
     #[test]
     fn attestor_custody_protocol_keeps_the_existing_behaviour_without_attestors() {
-        assert_eq!(selected_custody_protocol(None, false), Ok(2));
+        assert_eq!(selected_custody_protocol(None, false), Ok(3));
         assert_eq!(selected_custody_protocol(Some("2"), false), Ok(2));
         assert_eq!(selected_custody_protocol(Some("3"), false), Ok(3));
         for invalid in ["", "0", "1", "4", "65536", "three"] {
@@ -3904,7 +3917,12 @@ impl ProductionComponents {
         let challenge =
             super::key_export::step_up_begin(&self.passkeys, scope, &request.body, self.now()?)?;
         self.auth_index
-            .bind_step_up(&challenge.challenge_id, principal, challenge.expires_at)
+            .bind_step_up_at(
+                &challenge.challenge_id,
+                principal,
+                challenge.expires_at,
+                self.now()?,
+            )
             .map_err(|error| auth_failure(&error))?;
         Ok(BackendResponse {
             result: super::identity::IdentityProjector::checked_step_up_challenge(&challenge)?,
@@ -4920,7 +4938,12 @@ impl ProductionComponents {
             )
             .map_err(|error| auth_api_failure(&error))?;
         self.auth_index
-            .bind_registration(&challenge.registration_id, principal, challenge.expires_at)
+            .bind_registration_at(
+                &challenge.registration_id,
+                principal,
+                challenge.expires_at,
+                self.now()?,
+            )
             .map_err(|error| auth_failure(&error))?;
         Ok(BackendResponse {
             result: super::identity::IdentityProjector::checked_registration_challenge(&challenge)?,
@@ -6530,7 +6553,12 @@ impl ProductionComponents {
                 .begin_registration(&mut scope, &account, "Primary passkey", now)
                 .map_err(|error| auth_api_failure(&error))?;
             self.auth_index
-                .bind_registration(&challenge.registration_id, &principal, challenge.expires_at)
+                .bind_registration_at(
+                    &challenge.registration_id,
+                    &principal,
+                    challenge.expires_at,
+                    now,
+                )
                 .map_err(|error| auth_failure(&error))?;
             let result =
                 super::identity::IdentityProjector::checked_registration_challenge(&challenge)?;
@@ -6589,7 +6617,12 @@ impl ProductionComponents {
                 .begin_assertion(&mut scope, now)
                 .map_err(|error| auth_api_failure(&error))?;
             self.auth_index
-                .bind_assertion(&challenge.assertion_id, &principal, challenge.expires_at)
+                .bind_assertion_at(
+                    &challenge.assertion_id,
+                    &principal,
+                    challenge.expires_at,
+                    now,
+                )
                 .map_err(|error| auth_failure(&error))?;
             let result =
                 super::identity::IdentityProjector::checked_assertion_challenge(&challenge)?;
@@ -7185,32 +7218,27 @@ struct AttestorKmsState {
     creation: Mutex<()>,
     enrolment: Mutex<Option<(String, String)>>,
     assertions: Mutex<std::collections::BTreeMap<String, zeroize::Zeroizing<String>>>,
-    sends: Mutex<std::collections::BTreeMap<[u8; 32], AttestorSignedSend>>,
+    sends: Mutex<Option<super::attestor_send_journal::AttestorSendJournal>>,
+    clock: Mutex<Option<Arc<dyn Clock>>>,
     last_refusal: Mutex<Option<String>>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, serde::Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
-struct AttestorSendDisclosure {
+pub(super) struct AttestorSendDisclosure {
     recipient: [u8; 20],
     denom: String,
     amount: [u8; 32],
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, serde::Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
-struct AttestorSendAuthorization {
-    authorization: crate::custody::EvmPlanAuthorization,
+pub(super) struct AttestorSendAuthorization {
+    pub(super) authorization: crate::custody::EvmPlanAuthorization,
     disclosure: AttestorSendDisclosure,
 }
 
-struct AttestorSignedSend {
-    request: AttestorSendAuthorization,
-    raw_transaction: Vec<u8>,
-}
-
 const ATTESTOR_SEND_OPERATION: u8 = 11;
-const ATTESTOR_SEND_CACHE_LIMIT: usize = 4_096;
 
 #[derive(Clone)]
 pub struct AttestorKms {
@@ -7327,11 +7355,32 @@ impl AttestorKms {
                 creation: Mutex::new(()),
                 enrolment: Mutex::new(None),
                 assertions: Mutex::new(std::collections::BTreeMap::new()),
-                sends: Mutex::new(std::collections::BTreeMap::new()),
+                sends: Mutex::new(None),
+                clock: Mutex::new(None),
                 last_refusal: Mutex::new(None),
             }),
         };
         crate::custody::KmsProvider::probe(&kms).map_err(CustodyError::Kms)?;
+        Ok(kms)
+    }
+
+    pub fn connect_durable(
+        config: AttestorCustodyConfig,
+        root: impl AsRef<std::path::Path>,
+        key: [u8; 32],
+        clock: Arc<dyn Clock>,
+    ) -> Result<Self, CustodyError> {
+        let journal = super::attestor_send_journal::AttestorSendJournal::open(root, key)
+            .map_err(CustodyError::Kms)?;
+        let kms = Self::connect(config)?;
+        *kms.inner
+            .sends
+            .lock()
+            .map_err(|_| CustodyError::Kms(KmsError::Unavailable))? = Some(journal);
+        *kms.inner
+            .clock
+            .lock()
+            .map_err(|_| CustodyError::Kms(KmsError::Unavailable))? = Some(clock);
         Ok(kms)
     }
 
@@ -7464,8 +7513,13 @@ impl AttestorKms {
             serde_json::from_slice(payload).map_err(|_| KmsError::Refused)?;
         let authorization = &request.authorization;
         let transaction = &authorization.transaction;
-        let now = layerx_client::runtime_clock::RuntimeClock::from_environment()
+        let now = self
+            .inner
+            .clock
+            .lock()
             .map_err(|_| KmsError::Unavailable)?
+            .as_ref()
+            .ok_or(KmsError::InvalidConfiguration)?
             .sample(Duration::from_secs(1))
             .map_err(|_| KmsError::Unavailable)?
             .unix_seconds();
@@ -7522,23 +7576,9 @@ impl AttestorKms {
             _ => return Err(KmsError::Refused),
         }
         let mut sends = self.inner.sends.lock().map_err(|_| KmsError::Unavailable)?;
-        if let Some(previous) = sends.get(&authorization.action_key) {
-            return if previous.request == request {
-                Ok(previous.raw_transaction.clone())
-            } else {
-                Err(KmsError::Conflict)
-            };
-        }
-        if sends.len() >= ATTESTOR_SEND_CACHE_LIMIT {
-            return Err(KmsError::Unavailable);
-        }
-        if sends.values().any(|previous| {
-            let prior = &previous.request.authorization;
-            prior.wallet == authorization.wallet
-                && prior.transaction.chain_id == transaction.chain_id
-                && prior.transaction.nonce >= transaction.nonce
-        }) {
-            return Err(KmsError::Conflict);
+        let journal = sends.as_mut().ok_or(KmsError::InvalidConfiguration)?;
+        if let Some(raw) = journal.replay(payload, now)? {
+            return Ok(raw);
         }
         let assertion = self
             .inner
@@ -7560,6 +7600,9 @@ impl AttestorKms {
         if signer.evm_address() != authorization.wallet {
             return Err(KmsError::Refused);
         }
+        if let Some(raw) = journal.reserve(payload, now)? {
+            return Ok(raw);
+        }
         let transaction_signer = DisclosedAttestorSigner(signer);
         let signature = super::executor::poll_once_ready(sign_disclosed_call(
             &transaction_signer,
@@ -7576,14 +7619,7 @@ impl AttestorKms {
             return Err(KmsError::Integrity);
         }
         let raw_transaction = layerx_crypto::evm_transaction::assemble(&call, &signature);
-        sends.insert(
-            authorization.action_key,
-            AttestorSignedSend {
-                request,
-                raw_transaction: raw_transaction.clone(),
-            },
-        );
-        Ok(raw_transaction)
+        journal.complete(payload, raw_transaction)
     }
 
     fn sign_now(

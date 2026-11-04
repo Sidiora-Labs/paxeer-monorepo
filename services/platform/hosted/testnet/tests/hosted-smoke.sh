@@ -14,7 +14,8 @@ umask 077
 : "${LAYERX_TEST_SEQUENCER_PUBLIC_KEY:?An independent sequencer public key is required}"
 : "${LAYERX_TEST_ASSET:?LAYERX_TEST_ASSET is required}"
 : "${LAYERX_TEST_AMOUNT:?LAYERX_TEST_AMOUNT is required}"
-: "${LAYERX_TEST_SOURCE_KEY_FILE:?LAYERX_TEST_SOURCE_KEY_FILE is required}"
+: "${LAYERX_TEST_ACCOUNTS_FILE:?The explicit DID/EVM smoke account bindings are required}"
+: "${LAYERX_TEST_SOURCE_EVM_KEY_FILE:?LAYERX_TEST_SOURCE_EVM_KEY_FILE is required}"
 : "${LAYERX_TEST_NODE_URL:?The HTTPS root node RPC endpoint is required}"
 : "${LAYERX_TEST_RECEIPT_KEYS_FILE:?Independent node receipt keys are required}"
 test -r "$LAYERX_TEST_AUTH_TOKEN_FILE"
@@ -133,7 +134,9 @@ jq -e '.funded == true and .funding_id != null' "$work/destination-faucet-respon
 
 admit_journey payment
 python3 "$(dirname "$0")/payment-journey.py" --gateway "$LAYERX_GATEWAY_URL" \
-  --ca "$LAYERX_TEST_CA_FILE" --auth-config "$auth_config" --signer "$LAYERX_TEST_SOURCE_KEY_FILE" \
+  --node "$LAYERX_TEST_NODE_URL" \
+  --ca "$LAYERX_TEST_CA_FILE" --auth-config "$auth_config" --signer "$LAYERX_TEST_SOURCE_EVM_KEY_FILE" \
+  --accounts "$LAYERX_TEST_ACCOUNTS_FILE" \
   --did "$LAYERX_TEST_SOURCE_DID" --destination "$LAYERX_TEST_DESTINATION_DID" \
   --asset "$LAYERX_TEST_ASSET" --amount "$LAYERX_TEST_AMOUNT" \
   --evm-chain-id "$(jq -er '.evm_chain_id' "$work/parameters.json")" \

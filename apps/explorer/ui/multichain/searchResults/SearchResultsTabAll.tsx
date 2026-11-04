@@ -13,9 +13,11 @@ const MAX_ITEMS_IN_GROUP = 5;
 
 interface Props {
   queries: SearchQueries;
+  searchTerm: string;
+  chainId?: string;
 }
 
-const SearchResultsTabAll = ({ queries }: Props) => {
+const SearchResultsTabAll = ({ queries, searchTerm, chainId }: Props) => {
   return (
     <Flex flexDir="column" rowGap={ 8 }>
       { Object.entries(queries)
@@ -39,7 +41,10 @@ const SearchResultsTabAll = ({ queries }: Props) => {
                   borderTopColor="border.divider"
                   textStyle="sm"
                   w="full"
-                  href={ route({ pathname: '/search-results', query: { tab: SEARCH_TABS_IDS[queryType] } }) }
+                  href={ route({
+                    pathname: '/search-results',
+                    query: { q: searchTerm, ...(chainId !== undefined ? { chain_id: chainId } : {}), tab: SEARCH_TABS_IDS[queryType] },
+                  }) }
                 >
                   View all
                 </Link>

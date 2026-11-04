@@ -1,3 +1,4 @@
+mod directory_http;
 pub mod eth_bytecode_db;
 pub mod fourbyte;
 pub mod precompiles;

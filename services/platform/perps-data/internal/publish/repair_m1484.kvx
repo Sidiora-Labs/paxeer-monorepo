@@ -1,0 +1,10 @@
+[repair.22.33.1484]
+audit = "22.30.87"
+finding = "envelope-boundary-test"
+proof = ["TestRepairM_1484_EnvelopeBoundary", "TestRepairM_1484_HeaderBudget"]
+change = "The shared publisher envelope_limit proof enqueues two exact maximum-admitted bodies, publishes them with normal and pipelined headers through the configured three-replica NATS stream, and checks production consumer/decoder payload, hash and identity; one additional byte rolls back both a sibling outbox row and the block row."
+legacy = "Only explicitly injected old-limit legacy rows bypass admission; schema-violation quarantine, exact skipped identity, in-order progress, readiness, head age, logs and quarantine metrics remain asserted."
+baseline = "Not run: the explicit ordered gates prohibit testing before complete implementation and allow verify only through hf-done after hf-build; no unchanged-tree failure is claimed."
+fixture_constraint = "Attempt 2 explicitly applies GOTCHA 2980: PERPS_DATA_TEST_DATABASE_URL supplies the real PostgreSQL fixture. The proof uses the existing testDatabase helper to create and clean up an isolated database, production migrations and delivery.Store, and in-process loopback NATS servers."
+wiring_request = "None: the attempt-2 environment ruling supplies the production store fixture; every repair and proving test stays inside the publish package."
+qualification = "The runner's private hf-build/hf-done ledger records the exact candidate revision, command, exit and log; no gate is claimed unless that evidence exists."

@@ -1,0 +1,14 @@
+[repair.22.33.1314]
+audit = "22.30.70"
+base_revision = "ccd003394e03ec2e54bf3c38d1e6242ca25bd572"
+qualification_evidence = "/out/run/gates.jsonl records the exact candidate revision, command, exit and private log for hf-build and hf-done."
+baseline = "Not run: the explicit implementation-first order and bounded hf-build/hf-done-only gate rules supersede step 6's unchanged-tree verification; no baseline test failure is claimed."
+wiring_requests = "None: repairs and proofs are confined to the errors package; the loopback fixture transports SealAndListErrors and ToRosetta output to the real Rosetta SDK client."
+
+[finding.rosetta-error-seal-test]
+test = "TestRepairM_1314_RegistrySnapshots"
+proof = "Runs the preserved TestRegisterError behavior assertions against an isolated real registry, with exact serialized snapshots for identical duplicates, conflicting duplicates, late additions and conflicts after sealing."
+
+[finding.rosetta-error-seal]
+test = "TestRepairM_1314_NetworkOptionsVocabulary"
+proof = "Seals the real registry, rejects duplicate and late mutations, then transports every registered error and a wrapped error over loopback HTTP to the Rosetta SDK client and compares definitions with its decoded network/options vocabulary."

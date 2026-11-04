@@ -58,9 +58,9 @@ deploy <service-host>
 Environment:
   BRINGUP_HOSTS_FILE   the private host map, as tools/bringup/check-live.sh
   CHECK_LIVE_TIMEOUT   seconds per ssh call, default 30
-  SEARCH_FRONT_PRIMARY the pinned serving name, default the first declared RPC node
+  SEARCH_FRONT_PRIMARY the pinned serving name, default the first discovered serving RPC node
   SEARCH_FRONT_BACKUP  the serving name pinned while the primary is not
-                       ready, default the second declared RPC node
+                       ready, default the next distinct discovered serving RPC node
   SEARCH_FRONT_READINESS_TIMEOUT seconds per HTTPS readiness probe, default 5
 
 Exits 1 when a destination or configuration step fails; 2 on a usage
@@ -103,146 +103,23 @@ search_front_names() {
 	printf '%s\n' "${lines[@]}" | sort -k2,2V
 }
 
+search_front_select() {
+	local listing="$1" selection
+	load_rpc_inventory || return 1
+	selection="$(printf '%s\n' "$listing" | "${BRINGUP_INSPECT_BIN:-bringup-inspect}" search-selection "$rpc_inventory" "$search_front_primary" "$search_front_backup")" || return 1
+	read -r search_front_primary search_front_backup <<<"$selection"
+}
+
 search_front_candidate() {
-	local name="$1" seconds="${SEARCH_FRONT_READINESS_TIMEOUT:-5}"
-	if [[ ! "$seconds" =~ ^[1-9][0-9]*$ ]] || [ "$seconds" -gt 30 ]; then
-		echo "search-front: readiness timeout must be 1..30 seconds" >&2
-		return 1
-	fi
-	timeout "$seconds" python3 -I - "$name" "$seconds" <<'PY'
-import json
-import sys
-import time
-import urllib.error
-import urllib.request
-
-def unique_object(pairs):
-    value = {}
-    for key, item in pairs:
-        if key in value:
-            raise ValueError("duplicate readiness field")
-        value[key] = item
-    return value
-
-def integer(value):
-    return type(value) is int and 0 <= value <= 18446744073709551615
-
-try:
-    name, seconds = sys.argv[1:]
-    origin = "https://" + name + "/readyz"
-    try:
-        response = urllib.request.urlopen(origin, timeout=int(seconds))
-    except urllib.error.HTTPError as error:
-        if error.code != 503:
-            raise
-        response = error
-    with response:
-        status = response.status
-        if status not in (200, 503):
-            raise ValueError("readiness status")
-        if response.geturl() != origin:
-            raise ValueError("readiness redirect")
-        raw = response.read(65537)
-    if len(raw) > 65536:
-        raise ValueError("readiness response bound")
-    value = json.loads(raw, object_pairs_hook=unique_object)
-    if not isinstance(value, dict) or set(value) != {"version", "ready", "roles", "checked_at_unix_ms", "network_id", "protocol_version"}:
-        raise ValueError("readiness shape")
-    if type(value["version"]) is not int or value["version"] != 1 or type(value["ready"]) is not bool or (status == 200) != value["ready"]:
-        raise ValueError("readiness version or state")
-    if not integer(value["network_id"]) or value["network_id"] == 0 or type(value["protocol_version"]) is not int or value["protocol_version"] != 3:
-        raise ValueError("readiness protocol identity")
-    checked = value["checked_at_unix_ms"]
-    now = time.time_ns() // 1000000
-    if not integer(checked) or checked > now + 5000:
-        raise ValueError("readiness clock")
-    roles = value["roles"]
-    if not isinstance(roles, list) or not 1 <= len(roles) <= 3:
-        raise ValueError("readiness roles")
-    expected = {
-        "paid_delivery": {"index", "content_storage", "payment_journal", "settlement_authority"},
-        "evm_attestor": {"evm_chain", "registered_peer_quorum", "attestor_progress", "attestation_journal"},
-        "program_relay": {"evm_chain", "registered_peer_quorum", "relay_progress", "program_journal"},
-    }
-    seen_roles = set()
-    states = {"starting", "ready", "unavailable", "stale"}
-    for role in roles:
-        if not isinstance(role, dict) or set(role) != {"role", "state", "dependencies", "freshness_budget_ms", "first_use_deadline_unix_ms"}:
-            raise ValueError("readiness role shape")
-        identity = role["role"]
-        if identity not in expected or identity in seen_roles or role["state"] not in states:
-            raise ValueError("readiness role identity or state")
-        seen_roles.add(identity)
-        budget = role["freshness_budget_ms"]
-        if not integer(budget) or not 1 <= budget <= 300000 or now - checked > budget or not integer(role["first_use_deadline_unix_ms"]):
-            raise ValueError("readiness freshness")
-        dependencies = role["dependencies"]
-        if not isinstance(dependencies, list) or len(dependencies) != len(expected[identity]):
-            raise ValueError("readiness dependencies")
-        seen_dependencies = set()
-        for dependency in dependencies:
-            if not isinstance(dependency, dict) or set(dependency) != {"dependency", "state", "critical", "last_success_unix_ms"}:
-                raise ValueError("readiness dependency shape")
-            key = dependency["dependency"]
-            if key not in expected[identity] or key in seen_dependencies or dependency["state"] not in states or dependency["critical"] is not True:
-                raise ValueError("readiness critical dependency")
-            seen_dependencies.add(key)
-            last_success = dependency["last_success_unix_ms"]
-            if last_success is not None and (not integer(last_success) or last_success > checked):
-                raise ValueError("readiness dependency freshness")
-            if dependency["state"] == "ready" and (last_success is None or checked - last_success > budget):
-                raise ValueError("ready dependency has no fresh success")
-        if (role["state"] == "ready") != all(item["state"] == "ready" for item in dependencies):
-            raise ValueError("readiness role aggregation")
-    if "paid_delivery" not in seen_roles:
-        raise ValueError("missing serving role")
-    if value["ready"] != all(role["state"] == "ready" for role in roles):
-        raise ValueError("readiness aggregate")
-    if not value["ready"]:
-        raise ValueError("serving backend is not ready")
-except Exception:
-    sys.exit(1)
-PY
+	"${BRINGUP_INSPECT_BIN:-bringup-inspect}" search-ready "$1" "${SEARCH_FRONT_READINESS_TIMEOUT:-5}"
 }
 
 search_front_render() {
-	load_rpc_inventory || return 1
-	local name pinned admitted=0
-	[ -n "$search_front_primary" ] || search_front_primary="${rpc_names[0]}"
-	[ -n "$search_front_backup" ] || search_front_backup="${rpc_names[1]}"
-	for name in "$search_front_primary" "$search_front_backup"; do
-		case " ${rpc_names[*]} " in
-		*" $name "*) ;;
-		*)
-			echo "search-front: $name is not a declared serving apiN name" >&2
-			return 1
-			;;
-		esac
-	done
-	if [ "$search_front_primary" = "$search_front_backup" ]; then
-		echo "search-front: the backup repeats the primary" >&2
-		return 1
-	fi
-	pinned="$search_front_primary"
-	if search_front_candidate "$search_front_primary"; then
-		admitted=1
-	elif search_front_candidate "$search_front_backup"; then
-		pinned="$search_front_backup"
-		admitted=1
-		echo "search-front: $search_front_primary has no valid readiness contract, $pinned is pinned" >&2
-	else
-		echo "search-front: neither $search_front_primary nor $search_front_backup has a valid readiness contract" >&2
-	fi
-	echo "# The serving name of $search_front_host, rendered by tools/bringup/search-front.sh."
-	# shellcheck disable=SC2016
-	echo 'split_clients "${xweb_client}" $xweb_node {'
-	echo "    * $pinned;"
-	echo '}'
-	# shellcheck disable=SC2016
-	echo 'map $xweb_node $xweb_eligible {'
-	echo '    default 0;'
-	echo "    $pinned $admitted;"
-	echo '}'
+	load_hosts
+	local listing
+	listing="$(search_front_names)" || return 1
+	search_front_select "$listing" || return 1
+	printf '%s\n' "$listing" | "${BRINGUP_INSPECT_BIN:-bringup-inspect}" search-render "$rpc_inventory" "$search_front_primary" "$search_front_backup" "${SEARCH_FRONT_READINESS_TIMEOUT:-5}"
 }
 
 # qualify reads the mounted renderer output on stdin, checks the single pin
@@ -357,6 +234,7 @@ render) search_front_render ;;
 qualify)
 	load_hosts
 	listing="$(search_front_names)" || exit 1
+	search_front_select "$listing" || exit 1
 	search_front_qualify "$listing"
 	;;
 config) search_front_config ;;

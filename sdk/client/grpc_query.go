@@ -8,6 +8,7 @@ import (
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	gogogrpc "github.com/gogo/protobuf/grpc"
+	gogoproto "github.com/gogo/protobuf/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/encoding"
 	"google.golang.org/grpc/encoding/proto"
@@ -30,6 +31,13 @@ func (ctx Context) Invoke(grpcCtx gocontext.Context, method string, req, reply i
 	// 2. or we are querying for state, in which case we call ABCI's Query.
 
 	// In both cases, we don't allow empty request args (it will panic unexpectedly).
+	if req == nil {
+		return sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, "request cannot be nil")
+	}
+
+	if _, ok := req.(gogoproto.Message); !ok || reflect.ValueOf(req).Kind() != reflect.Ptr {
+		return sdkerrors.Wrapf(sdkerrors.ErrInvalidRequest, "expected a protobuf request pointer, got %T", req)
+	}
 	if reflect.ValueOf(req).IsNil() {
 		return sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, "request cannot be nil")
 	}
@@ -82,7 +90,7 @@ func (ctx Context) Invoke(grpcCtx gocontext.Context, method string, req, reply i
 		Height: ctx.Height,
 	}
 
-	res, err := ctx.QueryABCI(abciReq)
+	res, err := ctx.QueryABCIWithContext(grpcCtx, abciReq)
 	if err != nil {
 		return err
 	}
