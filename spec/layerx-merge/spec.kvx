@@ -129200,7 +129200,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.162]
 title = "Describe the public JSON-RPC as the node names at the root path in the documentation, the examples and the gateway openrpc servers entry"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -158791,7 +158791,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.163]
 title = "Point the bring-up checks, the web search front configuration and the halt export at the node names at the root path instead of the router URL"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -195755,7 +195755,7 @@ do_6 = "Finding 9.24.6.2: the symbols key names native_budget_versions_fields_an
 
 [task.9.24.7]
 title = "Delete the LNI framing, handshake, schema and transport module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 36
 requires = ["9.25.1", "9.24.4", "9.18.5", "9.13.1", "9.18.1", "11.25.5", "13.30.3", "13.30.4", "13.30.5", "8.94.1", "8.12.3", "8.98.5", "8.98.10", "18.1304.1", "9.24.5", "13.30.6", "9.25.16", "13.8.3", "22.9.24", "22.9.29", "22.9.30", "22.9.31", "22.9.32", "22.99.159", "22.99.160"]
@@ -251849,7 +251849,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.185]
 title = "Pre-upgrade audit of programme: apps/web (9 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -251881,7 +251881,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.184]
 title = "Pre-upgrade audit of tools-ops: tools/release (70 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -251913,7 +251913,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.183]
 title = "Pre-upgrade audit of tools-ops: tools/qualification/paxeer-x/native-programs-link.py (227 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -252009,7 +252009,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.180]
 title = "Pre-upgrade audit of tools-ops: tools/paxctl (223 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -252041,7 +252041,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.179]
 title = "Pre-upgrade audit of tools-ops: tools/loadtest (95 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -252073,7 +252073,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.178]
 title = "Pre-upgrade audit of tools-ops: tools/codebase-map (108 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -252105,7 +252105,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.177]
 title = "Pre-upgrade audit of tools-ops: tools/bringup (35 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -252137,7 +252137,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.176]
 title = "Pre-upgrade audit of tools-ops: tools/benchmark/loadtest/contracts/evm/lib/solmate (92 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -252361,7 +252361,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.169]
 title = "Pre-upgrade audit of tools-ops: .github/workflows (107 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -252425,7 +252425,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.167]
 title = "Pre-upgrade audit of cosmos-fork: sdk/x/gov (224 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -252457,7 +252457,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.166]
 title = "Pre-upgrade audit of cosmos-fork: sdk/x/auth (204 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -252489,7 +252489,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.165]
 title = "Pre-upgrade audit of cosmos-fork: sdk/types (202 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -252553,7 +252553,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.163]
 title = "Pre-upgrade audit of cosmos-fork: sdk/integrations (193 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -252585,7 +252585,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.162]
 title = "Pre-upgrade audit of cosmos-fork: sdk/baseapp (242 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -252649,7 +252649,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.160]
 title = "Pre-upgrade audit of web-explorer-bridge: services/explorer/services/smart-contract-verifier/smart-contract-verifier (161 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -252713,7 +252713,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.158]
 title = "Pre-upgrade audit of web-explorer-bridge: services/explorer/backend/apps/indexer/test (101 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -252809,7 +252809,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.155]
 title = "Pre-upgrade audit of web-explorer-bridge: services/explorer/backend/apps/explorer/test/explorer/migrator (212 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -252841,7 +252841,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.154]
 title = "Pre-upgrade audit of web-explorer-bridge: services/explorer/backend/apps/explorer/test/explorer/chain (102 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -252937,7 +252937,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.151]
 title = "Pre-upgrade audit of web-explorer-bridge: services/explorer/backend/apps/explorer/lib/explorer/chain/cache (247 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -252969,7 +252969,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.150]
 title = "Pre-upgrade audit of web-explorer-bridge: services/explorer/backend/apps/explorer/lib/explorer/chain/bridged_token.ex (216 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -253033,7 +253033,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.148]
 title = "Pre-upgrade audit of web-explorer-bridge: services/explorer/backend/apps/explorer/lib/explorer/chain/address (283 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -253065,7 +253065,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.147]
 title = "Pre-upgrade audit of web-explorer-bridge: services/explorer/backend/apps/ethereum_jsonrpc (158 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -253225,7 +253225,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.142]
 title = "Pre-upgrade audit of web-explorer-bridge: services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers (149 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
