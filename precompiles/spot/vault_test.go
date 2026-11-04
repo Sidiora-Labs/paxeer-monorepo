@@ -12,7 +12,6 @@ import (
 	spotkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/spot/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/spot/types"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
-	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/spot"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
@@ -261,7 +260,12 @@ func (e *vaultEnv) fundUhpx(holder common.Address, amount int64) {
 // call leaves no state.
 func (e *vaultEnv) pointerCall(pointer, caller common.Address, name string, args ...interface{}) ([]byte, error) {
 	e.t.Helper()
-	input, err := e.share.Pack(name, args...)
+	return e.pointerCallABI(pointer, caller, e.share, name, args...)
+}
+
+func (e *vaultEnv) pointerCallABI(pointer, caller common.Address, contract abi.ABI, name string, args ...interface{}) ([]byte, error) {
+	e.t.Helper()
+	input, err := contract.Pack(name, args...)
 	require.NoError(e.t, err)
 	var ret []byte
 	var callErr error
@@ -965,7 +969,7 @@ func TestVaultShareTransfer(t *testing.T) {
 
 	ret, err = e.pointerCall(pointer, holder, "transfer", other, big.NewInt(3_999_001))
 	require.ErrorIs(t, err, vm.ErrExecutionReverted)
-	require.Equal(t, pcommon.RevertReason(errors.New("NativePaxTokensERC20: transfer failed")), ret)
+	requireVaultShareInsufficientBalance(t, e.share, ret, holder, 3_999_000, 3_999_001)
 	requireAmount(t, 3_999_000, e.balance(pointer, holder))
 }
 
@@ -985,6 +989,26 @@ func TestVaultShareTransferFrom(t *testing.T) {
 	require.ErrorIs(t, err, vm.ErrExecutionReverted)
 	require.Equal(t, types.ERC20InsufficientAllowance(spender, uint256.NewInt(500_000), uint256.NewInt(600_000)).Data(), ret)
 	requireAmount(t, 1_500_000, e.balance(pointer, other))
+
+	_, err = e.pointerCall(pointer, holder, "approve", spender, big.NewInt(3_499_001))
+	require.NoError(t, err)
+	ret, err = e.pointerCall(pointer, spender, "transferFrom", holder, other, big.NewInt(3_499_001))
+	require.ErrorIs(t, err, vm.ErrExecutionReverted)
+	requireVaultShareInsufficientBalance(t, e.share, ret, holder, 3_499_000, 3_499_001)
+	requireAmount(t, 3_499_000, e.balance(pointer, holder))
+	requireAmount(t, 1_500_000, e.balance(pointer, other))
+	requireAmount(t, 3_499_001, e.tokenView(pointer, "allowance", holder, spender))
+}
+
+func requireVaultShareInsufficientBalance(t *testing.T, contract abi.ABI, data []byte, sender common.Address, balance, needed int64) {
+	t.Helper()
+	declared, ok := contract.Errors["ERC20InsufficientBalance"]
+	require.True(t, ok)
+	require.GreaterOrEqual(t, len(data), 4)
+	require.Equal(t, declared.ID.Bytes()[:4], data[:4])
+	decoded, err := declared.Unpack(data)
+	require.NoError(t, err)
+	require.Equal(t, []interface{}{sender, big.NewInt(balance), big.NewInt(needed)}, decoded)
 }
 
 // requireShareUnserved checks that the share pointer serves no method name:
@@ -992,8 +1016,10 @@ func TestVaultShareTransferFrom(t *testing.T) {
 func requireShareUnserved(t *testing.T, e *vaultEnv, name string, args ...interface{}) {
 	t.Helper()
 	holder, pointer := e.shareHolder()
+	historical := loadVaultTestABI(t, "abi/share-solidity.json")
+	require.NotContains(t, e.share.Methods, name)
 	for _, caller := range []common.Address{holder, vaultAddress, types.GovernanceEVMAddress()} {
-		ret, err := e.pointerCall(pointer, caller, name, args...)
+		ret, err := e.pointerCallABI(pointer, caller, historical, name, args...)
 		require.ErrorIs(t, err, vm.ErrExecutionReverted, name)
 		require.Empty(t, ret, name)
 	}

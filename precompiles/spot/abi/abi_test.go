@@ -20,7 +20,8 @@ func TestABIEmbedLoads(t *testing.T) {
 		{"stoporders", spotabi.StopOrders, []string{"OwnershipTransferred", "Paused", "StopLimitActivated", "StopLimitCancelled", "StopLimitExecuted", "StopLimitOrderCreated", "StopLossOrderCancelled", "StopLossOrderCreated", "StopLossOrderExecuted", "Unpaused"}},
 		{"quoter", spotabi.Quoter, nil},
 		{"vault", spotabi.Vault, []string{"Deposit", "LPWithdrawal", "NativeDeposit", "NativeWithdrawal", "OperatorUpdated", "OwnershipTransferred", "ReservesSync", "ReservesUpdated", "ShareTokenCreated", "TokenPauseUpdated", "TokenRegistered", "TransactionTrackerUpdated", "UtilizationCapUpdated", "Withdrawal"}},
-		{"share", spotabi.Share, []string{"Approval", "OwnershipTransferred", "Transfer"}},
+		{"share", spotabi.Share, []string{"Approval", "Transfer"}},
+		{"historical share", spotabi.HistoricalSolidityShare, []string{"Approval", "OwnershipTransferred", "Transfer"}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

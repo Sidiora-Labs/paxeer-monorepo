@@ -1,117 +1,121 @@
 # Blockscout UI Toolkit
 
-A comprehensive collection of reusable Chakra UI components and theme system for Blockscout's projects. This toolkit provides a consistent design system and UI components to maintain visual consistency across Blockscout applications.
-
-This directory is upstream's `@blockscout/ui-toolkit` package source, kept with the imported explorer frontend. This repository does not publish it; the publishing steps below are upstream's.
+This directory contains the imported `@blockscout/ui-toolkit` package source
+used with the Paxeer X explorer. Its [manifest](./package.json) retains upstream
+Blockscout metadata and version `2.4.0-alpha`. This repository does not publish
+this package; upstream owns its npm releases and publishing workflow.
 
 ## Features
 
-- 🎨 Pre-configured Chakra UI theme with Blockscout's design system
-- 🧩 Reusable UI components built on Chakra UI
-- 🌓 Built-in dark mode support
-- 📱 Responsive and accessible components
-- 🔍 TypeScript support with proper type definitions
+- Chakra UI 3 component wrappers, theme tokens and recipes.
+- Responsive components, forms, charts and reusable hooks.
+- Light and dark color modes through `next-themes`.
+- TypeScript declarations generated alongside the library build.
+
+The public exports are listed in [src/index.ts](./src/index.ts). The explorer
+also imports the local [Chakra wrappers](../chakra) and [components](../components)
+directly. This package supplies UI primitives; network and API configuration
+belongs to the [explorer](../../RELEASE_NOTES.md).
 
 ## Installation
 
-### Package Installation
+Applications consuming an upstream npm release install it under its upstream
+name:
 
-Install the package using your preferred package manager:
-
-```bash
-# Using npm
-npm install @blockscout/ui-toolkit
-
-# Using yarn
+```sh
 yarn add @blockscout/ui-toolkit
 ```
 
-### Required Dependencies
+Use the manifest of the selected release for its dependency requirements. The
+checked-in source declares these peer dependencies:
 
-Ensure you have the following peer dependencies installed:
+| Package | Required range |
+| --- | --- |
+| `@chakra-ui/react` | `>=3.33.0` |
+| `@emotion/react` | `>=11.14.0` |
+| `next` | `>=15.2.3` |
+| `next-themes` | `>=0.4.4` |
+| `react` | `>=18.3.1` |
+| `react-dom` | `>=18.3.1` |
+| `react-hook-form` | `>=7.52.1` |
 
-```json
-{
-  "dependencies": {
-    "@blockscout/ui-toolkit": "latest",
-    "@chakra-ui/react": ">=3.33.0",
-    "@emotion/react": ">=11.14.0",
-    "@uidotdev/usehooks": ">=2.4.1",
-    "d3": ">=7.6.1",
-    "dayjs": ">=1.11.5",
-    "dom-to-image": ">=2.6.0",
-    "es-toolkit": ">=1.39.10",
-    "next": ">=15.2.3",
-    "next-themes": ">=0.4.4",
-    "react": ">=18.3.1",
-    "react-dom": ">=18.3.1",
-    "react-hook-form": ">=7.52.1"
-  },
-  "devDependencies": {
-    "@chakra-ui/cli": ">=3.33.0",
-    "@types/node": "^20",
-    "@types/react": "18.3.12",
-    "@types/react-dom": "18.3.1",
-    "typescript": "5.4.2"
-  }
-}
-```
+The [Vite configuration](./vite.config.ts) also leaves `es-toolkit`, `dayjs`,
+`d3`, `dom-to-image` and `@uidotdev/usehooks` external to the bundle. Consumers
+must provide those runtime dependencies. The explorer's
+[manifest](../../package.json) supplies them. The package requires Node
+`>=22.14.0`; its TypeScript development dependency is `5.9.2`.
 
 ## Quick Start
 
 ### 1. Theme Setup
 
-Create a `theme.ts` file in your project and configure the Blockscout theme:
+The exported `theme` is a Chakra system created from Chakra's `defaultConfig`
+and the toolkit configuration:
 
 ```tsx
-// Basic setup
+// src/theme.ts
 import { theme } from '@blockscout/ui-toolkit';
+
 export default theme;
 ```
 
-Or extend the theme with custom overrides:
+To customize it, retain Chakra's defaults and the toolkit's exported
+`themeConfig` before applying your overrides:
 
 ```tsx
-import { createSystem } from '@chakra-ui/react';
+// src/theme.ts
+import { createSystem, defaultConfig } from '@chakra-ui/react';
 import { themeConfig } from '@blockscout/ui-toolkit';
 
-const customOverrides = {
-  // Add your custom theme overrides here
+export default createSystem(defaultConfig, themeConfig, {
   theme: {
     semanticTokens: {
       colors: {
         brand: {
-          primary: { value: '#5353D3' }
+          primary: { value: '#5353D3' },
         },
       },
     },
   },
-};
-
-export default createSystem(themeConfig, customOverrides);
+});
 ```
+
+See the [theme source](../theme/theme.ts) for tokens, recipes and global styles.
 
 ### 2. Provider Setup
 
-Wrap your application with the ChakraProvider:
+Pass the system through Chakra UI 3's `value` prop. Include the color mode
+provider for the class-based light/dark theme:
 
 ```tsx
+'use client';
+
 import { ChakraProvider } from '@chakra-ui/react';
-import { Button } from '@blockscout/ui-toolkit';
+import { Button, ColorModeProvider } from '@blockscout/ui-toolkit';
 import theme from './theme';
 
-function App() {
+export function App() {
   return (
-    <ChakraProvider theme={theme}>
-      <Button>Click me</Button>
+    <ChakraProvider value={theme}>
+      <ColorModeProvider defaultTheme="light">
+        <Button>Click me</Button>
+      </ColorModeProvider>
     </ChakraProvider>
   );
 }
 ```
 
+For the unmodified toolkit theme, the exported `Provider` combines these two
+providers. Its [implementation](../chakra/provider.tsx) uses `value={theme}`,
+and its [color mode provider](../chakra/color-mode.tsx) accepts `next-themes`
+provider props. The explorer's
+[profile and wallet UI](../../ui/snippets/user/README.md) uses these same local
+component wrappers.
+
 ### 3. TypeScript Support
 
-Add the following script to your `package.json` to generate Chakra UI type definitions:
+A consuming project with `@chakra-ui/cli` installed can generate Chakra types
+from its system file:
 
 ```json
 {
@@ -121,61 +125,50 @@ Add the following script to your `package.json` to generate Chakra UI type defin
 }
 ```
 
+The explorer already declares `@chakra-ui/cli` `3.33.0` and its own
+`chakra:typegen` script targeting `./toolkit/theme/theme.ts`. Library declarations
+are generated by `vite-plugin-dts` during the package build; the package exports
+`dist/index.js` and `dist/index.d.ts`.
+
 ## Development
 
-### Local Development
+Work from the imported explorer tree so the package's source aliases and runtime
+dependencies are available. Install the explorer and package dependencies using
+their existing Yarn lockfiles:
 
-1. Clone the repository and install dependencies:
-```bash
-yarn
+```sh
+cd apps/explorer
+yarn install --frozen-lockfile
+yarn --cwd toolkit/package install --frozen-lockfile
 ```
 
-2. Start the development server:
-```bash
-yarn dev
+The package manifest provides these scripts, run from `apps/explorer`:
+
+```sh
+yarn --cwd toolkit/package dev
+yarn --cwd toolkit/package build
+yarn --cwd toolkit/package typecheck
 ```
 
-3. Build the package:
-```bash
-yarn build
-```
+`dev` starts Vite; `build` emits the ES library and declarations into `dist`.
+The build entry imports sibling toolkit sources, as defined in
+[vite.config.ts](./vite.config.ts). The explorer application itself uses its
+root `dev` and `build` scripts.
 
 ### Publishing
 
-#### Manual Publishing
+Publishing belongs to the upstream Blockscout project. Its
+`toolkit-npm-publisher.yml` workflow is not part of this repository. The package's
+upstream repository, issue tracker and public npm metadata remain in
+[package.json](./package.json).
 
-1. Update the package version:
-```bash
-npm version <version-tag>
-```
+## Contributing and support
 
-2. Build the package:
-```bash
-npm run build
-```
-
-3. Publish to NPM:
-```bash
-npm publish --access public
-```
-
-#### Automated Publishing
-
-Upstream publishes the package from its own `toolkit-npm-publisher.yml` GitHub Actions workflow; that workflow is not part of this repository.
-
-## Contributing
-
-We welcome contributions! Please follow these steps:
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
-
-## Support
-
-For issues, feature requests, or questions, please open an issue in the repository.
+Use the explorer's [contribution guide](../../docs/CONTRIBUTING.md) for changes
+in this tree. Consult the upstream links in the package manifest for upstream
+package issues.
 
 ## License
 
-This project is licensed under the GNU General Public License v3.
+`GPL-3.0-only`, as declared in the package manifest. See the explorer's
+[LICENSE](../../LICENSE).

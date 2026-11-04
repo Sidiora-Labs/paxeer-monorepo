@@ -22515,3 +22515,59 @@ symbol = "repair-22-31-384.test.ts"
 observed = "Attempt 2: approval_operation_digest_real_http reads undefined where the operation digest is expected; three of four tests pass."
 assumption = "Codec outside the earlier scope."
 severity = "high"
+
+[finding.22.31.63.3]
+task = "22.31.63"
+file = "services/launchpad/pnl-tracker/internal/production/l16/repair_63_test.go"
+symbol = "repair_63_test.go"
+observed = "Attempt 3: TestRepair_63_ActiveSnapshotUpdateGrant and WalletRangeSchemaMigrated fail with open spec/production-system/integration/migrations/60000.sql: no such file or directory."
+assumption = "The test resolved the migrations directory from the wrong root; the helper the package's other tests use resolves it correctly."
+severity = "high"
+
+[finding.22.31.13.4]
+task = "22.31.13"
+file = "apps/perps/tests/repair-22-31-13.test.ts"
+symbol = "repair-22-31-13.test.ts"
+observed = "Attempt 5: finding006NodeThroughMarketConfigHookAndForm fails in useMarketConfig.ts line 39 with Market order limits are invalid; the agent calls the hook out of scope."
+assumption = "Producer-consumer defect: the hook refuses what the node emits."
+severity = "high"
+
+[finding.22.31.227.2]
+task = "22.31.227"
+file = "services/agent/crates/layerx-sdk/tests/repair_22_31_227.rs"
+symbol = "repair_22_31_227.rs"
+observed = "Attempt 2: four tests fail: a checksum-versus-lowercase address comparison, committed-wait Verification after reopen, and two submissions not reaching Submitted after reopen."
+assumption = "Test literal defect plus a fixture that does not serve the recovered authority after reopen."
+severity = "high"
+
+[finding.22.99.77.8]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 6: 19 test targets of the crate fail; native bring-up refuses the 603,517-byte guest, chain-domain assertions fail, admission-reader failures remain."
+assumption = "Mixed causes: changed producer shapes, a stale size bound and inherited failing tests all owned by the task."
+severity = "high"
+
+[finding.22.31.54.3]
+task = "22.31.54"
+file = "services/launchpad/indexer/internal/processor/repair_54_test.go"
+symbol = "repair_54_test.go"
+observed = "Attempt 5: TestRepair_54_NativeReadModelProjection and AmbiguousCommitLiveRecovery fail with L06_POSTGRES_DSN is required; three tests pass."
+assumption = "Environment-bound proofs; the peer store belongs in the test as an in-memory implementation."
+severity = "high"
+
+[finding.22.31.53.2]
+task = "22.31.53"
+file = "services/launchpad/indexer/internal/receipt/repair_53_test.go"
+symbol = "repair_53_test.go"
+observed = "Attempt 4: three tests fail on a missing producer transcript, one on an unauthorized emitter of the historical archive; four pass."
+assumption = "A fixture the task itself can record, and an epoch-blind authority lookup in the qualifier."
+severity = "high"
+
+[finding.22.31.415.3]
+task = "22.31.415"
+file = "sdk/integrations/ios/Tests/LayerXMobileTests/Repair2231415Tests.swift"
+symbol = "Repair2231415Tests.swift"
+observed = "Attempt 3: test019ConfiguredWalletPaymentVerifiesRecordedReceipt fails with verification-failure; two tests pass."
+assumption = "Fixture halves recorded from different runs."
+severity = "high"
