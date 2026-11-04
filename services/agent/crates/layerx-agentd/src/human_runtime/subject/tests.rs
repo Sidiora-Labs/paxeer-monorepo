@@ -4,6 +4,37 @@ use layerx_crypto::evm_transaction::{decode_signed, recover_sender, Eip1559Call}
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use std::fmt::Debug;
 
+use crate as agentd;
+
+#[path = "registration_tests.rs"]
+mod registration_tests;
+
+#[test]
+fn managed_registration_resolves_restored_subject_reads_and_writes() {
+    registration_tests::prove_registration_resolution(|store, alice, bob, restart| {
+        if !restart {
+            must(retain(store, alice));
+            must(retain(store, bob));
+            return (alice.clone(), bob.clone());
+        }
+        let configured = BTreeMap::from([(
+            7,
+            ("human-transport".to_owned(), "human-service".to_owned()),
+        )]);
+        let restored = must(restore_peers(store, &configured));
+        assert_eq!(restored.len(), 3);
+        let restored_peer = |expected: &HumanPeer| {
+            let actual = restored
+                .iter()
+                .find(|peer| peer.tenant == expected.tenant)
+                .unwrap_or_else(|| panic!("restored managed subject"));
+            assert_eq!(actual, expected);
+            actual.clone()
+        };
+        (restored_peer(alice), restored_peer(bob))
+    });
+}
+
 fn must<T, E: Debug>(value: Result<T, E>) -> T {
     value.unwrap_or_else(|error| panic!("subject invariant: {error:?}"))
 }

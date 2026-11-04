@@ -4,6 +4,7 @@
 mod forward_migration;
 #[path = "migrate.rs"]
 mod migration;
+mod protected;
 mod tenant;
 
 pub use forward_migration::{migrate_forward, MigrationReport, MigrationStep};
@@ -13,13 +14,13 @@ pub use tenant::TenantScoped;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::fmt::{Display, Formatter};
-use std::fs::{self, File, OpenOptions};
-use std::io::{self, Write};
+use std::io;
 use std::path::{Path, PathBuf};
+
+use protected::ProtectedRoot;
 
 const MAGIC: &[u8; 4] = b"LXAS";
 const STORE_FILE: &str = "store.bin";
-const TEMP_FILE: &str = "store.bin.tmp";
 
 /// Migrates a store through every supported forward-only schema step.
 ///
@@ -278,6 +279,7 @@ pub struct EventIngestion {
 #[derive(Debug)]
 pub struct Store {
     root: PathBuf,
+    protection: Option<ProtectedRoot>,
     entries: BTreeMap<TenantKey, StoredValue>,
     mcp_transition: Option<(&'static str, u64)>,
     read_only: bool,
@@ -299,17 +301,15 @@ impl Store {
     /// forward step refuses the on-disk schema, and `Corrupt` for a bad magic, an unmigrated
     /// version, truncated or trailing bytes, an unknown kind or class, or a duplicate key.
     pub fn open(root: impl AsRef<Path>) -> Result<Self, StoreError> {
-        let root = root.as_ref().to_path_buf();
-        fs::create_dir_all(&root)?;
-        migrate(&root)?;
-        let path = root.join(STORE_FILE);
-        let entries = if path.exists() {
-            decode(&fs::read(path)?)?
-        } else {
-            BTreeMap::new()
-        };
+        let protection = ProtectedRoot::open(root.as_ref(), true)?;
+        protection.validate_snapshot()?;
+        migration::migrate_store(&protection)?;
+        let entries = protection
+            .read()?
+            .map_or_else(|| Ok(BTreeMap::new()), |bytes| decode(&bytes))?;
         Ok(Self {
-            root,
+            root: protection.path().to_path_buf(),
+            protection: Some(protection),
             entries,
             mcp_transition: None,
             read_only: false,
@@ -317,34 +317,14 @@ impl Store {
     }
 
     pub fn open_read_only(root: impl AsRef<Path>) -> Result<Self, StoreError> {
-        use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
-        let root = root.as_ref().to_path_buf();
-        let root_metadata = fs::symlink_metadata(&root)?;
-        let own_uid = fs::metadata("/proc/self")?.uid();
-        if !root_metadata.is_dir()
-            || root_metadata.uid() != own_uid
-            || root_metadata.mode() & 0o077 != 0
-            || fs::canonicalize(&root)? != root
-        {
-            return Err(StoreError::Corrupt("unprotected read-only store root"));
-        }
-        let mut file = OpenOptions::new()
-            .read(true)
-            .custom_flags(0o400000)
-            .open(root.join(STORE_FILE))?;
-        let metadata = file.metadata()?;
-        if !metadata.is_file()
-            || metadata.uid() != own_uid
-            || metadata.nlink() != 1
-            || metadata.mode() & 0o022 != 0
-        {
-            return Err(StoreError::Corrupt("unprotected read-only store snapshot"));
-        }
-        let mut bytes = Vec::new();
-        std::io::Read::read_to_end(&mut file, &mut bytes)?;
+        let protection = ProtectedRoot::open(root.as_ref(), false)?;
+        let bytes = protection.read()?.ok_or_else(|| {
+            io::Error::new(io::ErrorKind::NotFound, "store snapshot does not exist")
+        })?;
         let entries = decode(&bytes)?;
         Ok(Self {
-            root,
+            root: protection.path().to_path_buf(),
+            protection: Some(protection),
             entries,
             mcp_transition: None,
             read_only: true,
@@ -1181,14 +1161,15 @@ impl Store {
                     && key.object_id().starts_with(b"mcp-invocation-v1/")
             })
         {
-            let path = self.root.join(STORE_FILE);
             let previous = Self {
                 root: self.root.clone(),
-                entries: if path.exists() {
-                    decode(&fs::read(path)?)?
-                } else {
-                    BTreeMap::new()
-                },
+                protection: None,
+                entries: self
+                    .protection
+                    .as_ref()
+                    .ok_or(StoreError::Corrupt("missing store root"))?
+                    .read()?
+                    .map_or_else(|| Ok(BTreeMap::new()), |bytes| decode(&bytes))?,
                 mcp_transition: None,
                 read_only: true,
             };
@@ -1218,17 +1199,10 @@ impl Store {
             }
         }
         let bytes = encode(projected.as_ref().unwrap_or(&self.entries))?;
-        let temp_path = self.root.join(TEMP_FILE);
-        let final_path = self.root.join(STORE_FILE);
-        let mut file = OpenOptions::new()
-            .create(true)
-            .truncate(true)
-            .write(true)
-            .open(&temp_path)?;
-        file.write_all(&bytes)?;
-        file.sync_all()?;
-        fs::rename(temp_path, final_path)?;
-        File::open(&self.root)?.sync_all()?;
+        self.protection
+            .as_ref()
+            .ok_or(StoreError::Corrupt("missing store root"))?
+            .write(&bytes)?;
         if let Some(entries) = projected {
             self.entries = entries;
         }

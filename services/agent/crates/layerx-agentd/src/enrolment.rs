@@ -1636,3 +1636,66 @@ impl VerifiedProgramBudgetDenominations {
         self.source_digest
     }
 }
+
+
+#[cfg(test)]
+mod web_payment_binding_tests {
+    use super::WebDeclaration;
+    use layerx_client::sequencer::ReceiptKeyEntry;
+    use layerx_programs::hex;
+    use serde_json::json;
+
+    #[test]
+    fn web_payment_binding_preserves_the_selected_key_and_complete_governed_index() {
+        let keys = vec![
+            ReceiptKeyEntry {
+                key_id: [1; 32],
+                public_key: [2; 32],
+                first_height: 10,
+                last_height: 20,
+            },
+            ReceiptKeyEntry {
+                key_id: [3; 32],
+                public_key: [4; 32],
+                first_height: 30,
+                last_height: 40,
+            },
+        ];
+        let declaration = WebDeclaration::new(
+            "http://127.0.0.1:4000".to_owned(),
+            "eip155:125".to_owned(),
+            [5; 20],
+            [6; 20],
+            keys.clone(),
+            1,
+            5000,
+            3,
+            100,
+        )
+        .expect("valid governed web declaration");
+        let published = declaration.document();
+        assert_eq!(published["network"], "eip155:125");
+        assert_eq!(
+            published["payer_address"],
+            format!("0x{}", hex::encode(&[5; 20]))
+        );
+        assert_eq!(
+            published["receiver_address"],
+            format!("0x{}", hex::encode(&[6; 20]))
+        );
+        assert_eq!(published["sequencer_id"], hex::encode(&keys[1].key_id));
+        assert_eq!(published["first_batch_number"], 30);
+        assert_eq!(published["last_batch_number"], 40);
+        assert_eq!(
+            published["receipt_key_index"],
+            json!(keys
+                .iter()
+                .map(|key| json!({
+                    "keyId": hex::encode(&key.key_id), "publicKey": hex::encode(&key.public_key),
+                    "firstHeight": key.first_height, "lastHeight": key.last_height,
+                }))
+                .collect::<Vec<_>>())
+        );
+        assert!(published.get("sequencer_public_key").is_none());
+    }
+}

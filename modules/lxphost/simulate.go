@@ -45,6 +45,7 @@ typedef struct lxphost_node {
     lx_programs_transfer_runtime programs_runtime;
     uint64_t parameters;
     uint64_t epoch;
+    uint16_t programs_guest_abi;
     int store_ready;
     uint8_t arena_bytes[LXPHOST_ARENA_BYTES];
     lxp_verified_receipt_index verified_receipts;
@@ -108,15 +109,23 @@ static int32_t lxphost_simulate(lxphost_node *node, uint32_t network_id,
         binding_authority;
     execution->binding_authority =
         node->envelope.activity.signature.length == 0U && binding_authority;
+    execution->verified_receipts = &node->verified_receipts;
     execution->identities = &node->identities;
     execution->authority = &node->authority;
     execution->fee_parameters = &node->fees;
     execution->fee_balance = fee_balance;
     execution->gas_limit = gas_limit;
     execution->arena = &node->arena;
-    if (node->envelope.activity.activity_type != LX_PROGRAMS_CALL)
-        return lxp_kernel_execute_activity(&node->kernel,
+    node->kernel.applied_transfers_out = &execution->applied_transfers;
+    if (node->envelope.activity.activity_type != LX_PROGRAMS_CALL) {
+        status = lxp_kernel_execute_activity(&node->kernel,
             &node->envelope.activity, execution, &node->receipt);
+        node->kernel.applied_transfers_out = NULL;
+        if (status != LXP_OK || node->receipt.result_code != LXP_OK)
+            (void)memset(&execution->applied_transfers, 0,
+                         sizeof(execution->applied_transfers));
+        return status;
+    }
     status = lxp_kernel_batch_snapshot_create(
         &node->kernel, &node->identities, execution->verified_receipts,
         execution, &snapshot);
@@ -133,6 +142,10 @@ static int32_t lxphost_simulate(lxphost_node *node, uint32_t network_id,
             batch = NULL;
         }
     }
+    node->kernel.applied_transfers_out = NULL;
+    if (status != LXP_OK || node->receipt.result_code != LXP_OK)
+        (void)memset(&execution->applied_transfers, 0,
+                     sizeof(execution->applied_transfers));
     lxp_kernel_prepared_batch_destroy(batch);
     lxp_kernel_batch_snapshot_destroy(snapshot);
     return status;
@@ -142,12 +155,14 @@ import "C"
 
 import (
 	"runtime"
-	"unsafe"
 
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 )
 
-func lxphost_simulate(node *C.lxphost_node, cfg Config, branch *branchCtx, bindingAuthority bool, batch **C.lxp_kernel_prepared_batch) error {
+func lxphost_simulate(node *C.lxphost_node, cfg Config, branch *branchCtx, bindingAuthority bool, batch **C.lxp_kernel_prepared_batch, authorities []ReceiptAuthority) error {
+	if err := prepareReceiptAuthorities(node, cfg, branch, authorities); err != nil {
+		return err
+	}
 	balance, err := fee_balance(node)
 	if err != nil {
 		return err
@@ -168,6 +183,10 @@ func (h *Host) Simulate(ctx sdk.Context, activity Activity, authority KernelAuth
 	if err != nil {
 		return Receipt{}, err
 	}
+	if err := branch.checkPaymentReference(activity); err != nil {
+		return Receipt{}, err
+	}
+
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if h.node == nil {
@@ -198,6 +217,11 @@ func (h *Host) Simulate(ctx sdk.Context, activity Activity, authority KernelAuth
 	if err := branch.load(private, modules); err != nil {
 		return Receipt{}, err
 	}
+	if module == C.LXP_MODULE_GOVERNANCE {
+		if err := branch.loadProgramsFeeRecords(private); err != nil {
+			return Receipt{}, err
+		}
+	}
 	if _, err := private.loadBlobs(branch.store, modules); err != nil {
 		return Receipt{}, err
 	}
@@ -217,52 +241,13 @@ func (h *Host) Simulate(ctx sdk.Context, activity Activity, authority KernelAuth
 	}
 	var batch *C.lxp_kernel_prepared_batch
 	defer func() { C.lxp_kernel_prepared_batch_destroy(batch) }()
-	if err := lxphost_simulate(private.node, h.cfg, branch, bindingAuthority, &batch); err != nil {
+	if err := lxphost_simulate(private.node, h.cfg, branch, bindingAuthority, &batch, activity.ReceiptAuthorities); err != nil {
 		return Receipt{}, err
 	}
 	var outcome lxphost_outcome
-	defer func() {
-		C.free(unsafe.Pointer(outcome.program_outcome.terminal_payload.bytes))
-		C.free(unsafe.Pointer(outcome.program_outcome.call_graph_payload.bytes))
-		C.free(unsafe.Pointer(outcome.program_outcome.event_envelope_payload.bytes))
-	}()
+	defer releaseOutcome(&outcome)
 	if err := lxphost_outcome_read(private.node, &outcome); err != nil {
 		return Receipt{}, err
 	}
-	receipt := Receipt{
-		FeeCharged:         readAmount(C.struct_lxp_u128{hi: outcome.fee_hi, lo: outcome.fee_lo}),
-		ResultCode:         Code(outcome.result_code),
-		GlobalSequence:     uint64(outcome.global_sequence),
-		Timestamp:          uint64(outcome.timestamp),
-		PreviousStateRoot:  *(*[32]byte)(unsafe.Pointer(&outcome.previous_state_root[0])),
-		ResultingStateRoot: *(*[32]byte)(unsafe.Pointer(&outcome.resulting_state_root[0])),
-		Encoded:            C.GoBytes(unsafe.Pointer(outcome.encoded), C.int(outcome.encoded_length)),
-	}
-	for _, effect := range unsafe.Slice(outcome.effects, int(outcome.effect_count)) {
-		if effect.kind == C.LXP_EFFECT_EVENT {
-			receipt.Events = append(receipt.Events, ReceiptEvent{
-				Code: uint16(effect.event_type),
-				Body: C.GoBytes(unsafe.Pointer(&effect.body[0]), C.int(effect.body_length)),
-			})
-		}
-	}
-	if outcome.amount.hi != 0 || outcome.amount.lo != 0 {
-		receipt.Transfers = []TransferLeg{{
-			Asset:  *(*[32]byte)(unsafe.Pointer(&outcome.asset[0])),
-			From:   *(*[32]byte)(unsafe.Pointer(&outcome.from[0])),
-			To:     *(*[32]byte)(unsafe.Pointer(&outcome.to[0])),
-			Amount: readAmount(outcome.amount),
-		}}
-	}
-	if program := &outcome.program_outcome; program.present != C.bool(false) {
-		receipt.ProgramOutcome = &ProgramOutcome{
-			Status:                  int32(program.result_code),
-			Kind:                    uint8(program.terminal_kind),
-			Response:                C.GoBytes(unsafe.Pointer(program.terminal_payload.bytes), C.int(program.terminal_payload.length)),
-			FeeScheduleVersion:      uint64(program.fee_schedule_version),
-			MeteringScheduleVersion: uint64(program.metering_schedule_version),
-			Events:                  C.GoBytes(unsafe.Pointer(program.event_envelope_payload.bytes), C.int(program.event_envelope_payload.length)),
-		}
-	}
-	return receipt, nil
+	return receiptFromOutcome(module, &outcome), nil
 }

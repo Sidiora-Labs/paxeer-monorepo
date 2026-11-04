@@ -163,18 +163,20 @@ func (f *TestFaucet) NewFundedAccount(ctx sdk.Context, amounts ...sdk.Coin) sdk.
 }
 
 type TestKeepers struct {
-	AccountKeeper  authkeeper.AccountKeeper
-	StakingKeeper  stakingkeeper.Keeper
-	DistKeeper     distributionkeeper.Keeper
-	BankKeeper     bankkeeper.Keeper
-	GovKeeper      govkeeper.Keeper
-	ContractKeeper types.ContractOpsKeeper
-	WasmKeeper     *Keeper
-	IBCKeeper      *ibckeeper.Keeper
-	Router         *baseapp.Router
-	EncodingConfig wasmappparams.EncodingConfig
-	Faucet         *TestFaucet
-	MultiStore     sdk.CommitMultiStore
+	CapabilityKeeper *capabilitykeeper.Keeper
+	ScopedWasmKeeper capabilitykeeper.ScopedKeeper
+	AccountKeeper    authkeeper.AccountKeeper
+	StakingKeeper    stakingkeeper.Keeper
+	DistKeeper       distributionkeeper.Keeper
+	BankKeeper       bankkeeper.Keeper
+	GovKeeper        govkeeper.Keeper
+	ContractKeeper   types.ContractOpsKeeper
+	WasmKeeper       *Keeper
+	IBCKeeper        *ibckeeper.Keeper
+	Router           *baseapp.Router
+	EncodingConfig   wasmappparams.EncodingConfig
+	Faucet           *TestFaucet
+	MultiStore       sdk.CommitMultiStore
 }
 
 // CreateDefaultTestInput common settings for CreateTestInput
@@ -441,18 +443,20 @@ func createTestInputWithMultiStore(
 	govKeeper.SetTallyParams(ctx, govtypes.DefaultTallyParams())
 
 	keepers := TestKeepers{
-		AccountKeeper:  accountKeeper,
-		StakingKeeper:  stakingKeeper,
-		DistKeeper:     distKeeper,
-		ContractKeeper: contractKeeper,
-		WasmKeeper:     &keeper,
-		BankKeeper:     bankKeeper,
-		GovKeeper:      govKeeper,
-		IBCKeeper:      ibcKeeper,
-		Router:         router,
-		EncodingConfig: encodingConfig,
-		Faucet:         faucet,
-		MultiStore:     ms,
+		CapabilityKeeper: capabilityKeeper,
+		ScopedWasmKeeper: scopedWasmKeeper,
+		AccountKeeper:    accountKeeper,
+		StakingKeeper:    stakingKeeper,
+		DistKeeper:       distKeeper,
+		ContractKeeper:   contractKeeper,
+		WasmKeeper:       &keeper,
+		BankKeeper:       bankKeeper,
+		GovKeeper:        govKeeper,
+		IBCKeeper:        ibcKeeper,
+		Router:           router,
+		EncodingConfig:   encodingConfig,
+		Faucet:           faucet,
+		MultiStore:       ms,
 	}
 	return ctx, keepers
 }
