@@ -278066,7 +278066,7 @@ do_13 = "Attempt 4 (requalify): the build passed and the verify failed before an
 
 [task.22.33.1298]
 title = "Repair audit record 22.30.69 medium findings in rpc (part 2 of 2): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.185"]
@@ -280385,7 +280385,7 @@ do_7 = "Attempt 3 (continue after 22.31.463): the build of ./rpc/... failed in m
 
 [task.22.33.967]
 title = "Repair audit record 22.30.3 medium findings in tests/programs (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.42"]
