@@ -553,10 +553,8 @@ func (p PrecompileExecutor) createValidator(ctx sdk.Context, method *abi.Method,
 	if err != nil {
 		return nil, 0, errors.New("invalid public key hex format")
 	}
-	if pcommon.MergePlanActive(ctx, p.evmKeeper) && len(pubKeyBytes) != ed25519.PubKeySize {
-		return nil, 0, errors.New("invalid public key length: expected 32 bytes")
-	}
-
+	// v614-v640 replay retains the historical key boundary. Only the applied
+	// merge upgrade enables the 32-byte guard, before payment or keeper calls.
 	if pcommon.MergePlanActive(ctx, p.evmKeeper) && len(pubKeyBytes) != ed25519.PubKeySize {
 		return nil, 0, fmt.Errorf("invalid public key length: expected %d bytes, got %d", ed25519.PubKeySize, len(pubKeyBytes))
 	}
@@ -1068,15 +1066,22 @@ func (p PrecompileExecutor) redelegations(ctx sdk.Context, method *abi.Method, a
 		return nil, 0, err
 	}
 
+	mergeActive := pcommon.MergePlanActive(ctx, p.evmKeeper)
 	redelegations := make([]Redelegation, len(response.RedelegationResponses))
 	for i, redel := range response.RedelegationResponses {
 		entries := make([]RedelegationEntry, len(redel.Entries))
 		for j, entry := range redel.Entries {
+			// v630 and v640 exposed token balance as sharesDst. Preserve those
+			// replay bytes until the applied merge upgrade enables decimal shares.
+			sharesDst := entry.Balance.String()
+			if mergeActive {
+				sharesDst = entry.RedelegationEntry.SharesDst.String()
+			}
 			entries[j] = RedelegationEntry{
 				CreationHeight: entry.RedelegationEntry.CreationHeight,
 				CompletionTime: entry.RedelegationEntry.CompletionTime.Unix(),
 				InitialBalance: entry.RedelegationEntry.InitialBalance.String(),
-				SharesDst:      entry.RedelegationEntry.SharesDst.String(),
+				SharesDst:      sharesDst,
 			}
 		}
 		redelegations[i] = Redelegation{

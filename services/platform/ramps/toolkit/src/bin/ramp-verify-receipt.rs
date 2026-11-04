@@ -88,7 +88,16 @@ fn run() -> Result<(), u8> {
         return Err(5);
     }
     let evidence = evidence.ok_or(5_u8)?;
-    let checked = layerx_ramp_toolkit::verify_order_receipt(&order, &evidence).map_err(|_| 5_u8)?;
+    let mut checked =
+        layerx_ramp_toolkit::verify_order_receipt(&order, &evidence).map_err(|_| 5_u8)?;
+    // Receipt authentication proves execution; resolve_with_evidence separately
+    // authenticates committed inclusion before returning maintained_batch=true.
+    if checked.rung != layerx_types::rung::Rung::Receipted
+        || leg.rung != layerx_types::rung::Rung::Committed
+    {
+        return Err(5);
+    }
+    checked.rung = layerx_types::rung::Rung::Committed;
     if checked != leg {
         return Err(5);
     }

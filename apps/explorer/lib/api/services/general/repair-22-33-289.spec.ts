@@ -46,7 +46,7 @@ const nativeAccountSchema = strictObject({
   activity_total: nullable(number()),
 });
 
-async function unifiedAccountResourcePreservesNativePayloadAndOpaqueCursor() {
+test('unifiedAccountResourcePreservesNativePayloadAndOpaqueCursor', async function unifiedAccountResourcePreservesNativePayloadAndOpaqueCursor() {
   expect(GENERAL_API_PAXEER_X_RESOURCES.paxeer_x_unified_account.filterFields).toEqual([ 'cursor' ]);
   const requests: Array<{ method: string | undefined; target: string | undefined }> = [];
   const pathname = `/explorer/backend/api/v2/addresses/${ evmAddress }/unified`;
@@ -129,6 +129,4 @@ async function unifiedAccountResourcePreservesNativePayloadAndOpaqueCursor() {
       server.closeAllConnections();
     });
   }
-}
-
-test(unifiedAccountResourcePreservesNativePayloadAndOpaqueCursor);
+});

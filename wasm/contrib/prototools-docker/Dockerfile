@@ -1,3 +1,5 @@
+# Historical upstream image, retired from supported repository generation.
+# Run bash scripts/protoc.sh from the repository root; see README.md.
 FROM golang:1.16.8-alpine3.13 AS build
 
 #ARG PROTOTOOL_VERSION=1.10.0
@@ -40,6 +42,7 @@ RUN GO111MODULE=on go get \
 RUN upx --lzma /usr/local/bin/*
 
 FROM golang:1.17.3-alpine
+LABEL org.opencontainers.image.description="Historical upstream protobuf tools; retired from supported generation. Use bash scripts/protoc.sh from the repository root."
 ENV LD_LIBRARY_PATH=/lib64:/lib
 
 WORKDIR /work

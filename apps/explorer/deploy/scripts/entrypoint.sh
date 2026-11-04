@@ -66,7 +66,11 @@ echo
 node --no-warnings ./og_image_generator.js
 
 # Create envs.js file with run-time environment variables for the client app
-./make_envs_script.sh
+envs_output="./public/assets/envs.js"
+if ! ./make_envs_script.sh "$envs_output"; then
+  echo "🛑 Failed to generate runtime environment script $envs_output. The application cannot start." >&2
+  exit 1
+fi
 
 # Generate multichain config
 node --no-warnings ./deploy/tools/multichain-config-generator/dist/index.js

@@ -1,0 +1,42 @@
+[repair.22.33.1353]
+task = "22.33.1353"
+audit = "22.30.74"
+base_revision = "76c050242a1edcad6212aa52fac15670ecb5612d"
+finding_ids = ["environment-image-build"]
+strategy = "Explicitly retire the inherited environment image, as the proposal permits; its Makefile caller was already retired by task 22.33.1351."
+changed_source = "sdk/contrib/images/simd-env/Dockerfile"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1353.py"
+verified_revision_source = "The successful verify row in /out/run/gates.jsonl names the immutable candidate including this record; hf-build and hf-done must name the same revision."
+private_evidence = "The final hf-done receipt records exact revision, command, exit code and private log path; the runner retains that evidence separately."
+
+[finding.environment-image-build]
+proving_test = "tools/qualification/audit_repairs/test_repair_22_33_1353.py::test_environment_image_build_retired"
+caller_test = "tools/qualification/audit_repairs/test_repair_22_33_1353.py::test_environment_image_caller_refuses_before_docker"
+replacement_test = "tools/qualification/audit_repairs/test_repair_22_33_1353.py::test_environment_image_replacement_is_root_paxd_build"
+repair = "Replace the obsolete Go 1.18, SDK-root module, source-copy and build/simd recipe with an explicit retirement notice containing no executable Docker instruction or parser directive. Preserve the historical wrapper unchanged."
+source_proof = "Parse every Dockerfile line to prove absence of executable instructions and frontend directives; parse every image Makefile line to prove default and simd-env targets only print literal diagnostics to stderr then exit nonzero without prerequisites or other producers."
+path_proof = "Read the real sdk/Makefile localnet-build-env consumer, its recursive make transport to the already retired image target, and the target's unconditional refusal; direct Dockerfile consumers find no executable stage or stale module/binary copy."
+replacement_proof = "Parse root go.mod module and Go 1.25.8 directive and chain.mk build target, native-library prerequisite, output build/paxd and existing daemon/paxd source; confirm the retirement notice points to this real root build."
+review_only = "This is source qualification of explicit retirement, not execution of Docker, make, Go, a shell, a container or paxd; runtime rejection by those tools and a main-line inventory command are not executed or claimed. No shell script is modified, so no bash -n subprocess is needed."
+wiring_requests = []
+wiring_basis = "The proposal's caller step is already satisfied in sdk/contrib/images/Makefile, owned by domain 15, which refuses all and simd-env before Docker; retirement requires no new caller change outside scope."
+
+[baseline]
+gate_ledger = "No earlier /out/run/gates.jsonl existed at session start; neither task repair file existed and no task source edits were present."
+unchanged_verify = "Not run: do_5 conflicts with the ordered implementation-first and hf-done-only gate instructions, which take precedence. No pre-change failed test is claimed."
+source_observation = "Before the change the Dockerfile contained FROM golang:1.18-alpine, COPY ./ics23/go.mod, COPY contrib/images/simd-env/wrapper.sh and COPY --from=build /work/build/simd; the retirement source assertions reject that recipe. This observation is inspection, not baseline test evidence."
+
+[format]
+policy = "No Python, Dockerfile or KVX formatter is configured for these paths; use repository .editorconfig UTF-8, LF, final-newline and trailing-whitespace rules."
+
+[gotcha.1]
+observed = "The unchanged-tree baseline request conflicts with the exclusive ordered gates."
+resolution = "Record baseline verification as unrun and use only hf-build then hf-done; GOTCHA.kvx and spec files are outside the authorized edit scope."
+
+[gotcha.2]
+observed = "Initial broad context output was truncated and the assumed /usr/local/bin gate location was absent."
+resolution = "Use exact finding and task sections, production paths and /out/run/bin wrappers; inspect /out/run/gate.json and the ledger rather than relying on unrelated context."
+
+[gotcha.3]
+observed = "apply_patch rejected a delete and add of the same Dockerfile in one patch before applying changes."
+resolution = "Use an in-place update for an existing file."

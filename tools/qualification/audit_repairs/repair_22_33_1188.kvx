@@ -1,0 +1,45 @@
+[repair]
+task = "22.33.1188"
+requirement = "22998.1"
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+implementation = "Build the actual builtin e2e node/application command from the repository Go module with Go 1.25.8 and all generated-testnet database backends; install both maintained entrypoints explicitly and exec the node with its generated configuration, preserving signal and exit-status delivery."
+source_proof = "Pytest parses Dockerfile instructions, shell build argv, image metadata, the proposed Makefile context command and this KVX record; it checks root module and local replacement metadata availability before dependency download, actual command sources, native backend libraries/tags, entrypoint installation, guarded exec commands, and the runner/config/runtime source connections. Both production shell scripts are parsed with bash -n."
+review_only = "No Docker image build, Go compilation, generated builtin testnet startup, backend ABI compatibility, block production, shutdown/restart or state recovery is executed by this source-only gate. bash -n is the explicitly requested shell syntax parser; no compiler, Docker daemon, credential, network or native artifact is required. This wiring-gap repair changes no persisted-state format and does not claim runtime or restart-recovery qualification."
+baseline = "Initial git status/diff showed only runner-prepared .cgignore and task-status changes; no scoped change or prior /out/run/gates.jsonl existed. No baseline tests were run or claimed failed: the explicit implementation-first order and exclusive hf-done verification supersede step 5's conflicting pre-change verify request. Source inspection confirmed Go 1.17, consensus-relative COPY paths, a missing standalone binary build and an unsupervised application process."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1188.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private evidence ledger name the exact verified candidate revision, command, exit code and log path; build and verification must pass on the same candidate revision. This record is finalized before gates because embedding its own candidate hash would change that revision. The runner commits; this task does not manually commit or push."
+
+[finding.e2e-docker-context]
+audit = "22.30.55"
+file = "consensus/test/e2e/docker/Dockerfile"
+line = 14
+class = "wiring-gap"
+severity = "medium"
+owner_domain = 15
+resolution = "Dockerfile and maintained launch scripts repaired within scope; caller context and real generated builtin testnet qualification remain explicit out-of-path wiring requests. A passing source gate does not claim Docker-stage coverage."
+tests = ["test_e2e_docker_repository_module_and_toolchain", "test_e2e_docker_builds_actual_builtin_command_and_backends", "test_e2e_docker_installs_runtime_contract", "test_e2e_docker_entrypoints_are_parsed_and_guarded", "test_e2e_docker_generated_config_reaches_builtin_consumer", "test_e2e_docker_context_request_resolves_real_inputs"]
+
+[wiring.makefile]
+path = "consensus/test/e2e/Makefile"
+owner_domain = "15 (fm-cosmos-fork)"
+request = "Change the docker recipe context from ../.. to ../../.. while retaining -f docker/Dockerfile and --tag tendermint/e2e-node; the Dockerfile now consumes the repository module root."
+command = "docker build --tag tendermint/e2e-node -f docker/Dockerfile ../../.."
+working_directory = "consensus/test/e2e"
+
+[wiring.qualification]
+path = "consensus/test/e2e/runner"
+owner_domain = "15 (fm-cosmos-fork)"
+request = "After the Makefile context wiring, build this image and generate and run a real builtin testnet through the maintained runner, including all selected database backends and observed committed blocks, before claiming Docker-stage coverage."
+
+[format]
+policy = "No Python, shell, Dockerfile or KVX formatter is configured for these paths; apply repository .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions after the whole implementation."
+
+[gotcha.1]
+observed = "Broad GOTCHA, audit and graph reads exceeded output limits; cg files did not enumerate the nested consensus instructions, and the runtime entrypoint lives in node.go rather than run.go."
+resolution = "Use the named finding/task sections and actual tracked source paths; record task-local gotchas here because GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.2]
+observed = "The proposal also changes a Makefile outside this task's exclusive scope, and the baseline instruction conflicts with the bounded implementation-first gate order."
+resolution = "Leave the Makefile intact, name its owning domain in a wiring request, claim no unrun baseline result and retain exact gate evidence in the private ledger and final JSON."

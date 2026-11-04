@@ -1,0 +1,6 @@
+[repair.22.31.460]
+derivation = "Keep the HTTP eth_getBlockByHash committed-block derivation in BlockAPI.encodeBlock and EncodeTmBlock; both newHeads transports now use it. Empty Ethereum transaction views use EmptyTxsHash, while nonempty views retain the consensus data hash. Receipts root uses the same block's consensus results; state root, parent, proposer, time and size come from the served committed block, execution gas and bloom from its receipts, gas limit from its SDK consensus parameters and base fee from its parent context."
+reason = "Preserve the existing HTTP block contract and remove independent subscription calculations, including the omitted size and inconsistent state root, bloom and legacy base fee. A notification is refused if its hash does not identify the loaded committed block."
+consumer = "services/explorer/backend/apps/ethereum_jsonrpc relies on field-for-field newHeads and HTTP parity (explorer regression 22.33.435)."
+regressions = "Empty consensus DataHash e3b0c442... and nonempty consensus DataHash f340f955... with no exposed EVM transactions must both report the Ethereum empty-list root 56e81f17...; blocks containing EVM transactions retain their HTTP transactionsRoot."
+verification = "hf-build then hf-done; the runner records the exact verified revision, command, exit code and private evidence log."

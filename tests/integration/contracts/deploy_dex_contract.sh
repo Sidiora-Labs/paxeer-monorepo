@@ -1,75 +1,35 @@
 #!/bin/bash
 
-paxdbin=$(which ~/go/bin/paxd | tr -d '"')
-keyname=$(printf "12345678\n" | $paxdbin keys list --output json | jq ".[0].name" | tr -d '"')
-chainid=$($paxdbin status | jq ".NodeInfo.network" | tr -d '"')
-paxhome=$(CDPATH= cd -- "$(dirname -- "$0")/../../.." && pwd)
-contract_name=$1
-if [[ $# -ne 1 ]];
-then
-  echo "Need to provide a contract name (mars,saturn,venus)"
+set -euo pipefail
+
+if [ "$#" -ne 1 ] || [ "$1" != "cw20_base" ]; then
+  echo "Usage: $0 cw20_base" >&2
   exit 1
 fi
 
+paxdbin=$(command -v "$HOME/go/bin/paxd")
+keyname=$(printf "12345678\n" | "$paxdbin" keys list --output json | jq -er '.[0].name')
+keyaddress=$(printf "12345678\n" | "$paxdbin" keys show "$keyname" -a)
+chainid=$("$paxdbin" status | jq -er '.NodeInfo.network')
+paxhome=$(CDPATH= cd -- "$(dirname -- "$0")/../../.." && pwd)
 source "$(dirname "$0")/../utils/_tx_helpers.sh"
+cd "$paxhome"
 
-# dex tx submitter mirroring bank_send_and_wait: -b sync + wait for the
-# sender's sequence to advance. The dex register-* txs have no
-# convenient single-query side effect, but a sequence advance is a
-# causal "committed" signal independent of side effect.
-keyaddress=$(printf "12345678\n" | $paxdbin keys show "$keyname" -a 2>/dev/null)
-dex_tx_and_wait() {
-    local seq_before; seq_before=$(_get_account_sequence "$keyaddress")
-    local resp; resp=$(printf "12345678\n" | "$@" --broadcast-mode=sync --output=json)
-    local code; code=$(echo "$resp" | jq -r '.code // 0')
-    if [ "$code" != "0" ]; then
-        echo "dex_tx_and_wait CheckTx rejected: $(echo "$resp" | jq -r '.raw_log')" >&2
-        return 1
-    fi
-    _wait_until "$keyaddress sequence > $seq_before" \
-        "[ \$(_get_account_sequence $keyaddress) -gt $seq_before ]" || return 1
-}
+contract_id=$(store_wasm contracts/wasm/cw20_base.wasm)
+params=$(jq -cn --arg owner "$keyaddress" \
+  '{name:"TestToken",symbol:"TTK",decimals:6,initial_balances:[{address:$owner,amount:"1000000"}]}')
+contract_addr=$(instantiate_wasm "$contract_id" "$params" cw20_base --no-admin)
 
-cd $paxhome || exit
-echo "Deploying $contract_name contract..."
-
-echo "Storing contract..."
-contract_id=$(store_wasm tests/integration/contracts/"$contract_name".wasm) || exit 1
-echo "Got contract id $contract_id"
-
-echo "Instantiating contract..."
-contract_addr=$(instantiate_wasm "$contract_id" '{}' dex --no-admin) || exit 1
-
-# register
-echo "Registering contract..."
-dex_tx_and_wait $paxdbin tx dex register-contract "$contract_addr" "$contract_id" false true 100000000000 \
-    -y --from="$keyname" --chain-id="$chainid" --fees=100000000000uhpx --gas=500000 || exit 1
-
-echo '{"batch_contract_pair":[{"contract_addr":"'$contract_addr'","pairs":[{"price_denom":"PAX","asset_denom":"ATOM","price_tick_size":"0.0000001", "quantity_tick_size":"0.0000001"}]}]}' > tests/integration/contracts/"$contract_name"-pair.json
-dex_tx_and_wait $paxdbin tx dex register-pairs tests/integration/contracts/"$contract_name"-pair.json \
-    -y --from=$keyname --chain-id=$chainid --fees=10000000uhpx --gas=500000 || exit 1
-rm -rf tests/integration/contracts/"$contract_name"-pair.json
-
-echo '{"batch_contract_pair":[{"contract_addr":"'$contract_addr'","pairs":[{"price_denom":"uhpx","asset_denom":"uatom","price_tick_size":"0.0000001", "quantity_tick_size":"0.0000001"}]}]}' > tests/integration/contracts/"$contract_name"-pair.json
-dex_tx_and_wait $paxdbin tx dex register-pairs tests/integration/contracts/"$contract_name"-pair.json \
-    -y --from=$keyname --chain-id=$chainid --fees=10000000uhpx --gas=500000 || exit 1
-rm -rf tests/integration/contracts/"$contract_name"-pair.json
-
-echo '{"batch_contract_pair":[{"contract_addr":"'$contract_addr'","pairs":[{"price_denom":"uhpx","asset_denom":"uatomatom","price_tick_size":"0.0000001", "quantity_tick_size":"0.0000001"}]}]}' > tests/integration/contracts/"$contract_name"-pair.json
-dex_tx_and_wait $paxdbin tx dex register-pairs tests/integration/contracts/"$contract_name"-pair.json \
-    -y --from=$keyname --chain-id=$chainid --fees=10000000uhpx --gas=500000 || exit 1
-rm -rf tests/integration/contracts/"$contract_name"-pair.json
-
-echo '{"batch_contract_pair":[{"contract_addr":"'$contract_addr'","pairs":[{"price_denom":"uhpx","asset_denom":"uatomatomatom","price_tick_size":"0.0000001", "quantity_tick_size":"0.0000001"}]}]}' > tests/integration/contracts/"$contract_name"-pair.json
-dex_tx_and_wait $paxdbin tx dex register-pairs tests/integration/contracts/"$contract_name"-pair.json \
-    -y --from=$keyname --chain-id=$chainid --fees=10000000uhpx --gas=500000 || exit 1
-rm -rf tests/integration/contracts/"$contract_name"-pair.json
-
-
-sleep 10
-
-echo "Deployed contracts:"
-echo "$contract_addr"
-echo "$contract_addr" > $paxhome/tests/integration/contracts/"$contract_name"-addr.txt
-
-exit 0
+# Exercise the supported CW20 product operation and prove its committed effect.
+code=$(submit_tx_and_wait "$keyname" wasm execute "$contract_addr" \
+  '{"burn":{"amount":"1"}}' --gas=500000 --fees=1000000uhpx)
+[ "$code" = "0" ] || exit 1
+_wait_until "CW20 burn committed" \
+  "[ \$(\"\$paxdbin\" q wasm contract-state smart \"$contract_addr\" '{\"token_info\":{}}' --output json | jq -r '.data.total_supply') = 999999 ]"
+info=$("$paxdbin" q wasm contract-state smart "$contract_addr" '{"token_info":{}}' --output json)
+printf '%s\n' "$info" | jq -e '.data | .name == "TestToken" and .symbol == "TTK" and .decimals == 6 and .total_supply == "999999"' >/dev/null
+balance_query=$(jq -cn --arg owner "$keyaddress" '{balance:{address:$owner}}')
+"$paxdbin" q wasm contract-state smart "$contract_addr" "$balance_query" --output json \
+  | jq -e '.data.balance == "999999"' >/dev/null
+printf '%s\n' "$contract_addr" > tests/integration/contracts/cw20_base-addr.txt
+printf 'Deployed CW20 contract: %s\n' "$contract_addr"

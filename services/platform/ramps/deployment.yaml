@@ -94,11 +94,29 @@ spec:
         - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}
           podSelector: {matchLabels: {k8s-app: kube-dns}}
       ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]
-    - to: [{podSelector: {matchLabels: {layerx-plane: trusted-boundary}}}]
-      ports: [{protocol: TCP, port: 443}, {protocol: TCP, port: 9443}]
-    - to: [{podSelector: {matchLabels: {app: layerx-gateway}}}]
-      ports: [{protocol: TCP, port: 443}]
-    - to: [{podSelector: {matchLabels: {app: paxeer}}}]
+    - to:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: layerx-testnet}}
+          podSelector: {matchLabels: {app: layerx-identity}}
+      ports: [{protocol: TCP, port: 9443}]
+    - to:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: layerx-testnet}}
+          podSelector: {matchLabels: {app: compliance-boundary}}
+      ports: [{protocol: TCP, port: 9443}]
+    - to:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: layerx-testnet}}
+          podSelector: {matchLabels: {app: provider-egress}}
+      ports: [{protocol: TCP, port: 9443}]
+    - to:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: layerx-testnet}}
+          podSelector: {matchLabels: {app: kms-boundary}}
+      ports: [{protocol: TCP, port: 9443}]
+    - to:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: layerx-testnet}}
+          podSelector: {matchLabels: {app: paxeer-custody}}
+      ports: [{protocol: TCP, port: 9443}]
+    - to:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: layerx-testnet}}
+          podSelector: {matchLabels: {app: layerx-gateway}}
       ports: [{protocol: TCP, port: 9443}]
 ---
 apiVersion: networking.k8s.io/v1
@@ -126,8 +144,42 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata: {name: layerx-reference-ramp-upstream, namespace: layerx-testnet}
 spec:
-  podSelector: {matchExpressions: [{key: app, operator: In, values: [layerx-identity, layerx-node, layerx-gateway, paxeer]}]}
+  podSelector: {matchExpressions: [{key: app, operator: In, values: [layerx-identity, compliance-boundary, provider-egress, kms-boundary, paxeer-custody, layerx-gateway]}]}
   policyTypes: [Ingress]
   ingress:
-    - from: [{podSelector: {matchLabels: {app: layerx-reference-ramp}}}]
-      ports: [{protocol: TCP, port: 443}, {protocol: TCP, port: 9443}, {protocol: TCP, port: 9445}]
+    - from:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: layerx-testnet}}
+          podSelector: {matchLabels: {app: layerx-reference-ramp}}
+      ports: [{protocol: TCP, port: 9443}]
+
+---
+apiVersion: v1
+kind: Service
+metadata: {name: compliance-boundary, namespace: layerx-testnet}
+spec:
+  selector: {app: compliance-boundary}
+  ports: [{name: https, port: 9443, targetPort: 9443}]
+
+---
+apiVersion: v1
+kind: Service
+metadata: {name: provider-egress, namespace: layerx-testnet}
+spec:
+  selector: {app: provider-egress}
+  ports: [{name: https, port: 9443, targetPort: 9443}]
+
+---
+apiVersion: v1
+kind: Service
+metadata: {name: kms-boundary, namespace: layerx-testnet}
+spec:
+  selector: {app: kms-boundary}
+  ports: [{name: https, port: 9443, targetPort: 9443}]
+
+---
+apiVersion: v1
+kind: Service
+metadata: {name: paxeer-custody, namespace: layerx-testnet}
+spec:
+  selector: {app: paxeer-custody}
+  ports: [{name: https, port: 9443, targetPort: 9443}]

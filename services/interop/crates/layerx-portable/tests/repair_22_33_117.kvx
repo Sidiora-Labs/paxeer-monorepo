@@ -1,0 +1,9 @@
+[repair.22.33.117]
+audit = "22.30.112"
+base = "0ba7cfa54c7f07b37201b1f12fcc2f1dd7ed0ed7"
+portable_format_versions = ["portable_format_versions_real_round_trip_and_windows", "portable_format_versions_current_importer_refusals"]
+portable_digest_claim = ["portable_digest_claim_content_and_descriptor_binding", "portable_digest_claim_requires_actual_verification"]
+baseline = "Not run: the explicit gate order requires complete implementation before hf-build and hf-done and forbids running verify_cmd by hand. The dedicated repair test is absent on the base; no baseline behavioral failure is claimed. FORMAT.md already contains a v2 rewrite, preserved here."
+previous_attempt = "The supplied task record reports attempt 1 stopped before its own verify on the out-of-scope observed_balances_denom.rs Quantity mismatch (gotcha 2974), repaired by prerequisite 22.31.443. This sandbox starts with no hf-build/hf-done ledger and no dedicated repair test to retain."
+wiring_request = "None: both proposals are documentation repairs within the portable crate; authenticated verifier attestations are a consumer trust requirement, not a new protocol implemented by this task."
+evidence = "The bounded hf-build/hf-done ledger supplies exact revision, command, exit and private evidence log; no gate result is claimed before execution."

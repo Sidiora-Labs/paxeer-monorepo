@@ -13,13 +13,17 @@ const vectors = JSON.parse(readFileSync(new URL(
   "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json", import.meta.url,
 ), "utf8"));
 
-function signedReceipt(id = "V1-layerxprograms-call") {
+function signedReceipt(id = "V1-layerxprograms-call", status = "0x1") {
   assert.equal(vectors.provenance.generator, "rpc/sequencer_receipt_vectors_test.go");
   const vector = vectors.cases.find((entry) => entry.id === id);
   assert.ok(vector, `missing producer transcript ${id}`);
   assert.equal(vector.expected.verifier, "accepts");
   assert.equal(vector.receiptJson.receipt, vector.signedReceipt);
   assert.equal(vector.receiptJson.rung, "receipted");
+  assert.equal(vector.receiptJson.status, status);
+  assert.equal(vector.receiptJson.txHash, `0x${Buffer.from(keccak256(bytes(vector.rawTransaction))).toString("hex")}`);
+  assert.equal(vector.receiptJson.keyId, vector.pinnedKey.keyId);
+  assert.equal(vector.receiptJson.signingKey, vector.pinnedKey.publicKey);
   return {
     raw: vector.rawTransaction,
     txHash: vector.receiptJson.txHash,
@@ -46,7 +50,7 @@ async function receiptListener(t, signed) {
       assert.equal(message.jsonrpc, "2.0");
       assert.equal(message.id, 1);
       assert.equal(request.method, "POST");
-      assert.equal(request.url, "/rpc");
+      assert.equal(request.url, "/");
       assert.deepEqual(message.params, [service.signed.txHash]);
       let result;
       if (message.method === "eth_getRawTransactionByHash") result = service.signed.raw;
@@ -67,7 +71,7 @@ async function receiptListener(t, signed) {
     await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
     assert.deepEqual(service.failures, []);
   });
-  service.rpcUrl = `http://127.0.0.1:${server.address().port}/rpc`;
+  service.rpcUrl = `http://127.0.0.1:${server.address().port}`;
   return service;
 }
 
@@ -100,7 +104,7 @@ async function programOutcomeCompletesOnSuccessfulReceipt(t) {
     output,
   });
   assertReceiptRequests(service);
-  service.signed = signedReceipt("V2-layerxledger-revert");
+  service.signed = signedReceipt("V2-layerxledger-revert", "0x0");
   service.requests.length = 0;
   const failedOutput = { data: [{ txHash: service.signed.txHash }] };
   assert.equal(service.signed.result.status, "0x0");

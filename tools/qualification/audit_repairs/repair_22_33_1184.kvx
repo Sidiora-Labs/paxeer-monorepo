@@ -1,0 +1,35 @@
+[task.22.33.1184]
+audit = "22.30.55"
+requirement = "22998.1"
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+resolution = "Take the proposal's retirement option: replace the obsolete Node 12/Dredd installer with an explicit nonzero refusal and supported runtime provisioning guidance. No executable bytes are downloaded, extracted, linked, installed or executed, so there is no remaining artifact transport requiring digest authentication."
+source_proof = "The pytest module parses the entire production shell script with bash -n, checks its complete executable command list permits only constant stderr diagnostics followed by exit 1, and forbids shell expansion. It executes that same script with normal and legacy arguments, asserting refusal, empty stdout and unchanged caller files. The record test maps this finding to every declared proving test."
+review_only = "The upstream retirement decision is supported by the recorded read-only GitHub API metadata below. The consensus README and cmd/contract_tests/main.go retain Dredd hooks; they do not establish an upstream-maintained installer. Hook execution, runtime provisioning, authenticated runtime downloads and live upstream maintenance status are not exercised by the gate. No interface mismatch or stateful restart-recovery finding applies to this retired installer. Bash is the explicitly required shell parser and executes only builtin diagnostics and exit; no Node, npm, mise, network endpoint, credential, environment configuration, native artifact or subprocess build toolchain is needed by verification."
+baseline = "No pre-change verification was run: the explicit implementation-first order and hf-build then hf-done gates prohibit the separate unchanged-tree verify requested by step 5. No baseline test failures are claimed. Initial status/diff showed only runner-prepared .cgignore and spec task-start bookkeeping; scoped repair files were absent, and /out/run/gates.jsonl did not exist with both gate counts zero."
+build_cmd = "bash -n consensus/scripts/get_nodejs.sh"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1184.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private evidence ledger identify the exact verified candidate revision, command, exit code and log path. Build and verification must pass on the same candidate revision. The record is finalized before qualification because embedding its own candidate hash would change that hash; the runner retains and publishes the declared evidence."
+wiring_requests = []
+
+[finding.nodejs-bootstrap-http]
+file = "consensus/scripts/get_nodejs.sh"
+class = "security"
+severity = "medium"
+owner_domain = 16
+observed = "The original installer downloaded Node v12.9.0 over HTTP, extracted unauthenticated executable bytes into the user tree and used them to install Dredd."
+expected = "Developer tooling must authenticate supported runtime distributions before executing them; the obsolete installer may be retired when Dredd is no longer maintained."
+repair = "Retire the installer with a fail-closed exit, remove every download and executable-tree mutation, and direct supported Node provisioning to mise without invoking it or adding another installer. Existing contract-test hooks are outside this repair and remain intact."
+tests = ["test_nodejs_bootstrap_http_retired_source", "test_nodejs_bootstrap_http_shell_syntax", "test_nodejs_bootstrap_http_refuses_without_mutation", "test_nodejs_bootstrap_http_record_maps_proof"]
+
+[maintenance.dredd]
+source = "https://api.github.com/repos/apiaryio/dredd"
+html_url = "https://github.com/apiaryio/dredd"
+archived = true
+disabled = false
+pushed_at = "2024-05-11T13:19:25Z"
+review = "Read-only upstream API metadata observed during implementation, retained as review evidence; verification does not contact this endpoint. Archived upstream tooling justifies retiring its inherited Node 12 bootstrap while retaining the repository's contract-test hook sources."
+
+[constraint.baseline]
+observed = "Step 5 asks for pre-change verification, while the explicit order forbids tests before complete implementation and forbids invoking verify_cmd outside hf-done."
+resolution = "Follow the explicit gate order; disclose that baseline tests were not run rather than inventing failures or spending a gate on an unimplemented task."

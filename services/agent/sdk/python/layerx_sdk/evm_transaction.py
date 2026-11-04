@@ -484,3 +484,47 @@ def encode_call(selector: str, types: Sequence[str], values: Sequence[object]) -
     return keccak256(signature.encode())[:4] + _sequence(
         kinds, _items(values, len(kinds))
     )
+
+
+def decode_abi(types: Sequence[str], data: bytes) -> tuple[object, ...]:
+    """Decode a canonical sequence of static ABI scalar values."""
+    if type(data) is not bytes or len(data) != _WORD * len(types):
+        raise EvmTransactionError("invalid_abi_length")
+    kinds: list[_AbiType] = []
+    values: list[object] = []
+    for index, kind in enumerate(types):
+        if type(kind) is not str:
+            raise EvmTransactionError("invalid_abi_type")
+        parsed = _parse(kind)
+        if not isinstance(parsed, str) or _dynamic(parsed):
+            raise EvmTransactionError("invalid_abi_type", kind)
+        kinds.append(parsed)
+        start = index * _WORD
+        word = data[start : start + _WORD]
+        if kind.startswith("uint"):
+            value = int.from_bytes(word, "big")
+        elif kind.startswith("bytes"):
+            value = word[: int(kind[5:])]
+        elif kind == "address":
+            value = word[-20:]
+        else:
+            number = int.from_bytes(word, "big")
+            if number not in (0, 1):
+                raise EvmTransactionError("invalid_abi_value", kind)
+            value = bool(number)
+        values.append(value)
+    if _sequence(kinds, values) != data:
+        raise EvmTransactionError("noncanonical_abi_value")
+    return tuple(values)
+
+
+def decode_call(
+    selector: str, types: Sequence[str], calldata: bytes
+) -> tuple[object, ...]:
+    """Decode canonical calldata whose arguments are static ABI scalar types."""
+    if type(calldata) is not bytes or len(calldata) < 4:
+        raise EvmTransactionError("invalid_abi_length")
+    values = decode_abi(types, calldata[4:])
+    if encode_call(selector, types, values) != calldata:
+        raise EvmTransactionError("noncanonical_abi_call")
+    return values

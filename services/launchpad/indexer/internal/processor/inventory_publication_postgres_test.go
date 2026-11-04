@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/decode"
-	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/internaltest/chainfixture"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/publisher"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/receipt"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/runtimedocs"
@@ -23,7 +22,6 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/store"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/store/canonicaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
-	"github.com/Sidiora-Technologies/KindleLaunch/shared/config/deployment"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/queue"
 	"github.com/ethereum/go-ethereum/common"
@@ -63,6 +61,11 @@ func newInventoryHarness(t *testing.T, ctx context.Context) inventoryHarness {
 func newInventoryHarnessWithWait(t *testing.T, ctx context.Context, wait int64) inventoryHarness {
 	t.Helper()
 	_, pool := canonicaltest.New(t)
+	return newInventoryHarnessOnPool(t, ctx, wait, pool)
+}
+
+func newInventoryHarnessOnPool(t *testing.T, ctx context.Context, wait int64, pool *pgxpool.Pool) inventoryHarness {
+	t.Helper()
 	applyProductionSchema(t, ctx, pool)
 	ddl := []string{`CREATE SCHEMA IF NOT EXISTS "pnl"`}
 	for _, id := range []string{"160000", "160001"} {
@@ -84,11 +87,8 @@ func newInventoryHarnessWithWait(t *testing.T, ctx context.Context, wait int64) 
 			t.Fatalf("pnl schema: %v", err)
 		}
 	}
-	url := chainfixture.New(t).Serve(t)
-	options, _, err := runtimedocs.ReceiptOptions(realReceiptInputs(t))
-	if err != nil {
-		t.Fatal(err)
-	}
+	url := repairM1000RecordedRPC(t)
+	options := repairM1000ReceiptOptions(t, repair54ReceiptInputs(t))
 	client, closeClient, err := receipt.NewBoundedRPCClient(ctx, url, "")
 	if err != nil {
 		t.Fatal(err)
@@ -142,7 +142,7 @@ func newInventoryHarnessWithWait(t *testing.T, ctx context.Context, wait int64) 
 		err := pool.QueryRow(c, `SELECT block_hash FROM indexer.indexer_block_completeness WHERE chain_id=125 AND stream_id=$1 AND height=$2`, realStream, int64(h)).Scan(&hash)
 		return common.HexToHash(hash), err
 	}}
-	p := New(Deps{Store: st, Decoder: decode.NewDecoder(), EventEmitterAddress: deployment.Current().Roles["EventEmitter"].Address, ChainID: 125, QualifiedBatchSource: live, CanonicalStreamID: realStream, CanonicalOwner: inventoryTestOwner, AccountingPartitions: partitions, Durable: stager, AccountingProjectionVersion: "accounting-market-v1", InventoryGeneration: pnlGeneration, InventoryProjectionVersion: pnlInventoryVersion, InventoryBaselineWaitBlocks: wait, LegacyProjection: true, Reserves: authority})
+	p := New(Deps{Store: st, Decoder: decode.NewDecoder(), EventEmitterAddress: options.Manifest.Roles["EventEmitter"].Address, ChainID: 125, QualifiedBatchSource: live, CanonicalStreamID: realStream, CanonicalOwner: inventoryTestOwner, AccountingPartitions: partitions, Durable: stager, AccountingProjectionVersion: "accounting-market-v1", InventoryGeneration: pnlGeneration, InventoryProjectionVersion: pnlInventoryVersion, InventoryBaselineWaitBlocks: wait, LegacyProjection: true, Reserves: authority})
 	return inventoryHarness{pool: pool, proc: p, height: height}
 }
 
@@ -372,7 +372,8 @@ func (h inventoryHarness) issueBaseline(t *testing.T, ctx context.Context, walle
 	return issuedBaseline{digest: digest, att: att}
 }
 
-// consumeAsPnl applies every staged accounting.inventory.v1 frame the way
+// consumeAsPnl is a partition-contract unit check, not PNL consumer proof.
+// It applies every staged accounting.inventory.v1 frame the way
 // pnl's AccountingConsumer.PrepareAndConsume does, on pnl's own ordered
 // partition store: envelope decode under pnl's inventory-only policy, the
 // publication's facet/projection/partition binding, the original fill read
@@ -554,7 +555,7 @@ func fillHeight(fill accounting.FillV1) (int64, error) {
 // creation baseline issued for the trader before its first fill, the real
 // market's buy and sell are published on accounting.inventory.v1 as sequences
 // 1 and 2 of partition 125:wallet:token under inventory-v1, and every frame
-// passes pnl's consumer checks; the market frames charts and stats consume
+// passes these partition-contract checks; the market frames charts and stats consume
 // are unchanged.
 func TestInventoryEnrichmentPublishesPnlContractFramesPostgres(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
