@@ -1,0 +1,11 @@
+[repair.22.33.327]
+audit = "22.30.137"
+library_regex_alternation = "repair-22-33-327.spec.ts::libraryRegexAlternation"
+library_one_line_crash = "repair-22-33-327.spec.ts::libraryOneLineCrash"
+source_tree_prototype_keys = "repair-22-33-327.spec.ts::sourceTreePrototypeKeys"
+remapping_precedence = "repair-22-33-327.spec.ts::remappingPrecedence"
+baseline = "Not executed: the task gate order prohibits pre-implementation verification and running verify_cmd by hand. No baseline failure is claimed."
+evidence = "Runner-owned hf-build and hf-done ledger records the exact candidate revision, command, exit code and private log."
+wiring_requests = "None; all proposed repairs are inside the allowed paths."
+gotcha_formatter = "The repository lint rules expect string test titles and inline assertions; the task explicitly requires named test functions registered as test(functionName). Formatting completed; those lint rules are not an allowed task gate. No checks were disabled."
+gotcha_monaco_types = "The installed Monaco package omits declarations for its internal text model and service APIs; the fixture uses explicit declarations grounded in the installed implementation and the public ITextModel contract."

@@ -34,16 +34,16 @@ const groupItem = (text: string): NavGroupItem => {
 
 describe('NavLinkGroup', () => {
   it('names the group and keeps its panel closed until it is asked for', () => {
-    const { container } = render(<NavLinkGroup item={ groupItem('Kernel') }/>);
+    const { container } = render(<NavLinkGroup item={ groupItem('Blockchain') }/>);
 
     const trigger = container.querySelector('[data-label="nav-group"]');
 
-    expect(trigger?.textContent?.trim()).toBe('Kernel');
+    expect(trigger?.textContent?.trim()).toBe('Blockchain');
     expect(trigger?.hasAttribute('data-active')).toBe(false);
   });
 
   it('opens the panel on a click and lists the pages of the group', () => {
-    const { container } = render(<NavLinkGroup item={ groupItem('Kernel') }/>);
+    const { container } = render(<NavLinkGroup item={ groupItem('Blockchain') }/>);
 
     const trigger = container.querySelector('[data-label="nav-group"]') as HTMLElement;
 
@@ -53,12 +53,14 @@ describe('NavLinkGroup', () => {
 
     const panel = document.querySelector('[data-scope="tooltip"][data-part="content"]');
 
-    expect(Array.from(panel?.querySelectorAll('li') ?? []).map((item) => item.textContent?.trim()))
-      .toEqual([ 'Anchor checkpoints', 'Kernel receipts' ]);
+    expect(Array.from(panel?.querySelectorAll('a[href="/blocks"], a[href="/txs"], a[href="/accounts"]') ?? [])
+      .map((item) => [ item.textContent?.trim(), item.getAttribute('href') ]))
+      .toEqual([ [ 'Transactions', '/txs' ], [ 'Blocks', '/blocks' ], [ 'Top accounts', '/accounts' ] ]);
+    expect(panel?.querySelector('a[href^="/paxeer-x/anchors"], a[href^="/paxeer-x/receipts"]')).toBeNull();
   });
 
   it('closes the panel on a second click', () => {
-    const { container } = render(<NavLinkGroup item={ groupItem('Kernel') }/>);
+    const { container } = render(<NavLinkGroup item={ groupItem('Blockchain') }/>);
 
     const trigger = container.querySelector('[data-label="nav-group"]') as HTMLElement;
 

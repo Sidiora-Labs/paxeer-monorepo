@@ -8,25 +8,27 @@ export default function composeFileTree(files: Array<File>) {
   const result: FileTree = [];
   type Level = {
     result: FileTree;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } & Record<string, any>;
-  const level: Level = { result };
+    children: Map<string, Level>;
+  };
+  const level: Level = { result, children: new Map() };
 
   files.forEach((file) => {
     const path = stripLeadingSlash(file.file_path);
     const segments = path.split('/');
 
     segments.reduce((acc, segment, currentIndex, array) => {
-      if (!acc[segment]) {
-        acc[segment] = { result: [] };
+      let child = acc.children.get(segment);
+      if (!child) {
+        child = { result: [], children: new Map() };
+        acc.children.set(segment, child);
         acc.result.push({
           name: segment,
-          ...(currentIndex === array.length - 1 ? file : { children: acc[segment].result }),
+          ...(currentIndex === array.length - 1 ? file : { children: child.result }),
         });
       }
       acc.result.sort(sortFileTree);
 
-      return acc[segment];
+      return child;
     }, level);
   });
 
