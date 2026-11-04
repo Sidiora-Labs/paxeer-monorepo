@@ -1,6 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import { useSpotOrderbook } from "@/hooks/spot/useSpotMarketStream";
 import { useSpotVenueBook } from "@/core/net/venueStream";
 
@@ -31,7 +37,7 @@ const ROW_H_PX_COMPACT = 18;
 const CHROME_H_PX = 95;
 const MIN_LEVELS_PER_SIDE = 4;
 
-function buildBook(
+export function buildSpotBook(
   rawAsks: { price: number; size: number }[],
   rawBids: { price: number; size: number }[],
 ): SpotOrderbookData {
@@ -75,7 +81,10 @@ export function SpotOrderbook({
   const scheduleBookUpdate = useCallback((next: SpotOrderbookData) => {
     pendingBookRef.current = next;
     if (rafIdRef.current !== null) return;
-    if (typeof window === "undefined" || typeof window.requestAnimationFrame !== "function") {
+    if (
+      typeof window === "undefined" ||
+      typeof window.requestAnimationFrame !== "function"
+    ) {
       setBook(next);
       pendingBookRef.current = null;
       return;
@@ -116,9 +125,26 @@ export function SpotOrderbook({
     }
     const asks = spotBook.asks.map((l) => ({ price: l.price, size: l.size }));
     const bids = spotBook.bids.map((l) => ({ price: l.price, size: l.size }));
-    scheduleBookUpdate(buildBook(asks, bids));
+    scheduleBookUpdate(buildSpotBook(asks, bids));
   }, [spotBook, scheduleBookUpdate]);
 
+  return (
+    <SpotOrderbookView
+      symbol={symbol}
+      book={book}
+      height={height}
+      compact={compact}
+      onPriceClick={onPriceClick}
+    />
+  );
+}
+
+export function SpotOrderbookView({
+  book,
+  height = 580,
+  compact = false,
+  onPriceClick,
+}: SpotOrderbookProps & { book: SpotOrderbookData | null }) {
   const maxTotal = useMemo(() => {
     if (!book) return 1;
     const maxBid = book.bids[book.bids.length - 1]?.total ?? 0;
@@ -169,10 +195,18 @@ export function SpotOrderbook({
   const displayBids = book.bids.slice(0, halfLevels);
 
   const bestBid = book.bids[0];
+  const bestAsk = book.asks[0];
+  const midpoint =
+    bestBid && bestAsk ? (bestBid.price + bestAsk.price) / 2 : null;
 
-  const renderRow = (level: SpotOrderbookLevel, kind: "ask" | "bid", i: number) => {
+  const renderRow = (
+    level: SpotOrderbookLevel,
+    kind: "ask" | "bid",
+    i: number,
+  ) => {
     const color = kind === "ask" ? "var(--danger)" : "var(--success)";
-    const bg = kind === "ask" ? "rgba(255, 90, 101, 0.08)" : "rgba(5, 193, 104, 0.08)";
+    const bg =
+      kind === "ask" ? "rgba(255, 90, 101, 0.08)" : "rgba(5, 193, 104, 0.08)";
     const pct = (level.total / maxTotal) * 100;
     return (
       <div
@@ -202,7 +236,13 @@ export function SpotOrderbook({
             pointerEvents: "none",
           }}
         />
-        <span style={{ color, position: "relative", fontVariantNumeric: "tabular-nums" }}>
+        <span
+          style={{
+            color,
+            position: "relative",
+            fontVariantNumeric: "tabular-nums",
+          }}
+        >
           {formatPrice(level.price)}
         </span>
         <span
@@ -268,7 +308,8 @@ export function SpotOrderbook({
           alignItems: "center",
           justifyContent: "space-between",
           padding: "8px 12px",
-          background: "linear-gradient(90deg, rgba(0, 76, 237, 0.12), transparent)",
+          background:
+            "linear-gradient(90deg, rgba(0, 76, 237, 0.12), transparent)",
           borderTop: "1px solid var(--border-soft)",
           borderBottom: "1px solid var(--border-soft)",
           flexShrink: 0,
@@ -285,7 +326,7 @@ export function SpotOrderbook({
               fontVariantNumeric: "tabular-nums",
             }}
           >
-            {bestBid ? `$${formatPrice(bestBid.price)}` : "\u2014"}
+            {midpoint !== null ? `$${formatPrice(midpoint)}` : "\u2014"}
           </div>
           <div
             style={{
