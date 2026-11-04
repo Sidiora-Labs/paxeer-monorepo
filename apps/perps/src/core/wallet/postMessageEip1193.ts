@@ -1,3 +1,5 @@
+import type { Hex } from "viem";
+
 type Eip1193RequestArgs = {
   method: string;
   params?: unknown[] | object;
@@ -26,15 +28,32 @@ type BridgeResponseMessage = {
   error?: { code?: number; message?: string; data?: unknown };
 };
 
-type BridgeEventMessage = {
+export type BridgeAccountsChangedEventMessage = {
   type: "SIDIORA_EIP1193_EVENT";
-  event: ProviderEventName;
-  payload?: unknown;
+  event: "accountsChanged";
+  payload: Hex[];
 };
+
+type BridgeEventMessage =
+  | BridgeAccountsChangedEventMessage
+  | {
+      type: "SIDIORA_EIP1193_EVENT";
+      event: Exclude<ProviderEventName, "accountsChanged">;
+      payload?: unknown;
+    };
 
 type BridgeInboundMessage = BridgeResponseMessage | BridgeEventMessage;
 
 type BridgeMessage = BridgeRequestMessage | BridgeInboundMessage;
+
+export function postAccountsChangedEvent(target: Window, targetOrigin: string, accounts: Hex[]): void {
+  const message: BridgeAccountsChangedEventMessage = {
+    type: "SIDIORA_EIP1193_EVENT",
+    event: "accountsChanged",
+    payload: accounts,
+  };
+  target.postMessage(message, targetOrigin);
+}
 
 function isBridgeMessage(data: unknown): data is BridgeInboundMessage {
   if (!data || typeof data !== "object") return false;
@@ -106,7 +125,9 @@ export class PostMessageEip1193Provider {
     const listeners = this.listeners.get(event);
     if (!listeners) return;
     for (const listener of listeners) {
-      if (Array.isArray(payload)) {
+      if (event === "accountsChanged") {
+        listener(payload);
+      } else if (Array.isArray(payload)) {
         listener(...payload);
       } else if (payload === undefined) {
         listener();
