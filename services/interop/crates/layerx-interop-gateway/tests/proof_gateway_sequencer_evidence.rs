@@ -410,3 +410,102 @@ fn producer_reference_is_indexed_and_a_different_translation_is_refused() {
         assert_eq!(format!("{core:?}"), before);
     }
 }
+
+#[test]
+fn changed_transaction_hash_is_refused_without_state_or_audit_writes() {
+    let case = payment_case();
+    let original = evidence(&case);
+    let keys = keys(&case);
+    let receipt =
+        verify_sequencer_signature(&original.signed_receipt, ReceiptKeys::HeightRanges(&keys))
+            .unwrap_or_else(|error| panic!("real signature consumer: {error:?}"));
+    assert_eq!(
+        receipt
+            .protocol()
+            .unwrap_or_else(|| panic!("protocol receipt"))
+            .activity_id(),
+        original.transaction_hash
+    );
+    let verified = verify_logs(&receipt, original.logs.clone())
+        .unwrap_or_else(|error| panic!("real log consumer: {error:?}"));
+    assert_eq!(verified.logs(), original.logs);
+    let key = original.logs[0].topics()[1];
+    let expected_digest = array(&case["receiptDigest"]);
+
+    for rung in [
+        SettlementRung::Receipted,
+        SettlementRung::Committed {
+            block_number: 1001,
+            block_hash: [0x42; 32],
+        },
+    ] {
+        let mut genuine = original.clone();
+        genuine.rung = rung;
+        let mut changed = genuine.clone();
+        changed.transaction_hash[0] ^= 1;
+        assert_ne!(changed.transaction_hash, genuine.transaction_hash);
+        assert_eq!(changed.signed_receipt, genuine.signed_receipt);
+        assert_eq!(changed.logs, genuine.logs);
+        assert_eq!(changed.rung, genuine.rung);
+
+        let (mut core, principal, trace) = pending(key);
+        let absent = PrincipalId::new("absent-evidence-proof-buyer")
+            .unwrap_or_else(|error| panic!("principal: {error}"));
+        let before = format!("{core:?}");
+        let audit_before = core
+            .principal_audit(&principal)
+            .unwrap_or_else(|| panic!("missing pending audit"))
+            .export();
+        for now in [3, 4] {
+            let error = core
+                .settle_with_sequencer_evidence(&principal, key, &changed, &keys, &trace, now)
+                .expect_err("transport transaction hash must match the authenticated activity id");
+            assert_eq!(
+                error.error(),
+                &SequencerSettlementError::Gateway(rejected(ReceiptCheck::ActivityId))
+            );
+            assert_eq!(error.trace(), &trace);
+            assert_eq!(
+                core.translation(&principal, key),
+                Some(TranslationStatus::Pending)
+            );
+            let audit = core
+                .principal_audit(&principal)
+                .unwrap_or_else(|| panic!("missing audit after refusal"));
+            assert_eq!(audit.export(), audit_before);
+            assert!(audit
+                .entries()
+                .iter()
+                .all(|entry| entry.kind() != AuditEventKind::TranslationCompleted));
+            assert_eq!(format!("{core:?}"), before);
+
+            let error = core
+                .settle_with_sequencer_evidence(&absent, key, &changed, &keys, &trace, now)
+                .expect_err("identity mismatch must be refused before creating principal state");
+            assert_eq!(
+                error.error(),
+                &SequencerSettlementError::Gateway(rejected(ReceiptCheck::ActivityId))
+            );
+            assert_eq!(error.trace(), &trace);
+            assert!(core.principal_audit(&absent).is_none());
+            assert_eq!(core.translation(&absent, key), None);
+            assert_eq!(format!("{core:?}"), before);
+        }
+
+        assert_eq!(
+            core.settle_with_sequencer_evidence(&principal, key, &genuine, &keys, &trace, 5)
+                .unwrap_or_else(|error| panic!("genuine evidence after refusal: {error}")),
+            TranslationStatus::ReceiptVerified {
+                receipt_digest: expected_digest
+            }
+        );
+        let audit = core
+            .principal_audit(&principal)
+            .unwrap_or_else(|| panic!("missing completion audit"));
+        assert_eq!(audit.entries().len(), audit_before.len() + 1);
+        let completion = &audit.entries()[audit_before.len()];
+        assert_eq!(completion.kind(), AuditEventKind::TranslationCompleted);
+        assert_eq!(completion.subject(), expected_digest);
+        assert_eq!(completion.trace(), &trace);
+    }
+}
