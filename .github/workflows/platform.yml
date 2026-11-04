@@ -1048,7 +1048,8 @@ jobs:
           diff -r "$directory" "$GITHUB_WORKSPACE/sdk/platform/go"
           output=$GITHUB_WORKSPACE/$LAYERX_RELEASE_OUTPUT
           sha256sum "$zip" | tee "$output/registry-digest.txt"
-          checksum=$(grep " $module v$LAYERX_RELEASE_VERSION h1:" go.sum | tee -a "$output/registry-digest.txt")
+          checksum=$(python3 "$GITHUB_WORKSPACE/.github/workflows/scripts/go_publication_checksum.py" \
+            "$module" "v$LAYERX_RELEASE_VERSION" go.sum download.json "$output/registry-digest.txt")
           test -n "$checksum"
           cp "$zip" "$output/layerx-go-v$LAYERX_RELEASE_VERSION.zip"
           escaped=$(printf '%s' "$module" | sed 's/[A-Z]/!\L&/g')
