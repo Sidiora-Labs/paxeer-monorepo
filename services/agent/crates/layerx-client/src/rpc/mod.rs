@@ -16,11 +16,13 @@ pub struct Head {
 
 pub mod account;
 pub mod batch;
+pub mod commit;
 pub mod evidence;
 pub mod history;
 pub mod module_state;
 pub mod payments;
 pub mod receipt;
+pub mod receipt_commit;
 pub mod stream;
 pub mod submit;
 pub mod withdrawal;
