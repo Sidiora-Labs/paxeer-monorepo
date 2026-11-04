@@ -17,7 +17,6 @@ defmodule Explorer.Chain.PaxeerX.ReceiptEvidence do
       case ReceiptInclusion.authenticate(commit, validators, height) do
         :ok ->
           opts = [
-            on_invalid_inclusion: :receipted,
             eth_receipt: eth,
             batch: batch,
             chain_id: config[:chain_id],
@@ -26,8 +25,8 @@ defmodule Explorer.Chain.PaxeerX.ReceiptEvidence do
           ]
 
           case settlement(config[:node_rpc_url], router, height, commit, answer) do
-            {:ok, settlement, ids} -> {:ok, opts ++ [settlement: settlement, batch_activity_ids: ids]}
-            _ -> :disabled
+            {:ok, settlement, ids} -> {:ok, opts ++ [receipt_inclusion: settlement, batch_activity_ids: ids]}
+            _ -> {:error, :r8}
           end
 
         _ ->

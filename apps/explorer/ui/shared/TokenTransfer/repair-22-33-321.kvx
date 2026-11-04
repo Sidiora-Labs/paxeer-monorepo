@@ -1,0 +1,13 @@
+[repair.22.33.321]
+audit = "22.30.137"
+erc1155_list_identity = "repair-22-33-321.spec.ts: erc1155ListIdentity"
+erc1155_table_identity = "repair-22-33-321.spec.ts: erc1155TableIdentity"
+compatibility = "repair-22-33-321.spec.ts: transferIdentityCompatibility"
+fixture = "Existing committed mocks/tokens/tokenTransfer.ts erc1155A and erc1155D; JSON Response decoding into the production list/table render functions with the real multichain context."
+baseline = "Not run: the explicit implementation-first order and hf-build/hf-done budget prohibit the contradictory do_6 unchanged-tree verification; no pre-change failure is claimed."
+proof_limit = "Tests inspect the actual React row keys and props before mounting row descendants; they do not claim DOM reconciliation or execution of the Elixir backend serializer."
+wiring_request = "Domain 14: services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/token_transfer_controller_test.exs should supply a captured two-token response from the real batch serializer for replay by this frontend test."
+evidence = "Exact candidate revision, command, exit and private log path are emitted by hf-build/hf-done and retained in /out/run/gates.jsonl; no qualification is claimed by this record."
+qualification_setup = "Install the existing yarn.lock with pinned Yarn 1.22.22; run the declared pnpm exec gates with pnpm 8.15.9, which supports exec in a Yarn-managed package without changing package.json or the lockfile."
+prior_attempt = "Revision b0ec8167ebaeeec35dba2c9f122c775d64498fab stopped before compilation with ERR_PNPM_OTHER_PM_EXPECTED; it established no build or test result."
+qualification_repair = "The repository types Response.json() as unknown; validate the decoded response by strict deep equality against the complete typed committed fixture before narrowing to TokenTransferResponse."

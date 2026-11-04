@@ -1,0 +1,10 @@
+[repair.22.33.572]
+audit = "22.30.16"
+finding = "mint-cli-json-panic"
+implementation = "Decode proposal files with the error-returning production codec and wrap read/decode errors with the file path."
+proving_tests = ["TestRepairM_572_MalformedProposalFiles", "TestRepairM_572_ValidProposalFile", "TestRepairM_572_UnreadableProposalFile"]
+path_proof = "Production proposal constructor and codec -> proposal file -> governance Cobra handler -> unsigned transaction -> production transaction decoder and governance content validation. Malformed input returns the wrapped decoder error before deposit parsing in broadcast mode."
+baseline_revision = "de8ab245609a7e0707cc32c502b6dcbe17ce3aca"
+baseline = "Not run: the explicit gate order prohibits verification before implementation and requires verification only through hf-done. No pre-change test failure is claimed."
+wiring_requests = []
+qualification = "The runner records the exact candidate revision, command, exit code and private log in hf-done evidence."

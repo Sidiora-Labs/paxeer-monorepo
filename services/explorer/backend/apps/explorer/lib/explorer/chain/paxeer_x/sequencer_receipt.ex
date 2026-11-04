@@ -162,6 +162,9 @@ defmodule Explorer.Chain.PaxeerX.SequencerReceipt do
       and `px_getValidators` answers for the landing height. The chain ID and
       validator hash must match the configured trust anchors documented by
       `Explorer.Chain.PaxeerX.ReceiptInclusion`.
+    * `:receipt_inclusion` - the SDK witness or native settlement evidence binding
+      the transaction, signed batch and execution result to the committed block
+      and its linked successor. Missing or altered witnesses fail R8.
 
   Returns `{:receipted, receipt_key}` when R1-R6 pass and no committed evidence is
   given, `{:committed, receipt_key, height}` when R1-R8 pass, otherwise
@@ -805,15 +808,8 @@ defmodule Explorer.Chain.PaxeerX.SequencerReceipt do
 
       {:ok, eth_receipt} ->
         with {:ok, height} <- step(r7(receipt, view, eth_receipt), :r7) do
-          case ReceiptInclusion.verify(receipt, key, height, Keyword.put(opts, :receipt_view, view)) do
-            :ok ->
-              {:committed, key, height}
-
-            {:error, :r7} = error ->
-              if opts[:on_invalid_inclusion] == :receipted, do: {:receipted, key}, else: error
-
-            error ->
-              error
+          with :ok <- ReceiptInclusion.verify(receipt, key, height, Keyword.put(opts, :receipt_view, view)) do
+            {:committed, key, height}
           end
         end
     end

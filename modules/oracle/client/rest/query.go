@@ -1,11 +1,22 @@
 package rest
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec"
+	grpctypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/grpc"
+	"github.com/gogo/protobuf/proto"
 	"github.com/gorilla/mux"
+	"github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/oracle/types"
 
@@ -28,196 +39,140 @@ func registerQueryRoutes(cliCtx client.Context, rtr *mux.Router) {
 
 func queryExchangeRateHandlerFunction(cliCtx client.Context) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		cliCtx, ok := rest.ParseQueryHeightOrReturnBadRequest(w, cliCtx, r)
-		if !ok {
-			return
-		}
-
 		denom, ok := checkDenomVar(w, r)
 		if !ok {
 			return
 		}
-
-		params := types.NewQueryExchangeRateParams(denom)
-		bz, err := cliCtx.LegacyAmino.MarshalAsJSON(params)
-		if rest.CheckBadRequestError(w, err) {
-			return
-		}
-		res, height, err := cliCtx.QueryWithData(fmt.Sprintf("custom/%s/%s", types.QuerierRoute, types.QueryExchangeRate), bz)
-		if rest.CheckInternalServerError(w, err) {
-			return
-		}
-
-		cliCtx = cliCtx.WithHeight(height)
-		rest.PostProcessResponse(w, cliCtx, res)
+		queryOracle(w, r, cliCtx, func(ctx context.Context, q types.QueryClient, opts ...grpc.CallOption) (proto.Message, error) {
+			return q.ExchangeRate(ctx, &types.QueryExchangeRateRequest{Denom: denom}, opts...)
+		})
 	}
 }
 
 func queryExchangeRatesHandlerFunction(cliCtx client.Context) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		cliCtx, ok := rest.ParseQueryHeightOrReturnBadRequest(w, cliCtx, r)
-		if !ok {
-			return
-		}
 
-		res, height, err := cliCtx.QueryWithData(fmt.Sprintf("custom/%s/%s", types.QuerierRoute, types.QueryExchangeRates), nil)
-		if rest.CheckInternalServerError(w, err) {
-			return
-		}
-
-		cliCtx = cliCtx.WithHeight(height)
-		rest.PostProcessResponse(w, cliCtx, res)
+		queryOracle(w, r, cliCtx, func(ctx context.Context, q types.QueryClient, opts ...grpc.CallOption) (proto.Message, error) {
+			return q.ExchangeRates(ctx, &types.QueryExchangeRatesRequest{}, opts...)
+		})
 	}
 }
 
 func queryPriceSnapshotHistoryHandlerFunction(cliCtx client.Context) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		cliCtx, ok := rest.ParseQueryHeightOrReturnBadRequest(w, cliCtx, r)
-		if !ok {
-			return
-		}
 
-		res, height, err := cliCtx.QueryWithData(fmt.Sprintf("custom/%s/%s", types.QuerierRoute, types.QueryPriceSnapshotHistory), nil)
-		if rest.CheckInternalServerError(w, err) {
-			return
-		}
-
-		cliCtx = cliCtx.WithHeight(height)
-		rest.PostProcessResponse(w, cliCtx, res)
+		queryOracle(w, r, cliCtx, func(ctx context.Context, q types.QueryClient, opts ...grpc.CallOption) (proto.Message, error) {
+			return q.PriceSnapshotHistory(ctx, &types.QueryPriceSnapshotHistoryRequest{}, opts...)
+		})
 	}
 }
 
 func queryTwapsHandlerFunction(cliCtx client.Context) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		cliCtx, ok := rest.ParseQueryHeightOrReturnBadRequest(w, cliCtx, r)
+		lookbackSeconds, ok := checkLookbackSecondsVar(w, r)
 		if !ok {
 			return
 		}
-
-		lookbackSeconds, ok := checkLookbackSecondsVar(r)
-		if !ok {
-			return
-		}
-
-		params := types.NewQueryTwapsParams(lookbackSeconds)
-		bz, err := cliCtx.LegacyAmino.MarshalAsJSON(params)
-		if rest.CheckBadRequestError(w, err) {
-			return
-		}
-
-		res, height, err := cliCtx.QueryWithData(fmt.Sprintf("custom/%s/%s", types.QuerierRoute, types.QueryTwaps), bz)
-		if rest.CheckInternalServerError(w, err) {
-			return
-		}
-
-		cliCtx = cliCtx.WithHeight(height)
-		rest.PostProcessResponse(w, cliCtx, res)
+		queryOracle(w, r, cliCtx, func(ctx context.Context, q types.QueryClient, opts ...grpc.CallOption) (proto.Message, error) {
+			params, err := q.Params(ctx, &types.QueryParamsRequest{}, opts...)
+			if err != nil {
+				return nil, err
+			}
+			if uint64(lookbackSeconds) > params.Params.LookbackDuration {
+				return nil, status.Error(codes.InvalidArgument, types.ErrInvalidTwapLookback.Error())
+			}
+			return q.Twaps(ctx, &types.QueryTwapsRequest{LookbackSeconds: uint64(lookbackSeconds)}, opts...)
+		})
 	}
 }
 
 func queryActivesHandlerFunction(cliCtx client.Context) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		cliCtx, ok := rest.ParseQueryHeightOrReturnBadRequest(w, cliCtx, r)
-		if !ok {
-			return
-		}
 
-		res, height, err := cliCtx.QueryWithData(fmt.Sprintf("custom/%s/%s", types.QuerierRoute, types.QueryActives), nil)
-		if rest.CheckInternalServerError(w, err) {
-			return
-		}
-
-		cliCtx = cliCtx.WithHeight(height)
-		rest.PostProcessResponse(w, cliCtx, res)
+		queryOracle(w, r, cliCtx, func(ctx context.Context, q types.QueryClient, opts ...grpc.CallOption) (proto.Message, error) {
+			return q.Actives(ctx, &types.QueryActivesRequest{}, opts...)
+		})
 	}
 }
 
 func queryParamsHandlerFunction(cliCtx client.Context) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		cliCtx, ok := rest.ParseQueryHeightOrReturnBadRequest(w, cliCtx, r)
-		if !ok {
-			return
-		}
 
-		res, height, err := cliCtx.QueryWithData(fmt.Sprintf("custom/%s/%s", types.QuerierRoute, types.QueryParameters), nil)
-		if rest.CheckInternalServerError(w, err) {
-			return
-		}
-
-		cliCtx = cliCtx.WithHeight(height)
-		rest.PostProcessResponse(w, cliCtx, res)
+		queryOracle(w, r, cliCtx, func(ctx context.Context, q types.QueryClient, opts ...grpc.CallOption) (proto.Message, error) {
+			return q.Params(ctx, &types.QueryParamsRequest{}, opts...)
+		})
 	}
 }
 
 func queryFeederDelegationHandlerFunction(cliCtx client.Context) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		cliCtx, ok := rest.ParseQueryHeightOrReturnBadRequest(w, cliCtx, r)
-		if !ok {
-			return
-		}
-
 		voterAddr, ok := checkVoterAddressVar(w, r)
 		if !ok {
 			return
 		}
-
-		params := types.NewQueryFeederDelegationParams(voterAddr)
-		bz, err := cliCtx.LegacyAmino.MarshalAsJSON(params)
-		if rest.CheckBadRequestError(w, err) {
-			return
-		}
-		res, height, err := cliCtx.QueryWithData(fmt.Sprintf("custom/%s/%s", types.QuerierRoute, types.QueryFeederDelegation), bz)
-		if rest.CheckInternalServerError(w, err) {
-			return
-		}
-
-		cliCtx = cliCtx.WithHeight(height)
-		rest.PostProcessResponse(w, cliCtx, res)
+		queryOracle(w, r, cliCtx, func(ctx context.Context, q types.QueryClient, opts ...grpc.CallOption) (proto.Message, error) {
+			return q.FeederDelegation(ctx, &types.QueryFeederDelegationRequest{ValidatorAddr: voterAddr.String()}, opts...)
+		})
 	}
 }
 
 func queryVotePenaltyCounterHandlerFunction(cliCtx client.Context) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		cliCtx, ok := rest.ParseQueryHeightOrReturnBadRequest(w, cliCtx, r)
-		if !ok {
-			return
-		}
-
 		voterAddr, ok := checkVoterAddressVar(w, r)
 		if !ok {
 			return
 		}
-
-		params := types.NewQueryVotePenaltyCounterParams(voterAddr)
-		bz, err := cliCtx.LegacyAmino.MarshalAsJSON(params)
-		if rest.CheckBadRequestError(w, err) {
-			return
-		}
-		res, height, err := cliCtx.QueryWithData(fmt.Sprintf("custom/%s/%s", types.QuerierRoute, types.QueryVotePenaltyCounter), bz)
-		if rest.CheckInternalServerError(w, err) {
-			return
-		}
-
-		cliCtx = cliCtx.WithHeight(height)
-		rest.PostProcessResponse(w, cliCtx, res)
+		queryOracle(w, r, cliCtx, func(ctx context.Context, q types.QueryClient, opts ...grpc.CallOption) (proto.Message, error) {
+			return q.VotePenaltyCounter(ctx, &types.QueryVotePenaltyCounterRequest{ValidatorAddr: voterAddr.String()}, opts...)
+		})
 	}
 }
 
 func queryVoteTargetsHandlerFunction(cliCtx client.Context) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		cliCtx, ok := rest.ParseQueryHeightOrReturnBadRequest(w, cliCtx, r)
-		if !ok {
-			return
-		}
 
-		res, height, err := cliCtx.QueryWithData(fmt.Sprintf("custom/%s/%s", types.QuerierRoute, types.QueryVoteTargets), nil)
-		if rest.CheckInternalServerError(w, err) {
-			return
-		}
-
-		cliCtx = cliCtx.WithHeight(height)
-		rest.PostProcessResponse(w, cliCtx, res)
+		queryOracle(w, r, cliCtx, func(ctx context.Context, q types.QueryClient, opts ...grpc.CallOption) (proto.Message, error) {
+			return q.VoteTargets(ctx, &types.QueryVoteTargetsRequest{}, opts...)
+		})
 	}
+}
+
+// queryOracle uses the registered typed query service and retains the legacy
+// height/result envelope around the protobuf JSON response.
+func queryOracle(w http.ResponseWriter, r *http.Request, cliCtx client.Context,
+	query func(context.Context, types.QueryClient, ...grpc.CallOption) (proto.Message, error),
+) {
+	cliCtx, ok := rest.ParseQueryHeightOrReturnBadRequest(w, cliCtx, r)
+	if !ok {
+		return
+	}
+	var header metadata.MD
+	response, err := query(r.Context(), types.NewQueryClient(cliCtx), grpc.Header(&header))
+	if err != nil {
+		writeOracleQueryError(w, runtime.HTTPStatusFromCode(status.Code(err)), err.Error())
+		return
+	}
+	heights := header.Get(grpctypes.GRPCBlockHeightHeader)
+	if len(heights) != 1 {
+		writeOracleQueryError(w, http.StatusInternalServerError, "missing query response height")
+		return
+	}
+	height, err := strconv.ParseInt(heights[0], 10, 64)
+	if rest.CheckInternalServerError(w, err) {
+		return
+	}
+	bz, err := codec.ProtoMarshalJSON(response, nil)
+	if rest.CheckInternalServerError(w, err) {
+		return
+	}
+	rest.PostProcessResponse(w, cliCtx.WithHeight(height), bz)
+}
+
+// writeOracleQueryError includes the HTTP status in the JSON error body.
+func writeOracleQueryError(w http.ResponseWriter, statusCode int, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	_ = json.NewEncoder(w).Encode(rest.NewErrorResponse(statusCode, message))
 }
 
 func checkDenomVar(w http.ResponseWriter, r *http.Request) (string, bool) {
@@ -230,13 +185,21 @@ func checkDenomVar(w http.ResponseWriter, r *http.Request) (string, bool) {
 	return denom, true
 }
 
-func checkLookbackSecondsVar(r *http.Request) (int64, bool) {
-	lookbackSecondsStr := mux.Vars(r)[RestLookbackSeconds]
-	lookbackSeconds, err := strconv.ParseInt(lookbackSecondsStr, 10, 64)
+// The retained TWAP route accepts exactly one lookback_seconds query value.
+func checkLookbackSecondsVar(w http.ResponseWriter, r *http.Request) (int64, bool) {
+	values, err := url.ParseQuery(r.URL.RawQuery)
 	if err != nil {
+		writeOracleQueryError(w, http.StatusBadRequest, err.Error())
 		return 0, false
 	}
-	if lookbackSeconds <= 0 {
+	lookbacks := values[RestLookbackSeconds]
+	if len(lookbacks) != 1 {
+		writeOracleQueryError(w, http.StatusBadRequest, "exactly one lookback_seconds query parameter is required")
+		return 0, false
+	}
+	lookbackSeconds, err := strconv.ParseInt(lookbacks[0], 10, 64)
+	if err != nil || lookbackSeconds <= 0 {
+		writeOracleQueryError(w, http.StatusBadRequest, "lookback_seconds must be a positive int64")
 		return 0, false
 	}
 	return lookbackSeconds, true

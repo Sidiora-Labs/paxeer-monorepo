@@ -1,0 +1,78 @@
+{
+  "revert": {
+    "request": [
+      {
+        "jsonrpc": "2.0",
+        "id": 0,
+        "method": "eth_call",
+        "params": [
+          {
+            "data": "0x70a08231000000000000000000000000ffffffffffffffffffffffffffffffffffffffff",
+            "to": "0x000000000000000000000000000000000000101a"
+          },
+          "0x1"
+        ]
+      }
+    ],
+    "response": [
+      {
+        "jsonrpc": "2.0",
+        "id": 0,
+        "error": {
+          "code": 3,
+          "message": "execution reverted: Nonexistent token",
+          "data": "0x08c379a0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000114e6f6e6578697374656e7420746f6b656e000000000000000000000000000000"
+        }
+      }
+    ]
+  },
+  "retry": {
+    "request": [
+      {
+        "jsonrpc": "2.0",
+        "id": 0,
+        "method": "eth_call",
+        "params": [
+          {
+            "data": "0x70a08231000000000000000000000000ffffffffffffffffffffffffffffffffffffffff",
+            "to": "0x000000000000000000000000000000000000101a"
+          },
+          "0x1"
+        ]
+      }
+    ],
+    "response": [
+      {
+        "jsonrpc": "2.0",
+        "id": 0,
+        "error": {
+          "code": -32000,
+          "message": "missing trie node"
+        }
+      }
+    ]
+  },
+  "success": {
+    "request": [
+      {
+        "jsonrpc": "2.0",
+        "id": 0,
+        "method": "eth_call",
+        "params": [
+          {
+            "data": "0x70a08231000000000000000000000000ffffffffffffffffffffffffffffffffffffffff",
+            "to": "0x000000000000000000000000000000000000101a"
+          },
+          "0x1"
+        ]
+      }
+    ],
+    "response": [
+      {
+        "jsonrpc": "2.0",
+        "id": 0,
+        "result": "0x00000000000000000000000000000000000000000000d3c21bcecceda1000000"
+      }
+    ]
+  }
+}

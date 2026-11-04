@@ -1,4 +1,4 @@
-import { isRecord } from './rpc.js';
+import { isRecord, type JsonRpcRequestOptions } from './rpc.js';
 import { decodeSequencerReceipt, readSequencerReceipt } from './receipt.js';
 import type {
   ExplorerRung,
@@ -186,7 +186,11 @@ export interface TransferObservation {
   warning?: string;
 }
 
-export type TransferRpc = (method: string, params: readonly unknown[]) => Promise<unknown>;
+export type TransferRpc = (
+  method: string,
+  params: readonly unknown[],
+  options?: JsonRpcRequestOptions
+) => Promise<unknown>;
 const HASH = /^0x[0-9a-fA-F]{64}$/;
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 

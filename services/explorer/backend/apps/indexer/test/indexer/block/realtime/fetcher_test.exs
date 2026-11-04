@@ -1,3 +1,5 @@
+Code.require_file("test_config.exs", __DIR__)
+
 defmodule Indexer.Block.Realtime.FetcherTest do
   use EthereumJSONRPC.Case, async: false
   use Explorer.DataCase
@@ -33,24 +35,11 @@ defmodule Indexer.Block.Realtime.FetcherTest do
   setup :verify_on_exit!
 
   setup %{json_rpc_named_arguments: json_rpc_named_arguments} do
-    core_json_rpc_named_arguments =
-      json_rpc_named_arguments
-      |> put_in([:transport_options, :url], "http://54.144.107.14:8545")
-      |> put_in(
-        [:transport_options, :method_to_url],
-        eth_getBalance: "http://54.144.107.14:8545",
-        trace_replayBlockTransactions: "http://54.144.107.14:8545",
-        trace_block: "http://54.144.107.14:8545"
-      )
+    Indexer.Block.Realtime.TestConfig.preserve_env()
 
     start_supervised!({Task.Supervisor, name: Indexer.TaskSupervisor})
 
-    block_fetcher = %Indexer.Block.Fetcher{
-      broadcast: false,
-      callback_module: Realtime.Fetcher,
-      json_rpc_named_arguments: core_json_rpc_named_arguments,
-      task_supervisor: Indexer.TaskSupervisor
-    }
+    block_fetcher = Indexer.Block.Realtime.TestConfig.block_fetcher(json_rpc_named_arguments)
 
     TokenBalanceHistorical.Supervisor.Case.start_supervised!(json_rpc_named_arguments: json_rpc_named_arguments)
     TokenBalanceCurrent.Supervisor.Case.start_supervised!(json_rpc_named_arguments: json_rpc_named_arguments)
@@ -77,11 +66,7 @@ defmodule Indexer.Block.Realtime.FetcherTest do
       }
     )
 
-    on_exit(fn ->
-      Application.put_env(:explorer, Explorer.Chain.Cache.CeloCoreContracts, contracts: %{})
-    end)
-
-    %{block_fetcher: block_fetcher, json_rpc_named_arguments: core_json_rpc_named_arguments}
+    %{block_fetcher: block_fetcher, json_rpc_named_arguments: json_rpc_named_arguments}
   end
 
   describe "Indexer.Block.Fetcher.fetch_and_import_range/1" do
@@ -111,10 +96,6 @@ defmodule Indexer.Block.Realtime.FetcherTest do
       # it in this test.
       Application.put_env(:indexer, Indexer.Fetcher.TokenInstance.Realtime.Supervisor, disabled?: true)
 
-      on_exit(fn ->
-        Application.put_env(:indexer, Indexer.Fetcher.TokenInstance.Realtime.Supervisor, disabled?: false)
-      end)
-
       celo_token_address_hash = Factory.address_hash()
 
       Application.put_env(:explorer, Explorer.Chain.Cache.CeloCoreContracts,
@@ -129,10 +110,6 @@ defmodule Indexer.Block.Realtime.FetcherTest do
           }
         }
       )
-
-      on_exit(fn ->
-        Application.put_env(:explorer, Explorer.Chain.Cache.CeloCoreContracts, contracts: %{})
-      end)
 
       if json_rpc_named_arguments[:transport] == EthereumJSONRPC.Mox do
         EthereumJSONRPC.Mox
@@ -620,10 +597,6 @@ defmodule Indexer.Block.Realtime.FetcherTest do
       # it in this test.
       Application.put_env(:indexer, Indexer.Fetcher.TokenInstance.Realtime.Supervisor, disabled?: true)
 
-      on_exit(fn ->
-        Application.put_env(:indexer, Indexer.Fetcher.TokenInstance.Realtime.Supervisor, disabled?: false)
-      end)
-
       celo_token_address_hash = Factory.address_hash()
 
       Application.put_env(:explorer, Explorer.Chain.Cache.CeloCoreContracts,
@@ -638,10 +611,6 @@ defmodule Indexer.Block.Realtime.FetcherTest do
           }
         }
       )
-
-      on_exit(fn ->
-        Application.put_env(:explorer, Explorer.Chain.Cache.CeloCoreContracts, contracts: %{})
-      end)
 
       if json_rpc_named_arguments[:transport] == EthereumJSONRPC.Mox do
         EthereumJSONRPC.Mox
@@ -848,8 +817,6 @@ defmodule Indexer.Block.Realtime.FetcherTest do
                  %Address{hash: ^fourth_address_hash}
                ] = addresses
       end
-
-      Application.put_env(:indexer, :fetch_rewards_way, nil)
     end
 
     if Application.compile_env(:explorer, :chain_type) == :stability do
@@ -878,10 +845,6 @@ defmodule Indexer.Block.Realtime.FetcherTest do
         # the TokenInstance fetcher is called. However, for simplicity, we disable
         # it in this test.
         Application.put_env(:indexer, Indexer.Fetcher.TokenInstance.Realtime.Supervisor, disabled?: true)
-
-        on_exit(fn ->
-          Application.put_env(:indexer, Indexer.Fetcher.TokenInstance.Realtime.Supervisor, disabled?: false)
-        end)
 
         validator_1 = insert(:validator_stability)
         validator_2 = insert(:validator_stability)
@@ -1148,13 +1111,6 @@ defmodule Indexer.Block.Realtime.FetcherTest do
       block_fetcher: block_fetcher,
       json_rpc_named_arguments: json_rpc_named_arguments
     } do
-      initial_env = Application.get_all_env(:indexer)
-
-      on_exit(fn ->
-        Application.delete_env(:indexer, UncleBlock.Supervisor)
-        Application.put_all_env([{:indexer, initial_env}])
-      end)
-
       Application.put_env(:indexer, :fetch_rewards_way, "manual")
       Application.put_env(:indexer, InternalTransaction.Supervisor, disabled?: true)
       Application.put_env(:indexer, UncleBlock.Supervisor, disabled?: true)

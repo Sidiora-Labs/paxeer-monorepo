@@ -23,8 +23,6 @@ defmodule BlockScoutWeb.AddressContractVerificationTest do
     {:ok, bypass: bypass}
   end
 
-  # wallaby with chrome headless always fails this test
-  @tag :skip
   test "users validates smart contract", %{session: session, bypass: bypass} do
     Bypass.expect(bypass, fn conn -> Conn.resp(conn, 200, solc_bin_versions()) end)
 
@@ -61,19 +59,22 @@ defmodule BlockScoutWeb.AddressContractVerificationTest do
   test "with invalid data shows error messages", %{session: session, bypass: bypass} do
     Bypass.expect(bypass, fn conn -> Conn.resp(conn, 200, solc_bin_versions()) end)
 
-    address = insert(:address)
+    address = insert(:address, contract_code: Factory.contract_code_info().bytecode)
 
-    session
-    |> ContractVerifyPage.visit_page(address)
-    |> ContractVerifyPage.fill_form(%{
-      contract_name: "name",
-      version: "default",
-      optimization: "true",
-      source_code: "",
-      evm_version: "byzantium"
-    })
-    |> ContractVerifyPage.verify_and_publish()
-    |> ContractVerifyPage.has_message?("There was an error validating your contract, please try again.")
+    has_message =
+      session
+      |> ContractVerifyPage.visit_page(address.hash)
+      |> ContractVerifyPage.fill_form(%{
+        contract_name: "name",
+        version: Factory.contract_code_info().version,
+        optimization: true,
+        source_code: "",
+        evm_version: "byzantium"
+      })
+      |> ContractVerifyPage.verify_and_publish()
+      |> ContractVerifyPage.has_message?("Empty contract source code.")
+
+    assert has_message
   end
 
   defp solc_bin_versions do

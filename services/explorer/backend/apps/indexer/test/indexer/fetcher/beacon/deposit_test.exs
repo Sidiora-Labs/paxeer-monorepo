@@ -349,6 +349,7 @@ defmodule Indexer.Fetcher.Beacon.DepositTest do
         log_from_node =
           build(:beacon_deposit_log,
             address: deposit_contract_address,
+            address_hash: deposit_contract_address.hash,
             deposit_index: 0
           )
 
@@ -399,15 +400,13 @@ defmodule Indexer.Fetcher.Beacon.DepositTest do
             {:ok,
              [
                %{
-                 "address" => "0x7f02c3e3c98b133055b8b348b2ac625669ed295d",
+                 "address" => to_string(log_from_node.address_hash),
                  "blockHash" => to_string(log_from_node.block.hash),
                  "blockNumber" => log_from_node_block_number_quantity,
                  "data" => to_string(log_from_node.data),
                  "logIndex" => "0x1",
                  "removed" => false,
-                 "topics" => [
-                   "0x649bbc62d0e31342afea4e5cd82d4049e7e1ee912fc0889aa790803be39038c5"
-                 ],
+                 "topics" => [to_string(deposit_signature)],
                  "transactionHash" => to_string(log_from_node_transaction_hash),
                  "transactionIndex" => "0x4"
                }
@@ -505,6 +504,7 @@ defmodule Indexer.Fetcher.Beacon.DepositTest do
         log_from_node =
           build(:beacon_deposit_log,
             address: deposit_contract_address,
+            address_hash: deposit_contract_address.hash,
             deposit_index: 1,
             transaction: transaction_with_missing_logs,
             block: transaction_with_missing_logs.block
@@ -555,15 +555,13 @@ defmodule Indexer.Fetcher.Beacon.DepositTest do
             {:ok,
              [
                %{
-                 "address" => "0x7f02c3e3c98b133055b8b348b2ac625669ed295d",
+                 "address" => to_string(log_from_node.address_hash),
                  "blockHash" => to_string(log_from_node.block.hash),
                  "blockNumber" => log_from_node_block_number_quantity,
                  "data" => to_string(log_from_node.data),
                  "logIndex" => "0x1",
                  "removed" => false,
-                 "topics" => [
-                   "0x649bbc62d0e31342afea4e5cd82d4049e7e1ee912fc0889aa790803be39038c5"
-                 ],
+                 "topics" => [to_string(deposit_signature)],
                  "transactionHash" => to_string(log_from_node_transaction_hash),
                  "transactionIndex" => "0x4"
                }
@@ -596,6 +594,7 @@ defmodule Indexer.Fetcher.Beacon.DepositTest do
         log_from_node =
           build(:beacon_deposit_log,
             address: deposit_contract_address,
+            address_hash: deposit_contract_address.hash,
             deposit_index: 0
           )
 
@@ -658,15 +657,13 @@ defmodule Indexer.Fetcher.Beacon.DepositTest do
             {:ok,
              [
                %{
-                 "address" => "0x7f02c3e3c98b133055b8b348b2ac625669ed295d",
+                 "address" => to_string(log_from_node.address_hash),
                  "blockHash" => to_string(log_from_node.block.hash),
                  "blockNumber" => log_from_node_block_number_quantity,
                  "data" => to_string(log_from_node.data),
                  "logIndex" => "0x1",
                  "removed" => false,
-                 "topics" => [
-                   "0x649bbc62d0e31342afea4e5cd82d4049e7e1ee912fc0889aa790803be39038c5"
-                 ],
+                 "topics" => [to_string(deposit_signature)],
                  "transactionHash" => to_string(log_from_node_transaction_hash),
                  "transactionIndex" => "0x4"
                }
@@ -746,6 +743,7 @@ defmodule Indexer.Fetcher.Beacon.DepositTest do
         log_from_node =
           build(:beacon_deposit_log,
             address: deposit_contract_address,
+            address_hash: deposit_contract_address.hash,
             deposit_index: 1
           )
 
@@ -796,15 +794,13 @@ defmodule Indexer.Fetcher.Beacon.DepositTest do
             {:ok,
              [
                %{
-                 "address" => "0x7f02c3e3c98b133055b8b348b2ac625669ed295d",
+                 "address" => to_string(log_from_node.address_hash),
                  "blockHash" => to_string(log_from_node.block.hash),
                  "blockNumber" => log_from_node_block_number_quantity,
                  "data" => to_string(log_from_node.data),
                  "logIndex" => "0x1",
                  "removed" => false,
-                 "topics" => [
-                   "0x649bbc62d0e31342afea4e5cd82d4049e7e1ee912fc0889aa790803be39038c5"
-                 ],
+                 "topics" => [to_string(deposit_signature)],
                  "transactionHash" => to_string(log_from_node_transaction_hash),
                  "transactionIndex" => "0x4"
                }
