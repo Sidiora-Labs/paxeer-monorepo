@@ -301,10 +301,15 @@ type LegacyTxResult struct {
 }
 
 type LegacyResult struct {
-	Log       string       `json:"log,omitempty"`
-	GasWanted string       `json:"gas_wanted,omitempty"`
-	GasUsed   string       `json:"gas_used,omitempty"`
-	Events    []abci.Event `json:"events,omitempty"`
+	Code      uint32          `json:"code,omitempty"`
+	Data      []byte          `json:"data,omitempty"`
+	Log       string          `json:"log,omitempty"`
+	Info      string          `json:"info,omitempty"`
+	GasWanted string          `json:"gas_wanted,omitempty"`
+	GasUsed   string          `json:"gas_used,omitempty"`
+	Events    []abci.Event    `json:"events,omitempty"`
+	Codespace string          `json:"codespace,omitempty"`
+	EvmTxInfo *abci.EvmTxInfo `json:"evm_tx_info,omitempty"`
 }
 
 func (LegacyEventDataTx) TypeTag() string {
@@ -318,10 +323,15 @@ func (e EventDataTx) ToLegacy() LegacyEventData {
 			Index:  e.Index,
 			Tx:     e.Tx,
 			Result: LegacyResult{
+				Code:      e.Result.Code,
+				Data:      e.Result.Data,
 				Log:       e.Result.Log,
+				Info:      e.Result.Info,
 				GasWanted: fmt.Sprintf("%d", e.Result.GasWanted),
 				GasUsed:   fmt.Sprintf("%d", e.Result.GasUsed),
 				Events:    e.Result.Events,
+				Codespace: e.Result.Codespace,
+				EvmTxInfo: e.Result.EvmTxInfo,
 			},
 		},
 	}
