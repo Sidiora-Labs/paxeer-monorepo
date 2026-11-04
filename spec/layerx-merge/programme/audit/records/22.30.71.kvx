@@ -1,0 +1,1440 @@
+# Pre-upgrade audit of the Python Chainflow SDK and hosted webhook slice.
+
+[audit.22.30.71]
+task = "22.30.71"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 157
+findings = 36
+docs_reviewed = 22
+upgrade_ready = false
+blocking = ["1","2","3","4","5","6","17","34"]
+produces = 267
+consumes = 114
+note = "Generated SDK files retain explicit provenance dispositions. Stored retired verification words are deliberately migrated under 181349; live parsing remains strict. Registry callers were resolved by real modules and routes because same-spelled identifiers also create lexical inventory edges."
+
+[file.1]
+path = "sdk/chainflow/python/.claude/skills/chainflow-data-gateway-python-sdk/SKILL.md"
+lines = 83
+verdict = "issues"
+note = "Findings 26 identify the concrete disagreements and owner proposals."
+
+[file.2]
+path = "sdk/chainflow/python/README.md"
+lines = 172
+verdict = "issues"
+note = "Findings 23 identify the concrete disagreements and owner proposals."
+
+[file.3]
+path = "sdk/chainflow/python/SECURITY.md"
+lines = 19
+verdict = "clean"
+note = "Read in full; Scalar provenance, safe disclosure guidance and SDK/service responsibility boundaries agree with this generated package."
+
+[file.4]
+path = "sdk/chainflow/python/SKILL.md"
+lines = 83
+verdict = "issues"
+note = "Findings 25 identify the concrete disagreements and owner proposals."
+
+[file.5]
+path = "sdk/chainflow/python/api.md"
+lines = 612
+verdict = "issues"
+note = "Findings 24 identify the concrete disagreements and owner proposals."
+
+[file.6]
+path = "sdk/chainflow/python/pyproject.toml"
+lines = 32
+verdict = "clean"
+note = "Read in full; Hatch wheel source, Python minimum, HTTP/Pydantic bounds and optional WebSocket transport declaration agree with the package layout."
+
+[file.7]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/__init__.py"
+lines = 105
+verdict = "generated"
+note = "Scalar SDK 0.36.5 generated client/runtime template, as identified by SECURITY.md and generator metadata; some shared runtime templates omit individual banners. Generated-file exception, without a manual clean claim."
+
+[file.8]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/_base_client.py"
+lines = 2236
+verdict = "issues"
+note = "Findings 10 identify the concrete disagreements and owner proposals. Scalar-generated source; inspected defects are retained as issues rather than a clean generated verdict."
+
+[file.9]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/_client.py"
+lines = 865
+verdict = "issues"
+note = "Findings 6, 7, 9 identify the concrete disagreements and owner proposals. Scalar-generated source; inspected defects are retained as issues rather than a clean generated verdict."
+
+[file.10]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/_compat.py"
+lines = 226
+verdict = "generated"
+note = "Scalar SDK 0.36.5 generated client/runtime template, as identified by SECURITY.md and generator metadata; some shared runtime templates omit individual banners. Generated-file exception, without a manual clean claim."
+
+[file.11]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/_constants.py"
+lines = 14
+verdict = "generated"
+note = "Scalar SDK 0.36.5 generated client/runtime template, as identified by SECURITY.md and generator metadata; some shared runtime templates omit individual banners. Generated-file exception, without a manual clean claim."
+
+[file.12]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/_event_handler.py"
+lines = 85
+verdict = "generated"
+note = "Scalar SDK 0.36.5 generated client/runtime template, as identified by SECURITY.md and generator metadata; some shared runtime templates omit individual banners. Generated-file exception, without a manual clean claim."
+
+[file.13]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/_exceptions.py"
+lines = 126
+verdict = "generated"
+note = "Scalar SDK 0.36.5 generated client/runtime template, as identified by SECURITY.md and generator metadata; some shared runtime templates omit individual banners. Generated-file exception, without a manual clean claim."
+
+[file.14]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/_files.py"
+lines = 173
+verdict = "generated"
+note = "Scalar SDK 0.36.5 generated client/runtime template, as identified by SECURITY.md and generator metadata; some shared runtime templates omit individual banners. Generated-file exception, without a manual clean claim."
+
+[file.15]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/_models.py"
+lines = 968
+verdict = "generated"
+note = "Scalar SDK 0.36.5 generated client/runtime template, as identified by SECURITY.md and generator metadata; some shared runtime templates omit individual banners. Generated-file exception, without a manual clean claim."
+
+[file.16]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/_qs.py"
+lines = 149
+verdict = "generated"
+note = "Scalar SDK 0.36.5 generated client/runtime template, as identified by SECURITY.md and generator metadata; some shared runtime templates omit individual banners. Generated-file exception, without a manual clean claim."
+
+[file.17]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/_resource.py"
+lines = 43
+verdict = "generated"
+note = "Scalar SDK 0.36.5 generated client/runtime template, as identified by SECURITY.md and generator metadata; some shared runtime templates omit individual banners. Generated-file exception, without a manual clean claim."
+
+[file.18]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/_response.py"
+lines = 842
+verdict = "generated"
+note = "Scalar SDK 0.36.5 generated client/runtime template, as identified by SECURITY.md and generator metadata; some shared runtime templates omit individual banners. Generated-file exception, without a manual clean claim."
+
+[file.19]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/_send_queue.py"
+lines = 90
+verdict = "issues"
+note = "Findings 22 identify the concrete disagreements and owner proposals. Scalar-generated source; inspected defects are retained as issues rather than a clean generated verdict."
+
+[file.20]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/_streaming.py"
+lines = 350
+verdict = "vendored"
+note = "HTTPX SSE decoder/runtime includes an explicit copied-source provenance header. Vendored implementation recorded under the brief's exception rather than asserted manually clean."
+
+[file.21]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/_types.py"
+lines = 274
+verdict = "generated"
+note = "Scalar SDK 0.36.5 generated client/runtime template, as identified by SECURITY.md and generator metadata; some shared runtime templates omit individual banners. Generated-file exception, without a manual clean claim."
+
+[file.22]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/_utils/__init__.py"
+lines = 64
+verdict = "generated"
+note = "Scalar SDK 0.36.5 generated client/runtime template, as identified by SECURITY.md and generator metadata; some shared runtime templates omit individual banners. Generated-file exception, without a manual clean claim."
+
+[file.23]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/_utils/_compat.py"
+lines = 45
+verdict = "generated"
+note = "Scalar SDK 0.36.5 generated client/runtime template, as identified by SECURITY.md and generator metadata; some shared runtime templates omit individual banners. Generated-file exception, without a manual clean claim."
+
+[file.24]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/_utils/_datetime_parse.py"
+lines = 136
+verdict = "generated"
+note = "Scalar SDK 0.36.5 generated client/runtime template, as identified by SECURITY.md and generator metadata; some shared runtime templates omit individual banners. Generated-file exception, without a manual clean claim."
+
+[file.25]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/_utils/_json.py"
+lines = 35
+verdict = "generated"
+note = "Scalar SDK 0.36.5 generated client/runtime template, as identified by SECURITY.md and generator metadata; some shared runtime templates omit individual banners. Generated-file exception, without a manual clean claim."
+
+[file.26]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/_utils/_logs.py"
+lines = 25
+verdict = "generated"
+note = "Scalar SDK 0.36.5 generated client/runtime template, as identified by SECURITY.md and generator metadata; some shared runtime templates omit individual banners. Generated-file exception, without a manual clean claim."
+
+[file.27]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/_utils/_path.py"
+lines = 127
+verdict = "generated"
+note = "Scalar SDK 0.36.5 generated client/runtime template, as identified by SECURITY.md and generator metadata; some shared runtime templates omit individual banners. Generated-file exception, without a manual clean claim."
+
+[file.28]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/_utils/_proxy.py"
+lines = 65
+verdict = "generated"
+note = "Scalar SDK 0.36.5 generated client/runtime template, as identified by SECURITY.md and generator metadata; some shared runtime templates omit individual banners. Generated-file exception, without a manual clean claim."
+
+[file.29]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/_utils/_reflection.py"
+lines = 42
+verdict = "generated"
+note = "Scalar SDK 0.36.5 generated client/runtime template, as identified by SECURITY.md and generator metadata; some shared runtime templates omit individual banners. Generated-file exception, without a manual clean claim."
+
+[file.30]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/_utils/_resources_proxy.py"
+lines = 24
+verdict = "generated"
+note = "Scalar SDK 0.36.5 generated client/runtime template, as identified by SECURITY.md and generator metadata; some shared runtime templates omit individual banners. Generated-file exception, without a manual clean claim."
+
+[file.31]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/_utils/_streams.py"
+lines = 12
+verdict = "generated"
+note = "Scalar SDK 0.36.5 generated client/runtime template, as identified by SECURITY.md and generator metadata; some shared runtime templates omit individual banners. Generated-file exception, without a manual clean claim."
+
+[file.32]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/_utils/_sync.py"
+lines = 58
+verdict = "generated"
+note = "Scalar SDK 0.36.5 generated client/runtime template, as identified by SECURITY.md and generator metadata; some shared runtime templates omit individual banners. Generated-file exception, without a manual clean claim."
+
+[file.33]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/_utils/_transform.py"
+lines = 472
+verdict = "generated"
+note = "Scalar SDK 0.36.5 generated client/runtime template, as identified by SECURITY.md and generator metadata; some shared runtime templates omit individual banners. Generated-file exception, without a manual clean claim."
+
+[file.34]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/_utils/_typing.py"
+lines = 156
+verdict = "generated"
+note = "Scalar SDK 0.36.5 generated client/runtime template, as identified by SECURITY.md and generator metadata; some shared runtime templates omit individual banners. Generated-file exception, without a manual clean claim."
+
+[file.35]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/_utils/_utils.py"
+lines = 433
+verdict = "generated"
+note = "Scalar SDK 0.36.5 generated client/runtime template, as identified by SECURITY.md and generator metadata; some shared runtime templates omit individual banners. Generated-file exception, without a manual clean claim."
+
+[file.36]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/_version.py"
+lines = 4
+verdict = "generated"
+note = "Scalar SDK 0.36.5 generated client/runtime template, as identified by SECURITY.md and generator metadata; some shared runtime templates omit individual banners. Generated-file exception, without a manual clean claim."
+
+[file.37]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/resources/__init__.py"
+lines = 117
+verdict = "generated"
+note = "Scalar-generated OpenAPI resource and response-wrapper declarations; generation banner and manifest identify the contract source. Central credential defects are recorded at the client and transport."
+
+[file.38]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/resources/coin_gecko.py"
+lines = 704
+verdict = "generated"
+note = "Scalar-generated OpenAPI resource and response-wrapper declarations; generation banner and manifest identify the contract source. Central credential defects are recorded at the client and transport."
+
+[file.39]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/resources/coin_market_cap.py"
+lines = 558
+verdict = "generated"
+note = "Scalar-generated OpenAPI resource and response-wrapper declarations; generation banner and manifest identify the contract source. Central credential defects are recorded at the client and transport."
+
+[file.40]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/resources/explorer.py"
+lines = 351
+verdict = "generated"
+note = "Scalar-generated OpenAPI resource and response-wrapper declarations; generation banner and manifest identify the contract source. Central credential defects are recorded at the client and transport."
+
+[file.41]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/resources/gateway.py"
+lines = 248
+verdict = "generated"
+note = "Scalar-generated OpenAPI resource and response-wrapper declarations; generation banner and manifest identify the contract source. Central credential defects are recorded at the client and transport."
+
+[file.42]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/resources/markets.py"
+lines = 708
+verdict = "generated"
+note = "Scalar-generated OpenAPI resource and response-wrapper declarations; generation banner and manifest identify the contract source. Central credential defects are recorded at the client and transport."
+
+[file.43]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/resources/price_feeds.py"
+lines = 1057
+verdict = "generated"
+note = "Scalar-generated OpenAPI resource and response-wrapper declarations; generation banner and manifest identify the contract source. Central credential defects are recorded at the client and transport."
+
+[file.44]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/resources/trading_view.py"
+lines = 974
+verdict = "generated"
+note = "Scalar-generated OpenAPI resource and response-wrapper declarations; generation banner and manifest identify the contract source. Central credential defects are recorded at the client and transport."
+
+[file.45]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/resources/web_sockets/__init__.py"
+lines = 27
+verdict = "generated"
+note = "Scalar-generated OpenAPI resource and response-wrapper declarations; generation banner and manifest identify the contract source. Central credential defects are recorded at the client and transport."
+
+[file.46]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/resources/web_sockets/web_sockets.py"
+lines = 264
+verdict = "generated"
+note = "Scalar-generated OpenAPI resource and response-wrapper declarations; generation banner and manifest identify the contract source. Central credential defects are recorded at the client and transport."
+
+[file.47]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/resources/web_sockets/ws.py"
+lines = 775
+verdict = "issues"
+note = "Findings 8 identify the concrete disagreements and owner proposals. Scalar-generated source; inspected defects are retained as issues rather than a clean generated verdict."
+
+[file.48]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/__init__.py"
+lines = 114
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.49]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/block.py"
+lines = 24
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.50]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/candle_history.py"
+lines = 28
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.51]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/cmc_asset.py"
+lines = 56
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.52]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/cmc_status.py"
+lines = 25
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.53]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/cmc_usd_quote.py"
+lines = 39
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.54]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/coin_detail.py"
+lines = 146
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.55]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/coin_gecko_list_markets_params.py"
+lines = 43
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.56]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/coin_gecko_list_markets_response.py"
+lines = 10
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.57]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/coin_gecko_list_params.py"
+lines = 12
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.58]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/coin_gecko_list_response.py"
+lines = 10
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.59]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/coin_gecko_list_simple_prices_params.py"
+lines = 34
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.60]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/coin_gecko_list_simple_prices_response.py"
+lines = 10
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.61]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/coin_gecko_retrieve_params.py"
+lines = 27
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.62]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/coin_id.py"
+lines = 26
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.63]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/coin_list_item.py"
+lines = 16
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.64]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/coin_market.py"
+lines = 72
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.65]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/coin_market_cap_list_listings_api_alias_params.py"
+lines = 24
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.66]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/coin_market_cap_list_listings_api_alias_response.py"
+lines = 16
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.67]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/coin_market_cap_list_listings_params.py"
+lines = 24
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.68]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/coin_market_cap_list_listings_response.py"
+lines = 16
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.69]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/coin_market_cap_list_quotes_api_alias_params.py"
+lines = 22
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.70]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/coin_market_cap_list_quotes_api_alias_response.py"
+lines = 16
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.71]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/coin_market_cap_list_quotes_params.py"
+lines = 22
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.72]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/coin_market_cap_list_quotes_response.py"
+lines = 16
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.73]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/coin_simple_quote.py"
+lines = 22
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.74]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/error.py"
+lines = 9
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.75]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/explorer_health.py"
+lines = 27
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.76]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/explorer_list_blocks_params.py"
+lines = 12
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.77]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/explorer_list_blocks_response.py"
+lines = 13
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.78]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/explorer_list_transactions_params.py"
+lines = 12
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.79]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/explorer_list_transactions_response.py"
+lines = 13
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.80]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/feed_health.py"
+lines = 24
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.81]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/gateway_create_web_socket_token_params.py"
+lines = 13
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.82]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/gateway_list_health_response.py"
+lines = 7
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.83]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/history_no_data.py"
+lines = 21
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.84]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/iso_timestamp.py"
+lines = 8
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.85]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/market.py"
+lines = 26
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.86]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/market_list_open_interest_response.py"
+lines = 16
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.87]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/market_list_response.py"
+lines = 17
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.88]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/market_list_tickers_response.py"
+lines = 16
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.89]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/market_list_totals_response.py"
+lines = 16
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.90]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/market_record.py"
+lines = 76
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.91]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/market_retrieve_response.py"
+lines = 16
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.92]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/market_retrieve_ticker_response.py"
+lines = 15
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.93]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/markets_health.py"
+lines = 32
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.94]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/missing_quote.py"
+lines = 17
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.95]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/open_interest.py"
+lines = 25
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.96]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/perp_stats.py"
+lines = 38
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.97]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/perp_trade.py"
+lines = 35
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.98]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/perp_trades.py"
+lines = 17
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.99]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/price.py"
+lines = 25
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.100]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/price_feed_list_response.py"
+lines = 11
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.101]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/price_feed_retrieve_recent_perpetual_trades_params.py"
+lines = 17
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.102]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/price_feed_retrieve_recent_spot_trades_params.py"
+lines = 17
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.103]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/quote.py"
+lines = 18
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.104]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/quote_values.py"
+lines = 41
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.105]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/quotes.py"
+lines = 20
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.106]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/spot_trade.py"
+lines = 29
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.107]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/spot_trades.py"
+lines = 18
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.108]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/stats.py"
+lines = 23
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.109]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/symbol.py"
+lines = 26
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.110]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/symbol_info.py"
+lines = 47
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.111]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/symbol_search_result.py"
+lines = 21
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.112]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/ticker.py"
+lines = 44
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.113]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/totals.py"
+lines = 19
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.114]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/trade_tape_status.py"
+lines = 19
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.115]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/trading_view_list_candle_history_params.py"
+lines = 28
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.116]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/trading_view_list_candle_history_response.py"
+lines = 12
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.117]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/trading_view_list_feed_time_response.py"
+lines = 7
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.118]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/trading_view_list_quotes_params.py"
+lines = 15
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.119]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/trading_view_list_quotes_response.py"
+lines = 11
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.120]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/trading_view_resolve_symbol_params.py"
+lines = 14
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.121]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/trading_view_resolve_symbol_response.py"
+lines = 11
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.122]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/trading_view_search_params.py"
+lines = 15
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.123]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/trading_view_search_response.py"
+lines = 10
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.124]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/transaction.py"
+lines = 36
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.125]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/udf_config.py"
+lines = 41
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.126]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/udf_error.py"
+lines = 13
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.127]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/unix_milliseconds.py"
+lines = 7
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.128]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/unix_seconds.py"
+lines = 7
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.129]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/websocket_connection_options.py"
+lines = 21
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.130]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/websocket_reconnection.py"
+lines = 36
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.131]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/ws_runtime_stats.py"
+lines = 55
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.132]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/ws_scope.py"
+lines = 28
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.133]
+path = "sdk/chainflow/python/src/chainflow_data_gateway/types/ws_token.py"
+lines = 23
+verdict = "generated"
+note = "Scalar-generated OpenAPI model, alias or parameter type; generation banner and SDK SECURITY.md establish provenance. Recorded under the generated-file review exception."
+
+[file.134]
+path = "sdk/chainflow/python/tests/smoke-test.py"
+lines = 723
+verdict = "generated"
+note = "Scalar-generated operation smoke script, identified by its generation banner. Recorded as generated; calling operations does not establish a producer-backed behavioral test."
+
+[file.135]
+path = "sdk/chainflow/python/tests/test_response_parse.py"
+lines = 121
+verdict = "clean"
+note = "Read in full; sync/async generic dictionary, list and text parsing regressions exercise the actual response parser. These are runtime unit tests and make no live gateway-shape claim."
+
+[file.136]
+path = "sdk/chainflow/python/tests/test_web_sockets.py"
+lines = 201
+verdict = "issues"
+note = "Findings 21 identify the concrete disagreements and owner proposals."
+
+[file.137]
+path = "services/platform/hosted/webhooks/Cargo.toml"
+lines = 35
+verdict = "issues"
+note = "Findings 36 identify the concrete disagreements and owner proposals."
+
+[file.138]
+path = "services/platform/hosted/webhooks/deployment.yaml"
+lines = 471
+verdict = "issues"
+note = "Findings 3 identify the concrete disagreements and owner proposals."
+
+[file.139]
+path = "services/platform/hosted/webhooks/env-init.sh"
+lines = 67
+verdict = "clean"
+note = "Read in full; public/ingress listener and credential separation, health-address selection, replica instance naming and privilege drop agree with the current runtime parser. Legacy receipt adapter replacement is recorded against trusted.rs."
+
+[file.140]
+path = "services/platform/hosted/webhooks/src/ai_market.rs"
+lines = 1351
+verdict = "issues"
+note = "Findings 5, 15, 16, 17 identify the concrete disagreements and owner proposals."
+
+[file.141]
+path = "services/platform/hosted/webhooks/src/bin/verify_delivery.rs"
+lines = 77
+verdict = "clean"
+note = "Read in full; CLI collects exact payload and published signature headers, validates public-key material and delegates verification to the shared scheme without applying business effects."
+
+[file.142]
+path = "services/platform/hosted/webhooks/src/boundary.rs"
+lines = 533
+verdict = "clean"
+note = "Read in full; bounded HTTPS framing, deadline propagation, public-address/DNS checks, TLS identity separation and response limits agree with callers. The incompatible KMS scope construction is recorded against hosted.rs."
+
+[file.143]
+path = "services/platform/hosted/webhooks/src/deliveries.rs"
+lines = 264
+verdict = "clean"
+note = "Read in full; delivery identifiers, states, failure classes, attempt records and terminal-state representation agree with the hosted delivery projection and published at-least-once model."
+
+[file.144]
+path = "services/platform/hosted/webhooks/src/encoding.rs"
+lines = 143
+verdict = "clean"
+note = "Read in full; digest, lowercase hexadecimal and padded base64 helpers preserve the byte lengths and encodings used by signing, cursor and receipt consumers."
+
+[file.145]
+path = "services/platform/hosted/webhooks/src/endpoints.rs"
+lines = 128
+verdict = "issues"
+note = "Findings 12 identify the concrete disagreements and owner proposals."
+
+[file.146]
+path = "services/platform/hosted/webhooks/src/error.rs"
+lines = 98
+verdict = "clean"
+note = "Read in full; typed delivery, cursor, replay, signature and store failures map to explicit hosted HTTP refusals without claiming successful delivery."
+
+[file.147]
+path = "services/platform/hosted/webhooks/src/events.rs"
+lines = 855
+verdict = "clean"
+note = "Read in full; live Verification parsing refuses retired wire words, ranks 4/5 map to the top BlockCommitted level and ranks 1-3 to ReceiptVerified. Explicit stored-value migration satisfies 181349 and is retained compatibility, not a live retired interface."
+
+[file.148]
+path = "services/platform/hosted/webhooks/src/hosted.rs"
+lines = 2048
+verdict = "issues"
+note = "Findings 2, 11, 13 identify the concrete disagreements and owner proposals."
+
+[file.149]
+path = "services/platform/hosted/webhooks/src/http.rs"
+lines = 210
+verdict = "clean"
+note = "Read in full; bounded HTTP/1.1 body/header framing, duplicate-header and transfer-encoding refusal, exact request bytes and typed reply construction agree with the hosted route consumers."
+
+[file.150]
+path = "services/platform/hosted/webhooks/src/lib.rs"
+lines = 40
+verdict = "clean"
+note = "Read in full; exports, modules and the published signed ordered at-least-once delivery descriptor agree with their declarations. The absent runtime AI-market integration is recorded at the binary construction path."
+
+[file.151]
+path = "services/platform/hosted/webhooks/src/main.rs"
+lines = 764
+verdict = "issues"
+note = "Findings 4, 14 identify the concrete disagreements and owner proposals."
+
+[file.152]
+path = "services/platform/hosted/webhooks/src/scheme.rs"
+lines = 260
+verdict = "clean"
+note = "Read in full; event-id/timestamp/exact-body Ed25519 signing, padded base64, canonical integer parsing, key lookup and bounded replay window match hosted signing and MarketConsumer verification. ReplayGuard is explicitly a receiver window."
+
+[file.153]
+path = "services/platform/hosted/webhooks/src/trusted.rs"
+lines = 866
+verdict = "issues"
+note = "Findings 1, 20, 34 identify the concrete disagreements and owner proposals."
+
+[file.154]
+path = "services/platform/hosted/webhooks/tests/ai_finalized_delivery.rs"
+lines = 1544
+verdict = "issues"
+note = "Findings 18, 19 identify the concrete disagreements and owner proposals."
+
+[file.155]
+path = "services/platform/hosted/webhooks/tests/fault-injection.sh"
+lines = 102
+verdict = "issues"
+note = "Findings 33 identify the concrete disagreements and owner proposals."
+
+[file.156]
+path = "services/platform/hosted/webhooks/tests/plain_listener.rs"
+lines = 474
+verdict = "clean"
+note = "Read in full; starts the real binary to exercise plain/TLS listener selection, role credential refusal and isolated readiness routing. Unavailable dependencies must remain unready; it does not assert an invented successful producer shape."
+
+[file.157]
+path = "tools/platform/Cargo.toml"
+lines = 41
+verdict = "clean"
+note = "Read in full; workspace members and dependency/lint declarations resolve the current CLI, emulator and release package layout without adding a retired network runtime."
+
+[finding.1]
+file = "services/platform/hosted/webhooks/src/trusted.rs"
+line = 183
+class = "interface-mismatch"
+severity = "high"
+observed = "AuthorityResponse denies unknown fields and omits receipt and protocol_network_id. The real authority response in services/platform/hosted/authority/src/main.rs:820-835 always emits both, so ReceiptVerifier::verify rejects a successful producer response as VerificationRequired."
+expected = "The authority's internal activity route must round-trip its complete declared response through the webhook receipt verifier while preserving activity, network, wire-version and evidence checks."
+proposal = "Align the explicit response types in hosted/authority and hosted/webhooks/src/trusted.rs, validate the receipt and protocol network fields, and prove the authority HTTP response reaches the real verifier without weakening unknown-field refusal."
+owner_domain = 8
+interface = "8.http-authority-any-internal-v1-activities"
+
+[finding.2]
+file = "services/platform/hosted/webhooks/src/hosted.rs"
+line = 854
+class = "interface-mismatch"
+severity = "high"
+observed = "register accepts a 128-byte public idempotency key but prefixes it with 74 bytes of register and principal scope; rotate_key adds 110 bytes for a generated 37-byte endpoint. boundary.rs:331 and internal/src/kms.rs:505 accept at most 128 bytes, so registration keys over 54 bytes and rotation keys over 18 bytes fail before key creation."
+expected = "Every accepted endpoint registration or key rotation idempotency key must remain valid across the outbound client and KMS create-key route, preserving principal and operation isolation."
+proposal = "Encode the operation, principal, endpoint and public key into a domain-separated fixed-length digest in hosted/webhooks/src/hosted.rs; keep KMS limits intact and prove stable repeat registration and rotation with 64-byte and 128-byte public keys."
+owner_domain = 8
+interface = "8.http-internal-post-v1-signing-keys"
+
+[finding.3]
+file = "services/platform/hosted/webhooks/deployment.yaml"
+line = 15
+class = "interface-mismatch"
+severity = "high"
+observed = "LAYERX_WEBHOOKS_NETWORK_ID is testnet, while node/deployment.yaml:6 and :366 configure the receipt authority network name as layerx-testnet. trusted.rs:696 compares these names exactly, so valid authority evidence is refused independently of the response decoding defect."
+expected = "The deployed webhook verifier and authority must use the same configured network name and refuse evidence from a different network."
+proposal = "Source the webhook network name from the same authoritative configuration as hosted/node/deployment.yaml, use the merged deployment's network identity, and prove one successful receipt and one foreign-network refusal across the deployed adapters."
+owner_domain = 8
+interface = "8.env-webhooks-layerx-webhooks-network-id"
+
+[finding.4]
+file = "services/platform/hosted/webhooks/src/main.rs"
+line = 231
+class = "wiring-gap"
+severity = "high"
+observed = "The running binary constructs HostedService and TrustedSources, but never opens MarketOutbox or calls admit, pending, acknowledge or resume. Searches of services, tools, programs and SDK Rust sources find MarketOutbox consumers only in ai_finalized_delivery.rs; the durable finalized AI-market path has no production bridge."
+expected = "Finalized AI-market captures must reach subscribed tenants through the running authenticated webhook service, retain pending work across restart and acknowledge it only after the delivery handoff succeeds."
+proposal = "Wire the real AI-market capture producer to MarketOutbox under the private producer role, drain its durable rows into hosted delivery, expose tenant-authorized resume and revocation, and restart the actual service between capture and delivery to prove recovery."
+owner_domain = 8
+interface = "13.rs-aim-queries-snapshotbinding"
+
+[finding.5]
+file = "services/platform/hosted/webhooks/src/ai_market.rs"
+line = 1330
+class = "restart-recovery"
+severity = "high"
+observed = "apply_once invokes effect(event) before recording Applied and before Store::transact calls commit. A process crash, serialization failure or disk failure after an external effect leaves no durable deduplication record, so replay after reopen can repeat the effect despite the exactly-once API claim."
+expected = "The receiver's business effect and deduplication state must commit atomically, or the effect must have a durable event-id idempotency and recovery protocol that survives failure at every boundary."
+proposal = "Change MarketConsumer in hosted/webhooks/src/ai_market.rs to transact the effect's durable state with its sequence ledger, or persist an intent and reconcile an idempotent destination keyed by event id; prove crash and disk-failure recovery with an observable durable effect."
+owner_domain = 8
+
+[finding.6]
+file = "sdk/chainflow/python/src/chainflow_data_gateway/_client.py"
+line = 220
+class = "interface-mismatch"
+severity = "high"
+observed = "Both auth_headers implementations merge RestApiKey then WsMintKey under the same X-API-Key name for every operation. Supplying both keys sends the mint key on REST reads; supplying only the REST key sends it to gateway.create_web_socket_token. Resource methods do not select operation-specific security."
+expected = "The generated contract and README distinguish REST X-API-Key from the separate WS mint key accepted by POST /auth/ws-token; each operation must send only its declared credential."
+proposal = "Correct the Scalar authentication generation feeding sdk/chainflow/python/_client.py and resources so each operation selects its declared scheme, then prove REST reads and WS token minting with distinct keys through the real service contract."
+owner_domain = 15
+interface = "15.go-chainflow-python-gateway-resource-j76"
+
+[finding.7]
+file = "sdk/chainflow/python/src/chainflow_data_gateway/_client.py"
+line = 120
+class = "runtime-risk"
+severity = "medium"
+observed = "The sync and async constructors raise when rest_api_key is absent before considering a supplied ws_token or ws_mint_key. A browser-facing or token-only WebSocket integration must supply an unrelated REST secret merely to construct this client."
+expected = "An application holding an opaque scope-bound WebSocket token should be able to construct the WebSocket client without also receiving server-side REST or mint credentials."
+proposal = "Generate credential validation per operation in sdk/chainflow/python/src/chainflow_data_gateway/_client.py; allow token-only and mint-only clients, reject missing credentials at the protected operation, and document the supported construction modes."
+owner_domain = 15
+interface = "15.go-chainflow-python-web-sockets-resource-j76"
+
+[finding.8]
+file = "sdk/chainflow/python/src/chainflow_data_gateway/resources/web_sockets/ws.py"
+line = 589
+class = "security"
+severity = "medium"
+observed = "The sync connection manager logs the full URL after adding the secret token query parameter; the async manager repeats it at line 743. Enabling SDK debug logging therefore writes a still-valid 300-second scope-bound credential to application logs."
+expected = "The WS token contract says the returned credential is secret and must never be logged, including during connection establishment, reconnect diagnostics or failure handling."
+proposal = "Redact authentication query values before logging connection URLs in sdk/chainflow/python/resources/web_sockets/ws.py and its generator; retain endpoint and scope diagnostics and assert that logs from token-authenticated connections contain no credential."
+owner_domain = 15
+interface = "15.go-chainflow-python-web-sockets-resource-connection-manager-j76"
+
+[finding.9]
+file = "sdk/chainflow/python/src/chainflow_data_gateway/_client.py"
+line = 227
+class = "security"
+severity = "medium"
+observed = "_auth_query ignores its security argument and appends ws_token to all requests, including ordinary REST reads and health calls. The base client logs HTTP request URLs at debug level, so a configured WS token reaches unrelated REST URLs and their request logs."
+expected = "A scope-bound WS token belongs only on the corresponding WebSocket upgrade and should not be propagated to REST operations or unrelated service logs."
+proposal = "Make the Scalar-generated auth query select WsToken only for authorized upgrade operations in sdk/chainflow/python/_client.py, leave REST URLs credential-free, and exercise mixed REST and WebSocket use with one configured client."
+owner_domain = 15
+interface = "15.go-chainflow-python-gateway-resource-j76"
+
+[finding.10]
+file = "sdk/chainflow/python/src/chainflow_data_gateway/_base_client.py"
+line = 562
+class = "security"
+severity = "medium"
+observed = "_build_request dumps FinalRequestOptions to debug logs with headers and params intact. A supported extra_headers X-API-Key override or extra_query token consequently exposes its credential, and both HTTP request loops also log the complete request URL."
+expected = "SDK diagnostics must redact API keys and tokens regardless of whether credentials come from constructor fields, operation overrides or query parameters."
+proposal = "Apply centralized secret redaction to request-option and URL logging in the Scalar runtime underlying sdk/chainflow/python/_base_client.py, covering case-insensitive X-API-Key and token keys and both sync and async request loops."
+owner_domain = 15
+
+[finding.11]
+file = "services/platform/hosted/webhooks/src/hosted.rs"
+line = 1808
+class = "runtime-risk"
+severity = "medium"
+observed = "decode_cursor checks the cursor body byte length is 48, then slices value[..16] without checking ASCII or a UTF-8 boundary. http.rs accepts raw UTF-8 request targets, so an authenticated cursor with a multibyte character crossing byte 16 panics its request worker instead of returning InvalidCursor."
+expected = "Every malformed cursor must produce a bounded InvalidCursor response without a panic, including non-ASCII bytes and invalid hexadecimal digits."
+proposal = "Validate the entire cursor body as ASCII hexadecimal before slicing in hosted/webhooks/src/hosted.rs, retain constant-time tag comparison, and exercise the real cursor route with a 48-byte body crossing the slice boundary."
+owner_domain = 8
+
+[finding.12]
+file = "services/platform/hosted/webhooks/src/endpoints.rs"
+line = 46
+class = "config-drift"
+severity = "medium"
+observed = "RetryPolicy::validate accepts any nonzero u32 maximum_attempts, but hosted.rs caps stored attempt history at MAX_ATTEMPTS=32. With maximum_attempts above 32, settle rejects the next attempt as CorruptStore and leaves the delivery in flight rather than reaching its configured terminal state."
+expected = "The accepted retry configuration must be representable by the durable attempt history and must terminate with delivered or dead-lettered state under its declared maximum."
+proposal = "Use one documented attempt bound for RetryPolicy, environment parsing and durable history in hosted/webhooks; reject unsupported configuration at startup and prove the maximum accepted policy completes its final attempt."
+owner_domain = 8
+interface = "8.cfg-webhooks-retrypolicy-maximum-attempts"
+
+[finding.13]
+file = "services/platform/hosted/webhooks/src/hosted.rs"
+line = 1133
+class = "runtime-risk"
+severity = "medium"
+observed = "dispatch reuses a single caller-supplied now across its whole serial budget. prepare stamps every later lease and signature with that old time, and settle schedules retries from it. A slow budget can issue an already-expired lease or a signature older than the receiver's 300-second tolerance."
+expected = "Each delivery attempt must use a fresh clock for lease creation and signing, and retry timing must be measured from actual settlement so multi-instance recovery does not reclaim live work early."
+proposal = "Refresh time at each prepare, signing and settlement boundary in hosted/webhooks/src/hosted.rs, retain deterministic policy calculations, and exercise a slow multi-attempt dispatch with a second worker and the published receiver tolerance."
+owner_domain = 8
+
+[finding.14]
+file = "services/platform/hosted/webhooks/src/main.rs"
+line = 688
+class = "runtime-risk"
+severity = "medium"
+observed = "The background loop discards dispatch and prune_all errors. Readiness checks dependency connectivity but carries no worker failure or shard health, so a corrupt or failing principal can halt each sweep while the service continues to report ready with no diagnostic for the stuck deliveries."
+expected = "Persistent delivery and retention failures must be observable and recoverable, and one failing principal must not silently prevent healthy tenants from progressing."
+proposal = "Report structured bounded worker failures and affected principals from hosted/webhooks/src/main.rs, retain per-principal failure state for readiness and operator recovery, and continue healthy tenant work without suppressing corrupt-store failures."
+owner_domain = 8
+interface = "8.http-webhooks-get-healthz"
+
+[finding.15]
+file = "services/platform/hosted/webhooks/src/ai_market.rs"
+line = 710
+class = "runtime-risk"
+severity = "medium"
+observed = "MarketOutbox::prune removes rows but never removes admitted event identities; provisional identities and stream count are also not bounded. The entire state is reserialized on every write under a 64-MiB ceiling, so sustained valid traffic eventually makes admissions fail even when published rows have been pruned."
+expected = "Long-running outboxes need bounded retained state and a defined deduplication and resynchronization horizon, while unpublished events and finality boundaries remain protected."
+proposal = "Define durable retention for admitted identities and provisional captures in hosted/webhooks/src/ai_market.rs, compact only beyond a proven replay horizon, bound market admission, and preserve explicit expired-history resync without dropping unpublished rows."
+owner_domain = 8
+
+[finding.16]
+file = "services/platform/hosted/webhooks/src/ai_market.rs"
+line = 1066
+class = "retired-reference"
+severity = "medium"
+observed = "market_event exports binding.store_proof_digest under the fact name checkpoint_id. It emits no block_height, block_hash or app_hash facts, so the signed public payload still describes the retired checkpoint model despite using SnapshotBinding v2 internally."
+expected = "The AI-market public projection should name block-commit finality and the ICS23 store proof accurately, as required by 13279 and the snapshot-binding-v2 contract."
+proposal = "Version the AI-market webhook facts in hosted/webhooks/src/ai_market.rs to expose store_proof_digest and the committed block identity with their actual meanings; migrate consuming integrations and document any historical payload support explicitly."
+owner_domain = 8
+interface = "13.rs-aim-queries-snapshotbinding"
+
+[finding.17]
+file = "services/platform/hosted/webhooks/src/ai_market.rs"
+line = 909
+class = "security"
+severity = "high"
+observed = "certify delegates to indexer::verify_block_commit, which verifies consensus signatures but only SHA-256 hashes the supplied store_proof bytes. examine checks a self-supplied state_digest against the supplied state; neither path verifies a state-membership proof connecting those bytes and the program/market key to the committed app hash. A genuine commit plus arbitrary nonempty proof bytes can therefore label an unrelated state BlockCommitted."
+expected = "A finalized AI-market snapshot must authenticate the captured program state against the committed chain root, in addition to checking consensus, chain identity, block height and digest equality."
+proposal = "Verify the actual ICS23 program-state membership path against the committed app hash before admission in hosted/webhooks/src/ai_market.rs, or accept an unforgeable verified-capture type from a verifier that does so; prove refusal of a real commit paired with a wrong key, value or proof."
+owner_domain = 8
+interface = "13.rs-aim-queries-snapshotbinding"
+
+[finding.18]
+file = "services/platform/hosted/webhooks/tests/ai_finalized_delivery.rs"
+line = 131
+class = "test-gap"
+severity = "medium"
+observed = "store_proof returns only observed.to_be_bytes(), and fixture builds StateFrame and CapturedEvent directly. The signed-header tests therefore accept eight arbitrary bytes as store evidence and never drive the real guest/capture transport into MarketOutbox. The separate proof_ai_market_guest.rs tests the guest codec, without calling this outbox."
+expected = "Requirements 21064 and 8963 need a real guest-to-capture-to-webhook path, with actual state proof transport, observable delivery and a cryptographic refusal; locally signed header fixtures alone do not establish it."
+proposal = "Extend hosted/webhooks/tests/ai_finalized_delivery.rs with the actual guest state producer and chain state-proof transport through MarketOutbox, restart the outbox before delivery, and assert both accepted content and rejection of a commit whose state membership does not match."
+owner_domain = 8
+
+[finding.19]
+file = "services/platform/hosted/webhooks/tests/ai_finalized_delivery.rs"
+line = 631
+class = "test-gap"
+severity = "medium"
+observed = "restart_after_commit_publishes_the_same_events_and_receiver_applies_once reopens a fully committed outbox; the concurrent consumer test uses an effect that only returns a string. Neither test kills a receiver after an observable durable business effect but before its applied record is committed."
+expected = "The receiver's advertised exactly-once recovery must be proven across the effect-to-ledger crash window, with a durable effect independently observable after reopen."
+proposal = "Add process-failure coverage in hosted/webhooks/tests/ai_finalized_delivery.rs at each receiver persistence boundary, backed by the real transactional or idempotent effect implementation, and assert exactly one durable effect after replay."
+owner_domain = 8
+
+[finding.20]
+file = "services/platform/hosted/webhooks/src/trusted.rs"
+line = 790
+class = "test-gap"
+severity = "medium"
+observed = "The test named real_authority_shape_selects_attachment_without_null_or_unknown_fallback reads gateway/tests/fixtures/maintained-authority.json and accepts its authority object, which omits the receipt and protocol_network_id fields emitted by the actual authority service."
+expected = "A producer-shape regression must exercise the real authority serializer and HTTP route before the webhook decoder, preserving the full response and its typed refusal cases."
+proposal = "Replace the shape-only authority fixture proof in hosted/webhooks/src/trusted.rs with a real authority producer-to-webhook path, including maintained and historical evidence and the actual receipt/network fields; retain strict null and unknown-field assertions."
+owner_domain = 8
+
+[finding.21]
+file = "sdk/chainflow/python/tests/test_web_sockets.py"
+line = 64
+class = "test-gap"
+severity = "medium"
+observed = "The path fixtures use BTC-USD for a service contract whose market paths are lowercase feed names such as btc; receive/send tests replay invented subscribe and ticker frames via RecordingSocket and monkeypatch the connection. They do not exercise scoped token minting, an actual upgrade or reconnect with refreshed credentials."
+expected = "The public SDK must be shown to consume the gateway's real market names, credential scopes, handshake refusals and emitted stream frames through its sync and async transports."
+proposal = "Keep the useful runtime unit checks and add a producer-backed contract path in sdk/chainflow/python/tests using a supported lowercase feed, distinct REST/mint keys, real scoped tokens and real stream frames, including reconnect and wrong-scope refusal."
+owner_domain = 15
+interface = "15.go-chainflow-python-web-sockets-resource-j76"
+
+[finding.22]
+file = "sdk/chainflow/python/src/chainflow_data_gateway/_send_queue.py"
+line = 45
+class = "runtime-risk"
+severity = "medium"
+observed = "flush_sync and flush_async clear the queue's byte count before sending the pending batch. Concurrent enqueue can then consume the whole limit; if sending fails, restoration prepends the unsent batch without a capacity check. Repeated failed flushes can grow the supposedly bounded retained queue beyond max_bytes."
+expected = "The maximum queued-byte budget must include messages temporarily removed for an in-flight flush, and failure restoration must preserve ordering without exceeding that budget or silently discarding messages."
+proposal = "Keep in-flight unsent bytes reserved in the Scalar SendQueue implementation at sdk/chainflow/python/_send_queue.py, release accounting only after successful sends, and exercise concurrent enqueue during a failed real send in both sync and async paths."
+owner_domain = 15
+
+[finding.23]
+file = "sdk/chainflow/python/README.md"
+line = 77
+class = "doc-drift"
+severity = "medium"
+observed = "The WebSockets example reuses a REST-only client, uses market=\"market\" and never supplies a scoped WS token; installation uses the base package although pyproject.toml makes websockets optional. Copying the example cannot produce a supported authenticated feed connection."
+expected = "The documented WebSocket example must install its optional transport, select a supported lowercase feed and use a minted scope-bound token while keeping long-lived API keys server-side."
+proposal = "Regenerate the Python SDK documentation with an installation using chainflow-data-gateway[websockets], a btc token-mint and connection example, credential routing guidance and token refresh on reconnect; preserve the short-lived token secrecy rule."
+owner_domain = 15
+
+[finding.24]
+file = "sdk/chainflow/python/api.md"
+line = 80
+class = "doc-drift"
+severity = "medium"
+observed = "The token-mint example uses the setup client configured only with rest_api_key, despite requiring a separate WS mint key. The WebSocket examples at lines 572-612 again use an unscoped client and market=\"market\", so the reference omits the credential and feed values needed to follow it."
+expected = "The documented WebSocket example must install its optional transport, select a supported lowercase feed and use a minted scope-bound token while keeping long-lived API keys server-side."
+proposal = "Regenerate the Python SDK documentation with an installation using chainflow-data-gateway[websockets], a btc token-mint and connection example, credential routing guidance and token refresh on reconnect; preserve the short-lived token secrecy rule. Update api.md setup and the token operation example together."
+owner_domain = 15
+
+[finding.25]
+file = "sdk/chainflow/python/SKILL.md"
+line = 52
+class = "doc-drift"
+severity = "medium"
+observed = "The SDK guidance installs only the base package and its WebSockets section reuses a REST-only client with market=\"market\". It lists ws_token as an option but never demonstrates the required token acquisition, supported feed scope or optional transport installation."
+expected = "The documented WebSocket example must install its optional transport, select a supported lowercase feed and use a minted scope-bound token while keeping long-lived API keys server-side."
+proposal = "Regenerate the Python SDK documentation with an installation using chainflow-data-gateway[websockets], a btc token-mint and connection example, credential routing guidance and token refresh on reconnect; preserve the short-lived token secrecy rule. Apply the same corrected example to SKILL.md."
+owner_domain = 15
+
+[finding.26]
+file = "sdk/chainflow/python/.claude/skills/chainflow-data-gateway-python-sdk/SKILL.md"
+line = 52
+class = "doc-drift"
+severity = "medium"
+observed = "The packaged skill repeats the base-only installation and a REST-only WebSocket example with market=\"market\". An integrator following this installed reference lacks both the optional transport and the scoped token required by the declared stream."
+expected = "The documented WebSocket example must install its optional transport, select a supported lowercase feed and use a minted scope-bound token while keeping long-lived API keys server-side."
+proposal = "Regenerate the Python SDK documentation with an installation using chainflow-data-gateway[websockets], a btc token-mint and connection example, credential routing guidance and token refresh on reconnect; preserve the short-lived token secrecy rule. Keep the packaged .claude skill synchronized with the root SDK guidance."
+owner_domain = 15
+
+[finding.27]
+file = "docs/site/docs/overview/quickstart.md"
+line = 306
+class = "doc-drift"
+severity = "medium"
+observed = "The quickstart teaches custody precompile 0x1013 funding followed by lx_sendActivity at a public /rpc URL, and later names /rpc/ws and the retired 0x1014 anchor/hosted relay as network paths. docs/wiki/Quickstart.md mirrors these instructions."
+expected = "The merged network uses the public node root JSON-RPC endpoint, native bank funding of derived subaccounts and block-commit finality; custody credits, the anchor, relay and separate LayerX RPC surface are retired."
+proposal = "Rewrite both quickstart pages around chain 125 root JSON-RPC and native funding, EIP-1559 submission, committed receipts and proof reads; remove the retired custody-credit, anchor, daemon and relay steps and publish a current end-to-end transcript."
+owner_domain = 8
+
+[finding.28]
+file = "docs/site/docs/platform/hosted-authority.md"
+line = 13
+class = "doc-drift"
+severity = "medium"
+observed = "The authority guide says receipt bytes are always read from LNI, requires a separate layerxd-authority replica and describes sequencer batch inclusion as the deployed authority model. Its response documentation omits current receipt and protocol_network_id fields; docs/wiki/HostedAuthority.md repeats the model."
+expected = "Requirement 8113 starts authority without an LNI socket, and merged receipt authority must authenticate node receipts and committed blocks using the chain's governed receipt key instead of the retired kernel replica."
+proposal = "Rewrite hosted-authority.md and HostedAuthority.md for the node receipt/header/commit path, actual response fields, network identity, key lookup and restart behavior; replace LNI/replica deployment and readiness instructions with the merged configuration."
+owner_domain = 8
+
+[finding.29]
+file = "docs/site/docs/platform/agent-boundary.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The agent-boundary guide describes submission onto node LNI, a layerxd socket in its environment table, LNI readiness and tests against a separate sequencer/authority replica. The mirror docs/wiki/HostedAgentBoundary.md retains the same instructions."
+expected = "The merged boundary submits signed EIP-1559 transactions to the chain and reads receipts/state through supported node interfaces; LNI and the separate layerxd runtime are retired."
+proposal = "Rewrite both agent-boundary pages for chain transaction submission, node receipts and governed receipt keys, actual health/configuration and commit-based recovery; remove the daemon socket, replica and retired program submission guidance."
+owner_domain = 8
+
+[finding.30]
+file = "docs/site/docs/platform/identity.md"
+line = 90
+class = "doc-drift"
+severity = "medium"
+observed = "The principal model and provisioning examples list sub, signer keys, account and audiences without tenant. identity/src/main.rs now requires a valid tenant on principal provisioning and emits tenant in principal and session responses, so the listed request model is incomplete; HostedIdentity.md mirrors it."
+expected = "Identity integrators must supply the current tenant namespace and understand its binding to a principal and session, including conflict, lookup and revocation behavior."
+proposal = "Update platform/identity.md and wiki/HostedIdentity.md with tenant-bearing provisioning and session response shapes copied from the real identity producer, subject/tenant conflict rules and tenant-scoped recovery examples."
+owner_domain = 8
+
+[finding.31]
+file = "docs/site/docs/operators/hosted-internal.md"
+line = 416
+class = "doc-drift"
+severity = "medium"
+observed = "The internal service error table defines unsupported_algorithm as every algorithm other than ed25519, while internal/src/kms.rs accepts secp256k1 and enforces its 32-byte signing input and compressed public-key format. HostedInternal.md repeats the outdated KMS contract."
+expected = "The operator contract must distinguish supported ed25519 and secp256k1 key/signature encodings and describe algorithm-specific validation and refusal codes accurately."
+proposal = "Update both hosted-internal operator pages from the real KMS producer: list both algorithms, handle and public-key formats, secp256k1 digest requirements, algorithm_mismatch and recovery rules while keeping webhook signing explicitly Ed25519."
+owner_domain = 8
+
+[finding.32]
+file = "docs/site/docs/platform/webhooks.md"
+line = 259
+class = "doc-drift"
+severity = "medium"
+observed = "The credential section says inbound TLS has no client authentication and the HTTP surface describes internal paths by bearer alone, despite ingress now requiring a producer/operator client certificate role. Line 78 also obtains network configuration from retired router, and the deployment examples retain the mismatched testnet name; HostedWebhooks.md mirrors the drift."
+expected = "Operators must deploy the public and private roles with their actual route boundaries, mandatory ingress mTLS role checks and one shared merged-network identity, without depending on a router component."
+proposal = "Rewrite the corresponding sections of both webhook pages for split public/ingress listeners and producer/operator SAN roles, root network configuration, actual endpoint event/key routes and the AI-market delivery/recovery path once it is wired."
+owner_domain = 8
+
+[finding.33]
+file = "services/platform/hosted/webhooks/tests/fault-injection.sh"
+line = 40
+class = "test-gap"
+severity = "medium"
+observed = "The recovery script deletes every running webhook pod with --wait=false and immediately performs the second trigger and duplicate assertion through curl --fail without waiting for replacement readiness or retrying the stable source operation. It can stop on an expected restart outage without reaching its recovery assertions."
+expected = "An injected restart test must prove the intended durable state survived an actual consumer restart and wait for the same real service path to become ready before asserting resumed delivery."
+proposal = "Make hosted/webhooks/tests/fault-injection.sh target and observe the intended worker restart, wait with a bounded deadline for private/public readiness and retry the idempotent source trigger, then retain its real receiver order and byte-identical redelivery assertions."
+owner_domain = 8
+
+[finding.34]
+file = "services/platform/hosted/webhooks/src/trusted.rs"
+line = 647
+class = "wiring-gap"
+severity = "high"
+observed = "ReceiptVerifier still fetches authorized kernel batch facts and validates them with configured_sequencer and verify_activity_operation. It has no node receipt-height key lookup or committed-header/commit verification; VerifiedOperation::verification_level is always receipt-verified, so the live source path cannot supply committed evidence after retirement of the legacy authority path."
+expected = "The merged chain's finalized receipt and governed receipt key must drive webhook verification, with BlockCommitted reserved for a verified committed block and no dependency on retired authorized-batch authority."
+proposal = "Replace the legacy receipt-authority coupling in hosted/webhooks/src/trusted.rs with the node receipt, governed-key-at-height and block-commit verifier path; prove committed source delivery, foreign-chain refusal and restart recovery while preserving minimum-verification filtering."
+owner_domain = 8
+interface = "8.rs-gateway-layerx-platform-gateway-verify-activity-operation"
+
+[finding.35]
+file = "spec/layerx-merge/contracts/platform-hosted.md"
+line = 3824
+class = "doc-drift"
+severity = "medium"
+observed = "The generated contract freezes acceptance.8.145.1 and req.8145 as BlockCommitted below CheckpointFinalised, while current spec.kvx req.8145 makes BlockCommitted the top level and req.8146 refuses checkpoint-finalised on the wire. The adjacent tables therefore present conflicting finality vocabularies."
+expected = "The published webhook contract must agree with the active requirement that block-committed is the highest live verification level and retired words are accepted only by explicit historical storage migration."
+proposal = "Regenerate spec/layerx-merge/contracts/platform-hosted.md from the current requirement and override sources, remove the obsolete checkpoint-ordering criterion and publish the live lattice separately from the historical stored-word compatibility rule."
+owner_domain = 8
+
+[finding.36]
+file = "services/platform/hosted/webhooks/Cargo.toml"
+line = 21
+class = "retired-reference"
+severity = "medium"
+observed = "The production webhook manifest still has a direct path dependency on services/agent/crates/layerx-wire. That crate is explicitly retired by component.wire-codec; trusted.rs also reads its state-commitment protocol version during legacy authority setup."
+expected = "The merged webhook service must build and operate after the retired LayerX wire-codec tree is removed, using the node receipt and committed-block interfaces that replace it."
+proposal = "Remove the direct layerx-wire dependency from hosted/webhooks/Cargo.toml as the trusted receipt path migrates to chain receipt/header types; source required versions from the live chain contract and qualify the manifest together with every affected workspace lock."
+owner_domain = 8
+interface = "9.rs-wire-limits-state-commitment-protocol-version"
+
+[doc.1]
+path = "docs/site/docs/overview/quickstart.md"
+status = "stale"
+notes = "Retired public /rpc and /rpc/ws, custody credit at 0x1013, anchor 0x1014 and relay guidance at lines 167-219, 306-310 and 567-650 require a merged-chain rewrite. Site and wiki content and their differing links/source references were read."
+
+[doc.2]
+path = "docs/site/docs/operators/hosted-internal.md"
+status = "stale"
+notes = "KMS lines 196-198 and 416 omit the supported secp256k1 signing/key contract and its digest and encoding requirements. Mirrored operator content was compared with the real KMS producer."
+
+[doc.3]
+path = "docs/site/docs/platform/agent-boundary.md"
+status = "stale"
+notes = "Lines 3-4, 234-258, 297-299 and 379-420 describe LNI, a layerxd socket and a separate sequencer/replica readiness and test path; replace with chain transaction and receipt behavior."
+
+[doc.4]
+path = "docs/site/docs/platform/hosted-authority.md"
+status = "stale"
+notes = "Lines 9-16 and 30-44 retain retired LNI/replica deployment; the response description omits receipt and protocol_network_id emitted by the producer. Both mirrors need node commit/key-at-height guidance."
+
+[doc.5]
+path = "docs/site/docs/platform/identity.md"
+status = "stale"
+notes = "The credential/principal model at lines 90-105 and provisioning examples omit the tenant required by the current producer, and principal/session responses have gained tenant. Mirrored content was read with all differing references."
+
+[doc.6]
+path = "docs/site/docs/platform/webhooks.md"
+status = "stale"
+notes = "Lines 77-79 depend on a router, 259-280 misstate ingress client authentication, and 403-440 conflate role routes. Lines 302-310 already disclose the deployed network-name mismatch; it remains a live defect. Mirror differences were read."
+
+[doc.7]
+path = "docs/wiki/HostedInternal.md"
+status = "stale"
+notes = "KMS lines 196-198 and 416 omit the supported secp256k1 signing/key contract and its digest and encoding requirements. Mirrored operator content was compared with the real KMS producer."
+
+[doc.8]
+path = "docs/wiki/HostedWebhooks.md"
+status = "stale"
+notes = "Lines 77-79 depend on a router, 259-280 misstate ingress client authentication, and 403-440 conflate role routes. Lines 302-310 already disclose the deployed network-name mismatch; it remains a live defect. Mirror differences were read."
+
+[doc.9]
+path = "docs/wiki/HostedIdentity.md"
+status = "stale"
+notes = "The credential/principal model at lines 90-105 and provisioning examples omit the tenant required by the current producer, and principal/session responses have gained tenant. Mirrored content was read with all differing references."
+
+[doc.10]
+path = "docs/wiki/HostedAuthority.md"
+status = "stale"
+notes = "Lines 9-16 and 30-44 retain retired LNI/replica deployment; the response description omits receipt and protocol_network_id emitted by the producer. Both mirrors need node commit/key-at-height guidance."
+
+[doc.11]
+path = "docs/wiki/HostedAgentBoundary.md"
+status = "stale"
+notes = "Lines 3-4, 234-258, 297-299 and 379-420 describe LNI, a layerxd socket and a separate sequencer/replica readiness and test path; replace with chain transaction and receipt behavior."
+
+[doc.12]
+path = "docs/wiki/Quickstart.md"
+status = "stale"
+notes = "Retired public /rpc and /rpc/ws, custody credit at 0x1013, anchor 0x1014 and relay guidance at lines 167-219, 306-310 and 567-650 require a merged-chain rewrite. Site and wiki content and their differing links/source references were read."
+
+[doc.13]
+path = "sdk/chainflow/python/README.md"
+status = "stale"
+notes = "Read in full; the authentication table correctly separates three credentials, but lines 28-30 and 77-85 omit the WebSocket extra and token setup and use an unsupported market placeholder."
+
+[doc.14]
+path = "sdk/chainflow/python/SECURITY.md"
+status = "accurate"
+notes = "Read in full; identifies the Scalar-generated SDK, including its runtime and authentication, and provides the credential-safe security reporting policy used for provenance."
+
+[doc.15]
+path = "sdk/chainflow/python/SKILL.md"
+status = "stale"
+notes = "Read as SDK documentation in full; lines 12-14 and 52-60 repeat base-only installation and an incomplete REST-only WebSocket example. Its authentication descriptions otherwise identify the distinct keys."
+
+[doc.16]
+path = "sdk/chainflow/python/.claude/skills/chainflow-data-gateway-python-sdk/SKILL.md"
+status = "stale"
+notes = "Read as packaged SDK documentation in full; shares the missing transport/token example with the root skill. Its ../../../api.md and README relative links resolve correctly from this directory."
+
+[doc.17]
+path = "sdk/chainflow/python/api.md"
+status = "stale"
+notes = "Read in full; operation response caveats describe text UDF time, HTTP-200 application errors and display/raw ticker scaling, but the token and WebSocket setup examples do not supply their declared credentials."
+
+[doc.18]
+path = "sdk/chainflow/python/scalar-sdk.manifest.json"
+status = "accurate"
+notes = "Generator metadata and contract declarations consulted: Scalar 0.36.5, production HTTPS server, separate RestApiKey/WsMintKey header schemes, query WsToken, supported market enums and operation metadata. This is generator provenance, not proof of a live service."
+
+[doc.19]
+path = "spec/layerx-merge/contracts/platform-hosted.md"
+status = "stale"
+notes = "Consulted package-related generated interface tables and webhook acceptance context, rather than unrelated service sections. Lines 3824-3827 retain checkpoint ordering that contradicts current req.8145; dependency/route anchors were resolved relative to this feature."
+
+[doc.20]
+path = "spec/layerx-merge/contracts/cosmos-fork.md"
+status = "accurate"
+notes = "Consulted the generated client-sdks table entries for this package. They identify the Scalar public classes and explicitly use go_exported for Python registry items; the kind label is not a language defect."
+
+[doc.21]
+path = "spec/layerx-merge/contracts/programs.md"
+status = "accurate"
+notes = "Consulted ai-market-guest at lines 1202-1283 and decision 1332: binding v2 carries committed block/app hashes and a store-proof digest; snapshot_id deliberately hashes only the content prefix."
+
+[doc.22]
+path = "spec/layerx-merge/programme/audit/BRIEF.kvx"
+status = "accurate"
+notes = "Read in full as the audit's merged-network behavior contract: chain 125 root JSON-RPC, no separate LayerX router/daemon, native tenancy and producer-through-consumer recovery proof."
