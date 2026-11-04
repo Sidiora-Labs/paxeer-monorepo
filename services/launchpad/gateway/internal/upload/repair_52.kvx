@@ -1,0 +1,8 @@
+[repair.22.31.52]
+finding = "upload_error_schema"
+proof = ["TestRepair_52_UploadErrorSchema", "TestRepair_52_IdentityUnavailable"]
+path = "real EIP-191 login and PostgreSQL identity authority -> HTTP identity client -> connected token/account upload handler and Redis admission -> public HTTP response -> shared v2 SDK DecodeError"
+baseline = "Not run: task Order and ALLOWED GATES require complete implementation, hf-build, then hf-done; the conflicting audit baseline step cannot be run separately. No pre-change test failures claimed."
+wiring_identity = "sdk/launchpad/shared/auth/contract.go (shared identity/SDK owning domain): preserve authority error code, retryable, retryAfterMs and Retry-After in IdentityAuthorityError; current clients expose only status, so upload maps that status to the frozen public code."
+wiring_proxy = "services/launchpad/gateway/internal/proxy/connected.go (launchpad gateway owning domain): preserve original upstream authority status on valid v2 5xx envelopes; upstreamUnavailable currently converts every upstream 5xx to 503 before upload can observe it."
+evidence = "Exact qualified revision, command, exit and private log are recorded by hf-build/hf-done; no gate claimed before execution."

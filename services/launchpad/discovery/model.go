@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	v2 "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 )
 
 var ErrInvalid = errors.New("invalid domain input")
@@ -217,6 +219,7 @@ func (c Callout) Remove(actor string, expected uint64) (Callout, error) {
 }
 
 type AlertRule struct {
+	Price                                                                     *v2.InputPrice `json:"Price,omitempty"`
 	ID, OwnerAccountID, PoolAddress, Metric, Threshold, Direction, Hysteresis string
 	Cooldown                                                                  time.Duration
 	Channels                                                                  []string
@@ -225,6 +228,11 @@ type AlertRule struct {
 }
 
 func (r AlertRule) Validate() error {
+	if r.Price != nil {
+		if r.Metric != "price" || validatePrice(*r.Price, r.Threshold) != nil {
+			return ErrInvalid
+		}
+	}
 	if r.ID == "" || r.OwnerAccountID == "" || !address.MatchString(r.PoolAddress) || r.Revision == 0 || r.Cooldown < 60*time.Second || r.Cooldown > 86400*time.Second {
 		return ErrInvalid
 	}
@@ -254,10 +262,12 @@ type AlertCheckpoint struct {
 	LastTrigger                  time.Time
 }
 type Metric struct {
-	Value      string
-	Revision   uint64
-	ObservedAt time.Time
-	Quality    string
+	PoolAddress string         `json:"PoolAddress,omitempty"`
+	Price       *v2.InputPrice `json:"Price,omitempty"`
+	Value       string
+	Revision    uint64
+	ObservedAt  time.Time
+	Quality     string
 }
 
 // Evaluate returns a persistable checkpoint and crossing decision. First observation is baseline only.
@@ -267,6 +277,17 @@ func Evaluate(r AlertRule, s AlertCheckpoint, m Metric, now time.Time) (AlertChe
 	}
 	if err := r.Validate(); err != nil {
 		return s, false, "", err
+	}
+	if r.Price != nil {
+		if m.Price == nil || !strings.EqualFold(m.PoolAddress, r.PoolAddress) || validatePrice(*m.Price, m.Value) != nil || !samePriceIdentity(*r.Price, *m.Price) {
+			return s, false, "price_context_mismatch", nil
+		}
+		observed, err := time.Parse(time.RFC3339Nano, m.Price.Source.ObservedAt)
+		if err != nil || !observed.Equal(m.ObservedAt) {
+			return s, false, "price_context_mismatch", nil
+		}
+	} else if m.Price != nil {
+		return s, false, "price_context_mismatch", nil
 	}
 	v, e := exact(m.Value)
 	if e != nil {
@@ -362,13 +383,13 @@ type GraphConsumer interface {
 }
 
 func (s Squad) Validate() error {
-	if s.ID == "" || s.OwnerAccountID == "" || s.Revision == 0 || utf8.RuneCountInString(s.Name) < 1 || utf8.RuneCountInString(s.Name) > 80 {
+	if s.ID == "" || s.OwnerAccountID == "" || s.Revision == 0 || !utf8.ValidString(s.Name) || utf8.RuneCountInString(s.Name) < 1 || utf8.RuneCountInString(s.Name) > 80 {
 		return ErrInvalid
 	}
-	if s.Policy != "invite" && s.Policy != "request" {
+	if s.Policy != "invite" && s.Policy != "request" && s.Policy != "open" {
 		return ErrInvalid
 	}
-	if (s.Visibility != "public" && s.Visibility != "private") || len(s.Description) > 280 || !utf8.ValidString(s.Description) {
+	if (s.Visibility != "public" && s.Visibility != "private") || utf8.RuneCountInString(s.Description) > 500 || !utf8.ValidString(s.Description) {
 		return ErrInvalid
 	}
 	return nil
@@ -406,6 +427,10 @@ func (s Squad) ConfirmOwnerTransfer(actor string, p OwnerTransfer) (Squad, error
 
 // NewAlertRule applies the approved default; updates must be persisted with revision CAS.
 func NewAlertRule(r AlertRule) (AlertRule, error) {
+	if r.Price != nil {
+		price := normalizePrice(*r.Price)
+		r.Price = &price
+	}
 	if r.Cooldown == 0 {
 		r.Cooldown = 300 * time.Second
 	}

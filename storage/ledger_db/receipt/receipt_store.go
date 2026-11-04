@@ -295,38 +295,32 @@ func recoverReceiptStore(changelogPath string, db paxdbtypes.StateStore) error {
 	if errRead != nil {
 		return errRead
 	}
-	// Look backward to find where we should start replay from
-	curVersion := lastEntry.Version
-	curOffset := lastOffset
-	if ssLatestVersion > 0 {
-		for curVersion > ssLatestVersion && curOffset > firstOffset {
-			curOffset--
-			curEntry, errRead := streamHandler.ReadAt(curOffset)
-			if errRead != nil {
-				return errRead
-			}
-			curVersion = curEntry.Version
+	if lastEntry.Version <= ssLatestVersion {
+		return nil
+	}
+	// Find the first entry whose version has not been applied.
+	targetStartOffset := lastOffset
+	for targetStartOffset > firstOffset {
+		previousEntry, errRead := streamHandler.ReadAt(targetStartOffset - 1)
+		if errRead != nil {
+			return errRead
 		}
-	} else {
-		// Fresh store (or no applied versions) - start from the first offset
-		curOffset = firstOffset
+		if previousEntry.Version <= ssLatestVersion {
+			break
+		}
+		targetStartOffset--
 	}
-	// Replay from the offset where the version is larger than SS store latest version
-	targetStartOffset := curOffset
 	logger.Info("Start replaying changelog to recover ReceiptStore", "from-offset", targetStartOffset, "to-offset", lastOffset)
-	if targetStartOffset < lastOffset {
-		return streamHandler.Replay(targetStartOffset, lastOffset, func(index uint64, entry proto.ChangelogEntry) error {
-			// commit to state store
-			if err := db.ApplyChangesetSync(entry.Version, entry.Changesets); err != nil {
-				return err
-			}
-			if err := db.SetLatestVersion(entry.Version); err != nil {
-				return err
-			}
-			return nil
-		})
-	}
-	return nil
+	return streamHandler.Replay(targetStartOffset, lastOffset, func(index uint64, entry proto.ChangelogEntry) error {
+		// commit to state store
+		if err := db.ApplyChangesetSync(entry.Version, entry.Changesets); err != nil {
+			return err
+		}
+		if err := db.SetLatestVersion(entry.Version); err != nil {
+			return err
+		}
+		return nil
+	})
 }
 
 func startReceiptPruning(db paxdbtypes.StateStore, keepRecent int64, pruneInterval int64, stopCh <-chan struct{}, wg *sync.WaitGroup) {

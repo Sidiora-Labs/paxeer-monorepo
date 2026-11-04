@@ -1,0 +1,8 @@
+[task.22.31.75]
+finding = "22.30.41/22"
+proof = "TestRepair_75_HistorySnapshotReplayConvergeAfterRestart; TestRepair_75_PromotionRollbackPreservesPublicationAuthority"
+implementation = "PromoteRebuild appends authenticated canonical candle corrections and immutable rebuild-to-event proofs in the projection transaction; revisions also consult durable stream sources after history removal."
+authority = "Existing archive validation and parity checks are retained; canonical prices, fills, inbox claims and market publication positions are independently checked before the existing api_stream.append_candle contract publishes."
+baseline = "Not run: the explicit ordered gate instructions prohibit verification before implementation and reserve the single verification run for hf-done; no pre-change failure is claimed."
+evidence = "Runner-owned /out/run/gates.jsonl records the exact candidate revision, command, exit and private log; the final response copies the last bounded gate evidence."
+wiring_request = "services/launchpad/trading-charts/migrations (launchpad charts owner): deploy the added immutable chart_rebuild_stream_sources table and trigger from RebuildSchemaDDL, retaining the existing chart_*_v2 read contracts used by api_stream.append_candle."

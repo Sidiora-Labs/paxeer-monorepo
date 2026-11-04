@@ -1,0 +1,11 @@
+[task.22.31.133]
+finding = "sdk-credential-selection"
+implementation = "Each generated resource passes its SecurityScheme through HTTP dispatch or connect_websocket; Auth renders only that scheme's credential."
+tests = ["TestRepair_133_RESTCredentialSelection", "TestRepair_133_MintCredentialSelection", "TestRepair_133_UpgradeCredentialSelection", "TestRepair_133_NoCredentialSubstitution"]
+proof = "The Go gate compiles the actual Rust SDK and drives generated operation builders through Reqwest and Tungstenite into a real TCP listener parsed by net/http; no transport or auth-handler doubles are used."
+limitation = "The Chainflow gateway auth helper is absent from this checkout; wire credential selection is proven, but acceptance against its real REST, mint and upgrade auth handlers remains external."
+baseline = "Not run: the ordered gate instructions prohibit testing before implementation and require hf-build before hf-done, overriding step 5's baseline request; no pre-change test failures are claimed."
+evidence = "The bounded hf-build/hf-done ledger records the qualified candidate revision, command, exit code and private log; the runner owns the spec completion record."
+wiring_scalar = "sdk/chainflow/rust/scalar-sdk.manifest.json — domain 15 (client SDKs): preserve operation security scheme IDs in Scalar generation inputs and regenerate the explicit routing now repaired in src; REST operations select RestApiKey, POST /auth/ws-token selects WsMintKey, and upgrades select WsToken."
+wiring_gateway = "sdk/chainflow/rust/src/repair_133_test.go — domain 15 / Chainflow gateway owner: provide the external gateway auth-helper source and local launch interface so the same three distinct credentials can be qualified against the real handlers."
+gotcha = "The declared Go build does not compile Rust; the Go verification driver therefore compiles and links the real SDK before executing wire assertions."

@@ -1,0 +1,6 @@
+[task.22.31.105]
+finding = "call-omitted-tag-reads-committed"
+test = "TestRepair_105_CallOmittedTagReadsOpenState"
+path = "Signed contract deployment and set transactions execute through the real sequencer and keeper; HTTP JSON-RPC drives SimulationAPI.Call and returns the contract's get result across idle, open, seal, commit and reopen. Existing pendingSimulateAPIs supplies consensus block lookup fixtures; the executor, state store, simulation handler, EVM and HTTP transport are real."
+baseline = "Not run: the ordered instructions prohibit verification before complete implementation and allow verification only through hf-done; no baseline test failure is claimed."
+wiring_requests = []
