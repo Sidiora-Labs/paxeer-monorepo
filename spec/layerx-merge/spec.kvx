@@ -166251,7 +166251,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.445]
 title = "Bring the feed model integration test of the blockscout client crate onto the FeedItem type its models now export"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
