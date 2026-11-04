@@ -40233,7 +40233,7 @@ title = "Repair audit record 22.30.161 findings in services/explorer/services/sm
 reqs = ["22998.1"]
 touches = ["services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services"]
 tests = ["services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_31_282.rs"]
-verification_contract = "cargo test --locked --manifest-path services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/Cargo.toml --test repair_22_31_282"
+verification_contract = "CARGO_TARGET_DIR=/tmp/scv-target cargo test --locked --manifest-path services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/Cargo.toml --test repair_22_31_282"
 do_1 = "Audit record 22.30.161 (spec/layerx-merge/programme/audit/records/22.30.161.kvx) holds 2 high finding(s) in services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services that block the upgrade (decision 2515); this task closes them: absolute-source-path-write, health-unknown-service. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -40242,7 +40242,7 @@ title = "Repair audit record 22.30.161 findings in services/explorer/services/sm
 reqs = ["22998.1"]
 touches = ["services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/types", "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/proto_conversions.rs"]
 tests = ["services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_31_281.rs"]
-verification_contract = "cargo test --locked --manifest-path services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/Cargo.toml --test repair_22_31_281"
+verification_contract = "CARGO_TARGET_DIR=/tmp/scv-target cargo test --locked --manifest-path services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/Cargo.toml --test repair_22_31_281"
 do_1 = "Audit record 22.30.161 (spec/layerx-merge/programme/audit/records/22.30.161.kvx) holds 1 high finding(s) in services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/types that block the upgrade (decision 2515); this task closes them: post-actions-dropped. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -41187,7 +41187,7 @@ title = "Repair audit record 22.30.45 findings in storage/state_db/ss/evm: inter
 reqs = ["22998.1"]
 touches = ["storage/state_db/ss/evm"]
 tests = ["storage/state_db/ss/evm/repair_177_test.go"]
-verification_contract = "go test -count=1 -v -run '^TestRepair_177_' ./storage/state_db/ss/evm/ > /tmp/repair-177.log 2>&1; s=$?; tail -n 80 /tmp/repair-177.log; grep -q -- '--- PASS: TestRepair_177_' /tmp/repair-177.log && test $s -eq 0"
+verification_contract = "go test -count=1 -v -run '^TestRepair_177_' ./storage/state_db/ss/evm/ > /tmp/repair-177.log 2>&1; s=$?; grep -E '^(=== RUN|--- FAIL|--- PASS|FAIL|ok|panic|    --- FAIL)' /tmp/repair-177.log | tail -n 80; tail -n 20 /tmp/repair-177.log; grep -q -- '--- PASS: TestRepair_177_' /tmp/repair-177.log && test $s -eq 0"
 do_1 = "Audit record 22.30.45 (spec/layerx-merge/programme/audit/records/22.30.45.kvx) holds 1 high finding(s) in storage/state_db/ss/evm that block the upgrade (decision 2515); this task closes them: separate-evm-iterator-range. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -132411,7 +132411,7 @@ do_9 = "Attempt 1: apps/explorer is pinned to yarn (packageManager in its packag
 
 [task.22.31.408]
 title = "Repair audit record 22.30.155 findings in apps/explorer/ui/txs/socket: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -132608,7 +132608,7 @@ do_7 = "Finding stepup-timestamp-types (interface-mismatch, high) on apps/web/sr
 do_8 = "Prove each repair with a test file apps/web/e2e/repair-22-31-384.test.ts that drives the real module (real provider, codec, hook or route handler) and fails before the change; run the verify once on the unchanged tree first and note in the task record which tests already failed before the change."
 do_9 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["apps/web/src/journeys/approvals", "apps/web/src/journeys/onboarding/ceremony.ts", "services/human/crates/layerx-human-service/src/server/identity_dispatch.rs"]
+touches = ["apps/web/src/journeys/approvals", "apps/web/src/journeys/onboarding/ceremony.ts", "services/human/crates/layerx-human-service/src/server/identity_dispatch.rs", "services/human/crates/layerx-human-service/src/auth/mod.rs", "services/human/crates/layerx-human-service/src/server/identity.rs"]
 tests = ["apps/web/e2e/repair-22-31-384.test.ts"]
 planned_paths = ["apps/web/e2e/repair-22-31-384.test.ts"]
 build_cmd = "pnpm --dir apps/web exec tsc --noEmit"
@@ -132627,10 +132627,11 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_10 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command is the whole gate (gotcha 2962)."
 do_11 = "The candidate carries only sources under the touches and the test file: no helper project of another toolchain, no compiled cache, no .cgignore edit (gotcha 2966); the verify command runs last on the final tree and nothing changes after it (gotcha 2967)."
 do_12 = "Attempt 1: the e2e tests demand PAXEER_X_APPROVAL_REPAIR_FIXTURE, a live Human, Agent, Programs and browser fixture; a gate reads no environment variable (gotcha 2963). Record the approval ceremony transcripts from the real services once, commit them under apps/web/e2e/fixtures, replay them through the loopback mock server the e2e suite already starts, and keep the live fixture as an optional mode that skips when unset. Real means the component under repair is the production code and its peers are committed fixtures or loopback servers the test starts; a gate reads no environment variable and reaches no network (gotchas 2962, 2963)."
+do_13 = "Attempt 3 (continue): the real-HTTP approval test fails because the approval codec of the human service drops operation_digest between encode and decode; that codec (src/auth/mod.rs and src/server/identity.rs of the human service crate) is now in scope. Carry operation_digest through both directions, prove it with the existing e2e test, and keep the three passing tests."
 
 [task.22.31.383]
 title = "Repair audit record 22.30.139 findings in apps/web/src/explorer: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -132704,7 +132705,7 @@ do_10 = "The candidate carries only sources under the touches and the test file:
 
 [task.22.31.381]
 title = "Repair audit record 22.30.135 findings in apps/explorer/ui/marketplace/essentialDapps/revoke/hooks: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -132775,7 +132776,7 @@ do_8 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.379]
 title = "Repair audit record 22.30.134 findings in apps/explorer/lib/api: wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -132811,7 +132812,7 @@ do_9 = "Attempt 1: apps/explorer is pinned to yarn (packageManager in its packag
 
 [task.22.31.377]
 title = "Repair audit record 22.30.133 findings in apps/explorer/ui/blocks: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -133186,9 +133187,9 @@ do_4 = "Finding receipt-authentication (security, high) on apps/wallet/src/surfa
 do_5 = "Prove each repair with a test file apps/wallet/src/surfaces/repair-22-31-250.test.ts that drives the real module (real provider, codec, hook or route handler) and fails before the change; run the verify once on the unchanged tree first and note in the task record which tests already failed before the change."
 do_6 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["apps/wallet/src/surfaces", "sdk/wallet/src/receipt.ts", "sdk/wallet/src/modules/index.ts"]
+touches = ["apps/wallet/src/surfaces", "sdk/wallet/src/receipt.ts", "sdk/wallet/src/modules/index.ts", "sdk/platform/conformance/fixtures"]
 tests = ["apps/wallet/src/surfaces/repair-22-31-250.test.ts"]
-planned_paths = ["apps/wallet/src/surfaces/repair-22-31-250.test.ts"]
+planned_paths = ["apps/wallet/src/surfaces/repair-22-31-250.test.ts", "sdk/platform/conformance/fixtures/kernel-receipt-v1.json"]
 build_cmd = "pnpm --dir apps/wallet exec tsc --noEmit -p tsconfig.json"
 verify_cmd = "pnpm --dir apps/wallet exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/wallet exec vitest run src/surfaces/repair-22-31-250.test.ts"
 gate_kind = "planned"
@@ -133205,6 +133206,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_7 = "Attempt 2: the test resolves the conformance fixture from the wrong root (ENOENT under /work/sdk); resolve the repository root from the test file location (walk up to pnpm-workspace.yaml from import.meta.url) so sdk/platform/conformance/fixtures/sequencer-receipt-v1.json loads from any working directory."
 do_8 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command is the whole gate (gotcha 2962)."
 do_9 = "The candidate carries only sources under the touches and the test file: no helper project of another toolchain, no compiled cache, no .cgignore edit (gotcha 2966); the verify command runs last on the final tree and nothing changes after it (gotcha 2967)."
+do_10 = "Attempt 3 (continue): the surfaces test reads a receipt fixture that does not exist in the tree and resolves it from apps/wallet instead of the repository root. The conformance fixtures directory is now in scope: emit the fixture through the real receipt encoder of sdk/wallet/src/receipt.ts (gotcha 2968), commit it as sdk/platform/conformance/fixtures/kernel-receipt-v1.json (the network has no sequencer component: the kernel is part of the network and proposes blocks, so the fixture carries its real producer's name), and resolve the repository root by walking up to pnpm-workspace.yaml."
 
 [task.22.31.249]
 title = "Repair audit record 22.30.120 findings in apps/wallet/src/domains/shell: interface-mismatch"
@@ -136617,6 +136619,7 @@ do_25 = "Attempt 25 (continue): src/web-search.ts and test/web-search.test.ts ar
 do_26 = "Attempt 26 (continue): keep every attempt-26 change; #settle verifies the receipt against payment.rawTransaction from the payer result instead of a rawTransaction read from the settlement extension, which the producer never emits (payment.rs:1591-1597 emits resource, receiptDigest, delivery, contentDigest and responseDigest only); remove the settlement-derived check at web-search.ts:517-520 and pass payment.rawTransaction to verifySequencerReceipt; the exactIn test keeps returning rawTransaction in the payer result and the recorded settlement carries none."
 do_27 = "Attempt 28 (continue): keep every attempt-27 change. The SID metered search of test/web-search.test.ts fails with sidecar-refused:unrecorded_request because the gateway renamed the payer header: services/interop/crates/x-websearch/src/payment.rs:58 defines PAYER_ADDRESS as LAYERX-PAYER-ADDRESS carrying the payer's EVM address and :1887-1894 reads only that header (a LAYERX-PAYER-DID header is ignored, task 11.34.7), and the exchange recorded by 33be5948fb carries LAYERX-PAYER-ADDRESS 0xabab...abab on both search steps, while src/web-search.ts:13 still exports WEB_SEARCH_PAYER_HEADER as LAYERX-PAYER-DID and :412 sends WebSearchPayer.did. Follow the producer: WEB_SEARCH_PAYER_HEADER becomes LAYERX-PAYER-ADDRESS; WebSearchPayer carries address?: string (0x plus 40 hex digits, sent lowercased, refused otherwise with invalid-payer-address) in place of did and the header is sent only when the payer sets it; in test/web-search.test.ts the matcher at line 94 compares LAYERX-PAYER-ADDRESS, the metered payer takes its address from the recorded first step's request headers instead of a literal, and the exact payers keep sending no payer header because the recorded exact steps carry none. test/web-search-sequencer.test.ts follows the same field rename where it builds a payer. The python client (services/agent/sdk/python/layerx_sdk/web_search.py:35) is the same defect and is closed by the repair task of audit record 22.30.100, not here."
 do_28 = "Attempt 29 (continue): the metered fixture in web-search.test.ts passes undefined to Buffer.from because its body field no longer matches the producer. Mirror the current producer body field name and shape in the fixture (gotcha 2968) and keep the metered path assertions."
+do_29 = "Attempt 30 (continue): the only failing check is the negative web-search case that tampers the removed receipt field of the payment, so the tampering reaches nothing and the settlement-mismatch check fires first instead of settlement-receipt-mismatch. The web-search test and module are in scope: tamper a field the current payment shape carries (the receipt digest or the encoded receipt) so the case proves settlement-receipt-mismatch, and drop the dead comparison against the removed field in src/web-search.ts."
 
 [task.22.91.38]
 title = "Inventory the platform examples packages"
@@ -140772,7 +140775,7 @@ do_4 = "Finding 019 (wiring-gap, high) on sdk/integrations/ios/Sources/LayerXMob
 do_5 = "Prove each repair with an XCTest case class sdk/integrations/ios/Tests/LayerXMobileTests/Repair2231415Tests.swift whose tests drive the real module code with recorded network data (real receipts and shapes, not a mock of the component under repair); run the verify once on the unchanged tree first and note in the task record which tests already failed before the change."
 do_6 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["sdk/integrations/ios/Sources/LayerXMobileSampleKit", "sdk/integrations/ios/Sources/LayerXMobileSample"]
+touches = ["sdk/integrations/ios/Sources/LayerXMobileSampleKit", "sdk/integrations/ios/Sources/LayerXMobileSample", "sdk/integrations/ios/Tests/LayerXMobileTests"]
 tests = ["sdk/integrations/ios/Tests/LayerXMobileTests/Repair2231415Tests.swift"]
 planned_paths = ["sdk/integrations/ios/Tests/LayerXMobileTests/Repair2231415Tests.swift"]
 build_cmd = "swift build --package-path sdk/integrations/ios"
@@ -140791,10 +140794,11 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_7 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command is the whole gate (gotcha 2962)."
 do_8 = "The candidate carries only sources under the touches and the test file: no helper project of another toolchain, no compiled cache, no .cgignore edit (gotcha 2966); the verify command runs last on the final tree and nothing changes after it (gotcha 2967)."
 do_9 = "Attempt 2 (continue): the package no longer builds because sdk/integrations/ios/Sources/LayerXMobileSample/main.swift line 83 calls a WalletModel API that became throwing without try. Update the sample caller in the same change (mark the call with try or handle the error) so swift build passes."
+do_10 = "Attempt 3 (continue): the configured-wallet payment test fails because the recorded receipt fixture carries evidence ids that do not match the signed receipt it accompanies, so settlement proof refuses it (gotcha 2968). The tests directory is now in scope: regenerate the fixture through the real producer (the receipt authority that signs the receipt) so the evidence ids and the signature belong to one receipt, and let the test read the ids from the receipt itself; no assertion is weakened."
 
 [task.22.31.346]
 title = "Repair audit record 22.30.78 findings in sdk/platform/swift/Sources/LayerXSDK: interface-mismatch, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -147732,7 +147736,7 @@ do_11 = "The candidate carries only sources under the touches and the test file:
 
 [task.22.31.363]
 title = "Repair audit record 22.30.91 findings in services/agent/crates/layerx-agentd-host/src: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -147768,7 +147772,7 @@ do_9 = "Attempt 2 (continue): the test built a Go producer placed under the host
 
 [task.22.31.362]
 title = "Repair audit record 22.30.86 findings in services/platform/middleware/conformance: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -147804,7 +147808,7 @@ do_9 = "Attempt 2 (continue): the task carried a cargo test command for a Node p
 
 [task.22.31.358]
 title = "Repair audit record 22.30.85 findings in services/platform/hosted/registry: config-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -147839,7 +147843,7 @@ do_8 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.357]
 title = "Repair audit record 22.30.83 findings in services/platform/hosted/node/tests/probe/src: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -147953,7 +147957,7 @@ do_15 = "Attempt 1: the public receipt binds landing block 0x3e7 where the nativ
 
 [task.22.31.353]
 title = "Repair audit record 22.30.83 findings in services/platform/examples/merchant-shop: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -148023,7 +148027,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.350]
 title = "Repair audit record 22.30.82 findings in services/platform/hosted/indexer/src: interface-mismatch, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -148062,7 +148066,7 @@ do_12 = "Attempt 1: both failing tests assert that the expected tenant history s
 
 [task.22.31.347]
 title = "Repair audit record 22.30.78 findings in services/platform/examples/buyer-agent: wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -148133,7 +148137,7 @@ do_8 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.342]
 title = "Repair audit record 22.30.74 findings in services/platform/examples/agent-program-call: restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -148220,11 +148224,11 @@ do_5 = "Finding health-unknown-service (interface-mismatch, high) on services/ex
 do_6 = "Prove each repair with an integration test services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_31_282.rs whose cases exercise the real crate path (real server, store, codec or relay client, not a mock of the component under repair); run the verify once on the unchanged tree first and note in the task record which tests already failed before the change."
 do_7 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services"]
+touches = ["services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services", "s", "e", "r", "v", "i", "c", "e", "s", "/", "e", "x", "p", "l", "o", "r", "e", "r", "/", "s", "e", "r", "v", "i", "c", "e", "s", "/", "s", "m", "a", "r", "t", "-", "c", "o", "n", "t", "r", "a", "c", "t", "-", "v", "e", "r", "i", "f", "i", "e", "r", "/", "s", "m", "a", "r", "t", "-", "c", "o", "n", "t", "r", "a", "c", "t", "-", "v", "e", "r", "i", "f", "i", "e", "r", "-", "p", "r", "o", "t", "o", "/", "s", "w", "a", "g", "g", "e", "r", "/", "v", "2", "/", "s", "m", "a", "r", "t", "-", "c", "o", "n", "t", "r", "a", "c", "t", "-", "v", "e", "r", "i", "f", "i", "e", "r", ".", "s", "w", "a", "g", "g", "e", "r", ".", "y", "a", "m", "l"]
 tests = ["services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_31_282.rs"]
 planned_paths = ["services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_31_282.rs", "services/explorer/services/smart-contract-verifier/Cargo.lock"]
-build_cmd = "cargo build --locked --manifest-path services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/Cargo.toml --tests"
-verify_cmd = "cargo test --locked --manifest-path services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/Cargo.toml --test repair_22_31_282"
+build_cmd = "CARGO_TARGET_DIR=/tmp/scv-target cargo build --locked --manifest-path services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/Cargo.toml --tests"
+verify_cmd = "CARGO_TARGET_DIR=/tmp/scv-target cargo test --locked --manifest-path services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/Cargo.toml --test repair_22_31_282"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-web-explorer-bridge"
@@ -148239,6 +148243,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_8 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command is the whole gate (gotcha 2962)."
 do_9 = "The candidate carries only sources under the touches and the test file: no helper project of another toolchain, no compiled cache, no .cgignore edit (gotcha 2966); the verify command runs last on the final tree and nothing changes after it (gotcha 2967)."
 do_10 = "Attempt 2 (continue): attempt 1 failed only because the protobuf compiler was missing from the qualification environment; the environment now provides it for every workspace whose build scripts generate protobuf code. Rerun the same repair and gate without changing build.rs for that reason."
+do_11 = "Attempt 3: the verify passed but the candidate drifted: .cgignore was edited and the cargo target directory and the regenerated swagger landed in the tree. Never edit .cgignore; the build and verify now direct cargo output outside the repository, and the regenerated swagger file of the proto crate is in scope."
 
 [task.22.31.281]
 title = "Repair audit record 22.30.161 findings in services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/types: interface-mismatch"
@@ -148256,11 +148261,11 @@ do_4 = "Finding post-actions-dropped (interface-mismatch, high) on services/expl
 do_5 = "Prove each repair with an integration test services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_31_281.rs whose cases exercise the real crate path (real server, store, codec or relay client, not a mock of the component under repair); run the verify once on the unchanged tree first and note in the task record which tests already failed before the change."
 do_6 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/types", "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/proto_conversions.rs"]
+touches = ["services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/types", "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/proto_conversions.rs", "s", "e", "r", "v", "i", "c", "e", "s", "/", "e", "x", "p", "l", "o", "r", "e", "r", "/", "s", "e", "r", "v", "i", "c", "e", "s", "/", "s", "m", "a", "r", "t", "-", "c", "o", "n", "t", "r", "a", "c", "t", "-", "v", "e", "r", "i", "f", "i", "e", "r", "/", "s", "m", "a", "r", "t", "-", "c", "o", "n", "t", "r", "a", "c", "t", "-", "v", "e", "r", "i", "f", "i", "e", "r", "-", "s", "e", "r", "v", "e", "r", "/", "s", "r", "c", "/", "s", "e", "r", "v", "i", "c", "e", "s", "/", "s", "o", "l", "i", "d", "i", "t", "y", "_", "v", "e", "r", "i", "f", "i", "e", "r", ".", "r", "s", "w", "g", "g", "2", "w", "g", "g"]
 tests = ["services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_31_281.rs"]
 planned_paths = ["services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_31_281.rs", "services/explorer/services/smart-contract-verifier/Cargo.lock"]
-build_cmd = "cargo build --locked --manifest-path services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/Cargo.toml --tests"
-verify_cmd = "cargo test --locked --manifest-path services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/Cargo.toml --test repair_22_31_281"
+build_cmd = "CARGO_TARGET_DIR=/tmp/scv-target cargo build --locked --manifest-path services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/Cargo.toml --tests"
+verify_cmd = "CARGO_TARGET_DIR=/tmp/scv-target cargo test --locked --manifest-path services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/Cargo.toml --test repair_22_31_281"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-web-explorer-bridge"
@@ -148275,6 +148280,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_7 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command is the whole gate (gotcha 2962)."
 do_8 = "The candidate carries only sources under the touches and the test file: no helper project of another toolchain, no compiled cache, no .cgignore edit (gotcha 2966); the verify command runs last on the final tree and nothing changes after it (gotcha 2967)."
 do_9 = "Attempt 2 (continue): the four shape tests (http and grpc, multipart and standard JSON) panic with post-actions-dropped: lookup-methods was requested, so the server still requests lookup-methods regardless of the post actions the client sent. Forward exactly the post_actions set the client requested, add nothing, and make the shape tests assert the echoed set equals the requested set."
+do_10 = "Attempt 3: four requested-action tests fail because the two production handlers that must forward the requested actions live in src/services/solidity_verifier.rs of the server crate, outside the earlier scope; that module and the regenerated swagger of the proto crate are now in scope. Forward the requested actions through both the HTTP and the gRPC handler and prove it with the existing tests; never edit .cgignore, and the build and verify now direct cargo output outside the repository."
 
 [task.22.31.280]
 title = "Repair audit record 22.30.160 findings in services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/verify: security"
@@ -148720,7 +148726,7 @@ do_11 = "Attempt 4 (continue): the embedded precompile ABI fails to parse (inval
 
 [task.22.31.266]
 title = "Repair audit record 22.30.130 findings in programs/crates/layerx-programs-runtime/src: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -148881,7 +148887,7 @@ do_11 = "Close the findings: the task record names every finding id of this task
 symbols = []
 touches = ["programs/crates/layerx-programs-sandbox/src", "src/modules/programs/sandbox_expiry.c", "modules/lxphost/read_program.go"]
 tests = ["programs/crates/layerx-programs-sandbox/tests/repair_22_31_262.rs"]
-planned_paths = ["programs/crates/layerx-programs-sandbox/tests/repair_22_31_262.rs", "programs/Cargo.lock"]
+planned_paths = ["programs/crates/layerx-programs-sandbox/tests/repair_22_31_262.rs", "programs/Cargo.lock", "programs/crates/layerx-programs-sandbox/src/repair_22_31_262_recordings"]
 build_cmd = "cargo build --locked --manifest-path programs/crates/layerx-programs-sandbox/Cargo.toml --tests"
 verify_cmd = "cargo test --locked --manifest-path programs/crates/layerx-programs-sandbox/Cargo.toml --test repair_22_31_262"
 gate_kind = "planned"
@@ -148898,6 +148904,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_12 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command is the whole gate (gotcha 2962)."
 do_13 = "The candidate carries only sources under the touches and the test file: no helper project of another toolchain, no compiled cache, no .cgignore edit (gotcha 2966); the verify command runs last on the final tree and nothing changes after it (gotcha 2967)."
 do_14 = "Attempt 2 (continue): delete the native terminal-producer C program the test compiled under the storage-environment crate sources (gotcha 2966) and prove the terminal path with the crate API over committed record fixtures; the context key-value read that returned a non-OK status is asserted through the Rust API, not through an ad hoc C harness. Real means the component under repair is the production code and its peers are committed fixtures or loopback servers the test starts; a gate reads no environment variable and reaches no network (gotchas 2962, 2963)."
+do_15 = "Attempt 3 (continue): five tests fail because the committed native transcripts they read do not exist. The qualification image carries go, gcc and make beside cargo, so produce the transcripts once during implementation through the real native producer (the programs precompile over the kernel library built by make paxd-native-libs), commit them in the recordings directory now listed among the planned paths under the crate's src, and keep the verify cargo-only (gotcha 2969). The crate under repair is the programs storage-environment crate of programs/crates, the one whose directory name stands in the touches list."
 
 [task.22.31.261]
 title = "Repair audit record 22.30.127 findings in programs/crates/layerx-programs-runtime/src/abi: interface-mismatch"
@@ -149018,7 +149025,7 @@ do_16 = "The candidate carries only sources under the touches and the test file:
 
 [task.22.31.258]
 title = "Repair audit record 22.30.124 findings in programs/crates/layerx-programs-registry/src/chain_proof: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -149053,7 +149060,7 @@ do_8 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.257]
 title = "Repair audit record 22.30.124 findings in programs/crates/layerx-programs-registry/src/chain_evidence: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -149656,7 +149663,7 @@ do_9 = "Finding f09 (interface-mismatch, high) on services/agent/crates/layerx-c
 do_10 = "Prove each repair with an integration test services/agent/crates/layerx-client/tests/repair_22_31_221.rs whose cases exercise the real crate path (real server, store, codec or relay client, not a mock of the component under repair); run the verify once on the unchanged tree first and note in the task record which tests already failed before the change."
 do_11 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["services/agent/crates/layerx-client/src"]
+touches = ["services/agent/crates/layerx-client/src", "services/agent/crates/layerx-client/tests"]
 tests = ["services/agent/crates/layerx-client/tests/repair_22_31_221.rs"]
 planned_paths = ["services/agent/crates/layerx-client/tests/repair_22_31_221.rs", "services/agent/Cargo.lock"]
 build_cmd = "cargo build --locked --manifest-path services/agent/crates/layerx-client/Cargo.toml --tests"
@@ -149674,6 +149681,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_12 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command is the whole gate (gotcha 2962)."
 do_13 = "The candidate carries only sources under the touches and the test file: no helper project of another toolchain, no compiled cache, no .cgignore edit (gotcha 2966); the verify command runs last on the final tree and nothing changes after it (gotcha 2967)."
+do_14 = "Attempt 2 (continue): the HistoryPage shape gained account and freshness and the crate's own integration tests in services/agent/crates/layerx-client/tests (px_reads.rs, proof_client.rs, history_rpc.rs) still construct the old shape, so the test build fails. An interface change carries its consumers: the tests directory is now in scope; update those tests to the new shape through the real producer, weakening no assertion."
 
 [task.22.31.220]
 title = "Repair audit record 22.30.94 findings in services/agent/crates/layerx-agentd/src: interface-mismatch"
@@ -150096,6 +150104,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_8 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command is the whole gate (gotcha 2962)."
 do_9 = "The candidate carries only sources under the touches and the test file: no helper project of another toolchain, no compiled cache, no .cgignore edit (gotcha 2966); the verify command runs last on the final tree and nothing changes after it (gotcha 2967)."
+do_10 = "Attempt 2 (continue): the mixed-height test writes its state records by hand and the production verifier in the human module refuses them with 503 state_evidence_refused (gotcha 2968). Write the records through the authority's own record writer in the test; if records the writer itself produced at mixed heights are refused, that refusal is the defect to repair in src/human and the test proves the repair. The range of accepted evidence is not widened by hand."
 
 [task.22.31.207]
 title = "Repair audit record 22.30.85 findings in services/platform/hosted/authority/src: interface-mismatch, retired-reference"
@@ -150250,6 +150259,7 @@ do_11 = "Attempt 2 (continue): repair_22_31_202_real_producer_paths starts the i
 do_12 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command is the whole gate (gotcha 2962)."
 do_13 = "The candidate carries only sources under the touches and the test file: no helper project of another toolchain, no compiled cache, no .cgignore edit (gotcha 2966); the verify command runs last on the final tree and nothing changes after it (gotcha 2967)."
 do_14 = "Attempt 3 (continue): the gateway answers the real-producer request with -32602 Invalid params at test line 533, so the request the test builds does not match the method schema in openrpc.json the gateway validates. Build the params from the schema (names, types, required fields) and assert after the gateway accepts them; if the schema and the handler disagree, the handler is the producer and the schema is corrected to it."
+do_15 = "Attempt 4 (continue): the only failing assertion is the closed px_getHistory response schema in openrpc.json, which does not declare the account, chainHeight and freshness fields the real history producer now emits. The schema file is in the task's scope: declare those fields as the producer emits them (the same producer-consumer class as decision 2514's finding on px_getHistory) and keep the three passing assertion groups."
 
 [task.22.31.201]
 title = "Repair audit record 22.30.80 findings in tools/platform/release/src: interface-mismatch"
@@ -151101,7 +151111,7 @@ do_6 = "Finding bank-plan-cannot-commit (interface-mismatch, high) on services/h
 do_7 = "Prove each repair with an integration test services/human/crates/layerx-human-service/tests/repair_22_31_153.rs whose cases exercise the real crate path (real server, store, codec or relay client, not a mock of the component under repair); run the verify once on the unchanged tree first and note in the task record which tests already failed before the change."
 do_8 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["services/human/crates/layerx-human-service/src/journeys"]
+touches = ["services/human/crates/layerx-human-service/src/journeys", "services/human/crates/layerx-human-service/src/server/schema.rs", "services/human/schema/human-api"]
 tests = ["services/human/crates/layerx-human-service/tests/repair_22_31_153.rs"]
 planned_paths = ["services/human/crates/layerx-human-service/tests/repair_22_31_153.rs", "services/human/Cargo.lock"]
 build_cmd = "cargo build --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --tests"
@@ -151121,6 +151131,7 @@ do_9 = "Attempt 2: history_state_schema_get_list_after_reopen (540 seconds) fail
 do_10 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command is the whole gate (gotcha 2962)."
 do_11 = "The candidate carries only sources under the touches and the test file: no helper project of another toolchain, no compiled cache, no .cgignore edit (gotcha 2966); the verify command runs last on the final tree and nothing changes after it (gotcha 2967)."
 do_12 = "Attempt 2 (continue): history_state_schema_get_list_after_reopen fails because the closed-history state the engine emits after reopen is not a declared JourneyState variant of the HTTP get and list schema. Declare the variant in the schema and the response encoder (or map the closed state onto the declared variant the finding names) so the production encoder accepts the reopened history; the test is right."
+do_13 = "Attempt 3 (continue): the history get and list encoders refuse the closed journey because the declared variant list of the history response schema (src/server/schema.rs and the human-api schema documents under services/human/schema/human-api) lacks closed, and the bank plan test waits two minutes for an external constructor that never commits. Both are now in scope: declare closed wherever the engine can emit it and prove it through the real encoders; drive the bank journey with the crate's own engine and a loopback peer (gotcha 2962), and if the constructor is a Go or Node program produce its transcript once during implementation (the image carries both) and replay the committed transcript, keeping the verify cargo-only (gotcha 2969)."
 
 [task.22.31.152]
 title = "Repair audit record 22.30.103 findings in services/human/crates/layerx-human-service/src/custody: interface-mismatch, restart-recovery"
@@ -161774,7 +161785,7 @@ do_8 = "Verification runs go test -v, keeps its log and requires a PASS line for
 
 [task.22.31.326]
 title = "Repair audit record 22.30.180 findings in tools/paxctl/sidecar/tasks: interface-mismatch, runtime-risk, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -161861,7 +161872,7 @@ do_11 = "The candidate carries only sources under the touches and the test file:
 
 [task.22.31.324]
 title = "Repair audit record 22.30.179 findings in tools/loadtest/sender: interface-mismatch, restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -161900,7 +161911,7 @@ do_12 = "The candidate carries only sources under the touches and the test file:
 
 [task.22.31.323]
 title = "Repair audit record 22.30.179 findings in tools/loadtest/generator/scenarios: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -162088,7 +162099,7 @@ do_13 = "Attempt 2: the fixture helper repair311ValidatorWithKey fails MsgCreate
 
 [task.22.31.310]
 title = "Repair audit record 22.30.168 findings in sdk/x/staking/keeper: interface-mismatch, restart-recovery, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -162636,7 +162647,7 @@ do_10 = "The candidate carries only sources under the touches and the test file:
 
 [task.22.31.295]
 title = "Repair audit record 22.30.165 findings in sdk/types/module: restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -162960,7 +162971,7 @@ do_11 = "The candidate carries only sources under the touches and the test file:
 
 [task.22.31.285]
 title = "Repair audit record 22.30.162 findings in sdk/x/slashing/client/rest: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -163997,7 +164008,7 @@ touches = ["storage/state_db/ss/evm"]
 tests = ["storage/state_db/ss/evm/repair_177_test.go"]
 planned_paths = ["storage/state_db/ss/evm/repair_177_test.go"]
 build_cmd = "go build ./storage/state_db/ss/evm/..."
-verify_cmd = "go test -count=1 -v -run '^TestRepair_177_' ./storage/state_db/ss/evm/ > /tmp/repair-177.log 2>&1; s=$?; tail -n 80 /tmp/repair-177.log; grep -q -- '--- PASS: TestRepair_177_' /tmp/repair-177.log && test $s -eq 0"
+verify_cmd = "go test -count=1 -v -run '^TestRepair_177_' ./storage/state_db/ss/evm/ > /tmp/repair-177.log 2>&1; s=$?; grep -E '^(=== RUN|--- FAIL|--- PASS|FAIL|ok|panic|    --- FAIL)' /tmp/repair-177.log | tail -n 80; tail -n 20 /tmp/repair-177.log; grep -q -- '--- PASS: TestRepair_177_' /tmp/repair-177.log && test $s -eq 0"
 gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-node-runtime"
@@ -164015,6 +164026,7 @@ do_9 = "Verification runs go test -v, keeps its log and requires a PASS line for
 do_10 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command is the whole gate (gotcha 2962)."
 do_11 = "The candidate carries only sources under the touches and the test file: no helper project of another toolchain, no compiled cache, no .cgignore edit (gotcha 2966); the verify command runs last on the final tree and nothing changes after it (gotcha 2967)."
 do_12 = "Attempt 3 (continue): TestRepair_177_EmptyRangesAndInvalidBounds ends the test binary without a failure line right after Found 0 WALs, so the store open path exits the process. Give every subtest a fresh temporary directory, return errors from the open path instead of exiting, and assert on them."
+do_13 = "Attempt 4 (continue): every TestRepair_177_ test in the tail passed and the package still reports FAIL (gotcha 2971). Every test matched by the run filter lives in the task's own test file in storage/state_db/ss/evm, so none is outside scope: the verify now prints the RUN, PASS, FAIL and panic lines of the whole log; find the failing item, fix it or delete it if it proves nothing, and keep the assertions that prove the findings."
 
 [task.22.31.176]
 title = "Repair audit record 22.30.45 findings in storage/state_db/ss/composite: interface-mismatch, restart-recovery"
@@ -164329,7 +164341,7 @@ do_7 = "Verification runs only the TestRepair_142_* functions of repair_142_test
 
 [task.22.31.141]
 title = "Repair audit record 22.30.76 findings in sdk/platform/go: interface-mismatch, restart-recovery, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -166946,6 +166958,7 @@ do_9 = "Attempt 2 (continue): the restart proof fails because the repaired index
 do_10 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command is the whole gate (gotcha 2962)."
 do_11 = "The candidate carries only sources under the touches and the test file: no helper project of another toolchain, no compiled cache, no .cgignore edit (gotcha 2966); the verify command runs last on the final tree and nothing changes after it (gotcha 2967)."
 do_12 = "Attempt 2: TestRepair_55_RestartRecoversRealMarketBeyondLifetimeBounds recovers two sell receipts where the producer emitted one: restart recovery replays the receipt on both sides of the lifetime bound. Deduplicate by receipt identity across the bound so recovery is idempotent, and assert the exact producer count."
+do_13 = "Attempt 4 (continue): the restart recovery test fails only because the recorded chain fixture lacks the call the restart path makes, eth_getBlockByNumber for latest with full transactions. Record that reply in the fixture in the shape the real node returns (the format chainfixture.go replays) and keep the restart path as it is; three of four tests already pass."
 
 [task.22.31.54]
 title = "Repair audit record 22.30.33 findings in services/launchpad/indexer/internal/processor: restart-recovery, wiring-gap"
@@ -167359,7 +167372,7 @@ do_11 = "The candidate carries only sources under the touches and the test file:
 
 [task.22.31.38]
 title = "Repair audit record 22.30.27 findings in sdk/launchpad/shared/config/capabilities: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -223691,7 +223704,7 @@ do_6 = "Finding unused-budget-revoke (runtime-risk, high) on modules/layerxpay/k
 do_7 = "Prove each repair with a Go test file modules/layerxpay/keeper/repair_131_test.go whose tests are named TestRepair_131_<case> and exercise the real code path (real keeper, store, codec or handler, not a mock of the component under repair); run the verify once on the unchanged tree first and note in the task record which tests already failed before the change."
 do_8 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["modules/layerxpay/keeper", "src/modules/escrow/lx_escrow_module.c", "src/modules/budget/lx_budget_module.c"]
+touches = ["modules/layerxpay/keeper", "src/modules/escrow/lx_escrow_module.c", "src/modules/budget/lx_budget_module.c", "modules/layerxpay/types/params.go"]
 tests = ["modules/layerxpay/keeper/repair_131_test.go"]
 planned_paths = ["modules/layerxpay/keeper/repair_131_test.go"]
 build_cmd = "make -s paxd-native-libs && CGO_ENABLED=1 go build ./modules/layerxpay/keeper/..."
@@ -223713,6 +223726,7 @@ do_11 = "Verification runs go test -v, keeps its log and requires a PASS line fo
 do_12 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command is the whole gate (gotcha 2962)."
 do_13 = "The candidate carries only sources under the touches and the test file: no helper project of another toolchain, no compiled cache, no .cgignore edit (gotcha 2966); the verify command runs last on the final tree and nothing changes after it (gotcha 2967)."
 do_14 = "Attempt 3 (continue): TestRepair_131_EscrowReceiptBinding split case expects the canonical outer root to equal the economic result and receives thirty-two zero bytes: the binding is never written on the split path. Write the canonical outer root for every split receipt in the keeper and assert it from the stored receipt, not from the test computation alone."
+do_15 = "Attempt 4 (continue): the declared-genesis subtest exports 1034 kernel records and GenesisState.Validate (modules/layerxpay/types/params.go line 56) refuses more than 512, so the exporter produces what the importer refuses: the producer-consumer defect class, not an out-of-scope validator. The types module is now in scope: validate each kernel record on its own merits and derive any count limit from what the keeper export can really produce, so a JSON genesis export of live state always re-imports; keep the test as it is."
 
 [task.22.31.130]
 title = "Repair audit record 22.30.65 findings in precompiles/xweb: interface-mismatch"
@@ -265504,7 +265518,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.57]
 title = "Rewrite the chain-modules documentation pages of docs/readme: stale and misleading pages (manifest 22.32.57, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -265654,7 +265668,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.52]
 title = "Rewrite the node-runtime documentation pages of node/wasmbinding: stale and misleading pages (manifest 22.32.52, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -265684,7 +265698,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.51]
 title = "Rewrite the node-runtime documentation pages of engine/tests: stale and misleading pages (manifest 22.32.51, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -265774,7 +265788,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.48]
 title = "Rewrite the node-runtime documentation pages of docs/runbooks: stale and misleading pages (manifest 22.32.48, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -265834,7 +265848,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.46]
 title = "Rewrite the node-runtime documentation pages of consensus/test: stale and misleading pages (manifest 22.32.46, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -265924,7 +265938,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.43]
 title = "Rewrite the node-runtime documentation pages of consensus/spec: stale and misleading pages (manifest 22.32.43, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -265954,7 +265968,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.42]
 title = "Rewrite the node-runtime documentation pages of consensus/spec: stale and misleading pages (manifest 22.32.42, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -266014,7 +266028,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.40]
 title = "Rewrite the node-runtime documentation pages of consensus/spec: stale and misleading pages (manifest 22.32.40, 3 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -266224,7 +266238,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.33]
 title = "Rewrite the node-runtime documentation pages of consensus/spec: stale and misleading pages (manifest 22.32.33, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -266254,7 +266268,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.32]
 title = "Rewrite the node-runtime documentation pages of consensus/spec: stale and misleading pages (manifest 22.32.32, 6 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -266284,7 +266298,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.31]
 title = "Rewrite the node-runtime documentation pages of consensus/spec: stale and misleading pages (manifest 22.32.31, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -266314,7 +266328,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.30]
 title = "Rewrite the node-runtime documentation pages of consensus/spec: stale and misleading pages (manifest 22.32.30, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -266344,7 +266358,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.29]
 title = "Rewrite the node-runtime documentation pages of consensus/spec: stale and misleading pages (manifest 22.32.29, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -266374,7 +266388,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.28]
 title = "Rewrite the node-runtime documentation pages of consensus/internal: stale and misleading pages (manifest 22.32.28, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -266404,7 +266418,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.27]
 title = "Rewrite the node-runtime documentation pages of consensus: stale and misleading pages (manifest 22.32.27, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -266434,7 +266448,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.26]
 title = "Rewrite the launchpad documentation pages of tools/launchpad: stale and misleading pages (manifest 22.32.26, 5 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -266464,7 +266478,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.25]
 title = "Rewrite the launchpad documentation pages of services/launchpad: stale and misleading pages (manifest 22.32.25, 4 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -266494,7 +266508,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.24]
 title = "Rewrite the launchpad documentation pages of sdk/launchpad: stale and misleading pages (manifest 22.32.24, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -266524,7 +266538,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.23]
 title = "Rewrite the launchpad documentation pages of docs/wiki: stale and misleading pages (manifest 22.32.23, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -266554,7 +266568,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.22]
 title = "Rewrite the launchpad documentation pages of docs/wiki: stale and misleading pages (manifest 22.32.22, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -266614,7 +266628,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.20]
 title = "Rewrite the launchpad documentation pages of docs/system: stale and misleading pages (manifest 22.32.20, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -266644,7 +266658,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.19]
 title = "Rewrite the launchpad documentation pages of docs/site: stale and misleading pages (manifest 22.32.19, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -266674,7 +266688,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.18]
 title = "Rewrite the launchpad documentation pages of docs/site: stale and misleading pages (manifest 22.32.18, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -266704,7 +266718,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.17]
 title = "Rewrite the launchpad documentation pages of docs/site: stale and misleading pages (manifest 22.32.17, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -266734,7 +266748,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.16]
 title = "Rewrite the launchpad documentation pages of docs/site: stale and misleading pages (manifest 22.32.16, 4 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -266764,7 +266778,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.15]
 title = "Rewrite the launchpad documentation pages of contracts: new pages (manifest 22.32.15, 3 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -266794,7 +266808,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.14]
 title = "Rewrite the launchpad documentation pages of apps/launchpad: stale and misleading pages (manifest 22.32.14, 3 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -266824,7 +266838,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.13]
 title = "Rewrite the markets documentation pages of modules/oracle: stale and misleading pages (manifest 22.32.13, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -266854,7 +266868,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.12]
 title = "Rewrite the markets documentation pages of modules/oracle: stale and misleading pages (manifest 22.32.12, 6 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -266884,7 +266898,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.11]
 title = "Rewrite the markets documentation pages of modules/mint: stale and misleading pages (manifest 22.32.11, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -266914,7 +266928,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.10]
 title = "Rewrite the markets documentation pages of modules/epoch: stale and misleading pages (manifest 22.32.10, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -266944,7 +266958,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.9]
 title = "Rewrite the markets documentation pages of docs/wiki: stale and misleading pages (manifest 22.32.9, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -266974,7 +266988,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.8]
 title = "Rewrite the markets documentation pages of docs/system: stale and misleading pages (manifest 22.32.8, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -267004,7 +267018,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.7]
 title = "Rewrite the markets documentation pages of docs/site: stale and misleading pages (manifest 22.32.7, 4 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -267064,7 +267078,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.5]
 title = "Rewrite the markets documentation pages of apps/perps: stale and misleading pages (manifest 22.32.5, 4 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -267094,7 +267108,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.4]
 title = "Rewrite the ledger-auth-pay documentation pages of modules: stale and misleading pages (manifest 22.32.4, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -267124,7 +267138,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.3]
 title = "Rewrite the ledger-auth-pay documentation pages of docs/wiki: stale and misleading pages (manifest 22.32.3, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -267154,7 +267168,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.2]
 title = "Rewrite the kernel documentation pages of docs/wiki: stale and misleading pages (manifest 22.32.2, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -267595,7 +267609,7 @@ do_8 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.418]
 title = "Repair audit record 22.30.163 findings in sdk/integrations/android/src/main/java/com/sidiora/layerx/android: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -267772,7 +267786,7 @@ do_8 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.355]
 title = "Repair audit record 22.30.83 findings in services/platform/hosted/node: interface-mismatch, restart-recovery, retired-reference, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -267850,7 +267864,7 @@ do_8 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.348]
 title = "Repair audit record 22.30.78 findings in services/platform/hosted/human: interface-mismatch, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -268033,7 +268047,7 @@ do_10 = "The candidate carries only sources under the touches and the test file:
 
 [task.22.31.320]
 title = "Repair audit record 22.30.178 findings in scripts: interface-mismatch, restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -268111,7 +268125,7 @@ do_13 = "Attempt 2: the SSH fixture asserts that sshd exists; the qualification 
 
 [task.22.31.318]
 title = "Repair audit record 22.30.176 findings in tools/qualification/paxeer-x: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -268270,7 +268284,7 @@ do_4 = "Finding topology_adapter_path (wiring-gap, high) on deploy/launchpad/pro
 do_5 = "Prove each repair with a test module deploy/launchpad/production/topology/phase2/tests/test_repair_22_31_313.py that drives the real client against a recorded or in-process server (real codec, real header and payload shapes, not a mock of the component under repair); run the verify once on the unchanged tree first and note in the task record which tests already failed before the change."
 do_6 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["deploy/launchpad/production/topology/phase2"]
+touches = ["deploy/launchpad/production/topology/phase2", "tools/launchpad/production/integration/adapters.py"]
 tests = ["deploy/launchpad/production/topology/phase2/tests/test_repair_22_31_313.py"]
 planned_paths = ["deploy/launchpad/production/topology/phase2/tests/test_repair_22_31_313.py"]
 build_cmd = "python3 -m py_compile deploy/launchpad/production/topology/phase2/providers.py"
@@ -268290,6 +268304,7 @@ do_7 = "Attempt 2: the test expects ROLES, DOCUMENT_ENV and document_binding exp
 do_8 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command is the whole gate (gotcha 2962)."
 do_9 = "The candidate carries only sources under the touches and the test file: no helper project of another toolchain, no compiled cache, no .cgignore edit (gotcha 2966); the verify command runs last on the final tree and nothing changes after it (gotcha 2967)."
 do_10 = "Attempt 2 (continue): the canonical runtime adapter lacks the connected topology exports ROLES, DOCUMENT_ENV and document_binding the test imports; export them from the adapter module as the finding proposes. Delete the committed bytecode cache directory (gotcha 2966)."
+do_11 = "Attempt 3 (continue): the adapter path test expects ROLES, DOCUMENT_ENV and document_binding from the canonical runtime adapter, which lives in tools/launchpad/production/integration/adapters.py outside the earlier scope. That module is now in scope: export the connected topology contract from it as the twelve-role test requires, consuming the phase2 topology as the real producer."
 
 [task.22.31.312]
 title = "Repair audit record 22.30.169 findings in tests/agent/sdk/python: interface-mismatch"
@@ -297691,7 +297706,7 @@ do_4 = "Finding transaction-type-union (interface-mismatch, high) on services/ex
 do_5 = "Prove each repair with an ExUnit module services/explorer/backend/apps/explorer/test/repair/repair_22_31_409_test.exs whose cases drive the real controller, channel, schema or import runner with recorded chain data (real request and response shapes, not a mock of the component under repair); run the verify once on the unchanged tree first and note in the task record which tests already failed before the change."
 do_6 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["services/explorer/backend/apps/explorer/lib/explorer/chain"]
+touches = ["services/explorer/backend/apps/explorer/lib/explorer/chain", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/general.ex"]
 tests = ["services/explorer/backend/apps/explorer/test/repair/repair_22_31_409_test.exs"]
 planned_paths = ["services/explorer/backend/apps/explorer/test/repair/repair_22_31_409_test.exs"]
 build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
@@ -297709,6 +297724,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_7 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command is the whole gate (gotcha 2962)."
 do_8 = "The candidate carries only sources under the touches and the test file: no helper project of another toolchain, no compiled cache, no .cgignore edit (gotcha 2966); the verify command runs last on the final tree and nothing changes after it (gotcha 2967)."
+do_9 = "Attempt 2 (continue): the API parameter schema transaction_type_param in block_scout_web/schemas/api/v2/general.ex admits only blob_transaction and price_update, so the union filter is unreachable over HTTP and the controller answers 422. The schema module is now in scope: list every transaction type the chain filter implements (contract_creation and contract_call among them) and prove the creation and call union through the HTTP path."
 
 [task.22.31.407]
 title = "Repair audit record 22.30.154 findings in services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x: interface-mismatch"
@@ -297997,7 +298013,7 @@ do_8 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.397]
 title = "Repair audit record 22.30.147 findings in services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/web_socket: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -298138,6 +298154,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_7 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command is the whole gate (gotcha 2962)."
 do_8 = "The candidate carries only sources under the touches and the test file: no helper project of another toolchain, no compiled cache, no .cgignore edit (gotcha 2966); the verify command runs last on the final tree and nothing changes after it (gotcha 2967)."
+do_9 = "Attempt 2 (continue): the Parity array and JavaScript tracer variants fail inside the OpenAPI cast: the anyOf tries to build the RawTrace struct from a list, which Kernel.struct cannot do. Declare the array-shaped variants as array schemas without a struct binding, keep the struct binding on the object variant only, and prove both shapes through the controller."
 
 [task.22.31.393]
 title = "Repair audit record 22.30.143 findings in services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2: interface-mismatch"
@@ -298217,7 +298234,7 @@ do_13 = "Attempt 2 (continue): the token-holder CSV export renders the balance a
 
 [task.22.31.390]
 title = "Repair audit record 22.30.142 findings in services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

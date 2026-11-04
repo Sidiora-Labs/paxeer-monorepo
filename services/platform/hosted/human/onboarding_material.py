@@ -31,19 +31,10 @@ def prepare(args):
         directory.mkdir(mode=0o700, parents=True, exist_ok=True)
         require(directory.stat().st_uid == os.geteuid(), directory, 'owned directory')
     registry = protected_json(args.registry)
-    require(registry.get('schema_version') == 2 and registry.get('assets'), args.registry, 'real module registry')
-    h32(args.native_asset, args.registry, 'configured native asset')
-    require(registry.get('network_id') == args.network_id
-            and any(asset.get('asset') == args.native_asset for asset in registry['assets']),
-            args.registry, 'configured native asset registration')
-    modules = []
-    for module in registry['modules']:
-        require(type(module['module']) is int and 1 <= module['module'] <= 9
-                and len(module['ordinals']) == len(set(module['ordinals'])), args.registry, 'canonical supported module')
-        modules.append(dict(module_id=module['module'], activity_types=[
-            (module['module'] << 16) | ordinal for ordinal in module['ordinals']]))
+    from material import canonical_module_registry
+    projected_registry = canonical_module_registry(registry, args.network_id, args.native_asset)
     registry_file = root / 'registry.json'
-    write(registry_file, json.dumps(dict(network_id=args.network_id, protocol_version=3, modules=modules),
+    write(registry_file, json.dumps(projected_registry,
         sort_keys=True, separators=(',', ':')).encode())
     config = component_defaults(args.network_id, args.chain_id)
     config.update(STORE_ROOT=str(state / 'store'), CUSTODY_ROOT=str(state / 'custody'),

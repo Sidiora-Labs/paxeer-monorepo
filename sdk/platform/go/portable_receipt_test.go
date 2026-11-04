@@ -68,7 +68,7 @@ func TestPortableReceiptRoundTripsAtReceipted(t *testing.T) {
 		c := sequencerReceiptCases(t)[0]
 		f := newCommittedFixture(t, c.ID, [4]int64{1, 1, 1, 1}, 0)
 		evidence := PortableCommittedEvidence{BlockHeader: f.header, ReceiptInclusion: f.inclusion, Commit: f.commit, ValidatorSet: f.validators}
-		p, err := ExportPortableReceipt(c.ReceiptJSON, sequencerFixtureBytes(t, c.RawTransaction), sequencerFixtureKeys(t, c), &evidence)
+		p, err := ExportPortableReceipt(c.ReceiptJSON, sequencerFixtureBytes(t, c.RawTransaction), sequencerFixtureKeys(t, c), &evidence, f.trust)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -76,7 +76,7 @@ func TestPortableReceiptRoundTripsAtReceipted(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		verified, err := VerifyPortableReceipt(data, sequencerFixtureKeys(t, c))
+		verified, err := VerifyPortableReceipt(data, sequencerFixtureKeys(t, c), f.trust)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -95,7 +95,7 @@ func TestPortableReceiptRoundTripsAtReceipted(t *testing.T) {
 			t.Fatal("committed bundle changed on re-export")
 		}
 		restored.Commit.Signatures[0].Signature[0] ^= 1
-		if result, err := restored.Verify(sequencerFixtureKeys(t, c)); !errors.Is(err, ErrVerification) || result.Rung != "" {
+		if result, err := restored.Verify(sequencerFixtureKeys(t, c), f.trust); !errors.Is(err, ErrVerification) || result.Rung != "" {
 			t.Fatal("tampered commit was accepted")
 		}
 	})
@@ -107,7 +107,7 @@ func TestPortableReceiptRefusesDifferentWrappedTransaction(t *testing.T) {
 	keys := sequencerFixtureKeys(t, c)
 	f := newCommittedFixture(t, c.ID, [4]int64{1, 1, 1, 1}, 0)
 	evidence := PortableCommittedEvidence{BlockHeader: f.header, ReceiptInclusion: f.inclusion, Commit: f.commit, ValidatorSet: f.validators}
-	p, err := ExportPortableReceipt(c.ReceiptJSON, sequencerFixtureBytes(t, c.RawTransaction), keys, &evidence)
+	p, err := ExportPortableReceipt(c.ReceiptJSON, sequencerFixtureBytes(t, c.RawTransaction), keys, &evidence, f.trust)
 	if err != nil {
 		t.Fatal(err)
 	}

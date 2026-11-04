@@ -25,7 +25,8 @@ def produce(genesis, deployment, evidence, material, ca, sequencer):
     deployment = protected_json(deployment)
     require(deployment['network_id'] == network, genesis, 'deployed network')
     movement = protected_json(Path(evidence) / 'movement-policy.json')
-    confirmations = movement['PAXEER_CONFIRMATIONS']
+    context = protected_json(Path(evidence) / 'producer-records/native-context.json')
+    confirmations = context['confirmations']
     require(type(confirmations) is int and confirmations > 0, evidence, 'finality confirmation policy')
     addresses = deployment['addresses']
     policy = dict(version=1, url='https://paxeer-boundary.layerx-testnet.svc.cluster.local:9443',

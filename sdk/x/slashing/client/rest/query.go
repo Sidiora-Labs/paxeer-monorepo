@@ -7,6 +7,7 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
+	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/bech32/legacybech32" //nolint:staticcheck
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/rest"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/slashing/types"
@@ -43,7 +44,7 @@ func signingInfoHandlerFn(clientCtx client.Context) http.HandlerFunc {
 			return
 		}
 
-		params := types.QuerySigningInfoRequest{ConsAddress: pk.Address().String()}
+		params := types.QuerySigningInfoRequest{ConsAddress: sdk.ConsAddress(pk.Address()).String()}
 
 		bz, err := clientCtx.LegacyAmino.MarshalAsJSON(params)
 		if rest.CheckBadRequestError(w, err) {

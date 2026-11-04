@@ -470,6 +470,14 @@ func (h *HTTPServer) newDomainWSHandler(srv *rpc.Server, config WsConfig, apis [
 		scopedAPIs := make([]rpc.API, len(apis))
 		for idx, api := range apis {
 			switch service := api.Service.(type) {
+			case *BlockAPI:
+				api.Service = &domainBlockAPI{BlockAPI: service, scope: scope}
+			case *TransactionAPI:
+				api.Service = &domainTransactionAPI{TransactionAPI: service, scope: scope}
+			case *RawTransactionAPI:
+				api.Service = &domainRawTransactionAPI{RawTransactionAPI: service, scope: scope}
+			case *FilterAPI:
+				api.Service = &domainFilterAPI{FilterAPI: service, scope: scope}
 			case *InfoAPI:
 				api.Service = &domainInfoAPI{InfoAPI: service, scope: scope}
 			case *domainNetAPI:

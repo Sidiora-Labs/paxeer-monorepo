@@ -403,6 +403,8 @@ type Header struct {
 	Time    time.Time         `json:"time"`
 
 	// prev block info
+	// Empty at the initial height (which need not be height one). Protobuf
+	// omits its empty hashes but retains the non-nullable PartSetHeader.
 	LastBlockID BlockID `json:"last_block_id"`
 
 	// hashes of block data
@@ -416,6 +418,7 @@ type Header struct {
 	AppHash            tmbytes.HexBytes `json:"app_hash"`             // state after txs from the previous block
 	// root hash of all results from the txs from the previous block
 	// see `deterministicResponseDeliverTx` to understand which parts of a tx is hashed into here
+	// Nil at the initial height; protobuf omits this default bytes field.
 	LastResultsHash tmbytes.HexBytes `json:"last_results_hash"`
 
 	// consensus info
@@ -510,6 +513,9 @@ func (h Header) ValidateBasic() error {
 // Returns nil if ValidatorHash is missing,
 // since a Header is not valid unless there is
 // a ValidatorsHash (corresponding to the validator set).
+// Empty byte fields contribute an empty cdcEncode leaf, not a BytesValue
+// containing an explicitly encoded empty bytes field. This also applies to
+// LastResultsHash in the initial header and to an empty AppHash.
 func (h *Header) Hash() tmbytes.HexBytes {
 	if h == nil || len(h.ValidatorsHash) == 0 {
 		return nil
