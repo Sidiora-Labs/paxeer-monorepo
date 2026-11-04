@@ -1,3 +1,4 @@
+import Crypto
 import Foundation
 import LayerXSDK
 
@@ -54,11 +55,19 @@ public protocol MobileReceiptResolver: Sendable {
 public struct ReceiptGate: Sendable {
   public typealias Evidence = MobileReceiptEvidence
 
-  private let receipts: MobileReceiptResolver
+  private let receipts: MobileReceiptResolver?
+  private let client: LayerXMobileClient?
   private let receiptKeys: [ReceiptKeys]
 
   public init(receipts: MobileReceiptResolver, receiptKeys: [ReceiptKeys] = []) {
     self.receipts = receipts
+    self.client = nil
+    self.receiptKeys = receiptKeys
+  }
+
+  public init(client: LayerXMobileClient, receiptKeys: [ReceiptKeys]) {
+    self.receipts = nil
+    self.client = client
     self.receiptKeys = receiptKeys
   }
 
@@ -71,6 +80,7 @@ public struct ReceiptGate: Sendable {
     else {
       throw MobileIntegrationError(.decodeFailure)
     }
+    guard let receipts else { throw MobileIntegrationError(.invalidConfiguration) }
     let evidence = try await receipts.resolve(receiptReference: receiptReference)
     return try await verify(evidence: evidence, expecting: expectation)
   }
@@ -116,19 +126,62 @@ public struct ReceiptGate: Sendable {
     guard let object = journey.objectValue, case let .string(state)? = object["state"] else {
       throw MobileIntegrationError(.decodeFailure)
     }
+    guard case let .string(journeyID)? = object["journey_id"], !journeyID.isEmpty else {
+      throw MobileIntegrationError(.decodeFailure)
+    }
     switch state {
-    case "settled", "completed":
-      guard case let .string(reference)? = object["receipt_ref"] else {
+    case "done", "done-finalised":
+      guard case let .array(evidence)? = object["evidence"],
+        case let .array(stages)? = object["stages"]
+      else {
         throw MobileIntegrationError(.decodeFailure)
       }
-      return try await settle(receiptReference: reference, expecting: expectation)
-    case "failed", "expired", "refused":
+      var references = evidence
+      for stage in stages {
+        guard let stage = stage.objectValue, case let .array(entries)? = stage["evidence"] else {
+          throw MobileIntegrationError(.decodeFailure)
+        }
+        references.append(contentsOf: entries)
+      }
+      var seen = Set<String>()
+      for value in references {
+        guard let reference = value.objectValue,
+          case let .string(identifier)? = reference["evidence_id"], !identifier.isEmpty,
+          case let .string(kind)? = reference["class"],
+          case let .string(verification)? = reference["verification"]
+        else {
+          throw MobileIntegrationError(.decodeFailure)
+        }
+        guard kind == "layerx-receipt",
+          verification == "receipt-verified" || verification == "checkpoint-finalised",
+          seen.insert(identifier).inserted
+        else { continue }
+        if let client {
+          let material = try await client.evidence(id: identifier)
+          let payment = try HumanPaymentReceipt.verify(
+            material, identifier: identifier, verification: verification, keys: receiptKeys)
+          if payment.asset == expectation.asset, payment.recipient == expectation.recipient,
+            decimalString(payment.amount) == expectation.amount
+          {
+            return .verified(level: "receipted", receiptDigest: hexadecimal(payment.digest))
+          }
+        } else {
+          guard let receipts else { throw MobileIntegrationError(.invalidConfiguration) }
+          let material = try await receipts.resolve(receiptReference: identifier)
+          guard identifier == "evd_" + hexadecimal(Data(SHA256.hash(data: material.signedReceipt)))
+          else {
+            throw MobileIntegrationError(.verificationFailure)
+          }
+          return try await verify(evidence: material, expecting: expectation)
+        }
+      }
+      throw MobileIntegrationError(.verificationFailure)
+    case "refused":
       return .refused(code: state)
+    case "getting-ready", "sending", "processing", "still-checking", "waiting-for-you":
+      return .pending(reference: journeyID)
     default:
-      guard case let .string(reference)? = object["journey_id"] else {
-        throw MobileIntegrationError(.decodeFailure)
-      }
-      return .pending(reference: reference)
+      throw MobileIntegrationError(.decodeFailure)
     }
   }
 }

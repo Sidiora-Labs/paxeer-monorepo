@@ -131169,7 +131169,7 @@ do_10 = "The candidate carries only sources under the touches and the test file:
 
 [task.22.31.375]
 title = "Repair audit record 22.30.129 findings in programs/sdk/assemblyscript/assembly: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -131239,7 +131239,7 @@ do_8 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.372]
 title = "Repair audit record 22.30.119 findings in services/wallet/gateway/src/db: runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -132170,7 +132170,7 @@ do_15 = "Attempt 3 (continue): the vitest suite spawned a Go harness, received H
 
 [task.22.31.23]
 title = "Repair audit record 22.30.19 findings in apps/launchpad/web/src/core/wallet-sdk/embedded_sdk/embedded: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -139004,7 +139004,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.419]
 title = "Repair audit record 22.30.163 findings in sdk/integrations/ios/Sources/LayerXMobile: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -145904,7 +145904,7 @@ do_8 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.366]
 title = "Repair audit record 22.30.91 findings in services/agent/crates/layerx-agentd/src/human_runtime: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -147359,7 +147359,7 @@ do_8 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.256]
 title = "Repair audit record 22.30.124 findings in programs/crates/layerx-programs-registry/src: interface-mismatch, restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -147612,7 +147612,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.229]
 title = "Repair audit record 22.30.99 findings in services/agent/qualification/pay2: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -148214,7 +148214,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.213]
 title = "Repair audit record 22.30.89 findings in tools/platform/cli/src/install: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -148688,7 +148688,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.190]
 title = "Repair audit record 22.30.79 findings in services/agent/crates/layerx-sdk/src: interface-mismatch, retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -159667,7 +159667,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.31.430]
 title = "Repair audit record 22.30.182 findings in tools/benchmark: runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -159967,7 +159967,7 @@ do_11 = "The candidate carries only sources under the touches and the test file:
 
 [task.22.31.328]
 title = "Repair audit record 22.30.180 findings in tools/paxctl/sidecar/shadow: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -160314,7 +160314,7 @@ do_8 = "Verification runs go test -v, keeps its log and requires a PASS line for
 
 [task.22.31.311]
 title = "Repair audit record 22.30.168 findings in sdk/x/staking/types: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -161943,7 +161943,7 @@ do_9 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.187]
 title = "Repair audit record 22.30.70 findings in sdk/server/rosetta: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -162018,7 +162018,7 @@ do_8 = "Verification runs go test -v, keeps its log and requires a PASS line for
 
 [task.22.31.184]
 title = "Repair audit record 22.30.66 findings in wasm/x/wasm/keeper: interface-mismatch, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -162097,7 +162097,7 @@ do_9 = "Verification runs go test -v, keeps its log and requires a PASS line for
 
 [task.22.31.181]
 title = "Repair audit record 22.30.60 findings in modules/evm: restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -164020,7 +164020,7 @@ do_7 = "Verification runs only the TestRepair_90_* functions of repair_90_test.g
 
 [task.22.31.89]
 title = "Repair audit record 22.30.46 findings in consensus/internal/state: restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -164720,7 +164720,7 @@ do_7 = "Verification runs only the TestRepair_69_* functions of repair_69_test.g
 
 [task.22.31.68]
 title = "Repair audit record 22.30.39 findings in services/launchpad/social/internal/social: interface-mismatch, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -197196,7 +197196,7 @@ do_9 = "Delete the test signedSharedVectors at sdk/platform/jvm/src/test/java/co
 
 [task.22.31.417]
 title = "Repair audit record 22.30.163 findings in sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -222523,7 +222523,7 @@ do_13 = "Attempt 2 (continue): TestRepair_19_ShareBalanceRevert expects the cust
 
 [task.5.99.1]
 title = "Switch the hosted kernel to programs guest ABI 5 at the merge upgrade and keep the choice across restarts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["1.23.7"]
@@ -260250,7 +260250,7 @@ do_8 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.392]
 title = "Repair audit record 22.30.143 findings in services/bridge/deploy: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
