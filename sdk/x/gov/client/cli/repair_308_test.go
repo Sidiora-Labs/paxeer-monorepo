@@ -22,10 +22,8 @@ import (
 	storev2rootmulti "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/storev2/rootmulti"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	moduletestutil "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/module/testutil"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth"
 	authkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/keeper"
 	authtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/types"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank"
 	bankkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/keeper"
 	banktypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/gov"
@@ -35,7 +33,6 @@ import (
 	govtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/gov/types"
 	paramskeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/params/keeper"
 	paramtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/params/types"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/staking"
 	stakingkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/staking/keeper"
 	stakingtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/staking/types"
 	storageconfig "github.com/Sidiora-Labs/Paxeer-X-Network/storage/config"
@@ -56,7 +53,14 @@ type repair308Chain struct {
 }
 
 func repair308Encoding() moduletestutil.TestEncodingConfig {
-	return moduletestutil.MakeTestEncodingConfig(auth.AppModuleBasic{}, bank.AppModuleBasic{}, staking.AppModuleBasic{}, gov.AppModuleBasic{})
+	enc := moduletestutil.MakeTestEncodingConfig(gov.AppModuleBasic{})
+	authtypes.RegisterLegacyAminoCodec(enc.Amino)
+	authtypes.RegisterInterfaces(enc.InterfaceRegistry)
+	banktypes.RegisterLegacyAminoCodec(enc.Amino)
+	banktypes.RegisterInterfaces(enc.InterfaceRegistry)
+	stakingtypes.RegisterLegacyAminoCodec(enc.Amino)
+	stakingtypes.RegisterInterfaces(enc.InterfaceRegistry)
+	return enc
 }
 
 func newRepair308Chain(t *testing.T, indexer string) *repair308Chain {

@@ -1,0 +1,37 @@
+[repair.22.33.675]
+audit = "22.30.167"
+baseline = "Not run: the explicit implementation-first gate order prohibits verification before implementation and forbids running verify_cmd by hand; no baseline failure is claimed."
+verified_revision_source = "The bounded hf-build and hf-done evidence records name the exact candidate revision, command, exit and private log."
+wiring_requests = ["sdk/x/auth/client/cli/{tx_multisign.go,tx_sign.go,validate_sigs.go} and sdk/x/staking/client/cli/tx.go: owning domain 15 (fm-cosmos-fork) must consume both return values from tx.NewFactoryCLI so governance package tests can compile."]
+continuation = "Preserved the seeded implementation and its disconnected-client and protobuf-byte-comparison repairs. The current production history consumer explicitly sorts ascending by block and transaction index, so the batch producer now emits that order with every identity assertion preserved. Check the zero-limit default before pagination multiplication and prove both default pagination and its overflow rejection. No current-attempt gate ledger existed before these edits."
+fixture_dependencies = "Register the real auth, bank and staking codecs directly in the shared keeper fixture instead of importing their whole AppModuleBasic packages; the keeper, store, transaction handler, finalization and local RPC remain production implementations and every existing assertion is preserved. This avoids compiling unrelated CLI entry points without changing those domains."
+fixture_keyring = "The first current-attempt verification ran every repair test: query commands, finalized history recovery, pagination errors and transport failure passed; expedited submission reached the default file keyring without a directory. Supply the real SDK in-memory keyring for offline transaction generation, preserving all message, codec and keeper assertions."
+qualification_repair_1 = "Revision 700ec0df995e79f10cc417490e5331e9a8ac4877: cg spec done 22.33.675 -f layerx-merge --root /work/paxeer-monorepo exited 1; private log /out/logs/verify-1.log. Test compilation used an unavailable LegacyAmino.UnmarshalJSON method; use this fork's UnmarshalAsJSON API with all assertions unchanged."
+
+qualification_repair_2 = "Revision 797742cac83186a404a20d670aa224f84843b39b: cg spec done 22.33.675 -f layerx-merge --root /work/paxeer-monorepo exited 1; private log /out/logs/verify-2.log. Preserve every pagination assertion by submitting fixture votes in reverse to match the RPC default descending transaction order, explicitly clear --node for the disconnected-client case, and compare full encoded message bytes instead of reflection over private protobuf Any codec fields."
+
+[finding.gov-history-cli-pagination]
+tests = ["TestRepairM_675_FinalizedHistoryPaginationAndRecovery", "TestRepairM_675_HistoryPaginationErrors"]
+repair = "Read unsigned registered flags, propagate getter errors, check integer conversions and multiplication; prove live and finalized page two through keeper, transaction index and CLI decoding."
+
+[finding.gov-query-tests]
+tests = ["TestRepairM_675_QueryCommands", "TestRepairM_675_FinalizedHistoryPaginationAndRecovery", "TestRepairM_675_QueryTransportFailure"]
+repair = "Existing query suite cases execute commands against the registered keeper query server and decode real output; finalization removes live votes and recreated clients recover account identities and weighted options from the real index."
+
+[finding.expedited-cli-flag]
+tests = ["TestRepairM_675_ExpeditedSubmission"]
+repair = "Register the boolean flag, reject every explicitly supplied proposal flag beside --proposal, decode both generated transaction paths and deliver their messages to the real governance handler."
+
+[qualification.continuation]
+revision = "b3d92c57e1ebccbf9f1abe13dfd8be4e4ebf373c"
+command = "cg spec done 22.33.675 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; compiler details: /tmp/repair-m675.log"
+observed = "The declared build passed on this revision, but verification could not execute any repair test because pre-existing auth and staking CLI callers consume one return value from the two-result tx.NewFactoryCLI; these out-of-scope failures are recorded without repair or rerun."
+
+[qualification.keyring]
+revision = "4e459249e04226521e18dc443efa6a732498ec1b"
+command = "cg spec done 22.33.675 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; test details: /tmp/repair-m675.log"
+observed = "All query repair tests passed; expedited submission failed because its fixture allowed the default file keyring to open without a directory."
