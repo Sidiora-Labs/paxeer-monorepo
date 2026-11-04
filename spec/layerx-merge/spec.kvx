@@ -147168,7 +147168,7 @@ do_11 = "Attempt 5 (continue after 22.31.477): the same TS2339 at scenarios.ts s
 
 [task.22.33.1480]
 title = "Repair audit record 22.30.86 medium findings in services/platform/middleware/conformance (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.359", "22.31.360", "22.31.361", "22.31.362", "22.31.434", "22.31.435", "22.31.436", "22.31.477", "22.31.479"]
