@@ -1,0 +1,92 @@
+[repair.22.31.354]
+audit = "22.30.83"
+base_revision = "61b2c3c98c61e72d831e1ce948a0bde6d218c980"
+status = "implementation; qualification is the bounded gate ledger"
+baseline = "The supplied previous-attempt verify failed receipt_anchor_dependency_public_receipt_binds_native_landing_block (height 999 versus 1000), with 14 tests passing; this continuation preserves that assertion and uses its recorded baseline instead of rerunning an unchanged gate."
+evidence = "Exact candidate revision, command, exit and private log are emitted by hf-build/hf-done and reproduced in the final response."
+
+[finding.custody-retired-precompiles]
+test = "repair::custody_retired_precompiles_use_native_reads_and_refuse_absent_metadata"
+repair = "Read bank metadata at 0x1001 and native pointers at 0x100A at one committed height, with explicit asset/denom bindings and native block/app hash evidence; retired custody and anchor calls are removed."
+coverage = "Committed real EVM block/app-hash and bank eth_call transcripts cross the actual chain transport and native reader, with strict refusal for absent metadata; positive bank/pointer producer captures remain an explicit owning-domain wiring request below."
+
+[finding.core-replica-readiness]
+test = "repair::core_replica_readiness_uses_live_chain_and_writable_journal"
+repair = "Readiness uses live native committed blocks and a durable writable journal, has no replica startup input or probe, and retains explicit independent funding dependency status."
+
+[finding.core-retired-relays]
+test = "repair::core_retired_relays_use_native_state_and_explicit_retirement"
+repair = "State/head routes return native committed block/app hash facts; obsolete authority, account-state-change, program event and program idempotency HTTP contracts return 410 without forwarding."
+
+[finding.receipt-anchor-dependency]
+test = "repair::receipt_anchor_dependency_public_receipt_binds_native_landing_block"
+repair = "An authenticated receipt must match its actual transaction in its native landing block; the public response carries that block hash and app hash after the head advances, without anchor gating."
+coverage = "Unmodified signed native producer capture and original raw transaction with recorded real EVM landing at height 1000 and later head at 1005; the actual TLS receipt route checks block/hash/root binding and refuses a misplaced transaction index."
+
+[finding.funding-recovery-schema]
+test = "repair::funding_recovery_schema_live_archive_import_and_restart_replay"
+repair = "One versioned, treasury-authorized native transfer record preserves signed bytes/hash across live staging, lost prepare response, submission, committed archive, portable export/import, retention and component reopen; legacy ledger intents retain their separately validated replay path."
+migration = "Pre-versioned raw/hash stages migrate only on replay of the original request, after native transfer decoding and current recipient binding checks; orphan stages block retention until that replay, because old journals do not contain the original request body."
+coverage = "Real native signing encoder checked byte-for-byte against a producer transcript, durable store, recorded native submission/receipt, TLS export/import, archive validation and offline restart replay; funding_recovery_schema_migrates_legacy_native_stage_and_refuses_recipient_mismatch reopens an old raw/hash journal and drives the real binding ABI through transport before migration."
+
+[finding.account-balance-shape]
+test = "repair::account_balance_shape_consumes_recorded_gateway_through_public_route"
+repair = "Use paxeer.balance and nonce, validate them against one stable committed native snapshot, and expose decimal wei, 18 decimals and committed height; layerx metadata cannot override native balance."
+coverage = "Unmodified repository gateway capture through PxEndpoint and the public core TLS balance route, checked against recorded real committed EVM balance/nonce; legacy layerx balance cannot override the native producer value."
+
+[finding.proof-height-and-content]
+test = "repair::proof_height_and_content_verifies_native_key_and_rejects_wrong_account_or_root"
+repair = "Select the receipt landing height instead of the advancing head and reject block/root disagreement; no header-only or empty-slot account proof is returned as successful inclusion evidence."
+coverage = "Real native Go ICS23 producer vector through the client transport/decoder/verifier, wrong-account/value/root refusals, recorded advancing-head historical block reads, and core committed-state root disagreement; the TLS proof routes refuse incomplete receipt/activity/account inclusion rather than returning header-only evidence."
+remaining = "Public per-key account and receipt inclusion delivery is unavailable until domain 9 exposes the native producer evidence and configured commit trust; this finding is not claimed closed by the codec/refusal tests."
+
+[wiring.native-metadata]
+request = "Chain bank/pointer owning domains: provide an in-process native-chain fixture for precompiles/bank and precompiles/pointerview, and authoritative asset/denom bindings for LAYERX_CORE_NATIVE_ASSET_DENOMS; domain 22 deployment must wire those bindings."
+
+[wiring.requirement]
+request = "Spec owning domain: reconcile spec/layerx-merge/spec.kvx req.8945.2 with native bank/pointer metadata and committed native evidence; 0x1013/0x1014 are retired."
+
+[wiring.client-account-height]
+request = "Domain 9: preserve paxeer.height in services/agent/crates/layerx-client/src/px.rs; core currently cross-checks the producer value/nonce at a stable committed native height rather than inventing the dropped field."
+
+[wiring.native-inclusion]
+request = "Domain 9: expose native per-key bank account inclusion and px_getSequenceBatch transaction/path evidence with configured commit trust through services/agent/crates/layerx-client/src/rpc/evidence.rs and receipt.rs; the existing height-only carrier refuses MissingCommittedHeader and lookup_authenticated does not acquire commit evidence."
+
+[wiring.retired-callers]
+request = "Domains 9 and 22: migrate callers of retired hosted account-state-change, receipt-authority, program-event and program-idempotency HTTP contracts to native query/history/receipt interfaces; core now returns explicit 410."
+
+[gotcha.native-transfer-decoder]
+observed = "The shared Eip1559Call decoder deliberately rejects value-bearing native transfers; using it for funding import silently selects the legacy ledger interface."
+resolution = "NativeTransfer validates canonical value-bearing RLP and treasury authorization, while version-one ledger intents keep their original strict decoder and chain replay path."
+
+[gotcha.scope]
+observed = "GOTCHA.kvx and spec task/qualification records are outside the explicit repair scope."
+resolution = "Task mapping, migration limits, gotchas and out-of-domain wiring requests are recorded here; no out-of-scope ledger or spec edits are made."
+
+[gotcha.pointer-inference]
+observed = "Passing an inferred try_into result to hex_encode before its array field assignment inferred an unsized byte slice in the first build."
+resolution = "Declare the native pointer as [u8; 20] before ABI conversion; the bounded build ledger retains the failed command and revision."
+
+[gotcha.receipt-mining]
+observed = "The first verification observed height 999 immediately after transaction submission because the local EVM had not yet mined the transaction."
+resolution = "Use committed unmodified real producer RPC captures with an explicit landing at height 1000 and head advance to 1005; preserve the exact height assertions without a mining race or a runtime subprocess."
+
+[gotcha.self-contained-gate]
+observed = "The inherited integration test launched Anvil and OpenSSL although task step 13 requires no external binary at verification time."
+resolution = "Commit real RPC producer captures and static test-only localhost TLS bytes under the allowed source directory; the integration test now uses only in-process loopback servers, the production code and durable local stores."
+
+[gotcha.strict-producer-shape]
+observed = "Newer Anvil responses add blockTimestamp to transaction objects while the shared client requires the exact native transaction field set."
+resolution = "Capture unmodified responses from Anvil 1.4.4, preserving the strict client decoder and all assertions; no response fields are stripped to qualify the gate."
+
+[gotcha.committed-root-confirmation]
+observed = "The inherited native committed-state helper confirmed block identity but read the app hash only once between those block reads."
+resolution = "Confirm the app hash too and reject disagreement; the integration proof test supplies two different recorded committed roots and asserts refusal."
+
+[gotcha.concurrent-tls-fixtures]
+observed = "The first continuation verification raced concurrent fixture calls to the process-global TLS provider installation (revision 3ab4a698596525965e9583db6d1f23c35522ad5e; cg spec done 22.31.354 -f layerx-merge --root /work/paxeer-monorepo; exit 1; /out/logs/verify-1.log)."
+resolution = "Serialize fixture initialization with OnceLock while retaining the checked production provider installation; no test is serialized or skipped."
+
+[gotcha.receipt-refusal-classification]
+observed = "That verification rejected a misplaced native receipt transaction but reported node_unavailable instead of the asserted receipt_unavailable."
+resolution = "The public receipt route reports receipt_unavailable on receipt acquisition or landing-evidence failure, preserving the refusal assertion."
