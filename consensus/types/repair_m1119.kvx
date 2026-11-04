@@ -1,0 +1,8 @@
+[repair.22.33.1119]
+finding = "validator-power-panic"
+change = "ValidatorSetFromProto validates each decoded validator before arithmetic and accumulates a checked sum bounded by MaxTotalVotingPower, returning ErrTotalVotingPowerOverflow instead of invoking the panic-based local invariant calculation."
+tests = ["TestRepairM_1119_ValidatorPowerBounds", "TestRepairM_1119_IndividualValidatorValidation", "TestRepairM_1119_DispatcherRejectsOversizedResponse"]
+proof = "A signed light block produced with real validator keys and the production protobuf codec is mutated as hostile peer input; overflow and negative powers are rejected by ValidatorSetFromProto and LightBlockFromProto. Two real P2P routers transport an oversized response followed by a valid signed response to the real state-sync Dispatcher.Respond; the first returns the overflow error, and only the valid block reaches the pending consumer and passes commit verification."
+baseline = "Not run: the explicit task gate order requires complete implementation before hf-build and hf-done and forbids running verify_cmd by hand. No pre-change test failure is claimed."
+wiring_requests = []
+evidence = "The runner gate ledger records the qualified candidate revision, commands, exits and private log locations."
