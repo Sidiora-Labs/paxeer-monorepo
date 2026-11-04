@@ -145313,7 +145313,7 @@ do_9 = "Attempt 2 (continue): the POST proof requires LAYERX_HUMAN_SERVICE_URL; 
 
 [task.22.31.386]
 title = "Repair audit record 22.30.139 findings in apps/web/src/journeys/activity: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -180634,7 +180634,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.2]
 title = "Repair audit record 22.30.1 medium findings in layerxproof/verify (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.1"]
@@ -186222,7 +186222,7 @@ do_13 = "Attempt 4 (continue): the restart recovery test fails only because the 
 
 [task.22.31.54]
 title = "Repair audit record 22.30.33 findings in services/launchpad/indexer/internal/processor: restart-recovery, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -242874,7 +242874,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1]
 title = "Repair audit record 22.30.1 medium findings in layerxproof/codec (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.1"]
@@ -284097,7 +284097,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.189]
 title = "Rewrite the programme documentation pages of spec/release-v6-12-0: stale and misleading pages (manifest 22.32.189, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284127,7 +284127,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.188]
 title = "Rewrite the programme documentation pages of spec/release-v6-12-0: stale and misleading pages (manifest 22.32.188, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284157,7 +284157,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.187]
 title = "Rewrite the programme documentation pages of spec/layerx-merge: stale and misleading pages (manifest 22.32.187, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284187,7 +284187,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.186]
 title = "Rewrite the programme documentation pages of spec/layerx-merge: stale and misleading pages (manifest 22.32.186, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284217,7 +284217,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.185]
 title = "Rewrite the programme documentation pages of spec/layerx-merge: stale and misleading pages (manifest 22.32.185, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284247,7 +284247,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.184]
 title = "Rewrite the programme documentation pages of spec/layerx-merge: stale and misleading pages (manifest 22.32.184, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284277,7 +284277,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.183]
 title = "Rewrite the programme documentation pages of spec/layerx-merge: stale and misleading pages (manifest 22.32.183, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284307,7 +284307,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.182]
 title = "Rewrite the programme documentation pages of spec/layerx-merge: stale and misleading pages (manifest 22.32.182, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284337,7 +284337,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.181]
 title = "Rewrite the programme documentation pages of spec/layerx-merge: stale and misleading pages (manifest 22.32.181, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284367,7 +284367,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.180]
 title = "Rewrite the programme documentation pages of spec/layerx-merge: stale and misleading pages (manifest 22.32.180, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284397,7 +284397,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.179]
 title = "Rewrite the programme documentation pages of spec/layerx-merge: stale and misleading pages (manifest 22.32.179, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -290550,7 +290550,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.330]
 title = "Repair audit record 22.30.183 findings in tools/qualification/paxeer-x: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
