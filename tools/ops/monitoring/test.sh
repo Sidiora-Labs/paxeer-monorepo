@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Renders the stack from hosts.env.example and checks it with promtool and amtool.
+# Fixture binding requires Python 3 with PyYAML (Debian: python3-yaml).
 # Uses local promtool/amtool when present, otherwise the pinned images through Docker.
 set -euo pipefail
 
@@ -8,7 +9,9 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
 "$here/render.sh" "$here/hosts.env.example" "$work/rendered"
-cp "$here/rules.yml" "$here/rules_test.yml" "$here/blackbox.yml" "$work/"
+cp "$here/rules.yml" "$here/blackbox.yml" "$work/"
+python3 "$here/readiness.py" fixtures "$work/rendered" "$here/rules.yml" \
+	"$here/rules_test.yml" "$work/rules_test.yml"
 # Exercise the email route too.
 sed -e 's/^ALERT_EMAIL_TO=.*/ALERT_EMAIL_TO="ops@example.com"/' \
 	-e 's/^ALERT_EMAIL_FROM=.*/ALERT_EMAIL_FROM="alerts@example.com"/' \

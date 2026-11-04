@@ -43,22 +43,28 @@ func ReadLightInvarianceConfig(opts servertypes.AppOptions) (LightInvarianceConf
 	return cfg, nil
 }
 
-func (app *App) LightInvarianceChecks(ctx context.Context, cms sdk.CommitMultiStore, config LightInvarianceConfig) {
+func (app *App) LightInvarianceChecks(ctx context.Context, cms sdk.CommitMultiStore, config LightInvarianceConfig) (err error) {
+	defer func() {
+		if err != nil {
+			app.lightInvarianceErr = err
+		}
+	}()
 	// Skip invariance checks when mock_balances is enabled since we fake balances
 	// without updating the actual store, which would fail the supply check.
 	if MockBalancesEnabled {
-		return
+		return nil
 	}
 	if config.SupplyEnabled {
-		app.LightInvarianceTotalSupply(ctx, cms)
+		return app.LightInvarianceTotalSupply(ctx, cms)
 	}
+	return nil
 }
 
 // LightInvarianceTotalSupply checks the pending changes in a MemIAVL bank store
 // against its committed state for the configured base denomination and wei only.
 // It does not run keeper.TotalSupply or validate other denominations; see
 // sdk/x/bank/spec/README.md for registration, configuration and error coverage.
-func (app *App) LightInvarianceTotalSupply(ctx context.Context, cms sdk.CommitMultiStore) {
+func (app *App) LightInvarianceTotalSupply(ctx context.Context, cms sdk.CommitMultiStore) error {
 	invarianceStart := time.Now()
 	defer func() {
 		armonmetrics.MeasureSince([]string{"pax", "lightinvariance_supply", "milliseconds"}, invarianceStart.UTC()) // TODO(PLT-327): remove once app_lightinvariance_supply_duration_seconds verified
@@ -66,27 +72,24 @@ func (app *App) LightInvarianceTotalSupply(ctx context.Context, cms sdk.CommitMu
 	}()
 	ckv, ok := cms.GetStore(app.BankKeeper.GetStoreKey()).(*commitment.Store)
 	if !ok {
-		logger.Error("bank store is not a memiavl store; cannot run light invariance check")
-		return
+		return fmt.Errorf("light invariance: unsupported bank store %T", cms.GetStore(app.BankKeeper.GetStoreKey()))
 	}
 	balanceChangePairs := ckv.GetChangedPairs(banktypes.BalancesPrefix)
 	uhpxPostTotal := sdk.ZeroInt()
 	uhpxChangedAddr := []sdk.AccAddress{}
 	for _, p := range balanceChangePairs {
 		if len(p.Key) < 2 {
-			// invalid key; ignore
+			// Reject malformed keys: conservation cannot be checked.
 			paxmetrics.SafeMetricsIncrCounterWithLabels([]string{"pax", "lightinvariance_supply", "invalid_changed_key"}, 1, []armonmetrics.Label{{Name: "type", Value: "pax"}}) // TODO(PLT-327): remove once app_lightinvariance_supply_invalid_key_total verified
 			appMetrics.invarianceInvalidKey.Add(ctx, 1, otelmetrics.WithAttributes(attribute.String("type", "pax")))
-			logger.Error("invalid changed pair key for uhpx", "key", fmt.Sprintf("%X", p.Key))
-			continue
+			return fmt.Errorf("light invariance: invalid changed pair key for uhpx %X", p.Key)
 		}
 		addrLen := int(p.Key[1])
 		if len(p.Key) < addrLen+2 {
-			// invalid key length; ignore
+			// Reject malformed key lengths: conservation cannot be checked.
 			paxmetrics.SafeMetricsIncrCounterWithLabels([]string{"pax", "lightinvariance_supply", "invalid_changed_key"}, 1, []armonmetrics.Label{{Name: "type", Value: "pax"}}) // TODO(PLT-327): remove once app_lightinvariance_supply_invalid_key_total verified
 			appMetrics.invarianceInvalidKey.Add(ctx, 1, otelmetrics.WithAttributes(attribute.String("type", "pax")))
-			logger.Error("invalid changed pair key for uhpx", "key", fmt.Sprintf("%X", p.Key))
-			continue
+			return fmt.Errorf("light invariance: invalid changed pair key for uhpx %X", p.Key)
 		}
 		addr := p.Key[2 : addrLen+2]
 		denom := p.Key[addrLen+2:]
@@ -98,8 +101,10 @@ func (app *App) LightInvarianceTotalSupply(ctx context.Context, cms sdk.CommitMu
 			if err := balance.Unmarshal(p.Value); err != nil {
 				paxmetrics.SafeMetricsIncrCounterWithLabels([]string{"pax", "lightinvariance_supply", "unmarshal_failure"}, 1, []armonmetrics.Label{{Name: "type", Value: "uhpx"}, {Name: "step", Value: "post_block"}}) // TODO(PLT-327): remove once app_lightinvariance_supply_unmarshal_failure_total verified
 				appMetrics.invarianceUnmarshalFail.Add(ctx, 1, otelmetrics.WithAttributes(attribute.String("type", "uhpx"), attribute.String("step", "post_block")))
-				logger.Error("failed to unmarshal balance", "err", err)
-				continue
+				return fmt.Errorf("light invariance: failed to unmarshal balance: %w", err)
+			}
+			if balance.Amount.IsNil() {
+				return fmt.Errorf("light invariance: nil balance amount for %X", addr)
 			}
 			if balance.Amount.IsNegative() {
 				panic(fmt.Sprintf("negative balance found for addr %s: %s", sdk.AccAddress(addr).String(), balance.String()))
@@ -119,8 +124,10 @@ func (app *App) LightInvarianceTotalSupply(ctx context.Context, cms sdk.CommitMu
 		if err := balance.Unmarshal(val); err != nil {
 			paxmetrics.SafeMetricsIncrCounterWithLabels([]string{"pax", "lightinvariance_supply", "unmarshal_failure"}, 1, []armonmetrics.Label{{Name: "type", Value: "uhpx"}, {Name: "step", Value: "pre_block"}}) // TODO(PLT-327): remove once app_lightinvariance_supply_unmarshal_failure_total verified
 			appMetrics.invarianceUnmarshalFail.Add(ctx, 1, otelmetrics.WithAttributes(attribute.String("type", "uhpx"), attribute.String("step", "pre_block")))
-			logger.Error("failed to unmarshal preblock balance", "err", err)
-			continue
+			return fmt.Errorf("light invariance: failed to unmarshal preblock balance: %w", err)
+		}
+		if balance.Amount.IsNil() {
+			return fmt.Errorf("light invariance: nil preblock balance amount for %X", a)
 		}
 		uhpxPreTotal = uhpxPreTotal.Add(balance.Amount)
 	}
@@ -132,15 +139,13 @@ func (app *App) LightInvarianceTotalSupply(ctx context.Context, cms sdk.CommitMu
 		if len(p.Key) < 1 {
 			paxmetrics.SafeMetricsIncrCounterWithLabels([]string{"pax", "lightinvariance_supply", "invalid_changed_key"}, 1, []armonmetrics.Label{{Name: "type", Value: "wei"}}) // TODO(PLT-327): remove once app_lightinvariance_supply_invalid_key_total verified
 			appMetrics.invarianceInvalidKey.Add(ctx, 1, otelmetrics.WithAttributes(attribute.String("type", "wei")))
-			logger.Error("invalid changed pair key", "key", fmt.Sprintf("%X", p.Key))
-			continue
+			return fmt.Errorf("light invariance: invalid changed pair key %X", p.Key)
 		}
 		if !p.Delete {
 			if err := amt.Unmarshal(p.Value); err != nil {
 				paxmetrics.SafeMetricsIncrCounterWithLabels([]string{"pax", "lightinvariance_supply", "unmarshal_failure"}, 1, []armonmetrics.Label{{Name: "type", Value: "wei"}, {Name: "step", Value: "post_block"}}) // TODO(PLT-327): remove once app_lightinvariance_supply_unmarshal_failure_total verified
 				appMetrics.invarianceUnmarshalFail.Add(ctx, 1, otelmetrics.WithAttributes(attribute.String("type", "wei"), attribute.String("step", "post_block")))
-				logger.Error("failed to unmarshal wei balance", "err", err)
-				continue
+				return fmt.Errorf("light invariance: failed to unmarshal wei balance: %w", err)
 			}
 			weiPostTotal = weiPostTotal.Add(amt)
 			if amt.IsNegative() {
@@ -160,8 +165,7 @@ func (app *App) LightInvarianceTotalSupply(ctx context.Context, cms sdk.CommitMu
 		if err := amt.Unmarshal(val); err != nil {
 			paxmetrics.SafeMetricsIncrCounterWithLabels([]string{"pax", "lightinvariance_supply", "unmarshal_failure"}, 1, []armonmetrics.Label{{Name: "type", Value: "wei"}, {Name: "step", Value: "pre_block"}}) // TODO(PLT-327): remove once app_lightinvariance_supply_unmarshal_failure_total verified
 			appMetrics.invarianceUnmarshalFail.Add(ctx, 1, otelmetrics.WithAttributes(attribute.String("type", "wei"), attribute.String("step", "pre_block")))
-			logger.Error("failed to unmarshal preblock wei balance", "err", err)
-			continue
+			return fmt.Errorf("light invariance: failed to unmarshal preblock wei balance: %w", err)
 		}
 		weiPreTotal = weiPreTotal.Add(amt)
 	}
@@ -173,8 +177,7 @@ func (app *App) LightInvarianceTotalSupply(ctx context.Context, cms sdk.CommitMu
 		if err := amt.Unmarshal(bz); err != nil {
 			paxmetrics.SafeMetricsIncrCounterWithLabels([]string{"pax", "lightinvariance_supply", "unmarshal_failure"}, 1, []armonmetrics.Label{{Name: "type", Value: "total_supply"}, {Name: "step", Value: "pre_block"}}) // TODO(PLT-327): remove once app_lightinvariance_supply_unmarshal_failure_total verified
 			appMetrics.invarianceUnmarshalFail.Add(ctx, 1, otelmetrics.WithAttributes(attribute.String("type", "total_supply"), attribute.String("step", "pre_block")))
-			logger.Error("failed to unmarshal pre total supply", "err", err)
-			return
+			return fmt.Errorf("light invariance: failed to unmarshal pre total supply: %w", err)
 		}
 		preTotalSupply = amt
 	}
@@ -187,7 +190,7 @@ func (app *App) LightInvarianceTotalSupply(ctx context.Context, cms sdk.CommitMu
 				if err := amt.Unmarshal(p.Value); err != nil {
 					paxmetrics.SafeMetricsIncrCounterWithLabels([]string{"pax", "lightinvariance_supply", "unmarshal_failure"}, 1, []armonmetrics.Label{{Name: "type", Value: "total_supply"}, {Name: "step", Value: "post_block"}}) // TODO(PLT-327): remove once app_lightinvariance_supply_unmarshal_failure_total verified
 					appMetrics.invarianceUnmarshalFail.Add(ctx, 1, otelmetrics.WithAttributes(attribute.String("type", "total_supply"), attribute.String("step", "post_block")))
-					logger.Error("failed to unmarshal total supply", "err", err)
+					return fmt.Errorf("light invariance: failed to unmarshal total supply: %w", err)
 				} else {
 					supplyChanged = amt.Sub(preTotalSupply)
 				}
@@ -209,4 +212,5 @@ func (app *App) LightInvarianceTotalSupply(ctx context.Context, cms sdk.CommitMu
 	if !uhpxDiff.IsZero() {
 		panic(fmt.Sprintf("unexpected uhpx balance total found! Pre-block uhpx total %s wei total %s total supply %s, post-block uhpx total %s wei total %s total supply %s", uhpxPreTotal, weiPreTotal, preTotalSupply, uhpxPostTotal, weiPostTotal, preTotalSupply.Add(supplyChanged)))
 	}
+	return nil
 }

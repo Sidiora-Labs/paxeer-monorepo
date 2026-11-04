@@ -1,0 +1,92 @@
+[meta]
+task = "22.33.626"
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+mode = "BUILD"
+proof_kind = "offline-source-facts"
+repair = "Add both receipt suites to the package test command alongside the existing dependency and A2A storage suites. Repair obsolete status, height, payment-effect, digest and track fixtures without removing or weakening their success or refusal assertions. Tracking now strictly decodes the actual flat daemon submission and resolves its receipt through the configured production resolver, checking the pinned signature, transaction identity, signed-byte digest and domain-prefixed SHA-256 receipt reference before returning verified evidence."
+scope = ["sdk/integrations/agents", "tools/qualification/audit_repairs/repair_22_33_626.kvx", "tools/qualification/audit_repairs/test_repair_22_33_626.py"]
+
+[finding.039]
+audit = "22.30.163"
+file = "sdk/integrations/agents/package.json"
+line = 60
+class = "test-gap"
+severity = "medium"
+owner_domain = 15
+observed = "The package test script runs dependency-contracts and a2a-store only; daemon-providers-receipts.test.mjs and tools-receipts.test.mjs are omitted, leaving the current receipt transport and tool fixtures outside normal package qualification."
+expected = "The agent integration package's declared test command must execute receipt provider and tool assertions as well as dependency and storage assertions."
+proposal = "Include both receipt suites in sdk/integrations/agents/package.json and qualify the real daemon and service producer shapes through these suites after repairing their obsolete fixtures."
+tests = ["test_039_package_command_executes_all_four_suites", "test_039_receipt_tests_are_declared_registered_and_assertive", "test_039_daemon_status_and_portable_key_heights_match_consumers", "test_039_daemon_signature_binding_and_finality_refusals_remain", "test_039_real_portable_producer_flows_through_http_to_service_consumer", "test_039_payment_fixture_uses_the_recorded_native_payment_effect", "test_039_recorded_daemon_track_transcript_and_strict_decoder_agree", "test_039_service_and_tool_refusals_are_preserved_and_extended", "test_039_external_daemon_receipt_mismatch_is_recorded_as_wiring", "test_039_record_maps_the_finding_tests_and_private_evidence"]
+runtime_tests = ["daemonProviderVerifiesSignedSequencerReceipt", "daemonFinalityStagesExcludeSettlementAnchored", "paymentToolVerifiesSignedSequencerReceipt", "serviceClientReadsSignedReceiptFields", "trackToolReadsRecordedDaemonSubmissions", "trackToolRefusesMismatchedEvidenceAndMalformedSubmissions"]
+closure_condition = "The declared hf-done source gate must pass on the same candidate as hf-build. This proves suite inclusion and the enumerated source facts; it does not certify execution of npm test or close the separate external daemon receipt interface mismatch."
+
+[proof.manifest]
+facts = "The pytest module parses package.json and tsconfig.json, tokenizes the package test command into its three guarded commands, and checks that the build, dependency suite, both receipt suites and A2A store suite are preserved with no filtering or skip flags. It reads the declared test functions and their registrations, rejects skips/mocks, and checks that every named test contains assertions and awaits its path."
+
+[proof.daemon_provider]
+facts = "The daemon receipt suite now uses achieved/rung=receipted status and expects canonical hex portable key heights, while the provider's decimal snake-case input contract remains strict. Source checks compare its object fields with production exact-field decoders and the daemon envelope serializer, and retain signed-byte, transaction, key-id, public-key, key-range, activity-id, digest, revert, legacy-shape and finality refusals. The supported four-field input fixture is a provider-contract fixture, not a claim that current program.receipt emits that shape."
+
+[proof.service_tools]
+facts = "The service fixture calls the real exported decodeDaemonSubmitResult and resolveDaemonReceipt producer on committed Go conformance bytes, rather than inventing portable proof fields. Its HTTP loopback peer serializes those producer outputs for the real LayerXServiceEndpoint, LayerXReceiptResolver, authenticated AgentEnvelopeTransport, LayerXAgentTransport, ProductionClient and AgentToolExecutor. The payment fixture decodes the real PaymentExact log to select the payment asset, amount and recipient; it uses the signed-byte Keccak digest instead of the vector's signing digest."
+
+[proof.track]
+facts = "The committed JSON transcript retains every MIDDLEWARE_SUBMISSION_TRANSCRIPT value from services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs except its obsolete committed submission receipt_ref. That one field is repaired using the current write_submission owner rule: SHA256(LXP/v1/receipt NUL || signed canonical bytes). The gate pins the historical reference, compares every other value to the source constant, checks the repaired reference exactly and checks flat fields against decode_tracked; no signed bytes or signatures change. The Node suite drives its pending and committed submissions through HTTP and the real tool, verifies the portable evidence with the configured pins and exercises malformed responses, wrong transactions, receipt references and digest metadata. The transcript's observation wrapper is retained only for provenance; track consumes its submission member, exactly as the current Track dispatch does."
+implementation = "The old track consumer expected an observation wrapper and read portableReceipt that decodeDaemonSubmission never supplies. The in-scope repair replaces that path with strict flat-submission decoding; it preserves exact fields, hash/reference identity, legal states/rungs, evidence/transition cardinalities, integer bounds and local signature/result checks. Committed submissions undergo the same local receipt verification as Executed submissions; the reported verificationLevel remains the verifier's sequencer-signed level, without claiming block-commitment verification."
+
+[qualification]
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_626.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision = "The exact content-derived candidate revision is the revision field of the final hf-done JSON and its matching private evidence_ledger verify entry. This record is part of that candidate; embedding its own candidate hash here would change the hash. The ledger retains revision, command, exit and log together."
+review_only = "The permitted gate executes Python source/data assertions only. TypeScript compilation, npm test, the Node receipt suites, Ed25519 verification, SDK runtime behavior, HTTP/TLS execution and native daemon dispatch are not run by this gate and remain review-only. The current daemon program.receipt response is not compatible with the provider contract; its required outside-scope producer work is recorded below. No restart-recovery finding applies to 039. No shell script or unit file is changed. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device."
+baseline_run = false
+baseline_failures = []
+baseline = "The initial tree contained only runner-prepared .cgignore and spec status changes. Both scoped qualification files were absent; gate.json recorded zero builds and verify runs and no gates.jsonl existed. No unchanged-tree verification was run and no baseline failures are claimed: the explicit implementation-first, hf-done-only order forbids the contradictory baseline clause. Source review identified stale fixtures and the flat-track mismatch, not an executed baseline failure."
+publication = "Only hf-build and hf-done are used; no standalone verification, manual spec completion, commit or push is performed. The runner publishes the candidate and private evidence after the bounded gate result."
+
+[wiring.daemon_receipt]
+path = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
+owner_domain = 15
+request = "Agent daemon domain 15: wire program.receipt receipt_value to expose the canonical raw transaction with the signed receipt and nested receipt_key/verification_level contract required by sdk/integrations/agents/src/daemon-providers.ts, or coordinate an explicit schema migration retaining local transaction and signature verification; the current flat receipt fields omit raw_transaction and receipt_key."
+status = "outside-scope; runtime integration remains unqualified"
+
+[format]
+policy = "No TypeScript, JavaScript, Python or KVX formatter is configured for the touched paths. Apply the repository .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions only to touched files; JSON keeps the existing two-space indentation."
+
+[gotcha.1]
+observed = "The task asks for an unchanged-tree baseline but its explicit order forbids verification until implementation is complete and only permits hf-done."
+resolution = "Follow the explicit gate order; report baseline_run=false and no baseline failures instead of inventing a run. GOTCHA.kvx and spec files are outside scope, so this note stays in the task record."
+
+[gotcha.2]
+observed = "Daemon envelope status uses rung, provider input heights are decimal strings, portable service heights are hex strings, and the vector receiptDigest is a signing digest rather than the signed-byte digest used by portable evidence."
+resolution = "Match each actual producer/consumer representation and preserve strict type, signature and range refusals; compare portable proof production to the real resolveDaemonReceipt implementation."
+
+[gotcha.3]
+observed = "Broad Codify survey and ledger reads exceed the tool output limit; the brief names an unrelated next task and reports stale graph changes."
+resolution = "Use the assigned task block, actual git status/diff, private gate counters and bounded source reads; preserve runner bookkeeping."
+
+[gotcha.4]
+observed = "The daemon's current receipt_value producer and the agent provider disagree beyond the stale fixtures: the real response has flat receipt metadata and no raw transaction, so an honest local verifier cannot consume it."
+resolution = "Record the owning daemon path as a wiring request without weakening the provider's exact-field or transaction-verification checks; do not claim that a source-only passing gate proves this runtime interface."
+
+[gotcha.5]
+observed = "Daemon receipt_ref uses the LXP/v1/receipt NUL-terminated domain over the signed canonical bytes; receipt_hash uses plain SHA-256, the signature uses the domain over unsigned bytes, and portable evidence uses Keccak of signed bytes."
+resolution = "Bind tracking to the owner's exact domain-prefixed receipt reference and keep these four digest purposes distinct; retain the recorded producer reference as the assertion oracle."
+
+[wiring.daemon_transcript]
+path = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
+owner_domain = 15
+request = "Agent daemon domain 15: refresh MIDDLEWARE_SUBMISSION_TRANSCRIPT committed.submission.receipt_ref to the current write_submission domain-prefixed SHA-256 rule; the old ac73faf315ec0dd1f7a3ff5ffddf39fdedd5550696c74489038fe5153e9b6a69 reference is inconsistent with its signed canonical bytes. This task repairs only its in-scope fixture copy."
+status = "outside-scope; source constant remains unchanged"
+
+[qualification.repair_1]
+revision = "9f75d3776c029a3bbabd1058f2582d7844cb2c0f"
+command = "cg spec done 22.33.626 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Nine checks passed; the new strict receipt-reference assertion exposed the historical source transcript reference as inconsistent with the current owner rule."
+repair = "Repair only committed.submission.receipt_ref in the in-scope fixture using the production owner rule; preserve every other recorded value and every assertion, pin the historical value and record the outside-scope source correction."
+
+[gotcha.6]
+observed = "A recorded daemon transcript carries a stale receipt_ref even though its flat response fields and signed receipt remain useful producer evidence."
+resolution = "Keep all recorded bytes and the strict reference assertion; repair the in-scope peer reference with the exact current owner hash and request the outside-scope source fixture refresh."
