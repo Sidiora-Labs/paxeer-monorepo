@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -16,6 +17,44 @@ import (
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/position"
 )
+
+const (
+	maxWebhookBodyBytes = 1 << 20
+	maxWebhookEvents    = 1000
+)
+
+var errWebhookBatchTooLarge = errors.New("webhook event batch exceeds limit")
+var errWebhookEventsArray = errors.New("events must be an array")
+
+// decodeWebhookBody bounds typed event decoding before any event is dispatched.
+func decodeWebhookBody(body []byte) (WebhookBody, error) {
+	var envelope struct {
+		Events json.RawMessage `json:"events"`
+	}
+	if err := json.Unmarshal(body, &envelope); err != nil {
+		return WebhookBody{}, err
+	}
+	dec := json.NewDecoder(bytes.NewReader(envelope.Events))
+	token, err := dec.Token()
+	if err != nil || token != json.Delim('[') {
+		return WebhookBody{}, errWebhookEventsArray
+	}
+	wb := WebhookBody{Events: make([]WebhookEvent, 0)}
+	for dec.More() {
+		if len(wb.Events) == maxWebhookEvents {
+			return WebhookBody{}, errWebhookBatchTooLarge
+		}
+		var ev WebhookEvent
+		if err := dec.Decode(&ev); err != nil {
+			return WebhookBody{}, err
+		}
+		wb.Events = append(wb.Events, ev)
+	}
+	if _, err := dec.Token(); err != nil {
+		return WebhookBody{}, err
+	}
+	return wb, nil
+}
 
 // WebhookEvent is one event in a webhook batch (matched-index fanout contract,
 // invariant i3). BlockNumber comes from the envelope so the fold records the
@@ -56,13 +95,17 @@ func webhookHandler(deps WebhookDeps) http.HandlerFunc {
 			sharedhttp.WriteError(w, http.StatusBadRequest, "Bad Request", "failed to read body")
 			return
 		}
-		var wb WebhookBody
-		if err := json.Unmarshal(body, &wb); err != nil {
-			sharedhttp.WriteError(w, http.StatusBadRequest, "Bad Request", "invalid JSON body")
+		wb, err := decodeWebhookBody(body)
+		if errors.Is(err, errWebhookBatchTooLarge) {
+			sharedhttp.WriteError(w, http.StatusRequestEntityTooLarge, "Payload Too Large", "webhook event batch exceeds limit")
 			return
 		}
-		if wb.Events == nil {
+		if errors.Is(err, errWebhookEventsArray) {
 			sharedhttp.WriteError(w, http.StatusBadRequest, "Bad Request", "events must be an array")
+			return
+		}
+		if err != nil {
+			sharedhttp.WriteError(w, http.StatusBadRequest, "Bad Request", "invalid JSON body")
 			return
 		}
 
@@ -113,6 +156,12 @@ func dispatchEvent(ctx context.Context, deps WebhookDeps, ev WebhookEvent) error
 func webhookAuth(secret string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			r.Body = http.MaxBytesReader(w, r.Body, maxWebhookBodyBytes)
+			defer r.Body.Close()
+			if r.ContentLength > maxWebhookBodyBytes {
+				sharedhttp.WriteError(w, http.StatusRequestEntityTooLarge, "Payload Too Large", "webhook body exceeds limit")
+				return
+			}
 			sig := r.Header.Get("X-Sidiora-Signature")
 			ts := r.Header.Get("X-Sidiora-Timestamp")
 			if sig == "" {
@@ -121,6 +170,11 @@ func webhookAuth(secret string) func(http.Handler) http.Handler {
 
 			body, err := io.ReadAll(r.Body)
 			if err != nil {
+				var tooLarge *http.MaxBytesError
+				if errors.As(err, &tooLarge) {
+					sharedhttp.WriteError(w, http.StatusRequestEntityTooLarge, "Payload Too Large", "webhook body exceeds limit")
+					return
+				}
 				sharedhttp.WriteError(w, http.StatusBadRequest, "Bad Request", "failed to read body")
 				return
 			}
