@@ -1,7 +1,7 @@
 import { decodeEventLog, decodeFunctionData, encodeFunctionData, parseAbi, type Address, type Hex, type PublicClient, type WalletClient } from 'viem';
 import { address, hash, raw, resolveCreation, verifyCost, type Deployment, type Receipt } from './creation-domain';
 import { validateCreationDraft, type CreationDraftV2 } from './creation-storage';
-import { KnownCapabilityAdmissionError, type CreationCapabilityAdmission } from './cap-admission';
+import { KnownCapabilityAdmissionError, type CreationAdmissionStage, type CreationCapabilityAdmission } from './cap-admission';
 import { ChainTradeProvider, productionTradeDeployment, transactionFingerprint, type TradeDeployment } from '../trading/transaction-controls/providers';
 import { minimumOutput, type TradeContext } from '../trading/transaction-controls/domain';
 
@@ -42,7 +42,7 @@ export class ChainCreationAdapter {
  async assertChain(signal?:AbortSignal) {
   signal?.throwIfAborted(); await this.trade.verify(await this.client.getBlockNumber(),signal); if(await this.client.getChainId()!==125 || await this.wallet.getChainId()!==125)throw new Error('Switch to chain 125.');
   const d=this.deployment;
-  for(const value of [d.router,d.factory,d.usdl,d.protocolConfig,d.poolRegistry,d.quoter,d.opticalRegistry])address(value);
+  for(const value of [d.usdlSpender,d.router,d.factory,d.usdl,d.protocolConfig,d.poolRegistry,d.quoter,d.opticalRegistry])address(value);
   const block=await this.client.getBlock({blockTag:'latest'});if(block.number===null||!block.hash)throw new Error('Deployment block is unavailable.');
   const at={blockNumber:block.number};
   const [factory,registry,config,usdl,factoryUsdl,factoryConfig,factoryRegistry,treasury,configUsdl]=await Promise.all([
@@ -73,35 +73,36 @@ export class ChainCreationAdapter {
    this.client.readContract({address:d.protocolConfig as Address,abi:configAbi,functionName:'creationFee',blockNumber:block.number}),
    this.client.readContract({address:d.usdl as Address,abi:erc20,functionName:'balanceOf',args:[expected.creator as Address],blockNumber:block.number}),
    this.client.getBalance({address:expected.creator as Address,blockNumber:block.number}),
-   this.client.readContract({address:d.usdl as Address,abi:erc20,functionName:'allowance',args:[expected.creator as Address,d.router as Address],blockNumber:block.number}),this.client.getGasPrice()]);
+   this.client.readContract({address:d.usdl as Address,abi:erc20,functionName:'allowance',args:[expected.creator as Address,d.usdlSpender as Address],blockNumber:block.number}),this.client.getGasPrice()]);
   verifyCost(d,{revision:d.revision,decimals:Number(decimals),feeRaw:String(fee),gasRaw:'0'},draft.firstBuyRaw);
   if(usdl<fee+raw(draft.firstBuyRaw))throw new Error('insufficient_usdl: USDL must cover the one USDL fee plus the selected first purchase.');
   if(pax===0n)throw new Error('insufficient_gas: Your USDL balance is sufficient, but PAX is required separately for network gas.');
   const target=fee,gasStage=allowance!==target?'approval':'creation';
-  const gas=gasStage==='approval'?await this.client.estimateContractGas({address:d.usdl as Address,abi:erc20,functionName:'approve',args:[d.router as Address,target],account:expected.creator as Address}):await this.client.estimateContractGas(this.calldata(draft));
+  const gas=gasStage==='approval'?await this.client.estimateContractGas({address:d.usdl as Address,abi:erc20,functionName:'approve',args:[d.usdlSpender as Address,target],account:expected.creator as Address}):await this.client.estimateContractGas(this.calldata(draft));
   const cost=verifyCost(d,{revision:d.revision,decimals:Number(decimals),feeRaw:String(fee),gasRaw:String(gas*gasPrice)},draft.firstBuyRaw);
   if((await this.client.getBlock({blockNumber:block.number})).hash!==block.hash)throw new Error('Funding block was reorganized.');
   signal?.throwIfAborted();this.scope(expected);
   return {cost,balances:{usdl:String(usdl),pax:String(pax),allowance:String(allowance)},blockHeight:String(block.number),blockHash:block.hash,gasStage,observedAt:Date.now()};
  }
- async approve(targetRaw:string,expected:AccountScope):Promise<string> {
+ async approve(targetRaw:string,expected:AccountScope,draft?:CreationDraftV2,reviewExpiresAt?:number):Promise<string> {
   this.scope(expected);await this.assertChain();const d=this.deployment;
-  const request=await this.client.simulateContract({address:d.usdl as Address,abi:erc20,functionName:'approve',args:[d.router as Address,raw(targetRaw)],account:expected.creator as Address});
-  await this.assertWallet(expected);return this.wallet.writeContract({...request.request,chain:this.wallet.chain,account:expected.creator as Address});
+  const request=await this.client.simulateContract({address:d.usdl as Address,abi:erc20,functionName:'approve',args:[d.usdlSpender as Address,raw(targetRaw)],account:expected.creator as Address});
+  await this.assertWallet(expected);if(draft){if(targetRaw!=='1000000')throw new Error('Creation approval must match the exact protocol fee.');await this.admitCreation(draft,expected,'approval');}if(reviewExpiresAt!==undefined&&Date.now()>=reviewExpiresAt)throw new Error('Creation review expired before approval dispatch.');this.scope(expected);return this.wallet.writeContract({...request.request,chain:this.wallet.chain,account:expected.creator as Address});
  }
  async approvalProof(txHash:string,targetRaw:string,expected:AccountScope) {
   const receipt=await this.client.waitForTransactionReceipt({hash:hash(txHash) as Hex,timeout:30000});this.scope(expected);
   if(receipt.status!=='success')throw new Error('Approval reverted. Creation has not been submitted.');
   const block=await this.client.getBlock({blockNumber:receipt.blockNumber});if(block.hash!==receipt.blockHash)throw new Error('Approval is no longer canonical.');
   const tx=await this.client.getTransaction({hash:receipt.transactionHash});
-  if(address(tx.from)!==address(expected.creator)||!tx.to||address(tx.to)!==address(this.deployment.usdl)||tx.input!==encodeFunctionData({abi:erc20,functionName:'approve',args:[this.deployment.router as Address,raw(targetRaw)]}))throw new Error('Approval transaction does not match the reviewed amount and spender.');
-  const allowance=await this.client.readContract({address:this.deployment.usdl as Address,abi:erc20,functionName:'allowance',args:[expected.creator as Address,this.deployment.router as Address],blockNumber:receipt.blockNumber});
+  if(tx.chainId!==125||address(tx.from)!==address(expected.creator)||!tx.to||address(tx.to)!==address(this.deployment.usdl)||tx.input!==encodeFunctionData({abi:erc20,functionName:'approve',args:[this.deployment.usdlSpender as Address,raw(targetRaw)]}))throw new Error('Approval transaction does not match the reviewed amount and spender.');
+  const allowance=await this.client.readContract({address:this.deployment.usdl as Address,abi:erc20,functionName:'allowance',args:[expected.creator as Address,this.deployment.usdlSpender as Address],blockNumber:receipt.blockNumber});
   if(receipt.transactionHash.toLowerCase()!==hash(txHash))throw new Error('Approval hash changed.');
   if(allowance!==raw(targetRaw))throw new Error('Mined approval allowance is insufficient.');
+  if((await this.client.getBlock({blockNumber:receipt.blockNumber})).hash!==receipt.blockHash)throw new Error('Approval is no longer canonical.');this.scope(expected);
   return {receipt,allowanceRaw:String(allowance)};
  }
- async admitCreation(draft:CreationDraftV2,expected:AccountScope) {
-  try{this.scope(expected);if(!this.admission)throw new Error('Runtime creation authority is unavailable. No wallet request was sent.');await this.admission(draft,expected);this.scope(expected);}
+ async admitCreation(draft:CreationDraftV2,expected:AccountScope,stage:CreationAdmissionStage='creation') {
+  try{this.scope(expected);if(!this.admission)throw new Error('Runtime creation authority is unavailable. No wallet request was sent.');await this.admission(draft,expected,stage);this.scope(expected);}
   catch(error){if(error instanceof KnownCapabilityAdmissionError)throw error;throw new KnownCapabilityAdmissionError(error instanceof Error?error.message:'Creation admission failed before wallet dispatch.',error);}
  }
  async sendCreation(draft:CreationDraftV2,expected:AccountScope,reviewExpiresAt?:number):Promise<string> {
@@ -157,7 +158,7 @@ export class ChainCreationAdapter {
   if(address(entry.creator)!==address(creator))throw new Error('Purchase pool does not belong to the reviewed creator.');address(entry.token);
   if((await this.client.getBlock({blockNumber:block.number})).hash!==block.hash)throw new Error('Purchase registry block was reorganized.');signal?.throwIfAborted();return entry;
  }
- async purchaseAllowance(creator:string) {return String(await this.client.readContract({address:this.deployment.usdl as Address,abi:erc20,functionName:'allowance',args:[address(creator) as Address,this.deployment.router as Address]}));}
+ async purchaseAllowance(creator:string) {return String(await this.client.readContract({address:this.deployment.usdl as Address,abi:erc20,functionName:'allowance',args:[address(creator) as Address,this.deployment.usdlSpender as Address]}));}
  async quotePurchase(pool:string,amountInRaw:string,slippageBps:number,expected:AccountScope,signal?:AbortSignal):Promise<FirstPurchaseQuote> {
   this.scope(expected);await this.verifyPurchasePool(pool,expected.creator,signal);
   if(!Number.isInteger(slippageBps)||slippageBps<1||slippageBps>5000||raw(amountInRaw)===0n)throw new Error('Invalid purchase amount or slippage.');

@@ -1,92 +1,99 @@
-<!-- markdown-link-check-disable -->
-
 # Light Client Attack Detector
 
-In this specification, we strengthen the light client to be resistant
-against so-called light client attacks. In a light client attack, all
-the correct Tendermint full nodes agree on the sequence of generated
-blocks (no fork), but a set of faulty full nodes attack a light client
-by generating (signing) a block that deviates from the block of the
-same height on the blockchain. In order to do so, some of these faulty
-full nodes must have been validators before and violate the assumption
-of more than two thirds of "correct voting power"
-[[TMBC-FM-2THIRDS]][TMBC-FM-2THIRDS-link], as otherwise, if
-[[TMBC-FM-2THIRDS]][TMBC-FM-2THIRDS-link] would hold,
-[verification][verification] would satisfy
-[[LCV-SEQ-SAFE.1]][LCV-SEQ-SAFE-link].
+## Status and current-network applicability
 
-An attack detector (or detector for short) is a mechanism that is used
-by the light client [supervisor][supervisor] after
-[verification][verification] of a new light block
-with the primary, to cross-check the newly learned light block with
-other peers (secondaries).  It expects as input a light block with some
-height *root* (that serves as a root of trust), and a verification
-trace (a sequence of lightblocks) that the primary provided.
+This page retains the reviewed Tendermint attack-detection model, its formal
+identifiers, assumptions and correctness arguments. It is research for the
+classic signed-header light client, not a specification of every consensus mode
+in Paxeer. The [discussion notes](discussions.md) explain the trust decisions;
+the [IBC function drafts](draft-functions.md) describe historical proposals and
+map them to the current IBC types.
 
-In case the detector observes a light client attack, it computes
-evidence data that can be used by Tendermint full nodes to isolate a
-set of faulty full nodes that are still within the unbonding period
-(more than 1/3 of the voting power of the validator set at some block
-of the chain), and report them via ABCI (application/blockchain
-interface)
-to the application of a
-Tendermint blockchain in order to punish faulty nodes.
+Paxeer is one BFT network, run by `paxd`, with EVM chain ID 125 (`0x7d`).
+The kernel is part of the network and participates in block proposal. A receipt
+is final once its block is committed. The light client's local trust decisions
+below concern what a remote observer can verify; they do not add another
+settlement or finality stage to the network.
+
+### Implementation map
+
+| Subject | Current source and applicability |
+| --- | --- |
+| Classic light blocks | [`types/light.go`](../../../types/light.go) defines `LightBlock` as a `SignedHeader` paired with a `ValidatorSet`. `ValidateBasic` checks consistency, not cryptographic signatures. |
+| Verification | [`light/verifier.go`](../../../light/verifier.go) implements `VerifyAdjacent` and `VerifyNonAdjacent`, including trust expiry, validator signatures and clock checks. The mathematical `supports` relation below is a research abstraction, not the complete validation procedure. |
+| Primary and secondaries | [`light/client.go`](../../../light/client.go) uses one primary provider and witness providers. “Secondary” below means a witness in this implementation. Forward sequential and skipping verification invoke the detector before saving a newly trusted block. |
+| Detection and reporting | [`light/detector.go`](../../../light/detector.go) implements `detectDivergence` and `handleConflictingHeaders`. Evidence reporting through a provider is best effort; detecting an attack does not prove that a report was delivered or that validators were punished. |
+| Evidence shape | [`types/evidence.go`](../../../types/evidence.go) defines `LightClientAttackEvidence`, including `ConflictingBlock`, `CommonHeight`, `ByzantineValidators`, `TotalVotingPower` and `Timestamp`. The smaller record in Part II is a research sketch, not its wire schema. |
+| Mode selection | [`config/config.go`](../../../config/config.go) reads `autobahn-config-file`; an empty value disables Autobahn. |
+| Autobahn certificates | [`LaneQC`](../../../autobahn/types/lane_qc.go) and [`CommitQC` / `FullCommitQC`](../../../autobahn/types/commit_qc.go) verify lane availability and committed global ranges against an Autobahn committee. They are distinct from classic validator commits and verification traces. |
+| Autobahn restart | [`internal/autobahn/consensus/persist`](../../../internal/autobahn/consensus/persist/) owns persisted consensus data. The trust-store and peer-replacement model here does not specify that recovery path. |
+
+The mode boundary is explicit in the consensus RPC handlers under
+[`internal`](../../../internal/): `rpc/core/blocks.go` returns
+`ErrCommitNotAvailable` from `Commit` under Autobahn, and
+`rpc/core/evidence.go` returns `ErrEvidenceNotAccepted` from `BroadcastEvidence`.
+The HTTP light provider's [`signedHeader`](../../../light/provider/http/http.go)
+fetches a classic commit. These pages therefore do not establish an Autobahn
+light-client protocol or an adapter from its certificates to Tendermint evidence.
+
+The public EVM JSON-RPC nodes use their root URL, for example
+`https://api1.mainnet-beta.paxeer.network` (chain ID 125). That EVM interface
+is distinct from the consensus methods the light provider needs: do not assume
+an EVM endpoint supplies classic `commit`, validator queries or evidence handling.
 
 ## Context of this document
 
-The light client [verification][verification] specification is
-designed for the Tendermint failure model (1/3 assumption)
-[[TMBC-FM-2THIRDS]][TMBC-FM-2THIRDS-link].  It is safe under this
-assumption, and live if it can reliably (that is, no message loss, no
-duplication, and eventually delivered) and timely communicate with a
-correct full node. If [[TMBC-FM-2THIRDS]][TMBC-FM-2THIRDS-link]
-assumption is violated, the light client can be fooled to trust a
-light block that was not generated by Tendermint consensus.
+In the retained model, correct Tendermint full nodes agree on a chain while
+faulty peers try to install a different light block at a light client. The
+[verification specification][verification] assumes more than two thirds correct
+voting power [[TMBC-FM-2THIRDS]][TMBC-FM-2THIRDS-link]. If that assumption is
+violated, a conflicting block may pass verification. The detector cross-checks
+the primary's verification trace with other peers and constructs evidence when
+it can verify a conflict.
 
-This specification, the attack detector, is a "second line of
-defense", in case the 1/3 assumption is violated.  Its goal is to
-detect a light client attack (conflicting light blocks) and collect
-evidence. However, it is impractical to probe all full nodes. At this
-time we consider a simple scheme of maintaining an address book of
-known full nodes from which a small subset (e.g., 4) are chosen
-initially to communicate with. More involved book keeping with
-probabilistic guarantees can be considered at later stages of the
-project.
+The research arguments below require a subjectively trusted initial block,
+at least one correct peer among the primary and secondaries, reliable bounded
+communication, a root within the trusting period, and no main-chain fork.
+These are assumptions, not facts established by discovering peers or comparing
+endpoint responses. The client accepts explicit primary and witness providers;
+the model's address book and replacement operations are conceptual.
 
-The light client maintains a simple address book containing addresses
-of full nodes that it can pick as primary and secondaries.  To obtain
-a new light block, the light client first does
-[verification][verification] with the primary, and then cross-checks
-the light block (and the trace of light blocks that led to it) with
-the secondaries using this specification.
+All three parts below describe that retained model. Their pseudocode, error
+names and proposed interfaces are not exported Go APIs. In particular,
+`AttackDetector` and `CreateEvidenceForPeer` name research procedures; the
+implemented detector returns errors such as `ErrNoWitnesses`,
+`ErrFailedHeaderCrossReferencing` and `ErrLightClientAttack` from
+[`light/errors.go`](../../../light/errors.go). A failure to cross-check is not
+successful verification. None of the model's proofs transfers to Autobahn
+without a separate mapping of block identity, certificates, timing and recovery.
 
 # Outline
 
-- [Part I](#part-i---Tendermint-Consensus-and-Light-Client-Attacks):
+- [Part I](#part-i---tendermint-consensus-and-light-client-attacks):
   Formal definitions of lightclient attacks, based on basic
   properties of Tendermint consensus.
     - [Node-based characterization of
-       attacks](#Node-based-characterization-of-attacks). The
+       attacks](#node-based-characterization-of-attacks). The
        definition of attacks used in the problem statement of
     this specification.
 
-    - [Block-based characterization of attacks](#Block-based-characterization-of-attacks). Alternative definitions
+    - [Block-based characterization of attacks](#block-based-characterization-of-attacks). Alternative definitions
   provided for future reference.
 
 - [Part II](#part-ii---problem-statement): Problem statement of
   lightclient attack detection
   
     - [Informal Problem Statement](#informal-problem-statement)
-    - [Assumptions](#Assumptions)
+    - [Assumptions](#assumptions)
     - [Definitions](#definitions)
-    - [Distributed Problem statement](#Distributed-Problem-statement)
+    - [Distributed Problem statement](#distributed-problem-statement)
   
 - [Part III](#part-iii---protocol): The protocol
 
-    - [Functions and Data defined in other Specifications](#Functions-and-Data-defined-in-other-Specifications)
-    - [Outline of Solution](#Outline-of-solution)
-    - [Details of the functions](#Details-of-the-functions)
-    - [Correctness arguments](#Correctness-arguments)
+    - [Functions and Data defined in other Specifications](#functions-and-data-defined-in-other-specifications)
+    - [Outline of Solution](#outline-of-solution)
+    - [Details of the functions](#details-of-the-functions)
+    - [Correctness arguments](#correctness-arguments)
 
 # Part I - Tendermint Consensus and Light Client Attacks
 
@@ -194,15 +201,15 @@ we have **an attack at height** *b.Header.Height* and write
 > several blocks that satisfy the above requirement for the same
 > blocks *b* and *c*.
 
-[[TMBC-ATTACK.1]](#TMBC-ATTACK1) is a formalization of the violation
+[[TMBC-ATTACK.1]](#tmbc-attack1) is a formalization of the violation
 of the agreement property based on the result of consensus, that is,
 the generated blocks.
 
 **Remark.**
 Violation of agreement is only possible if more than 1/3 of the validators (or
 next validators) of some previous block deviated from the protocol. The
-upcoming "accountability" specification will describe how to compute
-a set of at least 1/3 faulty nodes from two conflicting blocks. []
+[accountability research](../accountability/) studies how to identify faulty
+validators from conflicting blocks under its own assumptions.
 
 There are different ways to characterize forks
 and attack scenarios. This specification uses the "node-based
@@ -227,7 +234,7 @@ We say there is a (main chain) fork at time *t* if
 
 We say there is a light client attack at time *t*, if
 
-- there is **no** (main chain) fork [[TMBC-MC-FORK.1]](#TMBC-MC-FORK1), and
+- there is **no** (main chain) fork [[TMBC-MC-FORK.1]](#tmbc-mc-fork1), and
 - there exist nodes that have computed light blocks *b* and *c* and
 - there exist *a* such that *attack(a,b,c,t)*.
 
@@ -243,11 +250,11 @@ We say the attack is at height *a.Header.Height*.
 #### **[TMBC-LC-ATTACK-EVIDENCE.1]**
 
 We consider the following case of a light client attack
-[[TMBC-LC-ATTACK.1]](#TMBC-LC-ATTACK1):
+[[TMBC-LC-ATTACK.1]](#tmbc-lc-attack1):
 
 - *attack(a,b,c,t)*
 - there is a peer p1 that has a sequence *chain* of blocks from *a* to *b*
-- *skip-trace(a,c,t)*: by [[TMBC-SKIP-TRACE.1]](#TMBC-SKIP-TRACE1) there is a
+- *skip-trace(a,c,t)*: by [[TMBC-SKIP-TRACE.1]](#tmbc-skip-trace1) there is a
   verification trace *v* of the form *a = v(1)*, ... *v(h) = c*
 
 Evidence for p1 (that proves an attack to p1) consists for index i
@@ -300,15 +307,15 @@ If there exists two light blocks b and c, with *sign-unique(b,c) =
 false* then we have a *fork*.
 
 > The difference of the above definition to
-> [[TMBC-MC-FORK.1]](#TMBC-MC-FORK1) is subtle. The latter requires a
+> [[TMBC-MC-FORK.1]](#tmbc-mc-fork1) is subtle. The latter requires a
 > full node being affected by a bad block while
-> [[TMBC-BLOCKS-MCFORK.1]](#TMBC-BLOCKS-MCFORK1) just requires that a
+> [[TMBC-BLOCKS-MCFORK.1]](#tmbc-blocks-mcfork1) just requires that a
 > bad block exists, possibly in memory of an attacker.
 > The following captures a light client fork. There is no fork up to
 > the height of block b. However, c is of that height, is different,
 > and passes skipping verification. It is a stricter property than
-> [[TMBC-LC-ATTACK.1]](#TMBC-LC-ATTACK1), as
-> [[TMBC-LC-ATTACK.1]](#TMBC-LC-ATTACK1) requires that no correct full
+> [[TMBC-LC-ATTACK.1]](#tmbc-lc-attack1), as
+> [[TMBC-LC-ATTACK.1]](#tmbc-lc-attack1) requires that no correct full
 > node is affected.
 
 #### **[TMBC-BLOCKS-LCFORK.1]**
@@ -339,14 +346,14 @@ Let *b* be a light block and *t* a time. We define *bogus(b,t)* iff
 ## Informal Problem statement
 
 There is no sequential specification: the detector only makes sense
-in a distributed systems where some nodes misbehave.
+in a distributed system where some nodes misbehave.
 
-We work under the assumption that full nodes and validators are
-responsible for detecting attacks on the main chain, and the evidence
-reactor takes care of broadcasting evidence to communicate
-misbehaving nodes via ABCI to the application, and halt the chain in
-case of a fork. The point of this specification is to shield a light
-clients against attacks that cannot be detected by full nodes, and
+The research model assigns main-chain attack detection to full nodes and
+validators, and evidence propagation to the evidence reactor for application
+processing via ABCI. It does not establish that the current network
+automatically halts on a fork or punishes every reported peer. The point of
+this specification is to shield light clients against attacks that cannot be
+detected by full nodes, and
 are fully addressed at light clients (and consequently IBC relayers,
 which use the light client protocols to observe the state of a
 blockchain). In order to provide full nodes the incentive to follow
@@ -371,8 +378,8 @@ see [LCD-DIST-*] below.
 
 The detector is called in the [supervisor][supervisor] as follows
 
-```go
-Evidences := AttackDetector(root_of_trust, verifiedLS);`
+```text
+Evidences := AttackDetector(root_of_trust, verifiedLS)
 ```
 
 where
@@ -450,12 +457,12 @@ before the timeout expires.
 ### Evidence
 
 Following the definition of
-[[TMBC-LC-ATTACK-EVIDENCE.1]](#TMBC-LC-ATTACK-EVIDENCE1), by evidence
+[[TMBC-LC-ATTACK-EVIDENCE.1]](#tmbc-lc-attack-evidence1), by evidence
 we refer to a variable of the following type
 
 #### **[LC-DATA-EVIDENCE.1]**
 
-```go
+```text
 type LightClientAttackEvidence struct {
     ConflictingBlock   LightBlock
     CommonHeight       int64
@@ -471,7 +478,7 @@ data structure wraps the evidence and adds the peerID.
 
 #### **[LC-DATA-EVIDENCE-INT.1]**
 
-```go
+```text
 type InternalEvidence struct {
     Evidence           LightClientAttackEvidence
     Peer               PeerID
@@ -480,7 +487,7 @@ type InternalEvidence struct {
 
 #### **[LC-SUMBIT-EVIDENCE.1]**
 
-```go
+```text
 func submitEvidence(Evidences []InternalEvidence)
 ```
 
@@ -510,8 +517,8 @@ been verified before, and that were provided by the primary.
 #### **[LCD-DIST-INV-ATTACK.1]**
 
 If the detector returns evidence for height *h*
-[[TMBC-LC-EVIDENCE-DATA.1]](#TMBC-LC-EVIDENCE-DATA1), then there is an
-attack at height *h*. [[TMBC-LC-ATTACK.1]](#TMBC-LC-ATTACK1)
+[[TMBC-LC-EVIDENCE-DATA.1]](#tmbc-lc-evidence-data1), then there is an
+attack at height *h*. [[TMBC-LC-ATTACK.1]](#tmbc-lc-attack1)
 
 #### **[LCD-DIST-INV-STORE.1]**
 
@@ -577,7 +584,7 @@ then the secondary is replaced before the detector terminates.
 
 [[LC-FUNC-REPLACE-SECONDARY.1]][repl]
 
-```go
+```text
 Replace_Secondary(addr Address, root-of-trust LightBlock)
 ```
 
@@ -585,13 +592,14 @@ Replace_Secondary(addr Address, root-of-trust LightBlock)
 
 [[LCV-FUNC-MAIN.2]][vtt]
 
-```go
+```text
 func VerifyToTarget(primary PeerID, root LightBlock,
                     targetHeight Height) (LightStore, Result)
 ```
 
-Observe that `VerifyToTarget` does communication with the secondaries
-via the function [FetchLightBlock][fetch].
+In this model, `VerifyToTarget` contacts its supplied peer via
+[FetchLightBlock][fetch]. During evidence construction that peer may be a
+secondary rather than the original primary.
 
 ### Shared data of the light client
 
@@ -616,9 +624,14 @@ secondary is replaced.
   
 ## Details of the functions
 
+The following is retained research pseudocode. `ErrorTrustExpired`,
+`ErrorNoPeers`, `FaultyPeer` and `FoundEvidence` are model outcomes, not the
+implemented client's error types. Compare the implementation map above before
+using these procedures as integration guidance.
+
 #### **[LCD-FUNC-DETECTOR.2]:**
 
-```go
+```text
 func AttackDetector(root LightBlock, primary_trace []LightBlock)
                    ([]InternalEvidence) {
 
@@ -683,7 +696,7 @@ func AttackDetector(root LightBlock, primary_trace []LightBlock)
 
 ---
 
-```go
+```text
 func CreateEvidenceForPeer(peer PeerID, root LightBlock, trace LightStore)
                           (Evidence, LightBlock, LightStore, result) {
 
@@ -738,10 +751,14 @@ func CreateEvidenceForPeer(peer PeerID, root LightBlock, trace LightStore)
 
 ## Correctness arguments
 
+These are arguments about the retained model under the assumptions in Part II.
+They are not proofs of the current Go implementation, RPC availability, evidence
+delivery or Autobahn recovery.
+
 #### On the existence of evidence
 
 **Proposition.** In the case of attack,
-evidence [[TMBC-LC-ATTACK-EVIDENCE.1]](#TMBC-LC-ATTACK-EVIDENCE1)
+evidence [[TMBC-LC-ATTACK-EVIDENCE.1]](#tmbc-lc-attack-evidence1)
  exists.  
 *Proof.* First observe that
 
@@ -756,7 +773,7 @@ Now by contradiction assume there is no evidence. Thus
   i = h - 1 we get **NOT E1(h-1)**. Contradiction.
 QED.
 
-#### Argument for [[LCD-DIST-INV-ATTACK.1]](#LCD-DIST-INV-ATTACK1)
+#### Argument for [[LCD-DIST-INV-ATTACK.1]](#lcd-dist-inv-attack1)
 
 Under the assumption that root and trace are a verification trace,
 when in `CreateEvidenceForPeer` the detector creates
@@ -764,7 +781,7 @@ evidence, then the lightclient has seen two different headers (one via
 `trace` and one via `VerifyToTarget`) for the same height that can both
 be verified in one step.
 
-#### Argument for [[LCD-DIST-INV-STORE.1]](#LCD-DIST-INV-STORE1)
+#### Argument for [[LCD-DIST-INV-STORE.1]](#lcd-dist-inv-store1)
 
 We assume that there is at least one correct peer, and there is no
 fork. As a result, the correct peer has the correct sequence of
@@ -772,70 +789,72 @@ blocks. Since the primary_trace is checked block-by-block also against
 each secondary, and at no point evidence was generated that means at
 no point there were conflicting blocks.
 
-#### Argument for [[LCD-DIST-LIVE.1]](#LCD-DIST-LIVE1)
+#### Argument for [[LCD-DIST-LIVE.1]](#lcd-dist-live1)
 
 At the latest when [[LCV-INV-TP.1]][LCV-INV-TP1-link] is violated,
 `AttackDetector` terminates.
 
-#### Argument for [[LCD-DIST-TERM-NORMAL.1]](#LCD-DIST-TERM-NORMAL1)
+#### Argument for [[LCD-DIST-TERM-NORMAL.1]](#lcd-dist-term-normal1)
 
 As there are finitely many peers, eventually the main loop
 terminates. As there is no attack no evidence can be generated.
 
-#### Argument for [[LCD-DIST-TERM-ATTACK.1]](#LCD-DIST-TERM-ATTACK1)
+#### Argument for [[LCD-DIST-TERM-ATTACK.1]](#lcd-dist-term-attack1)
 
-Argument similar to  [[LCD-DIST-TERM-NORMAL.1]](#LCD-DIST-TERM-NORMAL1)
+Argument similar to  [[LCD-DIST-TERM-NORMAL.1]](#lcd-dist-term-normal1)
 
-#### Argument for [[LCD-DIST-SAFE-SECONDARY.1]](#LCD-DIST-SAFE-SECONDARY1)
+#### Argument for [[LCD-DIST-SAFE-SECONDARY.1]](#lcd-dist-safe-secondary1)
 
 Secondaries are only replaced if they time-out or if they report bogus
 blocks. The former is ruled out by the timing assumption, the latter
 by correct peers only reporting blocks from the chain.
 
-#### Argument for [[LCD-DIST-SAFE-BOGUS.1]](#LCD-DIST-SAFE-BOGUS1)
+#### Argument for [[LCD-DIST-SAFE-BOGUS.1]](#lcd-dist-safe-bogus1)
 
 Once a bogus block is recognized as such the secondary is removed.
 
 # References
 
-> links to other specifications/ADRs this document refers to
+These local copies retain upstream research context. They are not evidence
+of current-network qualification. Related pages: [discussion decisions](discussions.md)
+and [IBC proposals](draft-functions.md).
 
 [[verification]] The specification of the light client verification.
 
 [[supervisor]] The specification of the light client supervisor.
 
-[verification]: https://github.com/tendermint/spec/blob/master/rust-spec/lightclient/verification/verification_002_draft.md
+[verification]: ../verification/verification_002_draft.md
 
-[supervisor]: https://github.com/tendermint/spec/blob/master/rust-spec/lightclient/supervisor/supervisor_001_draft.md
+[supervisor]: ../supervisor/supervisor_001_draft.md
 
-[block]: https://github.com/tendermint/spec/blob/d46cd7f573a2c6a2399fcab2cde981330aa63f37/spec/core/data_structures.md
+[block]: ../../core/data_structures.md
 
-[TMBC-FM-2THIRDS-link]: https://github.com/tendermint/spec/blob/master/rust-spec/lightclient/verification/verification_002_draft.md#tmbc-fm-2thirds1
+[TMBC-FM-2THIRDS-link]: ../verification/verification_002_draft.md#tmbc-fm-2thirds1
 
-[TMBC-SOUND-DISTR-POSS-COMMIT-link]: https://github.com/tendermint/spec/blob/master/rust-spec/lightclient/verification/verification_002_draft.md#tmbc-sound-distr-poss-commit1
+[TMBC-SOUND-DISTR-POSS-COMMIT-link]: ../verification/verification_002_draft.md#tmbc-sound-distr-poss-commit1
 
-[LCV-SEQ-SAFE-link]:https://github.com/tendermint/spec/blob/master/rust-spec/lightclient/verification/verification_002_draft.md#lcv-seq-safe1
+[LCV-SEQ-SAFE-link]: ../verification/verification_002_draft.md#lcv-seq-safe1
 
 [TMBC-VAL-CONTAINS-CORR-link]:
-https://github.com/tendermint/spec/blob/master/rust-spec/lightclient/verification/verification_002_draft.md#tmbc-val-contains-corr1
+../verification/verification_002_draft.md#tmbc-val-contains-corr1
 
 [fetch]:
-https://github.com/tendermint/spec/blob/master/rust-spec/lightclient/verification/verification_002_draft.md#lcv-func-fetch1
+../verification/verification_002_draft.md#lcv-func-fetch1
 
 [LCV-INV-TP1-link]:
-https://github.com/tendermint/spec/blob/master/rust-spec/lightclient/verification/verification_002_draft.md#lcv-inv-tp1
+../verification/verification_002_draft.md#lcv-inv-tp1
 
 [LCV-LB-link]:
-https://github.com/tendermint/spec/blob/master/rust-spec/lightclient/verification/verification_002_draft.md#lcv-data-lightblock1
+../verification/verification_002_draft.md#lcv-data-lightblock1
 
 [LCV-LS-link]:
-https://github.com/tendermint/spec/blob/master/rust-spec/lightclient/verification/verification_002_draft.md#lcv-data-lightstore2
+../verification/verification_002_draft.md#lcv-data-lightstore2
 
 [LVC-HD-link]:
-https://github.com/tendermint/spec/blob/master/rust-spec/lightclient/verification/verification_002_draft.md#tmbc-header-fields2
+../verification/verification_002_draft.md#tmbc-header-fields2
 
 [repl]:
-https://github.com/tendermint/spec/blob/master/rust-spec/lightclient/supervisor/supervisor_001_draft.md#lc-func-replace-secondary1
+../supervisor/supervisor_001_draft.md#lc-func-replace-secondary1
 
 [vtt]:
-https://github.com/tendermint/spec/blob/master/rust-spec/lightclient/verification/verification_002_draft.md#lcv-func-main2
+../verification/verification_002_draft.md#lcv-func-main2
