@@ -140,6 +140,7 @@ func TestDriverReleasesNextOpenAcrossStandbyCommit(t *testing.T) {
 	}
 	installPV(primary, "primary")
 	installPV(backup, "standby")
+	primaryTLS, standbyTLS := sequencer.Repair103TLSFixture(t)
 	l := listen(t)
 	address := l.Addr().String()
 	require.NoError(t, l.Close())
@@ -147,7 +148,7 @@ func TestDriverReleasesNextOpenAcrossStandbyCommit(t *testing.T) {
 	standbyCtx, cancel := context.WithCancel(ctx)
 	standbyWAL := filepath.Join(dir, "standby-wal")
 	s, err := sequencer.StartStandby(standbyCtx, sequencer.Config{
-		Role: sequencer.RoleStandby, WALDir: standbyWAL,
+		Role: sequencer.RoleStandby, ReplicationTLS: standbyTLS, WALDir: standbyWAL,
 		ReceiptKeyFile: writeSeed(t, dir, "standby-receipt", standbySeed, 0o600),
 		StandbyAddress: address, ReplicationTimeout: timeout,
 	}, backup)
@@ -161,6 +162,7 @@ func TestDriverReleasesNextOpenAcrossStandbyCommit(t *testing.T) {
 	cfg.WALDir = filepath.Join(dir, "primary-wal")
 	cfg.ReceiptKeyFile = writeSeed(t, dir, "primary-receipt", testKeySeed, 0o600)
 	cfg.StandbyAddress = address
+	cfg.ReplicationTLS = primaryTLS
 	cfg.ReplicationTimeout = timeout
 	cfg.LeaseDuration = 3 * timeout
 	cfg.NonceQueueMaxPerSender, cfg.NonceQueueMaxTotal = 4, 8
