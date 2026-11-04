@@ -824,6 +824,7 @@ name = "layerx-porting-evm"
 version = "0.1.0"
 dependencies = [
  "layerx-porting-evm-guest",
+ "layerx-program-sdk",
  "layerx-programs-registry",
  "layerx-programs-runtime",
 ]
