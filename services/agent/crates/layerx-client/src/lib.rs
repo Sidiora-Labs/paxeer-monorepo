@@ -1,4 +1,4 @@
-//! Versioned client for the `LayerX` Node Interface.
+//! Client for the `LayerX` node JSON-RPC interface.
 
 pub mod account_binding;
 pub mod budget;
@@ -6,7 +6,6 @@ pub mod chains;
 pub mod fee;
 pub mod frame;
 pub mod grants;
-pub mod lni;
 pub mod paxeer_binding;
 pub mod px;
 pub mod rpc;

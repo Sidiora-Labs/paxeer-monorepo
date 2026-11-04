@@ -1,0 +1,976 @@
+[audit.22.30.34]
+task = "22.30.34"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 110
+findings = 26
+docs_reviewed = 8
+upgrade_ready = false
+blocking = ["001", "002", "003", "004", "005"]
+
+[file.001]
+path = "apps/launchpad/web/src/widgets/trading/chart-datafeed-recovery.test.ts"
+lines = 433
+verdict = "clean"
+note = "Full review: replay recovery, resource disposal and retry assertions; retention and metadata problems are recorded on udf-datafeed.ts."
+
+[file.002]
+path = "apps/launchpad/web/src/widgets/trading/chart-datafeed-revision.test.ts"
+lines = 32
+verdict = "clean"
+note = "Full review: nine resolution aliases and exact raw ratios match the datafeed; long-window retention is not covered here."
+
+[file.003]
+path = "apps/launchpad/web/src/widgets/trading/chart-marks.test.ts"
+lines = 51
+verdict = "clean"
+note = "Full review: confirmed-fill annotations join canonical trade provenance and reject contradictory markers."
+
+[file.004]
+path = "apps/launchpad/web/src/widgets/trading/chart-udf-wire.test.ts"
+lines = 150
+verdict = "clean"
+note = "Full review: UDF metadata/valuation boundary assertions preserve strict fields and supported resolutions; production metadata errors are recorded separately."
+
+[file.005]
+path = "apps/launchpad/web/src/widgets/trading/coin-failure-frames.test.tsx"
+lines = 152
+verdict = "clean"
+note = "Full review: market failure frames preserve unavailable states and expose recovery without inventing prices or balances."
+
+[file.006]
+path = "apps/launchpad/web/src/widgets/trading/coin-not-found-traffic.test.tsx"
+lines = 110
+verdict = "clean"
+note = "Full review: unknown pools stop downstream traffic and distinguish missing markets from dependency failures."
+
+[file.007]
+path = "apps/launchpad/web/src/widgets/trading/holders-panel.tsx"
+lines = 7
+verdict = "clean"
+note = "Full review: holder reads, canonical addresses, bounded display and error states agree with the client projection."
+
+[file.008]
+path = "apps/launchpad/web/src/widgets/trading/live-stream.tsx"
+lines = 74
+verdict = "clean"
+note = "Full review: playback consumes the stream projection, handles unavailable media and releases player resources on identity changes."
+
+[file.009]
+path = "apps/launchpad/web/src/widgets/trading/mobile-trade-drawer.tsx"
+lines = 89
+verdict = "clean"
+note = "Full review: mobile drawer preserves the shared trade surface and dismisses its overlay on declared interactions."
+
+[file.010]
+path = "apps/launchpad/web/src/widgets/trading/pool-chat.tsx"
+lines = 144
+verdict = "clean"
+note = "Full review: pool-scoped chat binding uses the authenticated chat surface without claiming media authority."
+
+[file.011]
+path = "apps/launchpad/web/src/widgets/trading/preset-chips.test.tsx"
+lines = 97
+verdict = "clean"
+note = "Full review: preset rendering and input assertions agree with the shared amount controls."
+
+[file.012]
+path = "apps/launchpad/web/src/widgets/trading/token-description.tsx"
+lines = 52
+verdict = "clean"
+note = "Full review: description rendering validates social origins and separates missing metadata from loading failures."
+
+[file.013]
+path = "apps/launchpad/web/src/widgets/trading/token-market-layout.tsx"
+lines = 174
+verdict = "clean"
+note = "Full review: responsive layout composes chart, market details and trade controls with the current pool identity."
+
+[file.014]
+path = "apps/launchpad/web/src/widgets/trading/trade-copy.ts"
+lines = 51
+verdict = "clean"
+note = "Full review: amount, quote, wallet and transaction copy distinguishes review, pending, confirmed and rejected actions."
+
+[file.015]
+path = "apps/launchpad/web/src/widgets/trading/trade-panel-parts.tsx"
+lines = 495
+verdict = "clean"
+note = "Full review: conversion explicitly returns null beyond its supported scale; the caller reinterprets that result as a native amount, recorded on trade-panel.tsx."
+
+[file.016]
+path = "apps/launchpad/web/src/widgets/trading/trade-panel.tsx"
+lines = 308
+verdict = "issues"
+note = "Full review: failed alternate-unit conversion can silently feed the display amount into a different native unit; finding 015."
+
+[file.017]
+path = "apps/launchpad/web/src/widgets/trading/trade-settings-popover.tsx"
+lines = 170
+verdict = "clean"
+note = "Full review: settings validate slippage/deadline inputs and preserve the shared preference representation."
+
+[file.018]
+path = "apps/launchpad/web/src/widgets/trading/trade-toast.tsx"
+lines = 161
+verdict = "clean"
+note = "Full review: toast presents the runtime attempt state without inferring success from wallet submission."
+
+[file.019]
+path = "apps/launchpad/web/src/widgets/trading/transaction-controls/domain.test.ts"
+lines = 111
+verdict = "clean"
+note = "Full review: exact amounts, contextual quotes, minimum output, allowance and attempt identity assertions agree with the domain types."
+
+[file.020]
+path = "apps/launchpad/web/src/widgets/trading/transaction-controls/domain.ts"
+lines = 161
+verdict = "clean"
+note = "Full review: context, quote fingerprints, reviewed calldata and receipt evidence use chain 125, exact integers and explicit terminal states."
+
+[file.021]
+path = "apps/launchpad/web/src/widgets/trading/transaction-controls/history-alignment.ts"
+lines = 15
+verdict = "clean"
+note = "Full review: history alignment binds canonical fills to transaction, pool and revision rather than optimistic receipt display."
+
+[file.022]
+path = "apps/launchpad/web/src/widgets/trading/transaction-controls/measurement.integration.test.tsx"
+lines = 186
+verdict = "clean"
+note = "Full review: integration binds actual fixture/compiler/browser inputs and separates lane measurements from shared production qualification."
+
+[file.023]
+path = "apps/launchpad/web/src/widgets/trading/transaction-controls/measurement.ts"
+lines = 69
+verdict = "clean"
+note = "Full review: measurement collection enforces sample identity, source binding and bounded capture without fabricating successful outcomes."
+
+[file.024]
+path = "apps/launchpad/web/src/widgets/trading/transaction-controls/optical-errors.test.ts"
+lines = 23
+verdict = "clean"
+note = "Full review: optical error tests exercise declared custom-error selectors and preserve unknown failures."
+
+[file.025]
+path = "apps/launchpad/web/src/widgets/trading/transaction-controls/providers.ts"
+lines = 210
+verdict = "clean"
+note = "Full review: deployment pins, pool identity and receipt provenance are checked; RPC cancellation disagreement is recorded on recovery.ts."
+
+[file.026]
+path = "apps/launchpad/web/src/widgets/trading/transaction-controls/receipt.chain.test.ts"
+lines = 62
+verdict = "clean"
+note = "Full review: real-chain receipt proof validates sender, action, canonical block and emitted fill provenance."
+
+[file.027]
+path = "apps/launchpad/web/src/widgets/trading/transaction-controls/recovery.ts"
+lines = 186
+verdict = "issues"
+note = "Full review: persisted attempts are scoped and quarantined, but timeout notification does not bound the active transport; finding 014."
+
+[file.028]
+path = "apps/launchpad/web/src/widgets/trading/transaction-controls/run-phase2.py"
+lines = 36
+verdict = "issues"
+note = "Full review: fixture/compiler identities are bound but execution selects the obsolete client/apps/web path; finding 017."
+
+[file.029]
+path = "apps/launchpad/web/src/widgets/trading/transaction-controls/run-phase4.py"
+lines = 135
+verdict = "issues"
+note = "Full review: measurement identities/artifacts are bound but runner hashing and execution use obsolete client/apps/web; finding 018."
+
+[file.030]
+path = "apps/launchpad/web/src/widgets/trading/transaction-controls/runtime.ts"
+lines = 171
+verdict = "clean"
+note = "Full review: runtime binds wallet session, immutable context, simulation and submission and preserves unknown outcomes for recovery."
+
+[file.031]
+path = "apps/launchpad/web/src/widgets/trading/transaction-controls/surface-authority.test.ts"
+lines = 132
+verdict = "clean"
+note = "Full review: authority assertions reject ambient deployment and fabricated wallet/chain identities as transaction authority."
+
+[file.032]
+path = "apps/launchpad/web/src/widgets/trading/transaction-controls/trade-journey.integration.test.tsx"
+lines = 105
+verdict = "clean"
+note = "Full review: journey uses supplied deployment and preserves exact quote, approval, swap and recovery evidence."
+
+[file.033]
+path = "apps/launchpad/web/src/widgets/trading/transaction-controls/transaction-status.tsx"
+lines = 119
+verdict = "clean"
+note = "Full review: status renders pending, unknown, quarantined and confirmed states with explicit retry/dismissal actions."
+
+[file.034]
+path = "apps/launchpad/web/src/widgets/trading/transaction-controls/tsconfig.phase2.json"
+lines = 5
+verdict = "clean"
+note = "Full review: phase-two TypeScript inputs and aliases consistently resolve scoped trade fixtures and runtime sources."
+
+[file.035]
+path = "apps/launchpad/web/src/widgets/trading/transaction-controls/vitest.phase2.config.ts"
+lines = 26
+verdict = "clean"
+note = "Full review: phase-two Vitest selection and isolated cache are bound to supplied fixture configuration without silent integration skips."
+
+[file.036]
+path = "apps/launchpad/web/src/widgets/trading/tv-chart.render.test.tsx"
+lines = 169
+verdict = "clean"
+note = "Full review: chart render assertions cover canonical table output, loading failures and teardown without fabricated prices."
+
+[file.037]
+path = "apps/launchpad/web/src/widgets/trading/tv-chart.tsx"
+lines = 438
+verdict = "clean"
+note = "Full review: TradingView lifecycle and accessible view are disposed/retried together; metadata failure handling is recorded on the datafeed."
+
+[file.038]
+path = "apps/launchpad/web/src/widgets/trading/tx-feed.tsx"
+lines = 9
+verdict = "clean"
+note = "Full review: feed uses canonical trade identity and exposes unavailable/empty states without manufacturing fills."
+
+[file.039]
+path = "apps/launchpad/web/src/widgets/trading/udf-datafeed.ts"
+lines = 734
+verdict = "issues"
+note = "Full review: datafeed retention limits disagree and metadata initialization failures are swallowed; findings 012 and 013."
+
+[file.040]
+path = "apps/launchpad/web/src/widgets/trading/use-live-balances.test.tsx"
+lines = 145
+verdict = "clean"
+note = "Full review: balance tests cover identity invalidation and visibility polling but not completion when RPC latency exceeds the interval."
+
+[file.041]
+path = "apps/launchpad/web/src/widgets/trading/use-live-balances.ts"
+lines = 86
+verdict = "issues"
+note = "Full review: every polling tick invalidates an unfinished balance read, starving updates under slow RPC; finding 011."
+
+[file.042]
+path = "apps/launchpad/web/src/widgets/trading/use-trade-panel.ts"
+lines = 76
+verdict = "clean"
+note = "Full review: trade hook scopes balances, decimals, quotes, review and wallet actions to the authenticated account."
+
+[file.043]
+path = "apps/launchpad/web/src/widgets/wallet-recovery/reconnect-panel.tsx"
+lines = 62
+verdict = "clean"
+note = "Full review: reconnect panel exposes controller state and requires explicit recovery without auto-submitting pending transactions."
+
+[file.044]
+path = "apps/launchpad/web/src/widgets/wallet-recovery/reconnect.ts"
+lines = 35
+verdict = "clean"
+note = "Full review: reconnect restoration is wallet/session scoped and rejects stale account state."
+
+[file.045]
+path = "services/launchpad/livestream/PROGRESS.md"
+lines = 66
+verdict = "issues"
+note = "Full review: original blocker/auth/route guidance conflicts with the current service; the appended compile-only qualification note is distinct; finding 022."
+
+[file.046]
+path = "services/launchpad/livestream/cmd/livestreamd/main.go"
+lines = 19
+verdict = "clean"
+note = "Full review: daemon loads checked configuration and uses cancellable process lifecycle without bypassing startup failures."
+
+[file.047]
+path = "services/launchpad/livestream/internal/app/app.go"
+lines = 429
+verdict = "issues"
+note = "Full review: production Studio decoder and worker wiring were traced; idle terminalization disagrees with reconciliation; finding 009."
+
+[file.048]
+path = "services/launchpad/livestream/internal/app/development_reads_test.go"
+lines = 416
+verdict = "clean"
+note = "Full review: development integration drives app routes, refuses mutations and validates canonical reads."
+
+[file.049]
+path = "services/launchpad/livestream/internal/app/platform_private.go"
+lines = 89
+verdict = "clean"
+note = "Full review: private TLS ingress requires a verified pinned gateway certificate; plain ingress is health/metrics only."
+
+[file.050]
+path = "services/launchpad/livestream/internal/app/platform_test.go"
+lines = 441
+verdict = "clean"
+note = "Full review: platform integration uses coordinated database roles and actual TLS identities; unavailable provider mode intentionally refuses mutations."
+
+[file.051]
+path = "services/launchpad/livestream/internal/config/config.go"
+lines = 670
+verdict = "clean"
+note = "Full review: environment loading validates identity, schema/pool budgets, provider mode, secrets and connected prerequisites; no retired public RPC default found."
+
+[file.052]
+path = "services/launchpad/livestream/internal/config/config_test.go"
+lines = 62
+verdict = "clean"
+note = "Full review: default and invalid-value tests match the loader and reject malformed required settings."
+
+[file.053]
+path = "services/launchpad/livestream/internal/config/platform_test.go"
+lines = 85
+verdict = "clean"
+note = "Full review: platform tests enforce private ingress, pinned identity, secret material and coordinated database readiness."
+
+[file.054]
+path = "services/launchpad/livestream/internal/db/external.sql"
+lines = 11
+verdict = "clean"
+note = "Full review: type-only external SQL models the legacy foreign columns for sqlc and is not applied as a livestream-owned migration."
+
+[file.055]
+path = "services/launchpad/livestream/internal/db/query.sql"
+lines = 61
+verdict = "clean"
+note = "Full review: legacy CRUD queries agree with the retained legacy schema; active authorization uses the canonical indexer view in connected_routes.go."
+
+[file.056]
+path = "services/launchpad/livestream/internal/db/sqlcdb/db.go"
+lines = 32
+verdict = "generated"
+note = "Generated sqlc v1.31.1 database wrapper; provenance verdict replaces a claim of manual review of generated source."
+
+[file.057]
+path = "services/launchpad/livestream/internal/db/sqlcdb/models.go"
+lines = 27
+verdict = "generated"
+note = "Generated sqlc v1.31.1 table models; provenance verdict replaces a claim of manual review of generated source."
+
+[file.058]
+path = "services/launchpad/livestream/internal/db/sqlcdb/querier.go"
+lines = 31
+verdict = "generated"
+note = "Generated sqlc v1.31.1 query interface; provenance verdict replaces a claim of manual review of generated source."
+
+[file.059]
+path = "services/launchpad/livestream/internal/db/sqlcdb/query.sql.go"
+lines = 306
+verdict = "generated"
+note = "Generated sqlc v1.31.1 query methods; provenance verdict replaces a claim of manual review of generated source."
+
+[file.060]
+path = "services/launchpad/livestream/internal/livepeer/client.go"
+lines = 378
+verdict = "clean"
+note = "Full review: REST authorization, redirect refusal, bounded bodies, provider identities and playback policies agree with declared provider calls."
+
+[file.061]
+path = "services/launchpad/livestream/internal/livepeer/client_test.go"
+lines = 74
+verdict = "issues"
+note = "Full review: payload failure tests hit media-type refusal before advertised size/decode/field checks; finding 010."
+
+[file.062]
+path = "services/launchpad/livestream/internal/livepeer/correlation.go"
+lines = 78
+verdict = "clean"
+note = "Full review: correlated creation/discovery binds operation identity and refuses duplicate or contradictory matches."
+
+[file.063]
+path = "services/launchpad/livestream/internal/livepeer/correlation_test.go"
+lines = 54
+verdict = "clean"
+note = "Full review: correlation tests preserve exact names, duplicate detection and provider error propagation."
+
+[file.064]
+path = "services/launchpad/livestream/internal/livepeer/playback.go"
+lines = 138
+verdict = "clean"
+note = "Full review: playback policy and thumbnail retrieval validate provider identities, allowed origins and bounded caches."
+
+[file.065]
+path = "services/launchpad/livestream/internal/livepeer/playback_test.go"
+lines = 154
+verdict = "clean"
+note = "Full review: playback tests assert restrictive policy, CDN identity and bounded thumbnail handling against client behavior."
+
+[file.066]
+path = "services/launchpad/livestream/internal/migrate/migrate.go"
+lines = 42
+verdict = "clean"
+note = "Full review: development migrations serialize goose globals, use pgx stdlib and propagate database failures."
+
+[file.067]
+path = "services/launchpad/livestream/internal/migrate/migrate_test.go"
+lines = 40
+verdict = "clean"
+note = "Full review: migration integration verifies PostgreSQL schema application and repeat migration behavior."
+
+[file.068]
+path = "services/launchpad/livestream/internal/streams/connected_integration_test.go"
+lines = 561
+verdict = "clean"
+note = "Full review: connected integration covers adoption, encrypted keys, privacy repair and ambiguous creation without blind duplicate allocation; unresolved pre-send ambiguity is recorded on the worker."
+
+[file.069]
+path = "services/launchpad/livestream/internal/streams/connected_routes.go"
+lines = 825
+verdict = "issues"
+note = "Full review: authenticated ledger mutations and workers were traced; credential authority and frozen create/credential gaps appear in findings 001, 002 and 004."
+
+[file.070]
+path = "services/launchpad/livestream/internal/streams/connected_routes_test.go"
+lines = 67
+verdict = "clean"
+note = "Full review: viewer tokens bind stream/session/expiry; spend arithmetic is exact; JSON bounds reject MIME, encoding, size and duplicate-key violations."
+
+[file.071]
+path = "services/launchpad/livestream/internal/streams/credentials.go"
+lines = 462
+verdict = "clean"
+note = "Full review: encrypted keys and Vault transit bind operation/provider context and stale generations; LoadKey does not implement CredentialAuthority."
+
+[file.072]
+path = "services/launchpad/livestream/internal/streams/development_reads.go"
+lines = 160
+verdict = "clean"
+note = "Full review: development reads expose canonical read-only data and return frozen unavailable errors for unsupported mutations."
+
+[file.073]
+path = "services/launchpad/livestream/internal/streams/development_reads_test.go"
+lines = 159
+verdict = "clean"
+note = "Full review: read tests validate status/revision/watermark and refuse unsupported routes without credential fallback."
+
+[file.074]
+path = "services/launchpad/livestream/internal/streams/directory.go"
+lines = 242
+verdict = "clean"
+note = "Full review: sorting/cursors, verified playback and optional thumbnails preserve the explicitly bounded recent-operation directory."
+
+[file.075]
+path = "services/launchpad/livestream/internal/streams/directory_test.go"
+lines = 363
+verdict = "clean"
+note = "Full review: directory tests cover ranking, cursor bounds and unavailable joined projections for the bounded directory."
+
+[file.076]
+path = "services/launchpad/livestream/internal/streams/frozen_adapter.go"
+lines = 169
+verdict = "clean"
+note = "Full review: adapters validate UUIDs, positive revisions, lifecycle enums and nullable provider fields without exporting stored keys."
+
+[file.077]
+path = "services/launchpad/livestream/internal/streams/frozen_adapter_test.go"
+lines = 154
+verdict = "clean"
+note = "Full review: adapter tests reject invalid internal state and assert exact public operation fields and secret redaction."
+
+[file.078]
+path = "services/launchpad/livestream/internal/streams/handlers.go"
+lines = 715
+verdict = "issues"
+note = "Full review: mounted routes, access control and error/projection paths were traced; operation-status/webhook wire gaps appear in findings 003 and 005."
+
+[file.079]
+path = "services/launchpad/livestream/internal/streams/ids.go"
+lines = 34
+verdict = "issues"
+note = "Full review: unused timestamp/base36 helpers retain an obsolete ID policy; finding 019."
+
+[file.080]
+path = "services/launchpad/livestream/internal/streams/lifecycle.go"
+lines = 575
+verdict = "clean"
+note = "Full review: durable lifecycle transactions, leases, revision checks and idempotent observations were traced; entry-point recovery/state disagreements are recorded on app/worker files."
+
+[file.081]
+path = "services/launchpad/livestream/internal/streams/lifecycle_test.go"
+lines = 546
+verdict = "clean"
+note = "Full review: lifecycle integration covers quota, concurrency, stale events, terminal states, signed decisions and durable observations."
+
+[file.082]
+path = "services/launchpad/livestream/internal/streams/production_measurement.go"
+lines = 645
+verdict = "clean"
+note = "Full review: measurement binds real provider/fixture/source identities and distinguishes lane results from shared capacity/restore qualification."
+
+[file.083]
+path = "services/launchpad/livestream/internal/streams/production_measurement_test.go"
+lines = 55
+verdict = "clean"
+note = "Full review: measurement tests reject incomplete manifests and contradictory evidence and preserve qualification boundaries."
+
+[file.084]
+path = "services/launchpad/livestream/internal/streams/proof_launchpad_livestream_test.go"
+lines = 546
+verdict = "issues"
+note = "Full review: signed HTTP replay and durable state proof replaces the production webhook decoder with internal-event unmarshalling; finding 007."
+
+[file.085]
+path = "services/launchpad/livestream/internal/streams/provision_failure.go"
+lines = 59
+verdict = "clean"
+note = "Full review: bounded provision failure reasons distinguish dependency unavailability from proven nonallocation without exposing provider secrets."
+
+[file.086]
+path = "services/launchpad/livestream/internal/streams/provision_failure_test.go"
+lines = 84
+verdict = "clean"
+note = "Full review: failure tests cover recognized reasons, state revisions and rejection of unproven terminal failures."
+
+[file.087]
+path = "services/launchpad/livestream/internal/streams/provision_worker.go"
+lines = 323
+verdict = "issues"
+note = "Full review: durable create_sent prevents duplicate allocation but lacks recovery from crash-before-send; finding 008."
+
+[file.088]
+path = "services/launchpad/livestream/internal/streams/public_projection.go"
+lines = 84
+verdict = "clean"
+note = "Full review: public projection validates canonical metadata without exposing ingest credentials or encrypted key material."
+
+[file.089]
+path = "services/launchpad/livestream/internal/streams/public_reads.go"
+lines = 63
+verdict = "clean"
+note = "Full review: public reads join approved lifecycle rows and fail closed on missing policy/provider data rather than invent playback."
+
+[file.090]
+path = "services/launchpad/livestream/internal/streams/reconcile_worker.go"
+lines = 159
+verdict = "clean"
+note = "Full review: reconciler leases work and reads actual provider state; nonterminal inactive mapping conflicts with the app decoder, recorded in finding 009."
+
+[file.091]
+path = "services/launchpad/livestream/internal/streams/stream_catalog_test.go"
+lines = 62
+verdict = "clean"
+note = "Full review: catalogue tests mount frozen/compatibility routes and require explicit unavailable behavior without lifecycle dependencies."
+
+[file.092]
+path = "services/launchpad/livestream/internal/streams/stream_errors_test.go"
+lines = 158
+verdict = "clean"
+note = "Full review: error tests validate frozen codes, details and request identifiers across lifecycle/dependency failures."
+
+[file.093]
+path = "services/launchpad/livestream/internal/streams/thumbnail_test.go"
+lines = 67
+verdict = "clean"
+note = "Full review: optional thumbnail assertions preserve approved provider projection without withholding playback for missing imagery."
+
+[file.094]
+path = "services/launchpad/livestream/internal/streams/usage.go"
+lines = 369
+verdict = "issues"
+note = "Full review: usage/budget validation accepts rational strings that PostgreSQL numeric rejects; finding 016."
+
+[file.095]
+path = "services/launchpad/livestream/internal/streams/v2_lifecycle_http_test.go"
+lines = 295
+verdict = "clean"
+note = "Full review: HTTP tests validate frozen start/end/heartbeat request/response shapes, status codes and ledger replay."
+
+[file.096]
+path = "services/launchpad/livestream/internal/streams/v2_lifecycle_wire.go"
+lines = 76
+verdict = "clean"
+note = "Full review: lifecycle adapter constructs and validates typed envelopes with consistent operation/revision/quality/time fields."
+
+[file.097]
+path = "services/launchpad/livestream/internal/streams/v2_lifecycle_wire_test.go"
+lines = 157
+verdict = "clean"
+note = "Full review: wire tests cover required fields and reject invalid identifiers, revisions and state mappings."
+
+[file.098]
+path = "services/launchpad/livestream/internal/streams/v2_list_http_test.go"
+lines = 180
+verdict = "clean"
+note = "Full review: list HTTP tests validate query shape and frozen response projection rather than raw internal rows."
+
+[file.099]
+path = "services/launchpad/livestream/internal/streams/v2_list_wire.go"
+lines = 70
+verdict = "clean"
+note = "Full review: list adapter validates query bounds/cursors/statuses and constructs schema-safe envelopes."
+
+[file.100]
+path = "services/launchpad/livestream/internal/streams/v2_list_wire_test.go"
+lines = 117
+verdict = "clean"
+note = "Full review: list wire tests reject malformed filters/cursors and assert nullable/timestamp representations."
+
+[file.101]
+path = "services/launchpad/livestream/internal/streams/viewer_counter.go"
+lines = 81
+verdict = "clean"
+note = "Full review: viewer counter bounds Redis sorted-set activity, cache staleness and persisted estimates with explicit quality."
+
+[file.102]
+path = "services/launchpad/livestream/internal/streams/viewer_counter_test.go"
+lines = 99
+verdict = "clean"
+note = "Full review: counter integration covers unique sessions, expiry, stale estimates and Redis/database failures."
+
+[file.103]
+path = "services/launchpad/livestream/internal/streams/viewers.go"
+lines = 92
+verdict = "issues"
+note = "Full review: uncalled per-viewer key counter retains different activity/persistence semantics; finding 020."
+
+[file.104]
+path = "services/launchpad/livestream/internal/streams/webhook_alias_test.go"
+lines = 126
+verdict = "issues"
+note = "Full review: alias HMAC/replay tests use a payload and decoder absent from the production app; finding 006."
+
+[file.105]
+path = "services/launchpad/livestream/internal/streams/webhook_auth.go"
+lines = 140
+verdict = "clean"
+note = "Full review: raw-body HMAC verification bounds input, checks signature/body timestamp agreement and rejects duplicate signature fields without reserialization."
+
+[file.106]
+path = "services/launchpad/livestream/migrations/migrations.go"
+lines = 11
+verdict = "clean"
+note = "Full review: migration embedding supplies SQL as the development goose source without runtime filesystem dependency."
+
+[file.107]
+path = "services/launchpad/livestream/pkg/types/types.go"
+lines = 94
+verdict = "issues"
+note = "Full review: legacy public DTO descriptions imply supported parity routes that now fail closed; finding 021."
+
+[file.108]
+path = "services/launchpad/livestream/sqlc.yaml"
+lines = 26
+verdict = "clean"
+note = "Full review: sqlc configuration consistently references migrations/type-only foreign model and emits pgx/v5 with nullable int8 overrides."
+
+[file.109]
+path = "tools/launchpad/storage/check.py"
+lines = 551
+verdict = "clean"
+note = "Full review: restore checker binds schema/source identities and command evidence, retaining explicit qualification boundaries without fabricated success."
+
+[file.110]
+path = "tools/launchpad/storage/phase2.py"
+lines = 332
+verdict = "clean"
+note = "Full review: storage orchestration binds real restore inputs/artifact digests, retains failures and distinguishes lane from shared acceptance."
+
+[finding.001]
+file = "services/launchpad/livestream/internal/streams/connected_routes.go"
+line = 660
+class = "wiring-gap"
+severity = "high"
+observed = "NewConnectedRuntime supplies IngestKeys: keys but omits Deps.Credentials. No service implementation of CredentialAuthority.Credential exists. The mounted connectedCredential route reaches ingestCredential, which rejects nil credentials even after successful provisioning; the real browser getIngestCredential consumer cannot receive a credential."
+expected = "The registered ingest-credential operation must deliver an authorized bounded credential for a ready/live stream through the provider-backed runtime. EncryptedCredentials.LoadKey implements a different interface and cannot satisfy this contract by assignment."
+proposal = "Implement and wire a provider-backed CredentialAuthority in services/launchpad/livestream/internal/streams with bounded expiry, creator authorization and provider/operation binding. If that provider product is unsupported, explicitly retire this contract and migrate SDK/browser consumers to the reviewed encrypted-key flow. Prove the chosen real runtime through HTTP and its consumer."
+owner_domain = 4
+interface = "4.http-livestream-post-v2-streams-id-ingest-credential"
+
+[finding.002]
+file = "services/launchpad/livestream/internal/streams/connected_routes.go"
+line = 54
+class = "interface-mismatch"
+severity = "high"
+observed = "connectedCreate calls operationMutation, which persists and returns only a top-level operation object. The actual v2 StreamCreateResponse schema requires requestId, data.operation, watermark, revision, quality, nextCursor and generatedAt. The tolerant browser parser hides rejection by the generic SDK response decoder."
+expected = "The registered POST /v2/streams producer must emit StreamCreateResponse accepted by sdk/launchpad/packages/sdk/src/transport.ts decodeV2Contract and the shared v2 schema, while signed ledger replay preserves exactly the original response bytes."
+proposal = "Add a typed frozen create-response adapter in services/launchpad/livestream/internal/streams, validate StreamCreateResponse and serialize it inside the ledger transaction with its request ID. Prove connected create through HTTP into the real SDK decoder and assert byte-identical replay after restart."
+owner_domain = 4
+interface = "4.http-livestream-post-v2-streams"
+
+[finding.003]
+file = "services/launchpad/livestream/internal/streams/handlers.go"
+line = 329
+class = "interface-mismatch"
+severity = "high"
+observed = "operationStatus emits a top-level operation object. The actual v2 StreamOperationGetResponse requires data.operation and the seven envelope fields, so the SDK decoder rejects a successful polling response although the browser compatibility parser accepts it."
+expected = "GET /v2/streams/operations/{id} must round-trip StreamOperationGetResponse through the declared SDK consumer while retaining creator authorization and no-store handling."
+proposal = "Add a typed operation-status response adapter in services/launchpad/livestream/internal/streams with requestId, data, watermark, revision, quality, nextCursor and generatedAt. Validate the emitted response and drive operation polling through real HTTP into decodeV2Contract, including worker/restart recovery."
+owner_domain = 4
+interface = "4.http-livestream-get-v2-streams-operations-id"
+
+[finding.004]
+file = "services/launchpad/livestream/internal/streams/connected_routes.go"
+line = 478
+class = "interface-mismatch"
+severity = "high"
+observed = "IF_STREAM_INGEST_CREDENTIAL in the SDK declares body:null, but connectedCredential requires application/json and a parsed empty object before authorization and rejects the declared bodyless call. Even with credentials wired, handlers.go:370 emits streamId/ingestCredential at top level rather than StreamIngestCredentialResponse data inside its required envelope."
+expected = "The credential producer must accept the declared request and return the frozen v2 envelope. Body-digest representation must also agree between SDK, gateway authentication and the service without weakening signature verification."
+proposal = "Coordinate canonical empty-body signing in sdk/launchpad shared auth and the SDK, adapt connectedCredential to the declared bodyless request and emit a validated StreamIngestCredentialResponse. Prove the SDK request through trusted ingress, real provider-backed authorization and the SDK response decoder."
+owner_domain = 4
+interface = "4.http-livestream-post-v2-streams-id-ingest-credential"
+
+[finding.005]
+file = "services/launchpad/livestream/internal/streams/handlers.go"
+line = 164
+class = "interface-mismatch"
+severity = "high"
+observed = "The frozen IF_LIVE_WEBHOOK alias uses h.webhook and the app Studio decoder requiring id/webhookId/createdAt/timestamp/event=stream.started|stream.idle/stream.id. LiveWebhookBody instead requires eventId/streamId/event=active|inactive/occurredAt and forbids timestamp, which webhook_auth.go requires. The handler returns outcome rather than LiveWebhookResponse envelope/data.accepted."
+expected = "The served registry row explicitly identifies frozen IF_LIVE_WEBHOOK; request and response must round-trip that declared schema. Authentication must verify real producer bytes and freshness without an undocumented third payload shape."
+proposal = "Distinguish the raw signed Studio callback from the frozen normalized route at the livestream app/streams boundary. Specify a trusted normalization/signing contract and adapt frozen request/response without disabling HMAC freshness checks. Prove actual producer bytes through authentication, durable application and the frozen consumer decoder."
+owner_domain = 4
+interface = "4.http-livestream-post-v2-provider-webhooks-livepeer-j29"
+
+[finding.006]
+file = "services/launchpad/livestream/internal/streams/webhook_alias_test.go"
+line = 43
+class = "test-gap"
+severity = "medium"
+observed = "The alias test replaces the app decoder with unmarshalling into internal ProviderEvent and sends uppercase EventID/ProviderID/State/ObservedAt plus timestamp. Neither the production decodeStudioWebhook nor frozen LiveWebhookBody accepts that shape, so the alias proof misses the actual wire incompatibility."
+expected = "Brief check 7 and requirement 4285.1 require authentication/application on the real producer and decoder path; an internal state struct does not define the external transport contract."
+proposal = "Expose or move the production webhook adapter so services/launchpad/livestream/internal/streams/webhook_alias_test.go can drive the real app decoder with pinned Studio producer payloads and the normalized frozen route. Retain stale, malformed, tampered, duplicate and signature/body mismatch assertions."
+owner_domain = 4
+interface = "4.http-livestream-post-v2-provider-webhooks-livepeer-j29"
+
+[finding.007]
+file = "services/launchpad/livestream/internal/streams/proof_launchpad_livestream_test.go"
+line = 289
+class = "test-gap"
+severity = "medium"
+observed = "The lifecycle path proof injects a DecodeWebhook function that unmarshals ProviderEvent and serializes that internal struct with timestamp at lines 442-458. Genuine HTTP, HMAC and durable storage are exercised, but the real Studio decoder and frozen webhook request/response shape are bypassed."
+expected = "Requirement 21068.1 and the brief real-path rule require producer, authentication, production adapter and consumer agreement through duplicate delivery and restart; real storage alone does not establish wire compatibility."
+proposal = "Rework the webhook section of services/launchpad/livestream/internal/streams/proof_launchpad_livestream_test.go through the production app adapter using admitted provider-produced payloads. Consume the declared response schema and retain HMAC refusal, idempotent redelivery and durable restart assertions."
+owner_domain = 4
+interface = "4.http-livestream-post-v2-provider-webhooks-livepeer-j29"
+
+[finding.008]
+file = "services/launchpad/livestream/internal/streams/provision_worker.go"
+line = 89
+class = "restart-recovery"
+severity = "medium"
+observed = "The worker durably sets create_sent=true before CreateCorrelated. A crash in that gap, or a definite provider rejection leaving no correlated allocation, prevents future attempts from changing create_sent from false. The operation keeps returning provider_create_ambiguous and holds its active admission reservation."
+expected = "Duplicate allocation must remain forbidden, but durable provisioning needs an authorized recovery path when allocation is proven absent after a crash or rejection."
+proposal = "Add a durable ambiguity-resolution operation in services/launchpad/livestream/internal/streams that records provider-confirmed nonallocation or verified adoption with revision/lease checks, safely resuming or releasing admission. Expose an actionable owner/operator state and prove crash-before-send, rejection, adoption and restart without blind create retries."
+owner_domain = 4
+
+[finding.009]
+file = "services/launchpad/livestream/internal/app/app.go"
+line = 89
+class = "runtime-risk"
+severity = "medium"
+observed = "decodeStudioWebhook maps stream.idle to terminal ENDED, while ReconcileWorker maps an inactive provider to READY unless termination is intended. LifecycleStore ignores later events for ENDED and the poller excludes ENDED, so a temporary broadcaster disconnect has different permanent outcomes depending on the observation path."
+expected = "Webhook and polling observations of the same provider inactivity must share a lifecycle policy; temporary inactive playback must remain resumable if reconciliation treats it as a ready stream."
+proposal = "Define one inactivity/termination mapping shared by services/launchpad/livestream/internal/app/app.go and internal/streams/reconcile_worker.go. Reserve ENDED for explicit termination evidence and expose reconnect semantics to creators. Prove idle then started, reordered poll/webhook observations and restart using real provider-state payloads."
+owner_domain = 4
+
+[finding.010]
+file = "services/launchpad/livestream/internal/livepeer/client_test.go"
+line = 24
+class = "test-gap"
+severity = "medium"
+observed = "TestProviderFailureRedactsSecretsAndBoundsBody writes malformed, oversize, empty-object, null and missing-key payloads without application/json Content-Type. The client rejects the successful status cases for media type before body-size, JSON or field checks; the common nonnil-error assertion cannot distinguish the intended branches."
+expected = "Each advertised provider failure case must reach and assert its own boundary, with an independent test for missing or incorrect response media type."
+proposal = "In services/launchpad/livestream/internal/livepeer/client_test.go set the real JSON media type on body-size, decode and missing-field cases and assert their sanitized classification. Retain separate media-type, redirect, secret-redaction and cancellation assertions."
+owner_domain = 4
+
+[finding.011]
+file = "apps/launchpad/web/src/widgets/trading/use-live-balances.ts"
+line = 64
+class = "runtime-risk"
+severity = "medium"
+observed = "Each polling tick cleans up the previous read by setting live=false and starts a new Promise.all. At default four-second polling with sustained five-second balance RPC latency every completion is discarded and no balance appears. ChainTradeProvider.readBalance has no cancellation/coalescing parameter, so underlying reads also overlap."
+expected = "An authenticated wallet must eventually show a successful current-identity balance under slow but functioning RPC, with bounded reads and immediate invalidation for account/session/pool changes."
+proposal = "Change apps/launchpad/web/src/widgets/trading/use-live-balances.ts to single-flight polling per identity, schedule the next poll after settlement and bound/cancel the actual transport. Accept current-generation completions despite intervening refreshes. Prove slow real RPC, identity changes and visibility recovery."
+owner_domain = 4
+
+[finding.012]
+file = "apps/launchpad/web/src/widgets/trading/udf-datafeed.ts"
+line = 98
+class = "runtime-risk"
+severity = "medium"
+observed = "CanonicalCandleRevisionMerge rejects the 2049th unique candle, but readHistory accepts up to 5000 and visibleCandles independently caps at 2048. Merge keys persist across history windows without eviction/reset on retry, so valid history or normal panning eventually yields a permanent visible-history conflict for the feed."
+expected = "Allowed history size, accessible view retention and revision provenance must share a bounded window policy that supports valid history and streaming corrections throughout the chart session."
+proposal = "Define a common explicit window in apps/launchpad/web/src/widgets/trading/udf-datafeed.ts and evict candles/provenance together without permitting stale overwrite. Support the declared 5000 input or revise every public caller consistently. Prove pagination, repeated pans, corrections and recovery beyond 2048 unique candles."
+owner_domain = 4
+
+[finding.013]
+file = "apps/launchpad/web/src/widgets/trading/udf-datafeed.ts"
+line = 201
+class = "runtime-risk"
+severity = "medium"
+observed = "createChartMetadataFeed catches and discards failures from onReady and getServerTime; invalid server-time values also invoke no callback. A config/time outage can leave TradingView initialization waiting while the separate candle fetch succeeds, without entering the chart error/retry path."
+expected = "Metadata failures and invalid declared responses must settle into an observable bounded failure state so the chart can explain unavailability and allow retry."
+proposal = "Wire metadata failures in apps/launchpad/web/src/widgets/trading/udf-datafeed.ts into tv-chart.tsx freshness/error handling with bounded deadlines and cancellation. Preserve strict validation and avoid invented config/time values. Prove config/time rejection, stalled transport and successful retry through the metadata client."
+owner_domain = 4
+
+[finding.014]
+file = "apps/launchpad/web/src/widgets/trading/transaction-controls/recovery.ts"
+line = 162
+class = "runtime-risk"
+severity = "medium"
+observed = "The ten-second receipt deadline aborts the supplied signal and notifies the user, but check still awaits read before releasing global activeReaders. ChainTradeProvider.readReceipt only checks the signal between viem awaits without passing it to RPC transport. Four slow/hung lookups can hold all scheduler slots past deadline, including after close."
+expected = "Receipt recovery must bound actual request lifecycle while preserving the global four-reader limit and allowing other attempts to progress after timeout or session disposal."
+proposal = "Coordinate recovery.ts and transaction-controls/providers.ts with genuinely cancellable, deadline-bounded transport for every receipt/provenance read. Settle jobs and release slots exactly once after transport termination; do not release capacity while requests remain live. Prove four slow real RPC reads, timeout, close and recovery of a later attempt."
+owner_domain = 4
+
+[finding.015]
+file = "apps/launchpad/web/src/widgets/trading/trade-panel.tsx"
+line = 79
+class = "runtime-risk"
+severity = "medium"
+observed = "When alternate-unit conversion returns null, onAmountChange passes the original display text to t.setAmount as a native amount. convertByPrice rejects outDecimals above 36 while ChainTradeProvider accepts token decimals up to 77. Selling such a token in displayed USDL can quote the same digits as token units instead of rejecting conversion."
+expected = "Input in the displayed unit must either convert exactly for the accepted asset metadata or remain invalid; conversion failure must never silently reinterpret that unit."
+proposal = "In apps/launchpad/web/src/widgets/trading/trade-panel.tsx retain failed alternate conversion as explicit invalid input and disable review/submission. Align supported scales with trade-panel-parts.tsx and provider metadata, preserve exact arithmetic and prove high-decimal sell inputs and malformed decimal text in the real surface."
+owner_domain = 4
+
+[finding.016]
+file = "services/launchpad/livestream/internal/streams/usage.go"
+line = 128
+class = "config-drift"
+severity = "medium"
+observed = "BudgetPolicy.Validate and RecordUsage accept nonnegative big.Rat strings such as 1/2. MonthlyUnits is passed unchanged into $1::numeric in EmitBudgetAlerts and usage strings enter numeric columns. PostgreSQL rejects rational notation, so accepted configuration can break budget alerts or usage ingestion."
+expected = "Accepted persisted budget/usage strings must round-trip PostgreSQL numeric and retain exact monetary units without floating-point conversion."
+proposal = "In services/launchpad/livestream/internal/streams/usage.go require bounded canonical decimal strings or exact normalization to an explicit supported numeric scale before storage. Share the representation across policy and ingestion, then prove decimals and rejected rational/exponent edge cases using actual PostgreSQL writes and alert generation."
+owner_domain = 4
+
+[finding.017]
+file = "apps/launchpad/web/src/widgets/trading/transaction-controls/run-phase2.py"
+line = 28
+class = "config-drift"
+severity = "medium"
+observed = "The phase-two runner derives the repository root but selects root/client/apps/web, which does not exist in this tree. The actual application and Vitest runner are under apps/launchpad/web, so this script cannot launch the configured receipt-chain proof."
+expected = "Requirements 4487.1 and 4487.2 require the bound native chain proof to execute from the actual application checkout with its real runner, compiler and fixture identities."
+proposal = "Resolve apps/launchpad/web from the checked repository root in apps/launchpad/web/src/widgets/trading/transaction-controls/run-phase2.py. Preserve fixture/compiler digests and private outputs and qualify the real configured runner against its chain fixture without substituting a different proof path."
+owner_domain = 4
+
+[finding.018]
+file = "apps/launchpad/web/src/widgets/trading/transaction-controls/run-phase4.py"
+line = 69
+class = "config-drift"
+severity = "medium"
+observed = "The phase-four runner hashes client/apps/web/node_modules/vitest/vitest.mjs and executes in root/client/apps/web at line 118. Both point to the obsolete application location instead of apps/launchpad/web, stopping the bound measurement before the consumer workload starts."
+expected = "Measurement must bind and execute the current application runner; digest validation, command path and working directory must identify the same existing checkout."
+proposal = "Resolve apps/launchpad/web once in apps/launchpad/web/src/widgets/trading/transaction-controls/run-phase4.py and use it for runner hashing, command and cwd. Retain all config/source/compiler/browser digests, artifact requirements and shared production qualification boundaries when qualifying the actual lane."
+owner_domain = 4
+
+[finding.019]
+file = "services/launchpad/livestream/internal/streams/ids.go"
+line = 15
+class = "dead-code"
+severity = "low"
+observed = "generateID and randBase36 have no service callers. They retain timestamp/base36 identifiers and a deterministic random-failure fallback while the live lifecycle and frozen adapters use UUID identifiers generated by randomID."
+expected = "The maintained ID policy must match the actual UUID lifecycle path; uncalled compatibility helpers should not appear to define a supported alternative."
+proposal = "Remove the unreferenced helpers from services/launchpad/livestream/internal/streams/ids.go after reference review, or explicitly isolate a supported legacy consumer. Preserve fail-closed UUID generation and document that frozen v2 does not accept the old ID shape."
+owner_domain = 4
+
+[finding.020]
+file = "services/launchpad/livestream/internal/streams/viewers.go"
+line = 22
+class = "dead-code"
+severity = "low"
+observed = "countViewers has no callers. Its per-viewer Redis keys, 60-second activity TTL and ten-second SQLC persistence path remain beside the active ViewerCounter sorted-set implementation with a 90-second activity window and 15-second accepted heartbeat spacing."
+expected = "Viewer estimates should have one maintained activity/persistence/staleness policy matching mounted heartbeat and public projection behavior."
+proposal = "Remove the uncalled counter and helper-only fields/constants from services/launchpad/livestream/internal/streams after checking references. Keep ViewerCounter as the single product policy and preserve actual Redis expiry, stale-cache and database-failure coverage."
+owner_domain = 4
+
+[finding.021]
+file = "services/launchpad/livestream/pkg/types/types.go"
+line = 1
+class = "dead-code"
+severity = "low"
+observed = "The exported package advertises byte-for-byte public /streams parity and CreateStreamResponse streamKey/rtmpUrl, but mounted legacy /streams routes all fail closed. These DTOs remain only in obsolete conversion helpers rather than connected v2 transport."
+expected = "Public API declarations must identify the served frozen contract and avoid advertising secret-bearing legacy endpoints as current integration surfaces."
+proposal = "Remove or explicitly quarantine services/launchpad/livestream/pkg/types and obsolete converters in internal/streams/handlers.go after consumer review. Publish typed v2 operation/stream schemas as the supported API and migrate any remaining consumers before dropping compatibility declarations."
+owner_domain = 4
+interface = "4.go-livestream-pkg-types-create-stream-response"
+
+[finding.022]
+file = "services/launchpad/livestream/PROGRESS.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The original resume note says the service has never compiled, directs a goose downgrade to an old Go baseline and describes legacy reusable auth, error-only bodies and raw stream-key create responses. Current code uses lifecycle/ledger auth, frozen errors and separate credential retrieval. The appended inventory compile-only evidence is distinct."
+expected = "Service guidance must reflect the current manifests/runtime, distinguish intentional platform read-only behavior and identify exactly which gates are qualified."
+proposal = "Rewrite services/launchpad/livestream/PROGRESS.md lines 3-52 against current manifests and registered lifecycle routes. Remove obsolete downgrade and secret-response instructions and document connected/read-only modes. Preserve the appended inventory boundary without promoting compile-only evidence to provider qualification."
+owner_domain = 4
+
+[finding.023]
+file = "docs/site/docs/protocol/index.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The protocol landing page describes separate LayerX execution and Paxeer settlement trust/release domains, says normal actions avoid Paxeer transactions and describes periodic checkpoints with L0-L4 finality links. This is the pre-merge operating model."
+expected = "Brief facts 1-3 specify one paxd BFT network on chain 125 with its kernel integrated into block production and committed-block receipt finality, without a separate sequencer or RPC router."
+proposal = "Rewrite docs/site/docs/protocol/index.md introduction, execution/settlement table and finality links around the integrated paxd block lifecycle and actual root-path mainnet-beta RPC. Label retained historical checkpoint material and coordinate the corresponding wiki protocol page."
+owner_domain = 1
+
+[finding.024]
+file = "docs/wiki/UnifiedNetwork.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "The architecture page describes cmd/layerxd as the running core node/sequencer, treats Paxeer and LayerX as independently executing networks connected by evidence precompiles and plans a shared routing RPC endpoint."
+expected = "The finished-network brief retires layerxd and the unified RPC router concept: the kernel is integrated into paxd and public node JSON-RPC uses the root path on the declared mainnet-beta hosts."
+proposal = "Rewrite docs/wiki/UnifiedNetwork.md execution domains, node/sequencer, anchor-finality and planned shared endpoint sections for the integrated paxd network and committed-block finality. Mark retired deployment components as historical and explain the actual node/hosted gateway boundary."
+owner_domain = 1
+
+[finding.025]
+file = "docs/wiki/Protocol.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki protocol page preserves separate LayerX execution/Paxeer settlement authority, says normal actions need no Paxeer transaction and describes checkpoint attestations and the old sequencing/finality model as current behavior."
+expected = "Brief fact 1 makes the kernel part of one paxd BFT chain with committed-block receipt finality; operators/consumers must not infer an independent sequencer and settlement service."
+proposal = "Update docs/wiki/Protocol.md introduction, ownership table, checkpoint descriptions and finality references with the site protocol page. Explain the integrated execution/commit path and distinguish still-supported proof formats from retired deployment responsibilities."
+owner_domain = 1
+
+[finding.026]
+file = "docs/wiki/Spot.md"
+line = 78
+class = "doc-drift"
+severity = "medium"
+observed = "The Spot page locates runtime binding in lxp_daemon_module_runtimes_bind under cmd/layerxd and says the module executes inside layerxd, describing a retired daemon as an active component."
+expected = "Brief facts 1 and 2 require current module guidance to locate execution in the integrated paxd kernel and avoid presenting the retired daemon as a running service."
+proposal = "Rewrite docs/wiki/Spot.md runtime-binding paragraphs with actual integrated kernel/module registration and paxd execution lifecycle. Retain monetary invariants and module IDs where they match current declarations and explicitly label historical layerxd symbols as retired."
+owner_domain = 1
+
+[doc.001]
+path = "docs/site/docs/protocol/index.md"
+status = "stale"
+notes = "Lines 5-28 and finality links retain the pre-merge execution/settlement split; finding 023 proposes the integrated-network rewrite."
+
+[doc.002]
+path = "docs/wiki/UnifiedNetwork.md"
+status = "misleading"
+notes = "The running layerxd/sequencer and planned unified routing endpoint contradict the finished network; finding 024 identifies the rewrite."
+
+[doc.003]
+path = "docs/wiki/Protocol.md"
+status = "stale"
+notes = "Lines 5-28 and checkpoint/finality guidance preserve the separate-network model; finding 025 aligns the page with committed-block finality."
+
+[doc.004]
+path = "docs/wiki/Spot.md"
+status = "stale"
+notes = "Lines 78-83 locate current execution in retired layerxd; finding 026 moves the operating model to the integrated kernel."
+
+[doc.005]
+path = "docs/system/sdk.md"
+status = "accurate"
+notes = "Reviewed the full generated symbol catalogue as an SDK inventory, not a livestream integration guide. Historical protocol/type names alone do not assert a running sequencer or router."
+
+[doc.006]
+path = "contracts/launchpad/operations/README.md"
+status = "accurate"
+notes = "Reviewed the complete launchpad operations guidance; governance/deployment responsibilities introduce no separate LayerX runtime and do not contradict the audited media transport."
+
+[doc.007]
+path = "services/launchpad/livestream/PROGRESS.md"
+status = "stale"
+notes = "Original resume instructions at lines 3-52 conflict with current manifests and lifecycle routes. The appended inventory compile-only qualification boundary remains distinct; finding 022."
+
+[doc.008]
+path = "spec/layerx-merge/contracts/services.md"
+status = "accurate"
+notes = "Read the common service rules (lines 1-30) and launchpad-livestream section (3147-3216). This explicitly revisioned 2a1033aa2 catalogue identifies frozen acceptance references; its planned labels describe that snapshot and do not establish current runtime readiness."
