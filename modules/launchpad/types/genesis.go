@@ -118,16 +118,24 @@ type FeeRightIDMapping struct {
 	Generation2ID uint64 `json:"generation_2_id"`
 }
 
+// FeeRightOwnerTokens preserves one owner's ERC721Enumerable token order.
+type FeeRightOwnerTokens struct {
+	Owner    string   `json:"owner"`
+	TokenIDs []uint64 `json:"token_ids"`
+}
+
 // FeeRightCollection is the generation 2 fee-right collection: its counters,
 // tokens, operator approvals and the generation 1 id map. Balances, the
-// enumeration arrays and poolTokenId are derived from Tokens.
+// global enumeration and poolTokenId are derived from Tokens; OwnerTokens
+// records the independent owner enumeration after swap-last removals.
 type FeeRightCollection struct {
-	NextTokenID              uint64              `json:"next_token_id"`
-	PoolIndexMigrationCursor uint64              `json:"pool_index_migration_cursor"`
-	PoolIndexReady           bool                `json:"pool_index_ready"`
-	Tokens                   []FeeRight          `json:"tokens,omitempty"`
-	Operators                []FeeRightOperator  `json:"operators,omitempty"`
-	IDMap                    []FeeRightIDMapping `json:"id_map,omitempty"`
+	NextTokenID              uint64                `json:"next_token_id"`
+	PoolIndexMigrationCursor uint64                `json:"pool_index_migration_cursor"`
+	PoolIndexReady           bool                  `json:"pool_index_ready"`
+	Tokens                   []FeeRight            `json:"tokens,omitempty"`
+	OwnerTokens              []FeeRightOwnerTokens `json:"owner_tokens,omitempty"`
+	Operators                []FeeRightOperator    `json:"operators,omitempty"`
+	IDMap                    []FeeRightIDMapping   `json:"id_map,omitempty"`
 }
 
 // PoolFeeAccount is the per-pool accounting of the generation 2
@@ -220,6 +228,13 @@ type PoolMetadata struct {
 	CreatedBlock int64  `json:"created_block"`
 }
 
+// FactoryNonce is the next CREATE2 nonce of a creator, including creators
+// imported by migration who have no native market records.
+type FactoryNonce struct {
+	Creator string `json:"creator"`
+	Nonce   uint64 `json:"nonce"`
+}
+
 type GenesisState struct {
 	Params             Params               `json:"params"`
 	Markets            []Market             `json:"markets"`
@@ -239,6 +254,7 @@ type GenesisState struct {
 	BookHeldDeltas     []BookHeldDelta      `json:"book_held_deltas,omitempty"`
 	Retired            []RetiredAddress     `json:"retired,omitempty"`
 	PoolMetadata       []PoolMetadata       `json:"pool_metadata,omitempty"`
+	FactoryNonces      []FactoryNonce       `json:"factory_nonces,omitempty"`
 }
 
 func DefaultGenesis() *GenesisState {
@@ -317,6 +333,13 @@ func invalid(format string, args ...interface{}) error {
 // FeeAccumulator accounting, custody ledgers, book-held deltas and retired
 // list that replace the Launch-x contracts.
 func (gs GenesisState) validateContracts() error {
+	creators := map[string]bool{}
+	for _, entry := range gs.FactoryNonces {
+		if !canonicalAddress(entry.Creator) || creators[entry.Creator] {
+			return invalid("factory nonce %s", entry.Creator)
+		}
+		creators[entry.Creator] = true
+	}
 	surfaces := map[string]string{}
 	singleRoles := map[string]bool{}
 	for _, surface := range gs.Surfaces {
@@ -425,6 +448,25 @@ func (c FeeRightCollection) validate(isPool func(string) bool) error {
 		}
 		ids[token.ID] = true
 		pools[token.Pool] = true
+	}
+	owners := map[string]bool{}
+	owned := map[uint64]string{}
+	for _, owner := range c.OwnerTokens {
+		if !canonicalAddress(owner.Owner) || owners[owner.Owner] || len(owner.TokenIDs) == 0 {
+			return invalid("fee-right owner enumeration %s", owner.Owner)
+		}
+		owners[owner.Owner] = true
+		for _, id := range owner.TokenIDs {
+			if !ids[id] || owned[id] != "" {
+				return invalid("fee-right owner enumeration token %d", id)
+			}
+			owned[id] = owner.Owner
+		}
+	}
+	for _, token := range c.Tokens {
+		if owned[token.ID] != token.Owner {
+			return invalid("fee-right owner enumeration missing or wrong owner for %d", token.ID)
+		}
 	}
 	operators := map[FeeRightOperator]bool{}
 	for _, operator := range c.Operators {
