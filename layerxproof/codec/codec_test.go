@@ -286,9 +286,16 @@ func TestAccountValueAgainstRustFixture(t *testing.T) {
 	}
 }
 
-// The C core produced contracts/config/native-state-proofs.json; every entry
-// must decode and fold to its committed root, and refuse a different root.
+// Consume current registered-host witnesses and the retained twelve-leaf C
+// codec fixture alongside the historical core proofs.
 func TestNativeStateProofsFromCore(t *testing.T) {
+	repairM1CurrentHost(t)
+	repairM1Compatibility(t)
+	testHistoricalNativeStateProofsFromCore(t)
+}
+
+func testHistoricalNativeStateProofsFromCore(t *testing.T) {
+	t.Helper()
 	root, err := testvectors.RepositoryRoot()
 	if err != nil {
 		t.Fatal(err)
