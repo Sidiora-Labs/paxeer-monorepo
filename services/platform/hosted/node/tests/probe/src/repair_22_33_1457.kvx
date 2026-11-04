@@ -1,0 +1,31 @@
+[repair.22.33.1457]
+audit = "22.30.83"
+base_revision = "117197c811684e097104c96b29e872d45034cebb"
+status = "Implementation; qualification and exact verified revision are recorded by the bounded hf-build/hf-done ledger."
+baseline = "No baseline gate ran: the explicit ordered instructions require complete implementation before build/verify and prohibit running verify_cmd by hand; there was no earlier gate ledger or probe change on entry. No pre-change test failure is claimed."
+evidence = "The final response reproduces the final bounded gate's revision, command, exit and private log location."
+
+[finding.probe-retired-anchor]
+tests = ["probe_retired_anchor_profile_reports_native_committed_evidence", "probe_retired_anchor_profile_without_actors_still_checks_native_snapshot", "probe_retired_anchor_send_uses_native_profile_and_validated_nonce", "probe_retired_anchor_changed_nonce_height_or_binding_refuses_output", "probe_retired_anchor_native_metadata_validation_is_preserved", "probe_retired_anchor_wrong_network_or_unbound_actor_is_refused", "probe_retired_anchor_send_rejects_owner_substitution_before_rpc"]
+repair = "Use core's native committed-state reader rather than the checkpoint-finality alias; existing core profile/asset readers delegate to bank 0x1001 and pointerview 0x100A. Preserve source nonce and native profile validation, compare actor bindings and block/app-hash snapshots, and derive signing time from the validated committed block."
+output = "Profile output reports the exact consensus committed height, block hash and app hash with achieved COMMITTED and authenticated_native_bank_pointer; it no longer reports a checkpoint batch or claims STATE_PROVEN."
+coverage = "Both production commands execute in-process over real HTTP using the actual core readers, metadata decoder and signing codec. Tests assert exact profile bytes/hash, committed-height selection despite an advancing EVM head, asset accounts and signed output bytes, and preserve nonce/height/binding, metadata/pointer, network and owner refusals. Output files remain exclusive and mode 0600."
+fixture = "repair_22_33_1457_vectors.rs contains committed eth-abi 5.2.0 codec output generated from the repository bank/pointerview ABIs, plus an unchanged native committed block and certificate from core's existing producer capture; metadata vectors are codec fixtures, not asserted native-chain execution captures. The loopback peer rejects every unexpected request and never implements the probe or core readers."
+configuration = "The test provisions the production asset/denom binding once inside its own process; no caller-supplied environment, credential, live endpoint, external binary or subprocess toolchain is needed by verify_cmd."
+
+[wiring.task-record]
+request = "spec/layerx-merge/spec.kvx (fm-platform): copy the finding/test mapping and bounded gate revision into the task record; this task cannot edit spec files."
+
+[wiring.native-producer]
+request = "precompiles/bank and precompiles/pointerview (chain modules domain): provide committed positive native-chain execution captures for metadata/pointers; the in-scope gate uses repository-ABI codec vectors and the actual Rust consumer path."
+
+[wiring.bindings]
+request = "services/platform/hosted/node deployment configuration (fm-platform): supply authoritative asset/denom bindings via LAYERX_CORE_NATIVE_ASSET_DENOMS for the migrated custody commands."
+
+[gotcha.scope]
+observed = "GOTCHA.kvx and spec task/qualification files are outside the explicit repair scope."
+resolution = "Record the finding mapping, baseline-order conflict and wiring requests in this in-scope task record."
+
+[gotcha.fixture-codec]
+observed = "eth-utils needs an explicit Keccak backend when generating the ABI fixtures; the first fixture generation stopped before writing a file."
+resolution = "Generate with eth-hash[pycryptodome] installed alongside eth-abi and eth-utils; the committed vectors need no Python or hashing backend during the gate."
