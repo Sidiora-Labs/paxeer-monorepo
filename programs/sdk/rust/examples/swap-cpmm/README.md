@@ -40,6 +40,18 @@ The supplied token's `layerx_call` unconditionally refuses, and its named
 required nested route. Reusing the canonical request bytes alone does not
 make that token compatible.
 
+The required wire contract is:
+
+| Pool operation | Canonical method | Ordinal | Request bytes | Debit seed | Allowance spender | Recipient seed |
+| --- | --- | --- | --- | --- | --- | --- |
+| Pull | `transfer_from` | 3 | 90 | user id32 | immediate pool id32 | pool id32 |
+| Push | `transfer` | 1 | 58 | immediate pool id32 | none | user id32 |
+
+Both frames start with `LX`, token discriminator byte 20 and the ordinal,
+followed by the bounded-bytes envelope. The authenticated caller is absent
+from these frames: `TransferFrom.owner` identifies the debited user, not the
+spender. For a push, neither the pool owner nor a spender is supplied in calldata.
+
 The remaining wiring includes the token handler and registry route, allowance
 spender identity, registration of program-owned token recipients, and deployment
 binding of token ids and backing assets. The default token uses `REFERENCE_ASSET`
@@ -47,6 +59,35 @@ binding of token ids and backing assets. The default token uses `REFERENCE_ASSET
 See the [repair record](src/repair_22_31_264.kvx) for the outstanding work. Its
 request/codec/grant tests do not establish native liquidity, trading, rollback
 or persistent balance recovery; those paths remain unproven.
+
+## Compatibility and proof status
+
+The supplied token is **incompatible with swap settlement**. Its committed
+fixture uses program `[0x55; 32]`, while the pool expects tokens `[0x5a; 32]`
+and `[0x5b; 32]`. Its backing asset `[0x44; 32]` also differs from the pool's
+assets. Renaming an artifact or forwarding the original user's identity does
+not satisfy the immediate-pool spender contract. Program-owned pool recipients
+also need a token registration route; the token's direct `approve` registers
+only its invoking user, separately from native account registration.
+
+The [finding 036 repair record](src/repair_22_33_250.kvx) and
+[regression tests](tests/repair_22_33_250.rs) check this guide against the
+production `TokenCall` producer, SDK wire and grant encoders, and
+`NestedTokenCall` contract decoder. The token source and registry still expose
+the blockers above. These tests do not execute a native swap or prove rollback
+or restart recovery. The token's `native-token` fixtures cover direct token
+operations; they are not a swap-composition proof.
+
+After the token and registry owners install the authenticated nested route,
+native proof must execute the real bound swap and token artifacts in one native
+transaction: add and remove liquidity, trade in both directions, then refuse an
+output leg after a successful input leg. Check that token balances, allowances,
+backing balances, pool reserves and shares all retain their pre-transaction
+values after refusal. Close and reopen the persistent store and check those
+same values again, including a successful transaction's committed state.
+No such native rollback/restart proof is supplied here. Keep settlement blocked
+until that evidence exists and update this guide with its actual test and
+artifact identities; the codec tests cannot substitute for it.
 
 ## Accounts and shares
 

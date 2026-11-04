@@ -1,18 +1,47 @@
 # Recovery operator v2
 
-Use a fresh isolated recovery target and the exact interface, deployment, chain125 address, source and resource inventory identities emitted by the admitted integration gate. Configuration rendering emits credential references only. The PostgreSQL service file, AWS credentials file and independent runner signing key must be owned regular files with mode0600. Provider binaries and source are pinned by digest before invocation. Production resources require separate explicit admission.
+This runbook covers launchpad application recovery on chain ID `125`.
+The restoration epoch controls application/database and broker authority;
+committed network blocks remain the source of chain finality. Start with the
+[recovery contracts](../README.md), and use the
+[release harness](../phase4/runbook.md) for measurement and shared-capture evaluation.
+All commands below run from the repository root.
 
-`operator.py --configuration <private-file> --configuration-sha256 <trusted-digest> --proposal <proposal-file> --operation propose` records the proposal and actor audit atomically. Actor must equal the authenticated PostgreSQL coordinator principal. A stale epoch, region or revision fails. Application credentials must never receive coordinator proposal or activation grants.
+## Admission and proposal
 
-`providers.py base-backup` runs real `pg_basebackup` and `pg_verifybackup`; `archive-file` writes encrypted immutable S3 versions with checksum and compliance retention, and validates the acknowledged version. `wal-restore` downloads only the exact WAL filename admitted in the pinned inventory, validates the version and checksum, and writes inside the isolated owned directory. Do not supply an application bucket or credential as a backup resource. Unsupported archive features and absent credentials fail explicitly.
+Use a fresh isolated recovery target and the exact interface, deployment, chain 125 address, source and resource inventory identities emitted by the admitted integration gate. Configuration rendering emits credential references only. The PostgreSQL service file, AWS credentials file and independent runner signing key must be owned regular files with mode 0600. Provider binaries and source are pinned by digest before invocation. Production resources require separate explicit admission.
+
+```sh
+python3 deploy/launchpad/production/recovery/phase2/operator.py \
+  --configuration <private-file> \
+  --configuration-sha256 <trusted-digest> \
+  --proposal <proposal-file> --operation propose
+```
+
+This command records the proposal and actor audit atomically. Actor must equal the authenticated PostgreSQL coordinator principal. A stale epoch, region or revision fails. Application credentials must never receive coordinator proposal or activation grants.
+
+## Backup and physical restore
+
+Invoke provider operations through
+`python3 deploy/launchpad/production/recovery/phase2/providers.py`. Every operation
+requires `--configuration`, its independently admitted `--configuration-sha256`,
+and the current provider source digest in `--source-sha256`. Operation-specific
+inputs select the backup destination, archive object or exact WAL file; the
+provider configuration confines outputs to its `owned_directory`.
+
+The `base-backup` operation in [providers.py](providers.py) runs real `pg_basebackup` and `pg_verifybackup`; `archive-file` writes encrypted immutable S3 versions with checksum and compliance retention, and validates the acknowledged version. `wal-restore` downloads only the exact WAL filename admitted in the pinned inventory, validates the version and checksum, and writes inside the isolated owned directory. Do not supply an application bucket or credential as a backup resource. Unsupported archive features and absent credentials fail explicitly.
 
 `PostgreSQL.restore_physical` verifies the physical backup and PostgreSQL system identifier before copying into a new target. It rejects links and special files, replaces inherited network/archive settings, binds an owned Unix socket and explicit port, and replays WAL to an absolute timestamp with `recovery_target_action=pause`. Supply the pinned WAL restore command using provider configuration/source digests; no secrets belong in its arguments. Query the paused target and independently reconcile committed marker, full fixed watermark, counts, integer amounts and stable identities before promotion. A successful process start alone does not prove PITR.
 
+## Fence the old application authority
+
 Before validation, the coordinator invokes the actual `natsdriver.BrokerEpochController.Fence` against every old-epoch member. Its durable `recovery_broker_fences` row must be verified and less than five minutes old. Old-region database mutation and traffic fencing are separate required observations. A PostgreSQL guard alone cannot revoke broker acknowledgments.
 
-The owned `phase2/broker` executable exposes the explicit `fence` operation with required `--configuration`, `--configuration-sha256`, `--realm`, `--source-sha256`, `--interface-sha256`, `--deployment-sha256`, `--inventory-sha256` and `--proposal` bindings. Its strict private version2 configuration contains the authenticated database principal and connection-file binding; exact epoch, revision, checkpoint, chain125 addresses and resource ownership; and each real broker server identity, original/replacement configuration-file hashes, separate surviving control credential and revoked credential-file hashes, and bounded durable probe configuration. All input files must be owned regular mode0600 files; unknown or duplicate fields fail. Credential JSON contains `id`, `username` and `password`; the private PostgreSQL connection JSON contains `connection_string`. Neither appears in output.
+The owned `phase2/broker` executable exposes the explicit `fence` operation with required `--configuration`, `--configuration-sha256`, `--realm`, `--source-sha256`, `--interface-sha256`, `--deployment-sha256`, `--inventory-sha256` and `--proposal` bindings. Its strict private version 2 configuration contains the authenticated database principal and connection-file binding; exact epoch, revision, checkpoint, chain 125 addresses and resource ownership; and each real broker server identity, original/replacement configuration-file hashes, separate surviving control credential and revoked credential-file hashes, and bounded durable probe configuration. All input files must be owned regular mode 0600 files; unknown or duplicate fields fail. Credential JSON contains `id`, `username` and `password`; the private PostgreSQL connection JSON contains `connection_string`. Neither appears in output.
 
 The CLI verifies the actual PostgreSQL proposal and authenticated actor, connects to each exact NATS server, validates the actual file-backed probe consumer with old-epoch credentials, then calls the typed broker controller. The controller writes its applying state before replacing the pinned broker configurations, reloads through surviving authenticated server authority, and verifies old authentication, publication and acknowledgment rejection. The CLI confirms the persisted verified evidence and proof digest before returning the actual result. Failure can leave some brokers fenced and the durable operation failed; preserve that audit and reconcile deliberately. It never reverses revocation, fabricates a fence receipt or advances the restoration epoch. Production NATS and PostgreSQL connections require verified TLS; the isolated realm permits owned local fixtures.
+
+## Validate and activate
 
 Run all ten isolated scenarios against the restored authoritative services, physical WAL, actual object and IAM providers, and a reviewed 72-hour dataset. The independently credentialed runner signs observations and hashes each native artifact. `--operation validate --observations <signed-file>` requires every owned requirement to pass, current identity and checkpoint bindings, metric timelines, exact reconciliation, zero duplicate effects, no missing required objects, independent source verification, old-worker write/ack rejection and actual RPO/RTO bounds. Missing, expired, blocked or failed observations reject the proposal. Neither resource declarations nor signed empty summaries prove capacity.
 
@@ -22,27 +51,52 @@ Qualification must include actual physical PITR, provider IAM/KMS denial, missin
 
 ## Adversarial recovery v3
 
-Render the separate disabled v3 proposal with `render_adversarial`. Its ten plans bind each native executable digest, private configuration reference and digest, scenario input digest and deadline. Resolve those references only in the isolated runner. The runner configuration is version3 with realm `isolated-recovery-qualification`, the exact `RecoveryIdentity.diagnostic()`, pinned `tools`, exactly ten `plans` and a fresh mode0700 `output_directory`. Each plan contains `tool`, absolute mode0600 `configuration`, `configuration_sha256`, `inputs_sha256` and `timeout_seconds`. Missing native provider executables are blockers. A declaration or parser test does not supply a recovery executor.
+Render the separate disabled v3 proposal with `render_adversarial`. Its ten plans bind each native executable digest, private configuration reference and digest, scenario input digest and deadline. Resolve those references only in the isolated runner. The runner configuration is version 3 with realm `isolated-recovery-qualification`, the exact `RecoveryIdentity.diagnostic()`, pinned `tools`, exactly ten `plans` and a fresh mode 0700 `output_directory`. Each plan contains `tool`, absolute mode 0600 `configuration`, `configuration_sha256`, `inputs_sha256` and `timeout_seconds`. Missing native provider executables are blockers. A declaration or parser test does not supply a recovery executor.
 
-Invoke `providers.py rehearse --configuration <private-runner-file> --configuration-sha256 <admitted-digest> --source-sha256 <providers.py-digest> --identity <identity-file> --identity-sha256 <admitted-identity-digest> --requirement D14_031`, once per requirement. Each admitted native executable receives explicit realm, configuration, requirement, source, interface, deployment, inventory and input bindings. It must execute the actual isolated provider fault and return the exact result accepted by `recovery.adversarial_scenario`. A successful invocation writes an exclusive mode0600 native receipt, with executable digest and invocation times, after checking its results. Provider or assertion failure records a failed receipt and exits unsuccessfully. Reuse requires a new owned run directory; existing receipts are never overwritten.
+Invoke the provider runner once per requirement, changing `--requirement` for
+each of the ten scenarios:
+
+```sh
+python3 deploy/launchpad/production/recovery/phase2/providers.py rehearse \
+  --configuration <private-runner-file> \
+  --configuration-sha256 <admitted-digest> \
+  --source-sha256 <providers.py-digest> \
+  --identity <identity-file> \
+  --identity-sha256 <admitted-identity-digest> \
+  --requirement D14_031
+```
+
+Each admitted native executable receives explicit realm, configuration, requirement, source, interface, deployment, inventory and input bindings. It must execute the actual isolated provider fault and return the exact result accepted by `recovery.adversarial_scenario`. A successful invocation writes an exclusive mode 0600 native receipt, with executable digest and invocation times, after checking its results. Provider or assertion failure records a failed receipt and exits unsuccessfully. Reuse requires a new owned run directory; existing receipts are never overwritten.
 
 | Requirement | Required native action and result |
 | --- | --- |
-| D14_031 | Verify a physical base, commit a marker, delete after the target, replay WAL and pause. Marker digests must match; archive age is below60 seconds and independent replica lag at most300 seconds. |
-| D14_032 | Declare complete primary loss and record its checkpoint. Verify data reads and positive read-capacity samples within1800 seconds, with restored acknowledgment age at most300 seconds, distinct regional principals and one writer. |
-| D14_033 | Resume the previous worker against real database and broker authority. Require SQLSTATE55000 and an explicit broker authorization denial; before/after authoritative state digests remain equal. |
+| D14_031 | Verify a physical base, commit a marker, delete after the target, replay WAL and pause. Marker digests must match; archive age is below 60 seconds and independent replica lag at most 300 seconds. |
+| D14_032 | Declare complete primary loss and record its checkpoint. Verify data reads and positive read-capacity samples within 1800 seconds, with restored acknowledgment age at most 300 seconds, distinct regional principals and one writer. |
+| D14_033 | Resume the previous worker against real database and broker authority. Require SQLSTATE `55000` and an explicit broker authorization denial; before/after authoritative state digests remain equal. |
 | D14_034 | Republish the actual pending outbox event with unchanged identity and redeliver an already applied event twice. Pending outbox reaches zero while inbox and database effect counts remain equal. |
 | D14_035 | Remove every owned isolated broker disk and rebuild from verified hot backups or raw-chain/application sources. Reach the exact committed watermark with unchanged identity digest and zero fabricated or old-epoch events. |
 | D14_036 | Corrupt an owned archive copy and rebuild. Identify the exact object, halt its partition without new effects, then verify a replacement checksum through a distinct independent principal. |
-| D14_037 | Restore reviewed anonymized or synthetic72-hour data at a pinned watermark. Compare identity counts, signed raw integer amounts and dedup identity digests exactly. |
+| D14_037 | Restore reviewed anonymized or synthetic 72-hour data at a pinned watermark. Compare identity counts, signed raw integer amounts and dedup identity digests exactly. |
 | D14_038 | Invoke actual S3 version deletion and other-environment KMS decryption with the compromised application principal. Require AccessDenied/AccessDeniedException, unchanged backup identity, zero plaintext and signed provider audit records with matching requester/resource/request IDs. Timeouts and missing credentials do not qualify as denial. |
-| D14_039 | Remove the recovery copy of a required metadata/media object. Health must fail; every missing key is restored or explicitly unavailable. Required healthy cutover still requires zero missing objects and replication lag at most300 seconds. |
+| D14_039 | Remove the recovery copy of a required metadata/media object. Health must fail; every missing key is restored or explicitly unavailable. Required healthy cutover still requires zero missing objects and replication lag at most 300 seconds. |
 | D14_040 | Restore primary connectivity after cutover. Require read-only old primary, database and publication denial, unchanged recovered state and epoch, one writable region and no automatic failback. |
 
 The independent runner signs a v3 inventory `{payload,hmac_sha256}` containing version, realm, identity, proposal ID, expected epoch, revision, checkpoint digest, exact v2 observation digest and a `scenarios` map. Each requirement binds `path`, SHA256 and input digest of its native receipt. The archive rejects changed, reused, non-private, unadmitted-executable or failed receipts, validates all native results, and checks their times against the corresponding fault/evidence intervals. Signing a summary without these receipts cannot validate recovery.
 
+Reuse the configuration, configuration digest and proposal arguments above.
 Use `operator.py ... --operation validate --observations <signed-v2-file> --scenarios <signed-v3-file>`, then `--operation activate` with the same files. The v3 path records both digests and the earliest observation expiry in the same transaction as validation and audit. `activate_fenced_v3` locks control/proposal/validation in order, binds the database session principal, requires the identical fresh digests and an actual verified broker fence, then atomically advances authority and writes its audit. Register this resource and exact coordinator grants through the serial migration owner. Production v3 coordinators must not retain direct execution grants on legacy activation functions or direct application control-table writes.
 
 If the activation response is interrupted, use `operator.py ... --operation status` to reconcile the durable proposal, authority and single activation audit. Repeating activation does not create another epoch. Never undo old-primary broker revocation or automatically fail back after partial activation.
 
-The focused v3 check is `python3 deploy/production/recovery/phase2/check.py --phase 3`. It requires the existing admitted operator/observation configuration plus `RECOVERY_OPERATOR_SCENARIO_REHEARSALS`, and real IAM/KMS authority in `RECOVERY_ADVERSARIAL_PROVIDER_CONFIG` with its admitted SHA256. The latter includes exact identity, tools, separate application/authoritative archive configurations, exact principal ARN, pinned object, private ciphertext, other-environment key ARN and signed provider audit/key files. An independently credentialed collector must deliver the two actual provider denial events during the rehearsal interval; static historical audit records fail. All thirteen focused checks and all ten native receipts must pass. No HTTP-only health result or absent capacity evidence can satisfy this gate.
+## Focused v3 check
+
+```sh
+python3 deploy/launchpad/production/recovery/phase2/check.py --phase 3
+```
+
+The check requires `RECOVERY_OPERATOR_QUALIFICATION_CONFIG`, its admitted
+`RECOVERY_OPERATOR_QUALIFICATION_CONFIG_SHA256`,
+`RECOVERY_OPERATOR_SCENARIO_OBSERVATIONS` and
+`RECOVERY_OPERATOR_SCENARIO_REHEARSALS`. Real IAM/KMS authority is supplied through
+`RECOVERY_ADVERSARIAL_PROVIDER_CONFIG` and its admitted
+`RECOVERY_ADVERSARIAL_PROVIDER_CONFIG_SHA256`. The latter includes exact identity, tools, separate application/authoritative archive configurations, exact principal ARN, pinned object, private ciphertext, other-environment key ARN and signed provider audit/key files. An independently credentialed collector must deliver the two actual provider denial events during the rehearsal interval; static historical audit records fail. All thirteen focused checks and all ten native receipts must pass. No HTTP-only health result or absent capacity evidence can satisfy this gate.

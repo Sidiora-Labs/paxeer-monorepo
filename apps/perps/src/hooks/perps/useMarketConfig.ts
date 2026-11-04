@@ -27,11 +27,11 @@ export function marketConfigQueryOptions(marketId: bigint) {
         config.marketId !== marketId ||
         config.tickSize <= 0n ||
         config.lotSize <= 0n ||
-        config.maxLeverage < 10n ** 18n ||
+        config.maxLeverage < 1n ||
         !tiers.some((tier) => tier.lowerBoundUsd === 0n) ||
         tiers.some(
           (tier, index) =>
-            tier.maxLeverage < 10n ** 18n ||
+            tier.maxLeverage < 1n ||
             tier.maintenanceBps > 10_000n ||
             (index > 0 && tier.lowerBoundUsd <= tiers[index - 1].lowerBoundUsd),
         )

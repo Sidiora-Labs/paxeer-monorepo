@@ -4,177 +4,110 @@ order: 3
 
 # Messages
 
+The local [transaction protobuf](../../../proto/cosmos/gov/v1beta1/tx.proto)
+defines four governance messages. The [message validation](../types/msgs.go),
+[message server](../keeper/msg_server.go), and keepers implement their behavior.
+Transactions also pass normal signature, fee, and ante checks. Governance
+contributions and voting power are expressed in this chain's coins and bonded
+staking state.
+
 ## Proposal Submission
 
-Proposals can be submitted by any account via a `MsgSubmitProposal`
-transaction.
+`MsgSubmitProposal` has these fields:
 
-+++ https://github.com/cosmos/cosmos-sdk/blob/v0.40.0/proto/cosmos/gov/v1beta1/tx.proto#L24-L39
+| Field           | Type   | Purpose                                         |
+| --------------- | ------ | ----------------------------------------------- |
+| content         | Any    | Registered proposal content                     |
+| initial_deposit | Coins  | Proposer's initial contribution, possibly empty |
+| proposer        | string | Signing account address                         |
+| is_expedited    | bool   | Select expedited governance rules               |
 
-The `Content` of a `MsgSubmitProposal` message must have an appropriate router
-set in the governance module.
+Basic validation requires a proposer, valid non-negative coins, unpackable
+content, a registered proposal type, and successful `Content.ValidateBasic()`.
+An empty initial coin list is valid. Title and description are fields of the
+content, not fields of this message.
 
-**State modifications:**
+`SubmitProposalWithExpedite` checks for a handler for `Content.ProposalRoute()`.
+For `ParameterChangeProposal`, it also checks that the named parameter subspaces
+and keys exist. The handler then:
 
-- Generate new `proposalID`
-- Create new `Proposal`
-- Initialise `Proposals` attributes
-- Decrease balance of sender by `InitialDeposit`
-- If `MinDeposit` is reached:
-    - Push `proposalID` in `ProposalProcessingQueue`
-- Transfer `InitialDeposit` from the `Proposer` to the governance `ModuleAccount`
+1. Reads the next proposal ID and creates a `Proposal` with content packed in
+   `Any`, deposit status, zero final tally totals, submission time, deposit
+   deadline, and the message's expedited flag.
+2. Stores the proposal, inserts its inactive queue entry, advances the ID counter,
+   and invokes the submission hook.
+3. Calls `AddDeposit` for the initial contribution, transferring the supplied
+   coins to the `gov` module account and updating the proposal and deposit record.
+4. Activates voting if the aggregate deposit meets the minimum selected by the
+   proposal's expedited flag. This sets voting times and moves its queue entry.
+5. Returns `MsgSubmitProposalResponse` containing `proposal_id`.
 
-A `MsgSubmitProposal` transaction can be handled according to the following
-pseudocode.
-
-```go
-// PSEUDOCODE //
-// Check if MsgSubmitProposal is valid. If it is, create proposal //
-
-upon receiving txGovSubmitProposal from sender do
-
-  if !correctlyFormatted(txGovSubmitProposal)
-    // check if proposal is correctly formatted. Includes fee payment.
-    throw
-
-  initialDeposit = txGovSubmitProposal.InitialDeposit
-  if (initialDeposit.Atoms <= 0) OR (sender.AtomBalance < initialDeposit.Atoms)
-    // InitialDeposit is negative or null OR sender has insufficient funds
-    throw
-
-  if (txGovSubmitProposal.Type != ProposalTypePlainText) OR (txGovSubmitProposal.Type != ProposalTypeSoftwareUpgrade)
-
-  sender.AtomBalance -= initialDeposit.Atoms
-
-  depositParam = load(GlobalParams, 'DepositParam')
-
-  proposalID = generate new proposalID
-  proposal = NewProposal()
-
-  proposal.Title = txGovSubmitProposal.Title
-  proposal.Description = txGovSubmitProposal.Description
-  proposal.Type = txGovSubmitProposal.Type
-  proposal.TotalDeposit = initialDeposit
-  proposal.SubmitTime = <CurrentTime>
-  proposal.DepositEndTime = <CurrentTime>.Add(depositParam.MaxDepositPeriod)
-  proposal.Deposits.append({initialDeposit, sender})
-  proposal.Submitter = sender
-  proposal.YesVotes = 0
-  proposal.NoVotes = 0
-  proposal.NoWithVetoVotes = 0
-  proposal.AbstainVotes = 0
-  proposal.CurrentStatus = ProposalStatusOpen
-
-  store(Proposals, <proposalID|'proposal'>, proposal) // Store proposal in Proposals mapping
-  return proposalID
-```
+Content is executed only after a passing deadline tally. A text proposal's
+handler records no application changes; other proposal handlers define their
+own effects. See [Concepts](01_concepts.md#proposal-types).
 
 ## Deposit
 
-Once a proposal is submitted, if
-`Proposal.TotalDeposit < ActiveParam.MinDeposit`, Atom holders can send
-`MsgDeposit` transactions to increase the proposal's deposit.
+`MsgDeposit` contains `proposal_id` (`uint64`), `depositor` (account address
+string), and `amount` (`sdk.Coins`). The depositor signs. Basic validation checks
+the depositor and coin validity and rejects negative amounts; an empty coin list
+is not rejected by this validation.
 
-+++ https://github.com/cosmos/cosmos-sdk/blob/v0.40.0/proto/cosmos/gov/v1beta1/tx.proto#L61-L72
+[AddDeposit](../keeper/deposit.go) requires an existing proposal in either
+`StatusDepositPeriod` or `StatusVotingPeriod`. It transfers the contribution from
+the depositor to the `gov` module account, increases `TotalDeposit`, and creates
+or increases that account's deposit record. A transfer failure, including
+insufficient funds, returns an error.
 
-**State modifications:**
-
-- Decrease balance of sender by `deposit`
-- Add `deposit` of sender in `proposal.Deposits`
-- Increase `proposal.TotalDeposit` by sender's `deposit`
-- If `MinDeposit` is reached:
-    - Push `proposalID` in `ProposalProcessingQueueEnd`
-- Transfer `Deposit` from the `proposer` to the governance `ModuleAccount`
-
-A `MsgDeposit` transaction has to go through a number of checks to be valid.
-These checks are outlined in the following pseudocode.
-
-```go
-// PSEUDOCODE //
-// Check if MsgDeposit is valid. If it is, increase deposit and check if MinDeposit is reached
-
-upon receiving txGovDeposit from sender do
-  // check if proposal is correctly formatted. Includes fee payment.
-
-  if !correctlyFormatted(txGovDeposit)
-    throw
-
-  proposal = load(Proposals, <txGovDeposit.ProposalID|'proposal'>) // proposal is a const key, proposalID is variable
-
-  if (proposal == nil)
-    // There is no proposal for this proposalID
-    throw
-
-  if (txGovDeposit.Deposit.Atoms <= 0) OR (sender.AtomBalance < txGovDeposit.Deposit.Atoms) OR (proposal.CurrentStatus != ProposalStatusOpen)
-
-    // deposit is negative or null
-    // OR sender has insufficient funds
-    // OR proposal is not open for deposit anymore
-
-    throw
-
-  depositParam = load(GlobalParams, 'DepositParam')
-
-  if (CurrentBlock >= proposal.SubmitBlock + depositParam.MaxDepositPeriod)
-    proposal.CurrentStatus = ProposalStatusClosed
-
-  else
-    // sender can deposit
-    sender.AtomBalance -= txGovDeposit.Deposit.Atoms
-
-    proposal.Deposits.append({txGovVote.Deposit, sender})
-    proposal.TotalDeposit.Plus(txGovDeposit.Deposit)
-
-    if (proposal.TotalDeposit >= depositParam.MinDeposit)
-      // MinDeposit is reached, vote opens
-
-      proposal.VotingStartBlock = CurrentBlock
-      proposal.CurrentStatus = ProposalStatusActive
-      ProposalProcessingQueue.push(txGovDeposit.ProposalID)
-
-  store(Proposals, <txGovVote.ProposalID|'proposal'>, proposal)
-```
+While still in deposit status, meeting `MinDeposit` (or `MinExpeditedDeposit`)
+activates voting. Further deposits during voting do not restart the voting
+period. Deposit expiry is processed by `EndBlocker`; `AddDeposit` checks status
+rather than performing its own wall-clock deadline check. Final refund and burn
+rules are described in [Concepts](01_concepts.md#deposit-refund-and-burn).
 
 ## Vote
 
-Once `ActiveParam.MinDeposit` is reached, voting period starts. From there,
-bonded Atom holders are able to send `MsgVote` transactions to cast their
-vote on the proposal.
+`MsgVote` contains `proposal_id`, `voter`, and `option`. The voter signs. Basic
+validation requires a voter and one of `OptionYes` (1), `OptionAbstain` (2),
+`OptionNo` (3), or `OptionNoWithVeto` (4).
 
-+++ https://github.com/cosmos/cosmos-sdk/blob/v0.40.0/proto/cosmos/gov/v1beta1/tx.proto#L46-L56
+The message server converts the option into a weighted option with weight one,
+then calls [AddVote](../keeper/vote.go). The proposal must exist and have
+`StatusVotingPeriod`. The keeper writes the vote at the proposal/voter key,
+replacing any prior ordinary or weighted vote, and invokes the vote hook.
+It checks proposal status rather than a separate timestamp deadline.
 
-**State modifications:**
+The vote is recorded without requiring the account to have bonded stake. Its
+effective power is calculated from current bonded staking state at tally time;
+the handler does not increment counters on the proposal. See
+[State](02_state.md#votes) and [voting power](01_concepts.md#participants).
 
-- Record `Vote` of sender
+## Weighted Vote
 
-_Note: Gas cost for this message has to take into account the future tallying of the vote in EndBlocker_
+`MsgVoteWeighted` contains `proposal_id`, `voter`, and `options`, a non-empty list
+of `WeightedVoteOption` records. The voter signs. Each record pairs a valid vote
+option with a decimal weight greater than zero and at most one. Options must be
+unique and their weights must sum exactly to one.
 
-Next is a pseudocode outline of the way `MsgVote` transactions are
-handled:
+The message server passes the distribution to the same `AddVote` path. It uses
+the same proposal status checks and replaces any existing vote by that voter.
+Both vote messages emit weighted options in `proposal_vote.option`; their
+transaction actions differ as described in [Events](04_events.md).
 
-```go
-  // PSEUDOCODE //
-  // Check if MsgVote is valid. If it is, count vote//
+## Errors and responses
 
-  upon receiving txGovVote from sender do
-    // check if proposal is correctly formatted. Includes fee payment.
+The keeper uses the `gov` codespace errors in [types/errors.go](../types/errors.go):
 
-    if !correctlyFormatted(txGovDeposit)
-      throw
+| Error                      | Code | Trigger                                 |
+| -------------------------- | ---- | --------------------------------------- |
+| ErrUnknownProposal         | 2    | Proposal ID not found                   |
+| ErrInactiveProposal        | 3    | Proposal status disallows the operation |
+| ErrInvalidProposalContent  | 5    | Invalid or missing content              |
+| ErrInvalidProposalType     | 6    | Unregistered content type               |
+| ErrInvalidVote             | 7    | Invalid option, weight, or distribution |
+| ErrNoProposalHandlerExists | 9    | Content route has no handler            |
 
-    proposal = load(Proposals, <txGovDeposit.ProposalID|'proposal'>)
-
-    if (proposal == nil)
-      // There is no proposal for this proposalID
-      throw
-
-
-    if  (proposal.CurrentStatus == ProposalStatusActive)
-
-
-        // Sender can vote if
-        // Proposal is active
-        // Sender has some bonds
-
-        store(Governance, <txGovVote.ProposalID|'addresses'|sender>, txGovVote.Vote)   // Voters can vote multiple times. Re-voting overrides previous vote. This is ok because tallying is done once at the end.
-```
+Address and coin validation, an empty weighted-option list, and bank transfers
+can return SDK or bank errors instead. Except for submission's `proposal_id`,
+the successful response messages are empty. See [Events](04_events.md) for the
+observable deposit, voting-start, and vote attributes.
