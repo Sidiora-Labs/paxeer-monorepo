@@ -66,7 +66,7 @@ pub struct Registrar {
     registry: Registry,
     event_outbox: crate::event_producer::ProgramOutbox,
     journal: FileDeploymentJournal,
-    chain_deployment_journal: std::path::PathBuf,
+    chain_endpoint: String,
     program_state: FileProgramStateJournal,
     node_state: NodeProgramStateSource,
     mirror: SourceMirror,
@@ -125,6 +125,20 @@ impl Registrar {
         builder: HermeticBuilder,
         health: bool,
     ) -> Result<Self, String> {
+        let endpoint = std::env::var("LAYERX_REGISTRY_CHAIN_RPC_URL")
+            .map_err(|_| "LAYERX_REGISTRY_CHAIN_RPC_URL is required".to_owned())?;
+        Self::open_with_builder_and_chain(config, now, builder, health, &endpoint)
+    }
+
+    /// Opens the same worker boundary with an explicit Programs RPC endpoint.
+    pub fn open_with_builder_and_chain(
+        config: &Config,
+        now: u64,
+        builder: HermeticBuilder,
+        health: bool,
+        chain_endpoint: &str,
+    ) -> Result<Self, String> {
+        ProgramsChain::new(chain_endpoint)?;
         let verifier = SourceVerifier::new(builder, config.attempts)
             .map_err(|refused| format!("the build pipeline is not admissible: {refused}"))?;
         if config.staleness_ms == 0 {
@@ -134,7 +148,7 @@ impl Registrar {
             registry: Registry::new(),
             event_outbox: crate::event_producer::ProgramOutbox::new(&config.journal),
             journal: FileDeploymentJournal::open(config.journal.clone())?,
-            chain_deployment_journal: config.journal.clone(),
+            chain_endpoint: chain_endpoint.to_owned(),
             program_state: FileProgramStateJournal::open(config.journal.join("program-state"))?,
             node_state: node_state(config)?,
             mirror: SourceMirror::open(config.mirror.clone())?,
@@ -291,43 +305,15 @@ impl Registrar {
                 body: json!({"status": "ready", "service": "program-registry"}).to_string(),
             },
             ("POST", "/__registry/deployments") => {
-                let endpoint = match std::env::var("LAYERX_REGISTRY_CHAIN_RPC_URL") {
-                    Ok(endpoint) => endpoint,
-                    Err(_) => {
-                        return refusal(
-                            503,
-                            "deployment_proof_unavailable",
-                            "LAYERX_REGISTRY_CHAIN_RPC_URL is required",
-                        )
-                    }
-                };
-                Self::route_chain_deployment(
-                    request,
-                    &self.request_authority,
-                    &self.chain_deployment_journal,
-                    &endpoint,
-                    deadline,
-                )
+                self.ingest_authenticated_deployment(request, now)
             }
-            ("POST", "/__registry/head") => {
-                let endpoint = match std::env::var("LAYERX_REGISTRY_CHAIN_RPC_URL") {
-                    Ok(endpoint) => endpoint,
-                    Err(_) => {
-                        return refusal(
-                            503,
-                            "protocol_state_unavailable",
-                            "LAYERX_REGISTRY_CHAIN_RPC_URL is required",
-                        )
-                    }
-                };
-                Self::route_chain_head(
-                    request,
-                    &self.request_authority,
-                    &self.journal,
-                    &endpoint,
-                    deadline,
-                )
-            }
+            ("POST", "/__registry/head") => Self::route_chain_head(
+                request,
+                &self.request_authority,
+                &self.journal,
+                &self.chain_endpoint,
+                deadline,
+            ),
             ("POST", "/__registry/sources") => {
                 if let Err(response) = self.publication_principal(request) {
                     return response;
@@ -419,8 +405,6 @@ impl Registrar {
                 "program-state feed is ahead of the independently verified head".to_owned(),
             );
         }
-        let endpoint = std::env::var("LAYERX_REGISTRY_CHAIN_RPC_URL")
-            .map_err(|_| "LAYERX_REGISTRY_CHAIN_RPC_URL is required".to_owned())?;
         let deadline = self
             .request_deadline
             .unwrap_or_else(|| Instant::now() + std::time::Duration::from_secs(15));
@@ -428,7 +412,7 @@ impl Registrar {
         let mut staged = Vec::with_capacity(programs.len());
         for program in programs {
             self.program_state.store(
-                &endpoint,
+                &self.chain_endpoint,
                 program,
                 current_head.freshness.observed_sequence,
                 deadline,
@@ -442,7 +426,7 @@ impl Registrar {
             }
             let profile2 = match abi {
                 Some(2) => false,
-                Some(3 | 4) => true,
+                Some(3 | 4 | 5) => true,
                 _ => return Err("program account ABI is unsupported".to_owned()),
             };
             let record = if profile2 {
@@ -633,7 +617,7 @@ impl Registrar {
             };
         }
         if abi != Some(2)
-            && !matches!(abi, Some(3 | 4) if self.account_profile2_reads.contains_key(&read.entry.program))
+            && !matches!(abi, Some(3 | 4 | 5) if self.account_profile2_reads.contains_key(&read.entry.program))
         {
             return refusal(
                 502,
@@ -1121,7 +1105,7 @@ impl Registrar {
         settled(lease, &mut record, state, now, response)
     }
 
-    fn source_deployment(
+    pub fn source_deployment(
         &mut self,
         program: ProgramId,
         now: u64,
@@ -1129,8 +1113,18 @@ impl Registrar {
         if self.registry.latest_version(program).is_err() {
             return Err(refusal(404, "not_found", "program is not registered"));
         }
-        self.synchronize_protocol_state(Some(program), now)
+        let (head, authority) = self
+            .node_state
+            .current_head_authority(now)
             .map_err(|error| refusal(503, "protocol_state_unavailable", &error))?;
+        self.journal
+            .refresh_head(ObservedHead {
+                sequence: head.freshness.observed_sequence,
+                observed_at: head.freshness.observed_at,
+            })
+            .map_err(|error| refusal(503, "journal_unavailable", &error))?;
+        self.current_head = Some(head);
+        self.head_authority = Some(authority);
         let authority = JournalReadAuthority::new(&self.journal, now, self.staleness_ms)
             .map_err(|error| refusal(503, "read_unverifiable", &error.to_string()))?;
         let read = self
@@ -1163,7 +1157,7 @@ impl Registrar {
             || deployment.code_hash() != version.code_hash
             || deployment.abi_version() != version.abi_version
             || deployment.receipt_digest() != version.deployment_receipt_digest
-            || !(1..=4).contains(&deployment.abi_version())
+            || VerifiedDeploymentEvidence::admit_abi_version(deployment.abi_version()).is_err()
             || deployment.lifecycle() != ProgramLifecycle::Active
         {
             return Err(refusal(
@@ -1197,11 +1191,10 @@ impl Registrar {
                 "current chain authority is unavailable",
             )
         })?;
-        let bundle = self
+        let current = self
             .node_state
-            .current_program_bundle(program, head, authority, now)
+            .current_deployment_head(deployment, head, authority, now)
             .map_err(|error| refusal(503, "deployment_head_unverified", &error))?;
-        let current = bundle.program_head();
         if current.version() != deployment.version()
             || current.code_hash() != deployment.code_hash()
             || current.abi_version() != deployment.abi_version()
@@ -1284,6 +1277,60 @@ impl Registrar {
             deployment_provenance: deployment_provenance(deployment),
         });
         verification_response(deployment, &build, status)
+    }
+
+    fn ingest_authenticated_deployment(&mut self, request: &Request, now: u64) -> Response {
+        let proof = match programs_chain::deployment_admission(&request.body) {
+            Ok(proof) => proof,
+            Err(error) => return refusal(422, "deployment_proof_refused", &error),
+        };
+        let evidence = match self.node_state.verify_stored_deployment(&proof, now) {
+            Ok(evidence) => evidence,
+            Err(error) => return refusal(422, "deployment_proof_refused", &error),
+        };
+        let mut candidate = self.registry.clone();
+        let checked = match self
+            .deployments
+            .get(&(evidence.program(), evidence.version()))
+        {
+            Some(stored) if stored == &evidence => Ok(()),
+            Some(_) => Err(RegistryError::DeploymentMismatch),
+            None if evidence.version() == 1 => candidate.record_verified_deployment(&evidence),
+            None => match self
+                .deployments
+                .get(&(evidence.program(), evidence.version() - 1))
+            {
+                Some(predecessor) => candidate.record_verified_upgrade(predecessor, &evidence),
+                None => Err(RegistryError::VersionHistoryMismatch),
+            },
+        };
+        if let Err(error) = checked {
+            return refusal(422, "deployment_proof_refused", &error.to_string());
+        }
+        if self.node_state.request_deadline_expired() {
+            return refusal(
+                503,
+                "request_deadline_exceeded",
+                "deployment admission deadline expired",
+            );
+        }
+        if let Err(error) = self
+            .journal
+            .append(&evidence)
+            .and_then(|_| self.rebuild(now))
+        {
+            return refusal(503, "journal_unavailable", &error);
+        }
+        Response {
+            status: 200,
+            body: json!({
+                "program_id": hex::encode(&evidence.program().bytes()),
+                "code_hash": hex::encode(&evidence.code_hash()),
+                "abi_version": evidence.abi_version(), "version": evidence.version(),
+                "transaction_hash": hex::encode(&evidence.activity_id()), "state": "deployed",
+            })
+            .to_string(),
+        }
     }
 
     pub fn route_chain_deployment(
@@ -1388,22 +1435,23 @@ impl Registrar {
         let mut registry = Registry::new();
         let mut interfaces = BTreeMap::new();
         let mut deployments = BTreeMap::new();
-        let loaded = self.journal.load()?;
-        for unit in &loaded.units {
-            let evidence = self
-                .node_state
-                .verify_stored_deployment(unit.proof(), now)?;
-            self.journal.audit_projection(&evidence)?;
+        let (evidence, quarantined) = self.journal.replay_deployments(&self.node_state, now)?;
+        for evidence in evidence {
             deployments.insert((evidence.program(), evidence.version()), evidence.clone());
-            self.journal.export_pair(&evidence)?;
             if let Some(interface) = evidence.interface() {
                 interfaces.insert((evidence.program(), evidence.version()), interface.clone());
             }
-            registry
-                .record_verified_deployment(&evidence)
-                .map_err(|error| {
-                    format!("verified deployment history is not replayable: {error}")
-                })?;
+            let admitted = if evidence.version() == 1 {
+                registry.record_verified_deployment(&evidence)
+            } else {
+                let predecessor = deployments
+                    .get(&(evidence.program(), evidence.version() - 1))
+                    .ok_or("verified upgrade predecessor is absent")?;
+                registry.record_verified_upgrade(predecessor, &evidence)
+            };
+            admitted.map_err(|error| {
+                format!("verified deployment history is not replayable: {error}")
+            })?;
         }
         for record in self.verified.records()? {
             let deployment = deployments
@@ -1413,7 +1461,7 @@ impl Registrar {
                 })?;
             if record.deployment_provenance != deployment_provenance(deployment)
                 || record.artifact_digest != deployment.code_hash()
-                || !(1..=4).contains(&deployment.abi_version())
+                || VerifiedDeploymentEvidence::admit_abi_version(deployment.abi_version()).is_err()
             {
                 return Err(
                     "a stored source verification has mismatched deployment provenance".to_owned(),
@@ -1449,7 +1497,7 @@ impl Registrar {
         self.deployments = deployments;
         self.current_head = None;
         self.head_authority = None;
-        self.quarantined = loaded.quarantined;
+        self.quarantined = quarantined;
         Ok(())
     }
 
