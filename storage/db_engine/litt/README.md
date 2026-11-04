@@ -25,14 +25,14 @@ LittDB is a highly specialized embedded key-value store that is optimized for th
 - low read latency
 - low memory usage
 - write once, never update
-- data is only deleted via a [TTL](#ttl) (time-to-live) mechanism
+- automatic retention via a [TTL](#ttl) (time-to-live) mechanism
 
-In order to achieve these goals, LittDB provides an intentionally limited feature set. For workloads
-that are capable of being handled with this limited feature set, LittDB is going to be more performant
-than just about any other key-value store on the market. For workloads that require more advanced
-features, "sorry, not sorry". LittDB is able to do what it does precisely because it doesn't provide
-a lot of the features that a more general-purpose key-value store would provide, and adding those
-can only be done by sacrificing the performance that LittDB is designed to provide.
+LittDB lives in `storage/db_engine/litt` in the Paxeer monorepo. It is an embedded Go library;
+its [CLI](docs/littdb_cli.md) operates on local storage files and backups. Storage flushes establish
+local durability, not network consensus finality. Paxeer is one BFT network with EVM chain ID 125;
+the kernel is part of that network and proposes blocks. Sub-chains are tenant domains in the
+database, not separate infrastructure. A LittDB table supplies a local key namespace; this package
+does not itself provision tenant domains.
 
 ## Features
 
@@ -44,7 +44,8 @@ The following features are currently supported by LittDB:
 - [tables](#table) with non-overlapping namespaces
 - multi-drive support (data can be spread across multiple physical volumes)
 - incremental backups (both local and remote)
-- keys and values up to 2^32 bytes in size
+- primary and secondary keys up to 65,535 bytes (2^16 - 1)
+- values up to 4,294,967,295 bytes (2^32 - 1, `math.MaxUint32`)
 - incremental snapshots
 - incremental remote backups
 
@@ -78,14 +79,10 @@ enough need is demonstrated:
 
 ## Anti-Features
 
-These are the features that LittDB specifically does not provide, and will never provide. This is
-not done because we're lazy, but because these features would significantly impact the performance
-of the database, and because they are simply not needed for the intended use cases of LittDB. LittDB
-is a highly specialized tool for a very specific task, and it is not intended to be a general-purpose
-key-value store.
+LittDB deliberately omits general-purpose database features. Its supported write path is append-only:
 
 - mutating existing values (once a value is written, it cannot be changed)
-- deleting values (values only leave the DB when they expire via a TTL)
+- deleting individual values on demand (TTL handles retention; `Drop` and `Destroy` remove whole tables/databases)
 - transactions (individual operations are atomic, but there is no way to group operations atomically)
 - fine granularity for [TTL](#ttl) (all data in the same table must have the same TTL)
 - multi-computer replication (LittDB is designed to run on a single machine)
@@ -137,8 +134,16 @@ type Table interface {
 
 `Iterator(false)` walks keys in insertion order (oldest first) and `Iterator(true)` in reverse insertion order.
 An iterator sees a snapshot of the keys present when it was created and must be closed when no longer needed.
+Garbage collection is suspended while an iterator is open. Iterators themselves are not safe for concurrent use.
 
-Both primary keys and secondary keys must not exceed 64 KiB (2^16 - 1 bytes). Values may be up to 2^32 bytes.
+Both primary and secondary keys must not exceed 65,535 bytes (2^16 - 1); this is one byte less
+than 64 KiB. Values must not exceed 4,294,967,295 bytes (2^32 - 1). These are the checks in
+[`DiskTable.PutBatch`](disktable/disk_table.go), which also backs `Put`. Nil key and value slices
+are rejected; non-nil empty slices are allowed. Supply non-nil requests and secondary-key entries.
+Keys must be unique within a table, including aliases. Duplicate keys within a single request are
+rejected; callers must prevent collisions across requests. `Config.DoubleWriteProtection` defaults
+to false and is not a substitute for assigning unique keys. Do not mutate supplied byte slices or
+returned values; copy them if mutation is needed.
 
 Source: [put_request.go](types/put_request.go)
 
@@ -154,7 +159,7 @@ Source: [secondary_key.go](types/secondary_key.go)
 
 ```go
 type SecondaryKey struct {
-	Key    []byte // a globally unique key alias
+	Key    []byte // a key alias unique within the table
 	Offset uint32 // byte offset into the parent value
 	Length uint32 // length of the byte range (Offset+Length <= len(Value))
 }
@@ -167,56 +172,76 @@ than duplicating value bytes.
 
 ## Getting Started
 
-Below is a functional example showing how to use LittDB.
+This example opens a table, writes and flushes a value, reads it, and checks the close error.
+Stop all writers before closing the database.
 
 ```go
-// Configure and build the database.
-config, err := litt.DefaultConfig("path/to/where/data/is/stored")
-if err != nil {
-	return err
+package main
+
+import (
+	"errors"
+	"fmt"
+	"log"
+
+	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/db_engine/litt"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/db_engine/litt/littbuilder"
+)
+
+func example() (err error) {
+	config, err := litt.DefaultConfig("./litt-data")
+	if err != nil {
+		return err
+	}
+	db, err := littbuilder.NewDB(config)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, db.Close()) }()
+
+	// Build each table once per DB lifetime, whether new or reopened.
+	table, err := db.BuildTable(litt.DefaultTableConfig("my-table"))
+	if err != nil {
+		return err
+	}
+	key := []byte("example-key") // Use a fresh key for each new write.
+	if exists, err := table.Exists(key); err != nil {
+		return err
+	} else if !exists {
+		if err := table.Put(key, []byte("example-value")); err != nil {
+			return err
+		}
+	}
+	if err := table.Flush(); err != nil {
+		return err
+	}
+	value, exists, err := table.Get(key)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("exists=%t value=%s\n", exists, value)
+	return nil
 }
 
-db, err := littbuilder.NewDB(config)
-if err != nil {
-	return err
-}
-
-// Build the table. This works whether the table is new or already exists on disk, but it must be called
-// exactly once per table per process lifetime. The table is configured via a litt.TableConfig, whose name is
-// required; use litt.DefaultTableConfig(name) for sane defaults and override fields (TTL, sharding factor,
-// cache sizes) as needed. With the exception of the name, these settings are not persisted across restarts.
-myTable, err := db.BuildTable(litt.DefaultTableConfig("my-table"))
-if err != nil {
-	return err
-}
-
-// Write a key-value pair to the table.
-key := []byte("this is a key")
-value := []byte("this is a value")
-
-err = myTable.Put(key, value)
-if err != nil {
-	return err
-}
-
-// Flush the data to disk.
-err = myTable.Flush()
-if err != nil {
-	return err
-}
-
-// Congratulations! Your data is now durable on disk.
-
-// Read the value back. This works before or after a flush.
-val, ok, err := myTable.Get(key)
-if err != nil {
-	return err
+func main() {
+	if err := example(); err != nil {
+		log.Fatal(err)
+	}
 }
 ```
 
 ## Configuration Options
 
-For more information about configuration, see [littdb_config.go](littdb_config.go).
+Start with [`DefaultConfig`](littdb_config.go) and set `Config.Paths` to every storage root.
+Use [`DefaultTableConfig`](table_config.go) for each `BuildTable` call: the defaults are no TTL,
+eight shards, and disabled read/write caches. Table settings other than the name must be supplied
+again after a restart; each existing segment retains the sharding factor needed to read its files.
+[`RuntimeConfig`](runtime_config.go) holds the context, logger, clock, and optional fatal-error
+callback; `NewDB` uses defaults when it is omitted.
+
+Keep `Config.Fsync` enabled (the default) for crash durability. `SnapshotDirectory` enables rolling
+snapshots of sealed segments; it is empty by default. See the [CLI backup and restore guide](docs/littdb_cli.md#litt-push).
+Changing storage roots requires stopping the database, optionally [rebasing](docs/littdb_cli.md#litt-rebase)
+files, updating `Paths`, and reopening. Changing `Table.SetShardingFactor` is a separate runtime operation.
 
 ## LittDB CLI
 
@@ -258,9 +283,11 @@ It will never be the case that only part of the [value](#value) is written to di
 ## Cache
 
 LittDB maintains an in-memory cache of [key](#key)-[value](#value) pairs. Data is stored in this cache when a value
-is first written, as well as when it is read from disk. This is not needed for correctness, but is rather a performance
-optimization. The cache is not persistent, and is lost when the database is restarted. The size of the cache is
-configurable.
+is first written (write cache), as well as when it is read from the base table (read cache), when those caches
+are enabled. Both default to size zero. The caches are not persistent. On a cache hit,
+[`cachedTable.CacheAwareGet`](dbcache/cached_table.go) checks `base.Exists` before returning bytes;
+`Exists` delegates directly to the base. Garbage collection can leave bytes physically cached until eviction,
+but keys removed from the base table are no longer returned. See the [architecture](docs/architecture.md#putting-it-all-together-littdb).
 
 ## Batched Writes
 
@@ -277,6 +304,9 @@ In this context, the term "durable" is used to mean that data is stored on disk 
 in the event of a crash. Data that has been [flushed](#flushing) is considered durable. Data that has not been flushed
 is not considered durable. That doesn't mean that the data will be lost in the event of a crash, but rather that it
 is not guaranteed to be present after a crash.
+
+These guarantees require `Config.Fsync = true` and successful `Flush`/`Close` calls. With fsync disabled,
+flushing buffers does not guarantee survival of an OS or hardware crash.
 
 There are some limits to the strength of the durability guarantee provided by LittDB. For example, some drives buffer
 data in internal buffers before writing it to disk, and do not necessarily write data to disk immediately. LittDB is
@@ -296,8 +326,9 @@ If `Flush()` is never called, data becomes durable through two mechanisms:
 
 - When a [segment](#segment) becomes full, it is made immutable and a new segment is created. As part of the process
   of making a segment immutable, all data in the segment is fully written to disk.
-- When the database is cleanly stopped via a call to `Stop()`, all unflushed data is written to disk. `Stop()` blocks
-  until this has been completed.
+- When the database is cleanly closed via `DB.Close()`, all previously accepted, unflushed data is written to
+  disk before a successful return. Check its error. Writes overlapping `Close()` are not guaranteed durable;
+  stop and join writers before closing.
 
 `Flush()` makes no guarantees about the [durability](#durability) of data written concurrently with the call to
 `Flush()` or after the call to `Flush()` has returned. It's not harmful to write data concurrently with a call to
@@ -364,7 +395,7 @@ Note that in LittDB, values are never permitted to be mutated. But when values g
 the value can be deleted. From a consistency point of view, the garbage collection process is equivalent to an update.
 That is to say, if a thread writes a [value](#value), waits a very long time, then reads that same [value](#value)
 back again, it is not a violation of read-your-writes consistency if the [value](#value) is not present because the
-[garbage collector](#garbage-collection) has deleted it.
+[garbage collector](#ttl) has deleted it.
 
 An "eventual consistent" database does not necessarily provide read-your-writes consistency. In the author's experience,
 such systems can be very difficult to reason about, and can lead to subtle bugs that are difficult to track down.
@@ -379,19 +410,23 @@ data is near the end. Old, [expired](#ttl) data is always deleted from the first
 data is always written to the last segment currently in the list.
 
 Segments are deleted as a whole. That is, when a segment is deleted, all data in that segment is deleted at the same
-time. Segments are only deleted when all data contained within them has [expired](#ttl).
+time. Normal garbage collection deletes a sealed segment only after its seal age exceeds the table [TTL](#ttl)
+and its optional `GCFilter` permits every key. Open iterators suspend garbage collection.
 
 Segments have a target data size. When a segment is full, that segment is made immutable, and a new segment is created
 and added to the end of the list.
 
-Note that the maximum size of a segment file is not a hard limit. As long as the first byte of a [value](#value) is
-written to a segment file before the segment is full, the segment is permitted to hold it. An [address](#address)
-points to that first byte of a value. Since there are 32 bits in an [address](#address) used to store the offset
-within the file, the maximum offset for the first byte of a value is 2^32 bytes (4GB).
+`Config.TargetSegmentFileSize` is a rollover target for each shard value file, not permission to
+exceed the address format. V3 value files store raw value bytes; the address contains a uint32 offset
+and uint32 length. The complete value extent, including every secondary alias range, must fit within
+`math.MaxUint32` bytes of the selected file. Values cannot be arbitrarily large.
 
-A natural side effect of only requiring the first byte of a [value](#value) to be written before the segment is full is
-that LittDB can support arbitrarily large [values](#value). Doing so may result in a large amount of data in a single
-segment, but this does not violate any correctness invariants.
+Before writing a primary value and its aliases, the control loop calls `Segment.HasCapacity`. If the
+next round-robin shard cannot fit the group, it seals the current segment and retries that unchanged
+group once on a fresh segment. `Segment.Write` still checks the bounds. After a write, exceeding the
+configured size target, reaching `MaxSegmentKeyCount`, or reaching `TargetSegmentKeyFileSize` also
+causes rollover. A single legal value may exceed a smaller configured target, but never the format limit.
+See [control_loop.go](disktable/control_loop.go) and [segment.go](disktable/segment/segment.go).
 
 Each segment may split its data into multiple [shards](#shard). The number of shards in a segment is called the
 [sharding factor](#sharding-factor). The [sharding factor](#sharding-factor) is configurable, and different segments
@@ -431,8 +466,7 @@ Each metadata contains the following information:
 - the [segment index](#segment-index)
 - serialization version (in case the format changes in the future)
 - the [sharding factor](#sharding-factor) for the segment
-- the [timestamp](#segment-timestamp) of the last element written in the segment.
-  the [TTL](#ttl) of any data contained within it.
+- the seal [timestamp](#segment-timestamp), used with the current table [TTL](#ttl) for retention
 - whether or not the segment is [immutable](#segment-mutability)
 
 The file name of a metadata file is `X.metadata`, where `X` is the [segment index](#segment-index).
@@ -443,9 +477,8 @@ Only the last segment in the "linked list" is mutable. All other segments are im
 
 ### Segment Timestamp
 
-The timestamp of the last element written to the segment. This is used to determine when it is safe to delete a
-segment without violating the [TTL](#ttl) of any data contained within it. This value is unset for the last segment
-in the list, as it is still being written to.
+The timestamp recorded when the segment is sealed. Garbage collection compares its age with the current
+table [TTL](#ttl). The mutable segment has not yet been sealed.
 
 ### Segment Value Files
 
@@ -464,17 +497,18 @@ Within a [segment](#segment), [values](#value) are assigned to shards in round-r
 write goes to shard 0, the second to shard 1, and so on, wrapping around once every shard has been used. Each
 [value's](#value) shard is recorded in its [address](#address), so reads do not need to recompute the assignment.
 
-This scheme produces a perfectly even distribution of [values](#value) across shards regardless of the
+This scheme distributes the number of writes evenly across shards within a segment regardless of the
 [keys](#key) being written. As a side benefit, an outside attacker cannot craft a sequence of [keys](#key) that
 all land in the same shard, since the shard chosen for a given [value](#value) depends only on the order in which
-it was written, not on the contents of its [key](#key).
+it was written, not on the contents of its [key](#key). This does not guarantee equal byte usage when values differ in size.
 
 ### Sharding Factor
 
 The number of [shards](#shard) in a [segment](#segment) is called the "sharding factor". The sharding factor must
-be a positive, non-zero integer no larger than 256 (the limit imposed by encoding the shard ID as a single byte
-inside the [address](#address)). The sharding factor can be changed at runtime without restarting the database or
-performing a data migration.
+be in the inclusive range 1 through 255 (`litt.MaxShardingFactor`). Both the factor in segment metadata
+and `TableConfig.ShardingFactor` / `Table.SetShardingFactor` use a single byte (`uint8`). Changing the
+factor at runtime seals the mutable segment and starts a new one; existing segments retain their
+factors. This requires neither a restart nor a data migration.
 
 ## Table
 
@@ -494,11 +528,15 @@ must be provided again each time the database is opened.
 
 ## TTL
 
-TTL stands for "time-to-live". If data is configured to have a TTL of X hours, the data is automatically deleted
-approximately X hours after it is written.
+TTL stands for "time-to-live". A sealed segment becomes eligible for collection when its seal age
+reaches the current table TTL. Deletion is lazy and segment-wide: time in the mutable segment, the
+GC interval, a blocking filter, or an open iterator can delay removal beyond a key's nominal age.
 
-Note that TTL is the only way littDB supports removing data from the database. Although it is legal to configure
-a table with a TTL of 0 (i.e. where data never expires), such a table will never be able to remove data.
+TTL is the online retention mechanism for individual entries. A TTL of 0 disables automatic garbage collection.
+`Table.Drop()` and `DB.Destroy()` explicitly remove whole tables or the database, and the offline
+[prune command](docs/littdb_cli.md#litt-prune) removes old segments. Do not drop a table concurrently with
+operations using that table. A `TableConfig.GCFilter`, if supplied, can delay collection beyond the TTL;
+it must return true permanently once a key becomes eligible.
 
 ## Unflushed Data Map
 

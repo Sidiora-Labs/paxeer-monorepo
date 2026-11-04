@@ -1,275 +1,240 @@
 # Installation
 
-The LittDB CLI is not currently distributed as a pre-built binary. This may change in the future, but for now,
-you will need to build it from source.
+The LittDB CLI is built from the Paxeer monorepo. It operates on storage files; it does not connect
+to the network JSON-RPC. See the [LittDB API](../README.md#api) and [architecture](architecture.md)
+for the embedded library and its durability guarantees.
 
 ## Building from source
 
-Make sure you have the latest version of Go installed. You can find instructions for installing Go
-[here](https://go.dev/doc/install).
-
-Clone the EigenDA repository:
+Use the Go toolchain required by the repository's [go.mod](../../../../go.mod) (currently Go 1.25.8).
+From the monorepo root:
 
 ```bash
-git clone https://github.com/Layr-Labs/eigenda.git
-```
-Build the LittDB CLI:
-
-```bash
-cd eigenda/litt
+cd storage/db_engine/litt
 make build
+./bin/litt --help
 ```
 
-The LittDB CLI binary will be located at `eigenda/litt/bin/litt`.
+The [Makefile](../Makefile) runs `go build -o ./bin/litt ./cli`. The resulting binary is
+`storage/db_engine/litt/bin/litt`, relative to the repository root.
 
 ### Optional: Shortcuts
 
-If you want to be able to run the LittDB CLI from anywhere, you can do one of the following:
-
-Create an alias in your shell configuration file (e.g. `.bashrc`, `.zshrc`, etc.):
+Use the absolute location of your checkout when defining an alias or extending `PATH`:
 
 ```bash
-alias litt='path/to/eigenda/litt/bin/litt'
+alias litt='/path/to/paxeer-monorepo/storage/db_engine/litt/bin/litt'
+export PATH="$PATH:/path/to/paxeer-monorepo/storage/db_engine/litt/bin"
 ```
 
-Or, you can add the `eigenda/litt/bin` directory to your `PATH` environment variable:
-
-```bash
-export PATH="$PATH:path/to/eigenda/litt/bin"
-```
-
-Or you can just copy the `litt` binary to a directory that is already in your `PATH`, such as `/usr/local/bin`:
-
-```bash
-cp eigenda/litt/bin/litt /usr/local/bin/
-```
-
-A symlink can also be created to the `litt` binary in a directory that is already in your `PATH`:
-
-```bash
-ln -s path/to/eigenda/litt/bin/litt /usr/local/bin/litt
-```
-
-### Help! I'm trying to run on Windows!
-
-Heh, good luck!
+Alternatively, copy or symlink that binary into a directory already on your `PATH`. Examples below
+assume `litt` resolves to this binary. Remote transfers also require SSH access, a trusted host-key
+entry, and `rsync` on the participating machines. The receiver must support `rsync --fsync` and
+GNU `sync -f`, which the transfer uses before acknowledging durable remote files.
 
 # Sources and Destinations
 
-Many LittDB commands operate on the concept of "sources" and "destinations". A source/destination is a path where
-LittDB data is stored. For commands that require source directories, those directories can be specified using the
-`--src` or `-s` flag. For commands that require a destination directory, the `--dst` or `-d` flag is used.
+`--src` (alias `-s`) names a local database or snapshot root. `--dst` (alias `-d`) names a destination
+root: local for `rebase`, remote for `push` and `sync`. Repeat the flag for each root. These are roots
+containing table directories, not the table or `segments` directories themselves; see the
+[filesystem layout](filesystem_layout.md).
 
-LittDB can be configured to store data in just a single directory, or it can be configured to store data across
-multiple directories. This can be useful if you want to spread data between multiple physical drives. When
-using the LittDB CLI, it is important to always provide ALL source directories. If you do not do this, the CLI will
-detect the problem and abort the operation.
+For a regular database, supply every root in the [`litt.Config.Paths`](../littdb_config.go) passed to
+`littbuilder.NewDB`. For example, an application configured with:
 
-## EigenDA Validator: Source Directories
-
-If you are running an EigenDA validator node, the source directories are determined by the following flags:
-
-### Recommended: `NODE_LITT_DB_STORAGE_PATHS`
-
-If `NODE_LITT_DB_STORAGE_PATHS` is set, then the source directories will be the paths specified in that variable.
-
-Example:
+```go
+config, err := litt.DefaultConfig("/data0", "/data1", "/data2")
 ```
-export NODE_LITT_DB_STORAGE_PATHS="/data0,/data1,/data2"
 
+uses the following source selection:
+
+```bash
 litt ls --src /data0 --src /data1 --src /data2
 ```
 
-### Deprecated: `NODE_DB_PATH`
+The CLI reads explicit flags, not node environment variables or a node configuration file. This
+package does not define a node flag-to-`Config.Paths` mapping; obtain the actual roots from the
+application opening LittDB. Do not infer them from a validator example or assume a data-directory
+suffix. Missing roots can cause incomplete results or missing-file errors; do not rely on every
+command detecting an incomplete source list.
 
-If `NODE_LITT_DB_STORAGE_PATHS` is not set, then the source directory will be determined by the value of
-`NODE_DB_PATH`. The source directory will be `$NODE_DB_PATH/chunk_v2_litt`.
+A rolling snapshot instead has a single source root: `Config.SnapshotDirectory`. Its symlinks refer
+to files retained on the database volumes. Keep those volumes accessible while consuming the snapshot.
 
-Note that this pattern is deprecated. It is suggested that you use the LittDB CLI to refactor your DB as described
-in the "bonus example" [here](#litt-rebase).
-
-Example:
-```
-export NODE_DB_PATH=/data
-
-litt ls --src /data/chunk_v2_litt
-```
+Stop the application before using ordinary database roots with the CLI. Commands take local locks;
+removing locks to bypass a running writer can corrupt data. A published snapshot is the supported
+source for backups while the application remains running. Transfers do not lock remote destination
+roots, so keep the receiving database stopped and serialize destination maintenance.
 
 # Subcommands
 
-## `littdb --help`
+The registered commands and flags are defined in [litt_cli.go](../cli/litt_cli.go).
 
-Prints a help message.
+## `litt --help`
 
+Print command help. Use `litt <command> --help` for that command's flags. Global diagnostic flags
+precede the command; subcommand source/destination flags follow it.
 
 ## `litt ls`
 
-A utility for listing the names of all tables in a LittDB instance.
+List table names alphabetically from the provided roots:
 
-For documentation on command flags and configuration, run `litt ls --help`.
-
-Example:
-
-Suppose you have a LittDB instance with data stored in `/data0`, `/data1`, and `/data2`, and suppose you have
-tables named `tableA`, `tableB`, and `tableC`. You can list the tables in the instance by running:
-
+```bash
+litt ls --src /data0 --src /data1 --src /data2
 ```
-$ litt ls --src /data0 --src /data1 --src /data2
 
-Jun 18 11:28:59.732 INF cli/ls.go:47 Tables found:
-tableA
-tableB
-tableC
-```
+The command logs the discovered names. It does not query the running node.
 
 ## `litt table-info`
 
-This utility provides information about the data contained in a LittDB table.
+Inspect one named table, including key count, byte size, snapshot status, seal times, segment indices
+and keymap type:
 
-For documentation on command flags and configuration, run `litt table-info --help`.
-
-Example:
-
-Suppose you have a LittDB instance with data stored in `/data0`, `/data1`, and `/data2`, and want to get information
-about the `tableA` table. You can run:
-
+```bash
+litt table-info --src /data0 --src /data1 --src /data2 tableA
 ```
-$ litt table-info --src /data0 --src /data1 --src /data2 tableA
 
-Jun 18 11:32:11.236 INF cli/table_info.go:76 Table:                       tableA
-Jun 18 11:32:11.236 INF cli/table_info.go:77 Key count:                   95
-Jun 18 11:32:11.236 INF cli/table_info.go:78 Size:                        190.01 MiB
-Jun 18 11:32:11.236 INF cli/table_info.go:79 Is snapshot:                 false
-Jun 18 11:32:11.236 INF cli/table_info.go:80 Oldest segment age:          1.05 hours
-Jun 18 11:32:11.236 INF cli/table_info.go:81 Oldest segment seal time:    2025-06-18T10:29:02-05:00
-Jun 18 11:32:11.236 INF cli/table_info.go:82 Newest segment age:          50.88 minutes
-Jun 18 11:32:11.236 INF cli/table_info.go:83 Newest segment seal time:    2025-06-18T10:41:18-05:00
-Jun 18 11:32:11.236 INF cli/table_info.go:84 Segment span:                12.27 minutes
-Jun 18 11:32:11.236 INF cli/table_info.go:85 Lowest segment index:        0
-Jun 18 11:32:11.236 INF cli/table_info.go:86 Highest segment index:       95
-Jun 18 11:32:11.236 INF cli/table_info.go:87 Key map type:                PebbleDBKeymap
-```
+Supply exactly one table-name argument. Table names use ASCII letters, digits, underscores and dashes.
+This is file-based inspection, not a retention-policy configuration command.
 
 ## `litt rebase`
 
-LittDB can store data in multiple directories. Changing the number of directories after data has been written into 
-the DB is possible, but not easy to do by hand. The `litt rebase` utility automates this workflow.
+Move a stopped database's files from the source roots to a new set of local roots. Roots can overlap:
 
-For documentation on command flags and configuration, run `litt rebase --help`.
-
-Before rebasing, you must know two things:
-
-- the list of directories where the DB is currently storing its data (called the "source directories")
-- the list of directories where you want the DB to store its data after the rebase (called the "destination directories")
-
-If your destination directories are a superset of the source directories, then the rebase will be a no-op. Adding a new
-directory to LittDB does not require a rebase, since LittDB can dynamically add new directories as needed.
-
-A rebase operation is idempotent. That is to say, running it more than once has the same effect as running it exactly 
-once. If your computer crashes half way though a rebase, simply run the same command again, and the rebase utility will
-pick up where it left off.
-
-Example:
-
-Suppose you have a LittDB instance with data stored in `/data0`, `/data1`, and `/data2`, and you want to rebase to the
-directories `/data2`, `/data3`, and `/data4`. (Notice there is overlap between the sources and destinations, this is 
-ok!)
-
-You can run the following command:
-
-```
+```bash
 litt rebase --src /data0 --src /data1 --src /data2 --dst /data2 --dst /data3 --dst /data4
 ```
 
-Bonus example:
+The operation is resumable: after interruption, rerun the same source and destination lists. Missing
+old roots can be expected after a completed transfer. `--preserve` retains original files; `--quiet`
+reduces output. Rebasing a symlinked snapshot is unsupported.
 
-Suppose you are running an EigenDA validator node and want to change from using the deprecated `NODE_DB_PATH` flag
-to instead using the recommended `NODE_LITT_DB_STORAGE_PATHS` flag. Suppose your old path for `NODE_DB_PATH` was
-`/data` (meaning the LittDB source directory is `/data/chunk_v2_litt`), and you instead use 
-`NODE_LITT_DB_STORAGE_PATHS="/data0,/data1,/data2"`. This can be done with the following command:
-
-```
-litt rebase --src /data/chunk_v2_litt --dst /data0 --dst /data1 --dst /data2
-```
+When destinations include all source roots, there are no removed roots to move. Adding roots alone
+requires no rebase, but still requires stopping the application, changing `Config.Paths` and reopening
+it. There is no live root-membership setter. Changing the table's sharding factor is a separate
+operation. After a rebase, restart with every destination root in `Config.Paths` and supply the
+per-table settings again.
 
 ## `litt benchmark`
 
-The LittDB benchmark can be launched using the `litt benchmark` command. This may be useful for determining the
-capability of hardware in various configurations, or for testing the performance of LittDB itself.
+Run the benchmark with exactly one JSON configuration filename:
 
-The LittDB benchmark accepts a single argument, which is a path to a configuration file. An example configuration file
-is shown below:
+```bash
+litt benchmark /path/to/benchmark.json
+```
+
+This example matches the fields in [basic-config.json](../benchmark/config/basic-config.json):
 
 ```json
 {
   "LittConfig": {
     "Paths": ["~/benchmark/volume1", "~/benchmark/volume2", "~/benchmark/volume3"],
+    "SnapshotDirectory": "~/snapshot"
   },
   "MaximumWriteThroughputMB": 1024,
   "MetricsLoggingPeriodSeconds": 1
 }
 ```
 
-For more documentation on possible configuration options, see the 
-[benchmark_config.go](../benchmark/config/benchmark_config.go). 
+The [loader](../benchmark/config/benchmark_config.go) starts from `DefaultBenchmarkConfig`, overlays
+the JSON and rejects unknown fields. JSON does not allow trailing commas. Use dedicated benchmark
+paths. Omitted fields retain defaults; `TimeLimitSeconds` defaults to zero, so the benchmark runs
+until interrupted. A nonempty `SnapshotDirectory` retains snapshot files that must be consumed or
+pruned. Keep the seed and random-pool size unchanged when resuming the same benchmark data.
 
 ## `litt prune`
 
-The `litt prune` command is used to delete data from a LittDB database or snapshot. LittDB snapshots are not
-automatically pruned, so if no action is taken, then the size of the snapshot on disk will grow indefinitely 
-(at least until you fill up your disk).
+Remove segments older than `--max-age`, in seconds, from a stopped database or snapshot:
 
-For documentation on command flags and configuration, run `litt prune --help`.
-
-The `--max-age` flag is used to specify the maximum age of data to keep, and is specified in seconds.
-
-Example:
-
-Suppose you have a LittDB instance with data stored in `/data0`, `/data1`, and `/data2`, and you want to prune all
-data that is older than 1 hour. You can run the following command:
-
-```
+```bash
 litt prune --src /data0 --src /data1 --src /data2 --max-age 3600
 ```
 
+Age is measured from segment seal time; this is segment-level retention, not an exact per-key
+expiration cutoff. Repeat `--table tableA` to restrict pruning to selected tables; by default all
+discovered tables are considered. Snapshot pruning respects the publication upper bound. Snapshots
+and remote archives are not automatically pruned by the originating database's TTL.
+
+Serialize pruning with transfers that use the same roots. In particular, do not run archive pruning
+while another machine is pushing to that archive: remote destination locks are not acquired by push.
+
 ## `litt push`
 
-Although it is perfectly safe from a concurrency perspective to make copies of the data in the LittDB snapshot
-directory, there are some nuances involved in doing so. The `litt push` command is a utility that can be used to
-push data from a LittDB snapshot to a remote location using `ssh` and `rsync`. The `litt push` utility also deletes
-data from the snapshot directory after it has been successfully pushed to the remote location.
+Transfer segment files over SSH with `rsync`. For a running database, enable
+`Config.SnapshotDirectory` and use that single snapshot root as the source:
 
-For documentation on command flags and configuration, run `litt push --help`.
-
-Similar to the LittDB's capability to store data in multiple directories, the `litt push` command can also push data to
-multiple remote directories (on the same machine). This may be convenient if your data size is sufficiently large that
-it is difficult to provision a single disk that is large enough to hold the entire data set.
-
-`litt push` makes incremental/rolling backups. That is to say, if you make a backup at time T1, and then make a backup
-at time T2, then `litt push` will only copy data written into the DB between T1 and T2.
-
-As long as you are working from a snapshot directory, there is no need to stop the LittDB instance while you are
-making a backup. Backups made with `litt push` are fully consistent. If a backup fails for some reason 
-(e.g. a network issue or a computer crash), running the same command again will pick up where it left off.
-
-Suppose your LittDB instance is storing snapshot data in `/snapshot`, and you want to push that data to directories
-`/backup1`, `/backup2`, and `/backup3` on a remote machine with the username `user` and hostname `host`. You can run
-the following command:
-
-```
-litt push --src /snapshot --dst /backup1 --dst /backup2 --dst /backup3 user@host
+```bash
+litt push --src /snapshot --dst /backup1 --dst /backup2 --dst /backup3 user@backup-host
 ```
 
-This command will copy over all data since the previous backup, and will delete data from the snapshot directory
-once it has been successfully transferred.
+This consumes published sealed segments, not the active mutable segment. By default, after successful
+transfer it releases the contiguous acknowledged snapshot prefix and updates the consumption boundary.
+Unpublished segments remain owned by the snapshot publisher. Releasing snapshot links does not delete
+live database entries. It does reclaim the snapshot's retained files, so the next backup transfers
+newly published data. `rsync` can also reuse files already at the destination when retrying an
+interrupted transfer.
+
+Use `--no-gc` to retain the source files. Without it, an ordinary, non-snapshot source is rejected
+with `--no-gc is required when pushing a non-snapshot table`. Remote destinations may span multiple
+roots on the same host; list all of them on each transfer so existing file placement is preserved.
+
+SSH flags include `--key` (`-i`, default `~/.ssh/id_rsa`), `--port` (`-p`, default 22), and
+`--known-hosts` (`-k`, default `~/.ssh/known_hosts`). `--threads` defaults to 8 and must be positive;
+`--throttle` limits aggregate transfer bandwidth and defaults to zero (unlimited). `--quiet` reduces
+output. Verify host trust before transferring.
 
 ### Restoring from a Backup
 
-To restore data from a backup, simply use `litt push` on the backup machine to push the data where it needs to go.
-`litt push` can push from multiple source directories if that is how it is being stored.
+Run this on the backup machine, with every archive root as a source and every target root as a
+destination. Stop the target application and use dedicated restore roots so unrelated old segments
+are not combined with the restored data:
+
+```bash
+litt push --no-gc --src /backup1 --src /backup2 --src /backup3 \
+  --dst /restore0 --dst /restore1 user@target-host
+```
+
+`--no-gc` is required because a received archive contains ordinary segment files, not snapshot
+symlinks. It also preserves the archive during restoration. The source database must likewise be
+stopped if restoring from ordinary database roots rather than an archive.
+
+After a successful transfer, configure the target application with `Config.Paths` containing
+`/restore0` and `/restore1`, then open the restored tables with their intended `TableConfig` values.
+TTL, cache sizes and other per-table runtime settings are not recovered from the archive. Reopening
+rebuilds a missing keymap from the transferred segment key files. A snapshot backup contains only
+published sealed segments; it does not include writes still in the mutable segment.
 
 ### Backup Garbage Collection
 
-If you are using the patterns described above to back up data, then the size of your backup will grow indefinitely.
-In order to prune the data you keep, use `litt prune` on the backup machine to delete old data. You should not run
-`litt prune` concurrently with `litt push`, as there are race conditions that can occur if you do so.
+Archives grow until explicitly pruned. On the backup machine, while no transfer is writing the roots:
+
+```bash
+litt prune --src /backup1 --src /backup2 --src /backup3 --max-age 86400
+```
+
+Choose retention for the restore history you need. This command deletes old archive segments.
+
+## `litt sync`
+
+Periodically push to one remote host, optionally pruning the remote archive:
+
+```bash
+litt sync --src /snapshot --dst /backup1 --dst /backup2 --period 300 user@backup-host
+```
+
+It accepts the transfer flags described for `push`. `--period` is in seconds and defaults to 300.
+A nonzero `--max-age` enables remote pruning in seconds; `--litt-binary` selects the remote CLI
+(default `litt`), which must be installed there for pruning. Ordinary source roots still require
+`--no-gc` and a stopped source application. Avoid other processes transferring to or pruning the
+same destination roots concurrently.
+
+## `litt unlock`
+
+Remove stale local lock files only after confirming no process is using any of the roots:
+
+```bash
+litt unlock --src /data0 --src /data1 --src /data2
+```
+
+The command prompts before removal; `--force` bypasses that prompt. It does not stop another process
+or make concurrent access safe. See [file locking](../util/file_lock.go) for the implementation.
