@@ -824,31 +824,14 @@ fn session_cookie(header: &str) -> Result<&str, WebhookError> {
 }
 
 #[cfg(test)]
+#[path = "repair_22_33_1328_authority.rs"]
+mod authority_path_support;
+
+#[cfg(test)]
 mod authority_shape_tests {
-    use super::*;
     #[test]
     fn real_authority_shape_selects_attachment_without_null_or_unknown_fallback() {
-        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../gateway/tests/fixtures/maintained-authority.json");
-        let bytes = std::fs::read(path).unwrap_or_else(|error| panic!("{error}"));
-        let capture: serde_json::Value =
-            serde_json::from_slice(&bytes).unwrap_or_else(|error| panic!("{error}"));
-        let mut document = capture["authority"].clone();
-        document["receipt"] = capture["receipt_hex"].clone();
-        document["protocol_network_id"] = serde_json::json!(7);
-        assert!(serde_json::from_value::<AuthorityResponse>(document.clone()).is_ok());
-        let mut historical = document.clone();
-        historical
-            .as_object_mut()
-            .unwrap_or_else(|| panic!("object"))
-            .remove("batch_evidence");
-        assert!(serde_json::from_value::<AuthorityResponse>(historical).is_ok());
-        let mut null = document.clone();
-        null["batch_evidence"] = serde_json::Value::Null;
-        assert!(serde_json::from_value::<AuthorityResponse>(null).is_err());
-        let mut unknown = document;
-        unknown["unexpected"] = serde_json::json!(true);
-        assert!(serde_json::from_value::<AuthorityResponse>(unknown).is_err());
+        super::authority_path_support::authority_path();
     }
 }
 
