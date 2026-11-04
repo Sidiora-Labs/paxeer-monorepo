@@ -1,8 +1,10 @@
 # State-Sync Workflow
 
-`seictl workflow state-sync` re-bootstraps a SeiNode through CometBFT state sync. It renders the StateSync recipe against a target node, server-side-applies the resulting `SeiNodeTaskWorkflow`, and streams the plan's progress until the workflow reaches a terminal phase. The recipe holds the node's readiness gate, stops seid, wipes the data directory, reconfigures state sync against the witnesses, and releases the gate so seid restarts into the resync. The workflow completes at release. Catch-up happens after Complete, on the node, and the command prints the watch command that verifies it.
+`seictl workflow state-sync` re-bootstraps a SeiNode through CometBFT state sync. It renders the StateSync recipe against a target node, server-side-applies the resulting `SeiNodeTaskWorkflow`, and streams the plan's progress until the workflow reaches a terminal phase. The recipe holds the node's readiness gate, stops paxd, checks a live witness quorum before wiping the data directory, reconfigures state sync against the witnesses, and releases the gate so paxd restarts into the resync. The workflow completes at release. Catch-up happens after Complete, on the node, and the command prints the watch command that verifies it.
 
-There are two ways to run it. A standard resync clears the node's data and lets it re-catch-up on its existing config. A store migration does the same wipe-and-resync but also changes seid's storage configuration on the way. The standard resync is the common case and takes no extra flags; the migration is a deliberate, destructive operation behind its own flags.
+There are two ways to run it. A standard resync clears the node's data and lets it re-catch-up on its existing config. A store migration does the same wipe-and-resync but also changes paxd's storage configuration on the way. The standard resync is the common case and takes no extra flags; the migration is a deliberate, destructive operation behind its own flags.
+
+The CLI and CRDs retain their published `seictl`, `SeiNode` and `SeiNodeTaskWorkflow` names. The deployed daemon is `paxd`; the stable task identifier `stop-seid` stops that process.
 
 ## Eligible Targets
 
@@ -18,17 +20,17 @@ No migration flags. This clears the data directory and re-bootstraps the node fr
 seictl workflow state-sync <node>
 ```
 
-The node holds, wipes, reconfigures, restarts, and begins catching up. Its config is unchanged.
+The node holds, checks witnesses before wiping, reconfigures state sync, restarts, and begins catching up. Its storage backend is unchanged.
 
 ### Standard Resync Steps
 
 seictl renders the workflow and applies it to the cluster. If a workflow with the same name already finished or failed, the command refuses and explains what to do. Once the node has no other work in flight, the controller picks up the workflow, records the plan, and runs five steps in order:
 
-1. **mark-not-ready** starts the hold. The sidecar marks the node not ready, so seid cannot start again until the workflow allows it. It also clears any earlier mark-ready records so nothing can release the node by accident.
-2. **stop-seid** stops the node process. seid gets a graceful shutdown signal and the task confirms it exited. Kubernetes restarts the container, and the restart waits at the hold instead of starting seid.
-3. **reset-data** clears the chain data. Only the `data/` directory is wiped. The node's identity keys, its config files, and the sidecar's task history all stay in place, and a fresh empty `priv_validator_state` file is written back.
-4. **configure-state-sync** sets up the resync. The sidecar asks the witnesses for a trusted block height and hash and writes them into the node's config. The two-witness minimum is enforced earlier, when the plan is built, so a node is never wiped for an under-witnessed config (see Witnesses).
-5. **mark-ready** releases the hold. That release is the last step, so the workflow is Complete and seictl exits 0. Only then does seid start on the empty data directory, download a recent snapshot from its peers, and verify it against the witnesses' trusted block.
+1. **mark-not-ready** starts the hold. The sidecar marks the node not ready, so paxd cannot start again until the workflow allows it. It also clears any earlier mark-ready records so nothing can release the node by accident.
+2. **stop-seid** stops the node process. paxd gets a graceful shutdown signal and the task confirms it exited. Kubernetes restarts the container, and the restart waits at the hold instead of starting paxd.
+3. **reset-data** first verifies a persisted hold and completed stop, full-node role, no active validator identity or remote signer, and distinct reachable witnesses on the configured chain with matching trust hashes. A preflight failure occurs before erasure: existing chain data remains intact and the adopted workflow retains the hold. Only after these checks does it clear `data/`. Identity keys, config files, task history and the exact existing `priv_validator_state.json` bytes are preserved; a durable last-sign backup lives outside `data/`.
+4. **configure-state-sync** checks the live witness quorum again, then writes the trusted block height, hash and distinct RPC servers into the node's config. Plan-time endpoint count does not prove runtime availability. If quorum disappears after reset-data, configuration fails with data already cleared and the hold retained; paxd must remain stopped until operator recovery (see Witnesses and Re-Run Semantics).
+5. **mark-ready** releases the hold. That release is the last step, so the workflow is Complete and seictl exits 0. Only then does paxd start on the empty data directory, download a recent snapshot from its peers, and verify it against the witnesses' trusted block.
 
 Complete means every step ran and the node was released. The resync runs after Complete, so verify catch-up on the node (seictl prints this command on success):
 
@@ -36,27 +38,31 @@ Complete means every step ran and the node was released. The resync runs after C
 seictl node watch <node> --until=caught-up -n <namespace>
 ```
 
-The watch waits for the node to rejoin consensus and report caught up, using the same SDK readiness gates the nightly integration harness uses: a committed height above 1 with `catching_up` false, plus the EVM endpoint serving when the node publishes one. It exits 0 on caught-up, and it dials the node's published RPC endpoint directly, so run it from a machine with cluster network reachability and raise its `--timeout` when catch-up outlasts the 15m default. A Failed workflow always means the node is still held (see Re-Run Semantics for recovery).
+The watch waits for the node to rejoin consensus and report caught up, using the same SDK readiness gates the nightly integration harness uses: a committed height above 1 with `catching_up` false, plus the EVM endpoint serving when the node publishes one. It exits 0 on caught-up, and it dials the node's published RPC endpoint directly, so run it from a machine with cluster network reachability and raise its `--timeout` when catch-up outlasts the 15m default. An adopted Failed workflow retains its hold (see Re-Run Semantics for recovery); an adoption refusal never acquired one.
 
 ## Witnesses
 
-State sync verifies the snapshot it restores against a trusted header. `--rpc-servers` sets the CometBFT light-client servers (a primary plus witnesses) used for that verification. The flag is optional; when omitted, the node's resolved state-syncers are used. When you set it, the servers are bare `host:port`, repeatable, and at least two are required or the plan refuses to compile.
+State sync verifies the snapshot it restores against a trusted header. `--rpc-servers` sets the CometBFT light-client servers (a primary plus witnesses) used for that verification. The flag is optional; when omitted, the node's resolved state-syncers are used. When you set it, the servers are bare `host:port`, repeatable, and at least two distinct endpoints are required. The CLI checks the final rendered spec, including `--set`, for valid endpoints and distinctness; it does not probe cluster RPC from the operator's machine.
 
 ```
 seictl workflow state-sync <node> --rpc-servers host-a:26657 --rpc-servers host-b:26657
 ```
 
+The sidecar preflight runs inside `reset-data` before any erasure and again inside `configure-state-sync`, including replay. It drops unreachable candidates and requires at least two distinct endpoints with different public node IDs on the configured genesis chain. Every reachable witness must agree on the trust hash at the selected height (the lowest reported latest height minus 2000, floored at 1). A lone surviving witness is never duplicated to satisfy the minimum. Wrong-chain responses, repeated node identities and disagreeing trust hashes fail closed.
+
+The executing controller must forward the same resolved or explicit `rpcServers` to **both** `reset-data` and `configure-state-sync`. The CLI renders `spec.stateSync.rpcServers`; it cannot guarantee this controller wiring. Confirm the deployed plan's task parameters before authorizing a destructive run. If `reset-data` receives no explicit endpoints, the sidecar derives RPC candidates from persistent peers on port 26657, which may differ from the requested override; unavailable peer-derived quorum refuses the wipe. Controller wiring is tracked in [repair_m840.kvx](repair_m840.kvx).
+
 These servers are for trust-point verification only. Snapshot chunks arrive separately over p2p from snapshot-serving peers, so a witness is not a snapshot provider.
 
 ## Store Migration
 
-A migration runs a named seid config change inside the resync. Today the one supported migration is the giga SS store split:
+A migration runs a named paxd config change inside the resync. Today the one supported migration is the giga SS store split:
 
 ```
 seictl workflow state-sync <node> --migration GigaStore --backend pebbledb
 ```
 
-This is destructive and slow, and it is not reversible without another resync. It discards the node's local state and re-bootstraps on the chosen backend. Both tokens are required, so a migration cannot be triggered by a single flag. `--backend` is `pebbledb` or `rocksdb`, where rocksdb needs a seid image built with `-tags rocksdbBackend`. The migration sets the giga flags itself (`ss-enable`, `evm-ss-split`, `ss-backend`, and `sc-enable`); the backend value is the only operator input.
+This is destructive and slow, and it is not reversible without another resync. It discards the node's local state and re-bootstraps on the chosen backend. Both tokens are required, so a migration cannot be triggered by a single flag. `--backend` is `pebbledb` or `rocksdb`, where rocksdb needs a paxd image built with `-tags rocksdbBackend`. The migration sets the giga flags itself (`ss-enable`, `evm-ss-split`, `ss-backend`, and `sc-enable`); the backend value is the only operator input.
 
 When `--migration` is set, the command prints a `seictl:` destructive-migration warning to stderr before it applies anything. Run `--dry-run` first to see the rendered workflow, including the migration, without persisting it.
 
@@ -64,23 +70,23 @@ When `--migration` is set, the command prints a `seictl:` destructive-migration 
 
 A migration follows the same steps with one addition. The migration's config changes are computed and checked when the plan is built, before anything runs, so an invalid migration fails immediately and the node is untouched. The plan also records exactly which config keys will change, so you can read what a migration did after the fact.
 
-1. **mark-not-ready**, **stop-seid**, and **reset-data** run exactly as in a standard resync. The node is held, seid stops, and the chain data is cleared while identity and config stay in place.
+1. **mark-not-ready**, **stop-seid**, and **reset-data** run exactly as in a standard resync. The node is held, paxd stops, and the chain data is cleared while identity and config stay in place.
 2. **config-patch** applies the migration's config changes. For the giga store split this sets `ss-enable`, `evm-ss-split`, and `ss-backend` under `[state-store]` in `app.toml`, and `sc-enable` under `[state-commit]`.
 3. **configure-state-sync** sets up the resync from the witnesses, as in a standard resync.
-4. **mark-ready** releases the hold and completes the workflow. seid starts under the new storage layout for the first time, and the snapshot restore fills the new store as it downloads.
+4. **mark-ready** releases the hold and completes the workflow. paxd starts under the new storage layout for the first time, and the snapshot restore fills the new store as it downloads.
 
-Verification carries extra weight for a migration. seid refuses to start if the new store layout is empty while the split is enabled, so a node that catches up and serves EVM requests is solid evidence the migration worked. Run the same catch-up watch as a standard resync. A giga-split node serves EVM, so the watch gates on its EVM endpoint too, which is exactly the evidence a migration needs.
+Verification carries extra weight for a migration. paxd refuses to start if the new store layout is empty while the split is enabled, so a node that catches up and serves EVM requests is solid evidence the migration worked. Run the same catch-up watch as a standard resync. A giga-split node serves EVM, so the watch gates on its EVM endpoint too, which is exactly the evidence a migration needs.
 
-If a migration fails partway, the node stays held with its data already cleared. seid stays down and the sidecar stays reachable for diagnosis. Recovery is another resync. Force-delete the failed workflow and run a new one, with the same migration or without it.
+If a migration fails before reset-data erases anything, chain data remains intact. A later failure can leave data already cleared; the adopted node stays held in either case. paxd stays down and the sidecar stays reachable for diagnosis. Recovery is another resync. Force-delete the failed workflow and run a new one, with the same migration or without it.
 
-A separate, rare post-Complete case has a similar fix with a different starting point. The workflow already reached Complete (exit 0, node released), yet seid crash-loops after a mid-restore restart, reporting an empty EVM store while the Cosmos store has history. Another resync fixes it too, but recover it as a Complete run (delete the workflow, then re-run), not as a held failure.
+A separate, rare post-Complete case has a similar fix with a different starting point. The workflow already reached Complete (exit 0, node released), yet paxd crash-loops after a mid-restore restart, reporting an empty EVM store while the Cosmos store has history. Another resync fixes it too, but recover it as a Complete run (delete the workflow, then re-run), not as a held failure.
 
 ## Standard Versus Migration
 
 | | Standard resync | Store migration |
 |---|---|---|
 | Flags | none | `--migration GigaStore --backend <backend>` |
-| Config | unchanged | giga SS store flags set |
+| Config | state-sync trust settings refreshed; backend unchanged | giga SS store flags set; state-sync trust settings refreshed |
 | Effect | re-catch-up on existing config | wipe, switch storage engine, re-catch-up |
 | Destructive | yes, data cleared then re-synced | yes, data cleared, engine changed, not reversible without another resync |
 
@@ -99,9 +105,11 @@ The flags map onto the `SeiNodeTaskWorkflow` spec:
 
 ## Re-Run Semantics
 
-Spec params are immutable, so re-running over a same-named workflow already in a terminal phase is refused. A Failed workflow holds the node, leaving it not-ready until the workflow is removed, so recovering a failure is the operationally important case.
+Spec params are immutable, so re-running over a same-named workflow already in a terminal phase is refused. An adopted Failed workflow holds the node, leaving it not-ready until the workflow is removed, so recovering a failure is the operationally important case. A refusal before adoption never held or wiped the node.
 
-Removing the terminal workflow is what releases the node, so a fresh `--name` is an alternative to reusing a name — never a substitute for the removal:
+Inspect `.status.plan.tasks` and the failed task's error before recovery. A witness failure in reset-data preserves chain data; a witness failure in configure-state-sync occurs after erasure. Restore at least two independent reachable witnesses on the correct chain and check the plan forwards them to both steps. Keep the hold during diagnosis: do not submit mark-ready directly or delete the task ledger. Before force-deleting, verify paxd can safely restart with the current data and config, or keep it stopped through deployment controls while preparing a fresh resync. Force-deletion releases the hold and can start paxd immediately.
+
+For an adopted failure, removing the terminal workflow is what releases the node, so a fresh `--name` is an alternative to reusing a name — never a substitute for the removal:
 
 - **A Complete run** already released the node when it completed, and its finalizer is reaped on the next reconcile of the target. Delete it with `seictl workflow delete <name>` and re-run, or leave it in place and re-run under a fresh `--name`. Either works.
 - **A Failed run still holds the node.** Annotate it `sei.io/force-delete-workflow=<reason>`, then `seictl workflow delete <name>`. The annotation is not optional today: the controller's data-state verification is not yet implemented, so it fails closed and an un-annotated delete parks the workflow Terminating with the node still held, emitting a `WorkflowDeleteHeld` warning event that names the annotation. Order is not load-bearing — annotating a workflow already stuck Terminating releases it on the next poll, within 30s. Deletion releases the node; only then re-run, under the same name or a fresh `--name`.
