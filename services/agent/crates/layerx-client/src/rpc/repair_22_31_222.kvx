@@ -1,0 +1,24 @@
+[repair.22.31.222]
+audit = "22.30.96"
+findings = ["f02", "f03", "f05"]
+f02 = "repair_22_31_222::f02_module_state_returns_only_the_derived_slot_witness; repair_22_31_222::f02_module_state_refuses_slot_value_store_root_and_app_hash_substitution"
+f03 = "repair_22_31_222::f03_proof_bundle_retains_every_requested_slot_identity_and_value; repair_22_31_222::f03_proof_bundle_refuses_absent_mismatched_and_uncommitted_material"
+f05 = "repair_22_31_222::f05_receipt_requires_commit_and_signed_sequence_root_coverage; repair_22_31_222::f05_sequence_batch_round_trips_the_node_producer_codec"
+producer = "repair_22_31_222_producer/main.go executes the real MemIAVL store, SDK multistore, Comet header/vote codecs and node MsgSequenceBatch codec; Rust relays their output over HTTP into the crate."
+baseline = "Not run: the explicit implementation-first order and hf-done-only verification rule override do_7's unchanged-tree verification instruction; the declared integration test did not exist on the starting tree."
+qualification = "The runner records the exact candidate revision, commands, exits and private evidence locations through hf-build and hf-done."
+
+[wiring.module-consumers]
+request = "Agent domain: services/agent/crates/layerx-agentd/src/human_runtime.rs must call rpc::module_state with a record key and authenticated checkpoint hashes; the client now uses the daemon's module-id/key slot derivation rather than treating keys as eth_call calldata."
+
+[wiring.bundle-consumers]
+request = "Agent domain: services/agent/crates/layerx-client/tests/evidence_rpc.rs and proof-bundle consumers must acquire a verified committed header from pinned validator trust and pass that header to proof_bundle; height-only requests explicitly refuse missing commitment evidence."
+
+[wiring.receipt-transport]
+request = "Node RPC / agent transport domain: services/agent/crates/layerx-client/src/sequencer.rs must expose raw MsgSequenceBatch transaction inclusion and its ordered activity identities so consumers can populate ReceiptCommitEvidence for lookup_authenticated_with_commit; unsigned height/status reads retain Receipted."
+
+[wiring.receipt-requirement]
+request = "Spec domain: spec/layerx-merge/spec.kvx req.9262 ac_2 must require a verified Comet covering commit and signed receipt sequence/root coverage, allowing a covering block later than execution."
+
+[wiring.existing-tests]
+request = "Agent domain: services/agent/crates/layerx-client/tests/module_reads_rpc.rs and receipt_rpc.rs must migrate their repeated-call and unsigned-promotion expectations to witnessed module reads and verified covering commits; they are outside this task's scope and remain unchanged."
