@@ -1,139 +1,149 @@
 defmodule BlockScoutWeb.ViewingAppTest do
-  @moduledoc false
+  @moduledoc """
+  The former server-rendered loading bar is replaced by the indexing-status API
+  and the V2 block channels consumed by IndexingBlocksAlert and IntTxsIndexingStatus
+  in apps/explorer/ui/snippets. These five scenarios cover the same indexing
+  transitions without depending on the retired layout's DOM selectors.
+  """
 
-  # use BlockScoutWeb.FeatureCase, async: true
+  use BlockScoutWeb.ConnCase, async: false
 
-  # alias BlockScoutWeb.AppPage
-  # alias BlockScoutWeb.Counters.BlocksIndexedCounter
-  # alias Explorer.Chain.Cache.Counters.AddressesCount
-  # alias Explorer.{Repo}
-  # alias Explorer.Chain.PendingBlockOperation
+  import Phoenix.ChannelTest
 
-  # setup do
-  #   start_supervised!(AddressesCount)
-  #   AddressesCount.consolidate()
+  alias BlockScoutWeb.Counters.{BlocksIndexedCounter, InternalTransactionsIndexedCounter}
+  alias Explorer.Chain.{Block, PendingBlockOperation}
+  alias Explorer.Chain.Cache.BlockNumber
+  alias Explorer.Chain.Cache.Counters.{BlocksCount, PendingBlockOperationCount}
+  alias Explorer.Repo
 
-  #   :ok
-  # end
+  setup do
+    settings = [
+      {:indexer, Indexer.Supervisor, enabled: true},
+      {:indexer, Indexer.Fetcher.InternalTransaction.Supervisor, disabled?: false},
+      {:indexer, Indexer.Fetcher.InternalTransaction, indexing_finished_threshold: 1},
+      {:indexer, :block_ranges, "0..latest"},
+      {:indexer, :trace_first_block, 0}
+    ]
 
-  # describe "loading bar when indexing" do
-  #   test "shows blocks indexed percentage", %{session: session} do
-  #     [block | _] =
-  #       for index <- 5..9 do
-  #         insert(:block, number: index)
-  #       end
+    for {app, key, value} <- settings do
+      previous = Application.fetch_env(app, key)
+      Application.put_env(app, key, value)
 
-  #     :transaction
-  #     |> insert()
-  #     |> with_block(block)
+      on_exit(fn ->
+        case previous do
+          {:ok, old} -> Application.put_env(app, key, old)
+          :error -> Application.delete_env(app, key)
+        end
+      end)
+    end
 
-  #     assert Decimal.compare(Explorer.Chain.indexed_ratio_blocks(), Decimal.from_float(0.5)) == :eq
+    for {cache, key} <- [
+          {BlockNumber, :min},
+          {BlockNumber, :max},
+          {BlocksCount, :count},
+          {PendingBlockOperationCount, :count}
+        ] do
+      previous = ConCache.get(cache.cache_name(), key)
+      on_exit(fn -> cache.set(key, previous) end)
+    end
 
-  #     insert(:pending_block_operation, block_hash: block.hash, block_number: block.number)
+    :ok
+  end
 
-  #     session
-  #     |> AppPage.visit_page()
-  #     |> assert_has(AppPage.indexed_status("50% Blocks Indexed"))
-  #   end
+  test "shows blocks indexed percentage", %{conn: conn} do
+    pending_chain(5..9)
+    status = indexing_status(conn)
 
-  #   test "shows tokens loading", %{session: session} do
-  #     [block | _] =
-  #       for index <- 0..9 do
-  #         insert(:block, number: index)
-  #       end
+    assert status["indexed_blocks_ratio"] == "0.50"
+    assert status["finished_indexing_blocks"] == false
+    assert status["finished_indexing"] == false
+    assert status["indexed_internal_transactions_ratio"] == nil
+  end
 
-  #     :transaction
-  #     |> insert()
-  #     |> with_block(block)
+  test "shows internal transactions loading after blocks finish", %{conn: conn} do
+    pending_chain(0..9)
+    status = indexing_status(conn)
 
-  #     assert Decimal.compare(Explorer.Chain.indexed_ratio_blocks(), 1) == :eq
+    assert status["indexed_blocks_ratio"] == "1.00"
+    assert status["finished_indexing_blocks"] == true
+    assert status["finished_indexing"] == false
+    assert status["indexed_internal_transactions_ratio"] == "0.90"
+  end
 
-  #     insert(:pending_block_operation, block_hash: block.hash, block_number: block.number)
+  test "updates blocks indexed percentage", %{conn: conn} do
+    pending_chain(5..9)
+    join_indexing("indexing")
 
-  #     session
-  #     |> AppPage.visit_page()
-  #     |> assert_has(AppPage.indexed_status("Indexing Internal Transactions"))
-  #   end
+    assert indexing_status(conn)["indexed_blocks_ratio"] == "0.50"
+    BlocksIndexedCounter.calculate_blocks_indexed_and_broadcast()
+    assert_push("index_status", %{ratio: "0.50", finished: false})
 
-  #   test "updates blocks indexed percentage", %{session: session} do
-  #     [block | _] =
-  #       for index <- 5..9 do
-  #         insert(:block, number: index)
-  #       end
+    insert(:block, number: 4)
+    refresh_counters()
 
-  #     :transaction
-  #     |> insert()
-  #     |> with_block(block)
+    assert indexing_status(conn)["indexed_blocks_ratio"] == "0.60"
+    BlocksIndexedCounter.calculate_blocks_indexed_and_broadcast()
+    assert_push("index_status", %{ratio: "0.60", finished: false})
+  end
 
-  #     BlocksIndexedCounter.calculate_blocks_indexed()
+  test "updates when blocks are fully indexed", %{conn: conn} do
+    pending_chain(1..9)
+    join_indexing("indexing")
+    assert indexing_status(conn)["indexed_blocks_ratio"] == "0.90"
 
-  #     assert Decimal.compare(Explorer.Chain.indexed_ratio_blocks(), Decimal.from_float(0.5)) == :eq
+    insert(:block, number: 0)
+    refresh_counters()
+    BlocksIndexedCounter.calculate_blocks_indexed_and_broadcast()
+    assert_push("index_status", %{ratio: "1.00", finished: true})
 
-  #     insert(:pending_block_operation, block_hash: block.hash, block_number: block.number)
+    status = indexing_status(conn)
+    assert status["indexed_blocks_ratio"] == "1.00"
+    assert status["finished_indexing_blocks"] == true
+    assert status["finished_indexing"] == false
+    assert status["indexed_internal_transactions_ratio"] == "0.90"
+  end
 
-  #     session
-  #     |> AppPage.visit_page()
-  #     |> assert_has(AppPage.indexed_status("50% Blocks Indexed"))
+  test "removes indexing indication when chain is indexed", %{conn: conn} do
+    pending_chain(0..9)
+    join_indexing("indexing_internal_transactions")
+    assert indexing_status(conn)["finished_indexing"] == false
 
-  #     insert(:block, number: 4)
+    InternalTransactionsIndexedCounter.calculate_internal_transactions_indexed()
+    assert_push("index_status", %{ratio: "0.90", finished: false})
 
-  #     BlocksIndexedCounter.calculate_blocks_indexed()
+    Repo.delete_all(PendingBlockOperation)
+    refresh_counters()
+    InternalTransactionsIndexedCounter.calculate_internal_transactions_indexed()
+    assert_push("index_status", %{ratio: "1.00", finished: true})
 
-  #     assert_has(session, AppPage.indexed_status("60% Blocks Indexed"))
-  #   end
+    status = indexing_status(conn)
+    assert status["finished_indexing_blocks"] == true
+    assert status["finished_indexing"] == true
+    assert status["indexed_internal_transactions_ratio"] == "1.00"
+  end
 
-  #   test "updates when blocks are fully indexed", %{session: session} do
-  #     [block | _] =
-  #       for index <- 1..9 do
-  #         insert(:block, number: index)
-  #       end
+  defp pending_chain(range) do
+    [block | _] = Enum.map(range, &insert(:block, number: &1))
+    :transaction |> insert(input: Explorer.Factory.contract_code_info().tx_input) |> with_block(block)
+    insert(:pending_block_operation, block_hash: block.hash, block_number: block.number)
+    refresh_counters()
+  end
 
-  #     :transaction
-  #     |> insert()
-  #     |> with_block(block)
+  defp refresh_counters do
+    BlockNumber.set_min(Repo.aggregate(Block, :min, :number))
+    BlockNumber.set_max(Repo.aggregate(Block, :max, :number))
+    BlocksCount.set_count(Repo.aggregate(Block, :count, :hash))
+    PendingBlockOperationCount.set_count(Repo.aggregate(PendingBlockOperation, :count, :block_hash))
+  end
 
-  #     BlocksIndexedCounter.calculate_blocks_indexed()
+  defp indexing_status(conn) do
+    conn |> get("/api/v2/main-page/indexing-status") |> json_response(200)
+  end
 
-  #     assert Decimal.compare(Explorer.Chain.indexed_ratio(), Decimal.from_float(0.9)) == :eq
-
-  #     insert(:pending_block_operation, block_hash: block.hash, block_number: block.number)
-
-  #     session
-  #     |> AppPage.visit_page()
-  #     |> assert_has(AppPage.indexed_status("90% Blocks Indexed"))
-
-  #     insert(:block, number: 0)
-
-  #     BlocksIndexedCounter.calculate_blocks_indexed()
-
-  #     assert_has(session, AppPage.indexed_status("Indexing Internal Transactions"))
-  #   end
-
-  #   test "removes message when chain is indexed", %{session: session} do
-  #     [block | _] =
-  #       for index <- 0..9 do
-  #         insert(:block, number: index)
-  #       end
-
-  #     :transaction
-  #     |> insert()
-  #     |> with_block(block)
-
-  #     block_hash = block.hash
-
-  #     insert(:pending_block_operation, block_hash: block_hash, block_number: block.number)
-
-  #     BlocksIndexedCounter.calculate_blocks_indexed()
-
-  #     assert Decimal.compare(Explorer.Chain.indexed_ratio_blocks(), 1) == :eq
-
-  #     session
-  #     |> AppPage.visit_page()
-  #     |> assert_has(AppPage.indexed_status("Indexing Internal Transactions"))
-
-  #     BlocksIndexedCounter.calculate_blocks_indexed()
-
-  #     refute_has(session, AppPage.still_indexing?())
-  #   end
-  # end
+  defp join_indexing(channel) do
+    assert {:ok, %{}, _socket} =
+             BlockScoutWeb.V2.UserSocket
+             |> socket("indexing-feature", %{})
+             |> subscribe_and_join("blocks:#{channel}")
+  end
 end
