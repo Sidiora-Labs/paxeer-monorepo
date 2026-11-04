@@ -1,0 +1,109 @@
+[repair.22.33.1558]
+audit = "spec/layerx-merge/programme/audit/records/22.30.98.kvx"
+acceptance = "22998.1"
+status = "implementation complete for attempt 3; the private hf-build/hf-done ledger owns qualification and the exact verified revision"
+baseline = "Not run: the ordered task instructions prohibit any build/test before complete implementation and prohibit running verify_cmd by hand; the new integration target did not exist on the starting tree, and no baseline test failure is claimed."
+evidence = "The private /out/run/gates.jsonl ledger and hf-build/hf-done final JSON lines own the exact candidate revision, command, exit code and private log location; this record does not claim an unrun gate."
+
+[finding.activity-disclosure-still-public]
+implementation = "The continuation ruling retains and deprecates live bind and bind_budget_mutation with their original validation/decoders; canonical call disclosure uses explicit senders and reencode/validate_canonical now also consume type-2 bytes."
+test = "activity_disclosure_still_public_is_closed_by_transaction_round_trip"
+
+[finding.api-contract-document-absent]
+implementation = "src/api-contract.md is the domain-9-owned current crypto/proof contract and is included directly by lib.rs; it documents raw bind/EVM/payer signing, governed receipt-key height pins, three rungs, typed refusals and committed-proof limits."
+test = "api_contract_document_absent_is_closed_by_owned_contract_and_raw_bind_vector"
+
+[finding.crypto-retired-exports]
+implementation = "lib.rs removes the unused settlement-recipient export and deprecates live onboarding module/types/re-exports; call signing, typed bind consent, encrypted key storage and kernel payload codecs remain."
+test = "crypto_retired_exports_are_closed_while_key_storage_and_signing_reopen"
+
+[finding.nested-activity-onboarding]
+implementation = "Live onboarding.rs types and their public module/re-exports are retained and deprecated under the continuation ruling; binding.rs produces and consumes canonical addr bindLayerX registration transactions with raw DID consent and recovered EVM sender."
+test = "nested_activity_onboarding_is_closed_by_registration_transaction_and_consent"
+
+[finding.old-send-envelope-constructor]
+implementation = "Live EnvelopeOptions, DisclosedEnvelope and encode_send_envelope are retained and deprecated under the continuation ruling; CallOptions and ledger_payment_call retain identical native payment bytes inside canonical EIP-1559 calldata."
+test = "old_send_envelope_constructor_is_closed_with_native_payload_compatibility"
+
+[finding.recipient-binding-not-signed]
+implementation = "No merged-network consumer of RecipientAuthorization exists in the Rust source inventory; settlement_recipient.rs and its public export are removed, so there is no unauthenticated replaceable binding_digest field."
+test = "recipient_binding_not_signed_is_closed_by_surface_retirement"
+
+[finding.keystore-accepts-activity-preimage]
+implementation = "Unused SigningRequest::new is removed. Live sign_disclosed is deprecated and retains validated local signing; a distinct activity purpose is always refused by KeystoreSigner and RemoteSigner before I/O. Private constructors distinguish it from typed raw bind consent and canonical payer authorization, whose exact returned signatures are verified."
+test = "keystore_accepts_activity_preimage_is_closed_before_and_after_reopening"
+fixture = "A committed-key loopback OpenSSH protocol peer returns real Ed25519 signatures over the production signer's framed requests; no external binary, credential, live endpoint or environment variable is required. Both peer and signer stop/reopen, and exact request transcripts prove activity refusal occurs before I/O."
+
+[migration.crypto_tests]
+implementation = "The continuation ruling includes the crate tests in scope. Existing disclosure, disclosure_call, signer, remote, send_call, authority_grant, native_fee_grant and proof_crypto tests now use real type-2 payment calls, typed native payer requests, raw bind consent or the retained kernel payload codecs. Every existing test function remains; original archive bytes and signatures, immutable-field mutation loops, explicit refusal checks and source/transaction sequence independence remain asserted. payments.rs already uses the current call API on this continuation base."
+retired_fixtures = "Archived bridge/withdrawal/grant evidence keeps its wire/codec checks but is refused by current transaction consumers; successful signing is exercised only with permitted current calls or payer/bind authorizations. Live compatibility APIs remain deprecated as required by attempt 3; external custody still refuses their activity signing purpose."
+
+[wiring.agentd_disclosure]
+request = "services/agent/crates/layerx-agentd/src/{prepare/disclose.rs,prepare/mod.rs,approval/native_effect.rs,approval/native_program_presentation.rs,policy/native_program.rs,capability/effects.rs,capability/binding.rs} — domain 9: replace activity bind/budget disclosure with bind_call on canonical type-2 calls and recovered/explicit sender, and consume complete calldata semantics."
+
+[wiring.agentd_identity]
+request = "services/agent/crates/layerx-agentd/src/{human_runtime.rs,human_runtime/subject.rs,human_runtime/subject/tests.rs} and tests/repair_22_31_366.rs — domain 9: replace SponsoredRegistration/OnboardingConsent nested activities with addr bindLayerX transaction and DID-consent fixtures using binding::BindAuthorization."
+
+[wiring.client_binding]
+request = "services/agent/crates/layerx-client/src/{paxeer_binding.rs,account_binding.rs} — domain 9: consume the shared binding::BindMessage/BindAuthorization codec and SigningRequest::bind for external DID key custody; preserve the already published raw-message vectors and chain nonce checks."
+
+[wiring.sdk]
+request = "services/agent/crates/layerx-sdk/src/agent_envelope.rs and services/agent/crates/layerx-agentd/tests — domain 9: migrate remaining activity disclosures and signing fixtures to canonical EVM transactions with explicit/recovered senders."
+
+[wiring.human]
+request = "services/human/crates/{layerx-intents,layerx-human-kms,layerx-human-service,layerx-human-test-support}/src and tests — domain 10: migrate removed crypto bind/activity/onboarding/SigningRequest::new consumers to typed bind consent, payer authorization and EVM call disclosure without weakening existing checks."
+
+[wiring.registry_contract]
+request = "spec/layerx-merge/interfaces.kvx and maintained registry contract links under spec/layerx-merge/docs — domain 9/spec ownership: redirect contracts/agent-rust-api.md#crypto and #proof to services/agent/crates/layerx-crypto/src/api-contract.md#crypto and #proof; edit generated registry mirrors only through their owners."
+
+[wiring.remote_bind]
+request = "services/human/crates/layerx-human-kms/src/wire.rs and services/agent/crates/layerx-crypto/src/remote.rs — domains 10 and 9: version the remote producer/consumer together to authenticate raw bind signing purpose; protocol v1 currently explicitly refuses raw bind requests and continues scoped payer signing."
+
+[gotcha.scope_gate_conflict]
+observed = "The first attempt treated existing --tests consumers as out of scope, causing unresolved imports after required public API retirement."
+action = "The continuation ruling explicitly includes tests/: migrate these consumers before building, preserving test functions, payload vectors, signature verification and tamper refusal checks."
+
+[gotcha.record_scope]
+observed = "The task requests updates to a task record, GOTCHA.kvx and qualification.kvx while explicitly excluding spec/ and GOTCHA.kvx from writable scope."
+action = "Keep the repair mapping, wiring requests and task observations in this scoped record; the runner owns publication and authoritative gate evidence."
+
+[qualification.build_1]
+revision = "69770e459632fe23f1275e33025ef0db5c750100"
+command = "cargo build --locked --manifest-path services/agent/crates/layerx-crypto/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The build fails on tests/payments.rs (missing disclosure::bind and SigningRequest::new, plus cascading E0614 errors), tests/native_fee_grant.rs (missing disclosure::bind), tests/disclosure.rs (missing disclosure::bind and signer::sign_disclosed), and tests/disclosure_call.rs (missing encode_send_envelope and EnvelopeOptions); the first attempt considered those integration-test paths outside SCOPE, which the continuation ruling corrects."
+assumption = "Historical assumption superseded by the continuation ruling: tests are now in scope and their callers are migrated; no assertion, test or check is weakened and no unrun verification is claimed."
+
+[qualification.continuation_build]
+revision = "f979fa9e15cb43be4af89aa0e9178b9a38c347e3"
+command = "cargo build --locked --manifest-path services/agent/crates/layerx-crypto/Cargo.toml --tests"
+exit = 0
+log = "/out/logs/build-1.log"
+observed = "The crate and every integration target compile with the retired API consumers migrated; no repair-test execution is claimed."
+assumption = "The gate ledger identifies the exact built candidate; this subsequent evidence-only record update is not a new successful gate."
+
+[qualification.continuation_dependents]
+revision = "f979fa9e15cb43be4af89aa0e9178b9a38c347e3"
+command = "cargo check --locked --manifest-path /work/paxeer-monorepo/services/agent/Cargo.toml --all-targets -p layerx-agent-api -p layerx-agentd -p layerx-agentd-host -p layerx-client -p layerx-mcp -p layerx-proof -p layerx-sdk -p layerx-wire"
+exit = 101
+log = "/out/logs/dependents-1.log"
+observed = "E0425 at services/agent/crates/layerx-sdk/src/agent_envelope.rs:579:53: cannot find function bind in module layerx_crypto::disclosure; the same SDK error propagates through the human, interop and platform dependent commands recorded in this log."
+assumption = "hf-done exited 7 before running cg spec done or verify_cmd; the existing wiring.sdk request owns the necessary out-of-scope consumer migration, so this recorded finding is not rerun or repaired here."
+
+[gotcha.dependent_gate_scope]
+observed = "hf-done also compiles reverse dependencies before its declared verification, and blocks on an SDK consumer of the exact activity binder this task must retire; the in-scope crate build succeeds."
+action = "Historical attempt-2 action superseded by attempt 3: restore and deprecate live bind APIs, keep current transaction fixtures, and let the declared hf-done dependent-crate check prove compatibility."
+
+
+[continuation.live_api_inventory]
+ruling = "Attempt 3 supersedes blanket retirement: only uncalled APIs are removed; every live compatibility surface is retained and deprecated, and the repair test asserts its declaration and runtime behavior."
+bind = "services/agent/crates/layerx-sdk/src/agent_envelope.rs, services/agent/crates/layerx-agentd/src/prepare/disclose.rs and approval/native_effect.rs call bind/bind_budget_mutation."
+onboarding = "services/agent/crates/layerx-agentd/src/human_runtime/subject.rs, services/human/crates/layerx-human-service/src/onboarding/native.rs and services/platform/hosted/authority/src/human/dynamic.rs consume onboarding types and payments re-exports."
+send = "services/agent/crates/layerx-agentd/src/capability/effects.rs and services/agent/tests/limits/exactly_once.rs call encode_send_envelope with EnvelopeOptions."
+sign = "services/agent/crates/layerx-agentd/tests/w7_owner_binding.rs calls sign_disclosed; no Rust caller of SigningRequest::new or settlement_recipient::RecipientAuthorization remains outside this crate."
+proof = "hf-done performs the reverse-dependent crate compilation check before the declared repair integration test; no dependent compilation result is claimed until that wrapper records it."
+
+[gotcha.fixture_merge]
+observed = "The carried-over support/mod.rs conflict appends duplicate canonical transaction fixture functions with old activity semantics, plus missing imports/constants."
+action = "Keep all current fixture functions and their consumer contract unchanged; add explicitly named archived fixtures using the real producer/codec beside them, and point only the carried-over archive tests at those names."

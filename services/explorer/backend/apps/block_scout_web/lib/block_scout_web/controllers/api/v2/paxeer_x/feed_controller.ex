@@ -62,7 +62,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.FeedController do
 
   tags(["paxeer-x"])
 
-  operation :markets,
+  operation(:markets,
     summary: "List the price-feed markets of Paxeer X Network",
     description:
       "Retrieves every market the price-feed precompile lists, in market id order, each with its latest " <>
@@ -71,6 +71,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.FeedController do
     responses: [
       ok: {"Price-feed markets.", "application/json", Schemas.PaxeerX.PriceFeed.Markets}
     ]
+  )
 
   @doc """
   Handles GET requests to `/api/v2/paxeer-x/feed/markets`.
@@ -83,7 +84,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.FeedController do
     |> render(:markets, %{markets: PriceFeed.latest_per_market(), chain_head: Chain.block_height(@api_true)})
   end
 
-  operation :updates,
+  operation(:updates,
     summary: "List the price-feed submissions of Paxeer X Network",
     description:
       "Retrieves a paginated list of price-feed submissions, newest first by block number and CometBFT " <>
@@ -98,6 +99,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.FeedController do
          paginated_response(items: Schemas.PaxeerX.PriceFeed.Update, next_page_params_example: @paging_example)},
       unprocessable_entity: JsonErrorResponse.response()
     ]
+  )
 
   @doc """
   Handles GET requests to `/api/v2/paxeer-x/feed/updates`.
@@ -121,7 +123,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.FeedController do
     })
   end
 
-  operation :update,
+  operation(:update,
     summary: "Retrieve one price-feed submission of Paxeer X Network",
     description: "Retrieves one price-feed submission of a consensus block by its hash, with its observations.",
     parameters: [@hash_path_param | base_params()],
@@ -130,6 +132,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.FeedController do
       not_found: NotFoundResponse.response(),
       unprocessable_entity: JsonErrorResponse.response()
     ]
+  )
 
   @doc """
   Handles GET requests to `/api/v2/paxeer-x/feed/updates/:hash`.
@@ -152,19 +155,19 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.FeedController do
     end
   end
 
-  operation :market_updates,
+  operation(:market_updates,
     summary: "List the observations of one price-feed market of Paxeer X Network",
     description:
       "Retrieves a paginated list of one market's observations from consensus blocks, newest first, each " <>
         "with the submission that carried it, and the market's symbol, null while the market is unknown.",
-    parameters:
-      [@market_id_path_param | base_params()] ++ define_paging_params(["block_number", "index", "items_count"]),
+    parameters: [@market_id_path_param | base_params()] ++ define_paging_params(["block_number", "index"]),
     responses: [
       ok:
         {"Market observations with pagination, and the market's symbol.", "application/json",
          Schemas.PaxeerX.PriceFeed.MarketUpdates},
       unprocessable_entity: JsonErrorResponse.response()
     ]
+  )
 
   @doc """
   Handles GET requests to `/api/v2/paxeer-x/feed/markets/:market_id/updates`.
@@ -182,8 +185,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.FeedController do
     |> render(:market_updates, %{
       symbol: Map.get(PriceFeed.market_symbols([market_id]), market_id),
       observations: observations,
-      next_page_params:
-        next_page_params(next_page, observations, Map.delete(params, :market_id), false, &observation_paging_params/1)
+      next_page_params: market_next_page_params(next_page, observations)
     })
   end
 
@@ -201,6 +203,11 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.FeedController do
 
   defp update_paging_params(%PriceUpdate{block_number: block_number, index: index}),
     do: %{block_number: block_number, index: index}
+
+  defp market_next_page_params([], _observations), do: nil
+
+  defp market_next_page_params(_next_page, observations),
+    do: observation_paging_params(List.last(observations))
 
   defp observation_paging_params(%PriceObservation{block_number: block_number, update: %PriceUpdate{index: index}}),
     do: %{block_number: block_number, index: index}

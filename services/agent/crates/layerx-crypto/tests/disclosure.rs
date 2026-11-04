@@ -1,44 +1,25 @@
-use std::future::Future;
-use std::pin::pin;
-use std::sync::Arc;
-use std::task::{Context, Poll, Wake, Waker};
-
-mod support;
-
-use layerx_crypto::disclosure::{bind, AmountRole, CounterpartyRole, DisclosureError, Expiry};
-use layerx_crypto::ed25519;
-use layerx_crypto::signer::{sign_disclosed, LocalSigner, SignError, Signer};
-use layerx_crypto::SignatureMessage;
-use layerx_wire::hash::Domain;
-use layerx_wire::limits::PROTOCOL_VERSION;
+use layerx_crypto::disclosure::call::{bind_call, ConstructMethod};
+use layerx_crypto::disclosure::{
+    AmountRole, CounterpartyRole, DisclosedWithdrawal, DisclosureError, Expiry,
+};
+use layerx_crypto::evm_transaction::{decode_unsigned, recover_sender, Eip1559Call};
+use layerx_crypto::signer::{sign_disclosed_call, SignError};
+use layerx_wire::decode::Decoder;
 use sha2::{Digest as _, Sha256};
 
-struct NoopWake;
-
-impl Wake for NoopWake {
-    fn wake(self: Arc<Self>) {}
-}
-
-fn ready<F: Future>(future: F) -> F::Output {
-    let mut future = pin!(future);
-    let waker = Waker::from(Arc::new(NoopWake));
-    let mut context = Context::from_waker(&waker);
-    match future.as_mut().poll(&mut context) {
-        Poll::Ready(value) => value,
-        Poll::Pending => panic!("local signer future unexpectedly blocked"),
-    }
-}
+mod support;
+use support::complete as ready;
 
 #[test]
 fn canonical_send_discloses_every_authorised_semantic_and_reencodes_exactly() {
-    let canonical = support::canonical_send(25);
-    let registry = support::registry();
-    let Ok(disclosure) = bind(&canonical, &registry) else {
-        panic!("canonical send disclosure rejected");
-    };
+    let produced = support::send_call(25, 7);
+    let canonical = produced.call.encode_unsigned();
+    let sender = support::call_options(7).from;
+    let disclosure = bind_call(&decode_unsigned(&canonical).expect("type-2 call"), sender)
+        .expect("canonical send disclosure");
     assert_eq!(disclosure.activity_type.value(), 0x0001_0005);
-    assert_eq!(disclosure.actor, b"did:layerx:alice");
-    assert_eq!(disclosure.authority.len(), 32);
+    assert_eq!(disclosure.actor, sender);
+    assert_eq!(disclosure.authority, sender);
     assert_eq!(disclosure.counterparties.len(), 2);
     assert_eq!(disclosure.counterparties[0].role, CounterpartyRole::Payer);
     assert_eq!(disclosure.counterparties[0].account, [0x11; 32]);
@@ -51,46 +32,74 @@ fn canonical_send_discloses_every_authorised_semantic_and_reencodes_exactly() {
     assert_eq!(disclosure.amounts[0].role, AmountRole::Transfer);
     assert_eq!(disclosure.amounts[0].value, 25);
     assert_eq!(disclosure.asset, [0x33; 32]);
-    assert_eq!(disclosure.fee_limit, 20);
+    assert_eq!(disclosure.fee_limit, 3_000_000);
     assert_eq!(
         disclosure.expiry,
         Expiry {
-            not_before: 10,
-            not_after: 100,
-            payload_expires_at: 100,
+            not_before: 0,
+            not_after: u64::MAX,
+            payload_expires_at: 100
         }
     );
     assert_eq!(disclosure.idempotency_key, [0x71; 32]);
     assert_eq!(disclosure.reencode(), Ok(canonical));
 }
 
+/// Retired custody payloads remain recorded evidence, never a transaction a
+/// signer may authorize. Exercise the production type-2 decoder and call binder
+/// against both the original envelope and a transaction carrying the old bytes.
+fn refuse_retired(canonical: &[u8]) {
+    assert!(decode_unsigned(canonical).is_err());
+    let mut target = [0; 20];
+    target[18..].copy_from_slice(&0x1013_u16.to_be_bytes());
+    let call = Eip1559Call {
+        to: target,
+        data: canonical.to_vec(),
+        ..support::send_call(25, 7).call
+    };
+    assert_eq!(
+        bind_call(&call, support::call_options(7).from),
+        Err(DisclosureError::MalformedPayload)
+    );
+}
+
 #[test]
 fn bridge_deposit_credit_discloses_and_signs_the_exact_compiled_semantics() {
-    let canonical = support::canonical_bridge_credit(25);
+    let canonical = support::archived_bridge_credit(25);
     let registry = support::bridge_registry();
-    let Ok(disclosure) = bind(&canonical, &registry) else {
-        panic!("canonical bridge credit disclosure rejected");
-    };
-    assert_eq!(disclosure.activity_type.value(), 0x0008_0001);
+    let archive =
+        layerx_wire::activity::decode_unsigned(&canonical, &registry).expect("archived credit");
+    assert_eq!(archive.activity_type().value(), 0x0008_0001);
+    let payload = archive.payload();
     let mut payer = [0; 32];
     payer[12..].fill(0x11);
-    assert_eq!(disclosure.counterparties.len(), 2);
-    assert_eq!(disclosure.counterparties[0].role, CounterpartyRole::Payer);
-    assert_eq!(disclosure.counterparties[0].account, payer);
+    let mut recorded_payer = [0; 32];
+    recorded_payer[12..].copy_from_slice(&payload[171..191]);
+    assert_eq!(recorded_payer, payer);
+    assert_eq!(&payload[107..139], &[0x22; 32]);
+    assert_eq!(&payload[75..107], &[0x33; 32]);
     assert_eq!(
-        disclosure.counterparties[1].role,
-        CounterpartyRole::Recipient
+        u128::from_be_bytes(payload[191..207].try_into().expect("amount")),
+        25
     );
-    assert_eq!(disclosure.counterparties[1].account, [0x22; 32]);
-    assert_eq!(disclosure.asset, [0x33; 32]);
-    assert_eq!(disclosure.amounts[0].value, 25);
     let mut nullifier = Sha256::new();
     nullifier.update(b"LX:DEPOSIT:NULLIFIER:v1");
     nullifier.update([0x41; 32]);
-    assert_eq!(disclosure.idempotency_key, nullifier.finalize()[..]);
-    assert_eq!(disclosure.reencode(), Ok(canonical.clone()));
-    let signer = LocalSigner::new([0xa5; 32]);
-    assert!(ready(sign_disclosed(&signer, &canonical, &disclosure, &registry)).is_ok());
+    assert_eq!(archive.idempotency_key(), nullifier.finalize()[..]);
+    assert_eq!(
+        layerx_wire::activity::encode_unsigned(&archive).expect("archive reencode"),
+        canonical
+    );
+    refuse_retired(&canonical);
+    // Successful signing now uses the supported native payment transaction.
+    let produced = support::send_call(25, 7);
+    assert!(ready(sign_disclosed_call(
+        &support::evm_signer(),
+        &produced.call,
+        &produced.disclosure,
+        support::call_options(7).from
+    ))
+    .is_ok());
 }
 
 #[test]
@@ -100,8 +109,8 @@ fn recorded_custody_credit_discloses_the_signed_activity() {
     );
     assert_eq!(recorded.len(), 1821);
     let registry = support::bridge_registry();
-    let activity = layerx_wire::activity::decode_signed(recorded, &registry)
-        .unwrap_or_else(|error| panic!("recorded activity: {error:?}"));
+    let activity =
+        layerx_wire::activity::decode_signed(recorded, &registry).expect("recorded activity");
     assert_eq!(activity.network_id(), 77);
     assert_eq!(activity.protocol_version(), 3);
     assert_eq!(activity.signature().map(<[u8]>::len), Some(64));
@@ -113,112 +122,114 @@ fn recorded_custody_credit_discloses_the_signed_activity() {
     );
     assert_eq!(payload, &recorded[257..257 + payload.len()]);
     assert_eq!(&payload[..5], b"LXDC3");
-    let canonical = layerx_wire::activity::encode_unsigned(&activity)
-        .unwrap_or_else(|error| panic!("recorded unsigned activity: {error:?}"));
-    let disclosure = bind(&canonical, &registry)
-        .unwrap_or_else(|error| panic!("recorded credit disclosure: {error:?}"));
-    let mut payer = [0; 32];
-    payer[12..].copy_from_slice(&payload[171..191]);
-    assert_eq!(disclosure.counterparties[0].account, payer);
-    assert_eq!(disclosure.counterparties[1].account, payload[107..139]);
-    assert_eq!(disclosure.asset, payload[75..107]);
-    assert_eq!(disclosure.amounts[0].value.to_be_bytes(), payload[191..207]);
+    let canonical =
+        layerx_wire::activity::encode_unsigned(&activity).expect("recorded unsigned activity");
     let mut nullifier = Sha256::new();
     nullifier.update(b"LX:DEPOSIT:NULLIFIER:v1");
     nullifier.update(&payload[43..75]);
-    assert_eq!(disclosure.idempotency_key, nullifier.finalize()[..]);
-    assert_eq!(disclosure.idempotency_key, activity.idempotency_key());
-    assert_eq!(disclosure.reencode(), Ok(canonical));
+    assert_eq!(nullifier.finalize()[..], activity.idempotency_key());
+    // Keep all source, recipient, asset and amount assertions on the recorded
+    // codec; the custody executor and its signing route are retired.
+    let decoded =
+        layerx_wire::activity::decode_unsigned(&canonical, &registry).expect("archive codec");
+    assert_eq!(&decoded.payload()[171..191], &payload[171..191]);
+    assert_eq!(&decoded.payload()[107..139], &payload[107..139]);
+    assert_eq!(&decoded.payload()[75..107], &payload[75..107]);
+    assert_eq!(&decoded.payload()[191..207], &payload[191..207]);
+    assert_eq!(
+        layerx_wire::activity::encode_unsigned(&decoded).expect("archive reencode"),
+        canonical
+    );
+    refuse_retired(&canonical);
 }
 
 #[test]
 fn legacy_bridge_withdrawal_is_refused() {
-    let canonical = support::canonical_bridge_withdraw(25);
-    assert!(matches!(
-        bind(&canonical, &support::bridge_withdraw_registry()),
-        Err(DisclosureError::UnsupportedActivity(_))
-    ));
+    refuse_retired(&support::archived_bridge_withdraw(25));
 }
 
 #[test]
 fn disclosed_signing_uses_the_exact_canonical_bytes() {
-    let canonical = support::canonical_send(25);
-    let registry = support::registry();
-    let Ok(disclosure) = bind(&canonical, &registry) else {
-        panic!("canonical send disclosure rejected");
-    };
-    let signer = LocalSigner::new([0xa5; 32]);
-    let Ok(signature) = ready(sign_disclosed(&signer, &canonical, &disclosure, &registry)) else {
-        panic!("matching disclosed activity was refused");
-    };
-    let Ok(message) =
-        SignatureMessage::new(Domain::SignaturePreimage, PROTOCOL_VERSION, 17, &canonical)
-    else {
-        panic!("valid message scope rejected");
-    };
+    let produced = support::send_call(25, 7);
+    let canonical = produced.call.encode_unsigned();
+    let call = decode_unsigned(&canonical).expect("canonical transaction");
+    let sender = support::call_options(7).from;
+    let disclosure = bind_call(&call, sender).expect("send disclosure");
+    let signature = ready(sign_disclosed_call(
+        &support::evm_signer(),
+        &call,
+        &disclosure,
+        sender,
+    ))
+    .expect("matching disclosed call");
+    assert_eq!(recover_sender(&call, &signature), Ok(sender));
     assert_eq!(
-        ed25519::verify(&signer.public_key(), signature.as_bytes(), message),
-        Ok(())
+        disclosure.signing_digest().expect("digest"),
+        call.signing_hash()
     );
 }
 
 #[test]
 fn small_payment_disclosure_cannot_authorise_large_payment_bytes() {
-    let canonical = support::canonical_send(9_000_000);
-    let registry = support::registry();
-    let Ok(mut disclosure) = bind(&canonical, &registry) else {
-        panic!("canonical large send disclosure rejected");
-    };
+    let produced = support::send_call(9_000_000, 7);
+    let mut disclosure = produced.disclosure;
     disclosure.amounts[0].value = 1;
-    let signer = LocalSigner::new([0xa5; 32]);
-    let refusal = ready(sign_disclosed(&signer, &canonical, &disclosure, &registry));
-    assert_eq!(refusal, Err(SignError::DisclosureMismatch("amounts")));
-    let Err(error) = refusal else {
-        panic!("mismatching disclosure unexpectedly signed");
-    };
+    let refusal = ready(sign_disclosed_call(
+        &support::evm_signer(),
+        &produced.call,
+        &disclosure,
+        support::call_options(7).from,
+    ));
+    assert_eq!(refusal, Err(SignError::DisclosureMismatch("call")));
+    assert_eq!(
+        disclosure.validate(),
+        Err(DisclosureError::FieldMismatch("amounts"))
+    );
+    let error = disclosure.validate().expect_err("mismatching disclosure");
     assert!(error.to_string().contains("amounts"));
 }
 
 #[test]
 fn byte_substitution_names_the_semantic_field_that_changed() {
-    let small = support::canonical_send(1);
-    let large = support::canonical_send(9_000_000);
-    let registry = support::registry();
-    let Ok(disclosure) = bind(&small, &registry) else {
-        panic!("canonical small send disclosure rejected");
-    };
-    let signer = LocalSigner::new([0xa5; 32]);
+    let small = support::send_call(1, 7);
+    let large = support::send_call(9_000_000, 7);
+    assert_ne!(small.call.encode_unsigned(), large.call.encode_unsigned());
     assert_eq!(
-        ready(sign_disclosed(&signer, &large, &disclosure, &registry)),
-        Err(SignError::DisclosureMismatch("amounts"))
+        ready(sign_disclosed_call(
+            &support::evm_signer(),
+            &large.call,
+            &small.disclosure,
+            support::call_options(7).from
+        )),
+        Err(SignError::DisclosureMismatch("call"))
+    );
+    let mut altered = large.disclosure;
+    altered.amounts = small.disclosure.amounts;
+    assert_eq!(
+        altered.validate(),
+        Err(DisclosureError::FieldMismatch("amounts"))
     );
 }
 
 #[test]
 fn payload_commitment_mismatch_is_fail_closed() {
-    let mut corrupted = support::canonical_send(25);
-    let last = corrupted.len().saturating_sub(1);
-    corrupted[last] ^= 1;
-    assert_eq!(
-        bind(&corrupted, &support::registry()).err(),
-        Some(DisclosureError::PayloadHash)
+    let mut corrupted = support::archived_send(25);
+    *corrupted.last_mut().expect("archived bytes") ^= 1;
+    let activity = layerx_wire::activity::decode_unsigned(&corrupted, &support::registry())
+        .expect("archive framing");
+    assert_ne!(
+        layerx_wire::hash::payload_hash(&activity).expect("actual hash"),
+        activity.payload_hash()
     );
-}
-
-fn native_withdraw(
-    payload: &[u8],
-    ordinal: u16,
-) -> (Vec<u8>, layerx_types::payload::ModuleRegistry) {
-    use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
-    let kind = ActivityType::new(ModuleId::Asset, ordinal)
-        .unwrap_or_else(|error| panic!("activity type: {error:?}"));
-    let registry = ModuleRegistry::new(&[ModuleRegistration::new(ModuleId::Asset, &[kind])
-        .unwrap_or_else(|error| panic!("module: {error:?}"))])
-    .unwrap_or_else(|error| panic!("registry: {error:?}"));
-    (
-        support::canonical_native_withdraw(payload, kind.value()),
-        registry,
-    )
+    refuse_retired(&corrupted);
+    let produced = support::send_call(25, 7);
+    let mut call = produced.call;
+    // Corrupt the native authorization signature under canonical ABI framing.
+    call.data[68 + 330] ^= 1;
+    assert_eq!(
+        bind_call(&call, support::call_options(7).from),
+        Err(DisclosureError::MalformedPayload)
+    );
 }
 
 fn withdrawal_payload() -> Vec<u8> {
@@ -232,47 +243,78 @@ fn withdrawal_payload() -> Vec<u8> {
 
 #[test]
 fn native_withdrawal_discloses_every_field_and_signs_exact_bytes() {
-    let (canonical, registry) = native_withdraw(&withdrawal_payload(), 9);
-    let disclosure =
-        bind(&canonical, &registry).unwrap_or_else(|error| panic!("native disclosure: {error:?}"));
-    assert_eq!(disclosure.activity_type.value(), 0x0001_0009);
-    assert_eq!(disclosure.actor, b"did:layerx:alice");
-    assert_eq!(disclosure.authority.len(), 32);
-    assert_eq!(disclosure.counterparties.len(), 1);
-    assert_eq!(disclosure.counterparties[0].role, CounterpartyRole::Payer);
-    assert_eq!(disclosure.asset, [0x33; 32]);
-    assert_eq!(disclosure.amounts[0].value, 25);
-    assert_eq!(disclosure.fee_limit, 20);
-    assert_eq!(disclosure.idempotency_key, [0x71; 32]);
-    let withdrawal = disclosure
-        .withdrawal
-        .unwrap_or_else(|| panic!("withdrawal fields"));
-    assert_eq!(withdrawal.account_sequence, 7);
-    assert_eq!(withdrawal.evm_recipient, [0x44; 20]);
-    assert_eq!(withdrawal.request_anchor, [0x66; 32]);
-    assert_eq!(disclosure.reencode(), Ok(canonical.clone()));
-    let signer = LocalSigner::new([0xa5; 32]);
-    assert!(ready(sign_disclosed(&signer, &canonical, &disclosure, &registry)).is_ok());
+    let payload = withdrawal_payload();
+    let canonical = support::archived_native_withdraw(&payload, 0x0001_0009);
+    let mut input = Decoder::new(&payload, 0);
+    assert_eq!(input.fixed(32).expect("asset"), [0x33; 32]);
+    assert_eq!(input.u128().expect("amount"), 25);
+    assert_eq!(input.fixed(20).expect("recipient"), [0x44; 20]);
+    assert_eq!(input.fixed(32).expect("anchor"), [0x66; 32]);
+    assert_eq!(input.u64().expect("fee"), 20);
+    assert!(input.finish().is_ok());
+    let kind = layerx_types::payload::ActivityType::new(layerx_types::payload::ModuleId::Asset, 9)
+        .expect("kind");
+    let module = layerx_types::payload::ModuleRegistration::new(
+        layerx_types::payload::ModuleId::Asset,
+        &[kind],
+    )
+    .expect("module");
+    let registry = layerx_types::payload::ModuleRegistry::new(&[module]).expect("registry");
+    let archived = layerx_wire::activity::decode_unsigned(&canonical, &registry).expect("archive");
+    assert_eq!(archived.activity_type().value(), 0x0001_0009);
+    assert_eq!(archived.actor_did(), b"did:layerx:alice");
+    assert_eq!(archived.authority().len(), 32);
+    assert_eq!(archived.fee_limit(), 20);
+    assert_eq!(archived.idempotency_key(), [0x71; 32]);
+    assert_eq!(archived.account_sequence(), 7);
+    assert_eq!(
+        layerx_wire::activity::encode_unsigned(&archived).expect("reencode"),
+        canonical
+    );
+    refuse_retired(&canonical);
+    // A withdrawal cannot be injected into the semantics of a supported call.
+    let produced = support::send_call(25, 7);
+    assert_eq!(
+        produced.disclosure.counterparties[0].role,
+        CounterpartyRole::Payer
+    );
+    assert_eq!(produced.disclosure.asset, [0x33; 32]);
+    assert_eq!(produced.disclosure.amounts[0].value, 25);
+    assert!(ready(sign_disclosed_call(
+        &support::evm_signer(),
+        &produced.call,
+        &produced.disclosure,
+        support::call_options(7).from
+    ))
+    .is_ok());
     for field in 0..3 {
-        let mut changed = disclosure.clone();
+        let mut changed = produced.disclosure.clone();
+        let mut withdrawal = DisclosedWithdrawal {
+            account_sequence: 7,
+            evm_recipient: [0x44; 20],
+            request_anchor: [0x66; 32],
+        };
         if field == 0 {
-            changed
-                .withdrawal
-                .as_mut()
-                .unwrap_or_else(|| panic!("fields"))
-                .evm_recipient[0] ^= 1;
+            withdrawal.evm_recipient[0] ^= 1;
         }
         if field == 1 {
-            changed
-                .withdrawal
-                .as_mut()
-                .unwrap_or_else(|| panic!("fields"))
-                .request_anchor[0] ^= 1;
+            withdrawal.request_anchor[0] ^= 1;
         }
         if field == 2 {
-            changed.withdrawal = None;
+            withdrawal.account_sequence += 1;
         }
-        assert!(ready(sign_disclosed(&signer, &canonical, &changed, &registry)).is_err());
+        changed.withdrawal = Some(withdrawal);
+        assert!(ready(sign_disclosed_call(
+            &support::evm_signer(),
+            &produced.call,
+            &changed,
+            support::call_options(7).from
+        ))
+        .is_err());
+        assert_eq!(
+            changed.validate(),
+            Err(DisclosureError::FieldMismatch("withdrawal"))
+        );
         assert!(changed.audit_digest().is_err());
     }
 }
@@ -281,8 +323,10 @@ fn native_withdrawal_discloses_every_field_and_signs_exact_bytes() {
 fn native_withdrawal_refuses_old_unknown_truncated_extended_and_invalid_fields() {
     let payload = withdrawal_payload();
     for length in 0..payload.len() {
-        let (bytes, registry) = native_withdraw(&payload[..length], 9);
-        assert!(bind(&bytes, &registry).is_err());
+        refuse_retired(&support::archived_native_withdraw(
+            &payload[..length],
+            0x0001_0009,
+        ));
     }
     let mut invalid = vec![vec![0; 216], payload.clone()];
     invalid[1].push(0);
@@ -295,42 +339,47 @@ fn native_withdrawal_refuses_old_unknown_truncated_extended_and_invalid_fields()
     fee[107] ^= 1;
     invalid.push(fee);
     for malformed in invalid {
-        let (bytes, registry) = native_withdraw(&malformed, 9);
-        assert!(bind(&bytes, &registry).is_err());
+        refuse_retired(&support::archived_native_withdraw(&malformed, 0x0001_0009));
     }
-    let (bytes, registry) = native_withdraw(&payload, 12);
-    assert!(matches!(
-        bind(&bytes, &registry),
-        Err(DisclosureError::UnsupportedActivity(_))
-    ));
+    refuse_retired(&support::archived_native_withdraw(&payload, 0x0001_000c));
 }
 
 #[test]
 fn send_discloses_independent_identity_and_source_sequences() {
-    let registry = support::registry();
-    let canonical = support::canonical_send_sequences(25, 19);
-    let Ok(disclosure) = bind(&canonical, &registry) else {
-        panic!("independent sequences rejected");
-    };
+    let produced = support::send_call(25, 19);
+    let disclosure = produced.disclosure;
     assert_eq!(disclosure.envelope_sequence(), 19);
     assert_eq!(disclosure.payload_sequence(), Ok(Some(7)));
-    let signer = LocalSigner::new([0xa5; 32]);
-    assert!(ready(sign_disclosed(&signer, &canonical, &disclosure, &registry)).is_ok());
-    let other = support::canonical_send_sequences(25, 20);
-    assert!(ready(sign_disclosed(&signer, &other, &disclosure, &registry)).is_err());
+    assert!(ready(sign_disclosed_call(
+        &support::evm_signer(),
+        &produced.call,
+        &disclosure,
+        support::call_options(19).from
+    ))
+    .is_ok());
+    let other = support::send_call(25, 20);
+    assert!(ready(sign_disclosed_call(
+        &support::evm_signer(),
+        &other.call,
+        &disclosure,
+        support::call_options(20).from
+    ))
+    .is_err());
 }
 
 #[test]
 fn divergent_sequences_do_not_bypass_inner_signature_verification() {
-    let registry = support::registry();
-    let bytes = support::canonical_send_sequences(25, 19);
-    let activity = layerx_wire::activity::decode_unsigned(&bytes, &registry)
-        .unwrap_or_else(|e| panic!("{e:?}"));
-    let original = activity.payload();
+    let produced = support::send_call(25, 19);
+    let Some(ConstructMethod::LedgerSend { payload: original }) =
+        produced.disclosure.construct_method().expect("send method")
+    else {
+        panic!("send payload")
+    };
     for offset in [116, original.len() - 102, original.len() - 1] {
-        let mut payload = original.to_vec();
+        let mut payload = original.clone();
         payload[offset] ^= 1;
-        let forged = support::canonical_send_with_payload(&payload, activity.authority(), 19);
-        assert!(bind(&forged, &registry).is_err());
+        assert!(
+            layerx_crypto::send::ledger_payment_call(&payload, &support::call_options(19)).is_err()
+        );
     }
 }

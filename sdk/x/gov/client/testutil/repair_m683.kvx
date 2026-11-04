@@ -1,0 +1,77 @@
+[repair.22.33.683]
+status = "implemented; qualification requires the bounded hf-build and hf-done evidence"
+acceptance = "22998.1"
+verified_revision_source = "The hf-build and hf-done ledger records the exact candidate revision, command, exit code and private evidence path; no unchanged-tree verification or passing gate is claimed here."
+baseline = "Not run: the explicit task order forbids tests before the entire implementation and permits verification only through hf-done after hf-build, overriding step 7's unchanged-tree baseline request."
+wiring_request = "sdk/x/gov/client/utils/query.go, owning domain 15 (fm-cosmos-fork): QueryDepositsByTxQuery must aggregate initial and subsequent deposits by proposal/depositor, matching Keeper.AddDeposit, rather than returning transaction fragments; the scoped regression retains strict cumulative assertions."
+
+[finding.gov-cli-test-config]
+test = "TestRepairM_683_CLIConfig"
+path = "cli_test.go"
+repair = "Pass t to network.DefaultConfig; retain both suite.Run calls and all assertions. The proof builds both suite configurations and invokes the real application constructor, then compares its keeper deposit parameters with decoded governance genesis."
+
+[finding.gov-deposit-fixture]
+test = "TestRepairM_683_CumulativeDeposits"
+path = "deposits.go"
+repair = "Expect one cumulative entry per account and the initial amount plus 50; assert before and after finalization. Decode the live response envelope according to the queried proposal's actual status."
+proof = "Real transaction codec and RunMsgs -> governance/bank keepers -> persisted ABCI event index and block store -> local RPC -> production deposit CLI -> existing suite query helpers. Compare single and list queries before finalization, after EndBlocker removes live deposits, and after stopping and reopening the on-disk index without replay."
+
+[finding.gov-params-fixture]
+test = "TestRepairM_683_Params"
+path = "suite.go"
+repair = "Derive aggregate and individual expectations from DefaultParams/DefaultVotingParams/DefaultTallyParams/DefaultDepositParams; assert equivalent complete JSON and YAML including expedited voting, quorum, threshold and nested deposit parameters."
+proof = "Real governance keeper parameter store -> registered protobuf query service -> local ABCI RPC -> production aggregate/individual CLI -> the actual suite methods and semantic JSON/YAML assertions."
+
+[gotcha.683]
+area = "test"
+symptom = "Historical deposit lists still expose transaction fragments although the single-depositor historical query sums the same messages."
+cause = "The existing out-of-scope list consumer appends initial and later deposits without per-account aggregation."
+do = "Retain the regression's cumulative expectations and route the wiring request to the consumer's owning domain; do not normalize the result inside a test helper."
+
+[qualification.1]
+revision = "58c0a82f390a9b4544142c9cba38aa296d0b0db4"
+command = "cg spec done 22.33.683 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; detailed Go output /tmp/repair-m683.log"
+observed = "Config, parameters and live cumulative deposits passed; the historical list exposed the pre-existing out-of-scope transaction fragments, then index reopening stopped at an empty-validator genesis state."
+repair = "Supply a real validator in the fixture's persisted genesis and reuse that genesis when reopening; retain every cumulative single/list assertion and the owning-domain wiring request."
+
+[gotcha.683.reopen]
+area = "test"
+symptom = "Reopening the on-disk consensus state reports validatorSet proposer error: nil validator."
+cause = "A newly constructed test node accepted a genesis without validators, but that empty set cannot be decoded from its persisted state."
+do = "Initialize persisted node fixtures with a real validator and reuse the genesis when reopening the index."
+
+[continuation.2]
+source_revision = "366358bef2992410149d297dca6473281b2a3996"
+base_revision = "9e535b4932ba8111a729a5cef10e0ca2370ca435"
+baseline = "The previous attempt failed TestRepairM_683_CumulativeDeposits after_finalization and after_index_reopen on a base preceding task 22.33.676; no extra baseline gate is run in this continuation."
+wiring_resolution = "Task 22.33.676 now supplies per-account aggregation for both historical queries in sdk/x/gov/client/utils/query.go, owned by domain 15 (fm-cosmos-fork); no out-of-scope change is required here."
+implementation = "Retain the previous attempt's complete configuration and parameter repairs, strict cumulative assertions for both accounts, and persisted-validator index reopen fixture."
+evidence = "The final hf-done ledger entry names the exact verified candidate revision, command, exit code and private log; hf-build must name the same candidate."
+
+[continuation.3]
+base_revision = "29cfba290952cb564afa6a1ad1f675df895cdb98"
+previous_outcome = "Attempt 2 could not compile because auth, staking and tokenfactory CLI callers expected one return from tx.NewFactoryCLI; task 22.31.463 repaired those out-of-scope callers on this base."
+implementation = "Preserve all five carried-forward files, cumulative assertions for both depositors, real keeper/codec/CLI paths and the persisted-validator index reopen fixture; qualify on the current base."
+evidence = "No current-attempt gates.jsonl existed before qualification; the final bounded hf-done ledger line supplies the verified revision, command, exit code and private evidence path."
+
+[qualification.3]
+revision = "32fa817b427c990357dfa3c4c93b7d99a69d645a"
+command = "cg spec done 22.33.683 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; detailed Go output /tmp/repair-m683.log"
+observed = "Parameters and live cumulative deposits passed; configuration lacked constructor inputs and historical queries lacked the producer's message-scoped log in the indexed transaction result."
+repair = "Supply validator app/server configuration and initialize real genesis before reading keeper parameters; carry RunMsgs result.Log unchanged into ExecTxResult, preserving every cumulative and reopen assertion."
+
+[gotcha.683.constructor]
+area = "test"
+symptom = "The network application constructor fails on an empty Validator's nil AppConfig."
+cause = "The constructor renders the validator's actual configuration and opens stores before InitChain populates keeper parameters."
+do = "Provide default app and consensus configuration rooted in a temporary directory and initialize the configured genesis before querying keeper defaults."
+
+[gotcha.683.message_logs]
+area = "test"
+symptom = "Historical deposit lookup cannot identify an indexed proposal submission even when its transaction events exist."
+cause = "The fixture discarded RunMsgs result.Log, which binds the submission's proposal event to its message index."
+do = "Persist the real producer's Log alongside Data and Events in the indexed ExecTxResult; never manufacture message logs or normalize historical query answers."

@@ -10,10 +10,10 @@
 use ed25519_dalek::{Signer, SigningKey};
 use layerx_programs_ai_market::{
     admission::{
-        admit_evaluator, Admission, AdmissionContext, AdmissionTable, ApprovalTerms,
-        EvaluatorConsent, Participant, TABLE_MAX_BYTES,
+        Admission, AdmissionContext, AdmissionTable, ApprovalTerms, EvaluatorConsent, Participant,
+        TABLE_MAX_BYTES,
     },
-    aggregation::{self as agg, Outcome as Agg, Progress},
+    aggregation::{self as agg, Progress},
     aggregation_codec::{
         decode_history, input_digest, AggregationPhase, EpochAggregation, QualityStatus,
         ReportCommitment, WorkerAggregate,
@@ -32,17 +32,14 @@ use layerx_programs_ai_market::{
     },
     evaluators::{
         admission::{self as f03, AdmissionReceipt, ReportRegion},
-        authority::{
-            self, split_identity_section, AuthorityContext, EvaluatorRecord, EvaluatorRegion,
-            LastRequest,
-        },
-        codec::{decode_signed_report, encode_signed_report},
-        model::{EvaluatorGrant, GrantTerms, SignedReport, SIGNED_REPORT_MAX_BYTES},
+        authority::{self, split_identity_section, AuthorityContext, EvaluatorRegion},
+        codec::{decode_signed_report, encode_grant, encode_signed_report},
+        model::{SignedReport, GRANT_BYTES, SIGNED_REPORT_MAX_BYTES},
     },
-    evidence::{self, Outcome as Sealing, SEAL_SCRATCH_BYTES},
     policy::{PolicyCommitments, TaskPolicyV1, TASK_POLICY_BYTES},
     registry::{derive_rewards_account, MarketHeader, F01_SECTION_CAP},
     registry_ops::{self, CallContext, Outcome, PolicySection},
+    reputation_transition::split_joint,
     reward_math::allocate,
     rewards::{
         decode_reward_state, EpochStatus, FundReplay, FundRequest, FundingAuthority, FundingPhase,
@@ -52,7 +49,7 @@ use layerx_programs_ai_market::{
         decode_shared_state, encode_shared_state, ActorSlot, Control, ReplayRequest, ReplayTable,
         Section, SharedState,
     },
-    tasks::{self, Outcome as Task, SetBinding, TaskSet},
+    tasks::{self, SetBinding, TaskSet},
     types::{
         AccountId, AssetId, Authentication, ChainDomain, CommitmentDigest, Digest32,
         EvaluatorBinding, EvaluatorId, EvidenceRoot, FrozenBinding, MarketId, MetadataDigest,
@@ -68,6 +65,7 @@ use std::{
     io::{self, Read, Write},
     path::{Path, PathBuf},
     process,
+    sync::atomic::{AtomicU64, Ordering},
 };
 
 type TestResult = CodecResult<()>;
@@ -101,9 +99,10 @@ const SALT_FILE: &str = "salt";
 const REPORT_FILE: &str = "report";
 const COMMIT_FILE: &str = "commit";
 const REVEAL_FILE: &str = "reveal";
+const MARKET_FILE: &str = "market";
 
 /// A failed test step: a canonical application refusal or a client journal I/O error.
-enum Failure {
+pub(crate) enum Failure {
     App(ApplicationError),
     Io(io::Error),
 }
@@ -191,6 +190,19 @@ fn encode(state: &SharedState<'_>) -> CodecResult<Vec<u8>> {
     let n = encode_shared_state(state, &mut out, &mut scratch)?;
     out.truncate(n);
     Ok(out)
+}
+
+/// Low-level F01/F03/F04 readers consume the same region-free view as the routed
+/// transitions. The production adapter validates and isolates F07; committed bytes stay intact.
+fn read_feature<T>(bytes: &[u8], read: impl FnOnce(&[u8]) -> CodecResult<T>) -> CodecResult<T> {
+    let mut next = vec![0; MAX_STATE_BYTES];
+    let mut scratch = vec![0; epoch::CARRY_SCRATCH_BYTES];
+    let (value, written) =
+        epoch::carry_reputation(bytes, &mut next, &mut scratch, |current, _| {
+            Ok((read(current)?, None))
+        })?;
+    assert_eq!(written, None);
+    Ok(value)
 }
 
 /// One request envelope; `delegate` is (claimed key, signer) and `signed` replaces the payload
@@ -346,6 +358,7 @@ struct Parts {
     reports: Vec<u8>,
     rewards: Vec<u8>,
     admission: AdmissionTable,
+    reputation_prefix: Vec<u8>,
     replay: ReplayTable,
     features: Vec<u8>,
 }
@@ -354,6 +367,7 @@ impl Parts {
         let state = decode_shared_state(bytes)?;
         let [policy, identity, reports, rewards, admission] = state.feature_sections;
         let (workers, region) = split_identity_section(identity)?;
+        let (_, table) = split_joint(admission)?;
         Ok(Self {
             revision: state.revision,
             policy: policy.to_vec(),
@@ -361,7 +375,8 @@ impl Parts {
             region: region.to_vec(),
             reports: reports.to_vec(),
             rewards: rewards.to_vec(),
-            admission: AdmissionTable::decode(admission)?,
+            admission: AdmissionTable::decode(table)?,
+            reputation_prefix: admission[..admission.len() - table.len()].to_vec(),
             replay: state.control.replay,
             features: state.control.feature_bytes.to_vec(),
         })
@@ -381,39 +396,17 @@ impl Parts {
         identity.extend_from_slice(&self.region);
         let mut admission = vec![0; TABLE_MAX_BYTES];
         let admission_len = self.admission.encode(&mut admission)?;
+        admission.truncate(admission_len);
+        let mut joint = self.reputation_prefix.clone();
+        joint.extend_from_slice(&admission);
         encode(&SharedState {
             revision: self.revision,
-            feature_sections: [
-                &policy,
-                &identity,
-                &self.reports,
-                &self.rewards,
-                &admission[..admission_len],
-            ],
+            feature_sections: [&policy, &identity, &self.reports, &self.rewards, &joint],
             control: Control {
                 replay: self.replay.clone(),
                 feature_bytes: &self.features,
             },
         })
-    }
-    fn insert_grant(&mut self, grant: EvaluatorGrant, n: u8) -> TestResult {
-        let mut region = EvaluatorRegion::decode(&self.region)?;
-        region.insert(&EvaluatorRecord {
-            grant,
-            last: LastRequest {
-                sequence: 1,
-                request: RequestId::new([n; 32])?,
-                digest: RequestDigest::new([0x33; 32])?,
-                result: ResultDigest::new([0x34; 32])?,
-            },
-            rekey: None,
-            revocation: None,
-        })?;
-        let mut out = vec![0; region.encoded_len()];
-        let len = region.encode(&mut out)?;
-        out.truncate(len);
-        self.region = out;
-        Ok(())
     }
 }
 
@@ -490,28 +483,6 @@ fn roster_entry(record: &WorkerCurrent) -> CodecResult<WorkerRosterEntry> {
     })
 }
 
-fn grant(
-    market: &MarketHeader,
-    owner: PrincipalId,
-    nonce: u8,
-    signing_key: PublicKey32,
-    effective: u64,
-) -> CodecResult<EvaluatorGrant> {
-    EvaluatorGrant::nominate(
-        market.market_id,
-        owner,
-        [nonce; 32],
-        GrantTerms {
-            rubric: rubric()?,
-            grant_version: version()?,
-            key_version: version()?,
-            signing_key,
-            effective_epoch: effective,
-            expiry_epoch_exclusive: effective + 32,
-        },
-    )
-}
-
 /// The evaluator replay slot bound to `owner`.
 fn evaluator_slot(replay: &ReplayTable, owner: PrincipalId) -> CodecResult<ActorSlot> {
     for index in 0..8 {
@@ -526,17 +497,15 @@ fn evaluator_slot(replay: &ReplayTable, owner: PrincipalId) -> CodecResult<Actor
     Err(NOT_FOUND)
 }
 
-/// One market's committed shared state bytes and its next owner sequence.
+/// One market's committed shared state bytes; all role sequences are read from replay.
 #[derive(Clone)]
 struct World {
     bytes: Vec<u8>,
-    owner_sequence: u64,
 }
 impl World {
     fn create(origin: u64) -> CodecResult<Self> {
         Ok(Self {
             bytes: create(origin)?,
-            owner_sequence: 2,
         })
     }
     fn parts(&self) -> CodecResult<Parts> {
@@ -566,8 +535,8 @@ impl World {
     fn owner_op(&mut self, operation: Operation, payload: Vec<u8>, at: u64) -> TestResult {
         let call = Req {
             config: self.section()?.header.active_config_version,
-            sequence: self.owner_sequence,
-            request: tag(0x20, 0, self.owner_sequence),
+            sequence: self.owner_sequence()?,
+            request: tag(0x20, 0, self.owner_sequence()?),
             ..req(operation, PrincipalId::new(OWNER)?, payload)
         };
         let encoded = call.encode()?;
@@ -585,7 +554,6 @@ impl World {
             return Err(NON_CANONICAL);
         };
         self.bytes = encode(&state)?;
-        self.owner_sequence += 1;
         Ok(())
     }
     fn schedule(&mut self, epoch: u64, at: u64) -> TestResult {
@@ -640,57 +608,142 @@ impl World {
             roster_entry(&record)
         })
     }
-    /// F03 nomination accepted through the signed F08 evaluator consent of its delegate; the
-    /// evaluator replay slot `n - 2` is bound to its owner (no producer binds it yet).
+    /// Owner nomination, owner approval and signed evaluator consent all cross the router.
+    /// Only AdmitEvaluator binds the evaluator replay slot and consumes its first sequence.
     fn evaluator(&mut self, n: u8, at: u64) -> TestResult {
-        self.edit(|parts, market| {
-            let owner = principal(n)?;
-            let key = evaluator_key(n);
-            let signing_key = public(&key);
-            let participant =
-                Participant::Evaluator(derive_evaluator(market.market_id, owner, [n; 32])?);
-            let (effective, digest) = approve(
-                &mut parts.admission,
-                market,
-                participant,
-                owner,
-                signing_key,
-                at,
-            )?;
-            let grant = grant(market, owner, n, signing_key, effective)?;
-            let consent = EvaluatorConsent {
-                chain: market.deployment_chain_domain,
-                program: market.program_id,
-                market: market.market_id,
-                evaluator: grant.evaluator,
-                owner,
-                signing_key,
-                enrollment_nonce: [n; 32],
-                rubric: grant.rubric,
-                approval_digest: digest,
-                request: RequestId::new([n; 32])?,
-                grant_version: 1,
-                key_version: 1,
-                effective_epoch: effective,
-                config_version: 1,
-                expiry_height: market.origin_height + effective * 128 + 64,
-            };
-            let mut signed = [0u8; 362];
-            consent.encode(&mut signed)?;
-            let mut payload = signed.to_vec();
-            payload.extend_from_slice(&key.sign(consent.digest()?.as_bytes()).to_bytes());
-            admit_evaluator(
-                &mut parts.admission,
-                &ctx(market, owner, at),
-                &grant,
-                consent.request,
-                &payload,
-            )?;
-            parts
-                .replay
-                .bind(ActorSlot::evaluator(usize::from(n - 2))?, owner, version()?)?;
-            parts.insert_grant(grant, n)
-        })
+        let parts = self.parts()?;
+        let market = parts.market()?;
+        let owner = principal(n)?;
+        let key = evaluator_key(n);
+        let signing_key = public(&key);
+        let evaluator = derive_evaluator(market.market_id, owner, [n; 32])?;
+        let participant = Participant::Evaluator(evaluator);
+        let effective = parts
+            .admission
+            .required_effective_epoch(&ctx(&market, owner, at))?;
+        let owner_sequence = self.owner_sequence()?;
+        let mut nomination = owner.as_bytes().to_vec();
+        nomination.extend_from_slice(&[n; 32]);
+        nomination.extend_from_slice(rubric()?.as_bytes());
+        nomination.extend_from_slice(&signing_key.0);
+        for value in [1, 1, effective, effective + 32] {
+            nomination.extend_from_slice(&u64::to_be_bytes(value));
+        }
+        let call = self.role_call(
+            dispatch::ScheduleEvaluator,
+            market.owner_principal,
+            owner_sequence,
+            tag(0x31, n, owner_sequence),
+            nomination,
+        )?;
+        self.apply_routed(&call, at)?;
+        assert_eq!(self.owner_sequence()?, owner_sequence + 1);
+        let parts = self.parts()?;
+        let grant = EvaluatorRegion::decode(&parts.region)?.stored_grant(evaluator)?;
+        let mut grant_bytes = [0; GRANT_BYTES];
+        let len = encode_grant(&grant, &mut grant_bytes)?;
+        let terms = ApprovalTerms {
+            participant,
+            owner,
+            enrollment_nonce_commitment: Digest32::new([7; 32])?,
+            delegate: signing_key,
+            delegate_generation: 1,
+            identity_commitment: codec::domain_hash(
+                "PAXAI/evaluator-grant/v1",
+                &grant_bytes[..len],
+            )?,
+            effective_epoch: effective,
+            config_version: market.active_config_version,
+            request: RequestId::new(tag(0x32, n, owner_sequence + 1))?,
+            expiry_height: market.origin_height + effective * 128 + 64,
+        };
+        let mut approval = vec![participant.role() as u8];
+        approval.extend_from_slice(&participant.bytes());
+        approval.extend_from_slice(owner.as_bytes());
+        approval.extend_from_slice(terms.enrollment_nonce_commitment.as_bytes());
+        approval.extend_from_slice(&signing_key.0);
+        approval.extend_from_slice(&terms.delegate_generation.to_be_bytes());
+        approval.extend_from_slice(terms.identity_commitment.as_bytes());
+        for value in [effective, terms.config_version, terms.expiry_height] {
+            approval.extend_from_slice(&value.to_be_bytes());
+        }
+        let call = self.role_call(
+            dispatch::ApproveAdmission,
+            market.owner_principal,
+            self.owner_sequence()?,
+            terms.request.bytes(),
+            approval,
+        )?;
+        self.apply_routed(&call, at)?;
+        assert_eq!(self.owner_sequence()?, owner_sequence + 2);
+        let digest = self
+            .parts()?
+            .admission
+            .get(participant)
+            .ok_or(NOT_FOUND)?
+            .approval
+            .ok_or(NOT_FOUND)?
+            .digest;
+        assert_eq!(digest, terms.digest(&market)?);
+        let request = RequestId::new(tag(0x33, n, 1))?;
+        let consent = EvaluatorConsent {
+            chain: market.deployment_chain_domain,
+            program: market.program_id,
+            market: market.market_id,
+            evaluator,
+            owner,
+            signing_key,
+            enrollment_nonce: [n; 32],
+            rubric: grant.rubric,
+            approval_digest: digest,
+            request,
+            grant_version: grant.grant_version.get(),
+            key_version: grant.key_version.get(),
+            effective_epoch: effective,
+            config_version: market.active_config_version,
+            expiry_height: terms.expiry_height,
+        };
+        let mut signed = [0; 362];
+        consent.encode(&mut signed)?;
+        let mut payload = signed.to_vec();
+        payload.extend_from_slice(&key.sign(consent.digest()?.as_bytes()).to_bytes());
+        let call = self.role_call(dispatch::AdmitEvaluator, owner, 1, request.bytes(), payload)?;
+        let encoded = call.encode()?;
+        let delivery = self.deliver(&encoded, owner, at)?;
+        let revision = delivery.applied(delivery.result()?.payload)?;
+        let parts = self.parts()?;
+        let slot = evaluator_slot(&parts.replay, owner)?;
+        let last = parts
+            .replay
+            .actor(slot)
+            .ok_or(NOT_FOUND)?
+            .last
+            .ok_or(NOT_FOUND)?;
+        assert_eq!(
+            (
+                last.sequence,
+                last.request_id,
+                last.request_digest,
+                last.applied_revision
+            ),
+            (
+                1,
+                request,
+                decode_envelope(&encoded)?.request_digest()?,
+                revision
+            )
+        );
+        assert_eq!(last.result_digest, delivery.result()?.digest);
+        assert!(parts
+            .admission
+            .get(participant)
+            .ok_or(NOT_FOUND)?
+            .admitted());
+        let committed = self.bytes.clone();
+        self.deliver(&encoded, owner, at)?
+            .retained(revision, last.result_digest)?;
+        assert_eq!(self.bytes, committed);
+        Ok(())
     }
     /// Real owner FUND of `amount` into the F06 reward state.
     fn fund(&mut self, amount: u128, at: u64) -> TestResult {
@@ -710,9 +763,9 @@ impl World {
             slot: ActorSlot::OWNER,
             principal: market.owner_principal,
             authority_version: version()?,
-            sequence: self.owner_sequence,
-            request_id: RequestId::new(tag(0x40, 0, self.owner_sequence))?,
-            digest: RequestDigest::new(tag(0x41, 0, self.owner_sequence))?,
+            sequence: self.owner_sequence()?,
+            request_id: RequestId::new(tag(0x40, 0, self.owner_sequence()?))?,
+            digest: RequestDigest::new(tag(0x41, 0, self.owner_sequence()?))?,
             expiry_height: at + 1000,
         };
         let mut funded = vec![0; REWARD_STATE_BYTES];
@@ -733,13 +786,12 @@ impl World {
                 request: &request,
                 height: at,
                 revision: &mut parts.revision,
-                result: ResultDigest::new(tag(0x42, 0, self.owner_sequence))?,
+                result: ResultDigest::new(tag(0x42, 0, self.owner_sequence()?))?,
             },
             &mut funded,
         )?;
         parts.rewards = funded;
         self.bytes = parts.encode()?;
-        self.owner_sequence += 1;
         Ok(())
     }
     /// F05 terminal result for every frozen worker, then `TerminalizeRewards`.
@@ -848,47 +900,13 @@ impl World {
         self.bytes = next;
         Ok(())
     }
-    /// One F01 task-set call, committed only on `Applied`.
+    /// Routed task-set transition: the router carries the joint F07/F08 state.
     fn task(&mut self, call: &Req, at: u64) -> TestResult {
-        let encoded = call.encode()?;
-        let mut next = vec![0; MAX_STATE_BYTES];
-        let mut scratch = vec![0; tasks::SCRATCH_BYTES];
-        let mut event = vec![0; MAX_EVENT_BYTES];
-        let Task::Applied { state_len, .. } = tasks::apply(
-            &call.context(at)?,
-            &decode_envelope(&encoded)?,
-            &self.bytes,
-            &mut next,
-            &mut scratch,
-            &mut event,
-        )?
-        else {
-            return Err(NON_CANONICAL);
-        };
-        next.truncate(state_len);
-        self.bytes = next;
-        Ok(())
+        self.apply_routed(call, at)
     }
-    /// One real `SealEvidence`, committed only on `Applied`.
+    /// Routed evidence transition, preserving F07 and recording evaluator replay.
     fn evidence(&mut self, call: &Req, at: u64) -> TestResult {
-        let encoded = call.encode()?;
-        let mut next = vec![0; MAX_STATE_BYTES];
-        let mut scratch = vec![0; SEAL_SCRATCH_BYTES];
-        let mut event = vec![0; MAX_EVENT_BYTES];
-        let Sealing::Applied { state_len, .. } = evidence::apply(
-            &call.context(at)?,
-            &decode_envelope(&encoded)?,
-            &self.bytes,
-            &mut next,
-            &mut scratch,
-            &mut event,
-        )?
-        else {
-            return Err(NON_CANONICAL);
-        };
-        next.truncate(state_len);
-        self.bytes = next;
-        Ok(())
+        self.apply_routed(call, at)
     }
 }
 
@@ -903,7 +921,7 @@ struct Market {
 /// Epoch 7 of the journey (T = 1024): worker `LOW` and evaluators 2..=4 enrolled before
 /// activation, epoch 6 opened at 896, worker `HIGH` and evaluators 5..=7 enrolled in epoch 6,
 /// epoch 6 terminalized, epoch 7 opened at 1024, its empty task set sealed and the evidence of
-/// every evaluator sealed at 1088 under evaluator sequence 1.
+/// every evaluator sealed at 1088 at the next committed evaluator sequence.
 fn market() -> CodecResult<Market> {
     let mut world = World::create(ORIGIN)?;
     let low = world.enroll(LOW, 130)?;
@@ -926,7 +944,7 @@ fn market() -> CodecResult<Market> {
     for n in 5..=7 {
         m.world.evaluator(n, 896 + u64::from(n))?;
     }
-    m.seal(&[], 960, 1)?;
+    m.seal(&[], 960)?;
     m.world.terminalize(&first, &[low], 1008)?;
     m.frozen = m.world.open(1024)?;
     m.workers.push(high);
@@ -935,7 +953,7 @@ fn market() -> CodecResult<Market> {
         (m.frozen.epoch, m.frozen.workers, m.frozen.evaluators),
         (7, 2, 6)
     );
-    m.seal(&[2, 3, 4, 5, 6, 7], COMMIT_AT, 1)?;
+    m.seal(&[2, 3, 4, 5, 6, 7], COMMIT_AT)?;
     Ok(m)
 }
 
@@ -979,15 +997,20 @@ impl Market {
         ])
     }
     fn slot(&self, n: u8, at: u64) -> CodecResult<cr::Slot> {
-        cr::slot(&self.world.bytes, self.evaluator(n)?, at)
+        self.world.slot(n, at)
     }
     fn admitted(&self, n: u8) -> CodecResult<Option<AdmissionReceipt>> {
-        let state = decode_shared_state(&self.world.bytes)?;
-        Ok(f03::admitted_report(&state, self.frozen.epoch, self.evaluator(n)?)?.map(|r| r.receipt))
+        read_feature(&self.world.bytes, |bytes| {
+            let state = decode_shared_state(bytes)?;
+            Ok(
+                f03::admitted_report(&state, self.frozen.epoch, self.evaluator(n)?)?
+                    .map(|r| r.receipt),
+            )
+        })
     }
     /// Keeper `SEAL_TASK_SET` of the opened epoch's task region, then `SealEvidence` of each
-    /// of `evaluators` under evaluator `sequence`.
-    fn seal(&mut self, evaluators: &[u8], at: u64, sequence: u64) -> TestResult {
+    /// of `evaluators` at the next sequence in committed replay.
+    fn seal(&mut self, evaluators: &[u8], at: u64) -> TestResult {
         let frozen = self.frozen_binding();
         let set = SetBinding {
             market: frozen.market,
@@ -1008,9 +1031,12 @@ impl Market {
             payload,
         );
         self.world.task(&call, at)?;
-        let sealed =
-            tasks::sealed_task_set(&decode_shared_state(&self.world.bytes)?, frozen.epoch)?;
+        let sealed = read_feature(&self.world.bytes, |bytes| {
+            tasks::sealed_task_set(&decode_shared_state(bytes)?, frozen.epoch)
+        })?;
+        assert_eq!(sealed, digest);
         for &n in evaluators {
+            let sequence = self.world.next_sequence(n)?;
             let mut claim = 1u16.to_be_bytes().to_vec();
             claim.extend_from_slice(&root(n, frozen.epoch));
             claim.extend_from_slice(self.frozen.policy.as_bytes());
@@ -1024,6 +1050,7 @@ impl Market {
                 ..bound(dispatch::SealEvidence, principal(n)?, &frozen, claim)
             };
             self.world.evidence(&call, at)?;
+            assert_eq!(self.world.last_sequence(n)?, sequence);
         }
         Ok(())
     }
@@ -1142,7 +1169,7 @@ impl Market {
         aggregate_sealed: bool,
         at: u64,
     ) -> TestResult {
-        let sequence = self.world.owner_sequence;
+        let sequence = self.world.owner_sequence()?;
         let call = Req {
             sequence,
             request: tag(0x30, 0, sequence),
@@ -1176,7 +1203,6 @@ impl Market {
             return Err(NON_CANONICAL);
         };
         self.world.bytes = Parts::load(&out[..state_len])?.encode()?;
-        self.world.owner_sequence += 1;
         Ok(())
     }
     /// Real F03 `RevokeEvaluator` of evaluator `n` by the market owner.
@@ -1204,15 +1230,37 @@ impl Market {
 struct Journal {
     dir: PathBuf,
 }
-impl Journal {
-    fn open(name: &str) -> Result<Self, Failure> {
-        let dir = Path::new(env!("CARGO_TARGET_TMPDIR"))
-            .join(format!("f04-recovery-{}-{name}", process::id()));
-        if dir.exists() {
-            fs::remove_dir_all(&dir)?;
-        }
-        fs::create_dir_all(&dir)?;
+/// The test fixture owns directory creation and cleanup, independently of client handles.
+/// Its path remains stable across every reopen; opening a missing journal is an error.
+struct JournalDirectory {
+    dir: PathBuf,
+}
+impl JournalDirectory {
+    fn create(name: &str) -> Result<Self, Failure> {
+        static NEXT: AtomicU64 = AtomicU64::new(0);
+        let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!(
+            "f04-recovery-{}-{}-{name}",
+            process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::create_dir(&dir)?;
+        File::open(dir.parent().ok_or(NON_CANONICAL)?)?.sync_all()?;
         Ok(Self { dir })
+    }
+}
+impl Drop for JournalDirectory {
+    fn drop(&mut self) {
+        fs::remove_dir_all(&self.dir).expect("clean up recovery journal fixture");
+    }
+}
+impl Journal {
+    fn open(dir: &Path) -> Result<Self, Failure> {
+        if !fs::metadata(dir)?.is_dir() {
+            return Err(NON_CANONICAL.into());
+        }
+        Ok(Self {
+            dir: dir.to_path_buf(),
+        })
     }
     fn persist(&self, entry: &str, bytes: &[u8]) -> Checked {
         let staged = self.dir.join(format!("{entry}.staged"));
@@ -1233,12 +1281,6 @@ impl Journal {
         Ok(())
     }
 }
-impl Drop for Journal {
-    fn drop(&mut self) {
-        let _ = fs::remove_dir_all(&self.dir);
-    }
-}
-
 /// A fresh 32-byte salt from the operating system CSPRNG; a zero draw is refused.
 fn os_salt() -> Result<[u8; 32], Failure> {
     let mut salt = [0; 32];
@@ -1247,14 +1289,16 @@ fn os_salt() -> Result<[u8; 32], Failure> {
     Ok(salt)
 }
 /// Client step one: draws a fresh OS salt for this report and persists the salt, the signed
-/// report and the exact `CommitScore` envelope at `sequence` before anything is sent.
+/// report and the exact `CommitScore` envelope at the next committed replay sequence
+/// before anything is sent.
 fn prepare(
     journal: &Journal,
+    world: &World,
     n: u8,
     report: &SignedReport<'_>,
-    sequence: u64,
     expiry: u64,
 ) -> Checked {
+    let sequence = world.next_sequence(n)?;
     let salt = os_salt()?;
     let mut signed = vec![0; SIGNED_REPORT_MAX_BYTES];
     let len = encode_signed_report(report, &mut signed)?;
@@ -1273,31 +1317,31 @@ fn saved(journal: &Journal) -> Result<([u8; 32], Vec<u8>), Failure> {
 }
 /// Client step two, after a restart: rebuilds the reveal from the journal alone, checks the
 /// saved report and salt against the finalized C of evaluator `n` and persists the exact
-/// `RevealScore` envelope at `sequence` before it is sent.
+/// `RevealScore` envelope at the next committed replay sequence before it is sent.
 fn recover(
     journal: &Journal,
-    m: &Market,
+    world: &World,
     n: u8,
-    sequence: u64,
     expiry: u64,
     at: u64,
 ) -> Result<Vec<u8>, Failure> {
     let (salt, signed) = saved(journal)?;
     let report = decode_signed_report(&signed)?;
-    let record = m.slot(n, at)?.commit.ok_or(NOT_FOUND)?;
+    let record = world.slot(n, at)?.commit.ok_or(NOT_FOUND)?;
     if commitment_of(&report.body, salt)? != record.commitment {
         return Err(F04_COMMIT_MISMATCH.into());
     }
+    let sequence = world.next_sequence(n)?;
     let call = Market::reveal_call(n, &report, salt, sequence, expiry)?;
     journal.persist(REVEAL_FILE, &call.encode()?)?;
     journal.load(REVEAL_FILE)
 }
-/// The commit record a first acceptance of the journaled commitment at `height` and
-/// `sequence` stores.
-fn expected_commit(journal: &Journal, height: u64, sequence: u64) -> Result<CommitRecord, Failure> {
+/// The commit record at `height`, with the sequence of the exact persisted request.
+fn expected_commit(journal: &Journal, height: u64) -> Result<CommitRecord, Failure> {
     let (salt, signed) = saved(journal)?;
     let report = decode_signed_report(&signed)?;
     let binding = report.body.binding;
+    let sequence = journal_sequence(journal, COMMIT_FILE)?;
     Ok(CommitRecord {
         evaluator: binding.evaluator,
         commitment: commitment_of(&report.body, salt)?,
@@ -1307,20 +1351,20 @@ fn expected_commit(journal: &Journal, height: u64, sequence: u64) -> Result<Comm
         key_version: binding.key_version,
     })
 }
-/// The receipt a first admission of the journaled report at `height` and `activity` stores.
-fn expected_reveal(
-    journal: &Journal,
-    height: u64,
-    activity: u64,
-) -> Result<AdmissionReceipt, Failure> {
+/// The receipt at `height`, with the activity of the exact persisted reveal.
+fn expected_reveal(journal: &Journal, height: u64) -> Result<AdmissionReceipt, Failure> {
     let (_, signed) = saved(journal)?;
     let report = decode_signed_report(&signed)?;
     Ok(AdmissionReceipt {
         evaluator: report.body.binding.evaluator,
         report: codec::report_digest(&report.body)?,
         height,
-        activity,
+        activity: journal_sequence(journal, REVEAL_FILE)?,
     })
+}
+
+fn journal_sequence(journal: &Journal, entry: &str) -> Result<u64, Failure> {
+    Ok(decode_envelope(&journal.load(entry)?)?.envelope.sequence)
 }
 
 /// One call delivered to the router: its decision, the caller buffers and the request digest.
@@ -1416,6 +1460,29 @@ impl Market {
     /// Routes `envelope` of evaluator `n` at `at` over the committed bytes; nothing is
     /// finalized, so the response may still be lost.
     fn submit(&self, envelope: &[u8], n: u8, at: u64) -> CodecResult<Delivery> {
+        self.world.submit(envelope, principal(n)?, at)
+    }
+    fn deliver(&mut self, envelope: &[u8], n: u8, at: u64) -> CodecResult<Delivery> {
+        self.world.deliver(envelope, principal(n)?, at)
+    }
+    /// The canonical signed report bytes of evaluator `n`'s admitted row in the opened epoch.
+    fn admitted_bytes(&self, n: u8) -> CodecResult<Option<Vec<u8>>> {
+        read_feature(&self.world.bytes, |bytes| {
+            let state = decode_shared_state(bytes)?;
+            Ok(
+                f03::admitted_report(&state, self.frozen.epoch, self.evaluator(n)?)?
+                    .map(|row| row.signed_bytes().to_vec()),
+            )
+        })
+    }
+    /// The last request sequence retained for evaluator `n`.
+    fn last_sequence(&self, n: u8) -> CodecResult<u64> {
+        self.world.last_sequence(n)
+    }
+}
+
+impl World {
+    fn submit(&self, envelope: &[u8], who: PrincipalId, at: u64) -> CodecResult<Delivery> {
         let request = decode_envelope(envelope)?.request_digest()?;
         let mut next = vec![0; MAX_STATE_BYTES];
         let mut scratch = vec![0; dispatch::SCRATCH_BYTES];
@@ -1424,13 +1491,13 @@ impl Market {
         let ctx = CallContext {
             chain: ChainDomain::new(CHAIN)?,
             program: ProgramId::new(PROGRAM)?,
-            principal: principal(n)?,
+            principal: who,
             height: at,
         };
         let routed = dispatch::route(
             &ctx,
             envelope,
-            Some(&self.world.bytes),
+            Some(&self.bytes),
             Buffers {
                 next: &mut next,
                 scratch: &mut scratch,
@@ -1467,31 +1534,35 @@ impl Market {
         let Routed::Applied { revision, .. } = delivery.routed else {
             return Err(NON_CANONICAL);
         };
-        assert_eq!(revision, self.world.revision()? + 1);
+        assert_eq!(revision, self.revision()? + 1);
         assert_eq!(decode_shared_state(&delivery.next)?.revision, revision);
-        self.world.bytes.clone_from(&delivery.next);
+        self.bytes.clone_from(&delivery.next);
         Ok(())
     }
     /// Routes `envelope` and finalizes it when it is `Applied`; the response is then the only
     /// thing that can still be lost.
-    fn deliver(&mut self, envelope: &[u8], n: u8, at: u64) -> CodecResult<Delivery> {
-        let delivery = self.submit(envelope, n, at)?;
+    fn deliver(&mut self, envelope: &[u8], who: PrincipalId, at: u64) -> CodecResult<Delivery> {
+        let delivery = self.submit(envelope, who, at)?;
         if matches!(delivery.routed, Routed::Applied { .. }) {
             self.land(&delivery)?;
         }
         Ok(delivery)
     }
-    /// The canonical signed report bytes of evaluator `n`'s admitted row in the opened epoch.
-    fn admitted_bytes(&self, n: u8) -> CodecResult<Option<Vec<u8>>> {
-        let state = decode_shared_state(&self.world.bytes)?;
-        Ok(
-            f03::admitted_report(&state, self.frozen.epoch, self.evaluator(n)?)?
-                .map(|row| row.signed_bytes().to_vec()),
-        )
+    fn owner_sequence(&self) -> CodecResult<u64> {
+        let state = decode_shared_state(&self.bytes)?;
+        let last = state
+            .control
+            .replay
+            .actor(ActorSlot::OWNER)
+            .ok_or(NOT_FOUND)?
+            .last
+            .ok_or(NOT_FOUND)?;
+        last.sequence
+            .checked_add(1)
+            .ok_or(layerx_programs_ai_market::errors::ARITHMETIC)
     }
-    /// The last request sequence retained for evaluator `n`.
     fn last_sequence(&self, n: u8) -> CodecResult<u64> {
-        let replay = decode_shared_state(&self.world.bytes)?.control.replay;
+        let replay = decode_shared_state(&self.bytes)?.control.replay;
         let slot = evaluator_slot(&replay, principal(n)?)?;
         Ok(replay
             .actor(slot)
@@ -1499,10 +1570,68 @@ impl Market {
             .ok_or(NOT_FOUND)?
             .sequence)
     }
+    fn next_sequence(&self, n: u8) -> CodecResult<u64> {
+        self.last_sequence(n)?
+            .checked_add(1)
+            .ok_or(layerx_programs_ai_market::errors::ARITHMETIC)
+    }
+    fn slot(&self, n: u8, at: u64) -> CodecResult<cr::Slot> {
+        let market = self.section()?.header.market_id;
+        let evaluator = derive_evaluator(market, principal(n)?, [n; 32])?;
+        read_feature(&self.bytes, |bytes| cr::slot(bytes, evaluator, at))
+    }
+    fn role_call(
+        &self,
+        operation: Operation,
+        actor: PrincipalId,
+        sequence: u64,
+        request: [u8; 32],
+        payload: Vec<u8>,
+    ) -> CodecResult<Req> {
+        let parts = self.parts()?;
+        let market = parts.market()?;
+        let (epoch, roster) = match parts.admission.current_epoch() {
+            Some(epoch) => {
+                let row =
+                    decode_reward_state(parts.rewards.get(..REWARD_STATE_BYTES).ok_or(NOT_FOUND)?)?
+                        .row(epoch)?;
+                (epoch, Presence::Present(row.roster))
+            }
+            None => (0, Presence::Absent),
+        };
+        Ok(Req {
+            sequence,
+            request,
+            epoch,
+            roster,
+            config: market.active_config_version,
+            ..req(operation, actor, payload)
+        })
+    }
+    fn apply_routed(&mut self, call: &Req, at: u64) -> TestResult {
+        let delivery = self.deliver(&call.encode()?, call.actor, at)?;
+        assert!(
+            matches!(delivery.routed, Routed::Applied { .. }),
+            "routed {:?} at {at} refused: {:?}",
+            call.operation,
+            delivery.result()?.error
+        );
+        delivery.applied(delivery.result()?.payload)?;
+        Ok(())
+    }
+    fn reload(journal: &Journal) -> Result<Self, Failure> {
+        let bytes = journal.load(MARKET_FILE)?;
+        let state = decode_shared_state(&bytes)?;
+        assert_eq!(encode(&state)?, bytes);
+        let header =
+            PolicySection::decode(state.feature_sections[Section::PolicyLifecycle.index()])?.header;
+        assert_eq!(header.state_revision, state.revision);
+        epoch::captured_roster(&state)?.ok_or(NOT_FOUND)?;
+        Ok(Self { bytes })
+    }
 }
 
-/// Real F05 settlement of the opened epoch through `aggregation::apply`; F05 selectors are not
-/// routed yet.
+/// Real F05 settlement through the routed begin/process/finalize transitions, including F07.
 impl Market {
     /// A permissionless relayer request for `operation` bound to the opened epoch.
     fn aggregation_call(
@@ -1524,29 +1653,12 @@ impl Market {
     }
     /// One F05 call, finalized only on `Applied`.
     fn aggregate(&mut self, call: &Req, at: u64) -> CodecResult<Progress> {
-        let encoded = call.encode()?;
-        let mut next = vec![0; MAX_STATE_BYTES];
-        let mut scratch = vec![0; agg::SCRATCH_BYTES];
-        let mut event = vec![0; MAX_EVENT_BYTES];
-        let Agg::Applied {
-            progress,
-            state_len,
-            ..
-        } = agg::apply(
-            &call.context(at)?,
-            &decode_envelope(&encoded)?,
-            &self.world.bytes,
-            &mut next,
-            &mut scratch,
-            &mut event,
-        )?
-        else {
-            return Err(NON_CANONICAL);
-        };
-        next.truncate(state_len);
-        self.world.bytes = next;
-        Ok(progress)
+        let before = self.world.revision()?;
+        self.world.apply_routed(call, at)?;
+        assert_eq!(self.world.revision()?, before + 1);
+        self.progress()
     }
+
     fn progress(&self) -> CodecResult<Progress> {
         agg::progress(&self.world.bytes)
     }
@@ -1636,10 +1748,17 @@ fn record_len(tail: &[u8]) -> CodecResult<usize> {
 fn a09_client_salts_are_os_drawn_per_report_and_persisted_before_send() -> Checked {
     let m = market()?;
     let scores = m.both(250_000, 750_000);
-    let journals = [Journal::open("salt-2")?, Journal::open("salt-3")?];
+    let directories = [
+        JournalDirectory::create("salt-2")?,
+        JournalDirectory::create("salt-3")?,
+    ];
+    let journals = [
+        Journal::open(&directories[0].dir)?,
+        Journal::open(&directories[1].dir)?,
+    ];
     for (n, journal) in [2, 3].into_iter().zip(&journals) {
         let report = m.signed(n, &scores)?;
-        prepare(journal, n, &report, 2, REVEAL_AT)?;
+        prepare(journal, &m.world, n, &report, REVEAL_AT)?;
         let (salt, signed) = saved(journal)?;
         let mut canonical = vec![0; SIGNED_REPORT_MAX_BYTES];
         let len = encode_signed_report(&report, &mut canonical)?;
@@ -1652,7 +1771,7 @@ fn a09_client_salts_are_os_drawn_per_report_and_persisted_before_send() -> Check
                 decoded.envelope.sequence,
                 decoded.envelope.expiry
             ),
-            (principal(n)?, 2, REVEAL_AT)
+            (principal(n)?, m.world.next_sequence(n)?, REVEAL_AT)
         );
         assert_eq!(
             commitment::decode_commit_score(decoded.envelope.payload)?,
@@ -1674,64 +1793,129 @@ fn a09_client_salts_are_os_drawn_per_report_and_persisted_before_send() -> Check
 }
 
 #[test]
-fn a09_crash_after_finalized_commit_reveals_from_the_journal() -> Checked {
-    let mut m = market()?;
-    let journal = Journal::open("crash")?;
+pub(crate) fn a09_crash_after_finalized_commit_reveals_from_the_journal() -> Checked {
+    let directory = JournalDirectory::create("crash")?;
     {
+        let mut m = market()?;
+        let journal = Journal::open(&directory.dir)?;
         let scores = m.both(250_000, 750_000);
         let report = m.signed(2, &scores)?;
-        prepare(&journal, 2, &report, 2, REVEAL_AT)?;
+        prepare(&journal, &m.world, 2, &report, REVEAL_AT)?;
         let envelope = journal.load(COMMIT_FILE)?;
         let unfinalized = m.submit(&envelope, 2, COMMIT_AT)?;
-        unfinalized.applied(&expected_commit(&journal, COMMIT_AT, 2)?.payload()?)?;
+        unfinalized.applied(&expected_commit(&journal, COMMIT_AT)?.payload()?)?;
         let slot = m.slot(2, COMMIT_AT)?;
         assert_eq!(
             (slot.status, slot.commit, slot.reveal),
             (Status::Absent, None, None)
         );
-        let landed = m.deliver(&envelope, 2, COMMIT_AT + 1)?;
-        landed.applied(&expected_commit(&journal, COMMIT_AT + 1, 2)?.payload()?)?;
+        m.deliver(&envelope, 2, COMMIT_AT + 1)?
+            .applied(&expected_commit(&journal, COMMIT_AT + 1)?.payload()?)?;
+        journal.persist(MARKET_FILE, &m.world.bytes)?;
     }
-    let committed = expected_commit(&journal, COMMIT_AT + 1, 2)?;
-    let slot = m.slot(2, COMMIT_AT + 2)?;
-    assert_eq!(
-        (slot.status, slot.commit, slot.reveal),
-        (Status::Committed, Some(committed), None)
-    );
-    let reveal = recover(&journal, &m, 2, 3, REVEAL_END, COMMIT_AT + 2)?;
-    let revision = m.world.revision()?;
-    m.deliver(&reveal, 2, COMMIT_AT + 2)?
-        .refused(WRONG_PHASE, revision)?;
-    assert_eq!(m.last_sequence(2)?, 2);
-    let receipt = expected_reveal(&journal, REVEAL_AT, 3)?;
-    let revealed = m
-        .deliver(&reveal, 2, REVEAL_AT)?
-        .applied(&receipt.payload()?)?;
-    assert_eq!(revealed, revision + 1);
-    let slot = m.slot(2, REVEAL_AT)?;
-    assert_eq!(
-        (slot.status, slot.commit, slot.reveal),
-        (Status::Revealed, Some(committed), Some(receipt))
-    );
-    assert_eq!(m.admitted(2)?, Some(receipt));
-    assert_eq!(m.admitted_bytes(2)?, Some(journal.load(REPORT_FILE)?));
-    assert_eq!(m.last_sequence(2)?, 3);
+    {
+        let journal = Journal::open(&directory.dir)?;
+        let mut world = World::reload(&journal)?;
+        let committed = expected_commit(&journal, COMMIT_AT + 1)?;
+        let slot = world.slot(2, COMMIT_AT + 2)?;
+        assert_eq!(
+            (slot.status, slot.commit, slot.reveal),
+            (Status::Committed, Some(committed), None)
+        );
+        assert_eq!(world.last_sequence(2)?, committed.sequence);
+        let reveal = recover(&journal, &world, 2, REVEAL_END, COMMIT_AT + 2)?;
+        assert_eq!(
+            decode_envelope(&reveal)?.envelope.sequence,
+            committed.sequence + 1
+        );
+        let revision = world.revision()?;
+        let before = world.bytes.clone();
+        world
+            .deliver(&reveal, principal(2)?, COMMIT_AT + 2)?
+            .refused(WRONG_PHASE, revision)?;
+        assert_eq!(world.bytes, before);
+        assert_eq!(world.last_sequence(2)?, committed.sequence);
+    }
+    {
+        let journal = Journal::open(&directory.dir)?;
+        let mut world = World::reload(&journal)?;
+        let reveal = journal.load(REVEAL_FILE)?;
+        let revision = world.revision()?;
+        let receipt = expected_reveal(&journal, REVEAL_AT)?;
+        let revealed = world
+            .deliver(&reveal, principal(2)?, REVEAL_AT)?
+            .applied(&receipt.payload()?)?;
+        assert_eq!(revealed, revision + 1);
+        journal.persist(MARKET_FILE, &world.bytes)?;
+        assert_eq!(journal.load(REVEAL_FILE)?, reveal);
+    }
+    {
+        let journal = Journal::open(&directory.dir)?;
+        let mut world = World::reload(&journal)?;
+        let committed = expected_commit(&journal, COMMIT_AT + 1)?;
+        let receipt = expected_reveal(&journal, REVEAL_AT)?;
+        let slot = world.slot(2, REVEAL_AT + 1)?;
+        assert_eq!(
+            (slot.status, slot.commit, slot.reveal),
+            (Status::Revealed, Some(committed), Some(receipt))
+        );
+        let (_, signed) = saved(&journal)?;
+        let report = decode_signed_report(&signed)?;
+        let (admitted, admitted_bytes) = read_feature(&world.bytes, |bytes| {
+            let state = decode_shared_state(bytes)?;
+            let row = f03::admitted_report(
+                &state,
+                report.body.binding.frozen.epoch,
+                report.body.binding.evaluator,
+            )?
+            .ok_or(NOT_FOUND)?;
+            Ok((row.receipt, row.signed_bytes().to_vec()))
+        })?;
+        assert_eq!(admitted, receipt);
+        assert_eq!(admitted_bytes, signed);
+        let state = decode_shared_state(&world.bytes)?;
+        let slot = evaluator_slot(&state.control.replay, principal(2)?)?;
+        let retained = state
+            .control
+            .replay
+            .actor(slot)
+            .ok_or(NOT_FOUND)?
+            .last
+            .ok_or(NOT_FOUND)?;
+        let reveal = journal.load(REVEAL_FILE)?;
+        assert_eq!(retained.sequence, receipt.activity);
+        assert_eq!(
+            retained.request_digest,
+            decode_envelope(&reveal)?.request_digest()?
+        );
+        assert_eq!(retained.result_digest, receipt.result()?);
+        let finalized = world.bytes.clone();
+        for at in [REVEAL_AT + 1, REVEAL_END - 1] {
+            world
+                .deliver(&reveal, principal(2)?, at)?
+                .retained(retained.applied_revision, receipt.result()?)?;
+            assert_eq!(world.bytes, finalized);
+            assert_eq!(world.last_sequence(2)?, receipt.activity);
+            assert_eq!(journal.load(REVEAL_FILE)?, reveal);
+        }
+    }
     Ok(())
 }
 
 #[test]
 fn a09_lost_salt_cannot_replace_the_commitment() -> Checked {
     let mut m = market()?;
-    let journal = Journal::open("lost")?;
+    let directory = JournalDirectory::create("lost")?;
+    let journal = Journal::open(&directory.dir)?;
     let scores = m.both(1, 2);
     let report = m.signed(3, &scores)?;
-    prepare(&journal, 3, &report, 2, REVEAL_AT)?;
-    let committed = expected_commit(&journal, COMMIT_AT, 2)?;
+    prepare(&journal, &m.world, 3, &report, REVEAL_AT)?;
+    let committed = expected_commit(&journal, COMMIT_AT)?;
     let revision = m
         .deliver(&journal.load(COMMIT_FILE)?, 3, COMMIT_AT)?
         .applied(&committed.payload()?)?;
     journal.forget(SALT_FILE)?;
-    let Err(Failure::Io(lost)) = recover(&journal, &m, 3, 3, ROLE_EXPIRY, COMMIT_AT + 1) else {
+    let Err(Failure::Io(lost)) = recover(&journal, &m.world, 3, ROLE_EXPIRY, COMMIT_AT + 1) else {
         return Err(NON_CANONICAL.into());
     };
     assert_eq!(lost.kind(), io::ErrorKind::NotFound);
@@ -1741,12 +1925,13 @@ fn a09_lost_salt_cannot_replace_the_commitment() -> Checked {
         3,
         &report.body.binding,
         commitment_of(&report.body, fresh)?,
-        3,
+        m.world.next_sequence(3)?,
         ROLE_EXPIRY,
     )?;
     m.deliver(&replacement.encode()?, 3, COMMIT_AT + 1)?
         .refused(CONFLICT, revision)?;
-    let guessed = Market::reveal_call(3, &report, fresh, 3, ROLE_EXPIRY)?.encode()?;
+    let guessed =
+        Market::reveal_call(3, &report, fresh, m.world.next_sequence(3)?, ROLE_EXPIRY)?.encode()?;
     m.deliver(&guessed, 3, REVEAL_AT)?
         .refused(F04_COMMIT_MISMATCH, revision)?;
     m.deliver(&guessed, 3, REVEAL_END - 1)?
@@ -1754,7 +1939,10 @@ fn a09_lost_salt_cannot_replace_the_commitment() -> Checked {
     m.deliver(&guessed, 3, REVEAL_END)?
         .refused(WRONG_PHASE, revision)?;
     assert_eq!(m.world.bytes, finalized);
-    assert_eq!(m.last_sequence(3)?, 2);
+    assert_eq!(
+        m.last_sequence(3)?,
+        journal_sequence(&journal, COMMIT_FILE)?
+    );
     let slot = m.slot(3, REVEAL_END)?;
     assert_eq!(
         (slot.status, slot.commit, slot.reveal),
@@ -1767,11 +1955,12 @@ fn a09_lost_salt_cannot_replace_the_commitment() -> Checked {
 #[test]
 fn a09_dropped_responses_reconcile_by_query_and_retry_until_expiry() -> Checked {
     let mut m = market()?;
-    let journal = Journal::open("dropped")?;
+    let directory = JournalDirectory::create("dropped")?;
+    let journal = Journal::open(&directory.dir)?;
     let scores = m.both(250_000, 750_000);
-    prepare(&journal, 2, &m.signed(2, &scores)?, 2, REVEAL_AT)?;
+    prepare(&journal, &m.world, 2, &m.signed(2, &scores)?, REVEAL_AT)?;
     let commit = journal.load(COMMIT_FILE)?;
-    let record = expected_commit(&journal, COMMIT_AT, 2)?;
+    let record = expected_commit(&journal, COMMIT_AT)?;
     let committed = m
         .deliver(&commit, 2, COMMIT_AT)?
         .applied(&record.payload()?)?;
@@ -1782,8 +1971,8 @@ fn a09_dropped_responses_reconcile_by_query_and_retry_until_expiry() -> Checked 
     m.deliver(&commit, 2, REVEAL_AT)?
         .refused(EXPIRED, committed)?;
     assert_eq!(m.world.bytes, finalized);
-    let reveal = recover(&journal, &m, 2, 3, REVEAL_END, REVEAL_AT)?;
-    let receipt = expected_reveal(&journal, REVEAL_AT, 3)?;
+    let reveal = recover(&journal, &m.world, 2, REVEAL_END, REVEAL_AT)?;
+    let receipt = expected_reveal(&journal, REVEAL_AT)?;
     let revealed = m
         .deliver(&reveal, 2, REVEAL_AT)?
         .applied(&receipt.payload()?)?;
@@ -1801,15 +1990,23 @@ fn a09_dropped_responses_reconcile_by_query_and_retry_until_expiry() -> Checked 
     let (salt, _) = saved(&journal)?;
     let other_scores = m.both(1, 2);
     let other = m.signed(2, &other_scores)?;
-    let changed = Market::reveal_call(2, &other, salt, 3, REVEAL_END)?.encode()?;
+    let changed = Market::reveal_call(
+        2,
+        &other,
+        salt,
+        journal_sequence(&journal, REVEAL_FILE)?,
+        REVEAL_END,
+    )?
+    .encode()?;
     m.deliver(&changed, 2, REVEAL_AT + 2)?
         .refused(REPLAY_CONFLICT, revealed)?;
-    let renewed = Market::reveal_call(2, &other, salt, 4, REVEAL_END)?.encode()?;
+    let renewed =
+        Market::reveal_call(2, &other, salt, m.world.next_sequence(2)?, REVEAL_END)?.encode()?;
     m.deliver(&renewed, 2, REVEAL_AT + 2)?
         .refused(CONFLICT, revealed)?;
     let mut again = decode_envelope(&reveal)?.envelope;
-    again.sequence = 4;
-    again.request = RequestId::new(tag(0xa2, 2, 4))?;
+    again.sequence = m.world.next_sequence(2)?;
+    again.request = RequestId::new(tag(0xa2, 2, again.sequence))?;
     let mut resent = vec![0; reveal.len()];
     let len = encode_envelope(&again, &mut resent)?;
     m.deliver(&resent[..len], 2, REVEAL_AT + 2)?
@@ -1817,7 +2014,10 @@ fn a09_dropped_responses_reconcile_by_query_and_retry_until_expiry() -> Checked 
     m.deliver(&reveal, 2, REVEAL_END)?
         .refused(EXPIRED, revealed)?;
     assert_eq!(m.world.bytes, finalized);
-    assert_eq!(m.last_sequence(2)?, 3);
+    assert_eq!(
+        m.last_sequence(2)?,
+        journal_sequence(&journal, REVEAL_FILE)?
+    );
     let slot = m.slot(2, REVEAL_END)?;
     assert_eq!((slot.commit, slot.reveal), (Some(record), Some(receipt)));
     Ok(())
@@ -1827,33 +2027,37 @@ fn a09_dropped_responses_reconcile_by_query_and_retry_until_expiry() -> Checked 
 fn a09_concurrent_reveals_reread_the_finalized_state() -> Checked {
     let mut m = market()?;
     let scores = m.both(3, 4);
+    let directories = [
+        JournalDirectory::create("concurrent-3")?,
+        JournalDirectory::create("concurrent-4")?,
+    ];
     let journals = [
-        Journal::open("concurrent-3")?,
-        Journal::open("concurrent-4")?,
+        Journal::open(&directories[0].dir)?,
+        Journal::open(&directories[1].dir)?,
     ];
     let mut reveals = Vec::new();
     for (n, journal) in [3, 4].into_iter().zip(&journals) {
-        prepare(journal, n, &m.signed(n, &scores)?, 2, REVEAL_END)?;
-        let record = expected_commit(journal, COMMIT_AT, 2)?;
+        prepare(journal, &m.world, n, &m.signed(n, &scores)?, REVEAL_END)?;
+        let record = expected_commit(journal, COMMIT_AT)?;
         m.deliver(&journal.load(COMMIT_FILE)?, n, COMMIT_AT)?
             .applied(&record.payload()?)?;
     }
     for (n, journal) in [3, 4].into_iter().zip(&journals) {
-        reveals.push(recover(journal, &m, n, 3, REVEAL_END, REVEAL_AT)?);
+        reveals.push(recover(journal, &m.world, n, REVEAL_END, REVEAL_AT)?);
     }
-    let third = expected_reveal(&journals[0], REVEAL_AT, 3)?;
-    let fourth = expected_reveal(&journals[1], REVEAL_AT, 3)?;
+    let third = expected_reveal(&journals[0], REVEAL_AT)?;
+    let fourth = expected_reveal(&journals[1], REVEAL_AT)?;
     let base = m.clone();
     let first = m
         .deliver(&reveals[0], 3, REVEAL_AT)?
         .applied(&third.payload()?)?;
     let stale = base.submit(&reveals[1], 4, REVEAL_AT)?;
     assert_eq!(stale.applied(&fourth.payload()?)?, first);
-    let composed = decode_shared_state(&stale.next)?;
-    assert_eq!(
-        f03::admitted_report(&composed, 7, m.evaluator(3)?)?.map(|row| row.receipt),
-        None
-    );
+    let stale_admitted = read_feature(&stale.next, |bytes| {
+        let composed = decode_shared_state(bytes)?;
+        Ok(f03::admitted_report(&composed, 7, m.evaluator(3)?)?.map(|row| row.receipt))
+    })?;
+    assert_eq!(stale_admitted, None);
     let second = m
         .deliver(&reveals[1], 4, REVEAL_AT)?
         .applied(&fourth.payload()?)?;
@@ -1879,16 +2083,16 @@ fn a09_concurrent_reveals_reread_the_finalized_state() -> Checked {
 fn epoch_seven(m: &mut Market, journals: &[Journal; 3]) -> Checked {
     let scores = m.both(250_000, 750_000);
     for (n, journal) in (2..=4).zip(journals) {
-        prepare(journal, n, &m.signed(n, &scores)?, 2, ROLE_EXPIRY)?;
-        let record = expected_commit(journal, COMMIT_AT, 2)?;
+        prepare(journal, &m.world, n, &m.signed(n, &scores)?, ROLE_EXPIRY)?;
+        let record = expected_commit(journal, COMMIT_AT)?;
         m.deliver(&journal.load(COMMIT_FILE)?, n, COMMIT_AT)?
             .applied(&record.payload()?)?;
     }
     m.rotate(2, COMMIT_AT + 1)?;
     m.world.stage(&policy(2, 3)?, 8, COMMIT_AT + 1)?;
     for (n, journal) in (2..=4).zip(journals) {
-        let reveal = recover(journal, m, n, 3, ROLE_EXPIRY, REVEAL_AT)?;
-        let receipt = expected_reveal(journal, REVEAL_AT, 3)?;
+        let reveal = recover(journal, &m.world, n, ROLE_EXPIRY, REVEAL_AT)?;
+        let receipt = expected_reveal(journal, REVEAL_AT)?;
         m.deliver(&reveal, n, REVEAL_AT)?
             .applied(&receipt.payload()?)?;
         assert_eq!(m.slot(n, REVEAL_AT)?.status, Status::Revealed);
@@ -1907,15 +2111,15 @@ fn epoch_eight(m: &mut Market, previous: &Journal) -> Checked {
         2,
         &old.body.binding,
         commitment_of(&old.body, salt)?,
-        4,
+        m.world.next_sequence(2)?,
         ROLE_EXPIRY,
     )?;
     m.deliver(&commit.encode()?, 2, NEXT_COMMIT_AT)?
         .refused(WRONG_EPOCH, revision)?;
-    let reveal = Market::reveal_call(2, &old, salt, 4, ROLE_EXPIRY)?;
+    let reveal = Market::reveal_call(2, &old, salt, m.world.next_sequence(2)?, ROLE_EXPIRY)?;
     m.deliver(&reveal.encode()?, 2, NEXT_REVEAL_AT)?
         .refused(WRONG_EPOCH, revision)?;
-    m.seal(&[2], NEXT_COMMIT_AT, 4)?;
+    m.seal(&[2], NEXT_COMMIT_AT)?;
     let binding = EvaluatorBinding {
         key_version: Version::new(2)?,
         ..m.binding(2)?
@@ -1927,14 +2131,15 @@ fn epoch_eight(m: &mut Market, previous: &Journal) -> Checked {
         commitment_of(&rotated.body, salt)?,
         commitment_of(&old.body, salt)?
     );
-    let journal = Journal::open("rollover-epoch-8")?;
-    prepare(&journal, 2, &rotated, 5, ROLE_EXPIRY)?;
-    let record = expected_commit(&journal, NEXT_COMMIT_AT, 5)?;
+    let directory = JournalDirectory::create("rollover-epoch-8")?;
+    let journal = Journal::open(&directory.dir)?;
+    prepare(&journal, &m.world, 2, &rotated, ROLE_EXPIRY)?;
+    let record = expected_commit(&journal, NEXT_COMMIT_AT)?;
     assert_eq!(record.key_version.get(), 2);
     m.deliver(&journal.load(COMMIT_FILE)?, 2, NEXT_COMMIT_AT)?
         .applied(&record.payload()?)?;
-    let reveal = recover(&journal, m, 2, 6, ROLE_EXPIRY, NEXT_REVEAL_AT)?;
-    let receipt = expected_reveal(&journal, NEXT_REVEAL_AT, 6)?;
+    let reveal = recover(&journal, &m.world, 2, ROLE_EXPIRY, NEXT_REVEAL_AT)?;
+    let receipt = expected_reveal(&journal, NEXT_REVEAL_AT)?;
     m.deliver(&reveal, 2, NEXT_REVEAL_AT)?
         .applied(&receipt.payload()?)?;
     assert_eq!(m.admitted_bytes(2)?, Some(journal.load(REPORT_FILE)?));
@@ -1946,17 +2151,31 @@ fn epoch_eight(m: &mut Market, previous: &Journal) -> Checked {
 }
 
 #[test]
-fn a12_rollover_binds_epoch_eight_and_historical_retries_recreate_nothing() -> Checked {
+pub(crate) fn a12_rollover_binds_epoch_eight_and_historical_retries_recreate_nothing() -> Checked {
     let mut m = market()?;
-    let journals = [
-        Journal::open("rollover-2")?,
-        Journal::open("rollover-3")?,
-        Journal::open("rollover-4")?,
+    let directories = [
+        JournalDirectory::create("rollover-2")?,
+        JournalDirectory::create("rollover-3")?,
+        JournalDirectory::create("rollover-4")?,
     ];
+    let journals = [
+        Journal::open(&directories[0].dir)?,
+        Journal::open(&directories[1].dir)?,
+        Journal::open(&directories[2].dir)?,
+    ];
+    for n in 2..=7 {
+        // Admission consumed 1; the real evidence producer consumed the next replay sequence.
+        assert_eq!(m.last_sequence(n)?, 2);
+    }
     epoch_seven(&mut m, &journals)?;
+    for (n, journal) in (2..=4).zip(&journals) {
+        assert_eq!(journal_sequence(journal, COMMIT_FILE)?, 3);
+        assert_eq!(journal_sequence(journal, REVEAL_FILE)?, 4);
+        assert_eq!(m.last_sequence(n)?, journal_sequence(journal, REVEAL_FILE)?);
+    }
     m.revoke(4, false, REVEAL_AT + 1)?;
     let revoked = m.admitted(4)?;
-    assert_eq!(revoked, Some(expected_reveal(&journals[2], REVEAL_AT, 3)?));
+    assert_eq!(revoked, Some(expected_reveal(&journals[2], REVEAL_AT)?));
     let sealed = m.begin(SETTLE_AT)?;
     assert_eq!(
         sealed.input,
@@ -1975,12 +2194,12 @@ fn a12_rollover_binds_epoch_eight_and_historical_retries_recreate_nothing() -> C
         }
     }
     assert_eq!(m.world.bytes, rolled);
-    let state = decode_shared_state(&m.world.bytes)?;
     for n in 2..=4 {
-        assert_eq!(
-            f03::admitted_report(&state, settled, m.evaluator(n)?).map(|row| row.is_some()),
-            Err(WRONG_EPOCH)
-        );
+        let historical = read_feature(&m.world.bytes, |bytes| {
+            let state = decode_shared_state(bytes)?;
+            f03::admitted_report(&state, settled, m.evaluator(n)?).map(|row| row.is_some())
+        });
+        assert_eq!(historical, Err(WRONG_EPOCH));
         assert_eq!(m.admitted(n)?, None);
     }
     for n in 2..=3 {

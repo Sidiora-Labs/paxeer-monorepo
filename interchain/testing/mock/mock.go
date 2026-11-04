@@ -156,7 +156,9 @@ func (am AppModule) ExportGenesis(ctx sdk.Context, cdc codec.JSONCodec) json.Raw
 
 // ExportGenesisStream implements the AppModule interface.
 func (am AppModule) ExportGenesisStream(ctx sdk.Context, cdc codec.JSONCodec) <-chan json.RawMessage {
-	return nil
+	ch := make(chan json.RawMessage)
+	close(ch)
+	return ch
 }
 
 // ConsensusVersion implements AppModule/ConsensusVersion.

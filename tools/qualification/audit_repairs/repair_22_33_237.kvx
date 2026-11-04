@@ -1,0 +1,33 @@
+[task.22.33.237]
+base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+start_revision = "eba6bd86ced598d6e03ba7a67ceeb3a287cd048a"
+repair = "Consume the root README rewrite owned by 22.31.470 under decision 2525 and add offline regression proof for audit 22.30.128/readme-network. README.md is outside scope and is unchanged by this task."
+source_proof = "The pytest module reads the actual README sections and transaction diagram: one chain-125 paxd BFT network, embedded kernel and block proposal, api1 through api14 root HTTPS JSON-RPC with a parsed eth_chainId curl payload, transaction submission through committed receipt and state reads, authenticated committed-block finality, retired custody/checkpoint executors and no separate daemon or checkpoint deployment. It checks production host/consensus declarations, root dispatch, raw transaction forwarding/acceptance, WAL acknowledgement before receipt publication, receipt rungs and block coverage, committed proof consumers and executor retirement guards. It parses this record and checks every finding proof names a declared test."
+review_only = "This documentation gate checks source facts and connections; it does not compile or execute Go/C/Rust, start or recover paxd, contact public RPC, execute transactions, validate cryptographic proofs or certify deployed consensus. The finding changes no stateful component or production interface, so restart and two-sided runtime interface proofs are not applicable. No shell script, unit, manifest or build file is repaired."
+baseline = "Initial git status/diff showed runner-prepared .cgignore and spec task-status changes only; both task files were absent. /out/run/gate.json reported zero builds and verifies, two repair cycles available, and /out/run/gates.jsonl did not exist. No baseline verify ran and no pre-change failing tests are claimed: the explicit implementation-first order and exclusive hf-done gate prohibit the older do_5 request to run pytest before implementation. README already contains the required facts from 22.31.470."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_237.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private gate ledger identify the exact verified candidate revision, command, exit code and log path; build and verification must identify the same candidate. This record is finalized before qualification because embedding its own candidate revision after the gate changes the candidate. The runner publishes the task and retains private evidence; no manual commit or push is performed."
+wiring_requests = []
+
+[finding.readme-network]
+audit = "22.30.128"
+class = "doc-drift"
+severity = "medium"
+file = "README.md"
+line = 47
+owner_domain = 13
+owner_task = "22.31.470"
+observed = "The architecture says layerxd runs as a separate daemon and settles checkpoints through layerxAnchor; line 181 still calls the merge a draft and says the current kernel runs separately."
+expected = "The finished product is one Paxeer BFT network whose node runs the kernel and finalizes ordinary transactions on committed blocks, as brief network facts 1 and 2 specify."
+proposal = "Rewrite README.md architecture and status around paxd kernel execution, root-path public JSON-RPC and committed-block finality; identify separate-daemon checkpoint instructions as retired."
+wiring = "README.md -> domain 13 / task 22.31.470 owns the architecture, status and retired-deployment rewrite; the inherited README supplies every required fact, so no outstanding wiring request is identified."
+tests = ["test_readme_network_embeds_kernel_and_proposes_committed_blocks", "test_readme_network_root_rpc_hosts_and_chain_probe", "test_readme_network_transaction_transport_and_committed_receipt", "test_readme_network_requires_block_commitment_for_finality", "test_readme_network_retires_custody_checkpoint_and_daemon_deployments"]
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. Apply .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions only after the entire implementation is complete."
+
+[gotcha.1]
+observed = "Codify brief/survey/grep use a stale graph and may return unrelated tasks or paths; broad combined reads can exceed tool output limits."
+resolution = "Use the assigned task, bounded actual source reads, git status/diff and the private gate ledger as authoritative. Record this note here because GOTCHA.kvx and spec files are outside the authorized scope."

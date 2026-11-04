@@ -1,0 +1,30 @@
+[task.22.33.1096]
+base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+readme_owner = "22.31.470 / domain 5"
+repair = "Decision 2525 assigns README.md to task 22.31.470. Its inherited rewrite already supplies the readme-retired-daemon expected facts. Preserve README unchanged and add focused regression assertions for one embedded-kernel paxd BFT network, chain-125 beta root JSON-RPC access, transaction submission and committed receipt finality, retired custody/checkpoint executors and paxd versus source-library build boundaries. No expected fact is missing, so no wiring request is needed."
+source_proof = "The module checks actual README source facts and topology against the production host and consensus-source wiring; parses the curl arguments and JSON payload and checks root-path dispatch; traces source connections from transaction accept/forward to durable WAL receipt release and committed receipt coverage; checks custody/checkpoint retirement guards and Makefile prerequisites, chain.mk output and paxd command registration. It parses this KVX record and the original audit record and asserts the exact finding-to-test mapping."
+review_only = "Native Go/C/Rust builds, node startup, actual transaction execution, cryptographic verification, WAL restart/recovery, endpoint availability and BFT consensus are not executed. This doc-drift repair proves documented source connections, not runtime certification. No interface or restart-recovery implementation changes. No shell script, unit file or manifest is repaired; shell examples are tokenized without execution and Makefile target dependencies are checked without invoking make. Tests require only Python and pytest, no environment variable, credentials, live endpoint, external binary, subprocess toolchain, native artifact or device."
+baseline = "No pre-change verification was run: the explicit implementation-first order and exclusive hf-done gate prohibit a manual baseline verify. No baseline failures are claimed. Initial git status/diff showed only existing runner-prepared .cgignore and feature-spec bookkeeping, neither scoped file existed, gate.json showed zero build and verify runs with two repair cycles left, and no gates.jsonl existed."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1096.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private evidence ledger name the exact verified content-derived candidate revision, command, exit code and log location. Build and verification must pass on the same candidate revision. This record is finalized before qualification; embedding its candidate hash into its own source would change that hash. The runner retains exact evidence and publishes the task; no manual commit or push is performed."
+wiring_requests = []
+
+[finding.readme-retired-daemon]
+audit = "22.30.45"
+file = "README.md"
+class = "doc-drift"
+severity = "medium"
+tests = ["test_readme_one_paxd_bft_network", "test_beta_root_rpc_and_chain_probe", "test_transaction_to_committed_receipt_source_path", "test_custody_checkpoint_and_daemon_guidance_is_retired", "test_build_boundaries_produce_and_start_paxd", "test_repair_record_maps_audit_finding_and_evidence_limits"]
+
+[gotcha.1]
+observed = "The older audit baseline-verification instruction conflicts with the explicit implementation-first gate order."
+resolution = "Follow the explicit order, use hf-done exclusively and claim no baseline execution or failures. Keep notes here because GOTCHA.kvx is outside scope."
+
+[gotcha.2]
+observed = "Combined context reads exceeded output limits, and the scoped Codify index does not expose root Makefile or formatter configuration."
+resolution = "Read bounded source sections directly and use inherited formatter policy for these paths; preserve existing bookkeeping and avoid broad context output."
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. Apply the repository .editorconfig UTF-8, LF, trailing-whitespace and final-newline conventions only after the entire implementation is complete."
