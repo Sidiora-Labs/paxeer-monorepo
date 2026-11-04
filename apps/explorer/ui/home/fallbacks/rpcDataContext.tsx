@@ -1,4 +1,4 @@
-import { useQueries, useQuery } from '@tanstack/react-query';
+import { useQueries } from '@tanstack/react-query';
 import React from 'react';
 
 import type { Block } from 'types/api/block';
@@ -27,65 +27,78 @@ export const HomeRpcDataContext = React.createContext<HomeRpcDataContext | null>
 const ITEMS_LIMIT = 5;
 
 export function HomeRpcDataContextProvider({ children }: { children: React.ReactNode }) {
-  const [ blocks, setBlocks ] = React.useState<Array<Block>>([]);
-  const [ txs, setTxs ] = React.useState<Array<Transaction>>([]);
-  const [ totalTxs, setTotalTxs ] = React.useState(0);
-  const [ isLoading, setIsLoading ] = React.useState(true);
+  const [ feed, setFeed ] = React.useState(() => ({
+    blocks: [] as Array<Block>,
+    txs: [] as Array<Transaction>,
+    observedHashes: new Set<string>(),
+  }));
+  const [ hasObservedBlock, setHasObservedBlock ] = React.useState(false);
   const [ isError, setIsError ] = React.useState(false);
-  const [ isEnabled, setIsEnabled ] = React.useState(false);
   const [ subscriptions, setSubscriptions ] = React.useState<Array<SubscriptionId>>([]);
+  const isEnabled = Boolean(publicClient) && subscriptions.length > 0;
 
-  const query = useQuery({
-    queryKey: [ 'RPC', 'watch-blocks' ],
-    queryFn: async() => {
-      if (!publicClient) {
-        return null;
-      }
+  React.useEffect(() => {
+    if (!publicClient || !isEnabled) {
+      return;
+    }
 
-      return publicClient.watchBlocks({
-        onBlock: (block) => {
-          setTxs((prevTxs) => {
-            try {
-              const newTxs = block.transactions.map((tx) => formatTxData(tx, null, null, block)).filter(Boolean);
-              const nextTxs = prevTxs.length < ITEMS_LIMIT ? [ ...prevTxs, ...newTxs ].slice(0, ITEMS_LIMIT) : prevTxs;
-
-              const totalTxs = prevTxs.length + newTxs.length;
-              setTotalTxs(totalTxs);
-
-              return nextTxs;
-            } catch (_) {
-              setIsError(true);
-              return prevTxs;
-            }
+    setHasObservedBlock(false);
+    setIsError(false);
+    let active = true;
+    const unwatch = publicClient.watchBlocks({
+      onBlock: (block) => {
+        if (!active) {
+          return;
+        }
+        try {
+          const newTxs = block.transactions.map((tx) => formatTxData(tx, null, null, block)).filter(Boolean);
+          const nextBlock = formatBlockData({
+            ...block,
+            transactions: block.transactions.map((tx) => tx.hash),
           });
-          setBlocks((prev) => {
-            try {
-              return [
-                formatBlockData({
-                  ...block,
-                  transactions: block.transactions.map((tx) => tx.hash),
-                }),
-                ...prev,
-              ].filter(Boolean).slice(0, ITEMS_LIMIT);
-            } catch (_) {
-              setIsError(true);
-              return prev;
-            }
+          if (!nextBlock) {
+            throw new Error('Cannot format an observed RPC block');
+          }
+          setFeed((prev) => {
+            const observedHashes = new Set(prev.observedHashes);
+            newTxs.forEach((tx) => observedHashes.add(tx.hash));
+            const sampleHashes = new Set<string>();
+            const txs = [ ...newTxs, ...prev.txs ].filter((tx) => {
+              if (sampleHashes.has(tx.hash)) {
+                return false;
+              }
+              sampleHashes.add(tx.hash);
+              return true;
+            }).slice(0, ITEMS_LIMIT);
+
+            return {
+              blocks: [ nextBlock, ...prev.blocks.filter((item) => item.hash !== nextBlock.hash) ].slice(0, ITEMS_LIMIT),
+              txs,
+              observedHashes,
+            };
           });
-        },
-        onError: () => {
+          setHasObservedBlock(true);
+        } catch (_) {
           setIsError(true);
-          setIsLoading(false);
-        },
-        pollingInterval: 5 * SECOND,
-        includeTransactions: true,
-      });
-    },
-    enabled: Boolean(publicClient) && isEnabled,
-  });
+        }
+      },
+      onError: () => {
+        if (active) {
+          setIsError(true);
+        }
+      },
+      pollingInterval: 5 * SECOND,
+      includeTransactions: true,
+      emitOnBegin: true,
+    });
+    return () => {
+      active = false;
+      unwatch();
+    };
+  }, [ isEnabled ]);
 
   const receiptQueries = useQueries({
-    queries: txs.map((tx) => ({
+    queries: feed.txs.map((tx) => ({
       queryKey: [ 'RPC', 'tx-receipt', { hash: tx.hash } ],
       queryFn: async() => {
         if (!publicClient) {
@@ -93,75 +106,46 @@ export function HomeRpcDataContextProvider({ children }: { children: React.React
         }
         return publicClient.getTransactionReceipt({ hash: tx.hash as `0x${ string }` });
       },
-      enabled: txs.length > 0 && !isError && Boolean(publicClient),
+      enabled: isEnabled && !isError,
       staleTime: Infinity,
     })),
   });
 
-  const areReceiptsLoading = txs.length === 0 || receiptQueries.some((query) => query.isPending);
-
-  React.useEffect(() => {
-    if (!areReceiptsLoading) {
-      setTxs((prev) => {
-        return prev.map((tx) => {
-          const receipt = receiptQueries.find((query) => query.data?.transactionHash === tx.hash);
-          if (!receipt) {
-            return tx;
-          }
-          return {
-            ...tx,
-            status: receipt?.status === 'success' ? 'ok' : 'error',
-          };
-        });
-      });
-      setIsLoading(false);
+  const txs = feed.txs.map((tx, index) => {
+    const receipt = receiptQueries[index].data;
+    if (!receipt) {
+      return tx;
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ areReceiptsLoading ]);
-
-  const unwatch = query.data;
-  const isQueryError = query.isError;
-
-  React.useEffect(() => {
-    return () => {
-      unwatch?.();
+    return {
+      ...tx,
+      status: receipt.status === 'success' ? 'ok' as const : 'error' as const,
     };
-  }, [ unwatch ]);
+  });
 
-  const enable = React.useCallback((isEnabled: boolean, id: SubscriptionId) => {
+  const enable = React.useCallback((enabled: boolean, id: SubscriptionId) => {
     if (!publicClient) {
       setIsError(true);
-      setIsLoading(false);
-      setIsEnabled(false);
       return;
     }
 
-    setIsEnabled(isEnabled);
-    if (isEnabled) {
-      setIsLoading(true);
-      setSubscriptions((prev) => [ ...prev, id ]);
-    } else {
-      setIsLoading(false);
-      setSubscriptions((prev) => {
-        const next = prev.filter((subscription) => subscription !== id);
-        if (next.length === 0) {
-          unwatch?.();
-        }
-        return next;
-      });
-    }
-  }, [ unwatch ]);
+    setSubscriptions((prev) => {
+      if (enabled) {
+        return prev.includes(id) ? prev : [ ...prev, id ];
+      }
+      return prev.includes(id) ? prev.filter((subscription) => subscription !== id) : prev;
+    });
+  }, []);
 
-  const value = React.useMemo(() => ({
-    blocks,
+  const value = {
+    blocks: feed.blocks,
     txs,
-    totalTxs,
-    isError: isQueryError || isError,
-    isLoading,
+    totalTxs: feed.observedHashes.size,
+    isError,
+    isLoading: !hasObservedBlock && !isError,
     isEnabled,
     enable,
     subscriptions,
-  }), [ blocks, txs, totalTxs, isQueryError, isError, isLoading, isEnabled, enable, subscriptions ]);
+  };
 
   return (
     <HomeRpcDataContext.Provider value={ value }>
