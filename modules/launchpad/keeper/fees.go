@@ -120,10 +120,10 @@ func optical(market types.Market) common.Address {
 func (k *Keeper) opticalFlags(ctx sdk.Context, caller NestedCaller, optical common.Address) (uint8, error) {
 	ret, err := caller.StaticCall(ctx, k.generation2.FeeAccumulator, optical, erc20Call(opticalGetFlags))
 	if err != nil {
-		return 0, fmt.Errorf("%w: getFlags %s: %w", types.ErrInvalidHookResponse, optical.Hex(), err)
+		return 0, types.ErrInvalidHookResponse.Wrapf("getFlags %s: %v", optical.Hex(), err)
 	}
 	if len(ret) != 32 || new(big.Int).SetBytes(ret).Cmp(big.NewInt(255)) > 0 {
-		return 0, fmt.Errorf("%w: getFlags %s returned %x", types.ErrInvalidHookResponse, optical.Hex(), ret)
+		return 0, types.ErrInvalidHookResponse.Wrapf("getFlags %s returned %x", optical.Hex(), ret)
 	}
 	return ret[31], nil
 }

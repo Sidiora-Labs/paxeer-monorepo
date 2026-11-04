@@ -44,7 +44,7 @@ use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::PathBuf;
-use std::process::{Command, ExitCode, Stdio};
+use std::process::{Command, ExitCode};
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc, Mutex,
@@ -408,12 +408,6 @@ impl Service {
                         return Ok(receipt.acknowledgment);
                     }
                     let task = task_binding(&current.state, submit.task)?;
-                    let key = JobKey::derive(
-                        envelope.context.market,
-                        envelope.context.actor,
-                        envelope.context.request,
-                    )?;
-                    self.track(key)?;
                     let name = hex(submit.input_commitment.as_bytes());
                     let manifest = read_bounded(
                         &self.input_dir.join(format!("{name}.manifest")),
@@ -561,20 +555,61 @@ fn task_binding(state: &[u8], task: TaskId) -> Result<TaskBinding, ServiceError>
 }
 
 impl Service {
-    fn tracked(&self) -> Result<Vec<[u8; 32]>, ServiceError> {
-        let path = self.state_dir.join("chain-jobs.json");
-        match fs::read(&path) {
-            Ok(bytes) => serde_json::from_slice(&bytes).map_err(|_| ServiceError::NonCanonical),
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(Vec::new()),
-            Err(_) => Err(ServiceError::ExecutionUnavailable),
+    pub(crate) fn cleanup_retention(
+        &self,
+        state: &[u8],
+        now: u64,
+        height: u64,
+    ) -> Result<usize, ServiceError> {
+        let shared = decode_shared_state(state)?;
+        let policy = PolicySection::decode(shared.section(Section::PolicyLifecycle)?)?;
+        let mut settled = Vec::new();
+        for task in TaskSet::decode(policy.task_region)?.bindings() {
+            let task = task?;
+            if matches!(
+                task.status,
+                TaskStatus::ResultCommitted | TaskStatus::Cancelled
+            ) {
+                settled.push(task.task);
+            }
         }
+        self.jobs.purge_settled(now, height, &settled)
     }
 
-    fn track(&self, key: JobKey) -> Result<(), ServiceError> {
-        let mut keys = self.tracked()?;
-        if !keys.contains(&key.digest().bytes()) {
-            keys.push(key.digest().bytes());
-            atomic_json(&self.state_dir.join("chain-jobs.json"), &keys)?;
+    pub(crate) fn maintain_fences(&self, now: u64) -> Result<(), ServiceError> {
+        // Migrate legacy vector files once; the job record is the durable per-key index.
+        let path = self.state_dir.join("expired-attempts.json");
+        match fs::read(&path) {
+            Ok(bytes) => {
+                let expired: Vec<([u8; 32], u64)> =
+                    serde_json::from_slice(&bytes).map_err(|_| ServiceError::NonCanonical)?;
+                for (digest, fence) in expired {
+                    let key = JobKey::from_digest(Digest32::new(digest)?);
+                    match self.jobs.store().job(key) {
+                        Ok(_) => self.jobs.fence_expired(key, fence, now)?,
+                        Err(ServiceError::NotFound) => {}
+                        Err(error) => return Err(error),
+                    }
+                }
+                fs::remove_file(&path).map_err(|_| ServiceError::ExecutionUnavailable)?;
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(_) => return Err(ServiceError::ExecutionUnavailable),
+        }
+        let legacy = self.state_dir.join("chain-jobs.json");
+        match fs::remove_file(legacy) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(_) => return Err(ServiceError::ExecutionUnavailable),
+        }
+        for (key, state) in self.jobs.store().active()? {
+            if state.state == JobState::Running && state.lease_until_ms <= now {
+                self.jobs.fence_expired(key, state.fence, now)?;
+                self.jobs
+                    .runner()
+                    .cancel(key, state.fence)
+                    .map_err(|_| ServiceError::ExecutionUnavailable)?;
+            }
         }
         Ok(())
     }
@@ -584,49 +619,19 @@ impl Service {
 /// supplies native verified, same-height chunk proofs and identity facts from `chain_config`;
 /// the sponsored sender signs and submits the exact ABI call, preserving its idempotency key.
 fn adapter(program: &std::path::Path, request: serde_json::Value) -> Result<Vec<u8>, ServiceError> {
+    adapter_call(&mut Command::new(program), request, Duration::from_secs(10))
+}
+
+pub(crate) fn adapter_call(
+    command: &mut Command,
+    request: serde_json::Value,
+    timeout: Duration,
+) -> Result<Vec<u8>, ServiceError> {
     let input = serde_json::to_vec(&request).map_err(|_| ServiceError::NonCanonical)?;
-    let mut child = Command::new(program)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-        .map_err(|_| ServiceError::ExecutionUnavailable)?;
-    let mut stdin = child
-        .stdin
-        .take()
-        .ok_or(ServiceError::ExecutionUnavailable)?;
-    let stdout = child
-        .stdout
-        .take()
-        .ok_or(ServiceError::ExecutionUnavailable)?;
-    let writer = std::thread::spawn(move || stdin.write_all(&input));
-    let reader = std::thread::spawn(move || {
-        let mut bytes = Vec::new();
-        stdout
-            .take((MAX_STATE_BYTES * 8 + 1) as u64)
-            .read_to_end(&mut bytes)
-            .map(|_| bytes)
-    });
-    let deadline = Instant::now() + Duration::from_secs(10);
-    let success = loop {
-        match child.try_wait() {
-            Ok(Some(status)) => break status.success(),
-            Ok(None) if Instant::now() < deadline => std::thread::sleep(Duration::from_millis(10)),
-            _ => {
-                let _ = child.kill();
-                let _ = child.wait();
-                break false;
-            }
-        }
-    };
-    let written = writer
-        .join()
-        .map_err(|_| ServiceError::ExecutionUnavailable)?;
-    let bytes = reader
-        .join()
-        .map_err(|_| ServiceError::ExecutionUnavailable)?
-        .map_err(|_| ServiceError::ExecutionUnavailable)?;
-    if !success || written.is_err() || bytes.len() > MAX_STATE_BYTES * 8 {
+    let (status, bytes) =
+        layerx_paxai_worker::process::invoke(command, &input, MAX_STATE_BYTES * 8, timeout)
+            .map_err(|_| ServiceError::ExecutionUnavailable)?;
+    if !status.success() {
         return Err(ServiceError::ExecutionUnavailable);
     }
     Ok(bytes)
@@ -893,25 +898,7 @@ pub(crate) fn claim_admitted(
 fn maintenance_tick(service: &Service, config: &Config) -> Result<(), ServiceError> {
     // Reconciliation and cancellation continue even if the chain reader is unavailable.
     let now = now_ms()?;
-    let expired_path = service.state_dir.join("expired-attempts.json");
-    let mut expired: Vec<([u8; 32], u64)> = match fs::read(&expired_path) {
-        Ok(bytes) => serde_json::from_slice(&bytes).map_err(|_| ServiceError::NonCanonical)?,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Vec::new(),
-        Err(_) => return Err(ServiceError::ExecutionUnavailable),
-    };
-    for (key, state) in service.jobs.store().active()? {
-        if state.state == JobState::Running && state.lease_until_ms <= now {
-            if !expired.contains(&(key.digest().bytes(), state.fence)) {
-                expired.push((key.digest().bytes(), state.fence));
-                atomic_json(&expired_path, &expired)?;
-            }
-            service
-                .jobs
-                .runner()
-                .cancel(key, state.fence)
-                .map_err(|_| ServiceError::ExecutionUnavailable)?;
-        }
-    }
+    service.maintain_fences(now)?;
     service.jobs.reconcile(now)?;
     refresh_authority(service, config)?;
     let mut runtime = service
@@ -925,6 +912,7 @@ fn maintenance_tick(service: &Service, config: &Config) -> Result<(), ServiceErr
         .as_ref()
         .ok_or(ServiceError::StaleAuthority)?;
     service.jobs.expire(&authority, now)?;
+    service.cleanup_retention(&current.state, now, authority.height())?;
     let shared = decode_shared_state(&current.state)?;
     let record = authority.record();
     let replay = shared
@@ -955,8 +943,7 @@ fn maintenance_tick(service: &Service, config: &Config) -> Result<(), ServiceErr
         Err(_) => return Err(ServiceError::ExecutionUnavailable),
     }
     let mut operation = None;
-    for digest in service.tracked()? {
-        let key = JobKey::from_digest(Digest32::new(digest)?);
+    for key in service.jobs.store().tracked()? {
         let job = match service.jobs.store().find(key)? {
             Some(job) => job,
             None => continue,
@@ -987,7 +974,7 @@ fn maintenance_tick(service: &Service, config: &Config) -> Result<(), ServiceErr
                 });
             }
             (JobState::Ended(Outcome::Succeeded), TaskStatus::Accepted) => {
-                if job.state.late || expired.contains(&(key.digest().bytes(), job.state.fence)) {
+                if job.state.late {
                     continue;
                 }
                 let Some(digest) = service.jobs.commit_record_or_retain(key, &authority)? else {
@@ -1056,14 +1043,14 @@ fn read_request(stream: &mut impl Read) -> Result<(String, String, Vec<u8>), Res
     else {
         return Err(malformed());
     };
-    let mut length = 0usize;
-    for line in lines {
-        if let Some((name, value)) = line.split_once(':') {
-            if name.eq_ignore_ascii_case("content-length") {
-                length = value.trim().parse().map_err(|_| malformed())?;
-            }
-        }
+    if start.next().is_some()
+        || method.is_empty()
+        || path.is_empty()
+        || !path.bytes().all(|b| (33..=126).contains(&b))
+    {
+        return Err(malformed());
     }
+    let length = layerx_paxai_worker::http::content_length(lines).ok_or_else(malformed)?;
     if length > MAX_ENVELOPE_BYTES {
         return Err(refusal(ServiceError::InputTooLarge, Presence::Absent));
     }
@@ -1087,7 +1074,7 @@ fn reason(status: u16) -> &'static str {
     }
 }
 
-fn serve(
+pub(crate) fn serve(
     service: &Service,
     tls: Arc<ServerConfig>,
     socket: TcpStream,

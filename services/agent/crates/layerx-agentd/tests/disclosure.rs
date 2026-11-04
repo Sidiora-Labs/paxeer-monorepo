@@ -1,35 +1,16 @@
 #[path = "support/send_authorization.rs"]
 mod send_authorization;
 
-use layerx_agentd::prepare::{
-    prepare_activity, verify_disclosure_binding, CorePreparationBoundary, CorePreparationState,
-    CoreStateError, DisclosureBindingError, PreparationDefaults, PrepareRequest,
+use layerx_agentd::prepare::evm::{
+    prepare_bound, verify_call_binding, CallBindingError, EvmPreparationState, PrecompileCall,
+    PreparationDefaults, PrepareRequest, Prepared,
 };
-use layerx_crypto::disclosure::{AmountRole, CounterpartyRole};
-use layerx_types::activity::{Authority, TimestampBound};
-use layerx_types::amount::Amount;
-use layerx_types::ids::{Did, IdempotencyKey};
-use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
+use layerx_crypto::disclosure::{call, AmountRole, CounterpartyRole, DisclosureError};
+use layerx_types::payload::{ActivityType, ModuleId};
 use layerx_wire::encode::Encoder;
 
-struct RecordedCore(CorePreparationState);
-
-impl CorePreparationBoundary for RecordedCore {
-    fn preparation_state(&mut self, _actor: &Did) -> Result<CorePreparationState, CoreStateError> {
-        Ok(self.0.clone())
-    }
-}
-
 fn activity_type() -> ActivityType {
-    ActivityType::new(ModuleId::Asset, 5).unwrap_or_else(|error| panic!("activity: {error:?}"))
-}
-
-fn registry() -> ModuleRegistry {
-    ModuleRegistry::new(
-        &[ModuleRegistration::new(ModuleId::Asset, &[activity_type()])
-            .unwrap_or_else(|error| panic!("registration: {error:?}"))],
-    )
-    .unwrap_or_else(|error| panic!("registry: {error:?}"))
+    ActivityType::new(ModuleId::Asset, 5).expect("send activity")
 }
 
 fn send_payload() -> Vec<u8> {
@@ -91,77 +72,91 @@ fn send_payload() -> Vec<u8> {
     send_authorization::sign(encoder.finish())
 }
 
-fn prepared() -> layerx_agentd::prepare::Prepared {
-    let mut core = RecordedCore(CorePreparationState {
-        network_id: 17,
-        account_sequence: 5,
-        protocol_timestamp: 1_000,
-        observed_head_sequence: 88,
-        module_registry: registry(),
-    });
-    prepare_activity(
-        &mut core,
+fn prepared() -> Prepared {
+    prepare_bound(
+        EvmPreparationState {
+            chain_id: 17,
+            pending_nonce: 5,
+            base_fee_per_gas: 3,
+            head_height: 88,
+        },
         PreparationDefaults {
-            timestamp_span: 30,
-            fee_limit: Amount::from_u128(12),
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 12,
             maximum_payload_bytes: 1_024,
         },
         PrepareRequest {
-            actor: Did::new(b"did:layerx:prepare-agent")
-                .unwrap_or_else(|error| panic!("DID: {error:?}")),
-            authority: Authority::session_key(b"session-authority")
-                .unwrap_or_else(|error| panic!("authority: {error:?}")),
-            activity_type: activity_type(),
-            expected_account_sequence: Some(5),
-            timestamp_bound: Some(
-                TimestampBound::new(995, 1_010)
-                    .unwrap_or_else(|error| panic!("timestamp: {error:?}")),
-            ),
-            fee_limit: Some(Amount::from_u128(7)),
-            idempotency_key: IdempotencyKey::new([4; 32]),
-            payload: send_payload(),
+            from: [0x11; 20],
+            call: PrecompileCall::ledger_transfer(send_payload()),
+            expected_nonce: Some(5),
+            max_priority_fee_per_gas: None,
+            max_fee_per_gas: Some(7),
             declared_payload_limit: 1_024,
         },
+        100_000,
     )
-    .unwrap_or_else(|error| panic!("prepare: {error:?}"))
+    .expect("prepare ledger type-2 call")
 }
 
 #[test]
 fn preparation_discloses_semantics_decoded_from_the_bytes() {
     let prepared = prepared();
-    assert_eq!(prepared.disclosure.activity_type, activity_type());
-    assert_eq!(prepared.disclosure.actor, b"did:layerx:prepare-agent");
-    assert_eq!(prepared.disclosure.authority, b"session-authority");
-    assert_eq!(prepared.disclosure.counterparties.len(), 2);
+    let disclosure = &prepared.disclosure;
+    let exact = prepared.call.encode_unsigned();
+    assert_eq!(exact[0], 2);
+    assert_eq!(disclosure.activity_type, activity_type());
+    assert_eq!(disclosure.actor, [0x11; 20]);
+    assert_eq!(disclosure.authority, [0x11; 20]);
+    assert_eq!(disclosure.counterparties.len(), 2);
+    assert_eq!(disclosure.counterparties[0].role, CounterpartyRole::Payer);
     assert_eq!(
-        prepared.disclosure.counterparties[0].role,
-        CounterpartyRole::Payer
-    );
-    assert_eq!(
-        prepared.disclosure.counterparties[1].role,
+        disclosure.counterparties[1].role,
         CounterpartyRole::Recipient
     );
-    assert_eq!(prepared.disclosure.amounts[0].role, AmountRole::Transfer);
-    assert_eq!(prepared.disclosure.amounts[0].value, 25);
-    assert_eq!(prepared.disclosure.asset, [0x33; 32]);
-    assert_eq!(prepared.disclosure.fee_limit, 7);
-    assert_eq!(prepared.disclosure.expiry.not_after, 1_010);
-    assert_eq!(prepared.disclosure.idempotency_key, [4; 32]);
-    assert_eq!(
-        prepared.disclosure.reencode(),
-        Ok(prepared.canonical_bytes.clone())
-    );
-    assert_eq!(prepared.audit.disclosure_digest, prepared.disclosure_digest);
-    assert_eq!(verify_disclosure_binding(&prepared), Ok(()));
+    assert_eq!(disclosure.amounts.len(), 1);
+    assert_eq!(disclosure.amounts[0].role, AmountRole::Transfer);
+    assert_eq!(disclosure.amounts[0].value, 25);
+    assert_eq!(disclosure.asset, [0x33; 32]);
+    assert_eq!(disclosure.fee_limit, 700_000);
+    assert_eq!(disclosure.expiry.payload_expires_at, 1_010);
+    assert_eq!(disclosure.expiry.not_before, 0);
+    assert_eq!(disclosure.expiry.not_after, u64::MAX);
+    assert_eq!(disclosure.idempotency_key, [4; 32]);
+    assert_eq!(call::reencode(disclosure), Ok(exact.clone()));
+    assert_eq!(call::validate_canonical(disclosure, &exact), Ok(()));
+    assert_eq!(disclosure.signing_digest(), Ok(prepared.signing_hash));
+    assert_eq!(prepared.disclosure_digest, prepared.signing_hash);
+    assert_eq!(verify_call_binding(&prepared), Ok(()));
+    assert_eq!(prepared.call.chain_id, 17);
+    assert_eq!(prepared.call.nonce, 5);
+    assert_eq!(prepared.observed_head_height, 88);
 }
 
 #[test]
 fn mutation_after_disclosure_generation_is_refused() {
-    let mut prepared = prepared();
-    let last = prepared.canonical_bytes.len().saturating_sub(1);
-    prepared.canonical_bytes[last] ^= 1;
+    let original = prepared();
+    let mut exact = original.call.encode_unsigned();
+    let last = exact.len() - 1;
+    exact[last] ^= 1;
     assert_eq!(
-        verify_disclosure_binding(&prepared),
-        Err(DisclosureBindingError::CanonicalMismatch)
+        call::validate_canonical(&original.disclosure, &exact),
+        Err(DisclosureError::FieldMismatch("canonical_bytes"))
     );
+    let mut changed = original.clone();
+    changed.call.data[68 + 100] ^= 1; // Exact ledger amount byte.
+    assert_eq!(
+        verify_call_binding(&changed),
+        Err(CallBindingError::SigningHashMismatch)
+    );
+    changed.signing_hash = changed.call.signing_hash();
+    assert!(
+        verify_call_binding(&changed).is_err(),
+        "updating the hash cannot retain stale semantics"
+    );
+    let mut changed = original.clone();
+    changed.disclosure.amounts[0].value += 1;
+    assert!(verify_call_binding(&changed).is_err());
+    let mut changed = original;
+    changed.from[0] ^= 1;
+    assert!(verify_call_binding(&changed).is_err());
 }

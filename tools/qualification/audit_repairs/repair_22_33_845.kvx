@@ -1,0 +1,33 @@
+[task.22.33.845]
+base_revision = "76c050242a1edcad6212aa52fac15670ecb5612d"
+audit = "22.30.181"
+repair = "Change only the software-upgrade template description: explicitly identify the retained v6.12.0 plan as pre-merge, distinguish the separate merged-network plan, and state that after the merge the custody executor is retained only to refuse custody governance messages. Preserve plan name, title, height, info, deposit and expedited setting."
+source_proof = "Pytest parses the actual production JSON and checks all four description sentences, the absence of the stale activation promise, every unchanged proposal field and placeholder, and the v6.12.0 identity against the production upgrade constant. It follows the real renderer source from the templates directory through jq's placeholder-only substitution and output file to the software-upgrade command's description argument, then checks the actual Go consumer carries that argument into proposal content and transaction generation. Fail-fast/offline validation and the one-message guard remain asserted."
+review_only = "Full Bash/jq rendering, paxd transaction construction and on-chain upgrade execution are not executed by this Python-only gate; their production wiring is source-proven. No shell script is modified and bash -n is not an allowed gate for this task. Product prose and actual post-merge custody refusal semantics require review; this documentation repair does not claim to implement or execute the custody executor. No interface mismatch, restart-recovery behavior or new persistent state is introduced. The gate requires no environment variable, credentials, endpoint, external binary, subprocess toolchain, native artifact or device."
+baseline = "No pre-change verification was run. The explicit implementation-first order, exclusive hf-build then hf-done gates and prohibition on manually running verify_cmd supersede the conflicting baseline clause in step 5. No baseline failing test is claimed. Initial git status and diff showed only pre-existing .cgignore and spec task-start changes, preserved intact; no /out/run/gates.jsonl existed."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_845.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The private evidence_ledger and final hf-done JSON name the exact verified candidate revision, command, exit code and log path. Build and verification must pass on the same candidate revision. This record is finalized before qualification: embedding its own content-derived revision would change that revision. No edit follows passing hf-done; the runner retains evidence and commits."
+wiring_requests = []
+wiring_policy = "The f006 proposal requires no out-of-path implementation; no wiring request is needed. The existing v6.12.0 plan identity is intentionally retained."
+
+[finding.f006]
+audit = "22.30.181"
+file = "tools/paxeer-x/gov/templates/01-software-upgrade.json"
+line = 6
+class = "doc-drift"
+severity = "medium"
+owner_domain = 16
+tests = ["test_f006_description_identifies_pre_merge_plan_and_post_merge_refusal", "test_f006_preserves_plan_identity_schema_and_render_inputs", "test_f006_real_template_description_reaches_guarded_upgrade_consumer"]
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. Preserve existing style and .editorconfig UTF-8, LF, final-newline and no-trailing-whitespace conventions; the JSON template retains its two-space indentation."
+
+[gotcha.1]
+symptom = "The baseline clause conflicts with the exclusive implementation-first gate order."
+resolution = "Run only hf-build then hf-done after implementation; report no pre-change result. Keep GOTCHA.kvx and spec files outside the edit scope and record this conflict here."
+
+[gotcha.2]
+symptom = "Broad combined source reads exceeded output limits and guessed upgrade directories did not exist."
+resolution = "Use bounded reads of the actual finding, task, template and production wiring; the retained upgrade declaration is node/upgrades_v6120.go and the CLI consumer is sdk/x/upgrade/client/cli/tx.go."

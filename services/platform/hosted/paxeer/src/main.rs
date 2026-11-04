@@ -120,6 +120,14 @@ enum NodeFailure {
     Invalid,
 }
 
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ChainIdentity<'a> {
+    jsonrpc: &'a str,
+    id: u64,
+    result: &'a str,
+}
+
 fn parse_u64(name: &str) -> Result<u64, String> {
     let value = env::var(name).map_err(|_| format!("{name} is required"))?;
     value
@@ -326,18 +334,16 @@ fn parse_client_request(stream: &mut impl Read) -> Result<Request, String> {
     Ok(request)
 }
 
-fn node_request(node: &NodeEndpoint, body: &[u8]) -> Result<(u16, Vec<u8>), NodeFailure> {
-    let mut stream = TcpStream::connect_timeout(&node.address, CONNECT_TIMEOUT)
-        .map_err(|_| NodeFailure::Unreachable)?;
-    stream
-        .set_read_timeout(Some(NODE_IO_TIMEOUT))
-        .map_err(|_| NodeFailure::Unreachable)?;
-    stream
-        .set_write_timeout(Some(NODE_IO_TIMEOUT))
-        .map_err(|_| NodeFailure::Unreachable)?;
+fn node_request(
+    node: &NodeEndpoint,
+    stream: &mut transport::DeadlineStream,
+    body: &[u8],
+    keep_alive: bool,
+) -> Result<(u16, Vec<u8>), NodeFailure> {
+    let connection = if keep_alive { "keep-alive" } else { "close" };
     write!(
         stream,
-        "POST {} HTTP/1.1\r\nHost: {}\r\nContent-Type: application/json\r\nAccept: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+        "POST {} HTTP/1.1\r\nHost: {}\r\nContent-Type: application/json\r\nAccept: application/json\r\nContent-Length: {}\r\nConnection: {connection}\r\n\r\n",
         node.path,
         node.address,
         body.len()
@@ -347,7 +353,7 @@ fn node_request(node: &NodeEndpoint, body: &[u8]) -> Result<(u16, Vec<u8>), Node
         .write_all(body)
         .map_err(|_| NodeFailure::Unreachable)?;
     stream.flush().map_err(|_| NodeFailure::Unreachable)?;
-    let mut response = read_http_message(&mut stream, MAX_NODE_RESPONSE_BYTES, true)
+    let mut response = read_http_message(stream, MAX_NODE_RESPONSE_BYTES, !keep_alive)
         .map_err(|_| NodeFailure::Invalid)?;
     let first = response.headers.get("").ok_or(NodeFailure::Invalid)?;
     let mut parts = first.split_whitespace();
@@ -395,7 +401,7 @@ fn rpc_error(id: &Value, code: i64, message: &str) -> Response {
     }
 }
 
-fn relay(config: &Config, request: &Request) -> Response {
+fn relay(config: &Config, request: &Request, deadline: Instant) -> Response {
     if request.headers.get("content-type").map(String::as_str) != Some("application/json") {
         return refusal(400, "content_type_required", None);
     }
@@ -426,7 +432,17 @@ fn relay(config: &Config, request: &Request) -> Response {
     if !method_allowed(method) {
         return rpc_error(&id, -32601, "method is not relayed by the boundary");
     }
-    match node_request(&config.node, &request.body) {
+    let mut upstream = match transport::connect(&config.node, deadline) {
+        Ok(upstream) => upstream,
+        Err(_) => return refusal(503, "node_unavailable", Some(5)),
+    };
+    match node_chain_id(&config.node, &mut upstream, true) {
+        Ok(chain_id) if chain_id == config.chain_id => {}
+        Ok(_) => return refusal(503, "chain_id_mismatch", Some(10)),
+        Err(NodeFailure::Unreachable) => return refusal(503, "node_unavailable", Some(5)),
+        Err(NodeFailure::Invalid) => return refusal(502, "node_response_invalid", Some(5)),
+    }
+    match node_request(&config.node, &mut upstream, &request.body, false) {
         Ok((200, body)) => match serde_json::from_slice::<Value>(&body) {
             Ok(Value::Object(reply))
                 if reply.get("jsonrpc").and_then(Value::as_str) == Some("2.0")
@@ -447,26 +463,37 @@ fn relay(config: &Config, request: &Request) -> Response {
     }
 }
 
-fn node_chain_id(config: &Config) -> Result<u64, NodeFailure> {
+fn node_chain_id(
+    node: &NodeEndpoint,
+    upstream: &mut transport::DeadlineStream,
+    keep_alive: bool,
+) -> Result<u64, NodeFailure> {
     let body = b"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"eth_chainId\",\"params\":[]}";
-    let (status, payload) = node_request(&config.node, body)?;
+    let (status, payload) = node_request(node, upstream, body, keep_alive)?;
     if status != 200 {
         return Err(NodeFailure::Invalid);
     }
-    let document = serde_json::from_slice::<Value>(&payload).map_err(|_| NodeFailure::Invalid)?;
-    let result = document
-        .get("result")
-        .and_then(Value::as_str)
-        .ok_or(NodeFailure::Invalid)?;
-    let digits = result
+    let document: ChainIdentity<'_> =
+        serde_json::from_slice(&payload).map_err(|_| NodeFailure::Invalid)?;
+    if document.jsonrpc != "2.0" || document.id != 1 {
+        return Err(NodeFailure::Invalid);
+    }
+    let digits = document
+        .result
         .strip_prefix("0x")
-        .filter(|digits| !digits.is_empty() && digits.len() <= 16)
+        .filter(|digits| {
+            !digits.is_empty()
+                && digits.len() <= 16
+                && digits.bytes().all(|byte| byte.is_ascii_hexdigit())
+        })
         .ok_or(NodeFailure::Invalid)?;
     u64::from_str_radix(digits, 16).map_err(|_| NodeFailure::Invalid)
 }
 
-fn readiness(config: &Config) -> Response {
-    match node_chain_id(config) {
+fn readiness(config: &Config, deadline: Instant) -> Response {
+    match transport::connect(&config.node, deadline)
+        .and_then(|mut stream| node_chain_id(&config.node, &mut stream, false))
+    {
         Ok(chain_id) if chain_id == config.chain_id => ok(format!(
             "{{\"status\":\"ready\",\"service\":\"paxeer-boundary\",\"chain_id\":{chain_id}}}"
         )),
@@ -476,26 +503,27 @@ fn readiness(config: &Config) -> Response {
     }
 }
 
-fn route(config: &Config, request: &Request) -> Response {
+fn route(config: &Config, request: &Request, deadline: Instant) -> Response {
+    let deadline = deadline.min(Instant::now() + NODE_IO_TIMEOUT);
     if request.method == "GET" && request.path == "/livez" {
         return ok("{\"status\":\"live\",\"service\":\"paxeer-boundary\"}".to_owned());
     }
     if request.method == "GET" && request.path == "/readyz" {
-        return readiness(config);
+        return readiness(config, deadline);
     }
     if request.method == "GET" && request.path == "/genesis" {
-        return config
-            .comet
-            .as_ref()
-            .map_or_else(|| refusal(404, "not_found", None), genesis::response);
+        return config.comet.as_ref().map_or_else(
+            || refusal(404, "not_found", None),
+            |node| genesis::response(node, deadline),
+        );
     }
     if request.method == "POST" && request.path == "/" {
-        return relay(config, request);
+        return relay(config, request, deadline);
     }
     if request.method == "POST" && request.path == "/comet" {
         return config.comet.as_ref().map_or_else(
             || refusal(404, "not_found", None),
-            |node| comet::response(node, request),
+            |node| comet::response(node, request, deadline),
         );
     }
     refusal(404, "not_found", None)
@@ -559,16 +587,17 @@ fn write_response(stream: &mut impl Write, response: &Response) -> Result<(), St
     stream.flush().map_err(|error| error.to_string())
 }
 
-fn handle_connection(config: &Arc<Config>, tcp: TcpStream) -> Result<(), String> {
-    tcp.set_read_timeout(Some(CLIENT_IO_TIMEOUT))
-        .map_err(|error| error.to_string())?;
-    tcp.set_write_timeout(Some(CLIENT_IO_TIMEOUT))
-        .map_err(|error| error.to_string())?;
+fn handle_connection(
+    config: &Arc<Config>,
+    tcp: TcpStream,
+    _permit: ConnectionPermit,
+    deadline: Instant,
+) -> Result<(), String> {
     let connection = ServerConnection::new(Arc::clone(&config.tls)).map_err(|e| e.to_string())?;
-    let mut stream = StreamOwned::new(connection, tcp);
+    let mut stream = StreamOwned::new(connection, transport::DeadlineStream::new(tcp, deadline));
     let response = parse_client_request(&mut stream).map_or_else(
         |_| refusal(400, "invalid_request", None),
-        |request| route(config, &request),
+        |request| route(config, &request, deadline),
     );
     write_response(&mut stream, &response)?;
     stream.conn.send_close_notify();
@@ -577,18 +606,15 @@ fn handle_connection(config: &Arc<Config>, tcp: TcpStream) -> Result<(), String>
         .sock
         .shutdown(Shutdown::Write)
         .map_err(|error| error.to_string())?;
-    let deadline = Instant::now() + Duration::from_secs(1);
+    stream
+        .sock
+        .shorten_deadline(Instant::now() + Duration::from_secs(1));
     let mut drained = 0_usize;
     let mut buffer = [0_u8; 4096];
     loop {
-        let remaining = deadline.saturating_duration_since(Instant::now());
-        if remaining.is_zero() || drained >= MAX_HEADER_BYTES {
+        if drained >= MAX_HEADER_BYTES {
             return Err("TLS shutdown drain exceeded its bound".to_owned());
         }
-        stream
-            .sock
-            .set_read_timeout(Some(remaining))
-            .map_err(|error| error.to_string())?;
         let limit = buffer.len().min(MAX_HEADER_BYTES - drained);
         match stream.sock.read(&mut buffer[..limit]) {
             Ok(0) => return Ok(()),
@@ -639,9 +665,9 @@ fn paxeer_boundary(config: Config) -> Result<(), String> {
                     continue;
                 };
                 let shared = Arc::clone(&config);
+                let deadline = Instant::now() + CLIENT_IO_TIMEOUT;
                 thread::spawn(move || {
-                    let _permit = permit;
-                    if let Err(error) = handle_connection(&shared, stream) {
+                    if let Err(error) = handle_connection(&shared, stream, permit, deadline) {
                         eprintln!("layerx-paxeer-boundary connection failed: {error}");
                     }
                 });

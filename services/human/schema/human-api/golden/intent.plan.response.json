@@ -3,36 +3,24 @@
   "body": {
     "ok": true,
     "result": {
-      "plan_digest": "4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b",
-      "journey_kind": "deposit",
+      "plan_digest": "7a596ee261a40e7f515f7ba735b8099aae3376a58af99bb7df3bee9d89d0c0a8",
+      "journey_kind": "move",
       "total_fee": {
-        "amount": "9",
+        "amount": "200000",
         "currency": "LXP"
       },
       "legs": [
         {
           "index": 0,
-          "mechanism": "paxeer-custody-deposit",
-          "domain": "paxeer",
-          "source": {
-            "kind": "paxeer-wallet"
-          },
-          "destination": {
-            "kind": "human",
-            "account": "agent:did:layerx:alice:main"
-          },
-          "money": {
-            "amount": "500000",
-            "currency": "LXP"
-          },
-          "fee": {
-            "amount": "1",
-            "currency": "LXP"
-          }
-        },
-        {
-          "index": 1,
-          "mechanism": "transfer",
+          "to": "0x0000000000000000000000000000000000001001",
+          "value": "0",
+          "calldata": "0x5c05961b000000000000000000000000111111111111111111111111111111111111111100000000000000000000000022222222222222222222222222222222222222220000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000007a1200000000000000000000000000000000000000000000000000000000000000004756c787000000000000000000000000000000000000000000000000000000000",
+          "nonce": 19,
+          "chain_id": 125,
+          "gas_limit": 100000,
+          "max_fee_per_gas": "2",
+          "max_priority_fee_per_gas": "1",
+          "mechanism": "send",
           "domain": "layerx",
           "source": {
             "kind": "human",
@@ -47,7 +35,7 @@
             "currency": "LXP"
           },
           "fee": {
-            "amount": "8",
+            "amount": "200000",
             "currency": "LXP"
           }
         }
@@ -55,15 +43,9 @@
       "signing_requirements": [
         {
           "leg_index": 0,
-          "action_key": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
-          "signing_context": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
-          "authority": "custody-key"
-        },
-        {
-          "leg_index": 1,
-          "action_key": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
-          "signing_context": "d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4",
-          "authority": "agent-authority"
+          "action_key": "c202efbdc00111496c992dfa39ed17ee2c88e266006542e5d6895ac0f6a4f1a1",
+          "signing_context": "28f23e1c3592b94ccb064759f27f3d8f46b81e067c7bb7a80c424fd1aefb9804",
+          "authority": "account-owner"
         }
       ]
     },

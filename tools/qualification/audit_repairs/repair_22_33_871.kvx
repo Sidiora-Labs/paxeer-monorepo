@@ -1,0 +1,52 @@
+[task]
+id = "22.33.871"
+requirement = "22998.1"
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+repair = "Change only the scanner traversal root from platform to services/platform; retain manifest discovery, pruning, exact inventory comparison, classification guards and the existing shell regression unchanged."
+wiring_requests = ["tools/workspace/platform-dependency-roots.txt — owner domain 16 (tools-ops): reconcile the inventory with services/platform; three listed manifests are absent and three current manifests are unlisted at the base revision."]
+
+[finding.f004]
+audit = "22.30.183"
+file = "scripts/workspace/check-platform-dependencies.sh"
+class = "wiring-gap"
+severity = "medium"
+owner_domain = 16
+observed = "The dependency scanner walks platform, while its inventory and regression test name services/platform manifests."
+expected = "The workspace inventory must scan the actual services/platform dependency roots to detect missing and extra manifests."
+resolution = "The production find command now walks services/platform. The existing negative cases still reject an omitted manifest, an absent declared manifest and an independently classified npm root without its lockfile."
+tests = ["test_f004_shell_syntax_and_guarded_commands", "test_f004_committed_producer_inventory_consumer", "test_f004_negative_inventory_cases", "test_f004_retains_existing_shell_regression"]
+
+[baseline]
+working_tree = "Initial git status and diff showed only runner-prepared .cgignore and spec/layerx-merge/spec.kvx changes; no scoped repair was present. The private gate ledger was absent and gate.json recorded zero build and verification runs."
+verification = "No baseline verification was run: the explicit implementation-first order and exclusive hf-done gate prohibit the older do_5 unchanged-tree verify instruction. The test module did not exist on the unchanged tree; no measured pre-change test failure is claimed."
+source_observation = "The unchanged scanner names platform, while every committed inventory row names services/platform. The new positive-path tests require services/platform and would reject that traversal; this is source reasoning, not a baseline gate result."
+
+[proof]
+source_facts = "The pytest module parses both production shell scripts with bash -n, asserts the actual traversal and existing guarded commands, parses real Cargo manifests and lock entries and npm workspace/member keys, then executes the production scanner through its default and explicit inventory interfaces."
+producer_transport_consumer = "The fixture copies byte-identical committed platform Cargo.toml/Cargo.lock, hosted/core/Cargo.toml, middleware/agent/package.json and root package.json. It transports the corresponding exact committed inventory rows through a real inventory file in reverse order, then runs the unmodified production scanner's find/sort/cmp and classification consumers. The unchanged shell regression is copied with its original relative layout and executed, exercising its positive run and all three original negative cases; separate parametrized cases assert rejection too. No scanner, command or peer implementation is replaced."
+review_only = "This wiring-gap changes no state or persistent interface, so restart recovery does not apply. No package manager, compiler or native build runs. The isolated fixture proves scanner wiring and retained rejection behavior, not completeness or success of the full repository inventory, whose independent pre-existing drift is recorded below."
+dependencies = "The gate uses pytest, Python standard-library parsing, the required bash syntax parser and the production shell script's standard POSIX utilities. It needs no environment variable, credential, live endpoint, package installation, subprocess build toolchain, native artifact or device."
+
+[unrelated.inventory_drift]
+revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+observed = "Read-only manifest enumeration found unlisted services/platform/hosted/paxeer/requirements.txt, services/platform/perf-db/Cargo.toml and services/platform/perf-db/src/storage/repair_139/Cargo.toml; inventory entries services/platform/hosted/gateway/tests/local/Cargo.toml, services/platform/hosted/paxai-storage-keeper/Cargo.toml and services/platform/hosted/paxeer/Cargo.toml are absent."
+assumption = "Inventory reconciliation belongs to owner domain 16 outside this task's scope; leave the exact comparison and production inventory intact. No repository-wide scanner command or pre-change gate was executed or claimed."
+
+[qualification]
+build_gate = "hf-build"
+build_cmd = "bash -n scripts/workspace/check-platform-dependencies.sh"
+verify_gate = "hf-done"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_871.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The private ledger and final hf-done JSON name the exact content-derived verified revision, command, exit code and log path; hf-build and hf-done must pass on the same candidate. This record is finalized before qualification because embedding its own candidate hash afterward would invalidate the evidence. The runner retains the evidence and publishes the result."
+
+[format]
+policy = "No Python, shell or KVX formatter is configured for these paths. Apply .editorconfig UTF-8, LF, final newline and trailing-whitespace conventions after implementation is complete."
+
+[gotcha.1]
+observed = "The older baseline step conflicts with the explicit implementation-first gate order, and repository workflow requests writes to GOTCHA.kvx/spec files and publication outside the authorized scope."
+resolution = "Follow the direct task instructions: record notes here, run only hf-build then hf-done, and leave publication to the runner."
+
+[gotcha.2]
+observed = "Broad combined context output exceeded output limits, and guessed sibling task artifacts were absent."
+resolution = "Inspect bounded finding/task sections and existing artifacts; no out-of-scope files are changed."

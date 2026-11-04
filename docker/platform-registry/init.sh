@@ -8,9 +8,8 @@
 # deployment has copied over ssh into /data the
 # TLS identities of tools/bringup/ca.sh issue registry and
 # registry-event-client, the builder rootfs of
-# builder-environment/build-env.sh, and the receipt authority replica id and
-# sequencer trust history of the kernel app on the volume, loop-mounts one
-# ext4 quota image per build slot, gives the registry a cgroup v2 subtree of
+# builder-environment/build-env.sh, and an independently authenticated
+# committed paxd trust root on the volume, loop-mounts one ext4 quota image per build slot, gives the registry a cgroup v2 subtree of
 # its own with the container view of the hierarchy at
 # LAYERX_REGISTRY_HOST_CGROUP_MOUNT, and starts the registry as root in a
 # cgroup namespace rooted at that subtree; the registry delegates the subtree
@@ -19,15 +18,15 @@
 # Volume layout (/data):
 #   /data/tls/<service>        identities of tools/bringup/ca.sh issue <service>
 #   /data/builder              rootfs/ and environment-tree-digest of build-env.sh
-#   /data/kernel               replica-id and trust-history read from the kernel app
+#   /data/chain                committed trust-root pinned by deployment configuration
 #   /data/tokens               request and publication tokens of --prepare-material
 #   /data/builds               slot-<n>.ext4 images mounted at slot-<n>
 #   /data/state, /data/journal the registry's state and deployment journal
 #
 # Stage order of the deployment: material (ca.sh issue registry and
 # registry-event-client from the one internal CA, the env secrets below
-# (/etc/layerx/registry.env), the builder environment and the kernel material) -> registry-bootstrap (this
-# script) -> router-activation (services/wallet/deploy/endpoint.toml) ->
+# (/etc/layerx/registry.env), the builder environment and the committed chain
+# trust root) -> registry-bootstrap (this script) -> router-activation (services/wallet/deploy/endpoint.toml) ->
 # routed-proof. This stage consumes only material: nothing here waits on,
 # probes or names the router, so the registry comes up ready before the router
 # is activated. Every consumed prerequisite is refused by name when absent,
@@ -41,19 +40,6 @@ umask 077
 log() { printf 'registry-init: %s\n' "$*" >&2; }
 # missing <prerequisite> <producer>: the named refusal line of one item.
 missing() { printf 'fail registry-bootstrap missing=%s producer=%s\n' "$1" "$2" >&2; }
-
-verify_kernel_material() {
-	python3 /usr/local/lib/layerx-human/material.py --verify-registry-material "$1" || {
-		missing "complete-authenticated-kernel-generation" "kernel-registry-material-producer"
-		return 1
-	}
-}
-
-if [ "${1:-}" = --validate-kernel-material ]; then
-	[ "$#" = 2 ] || exit 64
-	verify_kernel_material "$2"
-	exit $?
-fi
 
 mode=serve
 case "${1:-}" in
@@ -152,9 +138,9 @@ exec 9>&-
 # verdict of the mTLS /healthz route, on a port of its own so the transport
 # check of the mTLS listener stays separate.
 # The upstreams are box-reachable public TLS names (identity, internal
-# programs and webhooks ingress through their Railway TCP proxies, the kernel
-# human service at kernel.paxeer.network); each is refused by name when unset.
-for name in LAYERX_REGISTRY_IDENTITY_URL LAYERX_REGISTRY_NODE_ENDPOINT LAYERX_REGISTRY_RECEIPT_AUTHORITY_ENDPOINT \
+# programs and webhooks ingress through their Railway TCP proxies, and the
+# chain-backed state and receipt services); each is refused by name when unset.
+for name in LAYERX_REGISTRY_CHAIN_RPC_URL LAYERX_REGISTRY_IDENTITY_URL LAYERX_REGISTRY_NODE_ENDPOINT LAYERX_REGISTRY_RECEIPT_AUTHORITY_ENDPOINT \
 	LAYERX_EVENTS_PROGRAM_UPSTREAM_URL LAYERX_EVENTS_WEBHOOKS_UPSTREAM_URL; do
 	eval "url=\${$name:-}"
 	case "$url" in https://?*) ;; *) missing "$name" "/etc/layerx/registry.env"; exit 1 ;; esac
@@ -170,7 +156,19 @@ mtls_listen=${LAYERX_REGISTRY_LISTEN:-127.0.0.1:9420}
 
 run=/run/layerx
 builder=$(dirname "$LAYERX_REGISTRY_BUILDER_ENVIRONMENT_ROOT")
-kernel=$(dirname "$LAYERX_REGISTRY_SEQUENCER_TRUST_HISTORY")
+case "${LAYERX_REGISTRY_DEPLOYMENT_TRUST_ROOT:-}" in /*) ;; *)
+	missing "LAYERX_REGISTRY_DEPLOYMENT_TRUST_ROOT" "committed-paxd-deployment-material"; exit 1 ;;
+esac
+[ -n "${LAYERX_REGISTRY_CHAIN_ID:-}" ] && [ -n "${LAYERX_REGISTRY_DEPLOYMENT_TRUST_SHA256:-}" ] || {
+	missing "chain-id-and-authenticated-checkpoint-pin" "registry-deployment-contract"; exit 1;
+}
+replica=${LAYERX_REGISTRY_RECEIPT_AUTHORITY_REPLICA_ID:-}
+case "$replica" in *[!0-9a-f]* | '')
+	missing "LAYERX_REGISTRY_RECEIPT_AUTHORITY_REPLICA_ID" "chain-receipt-service-deployment"; exit 1 ;;
+esac
+[ "${#replica}" -eq 64 ] && [ "$replica" != "0000000000000000000000000000000000000000000000000000000000000000" ] || {
+	missing "nonzero-32-byte-receipt-authority-id" "chain-receipt-service-deployment"; exit 1;
+}
 tokens=$(dirname "$LAYERX_REGISTRY_REQUEST_TOKEN_FILE")
 quota=$LAYERX_REGISTRY_BUILD_ROOT
 slots=$LAYERX_REGISTRY_MAX_BUILDS
@@ -185,7 +183,7 @@ esac
 mkdir -p "$run"
 mountpoint -q "$run" || mount -t tmpfs -o nosuid,nodev,mode=0755 tmpfs "$run"
 install -d -o 4030 -g 4030 -m 0700 "$run/secrets"
-mkdir -p "$builder" "$kernel" "$quota"
+mkdir -p "$builder" "$quota"
 
 
 # secret <variable> <file>: writes the env secret the variable carries to the
@@ -205,19 +203,19 @@ secret() {
 secret REGISTRY_IDENTITY_TOKEN "$LAYERX_REGISTRY_IDENTITY_TOKEN_FILE"
 secret REGISTRY_PROGRAM_EVENTS_TOKEN "$LAYERX_EVENTS_PROGRAM_UPSTREAM_TOKEN_FILE"
 secret REGISTRY_WEBHOOKS_EVENTS_TOKEN "$LAYERX_EVENTS_WEBHOOKS_UPSTREAM_TOKEN_FILE"
-# bearer <variable>: the bearer the kernel box holds as well; refused by name
+# bearer <variable>: the bearer the chain-backed service holds as well; refused by name
 # when unset, never printed.
 bearer() {
 	eval "value=\${$1:-}"
 	if [ -z "$value" ]; then
-		missing "$1" "tools/bringup/mint-secrets.sh-into-the-registry-and-kernel-env"
+		missing "$1" "tools/bringup/mint-secrets.sh-into-the-registry-and-chain-service-env"
 		log "$2"
 		exit 1
 	fi
 	unset value
 }
-bearer LAYERX_REGISTRY_NODE_AUTHORIZATION "the node bearer is an env secret of this box and of the kernel"
-bearer LAYERX_REGISTRY_RECEIPT_AUTHORITY_AUTHORIZATION "the receipt authority bearer is an env secret of this box and of the kernel"
+bearer LAYERX_REGISTRY_NODE_AUTHORIZATION "the node bearer is an env secret of this box and of the chain-backed service"
+bearer LAYERX_REGISTRY_RECEIPT_AUTHORITY_AUTHORIZATION "the receipt authority bearer is an env secret of this box and of the chain-backed service"
 
 # wait_for <producer> <files...>: blocks until every file is non-empty or the
 # material deadline passes; at the deadline every file still empty is refused
@@ -247,12 +245,18 @@ client_dir=$(dirname "$LAYERX_REGISTRY_IDENTITY_CLIENT_IDENTITY_PKCS12")
 wait_for "tools/bringup/ca.sh issue registry copied over ssh into /data/tls/registry" "$LAYERX_REGISTRY_TLS_CERT_DER" "$LAYERX_REGISTRY_TLS_KEY_DER" "$LAYERX_REGISTRY_CLIENT_CA_DER"
 wait_for "tools/bringup/ca.sh issue registry-event-client copied over ssh into /data/tls/registry-event-client" "$LAYERX_REGISTRY_IDENTITY_CLIENT_IDENTITY_PKCS12" "$LAYERX_REGISTRY_IDENTITY_CLIENT_IDENTITY_PASSWORD_FILE" "$client_dir/ca.der"
 wait_for "build-env.sh rootfs and environment-tree-digest copied over ssh into /data/builder" "$builder/environment-tree-digest" "$LAYERX_REGISTRY_BUILDER_ENVIRONMENT_ROOT$LAYERX_REGISTRY_BUILDER_ENTRYPOINT"
-wait_for "the authenticated kernel material copied over ssh from the kernel box into /data/kernel" "$kernel/current/generation.json"
-generation=$(verify_kernel_material "$kernel") || exit 1
+wait_for "committed paxd checkpoint provisioned by the chain deployment owner" "$LAYERX_REGISTRY_DEPLOYMENT_TRUST_ROOT"
+install -d -o 4030 -g 4030 -m 0700 "$run/registry-generation"
+generation=$(python3 /usr/local/lib/layerx-registry/chain-trust.py \
+	"$LAYERX_REGISTRY_DEPLOYMENT_TRUST_ROOT" "$run/registry-generation" \
+	"$LAYERX_REGISTRY_CHAIN_ID" "$LAYERX_REGISTRY_DEPLOYMENT_TRUST_SHA256" --uid 4030 --gid 4030) || {
+	missing "chain-bound-committed-deployment-trust" "committed-paxd-deployment-material"; exit 1;
+}
 selected=$(printf '%s' "$generation" | python3 -c 'import json,sys; print(json.load(sys.stdin)["directory"])')
-generation_id=$(printf '%s' "$generation" | python3 -c 'import json,sys; print(json.load(sys.stdin)["generation"])')
-export LAYERX_REGISTRY_KERNEL_GENERATION="$generation_id"
-LAYERX_REGISTRY_SEQUENCER_TRUST_HISTORY="$selected/trust-history"
+LAYERX_REGISTRY_DEPLOYMENT_GENERATION=$(printf '%s' "$generation" | python3 -c 'import json,sys; print(json.load(sys.stdin)["generation"])')
+export LAYERX_REGISTRY_DEPLOYMENT_GENERATION
+# Compatibility name read by Config; these are LXTR committed chain trust bytes.
+LAYERX_REGISTRY_SEQUENCER_TRUST_HISTORY="$selected/trust-root"
 export LAYERX_REGISTRY_SEQUENCER_TRUST_HISTORY
 
 # One internal CA for every identity this app serves or presents: the CA every
@@ -268,18 +272,6 @@ for trust in "$LAYERX_REGISTRY_OUTBOUND_CA_DER" "$LAYERX_REGISTRY_IDENTITY_CA_DE
 	}
 done
 
-replica=$(tr -d '\n' <"$selected/replica-id")
-case "$replica" in
-*[!0-9a-f]* | '')
-	log "$kernel/replica-id is not lowercase hex"
-	exit 1
-	;;
-esac
-[ "${#replica}" -eq 64 ] || {
-	log "$kernel/replica-id is not 32 bytes"
-	exit 1
-}
-export LAYERX_REGISTRY_RECEIPT_AUTHORITY_REPLICA_ID="$replica"
 LAYERX_REGISTRY_BUILDER_IMAGE_DIGEST=$(tr -d ' \r\n' <"$builder/environment-tree-digest")
 LAYERX_REGISTRY_BUILDER_ISOLATION_RUNTIME_DIGEST=$(sha256sum "$LAYERX_REGISTRY_BUILDER_ISOLATION_RUNTIME" | cut -d' ' -f1)
 LAYERX_REGISTRY_BUILDER_JOB_SUPERVISOR_DIGEST=$(sha256sum "$LAYERX_REGISTRY_BUILDER_JOB_SUPERVISOR" | cut -d' ' -f1)
@@ -336,11 +328,6 @@ while [ "$slot" -lt "$slots" ]; do
 done
 
 chown -R 4030:4030 "$tls_dir" "$client_dir" "$tokens" "$LAYERX_REGISTRY_STATE" "$LAYERX_REGISTRY_JOURNAL"
-install -d -o 4030 -g 4030 -m 0700 "$run/registry-generation"
-install -o 4030 -g 4030 -m 0400 "$selected/trust-history" "$run/registry-generation/trust-history"
-cmp -s "$selected/trust-history" "$run/registry-generation/trust-history" || exit 1
-LAYERX_REGISTRY_SEQUENCER_TRUST_HISTORY="$run/registry-generation/trust-history"
-export LAYERX_REGISTRY_SEQUENCER_TRUST_HISTORY
 chmod 0400 "$LAYERX_REGISTRY_REQUEST_TOKEN_FILE" "$LAYERX_REGISTRY_PUBLICATION_TOKEN_FILE"
 # ca.sh makes the certificate root under umask 077; uid 4030 only traverses it.
 chmod 0711 "$(dirname "$tls_dir")"

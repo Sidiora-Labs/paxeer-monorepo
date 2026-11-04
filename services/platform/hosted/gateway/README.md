@@ -117,6 +117,77 @@ kernel-dependent services can be unavailable while chain reads remain usable.
 Legacy deployment names in environment templates do not establish public
 endpoints or new network components.
 
+## Merged receipt-key deployment
+
+The Kubernetes template runs the gateway with its optional kernel backend group
+unset. It requires no receipt-authority, pending-core, authorized-batch files,
+component, identity or program-registry client secrets. Native receipt evidence
+comes from the chain through `pax_sequencerReceipt`. Hosted
+`px_getReceiptKeys` serves the operator-pinned snapshot; it does not fetch or
+trust a key supplied by an incoming receipt. Kernel-dependent routes keep their
+existing explicit unavailable responses. The Kubernetes client identity is for
+independent services such as the faucet, through
+`LAYERX_GATEWAY_SERVICE_CLIENT_IDENTITY_PKCS12` and its password file.
+
+Before deployment, the platform operator must supply an authenticated export
+of the chain's governed ReceiptKeys to the existing
+[sequencer-pins.py](../tests/sequencer-pins.py) provisioning path. The input is a
+nonempty JSON array with `keyId` and `publicKey` as canonical base64-encoded
+32-byte values, and integer `firstHeight` and `lastHeight` as inclusive uint64
+chain heights. The node's `px_getReceiptKeys` result instead wraps the entries
+in `{"keys": [...]}` and represents the bytes as hex. Exporting that result for
+provisioning must preserve the exact IDs, public keys and height bounds while
+converting the bytes to base64; copying the raw RPC result is invalid.
+
+Authenticate this export against the operator's chain/governance trust anchor
+for chain 125 before provisioning. A chain-ID label alone is not authentication.
+These are public verification keys, never validator or receipt signing keys.
+There is no bundled default key or automatic network fetch. Missing, empty,
+malformed, duplicate or reversed-range material fails provisioning. The Rust
+consumer additionally checks Ed25519 key validity.
+
+The existing producer validates the export and atomically publishes a protected
+`receipt-keys.json`. Its `gateway_secret` function serializes that file as the
+same-namespace Secret `layerx-gateway-receipt-keys`. The template projects only
+`receipt-keys.json`, with mode 0440, at
+`LAYERX_GATEWAY_RECEIPT_KEYS_FILE`; the gateway loads it through
+`ReceiptKeyList::from_config`. Its projection matches the existing
+`gateway_manifest` renderer exactly. A gateway container restart reopens the
+retained projection; pod replacement uses the retained Secret. The provisioning
+path revalidates retained material without receipt-authority or batch files.
+Key rotation requires an authenticated export update and a pod rollout: the
+gateway loads the list at startup. Keep historical keys and their exact height
+windows for retained receipts; do not reset Redis keys, quotas, audit or
+idempotency state. Redis retains its existing PVC and AOF configuration.
+
+Identifier meanings in this template and the Railway example are:
+
+| Identifier | Meaning |
+| --- | --- |
+| EVM chain ID `125` (`0x7d`) | The single Paxeer chain, checked by the RPC relay. |
+| `LAYERX_GATEWAY_PROTOCOL_NETWORK_ID=125` | Numeric native protocol network field for this deployment; separate from a tenant identifier. |
+| `LAYERX_GATEWAY_NETWORK_ID=paxeer-mainnet-beta` | Hosted discovery and route-binding identity label; it must match operator route bindings. |
+| Kubernetes namespace `layerx-testnet` | Retained installation and DNS namespace; its name does not select a chain. |
+| `LAYERX_GATEWAY_LXP_WIRE_VERSION=3` | Receipt/state-commitment wire version, not a network or chain ID. |
+| `keyId` | Governed 32-byte receipt-key identifier, independent of service credentials. |
+| `firstHeight` / `lastHeight` | Inclusive chain-height authorization bounds, never an authority-issued batch allocation. |
+
+The Railway example keeps receipt keys optional until its external file-secret
+mapping is provisioned with the converted base64 array. Gateway-wide service
+mTLS also remains unset there: enabling it requires the Docker entrypoint to
+stage the two `LAYERX_GATEWAY_SERVICE_CLIENT_IDENTITY_*` files before dropping
+privileges. Existing event-producer mTLS uses its separate supported file
+variables. The repair record assigns both Docker changes to their owning task.
+
+Qualification for this repair executes the existing production provisioning,
+Secret serialization and manifest renderer, and checks source wiring into the
+Rust loader and key reader. It does not launch the Rust binary or certify a live cluster. The existing Kubernetes RPC list contains one
+controlled boundary URL while the current relay requires two to eight distinct
+URLs; reconciling the boundary topology and its prior one-path qualification is
+an external wiring request recorded in the repair ledger. Fresh and retained
+**material provisioning** are proven here; full deployment readiness also needs
+that RPC reconciliation and the operator's existing TLS/Redis/service secrets.
+
 ## Canonical module registry
 
 `LAYERX_GATEWAY_MODULE_REGISTRY_FILE` names a read-only JSON registry shared

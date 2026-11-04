@@ -1,0 +1,31 @@
+[repair]
+task = "22.33.898"
+audit = "22.30.185"
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+implementation = "Provision the wallet SDK's owning pnpm workspace in the production web build stage using the committed workspace definition, root manifest, lockfile and all member manifests at their original relative paths. Install only @paxeer/wallet with pinned pnpm 9.15.9, frozen lockfile and ignored lifecycle scripts before the existing web install and build. Preserve the source alias, existing agent SDK build and standalone runtime."
+source_proof = "Parse the Dockerfile instructions and guarded command tokens, JSON manifests, YAML workspace and lockfile, TypeScript source imports and consumer tsconfig. Assert owner-relative COPY destinations and ordering, all workspace member manifests and locked dependency specifiers, immutable install flags, SDK-local resolution and the producer-to-wallet-to-web source path. Registry dependencies must have locked package integrity and snapshot entries; the linked agent SDK must be copied and built before consumption."
+review_only = "The allowed build checks Python only. No Docker image build, pnpm/npm install, TypeScript compiler, Next build, package download, runtime module resolution or standalone execution is run by this gate. Source facts establish the dependency wiring, not successful execution of the real image build; release qualification must run that build. The pytest gate uses committed source files and Python parsers without subprocesses, credentials, live endpoints, environment variables, native artifacts or devices."
+baseline = "No pre-change verification was run: the explicit order requires complete implementation before any build/test, hf-build before hf-done, and prohibits manually running verify_cmd. The unchanged-tree instruction conflicts with those rules; no baseline test failures are claimed. Initially the two repair files and private gate ledger were absent; git status/diff showed only runner-prepared .cgignore and spec task status changes, which were preserved."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_898.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision_source = "The last hf-done evidence row in the private ledger names the exact verified candidate revision, command, exit and log; it must match the passing hf-build revision. The runner retains and publishes this evidence. This record is finalized before both gates because embedding its own content-derived revision would change the candidate. No real image-build success is claimed."
+wiring_requests = ["services/wallet/package.json, services/wallet/pnpm-workspace.yaml, services/wallet/pnpm-lock.yaml and sdk/wallet/package.json; owning domain 12: keep the wallet workspace manifests and lock synchronized; these existing inputs are consumed unchanged because they are outside this task's scope.", "docker/web/Dockerfile; owning domain 16 release qualification: run docker build -f docker/web/Dockerfile . on the verified candidate to qualify the real clean web image, including the wallet source TypeScript pass and standalone output; this build is outside the allowed task gates."]
+
+[finding.web-image-wallet-dependencies]
+file = "docker/web/Dockerfile"
+class = "wiring-gap"
+severity = "medium"
+closure = "The Dockerfile now provisions pinned wallet workspace dependencies at the SDK source's own node_modules resolution path before the web build. Source closure requires a passing hf-done on the built candidate; real image execution remains a declared release wiring request."
+tests = ["test_wallet_workspace_inputs_reach_original_image_paths", "test_pinned_frozen_wallet_install_precedes_web_build", "test_wallet_manifest_dependencies_have_locked_producers", "test_wallet_source_dependencies_reach_web_consumer", "test_repair_record_maps_finding_and_evidence_limits"]
+
+[gotcha.baseline]
+observed = "The unchanged-tree verification clause contradicts the explicit implementation-first and wrapper-only gate order."
+resolution = "Follow the explicit order and claim no baseline execution; record the conflict here because GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.context]
+observed = "Large combined repository reads exceed tool output limits and cg brief reports unrelated cached tasks."
+resolution = "Use bounded source reads, the exact task block and runner gate ledger/configuration for this task."
+
+[format]
+policy = "No Python, Dockerfile or KVX formatter is configured for these paths; apply .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions to touched files after implementation."

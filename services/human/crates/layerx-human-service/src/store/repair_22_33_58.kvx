@@ -1,0 +1,15 @@
+[repair]
+task = "22.33.58"
+audit = "22.30.107"
+acceptance = "22998.1"
+qualification = "hf-build then hf-done; their private ledger supplies the verified revision and command evidence"
+baseline = "Attempt 1's recorded build failed on out-of-scope observed_balances_denom.rs Quantity mismatches (gotcha 2974); the repair tests never ran. This continuation follows the explicit implementation-first bounded gate order, which forbids an additional unchanged-tree verify."
+wiring_requests = []
+
+[finding.store-new-directory-durability]
+tests = ["store_new_directory_durability_first_principal_restart", "store_new_directory_durability_atomic_replacement_restart"]
+proof = "The production codec syncs each directory's parent entry before a first row can be acknowledged; a thread-local crash harness interrupts completed real filesystem operations, stops and reopens static and provider stores at every publication boundary, and checks acknowledged recovery and atomic replacement."
+
+[finding.store-principal-symlink-traversal]
+tests = ["store_principal_symlink_aliases_static_and_provider", "store_principal_parent_replacement_static_and_provider", "store_principal_file_links_and_ownership_static_and_provider", "store_principal_provider_binding_links_are_refused"]
+proof = "Descriptor-relative no-follow opens, file ownership/link and directory ownership/permission validation cover row access, atomic writes, migrations, tenancy, locks and provider bindings; real identity-provider peers exercise provider mode without another principal's rows being read or overwritten."
