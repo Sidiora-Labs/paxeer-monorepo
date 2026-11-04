@@ -1,11 +1,19 @@
+Code.require_file("chain_coverage_cases.exs", __DIR__)
+
 defmodule Explorer.SmartContract.Solidity.VerifierTest do
   use ExUnit.Case, async: true
   use Explorer.DataCase
 
   use Utils.CompileTimeEnvHelper, chain_type: [:explorer, :chain_type]
 
-  if @chain_type == :default do
+  if @chain_type in [:default, :paxeer_x] do
     @moduletag timeout: :infinity
+
+    require Explorer.SmartContract.Solidity.ChainCoverageCases
+
+    describe "recorded chain verifier coverage" do
+      Explorer.SmartContract.Solidity.ChainCoverageCases.verifier_cases()
+    end
 
     doctest Explorer.SmartContract.Solidity.Verifier
 

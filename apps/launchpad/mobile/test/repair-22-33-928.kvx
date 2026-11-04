@@ -1,0 +1,19 @@
+[repair.22.33.928]
+audit = "22.30.22"
+base_revision = "0e1d5eb94cabe89e2260279a849b7154911ef8ee"
+finding = "mobile-cache-positive-proof"
+tests = ["mobileCachePositiveProof", "mobileCacheRefusalProof"]
+shared_tests = ["mobileCachePositiveProducerRestore", "mobileCacheMalformedPrivateRefusal"]
+proof = "The original node cache suite and declared Vitest gate execute the same real SDK Operations IF_STREAM_LIST, activityRoutes decoder and SnapshotCache disk-admission/recovery assertions through loopback HTTP and filesystem storage; a closed storage handle and a fresh cache prove cold recovery and exact null/unavailable versus zero/verified retention, including explicitly stale public data."
+refusal = "Malformed stream and private payloads fail transport and disk admission without overwriting accepted state; recreated consumers refuse malformed payloads with correctly recomputed byte counts, private account envelopes, invalid inventory, unknown/legacy versions and corrupt JSON without populating memory."
+fixture = "test/fixtures/live-v2-response.json retains the committed AdaptV2Stream/AdaptV2StreamList wire examples from test/vitest/repair-22-31-30.test.ts and repair-22-31-31.test.ts, with stable times and public identifiers; generated v2 validation runs before loopback delivery. No producer subprocess, native artifact, live endpoint, environment variable or credential is part of the gate."
+baseline = "Not run: the unchanged-tree verification step conflicts with the explicit implementation-first, hf-build then hf-done order and ban on running verify_cmd by hand; no pre-change failing test is claimed. The pre-existing producer compatibility repairs are dependencies 22.31.30 and 22.31.31; this task closes their remaining test coverage gap."
+evidence = "The bounded hf-build/hf-done ledger binds the verified candidate revision to the exact command, exit and private evidence log; this record independently claims no gate result."
+
+[wiring.requests]
+native = "Owning domain 4 (launchpad mobile native qualification): apps/launchpad/mobile/ios/Sidiora/SecureSession.swift and apps/launchpad/mobile/android/app/src/main/java/ag/sidiora/mobile/SecureSessionModule.kt must qualify the same accepted v2 transcript and refusal cases through readPublicSnapshot/writePublicSnapshot across native process restart; these paths and device qualification are outside this task scope and gate."
+
+[gotchas]
+gate_order = "An unchanged-tree verification is incompatible with the declared implementation-first bounded gates; preserve the required order and never claim a baseline that did not run."
+fixture_boundary = "Existing repair-22-31-31.test.ts launches a Go producer and subprocess bundler; this gate shares only committed response fixtures and exercises production modules in-process, so the external-toolchain dependency is not inherited."
+shared_import = "Helpers under mobile/test/support sit at the same depth as mobile/test/vitest: repository SDK imports need five parent traversals; the first build caught and the scoped repair corrected a six-traversal import."

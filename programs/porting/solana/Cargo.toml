@@ -15,5 +15,9 @@ layerx-programs-runtime = { path = "../../crates/layerx-programs-runtime" }
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 layerx-porting-solana-guest = { path = "guest" }
 
+[dev-dependencies]
+layerx-program-sdk = { path = "../../sdk/rust" }
+k256.workspace = true
+
 [lints]
 workspace = true

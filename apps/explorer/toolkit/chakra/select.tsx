@@ -297,16 +297,42 @@ export interface SelectAsyncProps extends Omit<SelectProps, 'collection'> {
 }
 
 export const SelectAsync = React.forwardRef<HTMLDivElement, SelectAsyncProps>((props, ref) => {
-  const { placeholder, portalled = true, loading, loadOptions, extraControls, onValueChange, errorText, mode, contentHeader, ...rest } = props;
+  const {
+    placeholder, portalled = true, loading, loadOptions, extraControls, onValueChange, errorText, mode, contentHeader,
+    value: controlledValue, defaultValue, ...rest
+  } = props;
 
   const [ collection, setCollection ] = React.useState<ListCollection<SelectOption>>(createListCollection<SelectOption>({ items: [] }));
   const [ inputValue, setInputValue ] = React.useState('');
-  const [ value, setValue ] = React.useState<Array<string>>([]);
+  const [ internalValue, setInternalValue ] = React.useState<Array<string>>(defaultValue ?? []);
+  const [ optionsLoading, setOptionsLoading ] = React.useState(true);
+  const [ optionsError, setOptionsError ] = React.useState(false);
+
+  const value = controlledValue ?? internalValue;
 
   const debouncedInputValue = useDebounce(inputValue, 300);
 
   React.useEffect(() => {
-    loadOptions(debouncedInputValue, value).then(setCollection);
+    let active = true;
+    setOptionsLoading(true);
+    setOptionsError(false);
+
+    async function load() {
+      try {
+        const nextCollection = await loadOptions(debouncedInputValue, value);
+        if (active) setCollection(nextCollection);
+      } catch {
+        if (active) setOptionsError(true);
+      } finally {
+        if (active) setOptionsLoading(false);
+      }
+    }
+
+    void load();
+
+    return () => {
+      active = false;
+    };
   }, [ debouncedInputValue, loadOptions, value ]);
 
   const handleFilterChange = React.useCallback((value: string) => {
@@ -314,9 +340,9 @@ export const SelectAsync = React.forwardRef<HTMLDivElement, SelectAsyncProps>((p
   }, [ ]);
 
   const handleValueChange = React.useCallback(({ value, items }: { value: Array<string>; items: Array<SelectOption> }) => {
-    setValue(value);
+    if (controlledValue === undefined) setInternalValue(value);
     onValueChange?.({ value, items });
-  }, [ onValueChange ]);
+  }, [ controlledValue, onValueChange ]);
 
   return (
     <SelectRoot
@@ -324,8 +350,10 @@ export const SelectAsync = React.forwardRef<HTMLDivElement, SelectAsyncProps>((p
       collection={ collection }
       onValueChange={ handleValueChange }
       { ...rest }
+      value={ value }
+      aria-busy={ loading || optionsLoading }
     >
-      <SelectControl loading={ loading }>
+      <SelectControl loading={ loading || optionsLoading }>
         <SelectValueText
           placeholder={ placeholder }
           size={ props.size }
@@ -335,6 +363,7 @@ export const SelectAsync = React.forwardRef<HTMLDivElement, SelectAsyncProps>((p
           mode={ mode }
         />
       </SelectControl>
+      { optionsError && <Box role="alert">Could not load options. Change the search to try again.</Box> }
       <SelectContent portalled={ portalled }>
         <Box px="4">
           <FilterInput
