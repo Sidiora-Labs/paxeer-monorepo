@@ -1,0 +1,52 @@
+[repair.22.31.55]
+finding = "lifetime-market-cap"
+implementation = "Height-scoped authorities recover only markets referenced by pinned, fully checked range receipts; durable SQL lookup uses address-selected keyset pages, and authorities never accumulate lifetime epochs."
+proof = ["TestRepair_55_DurableInventoryCrossesLifetimeBounds", "TestRepair_55_RestartRecoversRealMarketBeyondLifetimeBounds", "TestRepair_55_ReceiptHintsRejectTampering", "TestRepair_55_PersistedIdentityValidation"]
+inventory_proof = "Close and reopen a disk-backed inventory fixture with 4200 identities (8400 code epochs), recover every identity in bounded operations, and preserve dense-batch admission refusal."
+path_proof = "Replay the real chain producer's recorded creation through committed source and receipt qualification, persist its codec-resolved identity, add 4200 inactive inventory identities, stop and reopen the source/client/disk inventory, then qualify real buy/sell receipts, read reserves and replay the original creation with unchanged raw identities."
+idempotency_proof = "TestRepair_55_RestartRecoversRealMarketBeyondLifetimeBounds qualifies the complete recorded approval/sell interval both before lifetime growth and after reopening, asserting identical canonical batches, exactly the two distinct producer transaction identities and exactly one sell fill; production receipt.issueBatch retains its transaction-hash deduplication."
+transport_proof = "Receipt hints check signed transaction identities, receipt membership and ordering, individual and merged blooms, block parent linkage and applicable trie roots, and must match the final independently committed source blocks."
+wiring_requests = []
+baseline = "Not run: the explicit ordered gate contract forbids testing until implementation is complete and forbids invoking verify_cmd by hand; no pre-change test failure is claimed."
+qualification = "hf-build followed by hf-done; their private evidence records the exact candidate revision, command, exit and log."
+gotcha = "Fresh authorities must also feed reserve readers for markets created in the current uncommitted batch; independent reserve readers recover durable identities after restart."
+
+[repair.22.31.55.qualification_repair]
+revision = "de28793bc1cc01d3e737436cc65ff9724c14b3ab"
+command = "cg spec done 22.31.55 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The test decoded discovered token logs with the baseline Registry accessor; construct the real decoder with the authority's discovered epochs before inspecting the authenticated creation receipt."
+
+[repair.22.31.55.continuation]
+prior_failure = "Attempt 1 failed TestRepair_55_RestartRecoversRealMarketBeyondLifetimeBounds because the recorded RPC transcript lacked historical token and settlement decimals calls made by fresh authorities."
+recording = "testdata/repair_55_rpc.jsonl contains eight exact eth_call responses recorded from the real contracts at the original buy/sell block hashes and their predecessors via the public archive RPC; replay is entirely local and every unrecorded call still fails."
+head_recording = "The supplemental full-transaction latest response is the unchanged producer-recorded head at 0x206a528 from chainfixture's latest,false entry: that block has an empty transaction list, so the result is identical for true and false. No header, transaction or receipt is synthesized."
+in_process = "The inventory peer now uses an ordered disk snapshot read with Go alone, preserving close/reopen, all 4200 identities, paging bounds and dense-batch refusal without an external sqlite3 process; production keeps its address-selected PostgreSQL keyset query."
+gotcha = "Per-authority decimal caches require recorded calls at the trade block hashes as well as their predecessors after reopening; process-wide cached recordings are insufficient."
+
+[repair.22.31.55.continuation_repair]
+revision = "b2dbb0b7d669ab5100233bcced0dbff5b8a5676f"
+command = "cg spec done 22.31.55 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Fresh receipt qualification reads decimals at the buy block itself; record the real historical token and settlement eth_call responses at both trade hashes as well as the predecessor hashes."
+
+[repair.22.31.55.approval_recovery]
+revision = "ac27c5889328dc836cebd1c8adfc56291be08478"
+command = "cg spec done 22.31.55 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The continued candidate already replays all decimals calls, exposing a real token approval at height 33963740 before the sell; the restart test now qualifies consecutive approval and sell ranges, asserting the approval identity, raw log, empty fills, batch binding and independent bounded authority while retaining the exact one-sell assertion."
+
+[repair.22.31.55.identity_recovery]
+observed = "The recorded interval contains approval 0x107f2ccf01805e2b0bf9cac5240a5ba9066056618fee03514c6ffecd2d11c8a6 and sell 0xf5f9ed1136e71f03ffd44ae7f80ee192998b80fccd96ad3f75824fa9ef3c2845; they are distinct producer receipts, and only the latter produces a sell fill."
+gotcha = "Receipt count includes token approvals; assert exact transaction identities and economic fill counts together so idempotent restart recovery neither duplicates a sell nor drops a valid approval."
+scope = "Pre-existing runner bookkeeping changes to .cgignore and spec/layerx-merge/spec.kvx are untouched; no baseline gate is repeated and no out-of-path source change is needed."
+
+[repair.22.31.55.historical_head_repair]
+revision = "482fb61ca2c26944ed1101bb62fbcf58654bc816"
+command = "cg spec done 22.31.55 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Historical source head observation requested latest,true; preserve the exact recorded empty head response for this equivalent request in the supplemental transcript."
