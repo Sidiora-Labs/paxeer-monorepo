@@ -41,7 +41,7 @@
           "type": "object"
         }
       },
-      "description": "Creates one self-service identity principal in the beta tenant. The first two arguments are lowercase hexadecimal: a 32-byte Ed25519 signer public key and its 64-byte signature over SHA-256(len-prefixed \"layerx-register-binding-v1\", tenant, signer_public_key). The subject is derived as beta.<first 16 bytes of SHA-256(len-prefixed \"layerx-register-subject-v1\", tenant, signer_public_key)>, so registration is idempotent and cannot name another key holder's principal. Without the optional third argument the result is the identity principal record: tenant, sub, allowed_signer_public_keys, account and audiences. An email address starts signup and returns a pending result; a verification token completes signup and returns the identity session. Malformed arguments are -32602; a signature that does not prove possession of the named key is -32002; the per-minute self-registration budget is -32005; an unconfigured or unavailable identity service is -32001 with a machine-readable data.code.",
+      "description": "Creates one self-service identity principal in the registration tenant. The current gateway pins tenant to beta; no positional argument selects a tenant. The first two arguments are lowercase hexadecimal: a 32-byte Ed25519 signer public key and its 64-byte signature over SHA-256(len-prefixed \"layerx-register-binding-v1\", tenant, signer_public_key). The subject is derived as <tenant>.<first 16 bytes of SHA-256(len-prefixed \"layerx-register-subject-v1\", tenant, signer_public_key)>, so registration is idempotent and cannot name another key holder's principal. Without the optional third argument the result is the identity principal record: tenant, sub, allowed_signer_public_keys, account and audiences. An email address starts signup and returns a pending result; a verification token completes signup and returns the identity session. Malformed arguments are -32602; a signature that does not prove possession of the named key is -32002; the per-minute self-registration budget is -32005; an unconfigured or unavailable identity service is -32001 with a machine-readable data.code.",
       "errors": [
         {
           "code": -32602,
@@ -1889,7 +1889,7 @@
                 "string",
                 "null"
               ],
-              "description": "The opaque cursor of the next older page, or null when this page is the last."
+              "description": "The indexer's position cursor for the next page, or null when this page is the last."
             },
             "indexedHeight": {
               "type": [
@@ -1911,7 +1911,7 @@
           }
         }
       },
-      "description": "The indexed transfer history of one Paxeer EVM address, newest first, from the layerx-indexer read API: native, ERC-20, pointer, bank, tokenfactory and custody rows, each joined with asset_metadata. Cursors are the indexer's, passed through unchanged. An address the indexer has never seen answers an empty page.",
+      "description": "The indexed transfer history of one Paxeer EVM address, oldest first in the indexer's (blockHeight, txIndex, logIndex) position order, from the layerx-indexer read API: native, ERC-20, pointer, bank, tokenfactory and custody rows, each joined with asset_metadata. An explicit DID selects its bound EVM address. Cursors are the indexer's, passed through unchanged. An address the indexer has never seen answers an empty page. Every row includes tx_hash exactly equal to tx_id.",
       "errors": [
         {
           "code": -32602,
@@ -1996,11 +1996,48 @@
           "properties": {
             "account": {
               "type": "object",
-              "description": "The px_resolveAccount document of the account."
+              "required": [
+                "evm_address",
+                "pax_address",
+                "layerx_did",
+                "layerx_account",
+                "bound"
+              ],
+              "properties": {
+                "evm_address": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "pax_address": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "layerx_did": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "layerx_account": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "bound": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false,
+              "description": "The px_resolveAccount document retained for the selected EVM address."
             },
             "accounts": {
               "type": "array",
-              "maxItems": 16,
+              "maxItems": 1,
               "items": {
                 "type": "object",
                 "required": [
@@ -2012,16 +2049,17 @@
                   "side": {
                     "type": "string",
                     "enum": [
-                      "layerx",
                       "paxeer"
                     ]
                   },
                   "account": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[0-9a-f]{40}$"
                   }
                 }
               },
-              "description": "The indexer account keys merged: the EVM address and every LayerX account of the bound DID (main account and the public core's per-asset accounts), at most 16."
+              "description": "The single EVM indexer account selected after resolution, tagged with side paxeer.",
+              "minItems": 1
             },
             "items": {
               "type": "array",
@@ -2270,10 +2308,9 @@
                   "side": {
                     "type": "string",
                     "enum": [
-                      "layerx",
                       "paxeer"
                     ],
-                    "description": "Which half of the unified account the row belongs to."
+                    "description": "The selected EVM indexer account, always paxeer."
                   },
                   "blockHeight": {
                     "type": "integer",
@@ -2311,7 +2348,7 @@
                 "string",
                 "null"
               ],
-              "description": "The opaque cursor of the next older page, or null when this page is the last."
+              "description": "The indexer's position cursor for the next page, or null when this page is the last."
             },
             "indexedHeight": {
               "type": [
@@ -2333,7 +2370,7 @@
           }
         }
       },
-      "description": "One history for the whole unified account: the account is resolved as px_resolveAccount does and the indexer pages of its EVM address and of each of its LayerX accounts are merged newest first in the indexer's row order, each row tagged with side and carrying its chain and asset_metadata. Every side is read at the same cursor, so next_cursor is the indexer row cursor of the last row returned and pages chain without gaps or repeats.",
+      "description": "Resolves the account as px_resolveAccount does, then reads only its EVM address from the layerx-indexer read API, oldest first in (blockHeight, txIndex, logIndex) position order. The account field retains the resolution document; accounts contains exactly one entry with side paxeer and the selected EVM address, and every row has side paxeer and asset_metadata. LayerX account identifiers are resolution metadata, not additional history sources; no public core account listing is queried. An unbound DID is refused with -32602. The indexer's position cursor is passed through unchanged. Every row includes tx_hash exactly equal to tx_id.",
       "errors": [
         {
           "code": -32602,
