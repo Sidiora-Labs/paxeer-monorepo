@@ -223212,7 +223212,7 @@ do_10 = "Attempt 4 (continue): the build fails before the repair is reached: the
 
 [task.22.31.339]
 title = "Repair audit record 22.30.68 findings in rpc: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -265548,7 +265548,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.56]
 title = "Rewrite the chain-modules documentation pages of docs/readme: stale and misleading pages (manifest 22.32.56, 3 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -265578,7 +265578,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.55]
 title = "Rewrite the node-runtime documentation pages of storage/state_db: stale and misleading pages (manifest 22.32.55, 4 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -265608,7 +265608,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.54]
 title = "Rewrite the node-runtime documentation pages of storage/db_engine: stale and misleading pages (manifest 22.32.54, 3 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -265728,7 +265728,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.50]
 title = "Rewrite the node-runtime documentation pages of docs/wiki: stale and misleading pages (manifest 22.32.50, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -265758,7 +265758,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.49]
 title = "Rewrite the node-runtime documentation pages of docs/site: stale and misleading pages (manifest 22.32.49, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -265818,7 +265818,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.47]
 title = "Rewrite the node-runtime documentation pages of contracts: new pages (manifest 22.32.47, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -265878,7 +265878,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.45]
 title = "Rewrite the node-runtime documentation pages of consensus/spec: stale and misleading pages (manifest 22.32.45, 4 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -265908,7 +265908,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.44]
 title = "Rewrite the node-runtime documentation pages of consensus/spec: stale and misleading pages (manifest 22.32.44, 6 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -265998,7 +265998,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.41]
 title = "Rewrite the node-runtime documentation pages of consensus/spec: stale and misleading pages (manifest 22.32.41, 3 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -266058,7 +266058,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.39]
 title = "Rewrite the node-runtime documentation pages of consensus/spec: stale and misleading pages (manifest 22.32.39, 3 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -266088,7 +266088,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.38]
 title = "Rewrite the node-runtime documentation pages of consensus/spec: stale and misleading pages (manifest 22.32.38, 6 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -266118,7 +266118,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.37]
 title = "Rewrite the node-runtime documentation pages of consensus/spec: stale and misleading pages (manifest 22.32.37, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -266148,7 +266148,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.36]
 title = "Rewrite the node-runtime documentation pages of consensus/spec: stale and misleading pages (manifest 22.32.36, 4 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -266178,7 +266178,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.35]
 title = "Rewrite the node-runtime documentation pages of consensus/spec: stale and misleading pages (manifest 22.32.35, 6 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -266208,7 +266208,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.34]
 title = "Rewrite the node-runtime documentation pages of consensus/spec: stale and misleading pages (manifest 22.32.34, 5 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -266598,7 +266598,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.21]
 title = "Rewrite the launchpad documentation pages of docs/wiki: stale and misleading pages (manifest 22.32.21, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -267048,7 +267048,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.6]
 title = "Rewrite the markets documentation pages of contracts: new pages (manifest 22.32.6, 3 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -267198,7 +267198,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.1]
 title = "Rewrite the kernel documentation pages of docs/site: stale and misleading pages (manifest 22.32.1, 4 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -297584,7 +297584,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.413]
 title = "Repair audit record 22.30.160 findings in services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner: runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
