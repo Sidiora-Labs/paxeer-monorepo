@@ -37,13 +37,14 @@ func tcpListenerTestCase(t *testing.T, timeoutAccept, timeoutReadWrite time.Dura
 		t.Fatal(err)
 	}
 
-	tcpLn := NewTCPListener(ln, ed25519.GenerateSecretKey())
+	listenerKey, dialerKey := ed25519.GenerateSecretKey(), ed25519.GenerateSecretKey()
+	tcpLn := NewTCPListener(ln, listenerKey, dialerKey.Public())
 	TCPListenerTimeoutAccept(timeoutAccept)(tcpLn)
 	TCPListenerTimeoutReadWrite(timeoutReadWrite)(tcpLn)
 	return listenerTestCase{
 		description: "TCP",
 		listener:    tcpLn,
-		dialer:      DialTCPFn(ln.Addr().String(), testTimeoutReadWrite, ed25519.GenerateSecretKey()),
+		dialer:      DialTCPFn(ln.Addr().String(), testTimeoutReadWrite, dialerKey, listenerKey.Public()),
 	}
 }
 

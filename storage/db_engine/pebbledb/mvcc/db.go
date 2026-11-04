@@ -84,7 +84,13 @@ type Database struct {
 	pendingChanges chan VersionedChangesets
 
 	// Cancel function for background metrics collection
-	metricsCancel context.CancelFunc
+	metricsCancel   context.CancelFunc
+	metricsWG       sync.WaitGroup
+	metricsMu       sync.Mutex
+	previousMetrics pebble.Metrics
+	storageMu       sync.RWMutex // coordinates metrics readers with storage shutdown
+	closeOnce       sync.Once
+	closeErr        error
 }
 
 type VersionedChangesets struct {
@@ -205,33 +211,34 @@ func OpenDB(dataDir string, config config.StateStoreConfig) (types.StateStore, e
 	// Start background metrics collection
 	metricsCtx, metricsCancel := context.WithCancel(context.Background())
 	database.metricsCancel = metricsCancel
+	database.metricsWG.Add(1)
 	go database.collectMetricsInBackground(metricsCtx)
 
 	return database, nil
 }
 
 func (db *Database) Close() error {
-	// Stop background metrics collection
-	if db.metricsCancel != nil {
-		db.metricsCancel()
-	}
-
-	if db.streamHandler != nil {
-		// First, stop accepting new pending changes and drain the worker
-		close(db.pendingChanges)
-		// Wait for the async writes to finish
-		db.asyncWriteWG.Wait()
-		// Now close the WAL stream
-		_ = db.streamHandler.Close()
-		db.streamHandler = nil
-	}
-	// Make Close idempotent: Pebble panics if Close is called twice.
-	if db.storage == nil {
-		return nil
-	}
-	err := db.storage.Close()
-	db.storage = nil
-	return err
+	db.closeOnce.Do(func() {
+		if db.metricsCancel != nil {
+			db.metricsCancel()
+		}
+		// Join participants before taking the storage lock: a poll or an async
+		// write must be able to finish while shutdown waits for it.
+		db.metricsWG.Wait()
+		if db.streamHandler != nil {
+			close(db.pendingChanges)
+			db.asyncWriteWG.Wait()
+			db.closeErr = db.streamHandler.Close()
+			db.streamHandler = nil
+		}
+		db.storageMu.Lock()
+		defer db.storageMu.Unlock()
+		if db.storage != nil {
+			db.closeErr = errors.Join(db.closeErr, db.storage.Close())
+			db.storage = nil
+		}
+	})
+	return db.closeErr
 }
 
 // mvccEncode encodes a key with the MVCC version encoding matching this
@@ -255,6 +262,8 @@ func (db *Database) decodeVersion(vBz []byte) (int64, error) {
 // PebbleMetrics returns the underlying Pebble DB metrics for observability (e.g. compaction/flush counts).
 // Returns nil if the database is closed.
 func (db *Database) PebbleMetrics() *pebble.Metrics {
+	db.storageMu.RLock()
+	defer db.storageMu.RUnlock()
 	if db.storage == nil {
 		return nil
 	}
@@ -353,11 +362,14 @@ func retrieveVersionKey(db *pebble.DB, key string) (int64, error) {
 			_ = closer.Close()
 		}
 	}()
-	if err != nil || len(bz) == 0 {
+	if err != nil {
 		if errors.Is(err, pebble.ErrNotFound) {
 			return 0, nil
 		}
 		return 0, err
+	}
+	if len(bz) != VersionSize {
+		return 0, fmt.Errorf("invalid version metadata at %q: got %d bytes, want %d", key, len(bz), VersionSize)
 	}
 	u := binary.LittleEndian.Uint64(bz)
 	if u > math.MaxInt64 {
@@ -572,9 +584,6 @@ func (db *Database) getDescending(storeKey string, targetVersion int64, key []by
 // Get the range of keys, manually iterate over them and delete them
 // We add a heuristic to skip over a module's keys during pruning if it hasn't been updated
 // since the last time pruning occurred.
-// NOTE: There is a rare case when a module's keys are skipped during pruning even though
-// it has been updated. This occurs when that module's keys are updated in between pruning runs, the node after is restarted.
-// This is not a large issue given the next time that module is updated, it will be properly pruned thereafter.
 func (db *Database) pruneDescending(version int64) (_err error) {
 	// Defensive check: ensure database is not closed
 	if db.storage == nil {
@@ -637,8 +646,9 @@ func (db *Database) pruneDescending(version int64) (_err error) {
 			updated, ok := db.storeKeyDirty.Load(storeKey)
 			versionUpdated, typeOk := updated.(int64)
 			// Skip a store's keys if version it was last updated is less than last prune height
-			if !ok || (typeOk && versionUpdated < db.GetEarliestVersion()) {
-				itr.SeekGE(storePrefix(storeKey + "0"))
+			// Missing entries after open/import have unknown history and must be scanned.
+			if ok && typeOk && versionUpdated < db.GetEarliestVersion() {
+				itr.SeekGE(db.mvccEncode(prefixEnd(storePrefix(storeKey)), 0))
 				continue
 			}
 		}
@@ -867,6 +877,8 @@ func (db *Database) Import(version int64, ch <-chan types.SnapshotNode) (_err er
 			if entry.StoreKey == "" || len(entry.Key) == 0 {
 				continue
 			}
+			// Imported history is not represented by this process's dirty map.
+			db.storeKeyDirty.Delete(entry.StoreKey)
 			err := batch.Set(entry.StoreKey, entry.Key, entry.Value)
 			if err != nil {
 				panic(err)
@@ -902,105 +914,102 @@ func (db *Database) Import(version int64, ch <-chan types.SnapshotNode) (_err er
 	return nil
 }
 
-// RawIterate iterates over all keys and values for a store
+// RawIterate returns user keys for a named store. With an empty store it
+// returns qualified logical keys, s/k:<store>/<user key>, preserving arbitrary
+// user-key bytes and module identity. Callback slices are valid until return.
 func (db *Database) RawIterate(storeKey string, fn func(key []byte, value []byte, version int64) bool) (bool, error) {
-	// Iterate through all keys and values for a store
-	lowerBound := db.mvccEncode(prependStoreKey(storeKey, nil), 0)
-	prefix := storePrefix(storeKey)
+	return db.iteratePhysical(storeKey, func(key, encodedValue []byte, version int64) (bool, error) {
+		value, tombstone, ok := SplitMVCCKey(encodedValue)
+		if !ok {
+			return false, fmt.Errorf("invalid PebbleDB MVCC value for %q", key)
+		}
+		if len(tombstone) != 0 {
+			return false, nil
+		}
+		return fn(key, value, version), nil
+	})
+}
 
-	itr, err := db.storage.NewIter(&pebble.IterOptions{LowerBound: lowerBound})
+// iteratePhysical includes deletion markers and propagates callback failures.
+func (db *Database) iteratePhysical(storeKey string, fn func([]byte, []byte, int64) (bool, error)) (stopped bool, err error) {
+	prefix := storePrefix(storeKey)
+	if storeKey == "" {
+		prefix = []byte(PrefixStore)
+	}
+	itr, err := db.storage.NewIter(&pebble.IterOptions{
+		LowerBound: db.mvccEncode(prefix, 0),
+		UpperBound: db.mvccEncode(prefixEnd(prefix), 0),
+	})
 	if err != nil {
 		return false, fmt.Errorf("failed to create PebbleDB iterator: %w", err)
 	}
-	defer func() { _ = itr.Close() }()
-
+	defer func() { err = errors.Join(err, itr.Close()) }()
 	for itr.First(); itr.Valid(); itr.Next() {
-		currKeyEncoded := itr.Key()
-
-		// Ignore metadata entries
-		if isMetadataKey(currKeyEncoded) {
-			continue
-		}
-
-		// Store current key and version
-		currKey, currVersion, currOK := SplitMVCCKey(currKeyEncoded)
-		if !currOK {
+		key, versionBytes, ok := SplitMVCCKey(itr.Key())
+		if !ok {
 			return false, fmt.Errorf("invalid MVCC key")
 		}
-
-		// Only iterate through module
-		if storeKey != "" && !bytes.HasPrefix(currKey, prefix) {
+		if !bytes.HasPrefix(key, prefix) {
 			break
 		}
-
-		// Parse prefix out of the key
-		parsedKey := currKey[len(prefix):]
-
-		currVersionDecoded, err := db.decodeVersion(currVersion)
+		if _, err := parseStoreKey(key); err != nil {
+			return false, err
+		}
+		version, err := db.decodeVersion(versionBytes)
 		if err != nil {
 			return false, err
 		}
-
-		// Decode the value
-		currValEncoded := itr.Value()
-		if valTombstoned(currValEncoded) {
-			continue
+		if storeKey != "" {
+			key = key[len(prefix):]
 		}
-		valBz, _, ok := SplitMVCCKey(currValEncoded)
-		if !ok {
-			return false, fmt.Errorf("invalid PebbleDB MVCC value: %s", currKey)
+		stop, err := fn(key, itr.Value(), version)
+		if err != nil || stop {
+			return stop, err
 		}
-
-		// Call callback fn
-		if fn(parsedKey, valBz, currVersionDecoded) {
-			return true, nil
-		}
-
 	}
-
-	return false, nil
+	return false, itr.Error()
 }
 
+// DeleteKeysAtVersion physically removes values and tombstones at one version.
+// It preserves both head markers; callers performing a rollback explicitly set
+// the desired head after all modules succeed. Earlier deletion batches remain
+// committed on failure, so callers may retry this idempotent operation.
 func (db *Database) DeleteKeysAtVersion(module string, version int64) error {
-
-	batch, err := NewBatch(db.storage, version, db.descending)
-	if err != nil {
-		return fmt.Errorf("failed to create deletion batch for module %q: %w", module, err)
+	if version < 0 {
+		return fmt.Errorf("version must be non-negative")
 	}
-
-	deleteCounter := 0
-
-	_, err = db.RawIterate(module, func(key, value []byte, ver int64) bool {
-		if ver == version {
-			if err := batch.HardDelete(module, key); err != nil {
-				fmt.Printf("Error physically deleting key %q in module %q: %v\n", key, module, err)
-				return true // stop iteration on error
-			}
-			deleteCounter++
-			if deleteCounter >= DeleteCommitBatchSize {
-				if err := db.writeBatch(batch); err != nil {
-					fmt.Printf("Error writing deletion batch for module %q: %v\n", module, err)
-					return true
-				}
-				deleteCounter = 0
-				batch, err = NewBatch(db.storage, version, db.descending)
-				if err != nil {
-					fmt.Printf("Error creating a new deletion batch for module %q: %v\n", module, err)
-					return true
-				}
-			}
+	db.commitMu.Lock()
+	defer db.commitMu.Unlock()
+	batch := db.storage.NewBatch()
+	defer func() { _ = batch.Close() }()
+	pending, committed := 0, 0
+	commit := func() error {
+		if err := batch.Commit(defaultWriteOpts); err != nil {
+			return err
 		}
-		return false
+		committed += pending
+		pending = 0
+		batch.Reset()
+		return nil
+	}
+	_, err := db.iteratePhysical(module, func(key, _ []byte, ver int64) (bool, error) {
+		if ver != version {
+			return false, nil
+		}
+		if err := batch.Delete(db.mvccEncode(prependStoreKey(module, key), version), nil); err != nil {
+			return false, err
+		}
+		pending++
+		if pending >= DeleteCommitBatchSize {
+			return false, commit()
+		}
+		return false, nil
 	})
-	if err != nil {
-		return fmt.Errorf("error iterating module %q for deletion: %w", module, err)
+	if err == nil && pending > 0 {
+		err = commit()
 	}
-
-	// Commit any remaining deletions.
-	if batch.Size() > 0 {
-		if err := db.writeBatch(batch); err != nil {
-			return fmt.Errorf("error writing final deletion batch for module %q: %w", module, err)
-		}
+	if err != nil {
+		return fmt.Errorf("delete module %q version %d after %d committed deletions (earlier batches remain committed): %w", module, version, committed, err)
 	}
 	return nil
 }
@@ -1061,6 +1070,7 @@ func valTombstoned(value []byte) bool {
 
 // collectMetricsInBackground periodically collects PebbleDB internal metrics
 func (db *Database) collectMetricsInBackground(ctx context.Context) {
+	defer db.metricsWG.Done()
 	ticker := time.NewTicker(10 * time.Second) // Collect metrics every 10 seconds
 	defer ticker.Stop()
 
@@ -1076,20 +1086,23 @@ func (db *Database) collectMetricsInBackground(ctx context.Context) {
 
 // collectAndRecordMetrics collects PebbleDB internal metrics and records them
 func (db *Database) collectAndRecordMetrics(ctx context.Context) {
-	if db.storage == nil {
+	db.metricsMu.Lock()
+	defer db.metricsMu.Unlock()
+	m := db.PebbleMetrics()
+	if m == nil {
 		return
 	}
+	prev := &db.previousMetrics
+	defer func() { db.previousMetrics = *m }()
 
-	m := db.storage.Metrics()
-
-	// Compaction metrics - report raw counts
-	otelMetrics.compactionCount.Add(ctx, m.Compact.Count)
+	// Counters consume positive deltas; a fresh Database starts at zero.
+	addMVCCDelta(ctx, otelMetrics.compactionCount, m.Compact.Count, prev.Compact.Count)
 	otelMetrics.compactionDuration.Record(ctx, m.Compact.Duration.Seconds())
 
-	// Flush metrics - report raw counts
-	otelMetrics.flushCount.Add(ctx, m.Flush.Count)
+	// Flush metrics
+	addMVCCDelta(ctx, otelMetrics.flushCount, m.Flush.Count, prev.Flush.Count)
 	otelMetrics.flushDuration.Record(ctx, m.Flush.WriteThroughput.WorkDuration.Seconds())
-	otelMetrics.flushBytesWritten.Add(ctx, m.Flush.WriteThroughput.Bytes)
+	addMVCCDelta(ctx, otelMetrics.flushBytesWritten, m.Flush.WriteThroughput.Bytes, prev.Flush.WriteThroughput.Bytes)
 
 	// Storage metrics per level with level as attribute
 	for level := 0; level < len(m.Levels); level++ {
@@ -1098,8 +1111,8 @@ func (db *Database) collectAndRecordMetrics(ctx context.Context) {
 
 		otelMetrics.sstableCount.Record(ctx, levelMetrics.TablesCount, metric.WithAttributes(levelAttr))
 		otelMetrics.sstableTotalSize.Record(ctx, levelMetrics.TablesSize, metric.WithAttributes(levelAttr))
-		otelMetrics.compactionBytesRead.Add(ctx, int64(levelMetrics.TableBytesIn), metric.WithAttributes(levelAttr))           //nolint:gosec
-		otelMetrics.compactionBytesWritten.Add(ctx, int64(levelMetrics.TableBytesCompacted), metric.WithAttributes(levelAttr)) //nolint:gosec
+		addMVCCDelta(ctx, otelMetrics.compactionBytesRead, mvccInt64Clamped(levelMetrics.TableBytesIn), mvccInt64Clamped(prev.Levels[level].TableBytesIn), metric.WithAttributes(levelAttr))
+		addMVCCDelta(ctx, otelMetrics.compactionBytesWritten, mvccInt64Clamped(levelMetrics.TableBytesCompacted), mvccInt64Clamped(prev.Levels[level].TableBytesCompacted), metric.WithAttributes(levelAttr))
 	}
 
 	// Memtable metrics
@@ -1109,8 +1122,29 @@ func (db *Database) collectAndRecordMetrics(ctx context.Context) {
 	// WAL metrics
 	otelMetrics.walSize.Record(ctx, int64(m.WAL.Size)) //nolint:gosec
 
-	// Cache metrics - report raw counts
-	otelMetrics.cacheHits.Add(ctx, m.BlockCache.Hits)
-	otelMetrics.cacheMisses.Add(ctx, m.BlockCache.Misses)
+	// Cache metrics
+	addMVCCDelta(ctx, otelMetrics.cacheHits, m.BlockCache.Hits, prev.BlockCache.Hits)
+	addMVCCDelta(ctx, otelMetrics.cacheMisses, m.BlockCache.Misses, prev.BlockCache.Misses)
 	otelMetrics.cacheSize.Record(ctx, m.BlockCache.Size)
+}
+
+func mvccInt64Clamped(v uint64) int64 {
+	if v > math.MaxInt64 {
+		return math.MaxInt64
+	}
+	return int64(v)
+}
+
+// addMVCCDelta counts a reset snapshot from zero, matching the raw collector.
+func addMVCCDelta(ctx context.Context, counter metric.Int64Counter, current, previous int64, opts ...metric.AddOption) {
+	if current < 0 {
+		return
+	}
+	delta := current
+	if current >= previous && previous >= 0 {
+		delta = current - previous
+	}
+	if delta > 0 {
+		counter.Add(ctx, delta, opts...)
+	}
 }

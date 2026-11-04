@@ -1,0 +1,39 @@
+[repair.22.33.669]
+audit = "22.30.166"
+base_revision = "72c91077cb966f1c4c640ded61b4b259f41cad90"
+criterion = "22998.1"
+evidence = "hf-done records the qualified candidate revision, command, exit and private log in the runner ledger; detailed test output is /tmp/repair-m669.log."
+baseline = "No baseline command ran: the explicit ordered gate instructions prohibit manual verification before implementation and require hf-build before hf-done; no pre-change runtime failures are claimed."
+
+[finding.bank-state-extra-stores-doc]
+test = "TestRepairM_669_StateStoresRecovery"
+repair = "Document committed key layouts, 10^12 wei per uhpx, deferred transaction-indexed credits and flush-before-commit; prove persisted policy and monetary recovery by closing and reopening the commitment store, extended JSON recovery, and legacy export rejection."
+
+[finding.bank-keeper-capabilities-doc]
+test = "TestRepairM_669_KeeperCapabilities"
+repair = "Check the current interface examples against Go declarations and exercise real checkNeg, hook, recipient-checker, send-enabled-checker and iteration behavior."
+
+[finding.bank-message-allowlist-doc]
+test = "TestRepairM_669_MessageAllowlist"
+repair = "Document both-party authorization, missing/empty unrestricted lists and separate errors; prove real codec-to-message-server sends and multi-sends, including later unauthorized inputs and outputs."
+
+[finding.bank-wei-events-doc]
+test = "TestRepairM_669_WeiEvents"
+repair = "Document exact units, attributes and event order for mixed transfers and carry/borrow, with real emitted events and balances, zero amounts and atomic failure."
+
+[finding.bank-invariant-wiring-doc]
+test = "TestRepairM_669_InvariantWiring"
+repair = "Explicitly document the absent all-denomination registration and the node's configurable base-denomination incremental check; prove both coverages against production stores without changing invariant behavior."
+
+[workflow.scope]
+note = "Task records and gotchas are kept in this scoped file because spec/ and GOTCHA.kvx edits are prohibited; the runner owns publication and qualified revision evidence."
+gotcha = "The base already contains most of the proposed documentation and extended keeper genesis helpers; retain those accurate descriptions and add concrete executable examples instead of reverting to the audit's historical observations."
+wiring_request = "None: broader invariant registration is explicitly documented as absent, and this documentation task does not request a new runtime invariant or module-genesis interface."
+
+[qualification.first_attempt]
+revision = "282f473fc447772c2c09d2127ebe04fb159f222a"
+command = "cg spec done 22.33.669 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Four test groups passed; the state test stopped at its documentation check because Markdown table pipe escaping was missing from the expected source notation."
+repair = "Match the exact escaped table notation for the same wei key, retaining all recovery and accounting assertions; rebuild and verify the repaired candidate."

@@ -1,0 +1,25 @@
+[repair.22.33.1178]
+audit = "22.30.54"
+baseline = "Not run: the ordered task instructions prohibit verification before full implementation and require verification exclusively through hf-done; no pre-change test failures are claimed."
+evidence = "The runner hf-build/hf-done ledger records the exact qualified candidate revision, commands, exits and private log locations."
+wiring_requests = ["Domain 5: storage/tools/cmd/paxdb/benchmark/{write,random_read,iteration,reverse_iteration}.go must validate positive dimensions before opening the backend and defer backend.Close on validation/runtime errors; shared benchmark entry points now reject invalid dimensions explicitly using the existing panic error contract."]
+
+[finding.benchmark-unchecked-dimensions]
+tests = ["TestRepairM_1178_UncheckedDimensionsCLI", "TestRepairM_1178_EmptyInput", "TestRepairM_1178_SharedEntryPoints", "TestRepairM_1178_EmptySummaries", "TestRepairM_1178_WriteReadRoundTrip"]
+proof = "Actual Cobra Execute invocations reject zero/negative concurrency, batch size, version, operation and step counts and empty directories/files; direct shared entry points reject invalid inputs, disk-backed StateStore summaries handle empty traversals below the retained version boundary, and real raw-KV loading/writes/reads retain every value across two versions."
+
+[finding.benchmark-step-bound-ignored]
+tests = ["TestRepairM_1178_IterationBoundsCLI", "TestRepairM_1178_ReverseIteratorLifetime"]
+proof = "Real forward and reverse Cobra commands reopen a production benchmark-write fixture with 64 visible keys in the default namespace at version one and report exactly operations multiplied by the requested one/three-step bounds; reverse observer measurements independently assert every operation performs exactly three real iterator advances."
+
+[finding.reverse-benchmark-retains-iterators]
+test = "TestRepairM_1178_ReverseIteratorLifetime"
+proof = "Production reverse workloads perform 48 operations against a real StateStore with one/four workers; fully delegating iterator observers assert real closes complete throughout the workload, live iterators never exceed worker count, and each single-worker operation starts after the preceding iterator closes."
+
+[qualification.preexisting-state-iterator-metadata]
+revision = "4952cdf6916187e4b66715b382244c39f2859c7e"
+command = "cg spec done 22.33.1178 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; /tmp/repair-m1178.log"
+observed = "An empty-namespace forward StateStore iterator panicked on metadata key s/_mvcc_descending before reaching benchmark summary code; the original test fixture also used unsupported zero-version unprefixed keys."
+assumption = "Domain 5 owns storage/db_engine/pebbledb/mvcc iterator metadata handling; no backend change is made here, and empty-summary tests use real iterators below the retained version boundary while bounded traversal fixtures use the real benchmark writer's positive versions and default namespace."

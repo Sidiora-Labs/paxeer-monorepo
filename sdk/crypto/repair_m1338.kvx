@@ -1,0 +1,39 @@
+[repair.22.33.1338]
+status = "implemented_pending_qualification"
+base_revision = "72c91077cb966f1c4c640ded61b4b259f41cad90"
+audit = "spec/layerx-merge/programme/audit/records/22.30.73.kvx"
+baseline = "Not run: the task Order requires complete implementation before any build or test and forbids invoking verify_cmd before hf-done; no pre-change test failure is claimed."
+evidence = "Closure requires hf-done passing on the same candidate revision as hf-build; the runner ledger records the exact revision, command, exit and private evidence log."
+
+[finding.symmetric-empty-payload]
+test = "TestRepairM_1338_SymmetricEmptyPayload"
+repair = "Authenticate the exact nonce-plus-tag length; round-trip nil, empty and nonempty plaintext, reject every truncated nonce/tag length and every single-byte tampering of genuine ciphertext."
+
+[finding.armor-kdf-recovery]
+tests = ["TestRepairM_1338_ArmorRecoveryProcess", "TestRepairM_1338_ArmorLegacyAndBounds"]
+repair = "Version 1 envelopes record the effective bcrypt cost, bound imports to 4..16, and restore unversioned legacy production envelopes at cost 12 independently of the configured default."
+proof = "Run the already-built test executable as producer at cost 4, wait for its exit, then run a fresh consumer at cost 5; transport the real keyring export through a file, import it into the real file-backed test backend, reopen that store, compare the public key, sign and re-export at cost 5. No Go subprocess toolchain, external executable or environment-variable fixture is needed."
+compatibility = "Legacy exports made at a nonstandard historical cost cannot advertise that cost; restore with the original software/configuration and re-export in the versioned format."
+
+[finding.armor-password-code]
+test = "TestRepairM_1338_ArmorPasswordCode"
+repair = "Use ErrCiphertextDecryptionFailed for failed authentication, errors.Is for classification, and SDK typed wrapping of ErrWrongPassword; prove real keyring ExportPrivKeyArmor to ImportPrivKey errors and successful signing, including caller wrapping and malformed-input distinction."
+
+[finding.xcrypto-test-version-drift]
+test = "TestRepairM_1338_XCryptoVersionAgreement"
+repair = "Keep the exact-version and no-replacement assertions in TestXCryptoBuildMatchesRequire and its real linked SDK executable, align the exact version to the landed root dependency upgrade, and retain the real armor round-trip."
+authority = "Decision 2362 and task 22.24.16 (commit 3a45b8541b41b4ead9a244ff463d6d042e05f2cc) raised the root x/crypto requirement from v0.52.0 to v0.53.0; go.mod and go.sum in this task's base select v0.53.0."
+proof = "The bounded gate parses the real root manifest, forbids x/crypto replacement, checks the actual linked secretbox.Open source origin names x/crypto@v0.53.0, and executes the existing armor round-trip; it needs no subprocess toolchain. The standalone SDK executable build-info test is retained but is outside this task's test-name filter."
+wiring_request = "spec/layerx-merge/spec.kvx req.18932.1 and acceptance.18.932.1: dependency owner fm-cosmos-fork/domain 15 must reconcile the obsolete v0.47.0 wording with the landed 22.24.16 exact v0.53.0 upgrade; spec changes are outside this task's scope."
+
+[finding.bcrypt-doc-backup-risk]
+test = "TestRepairM_1338_BcryptBackupRisk"
+repair = "Document the independent armor and keyhash work factors, offline guessing after backup theft, strong distinct passphrases, and why migrating an active directory cannot strengthen a stolen legacy backup."
+proof = "Create a real file keyring and cost-12 export, copy its actual directory, check the copied verifier's effective cost 10 and correct/incorrect password guesses, reopen the copy through the real prompt and backend, recover the account and verify its signature."
+wiring_request = "sdk/crypto/keyring/keyring.go: fm-cosmos-fork/domain 15 task 22.33.1339 owns the keyring-passphrase-oracle KDF migration and old-backup migration proof; this task documents the present verifier and must be updated alongside that sibling migration."
+
+[gotchas]
+workflow = "The baseline instruction conflicts with the explicit implementation-first gate Order; obey the Order and record no invented baseline evidence."
+linked_version = "Go 1.25 test executables omit dependency records in debug.ReadBuildInfo; the bounded gate checks the real linked secretbox source origin while retaining the separate executable build-info test."
+legacy = "The pinned bcrypt implementation normalizes configured costs below 4 to effective cost 10; persist the effective value, never the unnormalized setting."
+scope = "The root GOTCHA.kvx and spec task/qualification records are outside the user scope; task notes and wiring requests are recorded here instead."

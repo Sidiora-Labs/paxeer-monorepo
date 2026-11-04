@@ -1,0 +1,20 @@
+[repair.22.33.1350]
+audit = "22.30.73"
+base_revision = "72c91077cb966f1c4c640ded61b4b259f41cad90"
+criterion = "22998.1"
+baseline = "No baseline ran: explicit Order 1 and 4 require full implementation before qualification and prohibit manual verify; the new tests did not exist at the base revision, so no pre-change failing result is claimed."
+evidence = "The private hf-build and hf-done ledger records the verified candidate revision, exact command, exit code and log; tests decode the production embedded deployment contracts with YAML and TOML codecs, without external tools or services."
+
+[finding.interop-kubernetes-retired-authority]
+test = "TestRepairM_1350_KubernetesRetiredAuthority"
+repair = "Remove retired authority URL/token, all four sequencer batch-window file inputs, and the unused authority secret volume/mount; retain current merged-node RPC and the required read-only block-height receipt-key projection."
+
+[finding.interop-fly-retired-authority]
+test = "TestRepairM_1350_FlyRetiredAuthority"
+repair = "Remove retired authority and batch-window environment inputs and five obsolete secret mappings; describe the merged node, independent block-height pins and shared storage in operator comments."
+
+[wiring.runtime-secrets]
+request = "services/platform/hosted/tests/beta-cluster.sh (domain 8, fm-platform): reconcile generated interop runtime secrets with the remaining deployment mappings, stop staging interop authority/token and batch-window material, and retain independently authenticated layerx-interop-receipt-keys and INTEROP_RECEIPT_KEYS."
+
+[wiring.service-owner]
+request = "services/interop/deploy/gateway/render.py and services/interop/crates/layerx-interop-service/src/config.rs (domain 11, fm-interop): reconcile service-owner generated runtime configuration with the merged node RPC and independent block-height receipt-key list, preserving current AP2, Visa TAP, fiat and module-registry inputs."

@@ -1,0 +1,7 @@
+[task.22.33.1287]
+finding = "rest-code-id-error"
+repair = "Return the standard HTTP 400 JSON REST error when the registered instantiate route cannot parse its unsigned code ID."
+proving_tests = ["TestRepairM_1287_InvalidCodeIDs", "TestRepairM_1287_ValidCodeIDsGenerateTransaction"]
+baseline = "Not run: the explicit gate order prohibits verification before implementation and requires verification exclusively through hf-done after hf-build; no baseline failure is claimed."
+evidence = "The private hf-build/hf-done gate ledger and final evidence JSON record the exact candidate revision, command, exit code and log path."
+wiring_requests = []
