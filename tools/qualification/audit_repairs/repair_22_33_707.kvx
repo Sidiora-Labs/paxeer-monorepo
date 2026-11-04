@@ -1,0 +1,51 @@
+[task.22.33.707]
+base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+checkout_revision = "11c77773e83387806b3afb849cc890b81fa2b64d"
+mode = "BUILD"
+repair = "Qualify audit 22.30.169 finding doc-index-7 against README.md as rewritten by owning task 22.31.470 under decision 2525; add offline documentation/source contract checks without modifying the shared README or any production file."
+source_proof = "The module reads the real README, checks the one-paxd topology and embedded native host against node and cgo wiring, parses the documented root JSON-RPC probe and hosted OpenRPC contract, checks signed transaction acceptance/forwarding and WAL acknowledgement before receipt publication against production sources, checks committed receipt coverage and diagram order, checks retired executor guards, and parses actual make rules and release identity JSON for the documented binary and linked archives."
+review_only = "Native Go/C/Rust builds, actual node startup, signed transaction execution, cryptographic verification, WAL restart/recovery, endpoint availability, deployment state and BFT finality are not executed by this documentation gate. Production source checks prove documented connections, not runtime execution. No stateful component or interface is modified, so no restart or interface integration proof is claimed. The current release inventory and upgrade handlers are source facts, not evidence that a deployed network has activated v7.0."
+baseline = "Initial git status/diff contained only runner-prepared .cgignore and spec task-status changes; neither scoped repair file existed. /out/run/gate.json recorded zero builds and verifies and no /out/run/gates.jsonl existed. A pre-change verify was not run: the explicit implementation-first order and exclusive hf-done verification supersede the embedded baseline request. No test is claimed to have failed before this change. README.md remains unchanged from the checkout."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_707.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private /out/run/gates.jsonl identify the exact verified revision, command, exit code and log; build and verification must pass on the same candidate revision. This record is finalized before gates because inserting its own content-derived revision would change that revision. The runner retains qualification evidence and publishes the result; this task performs no manual commit or push."
+
+[finding.doc-index-7]
+audit = "22.30.169"
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+owner_domain = 17
+owner_task = "22.31.470"
+observed = "The audit described standalone layerxd architecture/build guidance, checkpoint settlement and a draft-only merge paragraph."
+expected = "One paxd BFT network on chain 125 with embedded kernel/native libraries, root api1..api14 JSON-RPC, signed EVM transaction and committed receipt flows, retired custody/checkpoint executors, no live LNI, no separate daemon or checkpoint deployment, and current build/release guidance."
+resolution = "All required README facts are present in the inherited 22.31.470 rewrite; this task adds regression proof for doc-index-7 and makes no out-of-path edit. Closure is conditional on the declared hf-done evidence, not this declaration."
+readme_sha256 = "689aad1724d426309d059d9a3b0085214078d35f756e19b396142a751f84ba98"
+tests = ["test_doc_index_7_one_paxd_embeds_native_execution", "test_doc_index_7_chain_125_root_rpc_and_gateway_contract", "test_doc_index_7_signed_transaction_to_committed_receipt_path", "test_doc_index_7_retired_executors_and_no_separate_deployment", "test_doc_index_7_build_and_release_inventory_match_paxd"]
+wiring_requests = []
+wiring_disposition = "README.md architecture/build/release changes belong to domain 17 task 22.31.470 under decision 2525; its inherited rewrite supplies every required fact, so no outstanding wiring request is necessary. Any future missing README fact must be requested from that owner, never repaired outside this task's paths."
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. Apply repository .editorconfig UTF-8, LF, final newline and trailing whitespace conventions to the two touched files after implementation is complete."
+
+[gotcha.1]
+observed = "The embedded audit steps request a baseline verify, while the task's explicit gate order forbids tests before complete implementation or a manual pytest invocation."
+resolution = "Follow the explicit hf-build then hf-done order; record that no baseline test was run instead of inventing a pre-change failure."
+
+[gotcha.2]
+observed = "Codify context reports an unrelated next task and stale uncommitted paths, and broad combined source reads can exceed tool output limits. Guessed tools/release/release.sh and programs/Makefile.inc paths do not exist."
+resolution = "Use actual git status/diff and private gate ledger for this task; inspect bounded relevant source sections and the real root Makefile, chain.mk and tools/release/version.json. Keep notes here because GOTCHA.kvx and spec files are outside scope."
+
+[qualification.initial]
+revision = "df88f8a9b03a07637b52c4eeda627bbe35e3562a"
+command = "cg spec done 22.33.707 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Five tests passed; the RPC documentation test failed because the Markdown section reader mistook a fenced shell comment for a heading and truncated the section."
+repair = "Track Markdown fences before recognizing section boundaries; preserve every assertion and the unchanged production README, then rebuild and verify the repaired candidate."
+
+[gotcha.3]
+observed = "A regular expression that splits Markdown sections at heading-shaped lines also splits on the fenced curl example's # Expected result comment."
+resolution = "Track opening and closing code fences so only headings outside fences terminate a section."
