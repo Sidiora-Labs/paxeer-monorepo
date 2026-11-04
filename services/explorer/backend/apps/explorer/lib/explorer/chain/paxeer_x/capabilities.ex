@@ -311,11 +311,11 @@ defmodule Explorer.Chain.PaxeerX.Capabilities do
     end
   end
 
-  defp read_view(%{error: _error}), do: {:ok, false}
+  defp read_view(%{error: error}), do: read_call_error(error)
 
   defp read_view(other), do: {:error, {:unexpected_response, other}}
 
-  # A node without the method answers the `eth_call` with an error or with
+  # A node without the method answers the `eth_call` with a contract error or with
   # fewer bytes than the declared return layout; either way the capability is
   # absent rather than the probe being broken, so the surface reads as absent
   # and the rest of the snapshot still stands.
@@ -327,9 +327,24 @@ defmodule Explorer.Chain.PaxeerX.Capabilities do
     {:ok, live?}
   end
 
-  defp read_unified_account(%{error: _error}), do: {:ok, false}
+  defp read_unified_account(%{error: error}), do: read_call_error(error)
 
   defp read_unified_account(other), do: {:error, {:unexpected_response, other}}
+
+  defp read_call_error(%{code: -32601}), do: {:ok, false}
+
+  defp read_call_error(%{code: code, message: message} = error)
+       when code in [3, -32000] and is_binary(message) do
+    message = String.downcase(message)
+
+    if message == "execution reverted" or String.starts_with?(message, "execution reverted:") do
+      {:ok, false}
+    else
+      {:error, {:rpc_error, error}}
+    end
+  end
+
+  defp read_call_error(error), do: {:error, {:rpc_error, error}}
 
   defp hexadecimal?(digits) do
     String.match?(digits, ~r/\A[0-9a-fA-F]*\z/)
