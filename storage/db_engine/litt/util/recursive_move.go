@@ -31,9 +31,27 @@ func RecursiveMove(
 	}
 
 	// Verify source exists
-	sourceInfo, err := os.Stat(source)
+	sourceInfo, err := os.Lstat(source)
 	if err != nil {
 		return fmt.Errorf("source path %s does not exist: %w", source, err)
+	}
+	if sourceInfo.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("symlinks not supported: %s", source)
+	}
+	if sourceInfo.IsDir() {
+		// Reject the entire tree before creating or moving anything. Otherwise a
+		// nested symlink discovered late could leave a partially moved tree.
+		if err := filepath.WalkDir(source, func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if d.Type()&os.ModeSymlink != 0 {
+				return fmt.Errorf("symlinks not supported: %s", path)
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
 	}
 
 	// Verify destination parent directory is writable
@@ -52,6 +70,9 @@ func RecursiveMove(
 
 // moveFile handles moving a single file
 func moveFile(source string, destination string, preserveOriginal bool, fsync bool) error {
+	if err := ErrIfSymlink(source); err != nil {
+		return fmt.Errorf("symlinks not supported: %w", err)
+	}
 	// Ensure parent directory exists
 	if err := EnsureParentDirectoryExists(destination, fsync); err != nil {
 		return fmt.Errorf("failed to ensure parent directory exists: %w", err)
@@ -73,11 +94,6 @@ func moveFile(source string, destination string, preserveOriginal bool, fsync bo
 			return nil
 		}
 		// Rename failed (likely different filesystem), fall back to copy+delete
-	}
-
-	err := ErrIfSymlink(source)
-	if err != nil {
-		return fmt.Errorf("symlinks not supported: %w", err)
 	}
 
 	// Copy the file
