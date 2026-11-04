@@ -4,6 +4,7 @@ import {
   SecretBytes,
   idempotencyKey,
   decodeRawEip1559,
+  recoverEip1559Sender,
   keccak256,
   verifySequencerReceipt,
   type ProductionTransport,
@@ -376,6 +377,12 @@ export class BuyerMiddleware {
       }
       const verified = await verifySequencerReceipt(signedReceipt, raw, keys);
       const { receipt } = verified;
+      const transaction = decodeRawEip1559(raw);
+      const sender = recoverEip1559Sender(raw).slice(2).toLowerCase().padStart(64, "0");
+      if (toHex(receipt.from) !== sender
+        || !equalBytes(receipt.to, concatenate(new Uint8Array(12), transaction.to))) {
+        throw new MiddlewareError("verification-failure");
+      }
       const summary = receipt.effects[0];
       if (receipt.resultCode !== 0 || receipt.moduleId <= 11 || summary === undefined
         || summary.moduleId !== receipt.moduleId || summary.ordinal !== 0 || summary.kind !== 1
@@ -415,6 +422,7 @@ export class BuyerMiddleware {
       let commitmentEvidence: PaymentCommitmentEvidence | undefined;
       await verifyPaymentCommitment(verified, payload.accepted.network, evidence.verificationLevel,
         this.#commitments === undefined ? undefined : {
+          resolveValidators: (network, height) => this.#commitments!.resolveValidators(network, height),
           resolve: async (transactionHash, network) => {
             commitmentEvidence = structuredClone(await this.#commitments!.resolve(transactionHash, network));
             return commitmentEvidence;

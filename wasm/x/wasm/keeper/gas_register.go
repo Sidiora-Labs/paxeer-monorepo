@@ -5,6 +5,7 @@ import (
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	wasmvmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/wasm-runtime/types"
+	"math"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/wasm/x/wasm/types"
 )
@@ -214,11 +215,13 @@ func calcWithFreeTier(storedBytes uint64, freeTier uint64) (uint64, uint64) {
 
 // ToWasmVMGas convert to wasmVM contract runtime gas unit
 func (g WasmGasRegister) ToWasmVMGas(source storetypes.Gas) uint64 {
-	x := source * g.c.GasMultiplier
-	if x < source {
+	if g.c.GasMultiplier == 0 {
+		panic(sdkerrors.Wrap(sdkerrors.ErrLogic, "GasMultiplier can not be 0"))
+	}
+	if source > math.MaxUint64/g.c.GasMultiplier {
 		panic(sdk.ErrorOutOfGas{Descriptor: "overflow"})
 	}
-	return x
+	return source * g.c.GasMultiplier
 }
 
 // FromWasmVMGas converts to SDK gas unit

@@ -87,6 +87,8 @@ func LXPName(err error) (string, bool) {
 		return "LXP_XWEB_INVALID_ENVELOPE", true
 	case 25:
 		return "LXP_XWEB_INVALID_LEVEL", true
+	case 26:
+		return "LXP_XWEB_INVALID_PAYLOAD", true
 	default:
 		return "", false
 	}

@@ -2,13 +2,13 @@
 name = "intent"
 contract_major = 1
 compatibility = "additive_only"
-spine = "A human states one intent - move an amount of one asset from one endpoint to another - and the service plans its ordered calls on the merged Paxeer network. The kernel is part of that network and proposes blocks; the EVM chain id is 125 (0x7d). Planning is pure and deterministic: the same intent over the same observed state produces byte-identical plan bytes and therefore the same plan digest."
+spine = "A human states one intent - move an amount of one asset from one endpoint to another - and the service plans its ordered bank and budget calls on the single merged Paxeer network. The kernel is part of that network and proposes blocks; the EVM chain id is 125 (0x7d). Planning is pure and deterministic: the same intent over the same observed state produces byte-identical plan bytes and therefore the same plan digest."
 observed_state = "The service assembles the observed state the planner reads. The authenticated principal's balance and managed budget state come through the agent runtime; allowance headroom and budget bindings come from managed-agent records checked against that state. The fee schedule uses the configured EVM gas limit and maximum fee per gas. Bank send construction resolves the denomination against the network gateway's asset and balance inventory and resolves the recipient's bound EVM address through identity and node reads. The caller states an intent and never states the headroom that would authorise it."
 never_partial = "The observation contract requires a typed refusal naming any source that cannot answer, and forbids treating an unobserved balance as zero. Unknown balances must remain distinct from known zero balances; callers cannot supply a balance to bypass this rule. The production path refuses stale required state and a missing bank asset or denomination match rather than constructing an executable plan."
 digest_binding = "The plan digest commits to the intent and to every leg, and each leg's action key and signing context are derived from it. A signed plan therefore cannot be re-routed: altering any leg changes the digest and invalidates every signature over it."
 replan_on_submit = "Submission re-plans server-side against the observed state at submission time and refuses when the digest no longer matches. A plan is never executed on the strength of the caller's copy of it."
 no_new_verb = "Intent planning adds no transfer type. Current movements use move and the planner selects the mechanism. The production intent path constructs send calls and budget-defund calls; deposit and withdraw are retired custody-boundary journeys and cannot be initiated. A planner candidate is not an executable offer until the service has constructed its EVM calls."
-progress = "Progress and completion are read through GET /v1/journeys/{journey_id} in journeys.kvx. Submission and a transaction hash do not establish completion. The production EVM intent path waits for a verified committed receipt for each leg before advancing; a committed block on this network is final."
+progress = "Progress and completion are read through GET /v1/journeys/{journey_id} in journeys.kvx. Submission initially reports processing. Submission and a transaction hash establish only submitted progress, not receipt verification or completion. The production EVM intent path waits for a verified committed receipt for each leg before advancing; a committed block on this network is final."
 
 [type.IntentEndpointKind]
 variants = ["paxeer-wallet","human","agent","agent-budget"]
@@ -21,7 +21,7 @@ account_rule = "account carries the canonical protocol account name for human, a
 
 [type.IntentDomain]
 variants = ["paxeer","layerx"]
-meaning = "Retained wire labels, not separate settlement networks. The current planner labels protocol legs layerx and the production serializer preserves that value even though execution is an EVM call on Paxeer. paxeer labels the retired custody deposit and withdrawal mechanisms, which are refused by the current executable-shape classifier. A client must use the disclosed EVM call fields and must not select a second network from this label."
+meaning = "Retained wire labels, not separate settlement networks. The current planner labels protocol legs layerx and the production serializer preserves that value even though execution is an EVM call on Paxeer. paxeer labels the retired custody deposit and withdrawal mechanisms, which are refused by the current executable-shape classifier. These labels are compatibility vocabulary, not execution authority. A client must use the disclosed EVM call fields and chain_id 125 and must not select a second network from this label."
 
 [type.IntentConstraints]
 required = ["deadline:Timestamp","max_fee:Money","allow_top_up:boolean"]
@@ -36,7 +36,7 @@ authority = "The request states the movement only. Balances, allowances and limi
 [type.IntentLeg]
 required = ["index:integer","mechanism:string","domain:IntentDomain","source:IntentEndpoint","destination:IntentEndpoint","money:Money","fee:Money"]
 optional = ["to:EvmAddress","value:Amount","calldata:string","nonce:integer","chain_id:integer","gas_limit:integer","max_fee_per_gas:Amount","max_priority_fee_per_gas:Amount"]
-order = "Legs execute in index order. Each leg runs to its own verified receipt before the next leg starts."
+order = "Legs execute in index order. Each leg runs to its own verified committed receipt before the production EVM intent path starts the next leg; a submitted transaction or a receipted execution alone cannot advance that path."
 evm_call = "The production response supplies to, value, calldata, nonce, chain_id, gas_limit, max_fee_per_gas and max_priority_fee_per_gas for every leg. Addresses and calldata have a 0x prefix; value and gas prices are decimal strings. The EIP-1559 transaction uses value zero. Nonces start at the sender's pending EVM nonce and increase by leg index."
 send = "send targets the bank precompile at 0x0000000000000000000000000000000000001001 with send(address,address,string,uint256), selector 0x5c05961b. Its arguments bind the custody wallet, resolved recipient address, denomination and amount."
 budget_defund = "budget-defund targets 0x000000000000000000000000000000000000101b with budgetDefund(bytes32,uint128), binding the managed budget identifier and amount. Unsupported mechanisms refuse EVM call construction."

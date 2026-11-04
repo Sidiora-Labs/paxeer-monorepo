@@ -116,7 +116,9 @@ impl StorageScan {
     pub(crate) fn encode_for_guest(&self) -> Result<Vec<u8>, StorageError> {
         let entry_count =
             u16::try_from(self.entries.len()).map_err(|_| StorageError::SizeOverflow)?;
-        let mut encoded = Vec::new();
+        let capacity =
+            usize::try_from(self.metered_bytes).map_err(|_| StorageError::SizeOverflow)?;
+        let mut encoded = Vec::with_capacity(capacity);
         encoded.extend_from_slice(&entry_count.to_be_bytes());
         for entry in &self.entries {
             let key_len = u16::try_from(entry.key.len()).map_err(|_| StorageError::SizeOverflow)?;
@@ -165,7 +167,11 @@ impl ScanCursor {
         let prefix_len =
             u16::try_from(self.prefix.len()).map_err(|_| StorageError::SizeOverflow)?;
         let after_len = u16::try_from(self.after.len()).map_err(|_| StorageError::SizeOverflow)?;
-        let mut encoded = Vec::with_capacity(MAX_STORAGE_SCAN_CURSOR_BYTES);
+        let mut encoded = Vec::with_capacity(cursor_encoded_len(
+            self.namespace.len(),
+            self.prefix.len(),
+            self.after.len(),
+        )?);
         encoded.push(CURSOR_VERSION);
         encoded.push(namespace_len);
         encoded.extend_from_slice(&self.namespace);
@@ -297,74 +303,84 @@ pub(crate) fn scan_cells(
             address.namespace == namespace && address.key.starts_with(prefix)
         })
         .peekable();
-    let mut entries = Vec::new();
+    let max_entries =
+        usize::try_from(limits.max_entries()).map_err(|_| StorageError::SizeOverflow)?;
+    let max_bytes = usize::try_from(limits.max_bytes()).map_err(|_| StorageError::SizeOverflow)?;
+    let mut namespace_bytes = [0; MAX_CURSOR_NAMESPACE_BYTES];
+    let namespace_len = namespace.write_canonical(&mut namespace_bytes);
+    let mut entries = Vec::with_capacity(max_entries);
+    let mut entries_bytes = MIN_STORAGE_SCAN_PAGE_BYTES as usize;
+    let mut encoded_bytes = entries_bytes;
+    let mut cursor_after = None;
 
     while let Some((address, value)) = matching.next() {
         let has_more = matching.peek().is_some();
-        if entries.len()
-            == usize::try_from(limits.max_entries()).map_err(|_| StorageError::SizeOverflow)?
-        {
-            return page_with_cursor(namespace, prefix, limits, entries);
-        }
-        entries.push(ScanEntry {
-            key: address.key.clone(),
-            value: value.clone(),
-        });
-        let cursor = if has_more {
-            Some(ScanCursor::issued(namespace, prefix, limits, &address.key).encode()?)
+        let candidate_entries_bytes = entries_bytes
+            .checked_add(entry_encoded_len(&address.key, value)?)
+            .ok_or(StorageError::SizeOverflow)?;
+        let cursor_bytes = if has_more {
+            cursor_encoded_len(namespace_len, prefix.len(), address.key.len())?
         } else {
-            None
+            0
         };
-        let page = page(entries.clone(), cursor)?;
-        if page.metered_bytes > u64::from(limits.max_bytes()) {
-            let _ = entries.pop();
+        let candidate_bytes = candidate_entries_bytes
+            .checked_add(cursor_bytes)
+            .ok_or(StorageError::SizeOverflow)?;
+        if candidate_bytes > max_bytes {
             if entries.is_empty() {
                 return Err(StorageError::ScanCeilingExceeded);
             }
-            return page_with_cursor(namespace, prefix, limits, entries);
+            break;
         }
-        if has_more
-            && entries.len()
-                == usize::try_from(limits.max_entries()).map_err(|_| StorageError::SizeOverflow)?
-        {
-            return Ok(page);
-        }
-        if !has_more {
-            return Ok(page);
+        entries.push((address, value));
+        entries_bytes = candidate_entries_bytes;
+        encoded_bytes = candidate_bytes;
+        cursor_after = has_more.then_some(address.key.as_slice());
+        if entries.len() == max_entries || !has_more {
+            break;
         }
     }
-    page(Vec::new(), None)
-}
 
-fn page_with_cursor(
-    namespace: StorageNamespace,
-    prefix: &[u8],
-    limits: ScanLimits,
-    entries: Vec<ScanEntry>,
-) -> Result<StorageScan, StorageError> {
-    let cursor = {
-        let after = entries
-            .last()
-            .map(|entry| entry.key.as_slice())
-            .ok_or(StorageError::ScanCeilingExceeded)?;
-        ScanCursor::issued(namespace, prefix, limits, after).encode()?
-    };
-    let page = page(entries, Some(cursor))?;
-    if page.metered_bytes > u64::from(limits.max_bytes()) {
-        return Err(StorageError::ScanCeilingExceeded);
-    }
-    Ok(page)
-}
-
-fn page(entries: Vec<ScanEntry>, cursor: Option<Vec<u8>>) -> Result<StorageScan, StorageError> {
-    let mut page = StorageScan {
+    let cursor = cursor_after
+        .map(|after| ScanCursor::issued(namespace, prefix, limits, after).encode())
+        .transpose()?;
+    let metered_bytes = u64::try_from(encoded_bytes).map_err(|_| StorageError::SizeOverflow)?;
+    let entries = entries
+        .into_iter()
+        .map(|(address, value)| ScanEntry {
+            key: address.key.clone(),
+            value: value.clone(),
+        })
+        .collect();
+    Ok(StorageScan {
         entries,
         cursor,
-        metered_bytes: 0,
-    };
-    page.metered_bytes =
-        u64::try_from(page.encode_for_guest()?.len()).map_err(|_| StorageError::SizeOverflow)?;
-    Ok(page)
+        metered_bytes,
+    })
+}
+
+fn entry_encoded_len(key: &[u8], value: &[u8]) -> Result<usize, StorageError> {
+    u16::try_from(key.len()).map_err(|_| StorageError::SizeOverflow)?;
+    u32::try_from(value.len()).map_err(|_| StorageError::SizeOverflow)?;
+    6_usize
+        .checked_add(key.len())
+        .and_then(|length| length.checked_add(value.len()))
+        .ok_or(StorageError::SizeOverflow)
+}
+
+fn cursor_encoded_len(
+    namespace_len: usize,
+    prefix_len: usize,
+    after_len: usize,
+) -> Result<usize, StorageError> {
+    u8::try_from(namespace_len).map_err(|_| StorageError::SizeOverflow)?;
+    u16::try_from(prefix_len).map_err(|_| StorageError::SizeOverflow)?;
+    u16::try_from(after_len).map_err(|_| StorageError::SizeOverflow)?;
+    14_usize
+        .checked_add(namespace_len)
+        .and_then(|length| length.checked_add(prefix_len))
+        .and_then(|length| length.checked_add(after_len))
+        .ok_or(StorageError::SizeOverflow)
 }
 
 #[cfg(test)]

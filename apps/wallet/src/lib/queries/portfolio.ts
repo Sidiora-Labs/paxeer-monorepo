@@ -10,6 +10,7 @@ import {
 } from '@/lib/api';
 import type { BalanceResponse } from '@/lib/api';
 import { queryKeys } from './keys';
+import { selectedWalletChainId } from '../wallet-read-contract';
 
 type PortfolioData = Awaited<ReturnType<typeof fetchPortfolio>>;
 type PaxPriceData = Awaited<ReturnType<typeof fetchPaxPriceLatest>>;
@@ -20,7 +21,7 @@ type PaxPriceData = Awaited<ReturnType<typeof fetchPaxPriceLatest>>;
  */
 export function usePortfolioQuery(
   address: string | undefined,
-  options?: Partial<UseQueryOptions<PortfolioData>>,
+  options?: Partial<UseQueryOptions<PortfolioData>>
 ) {
   return useQuery<PortfolioData>({
     queryKey: queryKeys.portfolio(address ?? ''),
@@ -49,7 +50,7 @@ export function usePaxPriceQuery(symbol: string = 'PAX') {
  */
 export function useBalanceQuery(
   address: string | undefined,
-  options?: Partial<UseQueryOptions<BalanceResponse | null>>,
+  options?: Partial<UseQueryOptions<BalanceResponse | null>>
 ) {
   return useQuery<BalanceResponse | null>({
     queryKey: queryKeys.balance(address ?? ''),
@@ -69,16 +70,19 @@ export function useReconcilePortfolio() {
   const qc = useQueryClient();
 
   return async (address: string) => {
+    const chainId = selectedWalletChainId();
+    const portfolioKey = queryKeys.portfolio(address);
+    const balanceKey = queryKeys.balance(address);
     const [freshPortfolio, freshBalance] = await Promise.all([
-      fetchPortfolioFresh(address).catch(() => null),
-      fetchBalanceFresh(address).catch(() => null),
+      fetchPortfolioFresh(address, { chainId }).catch(() => null),
+      fetchBalanceFresh(address, { chainId }).catch(() => null),
     ]);
 
     if (freshPortfolio) {
-      qc.setQueryData(queryKeys.portfolio(address), freshPortfolio);
+      qc.setQueryData(portfolioKey, freshPortfolio);
     }
     if (freshBalance) {
-      qc.setQueryData(queryKeys.balance(address), freshBalance);
+      qc.setQueryData(balanceKey, freshBalance);
     }
   };
 }
@@ -90,10 +94,13 @@ export function useReconcilePortfolio() {
 export function useOptimisticPortfolioUpdate() {
   const qc = useQueryClient();
 
-  return (address: string, updater: (prev: PortfolioData | undefined) => PortfolioData | undefined) => {
+  return (
+    address: string,
+    updater: (prev: PortfolioData | undefined) => PortfolioData | undefined
+  ) => {
     qc.setQueryData<PortfolioData | undefined>(
       queryKeys.portfolio(address),
-      (prev: PortfolioData | undefined) => updater(prev),
+      (prev: PortfolioData | undefined) => updater(prev)
     );
   };
 }

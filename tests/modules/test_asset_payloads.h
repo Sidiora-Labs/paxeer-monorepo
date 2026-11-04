@@ -32,7 +32,7 @@ static int test_asset_payloads(lxp_kernel *kernel)
     const lxp_module_iface *iface = lx_asset_module_iface();
     const uint32_t expected[] = {LX_ASSET_REGISTER, LX_ASSET_PAUSE,
         LX_ASSET_UNPAUSE, LX_ASSET_ACCOUNT_OPEN, LX_ASSET_SEND,
-        LX_ASSET_WITHDRAW, LX_ASSET_MINT, LX_ASSET_BURN};
+        LX_ASSET_MINT, LX_ASSET_BURN};
     uint8_t arena_bytes[8192];
     uint8_t bytes[1024] = {0};
     uint8_t roundtrip[1024];
@@ -55,6 +55,7 @@ static int test_asset_payloads(lxp_kernel *kernel)
     PAYLOAD_CHECK(lxp_module_ctx_init(ctx, kernel, LXP_MODULE_ASSET,
         0U, 0U, 0U, UINT64_MAX, &arena, false) == LXP_OK);
     PAYLOAD_CHECK(iface->decode(ctx, 12U, bytes, 0U, &decoded) == LXP_ERR_UNKNOWN_ACTIVITY);
+    PAYLOAD_CHECK(iface->decode(ctx, 9U, bytes, 108U, &decoded) == LXP_ERR_UNKNOWN_ACTIVITY);
     bytes[1] = 1U;
     bytes[2] = 7U;
     bytes[34] = 8U;

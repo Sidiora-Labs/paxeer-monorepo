@@ -1,0 +1,52 @@
+[repair.22.33.1477]
+audit = "22.30.86"
+mode = "BUILD"
+status = "implemented-awaiting-bounded-qualification"
+baseline = "Not run: the explicit implementation-first order and ban on manually running verify_cmd take precedence over step 6; no pre-change failure is claimed."
+verification = "hf-build then hf-done; the runner's private gate ledger records the verified candidate revision, command, exit code and log. No gate result is claimed here before execution."
+scope = "Buyer src and test only. Grant capture binds the signed receipt envelope to the recovered EIP-1559 sender and ledger destination, independently of the grant payer and recipient. No native artifacts are changed."
+
+[finding.buyer-draw-fixture]
+test = "buyerDrawFixture, registered in grant-draw-header.test.mjs and repair-22-33-1477.test.mjs"
+implementation = "Separate payer 11 and recipient 66 in calldata, offer, signed event and settlement; preserve every existing mutation assertion. The shared production fetchGrant walkthrough checks the root RPC request/response, unknown and submitted observations, refusal, reopened consumer and peers, authenticated wrong-payer/recipient rejection and recovery without resubmission. The repair gate also imports the original test file and executes its signed wrong-envelope cases in captureGrantSettlementRequiresDrawHash."
+
+[finding.buyer-export-draw-fixture]
+test = "buyerExportDrawFixture, registered in proof_middleware_buyer_ts_exports.test.mjs and repair-22-33-1477.test.mjs"
+implementation = "Encode the seller's payTo as the draw recipient while retaining the independently declared payer. Run the same transport and recovery walkthrough through both real Express and Next exports for metered and subscription offers. The repair gate imports the original export proof, including its real buyer-agent and integration consumer paths."
+
+[evidence.boundary]
+provenance = "support/grant-draw-transcript.json copies the committed signed conformance cases from repair-22-31-436.test.mjs verbatim; these bytes were not produced by native ledger execution. No new receipt signer or ledger substitute is introduced."
+native_refusal_test = "buyerGrantRefusesAuthenticNodeExactEvent authenticates the committed native PaymentExact witness and refuses it for both grant schemes; a successful exact payment cannot stand in for PaymentDrawn."
+restart = "The test stops and reopens both HTTP peers and replaces the buyer while retaining the peer's in-memory accepted transaction and caller-owned raw bytes/hash; this proves consumer recovery only, not native ledger persistence or debit count."
+limitation = "The committed signed draw transcript qualifies the production buyer consumer against recorded peer responses under step 7; it does not establish native keeper persistence or claim that these conformance bytes came from a live node. Native ledger execution is not part of this in-process consumer gate."
+
+[wiring.ledger]
+request = "sdk/platform/conformance/fixtures — owning ledger/node domain: publish native-node PaymentDrawn recordings with distinct payer and recipient for independent native execution and persistence qualification; the buyer draw correction is implemented in buyer/src/index.ts here."
+
+[gotcha.task-record]
+observed = "Attempt 2 builds SDK, seller and buyer from the root workspace. production-sources.mjs loads only the unbuilt integration peers from actual TypeScript modules; the component under repair runs from the buyer dist built by the gate. The Node tests need no subprocess toolchain, external endpoint or credential."
+
+[qualification.install]
+revision = "af0851220808ddd2a5e3e31a718190e13053ebaf"
+command = "npm --prefix services/platform/middleware/buyer install --no-audit --no-fund && node --check services/platform/middleware/buyer/test/grant-draw-header.test.mjs services/platform/middleware/buyer/test/proof_middleware_buyer_ts_exports.test.mjs"
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "The unchanged buyer manifest's install requests @sidiora/layerx-sdk@0.1.0 from registry.npmjs.org and receives E404 before the syntax check; hf-done cannot run after a failed build."
+assumption = "The attempt-2 ruling replaces this failed command with root npm ci and dependency-ordered builds; retain this historical evidence without rerunning the superseded install."
+
+[gotcha.receipt-identities]
+observed = "The grant payer, draw recipient and recovered EVM transaction signer are three independent identities. Grant capture must authenticate the receipt envelope against the signed transaction while authenticating PaymentDrawn against the grant offer, without substituting the payer or recipient for the transaction signer."
+
+[qualification.grant-resolver]
+revision = "a23e740e613c743c034b203913914cd4e38d1688"
+command = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && npm --prefix services/platform/middleware/seller run build && npm --prefix services/platform/middleware/buyer run build"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "Buyer grant capture's commitment resolver wrapper omitted the required resolveValidators method (TS2345); forward it to the configured production resolver without weakening validator checks."
+
+[qualification.draw-fixtures]
+revision = "2dde8b7233d71190e2f967ee7312a945a6f87534"
+command = "cg spec done 22.33.1477 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The walkthrough encoded a definitive refusal with a nonempty transaction, and the export fixture decoded an unprefixed recipient with a prefixed decoder; use the canonical empty refusal transaction and original 32-byte recipient, with explicit refusal shape assertions."

@@ -5,7 +5,10 @@ The restoration epoch controls application/database and broker authority;
 committed network blocks remain the source of chain finality. Start with the
 [recovery contracts](../README.md), and use the
 [release harness](../phase4/runbook.md) for measurement and shared-capture evaluation.
-All commands below run from the repository root.
+All commands below run from the repository root. Application recovery sources
+live under `deploy/launchpad/production/recovery`; admitted qualification and
+load sources live under `tools/launchpad/production` (including `load/`). Bind
+source digests to those checked-in paths before admitting a runner.
 
 ## Admission and proposal
 
@@ -33,11 +36,25 @@ The `base-backup` operation in [providers.py](providers.py) runs real `pg_baseba
 
 `PostgreSQL.restore_physical` verifies the physical backup and PostgreSQL system identifier before copying into a new target. It rejects links and special files, replaces inherited network/archive settings, binds an owned Unix socket and explicit port, and replays WAL to an absolute timestamp with `recovery_target_action=pause`. Supply the pinned WAL restore command using provider configuration/source digests; no secrets belong in its arguments. Query the paused target and independently reconcile committed marker, full fixed watermark, counts, integer amounts and stable identities before promotion. A successful process start alone does not prove PITR.
 
+`reconciliation.sql` streams canonical JSONB identity rows from one read-only
+repeatable-read snapshot. `PostgreSQL.document` returns SHA256 digests and checked
+counts for every stream, alongside the snapshot, authority and exact raw integer
+totals. The existing phase4 collector consumes this document through that same
+method. Compare every digest and count at the fixed checkpoint; never truncate
+the retained identity dataset. The transport permits at most 2 MiB per row and
+16 GiB per capture within the existing 30-second invocation deadline. SQL keeps
+the 20-second statement and 2-second lock limits, uses 8 MiB sort memory without
+parallel workers, and requires an administrator-pinned `temp_file_limit` of at
+most 256 MiB. An unlimited disk setting, exhausted budget, interrupted stream or
+count mismatch fails the capture. Have the serial database migration owner pin
+the coordinator role's disk limit before admission; application credentials
+must not gain authority to change it.
+
 ## Fence the old application authority
 
 Before validation, the coordinator invokes the actual `natsdriver.BrokerEpochController.Fence` against every old-epoch member. Its durable `recovery_broker_fences` row must be verified and less than five minutes old. Old-region database mutation and traffic fencing are separate required observations. A PostgreSQL guard alone cannot revoke broker acknowledgments.
 
-The owned `phase2/broker` executable exposes the explicit `fence` operation with required `--configuration`, `--configuration-sha256`, `--realm`, `--source-sha256`, `--interface-sha256`, `--deployment-sha256`, `--inventory-sha256` and `--proposal` bindings. Its strict private version 2 configuration contains the authenticated database principal and connection-file binding; exact epoch, revision, checkpoint, chain 125 addresses and resource ownership; and each real broker server identity, original/replacement configuration-file hashes, separate surviving control credential and revoked credential-file hashes, and bounded durable probe configuration. All input files must be owned regular mode 0600 files; unknown or duplicate fields fail. Credential JSON contains `id`, `username` and `password`; the private PostgreSQL connection JSON contains `connection_string`. Neither appears in output.
+The executable built from `deploy/launchpad/production/recovery/phase2/broker` exposes the explicit `fence` operation with required `--configuration`, `--configuration-sha256`, `--realm`, `--source-sha256`, `--interface-sha256`, `--deployment-sha256`, `--inventory-sha256` and `--proposal` bindings. Its strict private version 2 configuration contains the authenticated database principal and connection-file binding; exact epoch, revision, checkpoint, chain 125 addresses and resource ownership; and each real broker server identity, original/replacement configuration-file hashes, separate surviving control credential and revoked credential-file hashes, and bounded durable probe configuration. All input files must be owned regular mode 0600 files; unknown or duplicate fields fail. Credential JSON contains `id`, `username` and `password`; the private PostgreSQL connection JSON contains `connection_string`. Neither appears in output.
 
 The CLI verifies the actual PostgreSQL proposal and authenticated actor, connects to each exact NATS server, validates the actual file-backed probe consumer with old-epoch credentials, then calls the typed broker controller. The controller writes its applying state before replacing the pinned broker configurations, reloads through surviving authenticated server authority, and verifies old authentication, publication and acknowledgment rejection. The CLI confirms the persisted verified evidence and proof digest before returning the actual result. Failure can leave some brokers fenced and the durable operation failed; preserve that audit and reconcile deliberately. It never reverses revocation, fabricates a fence receipt or advances the restoration epoch. Production NATS and PostgreSQL connections require verified TLS; the isolated realm permits owned local fixtures.
 
@@ -84,9 +101,30 @@ Each admitted native executable receives explicit realm, configuration, requirem
 The independent runner signs a v3 inventory `{payload,hmac_sha256}` containing version, realm, identity, proposal ID, expected epoch, revision, checkpoint digest, exact v2 observation digest and a `scenarios` map. Each requirement binds `path`, SHA256 and input digest of its native receipt. The archive rejects changed, reused, non-private, unadmitted-executable or failed receipts, validates all native results, and checks their times against the corresponding fault/evidence intervals. Signing a summary without these receipts cannot validate recovery.
 
 Reuse the configuration, configuration digest and proposal arguments above.
-Use `operator.py ... --operation validate --observations <signed-v2-file> --scenarios <signed-v3-file>`, then `--operation activate` with the same files. The v3 path records both digests and the earliest observation expiry in the same transaction as validation and audit. `activate_fenced_v3` locks control/proposal/validation in order, binds the database session principal, requires the identical fresh digests and an actual verified broker fence, then atomically advances authority and writes its audit. Register this resource and exact coordinator grants through the serial migration owner. Production v3 coordinators must not retain direct execution grants on legacy activation functions or direct application control-table writes.
+Use the canonical operator entry point for validation and activation:
 
-If the activation response is interrupted, use `operator.py ... --operation status` to reconcile the durable proposal, authority and single activation audit. Repeating activation does not create another epoch. Never undo old-primary broker revocation or automatically fail back after partial activation.
+```sh
+python3 deploy/launchpad/production/recovery/phase2/operator.py \
+  --configuration <private-file> --configuration-sha256 <trusted-digest> \
+  --proposal <proposal-file> --operation validate \
+  --observations <signed-v2-file> --scenarios <signed-v3-file>
+python3 deploy/launchpad/production/recovery/phase2/operator.py \
+  --configuration <private-file> --configuration-sha256 <trusted-digest> \
+  --proposal <proposal-file> --operation activate \
+  --observations <signed-v2-file> --scenarios <signed-v3-file>
+```
+
+The v3 path records both digests and the earliest observation expiry in the same transaction as validation and audit. `activate_fenced_v3` locks control/proposal/validation in order, binds the database session principal, requires the identical fresh digests and an actual verified broker fence, then atomically advances authority and writes its audit. Register this resource and exact coordinator grants through the serial migration owner. Production v3 coordinators must not retain direct execution grants on legacy activation functions or direct application control-table writes.
+
+If the activation response is interrupted, reconcile with the same admitted configuration and proposal:
+
+```sh
+python3 deploy/launchpad/production/recovery/phase2/operator.py \
+  --configuration <private-file> --configuration-sha256 <trusted-digest> \
+  --proposal <proposal-file> --operation status
+```
+
+Use the result to reconcile the durable proposal, authority and single activation audit. Repeating activation does not create another epoch. Never undo old-primary broker revocation or automatically fail back after partial activation.
 
 ## Focused v3 check
 

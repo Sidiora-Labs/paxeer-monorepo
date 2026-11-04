@@ -130,6 +130,9 @@ func New(ctx context.Context, d Deps) (*Runtime, error) {
 		interactions: &interactions.HTTP{Store: store, Policy: &interactions.PGPolicy{DB: d.Pool}, Cache: interactions.NewViewerCache(d.Redis)},
 		Chat:         &fanout.DurableStore{Pool: d.Pool, Policy: policy.SendChat, CursorKey: key, ChannelNamespace: d.ChannelNamespace, Clock: d.Clock},
 	}
+	if d.Pools == CanonicalPools {
+		rt.Chat.ReadPolicy = policy.ReadChat
+	}
 	return rt, nil
 }
 

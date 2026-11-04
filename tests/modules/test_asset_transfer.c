@@ -1,6 +1,7 @@
 #include "../ledger/test_values.h"
 
 #include "layerx/lx_asset.h"
+#include "../../src/modules/asset/lx_asset_native.h"
 #include "layerx/lxp_hash.h"
 #include "layerx/lxp_kernel.h"
 #include "layerx/lxp_receipt.h"
@@ -114,7 +115,7 @@ static int init_ctx(lxp_module_ctx *ctx, lxp_kernel *kernel, lxp_arena *arena,
     return TEST_EQ(lxp_module_ctx_bind_effects(ctx, effects), LXP_OK) ? 0 : 1;
 }
 
-int main(void)
+static int test_native_send_reconciles(void)
 {
     static const uint8_t seed[32] = {
         0x9dU, 0x61U, 0xb1U, 0x9dU, 0xefU, 0xfdU, 0x5aU, 0x60U,
@@ -124,6 +125,7 @@ int main(void)
     };
     static const uint8_t actor_did[] = "did:key:a";
     lx_asset_record asset;
+    lx_asset_registry assets;
     lxp_transfer_asset_state asset_state;
     lx_account_registry accounts;
     lx_account *from;
@@ -157,6 +159,7 @@ int main(void)
 
     (void)memset(&asset, 0, sizeof(asset));
     asset.asset_id[0] = 1U;
+    asset.total_units.lo = 100U;
     asset.symbol_length = 1U;
     (void)memcpy(asset.symbol, "A", 2U);
     asset.name[0] = (uint8_t)'A';
@@ -166,7 +169,9 @@ int main(void)
     asset.custody_kind = LX_ASSET_CUSTODY_PAXEER;
     asset.custody_reference[0] = 1U;
     asset.custody_reference_length = 1U;
-    if (!TEST_EQ(lx_asset_transfer_state(&asset, &asset_state), LXP_OK) ||
+    if (!TEST_EQ(lx_asset_registry_init(&assets, 0U), LXP_OK) ||
+        !TEST_EQ(lx_asset_register(&assets, &asset, 0U, (lxp_u128){0U, 0U}), LXP_OK) ||
+        !TEST_EQ(lx_asset_transfer_state(&asset, &asset_state), LXP_OK) ||
         !TEST_EQ(lx_account_registry_init(&accounts), LXP_OK) ||
         !TEST_EQ(lx_account_id_from_string((const uint8_t *)from_name, strlen(from_name),
                                   from_id), LXP_OK) ||
@@ -197,6 +202,7 @@ int main(void)
     if (!TEST_EQ(lxp_kernel_bind_module_runtime(&kernel, LXP_MODULE_ASSET, &runtime), LXP_OK) ||
         !TEST_EQ(lxp_kernel_module_for_activity(&kernel, LX_ASSET_SEND, 0U,
                                        &registration), LXP_OK) ||
+        !TEST_EQ(lx_asset_supply_check(&assets, &accounts, NULL, 0U), LXP_OK) ||
         !TEST_EQ(lxp_state_root(&kernel, root_before), LXP_OK) ||
         !TEST_EQ(init_ctx(&ctx, &kernel, &arena, &effects, 1U, 1U), 0))
         return 1;
@@ -220,6 +226,7 @@ int main(void)
         !TEST_EQ(balances(from, to, 100U, 0U), 1) ||
         !TEST_EQ(lx_asset_send_execute(&ctx, &request, &receipt), LXP_OK) ||
         !TEST_EQ(balances(from, to, 75U, 25U), 1) ||
+        !TEST_EQ(lx_asset_native_supply_check(&assets, &accounts), LXP_OK) ||
         !TEST_EQ(from->next_sequence, 1U) ||
         !TEST_EQ(effects.count, 1U) ||
         !TEST_EQ(effects.effects[0].monetary, 1) ||
@@ -300,6 +307,7 @@ int main(void)
         !TEST_EQ(module_result, LXP_OK) ||
         !TEST_EQ(ctx.ledger_receipt_present, 1) ||
         !TEST_EQ(balances(from, to, 75U, 25U), 1) ||
+        !TEST_EQ(lx_asset_native_supply_check(&assets, &accounts), LXP_OK) ||
         !TEST_EQ(from->next_sequence, 1U) ||
         !TEST_EQ(effects.count, 1U) ||
         !TEST_EQ(effects.effects[0].monetary, 1) ||
@@ -322,6 +330,7 @@ int main(void)
                       &effects, &module_result), LXP_OK) ||
         !TEST_EQ(module_result, LXP_ERR_SEQUENCE_MISMATCH) ||
         !TEST_EQ(balances(from, to, 75U, 25U), 1) ||
+        !TEST_EQ(lx_asset_native_supply_check(&assets, &accounts), LXP_OK) ||
         !TEST_EQ(from->next_sequence, 1U) ||
         !TEST_EQ(effects.count, 0U) ||
         !TEST_EQ(!!(ctx.ledger_receipt_present), 0))
@@ -338,6 +347,7 @@ int main(void)
                       &effects, &module_result), LXP_OK) ||
         !TEST_EQ(module_result, LXP_ERR_INSUFFICIENT_BALANCE) ||
         !TEST_EQ(balances(from, to, 75U, 25U), 1) ||
+        !TEST_EQ(lx_asset_native_supply_check(&assets, &accounts), LXP_OK) ||
         !TEST_EQ(from->next_sequence, 1U) ||
         !TEST_EQ(effects.count, 0U) ||
         !TEST_EQ(!!(ctx.ledger_receipt_present), 0))
@@ -353,6 +363,7 @@ int main(void)
                       &effects, &module_result), LXP_OK) ||
         !TEST_EQ(module_result, LXP_ERR_UNAUTHORIZED_DEBIT) ||
         !TEST_EQ(balances(from, to, 75U, 25U), 1) ||
+        !TEST_EQ(lx_asset_native_supply_check(&assets, &accounts), LXP_OK) ||
         !TEST_EQ(from->next_sequence, 1U) ||
         !TEST_EQ(effects.count, 0U) ||
         !TEST_EQ(!!(ctx.ledger_receipt_present), 0))
@@ -366,6 +377,7 @@ int main(void)
                       &effects, &module_result), LXP_OK) ||
         !TEST_EQ(module_result, LXP_ERR_SEQUENCE_MISMATCH) ||
         !TEST_EQ(balances(from, to, 75U, 25U), 1) ||
+        !TEST_EQ(lx_asset_native_supply_check(&assets, &accounts), LXP_OK) ||
         !TEST_EQ(from->next_sequence, 1U) ||
         !TEST_EQ(effects.count, 0U) ||
         !TEST_EQ(!!(ctx.ledger_receipt_present), 0))
@@ -379,10 +391,16 @@ int main(void)
                       &effects, &module_result), LXP_OK) ||
         !TEST_EQ(module_result, LXP_ERR_UNAUTHORIZED_DEBIT) ||
         !TEST_EQ(balances(from, to, 75U, 25U), 1) ||
+        !TEST_EQ(lx_asset_native_supply_check(&assets, &accounts), LXP_OK) ||
         !TEST_EQ(from->next_sequence, 1U) ||
         !TEST_EQ(effects.count, 0U) ||
         !TEST_EQ(!!(ctx.ledger_receipt_present), 0) ||
         !TEST_EQ(lxp_state_store_destroy(&state), LXP_OK))
         return 1;
     return 0;
+}
+
+int main(void)
+{
+    return test_native_send_reconciles();
 }

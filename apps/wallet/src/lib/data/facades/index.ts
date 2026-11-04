@@ -22,6 +22,7 @@ export {
 } from './wallet';
 
 export type {
+  WalletValuation,
   WalletNativeBalance,
   WalletTokenHolding,
   WalletPortfolio,

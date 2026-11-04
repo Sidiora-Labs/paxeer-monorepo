@@ -1,382 +1,168 @@
 package cli_test
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
 	"fmt"
-	"strings"
+	"testing"
 
-	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client/flags"
+	"github.com/gogo/protobuf/proto"
+	"github.com/spf13/cobra"
+	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v2"
+
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
+	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/gov/client/cli"
+	gcutils "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/gov/client/utils"
+	govtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/gov/types"
 )
 
-func (s *CLITestSuite) TestCmdParams() {
-	testCases := []struct {
-		name         string
-		args         []string
-		expCmdOutput string
-	}{
-		{
-			"json output",
-			[]string{fmt.Sprintf("--%s=json", flags.FlagOutput)},
-			"--output=json",
-		},
-		{
-			"text output",
-			[]string{fmt.Sprintf("--%s=text", flags.FlagOutput)},
-			"--output=text",
-		},
-	}
-
-	for _, tc := range testCases {
-		tc := tc
-
-		s.Run(tc.name, func() {
-			cmd := cli.GetCmdQueryParams()
-			cmd.SetArgs(tc.args)
-
-			s.Require().Contains(fmt.Sprint(cmd), strings.TrimSpace(tc.expCmdOutput))
-		})
-	}
+func repair675Execute(ctx context.Context, clientCtx client.Context, cmd *cobra.Command, args ...string) (string, error) {
+	var output bytes.Buffer
+	clientCtx = clientCtx.WithOutput(&output)
+	cmd.SetOut(&output)
+	cmd.SetErr(&output)
+	cmd.SilenceErrors = true
+	cmd.SilenceUsage = true
+	cmd.SetArgs(args)
+	err := cmd.ExecuteContext(context.WithValue(ctx, client.ClientContextKey, &clientCtx))
+	return output.String(), err
 }
 
-func (s *CLITestSuite) TestCmdParam() {
-	testCases := []struct {
-		name         string
-		args         []string
-		expCmdOutput string
-	}{
-		{
-			"voting params",
-			[]string{
-				"voting",
-				fmt.Sprintf("--%s=json", flags.FlagOutput),
-			},
-			`voting --output=json`,
-		},
-		{
-			"tally params",
-			[]string{
-				"tallying",
-				fmt.Sprintf("--%s=json", flags.FlagOutput),
-			},
-			`tallying --output=json`,
-		},
-		{
-			"deposit params",
-			[]string{
-				"deposit",
-				fmt.Sprintf("--%s=json", flags.FlagOutput),
-			},
-			`deposit --output=json`,
-		},
+func repair675QueryCase(t *testing.T, name string) {
+	t.Helper()
+	chain := newRepair308Chain(t, "kv")
+	voter := sdk.AccAddress(bytes.Repeat([]byte{11}, 20))
+	other := sdk.AccAddress(bytes.Repeat([]byte{12}, 20))
+	require.NoError(t, chain.keeper.AddVote(chain.ctx, chain.proposal.ProposalId, voter, govtypes.NewNonSplitVoteOption(govtypes.OptionYes)))
+	deposit := govtypes.NewDeposit(chain.proposal.ProposalId, voter, sdk.NewCoins(sdk.NewInt64Coin("stake", 37)))
+	chain.keeper.SetDeposit(chain.ctx, deposit)
+	chain.commit()
+	clientCtx := chain.client(t)
+	id := fmt.Sprint(chain.proposal.ProposalId)
+	query := func(cmd *cobra.Command, args ...string) string {
+		t.Helper()
+		output, err := repair675Execute(t.Context(), clientCtx, cmd, append(args, "--output=json")...)
+		require.NoError(t, err)
+		return output
 	}
-
-	for _, tc := range testCases {
-		tc := tc
-
-		s.Run(tc.name, func() {
-			cmd := cli.GetCmdQueryParam()
-			cmd.SetArgs(tc.args)
-			s.Require().Contains(fmt.Sprint(cmd), strings.TrimSpace(tc.expCmdOutput))
-		})
+	fails := func(cmd *cobra.Command, args ...string) {
+		t.Helper()
+		output, err := repair675Execute(t.Context(), clientCtx, cmd, args...)
+		require.Error(t, err)
+		require.Empty(t, output)
 	}
-}
-
-func (s *CLITestSuite) TestCmdProposer() {
-	testCases := []struct {
-		name         string
-		args         []string
-		expCmdOutput string
-	}{
-		{
-			"without proposal id",
-			[]string{
-				fmt.Sprintf("--%s=json", flags.FlagOutput),
-			},
-			"--output=json",
-		},
-		{
-			"with proposal id",
-			[]string{
-				"1",
-				fmt.Sprintf("--%s=json", flags.FlagOutput),
-			},
-			"1 --output=json",
-		},
+	decode := func(output string, target proto.Message) {
+		t.Helper()
+		require.NoError(t, clientCtx.Codec.UnmarshalAsJSON([]byte(output), target), output)
 	}
-
-	for _, tc := range testCases {
-		tc := tc
-
-		s.Run(tc.name, func() {
-			cmd := cli.GetCmdQueryProposer()
-			cmd.SetArgs(tc.args)
-			s.Require().Contains(fmt.Sprint(cmd), strings.TrimSpace(tc.expCmdOutput))
-		})
-	}
-}
-
-func (s *CLITestSuite) TestCmdTally() {
-	testCases := []struct {
-		name         string
-		args         []string
-		expCmdOutput string
-	}{
-		{
-			"without proposal id",
-			[]string{
-				fmt.Sprintf("--%s=json", flags.FlagOutput),
-			},
-			"--output=json",
-		},
-		{
-			"with proposal id (json output)",
-			[]string{
-				"2",
-				fmt.Sprintf("--%s=json", flags.FlagOutput),
-			},
-			"2 --output=json",
-		},
-		{
-			"with proposal id (text output)",
-			[]string{
-				"1",
-				fmt.Sprintf("--%s=text", flags.FlagOutput),
-			},
-			"1 --output=text",
-		},
-	}
-
-	for _, tc := range testCases {
-		tc := tc
-
-		s.Run(tc.name, func() {
-			cmd := cli.GetCmdQueryTally()
-			cmd.SetArgs(tc.args)
-			s.Require().Contains(fmt.Sprint(cmd), strings.TrimSpace(tc.expCmdOutput))
-		})
-	}
-}
-
-func (s *CLITestSuite) TestCmdGetProposal() {
-	testCases := []struct {
-		name         string
-		args         []string
-		expCmdOutput string
-	}{
-		{
-			"get proposal with json response",
-			[]string{
-				"1",
-				fmt.Sprintf("--%s=json", flags.FlagOutput),
-			},
-			"1 --output=json",
-		},
-	}
-
-	for _, tc := range testCases {
-		tc := tc
-
-		s.Run(tc.name, func() {
-			cmd := cli.GetCmdQueryProposal()
-			cmd.SetArgs(tc.args)
-			s.Require().Contains(fmt.Sprint(cmd), strings.TrimSpace(tc.expCmdOutput))
-		})
-	}
-}
-
-func (s *CLITestSuite) TestCmdGetProposals() {
-	testCases := []struct {
-		name         string
-		args         []string
-		expCmdOutput string
-	}{
-		{
-			"get proposals as json response",
-			[]string{
-				fmt.Sprintf("--%s=json", flags.FlagOutput),
-			},
-			"--output=json",
-		},
-		{
-			"get proposals with invalid status",
-			[]string{
-				"--status=unknown",
-				fmt.Sprintf("--%s=json", flags.FlagOutput),
-			},
-			"--status=unknown --output=json",
-		},
-	}
-
-	for _, tc := range testCases {
-		tc := tc
-
-		s.Run(tc.name, func() {
-			cmd := cli.GetCmdQueryProposals()
-			cmd.SetArgs(tc.args)
-			s.Require().Contains(fmt.Sprint(cmd), strings.TrimSpace(tc.expCmdOutput))
-		})
-	}
-}
-
-func (s *CLITestSuite) TestCmdQueryDeposits() {
-	testCases := []struct {
-		name         string
-		args         []string
-		expCmdOutput string
-	}{
-		{
-			"get deposits",
-			[]string{
-				"10",
-			},
-			"10",
-		},
-		{
-			"get deposits(json output)",
-			[]string{
-				"1",
-				fmt.Sprintf("--%s=json", flags.FlagOutput),
-			},
-			"1 --output=json",
-		},
-	}
-
-	for _, tc := range testCases {
-		tc := tc
-		s.Run(tc.name, func() {
-			cmd := cli.GetCmdQueryDeposits()
-			cmd.SetArgs(tc.args)
-			s.Require().Contains(fmt.Sprint(cmd), strings.TrimSpace(tc.expCmdOutput))
-		})
-	}
-}
-
-func (s *CLITestSuite) TestCmdQueryDeposit() {
-	val := s.validators
-
-	testCases := []struct {
-		name         string
-		args         []string
-		expCmdOutput string
-	}{
-		{
-			"get deposit with no depositer",
-			[]string{
-				"1",
-			},
-			"1",
-		},
-		{
-			"get deposit with wrong deposit address",
-			[]string{
-				"1",
-				"wrong address",
-			},
-			"1 wrong address",
-		},
-		{
-			"get deposit (valid req)",
-			[]string{
-				"1",
-				val[0].Address.String(),
-				fmt.Sprintf("--%s=json", flags.FlagOutput),
-			},
-			fmt.Sprintf("1 %s --output=json", val[0].Address.String()),
-		},
-	}
-
-	for _, tc := range testCases {
-		tc := tc
-		s.Run(tc.name, func() {
-			cmd := cli.GetCmdQueryDeposit()
-			cmd.SetArgs(tc.args)
-			s.Require().Contains(fmt.Sprint(cmd), strings.TrimSpace(tc.expCmdOutput))
-		})
-	}
-}
-
-func (s *CLITestSuite) TestCmdQueryVotes() {
-	testCases := []struct {
-		name         string
-		args         []string
-		expCmdOutput string
-	}{
-		{
-			"get votes with no proposal id",
-			[]string{},
-			"",
-		},
-		{
-			"get votes of a proposal",
-			[]string{
-				"10",
-			},
-			"10",
-		},
-		{
-			"get votes of a proposal (json output)",
-			[]string{
-				"1",
-				fmt.Sprintf("--%s=json", flags.FlagOutput),
-			},
-			"1 --output=json",
-		},
-	}
-
-	for _, tc := range testCases {
-		tc := tc
-		s.Run(tc.name, func() {
-			cmd := cli.GetCmdQueryVotes()
-			cmd.SetArgs(tc.args)
-			s.Require().Contains(fmt.Sprint(cmd), strings.TrimSpace(tc.expCmdOutput))
-		})
-	}
-}
-
-func (s *CLITestSuite) TestCmdQueryVote() {
-	val := s.validators
-
-	testCases := []struct {
-		name         string
-		args         []string
-		expCmdOutput string
-	}{
-		{
-			"get vote of a proposal",
-			[]string{
-				"10",
-				val[0].Address.String(),
-			},
-			fmt.Sprintf("10 %s", val[0].Address.String()),
-		},
-		{
-			"get vote by wrong voter",
-			[]string{
-				"1",
-				"wrong address",
-			},
-			"1 wrong address",
-		},
-		{
-			"get vote of a proposal (json output)",
-			[]string{
-				"1",
-				val[0].Address.String(),
-				fmt.Sprintf("--%s=json", flags.FlagOutput),
-			},
-			fmt.Sprintf("1 %s --output=json", val[0].Address.String()),
-		},
-	}
-
-	for _, tc := range testCases {
-		tc := tc
-		s.Run(tc.name, func() {
-			cmd := cli.GetCmdQueryVote()
-			cmd.SetArgs(tc.args)
-
-			if len(tc.args) != 0 {
-				s.Require().Contains(fmt.Sprint(cmd), strings.TrimSpace(tc.expCmdOutput))
+	switch name {
+	case "params":
+		var params govtypes.Params
+		require.NoError(t, clientCtx.LegacyAmino.UnmarshalAsJSON([]byte(query(cli.GetCmdQueryParams())), &params))
+		require.Equal(t, govtypes.NewParams(chain.keeper.GetVotingParams(chain.ctx), chain.keeper.GetTallyParams(chain.ctx), chain.keeper.GetDepositParams(chain.ctx)), params)
+		output, err := repair675Execute(t.Context(), clientCtx, cli.GetCmdQueryParams(), "--output=text")
+		require.NoError(t, err)
+		jsonOutput := query(cli.GetCmdQueryParams())
+		var value any
+		require.NoError(t, json.Unmarshal([]byte(jsonOutput), &value))
+		expected, err := yaml.Marshal(value)
+		require.NoError(t, err)
+		require.Equal(t, string(expected), output)
+	case "param":
+		for _, kind := range []string{"voting", "tallying", "deposit"} {
+			output := query(cli.GetCmdQueryParam(), kind)
+			switch kind {
+			case "voting":
+				var got govtypes.VotingParams
+				require.NoError(t, clientCtx.LegacyAmino.UnmarshalAsJSON([]byte(output), &got))
+				require.Equal(t, chain.keeper.GetVotingParams(chain.ctx), got)
+			case "tallying":
+				var got govtypes.TallyParams
+				require.NoError(t, clientCtx.LegacyAmino.UnmarshalAsJSON([]byte(output), &got))
+				require.Equal(t, chain.keeper.GetTallyParams(chain.ctx), got)
+			case "deposit":
+				var got govtypes.DepositParams
+				require.NoError(t, clientCtx.LegacyAmino.UnmarshalAsJSON([]byte(output), &got))
+				require.Equal(t, chain.keeper.GetDepositParams(chain.ctx), got)
 			}
-		})
+		}
+	case "proposer":
+		fails(cli.GetCmdQueryProposer())
+		msg, err := govtypes.NewMsgSubmitProposal(govtypes.NewTextProposal("Indexed proposer", "Preserve proposer account identity", false), sdk.NewCoins(), voter)
+		require.NoError(t, err)
+		chain.cast(t, msg, true)
+		chain.commit()
+		var got gcutils.Proposer
+		require.NoError(t, clientCtx.LegacyAmino.UnmarshalAsJSON([]byte(query(cli.GetCmdQueryProposer(), "2")), &got))
+		require.Equal(t, gcutils.NewProposer(2, voter.String()), got)
+	case "tally":
+		fails(cli.GetCmdQueryTally())
+		var got govtypes.TallyResult
+		decode(query(cli.GetCmdQueryTally(), id), &got)
+		require.Equal(t, govtypes.EmptyTallyResult(), got)
+		output, err := repair675Execute(t.Context(), clientCtx, cli.GetCmdQueryTally(), id, "--output=text")
+		require.NoError(t, err)
+		jsonOutput := query(cli.GetCmdQueryTally(), id)
+		var value any
+		require.NoError(t, json.Unmarshal([]byte(jsonOutput), &value))
+		expected, err := yaml.Marshal(value)
+		require.NoError(t, err)
+		require.Equal(t, string(expected), output)
+	case "proposal":
+		var got govtypes.Proposal
+		decode(query(cli.GetCmdQueryProposal(), id), &got)
+		require.True(t, chain.proposal.Equal(got))
+	case "proposals":
+		fails(cli.GetCmdQueryProposals(), "--status=unknown")
+		var got govtypes.QueryProposalsResponse
+		decode(query(cli.GetCmdQueryProposals()), &got)
+		require.Len(t, got.Proposals, 1)
+		require.True(t, chain.proposal.Equal(got.Proposals[0]))
+	case "deposits":
+		fails(cli.GetCmdQueryDeposits(), "10")
+		var got govtypes.QueryDepositsResponse
+		decode(query(cli.GetCmdQueryDeposits(), id), &got)
+		require.Equal(t, []govtypes.Deposit{deposit}, got.Deposits)
+	case "deposit":
+		fails(cli.GetCmdQueryDeposit(), id)
+		fails(cli.GetCmdQueryDeposit(), id, "wrong address")
+		fails(cli.GetCmdQueryDeposit(), id, other.String())
+		var got govtypes.Deposit
+		decode(query(cli.GetCmdQueryDeposit(), id, voter.String()), &got)
+		require.Equal(t, deposit, got)
+	case "votes":
+		fails(cli.GetCmdQueryVotes())
+		fails(cli.GetCmdQueryVotes(), "10")
+		var got govtypes.QueryVotesResponse
+		decode(query(cli.GetCmdQueryVotes(), id), &got)
+		require.Len(t, got.Votes, 1)
+		require.Equal(t, voter.String(), got.Votes[0].Voter)
+		require.Equal(t, chain.proposal.ProposalId, got.Votes[0].ProposalId)
+		require.Equal(t, govtypes.NewNonSplitVoteOption(govtypes.OptionYes), govtypes.WeightedVoteOptions(got.Votes[0].Options))
+	case "vote":
+		fails(cli.GetCmdQueryVote(), "10", voter.String())
+		fails(cli.GetCmdQueryVote(), id, "wrong address")
+		fails(cli.GetCmdQueryVote(), id, other.String())
+		var got govtypes.Vote
+		decode(query(cli.GetCmdQueryVote(), id, voter.String()), &got)
+		require.Equal(t, voter.String(), got.Voter)
+		require.Equal(t, chain.proposal.ProposalId, got.ProposalId)
+		require.Equal(t, govtypes.NewNonSplitVoteOption(govtypes.OptionYes), govtypes.WeightedVoteOptions(got.Options))
+	default:
+		t.Fatalf("unknown query case %q", name)
 	}
 }
+
+func (s *CLITestSuite) TestCmdParams()        { repair675QueryCase(s.T(), "params") }
+func (s *CLITestSuite) TestCmdParam()         { repair675QueryCase(s.T(), "param") }
+func (s *CLITestSuite) TestCmdProposer()      { repair675QueryCase(s.T(), "proposer") }
+func (s *CLITestSuite) TestCmdTally()         { repair675QueryCase(s.T(), "tally") }
+func (s *CLITestSuite) TestCmdGetProposal()   { repair675QueryCase(s.T(), "proposal") }
+func (s *CLITestSuite) TestCmdGetProposals()  { repair675QueryCase(s.T(), "proposals") }
+func (s *CLITestSuite) TestCmdQueryDeposits() { repair675QueryCase(s.T(), "deposits") }
+func (s *CLITestSuite) TestCmdQueryDeposit()  { repair675QueryCase(s.T(), "deposit") }
+func (s *CLITestSuite) TestCmdQueryVotes()    { repair675QueryCase(s.T(), "votes") }
+func (s *CLITestSuite) TestCmdQueryVote()     { repair675QueryCase(s.T(), "vote") }

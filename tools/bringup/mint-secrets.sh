@@ -3,10 +3,11 @@ set -euo pipefail
 
 usage() {
 	cat >&2 <<'EOF'
-usage: ATTESTOR_CERT_DIR=<dir> MODULE_REGISTRY_FILE=<file> tools/bringup/mint-secrets.sh <out-dir>
+usage: tools/bringup/mint-secrets.sh migrate-retired OLD_DIR NEW_DIR
+       ATTESTOR_CERT_DIR=<dir> MODULE_REGISTRY_FILE=<file> tools/bringup/mint-secrets.sh <out-dir>
 
-Mints the beta secrets of the wallet, router, human service, webhooks,
-internal, identity, registry, dashboard, ramp and interop services on this
+Mints the beta secrets of the wallet, gateway, human service, webhooks,
+internal, identity, registry, dashboard and ramp services on this
 host, each token once, and writes it to every consumer that needs it, under
 <out-dir> (created with mode 0700, every file 0600):
 
@@ -21,7 +22,10 @@ host, each token once, and writes it to every consumer that needs it, under
 Values of file secrets are base64, as the image's env-files shim decodes
 them; values a service reads straight from its environment (the identity
 binding tenant, the kernel bearers, the registry tokens and bearers) are
-plain. Nothing secret is
+plain. The public and ingress webhook roles receive only their own capabilities.
+Explicit migrate-retired writes a new protected directory, reuses surviving tokens,
+and preserves the old mint intact for operator revocation of retired credentials.
+Nothing secret is
 printed; stdout lists the written paths.
 
 ATTESTOR_CERT_DIR     attestor-1.crt .. attestor-5.crt, the deployed attestor
@@ -37,6 +41,11 @@ EOF
 	exit 2
 }
 
+if [ "${1:-}" = migrate-retired ]; then
+	[ "$#" -eq 3 ] || usage
+	root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+	exec "${BRINGUP_INSPECT_BIN:-bringup-inspect}" mint-migrate "$root/deploy/rollout.kvx" "$root/services/wallet/deploy/human.toml" "$2" "$3"
+fi
 [ "$#" -eq 1 ] || usage
 out=$1
 : "${ATTESTOR_CERT_DIR:?ATTESTOR_CERT_DIR is required}"
@@ -94,19 +103,6 @@ const signature = sign('sha256', Buffer.from(input, 'ascii'), { key: createPriva
 process.stdout.write(`${input}.${signature.toString('base64url')}\n`);
 EOF
 
-# 32-byte hex values, the format the internal, identity and kernel inits
-# mint and the router's parse_hex32 reads.
-rand() { openssl rand -hex 32; }
-journey=$(rand) approval=$(rand) payment=$(rand) program_producer=$(rand) trigger=$(rand)
-kms=$(rand) seal=$(rand)
-journey_source=$(rand) payment_source=$(rand) approval_source=$(rand) program_source=$(rand)
-id_gateway=$(rand) id_registry=$(rand) id_webhooks=$(rand) id_dashboard=$(rand) id_faucet=$(rand)
-id_testnet=$(rand) id_ramp=$(rand) id_provisioning=$(rand) id_registrar=$(rand)
-program_token=$(rand) replica_token=$(rand) backend_admin=$(rand) gateway_component=$(rand) gateway_authority=$(rand)
-webhooks_component=$(rand) webhooks_authority=$(rand)
-registry_component=$(rand) registry_authority=$(rand)
-registry_request=$(rand) registry_publication=$(rand)
-
 b64() { base64 -w0; }
 b64v() { printf '%s' "$1" | b64; }
 b64f() { b64 <"$1"; }
@@ -158,92 +154,7 @@ for i in 1 2 3 4 5; do
 		"WALLET_CUSTODY_INVENTORY=$(b64f "$keys/wallet_custody_inventory.jwt")"
 done
 
-# The kernel box: the human service's event producer tokens, the kernel
-# bearers its init takes from the environment instead of minting them, and
-# the registry bearers it shares with the registry.
-box_app paxeer-human-service \
-	"HUMAN_EVENTS_JOURNEY_TOKEN=$(b64v "$journey")" \
-	"HUMAN_EVENTS_APPROVAL_TOKEN=$(b64v "$approval")" \
-	"HUMAN_EVENTS_WEBHOOKS_TOKEN=$(b64v "$trigger")" \
-	"LAYERX_KERNEL_PROGRAM_TOKEN=$program_token" \
-	"LAYERX_KERNEL_REPLICA_TOKEN=$replica_token" \
-	"LAYERX_KERNEL_BACKEND_ADMIN_TOKEN=$backend_admin" \
-	"LAYERX_KERNEL_GATEWAY_COMPONENT_TOKEN=$gateway_component" \
-	"LAYERX_KERNEL_GATEWAY_AUTHORITY_TOKEN=$gateway_authority" \
-	"LAYERX_KERNEL_WEBHOOKS_COMPONENT_TOKEN=$webhooks_component" \
-	"LAYERX_KERNEL_WEBHOOKS_AUTHORITY_TOKEN=$webhooks_authority" \
-	"LAYERX_REGISTRY_NODE_AUTHORIZATION=$registry_component" \
-	"LAYERX_REGISTRY_RECEIPT_AUTHORITY_AUTHORIZATION=$registry_authority"
-
-box_app paxeer-program-registry \
-	"REGISTRY_IDENTITY_TOKEN=$id_registry" \
-	"REGISTRY_PROGRAM_EVENTS_TOKEN=$program_producer" \
-	"REGISTRY_WEBHOOKS_EVENTS_TOKEN=$trigger" \
-	"REGISTRY_REQUEST_TOKEN=$registry_request" \
-	"REGISTRY_PUBLICATION_TOKEN=$registry_publication" \
-	"LAYERX_REGISTRY_NODE_AUTHORIZATION=$registry_component" \
-	"LAYERX_REGISTRY_RECEIPT_AUTHORITY_AUTHORIZATION=$registry_authority"
-
-railway_service router \
-	"ENDPOINT_EVENTS_PAYMENT_TOKEN=$(b64v "$payment")" \
-	"ENDPOINT_EVENTS_WEBHOOKS_TOKEN=$(b64v "$trigger")" \
-	"ENDPOINT_COMPONENT_TOKEN=$(b64v "$gateway_component")" \
-	"ENDPOINT_AUTHORITY_TOKEN=$(b64v "$gateway_authority")" \
-	"ENDPOINT_IDENTITY_TOKEN=$(b64v "$id_gateway")" \
-	"ENDPOINT_IDENTITY_PROVISIONING_TOKEN=$(b64v "$id_provisioning")" \
-	"ENDPOINT_PROGRAM_REGISTRY_TOKEN=$(b64v "$registry_request")" \
-	"ENDPOINT_KEY_PROVISIONING_KEY=$(b64v "$(rand)")" \
-	"ENDPOINT_MODULE_REGISTRY=$(b64f "$MODULE_REGISTRY_FILE")"
-
-# The webhooks app's two process roles are two Railway services holding the
-# same secrets.
-webhooks=(
-	"WEBHOOKS_KMS_TOKEN=$(b64v "$kms")"
-	"WEBHOOKS_IDENTITY_TOKEN=$(b64v "$id_webhooks")"
-	"WEBHOOKS_COMPONENT_TOKEN=$(b64v "$webhooks_component")"
-	"WEBHOOKS_AUTHORITY_TOKEN=$(b64v "$webhooks_authority")"
-	"WEBHOOKS_JOURNEY_SOURCE_TOKEN=$(b64v "$journey_source")"
-	"WEBHOOKS_PAYMENT_SOURCE_TOKEN=$(b64v "$payment_source")"
-	"WEBHOOKS_APPROVAL_SOURCE_TOKEN=$(b64v "$approval_source")"
-	"WEBHOOKS_PROGRAM_SOURCE_TOKEN=$(b64v "$program_source")"
-	"WEBHOOKS_SOURCE_TRIGGER_TOKEN=$(b64v "$trigger")"
-	"WEBHOOKS_OPERATOR_TOKEN=$(b64v "$(rand)")"
-	"WEBHOOKS_CURSOR_KEY=$(b64v "$(rand)")"
-)
-railway_service webhooks-public "${webhooks[@]}"
-railway_service webhooks-ingress "${webhooks[@]}"
-
-# Each internal role's service: the kms token and seal secret, each event
-# source's consumer token (the webhooks *_SOURCE_TOKEN) and producer token
-# (the human service, router and registry upstream tokens).
-railway_service internal-kms \
-	"INTERNAL_KMS_TOKEN=$(b64v "$kms")" \
-	"INTERNAL_KMS_SEAL_SECRET=$(b64v "$seal")"
-railway_service internal-journeys \
-	"INTERNAL_JOURNEYS_TOKEN=$(b64v "$journey_source")" \
-	"INTERNAL_JOURNEYS_PRODUCER_TOKEN=$(b64v "$journey")"
-railway_service internal-payments \
-	"INTERNAL_PAYMENTS_TOKEN=$(b64v "$payment_source")" \
-	"INTERNAL_PAYMENTS_PRODUCER_TOKEN=$(b64v "$payment")"
-railway_service internal-approvals \
-	"INTERNAL_APPROVALS_TOKEN=$(b64v "$approval_source")" \
-	"INTERNAL_APPROVALS_PRODUCER_TOKEN=$(b64v "$approval")"
-railway_service internal-programs \
-	"INTERNAL_PROGRAMS_TOKEN=$(b64v "$program_source")" \
-	"INTERNAL_PROGRAMS_PRODUCER_TOKEN=$(b64v "$program_producer")"
-
-# The identity service's nine service tokens, each also its caller's
-# *_IDENTITY_TOKEN.
-railway_service identity \
-	"IDENTITY_GATEWAY_TOKEN=$(b64v "$id_gateway")" \
-	"IDENTITY_REGISTRY_TOKEN=$(b64v "$id_registry")" \
-	"IDENTITY_WEBHOOKS_TOKEN=$(b64v "$id_webhooks")" \
-	"IDENTITY_DASHBOARD_TOKEN=$(b64v "$id_dashboard")" \
-	"IDENTITY_FAUCET_TOKEN=$(b64v "$id_faucet")" \
-	"IDENTITY_TESTNET_TOKEN=$(b64v "$id_testnet")" \
-	"IDENTITY_RAMP_TOKEN=$(b64v "$id_ramp")" \
-	"IDENTITY_PROVISIONING_TOKEN=$(b64v "$id_provisioning")" \
-	"IDENTITY_REGISTRAR_TOKEN=$(b64v "$id_registrar")"
-railway_service dashboard "DASHBOARD_IDENTITY_TOKEN=$(b64v "$id_dashboard")"
-railway_service ramp "RAMP_IDENTITY_TOKEN=$(b64v "$id_ramp")"
-railway_service interop "INTEROP_AUTHORITY_TOKEN=$(b64v "$gateway_authority")"
+# Token roles and their current delivery targets are resolved from rollout and
+# the Human box consumer by the shared producer. No retired authority or
+# replica bearer, router-named output, or interop authority is generated.
+"${BRINGUP_INSPECT_BIN:-bringup-inspect}" mint-token-plan "$root/deploy/rollout.kvx" "$root/services/wallet/deploy/human.toml" "$out" "$MODULE_REGISTRY_FILE"
