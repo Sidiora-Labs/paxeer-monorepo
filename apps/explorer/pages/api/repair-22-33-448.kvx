@@ -1,0 +1,9 @@
+[repair]
+task = "22.33.448"
+audit = "22.30.148"
+finding = "proxy-upstream-trust"
+implementation = "proxy.ts resolves server-owned API names and exact configured endpoint selectors, validates URL origins and credentials, and manually follows at most five same-origin HTTP(S) redirects."
+proof = "repair-22-33-448.spec.ts: approvedAccountForwarding, approvedServiceSelection, refusedAccountForwarding, refusedPathAuthority, refusedRedirectForwarding, approvedRedirectForwarding, boundedRedirects drive the production route through Next.js apiResolver and real loopback HTTP services."
+baseline = "Not executed: the explicit ordered gate instructions prohibit verification before implementation and prohibit running verify_cmd by hand; no pre-change test failure is claimed."
+qualification = "The runner's hf-build and hf-done ledger records the exact candidate revision, command, exit code and private evidence location."
+wiring_request = "Domain 14: apps/explorer/nextjs/utils/fetchProxy.ts must apply the same server-owned upstream allowlist and redirect policy to its other consumers; apps/explorer/lib/api/useApiFetch.tsx should send API identifiers and resolve approved tenant backends through server-owned configuration."

@@ -1,0 +1,13 @@
+[repair.22.33.466]
+audit = "22.30.149"
+test_file = "apps/explorer/ui/tokens/repair-22-33-466.spec.ts"
+token-market-cap-unknown-decimals = ["tokenMarketCapUnknownDecimals", "tokenMarketCapInvalidDecimals", "tokenMarketCapZeroDecimals", "tokenMarketCapKnownDecimals"]
+token-sort-label = ["tokenSortLabelMatchesApiField"]
+baseline = "UNRUN: the task's ordered implementation-first instructions and bounded hf-build/hf-done gates prohibit a separate unchanged-tree verification; no pre-change test failure is claimed."
+qualification = "The runner's private hf-build/hf-done ledger records the exact verified candidate revision, command, exit code and evidence log."
+wiring_requests = []
+previous_qualification_blockers = "Earlier attempts encountered a pnpm/Yarn mismatch; the current declared gates use corepack Yarn. Attempt 3 then failed TypeScript because ChakraProvider's required children prop was supplied only as a positional createElement argument."
+provider_repair = "Mount the production TokenFiatValue component as a child of the shared test wrapper's production ChakraProvider and real theme; preserve all five tests and their assertions in named callbacks with string titles."
+dependency_setup = "The initial frozen Yarn install for the required pre-gate ESLint check failed fetching @babel/plugin-transform-arrow-functions with registry HTTP 502; no source or dependency version was changed."
+lint_repair = "The repository's vitest/valid-expect rule rejects Vitest's optional second expect argument; remove only that diagnostic message and retain the identical undefined assertion for every invalid precision."
+browser_repair = "The first verification passed unknown/invalid precision and sorting but failed both numeric render cases because Tooltip's useIsMobile reads window.matchMedia. Use jsdom with the committed shared browser wrapper, retaining the real tooltip and media-query hook and all numeric/placeholder assertions."
