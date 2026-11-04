@@ -1,0 +1,27 @@
+[repair.22.31.312]
+audit = "22.30.169"
+base_revision = "04089978ec116689a0d130e86248bc8e9910b29b"
+qualification = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit and private evidence log; this record does not claim qualification before those gates pass."
+baseline = "Not run: the explicit gate order forbids testing before complete implementation and running verify_cmd by hand; the initial gate ledger had zero builds and zero verifications, and the declared repair test did not exist."
+prior_failures = "Attempt 1 verification reported test_programs_terminal_response_recorded_call_survives_transport_reopen failing with ReceiptMismatch and eleven passing cases; the continuation does not repeat that unchanged gate."
+
+[finding.programs-terminal-response]
+tests = ["test_programs_terminal_response_recorded_call_survives_transport_reopen", "test_programs_terminal_response_proof_produces_recorded_calldata", "test_programs_terminal_response_requires_authenticated_evidence", "test_programs_terminal_response_refuses_malformed_and_overflow"]
+proof = "proof_layerxprograms_0x101d now requires (0,1,empty guest bytes) for both real ABI-1 calls and simulations across the Go producer's host reopens, checks both state heads and independent host payloads, and retains malformed and overflow refusals."
+provenance = "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json#V1-layerxprograms-call, produced by rpc/sequencer_receipt_vectors_test.go through the real node/EVM/host, replayed unchanged over local HTTP JSON-RPC into PaymentRpc and authenticated by the shipping Programs receipt verifier."
+terminal_fixture = "The production evm_transaction._sequence encoder produces (result=0, kind=1, offset=96, length, padded guest bytes); the in-process eth_call server serves that ABI tuple for the recorded transaction's exact calldata, and the shipping ai_market consumer asserts the decoded triple before and after transport reopen for empty, nonempty and exactly-capacity guest responses. These codec fixtures are not signed Go results or simulation recordings."
+refusals = "Each malformed/overflow case starts from a production-encoded nonempty tuple whose decoded triple is checked first; sign, kind, offset, length, padding, trailing data and a canonically encoded 65-byte response remain refused at capacity 64. Recorded returnData, logs and signature tampering still fail independent authentication."
+reopen = "The recorded regression stops and reopens its HTTP transport and SDK client; it does not claim a new host execution or simulation. The existing Go producer owns actual host restart, second execution, simulation and state-head observations."
+status = "Scoped proof and canonical fixture repair implemented; qualification is owned by the final hf-done ledger, and real Go producer/SDK boundary closure still requires the external wiring below."
+wiring_host = "Domain 13 Programs: modules/lxphost/host.go and modules/lxphost/simulate.go must agree the authenticated terminal/guest boundary with the Python consumer and retain complete receipt/authority evidence while exposing bounded guest bytes."
+wiring_precompile = "Domain 13 Programs: precompiles/layerxprograms/method_call.go, method_simulate.go and proof_layerxprograms_0x101d_test.go must serve the agreed guest boundary, preserve authentication and canonical ABI, and exercise the Python observer successfully for call/simulation before and after host reopen with independently checked expectedResponses."
+wiring_sdk = "Domain 9 agent SDK: services/agent/sdk/python/layerx_sdk/ai_market.py must agree the terminal/guest boundary with domain 13, preserve independent receipt/transfer authentication and complete evidence, and apply response_capacity only to guest bytes without weakening malformed-frame or overflow checks."
+wiring_recordings = "Domain 13 Programs: rpc/sequencer_receipt_vectors_test.go and sdk/platform/conformance/fixtures/sequencer-receipt-v1.json must publish genuine signed results for the agreed boundary; simulation and post-restart recordings must come from real separate producer executions, never duplicated call frames."
+
+[qualification.first]
+revision = "775d44b7df12196fc01e135a42885a44de991178"
+command = "cg spec done 22.31.312 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Ten cases passed; the real authenticated successful call failed with ReceiptMismatch in the out-of-scope ai_market decoder, and the signature refusal used the wrong expected exception class."
+assumption = "Correct the task test to expect SequencerReceiptVerificationError, preserve the successful-decode assertion, and leave external boundary repair to the named owning domains."
