@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #define _POSIX_C_SOURCE 200809L
 
 #include "layerx/lxp_snapshot.h"
@@ -6,6 +7,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -102,7 +104,7 @@ lxp_result lxp_snapshot_store_write(const char *directory,
                       (unsigned long long)manifest->global_sequence);
     if (length < 0 || (size_t)length >= sizeof(final))
         return LXP_ERR_LENGTH_LIMIT;
-    length = snprintf(temporary, sizeof(temporary), "%s.tmp", final);
+    length = snprintf(temporary, sizeof(temporary), "%s.tmp.XXXXXX", final);
     if (length < 0 || (size_t)length >= sizeof(temporary) ||
         access(final, F_OK) == 0) return LXP_ERR_NON_CANONICAL;
     put_u64(header + 4U, manifest->global_sequence);
@@ -110,10 +112,10 @@ lxp_result lxp_snapshot_store_write(const char *directory,
     (void)memcpy(header + 44U, manifest->receipt_state_root, 32U);
     (void)memcpy(header + 76U, manifest->snapshot_digest, 32U);
     put_u64(header + 108U, (uint64_t)snapshot_length);
-    descriptor = open(temporary, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC,
-                      0600);
+    descriptor = mkstemp(temporary);
     if (descriptor < 0) return LXP_ERR_IO;
-    status = write_all(descriptor, header, header_length);
+    status = fcntl(descriptor, F_SETFD, FD_CLOEXEC) == 0 ?
+        write_all(descriptor, header, header_length) : LXP_ERR_IO;
     if (status == LXP_OK)
         lxp_fault_inject_point(LXP_FAULT_CHECKPOINT_HEADER_WRITTEN);
     if (status == LXP_OK) {
@@ -134,7 +136,9 @@ lxp_result lxp_snapshot_store_write(const char *directory,
     }
     if (close(descriptor) != 0 && status == LXP_OK) status = LXP_ERR_IO;
     if (status == LXP_OK) {
-        if (rename(temporary, final) != 0) status = LXP_ERR_IO;
+        if (renameat2(AT_FDCWD, temporary, AT_FDCWD, final,
+                      RENAME_NOREPLACE) != 0)
+            status = errno == EEXIST ? LXP_ERR_NON_CANONICAL : LXP_ERR_IO;
         else lxp_fault_inject_point(LXP_FAULT_CHECKPOINT_RENAMED);
     }
     directory_descriptor = status == LXP_OK ?
