@@ -1,0 +1,9 @@
+[repair.22.31.136]
+finding = "multisig-amino-reuse"
+tests = ["TestRepair_136_ReplaceKeys", "TestRepair_136_GrowKeys", "TestRepair_136_ShrinkKeys"]
+implementation = "Replace the complete converted Any set, including cached keys and matching JSON compatibility bytes, after conversion succeeds."
+proof = "Real Amino callbacks and codec JSON decode reuse one destination; cached keys, ordered wire values, threshold, address, binary round trip and protobuf JSON round trip match each current producer."
+baseline = "Not run: the explicit gate order prohibits manual verification and requires complete implementation before the bounded build and verification. No baseline failure is claimed."
+qualification_repair = "The first verification exposed a test harness error: LegacyAmino.Unmarshal only invokes UnpackInterfaces for a concrete destination implementing that interface. Use a concrete LegacyAminoPubKey for the binary round trip and retain the full key equality assertion."
+wiring_requests = []
+evidence = "The runner's hf-build and hf-done ledger records the exact qualified candidate revision, commands, exits and private log locations."

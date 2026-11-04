@@ -82,32 +82,18 @@ func (m *LegacyAminoPubKey) UnmarshalAminoJSON(tmPk tmMultisig) error {
 		return err
 	}
 
-	// Instead of just doing `*m = *protoPk`, we prefer to modify in-place the
-	// existing Anys inside `m` (instead of allocating new Anys), as so not to
-	// break the `.compat` fields in the existing Anys.
-	if m.PubKeys == nil {
-		m.PubKeys = make([]*types.Any, len(tmPk.PubKeys))
-	}
-	for i := range m.PubKeys {
-		if m.PubKeys[i] == nil {
-			// create the compat jsonBz value
-			bz, err := AminoCdc.MarshalAsJSON(tmPk.PubKeys[i])
-			if err != nil {
-				return err
-			}
-
-			m.PubKeys[i] = protoPk.PubKeys[i]
-			// UnmarshalJSON():
-			// just sets the compat.jsonBz value.
-			// always succeeds: err == nil
-			if err := m.PubKeys[i].UnmarshalJSON(bz); err != nil {
-				return err
-			}
-		} else {
-			m.PubKeys[i].TypeUrl = protoPk.PubKeys[i].TypeUrl
-			m.PubKeys[i].Value = protoPk.PubKeys[i].Value
+	// Prepare fresh Anys with the current keys and matching JSON compatibility
+	// bytes. Reusing an Any would retain its old cached key or compatibility data.
+	for i, pk := range tmPk.PubKeys {
+		bz, err := AminoCdc.MarshalAsJSON(pk)
+		if err != nil {
+			return err
+		}
+		if err := protoPk.PubKeys[i].UnmarshalJSON(bz); err != nil {
+			return err
 		}
 	}
+	m.PubKeys = protoPk.PubKeys
 	m.Threshold = protoPk.Threshold
 
 	return nil

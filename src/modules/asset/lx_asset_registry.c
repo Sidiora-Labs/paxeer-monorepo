@@ -608,6 +608,13 @@ static bool issuer_valid(const lx_asset_record *record)
                record->custody_reference_length != 0U;
 }
 
+static bool asset_record_valid(const lx_asset_record *record)
+{
+    return record != NULL && !lxp_ct_is_zero(record->asset_id, 32U) &&
+           symbol_valid(record) && issuer_valid(record) &&
+           record->decimals <= 38U;
+}
+
 lxp_result lx_asset_register(lx_asset_registry *registry,
                              const lx_asset_record *record,
                              uint64_t sequence, lxp_u128 fee)
@@ -615,9 +622,8 @@ lxp_result lx_asset_register(lx_asset_registry *registry,
     size_t i;
     lxp_u128 charged;
     lxp_result status;
-    if (registry == NULL || record == NULL || sequence != registry->next_sequence ||
-        lxp_ct_is_zero(record->asset_id, 32U) || !symbol_valid(record) ||
-        !issuer_valid(record) || record->decimals > 38U ||
+    if (registry == NULL || !asset_record_valid(record) ||
+        sequence != registry->next_sequence ||
         registry->count > LX_ASSET_REGISTRY_CAPACITY)
         return LXP_ERR_NON_CANONICAL;
     if (sequence == UINT64_MAX) return LXP_ERR_SEQUENCE_EXHAUSTED;
@@ -700,8 +706,7 @@ lxp_result lx_asset_record_encode(const lx_asset_record *record,
 {
     size_t required;
     size_t cursor = 0U;
-    if (record == NULL || bytes == NULL || length == NULL ||
-        !symbol_valid(record) || !issuer_valid(record))
+    if (bytes == NULL || length == NULL || !asset_record_valid(record))
         return LXP_ERR_NON_CANONICAL;
     required = 2U + 32U + 1U + record->symbol_length + 1U + 1U + 2U +
                record->custody_reference_length + 1U + 1U + record->name_length + 97U;
@@ -733,11 +738,13 @@ lxp_result lx_asset_record_encode(const lx_asset_record *record,
 }
 
 lxp_result lx_asset_record_decode(const uint8_t *bytes, size_t length,
-                                  lx_asset_record *record)
+                                  lx_asset_record *output)
 {
+    lx_asset_record decoded;
+    lx_asset_record *record = &decoded;
     size_t cursor = 2U;
     uint16_t reference_length;
-    if (bytes == NULL || record == NULL || length < 140U ||
+    if (bytes == NULL || output == NULL || length < 140U ||
         bytes[0] != 0U || bytes[1] != 3U) return LXP_ERR_NON_CANONICAL;
     (void)memset(record, 0, sizeof(*record));
     (void)memcpy(record->asset_id, bytes + cursor, 32U); cursor += 32U;
@@ -767,14 +774,9 @@ lxp_result lx_asset_record_decode(const uint8_t *bytes, size_t length,
     record->issuer_kind = bytes[cursor++];
     (void)lxp_u128_from_be(bytes + cursor, &record->total_units); cursor += 16U;
     (void)memcpy(record->salt, bytes + cursor, 32U);
-    if ((record->issuer_kind == 0U && record->custody_reference_length == 0U) ||
-        (record->issuer_kind == 1U && record->custody_reference_length != 0U) ||
-        (record->issuer_kind != 0U && (record->name_length == 0U ||
-         lxp_ct_is_zero(record->issuer_did32, 32U)))) return LXP_ERR_NON_CANONICAL;
-    return symbol_valid(record) && issuer_valid(record) &&
-                   record->decimals <= 38U && record->issuer_kind <= 2U ?
-               LXP_OK :
-               LXP_ERR_NON_CANONICAL;
+    if (!asset_record_valid(record)) return LXP_ERR_NON_CANONICAL;
+    *output = decoded;
+    return LXP_OK;
 }
 
 lxp_result lx_asset_record_decode_for_id(const uint8_t *bytes, size_t length,
