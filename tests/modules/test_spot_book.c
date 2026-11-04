@@ -2,6 +2,7 @@
 #include "layerx/lx_spot.h"
 #include "layerx/lxp_identity.h"
 #include "layerx/lxp_kernel.h"
+#include "layerx/lxp_snapshot.h"
 
 #include <stddef.h>
 #include <stdio.h>
@@ -639,6 +640,239 @@ static int halt_case(void)
     return 0;
 }
 
+static int spot_reopen(void)
+{
+    static uint8_t snapshot_bytes[FIXTURE_ARENA_BYTES];
+    lxp_arena snapshot_arena;
+    lxp_byte_span snapshot;
+    lxp_snapshot_manifest_record manifest;
+    uint8_t before[32];
+    uint8_t after[32];
+    uint64_t sequence = store.next_sequence;
+    REQUIRE(lxp_state_root(&kernel, before) == LXP_OK);
+    REQUIRE(lxp_arena_init(&snapshot_arena, snapshot_bytes,
+                           sizeof(snapshot_bytes)) == LXP_OK);
+    REQUIRE(lxp_snapshot_write(&kernel, sequence - 1U, &snapshot_arena,
+                               &snapshot) == LXP_OK);
+    REQUIRE(lxp_snapshot_manifest_build(snapshot.bytes, snapshot.length,
+                sequence - 1U, before, kernel.current_state_root,
+                &manifest) == LXP_OK);
+    REQUIRE(lxp_state_store_destroy(&store) == LXP_OK);
+    lx_account_registry_release(&accounts);
+    REQUIRE(lx_account_registry_init(&accounts) == LXP_OK);
+    REQUIRE(kernel_start() == 0);
+    REQUIRE(kernel.module_kv_count == 0U && accounts.count == 0U);
+    REQUIRE(lxp_snapshot_load(snapshot.bytes, snapshot.length, &manifest,
+                              &kernel) == LXP_OK);
+    REQUIRE(lxp_snapshot_verify_root(&kernel, &manifest) == LXP_OK);
+    REQUIRE(lxp_state_root(&kernel, after) == LXP_OK);
+    REQUIRE(memcmp(before, after, sizeof(before)) == 0);
+    REQUIRE(store.next_sequence == sequence && supply_conserved());
+    return 0;
+}
+
+static int spot_record_read(const uint8_t *key, size_t key_length,
+                            uint8_t *bytes, size_t length)
+{
+    const uint8_t *value = NULL;
+    size_t value_length = 0U;
+    REQUIRE(ctx_open() == 0);
+    REQUIRE(lxp_ctx_kv_get(&ctx, key, key_length, &value, &value_length) ==
+            LXP_OK);
+    REQUIRE(value_length == length);
+    (void)memcpy(bytes, value, length);
+    return 0;
+}
+
+static int spot_record_write(const uint8_t *key, size_t key_length,
+                             const uint8_t *bytes, size_t length)
+{
+    REQUIRE(ctx_open() == 0);
+    if (bytes == NULL)
+        REQUIRE(lxp_ctx_kv_del(&ctx, key, key_length) == LXP_OK);
+    else
+        REQUIRE(lxp_ctx_kv_put(&ctx, key, key_length, bytes, length) == LXP_OK);
+    REQUIRE(lxp_module_ctx_prepare_commit(&ctx) == LXP_OK);
+    REQUIRE(lxp_module_ctx_commit(&ctx) == LXP_OK);
+    return 0;
+}
+
+static int spot_refusal_unchanged(const uint8_t before[32], uint64_t sequence)
+{
+    uint8_t after[32];
+    REQUIRE(effects.count == 0U);
+    REQUIRE(store.next_sequence == sequence);
+    REQUIRE(lxp_state_root(&kernel, after) == LXP_OK);
+    REQUIRE(memcmp(before, after, sizeof(after)) == 0);
+    REQUIRE(supply_conserved());
+    return 0;
+}
+
+static int test_restored_order_identity_refusal(void)
+{
+    uint8_t key[LX_SPOT_ORDER_KEY_BYTES] = "order:";
+    uint8_t other_key[LX_SPOT_ORDER_KEY_BYTES] = "order:";
+    uint8_t original[LX_SPOT_ORDER_BYTES];
+    uint8_t other[LX_SPOT_ORDER_BYTES];
+    uint8_t corrupt[LX_SPOT_ORDER_BYTES];
+    uint8_t stored[LX_SPOT_ORDER_BYTES];
+    uint8_t market_id[32];
+    uint8_t order_id[32];
+    uint8_t root[32];
+    lx_spot_order order;
+    lx_spot_order untouched;
+    static lx_spot_book book;
+    uint64_t sequence;
+    uint64_t alice_base;
+    size_t variant;
+    identifier(1U, market_id);
+    identifier(40U, order_id);
+    (void)memcpy(key + 6U, market_id, 32U);
+    (void)memcpy(key + 38U, order_id, 32U);
+    (void)memcpy(other_key, key, sizeof(key));
+    identifier(41U, other_key + 38U);
+    REQUIRE(cancel(13U, bob.did) == LXP_OK);
+    alice_base = balance_of(alice.base_id);
+    REQUIRE(limit(40U, &alice, LX_SPOT_SIDE_ASK, 100U, 3U) == LXP_OK);
+    REQUIRE(limit(41U, &alice, LX_SPOT_SIDE_ASK, 110U, 5U) == LXP_OK);
+    REQUIRE(spot_record_read(key, sizeof(key), original, sizeof(original)) == 0);
+    REQUIRE(spot_record_read(other_key, sizeof(other_key), other,
+                             sizeof(other)) == 0);
+    REQUIRE(spot_reopen() == 0);
+    REQUIRE(order_is(40U, 3U, 3U) && order_is(41U, 5U, 5U));
+    REQUIRE(ctx_open() == 0);
+    REQUIRE(lx_spot_book_load(&ctx, market_id, &book) == LXP_OK);
+    REQUIRE(book.count == 2U);
+    for (variant = 0U; variant < 4U; ++variant) {
+        (void)memcpy(corrupt, variant == 0U ? other : original,
+                     sizeof(corrupt));
+        if (variant == 1U) identifier(2U, corrupt + 32U);
+        if (variant == 2U) (void)memset(corrupt, 0, 32U);
+        if (variant == 3U) (void)memset(corrupt + 32U, 0, 32U);
+        REQUIRE(spot_record_write(key, sizeof(key), corrupt,
+                                  sizeof(corrupt)) == 0);
+        REQUIRE(spot_reopen() == 0);
+        REQUIRE(lxp_state_root(&kernel, root) == LXP_OK);
+        sequence = store.next_sequence;
+        (void)memset(&order, 0xa5, sizeof(order));
+        (void)memcpy(&untouched, &order, sizeof(untouched));
+        REQUIRE(ctx_open() == 0);
+        REQUIRE(lx_spot_order_lookup(&ctx, market_id, order_id, &order) ==
+                LXP_ERR_NON_CANONICAL);
+        REQUIRE(memcmp(&order, &untouched, sizeof(order)) == 0);
+        REQUIRE(lx_spot_book_load(&ctx, market_id, &book) ==
+                LXP_ERR_NON_CANONICAL);
+        REQUIRE(cancel(40U, alice.did) == LXP_ERR_NON_CANONICAL);
+        REQUIRE(spot_refusal_unchanged(root, sequence) == 0);
+        REQUIRE(limit(42U, &bob, LX_SPOT_SIDE_BID, 110U, 8U) ==
+                LXP_ERR_NON_CANONICAL);
+        REQUIRE(spot_refusal_unchanged(root, sequence) == 0);
+        REQUIRE(balance_of(alice.base_id) == alice_base - 8U);
+        REQUIRE(escrow_balance(base_asset_id) == 8U);
+        REQUIRE(order_is(42U, 0U, 0U));
+        REQUIRE(spot_record_read(key, sizeof(key), stored, sizeof(stored)) == 0);
+        REQUIRE(memcmp(stored, corrupt, sizeof(stored)) == 0);
+        REQUIRE(spot_record_read(other_key, sizeof(other_key), stored,
+                                 sizeof(stored)) == 0);
+        REQUIRE(memcmp(stored, other, sizeof(stored)) == 0);
+        REQUIRE(spot_record_write(key, sizeof(key), original,
+                                  sizeof(original)) == 0);
+    }
+    /* Matching zero IDs in both key and value still fail decoder admission. */
+    for (variant = 0U; variant < 2U; ++variant) {
+        uint8_t zero_key[LX_SPOT_ORDER_KEY_BYTES];
+        uint8_t zero_market[32];
+        uint8_t zero_order[32];
+        (void)memcpy(zero_key, key, sizeof(key));
+        (void)memcpy(corrupt, original, sizeof(corrupt));
+        (void)memset(corrupt + variant * 32U, 0, 32U);
+        (void)memset(zero_key + (variant == 0U ? 38U : 6U), 0, 32U);
+        (void)memcpy(zero_market, zero_key + 6U, 32U);
+        (void)memcpy(zero_order, zero_key + 38U, 32U);
+        REQUIRE(spot_record_write(zero_key, sizeof(zero_key), corrupt,
+                                  sizeof(corrupt)) == 0);
+        REQUIRE(spot_reopen() == 0);
+        REQUIRE(ctx_open() == 0);
+        REQUIRE(lx_spot_order_lookup(&ctx, zero_market, zero_order, &order) ==
+                LXP_ERR_NON_CANONICAL);
+        REQUIRE(lx_spot_book_load(&ctx, zero_market, &book) ==
+                LXP_ERR_NON_CANONICAL);
+        if (variant == 0U) {
+            REQUIRE(lxp_state_root(&kernel, root) == LXP_OK);
+            sequence = store.next_sequence;
+            REQUIRE(limit(42U, &bob, LX_SPOT_SIDE_BID, 110U, 8U) ==
+                    LXP_ERR_NON_CANONICAL);
+            REQUIRE(spot_refusal_unchanged(root, sequence) == 0);
+        }
+        REQUIRE(spot_record_write(zero_key, sizeof(zero_key), NULL, 0U) == 0);
+    }
+    REQUIRE(spot_reopen() == 0);
+    REQUIRE(order_is(40U, 3U, 3U) && order_is(41U, 5U, 5U));
+    REQUIRE(cancel(40U, alice.did) == LXP_OK);
+    REQUIRE(cancel(41U, alice.did) == LXP_OK);
+    REQUIRE(balance_of(alice.base_id) == alice_base);
+    REQUIRE(escrow_balance(base_asset_id) == 0U);
+    REQUIRE(spot_reopen() == 0);
+    REQUIRE(order_is(40U, 0U, 0U) && order_is(41U, 0U, 0U));
+    return 0;
+}
+
+static int test_restored_market_identity_refusal(void)
+{
+    uint8_t key[LX_SPOT_MARKET_KEY_BYTES] = "market:";
+    uint8_t other_key[LX_SPOT_MARKET_KEY_BYTES] = "market:";
+    uint8_t original[LX_SPOT_MARKET_BYTES];
+    uint8_t other[LX_SPOT_MARKET_BYTES];
+    uint8_t stored[LX_SPOT_MARKET_BYTES];
+    uint8_t root[32];
+    lx_spot_market market;
+    lx_spot_market untouched;
+    uint64_t sequence;
+    uint64_t bob_quote = balance_of(bob.main_id);
+    identifier(1U, key + 7U);
+    identifier(2U, other_key + 7U);
+    market_defaults(2U, &market);
+    REQUIRE(market_create(&market, admin_did) == LXP_OK);
+    REQUIRE(limit(43U, &bob, LX_SPOT_SIDE_BID, 100U, 2U) == LXP_OK);
+    REQUIRE(spot_record_read(key, sizeof(key), original, sizeof(original)) == 0);
+    REQUIRE(spot_record_read(other_key, sizeof(other_key), other,
+                             sizeof(other)) == 0);
+    REQUIRE(spot_record_write(key, sizeof(key), other, sizeof(other)) == 0);
+    REQUIRE(spot_reopen() == 0);
+    REQUIRE(lxp_state_root(&kernel, root) == LXP_OK);
+    sequence = store.next_sequence;
+    (void)memset(&market, 0xa5, sizeof(market));
+    (void)memcpy(&untouched, &market, sizeof(untouched));
+    REQUIRE(ctx_open() == 0);
+    REQUIRE(lx_spot_market_lookup(&ctx, key + 7U, &market) ==
+            LXP_ERR_NON_CANONICAL);
+    REQUIRE(memcmp(&market, &untouched, sizeof(market)) == 0);
+    REQUIRE(cancel(43U, bob.did) == LXP_ERR_NON_CANONICAL);
+    REQUIRE(spot_refusal_unchanged(root, sequence) == 0);
+    REQUIRE(limit(44U, &alice, LX_SPOT_SIDE_ASK, 100U, 2U) ==
+            LXP_ERR_NON_CANONICAL);
+    REQUIRE(spot_refusal_unchanged(root, sequence) == 0);
+    REQUIRE(market_state(LX_SPOT_MARKET_HALT, admin_did) ==
+            LXP_ERR_NON_CANONICAL);
+    REQUIRE(spot_refusal_unchanged(root, sequence) == 0);
+    REQUIRE(balance_of(bob.main_id) == bob_quote - 200U);
+    REQUIRE(escrow_balance(quote_asset_id) == 200U);
+    REQUIRE(order_is(43U, 2U, 200U) && order_is(44U, 0U, 0U));
+    REQUIRE(spot_record_read(key, sizeof(key), stored, sizeof(stored)) == 0);
+    REQUIRE(memcmp(stored, other, sizeof(stored)) == 0);
+    REQUIRE(spot_record_read(other_key, sizeof(other_key), stored,
+                             sizeof(stored)) == 0);
+    REQUIRE(memcmp(stored, other, sizeof(stored)) == 0);
+    REQUIRE(spot_record_write(key, sizeof(key), original, sizeof(original)) == 0);
+    REQUIRE(spot_reopen() == 0);
+    REQUIRE(cancel(43U, bob.did) == LXP_OK);
+    REQUIRE(balance_of(bob.main_id) == bob_quote);
+    REQUIRE(escrow_balance(quote_asset_id) == 0U);
+    REQUIRE(spot_reopen() == 0);
+    REQUIRE(order_is(43U, 0U, 0U));
+    return 0;
+}
+
 int main(void)
 {
     REQUIRE(fixture_init() == 0);
@@ -651,6 +885,9 @@ int main(void)
     REQUIRE(remainder_and_market_case() == 0);
     REQUIRE(refusal_case() == 0);
     REQUIRE(halt_case() == 0);
+    REQUIRE(test_restored_order_identity_refusal() == 0);
+    REQUIRE(test_restored_market_identity_refusal() == 0);
     REQUIRE(lxp_state_store_destroy(&store) == LXP_OK);
+    lx_account_registry_release(&accounts);
     return 0;
 }

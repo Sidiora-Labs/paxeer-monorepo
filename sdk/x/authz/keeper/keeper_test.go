@@ -60,8 +60,8 @@ func (s *TestSuite) TestKeeper() {
 	newCoins := sdk.NewCoins(sdk.NewInt64Coin("steak", 100))
 	s.T().Log("verify if expired authorization is rejected")
 	x := &banktypes.SendAuthorization{SpendLimit: newCoins}
-	err := app.AuthzKeeper.SaveGrant(ctx, granterAddr, granteeAddr, x, now.Add(-1*time.Hour))
-	s.Require().NoError(err)
+	err := app.AuthzKeeper.SaveGrant(ctx, granteeAddr, granterAddr, x, now.Add(-1*time.Hour))
+	s.Require().ErrorIs(err, authz.ErrInvalidExpirationTime)
 	authorization, _ = app.AuthzKeeper.GetCleanAuthorization(ctx, granteeAddr, granterAddr, bankSendAuthMsgType)
 	s.Require().Nil(authorization)
 
@@ -112,8 +112,8 @@ func (s *TestSuite) TestKeeperIter() {
 	s.T().Log("verify if expired authorization is rejected")
 	x := &banktypes.SendAuthorization{SpendLimit: newCoins}
 	err := app.AuthzKeeper.SaveGrant(ctx, granteeAddr, granterAddr, x, now.Add(-1*time.Hour))
-	s.Require().NoError(err)
-	authorization, _ = app.AuthzKeeper.GetCleanAuthorization(ctx, granteeAddr, granterAddr, "abcd")
+	s.Require().ErrorIs(err, authz.ErrInvalidExpirationTime)
+	authorization, _ = app.AuthzKeeper.GetCleanAuthorization(ctx, granteeAddr, granterAddr, bankSendAuthMsgType)
 	s.Require().Nil(authorization)
 
 	app.AuthzKeeper.IterateGrants(ctx, func(granter, grantee sdk.AccAddress, grant authz.Grant) bool {
@@ -157,7 +157,7 @@ func (s *TestSuite) TestKeeperFees() {
 
 	s.T().Log("verify dispatch executes with correct information")
 	// grant authorization
-	err = app.AuthzKeeper.SaveGrant(s.ctx, granteeAddr, granterAddr, &banktypes.SendAuthorization{SpendLimit: smallCoin}, now)
+	err = app.AuthzKeeper.SaveGrant(s.ctx, granteeAddr, granterAddr, &banktypes.SendAuthorization{SpendLimit: smallCoin}, now.Add(time.Hour))
 	s.Require().NoError(err)
 	authorization, _ := app.AuthzKeeper.GetCleanAuthorization(s.ctx, granteeAddr, granterAddr, bankSendAuthMsgType)
 	s.Require().NotNil(authorization)
@@ -219,7 +219,7 @@ func (s *TestSuite) TestDispatchedEvents() {
 	})
 
 	// grant authorization
-	err := app.AuthzKeeper.SaveGrant(s.ctx, granteeAddr, granterAddr, &banktypes.SendAuthorization{SpendLimit: smallCoin}, now)
+	err := app.AuthzKeeper.SaveGrant(s.ctx, granteeAddr, granterAddr, &banktypes.SendAuthorization{SpendLimit: smallCoin}, now.Add(time.Hour))
 	require.NoError(err)
 	authorization, _ := app.AuthzKeeper.GetCleanAuthorization(s.ctx, granteeAddr, granterAddr, bankSendAuthMsgType)
 	require.NotNil(authorization)

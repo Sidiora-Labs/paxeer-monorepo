@@ -174,17 +174,23 @@ func ParseValidatorQueueKey(bz []byte) (time.Time, int64, error) {
 
 	timeBzL := sdk.BigEndianToUint64(bz[prefixL : prefixL+8])
 	remaining := len(bz) - prefixL - 8
-	if remaining < 0 || timeBzL > uint64(remaining) { //nolint:gosec // remaining is validated non-negative
-		return time.Time{}, 0, fmt.Errorf("invalid time bytes length %d exceeds remaining key length", timeBzL)
+	if remaining < 8 || timeBzL != uint64(remaining-8) { //nolint:gosec // remaining is validated before conversion
+		return time.Time{}, 0, fmt.Errorf("invalid queue key length: time length %d requires exactly eight height bytes", timeBzL)
 	}
 	ts, err := sdk.ParseTimeBytes(bz[prefixL+8 : prefixL+8+int(timeBzL)]) //nolint:gosec // timeBzL bounds checked above
 	if err != nil {
 		return time.Time{}, 0, err
 	}
+	if !bytes.Equal(sdk.FormatTimeBytes(ts), bz[prefixL+8:prefixL+8+int(timeBzL)]) { //nolint:gosec // timeBzL bounds checked above
+		return time.Time{}, 0, fmt.Errorf("non-canonical queue key time encoding")
+	}
 
 	height := sdk.BigEndianToUint64(bz[prefixL+8+int(timeBzL):]) //nolint:gosec // timeBzL bounds checked above
+	if height > uint64(1<<63-1) {
+		return time.Time{}, 0, fmt.Errorf("queue key height exceeds int64: %d", height)
+	}
 
-	return ts, int64(height), nil //nolint:gosec // height from trusted store data
+	return ts, int64(height), nil //nolint:gosec // height bounds checked above
 }
 
 // GetDelegationKey creates the key for delegator bond with validator

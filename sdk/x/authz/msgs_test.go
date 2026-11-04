@@ -80,7 +80,7 @@ func TestMsgGrantAuthorization(t *testing.T) {
 		{"nil granter and grantee address", nil, nil, &banktypes.SendAuthorization{SpendLimit: coinsPos}, time.Now(), false, false},
 		{"nil authorization", granter, grantee, nil, time.Now(), true, false},
 		{"valid test case", granter, grantee, &banktypes.SendAuthorization{SpendLimit: coinsPos}, time.Now().AddDate(0, 1, 0), false, true},
-		{"past time", granter, grantee, &banktypes.SendAuthorization{SpendLimit: coinsPos}, time.Now().AddDate(0, 0, -1), false, true}, // TODO need 0.45
+		{"past expiration is structurally valid; server enforces chain time", granter, grantee, &banktypes.SendAuthorization{SpendLimit: coinsPos}, time.Now().AddDate(0, 0, -1), false, true},
 	}
 	for i, tc := range tests {
 		msg, err := authz.NewMsgGrant(
@@ -114,4 +114,9 @@ func TestMsgGrantGetAuthorization(t *testing.T) {
 	g = authz.GenericAuthorization{Msg: "some_type2"}
 	m.SetAuthorization(&g)
 	require.Equal(m.GetAuthorization(), &g)
+}
+
+// Construction and ValidateBasic cannot decide expiration without chain time.
+func TestMsgGrantExpiredExecution(t *testing.T) {
+	repair691AssertExpiredExecution(t)
 }
