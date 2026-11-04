@@ -17,6 +17,8 @@ package fanout
 import (
 	"context"
 	"encoding/json"
+	"errors"
+
 	"log/slog"
 	"net/http"
 	"strings"
@@ -24,7 +26,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/safety"
 	"github.com/gorilla/websocket"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	goredis "github.com/redis/go-redis/v9"
 
@@ -94,7 +98,7 @@ type Hub struct {
 	log          *slog.Logger
 	clock        func() time.Time
 
-	maxMsgLen   int
+	limiter     *safety.AbuseLimiter
 	rateWindow  time.Duration
 	maxPoolMsgs int
 	maxDmMsgs   int
@@ -134,7 +138,7 @@ func New(d Deps) *Hub {
 		sub:             d.Sub,
 		log:             d.Logger,
 		clock:           clock,
-		maxMsgLen:       orDefault(d.MaxMessageLength, 500),
+		limiter:         &safety.AbuseLimiter{Redis: d.Pub, Namespace: d.ChannelNamespace + "chat"},
 		rateWindow:      orDefaultDur(d.RateWindow, 10*time.Second),
 		maxPoolMsgs:     orDefault(d.MaxPoolMsgs, 5),
 		maxDmMsgs:       orDefault(d.MaxDmMsgs, 5),
@@ -151,6 +155,12 @@ func New(d Deps) *Hub {
 			WriteBufferSize: 1024,
 			CheckOrigin:     checkOrigin,
 		},
+	}
+	if h.durable != nil {
+		h.durable.MaxMessageLength = orDefault(d.MaxMessageLength, h.durable.messageLimit())
+		if h.durable.Admission == nil {
+			h.durable.Admission = h.admitSend
+		}
 	}
 	h.ps = d.Sub.Subscribe(context.Background())
 	return h
@@ -484,19 +494,57 @@ func (h *Hub) logErr(op string, err error) {
 	}
 }
 
-// ── rate limiting (per-actor sliding window via Redis) ─────────────────────────
+// Rate windows use one Redis transaction. PEXPIRE NX repairs a counter left
+// without a TTL, while preserving the deadline of an established window.
+var ErrRateLimited = errors.New("Rate limited")
 
-func (h *Hub) allow(ctx context.Context, actor, kind string, max int) bool {
+func (h *Hub) allow(ctx context.Context, actor, kind string, maximum int) error {
+	if h.pub == nil || h.rateWindow.Milliseconds() < 1 || maximum < 1 {
+		return ErrUnavailable
+	}
 	key := h.namespace + "ratelimit:" + kind + ":" + actor + ":ws"
-	n, err := h.pub.Incr(ctx, key).Result()
-	if err != nil {
-		// Reject writes when the global limit cannot be enforced.
-		return false
+	var count *goredis.IntCmd
+	var ttl *goredis.DurationCmd
+	_, err := h.pub.TxPipelined(ctx, func(pipe goredis.Pipeliner) error {
+		count = pipe.Incr(ctx, key)
+		pipe.Do(ctx, "PEXPIRE", key, h.rateWindow.Milliseconds(), "NX")
+		ttl = pipe.PTTL(ctx, key)
+		return nil
+	})
+	if err != nil || ttl.Val() <= 0 {
+		return ErrUnavailable
 	}
-	if n == 1 {
-		_ = h.pub.Expire(ctx, key, h.rateWindow).Err()
+	if count.Val() > int64(maximum) {
+		return ErrRateLimited
 	}
-	return n <= int64(max)
+	return nil
+}
+
+func (h *Hub) admitSend(ctx context.Context, tx pgx.Tx, in SendInput) error {
+	maximum := h.maxDmMsgs
+	if in.Kind == "pool" {
+		maximum = h.maxPoolMsgs
+	}
+	if err := h.allow(ctx, in.Actor, in.Kind, maximum); err != nil {
+		return err
+	}
+	kind := in.Kind
+	if kind == "dm" {
+		var exists bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM chat_conversations WHERE id=$1)`, conversation(in)).Scan(&exists); err != nil {
+			return err
+		}
+		if !exists {
+			kind = "dm_new"
+		}
+	}
+	if err := h.limiter.Take(ctx, in.Actor, kind, in.Target, 0); err != nil {
+		if errors.Is(err, safety.ErrUnavailable) {
+			return ErrUnavailable
+		}
+		return err
+	}
+	return nil
 }
 
 // marshal returns the JSON encoding of v, or nil on error (logged).
