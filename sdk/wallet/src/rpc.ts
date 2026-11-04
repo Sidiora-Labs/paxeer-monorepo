@@ -72,7 +72,10 @@ export class JsonRpcClient {
     return envelopes.map((envelope) => {
       const entry = byId.get(envelope.id);
       if (entry === undefined) {
-        return { ok: false, error: { code: -32603, message: `no response for ${envelope.method}` } };
+        return {
+          ok: false,
+          error: { code: -32603, message: `no response for ${envelope.method}` },
+        };
       }
       return decodeResponse(entry, envelope.id);
     });
@@ -89,7 +92,11 @@ export class JsonRpcClient {
     try {
       response = await this.fetchImpl(this.url, {
         method: 'POST',
-        headers: { 'content-type': 'application/json', accept: 'application/json', ...this.headers },
+        headers: {
+          'content-type': 'application/json',
+          accept: 'application/json',
+          ...this.headers,
+        },
         body: JSON.stringify(body),
       });
     } catch (err) {
@@ -98,9 +105,18 @@ export class JsonRpcClient {
     const text = await response.text();
     let payload: unknown;
     try {
-      payload = JSON.parse(text);
+      payload = (
+        Array.isArray(body)
+          ? body.some((entry) => entry.method === 'px_getReceiptKeys')
+          : body.method === 'px_getReceiptKeys'
+      )
+        ? parseReceiptKeyResponse(text)
+        : JSON.parse(text);
     } catch {
-      throw new JsonRpcTransportError(`response is not JSON (HTTP ${response.status})`, response.status);
+      throw new JsonRpcTransportError(
+        `response is not JSON (HTTP ${response.status})`,
+        response.status
+      );
     }
     if (!response.ok && !(isRecord(payload) || Array.isArray(payload))) {
       throw new JsonRpcTransportError(`HTTP ${response.status}`, response.status);
@@ -115,18 +131,43 @@ export function decodeResponse(value: unknown, id: number): JsonRpcOutcome {
   }
   const hasResult = 'result' in value;
   const hasError = 'error' in value;
-  if (hasResult === hasError) throw new JsonRpcTransportError('response carries neither or both of result and error');
+  if (hasResult === hasError)
+    throw new JsonRpcTransportError('response carries neither or both of result and error');
   if (hasError) return { ok: false, error: decodeError(value.error) };
   return { ok: true, result: value.result };
 }
 
 function decodeError(value: unknown): JsonRpcErrorObject {
-  if (!isRecord(value) || typeof value.code !== 'number' || !Number.isInteger(value.code) || typeof value.message !== 'string') {
+  if (
+    !isRecord(value) ||
+    typeof value.code !== 'number' ||
+    !Number.isInteger(value.code) ||
+    typeof value.message !== 'string'
+  ) {
     throw new JsonRpcTransportError('malformed JSON-RPC error');
   }
-  return 'data' in value ? { code: value.code, message: value.message, data: value.data } : { code: value.code, message: value.message };
+  return 'data' in value
+    ? { code: value.code, message: value.message, data: value.data }
+    : { code: value.code, message: value.message };
 }
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** Preserve uint64 receipt-key height bounds before JSON number rounding. */
+export function parseReceiptKeyResponse(text: string): unknown {
+  const lossless = text.replace(
+    /"(?:\\.|[^"\\])*"|(-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?)/g,
+    (token, number: string | undefined) => {
+      if (
+        number !== undefined &&
+        /^-?(?:0|[1-9][0-9]*)$/.test(number) &&
+        !Number.isSafeInteger(Number(number))
+      )
+        return JSON.stringify(number);
+      return token;
+    }
+  );
+  return JSON.parse(lossless) as unknown;
 }

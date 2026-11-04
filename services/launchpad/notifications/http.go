@@ -16,7 +16,13 @@ import (
 )
 
 type Authenticate func(*http.Request) (string, error)
+type Principal struct {
+	AccountID, Wallet string
+}
+type AuthenticatePrincipal func(*http.Request) (Principal, error)
+
 type HTTP struct {
+	Principal         AuthenticatePrincipal
 	Store             Store
 	Authenticate      Authenticate
 	Discovery         discovery.Store
@@ -129,16 +135,11 @@ func writeV2Notification(w http.ResponseWriter, r *http.Request, raw []byte, err
 var notificationWalletPattern = regexp.MustCompile(`^0x[0-9a-fA-F]{40}$`)
 
 func (h HTTP) listV2Notifications(w http.ResponseWriter, r *http.Request) {
-	account, err := h.actor(r)
+	principal, err := h.notificationPrincipal(w, r)
 	if err != nil {
-		writeError(w, r, http.StatusUnauthorized, "AUTH_REQUIRED")
 		return
 	}
-	wallet := r.Header.Get("X-Actor-Wallet")
-	if !notificationWalletPattern.MatchString(wallet) {
-		writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST")
-		return
-	}
+	account, wallet := principal.AccountID, principal.Wallet
 	unreadOnly, cursor, limit, err := notificationListQuery(r.URL.RawQuery)
 	if err != nil {
 		writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST")
@@ -168,15 +169,11 @@ func (h HTTP) listV2Notifications(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h HTTP) readV2Notification(w http.ResponseWriter, r *http.Request) {
-	account, err := h.actor(r)
+	principal, err := h.notificationPrincipal(w, r)
 	if err != nil {
-		writeError(w, r, http.StatusUnauthorized, "AUTH_REQUIRED")
 		return
 	}
-	if !notificationWalletPattern.MatchString(r.Header.Get("X-Actor-Wallet")) {
-		writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST")
-		return
-	}
+	account := principal.AccountID
 	value := r.PathValue("notificationId")
 	id, err := uuid.Parse(value)
 	if err != nil || len(value) != 36 {
@@ -194,6 +191,40 @@ func (h HTTP) readV2Notification(w http.ResponseWriter, r *http.Request) {
 	}
 	raw, err := AdaptV2NotificationRead(notificationRequestID(r), readAt.Time, time.Now().UTC())
 	writeV2Notification(w, r, raw, err)
+}
+
+func (h HTTP) notificationPrincipal(w http.ResponseWriter, r *http.Request) (Principal, error) {
+	if h.Principal == nil {
+		_, err := h.actor(r)
+		if err != nil {
+			writeError(w, r, http.StatusUnauthorized, "AUTH_REQUIRED")
+		} else {
+			writeError(w, r, http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE")
+		}
+		return Principal{}, ErrUnavailable
+	}
+	p, err := h.Principal(r)
+	if err != nil || p.AccountID == "" {
+		writeError(w, r, http.StatusUnauthorized, "AUTH_REQUIRED")
+		return Principal{}, ErrForbidden
+	}
+	if !notificationWalletPattern.MatchString(p.Wallet) {
+		writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST")
+		return Principal{}, ErrInvalid
+	}
+	for _, key := range []string{"X-Actor-Wallet", "X-Actor-Account"} {
+		if values, present := r.Header[http.CanonicalHeaderKey(key)]; present {
+			expected := p.AccountID
+			if key == "X-Actor-Wallet" {
+				expected = p.Wallet
+			}
+			if len(values) != 1 || !strings.EqualFold(values[0], expected) {
+				writeError(w, r, http.StatusForbidden, "SCOPE_DENIED")
+				return Principal{}, ErrForbidden
+			}
+		}
+	}
+	return p, nil
 }
 
 func (h HTTP) actor(r *http.Request) (string, error) {
