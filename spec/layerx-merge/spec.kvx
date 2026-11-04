@@ -223765,7 +223765,7 @@ do_8 = "Verification runs only the TestRepair_130_* functions of repair_130_test
 
 [task.22.31.127]
 title = "Repair audit record 22.30.6 findings in src/modules/perps: interface-mismatch, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
