@@ -1,0 +1,91 @@
+{
+  "producer": "BlockScoutWeb.Notifier.handle_event/1 and BlockScoutWeb.API.V2.TokenView.prepare_token_instance/2",
+  "media": [
+    {
+      "name": "ipfs",
+      "metadata": {
+        "image": "ipfs://QmYFf7D2UtqnNz8Lu57Gnk3dxgdAiuboPWMEaNNjhr29tS/hidden.png",
+        "animation_url": "ar://animation"
+      },
+      "image_url": "https://ipfs.io/ipfs/QmYFf7D2UtqnNz8Lu57Gnk3dxgdAiuboPWMEaNNjhr29tS/hidden.png",
+      "animation_url": "https://arweave.net/animation",
+      "fetched_event": {
+        "token_id": "90071992547409931234",
+        "fetched_metadata": {
+          "image": "ipfs://QmYFf7D2UtqnNz8Lu57Gnk3dxgdAiuboPWMEaNNjhr29tS/hidden.png",
+          "animation_url": "ar://animation"
+        }
+      }
+    },
+    {
+      "name": "image_url_precedence",
+      "metadata": {
+        "image": "https://example.com/ignored.png",
+        "image_url": "https://example.com/preferred.png"
+      },
+      "image_url": "https://example.com/preferred.png",
+      "animation_url": null,
+      "fetched_event": {
+        "token_id": "90071992547409931234",
+        "fetched_metadata": {
+          "image": "https://example.com/ignored.png",
+          "image_url": "https://example.com/preferred.png"
+        }
+      }
+    },
+    {
+      "name": "map_image",
+      "metadata": {
+        "image": {
+          "description": "https://example.com/map.png"
+        }
+      },
+      "image_url": "https://example.com/map.png",
+      "animation_url": null,
+      "fetched_event": {
+        "token_id": "90071992547409931234",
+        "fetched_metadata": {
+          "image": {
+            "description": "https://example.com/map.png"
+          }
+        }
+      }
+    },
+    {
+      "name": "list_image",
+      "metadata": {
+        "image": [
+          {
+            "description": "https://example.com/list.png"
+          },
+          "https://example.com/ignored.png"
+        ]
+      },
+      "image_url": "https://example.com/list.png",
+      "animation_url": null,
+      "fetched_event": {
+        "token_id": "90071992547409931234",
+        "fetched_metadata": {
+          "image": [
+            {
+              "description": "https://example.com/list.png"
+            },
+            "https://example.com/ignored.png"
+          ]
+        }
+      }
+    }
+  ],
+  "cooldown": {
+    "token_id": "90071992547409931234",
+    "reason": "retry_cooldown"
+  },
+  "failure": {
+    "token_id": "90071992547409931234",
+    "reason": "error"
+  },
+  "unrelated_failure": {
+    "token_id": "90071992547409931235",
+    "reason": "error"
+  }
+}
