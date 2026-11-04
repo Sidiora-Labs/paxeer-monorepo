@@ -146604,7 +146604,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.457]
 title = "Carry the agent SDK's widened committed-receipt inclusion through the seller middleware so the seller package and the packages that build it compile again"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -147448,7 +147448,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1054]
 title = "Repair audit record 22.30.41 medium findings in sdk/launchpad/packages/sidiora-launchpad-v3/test (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.72", "22.31.73", "22.31.74", "22.31.75"]
@@ -147626,7 +147626,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1005]
 title = "Repair audit record 22.30.34 medium findings in apps/launchpad/web/src/widgets/trading/transaction-controls (part 1 of 1): config-drift, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.57"]
@@ -157529,7 +157529,7 @@ do_8 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.384]
 title = "Repair audit record 22.30.139 findings in apps/web/src/journeys/approvals: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.456"]
@@ -177062,7 +177062,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1335]
 title = "Repair audit record 22.30.72 medium findings in services/platform/hosted/gateway/tests (part 1 of 2): retired-reference, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.133"]
@@ -177172,7 +177172,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1328]
 title = "Repair audit record 22.30.71 medium findings in services/platform/hosted/webhooks/src (part 1 of 1): config-drift, retired-reference, runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.188", "22.31.340", "22.31.341"]
@@ -177391,7 +177391,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.450]
 title = "Close the wasm runtime dependency advisories: curve25519-dalek, atty and wasmer in wasm-runtime/libwasmvm/Cargo.lock"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -177423,7 +177423,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.449]
 title = "Close the Solana bridge program dependency advisories: rustls-webpki, rustls, ed25519-dalek, curve25519-dalek, rand and atty in contracts/bridge/solana/Cargo.lock"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -197675,7 +197675,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1359]
 title = "Repair audit record 22.30.74 medium findings in sdk/ics23 (part 1 of 1): runtime-risk, security, test-gap, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.342"]
@@ -198241,7 +198241,7 @@ do_12 = "The gate of this task is corrected (gotcha 2984): the generated command
 
 [task.22.33.1319]
 title = "Repair audit record 22.30.70 medium findings in services/platform/hosted/paxeer (part 1 of 3): restart-recovery, retired-reference, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.186", "22.31.187"]
@@ -198647,7 +198647,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1306]
 title = "Repair audit record 22.30.70 medium findings in sdk/chainflow/go (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.186", "22.31.187"]
@@ -198971,7 +198971,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1286]
 title = "Repair audit record 22.30.66 medium findings in wasm/x/wasm/client/cli (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.184"]
@@ -199446,7 +199446,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1246]
 title = "Repair audit record 22.30.60 medium findings in modules/evm/state (part 1 of 1): runtime-risk, security, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.179", "22.31.180", "22.31.181"]
@@ -200509,7 +200509,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1198]
 title = "Repair audit record 22.30.56 medium findings in storage/state_db/sc/flatkv (part 1 of 1): doc-drift, runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.124", "22.31.125"]
@@ -200918,7 +200918,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1186]
 title = "Repair audit record 22.30.55 medium findings in consensus/scripts/metricsgen (part 1 of 1): config-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.119", "22.31.120", "22.31.121", "22.31.122", "22.31.123"]
@@ -201177,7 +201177,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1177]
 title = "Repair audit record 22.30.54 medium findings in storage/tools/cmd/paxdb/operations (part 1 of 1): config-drift, runtime-risk, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.178"]
@@ -201436,7 +201436,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1170]
 title = "Repair audit record 22.30.53 medium findings in storage/db_engine/litt/benchmark (part 1 of 2): restart-recovery, runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.110", "22.31.111", "22.31.112", "22.31.113", "22.31.114", "22.31.115", "22.31.116", "22.31.117", "22.31.118"]
@@ -201514,7 +201514,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1168]
 title = "Repair audit record 22.30.53 medium findings in storage/db_engine/litt/disktable (part 1 of 1): runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.110", "22.31.111", "22.31.112", "22.31.113", "22.31.114", "22.31.115", "22.31.116", "22.31.117", "22.31.118"]
@@ -202109,7 +202109,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1152]
 title = "Repair audit record 22.30.52 medium findings in consensus/cmd/tendermint/commands/debug (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.104", "22.31.105", "22.31.106", "22.31.107", "22.31.108", "22.31.109"]
@@ -202145,7 +202145,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1151]
 title = "Repair audit record 22.30.52 medium findings in consensus/cmd/contract_tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.104", "22.31.105", "22.31.106", "22.31.107", "22.31.108", "22.31.109"]
@@ -203630,7 +203630,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1087]
 title = "Repair audit record 22.30.45 medium findings in consensus/config (part 1 of 1): config-drift, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.170", "22.31.171", "22.31.172", "22.31.173", "22.31.174", "22.31.175", "22.31.176", "22.31.177"]
@@ -276466,7 +276466,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1304]
 title = "Repair audit record 22.30.7 medium findings in modules/layerxpay/keeper (part 2 of 2): interface-mismatch, runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.131", "22.31.132"]
@@ -278009,7 +278009,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1145]
 title = "Repair audit record 22.30.51 medium findings in node/sequencer (part 2 of 2): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.103"]
@@ -321612,7 +321612,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1046]
 title = "Repair audit record 22.30.41 medium findings in sdk/launchpad/packages/sdk/scripts (part 1 of 1): config-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.72", "22.31.73", "22.31.74", "22.31.75"]
@@ -321716,7 +321716,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1026]
 title = "Repair audit record 22.30.38 medium findings in apps/launchpad/qualification/account-ui (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.65"]
@@ -322031,7 +322031,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.451]
 title = "Close the launchpad load tooling dependency advisories: cryptography and pytest in tools/launchpad/production/load/requirements.txt"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
