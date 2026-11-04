@@ -808,6 +808,7 @@ name = "layerx-porting-cosmwasm"
 version = "0.1.0"
 dependencies = [
  "layerx-porting-cosmwasm-guest",
+ "layerx-program-sdk",
  "layerx-programs-registry",
  "layerx-programs-runtime",
 ]
