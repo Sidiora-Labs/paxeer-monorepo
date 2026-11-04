@@ -98,8 +98,14 @@ func (k *Keeper) GetReceiptFromReceiptStore(ctx sdk.Context, txHash common.Hash)
 // GetReceiptWithRetry attempts to get a receipt with retries to handle race conditions
 // where the receipt might not be immediately available after the transaction.
 func (k *Keeper) GetReceiptWithRetry(ctx sdk.Context, txHash common.Hash, maxRetries int) (*types.Receipt, error) {
+	if maxRetries <= 0 {
+		return nil, fmt.Errorf("receipt lookup requires a positive attempt count: %d", maxRetries)
+	}
 	var lastErr error
 	for i := 0; i < maxRetries; i++ {
+		if err := ctx.Context().Err(); err != nil {
+			return nil, err
+		}
 		receipt, err := k.GetReceipt(ctx, txHash)
 		if err == nil {
 			return receipt, nil
@@ -110,9 +116,19 @@ func (k *Keeper) GetReceiptWithRetry(ctx sdk.Context, txHash common.Hash, maxRet
 			return nil, err
 		}
 
-		// Wait before retrying, with increasing delay, 200ms, 400ms, 600ms, etc.
-		time.Sleep(time.Millisecond * 200 * time.Duration(i+1))
 		lastErr = err
+		if i == maxRetries-1 {
+			break
+		}
+
+		// Wait before retrying, with increasing delay, 200ms, 400ms, 600ms, etc.
+		timer := time.NewTimer(time.Millisecond * 200 * time.Duration(i+1))
+		select {
+		case <-ctx.Context().Done():
+			timer.Stop()
+			return nil, ctx.Context().Err()
+		case <-timer.C:
+		}
 	}
 	return nil, lastErr
 }

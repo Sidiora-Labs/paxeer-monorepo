@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"slices"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -172,6 +173,9 @@ type Payload struct {
 
 // Build builds the Payload.
 func (b PayloadBuilder) Build() (*Payload, error) {
+	if err := validateTimestamp(b.CreatedAt.Unix(), int32(b.CreatedAt.Nanosecond())); err != nil {
+		return nil, fmt.Errorf("created_at: %w", err)
+	}
 	if uint64(len(b.Txs)) > MaxTxsPerBlock {
 		return nil, fmt.Errorf("too many transactions")
 	}
@@ -182,11 +186,24 @@ func (b PayloadBuilder) Build() (*Payload, error) {
 	if total > MaxTxsBytesPerBlock {
 		return nil, fmt.Errorf("total txs bytes too large")
 	}
+	b.Txs = cloneTransactions(b.Txs)
 	return &Payload{p: b}, nil
 }
 
+func cloneTransactions(txs [][]byte) [][]byte {
+	cloned := slices.Clone(txs)
+	for i, tx := range cloned {
+		cloned[i] = slices.Clone(tx)
+	}
+	return cloned
+}
+
 // ToBuilder converts the Payload to a PayloadBuilder.
-func (p *Payload) ToBuilder() PayloadBuilder { return p.p }
+func (p *Payload) ToBuilder() PayloadBuilder {
+	b := p.p
+	b.Txs = p.Txs()
+	return b
+}
 
 // CreatedAt .
 func (p *Payload) CreatedAt() time.Time { return p.p.CreatedAt }
@@ -198,7 +215,7 @@ func (p *Payload) TotalGasWanted() uint64 { return p.p.TotalGasWanted }
 func (p *Payload) TotalGasEstimated() uint64 { return p.p.TotalGasEstimated }
 
 // Txs .
-func (p *Payload) Txs() [][]byte { return p.p.Txs }
+func (p *Payload) Txs() [][]byte { return cloneTransactions(p.p.Txs) }
 
 // Hash of the Payload.
 func (p *Payload) Hash() PayloadHash {
@@ -211,8 +228,8 @@ var BlockHeaderConv = protoutils.Conv[*BlockHeader, *pb.BlockHeader]{
 		return &pb.BlockHeader{
 			Lane:        PublicKeyConv.Encode(h.lane),
 			BlockNumber: utils.Alloc(uint64(h.blockNumber)),
-			ParentHash:  h.parentHash[:],
-			PayloadHash: h.payloadHash[:],
+			ParentHash:  slices.Clone(h.parentHash[:]),
+			PayloadHash: slices.Clone(h.payloadHash[:]),
 		}
 	},
 	Decode: func(h *pb.BlockHeader) (*BlockHeader, error) {
@@ -247,7 +264,7 @@ var PayloadConv = protoutils.Conv[*Payload, *pb.Payload]{
 			CreatedAt:         TimeConv.Encode(p.p.CreatedAt),
 			TotalGasWanted:    utils.Alloc(p.p.TotalGasWanted),
 			TotalGasEstimated: utils.Alloc(p.p.TotalGasEstimated),
-			Txs:               p.p.Txs,
+			Txs:               p.Txs(),
 		}
 	},
 	Decode: func(p *pb.Payload) (*Payload, error) {

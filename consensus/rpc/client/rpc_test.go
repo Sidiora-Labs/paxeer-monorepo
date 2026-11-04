@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"math"
 	"net/http"
 	"strings"
 	"sync"
@@ -27,6 +26,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/client"
 	rpchttp "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/client/http"
 	rpclocal "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/client/local"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/coretypes"
 	rpcclient "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/jsonrpc/client"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 )
@@ -646,129 +646,128 @@ func TestClientMethodCallsAdvanced(t *testing.T) {
 		require.NoError(t, err)
 		require.Greater(t, len(result.Txs), 0, "expected a lot of transactions")
 	})
-	t.Run("TxSearch", func(t *testing.T) {
-		t.Skip("Test Asserts Non-Deterministic Results")
+	t.Run("TxSearch", testTxSearch)
+}
 
-		c := getHTTPClient(t, conf)
-
-		// first we broadcast a few txs
-		for range 10 {
-			_, _, tx := MakeTxKV()
-			_, err := c.BroadcastTxSync(ctx, tx)
-			require.NoError(t, err)
-		}
-
-		// since we're not using an isolated test server, we'll have lingering transactions
-		// from other tests as well
-		result, err := c.TxSearch(ctx, "tx.height >= 0", true, nil, nil, "asc")
+func testTxSearch(t *testing.T) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
+	defer cancel()
+	n, conf := NodeSuite(ctx, t)
+	producer := getHTTPClient(t, conf)
+	const txCount = 10
+	txs := make([]types.Tx, txCount)
+	committed := make([]*coretypes.ResultBroadcastTxCommit, txCount)
+	for i := range txs {
+		txs[i] = types.Tx(fmt.Sprintf("repair-m1110-%02d=value-%02d", i, i))
+		result, err := producer.BroadcastTxCommit(ctx, txs[i])
 		require.NoError(t, err)
-		txCount := len(result.Txs)
+		require.True(t, result.CheckTx.IsOK())
+		require.True(t, result.TxResult.IsOK())
+		require.Equal(t, txs[i].Hash().Bytes(), []byte(result.Hash))
+		require.Greater(t, result.Height, int64(0))
+		if i > 0 {
+			require.Greater(t, result.Height, committed[i-1].Height)
+		}
+		committed[i] = result
+	}
 
-		// pick out the last tx to have something to search for in tests
-		find := result.Txs[len(result.Txs)-1]
-		anotherTxHash := types.Tx("a different tx").Hash()
-
-		for _, c := range GetClients(t, n, conf) {
-			t.Run(fmt.Sprintf("%T", c), func(t *testing.T) {
-				// now we query for the tx.
-				result, err := c.TxSearch(ctx, fmt.Sprintf("tx.hash='%v'", find.Hash), true, nil, nil, "asc")
-				require.NoError(t, err)
-				require.Len(t, result.Txs, 1)
-				require.Equal(t, find.Hash, result.Txs[0].Hash)
-
-				ptx := result.Txs[0]
-				require.Equal(t, find.Height, ptx.Height)
-				require.Equal(t, find.Tx, ptx.Tx)
-				require.Zero(t, ptx.Index)
-				require.True(t, ptx.TxResult.IsOK())
-				require.Equal(t, find.Hash, ptx.Hash)
-
-				// time to verify the proof
-				require.Equal(t, find.Tx, ptx.Proof.Data)
-				require.NoError(t, ptx.Proof.Proof.Verify(ptx.Proof.RootHash, find.Hash))
-
-				// query by height
-				result, err = c.TxSearch(ctx, fmt.Sprintf("tx.height=%d", find.Height), true, nil, nil, "asc")
-				require.NoError(t, err)
-				require.Len(t, result.Txs, 1)
-
-				// query for non existing tx
-				result, err = c.TxSearch(ctx, fmt.Sprintf("tx.hash='%X'", anotherTxHash), false, nil, nil, "asc")
-				require.NoError(t, err)
-				require.Len(t, result.Txs, 0)
-
-				// query using a compositeKey (see kvstore application)
-				result, err = c.TxSearch(ctx, "app.creator='Cosmoshi Netowoko'", false, nil, nil, "asc")
-				require.NoError(t, err)
-				require.Greater(t, len(result.Txs), 0, "expected a lot of transactions")
-
-				// query using an index key
-				result, err = c.TxSearch(ctx, "app.index_key='index is working'", false, nil, nil, "asc")
-				require.NoError(t, err)
-				require.Greater(t, len(result.Txs), 0, "expected a lot of transactions")
-
-				// query using an noindex key
-				result, err = c.TxSearch(ctx, "app.noindex_key='index is working'", false, nil, nil, "asc")
-				require.NoError(t, err)
-				require.Equal(t, len(result.Txs), 0, "expected a lot of transactions")
-
-				// query using a compositeKey (see kvstore application) and height
-				result, err = c.TxSearch(ctx,
-					"app.creator='Cosmoshi Netowoko' AND tx.height<10000", true, nil, nil, "asc")
-				require.NoError(t, err)
-				require.Greater(t, len(result.Txs), 0, "expected a lot of transactions")
-
-				// query a non existing tx with page 1 and txsPerPage 1
-				perPage := 1
-				result, err = c.TxSearch(ctx, "app.creator='Cosmoshi Neetowoko'", true, nil, &perPage, "asc")
-				require.NoError(t, err)
-				require.Len(t, result.Txs, 0)
-
-				// check sorting
-				result, err = c.TxSearch(ctx, "tx.height >= 1", false, nil, nil, "asc")
-				require.NoError(t, err)
-				for k := 0; k < len(result.Txs)-1; k++ {
-					require.LessOrEqual(t, result.Txs[k].Height, result.Txs[k+1].Height)
-					require.LessOrEqual(t, result.Txs[k].Index, result.Txs[k+1].Index)
-				}
-
-				result, err = c.TxSearch(ctx, "tx.height >= 1", false, nil, nil, "desc")
-				require.NoError(t, err)
-				for k := 0; k < len(result.Txs)-1; k++ {
-					require.GreaterOrEqual(t, result.Txs[k].Height, result.Txs[k+1].Height)
-					require.GreaterOrEqual(t, result.Txs[k].Index, result.Txs[k+1].Index)
-				}
-				// check pagination
-				perPage = 3
-				var (
-					seen      = map[int64]bool{}
-					maxHeight int64
-					pages     = int(math.Ceil(float64(txCount) / float64(perPage)))
-				)
-
-				for page := 1; page <= pages; page++ {
-					page := page
-					result, err := c.TxSearch(ctx, "tx.height >= 1", false, &page, &perPage, "asc")
+	for _, c := range GetClients(t, n, conf) {
+		t.Run(fmt.Sprintf("%T", c), func(t *testing.T) {
+			checkTx := func(got *coretypes.ResultTx, index int, prove bool) {
+				t.Helper()
+				want := committed[index]
+				require.Equal(t, want.Height, got.Height)
+				require.Zero(t, got.Index)
+				require.Equal(t, txs[index], got.Tx)
+				require.Equal(t, want.Hash, got.Hash)
+				require.True(t, got.TxResult.IsOK())
+				if prove {
+					require.Equal(t, txs[index], got.Proof.Data)
+					require.NoError(t, got.Proof.Proof.Verify(got.Proof.RootHash, want.Hash))
+					block, err := c.Block(ctx, &want.Height)
 					require.NoError(t, err)
-					if page < pages {
-						require.Len(t, result.Txs, perPage)
-					} else {
-						require.LessOrEqual(t, len(result.Txs), perPage)
+					require.Equal(t, []byte(block.Block.DataHash), []byte(got.Proof.RootHash))
+				} else {
+					require.Empty(t, got.Proof.Data)
+				}
+			}
+			find := committed[txCount-1]
+			result, err := c.TxSearch(ctx, fmt.Sprintf("tx.hash='%X'", []byte(find.Hash)), true, nil, nil, "asc")
+			require.NoError(t, err)
+			require.Equal(t, 1, result.TotalCount)
+			require.Len(t, result.Txs, 1)
+			checkTx(result.Txs[0], txCount-1, true)
+
+			result, err = c.TxSearch(ctx, fmt.Sprintf("tx.height=%d", find.Height), true, nil, nil, "asc")
+			require.NoError(t, err)
+			require.Equal(t, 1, result.TotalCount)
+			require.Len(t, result.Txs, 1)
+			checkTx(result.Txs[0], txCount-1, true)
+
+			for _, query := range []string{
+				fmt.Sprintf("tx.hash='%X'", types.Tx("a different tx").Hash().Bytes()),
+				"app.noindex_key='index is working'",
+				"app.creator='Cosmoshi Neetowoko'",
+			} {
+				perPage := 1
+				result, err := c.TxSearch(ctx, query, true, nil, &perPage, "asc")
+				require.NoError(t, err)
+				require.Zero(t, result.TotalCount)
+				require.Len(t, result.Txs, 0)
+			}
+
+			for _, query := range []string{
+				"app.creator='Cosmoshi Netowoko'",
+				"app.index_key='index is working'",
+				fmt.Sprintf("app.creator='Cosmoshi Netowoko' AND tx.height<=%d", find.Height),
+				"tx.height >= 1",
+			} {
+				result, err := c.TxSearch(ctx, query, true, nil, nil, "asc")
+				require.NoError(t, err)
+				require.Equal(t, txCount, result.TotalCount)
+				require.Len(t, result.Txs, txCount)
+				for i, tx := range result.Txs {
+					checkTx(tx, i, true)
+				}
+			}
+
+			for _, order := range []string{"asc", "desc"} {
+				result, err := c.TxSearch(ctx, "tx.height >= 1", false, nil, nil, order)
+				require.NoError(t, err)
+				require.Equal(t, txCount, result.TotalCount)
+				require.Len(t, result.Txs, txCount)
+				for i, tx := range result.Txs {
+					index := i
+					if order == "desc" {
+						index = txCount - 1 - i
 					}
+					checkTx(tx, index, false)
+				}
+
+				perPage := 3
+				pages := (txCount + perPage - 1) / perPage
+				seen := map[int64]bool{}
+				for page := 1; page <= pages; page++ {
+					result, err := c.TxSearch(ctx, "tx.height >= 1", true, &page, &perPage, order)
+					require.NoError(t, err)
 					require.Equal(t, txCount, result.TotalCount)
-					for _, tx := range result.Txs {
-						require.False(t, seen[tx.Height],
-							"Found duplicate height %v in page %v", tx.Height, page)
-						require.Greater(t, tx.Height, maxHeight,
-							"Found decreasing height %v (max seen %v) in page %v", tx.Height, maxHeight, page)
+					start := (page - 1) * perPage
+					require.Len(t, result.Txs, min(perPage, txCount-start))
+					for i, tx := range result.Txs {
+						index := start + i
+						if order == "desc" {
+							index = txCount - 1 - index
+						}
+						checkTx(tx, index, true)
+						require.False(t, seen[tx.Height], "duplicate height %d on page %d", tx.Height, page)
 						seen[tx.Height] = true
-						maxHeight = tx.Height
 					}
 				}
 				require.Len(t, seen, txCount)
-			})
-		}
-	})
+			}
+		})
+	}
 }
 
 func TestMempoolRPCOnFullNode(t *testing.T) {

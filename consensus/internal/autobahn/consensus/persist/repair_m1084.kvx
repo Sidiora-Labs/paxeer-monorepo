@@ -1,0 +1,7 @@
+[repair.22.33.1084]
+finding = "22.30.44/permission-error-fixtures"
+tests = ["TestRepairM_1084_FailedWritePreservesSequenceAndBackup", "TestRepairM_1084_ReadErrorsPropagate"]
+proof = "Real A/B persister writes, filesystem conflicts, backup bytes, unchanged failed-write sequence, retry slot sequence and payload, reopen recovery, and typed read-error propagation through loadFile, loadPersisted and NewPersister; both A/B slots are covered without platform skips."
+baseline = "Not run: the task's ordered implementation-first, hf-build then hf-done instructions prohibit a pre-change verification run; no pre-change test failures are claimed. No earlier gate ledger was present."
+wiring_requests = "None; the proposal is entirely within the persistence package."
+qualification = "The runner's hf-done ledger records the verified candidate revision, exact command, exit code and private log location."
