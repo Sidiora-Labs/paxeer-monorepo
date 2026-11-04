@@ -1,0 +1,30 @@
+{
+  "latestDeployment": {
+    "id": "deployment-selected",
+    "status": "SUCCESS",
+    "instances": [
+      {
+        "id": "replica-west",
+        "status": "RUNNING"
+      },
+      {
+        "id": "replica-east",
+        "status": "RUNNING"
+      }
+    ],
+    "meta": {
+      "serviceManifest": {
+        "deploy": {
+          "multiRegionConfig": {
+            "europe-west4": {
+              "numReplicas": 1
+            },
+            "us-east4": {
+              "numReplicas": 1
+            }
+          }
+        }
+      }
+    }
+  }
+}
