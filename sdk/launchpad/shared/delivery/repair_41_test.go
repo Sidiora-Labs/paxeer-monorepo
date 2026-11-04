@@ -181,7 +181,7 @@ func repair41Fixture(t *testing.T) (context.Context, *pgxpool.Pool, *Archive, *R
 			}
 		}
 	}
-	if _, err = archive.store.CompareShadowRange(ctx, digest, []string{fixtureSubject}); err != nil {
+	if _, err = archive.store.CompareShadowGeneration(ctx, digest, []string{fixtureSubject}, engine.consumer, engine.generation); err != nil {
 		t.Fatal(err)
 	}
 	return ctx, pool, archive, engine, manifest, digest
