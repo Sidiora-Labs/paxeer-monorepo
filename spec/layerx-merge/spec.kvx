@@ -151196,7 +151196,7 @@ do_10 = "Attempt 3 (continue): the explorer type-check fails with fifteen errors
 
 [task.22.33.516]
 title = "Repair audit record 22.30.152 medium findings in apps/explorer (part 1 of 1): wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.402", "22.31.403", "22.31.404", "22.31.474"]
