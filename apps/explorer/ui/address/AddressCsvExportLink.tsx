@@ -1,4 +1,5 @@
 import { chakra } from '@chakra-ui/react';
+import { pickBy } from 'es-toolkit';
 import React from 'react';
 
 import type { CsvExportParams } from 'types/client/address';
@@ -34,12 +35,14 @@ const AddressCsvExportLink = ({ className, address, params, isLoading, chainData
     return null;
   }
 
+  const query = pickBy({ ...params, address }, (value) => value !== undefined);
+
   return (
     <Tooltip disabled={ !isMobile } content="Download CSV">
       <Link
         className={ className }
         whiteSpace="nowrap"
-        href={ route({ pathname: '/csv-export', query: { ...params, address } }, { chain: chainData ?? multichainContext?.chain }) }
+        href={ route({ pathname: '/csv-export', query }, { chain: chainData ?? multichainContext?.chain }) }
         flexShrink={ 0 }
         loading={ isInitialLoading }
         minW={ 8 }
