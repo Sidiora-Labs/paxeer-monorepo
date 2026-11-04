@@ -1,0 +1,23 @@
+[manifest]
+task = "22.32.40"
+domain = 5
+owner_role = "fm-node-runtime"
+pages = 3
+
+[page.1]
+path = "consensus/spec/light-client/detection/detection_003_reviewed.md"
+status = "stale"
+bytes = 31746
+source_1 = "record 22.30.47 [doc.051] (stale): Vendored upstream light-client research/specification artifact detection_003_reviewed.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[page.2]
+path = "consensus/spec/light-client/detection/discussions.md"
+status = "stale"
+bytes = 7038
+source_1 = "record 22.30.47 [doc.052] (stale): Vendored upstream light-client research/specification artifact discussions.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[page.3]
+path = "consensus/spec/light-client/detection/draft-functions.md"
+status = "stale"
+bytes = 9047
+source_1 = "record 22.30.47 [doc.053] (stale): Vendored upstream light-client research/specification artifact draft-functions.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."

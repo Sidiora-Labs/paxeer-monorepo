@@ -1,0 +1,11 @@
+[manifest]
+task = "22.32.119"
+domain = 14
+owner_role = "fm-web-explorer-bridge"
+pages = 1
+
+[page.1]
+path = "apps/bridge/README.md"
+status = "stale"
+bytes = 1450
+source_1 = "record 22.30.131 [doc.13] (stale): Template instructions name app/page.tsx instead of src/app/page.tsx and omit build-time bridge configuration, route prerequisites and recovery guidance."

@@ -1,0 +1,23 @@
+[manifest]
+task = "22.32.145"
+domain = 14
+owner_role = "fm-web-explorer-bridge"
+pages = 3
+
+[page.1]
+path = "services/explorer/services/libs/env-collector/README.md"
+status = "stale"
+bytes = 2343
+source_1 = "record 22.30.149 [doc.14] (stale): Read in full; the created binary and generation commands disagree, and the dependency example is older than the package. See env-readme-binary-name."
+
+[page.2]
+path = "services/explorer/services/sig-provider/README.md"
+status = "stale"
+bytes = 3078
+source_1 = "record 22.30.135 [doc.015] (stale): Lines 8-12 omit the enabled local precompile source; line 40 describes shared local crates despite the registry launcher workspace dependency. Both gaps have concrete service-owned documentation proposals."
+
+[page.3]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/README.md"
+status = "stale"
+bytes = 13320
+source_1 = "record 22.30.161 [doc.03] (stale): Read entire page. Lines 16/95 overstate completeness of configuration, 133 and 176 advertise removed request fields, and 211 incorrectly merges distinct response families. Findings name concrete replacements."

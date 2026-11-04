@@ -1,0 +1,11 @@
+[manifest]
+task = "22.32.4"
+domain = 2
+owner_role = "fm-ledger-auth-pay"
+pages = 1
+
+[page.1]
+path = "modules/README.md"
+status = "stale"
+bytes = 1705
+source_1 = "record 22.30.7 [doc.8] (stale): Full member page read; lines 11-13 advertise retired settlement roles and the inventory omits active merged economic/host/tenant modules."

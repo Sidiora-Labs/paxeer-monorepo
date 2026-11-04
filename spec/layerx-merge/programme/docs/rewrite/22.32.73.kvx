@@ -1,0 +1,13 @@
+[manifest]
+task = "22.32.73"
+domain = 7
+owner_role = "fm-rpc-api"
+pages = 1
+
+[page.1]
+path = "docs/system/rpc.md"
+status = "misleading"
+bytes = 7999
+source_1 = "record 22.30.67 [doc.5] (stale): Read the entire generated catalogue. Lines 5 and 137-141 omit the test opt-in; the 103-method catalogue misses filter and receipt-key registrations and renders subscription selectors as method names. Repair its generator and regenerate."
+source_2 = "record 22.30.68 [doc.rpc] (stale): Lines 7 and 71-74 miscount the surface and present subscription topics as methods; active polling filters and node receipt keys are omitted. See rpc-catalogue-drift."
+source_3 = "record 22.30.69 [doc.01] (misleading): Full package page read. Line 13 advertises unregistered AsRawJSON; served-method extraction and count need correction."

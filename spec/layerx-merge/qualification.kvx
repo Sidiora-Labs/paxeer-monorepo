@@ -22171,3 +22171,227 @@ symbol = "repair_22_31_362.rs"
 observed = "Attempt 1: cargo reported no test target named repair_22_31_362; a Rust test file was added to the platform workspace."
 assumption = "Verify command of the wrong toolchain (gotcha 2969)."
 severity = "medium"
+
+[finding.16.90.1.2]
+task = "16.90.1"
+file = "tools/paxeer-x/tests/test_retired_catalogue_deleted.py::RetiredCatalogueDeletedTest.test_deleted_trees_absent_and_catalogue_valid"
+symbol = "test_retired_catalogue_deleted.py::RetiredCatalogueDeletedTest.test_deleted_trees_absent_and_catalogue_valid"
+observed = "Attempt 5: the retired-catalogue test fails on three README lines naming the deleted lni tree."
+assumption = "The catalogue check is right and the page is stale."
+severity = "high"
+
+[finding.18.1562.1.5]
+task = "18.1562.1"
+file = "rpc/sequencer_receipt_vectors_test.go::TestAiMarketTransferAuthorityReceipt"
+symbol = "sequencer_receipt_vectors_test.go::TestAiMarketTransferAuthorityReceipt"
+observed = "Attempt 10: TestAiMarketTransferAuthorityReceipt fails at market creation with LXP_VERSION_UNSUPPORTED."
+assumption = "Base revision predates the ABI-5 pair; no code change expected."
+severity = "high"
+
+[finding.22.31.13.3]
+task = "22.31.13"
+file = "apps/perps/tests/repair-22-31-13.test.ts"
+symbol = "repair-22-31-13.test.ts"
+observed = "Attempt 4: tsc fails with TS2307 cannot find module viem in sdk/wallet/src/provider.ts."
+assumption = "Toolchain gap, not a product defect."
+severity = "high"
+
+[finding.22.31.235.2]
+task = "22.31.235"
+file = "apps/wallet/src/lib/portfolio-api/repair-22-31-235.test.ts"
+symbol = "repair-22-31-235.test.ts"
+observed = "Attempt 2: finding_2 test expects status 401 from the proxy and receives 405."
+assumption = "The proxy has no mutation route; the finding named the wrong component or the route is missing."
+severity = "high"
+
+[finding.22.31.24.2]
+task = "22.31.24"
+file = "src/modules/programs"
+symbol = "programs"
+observed = "Attempt 2: the maintenance boundary recovery audit fails inside audit_create_occupancy at the finalize call."
+assumption = "Fixture arguments predate the current finalize contract."
+severity = "high"
+
+[finding.22.31.252.2]
+task = "22.31.252"
+file = "programs/crates/layerx-programs-arbiter/tests/repair_22_31_252.rs"
+symbol = "repair_22_31_252.rs"
+observed = "Attempt 2: executor payer replay and the producer crossing test fail with the Runtime error from the replay helper."
+assumption = "Hand-built boundary pair."
+severity = "high"
+
+[finding.22.31.267.2]
+task = "22.31.267"
+file = "services/explorer/services/sig-provider/sig-provider/tests/repair_22_31_267.rs"
+symbol = "repair_22_31_267.rs"
+observed = "Attempt 3: three coverage tests fail: a serde borrowed-string error in sources/precompiles.rs line 59 and an ABI union mismatch."
+assumption = "Borrowed-string deserialization of embedded JSON plus a hand-maintained table."
+severity = "high"
+
+[finding.22.31.269.2]
+task = "22.31.269"
+file = "services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_269.rs"
+symbol = "repair_22_31_269.rs"
+observed = "Attempt 2: health shape tests report fields dropped by the generated consumer and an untyped 500 response."
+assumption = "The override does not declare the nested objects, so generation flattens them away."
+severity = "high"
+
+[finding.22.31.376.1]
+task = "22.31.376"
+file = "apps/bridge/src/lib/bridge/repair-22-31-376.spec.ts"
+symbol = "repair-22-31-376.spec.ts"
+observed = "Attempt 1: tsc fails with TS2304 cannot find name LayoutProps in src/app/layout.tsx."
+assumption = "Toolchain step missing from the gate."
+severity = "high"
+
+[finding.22.31.399.1]
+task = "22.31.399"
+file = "services/explorer/backend/apps/explorer/test/repair/repair_22_31_399_test.exs"
+symbol = "repair_22_31_399_test.exs"
+observed = "Attempt 1: two dry-run-writes tests fail: identity id mismatch and missing ok result for the github identity."
+assumption = "Fixture does not match the identities under test."
+severity = "high"
+
+[finding.22.31.401.1]
+task = "22.31.401"
+file = "services/explorer/backend/apps/explorer/test/repair/repair_22_31_401_test.exs"
+symbol = "repair_22_31_401_test.exs"
+observed = "Attempt 1: three default-path tests receive :disabled instead of a transport failure."
+assumption = "Test environment never receives the runtime default."
+severity = "high"
+
+[finding.22.31.404.1]
+task = "22.31.404"
+file = "services/explorer/backend/apps/explorer/test/repair/repair_22_31_404_test.exs"
+symbol = "repair_22_31_404_test.exs"
+observed = "Attempt 1: Mix.Error could not start application indexer; preview log empty."
+assumption = "The Mix task boots applications the test does not need."
+severity = "high"
+
+[finding.22.31.407.1]
+task = "22.31.407"
+file = "services/explorer/backend/apps/explorer/test/repair/repair_22_31_407_test.exs"
+symbol = "repair_22_31_407_test.exs"
+observed = "Attempt 1: three tests fail requiring environment URLs of real nodes."
+assumption = "Environment-bound gate."
+severity = "high"
+
+[finding.22.31.410.1]
+task = "22.31.410"
+file = "services/explorer/backend/apps/explorer/test/repair/repair_22_31_410_test.exs"
+symbol = "repair_22_31_410_test.exs"
+observed = "Attempt 1: ten failures, contract_code not emptied for same-transaction create and destroy cases."
+assumption = "Migrator rule incomplete."
+severity = "high"
+
+[finding.22.31.411.1]
+task = "22.31.411"
+file = "services/explorer/backend/apps/explorer/test/repair/repair_22_31_411_test.exs"
+symbol = "repair_22_31_411_test.exs"
+observed = "Attempt 1: six committed_without_inclusion tests observe :committed where a refusal is required."
+assumption = "Verifier promotes without the inclusion witness."
+severity = "high"
+
+[finding.22.31.53.1]
+task = "22.31.53"
+file = "services/launchpad/indexer/internal/receipt/repair_53_test.go"
+symbol = "repair_53_test.go"
+observed = "Attempt 3: missing producer transcript file; one restart test refused by the authority check."
+assumption = "Uncommitted fixture and a hand-chosen emitter."
+severity = "high"
+
+[finding.22.31.54.2]
+task = "22.31.54"
+file = "services/launchpad/indexer/internal/processor/repair_54_test.go"
+symbol = "repair_54_test.go"
+observed = "Attempt 4: two tests fail for a missing PostgreSQL DSN."
+assumption = "Environment-bound gate."
+severity = "high"
+
+[finding.22.31.260.1]
+task = "22.31.260"
+file = "programs/crates/layerx-programs-market/tests/repair_22_31_260.rs"
+symbol = "repair_22_31_260.rs"
+observed = "Attempt 2: build exit 0, verify not run, outcome implemented-not-qualified for time."
+assumption = "Time, not a defect."
+severity = "high"
+
+[finding.22.31.278.2]
+task = "22.31.278"
+file = "services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_278.rs"
+symbol = "repair_22_31_278.rs"
+observed = "Attempt 2: two tests fail on decoded metadata containing latest_block."
+assumption = "Stale recording."
+severity = "high"
+
+[finding.22.31.202.2]
+task = "22.31.202"
+file = "services/platform/hosted/gateway/tests/repair_22_31_202.rs"
+symbol = "repair_22_31_202.rs"
+observed = "Attempt 2: repair_22_31_202_real_producer_paths fails with Invalid params."
+assumption = "Request shape drifted from the schema."
+severity = "high"
+
+[finding.22.31.147.3]
+task = "22.31.147"
+file = "tests/agent/sdk/python/test_repair_22_31_147.py"
+symbol = "test_repair_22_31_147.py"
+observed = "Attempt 3: the x402 verification raises VERIFICATION_FAILURE for the metered draw receipt."
+assumption = "Hand-sliced calldata offsets."
+severity = "high"
+
+[finding.22.31.374.1]
+task = "22.31.374"
+file = "programs/sdk/c/src/host.h"
+symbol = "host.h"
+observed = "Attempts 2 and 3: make programs-sdk-c fails in the determinism lint on host.h, a file the attempts did not change."
+assumption = "Pre-existing lint break on main inside the task scope."
+severity = "high"
+
+[finding.22.31.308.2]
+task = "22.31.308"
+file = "sdk/x/gov/client/cli/repair_308_test.go"
+symbol = "repair_308_test.go"
+observed = "Attempt 2: two tests fail on a named-type versus slice comparison with identical elements."
+assumption = "Type mismatch in the comparison, not in the data."
+severity = "high"
+
+[finding.22.31.326.1]
+task = "22.31.326"
+file = "tools/paxctl/sidecar/tasks/repair_326_test.go"
+symbol = "repair_326_test.go"
+observed = "Attempt 2: SQLITE_BUSY on the state database and a genesis prefix assertion failure."
+assumption = "Connection sharing and prefix enforcement."
+severity = "high"
+
+[finding.22.31.391.1]
+task = "22.31.391"
+file = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_31_391_test.exs"
+symbol = "repair_22_31_391_test.exs"
+observed = "Attempt 1: test 61 fails on 1.0 versus 1 in the exported CSV."
+assumption = "Decimal formatting."
+severity = "high"
+
+[finding.22.31.396.1]
+task = "22.31.396"
+file = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_31_396_test.exs"
+symbol = "repair_22_31_396_test.exs"
+observed = "Attempt 1: identity search empty, changed-proof status committed, status route 200 instead of 404."
+assumption = "Producer behaviour short of the contract on three paths."
+severity = "high"
+
+[finding.22.31.402.1]
+task = "22.31.402"
+file = "tools/qualification/audit_repairs/test_repair_22_31_402.py"
+symbol = "test_repair_22_31_402.py"
+observed = "Attempt 1: placeholder attestor in the deploy manifest and a mismatch with the Ethereum chain config."
+assumption = "Signer set is an owner decision; the structural checks are the gate."
+severity = "high"
+
+[finding.22.31.439.1]
+task = "22.31.439"
+file = "services/human/crates/layerx-explorer-index/tests/retired_client_modules.rs"
+symbol = "retired_client_modules.rs"
+observed = "Attempt 1: cargo refuses package id layerx-explorer-index; the directory holds one orphaned test file and no manifest."
+assumption = "Deletion leftover of the 10.27.x tasks; the audit record read a source tree that main no longer has."
+severity = "high"
