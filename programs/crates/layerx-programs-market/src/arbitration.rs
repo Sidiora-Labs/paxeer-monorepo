@@ -69,6 +69,7 @@ pub fn billing_claim(
         || height >= profile.response_deadline
         || height.checked_add(billing.challenge_window_batches) != Some(profile.response_deadline)
         || billing.usage[0] > profile.limits.cpu_fuel
+        || billing.usage[1] % (profile.interval_end - profile.interval_start) != 0
         || u128::from(billing.usage[1])
             > u128::from(profile.limits.memory_bytes)
                 * u128::from(profile.interval_end - profile.interval_start)

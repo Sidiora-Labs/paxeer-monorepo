@@ -1,0 +1,28 @@
+[task.22.31.260]
+audit = "22.30.126"
+status = "implementation continued; qualification pending in-process runtime test wiring"
+baseline = "The supplied previous-attempt verify output reports billing_unbound and challenge_account_overlap failed at operation 14 (claim commitment), before either repair was exercised; no additional baseline gate was run."
+wiring = "programs/crates/layerx-programs-market/Cargo.toml — programs domain (13): add an in-process runtime test dependency; the manifest is outside the authorized scope."
+integration = "The inherited market test shells out to Cargo and the runtime harness compiles a guest; this violates do_8 and must be replaced before qualification. Both runtime regression cases remain implemented, with genuine replay-derived usage and output."
+
+[repair.1]
+revision = "1c8285cc768f8ede822daa56d18a7adcbc6871b9"
+command = "cg spec done 22.31.260 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The new fixture's reduced unit price disagreed with the fixed ten-unit lease deposit, so the guest refused lease opening before either finding was exercised."
+repair = "Restore the original unit price and use a genuine shorter integer execution whose measured CPU bill, including the inflated case, fits the funded lease."
+
+[finding.billing-unbound]
+test = "tests/repair_22_31_260.rs::billing_unbound -> execute::market_tests::repair_22_31_260_billing_unbound"
+proof = "A genuine low-work trace and its measured usage/output defend an honest bill; inflating each of the six dimensions within profile limits or changing its output digest loses the terminal challenge with escrow, bond and capacity settled. Memory uses peak bytes times the authorized interval; ingress is the canonical integer argument encoding; egress is the terminal meter's output bytes."
+
+[finding.challenge-account-overlap]
+test = "tests/repair_22_31_260.rs::challenge_account_overlap -> execute::market_tests::repair_22_31_260_challenge_account_overlap"
+proof = "Both public overlapping account seeds are refused through the compiled guest with unchanged storage and no funding effects. A distinct funded challenge is serialized, its storage dropped and reopened, and its timeout settles exactly once with conserved transfers and released capacity."
+
+[continuation]
+fixture_repair = "Replay capture itself consumes metered CPU; a ten-unit lease cannot fund the captured trace. Use 100000 lease units at unit price 10000, retaining the existing 1000000000 escrow and 3000000000 bond; scale exact capacity assertions with the lease units."
+terminal_repair = "The new billing case agrees with every genuine boundary and reaches Resolution::Terminal (5), so assert that exact resolution rather than Resolution::Step (4)."
+producer = "MarketSandboxExecution::billing_usage derives all six billing dimensions from actual metered usage and ingress, with checked memory-by-interval multiplication; the terminal consumer uses the same calculation."
+gotcha = "The declared market build has only an SDK dependency, so it does not compile the edited runtime; launching Cargo from the market test neither repairs that dependency nor satisfies the self-contained gate requirement."
