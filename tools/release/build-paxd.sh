@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Reproducible paxd release build: dist/paxeer-network/<version>/ with SHA256SUMS.
 # Usage: build-paxd.sh [--print-tag]
-# Env: PAXD_DIST_DIR (output dir), PAXD_COMMIT, SOURCE_DATE_EPOCH, PAXD_RELEASE_LAYERXD=1 (also build layerxd).
+# Env: PAXD_DIST_DIR (output dir), PAXD_COMMIT, SOURCE_DATE_EPOCH.
 set -euo pipefail
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
@@ -20,6 +20,12 @@ case "$#:${1-}" in
     exit 2
     ;;
 esac
+
+# Refuse stale release callers before invoking toolchains or replacing output.
+if [ "${PAXD_RELEASE_LAYERXD:-0}" != 0 ]; then
+  echo "build-paxd: PAXD_RELEASE_LAYERXD is retired; release the merged paxd package" >&2
+  exit 2
+fi
 
 if [ -d /usr/local/go/bin ]; then PATH="/usr/local/go/bin:$PATH"; fi
 if [ -d "$HOME/.cargo/bin" ]; then PATH="$HOME/.cargo/bin:$PATH"; fi
@@ -112,14 +118,6 @@ fi
 cargo build --locked --release --manifest-path "$src/services/platform/Cargo.toml" -p layerx-oracle-feeder --bin price-sidecar
 platform_target=$(cargo metadata --locked --format-version 1 --no-deps --manifest-path "$src/services/platform/Cargo.toml" | jq -er '.target_directory')
 cp "$platform_target/release/price-sidecar" "$out/price-sidecar-$version-$goos-$goarch"
-
-if [ "${PAXD_RELEASE_LAYERXD:-0}" = 1 ]; then
-  build_dir=$(mktemp -d)
-  trap 'rm -rf -- "$build_dir"' EXIT
-  make --no-print-directory PROGRAMS_DIR="$src/programs" BUILD_DIR="$build_dir" LXP_REVISION="$commit" \
-    EXTRA_CFLAGS="-ffile-prefix-map=$root=. -ffile-prefix-map=$build_dir=build" layerxd
-  cp "$build_dir/bin/layerxd" "$out/layerxd-$version-$goos-$goarch"
-fi
 
 write_sums() {
   (cd "$out" && find . -maxdepth 1 -type f ! -name SHA256SUMS -printf '%f\n' | sort | xargs sha256sum > SHA256SUMS)
