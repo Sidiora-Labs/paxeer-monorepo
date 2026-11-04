@@ -1,0 +1,9 @@
+[repair.22.33.1081]
+audit = "22.30.44"
+baseline = "No baseline verification was run: the ordered gate instructions prohibit verification before complete implementation and permit verification only through hf-done. No prior failing test is claimed."
+evidence = "The hf-build and hf-done ledger records the candidate revision, exact command, exit code and private log location; completion requires hf-done passing on the build candidate."
+estimated-gas-test-oracle = "TestRepairM_1081_EstimatedGasSealing and TestRepairM_1081_EstimatedGasOracle: realistic gas, effective normalization, corrected shared oracle, independently binding estimated-gas limit, exact next-transaction sealing, real producer, consensus transport, data consumer and application execution."
+producer-pending-index-restart = "TestRepairM_1081_PendingIndexRestart: producer emits two local blocks, availability persists them before voting, both components stop and reopen the lane WAL, ingress waits for replay, nonce and hash lookups recover, duplicate nonce is rejected, following nonce is admitted, and real consensus transport, data consumption, execution and pruning preserve transaction order."
+recovery = "Run rechecks retained transactions before opening admission; an application rejection holds the barrier until that block executes, then rebuilds the suffix. Recheck errors fail recovery explicitly. Pending APIs without an error result surface recovery failure as a panic rather than returning an incomplete index."
+wiring = "No repair proposal requires an out-of-path implementation change."
+gotcha = "Availability has no public Close method; the restart test stops and joins all producer and availability tasks before reopening the WAL, matching existing availability restart fixtures."
