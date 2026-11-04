@@ -789,3 +789,11 @@ fn facilitator_reports_committed_only_with_a_proof() {
         );
     }
 }
+
+#[path = "support/repair_22_33_105.rs"]
+mod repair_path;
+
+#[test]
+fn facilitator_extensions_cross_transport_into_buyer_unchanged() {
+    repair_path::facilitator_capture();
+}

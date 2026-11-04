@@ -149,8 +149,8 @@ Source: [put_request.go](types/put_request.go)
 
 ```go
 type PutRequest struct {
-	Key           []byte
-	Value         []byte
+	Key           []byte // at most 65,535 bytes (math.MaxUint16)
+	Value         []byte // at most 4,294,967,295 bytes (math.MaxUint32)
 	SecondaryKeys []*SecondaryKey // optional, may be nil
 }
 ```
@@ -159,7 +159,7 @@ Source: [secondary_key.go](types/secondary_key.go)
 
 ```go
 type SecondaryKey struct {
-	Key    []byte // a key alias unique within the table
+	Key    []byte // a unique alias, at most 65,535 bytes (math.MaxUint16)
 	Offset uint32 // byte offset into the parent value
 	Length uint32 // length of the byte range (Offset+Length <= len(Value))
 }

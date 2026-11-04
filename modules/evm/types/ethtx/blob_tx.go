@@ -191,20 +191,45 @@ func (tx *BlobTx) SetSignatureValues(chainID, v, r, s *big.Int) {
 }
 
 func (tx BlobTx) Validate() error {
-	if tx.GasTipCap == nil {
-		return errors.New("gas tip cap cannot nil")
+	for _, field := range []struct {
+		name  string
+		value *sdk.Int
+	}{
+		{"chain ID", tx.ChainID},
+		{"gas tip cap", tx.GasTipCap},
+		{"gas fee cap", tx.GasFeeCap},
+		{"amount", tx.Amount},
+		{"blob fee cap", tx.BlobFeeCap},
+	} {
+		if err := validateRequiredUint256(field.name, field.value); err != nil {
+			return err
+		}
 	}
-
-	if tx.GasFeeCap == nil {
-		return errors.New("gas fee cap cannot nil")
+	if len(tx.BlobHashes) == 0 {
+		return errors.New("blob hashes cannot be empty")
 	}
-
-	if tx.GasTipCap.IsNegative() {
-		return fmt.Errorf("gas tip cap cannot be negative %s", tx.GasTipCap)
+	for i, hash := range tx.BlobHashes {
+		if len(hash) != common.HashLength {
+			return fmt.Errorf("blob hash %d must be %d bytes", i, common.HashLength)
+		}
 	}
-
-	if tx.GasFeeCap.IsNegative() {
-		return fmt.Errorf("gas fee cap cannot be negative %s", tx.GasFeeCap)
+	if tx.Sidecar != nil {
+		if len(tx.Sidecar.Blobs) != len(tx.BlobHashes) ||
+			len(tx.Sidecar.Commitments) != len(tx.BlobHashes) ||
+			len(tx.Sidecar.Proofs) != len(tx.BlobHashes) {
+			return errors.New("blob sidecar list lengths must match blob hashes")
+		}
+		for i := range tx.BlobHashes {
+			if len(tx.Sidecar.Blobs[i]) != len(kzg4844.Blob{}) {
+				return fmt.Errorf("blob %d must be %d bytes", i, len(kzg4844.Blob{}))
+			}
+			if len(tx.Sidecar.Commitments[i]) != len(kzg4844.Commitment{}) {
+				return fmt.Errorf("blob commitment %d must be %d bytes", i, len(kzg4844.Commitment{}))
+			}
+			if len(tx.Sidecar.Proofs[i]) != len(kzg4844.Proof{}) {
+				return fmt.Errorf("blob proof %d must be %d bytes", i, len(kzg4844.Proof{}))
+			}
+		}
 	}
 
 	if tx.GasFeeCap.LT(*tx.GasTipCap) {
@@ -217,16 +242,8 @@ func (tx BlobTx) Validate() error {
 		return errors.New("fee out of bound")
 	}
 
-	amount := tx.GetValue()
-	// Amount can be 0
-	if amount != nil && amount.Sign() == -1 {
-		return fmt.Errorf("amount cannot be negative %s", amount)
-	}
-
-	if tx.To != "" {
-		if err := ValidateAddress(tx.To); err != nil {
-			return errors.New("invalid to address")
-		}
+	if err := ValidateAddress(tx.To); err != nil {
+		return errors.New("invalid to address")
 	}
 
 	if err := validateAccessList(tx.Accesses); err != nil {
@@ -240,14 +257,6 @@ func (tx BlobTx) Validate() error {
 	}
 	if err := validateSignatureValue("s", tx.S, 32); err != nil {
 		return err
-	}
-
-	chainID := tx.GetChainID()
-
-	if chainID == nil {
-		return errors.New(
-			"chain ID must be present on AccessList txs",
-		)
 	}
 
 	return nil

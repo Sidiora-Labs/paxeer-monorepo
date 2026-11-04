@@ -105,6 +105,10 @@ impl AlertStore {
     pub fn set_next_id(&self, id: u64) {
         self.next_id.store(id, Ordering::Relaxed);
     }
+
+    pub fn next_id(&self) -> u64 {
+        self.next_id.load(Ordering::Relaxed)
+    }
 }
 
 #[cfg(test)]
