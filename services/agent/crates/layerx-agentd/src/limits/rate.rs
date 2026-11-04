@@ -1,12 +1,16 @@
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fmt::{Display, Formatter};
+use std::fs::{self, File, OpenOptions};
+use std::io::Write;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 /// Deployment contract for deterministic multi-instance counters.
 pub const COUNTER_CONSISTENCY_MODEL: &str = "Every daemon limiter instance serving a tenant must share one linearizable CounterLedger. Windows are selected from authenticated request logical_time_ms, never an instance-local clock, and all applicable counters are checked and incremented in one transaction. Independent ledgers are unsupported because they would permit counter divergence.";
 
 /// Stable operator-facing identifier of one configured limit.
-#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct LimitId(String);
 
 impl LimitId {
@@ -31,7 +35,7 @@ impl LimitId {
 }
 
 /// Every independently configurable rate-limit dimension.
-#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub enum LimitScope {
     Tenant {
         tenant: String,
@@ -99,7 +103,7 @@ impl LimitScope {
 }
 
 /// One finite fixed-window rate configuration.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct LimitConfig {
     pub id: LimitId,
     pub scope: LimitScope,
@@ -135,7 +139,7 @@ impl RateRequest {
 }
 
 /// Exact fixed window selected deterministically from logical request time.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Window {
     pub start_ms: u64,
     pub end_ms: u64,
@@ -167,6 +171,12 @@ pub enum Refusal {
         remaining: u64,
         retry_after_ms: u64,
     },
+    StaleWindow {
+        limit: Box<LimitConfig>,
+        window: Window,
+        remaining: u64,
+        retry_after_ms: u64,
+    },
     InvalidConfiguration,
     InvalidRequest,
     NoApplicableLimits,
@@ -189,6 +199,7 @@ impl Display for Refusal {
                 window.start_ms,
                 window.end_ms
             ),
+            Self::StaleWindow { window, .. } => write!(formatter, "rate observation precedes durable window {}..{}", window.start_ms, window.end_ms),
             Self::InvalidConfiguration => formatter.write_str("rate limit configuration is invalid"),
             Self::InvalidRequest => formatter.write_str("rate limit request is invalid"),
             Self::NoApplicableLimits => formatter.write_str("request has no applicable rate limits"),
@@ -200,26 +211,119 @@ impl Display for Refusal {
 
 impl std::error::Error for Refusal {}
 
-#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
-struct CounterKey {
-    limit: LimitId,
-    window_start_ms: u64,
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct Counter {
+    config: LimitConfig,
+    window: Window,
+    used: u64,
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 struct CounterState {
     revision: u64,
-    used: BTreeMap<CounterKey, u64>,
+    used: BTreeMap<LimitId, Counter>,
 }
 
-/// Cloneable linearizable counter ledger shared by all limiter instances.
-#[derive(Clone, Debug, Default)]
-pub struct CounterLedger(Arc<Mutex<CounterState>>);
+#[derive(Debug)]
+enum CounterAuthority {
+    Memory(Mutex<CounterState>),
+    Durable(PathBuf),
+}
+
+/// A shared authority. Production owners open the same durable root in every instance.
+#[derive(Clone, Debug)]
+pub struct CounterLedger(Arc<CounterAuthority>);
+
+impl Default for CounterLedger {
+    fn default() -> Self {
+        Self(Arc::new(CounterAuthority::Memory(Mutex::new(
+            CounterState::default(),
+        ))))
+    }
+}
 
 impl CounterLedger {
     #[must_use]
     pub fn shared() -> Self {
         Self::default()
+    }
+
+    /// Opens and validates the durable authority before it can admit requests.
+    /// A permanent lock inode serializes independent opens, including other processes.
+    pub fn open(root: impl AsRef<Path>) -> Result<Self, Refusal> {
+        fs::create_dir_all(root.as_ref()).map_err(|_| Refusal::CounterUnavailable)?;
+        let ledger = Self(Arc::new(CounterAuthority::Durable(
+            root.as_ref().to_path_buf(),
+        )));
+        ledger.transaction(false, |_| Ok(()))?;
+        Ok(ledger)
+    }
+
+    fn transaction<T>(
+        &self,
+        write: bool,
+        operation: impl FnOnce(&mut CounterState) -> Result<T, Refusal>,
+    ) -> Result<T, Refusal> {
+        match self.0.as_ref() {
+            CounterAuthority::Memory(state) => {
+                let mut state = state.lock().map_err(|_| Refusal::CounterUnavailable)?;
+                let mut next = state.clone();
+                let result = operation(&mut next)?;
+                if write {
+                    *state = next;
+                }
+                Ok(result)
+            }
+            CounterAuthority::Durable(root) => {
+                let lock = OpenOptions::new()
+                    .create(true)
+                    .truncate(false)
+                    .read(true)
+                    .write(true)
+                    .open(root.join("counter.lock"))
+                    .map_err(|_| Refusal::CounterUnavailable)?;
+                lock.lock().map_err(|_| Refusal::CounterUnavailable)?;
+                let path = root.join("counters.json");
+                let mut state: CounterState = match fs::read(&path) {
+                    Ok(bytes) => {
+                        serde_json::from_slice(&bytes).map_err(|_| Refusal::CounterUnavailable)?
+                    }
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                        CounterState::default()
+                    }
+                    Err(_) => return Err(Refusal::CounterUnavailable),
+                };
+                if state.used.iter().any(|(id, counter)| {
+                    id != &counter.config.id
+                        || counter.config.limit == 0
+                        || counter.config.window_ms == 0
+                        || !counter.config.scope.valid()
+                        || counter.used == 0
+                        || counter.used > counter.config.limit
+                        || window(counter.window.start_ms, counter.config.window_ms)
+                            != Ok(counter.window)
+                }) {
+                    return Err(Refusal::CounterUnavailable);
+                }
+                let result = operation(&mut state)?;
+                // Initialize even on open: a missing authority is never confused with a corrupt one.
+                if write || !path.exists() {
+                    let bytes =
+                        serde_json::to_vec(&state).map_err(|_| Refusal::CounterUnavailable)?;
+                    let temporary = root.join("counters.next");
+                    let mut file =
+                        File::create(&temporary).map_err(|_| Refusal::CounterUnavailable)?;
+                    file.write_all(&bytes)
+                        .and_then(|()| file.sync_all())
+                        .map_err(|_| Refusal::CounterUnavailable)?;
+                    fs::rename(&temporary, &path).map_err(|_| Refusal::CounterUnavailable)?;
+                    File::open(root)
+                        .and_then(|file| file.sync_all())
+                        .map_err(|_| Refusal::CounterUnavailable)?;
+                }
+                Ok(result)
+            }
+        }
     }
 }
 
@@ -251,6 +355,11 @@ impl RateLimiter {
         Ok(Self { configs, ledger })
     }
 
+    #[must_use]
+    pub fn is_durable(&self) -> bool {
+        matches!(self.ledger.0.as_ref(), CounterAuthority::Durable(_))
+    }
+
     /// Atomically checks and increments every applicable scope counter.
     ///
     /// # Errors
@@ -270,48 +379,61 @@ impl RateLimiter {
         if applicable.is_empty() {
             return Err(Refusal::NoApplicableLimits);
         }
-        let mut ledger = self
-            .ledger
-            .0
-            .lock()
-            .map_err(|_| Refusal::CounterUnavailable)?;
-        let next_revision = ledger.revision.checked_add(1).ok_or(Refusal::Arithmetic)?;
-        for config in &applicable {
-            let window = window(request.logical_time_ms, config.window_ms)?;
-            let key = CounterKey {
-                limit: config.id.clone(),
-                window_start_ms: window.start_ms,
-            };
-            let used = ledger.used.get(&key).copied().unwrap_or(0);
-            let projected = used.checked_add(request.cost).ok_or(Refusal::Arithmetic)?;
-            if projected > config.limit {
-                return Err(Refusal::Exceeded {
-                    limit: Box::new((*config).clone()),
-                    window,
-                    remaining: config.limit.saturating_sub(used),
-                    retry_after_ms: window.end_ms.saturating_sub(request.logical_time_ms),
-                });
+        self.ledger.transaction(true, |ledger| {
+            let next_revision = ledger.revision.checked_add(1).ok_or(Refusal::Arithmetic)?;
+            for config in &applicable {
+                let selected = window(request.logical_time_ms, config.window_ms)?;
+                let current = ledger.used.get(&config.id);
+                if let Some(counter) = current {
+                    if counter.config != **config {
+                        return Err(Refusal::InvalidConfiguration);
+                    }
+                    if selected.start_ms < counter.window.start_ms {
+                        return Err(Refusal::StaleWindow {
+                            limit: Box::new((*config).clone()),
+                            window: counter.window,
+                            remaining: config.limit.saturating_sub(counter.used),
+                            retry_after_ms: counter
+                                .window
+                                .end_ms
+                                .saturating_sub(request.logical_time_ms),
+                        });
+                    }
+                }
+                let used = current
+                    .filter(|counter| counter.window == selected)
+                    .map_or(0, |counter| counter.used);
+                let projected = used.checked_add(request.cost).ok_or(Refusal::Arithmetic)?;
+                if projected > config.limit {
+                    return Err(Refusal::Exceeded {
+                        limit: Box::new((*config).clone()),
+                        window: selected,
+                        remaining: config.limit.saturating_sub(used),
+                        retry_after_ms: selected.end_ms.saturating_sub(request.logical_time_ms),
+                    });
+                }
             }
-        }
-        for config in &applicable {
-            let selected = window(request.logical_time_ms, config.window_ms)?;
-            ledger.used.retain(|key, _| {
-                key.limit != config.id || key.window_start_ms == selected.start_ms
-            });
-            let key = CounterKey {
-                limit: config.id.clone(),
-                window_start_ms: selected.start_ms,
-            };
-            let used = ledger.used.get(&key).copied().unwrap_or(0);
-            ledger.used.insert(
-                key,
-                used.checked_add(request.cost).ok_or(Refusal::Arithmetic)?,
-            );
-        }
-        ledger.revision = next_revision;
-        Ok(Admission {
-            applied_limits: applicable.iter().map(|config| config.id.clone()).collect(),
-            ledger_revision: ledger.revision,
+            for config in &applicable {
+                let selected = window(request.logical_time_ms, config.window_ms)?;
+                let used = ledger
+                    .used
+                    .get(&config.id)
+                    .filter(|counter| counter.window == selected)
+                    .map_or(0, |counter| counter.used);
+                ledger.used.insert(
+                    config.id.clone(),
+                    Counter {
+                        config: (*config).clone(),
+                        window: selected,
+                        used: used.checked_add(request.cost).ok_or(Refusal::Arithmetic)?,
+                    },
+                );
+            }
+            ledger.revision = next_revision;
+            Ok(Admission {
+                applied_limits: applicable.iter().map(|config| config.id.clone()).collect(),
+                ledger_revision: ledger.revision,
+            })
         })
     }
 
@@ -326,30 +448,29 @@ impl RateLimiter {
         tenant: &str,
         logical_time_ms: u64,
     ) -> Result<Vec<Utilization>, Refusal> {
-        let ledger = self
-            .ledger
-            .0
-            .lock()
-            .map_err(|_| Refusal::CounterUnavailable)?;
-        self.configs
-            .iter()
-            .filter(|config| config.scope.tenant() == tenant)
-            .map(|config| {
-                let selected = window(logical_time_ms, config.window_ms)?;
-                let key = CounterKey {
-                    limit: config.id.clone(),
-                    window_start_ms: selected.start_ms,
-                };
-                let used = ledger.used.get(&key).copied().unwrap_or(0);
-                Ok(Utilization {
-                    config: config.clone(),
-                    window: selected,
-                    used,
-                    remaining: config.limit.saturating_sub(used),
-                    ledger_revision: ledger.revision,
+        self.ledger.transaction(false, |ledger| {
+            self.configs
+                .iter()
+                .filter(|config| config.scope.tenant() == tenant)
+                .map(|config| {
+                    let selected = window(logical_time_ms, config.window_ms)?;
+                    let current = ledger.used.get(&config.id);
+                    if current.is_some_and(|counter| counter.config != *config) {
+                        return Err(Refusal::InvalidConfiguration);
+                    }
+                    let used = current
+                        .filter(|counter| counter.window == selected)
+                        .map_or(0, |counter| counter.used);
+                    Ok(Utilization {
+                        config: config.clone(),
+                        window: selected,
+                        used,
+                        remaining: config.limit.saturating_sub(used),
+                        ledger_revision: ledger.revision,
+                    })
                 })
-            })
-            .collect()
+                .collect()
+        })
     }
 }
 

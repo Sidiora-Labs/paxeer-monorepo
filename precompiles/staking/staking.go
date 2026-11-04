@@ -553,6 +553,7 @@ func (p PrecompileExecutor) createValidator(ctx sdk.Context, method *abi.Method,
 	if err != nil {
 		return nil, 0, errors.New("invalid public key hex format")
 	}
+	// Keep the historical v630 boundary for replay below the applied merge height.
 	if pcommon.MergePlanActive(ctx, p.evmKeeper) && len(pubKeyBytes) != ed25519.PubKeySize {
 		return nil, 0, errors.New("invalid public key length: expected 32 bytes")
 	}
@@ -1068,15 +1069,21 @@ func (p PrecompileExecutor) redelegations(ctx sdk.Context, method *abi.Method, a
 		return nil, 0, err
 	}
 
+	mergeActive := pcommon.MergePlanActive(ctx, p.evmKeeper)
 	redelegations := make([]Redelegation, len(response.RedelegationResponses))
 	for i, redel := range response.RedelegationResponses {
 		entries := make([]RedelegationEntry, len(redel.Entries))
 		for j, entry := range redel.Entries {
+			// v630 exposed token balance as sharesDst; preserve those replay bytes.
+			sharesDst := entry.Balance.String()
+			if mergeActive {
+				sharesDst = entry.RedelegationEntry.SharesDst.String()
+			}
 			entries[j] = RedelegationEntry{
 				CreationHeight: entry.RedelegationEntry.CreationHeight,
 				CompletionTime: entry.RedelegationEntry.CompletionTime.Unix(),
 				InitialBalance: entry.RedelegationEntry.InitialBalance.String(),
-				SharesDst:      entry.RedelegationEntry.SharesDst.String(),
+				SharesDst:      sharesDst,
 			}
 		}
 		redelegations[i] = Redelegation{

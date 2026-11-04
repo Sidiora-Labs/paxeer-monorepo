@@ -23,6 +23,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	typestx "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/tx"
 	stakingtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/staking/types"
+	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"go.opentelemetry.io/otel/attribute"
@@ -32,6 +33,46 @@ import (
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
 )
+
+const maxRetainedEvmTxHashes = 10000
+
+type evmTxHashStore struct {
+	mu       sync.RWMutex
+	hashes   []common.Hash
+	capacity int
+	next     int
+}
+
+func newEvmTxHashStore(capacity int) *evmTxHashStore {
+	if capacity <= 0 {
+		panic("EVM transaction hash capacity must be positive")
+	}
+	return &evmTxHashStore{hashes: make([]common.Hash, 0, capacity), capacity: capacity}
+}
+
+func (s *evmTxHashStore) Add(hash common.Hash) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if len(s.hashes) < s.capacity {
+		s.hashes = append(s.hashes, hash)
+	} else {
+		s.hashes[s.next] = hash
+	}
+	s.next = (s.next + 1) % s.capacity
+}
+
+func (s *evmTxHashStore) Snapshot() []common.Hash {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	hashes := make([]common.Hash, len(s.hashes))
+	if len(s.hashes) < s.capacity {
+		copy(hashes, s.hashes)
+	} else {
+		n := copy(hashes, s.hashes[s.next:])
+		copy(hashes[n:], s.hashes[:s.next])
+	}
+	return hashes
+}
 
 type LoadTestClient struct {
 	LoadTestConfig     Config
@@ -287,7 +328,7 @@ func (c *LoadTestClient) BuildTxs(
 					}
 				}
 				signedTx = SignedTx{EvmTx: evmTx, MsgType: messageType}
-				EvmTxHashes = append(EvmTxHashes, signedTx.EvmTx.Hash())
+				EvmTxHashes.Add(signedTx.EvmTx.Hash())
 			default:
 				msgTypeCount := atomic.LoadInt64(producedCountPerMsgType[messageType])
 				txs, err := c.generateSignedCosmosTxs(keyIndex, messageType, msgTypeCount)
@@ -350,11 +391,11 @@ func (c *LoadTestClient) SendTxs(
 		case <-done:
 			return
 		case tx, ok := <-txQueue:
-			loadtestMetrics.consumeCount.Add(context.Background(), 1, otelmetric.WithAttributes(attribute.String("msg_type", tx.MsgType)))
 			if !ok {
 				fmt.Printf("Stopping consumers\n")
 				return
 			}
+			loadtestMetrics.consumeCount.Add(context.Background(), 1, otelmetric.WithAttributes(attribute.String("msg_type", tx.MsgType)))
 			// Acquire a semaphore
 			if err := semaphore.Acquire(ctx, 1); err != nil {
 				fmt.Printf("Failed to acquire semaphore: %v", err)
