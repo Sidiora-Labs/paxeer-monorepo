@@ -1,6 +1,7 @@
 package consensus
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"slices"
@@ -10,6 +11,8 @@ import (
 	tmos "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/os"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 	"github.com/gogo/protobuf/proto"
+	gogotypes "github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/encoding/protowire"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/internal/libs/wal"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/utils"
@@ -23,6 +26,15 @@ const (
 )
 
 type ErrBadSize struct{ error }
+
+// ErrWALProposalReceiveTimeMissing prevents replay from inventing PBTS input
+// for a legacy proposal. The debug envelope time is not its receive time.
+var ErrWALProposalReceiveTimeMissing = errors.New("WAL proposal has no persisted receive time; recover from committed state")
+
+// Field 3 extends tendermint.consensus.TimedWALMessage with a Timestamp
+// receive_time. Keep the wire adapter here until the owning protobuf package
+// exposes that field; its existing decoder safely skips the extension.
+const walReceiveTimeField protowire.Number = 3
 
 //--------------------------------------------------------
 // types and functions for savings consensus messages
@@ -246,6 +258,18 @@ func (w *WAL) Append(msg WALMessage) error {
 	if err != nil {
 		panic(fmt.Errorf("proto.Marshal(): %w", err))
 	}
+	if mi, ok := msg.any.(msgInfo); ok {
+		timestamp, err := gogotypes.TimestampProto(mi.ReceiveTime)
+		if err != nil {
+			return fmt.Errorf("WAL receive time: %w", err)
+		}
+		encoded, err := proto.Marshal(timestamp)
+		if err != nil {
+			return fmt.Errorf("marshal WAL receive time: %w", err)
+		}
+		entry = protowire.AppendTag(entry, walReceiveTimeField, protowire.BytesType)
+		entry = protowire.AppendBytes(entry, encoded)
+	}
 	if len(entry) > maxMsgSizeBytes {
 		return ErrBadSize{fmt.Errorf("msg is too big: %d bytes, max: %d bytes", len(entry), maxMsgSizeBytes)}
 	}
@@ -260,7 +284,70 @@ func walFromBytes(msgBytes []byte) (WALMessage, error) {
 	if err := proto.Unmarshal(msgBytes, &msgPB); err != nil {
 		return WALMessage{}, fmt.Errorf("proto.Unmarshal(): %w", err)
 	}
-	return walFromProto(msgPB.Msg)
+	if msgPB.Msg == nil {
+		return WALMessage{}, errors.New("WAL entry has no message")
+	}
+	msg, err := walFromProto(msgPB.Msg)
+	if err != nil {
+		return WALMessage{}, err
+	}
+	mi, ok := msg.any.(msgInfo)
+	if !ok {
+		return msg, nil
+	}
+	receiveTime, present, err := walReceiveTimeFromBytes(msgBytes)
+	if err != nil {
+		return WALMessage{}, err
+	}
+	if !present {
+		// Older WAL entries cannot reconstruct a proposal's PBTS decision.
+		// Refuse those entries rather than use the append clock or zero time.
+		// Other legacy messages do not consume ReceiveTime for consensus.
+		if _, proposal := mi.Msg.(*ProposalMessage); proposal {
+			return WALMessage{}, ErrWALProposalReceiveTimeMissing
+		}
+	}
+	mi.ReceiveTime = receiveTime
+	return NewWALMessage(mi), nil
+}
+
+func walReceiveTimeFromBytes(entry []byte) (time.Time, bool, error) {
+	var receiveTime time.Time
+	present := false
+	for len(entry) > 0 {
+		number, wireType, n := protowire.ConsumeTag(entry)
+		if n < 0 {
+			return time.Time{}, false, protowire.ParseError(n)
+		}
+		entry = entry[n:]
+		if number != walReceiveTimeField {
+			n = protowire.ConsumeFieldValue(number, wireType, entry)
+			if n < 0 {
+				return time.Time{}, false, protowire.ParseError(n)
+			}
+			entry = entry[n:]
+			continue
+		}
+		if present || wireType != protowire.BytesType {
+			return time.Time{}, false, errors.New("invalid WAL receive time field")
+		}
+		encoded, n := protowire.ConsumeBytes(entry)
+		if n < 0 {
+			return time.Time{}, false, protowire.ParseError(n)
+		}
+		var timestamp gogotypes.Timestamp
+		if err := proto.Unmarshal(encoded, &timestamp); err != nil {
+			return time.Time{}, false, fmt.Errorf("unmarshal WAL receive time: %w", err)
+		}
+		var err error
+		receiveTime, err = gogotypes.TimestampFromProto(&timestamp)
+		if err != nil {
+			return time.Time{}, false, fmt.Errorf("WAL receive time: %w", err)
+		}
+		present = true
+		entry = entry[n:]
+	}
+	return receiveTime, present, nil
 }
 
 // ReadLastHeightMsgs() - reads and returns all messages after the last EndHeightMessage marker.
