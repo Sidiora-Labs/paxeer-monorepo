@@ -1,6 +1,6 @@
 //! Withdrawal operations over JSON-RPC.
 
-use crate::px::{PxCustodyAsset, PxEndpoint};
+use crate::px::PxEndpoint;
 use crate::rpc::payments::{self, CallRequest, FeeEstimate};
 use crate::sequencer::{SequencerEndpoint, SequencerError};
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
@@ -23,22 +23,18 @@ fn estimate_fee(
 fn get_asset(
     endpoint: &PxEndpoint,
     asset_id: [u8; 32],
-) -> Result<PxCustodyAsset, WithdrawalConfigurationError> {
-    let asset = payments::get_asset(endpoint, asset_id).map_err(|error| match error {
+) -> Result<(), WithdrawalConfigurationError> {
+    let id = asset_id
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+    payments::get_asset(endpoint, &id).map_err(|error| match error {
         SequencerError::Unavailable => WithdrawalConfigurationError::AssetUnavailable,
         _ => WithdrawalConfigurationError::Unavailable,
     })?;
-    let custody = asset
-        .paxeer
-        .ok_or(WithdrawalConfigurationError::AssetUnavailable)?;
-    if custody.asset_id != asset_id
-        || !custody.enabled
-        || custody.paused
-        || custody.pointer == [0; 20]
-    {
-        return Err(WithdrawalConfigurationError::AssetUnavailable);
-    }
-    Ok(custody)
+    // The current asset table authenticates metadata, but carries no withdrawal
+    // pointer or custody configuration. It cannot authorize a custody operation.
+    Err(WithdrawalConfigurationError::Unsupported)
 }
 
 pub fn registry(

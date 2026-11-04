@@ -53,10 +53,137 @@ use sha2::{Digest as _, Sha256};
 use layerx_types::rung::Rung;
 
 use crate::rpc::receipt::{
-    lookup_authenticated, AuthenticatedLookup, AuthenticatedLookupContext, ReceiptError,
+    lookup_authenticated, lookup_authenticated_with_commit, AuthenticatedLookup,
+    AuthenticatedLookupContext, AuthenticatedReceipt, ReceiptError,
 };
+use crate::rpc::receipt_commit::ReceiptCommitEvidence;
 use crate::rpc::submit::{submit_signed, Submission, SubmitError};
 use crate::sequencer::{SequencerEndpoint, SequencerError};
+use layerx_programs_registry::chain_proof::{
+    decode::ProofOp, state::verify_state, VerifiedChainHead,
+};
+
+/// A host program namespace authenticated under a verified Comet app hash.
+/// The constructor verifies the real `progstor` head, manifest and AI state blob.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct VerifiedProgramState {
+    block_height: u64,
+    block_hash: [u8; 32],
+    app_hash: [u8; 32],
+    chain: ChainDomain,
+    program: ProgramId,
+    native_root: [u8; 32],
+    digest: [u8; 32],
+    revision: u64,
+    total_bytes: u32,
+    proof_digest: [u8; 32],
+}
+
+impl VerifiedProgramState {
+    /// Verify an SDK/IAVL namespace head and its content-addressed manifest.
+    /// `expected_chain_id` comes from the caller's pinned chain verifier.
+    pub fn verify(
+        head: &VerifiedChainHead,
+        expected_chain_id: &str,
+        program: ProgramId,
+        namespace_head: &[u8],
+        manifest: &[u8],
+        state: &[u8],
+        ops: &[ProofOp],
+    ) -> Result<Self, AiClientError> {
+        let invalid = || AiClientError::FinalityMismatch;
+        if head.chain_id() != expected_chain_id
+            || expected_chain_id.is_empty()
+            || namespace_head.len() != 38
+            || namespace_head[..2] != [0, 1]
+            || manifest.len() > MAX_STATE_BYTES
+            || state.len() > MAX_STATE_BYTES
+        {
+            return Err(invalid());
+        }
+        let mut key = vec![1, 0, 9];
+        key.extend_from_slice(b"progstor");
+        key.extend_from_slice(program.as_bytes());
+        key.push(1);
+        let state_height =
+            verify_state(head, "lxphost", &key, namespace_head, ops).map_err(|_| invalid())?;
+        let count = u32::from_be_bytes(namespace_head[2..6].try_into().map_err(|_| invalid())?);
+        if count == 0
+            || count > 65_536
+            || Sha256::digest(manifest).as_slice() != &namespace_head[6..]
+            || manifest.len() < 6
+            || manifest[..2] != [0, 1]
+            || manifest[2..6] != namespace_head[2..6]
+        {
+            return Err(invalid());
+        }
+        let mut remaining = &manifest[6..];
+        let mut previous: &[u8] = &[];
+        let mut found = false;
+        for _ in 0..count {
+            let length_bytes = remaining.get(..2).ok_or_else(invalid)?;
+            let length = usize::from(u16::from_be_bytes(
+                length_bytes.try_into().map_err(|_| invalid())?,
+            ));
+            remaining = &remaining[2..];
+            let key = remaining.get(..length).ok_or_else(invalid)?;
+            if length == 0 || length > 1024 || key <= previous {
+                return Err(invalid());
+            }
+            previous = key;
+            remaining = &remaining[length..];
+            let digest = remaining.get(..32).ok_or_else(invalid)?;
+            let length_bytes = remaining.get(32..36).ok_or_else(invalid)?;
+            let value_length = u32::from_be_bytes(length_bytes.try_into().map_err(|_| invalid())?);
+            if key == layerx_programs_ai_market::SHARED_STATE_KEY {
+                if usize::try_from(value_length).ok() != Some(state.len())
+                    || Sha256::digest(state).as_slice() != digest
+                {
+                    return Err(invalid());
+                }
+                found = true;
+            }
+            remaining = &remaining[36..];
+        }
+        if !remaining.is_empty() || !found {
+            return Err(invalid());
+        }
+        let chain = ChainDomain::new(layerx_programs_ai_market::MERGED_CHAIN_DOMAIN)?;
+        let header = read_header(state, chain, program)?;
+        let outer = crate::storage_witness::existence(&ops[1].data).map_err(|_| invalid())?;
+        let native_root = outer.value.try_into().map_err(|_| invalid())?;
+        let mut hash = Sha256::new();
+        for op in ops {
+            hash.update((op.data.len() as u64).to_be_bytes());
+            hash.update(&op.data);
+        }
+        // Comet header H authenticates application state H-1.
+        let block_height = u64::try_from(state_height + 1).map_err(|_| invalid())?;
+        Ok(Self {
+            block_height,
+            block_hash: head.header_hash(),
+            app_hash: head.app_hash(),
+            chain,
+            program,
+            native_root,
+            digest: header.digest.bytes(),
+            revision: header.revision,
+            total_bytes: header.total_bytes,
+            proof_digest: hash.finalize().into(),
+        })
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct ReceiptCoverageFacts {
+    activity_id: [u8; 32],
+    sequence: u64,
+    execution_height: u64,
+    resulting_root: [u8; 32],
+    receipt_digest: [u8; 32],
+    block_height: u64,
+    block_hash: [u8; 32],
+}
 
 /// F02 live-authority freshness bound: a snapshot lagging verified authority by more refuses.
 pub const AUTHORITY_FRESHNESS_HEIGHTS: u64 = 8;
@@ -71,7 +198,8 @@ pub const NATIVE_CALL_PROTOCOL_VERSION: u16 = 3;
 /// Programs module activity ordinal of a native program call.
 pub const PROGRAM_CALL_ORDINAL: u16 = 3;
 
-const RECORD_MAGIC: &[u8; 8] = b"PAXAIOP2";
+const RECORD_MAGIC: &[u8; 8] = b"PAXAIOP3";
+const LEGACY_RECORD_MAGIC: &[u8; 8] = b"PAXAIOP2";
 const RECORD_EXTENSION: &str = "op";
 const HEX: &[u8; 16] = b"0123456789abcdef";
 
@@ -141,13 +269,15 @@ impl From<io::Error> for AiClientError {
     }
 }
 
-/// Finalized block facts retained with a market snapshot or journal record.
+/// Block facts plus optional opaque verified evidence. `new` retains assertions only.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct CommitFinality {
     block_height: u64,
     block_hash: Digest32,
     app_hash: Digest32,
     store_proof_digest: Digest32,
+    program: Option<VerifiedProgramState>,
+    coverage: Option<ReceiptCoverageFacts>,
 }
 
 impl CommitFinality {
@@ -167,7 +297,64 @@ impl CommitFinality {
             block_hash: Digest32::new(block_hash)?,
             app_hash: Digest32::new(app_hash)?,
             store_proof_digest: Digest32::new(store_proof_digest)?,
+            program: None,
+            coverage: None,
         })
+    }
+
+    /// Construct finality only after the node commit and namespace proofs verify.
+    pub fn from_verified_program(
+        head: &VerifiedChainHead,
+        witness: &VerifiedProgramState,
+    ) -> Result<Self, AiClientError> {
+        if head.header_hash() != witness.block_hash
+            || head.app_hash() != witness.app_hash
+            || u64::try_from(head.height()).ok() != Some(witness.block_height)
+        {
+            return Err(AiClientError::FinalityMismatch);
+        }
+        let mut finality = Self::new(
+            witness.block_height,
+            witness.block_hash,
+            witness.app_hash,
+            witness.proof_digest,
+        )?;
+        finality.program = Some(*witness);
+        Ok(finality)
+    }
+
+    /// Requires the authenticated receipt path to have verified signed batch inclusion,
+    /// sequence coverage and the receipt's resulting root under this exact commit.
+    pub fn from_verified_receipt(receipt: &AuthenticatedReceipt) -> Result<Self, AiClientError> {
+        let head = receipt
+            .committed_header()
+            .ok_or(AiClientError::FinalityMismatch)?;
+        if receipt.rung() != Rung::Committed {
+            return Err(AiClientError::FinalityMismatch);
+        }
+        let protocol = receipt
+            .receipt()
+            .protocol()
+            .ok_or(AiClientError::ReceiptMismatch)?;
+        let receipt_digest = Sha256::digest(receipt.canonical_bytes()).into();
+        let block_height =
+            u64::try_from(head.height()).map_err(|_| AiClientError::FinalityMismatch)?;
+        let mut finality = Self::new(
+            block_height,
+            head.header_hash(),
+            head.app_hash(),
+            receipt_digest,
+        )?;
+        finality.coverage = Some(ReceiptCoverageFacts {
+            activity_id: receipt.activity_id(),
+            sequence: receipt.global_sequence(),
+            execution_height: receipt.height(),
+            resulting_root: protocol.resulting_state_root(),
+            receipt_digest,
+            block_height,
+            block_hash: head.header_hash(),
+        });
+        Ok(finality)
     }
 
     #[must_use]
@@ -264,7 +451,16 @@ impl ObservedSnapshot {
         publication_time_ms: u64,
     ) -> Result<FinalizedSnapshot, AiClientError> {
         let finality = finality.ok_or(QueryError::FinalityUnavailable)?;
-        if finality.block_height < self.facts.proof.execution_height {
+        let verified = finality.program.ok_or(QueryError::FinalityUnavailable)?;
+        if finality.block_height.checked_sub(1) != Some(self.facts.proof.execution_height)
+            || verified.chain != self.facts.proof.chain
+            || verified.program != self.facts.proof.program
+            || verified.native_root != self.facts.proof.native_state_root.bytes()
+            || verified.digest != self.facts.digest.bytes()
+            || verified.revision != self.facts.revision
+            || verified.total_bytes != self.facts.total_bytes
+            || verified.block_hash != self.facts.proof.block_hash.bytes()
+        {
             return Err(QueryError::BindingMismatch.into());
         }
         let evidence = FinalityEvidence {
@@ -1272,6 +1468,10 @@ pub struct OperationRecord {
     attempt: u32,
     result_code: Option<i32>,
     global_sequence: Option<u64>,
+    execution_height: Option<u64>,
+    receipt_root: Option<[u8; 32]>,
+    receipt_digest: Option<[u8; 32]>,
+    coverage: Option<ReceiptCoverageFacts>,
     checkpoint: Option<[u8; 32]>,
     rung: Option<Rung>,
     signed_bytes: Vec<u8>,
@@ -1302,6 +1502,10 @@ impl OperationRecord {
             attempt: 0,
             result_code: None,
             global_sequence: None,
+            execution_height: None,
+            receipt_root: None,
+            receipt_digest: None,
+            coverage: None,
             checkpoint: None,
             rung: None,
             signed_bytes,
@@ -1374,6 +1578,16 @@ impl OperationRecord {
     }
 
     #[must_use]
+    pub const fn execution_height(&self) -> Option<u64> {
+        self.execution_height
+    }
+
+    #[must_use]
+    pub const fn receipt_root(&self) -> Option<[u8; 32]> {
+        self.receipt_root
+    }
+
+    #[must_use]
     pub const fn checkpoint(&self) -> Option<[u8; 32]> {
         self.checkpoint
     }
@@ -1406,6 +1620,22 @@ impl OperationRecord {
         put_optional(&mut out, self.global_sequence.map(u64::to_be_bytes));
         put_optional(&mut out, self.checkpoint);
         put_optional(&mut out, self.rung.map(|rung| [rung.wire_rank()]));
+        put_optional(&mut out, self.execution_height.map(u64::to_be_bytes));
+        put_optional(&mut out, self.receipt_root);
+        put_optional(&mut out, self.receipt_digest);
+        match self.coverage {
+            None => out.push(0),
+            Some(coverage) => {
+                out.push(1);
+                out.extend_from_slice(&coverage.activity_id);
+                out.extend_from_slice(&coverage.sequence.to_be_bytes());
+                out.extend_from_slice(&coverage.execution_height.to_be_bytes());
+                out.extend_from_slice(&coverage.resulting_root);
+                out.extend_from_slice(&coverage.receipt_digest);
+                out.extend_from_slice(&coverage.block_height.to_be_bytes());
+                out.extend_from_slice(&coverage.block_hash);
+            }
+        }
         out.extend_from_slice(&length.to_be_bytes());
         out.extend_from_slice(&self.signed_bytes);
         Ok(out)
@@ -1418,12 +1648,14 @@ impl OperationRecord {
     /// wire or signature refusals of the retained bytes.
     pub fn decode(bytes: &[u8], _registry: &ModuleRegistry) -> Result<Self, AiClientError> {
         let mut input = Cursor(bytes);
-        if &input.take::<8>()? != RECORD_MAGIC {
+        let magic = input.take::<8>()?;
+        let legacy = &magic == LEGACY_RECORD_MAGIC;
+        if &magic != RECORD_MAGIC && !legacy {
             return Err(AiClientError::CorruptRecord);
         }
         let state = OperationState::from_code(input.take::<1>()?[0])?;
         let domain = DomainStatus::from_code(input.take::<1>()?[0])?;
-        let record = Self {
+        let mut record = Self {
             state,
             domain,
             protocol_version: u16::from_be_bytes(input.take()?),
@@ -1444,8 +1676,39 @@ impl OperationRecord {
                 Some([2]) => Some(Rung::Committed),
                 _ => return Err(AiClientError::CorruptRecord),
             },
+            execution_height: if legacy {
+                None
+            } else {
+                input.optional()?.map(u64::from_be_bytes)
+            },
+            receipt_root: if legacy { None } else { input.optional()? },
+            receipt_digest: if legacy { None } else { input.optional()? },
+            coverage: if legacy {
+                None
+            } else {
+                match input.take::<1>()? {
+                    [0] => None,
+                    [1] => Some(ReceiptCoverageFacts {
+                        activity_id: input.take()?,
+                        sequence: u64::from_be_bytes(input.take()?),
+                        execution_height: u64::from_be_bytes(input.take()?),
+                        resulting_root: input.take()?,
+                        receipt_digest: input.take()?,
+                        block_height: u64::from_be_bytes(input.take()?),
+                        block_hash: input.take()?,
+                    }),
+                    _ => return Err(AiClientError::CorruptRecord),
+                }
+            },
             signed_bytes: input.rest()?.to_vec(),
         };
+        // Old records have no authenticated height/root/coverage: retain the execution,
+        // but revoke the old unsupported finality claim rather than manufacturing evidence.
+        if legacy && record.state == OperationState::Finalized {
+            record.state = OperationState::Executed;
+            record.checkpoint = None;
+            record.rung = Some(Rung::Receipted);
+        }
         let (identity, key) = transaction_identity(&record.signed_bytes, record.not_after)?;
         if key != record.signer_public_key {
             return Err(AiClientError::CorruptRecord);
@@ -1462,8 +1725,21 @@ impl OperationRecord {
         Ok(record)
     }
 
-    const fn consistent(&self) -> bool {
-        let pristine = self.result_code.is_none()
+    fn consistent(&self) -> bool {
+        if self.execution_height.is_some() != self.receipt_root.is_some()
+            || self.execution_height.is_some() != self.receipt_digest.is_some()
+            || (self.execution_height.is_some() && self.global_sequence.is_none())
+        {
+            return false;
+        }
+        if let Some(coverage) = self.coverage {
+            if !self.covers(&coverage) {
+                return false;
+            }
+        }
+        let pristine = self.execution_height.is_none()
+            && self.coverage.is_none()
+            && self.result_code.is_none()
             && self.global_sequence.is_none()
             && self.checkpoint.is_none();
         let executed = matches!(self.result_code, Some(0)) && self.global_sequence.is_some();
@@ -1480,7 +1756,14 @@ impl OperationRecord {
             }
             OperationState::Submitting | OperationState::Unknown => pristine && self.attempt > 0,
             OperationState::Executed => executed && self.checkpoint.is_none() && self.attempt > 0,
-            OperationState::Finalized => executed && self.checkpoint.is_some() && self.attempt > 0,
+            OperationState::Finalized => {
+                executed
+                    && self.attempt > 0
+                    && self
+                        .coverage
+                        .is_some_and(|coverage| self.checkpoint == Some(coverage.block_hash))
+                    && self.rung == Some(Rung::Committed)
+            }
             OperationState::Failed => {
                 self.checkpoint.is_none()
                     && match self.result_code {
@@ -1489,6 +1772,14 @@ impl OperationRecord {
                     }
             }
         }
+    }
+    fn covers(&self, coverage: &ReceiptCoverageFacts) -> bool {
+        coverage.activity_id == self.activity_id
+            && Some(coverage.sequence) == self.global_sequence
+            && Some(coverage.execution_height) == self.execution_height
+            && Some(coverage.resulting_root) == self.receipt_root
+            && Some(coverage.receipt_digest) == self.receipt_digest
+            && coverage.block_height >= coverage.execution_height
     }
 }
 
@@ -1588,13 +1879,16 @@ impl OperationJournal {
         activity_id: &[u8; 32],
         registry: &ModuleRegistry,
     ) -> Result<OperationRecord, AiClientError> {
-        let mut record =
-            OperationRecord::decode(&fs::read(self.record_path(activity_id))?, registry)?;
+        let bytes = fs::read(self.record_path(activity_id))?;
+        let migrated = bytes.starts_with(LEGACY_RECORD_MAGIC);
+        let mut record = OperationRecord::decode(&bytes, registry)?;
         if record.activity_id != *activity_id {
             return Err(AiClientError::CorruptRecord);
         }
         if record.state == OperationState::Submitting {
             record.state = OperationState::Unknown;
+            self.persist(&record)?;
+        } else if migrated {
             self.persist(&record)?;
         }
         Ok(record)
@@ -1712,6 +2006,29 @@ impl OperationJournal {
             }
             AuthenticatedLookup::Verified(receipt) => receipt,
         };
+        self.apply_receipt(record, receipt)
+    }
+
+    /// Resolve with real node batch inclusion evidence; retained coverage survives reopen.
+    pub fn resolve_with_commit(
+        &self,
+        record: &mut OperationRecord,
+        endpoint: &SequencerEndpoint,
+        context: AuthenticatedLookupContext<'_>,
+        evidence: &ReceiptCommitEvidence<'_>,
+    ) -> Result<OperationState, AiClientError> {
+        require(record, &[OperationState::Pending, OperationState::Unknown])?;
+        match lookup_authenticated_with_commit(endpoint, record.activity_id, context, evidence)? {
+            AuthenticatedLookup::Verified(receipt) => self.apply_receipt(record, receipt),
+            _ => Ok(record.state),
+        }
+    }
+
+    fn apply_receipt(
+        &self,
+        record: &mut OperationRecord,
+        receipt: AuthenticatedReceipt,
+    ) -> Result<OperationState, AiClientError> {
         let (call, signature) = evm_transaction::decode_signed(&record.signed_bytes)?;
         let sender = evm_transaction::recover_sender(&call, &signature)?;
         if receipt.activity_id() != record.activity_id
@@ -1724,6 +2041,20 @@ impl OperationJournal {
         let code = receipt.result_code().raw();
         record.result_code = Some(code);
         record.global_sequence = Some(receipt.global_sequence());
+        record.execution_height = Some(receipt.height());
+        record.receipt_root = Some(
+            receipt
+                .receipt()
+                .protocol()
+                .ok_or(AiClientError::ReceiptMismatch)?
+                .resulting_state_root(),
+        );
+        record.receipt_digest = Some(Sha256::digest(receipt.canonical_bytes()).into());
+        record.coverage = if receipt.rung() == Rung::Committed {
+            CommitFinality::from_verified_receipt(&receipt)?.coverage
+        } else {
+            None
+        };
         record.rung = Some(receipt.rung());
         record.state = if code == 0 {
             OperationState::Executed
@@ -1745,13 +2076,16 @@ impl OperationJournal {
         finality: &CommitFinality,
     ) -> Result<OperationState, AiClientError> {
         require(record, &[OperationState::Executed])?;
-        let covered = record
-            .global_sequence
-            .is_some_and(|height| height <= finality.block_height);
-        if !covered {
+        let coverage = finality.coverage.ok_or(AiClientError::FinalityMismatch)?;
+        if !record.covers(&coverage)
+            || coverage.block_height != finality.block_height
+            || coverage.block_hash != finality.block_hash.bytes()
+        {
             return Err(AiClientError::FinalityMismatch);
         }
+        record.coverage = Some(coverage);
         record.checkpoint = Some(finality.block_hash.bytes());
+        record.rung = Some(Rung::Committed);
         record.state = OperationState::Finalized;
         self.persist(record)?;
         Ok(record.state)
