@@ -20,7 +20,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/lxwire"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/policy"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/transport"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/dealer"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/dealershare"
 )
 
 func replayAudits(t *testing.T, c *testCluster, node *testNode) int {

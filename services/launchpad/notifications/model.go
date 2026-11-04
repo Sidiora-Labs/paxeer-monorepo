@@ -108,7 +108,12 @@ func ValidatePayload(p Payload, max int) error {
 	return nil
 }
 
-type QuietHours struct{ StartMinute, EndMinute int }
+type QuietHours struct {
+	StartMinute, EndMinute int
+	// Timezone is the saved quiet-hours zone. An omitted zone in a legacy
+	// delivery-preference response inherits DeliveryPreference.Timezone.
+	Timezone string
+}
 type DeliveryPreference struct {
 	AccountID, Timezone, Language string
 	Revision                      uint64
@@ -155,6 +160,12 @@ func Decide(p DeliveryPreference, n InboxItem, channel string, now time.Time) (D
 	if q := p.QuietHours; q != nil {
 		if q.StartMinute < 0 || q.StartMinute > 1439 || q.EndMinute < 0 || q.EndMinute > 1439 {
 			return d, ErrInvalid
+		}
+		if q.Timezone != "" {
+			loc, e = time.LoadLocation(q.Timezone)
+			if e != nil {
+				return d, ErrInvalid
+			}
 		}
 		t := now.In(loc)
 		m := t.Hour()*60 + t.Minute()
