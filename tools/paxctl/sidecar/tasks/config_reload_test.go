@@ -2,6 +2,8 @@ package tasks
 
 import (
 	"context"
+	"errors"
+	"github.com/sei-protocol/seictl/sidecar/engine"
 	"strings"
 	"testing"
 
@@ -20,8 +22,9 @@ func TestConfigReloader_HotReloadableField(t *testing.T) {
 			"logging.level": "debug",
 		},
 	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	var te *engine.TaskError
+	if !errors.As(err, &te) || te.Operation != "restart-required" || te.Retryable {
+		t.Fatalf("expected explicit restart-required outcome: %v", err)
 	}
 
 	cfg, err := seiconfig.ReadConfigFromDir(homeDir)
