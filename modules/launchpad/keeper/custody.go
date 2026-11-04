@@ -96,6 +96,14 @@ func (k *Keeper) GetQuoteLedger(ctx sdk.Context, ledger QuoteLedger) (sdk.Int, e
 	return k.getLedgerAmount(ctx, key)
 }
 
+type quoteLedgerOverflowError struct {
+	message string
+}
+
+func (e quoteLedgerOverflowError) Error() string { return e.message }
+func (e quoteLedgerOverflowError) Unwrap() error { return types.ErrOverflow }
+func (e quoteLedgerOverflowError) Cause() error  { return types.ErrOverflow }
+
 func (k *Keeper) getLedgerAmount(ctx sdk.Context, key []byte) (sdk.Int, error) {
 	bz := k.store(ctx).Get(key)
 	if bz == nil {
@@ -103,10 +111,10 @@ func (k *Keeper) getLedgerAmount(ctx sdk.Context, key []byte) (sdk.Int, error) {
 	}
 	var out sdk.Int
 	if err := out.Unmarshal(bz); err != nil {
-		return sdk.Int{}, fmt.Errorf("%w: quote ledger %x: %v", types.ErrOverflow, key, err)
+		return sdk.Int{}, quoteLedgerOverflowError{message: fmt.Sprintf("%s: quote ledger %x: %v", types.ErrOverflow, key, err)}
 	}
 	if !uint256Amount(out) {
-		return sdk.Int{}, fmt.Errorf("%w: quote ledger %x", types.ErrOverflow, key)
+		return sdk.Int{}, quoteLedgerOverflowError{message: fmt.Sprintf("%s: quote ledger %x", types.ErrOverflow, key)}
 	}
 	return out, nil
 }

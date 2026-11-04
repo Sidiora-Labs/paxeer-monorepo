@@ -1,0 +1,19 @@
+{
+  "provenance": {
+    "public_key_address": "github.com/cosmos/ledger-cosmos-go v1.0.0 user_app_test.go TestGetAddressPubKeySECP256K1_StandardPath; public test mnemonic sdk/testutil/testdata/known_values.go",
+    "signature": "Deterministic RFC6979 SHA256/low-S reproduction from the public test mnemonic; not a physical-device capture.",
+    "path": [
+      44,
+      118,
+      0,
+      0,
+      0
+    ]
+  },
+  "public_key": "034fef9cd7c4c63588d3b03feb5281b9d232cba34d6f3d71aee59211ffbfe1fe87",
+  "address": "cosmos1w34k53py5v5xyluazqpq65agyajavep2rflq6h",
+  "hrp": "cosmos",
+  "message": "{\"account_number\":\"1\",\"chain_id\":\"ledger-repair\",\"fee\":{\"amount\":[],\"gas\":\"200000\"},\"memo\":\"DER fixture\",\"msgs\":[],\"sequence\":\"0\"}",
+  "der": "304402203e23564c1b5e84fae14f43d34cfdc2acce7210795047d0e085e65223c66267d3022069feb841a195b858ec987cdae8a7f9b411711d4b8010bc69efe72beff47da2f6",
+  "raw": "3e23564c1b5e84fae14f43d34cfdc2acce7210795047d0e085e65223c66267d369feb841a195b858ec987cdae8a7f9b411711d4b8010bc69efe72beff47da2f6"
+}

@@ -121,7 +121,10 @@ usable runtime policy.
 [`owner_native.py`](owner_native.py)'s `produce` delegates to
 [`merged_owner.py`](merged_owner.py). `human_native_owner_prepare` copies
 protected `human-evidence-input/owner-evm.json` to `owner-native.json` after
-checking `network_id`; retained configuration must match exactly. The producer
+validating the exact schema, network/chain bounds, HTTPS CA and protected
+signing/funding keys; retained configuration must match exactly. The workload,
+private mounts and recovery policy are returned unchanged; owner preparation
+does not add a daemon, seed account state or edit genesis. The producer
 is exposed through:
 
 ```sh
@@ -254,7 +257,7 @@ at `0x000000000000000000000000000000000000101b`.
 ## Evidence provisioning
 
 `human_evidence_provision` orders merged owner preparation and registration,
-ledger movement-source generation, naming/registry deployment and journal
+authenticated ledger funding validation, naming/registry deployment and journal
 export, producer-manifest validation, evidence assembly and the policy graph
 input check. It runs before `human_policy_publish`. The remaining cluster
 migration barriers are listed below; applying manifests alone does not qualify
@@ -311,6 +314,41 @@ installer and `test_material.py`; it is separate from structural registration
 validation and requires all live producer inputs. Its arguments are
 `--work-dir`, `--registry`, `--secrets-dir`, `--network` and `--chain`.
 
+## Pinned chain receipt material and recovery
+
+`history_material.py WORK_DIR MATERIAL_DIR NETWORK_ID CHAIN_ID` validates the
+merged funding receipts against `human-evidence-input/owner-native.json`,
+including the independently supplied HTTPS URL, CA fingerprint, network, chain
+and observation depth. It publishes only `native-context.json`,
+`merged-owner-evidence.json`, `rpc-ca.pem` and `owner-registration.json` into the
+private `agent`, `security` and `authority` directories. The material installer
+compares these files with the verified bundle, validates the actual receipt
+path again and refuses partial or mismatched retained projections.
+
+`provision.py --funding-evidence --work-dir WORK_DIR` validates these same
+receipts, the configured funder, asset and exact amount. The producer manifest
+calls this input `ledger-funding`; it points to `merged-owner-evidence.json`.
+There is no separate movement-source input. The retained `movement-policy.json`
+output is an adapter projection derived from the verified owner account and
+asset; its exact schema is enforced before bundling. Changing the funder or
+amount requires reconciliation with the original retained transactions.
+
+Pre-merge `trust-history`, `genesis-handover-trust.lxt`, `handover-finality.conf`,
+custody inputs and movement-source files are explicit migration cases. Their
+presence refuses current publication; no history is translated into receipt
+evidence. Preserve those originals with the seal, private keys, encrypted
+provider state, guardian bindings and recovery policy until the owning domains
+have reconciled them. Current material must be built in a separate protected
+location from authenticated chain evidence. A resumed secrets-generation call
+validates the full retained inventory and never regenerates the KMS seal.
+
+`owner_kms.prepare` gives its real `prepare` child ten seconds and at most
+65536 bytes of combined stdout/stderr. It kills and reaps the process group on
+expiry, excess output or failure, and publishes no owner result from that run.
+The error instructs the operator to retain custody and retry the same request.
+The KMS's private state and original idempotency key remain the recovery source;
+a timeout does not authorize a new owner or regenerated keys.
+
 ## Remaining cluster migration barriers
 
 The following retained paths require migration by their production owners;
@@ -335,7 +373,14 @@ satisfy them. Track the owning paths in [the repair record](repair_22_33_40.kvx)
   journeys. Remove the adapter instructions and projections together when
   their runtime consumers migrate to current bank and receipt interfaces.
 - Generated owner-agent settings retain `HUMAN_NODE_LNI` pointing at
-  `/run/layerx/node/layerxd.lni.sock`, and registry transfer still targets the
-  retired daemon container. Those paths cannot establish merged node
+  `/run/layerx/node/layerxd.lni.sock`, in the retained owner runtime. Those settings cannot establish merged node
   readiness. Their owners must wire authenticated node RPC and committed
   evidence before full cluster provisioning can be qualified.
+- `registry_kernel_material` validates an explicitly retained/imported signed
+  registry generation and its network and signer pins. It never executes a
+  separate daemon or edits genesis. Fresh registry generation remains an owning
+  domain wiring request in [this task's repair record](repair_22_33_1401.kvx).
+- The node manifest's security provider still requests legacy trust history.
+  Its production owner must migrate that consumer to authenticated committed
+  receipts before deployment; the Human material producer no longer manufactures
+  or copies that history.

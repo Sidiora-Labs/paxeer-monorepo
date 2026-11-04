@@ -30,7 +30,7 @@ func MigrateContractCmd() *cobra.Command {
 				return err
 			}
 			if err := msg.ValidateBasic(); err != nil {
-				return nil
+				return err
 			}
 			return tx.GenerateOrBroadcastTxCLI(cmd.Context(), clientCtx, cmd.Flags(), &msg)
 		},

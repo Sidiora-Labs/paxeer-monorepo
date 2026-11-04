@@ -303,6 +303,27 @@ fn ledger_account(account: &str) -> Result<[u8; 32], RampError> {
     .map_err(|_| RampError::Intent)
 }
 
+/// Protocol account identifiers shared by payment compilation and receipt verification.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct PaymentAccounts {
+    pub from: [u8; 32],
+    pub to: [u8; 32],
+}
+
+impl RampOrder {
+    pub fn payment_accounts(&self) -> Result<PaymentAccounts, RampError> {
+        self.validate_bound()?;
+        let (from, to) = match self.direction() {
+            RampDirection::OnRamp => (&self.operator.account, &self.customer.account),
+            RampDirection::OffRamp => (&self.customer.account, &self.operator.account),
+        };
+        Ok(PaymentAccounts {
+            from: ledger_account(from)?,
+            to: ledger_account(to)?,
+        })
+    }
+}
+
 /// The customer's maintained budget authorization. The budget must be owned
 /// by the customer, who signs the exact spending transaction at 0x101B.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -347,7 +368,7 @@ pub fn compile_customer_payment(order: &RampOrder) -> Result<LedgerCall, RampErr
         to: PAY_ADDRESS,
         data: encode_budget_spend(
             authorization.budget_id,
-            ledger_account(&order.operator.account)?,
+            order.payment_accounts()?.to,
             order.quote.layerx_amount,
         ),
     })
@@ -360,11 +381,12 @@ pub fn compile_operator_send(order: &RampOrder) -> Result<LedgerCall, RampError>
     if order.direction() != RampDirection::OnRamp || order.payer_grant.is_some() {
         return Err(RampError::InvalidOrder);
     }
+    let accounts = order.payment_accounts()?;
     Ok(LedgerCall {
         to: LEDGER_ADDRESS,
         data: encode_pay_exact(
-            ledger_account(&order.operator.account)?,
-            ledger_account(&order.customer.account)?,
+            accounts.from,
+            accounts.to,
             order.quote.layerx_asset,
             order.quote.layerx_amount,
             order
@@ -387,6 +409,10 @@ pub struct ReceiptEvidence {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct VerifiedLayerxLeg {
+    #[serde(
+        rename = "transaction_hash",
+        serialize_with = "serialize_transaction_hash"
+    )]
     pub tx_hash: [u8; 32],
     pub receipt_digest: [u8; 32],
     pub height: u64,
@@ -441,12 +467,7 @@ pub fn verify_order_receipt(
         .collect();
     layerx_proof::sequencer_logs::verify_logs(&receipt, logs)
         .map_err(|_| RampError::ReceiptMismatch)?;
-    let (from, to) = match order.direction() {
-        RampDirection::OnRamp => (&order.operator.account, &order.customer.account),
-        RampDirection::OffRamp => (&order.customer.account, &order.operator.account),
-    };
-    let from = ledger_account(from)?;
-    let to = ledger_account(to)?;
+    let PaymentAccounts { from, to } = order.payment_accounts()?;
     match order.direction() {
         RampDirection::OnRamp if order.payer_grant.is_none() => {
             let expected = LedgerPayment::Exact {
@@ -507,14 +528,51 @@ pub enum AggregateStatus {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct RampPresentation {
+    pub version: u8,
+    #[serde(serialize_with = "serialize_optional_transaction_hash")]
+    pub transaction_hash: Option<[u8; 32]>,
     pub external_custody_label: &'static str,
     pub status: AggregateStatus,
     pub order_digest: [u8; 32],
+    /// Rust source compatibility only; the v2 wire contract has no activity identifier.
+    #[deprecated(note = "use transaction_hash; legacy wire output requires presentation_v1")]
+    #[serde(skip_serializing)]
     pub activity_id: Option<[u8; 32]>,
     pub receipt_digest: Option<[u8; 32]>,
     pub provider_evidence_digest: Option<[u8; 32]>,
     pub refusal_code: Option<String>,
     pub retry_at: Option<u64>,
+}
+
+/// Explicit read-only projection for historical activity evidence.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct LegacyRampPresentation {
+    pub version: u8,
+    pub activity_id: Option<[u8; 32]>,
+    pub status: AggregateStatus,
+    pub order_digest: [u8; 32],
+    pub external_custody_label: &'static str,
+    pub receipt_digest: Option<[u8; 32]>,
+    pub provider_evidence_digest: Option<[u8; 32]>,
+    pub refusal_code: Option<String>,
+    pub retry_at: Option<u64>,
+}
+
+fn serialize_transaction_hash<S: serde::Serializer>(
+    hash: &[u8; 32],
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    serializer.serialize_str(&format!("0x{}", clients::hex(hash)))
+}
+
+fn serialize_optional_transaction_hash<S: serde::Serializer>(
+    hash: &Option<[u8; 32]>,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    match hash {
+        Some(hash) => serialize_transaction_hash(hash, serializer),
+        None => serializer.serialize_none(),
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

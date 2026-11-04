@@ -13,17 +13,33 @@ import (
 // InitGenesis validates the complete genesis envelope before writing params or
 // records. Kernel records belong to the shared host store, not the pay store.
 func (k Keeper) InitGenesis(ctx sdk.Context, gs types.GenesisState) error {
-	if err := gs.Validate(); err != nil {
+	if err := ValidateOwnedGenesis(gs); err != nil {
 		return err
 	}
-	k.SetParams(ctx, gs.Params)
-	store := ctx.KVStore(k.hostKey)
+	branch, commit := ctx.CacheContext()
+	k.SetParams(branch, gs.Params)
+	store := branch.KVStore(k.hostKey)
 	for _, record := range gs.KernelRecords {
 		store.Set(record.Key, append([]byte{}, record.Value...))
 	}
-	payStore := ctx.KVStore(k.storeKey)
+	payStore := branch.KVStore(k.storeKey)
 	for _, record := range gs.AgentStreamMetadata {
 		payStore.Set(record.Key, bytes.Clone(record.Value))
+	}
+	if err := k.RebuildServiceIndexes(branch); err != nil {
+		return err
+	}
+	commit()
+	return nil
+}
+
+// ValidateOwnedGenesis validates keeper-owned records before any import writes.
+func ValidateOwnedGenesis(gs types.GenesisState) error {
+	if err := gs.Validate(); err != nil {
+		return err
+	}
+	if err := validateServiceRecords(gs.KernelRecords); err != nil {
+		return types.ErrInvalidGenesis.Wrap(err.Error())
 	}
 	return nil
 }
@@ -99,6 +115,7 @@ func (g RecoveryGenesis) Validate() error {
 	var kernels, metadata uint64
 	var lastKernel, lastMetadata []byte
 	var gates []kv.Pair
+	var owned []kv.Pair
 	for i, chunk := range g.Chunks {
 		size := len(chunk.KernelRecords) + len(chunk.AgentStreamMetadata)
 		if size == 0 || size > types.MaxKernelRecords {
@@ -111,6 +128,7 @@ func (g RecoveryGenesis) Validate() error {
 			return err
 		}
 		for _, record := range chunk.KernelRecords {
+			owned = append(owned, record)
 			if lastKernel != nil && bytes.Compare(lastKernel, record.Key) >= 0 {
 				return types.ErrInvalidGenesis.Wrap("recovery kernel keys must be strictly ordered")
 			}
@@ -139,6 +157,9 @@ func (g RecoveryGenesis) Validate() error {
 	}
 	if metadata > types.MaxKernelRecords {
 		return types.ErrInvalidGenesis.Wrapf("agent stream metadata count %d exceeds %d", metadata, types.MaxKernelRecords)
+	}
+	if err := validateServiceRecords(owned); err != nil {
+		return types.ErrInvalidGenesis.Wrap(err.Error())
 	}
 	return (types.GenesisState{Params: g.Params, KernelRecords: gates}).Validate()
 }
@@ -189,6 +210,9 @@ func (k Keeper) InitRecoveryGenesis(ctx sdk.Context, g RecoveryGenesis) error {
 		for _, record := range chunk.AgentStreamMetadata {
 			branch.KVStore(k.storeKey).Set(record.Key, bytes.Clone(record.Value))
 		}
+	}
+	if err := k.RebuildServiceIndexes(branch); err != nil {
+		return err
 	}
 	commit()
 	return nil

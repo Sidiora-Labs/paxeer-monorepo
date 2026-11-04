@@ -77,7 +77,12 @@ export function createPaxeerEIP1193Provider(
   const chainIdHex = `0x${chainId.toString(16)}`;
 
   const listeners = new Map<EIP1193Event, Set<Listener>>();
-  let cachedAddress: `0x${string}` | null = null;
+  let cachedIdentity: {
+    address: Hex;
+    userId: string;
+    accessToken: string;
+    epoch: number;
+  } | null = null;
   let rpcId = 0;
   let principalEpoch = 0;
   let destroyed = false;
@@ -149,10 +154,28 @@ export function createPaxeerEIP1193Provider(
     return { address: toChecksum(result.wallet.address), binding };
   }
 
-  async function getAddress(): Promise<Hex | null> {
+  async function getAddress(
+    epoch = principalEpoch,
+    expectedSession?: Session,
+  ): Promise<Hex | null> {
     try {
-      const { address } = await signerContext();
-      cachedAddress = address;
+      if (destroyed || epoch !== principalEpoch) return null;
+      const { address, binding } = await signerContext();
+      binding.assertCurrent();
+      if (
+        destroyed ||
+        epoch !== principalEpoch ||
+        (expectedSession &&
+          (binding.userId !== expectedSession.user.id ||
+            binding.accessToken !== expectedSession.access_token))
+      )
+        return null;
+      cachedIdentity = {
+        address,
+        userId: binding.userId,
+        accessToken: binding.accessToken,
+        epoch,
+      };
       return address;
     } catch {
       return null;
@@ -183,12 +206,15 @@ export function createPaxeerEIP1193Provider(
     if (tx.chainId !== undefined) requireChain(tx.chainId);
     return {
       to: tx.to as Hex | undefined,
-      value: toBigIntOrUndef(tx.value),
+      value: quantity(tx.value, "value"),
       data: tx.data as Hex | undefined,
-      gas: toBigIntOrUndef(tx.gas ?? tx.gasLimit),
-      maxFeePerGas: toBigIntOrUndef(tx.maxFeePerGas),
-      maxPriorityFeePerGas: toBigIntOrUndef(tx.maxPriorityFeePerGas),
-      nonce: toIntOrUndef(tx.nonce),
+      gas: transactionGas(tx),
+      maxFeePerGas: quantity(tx.maxFeePerGas, "maxFeePerGas"),
+      maxPriorityFeePerGas: quantity(
+        tx.maxPriorityFeePerGas,
+        "maxPriorityFeePerGas",
+      ),
+      nonce: nonce(tx.nonce),
       chainId,
     };
   }
@@ -251,40 +277,37 @@ export function createPaxeerEIP1193Provider(
     return document;
   }
 
-  /**
-   * viem/wagmi serialize transaction quantity fields as hex (`0x2dc6c0`).
-   * The SDK's `TxRequest` expects either a decimal string or a bigint
-   * ("Decimal string in wei"). Sending hex straight through gets rejected
-   * by `connect.paxportwallet.com` with a 400. Normalize every quantity
-   * field to bigint before forwarding.
-   */
-  function toBigIntOrUndef(v: unknown): bigint | undefined {
-    if (v === undefined || v === null || v === "") return undefined;
-    if (typeof v === "bigint") return v;
-    if (typeof v === "number") return BigInt(v);
-    if (typeof v === "string") {
-      // BigInt() accepts both "0x.." and decimal strings.
-      try {
-        return BigInt(v);
-      } catch {
-        return undefined;
-      }
-    }
-    return undefined;
+  function quantity(value: unknown, field: string): bigint | undefined {
+    if (value === undefined) return undefined;
+    let parsed: bigint;
+    if (typeof value === "bigint") parsed = value;
+    else if (typeof value === "number" && Number.isSafeInteger(value))
+      parsed = BigInt(value);
+    else if (
+      typeof value === "string" &&
+      /^(?:0|[1-9][0-9]*|0x[0-9a-fA-F]+)$/.test(value)
+    )
+      parsed = BigInt(value);
+    else throw refusal(-32602, `${field} must be an unsigned integer`);
+    if (parsed < 0n || parsed > (1n << 256n) - 1n)
+      throw refusal(-32602, `${field} is out of range`);
+    return parsed;
   }
 
-  function toIntOrUndef(v: unknown): number | undefined {
-    if (v === undefined || v === null || v === "") return undefined;
-    if (typeof v === "number") return v;
-    if (typeof v === "bigint") return Number(v);
-    if (typeof v === "string") {
-      try {
-        return Number(BigInt(v));
-      } catch {
-        return undefined;
-      }
-    }
-    return undefined;
+  function nonce(value: unknown): number | undefined {
+    const parsed = quantity(value, "nonce");
+    if (parsed === undefined) return undefined;
+    if (parsed > BigInt(Number.MAX_SAFE_INTEGER))
+      throw refusal(-32602, "nonce is out of range");
+    return Number(parsed);
+  }
+
+  function transactionGas(tx: Record<string, unknown>): bigint | undefined {
+    const gas = quantity(tx.gas, "gas");
+    const gasLimit = quantity(tx.gasLimit, "gasLimit");
+    if (gas !== undefined && gasLimit !== undefined && gas !== gasLimit)
+      throw refusal(-32602, "gas and gasLimit must agree");
+    return gas ?? gasLimit;
   }
 
   async function rpcCall(method: string, params: unknown): Promise<unknown> {
@@ -342,31 +365,30 @@ export function createPaxeerEIP1193Provider(
     }
   }
 
-  // Track auth changes so wagmi gets accountsChanged / connect / disconnect.
+  // Invalidate synchronously, before consumers observe a replacement principal.
   const unsubAuth = wallet.onAuthStateChange(
-    (event, session: Session | null) => {
-      principalEpoch += 1;
-      const before = cachedAddress;
-      cachedAddress = null;
+    (_event, session: Session | null) => {
+      if (destroyed) return;
+      const epoch = ++principalEpoch;
+      const before = cachedIdentity;
+      cachedIdentity = null;
+      if (before) emit("accountsChanged", []);
+      if (!session) {
+        if (before)
+          emit("disconnect", { code: 4900, message: "user signed out" });
+        return;
+      }
       void (async () => {
-        if (!session) {
-          const had = before;
-          cachedAddress = null;
-          if (had) {
-            emit("accountsChanged", []);
-            emit("disconnect", { code: 4900, message: "user signed out" });
-          }
+        const address = await getAddress(epoch, session);
+        if (destroyed || epoch !== principalEpoch) return;
+        if (!address) {
+          if (before)
+            emit("disconnect", { code: 4900, message: "wallet unavailable" });
           return;
         }
-        // SIGNED_IN, TOKEN_REFRESHED, INITIAL_SESSION → make sure we have an address.
-        const addr = await getAddress();
-        if (addr && addr !== before) {
-          emit("accountsChanged", [addr]);
-          if (!before) {
-            emit("connect", { chainId: chainIdHex });
-          }
-        }
-        void event; // event unused, but kept in signature for clarity
+        emit("accountsChanged", [address]);
+        if (!before || before.userId !== session.user.id)
+          emit("connect", { chainId: chainIdHex });
       })();
     },
   );
@@ -542,7 +564,7 @@ export function createPaxeerEIP1193Provider(
       principalEpoch += 1;
       unsubAuth();
       listeners.clear();
-      cachedAddress = null;
+      cachedIdentity = null;
     },
   };
 }

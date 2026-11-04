@@ -127,6 +127,48 @@ The public API in [receipt.rs](crates/layerx-portable/src/receipt.rs) provides:
 - `verify_v2`, `verify_json` and `verify_portable_json`: authenticate against the
   caller's pinned key list; inspect `result_code()` on the verified value.
 
+The following example is also committed as
+[`examples/portable_v2.rs`](examples/portable_v2.rs). The integration target
+[`repair_22_33_95`](tests/repair_22_33_95.rs) compiles that exact source against
+the current public API, checks that this snippet matches it, and executes both
+functions with recorded producer receipts and independently pinned keys.
+
+Pass the node's receipted or committed answer to `export_receipt`, then carry the
+returned UTF-8 JSON bytes to `verify_receipt`. Supply `ReceiptKeyEntry::new(key_id,
+public_key, first_height, last_height)` entries from your independent trust policy
+on both sides; do not build that policy from the proof's `receiptKey`. The key ID
+must be unique and its inclusive height window must cover the signed receipt
+height, even when a committed answer carries a later block height. Supply raw
+transaction bytes when the consumer needs transaction binding.
+
+```rust
+use layerx_portable::{
+    verify_portable_json, PortableReceiptError, PortableReceiptV2, PortableVerified,
+    PortableVerifiedReceiptV2, ReceiptKeyEntry,
+};
+
+pub fn export_receipt(
+    answer: &serde_json::Value,
+    pinned_keys: &[ReceiptKeyEntry],
+    raw_transaction: Option<&[u8]>,
+) -> Result<Vec<u8>, PortableReceiptError> {
+    PortableReceiptV2::from_sequencer_receipt(answer, pinned_keys, raw_transaction)?.to_json()
+}
+
+pub fn verify_receipt(
+    json: &[u8],
+    pinned_keys: &[ReceiptKeyEntry],
+) -> Result<PortableVerifiedReceiptV2, PortableReceiptError> {
+    let PortableVerified::V2(receipt) = verify_portable_json(json, pinned_keys)?;
+    Ok(receipt)
+}
+```
+
+After verification, inspect `result_code()` before treating execution as
+successful: a nonzero result remains rejected. Neither function proves BFT
+commit or matches an application payment claim. Parsing with `from_json` alone
+also does not establish trust.
+
 The Rust [independent verifier harness](crates/layerx-portable/tests/independent_verifier.rs)
 compares the crate with a [Python verifier](crates/layerx-portable/tests/python_portable_verifier.py)
 that implements the format without importing a LayerX SDK. Python uses
@@ -283,6 +325,17 @@ performed by the selected adapter under its supplied context.
 - [Migration operations](crates/layerx-migrate/OPERATIONS.md)
 - [Mirror archives](crates/layerx-mirror/README.md)
 - [Proof library](../agent/crates/layerx-proof/)
+
+## Historical v1 (unsupported archival context)
+
+Historical `layerx-receipt-proof-v1` documents, base64 examples and the retired
+`PortableReceipt`/`AuthorizedBatch` interface are unsupported archival context.
+The current public consumer rejects the v1 format with
+`PortableReceiptError::UnsupportedFormat`; it does not provide a compatibility
+reader. The `v1` in the recorded fixture filename and in the signed receipt's
+`LXP/v1/receipt\0` digest domain does not select the portable JSON format.
+Re-export the original signed receipt through `PortableReceiptV2` with an
+independently pinned height-ranged key policy instead of relabeling a v1 document.
 
 ## Version History
 

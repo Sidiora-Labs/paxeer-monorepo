@@ -1,0 +1,28 @@
+[repair.22.33.1046]
+audit = "22.30.41"
+status = "implemented; qualification outcome and exact verified revision are recorded by hf-done"
+base_revision = "e3d7e5828b39e4182e9559fb6bc28d74c2f37e0f"
+previous_attempt_revision = "3d6a9d696dd07d971b38d9f21e97618631347780"
+baseline = "The supplied attempt-1 evidence records 4 failures and 3 passes: test_finding4_authoritative_bundle_matches_frozen_release[1], test_finding4_authoritative_bundle_matches_frozen_release[2], test_finding4_clean_default_v2_operations and test_finding5_clean_digest_bound_examples failed copying absent codegen manifests; the gate is not rerun before implementation."
+ruling = "Attempt 2 preserves launchpad/spec/production-system/integration/contracts/vN as the agreed default and allowlist; temporary input bundles prove resolution and refusal instead of claiming that unavailable repository bundles match frozen releases."
+proof = "Production Python consumers run in-process in private roots with real JSON and SHA-256 checks. A minimal manifest proves v1/v2 resolution; complete small test bundles pin the real committed protocol generator and validator template, and its real emitter produces the expected output digests without an external toolchain."
+evidence = "The private /out/run/gates.jsonl ledger and the last hf-done JSON line record the exact candidate revision, command, exit code and log path; no source edit or commit follows a passing gate."
+
+[finding.4]
+status = "resolution and explicit missing-input refusal implemented; authoritative input production remains external"
+tests = ["test_finding4_default_and_examples_paths_share_protocol_owner", "test_finding4_manifest_resolution_and_refusal", "test_finding4_retired_contract_tree_is_outside_allowlist", "test_finding4_manifest_cannot_escape_bundle", "test_finding4_authoritative_bundle_matches_frozen_release", "test_finding4_clean_default_v2_operations", "test_finding4_pinned_input_and_output_checks_remain", "test_missing_bundle_cli_has_one_actionable_error", "test_repository_bundle_absence_is_reported"]
+change = "Default paths and the allowlist retain the agreed launchpad/spec prefix. Both full and operations generation name the missing manifest, versioned immutable bundle and launchpad owner in a single CLI error before writing output. Existing generator, template, schema, output digest and transport version/schema checks remain intact."
+wiring = "Domain 4 launchpad owner: the authoritative launchpad/spec/production-system/integration/contracts/v1/ and v2/ bundles are absent; deciding whether to produce the complete immutable codegen-manifest.json, schema-definitions.json, openapi.json, asyncapi.json and pinned emitter/template inputs belongs to that owner."
+
+[finding.5]
+status = "resolution, digest binding and explicit missing-input refusal implemented; authoritative input production remains external"
+tests = ["test_finding4_default_and_examples_paths_share_protocol_owner", "test_finding5_clean_digest_bound_examples", "test_finding5_unpinned_recorded_document_is_refused_before_writing", "test_missing_bundle_cli_has_one_actionable_error"]
+change = "Examples retain the agreed v2 OpenAPI path and require a v2 codegen manifest plus the frozen release OpenAPI digest before writing either example. The clean fixture's release manifest is emitted by the real pinned generator; both examples match their committed bytes and reproduce identically in two private roots. Missing manifests report the expected path and required bundle on one line."
+wiring = "Domain 4 launchpad owner: producing launchpad/spec/production-system/integration/contracts/v2/ and its OpenAPI input byte-identical to sdk/launchpad/packages/sdk-v2/release-manifest.json is the owner's decision; this task neither synthesizes repository inputs nor waits for that decision."
+
+[wiring.existing-tests]
+request = "Domain 4 SDK test owner: qualify sdk/launchpad/packages/sdk/test/generation.test.py against the restored immutable bundles under the agreed launchpad/spec prefix (audit findings 6 and 7); this task does not modify those out-of-scope tests."
+
+[gotcha.missing-bundle]
+symptom = "The sdk/launchpad/protocol/contracts/v1 fixtures are not a complete codegen bundle, and neither agreed versioned input directory contains codegen-manifest.json."
+do = "Preserve the agreed default, refuse missing input explicitly, prove consumers with private pinned fixtures and leave authoritative bundle production to the launchpad owner."

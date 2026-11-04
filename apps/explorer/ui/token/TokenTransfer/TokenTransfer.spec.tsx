@@ -76,10 +76,10 @@ describe('TokenTransfer', () => {
     expect(container.querySelector('[data-title]')?.textContent).toBe('Latest 3 from a total of 42 token transfers');
   });
 
-  it('says only that there are more when the token reports no total and a page follows', () => {
+  it('counts the current page when the token reports no total and a page follows', () => {
     const { container } = render(<TokenTransfer transfersQuery={ transfersQuery() } tokenQuery={ tokenQuery() }/>);
 
-    expect(container.querySelector('[data-title]')?.textContent).toBe('More than 3 token transfers found');
+    expect(container.querySelector('[data-title]')?.textContent).toBe('3 token transfers on this page');
   });
 
   it('counts the rows it holds when there is no further page', () => {
@@ -90,7 +90,7 @@ describe('TokenTransfer', () => {
       />,
     );
 
-    expect(container.querySelector('[data-title]')?.textContent).toBe('A total of 3 token transfers found');
+    expect(container.querySelector('[data-title]')?.textContent).toBe('3 token transfers on this page');
   });
 
   it('offers the show-records selector and the pagination in the card footer', () => {

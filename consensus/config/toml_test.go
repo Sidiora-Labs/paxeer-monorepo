@@ -80,6 +80,16 @@ func TestConfigTemplateRoundTripsSequencer(t *testing.T) {
 	require.NoError(t, v.Unmarshal(got))
 	require.Equal(t, cfg.Consensus.Sequencer, got.Consensus.Sequencer)
 	require.NoError(t, got.ValidateBasic())
+
+	cfg.AutobahnConfigFile = "config/autobahn network.json"
+	require.NoError(t, WriteConfigFile(rootDir, cfg))
+	require.NoError(t, v.ReadInConfig())
+
+	got = DefaultConfig()
+	require.NoError(t, v.Unmarshal(got))
+	require.Equal(t, cfg.AutobahnConfigFile, got.AutobahnConfigFile)
+	require.Equal(t, cfg.Consensus.Sequencer, got.Consensus.Sequencer)
+	require.EqualError(t, got.ValidateBasic(), "error in [consensus] section: sequencer mode does not run with autobahn-config-file")
 }
 
 func checkConfig(t *testing.T, configFile string) {

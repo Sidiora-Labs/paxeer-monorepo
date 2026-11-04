@@ -4,7 +4,7 @@
 //! links the production `LayerX` core transition and receipt machinery through
 //! the C bridge, and drive it over its HTTP surface exactly as an SDK or the
 //! middleware would. They assert the production gateway surface
-//! (`/v1/settle`, `/v1/state`, `/v1/receipts/<id>`) and the emulator-only
+//! (`/v1/surface`, `/v1/state`, `/v1/receipts/<id>`) and the emulator-only
 //! control hooks (`/__emulator/*`) that live clearly outside the deterministic
 //! transition path.
 
@@ -306,6 +306,22 @@ fn snapshots_round_trip_through_the_core() -> Result<(), String> {
 #[test]
 fn gateway_surface_matches_production_verbs() -> Result<(), String> {
     let address = boot()?;
+
+    let discovery = request(&address, "GET", "/v1/surface", "", &[])?;
+    assert_eq!(discovery.status, 200);
+    let document: serde_json::Value =
+        serde_json::from_slice(&discovery.body).map_err(|error| error.to_string())?;
+    assert_eq!(document["result"]["payments"]["supported"], false);
+    assert_eq!(
+        document["result"]["historical_imports"]["mode"],
+        "inspection_only"
+    );
+    let retired_settlement = post_json(&address, "/v1/settle", "{}")?;
+    assert_eq!(retired_settlement.status, 410);
+    assert_eq!(
+        error_code(&retired_settlement).as_deref(),
+        Some("settlement_authority_retired")
+    );
 
     let wrong_verb = post_json(&address, "/v1/state", "{}")?;
     assert_eq!(wrong_verb.status, 405, "state accepted a write verb");

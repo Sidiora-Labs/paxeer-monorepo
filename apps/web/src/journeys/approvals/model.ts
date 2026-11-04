@@ -28,10 +28,6 @@ import { protocolAmount, verificationRung, type ProtocolAmount, type StatusKey, 
 export const APPROVALS_ROUTE = "/app/approvals";
 export const MONEY_LOCALE = "en-US";
 
-const DIGEST_PREFIX = "opd_";
-const EVIDENCE_PREFIX = "evd_";
-const CHALLENGE_PREFIX = "chg_";
-
 export function approvalRoute(approvalId: string): string {
   return `${APPROVALS_ROUTE}/${encodeURIComponent(approvalId)}`;
 }
@@ -183,23 +179,20 @@ export function approveConsequence(detail: ApprovalDetail): string {
 }
 
 export function heldDigest(detail: ApprovalDetail): OperationDigest | undefined {
-  const hold = detail.evidence.find((reference) => reference.class === "approval-hold");
-  if (hold === undefined || !hold.evidence_id.startsWith(EVIDENCE_PREFIX)) {
+  if (!detail.evidence.some((reference) => reference.class === "approval-hold")) {
     return undefined;
   }
-  const opaqueId = hold.evidence_id.slice(EVIDENCE_PREFIX.length);
-  return /^[0-9a-z]{26}$/u.test(opaqueId) ? `${DIGEST_PREFIX}${opaqueId}` : undefined;
+  const digest = detail.operation_digest;
+  return typeof digest === "string" && /^opd_[0-9a-f]{64}$/u.test(digest)
+    ? digest
+    : undefined;
 }
 
 export function stepUpEvidenceReference(evidence: StepUpEvidence): string {
-  if (!evidence.challenge_id.startsWith(CHALLENGE_PREFIX)) {
+  if (!/^chg_[0-9a-f]{32}$/u.test(evidence.challenge_id)) {
     throw new TypeError("Step-up evidence must reference its ceremony challenge");
   }
-  const opaqueId = evidence.challenge_id.slice(CHALLENGE_PREFIX.length);
-  if (!/^[0-9a-z]{26}$/u.test(opaqueId)) {
-    throw new TypeError("Step-up evidence must reference its ceremony challenge");
-  }
-  return `${EVIDENCE_PREFIX}${opaqueId}`;
+  return evidence.challenge_id;
 }
 
 export function canApprove(detail: ApprovalDetail, at: Date): boolean {
@@ -323,6 +316,8 @@ const JOURNEY_STATUS: Readonly<Record<JourneyState, StatusKey>> = Object.freeze(
   "still-checking": "still_checking",
   refused: "refused",
   "waiting-for-you": "waiting_for_you",
+  "awaiting-approval": "waiting_for_you",
+  closed: "refused",
 });
 
 export function journeyStatus(state: JourneyState): StatusKey {

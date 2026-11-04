@@ -3,6 +3,7 @@ package types
 import (
 	"errors"
 	fmt "fmt"
+	"math"
 
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	paramtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/params/types"
@@ -73,7 +74,7 @@ func (p *Params) ParamSetPairs() paramtypes.ParamSetPairs {
 		paramtypes.NewParamSetPair(KeyMinFeePerGas, &p.MinimumFeePerGas, validateMinFeePerGas),
 		paramtypes.NewParamSetPair(KeyWhitelistedCwCodeHashesForDelegateCall, &p.WhitelistedCwCodeHashesForDelegateCall, validateWhitelistedCwHashesForDelegateCall),
 		paramtypes.NewParamSetPair(KeyDeliverTxHookWasmGasLimit, &p.DeliverTxHookWasmGasLimit, validateDeliverTxHookWasmGasLimit),
-		paramtypes.NewParamSetPair(KeyTargetGasUsedPerBlock, &p.TargetGasUsedPerBlock, func(i interface{}) error { return nil }),
+		paramtypes.NewParamSetPair(KeyTargetGasUsedPerBlock, &p.TargetGasUsedPerBlock, validateTargetGasUsedPerBlock),
 		paramtypes.NewParamSetPair(KeyPaxSstoreSetGasEIP2200, &p.PaxSstoreSetGasEip2200, validatePaxSstoreSetGasEIP2200),
 		paramtypes.NewParamSetPair(KeyMaxFeePerGas, &p.MaximumFeePerGas, validateMaxFeePerGas),
 		paramtypes.NewParamSetPair(KeyRegisterPointerDisabled, &p.RegisterPointerDisabled, validateRegisterPointerDisabled),
@@ -108,7 +109,7 @@ func (ppre601 *ParamsPreV601) ParamSetPairs() paramtypes.ParamSetPairs {
 		paramtypes.NewParamSetPair(KeyMinFeePerGas, &ppre601.MinimumFeePerGas, validateMinFeePerGas),
 		paramtypes.NewParamSetPair(KeyWhitelistedCwCodeHashesForDelegateCall, &ppre601.WhitelistedCwCodeHashesForDelegateCall, validateWhitelistedCwHashesForDelegateCall),
 		paramtypes.NewParamSetPair(KeyDeliverTxHookWasmGasLimit, &ppre601.DeliverTxHookWasmGasLimit, validateDeliverTxHookWasmGasLimit),
-		paramtypes.NewParamSetPair(KeyTargetGasUsedPerBlock, &ppre601.TargetGasUsedPerBlock, func(i interface{}) error { return nil }),
+		paramtypes.NewParamSetPair(KeyTargetGasUsedPerBlock, &ppre601.TargetGasUsedPerBlock, validateTargetGasUsedPerBlock),
 	}
 }
 
@@ -121,7 +122,7 @@ func (ppre606 *ParamsPreV606) ParamSetPairs() paramtypes.ParamSetPairs {
 		paramtypes.NewParamSetPair(KeyMinFeePerGas, &ppre606.MinimumFeePerGas, validateMinFeePerGas),
 		paramtypes.NewParamSetPair(KeyWhitelistedCwCodeHashesForDelegateCall, &ppre606.WhitelistedCwCodeHashesForDelegateCall, validateWhitelistedCwHashesForDelegateCall),
 		paramtypes.NewParamSetPair(KeyDeliverTxHookWasmGasLimit, &ppre606.DeliverTxHookWasmGasLimit, validateDeliverTxHookWasmGasLimit),
-		paramtypes.NewParamSetPair(KeyTargetGasUsedPerBlock, &ppre606.TargetGasUsedPerBlock, func(i interface{}) error { return nil }),
+		paramtypes.NewParamSetPair(KeyTargetGasUsedPerBlock, &ppre606.TargetGasUsedPerBlock, validateTargetGasUsedPerBlock),
 		paramtypes.NewParamSetPair(KeyMaxFeePerGas, &ppre606.MaximumFeePerGas, validateMaxFeePerGas),
 	}
 }
@@ -137,6 +138,12 @@ func (p Params) Validate() error {
 		return err
 	}
 	if err := validateMaxFeePerGas(p.MaximumFeePerGas); err != nil {
+		return err
+	}
+	if p.MinimumFeePerGas.GT(p.MaximumFeePerGas) {
+		return errors.New("minimum fee cannot be higher than maximum fee")
+	}
+	if err := validateTargetGasUsedPerBlock(p.TargetGasUsedPerBlock); err != nil {
 		return err
 	}
 	if err := validateDeliverTxHookWasmGasLimit(p.DeliverTxHookWasmGasLimit); err != nil {
@@ -162,7 +169,7 @@ func (p Params) Validate() error {
 
 func validateBaseFeeAdjustment(i interface{}) error {
 	adjustment, ok := i.(sdk.Dec)
-	if !ok {
+	if !ok || adjustment.IsNil() {
 		return fmt.Errorf("invalid parameter type: %T", i)
 	}
 	if adjustment.IsNegative() {
@@ -201,7 +208,7 @@ func (ppre606 ParamsPreV606) String() string {
 
 func validatePriorityNormalizer(i interface{}) error {
 	v, ok := i.(sdk.Dec)
-	if !ok {
+	if !ok || v.IsNil() {
 		return fmt.Errorf("invalid parameter type: %T", i)
 	}
 
@@ -214,7 +221,7 @@ func validatePriorityNormalizer(i interface{}) error {
 
 func validateBaseFeePerGas(i interface{}) error {
 	v, ok := i.(sdk.Dec)
-	if !ok {
+	if !ok || v.IsNil() {
 		return fmt.Errorf("invalid parameter type: %T", i)
 	}
 
@@ -227,7 +234,7 @@ func validateBaseFeePerGas(i interface{}) error {
 
 func validateMinFeePerGas(i interface{}) error {
 	v, ok := i.(sdk.Dec)
-	if !ok {
+	if !ok || v.IsNil() {
 		return fmt.Errorf("invalid parameter type: %T", i)
 	}
 
@@ -240,12 +247,23 @@ func validateMinFeePerGas(i interface{}) error {
 
 func validateMaxFeePerGas(i interface{}) error {
 	v, ok := i.(sdk.Dec)
-	if !ok {
+	if !ok || v.IsNil() {
 		return fmt.Errorf("invalid parameter type: %T", i)
 	}
 
 	if v.IsNegative() {
 		return fmt.Errorf("negative max fee per gas: %d", v)
+	}
+	return nil
+}
+
+func validateTargetGasUsedPerBlock(i interface{}) error {
+	v, ok := i.(uint64)
+	if !ok {
+		return fmt.Errorf("invalid parameter type: %T", i)
+	}
+	if v > math.MaxInt64 {
+		return fmt.Errorf("target gas used per block exceeds signed range: %d", v)
 	}
 	return nil
 }

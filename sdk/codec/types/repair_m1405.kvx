@@ -1,0 +1,14 @@
+[repair.22.33.1405]
+audit = "22.30.79"
+findings = ["002", "003"]
+baseline = "Not run: the explicit gate order forbids verification before implementation and requires hf-done to run the verification command. No baseline failures are claimed."
+wiring_requests = []
+evidence = "The runner's private hf-build/hf-done ledger records the exact candidate revision, command, exit code and log path."
+
+[finding.002]
+repair = "Cache the decoded message without replacing the serialized Any envelope."
+tests = ["TestRepairM_1405_CustomAliasEnvelope"]
+
+[finding.003]
+repair = "Use the production stateful unpacker with the legacy registry's registration maps, bounding depth and sharing call counts across recursive siblings."
+tests = ["TestRepairM_1405_RecursionLimit", "TestRepairM_1405_SharedCallLimit"]

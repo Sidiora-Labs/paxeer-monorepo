@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 
@@ -22,7 +21,7 @@ import (
 )
 
 func NewTestTxConfig() client.TxConfig {
-	cfg := app.MakeEncodingConfig()
+	cfg := makeTxEncodingConfig()
 	return cfg.TxConfig
 }
 

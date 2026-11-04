@@ -84,42 +84,10 @@ def genesis_request(guarantors, network_id, asset_id, timestamp_ms, metadata, mo
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('directory', type=Path)
-    parser.add_argument('--network-id', type=int, default=402)
-    parser.add_argument('--asset-id', default=BETA_ASSET_ID)
-    parser.add_argument('--genesis-metadata', type=Path, required=True)
-    parser.add_argument('--withdrawal-fee', type=int, default=0)
-    parser.add_argument('--module-fees', type=Path, default=ROOT.parent / 'node/genesis-module-fees.json')
-    parser.add_argument('--timestamp-ms', type=int, default=int(time.time() * 1000))
-    args = parser.parse_args()
-    metadata = module_metadata(args.genesis_metadata.read_bytes(), args.withdrawal_fee, module_prices(args.module_fees))
-    os.umask(0o077)
-    target = args.directory.resolve()
-    target.mkdir(mode=0o700, parents=False, exist_ok=False)
-    keys = target/'keys'
-    keys.mkdir(mode=0o700)
-    deployer, _ = keypair(keys, 'deployer.key')
-    (target/'deployer.address').write_text(deployer + '\n')
-    deployment = json.loads((ROOT/'deployment-input.beta.json').read_text())
-    deployment['protocol_version'] = BETA_PROTOCOL_VERSION
-    for role in ['final_proposer', 'final_executor', 'emergency_council']:
-        deployment[role], _ = keypair(keys, role + '.key')
-    guarantors = []
-    for sequence in range(1, 4):
-        identifier = '0x' + sequence.to_bytes(32, 'big').hex()
-        signer, public = keypair(keys, identifier + '.signer.key')
-        controller, _ = keypair(keys, identifier + '.controller.key')
-        guarantors.append({'guarantor_id': identifier, 'signer': signer, 'public_key': public,
-                           'bond_controller': controller, 'joined_epoch': 1,
-                           'governance_sequence': sequence, 'bond_amount': '1000000000'})
-    (target/'guarantors.json').write_text(json.dumps(guarantors, indent=2) + '\n')
-    (target/'deployment-input.json').write_text(json.dumps(deployment, indent=2) + '\n')
-    (target/'genesis-request.lxgb').write_bytes(genesis_request(
-        guarantors, args.network_id, args.asset_id, args.timestamp_ms, metadata))
-    (target/'metadata.lxgb').write_bytes(metadata)
-    (keys/'genesis-signer.key').write_bytes(secrets.token_bytes(32))
-    print(target)
+    raise SystemExit(
+        'prepare-beta: legacy contract provisioning is retired; provision '
+        'authoritative native genesis and protected signing inputs for '
+        'services/platform/hosted/node/bootstrap.sh')
 
 
 if __name__ == '__main__':

@@ -12,7 +12,7 @@ apps/launchpad/web/node_modules/.bin/vitest run --config apps/launchpad/qualific
 apps/launchpad/web/node_modules/.bin/tsc -p apps/launchpad/qualification/account-ui/tsconfig.json
 ```
 
-[disclosure.test.tsx](disclosure.test.tsx) exercises actual disclosure code with synthetic financial inputs, server-side React rendering and jsdom structure. [rewards-failure.test.tsx](rewards-failure.test.tsx) mounts `RewardsView` with deliberately rejected RPC reads and incomplete synthetic NFT enumeration. Generated partial-account and anonymous selected-field preview HTML files are illustrations. These checks provide no successful provider response, chain receipt, live browser/service qualification or production evidence. Historical module-resolution failures remain historical evidence, not a result for the current candidate.
+[disclosure.test.tsx](disclosure.test.tsx) exercises the exported `portfolioLabels` and `sharePreview` functions, exact amounts and account-state primitives with synthetic financial inputs. It asserts the current unavailable marker (`—`), partial-history labels and exact selected-field output directly; these modules export no view component. [rewards-failure.test.tsx](rewards-failure.test.tsx) mounts `RewardsView` with deliberately rejected RPC reads and incomplete synthetic NFT enumeration. Generated partial-account labels and anonymous selected-field preview JSON files are illustrations. These checks provide no successful provider response, chain receipt, live browser/service qualification or production evidence. Historical module-resolution failures remain historical evidence, not a result for the current candidate.
 
 The [TypeScript configuration](tsconfig.json) checks disclosure, profile, watchlist, reward, preferences and share integration code against shared generated contracts, including `PortfolioSummary`. This is a scoped strict typecheck, not a complete web/mobile build or release qualification.
 
@@ -31,10 +31,13 @@ The journeys exercise profile revision conflicts, watchlist idempotency, sign-ou
 The historical entry point is still available:
 
 ```sh
+mkdir -p launchpad/evidence/production-system/L31/phase1
 python3 apps/launchpad/qualification/account-ui/run-check.py
 ```
 
 It runs **every** `*.test.tsx` in this directory, including real-service journeys, and writes the child exit code to `launchpad/evidence/production-system/L31/phase1/native-exit.json`. Supply the phase-two environment and create the phase-one evidence directory first. Despite that filename, this invokes Node/Vitest, not a native device. Use the targeted commands above when only disclosure primitives are intended. Dependency installation and lock updates are separate workspace work.
+
+All three Python entry points resolve the checkout root from this directory and run their children there, including when invoked by absolute path from another working directory. `run-check.py` passes no test-file filter: its owned configuration discovers all three suites. A failed child remains a failed exit; the JSON file records that child result and is not native qualification evidence.
 
 ## Staging browser and physical-device runner
 
@@ -49,3 +52,5 @@ The paths are operator-supplied examples. Configuration must declare schema vers
 The runner reconciles UI accounting and watchlists with authoritative snapshots, observes account recovery and supported reward-claim outcomes, and checks concurrent web/native watchlist edits. Unsupported reward settlement remains explicitly unavailable. Raw responses, screenshots, logs and artifact digests belong in the private output directory; preserve credentials and account data in access-controlled evidence storage.
 
 Runner availability is not a passing result. Even a successful phase-four result leaves `qualificationCapacityClaim` false and shared load/restore acceptance deferred to serial task 9.1. The [market UI guide](../market-ui/README.md) describes the corresponding market presentation and measurement boundaries.
+
+The path and command regression proof for audit finding `account-readme-path` is [test_repair_22_33_1026.py](test_repair_22_33_1026.py); its [repair record](repair_22_33_1026.kvx) describes the proof and its limits. Loopback checks of documentation and configuration do not run the service journeys, browser or physical-device qualification above.

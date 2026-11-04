@@ -1,0 +1,16 @@
+package scenarios
+
+import (
+ "strings"
+ "github.com/paxeer-network/pax-load/config"
+)
+
+var scenarioFactories = map[string]ScenarioFactory{
+ // DO NOT EDIT BELOW THIS LINE - AUTO-GENERATED CONTENT
+
+ // DO NOT EDIT ABOVE THIS LINE - AUTO-GENERATED CONTENT
+}
+
+func CreateScenario(cfg config.Scenario) TxGenerator {
+ return scenarioFactories[strings.ToLower(cfg.Name)](cfg)
+}

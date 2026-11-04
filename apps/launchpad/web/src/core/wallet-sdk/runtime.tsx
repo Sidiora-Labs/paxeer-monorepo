@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { useAccount, useConnect } from 'wagmi';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { BrowserIdentitySession, type LoginConsent } from './auth';
 import { backendOrigins } from '@/core/backend-origins';
 import { connectorProvider, getPublicClient, isWalletProvider, PaxeerWallet } from './client';
@@ -22,17 +22,21 @@ interface WalletRuntimeV2 {
 }
 const Context = createContext<WalletRuntimeV2 | undefined>(undefined);
 const emptyAssets: readonly AssetRef[] = Object.freeze([]);
+export function clearWalletSessionQueries(queryClient: QueryClient, previous?: Readonly<WalletSession>, invalidated: readonly Readonly<WalletSession>[] = []) {
+  const predicate = (query: { queryKey: readonly unknown[]; meta?: Record<string, unknown> }) => isWalletPrivateQueryV2(query, previous?.account) || invalidated.some(session => isWalletPrivateQueryV2(query, session.account));
+  void queryClient.cancelQueries({ predicate });
+  queryClient.removeQueries({ predicate });
+}
 export function WalletRuntimeProvider({ children, authority }: { children: ReactNode; authority?: WalletNetworkAuthorityV2 }) {
   const queryClient = useQueryClient();
   const { isConnected, isReconnecting, address, connector, chainId } = useAccount();
   const { connectors } = useConnect();
-  const [sessions] = useState(() => new WalletSessionController(previous => {
-    void queryClient.cancelQueries({ predicate: query => isWalletPrivateQueryV2(query, previous?.account) });
-    queryClient.removeQueries({ predicate: query => isWalletPrivateQueryV2(query, previous?.account) });
+  const [sessions] = useState(() => new WalletSessionController((previous, invalidated = []) => {
+    clearWalletSessionQueries(queryClient, previous, invalidated);
   }));
   const subscribe = useMemo(() => (listener: () => void) => sessions.subscribe(listener), [sessions]);
   const session = useSyncExternalStore(subscribe, () => sessions.current, () => null);
-  const selectedSession = isConnected && session && session.account.toLowerCase() === address?.toLowerCase() && session.chainId === chainId && session.connectorId === connector?.id ? session : null;
+  const selectedSession = isConnected && sessions.cacheReady && session && session.account.toLowerCase() === address?.toLowerCase() && session.chainId === chainId && session.connectorId === connector?.id ? session : null;
   const [wallet, setWallet] = useState<PaxeerWallet>();
   const [identity, setIdentity] = useState<BrowserIdentitySession>();
   const [providerError, setProviderError] = useState<string>();

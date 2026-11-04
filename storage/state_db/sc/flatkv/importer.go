@@ -1,15 +1,22 @@
 package flatkv
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	errorutils "github.com/Sidiora-Labs/Paxeer-X-Network/storage/common/errors"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/common/keys"
 	paxdbtypes "github.com/Sidiora-Labs/Paxeer-X-Network/storage/db_engine/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/state_db/sc/flatkv/ktype"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/state_db/sc/flatkv/lthash"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/state_db/sc/flatkv/vtype"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/state_db/sc/types"
 	"go.opentelemetry.io/otel/metric"
 )
@@ -45,6 +52,7 @@ type dbWorker struct {
 	ch      chan rawKVPair
 	batch   paxdbtypes.Batch
 	ltPairs []lthash.KVPairWithLastValue
+	latest  map[string][]byte
 	ltHash  *lthash.LtHash
 	flushes int64
 	pairs   int64
@@ -59,6 +67,7 @@ func newDBWorker(ctx context.Context, dir string, db paxdbtypes.KeyValueDB, ltHa
 		batch:   db.NewBatch(),
 		ltPairs: make([]lthash.KVPairWithLastValue, 0, importBatchSize),
 		ltHash:  ltHash,
+		latest:  make(map[string][]byte),
 	}
 }
 
@@ -69,6 +78,7 @@ func (w *dbWorker) run(done <-chan struct{}) error {
 	defer func() {
 		if w.batch != nil {
 			_ = w.batch.Close()
+			w.batch = nil
 		}
 	}()
 	for {
@@ -77,13 +87,28 @@ func (w *dbWorker) run(done <-chan struct{}) error {
 			if !ok {
 				return w.flush()
 			}
+			// Read the preceding occurrence from this batch or a completed batch.
+			// Keeping only this batch's values bounds the replacement cache.
+			last, ok := w.latest[string(kv.Key)]
+			if !ok {
+				var err error
+				last, err = w.db.Get(kv.Key)
+				if err != nil && !errorutils.IsNotFound(err) {
+					return fmt.Errorf("%s read previous value: %w", w.dir, err)
+				}
+				if errorutils.IsNotFound(err) {
+					last = nil
+				}
+			}
 			if err := w.batch.Set(kv.Key, kv.Value); err != nil {
 				return fmt.Errorf("%s set: %w", w.dir, err)
 			}
 			w.ltPairs = append(w.ltPairs, lthash.KVPairWithLastValue{
-				Key:   kv.Key,
-				Value: kv.Value,
+				Key:       kv.Key,
+				Value:     kv.Value,
+				LastValue: last,
 			})
+			w.latest[string(kv.Key)] = kv.Value
 			if len(w.ltPairs) >= importBatchSize {
 				if err := w.flush(); err != nil {
 					return err
@@ -112,18 +137,28 @@ func (w *dbWorker) flush() (err error) {
 
 	// TODO:In theory, we could offload lattice hash calculation to a work pool and get parallelism between DB operations and hash calculations. Cryptosim performance makes me think we could probably get a 2-3x speedup from this, assuming receiving data from the network isn't the bottleneck.
 	newHash, _ := lthash.ComputeLtHash(w.ltHash, w.ltPairs)
-	w.ltHash = newHash
 
 	syncOpt := paxdbtypes.WriteOptions{Sync: false}
 	if err := w.batch.Commit(syncOpt); err != nil {
 		return fmt.Errorf("%s commit: %w", w.dir, err)
 	}
 
+	// Commit does not release a Pebble batch. Close before replacing it;
+	// run's defer still owns cleanup if Set or Commit fails.
+	closeErr := w.batch.Close()
+	w.batch = nil
+	if closeErr != nil {
+		return fmt.Errorf("%s close batch: %w", w.dir, closeErr)
+	}
+	w.ltHash = newHash
+
 	addImportKVPairs(w.ctx, w.dir, pairCount)
 	w.flushes++
 	w.pairs += int64(pairCount)
 	w.batch = w.db.NewBatch()
+	clear(w.ltPairs)
 	w.ltPairs = w.ltPairs[:0]
+	clear(w.latest)
 	return nil
 }
 
@@ -155,6 +190,19 @@ func NewKVImporter(store *CommitStore, version int64) types.Importer {
 		ingestCh: make(chan rawKVPair, ingestChanSize),
 		workers:  make(map[paxdbtypes.KeyValueDB]*dbWorker, 4),
 		done:     make(chan struct{}),
+	}
+
+	if version <= 0 {
+		imp.setErr(fmt.Errorf("flatkv import: target version must be positive, got %d", version))
+	}
+
+	// Imports bypass the WAL and may flush raw rows before validation fails
+	// (or the process stops). Until WriteSnapshot publishes the complete import,
+	// this working directory cannot be reused as a committed snapshot clone.
+	// A successful WriteSnapshot installs a new SNAPSHOT_BASE marker.
+	marker := filepath.Join(store.flatkvDir(), workingDirName, snapshotBaseFile)
+	if err := os.Remove(marker); err != nil && !os.IsNotExist(err) {
+		imp.setErr(fmt.Errorf("flatkv import: invalidate working snapshot base: %w", err))
 	}
 
 	for _, ndb := range store.namedDataDBs() {
@@ -240,8 +288,91 @@ func (imp *KVImporter) AddModule(_ string) error {
 	return nil
 }
 
+// validateNode checks the physical leaf contract shared by KVExporter and
+// ImportTranslator. Snapshot corruption is fatal, never a skipped leaf.
+func (imp *KVImporter) validateNode(node *types.SnapshotNode) error {
+	if node == nil {
+		return errors.New("flatkv import: nil node")
+	}
+	if node.Height != 0 {
+		return fmt.Errorf("flatkv import: expected leaf height 0, got %d", node.Height)
+	}
+	if node.Version != imp.version {
+		return fmt.Errorf("flatkv import: node version %d does not match target %d", node.Version, imp.version)
+	}
+	if len(node.Key) == 0 {
+		return errors.New("flatkv import: missing physical key")
+	}
+	if ktype.IsMetaKey(node.Key) {
+		return errors.New("flatkv import: reserved metadata key")
+	}
+	db, err := imp.store.routePhysicalKey(node.Key)
+	if err != nil {
+		return fmt.Errorf("route key: %w", err)
+	}
+	module, inner, err := ktype.StripModulePrefix(node.Key)
+	if err != nil {
+		return fmt.Errorf("route key: %w", err)
+	}
+	if module == "" || (module == keys.EVMStoreKey && len(inner) == 0) {
+		return errors.New("flatkv import: empty module or EVM key")
+	}
+	if module == keys.EVMStoreKey {
+		// Optimized physical keys use the same fixed widths as logical keys.
+		// Account fragments are merged under the nonce prefix, never codehash.
+		for _, kind := range []keys.EVMKeyKind{ktype.EVMKeyAccount, keys.EVMKeyCodeHash, keys.EVMKeyCode, keys.EVMKeyStorage} {
+			prefix, _ := keys.EVMKeyPrefixByte(kind)
+			if inner[0] != prefix {
+				continue
+			}
+			if kind == keys.EVMKeyCodeHash || len(inner) != 1+keys.InternalKeyLen(kind) {
+				return fmt.Errorf("flatkv import: noncanonical physical key %x", node.Key)
+			}
+		}
+	}
+
+	var value interface {
+		vtype.VType
+		GetBlockHeight() int64
+	}
+	switch db {
+	case imp.store.accountDB:
+		value, err = vtype.DeserializeAccountData(node.Value)
+	case imp.store.storageDB:
+		value, err = vtype.DeserializeStorageData(node.Value)
+	case imp.store.codeDB:
+		value, err = vtype.DeserializeCodeData(node.Value)
+	case imp.store.legacyDB:
+		value, err = vtype.DeserializeLegacyData(node.Value)
+	default:
+		return errors.New("flatkv import: unknown target database")
+	}
+	if err != nil {
+		return fmt.Errorf("flatkv import: invalid value envelope for %x: %w", node.Key, err)
+	}
+	if value.IsDelete() {
+		return fmt.Errorf("flatkv import: deletion envelope for %x", node.Key)
+	}
+	if height := value.GetBlockHeight(); height < 0 || height > imp.version {
+		return fmt.Errorf("flatkv import: value height %d outside target %d", height, imp.version)
+	}
+	return nil
+}
+
 func (imp *KVImporter) AddNode(node *types.SnapshotNode) {
-	if node.Height != 0 || node.Key == nil || node.Version != imp.version {
+	if imp.getErr() != nil {
+		return
+	}
+	if node != nil {
+		// The asynchronous pipeline owns its bytes, even when a producer reuses
+		// its buffers immediately after AddNode returns.
+		copyNode := *node
+		copyNode.Key = bytes.Clone(node.Key)
+		copyNode.Value = bytes.Clone(node.Value)
+		node = &copyNode
+	}
+	if err := imp.validateNode(node); err != nil {
+		imp.setErr(err)
 		return
 	}
 	select {

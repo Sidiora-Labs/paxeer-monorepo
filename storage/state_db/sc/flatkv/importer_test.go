@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/common/keys"
+	paxdbtypes "github.com/Sidiora-Labs/Paxeer-X-Network/storage/db_engine/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/state_db/sc/flatkv/ktype"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/state_db/sc/types"
 	"github.com/stretchr/testify/require"
@@ -33,6 +35,38 @@ func newKVImporterForTest(t *testing.T, version int64) (*CommitStore, *KVImporte
 	return s, kvi
 }
 
+// translatedStorageNode uses the migration producer rather than inventing a
+// physical value shape for successful pipeline fixtures.
+func translatedStorageNode(t *testing.T, version int64, addr ktype.Address, slot ktype.Slot, value []byte) *types.SnapshotNode {
+	t.Helper()
+	translator := NewImportTranslator(version)
+	pairs, err := translator.Translate(makeChangeSet(evmStorageKey(addr, slot), value, false))
+	require.NoError(t, err)
+	pairs = append(pairs, translator.Finalize()...)
+	require.Len(t, pairs, 1)
+	return &types.SnapshotNode{Key: pairs[0].Key, Value: pairs[0].Value, Version: version}
+}
+
+func assertImportedStorageReopen(t *testing.T, s *CommitStore, version int64, count int64, values map[string][]byte) {
+	t.Helper()
+	require.NoError(t, VerifyLtHash(s))
+	root := s.CommittedRootHash()
+	require.NoError(t, s.Close())
+	reopened := reopenTestStore(t, &s.config)
+	defer func() { require.NoError(t, reopened.Close()) }()
+	require.Equal(t, version, reopened.Version())
+	require.Equal(t, root, reopened.CommittedRootHash())
+	for key, expected := range values {
+		value, found := reopened.Get(keys.EVMStoreKey, []byte(key))
+		require.True(t, found, "logical key %x", key)
+		require.Equal(t, expected, value)
+	}
+	actualCount, err := CountKeys(reopened)
+	require.NoError(t, err)
+	require.Equal(t, count, actualCount)
+	require.NoError(t, VerifyLtHash(reopened))
+}
+
 // TestKVImporter_CloseIdempotent_HappyPath verifies that Close can be called
 // multiple times after a successful import without panicking on a re-close of
 // ingestCh and that every call returns the same (nil) finishErr.
@@ -40,16 +74,15 @@ func TestKVImporter_CloseIdempotent_HappyPath(t *testing.T) {
 	s, imp := newKVImporterForTest(t, 1)
 	defer func() { require.NoError(t, s.Close()) }()
 
-	imp.AddNode(&types.SnapshotNode{
-		Key:     storagePhysKey(addrN(0x01), slotN(0x01)),
-		Value:   padLeft32(0x11),
-		Version: 1,
-	})
+	imp.AddNode(translatedStorageNode(t, 1, addrN(0x01), slotN(0x01), padLeft32(0x11)))
 
 	require.NoError(t, imp.Close())
 	require.NoError(t, imp.Close(), "second Close must not panic and must return the same nil result")
 	require.NoError(t, imp.Close(), "third Close must remain idempotent")
 	require.NoError(t, imp.Err(), "Err() should report no error after a successful import")
+	assertImportedStorageReopen(t, s, 1, 1, map[string][]byte{
+		string(evmStorageKey(addrN(1), slotN(1))): padLeft32(0x11),
+	})
 }
 
 // TestKVImporter_CloseIdempotent_AfterError verifies double-Close after a
@@ -155,17 +188,14 @@ func TestKVImporter_AddNodeAfterDoneDoesNotBlock(t *testing.T) {
 	// Close is on the error path and intentionally returns the synthetic err.
 	defer func() { _ = imp.Close() }()
 
+	node := translatedStorageNode(t, 1, addrN(1), slotN(1), padLeft32(0x11))
 	imp.setErr(errors.New("synthetic test error"))
 
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
 		for i := 0; i < ingestChanSize+1024; i++ {
-			imp.AddNode(&types.SnapshotNode{
-				Key:     storagePhysKey(addrN(0x01), slotN(0x01)),
-				Value:   padLeft32(0x11),
-				Version: 1,
-			})
+			imp.AddNode(node)
 		}
 	}()
 
@@ -186,10 +216,23 @@ func TestKVImporter_LargeImportTriggersMultipleFlushes(t *testing.T) {
 		t.Skip("skipping large-import test in -short mode")
 	}
 
-	const totalPairs = importBatchSize*3 + 100
+	const totalPairs = importBatchSize*6 + 100
 	s, imp := newKVImporterForTest(t, 1)
 	defer func() { require.NoError(t, s.Close()) }()
 
+	emptyBatch := s.storageDB.NewBatch()
+	emptyLen := emptyBatch.Len()
+	require.NoError(t, emptyBatch.Close())
+	var batches []paxdbtypes.Batch
+	hook := func(dir string) {
+		if dir == storageDBDir {
+			batches = append(batches, imp.workers[s.storageDB].batch)
+		}
+	}
+	flushHookForTest.Store(&hook)
+	defer flushHookForTest.Store(nil)
+
+	values := make(map[string][]byte)
 	for i := 0; i < totalPairs; i++ {
 		var addr ktype.Address
 		addr[16] = byte(i >> 16)
@@ -199,20 +242,25 @@ func TestKVImporter_LargeImportTriggersMultipleFlushes(t *testing.T) {
 		slot[29] = byte(i >> 16)
 		slot[30] = byte(i >> 8)
 		slot[31] = byte(i)
-		imp.AddNode(&types.SnapshotNode{
-			Key:     storagePhysKey(addr, slot),
-			Value:   padLeft32(byte(i & 0xFF)),
-			Version: 1,
-		})
+		value := padLeft32(byte(i&0xFF), 1)
+		imp.AddNode(translatedStorageNode(t, 1, addr, slot, value))
+		if i == 0 || i == importBatchSize-1 || i == importBatchSize || i == totalPairs-1 {
+			values[string(evmStorageKey(addr, slot))] = value
+		}
 	}
 
 	require.NoError(t, imp.Close())
 
 	flushes, pairs := imp.importStats()
 	require.Equal(t, int64(totalPairs), pairs, "all pairs must be accounted for in importStats")
-	require.GreaterOrEqual(t, flushes, int64(3),
-		"importBatchSize=%d * 3 + 100 storage pairs must trigger at least 3 mid-pipeline flushes (got %d)",
+	require.GreaterOrEqual(t, flushes, int64(6),
+		"importBatchSize=%d * 6 + 100 storage pairs must trigger at least 6 mid-pipeline flushes (got %d)",
 		importBatchSize, flushes)
+	require.Len(t, batches, 7, "six full batches and one tail batch")
+	for i, batch := range batches {
+		require.Equal(t, emptyLen, batch.Len(), "completed Pebble batch %d must release its representation", i)
+	}
+	assertImportedStorageReopen(t, s, 1, totalPairs, values)
 }
 
 // TestKVImporter_AbortSkipsFinalize locks in the contract that Abort tears
@@ -233,16 +281,8 @@ func TestKVImporter_AbortSkipsFinalize(t *testing.T) {
 
 	// Add a couple of valid pairs so there is real buffered work that the
 	// happy-path Close would have committed.
-	imp.AddNode(&types.SnapshotNode{
-		Key:     storagePhysKey(addrN(0x01), slotN(0x01)),
-		Value:   padLeft32(0x11),
-		Version: 1,
-	})
-	imp.AddNode(&types.SnapshotNode{
-		Key:     storagePhysKey(addrN(0x02), slotN(0x02)),
-		Value:   padLeft32(0x22),
-		Version: 1,
-	})
+	imp.AddNode(translatedStorageNode(t, 1, addrN(0x01), slotN(0x01), padLeft32(0x11)))
+	imp.AddNode(translatedStorageNode(t, 1, addrN(0x02), slotN(0x02), padLeft32(0x22)))
 
 	abortReason := errors.New("synthetic external abort")
 	require.ErrorIs(t, imp.Abort(abortReason), abortReason,
@@ -265,11 +305,7 @@ func TestKVImporter_AbortNilReasonStillAborts(t *testing.T) {
 
 	preVersion := s.Version()
 
-	imp.AddNode(&types.SnapshotNode{
-		Key:     storagePhysKey(addrN(0x01), slotN(0x01)),
-		Value:   padLeft32(0x11),
-		Version: 1,
-	})
+	imp.AddNode(translatedStorageNode(t, 1, addrN(0x01), slotN(0x01), padLeft32(0x11)))
 
 	require.Error(t, imp.Abort(nil), "Abort(nil) must still surface a non-nil reason")
 	require.Error(t, imp.Err())
@@ -285,11 +321,7 @@ func TestKVImporter_AbortAfterCloseIsNoop(t *testing.T) {
 	s, imp := newKVImporterForTest(t, 1)
 	defer func() { require.NoError(t, s.Close()) }()
 
-	imp.AddNode(&types.SnapshotNode{
-		Key:     storagePhysKey(addrN(0x01), slotN(0x01)),
-		Value:   padLeft32(0x11),
-		Version: 1,
-	})
+	imp.AddNode(translatedStorageNode(t, 1, addrN(0x01), slotN(0x01), padLeft32(0x11)))
 
 	require.NoError(t, imp.Close())
 	postCloseVersion := s.Version()
@@ -350,11 +382,7 @@ func TestKVImporter_BackpressureBlocksProducerUntilWorkersDrain(t *testing.T) {
 			slot[29] = byte(i >> 16)
 			slot[30] = byte(i >> 8)
 			slot[31] = byte(i)
-			imp.AddNode(&types.SnapshotNode{
-				Key:     storagePhysKey(addr, slot),
-				Value:   padLeft32(byte(i & 0xFF)),
-				Version: 1,
-			})
+			imp.AddNode(translatedStorageNode(t, 1, addr, slot, padLeft32(byte(i&0xFF), 1)))
 		}
 	}()
 
@@ -392,4 +420,7 @@ func TestKVImporter_BackpressureBlocksProducerUntilWorkersDrain(t *testing.T) {
 	require.Equal(t, int64(totalPairs), pairs, "every pair must be persisted")
 	require.GreaterOrEqual(t, flushes, int64(2),
 		"expected multiple flushes for %d storage pairs (got %d)", totalPairs, flushes)
+	assertImportedStorageReopen(t, s, 1, totalPairs, map[string][]byte{
+		string(evmStorageKey(ktype.Address{}, ktype.Slot{})): padLeft32(0, 1),
+	})
 }

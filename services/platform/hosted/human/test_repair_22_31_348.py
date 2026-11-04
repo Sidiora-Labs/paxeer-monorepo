@@ -1,5 +1,6 @@
 """Signed loopback RPC -> ABI receipts -> retained producer -> installed policy."""
 import copy
+from contextlib import contextmanager
 import datetime
 import hashlib
 import ipaddress
@@ -54,7 +55,13 @@ def bind(server, seed, secret):
 
 @pytest.fixture(scope='module')
 def environment(tmp_path_factory):
-    private = tmp_path_factory.mktemp('repair-human')
+    with merged_environment(tmp_path_factory.mktemp('repair-human')) as value:
+        yield value
+
+
+@contextmanager
+def merged_environment(private):
+    private = Path(private)
     private.chmod(0o700)
     server = LoopbackRpcServer(private)
     try:

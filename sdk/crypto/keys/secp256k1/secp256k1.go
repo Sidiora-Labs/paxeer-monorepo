@@ -57,10 +57,22 @@ func (privKey PrivKey) MarshalAmino() ([]byte, error) {
 
 // UnmarshalAmino overrides Amino binary marshalling.
 func (privKey *PrivKey) UnmarshalAmino(bz []byte) error {
+	if err := validatePrivKey(bz); err != nil {
+		return err
+	}
+	privKey.Key = bytes.Clone(bz)
+
+	return nil
+}
+
+func validatePrivKey(bz []byte) error {
 	if len(bz) != PrivKeySize {
 		return fmt.Errorf("invalid privkey size")
 	}
-	privKey.Key = bz
+	var scalar secp256k1.ModNScalar
+	if scalar.SetByteSlice(bz) || scalar.IsZero() {
+		return fmt.Errorf("invalid privkey scalar: must be in [1, N-1]")
+	}
 
 	return nil
 }
