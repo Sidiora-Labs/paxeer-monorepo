@@ -1,0 +1,70 @@
+[repair.22.33.115]
+status = "implemented_awaiting_qualification"
+baseline = "Inherited attempt 1 evidence: all five repair_22_33_115 tests failed (exit 101); the four producer checkout cases returned ReceiptMismatch and the sequenced vector case rejected the mismatched transaction reference. No additional pre-implementation gate was run in attempt 2."
+evidence = "Exact candidate revision, command, exit and private log are retained by hf-build/hf-done and copied in the final response; no gate is claimed before execution."
+limitation = "The in-scope native encoder now uses the same configured payment intent and gateway key as complete_checkout. The test-owned transcript store is stopped and reopened after submitted status, and retries replay one unchanged producer recording. This does not claim the unavailable native producer emitted a different signed transaction, or that a service durable journal was exercised."
+
+[finding.ucp_conformance_producer]
+test = "repair_22_33_115::ucp_conformance_producer; conformance_vectors::ucp_conformance_producer"
+status = "implemented_awaiting_qualification"
+
+[finding.ucp_e2e_durability]
+test = "repair_22_33_115::ucp_e2e_durability; e2e_client_seller::ucp_e2e_durability"
+status = "implemented_awaiting_qualification"
+
+[finding.ucp_merchant_producer]
+test = "repair_22_33_115::ucp_merchant_producer; merchant_profile::ucp_merchant_producer"
+status = "implemented_awaiting_qualification"
+
+[finding.ucp_checkout_producer]
+test = "repair_22_33_115::ucp_checkout_producer; sequencer_checkout::ucp_checkout_producer"
+status = "implemented_awaiting_qualification"
+
+[finding.ucp_vector_resigning]
+test = "repair_22_33_115::sequenced_vectors::ucp_sequenced_order_vectors_replay"
+status = "implemented_awaiting_qualification"
+
+[wiring]
+producer = "Resolved by node sequencer task 22.31.466: sdk/platform/conformance/fixtures/ucp-checkout-receipt-v1.json publishes V1-ucp-checkout-pay-exact for UUID 123e4567-e89b-12d3-a456-426614174000 with unchanged producer bytes."
+vectors = "Domain 11: publish tests/fixtures/sequenced-order.json to services/interop/specs/conformance/ucp/sequenced-order.json; the in-scope consumer now uses the regenerated fixture with unchanged 22.31.466 producer bytes, 2-to-6 decimal binding and recorded order digest."
+service = "Domain 11: services/interop/crates/layerx-interop-service/src/{config,server}.rs must pass deployment-owned UcpServiceConfig into complete_checkout and read_order_with_config; UcpServicePlane currently inherits CurrencyBindingRequired."
+dependency = "Domain 11: services/interop/crates/layerx-ucp/Cargo.toml must expose an integration dependency on the real service/relay and its in-process fixture boundary, so this target can drive the production transport without subprocesses or native artifacts."
+recovery = "Domain 11: services/interop/crates/layerx-interop-service/src/{server,relay}.rs must connect the native calldata encoder and deployment binding to the merchant transaction signer and durable journal; this task uses only its own temporary-directory transcript peer, with no service awaited."
+
+[continuation.2]
+source_revision = "0d67b10a1307bd87573ba79cf46b7f9c0337f7e3"
+checkout_gateway_key = "d6f99442fb758e2940d14285dbae5f05452fdb440df2f1757948985e36629fc4"
+producer_transaction_and_signed_reference = "26fde3dedb14662268bff5bb3ab6560550a0dc3938b0c9d5ed717932c75b9839"
+observed = "The unchanged signed native producer fixture cannot complete this UUID checkout; the positive sequenced vector rewrites its log reference and receipt signature while preserving the old raw transaction."
+assumption = "A genuine producer recording for the checkout reference and a restartable service boundary are required; consumer checks and positive unchanged-byte assertions must remain strict."
+ruling_conflict = "Attempt 2 asks to repair a native transaction builder and reopen this crate's store, but neither exists in layerx-ucp; UcpServicePlane in the out-of-scope interop-service crate accepts a pre-signed caller transaction and verifies its reference rather than constructing one."
+
+[continuation.3]
+source_revision = "5f6b5f0aad35a415da93671f70183d5e5688bda0"
+encoding_test = "repair_22_33_115::ucp_native_payment_encoding_carries_checkout_key"
+recovery_test = "repair_22_33_115::ucp_pending_transcript_survives_reopen_without_resubmission"
+implementation = "CheckoutSubmission.payment_intent is shared by completion and UcpPaymentIntent.encode_pay_exact; its six ABI words preserve the configured atomic amount, payer, recipient, asset, expiry and UUID-derived gateway key."
+recovery = "The four producer regressions persist the untouched recorded source and separately encoded request, close the transcript peer and consumer after submission, reopen the test-owned directory, decode the persisted receipt, retry and retain strict completed-order and one-submission assertions."
+reference_provenance = "rpc/sequencer_receipt_vectors_test.go:399 seqVecLedgerPay derives the recorded reference with Keccak256(vector payment reference), independently of every UCP UUID; src/lib.rs correctly hashes the canonical UUID with LayerX/interop/ucp/idempotency/v1 and rejects this unrelated recorded payment."
+remaining = "The current source recording and UCP positive vectors still disagree on the raw native transaction, PaymentExact reference and signed receipt. Preserving those signatures and strict checkout binding requires a matching producer transcript; changing the UUID hash to accept this generic reference would weaken the check."
+gate_evidence = "hf-build and hf-done retain the exact immutable candidate revision, command, exit and private log; the final response copies the last gate record without claiming closure on failure."
+
+[continuation.4]
+baseline = "The inherited attempt 3 failed all five original closure cases; its build and verification have not been rerun before implementation."
+reference_test = "repair_22_33_115::ucp_unrelated_producer_reference_is_refused"
+observed = "The recorded producer derives reference = Keccak256(vector payment reference) in rpc/sequencer_receipt_vectors_test.go:406; UcpIdempotencyKey::gateway_key derives SHA256(LayerX/interop/ucp/idempotency/v1 followed by the UUID bytes). These are distinct inputs and contracts, rather than differing encodings of one checkout reference."
+binding_proof = "The added regression authenticates the unchanged producer signature and logs and confirms the 2-to-6 decimal amount matches; both ExecutedUcpPayment::execute and verify_sequencer_receipt_with_config independently reject that unrelated payment for two checkout UUIDs."
+constraint = "The positive unchanged-transaction, unchanged-log and unchanged-signature assertions remain strict. The native encoder already emits the checkout gateway key. Making the generic recording complete this checkout would require a new producer recording or weakening reference binding; neither has been claimed."
+store_limit = "layerx-ucp exposes no production durable store. RecordedSubmission is the inherited temporary-directory transcript peer; reopening it proves transcript recovery only, and must not be reported as service journal recovery."
+evidence = "The bounded hf-build/hf-done ledger retains the final candidate revision, exact command, exit code and private evidence location, copied verbatim in the final response."
+
+[continuation.5]
+source_revision = "13531a9e95bc34a9b21e00a3e375a215261f2bd6"
+producer_revision = "39cb3e99bc189a5a914eab605e89b398c06d6668"
+baseline = "Inherited attempt 4: four tests passed and five failed, exit 101; the five closure cases failed on the generic producer reference. No unchanged-tree gate was repeated."
+implementation = "The three positive helper lookups consume V1-ucp-checkout-pay-exact from ucp-checkout-receipt-v1.json; the original generic producer recording remains exclusively in the unrelated-reference refusal test. The fixed UUID, shared native encoding and stop-and-reopen recovery assertions remain unchanged."
+vectors = "tests/fixtures/sequenced-order.json copies the committed UCP producer transaction, logs, signature, key and receipt digest verbatim into the two positive scenarios; the negative tampered-log case preserves its original recorded bytes and refusal. Every scenario uses the explicit 2-to-6 decimal merchant binding."
+proof = "The four producer cases negotiate the merchant, encode and persist the payment, submit through the production adapter, stop and reopen the transcript peer and consumer before completion, retry the same checkout, and assert one recorded payment plus identical completed and stored orders."
+limitation = "Recovery proves the in-process test-owned transcript boundary; no out-of-scope service journal or transport wiring is claimed. The inherited service, dependency and recovery wiring requests remain with Domain 11."
+gotcha = "The new checkout producer vector has case id V1-ucp-checkout-pay-exact; switching only the fixture path leaves the old case lookup missing, and switching the unrelated-reference test would destroy its negative premise."
+evidence = "The final hf-build and hf-done JSON ledger records name the exact qualified candidate revision, command, exit and private log; qualification is claimed only if hf-done passes on the built candidate."

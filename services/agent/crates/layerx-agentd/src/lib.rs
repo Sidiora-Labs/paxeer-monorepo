@@ -48,3 +48,5 @@ pub mod store;
 pub mod tenant;
 
 mod outbound_tls;
+
+pub mod policy_history;

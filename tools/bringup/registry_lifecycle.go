@@ -31,8 +31,21 @@ type DockerPeer struct {
 }
 
 func LocalDockerPeer() DockerPeer {
+	socket := os.Getenv("BRINGUP_DOCKER_SOCKET")
+	if socket == "" {
+		socket = "/var/run/docker.sock"
+	}
+	return DockerPeerAtSocket(socket)
+}
+
+// DockerPeerAtSocket supports a private local engine or an authenticated local
+// forwarding socket. It never resolves a remote Docker host or invokes a CLI.
+func DockerPeerAtSocket(socket string) DockerPeer {
 	transport := &http.Transport{DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-		return (&net.Dialer{Timeout: 5 * time.Second}).DialContext(ctx, "unix", "/var/run/docker.sock")
+		if !filepath.IsAbs(socket) || filepath.Clean(socket) != socket {
+			return nil, errors.New("Docker socket must be an absolute normalized path")
+		}
+		return (&net.Dialer{Timeout: 5 * time.Second}).DialContext(ctx, "unix", socket)
 	}}
 	return DockerPeer{&http.Client{Transport: transport, Timeout: 30 * time.Second}, "http://docker/v1.41"}
 }

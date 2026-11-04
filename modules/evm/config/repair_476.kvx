@@ -1,0 +1,31 @@
+[repair.22.31.476]
+title = "Use Paxeer chain 125 by default and reserve only the Paxeer live mapping"
+requirement = "22998.1"
+base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+verified_revision = "The candidate revision in the final hf-done evidence line and /out/run/gates.jsonl; qualification is claimed only on a passing entry."
+files_changed = ["modules/evm/config/config.go", "modules/evm/config/config_test.go", "modules/evm/config/generate_repair_476.py", "modules/evm/config/repair_476_test.go", "modules/evm/config/repair_476.kvx", "modules/xweb/ATTESTATION.md", "node/proof_node_abci_test.go", "node/sequenced_block_test.go", "sdk/platform/conformance/fixtures/account-derivation-v1.json"]
+implementation = "DefaultChainID is 125; both exported mapping names remain, containing only hyperpax_125-1 <-> 125; unmapped Cosmos chain names use 125 without becoming live networks."
+node_tests = "Sequenced transfers derive both transaction and signer chain IDs from the application EVM keeper; the ABCI proof removes its temporary root mapping and preserves its inactive-domain refusal using a real paused tenant domain."
+config_tests = "Retain all existing test cases and assertions; update exact expected IDs and live status for the removed networks, and exercise override suppression with the surviving Paxeer live chain."
+regressions = "TestRepair476_DefaultAndMappings, TestRepair476_ProductionSigner, TestRepair476_RegeneratedFixture, TestRepair476_AttestationDocumentation"
+production_path = "SignNewTx -> MarshalBinary -> UnmarshalBinary -> go-ethereum Sender and evm/ante.RecoverSenderFromEthTx -> helpers.RecoverAddressesFromTx; legacy, access-list and dynamic-fee envelopes recover the real signer, and mismatched foreign chain IDs are rejected with ErrInvalidChainId."
+
+[repair.22.31.476.regeneration]
+fixture = "sdk/platform/conformance/fixtures/account-derivation-v1.json"
+generator = "modules/evm/config/generate_repair_476.py"
+command = "PYTHONDONTWRITEBYTECODE=1 uv run --with eth-account==0.13.7 --with cryptography==46.0.3 modules/evm/config/generate_repair_476.py"
+production_generator = "services/agent/sdk/python/layerx_sdk/account_derivation.py: derive_from_mnemonic, plan_layerx_bind, key_derivation_typed_data, derive_from_wallet_signature"
+changes = "Regenerate four Ed25519 bind signatures and ABI calldata, four EIP-1559 signed transactions, two EIP-712 documents/digests/signatures and equivalent signatures, HKDF-derived Ed25519 keys/DIDs, and all chain-dependent resolution data for chain 125; mnemonic-derived keys and addresses stay stable."
+validation = "The focused Go gate independently checks transaction decoding and production recovery, bind Ed25519 verification and cross-chain refusal, EIP-712 hashes and recovery, signature canonicalization, HKDF-derived public keys, and resolution ABI values."
+attestation = "Regenerate origin-1 documentation digests and signatures for 125; fetch uses the published testutil attestor key 0x3c followed by thirty zero bytes and 0x01, and API uses keccak256 of PAXEERX_WEB_API_ENVELOPE_V1 vector attestor 1; keep archived digest/signature identifiers so existing shared-corpus assertions remain intact."
+
+[repair.22.31.476.scope_findings]
+legacy_corpus = "modules/xweb/types/attestation_test.go and modules/xweb/types/testdata/preimage-vectors.json retain legacy chain vectors outside the authorized scope; node/testdata/v6120-halt-export.json also embeds those historical values."
+conformance = "sdk/platform/conformance/evm-call-wrapping.test.py hard-codes the old wallet-derived public keys in BINDINGS; regeneration necessarily changes those two keys, and that out-of-scope assertion requires a separate repair."
+small_error = "The initial documentation generator searched only the testutil attestor keys and could not find the historical fetch key; it now explicitly records the published fetch key and production API vector key, with the payload's API signer checked."
+
+[repair.22.31.476.qualification]
+build = "hf-build: go build ./modules/evm/... ./node/... && go vet ./modules/evm/config/"
+verify = "hf-done: cg spec done 22.31.476 -f layerx-merge --root /work/paxeer-monorepo"
+verify_cmd = "go test -count=1 -run '^TestRepair476_' ./modules/evm/config/"
+evidence = "Private /out/run/gates.jsonl and /out/logs/build-*.log, /out/logs/verify-*.log record exact candidate revision, command, exit code and log path."

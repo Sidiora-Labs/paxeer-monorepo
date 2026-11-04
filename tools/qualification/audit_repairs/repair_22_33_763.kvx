@@ -1,0 +1,46 @@
+# Offline documentation qualification; README ownership follows decision 2525.
+
+[repair]
+id = "22.33.763"
+requirement = "22998.1"
+base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+decision = "2525"
+implementation = "Add focused, executable source-fact assertions for root-separate-daemon against the production README supplied by 22.31.470. Preserve README.md and every other out-of-scope path. Initial Git changes were runner-prepared .cgignore and spec task-state bookkeeping; neither was changed here."
+source_proof = "The module proves the merged mainnet-beta paxd BFT network and chain 125; api1..api14 HTTPS root JSON-RPC range and parsed eth_chainId request; signed transaction submission through the real RPC acceptance/forwarding source, durable WAL receipt release and committed-block receipt consumer; integrated topology, node build/start and recovery documentation; custody and checkpoint retirement and production refusal guards. It parses README shell-example arguments and JSON without executing them and parses the production Makefile dependency declarations. No shell script, unit file, manifest or build file is changed by this task."
+review_only = "Native compilation and execution, WAL recovery, BFT commitment, receipt cryptography, deployed endpoint availability and deployment/restart behavior are not executed by this Python-only gate. Producer, transport and consumer facts are source assertions for doc-drift; no runtime interface-mismatch or restart-recovery finding is claimed. Operational correctness beyond the asserted source facts requires code review and the owning domains' runtime qualification."
+baseline = "No pre-change verification was run: the explicit task order forbids formatting/build/testing until implementation is complete, requires hf-build before hf-done, and forbids running verify_cmd by hand. Therefore no already-failing baseline tests are claimed. Initial gate.json showed zero builds and zero verifications; gates.jsonl did not exist."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_763.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The last hf-done JSON and private /out/run/gates.jsonl record the verified revision, exact command, exit code and private log path; qualification requires build and verify on the same candidate revision. This source record is finalized before gates; embedding its own content-derived candidate revision would change that revision. The final response copies the gate evidence verbatim and the runner commits."
+wiring_request = "README.md | owner domain 16, task 22.31.470 | Rewrite separate-daemon topology, deployment and recovery around integrated paxd, committed receipts and mainnet-beta root RPCs; already supplied by 22.31.470, with no missing expected fact found during implementation review."
+missing_facts = []
+format = "No Python or KVX formatter is configured for these paths. Apply existing Python style and .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions only to the two touched files after implementation."
+
+[finding.root-separate-daemon]
+audit = "22.30.172"
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+owner_task = "22.31.470"
+observed = "Architecture says layerxd is a separate C17 daemon with checkpoints settling through layerxAnchor."
+expected = "The finished network is one paxd BFT chain with integrated kernel, EVM id 125 and receipts final at commit; layerxd is retired as a running service."
+tests = ["test_root_separate_daemon_is_replaced_by_one_integrated_paxd_network", "test_mainnet_beta_root_rpc_hosts_and_chain_probe", "test_transaction_receipt_producer_transport_and_commit_consumer", "test_topology_deployment_and_recovery_stay_inside_paxd", "test_custody_and_checkpoint_executors_are_explicitly_retired", "test_repair_record_maps_finding_to_executable_proofs_and_evidence"]
+closure = "The finding's expected documentation facts are asserted against the unchanged production README; closure is qualified only when hf-done passes and records its evidence. No tests are deleted, skipped, ignored, marked expected-failure or weakened."
+
+[gotcha.baseline_order]
+observed = "The inherited unchanged-tree baseline instruction conflicts with the task's explicit implementation-first and wrapper-only gate order."
+resolution = "Follow the explicit order and record no baseline result; GOTCHA.kvx and spec records are outside the authorized scope."
+
+[gotcha.stale_graph]
+observed = "cg brief/survey reports unrelated graph changes and an unrelated next task, while Git shows only runner-prepared changes."
+resolution = "Use the user-assigned task block, Git diff and private gate ledger; preserve all pre-existing changes."
+
+[gotcha.fenced_shell_comment]
+observed = "The first verification failed because the section reader interpreted the curl example's '# Expected result' comment as a Markdown heading, truncating the fenced example; five other tests passed."
+resolution = "Make the section reader track Markdown fences before recognizing headings. Preserve all assertions and rerun build and verification on the repaired candidate."
+revision = "79c361770bc7ebe1f997b56833d16ea08ecb40a9"
+command = "cg spec done 22.33.763 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"

@@ -1,6 +1,6 @@
 {
   "schema_version": 4,
-  "task": "4.48",
+  "task": "22.33.965",
   "phase": 4,
   "phase_version": "l48-integrated-harness-v1",
   "workload_version": "kindle-500k-dau-v1",
@@ -108,12 +108,18 @@
       "total_read_pool_scope_authority_required": true
     }
   },
-  "final_shared_execution_owner": "serial task9.1 after4.99 source freeze",
+  "final_shared_execution_owner": "root-reviewed coordinator_authority: final_task depends on completed freeze_task in spec/layerx-merge/spec.kvx",
   "final_readout_entrypoint": "capture.final_acceptance(config)",
   "shared_capture_schema": "tools/launchpad/production/load/final-shared-capture.schema.json",
   "calibration_rule": "actual4independent external60second generator executions, deliveryerror<=2%,schedulerp99<=10ms,CPU/NIC<=70%, independently admitted clock offset/uncertainty<=5ms",
   "qualification_boundary": "Isolated proof and harness readiness are distinct from final integrated acceptance. No per-lane24hour soak.",
-  "verify_cmd": "python3 tools/launchpad/production/qualify.py --task 4.48 --spec launchpad/spec/production-system/spec.kvx --require-current-source",
+  "verify_cmd": "python3 tools/launchpad/production/qualify.py --task 22.33.965 --spec spec/layerx-merge/spec.kvx --require-current-source",
+  "coordinator_authority": {
+    "spec_path": "spec/layerx-merge/spec.kvx",
+    "task_binding": "required reviewed freeze_task and final_task; no legacy task-number inference",
+    "runtime_binding": "coordinator_authority_path and coordinator_authority_sha256; same candidate/interface/topology/generator and all49 lane bindings",
+    "legacy_scenario_task_labels": "9.1 denotes the frozen workload definition, not current programme admission"
+  },
   "capacity_qualified": false,
   "release_qualified": false
 }

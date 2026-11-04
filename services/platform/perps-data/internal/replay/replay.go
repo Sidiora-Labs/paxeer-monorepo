@@ -53,6 +53,7 @@ var holderToken = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,128}$`)
 var projectionTables = []string{
 	"positions_current", "orders", "spot_orders", "account_margin", "user_stats", "user_pnl_daily",
 	"market_stats_rolling", "leaderboard", "spot_token_seen", "market_snapshots", "protocol_snapshots",
+	"spot_account_legs", "spot_leaderboard",
 }
 
 var (
@@ -331,6 +332,10 @@ func (r *Runner) batch(ctx context.Context, tables []table, from, to int64, dryR
 	if err := snapshot(ctx, tx, tables, from, to); err != nil {
 		return nil, err
 	}
+	recovery, err := store.CaptureRecovery(ctx, tx, from, to)
+	if err != nil {
+		return nil, fmt.Errorf("capture recovery: %w", err)
+	}
 	var maxSeq int64
 	if err := tx.QueryRowContext(ctx, `SELECT COALESCE(max(perps_seq), 0) FROM perps.delivery_outbox`).Scan(&maxSeq); err != nil {
 		return nil, fmt.Errorf("read outbox sequence: %w", err)
@@ -359,7 +364,10 @@ func (r *Runner) batch(ctx context.Context, tables []table, from, to int64, dryR
 			}
 		}
 	}
-	if err := store.Rebuild(ctx, tx, from, to); err != nil {
+	if err := snapshotReplacementSpotAccounts(ctx, tx, from, to); err != nil {
+		return nil, err
+	}
+	if err := store.Rebuild(ctx, tx, from, to, recovery); err != nil {
 		return nil, fmt.Errorf("rebuild projections: %w", err)
 	}
 	if _, err := tx.ExecContext(ctx, `UPDATE perps.cursors SET height = $2, hash = $3, updated_at = $4 WHERE name = $1`,
@@ -472,7 +480,7 @@ func snapshot(ctx context.Context, tx *sql.Tx, tables []table, from, to int64) e
 		name, typ string
 		columns   []string
 	}{
-		{"replay_accounts", "bytea", []string{"account", "maker", "taker", "from_account", "to_account"}},
+		{"replay_accounts", "bytea", []string{"account", "user", "maker", "taker", "from_account", "to_account"}},
 		{"replay_markets", "numeric", []string{"market_id"}},
 		{"replay_tokens", "bytea", []string{"token", "stablecoin", "token_other", "token_in", "token_out", "share_token"}},
 	}
@@ -501,6 +509,9 @@ func snapshot(ctx context.Context, tx *sql.Tx, tables []table, from, to int64) e
 			return fmt.Errorf("snapshot %s: %w", key.name, err)
 		}
 	}
+	if _, err := tx.ExecContext(ctx, `CREATE TEMP TABLE replay_spot_accounts ON COMMIT DROP AS SELECT key FROM replay_accounts`); err != nil {
+		return fmt.Errorf("snapshot spot accounts: %w", err)
+	}
 	for _, p := range projectionTables {
 		query, err := projectionQuery(p)
 		if err != nil {
@@ -509,6 +520,29 @@ func snapshot(ctx context.Context, tx *sql.Tx, tables []table, from, to int64) e
 		if _, err := tx.ExecContext(ctx, `CREATE TEMP TABLE `+snapshotProjection+p+` ON COMMIT DROP AS `+query); err != nil {
 			return fmt.Errorf("snapshot perps.%s: %w", p, err)
 		}
+	}
+	return nil
+}
+
+// WriteFacts has not changed projections yet. Capture the prior legs of any
+// newly discovered owners before Rebuild, keeping the union of old and new
+// accounts for the diff. The complete board was captured before rewriting:
+// changing one account can move every other account's rank.
+func snapshotReplacementSpotAccounts(ctx context.Context, tx *sql.Tx, from, to int64) error {
+	if _, err := tx.ExecContext(ctx, `INSERT INTO replay_spot_accounts (key)
+SELECT account FROM (
+ SELECT "user" AS account FROM perps.spot_swaps WHERE block BETWEEN $1 AND $2
+ UNION SELECT account FROM perps.spot_order_events WHERE block BETWEEN $1 AND $2
+ UNION SELECT o.account FROM perps.spot_order_events e JOIN perps.spot_orders o
+  ON e.order_id = o.order_id AND e.kind = o.kind || '_executed' WHERE e.block BETWEEN $1 AND $2
+) replacement WHERE account IS NOT NULL AND account NOT IN (SELECT key FROM replay_spot_accounts)`, from, to); err != nil {
+		return fmt.Errorf("snapshot replacement spot accounts: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO `+snapshotProjection+`spot_account_legs
+SELECT p.* FROM perps.spot_account_legs p
+WHERE p.account IN (SELECT key FROM replay_spot_accounts)
+AND NOT EXISTS (SELECT 1 FROM `+snapshotProjection+`spot_account_legs s WHERE s.account = p.account)`); err != nil {
+		return fmt.Errorf("snapshot replacement spot legs: %w", err)
 	}
 	return nil
 }
@@ -522,7 +556,9 @@ func projectionQuery(name string) (string, error) {
 		return query + ` WHERE market_id IN (SELECT key FROM replay_markets)`, nil
 	case "spot_token_seen":
 		return query + ` WHERE token IN (SELECT key FROM replay_tokens)`, nil
-	case "protocol_snapshots":
+	case "spot_account_legs":
+		return query + ` WHERE account IN (SELECT key FROM replay_spot_accounts)`, nil
+	case "protocol_snapshots", "spot_leaderboard":
 		return query, nil
 	default:
 		return "", fmt.Errorf("replay: no snapshot scope for projection %s", name)

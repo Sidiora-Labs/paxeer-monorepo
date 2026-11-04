@@ -688,8 +688,9 @@ func (app *App) refreshHostedKernelProgramsABI(ctx sdk.Context) {
 	}
 	previous := app.LayerXHost
 	app.LayerXHost = host
-	*app.LayerXLedgerKeeper = *layerxledgerkeeper.NewKeeper(app.appCodec, app.keys[storekeys.LayerXLedgerStoreKey],
-		host, app.BankKeeper, &app.EvmKeeper, authority)
+	*app.LayerXLedgerKeeper = *layerxledgerkeeper.NewKeeperWithIssuer(app.appCodec, app.keys[storekeys.LayerXLedgerStoreKey],
+		host, app.BankKeeper, &app.EvmKeeper, authority,
+		layerxledgerkeeper.NewTokenfactoryIssuerKeeper(app.TokenFactoryKeeper))
 	*app.LayerXAuthKeeper = *layerxauthkeeper.NewKeeper(app.appCodec, app.keys[storekeys.LayerXAuthStoreKey],
 		host, &app.AuthzKeeper, &app.EvmKeeper, authority)
 	*app.LayerXPayKeeper = pay
@@ -961,8 +962,9 @@ func New(
 	if err != nil {
 		panic(fmt.Sprintf("error creating shared LayerX host: %s", err))
 	}
-	app.LayerXLedgerKeeper = layerxledgerkeeper.NewKeeper(appCodec, keys[storekeys.LayerXLedgerStoreKey],
-		app.LayerXHost, app.BankKeeper, &app.EvmKeeper, authority)
+	app.LayerXLedgerKeeper = layerxledgerkeeper.NewKeeperWithIssuer(appCodec, keys[storekeys.LayerXLedgerStoreKey],
+		app.LayerXHost, app.BankKeeper, &app.EvmKeeper, authority,
+		layerxledgerkeeper.NewTokenfactoryIssuerKeeper(app.TokenFactoryKeeper))
 	app.LayerXAuthKeeper = layerxauthkeeper.NewKeeper(appCodec, keys[storekeys.LayerXAuthStoreKey],
 		app.LayerXHost, &app.AuthzKeeper, &app.EvmKeeper, authority)
 	app.LayerXAgentKeeper = LayerXAgentKeeper{

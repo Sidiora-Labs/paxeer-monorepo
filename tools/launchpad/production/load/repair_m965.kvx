@@ -1,0 +1,55 @@
+[meta]
+task = "22.33.965"
+status = "implemented"
+base_revision = "357234853ae90e2dbfd210d59cb4085eaf01ed95"
+baseline = "Not run: ordered gate instructions prohibit verification before complete implementation and prohibit a manual verify_cmd run; no baseline failures are claimed."
+evidence = "The hf-build/hf-done runner ledger records the candidate revision, exact command, exit and private log; no verification is claimed before hf-done passes."
+
+[finding.local-load-command-doc]
+proof = "TestRepairM_965_LocalCommandDoc"
+[finding.local-load-manifest-command]
+proof = "TestRepairM_965_LocalManifestCommand"
+[finding.load-v1-contract-path]
+proof = "TestRepairM_965_V1Contract"
+[finding.load-v2-contract-path]
+proof = "TestRepairM_965_V2Contract"
+[finding.load-route-catalog-path]
+proof = "TestRepairM_965_RouteCatalog"
+[finding.load-final-admission-path]
+proof = "TestRepairM_965_FinalAdmission"
+[finding.load-phase4-qualification-command]
+proof = "TestRepairM_965_Phase4Qualification"
+
+[wiring.root-programme]
+request = "spec/layerx-merge/spec.kvx — root programme/coordinator owner must approve the actual freeze_task/final_task mapping and supply its source-bound coordinator authority; no replacement task numbers are invented by L48."
+[wiring.api-authority]
+request = "services/launchpad/api/internal/rest/testdata/contracts/v2/openapi.json — domain 4 API/interface owner must supply the reviewed complete production OpenAPI authority; the local test fixture records emitted SDK metadata and is not production admission."
+
+[qualification.interpreter-capability]
+authority = "Attempt 5 continuation ruling and task step15: do_12 forbids external services and credentials, not the interpreter; the Go gate may invoke repository Python modules through qualification-environment python3."
+proof = "TestRepairM_965_PythonCapability executes the real Python modules and asserts their repository origins and callable production entry points; missing interpreter, dependency or runtime capability fails rather than skips."
+boundary = "All repair proofs use python3 -B; peers are committed fixtures and test-owned loopback servers, with no credentials, provider configuration, native driver, nested build or external services."
+
+[gotcha.python-gate]
+observed = "The prior attempt interpreted do_12 as forbidding Python execution and consequently never ran the verification gate."
+resolution = "Task step15 explicitly authorizes python3 for the repository modules; capability is checked by executing their imports in the declared Go gate, retaining every behavioral proof."
+
+[gotcha.spec-size]
+observed = "The current generated programme specification exceeds 32MiB."
+resolution = "The new source-bound coordinator reader uses a 64MiB bound and checks the exact reviewed SHA256 before parsing."
+
+[gotcha.programme-format]
+observed = "The root programme uses KVX literal backslashes, which strict TOML rejects; the new admission reader must use the programme owner's parser."
+resolution = "load/programme.py uses spec/layerx-merge/programme/kvx.py for both qualification and coordinator admission, retains bounded byte/digest binding and duplicate-section rejection, and proves literal backslashes through the committed coordinator fixture."
+
+[qualification.repair-1]
+revision = "3841ed3136798bd850b27bb1fc07750b726f3816"
+command = "cg spec done 22.33.965 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Seven repair proofs passed; Phase4Qualification exposed this task's strict-TOML reader mismatch with the current KVX programme."
+
+[continuation]
+source_attempt = 4
+source_revision = "7dbe3a52b031e94d8e1f95c4adcda9f0c44ae350"
+observed = "Attempt 4 built but never qualified; attempt 5 retains all seven repairs and proofs and adds the authorized Python capability check before bounded qualification."

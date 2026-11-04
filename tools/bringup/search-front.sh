@@ -129,29 +129,9 @@ search_front_qualify() {
 	local mounted listing pin
 	mounted="$(cat)"
 	listing="$1"
-	pin="$(python3 -c '
-import re
-import sys
-
-mounted, listing, primary, backup = sys.argv[1:]
-try:
-    serving, validators = set(), set()
-    for line in listing.splitlines():
-        role, name = line.split()
-        (serving if role == "serve" else validators).add(name)
-    if primary == backup or any(name not in serving or name in validators for name in (primary, backup)):
-        raise ValueError("primary/backup must be distinct serving nodes")
-    text = re.sub(r"(?m)^\s*#.*$", "", mounted).strip()
-    contract = re.fullmatch(r"""split_clients\s+"\$\{xweb_client\}"\s+\$xweb_node\s*\{\s*\*\s+([a-z0-9.-]+);\s*\}\s*map\s+\$xweb_node\s+\$xweb_eligible\s*\{\s*default\s+0;\s*([a-z0-9.-]+)\s+([01]);\s*\}""", text)
-    if not contract:
-        raise ValueError("single pin and eligibility map required")
-    pin, eligible, admitted = contract.groups()
-    if pin not in (primary, backup) or eligible != pin or admitted != "1":
-        raise ValueError("pin is unknown, ineligible or unready")
-    print(pin)
-except ValueError as error:
-    sys.exit("search-front: " + str(error))
-' "$mounted" "$listing" "$search_front_primary" "$search_front_backup")" || return 1
+	# Selection is derived from the current discovery/inventory before this call.
+	search_front_select "$listing" || return 1
+	pin="$(printf '%s' "$mounted" | "${BRINGUP_INSPECT_BIN:-bringup-inspect}" search-pin "$search_front_primary" "$search_front_backup")" || return 1
 	search_front_candidate "$pin" || { echo "search-front: pinned backend readiness refused" >&2; return 1; }
 	printf '%s\n' "$pin"
 }

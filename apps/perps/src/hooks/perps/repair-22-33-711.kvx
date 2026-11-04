@@ -1,0 +1,67 @@
+[task]
+id = "22.33.711"
+mode = "BUILD"
+status = "implemented; qualification is recorded by hf-build and hf-done"
+audit = "spec/layerx-merge/programme/audit/records/22.30.17.kvx"
+base_revision = "4b4896072f927b28618921285b3e3ae758bc467e"
+continued_from = "ba8be7354cf6b7b2c5da3056c96595c6ebf203cd; preserve the prior implementation and qualify its real-transport subscription setup repair"
+tests = "apps/perps/tests/repair-22-33-711.test.ts"
+baseline = "Not run: unchanged-tree verification conflicts with the explicit implementation-first gate order and single initial verify allowance; no pre-change failures are claimed."
+evidence = "The runner's private gates.jsonl records exact candidate revision, command, exit code and log path; final response copies the last gate evidence."
+
+[finding.stats-account-race]
+proof = "statsAccountRace"
+repair = "Reuse account-keyed selection state and generation cancellation for success, failure and loading completion; clear data/errors on replacement and disconnect."
+
+[finding.profile-account-race]
+proof = "profileAccountRace"
+repair = "Reuse account-keyed selection state and generation cancellation for success, failure and loading completion; clear data/errors on replacement and disconnect."
+
+[finding.registry-market-catalog]
+proof = "registryMarketCatalog"
+repair = "Restore the actual no-argument hook contract and catalog/tradeable/loading/error/refetch lifecycle under contracts/perps-client.md#hooks; preserve existing consumer fields."
+wiring_request = "Domain 3: reconcile spec/layerx-merge/interfaces.kvx row 3.ts-perps-hooks-useperpsmarkets-j27 with contracts/perps-client.md#hooks; registry editing is outside scope."
+
+[finding.portfolio-snapshot-live-ordering]
+proof = "portfolioSnapshotLiveOrdering"
+repair = "Account-session identity, full-list push watermark and latest-snapshot identity reject superseded responses through initial load, stream reconnect and consumer stop/reopen."
+
+[finding.quoter-cache-origin]
+proof = "quoterCacheOrigin"
+repair = "Normalize venue base URLs and key both OI cache and inflight promises by that URL; expose fetch time, age, origin and cache/fallback status, with bounded same-origin fallback."
+
+[finding.price-freshness-clock]
+proof = "priceFreshnessClock"
+repair = "Schedule the next price_updated_at expiry independently of market frames; cancel deadlines on row replacement/unmount and omit expired prices and tickers."
+
+[qualification_note]
+observed = "The existing audit-regressions test forbids timer calls directly in useRealtimePrices.ts; its deadline clock is factored into usePriceFreshness.ts, preserving that check and the shared market subscription."
+assumption = "The user's explicit scope overrides repository ledger/spec-edit instructions; task notes and wiring requests are kept in this permitted record."
+
+[qualification.build_1]
+revision = "53c060684c7a8f1a5673a469f981847e0b1ef8a4"
+command = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "Recorded RPC params infer a mixed array; accessing data requires an explicit object-shape assertion."
+repair = "Assert the recorded first call parameter is an object with data before comparing it to the real request."
+
+[qualification.verify_1]
+revision = "57f156edbc0c68f75c04b07144ba5325695c22de"
+command = "cg spec done 22.33.711 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Wallet discovery dispatched a Node Event into JSDOM; before-hook setup failed before any regression body ran."
+repair = "Use the real JSDOM Event and CustomEvent constructors on the shared global browser host; restore their descriptors during teardown."
+
+[qualification.continuation_verify_1]
+revision = "047824acd0b973102bd4f90e05e57506ff98f327"
+command = "cg spec done 22.33.711 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Four regressions passed; both stream regressions timed out before subscription, and referenced RPC ranking timers retained the test process, which was terminated."
+repair = "Use the real JSDOM WebSocket in the browser host and complete fixture shutdown from the final test; unref observed real timer handles only after all assertions and fixture shutdown."
+
+[qualification.continuation_subscription_setup]
+observed = "WagmiProvider with reconnectOnMount false clears hydrated connections during mount, invalidating an account selected before the provider starts."
+repair = "Mount and settle the real provider before selecting the account on initial start and reopen; await the actual loopback subscription before publishing, preserving the five-second operation deadline."

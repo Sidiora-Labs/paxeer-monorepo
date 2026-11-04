@@ -1,0 +1,233 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Recorded SDK operation projection for load reader tests; no production admission",
+    "version": "v2"
+  },
+  "x-producer": {
+    "path": "sdk/launchpad/packages/sdk/src/operations.gen.ts",
+    "sha256": "b7763579cac0429a3bf507370fcf055b0839b642c9c9d33c8488791fe3fcd42b"
+  },
+  "paths": {
+    "/v2/pools/{poolAddress}/candles": {
+      "get": {
+        "operationId": "IF_CANDLES",
+        "responses": {
+          "200": {
+            "description": "Recorded successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CandlesResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/me/portfolio": {
+      "get": {
+        "operationId": "IF_PORTFOLIO",
+        "responses": {
+          "200": {
+            "description": "Recorded successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortfolioResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/v2/search": {
+      "get": {
+        "operationId": "IF_SEARCH",
+        "responses": {
+          "200": {
+            "description": "Recorded successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/quotes": {
+      "post": {
+        "operationId": "IF_QUOTE",
+        "responses": {
+          "200": {
+            "description": "Recorded successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuoteResponse"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuoteBody"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/me/watchlist/{poolAddress}": {
+      "put": {
+        "operationId": "IF_WATCHLIST_PUT",
+        "responses": {
+          "200": {
+            "description": "Recorded successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WatchlistPutResponse"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WatchlistPutBody"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/v2/pools/{poolAddress}": {
+      "get": {
+        "operationId": "IF_POOL_DETAIL",
+        "responses": {
+          "200": {
+            "description": "Recorded successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PoolDetailResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/rankings/{category}": {
+      "get": {
+        "operationId": "IF_RANKINGS",
+        "responses": {
+          "200": {
+            "description": "Recorded successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RankingsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/profiles/{wallet}": {
+      "get": {
+        "operationId": "IF_PROFILE_GET",
+        "responses": {
+          "200": {
+            "description": "Recorded successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileGetResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/tokens/{tokenAddress}/metadata": {
+      "get": {
+        "operationId": "IF_METADATA_GET",
+        "responses": {
+          "200": {
+            "description": "Recorded successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataGetResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/me/notifications": {
+      "get": {
+        "operationId": "IF_NOTIFICATIONS",
+        "responses": {
+          "200": {
+            "description": "Recorded successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationsResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/v2/network/deployment": {
+      "get": {
+        "operationId": "IF_DEPLOYMENT",
+        "responses": {
+          "200": {
+            "description": "Recorded successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

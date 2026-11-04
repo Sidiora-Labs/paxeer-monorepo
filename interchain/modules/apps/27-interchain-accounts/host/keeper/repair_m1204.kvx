@@ -1,0 +1,14 @@
+[repair.22.33.1204]
+finding = "ica-host-port-roundtrip"
+tests = ["TestRepairM_1204_NoncanonicalPortRefused", "TestRepairM_1204_CanonicalExportImport"]
+baseline = "Not run: the task's explicit gate order requires complete implementation before hf-build and hf-done and forbids a separate verify run. No baseline failure is claimed."
+wiring_requests = []
+continuation = "Task 22.31.463 repairs the SDK auth, staking and tokenfactory CLI consumers on the current base; retain the existing repair and qualify it through hf-build and hf-done."
+evidence = "The runner records the candidate revision, command, exit code and private log path in the hf-build/hf-done ledger."
+
+[qualification.22.33.1204]
+revision = "00b0e1d64796f0f70e7fcfba1ed082f00bc85703"
+command = "cg spec done 22.33.1204 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; compiler detail: /tmp/repair-m1204.log"
+observed = "Build passed; verification compiled no tests because out-of-scope SDK auth CLI tx_multisign.go:84,260, tx_sign.go:69, validate_sigs.go:216 and staking CLI tx.go:62 consume tx.NewFactoryCLI as one value although it returns two; the unchanged unrelated failure is recorded without repair or rerun."

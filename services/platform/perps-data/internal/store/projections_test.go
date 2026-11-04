@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"math/big"
 	"slices"
 	"strings"
 	"testing"
@@ -718,6 +719,7 @@ FROM perps.leaderboard ORDER BY "window", rank`)
 }
 
 func TestMarketStatsWindowExpiry(t *testing.T) {
+	t.Run("staggered_full_fold", testRepairM827MarketExpiry)
 	db := testDB(t)
 	migrate(t, db)
 	t0 := time.Date(2026, 3, 2, 10, 0, 0, 0, time.UTC)
@@ -1031,6 +1033,7 @@ FROM perps.leaderboard WHERE "window" = $1 AND account = $2`, []string{"150", "6
 }
 
 func TestLeaderboardWindowAgesOut(t *testing.T) {
+	t.Run("staggered_full_fold", testRepairM827LeaderboardExpiry)
 	db := testDB(t)
 	migrate(t, db)
 	t0 := time.Date(2026, 3, 2, 10, 0, 0, 0, time.UTC)
@@ -1132,4 +1135,132 @@ func TestLeaderboardRefoldsOnLiquidation(t *testing.T) {
 			}
 		})
 	}
+}
+
+func testRepairM827MarketExpiry(t *testing.T) {
+	db := testDB(t)
+	migrate(t, db)
+	p := newRepairM827Producer(t, db)
+	c := p.c
+	t0 := time.Date(2026, 3, 2, 10, 0, 0, 0, time.UTC)
+	type fill struct {
+		at          time.Time
+		price, size int64
+	}
+	fills := []fill{{t0, 70000, 100}, {t0.Add(time.Hour), 50000, 200}, {t0.Add(2 * time.Hour), 60000, 300}}
+	for i, f := range fills {
+		logs := []decode.Log{repairM827Perps(t, "Fill", big.NewInt(0), big.NewInt(0), big.NewInt(0), traderA, traderB, true,
+			big.NewInt(f.price), big.NewInt(f.size), big.NewInt(0), big.NewInt(0))}
+		if i == 0 {
+			logs = append(logs, repairM827Perps(t, "OpenInterestChanged", big.NewInt(0), big.NewInt(110), big.NewInt(90), big.NewInt(0), true))
+		}
+		p.write(uint64(100+i), f.at, logs...)
+	}
+	var boundaries []time.Time
+	for _, span := range []time.Duration{24 * time.Hour, 7 * 24 * time.Hour, 30 * 24 * time.Hour} {
+		for _, f := range fills {
+			boundaries = append(boundaries, f.at.Add(span))
+		}
+	}
+	slices.SortFunc(boundaries, func(a, b time.Time) int { return a.Compare(b) })
+	const q = `SELECT volume_24h::text, volume_7d::text, volume_30d::text, trades_count::text,
+open_interest_long::text, open_interest_short::text, high_24h::text, low_24h::text, open_24h::text,
+last_price::text, updated_block::text FROM perps.market_stats_rolling WHERE market_id = 0`
+	lastUpdate := uint64(102)
+	height := uint64(103)
+	for _, boundary := range boundaries {
+		for _, at := range []time.Time{boundary.Add(-time.Microsecond), boundary} {
+			p.write(height, at)
+			// Independent fold of the entire fixture, with the same exclusive
+			// lower boundary promised to market-record consumers.
+			volumes := []int64{0, 0, 0}
+			high, low, open := "null", "null", "null"
+			for w, span := range []time.Duration{24 * time.Hour, 7 * 24 * time.Hour, 30 * 24 * time.Hour} {
+				var prices []int64
+				for _, f := range fills {
+					if f.at.After(at.Add(-span)) {
+						volumes[w] += f.size
+						prices = append(prices, f.price)
+					}
+				}
+				if w == 0 && len(prices) != 0 {
+					high, low, open = fmt.Sprint(slices.Max(prices)), fmt.Sprint(slices.Min(prices)), fmt.Sprint(prices[0])
+				}
+			}
+			if at.Equal(boundary) {
+				lastUpdate = height
+			}
+			c.want(q, []string{fmt.Sprint(volumes[0]), fmt.Sprint(volumes[1]), fmt.Sprint(volumes[2]), "3", "110", "90",
+				high, low, open, "60000", fmt.Sprint(lastUpdate)})
+			height++
+		}
+	}
+	c.want(`SELECT volume_24h::text, volume_7d::text, volume_30d::text FROM perps.market_stats_rolling WHERE market_id = 0`, []string{"0", "0", "0"})
+}
+
+func testRepairM827LeaderboardExpiry(t *testing.T) {
+	db := testDB(t)
+	migrate(t, db)
+	p := newRepairM827Producer(t, db)
+	c := p.c
+	t0 := time.Date(2026, 3, 2, 10, 0, 0, 0, time.UTC)
+	p.write(100, t0, repairM827Open(t, 1, traderA), repairM827Open(t, 2, traderA),
+		repairM827Open(t, 3, traderB), repairM827Open(t, 4, traderB), repairM827Open(t, 5, traderA))
+	p.write(101, t0.Add(time.Hour), repairM827Close(t, 1, traderA, 1000, 120, true),
+		repairM827Close(t, 3, traderB, 1000, 60, true), repairM827Settlement(t, 1, traderA, 100, 120),
+		repairM827Settlement(t, 3, traderB, 150, 60))
+	p.write(102, t0.Add(2*time.Hour), repairM827Close(t, 2, traderA, 200, -40, false),
+		repairM827Close(t, 4, traderB, 1000, -20, true), repairM827Settlement(t, 2, traderA, 200, -40),
+		repairM827Settlement(t, 4, traderB, 50, -20))
+	p.write(103, t0.Add(3*time.Hour), repairM827Close(t, 2, traderA, 800, 10, true))
+	p.write(104, t0.Add(4*time.Hour), repairM827Settlement(t, 2, traderA, 300, 10))
+	// Both A and B are now idle. Their metrics must change even while a
+	// newer close or settlement keeps the account inside the window.
+	var boundaries []time.Time
+	for _, span := range []time.Duration{7 * 24 * time.Hour, 30 * 24 * time.Hour} {
+		for hour := 1; hour <= 4; hour++ {
+			boundaries = append(boundaries, t0.Add(span+time.Duration(hour)*time.Hour))
+		}
+	}
+	height := uint64(105)
+	compareFull := func() {
+		t.Helper()
+		got := c.leaderboardRows()
+		repairM827Exec(c, `SAVEPOINT repair_m827_board`)
+		if err := (pnl.Leaderboard{}).Rebuild(c.ctx, c.tx, c.at); err != nil {
+			t.Fatal(err)
+		}
+		want := c.leaderboardRows()
+		repairM827Exec(c, `ROLLBACK TO SAVEPOINT repair_m827_board`)
+		repairM827Exec(c, `RELEASE SAVEPOINT repair_m827_board`)
+		if !slices.EqualFunc(got, want, slices.Equal[[]string]) {
+			t.Fatalf("at %s incremental leaderboard differs from full fold\n got %q\nwant %q", c.at, got, want)
+		}
+	}
+	compareFull()
+	for _, boundary := range boundaries {
+		for _, at := range []time.Time{boundary.Add(-time.Microsecond), boundary} {
+			p.write(height, at)
+			compareFull()
+			for _, w := range []struct {
+				name string
+				span time.Duration
+			}{{"7d", 7 * 24 * time.Hour}, {"30d", 30 * 24 * time.Hour}, {"all", 0}} {
+				for _, a := range []struct {
+					account common.Address
+					last    time.Time
+				}{{traderA, t0.Add(4 * time.Hour)}, {traderB, t0.Add(2 * time.Hour)}} {
+					want := "1"
+					if w.span != 0 && !a.last.After(at.Add(-w.span)) {
+						want = "0"
+					}
+					c.want(`SELECT count(*)::text FROM perps.leaderboard WHERE "window" = $1 AND account = $2`, []string{want}, w.name, a.account.Bytes())
+				}
+			}
+			height++
+		}
+	}
+	c.want(`SELECT rank::text, realized_pnl::text, volume_usd::text, trades_count::text, win_rate::text,
+avg_hold_time_seconds::text, open_positions::text FROM perps.leaderboard WHERE "window" = 'all' AND account = $1`,
+		[]string{"1", "90", "600", "3", "66.6667", "7200", "1"}, traderA.Bytes())
 }

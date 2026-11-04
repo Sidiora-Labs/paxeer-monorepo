@@ -1,0 +1,35 @@
+[task.22.33.838]
+base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+initial_revision = "f62cd07f8c3b319284c3bdd7d14c87e9ef762ea4"
+repair = "Qualify the network-overview-retired-daemon finding against the root README already rewritten by prerequisite 22.31.470. Add focused regression assertions and this closure mapping; do not edit README.md or any other production path. The inherited README describes the embedded proposing kernel, one chain-125 paxd BFT network, public root JSON-RPC, submission and committed receipt flows, native library builds and merge retirement gates."
+readme_owner = "README.md | domain 17 | task 22.31.470"
+upstream_wiring = "README.md | domain 17 / task 22.31.470: rewrite the overview, kernel build and release guidance for merged paxd, chain 125 and api1..api14 root JSON-RPC; retire standalone daemon, custody and checkpoint instructions. Satisfied by the prerequisite's existing README; no missing source fact was found during implementation."
+wiring_requests = []
+source_proof = "The module proves source facts in the actual README: one embedded block-proposing kernel and BFT commit finality; numbered api1..api14 HTTPS root hosts and the parsed curl/JSON chain-ID probe; transaction submission, signed execution evidence and committed receipt rungs; explicit retirement of custody/checkpoint executors and archived settlement formats; paxd native dependencies, build/start commands and release lifecycle. Assertions connect documentation to production node host and consensus wiring, root-path dispatch, transaction acceptance/forwarding, WAL release before receipt publication, committed coverage and receipt/proof consumers. Makefile and chain.mk rules are parsed for dependencies and recipes. The record is parsed and mapped to every declared test and the original audit and upstream closure mapping."
+review_only = "Native Go/C/Rust builds, node startup, transaction execution, cryptographic verification, durable storage and WAL restart/recovery, live endpoint availability and BFT consensus are not executed by this gate. These are documentation/source assertions along the real producer, transport and consumer paths, not runtime certification. This doc-drift repair changes no production interface or stateful component, so no interface-mismatch or restart-recovery proof is claimed. No shell script, unit file or deployment manifest is changed or named by this finding; the README curl example is parsed in-process without executing it. The test needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device."
+baseline = "No pre-change verification was run: the explicit implementation-first order, hf-build before hf-done and prohibition on manually running verify_cmd supersede the older baseline clause. No baseline failures are claimed. Initial git status/diff showed only runner-prepared .cgignore and spec bookkeeping, neither task file existed, gate.json recorded zero builds/verifies and two repair cycles left, and no gates.jsonl existed. All inherited edits are preserved."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_838.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private /out/run/gates.jsonl name the exact verified content-derived candidate revision, command, exit code and private log path for acceptance 22998.1. Build and verification must pass on the same candidate revision. This record is finalized before qualification: embedding the candidate hash into its own content would change that hash. No edit follows passing hf-done; the runner retains the evidence and publishes the task."
+
+[finding.network-overview-retired-daemon]
+audit = "22.30.180"
+file = "README.md"
+line = 44
+class = "doc-drift"
+severity = "medium"
+owner_domain = 17
+repair_owner_task = "22.31.470"
+tests = ["test_network_overview_embeds_the_proposing_kernel_in_paxd", "test_public_rpc_numbered_hosts_use_root_and_probe_chain_125", "test_transaction_submission_and_receipt_transport_match_production", "test_signed_execution_is_distinct_from_authenticated_block_commitment", "test_custody_and_checkpoint_executors_are_explicitly_retired", "test_kernel_build_and_release_guidance_use_the_paxd_lifecycle", "test_repair_record_maps_the_audit_finding_to_all_proofs_and_limits"]
+
+[gotcha.1]
+observed = "The old baseline-test clause conflicts with the user's exclusive gate order and implementation-first instructions."
+resolution = "Run verification only through hf-done after complete implementation and hf-build; make no baseline failure claim."
+
+[gotcha.2]
+observed = "Codify's brief/next reports unrelated tasks and cached changes; positional paths to cg grep do not restrict its output, and broad combined reads exceeded output limits."
+resolution = "Use the exact supplied task block, bounded source reads, git status/diff and private gate state as authority. Preserve initial runner bookkeeping. Record task gotchas here because GOTCHA.kvx and spec files are outside scope."
+
+[format]
+policy = "No Python or KVX formatter configuration exists for these paths. After complete implementation apply the repository .editorconfig conventions: UTF-8, LF, final newline and no trailing whitespace."

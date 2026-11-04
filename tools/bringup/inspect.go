@@ -19,6 +19,9 @@ func RunInspector(ctx context.Context, args []string, input io.Reader, output io
 	if len(args) == 0 {
 		return errors.New("bringup-inspect operation required")
 	}
+	if handled, err := runQualificationInspector(ctx, args, input, output); handled {
+		return err
+	}
 	if handled, err := runM795Inspector(ctx, args, input, output); handled {
 		return err
 	}

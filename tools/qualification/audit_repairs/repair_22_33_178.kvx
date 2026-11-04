@@ -1,0 +1,45 @@
+[task.22.33.178]
+audit = "22.30.118"
+requirement = "22998.1"
+base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+start_revision = "d6f2b980f9536fc1f5024d0f8bc95793da62bcb4"
+readme_revision = "38801bb427090ac96d47c86a026a63ec05e67315"
+repair = "Consume the README rewrite owned by 22.31.470 under decision 2525, adding focused offline regression checks for doc-01 without changing README.md."
+source_proof = "Tests read production README.md directly: architecture and topology embed the C17 kernel in one paxd BFT chain 125; parsed public URLs use HTTPS root JSON-RPC and api1 through api14; the parsed curl JSON requests eth_chainId and expects 0x7d. Ordered transaction steps and the sequence diagram connect signed chain-125 bytes through node RPC and integrated sequencing/WAL acknowledgement to execution evidence, BFT commitment and committed receipt reads. Build snippets are tokenized and checked for paxd-build and paxd start. Retirement and archive text distinguish custody/checkpoint refusal surfaces and historical witness formats from current operation."
+review_only = "Native Go/C/Rust builds, shell execution, node startup, live endpoint availability, transaction execution, cryptographic verification, WAL restart/recovery and BFT consensus are not executed by this documentation gate; their runtime correctness requires owning-domain qualification. This task changes no runtime interface or stateful component. Shell examples are parsed with Python shlex and JSON, without bash or another external binary."
+baseline_tests_run = false
+baseline_failed_tests = "Unknown; no pre-change verification run."
+baseline = "Initial git status/diff showed only inherited .cgignore and spec task bookkeeping; neither scoped file existed. The private gate ledger was absent and gate.json recorded zero builds and verifies with two repair cycles left. README.md already contained the expected facts from 22.31.470. The explicit implementation-first order and exclusive hf-done gate supersede step 5's pre-change verify request; no baseline failure or success is claimed."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_178.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision = "The revision field of the final kind=verify entry in /out/run/gates.jsonl, copied exactly into the final hf-done JSON evidence; qualification requires exit=0 and the same revision as the build entry."
+evidence = "The private ledger records exact revision, command, exit and log for the bounded gates. This record does not claim a gate passed before it ran."
+
+[finding.doc-01]
+audit = "22.30.118"
+class = "doc-drift"
+severity = "medium"
+path = "README.md"
+original_line = 47
+observed = "The repository overview introduces layerxd and checkpoint settlement as current network components and offers make layerxd as an operational build."
+expected = "The overview must describe one paxd BFT chain with its integrated kernel, chain id 125 and finality on block commitment."
+proposal = "Rewrite README.md architecture and build examples around integrated paxd operation and label retained pre-merge background explicitly as historical."
+owner_task = "22.31.470"
+owner_domain = 17
+disposition = "The owning task supplied the README rewrite; all expected source facts are covered by this task's executable assertions, with closure conditional on hf-done passing."
+tests = ["test_doc_01_integrated_paxd_network_and_block_finality", "test_doc_01_root_rpc_hosts_and_chain_probe", "test_doc_01_transaction_transport_and_committed_receipt_flow", "test_doc_01_retired_executors_and_historical_background", "test_doc_01_build_and_runtime_examples_use_integrated_paxd"]
+wiring = "README.md -> domain 17 / task 22.31.470 owns architecture/build rewrites and historical labels; its inherited rewrite supplies the requested facts, so no further edit is requested."
+wiring_requests = []
+
+[gotcha.baseline_order]
+observed = "The inherited audit step asks for pre-change verification, while the task's explicit order forbids tests before full implementation and permits verification only through hf-done."
+resolution = "Follow the explicit gate order and record the baseline as unrun, without inventing failures or executing another gate; retain this scoped note because GOTCHA.kvx is outside scope."
+
+[gotcha.fenced_heading]
+observed = "The initial Markdown reader treated the curl example's fenced '# Expected result' comment as a heading, truncating the section before its closing fence."
+resolution = "Track Markdown fences while extracting sections, as the owning README test does; preserve every source-fact assertion."
+revision = "b0f1cabcdfdeb50cf4aa11c55ce285d6a3ae7a5a"
+command = "cg spec done 22.33.178 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"

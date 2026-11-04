@@ -2,7 +2,6 @@ use ed25519_dalek::{Signer as _, SigningKey as EdSigningKey};
 use k256::ecdsa::{Signature, SigningKey};
 use layerx_crypto::secp256k1;
 use layerx_proof::availability::{AvailabilityClass, Chunk};
-use layerx_proof::checkpoint::Attestation;
 use layerx_proof::export::{
     verify_complete, CompleteExportError, IndependentOfflineTrust, OfflineTrustError,
 };
@@ -287,7 +286,8 @@ fn account_state_bytes(
     out
 }
 
-fn attestation(guarantor_value: u8) -> Attestation {
+// Frozen historical wire bytes; no retired proof API is needed to test refusal.
+fn attestation(guarantor_value: u8) -> Vec<u8> {
     let (signing, _, guarantor_id) = guarantor(guarantor_value);
     let checkpoint = [0x61; 32];
     let attested_at_ms = 1_000 + u64::from(guarantor_value);
@@ -311,25 +311,11 @@ fn attestation(guarantor_value: u8) -> Attestation {
     let signer = must(secp256k1::evm_address(
         signing.verifying_key().to_encoded_point(true).as_bytes(),
     ));
-    Attestation::new(
-        PROTOCOL_VERSION,
-        42,
-        31_337,
-        [0x55; 20],
-        7,
-        checkpoint,
-        checkpoint,
-        guarantor_id,
-        8,
-        [12; 32],
-        true,
-        true,
-        0x1f,
-        attested_at_ms,
-        signer,
-        signature.to_bytes().into(),
-        27 + u8::from(recovery),
-    )
+    let mut bytes = message.to_vec();
+    bytes.extend_from_slice(&signer);
+    bytes.extend_from_slice(&signature.to_bytes());
+    bytes.push(27 + u8::from(recovery));
+    bytes
 }
 
 struct Chunks {
@@ -394,10 +380,7 @@ fn checkpoint_bytes(
     certificate.push(2);
     certificate.push(2);
     for item in &attestations {
-        certificate.extend_from_slice(&item.canonical_statement());
-        certificate.extend_from_slice(&item.signer());
-        certificate.extend_from_slice(&item.signature());
-        certificate.push(item.signature_v());
+        certificate.extend_from_slice(item);
     }
     certificate.push(0);
     let mut out = b"LXCP".to_vec();

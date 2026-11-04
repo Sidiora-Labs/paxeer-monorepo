@@ -53,10 +53,17 @@ func repair35State(t *testing.T) (*types.GenesisState, *evmtypes.GenesisState, t
 	params.VirtualQuoteDefault, params.VirtualTokenDefault = reserve, reserve
 	require.NoError(t, k.UpdateParams(ctx, k.Authority(), params))
 	creator := common.HexToAddress("0x0000000000000000000000000000000000001234")
+	previewCtx, _ := ctx.CacheContext()
+	_, preview, err := k.CreateMarketFor(previewCtx, k.ModuleCaller(), nil, creator, "Repair Quote", "RQT", types.FeeStrategyClaim, common.Address{})
+	require.NoError(t, err)
+	require.Zero(t, k.GetMarketCount(ctx))
+	require.Zero(t, k.FactoryNonce(ctx, creator))
+	require.Empty(t, a.EvmKeeper.GetCode(ctx, common.HexToAddress(preview.TokenAddress)))
+	params.QuoteToken = preview.TokenAddress
+	require.NoError(t, k.UpdateParams(ctx, k.Authority(), params))
 	ctx, quote, err := k.CreateMarketFor(ctx, k.ModuleCaller(), nil, creator, "Repair Quote", "RQT", types.FeeStrategyClaim, common.Address{})
 	require.NoError(t, err)
-	params.QuoteToken = quote.TokenAddress
-	require.NoError(t, k.UpdateParams(ctx, k.Authority(), params))
+	require.Equal(t, params.QuoteToken, quote.TokenAddress)
 	ctx, market, err := k.CreateMarketFor(ctx, k.ModuleCaller(), nil, creator, "Repair Market", "RMT", types.FeeStrategyClaim, common.Address{})
 	require.NoError(t, err)
 	pool := common.HexToAddress(market.PoolAddress)

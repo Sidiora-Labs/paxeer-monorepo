@@ -34,6 +34,7 @@ CREDENTIAL = {
     "generation": "1",
 }
 INVOCATION_KEY = "33" * 32
+AUTHORIZATION = "LayerX-Key recorded:lxp_live_" + "99" * 32
 
 
 def produce_recording():
@@ -174,9 +175,10 @@ class RecordedAgentd:
 
             def do_POST(self):
                 try:
-                    assert self.path == "/rpc"
-                    assert self.headers["Host"] == "localhost"
-                    assert "Authorization" not in self.headers
+                    assert self.path == "/v1/agent/rpc"
+                    assert self.headers["Host"] == "127.0.0.1:" + str(peer.server.server_port)
+                    assert self.headers["Authorization"] == AUTHORIZATION
+                    assert self.headers["Content-Type"] == "application/json"
                     assert "LayerX-Tenant" not in self.headers
                     length = int(self.headers["Content-Length"])
                     assert 0 < length <= 1_048_576
@@ -215,6 +217,19 @@ class RecordedAgentd:
         assert identity == "client" and self.server is not None
         with socket.create_connection(self.server.server_address, timeout=5) as connection:
             yield connection
+
+    def routed_request(self, envelope, identity="client", timeout=6.5):
+        assert identity == "client" and self.server is not None
+        spec = importlib.util.spec_from_file_location(
+            "recorded_merged_transport", Path(__file__).with_name("merged_chain.py")
+        )
+        chain = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(chain)
+        return chain.post(
+            "http://127.0.0.1:" + str(self.server.server_port) + "/v1/agent/rpc",
+            envelope, {"Authorization": AUTHORIZATION},
+            path="/v1/agent/rpc", timeout=timeout,
+        )
 
 
 def recorded_phase(module, peer, directory):

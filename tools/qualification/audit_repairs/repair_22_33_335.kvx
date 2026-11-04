@@ -1,0 +1,37 @@
+[task.22.33.335]
+base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+inspected_revision = "2a9f3e4910ac253ea6da6046126cae29313b65d1"
+readme_owner_task = "22.31.470"
+readme_owner_revision = "38801bb427090ac96d47c86a026a63ec05e67315"
+repair = "Decision 2525 assigns the root README rewrite to task 22.31.470. Consume its actual README unchanged and add focused regression proofs for audit 22.30.137/readme_topology: integrated chain-125 paxd BFT topology, root public JSON-RPC hosts, transaction and committed receipt flows, current node build/start commands, and explicitly historical custody/checkpoint executors and settlement material."
+source_proof = "Six pytest tests read the actual production README and task record. They assert topology prose and diagrams against the embedded cgo host and consensus source; parse the documented curl request as shell arguments and JSON and check the api1 through api14 range, HTTPS root paths and production root dispatcher; trace transaction acceptance or forwarding through durable acknowledgement before receipt publication to committed MsgSequenceBatch coverage; assert retirement gates and historical-only settlement; parse current build/start examples and check their real Makefile, chain.mk and daemon entry points; and map the original finding and every declared test to this record."
+review_only = "Native Go/C/Rust builds, node startup, transaction execution, durable WAL persistence/restart/recovery, cryptographic verification, BFT consensus and public endpoint availability are not executed by this documentation gate. Producer, transport and consumer checks establish source facts, not runtime certification. No restart-recovery or interface-mismatch finding is present, and no production interface or stateful component changes. No shell script, unit file or manifest is named by this finding; shell examples are parsed without executing commands, and build files are read for target facts without invoking their toolchains. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device."
+baseline = "No pre-change verification was run: the explicit implementation-first order and hf-build then hf-done-only gate instructions supersede the older unchanged-tree baseline clause. No pre-change test failures are claimed. Initial Git status/diff contained only runner-prepared .cgignore and spec task-status changes, preserved unchanged; neither scoped artifact existed. Private /out/run/gate.json reported zero builds and verifies with two repair cycles left, and /out/run/gates.jsonl did not exist."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_335.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private evidence ledger record the exact verified content-derived revision, command, exit code and log path. Build and verification must pass on the same candidate revision. This record is finalized before qualification because embedding its own candidate revision changes that revision. The final response copies the gate evidence; the runner retains it and commits the task. No manual commit or push is performed."
+wiring_requests = []
+wiring_disposition = "README.md belongs to owner domain 8 (platform), task 22.31.470. Its rewrite is already present at the inspected revision and supplies every expected fact; no missing-fact wiring request remains. Any missing README fact exposed by qualification must be recorded here as a one-line request naming README.md, domain 8 and task 22.31.470, without editing README.md or weakening its assertions."
+
+[finding.readme_topology]
+audit = "22.30.137"
+file = "README.md"
+class = "doc-drift"
+severity = "medium"
+owner_domain = 8
+expected = "The repository entry point must describe the finished integrated paxd BFT chain and direct users to current network commands and committed-block finality."
+proposal = "Rewrite the architecture and launch sections of README.md for the merged network, replace the retired make layerxd command and mark any retained pre-merge material as historical."
+tests = ["test_readme_topology_integrates_the_kernel_in_one_paxd_bft_network", "test_readme_topology_public_rpc_hosts_are_root_urls_for_chain_125", "test_readme_topology_transaction_receipts_follow_the_real_commit_path", "test_readme_topology_custody_and_checkpoint_executors_are_historical", "test_readme_topology_build_and_launch_use_the_merged_paxd_entry_point", "test_repair_record_maps_the_audit_finding_to_declared_source_proofs"]
+closure = "Source-fact closure is conditional on the declared hf-done gate passing; no gate success is claimed in advance. The actual README rewrite is owned by 22.31.470, and this task supplies its finding-specific regression coverage."
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. After complete implementation, apply only the repository .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions to the two scoped files."
+
+[gotcha.1]
+observed = "The older unchanged-tree verification clause conflicts with the explicit gate order, and GOTCHA.kvx and spec logs are outside scope."
+resolution = "Follow implementation-first and wrapper-only gates, claim no baseline run, and keep task-specific notes in this scoped record."
+
+[gotcha.2]
+observed = "Codify brief/survey reports a stale unrelated task and change inventory; broad combined reads exceed output limits, and cg files rejects --limit."
+resolution = "Use Git status/diff, the exact task and finding blocks and private gate ledger as authority; retrieve bounded relevant source sections and use cg files -n for bounded discovery."

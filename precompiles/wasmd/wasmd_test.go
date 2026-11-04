@@ -13,6 +13,7 @@ import (
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
 	wasmkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/wasm/x/wasm/keeper"
+	wasmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/wasm/x/wasm/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/stretchr/testify/require"
@@ -190,7 +191,7 @@ func TestExecute(t *testing.T) {
 	// allowed delegatecall
 	contractAddrAllowed := common.BytesToAddress([]byte("contractA"))
 	testApp.EvmKeeper.SetERC20CW20Pointer(ctx, contractAddr.String(), contractAddrAllowed)
-	_, _, err = p.RunAndCalculateGas(&evm, mockEVMAddr, contractAddrAllowed, append(p.GetExecutor().(*wasmd.PrecompileExecutor).ExecuteID, args...), suppliedGas, nil, nil, false, false)
+	_, _, err = p.RunAndCalculateGas(&evm, mockEVMAddr, contractAddrAllowed, append(p.GetExecutor().(*wasmd.PrecompileExecutor).ExecuteID, args...), suppliedGas, nil, nil, false, true)
 	require.Nil(t, err)
 
 	// disallowed delegatecall
@@ -256,21 +257,31 @@ func TestQuery(t *testing.T) {
 	require.Equal(t, "{\"message\":\"query test\"}", string(outputs[0].([]byte)))
 	require.NotZero(t, g)
 
-	// bad contract address
-	args, _ = queryMethod.Inputs.Pack(mockAddr.String(), []byte("{\"info\":{}}"))
-	_, g, err = p.RunAndCalculateGas(&evm, common.Address{}, common.Address{}, append(p.GetExecutor().(*wasmd.PrecompileExecutor).ExecuteID, args...), suppliedGas, nil, nil, false, false)
-	require.NotNil(t, err)
-	require.Equal(t, uint64(0), g)
-
-	// bad input
-	args, _ = queryMethod.Inputs.Pack("not bech32", []byte("{\"info\":{}}"))
-	_, g, err = p.RunAndCalculateGas(&evm, common.Address{}, common.Address{}, append(p.GetExecutor().(*wasmd.PrecompileExecutor).ExecuteID, args...), suppliedGas, nil, nil, false, false)
-	require.NotNil(t, err)
-	require.Equal(t, uint64(0), g)
-	args, _ = queryMethod.Inputs.Pack(contractAddr.String(), []byte("{\"bad\":{}}"))
-	_, g, err = p.RunAndCalculateGas(&evm, common.Address{}, common.Address{}, append(p.GetExecutor().(*wasmd.PrecompileExecutor).ExecuteID, args...), suppliedGas, nil, nil, false, false)
-	require.NotNil(t, err)
-	require.Equal(t, uint64(0), g)
+	beforeState := repairM1275StoreSnapshot(t, statedb.Ctx().KVStore(testApp.GetKey(wasmtypes.StoreKey)))
+	beforeEvents := append(sdk.Events{}, statedb.Ctx().EventManager().Events()...)
+	beforeLogs := statedb.GetAllLogs()
+	_, addressErr := sdk.AccAddressFromBech32("not bech32")
+	require.Error(t, addressErr)
+	for _, tc := range []struct {
+		name, address, request, reason string
+	}{
+		{"missing_contract", mockAddr.String(), `{"info":{}}`, "contract: not found"},
+		{"invalid_bech32", "not bech32", `{"info":{}}`, addressErr.Error()},
+		{"invalid_query", contractAddr.String(), `{"bad":{}}`, "unknown variant"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			args, err := queryMethod.Inputs.Pack(tc.address, []byte(tc.request))
+			require.NoError(t, err)
+			statedb.SetPrecompileError(nil)
+			_, remaining, err := p.RunAndCalculateGas(&evm, common.Address{}, common.Address{}, append(p.GetExecutor().(*wasmd.PrecompileExecutor).QueryID, args...), suppliedGas, nil, nil, false, false)
+			require.ErrorIs(t, err, vm.ErrExecutionReverted)
+			require.ErrorContains(t, statedb.GetPrecompileError(), tc.reason)
+			require.Zero(t, remaining)
+			require.Equal(t, beforeState, repairM1275StoreSnapshot(t, statedb.Ctx().KVStore(testApp.GetKey(wasmtypes.StoreKey))))
+			require.Equal(t, beforeEvents, statedb.Ctx().EventManager().Events())
+			require.Equal(t, beforeLogs, statedb.GetAllLogs())
+		})
+	}
 }
 
 func TestExecuteBatchOneMessage(t *testing.T) {
@@ -335,7 +346,7 @@ func TestExecuteBatchOneMessage(t *testing.T) {
 	// allowed delegatecall
 	contractAddrAllowed := common.BytesToAddress([]byte("contractA"))
 	testApp.EvmKeeper.SetERC20CW20Pointer(ctx, contractAddr.String(), contractAddrAllowed)
-	_, _, err = p.RunAndCalculateGas(&evm, mockEVMAddr, contractAddrAllowed, append(p.GetExecutor().(*wasmd.PrecompileExecutor).ExecuteBatchID, args...), suppliedGas, nil, nil, false, false)
+	_, _, err = p.RunAndCalculateGas(&evm, mockEVMAddr, contractAddrAllowed, append(p.GetExecutor().(*wasmd.PrecompileExecutor).ExecuteBatchID, args...), suppliedGas, nil, nil, false, true)
 	require.Nil(t, err)
 
 	// disallowed delegatecall
@@ -392,10 +403,10 @@ func TestExecuteBatchValueImmutability(t *testing.T) {
 	require.Nil(t, err)
 
 	amts := sdk.NewCoins(sdk.NewCoin("uhpx", sdk.NewInt(1000)))
-	testApp.BankKeeper.MintCoins(ctx, "evm", amts)
-	testApp.BankKeeper.SendCoinsFromModuleToAccount(ctx, "evm", mockAddr, amts)
-	testApp.BankKeeper.MintCoins(ctx, "evm", amts)
-	testApp.BankKeeper.SendCoinsFromModuleToAccount(ctx, "evm", mockAddr, amts)
+	require.NoError(t, testApp.BankKeeper.MintCoins(ctx, "evm", amts))
+	require.NoError(t, testApp.BankKeeper.SendCoinsFromModuleToAccount(ctx, "evm", mockAddr, amts))
+	require.NoError(t, testApp.BankKeeper.MintCoins(ctx, "evm", amts))
+	require.NoError(t, testApp.BankKeeper.SendCoinsFromModuleToAccount(ctx, "evm", mockAddr, amts))
 	amtsbz, err := amts.MarshalJSON()
 	require.Nil(t, err)
 	executeMethod, err := p.ABI.MethodById(p.GetExecutor().(*wasmd.PrecompileExecutor).ExecuteBatchID)
@@ -412,11 +423,27 @@ func TestExecuteBatchValueImmutability(t *testing.T) {
 		StateDB: statedb,
 	}
 	suppliedGas := uint64(1000000)
-	testApp.BankKeeper.SendCoins(ctx, mockAddr, testApp.EvmKeeper.GetPaxAddressOrDefault(ctx, common.HexToAddress(wasmd.WasmdAddress)), amts)
+	precompileAddr := testApp.EvmKeeper.GetPaxAddressOrDefault(ctx, wasmd.Address)
+	require.Equal(t, sdk.NewInt(2000), testApp.BankKeeper.GetBalance(ctx, mockAddr, "uhpx").Amount)
+	require.Zero(t, testApp.BankKeeper.GetBalance(ctx, contractAddr, "uhpx").Amount.Sign())
+	require.NoError(t, testApp.BankKeeper.SendCoins(ctx, mockAddr, precompileAddr, amts))
 	value := big.NewInt(1000_000_000_000_000)
 	valueCopy := new(big.Int).Set(value)
-	p.RunAndCalculateGas(&evm, mockEVMAddr, mockEVMAddr, append(p.GetExecutor().(*wasmd.PrecompileExecutor).ExecuteBatchID, args...), suppliedGas, value, nil, false, false)
+	res, remaining, err := p.RunAndCalculateGas(&evm, mockEVMAddr, mockEVMAddr, append(p.GetExecutor().(*wasmd.PrecompileExecutor).ExecuteBatchID, args...), suppliedGas, value, nil, false, false)
 
+	require.NoError(t, err)
+	require.NoError(t, statedb.GetPrecompileError())
+	require.Greater(t, remaining, uint64(0))
+	require.Less(t, remaining, suppliedGas)
+	outputs, err := executeMethod.Outputs.Unpack(res)
+	require.NoError(t, err)
+	require.Len(t, outputs, 1)
+	responses := outputs[0].([][]byte)
+	require.Len(t, responses, 1)
+	require.Equal(t, fmt.Sprintf("received test msg from %s with 1000uhpx", mockAddr.String()), string(responses[0]))
+	require.Equal(t, sdk.NewInt(1000), testApp.BankKeeper.GetBalance(statedb.Ctx(), mockAddr, "uhpx").Amount)
+	require.Equal(t, sdk.NewInt(1000), testApp.BankKeeper.GetBalance(statedb.Ctx(), contractAddr, "uhpx").Amount)
+	require.Zero(t, testApp.BankKeeper.GetBalance(statedb.Ctx(), precompileAddr, "uhpx").Amount.Sign())
 	require.Equal(t, valueCopy, value)
 }
 
@@ -503,7 +530,7 @@ func TestExecuteBatchMultipleMessages(t *testing.T) {
 	require.Nil(t, err)
 	contractAddrAllowed := common.BytesToAddress([]byte("contractA"))
 	testApp.EvmKeeper.SetERC20CW20Pointer(ctx, contractAddr.String(), contractAddrAllowed)
-	_, _, err = p.RunAndCalculateGas(&evm, mockEVMAddr, contractAddrAllowed, append(p.GetExecutor().(*wasmd.PrecompileExecutor).ExecuteBatchID, args...), suppliedGas, nil, nil, false, false)
+	_, _, err = p.RunAndCalculateGas(&evm, mockEVMAddr, contractAddrAllowed, append(p.GetExecutor().(*wasmd.PrecompileExecutor).ExecuteBatchID, args...), suppliedGas, nil, nil, false, true)
 	require.Nil(t, err)
 
 	// disallowed delegatecall

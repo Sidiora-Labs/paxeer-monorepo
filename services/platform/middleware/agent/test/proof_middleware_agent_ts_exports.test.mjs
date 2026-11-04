@@ -1,3 +1,4 @@
+import "./production-sources.mjs";
 /*
 Proves: agent/src/daemon.ts decodeDaemonPrepared/decodeDaemonSubmission/signedActivityId and
 agent/src/index.ts AgentMiddleware/AgentGrantMiddleware/verifyCommittedAgentPayment ->
@@ -13,8 +14,8 @@ methods, and loadAgentServiceProviders preserves a provider's destroy receiver.
 AgentToolExecutor confused the SDK's signing digest with the portable receipt ID
 and read legacy balance fields instead of verifying the signed PaymentExact event.
 
-The signed input is emitted by signedAgentReceiptFixture's real secp256k1 and Ed25519
-signers. The HTTP adapter serializes fresh outputs from the real exported producers;
+The signed input and observation are the committed daemon dispatch transcript.
+The HTTP adapter replays its producer-owned submit and observation bytes;
 no middleware, decoder, signature verifier, endpoint client or envelope transport is
 replaced. SQLite bindings are closed and reopened before consumption.
 */
@@ -28,16 +29,16 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { secp256k1 } from "@noble/curves/secp256k1.js";
-import {
+const {
   AgentGrantMiddleware, AgentMiddleware, decodeDaemonPrepared, decodeDaemonSubmission,
-  signedActivityId, verifyAgentPayment,
-} from "@sidiora/layerx-agent-middleware";
+  decodeDaemonSubmitResult, resolveDaemonReceipt, signedActivityId, verifyAgentPayment,
+} = await import("@sidiora/layerx-agent-middleware");
+import { daemonFixture } from "./repair-support.mjs";
 import {
   decodeRawEip1559, eip1559SigningHash, keccak256, SecretBytes,
 } from "@sidiora/layerx-sdk";
 import { ReceiptPayloadAuthority } from "@sidiora/layerx-seller-middleware";
 import { committedReceiptConsumer } from "./committed-receipt.test.mjs";
-import { signedAgentReceiptFixture } from "./protocol-selection.test.mjs";
 
 // Execute the actual integration sources: the declared gate builds only the SDK,
 // seller and agent dist entries. Transforming TS here avoids importing stale dist.
@@ -69,21 +70,8 @@ const { describeSpend, SPEND_TOOL } = await import(new URL("tools.ts", integrati
 const hex = (bytes) => Buffer.from(bytes).toString("hex");
 const bytes = (value) => Buffer.from(value.slice(2), "hex");
 
-// A services module loaded by the real provider loader. Every provider is a concrete
-// production client. destroy deliberately uses its receiver, as class providers do.
-export function createAgentServices(environment) {
-  const token = new SecretBytes(new TextEncoder().encode("proof-local-services"));
-  const endpoint = (path) => new LayerXServiceEndpoint({
-    url: `${environment.LAYERX_AGENT_RPC_URL}/${path}`, token, timeoutMs: 1000,
-  });
-  return {
-    token,
-    budgets: new LayerXBudgetLedger(endpoint("budget")),
-    signer: new LayerXRemoteSigner(endpoint("sign")),
-    receipts: new LayerXReceiptResolver(endpoint("receipt")),
-    destroy() { this.token.destroy(); },
-  };
-}
+import { createAgentServices } from "./example-services.mjs";
+export { createAgentServices };
 
 function preparationFor(input) {
   const tx = decodeRawEip1559(bytes(input.evidence.rawTransaction));
@@ -110,32 +98,35 @@ function daemonReceipt(evidence) {
   };
 }
 
-function observation(evidence) {
-  return {
-    tx_hash: hex(keccak256(bytes(evidence.rawTransaction))),
-    submission: {
-      submission_ref: "export-proof-submission", state: "Executed", verification_level: "Receipted",
-      receipt_ref: evidence.receiptDigest.slice(2), evidence: [], transitions: [],
-    },
-    receipt: daemonReceipt(evidence),
-  };
-}
-
 async function producer(input) {
-  // The crossing consumes the decoder's output, including its canonical key heights.
-  const wire = observation(input.evidence);
-  const submission = decodeDaemonSubmission(wire, wire.tx_hash, wire.submission.submission_ref);
+  const { transcript, raw } = input;
+  const wire = transcript.committed;
+  const submission = await resolveDaemonReceipt(decodeDaemonSubmission(wire, wire.activity_id,
+    wire.submission.submission_ref), raw, input.receiptKeys);
   const evidence = submission.portableReceipt;
-  const result = await committedReceiptConsumer(evidence, input.reservation, input.request, input.receiptKeys);
-  return { wire, submission, evidence, result };
+  // Consensus verification is a separate boundary: a daemon's committed label is
+  // decoded here, while the receipt consumer authenticates the receipted rung.
+  const receipted = (await resolveDaemonReceipt(decodeDaemonSubmitResult(transcript.submit,
+    transcript.submit.tx_hash, transcript.submit.preparation_ref), raw, input.receiptKeys)).portableReceipt;
+  const result = await committedReceiptConsumer(receipted, input.reservation, input.request, input.receiptKeys);
+  assert.equal(evidence.receiptDigest, receipted.receiptDigest);
+  assert.equal(evidence.verificationLevel, "committed");
+  return { wire, submission, evidence: receipted, result };
 }
 
-async function crossing(t) {
+export async function crossing(t) {
   const directory = mkdtempSync(join(tmpdir(), "middleware-exports-"));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
-  const input = signedAgentReceiptFixture();
+  const fixture = daemonFixture();
+  const evidence = (await resolveDaemonReceipt(decodeDaemonSubmitResult(fixture.transcript.submit,
+    fixture.transcript.submit.tx_hash, fixture.prepared.preparation_ref), fixture.raw, fixture.receiptKeys)).portableReceipt;
+  const input = { ...fixture, request: fixture.input, evidence,
+    reservation: { state: "committed", reservationId: fixture.transcript.submit.tx_hash,
+      requestDigest: "77".repeat(32), amount: fixture.input.amount, asset: fixture.input.asset,
+      receiptDigest: evidence.receiptDigest.slice(2) } };
   const calls = [];
   let corrupt = false;
+  let tracked = input.transcript.committed;
   const server = createServer(async (request, response) => {
     try {
       const chunks = [];
@@ -170,8 +161,8 @@ async function crossing(t) {
         assert.equal(request.headers.authorization, `LayerX-Key export-proof:lxp_live_${"33".repeat(32)}`);
         if (body.operation === "track") {
           assert.equal(body.request.submission_ref, emitted.submission.submission_ref);
-          value = structuredClone(emitted.wire);
-          if (corrupt) value.receipt.receipt_key.first_height = "01";
+          value = structuredClone(tracked);
+          if (corrupt) delete value.receipt.canonical_bytes;
         } else {
           assert.equal(body.operation, "program.receipt");
           assert.equal(body.request.expected_activity_id, emitted.submission.tx_hash);
@@ -179,7 +170,7 @@ async function crossing(t) {
           value = { found: true, receipt: { ...daemonReceipt(emitted.evidence), verification_level: "SequencerSigned" } };
           if (corrupt) value.receipt.receipt_key.first_height = "01";
         }
-        value = { request_id: body.request_id, value, verification_status: { state: "achieved", rung: "receipted" } };
+        value = { request_id: body.request_id, value, verification_status: { state: "achieved", rung: value.submission?.rung ?? "receipted" } };
       }
       response.writeHead(200, { "content-type": "application/json" });
       response.end(JSON.stringify(value));
@@ -210,7 +201,9 @@ async function crossing(t) {
     LAYERX_WEBHOOK_PUBLIC_KEYS_JSON: JSON.stringify({ proof: "44".repeat(32) }),
     LAYERX_WEBHOOK_DELIVERY_STORE_PATH: join(directory, "deliveries.sqlite"),
   };
-  return { input, directory, calls, environment, corrupt: () => { corrupt = true; } };
+  return { input, directory, calls, environment, corrupt: () => { corrupt = true; },
+    pending: () => { tracked = input.transcript.pending; },
+    committed: () => { tracked = input.transcript.committed; } };
 }
 
 async function middlewareAgentExportsReachRealConsumers(t) {
@@ -227,6 +220,10 @@ async function middlewareAgentExportsReachRealConsumers(t) {
   delete input.commitment;
   assert.match(request.signerPublicKey, new RegExp(SPEND_TOOL.inputSchema.properties.signerPublicKey.pattern));
   const { prepared, signature } = preparationFor(path.input);
+  const canonical = await producer(path.input);
+  assert.equal(canonical.submission.tx_hash, path.input.transcript.submit.tx_hash);
+  assert.equal(canonical.submission.state, "Committed");
+  assert.deepEqual(canonical.wire, path.input.transcript.committed);
   const signed = await providers.signer.sign(prepared);
   assert.equal(signed, signature);
   assert.equal(signedActivityId(prepared, signed, request.signerPublicKey), hex(keccak256(bytes(evidence.rawTransaction))));
@@ -238,13 +235,29 @@ async function middlewareAgentExportsReachRealConsumers(t) {
     assert.equal(path.calls.filter((call) => call.path === "/budget").length, repeat);
     assert.equal(path.calls.filter((call) => call.path === "/receipt").length, repeat);
   }
+  path.pending();
+  const pending = await integration.tools.execute("layerx_track", { submissionRef: path.input.transcript.submit.tx_hash });
+  assert.deepEqual(pending, { ok: true, tool: "layerx_track", result: {
+    submissionRef: path.input.transcript.submit.tx_hash, state: "Unknown", verificationLevel: "Submitted",
+  } });
+  path.committed();
+  const authenticated = authenticatedAgentTransport(path.environment, {
+    agentRpcUrl: path.environment.LAYERX_AGENT_RPC_URL, tenant: request.tenant, requestTimeoutMs: 1000,
+  });
+  t.after(() => authenticated.destroy());
   for (let repeat = 0; repeat < 2; repeat += 1) {
-    const result = await integration.tools.execute("layerx_track", { submissionRef: "export-proof-submission" });
+    const result = await integration.tools.execute("layerx_track", { submissionRef: path.input.transcript.submit.tx_hash });
     assert.equal(result.ok, true);
-    assert.equal(result.result.state, "Executed");
-    assert.equal(result.result.receiptDigest, reservation.receiptDigest);
+    assert.equal(result.result.state, "Committed");
+    assert.equal(result.result.verificationLevel, "Committed");
+    const transported = await authenticated.transport.call({ plane: "agent", operation: "track",
+      request: { submission_ref: path.input.transcript.submit.tx_hash } });
+    assert.deepEqual(transported.value, path.input.transcript.committed);
+    const decoded = await resolveDaemonReceipt(decodeDaemonSubmission(transported.value), path.input.raw, receiptKeys);
+    assert.equal(decoded.portableReceipt.receiptDigest.slice(2), reservation.receiptDigest);
+    assert.deepEqual(decoded.observation, path.input.transcript.committed);
   }
-  assert.equal(path.calls.filter((call) => call.body.operation === "track").length, 2);
+  assert.equal(path.calls.filter((call) => call.body.operation === "track").length, 5);
   const verifyInput = { receiptRef: reservation.receiptDigest, amount: request.amount, asset: request.asset, recipient: request.recipient };
   for (let repeat = 0; repeat < 2; repeat += 1) {
     const result = await integration.tools.execute("layerx_verify_receipt", verifyInput);
@@ -268,7 +281,7 @@ async function middlewareAgentExportsReachRealConsumers(t) {
   await assert.rejects(verifyAgentPayment(evidence, { ...request, recipient: "00".repeat(32) }, receiptKeys));
   path.corrupt();
   await assert.rejects(providers.receipts.resolve(reservation.receiptDigest), { code: "service-refused" });
-  assert.deepEqual(await integration.tools.execute("layerx_track", { submissionRef: "export-proof-submission" }), {
+  assert.deepEqual(await integration.tools.execute("layerx_track", { submissionRef: path.input.transcript.submit.tx_hash }), {
     ok: false, tool: "layerx_track", code: "decode-failure",
   });
   assert.deepEqual(await integration.tools.execute("layerx_verify_receipt", verifyInput), {
