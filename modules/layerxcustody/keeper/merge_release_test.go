@@ -13,10 +13,15 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/types"
 	seqkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/keeper"
 	seqtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
+	tfkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/tokenfactory/keeper"
+	tftypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/tokenfactory/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/cachemulti"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/dbadapter"
 	storetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
+	authtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/types"
+	govtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/gov/types"
 	upgradetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade/types"
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
 	"github.com/stretchr/testify/require"
@@ -24,6 +29,11 @@ import (
 )
 
 func prepareCustodyMerge(t *testing.T) (*env, types.Claim, upgradetypes.Plan) {
+	t.Helper()
+	return prepareCustodyMergeAuthority(t, false)
+}
+
+func prepareCustodyMergeAuthority(t *testing.T, defaultAuthority bool) (*env, types.Claim, upgradetypes.Plan) {
 	t.Helper()
 	e := newEnv(t, 600)
 	app := testkeeper.EVMTestApp
@@ -46,10 +56,23 @@ func prepareCustodyMerge(t *testing.T) (*env, types.Claim, upgradetypes.Plan) {
 	e.ctx, _ = e.ctx.CacheContext()
 	app.LayerXAnchorKeeper = anchorkeeper.NewKeeper(anchorKey, app.AccountKeeper, app.BankKeeper)
 	app.LayerXAnchorKeeper.InitGenesis(e.ctx, *anchortypes.DefaultGenesis())
-	authority, _ := testkeeper.MockAddressPair()
-	params := e.k.GetParams(e.ctx)
-	params.Authority = authority.String()
-	require.NoError(t, e.k.SetParams(e.ctx, params))
+	if !defaultAuthority {
+		authority, _ := testkeeper.MockAddressPair()
+		params := e.k.GetParams(e.ctx)
+		params.Authority = authority.String()
+		require.NoError(t, e.k.SetParams(e.ctx, params))
+	} else {
+		require.Empty(t, e.k.GetParams(e.ctx).Authority)
+		denom, err := app.TokenFactoryKeeper.CreateDenom(e.ctx, e.payerAcc.String(), "custody-retirement")
+		require.NoError(t, err)
+		_, err = tfkeeper.NewMsgServerImpl(app.TokenFactoryKeeper).Mint(sdk.WrapSDKContext(e.ctx),
+			&tftypes.MsgMint{Sender: e.payerAcc.String(), Amount: sdk.NewInt64Coin(denom, 2_000)})
+		require.NoError(t, err)
+		asset, found := e.k.GetAsset(e.ctx, vectorArray(t, e.exit, "asset"))
+		require.True(t, found)
+		asset.Denom = denom
+		require.NoError(t, e.k.SetAsset(e.ctx, asset))
+	}
 	e.deposit(e.withdrawal.Fields["asset"], 1_000)
 	e.deposit(e.exit.Fields["asset"], 2_000)
 	claim := e.seedClaim(types.ClaimKind_CLAIM_KIND_WITHDRAWAL, vectorNumber(t, e.withdrawal, "batch_number"))
@@ -80,14 +103,31 @@ func TestMergePlanReleasesCustodyToTheAuthority(t *testing.T) {
 	assertCustodyMergeRelease(t, e, queued, plan)
 }
 
+func TestMergePlanReleasesCustodyToDefaultGovernance(t *testing.T) {
+	e, queued, plan := prepareCustodyMergeAuthority(t, true)
+	app := testkeeper.EVMTestApp
+	gov := authtypes.NewModuleAddress(govtypes.ModuleName)
+	require.Empty(t, e.k.GetParams(e.ctx).Authority)
+	require.Equal(t, gov.String(), e.k.Authority(e.ctx))
+	require.True(t, app.BankKeeper.BlockedAddr(gov))
+	factoryAsset, found := e.k.GetAsset(e.ctx, vectorArray(t, e.exit, "asset"))
+	require.True(t, found)
+	require.Contains(t, factoryAsset.Denom, "factory/"+e.payerAcc.String()+"/")
+	assertCustodyMergeRelease(t, e, queued, plan)
+	require.ErrorIs(t, app.BankKeeper.SendCoinsFromModuleToAccount(e.ctx, types.ModuleName, gov,
+		sdk.NewCoins(sdk.NewInt64Coin(factoryAsset.Denom, 1))), sdkerrors.ErrUnauthorized)
+}
+
 func assertCustodyMergeRelease(t *testing.T, e *env, queued types.Claim, plan upgradetypes.Plan) {
 	t.Helper()
 	app := testkeeper.EVMTestApp
 	authority, err := sdk.AccAddressFromBech32(e.k.Authority(e.ctx))
 	require.NoError(t, err)
+	tokenAsset, found := e.k.GetAsset(e.ctx, vectorArray(t, e.exit, "asset"))
+	require.True(t, found)
 	moduleBefore := app.BankKeeper.GetAllBalances(e.ctx, e.k.ModuleAddress())
 	require.Equal(t, sdk.NewCoins(sdk.NewInt64Coin(sdk.MustGetBaseDenom(), 1_000),
-		sdk.NewInt64Coin(tokenDenom, 2_000)), moduleBefore)
+		sdk.NewInt64Coin(tokenAsset.Denom, 2_000)), moduleBefore)
 	authorityBefore := app.BankKeeper.GetAllBalances(e.ctx, authority)
 
 	e.ctx = e.ctx.WithBlockHeight(plan.Height)
@@ -118,7 +158,7 @@ func assertCustodyMergeRelease(t *testing.T, e *env, queued types.Claim, plan up
 		cancelled uint64
 	}{
 		{e.withdrawal.Fields["asset"], sdk.MustGetBaseDenom(), 1},
-		{e.exit.Fields["asset"], tokenDenom, 0},
+		{e.exit.Fields["asset"], tokenAsset.Denom, 0},
 	} {
 		require.Equal(t, &types.EventRetiredRelease{AssetId: asset.id, Recipient: authority.String(),
 			Amount: moduleBefore.AmountOf(asset.denom).String(), Denom: asset.denom,

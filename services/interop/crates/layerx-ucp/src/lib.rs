@@ -432,6 +432,21 @@ pub struct CheckoutSubmission {
 }
 
 impl CheckoutSubmission {
+    /// Constructs the payment request using the merchant's configured units.
+    ///
+    /// # Errors
+    /// Refuses invalid checkout data or an absent or incompatible currency binding.
+    pub fn payment_intent(&self, config: &UcpServiceConfig) -> Result<UcpPaymentIntent, UcpError> {
+        Ok(UcpPaymentIntent {
+            checkout_id: self.checkout_id.clone(),
+            currency: self.currency,
+            amount: config.atomic_amount(self)?,
+            asset: self.layerx_asset,
+            recipient: self.layerx_recipient,
+            idempotency_key: self.idempotency_key.gateway_key(),
+        })
+    }
+
     fn validate(&self) -> Result<(), UcpError> {
         if !valid_identifier(&self.checkout_id)
             || !self.currency.iter().all(u8::is_ascii_uppercase)
@@ -464,8 +479,7 @@ impl OrderMetadata {
     }
 }
 
-/// Existing plane request. Payment construction remains in the plane's typed
-/// path; this adapter supplies no payload encoding or protocol authority.
+/// Payment request shared by the merchant transaction builder and receipt consumer.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct UcpPaymentIntent {
     pub checkout_id: String,
@@ -475,6 +489,42 @@ pub struct UcpPaymentIntent {
     pub asset: [u8; 32],
     pub recipient: [u8; 32],
     pub idempotency_key: [u8; 32],
+}
+
+impl UcpPaymentIntent {
+    /// Encodes the ledger's `payExact(bytes32,bytes32,bytes32,uint128,uint64,bytes32)`
+    /// call, preserving the checkout's gateway key as its payment reference.
+    /// Transaction signing and submission remain the merchant plane's responsibility.
+    ///
+    /// # Errors
+    /// Refuses invalid payment identities, zero amounts or an absent expiry.
+    pub fn encode_pay_exact(
+        &self,
+        payer: [u8; 32],
+        expires_at: u64,
+    ) -> Result<[u8; 196], UcpError> {
+        if !valid_identifier(&self.checkout_id)
+            || !self.currency.iter().all(u8::is_ascii_uppercase)
+            || payer == [0; 32]
+            || payer == self.recipient
+            || self.recipient == [0; 32]
+            || self.asset == [0; 32]
+            || self.idempotency_key == [0; 32]
+            || self.amount == 0
+            || expires_at == 0
+        {
+            return Err(UcpError::InvalidCheckout);
+        }
+        let mut calldata = [0; 196];
+        calldata[..4].copy_from_slice(&[0x78, 0xea, 0x11, 0xdb]);
+        calldata[4..36].copy_from_slice(&payer);
+        calldata[36..68].copy_from_slice(&self.recipient);
+        calldata[68..100].copy_from_slice(&self.asset);
+        calldata[116..132].copy_from_slice(&self.amount.to_be_bytes());
+        calldata[156..164].copy_from_slice(&expires_at.to_be_bytes());
+        calldata[164..196].copy_from_slice(&self.idempotency_key);
+        Ok(calldata)
+    }
 }
 
 /// Plane result. No completed order can be constructed from an open result.
@@ -596,8 +646,8 @@ impl UcpAdapter {
         let fail = |error| trace.wrap(error);
         submission.validate().map_err(fail)?;
         let config = plane.service_config().map_err(fail)?;
-        let amount = config.atomic_amount(submission).map_err(fail)?;
-        let key = submission.idempotency_key.gateway_key();
+        let intent = submission.payment_intent(&config).map_err(fail)?;
+        let key = intent.idempotency_key;
         let request = TranslationRequest::new(
             adapter_id().map_err(fail)?,
             TranslationKind::StateChanging,
@@ -617,14 +667,6 @@ impl UcpAdapter {
                     "UCP payment has a read-only completion",
                 ))));
             }
-        };
-        let intent = UcpPaymentIntent {
-            checkout_id: submission.checkout_id.clone(),
-            currency: submission.currency,
-            amount,
-            asset: submission.layerx_asset,
-            recipient: submission.layerx_recipient,
-            idempotency_key: key,
         };
         match plane.execute(&intent, trace).map_err(fail)? {
             UcpPlaneResult::Pending if previously_settled.is_none() => Ok(pending_outcome()),

@@ -1,0 +1,96 @@
+[repair.22.33.690]
+audit = "22.30.168"
+requirement = "22998.1"
+base_revision = "9e535b4932ba8111a729a5cef10e0ca2370ca435"
+attempt_2_base_revision = "72c91077cb966f1c4c640ded61b4b259f41cad90"
+previous_base_revision = "4299cb15eced23eb9a839162acd11e9a937edd05"
+baseline = "Not run: the explicit ordered gate instructions prohibit testing before complete implementation and permit only hf-build then hf-done; no pre-change test failure is claimed."
+evidence = "The runner records the exact candidate revision, command, exit and private log for hf-build and hf-done in /out/run/gates.jsonl; the final response copies its terminal evidence."
+existing_state = "Several audited state, transition, wait and parameter claims were already corrected on the supplied base; retain those corrections and extend them with executable production-path proofs and complete client examples."
+
+[finding.export-error-loss]
+test = "TestRepairM_690_ExportErrorRecovery"
+repair = "Propagate both public-key conversion errors and return a nil validator list; persist a valid prefix followed by an unsupported secp256k1 key or empty Any, close and reopen the node, assert the recovered error, and reject both production node export results for the unsupported key. Replacing the bad stored key restores both validators and powers."
+
+[finding.staking-state-doc]
+test = "TestRepairM_690_StateLayoutAndHistory"
+repair = "Document the validator queue's eight-byte time-length and height framing, decimal-ASCII historical key, consensus-power/address ordering and delegation retention across validator status changes; real delegation messages, BeginBlock and EndBlock produce stored queue/history bytes and preserve shares through bonded, unbonding and unbonded states."
+
+[finding.staking-unbond-transition-doc]
+test = "TestRepairM_690_TransitionsAndDurableRetry; TestRepairM_690_MessageWaitingPeriod"
+repair = "Distinguish full-period undelegation from all getBeginInfo redelegation branches, including a removed empty source; retain refused payout state and queue across a committed store restart, then prove one transfer, unchanged supply, entry/index/queue cleanup and no duplicate payment at later EndBlock."
+
+[finding.staking-message-wait-doc]
+test = "TestRepairM_690_MessageWaitingPeriod; TestRepairM_690_MessageRestrictions"
+repair = "Real codec-transported MsgUndelegate responses and queried pending entries prove a fresh full wait for bonded, unbonding and unbonded validators, no premature payout and payment at maturity. Real messages prove minimum commission, default power-cap rejection and the operator's own current-token backing for a raised minimum; document recipient refusal and durable retry."
+
+[finding.staking-params-doc]
+test = "TestRepairM_690_RegisteredParameters; TestRepairM_690_ClientExamples"
+repair = "Verify all eight registered parameter keys, their actual Go types and validators, uint32 counts, both power controls and minimum commission against the reference; store governed values and retrieve them through the generated query client. Compare the complete default gateway JSON with the documentation and distinguish application power reduction from on-chain parameters."
+
+[finding.staking-client-doc]
+test = "TestRepairM_690_ClientExamples"
+repair = "Complete Params and redelegation-filter request/response examples use valid Paxeer addresses and real message-produced entries. Loopback gateway and CLI JSON-RPC transports exercise the production protobuf router and keeper; compare every documented JSON field for both CLI commands and REST, stored identity and entry balance, filter total and exact CLI result. Assert the direct keeper and protobuf query responses agree. Both clients preserve null nested entries and numeric creation height through RedelegationResponse.MarshalJSON; the exact-triplet CLI requests no count and returns total zero."
+
+[wiring.node-export]
+request = "node/export.go — owning domain 15 (cosmos-fork/node): validate WriteValidators before writing any module data in ExportAppToFileStateAndValidators, or stage the output atomically, so a returned export error also leaves no partial output file."
+
+[gotcha.gate-order]
+observed = "The audit step requests an unchanged-tree verify, but the explicit gate order forbids pre-implementation tests and manual verify execution."
+action = "Use only hf-build then hf-done after complete implementation; record the absent baseline instead of claiming pre-change failures."
+
+[gotcha.response-shape]
+observed = "RedelegationsToRedelegationResponses leaves nested redelegation.entries nil and transports stored entries in top-level entry responses; RedelegationResponse.MarshalJSON preserves null entries and numeric creation_height even inside CLI protobuf JSON."
+action = "Retain strict identity and entry equality with the producer's nil nested entries, compare complete documented CLI and REST JSON, and record actual CLI output in the private verify log; no client normalization is needed when both transports agree."
+
+[gotcha.test-power-reduction]
+observed = "The existing staking common_test.go initializes sdk.DefaultPowerReduction to 10^18, whereas production sdk/types/staking.go defaults to 10^6."
+action = "Use the live keeper conversion for power-based behavior tests and fixed raw coin amounts for reproducible documented client examples; do not change the global or production defaults."
+
+[gotcha.restart-commit]
+observed = "The supplied previous-attempt verification at revision 0d86541a2b1ed2f132f22ca77ca7af213b1ac556 failed in TestRepairM_690_ExportErrorRecovery/unsupported before testing export: direct multistore commits omitted the node's committed block identity."
+action = "Commit initialized genesis and stored validators through SetSealedStateToCommit and App.Commit, preserving the production pre-commit hook before closing and reopening the node."
+
+[gotcha.zero-internals]
+observed = "A deep equality assertion on a zero Coin compared math/big internal empty and nil limbs after store decoding, despite identical monetary values."
+action = "Retain every exact assertion and include a real jailed validator's delegation in the retry fixture, proving payout preserves unrelated pool backing across restart as well as transferring the exact mature amount."
+
+[qualification.fixture-and-rest-shape]
+revision = "2cdf0670e0ae79b387511f2ff4cb24a03bdf2b8d"
+command = "cg spec done 22.33.690 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log (details: /tmp/repair-m690.log)"
+observed = "Export restart recovery passed; retry fixture zero-coin internals and the documented REST nested entries/height representation failed exact equality."
+assumption = "Keep strict assertions, add unrelated backed stake to the retry fixture, publish actual gateway JSON, and canonicalize typed transport values using the production protobuf JSON codec."
+
+[qualification.codec-api-repair]
+revision = "6280ee8de8402995dca35138f82cfaccbe45c51c"
+command = "cg spec done 22.33.690 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log (compiler details: /tmp/repair-m690.log)"
+observed = "The new test used UnmarshalJSON instead of this fork's UnmarshalAsJSON; no behavior tests executed."
+assumption = "Use the production codec API and its JSON representation for exact cross-transport equality, where JSON repeated fields decode as nonnil empty slices while protobuf omits them."
+
+[continuation.attempt-3]
+baseline = "The supplied attempt-2 result reports six of seven cases passing and TestRepairM_690_ClientExamples failing on nil versus empty nested entries; no new unchanged-tree gate was run."
+repair = "Correct the erroneous empty-slice expectation to the real producer's nil nested entries, preserving strict full-value assertions and adding complete CLI JSON assertions, raw captures and direct-keeper equality. Document both complete CLI outputs, including numeric creation height and zero unrequested pagination total."
+evidence = "Use the final unchanged candidate's hf-build and hf-done rows in /out/run/gates.jsonl for the exact verified revision, command, exit and private evidence location; the runner publishes the task."
+status = "implemented_not_qualified: the build failed on pre-existing NewFactoryCLI return-signature mismatches; hf-done refused with exit 4 because no build passed, so no verification or CLI captures executed and the proposed CLI examples remain unqualified."
+
+[qualification.attempt-3-inherited-interface]
+revision = "c33a10dd32d44be777561896e331fdf500872150"
+command = "go build ./sdk/x/staking/..."
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "Existing single-result NewFactoryCLI callers fail compilation in sdk/x/staking/client/cli/tx.go:62, sdk/x/auth/client/cli and modules/tokenfactory/client/cli; hf-done refused before verification."
+assumption = "Record the pre-existing interface failure without chasing it; no build or test pass, executed CLI capture, or completion is claimed."
+
+[wiring.cli-factory-interface]
+request = "sdk/client/tx — owning domain 15 (cosmos-fork/sdk-client): reconcile NewFactoryCLI's two-result signature with the existing staking, auth and tokenfactory consumers before this task can qualify."
+resolution = "Task 22.31.463 repaired the consumers on the supplied continuation base; this task makes no additional interface changes."
+
+[continuation.attempt-5]
+base_revision = "4b4896072f927b28618921285b3e3ae758bc467e"
+implementation = "Retain the existing export-error propagation, five documentation repairs and seven production-path tests; the prior CLI-factory compile blocker is repaired on the supplied base."
+baseline = "No additional unchanged-tree verification: continue the applied implementation and use only the ordered hf-build and hf-done gates, as required by this attempt."
+evidence = "The final unchanged candidate's build and verification revisions, exact commands, exit codes and private log locations are recorded by the runner in /out/run/gates.jsonl; terminal evidence is copied verbatim in the final response."
