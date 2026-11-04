@@ -916,6 +916,20 @@ impl Acknowledgment {
 
 impl Admission {
     #[must_use]
+    pub const fn worker_binding(&self) -> WorkerBinding {
+        WorkerBinding {
+            chain: self.context.chain,
+            program: self.context.program,
+            market: self.context.market,
+            worker: self.worker,
+            owner: self.owner,
+            delegate: self.delegate,
+            generation: self.generation,
+            key_version: self.key_version,
+            metadata_revision: self.metadata_revision,
+        }
+    }
+    #[must_use]
     pub const fn acknowledgment(&self, sequence: u64) -> Acknowledgment {
         Acknowledgment {
             task: self.task,
@@ -1363,4 +1377,69 @@ pub fn verify_signed_metadata(
         digest,
         request: envelope.request,
     })
+}
+
+/// Canonical explicit evaluator grants committed by the customer's signed submit.
+/// A sorted, duplicate-free list prevents alternate encodings of the same grant set.
+pub struct EvaluationAccess {
+    principals: Vec<PrincipalId>,
+}
+
+impl EvaluationAccess {
+    pub const MAX_PRINCIPALS: usize = 64;
+    pub const MAX_BYTES: usize = 2 + 32 * Self::MAX_PRINCIPALS;
+
+    pub fn new(mut principals: Vec<PrincipalId>) -> Result<Self, ServiceError> {
+        principals.sort_by_key(|principal| principal.bytes());
+        if principals.len() > Self::MAX_PRINCIPALS
+            || principals.windows(2).any(|pair| pair[0] == pair[1])
+        {
+            return Err(ServiceError::NonCanonical);
+        }
+        Ok(Self { principals })
+    }
+
+    pub fn encode(&self) -> Result<Vec<u8>, ServiceError> {
+        let count = u16::try_from(self.principals.len()).map_err(|_| ServiceError::Overflow)?;
+        let mut bytes = count.to_be_bytes().to_vec();
+        for principal in &self.principals {
+            bytes.extend_from_slice(principal.as_bytes());
+        }
+        Ok(bytes)
+    }
+
+    pub fn decode(bytes: &[u8], expected: Digest32) -> Result<Self, ServiceError> {
+        if bytes.len() > Self::MAX_BYTES
+            || codec::domain_hash("PAXAI/evaluation-access/v1", bytes)? != expected
+        {
+            return Err(ServiceError::MetadataIntegrityFailure);
+        }
+        let mut reader = Reader::new(bytes);
+        let count = usize::from(reader.u16()?);
+        if count > Self::MAX_PRINCIPALS {
+            return Err(ServiceError::NonCanonical);
+        }
+        let mut principals = Vec::with_capacity(count);
+        for _ in 0..count {
+            principals.push(PrincipalId::new(reader.fixed()?)?);
+        }
+        reader.finish()?;
+        let access = Self::new(principals)?;
+        if access.encode()? != bytes {
+            return Err(ServiceError::NonCanonical);
+        }
+        Ok(access)
+    }
+
+    pub fn commitment(&self) -> Result<Digest32, ServiceError> {
+        Ok(codec::domain_hash(
+            "PAXAI/evaluation-access/v1",
+            &self.encode()?,
+        )?)
+    }
+
+    #[must_use]
+    pub fn principals(&self) -> &[PrincipalId] {
+        &self.principals
+    }
 }

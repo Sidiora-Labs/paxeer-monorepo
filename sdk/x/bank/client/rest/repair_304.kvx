@@ -1,0 +1,9 @@
+[repair.22.31.304]
+audit = "22.30.166"
+finding = "legacy-supply-request-shape"
+proofs = ["TestRepair_304_TotalSupplyPagination", "TestRepair_304_InvalidPagination"]
+change = "Translate legacy REST page and limit into QueryTotalSupplyRequest.Pagination with the shared default limit and bounds, preserving response totals."
+baseline = "Not run: the ordered gate instructions prohibit testing before complete implementation and prohibit verify_cmd outside hf-done. No baseline failures are claimed."
+qualification_repair = "Amino decodes an empty coin slice as nil; compare the direct response after its real codec round trip and assert nil explicitly for empty REST pages."
+evidence = "The final hf-done receipt records the verified revision, command, exit code and private log location."
+wiring_requests = []

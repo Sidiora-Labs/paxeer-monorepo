@@ -163,7 +163,7 @@ func (s *HistoricalSource) FetchHistorical(ctx context.Context, o FetchOptions, 
 }
 
 // FetchHistoricalWith is FetchHistorical including coordinator-approved
-// discovered epochs (factory-created tokens and pools) in the RPC fetch.
+// discovered epochs (factory-created tokens and pools) in both transports.
 func (s *HistoricalSource) FetchHistoricalWith(ctx context.Context, o FetchOptions, durable uint64, discoveries []AddressEpoch) (HistoricalResult, error) {
 	var result HistoricalResult
 	if s == nil || s.RPC == nil || o.FromBlock < 0 || o.ToBlock < o.FromBlock || o.ToBlock-o.FromBlock >= 100000 {
@@ -207,12 +207,7 @@ func (s *HistoricalSource) FetchHistoricalWith(ctx context.Context, o FetchOptio
 		pageOptions := o
 		pageOptions.FromBlock = from
 		pageOptions.ToBlock = to
-		var page FetchResult
-		if useExplorer {
-			page, err = s.Explorer.FetchLogs(ctx, pageOptions)
-		} else {
-			page, err = s.RPC.FetchCommitted(ctx, pageOptions, true, discoveries)
-		}
+		page, err := s.fetchPage(ctx, pageOptions, useExplorer, discoveries)
 		if err != nil {
 			return HistoricalResult{Heads: result.Heads}, err
 		}
@@ -243,6 +238,13 @@ func (s *HistoricalSource) FetchHistoricalWith(ctx context.Context, o FetchOptio
 	result.Complete = true
 	return result, nil
 }
+func (s *HistoricalSource) fetchPage(ctx context.Context, o FetchOptions, useExplorer bool, discoveries []AddressEpoch) (FetchResult, error) {
+	if useExplorer {
+		return s.Explorer.FetchCommitted(ctx, o, discoveries)
+	}
+	return s.RPC.FetchCommitted(ctx, o, true, discoveries)
+}
+
 func (s *HistoricalSource) FetchLogs(ctx context.Context, o FetchOptions) (FetchResult, error) {
 	result, err := s.FetchHistorical(ctx, o, 0)
 	return result.FetchResult, err

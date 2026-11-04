@@ -207,6 +207,7 @@ static lxp_result kernel_program_signer_binding(
         lxp_activity_module_id(activity->activity_type) != LXP_MODULE_PROGRAMS)
         return LXP_OK;
     if (authority == NULL || identity == NULL || activity->authority.length != 32U ||
+        activity->authority.bytes == NULL ||
         memcmp(authority->actor, identity->did_id, 32U) != 0 ||
         memcmp(authority->principal, identity->did_id, 32U) != 0 ||
         memcmp(authority->verified_key, activity->authority.bytes, 32U) != 0)
@@ -350,6 +351,7 @@ lxp_result lxp_kernel_bind_migration_admission(
     const lxp_kernel_execution *execution)
 {
     lxp_migration_admission_facts facts;
+    lxp_identity *identity;
     const lxp_module_registration *registration;
     lx_programs_fee_schedule fee_schedule;
     lx_programs_metering_schedule metering;
@@ -374,7 +376,15 @@ lxp_result lxp_kernel_bind_migration_admission(
     (void)memset(&facts, 0, sizeof(facts));
     status = lxp_activity_check_envelope(activity, execution->network_id);
     if (status == LXP_OK) status = lxp_activity_verify_payload_hash(activity);
-    if (status == LXP_OK) status = lxp_activity_verify_signature(activity);
+    if (status == LXP_OK &&
+        activity->protocol_version == LXP_PROTOCOL_VERSION_STATE_COMMITMENT) {
+        status = lxp_identity_resolve(execution->identities,
+            activity->actor_did.bytes, activity->actor_did.length, &identity);
+        if (status == LXP_OK)
+            status = kernel_program_signer_binding(activity, execution, identity);
+    } else if (status == LXP_OK) {
+        status = lxp_activity_verify_signature(activity);
+    }
     if (status != LXP_OK) return status;
     mark = lxp_arena_mark(execution->arena);
     status = lxp_activity_encode(activity, execution->arena, &canonical);

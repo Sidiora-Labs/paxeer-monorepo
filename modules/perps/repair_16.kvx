@@ -1,0 +1,13 @@
+[repair.22.31.16]
+audit = "22.30.14"
+base_revision = "9b3c0edb83db2c918d37d3910bad522f5b067ca3"
+qualification = "The runner's hf-build/hf-done ledger and final evidence line name the exact qualified candidate revision, command, exit and private log."
+baseline = "Not run: the ordered implementation-first instructions prohibit pre-implementation gates and running verify_cmd by hand; no baseline failures are claimed."
+gotcha = "Error.Wrapf preserves the SDK Cause chain but alone drops errors.As access to the JSON error; genesisDecodeError retains both without changing existing assertions."
+
+[finding.abci-module-genesis]
+tests = ["TestRepair_16_ModuleGenesisABCI", "TestRepair_16_StreamGenesisABCI", "TestRepair_16_InternalErrorDoesNotImpersonateGenesis", "TestRepair_16_ValidGenesis", "TestRepair_16_InvalidGenesisABISelector"]
+proof = "Actual direct and streamed module validation refusals cross SDK ResponseDeliverTx, protobuf Marshal/Unmarshal and ABCIError with perps/39, LXP name, contextual details and sentinel identity; underlying JSON syntax/type errors remain discoverable. Generic internal errors cannot impersonate the registered refusal; valid genesis remains accepted."
+
+[wiring]
+selectors = "precompiles/perps/lxp_registry_test.go; owner domain 3 (markets): pass actual AppModuleBasic.ValidateGenesis and ValidateGenesisStream errors to private revertOf and assert selector d06690f2; this private consumer is outside scope, while TestRepair_16_InvalidGenesisABISelector retains the actual ABI selector contract here."

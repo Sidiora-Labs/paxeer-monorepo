@@ -309,6 +309,20 @@ impl Eq for WebAuthority {}
 struct SharedPayer(Arc<Mutex<Box<dyn WebPayer + Send>>>);
 
 impl WebPayer for SharedPayer {
+    fn standing_grant(&mut self, terms: &GrantTerms) -> Result<Option<[u8; 32]>, WebPayerError> {
+        self.0
+            .lock()
+            .map_err(|_| WebPayerError::Unavailable)?
+            .standing_grant(terms)
+    }
+
+    fn view(&mut self, call: &PrecompileCall) -> Result<Vec<u8>, WebPayerError> {
+        self.0
+            .lock()
+            .map_err(|_| WebPayerError::Unavailable)?
+            .view(call)
+    }
+
     fn validate_search_quote(
         &mut self,
         asset: [u8; 32],
