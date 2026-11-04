@@ -1,3 +1,7 @@
+//! Historical wire snapshots retain their original format assertions below.
+//! Current settlement fixtures are emitted by the production facilitator and
+//! consumed by Buyer, including submitted and missing-proof refusals.
+
 use std::collections::BTreeMap;
 
 use base64::engine::general_purpose::STANDARD;
@@ -33,7 +37,7 @@ use layerx_x402::model::{
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-const SEQUENCED_SETTLEMENT_SUITE: &str =
+const HISTORICAL_SEQUENCED_SETTLEMENT_SUITE: &str =
     include_str!("../../../specs/conformance/x402/sequenced-settlement.json");
 const RECORDED_RECEIPTS: &str =
     include_str!("../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json");
@@ -105,8 +109,8 @@ fn pay_exact_words(raw: &[u8]) -> [[u8; 32]; 6] {
     })
 }
 
-fn sequenced_settlement_vectors() -> Vec<Vector> {
-    let vectors: Vec<Vector> = serde_json::from_str(SEQUENCED_SETTLEMENT_SUITE)
+fn historical_sequenced_settlement_vectors() -> Vec<Vector> {
+    let vectors: Vec<Vector> = serde_json::from_str(HISTORICAL_SEQUENCED_SETTLEMENT_SUITE)
         .expect("sequenced settlement vectors decode as PAYMENT-RESPONSE bodies");
     assert_eq!(
         vectors
@@ -147,7 +151,7 @@ fn sequenced_settlement_vectors_carry_the_recorded_receipt() {
     assert!(!signed_receipt.is_empty());
     assert!(!receipt_digest.is_empty());
 
-    for vector in sequenced_settlement_vectors() {
+    for vector in historical_sequenced_settlement_vectors() {
         let layerx = vector
             .document
             .extensions
@@ -184,7 +188,7 @@ fn sequenced_settlement_vectors_carry_the_recorded_receipt() {
 
 #[test]
 fn sequenced_settlement_vectors_validate_on_the_wire() {
-    for vector in sequenced_settlement_vectors() {
+    for vector in historical_sequenced_settlement_vectors() {
         let (verdict, field) = match vector.name.as_str() {
             "receipted_settlement" | "committed_settlement" => (Verdict::Accept, "/success"),
             "submitted_settlement" => (Verdict::Pending, "/errorReason"),
@@ -572,7 +576,7 @@ fn assert_committed_vector(vector: &Vector) {
 
 #[test]
 fn x402_committed_vector_settles_as_committed() {
-    let vector = sequenced_settlement_vectors()
+    let vector = historical_sequenced_settlement_vectors()
         .into_iter()
         .find(|vector| vector.name == "committed_settlement")
         .expect("committed settlement vector");
@@ -690,4 +694,12 @@ fn x402_committed_vector_settles_as_committed() {
             receipt_digest: digest
         })
     );
+}
+
+#[path = "support/repair_22_33_105.rs"]
+mod repair_path;
+
+#[test]
+fn current_renderer_settlement_vectors_are_captured_or_refused_by_buyer() {
+    repair_path::vector_capture();
 }

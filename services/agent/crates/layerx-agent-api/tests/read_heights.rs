@@ -244,10 +244,26 @@ fn proof_bundle_mirror_requires_receipted_or_committed_rungs() {
                 requested_rung: expected,
             };
             let response = VerifiedRead::new(value, achieved, freshness());
-            assert_eq!(
-                ProofBundle::check_response(&request, &response).is_ok(),
-                achieved == expected
-            );
+            match (target, achieved) {
+                (_, Rung::Submitted)
+                | (ProofBundleTarget::AccountState { .. }, Rung::Receipted) => {
+                    assert!(ProofBundle::check_response(&request, &response).is_err());
+                }
+                (_, Rung::Committed) => {
+                    ProofBundle::check_response(&request, &response)
+                        .expect("committed evidence satisfies the selector minimum");
+                    let committed_request = ReadRequest {
+                        requested_rung: Rung::Committed,
+                        ..request
+                    };
+                    ProofBundle::check_response(&committed_request, &response)
+                        .expect("committed evidence satisfies an explicit committed request");
+                }
+                (_, Rung::Receipted) => {
+                    ProofBundle::check_response(&request, &response)
+                        .expect("receipted evidence satisfies Activity and Receipt requests");
+                }
+            }
         }
     }
     let request = ReadRequest {
