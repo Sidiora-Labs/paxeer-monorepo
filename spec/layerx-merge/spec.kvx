@@ -186429,7 +186429,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.202]
 title = "Repair audit record 22.30.81 findings in services/platform/hosted/gateway/src: interface-mismatch, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.465", "22.31.483"]
