@@ -32,6 +32,21 @@ If a target is missed, escalate by commenting in the advisory. After two further
 
 The [Paxeer bug bounty programme](https://www.paxeer.app/bug-bounty) rewards vulnerabilities in the in-scope code listed below, subject to the out-of-scope exclusions. One reward in USD is paid per unique vulnerability; if reports are duplicates, only the first reporter receives the reward.
 
+### Response SLAs
+
+These targets represent our best effort to provide timely responses. Exceptions
+may occur due to holidays, complex investigations, or coordination with
+upstream maintainers.
+
+- **Receipt acknowledgement:** Promptly upon report receipt
+- **Initial triage & scope/severity decision:** Following receipt
+- **Status updates:** Provided periodically while remediation is in progress
+- **Resolution & coordinated disclosure:** Target remediation timelines depend on
+  severity and project capacity
+- **Escalation path:** If a response target is missed, you may escalate by
+  emailing <security@paxeer.app> with the reference to your original advisory
+  or report for a status review by the security lead.
+
 - Critical: $10,000-$50,000 — could move or destroy funds, or change what the network considers final
 - High: $5,000-$10,000 — a serious security or stability weakness that does not by itself lose funds
 - Medium: $1,000-$5,000 — limited impact, or exploitable only under specific conditions
