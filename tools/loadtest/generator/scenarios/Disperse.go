@@ -24,9 +24,13 @@ type DisperseScenario struct {
 func NewDisperseScenario(cfg config.Scenario) TxGenerator {
 	scenario := &DisperseScenario{}
 	scenario.ContractScenarioBase = NewContractScenarioBase[bindings.Disperse](scenario, cfg)
-	scenario.pool = types.NewAccountPool(&types.AccountConfig{
+	var err error
+	scenario.pool, err = types.NewAccountPool(&types.AccountConfig{
 		NewAccountRate: 1.0,
 	})
+	if err != nil {
+		panic(err)
+	} // The fresh-only pool above is a constant valid configuration.
 	return scenario
 }
 

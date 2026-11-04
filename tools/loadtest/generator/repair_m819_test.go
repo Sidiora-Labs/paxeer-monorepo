@@ -181,7 +181,11 @@ func TestRepairM_819_PrewarmCoverage(t *testing.T) {
 	}
 	// A second pool exposing the same accounts must not repeat those addresses.
 	shared := pools[0].(FixedAccountPool).FixedAccounts()
-	duplicate := NewScenarioGenerator(newFixedAccountPool(&types.AccountConfig{Accounts: shared}), scenarios.NewEVMTransferScenario(config.Scenario{}))
+	duplicatePool, err := newFixedAccountPool(&types.AccountConfig{Accounts: shared})
+	if err != nil {
+		t.Fatal(err)
+	}
+	duplicate := NewScenarioGenerator(duplicatePool, scenarios.NewEVMTransferScenario(config.Scenario{}))
 	combined, err := NewWeightedGenerator(WeightedConfig(9, main), WeightedConfig(4, duplicate))
 	if err != nil {
 		t.Fatal(err)
