@@ -19,7 +19,7 @@ use serde_aux::prelude::*;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize, derive_new::new)]
 pub struct SearchResultRedirect {
-    pub parameter: String,
+    pub parameter: Option<String>,
     pub redirect: bool,
-    pub r#type: String,
+    pub r#type: Option<String>,
 }

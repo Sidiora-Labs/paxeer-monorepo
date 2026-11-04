@@ -20,8 +20,15 @@ use serde_aux::prelude::*;
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize, derive_new::new)]
 pub struct AddressParam {
     pub hash: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub implementation_name: Option<String>,
+
+    pub implementations: Vec<models::smart_contract::ProxyImplementation>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proxy_type: Option<String>,
+
+    pub is_scam: bool,
 
     #[serde(default)]
     pub name: Option<String>,
