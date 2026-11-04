@@ -1,0 +1,20 @@
+[repair.22.31.385]
+audit = "22.30.139"
+finding = "onboarding-journey-shape"
+status = "implemented-with-producer-proof-gap"
+baseline = "No baseline gate ran: the explicit implementation-first order and prohibition on running verify_cmd by hand take precedence over the contradictory pre-change verify step; the declared test file did not exist on entry."
+qualification = "The runner's /out/run/gates.jsonl is the authoritative repair evidence record naming each exact candidate revision, command, exit and private log; no successful gate is claimed by this source record."
+
+[finding.onboarding-journey-shape]
+implementation = "The production identity dispatcher retains the existing canonical Journey projection, stable journey/stage identities, declared states, durable timestamps and content-addressed evidence, supplies catalogued stage and status copy keys, and checks retained activation receipt bytes against the durable journey before projection. The browser still requires a completed protocol-identity stage with a current receipt verification rung."
+tests = ["repair_22_31_385_producer_copy_contract_matches_consumer", "repair_22_31_385_pending_reopens_and_receipt_activation_over_http", "repair_22_31_385_receipt_requirement_survives_reopen"]
+producer_test = "onboarding_projection_preserves_durable_journey_after_reopen"
+coverage = "The Node gate checks the actual Rust copy-key declaration against the live web copy catalog/model and production status/resume wiring; it exercises the real generated HTTP client and extracted production browser recovery functions through a loopback peer replaying existing committed schema goldens, closes/reopens that peer, and recreates the browser storage handle. Negative mutations preserve the receipt/class/stage/state restrictions."
+limitation = "Schema goldens are conformance fixtures, not captured production HTTP transcripts. The declared Node gate cannot execute the Rust producer, and there is no existing local service binary or recorded onboarding lifecycle transcript. The Rust store-reopen test is authored but not run by this gate. Full service-restart, pending-submission and receipt-backed recovery completion through HTTP remain unproven; this finding is not claimed fully closed."
+
+[wiring.requests]
+producer_proof = "services/human/crates/layerx-human-service/tests/onboarding.rs and tests/repair_22_31_154.rs — human-service domain: record the real HTTP initial/pending/activated/complete lifecycle across service-store reopen, then consume that recording in apps/web/e2e/repair-22-31-385.test.ts; the currently declared Node-only gate has no Rust producer runtime."
+submission_evidence = "services/human/crates/layerx-human-service/src/onboarding/mod.rs and src/server/identity_projection.rs — human-service domain: pending tracked submissions point at receipt rows which are not written until execution; persist genuine submission evidence before emitting those pointers so pending status can project and resolve that material without a missing-row error."
+
+[gotcha.session]
+notes = ["The entry tree already contained runner-owned .cgignore/spec changes and generated UI dist output; none was reverted or edited by this repair.", "The active audit predates a canonical Journey projection repair: current remaining copy keys do not exist in the web catalog.", "The dispatcher is also included as a standalone source module by identity-provider tests, so new production code uses only the shared crate modules available in that context.", "GOTCHA.kvx and spec records are outside the explicit scope; session findings and wiring requests are recorded here."]

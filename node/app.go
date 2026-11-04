@@ -526,14 +526,16 @@ type App struct {
 
 	EpochKeeper epochmodulekeeper.Keeper
 
-	TokenFactoryKeeper tokenfactorykeeper.Keeper
-	LayerXAnchorKeeper layerxanchorkeeper.Keeper
-	LayerXLedgerKeeper *layerxledgerkeeper.Keeper
-	LayerXAuthKeeper   *layerxauthkeeper.Keeper
-	LayerXAgentKeeper  LayerXAgentKeeper
-	LayerXPayKeeper    *layerxpaykeeper.Keeper
-	LayerXChainsKeeper *layerxchainskeeper.Keeper
-	LayerXHost         *lxphost.Host
+	TokenFactoryKeeper     tokenfactorykeeper.Keeper
+	LayerXAnchorKeeper     layerxanchorkeeper.Keeper
+	LayerXLedgerKeeper     *layerxledgerkeeper.Keeper
+	LayerXAuthKeeper       *layerxauthkeeper.Keeper
+	LayerXAgentKeeper      LayerXAgentKeeper
+	LayerXPayKeeper        *layerxpaykeeper.Keeper
+	LayerXChainsKeeper     *layerxchainskeeper.Keeper
+	LayerXHost             *lxphost.Host
+	hostedProgramsGuestABI uint16
+	retiredLayerXHosts     []*lxphost.Host
 
 	LayerXCustodyKeeper *layerxcustodykeeper.Keeper
 
@@ -645,10 +647,70 @@ type App struct {
 const LayerXHostStoreKey = storekeys.LayerXHostStoreKey
 
 func NewHost(storeKey sdk.StoreKey, networkID uint32) (*lxphost.Host, error) {
+	return newHostWithProgramsABI(storeKey, networkID, 4)
+}
+
+func newHostWithProgramsABI(storeKey sdk.StoreKey, networkID uint32, abi uint16) (*lxphost.Host, error) {
 	return lxphost.NewHost(lxphost.Config{
-		StoreKey: storeKey, NetworkID: networkID, Epoch: 1,
+		StoreKey: storeKey, NetworkID: networkID, Epoch: 1, ProgramsGuestABI: abi,
 		ParameterVersion: 1, TimestampWindowMs: 60_000, GasLimit: 10_000_000,
 	})
+}
+
+const hostedProgramsGuestABIKey = "node/programs-guest-abi"
+
+func (app *App) refreshHostedKernelProgramsABI(ctx sdk.Context) {
+	record := ctx.KVStore(app.keys[LayerXHostStoreKey]).Get([]byte(hostedProgramsGuestABIKey))
+	abi := uint16(4)
+	if record != nil {
+		if !bytes.Equal(record, []byte{0, 5}) {
+			panic(fmt.Errorf("invalid hosted programs guest ABI selection: %x", record))
+		}
+		abi = 5
+	}
+	if app.hostedProgramsGuestABI == abi {
+		return
+	}
+	networkID := evmconfig.GetEVMChainID(app.ChainID)
+	if !networkID.IsUint64() || networkID.Uint64() > math.MaxUint32 {
+		panic(fmt.Errorf("LayerX network ID out of range: %s", networkID))
+	}
+	host, err := newHostWithProgramsABI(app.keys[LayerXHostStoreKey], uint32(networkID.Uint64()), abi)
+	if err != nil {
+		panic(fmt.Errorf("creating hosted programs ABI %d: %w", abi, err))
+	}
+	authority := layerxgovtypes.GovernanceAuthority()
+	pay, err := layerxpaykeeper.NewKeeper(app.appCodec, app.keys[storekeys.LayerXPayStoreKey],
+		app.keys[LayerXHostStoreKey], host, &app.EvmKeeper, app.LayerXCustodyKeeper, authority)
+	if err != nil {
+		host.Close()
+		panic(fmt.Errorf("rebinding hosted pay keeper: %w", err))
+	}
+	previous := app.LayerXHost
+	app.LayerXHost = host
+	*app.LayerXLedgerKeeper = *layerxledgerkeeper.NewKeeper(app.appCodec, app.keys[storekeys.LayerXLedgerStoreKey],
+		host, app.BankKeeper, &app.EvmKeeper, authority)
+	*app.LayerXAuthKeeper = *layerxauthkeeper.NewKeeper(app.appCodec, app.keys[storekeys.LayerXAuthStoreKey],
+		host, &app.AuthzKeeper, &app.EvmKeeper, authority)
+	*app.LayerXPayKeeper = pay
+	app.LayerXAgentKeeper.host = host
+	if app.customPrecompiles != nil {
+		custom, err := precompiles.GetCustomPrecompilesE(LatestUpgrade, app.GetPrecompileKeepers())
+		if err != nil {
+			panic(fmt.Errorf("rebinding hosted precompiles: %w", err))
+		}
+		next, err := app.v6120Contracts()
+		if err != nil {
+			panic(fmt.Errorf("rebinding hosted v6.12.0 precompiles: %w", err))
+		}
+		app.customPrecompiles = custom
+		app.v6120Next = next
+		app.refreshXWebPrecompile(ctx)
+	}
+	app.hostedProgramsGuestABI = abi
+	// Readers of an earlier precompile set may still be using the old host.
+	// Drain all generations together when the application closes.
+	app.retiredLayerXHosts = append(app.retiredLayerXHosts, previous)
 }
 
 type LayerXAgentKeeper struct {
@@ -895,6 +957,7 @@ func New(
 		panic(fmt.Sprintf("LayerX network ID out of range: %s", networkID))
 	}
 	app.LayerXHost, err = NewHost(keys[storekeys.LayerXHostStoreKey], uint32(networkID.Uint64()))
+	app.hostedProgramsGuestABI = 4
 	if err != nil {
 		panic(fmt.Sprintf("error creating shared LayerX host: %s", err))
 	}
@@ -1341,7 +1404,10 @@ func New(
 			tmos.Exit(err.Error())
 		}
 
+		// Host construction precedes LoadLatestVersion, so select from the store
+		// only now; BeginBlock observes it again through applyNamedUpgrade.
 		ctx := app.NewUncachedContext(true, tmproto.Header{})
+		app.refreshHostedKernelProgramsABI(ctx)
 		if err := app.WasmKeeper.InitializePinnedCodes(ctx); err != nil {
 			tmos.Exit(fmt.Sprintf("failed initialize pinned codes %s", err))
 		}
@@ -1463,6 +1529,9 @@ func (app *App) HandleClose() error {
 	var errs []error
 	if app.LayerXHost != nil {
 		app.LayerXHost.Close()
+	}
+	for _, host := range app.retiredLayerXHosts {
+		host.Close()
 	}
 
 	// Close trace db so its WAL is flushed; baker writes use NoSync.

@@ -1,0 +1,21 @@
+[task.22.31.392]
+audit = "22.30.143"
+finding = "bridge-all-rejected"
+base_revision = "61b2c3c98c61e72d831e1ce948a0bde6d218c980"
+repair = "Accept --all in the initial parser without consuming it, so the existing run_all dispatch receives it; preserve the preflight option and all argument, configuration and deployment guards."
+proofs = ["test_bridge_all_rejected_source_contract", "test_bridge_all_rejected_cli_record_guard", "test_bridge_all_rejected_cli_stops_first_failure", "test_bridge_all_rejected_preflight_all", "test_bridge_all_rejected_cli_usage"]
+source_proof = "The pytest module parses both shell scripts with bash -n and checks the accepted flag, unchanged dispatch, preflight-before-RPC guard, exact eight-chain ordering, per-chain record assignment and fail-fast child command."
+interface_proof = "Both CLI forms execute the real parser, sourced run_all and child script using real Bash processes and environment transport. Record-directory guards and first-child failure are checked for both forms. Production overlay.jq consumes offline overlay inputs with the committed chain configurations; --preflight --all reaches all eight real child preflights in order, with the per-chain record environment assignments observed through Bash tracing. Unsetting each chain's configured key proves stopping at every position. No command doubles or mocked transport are used."
+review_only = "Broadcasting deployments, endpoint readback, contract compilation and successful on-chain record persistence are not executed by this bounded gate. Their unchanged guarded commands are reviewed; preflight intentionally emits no deployment records. Existing real forge and cast executables are required on PATH by the child preflight but are not invoked."
+baseline = "Attempt 1 recorded no pre-change verify run: the explicit ordered instructions prohibit testing before implementation is complete and require hf-build before hf-done. No pre-change test failure is claimed; the audited parser rejection is established by source inspection. The continuation starts with the repair already applied."
+continuation = "Preserve attempt 1's two-line parser repair and all 20 test cases. Its verify ran at b345d942d086b721753846b1395066526fbfc8be and reported 20 passed, but the attempt was not qualified because the final candidate differed. The inherited .cgignore change is sandbox bookkeeping outside this task's scope and is left untouched."
+evidence = "The runner's private hf-build/hf-done ledger names the verified candidate revision, command, exit and log path. Final task evidence copies the last gate JSON; the qualified source tree is not edited to insert its own revision."
+wiring_requests = []
+
+[gotcha.1]
+symptom = "The task's pre-change verification step conflicts with its explicit implementation-first gate order and one-run budget."
+resolution = "Follow the explicit gate order and record that no baseline was run; retain this entry here because root GOTCHA.kvx and spec files are outside the authorized scope."
+
+[gotcha.2]
+symptom = "The continued attempt includes a compiled pytest cache in the candidate's source directory."
+resolution = "Remove the inherited cache before qualification and set PYTHONDONTWRITEBYTECODE=1 for both gate wrappers so the final verify cannot recreate it or change the candidate. Preserve the exact declared build and verify commands."

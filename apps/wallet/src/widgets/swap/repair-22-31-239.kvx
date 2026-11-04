@@ -1,0 +1,81 @@
+[repair.22.31.239]
+audit = "22.30.115"
+base_revision = "04089978ec116689a0d130e86248bc8e9910b29b"
+mode = "BUILD"
+verification = "hf-done; exact candidate revision, command, exit and private log are emitted to /out/run/gates.jsonl and the final evidence line. No qualification is claimed before that result."
+baseline = "Not run: the explicit gate order forbids pre-implementation builds/tests and manual verify_cmd runs. No pre-change failure is claimed; the new tests import the real journal/hook boundary absent on the base."
+previous_attempt = "Applied revision 6b5e54a9873719240b5803d834ebde1d00251808 had two failing tests: swap_broadcast_recovery_retains_partial_multihop_progress failed in ethers mnemonic entropy generation under jsdom; swap_speed_up_resubmits_recovery_actions_only_observe_original_nonce did not render Wait longer. Both are repaired without weakening assertions."
+tooling = "The focused test uses a loopback HTTP JSON-RPC fixture, an in-memory transaction store, ethers signing/transaction codecs, the production SDK ABI encoders and Node Web Locks. It requires no external binary, compiler, credential or live endpoint. Fixture receipts describe recovery scenarios; they do not claim EVM execution."
+
+[finding.swap-broadcast-recovery]
+tests = ["swap_broadcast_recovery_reopens_original_transaction", "swap_broadcast_recovery_retains_partial_multihop_progress", "swap_recovery_isolates_account_chain_and_blocks_corrupt_journal", "swap_atomic_routes_recover_one_transaction_and_prebroadcast_errors_remain_failed"]
+repair = "Account/chain/intent journal stores the exact request and reserved nonce before calling the signer, then each returned hash before receipt polling, then canonical receipt status and logs before releasing a leg to the executor. Reopening the hook observes these identities without rerunning the route. Completed multihop legs remain visible even when a later quote or leg fails. Pending and partial intents cannot be reset or submitted again."
+
+[finding.swap-speed-up-resubmits]
+tests = ["swap_speed_up_resubmits_recovery_actions_only_observe_original_nonce"]
+repair = "SwapWidget uses the persisted intent for status, success and recovery; timeout close/wait and rate-limit retry only reconcile the original identity. No signer advertises a bound same-nonce replacement policy, so no Speed Up action is offered. A terminal intent must be explicitly acknowledged before a separately confirmed new swap can execute; history stays in storage."
+
+[wiring.executor-continuation]
+request = "apps/wallet/src/lib/swap/executor.ts — owner domain 12 (wallet swap executor): expose an explicit remaining-leg continuation using the journal's confirmed receipts and intermediate transfer logs; until that interface exists, partial routes resume observation only and cannot replay the original funded route."
+
+[wiring.early-broadcast]
+request = "apps/wallet/src/wallet/signer.ts — owner domain 12 (wallet signer): publish the wallet-returned hash before transaction-visibility polling; the in-scope boundary already persists the nonce/request before invoking this signer and retains hash-bearing errors for reconciliation."
+
+[wiring.replacement-policy]
+request = "apps/wallet/src/wallet/signer.ts — owner domain 12 (wallet signer): declare an explicit same-account/chain/nonce replacement capability and approved fee policy before exposing a speed-up action; status observation is the only retry action in this repair."
+
+[gotcha.gate-order]
+observed = "The embedded audit step asks for unchanged-tree verification while the controlling order forbids it; only hf-build followed by hf-done is used."
+
+[gotcha.contract-response]
+observed = "Ethers Contract rebuilds TransactionResponse and its wait method; a wrapper around the original response wait would miss SDK contract waits. The signer boundary records and observes every send before returning the response to Contract."
+
+[gotcha.vitest-registration]
+observed = "The first hf-done returned zero but Vitest reported four todo tests because test(function, options) supplies a name without a handler in Vitest 4. Register each declared function as both name and third-argument handler; this result is not behavior evidence."
+revision = "4523c40f7c2dbcecaedbb5d90f092717992af4f2"
+command = "cg spec done 22.31.239 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 0
+log = "/out/logs/verify-1.log"
+
+[gotcha.anvil-snapshot]
+observed = "Anvil snapshots restore chain state but do not restore the automine setting; every test explicitly restores automine before selecting its pending-transaction scenario."
+
+[gotcha.recovered-errors]
+observed = "A successful status read does not resolve a pending or partial intent; retain its saved execution error until confirmation so reopening recovery preserves the timeout action and partial-route explanation. Timeout messages must contain timeout for the existing modal classifier."
+
+[gotcha.jsdom-entropy]
+observed = "Random mnemonic generation under jsdom fails before the partial-route test reaches execution; use additional real Anvil account addresses for the unregistered pool and token, without generating unused private keys."
+
+[gotcha.router-method]
+observed = "The real Sidiora executor emits swapTokenForToken; the journal transaction classifier must accept that ABI method to preserve the existing funded route."
+
+[gotcha.pending-transactions]
+observed = "Anvil does not implement eth_pendingTransactions; inspect the real pending block and its transaction through the standard ethers provider methods, asserting the same single hash and nonce."
+
+[wiring.quote-abi]
+request = "apps/wallet/src/lib/swap/sdk/abis/PECORQuoter.ts — owner domain 12 (wallet swap SDK): align the generated quoteExactIn return codec with its deployed producer; the SDK expects 23 tuple fields while contracts/launchpad/contracts/meta-ag/interfaces/IMetaAGQuoter.sol declares 14. No out-of-scope ABI or contract changes are made here."
+
+[qualification.first-run]
+revision = "29c172760d840162110bb9df15efca84dd29e582"
+command = "cg spec done 22.31.239 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Two tests failed: the partial multihop stopped before its first confirmed swap, and Anvil rejected eth_pendingTransactions."
+assumption = "The partial-route setup exposes the out-of-scope quote return codec mismatch; the retry adds the execution error to the unchanged partial-state assertion to retain exact diagnostics."
+
+[continuation.abi-fixture]
+observed = "The seed still compiled Solidity and launched Anvil, and main-line executor now uses one atomic V4 transaction. The fixture now ABI-encodes all quoteExactIn output fields with PECOR_QUOTER_ABI and decodes through the real SDK getQuote."
+repair = "Recover a legacy two-leg journal using transaction and receipt output from the real journal producer, then assert partial state survives unmount/reopen and never submits again. Separately execute the current atomic V4 route and verify one confirmed transaction; invalid routes with no broadcast remain failed."
+
+[gotcha.atomic-executor]
+observed = "Current apps/wallet/src/lib/swap/executor.ts emits PECORRouter.swapMultiHop as one transaction. Classify that production ABI call and count one expected leg for new intents; retain two-leg legacy journal decoding for restart recovery."
+
+[gotcha.scope-preservation]
+observed = "The initial tree already modified .cgignore and spec/layerx-merge/spec.kvx. This continuation leaves both untouched and edits only the authorized swap directory."
+
+[qualification.continuation-build]
+revision = "02d4e3eb177953826773e64b2943a69c112c83cf"
+command = "pnpm --dir apps/wallet exec tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "Four test registrations put timeout options after the handler; Vitest's overload requires the options second. Repair restores that order without changing assertions."

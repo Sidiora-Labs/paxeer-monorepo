@@ -1,0 +1,9 @@
+[repair.22.31.271]
+finding = "auth-session-optionality"
+tests = ["auth_session_optionality_wallet_get_and_post", "auth_session_optionality_unverified_email_get_and_post", "auth_session_optionality_verified_email_get_and_post", "auth_session_optionality_rejects_invalid_credentials"]
+baseline = "Inherited candidate d0efc9cb3e056c3c46b6d5590e315721f77081bf: all three integration cases failed before this continuation because BLOCKSCOUT_AUTH_TEST_SESSIONS_FILE was absent; no pre-repair decoder test result is claimed."
+evidence = "Private runner gate ledger /out/run/gates.jsonl records the candidate revision, command, exit and log; only passing verification qualifies this repair."
+wiring_request = "Domain 14: services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/account/auth_controller.ex:73-87 must allow authenticated unverified-email sessions to reach the GET/POST authenticate actions while retaining verification requirements for operations that need them."
+qualification = "Rust preserves nullable email, omitted watchlist and the verification flag; require_watchlist guards watchlist-dependent access. The integration test starts a loopback HTTP account peer, replays wallet/unverified-email/verified-email session bodies, validates cookies/API keys/CSRF, and drives the production token and metadata clients over GET and POST without external configuration."
+fixtures = "SESSION_TRANSCRIPTS is committed inside tests/repair_22_31_271.rs to respect the exact allowed paths; the loopback peer serves the Account.Identity.session_info/2 response shapes and preserves missing versus null fields."
+continuation = "Attempt 2 inherited candidate fbe2e033a0a46dd7ef83f76a9d72b3d6df7881cd failed all three integration cases because the sessions-file environment variable was absent; this continuation retains every original assertion and supplies the account peer in-process."
