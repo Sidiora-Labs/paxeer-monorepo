@@ -1094,3 +1094,61 @@ func TestSequencerReceiptViewCarriesPaymentDenom(t *testing.T) {
 		require.ErrorIs(t, decoded.Verify(), evmrpc.ErrSequencerReceiptMismatch)
 	}
 }
+
+func repairM1297CommittedReceiptNilView(t *testing.T) {
+	var missing *evmrpc.SequencerReceiptResult
+	require.ErrorIs(t, missing.Verify(), evmrpc.ErrSequencerReceiptMismatch)
+	block := common.HexToHash("0x1234")
+	for _, body := range []string{
+		`{"txHash":"` + common.HexToHash("0x5678").Hex() + `","rung":"committed","blockNumber":"0x7","blockHash":"` + block.Hex() + `"}`,
+		`{"txHash":"` + common.HexToHash("0x5678").Hex() + `","rung":"committed","blockNumber":"0x7","blockHash":"` + block.Hex() + `","receipt":"0x"}`,
+		`{"txHash":"` + common.HexToHash("0x5678").Hex() + `","rung":"receipted"}`,
+	} {
+		t.Run(body, func(t *testing.T) {
+			var result evmrpc.SequencerReceiptResult
+			require.NoError(t, json.Unmarshal([]byte(body), &result))
+			require.NotPanics(t, func() { require.ErrorIs(t, result.Verify(), evmrpc.ErrSequencerReceiptMismatch) })
+			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var request struct {
+					ID     json.RawMessage `json:"id"`
+					Method string          `json:"method"`
+				}
+				if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+					http.Error(w, err.Error(), http.StatusBadRequest)
+					return
+				}
+				if request.Method != evmrpc.SequencerReceiptMethod {
+					http.Error(w, "unexpected forwarding method", http.StatusBadRequest)
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_ = json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": request.ID, "result": json.RawMessage(body)})
+			}))
+			defer upstream.Close()
+			forwardURL, err := url.Parse(upstream.URL)
+			require.NoError(t, err)
+			a := app.Setup(t, false, false, false)
+			ctx := a.GetContextForDeliverTx(nil)
+			public := ed25519.NewKeyFromSeed(seqVecReceiptSeed).Public().(ed25519.PublicKey)
+			require.NoError(t, a.SequencerKeeper.SetReceiptKeys(ctx, seqkeeper.ReceiptKeys{{
+				KeyId: seqVecKeyID[:], PublicKey: public, FirstHeight: 1, LastHeight: 1000,
+			}}))
+			port := startSeqReceiptServer9005(t, a, func(int64) sdk.Context { return ctx }, evmrpc.SequencerReceiptOption{ForwardURL: forwardURL})
+			answer, rpcErr := callSeqReceipt9005(t, port, evmrpc.SequencerReceiptMethod, common.HexToHash("0x5678"))
+			require.NotNil(t, rpcErr, string(answer))
+			require.Contains(t, rpcErr.Message, evmrpc.ErrSequencerReceiptMismatch.Error())
+		})
+	}
+	t.Run("null receipt rejected by codec", func(t *testing.T) {
+		var result evmrpc.SequencerReceiptResult
+		require.ErrorContains(t, json.Unmarshal([]byte(`{"rung":"committed","receipt":null}`), &result),
+			"cannot unmarshal non-string")
+		require.ErrorIs(t, result.Verify(), evmrpc.ErrSequencerReceiptMismatch)
+	})
+	require.NoError(t, (&evmrpc.SequencerReceiptResult{Rung: evmrpc.RungSubmitted}).Verify())
+	require.ErrorIs(t, (&evmrpc.SequencerReceiptResult{Rung: evmrpc.RungSubmitted, SequencerReceiptView: &evmrpc.SequencerReceiptView{}}).Verify(), evmrpc.ErrSequencerReceiptMismatch)
+}
+
+func init() {
+	evmrpc.RepairM1297Proofs["committed-receipt-nil-view"] = repairM1297CommittedReceiptNilView
+}
