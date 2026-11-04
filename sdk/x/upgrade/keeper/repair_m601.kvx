@@ -1,0 +1,17 @@
+[repair.22.33.601]
+acceptance = "22998.1"
+baseline = "Not run: the explicit ordered gates require complete implementation before hf-build and hf-done and forbid running verify_cmd by hand; no pre-change failures are claimed."
+verified_revision_source = "The last passing hf-done JSON line and private /out/run/gates.jsonl ledger identify the exact candidate revision, command, exit code and evidence log."
+wiring_request = "None: node/app.go (node domain) already wires ReadUpgradeInfoFromDisk into SetStoreUpgradeHandlers and consumes GetClosestUpgrade in historical RPC contexts; the in-scope tests exercise both real consumers."
+
+[finding.upgrade-info-atomicity]
+tests = ["TestRepairM_601_AtomicHandoff", "TestRepairM_601_InterruptedHandoffStartup", "TestRepairM_601_WriteFailureAndCorruptPublishedFile"]
+recovery = "Write a private temporary sibling, sync and close it, atomically rename over the published file, then sync the directory; prior to rename startup retains the old plan or no plan, after publication it reads the complete new plan; abandoned siblings are ignored and published corruption remains an error."
+path_proof = "Real keeper output supplies interrupted filesystem fixtures; keeper and on-disk multistore are closed/reopened; real node SetStoreUpgradeHandlers and BaseApp.LoadLatestVersion select and apply oracle/tokenfactory store additions while preserving completion state."
+gotcha = "Root privileges bypass directory write permission checks; force a real rename error with a directory at the destination and assert temporary cleanup and preserved contents."
+
+[finding.upgrade-lookup-test-order]
+tests = ["TestRepairM_601_LookupOrdering", "TestRepairM_601_HistoricalConsumerRestart", "TestKeeperTestSuite/TestGetClosestUpgrade"]
+policy = "Minimum completed height at or above the request, greatest lexical name at equal heights, empty/zero beyond the last completion; test independent name/height order and several insertion orders through SetDone, commit and close/reopen."
+path_proof = "Real node RPCContextProvider and SnapshotAwareRPCContextProvider fallback select from persisted latest completion records after restart while returning the requested historical store."
+gotcha = "Commitment stores stage writes; same-block lookup assertions use the normal cache multistore, then flush and commit before restart assertions."

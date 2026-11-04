@@ -1,0 +1,21 @@
+[repair.22.33.489]
+audit = "22.30.150"
+finding = "010"
+base_revision = "58a590675bbe54c704c3f54c5ef49c6397e5992d"
+scope = "README resizing example and its executable regression proof, with the same test --no-start alias used by Indexer and explicit startup of the real image dependency; production behavior is unchanged."
+observed = "The base README already unwraps {:ok, image} and returns an explicit open error; this repair makes the branch boundary and thumbnail result explicit and guards them with executable tests."
+test_module = "NFTMediaHandler.Repair2233489Test"
+test_path = "services/explorer/backend/apps/nft_media_handler/test/repair/repair_22_33_489_test.exs"
+proving_tests = ["010 README unwraps the opened image and produces decodable thumbnails", "010 README handles a missing file before attempting resize", "010 README handles an invalid image before attempting resize", "010 README preserves the resizer's empty list for a small image"]
+proof = "Evaluate the actual README example with a local file encoded by NFTMediaHandler.image_to_binary/3; real Vix open results flow into the real Resizer.resize/3 and every emitted JPEG is decoded and checked. No doubles, live services, credentials, subprocesses or extra native artifacts are introduced by the tests."
+baseline = "Not run: the explicit Order requires implementation before any gate and forbids running verify_cmd by hand; no repair test or test helper existed at the base, so no baseline failure is claimed."
+qualification = "hf-build followed by hf-done; the runner records the exact verified revision, command, exit and private log in /out/run/gates.jsonl, also returned verbatim as the final evidence line."
+wiring_requests = ["services/explorer/backend/apps/indexer/lib/indexer/supervisor.ex:121 — explorer/indexer domain: repair the test-configuration startup MatchError; this doc regression suite uses the existing test --no-start pattern and does not start chain indexing."]
+
+[qualification.initial]
+revision = "afdf9ce85f4d527c22c2a08563e781ac1ca936f8"
+command = "cg spec done 22.33.489 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Indexer.Supervisor.init/1 raised MatchError during automatic application startup before the doc regression tests ran."
+assumption = "The README proof needs the real image library, not chain indexing; use the established app-local test --no-start alias and start :image explicitly without changing Indexer."

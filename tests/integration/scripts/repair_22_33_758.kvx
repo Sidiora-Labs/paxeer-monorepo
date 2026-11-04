@@ -1,0 +1,13 @@
+[repair.22.33.758]
+base_revision = "79d99a9cd334a5da02f3a4aac2a324549c9a0d5e"
+qualification = "The verified candidate revision, exact commands, exit codes and private logs are recorded by hf-build and hf-done in the sandbox gate ledger; no qualification is claimed before those gates pass."
+baseline = "Not run: the explicit implementation-first order and prohibition on invoking verify_cmd by hand override do_6's unchanged-tree verification request; no baseline failures are claimed."
+wiring_request = "tests/integration/README.md, owner fm-tools-ops: update Python runner guidance for bound expressions, argv transport, default 300-second deadlines and input timeout/expected_status fields."
+
+[finding.python-interpolation-boundaries]
+tests = ["test_python_interpolation_boundaries", "test_docker_argv_keeps_captures_and_command_in_single_arguments", "test_expression_rejects_executable_syntax", "test_bound_expression_values_preserve_numbers_and_precedence"]
+proof = "Real YAML producer, loopback HTTP JSON-RPC server, Python subprocess client, captured environment transport and production expression consumer; Docker argv are transported through the production subprocess path without a Docker daemon."
+
+[finding.python-status-timeout]
+tests = ["test_python_status_timeout_stops_setup_on_unexpected_exit", "test_explicit_negative_status_is_verified_and_setup_continues", "test_python_status_timeout_kills_process_group_and_stops_setup", "test_invalid_deadlines_are_rejected_before_launch", "test_invalid_expected_status_is_rejected_before_launch"]
+proof = "Real child exit statuses, stderr and timed-out process groups drive production sequential setup; unexpected failure stops subsequent inputs and cases, while an explicitly expected nonzero exit remains verifiable."

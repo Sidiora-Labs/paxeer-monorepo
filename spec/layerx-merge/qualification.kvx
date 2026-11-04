@@ -23843,3 +23843,171 @@ symbol = "repair-22-33-337.test.ts"
 observed = "Attempt 2: the suite fails with ERR_MODULE_NOT_FOUND on next/link before any assertion runs; the type-check passes."
 assumption = "A test importing a bundler-only entry under node --test."
 severity = "medium"
+
+[finding.22.31.447.1]
+task = "22.31.447"
+file = "services/wallet/gateway/src/db/repair-22-31-447.test.ts"
+symbol = "repair-22-31-447.test.ts"
+observed = "Attempt 1: vitest found no test file at the src/db path the verify command named; the build passed."
+assumption = "A test placed outside the configured include pattern."
+severity = "medium"
+
+[finding.22.31.384.3]
+task = "22.31.384"
+file = "apps/web/e2e/repair-22-31-384.test.ts"
+symbol = "repair-22-31-384.test.ts"
+observed = "Attempt 5: five TypeScript errors in the journey models after the client regeneration widened JourneyState; the task's tests did not run."
+assumption = "A producer change made by the task without carrying its consumers."
+severity = "medium"
+
+[finding.22.31.212.2]
+task = "22.31.212"
+file = "tools/platform/cli/tests/repair_22_31_212.rs"
+symbol = "repair_22_31_212.rs"
+observed = "Attempt 3: six Quantity type mismatches in a test outside this task's paths fail the dependent-crate check; the task's own verify did not run."
+assumption = "An unrelated producer change left a consumer test behind; blocked until 22.31.443 publishes."
+severity = "medium"
+
+[finding.22.33.63.1]
+task = "22.33.63"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_63.rs"
+symbol = "repair_22_33_63.rs"
+observed = "Attempt 1: six Quantity type mismatches in a test outside this task's paths stop the build; the task's own tests did not run."
+assumption = "Blocked until 22.31.443 publishes."
+severity = "medium"
+
+[finding.22.33.194.1]
+task = "22.33.194"
+file = "apps/perps/tests/repair-22-33-194.test.ts"
+symbol = "repair-22-33-194.test.ts"
+observed = "Attempt 3: the perps type-check fails on the unresolved agent SDK browser entry under sdk/wallet before this task's tests run."
+assumption = "An environment gap of the earlier gate, not a defect of the repair."
+severity = "medium"
+
+[finding.22.33.196.2]
+task = "22.33.196"
+file = "apps/perps/tests/repair-22-33-196.test.ts"
+symbol = "repair-22-33-196.test.ts"
+observed = "Attempt 2: the perps type-check fails on the unresolved agent SDK browser entry under sdk/wallet before this task's tests run."
+assumption = "An environment gap of the earlier gate, not a defect of the repair."
+severity = "medium"
+
+[finding.22.33.253.2]
+task = "22.33.253"
+file = "apps/perps/tests/repair-22-33-253.test.ts"
+symbol = "repair-22-33-253.test.ts"
+observed = "Attempt 2: the perps type-check fails on the unresolved agent SDK browser entry under sdk/wallet before this task's tests run."
+assumption = "An environment gap of the earlier gate, not a defect of the repair."
+severity = "medium"
+
+[finding.22.33.576.1]
+task = "22.33.576"
+file = "apps/perps/tests/repair-22-33-576.test.ts"
+symbol = "repair-22-33-576.test.ts"
+observed = "Attempt 1: the perps type-check fails on the unresolved agent SDK browser entry under sdk/wallet before this task's tests run."
+assumption = "An environment gap of the earlier gate, not a defect of the repair."
+severity = "medium"
+
+[finding.22.33.578.1]
+task = "22.33.578"
+file = "apps/perps/tests/repair-22-33-578.test.ts"
+symbol = "repair-22-33-578.test.ts"
+observed = "Attempt 1: the perps type-check fails on the unresolved agent SDK browser entry under sdk/wallet before this task's tests run."
+assumption = "An environment gap of the earlier gate, not a defect of the repair."
+severity = "medium"
+
+[finding.22.33.155.2]
+task = "22.33.155"
+file = "apps/wallet/e2e/repair-22-33-155.test.ts"
+symbol = "repair-22-33-155.test.ts"
+observed = "Attempt 2: the signed transaction's chain id is 713714 where 125 is required; the other case passes."
+assumption = "A signing fixture built outside the production path."
+severity = "medium"
+
+[finding.22.33.161.1]
+task = "22.33.161"
+file = "apps/wallet/src/account/repair-22-33-161.test.ts"
+symbol = "repair-22-33-161.test.ts"
+observed = "Attempt 3: eight ladder cases fail on receipt authentication of a hand-built fixture pair; the rest pass."
+assumption = "A fixture derivation defect, not a defect of the repair."
+severity = "medium"
+
+[finding.22.33.167.1]
+task = "22.33.167"
+file = "apps/wallet/src/server/repair-22-33-167.test.ts"
+symbol = "repair-22-33-167.test.ts"
+observed = "Attempt 3: the last repair landed after the repair budget was spent; the final revision has no verify record."
+assumption = "Unverified final revision, not a known defect."
+severity = "low"
+
+[finding.22.33.23.2]
+task = "22.33.23"
+file = "services/agent/sdk/typescript/test/repair-22-33-23.test.ts"
+symbol = "repair-22-33-23.test.ts"
+observed = "Attempt 2: the last repair landed after the repair budget was spent; the final revision has no verify record."
+assumption = "Unverified final revision, not a known defect."
+severity = "low"
+
+[finding.22.33.325.1]
+task = "22.33.325"
+file = "apps/explorer/ui/shared/entities/address/repair-22-33-325.spec.ts"
+symbol = "repair-22-33-325.spec.ts"
+observed = "Attempt 2: the last repair landed after the repair budget was spent; the final revision has no verify record."
+assumption = "Unverified final revision, not a known defect."
+severity = "low"
+
+[finding.22.33.540.1]
+task = "22.33.540"
+file = "apps/explorer/nextjs/middlewares/repair-22-33-540.spec.ts"
+symbol = "repair-22-33-540.spec.ts"
+observed = "Attempt 1: the last repair landed after the repair budget was spent; the final revision has no verify record."
+assumption = "Unverified final revision, not a known defect."
+severity = "low"
+
+[finding.22.33.373.1]
+task = "22.33.373"
+file = "services/bridge/deploy/proposals/cmd/paxeer-bridge-proposals/repair_m373_test.go"
+symbol = "repair_m373_test.go"
+observed = "Attempt 1: the last repair landed after the repair budget was spent; the final revision has no verify record."
+assumption = "Unverified final revision, not a known defect."
+severity = "low"
+
+[finding.22.33.416.1]
+task = "22.33.416"
+file = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_33_416_test.exs"
+symbol = "repair_22_33_416_test.exs"
+observed = "Attempt 1: eleven of the new cases fail, all asserting refusals and shapes the production decoder and document do not provide."
+assumption = "Test-gap findings whose repair reaches the production decoder and the API document."
+severity = "medium"
+
+[finding.22.33.435.1]
+task = "22.33.435"
+file = "services/explorer/backend/apps/ethereum_jsonrpc/test/repair/repair_22_33_435_test.exs"
+symbol = "repair_22_33_435_test.exs"
+observed = "Attempt 1: the adapter reports a transport error as synced, and the head-parity captures are missing."
+assumption = "One production defect and one missing recorded fixture."
+severity = "medium"
+
+[finding.22.31.24.4]
+task = "22.31.24"
+file = "src/modules/programs"
+symbol = "programs"
+observed = "Attempt 4: every listed case passes and the verify target then segfaults in the monetary-law case; the repair budget was spent before the crash was isolated."
+assumption = "A regression of the repair in a case the repair did not target."
+severity = "high"
+
+[finding.22.31.53.4]
+task = "22.31.53"
+file = "services/launchpad/indexer/internal/receipt/repair_53_test.go"
+symbol = "repair_53_test.go"
+observed = "Attempt 6: three cases fail with an unrecorded-read refusal for eth_call requests that differ from the recording only by an explicit zero-address from field."
+assumption = "A replay-matching defect of the test fixture, not a defect of the production client."
+severity = "medium"
+
+[finding.22.33.186.1]
+task = "22.33.186"
+file = "apps/wallet/src/wallet/test/repair-22-33-186.test.ts"
+symbol = "repair-22-33-186.test.ts"
+observed = "Attempt 2: the send proof fails on a database connection timeout from the in-process gateway; the routing proof passes."
+assumption = "An environment-bound peer in the proof, not a defect of the repair."
+severity = "medium"

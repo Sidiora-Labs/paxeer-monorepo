@@ -7,9 +7,6 @@
  * the backend says is re-derived and re-verified against chain state
  * before the wallet is asked for a signature.
  */
-import { getAddress, zeroAddress } from 'viem';
-import type { Log } from 'viem';
-import { getBlockNumber, readContract, getTransaction, getTransactionReceipt } from 'wagmi/actions';
 
 import type { DepositAttestation, ReleaseAttestation } from '@/lib/bridge/attestation-api';
 import { bridgeChainByKey, paxeer } from '@/lib/bridge/chains';
@@ -19,6 +16,13 @@ import { nonceFromBridgeOutLogs } from '@/lib/bridge/import';
 import { phaseOf, type SettlementStatus } from '@/lib/bridge/settlement';
 import type { BridgeTransfer } from '@/lib/bridge/transfers';
 import { wagmiConfig } from '@/lib/bridge/wagmi';
+import type { Log } from 'viem';
+import { getAddress, zeroAddress } from 'viem';
+import type { Config } from 'wagmi';
+import { getBlockNumber, readContract, getTransaction, getTransactionReceipt } from 'wagmi/actions';
+
+import { readSolanaRelease, type SolanaReleaseObservation, type SolanaReleaseSettings } from './solana-release';
+import { migrateBridgeTransfer } from './transfer-ledger';
 
 export type TransferPhase =
   | 'confirming' |
@@ -36,6 +40,7 @@ export type TransferLive = {
   attestationReady: boolean;
   sourceFailed: boolean;
   settlementStatus?: SettlementStatus;
+  solanaRelease?: SolanaReleaseObservation;
 };
 
 /** Refuse malformed live state at the query-to-component boundary. */
@@ -51,7 +56,14 @@ export function decodeTransferLive(value: unknown): TransferLive {
   ) {
     throw new Error('Invalid live transfer state.');
   }
+  const relay = state.solanaRelease;
+  if (relay !== undefined && (typeof relay !== 'object' || relay === null ||
+    !('status' in relay) || ![ 'waiting', 'released' ].includes(String(relay.status)) ||
+    !('accountUrl' in relay) || typeof relay.accountUrl !== 'string' ||
+    !/^https:\/\/explorer\.solana\.com\/address\/[1-9A-HJ-NP-Za-km-z]+$/.test(relay.accountUrl) ||
+    ('payoutUrl' in relay && relay.payoutUrl !== relay.accountUrl))) throw new Error('Invalid Solana release observation.');
   return {
+    ...(relay === undefined ? {} : { solanaRelease: relay as SolanaReleaseObservation }),
     confirmations: Number(state.confirmations),
     requiredConfirmations: Number(state.requiredConfirmations),
     credited: state.credited,
@@ -63,11 +75,11 @@ export function decodeTransferLive(value: unknown): TransferLive {
 }
 
 /** Resolve old and new withdrawal rows against the authoritative chain registry. */
-export async function resolveWithdrawalVault(transfer: BridgeTransfer): Promise<BridgeTransfer> {
+export async function resolveWithdrawalVault(transfer: BridgeTransfer, config: Config = wagmiConfig): Promise<BridgeTransfer> {
   const chain = bridgeChainByKey(transfer.foreignChainKey);
   if (transfer.direction !== 'out' || chain?.kind !== 'evm') return transfer;
   if (chain.chainId !== BigInt(transfer.foreignChainId)) throw new Error('Unknown or mismatched bridge chain.');
-  const info = await readContract(wagmiConfig, {
+  const info = await readContract(config, {
     abi: layerxBridgeAbi,
     address: LAYERX_BRIDGE_ADDRESS,
     functionName: 'getChain',
@@ -111,29 +123,27 @@ export function settledRefusal(transfer: BridgeTransfer, live: TransferLive | un
 }
 
 /** Source-chain confirmation count and receipt status for a transfer. */
-export async function readTransferLive(transfer: BridgeTransfer): Promise<TransferLive> {
+export type TransferReadSettings = { config?: Config; solana?: SolanaReleaseSettings };
+
+export async function readTransferLive(transfer: BridgeTransfer, settings: TransferReadSettings = {}): Promise<TransferLive> {
+  const config = settings.config ?? wagmiConfig;
+  transfer = migrateBridgeTransfer(transfer);
   const chain = bridgeChainByKey(transfer.foreignChainKey);
   if (!chain || chain.chainId !== BigInt(transfer.foreignChainId)) {
     throw new Error('Unknown or mismatched bridge chain.');
   }
   const sourceChainId = transfer.direction === 'in' ? chain?.viemChain?.id : paxeer.id;
-  if (sourceChainId === undefined) {
-    return {
-      confirmations: 0,
-      requiredConfirmations: transfer.requiredConfirmations,
-      credited: false,
-      released: false,
-      attestationReady: false,
-      sourceFailed: false,
-    };
-  }
+  if (sourceChainId === undefined) throw new Error('Source receipt observation is unavailable for this route.');
   const [ receipt, head ] = await Promise.all([
-    getTransactionReceipt(wagmiConfig, { hash: transfer.sourceTxHash, chainId: sourceChainId }).catch(() => null),
-    getBlockNumber(wagmiConfig, { chainId: sourceChainId }).catch(() => null),
+    getTransactionReceipt(config, { hash: transfer.sourceTxHash, chainId: sourceChainId }).catch((error: unknown) => {
+      if (error instanceof Error && error.name === 'TransactionReceiptNotFoundError') return null;
+      throw error;
+    }),
+    getBlockNumber(config, { chainId: sourceChainId, cacheTime: 0 }),
   ]);
   let credited = false;
   if (transfer.direction === 'in' && transfer.logIndex !== undefined) {
-    credited = await readContract(wagmiConfig, {
+    credited = await readContract(config, {
       abi: layerxBridgeAbi,
       address: LAYERX_BRIDGE_ADDRESS,
       functionName: 'isNullified',
@@ -141,14 +151,16 @@ export async function readTransferLive(transfer: BridgeTransfer): Promise<Transf
       chainId: paxeer.id,
     }) as boolean;
   }
-  const resolved = await resolveWithdrawalVault(transfer);
+  const resolved = await resolveWithdrawalVault(transfer, config);
   const releaseCheck = releaseCheckOf(resolved);
-  const released = releaseCheck ? await readContract(wagmiConfig, releaseCheck) : false;
+  const solanaRelease = transfer.direction === 'out' && chain.kind === 'solana' ?
+    await readSolanaRelease(transfer, settings.solana) : undefined;
+  const released = solanaRelease ? solanaRelease.status === 'released' : releaseCheck ? await readContract(config, releaseCheck) : false;
   let settlementStatus: SettlementStatus | undefined;
   const settlementHash = transfer.direction === 'in' ? transfer.claimTxHash : transfer.releaseTxHash;
   const settlementChainId = transfer.direction === 'in' ? paxeer.id : chain.viemChain?.id;
   if (settlementHash && settlementChainId !== undefined) {
-    const committed = await getTransactionReceipt(wagmiConfig, { hash: settlementHash, chainId: settlementChainId })
+    const committed = await getTransactionReceipt(config, { hash: settlementHash, chainId: settlementChainId })
       .catch((error: unknown) => {
         if (error instanceof Error && error.name === 'TransactionReceiptNotFoundError') return null;
         throw error;
@@ -157,7 +169,7 @@ export async function readTransferLive(transfer: BridgeTransfer): Promise<Transf
     else if (committed?.status === 'reverted') settlementStatus = 'reverted';
     else if (committed) settlementStatus = 'pending';
     else {
-      const transaction = await getTransaction(wagmiConfig, { hash: settlementHash, chainId: settlementChainId })
+      const transaction = await getTransaction(config, { hash: settlementHash, chainId: settlementChainId })
         .catch((error: unknown) => {
           if (error instanceof Error && error.name === 'TransactionNotFoundError') return null;
           throw error;
@@ -165,10 +177,12 @@ export async function readTransferLive(transfer: BridgeTransfer): Promise<Transf
       settlementStatus = transaction || Date.now() - (transfer.settlementSubmittedAt ?? transfer.submittedAt) < 120_000 ? 'pending' : 'dropped';
     }
   }
+  if (released || credited) settlementStatus = 'confirmed';
   const confirmations =
     receipt && head !== null ? Math.max(0, Number(head - receipt.blockNumber) + 1) : 0;
   return {
     confirmations,
+    ...(solanaRelease ? { solanaRelease } : {}),
     requiredConfirmations: transfer.requiredConfirmations,
     credited,
     released,
@@ -183,7 +197,7 @@ export type VerifiedClaim = {
     abi: typeof layerxBridgeAbi;
     address: typeof LAYERX_BRIDGE_ADDRESS;
     functionName: 'bridgeIn';
-    args: [bigint, `0x${ string }`, `0x${ string }`, bigint, `0x${ string }`, `0x${ string }`, bigint, `0x${ string }`[]];
+    args: [bigint, `0x${ string }`, `0x${ string }`, bigint, `0x${ string }`, `0x${ string }`, bigint, Array<`0x${ string }`>];
     chainId: number;
   };
 };
@@ -245,7 +259,7 @@ export async function buildVerifiedClaim(
     address: LAYERX_BRIDGE_ADDRESS,
     functionName: 'getAttestors',
     chainId: paxeer.id,
-  })) as readonly [readonly `0x${ string }`[], readonly bigint[], number];
+  })) as readonly [ReadonlyArray<`0x${ string }`>, ReadonlyArray<bigint>, number];
   const check = await verifyThresholdSignatures({
     digest,
     signatures: attestation.signatures,
@@ -278,7 +292,7 @@ export type VerifiedRelease = {
     abi: typeof paxeerXVaultAbi;
     address: `0x${ string }`;
     functionName: 'release';
-    args: [`0x${ string }`, bigint, `0x${ string }`, `0x${ string }`, bigint, `0x${ string }`[]];
+    args: [`0x${ string }`, bigint, `0x${ string }`, `0x${ string }`, bigint, Array<`0x${ string }`>];
     chainId: number;
   };
 };
@@ -355,7 +369,7 @@ export async function buildVerifiedRelease(
   const check = await verifyThresholdSignatures({
     digest: attestation.digest,
     signatures: attestation.signatures,
-    attestors: attestors as readonly `0x${ string }`[],
+    attestors: attestors as ReadonlyArray<`0x${ string }`>,
     threshold: Number(threshold),
   });
   if (!check.ok) throw new Error(check.reason);

@@ -37,7 +37,7 @@ const TxRawTrace = ({ txQuery }: Props) => {
   });
 
   const handleRawTraceMessage: SocketMessage.TxRawTrace['handler'] = React.useCallback((payload) => {
-    setRawTraces(payload);
+    setRawTraces(payload.raw_trace);
   }, [ ]);
 
   const enableQuery = React.useCallback(() => setIsQueryEnabled(true), []);

@@ -1,0 +1,65 @@
+[repair.22.33.11]
+requirement = "22998.1"
+source = "spec/layerx-merge/programme/audit/records/22.30.10.kvx"
+baseline = "No baseline gate ran: the ordered instructions require whole-task implementation before any build/test and prohibit running verify_cmd by hand; no pre-change test failure is claimed."
+evidence = "The authoritative /out/run/gates.jsonl ledger and hf-build/hf-done output record the exact candidate revision, command, exit code and private evidence location; completion depends on hf-done passing."
+proof_environment = "Production React components, external store, codec, Radix primitives, next-themes, wagmi adapters and embedded SDK use the installed reconciler, server renderer, loopback auth/RPC services and in-memory browser stores; no credential, live endpoint, subprocess toolchain or browser binary is required."
+proof_limit = "The Node host checks real Radix semantics and controlled close wiring plus the production focus restoration controller; it does not run a browser keyboard walkthrough. Radix owns initial focus, trapping, Tab looping, Escape and outside dismissal without overridden keyboard/focus-out handlers."
+gotcha = "The inherited RPC ranking and SDK authentication timers have no shared disposal API; a Node worker owns the runtime and terminates after assertions and cleanup, as in the preceding modal repair."
+continuation = "Preserve all six proofs and every assertion from attempt 1; provide jsdom element constructors before importing components and inject the loopback-produced session into independent connector SDK peers while keeping the production connector, bridge, getWallet HTTP path and panel provider."
+fixture_gotcha = "Separate SDK clients on the same auth hostname share Supabase's browser storage key; the connector session fixture isolates its auth lifecycle so a mismatched signer cannot sign out or relabel the primary panel identity."
+
+[finding.collateral-dialog-access]
+proof = "apps/perps/tests/repair-22-33-11.test.ts::collateralDialogAccess"
+behavior = "Radix content has an associated title/description and labelled close control; controlled dismissal reaches the caller and close/reopen cannot clear the real shared recovery guard or replace its original account identity."
+
+[finding.settings-guide-drift]
+proof = "apps/perps/tests/repair-22-33-11.test.ts::settingsGuideDrift"
+behavior = "The guide describes supported appearance/motion controls, current ui/atoms and hooks/ui/useMobile paths, shared consumers, versioned storage, errors and accessible operation; the test drives the documented motion control and checks contract terms."
+
+[finding.settings-without-consumers]
+proof = "apps/perps/tests/repair-22-33-11.test.ts::settingsWithoutConsumers"
+behavior = "The real switch publishes through the shared preference store to both settings motion and wallet entrance consumers; theme selection still reaches the next-themes storage/class consumer. Unsupported privacy, warning, audio, connection and confirmation promises are removed."
+
+[finding.settings-dialog-access]
+proof = "apps/perps/tests/repair-22-33-11.test.ts::settingsDialogAccess"
+behavior = "The responsive animated drawer uses Radix modal content, title, description and labelled close; its production controller captures and restores a fresh external launcher on each opening and ignores detached launchers."
+
+[finding.settings-save-promise]
+proof = "apps/perps/tests/repair-22-33-11.test.ts::settingsSavePromise"
+behavior = "The production switch writes a versioned preference before notifying consumers; stopping and reopening components and modules recovers the stored preference. Failed writes retain the applied value, expose an alert and permit retry; invalid versions/types and denied reads are reported."
+
+[finding.wallet-panel-identity-label]
+proof = "apps/perps/tests/repair-22-33-11.test.ts::walletPanelIdentityLabel"
+behavior = "A real authenticated embedded SDK session labels only its matching connected embedded signer with email; switching to an injected signer or an embedded adapter provisioned for another address shows the connector and connected address without the unrelated email."
+
+[wiring.requests]
+portfolio = "Domain 3: apps/perps/src/page-modules/portfolio must consume an agreed privacy preference before PnL and size/margin controls can return."
+trading = "Domain 3: apps/perps/src/widgets/trading must consume explicit warning and order-confirmation policy before those switches can return; risk checks remain authoritative."
+wallet = "Domain 3: apps/perps/src/pages/_app.tsx and apps/perps/src/core/wagmi.ts must agree on persisted connection/reconnect policy before exposing a wallet persistence control."
+audio = "Domain 3: apps/perps/src/hooks/perps must expose an actual fill/liquidation audio consumer and permission lifecycle before a sound switch can return."
+performance = "Domain 3: apps/perps/src/widgets/trading must own chart/animation performance policy before exposing an application-wide low-power mode; the supported control is limited to dialog motion."
+
+[qualification.build_1]
+revision = "d95f471efdfb12ec53f6febeb8709a54cbf0467f"
+command = "pnpm --dir apps/perps exec tsc --noEmit"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "The inherited sdk/wallet dependency installation and linked agent SDK browser distribution were absent; TypeScript reported missing modules and consequent implicit-any errors there, with no task-source errors."
+assumption = "Use the preceding modal repair's existing dependency setup (sdk/wallet frozen install and build:agent-sdk distribution preparation), without editing sources or manifests, before the bounded build rerun."
+
+[qualification.verify_1]
+revision = "ee6981dcce2da423d4a67052ee7558d349f9db4f"
+command = "cg spec done 22.33.11 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Three proofs passed; server-rendered motion incorrectly detected a browser, and the second embedded adapter connected before its initial auth observation settled."
+assumption = "Initialize the animation dependency in the Node realm before browser-storage peers, and wait for the real adapter's expected account before connecting; preserve every assertion for the bounded rerun."
+
+[qualification.continuation_build_1]
+revision = "344b50bca6ffdd0da4d51ec478c7d6e4564e9838"
+command = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "The pre-existing missing @sidiora/layerx-sdk/browser distribution again prevented TypeScript qualification; no task-source errors were reported."
+assumption = "Prepare the existing sdk/wallet build:agent-sdk dependency artifact without changing sources or manifests, then use only the bounded task gates for qualification."

@@ -1,0 +1,16 @@
+[repair.22.33.599]
+audit = "22.30.162"
+requirement = "22998.1"
+implementation = "Replace the inconsistent empty resize fixture with packed missed votes produced and persisted by the real BeginBlocker; inspect every retained bit, padding and population count at ordinary and final circular offsets."
+baseline = "Not run: the explicit gate order prohibits verification before implementation or outside hf-done. No pre-change failing test is claimed."
+qualification = "The runner hf-build/hf-done ledger and final evidence name the exact candidate revision, command, exit code and private log; this record makes no advance claim of qualification."
+wiring_request = "None: the proposal is entirely inside sdk/x/slashing/keeper."
+
+[finding.slashing-resize-fixture]
+proving_tests = ["TestRepairM_599_ResizeFixture", "TestRepairM_599_BeginBlockResizeReload"]
+proof_path = "Real validator and parameter keepers -> BeginBlocker votes -> packed protobuf state -> resize at offsets including oldWindow-1 -> live BeginBlocker -> LevelDB commit, close and reopen -> full circular overwrite -> persisted reload."
+assertions = "Windows 1, 10, 64 and 65 include a missed final slot; each bit, packed word count, population and circular offset is checked before and after expansion, signed and missed next votes, reload and continued processing; shrinking clears bitmap and counters; the original fixture test executes inside the repair gate."
+
+[gotcha.22.33.599]
+observed = "The baseline-verification step conflicts with the explicit implementation-before-gates order, and the root gotcha ledger and spec task record are outside the allowed paths."
+resolution = "Follow the explicit gate order, record the finding-to-test mapping and the contradiction in this scoped repair record, and leave root/spec bookkeeping to the runner."
