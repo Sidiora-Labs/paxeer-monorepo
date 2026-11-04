@@ -128590,7 +128590,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.72]
 title = "Repair audit record 22.30.41 findings in sdk/launchpad/packages/candles-sdk/src: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -128657,7 +128657,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.47]
 title = "Repair audit record 22.30.31 findings in apps/launchpad/web/src/widgets/bounties: security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129031,7 +129031,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.8]
 title = "Repair audit record 22.30.12 findings in apps/perps/src/widgets/portfolio: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -158399,7 +158399,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.18]
 title = "Repair audit record 22.30.16 findings in modules/mint/keeper: runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -158500,7 +158500,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.15]
 title = "Repair audit record 22.30.14 findings in modules/perps/types: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -158625,7 +158625,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.11]
 title = "Repair audit record 22.30.13 findings in modules/oracle/keeper: restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
