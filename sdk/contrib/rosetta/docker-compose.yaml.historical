@@ -1,3 +1,5 @@
+# Historical example only: executable orchestration withdrawn (22.33.1357).
+# Do not use with docker compose -f; this simd fixture is not a paxd integration.
 version: "3"
 
 services:
