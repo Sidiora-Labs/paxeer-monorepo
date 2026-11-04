@@ -1,0 +1,36 @@
+[task]
+id = "22.31.507"
+mode = "BUILD"
+acceptance = "22998.1"
+gotcha = "3053"
+decision = "2549"
+base_revision = "d3981743ad0e843abaf48e1034f7f28e345376ad"
+implementation = "Set api and notifications to go 1.25.0; regenerate the six standalone production module graphs with go1.26.4 and GOWORK=off against the current shared and protocol replacements. No source or test file changes and no dependency floor reductions."
+
+[incident]
+workflow = "Publish off-chain images"
+workflow_path = ".github/workflows/offchain-images.yml"
+first_red_run = "2026-11-04 01:51Z"
+failed_images = ["launchpad-core-api", "launchpad-core-indexer", "launchpad-core-ranking-algo", "launchpad-core-stats-workers", "launchpad-media-social", "launchpad-media-user"]
+cause = "api and notifications declared go 1.27.0 above the Dockerfile.svc go1.26.4 toolchain; service graphs still selected go-ethereum 1.17.3 after their shared replacement moved to 1.17.4."
+first_required_green_run = "The first Publish off-chain images push run on refs/heads/main whose head revision contains this repair; all six named image jobs must succeed and their digests must be present in digests.json."
+main_run_evidence = "Pending the runner's publication and main integration; local build and graph qualification do not claim an image publication or a successful main workflow run."
+
+[graphs]
+modules = ["services/launchpad/api", "services/launchpad/indexer", "services/launchpad/ranking-algo", "services/launchpad/stats-workers", "services/launchpad/social", "services/launchpad/user"]
+regeneration = "Use go get ./... for api, indexer, social and user; use go mod tidy -go=1.25.0 for ranking-algo and stats-workers; finish with go mod download for all six under GOTOOLCHAIN=go1.26.4 GOWORK=off."
+preserved_floors = "Retain api's go-ethereum 1.17.4 and pion dtls/v3 3.1.4, stun/v3 3.1.5 and transport/v4 4.0.2 pins from 22.31.453; retain notifications' pgx/v5 5.11.0, go-pglite pseudo-version and wago fork replacement from 22.33.958."
+selected_versions = "Raise the other five graphs' go-ethereum requirement to 1.17.4; social also selects pgx/v5 5.11.0 through notifications. Record the newly required jsonw and stats dependencies and regenerate checksums. api's existing dependency requirements and checksums remain current after its go directive changes."
+
+[qualification]
+build_cmd = "cd services/launchpad/api && GOTOOLCHAIN=go1.26.4 GOWORK=off go build ./..."
+verify_cmd = "for d in services/launchpad/api services/launchpad/indexer services/launchpad/ranking-algo services/launchpad/stats-* services/launchpad/social services/launchpad/user; do (cd $d && sha256sum go.mod go.sum > /tmp/module-graph.sha256 && GOTOOLCHAIN=go1.26.4 GOWORK=off GOFLAGS=-mod=readonly go mod download && GOTOOLCHAIN=go1.26.4 GOWORK=off go mod verify && GOTOOLCHAIN=go1.26.4 GOWORK=off GOFLAGS=-mod=readonly go build ./... && sha256sum -c /tmp/module-graph.sha256) || exit 1; done && for d in services/launchpad/api services/launchpad/notifications; do grep -q -E '^go 1[.]2[0-6]' $d/go.mod || exit 1; done"
+criterion = "For each of the six real service graphs, download, verify and build must exit zero and both module-file SHA256 checks must pass; api and notifications must each declare a supported go directive. The gate preserves all existing tests without deleting, skipping or weakening any case."
+verified_revision_source = "/out/run/gates.jsonl: revision of the final passing kind=verify record for this task, identical to the final passing kind=build revision; the final hf-done JSON repeats the exact revision, command, exit and private log."
+build_log = "/out/logs/build-1.log"
+verify_log = "/out/logs/verify-1.log"
+evidence_binding = "Finalize this record before both gates so they qualify the same content-derived candidate. The private gate ledger supplies the verified revision without a self-referential revision edit changing the candidate after qualification. The runner commits and publishes."
+
+[gotcha.test_toolchain]
+observed = "The preserved notifications test dependency github.com/elliots/go-pglite v0.2.1-0.20261031193134-76d1912af15f itself declares go 1.27.0; go mod tidy traverses test dependencies and cannot resolve it with go1.26.4. indexer and user tests also import go-pglite."
+assumption = "This task qualifies the six production image graphs with the declared build gates; it does not qualify the existing PostgreSQL test harness with go1.26.4. Preserve its source and dependency floor and regenerate production-only graphs without altering any check."
