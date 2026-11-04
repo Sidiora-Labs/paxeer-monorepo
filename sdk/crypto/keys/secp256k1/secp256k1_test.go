@@ -1,6 +1,9 @@
 package secp256k1_test
 
 import (
+	"crypto/ecdsa"
+	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"math/big"
@@ -57,28 +60,26 @@ func TestSignAndValidateSecp256k1(t *testing.T) {
 	msg := crypto.CRandBytes(1000)
 	sig, err := privKey.Sign(msg)
 	require.Nil(t, err)
+	require.Len(t, sig, 64)
 	assert.True(t, pubKey.VerifySignature(msg, sig))
 
-	// ----
-	// Test cross packages verification
-	// msgHash := cosmoscrypto.Sha256(msg)
-	// _, btcPubKey := btcSecp256k1.PrivKeyFromBytes(privKey.Key)
-	// This fails: malformed signature: no header magic
-	//   btcSig, err := secp256k1.ParseSignature(sig, secp256k1.S256())
-	//   require.NoError(t, err)
-	//   assert.True(t, btcSig.Verify(msgHash, btcPubKey))
-	// So we do a hacky way:
-	r := new(big.Int)
-	s := new(big.Int)
-	r.SetBytes(sig[:32])
-	s.SetBytes(sig[32:])
-	// Note: The new SignCompact format is not compatible with standard ecdsa.Verify
-	// This verification is commented out as it's not compatible with the new btcec/v2 API
-	// ok := ecdsa.Verify(btcPubKey.ToECDSA(), msgHash, r, s)
-	// require.True(t, ok)
+	msgHash := sha256.Sum256(msg)
+	btcPrivKey, btcPubKey := btcSecp256k1.PrivKeyFromBytes(privKey.Key)
+	r := new(big.Int).SetBytes(sig[:32])
+	s := new(big.Int).SetBytes(sig[32:])
+	require.True(t, ecdsa.Verify(btcPubKey.ToECDSA(), msgHash[:], r, s))
 
-	// sig2 := btcPrivKey.Sign(msgHash)
-	// pubKey.VerifySignature(msg, sig2.Serialize())
+	r, s, err = ecdsa.Sign(rand.Reader, btcPrivKey.ToECDSA(), msgHash[:])
+	require.NoError(t, err)
+	if s.Cmp(new(big.Int).Rsh(new(big.Int).Set(btcSecp256k1.S256().N), 1)) > 0 {
+		s.Sub(btcSecp256k1.S256().N, s)
+	}
+	require.True(t, ecdsa.Verify(btcPubKey.ToECDSA(), msgHash[:], r, s))
+	independentSig := make([]byte, 64)
+	r.FillBytes(independentSig[:32])
+	s.FillBytes(independentSig[32:])
+	require.True(t, pubKey.VerifySignature(msg, independentSig))
+	require.False(t, pubKey.VerifySignature([]byte("different message"), independentSig))
 
 	// ----
 	// Test other direction

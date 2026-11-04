@@ -12,10 +12,10 @@ umask 077
 : "${LAYERX_TEST_DESTINATION_PUBLIC_KEY:?LAYERX_TEST_DESTINATION_PUBLIC_KEY is required}"
 : "${LAYERX_TEST_DESTINATION_AUTH_TOKEN_FILE:?LAYERX_TEST_DESTINATION_AUTH_TOKEN_FILE is required}"
 : "${LAYERX_TEST_SEQUENCER_PUBLIC_KEY:?An independent sequencer public key is required}"
-: "${LAYERX_TEST_SEND_ENCODER:?The built hosted-send example is required}"
 : "${LAYERX_TEST_ASSET:?LAYERX_TEST_ASSET is required}"
 : "${LAYERX_TEST_AMOUNT:?LAYERX_TEST_AMOUNT is required}"
-: "${LAYERX_TEST_SOURCE_KEY_FILE:?LAYERX_TEST_SOURCE_KEY_FILE is required}"
+: "${LAYERX_TEST_ACCOUNTS_FILE:?The explicit DID/EVM smoke account bindings are required}"
+: "${LAYERX_TEST_SOURCE_EVM_KEY_FILE:?LAYERX_TEST_SOURCE_EVM_KEY_FILE is required}"
 : "${LAYERX_TEST_NODE_URL:?The HTTPS root node RPC endpoint is required}"
 : "${LAYERX_TEST_RECEIPT_KEYS_FILE:?Independent node receipt keys are required}"
 test -r "$LAYERX_TEST_AUTH_TOKEN_FILE"
@@ -99,7 +99,7 @@ printf '%s\n' "edge faucet -> redis: ready"
 
 fetch_document parameters "$LAYERX_TESTNET_URL/v1/parameters"
 test "$(cat "$work/parameters.status")" = 200
-jq -e '.network == "layerx-testnet" and (.network_id | type) == "number"
+jq -e '.network == "layerx-testnet" and (.network_id | type) == "number" and .evm_chain_id == 125
   and (.package_semver | type) == "string" and (.lxp_wire_protocol_version | type) == "number"' \
   "$work/parameters.json" >/dev/null
 jq -e --slurpfile ready "$work/testnet-readyz.json" \
@@ -134,11 +134,13 @@ jq -e '.funded == true and .funding_id != null' "$work/destination-faucet-respon
 
 admit_journey payment
 python3 "$(dirname "$0")/payment-journey.py" --gateway "$LAYERX_GATEWAY_URL" \
-  --ca "$LAYERX_TEST_CA_FILE" --auth-config "$auth_config" --signer "$LAYERX_TEST_SOURCE_KEY_FILE" \
+  --node "$LAYERX_TEST_NODE_URL" \
+  --ca "$LAYERX_TEST_CA_FILE" --auth-config "$auth_config" --signer "$LAYERX_TEST_SOURCE_EVM_KEY_FILE" \
+  --accounts "$LAYERX_TEST_ACCOUNTS_FILE" \
   --did "$LAYERX_TEST_SOURCE_DID" --destination "$LAYERX_TEST_DESTINATION_DID" \
   --asset "$LAYERX_TEST_ASSET" --amount "$LAYERX_TEST_AMOUNT" \
-  --network-id "$(jq -er '.network_id' "$work/parameters.json")" \
-  --encoder "$LAYERX_TEST_SEND_ENCODER" --sequencer-key "$LAYERX_TEST_SEQUENCER_PUBLIC_KEY" \
+  --evm-chain-id "$(jq -er '.evm_chain_id' "$work/parameters.json")" \
+  --sequencer-key "$LAYERX_TEST_SEQUENCER_PUBLIC_KEY" \
   --output "$work/payment"
 receipt_id=$(jq -er '.activity_id' "$work/payment/result.json")
 printf '%s\n' "payment journey: signed transfer $receipt_id executed and replayed without additional credit"

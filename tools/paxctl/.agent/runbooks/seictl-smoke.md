@@ -1,229 +1,141 @@
-# seictl smoke runbook
+# Isolated Paxeer smoke procedure
 
-End-to-end happy-path validation against the harbor cluster. Run this before declaring seictl MVP-shipped, and after any change that touches IAM, Pod Identity, manifest rendering, or the apply path.
+Use a disposable Paxeer test namespace and an adapted controller. This procedure
+checks supported network, node, workflow and task operations. It does not certify
+mainnet operations, governance signing, validator recovery or a store migration.
+All placeholders below are public examples; substitute reviewed deployment
+values locally and keep credentials and operational evidence private.
 
-Estimated time: 20 minutes (includes the 5-minute bench duration).
+## Preflight
 
-## Pre-flight
+Install a qualified `seictl` as described in [the README](../../README.md).
+Use kubectl, curl and jq from a host with access to the isolated API server and
+the pod proxy DNS network. The namespace must be dedicated to this run and empty
+of pre-existing resources with the names below. Use no production keys/accounts.
 
 ```sh
-# 1. Build the binary (or pull a release).
-make build && export PATH="$PWD/build:$PATH"
-seictl --version
+set -eu
+KUBECONFIG='<isolated-kubeconfig-path>'
+export KUBECONFIG
+NS=paxeer-smoke
+NETWORK=paxeer-smoke
+NODE=paxeer-smoke-rpc
+CHAIN_ID=paxeer-smoke-1
+PAXD_IMAGE='registry.example.invalid/paxd@sha256:<qualified-public-image-digest>'
+PROXY_CA='<path-to-isolated-proxy-ca.pem>'
+TM_RPC='https://comet.example.invalid'
+EVM_RPC='https://evm.example.invalid'
+EXPECTED_EVM_CHAIN_ID='<configured-isolated-chain-id-in-hex>'
 
-# 2. Confirm AWS caller is the harbor account.
-aws sts get-caller-identity --query Account --output text
-# expect: 189176372795
-# If not, switch profiles: aws sso login --profile <harbor-profile>
-
-# 3. Confirm kubectl context points at harbor.
+seictl --help
 kubectl config current-context
-# expect: harbor (or whatever your kubeconfig calls it)
-
-# 4. Confirm sei-k8s-controller is running and the SeiNodeDeployment CRD exists.
-kubectl get crd seinodedeployments.sei.io -o name
-# expect: customresourcedefinition.apiextensions.k8s.io/seinodedeployments.sei.io
+# Stop unless this is the intended disposable cluster/context.
+kubectl get namespace "$NS"
+kubectl get crd seinetworks.sei.io seinodes.sei.io seinodetaskworkflows.sei.io
+kubectl auth can-i patch seinetworks.sei.io -n "$NS"
+kubectl auth can-i patch seinodes.sei.io -n "$NS"
+kubectl auth can-i patch seinodetaskworkflows.sei.io -n "$NS"
 ```
 
-## Step 1 — onboard
+Require `yes` for all permission checks. The served versions must include
+`sei.io/v1alpha1` and the controller must be qualified for the chosen Paxeer
+image, genesis, fees, address prefixes and proxy isolation. The tool retains Sei
+API spellings; it does not translate arbitrary upstream deployments to Paxeer.
+Do not proceed while any image, CA, chain identity or controller prerequisite is
+unresolved. Namespace creation is deployment setup, not implicit provisioning by
+the CLI.
 
-`onboard` provisions the engineer's IAM role + Pod Identity association + cell manifests. `--no-pr` skips the platform-repo PR (we don't want to clutter `sei-protocol/platform` with a smoke run); side effects on AWS + the local config file still happen with `--apply`.
+## Network and follower
+
+Render and validate with server-side dry-run first. Inspect the returned CR:
+`spec.genesis.chainId` / `spec.chainId`, image digest, namespace and
+`metadata.annotations["seictl.sei.io/version"]` must match the reviewed inputs;
+release provenance must not be `dev`. `--dry-run` still needs cluster access.
 
 ```sh
-seictl onboard --alias bdchatham --no-pr --apply | jq .
+seictl network apply --kubeconfig "$KUBECONFIG" -n "$NS" --preset genesis-chain --chain-id "$CHAIN_ID" --image "$PAXD_IMAGE" --dry-run "$NETWORK"
+seictl node apply --kubeconfig "$KUBECONFIG" -n "$NS" --preset rpc --chain-id "$CHAIN_ID" --image "$PAXD_IMAGE" --network "$NETWORK" --dry-run "$NODE"
 ```
 
-**Expected envelope:**
-
-```jsonc
-{
-  "kind": "seictl.OnboardResult",
-  "data": {
-    "alias": "bdchatham",
-    "namespace": "eng-bdchatham",
-    "configPath": "/Users/brandon/.seictl/config.json",
-    "generatedFiles": [
-      "clusters/harbor/engineers/bdchatham/namespace.yaml",
-      "clusters/harbor/engineers/bdchatham/workload-service-account.yaml",
-      "clusters/harbor/engineers/bdchatham/kustomization.yaml"
-    ],
-    "awsResources": [
-      {"kind": "Policy", "arn": "arn:aws:iam::189176372795:policy/seictl/harbor-workload-eng-bdchatham", "action": "create"},
-      {"kind": "Role", "arn": "arn:aws:iam::189176372795:role/seictl/harbor-workload-eng-bdchatham", "action": "create"},
-      {"kind": "Attachment", "arn": "...", "action": "create"},
-      {"kind": "PodIdentityAssociation", "arn": "...", "action": "create"}
-    ],
-    "dryRun": false
-  }
-}
-```
-
-**Verify the side effects:**
+Once those exact objects are reviewed, create only this isolated network and
+follower. Network genesis and replicas are immutable after creation; do not
+change them by reapplying a different identity.
 
 ```sh
-# Config file written with mode 0600.
-ls -la ~/.seictl/config.json
-cat ~/.seictl/config.json
-# expect: {"alias": "bdchatham", "namespace": "eng-bdchatham"}
-
-# IAM role exists.
-aws iam get-role --role-name harbor-workload-eng-bdchatham --query 'Role.Arn'
-
-# Pod Identity association exists.
-aws eks list-pod-identity-associations \
-  --cluster-name harbor \
-  --namespace eng-bdchatham \
-  --query 'associations[?serviceAccount==`workload-service-account`]'
+seictl network apply --kubeconfig "$KUBECONFIG" -n "$NS" --preset genesis-chain --chain-id "$CHAIN_ID" --image "$PAXD_IMAGE" "$NETWORK"
+seictl network watch --kubeconfig "$KUBECONFIG" -n "$NS" --until Ready --timeout 15m "$NETWORK"
+seictl network get --kubeconfig "$KUBECONFIG" -n "$NS" -o json "$NETWORK"
+seictl node apply --kubeconfig "$KUBECONFIG" -n "$NS" --preset rpc --chain-id "$CHAIN_ID" --image "$PAXD_IMAGE" --network "$NETWORK" "$NODE"
+seictl node watch --kubeconfig "$KUBECONFIG" -n "$NS" --until Running --timeout 15m "$NODE"
+seictl node get --kubeconfig "$KUBECONFIG" -n "$NS" -o json "$NODE"
+seictl network list --kubeconfig "$KUBECONFIG" -n "$NS"
+seictl node list --kubeconfig "$KUBECONFIG" -n "$NS"
 ```
 
-**Note:** the namespace + SA themselves don't exist in the cluster yet — those get created by Flux *after* the onboard PR merges into platform. For the smoke run, create them manually:
+`SeiNetwork` reaches `Ready`; `SeiNode` reaches `Running`. Either is insufficient
+to prove chain identity. Resolve the two RPC URLs above to this isolated
+follower using the deployment's approved routing/port-forward procedure, then
+check both identities and progress explicitly:
 
 ```sh
-kubectl create namespace eng-bdchatham
-kubectl create serviceaccount workload-service-account -n eng-bdchatham
+curl --fail --silent --show-error "$TM_RPC/status" | jq -e --arg chain "$CHAIN_ID" '.result.node_info.network == $chain and .result.sync_info.catching_up == false and (.result.sync_info.latest_block_height | tonumber) > 1'
+curl --fail --silent --show-error -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}' "$EVM_RPC" | jq -e --arg chain "$EXPECTED_EVM_CHAIN_ID" '.result == $chain and .error == null'
+HEIGHT_BEFORE=$(curl --fail --silent --show-error "$TM_RPC/status" | jq -er '.result.sync_info.latest_block_height | tonumber')
+sleep 2
+curl --fail --silent --show-error "$TM_RPC/status" | jq -e --argjson before "$HEIGHT_BEFORE" '(.result.sync_info.latest_block_height | tonumber) > $before'
 ```
 
-(In the real engineer flow, you'd run `seictl onboard` *without* `--no-pr`, the platform PR merges, Flux applies the manifests, and these resources appear without manual intervention.)
+Stop on a mismatched chain or lack of progress. Do not point these checks at a
+public production chain to make the smoke pass.
 
-## Step 2 — bench up
+## Workflow validation and a real read-only task
 
-Pin to a known seid digest. `mock-` variants (built with the `mock_balances` tag) are required for any bench that uses seiload's EVMTransfer profile, since the profile sends from pre-seeded accounts that only exist in the mock build.
+Validate the supported StateSync CR without executing a data wipe. Confirm
+`kind=SeiNodeTaskWorkflow`, `spec.kind=StateSync` and the exact target reference.
+This is a rendering/admission check only; it does not prove controller execution
+or live witness quorum. Destructive state-sync qualification is a separate
+procedure described in [workflow recovery guidance](../../workflow/README.md).
 
 ```sh
-# Resolve the latest sei-chain main SHA → mock image.
-SEI_SHA=$(gh api repos/sei-protocol/sei-chain/commits/main --jq '.sha')
-SEID_IMAGE="189176372795.dkr.ecr.us-east-2.amazonaws.com/sei/sei-chain:mock-${SEI_SHA}"
-echo "Pinning to: $SEID_IMAGE"
-
-# Confirm the image actually exists in ECR (sei-chain CI may still be publishing).
-aws ecr describe-images \
-  --repository-name sei/sei-chain \
-  --image-ids "imageTag=mock-${SEI_SHA}" \
-  --query 'imageDetails[0].imageDigest'
-
-seictl bench up \
-  --image "$SEID_IMAGE" \
-  --name smoke \
-  --size s \
-  --duration 5 \
-  --apply | jq .
+seictl workflow apply --kubeconfig "$KUBECONFIG" -n "$NS" --preset state-sync --target "$NODE" --dry-run paxeer-smoke-state-sync
+seictl workflow list --kubeconfig "$KUBECONFIG" -n "$NS"
 ```
 
-**Expected envelope** (`size s` = 4 validators + 1 RPC):
-
-```jsonc
-{
-  "kind": "seictl.BenchUpResult",
-  "data": {
-    "chainId": "bench-bdchatham-smoke",
-    "name": "smoke",
-    "namespace": "eng-bdchatham",
-    "imageDigest": "sha256:...",
-    "validators": 4,
-    "rpcNodes": 1,
-    "duration": "5m",
-    "endpoints": {
-      "tendermintRpc": ["http://bench-bdchatham-smoke-rpc-internal.eng-bdchatham.svc.cluster.local:26657"],
-      "evmJsonRpc": ["http://bench-bdchatham-smoke-rpc-internal.eng-bdchatham.svc.cluster.local:8545"]
-    },
-    "manifests": [
-      {"kind": "ConfigMap", "name": "seiload-profile-bench-bdchatham-smoke", "action": "create"},
-      {"kind": "SeiNodeDeployment", "name": "bench-bdchatham-smoke", "action": "create"},
-      {"kind": "SeiNodeDeployment", "name": "bench-bdchatham-smoke-rpc", "action": "create"},
-      {"kind": "Job", "name": "seiload-bench-bdchatham-smoke", "action": "create"}
-    ],
-    "appliedAt": "..."
-  }
-}
-```
-
-**Wait for validators to reach `Running`:**
+The task client must run where the pod's DNS resolves and TLS :8443 is reachable.
+Use kubeconfig credentials with proxy RBAC and the proxy CA. Its TokenReview and
+SubjectAccessReview authenticate/authorize the caller; do not forge identity
+headers or bypass TLS validation. The sidecar stays on loopback :7777 in
+trusted-header mode. The four probe/metrics bypass paths do not grant task access.
 
 ```sh
-kubectl get snd -n eng-bdchatham -w
-# Ctrl-C once both SNDs show readyReplicas matching desired (4 validators, 1 rpc)
+TASK_ID=$(seictl task submit --kubeconfig "$KUBECONFIG" -n "$NS" --node "$NODE" --proxy-ca-file "$PROXY_CA" config-validate | jq -er '.id')
+seictl task get --kubeconfig "$KUBECONFIG" -n "$NS" --node "$NODE" --proxy-ca-file "$PROXY_CA" "$TASK_ID"
+seictl task list --kubeconfig "$KUBECONFIG" -n "$NS" --node "$NODE" --proxy-ca-file "$PROXY_CA"
 ```
 
-## Step 3 — verify the chain is alive
+Poll `task get` for that same ID until `status=completed`; fail this smoke on
+`failed`, a non-empty error or a two-minute timeout. Submission only admits the
+operation. Inspect the completed record before cleanup; keep its private
+revision/command evidence. Tasks run once; no built-in cron scheduler retries a
+failure. HTTP 429 means capacity exhausted, 503 means recovery state is
+unavailable, and 401 means the proxy identity boundary failed. Resolve the cause
+instead of inventing a new ID and duplicating work.
 
-Hit the EVM JSON-RPC endpoint from inside the cluster (no port-forward; matches what seiload does):
+## Scoped cleanup and sign-off
+
+Delete only the recorded task and objects created by this procedure after their
+results are inspected. Workflow dry-run created no persistent workflow. Inspect
+remaining resources and controller-managed storage before deciding whether the
+dedicated namespace may be deleted under the deployment's cleanup policy.
 
 ```sh
-kubectl run curl-smoke --rm -i --restart=Never \
-  --image=curlimages/curl:8.10.1 \
-  -n eng-bdchatham \
-  -- curl -s -X POST \
-    -H 'Content-Type: application/json' \
-    -d '{"jsonrpc":"2.0","method":"eth_blockNumber","id":1,"params":[]}' \
-    http://bench-bdchatham-smoke-rpc-internal.eng-bdchatham.svc.cluster.local:8545
+seictl task delete --kubeconfig "$KUBECONFIG" -n "$NS" --node "$NODE" --proxy-ca-file "$PROXY_CA" "$TASK_ID"
+seictl node delete --kubeconfig "$KUBECONFIG" -n "$NS" "$NODE"
+seictl network delete --kubeconfig "$KUBECONFIG" -n "$NS" "$NETWORK"
+kubectl get seinetworks,seinodes,seinodetaskworkflows,pods,pvc -n "$NS"
 ```
 
-**Expected:** a JSON response with a non-zero `result` (block number in hex).
-
-**Tail the seiload Job:**
-
-```sh
-kubectl logs -n eng-bdchatham -f job/seiload-bench-bdchatham-smoke
-# expect: load profile starts, transactions submitting, target TPS reported
-```
-
-## Step 4 — bench list
-
-```sh
-seictl bench list | jq .
-```
-
-**Expected:** one item with `chainId: bench-bdchatham-smoke`, `validatorsReady: 4`, `rpcReady: 1`, `loadJobPhase: Running`.
-
-## Step 5 — bench down
-
-```sh
-# Dry-run first to preview what gets deleted.
-seictl bench down --name smoke --dry-run | jq .
-
-# Then actually delete.
-seictl bench down --name smoke --apply | jq .
-```
-
-**Expected:** `deletedAt` populated; if any resource is `still-terminating`, the `hint` field will say so.
-
-**Verify the namespace is clean:**
-
-```sh
-kubectl get snd,job,cm -n eng-bdchatham
-# expect: no resources from the bench (only the workload-service-account + namespace remain)
-```
-
-## Step 6 — verify S3 results landed
-
-```sh
-aws s3 ls s3://harbor-validation-results/eng-bdchatham/evm-transfer/smoke/
-# expect: report.log
-aws s3 cp s3://harbor-validation-results/eng-bdchatham/evm-transfer/smoke/report.log -
-# expect: seiload's stdout — TPS, latencies, etc.
-```
-
-## Cleanup (post-smoke)
-
-```sh
-# Remove the smoke namespace (not normally needed once the engineer-cell PR lands).
-kubectl delete namespace eng-bdchatham
-
-# Remove the local config file (optional — only if you want to re-test the missing-config error path).
-rm ~/.seictl/config.json
-```
-
-## Common failures
-
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| `aws-create-failed` on onboard | Wrong AWS profile / SSO expired | `aws sso login`, retry |
-| `image-resolution` error on bench up | `mock-<sha>` not yet published in ECR | Wait 60s for sei-chain CI to finish, retry; or pin to an older known-good `mock-<sha>` |
-| Pods stuck in `ImagePullBackOff` | ECR pull from kubelet failed | `kubectl describe pod` — check for `403` (IAM) or `not found` (digest mismatch) |
-| Validators never reach Ready | Genesis ceremony hung | `kubectl logs` validator-0 — look for `Stalling` or `panic`; usually a bad seid image |
-| EVM RPC returns connection refused | RPC SND not yet block-syncing | Wait — RPC follows validators; can take 30-60s after validators are Ready |
-| S3 results missing after teardown | seiload Job failed before completing | Check `kubectl logs -p job/seiload-bench-bdchatham-smoke` for the failed pod's stdout |
-
-## Sign-off
-
-When all steps pass without manual intervention, seictl is MVP-shipped end-to-end on harbor.
+Sign off only this isolated command smoke when both chain identities match,
+blocks advance, dry-runs use current resource kinds, the read-only task completes
+and scoped cleanup is observed. Retain release version, source revision and
+private evidence locations; never publish kubeconfig, keys or operational logs.

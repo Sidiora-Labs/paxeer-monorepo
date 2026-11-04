@@ -1,0 +1,11 @@
+[repair.22.33.306]
+audit = "22.30.135"
+health-service-name = "health_service_name_http and health_service_name_grpc mount the generated transports and assert whole-server and registered-service SERVING responses, HTTP 404 and gRPC NOT_FOUND for unknown names."
+signature-import-recovery = "signature_import_invalid_abi, signature_import_upstream_failure, signature_import_requires_function_and_event_confirmation, signature_import_restart_before_delivery and signature_import_restart_after_upstream_acceptance exercise production service/source clients against loopback upstream stores."
+delivery = "Validate the ABI, await imports and confirm every function and event at each configured writable source before acknowledging; blocked imports remain unacknowledged, retry idempotently after reopening, and acknowledged signatures remain readable through reopened HTTP ABI consumers."
+baseline = "No prior gate ledger or repair test existed; an unchanged-tree verification was not run because the task's ordered gate instructions prohibit verification before the complete implementation and hf-build."
+qualification = "The runner's hf-build and hf-done ledger records the exact candidate revision, declared command, exit code and private evidence location; no gate is claimed before it runs."
+wiring_request = "services/explorer/services/sig-provider/sig-provider/src/aggregator.rs and src/sources/{sigeth,fourbyte}.rs — domain 14: propagate import failures and validate HTTP/application responses so other direct library callers also receive refusal errors; the server confirms delivery by upstream readback within this task's scope."
+gotcha = "SignatureSource import methods accept refused HTTP responses and SourceAggregator drops source errors; awaiting the existing aggregator alone cannot establish successful delivery."
+qualification_first = "4fe9e86d5ebbb18f9f73e4e4b4353bc24253173a | cg spec done 22.33.306 -f layerx-merge --root /work/paxeer-monorepo | exit 1 | /out/logs/verify-1.log | six tests passed; invalid ABI type reached upstream because ethabi maps unknown type names to uint8."
+repair = "Retain every assertion and validate original JSON ABI parameter spellings, widths, array dimensions and nested tuple components before forwarding; the existing config JSON parser preserves the original type strings for this validation."

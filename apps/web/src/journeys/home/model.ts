@@ -1,5 +1,6 @@
 import { copyEntry } from "../../../copy/runtime.ts";
 import { formatCopy } from "../../../copy/format.ts";
+import { entryStatusKey } from "../activity/model.ts";
 import {
   type AccountBalance,
   type ActivityEntryDetail,
@@ -10,7 +11,6 @@ import {
 } from "../../api/index.ts";
 import {
   directionWord,
-  statusKeyFromCopyKey,
   verificationRung,
   verificationWord,
   type ProtocolAmount,
@@ -198,7 +198,7 @@ export function homeActivityRows(entries: readonly ActivityEntryDetail[]): reado
           receiptRequired &&
           !outcomeBacked
           ? "processing"
-          : statusKeyFromCopyKey(entry.state),
+          : entryStatusKey(entry.state),
       when: timestampWords(entry.occurred_at),
     };
     if (entry.money !== undefined && outcomeBacked) {

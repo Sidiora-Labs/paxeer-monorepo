@@ -55,10 +55,14 @@ func waitForReady(eng *engine.Engine) {
 	}
 }
 
-func waitForTaskResult(eng *engine.Engine, id string) *engine.TaskResult {
+func waitForTaskResult(t *testing.T, eng *engine.Engine, id string) *engine.TaskResult {
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
-		if r := eng.GetResult(id); r != nil && r.CompletedAt != nil {
+		r, err := eng.GetResult(id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if r != nil && r.CompletedAt != nil {
 			return r
 		}
 		time.Sleep(5 * time.Millisecond)
@@ -322,7 +326,7 @@ func TestListTasksAfterSubmit(t *testing.T) {
 	rec := serveHTTP(srv, http.MethodPost, "/v0/tasks", `{"type":"config-patch"}`)
 	var resp map[string]string
 	_ = json.NewDecoder(rec.Body).Decode(&resp)
-	waitForTaskResult(eng, resp["id"])
+	waitForTaskResult(t, eng, resp["id"])
 
 	rec = serveHTTP(srv, http.MethodGet, "/v0/tasks", "")
 	var results []engine.TaskResult
@@ -344,7 +348,7 @@ func TestGetTask(t *testing.T) {
 	var resp map[string]string
 	_ = json.NewDecoder(rec.Body).Decode(&resp)
 	id := resp["id"]
-	waitForTaskResult(eng, id)
+	waitForTaskResult(t, eng, id)
 
 	rec = serveHTTP(srv, http.MethodGet, "/v0/tasks/"+id, "")
 	if rec.Code != http.StatusOK {
@@ -404,7 +408,7 @@ func TestGetTaskInProgress(t *testing.T) {
 	}
 
 	close(blocked)
-	waitForTaskResult(eng, id)
+	waitForTaskResult(t, eng, id)
 
 	rec = serveHTTP(srv, http.MethodGet, "/v0/tasks/"+id, "")
 	if rec.Code != http.StatusOK {
@@ -435,7 +439,7 @@ func TestDeleteTask(t *testing.T) {
 	var resp map[string]string
 	_ = json.NewDecoder(rec.Body).Decode(&resp)
 	id := resp["id"]
-	waitForTaskResult(eng, id)
+	waitForTaskResult(t, eng, id)
 
 	rec = serveHTTP(srv, http.MethodDelete, "/v0/tasks/"+id, "")
 	if rec.Code != http.StatusNoContent {

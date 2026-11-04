@@ -19,6 +19,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -114,7 +115,7 @@ func run(ctx context.Context, args []string, stderr io.Writer) (err error) {
 		return err
 	}
 	defer os.RemoveAll(standby.home)
-	if *vector == "" || *vector == vectorV2Name {
+	if *vector == "" || *vector == vectorV2Name || *vector == v1ProgramsName {
 		if err := n.configureV2Genesis(); err != nil {
 			return err
 		}
@@ -169,6 +170,16 @@ func run(ctx context.Context, args []string, stderr io.Writer) (err error) {
 		value, err := vectors[name](n)
 		if err != nil {
 			return fmt.Errorf("record %s: %w", name, err)
+		}
+		if name == v1ProgramsName {
+			v, ok := value.(*v1ProgramsVector)
+			if !ok {
+				return errors.New("V1 Programs recorder returned another vector type")
+			}
+			if err := writeV1ProgramsCopies(*out, v); err != nil {
+				return err
+			}
+			continue
 		}
 		if name == vectorV2Name {
 			v, ok := value.(*vectorV2)
@@ -228,6 +239,9 @@ func prepareHome(ctx context.Context, paxd string) (_ *node, err error) {
 		return nil, err
 	}
 	if err := n.configure(); err != nil {
+		return nil, err
+	}
+	if err := n.configureReplicationTLS(); err != nil {
 		return nil, err
 	}
 	return n, nil
@@ -368,24 +382,26 @@ func (n *node) configureGenesis() error {
 }
 
 func (n *node) configure() error {
-	listeners := make([]net.Listener, 0, 6)
+	listeners := make([]net.Listener, 2, 3)
 	defer func() {
 		for _, listener := range listeners {
-			listener.Close()
+			if listener != nil {
+				listener.Close()
+			}
 		}
 	}()
-	for i := 0; i < 6; i++ {
+	for i := 2; i < 3; i++ {
 		listener, err := net.Listen("tcp", "127.0.0.1:0")
 		if err != nil {
 			return err
 		}
 		listeners = append(listeners, listener)
 	}
-	n.rpcURL = "http://" + listeners[0].Addr().String()
+	n.rpcURL = ""
 	n.p2pAddress = listeners[2].Addr().String()
-	n.consensusAddress = listeners[1].Addr().String()
+	n.consensusAddress = "127.0.0.4:0"
 	if n.standby != nil {
-		n.standbyAddress = listeners[3].Addr().String()
+		n.standbyAddress = "127.0.0.2:0"
 		n.standby.standbyAddress = n.standbyAddress
 	}
 	role := "primary"
@@ -401,12 +417,12 @@ func (n *node) configure() error {
 			"nonce-queue-max-total": int64(1024), "lease-duration": "3s",
 		}
 		evm := cfg["evm"].(map[string]any)
-		evm["http_enabled"], evm["http_address"] = !n.observer, "127.0.0.1"
-		evm["http_port"], evm["ws_enabled"] = listeners[0].Addr().(*net.TCPAddr).Port, false
+		evm["http_enabled"], evm["http_address"] = !n.observer, "127.0.0.3"
+		evm["http_port"], evm["ws_enabled"] = 0, false
 		grpc := cfg["grpc"].(map[string]any)
-		grpc["enable"], grpc["address"] = true, listeners[4].Addr().String()
+		grpc["enable"], grpc["address"] = true, "127.0.0.1:0"
 		cfg["grpc-web"].(map[string]any)["enable"] = false
-		cfg["api"].(map[string]any)["address"] = "tcp://" + listeners[5].Addr().String()
+		cfg["api"].(map[string]any)["address"] = "tcp://127.0.0.1:0"
 	}); err != nil {
 		return err
 	}
@@ -414,7 +430,7 @@ func (n *node) configure() error {
 		if n.observer {
 			cfg["mode"] = "full"
 		}
-		cfg["rpc"].(map[string]any)["laddr"] = "tcp://" + listeners[1].Addr().String()
+		cfg["rpc"].(map[string]any)["laddr"] = "tcp://127.0.0.4:0"
 		cfg["consensus"].(map[string]any)["unsafe-commit-timeout-override"] = "10s"
 		p2p := cfg["p2p"].(map[string]any)
 		p2p["allow-duplicate-ip"] = true
@@ -822,11 +838,6 @@ func (n *node) start() (_ func(), err error) {
 			}
 		})
 	}
-	n.client, err = rpc.DialContext(n.ctx, n.rpcURL)
-	if err != nil {
-		stop()
-		return nil, err
-	}
 	ctx, cancel := context.WithTimeout(n.ctx, 60*time.Second)
 	defer cancel()
 	ticker := time.NewTicker(100 * time.Millisecond)
@@ -836,8 +847,17 @@ func (n *node) start() (_ func(), err error) {
 		probe, cancel := context.WithTimeout(ctx, time.Second)
 		if n.isStandby || n.observer {
 			address := n.standbyAddress
+			if n.isStandby {
+				address, lastErr = processBoundTCPAddress(cmd.Process.Pid, "127.0.0.2")
+				if lastErr == nil {
+					n.standbyAddress = address
+				}
+			}
 			if n.observer {
-				address = n.consensusAddress
+				address, lastErr = processBoundTCPAddress(cmd.Process.Pid, "127.0.0.4")
+				if lastErr == nil {
+					n.consensusAddress = address
+				}
 			}
 			var conn net.Conn
 			conn, lastErr = (&net.Dialer{}).DialContext(probe, "tcp", address)
@@ -845,13 +865,30 @@ func (n *node) start() (_ func(), err error) {
 				conn.Close()
 			}
 		} else {
+			if n.client == nil {
+				var address string
+				address, lastErr = processBoundTCPAddress(cmd.Process.Pid, "127.0.0.3")
+				if lastErr == nil {
+					n.rpcURL = "http://" + address
+				}
+				if lastErr == nil {
+					n.client, lastErr = rpc.DialContext(probe, n.rpcURL)
+				}
+			}
 			var result json.RawMessage
-			lastErr = n.client.CallContext(probe, &result, "pax_sequencerReceipt", common.Hash{})
+			if n.client != nil {
+				lastErr = n.client.CallContext(probe, &result, "pax_sequencerReceipt", common.Hash{})
+			}
 		}
 		cancel()
 		if lastErr == nil {
-			n.stopProcess = stop
-			return stop, nil
+			address, e := processBoundTCPAddress(cmd.Process.Pid, "127.0.0.4")
+			if e == nil {
+				n.consensusAddress = address
+				n.stopProcess = stop
+				return stop, nil
+			}
+			lastErr = e
 		}
 		select {
 		case <-done:
@@ -900,4 +937,52 @@ func (n *node) printLogTail(stderr io.Writer) {
 	if _, err := io.Copy(stderr, log); err != nil {
 		fmt.Fprintf(stderr, "read recorder log %s: %v\n", path, err)
 	}
+}
+
+// A standby process owns its port-zero socket before its primary learns the
+// address. Match socket ownership, not an unowned entry in the global TCP table.
+func processBoundTCPAddress(pid int, host string) (string, error) {
+	descriptors, err := os.ReadDir(fmt.Sprintf("/proc/%d/fd", pid))
+	if err != nil {
+		return "", err
+	}
+	owned := make(map[string]bool)
+	for _, descriptor := range descriptors {
+		target, err := os.Readlink(fmt.Sprintf("/proc/%d/fd/%s", pid, descriptor.Name()))
+		if err == nil && strings.HasPrefix(target, "socket:[") {
+			owned[strings.TrimSuffix(strings.TrimPrefix(target, "socket:["), "]")] = true
+		}
+	}
+	data, err := os.ReadFile(fmt.Sprintf("/proc/%d/net/tcp", pid))
+	if err != nil {
+		return "", err
+	}
+	var addresses []string
+	for _, line := range strings.Split(string(data), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 10 || fields[3] != "0A" || !owned[fields[9]] {
+			continue
+		}
+		local := strings.Split(fields[1], ":")
+		if len(local) != 2 {
+			continue
+		}
+		ipBytes, err := hex.DecodeString(local[0])
+		if err != nil || len(ipBytes) != 4 {
+			continue
+		}
+		ip := net.IPv4(ipBytes[3], ipBytes[2], ipBytes[1], ipBytes[0]).String()
+		if ip != host {
+			continue
+		}
+		port, err := strconv.ParseUint(local[1], 16, 16)
+		if err != nil || port == 0 {
+			continue
+		}
+		addresses = append(addresses, net.JoinHostPort(ip, fmt.Sprint(port)))
+	}
+	if len(addresses) != 1 {
+		return "", fmt.Errorf("process %d owns %d listening sockets on %s; expected one", pid, len(addresses), host)
+	}
+	return addresses[0], nil
 }

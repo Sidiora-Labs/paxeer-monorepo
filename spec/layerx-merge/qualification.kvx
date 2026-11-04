@@ -25787,3 +25787,955 @@ symbol = "programs"
 observed = "Attempt 6: all audit cases pass; the real mixed program authority case fails in its registration and commit sequence at line 859 with no receipt."
 assumption = "An in-scope registration or commit refusal under the state-commitment protocol version, or a fixture authority defect; the attempt decides from the code."
 severity = "high"
+
+[finding.22.33.1302.1]
+task = "22.33.1302"
+file = "modules/layerxpay/types/repair_m1302_test.go"
+symbol = "repair_m1302_test.go"
+observed = "Attempt 1: the escrow case passed; the genesis fixture was corrected after the only verify run and the repair budget was exhausted before a rerun."
+assumption = "Unverified final revision, not a known defect."
+severity = "low"
+
+[finding.22.33.1329.1]
+task = "22.33.1329"
+file = "services/platform/hosted/webhooks/tests/repair_m1329_test.go"
+symbol = "repair_m1329_test.go"
+observed = "Attempt 1: the go test gate found no Go sources in the webhooks tests directory and the attempt filed the repair as a wiring request."
+assumption = "A generated gate naming the wrong toolchain (gotcha 2984); the gate is corrected and the repair is in scope."
+severity = "medium"
+
+[finding.22.33.1334.1]
+task = "22.33.1334"
+file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1334.rs"
+symbol = "repair_22_33_1334.rs"
+observed = "Attempt 1: the final revision fails to compile on an error conversion in the payments test and the round-trip case lacks its malformed-payload fixture; constructor gaps were filed as out of scope."
+assumption = "An in-scope compile defect plus in-domain constructor gaps; the scope is widened to the crypto crate's sources."
+severity = "medium"
+
+[finding.22.33.1364.1]
+task = "22.33.1364"
+file = "services/platform/examples/test/repair-22-33-1364.test.mjs"
+symbol = "repair-22-33-1364.test.mjs"
+observed = "Attempt 1: the example test copied modules into a temporary directory where viem's hashes dependency was missing."
+assumption = "A test resolving dependencies outside the installed workspace, not a missing dependency; the gate installs the root workspace."
+severity = "medium"
+
+[finding.22.33.1366.1]
+task = "22.33.1366"
+file = "services/platform/tests/repair_22_33_1366.rs"
+symbol = "repair_22_33_1366.rs"
+observed = "Attempt 1: cargo refused the --test target because the workspace root manifest is virtual."
+assumption = "A generated gate through a virtual workspace root (gotcha 2984); the gate is corrected."
+severity = "medium"
+
+[finding.22.33.1374.1]
+task = "22.33.1374"
+file = "services/platform/perf-db/tests/repair_22_33_1374.rs"
+symbol = "repair_22_33_1374.rs"
+observed = "Attempt 1: twenty-seven accounting cases fail and the attempt filed the production side as requests to another domain."
+assumption = "In-domain accounting disagreements; the scope is widened to the perf-db sources."
+severity = "medium"
+
+[finding.22.33.1391.1]
+task = "22.33.1391"
+file = "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/Repair22331391Test.java"
+symbol = "Repair22331391Test.java"
+observed = "Attempt 1: the fee-token vector lacks a recorded receipt and the SDK metadata names a different retrieval method than the contract."
+assumption = "A missing committed recording and an in-domain metadata drift from the contract."
+severity = "medium"
+
+[finding.22.33.1400.1]
+task = "22.33.1400"
+file = "services/platform/examples/test/repair-22-33-1400.test.mjs"
+symbol = "repair-22-33-1400.test.mjs"
+observed = "Attempt 1: three cases fail in the seller middleware's receipt digest verification against the SDK's v2 digest."
+assumption = "A producer-to-consumer digest break carried by 22.31.457, repaired in domain if any remains."
+severity = "medium"
+
+[finding.22.33.314.1]
+task = "22.33.314"
+file = "apps/explorer/ui/pages/repair-22-33-314.spec.ts"
+symbol = "repair-22-33-314.spec.ts"
+observed = "Attempt 1: seventeen of thirty-eight cases failed; the fixture repairs that followed were not verified."
+assumption = "Unverified final revision, not a known defect."
+severity = "low"
+
+[finding.22.33.44.1]
+task = "22.33.44"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_44.rs"
+symbol = "repair_22_33_44.rs"
+observed = "Attempt 1: seven cases fail on renderer digest and nonce-hold behaviour the attempt filed as out of scope."
+assumption = "In-domain producer and route defects; the scope is widened to the human service sources."
+severity = "high"
+
+[finding.22.31.147.5]
+task = "22.31.147"
+file = "tests/agent/sdk/python/test_repair_22_31_147.py"
+symbol = "test_repair_22_31_147.py"
+observed = "Attempt 5: seventeen cases pass; the recorded event's context hash disagrees with its calldata because the recording came from a consumer crate's fixture, not from the ledger precompile."
+assumption = "A recording of the wrong producer; the ledger precompile is the producer and the SDK adopts its definition."
+severity = "medium"
+
+[finding.22.31.267.4]
+task = "22.31.267"
+file = "services/explorer/services/sig-provider/sig-provider/tests/repair_22_31_267.rs"
+symbol = "repair_22_31_267.rs"
+observed = "Attempt 5: the HTTP events case exposes a guessed layout beside the exact producer metadata; the aggregator was outside the scope."
+assumption = "An in-domain aggregator defect; the scope is widened to the provider's sources."
+severity = "medium"
+
+[finding.22.33.552.3]
+task = "22.33.552"
+file = "services/explorer/backend/apps/indexer/test/repair/repair_22_33_552_test.exs"
+symbol = "repair_22_33_552_test.exs"
+observed = "Attempt 3: seven of eight cases read a nil call type on the imported internal transactions; the single-block case passed."
+assumption = "An incomplete recording or an in-domain trace transform defect; the attempt decides from the imported record."
+severity = "medium"
+
+[finding.22.31.454.1]
+task = "22.31.454"
+file = "tools/qualification/audit_repairs/test_repair_22_31_454.py"
+symbol = "test_repair_22_31_454.py"
+observed = "Attempt 1: the attempt stopped to ask whether the stun import path change belonged to the task."
+assumption = "A dependency bump carries the import moves of its own module; the scope is widened to the nat package."
+severity = "medium"
+
+[finding.22.31.455.1]
+task = "22.31.455"
+file = "tools/qualification/audit_repairs/test_repair_22_31_455.py"
+symbol = "test_repair_22_31_455.py"
+observed = "Attempt 1: the verify passed, but the verified revision differed from the built one by a package lock file rewritten by the dependency reinstall."
+assumption = "A qualification-environment effect, not an attempt defect."
+severity = "low"
+
+[finding.22.33.1008.2]
+task = "22.33.1008"
+file = "services/launchpad/api/internal/rest/repair_m1008_test.go"
+symbol = "repair_m1008_test.go"
+observed = "Attempt 2: the build fails on the Go workspace version mismatch repaired by 22.31.461."
+assumption = "A workspace defect repaired by the required task; the kept rulings stand."
+severity = "low"
+
+[finding.22.33.1028.3]
+task = "22.33.1028"
+file = "services/launchpad/social/internal/devsocial/repair_m1028_test.go"
+symbol = "repair_m1028_test.go"
+observed = "Attempt 3: the build fails on the Go workspace version mismatch repaired by 22.31.461."
+assumption = "A workspace defect repaired by the required task; the kept rulings stand."
+severity = "low"
+
+[finding.22.33.1049.2]
+task = "22.33.1049"
+file = "services/launchpad/trading-charts/internal/app/repair_m1049_test.go"
+symbol = "repair_m1049_test.go"
+observed = "Attempt 2: the versioned history case receives an integrity quarantine for a malformed stored candle."
+assumption = "A stored-format disagreement between migration and fixture inside the task's own service."
+severity = "medium"
+
+[finding.22.33.1205.1]
+task = "22.33.1205"
+file = "interchain/modules/apps/transfer/keeper/repair_m1205_test.go"
+symbol = "repair_m1205_test.go"
+observed = "Attempt 1: the multi-hop denom-hash case fails because the route parameter cannot carry slashes."
+assumption = "An in-scope route definition defect of the transfer module."
+severity = "medium"
+
+[finding.22.33.1228.1]
+task = "22.33.1228"
+file = "modules/layerxcustody/keeper/repair_m1228_test.go"
+symbol = "repair_m1228_test.go"
+observed = "Attempt 1: the retirement recovery case is refused with an invalid bond action because the guarantor is not pending."
+assumption = "A fixture sequence or keeper transition defect inside the task's own module."
+severity = "medium"
+
+[finding.22.33.1240.1]
+task = "22.33.1240"
+file = "modules/evm/client/cli/repair_m1240_test.go"
+symbol = "repair_m1240_test.go"
+observed = "Attempt 1: the final revision carries a fixture correction made after the last verify run."
+assumption = "Unverified final revision, not a known defect."
+severity = "low"
+
+[finding.22.33.1242.1]
+task = "22.33.1242"
+file = "modules/evm/keeper/repair_m1242_test.go"
+symbol = "repair_m1242_test.go"
+observed = "Attempt 1: the fee case fails because the fixture's minimum fee per gas exceeds the module's validated maximum."
+assumption = "A fixture outside the parameter bounds, not a parameter defect."
+severity = "medium"
+
+[finding.22.33.1271.1]
+task = "22.33.1271"
+file = "wasm/benchmarks/repair_m1271_test.go"
+symbol = "repair_m1271_test.go"
+observed = "Attempt 1: the benchmark's zero-fee transactions are refused and the attempt asked for a backend selection hook."
+assumption = "Fee-less fixtures and an option the app already exposes; both in scope."
+severity = "medium"
+
+[finding.22.33.1276.1]
+task = "22.33.1276"
+file = "interchain/testing/repair_m1276_test.go"
+symbol = "repair_m1276_test.go"
+observed = "Attempt 1: the final revision has a passing build and no verify record."
+assumption = "Unverified final revision; any remaining legacy REST case is in scope."
+severity = "low"
+
+[finding.22.33.1288.1]
+task = "22.33.1288"
+file = "wasm/x/wasm/keeper/repair_m1288_test.go"
+symbol = "repair_m1288_test.go"
+observed = "Attempt 1: the snapshot fixture correction was never verified because the repair budget was exhausted."
+assumption = "Unverified final revision, not a known defect."
+severity = "low"
+
+[finding.22.33.1309.1]
+task = "22.33.1309"
+file = "sdk/server/repair_m1309_test.go"
+symbol = "repair_m1309_test.go"
+observed = "Attempt 1: the rollback case collides on P2P addresses and the unsupported-app case asserts a legacy hash."
+assumption = "Fixture address reservation and an outdated assertion, both in scope."
+severity = "medium"
+
+[finding.22.33.1368.1]
+task = "22.33.1368"
+file = "sdk/platform/dotnet/repair_m1368_test.go"
+symbol = "repair_m1368_test.go"
+observed = "Attempt 1: the gate found no TestRepairM_1368_ functions because no Go test was written for the C# repairs."
+assumption = "The precedent gate of this directory proves the repairs at source level."
+severity = "medium"
+
+[finding.22.33.1397.1]
+task = "22.33.1397"
+file = "sdk/platform/swift/Tests/LayerXSDKTests/Repair22331397Tests.swift"
+symbol = "Repair22331397Tests.swift"
+observed = "Attempt 1: two corrections were unverified and the lifecycle fixture lacks a payment denom."
+assumption = "Unverified corrections plus an in-domain fixture gap; the scope is widened to the Swift tests."
+severity = "medium"
+
+[finding.22.33.1410.1]
+task = "22.33.1410"
+file = "services/platform/hosted/dashboard/tests/repair_22_33_1410.rs"
+symbol = "repair_22_33_1410.rs"
+observed = "Attempt 1: the fixture-order repair has no verify record."
+assumption = "Unverified final revision; any producer output is recorded, not requested."
+severity = "low"
+
+[finding.22.33.1418.1]
+task = "22.33.1418"
+file = "services/platform/tools/workspace-gate/tests/repair_22_33_1418.rs"
+symbol = "repair_22_33_1418.rs"
+observed = "Attempt 1: the workspace gate finds none of the manifest's paths because the manifest names the pre-merge layout."
+assumption = "A manifest left at the pre-merge layout; the scope covers manifest and gate."
+severity = "medium"
+
+[finding.22.33.1422.1]
+task = "22.33.1422"
+file = "modules/layerxauth/types/repair_m1422_test.go"
+symbol = "repair_m1422_test.go"
+observed = "Attempt 1: the amount comparison fails because proto.Equal is applied to SDK amount types."
+assumption = "A comparison method defect in the task's own test."
+severity = "medium"
+
+[finding.22.33.1436.1]
+task = "22.33.1436"
+file = "tools/platform/release/tests/repair_22_33_1436.rs"
+symbol = "repair_22_33_1436.rs"
+observed = "Attempt 1: the test fails to build because the included TLS boundary helper requires a binary no crate provides."
+assumption = "A pre-existing helper dependency the task must not include; the missing crate is a separate finding."
+severity = "medium"
+
+[finding.22.33.1477.1]
+task = "22.33.1477"
+file = "services/platform/middleware/buyer/test/repair-22-33-1477.test.mjs"
+symbol = "repair-22-33-1477.test.mjs"
+observed = "Attempt 1: the per-package install fails with a registry 404 for the workspace SDK and the native-draw correction was filed as a wiring request."
+assumption = "A per-package install of a workspace member, plus an in-scope correction."
+severity = "medium"
+
+[finding.22.33.1481.1]
+task = "22.33.1481"
+file = "services/platform/middleware/conformance/test/repair-22-33-1481.test.mjs"
+symbol = "repair-22-33-1481.test.mjs"
+observed = "Attempt 1: the conformance build fails on a seller middleware type error."
+assumption = "A producer type break repaired by 22.31.457, not a defect of this task."
+severity = "low"
+
+[finding.22.33.1484.1]
+task = "22.33.1484"
+file = "services/platform/perps-data/internal/publish/repair_m1484_test.go"
+symbol = "repair_m1484_test.go"
+observed = "Attempt 1: the attempt stopped to ask whether PostgreSQL may be used when the task text forbids it."
+assumption = "The environment provides the database; the ruling is the decision."
+severity = "medium"
+
+[finding.22.31.461.1]
+task = "22.31.461"
+file = "services/launchpad/go.work"
+symbol = "go.work"
+observed = "Attempt 1: the build and the verify passed; the verified revision differs from the built one by the regenerated workspace checksum file."
+assumption = "A generated file committed before the build regenerated it, not a repair defect."
+severity = "low"
+
+[finding.22.33.1557.1]
+task = "22.33.1557"
+file = "services/agent/crates/layerx-proof/tests/repair_22_33_1557.rs"
+symbol = "repair_22_33_1557.rs"
+observed = "Attempt 1: the build fails because two existing tests of the same crate import the retired modules."
+assumption = "An in-crate consumer of the retired modules; the scope covers the crate's tests."
+severity = "medium"
+
+[finding.22.33.175.2]
+task = "22.33.175"
+file = "services/wallet/ceremony/internal/testsupport/repair_m175_test.go"
+symbol = "repair_m175_test.go"
+observed = "Attempt 2: two cases pass; the real-protocol case fails on 404 describe answers and unchanged shares, and the attestor constructor was filed as out of scope."
+assumption = "The producer is in the same domain; the scope is widened to the attestor."
+severity = "medium"
+
+[finding.22.33.24.1]
+task = "22.33.24"
+file = "services/agent/sdk/typescript/test/repair-22-33-24.test.ts"
+symbol = "repair-22-33-24.test.ts"
+observed = "Attempt 2: thirty-eight cases pass and nine fail on an unrecorded accountId call to the ledger precompile."
+assumption = "A recording that predates the client's current calls, not a producer defect."
+severity = "medium"
+
+[finding.22.33.47.4]
+task = "22.33.47"
+file = "services/human/crates/layerx-human-security-provider/tests/repair_22_33_47.rs"
+symbol = "repair_22_33_47.rs"
+observed = "Attempt 6: one case passes; two cases are refused because the receipt-key proof root mismatches the signed app hash of the recorded header."
+assumption = "A proof paired with the wrong header in the recorder, or a verifier defect in the same crate; both in scope."
+severity = "high"
+
+[finding.22.33.619.4]
+task = "22.33.619"
+file = "sdk/integrations/next/example/test/repair-22-33-619.test.mjs"
+symbol = "repair-22-33-619.test.mjs"
+observed = "Attempt 4: the build fails on a seller middleware type error raised while installing the example."
+assumption = "A producer type break repaired by 22.31.457, not a defect of this task."
+severity = "low"
+
+[finding.22.33.690.1]
+task = "22.33.690"
+file = "sdk/x/staking/repair_m690_test.go"
+symbol = "repair_m690_test.go"
+observed = "Attempt 2: the client examples case fails on nil versus empty redelegation entries after the repair budget was exhausted."
+assumption = "A documentation-versus-output mismatch inside the task's own module."
+severity = "medium"
+
+[finding.22.33.702.1]
+task = "22.33.702"
+file = "tests/agent/sdk/python/test_repair_22_33_702.py"
+symbol = "test_repair_22_33_702.py"
+observed = "Attempt 1: forty-seven cases pass; the committed transaction identity and the derived payer account differ from the recorded vectors."
+assumption = "A consumer that disagrees with the producer's recorded definition; the scope is widened to the SDK."
+severity = "medium"
+
+[finding.22.33.839.1]
+task = "22.33.839"
+file = "tools/paxctl/repair_m839_test.go"
+symbol = "repair_m839_test.go"
+observed = "Attempt 1: the module build fails on two assignment mismatches in the sidecar server."
+assumption = "An in-scope compile break the attempt mislabelled as pre-existing."
+severity = "medium"
+
+[finding.22.33.1047.3]
+task = "22.33.1047"
+file = "sdk/launchpad/packages/sdk/test/repair-22-33-1047.test.mjs"
+symbol = "repair-22-33-1047.test.mjs"
+observed = "Attempt 3: seven cases pass; three fail demanding a manifest bundle that has never existed in the repository."
+assumption = "A test demanding an input that never existed; the proof uses the generated catalog."
+severity = "medium"
+
+[finding.22.33.964.1]
+task = "22.33.964"
+file = "tools/launchpad/production/interfaces/test_repair_22_33_964.py"
+symbol = "test_repair_22_33_964.py"
+observed = "Attempt 2: four cases pass; the authority case fails on a missing catalog file."
+assumption = "A generated output mistaken for a committed input."
+severity = "medium"
+
+[finding.22.33.1072.2]
+task = "22.33.1072"
+file = "storage/db_engine/rocksdb/mvcc/repair_m1072_test.go"
+symbol = "repair_m1072_test.go"
+observed = "Attempt 3: the cgo build fails because the installed RocksDB library lacks rocksdb_delete_file, which the pinned grocksdb binds."
+assumption = "A library pairing mismatch of the qualification environment; the gate builds the paired RocksDB."
+severity = "medium"
+
+[finding.22.33.1318.1]
+task = "22.33.1318"
+file = "tools/qualification/audit_repairs/test_repair_22_33_1318.py"
+symbol = "test_repair_22_33_1318.py"
+observed = "Attempt 1: cargo found no test target named repair_22_33_1318 because the gate went through the virtual workspace root."
+assumption = "A generated gate through a virtual workspace root (gotcha 2984), corrected by batch 420; the note was registered directly."
+severity = "low"
+
+[finding.22.33.1329.2]
+task = "22.33.1329"
+file = "services/platform/hosted/webhooks/tests/repair_22_33_1329.rs"
+symbol = "repair_22_33_1329.rs"
+observed = "Attempt 2: the go test gate matched no packages in the Rust crate's tests directory."
+assumption = "A pre-correction launch against the generated gate (gotcha 2984); the note was registered directly."
+severity = "low"
+
+[finding.22.33.1375.1]
+task = "22.33.1375"
+file = "services/platform/perf-db/tests/repair_22_33_1375.rs"
+symbol = "repair_22_33_1375.rs"
+observed = "Attempt 1: the crate does not compile because two call sites in the binary still expect the untyped hash."
+assumption = "An in-crate caller of a changed signature; the scope is widened to the crate's sources."
+severity = "medium"
+
+[finding.22.33.1376.1]
+task = "22.33.1376"
+file = "services/platform/perf-db/tests/repair_22_33_1376.rs"
+symbol = "repair_22_33_1376.rs"
+observed = "Attempt 1: the crate library does not compile because two call sites in the relational storage still expect the untyped result."
+assumption = "An in-crate caller of a changed signature; the scope is widened to the crate's sources."
+severity = "medium"
+
+[finding.22.33.1391.2]
+task = "22.33.1391"
+file = "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/Repair22331391Test.java"
+symbol = "Repair22331391Test.java"
+observed = "Attempt 2: five of seven cases pass; the fee-token recording and the program metadata failures of attempt 1 repeat."
+assumption = "A pre-ruling launch; the ruling of attempt 1 is repeated."
+severity = "low"
+
+[finding.22.33.1444.1]
+task = "22.33.1444"
+file = "services/platform/hosted/indexer/tests/repair_22_33_1444.rs"
+symbol = "repair_22_33_1444.rs"
+observed = "Attempt 1: 13 of 14 cases passed; the limiter churn case returned View CapacityExceeded and the budget was spent on its correction."
+assumption = "A test corrected after the budget ran out; the note was registered directly."
+severity = "low"
+
+[finding.22.33.1464.1]
+task = "22.33.1464"
+file = "services/platform/hosted/paxai-worker/tests/repair_22_33_1464.rs"
+symbol = "repair_22_33_1464.rs"
+observed = "Attempt 1: two cases are refused with ApplicationError(1) on hand-encoded fixture state and proofs."
+assumption = "Hand-encoded fixtures behind the production encoding; the note was registered directly."
+severity = "medium"
+
+[finding.22.33.25.3]
+task = "22.33.25"
+file = "services/human/crates/layerx-human-kms/tests/repair_22_33_25.rs"
+symbol = "repair_22_33_25.rs"
+observed = "Attempt 5: one of sixteen handshake permits is retained by a peer that keeps dripping fragments past the deadline."
+assumption = "A per-read deadline renewal instead of an absolute handshake deadline; the note was registered directly."
+severity = "medium"
+
+[finding.22.33.1423.1]
+task = "22.33.1423"
+file = "modules/layerxledger/keeper/repair_m1423_test.go"
+symbol = "repair_m1423_test.go"
+observed = "Attempt 1: two cases expect a reused payment reference to be accepted, which the host's replay check refuses by decision 2337."
+assumption = "A test expectation against a standing decision; the note was registered directly."
+severity = "low"
+
+[finding.22.33.1076.2]
+task = "22.33.1076"
+file = "tests/daemon/test_repair_22_33_1076.py"
+symbol = "test_repair_22_33_1076.py"
+observed = "Attempt 3: 16 of 18 cases pass; the node reopened by the recorder refuses its own last block with an app hash mismatch after replay, so the commitment and reopen recording could not be made."
+assumption = "Either a recorder that reopens a fresh application store against the persisted consensus store, or a determinism defect of the node; the note tells the two apart."
+severity = "high"
+
+[finding.22.33.1553.1]
+task = "22.33.1553"
+file = "services/agent/crates/layerx-mcp/tests/repair_22_33_1553.rs"
+symbol = "repair_22_33_1553.rs"
+observed = "Attempt 1: 20 cases panic in the fixture on an empty payload, one case uses a retired binding field and one case misreads a oneOf of closed schemas as open."
+assumption = "Three fixture defects and no source defect; the note was registered directly."
+severity = "medium"
+
+[finding.22.33.512.1]
+task = "22.33.512"
+file = "services/explorer/backend/apps/indexer/test/repair/repair_22_33_512_test.exs"
+symbol = "repair_22_33_512_test.exs"
+observed = "Attempt 1: the fixture violates the one-consensus-child-per-parent index while setting up sibling blocks."
+assumption = "A fixture that marks both siblings canonical; the note was registered directly."
+severity = "low"
+
+[finding.22.33.711.1]
+task = "22.33.711"
+file = "apps/perps/tests/repair-22-33-711.test.ts"
+symbol = "repair-22-33-711.test.ts"
+observed = "Attempt 1: the test file failed in its JSDOM setup and the budget was spent on the correction."
+assumption = "A test setup corrected after the budget ran out; the note was registered directly."
+severity = "low"
+
+[finding.22.33.1465.1]
+task = "22.33.1465"
+file = "services/platform/hosted/paxai-worker/tests/repair_22_33_1465.rs"
+symbol = "repair_22_33_1465.rs"
+observed = "Attempt 1: the fixture protocol mismatch was repaired after the budget was spent."
+assumption = "A fixture corrected after the budget ran out; the note was registered directly."
+severity = "low"
+
+[finding.22.33.683.1]
+task = "22.33.683"
+file = "sdk/x/gov/client/testutil/repair_m683_test.go"
+symbol = "repair_m683_test.go"
+observed = "Attempt 1: the after_finalization and after_index_reopen cases failed against a historical deposit list that still returned per-transaction fragments."
+assumption = "A base from before the utils repair 22.33.676; the note was registered directly and the task now requires 22.33.676."
+severity = "low"
+
+[finding.22.33.1446.1]
+task = "22.33.1446"
+file = "services/platform/hosted/indexer/tests/repair_22_33_1446.rs"
+symbol = "repair_22_33_1446.rs"
+observed = "Attempt 1: the cases fail on the observe_comet refusal that the source repair 22.33.1444 removes."
+assumption = "A consumer test launched ahead of its producer repair; the task now requires 22.33.1444 and the crate sources are in scope."
+severity = "medium"
+
+[finding.22.33.1479.1]
+task = "22.33.1479"
+file = "services/platform/middleware/conformance/test/repair-22-33-1479.test.mjs"
+symbol = "repair-22-33-1479.test.mjs"
+observed = "Attempt 1: npm install inside the conformance package tried to fetch the repository's own agent-integrations package from the registry and failed with E404."
+assumption = "A generated gate that installs a workspace member in isolation; the gate is corrected to the root workspace."
+severity = "low"
+
+[finding.22.33.1483.1]
+task = "22.33.1483"
+file = "services/platform/perps-data/internal/source/repair_m1483_test.go"
+symbol = "repair_m1483_test.go"
+observed = "Attempt 1: verification was held because do_9 said the tests run without PostgreSQL while the real store is PostgreSQL."
+assumption = "A do item contradicting gotcha 2980; do_9 is amended."
+severity = "low"
+
+[finding.22.33.1551.1]
+task = "22.33.1551"
+file = "services/agent/crates/layerx-mcp/tests/repair_22_33_1551.rs"
+symbol = "repair_22_33_1551.rs"
+observed = "Attempt 1: the hold could not carry the payExact preparation because the disclosure codec lacks that call shape."
+assumption = "A consumer waiting on the codec rewrite 22.33.1558; the task now requires it and the codec file is in scope."
+severity = "medium"
+
+[finding.22.33.1510.1]
+task = "22.33.1510"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_1510.rs"
+symbol = "repair_22_33_1510.rs"
+observed = "Attempt 1: the production decoder refused daemon-written budget state with Corrupt (invalid rung rank 4) at tests/support/approval_owner.rs line 979."
+assumption = "A producer-to-consumer wire mismatch repaired by 22.31.462, not a defect of this task."
+severity = "high"
+
+[finding.22.33.1558.1]
+task = "22.33.1558"
+file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+symbol = "repair_22_33_1558.rs"
+observed = "Attempt 1: the test build fails because three existing test files import the retired disclosure APIs."
+assumption = "In-crate tests of a changed API; the scope is widened to the crate's tests."
+severity = "medium"
+
+[finding.22.33.917.2]
+task = "22.33.917"
+file = "services/launchpad/pnl-tracker/internal/app/repair_m917_test.go"
+symbol = "repair_m917_test.go"
+observed = "Attempt 2: go test stopped before compiling because the module's go.mod needs updating for the new test dependencies."
+assumption = "A module manifest outside the generated scope; the scope is widened to the module root."
+severity = "low"
+
+[finding.22.33.718.1]
+task = "22.33.718"
+file = "deploy/launchpad/production/recovery/repair_m718_test.go"
+symbol = "repair_m718_test.go"
+observed = "Attempt 1: the build passed and verification was held because the Go gate could only reach the Python component through a subprocess the do items forbid."
+assumption = "A generated gate naming the wrong toolchain (gotcha 2984); the gate is corrected to Python."
+severity = "low"
+
+[finding.22.33.879.1]
+task = "22.33.879"
+file = "tools/benchmark/loadtest/repair_m879_test.go"
+symbol = "repair_m879_test.go"
+observed = "Attempt 1: the build failed in modules/tokenfactory/client/cli on the changed NewFactoryCLI signature before any test ran."
+assumption = "A producer-to-consumer signature break repaired by 22.31.463, not a defect of this task."
+severity = "low"
+
+[finding.22.33.1259.1]
+task = "22.33.1259"
+file = "precompiles/distribution/legacy/v620/repair_m1259_test.go"
+symbol = "repair_m1259_test.go"
+observed = "Attempt 1: the package's test binary could not build because dependency packages still call NewFactoryCLI as a single value."
+assumption = "A producer-to-consumer signature break repaired by 22.31.463, not a defect of this task."
+severity = "low"
+
+[finding.22.33.1261.1]
+task = "22.33.1261"
+file = "precompiles/distribution/legacy/v640/repair_m1261_test.go"
+symbol = "repair_m1261_test.go"
+observed = "Attempt 1: the package's test binary could not build because dependency packages still call NewFactoryCLI as a single value."
+assumption = "A producer-to-consumer signature break repaired by 22.31.463, not a defect of this task."
+severity = "low"
+
+[finding.22.99.77.10]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 8: six test targets fail; the guest is 553,319 bytes over the payload limit so every native bring-up fails, the chain-domain case fails on the stale Makefile default, and the attempt's own link flags broke the final build."
+assumption = "A stale chain-domain default repaired by 22.31.464 plus a guest that must be shrunk through the workspace profile override, now in scope."
+severity = "high"
+
+[finding.22.33.1329.3]
+task = "22.33.1329"
+file = "services/platform/hosted/webhooks/tests/repair_22_33_1329.rs"
+symbol = "repair_22_33_1329.rs"
+observed = "Attempt 3: cargo exited 101 with failed to load manifest for workspace member hosted/paxeer before any test ran."
+assumption = "A workspace broken by another repair, repaired by 22.31.465; not a defect of this task."
+severity = "low"
+
+[finding.22.33.1418.2]
+task = "22.33.1418"
+file = "services/platform/tools/workspace-gate/tests/repair_22_33_1418.rs"
+symbol = "repair_22_33_1418.rs"
+observed = "Attempt 2: cargo exited 101 with failed to load manifest for workspace member hosted/paxeer before any test ran."
+assumption = "A workspace broken by another repair, repaired by 22.31.465; not a defect of this task."
+severity = "low"
+
+[finding.22.33.1465.2]
+task = "22.33.1465"
+file = "services/platform/hosted/paxai-worker/tests/repair_22_33_1465.rs"
+symbol = "repair_22_33_1465.rs"
+observed = "Attempt 2: cargo exited 101 with failed to load manifest for workspace member hosted/paxeer before any test ran."
+assumption = "A workspace broken by another repair, repaired by 22.31.465; not a defect of this task."
+severity = "low"
+
+[finding.22.31.454.2]
+task = "22.31.454"
+file = "tools/qualification/audit_repairs/test_repair_22_31_454.py"
+symbol = "test_repair_22_31_454.py"
+observed = "Attempt 2: the build failed in modules/tokenfactory/client/cli on the NewFactoryCLI signature before the advisory test ran; the root module tidy also reported missing Launchpad packages."
+assumption = "A producer-to-consumer signature break repaired by 22.31.463, not a defect of this task."
+severity = "low"
+
+[finding.22.33.886.3]
+task = "22.33.886"
+file = "tests/conformance/test_repair_22_33_886.py"
+symbol = "test_repair_22_33_886.py"
+observed = "Attempt 3: 31 cases pass and 20 fail, all on the explorer copy whose recorded source hash differs from the conformance source."
+assumption = "A third copy of the vectors outside the generated scope; the scope is widened to that file."
+severity = "low"
+
+[finding.22.33.115.3]
+task = "22.33.115"
+file = "services/interop/crates/layerx-ucp/tests/repair_22_33_115.rs"
+symbol = "repair_22_33_115.rs"
+observed = "Attempt 3: five producer cases fail with ReceiptMismatch because the recorded payment reference is not the gateway key of any idempotency key; three cases pass."
+assumption = "Producer evidence that was never a UCP checkout; a recorded UCP case is added by 22.31.466 and the crate's binding is unchanged."
+severity = "medium"
+
+[finding.22.33.1076.3]
+task = "22.33.1076"
+file = "tests/daemon/test_repair_22_33_1076.py"
+symbol = "test_repair_22_33_1076.py"
+observed = "Attempt 4: 16 of 18 cases pass; the two recording-dependent cases fail because the recorder could not be built on the NewFactoryCLI break."
+assumption = "A producer-to-consumer signature break repaired by 22.31.463 stands between this task and its recording."
+severity = "medium"
+
+[finding.22.33.1204.1]
+task = "22.33.1204"
+file = "interchain/modules/apps/27-interchain-accounts/host/keeper/repair_m1204_test.go"
+symbol = "repair_m1204_test.go"
+observed = "Attempt 1: the build passed and the test binary failed to build on the NewFactoryCLI signature in dependency packages before any test ran."
+assumption = "A producer-to-consumer signature break repaired by 22.31.463, not a defect of this task."
+severity = "low"
+
+[finding.22.33.1225.1]
+task = "22.33.1225"
+file = "interchain/modules/core/repair_m1225_test.go"
+symbol = "repair_m1225_test.go"
+observed = "Attempt 1: the build passed and the test binary failed to build on the NewFactoryCLI signature in dependency packages before any test ran."
+assumption = "A producer-to-consumer signature break repaired by 22.31.463, not a defect of this task."
+severity = "low"
+
+[finding.22.33.1227.1]
+task = "22.33.1227"
+file = "modules/tokenfactory/keeper/repair_m1227_test.go"
+symbol = "repair_m1227_test.go"
+observed = "Attempt 1: the build passed and the test binary failed to build on the NewFactoryCLI signature in dependency packages before any test ran."
+assumption = "A producer-to-consumer signature break repaired by 22.31.463, not a defect of this task."
+severity = "low"
+
+[finding.22.33.1249.1]
+task = "22.33.1249"
+file = "modules/xweb/types/repair_m1249_test.go"
+symbol = "repair_m1249_test.go"
+observed = "Attempt 1: the build passed and the test binary failed to build on the NewFactoryCLI signature in dependency packages before any test ran."
+assumption = "A producer-to-consumer signature break repaired by 22.31.463, not a defect of this task."
+severity = "low"
+
+[finding.22.33.1271.2]
+task = "22.33.1271"
+file = "wasm/benchmarks/repair_m1271_test.go"
+symbol = "repair_m1271_test.go"
+observed = "Attempt 2: the build passed and the test binary failed to build on the NewFactoryCLI signature in dependency packages before any test ran."
+assumption = "A producer-to-consumer signature break repaired by 22.31.463, not a defect of this task."
+severity = "low"
+
+[finding.22.33.1259.2]
+task = "22.33.1259"
+file = "precompiles/distribution/legacy/v620/repair_m1259_test.go"
+symbol = "repair_m1259_test.go"
+observed = "Attempt 2: the build passed and the test binary failed to build on the NewFactoryCLI signature in dependency packages before any test ran."
+assumption = "A producer-to-consumer signature break repaired by 22.31.463, not a defect of this task."
+severity = "low"
+
+[finding.22.33.1261.2]
+task = "22.33.1261"
+file = "precompiles/distribution/legacy/v640/repair_m1261_test.go"
+symbol = "repair_m1261_test.go"
+observed = "Attempt 2: the build passed and the test binary failed to build on the NewFactoryCLI signature in dependency packages before any test ran."
+assumption = "A producer-to-consumer signature break repaired by 22.31.463, not a defect of this task."
+severity = "low"
+
+[finding.22.33.1254.1]
+task = "22.33.1254"
+file = "precompiles/distribution/legacy/v580/repair_m1254_test.go"
+symbol = "repair_m1254_test.go"
+observed = "Attempt 2: the build passed and the test binary failed to build on the NewFactoryCLI signature in dependency packages before any test ran."
+assumption = "A producer-to-consumer signature break repaired by 22.31.463, not a defect of this task."
+severity = "low"
+
+[finding.22.33.1258.1]
+task = "22.33.1258"
+file = "precompiles/distribution/legacy/v614/repair_m1258_test.go"
+symbol = "repair_m1258_test.go"
+observed = "Attempt 2: the build passed and the test binary failed to build on the NewFactoryCLI signature in dependency packages before any test ran."
+assumption = "A producer-to-consumer signature break repaired by 22.31.463, not a defect of this task."
+severity = "low"
+
+[finding.22.33.1276.2]
+task = "22.33.1276"
+file = "interchain/testing/repair_m1276_test.go"
+symbol = "repair_m1276_test.go"
+observed = "Attempt 3: the build passed and the test binary failed to build on the NewFactoryCLI signature in dependency packages before any test ran."
+assumption = "A producer-to-consumer signature break repaired by 22.31.463, not a defect of this task."
+severity = "low"
+
+[finding.22.33.1288.2]
+task = "22.33.1288"
+file = "wasm/x/wasm/keeper/repair_m1288_test.go"
+symbol = "repair_m1288_test.go"
+observed = "Attempt 3: the build passed and the test binary failed to build on the NewFactoryCLI signature in dependency packages before any test ran."
+assumption = "A producer-to-consumer signature break repaired by 22.31.463, not a defect of this task."
+severity = "low"
+
+[finding.22.33.1322.1]
+task = "22.33.1322"
+file = "services/platform/hosted/paxeer/tests/repair_22_33_1322.rs"
+symbol = "repair_22_33_1322.rs"
+observed = "Attempt 1: the build exited 101 because the crate's manifest is absent."
+assumption = "A manifest deleted by another repair, restored by 22.31.465."
+severity = "low"
+
+[finding.22.33.1445.1]
+task = "22.33.1445"
+file = "services/platform/hosted/indexer/tests/repair_22_33_1445.rs"
+symbol = "repair_22_33_1445.rs"
+observed = "Attempt 1: cargo exited 101 with failed to load manifest for workspace member hosted/paxeer before any test ran."
+assumption = "A workspace broken by another repair, repaired by 22.31.465; not a defect of this task."
+severity = "low"
+
+[finding.22.33.1072.3]
+task = "22.33.1072"
+file = "storage/db_engine/rocksdb/mvcc/repair_m1072_test.go"
+symbol = "repair_m1072_test.go"
+observed = "Attempt 4: the build passed with RocksDB 8.11.4 built from source; the test binary failed to link on an unresolved CXXABI_1.3.15 symbol of the distribution's libgflags."
+assumption = "A gflags dependency pulled in by the library build; the gate drops it."
+severity = "low"
+
+[finding.22.33.1364.2]
+task = "22.33.1364"
+file = "services/platform/examples/test/repair-22-33-1364.test.mjs"
+symbol = "repair-22-33-1364.test.mjs"
+observed = "Attempt 2: the verify passed on the final tree, which was not committed, so the candidate check failed."
+assumption = "A passing tree left uncommitted; the note asks for the commit and a requalification."
+severity = "low"
+
+[finding.22.31.147.6]
+task = "22.31.147"
+file = "tests/agent/sdk/python/test_repair_22_31_147.py"
+symbol = "test_repair_22_31_147.py"
+observed = "Attempt 6: seventeen cases pass; the recorded draw case still fails on the context hash, and the ledger refuses every draw with LXP_NO_PAYER_GRANT so no replacement recording exists."
+assumption = "A consumer verifying a receipt kind the producer retired by decision 2340; the SDK adopts the refusal."
+severity = "medium"
+
+[finding.22.31.202.5]
+task = "22.31.202"
+file = "services/platform/hosted/gateway/tests/repair_22_31_202.rs"
+symbol = "repair_22_31_202.rs"
+observed = "Attempt 5: cargo exited 101 with failed to load manifest for workspace member hosted/paxeer before any test ran."
+assumption = "A workspace broken by another repair, repaired by 22.31.465; not a defect of this task."
+severity = "low"
+
+[finding.22.33.1240.2]
+task = "22.33.1240"
+file = "modules/evm/client/cli/repair_m1240_test.go"
+symbol = "repair_m1240_test.go"
+observed = "Attempt 3: the build failed on the NewFactoryCLI signature in dependency packages before any test ran."
+assumption = "A producer-to-consumer signature break repaired by 22.31.463, not a defect of this task."
+severity = "low"
+
+[finding.22.33.124.1]
+task = "22.33.124"
+file = "apps/wallet/src/lib/queries/repair-22-33-124.test.ts"
+symbol = "repair-22-33-124.test.ts"
+observed = "Attempt 2: TypeScript passed; five cases pass and two network-isolation cases fail with Invalid URL raised by the storage repository's network URL parser on the fixture's own value."
+assumption = "A test fixture that violates the product's URL rule; repaired in the test."
+severity = "low"
+
+[finding.22.31.459.1]
+task = "22.31.459"
+file = "precompiles/layerxexchange"
+symbol = "layerxexchange"
+observed = "Attempt 2: the build passed and the test binary failed to build on the NewFactoryCLI signature in dependency packages before any test ran."
+assumption = "A producer-to-consumer signature break repaired by 22.31.463, not a defect of this task."
+severity = "low"
+
+[finding.22.33.1201.1]
+task = "22.33.1201"
+file = "precompiles/staking/repair_m1201_test.go"
+symbol = "repair_m1201_test.go"
+observed = "Attempt 2: the build passed and the test binary failed to build on the NewFactoryCLI signature in dependency packages before any test ran."
+assumption = "A producer-to-consumer signature break repaired by 22.31.463, not a defect of this task."
+severity = "low"
+
+[finding.22.33.1242.2]
+task = "22.33.1242"
+file = "modules/evm/keeper/repair_m1242_test.go"
+symbol = "repair_m1242_test.go"
+observed = "Attempt 3: the build passed and the test binary failed to build on the NewFactoryCLI signature in dependency packages before any test ran."
+assumption = "A producer-to-consumer signature break repaired by 22.31.463, not a defect of this task."
+severity = "low"
+
+[finding.22.33.1255.1]
+task = "22.33.1255"
+file = "precompiles/distribution/legacy/v605/repair_m1255_test.go"
+symbol = "repair_m1255_test.go"
+observed = "Attempt 2: the build passed and the test binary failed to build on the NewFactoryCLI signature in dependency packages before any test ran."
+assumption = "A producer-to-consumer signature break repaired by 22.31.463, not a defect of this task."
+severity = "low"
+
+[finding.22.33.1256.1]
+task = "22.33.1256"
+file = "precompiles/distribution/legacy/v606/repair_m1256_test.go"
+symbol = "repair_m1256_test.go"
+observed = "Attempt 2: the build passed and the test binary failed to build on the NewFactoryCLI signature in dependency packages before any test ran."
+assumption = "A producer-to-consumer signature break repaired by 22.31.463, not a defect of this task."
+severity = "low"
+
+[finding.22.33.1257.1]
+task = "22.33.1257"
+file = "precompiles/distribution/legacy/v610/repair_m1257_test.go"
+symbol = "repair_m1257_test.go"
+observed = "Attempt 2: the build passed and the test binary failed to build on the NewFactoryCLI signature in dependency packages before any test ran."
+assumption = "A producer-to-consumer signature break repaired by 22.31.463, not a defect of this task."
+severity = "low"
+
+[finding.22.33.1260.1]
+task = "22.33.1260"
+file = "precompiles/distribution/legacy/v630/repair_m1260_test.go"
+symbol = "repair_m1260_test.go"
+observed = "Attempt 2: the build passed and the test binary failed to build on the NewFactoryCLI signature in dependency packages before any test ran."
+assumption = "A producer-to-consumer signature break repaired by 22.31.463, not a defect of this task."
+severity = "low"
+
+[finding.22.33.1262.1]
+task = "22.33.1262"
+file = "precompiles/distribution/legacy/v555/repair_m1262_test.go"
+symbol = "repair_m1262_test.go"
+observed = "Attempt 2: the build passed and the test binary failed to build on the NewFactoryCLI signature in dependency packages before any test ran."
+assumption = "A producer-to-consumer signature break repaired by 22.31.463, not a defect of this task."
+severity = "low"
+
+[finding.22.33.1263.1]
+task = "22.33.1263"
+file = "precompiles/distribution/legacy/v562/repair_m1263_test.go"
+symbol = "repair_m1263_test.go"
+observed = "Attempt 2: the build passed and the test binary failed to build on the NewFactoryCLI signature in dependency packages before any test ran."
+assumption = "A producer-to-consumer signature break repaired by 22.31.463, not a defect of this task."
+severity = "low"
+
+[finding.22.33.1264.1]
+task = "22.33.1264"
+file = "precompiles/addr/legacy/v575/repair_m1264_test.go"
+symbol = "repair_m1264_test.go"
+observed = "Attempt 2: the build passed and the test binary failed to build on the NewFactoryCLI signature in dependency packages before any test ran."
+assumption = "A producer-to-consumer signature break repaired by 22.31.463, not a defect of this task."
+severity = "low"
+
+[finding.22.33.1265.1]
+task = "22.33.1265"
+file = "precompiles/ibc/repair_m1265_test.go"
+symbol = "repair_m1265_test.go"
+observed = "Attempt 2: the build passed and the test binary failed to build on the NewFactoryCLI signature in dependency packages before any test ran."
+assumption = "A producer-to-consumer signature break repaired by 22.31.463, not a defect of this task."
+severity = "low"
+
+[finding.22.33.1267.1]
+task = "22.33.1267"
+file = "precompiles/gov/repair_m1267_test.go"
+symbol = "repair_m1267_test.go"
+observed = "Attempt 2: the build passed and the test binary failed to build on the NewFactoryCLI signature in dependency packages before any test ran."
+assumption = "A producer-to-consumer signature break repaired by 22.31.463, not a defect of this task."
+severity = "low"
+
+[finding.22.33.1275.1]
+task = "22.33.1275"
+file = "precompiles/wasmd/repair_m1275_test.go"
+symbol = "repair_m1275_test.go"
+observed = "Attempt 2: the build passed and the test binary failed to build on the NewFactoryCLI signature in dependency packages before any test ran."
+assumption = "A producer-to-consumer signature break repaired by 22.31.463, not a defect of this task."
+severity = "low"
+
+[finding.22.33.1283.1]
+task = "22.33.1283"
+file = "precompiles/pointer/repair_m1283_test.go"
+symbol = "repair_m1283_test.go"
+observed = "Attempt 2: the build passed and the test binary failed to build on the NewFactoryCLI signature in dependency packages before any test ran."
+assumption = "A producer-to-consumer signature break repaired by 22.31.463, not a defect of this task."
+severity = "low"
+
+[finding.22.33.1301.1]
+task = "22.33.1301"
+file = "rpc/tests/repair_m1301_test.go"
+symbol = "repair_m1301_test.go"
+observed = "Attempt 2: the build passed and the test binary failed to build on the NewFactoryCLI signature in dependency packages before any test ran."
+assumption = "A producer-to-consumer signature break repaired by 22.31.463, not a defect of this task."
+severity = "low"
+
+[finding.22.33.1165.1]
+task = "22.33.1165"
+file = "storage/db_engine/litt/repair_m1165_test.go"
+symbol = "repair_m1165_test.go"
+observed = "Attempt 1: seven cases pass; the cache-deletion write and read sub-cases fail with the expired segment files must be removed too, checked before the asynchronous deletion ran."
+assumption = "A test asserting synchronous removal of a lazily deleted segment; repaired in the test and the documentation."
+severity = "low"
+
+[finding.22.33.1366.2]
+task = "22.33.1366"
+file = "services/platform/hosted/internal/tests/repair_22_33_1366.rs"
+symbol = "repair_22_33_1366.rs"
+observed = "Attempt 3: cargo exited 101 with failed to load manifest for workspace member hosted/paxeer before any test ran."
+assumption = "A workspace broken by another repair, repaired by 22.31.465; not a defect of this task."
+severity = "low"
+
+[finding.22.33.1323.1]
+task = "22.33.1323"
+file = "services/platform/hosted/paxeer/tests/repair_22_33_1323.rs"
+symbol = "repair_22_33_1323.rs"
+observed = "Attempt 2: the build exited 101 because the crate manifest named by the build command is absent."
+assumption = "A manifest deleted by another repair, restored by 22.31.465."
+severity = "low"
+
+[finding.22.33.1309.2]
+task = "22.33.1309"
+file = "sdk/server/repair_m1309_test.go"
+symbol = "repair_m1309_test.go"
+observed = "Attempt 3: six cases pass; the rollback recovery case fails because the stopped node's home has no consensus blockstore."
+assumption = "A test that rolls back a node whose consensus stores were never written; repaired in the test with the package's existing fixtures."
+severity = "low"

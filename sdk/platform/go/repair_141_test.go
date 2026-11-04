@@ -464,7 +464,7 @@ func TestRepair_141_wind_down_native_route(t *testing.T) {
 				t.Fatal(err)
 			}
 			all := records()
-			assertProgramEVMTransaction(t, prepared, vector, all[len(all)-4:])
+			assertProgramEVMTransaction(t, prepared, vector, all[len(all)-5:])
 			payload, err := EncodeNativeProgramWindDown(value)
 			if err != nil {
 				t.Fatal(err)
@@ -475,7 +475,7 @@ func TestRepair_141_wind_down_native_route(t *testing.T) {
 			transactions = append(transactions, *prepared.Transaction)
 		})
 	}
-	if len(records()) != 16 || len(transactions) != 4 {
+	if len(records()) != 20 || len(transactions) != 4 {
 		t.Fatalf("native preparation did not use nonce, fee and estimate RPC: %v", records())
 	}
 	// The signed fixture must contain exactly the prepared EIP-1559 transaction.
@@ -557,6 +557,9 @@ func TestRepair_141_wind_down_native_route(t *testing.T) {
 			return
 		}
 		var answer any = "0x7"
+		if request.Method == "eth_chainId" {
+			answer = "0x7d"
+		}
 		if request.Method == "eth_estimateGas" {
 			_ = json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": request.ID, "error": map[string]any{"code": 3, "message": last.Authorization}})
 			return

@@ -1,0 +1,63 @@
+[repair.22.33.1328]
+audit = "spec/layerx-merge/programme/audit/records/22.30.71.kvx"
+base = "72c91077cb966f1c4c640ded61b4b259f41cad90"
+mode = "BUILD"
+qualification = "The runner's hf-build/hf-done private ledger records the exact candidate revision, command, exit code and log; no result is claimed before those gates execute."
+baseline = "Not run: the explicit ordered instructions forbid builds/tests before full implementation and forbid manual verify_cmd runs; the initial runner ledger had builds_used=0 and verify_runs_used=0, so no pre-change failing test is claimed."
+
+[finding.15]
+tests = ["finding_15_retention_reopens_compacted_identities_and_protects_unpublished_rows", "finding_15_bounds_provisional_and_market_admission_without_allocating_unknown_streams", "finding_15_horizon_waits_for_older_unpublished_rows_and_migrates_legacy_identities"]
+repair = "MarketOutbox durably bounds markets (128), provisional identities per market (256), admitted identities/retained rows per market (4096), and total tenant identities (8192); it refuses new captures with an operator alert at capacity. Published subject-prefix pruning advances a durable source replay floor constrained by every retained finalized row, compacts obsolete admitted/provisional identities, and refuses captures through that floor as HistoryExpired; cursor expiry still supplies explicit snapshot resynchronization. Unpublished rows and finality boundaries survive reopen."
+retention = "A producer must use a new observed sequence beyond replay_through after pruning; captures at or below that durable floor require resynchronization rather than re-admission. A stream's pruned_observed_through preserves high observed sequences removed ahead of lower unpublished rows. Provisional rows beyond the floor survive until finalized or explicitly rolled back, with bounded backpressure if finality never arrives. Revoked markets retain their floors and count toward the market bound."
+historical_storage = "Old admitted identities have no observed_sequence; they remain protected until pruning the complete published prefix proves the finality boundary covers them. Existing rows replay their stored payload. An already-pruned old identity returns HistoryExpired rather than regenerating a differently versioned payload."
+
+[finding.16]
+tests = ["finding_16_v2_facts_survive_signed_transport_and_consumer_restart"]
+repair = "New events declare facts_schema=paxai.webhook-facts.v2, name store_proof_digest accurately and include block_height, block_hash and app_hash from the certified SnapshotBindingV2. The actual capture codec, commit/store verifier, outbox, signer, HTTPS transport and durable MarketConsumer prove the facts and duplicate recovery."
+historical_payloads = "Persisted v1 rows retain their exact original ProtocolEvent bytes and are accepted by the generic receiver; v1 checkpoint_id meant the store-proof digest and never represented a checkpoint. New events never emit checkpoint_id. Historical already-pruned identities are resync-only; the service does not synthesize a v2 replacement for a v1 body."
+
+[finding.12]
+tests = ["finding_12_maximum_policy_completes_final_attempt_and_reopens_history"]
+repair = "MAXIMUM_ATTEMPTS=32 is the documented policy and durable-history bound. Both startup constructors use configured_retry_policy and RetryPolicy::validate, rejecting zero, 33 and overflow. The real hosted repository, KMS client and signed receiver path execute all 32 unsuccessful attempts and recover the terminal dead letter and complete history after reopening the hosted service."
+
+[finding.13]
+tests = ["finding_13_slow_dispatch_refreshes_signatures_leases_and_settlement"]
+repair = "Dispatch refreshes the clock in every CAS preparation, before signing and in every CAS settlement. The standard dispatch clock advances the caller's Unix epoch by monotonic elapsed time. Retry backoff remains a deterministic function of actual settlement time and delivery identity. A 401-second logical first exchange, subsequent signed delivery under the published 300-second tolerance, concurrent second worker and delayed second settlement prove fresh leases/signatures and settlement-relative retry times without sleeping for minutes."
+
+[finding.11]
+tests = ["finding_11_cursor_route_refuses_utf8_boundary_hex_errors_and_bad_tags"]
+repair = "The complete 48-byte cursor body must be ASCII hexadecimal before any slice. The constant-time tag comparison is retained. The production endpoint route, extracted unchanged into routes.rs for direct integration, consumes real loopback HTTP requests and production Redis-backed endpoint state, refusing a multibyte character crossing byte 16, a nonhexadecimal tag, a forged tag and a truncated body; a valid cursor still succeeds."
+
+[finding.14]
+tests = ["finding_14_corrupt_principal_is_reported_while_healthy_delivery_and_retention_continue", "finding_14_diagnostics_are_bounded_without_hiding_failure_count"]
+repair = "Principal enumeration isolates corrupt/unavailable shards by their authenticated digest. Dispatch and retention continue independently for healthy principals, return bounded structured failure records plus an exact total, and retain per-principal per-stage worker failures for readiness and operator recovery. The worker logs bounded identifier/category-only JSON, healthz reports worker_failure_count, and the operator-authenticated worker-failures route exposes retained diagnostics. Successful later stage sweeps clear only recovered failures. Market draining similarly isolates tenant failures and feeds worker health."
+health_lifetime = "Worker failure state belongs to each running HostedService instance and is retained across sweeps; it is rebuilt by that instance's sweeps after process restart. Durable corrupted shards remain untouched for operator repair. Reports expose at most 256 failures; retained dispatch/retention state is bounded by the 100000-participant repository limit, and market-drain state by the 4096-tenant registry bound."
+
+[finding.20]
+tests = ["finding_20_authority_producer_https_consumer_maintained_and_historical_evidence", "real_authority_shape_selects_attachment_without_null_or_unknown_fallback"]
+repair = "The former shape-only test now invokes the real authority replica decoder and authorized_batch_by_activity producer on retained signed maintained/historical receipts, transports their verified facts with the actual receipt and numeric protocol_network_id fields over loopback HTTPS, and exercises the production AuthorityReceiptVerifier::verify client and strict decoder. Both variants assert real receipt/activity/batch/sequence results and reject explicit null evidence, unknown fields, a foreign protocol network and mismatched receipt bytes."
+proof_limit = "The authority HTTP response serializer/route is private to authority/src/main.rs, outside task scope; the bounded proof serializes verified producer facts into its full published response contract but does not claim to execute that private route. The owning-domain wiring request below is required to finish that portion of the proposal."
+
+[wiring.authority_serializer]
+request = "services/platform/hosted/authority/src/main.rs by_activity/route; owner platform authority: expose the actual full response serializer and in-process HTTP router to its library harness and drive both maintained/historical responses through AuthorityReceiptVerifier, retaining receipt/protocol_network_id and strict null/unknown-field assertions."
+
+[wiring.market_consumers]
+request = "services/platform/hosted/webhooks/tests/ai_finalized_delivery.rs and SDK/application AI-market fact consumers; owner platform webhooks and each consuming SDK/application domain: migrate new payload expectations from checkpoint_id to facts_schema=paxai.webhook-facts.v2, store_proof_digest and block_height/block_hash/app_hash; retain explicit v1 stored-payload support."
+
+[wiring.public_contract]
+request = "docs/site/docs/platform/webhooks.md and docs/wiki/HostedWebhooks.md; owner platform documentation: publish v2 market facts, replay floor/retention bounds, startup retry bound and operator worker-failures recovery route; describe v1 support solely as retained historical payloads."
+
+[gotcha.baseline_order]
+observed = "The task's inherited do_11 baseline instruction conflicts with its explicit implement-first ordered gates and no-manual-verification rule."
+action = "Follow the explicit ordered gates and record that no baseline was run; never invent pre-change evidence."
+
+[gotcha.authority_scope]
+observed = "The actual authority route serializer is private in an out-of-scope binary, and its library exposes verified facts rather than the HTTP response."
+action = "Exercise the real available producer and webhook consumer over HTTPS; state the private-route limitation and request the owning-domain export instead of copying a production serializer into webhooks."
+
+[qualification.repair_1]
+revision = "72bf7eef4e23e9e4608f7b91a90339624c00bbed"
+command = "cargo build --locked --manifest-path services/platform/hosted/webhooks/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The source-backed integration engine imported encoding::digest across crate visibility; include the unchanged encoding module in the harness so the production helper stays crate-private."

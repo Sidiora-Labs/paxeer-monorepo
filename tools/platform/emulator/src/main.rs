@@ -1,4 +1,5 @@
 mod settlement;
+mod surface;
 
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::ffi::{c_char, c_int, c_uchar, c_uint, c_ulonglong, c_void, CStr};
@@ -8,6 +9,7 @@ use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::ptr;
 use std::slice;
 use std::sync::{
+    atomic::{AtomicBool, Ordering},
     mpsc::{sync_channel, SyncSender, TrySendError},
     Arc, Mutex,
 };
@@ -816,7 +818,7 @@ fn health(emulator: &Emulator, trace: u64) -> Response {
             "the LayerX core did not return a readable state",
         );
     }
-    success(trace, "{\"status\":\"ready\",\"core\":\"layerx\"}")
+    success(trace, "{\"status\":\"ready\",\"core\":\"layerx\",\"surface\":\"/v1/surface\",\"payments_supported\":false}")
 }
 
 fn prefund(emulator: &mut Emulator, request: &Request, trace: u64) -> Response {
@@ -1455,6 +1457,7 @@ fn route(emulator: &mut Emulator, request: &Request) -> Response {
     };
     match (request.method.as_str(), request.path.as_str()) {
         ("GET", "/healthz") => health(emulator, trace),
+        ("GET", "/v1/surface") => success(trace, &surface::document()),
         ("GET", "/v1/sequencer") => sequencer_identity(emulator, trace),
         ("GET", "/v1/protocol/account-state/head") => current_head(emulator, trace),
         (_, "/v1/settle") => refusal(
@@ -1493,7 +1496,8 @@ fn route(emulator: &mut Emulator, request: &Request) -> Response {
         }
         (
             _,
-            "/v1/sequencer"
+            "/v1/surface"
+            | "/v1/sequencer"
             | "/v1/protocol/account-state/head"
             | "/v1/state"
             | "/__emulator/accounts/prefund"
@@ -1605,7 +1609,7 @@ fn parse_config(arguments: impl IntoIterator<Item = String>) -> Result<Config, S
 }
 
 /// Starts the local gateway adapter around the production `LayerX` transition.
-fn platform_emulator(config: &Config) -> Result<(), String> {
+fn platform_emulator(config: &Config, shutdown: Arc<AtomicBool>) -> Result<(), String> {
     layerx_programs_runtime::retain_host_ffi_exports();
     layerx_programs_sandbox::retain_host_ffi_exports();
     let seed = config.sequencer_seed.ok_or_else(|| {
@@ -1655,7 +1659,7 @@ fn platform_emulator(config: &Config) -> Result<(), String> {
             ));
         }
     }
-    serve_emulator(config, emulator)
+    serve_emulator(config, emulator, shutdown)
 }
 
 /// Runs the emulator subcommand behind the unified `layerx` CLI dispatcher.
@@ -1665,7 +1669,19 @@ fn platform_emulator(config: &Config) -> Result<(), String> {
 /// Returns configuration, core-initialisation, or listener failures without
 /// terminating the owning CLI process.
 pub fn run(arguments: impl IntoIterator<Item = String>) -> Result<(), String> {
-    parse_config(arguments).and_then(|config| platform_emulator(&config))
+    run_until(arguments, Arc::new(AtomicBool::new(false)))
+}
+
+/// Runs the same gateway as [`run`] until the owner requests shutdown.
+/// Accepted requests drain before the listener, workers and core are released.
+///
+/// # Errors
+/// Returns configuration, core-initialisation, listener or worker failures.
+pub fn run_until(
+    arguments: impl IntoIterator<Item = String>,
+    shutdown: Arc<AtomicBool>,
+) -> Result<(), String> {
+    parse_config(arguments).and_then(|config| platform_emulator(&config, shutdown))
 }
 
 #[cfg(test)]
@@ -2019,9 +2035,16 @@ fn parse_request_line(request_line: &str) -> Result<(&str, &str), String> {
     Ok((method, target))
 }
 
-fn serve_emulator(config: &Config, mut emulator: Emulator) -> Result<(), String> {
+fn serve_emulator(
+    config: &Config,
+    mut emulator: Emulator,
+    shutdown: Arc<AtomicBool>,
+) -> Result<(), String> {
     let listener = TcpListener::bind(config.listen)
         .map_err(|error| format!("cannot listen on {}: {error}", config.listen))?;
+    listener
+        .set_nonblocking(true)
+        .map_err(|error| error.to_string())?;
     eprintln!(
         "LayerX emulator ready on http://{} (network {}, deterministic time {})",
         config.listen, config.network_id, config.timestamp_ms
@@ -2030,50 +2053,56 @@ fn serve_emulator(config: &Config, mut emulator: Emulator) -> Result<(), String>
     let admission_receiver = Arc::new(Mutex::new(admission_receiver));
     let (transition_sender, transition_receiver) =
         sync_channel::<ParsedConnection>(TRANSITION_CAPACITY);
+    let mut workers = Vec::with_capacity(PARSER_WORKERS);
     for index in 0..PARSER_WORKERS {
         let admission_receiver = Arc::clone(&admission_receiver);
         let transition_sender = transition_sender.clone();
-        thread::Builder::new()
-            .name(format!("layerx-emulator-http-{index}"))
-            .spawn(move || loop {
-                let stream = match admission_receiver.lock() {
-                    Ok(receiver) => receiver.recv(),
-                    Err(_) => return,
-                };
-                let Ok(mut stream) = stream else {
-                    return;
-                };
-                if stream
-                    .set_read_timeout(Some(IO_TIMEOUT))
-                    .and_then(|()| stream.set_write_timeout(Some(IO_TIMEOUT)))
-                    .is_err()
-                {
-                    continue;
-                }
-                let request = parse_request(&mut stream);
-                let (response_sender, response_receiver) = sync_channel(1);
-                if transition_sender
-                    .send(ParsedConnection {
-                        request,
-                        response: response_sender,
-                    })
-                    .is_err()
-                {
-                    return;
-                }
-                let Ok(response) = response_receiver.recv() else {
-                    return;
-                };
-                let _ = write_response(&mut stream, &response);
-            })
-            .map_err(|error| format!("could not start emulator HTTP worker {index}: {error}"))?;
+        workers.push(
+            thread::Builder::new()
+                .name(format!("layerx-emulator-http-{index}"))
+                .spawn(move || loop {
+                    let stream = match admission_receiver.lock() {
+                        Ok(receiver) => receiver.recv(),
+                        Err(_) => return,
+                    };
+                    let Ok(mut stream) = stream else {
+                        return;
+                    };
+                    if stream
+                        .set_read_timeout(Some(IO_TIMEOUT))
+                        .and_then(|()| stream.set_write_timeout(Some(IO_TIMEOUT)))
+                        .is_err()
+                    {
+                        continue;
+                    }
+                    let request = parse_request(&mut stream);
+                    let (response_sender, response_receiver) = sync_channel(1);
+                    if transition_sender
+                        .send(ParsedConnection {
+                            request,
+                            response: response_sender,
+                        })
+                        .is_err()
+                    {
+                        return;
+                    }
+                    let Ok(response) = response_receiver.recv() else {
+                        return;
+                    };
+                    let _ = write_response(&mut stream, &response);
+                })
+                .map_err(|error| {
+                    format!("could not start emulator HTTP worker {index}: {error}")
+                })?,
+        );
     }
     drop(transition_sender);
-    thread::Builder::new()
+    let admission_shutdown = Arc::clone(&shutdown);
+    let admission = thread::Builder::new()
         .name("layerx-emulator-admission".to_owned())
         .spawn(move || {
-            for connection in listener.incoming() {
-                match connection {
+            while !admission_shutdown.load(Ordering::Acquire) {
+                match listener.accept().map(|(stream, _)| stream) {
                     Ok(stream) => match admission_sender.try_send(stream) {
                         Ok(()) => {}
                         Err(TrySendError::Full(mut stream)) => {
@@ -2088,7 +2117,13 @@ fn serve_emulator(config: &Config, mut emulator: Emulator) -> Result<(), String>
                         }
                         Err(TrySendError::Disconnected(_)) => return,
                     },
-                    Err(error) => eprintln!("emulator connection error: {error}"),
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        thread::sleep(Duration::from_millis(10));
+                    }
+                    Err(error) => {
+                        eprintln!("emulator connection error: {error}");
+                        return;
+                    }
                 }
             }
         })
@@ -2111,7 +2146,17 @@ fn serve_emulator(config: &Config, mut emulator: Emulator) -> Result<(), String>
         };
         let _ = work.response.send(response);
     }
-    Err("all emulator HTTP workers stopped".into())
+    admission
+        .join()
+        .map_err(|_| "emulator admission worker panicked")?;
+    for worker in workers {
+        worker.join().map_err(|_| "emulator HTTP worker panicked")?;
+    }
+    if shutdown.load(Ordering::Acquire) {
+        Ok(())
+    } else {
+        Err("all emulator HTTP workers stopped".into())
+    }
 }
 
 #[derive(Clone, Copy)]

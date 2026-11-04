@@ -87,7 +87,7 @@ export namespace SocketMessage {
   export type SmartContractWasVerified = SocketMessageParamsGeneric<'smart_contract_was_verified', Record<string, never>>;
   export type SmartContractWasNotVerified = SocketMessageParamsGeneric<'smart_contract_was_not_verified', Record<string, never>>;
   export type TokenTransfers = SocketMessageParamsGeneric<'token_transfer', { token_transfer: number }>;
-  export type TokenTotalSupply = SocketMessageParamsGeneric<'total_supply', { total_supply: number }>;
+  export type TokenTotalSupply = SocketMessageParamsGeneric<'total_supply', { total_supply: string }>;
   export type TokenInstanceMetadataFetched = SocketMessageParamsGeneric<'fetched_token_instance_metadata', TokenInstanceMetadataSocketMessage>;
   export type ContractVerification = SocketMessageParamsGeneric<'verification_result', SmartContractVerificationResponse>;
   export type NewZkEvmL2Batch = SocketMessageParamsGeneric<'new_zkevm_confirmed_batch', NewZkEvmBatchSocketResponse>;

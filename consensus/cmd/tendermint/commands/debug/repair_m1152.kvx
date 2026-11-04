@@ -1,0 +1,21 @@
+[task.22.33.1152]
+mode = "BUILD"
+acceptance = "22998.1"
+baseline = "Not run: the explicit gate order requires complete implementation before qualification and permits verification only through hf-done; no baseline failures are claimed."
+evidence = "The runner records the candidate revision, command, exit code and private log in the hf-build/hf-done ledger."
+wiring_requests = []
+
+[finding.debug-archive-close-errors-lost]
+repair = "Finalize the ZIP writer and output file explicitly and join their errors with traversal failures."
+tests = ["TestRepairM_1152_ArchiveRoundTrip", "TestRepairM_1152_ArchiveFinalizationFailure", "TestRepairM_1152_ArchivePreservesAllErrors", "TestRepairM_1152_DumpArchiveContainsProfiles"]
+
+[finding.debug-profile-unbounded-fetch]
+repair = "Propagate the command context to both profile requests, impose a 30-second client timeout and 16-MiB response limit, and require HTTP 200 before writing."
+tests = ["TestRepairM_1152_ProfileSizeLimit", "TestRepairM_1152_ProfileRejectsHTTPFailures", "TestRepairM_1152_ProfileCancellation", "TestRepairM_1152_ProfileClientTimeout", "TestRepairM_1152_CommandContextReachesProfiles", "TestRepairM_1152_DumpArchiveContainsProfiles"]
+
+[qualification.initial_fixture_repair]
+revision = "3d3005b2a7560de88cc9ee5cea6ddf7aad1c6ce0"
+command = "cg spec done 22.33.1152 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The loopback status fixture omitted NodeInfo.Network, which the real RPC client requires; populate the fixture's chain identity so the integration tests reach profiling."

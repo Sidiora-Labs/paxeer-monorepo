@@ -1,5 +1,39 @@
 //! Tenant authentication, admitted publisher generations, task purpose grants
 //! and declaration purpose limits. A valid signature never adds authority.
+//!
+//! Scoped hosted interface contract (offchain, not a chain receipt): `Config`
+//! below is the JSON configuration consumer. Bearer tokens are compared by
+//! SHA-256 to tenant token digests; tenants own quotas and admitted publisher
+//! principal/key/generation tuples. Plaintext requires the explicit `plaintext`
+//! listener value; `tls` names a PEM certificate and private key. Revocation and
+//! retention high-water marks must live outside the restorable data directory.
+//!
+//! HTTP/1.1 uses Content-Length, rejects transfer encoding, closes after one
+//! response and bounds admission, workers and the complete request budget.
+//! `POST /v1/prepare` accepts a nonzero 32-byte hex request_id, kind/privacy,
+//! 128-byte hex context and byte_length; its JSON response names the session,
+//! chunk_count/chunk_bytes and expiry. `PUT /v1/upload/{session}/{index}` takes
+//! exactly the declared chunk bytes. `POST /v1/finalize` carries session and a
+//! canonical hex publisher envelope, verified by the ai-market evidence codec.
+//! Every new finalize identity checks current object and publisher lifecycle.
+//! A successful response is a HISTORICAL_PUBLICATION at observed_at, explicitly
+//! scoped to authority and availability AT_PUBLICATION. Exact request/body
+//! replay returns the durable original acknowledgement even after withdrawal;
+//! a changed body using that identity returns IdempotencyConflict (409).
+//!
+//! `POST /v1/resolve` and `/v1/content` carry root, purpose and (for content)
+//! index. Public resolution returns an envelope for the consumer to verify;
+//! content is returned only after verifying its complete durable root. Consumers
+//! must still use ContentAssembler. Missing/denied/revoked/tombstoned/corrupt
+//! inputs produce typed refusals (404/401/403/410/409 respectively). On reopen,
+//! publication and reclamation intents reconcile before serving; reservations
+//! stay charged until staging deletion and its parent directory are synced.
+//! `GET /v1/usage` reports the authenticated tenant's charged quota.
+//!
+//! Registry contracts/platform-hosted.md and contracts/platform-cli.md are owned
+//! by domain 8; publishing those pages and CLI/retirement dispositions is an
+//! external wiring request recorded in repair_22_33_1428.rs. These artifact
+//! acknowledgements never assert sequencer, checkpoint or chain finality.
 use crate::store::{Grant, ObjectRecord};
 use layerx_programs_ai_market::evidence::ArtifactError;
 use serde::Deserialize;

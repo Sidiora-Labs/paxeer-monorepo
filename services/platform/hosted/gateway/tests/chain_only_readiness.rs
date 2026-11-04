@@ -484,37 +484,30 @@ fn chain_only_readiness_omits_kernel_backends() {
         "identity",
         "program_registry",
     ];
-    for backend in kernel_backends {
-        assert!(
-            configured["backends"].get(backend).is_some(),
-            "{backend}: {configured}"
-        );
-        assert!(
-            configured["components"].get(backend).is_some(),
-            "{backend}: {configured}"
-        );
-        assert!(
-            configured_core["backends"].get(backend).is_some(),
-            "{backend}: {configured_core}"
-        );
+    for ((status, document), (expected_status, expected)) in [
+        ((configured_status, &configured), &chain_only),
+        ((configured_core_status, &configured_core), &core_only),
+    ] {
+        assert_eq!(status, *expected_status);
+        let mut document = document.clone();
+        let mut expected = expected.clone();
+        for value in [&mut document, &mut expected] {
+            let observed = value["observed_at_ms"].as_u64().expect("observation");
+            assert_eq!(
+                value["valid_until_ms"].as_u64().expect("expiry") - observed,
+                30_000
+            );
+            value
+                .as_object_mut()
+                .expect("readiness")
+                .remove("observed_at_ms");
+            value
+                .as_object_mut()
+                .expect("readiness")
+                .remove("valid_until_ms");
+        }
+        assert_eq!(document, expected, "kernel configuration changed readiness");
     }
-    assert_eq!(configured_status, 503, "{configured}");
-    assert_eq!(configured_core_status, 503, "{configured_core}");
-    assert_eq!(configured["status"], "degraded");
-    assert_eq!(configured["scope"], "product");
-    assert_eq!(configured_core["scope"], "core");
-    assert_eq!(
-        configured["backends"]["event_producer"],
-        json!({"state": "unavailable", "reason": "not_configured"})
-    );
-    assert_eq!(
-        configured["components"]["principal_state_boundary"],
-        "unavailable"
-    );
-    assert_eq!(
-        configured["backends"]["public_core"]["reason"],
-        "not_configured"
-    );
     for (status, document) in [chain_only, core_only] {
         assert!(document["backends"].get("event_producer").is_none());
         assert!(document["backends"]
@@ -538,13 +531,19 @@ fn chain_only_readiness_omits_kernel_backends() {
                 .is_none(),
             "{document}"
         );
-        assert!(document["capabilities"].get("layerx_activity").is_none());
+        assert_eq!(
+            document["capabilities"],
+            json!({
+                "chain_serving": {"state": "ready", "reason": "ready", "chain_id": 125},
+                "layerx_activity": {"state": "not_configured", "reason": "not_configured"}
+            })
+        );
         assert_eq!(
             document["capabilities"]
                 .as_object()
                 .expect("capabilities")
                 .len(),
-            1
+            2
         );
         assert_eq!(document["capabilities"]["chain_serving"]["state"], "ready");
         assert_eq!(status, 200, "{document}");

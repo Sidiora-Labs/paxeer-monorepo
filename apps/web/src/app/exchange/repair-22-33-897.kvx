@@ -1,0 +1,37 @@
+[repair.22.33.897]
+audit = "22.30.185"
+baseline = "Not run: the explicit bounded gate order forbids verification before the whole implementation; no pre-change failures are claimed."
+perps-real-path-proof = "perps_real_path_proof: mounted production Open position, actual signed EIP-1559 bytes over loopback, allowance, preflight server action, receipt codec, reopened page; in-memory committed peer state."
+approval-stage-outcome = "approval_stage_outcome: interrupted approval receipt transport, separate retained hash, unmount/reopen/resume, no perps send before confirmation."
+perps-size-units = "perps_size_units: mounted USD labels, parsed notional review and partialClose ABI units."
+exchange-selection-refresh = "exchange_selection_refresh: mounted open-refresh-close, cancel-refresh, removed markets and account-owned outcome reset."
+exchange-native-recovery = "exchange_native_recovery: stop/reopen, same chain/account/hash, disabled writes until existing receipt reconciliation, no rebroadcast."
+wiring_request = "precompiles/perps and the owning chain integration domain (domain 1): supply a recorded funded-chain approval/open-position transcript and live-chain mounted-page qualification; this credential-free in-process gate proves the real web path with a committed in-memory peer, not execution by paxd."
+
+[qualification.inherited-wallet-type-error]
+revision = "604f565adb66425752271890106bc40126f2b0ce"
+command = "pnpm --dir apps/web exec tsc --noEmit"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "sdk/wallet/src/receipt.ts:690 passes { signal: AbortSignal | undefined } to JsonRpcRequestOptions under exactOptionalPropertyTypes."
+assumption = "The wallet SDK owning domain must repair that out-of-scope pre-existing error; this task does not weaken the type check."
+
+[gotcha.integration-artifacts]
+observed = "The task snapshotter walks ignored dependencies in allowed directories, and a generated folder without a node_modules segment is swept by the web source glob."
+resolution = "The integration package installs DOM dependencies under generated dist/node_modules, with a node_modules symlink; no dependency source is published or added to the app source set."
+
+[gotcha.integration-dependencies]
+observed = "The continuation environment installed the web app but not its scoped exchange integration package, so the type-check could not resolve happy-dom."
+resolution = "Install the declared integration dependencies with npm --prefix apps/web/src/app/exchange ci before qualification; the scoped package-lock.json pins the DOM runtime."
+
+[gotcha.node-strip-only]
+observed = "Node's strip-only loader parses the test entry before its module hooks run and rejects constructor parameter properties."
+resolution = "Declare the signing wallet's readonly fields explicitly and assign them in its constructor so the prescribed node --test command loads the real integration tests."
+
+[gotcha.mounted-dom-constructors]
+revision = "93170e0face532efe97d9b41428c55ec51057761"
+command = "cg spec done 22.33.897 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All five mounted tests failed during Radix mounting because the test browser had not exposed HTMLFormElement globally."
+resolution = "Expose the real test browser's form, button, fragment, node-filter and event constructors alongside its existing DOM globals."

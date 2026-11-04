@@ -83,6 +83,9 @@ type decoderEntry struct {
 }
 
 func (d *decoderBuilder) unmarshal(raw []byte, to any) error {
+	if !json.Valid(raw) {
+		return errors.New("apijson: invalid JSON syntax")
+	}
 	value := reflect.ValueOf(to).Elem()
 	result := gjson.ParseBytes(raw)
 	if !value.IsValid() {
@@ -132,7 +135,12 @@ func indirectUnmarshalerDecoder(n gjson.Result, v reflect.Value, state *decoderS
 
 func unmarshalerDecoder(n gjson.Result, v reflect.Value, state *decoderState) error {
 	if v.Kind() == reflect.Pointer && v.CanSet() {
-		v.Set(reflect.New(v.Type().Elem()))
+		decoded := reflect.New(v.Type().Elem())
+		if err := decoded.Interface().(json.Unmarshaler).UnmarshalJSON([]byte(n.Raw)); err != nil {
+			return err
+		}
+		v.Set(decoded)
+		return nil
 	}
 	return v.Interface().(json.Unmarshaler).UnmarshalJSON([]byte(n.Raw))
 }
@@ -292,6 +300,9 @@ func (d *decoderBuilder) newMapDecoder(t reflect.Type) decoderFunc {
 	itemDecoder := d.typeDecoder(itemType)
 
 	return func(node gjson.Result, value reflect.Value, state *decoderState) (err error) {
+		if !node.IsObject() {
+			return fmt.Errorf("apijson: expected an object for %s", t)
+		}
 		mapValue := reflect.MakeMapWithSize(t, len(node.Map()))
 
 		node.ForEach(func(key, value gjson.Result) bool {
@@ -412,6 +423,9 @@ func (d *decoderBuilder) newStructTypeDecoder(t reflect.Type) decoderFunc {
 	}
 
 	return func(node gjson.Result, value reflect.Value, state *decoderState) (err error) {
+		if inlineDecoder == nil && !node.IsObject() {
+			return fmt.Errorf("apijson: expected an object for %s", t)
+		}
 		if field := value.FieldByName("JSON"); field.IsValid() {
 			if raw := field.FieldByName("raw"); raw.IsValid() {
 				setUnexportedField(raw, node.Raw)

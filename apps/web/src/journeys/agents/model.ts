@@ -132,6 +132,8 @@ const JOURNEY_STATUS: Readonly<Record<JourneyState, StatusKey>> = {
   "still-checking": "still_checking",
   refused: "refused",
   "waiting-for-you": "waiting_for_you",
+  "awaiting-approval": "waiting_for_you",
+  closed: "refused",
 };
 
 export function journeyStatusKey(state: JourneyState): StatusKey {

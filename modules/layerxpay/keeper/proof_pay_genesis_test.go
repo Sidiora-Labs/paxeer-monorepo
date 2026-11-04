@@ -5,11 +5,9 @@
 // reopen their on-disk stores and hosts. A second export includes a real service
 // withdrawal, so observing it requires reading fresh producer state.
 //
-// Existing limitation outside this task's scope: modules/layerxpay/types/params.go,
-// GenesisState.Validate, validates record envelopes but not service record bytes.
-// Malformed service records should be refused at import; currently import accepts
-// them and modules/layerxpay/keeper/service_views.go, GetOffer/decodeServiceView,
-// panics when the consumer decodes them. The proof preserves that finding.
+// Keeper-owned service records are validated before import writes. The legacy
+// AppModuleBasic validator still checks only the envelope; wiring it to
+// keeper.ValidateOwnedGenesis is recorded for the application owning domain.
 package keeper_test
 
 import (
@@ -226,10 +224,20 @@ func TestProofPayGenesis(t *testing.T) {
 			require.NoError(t, err)
 			consumer := openProofPayGenesisNode(t, t.TempDir())
 			require.NoError(t, consumer.module.ValidateGenesis(consumer.cdc, nil, badWire))
-			require.Empty(t, consumer.module.InitGenesis(consumer.ctx, consumer.cdc, badWire))
-			require.PanicsWithError(t, "layerxpay: decode service record: LXP_NON_CANONICAL", func() {
-				consumer.keeper.GetOffer(consumer.ctx, id)
-			})
+			require.ErrorIs(t, keeper.ValidateOwnedGenesis(malformed), types.ErrInvalidGenesis)
+			require.Empty(t, consumer.module.InitGenesis(consumer.ctx, consumer.cdc, wire))
+			before := consumer.snapshot(t)
+			require.ErrorIs(t, consumer.keeper.InitGenesis(consumer.ctx, malformed), types.ErrInvalidGenesis)
+			require.Equal(t, before, consumer.snapshot(t))
+			// AppModule's SDK initialization contract translates keeper errors to panics,
+			// but neither this failed init nor a subsequent public read writes any state.
+			require.Panics(t, func() { consumer.module.InitGenesis(consumer.ctx, consumer.cdc, badWire) })
+			require.Equal(t, before, consumer.snapshot(t))
+			got, found, err := consumer.keeper.ServiceViews().GetOffer(consumer.ctx, id)
+			require.NoError(t, err)
+			require.True(t, found)
+			require.Equal(t, want, got)
+			require.Equal(t, before, consumer.snapshot(t))
 		})
 	}
 }

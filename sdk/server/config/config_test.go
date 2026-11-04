@@ -183,6 +183,7 @@ func TestGetConfig(t *testing.T) {
 	v.Set("inter-block-cache", true)
 	v.Set("pruning", storetypes.PruningOptionNothing)
 	v.Set("pruning-keep-recent", "0")
+	v.Set("pruning-keep-every", "0")
 	v.Set("pruning-interval", "0")
 	v.Set("telemetry.enabled", true)
 	v.Set("telemetry.prometheus-retention-time", int64(7200))
@@ -198,6 +199,7 @@ func TestGetConfig(t *testing.T) {
 	cfg, err := GetConfig(v)
 	require.NoError(t, err)
 	require.Equal(t, DefaultMinGasPrices, cfg.MinGasPrices)
+	require.Equal(t, "0", cfg.PruningKeepEvery)
 	require.True(t, cfg.Telemetry.Enabled)
 	require.False(t, cfg.API.Enable)
 }

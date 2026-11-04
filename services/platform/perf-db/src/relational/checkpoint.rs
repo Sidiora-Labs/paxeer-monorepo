@@ -1,5 +1,3 @@
-use std::sync::atomic::{AtomicU64, Ordering};
-
 use parking_lot::RwLock;
 
 /// Indexer checkpoint state singleton.
@@ -7,17 +5,9 @@ use parking_lot::RwLock;
 /// Replaces PostgreSQL `indexer_state` table (single row, id=1).
 /// Stores the last processed block number, hash, and timestamp.
 ///
-/// Hot path (block number read): lock-free via AtomicU64.
-/// Warm path (hash read/write): parking_lot::RwLock.
+/// All checkpoint fields are published and read under one lock.
 pub struct CheckpointStore {
-    last_block: AtomicU64,
-    last_block_timestamp: AtomicU64,
-    inner: RwLock<CheckpointInner>,
-}
-
-#[derive(Debug, Clone)]
-struct CheckpointInner {
-    last_block_hash: String,
+    inner: RwLock<Checkpoint>,
 }
 
 /// Read-only snapshot of the checkpoint state.
@@ -32,9 +22,11 @@ impl CheckpointStore {
     /// Create with initial values (typically from WAL replay or zero).
     pub fn new(last_block: u64, last_block_hash: String, last_block_timestamp: u64) -> Self {
         Self {
-            last_block: AtomicU64::new(last_block),
-            last_block_timestamp: AtomicU64::new(last_block_timestamp),
-            inner: RwLock::new(CheckpointInner { last_block_hash }),
+            inner: RwLock::new(Checkpoint {
+                last_block,
+                last_block_hash,
+                last_block_timestamp,
+            }),
         }
     }
 
@@ -43,14 +35,14 @@ impl CheckpointStore {
         Self::new(0, String::new(), 0)
     }
 
-    /// Last processed block number. Lock-free.
+    /// Last processed block number.
     pub fn last_block(&self) -> u64 {
-        self.last_block.load(Ordering::Acquire)
+        self.inner.read().last_block
     }
 
-    /// Last processed block timestamp. Lock-free.
+    /// Last processed block timestamp.
     pub fn last_block_timestamp(&self) -> u64 {
-        self.last_block_timestamp.load(Ordering::Acquire)
+        self.inner.read().last_block_timestamp
     }
 
     /// Last processed block hash. Requires read lock.
@@ -60,25 +52,21 @@ impl CheckpointStore {
 
     /// Full snapshot.
     pub fn snapshot(&self) -> Checkpoint {
-        let inner = self.inner.read();
-        Checkpoint {
-            last_block: self.last_block.load(Ordering::Acquire),
-            last_block_hash: inner.last_block_hash.clone(),
-            last_block_timestamp: self.last_block_timestamp.load(Ordering::Acquire),
-        }
+        self.inner.read().clone()
     }
 
     /// Update the checkpoint atomically.
     pub fn save(&self, block: u64, block_hash: String, block_timestamp: u64) {
-        self.last_block.store(block, Ordering::Release);
-        self.last_block_timestamp
-            .store(block_timestamp, Ordering::Release);
-        self.inner.write().last_block_hash = block_hash;
+        *self.inner.write() = Checkpoint {
+            last_block: block,
+            last_block_hash: block_hash,
+            last_block_timestamp: block_timestamp,
+        };
     }
 
     /// Advance only the block number (no hash update). Used during batch processing.
     pub fn advance_block(&self, block: u64) {
-        self.last_block.store(block, Ordering::Release);
+        self.inner.write().last_block = block;
     }
 }
 

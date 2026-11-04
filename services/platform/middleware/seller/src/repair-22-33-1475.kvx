@@ -1,0 +1,24 @@
+[repair.22.33.1475]
+audit = "22.30.86"
+mode = "BUILD"
+baseline = "Not run: the explicit ordered gate instructions forbid pre-implementation testing and manual verify_cmd execution; no pre-change test failure is claimed."
+evidence = "The private hf-build/hf-done ledger records the exact candidate revision, command, exit code and log; qualification requires hf-done passing at the built revision."
+
+[finding.legacy-draw-field-names]
+test = "services/platform/middleware/seller/test/repair-22-33-1475.test.mjs: legacyDrawFieldNamesAcrossTransport, canonicalLedgerDrawRejectsLegacyAliasesAndInvalidWords"
+implementation = "LedgerDraw and encodeLedgerDraw use grantId, recipient, amount, idempotencyKey, sequence, purposeHash and contextHash in ABI order; payer and asset remain separate grant identities. No production caller constructs LedgerDraw inside seller/src and no implicit compatibility conversion is retained."
+proof = "The seller encoder produces signed EIP-1559 calldata sent by real PaymentRpc over loopback HTTP into the real SDK validateGrantDraw consumer for metered and subscription offers; four distinct payer/recipient/asset/purpose values and rejected substitutions prove the interface."
+regression = "Before the repair, canonical draws cannot encode because receiverSequence is absent; the alias-only rejection also fails because the old encoder accepts it. This is code-path analysis, not a claimed baseline gate."
+limits = "The loopback submission validates the SDK interface and transport, not a native ledger debit or PaymentDrawn receipt; this field-name repair does not claim unavailable native grant execution."
+
+[wiring.seller-tests]
+request = "services/platform/middleware/seller/test/{ledger.test.mjs,grant-draw.test.mjs,repair-22-31-434.test.mjs} — middleware seller domain (8): migrate encodeLedgerDraw fixtures to recipient, purposeHash and sequence, deriving payer and asset separately; these existing tests are outside this task's scope."
+
+[wiring.buyer-tests]
+request = "services/platform/middleware/buyer/test/{proof_middleware_buyer_ts_exports.test.mjs,repair-22-31-436.test.mjs,grant-draw-header.test.mjs} — middleware buyer domain (8): migrate encodeLedgerDraw fixtures and reads from from/assetId/receiverSequence to recipient/purposeHash/sequence."
+
+[wiring.agent-tests]
+request = "services/platform/middleware/agent/test/{repair-22-31-435.test.mjs,agent-grant.test.mjs} — middleware agent domain (8): migrate encodeLedgerDraw fixtures and reads to recipient/purposeHash/sequence; retain the distinct grant payer and asset."
+
+[wiring.conformance]
+request = "services/platform/middleware/conformance/pay6/ledger-draw.test.mjs — middleware conformance domain (8): migrate draw fixtures to recipient/purposeHash/sequence and retain the SDK offer boundary's receiverSequence name."

@@ -12,14 +12,11 @@ fn compile(
     config
         .service_generator(generator)
         .compile_well_known_types()
-        .protoc_arg("--openapiv2_out=swagger")
-        .protoc_arg("--openapiv2_opt")
-        .protoc_arg("grpc_api_configuration=proto/api_config_http.yaml,output_format=yaml,allow_merge=true,merge_file_name=sig-provider")
         .bytes(["."])
         .type_attribute(".", "#[actix_prost_macros::serde]")
         .field_attribute(
             ".blockscout.sig_provider.v1.HealthCheckRequest.service",
-            "#[serde(default)]"
+            "#[serde(default)]",
         )
         .message_attribute(".", "#[derive(Eq, Hash)]");
     config.compile_protos(protos, includes)?;
@@ -27,11 +24,11 @@ fn compile(
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    std::env::set_var("PROTOC", protoc_bin_vendored::protoc_bin_path()?);
     // We need to rebuild proto lib only if any of proto definitions
     // (or corresponding http mapping) has been changed.
     println!("cargo:rerun-if-changed=proto/");
 
-    std::fs::create_dir_all("./swagger").unwrap();
     let gens = Box::new(GeneratorList::new(vec![
         tonic_build::configure().service_generator(),
         Box::new(ActixGenerator::new("proto/api_config_http.yaml").unwrap()),

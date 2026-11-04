@@ -6,6 +6,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define main sandbox_lifecycle_case_main
+#define put_u32 sandbox_lifecycle_put_u32
+#include "../codec/lxp_test_sandbox_lifecycle.c"
+#undef put_u32
+#undef main
+
 #if defined(__has_feature)
 #if __has_feature(address_sanitizer)
 #define SANDBOX_ADDRESS_SANITIZER 1
@@ -50,20 +56,20 @@ static int registration_contract(void)
         next->abi_version != LX_PROGRAMS_ACCOUNT_ABI_VERSION ||
         strcmp(next->name, "programs") != 0 ||
         next->activity_type_count !=
-            sizeof(expected_types) / sizeof(expected_types[0]) + 3U)
+            sizeof(expected_types) / sizeof(expected_types[0]) + 2U)
         return 1;
     if (sandbox == NULL || sandbox->module_id != LXP_MODULE_PROGRAMS ||
         sandbox->abi_version != LX_PROGRAMS_SANDBOX_ABI_VERSION ||
         strcmp(sandbox->name, "programs") != 0 ||
         sandbox->activity_type_count !=
-            sizeof(expected_types) / sizeof(expected_types[0]) + 4U ||
+            sizeof(expected_types) / sizeof(expected_types[0]) + 3U ||
         sandbox->activity_types[sandbox->activity_type_count - 1U] !=
             LX_PROGRAMS_SANDBOX)
         return 1;
     if (destroy == NULL || destroy->module_id != LXP_MODULE_PROGRAMS ||
         destroy->abi_version != LX_PROGRAMS_SANDBOX_DESTROY_ABI_VERSION ||
         destroy->activity_type_count !=
-            sizeof(expected_types) / sizeof(expected_types[0]) + 5U ||
+            sizeof(expected_types) / sizeof(expected_types[0]) + 4U ||
         destroy->activity_types[destroy->activity_type_count - 1U] !=
             LX_PROGRAMS_SANDBOX_DESTROY)
         return 1;
@@ -72,12 +78,10 @@ static int registration_contract(void)
             next->activity_types[i] != expected_types[i] ||
             sandbox->activity_types[i] != expected_types[i])
             return 1;
-    if (next->activity_types[next->activity_type_count - 3U] !=
+    if (next->activity_types[next->activity_type_count - 2U] !=
             LX_PROGRAMS_ACCOUNT ||
-        next->activity_types[next->activity_type_count - 2U] !=
-            LX_PROGRAMS_WIND_DOWN ||
         next->activity_types[next->activity_type_count - 1U] !=
-            LX_PROGRAMS_FEE_GOVERNANCE)
+            LX_PROGRAMS_WIND_DOWN)
         return 1;
     if (lxp_state_store_init(&store, 0U) != LXP_OK ||
         lxp_kernel_create(&kernel, &store, &journal, &parameters, 0U) !=
@@ -424,9 +428,18 @@ static int abi_transition_matrix(void)
 
 int main(int argc, char **argv)
 {
+    char *rollback_cases[] = {
+        argv[0],
+        "sandbox_execute_refusal_propagates",
+        "sandbox_execute_unpayable_charge_is_named",
+        "sandbox_rollback_preserves_refusal",
+        "sandbox_rollback_staged_account_failure_is_fatal",
+        "sandbox_rollback_transfer_failure_is_fatal"
+    };
     if (argc == 2 && strcmp(argv[1], "--sandbox-bounds") == 0)
         return sandbox_bounds();
     if (argc != 1) return 1;
+    if (sandbox_lifecycle_case_main(6, rollback_cases) != 0) return 1;
     if (lxp_programs_abi_transition_validate(0U, LX_PROGRAMS_ABI_VERSION) != LXP_OK ||
         lxp_programs_abi_transition_validate(0U, LX_PROGRAMS_ACCOUNT_ABI_VERSION) != LXP_OK ||
         lxp_programs_abi_transition_validate(LX_PROGRAMS_ABI_VERSION,

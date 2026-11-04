@@ -18,6 +18,10 @@ blocks commit. Public HTTP JSON-RPC uses the root path on
 
 ## Configuration
 
+[config/runtime.exs](../../config/runtime.exs) configures the transport, HTTP
+headers, timeouts and request guards. For production, it loads
+[config/runtime/prod.exs](../../config/runtime/prod.exs), which selects
+[explorer/config/prod/paxeer_x.exs](../explorer/config/prod/paxeer_x.exs).
 Set the Paxeer chain identity and variant for the backend:
 
 ```sh
@@ -27,9 +31,7 @@ export ETHEREUM_JSONRPC_TRANSPORT=http
 export ETHEREUM_JSONRPC_HTTP_URLS=https://api1.mainnet-beta.paxeer.network/,https://api2.mainnet-beta.paxeer.network/
 ```
 
-The production path is [config/runtime/prod.exs](../../config/runtime/prod.exs)
-loading [explorer/config/prod/paxeer_x.exs](../explorer/config/prod/paxeer_x.exs).
-It sets `config :explorer, json_rpc_named_arguments: [...]` with
+The selected profile sets `config :explorer, json_rpc_named_arguments: [...]` with
 `transport: EthereumJSONRPC.HTTP`, `variant: EthereumJSONRPC.PaxeerX`, and
 these `transport_options`:
 
@@ -54,41 +56,106 @@ The HTTP adapter is `EthereumJSONRPC.HTTP.Tesla` and its options are built by
 `ConfigHelper.http_options(1)`. `ETHEREUM_JSONRPC_HTTP_TIMEOUT` is in seconds;
 the helper converts it to milliseconds (default 60 seconds for this path).
 Headers come from `ETHEREUM_JSONRPC_HTTP_HEADERS` (a JSON object) merged over
-the default JSON content type. The obsolete top-level `url`, `trace_url` and
-`http` configuration example does not configure this production call path.
+the default JSON content type. `ETHEREUM_JSONRPC_HTTP_GZIP_ENABLED` requests
+gzip-compressed responses with `Accept-Encoding: gzip` (default false).
+Put URL lists and the HTTP adapter in
+`json_rpc_named_arguments[:transport_options]`; top-level `url`, `trace_url`
+and `http` settings do not configure this call path.
 
 Subscriptions use the separate `subscribe_named_arguments` entry with
 `transport: EthereumJSONRPC.WebSocket`, `web_socket:
 EthereumJSONRPC.WebSocket.WebSocketClient`, `url` from
 `ETHEREUM_JSONRPC_WS_URL`, and `fallback_url` from
-`ETHEREUM_JSONRPC_FALLBACK_WS_URL`. Set those to WebSocket endpoints provided
-by your node deployment. Keep request transport as `http` when using
+`ETHEREUM_JSONRPC_FALLBACK_WS_URL`. Set those to paired WebSocket endpoints
+provided by your node deployment. For a disposable local Paxeer node, use
+`ETHEREUM_JSONRPC_HTTP_URLS=http://127.0.0.1:8545/` and
+`ETHEREUM_JSONRPC_WS_URL=ws://127.0.0.1:8546/`; both listeners must serve the
+same chain-125 node. These are example local endpoints that you must supply.
+Keep request transport as `http` when using
 subscriptions: runtime transport selection accepts only `http` or `ipc`.
 WebSocket URLs in HTTP URL lists are rejected. IPC uses `IPC_PATH`.
 
-For an explicit library call, pass named arguments directly:
+The effective production named arguments are below. `ConfigHelper` is loaded
+by the backend configuration; the URL and timeout helpers read the variables
+above. Production consumers use
+`Application.fetch_env!(:explorer, :json_rpc_named_arguments)` and
+`Application.fetch_env!(:explorer, :subscribe_named_arguments)`.
 
+<!-- named-arguments:start -->
 ```elixir
 json_rpc_named_arguments = [
   transport: EthereumJSONRPC.HTTP,
   transport_options: [
     http: EthereumJSONRPC.HTTP.Tesla,
-    http_options: [recv_timeout: 60_000, timeout: 60_000, pool: :ethereum_jsonrpc],
-    urls: ["http://localhost:8545"]
+    urls: ConfigHelper.parse_urls_list(:http),
+    trace_urls: ConfigHelper.parse_urls_list(:trace),
+    eth_call_urls: ConfigHelper.parse_urls_list(:eth_call),
+    fallback_urls: ConfigHelper.parse_urls_list(:fallback_http),
+    fallback_trace_urls: ConfigHelper.parse_urls_list(:fallback_trace),
+    fallback_eth_call_urls: ConfigHelper.parse_urls_list(:fallback_eth_call),
+    method_to_url: [
+      eth_call: :eth_call,
+      debug_traceTransaction: :trace,
+      debug_traceBlockByNumber: :trace
+    ],
+    http_options: ConfigHelper.http_options(1)
   ],
   variant: EthereumJSONRPC.PaxeerX
 ]
 
-case EthereumJSONRPC.fetch_chain_id(json_rpc_named_arguments) do
-  {:ok, 125} -> :ok
-  {:ok, other} -> {:error, {:unexpected_chain_id, other}}
-  {:error, reason} -> {:error, reason}
-end
+subscribe_named_arguments = [
+  transport: EthereumJSONRPC.WebSocket,
+  transport_options: [
+    web_socket: EthereumJSONRPC.WebSocket.WebSocketClient,
+    url: ConfigHelper.parse_url_env_var("ETHEREUM_JSONRPC_WS_URL"),
+    fallback_url: ConfigHelper.parse_url_env_var("ETHEREUM_JSONRPC_FALLBACK_WS_URL")
+  ],
+  variant: EthereumJSONRPC.PaxeerX
+]
 ```
+<!-- named-arguments:end -->
 
-Here `localhost:8545` means a locally supplied Paxeer node. The helper returns
-the decoded integer chain ID. Production consumers read the configured
-`:explorer` named arguments instead of building a second configuration.
+`EthereumJSONRPC.fetch_chain_id(json_rpc_named_arguments)` must return
+`{:ok, 125}` (`eth_chainId` returns `"0x7d"` on the wire). Check the same
+identity over WebSocket before consuming subscriptions. The realtime indexer
+supervisor converts subscription `transport_options` into an
+`EthereumJSONRPC.WebSocket` struct, attaches
+`EthereumJSONRPC.WebSocket.WebSocketClient.Options` with the supervised client
+name, and starts `EthereumJSONRPC.WebSocket.Supervisor`. A standalone caller
+must do that setup too before calling `EthereumJSONRPC.subscribe/3`; the raw
+configuration keyword list alone is not a running WebSocket connection.
+For a request on that connection, use `EthereumJSONRPC.WebSocket.json_rpc/2`
+with an `EthereumJSONRPC.request/1` request and the initialized WebSocket
+struct; decode its `eth_chainId` result with
+`EthereumJSONRPC.quantity_to_integer/1` and require 125.
+
+### Runtime timeouts and guards
+
+The following keys are configured in `config/runtime.exs` unless the consumer
+is `transport_options[:http_options]`, which comes from `ConfigHelper`.
+Timeout environment variables state their units; duration strings accept
+values such as `20s` and `1m`.
+
+| Environment input | Consumer key | Default |
+| --- | --- | --- |
+| `ETHEREUM_JSONRPC_HTTP_TIMEOUT` | `http_options[:recv_timeout]` and `[:timeout]` | 60 seconds (60_000 milliseconds) |
+| `ETHEREUM_JSONRPC_DEBUG_TRACE_TRANSACTION_TIMEOUT` | `EthereumJSONRPC.Geth[:debug_trace_timeout]` | `5s` |
+| `ETHEREUM_JSONRPC_WAIT_PER_TIMEOUT` | `EthereumJSONRPC.RequestCoordinator[:wait_per_timeout]` | `20s` |
+| `ETHEREUM_JSONRPC_WS_RETRY_INTERVAL` | `EthereumJSONRPC.WebSocket.RetryWorker[:retry_interval]` | `1m` |
+| `ETHEREUM_JSONRPC_THROTTLE_MAX_INFLIGHT` | `EthereumJSONRPC.HTTP.Throttle[:max_inflight]` | `32` |
+| `ETHEREUM_JSONRPC_THROTTLE_RPS` | `EthereumJSONRPC.HTTP.Throttle[:rps]` | `200` |
+| `ETHEREUM_JSONRPC_THROTTLE_TRACE_MAX_INFLIGHT` | `EthereumJSONRPC.HTTP.Throttle[:trace_max_inflight]` | `4` |
+| `ETHEREUM_JSONRPC_THROTTLE_ARCHIVE_MAX_INFLIGHT` | `EthereumJSONRPC.HTTP.Throttle[:archive_max_inflight]` | `8` |
+| `ETHEREUM_JSONRPC_THROTTLE_COALESCE_ENABLED` | `EthereumJSONRPC.HTTP.Throttle[:coalesce?]` | `true` |
+
+These guards bound concurrent HTTP work and request rate, with separate trace
+and archive limits and optional request coalescing. Endpoint availability
+checking is enabled by runtime configuration. Historical balance reads are
+disabled when both trace URL variables are absent, or when
+`ETHEREUM_JSONRPC_DISABLE_ARCHIVE_BALANCES=true`; the
+`ETHEREUM_JSONRPC_ARCHIVE_BALANCES_WINDOW` default is 200 blocks. Receipt
+batching is opt-in via `ETHEREUM_JSONRPC_RECEIPTS_BY_BLOCK` (false), with
+`ETHEREUM_JSONRPC_MAX_RECEIPTS_BY_BLOCK` defaulting to 1000.
 
 ### Paxeer variant
 
@@ -102,20 +169,12 @@ the Paxeer wire differences:
   receipt trie checksum or a unique block identifier.
 - `fetch_block_by_new_head/2` fetches the announced block body, checks number,
   hash, parent hash and receipts root, and refetches by number on mismatch.
-- `fetch_syncing_status/1` maps an errored `eth_syncing` call to
-  `{:ok, :synced}`. This includes transport errors, so it is not an endpoint
-  health or consensus catch-up check.
+- `fetch_syncing_status/1` maps `eth_syncing: false` to `{:ok, :synced}`,
+  decodes progress heights, and preserves RPC and transport errors. An
+  unexpected successful payload returns `{:error, {:unexpected_syncing_result, payload}}`.
 - EVM balances and transaction values use 18 decimals. Bank `uhpx` uses six;
   bank-to-EVM conversion multiplies by `10^12`. Imported EVM balances need no
   rescaling. `PAXEER_X_NATIVE_COIN_DECIMALS` defaults to 18.
-
-HTTP concurrency and rate settings are under
-`EthereumJSONRPC.HTTP.Throttle` in [runtime.exs](../../config/runtime.exs):
-`ETHEREUM_JSONRPC_THROTTLE_MAX_INFLIGHT` (32),
-`ETHEREUM_JSONRPC_THROTTLE_RPS` (200),
-`ETHEREUM_JSONRPC_THROTTLE_TRACE_MAX_INFLIGHT` (4),
-`ETHEREUM_JSONRPC_THROTTLE_ARCHIVE_MAX_INFLIGHT` (8), and
-`ETHEREUM_JSONRPC_THROTTLE_COALESCE_ENABLED` (true).
 
 ## Testing
 
@@ -137,13 +196,45 @@ ETHEREUM_JSONRPC_WEB_SOCKET_CASE=EthereumJSONRPC.WebSocket.Case.Mox \
 mix test --exclude no_geth
 ```
 
-These are transport-isolated unit tests. The legacy Geth and Nethermind
-`HTTPWebSocket` case modules embed external provider addresses in their
-source, including the WebSocket case modules; setting production URL variables
-does not redirect them to a local node. Do not use those cases as a local
-Paxeer integration check. For integration, use the real configured transport
-against a controlled Paxeer node, check chain ID 125, and exercise the
-requested methods and subscriptions with that node's actual capabilities.
+These are transport-isolated unit profiles. Other-client profiles are optional
+compatibility checks, not the Paxeer production variant. For integration,
+configure a disposable node explicitly; production URL variables do not
+configure the test case modules. In test configuration, for example:
+
+```elixir
+config :ethereum_jsonrpc, EthereumJSONRPC.Case.Geth.HTTPWebSocket,
+  http_url: "http://127.0.0.1:8545/",
+  websocket_url: "ws://127.0.0.1:8546/",
+  profile: :paxeer_x
+
+config :ethereum_jsonrpc, EthereumJSONRPC.WebSocket.Case.Geth,
+  http_url: "http://127.0.0.1:8545/",
+  web_socket_url: "ws://127.0.0.1:8546/",
+  profile: :paxeer_x
+```
+
+The corresponding Nethermind modules accept the same endpoint keys. The
+HTTPWebSocket profiles default to Paxeer chain 125; another chain requires
+`profile: :geth_compatibility` or `:nethermind_compatibility`, respectively,
+and its explicit positive `chain_id`. The standalone WebSocket case modules
+require `profile: :paxeer_x`, or `profile: :compatibility` plus an explicit
+positive `chain_id`. Both transports validate chain identity; the standalone
+WebSocket cases also compare the same block over HTTP and WebSocket. Keep
+HTTP and WebSocket endpoints on the same node host and supply no embedded
+credentials.
+
+The documentation repair gate needs no supplied node or credentials. From the
+repository root, the bounded task runner uses `hf-build` then `hf-done`; the
+latter runs this focused test through the builder:
+
+```sh
+services/explorer/deploy/tools/mix-in-builder.sh test apps/ethereum_jsonrpc/test/repair/repair_22_33_445_test.exs
+```
+
+The test executes the named-argument example, checks it against the active
+production profile and runtime defaults, and uses a loopback HTTP/WebSocket
+peer replaying committed Paxeer chain data to deliver a head and fetch its
+block through the real transports and Paxeer decoder.
 
 ## Installation
 

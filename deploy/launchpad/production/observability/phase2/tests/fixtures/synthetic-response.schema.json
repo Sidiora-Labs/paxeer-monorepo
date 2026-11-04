@@ -1,0 +1,1 @@
+{"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","oneOf":[{"required":["ready"],"properties":{"ready":{"const":true}}},{"required":["challengeId","message"],"properties":{"challengeId":{"type":"string"},"message":{"type":"string"}}},{"required":["op"],"properties":{"op":{"enum":["subscribed","checkpoint"]}}}]}

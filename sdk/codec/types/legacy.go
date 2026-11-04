@@ -121,61 +121,12 @@ func (registry *legacyInterfaceRegistry) ListImplementations(ifaceName string) [
 }
 
 func (registry *legacyInterfaceRegistry) UnpackAny(any *Any, iface interface{}) error {
-	// here we gracefully handle the case in which `any` itself is `nil`, which may occur in message decoding
-	if any == nil {
-		return nil
+	boundedRegistry := &interfaceRegistry{
+		interfaceNames: registry.interfaceNames,
+		interfaceImpls: registry.interfaceImpls,
+		typeURLMap:     registry.typeURLMap,
 	}
-
-	if any.TypeUrl == "" {
-		// if TypeUrl is empty return nil because without it we can't actually unpack anything
-		return nil
-	}
-
-	rv := reflect.ValueOf(iface)
-	if rv.Kind() != reflect.Ptr {
-		return fmt.Errorf("UnpackAny expects a pointer")
-	}
-
-	rt := rv.Elem().Type()
-
-	cachedValue := any.cachedValue
-	if cachedValue != nil {
-		if reflect.TypeOf(cachedValue).AssignableTo(rt) {
-			rv.Elem().Set(reflect.ValueOf(cachedValue))
-			return nil
-		}
-	}
-
-	imap, found := registry.interfaceImpls[rt]
-	if !found {
-		return fmt.Errorf("no registered implementations of type %+v", rt)
-	}
-
-	typ, found := imap[any.TypeUrl]
-	if !found {
-		return fmt.Errorf("no concrete type registered for type URL %s against interface %T", any.TypeUrl, iface)
-	}
-
-	msg, ok := reflect.New(typ.Elem()).Interface().(proto.Message)
-	if !ok {
-		return fmt.Errorf("can't proto unmarshal %T", msg)
-	}
-
-	err := proto.Unmarshal(any.Value, msg)
-	if err != nil {
-		return err
-	}
-
-	err = UnpackInterfaces(msg, registry)
-	if err != nil {
-		return err
-	}
-
-	rv.Elem().Set(reflect.ValueOf(msg))
-
-	any.cachedValue = msg
-
-	return nil
+	return boundedRegistry.UnpackAny(any, iface)
 }
 
 // Resolve returns the proto message given its typeURL. It works with types

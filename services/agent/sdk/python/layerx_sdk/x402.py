@@ -7,7 +7,7 @@ from typing import Literal, NoReturn
 
 from . import verifier
 from .account_derivation import keccak256
-from .evm_transaction import EvmTransactionError, decode_signed, encode_call
+from .evm_transaction import EvmTransactionError, decode_signed_transaction, encode_call
 from .generated.receipt import ReceiptFailureCode
 from .production import PlatformSdkError, SdkErrorCode
 from .revert import decode_revert_reason
@@ -176,7 +176,7 @@ def verify_payment_receipt(
     )
     receipt = verified.receipt
     try:
-        transaction, _ = decode_signed(raw_transaction)
+        transaction, _ = decode_signed_transaction(raw_transaction)
     except EvmTransactionError as error:
         raise PlatformSdkError(SdkErrorCode.VERIFICATION_FAILURE, "never") from error
     if receipt.module_id <= 11 or not receipt.effects:

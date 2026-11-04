@@ -17,12 +17,9 @@
 //! record. runtime_producer_records_integer_steps_and_terminal_traps
 //! pins that current behavior without changing the original positive trap test.
 //!
-//! External interface gap: runtime/src/abi/mod.rs::AuthorizationContext::new
-//! has no public payment-account binding. Executor's public authorized execution
-//! therefore captures payment metadata [0], whereas replay.rs::restore_portable_semantic
-//! expects the account-bound metadata independently derived from a module-v4 receipt.
-//! The proof pins ReplayError::Runtime for those genuine public-executor leaves;
-//! the expected account-bound native execution must replay those instructions.
+//! Authenticated execution binds the independently admitted receipt payer before
+//! capturing boundaries. The producer proof requires successful replay of every
+//! genuine adjacent pair against the receipt-derived authority.
 //! The separate sandbox producer/consumer check proves actual instruction replay.
 
 use layerx_programs_arbiter::{
@@ -35,8 +32,8 @@ use layerx_programs_arbiter::{
 use layerx_programs_runtime::{
     execute::{
         instantiate_market_sandbox_untrusted, market_sandbox_input_digest,
-        observe_market_sandbox_step, ExecutionFault, MarketSandboxRequest,
-        RuntimeBoundaryReplayError,
+        observe_market_sandbox_step, replay_portable_step, ExecutionFault, MarketSandboxRequest,
+        PortableReplayInputs, RuntimeBoundaryReplayError,
     },
     portable_replay::{decode_record, PortableBoundary, PortableReplayRecord},
     replay::{
@@ -46,9 +43,11 @@ use layerx_programs_runtime::{
         code_section, export_section, func_body, function_section, module, raw_section,
         type_section, OP_END, OP_I32_CONST, TYPE_I32,
     },
-    AuthorizationContext, AuthorizedExecutionRequest, CapabilitySet, CompositionContext,
-    CompositionRules, Executor, FeeSchedule, PrincipalId, ProgramCatalog, ProgramId,
-    ProgramReplayProfile, ResourceBudget, Storage, StorageNamespace, UnavailableReceiptOracle,
+    AbiError, ActivityBudgetBinding, AuthorizationContext, AuthorizedExecutionRequest,
+    BudgetAdmissionRefusal, BudgetedAuthorizedExecutionRequest, Capability, CapabilitySet,
+    CompositionContext, CompositionRules, ContextRefusal, DeclaredBudget, ExecutionError, Executor,
+    FeeSchedule, PrincipalId, ProgramCatalog, ProgramId, ProgramReplayProfile, ProgramResolver,
+    ReceiptOracle, ResourceBudget, Storage, StorageNamespace, UnavailableReceiptOracle,
     V2ActivityOutcome, WasmEngine, WasmValue, RUNTIME_VERSION,
 };
 use layerx_proof::{
@@ -90,6 +89,36 @@ fn vector(out: &mut Vec<u8>, value: &[u8]) {
 fn encoder() -> Encoder {
     Encoder::new(64 * MAX)
 }
+
+fn unavailable_balance_transcript(capabilities: &CapabilitySet) -> Vec<u8> {
+    let mut hosts = encoder();
+    hosts.fixed(b"LXP/program-replay-hosts/v1\0").unwrap();
+    let grants = CapabilitySet::decode_v2_canonical(&capabilities.canonical_encoding()).unwrap();
+    for grant in grants {
+        if let Capability::BalanceView {
+            account,
+            asset,
+            receipt_digest,
+        } = grant
+        {
+            // Transport the same production oracle refusal captured by Abi::new.
+            // Omitting it would make replay lose a declared balance capability.
+            assert_eq!(
+                UnavailableReceiptOracle.verified_balance(account, asset, receipt_digest),
+                Err(AbiError::BalanceEvidenceUnavailable),
+            );
+            let mut record = encoder();
+            record.fixed(&account).unwrap();
+            record.fixed(&asset).unwrap();
+            record.fixed(&receipt_digest).unwrap();
+            hosts.u8(2).unwrap();
+            hosts.i32(-1).unwrap();
+            hosts.bytes(&record.finish(), MAX).unwrap();
+        }
+    }
+    hosts.finish()
+}
+
 fn encoded_vector(e: &mut Encoder, bytes: &[u8]) {
     e.bytes(bytes, 64 * MAX).unwrap();
 }
@@ -485,7 +514,7 @@ fn guest() -> Vec<u8> {
             (&[TYPE_I32, TYPE_I32], &[TYPE_I32]),
         ]),
         function_section(&[0, 1]),
-        raw_section(5, &[1, 1, 1, 1]),
+        raw_section(5, &[1, 1, 0, 0]),
         exports,
         code_section(&[
             func_body(&[], &[OP_I32_CONST, 0, OP_END]),
@@ -493,11 +522,17 @@ fn guest() -> Vec<u8> {
         ]),
     ])
 }
-fn signed_activity(program: [u8; 32], owner: &SigningKey, profile: bool) -> (Vec<u8>, [u8; 32]) {
+fn signed_activity(
+    program: [u8; 32],
+    owner: &SigningKey,
+    profile: bool,
+    abi: u16,
+    capabilities: &CapabilitySet,
+) -> (Vec<u8>, [u8; 32]) {
     let entry = b"layerx_call";
-    let caps = CapabilitySet::empty().canonical_encoding();
+    let caps = capabilities.canonical_encoding();
     let mut call = program.to_vec();
-    call.extend(2u16.to_be_bytes());
+    call.extend(abi.to_be_bytes());
     call.extend((entry.len() as u16).to_be_bytes());
     call.extend(0u32.to_be_bytes());
     call.extend((caps.len() as u16).to_be_bytes());
@@ -575,6 +610,7 @@ fn application_state(
     code_hash: [u8; 32],
     principal: [u8; 32],
     owner: [u8; 32],
+    abi: u16,
 ) -> ApplicationState {
     let mut modules = vec![Records::new(); 12];
     let mut name = b"agent:".to_vec();
@@ -647,7 +683,7 @@ fn application_state(
     );
     let mut program = vec![0; 33];
     program.extend(code_hash);
-    program.extend(2u16.to_be_bytes());
+    program.extend(abi.to_be_bytes());
     program.extend(1u32.to_be_bytes());
     modules[9].insert([b"program\0".as_slice(), &code_hash].concat(), program);
     ApplicationState {
@@ -673,6 +709,7 @@ fn produce_receipt(
     activity_id: [u8; 32],
     previous: [u8; 32],
     signer: &SigningKey,
+    abi: u16,
 ) -> Vec<u8> {
     let usage = execution.execution().usage();
     let mut e = encoder();
@@ -713,7 +750,7 @@ fn produce_receipt(
     e.u8(1).unwrap();
     e.i32(0).unwrap();
     e.u16(RUNTIME_VERSION).unwrap();
-    e.u16(2).unwrap();
+    e.u16(abi).unwrap();
     e.u32(1).unwrap();
     e.u32(1).unwrap();
     for n in [
@@ -797,6 +834,7 @@ fn native_metadata(
     root: [u8; 32],
     authority: &[u8],
     hosts: &[u8],
+    abi: u16,
 ) -> Vec<u8> {
     let mut e = encoder();
     e.fixed(b"LXP/program-replay-native/v1\0").unwrap();
@@ -809,7 +847,7 @@ fn native_metadata(
     e.fixed(&record.code_hash()).unwrap();
     e.fixed(&record.input_digest()).unwrap();
     e.u16(RUNTIME_VERSION).unwrap();
-    e.u16(2).unwrap();
+    e.u16(abi).unwrap();
     e.u32(1).unwrap();
     e.u32(1).unwrap();
     e.u16(1).unwrap();
@@ -850,31 +888,85 @@ struct Corpus {
 }
 impl Corpus {
     fn produce(ordinary: bool) -> Self {
+        Self::produce_versioned(ordinary, 2, 2, CapabilitySet::empty())
+            .expect("authenticated producer authority")
+    }
+    fn produce_versioned(
+        ordinary: bool,
+        execution_abi: u16,
+        call_abi: u16,
+        capabilities: CapabilitySet,
+    ) -> Result<Self, ReplayError> {
         let signer = SigningKey::new([0x11; 32]);
         let owner = SigningKey::new([0x22; 32]);
+        // Empty calldata and this integer-only guest use no linear memory.
+        // Avoid metering snapshots of an unused page for either ABI.
         let wasm = guest();
         let program = digest(&[&wasm]);
         let principal = digest(&[b"LXP/v1/did-id\0", &(DID.len() as u16).to_be_bytes(), DID]);
-        let state = application_state(program, principal, owner.public());
-        let (signed, activity_id) = signed_activity(program, &owner, !ordinary);
-        let validated = WasmEngine::declared().unwrap().validate_v2(&wasm).unwrap();
-        let execution = Executor::new(ResourceBudget::declared(),FeeSchedule::declared())
-            .with_program_replay_profile(ProgramReplayProfile::new(128,MAX as u32).unwrap())
-            .execute_authorized_v2(&mut Storage::new(),AuthorizedExecutionRequest {
-                module: &validated, program: ProgramId::new(program).unwrap(),
-                authorization: AuthorizationContext::new(PrincipalId::new(principal).unwrap(),CapabilitySet::empty()),
-                receipts: &UnavailableReceiptOracle, entrypoint: "layerx_call", calldata: &[],
-                composition: CompositionContext::new(Rc::new(ProgramCatalog::new()),CompositionRules::declared()), response_capacity: 0,
-            }).expect("programs/crates/layerx-programs-runtime/src/execute.rs::Executor in-process producer");
+        let state = application_state(program, principal, owner.public(), execution_abi);
+        let (signed, activity_id) =
+            signed_activity(program, &owner, !ordinary, call_abi, &capabilities);
+        let hosts = unavailable_balance_transcript(&capabilities);
+        let validated = WasmEngine::declared()
+            .unwrap()
+            .validate_versioned(execution_abi, &wasm)
+            .unwrap();
+        let executor = Executor::new(ResourceBudget::declared(), FeeSchedule::declared())
+            .with_program_replay_profile(ProgramReplayProfile::new(128, MAX as u32).unwrap());
+        let request = AuthorizedExecutionRequest {
+            module: &validated,
+            program: ProgramId::new(program).unwrap(),
+            authorization: AuthorizationContext::new(
+                PrincipalId::new(principal).unwrap(),
+                capabilities,
+            ),
+            receipts: &UnavailableReceiptOracle,
+            entrypoint: "layerx_call",
+            calldata: &[],
+            composition: CompositionContext::new(
+                Rc::new(ProgramCatalog::new()),
+                CompositionRules::declared(),
+            ),
+            response_capacity: 0,
+        };
+        let payer = PrincipalId::new(state.account_id).unwrap();
+        let binding = ActivityBudgetBinding::new(activity_id).unwrap();
+        let token = executor
+            .admit_activity_budget_for_qualification(
+                DeclaredBudget::protocol_maximum(),
+                payer,
+                binding,
+                u128::MAX,
+            )
+            .unwrap();
+        let execution = executor.execute_authorized_authenticated(
+            &mut Storage::new(),
+            BudgetedAuthorizedExecutionRequest::new(request, token, payer, binding),
+            SEQUENCE,
+            BATCH,
+        )
+        .expect(
+            "programs/crates/layerx-programs-runtime/src/execute.rs::Executor in-process producer",
+        );
         assert!(matches!(
             execution.outcome(),
             V2ActivityOutcome::Success { .. }
         ));
+        assert_eq!(ResourceBudget::declared().cpu_fuel(), 1_000_000);
+        assert!(execution.execution().usage().cpu_fuel <= ResourceBudget::declared().cpu_fuel());
+        assert_eq!(execution.execution().usage().memory_bytes, 0);
         let record = execution
             .replay_record()
             .expect("real runtime boundary corpus")
             .clone();
-        let receipt = produce_receipt(&execution, activity_id, state.root(), &signer);
+        let receipt = produce_receipt(
+            &execution,
+            activity_id,
+            state.root(),
+            &signer,
+            execution_abi,
+        );
         let receipt_digest = hash::receipt_digest(
             &receipt::encode_unsigned(&receipt::decode(&receipt).unwrap()).unwrap(),
         )
@@ -958,7 +1050,7 @@ impl Corpus {
             host: CommittedStore::commit(records.clone()),
             sequencer,
             authority: vec![],
-            hosts: b"LXP/program-replay-hosts/v1\0".to_vec(),
+            hosts,
             record,
             manifest,
             values,
@@ -970,8 +1062,7 @@ impl Corpus {
             VerifiedReplayAuthority::derive_program_call(&receipt, &admission, &header, &commit)
         } else {
             VerifiedReplayAuthority::derive(&receipt, &admission, &header, &commit)
-        }
-        .expect("authenticated producer authority");
+        }?;
         corpus.authority = authority.canonical_bytes().to_vec();
         records.insert(
             [
@@ -986,10 +1077,11 @@ impl Corpus {
                 state.root(),
                 &corpus.authority,
                 &corpus.hosts,
+                execution_abi,
             ),
         );
         corpus.host = CommittedStore::commit(records);
-        corpus
+        Ok(corpus)
     }
     fn consume(
         &self,
@@ -1120,18 +1212,254 @@ impl Corpus {
             })
             .collect()
     }
+
+    fn runtime_pair_result(
+        &self,
+        pre: &BoundaryProof,
+        post: &BoundaryProof,
+    ) -> Result<(), RuntimeBoundaryReplayError> {
+        // Reconstruct the production authority and authenticated code catalogue
+        // from transported proofs, just as the arbiter does. This diagnostic
+        // never changes an executor leaf or substitutes for verify_step.
+        let (receipt, admission, header, commit, host_proof) = self.consume();
+        let authority = VerifiedReplayAuthority::derive(&receipt, &admission, &header, &commit)
+            .expect("production replay authority constructor");
+        authority.verify_native(&self.authority).unwrap();
+        let catalogue = Rc::new(self.catalogue(&admission, &commit, &host_proof));
+        let inputs = PortableReplayInputs::new(
+            authority.canonical_bytes(),
+            &self.hosts,
+            Some(catalogue.clone()),
+            MAX,
+        )?;
+        let before = PortableBoundary::decode_untrusted(&pre.leaf, MAX)?;
+        let after = PortableBoundary::decode_untrusted(&post.leaf, MAX)?;
+        replay_portable_step(
+            catalogue
+                .program_module(ProgramId::new(self.program).unwrap())
+                .unwrap(),
+            &before,
+            &after,
+            &inputs,
+        )
+    }
+}
+
+pub fn repair_v5_authority() {
+    let capabilities = CapabilitySet::new([Capability::BalanceView {
+        account: [0x61; 32],
+        asset: ASSET,
+        receipt_digest: [0x62; 32],
+    }])
+    .unwrap();
+    // This grant requires V2 encoding, so a V1 decoder cannot satisfy this proof.
+    assert!(CapabilitySet::decode_canonical(&capabilities.canonical_encoding()).is_err());
+    for ordinary in [true, false] {
+        let corpus = Corpus::produce_versioned(ordinary, 5, 5, capabilities.clone())
+            .expect("admitted V5 call must cross authority derivation");
+        let (receipt, admission, header, commit, host_proof) = corpus.consume();
+        let authority = if ordinary {
+            VerifiedReplayAuthority::derive_program_call(&receipt, &admission, &header, &commit)
+        } else {
+            VerifiedReplayAuthority::derive(&receipt, &admission, &header, &commit)
+        }
+        .unwrap();
+        assert_eq!(authority.capabilities(), &capabilities);
+        assert_eq!(authority.principal(), corpus.principal);
+        assert_eq!(authority.activity_binding(), corpus.activity_id);
+        authority.verify_native(&corpus.authority).unwrap();
+        let payer_key = corpus.host.proofs.keys().find(|key| key[0] == 6).unwrap();
+        let payer: [u8; 32] = payer_key[1..].try_into().unwrap();
+        assert_eq!(authority.payer(), payer);
+        assert_ne!(authority.payer(), authority.principal());
+        let mut wrong_payer = corpus.authority.clone();
+        let payer_offset = wrong_payer.len() - 240;
+        wrong_payer[payer_offset] ^= 1;
+        assert_eq!(
+            authority.verify_native(&wrong_payer),
+            Err(ReplayError::Authority)
+        );
+        if !ordinary {
+            let metadata = corpus.host.transported(
+                &[
+                    vec![1, 0, 9],
+                    b"progreplay/v1/".to_vec(),
+                    corpus.activity_id.to_vec(),
+                ]
+                .concat(),
+            );
+            let replay = VerifiedReplay::verify_with_batch_context(
+                &receipt,
+                &admission,
+                &header,
+                &commit,
+                corpus.host.root,
+                &host_proof,
+                &metadata,
+                &corpus.authority,
+                &corpus.hosts,
+                corpus.catalogue(&admission, &commit, &host_proof),
+            )
+            .expect("admitted V5 authority must reach the replay consumer");
+            assert_eq!(replay.metadata().abi_version, 5);
+            assert_eq!(
+                replay.metadata().boundary_root,
+                corpus.record.boundary_root()
+            );
+            assert_eq!(
+                replay.metadata().witness_digest,
+                corpus.record.witness_digest()
+            );
+            let paths = corpus.paths();
+            assert!(paths.len() > 2);
+            for pair in paths.windows(2) {
+                let step = replay.verify_step(&pair[0], &pair[1]).unwrap_or_else(|error| {
+                    panic!(
+                        "admitted V5 Executor boundary pair {} -> {} must replay: {error:?}; inner runtime result: {:?}",
+                        pair[0].index,
+                        pair[1].index,
+                        corpus.runtime_pair_result(&pair[0], &pair[1]),
+                    )
+                });
+                assert_eq!(step.activity_id(), corpus.activity_id);
+                assert_eq!(step.pre_index(), pair[0].index);
+                assert_eq!(step.post_index(), pair[1].index);
+            }
+        }
+    }
+}
+
+pub fn repair_unknown_abi_refusal() {
+    for ordinary in [true, false] {
+        for unknown in [0, 6, u16::MAX] {
+            // The genuine V2 executor remains the producer; the signed caller
+            // independently requests an unsupported ABI at the authority boundary.
+            assert!(matches!(
+                Corpus::produce_versioned(ordinary, 2, unknown, CapabilitySet::empty()),
+                Err(ReplayError::Authority)
+            ));
+        }
+    }
+}
+
+pub fn repair_executor_payer_replay() {
+    for abi in [2, 5] {
+        assert_authenticated_payer_replay(abi);
+    }
+}
+
+pub fn repair_authenticated_execution_refusals() {
+    let wasm = guest();
+    let program = ProgramId::new(digest(&[&wasm])).unwrap();
+    let principal = PrincipalId::new([0x21; 32]).unwrap();
+    let payer = PrincipalId::new([0x31; 32]).unwrap();
+    let other_payer = PrincipalId::new([0x32; 32]).unwrap();
+    let binding = ActivityBudgetBinding::new([0x41; 32]).unwrap();
+    let other_binding = ActivityBudgetBinding::new([0x42; 32]).unwrap();
+    let executor = Executor::declared()
+        .with_program_replay_profile(ProgramReplayProfile::new(128, MAX as u32).unwrap());
+    for abi in [2, 5] {
+        let validated = WasmEngine::declared()
+            .unwrap()
+            .validate_versioned(abi, &wasm)
+            .unwrap();
+        for (carried_payer, carried_binding, sequence, batch, expected) in [
+            (
+                other_payer,
+                binding,
+                SEQUENCE,
+                BATCH,
+                ExecutionError::Budget(BudgetAdmissionRefusal::PayerMismatch),
+            ),
+            (
+                payer,
+                other_binding,
+                SEQUENCE,
+                BATCH,
+                ExecutionError::Budget(BudgetAdmissionRefusal::ActivityBindingMismatch),
+            ),
+            (
+                payer,
+                binding,
+                0,
+                BATCH,
+                ExecutionError::Context(ContextRefusal::Unauthenticated),
+            ),
+            (
+                payer,
+                binding,
+                SEQUENCE,
+                0,
+                ExecutionError::Context(ContextRefusal::Unauthenticated),
+            ),
+        ] {
+            let token = executor
+                .admit_activity_budget_for_qualification(
+                    DeclaredBudget::protocol_maximum(),
+                    payer,
+                    binding,
+                    u128::MAX,
+                )
+                .unwrap();
+            let request = AuthorizedExecutionRequest {
+                module: &validated,
+                program,
+                authorization: AuthorizationContext::new(principal, CapabilitySet::empty()),
+                receipts: &UnavailableReceiptOracle,
+                entrypoint: "layerx_call",
+                calldata: &[],
+                composition: CompositionContext::new(
+                    Rc::new(ProgramCatalog::new()),
+                    CompositionRules::declared(),
+                ),
+                response_capacity: 0,
+            };
+            let mut storage = Storage::new();
+            let before = storage.replay_state_bytes(MAX).unwrap();
+            let result = executor.execute_authorized_authenticated(
+                &mut storage,
+                BudgetedAuthorizedExecutionRequest::new(
+                    request,
+                    token,
+                    carried_payer,
+                    carried_binding,
+                ),
+                sequence,
+                batch,
+            );
+            assert_eq!(result.err(), Some(expected));
+            assert_eq!(storage.replay_state_bytes(MAX).unwrap(), before);
+        }
+    }
 }
 
 #[test]
 fn authenticated_producer_crosses_authority_and_bounded_replay_consumers_twice() {
-    let corpus = Corpus::produce(false);
+    assert_authenticated_payer_replay(2);
+}
+
+fn assert_authenticated_payer_replay(abi: u16) {
+    let corpus = Corpus::produce_versioned(false, abi, abi, CapabilitySet::empty())
+        .expect("authenticated payer-bound producer");
     for _ in 0..2 {
         let (receipt, admission, header, commit, host_proof) = corpus.consume();
         let authority =
             VerifiedReplayAuthority::derive(&receipt, &admission, &header, &commit).unwrap();
         assert_eq!(authority.principal(), corpus.principal);
         assert_eq!(authority.activity_binding(), corpus.activity_id);
+        let payer_key = corpus.host.proofs.keys().find(|key| key[0] == 6).unwrap();
+        let payer: [u8; 32] = payer_key[1..].try_into().unwrap();
+        assert_eq!(authority.payer(), payer);
+        assert_ne!(authority.payer(), authority.principal());
         authority.verify_native(&corpus.authority).unwrap();
+        let mut wrong_payer = corpus.authority.clone();
+        let payer_offset = wrong_payer.len() - 240;
+        assert_eq!(&wrong_payer[payer_offset..payer_offset + 32], &payer);
+        wrong_payer[payer_offset..payer_offset + 32].copy_from_slice(&authority.principal());
+        assert_eq!(
+            authority.verify_native(&wrong_payer),
+            Err(ReplayError::Authority)
+        );
         let mut malformed = corpus.authority.clone();
         malformed.push(0);
         assert_eq!(
@@ -1176,7 +1504,12 @@ fn authenticated_producer_crosses_authority_and_bounded_replay_consumers_twice()
             }
         };
         for with_batch in [false, true] {
+            assert!(matches!(
+                verify(with_batch, &wrong_payer),
+                Err(ReplayError::Authority)
+            ));
             let replay = verify(with_batch, &corpus.authority).unwrap();
+            assert_eq!(replay.metadata().abi_version, abi);
             assert_eq!(
                 replay.metadata().boundary_root,
                 corpus.record.boundary_root()
@@ -1200,19 +1533,30 @@ fn authenticated_producer_crosses_authority_and_bounded_replay_consumers_twice()
             let mut bad = paths[0].clone();
             bad.leaf[0] ^= 1;
             assert!(replay.verify_step(&bad, &paths[1]).is_err());
-            // See the external payer-binding finding below. The producer still
-            // supplies actual engine leaves; none are synthesized for replay.
             for pair in paths.windows(2) {
-                assert_eq!(
-                    replay.verify_step(&pair[0], &pair[1]),
-                    Err(ReplayError::Runtime)
-                );
+                let step = replay.verify_step(&pair[0], &pair[1]).unwrap_or_else(|error| {
+                    panic!(
+                        "authenticated Executor boundary pair {} -> {} must replay with the receipt payer: {error:?}; inner runtime result: {:?}",
+                        pair[0].index,
+                        pair[1].index,
+                        corpus.runtime_pair_result(&pair[0], &pair[1]),
+                    )
+                });
+                assert_eq!(step.activity_id(), corpus.activity_id);
+                assert_eq!(step.pre_index(), pair[0].index);
+                assert_eq!(step.post_index(), pair[1].index);
             }
         }
         assert!(matches!(
             verify(true, &malformed),
             Err(ReplayError::Authority)
         ));
+        let mut bad_receipt = corpus.receipt.clone();
+        *bad_receipt.last_mut().unwrap() ^= 1;
+        assert_eq!(
+            commit.verify_receipt_bytes(&bad_receipt),
+            Err(ReplayError::Receipt)
+        );
         let mut wrong = commit.clone();
         wrong.receipt_proof.value[0] ^= 1;
         assert!(matches!(

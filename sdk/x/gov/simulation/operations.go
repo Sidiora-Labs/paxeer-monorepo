@@ -168,18 +168,18 @@ func SimulateMsgSubmitProposal(
 			return simtypes.NoOpMsg(types.ModuleName, msg.Type(), "unable to generate mock tx"), nil, err
 		}
 
+		// Submission advances the counter, so capture the ID before delivery.
+		proposalID, err := k.GetProposalID(ctx)
+		if err != nil {
+			return simtypes.NoOpMsg(types.ModuleName, msg.Type(), "unable to generate proposalID"), nil, err
+		}
+
 		_, _, err = app.Deliver(txGen.TxEncoder(), tx)
 		if err != nil {
 			return simtypes.NoOpMsg(types.ModuleName, msg.Type(), "unable to deliver tx"), nil, err
 		}
 
 		opMsg := simtypes.NewOperationMsg(msg, true, "", nil)
-
-		// get the submitted proposal ID
-		proposalID, err := k.GetProposalID(ctx)
-		if err != nil {
-			return simtypes.NoOpMsg(types.ModuleName, msg.Type(), "unable to generate proposalID"), nil, err
-		}
 
 		// 2) Schedule operations for votes
 		// 2.1) first pick a number of people to vote.
@@ -193,7 +193,7 @@ func SimulateMsgSubmitProposal(
 		whoVotes = whoVotes[:numVotes]
 		votingPeriod := k.GetVotingParams(ctx).VotingPeriod
 
-		fops := make([]simtypes.FutureOperation, numVotes+1)
+		fops := make([]simtypes.FutureOperation, numVotes)
 		for i := 0; i < numVotes; i++ {
 			whenVote := ctx.BlockHeader().Time.Add(time.Duration(r.Int63n(int64(votingPeriod.Seconds()))) * time.Second) //nolint:gosec // voting period seconds is a small positive config value
 			fops[i] = simtypes.FutureOperation{

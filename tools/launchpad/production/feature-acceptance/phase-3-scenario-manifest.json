@@ -53,7 +53,13 @@
     "tools/launchpad/production/feature-acceptance/tests",
     "-v"
   ],
-  "verify_cmd": "python3 tools/launchpad/production/qualify.py --task 3.50 --spec launchpad/spec/production-system/spec.kvx --require-current-source",
+  "verify_cmd": "python3 tools/launchpad/production/qualify.py --task 3.50 --spec spec/layerx-merge/spec.kvx --require-current-source",
   "qualification_boundary": "Policy adversarial execution never establishes actual full feature behavior, capacity or release certification",
-  "release_qualified": false
+  "release_qualified": false,
+  "spec_reference": {
+    "spec": "spec/layerx-merge/spec.kvx",
+    "section": "task.3.50",
+    "class": "retired-reference",
+    "reason": "decision.1803 retires launchpad/spec/production-system/spec.kvx; task.3.50 is absent from spec/layerx-merge/spec.kvx"
+  }
 }

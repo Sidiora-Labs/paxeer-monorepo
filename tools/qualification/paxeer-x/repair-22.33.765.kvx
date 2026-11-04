@@ -1,0 +1,49 @@
+[meta]
+task = "22.33.765"
+audit = "22.30.173"
+base_revision = "5f6b5f0aad35a415da93671f70183d5e5688bda0"
+qualification = "hf-build then hf-done; the final /out/run/gates.jsonl receipt binds the verified candidate revision, exact command, exit code and private evidence location. No gate success is claimed before that receipt exists."
+baseline = "No unchanged-tree verification ran: explicit Order 1 and 4 forbid tests before complete implementation and hand-running verify_cmd. No pre-change failed test result is claimed. Static inspection found the deleted tests/daemon fixture import, retired positive public-router assertions, three-kind coverage omitting the second account case, and unhandled TimeoutExpired."
+proof_boundary = "The declared Python gate drives production Qualification HTTP/TLS methods, the merged root RPC client and RPC fault relay against committed native receipt recordings and loopback peers with a durable replay store; timeout cases launch only the running Python interpreter and reap real descendants, including a child that starts a separate session. It needs no supplied configuration, secret, live service, native artifact or external toolchain. Full paxd/native release-kit execution is not claimed by this focused gate."
+
+[finding.retired-public-router]
+tests = ["test_retired_public_router_uses_merged_root_and_hosted_px_contract", "test_retired_public_routes_and_rpc_identity_are_strict", "test_private_tenant_idempotency_and_recovery_stay_on_agent_route", "test_rpc_fault_relay_preserves_real_reply_then_changes_one_root_answer", "test_rpc_head_fault_invokes_real_producer_once_and_preserves_observed_bytes"]
+repair = "Use a disposable source-bound merged paxd generation through the maintained native bootstrap, root node JSON-RPC and hosted root px_getNetwork; require public /rpc and /rpc/schema to be absent, retain private /v1/agent/rpc and daemon /rpc authentication/idempotency checks, replace replica/LNI substitutions and binary fault relays with node/hosted root RPC, and restart the merged node while comparing a retained committed block. Migrate the existing release-kit test's deleted runtime fixture dependency in place."
+limits = "The focused gate proves transport and retained private replay semantics with recorded peers; authoritative native genesis, tenant provisioning and the native release-kit gate are deployment wiring, not fabricated local successes."
+
+[finding.missing-account-proof-case]
+tests = ["test_non_maintained_account_has_distinct_real_producer_target_after_reopen", "test_missing_or_unrecovered_account_can_never_satisfy_final_completeness", "test_current_portable_reply_is_not_silently_converted_to_retired_sdk_format"]
+repair = "Track a separately provisioned genuine non-maintained submission, require a distinct executed activity and signed receipt, generate all four named cases on current portable-v2 selectors, retain exact receipts for each, request every case again after restart, compare recovered evidence, and require both produced and recovered four-case sets in addition to the three wire kinds."
+limits = "Positive account-proof closure remains dependent on the out-of-path merged owner: human_runtime.rs read_proof_bundle currently returns Unavailable for owned AccountState and receipt_proof_operation refuses AccountState/committed requests. The recording peer preserves that typed refusal, no account proof is invented, and neither refusal nor a mere three-kind set can satisfy completeness. The two recorded transactions prove distinct request identities, not maintenance provenance or positive account inclusion."
+
+[finding.timeout-evidence]
+tests = ["test_timeout_retains_private_manifest_log_and_reaps_participant_tree", "test_terminal_evidence_uses_same_manifest_without_false_success"]
+repair = "Catch TimeoutExpired on the actual bounded participant, kill and reap the participant group plus pinned descendants with Linux subreaper adoption, restore the caller's subreaper state, preserve private worker.log and result.json, and return 124 with explicit timeout status, exact argv/command, revision, terminal and participant exit codes, partial progress and retained evidence locations. A printed success marker cannot turn a timeout or failed participant into success."
+
+[wiring.1]
+request = "Domain 16 tools/ops release-kit owner, tools/paxeer-x/runtime-inventory.sh and tests/daemon: retire callers of the deleted paxeer_x_runtime_fixture instead of resurrecting it; supply merged_runtime with candidate-bound paxd path/digest/revision, authoritative native bootstrap inputs and loopback root chain/consensus URLs to the scoped merged_runtime_fixture, replacing replica_url/node_socket templates with node_rpc_url/hosted_rpc_url."
+
+[wiring.2]
+request = "Domain 3 agent owner, services/agent/crates/layerx-agentd/src/human_runtime.rs read_proof_bundle and receipt_proof_operation: produce authenticated committed portable-v2 AccountState for both maintained and non-maintained observations on merged RPC, preserving ownership/rung checks and retaining the genuine non-maintained submission identified by proof_bundle_non_maintained_submission_ref."
+
+[wiring.3]
+request = "Domain 3 agent SDK owner, services/agent/sdk/python/layerx_sdk/agent_http.py check_proof_bundle_response and sibling SDK probe consumers: migrate the PB1 target/proofs and batch-freshness consumer to the current portable-v2 bundle and block-freshness API without weakening signature, pin, selector or rung checks; the scoped harness deliberately retains its real consumer check and does not convert or bypass it."
+
+[wiring.4]
+request = "Domain 16 tools/ops producer owner, tests/daemon and native release-kit provisioning: supply a genuine executed non-maintained account submission and a distinct signed proof_bundle_head_advance_transaction on the merged generation; independently prove maintenance provenance and positive account inclusion through the owning producer before claiming full four-case native qualification."
+
+[gotcha.1]
+observed = "The baseline verify instruction conflicts with the explicit implementation-first and hf-done-only order."
+resolution = "Follow the explicit order and record no invented baseline result; root GOTCHA.kvx and spec task records are outside this task's editable scope."
+
+[gotcha.2]
+observed = "The merged owner refuses account proofs and the Python SDK consumes retired PB1 even though the API producer exposes portable v2."
+resolution = "Keep all completeness and real SDK consumer checks, record the owning-domain wiring requests, and distinguish scoped transport/request evidence from unproduced native account evidence."
+
+[gotcha.3]
+observed = "Killing a participant leader alone can leave grandchildren, including children in a new session, alive or unreaped."
+resolution = "Use a private process session, pin descendants with pidfds, kill both the group and escaped descendants, and reap adopted descendants before retaining timeout evidence."
+
+[gotcha.4]
+observed = "The first focused verify rejected the new peer's extra block wrapper in relative_to before reaching the retained SDK check; revision aebd565f9c562bdd29314c072c266608cddcb99d, cg spec done 22.33.765 -f layerx-merge --root /work/paxeer-monorepo, exit 1, /out/logs/verify-1.log."
+resolution = "Match Freshness::encode_json in services/agent/crates/layerx-agent-api/src/read.rs with the exact relative_to height/hash object; preserve the strict production validator and all assertions, then rebuild and verify the repaired candidate."

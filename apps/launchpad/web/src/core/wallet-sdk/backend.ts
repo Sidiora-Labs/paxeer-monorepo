@@ -43,7 +43,8 @@ export function approvedWalletAssets(authority: WalletNetworkAuthorityV2): reado
     if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash) throw new Error('Approved public network endpoint required');
   }
   if (!n.addresses.USDL || !/^0x[0-9a-fA-F]{64}$/.test(authority.usdlRuntimeHash)) throw new Error('Attested USDL identity is unavailable');
-  return Object.freeze([nativePAX, usdlAsset(n.addresses.USDL, authority.usdlRuntimeHash)]);
+  const deploymentHash = keccak256(stringToHex(JSON.stringify([n.deploymentVersion, n.manifestHash, n.sourceManifestSha256, n.publicRPC])));
+  return Object.freeze([nativePAX, usdlAsset(n.addresses.USDL, authority.usdlRuntimeHash, deploymentHash)]);
 }
 export async function checkedCommittedHead(client: WalletPublicClient, authority: WalletNetworkAuthorityV2, signal: AbortSignal): Promise<CommittedWalletHeadV2> {
   signal.throwIfAborted();

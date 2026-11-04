@@ -13,6 +13,7 @@ import Pagination from 'ui/shared/pagination/Pagination';
 import { formatScanTableCount, ScanTableCard } from 'ui/shared/scan';
 
 import AddressCsvExportLink from './AddressCsvExportLink';
+import AddressPageCsvExport from './AddressPageCsvExport';
 import AddressTxsFilter from './AddressTxsFilter';
 import useAddressInternalTxsQuery from './useAddressInternalTxsQuery';
 
@@ -60,11 +61,11 @@ const AddressInternalTxs = ({ shouldRender = true, isQueryEnabled = true, intern
         isLoading={ pagination.isLoading }
       />
       { !isMobile && (
-        <AddressCsvExportLink
+        <AddressPageCsvExport
           address={ hash }
-          label="Download Page Data"
+          type="internal-transactions"
+          items={ data?.items }
           isLoading={ pagination.isLoading }
-          params={{ type: 'internal-transactions', filterType: 'address', filterValue }}
         />
       ) }
     </>
@@ -110,7 +111,7 @@ const AddressInternalTxs = ({ shouldRender = true, isQueryEnabled = true, intern
       <Flex justifyContent="flex-end" mt={ 3 }>
         <AddressCsvExportLink
           address={ hash }
-          label="CSV Export"
+          label="Date-range CSV Export"
           isLoading={ pagination.isLoading }
           params={{ type: 'internal-transactions', filterType: 'address', filterValue }}
         />

@@ -49,11 +49,51 @@ impl AsRef<[u8]> for PreparedSessionSeed {
 
 pub struct ProvisionedEvmSessionKey {
     key: PreparedSessionSeed,
-    revocation_marker: PathBuf,
+    revocation_marker: Option<PathBuf>,
     owner_uid: u32,
+    pub(crate) issued: IssuedSessionKey,
+    pub(crate) network_id: Option<u32>,
+}
+
+impl std::fmt::Debug for ProvisionedEvmSessionKey {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("ProvisionedEvmSessionKey")
+            .field("signer", &"[redacted]")
+            .field("expires_at", &self.issued.expires_at)
+            .finish_non_exhaustive()
+    }
 }
 
 impl ProvisionedEvmSessionKey {
+    pub fn from_seed(
+        seed: &[u8; 32],
+        issued: IssuedSessionKey,
+    ) -> Result<Self, crate::sign::SigningError> {
+        Self::new(*seed, issued)
+    }
+
+    pub fn new(
+        seed: [u8; 32],
+        issued: IssuedSessionKey,
+    ) -> Result<Self, crate::sign::SigningError> {
+        validate_issued(issued.grant_id, &issued)
+            .map_err(|_| crate::sign::SigningError::InvalidProvisioning)?;
+        let address =
+            session_address(&seed, 1).map_err(|_| crate::sign::SigningError::KeyMismatch)?;
+        validate_address(address, &issued).map_err(|_| crate::sign::SigningError::KeyMismatch)?;
+        Ok(Self {
+            key: PreparedSessionSeed {
+                secret: Zeroizing::new(seed),
+                address,
+            },
+            revocation_marker: None,
+            owner_uid: 0,
+            issued,
+            network_id: None,
+        })
+    }
+
     pub const fn evm_address(&self) -> [u8; 20] {
         self.key.evm_address()
     }
@@ -62,9 +102,12 @@ impl ProvisionedEvmSessionKey {
         &self,
         operation: impl FnOnce(&[u8; 32]) -> R,
     ) -> Result<R, SessionKeyRegistryError> {
-        match fs::symlink_metadata(&self.revocation_marker) {
+        let Some(marker) = &self.revocation_marker else {
+            return Ok(operation(self.key.secret()));
+        };
+        match fs::symlink_metadata(marker) {
             Ok(_) => {
-                validate_revocation_marker(&self.revocation_marker, self.owner_uid)?;
+                validate_revocation_marker(marker, self.owner_uid)?;
                 Err(SessionKeyRegistryError::Invalid)
             }
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
@@ -348,7 +391,9 @@ impl SessionKeyRegistry {
                         secret: Zeroizing::new(*seed),
                         address,
                     },
-                    revocation_marker: marker,
+                    revocation_marker: Some(marker),
+                    issued: issued.clone(),
+                    network_id: Some(self.network_id),
                     owner_uid: self.owner_uid,
                 })
             })
@@ -446,7 +491,10 @@ fn validate_issued(
     grant_id: [u8; 32],
     issued: &IssuedSessionKey,
 ) -> Result<(), SessionKeyRegistryError> {
-    if grant_id != issued.grant_id
+    if layerx_crypto::session::decode_session_key(&issued.registration_payload)
+        .map_err(|_| SessionKeyRegistryError::Invalid)?
+        != *issued
+        || grant_id != issued.grant_id
         || issued.purpose != layerx_crypto::session::SessionPurpose::Activity
         || issued.permitted_activity_types.is_empty()
         || issued.expires_at == 0

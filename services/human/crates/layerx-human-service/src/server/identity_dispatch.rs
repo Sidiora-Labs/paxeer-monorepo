@@ -9,7 +9,7 @@ use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use crate::auth::OperationDigest;
+use crate::auth::{OperationDigest, StepUpChallenge, StepUpEvidence};
 use crate::onboarding::{
     OnboardingJourney, OnboardingStage, OnboardingStart, OnboardingStatus, RecoveryPolicy,
 };
@@ -20,7 +20,16 @@ use layerx_types::intent::{ApprovalThreshold, RecoveryRoot};
 
 #[path = "identity_projection.rs"]
 mod api_projection;
-pub(crate) use api_projection::{step_up_challenge, step_up_evidence};
+pub(crate) fn step_up_challenge(value: &StepUpChallenge) -> Result<Value, IdentityDispatchError> {
+    api_projection::step_up_challenge(value)
+}
+
+pub(crate) fn step_up_evidence(value: &StepUpEvidence) -> Result<Value, IdentityDispatchError> {
+    if value.completed_at() >= value.expires_at() {
+        return Err(IdentityDispatchError::Corrupt);
+    }
+    api_projection::step_up_evidence(value)
+}
 
 fn onboarding_stage_copy_key(stage: OnboardingStage) -> &'static str {
     match stage {
@@ -297,7 +306,7 @@ impl RemoteIdentityProvider {
         stream
             .read_exact(&mut response)
             .map_err(|_| IdentityDispatchError::ProviderUnavailable)?;
-        decode_provider_response(&response)
+        decode_provider_response(&response, operation)
     }
 }
 
@@ -400,7 +409,10 @@ fn provider_text(bytes: &[u8]) -> Result<String, IdentityDispatchError> {
         .map_err(|_| IdentityDispatchError::ProviderEvidence)
 }
 
-fn decode_provider_response(bytes: &[u8]) -> Result<Vec<Vec<u8>>, IdentityDispatchError> {
+fn decode_provider_response(
+    bytes: &[u8],
+    operation: u8,
+) -> Result<Vec<Vec<u8>>, IdentityDispatchError> {
     if bytes.len() < 10 || &bytes[..4] != IDENTITY_MAGIC || bytes[4] != 1 {
         return Err(IdentityDispatchError::ProviderEvidence);
     }
@@ -414,6 +426,15 @@ fn decode_provider_response(bytes: &[u8]) -> Result<Vec<Vec<u8>>, IdentityDispat
             .try_into()
             .map_err(|_| IdentityDispatchError::ProviderEvidence)?,
     ) as usize;
+    let arity = match operation {
+        0 => 0..=0,
+        1 => 5..=5,
+        4 => 1..=2,
+        _ => return Err(IdentityDispatchError::ProviderEvidence),
+    };
+    if !arity.contains(&count) || count > (bytes.len() - 10) / 4 {
+        return Err(IdentityDispatchError::ProviderEvidence);
+    }
     let mut cursor = 10usize;
     let mut fields = Vec::with_capacity(count);
     for _ in 0..count {

@@ -1,0 +1,18 @@
+[repair.22.33.127]
+audit = "22.30.114"
+criterion = "22998.1"
+implementation = "Expose exact-string raw-unit and human-decimal entry points; round the complete coefficient once with BigInt, then use Intl parts for grouping, signs, decimal separators and localized fraction digits. The existing provider entry point consistently uses human units and retains its existing invalid-input behavior."
+proof = "The declared repair test executes production formatters directly and imports the existing locale suite, preserving every existing assertion and strengthening token examples with exact output."
+baseline = "Not run: the explicit implementation-first gate order and prohibition on manually running verify_cmd conflict with step 7's pre-change verification request; no pre-change execution or failure is claimed. The new explicit API tests would fail on the base because those exports do not exist, and legacy entry assertions exercise the integer-string scaling defect."
+base_revision = "9e535b4932ba8111a729a5cef10e0ca2370ca435"
+evidence = "The runner's hf-done ledger records the verified candidate revision, exact command, exit code and private log; this record is included in that candidate."
+wiring_request = "Domain 12: apps/wallet/src/providers/LocaleProvider.tsx must expose formatRawTokenAmount and formatHumanTokenAmount with exact string inputs and migrate its formatTokenAmount consumers to the explicitly selected entry point."
+
+[finding.23]
+tests = ["finding23_explicit_raw_and_human_units", "finding23_legacy_provider_entry_uses_consistent_human_units", "finding23_rejects_invalid_explicit_amounts_and_decimals"]
+
+[finding.22]
+tests = ["finding22_exact_large_integer_and_fraction", "finding22_rounds_once_and_carries_across_the_whole_amount", "finding22_arabic_digits_separators_and_signs"]
+
+[finding.24]
+tests = ["finding24_zero_decimals_and_exact_locale_boundaries", "formats exact raw and human token boundaries"]

@@ -1,6 +1,8 @@
 package client
 
 import (
+	"math"
+
 	rpchttp "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/client/http"
 	"github.com/spf13/pflag"
 
@@ -14,7 +16,7 @@ import (
 // provides the total number of objects. The start page is assumed to be 1-indexed.
 // If the start page is invalid, non-positive values are returned signaling the
 // request is invalid; it returns non-positive values if limit is non-positive and
-// defLimit is negative.
+// defLimit is non-positive, or the requested range overflows int.
 func Paginate(numObjs, page, limit, defLimit int) (start, end int) {
 	if page <= 0 {
 		// invalid start page
@@ -30,7 +32,13 @@ func Paginate(numObjs, page, limit, defLimit int) (start, end int) {
 		limit = defLimit
 	}
 
+	if numObjs <= 0 || limit <= 0 || page-1 > math.MaxInt/limit {
+		return -1, -1
+	}
 	start = (page - 1) * limit
+	if limit > math.MaxInt-start {
+		return -1, -1
+	}
 	end = limit + start
 
 	if end >= numObjs {
@@ -59,7 +67,14 @@ func ReadPageRequest(flagSet *pflag.FlagSet) (*query.PageRequest, error) {
 	}
 
 	if page > 1 {
-		offset = (page - 1) * limit
+		pageLimit := limit
+		if pageLimit == 0 {
+			pageLimit = query.DefaultLimit
+		}
+		if page-1 > math.MaxUint64/pageLimit {
+			return nil, sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, "page offset overflows uint64")
+		}
+		offset = (page - 1) * pageLimit
 	}
 
 	return &query.PageRequest{

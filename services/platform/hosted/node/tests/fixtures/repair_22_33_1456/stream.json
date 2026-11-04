@@ -1,0 +1,34 @@
+{
+  "modules": [
+    "stream"
+  ],
+  "app_state": {
+    "layerxpay": {
+      "params": {
+        "paused": false,
+        "escrow_enabled": false,
+        "budget_enabled": false,
+        "stream_enabled": true,
+        "service_enabled": false
+      },
+      "kernel_records": [
+        {
+          "key": "AQAHbW9kdWxlLWVuYWJsZTpzdHJlYW0AAAAAAAAAAAAAAAA=",
+          "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAE="
+        }
+      ],
+      "agent_stream_metadata": []
+    },
+    "layerxexchange": {
+      "params": {
+        "authority": "",
+        "paused": false,
+        "time_in_force": false,
+        "markets": []
+      },
+      "intent_count": "0",
+      "intents": [],
+      "owner_nonces": []
+    }
+  }
+}

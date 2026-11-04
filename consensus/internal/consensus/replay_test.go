@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/fortytw2/leaktest"
 	"github.com/gogo/protobuf/proto"
@@ -1141,4 +1142,49 @@ type initChainApp struct {
 
 func (ica *initChainApp) InitChain(_ context.Context, req *abci.RequestInitChain) (*abci.ResponseInitChain, error) {
 	return &abci.ResponseInitChain{Validators: ica.vals}, nil
+}
+
+func testRepairM1082WALRecovery(t *testing.T) {
+	t.Helper()
+	for _, tc := range []struct {
+		name   string
+		offset time.Duration
+		timely bool
+	}{
+		{"producer_receive_clock", 0, true},
+		{"late_receive_clock", 2*time.Second + time.Nanosecond, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newRepair80Fixture(t)
+			if tc.offset != 0 {
+				f.messages[0].ReceiveTime = f.proposal.Timestamp.Add(tc.offset)
+			}
+			received := f.messages[0].ReceiveTime
+			live := repair80State(t, f, f.signer)
+			for _, mi := range f.messages {
+				require.NoError(t, live.wal.Append(NewWALMessage(mi)))
+			}
+			require.NoError(t, live.wal.Sync())
+			for _, mi := range f.messages {
+				live.handleMsg(t.Context(), mi, false)
+			}
+			before := repair80Prevote(t, live, f, tc.timely)
+			require.True(t, received.Equal(live.GetRoundState().ProposalReceiveTime))
+			live.wal.Close()
+			live.blockExec.Stop()
+			signer, err := privval.LoadFilePV(f.keyFile, f.stateFile)
+			require.NoError(t, err)
+			recovered := repair80State(t, f, signer)
+			require.NoError(t, recovered.catchupReplay(t.Context(), 1))
+			require.True(t, received.Equal(recovered.GetRoundState().ProposalReceiveTime))
+			after := repair80Prevote(t, recovered, f, tc.timely)
+			require.True(t, before.BlockID.Equals(after.BlockID))
+			require.Equal(t, before.ToProto().Signature, after.ToProto().Signature)
+			require.True(t, before.Timestamp.Equal(after.Timestamp))
+		})
+	}
+}
+
+func TestWALTimedProposalRecovery(t *testing.T) {
+	testRepairM1082WALRecovery(t)
 }

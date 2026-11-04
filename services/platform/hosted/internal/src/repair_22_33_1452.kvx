@@ -1,0 +1,29 @@
+[repair.22.33.1452]
+audit = "22.30.83"
+base_revision = "e3d7e5828b39e4182e9559fb6bc28d74c2f37e0f"
+acceptance = "22998.1"
+baseline = "Not run: the ordered gate instructions prohibit verification before implementation and direct verification outside hf-done; the integration target does not exist at the base, so no pre-change failed-test result is claimed."
+evidence = "The private hf-build/hf-done ledger names the exact content-addressed candidate revision, command, exit and log; the final report copies its last gate evidence without editing the candidate after qualification."
+fixtures = "Committed certificate, PKCS8 key and PKCS12 identity fixtures are test-only, issued for localhost with a separate unrelated CA; the gate generates no keys and invokes no external binary, process or live service."
+
+[finding.gateway-root-trust]
+test = "gateway_root_trust_accepts_configured_ca_and_refuses_unconfigured_roots"
+proof = "The production gateway HTTP client completes a mutually authenticated loopback request through its configured CA, refuses a server signed by the unrelated root, and retains hostname and client-identity refusal."
+policy = "The connector disables built-in roots and adds only its configured CA; certificate and hostname verification remain enabled."
+
+[finding.journal-torn-tail]
+test = "journal_torn_tail_reopens_every_interrupted_append_and_preserves_prior_records"
+proof = "Production Journal emits both records; each possible interrupted-byte prefix of its final append is reopened, only the unterminated bounded suffix is durably truncated, the prior record replays, and a replacement append survives another reopen; complete malformed lines, interior missing delimiters and oversized suffixes refuse startup without truncation."
+policy = "A newline terminates a committed record; append fsyncs before acceptance. Only an EOF suffix shorter than a maximum append can be uncommitted. Recovery truncates under the exclusive journal lock and fsyncs before allowing new appends."
+
+[finding.producer-retention-growth]
+test = "producer_retention_growth_sustains_delivery_and_reopens_at_durable_boundaries"
+additional_test = "producer_retention_growth_bounds_counters_and_compacts_only_closed_acknowledged_streams"
+proof = "QueueState emits observations delivered by the production Client over mutual TLS into the production Service; a durable notification consumer retrieves the actual immutable records. Delivery exceeds the retained history capacity, the producer and source stop and reopen with an observed pending event, and delivery continues through a durable resource checkpoint. A second journal-backed case reaches the counter capacity, refuses overflow without mutation, closes and reopens a completed resource prefix, and reclaims counters while refusing its reuse."
+policy = "At most 2048 retained observations and 10000 tracked resources; eviction removes only an acknowledged stream prefix and durably retains its event counter and maximum compacted source_sequence. Existing retained retries must match exactly; new transitions at or below the compacted source high-water mark refuse. Source owners must supply monotonic replay cursors. Inclusive lexicographic kind:resource checkpoints refuse pending streams and permanently reject every later submission in the closed prefix, permitting safe removal of both observations and counters; capacity exhaustion explicitly requests a checkpoint."
+wiring_request = "Owner domain 8: services/platform/hosted/registry/src/event_producer.rs must durably checkpoint QueueState::compact_through with an authoritative closed source-resource prefix and compact the surrounding event journal; preserve monotonically increasing per-resource source_sequence and backpressure when no safe prefix is available."
+
+[finding.secret-prefix-truncation]
+test = "secret_prefix_truncation_refuses_hidden_suffixes_before_normalization"
+proof = "The production file reader accepts maximum credentials with EOF, LF or CRLF and refuses hidden trailing bytes, overflow, invalid UTF-8, embedded controls and empty inputs."
+policy = "Read the complete bounded raw file with one overflow byte before normalization; permit two raw bytes of terminal line-break overhead. Zeroizing owns the raw buffer from the first read, covering I/O, UTF-8 and validation errors as well as success."

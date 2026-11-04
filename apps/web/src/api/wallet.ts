@@ -135,19 +135,81 @@ export async function connectWalletAccount(): Promise<string | undefined> {
   return typeof first === 'string' && EVM_ADDRESS.test(first) ? first.toLowerCase() : undefined;
 }
 
+export type NativeSubmissionStage = 'approval' | 'write';
+export type NativeSubmission = Readonly<{
+  version: 1;
+  chainId: '125';
+  account: string;
+  operation: string;
+  stage: NativeSubmissionStage;
+  transactionHash?: string;
+}>;
+
+const NATIVE_CONTEXT = 'layerx:private-native:v1:125:';
+
+function nativeSubmissionKey(account: string): string {
+  if (!EVM_ADDRESS.test(account)) throw new Error('Invalid native submission account');
+  return NATIVE_CONTEXT + account.toLowerCase();
+}
+
+/** A reservation without a hash also blocks a second send after an interrupted wallet request. */
+export function retainedWalletNativeSubmission(account: string): NativeSubmission | undefined {
+  const raw = browserSubmissionStore().getItem(nativeSubmissionKey(account));
+  if (raw === null) return undefined;
+  if (raw.length > 1024) throw new Error('Invalid retained native submission');
+  const value: unknown = JSON.parse(raw);
+  if (typeof value !== 'object' || value === null || Array.isArray(value))
+    throw new Error('Invalid retained native submission');
+  const entry = value as Record<string, unknown>;
+  if (
+    entry.version !== 1 || entry.chainId !== '125' || entry.account !== account.toLowerCase() ||
+    typeof entry.operation !== 'string' || !/^[a-z-]{1,32}$/u.test(entry.operation) ||
+    (entry.stage !== 'approval' && entry.stage !== 'write') ||
+    (entry.transactionHash !== undefined &&
+      (typeof entry.transactionHash !== 'string' || !/^0x[0-9a-fA-F]{64}$/u.test(entry.transactionHash)))
+  ) throw new Error('Invalid retained native submission');
+  return entry as NativeSubmission;
+}
+
+/** Reconciles the existing identity only; this function never submits a transaction. */
+export async function resumeWalletNativeSubmission(account: string): Promise<PrecompileSendOutcome | undefined> {
+  const retained = retainedWalletNativeSubmission(account);
+  if (retained === undefined) return undefined;
+  if (retained.transactionHash === undefined)
+    return { outcome: 'failed', detail: 'A wallet request was interrupted before its hash was retained. Reconcile it in the wallet before sending again.' };
+  const transactionHash = retained.transactionHash;
+  try {
+    const wallet = windowWalletProvider();
+    if (wallet === undefined || rpcQuantity(await wallet.request({ method: 'eth_chainId' })) !== 125n)
+      return { outcome: 'unconfirmed', transactionHash };
+    const receipt = await gatewayTransactionReceipt(transactionHash);
+    if (receipt === undefined) return { outcome: 'sent', transactionHash };
+    browserSubmissionStore().removeItem(nativeSubmissionKey(account));
+    return { outcome: receipt.status === 'success' ? 'sent' : 'reverted', transactionHash, receipt };
+  } catch {
+    return { outcome: 'unconfirmed', transactionHash };
+  }
+}
+
 /** Sends one SDK-built precompile call through the Paxeer wallet. */
 export async function sendWalletPrecompileCall(
   from: string,
   build: () => PrecompileCall,
   sleep: (milliseconds: number) => Promise<void> = (milliseconds) =>
-    new Promise((resolve) => setTimeout(resolve, milliseconds))
+    new Promise((resolve) => setTimeout(resolve, milliseconds)),
+  native?: Readonly<{ operation: string; stage: NativeSubmissionStage }>
 ): Promise<PrecompileSendOutcome> {
   const wallet = windowWalletProvider();
   if (wallet === undefined) {
     return { outcome: 'unavailable' };
   }
   let transactionHash: string | undefined;
+  let reserved = false;
   try {
+    if (native !== undefined) {
+      const recovered = await resumeWalletNativeSubmission(from);
+      if (recovered !== undefined) return recovered;
+    }
     const preference = walletFeePreference();
     if (preference.currency === 'sidiora') {
       if (preference.maximum === undefined) return { outcome: 'rejected' };
@@ -201,11 +263,31 @@ export async function sendWalletPrecompileCall(
         );
       return await sendWalletSponsoredBatch(quoted.value, consent ? review.identity : undefined);
     }
-    transactionHash = await sendPrecompileCall(wallet, from, build());
+    const call = build();
+    if (native !== undefined) {
+      if (rpcQuantity(await wallet.request({ method: 'eth_chainId' })) !== 125n)
+        return { outcome: 'rejected' };
+      // Recheck after awaiting the provider so concurrent controls cannot overwrite an identity.
+      if (retainedWalletNativeSubmission(from) !== undefined)
+        return await resumeWalletNativeSubmission(from) ?? { outcome: 'unavailable' };
+      const context: NativeSubmission = {
+        version: 1, chainId: '125', account: from.toLowerCase(), ...native,
+      };
+      browserSubmissionStore().setItem(nativeSubmissionKey(from), JSON.stringify(context));
+      reserved = true;
+    }
+    transactionHash = await sendPrecompileCall(wallet, from, call);
+    if (native !== undefined) {
+      const context: NativeSubmission = {
+        version: 1, chainId: '125', account: from.toLowerCase(), ...native, transactionHash,
+      };
+      browserSubmissionStore().setItem(nativeSubmissionKey(from), JSON.stringify(context));
+    }
     for (let attempt = 0; attempt < RECEIPT_POLL_LIMIT; attempt += 1) {
       if (attempt > 0) await sleep(RECEIPT_POLL_INTERVAL_MS);
       const receipt = await gatewayTransactionReceipt(transactionHash);
       if (receipt !== undefined) {
+        if (native !== undefined) browserSubmissionStore().removeItem(nativeSubmissionKey(from));
         return {
           outcome: receipt.status === 'success' ? 'sent' : 'reverted',
           transactionHash,
@@ -215,6 +297,11 @@ export async function sendWalletPrecompileCall(
     }
     return { outcome: 'sent', transactionHash };
   } catch (error) {
+    // Only an explicit wallet refusal proves the reserved request was not broadcast.
+    if (reserved && transactionHash === undefined && typeof error === 'object' && error !== null &&
+      'code' in error && (error.code === 4001 || error.code === 4100)) {
+      browserSubmissionStore().removeItem(nativeSubmissionKey(from));
+    }
     return transactionHash === undefined
       ? walletSendFailure(error)
       : { outcome: 'unconfirmed', transactionHash };

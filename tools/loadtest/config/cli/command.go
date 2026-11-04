@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"os/signal"
 	"strings"
@@ -14,18 +13,15 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/prometheus"
-	"go.opentelemetry.io/otel/sdk/metric"
 	"golang.org/x/time/rate"
 
 	"github.com/paxeer-network/pax-load/config"
 	"github.com/paxeer-network/pax-load/generator"
+	"github.com/paxeer-network/pax-load/generator/scenarios"
+	"github.com/paxeer-network/pax-load/internal/scaffold"
 	"github.com/paxeer-network/pax-load/sender"
 	"github.com/paxeer-network/pax-load/stats"
-	"github.com/paxeer-network/pax-load/utils"
 	"github.com/paxeer-network/pax-load/utils/service"
 )
 
@@ -49,6 +45,7 @@ without actually sending requests or deploying contracts.`,
 		},
 	}
 
+	rootCmd.AddCommand(scaffold.NewCommand())
 	rootCmd.Flags().StringP("config", "c", "", "Path to configuration file (required)")
 	rootCmd.Flags().DurationP("stats-interval", "s", 0, "Interval for logging statistics")
 	rootCmd.Flags().IntP("buffer-size", "b", 0, "Buffer size per worker")
@@ -110,8 +107,20 @@ func RunLoadTest(ctx context.Context, cmd *cobra.Command, args []string) error {
 	// Get resolved settings from the config package
 	settings := config.ResolveSettings()
 
+	if err := settings.Validate(len(cfg.Endpoints)); err != nil {
+		return fmt.Errorf("invalid settings: %w", err)
+	}
+	for i, scenario := range cfg.Scenarios {
+		if !scenarios.HasScenario(scenario.Name) {
+			return fmt.Errorf("scenarios[%d].name: unknown scenario %q", i, scenario.Name)
+		}
+	}
+
 	// Handle --nodes flag to limit number of endpoints
 	nodes, _ := cmd.Flags().GetInt("nodes")
+	if nodes < 0 || nodes > len(cfg.Endpoints) {
+		return fmt.Errorf("nodes: must be in [0,%d]", len(cfg.Endpoints))
+	}
 	if nodes > 0 && nodes < len(cfg.Endpoints) {
 		log.Printf("🔧 Limiting endpoints from %d to %d nodes", len(cfg.Endpoints), nodes)
 		cfg.Endpoints = cfg.Endpoints[:nodes]
@@ -152,17 +161,24 @@ func RunLoadTest(ctx context.Context, cmd *cobra.Command, args []string) error {
 	listenAddr := cmd.Flag("metricsListenAddr").Value.String()
 	log.Printf("serving metrics at %s/metrics", listenAddr)
 
-	if err := exportPrometheusMetrics(ctx, listenAddr); err != nil {
+	metricsServer, err := NewMetricsServer(listenAddr)
+	if err != nil {
 		return err
 	}
+	defer metricsServer.Close()
+	// Signals are subscribed before setup so shutdown during startup is retained.
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(sigChan)
 
 	// Create statistics collector and logger
 	collector := stats.NewCollector()
 	logger := stats.NewLogger(collector, settings.StatsInterval.ToDuration(), settings.ReportPath, settings.Debug)
 	var ramper *sender.Ramper
 
-	shutdownRequested := false
+	var writer *sender.TxsWriter
 	err = service.Run(ctx, func(ctx context.Context, s service.Scope) error {
+		s.SpawnBgNamed("metrics", func() error { return metricsServer.Serve(ctx) })
 		// Create the generator from the config struct
 		gen, err := generator.NewConfigBasedGenerator(cfg)
 		if err != nil {
@@ -242,6 +258,7 @@ func RunLoadTest(ctx context.Context, cmd *cobra.Command, args []string) error {
 			if err != nil {
 				return fmt.Errorf("failed to create ethclient: %w", err)
 			}
+			defer ethclient.Close()
 			latestHeight, err := ethclient.BlockNumber(ctx)
 			if err != nil {
 				return fmt.Errorf("failed to get latest height: %w", err)
@@ -249,7 +266,7 @@ func RunLoadTest(ctx context.Context, cmd *cobra.Command, args []string) error {
 			numBlocksToWrite := settings.NumBlocksToWrite
 			writerHeight := latestHeight + 10 // some buffer
 			log.Printf("🔍 Latest height: %d, writer start height: %d", latestHeight, writerHeight)
-			writer := sender.NewTxsWriter(settings.TargetGas, settings.TxsDir, writerHeight, uint64(numBlocksToWrite))
+			writer = sender.NewTxsWriter(settings.TargetGas, settings.TxsDir, writerHeight, uint64(numBlocksToWrite))
 			dispatcher = sender.NewDispatcher(gen, writer)
 		} else {
 			dispatcher = sender.NewDispatcher(gen, snd)
@@ -267,10 +284,13 @@ func RunLoadTest(ctx context.Context, cmd *cobra.Command, args []string) error {
 			log.Printf("📝 Prewarm mode: Accounts will be prewarmed")
 		}
 
+		senderDone := make(chan struct{})
 		if settings.TxsDir == "" {
-			// Start the sender (starts all workers)
-			s.SpawnBgNamed("sender", func() error { return snd.Run(ctx) })
+			// Sender keeps its run context while generation is stopped and joined.
+			s.SpawnBgNamed("sender", func() error { defer close(senderDone); return snd.Run(ctx) })
 			log.Printf("✅ Connected to %d endpoints", snd.GetNumShards())
+		} else {
+			close(senderDone)
 		}
 		// Perform prewarming if enabled (before starting logger to avoid logging prewarm transactions)
 		if settings.Prewarm {
@@ -284,13 +304,18 @@ func RunLoadTest(ctx context.Context, cmd *cobra.Command, args []string) error {
 		log.Printf("✅ Started statistics logger")
 
 		// Start dispatcher for main load test
-		s.SpawnBgNamed("dispatcher", func() error { return dispatcher.Run(ctx) })
+		generationCtx, stopGeneration := context.WithCancel(ctx)
+		defer stopGeneration()
+		dispatcherDone := make(chan struct{})
+		s.SpawnBgNamed("dispatcher", func() error {
+			defer close(dispatcherDone)
+			err := dispatcher.Run(generationCtx)
+			if generationCtx.Err() != nil && service.IsCancellation(err) {
+				return nil
+			}
+			return err
+		})
 		log.Printf("✅ Started dispatcher")
-
-		// Set up signal handling for graceful shutdown
-		sigChan := make(chan os.Signal, 1)
-		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-		defer signal.Stop(sigChan)
 
 		log.Printf("📈 Logging statistics every %v (Press Ctrl+C to stop)", settings.StatsInterval.ToDuration())
 		if settings.DryRun {
@@ -310,28 +335,41 @@ func RunLoadTest(ctx context.Context, cmd *cobra.Command, args []string) error {
 		}
 		log.Print(strings.Repeat("=", 60))
 
-		// Main loop - wait for shutdown signal
-		if _, err := utils.Recv(ctx, sigChan); err != nil {
-			return err
+		// Stop the producer first; only then close queues and drain accepted work.
+		select {
+		case <-sigChan:
+			log.Print("Received shutdown signal, stopping gracefully")
+		case <-dispatcherDone:
+		case <-ctx.Done():
 		}
-		shutdownRequested = true
-		log.Print("\n🛑 Received shutdown signal, stopping gracefully...")
-		return nil
+		stopGeneration()
+		<-dispatcherDone
+		snd.CloseInput()
+		drainTimer := time.NewTimer(30 * time.Second)
+		defer drainTimer.Stop()
+		select {
+		case <-senderDone:
+			return ctx.Err()
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-drainTimer.C:
+			return fmt.Errorf("sender drain: %w", context.DeadlineExceeded)
+		}
 	})
-	// A requested shutdown cancels background dispatch; it is not a run failure.
-	if shutdownRequested && ctx.Err() == nil && errors.Is(err, context.Canceled) {
-		err = nil
+	// All generation and sending has joined. Tail publication precedes reporting,
+	// and a real finalization failure is never discarded as scope cancellation.
+	if writer != nil {
+		err = errors.Join(err, writer.Close())
 	}
+
 	// Print final statistics
 	finalStats, reportErr := logger.LogFinalStats()
-	if reportErr != nil {
-		return reportErr
-	}
+
 	if settings.RampUp && ramper != nil {
 		ramper.LogFinalStats()
 	}
 	log.Printf("👋 Shutdown complete")
-	return errors.Join(err, EnforceBounds(settings, finalStats))
+	return errors.Join(err, reportErr, EnforceBounds(settings, finalStats))
 }
 
 func EnforceBounds(s config.Settings, fs *stats.FinalStats) error {
@@ -351,26 +389,6 @@ func EnforceBounds(s config.Settings, fs *stats.FinalStats) error {
 	return fmt.Errorf("%w: %s", ErrPerformanceBounds, strings.Join(details, "; "))
 }
 
-func exportPrometheusMetrics(ctx context.Context, listenAddr string) error {
-	metricsExporter, err := prometheus.New(prometheus.WithNamespace("paxload"))
-	if err != nil {
-		return fmt.Errorf("failed to create Prometheus exporter: %w", err)
-	}
-	otel.SetMeterProvider(metric.NewMeterProvider(metric.WithReader(metricsExporter)))
-	mux := http.NewServeMux()
-	mux.Handle("/metrics", promhttp.Handler())
-	server := &http.Server{Addr: listenAddr, Handler: mux}
-	go func() {
-		defer func() { _ = metricsExporter.Shutdown(context.Background()) }()
-		stop := context.AfterFunc(ctx, func() { _ = server.Close() })
-		defer stop()
-		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Printf("failed to serve metrics: %v", err)
-		}
-	}()
-	return nil
-}
-
 // LoadConfig reads and parses the configuration file.
 func LoadConfig(filename string) (*config.LoadConfig, error) {
 	data, err := os.ReadFile(filename)
@@ -383,14 +401,8 @@ func LoadConfig(filename string) (*config.LoadConfig, error) {
 		return nil, fmt.Errorf("failed to parse config json: %w", err)
 	}
 
-	// Validate configuration
-	if len(cfg.Endpoints) == 0 {
-		return nil, fmt.Errorf("no endpoints specified in config")
+	if err := cfg.Validate(); err != nil {
+		return nil, err
 	}
-
-	if len(cfg.Scenarios) == 0 {
-		return nil, fmt.Errorf("no scenarios specified in config")
-	}
-
 	return &cfg, nil
 }

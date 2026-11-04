@@ -13,6 +13,13 @@ import (
 
 // FinalStats represents the complete final statistics that can be marshaled to JSON
 type FinalStats struct {
+	RequiredEndpoints    []string                       `json:"required_endpoints"`
+	Outcomes             OutcomeCounts                  `json:"outcomes"`
+	ThroughputBasis      string                         `json:"throughput_basis"`
+	CommitEvidence       string                         `json:"commit_evidence"`
+	UserLatency          *UserLatencyStats              `json:"user_latency,omitempty"`
+	Incomplete           bool                           `json:"incomplete"`
+	EvidenceErrors       []string                       `json:"evidence_errors,omitempty"`
 	LoadTestStatistics   LoadTestStatistics             `json:"load_test_statistics"`
 	ScenarioDistribution map[string]uint64              `json:"scenario_distribution"`
 	EndpointPerformance  map[string]EndpointPerformance `json:"endpoint_performance"`
@@ -32,6 +39,8 @@ type LoadTestStatistics struct {
 
 // EndpointPerformance represents detailed performance metrics for an endpoint
 type EndpointPerformance struct {
+	Outcomes             OutcomeCounts `json:"outcomes"`
+	LatencyScope         string        `json:"latency_scope"`
 	LatencyP50           time.Duration `json:"latency_p50"`
 	LatencyP99           time.Duration `json:"latency_p99"`
 	SampleCount          int           `json:"sample_count"`
@@ -54,6 +63,7 @@ type OverallTPS struct {
 
 // OverallPerformance represents comprehensive performance summary
 type OverallPerformance struct {
+	SampleCount       int           `json:"sample_count"`
 	TotalRuntime      time.Duration `json:"total_runtime"`
 	TotalTransactions uint64        `json:"total_transactions"`
 	AverageTPS        float64       `json:"average_tps"`
@@ -70,13 +80,21 @@ func (fs *FinalStats) String() string {
 
 	// Load test statistics
 	result += "=== Load Test Statistics ===\n"
-	result += fmt.Sprintf("Runtime: %v | Total TXs: %d | Avg TPS: %.2f\n\n",
+	result += fmt.Sprintf("Runtime: %v | Attempted TXs: %d | Accepted TPS: %.2f\n\n",
 		fs.LoadTestStatistics.Runtime.Round(time.Second),
 		fs.LoadTestStatistics.TotalTxs,
 		fs.LoadTestStatistics.AvgTPS)
 
+	result += fmt.Sprintf("Outcomes: attempted=%d accepted=%d failed=%d committed=%d (commit evidence: %s)\n", fs.Outcomes.Attempted, fs.Outcomes.Accepted, fs.Outcomes.Failed, fs.Outcomes.Committed, fs.CommitEvidence)
+	if fs.Incomplete {
+		result += fmt.Sprintf("INCOMPLETE RUN: %v\n", fs.EvidenceErrors)
+	}
+	if fs.UserLatency != nil {
+		result += fmt.Sprintf("User latency: samples=%d missing_receipts=%d scope=%s\n", fs.UserLatency.SampleCount, fs.UserLatency.MissingReceipts, fs.UserLatency.Scope)
+	}
+
 	// Transaction counts by scenario
-	result += "Transaction Counts by Scenario:\n"
+	result += "Attempt Counts by Scenario:\n"
 	for scenario, total := range fs.ScenarioDistribution {
 		result += fmt.Sprintf("  %s: %d\n", scenario, total)
 	}
@@ -112,7 +130,7 @@ func (fs *FinalStats) String() string {
 		result += "\nBlock Statistics:\n"
 		result += fmt.Sprintf("  Height: %d | Samples: %d\n",
 			fs.BlockStatistics.MaxBlockNumber, fs.BlockStatistics.SampleCount)
-		result += fmt.Sprintf("  Block Times: P50=%v | P99=%v | Max=%v\n",
+		result += fmt.Sprintf("  Committed Block Intervals: P50=%v | P99=%v | Max=%v\n",
 			fs.BlockStatistics.P50BlockTime.Round(time.Millisecond),
 			fs.BlockStatistics.P99BlockTime.Round(time.Millisecond),
 			fs.BlockStatistics.MaxBlockTime.Round(time.Millisecond))
@@ -122,11 +140,15 @@ func (fs *FinalStats) String() string {
 			fs.BlockStatistics.MaxGasUsed)
 	}
 
+	if fs.BlockStatistics != nil {
+		result += fmt.Sprintf("  Block sample scope: %s | Delivery lag P50=%v P99=%v (samples=%d)\n", fs.BlockStatistics.Scope, fs.BlockStatistics.P50DeliveryLag, fs.BlockStatistics.P99DeliveryLag, fs.BlockStatistics.DeliverySampleCount)
+	}
+
 	// Overall performance summary
 	result += "\nOverall Performance Summary:\n"
 	result += fmt.Sprintf("  Total Runtime: %v\n", fs.OverallPerformance.TotalRuntime.Round(time.Second))
-	result += fmt.Sprintf("  Total Transactions: %d\n", fs.OverallPerformance.TotalTransactions)
-	result += fmt.Sprintf("  Average TPS: %.2f\n", fs.OverallPerformance.AverageTPS)
+	result += fmt.Sprintf("  Accepted Transactions: %d\n", fs.OverallPerformance.TotalTransactions)
+	result += fmt.Sprintf("  Accepted Average TPS: %.2f\n", fs.OverallPerformance.AverageTPS)
 	result += fmt.Sprintf("  Max TPS: %.2f\n", fs.OverallPerformance.MaxTPS)
 
 	// Scenario distribution
@@ -159,7 +181,17 @@ func (fs *FinalStats) String() string {
 func (l *Logger) BuildFinalStats() *FinalStats {
 	stats := l.collector.GetStats()
 	duration := time.Since(stats.StartTime)
-	avgTPS := float64(stats.TotalTxs) / duration.Seconds()
+	var outcomes OutcomeCounts
+	for _, outcome := range stats.Outcomes {
+		outcomes.Attempted += outcome.Attempted
+		outcomes.Accepted += outcome.Accepted
+		outcomes.Failed += outcome.Failed
+		outcomes.Committed += outcome.Committed
+		outcomes.FailedExecutions += outcome.FailedExecutions
+		outcomes.MissingReceipts += outcome.MissingReceipts
+	}
+	avgTPS := float64(outcomes.Accepted) / duration.Seconds()
+	sampleCount := 0
 
 	// Build scenario distribution (aggregate by scenario)
 	scenarioDistribution := make(map[string]uint64)
@@ -174,7 +206,10 @@ func (l *Logger) BuildFinalStats() *FinalStats {
 	// Build endpoint performance
 	endpointPerformance := make(map[string]EndpointPerformance)
 	for endpoint, endpointStats := range stats.EndpointStats {
+		sampleCount += endpointStats.SampleCount
 		endpointPerformance[endpoint] = EndpointPerformance{
+			Outcomes:             endpointStats.Outcomes,
+			LatencyScope:         endpointStats.LatencyScope,
 			LatencyP50:           endpointStats.P50Latency,
 			LatencyP99:           endpointStats.P99Latency,
 			SampleCount:          endpointStats.SampleCount,
@@ -199,7 +234,8 @@ func (l *Logger) BuildFinalStats() *FinalStats {
 	// Build overall performance
 	overallPerformance := OverallPerformance{
 		TotalRuntime:      duration,
-		TotalTransactions: stats.TotalTxs,
+		TotalTransactions: outcomes.Accepted,
+		SampleCount:       sampleCount,
 		AverageTPS:        avgTPS,
 		MaxTPS:            stats.OverallMaxTPS,
 	}
@@ -212,14 +248,39 @@ func (l *Logger) BuildFinalStats() *FinalStats {
 		StartTime: stats.StartTime,
 	}
 
+	blockStats := l.collector.GetCumulativeBlockStats()
+	var evidenceErrors []string
+	if blockStats != nil && blockStats.Incomplete {
+		evidenceErrors = append(evidenceErrors, blockStats.RecoveryError)
+	}
+	commitEvidence := "unobserved"
+	if stats.UserLatency != nil {
+		commitEvidence = "registered_hashes_with_committed_receipts"
+		if stats.UserLatency.MissingReceipts > 0 {
+			evidenceErrors = append(evidenceErrors, fmt.Sprintf("missing committed receipts: %d", stats.UserLatency.MissingReceipts))
+		}
+		if stats.UserLatency.SampleCount == 0 {
+			evidenceErrors = append(evidenceErrors, "insufficient user latency samples")
+		}
+		if stats.UserLatency.LastError != "" {
+			evidenceErrors = append(evidenceErrors, stats.UserLatency.LastError)
+		}
+	}
 	return &FinalStats{
+		RequiredEndpoints:    stats.RequiredEndpoints,
+		Outcomes:             outcomes,
+		ThroughputBasis:      "node_accepted_submissions",
+		CommitEvidence:       commitEvidence,
+		UserLatency:          stats.UserLatency,
+		Incomplete:           len(evidenceErrors) > 0,
+		EvidenceErrors:       evidenceErrors,
 		LoadTestStatistics:   loadTestStats,
 		ScenarioDistribution: scenarioDistribution,
 		EndpointPerformance:  endpointPerformance,
 		OverallTPS:           overallTPS,
-		BlockStatistics:      stats.BlockStats,
+		BlockStatistics:      blockStats,
 		OverallPerformance:   overallPerformance,
-		GasStatistics:        l.collector.GetCumulativeBlockStats(),
+		GasStatistics:        blockStats,
 	}
 }
 
@@ -284,13 +345,8 @@ func (l *Logger) logCurrentStats() {
 			windowAvgLatency = endpointStats.WindowLatencySum / time.Duration(endpointStats.WindowLatencyCount)
 		}
 
-		// Get total transactions for this endpoint
-		totalTxsForEndpoint := uint64(0)
-		for _, endpoints := range stats.TxCounts {
-			if count, exists := endpoints[endpoint]; exists {
-				totalTxsForEndpoint += count
-			}
-		}
+		// Get accepted submissions for this endpoint
+		totalTxsForEndpoint := endpointStats.Outcomes.Accepted
 
 		// Aggregate for overall summary
 		totalWindowTxs += endpointStats.WindowTxCount
@@ -367,6 +423,9 @@ func (l *Logger) LogFinalStats() (*FinalStats, error) {
 		if err := os.WriteFile(l.reportPath, data, 0o644); err != nil {
 			return finalStats, fmt.Errorf("write report %s: %w", l.reportPath, err)
 		}
+	}
+	if finalStats.Incomplete {
+		return finalStats, fmt.Errorf("incomplete load test evidence: %v", finalStats.EvidenceErrors)
 	}
 	return finalStats, nil
 }

@@ -4,7 +4,8 @@ import React from 'react';
 
 import * as addressMock from 'mocks/address/address';
 import { render, routerState } from 'ui/shared/layout/testWrapper';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { waitFor } from 'vitest/lib';
 
 vi.hoisted(() => {
   window.__envs = {
@@ -21,6 +22,7 @@ vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper'))
 vi.setConfig({ testTimeout: 60_000 });
 
 import AddressPageContent from './Address';
+import { addressDetailFixtures } from './repair-22-33-314.fixtures';
 
 const HASH = addressMock.hash;
 
@@ -57,16 +59,39 @@ const LEFT_INSET = 'margin-(?:left|inline-start)';
 // The scale resolves a zero inset either to the plain length or to the token of the same name.
 const isSpace = (value: string) => !/^0[a-z%]*$/.test(value) && !/spacing-0\b/.test(value);
 
+async function renderLoadedAddress() {
+  const result = render(<AddressPageContent/>);
+  await waitFor(() => {
+    expect(result.container.querySelector(`a[href="/tx/${ addressMock.contract.creation_transaction_hash }"]`)).not.toBeNull();
+    expect(result.container.querySelector('[data-address-card="More info"]')?.textContent).toContain('5,462');
+  });
+  return result;
+}
+
+const unexpectedRequests: Array<string> = [];
+
 describe('AddressPageContent', () => {
   beforeEach(() => {
     routerState.pathname = '/address/[hash]';
     routerState.query = { hash: HASH };
     fetchMock.resetMocks();
-    fetchMock.mockResponse(JSON.stringify({ items: [], next_page_params: null }), { headers: { 'Content-Type': 'application/json' } });
+    unexpectedRequests.length = 0;
+    fetchMock.mockResponse((request) => {
+      const path = new URL(request.url).pathname;
+      if (!addressDetailFixtures.has(path)) {
+        unexpectedRequests.push(path);
+        return Promise.reject(new Error(`Unexpected address request: ${ path }`));
+      }
+      return Promise.resolve({ body: JSON.stringify(addressDetailFixtures.get(path)), headers: { 'Content-Type': 'application/json' } });
+    });
   });
 
-  it('heads the page with the address label rather than a details heading', () => {
-    const { container } = render(<AddressPageContent/>);
+  afterEach(() => {
+    expect(unexpectedRequests).toEqual([]);
+  });
+
+  it('heads the page with the address label rather than a details heading', async() => {
+    const { container } = await renderLoadedAddress();
 
     const heading = container.querySelector('h1')?.textContent ?? '';
 
@@ -74,14 +99,14 @@ describe('AddressPageContent', () => {
     expect(heading.endsWith('details')).toBe(false);
   });
 
-  it('puts the icon action row beneath the title', () => {
-    const { container } = render(<AddressPageContent/>);
+  it('puts the icon action row beneath the title', async() => {
+    const { container } = await renderLoadedAddress();
 
     expect(container.querySelector('[data-address-actions]')).toBeTruthy();
   });
 
-  it('renders the three detail cards above the tab strip', () => {
-    const { container } = render(<AddressPageContent/>);
+  it('renders the three detail cards above the tab strip', async() => {
+    const { container } = await renderLoadedAddress();
 
     const details = container.querySelector('[data-address-details]') as Element;
     const tabList = container.querySelector('[role="tablist"]') as Element;
@@ -92,8 +117,8 @@ describe('AddressPageContent', () => {
     expect(details.compareDocumentPosition(tabList) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('opens the tab strip on the transaction lists and keeps no separate details tab', () => {
-    const { container } = render(<AddressPageContent/>);
+  it('opens the tab strip on the transaction lists and keeps no separate details tab', async() => {
+    const { container } = await renderLoadedAddress();
 
     const titles = tabTitles(container);
 
@@ -104,15 +129,15 @@ describe('AddressPageContent', () => {
     expect(titles.some((title) => title.startsWith('Details'))).toBe(false);
   });
 
-  it('keeps the coin balance history and the advanced filter on the tab row', () => {
-    const { container } = render(<AddressPageContent/>);
+  it('keeps the coin balance history and the advanced filter on the tab row', async() => {
+    const { container } = await renderLoadedAddress();
 
     expect(tabTitles(container).some((title) => title.startsWith('Coin balance history'))).toBe(true);
     expect(container.querySelector('a[href^="/advanced-filter"]')).toBeTruthy();
   });
 
-  it('lets the identifier share the title row and keeps its inset for the wide layout only', () => {
-    const { container } = render(<AddressPageContent/>);
+  it('lets the identifier share the title row and keeps its inset for the wide layout only', async() => {
+    const { container } = await renderLoadedAddress();
 
     const row = container.querySelector('[data-title-after]')?.firstElementChild as HTMLElement;
 

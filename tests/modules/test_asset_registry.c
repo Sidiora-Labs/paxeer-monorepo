@@ -1,4 +1,5 @@
 #include "layerx/lx_asset.h"
+#include "test_asset_retirement.h"
 #include "layerx/lxp_hash.h"
 #include "layerx/lxp_identity.h"
 #include "layerx/lxp_kernel.h"
@@ -553,6 +554,8 @@ static int withdraw_submit(pause_fixture *f, const uint8_t seed[32],
     (void)memcpy(f->authority.actor, actor, 32U);
     (void)memcpy(f->authority.principal, principal, 32U);
     PAUSE_CHECK(lxp_kernel_module_for_activity(&f->kernel, LX_ASSET_WITHDRAW,
+                                               0U, &registration) == LXP_ERR_UNKNOWN_ACTIVITY);
+    PAUSE_CHECK(lxp_kernel_module_for_activity(&f->kernel, LX_ASSET_SEND,
                                                0U, &registration) == LXP_OK);
     PAUSE_CHECK(lxp_arena_init(&wire_arena, pause_canonical,
                                sizeof(pause_canonical)) == LXP_OK);
@@ -647,7 +650,7 @@ static int test_withdraw_dispatch(void)
     PAUSE_CHECK(withdraw_submit(f, seed, actor_did, sizeof(actor_did) - 1U,
                                 opened[1]->id, 1U, activity_id, &result,
                                 &receipt) == 0);
-    PAUSE_CHECK(result == LXP_ERR_CONTEXT_MISMATCH);
+    PAUSE_CHECK(result == LXP_ERR_UNKNOWN_ACTIVITY);
     PAUSE_CHECK(opened[0]->balance.lo == 100U && opened[1]->balance.lo == 0U &&
                 opened[0]->next_sequence == 0U);
     PAUSE_CHECK(lxp_state_root(&f->kernel, after) == LXP_OK &&
@@ -656,14 +659,14 @@ static int test_withdraw_dispatch(void)
     PAUSE_CHECK(withdraw_submit(f, seed, actor_did, sizeof(actor_did) - 1U,
                                 opened[0]->id, 1U, activity_id, &result,
                                 &receipt) == 0);
-    PAUSE_CHECK(result == LXP_OK);
-    PAUSE_CHECK(opened[0]->balance.lo == 75U && opened[1]->balance.lo == 25U &&
-                opened[0]->next_sequence == 1U);
+    PAUSE_CHECK(result == LXP_ERR_UNKNOWN_ACTIVITY);
+    PAUSE_CHECK(opened[0]->balance.lo == 100U && opened[1]->balance.lo == 0U &&
+                opened[0]->next_sequence == 0U);
     PAUSE_CHECK(receipt.supply_binding_version == 0U &&
                 lxp_u128_is_zero(receipt.total_units_before) &&
                 lxp_u128_is_zero(receipt.total_units_after));
     PAUSE_CHECK(lxp_state_root(&f->kernel, after) == LXP_OK &&
-                memcmp(before, after, 32U) != 0);
+                memcmp(before, after, 32U) == 0);
 
     (void)memset(&request, 0, sizeof(request));
     request.network_id = 7U;
@@ -680,17 +683,15 @@ static int test_withdraw_dispatch(void)
             entry->key_length == sizeof(key) &&
             memcmp(entry->key, key, sizeof(key)) == 0) break;
     }
-    PAUSE_CHECK(index < f->kernel.module_kv_count &&
-                f->kernel.module_kv[index].value_length == sizeof(value) &&
-                memcmp(f->kernel.module_kv[index].value, value,
-                       sizeof(value)) == 0);
+    PAUSE_CHECK(index == f->kernel.module_kv_count);
+    PAUSE_CHECK(f->effects.count == 0U && !f->ctx.ledger_receipt_present);
 
     PAUSE_CHECK(withdraw_submit(f, seed, actor_did, sizeof(actor_did) - 1U,
                                 opened[0]->id, 2U, activity_id, &result,
                                 &receipt) == 0);
-    PAUSE_CHECK(result == LXP_ERR_WITHDRAWAL_ALREADY_SETTLED);
-    PAUSE_CHECK(opened[0]->balance.lo == 75U && opened[1]->balance.lo == 25U &&
-                opened[0]->next_sequence == 1U);
+    PAUSE_CHECK(result == LXP_ERR_UNKNOWN_ACTIVITY);
+    PAUSE_CHECK(opened[0]->balance.lo == 100U && opened[1]->balance.lo == 0U &&
+                opened[0]->next_sequence == 0U);
     PAUSE_CHECK(lxp_state_root(&f->kernel, before) == LXP_OK &&
                 memcmp(before, after, 32U) == 0);
 
@@ -952,6 +953,116 @@ static int test_asset_record_save_restore(void)
     return 0;
 }
 
+static int test_native_supply_dispatch_reopen(void)
+{
+    static const uint8_t seed[32] = {25U};
+    static const uint8_t did[] = "did:key:native-reconcile";
+    static const uint8_t hex[] = "0123456789abcdef";
+    pause_fixture *f = calloc(1U, sizeof(*f));
+    lx_asset_registry *assets = calloc(1U, sizeof(*assets));
+    lx_asset_native_supply_report report, unchanged;
+    lxp_ledger_receipt_input receipt;
+    lxp_transfer_asset_state transfer_states[4];
+    lx_asset_runtime runtime = {0};
+    lxp_hash_context hash;
+    uint8_t actor[32], asset_id[32], account_id[32], issuance_id[32];
+    uint8_t issuance_name[LX_ASSET_ISSUANCE_NAME_BYTES];
+    uint8_t account_name[LX_ACCOUNT_NAME_MAX];
+    uint8_t registration[89] = {0}, account_payload[34] = {0}, supply[82] = {0};
+    uint8_t idempotency[32] = {0}, before[32], after[32];
+    uint64_t sequence = 1U;
+    lxp_result result;
+    size_t account_length = 6U + sizeof(did) - 1U + 7U + 64U;
+    PAUSE_CHECK(f != NULL && assets != NULL);
+    PAUSE_CHECK(lxp_did_id_derive(did, sizeof(did) - 1U, actor) == LXP_OK);
+    registration[1] = 1U;
+    registration[34] = 9U;
+    lxp_hash_init(&hash);
+    PAUSE_CHECK(lxp_hash_update(&hash, (const uint8_t *)"LX:ASSET:v1", 11U) == LXP_OK);
+    PAUSE_CHECK(lxp_hash_update(&hash, actor, 32U) == LXP_OK);
+    PAUSE_CHECK(lxp_hash_update(&hash, registration + 34U, 32U) == LXP_OK);
+    PAUSE_CHECK(lxp_hash_final(&hash, asset_id) == LXP_OK);
+    memcpy(registration + 2U, asset_id, 32U);
+    registration[66] = 1U; registration[67] = 'N';
+    registration[68] = 1U; registration[69] = 'N';
+    registration[86] = 100U; registration[87] = 1U;
+    memcpy(account_name, "agent:", 6U);
+    memcpy(account_name + 6U, did, sizeof(did) - 1U);
+    memcpy(account_name + 6U + sizeof(did) - 1U, ":asset:", 7U);
+    for (size_t i = 0U; i < 32U; ++i) {
+        account_name[account_length - 64U + i * 2U] = hex[asset_id[i] >> 4U];
+        account_name[account_length - 63U + i * 2U] = hex[asset_id[i] & 15U];
+    }
+    PAUSE_CHECK(lx_account_id_from_string(account_name, account_length, account_id) == LXP_OK);
+    PAUSE_CHECK(lx_asset_issuance_name(asset_id, issuance_name, issuance_id) == LXP_OK);
+    PAUSE_CHECK(lx_account_registry_init(&f->accounts) == LXP_OK);
+    f->parameters = 1U;
+    PAUSE_CHECK(lxp_state_store_init(&f->state, 1U) == LXP_OK);
+    PAUSE_CHECK(lxp_state_store_bind_accounts(&f->state, &f->accounts) == LXP_OK);
+    PAUSE_CHECK(lxp_state_store_require_account_root(&f->state) == LXP_OK);
+    PAUSE_CHECK(lxp_kernel_create(&f->kernel, &f->state, &f->journal, &f->parameters, 0U) == LXP_OK);
+    PAUSE_CHECK(lxp_kernel_register_module(&f->kernel, lx_asset_module_iface()) == LXP_OK);
+    PAUSE_CHECK(lxp_kernel_set_capabilities(&f->kernel, NULL, lxp_kernel_canonical_ledger_apply) == LXP_OK);
+    idempotency[0] = (uint8_t)sequence;
+    PAUSE_CHECK(pause_submit_receipt(f, seed, did, sizeof(did) - 1U, LX_ASSET_REGISTER,
+        registration, sizeof(registration), idempotency, sequence++, true, &result, &receipt) == 0);
+    PAUSE_CHECK(result == LXP_OK && receipt.supply_binding_version == 1U);
+    account_payload[1] = 1U;
+    memcpy(account_payload + 2U, asset_id, 32U);
+    idempotency[0] = (uint8_t)sequence;
+    PAUSE_CHECK(pause_submit(f, seed, did, sizeof(did) - 1U, LX_ASSET_ACCOUNT_OPEN,
+        account_payload, sizeof(account_payload), idempotency, sequence++, true, &result) == 0);
+    PAUSE_CHECK(result == LXP_OK);
+    supply[1] = 1U;
+    memcpy(supply + 2U, asset_id, 32U);
+    memcpy(supply + 34U, account_id, 32U);
+    for (unsigned operation = 0U; operation < 2U; ++operation) {
+        uint64_t amount = operation == 0U ? 30U : 12U;
+        uint64_t expected = operation == 0U ? 30U : 18U;
+        PAUSE_CHECK(lxp_u128_to_be((lxp_u128){0U, amount}, supply + 66U) == LXP_OK);
+        idempotency[0] = (uint8_t)sequence;
+        PAUSE_CHECK(pause_submit_receipt(f, seed, did, sizeof(did) - 1U,
+            operation == 0U ? LX_ASSET_MINT : LX_ASSET_BURN, supply, sizeof(supply),
+            idempotency, sequence++, true, &result, &receipt) == 0);
+        PAUSE_CHECK(result == LXP_OK && receipt.supply_binding_version == 1U);
+        PAUSE_CHECK(receipt.total_units_after.hi == 0U && receipt.total_units_after.lo == expected);
+        PAUSE_CHECK(lx_asset_runtime_restore(&f->kernel, assets, transfer_states, &runtime) == LXP_OK);
+        PAUSE_CHECK(assets->count == 1U);
+        PAUSE_CHECK(lx_asset_native_supply_check(assets, &f->accounts) == LXP_OK);
+        PAUSE_CHECK(lx_asset_native_reconcile(&assets->assets[0], &f->accounts, &report) == LXP_OK);
+        PAUSE_CHECK(report.issuance_present && report.bank_units.hi == 0U && report.bank_units.lo == expected);
+        PAUSE_CHECK(report.registered_units.lo == expected && report.issuance_remaining.hi == 0U &&
+            report.issuance_remaining.lo == 100U - expected);
+    }
+    PAUSE_CHECK(asset_history_reopen(&f->kernel, &f->state, &f->journal,
+        &f->accounts, &f->parameters, sequence - 1U) == 0);
+    PAUSE_CHECK(lx_asset_runtime_restore(&f->kernel, assets, transfer_states, &runtime) == LXP_OK);
+    PAUSE_CHECK(lx_asset_supply_check(assets, &f->accounts, NULL, 0U) == LXP_OK);
+    PAUSE_CHECK(lx_asset_native_reconcile(&assets->assets[0], &f->accounts, &report) == LXP_OK);
+    PAUSE_CHECK(report.bank_units.lo == 18U && report.registered_units.lo == 18U &&
+        report.issuance_remaining.lo == 82U);
+    /* One-unit corruption is fatal without consulting any custody authority. */
+    size_t holder_slot, issuance_slot;
+    PAUSE_CHECK(lx_account_registry_index_lookup(&f->accounts, account_id, &holder_slot) == LXP_OK);
+    PAUSE_CHECK(lx_account_registry_index_lookup(&f->accounts, issuance_id, &issuance_slot) == LXP_OK);
+    PAUSE_CHECK(lxp_state_root(&f->kernel, before) == LXP_OK);
+    unchanged = report;
+    ++f->accounts.accounts[holder_slot].balance.lo;
+    PAUSE_CHECK(lx_asset_native_reconcile(&assets->assets[0], &f->accounts, &report) == LXP_FATAL_SUPPLY_MISMATCH);
+    PAUSE_CHECK(memcmp(&report, &unchanged, sizeof(report)) == 0);
+    --f->accounts.accounts[holder_slot].balance.lo;
+    ++f->accounts.accounts[issuance_slot].balance.lo;
+    PAUSE_CHECK(lx_asset_supply_check(assets, &f->accounts, NULL, 0U) == LXP_FATAL_SUPPLY_MISMATCH);
+    --f->accounts.accounts[issuance_slot].balance.lo;
+    PAUSE_CHECK(lxp_state_root(&f->kernel, after) == LXP_OK && memcmp(before, after, 32U) == 0);
+    PAUSE_CHECK(lx_asset_native_supply_check(assets, &f->accounts) == LXP_OK);
+    PAUSE_CHECK(lxp_state_store_destroy(&f->state) == LXP_OK);
+    lx_account_registry_release(&f->accounts);
+    free(assets);
+    free(f);
+    return 0;
+}
+
 int main(void)
 {
     lx_asset_registry registry;
@@ -1052,15 +1163,17 @@ int main(void)
                 LXP_ERR_INVALID_AMOUNT);
     PAUSE_CHECK(iface != NULL);
     PAUSE_CHECK(iface->module_id == LXP_MODULE_ASSET);
-    PAUSE_CHECK(iface->activity_type_count == 8U);
+    PAUSE_CHECK(iface->activity_type_count == 7U);
     PAUSE_CHECK(lxp_state_store_init(&state, 0U) == LXP_OK);
     PAUSE_CHECK(lxp_kernel_create(&kernel, &state, &journal, &parameters, 0U) == LXP_OK);
     PAUSE_CHECK(lxp_kernel_register_module(&kernel, iface) == LXP_OK);
     PAUSE_CHECK(lxp_kernel_module_for_activity(&kernel, LX_ASSET_GRANT_REVOKE, 0U,
                 &registration) == LXP_ERR_UNKNOWN_ACTIVITY);
     PAUSE_CHECK(lxp_kernel_module_for_activity(&kernel, LX_ASSET_WITHDRAW, 0U,
+                &registration) == LXP_ERR_UNKNOWN_ACTIVITY);
+    PAUSE_CHECK(lxp_kernel_module_for_activity(&kernel, LX_ASSET_SEND, 0U,
                 &registration) == LXP_OK);
-    PAUSE_CHECK(registration->activity_type_count == 8U);
+    PAUSE_CHECK(registration->activity_type_count == 7U);
     PAUSE_CHECK(test_asset_payloads(&kernel) == 0);
     PAUSE_CHECK(lx_account_registry_init(&accounts) == LXP_OK);
     PAUSE_CHECK(lx_account_id_from_string((const uint8_t *)from_name, strlen(from_name),
@@ -1095,6 +1208,7 @@ int main(void)
     PAUSE_CHECK(test_pause_dispatch() == 0);
     PAUSE_CHECK(test_supply_binding_dispatch() == 0);
     PAUSE_CHECK(test_withdraw_dispatch() == 0);
+    PAUSE_CHECK(test_native_supply_dispatch_reopen() == 0);
     return 0;
 }
 
