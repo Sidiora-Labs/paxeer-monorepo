@@ -8283,6 +8283,12 @@ value = "Every task that adds or changes a file under apps/explorer runs eslint 
 basis = "Gotcha 2990: eight audit-repair spec files broke the frontend image build while their tsc and vitest gates passed."
 affects = ["22.31.474"]
 
+[decision.2529]
+title = "The EVM chain id defaults to 125 and foreign network mappings are removed"
+value = "There is one network with chain id 125 (cosmos chain id hyperpax_125-1). modules/evm/config exposes 125 as the default EVM chain id for any cosmos chain id without an explicit mapping, and the mapping tables carry only Paxeer networks. Tests and fixtures obtain the chain id from the application's configuration, not from a literal."
+basis = "Gotcha 2991: the inherited 713714 default made test applications and signers disagree (22.33.1141) and surfaced as a wrong chain id in wallet and conformance fixtures (22.33.155 attempt 3, decision 2520)."
+affects = ["22.31.476"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -37173,6 +37179,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.31.476]
+title = "Default the EVM chain id to 125 and drop the foreign network mappings"
+reqs = ["22998.1"]
+touches = ["modules/evm/config", "modules/xweb/ATTESTATION.md", "sdk/platform/conformance/fixtures/account-derivation-v1.json", "node/proof_node_abci_test.go", "node/sequenced_block_test.go"]
+tests = []
+verification_contract = "go test -count=1 -run '^TestRepair476_' ./modules/evm/config/"
+do_1 = "do_1 In modules/evm/config/config.go set DefaultChainID to 125 and remove the pacific-1, atlantic-2 and arctic-1 entries from ChainIDMapping and EVMChainIDMapping, keeping hyperpax_125-1 (decision 2529, gotcha 2991). Keep the exported names so callers compile."
+symbols = []
 
 [capability.22.31.475]
 title = "Reconcile the consensus AppHash with the application commit hash across a node restart"
@@ -146918,6 +146933,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_8 = "Attempt 2 (continue, after 22.31.457 landed): the conformance build failed on the seller commitment type error that task 22.31.457 repairs; this task now requires it. Take the current head, rerun the build and the verify once, repair only what remains in scope, and finish on one commit."
 do_9 = "Attempt 3 (continue): the buyer middleware TS2345 error in src/index.ts resolveValidators that stopped the build was repaired and published by 22.33.1477; rerun the task on current main and repair only what its own tests report."
+do_10 = "Attempt 4 (continue): the conformance build failed with TS2339 at src/scenarios.ts line 506 reading paymentReference on PaymentExactEvent | PaymentDrawnEvent; the seller ledger (services/platform/middleware/seller/src/ledger.ts line 37) defines PaymentDrawnEvent with grantId, idempotencyKey and contextHash and no paymentReference, so the scenario must narrow on the event kind before reading the reference (a drawn payment is identified by grantId and idempotencyKey). Repair the scenario in the conformance package, rebuild, and rerun."
 
 [task.22.33.1480]
 title = "Repair audit record 22.30.86 medium findings in services/platform/middleware/conformance (part 1 of 1): test-gap"
@@ -149465,7 +149481,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.711]
 title = "Repair audit record 22.30.17 medium findings in apps/perps/src/hooks/perps (part 3 of 3): doc-drift, restart-recovery, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.19", "22.31.20"]
@@ -153487,6 +153503,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_8 = "Decision 2528: before qualifying, run yarn eslint on every spec file this task adds under apps/explorer; every test call has a string title and asserts inside its body (eslint-plugin-vitest valid-title and expect-expect), because the frontend image build lints the whole package and a spec file that only type-checks is not qualified. The tsc build of this task fails until 22.31.474 repairs the 299 spec, which is why this task now requires it."
+do_9 = "Attempt 3 (continue after 22.31.474): the type check failed on TS2769 in apps/explorer/ui/marketplace/essentialDapps/revoke/components/repair-22-33-299.spec.ts line 116, a spec another task published; 22.31.474 repairs it and this task now requires it. Rerun on current main, run eslint on the spec files this task adds (decision 2528) and repair only what its own tests report."
 
 [task.22.33.293]
 title = "Repair audit record 22.30.134 medium findings in apps/explorer/ui/address/utils (part 1 of 1): config-drift, runtime-risk"
@@ -196977,6 +196994,37 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.31.476]
+title = "Default the EVM chain id to 125 and drop the foreign network mappings"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.476"]
+interfaces = []
+do_1 = "do_1 In modules/evm/config/config.go set DefaultChainID to 125 and remove the pacific-1, atlantic-2 and arctic-1 entries from ChainIDMapping and EVMChainIDMapping, keeping hyperpax_125-1 (decision 2529, gotcha 2991). Keep the exported names so callers compile."
+do_2 = "do_2 Find every test, fixture and document under modules, node, sdk and sdk/platform/conformance that carries 713714 (modules/xweb/ATTESTATION.md, sdk/platform/conformance/fixtures/account-derivation-v1.json, node/proof_node_abci_test.go line 13 and the sequenced-block test helper at node/sequenced_block_test.go line 118) and make each derive or state chain 125; a derivation fixture whose vectors were computed for 713714 is regenerated for 125 with the generator recorded in the repair record."
+do_3 = "do_3 Add TestRepair476_ in modules/evm/config/repair_476_test.go proving: an unmapped cosmos chain id yields 125, hyperpax_125-1 yields 125, no mapping entry names a non-Paxeer network, and a transaction signed with the chain id the configuration returns is accepted by the production signer check that rejected 22.33.1141's test transactions (invalid chain id for signer)."
+do_4 = "do_4 Record in repair_476.kvx every file changed and the fixture regeneration."
+symbols = []
+touches = ["modules/evm/config", "modules/xweb/ATTESTATION.md", "sdk/platform/conformance/fixtures/account-derivation-v1.json", "node/proof_node_abci_test.go", "node/sequenced_block_test.go"]
+tests = []
+planned_paths = ["modules/evm/config/config.go", "modules/evm/config/repair_476_test.go", "modules/evm/config/repair_476.kvx"]
+build_cmd = "go build ./modules/evm/... ./node/... && go vet ./modules/evm/config/"
+verify_cmd = "go test -count=1 -run '^TestRepair476_' ./modules/evm/config/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-chain-modules"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.475]
 title = "Reconcile the consensus AppHash with the application commit hash across a node restart"
 status = "pending"
@@ -199736,7 +199784,7 @@ do_10 = "Attempt 3 (continue): TestRepairM_1277_SimappRestartRecovery fails beca
 
 [task.22.33.1276]
 title = "Repair audit record 22.30.64 medium findings in interchain/testing (part 1 of 1): config-drift, doc-drift, runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.463"]
@@ -200411,7 +200459,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1228]
 title = "Repair audit record 22.30.59 medium findings in modules/layerxcustody/keeper (part 1 of 1): runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.338", "22.31.463"]
@@ -200485,6 +200533,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_10 = "Attempt 2 (continue after 22.31.463): the test binary of interchain/modules/core could not build because sdk/x/auth/client/cli, sdk/x/staking/client/cli and modules/tokenfactory/client/cli still call tx.NewFactoryCLI as a single value (sdk/client/tx repair 22.33.1462); 22.31.463 carries the callers along. Keep the attempt-1 tree and rerun the gates on a base containing 22.31.463."
 do_11 = "Attempt 3 (continue after 22.31.463): the Go build or test binary could not compile because sdk/x/auth/client/cli, sdk/x/staking/client/cli and modules/tokenfactory/client/cli called tx.NewFactoryCLI as a single value after the sdk/client/tx repair 22.33.1462 changed its return; 22.31.463 repaired those callers and is on main; rerun the task on current main and repair only what its own tests report."
+do_12 = "Attempt 4 (continue): three of four suites pass; TestRepairM_1225_GovernanceRecovery (Frozen and Expired) fails because the test application cannot resolve the legacy governance message type /ibc.core.client.v1.ClientUpdateProposal. The production application registers the light-client governance types through the ibc core client module's RegisterInterfaces; make the test application use the same interface registry wiring (register the client module's interfaces, including the legacy proposal content, before submitting) and prove recovery of a frozen and an expired client through the real governance handler; do not fork a reduced registry."
 
 [task.22.33.1223]
 title = "Repair audit record 22.30.58 medium findings in interchain/modules/core/02-client/keeper (part 1 of 1): test-gap"
@@ -200923,7 +200972,7 @@ do_14 = "Attempt 3 (continue after 22.31.463): the Go build or test binary could
 
 [task.22.33.1205]
 title = "Repair audit record 22.30.57 medium findings in interchain/modules/apps/transfer/keeper (part 1 of 1): interface-mismatch, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.126", "22.31.463"]
@@ -200963,7 +201012,7 @@ do_13 = "Attempt 4 (continue after 22.31.463): the Go build or test binary could
 
 [task.22.33.1204]
 title = "Repair audit record 22.30.57 medium findings in interchain/modules/apps/27-interchain-accounts/host/keeper (part 1 of 1): config-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.126", "22.31.463"]
@@ -209548,6 +209597,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_16 = "Attempt 2 (continue): TestRepairM_796_FoundationArtifactInventory failed because the transitive source closure resolver stat-ed services/human/wallet/attestor/internal/audit, a directory that does not exist; the attempt corrected the resolver but the budget ended before verification. Rerun the repaired resolver on current main; the closure must be computed from the real import graph (go list -deps) rather than guessed directories, and repair only what the inventory test still reports."
 
 [task.22.33.795]
 title = "Repair audit record 22.30.177 medium findings in tools/bringup (part 4 of 7): config-drift, restart-recovery, retired-reference, runtime-risk"
@@ -210898,6 +210948,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_10 = "Attempt 3 (continue after 22.31.463): the Go build or test binary could not compile because sdk/x/auth/client/cli, sdk/x/staking/client/cli and modules/tokenfactory/client/cli called tx.NewFactoryCLI as a single value after the sdk/client/tx repair 22.33.1462 changed its return; 22.31.463 repaired those callers and is on main; rerun the task on current main and repair only what its own tests report."
+do_11 = "Attempt 4 (continue): TestRepairM_680_FeeGrantCLIFixtures panics with assignment to entry in nil map in sdk/x/params/types/subspace.go line 62 because the fixture passes a zero-value params Subspace to auth keeper.NewAccountKeeper. Build the fixture's keepers the way the production application does (a params keeper created with its store keys, Subspace(authtypes.ModuleName) with the auth key table) or construct the account keeper through the application's own wiring, then rerun the CLI fixture cases."
 
 [task.22.33.679]
 title = "Repair audit record 22.30.167 medium findings in sdk/x/gov (part 1 of 1): doc-drift, test-gap, wiring-gap"
@@ -277617,7 +277668,7 @@ do_12 = "Attempt 2 (continue after 22.31.463): the Go build or test binary could
 
 [task.22.33.1280]
 title = "Repair audit record 22.30.64 medium findings in precompiles/bank (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.463"]
@@ -277672,7 +277723,7 @@ do_9 = "Real means the component under repair is the production code; its peers 
 do_10 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 do_11 = "Verification runs only the TestRepairM_1275_* functions of repair_m1275_test.go: they run without PostgreSQL, Redis, S3, Anvil or a live RPC endpoint. The package's other tests are not this task's gate but must keep compiling, and where a repair changes behaviour they assert they are updated in the same change."
 symbols = []
-touches = ["precompiles/wasmd"]
+touches = ["precompiles/wasmd", "precompiles/pointer", "precompiles/pointerview", "precompiles/common"]
 tests = ["precompiles/wasmd/repair_m1275_test.go"]
 planned_paths = ["precompiles/wasmd/repair_m1275_test.go"]
 build_cmd = "make -s paxd-native-libs && CGO_ENABLED=1 go build ./precompiles/wasmd/..."
@@ -277690,6 +277741,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_12 = "Attempt 3 (continue after 22.31.463): the test binary of precompiles/wasmd could not build because sdk/x/auth/client/cli, sdk/x/staking/client/cli and modules/tokenfactory/client/cli still call tx.NewFactoryCLI as a single value (sdk/client/tx repair 22.33.1462); 22.31.463 carries the callers along. Keep the attempt-2 tree and rerun the gates on a base containing 22.31.463."
 do_13 = "Attempt 4 (continue after 22.31.463): the Go build or test binary could not compile because sdk/x/auth/client/cli, sdk/x/staking/client/cli and modules/tokenfactory/client/cli called tx.NewFactoryCLI as a single value after the sdk/client/tx repair 22.33.1462 changed its return; 22.31.463 repaired those callers and is on main; rerun the task on current main and repair only what its own tests report."
+do_14 = "Attempt 5 (continue): build and the three regression cases pass; the delegatecall cases fail on a selector mismatch in the pointer artifacts under precompiles. The pointer contract artifacts (the compiled ABI and bytecode the wasmd precompile delegatecall path loads) are the producer this task consumes: widen the repair to regenerate or correct those artifacts so the selectors the delegatecall path sends match the compiled pointer contracts, prove the real delegatecall path in the test, and record the artifact source and the compiler used."
 
 [task.22.33.1267]
 title = "Repair audit record 22.30.62 medium findings in precompiles/gov (part 1 of 1): test-gap"
@@ -278528,7 +278580,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1209]
 title = "Repair audit record 22.30.57 medium findings in precompiles/staking/legacy/v620 (part 1 of 1): security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.126"]
@@ -278870,7 +278922,7 @@ title = "Repair audit record 22.30.50 medium findings in node (part 2 of 4): con
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.102"]
+requires = ["22.31.102", "22.31.476", "22.31.475"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1141"]
 interfaces = []
@@ -278906,6 +278958,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_16 = "Attempt 2 (continue after 22.31.476 and 22.31.475): the sequenced-block cases failed with invalid chain id for signer: have 125 want 713714 because the test application's cosmos chain id falls back to the inherited default (gotcha 2991), which 22.31.476 changes to 125; and the producer_to_exported_surface_to_consumers case compared a proof commit hash that differs from the exported one, the same consensus-versus-application hash disagreement 22.31.475 reconciles. This task now requires both. Rerun on current main with the signer chain id taken from the application configuration, and repair only what the task's own tests still report; the Giga helper needing the evmone library stays out of this task."
 
 [task.22.33.1140]
 title = "Repair audit record 22.30.50 medium findings in node (part 1 of 4): runtime-risk, test-gap"
@@ -323005,6 +323058,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "Attempt 2 (continue): 81 of 84 cases pass; the three failing cases of test_serial_gate_layout_retains_every_exact_patch_assertion (test_387_exact_paths_and_only_approved_fixture_transform, test_fixture_cannot_be_changed_again_by_v4_manifest, test_unpreluded_serial_baseline_rejected) fail with SerialGateError artifact differs from reviewed hash, and the last expects the message prelude not present instead. The reviewed hash in the approved serial stage fixture no longer matches the artifact the generator produces after this task's binding repairs: regenerate the reviewed hash through the approval path the serial gate defines (record the generator command in the repair record) rather than editing the hash by hand, and keep the prelude-missing refusal distinct from the hash refusal so the third case reports the right error."
 
 [task.22.33.972]
 title = "Repair audit record 22.30.30 medium findings in tools/launchpad/production/charts-engine (part 1 of 1): runtime-risk, wiring-gap"

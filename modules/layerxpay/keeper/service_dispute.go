@@ -24,7 +24,10 @@ func (k Keeper) serviceDisputeEscrow(ctx sdk.Context, agreementID [32]byte, meth
 	if !found {
 		return types.EscrowRecord{}, submitCodeError(method, lxphost.Code(-706))
 	}
-	escrow, found := k.GetEscrow(ctx, agreement.EscrowID)
+	escrow, found, err := k.GetEscrow(ctx, agreement.EscrowID)
+	if err != nil {
+		return types.EscrowRecord{}, err
+	}
 	if !found || escrow.EscrowID != agreement.EscrowID || escrow.Owner != agreement.Buyer || escrow.Beneficiary != agreement.Provider {
 		return types.EscrowRecord{}, submitCodeError(method, serviceEscrowLinkMismatch)
 	}

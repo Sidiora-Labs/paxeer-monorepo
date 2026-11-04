@@ -32,7 +32,10 @@ func (p *Executor) escrowHandlers(ctx sdk.Context, method *abi.Method, caller co
 	id := args[0].([32]byte)
 	switch method.Name {
 	case "getEscrow":
-		r, found := p.keeper.GetEscrow(ctx, id)
+		r, found, err := p.keeper.GetEscrow(ctx, id)
+		if err != nil {
+			return nil, err
+		}
 		if !found {
 			return nil, fmt.Errorf("LXP_UNKNOWN_FIELD: escrow not found")
 		}
@@ -43,13 +46,20 @@ func (p *Executor) escrowHandlers(ctx sdk.Context, method *abi.Method, caller co
 			DisputeWindowMs: r.DisputeWindowMs, TermsHash: r.TermsHash, AgreementReference: r.AgreementReference,
 		})
 	case "escrowRemaining":
-		remaining, found := p.keeper.EscrowRemaining(ctx, id)
+		remaining, found, err := p.keeper.EscrowRemaining(ctx, id)
+		if err != nil {
+			return nil, err
+		}
 		if !found {
 			return nil, fmt.Errorf("LXP_UNKNOWN_FIELD: escrow not found")
 		}
 		return method.Outputs.Pack(payAmount(remaining))
 	case "getEscrowResult":
-		if _, found := p.keeper.GetEscrowResult(ctx, id); !found {
+		_, found, err := p.keeper.GetEscrowResult(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		if !found {
 			return nil, fmt.Errorf("LXP_UNKNOWN_FIELD: escrow result not found")
 		}
 		storageKey := paytypes.KernelKVKey(paytypes.EscrowModuleID, append([]byte("result:"), id[:]...))
@@ -95,7 +105,10 @@ func (p *Executor) escrowHandlers(ctx sdk.Context, method *abi.Method, caller co
 	if err != nil {
 		return nil, err
 	}
-	record, found := p.keeper.GetEscrow(ctx, id)
+	record, found, err := p.keeper.GetEscrow(ctx, id)
+	if err != nil {
+		return nil, err
+	}
 	if !found {
 		return nil, fmt.Errorf("LXP_FATAL_INVARIANT: escrow missing after %s", method.Name)
 	}
