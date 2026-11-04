@@ -177581,7 +177581,7 @@ do_15 = "Attempt 2 (continue): the build passed after the explorer field fix; 8 
 
 [task.22.33.1439]
 title = "Repair audit record 22.30.81 medium findings in services/platform/hosted/gateway/src (part 1 of 3): interface-mismatch, runtime-risk, test-gap, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.202"]
@@ -278044,7 +278044,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.22.31.502]
 title = "Repair the genesis historical import hash audit of the kernel suite"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -280861,7 +280861,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1034]
 title = "Repair audit record 22.30.4 medium findings in tests/codec (part 1 of 3): config-drift, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -282139,7 +282139,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.7]
 title = "Repair audit record 22.30.1 medium findings in tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.1"]
@@ -371304,7 +371304,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.424]
 title = "Repair audit record 22.30.145 medium findings in services/explorer/backend (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
