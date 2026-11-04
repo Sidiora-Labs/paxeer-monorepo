@@ -1,70 +1,93 @@
-# Draft of Functions for Fork detection and Proof of Fork Submisstion
+# Draft of Functions for Fork Detection and Proof of Fork Submission
 
-This document collects drafts of function for generating and
-submitting proof of fork in the IBC context
+## Status and applicability
 
-- [IBC](#on---chain-ibc-component)
+This page retains the useful contracts from an upstream Tendermint/IBC design
+draft: find a common trust root between two sparse stores, connect both
+verification traces to it, and submit evidence the receiving client can verify.
+The named functions below are research proposals, not exported Go APIs or
+JSON-RPC methods. The [detector model](detection_003_reviewed.md) supplies their
+Tendermint trust, validator and timing assumptions; the
+[discussion decisions](discussions.md) explain why conflicting headers alone
+are insufficient and why proof minimization must not require a faulty primary.
 
+Paxeer is one BFT network with its kernel inside the network participating in
+block proposal. Its EVM chain ID is 125 (`0x7d`), and a receipt is final once
+its block is committed. These proposals concern an observer verifying a chain
+and an IBC client verifying counterparty headers. They do not introduce another
+execution domain or settlement stage.
+
+Classic [`LightBlock`](../../../types/light.go) and
+[`LightClientAttackEvidence`](../../../types/evidence.go) are distinct from
+Autobahn's [`LaneQC`](../../../autobahn/types/lane_qc.go) and
+[`CommitQC`](../../../autobahn/types/commit_qc.go). Setting `autobahn-config-file`
+in [`config/config.go`](../../../config/config.go) selects that mode. The
+consensus handlers under [`internal`](../../../internal/) refuse classic commit
+retrieval (`rpc/core/blocks.go`, `ErrCommitNotAvailable`) and evidence submission
+(`rpc/core/evidence.go`, `ErrEvidenceNotAccepted`) under Autobahn. Neither this
+draft nor the classic IBC client defines certificate conversion or Autobahn
+restart/recovery; consensus persistence lives under
+[`internal/autobahn/consensus/persist`](../../../internal/autobahn/consensus/persist/).
+
+- [On-chain IBC component](#on-chain-ibc-component)
 - [Relayer](#relayer)
 
 ## On-chain IBC Component
 
-> The following is a suggestions to change the function defined in ICS 007
+### Current implemented interfaces
+
+The Tendermint IBC client uses
+[`Misbehaviour`](../../../../interchain/modules/light-clients/07-tendermint/types/misbehaviour.go),
+which carries `ClientId`, `Header1` and `Header2`. Each header includes its own
+trusted height and trusted validators. It does not accept a
+`LightNodeProofOfFork` containing arbitrary-length traces.
+
+[`ClientState.CheckMisbehaviourAndUpdateState`](../../../../interchain/modules/light-clients/07-tendermint/types/misbehaviour_handle.go)
+checks both headers against their stored trusted consensus states. Equal-height
+headers must have different block hashes. Unequal heights are handled as a
+violation of monotonic BFT time, with `Header1` at the greater height. Successful
+misbehaviour handling sets `FrozenHeight` to the sentinel height `{0, 1}`.
+It does not compute the minimum of an existing frozen height and the root's
+height. Invalid types, unavailable trusted states, expired trust and invalid
+headers can return errors; the old draft's “error condition: none” is not an
+implementation contract.
+
+The client keeper's
+[`grpc_query.go`](../../../../interchain/modules/core/02-client/keeper/grpc_query.go)
+implements `ConsensusState`, `ConsensusStates` and `ConsensusStateHeights`.
+The listing queries are paginated. They return stored consensus states or
+heights, not all historical light blocks or a proof that any two headers
+share a trust path.
 
 #### [TAG-IBC-MISBEHAVIOR.1]
 
-```go
-func checkMisbehaviourAndUpdateState(cs: ClientState, PoF: LightNodeProofOfFork)
-```
+Historical proposal: `checkMisbehaviourAndUpdateState(cs, PoF)`.
 
-**TODO:** finish conditions
+The proposal assumes a proof object with a `TrustedBlock`, `PrimaryTrace` and
+`SecondaryTrace`. The trusted root must match a consensus state already known
+to the receiver. Both traces must verify from that root at the receiver's
+current time, respecting the trusting period and validator rules, and end in
+different headers at the same height. The intended outcome is to freeze the
+client on verified misbehaviour.
 
-- Implementation remark
-- Expected precondition
-    - PoF.TrustedBlock.Header is equal to lightBlock on store with
-      same height
-    - both traces end with header of same height
-    - headers are different
-    - both traces are supported by PoF.TrustedBlock (`supports`
-   defined in [TMBC-FUNC]), that is, for `t = currentTimestamp()` (see
-   ICS 024)
-        - supports(PoF.TrustedBlock, PoF.PrimaryTrace[1], t)
-        - supports(PoF.PrimaryTrace[i], PoF.PrimaryTrace[i+1], t) for
-     *0 < i < length(PoF.PrimaryTrace)*
-        - supports(PoF.TrustedBlock,  PoF.SecondaryTrace[1], t)
-        - supports(PoF.SecondaryTrace[i], PoF.SecondaryTrace[i+1], t) for
-     *0 < i < length(PoF.SecondaryTrace)*  
-- Expected postcondition
-    - set cs.FrozenHeight to min(cs.FrozenHeight, PoF.TrustedBlock.Header.Height)
-- Error condition
-    - none
-
-----
-
-> The following is a suggestions to add functionality to ICS 002 and 007.
-> I suppose the above is the most efficient way to get the required
-> information. Another option is to subscribe to "header install"
-> events via CosmosSDK
+This remains a trace-based research contract. Implementations must use the
+actual `Misbehaviour` type and validation path above; neither the proposed
+proof shape nor the old `min(cs.FrozenHeight, root.Height)` rule describes the
+current receiver.
 
 #### [TAG-IBC-HEIGHTS.1]
 
-```go
-func QueryHeightsRange(id, from, to) ([]Height)
-```
+Historical proposal: `QueryHeightsRange(id, from, to) -> heights`.
 
-- Expected postcondition
-    - returns all heights *h*, with *from <= h <= to* for which the
-      IBC component has a consensus state.
+The proposed postcondition is to return exactly the stored consensus-state
+heights `h` for client `id` such that `from <= h <= to`. This is useful for a
+late-joining relayer that has not observed prior header updates.
 
-----
-
-> This function can be used if the relayer has no information about
-> the IBC component. This allows late-joining relayers to also
-> participate in fork dection and the generation in proof of
-> fork. Alternatively, we may also postulate that relayers are not
-> responsible to detect forks for heights before they started (and
-> subscribed to the transactions reporting fresh headers being
-> installed at the IBC component).
+The keeper instead exposes the paginated `ConsensusStateHeights` query. A
+consumer implementing the proposed range operation would need to follow
+pagination and apply the range bounds using IBC revision heights. The proposal
+does not establish a new endpoint. Events can help discover updates, but do not
+replace checking what remains in the receiver's store.
 
 ## Relayer
 
@@ -72,218 +95,120 @@ func QueryHeightsRange(id, from, to) ([]Height)
 
 #### [LCV-LS-FUNC-GET-PREV.1]
 
-```go
-func (ls LightStore) GetPreviousVerified(height Height) (LightBlock, bool)
-```
+Historical proposal: `LightStore.GetPreviousVerified(height)`.
 
-- Expected postcondition
-    - returns a verified LightBlock, whose height is maximal among all
-      verified lightblocks with height smaller than `height`
+Return the locally verified light block with maximal height strictly smaller
+than `height`, together with a found/not-found result. Absence must be explicit;
+it cannot be replaced with an unverified block or an invented root.
 
-----
+The implemented [`store.Store`](../../../light/store/store.go) offers
+`LightBlockBefore(height)` over stored light blocks and returns an error on
+failure. It has neither `GetPreviousVerified` nor the research four-state
+store API described in [the discussion](discussions.md#semantics-of-the-lightstore).
+A caller must respect `LightBlockBefore`'s documented height bounds and the
+client's trusted-store semantics.
 
 ### Relayer Submitting Proof of Fork to the IBC Component
 
-There are two ways the relayer can detect a fork
-
-- by the fork detector of one of its lightclients
-- be checking the consensus state of the IBC component
-
-The following function ignores how the proof of fork was generated.
-It takes a proof of fork as input and computes a proof of fork that
-     will be accepted by the IBC component.
-The problem addressed here is that both, the relayer's light client
-     and the IBC component have incomplete light stores, that might
-     not have all light blocks in common.
-Hence the relayer has to figure out what the IBC component knows
-     (intuitively, a meeting point between the two lightstores
-     computed in `commonRoot`)  and compute a proof of fork
-     (`extendPoF`) that the IBC component will accept based on its
-     knowledge.
-
-The auxiliary functions `commonRoot` and `extendPoF` are
-defined below.
+A relayer may discover a conflict through its light client or by comparing
+its verified view with consensus states installed in the IBC client. Because
+both stores may be sparse, possession of a local proof does not imply the
+receiving client already has the necessary trusted state.
 
 #### [TAG-SUBMIT-POF-IBC.1]
 
-```go
-func SubmitIBCProofOfFork(
-  lightStore LightStore,
-  PoF: LightNodeProofOfFork,
-  ibc IBCComponent) (Error) {
-    if ibc.queryChainConsensusState(PoF.TrustedBlock.Height) = PoF.TrustedBlock {
-  // IBC component has root of PoF on store, we can just submit
-        ibc.submitMisbehaviourToClient(ibc.id,PoF)
-  return Success
-     // note sure about the id parameter
-    }
-    else {
-        // the ibc component does not have the TrustedBlock and might
-  // even be on yet a different branch. We have to compute a PoF
-  // that the ibc component can verifiy based on its current
-        // knowledge
-  
-        ibcLightBlock, lblock, _, result := commonRoot(lightStore, ibc, PoF.TrustedBlock)
+Historical proposal: `SubmitIBCProofOfFork(lightStore, PoF, ibc)`.
 
-     if result = Success {
-   newPoF = extendPoF(ibcLightBlock, lblock, lightStore, PoF)
-      ibc.submitMisbehaviourToClient(ibc.id, newPoF)
-      return Success
-     }
-  else{
-   return CouldNotGeneratePoF
-     }
-    }
-}
-```
+The proposed algorithm is:
 
-**TODO:** finish conditions
+1. Query the receiving client's consensus state at the proposed root height
+   and check that it matches the root needed by the proof.
+2. If it matches, submit evidence supported by that state.
+3. Otherwise, find a verifiable common root with `commonRoot`, and connect
+   the local traces to it with `extendPoF`.
+4. If no usable common root exists, report that evidence could not be
+   constructed. A mismatch or query failure is not successful submission.
 
-- Implementation remark
-- Expected precondition
-- Expected postcondition
-- Error condition
-    - none
-
-----
+This describes the trust-path problem, not an implemented relayer entry point.
+For the actual IBC client, evidence must be encoded as its two-header
+`Misbehaviour` and pass its validation against stored trusted states. Reporting
+success requires the receiving path's result; generating a local proof alone
+cannot freeze an on-chain client.
 
 ### Auxiliary Functions at the Relayer
 
-> If the relayer detects a fork, it has to compute a proof of fork that
-> will convince the IBC component. That is it has to compare the
-> relayer's local lightstore against the lightstore of the IBC
-> component, and find common ancestor lightblocks.
-
 #### [TAG-COMMON-ROOT.1]
 
-```go
-func commonRoot(lightStore LightStore, ibc IBCComponent, lblock
-LightBlock) (LightBlock, LightBlock, LightStore, Result) {
+Historical proposal:
+`commonRoot(lightStore, ibc, target) -> (receiverRoot, connector, auxiliaryStore, result)`.
 
-    auxLS.Init
+Search receiver-known heights below the local target, starting with the
+highest candidate in the usable local range. For each candidate, retrieve the
+receiver's consensus state and try to connect it to a locally verified block
+below the target. If the connection verifies, return the receiver root, the
+local connector and the retrieved verification material. If candidates are
+exhausted, return an explicit no-root result.
 
-       // first we ask for the heights the ibc component is aware of
-  ibcHeights = ibc.QueryHeightsRange(
-                     ibc.id,
-                     lightStore.LowestVerified().Height,
-                     lblock.Height - 1);
-  // this function does not exist yet. Alternatively, we may
-  // request all transactions that installed headers via CosmosSDK
-  
-
-        for {
-            h, result = max(ibcHeights)
-   if result = Empty {
-       return (_, _, _, NoRoot)
-      }
-      ibcLightBlock = ibc.queryChainConsensusState(h)
-   auxLS.Update(ibcLightBlock, StateVerified);
-      connector, result := Connector(lightStore, ibcLightBlock, lblock.Header.Height)
-      if result = success {
-       return (ibcLightBlock, connector, auxLS, Success)
-   }
-   else{
-       ibcHeights.remove(h)
-      }
-  }
-}
-```
-
-- Expected postcondition
-    - returns
-        - a lightBlock b1 from the IBC component, and
-        - a lightBlock b2
-            from the local lightStore with height less than
-   lblock.Header.Hight, s.t. b1 supports b2, and
-        - a lightstore with the blocks downloaded from
-          the ibc component
-
-----
+A common numeric height alone is insufficient: the header identity, validator
+information and trust window must support the connection. The original
+`QueryHeightsRange` call is the proposal above, not a method implemented by
+the keeper. The receiver stores consensus states, not full `LightBlock`
+objects; constructing a usable connector needs the corresponding authenticated
+header and validator data as well.
 
 #### [TAG-LS-FUNC-CONNECT.1]
 
-```go
-func Connector (lightStore LightStore, lb LightBlock, h Height) (LightBlock, bool)
-```
+Historical proposal: `Connector(lightStore, root, targetHeight)`.
 
-- Expected postcondition
-    - returns a verified LightBlock from lightStore with height less
-      than *h* that can be
-      verified by lb in one step.
-
-**TODO:** for the above to work we need an invariant that all verified
-lightblocks form a chain of trust. Otherwise, we need a lightblock
-that has a chain of trust to height.
-
-> Once the common root is found, a proof of fork that will be accepted
-> by the IBC component needs to be generated. This is done in the
-> following function.
+Return a locally verified block below `targetHeight` that can be verified from
+`root` in one step, or an explicit failure. The proposal requires a chain of
+trust from this connector to the target. A store containing independently
+verified blocks does not by itself prove such a chain; missing intermediate
+verification material must be obtained and verified before constructing the
+proof.
 
 #### [TAG-EXTEND-POF.1]
 
-```go
-func extendPoF (root LightBlock,
-                connector LightBlock,
-    lightStore LightStore,
-    Pof LightNodeProofofFork) (LightNodeProofofFork}
+Historical proposal: `extendPoF(root, connector, lightStore, PoF)`.
+
+The original trace construction is retained as notation:
+
+```text
+prefix = connector
+       + verified subtrace after connector and before PoF.TrustedBlock
+       + PoF.TrustedBlock
+newPoF.TrustedBlock = root
+newPoF.PrimaryTrace = prefix + PoF.PrimaryTrace
+newPoF.SecondaryTrace = prefix + PoF.SecondaryTrace
 ```
 
-- Implementation remark
-    - PoF is not sufficient to convince an IBC component, so we extend
-      the proof of fork farther in the past
-- Expected postcondition
-    - returns a newPOF:
-        - newPoF.TrustedBlock = root
-        - let prefix =
-       connector +
-       lightStore.Subtrace(connector.Header.Height, PoF.TrustedBlock.Header.Height-1) +
-       PoF.TrustedBlock  
-            - newPoF.PrimaryTrace = prefix + PoF.PrimaryTrace
-            - newPoF.SecondaryTrace = prefix + PoF.SecondaryTrace
+Here `+` means concatenation with increasing heights and without duplicating
+shared endpoints. Every step must verify, including `root` to `connector` and
+the junction with the original trusted block. Copying records into a list does
+not establish a trust path. The resulting trace object remains a research
+representation; it is not automatically accepted by the implemented two-header
+IBC misbehaviour handler.
 
-### Detection a fork at the IBC component
+<a id="detection-a-fork-at-the-ibc-component"></a>
 
-The following functions is assumed to be called regularly to check
-that latest consensus state of the IBC component. Alternatively, this
-logic can be executed whenever the relayer is informed (via an event)
-that a new header has been installed.
+### Detection of a fork at the IBC component
 
 #### [TAG-HANDLER-DETECT-FORK.1]
 
-```go
-func DetectIBCFork(ibc IBCComponent, lightStore LightStore) (LightNodeProofOfFork, Error) {
-    cs = ibc.queryClientState(ibc);
- lb, found := lightStore.Get(cs.Header.Height)
-    if !found {
- **TODO:** need verify to target
-        lb, result = LightClient.Main(primary, lightStore, cs.Header.Height)
-  // [LCV-FUNC-IBCMAIN.1]
-  **TODO** decide what to do following the outcome of Issue #499
-  
-  // I guess here we have to get into the light client
+Historical proposal: `DetectIBCFork(ibc, lightStore) -> (proof, result)`.
 
-    }
- if cs != lb {
-     // IBC component disagrees with my primary.
-  // I fetch the
-     ibcLightBlock, lblock, ibcStore, result := commonRoot(lightStore, ibc, lb)
-  pof = new LightNodeProofOfFork;
-  pof.TrustedBlock := ibcLightBlock
-  pof.PrimaryTrace := ibcStore + cs
-  pof.SecondaryTrace :=  lightStore.Subtrace(lblock.Header.Height,
-                                    lb.Header.Height);
-        return(pof, Fork)
- }
- return(nil , NoFork)
-}
-```
+The proposal polls the receiver's installed consensus state, or reacts to an
+observed update, and compares it with a locally verified header at the same
+height. If the local block is absent, verify it through the light client before
+comparison. Failure to fetch or verify is an error, not a no-fork result.
+If compatible authenticated data agrees, there is no conflict at that height.
+If it differs, establish the root and both supporting paths before producing
+evidence. Raw comparison of a client-state object with a light-block object is
+not meaningful; compare the corresponding authenticated consensus fields.
 
-**TODO:** finish conditions
-
-- Implementation remark
-    - we ask the handler for the lastest check. Cross-check with the
-      chain. In case they deviate we generate PoF.
-    - we assume IBC component is correct. It has verified the
-      consensus state
-- Expected precondition
-- Expected postcondition
+This routine is not implemented by the draft. It must not assume a remote
+receiver is correct merely because a query succeeded. Pruned states, expired
+trust, incomplete pagination and a missing common root can prevent proof
+construction. Such failures do not establish either a fork or its absence.
+The current receiver's validation rules, rather than this outline, decide
+whether submitted IBC misbehaviour is accepted.
