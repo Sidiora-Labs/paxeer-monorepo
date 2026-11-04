@@ -1,0 +1,29 @@
+[manifest]
+task = "22.32.45"
+domain = 5
+owner_role = "fm-node-runtime"
+pages = 4
+
+[page.1]
+path = "consensus/spec/p2p/messages/consensus.md"
+status = "stale"
+bytes = 9781
+source_1 = "record 22.30.47 [doc.065] (stale): Read complete page; rewrite targets: consensus-wire-tables at line 86. Concrete owning-domain proposals are recorded above."
+
+[page.2]
+path = "consensus/spec/p2p/messages/state-sync.md"
+status = "stale"
+bytes = 7315
+source_1 = "record 22.30.47 [doc.069] (stale): Read complete page; rewrite targets: snapshot-chunk-field at line 63. Concrete owning-domain proposals are recorded above."
+
+[page.3]
+path = "consensus/spec/p2p/peer.md"
+status = "stale"
+bytes = 5768
+source_1 = "record 22.30.47 [doc.071] (stale): Read complete page; rewrite targets: p2p-handshake-amino at line 59. Concrete owning-domain proposals are recorded above."
+
+[page.4]
+path = "consensus/spec/rpc/README.md"
+status = "stale"
+bytes = 37038
+source_1 = "record 22.30.47 [doc.073] (stale): Read complete page; rewrite targets: rpc-invalid-examples at line 1028. Concrete owning-domain proposals are recorded above."

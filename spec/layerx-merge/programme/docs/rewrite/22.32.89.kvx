@@ -1,0 +1,23 @@
+[manifest]
+task = "22.32.89"
+domain = 9
+owner_role = "fm-agent"
+pages = 1
+
+[page.1]
+path = "docs/wiki/RunningAnAgent.md"
+status = "misleading"
+bytes = 46567
+source_1 = "record 22.30.105 [doc.03] (stale): Lines 67-71, 512 and 701-702 repeat the site page sequencer trust-anchor, /rpc submission and settlement-anchored configuration drift."
+source_2 = "record 22.30.116 [doc.12] (stale): Read the page and checked its network, endpoint and lifecycle claims. The wiki A2A guide instructs eth_sendRawTransaction submission to /rpc and repeats the pre-merge verification-level and separate authority configuration without the merged BFT finality boundary. Rewrite proposal: Align docs/wiki/RunningAnAgent.md with the corrected agent site guide, documenting actual adapter endpoints, root node submission and committed receipt semantics from the same implementation source."
+source_3 = "record 22.30.21 [doc.9] (stale): Reviewed the page and its package-facing guidance; exact drift and owner rewrite proposals are recorded in agent-wiki-rpc."
+source_4 = "record 22.30.29 [doc.10] (misleading): wiki-agent: line512 The agent submission section sends eth_sendRawTransaction to /rpc. This tells integrators to address the removed unified router path rather than the public node JSON-RPC root."
+source_5 = "record 22.30.38 [doc.002] (stale): Read all 868 lines; lines 67-71, 512 and 701-702 retain retired sequencer configuration, /rpc and pre-merge verification levels. Site/wiki copies share the drift."
+source_6 = "record 22.30.69 [doc.10] (stale): Full page read, including site/wiki wording and link differences. Line 512 uses /rpc; line 701 retains retired verification levels and authority-file settings."
+source_7 = "record 22.30.91 [doc.running_wiki] (misleading): Read the complete page, including its mirrored deployment instructions. Lines 96-103 and 696-702 give obsolete startup keys/path types; line 512 directs eth_sendRawTransaction to retired /rpc. Both the configuration and transport need rewriting for root node JSON-RPC and committed-block finality."
+source_8 = "record 22.30.92 [doc.03] (stale): Lines 438-440 deny successful budget creation; line 512 directs native submissions to the retired /rpc path."
+source_9 = "record 22.30.93 [doc.11] (misleading): Read the full page and compared the mirror. Lines 512 and 697-735 mix retired /rpc, sequence/authority configuration and verification levels with newer MCP height guidance. Rewrite startup configuration and retain the correct newer MCP sections."
+source_10 = "record 22.30.94 [doc.02] (stale): Reviewed the complete page, including mirror differences where applicable. Exact drift and rewrite proposals are recorded in running_wiki_startup, running_wiki_faucet_and_endpoint, running_wiki_budget_creation."
+source_11 = "record 22.30.95 [doc.4] (stale): The wiki repeats the site's path-valued endpoint, /rpc submission and retired configuration table; the producer environment proof provides the current keys."
+source_12 = "record 22.30.96 [doc.d03] (misleading): Lines 512: The signed-transaction instructions send eth_sendRawTransaction to /rpc. Lines 96-99 still require an absolute local node_endpoint path and the page retains a separate sequencer trust-anchor configuration and legacy verification ladder. Rewrite both copies around the current node RPC URL/chain-id configuration, root public node endpoints and hosted gateway joins. Replace old socket-handshake and checkpoint/settlement authority guidance with pinned receipt keys and verified committed-block evidence."
+source_13 = "record 22.30.97 [doc.02] (stale): Read in full; stale topology, commands, binding or catalogue statements and a concrete rewrite proposal are recorded in doc_running_wiki."

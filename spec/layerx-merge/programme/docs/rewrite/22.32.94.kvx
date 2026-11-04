@@ -1,0 +1,41 @@
+[manifest]
+task = "22.32.94"
+domain = 10
+owner_role = "fm-human"
+pages = 6
+
+[page.1]
+path = "services/human/README.md"
+status = "stale"
+bytes = 4149
+source_1 = "record 22.30.102 [doc.13] (stale): Read in full. Rewrite the exact locations in human-layout-doc: The workspace guide lists layerx-human-movement-provider, layerx-paxeer-client and layerx-explorer-index as active crates even though the workspace retires them. It also links services/human/wallet and describes a separate kernel/chain boundary and sole intent encoder that do not describe the current EVM signing and bank-send paths."
+
+[page.2]
+path = "services/human/crates/layerx-human-identity-provider/README.md"
+status = "stale"
+bytes = 11826
+source_1 = "record 22.30.103 [doc.13] (stale): Read in full as a package member. The required launch table omits authenticated runtime-clock settings; the provisioning table describes first-batch protocol-3 receipt validation as current."
+
+[page.3]
+path = "services/human/crates/layerx-human-kms/README.md"
+status = "stale"
+bytes = 6167
+source_1 = "record 22.30.102 [doc.14] (stale): Read in full. Rewrite the exact locations in kms-operator-doc: The operator README requires network_id/protocol_version/modules rather than chain_id (line 5), calls Sign version 1 rather than 7 (line 7), describes native SEND signatures rather than EIP-1559 bytes (line 15), and advertises retired operation 13 (line 19). It omits the attestor configuration and owner-assertion sources actually required for EVM wallet/signing."
+
+[page.4]
+path = "services/human/crates/layerx-human-security-provider/README.md"
+status = "misleading"
+bytes = 9660
+source_1 = "record 22.30.106 [doc.13] (misleading): All 159 lines read. Lines 78, 103-109 and 137-157 prescribe obsolete trust/proof schemas, absent verifier APIs and wrong restart behavior; finding 17 identifies the current decoder and store."
+
+[page.5]
+path = "services/human/crates/layerx-human-service/README.md"
+status = "stale"
+bytes = 3338
+source_1 = "record 22.30.105 [doc.13] (stale): Lines 3-7 retain movement protocol/executor and withdrawal shapes; line 15 configures the custody precompile for withdrawal/forced exit; line 20 requires independent RPC votes for retired exit journeys."
+
+[page.6]
+path = "services/human/crates/layerx-human-test-support/README.md"
+status = "stale"
+bytes = 525
+source_1 = "record 22.30.106 [doc.14] (stale): All five lines read. Line 3 describes a Unix admission fixture; EvidenceNode uses HTTP JSON-RPC with Submitted-only admission replies. Finding 18 proposes corrected scope and transport documentation."

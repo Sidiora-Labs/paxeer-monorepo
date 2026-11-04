@@ -1,0 +1,19 @@
+[manifest]
+task = "22.32.149"
+domain = 15
+owner_role = "fm-cosmos-fork"
+pages = 2
+
+[page.1]
+path = "docs/wiki/PaymentsQuickstart.md"
+status = "misleading"
+bytes = 13136
+source_1 = "record 22.30.163 [doc.003] (misleading): Lines 22, 78-107 and 251-274 retain the router, custody-credit funding, sequencer-signed portable labels and Merkle-based lxp transaction recipe."
+source_2 = "record 22.30.94 [doc.08] (stale): Reviewed the complete page, including mirror differences where applicable. Exact drift and rewrite proposals are recorded in payments_wiki_rpc, payments_wiki_custody."
+
+[page.2]
+path = "docs/wiki/Protocol.md"
+status = "stale"
+bytes = 10812
+source_1 = "record 22.30.162 [doc.002] (stale): Current operating guidance conflicts with the merged network; exact locations and rewrite proposals are recorded in protocol-wiki."
+source_2 = "record 22.30.34 [doc.003] (stale): Lines 5-28 and checkpoint/finality guidance preserve the separate-network model; finding 025 aligns the page with committed-block finality."

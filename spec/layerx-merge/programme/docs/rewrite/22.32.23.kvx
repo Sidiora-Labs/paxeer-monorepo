@@ -1,0 +1,20 @@
+[manifest]
+task = "22.32.23"
+domain = 4
+owner_role = "fm-launchpad"
+pages = 2
+
+[page.1]
+path = "docs/wiki/HostedRegistry.md"
+status = "misleading"
+bytes = 36821
+source_1 = "record 22.30.29 [doc.08] (misleading): wiki-registry: line7 The registry topology directs operators to layerx-agent-boundary and layerx-receipt-authority services and line29 requires distinct node and receipt-authority credentials. The durability section restores program state through those separate pre-merge authorities."
+source_2 = "record 22.30.30 [doc.09] (stale): Read in full. finding.registry-doc-wiki at line 7. Retired topology and endpoint instructions require a coordinated rewrite."
+source_3 = "record 22.30.32 [doc.09] (stale): Read complete page; line 28 in registry_wiki identifies the stale statements and owning rewrite proposal."
+source_4 = "record 22.30.42 [doc.5] (stale): Lines 86 and 182 duplicate the pre-merge authority/trust configuration; see registry-wiki."
+
+[page.2]
+path = "docs/wiki/Spot.md"
+status = "stale"
+bytes = 4348
+source_1 = "record 22.30.34 [doc.004] (stale): Lines 78-83 locate current execution in retired layerxd; finding 026 moves the operating model to the integrated kernel."

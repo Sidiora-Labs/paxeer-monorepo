@@ -1,0 +1,17 @@
+[manifest]
+task = "22.32.70"
+domain = 6
+owner_role = "fm-chain-modules"
+pages = 2
+
+[page.1]
+path = "wasm/x/wasm/Governance.md"
+status = "stale"
+bytes = 6876
+source_1 = "record 22.30.66 [doc.002] (stale): Read in full. Enabled-by-default Paxeer proposal policy, build-variable names and the ten registered proposal kinds disagree with this upstream account; see governance-documentation at line 159 and the introductory count."
+
+[page.2]
+path = "wasm/x/wasm/IBC.md"
+status = "stale"
+bytes = 7239
+source_1 = "record 22.30.66 [doc.003] (stale): Read in full. Feature-flag and mock-interface narrative does not describe the implemented AnalyzeCode detection, port binding and native callbacks; see ibc-documentation."

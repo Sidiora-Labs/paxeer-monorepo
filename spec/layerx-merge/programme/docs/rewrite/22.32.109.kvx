@@ -1,0 +1,19 @@
+[manifest]
+task = "22.32.109"
+domain = 13
+owner_role = "fm-programs"
+pages = 2
+
+[page.1]
+path = "docs/site/docs/operators/index.md"
+status = "stale"
+bytes = 1000
+source_1 = "record 22.30.128 [doc.7] (stale): Line 10 presents Guarantor checkpoint production as a current role; full operator navigation and beta/deployment qualification caveats reviewed."
+
+[page.2]
+path = "docs/site/docs/operators/porting.md"
+status = "stale"
+bytes = 43698
+source_1 = "record 22.30.128 [doc.8] (stale): Lines 178 and 332 omit initialize from the LXT-20 method count; reviewed every source mapping, typed refusal, qualification pipeline and token fixture instruction."
+source_2 = "record 22.30.35 [doc.10] (stale): Lines 4 and 47-52 need single-network framing and current deployment references; LayerX package names alone do not invalidate adapter semantics. Finding 25."
+source_3 = "record 22.30.64 [doc.05] (stale): Read in full. ABI version 2 entry points remain documented; lines 392-394 falsely include shared state among refusals, contradicting lines 408-411 and supported StateBinding.Shared."

@@ -1,0 +1,11 @@
+[manifest]
+task = "22.32.11"
+domain = 3
+owner_role = "fm-markets"
+pages = 1
+
+[page.1]
+path = "modules/mint/README.md"
+status = "misleading"
+bytes = 8187
+source_1 = "record 22.30.16 [doc.13] (misleading): Read in full; daily epoch distribution/events/metrics agree, but proposal lines 90-95 omit a valid last_mint_date and intended remaining_mint_amount."

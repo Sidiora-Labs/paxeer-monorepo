@@ -1,0 +1,19 @@
+[manifest]
+task = "22.32.105"
+domain = 12
+owner_role = "fm-wallet"
+pages = 1
+
+[page.1]
+path = "docs/system/sdk.md"
+status = "stale"
+bytes = 61850
+source_1 = "record 22.30.117 [doc.4] (stale): Full generated export inventory reviewed; Rust item fn is classified as const at line 916 rather than identifying the actual const functions."
+source_2 = "record 22.30.118 [doc.003] (stale): Lines 5-9 introduce public SDK surfaces, but the page only catalogues agent TypeScript/Python and guest Rust; sdk/wallet exports have no section."
+source_3 = "record 22.30.120 [doc.001] (stale): Read in full. Finding sdk-wallet-omission records the concrete drift at line 3; generated catalogues require changes in their source generator as well as regenerated output."
+source_4 = "record 22.30.123 [doc.012] (stale): Line 916 invents a Rust item fn by misreading const function modifiers; regenerate with actual public item names and kinds."
+source_5 = "record 22.30.140 [doc.004] (stale): Lines 916 and 943-959 misparse public Rust const functions and grouped re-exports. The TypeScript/Python sections catalogue the named agent SDK entry points; this is not a catalogue of sdk/js."
+source_6 = "record 22.30.163 [doc.005] (stale): The generated export catalog is useful inventory; line 916 incorrectly lists fn as a const in the Rust crate. It does not prove integration transport agreement."
+source_7 = "record 22.30.29 [doc.12] (stale): sdk-generated-symbol-doc: line916 The generated Rust SDK table lists an exported item named fn with kind const. This is a parser artifact rather than a usable Rust SDK declaration and gives readers an invalid API entry."
+source_8 = "record 22.30.69 [doc.12] (stale): Full catalogue read. Rust item fn at line 916 is a generator parsing defect; actual const-function identifiers must be preserved."
+source_9 = "record 22.30.91 [doc.sdk] (stale): Read all TypeScript exports, Python exports and the Rust API table. Rust lines 916-959 list fn as a const and wildcard re-export prefixes as item names; real const functions programs_escrow_reference and programs_vault_reference are absent. TypeScript/Python inventories do not by themselves establish live daemon wiring."

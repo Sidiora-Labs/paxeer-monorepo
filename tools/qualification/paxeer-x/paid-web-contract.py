@@ -285,6 +285,131 @@ def receipt_hash(value):
     return "0x" + value.removeprefix("0x")
 
 
+def rpc_bytes(value, size=None):
+    require(
+        isinstance(value, str)
+        and re.fullmatch(r"0x(?:[0-9a-f]{2})*", value)
+        and (size is None or len(value) == 2 + size * 2),
+        "canonical RPC bytes required",
+    )
+    return bytes.fromhex(value[2:])
+
+
+def verified_execution(row, transaction, gateway):
+    sys.path.insert(0, str(ROOT / "services/agent/sdk/python"))
+    from layerx_sdk.evm_transaction import decode_signed
+    from layerx_sdk.verifier import ReceiptKey, verify_sequencer_receipt
+
+    pins = tuple(
+        ReceiptKey(
+            bytes.fromhex(key["key_id"]), bytes.fromhex(key["public_key"]),
+            key["first_height"], key["last_height"],
+        )
+        for key in gateway["receipt_keys"]
+    )
+    require(isinstance(row, dict), "executed sequencer receipt required")
+    verified = verify_sequencer_receipt(rpc_bytes(row["receipt"]), transaction, pins)
+    facts = verified.receipt
+    tx, signature = decode_signed(transaction)
+    require(
+        tx.chain_id == 125 and facts.module_id == 12
+        and facts.operation == 2 and facts.result_code in (0, 1)
+        and facts.from_sequence == tx.nonce
+        and facts.from_account == bytes(12) + bytes.fromhex(tx.recover_signer(signature)[2:])
+        and facts.to_account == bytes(12) + tx.to and facts.amount == tx.value,
+        "signed transaction execution binding mismatch",
+    )
+    expected = {
+        "txHash": transaction_hash(transaction), "nonce": hex(tx.nonce),
+        "seq": hex(facts.global_sequence), "height": hex(verified.height),
+        "timestamp": hex(facts.timestamp), "status": hex(1 - facts.result_code),
+        "keyId": "0x" + facts.context_hash.hex(),
+        "from": "0x" + facts.from_account[12:].hex(), "to": "0x" + tx.to.hex(),
+        "feeAmount": hex(facts.fee_charged),
+    }
+    require(all(row.get(key) == value for key, value in expected.items()),
+            "node JSON differs from signed receipt")
+    require(
+        any(key.key_id == facts.context_hash
+            and key.first_height <= verified.height <= key.last_height
+            and rpc_bytes(row["signingKey"], 32) == key.public_key for key in pins),
+        "node signing key differs from pinned receipt key",
+    )
+    require(row.get("rung") in ("receipted", "committed"), "executed receipt rung required")
+    if row["rung"] == "committed":
+        require(
+            isinstance(row.get("blockNumber"), str)
+            and re.fullmatch(r"0x(?:0|[1-9a-f][0-9a-f]*)", row["blockNumber"])
+            and int(row["blockNumber"], 16) >= verified.height,
+            "committed block below receipt height",
+        )
+        rpc_bytes(row["blockHash"], 32)
+    else:
+        require("blockNumber" not in row and "blockHash" not in row,
+                "receipted answer carries committed block")
+    result = rpc_bytes(row["returnData"])
+    require(hashlib.sha256(result).digest() == facts.activity_root,
+            "execution return data differs from signed digest")
+    require(facts.effects, "execution summary absent")
+    summary = facts.effects[0]
+    body = summary.body
+    logs = row.get("logs")
+    require(
+        summary.module_id == facts.module_id and summary.ordinal == 0
+        and summary.event_type == 0 and summary.kind == 1 and not summary.monetary
+        and len(body) >= 110 and 1 <= body[108] <= 64
+        and len(body) == 109 + body[108]
+        and isinstance(logs, list) and len(logs) == len(facts.effects) - 1
+        and len(logs) == int.from_bytes(body[104:108], "big"),
+        "signed execution summary mismatch",
+    )
+    expected = {
+        "gasUsed": hex(int.from_bytes(body[:8], "big")),
+        "cumulativeGasUsed": hex(int.from_bytes(body[8:16], "big")),
+        "effectiveGasPrice": hex(int.from_bytes(body[16:24], "big")),
+        "index": hex(int.from_bytes(body[24:28], "big")),
+        "contractAddress": "0x" + body[28:48].hex(),
+        "sponsor": "0x" + body[48:68].hex(), "feeDenom": body[109:].decode("ascii"),
+    }
+    require(
+        all(row.get(key) == value for key, value in expected.items())
+        and isinstance(row.get("vmError"), str)
+        and hashlib.sha256(row["vmError"].encode()).digest() == body[68:100]
+        and len(result) == int.from_bytes(body[100:104], "big")
+        and isinstance(row.get("paymentDenom"), str)
+        and hashlib.sha256(row["paymentDenom"].encode()).digest() == facts.asset,
+        "node execution result differs from signed summary",
+    )
+    for index, (log, effect) in enumerate(zip(logs, facts.effects[1:], strict=True), 1):
+        topics = log.get("topics")
+        require(isinstance(topics, list) and len(topics) <= 4, "invalid log topics")
+        encoded = (rpc_bytes(log["address"], 20) + bytes([len(topics)])
+                   + b"".join(rpc_bytes(topic, 32) for topic in topics)
+                   + hashlib.sha256(rpc_bytes(log["data"])).digest())
+        require(
+            effect.module_id == facts.module_id and effect.ordinal == index
+            and effect.event_type == 0 and effect.kind == 3 and not effect.monetary
+            and effect.body == encoded and log.get("logIndex") == hex(index - 1),
+            "node log differs from signed effect",
+        )
+    return verified, result
+
+
+def program_result(result):
+    require(len(result) >= 128 and len(result) % 32 == 0, "program ABI result truncated")
+    status = int.from_bytes(result[:32], "big", signed=True)
+    kind = int.from_bytes(result[32:64], "big")
+    length = int.from_bytes(result[96:128], "big")
+    require(
+        -(1 << 31) <= status < 1 << 31 and kind in (1, 2)
+        and int.from_bytes(result[64:96], "big") == 96
+        and len(result) == 128 + (length + 31) // 32 * 32
+        and not any(result[128 + length:]),
+        "noncanonical program ABI execution result",
+    )
+    return status, kind, result[128:128 + length]
+
+
 def canonical(body, route):
     data = json.loads(body)
     if route == "search":
@@ -804,44 +929,43 @@ class Harness:
             canonical_receipt.hex() == payment["receipt"],
             "response receipt differs from verified persistence",
         )
-        sys.path.insert(0, str(ROOT / "services/agent/sdk/python"))
-        from layerx_sdk.verifier import _decode_protocol_receipt
-        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
-        from cryptography.exceptions import InvalidSignature
-
-        facts, unsigned = _decode_protocol_receipt(canonical_receipt)
-        try:
-            Ed25519PublicKey.from_public_bytes(
-                bytes.fromhex(self.config["gateway"]["sequencer_public_key"])
-            ).verify(
-                facts.sequencer_signature,
-                hashlib.sha256(b"LXP/v1/receipt\0" + unsigned).digest(),
-            )
-        except InvalidSignature:
-            raise Refusal("paid receipt sequencer signature invalid") from None
+        transaction = bytes.fromhex(payment["raw_transaction"])
+        activity_id = transaction_hash(transaction)
+        require(receipt_hash(payment["tx_hash"]) == activity_id, "persisted transaction hash mismatch")
+        evidence = self.call("pax_sequencerReceipt", [activity_id])
+        verified, _ = verified_execution(evidence, transaction, self.config["gateway"])
         require(
-            hashlib.sha256(b"LXP/v1/merkle-leaf\0" + canonical_receipt).hexdigest()
-            == receipt
-            and facts.result_code == 0
-            and facts.module_id == 1
-            and facts.operation == (6 if case["scheme"] == "metered" else 5)
-            and facts.asset.hex() == case["asset_id"]
-            and facts.amount == int(case["amount"])
-            and facts.activity_id.hex() == payment["activity_id"]
-            and facts.from_account.hex() == payment["payer"]
-            and facts.to_account.hex() == payment["offer"]["payTo"],
+            verified.canonical_bytes == canonical_receipt
+            and verified.receipt_digest.hex() == receipt
+            and verified.receipt.result_code == 0,
             "canonical signed receipt does not authorize actual paid result",
         )
-        evidence = self.call(
-            "pax_sequencerReceipt", [receipt_hash(payment["activity_id"])]
-        )
-        require(
-            evidence["receipt"].removeprefix("0x") == payment["receipt"]
-            and evidence["txHash"] == receipt_hash(payment["activity_id"])
-            and evidence["rung"] in ("receipted", "committed")
-            and evidence["status"] == "0x1",
-            "real executed receipt unavailable",
-        )
+        from layerx_sdk.account_derivation import keccak256
+
+        metered = case["scheme"] == "metered"
+        event = (b"PaymentDrawn(bytes32,bytes32,bytes32,bytes32,uint128,bytes32,bytes32)"
+                 if metered else b"PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)")
+        matches = []
+        for log in evidence["logs"]:
+            topics, data = log["topics"], rpc_bytes(log["data"])
+            if (log["address"] == "0x" + "00" * 18 + "101a"
+                    and len(topics) == 4 and topics[0] == "0x" + keccak256(event).hex()
+                    and topics[2] == "0x" + payment["payer"]
+                    and topics[3] == "0x" + payment["offer"]["payTo"]
+                    and len(data) == (128 if metered else 64)
+                    and data[:32].hex() == case["asset_id"]
+                    and int.from_bytes(data[32:64], "big") == int(case["amount"])):
+                if metered:
+                    from layerx_sdk.evm_transaction import decode_signed
+
+                    tx, _ = decode_signed(transaction)
+                    require(
+                        topics[1] == "0x" + tx.data[4:36].hex()
+                        and data[64:96].hex() == payment["receive_key"],
+                        "metered grant or receive key mismatch",
+                    )
+                matches.append(log)
+        require(len(matches) == 1, "signed payment event does not authorize paid result")
         require(
             delivery["state"] == "ready"
             and bytes(delivery["response"]["body"]) == body
@@ -1742,74 +1866,68 @@ class KernelHarness:
             )
         return values
 
-    def signed(self, activity_type, payload, key_file, did):
+    def evm_call(self, activity_type, payload):
         import struct
-        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-        from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+        sys.path.insert(0, str(ROOT / "services/agent/sdk/python"))
+        from layerx_sdk.evm_transaction import encode_call
+
+        if activity_type == 0x00090001:
+            require(payload == self.deployment_call(), "deployment artifact binding mismatch")
+            return bytes.fromhex("00" * 18 + "101d"), payload
+        if activity_type == 0x000B0001:
+            return bytes.fromhex("00" * 18 + "1019"), encode_call("fulfilProgram", ["bytes"], [payload])
+        require(activity_type == 0x00090003, "unsupported kernel EVM operation")
+        require(len(payload) >= 106, "program call payload truncated")
+        fields = struct.unpack(">32sHHIHII7Q", payload[:106])
+        require(fields[0] == self.program and len(payload) == 106 + sum(fields[2:6]),
+                "program call payload binding mismatch")
+        cursor = 106
+        values = []
+        for length in fields[2:6]:
+            values.append(payload[cursor:cursor + length])
+            cursor += length
+        entry, calldata, capabilities, access = values
+        return bytes.fromhex("00" * 18 + "101d"), encode_call(
+            "call", ["bytes32", "uint16", "string", "bytes", "bytes", "bytes", "uint32", "uint64[7]", "uint128"],
+            [self.program, fields[1], entry.decode("utf-8"), calldata, capabilities, access,
+             fields[6], list(fields[7:]), int(self.m["activity_fee_limit"])],
+        )
+
+    def signed(self, activity_type, payload, key_file, did):
+        sys.path.insert(0, str(ROOT / "services/agent/sdk/python"))
+        from layerx_sdk.account_derivation import _evm_address, _recover, _N
+        from layerx_sdk.evm_transaction import Type2Transaction
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.asymmetric import ec, utils
 
         raw = private(key_file).read_bytes().strip()
-        require(
-            re.fullmatch(b"[0-9a-fA-F]{64}", raw),
-            "binary-compatible private signer key required",
+        require(re.fullmatch(b"[0-9a-fA-F]{64}", raw), "secp256k1 private signer key required")
+        key = ec.derive_private_key(int(raw, 16), ec.SECP256K1())
+        public = key.public_key().public_numbers()
+        xy = public.x.to_bytes(32, "big") + public.y.to_bytes(32, "big")
+        address = _evm_address(xy)
+        require(rpc(self.gateway, "eth_chainId", [], self.headers()) == "0x7d",
+                "chain-125 node required")
+        require(bound_address(self.gateway, did, self.headers()).lower() == address.lower(),
+                "signer/DID binding mismatch")
+        target, calldata = self.evm_call(activity_type, payload)
+        fees = self.m["evm_fees"]
+        tx = Type2Transaction(
+            125, pending_nonce(self.gateway, address, self.headers()),
+            fees["max_priority_fee_per_gas"], fees["max_fee_per_gas"], fees["gas_limit"],
+            target, 0, calldata,
         )
-        key = Ed25519PrivateKey.from_private_bytes(bytes.fromhex(raw.decode()))
-        public = key.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
-        require(did == "did:layerx:" + public.hex(), "signer/DID binding mismatch")
-        blob = lambda value: len(value).to_bytes(4, "big") + value
-        sequence = abi_view(
-            self.gateway,
-            "0x" + "00" * 18 + "101a",
-            "nextSequence",
-            ["bytes32", "bytes32"],
-            ["0x" + public.hex(), "0x" + "00" * 32],
-            self.headers(),
-        )
-        require(
-            isinstance(sequence, str)
-            and re.fullmatch(r"0x[0-9a-f]{64}", sequence)
-            and int(sequence, 16) < 1 << 64,
-            "canonical kernel account sequence required",
-        )
-        sequence = int(sequence, 16)
-        now = time.time_ns() // 1000000
-        context = (
-            hashlib.sha256(b"LXP/v1/context-hash\0" + payload).digest()
-            if activity_type == 0x000B0001
-            else os.urandom(32)
-        )
-        fields = (
-            b"\1\0\3\2"
-            + self.network.to_bytes(4, "big")
-            + b"\3"
-            + activity_type.to_bytes(4, "big")
-            + b"\4"
-            + blob(did.encode())
-            + b"\5"
-            + blob(public)
-            + b"\6"
-            + sequence.to_bytes(8, "big")
-            + b"\7"
-            + struct.pack(">QQ", now - 1000, now + 60000)
-            + b"\10"
-            + blob(context)
-            + b"\11"
-            + int(self.m["activity_fee_limit"]).to_bytes(16, "big")
-            + b"\12"
-            + blob(hashlib.sha256(b"LXP/v1/payload-hash\0" + payload).digest())
-            + b"\13"
-            + blob(payload)
-        )
-        unsigned = b"\0\3\20\1\13" + fields
-        signature = key.sign(
-            hashlib.sha256(b"LXP/v1/signature-preimage\0" + unsigned).digest()
-        )
-        return b"\0\3\20\1\14" + fields + b"\14" + blob(signature)
+        digest = tx.signing_digest()
+        signature = key.sign(digest, ec.ECDSA(utils.Prehashed(hashes.SHA256()), deterministic_signing=True))
+        r, s = utils.decode_dss_signature(signature)
+        s = min(s, _N - s)
+        for parity in (0, 1):
+            if _recover(digest, r, s, parity) == xy:
+                signature = r.to_bytes(32, "big") + s.to_bytes(32, "big") + bytes([27 + parity])
+                return tx.attach_signature(signature, address)
+        raise Refusal("EVM signature recovery failed")
 
     def receipt(self, activity, refused=False):
-        sys.path.insert(0, str(ROOT / "services/agent/sdk/python"))
-        from layerx_sdk.verifier import _decode_protocol_receipt
-        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
-
         activity_id = transaction_hash(activity)
         deadline = time.monotonic() + 45
         while time.monotonic() < deadline:
@@ -1822,19 +1940,10 @@ class KernelHarness:
                     and row["rung"] in ("receipted", "committed"),
                     "foreign canonical receipt",
                 )
-                canonical = bytes.fromhex(row["receipt"].removeprefix("0x"))
-                facts, unsigned = _decode_protocol_receipt(canonical)
-                key = bytes.fromhex(self.primary["gateway"]["sequencer_public_key"])
-                Ed25519PublicKey.from_public_bytes(key).verify(
-                    facts.sequencer_signature,
-                    hashlib.sha256(b"LXP/v1/receipt\0" + unsigned).digest(),
-                )
-                require(
-                    "0x" + facts.activity_id.hex() == activity_id
-                    and ((facts.result_code != 0) == refused),
-                    "canonical committed outcome mismatch",
-                )
-                return facts
+                verified, result = verified_execution(row, activity, self.primary["gateway"])
+                require((verified.receipt.result_code != 0) == refused,
+                        "canonical committed outcome mismatch")
+                return verified.receipt, result
             time.sleep(0.05)
         raise Refusal("canonical committed receipt absent")
 
@@ -1856,11 +1965,11 @@ class KernelHarness:
             0x00090003, self.calls[name], self.signing_key, self.caller
         )
         self.send(activity)
-        facts = self.receipt(activity, refused)
-        require(
-            facts.module_id == 9 and facts.program_outcome is not None,
-            "reference program did not execute",
-        )
+        facts, result = self.receipt(activity, refused)
+        require(facts.module_id == 12, "reference program execution module mismatch")
+        if not refused:
+            status, kind, _ = program_result(result)
+            require(status == 0 and kind == 1, "reference program did not execute")
         return activity
 
     def send_call_input(self, calldata):
@@ -1926,40 +2035,31 @@ class KernelHarness:
         )
         self.record("adapter-encoding-vector")
 
-    def reference_deployment(self):
-        import struct
+    def deployment_call(self):
+        sys.path.insert(0, str(ROOT / "services/agent/sdk/python"))
+        from layerx_sdk.evm_transaction import encode_call
 
-        raw = self.deployment
-        require(raw[:5] == b"\0\3\20\1\14", "reference deployment protocol mismatch")
-        cursor = 5
-        fields = {}
-        sizes = {1: 2, 2: 4, 3: 4, 6: 8, 7: 16, 9: 16}
-        for tag in range(1, 13):
-            require(cursor < len(raw) and raw[cursor] == tag, "deployment field order")
-            cursor += 1
-            length = sizes.get(tag)
-            if length is None:
-                require(cursor + 4 <= len(raw), "deployment field bound")
-                length = int.from_bytes(raw[cursor : cursor + 4], "big")
-                cursor += 4
-            require(cursor + length <= len(raw), "deployment field truncated")
-            fields[tag] = raw[cursor : cursor + length]
-            cursor += length
-        expected = self.program + struct.pack(">HBB", 4, 0, 0) + bytes(32)
-        expected += (
-            hashlib.sha256(self.wasm).digest()
-            + len(self.wasm).to_bytes(4, "big")
-            + self.wasm
+        metadata = self.m["reference_program"]
+        return encode_call(
+            "deploy", ["bytes32", "uint16", "uint8", "bytes32", "bytes32", "bytes", "bytes"],
+            [self.program, 4, metadata["policy"], bytes.fromhex(metadata["authority"]),
+             hashlib.sha256(self.wasm).digest(), bytes.fromhex(metadata["interface_encoding"]), self.wasm],
         )
+
+    def reference_deployment(self):
+        sys.path.insert(0, str(ROOT / "services/agent/sdk/python"))
+        from layerx_sdk.evm_transaction import decode_signed
+
+        tx, signature = decode_signed(self.deployment)
         require(
-            cursor == len(raw)
-            and fields[11] == expected
-            and fields[2] == self.network.to_bytes(4, "big")
-            and fields[3] == (0x00090001).to_bytes(4, "big"),
-            "deployed program is not the bound reference artifact",
+            tx.chain_id == 125 and tx.value == 0
+            and tx.to == bytes.fromhex("00" * 18 + "101d")
+            and tx.data == self.deployment_call()
+            and tx.recover_signer(signature).lower() == self.m["deployment_sender"].lower(),
+            "deployed program is not the bound chain-125 reference artifact",
         )
-        facts = self.receipt(raw)
-        require(facts.module_id == 9, "reference deployment receipt module")
+        facts, _ = self.receipt(self.deployment)
+        require(facts.module_id == 12, "reference deployment receipt module")
         self.record("real-reference-deployment")
 
     def run(self):
@@ -2068,9 +2168,9 @@ class KernelHarness:
         for name, payload in negative.items():
             activity = self.signed(0x000B0001, payload, self.signing_key, self.caller)
             self.send(activity)
-            facts = self.receipt(activity, True)
+            facts, _ = self.receipt(activity, True)
             require(
-                facts.module_id == 11 and self.balances() == paid,
+                facts.module_id == 12 and self.balances() == paid,
                 "refused observation changed fee state",
             )
             self.record(name)
@@ -3640,37 +3740,19 @@ class OperationalHarness(Harness):
         }
 
     def observed(self):
-        sys.path.insert(0, str(ROOT / "services/agent/sdk/python"))
-        from layerx_sdk.verifier import _decode_protocol_receipt
-        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
-        from cryptography.exceptions import InvalidSignature
+        transaction = bytes.fromhex(self.observation["raw_transaction"])
+        activity_id = transaction_hash(transaction)
+        require(activity_id == receipt_hash(self.observation["activity_id"]),
+                "observation transaction hash mismatch")
+        row = self.call("pax_sequencerReceipt", [activity_id])
+        verified, _ = verified_execution(row, transaction, self.config["gateway"])
+        from layerx_sdk.evm_transaction import decode_signed, encode_call
 
-        row = self.call(
-            "pax_sequencerReceipt", [receipt_hash(self.observation["activity_id"])]
-        )
+        tx, _ = decode_signed(transaction)
         require(
-            row["txHash"] == receipt_hash(self.observation["activity_id"])
-            and row["receipt"]
-            and row["rung"] == "committed"
-            and row["status"] == "0x1",
-            "kernel observation not committed",
-        )
-        facts, unsigned = _decode_protocol_receipt(
-            bytes.fromhex(row["receipt"].removeprefix("0x"))
-        )
-        try:
-            Ed25519PublicKey.from_public_bytes(
-                bytes.fromhex(self.config["gateway"]["sequencer_public_key"])
-            ).verify(
-                facts.sequencer_signature,
-                hashlib.sha256(b"LXP/v1/receipt\0" + unsigned).digest(),
-            )
-        except InvalidSignature:
-            raise Refusal("kernel observation receipt signature invalid") from None
-        require(
-            facts.module_id == 11
-            and facts.result_code == 0
-            and facts.activity_id.hex() == self.observation["activity_id"],
+            row["rung"] == "committed" and verified.receipt.result_code == 0
+            and tx.to == bytes.fromhex("00" * 18 + "1019")
+            and tx.data[:4] == encode_call("fulfilProgram", ["bytes"], [b""])[:4],
             "kernel observation receipt facts mismatch",
         )
         self.record("kernel-committed-observation")
