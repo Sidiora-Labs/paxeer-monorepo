@@ -130,6 +130,21 @@ func (s msgServer) UpdateParams(goCtx context.Context, msg *types.MsgUpdateParam
 	if err != nil {
 		return nil, err
 	}
+	previous := make(map[common.Address]bool, len(before.Tokens))
+	for _, token := range before.Tokens {
+		previous[token.Address] = true
+	}
+	for _, token := range tokens {
+		if previous[token.Address] {
+			continue
+		}
+		share, err := s.keeper.v6120ShareToken(cacheCtx, token)
+		if err != nil {
+			return nil, err
+		}
+		tokenLogs = append(tokenLogs, v6120Log(cacheCtx, common.HexToAddress(types.PECORVaultAddress), v6120ShareTokenCreatedTopic,
+			[]common.Address{token.Address, share}))
+	}
 	params := msg.Params
 	params.Tokens = tokens
 	if err := s.keeper.UpdateParams(cacheCtx, msg.Authority, params); err != nil {

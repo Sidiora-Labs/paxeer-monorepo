@@ -16,12 +16,13 @@ umask 077
 : "${LAYERX_TEST_ASSET:?LAYERX_TEST_ASSET is required}"
 : "${LAYERX_TEST_AMOUNT:?LAYERX_TEST_AMOUNT is required}"
 : "${LAYERX_TEST_SOURCE_KEY_FILE:?LAYERX_TEST_SOURCE_KEY_FILE is required}"
-: "${LAYERX_BIN:=layerx}"
+: "${LAYERX_TEST_NODE_URL:?The HTTPS root node RPC endpoint is required}"
+: "${LAYERX_TEST_RECEIPT_KEYS_FILE:?Independent node receipt keys are required}"
 test -r "$LAYERX_TEST_AUTH_TOKEN_FILE"
 test -r "$LAYERX_TEST_CA_FILE"
 command -v jq >/dev/null
 command -v openssl >/dev/null
-command -v "$LAYERX_BIN" >/dev/null
+test -r "$LAYERX_TEST_RECEIPT_KEYS_FILE"
 work=$(mktemp -d "${TMPDIR:-/tmp}/layerx-hosted-smoke.XXXXXX")
 cleanup() {
   printf '%s\n' "retained hosted smoke evidence at $work"
@@ -143,26 +144,14 @@ receipt_id=$(jq -er '.activity_id' "$work/payment/result.json")
 printf '%s\n' "payment journey: signed transfer $receipt_id executed and replayed without additional credit"
 
 admit_journey receipt-inspection
-curl --fail --silent --show-error --max-time 30 --cacert "$LAYERX_TEST_CA_FILE" \
-  --config "$auth_config" \
-  "$LAYERX_GATEWAY_URL/v1/receipts/$receipt_id" > "$work/receipt-response.json"
-jq -er '.result.receipt' "$work/receipt-response.json" > "$work/receipt.hex"
-batch_id=$(jq -er '.result.authority.batch_id' "$work/payment/receipt.json")
-asset=$(jq -er '.result.authority.asset' "$work/payment/receipt.json")
-previous_root=$(jq -er '.result.authority.previous_state_root' "$work/payment/receipt.json")
-resulting_root=$(jq -er '.result.authority.resulting_state_root' "$work/payment/receipt.json")
-sequencer_key=$(jq -er '.result.authority.sequencer_public_key' "$work/payment/receipt.json")
-test "$sequencer_key" = "$LAYERX_TEST_SEQUENCER_PUBLIC_KEY"
-jq -e --arg activity "$receipt_id" --slurpfile payment "$work/payment/receipt.json" \
-  '.result.activity_id == $activity and .result.receipt == $payment[0].result.receipt' \
-  "$work/receipt-response.json" >/dev/null
-"$LAYERX_BIN" --json receipt verify --receipt "$work/receipt.hex" --batch-id "$batch_id" \
-  --asset "$asset" --previous-state-root "$previous_root" --resulting-state-root "$resulting_root" \
-  --sequencer-public-key "$sequencer_key" > "$work/verification.json"
-jq -e --arg activity "$receipt_id" '.ok == true and .kind == "receipt.verified" and .data.verified == true
-  and .data.activity_id == $activity and .data.result_code == 0' \
-  "$work/verification.json" >/dev/null
-printf '%s\n' "receipt inspection journey: batch $batch_id receipt $receipt_id independently verified"
+python3 "$(dirname "$0")/receipt_inspection.py" --node "$LAYERX_TEST_NODE_URL" \
+  --ca "$LAYERX_TEST_CA_FILE" --receipt-keys "$LAYERX_TEST_RECEIPT_KEYS_FILE" \
+  --payment "$work/payment" --output "$work/receipt-inspection"
+jq -e --arg activity "$receipt_id" '.verified == true and .activity_id == $activity
+  and .result_code == 0 and .rung == "committed" and .verification_level == "sequencer-signed"
+  and .replayed == true and .corruption_refused == true' \
+  "$work/receipt-inspection/verification.json" >/dev/null
+printf '%s\n' "receipt inspection journey: committed payment $receipt_id independently signature-verified"
 
 printf '%s\n' "hosted payment $receipt_id was independently receipt-verified"
 printf '%s\n' "$cluster_identity"

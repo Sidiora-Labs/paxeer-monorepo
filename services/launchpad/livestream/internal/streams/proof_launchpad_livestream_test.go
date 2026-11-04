@@ -455,7 +455,7 @@ func TestProofLaunchpadLivestream(t *testing.T) {
 		}
 		mac := hmac.New(sha256.New, []byte(signingSecret))
 		_, _ = mac.Write(raw)
-		return exchange("POST", "/v2/provider-webhooks/livepeer", raw, map[string]string{"Livepeer-Signature": fmt.Sprintf("t=%d,v1=%s", wire.Timestamp, hex.EncodeToString(mac.Sum(nil)))}, wantStatus)
+		return exchange("POST", "/webhooks/livepeer", raw, map[string]string{"Livepeer-Signature": fmt.Sprintf("t=%d,v1=%s", wire.Timestamp, hex.EncodeToString(mac.Sum(nil)))}, wantStatus)
 	}
 	event := ProviderEvent{EventID: "proof_live", ProviderID: operation.ProviderID, State: "LIVE", ObservedAt: time.Now().UTC().Truncate(time.Microsecond)}
 	denied := proofLivestreamConsume[v2.Error](t, "Error", webhook(event, false, http.StatusUnauthorized))

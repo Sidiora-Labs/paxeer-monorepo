@@ -1,0 +1,14 @@
+[repair.22.31.61]
+audit = "22.30.36"
+base_revision = "9281fc5367df30f54e8f83e9b7bedc920d9382db"
+baseline = "No baseline verification was run: the explicit task Order requires complete implementation before any gate and hf-done as the sole initial verification. No pre-change test failure is claimed."
+qualification = "hf-build then hf-done; the task runner records the exact verified candidate revision, command, exit and private log in /out/run/gates.jsonl and the final evidence line."
+
+[finding.event-argument-collision]
+proof = "TestRepair_61_canonical_schema, TestRepair_61_event_argument_collision"
+change = "The shared FeeStrategyChanged(uint256,uint8,uint8) signature has an explicit canonical nftId schema in LookupEvent and Events; role binding ABIs retain their original argument names, types and indexing."
+path = "Current Solidity SidioraNFT and FeesRouter behind real ERC1967Proxy instances -> geth transactions and IPC receipt logs -> JSON transport -> actual indexer Decoder.Decode -> processEvent and handleFeeStrategyChanged -> real migrated PostgreSQL rows and webhook arguments, including replay idempotence and malformed-log rejection."
+producer = "The proof compiles the repository production contracts with pinned solc 0.8.27 in temporary storage, using npm; no mock contract, fabricated log or copied consumer implementation is used."
+
+[wiring.indexer]
+request = "services/launchpad/indexer/internal/decode — owning domain 4: retain the LookupEvent canonical nftId schema through processor dispatch; current Decoder.Decode already does so, and the overlay proof exercises it without an out-of-scope source edit."

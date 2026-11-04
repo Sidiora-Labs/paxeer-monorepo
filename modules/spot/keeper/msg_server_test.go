@@ -1,6 +1,7 @@
 package keeper_test
 
 import (
+	"bytes"
 	"math/big"
 	"testing"
 
@@ -63,7 +64,7 @@ func requireLog(t *testing.T, l *ethtypes.Log, address common.Address, topics []
 	for _, w := range words {
 		data = append(data, w...)
 	}
-	require.Equal(t, data, l.Data)
+	require.True(t, bytes.Equal(data, l.Data), "log data: expected %x, got %x", data, l.Data)
 }
 
 func logsSince(ctx sdk.Context, before int) []*ethtypes.Log {
@@ -105,12 +106,16 @@ func TestUpdateParamsRegistersNewToken(t *testing.T) {
 		TotalDeposited: sdk.ZeroInt(), TotalWithdrawn: sdk.ZeroInt(), Decimals: 6,
 		ShareDenom: k.ShareDenom(syncPointer)}}, books)
 	logs := logsSince(ctx, before)
-	require.Len(t, logs, 3)
+	require.Len(t, logs, 4)
 	requireLog(t, logs[0], pecor, []common.Hash{keeper.PausedTopic},
 		common.LeftPadBytes(types.GovernanceEVMAddress().Bytes(), 32))
 	tokenTopic := common.BytesToHash(syncPointer.Bytes())
 	requireLog(t, logs[1], pecorVault, []common.Hash{keeper.TokenRegisteredTopic, tokenTopic}, word(6), word(0))
 	requireLog(t, logs[2], pecorVault, []common.Hash{keeper.UtilizationCapUpdatedTopic, tokenTopic}, word(9_000))
+	pointer, _, exists := testkeeper.EVMTestApp.EvmKeeper.GetERC20NativePointer(ctx, k.ShareDenom(syncPointer))
+	require.True(t, exists)
+	requireLog(t, logs[3], pecorVault, []common.Hash{crypto.Keccak256Hash([]byte("ShareTokenCreated(address,address)")),
+		tokenTopic, common.BytesToHash(pointer.Bytes())})
 
 	before = len(ctx.EVMEventManager().Events())
 	_, err = server.UpdateParams(sdk.WrapSDKContext(ctx), &types.MsgUpdateParams{
@@ -209,10 +214,14 @@ func TestParamChangeEmitsPauseLogs(t *testing.T) {
 	params.Tokens = []types.TokenParams{syncToken(9_000, false)}
 	logs, err := update(params)
 	require.NoError(t, err)
-	require.Len(t, logs, 3)
+	require.Len(t, logs, 4)
 	requireLog(t, logs[0], pecor, []common.Hash{keeper.PausedTopic}, governance)
 	requireLog(t, logs[1], pecorVault, []common.Hash{keeper.TokenRegisteredTopic, tokenTopic}, word(6), word(0))
 	requireLog(t, logs[2], pecorVault, []common.Hash{keeper.UtilizationCapUpdatedTopic, tokenTopic}, word(9_000))
+	pointer, _, exists := testkeeper.EVMTestApp.EvmKeeper.GetERC20NativePointer(ctx, k.ShareDenom(syncPointer))
+	require.True(t, exists)
+	requireLog(t, logs[3], pecorVault, []common.Hash{crypto.Keccak256Hash([]byte("ShareTokenCreated(address,address)")),
+		tokenTopic, common.BytesToHash(pointer.Bytes())})
 	require.True(t, getParams(t, k, ctx).SwapPaused)
 
 	params.SwapPaused, params.OrdersPaused = false, true

@@ -247,7 +247,7 @@ pub fn record<T>(
     operation: impl FnOnce() -> T,
 ) -> Result<(AppendReceipt, T), RecordError> {
     let encoded = encode_entry(entry)?;
-    let output = log.before_operation(&encoded, || {
+    let output = log.before_committed_operation(&encoded, || {
         coverage.observe(entry.class);
         operation()
     })?;
@@ -412,6 +412,38 @@ fn encode_entry(entry: &Entry) -> Result<Vec<u8>, RecordError> {
         None => output.push(0),
     }
     Ok(output)
+}
+
+pub(crate) fn record_commitments(payload: &[u8]) -> Result<(Vec<u8>, [u8; 32]), RecordError> {
+    let mut entry = decode_entry(payload)?;
+    if encode_entry(&entry)? != payload {
+        return Err(RecordError::Invalid(
+            "commitments require a canonical current record",
+        ));
+    }
+    let mut evidence = Vec::new();
+    push_payload(&mut evidence, entry.submitted_bytes.as_ref());
+    let mut digest = Sha256::new();
+    digest.update(b"layerx-audit-payload-evidence-v1");
+    digest.update(evidence);
+    let payload_commitment = digest.finalize().into();
+    if entry.submitted_bytes.is_some() {
+        entry.submitted_bytes = Some(PayloadEvidence::Redacted);
+    }
+    Ok((encode_entry(&entry)?, payload_commitment))
+}
+
+pub(crate) fn commitment_root(public_record: &[u8], payload_commitment: [u8; 32]) -> [u8; 32] {
+    let mut digest = Sha256::new();
+    digest.update(b"layerx-audit-record-fields-v1");
+    digest.update(Sha256::digest(public_record));
+    digest.update(payload_commitment);
+    digest.finalize().into()
+}
+
+pub(crate) fn record_digest(payload: &[u8]) -> Result<[u8; 32], RecordError> {
+    let (public_record, payload_commitment) = record_commitments(payload)?;
+    Ok(commitment_root(&public_record, payload_commitment))
 }
 
 pub(crate) fn decode_entry(bytes: &[u8]) -> Result<Entry, RecordError> {
