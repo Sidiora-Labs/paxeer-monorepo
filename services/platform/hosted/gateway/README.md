@@ -1,90 +1,126 @@
 # Hosted gateway
 
-`layerx-platform-gateway` builds the `layerx-gateway` binary, the
-receipt-verifying public ingress of the Paxeer X Network. It serves one JSON-RPC
-endpoint for both execution domains: LayerX kernel methods (`lx_*`), unified
-cross-domain reads (`px_*`) and the Paxeer X chain's EVM methods relayed to
-`paxd`. Routes, scopes and TLS are described in
-[`docs/wiki/HostedGateway.md`](../../../../docs/wiki/HostedGateway.md).
+`layerx-platform-gateway` builds the `layerx-gateway` binary in the
+[platform Cargo workspace](../../Cargo.toml). It provides hosted APIs and a
+JSON-RPC ingress to the single Paxeer network. `paxd` contains the kernel,
+executes transactions and proposes blocks; receipt finality is BFT block
+commit. Tenant domains are database namespaces in that network.
 
-The crate is a member of the [`platform`](../../Cargo.toml) Cargo workspace:
+Public node JSON-RPC is served at the root of
+`https://api-mainnet-beta.paxeer.network/` and
+`https://api1.mainnet-beta.paxeer.network/` through
+`https://api14.mainnet-beta.paxeer.network/`, with EVM chain ID **125** (`0x7d`).
+Those nodes expose `debug`, `echo`, `eth`, `net`, `pax`, `test` and `txpool`
+namespaces. The gateway's `px_*` methods are a hosted contract; configuring a
+public node does not deploy those APIs. Mainnet-beta uses real value; obtain
+hosted service coordinates, credentials and any allocation policy from its operator.
+
+## Build and test
+
+From the repository root:
 
 ```sh
 cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway
 cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway
 ```
 
-The limited beta has not opened yet. The gateway API becomes available when it
-does. This is a mainnet beta on real value, so there is no faucet for general
-use; approved developers receive test allocations from the team.
-
 ## Public JSON-RPC
 
-`POST /rpc` is JSON-RPC 2.0. `GET /rpc/schema` serves
-[`openrpc.json`](openrpc.json), which defines method names, parameter order,
-commitment levels (`executed`, `batched`, `finalised`) and error codes.
-`GET /rpc/ws` is the authenticated WebSocket upgrade for `lx_subscribe`; over
-plain `POST /rpc`, `lx_subscribe` and `lx_unsubscribe` answer `-32004`. Kernel
-reads forward to the public core URL (`LAYERX_GATEWAY_PUBLIC_CORE_URL`), and
-`lx_estimateFee` forwards the canonical activity bytes to the core's fee
-estimate.
+Use JSON-RPC 2.0 `POST /` with `Content-Type: application/json`. The dispatcher
+is [src/rpc.rs](src/rpc.rs), reached through [src/main.rs](src/main.rs).
+[openrpc.json](openrpc.json) declares method and result schemas. Requests may
+be single objects or batches of 1..32 entries; notification-only requests
+produce HTTP 204. Malformed JSON answers `-32700`, invalid request envelopes
+`-32600`, and unknown methods `-32601`.
 
-Reads are unauthenticated. `lx_sendActivity` requires
-`Authorization: LayerX-Key <key>` with the `activity:write` scope. The gateway
-decodes the signed activity strictly against the provisioned module registry
-(below), checks protocol version, network ID and the key's bound signer
-signature, and routes Programs deploy (1), upgrade (2), call (3) and wind-down
-(7) to the core's Programs routes and every other admitted activity to the
-core's activity route. Which activity types are admitted is decided by the
-registry file.
+The old `/rpc`, `/rpc/schema`, `/rpc/ws` and `/rpc/evm/ws` network coordinates are retired; source compatibility handlers still reference them.
+The retired `lx_*` methods answer `-32601` without contacting a backend.
+Use native signed transactions and chain reads for network execution.
+The removed `/v1/activities` and `/v1/programs` execution routes return 404.
+There is no separate LayerX interface or router in the merged network.
 
-## Single network endpoint
+## Node relay and receipt rungs
 
-`POST /rpc` also carries the Paxeer X chain. `eth_*`, `net_*` and `web3_*`
-relay byte-for-byte to the Paxeer RPC names in `LAYERX_GATEWAY_PAXEER_RPC_URLS`,
-a JSON array of two to eight distinct URLs (for example
-`["https://api1.mainnet-beta.paxeer.network","https://api2.mainnet-beta.paxeer.network"]`),
-each fronting `paxd`. A call tries the names in order and answers from the first
-that answers 200 without a transport failure; each skipped name is logged as
-`paxeer_endpoint_failed`. `paxeer_chain` readiness reports available while any
-name answers. An invalid array refuses startup. `eth_sendRawTransaction` is
-relayed like any other method, so an already signed transaction reaches the
-chain through this endpoint. The gateway never signs for a caller:
-`eth_accounts`, `eth_coinbase`, `eth_sendTransaction`, `eth_sign`,
-`eth_signTransaction`, `eth_signTypedData`, `eth_signTypedData_v4` and
-`eth_mining` are refused with `-32601`, and `eth_subscribe`/`eth_unsubscribe`
-with `-32004`. Without the variable the relay answers `-32001` with code
-`paxeer_rpc_not_configured`; `lx_*` is unaffected.
+`LAYERX_GATEWAY_PAXEER_RPC_URLS` is a JSON array of two to eight distinct node
+URLs. For example:
 
-`GET /rpc/evm/ws` is an authenticated (`LayerX-Key`) WebSocket relayed to
-`LAYERX_GATEWAY_PAXEER_WS_URL`, whose host must be one of the configured Paxeer
-RPC names; without it the upgrade answers 503 `paxeer_websocket_not_configured`.
+```json
+["https://api1.mainnet-beta.paxeer.network/", "https://api2.mainnet-beta.paxeer.network/"]
+```
 
-The EVM policy (namespaces, refused signing methods, precompile addresses and
-selectors, and answer decoders) lives in [`src/evm.rs`](src/evm.rs) and is
-unit-tested against vectors generated from the precompiles' ABI
-([`tests/fixtures/paxeer-abi-vectors.json`](tests/fixtures/paxeer-abi-vectors.json)).
+Invalid arrays refuse startup. The relay tries configured nodes in order,
+checks `eth_chainId` equals 125, and requires HTTP 200 and a valid JSON-RPC
+response with the matching ID. Transport and HTTP failures move to the next
+node and can log `paxeer_endpoint_failed`. A JSON-RPC refusal from a responding
+node remains a refusal. Missing configuration answers `-32001` with data code
+`paxeer_rpc_not_configured`.
 
-`px_*` are the unified cross-domain reads: `px_resolveAccount`,
-`px_getAccount`, `px_getBalances`, `px_listAssets`, `px_getNetwork`,
-`px_getCapabilities`, `px_getHistory`, `px_getUnifiedHistory` and
-`px_getRouteCatalogue`. The account and balance reads join the `bank`
-(`0x0000000000000000000000000000000000001001`), `addr` (`…1004`),
-`layerxcustody` (`…1013`) and `layerxanchor` (`…1014`) precompiles to the public
-core reads. A batch may mix `eth_`, `lx_` and `px_` entries. Shapes and error
-codes: [`openrpc.json`](openrpc.json).
+The admitted methods are `eth_*`, `net_*`, `web3_*` and
+`pax_sequencerReceipt`, subject to the policy in [src/evm.rs](src/evm.rs).
+The gateway never signs for the caller. `eth_accounts`, `eth_coinbase`,
+`eth_sendTransaction`, `eth_sign`, `eth_signTransaction`, `eth_signTypedData`,
+`eth_signTypedData_v4` and `eth_mining` are refused with `-32601`.
+`eth_subscribe` and `eth_unsubscribe` require a subscription transport and are
+refused by the HTTP relay with `-32004`.
 
-Successful `px_listAssets` ledger rows include `paused` (boolean) and `verification` (`"authenticated_committed_snapshot"`); both fields are optional in the closed result schema and absent from bank, token-factory and failed-read rows.
+Submit the caller's signed EIP-1559 bytes with `eth_sendRawTransaction`.
+Reconcile the exact `0x`-prefixed 32-byte transaction hash with
+`pax_sequencerReceipt`:
 
-Method list: [`docs/wiki/PublicRpc.md`](../../../../docs/wiki/PublicRpc.md).
-Commitment parameter: [`docs/wiki/CommitmentLevels.md`](../../../../docs/wiki/CommitmentLevels.md).
-Request and response pairs: [`docs/wiki/PublicAPI.md`](../../../../docs/wiki/PublicAPI.md).
-Public RPC names: [`docs/site/docs/reference/public-rpc.md`](../../../../docs/site/docs/reference/public-rpc.md).
+- `submitted`: acknowledgement, with no signed execution receipt yet.
+- `receipted`: signed execution evidence, requiring independent key and
+  transaction verification.
+- `committed`: inclusion in a committed block, the network's finality boundary.
+
+The relay returns node evidence; it does not itself turn a receipt into a
+verified finality claim. See the [receipt authority](../authority/README.md)
+and [reference applications](../../examples/README.md) for consumers and their
+verification limits.
+
+## Hosted reads
+
+[src/paxeer.rs](src/paxeer.rs) dispatches `px_resolveAccount`, `px_getAccount`,
+`px_getBalances`, `px_listAssets`, `px_getNetwork` and `px_getCapabilities`.
+[src/history.rs](src/history.rs) owns `px_getHistory` and
+`px_getUnifiedHistory`. `px_getRouteCatalogue` returns an authenticated hosted
+route catalogue; it is not a second network execution path.
+
+Account, balance and asset reads use the native bank (`0x1001`), address binding
+(`0x1004`) and ledger (`0x101a`) precompiles. Native payment, authority and
+Programs constructs are at `0x101b`, `0x101c` and `0x101d`, respectively; these
+are 20-byte addresses padded with leading zeros. The old custody/anchor join
+is retired. ABI selectors and decoders live in [src/evm.rs](src/evm.rs), with
+vectors in [tests/fixtures/paxeer-abi-vectors.json](tests/fixtures/paxeer-abi-vectors.json).
+
+Successful `px_listAssets` ledger rows include `paused` (boolean) and
+`verification` (`"authenticated_committed_snapshot"`). Both are optional in the
+closed result schema and absent from bank, token-factory and failed-read rows.
+
+[src/chain_reads.rs](src/chain_reads.rs) implements `px_getCommit`,
+`px_getValidators`, `px_getReceiptKeys` and `px_getSequenceBatch`. Configure
+consensus and receipt-key inputs for those reads; missing evidence produces
+an explicit unavailable response. Registration, faucet and protected service
+routes have their own authentication and backend requirements. Public node
+availability alone does not make them ready.
+
+## Configuration and readiness
+
+Read [src/main.rs](src/main.rs) for environment parsing and
+[deployment.yaml](deployment.yaml) for a deployment template. Configure node
+URLs, network identity, persistent key/idempotency storage, outbound trust and
+service credentials for the routes being enabled. The listener supports TLS
+and a plain mode for a deployment that terminates TLS at its edge.
+
+`GET /livez` checks process liveness. `GET /readyz` reports dependency readiness;
+inspect individual backend results before enabling a feature. Optional
+kernel-dependent services can be unavailable while chain reads remain usable.
+Legacy deployment names in environment templates do not establish public
+endpoints or new network components.
 
 ## Canonical module registry
 
-`LAYERX_GATEWAY_MODULE_REGISTRY_FILE` names a JSON file that the gateway shares
-with the receipt authority ([`../authority`](../authority/README.md)). Shape:
+`LAYERX_GATEWAY_MODULE_REGISTRY_FILE` names a read-only JSON registry shared
+with the [receipt authority](../authority/README.md):
 
 ```json
 {
@@ -101,11 +137,14 @@ with the receipt authority ([`../authority`](../authority/README.md)). Shape:
 }
 ```
 
-A fuller example is
-[`services/interop/deploy/gateway/module-registry.example.json`](../../../../services/interop/deploy/gateway/module-registry.example.json).
-The asset shown is illustrative. `schema_version` must be 2. There must be
-1..256 assets; every asset ID is nonzero lowercase 64-digit hex and unique;
-currency and symbol hold 1..32 bytes without control characters; decimals is at
-most 38. Modules must be known module IDs, at most one entry per module ID in
-`layerx-types`. For the Programs module the gateway always adds ordinals 1, 2
-and 7. The gateway only reads this file.
+The asset is illustrative. Version must be 2, with 1..256 unique nonzero
+lowercase 64-hex asset identifiers. Currency and symbol are 1..32 bytes without
+control characters; decimals is at most 38. Module IDs must be known and unique;
+Programs ordinals 1, 2 and 7 are added by the gateway. This registry describes
+admitted protocol data; it does not restore retired activity submission APIs.
+A fuller example is [module-registry.example.json](../../../interop/deploy/gateway/module-registry.example.json).
+
+Public node details: [public-rpc.md](../../../../docs/site/docs/reference/public-rpc.md).
+Method and evidence references: [PublicRpc](../../../../docs/wiki/PublicRpc.md),
+[CommitmentLevels](../../../../docs/wiki/CommitmentLevels.md) and
+[PublicAPI](../../../../docs/wiki/PublicAPI.md).
