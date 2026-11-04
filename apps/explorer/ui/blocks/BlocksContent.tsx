@@ -1,17 +1,13 @@
 import { Box } from '@chakra-ui/react';
-import { useQueryClient } from '@tanstack/react-query';
 import React from 'react';
 
-import type { SocketMessage } from 'lib/socket/types';
-import type { BlockType, BlocksResponse } from 'types/api/block';
+import type { BlockType } from 'types/api/block';
 
 import { route } from 'nextjs/routes';
 
-import useApiQuery, { getResourceKey } from 'lib/api/useApiQuery';
+import useApiQuery from 'lib/api/useApiQuery';
 import { useMultichainContext } from 'lib/contexts/multichain';
 import useIsMobile from 'lib/hooks/useIsMobile';
-import useSocketChannel from 'lib/socket/useSocketChannel';
-import useSocketMessage from 'lib/socket/useSocketMessage';
 import { HOMEPAGE_STATS } from 'stubs/stats';
 import { Link } from 'toolkit/chakra/link';
 import BlocksList from 'ui/blocks/BlocksList';
@@ -24,7 +20,8 @@ import type { QueryWithPagesResult } from 'ui/shared/pagination/useQueryWithPage
 import { formatScanTableCount, ScanTableCard } from 'ui/shared/scan';
 import * as SocketNewItemsNotice from 'ui/shared/SocketNewItemsNotice';
 
-const OVERLOAD_COUNT = 75;
+import useBlocksNewBlock from './useBlocksNewBlock';
+
 const TABS_HEIGHT = 88;
 const ITEMS_NAME = 'blocks';
 
@@ -37,62 +34,11 @@ export interface Props {
 }
 
 const BlocksContent = ({ type, query, enableSocket = true, top, isInsideTableCard = false }: Props) => {
-  const queryClient = useQueryClient();
   const isMobile = useIsMobile();
   const multichainContext = useMultichainContext();
-
-  const [ showSocketAlert, setShowSocketAlert ] = React.useState(false);
-
-  const [ newItemsCount, setNewItemsCount ] = React.useState(0);
-
-  const handleNewBlockMessage: SocketMessage.NewBlock['handler'] = React.useCallback((payload) => {
-    const queryKey = getResourceKey('general:blocks', {
-      queryParams: { type },
-      chainId: multichainContext?.chain?.id,
-    });
-
-    queryClient.setQueryData(queryKey, (prevData: BlocksResponse | undefined) => {
-      const shouldAddToList = !type || type === payload.block.type;
-
-      if (!prevData) {
-        return {
-          items: shouldAddToList ? [ payload.block ] : [],
-          next_page_params: null,
-        };
-      }
-
-      if (!shouldAddToList || prevData.items.some((block => block.height === payload.block.height))) {
-        return prevData;
-      }
-
-      if (prevData.items.length >= OVERLOAD_COUNT) {
-        setNewItemsCount(prev => prev + 1);
-        return prevData;
-      }
-
-      const newItems = [ payload.block, ...prevData.items ].sort((b1, b2) => b2.height - b1.height);
-      return { ...prevData, items: newItems };
-    });
-  }, [ multichainContext?.chain?.id, queryClient, type ]);
-
-  const handleSocketClose = React.useCallback(() => {
-    setShowSocketAlert(true);
-  }, []);
-
-  const handleSocketError = React.useCallback(() => {
-    setShowSocketAlert(true);
-  }, []);
-
-  const channel = useSocketChannel({
-    topic: 'blocks:new_block',
-    onSocketClose: handleSocketClose,
-    onSocketError: handleSocketError,
+  const { newItemsCount, showSocketAlert } = useBlocksNewBlock({
+    type,
     isDisabled: query.isPlaceholderData || query.isError || query.pagination.page !== 1 || !enableSocket,
-  });
-  useSocketMessage({
-    channel,
-    event: 'new_block',
-    handler: handleNewBlockMessage,
   });
 
   const chainData = multichainContext?.chain;

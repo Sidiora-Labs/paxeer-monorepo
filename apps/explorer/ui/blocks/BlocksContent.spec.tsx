@@ -12,6 +12,7 @@ import { waitFor } from 'vitest/lib';
 vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper')).nextRouterModule());
 
 import BlocksContent from './BlocksContent';
+import { nativeBlockRefresh } from './blocksRefreshTest';
 
 const Harness = ({ type, isInsideTableCard }: { type: 'block' | 'reorg'; isInsideTableCard?: boolean }) => {
   const query = useQueryWithPages({
@@ -23,6 +24,8 @@ const Harness = ({ type, isInsideTableCard }: { type: 'block' | 'reorg'; isInsid
 };
 
 describe('BlocksContent', () => {
+  it('refreshes the displayed native transaction count from a Phoenix block event without a refetch', nativeBlockRefresh, 120_000);
+
   beforeEach(() => {
     fetchMock.resetMocks();
     fetchMock.mockResponse((request) => {
